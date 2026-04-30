@@ -1,0 +1,256 @@
+#!/bin/bash
+# ----------------------------------------------------------------------------
+# Pre-commit gate. Runs three changed-file checks IN PARALLEL.
+#
+# Why parallel here but sequential for manual Claude invocations:
+#   - Pre-commit is automatic (git-invoked, no Claude involvement). Faster is
+#     strictly better; there's no redundancy concern.
+#   - When Claude checks work manually, there is no `verify`/`verify:changed`
+#     wrapper — Claude runs the three primitives sequentially and learns to
+#     skip whatever it already ran. See CLAUDE.md Commands.
+#
+# Design:
+#   - `flock` keeps this to a single writer. Contention message embeds the
+#     exact Monitor-wait incantation so the contending Claude session
+#     doesn't fall into a log-polling loop.
+#   - Last-verified marker (120s, keyed on HEAD + staged-diff hash) short-
+#     circuits the "re-run just to double-check" reflex.
+#   - 540s watchdog stays below Claude Code's 10-min Bash ceiling so a
+#     hung commit never leaves an orphaned process Claude can't observe.
+#   - Per-task logs at $LOG_DIR/<task>.log; Passed/Failed status lines let
+#     .claude/hooks/git-commit-quiet.sh surface only the failing tails.
+#
+# Bypass: set FORCE_VERIFY=1 to skip the last-verified short-circuit.
+# The PreToolUse hook in .claude/settings.json blocks --no-verify / HUSKY=0
+# bypasses entirely; fix issues, do not skip.
+# ----------------------------------------------------------------------------
+set -u
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+# shellcheck source=/dev/null
+. "$REPO_ROOT/scripts/dependency-freshness.sh"
+# shellcheck source=/dev/null
+. "$REPO_ROOT/scripts/prisma-client-freshness.sh"
+# shellcheck source=/dev/null
+. "$REPO_ROOT/scripts/doc-length-policy.sh"
+# shellcheck source=/dev/null
+. "$REPO_ROOT/scripts/ai-hooks/output-filter.sh"
+
+warn_if_staged_lockfile_needs_install() {
+  if ! git diff --cached --name-only --diff-filter=ACMR \
+       | grep -qx 'bun.lock'; then
+    return 0
+  fi
+
+  status="$(musi_dependency_status "$REPO_ROOT")"
+  message="$(musi_dependency_message "$REPO_ROOT")"
+
+  case "$status" in
+    missing|stale)
+      printf 'pre-commit: WARN: bun.lock is staged and install state appears stale: %s\n' "$message" >&2
+      ;;
+  esac
+}
+
+warn_if_staged_schema_needs_generate() {
+  if ! git diff --cached --name-only --diff-filter=ACMR \
+       | grep -qx 'packages/server/prisma/schema.prisma'; then
+    return 0
+  fi
+
+  local result status message
+  result="$(musi_prisma_client_freshness "$REPO_ROOT")"
+  status="${result%%$'\t'*}"
+  message="${result#*$'\t'}"
+
+  case "$status" in
+    missing|stale)
+      printf 'pre-commit: WARN: schema.prisma is staged and generated client appears stale: %s\n' "$message" >&2
+      ;;
+  esac
+}
+
+warn_if_staged_hot_doc_too_long() {
+  local staged file advisory lines
+  staged="$(git diff --cached --name-only --diff-filter=ACMR)"
+  [ -n "$staged" ] || return 0
+
+  printf '%s\n' "$staged" | while IFS= read -r file; do
+    [ -n "$file" ] || continue
+    if ! musi_doc_length_set_rule "$REPO_ROOT/$file"; then
+      continue
+    fi
+    lines="$(git show ":$file" 2>/dev/null | wc -l)"
+    advisory="$(musi_doc_length_advisory_for_count "$REPO_ROOT/$file" "$lines" || true)"
+    if [ -n "$advisory" ]; then
+      printf 'pre-commit: WARN: %s\n' "$advisory" >&2
+    fi
+  done
+}
+
+warn_if_staged_lockfile_needs_install
+warn_if_staged_schema_needs_generate
+warn_if_staged_hot_doc_too_long
+
+# --- 1. Skip when nothing source-relevant is staged ------------------------
+if ! git diff --cached --name-only --diff-filter=ACMR \
+     | grep -qE '^(.husky/|packages/|e2e/|scripts/)'; then
+  echo "pre-commit: no source changes staged — skipping checks."
+  exit 0
+fi
+
+# --- 2. Non-blocking lock --------------------------------------------------
+LOCK="${MUSI_VERIFY_LOCK:-/tmp/musi-pre-commit.lock}"
+exec 9<>"$LOCK"
+if ! flock -n 9; then
+  HOLDER=$(cat "$LOCK" 2>/dev/null || true)
+  cat >&2 <<EOF
+=== PRE-COMMIT ALREADY RUNNING ===
+${HOLDER:-<holder info unavailable>}
+
+Another pre-commit is in progress. Do NOT re-run git commit — it will
+fail here again and waste tokens on repeated polling.
+
+To wait for the in-progress run WITHOUT polling, launch this command in
+the background and attach the Monitor tool to its output. It blocks
+until the lock releases, then prints exactly one line ("FREE"), which
+Monitor reports as a single notification:
+
+  flock /tmp/musi-pre-commit.lock true && echo FREE
+
+When Monitor tells you "FREE" appeared, retry git commit once. If the
+original run failed, its summary is already in the earlier tool output.
+EOF
+  exit 2
+fi
+
+# Record holder info (readable by any contender via plain cat).
+{ printf 'PID=%s STARTED=%s\n' "$$" "$(date -Iseconds)"; } > "$LOCK"
+
+# --- 3. Last-verified short-circuit ----------------------------------------
+MARKER="${MUSI_PRECOMMIT_MARKER:-/tmp/musi-pre-commit-last}"
+if [ -f "$MARKER" ] && [ "${FORCE_VERIFY:-}" != "1" ]; then
+  CUR_HEAD=$(git rev-parse HEAD 2>/dev/null || echo none)
+  CUR_HASH=$(git diff --cached --diff-filter=ACMR | sha256sum | awk '{print $1}')
+  LAST_TS=0; LAST_HEAD=""; LAST_HASH=""
+  # Parse the marker instead of sourcing it — never eval /tmp files.
+  while IFS='=' read -r k v; do
+    case "$k" in
+      LAST_TS)   LAST_TS=$v ;;
+      LAST_HEAD) LAST_HEAD=$v ;;
+      LAST_HASH) LAST_HASH=$v ;;
+    esac
+  done < "$MARKER"
+  case "$LAST_TS" in
+    ''|*[!0-9]*) LAST_TS=0 ;;
+  esac
+  NOW=$(date +%s)
+  if [ "$((NOW - LAST_TS))" -lt 120 ] \
+     && [ "$LAST_HEAD" = "$CUR_HEAD" ] \
+     && [ "$LAST_HASH" = "$CUR_HASH" ]; then
+    echo "pre-commit: already verified $((NOW - LAST_TS))s ago at $CUR_HEAD — skipping (set FORCE_VERIFY=1 to re-run)."
+    exit 0
+  fi
+fi
+
+# --- 4. Watchdog (below Claude's 10-min Bash ceiling) ----------------------
+TIMEOUT="${MUSI_VERIFY_TIMEOUT:-540}"
+HOOK_PID=$$
+(
+  # Close FD 9 so our `sleep` child doesn't inherit the flock — otherwise
+  # if we're killed before sleep finishes, sleep orphans to init still
+  # holding the lock, blocking the next commit until TIMEOUT elapses.
+  exec 9<&-
+  SLEEP_PID=""
+  trap '[ -n "$SLEEP_PID" ] && kill "$SLEEP_PID" 2>/dev/null; exit 0' TERM INT
+  sleep "$TIMEOUT" &
+  SLEEP_PID=$!
+  wait "$SLEEP_PID"
+  echo "" >&2
+  echo "=== PRE-COMMIT TIMED OUT (${TIMEOUT}s) ===" >&2
+  kill -TERM "$HOOK_PID" 2>/dev/null
+) &
+WD=$!
+
+# --- 5. Parallel tasks -----------------------------------------------------
+LOG_DIR="${MUSI_VERIFY_LOG_DIR:-/tmp/musi-pre-commit-logs}"
+rm -rf "$LOG_DIR"
+mkdir -p "$LOG_DIR"
+
+START_TS=$(date +%s)
+
+bun run lint:changed                    > "$LOG_DIR/lint.log"      2>&1 &
+pid_lint=$!
+bun run typecheck                       > "$LOG_DIR/typecheck.log" 2>&1 &
+pid_tc=$!
+bun run test:changed --reporter=dot     > "$LOG_DIR/test.log"      2>&1 &
+pid_test=$!
+pid_scripts=""
+run_scripts=0
+if git diff --cached --name-only --diff-filter=ACMR \
+     | grep -qE '^(.husky/|scripts/)'; then
+  bun run test:scripts:changed          > "$LOG_DIR/scripts.log"   2>&1 &
+  pid_scripts=$!
+  run_scripts=1
+fi
+
+# Propagate INT/TERM to children. Split traps to emit conventional exit codes:
+#   INT  (Ctrl-C) → 130
+#   TERM (watchdog timeout or external kill) → 124 (GNU `timeout` convention)
+trap '[ -n "$pid_scripts" ] && kill "$pid_scripts" 2>/dev/null; kill $pid_lint $pid_tc $pid_test $WD 2>/dev/null; exit 130' INT
+trap '[ -n "$pid_scripts" ] && kill "$pid_scripts" 2>/dev/null; kill $pid_lint $pid_tc $pid_test $WD 2>/dev/null; exit 124' TERM
+trap 'kill $WD 2>/dev/null' EXIT
+
+exit_lint=0; exit_tc=0; exit_test=0; exit_scripts=0
+wait "$pid_lint" || exit_lint=$?
+wait "$pid_tc"   || exit_tc=$?
+wait "$pid_test" || exit_test=$?
+if [ "$run_scripts" -eq 1 ]; then
+  wait "$pid_scripts" || exit_scripts=$?
+fi
+
+# --- 6. Aggregate results --------------------------------------------------
+passed=""; failed=""
+[ "$exit_lint" -eq 0 ] && passed="$passed lint" || failed="$failed lint"
+[ "$exit_tc"   -eq 0 ] && passed="$passed typecheck" || failed="$failed typecheck"
+[ "$exit_test" -eq 0 ] && passed="$passed test" || failed="$failed test"
+if [ "$run_scripts" -eq 1 ]; then
+  [ "$exit_scripts" -eq 0 ] && passed="$passed scripts" || failed="$failed scripts"
+fi
+
+ELAPSED=$(( $(date +%s) - START_TS ))
+
+if [ -n "$failed" ]; then
+  # Structured lines — git-commit-quiet.sh parses these.
+  echo ""
+  echo "=== PRE-COMMIT FAILED (${ELAPSED}s) ==="
+  echo "Passed:$passed"
+  echo "Failed:$failed"
+  for task in $failed; do
+    echo ""
+    echo "--- $task (full log: $LOG_DIR/${task}.log) ---"
+    tail -n 200 "$LOG_DIR/${task}.log" | ai_filter_known_output_noise | tail -n 30
+  done
+  case "$failed" in
+    *lint*) echo ""; echo "Hint: try 'bun run lint:fix' to auto-fix formatting issues." ;;
+  esac
+  exit 1
+fi
+
+# --- 7. Success marker -----------------------------------------------------
+marker_dir=$(dirname "$MARKER")
+marker_base=$(basename "$MARKER")
+mkdir -p "$marker_dir"
+marker_tmp=$(mktemp "$marker_dir/.${marker_base}.tmp.XXXXXX") || marker_tmp=""
+if [ -n "$marker_tmp" ] && {
+  printf 'LAST_TS=%s\n'   "$(date +%s)"
+  printf 'LAST_HEAD=%s\n' "$(git rev-parse HEAD 2>/dev/null || echo none)"
+  printf 'LAST_HASH=%s\n' "$(git diff --cached --diff-filter=ACMR | sha256sum | awk '{print $1}')"
+} > "$marker_tmp" && mv -f "$marker_tmp" "$MARKER"; then
+  :
+else
+  [ -n "$marker_tmp" ] && rm -f "$marker_tmp"
+  printf 'pre-commit: WARN: failed to write marker %s\n' "$MARKER" >&2
+fi
+
+echo "pre-commit: OK (${ELAPSED}s) —$passed"

@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+. "$(dirname "$0")/../scripts/worktree-drift-hook.sh"
+musi_worktree_drift_hook "post-checkout" "$@"

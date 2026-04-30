@@ -1,0 +1,108 @@
+#!/bin/bash
+
+set -u
+
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo /workspace)
+HOOK_LIB="$REPO_ROOT/scripts/ai-hooks"
+# shellcheck source=/dev/null
+. "$HOOK_LIB/common.sh"
+# shellcheck source=/dev/null
+. "$HOOK_LIB/policy.sh"
+# shellcheck source=/dev/null
+. "$HOOK_LIB/cache.sh"
+# shellcheck source=/dev/null
+. "$HOOK_LIB/commit-output.sh"
+
+PAYLOAD=$(ai_read_payload)
+CMD=$(ai_payload_command "$PAYLOAD")
+[ -z "$CMD" ] && ai_emit_continue
+
+TOOL_USE_ID=$(ai_payload_tool_use_id "$PAYLOAD")
+ai_cache_init
+
+RESPONSE=$(ai_response_json_from_payload "$PAYLOAD")
+EXIT_CODE=$(printf '%s' "$RESPONSE" | jq -r '.exit_code // empty' 2>/dev/null || true)
+COMBINED=$(ai_combined_response_text "$RESPONSE")
+
+if ai_is_git_commit_cmd "$CMD"; then
+  STATE_FILE=""
+  HEAD_BEFORE=""
+  if [ -n "$TOOL_USE_ID" ]; then
+    STATE_FILE="$AI_GIT_STATE_DIR/$TOOL_USE_ID"
+    HEAD_BEFORE=$(ai_read_state_value "$STATE_FILE" HEAD_BEFORE 2>/dev/null || true)
+  fi
+  HEAD_AFTER=$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || echo none)
+  DRY_RUN=0
+  if ai_is_git_commit_dry_run "$CMD"; then
+    DRY_RUN=1
+  fi
+
+  [ -n "$STATE_FILE" ] && rm -f "$STATE_FILE"
+
+  if [ "$DRY_RUN" -ne 1 ] && [ -n "$HEAD_BEFORE" ] && [ "$HEAD_AFTER" != "$HEAD_BEFORE" ]; then
+    ai_emit_block "$(ai_commit_success_summary "$REPO_ROOT" "$HEAD_BEFORE" "$HEAD_AFTER")"
+  fi
+
+  if SUMMARY=$(ai_precommit_failure_summary "$COMBINED" "$AI_PRECOMMIT_LOG_DIR"); then
+    :
+  elif [ "$DRY_RUN" -eq 1 ]; then
+    SUMMARY=$(ai_commit_dry_run_summary "$COMBINED")
+  elif [ -n "$HEAD_BEFORE" ] && [ "$HEAD_AFTER" = "$HEAD_BEFORE" ] && [ "$EXIT_CODE" = "0" ]; then
+    SUMMARY=$(ai_commit_no_landing_summary "$HEAD_BEFORE" "$COMBINED")
+  else
+    if [ -n "$EXIT_CODE" ]; then
+      SUMMARY=$(ai_commit_generic_summary "Commit finished with exit $EXIT_CODE." "$COMBINED")
+    else
+      SUMMARY=$(ai_commit_generic_summary "Commit output summary." "$COMBINED")
+    fi
+  fi
+
+  ai_emit_block "$SUMMARY"
+fi
+
+MATCH_CMD=$(ai_strip_force_verify_prefix "$CMD")
+
+if ai_is_wrapped_bun_cmd "$MATCH_CMD"; then
+  SCRIPT=$(ai_bun_script_from_cmd "$MATCH_CMD")
+  SCRIPT_SAFE=$(ai_safe_script_name "$SCRIPT")
+  STATE_FILE=""
+  START_TS=""
+  CUR_FP=""
+  LOG=""
+  if [ -n "$TOOL_USE_ID" ]; then
+    STATE_FILE="$AI_BUN_STATE_DIR/$TOOL_USE_ID"
+    START_TS=$(ai_read_state_value "$STATE_FILE" START_TS 2>/dev/null || true)
+    CUR_FP=$(ai_read_state_value "$STATE_FILE" CUR_FP 2>/dev/null || true)
+    LOG=$(ai_read_state_value "$STATE_FILE" LOG 2>/dev/null || true)
+  fi
+  [ -z "$LOG" ] && LOG="$AI_BUN_LOG_DIR/$SCRIPT_SAFE.log"
+  MARKER="$AI_BUN_LOG_DIR/last.$SCRIPT_SAFE"
+  [ -n "$STATE_FILE" ] && rm -f "$STATE_FILE"
+
+  if [ -n "$COMBINED" ]; then
+    printf '%s\n' "$COMBINED" > "$LOG"
+  else
+    : > "$LOG"
+  fi
+
+  ELAPSED=""
+  if ai_is_integer "${START_TS:-}"; then
+    ELAPSED=$(( $(date +%s) - START_TS ))
+  fi
+
+  if ai_is_integer "${EXIT_CODE:-}" && [ "$EXIT_CODE" -lt 128 ] && [ -n "$CUR_FP" ]; then
+    ai_write_bun_marker "$MARKER" "$CUR_FP" "$EXIT_CODE"
+  fi
+
+  if [ "$EXIT_CODE" = "0" ]; then
+    if [ -n "$ELAPSED" ]; then
+      ai_emit_block "$SCRIPT OK (${ELAPSED}s) - full log: $LOG"
+    fi
+    ai_emit_block "$SCRIPT OK - full log: $LOG"
+  fi
+
+  SUMMARY=$(ai_bun_failure_summary "$SCRIPT" "$LOG" "$EXIT_CODE" "$ELAPSED" "$COMBINED")
+  ai_emit_block "$SUMMARY"
+fi
+
+ai_emit_continue
