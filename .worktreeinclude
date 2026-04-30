@@ -1,0 +1,5 @@
+.env
+packages/server/.env
+packages/client/.env
+.claude/
+docs/refs/5e-database/src/2024/

@@ -1,0 +1,20 @@
+# Migration safety scanner - acknowledged intentional-risk migrations.
+#
+# `bun run db:migration-safety` scans `migration.sql` files for destructive
+# operations (DROP TABLE, DROP COLUMN, ALTER COLUMN ... TYPE, ADD COLUMN ...
+# NOT NULL without DEFAULT). Migrations listed here have been reviewed and
+# intentionally accepted, so the scanner emits an `INFO:` (acknowledged) line
+# instead of `WARN:`.
+#
+# Format
+#   <migration_dir_name>  <freeform reason>
+#
+# Rules
+#   - One acknowledged migration per non-blank, non-comment line.
+#   - Lines starting with `#` and blank lines are ignored.
+#   - The migration name is the directory name under
+#     `packages/server/prisma/migrations/`.
+#   - Reason text after the first whitespace is shown alongside the INFO line.
+
+20260408223838_convert_string_fields_to_enums  Reviewed: ALTER COLUMN ... TYPE narrowings of spells/equipment/magic-items text columns to enums; USING cast covers existing rows.
+20260409120000_add_monster_spells_table  Reviewed: DROP COLUMN monsters.spellcasting after backfill into monster_spells in the same migration.

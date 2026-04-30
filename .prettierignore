@@ -1,0 +1,7 @@
+dist/
+node_modules/
+bun.lock
+docs/
+.claude/
+worktrees/
+.worktree-state/

@@ -1,0 +1,66 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
+
+# Environment (secrets)
+.env
+.env.*
+!.env.example
+.devcontainer/.env
+
+# Logs
+logs/
+*.log
+ralph-logs/
+
+# Devcontainer sentinel
+.setup-complete
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+*.swp
+*.swo
+
+# Claude Code — track shared settings and hooks; ignore everything else
+# (settings.local.json, skills/, worktrees/, scheduled state, etc.)
+.claude/*
+!.claude/settings.json
+!.claude/hooks/
+
+# SRD reference repos (local only, not committed)
+docs/refs/
+
+# Prisma
+packages/server/prisma/*.db
+packages/server/prisma/*.db-journal
+
+# Test artifacts
+coverage/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+.playwright-mcp/
+.playwright-cli/
+screenshots/
+.auth/
+
+# Uploads (user-uploaded files, created at runtime)
+uploads/
+
+# Keys / certificates
+*.pem
+*.key
+
+# Secondary worktrees (see scripts/worktree-db.sh)
+worktrees/
+.worktree-state/
