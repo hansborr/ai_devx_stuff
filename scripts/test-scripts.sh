@@ -47,22 +47,28 @@ cd "$REPO_ROOT"
 # Order is run order; halting at the first failure mirrors verify.sh.
 SMOKE_NAMES=(
   test-verify
+  test-verify-async
   test-verify-logs
   test-worktree-db
   test-dependency-freshness
+  test-ai-hooks
   test-eslint-disable-register
   test-test-changed
+  test-test-slow
   test-generate-module-index
   test-migration-safety-scan
   test-test-scripts
 )
 declare -A SMOKE_SUBJECTS=(
-  [test-verify]="scripts/verify.sh scripts/test-verify.sh scripts/ai-hooks/cache.sh scripts/ai-hooks/output-filter.sh"
+  [test-verify]="scripts/verify.sh scripts/verify-metadata.sh scripts/test-verify.sh scripts/ai-hooks/cache.sh scripts/ai-hooks/output-filter.sh"
+  [test-verify-async]="scripts/verify-async.sh scripts/test-verify-async.sh scripts/verify.sh scripts/ai-hooks/cache.sh"
   [test-verify-logs]="scripts/verify-logs.sh scripts/test-verify-logs.sh scripts/ai-hooks/cache.sh scripts/ai-hooks/output-filter.sh"
   [test-worktree-db]="scripts/worktree-db.sh scripts/worktree-new.sh scripts/worktree-drift-hook.sh scripts/dev.sh scripts/test-worktree-db.sh"
-  [test-dependency-freshness]="scripts/dependency-freshness.sh scripts/prisma-client-freshness.sh scripts/doc-length-policy.sh scripts/ai-hooks/output-filter.sh .husky/pre-commit scripts/test-dependency-freshness.sh"
+  [test-dependency-freshness]="scripts/dependency-freshness.sh scripts/prisma-client-freshness.sh scripts/doc-length-policy.sh scripts/verify-metadata.sh scripts/ai-hooks/output-filter.sh .husky/pre-commit scripts/test-dependency-freshness.sh"
+  [test-ai-hooks]="scripts/test-ai-hooks.sh scripts/ai-hooks/test.sh scripts/ai-hooks/common.sh scripts/ai-hooks/cache.sh scripts/ai-hooks/policy.sh scripts/ai-hooks/protected-files.sh scripts/ai-hooks/doc-length.sh scripts/ai-hooks/output-filter.sh scripts/ai-hooks/process-runner.sh scripts/ai-hooks/stop-policy.sh scripts/ai-hooks/stop-reminder.sh .claude/hooks/bun-run-quiet.sh .claude/hooks/stop-reminder.sh .codex/hooks/stop-reminder.sh .claude/settings.json .codex/hooks.json"
   [test-eslint-disable-register]="scripts/eslint-disable-register.sh scripts/test-eslint-disable-register.sh"
-  [test-test-changed]="scripts/test-changed.sh scripts/test-test-changed.sh"
+  [test-test-changed]="scripts/test-changed.sh scripts/vitest.sh scripts/ai-hooks/output-filter.sh scripts/test-test-changed.sh"
+  [test-test-slow]="scripts/test-slow.sh scripts/test-changed.sh scripts/vitest.sh scripts/ai-hooks/output-filter.sh vitest.slow.config.ts packages/shared/vitest.config.ts packages/server/vitest.config.ts packages/client/vitest.config.ts packages/shared/src/test-tier-sentinel.test.ts packages/shared/src/test-tier-sentinel.slow.test.ts scripts/test-test-slow.sh"
   [test-generate-module-index]="scripts/generate-module-index.sh scripts/test-generate-module-index.sh"
   [test-migration-safety-scan]="scripts/migration-safety-scan.sh scripts/test-migration-safety-scan.sh"
   [test-test-scripts]="scripts/test-scripts.sh scripts/test-test-scripts.sh"

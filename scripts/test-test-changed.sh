@@ -5,6 +5,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TEST_CHANGED="$SCRIPT_DIR/test-changed.sh"
+VITEST_RUNNER="$SCRIPT_DIR/vitest.sh"
+OUTPUT_FILTER="$SCRIPT_DIR/ai-hooks/output-filter.sh"
 
 PASS=0
 fail() { printf 'FAIL: %s\n' "$1" >&2; exit 1; }
@@ -14,19 +16,27 @@ SANDBOX="$(mktemp -d /tmp/musi-test-changed-test.XXXXXX)"
 trap 'rm -rf "$SANDBOX"' EXIT
 
 mkdir -p "$SANDBOX/bin"
-cat > "$SANDBOX/bin/bun" <<'STUB'
+cat > "$SANDBOX/bin/vitest" <<'STUB'
 #!/usr/bin/env bash
-printf 'stub bun %s\n' "$*" >> "${STUB_LOG:-/dev/null}"
-exit 0
+printf 'stub vitest %s\n' "$*" >> "${STUB_LOG:-/dev/null}"
+if [ "${STUB_VITEST_NOISE:-0}" = "1" ]; then
+  printf 'useful before\n'
+  printf '(node:123) DeprecationWarning: Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0. Use async/await or an external async flow control mechanism instead.\n'
+  printf '(Use `node --trace-deprecation ...` to show where the warning was created)\n'
+  printf 'useful after\n'
+fi
+exit "${STUB_VITEST_EXIT:-0}"
 STUB
-chmod +x "$SANDBOX/bin/bun"
+chmod +x "$SANDBOX/bin/vitest"
 
 new_repo() {
   local name="$1"
   local repo="$SANDBOX/$name"
-  mkdir -p "$repo/scripts" "$repo/packages/server/src" "$repo/packages/client/src" "$repo/docs"
+  mkdir -p "$repo/scripts/ai-hooks" "$repo/packages/server/src" "$repo/packages/client/src" "$repo/docs"
   git -C "$SANDBOX" init -q -b main "$repo"
   cp "$TEST_CHANGED" "$repo/scripts/test-changed.sh"
+  cp "$VITEST_RUNNER" "$repo/scripts/vitest.sh"
+  cp "$OUTPUT_FILTER" "$repo/scripts/ai-hooks/output-filter.sh"
   printf 'base\n' > "$repo/packages/server/src/base.ts"
   printf 'base\n' > "$repo/packages/client/src/base.ts"
   printf 'base\n' > "$repo/docs/readme.md"
@@ -61,7 +71,7 @@ repo="$(new_repo server-change)"
 printf 'changed\n' > "$repo/packages/server/src/base.ts"
 : > "$repo/bun.log"
 run_test_changed "$repo" >/dev/null || fail "server change should run"
-grep -qF 'stub bun run vitest run --passWithNoTests --project=server --changed main' "$repo/bun.log" \
+grep -qF 'stub vitest run --passWithNoTests --project=server --changed main' "$repo/bun.log" \
   || fail "server change should run server project with --changed: $(cat "$repo/bun.log")"
 ok "server-only changes run server changed tests"
 
@@ -79,7 +89,7 @@ printf '{}\n' > "$repo/package.json"
 git -C "$repo" add package.json
 : > "$repo/bun.log"
 run_test_changed "$repo" >/dev/null || fail "global config change should run"
-grep -qF 'stub bun run vitest run --passWithNoTests' "$repo/bun.log" \
+grep -qF 'stub vitest run --passWithNoTests' "$repo/bun.log" \
   || fail "global config should run Vitest: $(cat "$repo/bun.log")"
 if grep -q -- '--changed' "$repo/bun.log"; then
   fail "global config should force a full run without --changed: $(cat "$repo/bun.log")"
@@ -87,15 +97,53 @@ fi
 ok "global config changes force full Vitest run"
 
 repo="$SANDBOX/no-main"
-mkdir -p "$repo/scripts"
+mkdir -p "$repo/scripts/ai-hooks"
 git -C "$SANDBOX" init -q "$repo"
 cp "$TEST_CHANGED" "$repo/scripts/test-changed.sh"
+cp "$VITEST_RUNNER" "$repo/scripts/vitest.sh"
+cp "$OUTPUT_FILTER" "$repo/scripts/ai-hooks/output-filter.sh"
 : > "$repo/bun.log"
 output="$(run_test_changed "$repo" 2>&1)" || fail "missing base should fall back to full suite: $output"
 grep -qF "neither 'main' nor 'origin/main' exists" <<< "$output" \
   || fail "missing base fallback should be announced: $output"
-grep -qF 'stub bun run vitest run --passWithNoTests' "$repo/bun.log" \
+grep -qF 'stub vitest run --passWithNoTests' "$repo/bun.log" \
   || fail "missing base should run full Vitest suite: $(cat "$repo/bun.log")"
 ok "missing base ref falls back to full Vitest suite"
+
+repo="$(new_repo noisy-output)"
+printf 'changed\n' > "$repo/packages/server/src/base.ts"
+: > "$repo/bun.log"
+output="$(STUB_VITEST_NOISE=1 run_test_changed "$repo")" || fail "noisy run should succeed: $output"
+grep -qF 'useful before' <<< "$output" || fail "filtered output dropped useful prelude: $output"
+grep -qF 'useful after' <<< "$output" || fail "filtered output dropped useful tail: $output"
+if grep -qF 'client.query()' <<< "$output"; then
+  fail "known pg warning should be filtered from live test output: $output"
+fi
+ok "test:changed filters known live Vitest noise"
+
+repo="$(new_repo failing-vitest)"
+printf 'changed\n' > "$repo/packages/server/src/base.ts"
+: > "$repo/bun.log"
+set +e
+output="$(STUB_VITEST_EXIT=7 run_test_changed "$repo" 2>&1)"
+exit_code=$?
+set -e
+[ "$exit_code" -eq 7 ] || fail "Vitest runner should preserve exit 7 (got $exit_code): $output"
+ok "test:changed preserves Vitest exit code"
+
+repo="$(new_repo vitest-wrapper-path)"
+mkdir -p "$repo/node_modules/.bin"
+cat > "$repo/node_modules/.bin/vitest" <<'STUB'
+#!/usr/bin/env bash
+printf 'repo vitest %s\n' "$*" >> "${STUB_LOG:-/dev/null}"
+exit 0
+STUB
+chmod +x "$repo/node_modules/.bin/vitest"
+: > "$repo/bun.log"
+(cd "$repo" && PATH=/usr/bin:/bin STUB_LOG="$repo/bun.log" bash scripts/vitest.sh --version) \
+  >/dev/null || fail "Vitest wrapper should find repo-local binary without PATH vitest"
+grep -qF 'repo vitest --version' "$repo/bun.log" \
+  || fail "Vitest wrapper should run repo-local binary: $(cat "$repo/bun.log")"
+ok "Vitest wrapper finds repo-local binary without PATH vitest"
 
 printf 'test-changed tests passed (%d)\n' "$PASS"

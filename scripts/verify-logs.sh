@@ -20,6 +20,7 @@
 #   bun run verify:logs                  # summary table for lint/typecheck/test/e2e
 #   bun run verify:logs <task>           # focused view with longer tail
 #   bun run verify:logs <task> --full    # print the full log to stdout
+#   bun run verify:logs budget           # verification cache-budget timings
 #   bun run verify:logs slow-tests       # top slow Vitest files and cases
 #
 # Env (tests only):
@@ -40,7 +41,9 @@ PRECOMMIT_MARKER="${MUSI_PRECOMMIT_MARKER:-/tmp/musi-pre-commit-last}"
 
 TASKS=(lint typecheck test e2e)
 SLOW_TESTS_TASK=slow-tests
+BUDGET_TASK=budget
 TIMINGS_FILE="$PRECOMMIT_LOG_DIR/test-timings.json"
+RUN_META_FILE="$PRECOMMIT_LOG_DIR/run-meta.json"
 
 usage() {
   cat <<EOF
@@ -49,9 +52,10 @@ Usage: bun run verify:logs [task] [--full]
   bun run verify:logs               summary for lint, typecheck, test, e2e
   bun run verify:logs <task>        focused view with a 30-line tail
   bun run verify:logs <task> --full print the full log to stdout
+  bun run verify:logs budget        wrapper, step, and slow-test timings
   bun run verify:logs slow-tests    top 10 slow Vitest files and cases
 
-Tasks: ${TASKS[*]} $SLOW_TESTS_TASK
+Tasks: ${TASKS[*]} $BUDGET_TASK $SLOW_TESTS_TASK
 EOF
 }
 
@@ -385,6 +389,86 @@ EOF
   printf '\nLocal signal only; this report does not gate CI or commits.\n'
 }
 
+print_budget() {
+  local warn_after="${MUSI_INTERACTIVE_WARN_AFTER:-210}"
+  local hard_timeout="${MUSI_INTERACTIVE_TIMEOUT:-240}"
+
+  if [ ! -f "$RUN_META_FILE" ]; then
+    printf 'budget: no verification metadata found.\n'
+    printf '  Looked for: %s\n' "$RUN_META_FILE"
+    printf '  Run `FORCE_VERIFY=1 bun run verify:changed` or make a staged commit attempt to populate it.\n'
+    return 1
+  fi
+
+  if ! command -v jq >/dev/null 2>&1; then
+    printf 'budget: jq is required to read %s.\n' "$RUN_META_FILE" >&2
+    return 1
+  fi
+
+  if ! jq -e '.version == 1 and (.wrapper == null or (.wrapper | type == "object")) and (.steps | type == "array")' "$RUN_META_FILE" >/dev/null 2>&1; then
+    printf 'budget: could not parse verification metadata.\n'
+    printf '  File: %s\n' "$RUN_META_FILE"
+    return 1
+  fi
+
+  local mtime age wrapper_elapsed wrapper_mode wrapper_exit wrapper_start wrapper_end budget_state
+  mtime=$(stat -c %Y "$RUN_META_FILE" 2>/dev/null || echo 0)
+  age=$(( $(date +%s) - mtime ))
+  [ "$age" -lt 0 ] && age=0
+
+  wrapper_elapsed=$(jq -r '.wrapper.elapsed_seconds // empty' "$RUN_META_FILE")
+  wrapper_mode=$(jq -r '.wrapper.mode // .mode // "unknown"' "$RUN_META_FILE")
+  wrapper_exit=$(jq -r '.wrapper.exit_code // "?"' "$RUN_META_FILE")
+  wrapper_start=$(jq -r '.wrapper.start_time // "?"' "$RUN_META_FILE")
+  wrapper_end=$(jq -r '.wrapper.end_time // "?"' "$RUN_META_FILE")
+
+  budget_state="OK"
+  if [ -n "$wrapper_elapsed" ] && [ "$wrapper_elapsed" -ge "$hard_timeout" ]; then
+    budget_state="HARD-BUDGET-EXCEEDED"
+  elif [ -n "$wrapper_elapsed" ] && [ "$wrapper_elapsed" -ge "$warn_after" ]; then
+    budget_state="WARN-BUDGET-EXCEEDED"
+  fi
+
+  printf '== budget ==\n'
+  printf 'metadata: %s (modified %s ago)\n' "$RUN_META_FILE" "$(human_age "$age")"
+  printf 'budget: warn=%ss hard=%ss state=%s\n' "$warn_after" "$hard_timeout" "$budget_state"
+  printf 'wrapper: %ss mode=%s exit=%s start=%s end=%s\n' \
+    "${wrapper_elapsed:-?}" "$wrapper_mode" "$wrapper_exit" "$wrapper_start" "$wrapper_end"
+
+  printf '\nPer-step timings\n'
+  printf '%-18s %-12s %-8s %-6s %s\n' MODE STEP ELAPSED EXIT COMMAND
+  if ! jq -r '
+    (.steps // [])
+    | sort_by(.mode, .name)
+    | .[]
+    | [
+        (.mode // "unknown"),
+        (.name // "unknown"),
+        (((.elapsed_seconds // 0) | tostring) + "s"),
+        ((.exit_code // "?") | tostring),
+        (.command // "")
+      ]
+    | @tsv
+  ' "$RUN_META_FILE" | while IFS=$'\t' read -r mode name elapsed exit_code command; do
+    printf '%-18s %-12s %-8s %-6s %s\n' "$mode" "$name" "$elapsed" "$exit_code" "$command"
+  done; then
+    printf '  (could not read step metadata)\n'
+  fi
+
+  printf '\nSlow-test signal\n'
+  if [ -f "$TIMINGS_FILE" ] && jq -e '(.testResults // empty) | type == "array"' "$TIMINGS_FILE" >/dev/null 2>&1; then
+    printf 'timings: %s\n' "$TIMINGS_FILE"
+    printf '\nTop slow test files\n'
+    printf '%-4s %-9s %-7s %-8s %s\n' '#' DURATION TESTS STATUS FILE
+    print_slow_files "$TIMINGS_FILE" || printf '  (no file timings found)\n'
+    printf '\nTop slow test cases\n'
+    printf '%-4s %-9s %-8s %s\n' '#' DURATION STATUS TEST
+    print_slow_cases "$TIMINGS_FILE" || printf '  (no case timings found)\n'
+  else
+    printf 'timings: (none readable at %s)\n' "$TIMINGS_FILE"
+  fi
+}
+
 human_bytes() {
   local bytes="$1"
   if [ "$bytes" -lt 1024 ]; then
@@ -480,6 +564,7 @@ is_known_task() {
   for t in "${TASKS[@]}"; do
     [ "$t" = "$cand" ] && return 0
   done
+  [ "$cand" = "$BUDGET_TASK" ] && return 0
   [ "$cand" = "$SLOW_TESTS_TASK" ] && return 0
   return 1
 }
@@ -516,13 +601,15 @@ if [ "$FULL" -eq 1 ] && [ -z "$TASK" ]; then
   exit 2
 fi
 
-if [ "$FULL" -eq 1 ] && [ "$TASK" = "$SLOW_TESTS_TASK" ]; then
-  printf 'verify:logs: --full is not supported for %s; use `bun run verify:logs %s`.\n' "$SLOW_TESTS_TASK" "$SLOW_TESTS_TASK" >&2
+if [ "$FULL" -eq 1 ] && { [ "$TASK" = "$SLOW_TESTS_TASK" ] || [ "$TASK" = "$BUDGET_TASK" ]; }; then
+  printf 'verify:logs: --full is not supported for %s; use `bun run verify:logs %s`.\n' "$TASK" "$TASK" >&2
   exit 2
 fi
 
 if [ -z "$TASK" ]; then
   print_summary
+elif [ "$TASK" = "$BUDGET_TASK" ]; then
+  print_budget
 elif [ "$TASK" = "$SLOW_TESTS_TASK" ]; then
   print_slow_tests
 elif [ "$FULL" -eq 1 ]; then

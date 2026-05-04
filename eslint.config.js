@@ -5,6 +5,7 @@ import eslintConfigPrettier from "eslint-config-prettier";
 import reactHooks from "eslint-plugin-react-hooks";
 import simpleImportSort from "eslint-plugin-simple-import-sort";
 
+import socketRegistryBroadcasts from "./eslint-rules/socket-registry-broadcasts.js";
 import strictSharedSchemas from "./eslint-rules/strict-shared-schemas.js";
 import strictTrpcInput from "./eslint-rules/strict-trpc-input.js";
 import structuredLogging from "./eslint-rules/structured-logging.js";
@@ -12,6 +13,7 @@ import testFileLocation from "./eslint-rules/test-file-location.js";
 
 const localPlugin = {
   rules: {
+    "socket-registry-broadcasts": socketRegistryBroadcasts,
     "test-file-location": testFileLocation,
     "structured-logging": structuredLogging,
     "strict-trpc-input": strictTrpcInput,
@@ -184,6 +186,14 @@ export default tseslint.config(
     rules: {
       "no-console": "warn",
       "local/structured-logging": "error",
+    },
+  },
+
+  {
+    files: ["packages/server/src/**/*.ts"],
+    ignores: ["**/*.test.ts", "packages/server/src/socket/broadcast-registry.ts"],
+    rules: {
+      "local/socket-registry-broadcasts": "error",
     },
   },
 

@@ -37,6 +37,10 @@ fi
 MATCH_CMD=$(ai_strip_force_verify_prefix "$CMD")
 
 if ai_is_wrapped_bun_cmd "$MATCH_CMD"; then
+  if ai_bun_cmd_bypasses_cache "$MATCH_CMD"; then
+    ai_emit_continue
+  fi
+
   SCRIPT=$(ai_bun_script_from_cmd "$MATCH_CMD")
   SCRIPT_SAFE=$(ai_safe_script_name "$SCRIPT")
   LOG="$AI_BUN_LOG_DIR/$SCRIPT_SAFE.log"

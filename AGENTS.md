@@ -56,6 +56,7 @@ bun run db:status
 
 # Tests
 bun run test[:server|:client|:shared|:changed|:coverage|:watch]
+bun run test:slow             # explicit slow tier (*.slow.test.{ts,tsx})
 bun run e2e
 bun run vitest run <file>
 
@@ -67,6 +68,10 @@ bun run format[:changed|:check]
 # Verify (lint + typecheck + test umbrella)
 bun run verify           # full lint, typecheck, test
 bun run verify:changed   # lint:changed, typecheck, test:changed
+bun run verify:slow      # verify + test:slow (deliberate, kept out of hooks)
+bun run verify:async     # start detached full verify; inspect with verify:async:status/tail
+bun run verify:async:changed
+bun run verify:async:slow
 bun run verify:logs [lint|typecheck|test|e2e] [--full]  # inspect cached logs
 
 # DB
@@ -77,7 +82,7 @@ bun run db:migration-safety   # warn-only Prisma migration scanner
 bun run worktree:{new,init,drop,gc,status,template-refresh,refresh-data}
 ```
 
-Checking your work: pre-commit runs `lint:changed`, `typecheck`, and `test:changed` in parallel and caches results. For manual verification, prefer `bun run verify:changed` (or `bun run verify` for the full suite); the wrapper runs the same primitives sequentially, reuses the pre-commit lock/log/cache, and short-circuits on an unchanged worktree. The primitive commands stay available for focused iteration. Agent hook adapters may replay cached results on unchanged worktrees. Use `FORCE_VERIFY=1` only when you actually need to rerun. Never bypass hooks.
+Checking your work: pre-commit runs `lint:changed`, `typecheck`, and `test:changed` in parallel and caches results. For manual verification, prefer `bun run verify:changed` (or `bun run verify` for the full suite); the wrapper runs the same primitives sequentially, reuses the pre-commit lock/log/cache, and short-circuits on an unchanged worktree. Use `verify:async*` for long confidence checks that should not spend the interactive tool-call budget. The primitive commands stay available for focused iteration. Agent hook adapters may replay cached results on unchanged worktrees. Use `FORCE_VERIFY=1` only when you actually need to rerun. Never bypass hooks.
 
 ## Working Model
 

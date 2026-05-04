@@ -91,6 +91,17 @@ grep -qE 'bun run test:changed --reporter=dot --reporter=json --outputFile\.json
   || fail "verify --changed should request Vitest json timings into \$LOG_DIR/test-timings.json"
 ok "verify --changed pairs dot reporter with json timings file"
 
+[ -f "$LOG_DIR/run-meta.json" ] || fail "verify --changed did not write run-meta.json"
+grep -q '"mode":"serial-verify"' "$LOG_DIR/run-meta.json" \
+  || fail "verify --changed metadata should record serial-verify mode"
+grep -q '"name":"wrapper"' "$LOG_DIR/run-meta.json" \
+  || fail "verify --changed metadata should record wrapper timing"
+grep -q '"name":"test"' "$LOG_DIR/run-meta.json" \
+  || fail "verify --changed metadata should record test step timing"
+grep -q 'bun run test:changed --reporter=dot --reporter=json --outputFile.json='"$LOG_DIR"'/test-timings.json' "$LOG_DIR/run-meta.json" \
+  || fail "verify --changed metadata should record test command"
+ok "verify --changed writes serial run metadata"
+
 # --- MR1: changed mode runs script smoke tests after Vitest --------------
 # verify --changed must invoke `bun run test:scripts:changed` so script-only
 # edits are exercised by the wrapper instead of slipping past as a "no
@@ -180,12 +191,72 @@ exit_code=$?
 set -e
 [ "$exit_code" -eq 124 ] || fail "watchdog should exit 124 (got $exit_code)"
 grep -qF 'TIMED OUT' <<< "$output" || fail "watchdog did not print TIMED OUT banner"
+grep -qF "logs: $LOG_DIR" <<< "$output" || fail "watchdog did not print log dir breadcrumb"
+grep -qF 'verify:logs budget' <<< "$output" || fail "watchdog did not print verify:logs budget hint"
 [ -f "$MARKER_CHANGED" ] && fail "marker should not be written when the watchdog fires"
-ok "watchdog kills hung steps and exits 124"
+ok "watchdog kills hung steps and exits 124 with budget breadcrumbs"
+
+# --- MUSI_INTERACTIVE_TIMEOUT is honored when MUSI_VERIFY_TIMEOUT is unset --
+rm -f "$MARKER_CHANGED"
+: > "$STUB_LOG_FILE"
+set +e
+output=$(MUSI_INTERACTIVE_TIMEOUT=2 STUB_SLEEP_lint_changed=10 run_verify --changed 2>&1)
+exit_code=$?
+set -e
+[ "$exit_code" -eq 124 ] || fail "MUSI_INTERACTIVE_TIMEOUT should also trigger 124 (got $exit_code)"
+ok "MUSI_INTERACTIVE_TIMEOUT triggers the watchdog"
+
+# --- lock wait and execution watchdog share one interactive budget --------
+# Hold the verify lock for ~2s, then run with a 3s total budget and a hung
+# lint step. The post-lock watchdog should shrink to the remaining budget
+# instead of granting a fresh 3s execution window after the wait.
+rm -f "$MARKER_CHANGED"
+: > "$STUB_LOG_FILE"
+LOCK_HELD="$SANDBOX/lock-held"
+rm -f "$LOCK_HELD"
+(
+  exec 8<>"$LOCK"
+  flock -n 8 || exit 1
+  : > "$LOCK_HELD"
+  sleep 2
+) &
+LOCK_HOLDER=$!
+for _ in $(seq 1 30); do
+  [ -f "$LOCK_HELD" ] && break
+  sleep 0.1
+done
+[ -f "$LOCK_HELD" ] || fail "test setup failed to acquire verify lock"
+set +e
+output=$(MUSI_INTERACTIVE_TIMEOUT=3 STUB_SLEEP_lint_changed=10 run_verify --changed 2>&1)
+exit_code=$?
+set -e
+wait "$LOCK_HOLDER" 2>/dev/null || true
+[ "$exit_code" -eq 124 ] || fail "lock-coupled watchdog should exit 124 (got $exit_code)"
+grep -qF 'execution watchdog budget' <<< "$output" \
+  || fail "lock-coupled watchdog did not report reduced execution budget"
+grep -qF 'TIMED OUT' <<< "$output" || fail "lock-coupled watchdog did not time out hung step"
+[ -f "$MARKER_CHANGED" ] && fail "marker should not be written when lock-coupled watchdog fires"
+ok "lock wait and execution watchdog share MUSI_INTERACTIVE_TIMEOUT"
+
+# --- soft-budget warn line fires when ELAPSED > MUSI_INTERACTIVE_WARN_AFTER -
+# A 2s stub-sleep on lint guarantees ELAPSED >= 2s, so a warn threshold of 1s
+# fires reliably without flirting with the watchdog. Stub overhead alone can
+# produce ELAPSED=0 with a default 0s threshold and silently miss the warn.
+rm -f "$MARKER_CHANGED"
+: > "$STUB_LOG_FILE"
+set +e
+output=$(MUSI_INTERACTIVE_WARN_AFTER=1 STUB_SLEEP_lint_changed=2 run_verify --changed 2>&1)
+exit_code=$?
+set -e
+[ "$exit_code" -eq 0 ] || fail "warn-only run should still succeed (got $exit_code)"
+grep -qE 'verify:changed: WARN: elapsed=[0-9]+s exceeds soft budget' <<< "$output" \
+  || fail "warn line missing on slow but successful run"
+grep -qF 'verify:logs budget' <<< "$output" || fail "warn line missing budget pointer"
+ok "verify --changed emits soft-budget warn when elapsed exceeds MUSI_INTERACTIVE_WARN_AFTER"
 
 # --- full mode writes its own marker --------------------------------------
 : > "$STUB_LOG_FILE"
-rm -f "$MARKER_FULL"
+rm -f "$MARKER_FULL" "$MARKER_CHANGED"
 run_verify >/dev/null || fail "verify (full) unexpectedly failed"
 [ -f "$MARKER_FULL" ] || fail "verify (full) did not write marker"
 [ -f "$MARKER_CHANGED" ] && fail "verify (full) wrote the changed marker"

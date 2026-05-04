@@ -8,12 +8,10 @@
 # through unchanged so this hook never swallows something like
 # `bun run lint:changed && echo next`.
 #
-# Single-writer invariant: CLAUDE.md 'Checking your work' says to run the three
-# primitives SEQUENTIALLY. A blocking flock (500s wait) queues accidental
-# parallelization instead of denying it — the fingerprint cache below is the
-# real redundancy gate, and the Monitor-wait ritual on every slip costs more
-# tokens than the wait itself. Deny only when the wait actually expires, which
-# almost always means a real hang, not a slip.
+# Single-writer invariant: CLAUDE.md 'Checking your work' says to run
+# verification commands SEQUENTIALLY. A short blocking flock queues brief
+# accidental overlap, then denies with a Monitor/flock wait command instead of
+# occupying the current tool call for minutes.
 #
 # Content-keyed idempotency: a per-script marker caches (fingerprint, exit,
 # timestamp). Re-invocations within 1800s on an unchanged worktree short-circuit
@@ -21,11 +19,11 @@
 # The fingerprint is the real gate; TTL just bounds how long "nothing changed"
 # is trusted when clocks/state go weird. Bypass with FORCE_VERIFY=1.
 #
-# Signals: an internal watchdog (520s, covering command execution only —
-# independent of flock wait) plus INT/TERM traps kill the wrapped bash -c
+# Signals: an internal watchdog (210s, covering command execution only) plus
+# INT/TERM traps kill the wrapped bash -c
 # child so the old zombie-process pattern can't re-emerge if the hook itself
 # is signalled. An early TERM trap covers the flock-wait window before the
-# main traps install. Harness timeout is 1100s (500 flock + 520 exec + buffer).
+# main traps install. Harness timeout is 280s as a final backstop.
 #
 # Full per-run logs live in /tmp/musi-bun-logs/<script>.log.
 
@@ -83,12 +81,20 @@ Retry with run_in_background: false."
   exit 0
 fi
 
+# Stateful verify viewers/controllers are still recognized by this hook so
+# package-subdirectory invocations get rewritten to the repo root, but their
+# output must remain live and uncached.
+if ai_bun_cmd_bypasses_lock "$CMD"; then
+  printf -v ROOT_CMD 'cd %q && %s' "$REPO_ROOT" "$CMD"
+  ai_claude_updated_command "$ROOT_CMD"
+fi
+
 # --- Single-writer lock ----------------------------------------------------
-# Blocking with 500s timeout: accidental parallelization queues instead of
-# denying. Deny only when the wait expires — that almost always means a real
-# hang, not a slip.
-LOCK=/tmp/musi-bun-lock
-LOCK_WAIT=500
+# Short wait: brief accidental overlap queues, but a longer holder gets a
+# denial plus an explicit Monitor/flock command so this hook stays inside the
+# interactive budget.
+LOCK="${AI_BUN_LOCK:-/tmp/musi-bun-lock}"
+LOCK_WAIT="${AI_BUN_LOCK_WAIT:-25}"
 exec 9<>"$LOCK"
 
 # Early TERM/INT trap: covers the flock-wait window before the main traps
@@ -99,7 +105,7 @@ exec 9<>"$LOCK"
 on_early_signal() {
   local holder
   holder=$(cat "$LOCK" 2>/dev/null || echo '<holder info unavailable>')
-  jq -Rn --arg r "bun-run-quiet.sh killed while waiting for /tmp/musi-bun-lock (holder: $holder). Retry once the in-flight run completes." \
+  jq -Rn --arg r "bun-run-quiet.sh killed while waiting for $LOCK (holder: $holder). Retry once the in-flight run completes." \
     '{decision:"deny", reason:$r}'
   exit 0
 }
@@ -114,14 +120,14 @@ CLAUDE.md 'Checking your work' says: run lint:changed, typecheck, and test:chang
 
 To wait for the in-flight run WITHOUT polling, launch this command in the background and attach Monitor:
 
-  flock /tmp/musi-bun-lock true && echo FREE
+  flock $LOCK true && echo FREE
 
 When Monitor reports FREE, retry this command. If the holder PID above is stuck, inspect it first — don't just wait forever."
   jq -Rn --arg r "$REASON" '{decision:"deny", reason:$r}'
   exit 0
 fi
 LOCK_WAITED=$(( $(date +%s) - LOCK_START ))
-[ "$LOCK_WAITED" -gt 5 ] && echo "bun-run-quiet: waited ${LOCK_WAITED}s for /tmp/musi-bun-lock" >&2
+[ "$LOCK_WAITED" -gt 5 ] && echo "bun-run-quiet: waited ${LOCK_WAITED}s for $LOCK" >&2
 
 # Clear the early traps — the main INT/TERM traps install after the watchdog
 # starts. Between here and there, the window is tiny (a few file writes);
@@ -163,10 +169,11 @@ fi
 # --- Signal handling / watchdog -------------------------------------------
 # Without these, a harness timeout (or Ctrl-C) orphans the bash -c child —
 # the exact zombie-process pattern the old verify.sh produced. Pattern
-# mirrors .husky/pre-commit. Internal watchdog fires 20s before the 540s
-# harness timeout so signal cleanup runs under our control.
+# mirrors .husky/pre-commit. Internal watchdog stays under the 240s
+# interactive budget; .claude/settings.json's 280s timeout is only a final
+# backstop if this script wedges before its own cleanup path.
 HOOK_PID=$$
-TIMEOUT=520
+TIMEOUT="${AI_BUN_TIMEOUT:-210}"
 (
   # Close FD 9 so our own `sleep` child doesn't inherit the flock: otherwise
   # when the parent kills us and exits, `sleep` orphans to init still holding
@@ -198,7 +205,7 @@ on_sigterm() {
   kill "$CHILD" "$WD" 2>/dev/null
   wait "$CHILD" 2>/dev/null
   local el=$(( $(date +%s) - START ))
-  local summary="$SCRIPT killed by watchdog at ${TIMEOUT}s (${el}s elapsed). Likely a hung test or slow dev server, not a genuine failure — investigate the slow step, or raise TIMEOUT in .claude/hooks/bun-run-quiet.sh. Full log: $LOG
+  local summary="$SCRIPT killed by watchdog at ${TIMEOUT}s (${el}s elapsed). Likely a hung test or slow dev server, not a genuine failure — investigate the slow step, or raise AI_BUN_TIMEOUT for this invocation. Full log: $LOG
 
 --- last 40 lines ---
 $(tail -n 40 "$LOG" 2>/dev/null)"

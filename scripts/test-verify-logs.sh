@@ -63,6 +63,11 @@ if run_logs slow-tests --full >/dev/null 2>&1; then
 fi
 ok "verify-logs.sh rejects --full for slow-tests"
 
+if run_logs budget --full >/dev/null 2>&1; then
+  fail "verify-logs.sh accepted --full for budget"
+fi
+ok "verify-logs.sh rejects --full for budget"
+
 if run_logs lint typecheck >/dev/null 2>&1; then
   fail "verify-logs.sh accepted two task arguments"
 fi
@@ -368,6 +373,54 @@ grep -qE '1\. +900ms +passed +slow suite slowest case - .*/slow-file\.test\.ts' 
 grep -qF 'Local signal only' <<< "$output" || fail "slow-tests view should state it is local-only"
 ok "slow-tests view summarizes top file and case timings"
 
+cat > "$PRECOMMIT_LOG_DIR/run-meta.json" <<'JSON'
+{
+  "version": 1,
+  "mode": "parallel-precommit",
+  "generated_at": "2026-05-03T00:00:00+00:00",
+  "wrapper": {
+    "name": "wrapper",
+    "mode": "parallel-precommit",
+    "start_time": "2026-05-03T00:00:00+00:00",
+    "end_time": "2026-05-03T00:03:35+00:00",
+    "elapsed_seconds": 215,
+    "exit_code": 0,
+    "command": ".husky/pre-commit"
+  },
+  "steps": [
+    {
+      "name": "lint",
+      "mode": "parallel-precommit",
+      "start_time": "2026-05-03T00:00:00+00:00",
+      "end_time": "2026-05-03T00:00:08+00:00",
+      "elapsed_seconds": 8,
+      "exit_code": 0,
+      "command": "bun run lint:changed"
+    },
+    {
+      "name": "test",
+      "mode": "parallel-precommit",
+      "start_time": "2026-05-03T00:00:00+00:00",
+      "end_time": "2026-05-03T00:03:20+00:00",
+      "elapsed_seconds": 200,
+      "exit_code": 0,
+      "command": "bun run test:changed --reporter=dot --reporter=json"
+    }
+  ]
+}
+JSON
+output=$(run_logs budget)
+grep -qF '== budget ==' <<< "$output" || fail "budget view missed heading"
+grep -qF 'state=WARN-BUDGET-EXCEEDED' <<< "$output" \
+  || fail "budget view should warn when wrapper exceeds 210s"
+grep -qE 'wrapper: 215s mode=parallel-precommit exit=0' <<< "$output" \
+  || fail "budget view missed wrapper timing"
+grep -qE 'parallel-precommit +test +200s +0 +bun run test:changed' <<< "$output" \
+  || fail "budget view missed per-step timing"
+grep -qF 'Top slow test files' <<< "$output" \
+  || fail "budget view should include slow test file signal when timings exist"
+ok "budget view summarizes wrapper, steps, and slow-test timings"
+
 printf '{not json\n' > "$PRECOMMIT_LOG_DIR/test-timings.json"
 if output=$(run_logs slow-tests 2>&1); then
   fail "slow-tests view succeeded with corrupt timing sidecar"
@@ -381,7 +434,7 @@ ok "slow-tests view handles corrupt timing sidecar"
 # --- wrapper marker block reports each marker -------------------------
 write_wrapper_marker "$VERIFY_MARKER_CHANGED" 30
 output=$(run_logs)
-grep -qE 'verify --changed +30s ago' <<< "$output" \
+grep -qE 'verify --changed +[0-9]+s ago' <<< "$output" \
   || fail "summary should show fresh verify --changed wrapper marker age"
 grep -qF "$VERIFY_MARKER_CHANGED" <<< "$output" \
   || fail "summary should print wrapper marker path"

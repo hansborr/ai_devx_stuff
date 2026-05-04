@@ -15,8 +15,10 @@
 #     doesn't fall into a log-polling loop.
 #   - Last-verified marker (120s, keyed on HEAD + staged-diff hash) short-
 #     circuits the "re-run just to double-check" reflex.
-#   - 540s watchdog stays below Claude Code's 10-min Bash ceiling so a
-#     hung commit never leaves an orphaned process Claude can't observe.
+#   - 240s watchdog stays under Claude Code's session-cache budget (~5min)
+#     so a hung commit never burns the agent's tool-call cache. On timeout
+#     the gate fails closed and prints log paths plus a `verify:logs budget`
+#     pointer; no success marker is written.
 #   - Per-task logs at $LOG_DIR/<task>.log; Passed/Failed status lines let
 #     .claude/hooks/git-commit-quiet.sh surface only the failing tails.
 #
@@ -35,6 +37,8 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 . "$REPO_ROOT/scripts/doc-length-policy.sh"
 # shellcheck source=/dev/null
 . "$REPO_ROOT/scripts/ai-hooks/output-filter.sh"
+# shellcheck source=/dev/null
+. "$REPO_ROOT/scripts/verify-metadata.sh"
 
 warn_if_staged_lockfile_needs_install() {
   if ! git diff --cached --name-only --diff-filter=ACMR \
@@ -153,8 +157,14 @@ if [ -f "$MARKER" ] && [ "${FORCE_VERIFY:-}" != "1" ]; then
   fi
 fi
 
-# --- 4. Watchdog (below Claude's 10-min Bash ceiling) ----------------------
-TIMEOUT="${MUSI_VERIFY_TIMEOUT:-540}"
+# --- 4. Watchdog (under Claude's session-cache budget) ---------------------
+# 240s default keeps the gate inside the agent's interactive cache window;
+# overruns lose cache state, so we cut the run and print breadcrumbs instead
+# of letting it drift into a 9-minute Bash timeout. `MUSI_VERIFY_TIMEOUT` stays
+# as a back-compat override; new callers should set `MUSI_INTERACTIVE_TIMEOUT`
+# / `MUSI_INTERACTIVE_WARN_AFTER`.
+TIMEOUT="${MUSI_VERIFY_TIMEOUT:-${MUSI_INTERACTIVE_TIMEOUT:-240}}"
+WARN_AFTER="${MUSI_INTERACTIVE_WARN_AFTER:-210}"
 HOOK_PID=$$
 (
   # Close FD 9 so our `sleep` child doesn't inherit the flock — otherwise
@@ -175,30 +185,56 @@ WD=$!
 # --- 5. Parallel tasks -----------------------------------------------------
 LOG_DIR="${MUSI_VERIFY_LOG_DIR:-/tmp/musi-pre-commit-logs}"
 rm -rf "$LOG_DIR"
-mkdir -p "$LOG_DIR"
+mkdir -p "$LOG_DIR" "$LOG_DIR/meta"
+TIMINGS_FILE="$LOG_DIR/test-timings.json"
+META_DIR="$LOG_DIR/meta"
 
 START_TS=$(date +%s)
+START_TIME=$(date -Iseconds)
 
-bun run lint:changed                    > "$LOG_DIR/lint.log"      2>&1 &
-pid_lint=$!
-bun run typecheck                       > "$LOG_DIR/typecheck.log" 2>&1 &
-pid_tc=$!
-bun run test:changed --reporter=dot     > "$LOG_DIR/test.log"      2>&1 &
-pid_test=$!
+run_parallel_step() {
+  local name="$1"; shift
+  local log="$LOG_DIR/${name}.log"
+  local command
+  command="$(musi_meta_command_string "$@")"
+  (
+    step_start=$(date +%s)
+    step_start_time=$(date -Iseconds)
+    "$@" > "$log" 2>&1 9>&-
+    exit_code=$?
+    step_end=$(date +%s)
+    step_end_time=$(date -Iseconds)
+    musi_write_step_meta "$META_DIR/${name}.json" "$name" parallel-precommit \
+      "$step_start" "$step_start_time" "$step_end" "$step_end_time" "$exit_code" "$command"
+    exit "$exit_code"
+  ) &
+  STEP_PID=$!
+}
+
+run_parallel_step lint bun run lint:changed
+pid_lint=$STEP_PID
+run_parallel_step typecheck bun run typecheck
+pid_tc=$STEP_PID
+run_parallel_step test bun run test:changed --reporter=dot --reporter=json --outputFile.json="$TIMINGS_FILE"
+pid_test=$STEP_PID
 pid_scripts=""
 run_scripts=0
 if git diff --cached --name-only --diff-filter=ACMR \
      | grep -qE '^(.husky/|scripts/)'; then
-  bun run test:scripts:changed          > "$LOG_DIR/scripts.log"   2>&1 &
-  pid_scripts=$!
+  run_parallel_step scripts bun run test:scripts:changed
+  pid_scripts=$STEP_PID
   run_scripts=1
 fi
 
 # Propagate INT/TERM to children. Split traps to emit conventional exit codes:
 #   INT  (Ctrl-C) → 130
 #   TERM (watchdog timeout or external kill) → 124 (GNU `timeout` convention)
+report_timeout_budget() {
+  printf 'logs: %s\n' "$LOG_DIR" >&2
+  printf 'inspect: bun run verify:logs budget\n' >&2
+}
 trap '[ -n "$pid_scripts" ] && kill "$pid_scripts" 2>/dev/null; kill $pid_lint $pid_tc $pid_test $WD 2>/dev/null; exit 130' INT
-trap '[ -n "$pid_scripts" ] && kill "$pid_scripts" 2>/dev/null; kill $pid_lint $pid_tc $pid_test $WD 2>/dev/null; exit 124' TERM
+trap '[ -n "$pid_scripts" ] && kill "$pid_scripts" 2>/dev/null; kill $pid_lint $pid_tc $pid_test $WD 2>/dev/null; report_timeout_budget; exit 124' TERM
 trap 'kill $WD 2>/dev/null' EXIT
 
 exit_lint=0; exit_tc=0; exit_test=0; exit_scripts=0
@@ -219,8 +255,13 @@ if [ "$run_scripts" -eq 1 ]; then
 fi
 
 ELAPSED=$(( $(date +%s) - START_TS ))
+END_TS=$(date +%s)
+END_TIME=$(date -Iseconds)
 
 if [ -n "$failed" ]; then
+  musi_write_wrapper_meta "$META_DIR/wrapper.json" parallel-precommit \
+    "$START_TS" "$START_TIME" "$END_TS" "$END_TIME" 1 "$0"
+  musi_combine_run_meta "$LOG_DIR" parallel-precommit "$META_DIR/wrapper.json"
   # Structured lines — git-commit-quiet.sh parses these.
   echo ""
   echo "=== PRE-COMMIT FAILED (${ELAPSED}s) ==="
@@ -229,13 +270,17 @@ if [ -n "$failed" ]; then
   for task in $failed; do
     echo ""
     echo "--- $task (full log: $LOG_DIR/${task}.log) ---"
-    tail -n 200 "$LOG_DIR/${task}.log" | ai_filter_known_output_noise | tail -n 30
+    ai_filtered_task_log_excerpt "$task" "$LOG_DIR/${task}.log" 30
   done
   case "$failed" in
     *lint*) echo ""; echo "Hint: try 'bun run lint:fix' to auto-fix formatting issues." ;;
   esac
   exit 1
 fi
+
+musi_write_wrapper_meta "$META_DIR/wrapper.json" parallel-precommit \
+  "$START_TS" "$START_TIME" "$END_TS" "$END_TIME" 0 "$0"
+musi_combine_run_meta "$LOG_DIR" parallel-precommit "$META_DIR/wrapper.json"
 
 # --- 7. Success marker -----------------------------------------------------
 marker_dir=$(dirname "$MARKER")
@@ -251,6 +296,11 @@ if [ -n "$marker_tmp" ] && {
 else
   [ -n "$marker_tmp" ] && rm -f "$marker_tmp"
   printf 'pre-commit: WARN: failed to write marker %s\n' "$MARKER" >&2
+fi
+
+if [ "$ELAPSED" -gt "$WARN_AFTER" ]; then
+  printf 'pre-commit: WARN: elapsed=%ds exceeds soft budget %ds (hard=%ds). Inspect: bun run verify:logs budget\n' \
+    "$ELAPSED" "$WARN_AFTER" "$TIMEOUT" >&2
 fi
 
 echo "pre-commit: OK (${ELAPSED}s) —$passed"

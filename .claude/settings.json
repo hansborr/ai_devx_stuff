@@ -20,7 +20,7 @@
           {
             "type": "command",
             "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/bun-run-quiet.sh",
-            "timeout": 1100
+            "timeout": 280
           }
         ]
       },
@@ -46,6 +46,17 @@
           {
             "type": "command",
             "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/doc-length.sh"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/stop-reminder.sh",
+            "timeout": 30
           }
         ]
       }

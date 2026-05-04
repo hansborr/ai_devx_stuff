@@ -3,6 +3,13 @@
 
 set -euo pipefail
 
+# When run inside a parent `git commit`, git exports GIT_DIR / GIT_INDEX_FILE /
+# GIT_WORK_TREE / GIT_PREFIX. Inherited values would make every `git add` and
+# `git diff --cached` below operate on the outer repo's index, leaking staged
+# entries into the parent and tripping the pre-commit flock. Clear them so the
+# sandbox repos this script creates stand alone.
+unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE GIT_PREFIX
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=/dev/null
 . "$SCRIPT_DIR/dependency-freshness.sh"
@@ -56,6 +63,7 @@ mkdir -p "$hook_repo/scripts/ai-hooks" "$hook_repo/.husky" "$hook_repo/node_modu
 cp "$SCRIPT_DIR/dependency-freshness.sh" "$hook_repo/scripts/dependency-freshness.sh"
 cp "$SCRIPT_DIR/prisma-client-freshness.sh" "$hook_repo/scripts/prisma-client-freshness.sh"
 cp "$SCRIPT_DIR/doc-length-policy.sh" "$hook_repo/scripts/doc-length-policy.sh"
+cp "$SCRIPT_DIR/verify-metadata.sh" "$hook_repo/scripts/verify-metadata.sh"
 cp "$SCRIPT_DIR/ai-hooks/output-filter.sh" "$hook_repo/scripts/ai-hooks/output-filter.sh"
 cp "$SCRIPT_DIR/../.husky/pre-commit" "$hook_repo/.husky/pre-commit"
 (
@@ -113,6 +121,13 @@ BAD_MARKER
   if grep -qF "stub bun run test:scripts:changed" "$stub_log"; then
     fail "non-script staged change should not run script smoke tests"
   fi
+  [ -f "$log_dir/run-meta.json" ] || fail "pre-commit did not write run-meta.json"
+  grep -q '"mode":"parallel-precommit"' "$log_dir/run-meta.json" \
+    || fail "pre-commit metadata should record parallel-precommit mode"
+  grep -q '"name":"wrapper"' "$log_dir/run-meta.json" \
+    || fail "pre-commit metadata should record wrapper timing"
+  grep -q 'bun run test:changed --reporter=dot --reporter=json --outputFile.json='"$log_dir"'/test-timings.json' "$log_dir/run-meta.json" \
+    || fail "pre-commit metadata should record json timing capture command"
   grep -q '^LAST_TS=[0-9]\+$' "$marker" || fail "pre-commit did not rewrite marker with numeric LAST_TS"
 )
 ok "pre-commit treats corrupt success marker as a cache miss"
@@ -148,6 +163,7 @@ mkdir -p "$hook_only_repo/scripts/ai-hooks" "$hook_only_repo/.husky" "$hook_only
 cp "$SCRIPT_DIR/dependency-freshness.sh" "$hook_only_repo/scripts/dependency-freshness.sh"
 cp "$SCRIPT_DIR/prisma-client-freshness.sh" "$hook_only_repo/scripts/prisma-client-freshness.sh"
 cp "$SCRIPT_DIR/doc-length-policy.sh" "$hook_only_repo/scripts/doc-length-policy.sh"
+cp "$SCRIPT_DIR/verify-metadata.sh" "$hook_only_repo/scripts/verify-metadata.sh"
 cp "$SCRIPT_DIR/ai-hooks/output-filter.sh" "$hook_only_repo/scripts/ai-hooks/output-filter.sh"
 cp "$SCRIPT_DIR/../.husky/pre-commit" "$hook_only_repo/.husky/pre-commit"
 cat > "$hook_only_repo/bin/bun" <<'STUB'

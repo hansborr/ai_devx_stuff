@@ -9,12 +9,13 @@ AI_HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 AI_STATE_ROOT="${AI_STATE_ROOT:-/tmp/musi-ai-hooks}"
 AI_GIT_STATE_DIR="${AI_GIT_STATE_DIR:-$AI_STATE_ROOT/git}"
 AI_BUN_STATE_DIR="${AI_BUN_STATE_DIR:-$AI_STATE_ROOT/bun}"
+AI_STOP_STATE_DIR="${AI_STOP_STATE_DIR:-$AI_STATE_ROOT/stop}"
 AI_BUN_LOG_DIR="${AI_BUN_LOG_DIR:-/tmp/musi-bun-logs}"
 AI_BUN_TTL="${AI_BUN_TTL:-1800}"
 AI_PRECOMMIT_LOG_DIR="${AI_PRECOMMIT_LOG_DIR:-/tmp/musi-pre-commit-logs}"
 
 ai_cache_init() {
-  mkdir -p "$AI_GIT_STATE_DIR" "$AI_BUN_STATE_DIR" "$AI_BUN_LOG_DIR" "$AI_PRECOMMIT_LOG_DIR"
+  mkdir -p "$AI_GIT_STATE_DIR" "$AI_BUN_STATE_DIR" "$AI_STOP_STATE_DIR" "$AI_BUN_LOG_DIR" "$AI_PRECOMMIT_LOG_DIR"
 }
 
 ai_worktree_fingerprint() {
@@ -23,8 +24,11 @@ ai_worktree_fingerprint() {
   {
     git -C "$repo_root" rev-parse HEAD 2>/dev/null || echo none
     git -C "$repo_root" diff HEAD 2>/dev/null
-    git -C "$repo_root" ls-files --others --exclude-standard -z 2>/dev/null \
-      | xargs -0 -r sha256sum 2>/dev/null
+    (
+      cd "$repo_root" || exit 1
+      git ls-files --others --exclude-standard -z 2>/dev/null \
+        | xargs -0 -r sha256sum 2>/dev/null
+    )
   } | sha256sum | awk '{print $1}'
 }
 

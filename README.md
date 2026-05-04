@@ -22,11 +22,17 @@ The most interesting parts are probably:
   pass instantly.
 - `.husky/pre-commit` — runs lint/typecheck/test in parallel with a
   `flock`-protected lock, a 120s last-verified short-circuit keyed on
-  `HEAD + staged-diff hash`, a 540s watchdog, and Passed/Failed structured
+  `HEAD + staged-diff hash`, a 240s interactive watchdog, and Passed/Failed structured
   output the Claude commit-wrapper hook parses.
 - `scripts/verify.sh` and `scripts/verify-logs.sh` — the manual
   (sequential) sibling of pre-commit, sharing the same lock and log
   directory so manual runs queue cleanly behind a commit in flight.
+- `scripts/verify-async.sh` — starts long verification as a detached job
+  (`verify:async*`) with status/tail/stop commands, keeping Stop hooks
+  read-only and fast.
+- `scripts/test-slow.sh` and `vitest.slow.config.ts` — an explicit slow-test
+  tier for `*.slow.test.{ts,tsx}` files; default Vitest configs exclude slow
+  tests and `test:changed` only prints a hint when a slow file changed.
 - `eslint-rules/` — hand-rolled custom ESLint rules with unit tests, plus
   the `eslint.config.js` that loads them.
 - `scripts/migration-safety-scan.sh` — a warn-only Prisma migration
@@ -85,7 +91,8 @@ Claude Code (CLI) configuration. Real layout:
     ├── bun-run-quiet.sh        # PreToolUse Bash → wrap `bun run lint/typecheck/test/...`
     ├── protected-files.sh      # PreToolUse Edit/Write → advisory on hot files
     ├── prisma-generate.sh      # PostToolUse Edit/Write → regenerate Prisma client on schema edit
-    └── doc-length.sh           # PostToolUse Edit/Write → advisory on hot-doc bloat
+    ├── doc-length.sh           # PostToolUse Edit/Write → advisory on hot-doc bloat
+    └── stop-reminder.sh        # Stop → cheap/read-only uncommitted + cached status reminders
 ```
 
 `settings.local.json` is intentionally **not** in this dump — it holds
@@ -99,16 +106,24 @@ which is a generated working-copy directory.
    compound is never silently swallowed.
 2. Refuses to run in the background — agents that background a verify
    command and poll the log waste tokens on partial output.
-3. Takes a blocking `flock` (with a 500s wait) so accidentally parallel
-   `bun run` calls queue rather than deny.
+3. Takes a short blocking `flock` (25s by default) so brief accidental overlap
+   queues, while longer contention gets a clear denial instead of burning the
+   whole interactive budget.
 4. Computes a worktree fingerprint (HEAD + tracked diff + untracked
    hashes) and short-circuits if a recent run with the same fingerprint
    succeeded — replaying "cached OK" in 1ms instead of rerunning.
-5. Has its own watchdog so a hung child can't outlive the harness's
-   Bash ceiling and leave a zombie.
+5. Has its own 210s watchdog so a hung child stays below the 240s interactive
+   cache budget and cannot outlive the hook wrapper.
 6. On success, replaces the tool-call output with a one-liner pointing
    at the full log; on failure, returns the last 40 lines through a
    sed-based filter that strips known noisy deprecation warnings.
+
+Claude's Stop hook is intentionally cheap and read-only. It reminds on
+uncommitted changes, cached failing e2e results, and running/failing async
+verification state, but it never starts e2e or verification. Repeated reminders
+are deduped by branch, worktree fingerprint, or async state file, and local
+kill switches such as `.no-stop-uncommitted`, `.no-stop-e2e`, and
+`.no-stop-async-verify` are ignored by git.
 
 The shared logic for fingerprinting, marker IO, summary formatting, and
 policy matching lives in `scripts/ai-hooks/` so the Codex hooks and
@@ -116,23 +131,24 @@ verify wrappers can reuse it.
 
 ## `.codex/`
 
-Codex configuration (`hooks.json`, `config.toml`) plus the `pre-tool-use.sh`
-and `post-tool-use.sh` adapters. They reuse the same `scripts/ai-hooks/`
+Codex configuration (`hooks.json`, `config.toml`) plus the `pre-tool-use.sh`,
+`post-tool-use.sh`, and `stop-reminder.sh` adapters. They reuse the same `scripts/ai-hooks/`
 helpers as Claude — the only difference is shape, because Codex hooks
 fire pre and post (Claude's PreToolUse can rewrite or deny in one call,
-Codex needs a two-phase dance).
+Codex needs a two-phase dance). Codex PreToolUse/PostToolUse are capped at 60s;
+Stop is capped at 30s.
 
 ## `.husky/`
 
 Git hooks, registered by Husky.
 
 - `pre-commit` — runs `lint:changed`, `typecheck`, and `test:changed` in
-  parallel, plus `test:scripts:changed` if any script files are staged.
+  parallel, plus `test:scripts:changed` when hook/script files are staged.
   Uses `flock` for single-writer, a content-keyed last-verified marker
-  for the "claude is anxious and re-running" reflex, and a 540s watchdog
-  to stay below Claude Code's 10-minute Bash ceiling. Prints structured
-  `Passed:` / `Failed:` lines that `git-commit-quiet.sh` parses to
-  surface only failing tails.
+  for repeated commit attempts, and a 240s watchdog with a 210s warning
+  threshold to stay inside the interactive cache budget. Prints structured
+  `Passed:` / `Failed:` lines that `git-commit-quiet.sh` parses to surface
+  only failing tails.
 - `post-checkout` and `post-merge` — call into
   `scripts/worktree-drift-hook.sh` to nudge if a secondary worktree's DB
   / migrations / SRD seed have drifted from the checked-out branch.
@@ -143,7 +159,7 @@ deliberately omitted — `bun install` regenerates it.
 ## `eslint.config.js` + `eslint-rules/`
 
 Flat-config ESLint with `typescript-eslint`'s strictTypeChecked preset
-plus four hand-rolled rules:
+plus five hand-rolled rules:
 
 - `strict-trpc-input` — every tRPC procedure on a hot path must declare
   `.input(zodSchema)` and `.output(zodSchema)`, and the schemas must
@@ -154,6 +170,9 @@ plus four hand-rolled rules:
   re-exports of them.
 - `structured-logging` — bans `console.log` in server code; forces a
   structured logger with required fields.
+- `socket-registry-broadcasts` — bans direct literal emits for
+  registry-owned Socket.io events outside `broadcast-registry.ts`, keeping
+  payload validation and broadcast logging centralized.
 - `test-file-location` — enforces "tests live next to source as
   `*.test.ts`, integration tests in `*.integration.test.ts`, etc."
   conventions.
@@ -176,9 +195,11 @@ husky pre-commit.
 | Script | What it does |
 |---|---|
 | `verify.sh` | Manual lint/typecheck/test umbrella for humans and AIs. Sequential (parallel pre-commit output is hard to read). Reuses pre-commit's lock + log dir, so manual `verify` queues cleanly behind a commit. |
+| `verify-async.sh` | Detached verification runner for long confidence checks. `verify:async`, `verify:async:changed`, and `verify:async:slow` return immediately; `status`, `tail`, and `stop` inspect/control the current run. |
 | `verify-logs.sh` | Inspect cached logs from the most recent verify/pre-commit run. `bun run verify:logs lint --full` prints the full lint log; with no args, prints the per-task tails again. |
 | `lint-changed.sh` | ESLint over files changed vs `main`, including staged + unstaged. Falls back to a full run if `main`/`origin/main` doesn't exist. |
-| `test-changed.sh` | Vitest over the same set, scoped per package. |
+| `test-changed.sh` | Product/app Vitest tests affected by changed source files. Selects package projects where possible, uses Vitest `--changed`, and prints a slow-test hint when `*.slow.test.*` files changed. |
+| `test-slow.sh` | Runs only `*.slow.test.{ts,tsx}` through `vitest.slow.config.ts` with `MUSI_RUN_SLOW_TESTS=1`; kept out of default verify/pre-commit. |
 | `format-changed.sh` | Prettier on the same set. |
 
 ### Agent-hook helpers (`scripts/ai-hooks/`)
@@ -201,6 +222,10 @@ Shared library sourced by both Claude and Codex hooks:
   warnings (`pg` deprecation, `--trace-deprecation` hint, etc.) from
   failure tails. Raw logs are unchanged; only displayed tails are
   filtered.
+- `process-runner.sh` — small process-tree helper used by async verification
+  to start and terminate detached jobs cleanly.
+- `stop-policy.sh` / `stop-reminder.sh` — shared read-only Stop-hook checks
+  for uncommitted changes, cached e2e failures, and async verification state.
 - `protected-files.sh` / `doc-length.sh` / `prisma-generate.sh` —
   reusable hot-file advisory and Prisma-client refresh logic, used by
   both the Claude PostToolUse hook adapter and the human-facing
@@ -254,9 +279,9 @@ Shared library sourced by both Claude and Codex hooks:
 - `db-status.sh` / `db-status.ts` — quick "is the DB up, is the schema
   current, is the client fresh" readout.
 - `test-scripts.sh` and the `test-*.sh` siblings — bash test files for
-  bash scripts. They're the test runner pattern this repo uses for
-  shell, since the shell stuff is load-bearing enough to deserve real
-  tests.
+  bash scripts. `test:scripts:changed` selects smoke tests by the changed
+  hook/script paths, so `verify:changed` covers shell-hook edits without
+  running every shell smoke on unrelated product changes.
 
 ## Root Config
 
@@ -267,6 +292,9 @@ when the repo is not meant to run end-to-end:
   `typecheck` script expects.
 - `vitest.config.ts` shows how package projects and the `eslint-rules`
   project are registered.
+- `vitest.slow.config.ts` shows the dedicated slow-test tier. The package
+  configs included under `packages/*/vitest.config.ts` show the matching
+  default-tier exclude.
 - `.prettierrc`, `.prettierignore`, `.gitignore`, and `.worktreeinclude`
   show the surrounding conventions the hooks and worktree scripts assume.
 

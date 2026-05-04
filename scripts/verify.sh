@@ -45,6 +45,8 @@ cd "$REPO_ROOT"
 
 # shellcheck source=/dev/null
 . "$REPO_ROOT/scripts/ai-hooks/cache.sh"
+# shellcheck source=/dev/null
+. "$REPO_ROOT/scripts/verify-metadata.sh"
 
 LOCK="${MUSI_VERIFY_LOCK:-/tmp/musi-pre-commit.lock}"
 LOG_DIR="${MUSI_VERIFY_LOG_DIR:-/tmp/musi-pre-commit-logs}"
@@ -56,6 +58,9 @@ LOG_DIR="${MUSI_VERIFY_LOG_DIR:-/tmp/musi-pre-commit-logs}"
 # `bun run test` script is unchanged — only the wrapper-injected command
 # carries the json reporter.
 TIMINGS_FILE="$LOG_DIR/test-timings.json"
+META_DIR="$LOG_DIR/meta"
+INTERACTIVE_TIMEOUT="${MUSI_VERIFY_TIMEOUT:-${MUSI_INTERACTIVE_TIMEOUT:-240}}"
+WARN_AFTER="${MUSI_INTERACTIVE_WARN_AFTER:-210}"
 if [ "$MODE" = changed ]; then
   MARKER="${MUSI_VERIFY_MARKER_CHANGED:-/tmp/musi-verify-changed-last}"
   LINT_CMD=(bun run lint:changed)
@@ -71,25 +76,43 @@ TYPECHECK_CMD=(bun run typecheck)
 
 # --- 1. Single-writer lock -------------------------------------------------
 # Blocking flock: a manual run is fine to queue behind an in-flight pre-commit
-# or another verify. The 540s ceiling matches the pre-commit watchdog so we
-# don't accidentally outlive it.
-LOCK_WAIT=540
-exec 9<>"$LOCK"
-LOCK_START=$(date +%s)
-if ! flock -w "$LOCK_WAIT" 9; then
-  HOLDER=$(cat "$LOCK" 2>/dev/null || true)
-  cat >&2 <<EOF
+# or another verify. The wait ceiling is the same interactive budget used by
+# the command watchdog, and the post-lock watchdog subtracts any time spent
+# waiting so lock contention plus execution cannot exceed one budget window.
+if [ "${MUSI_VERIFY_LOCK_ALREADY_HELD:-}" = "1" ]; then
+  LOCK_WAITED=0
+  EXEC_TIMEOUT="$INTERACTIVE_TIMEOUT"
+else
+  LOCK_WAIT="$INTERACTIVE_TIMEOUT"
+  exec 9<>"$LOCK"
+  LOCK_START=$(date +%s)
+  if ! flock -w "$LOCK_WAIT" 9; then
+    HOLDER=$(cat "$LOCK" 2>/dev/null || true)
+    cat >&2 <<EOF
 === $LABEL: another verification is still running after ${LOCK_WAIT}s ===
 ${HOLDER:-<holder info unavailable>}
 
 That is long enough to suggest a hang, not the usual queue. Inspect the
 holder above before retrying.
 EOF
-  exit 2
+    exit 2
+  fi
+  LOCK_WAITED=$(( $(date +%s) - LOCK_START ))
+  EXEC_TIMEOUT=$((INTERACTIVE_TIMEOUT - LOCK_WAITED))
+  if [ "$EXEC_TIMEOUT" -le 0 ]; then
+    cat >&2 <<EOF
+=== $LABEL: no execution budget remains after waiting ${LOCK_WAITED}s for ${LOCK} ===
+logs: $LOG_DIR
+inspect: bun run verify:logs budget
+EOF
+    exit 124
+  fi
+  if [ "$LOCK_WAITED" -gt 0 ]; then
+    printf '%s: waited %ds for %s; execution watchdog budget is %ds (interactive budget %ds)\n' \
+      "$LABEL" "$LOCK_WAITED" "$LOCK" "$EXEC_TIMEOUT" "$INTERACTIVE_TIMEOUT" >&2
+  fi
+  { printf 'PID=%s LABEL=%s STARTED=%s\n' "$$" "$LABEL" "$(date -Iseconds)"; } > "$LOCK"
 fi
-LOCK_WAITED=$(( $(date +%s) - LOCK_START ))
-[ "$LOCK_WAITED" -gt 5 ] && printf '%s: waited %ds for %s\n' "$LABEL" "$LOCK_WAITED" "$LOCK" >&2
-{ printf 'PID=%s LABEL=%s STARTED=%s\n' "$$" "$LABEL" "$(date -Iseconds)"; } > "$LOCK"
 
 # --- 2. Last-verified short-circuit ----------------------------------------
 # Same key format as pre-commit's marker (LAST_TS / LAST_HEAD / LAST_HASH);
@@ -119,10 +142,13 @@ if [ -f "$MARKER" ] && [ "${FORCE_VERIFY:-}" != "1" ]; then
 fi
 
 # --- 3. Watchdog ------------------------------------------------------------
-# Mirrors pre-commit. 540s ceiling stays under Claude Code's 10-min Bash limit
-# so a hung run never leaves an orphaned process the agent can't observe.
-# `MUSI_VERIFY_TIMEOUT` is exposed for tests; do not lower it in production.
-TIMEOUT="${MUSI_VERIFY_TIMEOUT:-540}"
+# Mirrors pre-commit. The 240s default is the Claude Code session-cache
+# budget: an interactive tool call that overruns it loses cache state, so the
+# wrapper cuts the run before that happens and prints log paths plus a
+# `verify:logs budget` pointer. `MUSI_VERIFY_TIMEOUT` stays as a back-compat
+# override so existing tests / overrides keep working; new callers should
+# prefer `MUSI_INTERACTIVE_TIMEOUT` and `MUSI_INTERACTIVE_WARN_AFTER`.
+TIMEOUT="$EXEC_TIMEOUT"
 HOOK_PID=$$
 (
   # Close FD 9 so the sleep child does not inherit the flock — otherwise a
@@ -148,8 +174,14 @@ cleanup_children() {
   fi
   kill "$WD" 2>/dev/null
 }
+report_timeout_budget() {
+  # Watchdog already printed the TIMED OUT banner. Add the breadcrumbs the
+  # agent needs to investigate without rerunning the wrapper from scratch.
+  printf 'logs: %s\n' "$LOG_DIR" >&2
+  printf 'inspect: bun run verify:logs budget\n' >&2
+}
 trap 'cleanup_children; exit 130' INT
-trap 'cleanup_children; exit 124' TERM
+trap 'cleanup_children; report_timeout_budget; exit 124' TERM
 trap 'kill "$WD" 2>/dev/null' EXIT
 
 # --- 4. Sequential runs ----------------------------------------------------
@@ -157,9 +189,10 @@ trap 'kill "$WD" 2>/dev/null' EXIT
 # halted at lint cannot mislead readers (DX3.6 verify:logs leans on these
 # files being from the most recent run only). Pre-commit does the same.
 rm -rf "$LOG_DIR"
-mkdir -p "$LOG_DIR"
+mkdir -p "$LOG_DIR" "$META_DIR"
 
 START_TS=$(date +%s)
+START_TIME=$(date -Iseconds)
 passed=""; failed=""
 
 # Run a step in a backgrounded child so traps reach it via $CURRENT_PID.
@@ -168,17 +201,31 @@ passed=""; failed=""
 run_step() {
   local name="$1"; shift
   local log="$LOG_DIR/${name}.log"
+  local step_start step_start_time step_end step_end_time exit_code command
+  command="$(musi_meta_command_string "$@")"
   printf '%s: running %s...\n' "$LABEL" "$name"
+  step_start=$(date +%s)
+  step_start_time=$(date -Iseconds)
   # Close FD 9 in the child so test workers don't hold the lock past our exit;
   # mirrors bun-run-quiet.sh's `9>&-` redirect on its wrapped child.
-  "$@" > "$log" 2>&1 9>&- &
+  env -u MUSI_VERIFY_LOCK_ALREADY_HELD "$@" > "$log" 2>&1 9>&- &
   CURRENT_PID=$!
   if wait "$CURRENT_PID"; then
+    exit_code=0
     CURRENT_PID=""
+    step_end=$(date +%s)
+    step_end_time=$(date -Iseconds)
+    musi_write_step_meta "$META_DIR/${name}.json" "$name" serial-verify \
+      "$step_start" "$step_start_time" "$step_end" "$step_end_time" "$exit_code" "$command"
     passed="$passed $name"
     return 0
   fi
+  exit_code=$?
   CURRENT_PID=""
+  step_end=$(date +%s)
+  step_end_time=$(date -Iseconds)
+  musi_write_step_meta "$META_DIR/${name}.json" "$name" serial-verify \
+    "$step_start" "$step_start_time" "$step_end" "$step_end_time" "$exit_code" "$command"
   failed="$failed $name"
   return 1
 }
@@ -193,20 +240,29 @@ run_step lint "${LINT_CMD[@]}" || overall=1
 [ "$overall" -eq 0 ] && { run_step scripts "${SCRIPTS_CMD[@]}" || overall=1; }
 
 ELAPSED=$(( $(date +%s) - START_TS ))
+END_TS=$(date +%s)
+END_TIME=$(date -Iseconds)
 
 if [ -n "$failed" ]; then
+  musi_write_wrapper_meta "$META_DIR/wrapper.json" serial-verify \
+    "$START_TS" "$START_TIME" "$END_TS" "$END_TIME" 1 "$0 ${1:-}"
+  musi_combine_run_meta "$LOG_DIR" serial-verify "$META_DIR/wrapper.json"
   printf '\n=== %s FAILED (%ds) ===\n' "$LABEL" "$ELAPSED"
   printf 'Passed:%s\n' "$passed"
   printf 'Failed:%s\n' "$failed"
   for task in $failed; do
     printf '\n--- %s (full log: %s/%s.log) ---\n' "$task" "$LOG_DIR" "$task"
-    tail -n 200 "$LOG_DIR/${task}.log" | ai_filter_known_output_noise | tail -n 30
+    ai_filtered_task_log_excerpt "$task" "$LOG_DIR/${task}.log" 30
   done
   case "$failed" in
     *lint*) printf "\nHint: try 'bun run lint:fix' to auto-fix formatting issues.\n" ;;
   esac
   exit 1
 fi
+
+musi_write_wrapper_meta "$META_DIR/wrapper.json" serial-verify \
+  "$START_TS" "$START_TIME" "$END_TS" "$END_TIME" 0 "$0 ${1:-}"
+musi_combine_run_meta "$LOG_DIR" serial-verify "$META_DIR/wrapper.json"
 
 # --- 5. Success marker (same format as pre-commit's) -----------------------
 # Atomic write per DX3.1: tmp file in the same directory then `mv -f`. A
@@ -225,6 +281,11 @@ if {
 else
   rm -f "$marker_tmp"
   printf '%s: WARN: failed to write marker %s\n' "$LABEL" "$MARKER" >&2
+fi
+
+if [ "$ELAPSED" -gt "$WARN_AFTER" ]; then
+  printf '%s: WARN: elapsed=%ds exceeds soft budget %ds (hard=%ds). Inspect: bun run verify:logs budget\n' \
+    "$LABEL" "$ELAPSED" "$WARN_AFTER" "$INTERACTIVE_TIMEOUT" >&2
 fi
 
 printf '%s: OK (%ds) —%s\n' "$LABEL" "$ELAPSED" "$passed"

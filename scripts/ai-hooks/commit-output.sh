@@ -57,7 +57,7 @@ $failed_line"
       summary="$summary
 
 --- $task (last 30 lines; full log: $log) ---
-$(tail -n 200 "$log" | ai_filter_known_output_noise | tail -n 30)"
+$(ai_filtered_task_log_excerpt "$task" "$log" 30)"
     else
       summary="$summary
 

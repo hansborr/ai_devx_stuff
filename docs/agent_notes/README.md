@@ -10,7 +10,8 @@ agent_notes/
 ├── STATUS.md
 ├── NEXT.md
 ├── LOG.md
-├── DECISIONS.md
+├── DECISIONS.md         # index for decisions-*.md domain files
+├── decisions-*.md       # optional per-domain ADR-lite entries
 ├── README.md
 ├── in_progress/
 ├── backlog/

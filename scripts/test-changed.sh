@@ -4,6 +4,9 @@
 # (detached HEAD, shallow clone, fresh repo without a tracked main).
 set -eu
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+VITEST_RUNNER="$SCRIPT_DIR/vitest.sh"
+
 BASE="main"
 if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then
   BASE="$1"
@@ -16,7 +19,7 @@ elif git rev-parse --verify "origin/$BASE" >/dev/null 2>&1; then
   REF="origin/$BASE"
 else
   echo "test:changed: neither '$BASE' nor 'origin/$BASE' exists — running full test suite." >&2
-  exec bun run vitest run --passWithNoTests "$@"
+  exec bash "$VITEST_RUNNER" run --passWithNoTests "$@"
 fi
 
 # Classification scans the same diff Vitest's `--changed` would; the working-tree
@@ -34,6 +37,25 @@ fi
 if [ "${#CHANGED_FILES[@]}" -eq 0 ]; then
   echo "test:changed: no files changed vs $REF."
   exit 0
+fi
+
+# Slow tests live in their own tier (vitest.slow.config.ts) and are excluded
+# from the default include patterns. Changed *.slow.test.* files therefore
+# never run through `bun run test:changed`; surface a hint so an agent or
+# contributor knows to invoke `test:slow` deliberately.
+SLOW_CHANGED=()
+for file in "${CHANGED_FILES[@]}"; do
+  case "$file" in
+    *.slow.test.ts|*.slow.test.tsx)
+      SLOW_CHANGED+=("$file")
+      ;;
+  esac
+done
+if [ "${#SLOW_CHANGED[@]}" -gt 0 ]; then
+  printf 'test:changed: slow tests changed; run MUSI_RUN_SLOW_TESTS=1 bun run test:slow\n' >&2
+  for file in "${SLOW_CHANGED[@]}"; do
+    printf 'test:changed:   - %s\n' "$file" >&2
+  done
 fi
 
 has_shared=0
@@ -91,7 +113,7 @@ if [ "$has_global" -eq 0 ] && [ "$has_shared" -eq 0 ]; then
 fi
 
 if [ "$full_run" -eq 1 ]; then
-  exec bun run vitest run --passWithNoTests ${PROJECT_ARGS[@]+"${PROJECT_ARGS[@]}"} "$@"
+  exec bash "$VITEST_RUNNER" run --passWithNoTests ${PROJECT_ARGS[@]+"${PROJECT_ARGS[@]}"} "$@"
 fi
 
-exec bun run vitest run --passWithNoTests ${PROJECT_ARGS[@]+"${PROJECT_ARGS[@]}"} "$@" --changed "$REF"
+exec bash "$VITEST_RUNNER" run --passWithNoTests ${PROJECT_ARGS[@]+"${PROJECT_ARGS[@]}"} "$@" --changed "$REF"

@@ -9,7 +9,7 @@ AI_POLICY_DOCKER="Do not run docker or docker-compose commands. You are in a con
 AI_POLICY_CHANGEME="Wrong database credentials. 'ThisIsNotTheRealDatabasePassword' is not the password for this environment. Read .devcontainer/.env for the correct credentials."
 AI_FLAKY_NOTE="Note: If this failure looks flaky (passes in isolation, fails under load), confirm with a focused rerun before treating it as product breakage."
 
-AI_WRAPPED_BUN_RE='^bun run (lint|lint:changed|lint:fix|typecheck|test|test:changed|test:server|test:client|test:shared|test:coverage|e2e|format|format:check|format:changed|build)( --[A-Za-z0-9._=-]+)*$'
+AI_WRAPPED_BUN_RE='^bun run (lint|lint:changed|lint:fix|typecheck|test|test:changed|test:server|test:client|test:shared|test:coverage|test:slow|e2e|format|format:check|format:changed|build|verify|verify:changed|verify:slow|verify:logs|verify:async:status|verify:async:tail|verify:async:stop)( [A-Za-z0-9._:/=-]+| --[A-Za-z0-9._=-]+)*$'
 
 ai_policy_violation_reason() {
   local cmd="$1"
@@ -69,6 +69,26 @@ ai_is_wrapped_bun_cmd() {
 
 ai_bun_script_from_cmd() {
   printf '%s' "$1" | awk '{print $3}'
+}
+
+ai_bun_script_bypasses_cache() {
+  case "$1" in
+    verify:logs|verify:async:status|verify:async:tail|verify:async:stop)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+ai_bun_cmd_bypasses_cache() {
+  ai_is_wrapped_bun_cmd "$1" || return 1
+  ai_bun_script_bypasses_cache "$(ai_bun_script_from_cmd "$1")"
+}
+
+ai_bun_cmd_bypasses_lock() {
+  ai_bun_cmd_bypasses_cache "$1"
 }
 
 ai_safe_script_name() {

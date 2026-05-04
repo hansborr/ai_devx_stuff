@@ -38,7 +38,7 @@ chmod +x "$SANDBOX/bin/runner"
 
 STUB_LOG_FILE="$SANDBOX/runner.log"
 : > "$STUB_LOG_FILE"
-ALL_SMOKE_TESTS=$'runner ran test-verify\nrunner ran test-verify-logs\nrunner ran test-worktree-db\nrunner ran test-dependency-freshness\nrunner ran test-eslint-disable-register\nrunner ran test-test-changed\nrunner ran test-generate-module-index\nrunner ran test-migration-safety-scan\nrunner ran test-test-scripts'
+ALL_SMOKE_TESTS=$'runner ran test-verify\nrunner ran test-verify-async\nrunner ran test-verify-logs\nrunner ran test-worktree-db\nrunner ran test-dependency-freshness\nrunner ran test-ai-hooks\nrunner ran test-eslint-disable-register\nrunner ran test-test-changed\nrunner ran test-test-slow\nrunner ran test-generate-module-index\nrunner ran test-migration-safety-scan\nrunner ran test-test-scripts'
 
 run_runner() {
   STUB_LOG="$STUB_LOG_FILE" \
@@ -94,9 +94,10 @@ ok "--changed is a no-op when changed list is blank"
 # --- --changed selects test-verify on scripts/verify.sh change ------------
 : > "$STUB_LOG_FILE"
 MUSI_SCRIPTS_CHANGED_FILES="scripts/verify.sh" run_runner --changed >/dev/null
-[ "$(cat "$STUB_LOG_FILE")" = "runner ran test-verify" ] \
-  || fail "verify.sh change should select only test-verify: $(cat "$STUB_LOG_FILE")"
-ok "--changed selects test-verify when scripts/verify.sh changed"
+expected=$'runner ran test-verify\nrunner ran test-verify-async'
+[ "$(cat "$STUB_LOG_FILE")" = "$expected" ] \
+  || fail "verify.sh change should select verify smokes: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects verify smokes when scripts/verify.sh changed"
 
 # --- --changed selects test-verify-logs on scripts/verify-logs.sh change --
 : > "$STUB_LOG_FILE"
@@ -126,12 +127,42 @@ MUSI_SCRIPTS_CHANGED_FILES="scripts/eslint-disable-register.sh" run_runner --cha
   || fail "eslint-disable register change should select its smoke test: $(cat "$STUB_LOG_FILE")"
 ok "--changed selects test-eslint-disable-register on diagnostics change"
 
-# --- --changed selects test-changed smoke --------------------------------
+# --- --changed selects ai-hooks smoke on shared hook changes -------------
+: > "$STUB_LOG_FILE"
+MUSI_SCRIPTS_CHANGED_FILES="scripts/ai-hooks/stop-policy.sh" run_runner --changed >/dev/null
+[ "$(cat "$STUB_LOG_FILE")" = "runner ran test-ai-hooks" ] \
+  || fail "stop-policy.sh change should select ai-hooks smoke: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects test-ai-hooks on hook policy change"
+
+: > "$STUB_LOG_FILE"
+MUSI_SCRIPTS_CHANGED_FILES="scripts/ai-hooks/process-runner.sh" run_runner --changed >/dev/null
+[ "$(cat "$STUB_LOG_FILE")" = "runner ran test-ai-hooks" ] \
+  || fail "process-runner.sh change should select ai-hooks smoke: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects test-ai-hooks on hook runner change"
+
+# --- --changed selects test-changed and test-slow smokes ------------------
+# test-test-slow exercises the slow-test hint emitted by test-changed.sh, so
+# the scripts/test-changed.sh subject is shared between both smoke tests.
 : > "$STUB_LOG_FILE"
 MUSI_SCRIPTS_CHANGED_FILES="scripts/test-changed.sh" run_runner --changed >/dev/null
-[ "$(cat "$STUB_LOG_FILE")" = "runner ran test-test-changed" ] \
-  || fail "test-changed.sh change should select test-changed smoke: $(cat "$STUB_LOG_FILE")"
-ok "--changed selects test-changed on changed-test wrapper change"
+expected=$'runner ran test-test-changed\nrunner ran test-test-slow'
+[ "$(cat "$STUB_LOG_FILE")" = "$expected" ] \
+  || fail "test-changed.sh change should select test-test-changed and test-test-slow: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects test-test-changed and test-test-slow on changed-test wrapper change"
+
+# --- --changed selects test-test-slow on test-slow.sh change --------------
+: > "$STUB_LOG_FILE"
+MUSI_SCRIPTS_CHANGED_FILES="scripts/test-slow.sh" run_runner --changed >/dev/null
+[ "$(cat "$STUB_LOG_FILE")" = "runner ran test-test-slow" ] \
+  || fail "test-slow.sh change should select test-test-slow: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects test-test-slow on slow wrapper change"
+
+# --- --changed selects test-test-slow on slow-tier vitest config change ---
+: > "$STUB_LOG_FILE"
+MUSI_SCRIPTS_CHANGED_FILES="vitest.slow.config.ts" run_runner --changed >/dev/null
+[ "$(cat "$STUB_LOG_FILE")" = "runner ran test-test-slow" ] \
+  || fail "vitest.slow.config.ts change should select test-test-slow: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects test-test-slow on vitest.slow.config.ts change"
 
 # --- --changed selects module-index smoke --------------------------------
 : > "$STUB_LOG_FILE"
@@ -164,15 +195,22 @@ ok "--changed selects test-test-scripts when scripts/test-scripts.sh changed"
 # --- --changed picks every smoke test that depends on ai-hooks/cache.sh ----
 : > "$STUB_LOG_FILE"
 MUSI_SCRIPTS_CHANGED_FILES="scripts/ai-hooks/cache.sh" run_runner --changed >/dev/null
-expected=$'runner ran test-verify\nrunner ran test-verify-logs'
+expected=$'runner ran test-verify\nrunner ran test-verify-async\nrunner ran test-verify-logs\nrunner ran test-ai-hooks'
 [ "$(cat "$STUB_LOG_FILE")" = "$expected" ] \
   || fail "cache.sh change should select tests that depend on it: $(cat "$STUB_LOG_FILE")"
 ok "--changed selects tests that share a dependency on ai-hooks/cache.sh"
 
+# --- --changed selects async verify smoke on its wrapper change -----------
+: > "$STUB_LOG_FILE"
+MUSI_SCRIPTS_CHANGED_FILES="scripts/verify-async.sh" run_runner --changed >/dev/null
+[ "$(cat "$STUB_LOG_FILE")" = "runner ran test-verify-async" ] \
+  || fail "verify-async.sh change should select test-verify-async: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects test-verify-async on async wrapper change"
+
 # --- --changed picks every smoke test that depends on output filtering ----
 : > "$STUB_LOG_FILE"
 MUSI_SCRIPTS_CHANGED_FILES="scripts/ai-hooks/output-filter.sh" run_runner --changed >/dev/null
-expected=$'runner ran test-verify\nrunner ran test-verify-logs\nrunner ran test-dependency-freshness'
+expected=$'runner ran test-verify\nrunner ran test-verify-logs\nrunner ran test-dependency-freshness\nrunner ran test-ai-hooks\nrunner ran test-test-changed\nrunner ran test-test-slow'
 [ "$(cat "$STUB_LOG_FILE")" = "$expected" ] \
   || fail "output-filter.sh change should select every dependent smoke test: $(cat "$STUB_LOG_FILE")"
 ok "--changed selects tests that share output-filter.sh"
@@ -181,7 +219,7 @@ ok "--changed selects tests that share output-filter.sh"
 : > "$STUB_LOG_FILE"
 MUSI_SCRIPTS_CHANGED_FILES=$'scripts/verify.sh\nscripts/migration-safety-scan.sh' \
   run_runner --changed >/dev/null
-expected=$'runner ran test-verify\nrunner ran test-migration-safety-scan'
+expected=$'runner ran test-verify\nrunner ran test-verify-async\nrunner ran test-migration-safety-scan'
 [ "$(cat "$STUB_LOG_FILE")" = "$expected" ] \
   || fail "multiple subject changes should select each matching smoke test: $(cat "$STUB_LOG_FILE")"
 ok "--changed selects multiple smoke tests for matching subjects"
@@ -190,7 +228,8 @@ ok "--changed selects multiple smoke tests for matching subjects"
 : > "$STUB_LOG_FILE"
 MUSI_SCRIPTS_CHANGED_FILES=$'scripts/verify.sh\nscripts/test-verify.sh' \
   run_runner --changed >/dev/null
-[ "$(cat "$STUB_LOG_FILE")" = "runner ran test-verify" ] \
+expected=$'runner ran test-verify\nrunner ran test-verify-async'
+[ "$(cat "$STUB_LOG_FILE")" = "$expected" ] \
   || fail "duplicate-subject changes should still run a smoke test only once: $(cat "$STUB_LOG_FILE")"
 ok "--changed runs a smoke test once when multiple subjects map to it"
 

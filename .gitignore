@@ -64,3 +64,8 @@ uploads/
 # Secondary worktrees (see scripts/worktree-db.sh)
 worktrees/
 .worktree-state/
+
+# Stop-hook kill switches (touch to disable checks on stop; per-checkout)
+.no-stop-uncommitted
+.no-stop-e2e
+.no-stop-async-verify
