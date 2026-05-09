@@ -8,6 +8,17 @@ Newest on top.
 
 ---
 
+## 2026-05-09 — Code Intel Recommendation And Output Polish
+
+Refreshed the code-intel daemon notes: the durable next step is a repo-owned
+custom TypeScript Language Service daemon, while the globally installed
+`typescript-language-server` remains useful only for optional `refs`
+prototypes unless added as an explicit repo dependency. The CLI now supports
+`--limit` for `dependents` / `tests`, shorter transitive dependent labels,
+candidate markers on runtime-import test matches, and subcommand help.
+
+---
+
 ## 2026-05-07 — Focused architecture lint sensors
 
 Added repo-local lint gates for three high-signal AI failure modes:

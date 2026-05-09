@@ -169,6 +169,12 @@ MUSI_SCRIPTS_CHANGED_FILES="scripts/code-intel.ts" run_runner --changed >/dev/nu
 ok "--changed selects test-code-intel on code-intel change"
 
 : > "$STUB_LOG_FILE"
+MUSI_SCRIPTS_CHANGED_FILES="scripts/code-intel/format.ts" run_runner --changed >/dev/null
+[ "$(cat "$STUB_LOG_FILE")" = "runner ran test-code-intel" ] \
+  || fail "code-intel internal change should select its smoke: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects test-code-intel on code-intel internal change"
+
+: > "$STUB_LOG_FILE"
 MUSI_SCRIPTS_CHANGED_FILES="packages/shared/package.json" run_runner --changed >/dev/null
 [ "$(cat "$STUB_LOG_FILE")" = "runner ran test-code-intel" ] \
   || fail "package export change should select code-intel smoke: $(cat "$STUB_LOG_FILE")"

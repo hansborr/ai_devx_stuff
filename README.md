@@ -33,11 +33,14 @@ The most interesting parts are probably:
   rewrites, force pushes, pushes to `main`/`master`, `gh` mutations,
   and raw shell `grep` — every block ships with a one-line repair string
   the deny message echoes back.
-- `scripts/codemods/` and `scripts/code-intel.ts` — paired with the
-  ESLint rules. When a lint says "no", the codemod fixes it; when an
-  agent needs to look up definitions/dependents/exports/nearby tests,
-  `code-intel` answers without `rg` archaeology. This is the
-  "computational guide" half of `docs/ai-harness.md`.
+- `scripts/codemods/` and `scripts/code-intel.ts` (+ extracted
+  `scripts/code-intel/` modules) — paired with the ESLint rules. When a
+  lint says "no", the codemod fixes it; when an agent needs to look up
+  definitions/dependents/exports/nearby tests, `code-intel` answers
+  without `rg` archaeology. The matching usage guide lives in
+  `docs/guides/code-intel.md`, with thin per-tool adapters in
+  `.claude/skills/code-intel/` and `.codex/skills/code-intel/`. This is
+  the "computational guide" half of `docs/ai-harness.md`.
 - `.husky/pre-commit` — runs lint/typecheck/test in parallel with a
   `flock`-protected lock, a 120s last-verified short-circuit keyed on
   `HEAD + staged-diff hash`, a 240s interactive watchdog, and Passed/Failed structured
@@ -102,8 +105,11 @@ Only the DX-shaped docs are included here:
   nudge when they turn into sprawling logs.
 - `docs/guides/` contains focused implementation recipes paired with the
   harness sensors: `add-trpc-procedure.md`, `add-socket-broadcast.md`,
-  `add-prisma-migration.md`, `add-race-sensitive-mutation.md`, and
-  `add-client-feature-module-cache-socket.md`.
+  `add-prisma-migration.md`, `add-race-sensitive-mutation.md`,
+  `add-client-feature-module-cache-socket.md`, and
+  `code-intel.md` (the harness-neutral usage guide for the
+  `bun run code:intel` lookups, paired with the `.claude/skills` and
+  `.codex/skills` adapters).
 - `docs/module-docs.md` is the charter for local `MODULE.md` orientation
   files and pairs with `scripts/generate-module-index.sh`.
 
@@ -118,19 +124,22 @@ Claude Code (CLI) configuration. Real layout:
 ```
 .claude/
 ├── settings.json           # hook registrations, env vars, plugin gates
-└── hooks/
-    ├── no-direct-db.sh         # PreToolUse Bash → block psql/redis-cli/docker/HUSKY=0
-    ├── git-commit-quiet.sh     # PreToolUse Bash → wrap `git commit` for compact output
-    ├── bun-run-quiet.sh        # PreToolUse Bash → wrap `bun run lint/typecheck/test/...`
-    ├── protected-files.sh      # PreToolUse Edit/Write → advisory on hot files
-    ├── prisma-generate.sh      # PostToolUse Edit/Write → regenerate Prisma client on schema edit
-    ├── doc-length.sh           # PostToolUse Edit/Write → advisory on hot-doc bloat
-    └── stop-reminder.sh        # Stop → cheap/read-only uncommitted + cached status reminders
+├── hooks/
+│   ├── no-direct-db.sh         # PreToolUse Bash → block psql/redis-cli/docker/HUSKY=0
+│   ├── git-commit-quiet.sh     # PreToolUse Bash → wrap `git commit` for compact output
+│   ├── bun-run-quiet.sh        # PreToolUse Bash → wrap `bun run lint/typecheck/test/...`
+│   ├── protected-files.sh      # PreToolUse Edit/Write → advisory on hot files
+│   ├── prisma-generate.sh      # PostToolUse Edit/Write → regenerate Prisma client on schema edit
+│   ├── doc-length.sh           # PostToolUse Edit/Write → advisory on hot-doc bloat
+│   └── stop-reminder.sh        # Stop → cheap/read-only uncommitted + cached status reminders
+└── skills/
+    └── code-intel/SKILL.md     # Claude-shaped front door for the code-intel CLI
 ```
 
 `settings.local.json` is intentionally **not** in this dump — it holds
 per-developer permission allowlists. Likewise `.claude/worktrees/`,
-which is a generated working-copy directory.
+which is a generated working-copy directory. Product-specific skills
+(e.g. the source repo's `playwright-cli` skill) are also omitted.
 
 `bun-run-quiet.sh` is the headline hook. It:
 
@@ -170,6 +179,11 @@ helpers as Claude — the only difference is shape, because Codex hooks
 fire pre and post (Claude's PreToolUse can rewrite or deny in one call,
 Codex needs a two-phase dance). Codex PreToolUse/PostToolUse are capped at 60s;
 Stop is capped at 30s.
+
+`.codex/skills/code-intel/` is the Codex-shaped sibling of the Claude
+skill: a short `SKILL.md` plus an `agents/openai.yaml` so Codex can
+discover the same `bun run code:intel` entry point through its own
+skill loader.
 
 ## `.husky/`
 
@@ -344,11 +358,18 @@ Shared library sourced by both Claude and Codex hooks:
 
 ### Code intel and codemods
 
-- `code-intel.ts` — repo-aware lookup over the TypeScript project graph:
-  definitions, dependents, exports, and nearby tests for a symbol or
-  file. Replaces the noisy `rg` archaeology pattern with a deterministic
-  query an agent can call directly. `code-intel.test.ts` covers the
-  query surface; `test-code-intel.sh` is the bash smoke wrapper.
+- `code-intel.ts` + `code-intel/` — repo-aware lookup over the
+  TypeScript project graph: definitions, dependents, exports, and nearby
+  tests for a symbol or file. Replaces the noisy `rg` archaeology
+  pattern with a deterministic query an agent can call directly.
+  `code-intel.ts` is now a thin CLI entry point; the query, formatter,
+  workspace-resolver, import-graph, and source-project internals live
+  under `scripts/code-intel/` so each module stays small and lintable
+  via the dedicated `tsconfig.scripts.json`. `code-intel.test.ts`
+  covers the query surface; `test-code-intel.sh` is the bash smoke
+  wrapper. The shared usage guide is `docs/guides/code-intel.md`, with
+  per-tool front doors at `.claude/skills/code-intel/` and
+  `.codex/skills/code-intel/`.
 - `codemods/` — TypeScript-AST codemods with `--check` and `--all`
   modes, paired with an ESLint rule each. The headline pattern is
   "lint says no, codemod fixes it":

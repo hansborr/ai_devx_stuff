@@ -65,13 +65,14 @@ bun run lint[:fix|:changed]
 bun run typecheck[:watch]
 bun run format[:changed|:check]
 
+# Code intel (read-only graph queries + exact-name definitions; see docs/guides/code-intel.md)
+# Codex skill source: .codex/skills/code-intel/SKILL.md
+bun run code:intel -- {def|exports|dependents|tests} ...
+
 # Verify (lint + typecheck + test umbrella)
 bun run verify           # full lint, typecheck, test
 bun run verify:changed   # lint:changed, typecheck, test:changed
 bun run verify:slow      # verify + test:slow (deliberate, kept out of hooks)
-bun run verify:async     # start detached full verify; inspect with verify:async:status/tail
-bun run verify:async:changed
-bun run verify:async:slow
 bun run verify:logs [lint|typecheck|test|e2e] [--full]  # inspect cached logs
 
 # DB
@@ -82,7 +83,7 @@ bun run db:migration-safety   # warn-only Prisma migration scanner
 bun run worktree:{new,init,drop,gc,status,template-refresh,refresh-data}
 ```
 
-Checking your work: pre-commit runs `lint:changed`, `typecheck`, and `test:changed` in parallel and caches results. For manual verification, prefer `bun run verify:changed` (or `bun run verify` for the full suite); the wrapper runs the same primitives sequentially, reuses the pre-commit lock/log/cache, and short-circuits on an unchanged worktree. Use `verify:async*` for long confidence checks that should not spend the interactive tool-call budget. The primitive commands stay available for focused iteration. Agent hook adapters may replay cached results on unchanged worktrees. Use `FORCE_VERIFY=1` only when you actually need to rerun. Never bypass hooks.
+Checking your work: pre-commit runs `lint:changed`, `typecheck`, and `test:changed` in parallel and caches results. For manual verification, prefer `bun run verify:changed` (or `bun run verify` for the full suite); the wrapper runs the same primitives sequentially, reuses the pre-commit lock/log/cache, and short-circuits on an unchanged worktree. The primitive commands stay available for focused iteration. Agent hook adapters may replay cached results on unchanged worktrees. Use `FORCE_VERIFY=1` only when you actually need to rerun. Never bypass hooks.
 
 ## Working Model
 
@@ -111,6 +112,10 @@ Checking your work: pre-commit runs `lint:changed`, `typecheck`, and `test:chang
 - Write tests first.
 - Before calling work done, verify the user flow across shared -> server -> client.
 - Own failing tests until you prove otherwise.
+- Codex is explicitly allowed to use subagents when useful for bounded
+  exploration, verification, disjoint implementation work, or reviewing its
+  own changes before handoff; keep delegated tasks concrete and avoid
+  overlapping edits.
 - For non-trivial work, create `docs/agent_notes/in_progress/<task>.md`; when it lands, keep only durable details in `LOG.md`, `DECISIONS.md`, or a small `finished_work/` note, and refresh `STATUS.md` / `NEXT.md` if the snapshot changed.
 - If you commit, do not push to `main`; use `feature/...` or `fix/...` branches and conventional commits.
 
@@ -134,7 +139,10 @@ When making 5e/5.5e rules claims, verify against `docs/SRD_CC_v5.2.1.pdf`. Canon
   comment, merge, edit, delete, publish, run, or authenticate through `gh`.
 - Agent hooks block raw shell `grep`, including common pipe, `find -exec`, and
   `xargs` forms. Use Claude `Grep` when available; otherwise use `rg`,
-  `rg --files`, or `git grep`.
+  `rg --files`, or `git grep`. For cross-file symbol definitions, dependents,
+  or covering tests, prefer `bun run code:intel -- {def|exports|dependents|tests}`
+  over text search — it follows package and `@/*` alias imports that `rg`
+  cannot. Full reference and patterns live in `docs/guides/code-intel.md`.
 - If `worktree:status` or `doctor` reports SRD seed drift in a secondary
   worktree, run `bun run worktree:refresh-data` to re-apply the SRD seed
   in place (preserves user-created dev rows; the seed upserts and does not

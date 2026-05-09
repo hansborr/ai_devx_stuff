@@ -81,7 +81,7 @@ Retry with run_in_background: false."
   exit 0
 fi
 
-# Stateful verify viewers/controllers are still recognized by this hook so
+# Live-output/cache-bypass commands are still recognized by this hook so
 # package-subdirectory invocations get rewritten to the repo root, but their
 # output must remain live and uncached.
 if ai_bun_cmd_bypasses_lock "$CMD"; then

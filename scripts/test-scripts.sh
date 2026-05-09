@@ -75,7 +75,7 @@ declare -A SMOKE_SUBJECTS=(
   [test-codemod-structured-logging-fix]="scripts/codemods/structured-logging-fix.ts scripts/codemods/lib/trpc-shared-schema.ts scripts/test-codemod-structured-logging-fix.sh package.json tsconfig.scripts.json"
   [test-codemod-trpc-shared-input]="scripts/codemods/trpc-shared-input.ts scripts/codemods/lib/trpc-shared-schema.ts scripts/test-codemod-trpc-shared-input.sh package.json tsconfig.scripts.json"
   [test-codemod-trpc-shared-output]="scripts/codemods/trpc-shared-output.ts scripts/codemods/lib/trpc-shared-schema.ts scripts/test-codemod-trpc-shared-output.sh package.json tsconfig.scripts.json"
-  [test-code-intel]="scripts/code-intel.ts scripts/code-intel.test.ts scripts/test-code-intel.sh scripts/vitest.config.ts package.json tsconfig.scripts.json packages/shared/package.json packages/server/package.json packages/client/tsconfig.json"
+  [test-code-intel]="scripts/code-intel.ts scripts/code-intel/ scripts/code-intel.test.ts scripts/test-code-intel.sh scripts/vitest.config.ts package.json tsconfig.scripts.json packages/shared/package.json packages/server/package.json packages/client/tsconfig.json"
   [test-lint-changed]="scripts/lint-changed.sh scripts/test-lint-changed.sh"
   [test-test-changed]="scripts/test-changed.sh scripts/vitest.sh scripts/ai-hooks/output-filter.sh scripts/test-test-changed.sh"
   [test-test-slow]="scripts/test-slow.sh scripts/test-changed.sh scripts/vitest.sh scripts/ai-hooks/output-filter.sh vitest.slow.config.ts packages/shared/vitest.config.ts packages/server/vitest.config.ts packages/client/vitest.config.ts packages/shared/src/test-tier-sentinel.test.ts packages/shared/src/test-tier-sentinel.slow.test.ts scripts/test-test-slow.sh"
@@ -110,6 +110,22 @@ read_changed_files() {
   fi
 }
 
+matches_smoke_subject() {
+  local changed_file="$1"
+  local subject="$2"
+  if [ "$changed_file" = "$subject" ]; then
+    return 0
+  fi
+  case "$subject" in
+    */)
+      case "$changed_file" in
+        "$subject"*) return 0 ;;
+      esac
+      ;;
+  esac
+  return 1
+}
+
 select_smoke_tests() {
   if [ "$CHANGED" -eq 0 ]; then
     printf '%s\n' "${SMOKE_NAMES[@]}"
@@ -133,7 +149,7 @@ select_smoke_tests() {
     subjects="${SMOKE_SUBJECTS[$name]}"
     for f in "${changed[@]}"; do
       for subject in $subjects; do
-        if [ "$f" = "$subject" ]; then
+        if matches_smoke_subject "$f" "$subject"; then
           printf '%s\n' "$name"
           continue 3
         fi

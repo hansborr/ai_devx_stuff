@@ -30,11 +30,12 @@ Thumbs.db
 *.swp
 *.swo
 
-# Claude Code — track shared settings and hooks; ignore everything else
-# (settings.local.json, skills/, worktrees/, scheduled state, etc.)
+# Claude Code — track shared settings, hooks, and skills; ignore everything
+# else (settings.local.json, worktrees/, scheduled state, etc.)
 .claude/*
 !.claude/settings.json
 !.claude/hooks/
+!.claude/skills/
 
 # SRD reference repos (local only, not committed)
 docs/refs/

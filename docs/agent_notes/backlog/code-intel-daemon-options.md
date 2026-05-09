@@ -1,9 +1,9 @@
 # Code Intel Daemon Options
 
-Status: Parked, conditional daemon/cache design. The one-shot `code:intel` CLI
-has landed; use this note only if repeated lookup latency justifies another
-adapter.
-Date: 2026-05-07
+Status: Parked daemon design with a preferred direction. The one-shot
+`code:intel` CLI has landed; measured repeated lookup latency now justifies
+planning the next adapter when this workstream is promoted.
+Date: 2026-05-07; recommendation refreshed 2026-05-09
 
 This note compares implementation options for future daemon, cache, LSP, or MCP
 adapters behind `bun run code:intel --`. The goal is to make code navigation
@@ -24,6 +24,30 @@ resolution matters:
 The current `code:intel` CLI provides a small interface over semantic and
 repo-graph queries. Future adapters should preserve that CLI seam while
 improving repeated lookup speed or adding symbol operations such as `refs`.
+
+## Current Recommendation
+
+Promote Option 2 first: a repo-owned custom daemon using the TypeScript
+Language Service for symbol operations and Musi-owned graph modules for
+dependents and nearby tests.
+
+Claude Code currently has `typescript-language-server` installed globally, and
+that makes an LSP-backed `refs` prototype cheaper. It does not change the
+durable recommendation unless Musi adds `typescript-language-server` as an
+explicit dev dependency. The repo already owns TypeScript/`tsserver`, while
+the globally installed LSP server is an agent-runtime detail. LSP also does
+not answer the repo-specific graph/test questions that make `code:intel`
+valuable.
+
+Practical sequencing:
+
+1. Keep `bun run code:intel -- ...` as the stable public seam.
+2. Use Option 2 for the durable daemon core when latency work resumes.
+3. Optionally prototype `refs` against the existing LSP server to validate the
+   desired output shape, but do not make that global binary a hidden
+   dependency.
+4. Add MCP or LSP adapters later over the same core only after CLI behavior is
+   stable.
 
 ## Design Constraints
 
@@ -47,7 +71,7 @@ Commands should stay boring and scriptable:
 bun run code:intel -- def packages/server/src/routers/character.ts:42:18
 bun run code:intel -- exports packages/shared/src/rules/character-rules.ts
 bun run code:intel -- dependents packages/shared/src/schemas/character.ts --depth 2
-bun run code:intel -- tests packages/server/src/services/level-up.ts
+bun run code:intel -- tests packages/server/src/services/level-up/level-up.ts --direct
 ```
 
 Human output should stay compact:
@@ -187,9 +211,9 @@ Best fit:
 The `code:intel` CLI could become a small LSP client.
 
 Environment note: Claude Code currently has `typescript-language-server`
-available, but Codex does not. Treat LSP as an optional adapter unless the repo
-adds an explicit dev dependency and script wiring. The stable repo interface
-should not assume a tool that only one agent runtime provides.
+available globally. Treat LSP as an optional adapter unless the repo adds an
+explicit dev dependency and script wiring. The stable repo interface should not
+assume a tool that only one agent runtime provides.
 
 Useful for:
 
@@ -310,11 +334,16 @@ The one-shot `ts-morph` CLI has landed, with the command interface designed so
 its implementation can later move behind a daemon. Let real use and latency
 measurements decide whether that next step is worth the extra lifecycle code.
 
-If the CLI is useful but slow, promote the core into a custom daemon using the
-TypeScript language service for symbol queries and Musi-owned graph modules for
-dependents and nearby tests. Keep `tsserver` and LSP as possible adapters, not
-the default first daemon, because they solve editor-shaped symbol operations
-but not the repo-specific graph and test questions that make this tool valuable.
+The CLI is useful and repeated lookup latency is now measured at roughly
+2-4 seconds per cold invocation. When this workstream resumes, promote the core
+into a custom daemon using the TypeScript Language Service for symbol queries
+and Musi-owned graph modules for dependents and nearby tests.
+
+Keep `tsserver` and LSP as possible adapters, not the default first daemon,
+because they solve editor-shaped symbol operations but not the repo-specific
+graph and test questions that make this tool valuable. The globally installed
+`typescript-language-server` in Claude Code is useful for a `refs` prototype
+only; relying on it durably would require making it a repo-owned dependency.
 
 ## Review Questions
 

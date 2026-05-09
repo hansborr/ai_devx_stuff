@@ -17,7 +17,7 @@ AI_POLICY_GIT_BRANCH_FORCE_DELETE="Force-deleting branches, deleting tags, or fo
 AI_POLICY_GIT_CLEAN_FORCE="Git clean with force is not allowed from agents because it destroys untracked files. Remove specific generated files by name or ask the user to clean the tree."
 AI_POLICY_GH_REMOTE_MUTATION="GitHub remote mutations are not allowed from agents. Use read-only 'gh ... view/list/status' commands, or ask the user to perform the mutation."
 AI_POLICY_GH_AUTH="GitHub auth token output and auth reconfiguration are not allowed from agents. Use 'gh auth status' for read-only auth checks, or ask the user to manage authentication."
-AI_POLICY_GREP="Raw grep from shell commands is not allowed because it pollutes context. Use Claude 'Grep' when available; otherwise use 'rg', 'rg --files', or 'git grep'."
+AI_POLICY_GREP="Raw grep from shell commands is not allowed because it pollutes context. Use Claude 'Grep' when available; otherwise use 'rg', 'rg --files', or 'git grep'. For cross-file symbol definitions, dependents, or covering tests, prefer 'bun run code:intel -- {def|exports|dependents|tests}' over text search."
 AI_FLAKY_NOTE="Note: If this failure looks flaky (passes in isolation, fails under load), confirm with a focused rerun before treating it as product breakage."
 
 AI_WRAPPED_BUN_RE='^bun run (lint|lint:changed|lint:fix|typecheck|test|test:changed|test:server|test:client|test:shared|test:coverage|test:slow|e2e|format|format:check|format:changed|build|code:intel|verify|verify:changed|verify:slow|verify:logs|verify:async:status|verify:async:tail|verify:async:stop)( --| [A-Za-z0-9._:/=-]+| --[A-Za-z0-9._=-]+)*$'
@@ -262,7 +262,7 @@ ai_bun_script_from_cmd() {
 
 ai_bun_script_bypasses_cache() {
   case "$1" in
-    verify:logs|verify:async:status|verify:async:tail|verify:async:stop)
+    code:intel|verify:logs|verify:async:status|verify:async:tail|verify:async:stop)
       return 0
       ;;
     *)

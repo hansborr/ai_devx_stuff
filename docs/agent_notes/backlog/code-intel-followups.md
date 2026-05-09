@@ -14,8 +14,8 @@ landed.
 
 - Add `refs` only after `def` / `dependents` / `tests` have enough real-world
   mileage to justify the symbol-identity work.
-- Add JSON output only when a hook, dashboard, MCP adapter, or other concrete
-  consumer exists.
+- Add or support JSON consumers only when a hook, dashboard, MCP adapter, or
+  other concrete reader exists. The CLI already supports `--format json`.
 - Add caching, a daemon, or a persistent file index only if repeated lookup
   latency becomes visible friction. Use `code-intel-daemon-options.md` for the
   implementation tradeoffs.

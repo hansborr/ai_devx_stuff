@@ -4,6 +4,11 @@
     "composite": false,
     "noEmit": true
   },
-  "include": ["scripts/codemods/**/*.ts", "scripts/code-intel.ts", "scripts/code-intel.test.ts"],
+  "include": [
+    "scripts/codemods/**/*.ts",
+    "scripts/code-intel.ts",
+    "scripts/code-intel/**/*.ts",
+    "scripts/code-intel.test.ts"
+  ],
   "exclude": ["scripts/codemods/fixtures/**"]
 }

@@ -48,7 +48,7 @@ Useful manual checks:
 bun run code:intel -- exports packages/shared/src/schemas/character.ts
 bun run code:intel -- dependents packages/shared/src/schemas/character.ts --depth 2
 bun run code:intel -- def packages/server/src/routers/character.ts:12:3
-bun run code:intel -- tests packages/server/src/services/level-up.ts
+bun run code:intel -- tests packages/server/src/services/level-up/level-up.ts --direct
 ```
 
 ## Review Findings

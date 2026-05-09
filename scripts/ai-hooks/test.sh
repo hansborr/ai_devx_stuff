@@ -267,6 +267,11 @@ assert_policy_blocks_each "$AI_POLICY_GIT_PUSH_MAIN" \
   "echo ok && git push origin main" \
   "bash -lc 'git push origin main'" \
   "env FOO=bar git push origin main"
+assert_policy_allows_each \
+  "git push origin HEAD" \
+  "git push --set-upstream origin feat/foo" \
+  "git push origin feat/foo"
+
 MAIN_BRANCH_REPO="$TMP_ROOT/main-branch-repo"
 FEATURE_BRANCH_REPO="$TMP_ROOT/feature-branch-repo"
 git init -q "$MAIN_BRANCH_REPO"
@@ -275,9 +280,6 @@ git init -q "$FEATURE_BRANCH_REPO"
 git -C "$FEATURE_BRANCH_REPO" symbolic-ref HEAD refs/heads/feat/policy
 assert_policy_blocks_in_dir "$MAIN_BRANCH_REPO" "git push" "$AI_POLICY_GIT_PUSH_MAIN"
 assert_policy_blocks_in_dir "$MAIN_BRANCH_REPO" "git push origin" "$AI_POLICY_GIT_PUSH_MAIN"
-assert_policy_allows_in_dir "$FEATURE_BRANCH_REPO" "git push origin HEAD"
-assert_policy_allows_in_dir "$FEATURE_BRANCH_REPO" "git push --set-upstream origin feat/foo"
-assert_policy_allows_in_dir "$FEATURE_BRANCH_REPO" "git push origin feat/foo"
 assert_policy_allows_in_dir "$FEATURE_BRANCH_REPO" "git push"
 
 assert_policy_blocks_each "$AI_POLICY_GIT_BRANCH_FORCE_DELETE" \
@@ -490,10 +492,12 @@ assert_wrapped_bun "bun run verify:async:tail"
 assert_wrapped_bun "bun run verify:async:stop"
 
 assert_cache_bypass_bun "bun run verify:logs budget"
+assert_cache_bypass_bun "bun run code:intel -- exports packages/shared/src/constants.ts"
 assert_cache_bypass_bun "bun run verify:async:status"
 assert_cache_bypass_bun "bun run verify:async:tail"
 assert_cache_bypass_bun "bun run verify:async:stop"
 assert_lock_bypass_bun "bun run verify:logs budget"
+assert_lock_bypass_bun "bun run code:intel -- exports packages/shared/src/constants.ts"
 assert_lock_bypass_bun "bun run verify:async:status"
 assert_lock_bypass_bun "bun run verify:async:tail"
 assert_lock_bypass_bun "bun run verify:async:stop"
@@ -549,7 +553,7 @@ assert_response_combined_exit \
   "completed text" \
   ""
 
-assert_claude_stateful_verify_rewrites_to_repo_root() {
+assert_claude_cache_bypass_rewrites_to_repo_root() {
   local cmd="$1"
   local script_safe="$2"
   local shim_dir="$TMP_ROOT/bun-shim-$script_safe"
@@ -585,7 +589,7 @@ BUN_SHIM
   assert_contains "$record_out" "ARGS=run ${cmd#bun run }"
 }
 
-assert_stateful_verify_bypasses_cached_marker() {
+assert_bun_cache_bypass_preserves_cached_marker() {
   local cmd="$1"
   local script_safe="$2"
   local marker="$AI_BUN_LOG_DIR/last.$script_safe"
@@ -605,25 +609,25 @@ assert_stateful_verify_bypasses_cached_marker() {
     rewritten=$(printf '%s' "$claude_out" | jq -r '.hookSpecificOutput.updatedInput.command // empty')
     printf -v expected 'cd %q && %s' "$REPO_ROOT" "$cmd"
     [ "$rewritten" = "$expected" ] \
-      || fail "Claude bun hook replayed cache or failed repo-root rewrite for [$cmd] on attempt $attempt: $claude_out"
+      || fail "Claude bun hook replayed cache or failed repo-root rewrite for cache-bypass command [$cmd] on attempt $attempt: $claude_out"
 
     codex_out=$(
-      printf '{"tool_use_id":"stateful-%s-%s","tool_input":{"command":"%s"}}' "$script_safe" "$attempt" "$cmd" \
+      printf '{"tool_use_id":"cache-bypass-%s-%s","tool_input":{"command":"%s"}}' "$script_safe" "$attempt" "$cmd" \
         | AI_STATE_ROOT="$AI_STATE_ROOT" AI_BUN_LOG_DIR="$AI_BUN_LOG_DIR" bash "$REPO_ROOT/.codex/hooks/pre-tool-use.sh"
     )
     [ "$codex_out" = '{"continue":true}' ] \
-      || fail "Codex pre hook replayed or blocked cached stateful command [$cmd] on attempt $attempt: $codex_out"
+      || fail "Codex pre hook replayed or blocked cached cache-bypass command [$cmd] on attempt $attempt: $codex_out"
 
     codex_post_out=$(
-      printf '{"tool_use_id":"stateful-%s-%s","tool_input":{"command":"%s"},"tool_response":{"exit_code":0,"stdout":"fresh stateful output"}}' "$script_safe" "$attempt" "$cmd" \
+      printf '{"tool_use_id":"cache-bypass-%s-%s","tool_input":{"command":"%s"},"tool_response":{"exit_code":0,"stdout":"fresh cache-bypass output"}}' "$script_safe" "$attempt" "$cmd" \
         | AI_STATE_ROOT="$AI_STATE_ROOT" AI_BUN_LOG_DIR="$AI_BUN_LOG_DIR" bash "$REPO_ROOT/.codex/hooks/post-tool-use.sh"
     )
     [ "$codex_post_out" = '{"continue":true}' ] \
-      || fail "Codex post hook summarized or cached stateful command [$cmd] on attempt $attempt: $codex_post_out"
+      || fail "Codex post hook summarized or cached cache-bypass command [$cmd] on attempt $attempt: $codex_post_out"
     [ "$(cat "$marker")" = "$marker_before" ] \
-      || fail "Codex post hook rewrote cache marker for stateful command [$cmd]"
+      || fail "Codex post hook rewrote cache marker for cache-bypass command [$cmd]"
     [ "$(cat "$log")" = "stale success marker fixture" ] \
-      || fail "Codex post hook rewrote log for stateful command [$cmd]"
+      || fail "Codex post hook rewrote log for cache-bypass command [$cmd]"
   done
 }
 
@@ -706,10 +710,12 @@ assert_codex_bun_post_failure_keeps_bounded_block() {
   [ "$AI_MARKER_LAST_EXIT" = "1" ] || fail "failure marker should record exit 1"
 }
 
-assert_claude_stateful_verify_rewrites_to_repo_root "bun run verify:logs budget" "verify_logs"
-assert_claude_stateful_verify_rewrites_to_repo_root "bun run verify:async:status" "verify_async_status"
-assert_stateful_verify_bypasses_cached_marker "bun run verify:async:status" "verify_async_status"
-assert_stateful_verify_bypasses_cached_marker "bun run verify:async:stop" "verify_async_stop"
+assert_claude_cache_bypass_rewrites_to_repo_root "bun run verify:logs budget" "verify_logs"
+assert_claude_cache_bypass_rewrites_to_repo_root "bun run verify:async:status" "verify_async_status"
+assert_claude_cache_bypass_rewrites_to_repo_root "bun run code:intel -- exports packages/shared/src/constants.ts" "code_intel"
+assert_bun_cache_bypass_preserves_cached_marker "bun run verify:async:status" "verify_async_status"
+assert_bun_cache_bypass_preserves_cached_marker "bun run verify:async:stop" "verify_async_stop"
+assert_bun_cache_bypass_preserves_cached_marker "bun run code:intel -- exports packages/shared/src/constants.ts" "code_intel"
 assert_codex_bun_post_success_is_non_blocking
 assert_codex_bun_post_failure_keeps_bounded_block
 

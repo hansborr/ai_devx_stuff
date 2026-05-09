@@ -51,7 +51,9 @@ export default tseslint.config(
       ".claude/worktrees/",
       ".playwright-cli/",
       "tmp/",
-      "scripts/",
+      "scripts/**/*",
+      "!scripts/code-intel/",
+      "!scripts/code-intel/**/*.ts",
       "worktrees/",
       "eslint-rules/",
     ],
@@ -515,6 +517,19 @@ export default tseslint.config(
           message: "packages/shared must stay runtime-neutral; move browser code to packages/client.",
         },
       ],
+    },
+  },
+
+  // Code-intel internals are the first linted scripts/ modules. They live
+  // outside package tsconfigs, so point ESLint at the scripts project.
+  {
+    files: ["scripts/code-intel/**/*.ts"],
+    languageOptions: {
+      parserOptions: {
+        projectService: false,
+        project: "./tsconfig.scripts.json",
+        tsconfigRootDir: import.meta.dirname,
+      },
     },
   },
 

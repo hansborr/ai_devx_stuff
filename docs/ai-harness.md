@@ -48,7 +48,7 @@ Only promote a sensor to a gate after it has low noise and clear repair text.
 | `bun run codemod:structured-logging-fix -- --check` / `-- [--dry-run] <file>` / `-- --all` | Maintainability, architecture fitness | Computational | Agents guessing safe structured log rewrites or leaving seed scripts on direct console output | Manual, before edit | `local/structured-logging` |
 | `bun run codemod:concurrency-guard -- --check` / `--all` / `<file>` | Architecture fitness, behavior | Computational | Agents bypassing existing race-sensitive helper boundaries or drifting helper internals; name-based only, so aliases/destructuring still need review | Manual, after concurrency-sensitive edits | Restricted Prisma delegate types, `RawTxClient` lint |
 | Future codemods in `scripts/codemods/` | Maintainability, architecture fitness | Computational | Agents hand-editing known migration shapes | Manual, before edit | Matching lint with repair command |
-| `bun run code:intel -- ...` | Maintainability, architecture fitness | Computational | Noisy `rg` archaeology for definitions, dependents, exports, and nearby tests | Manual, during exploration | Future graph/drift sensors |
+| `bun run code:intel -- ...` (`docs/guides/code-intel.md`, Codex `.codex/skills/code-intel`, Claude `.claude/skills/code-intel`) | Maintainability, architecture fitness | Computational | Noisy `rg` archaeology for definitions, dependents, exports, and nearby tests | Manual, during exploration | Future graph/drift sensors |
 
 ## Sensors
 
