@@ -51,7 +51,7 @@ BEGIN
       AND m."spellcasting"->'atWill' IS NOT NULL
     ON CONFLICT ("monster_id", "name") DO NOTHING;
 
-    -- Step 6: Backfill daily spells
+    -- Step 6: Backfill daily spells (key "1" -> "1/day", key "2" -> "2/day")
     INSERT INTO "monster_spells" ("id", "monster_id", "name", "frequency")
     SELECT gen_random_uuid()::text, m."id", spell_name,
            CASE freq_key WHEN '1' THEN '1/day' WHEN '2' THEN '2/day' ELSE freq_key || '/day' END

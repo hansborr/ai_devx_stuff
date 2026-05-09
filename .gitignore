@@ -30,12 +30,22 @@ Thumbs.db
 *.swp
 *.swo
 
-# Claude Code — track shared settings, hooks, and skills; ignore everything
-# else (settings.local.json, worktrees/, scheduled state, etc.)
+# Claude Code — track shared settings, hooks, and shared skills; ignore
+# everything else (settings.local.json, personal skills, worktrees/,
+# scheduled state, etc.). Shared skills live under .claude/skills/<name>/
+# and must be opted in individually below.
 .claude/*
 !.claude/settings.json
 !.claude/hooks/
 !.claude/skills/
+.claude/skills/*
+!.claude/skills/code-intel/
+
+# Codex — track shared skills opted in below; keep personal repo-local skills
+# out of git.
+.codex/skills/*
+!.codex/skills/code-intel/
+!.codex/skills/code-intel/**
 
 # SRD reference repos (local only, not committed)
 docs/refs/

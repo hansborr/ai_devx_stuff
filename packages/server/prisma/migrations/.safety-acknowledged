@@ -1,10 +1,12 @@
-# Migration safety scanner - acknowledged intentional-risk migrations.
+# Migration safety scanner — acknowledged intentional-risk migrations.
 #
-# `bun run db:migration-safety` scans `migration.sql` files for destructive
-# operations (DROP TABLE, DROP COLUMN, ALTER COLUMN ... TYPE, ADD COLUMN ...
-# NOT NULL without DEFAULT). Migrations listed here have been reviewed and
-# intentionally accepted, so the scanner emits an `INFO:` (acknowledged) line
-# instead of `WARN:`.
+# `bun run db:migration-safety` scans `migration.sql` files for
+# destructive operations (DROP TABLE, DROP COLUMN, ALTER COLUMN ... TYPE,
+# ADD COLUMN ... NOT NULL without DEFAULT). Migrations listed here have
+# been reviewed and intentionally accepted, so the scanner emits an `INFO:`
+# (acknowledged) line instead of `WARN:` for those findings — `doctor` then
+# stays quiet about already-reviewed history while still surfacing new
+# destructive operations loudly.
 #
 # Format
 #   <migration_dir_name>  <freeform reason>
@@ -13,8 +15,17 @@
 #   - One acknowledged migration per non-blank, non-comment line.
 #   - Lines starting with `#` and blank lines are ignored.
 #   - The migration name is the directory name under
-#     `packages/server/prisma/migrations/`.
-#   - Reason text after the first whitespace is shown alongside the INFO line.
+#     `packages/server/prisma/migrations/` (e.g.
+#     `20260408223838_convert_string_fields_to_enums`).
+#   - Reason text after the first whitespace is shown alongside the INFO
+#     line. Keep it short and specific (what was reviewed, why it's safe to
+#     apply once).
+#
+# Adding an entry is a deliberate review signal. Only acknowledge a
+# migration after confirming the destructive operation has the dependent
+# code/data changes it needs (backfill landed, dependent reads removed,
+# downtime/coordination plan agreed). New destructive migrations should be
+# reviewed and acknowledged at PR time, not silently after the fact.
 
 20260408223838_convert_string_fields_to_enums  Reviewed: ALTER COLUMN ... TYPE narrowings of spells/equipment/magic-items text columns to enums; USING cast covers existing rows.
 20260409120000_add_monster_spells_table  Reviewed: DROP COLUMN monsters.spellcasting after backfill into monster_spells in the same migration.

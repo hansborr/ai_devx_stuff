@@ -16,20 +16,25 @@ CREATE TYPE "magic_item_category" AS ENUM ('armor', 'weapon', 'potion', 'ring', 
 -- CreateEnum
 CREATE TYPE "magic_item_rarity" AS ENUM ('common', 'uncommon', 'rare', 'very_rare', 'legendary', 'artifact', 'varies');
 
--- AlterTable: spells - convert string columns to enums with USING cast
+-- AlterTable: spells — convert string columns to enums with USING cast
 ALTER TABLE "spells"
   ALTER COLUMN "school" TYPE "spell_school" USING "school"::"spell_school",
   ALTER COLUMN "attack_type" TYPE "spell_attack_type" USING "attack_type"::"spell_attack_type",
   ALTER COLUMN "saving_throw" TYPE "ability_abbreviation" USING "saving_throw"::"ability_abbreviation";
 
--- AlterTable: equipment - convert category to enum
+-- AlterTable: equipment — convert category to enum
 ALTER TABLE "equipment"
   ALTER COLUMN "category" TYPE "equipment_category" USING "category"::"equipment_category";
 
--- AlterTable: magic_items - convert category and rarity to enums
+-- AlterTable: magic_items — convert category and rarity to enums
 ALTER TABLE "magic_items"
   ALTER COLUMN "category" TYPE "magic_item_category" USING "category"::"magic_item_category",
   ALTER COLUMN "rarity" TYPE "magic_item_rarity" USING "rarity"::"magic_item_rarity";
 
 -- Note: equipment_category_idx, magic_items_category_idx, and
--- magic_items_rarity_idx all pre-exist from earlier migrations.
+-- magic_items_rarity_idx all pre-exist from earlier migrations
+-- (0001_baseline and 20260408043924_add_magic_item_model). Postgres
+-- preserves indexes across ALTER COLUMN TYPE when the USING cast is a
+-- simple type change, so no recreation is needed. Duplicate CREATE
+-- INDEX statements previously on this path caused `prisma migrate
+-- deploy` to fail on a fresh database.
