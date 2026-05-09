@@ -5,16 +5,17 @@
 # Why parallel here but sequential for manual Claude invocations:
 #   - Pre-commit is automatic (git-invoked, no Claude involvement). Faster is
 #     strictly better; there's no redundancy concern.
-#   - When Claude checks work manually, there is no `verify`/`verify:changed`
-#     wrapper — Claude runs the three primitives sequentially and learns to
-#     skip whatever it already ran. See CLAUDE.md Commands.
+#   - Manual `verify` / `verify:changed` runs are sequential so a human or AI
+#     can read and act on one step at a time.
 #
 # Design:
 #   - `flock` keeps this to a single writer. Contention message embeds the
 #     exact Monitor-wait incantation so the contending Claude session
 #     doesn't fall into a log-polling loop.
-#   - Last-verified marker (120s, keyed on HEAD + staged-diff hash) short-
-#     circuits the "re-run just to double-check" reflex.
+#   - Last-verified marker (120s, keyed on HEAD + staged/relevant-input hash)
+#     short-circuits the "re-run just to double-check" reflex. After that
+#     misses, a fresh matching manual verify marker may bridge when its
+#     worktree fingerprint proves the same state was already checked.
 #   - 240s watchdog stays under Claude Code's session-cache budget (~5min)
 #     so a hung commit never burns the agent's tool-call cache. On timeout
 #     the gate fails closed and prints log paths plus a `verify:logs budget`
@@ -22,7 +23,7 @@
 #   - Per-task logs at $LOG_DIR/<task>.log; Passed/Failed status lines let
 #     .claude/hooks/git-commit-quiet.sh surface only the failing tails.
 #
-# Bypass: set FORCE_VERIFY=1 to skip the last-verified short-circuit.
+# Bypass: set FORCE_VERIFY=1 to skip all last-verified short-circuits.
 # The PreToolUse hook in .claude/settings.json blocks --no-verify / HUSKY=0
 # bypasses entirely; fix issues, do not skip.
 # ----------------------------------------------------------------------------
@@ -98,7 +99,7 @@ warn_if_staged_hot_doc_too_long
 
 # --- 1. Skip when nothing source-relevant is staged ------------------------
 if ! git diff --cached --name-only --diff-filter=ACMR \
-     | grep -qE '^(.husky/|packages/|e2e/|scripts/)'; then
+     | grep -qE '^(.husky/|packages/|e2e/|scripts/|eslint-rules/|package\.json$|eslint\.config\.|tsconfig[^/]*\.json$|vitest[^/]*\.config\.)'; then
   echo "pre-commit: no source changes staged — skipping checks."
   exit 0
 fi
@@ -135,26 +136,20 @@ fi
 MARKER="${MUSI_PRECOMMIT_MARKER:-/tmp/musi-pre-commit-last}"
 if [ -f "$MARKER" ] && [ "${FORCE_VERIFY:-}" != "1" ]; then
   CUR_HEAD=$(git rev-parse HEAD 2>/dev/null || echo none)
-  CUR_HASH=$(git diff --cached --diff-filter=ACMR | sha256sum | awk '{print $1}')
-  LAST_TS=0; LAST_HEAD=""; LAST_HASH=""
-  # Parse the marker instead of sourcing it — never eval /tmp files.
-  while IFS='=' read -r k v; do
-    case "$k" in
-      LAST_TS)   LAST_TS=$v ;;
-      LAST_HEAD) LAST_HEAD=$v ;;
-      LAST_HASH) LAST_HASH=$v ;;
-    esac
-  done < "$MARKER"
-  case "$LAST_TS" in
-    ''|*[!0-9]*) LAST_TS=0 ;;
-  esac
-  NOW=$(date +%s)
-  if [ "$((NOW - LAST_TS))" -lt 120 ] \
-     && [ "$LAST_HEAD" = "$CUR_HEAD" ] \
-     && [ "$LAST_HASH" = "$CUR_HASH" ]; then
-    echo "pre-commit: already verified $((NOW - LAST_TS))s ago at $CUR_HEAD — skipping (set FORCE_VERIFY=1 to re-run)."
+  CUR_HASH=$(ai_precommit_fingerprint "$REPO_ROOT")
+  if musi_success_marker_matches "$MARKER" "$CUR_HEAD" "$CUR_HASH" 120; then
+    echo "pre-commit: already verified ${MUSI_MARKER_MATCH_AGE}s ago at $CUR_HEAD — skipping (set FORCE_VERIFY=1 to re-run)."
     exit 0
   fi
+fi
+
+# Manual verify is a strict superset of the changed checks here: full verify
+# covers lint/test/scripts, verify:changed covers lint:changed/test:changed/
+# test:scripts:changed, and typecheck is identical. Pre-commit only runs
+# test:scripts:changed when staged hook/script paths match, so either manual
+# marker also covers that optional step.
+if musi_try_verify_marker_bridge "$REPO_ROOT" "$MARKER" 120; then
+  exit 0
 fi
 
 # --- 4. Watchdog (under Claude's session-cache budget) ---------------------
@@ -188,6 +183,11 @@ rm -rf "$LOG_DIR"
 mkdir -p "$LOG_DIR" "$LOG_DIR/meta"
 TIMINGS_FILE="$LOG_DIR/test-timings.json"
 META_DIR="$LOG_DIR/meta"
+
+# Wrapper-meta breadcrumbs read by ai_stop_verify_status to decide whether the
+# cached run-meta still describes the source/config state pre-commit checked.
+META_HEAD=$(git rev-parse HEAD 2>/dev/null || echo none)
+META_FP=$(ai_precommit_fingerprint "$REPO_ROOT")
 
 START_TS=$(date +%s)
 START_TIME=$(date -Iseconds)
@@ -233,8 +233,21 @@ report_timeout_budget() {
   printf 'logs: %s\n' "$LOG_DIR" >&2
   printf 'inspect: bun run verify:logs budget\n' >&2
 }
-trap '[ -n "$pid_scripts" ] && kill "$pid_scripts" 2>/dev/null; kill $pid_lint $pid_tc $pid_test $WD 2>/dev/null; exit 130' INT
-trap '[ -n "$pid_scripts" ] && kill "$pid_scripts" 2>/dev/null; kill $pid_lint $pid_tc $pid_test $WD 2>/dev/null; report_timeout_budget; exit 124' TERM
+cleanup_parallel_children() {
+  [ -n "$pid_scripts" ] && kill "$pid_scripts" 2>/dev/null
+  kill "$pid_lint" "$pid_tc" "$pid_test" "$WD" 2>/dev/null
+}
+write_signal_wrapper_meta() {
+  exit_code="$1"
+  end_ts=$(date +%s)
+  end_time=$(date -Iseconds)
+  musi_write_wrapper_meta "$META_DIR/wrapper.json" parallel-precommit \
+    "$START_TS" "$START_TIME" "$end_ts" "$end_time" "$exit_code" "$0" \
+    "$META_HEAD" "$META_FP"
+  musi_combine_run_meta "$LOG_DIR" parallel-precommit "$META_DIR/wrapper.json"
+}
+trap 'cleanup_parallel_children; write_signal_wrapper_meta 130; exit 130' INT
+trap 'cleanup_parallel_children; write_signal_wrapper_meta 124; report_timeout_budget; exit 124' TERM
 trap 'kill $WD 2>/dev/null' EXIT
 
 exit_lint=0; exit_tc=0; exit_test=0; exit_scripts=0
@@ -260,7 +273,8 @@ END_TIME=$(date -Iseconds)
 
 if [ -n "$failed" ]; then
   musi_write_wrapper_meta "$META_DIR/wrapper.json" parallel-precommit \
-    "$START_TS" "$START_TIME" "$END_TS" "$END_TIME" 1 "$0"
+    "$START_TS" "$START_TIME" "$END_TS" "$END_TIME" 1 "$0" \
+    "$META_HEAD" "$META_FP"
   musi_combine_run_meta "$LOG_DIR" parallel-precommit "$META_DIR/wrapper.json"
   # Structured lines — git-commit-quiet.sh parses these.
   echo ""
@@ -279,22 +293,14 @@ if [ -n "$failed" ]; then
 fi
 
 musi_write_wrapper_meta "$META_DIR/wrapper.json" parallel-precommit \
-  "$START_TS" "$START_TIME" "$END_TS" "$END_TIME" 0 "$0"
+  "$START_TS" "$START_TIME" "$END_TS" "$END_TIME" 0 "$0" \
+  "$META_HEAD" "$META_FP"
 musi_combine_run_meta "$LOG_DIR" parallel-precommit "$META_DIR/wrapper.json"
 
 # --- 7. Success marker -----------------------------------------------------
-marker_dir=$(dirname "$MARKER")
-marker_base=$(basename "$MARKER")
-mkdir -p "$marker_dir"
-marker_tmp=$(mktemp "$marker_dir/.${marker_base}.tmp.XXXXXX") || marker_tmp=""
-if [ -n "$marker_tmp" ] && {
-  printf 'LAST_TS=%s\n'   "$(date +%s)"
-  printf 'LAST_HEAD=%s\n' "$(git rev-parse HEAD 2>/dev/null || echo none)"
-  printf 'LAST_HASH=%s\n' "$(git diff --cached --diff-filter=ACMR | sha256sum | awk '{print $1}')"
-} > "$marker_tmp" && mv -f "$marker_tmp" "$MARKER"; then
-  :
-else
-  [ -n "$marker_tmp" ] && rm -f "$marker_tmp"
+if ! musi_write_success_marker "$MARKER" \
+    "$(git rev-parse HEAD 2>/dev/null || echo none)" \
+    "$(ai_precommit_fingerprint "$REPO_ROOT")"; then
   printf 'pre-commit: WARN: failed to write marker %s\n' "$MARKER" >&2
 fi
 

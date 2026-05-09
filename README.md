@@ -19,6 +19,10 @@ The most interesting parts are probably:
   tests, doctor, hook adapters, drift checks), grouped by mode and
   paired guide/sensor. Read this first to see how the rest of the
   scripts and rules in this repo fit together as one feedback loop.
+- `docs/guides/` — five area-specific "how to add/change this safely"
+  guides for tRPC procedures, Socket.io broadcasts, Prisma migrations,
+  race-sensitive mutations, and client feature modules. These are the
+  inferential half of the guide/sensor pairs listed in `docs/ai-harness.md`.
 - `scripts/ai-hooks/` and `.claude/hooks/` and `.codex/hooks/` — agent hooks
   that **wrap noisy verification commands** so failure tails (not 500-line
   successful test logs) hit the model context window, **enforce a
@@ -96,6 +100,10 @@ Only the DX-shaped docs are included here:
 - `docs/agent_notes/STATUS.md` and `NEXT.md` are sample hot-path docs. In
   the real repo, agents read these first every session; the doc-length hooks
   nudge when they turn into sprawling logs.
+- `docs/guides/` contains focused implementation recipes paired with the
+  harness sensors: `add-trpc-procedure.md`, `add-socket-broadcast.md`,
+  `add-prisma-migration.md`, `add-race-sensitive-mutation.md`, and
+  `add-client-feature-module-cache-socket.md`.
 - `docs/module-docs.md` is the charter for local `MODULE.md` orientation
   files and pairs with `scripts/generate-module-index.sh`.
 
@@ -325,6 +333,9 @@ Shared library sourced by both Claude and Codex hooks:
 - `migration-safety-scan.sh` — warn-only scanner over Prisma migrations.
   Flags risky DDL (column drops, NOT NULL without default, large
   table-rewrites) for human review. Has its own test file.
+- `stryker.config.mjs` — a deliberately narrow mutation-testing lane for
+  shared rule helpers. It is kept out of verify and pre-commit; run it
+  explicitly with `bun run test:mutation` when auditing test quality.
 - `generate-module-index.sh` — regenerates `MODULE-INDEX.md` from
   per-directory `MODULE.md` files; pre-commit runs `--check` mode.
 - `eslint-disable-register.sh` — periodic audit: every
@@ -373,6 +384,8 @@ when the repo is not meant to run end-to-end:
 
 - `tsconfig.json` / `tsconfig.base.json` show the project-reference shape the
   `typecheck` script expects.
+- `tsconfig.scripts.json` is the extra TypeScript project used for the
+  repo-owned TS scripts and codemods.
 - `vitest.config.ts` shows how package projects and the `eslint-rules`
   project are registered.
 - `vitest.slow.config.ts` shows the dedicated slow-test tier. The package
@@ -408,6 +421,13 @@ The musi scripts table is the wiring map. The interesting entries:
     "verify:async:stop": "bash scripts/verify-async.sh stop",
     "lint:changed": "bash scripts/lint-changed.sh",
     "test:changed": "bash scripts/test-changed.sh",
+    "test:mutation": "stryker run",
+    "code:intel": "bun scripts/code-intel.ts",
+    "codemod:trpc-shared-input": "bun scripts/codemods/trpc-shared-input.ts",
+    "codemod:trpc-shared-output": "bun scripts/codemods/trpc-shared-output.ts",
+    "codemod:structured-logging-fix": "bun scripts/codemods/structured-logging-fix.ts",
+    "codemod:concurrency-guard": "bun scripts/codemods/concurrency-guard.ts",
+    "codemod:expand-barrel": "bun scripts/codemods/expand-barrel.ts",
     "format:changed": "bash scripts/format-changed.sh",
     "doctor": "bash scripts/doctor.sh",
     "db:migration-safety": "bash scripts/migration-safety-scan.sh",

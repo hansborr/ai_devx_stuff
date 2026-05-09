@@ -267,11 +267,6 @@ assert_policy_blocks_each "$AI_POLICY_GIT_PUSH_MAIN" \
   "echo ok && git push origin main" \
   "bash -lc 'git push origin main'" \
   "env FOO=bar git push origin main"
-assert_policy_allows_each \
-  "git push origin HEAD" \
-  "git push --set-upstream origin feat/foo" \
-  "git push origin feat/foo"
-
 MAIN_BRANCH_REPO="$TMP_ROOT/main-branch-repo"
 FEATURE_BRANCH_REPO="$TMP_ROOT/feature-branch-repo"
 git init -q "$MAIN_BRANCH_REPO"
@@ -280,6 +275,9 @@ git init -q "$FEATURE_BRANCH_REPO"
 git -C "$FEATURE_BRANCH_REPO" symbolic-ref HEAD refs/heads/feat/policy
 assert_policy_blocks_in_dir "$MAIN_BRANCH_REPO" "git push" "$AI_POLICY_GIT_PUSH_MAIN"
 assert_policy_blocks_in_dir "$MAIN_BRANCH_REPO" "git push origin" "$AI_POLICY_GIT_PUSH_MAIN"
+assert_policy_allows_in_dir "$FEATURE_BRANCH_REPO" "git push origin HEAD"
+assert_policy_allows_in_dir "$FEATURE_BRANCH_REPO" "git push --set-upstream origin feat/foo"
+assert_policy_allows_in_dir "$FEATURE_BRANCH_REPO" "git push origin feat/foo"
 assert_policy_allows_in_dir "$FEATURE_BRANCH_REPO" "git push"
 
 assert_policy_blocks_each "$AI_POLICY_GIT_BRANCH_FORCE_DELETE" \
