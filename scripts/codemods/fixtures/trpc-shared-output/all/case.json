@@ -1,0 +1,10 @@
+{
+  "args": [
+    "--all"
+  ],
+  "expectedStdout": [
+    "trpc-shared-output codemod: moved getOutputSchema; touched packages/server/src/routers/alpha.ts and packages/shared/src/schemas/alpha.ts.",
+    "trpc-shared-output codemod: moved listOutputSchema; touched packages/server/src/routers/beta.ts and packages/shared/src/schemas/beta.ts.",
+    "trpc-shared-output codemod: --all processed 2 router file(s)."
+  ]
+}

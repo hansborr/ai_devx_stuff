@@ -1,0 +1,9 @@
+{
+  "args": [
+    "--target",
+    "@musi/shared/schemas/../constants.js",
+    "packages/server/src/routers/thing.ts"
+  ],
+  "expectFailure": true,
+  "expectedError": "--target must stay under packages/shared/src/schemas"
+}

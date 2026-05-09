@@ -1,0 +1,10 @@
+{
+  "args": ["--check"],
+  "expectFailure": true,
+  "expectedError": "found 2 concurrency guard error(s).",
+  "expectedStdout": [
+    "packages/server/src/routers/encounter.ts:1 RawTxClient/raw-tx-boundary ERROR",
+    "packages/server/src/routers/encounter.ts:5 encounterParticipant.updateMany/direct-gated-write ERROR",
+    "Use updateParticipantStatsLocked"
+  ]
+}

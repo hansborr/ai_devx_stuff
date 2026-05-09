@@ -51,6 +51,43 @@ assert_policy_allows() {
   fi
 }
 
+assert_policy_blocks_in_dir() {
+  local dir="$1"
+  local cmd="$2"
+  local expected="$3"
+  local reason
+
+  reason=$(cd "$dir" && ai_policy_violation_reason "$cmd" || true)
+  [ "$reason" = "$expected" ] || fail "policy reason mismatch for [$cmd] in [$dir]"
+}
+
+assert_policy_allows_in_dir() {
+  local dir="$1"
+  local cmd="$2"
+
+  if (cd "$dir" && ai_policy_violation_reason "$cmd" >/dev/null); then
+    fail "policy unexpectedly blocked [$cmd] in [$dir]"
+  fi
+}
+
+assert_policy_blocks_each() {
+  local expected="$1"
+  local cmd
+  shift
+
+  for cmd in "$@"; do
+    assert_policy_blocks "$cmd" "$expected"
+  done
+}
+
+assert_policy_allows_each() {
+  local cmd
+
+  for cmd in "$@"; do
+    assert_policy_allows "$cmd"
+  done
+}
+
 assert_wrapped_bun() {
   local cmd="$1"
 
@@ -94,6 +131,22 @@ assert_contains() {
   grep -qF "$needle" <<< "$haystack" || fail "expected [$haystack] to contain [$needle]"
 }
 
+assert_response_combined_exit() {
+  local payload="$1"
+  local expected_combined="$2"
+  local expected_exit="$3"
+  local response combined exit_code
+
+  response=$(ai_response_json_from_payload "$payload")
+  combined=$(ai_combined_response_text "$response")
+  exit_code=$(printf '%s' "$response" | jq -r '.exit_code // empty')
+
+  [ "$combined" = "$expected_combined" ] \
+    || fail "response combined text mismatch. Expected [$expected_combined], got [$combined] from [$response]"
+  [ "$exit_code" = "$expected_exit" ] \
+    || fail "response exit code mismatch. Expected [$expected_exit], got [$exit_code] from [$response]"
+}
+
 assert_stop_status_reporters_have_loop_protection() {
   local reporters fn body output_line kill_line pass_line
 
@@ -131,11 +184,264 @@ assert_policy_blocks "git commit -nm test" "$AI_POLICY_HOOK_BYPASS"
 assert_policy_blocks "psql postgres" "$AI_POLICY_POSTGRES"
 assert_policy_blocks "redis-cli ping" "$AI_POLICY_REDIS"
 assert_policy_blocks "docker ps" "$AI_POLICY_DOCKER"
+assert_policy_blocks " docker ps" "$AI_POLICY_DOCKER"
 assert_policy_blocks "echo ThisIsNotTheRealDatabasePassword" "$AI_POLICY_CHANGEME"
 
-assert_policy_allows "echo ok"
-assert_policy_allows "git status --short"
-assert_policy_allows "bun run test:changed"
+assert_policy_blocks_each "$AI_POLICY_GIT_AMEND" \
+  " git commit --amend -m fix" \
+  "git commit --amend -m fix" \
+  "echo ok && git commit --amend" \
+  "bash -lc 'git commit --amend'" \
+  "env FOO=bar git commit --amend"
+
+assert_policy_blocks_each "$AI_POLICY_GIT_REBASE" \
+  "git rebase main" \
+  "git rebase -i main" \
+  "git rebase --onto main feature" \
+  "echo ok && git rebase --autosquash main" \
+  "bash -lc 'git rebase main'" \
+  "env FOO=bar git rebase main" \
+  "git rebase --continue ; git rebase main" \
+  "git rebase --abort && git rebase -i HEAD~3"
+assert_policy_allows_each \
+  "git rebase --continue" \
+  "git rebase --abort" \
+  "git rebase --skip" \
+  "git rebase --quit" \
+  "git rebase --continue && git rebase --abort"
+
+assert_policy_blocks_each "$AI_POLICY_GIT_RESET" \
+  "git reset --hard HEAD" \
+  "git reset --soft HEAD~1" \
+  "git reset --merge ORIG_HEAD" \
+  "git reset --keep HEAD" \
+  "git reset --mixed HEAD~1" \
+  "git reset -q HEAD~1" \
+  "git reset HEAD~1" \
+  " git reset --hard HEAD" \
+  "echo ok && git reset --hard" \
+  "bash -lc 'git reset --hard HEAD'" \
+  "env FOO=bar git reset --soft HEAD" \
+  "git reset --mixed HEAD~1 -- packages/client/src/foo.ts"
+assert_policy_allows_each \
+  "git reset" \
+  "git reset HEAD -- packages/client/src/foo.ts" \
+  "git reset --quiet HEAD -- packages/client/src/foo.ts" \
+  "git reset --mixed HEAD -- packages/client/src/foo.ts" \
+  "git reset -- packages/client/src/foo.ts" \
+  "git restore --staged packages/client/src/foo.ts"
+
+assert_policy_blocks_each "$AI_POLICY_GIT_HISTORY_REWRITE" \
+  "git filter-branch --tree-filter true" \
+  "git filter-repo --path foo" \
+  "git replace abc def" \
+  "git update-ref refs/heads/main abc" \
+  "git reflog expire --expire=now --all" \
+  "echo ok && git filter-repo --path foo" \
+  "bash -lc 'git update-ref refs/heads/main abc'" \
+  "env FOO=bar git replace abc def"
+
+assert_policy_blocks_each "$AI_POLICY_GIT_FORCE_PUSH" \
+  " git push --force" \
+  "git push --force" \
+  "git push -f origin feat/foo" \
+  "git push --force-with-lease origin feat/foo" \
+  "git push --force-with-lease=refs/heads/feat/foo origin feat/foo" \
+  "git push --mirror origin" \
+  "git push origin +main" \
+  "git push origin :feat/foo" \
+  "git push --delete origin feat/foo" \
+  "git push -d origin feat/foo" \
+  "echo ok && git push --force" \
+  "bash -lc 'git push --force'" \
+  "env FOO=bar git push --force"
+assert_policy_blocks_each "$AI_POLICY_GIT_PUSH_MAIN" \
+  " git push origin main" \
+  "git push origin main" \
+  "git push origin master" \
+  "git push origin HEAD:main" \
+  "git push origin HEAD:refs/heads/master" \
+  "git push origin refs/heads/main" \
+  "git push origin --all" \
+  "git push --all origin" \
+  "echo ok && git push origin main" \
+  "bash -lc 'git push origin main'" \
+  "env FOO=bar git push origin main"
+assert_policy_allows_each \
+  "git push origin HEAD" \
+  "git push --set-upstream origin feat/foo" \
+  "git push origin feat/foo"
+
+MAIN_BRANCH_REPO="$TMP_ROOT/main-branch-repo"
+FEATURE_BRANCH_REPO="$TMP_ROOT/feature-branch-repo"
+git init -q "$MAIN_BRANCH_REPO"
+git -C "$MAIN_BRANCH_REPO" symbolic-ref HEAD refs/heads/main
+git init -q "$FEATURE_BRANCH_REPO"
+git -C "$FEATURE_BRANCH_REPO" symbolic-ref HEAD refs/heads/feat/policy
+assert_policy_blocks_in_dir "$MAIN_BRANCH_REPO" "git push" "$AI_POLICY_GIT_PUSH_MAIN"
+assert_policy_blocks_in_dir "$MAIN_BRANCH_REPO" "git push origin" "$AI_POLICY_GIT_PUSH_MAIN"
+assert_policy_allows_in_dir "$FEATURE_BRANCH_REPO" "git push"
+
+assert_policy_blocks_each "$AI_POLICY_GIT_BRANCH_FORCE_DELETE" \
+  "git branch -D feat/foo" \
+  "git branch -df feat/foo" \
+  "git branch -fd feat/foo" \
+  "git branch -d -f feat/foo" \
+  "git branch -f -d feat/foo" \
+  "git branch --delete --force feat/foo" \
+  "git branch --delete -f feat/foo" \
+  "git branch --force --delete feat/foo" \
+  "git tag -d v1.0.0" \
+  "git tag --delete v1.0.0" \
+  "git worktree remove --force ../feature" \
+  "git worktree remove -f ../feature" \
+  "echo ok && git branch -D feat/foo" \
+  "bash -lc 'git tag -d v1.0.0'" \
+  "env FOO=bar git worktree remove --force ../feature"
+assert_policy_blocks_each "$AI_POLICY_GIT_CLEAN_FORCE" \
+  "git clean -f" \
+  "git clean -fd" \
+  "git clean -fdx ." \
+  "git clean --force" \
+  "echo ok && git clean -fdx" \
+  "bash -lc 'git clean -f'" \
+  "env FOO=bar git clean -fd"
+assert_policy_allows_each \
+  "git branch -d feat/foo" \
+  "git clean -n"
+
+assert_policy_blocks_each "$AI_POLICY_GH_AUTH" \
+  " gh auth token" \
+  "gh auth token" \
+  "gh auth login" \
+  "gh auth logout" \
+  "gh auth refresh" \
+  "gh auth setup-git" \
+  "bash -lc 'gh auth token'" \
+  "env FOO=bar gh auth login"
+
+assert_policy_blocks_each "$AI_POLICY_GH_REMOTE_MUTATION" \
+  " gh pr create --title test" \
+  "gh pr create --title test" \
+  "gh pr comment 1 --body test" \
+  "gh pr merge 1 --admin" \
+  "gh pr close 1" \
+  "gh pr reopen 1" \
+  "gh pr ready 1" \
+  "gh pr edit 1 --title test" \
+  "gh pr lock 1" \
+  "gh pr unlock 1" \
+  "gh pr review 1 --approve" \
+  "gh issue create --title test" \
+  "gh issue comment 1 --body test" \
+  "gh issue close 1" \
+  "gh issue reopen 1" \
+  "gh issue edit 1 --title test" \
+  "gh issue delete 1" \
+  "gh issue develop 1" \
+  "gh issue lock 1" \
+  "gh issue unlock 1" \
+  "gh issue transfer 1 owner/repo" \
+  "gh issue pin 1" \
+  "gh issue unpin 1" \
+  "gh repo create owner/repo" \
+  "gh repo fork owner/repo" \
+  "gh repo delete owner/repo" \
+  "gh repo archive owner/repo" \
+  "gh repo rename new-name" \
+  "gh repo transfer owner/repo other" \
+  "gh repo edit --description test" \
+  "gh repo sync owner/repo" \
+  "gh repo deploy-key add key.pub" \
+  "gh repo deploy-key delete 123" \
+  "gh release create v1.0.0" \
+  "gh release edit v1.0.0" \
+  "gh release delete v1.0.0" \
+  "gh release delete-asset asset-id" \
+  "gh release upload v1.0.0 file.tgz" \
+  "gh workflow disable ci.yml" \
+  "gh workflow enable ci.yml" \
+  "gh workflow run ci.yml" \
+  "gh run cancel 123" \
+  "gh run rerun 123" \
+  "gh run delete 123" \
+  "gh cache delete key" \
+  "gh secret set TOKEN" \
+  "gh secret delete TOKEN" \
+  "gh variable set NAME --body value" \
+  "gh variable delete NAME" \
+  "gh api --method POST repos/owner/repo/issues" \
+  "gh api --method=PUT repos/owner/repo" \
+  "gh api -X PATCH repos/owner/repo/issues/1" \
+  "gh api -XDELETE repos/owner/repo/issues/1" \
+  "gh api repos/owner/repo/issues -f title=test" \
+  "gh api repos/owner/repo/issues --raw-field title=test" \
+  "gh api repos/owner/repo/issues --input body.json" \
+  "gh api graphql -f query='mutation { closeIssue(input: {}) { clientMutationId } }'" \
+  "gh api graphql --input query.graphql" \
+  "gh codespace create" \
+  "gh codespace delete -c test" \
+  "gh codespace edit -c test" \
+  "gh codespace rebuild -c test" \
+  "gh codespace stop -c test" \
+  "gh gist create file.txt" \
+  "gh gist edit gist-id file.txt" \
+  "gh gist delete gist-id" \
+  "gh gpg-key add key.asc" \
+  "gh gpg-key delete key-id" \
+  "gh ssh-key add key.pub" \
+  "gh ssh-key delete key-id" \
+  "gh label create kind/bug" \
+  "gh label edit kind/bug" \
+  "gh label delete kind/bug" \
+  "gh label clone owner/repo" \
+  "gh repo set-default owner/repo" \
+  "gh alias set co pr checkout" \
+  "gh alias delete co" \
+  "gh config set prompt disabled" \
+  "gh extension install owner/ext" \
+  "gh extension remove owner/ext" \
+  "gh extension upgrade owner/ext" \
+  "echo ok && gh pr merge 1" \
+  "bash -lc 'gh repo delete owner/repo'" \
+  "env FOO=bar gh pr create --title test"
+
+assert_policy_allows_each \
+  "gh pr view 1 --json number" \
+  "gh pr list --state open" \
+  "gh issue view 1" \
+  "gh issue list" \
+  "gh run view 123" \
+  "gh run list" \
+  "gh repo view owner/repo" \
+  "gh release view v1.0.0" \
+  "gh release list" \
+  "gh workflow view ci.yml" \
+  "gh auth status" \
+  "gh api --method GET repos/owner/repo" \
+  "gh api -X GET search/issues -f q=repo:owner/repo" \
+  "gh api graphql -f query='query { viewer { login } }'"
+
+assert_policy_blocks_each "$AI_POLICY_GREP" \
+  " grep TODO packages/client/src/main.ts" \
+  "grep TODO packages/client/src/main.ts" \
+  "egrep TODO packages/client/src/main.ts" \
+  "fgrep TODO packages/client/src/main.ts" \
+  "echo TODO | grep TODO" \
+  "find . -exec grep TODO {} +" \
+  "printf '%s\n' TODO | xargs grep TODO" \
+  "echo ok && grep TODO package.json" \
+  "bash -lc 'grep TODO package.json'" \
+  "sh -c \"grep TODO package.json\""
+assert_policy_allows_each \
+  "echo ok" \
+  "git status --short" \
+  "git grep needle" \
+  "rg needle" \
+  "rg --files" \
+  "ripgrep needle" \
+  "which grep" \
+  "bun run test:changed"
 
 PROTECTED_MSG=$(ai_protected_file_advisory "$REPO_ROOT/packages/server/prisma/schema.prisma")
 assert_contains "$PROTECTED_MSG" "Create a migration"
@@ -176,6 +482,7 @@ assert_wrapped_bun "bun run test:slow"
 assert_wrapped_bun "bun run e2e"
 assert_wrapped_bun "bun run format:check"
 assert_wrapped_bun "bun run build --silent"
+assert_wrapped_bun "bun run code:intel -- exports packages/shared/src/constants.ts"
 assert_wrapped_bun "bun run verify"
 assert_wrapped_bun "bun run verify:changed"
 assert_wrapped_bun "bun run verify:slow"
@@ -226,6 +533,23 @@ ai_cache_init
 [ -d "$AI_STOP_STATE_DIR" ] || fail "missing stop state dir"
 [ -d "$AI_BUN_LOG_DIR" ] || fail "missing bun log dir"
 [ -d "$AI_PRECOMMIT_LOG_DIR" ] || fail "missing pre-commit log dir"
+
+assert_response_combined_exit \
+  '{"tool_response":{"raw":"plain command output","exit_code":0}}' \
+  "plain command output" \
+  "0"
+assert_response_combined_exit \
+  '{"tool_response":{"raw":"plain command output"}}' \
+  "plain command output" \
+  ""
+assert_response_combined_exit \
+  '{"tool_response":{"output":"stdout text","metadata":{"exit_code":7}}}' \
+  "stdout text" \
+  "7"
+assert_response_combined_exit \
+  '{"tool_response":{"raw":"completed text","status":"completed"}}' \
+  "completed text" \
+  ""
 
 assert_claude_stateful_verify_rewrites_to_repo_root() {
   local cmd="$1"
@@ -305,10 +629,91 @@ assert_stateful_verify_bypasses_cached_marker() {
   done
 }
 
+assert_codex_bun_post_success_is_non_blocking() {
+  local tool_id="codex-success-test-shared"
+  local cmd="bun run test:shared -- packages/shared/src/test-tier-sentinel.test.ts"
+  local script="test:shared"
+  local script_safe="test_shared"
+  local log="$AI_BUN_LOG_DIR/$script_safe.log"
+  local marker="$AI_BUN_LOG_DIR/last.$script_safe"
+  local state_file="$AI_BUN_STATE_DIR/$tool_id"
+  local fp payload codex_out context
+
+  fp=$(ai_worktree_fingerprint "$REPO_ROOT")
+  rm -f "$log" "$marker" "$state_file"
+  {
+    printf 'SCRIPT=%s\n' "$script"
+    printf 'LOG=%s\n' "$log"
+    printf 'CUR_FP=%s\n' "$fp"
+    printf 'START_TS=%s\n' "$(date +%s)"
+  } > "$state_file"
+
+  payload=$(
+    jq -n --arg id "$tool_id" --arg cmd "$cmd" --arg raw "Vitest OK: 1 test passed in 1 file." \
+      '{tool_use_id:$id, tool_input:{command:$cmd}, tool_response:{raw:$raw}}'
+  )
+  codex_out=$(printf '%s' "$payload" \
+    | AI_STATE_ROOT="$AI_STATE_ROOT" AI_BUN_LOG_DIR="$AI_BUN_LOG_DIR" bash "$REPO_ROOT/.codex/hooks/post-tool-use.sh")
+  context=$(printf '%s' "$codex_out" | jq -r '.hookSpecificOutput.additionalContext // empty')
+
+  [ -n "$context" ] || fail "Codex post hook did not emit additionalContext on success: $codex_out"
+  assert_contains "$context" "test:shared OK"
+  if printf '%s' "$codex_out" | jq -e '.decision == "block"' >/dev/null; then
+    fail "Codex post hook used decision:block for success: $codex_out"
+  fi
+  [ "$(cat "$log")" = "Vitest OK: 1 test passed in 1 file." ] \
+    || fail "Codex post hook success log was not plain raw output: $(cat "$log")"
+  ai_read_bun_marker "$marker" || fail "Codex post hook did not write success marker"
+  [ "$AI_MARKER_LAST_EXIT" = "0" ] || fail "success marker should record exit 0"
+}
+
+assert_codex_bun_post_failure_keeps_bounded_block() {
+  local tool_id="codex-failure-test-shared"
+  local cmd="bun run test:shared -- --definitely-not-a-vitest-flag"
+  local script="test:shared"
+  local script_safe="test_shared"
+  local log="$AI_BUN_LOG_DIR/$script_safe.log"
+  local marker="$AI_BUN_LOG_DIR/last.$script_safe"
+  local state_file="$AI_BUN_STATE_DIR/$tool_id"
+  local fp raw payload codex_out reason
+
+  fp=$(ai_worktree_fingerprint "$REPO_ROOT")
+  rm -f "$log" "$marker" "$state_file"
+  {
+    printf 'SCRIPT=%s\n' "$script"
+    printf 'LOG=%s\n' "$log"
+    printf 'CUR_FP=%s\n' "$fp"
+    printf 'START_TS=%s\n' "$(date +%s)"
+  } > "$state_file"
+
+  raw=$'CACError: Unknown option `--definitelyNotA-vitestFlag`\nerror: script "test:shared" exited with code 1'
+  payload=$(jq -n --arg id "$tool_id" --arg cmd "$cmd" --arg raw "$raw" \
+    '{tool_use_id:$id, tool_input:{command:$cmd}, tool_response:{raw:$raw}}')
+  codex_out=$(printf '%s' "$payload" \
+    | AI_STATE_ROOT="$AI_STATE_ROOT" AI_BUN_LOG_DIR="$AI_BUN_LOG_DIR" bash "$REPO_ROOT/.codex/hooks/post-tool-use.sh")
+  reason=$(printf '%s' "$codex_out" | jq -r '.reason // empty')
+
+  [ "$(printf '%s' "$codex_out" | jq -r '.decision // empty')" = "block" ] \
+    || fail "Codex post hook should block failure output with a bounded summary: $codex_out"
+  assert_contains "$reason" "test:shared failed (exit 1"
+  assert_contains "$reason" "CACError: Unknown option"
+  if grep -qF '{"raw"' <<< "$reason"; then
+    fail "Codex failure summary should not stringify raw response JSON: $reason"
+  fi
+  assert_contains "$(cat "$log")" "CACError: Unknown option"
+  if grep -qF '{"raw"' "$log"; then
+    fail "Codex failure log should not stringify raw response JSON: $(cat "$log")"
+  fi
+  ai_read_bun_marker "$marker" || fail "Codex post hook did not write failure marker"
+  [ "$AI_MARKER_LAST_EXIT" = "1" ] || fail "failure marker should record exit 1"
+}
+
 assert_claude_stateful_verify_rewrites_to_repo_root "bun run verify:logs budget" "verify_logs"
 assert_claude_stateful_verify_rewrites_to_repo_root "bun run verify:async:status" "verify_async_status"
 assert_stateful_verify_bypasses_cached_marker "bun run verify:async:status" "verify_async_status"
 assert_stateful_verify_bypasses_cached_marker "bun run verify:async:stop" "verify_async_stop"
+assert_codex_bun_post_success_is_non_blocking
+assert_codex_bun_post_failure_keeps_bounded_block
 
 # Enforce that every Stop status reporter has loop protection before it can notify.
 assert_stop_status_reporters_have_loop_protection
@@ -662,6 +1067,178 @@ rm -f "$ASYNC_COUNTER"
 if ai_stop_async_verify_status "$ASYNC_REPO" >/dev/null; then
   fail "missing async state should not emit status"
 fi
+
+# --- ai_stop_verify_status ----------------------------------------------------
+VERIFY_REPO="$TMP_ROOT/verify-repo"
+git init -b feature/verify "$VERIFY_REPO" >/dev/null 2>&1 \
+  || fail "failed to init verify fixture"
+git -C "$VERIFY_REPO" config user.email hooks@example.test
+git -C "$VERIFY_REPO" config user.name "Hook Test"
+printf 'base\n' > "$VERIFY_REPO/file.txt"
+git -C "$VERIFY_REPO" add file.txt
+git -C "$VERIFY_REPO" commit -m base >/dev/null 2>&1 \
+  || fail "failed to commit verify fixture"
+
+VERIFY_LOG_DIR="$TMP_ROOT/verify-logs"
+VERIFY_META_DIR="$VERIFY_LOG_DIR/meta"
+VERIFY_WRAPPER="$VERIFY_META_DIR/wrapper.json"
+VERIFY_COUNTER=$(ai_stop_verify_counter_path "$VERIFY_REPO")
+mkdir -p "$VERIFY_META_DIR"
+VERIFY_WORKTREE_FP=$(ai_worktree_fingerprint "$VERIFY_REPO")
+VERIFY_PRECOMMIT_FP=$(ai_precommit_fingerprint "$VERIFY_REPO")
+VERIFY_HEAD=$(git -C "$VERIFY_REPO" rev-parse HEAD)
+
+write_verify_wrapper() {
+  local mode="$1" exit_code="$2" fp="$3"
+  printf '{"name":"wrapper","mode":"%s","start_time":"2026-05-05T00:00:00+00:00","end_time":"2026-05-05T00:00:30+00:00","elapsed_seconds":30,"exit_code":%s,"head":"%s","fingerprint":"%s","command":"bash scripts/verify.sh"}\n' \
+    "$mode" "$exit_code" "$VERIFY_HEAD" "$fp" > "$VERIFY_WRAPPER"
+}
+
+# Missing wrapper.json: silent.
+rm -f "$VERIFY_WRAPPER" "$VERIFY_COUNTER"
+if MUSI_VERIFY_LOG_DIR="$VERIFY_LOG_DIR" ai_stop_verify_status "$VERIFY_REPO" >/dev/null; then
+  fail "missing wrapper should not emit status"
+fi
+
+# Failing pre-commit run: emits up to MAX_NOTIFY, then suppresses.
+rm -f "$VERIFY_COUNTER"
+write_verify_wrapper parallel-precommit 1 "$VERIFY_PRECOMMIT_FP"
+VERIFY_MSG=$(MUSI_VERIFY_LOG_DIR="$VERIFY_LOG_DIR" ai_stop_verify_status "$VERIFY_REPO") \
+  || fail "failing pre-commit should emit status (call 1)"
+assert_contains "$VERIFY_MSG" "cached pre-commit"
+assert_contains "$VERIFY_MSG" "exit 1"
+assert_contains "$VERIFY_MSG" "$AI_STOP_VERIFY_KILL_SWITCH"
+assert_contains "$VERIFY_MSG" "verify:logs"
+ai_stop_verify_read_counter "$VERIFY_COUNTER" \
+  || fail "verify counter missing after first emit"
+[ "$AI_STOP_VERIFY_COUNTER_COUNT" = "1" ] || fail "verify counter should be 1"
+
+VERIFY_MSG=$(MUSI_VERIFY_LOG_DIR="$VERIFY_LOG_DIR" ai_stop_verify_status "$VERIFY_REPO") \
+  || fail "failing pre-commit should still emit on call 2"
+ai_stop_verify_read_counter "$VERIFY_COUNTER" \
+  || fail "verify counter missing after second emit"
+[ "$AI_STOP_VERIFY_COUNTER_COUNT" = "2" ] || fail "verify counter should be 2"
+
+if MUSI_VERIFY_LOG_DIR="$VERIFY_LOG_DIR" ai_stop_verify_status "$VERIFY_REPO" >/dev/null; then
+  fail "failing verify should suppress after $AI_STOP_VERIFY_MAX_NOTIFY notices"
+fi
+
+# Passing wrapper: emits nothing and clears any stale counter.
+write_verify_wrapper parallel-precommit 0 "$VERIFY_PRECOMMIT_FP"
+if MUSI_VERIFY_LOG_DIR="$VERIFY_LOG_DIR" ai_stop_verify_status "$VERIFY_REPO" >/dev/null; then
+  fail "passing verify should not emit status"
+fi
+[ ! -f "$VERIFY_COUNTER" ] || fail "passing verify should clear counter"
+
+# Exit-code change resets the counter (e.g. 1 -> 2 from a re-run).
+write_verify_wrapper parallel-precommit 2 "$VERIFY_PRECOMMIT_FP"
+VERIFY_MSG=$(MUSI_VERIFY_LOG_DIR="$VERIFY_LOG_DIR" ai_stop_verify_status "$VERIFY_REPO") \
+  || fail "exit-code change should re-emit"
+assert_contains "$VERIFY_MSG" "exit 2"
+ai_stop_verify_read_counter "$VERIFY_COUNTER" \
+  || fail "counter missing after exit-code change emit"
+[ "$AI_STOP_VERIFY_COUNTER_COUNT" = "1" ] || fail "exit-code change should reset count to 1"
+
+# serial-verify mode reports a different label.
+write_verify_wrapper serial-verify 1 "$VERIFY_WORKTREE_FP"
+rm -f "$VERIFY_COUNTER"
+VERIFY_MSG=$(MUSI_VERIFY_LOG_DIR="$VERIFY_LOG_DIR" ai_stop_verify_status "$VERIFY_REPO") \
+  || fail "serial-verify failing should emit"
+assert_contains "$VERIFY_MSG" "cached verify"
+
+mkdir -p "$VERIFY_REPO/scripts"
+printf 'echo before\n' > "$VERIFY_REPO/scripts/check.sh"
+git -C "$VERIFY_REPO" add scripts/check.sh
+git -C "$VERIFY_REPO" commit -m 'add script fixture' >/dev/null 2>&1 \
+  || fail "failed to commit script fixture"
+VERIFY_HEAD=$(git -C "$VERIFY_REPO" rev-parse HEAD)
+
+# Unrelated untracked files are not pre-commit inputs and should not stale a
+# cached pre-commit failure.
+printf 'staged red\n' > "$VERIFY_REPO/file.txt"
+git -C "$VERIFY_REPO" add file.txt
+VERIFY_PRECOMMIT_FP=$(ai_precommit_fingerprint "$VERIFY_REPO")
+write_verify_wrapper parallel-precommit 1 "$VERIFY_PRECOMMIT_FP"
+rm -f "$VERIFY_COUNTER"
+printf 'unstaged side edit\n' > "$VERIFY_REPO/side.txt"
+printf 'echo scratch\n' > "$VERIFY_REPO/scripts/scratch.sh"
+VERIFY_MSG=$(MUSI_VERIFY_LOG_DIR="$VERIFY_LOG_DIR" ai_stop_verify_status "$VERIFY_REPO") \
+  || fail "untracked non-input edit should not stale a pre-commit failure"
+assert_contains "$VERIFY_MSG" "cached pre-commit"
+
+# Changing the staged diff after the failed pre-commit makes the cached result
+# stale, even when the worktree still contains the original edit.
+git -C "$VERIFY_REPO" reset -- file.txt >/dev/null 2>&1
+rm -f "$VERIFY_COUNTER"
+if MUSI_VERIFY_LOG_DIR="$VERIFY_LOG_DIR" ai_stop_verify_status "$VERIFY_REPO" >/dev/null; then
+  fail "changed staged diff should stale a pre-commit failure"
+fi
+git -C "$VERIFY_REPO" checkout -- file.txt
+rm -f "$VERIFY_REPO/side.txt" "$VERIFY_REPO/scripts/scratch.sh"
+
+# A relevant unstaged source/config edit is a pre-commit input, so changing it
+# after the failed run makes the cached result stale.
+printf 'echo staged\n' > "$VERIFY_REPO/scripts/check.sh"
+git -C "$VERIFY_REPO" add scripts/check.sh
+VERIFY_PRECOMMIT_FP=$(ai_precommit_fingerprint "$VERIFY_REPO")
+write_verify_wrapper parallel-precommit 1 "$VERIFY_PRECOMMIT_FP"
+rm -f "$VERIFY_COUNTER"
+printf 'echo unstaged changed\n' > "$VERIFY_REPO/scripts/check.sh"
+if MUSI_VERIFY_LOG_DIR="$VERIFY_LOG_DIR" ai_stop_verify_status "$VERIFY_REPO" >/dev/null; then
+  fail "relevant unstaged edit should stale a pre-commit failure"
+fi
+git -C "$VERIFY_REPO" reset -- scripts/check.sh >/dev/null 2>&1
+git -C "$VERIFY_REPO" checkout -- scripts/check.sh
+
+# A relevant tracked deletion is also a pre-commit input because pre-commit
+# runs full typecheck. It must stale the cached failure even though there is no
+# file left to hash.
+mkdir -p "$VERIFY_REPO/packages/server/src"
+printf 'delete me\n' > "$VERIFY_REPO/packages/server/src/delete-me.ts"
+git -C "$VERIFY_REPO" add packages/server/src/delete-me.ts
+git -C "$VERIFY_REPO" commit -m 'add deletion fixture' >/dev/null 2>&1 \
+  || fail "failed to commit deletion fixture"
+VERIFY_HEAD=$(git -C "$VERIFY_REPO" rev-parse HEAD)
+printf 'staged red again\n' > "$VERIFY_REPO/file.txt"
+git -C "$VERIFY_REPO" add file.txt
+VERIFY_PRECOMMIT_FP=$(ai_precommit_fingerprint "$VERIFY_REPO")
+write_verify_wrapper parallel-precommit 1 "$VERIFY_PRECOMMIT_FP"
+rm -f "$VERIFY_COUNTER"
+rm "$VERIFY_REPO/packages/server/src/delete-me.ts"
+if MUSI_VERIFY_LOG_DIR="$VERIFY_LOG_DIR" ai_stop_verify_status "$VERIFY_REPO" >/dev/null; then
+  fail "relevant tracked deletion should stale a pre-commit failure"
+fi
+git -C "$VERIFY_REPO" reset -- file.txt >/dev/null 2>&1
+git -C "$VERIFY_REPO" checkout -- packages/server/src/delete-me.ts file.txt
+
+VERIFY_WORKTREE_FP=$(ai_worktree_fingerprint "$VERIFY_REPO")
+VERIFY_PRECOMMIT_FP=$(ai_precommit_fingerprint "$VERIFY_REPO")
+
+# Stale fingerprint: silent, no counter write — the cached failure no longer
+# describes the code the agent is editing.
+write_verify_wrapper parallel-precommit 1 "$(printf 'd%.0s' {1..64})"
+rm -f "$VERIFY_COUNTER"
+if MUSI_VERIFY_LOG_DIR="$VERIFY_LOG_DIR" ai_stop_verify_status "$VERIFY_REPO" >/dev/null; then
+  fail "stale fingerprint should not emit status"
+fi
+[ ! -f "$VERIFY_COUNTER" ] || fail "stale fingerprint should not write counter"
+
+# Kill switch suppresses the reporter entirely, even on a matching failure.
+write_verify_wrapper parallel-precommit 1 "$VERIFY_PRECOMMIT_FP"
+rm -f "$VERIFY_COUNTER"
+touch "$VERIFY_REPO/$AI_STOP_VERIFY_KILL_SWITCH"
+if MUSI_VERIFY_LOG_DIR="$VERIFY_LOG_DIR" ai_stop_verify_status "$VERIFY_REPO" >/dev/null; then
+  fail "kill switch should suppress verify status"
+fi
+[ ! -f "$VERIFY_COUNTER" ] || fail "kill switch should not write counter"
+rm -f "$VERIFY_REPO/$AI_STOP_VERIFY_KILL_SWITCH"
+
+write_verify_wrapper parallel-precommit 1 "$VERIFY_PRECOMMIT_FP"
+touch "$VERIFY_REPO/$AI_STOP_VERIFY_LEGACY_KILL_SWITCH"
+if MUSI_VERIFY_LOG_DIR="$VERIFY_LOG_DIR" ai_stop_verify_status "$VERIFY_REPO" >/dev/null; then
+  fail "legacy kill switch should suppress verify status"
+fi
+rm -f "$VERIFY_REPO/$AI_STOP_VERIFY_LEGACY_KILL_SWITCH"
 
 FINISHED_SUMMARY=$(ai_bun_failure_summary "test:changed" "$AI_BUN_LOG_DIR/test_changed.log" "" "3" "passed")
 if grep -qF "$AI_FLAKY_NOTE" <<< "$FINISHED_SUMMARY"; then

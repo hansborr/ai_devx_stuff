@@ -5,6 +5,8 @@
 AI_HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=/dev/null
 . "$AI_HOOKS_DIR/output-filter.sh"
+# shellcheck source=/dev/null
+. "$AI_HOOKS_DIR/../verify-metadata.sh"
 
 AI_STATE_ROOT="${AI_STATE_ROOT:-/tmp/musi-ai-hooks}"
 AI_GIT_STATE_DIR="${AI_GIT_STATE_DIR:-$AI_STATE_ROOT/git}"
@@ -16,20 +18,6 @@ AI_PRECOMMIT_LOG_DIR="${AI_PRECOMMIT_LOG_DIR:-/tmp/musi-pre-commit-logs}"
 
 ai_cache_init() {
   mkdir -p "$AI_GIT_STATE_DIR" "$AI_BUN_STATE_DIR" "$AI_STOP_STATE_DIR" "$AI_BUN_LOG_DIR" "$AI_PRECOMMIT_LOG_DIR"
-}
-
-ai_worktree_fingerprint() {
-  local repo_root="$1"
-
-  {
-    git -C "$repo_root" rev-parse HEAD 2>/dev/null || echo none
-    git -C "$repo_root" diff HEAD 2>/dev/null
-    (
-      cd "$repo_root" || exit 1
-      git ls-files --others --exclude-standard -z 2>/dev/null \
-        | xargs -0 -r sha256sum 2>/dev/null
-    )
-  } | sha256sum | awk '{print $1}'
 }
 
 ai_read_bun_marker() {

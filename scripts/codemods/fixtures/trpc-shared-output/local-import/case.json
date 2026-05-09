@@ -1,0 +1,7 @@
+{
+  "args": [
+    "packages/server/src/routers/thing.ts"
+  ],
+  "expectFailure": true,
+  "expectedError": "localOutputSchema is not a supported top-level output const schema."
+}

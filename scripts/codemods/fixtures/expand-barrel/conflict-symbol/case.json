@@ -1,0 +1,5 @@
+{
+  "args": ["--package", "@musi/shared/rules"],
+  "expectedError": "duplicateRule is exported by both duplicateRule from",
+  "expectedStdout": []
+}

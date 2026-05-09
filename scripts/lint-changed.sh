@@ -19,7 +19,14 @@ fi
 # filter to lintable extensions and existing files, deduplicate.
 declare -A SEEN
 FILES=()
+FULL_LINT=0
 while IFS= read -r -d '' f; do
+  case "$f" in
+    bun.lock|package.json|eslint.config.*|tsconfig*.json|packages/*/package.json|packages/*/tsconfig*.json|eslint-rules/*)
+      FULL_LINT=1
+      ;;
+  esac
+
   case "$f" in
     *.ts|*.tsx|*.js|*.jsx|*.mjs|*.cjs) ;;
     *) continue ;;
@@ -35,6 +42,11 @@ done < <(
     git diff -z --name-only --diff-filter=ACMR --cached
   }
 )
+
+if [ "$FULL_LINT" -eq 1 ]; then
+  echo "lint:changed: lint-affecting config changed — running full lint."
+  exec eslint --cache --cache-location node_modules/.cache/eslint/ .
+fi
 
 if [ "${#FILES[@]}" -eq 0 ]; then
   echo "No changed lintable files vs $BASE — skipping lint."

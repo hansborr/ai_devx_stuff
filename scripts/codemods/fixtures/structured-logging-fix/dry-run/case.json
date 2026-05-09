@@ -1,0 +1,4 @@
+{
+  "args": ["--dry-run", "packages/server/src/routers/thing.ts"],
+  "expectedStdout": ["dry-run would write packages/server/src/routers/thing.ts"]
+}

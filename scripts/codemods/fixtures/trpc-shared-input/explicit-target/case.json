@@ -1,0 +1,7 @@
+{
+  "args": [
+    "--target",
+    "@musi/shared/schemas/custom.js",
+    "packages/server/src/routers/thing.ts"
+  ]
+}

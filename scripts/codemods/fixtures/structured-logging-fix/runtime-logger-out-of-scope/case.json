@@ -1,0 +1,8 @@
+{
+  "args": ["packages/server/src/routers/thing.ts"],
+  "expectedStdout": [
+    "unsupported packages/server/src/routers/thing.ts:2",
+    "no obvious logger in scope",
+    "no supported console rewrites found"
+  ]
+}

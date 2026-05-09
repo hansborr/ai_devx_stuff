@@ -60,8 +60,17 @@ function patternsMatchingBareBarrel(patterns) {
   });
 }
 
+/** @param {unknown[]} patterns @param {string} name */
+function patternsWithGroup(patterns, name) {
+  return patterns.filter((p) => {
+    if (!p || typeof p !== "object") return false;
+    const group = /** @type {{ group?: unknown }} */ (p).group;
+    return Array.isArray(group) && group.includes(name);
+  });
+}
+
 describe("schemas-barrel restriction", () => {
-  it("client files block the bare barrel via the global rule", async () => {
+  it("client files block the bare barrel alongside socket-client construction", async () => {
     const cfg = /** @type {{ rules?: Record<string, unknown> }} */ (
       await configFor(
         resolve(repoRoot, "packages/client/src/components/campaign/chat/chat-message.tsx"),
@@ -69,7 +78,9 @@ describe("schemas-barrel restriction", () => {
     );
     const entry = cfg.rules?.["@typescript-eslint/no-restricted-imports"];
     expect(entry, "rule must be configured").toBeDefined();
-    expect(patternsMatchingBareBarrel(patternsOf(entry)).length).toBeGreaterThan(0);
+    const patterns = patternsOf(entry);
+    expect(patternsMatchingBareBarrel(patterns).length).toBeGreaterThan(0);
+    expect(patternsWithGroup(patterns, "socket.io-client").length).toBeGreaterThan(0);
   });
 
   it("server files block the bare barrel alongside the RawTxClient restriction", async () => {
@@ -87,5 +98,17 @@ describe("schemas-barrel restriction", () => {
       return Array.isArray(names) && names.includes("RawTxClient");
     });
     expect(hasRawTx).toBe(true);
+  });
+
+  it("shared files block client/server and runtime-specific imports", async () => {
+    const cfg = /** @type {{ rules?: Record<string, unknown> }} */ (
+      await configFor(resolve(repoRoot, "packages/shared/src/rules/combat.ts"))
+    );
+    const entry = cfg.rules?.["@typescript-eslint/no-restricted-imports"];
+    expect(entry, "rule must be configured").toBeDefined();
+    const patterns = patternsOf(entry);
+    expect(patternsMatchingBareBarrel(patterns).length).toBeGreaterThan(0);
+    expect(patternsWithGroup(patterns, "@musi/server").length).toBeGreaterThan(0);
+    expect(patternsWithGroup(patterns, "react").length).toBeGreaterThan(0);
   });
 });

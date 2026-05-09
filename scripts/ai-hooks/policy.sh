@@ -7,12 +7,109 @@ AI_POLICY_POSTGRES="Do not use PostgreSQL CLI tools directly. You are in a conta
 AI_POLICY_REDIS="Do not use redis-cli directly. You are in a container - Redis is managed by the app. If you need to inspect Redis state, read the app code or use 'bun run' scripts."
 AI_POLICY_DOCKER="Do not run docker or docker-compose commands. You are in a container - PostgreSQL and Redis are already running and managed by the dev container. Use Prisma CLI for database operations."
 AI_POLICY_CHANGEME="Wrong database credentials. 'ThisIsNotTheRealDatabasePassword' is not the password for this environment. Read .devcontainer/.env for the correct credentials."
+AI_POLICY_GIT_AMEND="Git commit amend is not allowed from agents because it rewrites local history. Add a follow-up commit instead, or ask the user to amend manually."
+AI_POLICY_GIT_REBASE="Git rebase is not allowed from agents because it rewrites local history. Use merge or add follow-up commits; if a rebase is required, ask the user to run it."
+AI_POLICY_GIT_RESET="Dangerous git reset modes are not allowed from agents. Use path-scoped 'git restore --staged <path>' or ask the user to run the reset."
+AI_POLICY_GIT_HISTORY_REWRITE="Git history rewrite and direct ref manipulation are not allowed from agents. Add a follow-up commit or ask the user to run the rewrite."
+AI_POLICY_GIT_FORCE_PUSH="Git force-push and remote branch deletion are not allowed from agents. Push normal feature-branch updates only, or ask the user to perform the remote mutation."
+AI_POLICY_GIT_PUSH_MAIN="Pushing to main or master is not allowed from agents. Push a feature branch or ask the user to push the protected branch."
+AI_POLICY_GIT_BRANCH_FORCE_DELETE="Force-deleting branches, deleting tags, or force-removing worktrees is not allowed from agents. Use non-force cleanup such as 'git branch -d' or 'bun run worktree:drop', or ask the user to perform the deletion."
+AI_POLICY_GIT_CLEAN_FORCE="Git clean with force is not allowed from agents because it destroys untracked files. Remove specific generated files by name or ask the user to clean the tree."
+AI_POLICY_GH_REMOTE_MUTATION="GitHub remote mutations are not allowed from agents. Use read-only 'gh ... view/list/status' commands, or ask the user to perform the mutation."
+AI_POLICY_GH_AUTH="GitHub auth token output and auth reconfiguration are not allowed from agents. Use 'gh auth status' for read-only auth checks, or ask the user to manage authentication."
+AI_POLICY_GREP="Raw grep from shell commands is not allowed because it pollutes context. Use Claude 'Grep' when available; otherwise use 'rg', 'rg --files', or 'git grep'."
 AI_FLAKY_NOTE="Note: If this failure looks flaky (passes in isolation, fails under load), confirm with a focused rerun before treating it as product breakage."
 
-AI_WRAPPED_BUN_RE='^bun run (lint|lint:changed|lint:fix|typecheck|test|test:changed|test:server|test:client|test:shared|test:coverage|test:slow|e2e|format|format:check|format:changed|build|verify|verify:changed|verify:slow|verify:logs|verify:async:status|verify:async:tail|verify:async:stop)( [A-Za-z0-9._:/=-]+| --[A-Za-z0-9._=-]+)*$'
+AI_WRAPPED_BUN_RE='^bun run (lint|lint:changed|lint:fix|typecheck|test|test:changed|test:server|test:client|test:shared|test:coverage|test:slow|e2e|format|format:check|format:changed|build|code:intel|verify|verify:changed|verify:slow|verify:logs|verify:async:status|verify:async:tail|verify:async:stop)( --| [A-Za-z0-9._:/=-]+| --[A-Za-z0-9._=-]+)*$'
+AI_POLICY_CMD_START='(^[[:space:]]*|[;&|][[:space:]]*)'
+AI_POLICY_CMD_END="($|[[:space:];|&'\"])"
+AI_POLICY_ENV_PREFIX='env[[:space:]]+([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]+[[:space:]]+)+'
+AI_POLICY_SHELL_PREFIX="(bash|sh)[[:space:]]+-[^[:space:]]*c[^[:space:]]*[[:space:]]+['\"]?"
+
+ai_policy_command_re() {
+  local command_re="$1"
+
+  printf '%s%s|%s%s%s|%s%s(%s)?%s' \
+    "$AI_POLICY_CMD_START" "$command_re" \
+    "$AI_POLICY_CMD_START" "$AI_POLICY_ENV_PREFIX" "$command_re" \
+    "$AI_POLICY_CMD_START" "$AI_POLICY_SHELL_PREFIX" "$AI_POLICY_ENV_PREFIX" "$command_re"
+}
+
+ai_policy_has_command() {
+  local cmd="$1"
+  local command_re="$2"
+
+  grep -qE -- "$(ai_policy_command_re "$command_re")" <<< "$cmd"
+}
+
+ai_current_branch() {
+  git symbolic-ref --quiet --short HEAD 2>/dev/null || true
+}
+
+ai_policy_strip_allowed_rebase_controls() {
+  sed -E 's/git[[:space:]]+rebase[[:space:]]+--(continue|abort|skip|quit)//g' <<< "$1"
+}
+
+ai_policy_has_dangerous_git_reset() {
+  local cmd="$1"
+
+  ai_policy_has_command "$cmd" "git[[:space:]]+reset[^;&|]*[[:space:]]--(hard|soft|merge|keep)$AI_POLICY_CMD_END" && return 0
+  if ai_policy_has_command "$cmd" "git[[:space:]]+reset([[:space:]]+(-[A-Za-z]+|--[A-Za-z0-9-]+(=[^[:space:];|&'\"]+)?))*[[:space:]]+[^[:space:]-][^[:space:];|&'\"]*$AI_POLICY_CMD_END"; then
+    ai_policy_has_command "$cmd" "git[[:space:]]+reset([[:space:]]+(-[A-Za-z]+|--[A-Za-z0-9-]+(=[^[:space:];|&'\"]+)?))*[[:space:]]+HEAD[[:space:]]+--[[:space:]]+" && return 1
+    return 0
+  fi
+
+  return 1
+}
+
+ai_policy_has_git_push_to_main() {
+  local cmd="$1"
+  local branch
+
+  ai_policy_has_command "$cmd" "git[[:space:]]+push[^;&|]*[[:space:]]((refs/heads/)?(main|master)|[^[:space:];|&'\"]+:(refs/heads/)?(main|master))$AI_POLICY_CMD_END" && return 0
+  ai_policy_has_command "$cmd" "git[[:space:]]+push[^;&|]*[[:space:]]--(all|branches)$AI_POLICY_CMD_END" && return 0
+
+  branch=$(ai_current_branch)
+  case "$branch" in
+    main|master)
+      ai_policy_has_command "$cmd" "git[[:space:]]+push([[:space:]]+(-[A-Za-z][A-Za-z0-9-]*|--[A-Za-z0-9-]+(=[^[:space:]]+)?))*([[:space:]]+[A-Za-z0-9._/-]+)?[[:space:]]*$AI_POLICY_CMD_END"
+      return $?
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+ai_policy_has_gh_api_explicit_get() {
+  ai_policy_has_command "$1" "gh[[:space:]]+api[^;&|]*[[:space:]]((--method(=|[[:space:]]+)|-X[[:space:]]*)[Gg][Ee][Tt])$AI_POLICY_CMD_END"
+}
+
+ai_policy_has_gh_api_visible_graphql_query() {
+  local cmd="$1"
+
+  ai_policy_has_command "$cmd" "gh[[:space:]]+api[[:space:]]+graphql" || return 1
+  grep -qE -- '(^|[[:space:]])(-f|-F|--field|--raw-field)[[:space:]]+query=['"'"'"]?(query|\{)' <<< "$cmd" || return 1
+  ! grep -qiE -- 'mutation[[:space:]]*(\{|[[:alpha:]_])' <<< "$cmd"
+}
+
+ai_policy_has_gh_api_mutation() {
+  local cmd="$1"
+
+  ai_policy_has_command "$cmd" "gh[[:space:]]+api[^;&|]*[[:space:]]((--method(=|[[:space:]]+)|-X[[:space:]]*)[Pp][Oo][Ss][Tt]|(--method(=|[[:space:]]+)|-X[[:space:]]*)[Pp][Uu][Tt]|(--method(=|[[:space:]]+)|-X[[:space:]]*)[Pp][Aa][Tt][Cc][Hh]|(--method(=|[[:space:]]+)|-X[[:space:]]*)[Dd][Ee][Ll][Ee][Tt][Ee])$AI_POLICY_CMD_END" && return 0
+  ai_policy_has_command "$cmd" "gh[[:space:]]+api[^;&|]*[[:space:]]--input($|[[:space:]=])" && return 0
+  if ai_policy_has_command "$cmd" "gh[[:space:]]+api[^;&|]*[[:space:]](-f|-F|--field|--raw-field)([[:space:]=]|$)"; then
+    ai_policy_has_gh_api_explicit_get "$cmd" && return 1
+    ai_policy_has_gh_api_visible_graphql_query "$cmd" && return 1
+    return 0
+  fi
+
+  return 1
+}
 
 ai_policy_violation_reason() {
   local cmd="$1"
+  local rebase_residue
 
   if grep -qE -- '(^|[[:space:]])HUSKY=0([[:space:]]|$)|--no-verify|\bgit[[:space:]]+commit\b.*(^|[[:space:]])-[A-Za-z]*n[A-Za-z]*([[:space:]]|$)' <<< "$cmd"; then
     printf '%s' "$AI_POLICY_HOOK_BYPASS"
@@ -29,13 +126,105 @@ ai_policy_violation_reason() {
     return 0
   fi
 
-  if grep -qE '(^|[;&|][[:space:]]*)docker([[:space:]]|-)' <<< "$cmd"; then
+  if grep -qE '(^[[:space:]]*|[;&|][[:space:]]*)docker([[:space:]]|-)' <<< "$cmd"; then
     printf '%s' "$AI_POLICY_DOCKER"
     return 0
   fi
 
   if grep -qF 'ThisIsNotTheRealDatabasePassword' <<< "$cmd"; then
     printf '%s' "$AI_POLICY_CHANGEME"
+    return 0
+  fi
+
+  if ai_policy_has_command "$cmd" "git[[:space:]]+commit[^;&|]*[[:space:]]--amend$AI_POLICY_CMD_END"; then
+    printf '%s' "$AI_POLICY_GIT_AMEND"
+    return 0
+  fi
+
+  rebase_residue=$(ai_policy_strip_allowed_rebase_controls "$cmd")
+  if ai_policy_has_command "$rebase_residue" "git[[:space:]]+rebase$AI_POLICY_CMD_END" \
+    || ai_policy_has_command "$rebase_residue" "git[[:space:]]+rebase[[:space:]]+"; then
+    printf '%s' "$AI_POLICY_GIT_REBASE"
+    return 0
+  fi
+
+  if ai_policy_has_dangerous_git_reset "$cmd"; then
+    printf '%s' "$AI_POLICY_GIT_RESET"
+    return 0
+  fi
+
+  if ai_policy_has_command "$cmd" "git[[:space:]]+(filter-branch|filter-repo|replace|update-ref)$AI_POLICY_CMD_END" \
+    || ai_policy_has_command "$cmd" "git[[:space:]]+reflog[[:space:]]+expire[^;&|]*--expire=now[^;&|]*--all"; then
+    printf '%s' "$AI_POLICY_GIT_HISTORY_REWRITE"
+    return 0
+  fi
+
+  if ai_policy_has_command "$cmd" "git[[:space:]]+push[^;&|]*[[:space:]]((--force|--force-with-lease)(=[^[:space:];|&'\"]*)?|--mirror|--delete)$AI_POLICY_CMD_END" \
+    || ai_policy_has_command "$cmd" "git[[:space:]]+push[^;&|]*[[:space:]]-[A-Za-z]*[fd][A-Za-z]*$AI_POLICY_CMD_END" \
+    || ai_policy_has_command "$cmd" "git[[:space:]]+push[^;&|]*[[:space:]]\\+[^[:space:];|&'\"]+" \
+    || ai_policy_has_command "$cmd" "git[[:space:]]+push[^;&|]*[[:space:]]:[^[:space:];|&'\"]+"; then
+    printf '%s' "$AI_POLICY_GIT_FORCE_PUSH"
+    return 0
+  fi
+
+  if ai_policy_has_git_push_to_main "$cmd"; then
+    printf '%s' "$AI_POLICY_GIT_PUSH_MAIN"
+    return 0
+  fi
+
+  if ai_policy_has_command "$cmd" "git[[:space:]]+branch[^;&|]*[[:space:]]-D$AI_POLICY_CMD_END" \
+    || ai_policy_has_command "$cmd" "git[[:space:]]+branch[^;&|]*[[:space:]]-[A-Za-z]*D[A-Za-z]*$AI_POLICY_CMD_END" \
+    || ai_policy_has_command "$cmd" "git[[:space:]]+branch[^;&|]*[[:space:]]-[A-Za-z]*d[A-Za-z]*f[A-Za-z]*$AI_POLICY_CMD_END" \
+    || ai_policy_has_command "$cmd" "git[[:space:]]+branch[^;&|]*[[:space:]]-[A-Za-z]*f[A-Za-z]*d[A-Za-z]*$AI_POLICY_CMD_END" \
+    || ai_policy_has_command "$cmd" "git[[:space:]]+branch[^;&|]*[[:space:]]-[A-Za-z]*d[A-Za-z]*[^;&|]*[[:space:]]-[A-Za-z]*f[A-Za-z]*" \
+    || ai_policy_has_command "$cmd" "git[[:space:]]+branch[^;&|]*[[:space:]]-[A-Za-z]*f[A-Za-z]*[^;&|]*[[:space:]]-[A-Za-z]*d[A-Za-z]*" \
+    || ai_policy_has_command "$cmd" "git[[:space:]]+branch[^;&|]*--delete[^;&|]*--force" \
+    || ai_policy_has_command "$cmd" "git[[:space:]]+branch[^;&|]*--force[^;&|]*--delete" \
+    || ai_policy_has_command "$cmd" "git[[:space:]]+branch[^;&|]*--delete[^;&|]*[[:space:]]-[A-Za-z]*f[A-Za-z]*" \
+    || ai_policy_has_command "$cmd" "git[[:space:]]+branch[^;&|]*[[:space:]]-[A-Za-z]*f[A-Za-z]*[^;&|]*--delete" \
+    || ai_policy_has_command "$cmd" "git[[:space:]]+tag[^;&|]*[[:space:]]+(-[A-Za-z]*d[A-Za-z]*|--delete)$AI_POLICY_CMD_END" \
+    || ai_policy_has_command "$cmd" "git[[:space:]]+worktree[[:space:]]+remove[^;&|]*[[:space:]]--force$AI_POLICY_CMD_END" \
+    || ai_policy_has_command "$cmd" "git[[:space:]]+worktree[[:space:]]+remove[^;&|]*[[:space:]]-[A-Za-z]*f[A-Za-z]*$AI_POLICY_CMD_END"; then
+    printf '%s' "$AI_POLICY_GIT_BRANCH_FORCE_DELETE"
+    return 0
+  fi
+
+  if ai_policy_has_command "$cmd" "git[[:space:]]+clean[^;&|]*[[:space:]](--force|-[A-Za-z]*f[A-Za-z]*)$AI_POLICY_CMD_END"; then
+    printf '%s' "$AI_POLICY_GIT_CLEAN_FORCE"
+    return 0
+  fi
+
+  if ai_policy_has_command "$cmd" "gh[[:space:]]+auth[[:space:]]+(token|login|logout|refresh|setup-git)$AI_POLICY_CMD_END"; then
+    printf '%s' "$AI_POLICY_GH_AUTH"
+    return 0
+  fi
+
+  if ai_policy_has_command "$cmd" "gh[[:space:]]+pr[[:space:]]+(create|comment|merge|close|reopen|ready|edit|lock|unlock|review)$AI_POLICY_CMD_END" \
+    || ai_policy_has_command "$cmd" "gh[[:space:]]+issue[[:space:]]+(create|comment|close|reopen|edit|delete|develop|lock|unlock|transfer|pin|unpin)$AI_POLICY_CMD_END" \
+    || ai_policy_has_command "$cmd" "gh[[:space:]]+repo[[:space:]]+(create|fork|delete|archive|rename|transfer|edit|sync|set-default)$AI_POLICY_CMD_END" \
+    || ai_policy_has_command "$cmd" "gh[[:space:]]+repo[[:space:]]+deploy-key[[:space:]]+(add|delete)$AI_POLICY_CMD_END" \
+    || ai_policy_has_command "$cmd" "gh[[:space:]]+release[[:space:]]+(create|edit|delete|delete-asset|upload)$AI_POLICY_CMD_END" \
+    || ai_policy_has_command "$cmd" "gh[[:space:]]+workflow[[:space:]]+(disable|enable|run)$AI_POLICY_CMD_END" \
+    || ai_policy_has_command "$cmd" "gh[[:space:]]+run[[:space:]]+(cancel|rerun|delete)$AI_POLICY_CMD_END" \
+    || ai_policy_has_command "$cmd" "gh[[:space:]]+cache[[:space:]]+delete$AI_POLICY_CMD_END" \
+    || ai_policy_has_command "$cmd" "gh[[:space:]]+secret[[:space:]]+(set|delete)$AI_POLICY_CMD_END" \
+    || ai_policy_has_command "$cmd" "gh[[:space:]]+variable[[:space:]]+(set|delete)$AI_POLICY_CMD_END" \
+    || ai_policy_has_gh_api_mutation "$cmd" \
+    || ai_policy_has_command "$cmd" "gh[[:space:]]+codespace[[:space:]]+(create|delete|edit|rebuild|stop)$AI_POLICY_CMD_END" \
+    || ai_policy_has_command "$cmd" "gh[[:space:]]+gist[[:space:]]+(create|edit|delete)$AI_POLICY_CMD_END" \
+    || ai_policy_has_command "$cmd" "gh[[:space:]]+(gpg-key|ssh-key)[[:space:]]+(add|delete)$AI_POLICY_CMD_END" \
+    || ai_policy_has_command "$cmd" "gh[[:space:]]+label[[:space:]]+(create|edit|delete|clone)$AI_POLICY_CMD_END" \
+    || ai_policy_has_command "$cmd" "gh[[:space:]]+alias[[:space:]]+(set|delete)$AI_POLICY_CMD_END" \
+    || ai_policy_has_command "$cmd" "gh[[:space:]]+config[[:space:]]+set$AI_POLICY_CMD_END" \
+    || ai_policy_has_command "$cmd" "gh[[:space:]]+extension[[:space:]]+(install|remove|upgrade)$AI_POLICY_CMD_END"; then
+    printf '%s' "$AI_POLICY_GH_REMOTE_MUTATION"
+    return 0
+  fi
+
+  if ai_policy_has_command "$cmd" "(e?grep|fgrep)$AI_POLICY_CMD_END" \
+    || ai_policy_has_command "$cmd" "find[^;&|]*[[:space:]]-exec[[:space:]]+(e?grep|fgrep)$AI_POLICY_CMD_END" \
+    || ai_policy_has_command "$cmd" "xargs[^;&|]*[[:space:]](e?grep|fgrep)$AI_POLICY_CMD_END"; then
+    printf '%s' "$AI_POLICY_GREP"
     return 0
   fi
 

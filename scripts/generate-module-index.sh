@@ -35,6 +35,20 @@ trap 'rm -f "$tmp_file"' EXIT
       title="$module_doc"
     fi
     title="$(printf '%s' "$title" | perl -CS -pe 's/\x{2013}|\x{2014}/-/g')"
+    concepts="$(
+      awk '
+        NR == 1 { next }
+        /^[[:space:]]*$/ { next }
+        {
+          if ($0 ~ /^Concepts:[[:space:]]*/) {
+            sub(/^Concepts:[[:space:]]*/, "")
+            print
+          }
+          exit
+        }
+      ' "$module_doc" \
+        | perl -CS -pe 's/\x{2013}|\x{2014}/-/g; s/^[[:space:]]+|[[:space:]]+$//g'
+    )"
 
     if [[ "$module_doc" == */MODULE.md ]]; then
       module_ref="${module_doc%/MODULE.md}/"
@@ -42,7 +56,12 @@ trap 'rm -f "$tmp_file"' EXIT
       module_ref="$module_doc"
     fi
 
-    printf -- "- [%s](%s) - \`%s\`\n" "$title" "$module_doc" "$module_ref"
+    if [ -n "$concepts" ]; then
+      printf -- "- [%s](%s) - \`%s\` - Concepts: %s\n" \
+        "$title" "$module_doc" "$module_ref" "$concepts"
+    else
+      printf -- "- [%s](%s) - \`%s\`\n" "$title" "$module_doc" "$module_ref"
+    fi
   done < <(rg --files -g '*MODULE.md' | sort)
 } > "$tmp_file"
 

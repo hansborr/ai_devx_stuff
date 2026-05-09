@@ -1,0 +1,11 @@
+{
+  "args": ["--all"],
+  "expectFailure": true,
+  "expectedError": "found 1 concurrency guard error(s).",
+  "expectedStdout": [
+    "packages/server/src/utils/character-stats-mutations.ts:14 characterStats.updateMany/pattern-a-helper-shape ERROR",
+    "WHERE characterId+version",
+    "data.version increment",
+    "zero-count CONFLICT handling"
+  ]
+}

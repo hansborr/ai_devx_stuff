@@ -1,0 +1,7 @@
+{
+  "args": [
+    "packages/server/src/routers/thing.ts"
+  ],
+  "expectFailure": true,
+  "expectedError": "Unsupported .output(...) shape: thingSummarySchema.array()."
+}

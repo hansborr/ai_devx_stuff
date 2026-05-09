@@ -1,0 +1,5 @@
+{
+  "args": [
+    "packages/server/src/routers/thing.ts"
+  ]
+}

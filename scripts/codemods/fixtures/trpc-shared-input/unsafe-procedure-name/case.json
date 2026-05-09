@@ -1,0 +1,7 @@
+{
+  "args": [
+    "packages/server/src/routers/thing.ts"
+  ],
+  "expectFailure": true,
+  "expectedError": "Could not derive a safe schema name from procedure name get-by-id."
+}

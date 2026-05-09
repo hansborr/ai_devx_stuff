@@ -1,0 +1,4 @@
+{
+  "args": ["packages/server/src/socket/setup.ts"],
+  "expectedStdout": []
+}

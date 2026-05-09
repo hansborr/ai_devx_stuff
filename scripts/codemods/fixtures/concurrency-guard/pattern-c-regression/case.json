@@ -1,0 +1,9 @@
+{
+  "args": ["--all"],
+  "expectFailure": true,
+  "expectedError": "found 1 concurrency guard error(s).",
+  "expectedStdout": [
+    "packages/server/src/utils/encounter-state-mutations.ts:5 encounter.updateMany/pattern-c-helper-shape ERROR",
+    "WHERE id+state+currentTurnIndex+round"
+  ]
+}

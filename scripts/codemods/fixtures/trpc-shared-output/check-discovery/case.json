@@ -1,0 +1,9 @@
+{
+  "args": [
+    "--check"
+  ],
+  "expectedStdout": [
+    "trpc-shared-output codemod: check packages/server/src/routers/campaign.ts: 1 candidate(s).",
+    "trpc-shared-output codemod: check packages/server/src/routers/unsupported.ts: unsupported (Unsupported .output(...) shape: z.union([z.string(), z.number()]).)"
+  ]
+}

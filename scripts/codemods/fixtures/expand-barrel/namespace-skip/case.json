@@ -1,0 +1,7 @@
+{
+  "args": ["--package", "@musi/shared/rules"],
+  "expectedStdout": [
+    "namespace import from @musi/shared/rules left unchanged.",
+    "no expandable imports found for packages/shared/src/rules/index.ts."
+  ]
+}

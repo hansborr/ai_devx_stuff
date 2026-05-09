@@ -1,0 +1,9 @@
+{
+  "args": ["--check"],
+  "expectFailure": true,
+  "expectedError": "found 1 concurrency guard error(s).",
+  "expectedStdout": [
+    "packages/server/src/routers/character.ts:4 characterStats.updateManyAndReturn/direct-gated-write ERROR",
+    "Use updateCharacterStatsLocked/updateCharacterStatsLockedWithExpectedVersion"
+  ]
+}

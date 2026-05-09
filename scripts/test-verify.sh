@@ -193,8 +193,13 @@ set -e
 grep -qF 'TIMED OUT' <<< "$output" || fail "watchdog did not print TIMED OUT banner"
 grep -qF "logs: $LOG_DIR" <<< "$output" || fail "watchdog did not print log dir breadcrumb"
 grep -qF 'verify:logs budget' <<< "$output" || fail "watchdog did not print verify:logs budget hint"
+[ -f "$LOG_DIR/run-meta.json" ] || fail "watchdog did not write run-meta.json"
+grep -q '"name":"wrapper"' "$LOG_DIR/run-meta.json" \
+  || fail "watchdog metadata should record wrapper timing"
+grep -q '"exit_code":124' "$LOG_DIR/run-meta.json" \
+  || fail "watchdog metadata should record exit_code 124"
 [ -f "$MARKER_CHANGED" ] && fail "marker should not be written when the watchdog fires"
-ok "watchdog kills hung steps and exits 124 with budget breadcrumbs"
+ok "watchdog kills hung steps and records timeout metadata"
 
 # --- MUSI_INTERACTIVE_TIMEOUT is honored when MUSI_VERIFY_TIMEOUT is unset --
 rm -f "$MARKER_CHANGED"
@@ -204,6 +209,9 @@ output=$(MUSI_INTERACTIVE_TIMEOUT=2 STUB_SLEEP_lint_changed=10 run_verify --chan
 exit_code=$?
 set -e
 [ "$exit_code" -eq 124 ] || fail "MUSI_INTERACTIVE_TIMEOUT should also trigger 124 (got $exit_code)"
+[ -f "$LOG_DIR/run-meta.json" ] || fail "MUSI_INTERACTIVE_TIMEOUT did not write run-meta.json"
+grep -q '"exit_code":124' "$LOG_DIR/run-meta.json" \
+  || fail "MUSI_INTERACTIVE_TIMEOUT metadata should record exit_code 124"
 ok "MUSI_INTERACTIVE_TIMEOUT triggers the watchdog"
 
 # --- lock wait and execution watchdog share one interactive budget --------
@@ -235,6 +243,9 @@ wait "$LOCK_HOLDER" 2>/dev/null || true
 grep -qF 'execution watchdog budget' <<< "$output" \
   || fail "lock-coupled watchdog did not report reduced execution budget"
 grep -qF 'TIMED OUT' <<< "$output" || fail "lock-coupled watchdog did not time out hung step"
+[ -f "$LOG_DIR/run-meta.json" ] || fail "lock-coupled watchdog did not write run-meta.json"
+grep -q '"exit_code":124' "$LOG_DIR/run-meta.json" \
+  || fail "lock-coupled watchdog metadata should record exit_code 124"
 [ -f "$MARKER_CHANGED" ] && fail "marker should not be written when lock-coupled watchdog fires"
 ok "lock wait and execution watchdog share MUSI_INTERACTIVE_TIMEOUT"
 

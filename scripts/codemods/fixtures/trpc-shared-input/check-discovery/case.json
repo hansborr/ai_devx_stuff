@@ -1,0 +1,9 @@
+{
+  "args": [
+    "--check"
+  ],
+  "expectedStdout": [
+    "trpc-shared-input codemod: check packages/server/src/routers/campaign.ts: 1 candidate(s).",
+    "trpc-shared-input codemod: check packages/server/src/routers/unsupported.ts: unsupported (Unsupported .extend(...) input shape. Move it manually.)"
+  ]
+}

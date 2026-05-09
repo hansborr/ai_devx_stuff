@@ -10,6 +10,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RUNNER_SH="$SCRIPT_DIR/test-scripts.sh"
+unset MUSI_SCRIPTS_CHANGED_FILES
 
 PASS=0
 fail() { printf 'FAIL: %s\n' "$1" >&2; exit 1; }
@@ -38,7 +39,7 @@ chmod +x "$SANDBOX/bin/runner"
 
 STUB_LOG_FILE="$SANDBOX/runner.log"
 : > "$STUB_LOG_FILE"
-ALL_SMOKE_TESTS=$'runner ran test-verify\nrunner ran test-verify-async\nrunner ran test-verify-logs\nrunner ran test-worktree-db\nrunner ran test-dependency-freshness\nrunner ran test-ai-hooks\nrunner ran test-eslint-disable-register\nrunner ran test-test-changed\nrunner ran test-test-slow\nrunner ran test-generate-module-index\nrunner ran test-migration-safety-scan\nrunner ran test-test-scripts'
+ALL_SMOKE_TESTS=$'runner ran test-verify\nrunner ran test-verify-async\nrunner ran test-verify-logs\nrunner ran test-worktree-db\nrunner ran test-dependency-freshness\nrunner ran test-ai-hooks\nrunner ran test-eslint-disable-register\nrunner ran test-codemod-structured-logging-fix\nrunner ran test-codemod-trpc-shared-input\nrunner ran test-codemod-trpc-shared-output\nrunner ran test-code-intel\nrunner ran test-lint-changed\nrunner ran test-test-changed\nrunner ran test-test-slow\nrunner ran test-generate-module-index\nrunner ran test-migration-safety-scan\nrunner ran test-test-scripts'
 
 run_runner() {
   STUB_LOG="$STUB_LOG_FILE" \
@@ -127,6 +128,59 @@ MUSI_SCRIPTS_CHANGED_FILES="scripts/eslint-disable-register.sh" run_runner --cha
   || fail "eslint-disable register change should select its smoke test: $(cat "$STUB_LOG_FILE")"
 ok "--changed selects test-eslint-disable-register on diagnostics change"
 
+# --- --changed selects tRPC shared-schema codemod smokes -----------------
+: > "$STUB_LOG_FILE"
+MUSI_SCRIPTS_CHANGED_FILES="scripts/codemods/structured-logging-fix.ts" run_runner --changed >/dev/null
+[ "$(cat "$STUB_LOG_FILE")" = "runner ran test-codemod-structured-logging-fix" ] \
+  || fail "structured logging codemod change should select its smoke: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects structured logging codemod smoke on codemod change"
+
+: > "$STUB_LOG_FILE"
+MUSI_SCRIPTS_CHANGED_FILES="scripts/codemods/trpc-shared-input.ts" run_runner --changed >/dev/null
+[ "$(cat "$STUB_LOG_FILE")" = "runner ran test-codemod-trpc-shared-input" ] \
+  || fail "input codemod change should select input codemod smoke: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects input codemod smoke on input codemod change"
+
+: > "$STUB_LOG_FILE"
+MUSI_SCRIPTS_CHANGED_FILES="scripts/codemods/trpc-shared-output.ts" run_runner --changed >/dev/null
+[ "$(cat "$STUB_LOG_FILE")" = "runner ran test-codemod-trpc-shared-output" ] \
+  || fail "output codemod change should select output codemod smoke: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects output codemod smoke on output codemod change"
+
+: > "$STUB_LOG_FILE"
+MUSI_SCRIPTS_CHANGED_FILES="package.json" run_runner --changed >/dev/null
+expected=$'runner ran test-codemod-structured-logging-fix\nrunner ran test-codemod-trpc-shared-input\nrunner ran test-codemod-trpc-shared-output\nrunner ran test-code-intel'
+[ "$(cat "$STUB_LOG_FILE")" = "$expected" ] \
+  || fail "package.json change should select codemod smokes: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects package-script smokes on package script change"
+
+: > "$STUB_LOG_FILE"
+MUSI_SCRIPTS_CHANGED_FILES="scripts/codemods/lib/trpc-shared-schema.ts" run_runner --changed >/dev/null
+expected=$'runner ran test-codemod-structured-logging-fix\nrunner ran test-codemod-trpc-shared-input\nrunner ran test-codemod-trpc-shared-output'
+[ "$(cat "$STUB_LOG_FILE")" = "$expected" ] \
+  || fail "shared codemod helper change should select all dependent codemod smokes: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects codemod smokes on shared codemod helper change"
+
+# --- --changed selects code-intel smoke on code-intel changes ------------
+: > "$STUB_LOG_FILE"
+MUSI_SCRIPTS_CHANGED_FILES="scripts/code-intel.ts" run_runner --changed >/dev/null
+[ "$(cat "$STUB_LOG_FILE")" = "runner ran test-code-intel" ] \
+  || fail "code-intel change should select its smoke: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects test-code-intel on code-intel change"
+
+: > "$STUB_LOG_FILE"
+MUSI_SCRIPTS_CHANGED_FILES="packages/shared/package.json" run_runner --changed >/dev/null
+[ "$(cat "$STUB_LOG_FILE")" = "runner ran test-code-intel" ] \
+  || fail "package export change should select code-intel smoke: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects test-code-intel on package export change"
+
+# --- --changed selects lint-changed smoke on lint wrapper changes ---------
+: > "$STUB_LOG_FILE"
+MUSI_SCRIPTS_CHANGED_FILES="scripts/lint-changed.sh" run_runner --changed >/dev/null
+[ "$(cat "$STUB_LOG_FILE")" = "runner ran test-lint-changed" ] \
+  || fail "lint-changed.sh change should select lint-changed smoke: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects test-lint-changed on lint wrapper change"
+
 # --- --changed selects ai-hooks smoke on shared hook changes -------------
 : > "$STUB_LOG_FILE"
 MUSI_SCRIPTS_CHANGED_FILES="scripts/ai-hooks/stop-policy.sh" run_runner --changed >/dev/null
@@ -139,6 +193,12 @@ MUSI_SCRIPTS_CHANGED_FILES="scripts/ai-hooks/process-runner.sh" run_runner --cha
 [ "$(cat "$STUB_LOG_FILE")" = "runner ran test-ai-hooks" ] \
   || fail "process-runner.sh change should select ai-hooks smoke: $(cat "$STUB_LOG_FILE")"
 ok "--changed selects test-ai-hooks on hook runner change"
+
+: > "$STUB_LOG_FILE"
+MUSI_SCRIPTS_CHANGED_FILES=".codex/hooks/post-tool-use.sh" run_runner --changed >/dev/null
+[ "$(cat "$STUB_LOG_FILE")" = "runner ran test-ai-hooks" ] \
+  || fail "Codex post hook change should select ai-hooks smoke: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects test-ai-hooks on Codex hook change"
 
 # --- --changed selects test-changed and test-slow smokes ------------------
 # test-test-slow exercises the slow-test hint emitted by test-changed.sh, so

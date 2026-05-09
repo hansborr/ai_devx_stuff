@@ -4,6 +4,21 @@
 large, stateful, or subtle to understand from filenames alone. They should
 answer "where do I start, what owns state here, and what must not drift?"
 
+## Concept Breadcrumbs
+
+After the H1, module docs may include one optional `Concepts:` line with a
+short comma-separated list of domain terms that should point future agents
+toward this module. Keep it to the terms someone would search for, not every
+file or symbol name in the directory.
+
+Example:
+
+```md
+# campaign combat module
+
+Concepts: initiative, turn order, death saves, combat log
+```
+
 ## Where Required
 
 Add or keep a `MODULE.md` for:
@@ -15,15 +30,16 @@ Add or keep a `MODULE.md` for:
 - Directories that are named in roadmap work as future refactor targets.
 
 Do not add one for a single self-contained file unless it carries invariants
-that would otherwise live only in comments.
+that would otherwise live only in comments. Server flat services may use a
+`<name>-MODULE.md` companion when the implementation should stay flat.
 
 ## Required Sections
 
-New and refreshed module docs should use these section names unless a section is
-genuinely not applicable:
+New and refreshed module docs should use these section names unless a section
+is genuinely not applicable:
 
 - **Purpose** - what the directory owns and what it deliberately does not own.
-- **Data Flow** - important query, mutation, socket, store, or transaction flow.
+- **Data Flow** - important query/mutation/socket/store/transaction flow.
 - **External Entry Points** - public hooks, facades, components, router calls,
   or imports used from outside the directory.
 - **State Ownership** - cache keys, store slices, DB rows, socket events,
@@ -39,5 +55,5 @@ be more explicit about contracts, invariants, and broadcasts.
 ## Discoverability
 
 Run `bun run module:index` after adding, moving, renaming, or deleting a
-`*MODULE.md` orientation file. The generated root `MODULE-INDEX.md` is the quick
-cold-start map; the local module doc remains the source of truth.
+`*MODULE.md` orientation file. The generated root `MODULE-INDEX.md` is the
+quick cold-start map; the local module doc remains the source of truth.

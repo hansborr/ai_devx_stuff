@@ -1,0 +1,9 @@
+{
+  "args": ["--check"],
+  "expectFailure": true,
+  "expectedError": "found 1 concurrency guard error(s).",
+  "expectedStdout": [
+    "packages/server/src/utils/character-class-mutations.ts:5 characterClass.upsert/unclassified-helper-mutator ERROR",
+    "Unclassified raw gated mutator found inside a mutation helper."
+  ]
+}

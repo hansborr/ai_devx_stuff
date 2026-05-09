@@ -1,0 +1,10 @@
+{
+  "args": ["packages/server/src/seed/generate.ts"],
+  "expectedStdout": [
+    "unsupported packages/server/src/seed/generate.ts:2",
+    "template expressions need manual fields",
+    "string concatenation needs manual fields",
+    "multiple primitive arguments need manual fields",
+    "no supported console rewrites found"
+  ]
+}

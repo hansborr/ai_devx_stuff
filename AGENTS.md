@@ -122,6 +122,19 @@ When making 5e/5.5e rules claims, verify against `docs/SRD_CC_v5.2.1.pdf`. Canon
 
 - No `TODO` comments without a linked issue or roadmap reference.
 - Never delete "dead code" without tracing the exported symbol usage first.
+- Agent hooks block history rewrites and destructive Git operations:
+  `git commit --amend`, `git rebase` except `--continue` / `--abort` /
+  `--skip` / `--quit`, dangerous `git reset` modes, force pushes, pushes to
+  `main` / `master`, force branch deletion, tag deletion, forced worktree
+  removal, and forced `git clean`. Use follow-up commits, feature-branch
+  pushes, path-scoped `git restore --staged <path>`, non-force cleanup, or ask
+  the user to run the destructive command themselves.
+- Agent hooks block GitHub CLI mutations and auth reconfiguration. Use
+  read-only `gh ... view/list/status` commands; ask the user to create,
+  comment, merge, edit, delete, publish, run, or authenticate through `gh`.
+- Agent hooks block raw shell `grep`, including common pipe, `find -exec`, and
+  `xargs` forms. Use Claude `Grep` when available; otherwise use `rg`,
+  `rg --files`, or `git grep`.
 - If `worktree:status` or `doctor` reports SRD seed drift in a secondary
   worktree, run `bun run worktree:refresh-data` to re-apply the SRD seed
   in place (preserves user-created dev rows; the seed upserts and does not

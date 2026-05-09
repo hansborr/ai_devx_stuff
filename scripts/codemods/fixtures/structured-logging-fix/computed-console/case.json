@@ -1,0 +1,4 @@
+{
+  "args": ["packages/server/src/seed/seed-computed.ts"],
+  "expectedStdout": []
+}

@@ -1,0 +1,4 @@
+{
+  "args": ["packages/server/scripts/maintenance.ts"],
+  "expectedStdout": []
+}

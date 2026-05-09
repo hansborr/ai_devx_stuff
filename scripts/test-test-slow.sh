@@ -31,6 +31,15 @@ fi
 PASS=0
 fail() { printf 'FAIL: %s\n' "$1" >&2; exit 1; }
 ok() { PASS=$((PASS + 1)); printf 'ok %d - %s\n' "$PASS" "$1"; }
+normalize_vitest_summary() {
+  local esc nbsp
+  esc="$(printf '\033')"
+  nbsp="$(printf '\302\240')"
+
+  printf '%s\n' "$1" | LC_ALL=C sed -E \
+    -e "s/${esc}\\[[0-?]*[ -/]*[@-~]//g" \
+    -e "s/${nbsp}/ /g"
+}
 
 cd "$REPO_ROOT"
 
@@ -84,8 +93,12 @@ ok "slow vitest config includes only *.slow.test.* files"
 # slow tier picked up the file.
 wrapper_output="$(bash "$TEST_SLOW_SH" --project=shared 2>&1)" \
   || fail "test-slow.sh wrapper should succeed: $wrapper_output"
-grep -qF 'Test Files  1 passed' <<< "$wrapper_output" \
-  || fail "test-slow.sh should report exactly the slow sentinel passing: $wrapper_output"
+normalized_wrapper_output="$(normalize_vitest_summary "$wrapper_output")"
+grep -qF 'Vitest OK: 1 test passed in 1 file.' <<< "$normalized_wrapper_output" \
+  || fail "test-slow.sh should compact exactly one slow test passing: $wrapper_output"
+if grep -qF 'Test Files' <<< "$normalized_wrapper_output"; then
+  fail "test-slow.sh should not print raw passing Vitest summary: $wrapper_output"
+fi
 ok "test-slow.sh runs only the slow tier with MUSI_RUN_SLOW_TESTS=1"
 
 # --- 4. test-changed.sh emits a hint when *.slow.test.* changes ------------

@@ -1,0 +1,6 @@
+{
+  "args": ["--barrel", "packages/shared/src/rules/index.ts"],
+  "expectedStdout": [
+    "expand-barrel codemod: expanded 1 file(s) for packages/shared/src/rules/index.ts."
+  ]
+}

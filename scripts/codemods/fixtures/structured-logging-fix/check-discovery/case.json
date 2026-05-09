@@ -1,0 +1,8 @@
+{
+  "args": ["--check"],
+  "expectedStdout": [
+    "packages/server/scripts/maintenance.ts has direct console usage.",
+    "packages/server/src/routers/thing.ts has direct console usage.",
+    "packages/server/src/seed/seed-thing.ts has direct console usage."
+  ]
+}

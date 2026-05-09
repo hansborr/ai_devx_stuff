@@ -83,6 +83,17 @@ if ai_is_wrapped_bun_cmd "$MATCH_CMD"; then
   MARKER="$AI_BUN_LOG_DIR/last.$SCRIPT_SAFE"
   [ -n "$STATE_FILE" ] && rm -f "$STATE_FILE"
 
+  if ! ai_is_integer "${EXIT_CODE:-}"; then
+    INFERRED_EXIT=$(ai_bun_exit_code_from_output "$SCRIPT" "$COMBINED")
+    if ai_is_integer "${INFERRED_EXIT:-}"; then
+      EXIT_CODE="$INFERRED_EXIT"
+    elif ! ai_bun_output_has_error_footer "$SCRIPT" "$COMBINED"; then
+      EXIT_CODE=0
+    else
+      EXIT_CODE=""
+    fi
+  fi
+
   if [ -n "$COMBINED" ]; then
     printf '%s\n' "$COMBINED" > "$LOG"
   else
@@ -100,9 +111,9 @@ if ai_is_wrapped_bun_cmd "$MATCH_CMD"; then
 
   if [ "$EXIT_CODE" = "0" ]; then
     if [ -n "$ELAPSED" ]; then
-      ai_emit_block "$SCRIPT OK (${ELAPSED}s) - full log: $LOG"
+      ai_emit_additional_context "PostToolUse" "$SCRIPT OK (${ELAPSED}s) - full log: $LOG"
     fi
-    ai_emit_block "$SCRIPT OK - full log: $LOG"
+    ai_emit_additional_context "PostToolUse" "$SCRIPT OK - full log: $LOG"
   fi
 
   SUMMARY=$(ai_bun_failure_summary "$SCRIPT" "$LOG" "$EXIT_CODE" "$ELAPSED" "$COMBINED")

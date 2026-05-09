@@ -25,6 +25,11 @@ if [ "${STUB_VITEST_NOISE:-0}" = "1" ]; then
   printf '(Use `node --trace-deprecation ...` to show where the warning was created)\n'
   printf 'useful after\n'
 fi
+if [ "${STUB_VITEST_SUMMARY:-0}" = "1" ]; then
+  printf '\n Test Files  1 passed (1)\n'
+  printf '      Tests  1 passed (1)\n'
+  printf '   Duration  100ms\n'
+fi
 exit "${STUB_VITEST_EXIT:-0}"
 STUB
 chmod +x "$SANDBOX/bin/vitest"
@@ -37,6 +42,7 @@ new_repo() {
   cp "$TEST_CHANGED" "$repo/scripts/test-changed.sh"
   cp "$VITEST_RUNNER" "$repo/scripts/vitest.sh"
   cp "$OUTPUT_FILTER" "$repo/scripts/ai-hooks/output-filter.sh"
+  printf 'export default {};\n' > "$repo/scripts/vitest.config.ts"
   printf 'base\n' > "$repo/packages/server/src/base.ts"
   printf 'base\n' > "$repo/packages/client/src/base.ts"
   printf 'base\n' > "$repo/docs/readme.md"
@@ -74,6 +80,42 @@ run_test_changed "$repo" >/dev/null || fail "server change should run"
 grep -qF 'stub vitest run --passWithNoTests --project=server --changed main' "$repo/bun.log" \
   || fail "server change should run server project with --changed: $(cat "$repo/bun.log")"
 ok "server-only changes run server changed tests"
+
+repo="$(new_repo script-codemod-change)"
+mkdir -p "$repo/scripts/codemods"
+printf 'changed\n' > "$repo/scripts/codemods/trpc-shared-input.ts"
+git -C "$repo" add scripts/codemods/trpc-shared-input.ts
+: > "$repo/bun.log"
+run_test_changed "$repo" >/dev/null || fail "codemod script change should run"
+grep -qF 'stub vitest run --passWithNoTests --project=scripts' "$repo/bun.log" \
+  || fail "codemod script change should run scripts project: $(cat "$repo/bun.log")"
+if grep -q -- '--changed' "$repo/bun.log"; then
+  fail "codemod script changes should run scripts project in full: $(cat "$repo/bun.log")"
+fi
+ok "codemod script changes run scripts project tests"
+
+repo="$(new_repo script-code-intel-change)"
+printf 'changed\n' > "$repo/scripts/code-intel.ts"
+git -C "$repo" add scripts/code-intel.ts
+: > "$repo/bun.log"
+run_test_changed "$repo" >/dev/null || fail "code-intel script change should run"
+grep -qF 'stub vitest run --passWithNoTests --project=scripts' "$repo/bun.log" \
+  || fail "code-intel script change should run scripts project: $(cat "$repo/bun.log")"
+if grep -q -- '--changed' "$repo/bun.log"; then
+  fail "code-intel script changes should run scripts project in full: $(cat "$repo/bun.log")"
+fi
+ok "code-intel script changes run scripts project tests"
+
+repo="$(new_repo scripts-vitest-config)"
+printf 'export default { test: {} };\n' > "$repo/scripts/vitest.config.ts"
+: > "$repo/bun.log"
+output="$(run_test_changed "$repo")" || fail "scripts Vitest config change should run: $output"
+if grep -qF 'test:changed: no Vitest-relevant changes' <<< "$output"; then
+  fail "scripts Vitest config change should not be skipped: $output"
+fi
+grep -qF 'stub vitest run --passWithNoTests --project=scripts' "$repo/bun.log" \
+  || fail "scripts Vitest config change should run scripts project: $(cat "$repo/bun.log")"
+ok "scripts Vitest config changes run scripts project tests"
 
 repo="$(new_repo docs-change)"
 printf 'changed\n' > "$repo/docs/readme.md"
@@ -113,13 +155,29 @@ ok "missing base ref falls back to full Vitest suite"
 repo="$(new_repo noisy-output)"
 printf 'changed\n' > "$repo/packages/server/src/base.ts"
 : > "$repo/bun.log"
-output="$(STUB_VITEST_NOISE=1 run_test_changed "$repo")" || fail "noisy run should succeed: $output"
+set +e
+output="$(STUB_VITEST_NOISE=1 STUB_VITEST_EXIT=7 run_test_changed "$repo" 2>&1)"
+exit_code=$?
+set -e
+[ "$exit_code" -eq 7 ] || fail "noisy failing run should preserve exit 7 (got $exit_code): $output"
 grep -qF 'useful before' <<< "$output" || fail "filtered output dropped useful prelude: $output"
 grep -qF 'useful after' <<< "$output" || fail "filtered output dropped useful tail: $output"
 if grep -qF 'client.query()' <<< "$output"; then
   fail "known pg warning should be filtered from live test output: $output"
 fi
-ok "test:changed filters known live Vitest noise"
+ok "test:changed filters known live Vitest noise on failure"
+
+repo="$(new_repo compact-success)"
+printf 'changed\n' > "$repo/packages/server/src/base.ts"
+: > "$repo/bun.log"
+output="$(STUB_VITEST_SUMMARY=1 run_test_changed "$repo")" \
+  || fail "compact success run should succeed: $output"
+grep -qF 'Vitest OK: 1 test passed in 1 file.' <<< "$output" \
+  || fail "passing Vitest output should collapse to a one-line summary: $output"
+if grep -qF 'Test Files' <<< "$output"; then
+  fail "passing Vitest output should not include raw Test Files summary: $output"
+fi
+ok "test:changed collapses passing Vitest output"
 
 repo="$(new_repo failing-vitest)"
 printf 'changed\n' > "$repo/packages/server/src/base.ts"

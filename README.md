@@ -13,13 +13,27 @@ borrow, not a starter template.
 
 The most interesting parts are probably:
 
+- `docs/ai-harness.md` — the **inventory and gap map** of the whole
+  harness: every guide (feedforward context like `AGENTS.md`, module
+  docs, codemods, code intel) and every sensor (lint, typecheck,
+  tests, doctor, hook adapters, drift checks), grouped by mode and
+  paired guide/sensor. Read this first to see how the rest of the
+  scripts and rules in this repo fit together as one feedback loop.
 - `scripts/ai-hooks/` and `.claude/hooks/` and `.codex/hooks/` — agent hooks
   that **wrap noisy verification commands** so failure tails (not 500-line
   successful test logs) hit the model context window, **enforce a
   single-writer lock** so two parallel agent sessions don't trip over each
   other, and **content-key cache** results on a worktree fingerprint so
   re-running `bun run typecheck` on an unchanged tree replays the cached
-  pass instantly.
+  pass instantly. `policy.sh` also blocks destructive Git history
+  rewrites, force pushes, pushes to `main`/`master`, `gh` mutations,
+  and raw shell `grep` — every block ships with a one-line repair string
+  the deny message echoes back.
+- `scripts/codemods/` and `scripts/code-intel.ts` — paired with the
+  ESLint rules. When a lint says "no", the codemod fixes it; when an
+  agent needs to look up definitions/dependents/exports/nearby tests,
+  `code-intel` answers without `rg` archaeology. This is the
+  "computational guide" half of `docs/ai-harness.md`.
 - `.husky/pre-commit` — runs lint/typecheck/test in parallel with a
   `flock`-protected lock, a 120s last-verified short-circuit keyed on
   `HEAD + staged-diff hash`, a 240s interactive watchdog, and Passed/Failed structured
@@ -64,10 +78,21 @@ length cap on these files so they stay scannable.
 
 Only the DX-shaped docs are included here:
 
+- `docs/ai-harness.md` is the inventory and gap map for the harness as a
+  whole. It groups every guide (feedforward context like `AGENTS.md`, module
+  docs, codemods) and every sensor (lint, typecheck, tests, doctor, hook
+  adapters, drift checks) into a single table, with timing, mode
+  (computational vs inferential), and the paired sensor or guide. It also
+  records the **promotion rule** — every new harness control should add a
+  guide, a sensor, and repair text together. Read this first if you are
+  borrowing the pattern: it is the map of how the rest of these scripts and
+  rules fit into one feedback loop.
 - `docs/agent_notes/README.md` explains the session-start pattern:
   `STATUS.md` is the current snapshot, `NEXT.md` is the active leaf queue,
-  `LOG.md` is curated recent history, `DECISIONS.md` records ADR-lite
-  reasoning, and backlog/finished-work notes are read only on demand.
+  `LOG.md` is curated recent history, `DECISIONS.md` (and the
+  `decisions-*.md` topical splits) record ADR-lite reasoning, and
+  `backlog/`, `in_progress/`, and `finished_work/` notes are read only on
+  demand.
 - `docs/agent_notes/STATUS.md` and `NEXT.md` are sample hot-path docs. In
   the real repo, agents read these first every session; the doc-length hooks
   nudge when they turn into sprawling logs.
@@ -159,23 +184,49 @@ deliberately omitted — `bun install` regenerates it.
 ## `eslint.config.js` + `eslint-rules/`
 
 Flat-config ESLint with `typescript-eslint`'s strictTypeChecked preset
-plus five hand-rolled rules:
+plus a set of hand-rolled rules. The general-purpose rules:
 
-- `strict-trpc-input` — every tRPC procedure on a hot path must declare
-  `.input(zodSchema)` and `.output(zodSchema)`, and the schemas must
-  come from `@musi/shared`. Caught a real class of "string went over
-  the wire untyped" bugs.
-- `strict-shared-schemas` / `no-shared-schemas-barrel` — paired rules
-  that keep shared Zod schemas the source of truth and ban barrel-file
-  re-exports of them.
-- `structured-logging` — bans `console.log` in server code; forces a
-  structured logger with required fields.
-- `socket-registry-broadcasts` — bans direct literal emits for
-  registry-owned Socket.io events outside `broadcast-registry.ts`, keeping
-  payload validation and broadcast logging centralized.
+- `max-lines` — caps source/helper modules at ~300 effective lines with
+  per-file warning overrides for accepted larger files (declared in
+  `eslint.config.js`). Catches creeping module sprawl earlier than the
+  default ESLint `max-lines` heuristic.
+- `no-explicit-any` — bans `any` unless a deliberate line-level
+  suppression is registered. Pairs with `eslint-disable-register.sh`.
+- `no-barrel` — bans `index.ts` style barrel re-exports outside a small
+  allowlist; keeps imports pointed at the source of truth.
 - `test-file-location` — enforces "tests live next to source as
   `*.test.ts`, integration tests in `*.integration.test.ts`, etc."
   conventions.
+- `structured-logging` — bans `console.log` in server code; forces a
+  structured logger with required fields, and forbids direct console use
+  in seed/script code.
+
+The Musi-specific architecture rules — included in full so the patterns
+are easy to lift, even though the schema and registry shapes are
+project-specific:
+
+- `strict-trpc-input` / `trpc-require-output-schema` — every tRPC
+  procedure on a hot path must declare `.input(zodSchema)` (with
+  `.strict()`) and `.output(zodSchema)`. Caught a real class of "string
+  went over the wire untyped" bugs.
+- `trpc-shared-input-schema` / `trpc-shared-output-schema` — both the
+  input and output schemas must be imported from `@musi/shared/...`, not
+  defined inline inside a router. Pairs with the
+  `codemod:trpc-shared-input` / `codemod:trpc-shared-output` codemods so
+  the lint failure has a one-shot repair command.
+- `strict-shared-schemas` / `no-shared-schemas-barrel` — paired rules
+  that keep shared Zod schemas the source of truth and ban barrel-file
+  re-exports of them.
+- `socket-registry-broadcasts` — bans direct literal emits for
+  registry-owned Socket.io events outside `broadcast-registry.ts`,
+  keeping payload validation and broadcast logging centralized.
+- `no-broadcast-in-transaction` — bans calling broadcast helpers inside
+  a Prisma `$transaction` callback, since broadcasts must run after
+  commit.
+- `concurrency-guard` — bans direct `.update`, `.updateMany`,
+  `.updateManyAndReturn`, and `.upsert` calls on concurrency-gated Prisma
+  delegates outside `utils/*-mutations.ts`. Pairs with the restricted
+  Prisma delegate types and the `RawTxClient` import restriction.
 
 Each rule has a sibling `*.test.js` using `RuleTester`. The
 `eslint-rules/vitest.config.ts` runs them.
@@ -209,9 +260,18 @@ Shared library sourced by both Claude and Codex hooks:
 - `common.sh` — JSON IO for hook payloads, `ai_emit_continue` /
   `ai_emit_block` / `ai_emit_deny` helpers, line-limited summary
   formatting, payload parsing.
-- `policy.sh` — the bypass-blocking and DB/Redis/Docker policy regex,
-  plus `ai_is_wrapped_bun_cmd` (the regex that decides which `bun run`
-  scripts get wrapped).
+- `policy.sh` — the policy surface used by every hook adapter. Catches
+  `HUSKY=0` and other bypass envs; blocks raw shell `grep` (forces
+  `rg` / `git grep` so context windows stay clean); blocks
+  `psql`/`redis-cli`/`docker` and other shared-infra commands; blocks
+  destructive Git history rewrites (`git commit --amend`, `git rebase`
+  except the resume forms, dangerous `git reset` modes, force pushes,
+  pushes to `main` / `master`, force branch/tag deletion, forced
+  worktree removal, force `git clean`); blocks `gh` mutations and auth
+  reconfiguration so PR creation and merges go through a human; and
+  exposes `ai_is_wrapped_bun_cmd`, the regex deciding which `bun run`
+  scripts get wrapped. Each policy ships a one-line repair string so
+  the deny message tells the agent exactly what to do instead.
 - `cache.sh` — worktree-fingerprint computation, atomic marker
   read/write with corruption guards, success/failure summary
   formatters.
@@ -271,6 +331,29 @@ Shared library sourced by both Claude and Codex hooks:
   `eslint-disable` in source has to appear in a tracked register so
   drive-by suppressions don't accumulate.
 
+### Code intel and codemods
+
+- `code-intel.ts` — repo-aware lookup over the TypeScript project graph:
+  definitions, dependents, exports, and nearby tests for a symbol or
+  file. Replaces the noisy `rg` archaeology pattern with a deterministic
+  query an agent can call directly. `code-intel.test.ts` covers the
+  query surface; `test-code-intel.sh` is the bash smoke wrapper.
+- `codemods/` — TypeScript-AST codemods with `--check` and `--all`
+  modes, paired with an ESLint rule each. The headline pattern is
+  "lint says no, codemod fixes it":
+  - `trpc-shared-input.ts` / `trpc-shared-output.ts` — move inline
+    router schemas into `@musi/shared/schemas/...` and rewrite the
+    router import.
+  - `structured-logging-fix.ts` — rewrite known-safe `console.*` calls
+    in server and seed code to the structured logger.
+  - `concurrency-guard.ts` — name-based assist for moving
+    race-sensitive Prisma writes through a mutation helper. Aliases and
+    destructured delegates still need human review.
+  - `expand-barrel.ts` — replace barrel imports with direct source
+    imports.
+  - `lib/` and `fixtures/` — shared codemod plumbing and golden inputs;
+    each codemod has a sibling `*.test.ts`.
+
 ### Other
 
 - `dev.sh` — the `bun run dev` entry point. On a secondary worktree it
@@ -317,6 +400,12 @@ The musi scripts table is the wiring map. The interesting entries:
     "verify": "bash scripts/verify.sh",
     "verify:changed": "bash scripts/verify.sh --changed",
     "verify:logs": "bash scripts/verify-logs.sh",
+    "verify:async": "bash scripts/verify-async.sh start verify",
+    "verify:async:changed": "bash scripts/verify-async.sh start changed",
+    "verify:async:slow": "bash scripts/verify-async.sh start slow",
+    "verify:async:status": "bash scripts/verify-async.sh status",
+    "verify:async:tail": "bash scripts/verify-async.sh tail",
+    "verify:async:stop": "bash scripts/verify-async.sh stop",
     "lint:changed": "bash scripts/lint-changed.sh",
     "test:changed": "bash scripts/test-changed.sh",
     "format:changed": "bash scripts/format-changed.sh",
@@ -367,5 +456,16 @@ edits. The patterns that travel best:
   `.claude/`, `.codex/`** — keeps the per-tool config thin.
 - **Custom ESLint rules with unit tests** when codebase conventions
   matter enough to enforce.
+- **Pair every lint with a codemod**. When the lint fails, the deny
+  message names the codemod that fixes it, so an agent has a one-shot
+  repair path instead of guessing rewrites.
+- **Pair every policy with a repair string**. `policy.sh` blocks
+  destructive Git, `gh` mutations, raw `grep`, etc., and each block
+  ships a one-line repair string the agent sees in the deny.
+- **Inventory the harness in one doc** (see `docs/ai-harness.md`).
+  Listing every guide, every sensor, their timing/mode, and the
+  promotion rule keeps the harness coherent as it grows. Without a map,
+  the same kind of check ends up implemented twice in subtly different
+  places.
 - **Per-worktree dev environments** (DB/ports/Redis index) so
   multi-task workflows don't trip over shared infra.

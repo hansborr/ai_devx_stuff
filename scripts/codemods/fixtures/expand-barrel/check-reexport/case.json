@@ -1,0 +1,6 @@
+{
+  "args": ["--check"],
+  "expectedStdout": [
+    "expand-barrel codemod: packages/client/src/public-api.ts:1 re-exports @musi/shared/rules."
+  ]
+}

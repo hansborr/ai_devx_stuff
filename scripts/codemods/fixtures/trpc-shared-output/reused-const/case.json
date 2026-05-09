@@ -1,0 +1,7 @@
+{
+  "args": [
+    "packages/server/src/routers/thing.ts"
+  ],
+  "expectFailure": true,
+  "expectedError": "thingResultSchema has references outside the migrated .output(...) call"
+}

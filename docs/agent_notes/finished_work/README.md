@@ -1,8 +1,32 @@
 # Finished Work
 
-Archive only the finished notes whose details still matter after the code,
-tests, commits, `LOG.md`, and `DECISIONS.md` are read.
+This archive is intentionally pruned. Do not recreate a large historical note
+dump here.
 
-Prefer deleting or summarizing routine task notes when a workstream lands. The
-default agent loop should not have to scan finished work unless a current task
-explicitly needs the history.
+Durable history belongs in `../LOG.md`. Cross-cutting rationale belongs in
+`../DECISIONS.md`. Keep only a finished-work note when it contains operational
+detail that cannot be recovered from code, tests, commits, `LOG.md`, or
+`DECISIONS.md`.
+
+## Index
+
+- `socket-emit-inventory.md` — DX5.3a inventory and registry-scope
+  classification (closed at DX5.3f).
+- `fixture-builder-inventory.md` — DX7.0c inventory of fixture outliers and
+  per-leaf builder targets for the DX7.1a-DX7.1i splits.
+- `codebase-review-next-cycle.md` — closed CR1-CR21 review cycle with the
+  landed leaf summaries and deferred/rejected rationale.
+- `cache-budget-verification-plan.md` — landed cache-budget verification
+  implementation; conditional follow-ups live in
+  `../backlog/cache-budget-followups.md`.
+- `ai-harness-improvements.md` — landed broad harness-improvement plan;
+  remaining conditional work lives in `../backlog/ai-harness-followups.md`.
+- `concurrency-codemod-feasibility.md` — checker-first concurrency codemod
+  feasibility analysis; optional hardening lives in
+  `../backlog/concurrency-guard-followups.md`.
+- `concurrency-guard-expansion.md` — landed concurrency-guard baseline plan;
+  optional hardening lives in `../backlog/concurrency-guard-followups.md`.
+- `expand-barrel-codemod.md` — landed barrel-expansion codemod, cleanup, and
+  `local/no-barrel` enforcement.
+- `code-intel-review-followups.md` — landed `code:intel` review slices;
+  conditional follow-ups live in `../backlog/code-intel-followups.md`.

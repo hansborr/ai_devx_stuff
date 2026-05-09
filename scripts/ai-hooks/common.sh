@@ -123,14 +123,35 @@ ai_response_json_from_payload() {
       elif type == "string" then (fromjson? // {"raw": .})
       else {"raw": tostring}
       end;
+    def to_exit_code:
+      if . == null then null
+      elif type == "number" then .
+      elif type == "string" and test("^-?[0-9]+$") then tonumber
+      else null
+      end;
     (.tool_response | decode) as $r
     | {
-        exit_code: ($r.exit_code // $r.exitCode // $r.status // $r.code // null),
+        exit_code: ([
+          $r.exit_code,
+          $r.exitCode,
+          $r.return_code,
+          $r.returncode,
+          $r.exit_status,
+          $r.statusCode,
+          $r.metadata.exit_code,
+          $r.metadata.exitCode,
+          $r.metadata.return_code,
+          $r.metadata.returncode,
+          $r.metadata.exit_status,
+          $r.metadata.statusCode,
+          $r.status,
+          $r.code
+        ] | map(to_exit_code) | map(select(. != null)) | .[0] // null),
         stdout: ($r.stdout // $r.out // $r.output // "" | to_text),
         stderr: ($r.stderr // $r.err // "" | to_text),
         raw: (
           if ($r | type) == "object"
-             and ($r | has("stdout") or has("stderr") or has("out") or has("err") or has("output") or has("exit_code") or has("exitCode") or has("status") or has("code"))
+             and ($r | has("stdout") or has("stderr") or has("out") or has("err") or has("output") or has("raw") or has("text") or has("exit_code") or has("exitCode") or has("return_code") or has("returncode") or has("exit_status") or has("statusCode") or has("metadata") or has("status") or has("code"))
           then ($r.raw // $r.text // "" | to_text)
           else ($r | to_text)
           end
@@ -159,4 +180,28 @@ ai_combined_response_text() {
   fi
 
   printf '%s' "$combined"
+}
+
+ai_bun_exit_code_from_output() {
+  local script="$1"
+  local output="$2"
+
+  printf '%s\n' "$output" | awk -v script="$script" '
+    index($0, "error: script \"" script "\" exited with code ") == 1 {
+      print $NF
+    }
+    /Process exited with code [0-9]+/ {
+      print $NF
+    }
+  ' | tail -n 1
+}
+
+ai_bun_output_has_error_footer() {
+  local script="$1"
+  local output="$2"
+
+  printf '%s\n' "$output" | awk -v script="$script" '
+    index($0, "error: script \"" script "\"") == 1 { found=1 }
+    END { exit found ? 0 : 1 }
+  '
 }

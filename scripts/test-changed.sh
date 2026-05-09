@@ -62,6 +62,7 @@ has_shared=0
 has_server=0
 has_client=0
 has_eslint_rules=0
+has_scripts=0
 has_global=0
 has_vitest_relevant=0
 # Dependency or config changes that `vitest --changed` cannot see — they alter
@@ -91,10 +92,21 @@ for file in "${CHANGED_FILES[@]}"; do
       has_eslint_rules=1
       has_vitest_relevant=1
       ;;
+    scripts/codemods/*|scripts/code-intel*.ts)
+      has_scripts=1
+      has_vitest_relevant=1
+      full_run=1
+      ;;
   esac
 
   case "$file" in
     packages/*/package.json|packages/*/vitest.config.*|packages/*/tsconfig*.json|eslint-rules/vitest.config.*)
+      has_vitest_relevant=1
+      full_run=1
+      ;;
+    scripts/vitest.config.*)
+      has_scripts=1
+      has_vitest_relevant=1
       full_run=1
       ;;
   esac
@@ -110,6 +122,7 @@ if [ "$has_global" -eq 0 ] && [ "$has_shared" -eq 0 ]; then
   [ "$has_server" -eq 1 ] && PROJECT_ARGS+=("--project=server")
   [ "$has_client" -eq 1 ] && PROJECT_ARGS+=("--project=client")
   [ "$has_eslint_rules" -eq 1 ] && PROJECT_ARGS+=("--project=eslint-rules")
+  [ "$has_scripts" -eq 1 ] && PROJECT_ARGS+=("--project=scripts")
 fi
 
 if [ "$full_run" -eq 1 ]; then

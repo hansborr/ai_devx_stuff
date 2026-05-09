@@ -1,0 +1,7 @@
+{
+  "args": ["--check"],
+  "expectFailure": false,
+  "expectedStdout": [
+    "concurrency-guard codemod: no name-based concurrency guard findings; aliases/destructuring still need manual review."
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "args": ["packages/server/src/utils/spell-slot-mutations.ts"],
+  "expectFailure": true,
+  "expectedError": "found 1 concurrency guard error(s).",
+  "expectedStdout": [
+    "packages/server/src/utils/spell-slot-mutations.ts:5 characterSpellSlot.updateMany/pattern-b-helper-shape ERROR",
+    "WHERE id+used",
+    "zero-count CONFLICT handling"
+  ]
+}

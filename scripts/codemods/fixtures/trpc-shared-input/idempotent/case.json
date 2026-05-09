@@ -1,0 +1,9 @@
+{
+  "args": [
+    "packages/server/src/routers/thing.ts"
+  ],
+  "runTwice": true,
+  "expectedStdout": [
+    "no router-local"
+  ]
+}

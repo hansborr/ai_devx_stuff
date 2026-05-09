@@ -4,8 +4,9 @@
 # Mirrors `.husky/pre-commit` but runs steps sequentially so an AI session
 # can read each step's output one at a time. Reuses pre-commit's lock and
 # log directory so manual runs queue cleanly behind any in-flight commit.
-# Marker file path differs (verify watches the worktree state, not the
-# staged diff) but the on-disk format matches pre-commit's.
+# Manual verify markers watch the full worktree state. Pre-commit uses its own
+# staged/relevant-input marker first, then may bridge from a fresh matching
+# manual marker when the worktree fingerprint proves the same state was checked.
 #
 # Usage:
 #   bash scripts/verify.sh            # full lint, typecheck, test
@@ -39,6 +40,7 @@ case "${1:-}" in
     exit 2
     ;;
 esac
+WRAPPER_COMMAND="$0 ${1:-}"
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT"
@@ -116,29 +118,17 @@ fi
 
 # --- 2. Last-verified short-circuit ----------------------------------------
 # Same key format as pre-commit's marker (LAST_TS / LAST_HEAD / LAST_HASH);
-# different file because the input fingerprint differs (worktree state vs
-# staged diff). Parsed line-by-line — never eval /tmp files.
+# different file because manual verify keys on the worktree fingerprint.
+# Parsed line-by-line by verify-metadata.sh — never eval /tmp files.
 CUR_HEAD=$(git rev-parse HEAD 2>/dev/null || echo none)
 CUR_HASH=$(ai_worktree_fingerprint "$REPO_ROOT")
 
-if [ -f "$MARKER" ] && [ "${FORCE_VERIFY:-}" != "1" ]; then
-  LAST_TS=0; LAST_HEAD=""; LAST_HASH=""
-  while IFS='=' read -r k v; do
-    case "$k" in
-      LAST_TS)   LAST_TS=$v ;;
-      LAST_HEAD) LAST_HEAD=$v ;;
-      LAST_HASH) LAST_HASH=$v ;;
-    esac
-  done < "$MARKER"
-  [[ "$LAST_TS" =~ ^[0-9]+$ ]] || LAST_TS=0
-  NOW=$(date +%s)
-  if [ "$((NOW - LAST_TS))" -lt 120 ] \
-     && [ "$LAST_HEAD" = "$CUR_HEAD" ] \
-     && [ "$LAST_HASH" = "$CUR_HASH" ]; then
-    printf '%s: already verified %ds ago at %s — skipping (set FORCE_VERIFY=1 to re-run).\n' \
-      "$LABEL" "$((NOW - LAST_TS))" "$CUR_HEAD"
-    exit 0
-  fi
+if [ -f "$MARKER" ] \
+   && [ "${FORCE_VERIFY:-}" != "1" ] \
+   && musi_success_marker_matches "$MARKER" "$CUR_HEAD" "$CUR_HASH" 120; then
+  printf '%s: already verified %ds ago at %s — skipping (set FORCE_VERIFY=1 to re-run).\n' \
+    "$LABEL" "$MUSI_MARKER_MATCH_AGE" "$CUR_HEAD"
+  exit 0
 fi
 
 # --- 3. Watchdog ------------------------------------------------------------
@@ -180,8 +170,17 @@ report_timeout_budget() {
   printf 'logs: %s\n' "$LOG_DIR" >&2
   printf 'inspect: bun run verify:logs budget\n' >&2
 }
-trap 'cleanup_children; exit 130' INT
-trap 'cleanup_children; report_timeout_budget; exit 124' TERM
+write_signal_wrapper_meta() {
+  local exit_code="$1" end_ts end_time
+  end_ts=$(date +%s)
+  end_time=$(date -Iseconds)
+  musi_write_wrapper_meta "$META_DIR/wrapper.json" serial-verify \
+    "${START_TS:-$end_ts}" "${START_TIME:-$end_time}" "$end_ts" "$end_time" "$exit_code" "$WRAPPER_COMMAND" \
+    "$CUR_HEAD" "$CUR_HASH"
+  musi_combine_run_meta "$LOG_DIR" serial-verify "$META_DIR/wrapper.json"
+}
+trap 'cleanup_children; write_signal_wrapper_meta 130; exit 130' INT
+trap 'cleanup_children; write_signal_wrapper_meta 124; report_timeout_budget; exit 124' TERM
 trap 'kill "$WD" 2>/dev/null' EXIT
 
 # --- 4. Sequential runs ----------------------------------------------------
@@ -245,7 +244,8 @@ END_TIME=$(date -Iseconds)
 
 if [ -n "$failed" ]; then
   musi_write_wrapper_meta "$META_DIR/wrapper.json" serial-verify \
-    "$START_TS" "$START_TIME" "$END_TS" "$END_TIME" 1 "$0 ${1:-}"
+    "$START_TS" "$START_TIME" "$END_TS" "$END_TIME" 1 "$WRAPPER_COMMAND" \
+    "$CUR_HEAD" "$CUR_HASH"
   musi_combine_run_meta "$LOG_DIR" serial-verify "$META_DIR/wrapper.json"
   printf '\n=== %s FAILED (%ds) ===\n' "$LABEL" "$ELAPSED"
   printf 'Passed:%s\n' "$passed"
@@ -261,25 +261,12 @@ if [ -n "$failed" ]; then
 fi
 
 musi_write_wrapper_meta "$META_DIR/wrapper.json" serial-verify \
-  "$START_TS" "$START_TIME" "$END_TS" "$END_TIME" 0 "$0 ${1:-}"
+  "$START_TS" "$START_TIME" "$END_TS" "$END_TIME" 0 "$WRAPPER_COMMAND" \
+  "$CUR_HEAD" "$CUR_HASH"
 musi_combine_run_meta "$LOG_DIR" serial-verify "$META_DIR/wrapper.json"
 
 # --- 5. Success marker (same format as pre-commit's) -----------------------
-# Atomic write per DX3.1: tmp file in the same directory then `mv -f`. A
-# killed verify between the two `printf`s would otherwise leave a half-written
-# marker that the next short-circuit check parses as empty fields.
-marker_dir=$(dirname "$MARKER")
-marker_base=$(basename "$MARKER")
-mkdir -p "$marker_dir"
-marker_tmp=$(mktemp "$marker_dir/.${marker_base}.tmp.XXXXXX")
-if {
-  printf 'LAST_TS=%s\n'   "$(date +%s)"
-  printf 'LAST_HEAD=%s\n' "$CUR_HEAD"
-  printf 'LAST_HASH=%s\n' "$CUR_HASH"
-} > "$marker_tmp" && mv -f "$marker_tmp" "$MARKER"; then
-  :
-else
-  rm -f "$marker_tmp"
+if ! musi_write_success_marker "$MARKER" "$CUR_HEAD" "$CUR_HASH"; then
   printf '%s: WARN: failed to write marker %s\n' "$LABEL" "$MARKER" >&2
 fi
 
