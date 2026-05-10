@@ -30,3 +30,6 @@ detail that cannot be recovered from code, tests, commits, `LOG.md`, or
   `local/no-barrel` enforcement.
 - `code-intel-review-followups.md` — landed `code:intel` review slices;
   conditional follow-ups live in `../backlog/code-intel-followups.md`.
+- `code-intel-ux-fixes.md` — landed `code:intel` UX work: slices A-D, Slice E
+  (`refs`), and Slice F (daemon mode). Daemon transport, `ProjectCache`
+  reference project, performance numbers, and locked decisions live here.

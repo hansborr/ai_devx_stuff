@@ -1,13 +1,25 @@
 import { spawnSync } from "node:child_process";
 import type { SpawnSyncReturns } from "node:child_process";
-import { readFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  utimesSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { ModuleKind, ModuleResolutionKind, Project, ScriptTarget } from "ts-morph";
-import { describe, expect, it } from "vitest";
+import { ModuleKind, ModuleResolutionKind, Project, ScriptTarget, ts } from "ts-morph";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import {
   buildImportGraph,
+  CODE_INTEL_DAEMON_PROTOCOL_VERSION,
   CodeIntelError,
   createWorkspaceResolver,
   executeCodeIntelQuery,
@@ -18,7 +30,21 @@ import {
   queryTests,
   runCodeIntel,
 } from "./code-intel.js";
-import type { ExecutableCliCommand, IntelResult } from "./code-intel.js";
+import type { CodeIntelQueryResult, ExecutableCliCommand, IntelResult } from "./code-intel.js";
+import { DaemonRequestTimeoutError, requestDaemonQuery } from "./code-intel/daemon-client.js";
+import type { DaemonSpawner } from "./code-intel/daemon-process.js";
+import { runDaemon, type RunningDaemon } from "./code-intel/daemon-server.js";
+import {
+  buildDaemonMetadata,
+  computeRepoKey,
+  ensureStateDir,
+  readDaemonMetadata,
+  resolveDaemonStatePaths,
+  writeDaemonMetadata,
+} from "./code-intel/daemon-state.js";
+import { computeWorkspaceManifest, GraphCache } from "./code-intel/graph-cache.js";
+import { ProjectCache } from "./code-intel/project-cache.js";
+import { runServerCliCommand } from "./code-intel/server-cli.js";
 
 const repoRoot = "/repo";
 const packageConfigs = [
@@ -65,6 +91,28 @@ function createFixtureProject(): Project {
     compilerOptions: {
       module: ModuleKind.Node16,
       moduleResolution: ModuleResolutionKind.Node16,
+      target: ScriptTarget.ES2024,
+    },
+  });
+}
+
+function createReferenceFixtureProject(): Project {
+  return new Project({
+    useInMemoryFileSystem: true,
+    compilerOptions: {
+      allowJs: false,
+      baseUrl: repoRoot,
+      esModuleInterop: true,
+      jsx: ts.JsxEmit.ReactJSX,
+      module: ModuleKind.Node16,
+      moduleResolution: ModuleResolutionKind.Node16,
+      paths: {
+        "@/*": [path.join(repoRoot, "packages/client/src/*")],
+        "@musi/shared/*": [path.join(repoRoot, "packages/shared/src/*")],
+        "@musi/server/*": [path.join(repoRoot, "packages/server/src/*")],
+        "@musi/client/*": [path.join(repoRoot, "packages/client/src/*")],
+      },
+      resolveJsonModule: true,
       target: ScriptTarget.ES2024,
     },
   });
@@ -122,6 +170,9 @@ describe("code:intel CLI front door", () => {
     expect(help.status).toBe(0);
     expect(help.stdout).toContain("Usage:");
     expect(help.stdout).toContain("bun run code:intel -- [--format text|json] def --name <symbol>");
+    expect(help.stdout).toContain(
+      "Daemon/perf: bun run code:intel:server -- restart|status|stop; bun run code:intel:perf",
+    );
     expect(help.stderr).toBe("");
 
     const parseError = spawnCodeIntel(["def"]);
@@ -469,6 +520,173 @@ describe("code intel queries", () => {
     );
     expect(() => runCodeIntel(["dependents"], context)).toThrow(
       /dependents <file> .* \[--limit <N>\]/u,
+    );
+  });
+
+  it("finds references across packages and classifies import, value, and type kinds", () => {
+    const project = createReferenceFixtureProject();
+    addSource(
+      project,
+      "packages/shared/src/rules/core.ts",
+      "export const core = () => 1;\nexport type CoreFn = typeof core;\n",
+    );
+    addSource(
+      project,
+      "packages/server/src/direct.ts",
+      'import { core } from "@musi/shared/rules/core.js";\nexport const direct = core();\n',
+    );
+    addSource(
+      project,
+      "packages/server/src/renamed.ts",
+      'import { core as renamedCore } from "@musi/shared/rules/core.js";\nexport const useRenamed = renamedCore();\n',
+    );
+    addSource(
+      project,
+      "packages/client/src/core-view.tsx",
+      'import { core, type CoreFn } from "@musi/shared/rules/core.js";\nconst alias: CoreFn = core;\nexport const View = () => alias();\n',
+    );
+    addSource(
+      project,
+      "scripts/core-script.ts",
+      'import { core } from "@musi/shared/rules/core.js";\nexport const tool = () => core();\n',
+    );
+    const resolver = createFixtureResolver(project);
+    const context = { referenceProject: project, repoRoot, resolver };
+
+    const refsCommand: Extract<ExecutableCliCommand, { kind: "refs" }> = {
+      kind: "refs",
+      location: { col: 14, file: "packages/shared/src/rules/core.ts", line: 1 },
+    };
+    const execution = executeCodeIntelQuery(refsCommand, context);
+
+    expect(execution).toMatchObject({
+      kind: "results",
+      header: "references core",
+    });
+    if (execution.kind !== "results") throw new Error("expected results kind");
+    const referencesByFile = execution.results.flatMap((result) =>
+      result.kind === "reference"
+        ? [{ file: result.file, line: result.line, col: result.col, kind: result.referenceKind }]
+        : [],
+    );
+    expect(referencesByFile).toEqual([
+      { file: "packages/client/src/core-view.tsx", line: 1, col: 10, kind: "import" },
+      { file: "packages/client/src/core-view.tsx", line: 2, col: 23, kind: "value" },
+      { file: "packages/server/src/direct.ts", line: 1, col: 10, kind: "import" },
+      { file: "packages/server/src/direct.ts", line: 2, col: 23, kind: "value" },
+      { file: "packages/server/src/renamed.ts", line: 1, col: 10, kind: "import" },
+      { file: "packages/server/src/renamed.ts", line: 1, col: 18, kind: "import" },
+      { file: "packages/server/src/renamed.ts", line: 2, col: 27, kind: "value" },
+      { file: "packages/shared/src/rules/core.ts", line: 2, col: 29, kind: "type" },
+      { file: "scripts/core-script.ts", line: 1, col: 10, kind: "import" },
+      { file: "scripts/core-script.ts", line: 2, col: 27, kind: "value" },
+    ]);
+
+    const textOutput = runCodeIntel(["refs", "packages/shared/src/rules/core.ts:1:14"], context);
+    expect(textOutput).toContain("references core (10 results)");
+    expect(textOutput).toContain("packages/server/src/renamed.ts:1:10 import");
+    expect(textOutput).toContain("packages/server/src/renamed.ts:1:18 import");
+    expect(textOutput).toContain("packages/server/src/renamed.ts:2:27 value");
+    expect(textOutput).not.toContain("packages/shared/src/rules/core.ts:1:14");
+
+    const snapped = runCodeIntel(["refs", "packages/shared/src/rules/core.ts:1:13"], context);
+    expect(snapped).toBe(textOutput);
+
+    const jsonOutput = JSON.parse(
+      runCodeIntel(["refs", "packages/shared/src/rules/core.ts:1:14", "--format=json"], context),
+    );
+    expect(jsonOutput).toMatchObject({
+      header: "references core",
+      count: 10,
+    });
+
+    const limitedJson = JSON.parse(
+      runCodeIntel(
+        ["refs", "packages/shared/src/rules/core.ts:1:14", "--limit", "2", "--format=json"],
+        context,
+      ),
+    );
+    expect(limitedJson).toMatchObject({
+      count: 2,
+      limit: 2,
+      total: 10,
+      truncated: true,
+    });
+
+    const typeRefsCommand: Extract<ExecutableCliCommand, { kind: "refs" }> = {
+      kind: "refs",
+      location: { col: 13, file: "packages/shared/src/rules/core.ts", line: 2 },
+    };
+    const typeRefs = executeCodeIntelQuery(typeRefsCommand, context);
+    if (typeRefs.kind !== "results") throw new Error("expected results kind");
+    const typeKinds = typeRefs.results.map((result) =>
+      result.kind === "reference"
+        ? `${result.file}:${String(result.line)}:${String(result.col)} ${result.referenceKind}`
+        : "",
+    );
+    expect(typeKinds).toContain("packages/client/src/core-view.tsx:1:21 import");
+    expect(typeKinds).toContain("packages/client/src/core-view.tsx:2:14 type");
+
+    const empty = runCodeIntel(["refs", "scripts/core-script.ts:2:15"], context);
+    expect(empty).toContain("references tool (0 results)");
+    expect(empty).toContain("no references found");
+  });
+
+  it("classifies heritage and assertion references by runtime/type position", () => {
+    const project = createReferenceFixtureProject();
+    addSource(
+      project,
+      "packages/shared/src/rules/heritage.ts",
+      [
+        "export class Base { value = 1; }",
+        "export interface Contract { value: number; }",
+        "export type Box<T extends Base> = T;",
+        "export class Child extends Base implements Contract { value = 2; }",
+        "const cast = new Child() as Base;",
+        "const satisfied = { value: 1 } satisfies Contract;",
+        "export const derived: Base = cast;",
+        "",
+      ].join("\n"),
+    );
+    const resolver = createFixtureResolver(project);
+    const context = { referenceProject: project, repoRoot, resolver };
+
+    const baseRefs = executeCodeIntelQuery(
+      {
+        kind: "refs",
+        location: { col: 14, file: "packages/shared/src/rules/heritage.ts", line: 1 },
+      },
+      context,
+    );
+    if (baseRefs.kind !== "results") throw new Error("expected results kind");
+    const baseKinds = baseRefs.results.map((result) =>
+      result.kind === "reference"
+        ? `${result.file}:${String(result.line)}:${String(result.col)} ${result.referenceKind}`
+        : "",
+    );
+    expect(baseKinds).toContain("packages/shared/src/rules/heritage.ts:3:27 type");
+    expect(baseKinds).toContain("packages/shared/src/rules/heritage.ts:4:28 value");
+    expect(baseKinds).toContain("packages/shared/src/rules/heritage.ts:5:29 type");
+    expect(baseKinds).toContain("packages/shared/src/rules/heritage.ts:7:23 type");
+
+    const contractRefs = executeCodeIntelQuery(
+      {
+        kind: "refs",
+        location: { col: 18, file: "packages/shared/src/rules/heritage.ts", line: 2 },
+      },
+      context,
+    );
+    if (contractRefs.kind !== "results") throw new Error("expected results kind");
+    const contractKinds = contractRefs.results.map((result) =>
+      result.kind === "reference"
+        ? `${result.file}:${String(result.line)}:${String(result.col)} ${result.referenceKind}`
+        : "",
+    );
+    expect(contractKinds).toContain("packages/shared/src/rules/heritage.ts:4:44 type");
+    expect(contractKinds).toContain("packages/shared/src/rules/heritage.ts:6:42 type");
+
+    expect(() => runCodeIntel(["refs", "packages/shared/src/rules/heritage.ts"], context)).toThrow(
+      /References location must include :line:col/u,
     );
   });
 
@@ -889,5 +1107,989 @@ describe("code intel queries", () => {
     expect(() =>
       runCodeIntel(["dependents", "packages/server/src/services/live"], context),
     ).toThrow(/TypeScript source file/u);
+  });
+});
+
+describe("code:intel:server lifecycle", () => {
+  let tempRoot: string;
+  let stateRoot: string;
+  let repoA: string;
+  let repoB: string;
+
+  beforeEach(() => {
+    tempRoot = mkdtempSync(path.join(tmpdir(), "code-intel-server-"));
+    stateRoot = path.join(tempRoot, "state");
+    repoA = path.join(tempRoot, "repo-a");
+    repoB = path.join(tempRoot, "repo-b");
+    mkdirSync(repoA, { recursive: true });
+    mkdirSync(repoB, { recursive: true });
+    mkdirSync(stateRoot, { recursive: true });
+  });
+
+  afterEach(() => {
+    rmSync(tempRoot, { force: true, recursive: true });
+  });
+
+  function pathsFor(repo: string): ReturnType<typeof resolveDaemonStatePaths> {
+    return resolveDaemonStatePaths(repo, { rootDir: stateRoot });
+  }
+
+  function seedRunningDaemon(repo: string, pid: number): void {
+    const paths = pathsFor(repo);
+    ensureStateDir(paths);
+    writeDaemonMetadata(
+      paths,
+      buildDaemonMetadata({ paths, pid, repoRealpath: repo, repoRoot: repo }),
+    );
+    writeFileSync(paths.socketPath, "");
+  }
+
+  async function okProbe(): Promise<{ ok: true }> {
+    return { ok: true };
+  }
+
+  async function failedProbe(): Promise<{
+    failureKind: "unverified";
+    ok: false;
+    reason: string;
+  }> {
+    return { failureKind: "unverified", ok: false, reason: "socket probe timed out" };
+  }
+
+  it("derives different state directories per repo realpath", () => {
+    const aPaths = pathsFor(repoA);
+    const bPaths = pathsFor(repoB);
+    expect(aPaths.stateDir).not.toBe(bPaths.stateDir);
+    expect(aPaths.stateDir).toContain(stateRoot);
+    expect(bPaths.stateDir).toContain(stateRoot);
+    expect(path.basename(aPaths.stateDir)).toBe(computeRepoKey(repoA));
+    expect(path.basename(bPaths.stateDir)).toBe(computeRepoKey(repoB));
+  });
+
+  it("status distinguishes absent, running, and stale daemons", async () => {
+    const absent = await runServerCliCommand(["status"], {
+      repoRoot: repoA,
+      state: { rootDir: stateRoot },
+    });
+    expect(absent.exitCode).toBe(0);
+    expect(absent.output).toContain("absent");
+
+    seedRunningDaemon(repoA, process.pid);
+    const running = await runServerCliCommand(["status"], {
+      repoRoot: repoA,
+      state: { rootDir: stateRoot },
+      isAlive: () => true,
+      probeDaemon: okProbe,
+    });
+    expect(running.output).toContain("running");
+    expect(running.output).toContain(`pid ${String(process.pid)}`);
+
+    const stale = await runServerCliCommand(["status"], {
+      repoRoot: repoA,
+      state: { rootDir: stateRoot },
+      isAlive: () => false,
+    });
+    expect(stale.output).toContain("stale");
+  });
+
+  it("status validates a daemon with the built-in ping command", async () => {
+    const daemon = await runDaemon({
+      paths: pathsFor(repoA),
+      repoRealpath: repoA,
+      repoRoot: repoA,
+      signalEvents: [],
+    });
+    try {
+      const status = await runServerCliCommand(["status"], {
+        repoRoot: repoA,
+        state: { rootDir: stateRoot },
+      });
+      expect(status.exitCode).toBe(0);
+      expect(status.output).toContain("running");
+      expect(status.output).toContain(`pid ${String(process.pid)}`);
+    } finally {
+      await daemon.shutdown();
+    }
+  });
+
+  it("stop removes live and stale state", async () => {
+    seedRunningDaemon(repoA, process.pid);
+    const livePaths = pathsFor(repoA);
+    expect(existsSync(livePaths.metadataPath)).toBe(true);
+
+    let stopSignalled = false;
+    const liveStop = await runServerCliCommand(["stop"], {
+      repoRoot: repoA,
+      state: { rootDir: stateRoot },
+      isAlive: () => true,
+      probeDaemon: okProbe,
+      stopProcess: async () => {
+        stopSignalled = true;
+        return true;
+      },
+    });
+    expect(liveStop.output).toContain("stopped");
+    expect(stopSignalled).toBe(true);
+    expect(existsSync(livePaths.stateDir)).toBe(false);
+
+    seedRunningDaemon(repoB, 999_999);
+    const stalePaths = pathsFor(repoB);
+    const staleStop = await runServerCliCommand(["stop"], {
+      repoRoot: repoB,
+      state: { rootDir: stateRoot },
+      isAlive: () => false,
+    });
+    expect(staleStop.output).toContain("cleared stale state");
+    expect(existsSync(stalePaths.stateDir)).toBe(false);
+
+    const noState = await runServerCliCommand(["stop"], {
+      repoRoot: repoA,
+      state: { rootDir: stateRoot },
+      isAlive: () => false,
+    });
+    expect(noState.output).toContain("no state to stop");
+  });
+
+  it("restart spawns a fresh daemon and waits for readiness", async () => {
+    seedRunningDaemon(repoA, process.pid);
+    const stalePid = process.pid;
+    const stalePaths = pathsFor(repoA);
+    let stopped = false;
+    const fakeSpawner: DaemonSpawner = (resolvedRepo, _scriptPath) => {
+      const targetPaths = resolveDaemonStatePaths(resolvedRepo, { rootDir: stateRoot });
+      ensureStateDir(targetPaths);
+      writeDaemonMetadata(
+        targetPaths,
+        buildDaemonMetadata({
+          paths: targetPaths,
+          pid: 424242,
+          repoRealpath: resolvedRepo,
+          repoRoot: resolvedRepo,
+        }),
+      );
+      writeFileSync(targetPaths.socketPath, "");
+      return { pid: 424242 };
+    };
+
+    const result = await runServerCliCommand(["restart"], {
+      repoRoot: repoA,
+      state: { rootDir: stateRoot },
+      isAlive: (pid: number) => {
+        if (pid === stalePid) return !stopped;
+        return pid === 424242;
+      },
+      probeDaemon: okProbe,
+      spawner: fakeSpawner,
+      stopProcess: async () => {
+        stopped = true;
+        return true;
+      },
+    });
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toContain("started");
+    expect(result.output).toContain("pid 424242");
+    expect(existsSync(stalePaths.socketPath)).toBe(true);
+    expect(existsSync(stalePaths.metadataPath)).toBe(true);
+  });
+
+  it("recovers lifecycle commands from corrupt metadata", async () => {
+    const paths = pathsFor(repoA);
+    ensureStateDir(paths);
+    writeFileSync(paths.metadataPath, "{ not valid json");
+    writeFileSync(paths.pidPath, `${String(process.pid)}\n`);
+    writeFileSync(paths.socketPath, "");
+
+    const status = await runServerCliCommand(["status"], {
+      repoRoot: repoA,
+      state: { rootDir: stateRoot },
+    });
+    expect(status.output).toContain("invalid state");
+
+    let stopCalled = false;
+    const stop = await runServerCliCommand(["stop"], {
+      repoRoot: repoA,
+      state: { rootDir: stateRoot },
+      isAlive: () => true,
+      stopProcess: async () => {
+        stopCalled = true;
+        return true;
+      },
+    });
+    expect(stop.output).toContain("cleared invalid state");
+    expect(stopCalled).toBe(false);
+    expect(existsSync(paths.stateDir)).toBe(false);
+
+    ensureStateDir(paths);
+    writeFileSync(paths.metadataPath, JSON.stringify({ pid: "not-a-number" }));
+    writeFileSync(paths.pidPath, `${String(process.pid)}\n`);
+    writeFileSync(paths.socketPath, "");
+    const result = await runServerCliCommand(["restart"], {
+      repoRoot: repoA,
+      state: { rootDir: stateRoot },
+      isAlive: (pid: number) => pid === 424243,
+      spawner: (resolvedRepo) => {
+        const targetPaths = resolveDaemonStatePaths(resolvedRepo, { rootDir: stateRoot });
+        ensureStateDir(targetPaths);
+        writeDaemonMetadata(
+          targetPaths,
+          buildDaemonMetadata({
+            paths: targetPaths,
+            pid: 424243,
+            repoRealpath: resolvedRepo,
+            repoRoot: resolvedRepo,
+          }),
+        );
+        writeFileSync(targetPaths.socketPath, "");
+        return { pid: 424243 };
+      },
+      stopProcess: async () => {
+        stopCalled = true;
+        return true;
+      },
+    });
+    expect(result.output).toContain("started");
+    expect(stopCalled).toBe(false);
+  });
+
+  it("preserves unverifiable live PID state without signaling it", async () => {
+    seedRunningDaemon(repoA, process.pid);
+    const paths = pathsFor(repoA);
+    let stopCalled = false;
+
+    const stop = await runServerCliCommand(["stop"], {
+      repoRoot: repoA,
+      state: { rootDir: stateRoot },
+      isAlive: () => true,
+      probeDaemon: failedProbe,
+      stopProcess: async () => {
+        stopCalled = true;
+        return true;
+      },
+    });
+    expect(stop.exitCode).toBe(1);
+    expect(stop.output).toContain("state preserved");
+    expect(stop.output).toContain("socket probe timed out");
+    expect(stopCalled).toBe(false);
+    expect(existsSync(paths.stateDir)).toBe(true);
+  });
+
+  it("restart preserves unverifiable live PID state without spawning", async () => {
+    seedRunningDaemon(repoA, process.pid);
+    let stopCalled = false;
+    let spawnCalled = false;
+
+    const result = await runServerCliCommand(["restart"], {
+      repoRoot: repoA,
+      state: { rootDir: stateRoot },
+      isAlive: (pid: number) => pid === process.pid || pid === 424244,
+      probeDaemon: failedProbe,
+      spawner: (resolvedRepo) => {
+        spawnCalled = true;
+        const targetPaths = resolveDaemonStatePaths(resolvedRepo, { rootDir: stateRoot });
+        ensureStateDir(targetPaths);
+        writeDaemonMetadata(
+          targetPaths,
+          buildDaemonMetadata({
+            paths: targetPaths,
+            pid: 424244,
+            repoRealpath: resolvedRepo,
+            repoRoot: resolvedRepo,
+          }),
+        );
+        writeFileSync(targetPaths.socketPath, "");
+        return { pid: 424244 };
+      },
+      stopProcess: async () => {
+        stopCalled = true;
+        return true;
+      },
+    });
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain("restart skipped");
+    expect(result.output).toContain("state preserved");
+    expect(stopCalled).toBe(false);
+    expect(spawnCalled).toBe(false);
+    expect(existsSync(pathsFor(repoA).stateDir)).toBe(true);
+  });
+
+  it("stops an unresponsive daemon after verifying process identity", async () => {
+    seedRunningDaemon(repoA, process.pid);
+    const paths = pathsFor(repoA);
+    let stopCalled = false;
+
+    const stop = await runServerCliCommand(["stop"], {
+      repoRoot: repoA,
+      state: { rootDir: stateRoot },
+      isAlive: () => true,
+      probeDaemon: failedProbe,
+      stopProcess: async () => {
+        stopCalled = true;
+        return true;
+      },
+      verifyProcessIdentity: () => ({ kind: "verified" }),
+    });
+    expect(stop.exitCode).toBe(0);
+    expect(stop.output).toContain("stopped");
+    expect(stop.output).toContain("verifying process identity");
+    expect(stopCalled).toBe(true);
+    expect(existsSync(paths.stateDir)).toBe(false);
+  });
+
+  it("rejects unknown server subcommands with a usage hint", async () => {
+    await expect(
+      runServerCliCommand(["bogus"], { repoRoot: repoA, state: { rootDir: stateRoot } }),
+    ).rejects.toThrow(/Unknown server command/u);
+    await expect(
+      runServerCliCommand([], { repoRoot: repoA, state: { rootDir: stateRoot } }),
+    ).rejects.toThrow(/Usage:/u);
+  });
+});
+
+describe("code:intel daemon query route", () => {
+  let tempRoot: string;
+  let stateRoot: string;
+  let repoRoot: string;
+
+  beforeEach(() => {
+    tempRoot = mkdtempSync(path.join(tmpdir(), "code-intel-daemon-"));
+    stateRoot = path.join(tempRoot, "state");
+    repoRoot = path.join(tempRoot, "repo");
+    mkdirSync(repoRoot, { recursive: true });
+    mkdirSync(stateRoot, { recursive: true });
+  });
+
+  afterEach(() => {
+    rmSync(tempRoot, { force: true, recursive: true });
+  });
+
+  function writeRepoFile(file: string, text: string): void {
+    const target = path.join(repoRoot, file);
+    mkdirSync(path.dirname(target), { recursive: true });
+    writeFileSync(target, text);
+  }
+
+  function writeRepoJson(file: string, value: unknown): void {
+    writeRepoFile(file, `${JSON.stringify(value, null, 2)}\n`);
+  }
+
+  function createSymbolWorkspace(): void {
+    writeRepoJson("package.json", { name: "code-intel-fixture", type: "module" });
+    writeRepoFile("bun.lock", "");
+    writeRepoJson("tsconfig.json", {
+      files: [],
+      references: [
+        { path: "packages/shared" },
+        { path: "packages/server" },
+        { path: "packages/client" },
+      ],
+    });
+    writeRepoJson("tsconfig.base.json", {
+      compilerOptions: {
+        composite: true,
+        declaration: true,
+        declarationMap: true,
+        esModuleInterop: true,
+        module: "Node16",
+        moduleResolution: "Node16",
+        skipLibCheck: true,
+        strict: true,
+        target: "ES2024",
+      },
+    });
+    writeRepoJson("tsconfig.scripts.json", {
+      compilerOptions: { composite: false, noEmit: true },
+      extends: "./tsconfig.base.json",
+      include: ["scripts/**/*.ts"],
+    });
+    writeRepoJson("packages/shared/package.json", {
+      exports: {
+        "./public-core": {
+          default: "./dist/rules/core.js",
+          types: "./dist/rules/core.d.ts",
+        },
+        "./rules/*.js": {
+          default: "./dist/rules/*.js",
+          types: "./dist/rules/*.d.ts",
+        },
+      },
+      name: "@musi/shared",
+      type: "module",
+      version: "0.0.0",
+    });
+    writeRepoJson("packages/shared/tsconfig.json", {
+      compilerOptions: { outDir: "dist", rootDir: "src" },
+      extends: "../../tsconfig.base.json",
+      include: ["src"],
+    });
+    writeRepoJson("packages/server/package.json", {
+      dependencies: { "@musi/shared": "workspace:*" },
+      name: "@musi/server",
+      type: "module",
+      version: "0.0.0",
+    });
+    writeRepoJson("packages/server/tsconfig.json", {
+      extends: "../../tsconfig.base.json",
+      include: ["src"],
+      references: [{ path: "../shared" }],
+    });
+    writeRepoJson("packages/client/package.json", {
+      dependencies: { "@musi/shared": "workspace:*" },
+      name: "@musi/client",
+      type: "module",
+      version: "0.0.0",
+    });
+    writeRepoJson("packages/client/tsconfig.json", {
+      compilerOptions: {
+        baseUrl: ".",
+        composite: false,
+        declaration: false,
+        declarationMap: false,
+        jsx: "react-jsx",
+        module: "ESNext",
+        moduleResolution: "Bundler",
+        noEmit: true,
+        paths: { "@/*": ["./src/*"] },
+        rootDir: "src",
+      },
+      extends: "../../tsconfig.base.json",
+      include: ["src"],
+      references: [{ path: "../shared" }],
+    });
+    writeRepoFile("packages/shared/src/rules/core.ts", "export const coreValue = () => 1;\n");
+    writeRepoFile(
+      "packages/shared/src/rules/index.ts",
+      'export { coreValue as publicCoreValue } from "./core.js";\nexport const directShared = 2;\n',
+    );
+    writeRepoFile("packages/shared/src/rules/mutable.ts", "export const mutableValue = 1;\n");
+    writeRepoFile(
+      "packages/shared/dist/rules/core.d.ts",
+      "export declare const coreValue: () => number;\n",
+    );
+    writeRepoFile(
+      "packages/shared/dist/rules/index.d.ts",
+      'export { coreValue as publicCoreValue } from "./core.js";\nexport declare const directShared: number;\n',
+    );
+    writeRepoFile(
+      "packages/server/src/renamed.ts",
+      'import { coreValue as renamedCoreValue } from "@musi/shared/rules/core.js";\nexport const serverValue = renamedCoreValue();\n',
+    );
+    writeRepoFile(
+      "packages/server/src/public-core.ts",
+      'import { coreValue as publicCoreValue } from "@musi/shared/public-core";\nexport const publicServerValue = publicCoreValue();\n',
+    );
+    writeRepoFile(
+      "packages/client/src/lib/local-helper.ts",
+      "export const localHelper = () => 2;\n",
+    );
+    writeRepoFile(
+      "packages/client/src/components/view.tsx",
+      'import { coreValue as clientCore } from "@musi/shared/rules/core.js";\nimport { localHelper as renamedLocalHelper } from "@/lib/local-helper.js";\nexport const View = () => clientCore() + renamedLocalHelper();\n',
+    );
+    writeRepoFile("scripts/tool.ts", "export const scriptTool = () => 1;\n");
+    mkdirSync(path.join(repoRoot, "node_modules/@musi"), { recursive: true });
+    symlinkSync(
+      path.join(repoRoot, "packages/shared"),
+      path.join(repoRoot, "node_modules/@musi/shared"),
+      "dir",
+    );
+  }
+
+  function defCommandAtSymbol(
+    file: string,
+    symbol: string,
+    colOffset = 0,
+  ): Extract<ExecutableCliCommand, { kind: "def" }> {
+    const text = readFileSync(path.join(repoRoot, file), "utf8");
+    const lines = text.split("\n");
+    for (let index = 0; index < lines.length; index += 1) {
+      const line = lines[index];
+      if (line === undefined) continue;
+      const column = line.indexOf(symbol);
+      if (column === -1) continue;
+      return {
+        kind: "def",
+        location: { col: column + 1 + colOffset, file, line: index + 1 },
+      };
+    }
+    throw new Error(`Could not find ${symbol} in ${file}`);
+  }
+
+  async function startDiskDaemon(): Promise<RunningDaemon> {
+    return runDaemon({
+      paths: resolveDaemonStatePaths(repoRoot, { rootDir: stateRoot }),
+      repoRealpath: repoRoot,
+      repoRoot,
+      signalEvents: [],
+    });
+  }
+
+  async function expectDaemonMatchesOneShot(command: ExecutableCliCommand): Promise<string> {
+    const oneShot = executeCodeIntelQuery(command, { repoRoot });
+    const outcome = await requestDaemonQuery(command, {
+      repoRoot,
+      state: { rootDir: stateRoot },
+    });
+    const daemonResult = expectDaemonResult(outcome);
+    expect(formatCodeIntelQueryResult(daemonResult, "text")).toBe(
+      formatCodeIntelQueryResult(oneShot, "text"),
+    );
+    expect(formatCodeIntelQueryResult(daemonResult, "json")).toBe(
+      formatCodeIntelQueryResult(oneShot, "json"),
+    );
+    return formatCodeIntelQueryResult(daemonResult, "text");
+  }
+
+  function expectDaemonResult(
+    outcome: Awaited<ReturnType<typeof requestDaemonQuery>>,
+  ): CodeIntelQueryResult {
+    if (outcome.kind === "result") return outcome.result;
+    throw new Error(`Expected daemon result, got fallback: ${outcome.reason}`);
+  }
+
+  function buildFixture(): {
+    project: ReturnType<typeof createFixtureProject>;
+    resolver: ReturnType<typeof createFixtureResolver>;
+    graph: ReturnType<typeof graphFor>;
+  } {
+    const project = createFixtureProject();
+    addSource(project, "packages/shared/src/rules/core.ts", "export const core = () => 1;\n");
+    addSource(
+      project,
+      "packages/server/src/direct.ts",
+      'import { core } from "@musi/shared/rules/core.js"; export const direct = core();\n',
+    );
+    addSource(
+      project,
+      "packages/server/src/feature.ts",
+      'import { direct } from "./direct.js"; export const feature = direct;\n',
+    );
+    addSource(
+      project,
+      "packages/server/src/core.test.ts",
+      'import { core } from "@musi/shared/rules/core.js"; test("core", () => core());\n',
+    );
+    const resolver = createFixtureResolver(project);
+    return { project, resolver, graph: graphFor(project, resolver) };
+  }
+
+  async function startFixtureDaemon(
+    fixture: ReturnType<typeof buildFixture>,
+  ): Promise<RunningDaemon> {
+    const paths = resolveDaemonStatePaths(repoRoot, { rootDir: stateRoot });
+    const graphCache = new GraphCache(repoRoot, {
+      computeManifest: () => "fixture",
+      rebuild: () => ({
+        graph: fixture.graph,
+        manifest: "fixture",
+        resolver: fixture.resolver,
+      }),
+    });
+    const projectCache = new ProjectCache(repoRoot, {
+      computeManifest: () => "fixture",
+      rebuild: () => ({
+        graphProject: fixture.project,
+        manifest: "fixture",
+        projects: {
+          client: fixture.project,
+          scripts: fixture.project,
+          server: fixture.project,
+          shared: fixture.project,
+        },
+        resolver: fixture.resolver,
+      }),
+    });
+    return runDaemon({
+      graphCache,
+      paths,
+      projectCache,
+      repoRealpath: repoRoot,
+      repoRoot,
+      signalEvents: [],
+    });
+  }
+
+  it("answers dependents and tests from the daemon and matches one-shot output", async () => {
+    const fixture = buildFixture();
+    const daemon = await startFixtureDaemon(fixture);
+    try {
+      const dependents: ExecutableCliCommand = {
+        depth: 2,
+        excludeTests: false,
+        file: "packages/shared/src/rules/core.ts",
+        kind: "dependents",
+      };
+      const oneShot = executeCodeIntelQuery(dependents, {
+        graphProject: fixture.project,
+        repoRoot: "/repo",
+        resolver: fixture.resolver,
+      });
+      const outcome = await requestDaemonQuery(dependents, {
+        repoRoot,
+        state: { rootDir: stateRoot },
+      });
+      expect(outcome).toEqual({ kind: "result", result: oneShot });
+
+      const tests: ExecutableCliCommand = {
+        depth: 3,
+        file: "packages/shared/src/rules/core.ts",
+        kind: "tests",
+      };
+      const oneShotTests = executeCodeIntelQuery(tests, {
+        graphProject: fixture.project,
+        repoRoot: "/repo",
+        resolver: fixture.resolver,
+      });
+      const testsOutcome = await requestDaemonQuery(tests, {
+        repoRoot,
+        state: { rootDir: stateRoot },
+      });
+      expect(testsOutcome).toEqual({ kind: "result", result: oneShotTests });
+    } finally {
+      await daemon.shutdown();
+    }
+  });
+
+  it("answers definition modes from resident projects and matches one-shot output", async () => {
+    createSymbolWorkspace();
+    const daemon = await startDiskDaemon();
+    try {
+      const renamedImport = await expectDaemonMatchesOneShot(
+        defCommandAtSymbol("packages/server/src/renamed.ts", "renamedCoreValue"),
+      );
+      expect(renamedImport).toContain("packages/shared/src/rules/core.ts:1:14 value export");
+      expect(renamedImport).not.toContain("dist/rules/core.d.ts");
+
+      const snappedImport = await expectDaemonMatchesOneShot(
+        defCommandAtSymbol("packages/server/src/renamed.ts", "renamedCoreValue", -1),
+      );
+      expect(snappedImport).toBe(renamedImport);
+
+      const clientAlias = await expectDaemonMatchesOneShot(
+        defCommandAtSymbol("packages/client/src/components/view.tsx", "renamedLocalHelper"),
+      );
+      expect(clientAlias).toContain("packages/client/src/lib/local-helper.ts:1:14 value export");
+
+      const byName = await expectDaemonMatchesOneShot({ kind: "defName", name: "coreValue" });
+      expect(byName).toContain("packages/shared/src/rules/core.ts:1:14 value export");
+
+      const nearMatch = await expectDaemonMatchesOneShot({ kind: "defName", name: "coreVal" });
+      expect(nearMatch).toContain("near matches (1 total): coreValue");
+    } finally {
+      await daemon.shutdown();
+    }
+  });
+
+  it("answers exports from resident projects and matches one-shot output", async () => {
+    createSymbolWorkspace();
+    const daemon = await startDiskDaemon();
+    try {
+      const directExports = await expectDaemonMatchesOneShot({
+        file: "packages/shared/src/rules/core.ts",
+        kind: "exports",
+      });
+      expect(directExports).toContain("coreValue value export");
+
+      const reexports = await expectDaemonMatchesOneShot({
+        file: "packages/shared/src/rules/index.ts",
+        kind: "exports",
+      });
+      expect(reexports).toContain("directShared value export");
+      expect(reexports).toContain("publicCoreValue value re-export");
+    } finally {
+      await daemon.shutdown();
+    }
+  });
+
+  it("answers refs from the resident reference project and matches one-shot output", async () => {
+    createSymbolWorkspace();
+    const daemon = await startDiskDaemon();
+    try {
+      const refs = await expectDaemonMatchesOneShot({
+        kind: "refs",
+        location: { col: 14, file: "packages/shared/src/rules/core.ts", line: 1 },
+      });
+      expect(refs).toContain("references coreValue");
+      expect(refs).toContain("packages/server/src/renamed.ts:1:10 import");
+      expect(refs).toContain("packages/server/src/public-core.ts:1:10 import");
+      expect(refs).toContain("packages/client/src/components/view.tsx:1:10 import");
+      expect(refs).toContain("packages/shared/src/rules/index.ts:1:10 import");
+      expect(refs).not.toContain("packages/shared/src/rules/core.ts:1:14");
+
+      const snapped = await expectDaemonMatchesOneShot({
+        kind: "refs",
+        location: { col: 13, file: "packages/shared/src/rules/core.ts", line: 1 },
+      });
+      expect(snapped).toBe(refs);
+    } finally {
+      await daemon.shutdown();
+    }
+  });
+
+  it("rebuilds resident projects on the first query after a manifest change", async () => {
+    createSymbolWorkspace();
+    const daemon = await startDiskDaemon();
+    try {
+      const initial = await expectDaemonMatchesOneShot({
+        kind: "defName",
+        name: "mutableValue",
+      });
+      expect(initial).toContain("packages/shared/src/rules/mutable.ts:1:14 value export");
+
+      writeRepoFile(
+        "packages/shared/src/rules/mutable.ts",
+        "export const mutableValueAfterInvalidation = 2;\n",
+      );
+
+      const afterMutation = await expectDaemonMatchesOneShot({
+        kind: "defName",
+        name: "mutableValueAfterInvalidation",
+      });
+      expect(afterMutation).toContain("packages/shared/src/rules/mutable.ts:1:14 value export");
+    } finally {
+      await daemon.shutdown();
+    }
+  });
+
+  it("falls back when no daemon is running", async () => {
+    const outcome = await requestDaemonQuery(
+      {
+        depth: 1,
+        excludeTests: false,
+        file: "packages/shared/src/rules/core.ts",
+        kind: "dependents",
+      },
+      { repoRoot, state: { rootDir: stateRoot } },
+    );
+    expect(outcome.kind).toBe("fallback");
+    if (outcome.kind === "fallback") expect(outcome.reason).toContain("absent");
+
+    const symbolOutcome = await requestDaemonQuery(
+      { kind: "defName", name: "coreValue" },
+      { repoRoot, state: { rootDir: stateRoot } },
+    );
+    expect(symbolOutcome.kind).toBe("fallback");
+    if (symbolOutcome.kind === "fallback") expect(symbolOutcome.reason).toContain("absent");
+  });
+
+  it("falls back when metadata advertises a different protocol version", async () => {
+    const paths = resolveDaemonStatePaths(repoRoot, { rootDir: stateRoot });
+    ensureStateDir(paths);
+    writeDaemonMetadata(paths, {
+      ...buildDaemonMetadata({ paths, pid: process.pid, repoRealpath: repoRoot, repoRoot }),
+      protocolVersion: (CODE_INTEL_DAEMON_PROTOCOL_VERSION + 1) as 1,
+    });
+    writeFileSync(paths.socketPath, "");
+
+    const outcome = await requestDaemonQuery(
+      {
+        depth: 1,
+        excludeTests: false,
+        file: "packages/shared/src/rules/core.ts",
+        kind: "dependents",
+      },
+      { repoRoot, isAlive: () => true, state: { rootDir: stateRoot } },
+    );
+    expect(outcome.kind).toBe("fallback");
+    if (outcome.kind === "fallback") expect(outcome.reason).toContain("protocol");
+
+    const symbolOutcome = await requestDaemonQuery(
+      { kind: "defName", name: "coreValue" },
+      { repoRoot, isAlive: () => true, state: { rootDir: stateRoot } },
+    );
+    expect(symbolOutcome.kind).toBe("fallback");
+    if (symbolOutcome.kind === "fallback") expect(symbolOutcome.reason).toContain("protocol");
+  });
+
+  it("falls back when daemon metadata is malformed instead of throwing", async () => {
+    const paths = resolveDaemonStatePaths(repoRoot, { rootDir: stateRoot });
+    ensureStateDir(paths);
+    writeFileSync(paths.metadataPath, "{ not valid json");
+    writeFileSync(paths.socketPath, "");
+
+    const outcome = await requestDaemonQuery(
+      {
+        depth: 1,
+        excludeTests: false,
+        file: "packages/shared/src/rules/core.ts",
+        kind: "dependents",
+      },
+      { repoRoot, isAlive: () => true, state: { rootDir: stateRoot } },
+    );
+    expect(outcome.kind).toBe("fallback");
+    if (outcome.kind === "fallback") expect(outcome.reason).toContain("metadata");
+  });
+
+  it("falls back when daemon metadata fails the shape check", async () => {
+    const paths = resolveDaemonStatePaths(repoRoot, { rootDir: stateRoot });
+    ensureStateDir(paths);
+    writeFileSync(paths.metadataPath, JSON.stringify({ pid: "not-a-number" }));
+    writeFileSync(paths.socketPath, "");
+
+    const outcome = await requestDaemonQuery(
+      {
+        depth: 1,
+        excludeTests: false,
+        file: "packages/shared/src/rules/core.ts",
+        kind: "dependents",
+      },
+      { repoRoot, isAlive: () => true, state: { rootDir: stateRoot } },
+    );
+    expect(outcome.kind).toBe("fallback");
+    if (outcome.kind === "fallback") expect(outcome.reason).toContain("metadata");
+  });
+
+  it("uses a longer refs timeout and avoids one-shot fallback after timeout", async () => {
+    const paths = resolveDaemonStatePaths(repoRoot, { rootDir: stateRoot });
+    ensureStateDir(paths);
+    writeDaemonMetadata(
+      paths,
+      buildDaemonMetadata({ paths, pid: process.pid, repoRealpath: repoRoot, repoRoot }),
+    );
+    writeFileSync(paths.socketPath, "");
+
+    let refsTimeout = 0;
+    await expect(
+      requestDaemonQuery(
+        {
+          kind: "refs",
+          location: { col: 14, file: "packages/shared/src/rules/core.ts", line: 1 },
+        },
+        {
+          isAlive: () => true,
+          repoRoot,
+          state: { rootDir: stateRoot },
+          transport: async (_socketPath, _payload, timeoutMs) => {
+            refsTimeout = timeoutMs;
+            throw new DaemonRequestTimeoutError(timeoutMs);
+          },
+        },
+      ),
+    ).rejects.toThrow(/Retry the query/u);
+    expect(refsTimeout).toBe(30000);
+
+    let graphTimeout = 0;
+    const graphOutcome = await requestDaemonQuery(
+      {
+        depth: 1,
+        excludeTests: false,
+        file: "packages/shared/src/rules/core.ts",
+        kind: "dependents",
+      },
+      {
+        isAlive: () => true,
+        repoRoot,
+        state: { rootDir: stateRoot },
+        transport: async (_socketPath, _payload, timeoutMs) => {
+          graphTimeout = timeoutMs;
+          throw new DaemonRequestTimeoutError(timeoutMs);
+        },
+      },
+    );
+    expect(graphTimeout).toBe(5000);
+    expect(graphOutcome.kind).toBe("fallback");
+  });
+
+  it("answers exports from the daemon and matches one-shot output", async () => {
+    const fixture = buildFixture();
+    const daemon = await startFixtureDaemon(fixture);
+    try {
+      const exportsCommand: ExecutableCliCommand = {
+        file: "packages/shared/src/rules/core.ts",
+        kind: "exports",
+      };
+      const oneShot = executeCodeIntelQuery(exportsCommand, {
+        project: fixture.project,
+        repoRoot: "/repo",
+        resolver: fixture.resolver,
+      });
+      const outcome = await requestDaemonQuery(exportsCommand, {
+        repoRoot,
+        state: { rootDir: stateRoot },
+      });
+      expect(outcome).toEqual({ kind: "result", result: oneShot });
+    } finally {
+      await daemon.shutdown();
+    }
+  });
+
+  it("propagates application errors from the daemon as CodeIntelError", async () => {
+    const fixture = buildFixture();
+    const daemon = await startFixtureDaemon(fixture);
+    try {
+      let caught: unknown;
+      try {
+        await requestDaemonQuery(
+          {
+            depth: 1,
+            excludeTests: false,
+            file: "packages/shared/src/rules/missing.ts",
+            kind: "dependents",
+          },
+          { repoRoot, state: { rootDir: stateRoot } },
+        );
+      } catch (error) {
+        caught = error;
+      }
+      expect(caught).toBeInstanceOf(CodeIntelError);
+      if (!(caught instanceof Error)) throw new Error("expected CodeIntelError");
+      expect(caught.message).toBe(
+        "code:intel: File not found: packages/shared/src/rules/missing.ts",
+      );
+    } finally {
+      await daemon.shutdown();
+    }
+  });
+
+  it("rebuilds cached state when the manifest fingerprint changes", () => {
+    let manifest = "first";
+    let rebuildCount = 0;
+    const fixture = buildFixture();
+    const cache = new GraphCache(repoRoot, {
+      computeManifest: () => manifest,
+      rebuild: () => {
+        rebuildCount += 1;
+        return { graph: fixture.graph, manifest, resolver: fixture.resolver };
+      },
+    });
+    cache.ensure();
+    cache.ensure();
+    expect(rebuildCount).toBe(1);
+    manifest = "second";
+    cache.ensure();
+    expect(rebuildCount).toBe(2);
+  });
+
+  it("fingerprints source contents for same-size edits", () => {
+    createSymbolWorkspace();
+    const target = path.join(repoRoot, "packages/shared/src/rules/mutable.ts");
+    const originalStat = statSync(target);
+    const before = computeWorkspaceManifest(repoRoot);
+
+    writeFileSync(target, "export const mutableValue = 2;\n");
+    utimesSync(target, originalStat.atime, originalStat.mtime);
+
+    expect(computeWorkspaceManifest(repoRoot)).not.toBe(before);
+  });
+
+  it("preserves daemon metadata after a query", async () => {
+    const fixture = buildFixture();
+    const daemon = await startFixtureDaemon(fixture);
+    try {
+      await requestDaemonQuery(
+        {
+          depth: 1,
+          excludeTests: false,
+          file: "packages/shared/src/rules/core.ts",
+          kind: "dependents",
+        },
+        { repoRoot, state: { rootDir: stateRoot } },
+      );
+      const metadata = readDaemonMetadata(
+        resolveDaemonStatePaths(repoRoot, { rootDir: stateRoot }),
+      );
+      expect(metadata?.protocolVersion).toBe(CODE_INTEL_DAEMON_PROTOCOL_VERSION);
+    } finally {
+      await daemon.shutdown();
+    }
   });
 });

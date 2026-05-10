@@ -24,12 +24,24 @@ type DependentsArgState = {
   project?: ProjectFilter;
 };
 
+type RefsArgState = {
+  limit?: number;
+};
+
 type TestsArgState = {
   depth: number;
   depthSpecified: boolean;
   direct: boolean;
   limit?: number;
   project?: ProjectFilter;
+};
+
+const SUBCOMMAND_PARSERS: Record<HelpTopic, (args: string[]) => CliCommand> = {
+  def: parseDefArgs,
+  dependents: parseDependentsArgs,
+  exports: parseSingleFileArgs,
+  refs: parseRefsArgs,
+  tests: parseTestsArgs,
 };
 
 export function parseArgs(args: string[]): ParsedCli {
@@ -44,25 +56,10 @@ export function parseArgs(args: string[]): ParsedCli {
   if (topic && isSubcommandHelp(globalOptions.args.slice(1))) {
     return { command: { kind: "help", topic }, format: globalOptions.format };
   }
-  if (command === "def") {
-    return { command: parseDefArgs(globalOptions.args.slice(1)), format: globalOptions.format };
+  const parser = topic ? SUBCOMMAND_PARSERS[topic] : undefined;
+  if (parser) {
+    return { command: parser(globalOptions.args.slice(1)), format: globalOptions.format };
   }
-  if (command === "exports") {
-    return {
-      command: parseSingleFileArgs(globalOptions.args.slice(1)),
-      format: globalOptions.format,
-    };
-  }
-  if (command === "dependents") {
-    return {
-      command: parseDependentsArgs(globalOptions.args.slice(1)),
-      format: globalOptions.format,
-    };
-  }
-  if (command === "tests") {
-    return { command: parseTestsArgs(globalOptions.args.slice(1)), format: globalOptions.format };
-  }
-
   throw new CodeIntelError(`Unknown command: ${command}\n${usage()}`);
 }
 
@@ -71,6 +68,7 @@ function helpTopic(command: string): HelpTopic | undefined {
     command === "def" ||
     command === "exports" ||
     command === "dependents" ||
+    command === "refs" ||
     command === "tests"
   ) {
     return command;
@@ -138,7 +136,7 @@ function parseDefArgs(args: string[]): CliCommand {
   }
   const rawLocation = positional[0];
   if (!rawLocation) throw new CodeIntelError("Definition location is required.");
-  return { kind: "def", location: parseLocation(rawLocation) };
+  return { kind: "def", location: parseLocation(rawLocation, "Definition") };
 }
 
 function parseSingleFileArgs(args: string[]): CliCommand {
@@ -248,6 +246,31 @@ function parseTestsArgs(args: string[]): CliCommand {
     limit: state.limit,
     project: state.project,
   };
+}
+
+function parseRefsArgs(args: string[]): CliCommand {
+  const positional: string[] = [];
+  const state: RefsArgState = {};
+
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = requireArg(args[index]);
+    const option = parseOption(arg);
+    if (!option) {
+      positional.push(arg);
+      continue;
+    }
+    if (option.name !== "--limit") throw unknownArgument(option.raw);
+    const parsed = readOptionValue(option, args, index, "--limit requires a non-negative integer.");
+    state.limit = parseLimit(parsed.value);
+    index = parsed.nextIndex;
+  }
+
+  if (positional.length !== 1) {
+    throw new CodeIntelError("Usage: bun run code:intel -- refs <file>:<line>:<col> [--limit <N>]");
+  }
+  const rawLocation = positional[0];
+  if (!rawLocation) throw new CodeIntelError("References location is required.");
+  return { kind: "refs", location: parseLocation(rawLocation, "References"), limit: state.limit };
 }
 
 function consumeTestsOption(

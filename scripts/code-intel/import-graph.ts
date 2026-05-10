@@ -83,9 +83,7 @@ export function collectImportEdges(
   return uniqueEdges(edges);
 }
 
-export function importDeclarationHasRuntimeEdge(
-  importDeclaration: ImportDeclaration,
-): boolean {
+export function importDeclarationHasRuntimeEdge(importDeclaration: ImportDeclaration): boolean {
   if (importDeclaration.isTypeOnly()) return false;
   if (importDeclaration.getDefaultImport() || importDeclaration.getNamespaceImport()) return true;
   const namedImports = importDeclaration.getNamedImports();
@@ -93,9 +91,7 @@ export function importDeclarationHasRuntimeEdge(
   return namedImports.some((specifier) => !specifier.isTypeOnly());
 }
 
-export function exportDeclarationHasRuntimeEdge(
-  exportDeclaration: ExportDeclaration,
-): boolean {
+export function exportDeclarationHasRuntimeEdge(exportDeclaration: ExportDeclaration): boolean {
   if (exportDeclaration.isTypeOnly()) return false;
   if (exportDeclaration.getNamespaceExport()) return true;
   const namedExports = exportDeclaration.getNamedExports();

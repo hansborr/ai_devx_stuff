@@ -167,6 +167,7 @@ function emptyResultLine(header: string): string {
   if (header.startsWith("definition ")) return "  no definitions found";
   if (header.startsWith("exports ")) return "  no exports found";
   if (header.startsWith("dependents ")) return "  no dependents found";
+  if (header.startsWith("references ")) return "  no references found";
   if (header.startsWith("tests ")) return "  no tests found";
   return "  no results found";
 }
@@ -175,7 +176,13 @@ function formatResultLine(result: IntelResult): string {
   if (result.kind === "definition") return formatDefinitionLine(result);
   if (result.kind === "export") return formatExportLine(result);
   if (result.kind === "dependent") return formatDependentLine(result);
+  if (result.kind === "reference") return formatReferenceLine(result);
   return formatTestLine(result);
+}
+
+function formatReferenceLine(result: IntelResult): string {
+  if (result.kind !== "reference") throw new Error("Expected reference result.");
+  return `  ${result.file}:${String(result.line)}:${String(result.col)} ${result.referenceKind}`;
 }
 
 function formatDefinitionLine(result: IntelResult): string {

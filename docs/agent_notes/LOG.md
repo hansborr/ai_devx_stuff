@@ -8,6 +8,36 @@ Newest on top.
 
 ---
 
+## 2026-05-09 — Code Intel Daemon Review Fixes
+
+Hardened `code:intel:server` lifecycle recovery after review: `status`,
+`stop`, and `restart` now treat corrupt metadata as recoverable state and
+validate live daemon ownership with repo/protocol metadata plus a socket probe
+before signaling a PID. Cold `refs` daemon requests use a longer timeout and
+do not silently duplicate the expensive scan in one-shot mode after a timeout.
+The reference project now derives package export and client alias paths from
+the shared workspace model, and daemon cache manifests hash source/config
+contents so same-size edits invalidate resident state.
+
+---
+
+## 2026-05-09 — Code Intel `refs` (Slice E) landed
+
+Symbol-level reverse search via `bun run code:intel -- refs <file>:<line>:<col>`.
+Resolves the identifier at the snapped position and lists every reference as
+`<file>:<line>:<col> <import|value|type>`, classifying via parent-chain walk
+(import/re-export specifiers → `import`; type queries / type references →
+`type`; otherwise `value`). Cross-package resolution uses a workspace-wide
+ts-morph reference project keyed by `@musi/{shared,server,client}/*` and
+`@/*` paths. The daemon caches it via `ProjectCache.referenceProject(...)`
+and reuses the existing manifest fingerprint, so warm `refs` shares
+invalidation with `def`/`exports`. Daemon and one-shot output match
+byte-for-byte for renamed imports, type-only references, and snap-to-nearest.
+The full `code-intel-ux-fixes` workstream is now archived in
+`finished_work/`.
+
+---
+
 ## 2026-05-09 — Code Intel Recommendation And Output Polish
 
 Refreshed the code-intel daemon notes: the durable next step is a repo-owned

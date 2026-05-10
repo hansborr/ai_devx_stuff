@@ -30,6 +30,8 @@
     "codemod:structured-logging-fix": "bun scripts/codemods/structured-logging-fix.ts",
     "codemod:expand-barrel": "bun scripts/codemods/expand-barrel.ts",
     "code:intel": "bun scripts/code-intel.ts",
+    "code:intel:perf": "bun scripts/code-intel/perf-check.ts",
+    "code:intel:server": "bun scripts/code-intel-server.ts",
     "test": "bash scripts/vitest.sh run --passWithNoTests",
     "test:coverage": "bash scripts/vitest.sh run --passWithNoTests --coverage",
     "test:watch": "vitest",

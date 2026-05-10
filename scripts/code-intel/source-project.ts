@@ -2,20 +2,21 @@ import { existsSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 
 import type { SourceFile } from "ts-morph";
-import { Project } from "ts-morph";
+import { ModuleKind, ModuleResolutionKind, Project, ScriptTarget, ts } from "ts-morph";
 
 import { CodeIntelError } from "./errors.js";
 import { isSameOrInside, samePath, toSlash } from "./path-utils.js";
-import {
-  SCRIPT_FIXTURE_DIR,
-  SCRIPT_SOURCE_DIR,
-  WORKSPACE_PACKAGE_DIRS,
-} from "./types.js";
-import type { WorkspaceResolver } from "./workspace-resolver.js";
+import type { ImportGraph } from "./types.js";
+import { SCRIPT_FIXTURE_DIR, SCRIPT_SOURCE_DIR, WORKSPACE_PACKAGE_DIRS } from "./types.js";
+import { createWorkspaceModel, type WorkspaceResolver } from "./workspace-resolver.js";
+
+const RELATIVE_EXPORT_PREFIX = "./";
 
 export type CodeIntelContext = {
+  graph?: ImportGraph;
   graphProject?: Project;
   project?: Project;
+  referenceProject?: Project;
   repoRoot?: string;
   resolver?: WorkspaceResolver;
   sourceFiles?: SourceFile[];
@@ -29,6 +30,25 @@ export function sourceFilesForGraph(repoRoot: string, context: CodeIntelContext)
   const sourcePaths = discoverWorkspaceSourcePaths(repoRoot);
   project.addSourceFilesAtPaths(sourcePaths);
   return workspaceSourceFiles(project.getSourceFiles());
+}
+
+export function createReferenceProject(repoRoot: string): Project {
+  const project = new Project({
+    skipAddingFilesFromTsConfig: true,
+    compilerOptions: {
+      allowJs: false,
+      baseUrl: repoRoot,
+      esModuleInterop: true,
+      jsx: ts.JsxEmit.ReactJSX,
+      module: ModuleKind.Node16,
+      moduleResolution: ModuleResolutionKind.Node16,
+      paths: referenceProjectCompilerPaths(repoRoot),
+      resolveJsonModule: true,
+      target: ScriptTarget.ES2024,
+    },
+  });
+  project.addSourceFilesAtPaths(discoverWorkspaceSourcePaths(repoRoot));
+  return project;
 }
 
 export function createProjectForFile(repoRoot: string, file: string): Project {
@@ -81,7 +101,7 @@ export function existingRelativeFile(resolver: WorkspaceResolver, file: string):
   return target;
 }
 
-function discoverWorkspaceSourcePaths(repoRoot: string): string[] {
+export function discoverWorkspaceSourcePaths(repoRoot: string): string[] {
   const paths: string[] = [];
   for (const packageDir of WORKSPACE_PACKAGE_DIRS) {
     const sourceRoot = path.join(repoRoot, packageDir, "src");
@@ -117,6 +137,45 @@ function workspaceSourceFiles(sourceFiles: SourceFile[]): SourceFile[] {
       filePath.includes(`/${SCRIPT_SOURCE_DIR}/`)
     );
   });
+}
+
+function referenceProjectCompilerPaths(repoRoot: string): Record<string, string[]> {
+  const model = createWorkspaceModel(repoRoot);
+  const compilerPaths: Record<string, string[]> = {};
+  for (const alias of model.aliases) {
+    addCompilerPath(
+      compilerPaths,
+      `${alias.sourcePrefix}*`,
+      path.join(repoRoot, alias.targetPrefix, "*"),
+    );
+  }
+  for (const rule of model.exportRules) {
+    for (const sourcePattern of rule.sourcePatterns) {
+      addCompilerPath(
+        compilerPaths,
+        packageSpecifierPattern(rule.packageName, rule.exportPattern),
+        path.join(repoRoot, rule.packageRoot, sourcePattern),
+      );
+    }
+  }
+  return compilerPaths;
+}
+
+function addCompilerPath(
+  compilerPaths: Record<string, string[]>,
+  key: string,
+  value: string,
+): void {
+  const existing = compilerPaths[key] ?? [];
+  if (!existing.includes(value)) compilerPaths[key] = [...existing, value];
+}
+
+function packageSpecifierPattern(packageName: string, exportPattern: string): string {
+  if (exportPattern === ".") return packageName;
+  if (exportPattern.startsWith(RELATIVE_EXPORT_PREFIX)) {
+    return `${packageName}/${exportPattern.slice(RELATIVE_EXPORT_PREFIX.length)}`;
+  }
+  return `${packageName}/${exportPattern}`;
 }
 
 function isSourceFilePath(file: string): boolean {

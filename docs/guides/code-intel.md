@@ -1,9 +1,9 @@
 # Code Intel
 
-`bun run code:intel -- ...` is a read-only TypeScript graph CLI. Use it instead
-of `rg` / `grep` for cross-file lookups: it follows package `exports`, the
-client `@/*` alias, and re-exports that text search misses. Output is
-deterministic and pipeable.
+`bun run code:intel -- ...` is a read-only TypeScript graph CLI that resolves
+through package `exports`, re-exports, and the client `@/*` alias. Use it for
+cross-file TypeScript symbol work that `rg` / `grep` cannot answer reliably.
+Output is deterministic and pipeable.
 
 This guide is harness-neutral. Codex reaches it through the repo-owned skill
 source at `.codex/skills/code-intel/SKILL.md` when that folder is installed or
@@ -17,12 +17,16 @@ through `.claude/skills/code-intel/SKILL.md`. Other agents reach it through
 - "I only know symbol X's name" → `def --name`
 - "What does file F export?" → `exports`
 - "Which files import F (transitively)?" → `dependents`
+- "Where is symbol X used?" → `refs`
 - "Which tests likely cover F?" → `tests`
+- Use `refs` for symbol call sites/usages; use `dependents` for file-level
+  importers.
 
 ## When NOT to use
 
 - Free-text searches ("find every TODO", "find all callers of `console.log`").
-  Use Claude `Grep` when available; otherwise use `rg` / `git grep`.
+  Use the agent search tool when available (for example, Claude `Grep` or
+  Codex `Search`); otherwise use `rg` / `git grep`.
 - Lookups inside a single file. Read the file directly.
 - As a verification gate. It is a guide, not a sensor.
 
@@ -79,6 +83,24 @@ need the wider blast radius. Add `--project` or `--exclude-tests` for noisy hub
 files. Add `--limit N` to trim long output while keeping the full result count
 in the header; `--limit 0` means no limit.
 
+### `refs <file>:<line>:<col> [--limit <N>]`
+
+Symbol-level reverse search. Resolves the identifier at a 1-based `line:col`
+and lists every reference to that symbol across packages and `scripts/`. Snaps
+to the nearest identifier on the line if the column is on punctuation. Each
+row is `<file>:<line>:<col> <import|value|type>` — `import` for import or
+re-export specifiers, `type` for type-position uses (including `typeof X`),
+`value` otherwise. The declaration itself is excluded from default output.
+
+```bash
+bun run code:intel -- refs packages/shared/src/schemas/character.ts:281:14
+bun run code:intel -- refs packages/shared/src/schemas/character.ts:281:14 --format json
+bun run code:intel -- refs packages/shared/src/schemas/character.ts:281:14 --limit 20
+```
+
+Use `refs` when you need symbol-level usages (call sites, property reads,
+type-only references). Use `dependents` for file-level reverse imports.
+
 ### `tests <file> [--depth <N>] [--direct] [--project <shared|server|client>] [--limit <N>]`
 
 Candidate covering tests, found by walking the runtime import graph. Not an
@@ -106,15 +128,49 @@ coverage hint, not proof.
   another tool or when you want stable parsing. Commands with extra context,
   such as `dependents`, include a `meta` object. `dependents` JSON also
   includes `byProject`, counted after filters and before any limit.
-- `--limit N` — available on `dependents` and `tests`; trims displayed rows
-  while preserving the total count. With JSON output, limited responses include
-  `total`, `limit`, and `truncated`. Use `--limit 0` or omit the flag for the
-  full list.
+- `--limit N` — available on `dependents`, `refs`, and `tests`; trims displayed
+  rows while preserving the total count. With JSON output, limited responses
+  include `total`, `limit`, and `truncated`. Use `--limit 0` or omit the flag
+  for the full list.
 
 ## Scope
 
 `code:intel` reads files under `packages/shared`, `packages/server`,
 `packages/client`, and `scripts/`. Other paths return a clear error.
+
+## Daemon Mode
+
+Use the daemon when you are doing repeated lookups in one checkout. It keeps
+the import graph and TypeScript project state resident, so warm `def`,
+`exports`, `dependents`, `refs`, and `tests` queries avoid rebuilding that
+state every invocation.
+
+```bash
+bun run code:intel:server -- status
+bun run code:intel:server -- restart
+bun run code:intel:server -- stop
+```
+
+Normal `bun run code:intel -- ...` calls do not auto-start the daemon. They
+use it when it is already running and fall back to one-shot execution when it
+is absent, stale, or on an incompatible protocol version. To force one-shot
+execution, stop the daemon first:
+
+```bash
+bun run code:intel:server -- stop
+bun run code:intel -- def --name characterDetailSchema
+```
+
+The Unix-socket JSON protocol is internal to the repo; use the CLI commands
+above instead of scripting against the socket. For advisory latency checks,
+run:
+
+```bash
+bun run code:intel:perf
+```
+
+`code:intel:perf` runs a small fixed query mix cold and warm, prints p50/p95
+timings, and does not enforce thresholds or run in `verify`.
 
 ## Common patterns
 
@@ -123,6 +179,7 @@ coverage hint, not proof.
 bun run code:intel -- def --name characterDetailSchema
 bun run code:intel -- exports packages/shared/src/schemas/character.ts
 bun run code:intel -- dependents packages/shared/src/schemas/character.ts --depth 1
+bun run code:intel -- refs packages/shared/src/schemas/character.ts:281:14
 bun run code:intel -- tests packages/shared/src/schemas/character.ts --direct
 
 # Find the right test file before editing a service
@@ -138,8 +195,8 @@ bun run code:intel -- def packages/client/src/components/sheet/level-up-state.ts
 - `def --name` is exact-name declaration search, not full symbol reference
   analysis. Zero-result name lookups include prefix hints only. Use positional
   `def` when TypeScript alias resolution matters.
-- Large `dependents` queries can take a few seconds. Cache hits are not
-  shared between invocations.
+- Large `dependents` queries can take a few seconds in one-shot mode. Start
+  the daemon for repeated lookups so cache hits are shared across invocations.
 
 ## Related
 
@@ -147,4 +204,4 @@ bun run code:intel -- def packages/client/src/components/sheet/level-up-state.ts
 - `.codex/skills/code-intel/SKILL.md` is the Codex skill adapter.
 - `.claude/skills/code-intel/SKILL.md` is the Claude skill adapter.
 - `docs/agent_notes/backlog/code-intel-followups.md` tracks parked
-  enhancements (`refs`, daemon mode, JSON consumers, etc.).
+  enhancements (JSON consumers, etc.).

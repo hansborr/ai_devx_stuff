@@ -36,10 +36,11 @@ The most interesting parts are probably:
 - `scripts/codemods/` and `scripts/code-intel.ts` (+ extracted
   `scripts/code-intel/` modules) — paired with the ESLint rules. When a
   lint says "no", the codemod fixes it; when an agent needs to look up
-  definitions/dependents/exports/nearby tests, `code-intel` answers
-  without `rg` archaeology. The matching usage guide lives in
+  definitions/dependents/exports/symbol refs/nearby tests, `code-intel`
+  answers without `rg` archaeology. The matching usage guide lives in
   `docs/guides/code-intel.md`, with thin per-tool adapters in
-  `.claude/skills/code-intel/` and `.codex/skills/code-intel/`. This is
+  `.claude/skills/code-intel/` and `.codex/skills/code-intel/`. Repeated
+  lookups can opt into the daemon via `bun run code:intel:server`. This is
   the "computational guide" half of `docs/ai-harness.md`.
 - `.husky/pre-commit` — runs lint/typecheck/test in parallel with a
   `flock`-protected lock, a 120s last-verified short-circuit keyed on
@@ -359,17 +360,19 @@ Shared library sourced by both Claude and Codex hooks:
 ### Code intel and codemods
 
 - `code-intel.ts` + `code-intel/` — repo-aware lookup over the
-  TypeScript project graph: definitions, dependents, exports, and nearby
-  tests for a symbol or file. Replaces the noisy `rg` archaeology
-  pattern with a deterministic query an agent can call directly.
+  TypeScript project graph: definitions, dependents, exports, symbol refs,
+  and nearby tests for a symbol or file. Replaces the noisy `rg`
+  archaeology pattern with a deterministic query an agent can call directly.
   `code-intel.ts` is now a thin CLI entry point; the query, formatter,
   workspace-resolver, import-graph, and source-project internals live
   under `scripts/code-intel/` so each module stays small and lintable
   via the dedicated `tsconfig.scripts.json`. `code-intel.test.ts`
   covers the query surface; `test-code-intel.sh` is the bash smoke
-  wrapper. The shared usage guide is `docs/guides/code-intel.md`, with
-  per-tool front doors at `.claude/skills/code-intel/` and
-  `.codex/skills/code-intel/`.
+  wrapper. `scripts/code-intel-server.ts` and `server-cli.ts` provide the
+  optional daemon lifecycle (`status` / `restart` / `stop`) so repeated
+  symbol and graph lookups can reuse a warm project cache. The shared usage
+  guide is `docs/guides/code-intel.md`, with per-tool front doors at
+  `.claude/skills/code-intel/` and `.codex/skills/code-intel/`.
 - `codemods/` — TypeScript-AST codemods with `--check` and `--all`
   modes, paired with an ESLint rule each. The headline pattern is
   "lint says no, codemod fixes it":
@@ -444,6 +447,8 @@ The musi scripts table is the wiring map. The interesting entries:
     "test:changed": "bash scripts/test-changed.sh",
     "test:mutation": "stryker run",
     "code:intel": "bun scripts/code-intel.ts",
+    "code:intel:perf": "bun scripts/code-intel/perf-check.ts",
+    "code:intel:server": "bun scripts/code-intel-server.ts",
     "codemod:trpc-shared-input": "bun scripts/codemods/trpc-shared-input.ts",
     "codemod:trpc-shared-output": "bun scripts/codemods/trpc-shared-output.ts",
     "codemod:structured-logging-fix": "bun scripts/codemods/structured-logging-fix.ts",

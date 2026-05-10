@@ -13,13 +13,10 @@ import type {
   AliasRule,
   ExportRule,
   ResolverOptions,
+  WorkspaceModel,
   WorkspacePackageConfig,
 } from "./types.js";
-import {
-  CLIENT_ALIAS_FALLBACK,
-  JS_EXTENSIONS,
-  WORKSPACE_PACKAGE_DIRS,
-} from "./types.js";
+import { CLIENT_ALIAS_FALLBACK, JS_EXTENSIONS, WORKSPACE_PACKAGE_DIRS } from "./types.js";
 
 const DOT_SLASH_PREFIX = "./";
 const EXPORT_PATTERN_PART_COUNT = 2;
@@ -149,10 +146,21 @@ export function createWorkspaceResolver(
   repoRoot = process.cwd(),
   options: ResolverOptions = {},
 ): WorkspaceResolver {
+  const model = createWorkspaceModel(repoRoot, options);
+  return new WorkspaceResolver(repoRoot, model.exportRules, { ...options, aliases: model.aliases });
+}
+
+export function createWorkspaceModel(
+  repoRoot = process.cwd(),
+  options: ResolverOptions = {},
+): WorkspaceModel {
   const packages = options.packages ?? readWorkspacePackages(repoRoot);
-  const rules = packages.flatMap(createExportRules);
   const aliases = options.aliases ?? readClientAliasRules(repoRoot);
-  return new WorkspaceResolver(repoRoot, rules, { ...options, aliases });
+  return {
+    aliases,
+    exportRules: packages.flatMap(createExportRules),
+    packages,
+  };
 }
 
 function readWorkspacePackages(repoRoot: string): WorkspacePackageConfig[] {

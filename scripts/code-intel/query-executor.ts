@@ -8,9 +8,11 @@ import {
 import { queryExports } from "./export-query.js";
 import { queryDependents, queryTests, summarizeDependentProjects } from "./graph-queries.js";
 import { buildImportGraph } from "./import-graph.js";
+import { queryReferences } from "./references-query.js";
 import type { CodeIntelContext } from "./source-project.js";
 import {
   createProjectForFile,
+  createReferenceProject,
   existingRelativeFile,
   sourceFilesForGraph,
 } from "./source-project.js";
@@ -32,6 +34,7 @@ type QueryExecutorContext = {
 type DefinitionCommand = Extract<ExecutableCliCommand, { kind: "def" }>;
 type DefinitionNameCommand = Extract<ExecutableCliCommand, { kind: "defName" }>;
 type ExportsCommand = Extract<ExecutableCliCommand, { kind: "exports" }>;
+type RefsCommand = Extract<ExecutableCliCommand, { kind: "refs" }>;
 type DependentsCommand = Extract<ExecutableCliCommand, { kind: "dependents" }>;
 type TestsCommand = Extract<ExecutableCliCommand, { kind: "tests" }>;
 type GraphCommand = DependentsCommand | TestsCommand;
@@ -59,6 +62,7 @@ function executeCommand(
   if (command.kind === "def") return executeDefinition(command, runner);
   if (command.kind === "defName") return executeDefinitionName(command, runner);
   if (command.kind === "exports") return executeExports(command, runner);
+  if (command.kind === "refs") return executeRefs(command, runner);
   return executeGraphCommand(command, runner);
 }
 
@@ -108,15 +112,33 @@ function executeExports(
   };
 }
 
+function executeRefs(command: RefsCommand, runner: QueryExecutorContext): CodeIntelQueryResult {
+  const project =
+    runner.context.referenceProject ??
+    runner.context.graphProject ??
+    createReferenceProject(runner.repoRoot);
+  const { name, results } = queryReferences(project, runner.resolver, command.location);
+  return {
+    kind: "results",
+    header: `references ${name}`,
+    limit: command.limit,
+    results,
+  };
+}
+
 function executeGraphCommand(
   command: GraphCommand,
   runner: QueryExecutorContext,
 ): CodeIntelQueryResult {
   existingRelativeFile(runner.resolver, command.file);
-  const sourceFiles = sourceFilesForGraph(runner.repoRoot, runner.context);
-  const graph = buildImportGraph(sourceFiles, runner.resolver);
+  const graph = runner.context.graph ?? buildGraphFromContext(runner);
   if (command.kind === "dependents") return executeDependents(command, runner, graph);
   return executeTests(command, runner, graph);
+}
+
+function buildGraphFromContext(runner: QueryExecutorContext): ImportGraph {
+  const sourceFiles = sourceFilesForGraph(runner.repoRoot, runner.context);
+  return buildImportGraph(sourceFiles, runner.resolver);
 }
 
 function executeDependents(

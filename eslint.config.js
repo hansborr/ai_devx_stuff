@@ -502,19 +502,23 @@ export default tseslint.config(
         "error",
         {
           name: "window",
-          message: "packages/shared must stay runtime-neutral; move browser code to packages/client.",
+          message:
+            "packages/shared must stay runtime-neutral; move browser code to packages/client.",
         },
         {
           name: "document",
-          message: "packages/shared must stay runtime-neutral; move browser code to packages/client.",
+          message:
+            "packages/shared must stay runtime-neutral; move browser code to packages/client.",
         },
         {
           name: "localStorage",
-          message: "packages/shared must stay runtime-neutral; move browser code to packages/client.",
+          message:
+            "packages/shared must stay runtime-neutral; move browser code to packages/client.",
         },
         {
           name: "sessionStorage",
-          message: "packages/shared must stay runtime-neutral; move browser code to packages/client.",
+          message:
+            "packages/shared must stay runtime-neutral; move browser code to packages/client.",
         },
       ],
     },

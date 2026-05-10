@@ -11,9 +11,10 @@ export type TestReason = "co-located" | "direct" | "transitive";
 export type ProjectFilter = "client" | "server" | "shared";
 export type ProjectBucket = ProjectFilter | "scripts";
 export type ExportSpace = "type" | "value";
+export type ReferenceKind = "import" | "type" | "value";
 export type OutputFormat = "json" | "text";
 export type ResultMetadata = Record<string, boolean | number | string>;
-export type HelpTopic = "def" | "dependents" | "exports" | "tests";
+export type HelpTopic = "def" | "dependents" | "exports" | "refs" | "tests";
 export type ProjectBucketSummary = Partial<Record<ProjectBucket, number>>;
 
 export type IntelResult =
@@ -27,6 +28,14 @@ export type IntelResult =
     }
   | { kind: "export"; name: string; exportKind: string }
   | { kind: "dependent"; file: string; depth: number; via: Via }
+  | {
+      kind: "reference";
+      name: string;
+      file: string;
+      line: number;
+      col: number;
+      referenceKind: ReferenceKind;
+    }
   | {
       kind: "test";
       file: string;
@@ -76,6 +85,12 @@ export type ResolverOptions = {
   packages?: WorkspacePackageConfig[];
 };
 
+export type WorkspaceModel = {
+  aliases: AliasRule[];
+  exportRules: ExportRule[];
+  packages: WorkspacePackageConfig[];
+};
+
 export type QueryTestsOptions = {
   depth?: number;
   project?: ProjectFilter;
@@ -99,6 +114,7 @@ export type CliCommand =
       limit?: number;
       project?: ProjectFilter;
     }
+  | { kind: "refs"; location: SourceLocation; limit?: number }
   | { kind: "tests"; file: string; depth: number; limit?: number; project?: ProjectFilter };
 
 export type ParsedCli = {
