@@ -52,11 +52,12 @@ migration as its own workstream.
 These items are in main today and reduce the blast radius of the migration
 above:
 
-- **Caster-type denormalization.** `Class.casterType`, `Class.ritualCaster`,
+- **Caster-type denormalization.** `Class.casterType`, `Class.ritualAdept`,
   `Subclass.casterType`, and `Subclass.spellcastingAbility` columns now live
   on the row and replace the hardcoded SRD-name maps in
   `packages/shared/rules/spellcasting.ts`. Homebrew classes and subclasses
-  can specify spellcasting metadata directly.
+  can specify spellcasting metadata directly; legacy homebrew class payloads
+  using `ritualCaster` are normalized at import/form boundaries.
 - **Homebrew data shapes for every character-level type** exist in
   `packages/shared/src/schemas/homebrew.ts` (species, class, subclass,
   background, feat, spell) and mirror their SRD counterparts.
@@ -72,16 +73,16 @@ above:
 
 ## Open Prerequisites
 
-- `followup-srd-castertype-issues.md` — `Class.ritualCaster` semantics need
-  to be redefined or dropped; Eldritch Knight / Arcane Trickster need
-  provenance cleanup; homebrew class and subclass forms need caster-field
-  inputs wired before character-level selection is meaningful.
+- `followup-srd-castertype-issues.md` — the `Class.ritualAdept` rename and
+  homebrew class caster-field inputs have landed; Eldritch Knight / Arcane
+  Trickster still need provenance cleanup, and homebrew subclass forms still
+  need caster-field inputs before character-level selection is meaningful.
 
 ## Promotion Checklist
 
 1. Decide which polymorphic pattern (inline snapshot vs. `sourceType` +
    `sourceId`) applies to each Character-scoped reference type.
-2. Resolve the prerequisites in `followup-srd-castertype-issues.md` — at
-   minimum the `ritualCaster` semantics question.
+2. Resolve or explicitly carry forward the remaining prerequisites in
+   `followup-srd-castertype-issues.md`.
 3. Promote into `in_progress/` with a per-table migration plan and the
    chosen unlink policy per reference type.

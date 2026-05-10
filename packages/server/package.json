@@ -1,0 +1,11 @@
+{
+  "name": "@musi/server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./router-type": {
+      "types": "./dist/routers/app-router.d.ts"
+    }
+  }
+}

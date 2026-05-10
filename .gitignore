@@ -57,6 +57,7 @@ packages/server/prisma/*.db-journal
 # Test artifacts
 coverage/
 reports/mutation/
+reports/drift-ai/
 .stryker-tmp/
 test-results/
 playwright-report/

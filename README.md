@@ -19,10 +19,11 @@ The most interesting parts are probably:
   tests, doctor, hook adapters, drift checks), grouped by mode and
   paired guide/sensor. Read this first to see how the rest of the
   scripts and rules in this repo fit together as one feedback loop.
-- `docs/guides/` — five area-specific "how to add/change this safely"
+- `docs/guides/` — area-specific "how to add/change this safely"
   guides for tRPC procedures, Socket.io broadcasts, Prisma migrations,
-  race-sensitive mutations, and client feature modules. These are the
-  inferential half of the guide/sensor pairs listed in `docs/ai-harness.md`.
+  race-sensitive mutations, client feature modules, module-doc refreshes,
+  and 5e rules logic. These are the inferential half of the guide/sensor
+  pairs listed in `docs/ai-harness.md`.
 - `scripts/ai-hooks/` and `.claude/hooks/` and `.codex/hooks/` — agent hooks
   that **wrap noisy verification commands** so failure tails (not 500-line
   successful test logs) hit the model context window, **enforce a
@@ -55,6 +56,13 @@ The most interesting parts are probably:
 - `scripts/test-slow.sh` and `vitest.slow.config.ts` — an explicit slow-test
   tier for `*.slow.test.{ts,tsx}` files; default Vitest configs exclude slow
   tests and `test:changed` only prints a hint when a slow file changed.
+- `scripts/drift-ai.ts` and `scripts/drift-ai/` — report-only AI drift
+  checks for changed files or current repo scope: duplicate code via `jscpd`,
+  suspicious sibling "ghost files", and comment-ratio warnings. The
+  repo-specific roots and exclusions live in `drift-ai.config.json`.
+- `scripts/logs-audit.ts` and `scripts/logs-audit/` — fixture-backed JSONL
+  log audits for redaction, parse failures, sensitive URL/query leakage, and
+  request-correlation fields in structured server events.
 - `eslint-rules/` — hand-rolled custom ESLint rules with unit tests, plus
   the `eslint.config.js` that loads them.
 - `scripts/migration-safety-scan.sh` — a warn-only Prisma migration
@@ -107,10 +115,10 @@ Only the DX-shaped docs are included here:
 - `docs/guides/` contains focused implementation recipes paired with the
   harness sensors: `add-trpc-procedure.md`, `add-socket-broadcast.md`,
   `add-prisma-migration.md`, `add-race-sensitive-mutation.md`,
-  `add-client-feature-module-cache-socket.md`, and
-  `code-intel.md` (the harness-neutral usage guide for the
-  `bun run code:intel` lookups, paired with the `.claude/skills` and
-  `.codex/skills` adapters).
+  `add-client-feature-module-cache-socket.md`, `add-module-doc.md`,
+  `change-rules-logic.md`, and `code-intel.md` (the harness-neutral usage
+  guide for the `bun run code:intel` lookups, paired with the
+  `.claude/skills` and `.codex/skills` adapters).
 - `docs/module-docs.md` is the charter for local `MODULE.md` orientation
   files and pairs with `scripts/generate-module-index.sh`.
 
@@ -347,7 +355,8 @@ Shared library sourced by both Claude and Codex hooks:
 
 - `migration-safety-scan.sh` — warn-only scanner over Prisma migrations.
   Flags risky DDL (column drops, NOT NULL without default, large
-  table-rewrites) for human review. Has its own test file.
+  table-rewrites) for human review, with actionable `WARN` findings grouped
+  separately from acknowledged `INFO` history. Has its own test file.
 - `stryker.config.mjs` — a deliberately narrow mutation-testing lane for
   shared rule helpers. It is kept out of verify and pre-commit; run it
   explicitly with `bun run test:mutation` when auditing test quality.
@@ -373,6 +382,14 @@ Shared library sourced by both Claude and Codex hooks:
   symbol and graph lookups can reuse a warm project cache. The shared usage
   guide is `docs/guides/code-intel.md`, with per-tool front doors at
   `.claude/skills/code-intel/` and `.codex/skills/code-intel/`.
+- `drift-ai.ts` + `drift-ai/` — report-only AI drift scanner. Default mode
+  audits changed files against `main`; `--scope current` inventories the
+  current checkout and supports `--chunk-dir` output for AI handoff. The
+  checks stay manual so duplicate/comment/ghost-file reports can be reviewed
+  without becoming a brittle gate.
+- `logs-audit.ts` + `logs-audit/` — structured log audit CLI for fixture or
+  local JSONL output. It reports parse failures, unredacted sensitive fields,
+  unsafe query parameters, and missing or inconsistent request/event fields.
 - `codemods/` — TypeScript-AST codemods with `--check` and `--all`
   modes, paired with an ESLint rule each. The headline pattern is
   "lint says no, codemod fixes it":
@@ -457,6 +474,8 @@ The musi scripts table is the wiring map. The interesting entries:
     "format:changed": "bash scripts/format-changed.sh",
     "doctor": "bash scripts/doctor.sh",
     "db:migration-safety": "bash scripts/migration-safety-scan.sh",
+    "drift:ai": "bun scripts/drift-ai.ts",
+    "logs:audit": "bun scripts/logs-audit.ts",
     "module:index": "bash scripts/generate-module-index.sh",
     "module:index:check": "bash scripts/generate-module-index.sh --check",
     "worktree:new": "bash scripts/worktree-new.sh",

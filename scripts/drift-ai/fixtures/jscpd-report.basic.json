@@ -1,0 +1,80 @@
+{
+  "statistics": {
+    "total": {
+      "lines": 0,
+      "tokens": 0,
+      "sources": 0,
+      "duplicatedLines": 0,
+      "duplicatedTokens": 0,
+      "clones": 0,
+      "percentage": 0,
+      "percentageTokens": 0,
+      "newDuplicatedLines": 0,
+      "newClones": 0
+    },
+    "detectionDate": "2026-05-09T00:00:00.000Z",
+    "formats": {}
+  },
+  "duplicates": [
+    {
+      "format": "typescript",
+      "lines": 29,
+      "fragment": "...",
+      "tokens": 0,
+      "firstFile": {
+        "name": "packages/server/src/utils/character-auth.ts",
+        "start": 40,
+        "end": 68,
+        "startLoc": { "line": 40, "column": 0, "position": 0 },
+        "endLoc": { "line": 68, "column": 0, "position": 0 }
+      },
+      "secondFile": {
+        "name": "packages/server/src/utils/campaign-auth.ts",
+        "start": 22,
+        "end": 50,
+        "startLoc": { "line": 22, "column": 0, "position": 0 },
+        "endLoc": { "line": 50, "column": 0, "position": 0 }
+      }
+    },
+    {
+      "format": "typescript",
+      "lines": 15,
+      "fragment": "...",
+      "tokens": 0,
+      "firstFile": {
+        "name": "packages/server/src/services/example.ts",
+        "start": 10,
+        "end": 24,
+        "startLoc": { "line": 10, "column": 0, "position": 0 },
+        "endLoc": { "line": 24, "column": 0, "position": 0 }
+      },
+      "secondFile": {
+        "name": "packages/shared/src/utils/format.ts",
+        "start": 5,
+        "end": 19,
+        "startLoc": { "line": 5, "column": 0, "position": 0 },
+        "endLoc": { "line": 19, "column": 0, "position": 0 }
+      }
+    },
+    {
+      "format": "typescript",
+      "lines": 22,
+      "fragment": "...",
+      "tokens": 0,
+      "firstFile": {
+        "name": "packages/server/src/utils/character-auth.ts",
+        "start": 110,
+        "end": 131,
+        "startLoc": { "line": 110, "column": 0, "position": 0 },
+        "endLoc": { "line": 131, "column": 0, "position": 0 }
+      },
+      "secondFile": {
+        "name": "packages/server/src/services/character-service.ts",
+        "start": 50,
+        "end": 71,
+        "startLoc": { "line": 50, "column": 0, "position": 0 },
+        "endLoc": { "line": 71, "column": 0, "position": 0 }
+      }
+    }
+  ]
+}

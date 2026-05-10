@@ -51,6 +51,10 @@ Do **not** read this folder at session start. Promote an item back into
   branch/tag deletion, dangerous `gh` mutations, and raw `grep` (context
   hygiene). Rollout note:
   `docs/agent_notes/in_progress/agent-hook-git-safety.md`.
+- `drift-ai-current-findings.md` — 2026-05-10 triage of the first
+  `drift:ai --scope current` report: current ghost-file tuning plus duplicate
+  refactor candidates for token mutations, cursor lists, test contexts, token
+  forms, selectable cards, sheet rows, codemods, and homebrew fields.
 
 ## Promotion rules
 

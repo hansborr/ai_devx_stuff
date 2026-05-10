@@ -8,6 +8,200 @@ Newest on top.
 
 ---
 
+## 2026-05-10 — drift:ai Current Scope Landed
+
+Finished the promoted `drift:ai --scope current` workstream. Current-mode
+comments now audits JS/TS-family inventory files with the same thresholds and
+configurable exclusions as changed mode, while chunk output writes a complete
+primary report plus deterministic manifest/chunk JSON files for AI handoff.
+`docs/ai-harness.md` documents current scope and chunk flags. `NEXT.md` is now
+empty until the next explicit re-triage.
+
+---
+
+## 2026-05-10 — 5e Rules Logic Guide
+
+Added `docs/guides/change-rules-logic.md` for SRD-vs-policy source decisions,
+shared rules helper reuse, pure rules boundaries, colocated shared rules tests,
+focused verification, and manual mutation testing when assertion strength is
+uncertain. `docs/ai-harness.md` now maps the guide to shared rules Vitest,
+`test:changed`, and `bun run test:mutation`. The BatonLoop ready queue is now
+fully landed, with no next ready leaf promoted.
+
+---
+
+## 2026-05-10 — Migration Safety Output Clarity
+
+Grouped `db:migration-safety` findings into `== actionable warnings ==` for
+unacknowledged `WARN` findings and `== acknowledged findings ==` for
+allowlisted `INFO` history. The scanner still stays warn-only and keeps its
+doctor signal lines, while focused shell coverage pins both fully acknowledged
+and mixed-output shapes. The next promoted leaf is the 5e/5.5e rules logic
+guide.
+
+---
+
+## 2026-05-10 — Module Index Guide Coverage
+
+Tightened `scripts/test-generate-module-index.sh` so `--check` now has
+coverage for guide-directed H1 and `Concepts:` breadcrumb changes. The test
+mutates a sandbox module doc after index generation, proves the stale index is
+reported with the changed metadata, and confirms check mode does not rewrite
+`MODULE-INDEX.md`. The next promoted leaf is migration-safety output clarity.
+
+---
+
+## 2026-05-10 — Homebrew Subclass Caster Fields
+
+Exposed `casterType` and `spellcastingAbility` in the homebrew subclass form,
+using the shared caster option helpers and preserving the existing form-data
+payload shape. Focused component coverage pins visible saved state and caster
+select interactions. The next promoted leaf is module-index guide coverage.
+
+---
+
+## 2026-05-10 — Homebrew Class Caster Fields
+
+Exposed `casterType`, `spellcastingAbility`, and `ritualAdept` in the
+homebrew class form, using the shared caster option helpers and preserving the
+existing form-data payload shape. Focused component coverage pins the visible
+saved state, caster select interactions, and ritual-adept toggling. The next
+promoted leaf is homebrew subclass caster-field inputs.
+
+---
+
+## 2026-05-10 — SRD Ritual Adept Rename
+
+Renamed `Class.ritualCaster` / `classes.ritual_caster` to `ritualAdept` /
+`ritual_adept` across Prisma, shared schemas, SRD seeding, tRPC mapping,
+homebrew class form data, and fixtures. The migration renames the class column,
+normalizes existing SRD rows so only Wizard is true, and renames stored
+homebrew class JSON from `ritualCaster` to `ritualAdept` when needed. The next
+promoted leaf is homebrew class caster-field inputs. Review follow-up added
+legacy import/form fallback so old exported class payloads with `ritualCaster`
+preserve the value as `ritualAdept`.
+
+---
+
+## 2026-05-10 — SRD Ritual Caster Decision
+
+Captured the BatonLoop caster provenance decision in
+`followup-srd-castertype-issues.md`: `Class.ritualCaster` should be renamed to
+Wizard-style `ritualAdept`, seeded true only for Wizard, and kept distinct from
+the general prepared-spell Ritual rule. The next promoted leaf is a
+metadata-only rename/migration before homebrew class caster-field UI work.
+
+---
+
+## 2026-05-10 — SRD/Homebrew Mapper Provenance Fixture
+
+Added a reviewed scenario table to `buildExportEnvelope` helper coverage. The
+fixture proves homebrew subclass refs get `parentClassName` for import
+rebinding, while an SRD class id such as `class-fighter` keeps its `classId`
+and is not treated as a homebrew cross-entry ref.
+
+---
+
+## 2026-05-10 — Encounter Transition Fixture
+
+Added a reviewed scenario table to `encounter.transitionState` route coverage.
+The fixture proves paused combat resumes without rewinding the combat cursor
+after both a mid-round advance and a wrapped-round advance, preserving
+`round` and `currentTurnIndex` through `paused -> active`.
+
+---
+
+## 2026-05-10 — Authorization NOT_FOUND Fixture
+
+Added a reviewed scenario table to `campaign.assignCharacter` route coverage.
+The fixture compares an existing foreign character id with a missing character
+id and asserts both return the same 404 `NOT_FOUND` / `Character not found`
+tRPC response shape. Review follow-up stripped stack traces from formatted tRPC
+error data so identical authorization denials do not expose different throw
+sites.
+
+---
+
+## 2026-05-10 — Shared Rules Stryker Triage And Test
+
+Triaged a focused `attack-roll.ts` Stryker slice for the BatonLoop queue. The
+useful survivor was `applyCritDice("10d6")` failing to prove multi-digit dice
+counts double to `20d6`; the companion anchor-removal regex mutant is reviewed
+as equivalent/noisy under the current pure damage-dice contract. Review
+follow-up added the focused `10d6` assertion in `attack-roll.test.ts`.
+
+---
+
+## 2026-05-10 — Module Doc Guide
+
+Added `docs/guides/add-module-doc.md` from the BatonLoop queue. The guide
+points contributors at `docs/module-docs.md`, covers when `MODULE.md` versus
+`*-MODULE.md` is appropriate, keeps `Concepts:` breadcrumbs search-focused,
+and records when to run `bun run module:index` or `bun run module:index:check`.
+
+---
+
+## 2026-05-10 — Scripts Vitest Baseline
+
+Completed shell-migration Leaf 0A after a review pass found a real recursive
+scripts-test routing gap. The scripts Vitest project now includes
+`scripts/**/*.test.ts`, coverage excludes recursive script tests, and
+`test:changed` has smoke coverage for generic nested script tests routing to
+the `scripts` project.
+
+---
+
+## 2026-05-10 — Shell Migration Coordination Started
+
+Created `docs/agent_notes/in_progress/shell-migration.md` from the external
+shell migration draft and promoted only Leaf 0A: audit and patch the existing
+scripts Vitest wiring without repointing production commands, hooks, Husky, or
+`test:scripts`. The note records that this checkout already has a scripts
+Vitest project, so the first leaf should be a baseline audit unless a concrete
+coverage gap appears.
+
+---
+
+## 2026-05-10 — Logs Audit Request Correlation
+
+Extended `bun run logs:audit` beyond parse/redaction checks. It now verifies
+business-event request ids against Fastify/Pino request records when present,
+requires stable authz/mutation/broadcast outcomes and low-cardinality reasons
+where expected, and pins `socket.broadcast` `socketEvent` coverage with a
+representative fixture.
+
+---
+
+## 2026-05-10 — Worktree-Local Logs Audit Started
+
+Started the worktree-local observability stream with `bun run logs:audit`.
+The first slice is read-only and fixture-backed: it accepts one or more JSONL
+log files, reports unparseable/non-object lines, and flags obvious unredacted
+sensitive fields, server-redacted chat/whisper content paths, or sensitive URL
+query params without echoing secret values. Script Vitest coverage pins the
+redacted fixture, leak reporting, JSON output, CLI exits, and `test:changed`
+selection for `scripts/logs-audit*` edits. Next leaf extends the audit to
+request-id correlation and stable event fields. Review follow-up made blank
+JSONL lines fail parsing, added `set-cookie` detection, and covered the
+top-level `scripts/logs-audit.test.ts` changed-test path.
+
+---
+
+## 2026-05-10 — AI Drift Sensors Duplicate And Ghost Checks
+
+Leaves 2a, 2b, and 3 of `drift:ai` landed on `feat/misc-loop`: `jscpd` is a
+root dev dependency, the duplicate scanner parses JSON reports and shells out
+per changed package/script scope, and the custom ghost-file detector flags
+suspicious newly added sibling modules. Review follow-ups restored
+merge-base-based changed-file scope while preserving uncommitted tracked edits,
+broadened `test:changed` coverage for the `scripts/drift-ai/` subtree and
+fixtures, made ghost-file test/fixture exclusions path-aware, stabilized
+ghost-file peer ordering, treated copied paths as new-file candidates, and
+kept the live duplicate/ghost checks report-only and clean.
+Leaf 4 (comment-ratio warning) remains next.
+
+---
+
 ## 2026-05-09 — Code Intel Daemon Review Fixes
 
 Hardened `code:intel:server` lifecycle recovery after review: `status`,

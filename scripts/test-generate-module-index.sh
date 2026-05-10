@@ -55,6 +55,29 @@ grep -qF 'module:index: OK' "$SANDBOX/check.out" \
   || fail "--check did not print OK"
 ok "check mode passes when index is current"
 
+perl -0pi -e 's/# Example Module/# Renamed Example Module/; s/Concepts: presence, campaign rooms, socket broadcasts/Concepts: initiative, campaign rooms, socket broadcasts/' \
+  "$repo/packages/example/MODULE.md"
+set +e
+output="$(
+  cd "$repo"
+  bash scripts/generate-module-index.sh --check 2>&1
+)"
+exit_code=$?
+set -e
+[ "$exit_code" -ne 0 ] || fail "--check should fail when indexed module-doc metadata changes"
+rg -qF 'Renamed Example Module' <<< "$output" \
+  || fail "metadata drift should show the changed H1 in the diff: $output"
+rg -qF 'Concepts: initiative, campaign rooms, socket broadcasts' <<< "$output" \
+  || fail "metadata drift should show the changed Concepts breadcrumb in the diff: $output"
+rg -qF '[Example Module](packages/example/MODULE.md)' "$repo/MODULE-INDEX.md" \
+  || fail "--check should not overwrite the stale index after module-doc metadata changes"
+ok "check mode fails when indexed module-doc metadata changes"
+
+(
+  cd "$repo"
+  bash scripts/generate-module-index.sh
+)
+
 printf '\nmanual drift\n' >> "$repo/MODULE-INDEX.md"
 set +e
 output="$(

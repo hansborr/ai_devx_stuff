@@ -33,8 +33,11 @@ SQL under `packages/server/prisma/migrations/`.
 
 The migration safety scanner is warn-only. A zero exit code does not mean every
 migration is safe; it means the scanner finished and printed its findings.
-`doctor` also runs the scanner, so unacknowledged destructive operations stay
-visible during local review.
+Read the `== actionable warnings ==` section first. `WARN:` findings there
+need a rewrite or acknowledgement; `INFO:` findings under
+`== acknowledged findings ==` are already-reviewed history. `doctor` also runs
+the scanner, so unacknowledged destructive operations stay visible during local
+review.
 
 Scanner findings to treat as review blockers until resolved:
 

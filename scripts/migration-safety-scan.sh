@@ -342,29 +342,25 @@ if [ ! -s "$TMP_FINDINGS" ]; then
   printf 'No destructive operations detected.\n'
 else
   # Stable sort so identical input always produces identical output: rule
-  # order matches per-file source order; files are alphabetical.
+  # order matches per-file source order; files are alphabetical. The report
+  # then renders actionable WARN findings before acknowledged INFO findings
+  # so humans, hooks, and future dashboards can separate work from history.
   sorted_findings="$(mktemp)"
   trap 'rm -f "$TMP_FINDINGS" "$sorted_findings"' EXIT
   sort -t $'\t' -k1,1 -k2,2n "$TMP_FINDINGS" > "$sorted_findings"
 
-  while IFS=$'\t' read -r rel lineno rule snippet; do
-    name="$(migration_name_for "$rel")"
-    # `${arr[k]+set}` distinguishes "key present" (even with empty value) from
-    # "key absent" — an allowlist entry with no reason is still an
-    # acknowledgement.
-    if [ -n "${ACK_REASONS[$name]+set}" ]; then
-      printf 'INFO: %s:%s — %s (acknowledged: %s)\n' "$rel" "$lineno" "$rule" "${ACK_REASONS[$name]}"
-      ack_count=$((ack_count + 1))
-    else
-      printf 'WARN: %s:%s — %s\n' "$rel" "$lineno" "$rule"
-      unack_count=$((unack_count + 1))
-    fi
-    printf '       Risk: %s\n' "$(guidance_for "$rule")"
-    printf '       > %s\n' "$snippet"
-  done < "$sorted_findings"
-
   total=$(wc -l < "$TMP_FINDINGS" | tr -d ' ')
   files=$(cut -f1 "$TMP_FINDINGS" | sort -u | wc -l | tr -d ' ')
+
+  while IFS=$'\t' read -r rel lineno rule snippet; do
+    name="$(migration_name_for "$rel")"
+    if [ -n "${ACK_REASONS[$name]+set}" ]; then
+      ack_count=$((ack_count + 1))
+    else
+      unack_count=$((unack_count + 1))
+    fi
+  done < "$sorted_findings"
+
   if [ "$unack_count" -gt 0 ]; then
     unack_files=$(awk -v acks="$(printf '%s\n' "${!ACK_REASONS[@]}")" '
       BEGIN { n = split(acks, arr, "\n"); for (i = 1; i <= n; i++) ack[arr[i]] = 1 }
@@ -376,6 +372,48 @@ else
         if (!(name in ack)) print rel
       }
     ' "$sorted_findings" | sort -u | wc -l | tr -d ' ')
+  fi
+
+  render_finding() {
+    local level="$1"
+    local rel="$2"
+    local lineno="$3"
+    local rule="$4"
+    local snippet="$5"
+    local reason="${6:-}"
+
+    if [ "$level" = "INFO" ]; then
+      printf 'INFO: %s:%s — %s (acknowledged: %s)\n' "$rel" "$lineno" "$rule" "$reason"
+    else
+      printf 'WARN: %s:%s — %s\n' "$rel" "$lineno" "$rule"
+    fi
+    printf '       Risk: %s\n' "$(guidance_for "$rule")"
+    printf '       > %s\n' "$snippet"
+  }
+
+  printf '\n== actionable warnings ==\n'
+  if [ "$unack_count" -eq 0 ]; then
+    printf 'No actionable warnings; acknowledged findings are listed separately.\n'
+  else
+    while IFS=$'\t' read -r rel lineno rule snippet; do
+      name="$(migration_name_for "$rel")"
+      # `${arr[k]+set}` distinguishes "key present" (even with empty value)
+      # from "key absent" — an allowlist entry with no reason is still an
+      # acknowledgement.
+      if [ -z "${ACK_REASONS[$name]+set}" ]; then
+        render_finding "WARN" "$rel" "$lineno" "$rule" "$snippet"
+      fi
+    done < "$sorted_findings"
+  fi
+
+  if [ "$ack_count" -gt 0 ]; then
+    printf '\n== acknowledged findings ==\n'
+    while IFS=$'\t' read -r rel lineno rule snippet; do
+      name="$(migration_name_for "$rel")"
+      if [ -n "${ACK_REASONS[$name]+set}" ]; then
+        render_finding "INFO" "$rel" "$lineno" "$rule" "$snippet" "${ACK_REASONS[$name]}"
+      fi
+    done < "$sorted_findings"
   fi
 fi
 
@@ -400,7 +438,7 @@ fi
 if [ "$stale_count" -gt 0 ]; then
   printf 'Stale allowlist entries: %s in %s.\n' "$stale_count" "$(relpath "$ALLOWLIST_FILE")"
 fi
-printf 'Mode: warn-only. Each WARN above names the migration, line, operation, and one-line review hint. Confirm the destructive intent and any backfill or dependent-read change is in the same migration or a precursor commit before applying to a shared database.\n'
+printf 'Mode: warn-only. WARN findings in the actionable warnings section name the migration, line, operation, and one-line review hint; other WARN findings name allowlist lines to fix. Confirm destructive intent and any backfill or dependent-read change is in the same migration or a precursor commit before applying to a shared database.\n'
 
 if [ "$unack_count" -eq 0 ] && [ "$stale_count" -eq 0 ]; then
   if [ -s "$TMP_FINDINGS" ]; then

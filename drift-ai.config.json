@@ -1,0 +1,23 @@
+{
+  "roots": [
+    "packages/shared/src",
+    "packages/server/src",
+    "packages/client/src",
+    "scripts",
+    "eslint-rules"
+  ],
+  "ignore": {
+    "prefixes": [
+      "docs/",
+      "packages/server/prisma/migrations/"
+    ]
+  },
+  "checks": {
+    "comments": {
+      "excludePrefixes": [
+        "scripts/",
+        "eslint-rules/"
+      ]
+    }
+  }
+}

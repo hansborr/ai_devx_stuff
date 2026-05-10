@@ -1,0 +1,5 @@
+{"level":30,"time":1778371210000,"reqId":"req-authz-1","req":{"id":"req-authz-1","method":"GET","url":"/trpc/campaign.byId?input=redacted","headers":{"authorization":"[redacted]"}},"msg":"incoming request"}
+{"level":30,"time":1778371210001,"reqId":"req-authz-1","event":"authz.campaign.member","outcome":"deny","reason":"not_member","actor":{"userId":"user-2"},"campaignId":"campaign-1","msg":"authorization denied"}
+{"level":30,"time":1778371211000,"reqId":"req-character-1","req":{"id":"req-character-1","method":"POST","url":"/trpc/character.updateStats?input=redacted","headers":{"authorization":"[redacted]"}},"msg":"incoming request"}
+{"level":30,"time":1778371211001,"reqId":"req-character-1","event":"character.updateStats","outcome":"success","actor":{"userId":"user-1"},"characterId":"character-1","msg":"character stats updated"}
+{"level":30,"time":1778371211002,"reqId":"req-character-1","event":"socket.broadcast","outcome":"success","socketEvent":"character:updated","campaignId":"campaign-1","characterId":"character-1","msg":"broadcast emitted"}

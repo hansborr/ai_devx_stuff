@@ -4,11 +4,21 @@ export default defineProject({
   test: {
     name: "scripts",
     environment: "node",
-    include: ["codemods/**/*.test.ts", "*.test.ts"],
-    exclude: [...defaultExclude, "codemods/fixtures/**"],
+    include: ["**/*.test.ts"],
+    exclude: [
+      ...defaultExclude,
+      "codemods/fixtures/**",
+      "drift-ai/fixtures/**",
+      "logs-audit/fixtures/**",
+    ],
     coverage: {
-      include: ["codemods/**/*.ts", "*.ts"],
-      exclude: ["codemods/**/*.test.ts", "*.test.ts", "codemods/fixtures/**"],
+      include: ["codemods/**/*.ts", "drift-ai/**/*.ts", "logs-audit/**/*.ts", "*.ts"],
+      exclude: [
+        "**/*.test.ts",
+        "codemods/fixtures/**",
+        "drift-ai/fixtures/**",
+        "logs-audit/fixtures/**",
+      ],
     },
   },
 });

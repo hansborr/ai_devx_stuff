@@ -9,7 +9,17 @@
     "scripts/code-intel.ts",
     "scripts/code-intel-server.ts",
     "scripts/code-intel/**/*.ts",
-    "scripts/code-intel.test.ts"
+    "scripts/code-intel.test.ts",
+    "scripts/drift-ai.ts",
+    "scripts/drift-ai.test.ts",
+    "scripts/drift-ai/**/*.ts",
+    "scripts/logs-audit.ts",
+    "scripts/logs-audit.test.ts",
+    "scripts/logs-audit/**/*.ts"
   ],
-  "exclude": ["scripts/codemods/fixtures/**"]
+  "exclude": [
+    "scripts/codemods/fixtures/**",
+    "scripts/drift-ai/fixtures/**",
+    "scripts/logs-audit/fixtures/**"
+  ]
 }

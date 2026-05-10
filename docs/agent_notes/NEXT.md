@@ -6,13 +6,12 @@ re-triage.
 
 ## Ready now
 
-Add `docs/guides/add-module-doc.md`, a narrow guide for adding or refreshing
-`MODULE.md` orientation docs. Pair it with `docs/module-docs.md`, the
-`Concepts:` breadcrumb pattern, `bun run module:index`, and the
-`module:index:check` sensor.
+- No ready leaf is promoted. Re-triage before starting another drift or
+  BatonLoop leaf.
 
 ## Promotion Source
 
-- Future harness leaves should come from
-  `docs/agent_notes/backlog/ai-harness-followups.md` only after this ready-now
-  item lands or is retiered.
+- This leaf was explicitly promoted by the user from
+  `docs/agent_notes/in_progress/drift-ai-current-scope.md`.
+- It landed on 2026-05-10. Re-triage before promoting another drift or
+  BatonLoop leaf.

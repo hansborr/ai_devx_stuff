@@ -18,6 +18,10 @@ REPO_ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel)"
 PASS=0
 fail() { printf 'FAIL: %s\n' "$1" >&2; exit 1; }
 ok()   { PASS=$((PASS + 1)); printf 'ok %d - %s\n' "$PASS" "$1"; }
+line_number_for() {
+  local pattern="$1" text="$2"
+  awk -v pattern="$pattern" '$0 ~ pattern { print NR; found = 1; exit } END { if (!found) exit 1 }' <<< "$text" || true
+}
 
 SANDBOX="$(mktemp -d /tmp/musi-migration-safety-test.XXXXXX)"
 trap 'rm -rf "$SANDBOX"' EXIT
@@ -219,6 +223,12 @@ cat > "$ALLOWLIST" <<'EOF'
 EOF
 
 output=$(MUSI_MIGRATION_ALLOWLIST="$ALLOWLIST" bash "$SCRIPT" "$SANDBOX/20260102000000_drop_table")
+grep -qE '^== actionable warnings ==$' <<< "$output" \
+  || fail "fully acknowledged scan should show the actionable warning section: $output"
+grep -qF 'No actionable warnings; acknowledged findings are listed separately.' <<< "$output" \
+  || fail "fully acknowledged scan should state that there are no actionable warnings: $output"
+grep -qE '^== acknowledged findings ==$' <<< "$output" \
+  || fail "fully acknowledged scan should show the acknowledged findings section: $output"
 grep -qE '^INFO: .*20260102000000_drop_table/migration\.sql:1 — DROP TABLE \(acknowledged: Reviewed: legacy table drop after backfill\.\)' <<< "$output" \
   || fail "acknowledged finding should be emitted as INFO with reason: $output"
 ! grep -qE '^WARN: .*20260102000000_drop_table/migration\.sql' <<< "$output" \
@@ -245,6 +255,14 @@ grep -qE '^INFO: .*20260102000000_drop_table' <<< "$output" \
   || fail "mixed scan: acknowledged migration should emit INFO"
 grep -qE '^WARN: .*20260103000000_drop_column/migration\.sql:1 — DROP COLUMN' <<< "$output" \
   || fail "mixed scan: unacknowledged migration should still emit WARN"
+action_header_line=$(line_number_for '^== actionable warnings ==$' "$output")
+warn_line=$(line_number_for '^WARN: .*20260103000000_drop_column/migration\.sql:1 — DROP COLUMN' "$output")
+ack_header_line=$(line_number_for '^== acknowledged findings ==$' "$output")
+info_line=$(line_number_for '^INFO: .*20260102000000_drop_table' "$output")
+[ -n "$action_header_line" ] && [ -n "$warn_line" ] && [ -n "$ack_header_line" ] && [ -n "$info_line" ] \
+  || fail "mixed scan should render both actionable and acknowledged sections: $output"
+[ "$action_header_line" -lt "$warn_line" ] && [ "$warn_line" -lt "$ack_header_line" ] && [ "$ack_header_line" -lt "$info_line" ] \
+  || fail "mixed scan should render actionable WARN findings before acknowledged INFO findings: $output"
 grep -qE 'Findings: 3 in 2 migration\(s\) of 2 scanned \(1 unacknowledged WARN, 2 acknowledged INFO\)\.' <<< "$output" \
   || fail "mixed scan summary counts wrong: $output"
 grep -qE '^WARN: migration safety — 1 unacknowledged destructive operation\(s\) in 1 migration\(s\)' <<< "$output" \

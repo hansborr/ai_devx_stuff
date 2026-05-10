@@ -92,7 +92,7 @@ for file in "${CHANGED_FILES[@]}"; do
       has_eslint_rules=1
       has_vitest_relevant=1
       ;;
-    scripts/codemods/*|scripts/code-intel*.ts)
+    scripts/*.test.ts|scripts/**/*.test.ts|scripts/codemods/*|scripts/code-intel*.ts|scripts/drift-ai.ts|scripts/drift-ai/*|scripts/logs-audit.ts|scripts/logs-audit/*)
       has_scripts=1
       has_vitest_relevant=1
       full_run=1

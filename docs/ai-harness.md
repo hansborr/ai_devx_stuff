@@ -36,12 +36,14 @@ Only promote a sensor to a gate after it has low noise and clear repair text.
 | `docs/CONCURRENCY.md` | Architecture fitness, behavior | Inferential | Race-sensitive writes bypassing locked mutation helpers | Area-specific | Restricted Prisma types, `local/concurrency-guard`, RawTxClient lint |
 | `MODULE.md` / `*-MODULE.md` files | Maintainability, architecture fitness | Inferential | Agents editing a module without its local interface, flows, and invariants | Area-specific | `module:index:check`, future doc-freshness sensor |
 | `docs/module-docs.md` | Maintainability | Inferential | Module notes drifting into inconsistent shape | When adding or refreshing module docs | `bun run module:index:check` |
+| `docs/guides/add-module-doc.md` | Maintainability | Inferential | Agents adding or refreshing module docs without the charter, `Concepts:` breadcrumb, index refresh, and verification recipe | When adding or refreshing module docs | `bun run module:index:check`, `scripts/test-generate-module-index.sh` |
 | `.claude/skills/playwright-cli/SKILL.md` | Behavior | Inferential | Browser verification being run with the wrong workflow | Manual | Playwright/e2e logs |
 | `docs/guides/add-socket-broadcast.md` | Architecture fitness, behavior | Inferential | Agents adding registry-owned broadcasts without the schema, helper, post-commit timing, or logger recipe | Area-specific | `local/socket-registry-broadcasts`, `local/no-broadcast-in-transaction`, broadcast registry tests |
 | `docs/guides/add-trpc-procedure.md` | Architecture fitness, behavior | Inferential | Agents adding router procedures without the shared input, output, auth, service, and test recipe | Area-specific | `local/strict-trpc-input`, `local/trpc-require-output-schema`, app-router output coverage test |
 | `docs/guides/add-prisma-migration.md` | Architecture fitness, behavior | Inferential | Agents changing Prisma schema without generating, inspecting, applying, and safety-scanning the migration | Area-specific | `db:migration-safety`, `db:status`, `doctor` |
 | `docs/guides/add-race-sensitive-mutation.md` | Architecture fitness, behavior | Inferential | Agents adding or changing race-sensitive mutations without the gate, locked helper, conflict semantics, restricted imports, and concurrency test recipe | Area-specific | `local/concurrency-guard`, `RawTxClient` restricted import, Restricted Prisma delegate types |
 | `docs/guides/add-client-feature-module-cache-socket.md` | Architecture fitness, behavior | Inferential | Agents adding client feature modules with hand-built query keys, component-local socket listeners, or untested optimistic cache writes | Area-specific | Client hook/component tests, `local/test-file-location` |
+| `docs/guides/change-rules-logic.md` | Behavior | Inferential | Agents touching 5e/5.5e rules logic without SRD provenance, shared helper reuse, pure rules boundaries, or required colocated tests | Area-specific | Shared rules Vitest, `test:changed`, `bun run test:mutation` |
 | Future narrow guides | Architecture fitness, behavior | Inferential | Repeated edits requiring the same local recipe | Manual, area-specific | Matching lint/test/doctor sensor |
 | `bun run codemod:trpc-shared-input -- --check` / `-- [--target <schema.js>] <router-file>` | Architecture fitness | Computational | Agents hand-editing simple router-local tRPC input schema moves | Manual, before edit | `local/trpc-shared-input-schema` |
 | `bun run codemod:trpc-shared-output -- --check` / `-- [--target <schema.js>] <router-file>` / `-- --all` | Architecture fitness | Computational | Agents hand-editing simple router-local tRPC output schema moves | Manual, before edit | `local/trpc-shared-output-schema` |
@@ -87,9 +89,15 @@ Only promote a sensor to a gate after it has low noise and clear repair text.
 | `local/socket-registry-broadcasts` | Architecture fitness, behavior | Computational | Registry-owned events emitted directly outside `broadcast-registry.ts` | `bun run lint`, `bun run lint:changed` | `docs/guides/add-socket-broadcast.md` |
 | `local/no-broadcast-in-transaction` | Architecture fitness, behavior | Computational | Socket broadcast helpers called inside Prisma `$transaction` callbacks instead of after commit | `bun run lint`, `bun run lint:changed` | `docs/guides/add-socket-broadcast.md` |
 | Mutation testing | Behavior | Computational | Tests that execute rules code without proving meaningful behavior | Manual: `bun run test:mutation` | `docs/agent_notes/backlog/mutation-testing-stryker.md` |
+| `drift:ai` (duplicates, ghost-files, comments) | Maintainability, architecture fitness | Computational | AI-specific drift on changed files: copy/paste duplicates, suspicious newly added sibling modules, and over-narrated comments; repo-specific roots and exclusions live in `drift-ai.config.json` | Manual, report-only: `bun run drift:ai` (filter with `--check`; pass `--config <path>` to test another config) | `docs/agent_notes/in_progress/ai-drift-sensors.md`, `docs/agent_notes/in_progress/drift-ai-current-scope.md` |
 | Future approved behavior fixtures | Behavior | Computational | Generated tests proving the wrong shape or missing reviewed scenario data | Targeted Vitest suites | Domain docs, SRD reference |
 | Future slow drift reports | Maintainability, architecture fitness | Computational | Dead exports, cycles, stale module docs, flake trends, layer drift | `doctor`, CI, scheduled, or manual | This map |
 | Future project-specific reviewer | Architecture fitness, behavior | Inferential | Semantic drift not expressible as deterministic checks | Manual after deterministic checks pass | This map and area docs |
+
+For `drift:ai`, `--scope current` audits the current whole repo instead of the
+default diff against `main`. Use `--chunk-dir <path>` and optional
+`--chunk-size <n>` for AI handoff; the primary report remains complete and
+chunks are additive.
 
 ## Mutation Testing
 
@@ -128,18 +136,15 @@ Triage rules:
 
 ## Current Gaps
 
-- Several recurring edit paths lack narrow guides: refreshing module docs and
-  touching 5e rules logic.
 - Behavior confidence is still weaker than maintainability and architecture
-  fitness. Prefer reviewed scenario fixtures for Character Live-State,
-  encounter transitions, authorization `NOT_FOUND` cases, and SRD/homebrew
-  mapper provenance.
+  fitness. Continue adding reviewed scenario fixtures for Character Live-State
+  and other high-risk workflows as they are scoped.
 - Diagnostics are mostly human text. JSON output for `verify:logs`, `doctor`,
   `module:index:check`, migration safety, and script smoke tests would let
   future hooks or dashboards combine signals without parsing prose.
 - Slow drift sensors are not yet collected into a regular report: dead
   exports, import cycles, stale module docs, changed behavior without nearby
-  tests, mutation testing for `packages/shared/rules/`, and flake/timing
+  tests, mutation testing for `packages/shared/src/rules/`, and flake/timing
   trends.
 
 ## Promotion Rule

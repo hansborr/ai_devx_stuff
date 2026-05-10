@@ -1,21 +1,26 @@
 ---
-title: Follow-up — SRD provenance for casterType / ritualCaster
+title: Follow-up — SRD provenance for casterType / ritualAdept
 status: open
 date: 2026-04-19
 source: review of `refactor/class-caster-type`
 ---
 
-# Follow-up — SRD provenance for casterType / ritualCaster
+# Follow-up — SRD provenance for casterType / ritualAdept
 
-Two issues were surfaced during review of `refactor/class-caster-type`. Both
-pre-date that branch or are better addressed outside it, but we should not
-let them slip.
+Three issues were surfaced during review of `refactor/class-caster-type`. They
+pre-date that branch or are better addressed outside it, but we should not let
+them slip.
 
 ## 1. `Class.ritualCaster` semantics don't match 2024 SRD 5.2
 
-### What the branch ships
+Status as of 2026-05-10: resolved in the BatonLoop branch by renaming
+`Class.ritualCaster` / `classes.ritual_caster` to
+`Class.ritualAdept` / `classes.ritual_adept`, seeding only Wizard as true, and
+preserving legacy `ritualCaster` import/form payloads as `ritualAdept`.
 
-`seed-srd-classes.ts` seeds `ritualCaster: true` for Bard, Cleric, Druid, and
+### What the reviewed branch shipped
+
+`seed-srd-classes.ts` seeded `ritualCaster: true` for Bard, Cleric, Druid, and
 Wizard, and `false` for everyone else.
 
 ### Why that's wrong for 2024 SRD
@@ -31,17 +36,17 @@ Wizard is the only class with a distinct ritual-related feature in 2024:
 rituals from the spellbook *without preparing them first* — an additive
 power, not a gate.
 
-So the current `ritualCaster: true` for Bard/Cleric/Druid/Wizard conflates:
+So the old `ritualCaster: true` for Bard/Cleric/Druid/Wizard conflated:
 
 - The removed 2014 "Ritual Casting" gate, and
 - The current 2024 Wizard-only "Ritual Adept" feature.
 
 ### Why it's latent
 
-No consumer currently reads `Class.ritualCaster`. The column is plumbed from
-Prisma → shared schema → tRPC output → client homebrew form defaults, but
-nothing branches on it. The SRD review flagged this as a trap for any future
-consumer — the semantics don't match any 2024 rule.
+At review time, no consumer read `Class.ritualCaster`. The column was plumbed
+from Prisma → shared schema → tRPC output → client homebrew form defaults, but
+nothing branched on it. The SRD review flagged this as a trap for any future
+consumer — the semantics didn't match any 2024 rule.
 
 ### Options
 
@@ -59,17 +64,40 @@ consumer — the semantics don't match any 2024 rule.
 
 ### Recommendation
 
-Option 2 is the cleanest alignment with 2024 SRD 5.2. Option 1 is fine too
-if we don't anticipate needing the Ritual Adept distinction soon. Prefer
-not to leave option 3 as a permanent state.
+Option 2 is the chosen path as of 2026-05-10. Rename the field to
+`ritualAdept` and define it as the Wizard-style ability to cast Ritual-tagged
+spells from a spellbook/book-equivalent without preparing them. SRD class seed
+data should set it to `true` only for Wizard; Bard, Cleric, and Druid should
+be `false`.
 
-### Where to change things
+General ritual casting should not read this flag. It is derived from the
+spell being prepared and Ritual-tagged (`08_RulesGlossary.md:857-859`).
+Wizard's exception is the only SRD 5.2.1 class-level ritual exception
+(`03_Classes/12_Wizard.md:84-86`).
 
-- `packages/server/prisma/schema.prisma` (rename or drop column + migration)
+### Implementation slice
+
+Landed on 2026-05-10 as a metadata-only slice:
+
+1. Renamed `Class.ritualCaster` / `classes.ritual_caster` to
+   `Class.ritualAdept` / `classes.ritual_adept` with a Prisma migration.
+2. Updated SRD seed data so Wizard is the only `ritualAdept: true` class.
+3. Renamed the shared schemas, tRPC output mapping, homebrew data shape, client
+   class form data plumbing, and related fixtures/tests from `ritualCaster` to
+   `ritualAdept`.
+4. Do not add cast-flow gating in this slice. The follow-up class-form UI leaf
+   exposed `casterType`, `spellcastingAbility`, and a `ritualAdept` checkbox.
+   A later spellcasting behavior audit should make unprepared ritual casting
+   require `ritualAdept`; prepared ritual casting continues to use only
+   prepared spell plus Ritual tag.
+
+### Changed files
+
+- `packages/server/prisma/schema.prisma` (rename column + migration)
 - `packages/server/src/seed/seed-srd-classes.ts`
-- `packages/shared/src/schemas/srd.ts` (`classSchema.ritualCaster`)
+- `packages/shared/src/schemas/srd.ts` (`classSchema.ritualAdept`)
 - `packages/shared/src/schemas/homebrew.ts` (`classDataSchema` inherits)
-- `packages/client/src/components/homebrew/class-form-data.ts`
+- `packages/client/src/components/homebrew/class/class-form-data.ts`
 - Related tests
 
 ## 2. Eldritch Knight and Arcane Trickster are not in SRD 5.2.1
@@ -128,34 +156,31 @@ wrong compounds as more EK/AT content lands.
 - `packages/server/src/seed/seed-srd-classes-and-features.ts` (if EK/AT
   feature records are seeded there)
 
-## 3. Homebrew caster fields have no UI input
+## 3. Homebrew subclass caster fields still need UI input
 
 ### What the branch ships
 
-`Class.casterType` / `Class.ritualCaster` and `Subclass.casterType` /
+`Class.casterType` / `Class.ritualAdept` and `Subclass.casterType` /
 `Subclass.spellcastingAbility` are now plumbed through Prisma, the shared
 schemas, the homebrew form data layer (`ClassFormData`, `SubclassFormData`),
-and `caster-form-utils.ts` exports a ready-to-use `CASTER_TYPE_OPTIONS`.
+and `caster-form-utils.ts` exports ready-to-use caster option helpers.
 
 ### What's missing
 
-Neither `class-form-fields.tsx` nor `subclass-form-fields.tsx` renders an
-input for these fields. A DM creating a homebrew full-caster class or an
-EK-style third-caster subclass gets the schema defaults (`casterType:
-"none"`, no ability override) with no way to change them — the homebrew
-entry will have the right shape but no spell slots or spellcasting ability
-at runtime.
+`class-form-fields.tsx` now renders class `casterType`, `spellcastingAbility`,
+and `ritualAdept` controls. `subclass-form-fields.tsx` still does not render
+inputs for `casterType` or `spellcastingAbility`. A DM creating an EK-style
+third-caster subclass gets the schema defaults (`casterType: "none"`, no
+ability override) with no way to change them — the homebrew entry will have
+the right shape but no subclass spell slot or spellcasting ability override at
+runtime.
 
 Acceptable for the refactor-first branch; the branch existed specifically
 to land the data-layer denormalization ahead of the homebrew UI work.
 
 ### Where to change things
 
-- `packages/client/src/components/homebrew/class-form-fields.tsx` — add
-  a `Select` bound to `form.casterType` using `CASTER_TYPE_OPTIONS`, plus
-  (pending the §1 ritualCaster semantics decision) either a checkbox for
-  `ritualCaster` or nothing until that flag is redefined.
-- `packages/client/src/components/homebrew/subclass-form-fields.tsx` —
+- `packages/client/src/components/homebrew/subclass/subclass-form-fields.tsx` —
   add Select controls for `casterType` and `spellcastingAbility`. The
   EK/AT pattern is the canonical example: third caster, INT ability.
 - Extend the form E2E coverage in `e2e/homebrew-*.spec.ts` once controls
@@ -163,13 +188,13 @@ to land the data-layer denormalization ahead of the homebrew UI work.
 
 ### Recommendation
 
-Land alongside the next homebrew-class branch. The data layer is ready;
-this is purely the user-facing surface.
+Land the remaining subclass controls from the BatonLoop queue. The data layer
+is ready; this is purely the user-facing surface.
 
 ## Scope
 
-All three issues are **out of scope** for `refactor/class-caster-type`.
-That branch preserves existing behavior for Warlock, EK, AT, and ritual
-flags, and intentionally defers homebrew UI until the dedicated follow-up.
-The correctness concerns in §1 and §2 apply equally to `main`; §3 is new
-surface introduced by this branch and is expected next-branch work.
+All three issues were **out of scope** for `refactor/class-caster-type`.
+That branch preserved existing behavior for Warlock, EK, AT, and ritual flags,
+and intentionally deferred homebrew UI until dedicated follow-ups. Section 1
+is resolved. Section 2 remains a provenance decision. Section 3 now only tracks
+the remaining subclass form controls.

@@ -106,6 +106,94 @@ if grep -q -- '--changed' "$repo/bun.log"; then
 fi
 ok "code-intel script changes run scripts project tests"
 
+repo="$(new_repo script-drift-ai-change)"
+printf 'changed\n' > "$repo/scripts/drift-ai.ts"
+git -C "$repo" add scripts/drift-ai.ts
+: > "$repo/bun.log"
+run_test_changed "$repo" >/dev/null || fail "drift-ai script change should run"
+grep -qF 'stub vitest run --passWithNoTests --project=scripts' "$repo/bun.log" \
+  || fail "drift-ai script change should run scripts project: $(cat "$repo/bun.log")"
+if grep -q -- '--changed' "$repo/bun.log"; then
+  fail "drift-ai script changes should run scripts project in full: $(cat "$repo/bun.log")"
+fi
+ok "drift-ai script changes run scripts project tests"
+
+repo="$(new_repo script-drift-ai-nested-change)"
+mkdir -p "$repo/scripts/drift-ai"
+printf 'changed\n' > "$repo/scripts/drift-ai/duplicates.ts"
+git -C "$repo" add scripts/drift-ai/duplicates.ts
+: > "$repo/bun.log"
+run_test_changed "$repo" >/dev/null || fail "nested drift-ai script change should run"
+grep -qF 'stub vitest run --passWithNoTests --project=scripts' "$repo/bun.log" \
+  || fail "nested drift-ai script change should run scripts project: $(cat "$repo/bun.log")"
+if grep -q -- '--changed' "$repo/bun.log"; then
+  fail "nested drift-ai script changes should run scripts project in full: $(cat "$repo/bun.log")"
+fi
+ok "nested drift-ai script changes run scripts project tests"
+
+repo="$(new_repo script-drift-ai-fixture-change)"
+mkdir -p "$repo/scripts/drift-ai/fixtures"
+printf '{}\n' > "$repo/scripts/drift-ai/fixtures/jscpd-report.basic.json"
+git -C "$repo" add scripts/drift-ai/fixtures/jscpd-report.basic.json
+: > "$repo/bun.log"
+run_test_changed "$repo" >/dev/null || fail "drift-ai fixture change should run"
+grep -qF 'stub vitest run --passWithNoTests --project=scripts' "$repo/bun.log" \
+  || fail "drift-ai fixture change should run scripts project: $(cat "$repo/bun.log")"
+if grep -q -- '--changed' "$repo/bun.log"; then
+  fail "drift-ai fixture changes should run scripts project in full: $(cat "$repo/bun.log")"
+fi
+ok "drift-ai fixture changes run scripts project tests"
+
+repo="$(new_repo script-logs-audit-change)"
+printf 'changed\n' > "$repo/scripts/logs-audit.ts"
+git -C "$repo" add scripts/logs-audit.ts
+: > "$repo/bun.log"
+run_test_changed "$repo" >/dev/null || fail "logs-audit script change should run"
+grep -qF 'stub vitest run --passWithNoTests --project=scripts' "$repo/bun.log" \
+  || fail "logs-audit script change should run scripts project: $(cat "$repo/bun.log")"
+if grep -q -- '--changed' "$repo/bun.log"; then
+  fail "logs-audit script changes should run scripts project in full: $(cat "$repo/bun.log")"
+fi
+ok "logs-audit script changes run scripts project tests"
+
+repo="$(new_repo script-logs-audit-test-change)"
+printf 'changed\n' > "$repo/scripts/logs-audit.test.ts"
+git -C "$repo" add scripts/logs-audit.test.ts
+: > "$repo/bun.log"
+run_test_changed "$repo" >/dev/null || fail "logs-audit test change should run"
+grep -qF 'stub vitest run --passWithNoTests --project=scripts' "$repo/bun.log" \
+  || fail "logs-audit test change should run scripts project: $(cat "$repo/bun.log")"
+if grep -q -- '--changed' "$repo/bun.log"; then
+  fail "logs-audit test changes should run scripts project in full: $(cat "$repo/bun.log")"
+fi
+ok "logs-audit test changes run scripts project tests"
+
+repo="$(new_repo script-nested-test-change)"
+mkdir -p "$repo/scripts/other-tool"
+printf 'changed\n' > "$repo/scripts/other-tool/other-tool.test.ts"
+git -C "$repo" add scripts/other-tool/other-tool.test.ts
+: > "$repo/bun.log"
+run_test_changed "$repo" >/dev/null || fail "nested script test change should run"
+grep -qF 'stub vitest run --passWithNoTests --project=scripts' "$repo/bun.log" \
+  || fail "nested script test change should run scripts project: $(cat "$repo/bun.log")"
+if grep -q -- '--changed' "$repo/bun.log"; then
+  fail "nested script test changes should run scripts project in full: $(cat "$repo/bun.log")"
+fi
+ok "nested script test changes run scripts project tests"
+
+repo="$(new_repo script-logs-audit-fixture-change)"
+mkdir -p "$repo/scripts/logs-audit/fixtures"
+printf '{}\n' > "$repo/scripts/logs-audit/fixtures/server.jsonl"
+git -C "$repo" add scripts/logs-audit/fixtures/server.jsonl
+: > "$repo/bun.log"
+run_test_changed "$repo" >/dev/null || fail "logs-audit fixture change should run"
+grep -qF 'stub vitest run --passWithNoTests --project=scripts' "$repo/bun.log" \
+  || fail "logs-audit fixture change should run scripts project: $(cat "$repo/bun.log")"
+if grep -q -- '--changed' "$repo/bun.log"; then
+  fail "logs-audit fixture changes should run scripts project in full: $(cat "$repo/bun.log")"
+fi
+ok "logs-audit fixture changes run scripts project tests"
+
 repo="$(new_repo scripts-vitest-config)"
 printf 'export default { test: {} };\n' > "$repo/scripts/vitest.config.ts"
 : > "$repo/bun.log"

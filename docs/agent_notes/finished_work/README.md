@@ -33,3 +33,6 @@ detail that cannot be recovered from code, tests, commits, `LOG.md`, or
 - `code-intel-ux-fixes.md` — landed `code:intel` UX work: slices A-D, Slice E
   (`refs`), and Slice F (daemon mode). Daemon transport, `ProjectCache`
   reference project, performance numbers, and locked decisions live here.
+- `shared-rules-stryker-triage.md` — focused `attack-roll.ts` mutation
+  survivor triage with the useful/equivalent mutant classification that led to
+  the multi-digit crit-dice fixture.
