@@ -6,8 +6,11 @@ import reactHooks from "eslint-plugin-react-hooks";
 import simpleImportSort from "eslint-plugin-simple-import-sort";
 
 import maxLines from "./eslint-rules/max-lines.js";
+import noAsyncArrayCallbacks from "./eslint-rules/no-async-array-callbacks.js";
 import noBarrel from "./eslint-rules/no-barrel.js";
 import noExplicitAny from "./eslint-rules/no-explicit-any.js";
+import noLlmArtifacts from "./eslint-rules/no-llm-artifacts.js";
+import noSwallowedErrors from "./eslint-rules/no-swallowed-errors.js";
 import concurrencyGuard from "./eslint-rules/concurrency-guard.js";
 import noBroadcastInTransaction from "./eslint-rules/no-broadcast-in-transaction.js";
 import strictSharedSchemas from "./eslint-rules/strict-shared-schemas.js";
@@ -23,8 +26,11 @@ const localPlugin = {
   rules: {
     "concurrency-guard": concurrencyGuard,
     "max-lines": maxLines,
+    "no-async-array-callbacks": noAsyncArrayCallbacks,
     "no-barrel": noBarrel,
     "no-explicit-any": noExplicitAny,
+    "no-llm-artifacts": noLlmArtifacts,
+    "no-swallowed-errors": noSwallowedErrors,
     "no-broadcast-in-transaction": noBroadcastInTransaction,
     "test-file-location": testFileLocation,
     "socket-registry-broadcasts": socketRegistryBroadcasts,
@@ -103,6 +109,9 @@ export default tseslint.config(
       ],
       "@typescript-eslint/no-explicit-any": "off",
       "local/no-explicit-any": "error",
+      "local/no-llm-artifacts": "error",
+      "local/no-swallowed-errors": "error",
+      "local/no-async-array-callbacks": "error",
       "local/no-barrel": "error",
       "@typescript-eslint/consistent-type-imports": ["error", { prefer: "type-imports" }],
       "@typescript-eslint/naming-convention": [
@@ -178,6 +187,10 @@ export default tseslint.config(
 
       "prefer-const": "error",
       "no-var": "error",
+      "no-useless-assignment": "error",
+      "preserve-caught-error": "error",
+      "no-promise-executor-return": "error",
+      "require-atomic-updates": "error",
 
       // Forbid the `@musi/shared/schemas` barrel; import from the source
       // file (e.g. `@musi/shared/schemas/spell.js`) so module boundaries stay
