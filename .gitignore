@@ -40,12 +40,16 @@ Thumbs.db
 !.claude/skills/
 .claude/skills/*
 !.claude/skills/ts-graph/
+!.claude/skills/playwright-cli/
+!.claude/skills/playwright-cli/**
 
 # Codex — track shared skills opted in below; keep personal repo-local skills
 # out of git.
 .codex/skills/*
 !.codex/skills/ts-graph/
 !.codex/skills/ts-graph/**
+!.codex/skills/playwright-cli/
+!.codex/skills/playwright-cli/**
 
 # SRD reference repos (local only, not committed)
 docs/refs/

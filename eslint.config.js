@@ -3,6 +3,7 @@ import js from "@eslint/js";
 import { defineConfig } from "eslint/config";
 import tseslint from "typescript-eslint";
 import eslintConfigPrettier from "eslint-config-prettier";
+import playwright from "eslint-plugin-playwright";
 import reactHooks from "eslint-plugin-react-hooks";
 import simpleImportSort from "eslint-plugin-simple-import-sort";
 
@@ -12,6 +13,7 @@ import noBarrel from "./eslint-rules/no-barrel.js";
 import noExplicitAny from "./eslint-rules/no-explicit-any.js";
 import noLlmArtifacts from "./eslint-rules/no-llm-artifacts.js";
 import noSwallowedErrors from "./eslint-rules/no-swallowed-errors.js";
+import e2ePreferRoleSelectors from "./eslint-rules/e2e-prefer-role-selectors.js";
 import concurrencyGuard from "./eslint-rules/concurrency-guard.js";
 import noBroadcastInTransaction from "./eslint-rules/no-broadcast-in-transaction.js";
 import strictSharedSchemas from "./eslint-rules/strict-shared-schemas.js";
@@ -23,6 +25,28 @@ import socketRegistryBroadcasts from "./eslint-rules/socket-registry-broadcasts.
 import structuredLogging from "./eslint-rules/structured-logging.js";
 import testFileLocation from "./eslint-rules/test-file-location.js";
 
+export const e2ePreferRoleSelectorAllowlist = [
+  "e2e/helpers/auth.setup.ts",
+  "e2e/homebrew-sharing.spec.ts",
+  "e2e/navigation-errors.spec.ts",
+  "e2e/page-objects/campaign-chat.po.ts",
+  "e2e/page-objects/campaign-detail.po.ts",
+  "e2e/page-objects/campaign-notes.po.ts",
+  "e2e/page-objects/campaign-npcs.po.ts",
+  "e2e/page-objects/campaign-settings.po.ts",
+  "e2e/page-objects/campaigns.po.ts",
+  "e2e/page-objects/character-sheet.po.ts",
+  "e2e/page-objects/character-wizard.po.ts",
+  "e2e/page-objects/encounter.po.ts",
+  "e2e/page-objects/join.po.ts",
+  "e2e/page-objects/login.po.ts",
+  "e2e/page-objects/notification.po.ts",
+  "e2e/page-objects/register.po.ts",
+  "e2e/page-objects/spells-panel.po.ts",
+  "e2e/page-objects/vtt-drawer.ts",
+  "e2e/storage.setup.ts",
+];
+
 const localPlugin = {
   rules: {
     "concurrency-guard": concurrencyGuard,
@@ -32,6 +56,7 @@ const localPlugin = {
     "no-explicit-any": noExplicitAny,
     "no-llm-artifacts": noLlmArtifacts,
     "no-swallowed-errors": noSwallowedErrors,
+    "e2e-prefer-role-selectors": e2ePreferRoleSelectors,
     "no-broadcast-in-transaction": noBroadcastInTransaction,
     "test-file-location": testFileLocation,
     "socket-registry-broadcasts": socketRegistryBroadcasts,
@@ -49,14 +74,19 @@ export default defineConfig(
     ignores: [
       "**/dist/",
       "**/node_modules/",
+      ".auth/",
+      ".playwright-mcp/",
       "e2e-ux-screenshots/",
       "**/*.config.{js,mjs,ts}",
       "docs/",
       "**/generated/",
-      "e2e/",
       "e2e-walkthrough/",
       ".claude/worktrees/",
       ".playwright-cli/",
+      "blob-report/",
+      "playwright-report/",
+      "playwright/.cache/",
+      "test-results/",
       "tmp/",
       "scripts/**/*",
       "!scripts/code-intel/",
@@ -562,6 +592,56 @@ export default defineConfig(
         tsconfigRootDir: import.meta.dirname,
       },
     },
+  },
+
+  // E2E tests live outside package tsconfigs. Keep them lint-visible with
+  // their own Playwright/Node project before adding Playwright-specific rules.
+  {
+    files: ["e2e/**/*.{ts,tsx}"],
+    ...playwright.configs["flat/recommended"],
+    languageOptions: {
+      ...playwright.configs["flat/recommended"].languageOptions,
+      parserOptions: {
+        projectService: false,
+        project: "./tsconfig.e2e.json",
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+    rules: {
+      ...playwright.configs["flat/recommended"].rules,
+      "playwright/prefer-web-first-assertions": "error",
+      "playwright/missing-playwright-await": "error",
+      "playwright/no-wait-for-timeout": "error",
+      "playwright/no-focused-test": "error",
+      "playwright/no-skipped-test": "error",
+      "playwright/no-page-pause": "error",
+      "playwright/no-networkidle": "error",
+      "playwright/expect-expect": [
+        "error",
+        {
+          assertFunctionPatterns: [
+            "^expect",
+            "^castSingleTargetSpell$",
+            "^performShortRest$",
+            "^prepareSpell$",
+          ],
+        },
+      ],
+      "playwright/no-conditional-in-test": "error",
+      // Stage 4 adds the Musi-specific selector rule, so leave plugin selector rules quiet.
+      "playwright/no-raw-locators": "off",
+      "playwright/prefer-native-locators": "off",
+      "local/e2e-prefer-role-selectors": "error",
+      // Existing page objects use first()/last() heavily; migrating selectors is Stage 4 scope.
+      "playwright/no-nth-methods": "off",
+    },
+  },
+
+  {
+    // Legacy allowlist for local/e2e-prefer-role-selectors — files migrate
+    // off this list opportunistically (Plan Step 3c).
+    files: e2ePreferRoleSelectorAllowlist,
+    rules: { "local/e2e-prefer-role-selectors": "off" },
   },
 
   // Forcing function: `RawTxClient` bypasses the restricted-delegate type

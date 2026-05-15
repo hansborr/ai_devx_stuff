@@ -144,6 +144,19 @@ if grep -q -- '--changed' "$repo/bun.log"; then
 fi
 ok "drift-ai fixture changes run scripts project tests"
 
+repo="$(new_repo script-drift-e2e-change)"
+mkdir -p "$repo/scripts/drift"
+printf 'changed\n' > "$repo/scripts/drift/locator-usage.ts"
+git -C "$repo" add scripts/drift/locator-usage.ts
+: > "$repo/bun.log"
+run_test_changed "$repo" >/dev/null || fail "drift:e2e script change should run"
+grep -qF 'stub vitest run --passWithNoTests --project=scripts' "$repo/bun.log" \
+  || fail "drift:e2e script change should run scripts project: $(cat "$repo/bun.log")"
+if grep -q -- '--changed' "$repo/bun.log"; then
+  fail "drift:e2e script changes should run scripts project in full: $(cat "$repo/bun.log")"
+fi
+ok "drift:e2e script changes run scripts project tests"
+
 repo="$(new_repo script-logs-audit-change)"
 printf 'changed\n' > "$repo/scripts/logs-audit.ts"
 git -C "$repo" add scripts/logs-audit.ts

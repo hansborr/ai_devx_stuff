@@ -1,16 +1,20 @@
 # Status
 
-**Last updated**: 2026-05-10 (drift:ai current scope landed)
-**Branch**: `feat/misc-loop` (unpushed)
-**Test suite**: drift:ai slice verification passed on 2026-05-10.
+**Last updated**: 2026-05-15 (Playwright harness surface restored in reference copy)
+**Branch**: `chore/port-upstream-devx-20a9636f` (local)
+**Verification**: No tests run in this reference repo by request; diff hygiene only.
 
 ## Current Queue
 
-- No active leaf is promoted. Re-triage before starting another drift or
-  BatonLoop leaf.
+- No active leaf is promoted. Re-triage before starting another drift,
+  BatonLoop, or Playwright harness leaf.
 - Landed current-state workflow: config loading, current inventory,
   current-mode ghost/duplicates/comments coverage, deterministic chunk output,
   and `docs/ai-harness.md` coverage.
+- Restored the upstream Playwright harness surface for reference use:
+  tracked Claude/Codex `playwright-cli` skills, e2e guide, Playwright lint
+  wiring, role-first selector rule, locator drift script, Playwright config,
+  and the upstream `e2e/` examples.
 
 ## Active Notes
 
@@ -24,6 +28,8 @@
   Leaf 6 (evaluate promotion) only — not the active leaf.
 - `docs/agent_notes/in_progress/worktree-local-observability.md` is parked
   context until a future observability leaf is promoted.
+- `docs/agent_notes/finished_work/a11y-tree-playwright-plan.md` is the durable
+  Playwright harness rationale.
 
 ## Cold Reads
 
@@ -39,5 +45,6 @@
 
 ## Handoff
 
-The promoted drift:ai current-state leaf is complete. `NEXT.md` intentionally
-has no ready leaf; re-triage before promoting the next workstream.
+The promoted drift:ai current-state leaf is complete and the Playwright harness
+reference surface has been restored. `NEXT.md` intentionally has no ready leaf;
+re-triage before promoting the next workstream.

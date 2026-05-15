@@ -13,6 +13,7 @@
     "scripts/drift-ai.ts",
     "scripts/drift-ai.test.ts",
     "scripts/drift-ai/**/*.ts",
+    "scripts/drift/**/*.ts",
     "scripts/logs-audit.ts",
     "scripts/logs-audit.test.ts",
     "scripts/logs-audit/**/*.ts"

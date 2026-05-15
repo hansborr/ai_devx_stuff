@@ -8,6 +8,18 @@ Newest on top.
 
 ---
 
+## 2026-05-15 — Playwright Harness Reference Restored
+
+Restored the upstream Playwright harness surface that had been treated as an
+accidental divergence in the reference copy: tracked Claude/Codex
+`playwright-cli` skills, `docs/guides/add-e2e-test.md`, Playwright lint wiring,
+`local/e2e-prefer-role-selectors`, the `drift:e2e` locator-usage reporter,
+`playwright.config.ts`, `tsconfig.e2e.json`, and the upstream `e2e/` examples.
+The archived `a11y-tree-playwright-plan.md` now documents the rationale. No
+tests were run in this reference repo by request.
+
+---
+
 ## 2026-05-10 — drift:ai Current Scope Landed
 
 Finished the promoted `drift:ai --scope current` workstream. Current-mode

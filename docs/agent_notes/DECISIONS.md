@@ -60,3 +60,4 @@ Files, tests, finished_work notes, docs.
 - [decisions-build.md](decisions-build.md)
   - `@musi/shared`: subpath exports, no root barrel.
   - Migration safety: surface via doctor + acknowledge intentional risk.
+  - Coverage runs out-of-band, not in CI or pre-push.

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Playwright CLI"
+  short_description: "inspect and operate Musi browser routes through a11y-tree snapshots"
+  default_prompt: "Use $playwright-cli to inspect a route, interact by refs, save/load auth state, or capture a scoped snapshot."
