@@ -49,7 +49,7 @@ export default {
     },
     messages: {
       noBroadcastInTransaction:
-        "Do not call {{name}} inside a Prisma `$transaction` callback. Persist first, then broadcast after the transaction resolves.",
+        "Why: Broadcasting inside a Prisma `$transaction` callback can notify clients about state that later rolls back. How to fix: Persist first, then call {{name}} after the transaction resolves. See docs/guides/add-socket-broadcast.md.",
     },
     schema: [],
   },

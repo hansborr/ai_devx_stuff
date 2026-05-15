@@ -40,6 +40,7 @@ const SUBCOMMAND_PARSERS: Record<HelpTopic, (args: string[]) => CliCommand> = {
   def: parseDefArgs,
   dependents: parseDependentsArgs,
   exports: parseSingleFileArgs,
+  overview: parseOverviewArgs,
   refs: parseRefsArgs,
   tests: parseTestsArgs,
 };
@@ -67,6 +68,7 @@ function helpTopic(command: string): HelpTopic | undefined {
   if (
     command === "def" ||
     command === "exports" ||
+    command === "overview" ||
     command === "dependents" ||
     command === "refs" ||
     command === "tests"
@@ -144,6 +146,23 @@ function parseSingleFileArgs(args: string[]): CliCommand {
   const file = args[0];
   if (!file) throw new CodeIntelError("exports file argument is required.");
   return { kind: "exports", file };
+}
+
+function parseOverviewArgs(args: string[]): CliCommand {
+  const positional: string[] = [];
+  for (const rawArg of args) {
+    const arg = requireArg(rawArg);
+    const option = parseOption(arg);
+    if (option) throw unknownArgument(option.raw);
+    positional.push(arg);
+  }
+
+  if (positional.length !== 1) {
+    throw new CodeIntelError("Usage: bun run code:intel -- overview <file>");
+  }
+  const file = positional[0];
+  if (!file) throw new CodeIntelError("overview file argument is required.");
+  return { kind: "overview", file };
 }
 
 function parseDependentsArgs(args: string[]): CliCommand {

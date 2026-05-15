@@ -100,12 +100,11 @@ export default {
   meta: {
     type: "problem",
     docs: {
-      description:
-        "Disallow direct Prisma update/upsert calls on concurrency-gated delegates",
+      description: "Disallow direct Prisma update/upsert calls on concurrency-gated delegates",
     },
     messages: {
       noDirectWrite:
-        "Direct {{delegate}}.{{method}} bypasses the documented concurrency helper boundary. {{suggestion}} See docs/CONCURRENCY.md.",
+        "Why: Direct {{delegate}}.{{method}} bypasses the documented concurrency helper boundary. How to fix: {{suggestion}} Try `bun run codemod:concurrency-guard -- <file>` first (name-based only; aliases and destructured delegates still need a manual fix). See docs/CONCURRENCY.md.",
     },
     schema: [],
   },

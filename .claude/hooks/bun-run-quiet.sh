@@ -8,10 +8,10 @@
 # through unchanged so this hook never swallows something like
 # `bun run lint:changed && echo next`.
 #
-# Single-writer invariant: CLAUDE.md 'Checking your work' says to run
-# verification commands SEQUENTIALLY. A short blocking flock queues brief
-# accidental overlap, then denies with a Monitor/flock wait command instead of
-# occupying the current tool call for minutes.
+# Single-writer invariant: manual verification commands should run
+# SEQUENTIALLY. A short blocking flock queues brief accidental overlap, then
+# denies with a Monitor/flock wait command instead of occupying the current
+# tool call for minutes.
 #
 # Content-keyed idempotency: a per-script marker caches (fingerprint, exit,
 # timestamp). Re-invocations within 1800s on an unchanged worktree short-circuit
@@ -66,13 +66,13 @@ fi
 SCRIPT=$(ai_bun_script_from_cmd "$CMD")
 
 # --- Block background invocation ------------------------------------------
-# Claude's pathological pattern: start `bun run test:changed` in the background,
-# then Read the log repeatedly while it runs, burning tokens on incomplete
-# output. CLAUDE.md 'Checking your work' says foreground-only — enforce it.
+# Claude's pathological pattern: start `bun run test:changed` in the
+# background, then Read the log repeatedly while it runs, burning tokens on
+# incomplete output. Enforce foreground execution here.
 if [ "$BACKGROUND" = "true" ]; then
   REASON="\`bun run $SCRIPT\` must run in the foreground, not in the background.
 
-CLAUDE.md 'Checking your work' says: run lint:changed, typecheck, test:changed in the foreground, one-at-a-time. Backgrounding them and polling the log wastes tokens on partial output and usually triggers a parallel-invocation conflict when you try to re-run.
+Run verification commands in the foreground, one at a time. Backgrounding them and polling the log wastes tokens on partial output and usually triggers a parallel-invocation conflict when you try to re-run.
 
 This hook already caches results (${SCRIPT} on an unchanged worktree replays the previous run instantly) and caps output at a 40-line tail on failure, so there is no context benefit to backgrounding it.
 
@@ -116,7 +116,7 @@ if ! flock -w "$LOCK_WAIT" 9; then
   HOLDER=$(cat "$LOCK" 2>/dev/null || echo '<holder info unavailable>')
   REASON="Waited ${LOCK_WAIT}s for another \`bun run\` invocation to finish but it is still running ($HOLDER). That's long enough that the in-flight run is almost certainly hung — this is not the usual accidental-parallelization case.
 
-CLAUDE.md 'Checking your work' says: run lint:changed, typecheck, and test:changed SEQUENTIALLY — one-at-a-time, not as parallel Bash tool calls in a single message.
+Run verification commands sequentially: one at a time, not as parallel Bash tool calls in a single message.
 
 To wait for the in-flight run WITHOUT polling, launch this command in the background and attach Monitor:
 

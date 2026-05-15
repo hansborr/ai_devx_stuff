@@ -4,6 +4,7 @@ import type {
   FormatResultsOptions,
   IntelResult,
   OutputFormat,
+  OverviewResult,
   ProjectBucket,
   ProjectBucketSummary,
   ProjectFilter,
@@ -22,12 +23,47 @@ export function formatCodeIntelQueryResult(
   if (execution.kind === "definitionNameMiss") {
     return formatDefinitionNameMiss(execution.header, execution.hint, format);
   }
+  if (execution.kind === "overview") {
+    return formatOverview(execution.file, execution.results, format);
+  }
   return formatResults(execution.header, execution.results, format, {
     byProject: execution.projectSummary?.byProject,
     limit: execution.limit,
     metadata: execution.metadata,
     textSuffix: formatQueryTextSuffix(execution),
   });
+}
+
+function formatOverview(file: string, results: OverviewResult[], format: OutputFormat): string {
+  if (format === "json") return JSON.stringify(results, undefined, JSON_INDENT_SPACES);
+
+  const lines = [`overview: ${file} — ${String(results.length)} procedure(s)`];
+  for (const result of results) {
+    lines.push(`  ${result.procedure}  ${result.kind}  auth=${result.authHelper}`);
+    lines.push(`    input:  ${formatSchema(result.inputSchema)}`);
+    lines.push(`    output: ${formatSchema(result.outputSchema)}`);
+    if (result.serviceCalls.length > 0) {
+      lines.push(`    services:    ${result.serviceCalls.join(", ")}`);
+    }
+    if (result.broadcasts.length > 0) {
+      lines.push(`    broadcasts:  ${result.broadcasts.join(", ")}`);
+    }
+    appendCandidateTests(lines, result.candidateTests);
+  }
+  return lines.join("\n");
+}
+
+function formatSchema(schema: string | null): string {
+  return schema ?? "null";
+}
+
+function appendCandidateTests(lines: string[], tests: string[]): void {
+  for (let index = 0; index < tests.length; index += 1) {
+    const test = tests[index];
+    if (!test) continue;
+    const prefix = index === 0 ? "    tests:       " : "                 ";
+    lines.push(`${prefix}${test}`);
+  }
 }
 
 export function formatResults(

@@ -29,6 +29,15 @@ export function isGraphCommand(command: ExecutableCliCommand): command is GraphD
   return command.kind === "dependents" || command.kind === "tests";
 }
 
+export function isSymbolCommand(command: ExecutableCliCommand): command is SymbolDaemonCommand {
+  return (
+    command.kind === "def" ||
+    command.kind === "defName" ||
+    command.kind === "exports" ||
+    command.kind === "refs"
+  );
+}
+
 function isDaemonRoutableCommandKind(kind: string): boolean {
   return DAEMON_ROUTABLE_COMMAND_KINDS.includes(kind);
 }

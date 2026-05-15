@@ -18,7 +18,7 @@ export default {
     },
     messages: {
       noBarrel:
-        "Barrel file detected. Run: bun run codemod:expand-barrel -- --barrel {{path}}. See AGENTS.md.",
+        "Barrel file detected. Run: bun run codemod:expand-barrel -- --barrel {{path}}.",
     },
     schema: [],
   },

@@ -24,6 +24,16 @@ Fast checks belong in the edit loop, `verify:changed`, or pre-commit. Slow or
 judgment-heavy checks start as `doctor`, CI, scheduled, or manual signals.
 Only promote a sensor to a gate after it has low noise and clear repair text.
 
+## Adapter Boundary
+
+Shared hook policy and reusable behavior belong in `scripts/ai-hooks/`.
+Keep `.claude/` and `.codex/` files as thin adapters for each harness's
+registration, payload parsing, and response shape.
+
+When changing shared behavior, update the shared script first, then adjust both
+adapters only as needed. If behavior is intentionally harness-specific, document
+why in the adapter or this file.
+
 ## Guides
 
 | Guide | Category | Mode | Prevents | Timing | Paired sensor |
@@ -50,26 +60,27 @@ Only promote a sensor to a gate after it has low noise and clear repair text.
 | `bun run codemod:structured-logging-fix -- --check` / `-- [--dry-run] <file>` / `-- --all` | Maintainability, architecture fitness | Computational | Agents guessing safe structured log rewrites or leaving seed scripts on direct console output | Manual, before edit | `local/structured-logging` |
 | `bun run codemod:concurrency-guard -- --check` / `--all` / `<file>` | Architecture fitness, behavior | Computational | Agents bypassing existing race-sensitive helper boundaries or drifting helper internals; name-based only, so aliases/destructuring still need review | Manual, after concurrency-sensitive edits | Restricted Prisma delegate types, `RawTxClient` lint |
 | Future codemods in `scripts/codemods/` | Maintainability, architecture fitness | Computational | Agents hand-editing known migration shapes | Manual, before edit | Matching lint with repair command |
-| `bun run code:intel -- ...` (`docs/guides/code-intel.md`, Codex `.codex/skills/code-intel`, Claude `.claude/skills/code-intel`) | Maintainability, architecture fitness | Computational | Noisy `rg` archaeology for definitions, dependents, exports, references, and nearby tests | Manual, during exploration | Future graph/drift sensors |
+| `bun run code:intel -- ...` (`docs/guides/code-intel.md`, skill `ts-graph`) | Maintainability, architecture fitness | Computational | Noisy `rg` archaeology for definitions, dependents, exports, references, and nearby tests | Manual, during exploration | Future graph/drift sensors |
 
 ## Sensors
 
 | Sensor | Category | Mode | Catches | Timing / command | Paired guide |
 |---|---|---|---|---|---|
 | TypeScript build | Maintainability, architecture fitness | Computational | Type, project-reference, and restricted-delegate violations | `bun run typecheck`, `bun run verify:changed` | `AGENTS.md`, `docs/CONCURRENCY.md` |
-| ESLint core rules | Maintainability | Computational | Complexity, function size, import sorting, unused/useless assignments, caught-error preservation, promise executor returns, post-await shared-state writes, console use | `bun run lint`, `bun run lint:changed` | `AGENTS.md`, `docs/CONCURRENCY.md` |
-| `local/max-lines` | Maintainability | Computational | Source/helper modules over the 300 effective-line default, with targeted warning caps for accepted larger files | `bun run lint`, `bun run lint:changed` | `AGENTS.md`, override comments in `eslint.config.js` |
-| `local/no-explicit-any` | Maintainability | Computational | Explicit `any` usage without a deliberate line-level suppression reason | `bun run lint`, `bun run lint:changed` | `AGENTS.md`, `eslint-disable-register` |
-| `local/no-llm-artifacts` | Maintainability | Computational | Leftover AI editing comments, bare TODO comments without tracking references, and exact incomplete implementation throws | `bun run lint`, `bun run lint:changed` | `AGENTS.md`, `docs/agent_notes/in_progress/eslint-llm-core-evaluation.md` |
+| ESLint core rules | Maintainability | Computational | Complexity, function size, import sorting, unused/useless assignments, caught-error preservation, promise executor returns, post-await shared-state writes, console use | `bun run lint`, `bun run lint:changed` | `eslint.config.js`, `docs/CONCURRENCY.md` |
+| `local/max-lines` | Maintainability | Computational | Source/helper modules over the 300 effective-line default, with targeted warning caps for accepted larger files | `bun run lint`, `bun run lint:changed` | Rule diagnostic, override comments in `eslint.config.js` |
+| `local/no-explicit-any` | Maintainability | Computational | Explicit `any` usage without a deliberate line-level suppression reason | `bun run lint`, `bun run lint:changed` | Rule diagnostic, `eslint-disable-register` |
+| `local/no-llm-artifacts` | Maintainability | Computational | Leftover AI editing comments, bare TODO comments without tracking references, and exact incomplete implementation throws | `bun run lint`, `bun run lint:changed` | Rule diagnostic, `docs/agent_notes/in_progress/eslint-llm-core-evaluation.md` |
 | `local/no-async-array-callbacks` | Behavior, maintainability | Computational | Async callbacks passed to array methods that drop promises or treat promises as predicates, while preserving Promise-combinator async map shapes | `bun run lint`, `bun run lint:changed` | `docs/agent_notes/in_progress/eslint-llm-core-evaluation.md` |
 | `local/no-swallowed-errors` | Behavior, maintainability | Computational | Catch blocks whose executable body only logs to `console.log`, `console.warn`, `console.error`, or `console.debug` and then continues | `bun run lint`, `bun run lint:changed` | `docs/agent_notes/in_progress/eslint-llm-core-evaluation.md` |
+| `local/no-barrel` | Architecture fitness, maintainability | Computational | `index.ts(x)` re-export barrels, with a repair command for source-import expansion | `bun run lint`, `bun run lint:changed` | `codemod:expand-barrel`, `docs/agent_notes/finished_work/expand-barrel-codemod.md` |
 | `local/strict-trpc-input` | Architecture fitness | Computational | Inline router `.input(z.object(...))` schemas that omit `.strict()` | `bun run lint`, `bun run lint:changed` | `docs/guides/add-trpc-procedure.md` |
 | `local/trpc-require-output-schema` | Architecture fitness | Computational | Router queries/mutations missing `.output(schema)` before `.query(...)` or `.mutation(...)` | `bun run lint`, `bun run lint:changed` | `docs/guides/add-trpc-procedure.md` |
 | `local/trpc-shared-input-schema` | Architecture fitness | Computational | Router `.input(...)` schemas not imported from `@musi/shared/schemas/...` | `bun run lint`, `bun run lint:changed` | `docs/guides/add-trpc-procedure.md` |
 | `local/trpc-shared-output-schema` | Architecture fitness | Computational | Router `.output(...)` schemas not imported directly from `@musi/shared/schemas/...` | `bun run lint`, `bun run lint:changed` | `docs/guides/add-trpc-procedure.md` |
-| `local/strict-shared-schemas` | Architecture fitness | Computational | Input schemas allowing unknown keys at package boundaries | `bun run lint`, `bun run lint:changed` | `AGENTS.md` |
+| `local/strict-shared-schemas` | Architecture fitness | Computational | Input schemas allowing unknown keys at package boundaries | `bun run lint`, `bun run lint:changed` | `docs/guides/add-trpc-procedure.md` |
 | `local/structured-logging` | Maintainability, architecture fitness | Computational | Server code bypassing structured logging or direct `console.*` in server/seed code | `bun run lint`, `bun run lint:changed` | `codemod:structured-logging-fix` |
-| `local/test-file-location` | Maintainability | Computational | Tests landing away from the code they cover | `bun run lint`, `bun run lint:changed` | `AGENTS.md` |
+| `local/test-file-location` | Maintainability | Computational | Tests landing away from the code they cover | `bun run lint`, `bun run lint:changed` | Rule diagnostic |
 | Shared schema barrel import ban | Architecture fitness | Computational | Imports from removed `@musi/shared/schemas` barrel | `bun run lint`, `bun run lint:changed` | Future schema-import codemod |
 | Shared/client socket import restrictions | Architecture fitness | Computational | `packages/shared` depending on app/runtime adapters, or client code constructing a second Socket.io client outside `SocketProvider` | `bun run lint`, `bun run lint:changed` | `AGENTS.md`, `docs/socket-architecture.md` |
 | `local/concurrency-guard` | Architecture fitness, behavior | Computational | Direct `.update`, `.updateMany`, `.updateManyAndReturn`, or `.upsert` calls on concurrency-gated Prisma delegates outside mutation helpers | `bun run lint`, `bun run lint:changed` | `docs/guides/add-race-sensitive-mutation.md` |
@@ -80,19 +91,19 @@ Only promote a sensor to a gate after it has low noise and clear repair text.
 | Playwright e2e | Behavior | Computational | Browser workflow regressions | `bun run e2e`, Stop hook when cached/failing | `playwright-cli` skill |
 | `verify` / `verify:changed` wrapper | Maintainability, architecture fitness, behavior | Computational | Lint, typecheck, and test failures with shared cache/lock/logs | `bun run verify:changed` | `AGENTS.md` |
 | `verify:logs` | Maintainability | Computational | Hidden or stale verification failures in cached logs | `bun run verify:logs` | Stop-policy prompts |
-| `doctor` | Architecture fitness, maintainability | Computational | Worktree, DB, env, port, dependency, lint-suppression, and migration-safety drift | `bun run doctor` | `AGENTS.md`, worktree docs |
+| `doctor` | Architecture fitness, maintainability | Computational | Worktree, DB, env, port, dependency, lint-suppression, and migration-safety drift | `bun run doctor` | `bun run worktree:*` scripts, `docs/guides/add-prisma-migration.md` |
 | `db:status` | Architecture fitness | Computational | Migration, Prisma client, and DB connectivity drift | `bun run db:status`, via `doctor` | `docs/guides/add-prisma-migration.md` |
 | `db:migration-safety` | Architecture fitness, behavior | Computational | Destructive or risky Prisma migrations lacking acknowledgement | `bun run db:migration-safety`, via `doctor` | `docs/guides/add-prisma-migration.md` |
 | `module:index:check` | Maintainability | Computational | Module doc index drift | `bun run module:index:check` | `docs/module-docs.md` |
-| `eslint-disable-register` | Maintainability | Computational | New suppressions without `-- reason` text or broad disables outside the file/rule allowlist | Via `doctor`, script smoke tests | `AGENTS.md` |
-| AI hook adapters | Maintainability, architecture fitness | Computational | Protected-file edits, doc bloat, stale Prisma client risk, noisy command output, uncommitted stop state | Claude/Codex hooks | `AGENTS.md` |
-| Stop-hook cached-verify replay | Maintainability, architecture fitness, behavior | Computational | Agents stopping with the most recent `verify:changed` / pre-commit run still red, when its wrapper meta still matches the worktree | Stop hook (reads `$LOG_DIR/meta/wrapper.json`) | `AGENTS.md` checking-your-work guidance |
+| `eslint-disable-register` | Maintainability | Computational | New suppressions without `-- reason` text or broad disables outside the file/rule allowlist | Via `doctor`, script smoke tests | Register diagnostic |
+| AI hook adapters | Maintainability, architecture fitness | Computational | Protected-file edits, doc bloat, stale Prisma client risk, noisy command output, uncommitted stop state | Claude/Codex hooks | Adapter Boundary section above |
+| Stop-hook cached-verify replay | Maintainability, architecture fitness, behavior | Computational | Agents stopping with the most recent `verify:changed` / pre-commit run still red, when its wrapper meta still matches the worktree | Stop hook (reads `$LOG_DIR/meta/wrapper.json`) | `verify` / `verify:changed` wrapper |
 | Script smoke tests | Maintainability | Computational | Hook, verify, worktree, module-index, migration-safety, and script wrapper regressions | `bun run test:scripts`, `bun run verify` | `scripts/` comments and shell tests |
-| Worktree drift/status checks | Architecture fitness | Computational | Secondary worktree DB, port, Redis, and SRD seed drift | `bun run worktree:status`, `doctor` | `AGENTS.md` worktree guidance |
+| Worktree drift/status checks | Architecture fitness | Computational | Secondary worktree DB, port, Redis, and SRD seed drift | `bun run worktree:status`, `doctor` | `bun run worktree:*` scripts |
 | `local/socket-registry-broadcasts` | Architecture fitness, behavior | Computational | Registry-owned events emitted directly outside `broadcast-registry.ts` | `bun run lint`, `bun run lint:changed` | `docs/guides/add-socket-broadcast.md` |
 | `local/no-broadcast-in-transaction` | Architecture fitness, behavior | Computational | Socket broadcast helpers called inside Prisma `$transaction` callbacks instead of after commit | `bun run lint`, `bun run lint:changed` | `docs/guides/add-socket-broadcast.md` |
 | Mutation testing | Behavior | Computational | Tests that execute rules code without proving meaningful behavior | Manual: `bun run test:mutation` | `docs/agent_notes/backlog/mutation-testing-stryker.md` |
-| `drift:ai` (duplicates, ghost-files, comments) | Maintainability, architecture fitness | Computational | AI-specific drift on changed files: copy/paste duplicates, suspicious newly added sibling modules, and over-narrated comments; repo-specific roots and exclusions live in `drift-ai.config.json` | Manual, report-only: `bun run drift:ai` (filter with `--check`; pass `--config <path>` to test another config) | `docs/agent_notes/in_progress/ai-drift-sensors.md`, `docs/agent_notes/in_progress/drift-ai-current-scope.md` |
+| `drift:ai` (duplicates, ghost-files, comments, suppressions) | Maintainability, architecture fitness | Computational | AI-specific drift on changed files: copy/paste duplicates, suspicious newly added sibling modules, over-narrated comments, and newly added suppression comments; repo-specific roots and exclusions live in `drift-ai.config.json` | Manual, report-only: `bun run drift:ai` (filter with `--check`; pass `--config <path>` to test another config) | `docs/agent_notes/in_progress/ai-drift-sensors.md`, `docs/agent_notes/in_progress/drift-ai-current-scope.md` |
 | Future approved behavior fixtures | Behavior | Computational | Generated tests proving the wrong shape or missing reviewed scenario data | Targeted Vitest suites | Domain docs, SRD reference |
 | Future slow drift reports | Maintainability, architecture fitness | Computational | Dead exports, cycles, stale module docs, flake trends, layer drift | `doctor`, CI, scheduled, or manual | This map |
 | Future project-specific reviewer | Architecture fitness, behavior | Inferential | Semantic drift not expressible as deterministic checks | Manual after deterministic checks pass | This map and area docs |

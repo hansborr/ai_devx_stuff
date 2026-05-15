@@ -14,8 +14,20 @@ export type ExportSpace = "type" | "value";
 export type ReferenceKind = "import" | "type" | "value";
 export type OutputFormat = "json" | "text";
 export type ResultMetadata = Record<string, boolean | number | string>;
-export type HelpTopic = "def" | "dependents" | "exports" | "refs" | "tests";
+export type HelpTopic = "def" | "dependents" | "exports" | "overview" | "refs" | "tests";
+export type OverviewProcedureKind = "mutation" | "query" | "subscription";
 export type ProjectBucketSummary = Partial<Record<ProjectBucket, number>>;
+
+export type OverviewResult = {
+  authHelper: string;
+  broadcasts: string[];
+  candidateTests: string[];
+  inputSchema: string | null;
+  kind: OverviewProcedureKind;
+  outputSchema: string | null;
+  procedure: string;
+  serviceCalls: string[];
+};
 
 export type IntelResult =
   | {
@@ -114,6 +126,7 @@ export type CliCommand =
       limit?: number;
       project?: ProjectFilter;
     }
+  | { kind: "overview"; file: string }
   | { kind: "refs"; location: SourceLocation; limit?: number }
   | { kind: "tests"; file: string; depth: number; limit?: number; project?: ProjectFilter };
 
@@ -175,6 +188,11 @@ export type CodeIntelQueryResult =
       kind: "definitionNameMiss";
       header: string;
       hint: DefinitionNearMatchHint;
+    }
+  | {
+      kind: "overview";
+      file: string;
+      results: OverviewResult[];
     };
 
 export type JsonRecord = Record<string, unknown>;

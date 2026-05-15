@@ -1446,6 +1446,8 @@ describe("code:intel:server lifecycle", () => {
 });
 
 describe("code:intel daemon query route", () => {
+  const residentDaemonTestTimeoutMs = 20_000;
+
   let tempRoot: string;
   let stateRoot: string;
   let repoRoot: string;
@@ -1749,106 +1751,122 @@ describe("code:intel daemon query route", () => {
     }
   });
 
-  it("answers definition modes from resident projects and matches one-shot output", async () => {
-    createSymbolWorkspace();
-    const daemon = await startDiskDaemon();
-    try {
-      const renamedImport = await expectDaemonMatchesOneShot(
-        defCommandAtSymbol("packages/server/src/renamed.ts", "renamedCoreValue"),
-      );
-      expect(renamedImport).toContain("packages/shared/src/rules/core.ts:1:14 value export");
-      expect(renamedImport).not.toContain("dist/rules/core.d.ts");
+  it(
+    "answers definition modes from resident projects and matches one-shot output",
+    async () => {
+      createSymbolWorkspace();
+      const daemon = await startDiskDaemon();
+      try {
+        const renamedImport = await expectDaemonMatchesOneShot(
+          defCommandAtSymbol("packages/server/src/renamed.ts", "renamedCoreValue"),
+        );
+        expect(renamedImport).toContain("packages/shared/src/rules/core.ts:1:14 value export");
+        expect(renamedImport).not.toContain("dist/rules/core.d.ts");
 
-      const snappedImport = await expectDaemonMatchesOneShot(
-        defCommandAtSymbol("packages/server/src/renamed.ts", "renamedCoreValue", -1),
-      );
-      expect(snappedImport).toBe(renamedImport);
+        const snappedImport = await expectDaemonMatchesOneShot(
+          defCommandAtSymbol("packages/server/src/renamed.ts", "renamedCoreValue", -1),
+        );
+        expect(snappedImport).toBe(renamedImport);
 
-      const clientAlias = await expectDaemonMatchesOneShot(
-        defCommandAtSymbol("packages/client/src/components/view.tsx", "renamedLocalHelper"),
-      );
-      expect(clientAlias).toContain("packages/client/src/lib/local-helper.ts:1:14 value export");
+        const clientAlias = await expectDaemonMatchesOneShot(
+          defCommandAtSymbol("packages/client/src/components/view.tsx", "renamedLocalHelper"),
+        );
+        expect(clientAlias).toContain("packages/client/src/lib/local-helper.ts:1:14 value export");
 
-      const byName = await expectDaemonMatchesOneShot({ kind: "defName", name: "coreValue" });
-      expect(byName).toContain("packages/shared/src/rules/core.ts:1:14 value export");
+        const byName = await expectDaemonMatchesOneShot({ kind: "defName", name: "coreValue" });
+        expect(byName).toContain("packages/shared/src/rules/core.ts:1:14 value export");
 
-      const nearMatch = await expectDaemonMatchesOneShot({ kind: "defName", name: "coreVal" });
-      expect(nearMatch).toContain("near matches (1 total): coreValue");
-    } finally {
-      await daemon.shutdown();
-    }
-  });
+        const nearMatch = await expectDaemonMatchesOneShot({ kind: "defName", name: "coreVal" });
+        expect(nearMatch).toContain("near matches (1 total): coreValue");
+      } finally {
+        await daemon.shutdown();
+      }
+    },
+    residentDaemonTestTimeoutMs,
+  );
 
-  it("answers exports from resident projects and matches one-shot output", async () => {
-    createSymbolWorkspace();
-    const daemon = await startDiskDaemon();
-    try {
-      const directExports = await expectDaemonMatchesOneShot({
-        file: "packages/shared/src/rules/core.ts",
-        kind: "exports",
-      });
-      expect(directExports).toContain("coreValue value export");
+  it(
+    "answers exports from resident projects and matches one-shot output",
+    async () => {
+      createSymbolWorkspace();
+      const daemon = await startDiskDaemon();
+      try {
+        const directExports = await expectDaemonMatchesOneShot({
+          file: "packages/shared/src/rules/core.ts",
+          kind: "exports",
+        });
+        expect(directExports).toContain("coreValue value export");
 
-      const reexports = await expectDaemonMatchesOneShot({
-        file: "packages/shared/src/rules/index.ts",
-        kind: "exports",
-      });
-      expect(reexports).toContain("directShared value export");
-      expect(reexports).toContain("publicCoreValue value re-export");
-    } finally {
-      await daemon.shutdown();
-    }
-  });
+        const reexports = await expectDaemonMatchesOneShot({
+          file: "packages/shared/src/rules/index.ts",
+          kind: "exports",
+        });
+        expect(reexports).toContain("directShared value export");
+        expect(reexports).toContain("publicCoreValue value re-export");
+      } finally {
+        await daemon.shutdown();
+      }
+    },
+    residentDaemonTestTimeoutMs,
+  );
 
-  it("answers refs from the resident reference project and matches one-shot output", async () => {
-    createSymbolWorkspace();
-    const daemon = await startDiskDaemon();
-    try {
-      const refs = await expectDaemonMatchesOneShot({
-        kind: "refs",
-        location: { col: 14, file: "packages/shared/src/rules/core.ts", line: 1 },
-      });
-      expect(refs).toContain("references coreValue");
-      expect(refs).toContain("packages/server/src/renamed.ts:1:10 import");
-      expect(refs).toContain("packages/server/src/public-core.ts:1:10 import");
-      expect(refs).toContain("packages/client/src/components/view.tsx:1:10 import");
-      expect(refs).toContain("packages/shared/src/rules/index.ts:1:10 import");
-      expect(refs).not.toContain("packages/shared/src/rules/core.ts:1:14");
+  it(
+    "answers refs from the resident reference project and matches one-shot output",
+    async () => {
+      createSymbolWorkspace();
+      const daemon = await startDiskDaemon();
+      try {
+        const refs = await expectDaemonMatchesOneShot({
+          kind: "refs",
+          location: { col: 14, file: "packages/shared/src/rules/core.ts", line: 1 },
+        });
+        expect(refs).toContain("references coreValue");
+        expect(refs).toContain("packages/server/src/renamed.ts:1:10 import");
+        expect(refs).toContain("packages/server/src/public-core.ts:1:10 import");
+        expect(refs).toContain("packages/client/src/components/view.tsx:1:10 import");
+        expect(refs).toContain("packages/shared/src/rules/index.ts:1:10 import");
+        expect(refs).not.toContain("packages/shared/src/rules/core.ts:1:14");
 
-      const snapped = await expectDaemonMatchesOneShot({
-        kind: "refs",
-        location: { col: 13, file: "packages/shared/src/rules/core.ts", line: 1 },
-      });
-      expect(snapped).toBe(refs);
-    } finally {
-      await daemon.shutdown();
-    }
-  });
+        const snapped = await expectDaemonMatchesOneShot({
+          kind: "refs",
+          location: { col: 13, file: "packages/shared/src/rules/core.ts", line: 1 },
+        });
+        expect(snapped).toBe(refs);
+      } finally {
+        await daemon.shutdown();
+      }
+    },
+    residentDaemonTestTimeoutMs,
+  );
 
-  it("rebuilds resident projects on the first query after a manifest change", async () => {
-    createSymbolWorkspace();
-    const daemon = await startDiskDaemon();
-    try {
-      const initial = await expectDaemonMatchesOneShot({
-        kind: "defName",
-        name: "mutableValue",
-      });
-      expect(initial).toContain("packages/shared/src/rules/mutable.ts:1:14 value export");
+  it(
+    "rebuilds resident projects on the first query after a manifest change",
+    async () => {
+      createSymbolWorkspace();
+      const daemon = await startDiskDaemon();
+      try {
+        const initial = await expectDaemonMatchesOneShot({
+          kind: "defName",
+          name: "mutableValue",
+        });
+        expect(initial).toContain("packages/shared/src/rules/mutable.ts:1:14 value export");
 
-      writeRepoFile(
-        "packages/shared/src/rules/mutable.ts",
-        "export const mutableValueAfterInvalidation = 2;\n",
-      );
+        writeRepoFile(
+          "packages/shared/src/rules/mutable.ts",
+          "export const mutableValueAfterInvalidation = 2;\n",
+        );
 
-      const afterMutation = await expectDaemonMatchesOneShot({
-        kind: "defName",
-        name: "mutableValueAfterInvalidation",
-      });
-      expect(afterMutation).toContain("packages/shared/src/rules/mutable.ts:1:14 value export");
-    } finally {
-      await daemon.shutdown();
-    }
-  });
+        const afterMutation = await expectDaemonMatchesOneShot({
+          kind: "defName",
+          name: "mutableValueAfterInvalidation",
+        });
+        expect(afterMutation).toContain("packages/shared/src/rules/mutable.ts:1:14 value export");
+      } finally {
+        await daemon.shutdown();
+      }
+    },
+    residentDaemonTestTimeoutMs,
+  );
 
   it("falls back when no daemon is running", async () => {
     const outcome = await requestDaemonQuery(

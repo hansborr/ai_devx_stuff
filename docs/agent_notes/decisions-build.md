@@ -82,6 +82,39 @@ visibility proves insufficient.
 
 ---
 
+## Coverage runs out-of-band, not in CI or pre-push
+
+Status: Active
+Domain: build
+
+### Context
+GitHub Actions is unavailable for this repo and is not coming back as the
+coverage enforcement path. `bun run test:coverage` is also too slow for the
+normal edit/push loop, so a pre-push hook would turn routine handoffs into
+long-running local gates.
+
+### Decision
+Coverage runs on a weekend local cadence: either a human runs
+`bun run test:coverage` manually, or the host runs the same command through an
+optional systemd timer outside the devcontainer. The latest baseline is tracked
+in repo docs rather than in ignored `coverage/` output.
+
+### Consequences
+- Do not add coverage to `verify:changed`, pre-push hooks, or CI unless this
+  decision is reopened.
+- New contributors should expect coverage drift to surface on the weekend
+  cadence, not at merge time.
+- Coverage floor changes should be tied to a fresh baseline and a follow-up
+  leaf, not opportunistic config edits.
+
+### References
+- `docs/guides/coverage-cadence.md`
+- `docs/agent_notes/in_progress/codebase-audit/coverage.md`
+- `vitest.config.ts`
+- `AUD-COV-002`
+
+---
+
 ## Codemods: lint sensors plus explicit repairs
 
 Status: Active

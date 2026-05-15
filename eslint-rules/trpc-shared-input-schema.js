@@ -46,7 +46,7 @@ export default {
     },
     messages: {
       needsSharedInput:
-        "Move this input shape to packages/shared/src/schemas/<domain>-inputs.ts (run: `bun run codemod:trpc-shared-input -- <file>`). Complex .extend/.merge/.and/.or shapes must be moved manually.",
+        "Why: Router input schemas are the client/server contract and must live in shared. How to fix: Move this input shape to packages/shared/src/schemas/<domain>-inputs.ts (run: `bun run codemod:trpc-shared-input -- <file>`). Move complex .extend/.merge/.and/.or shapes manually.",
     },
     schema: [],
   },

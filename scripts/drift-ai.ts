@@ -1,7 +1,8 @@
 #!/usr/bin/env bun
 // Report-only AI drift sensors.
 //
-// `duplicates`, `ghost-files`, and `comments` are live warning-only checks.
+// `duplicates`, `ghost-files`, `comments`, and `suppressions` are live
+// warning-only checks.
 // The command owns the stable interface: argument parsing, changed-file
 // scope, ignore patterns, and text/JSON output.
 
@@ -46,6 +47,11 @@ import {
 } from "./drift-ai/ghost-files.js";
 import { buildSourceExtensions, toChangedScopeFile } from "./drift-ai/scope.js";
 import type { DetectorScope, ScopeFile, ScopeMode } from "./drift-ai/scope.js";
+import {
+  defaultSuppressionsGitRunner,
+  runSuppressionsCheck,
+  type SuppressionsGitRunner,
+} from "./drift-ai/suppressions.js";
 
 export { DriftAiError } from "./drift-ai/errors.js";
 export {
@@ -62,9 +68,14 @@ export type {
   ScopeMode,
 } from "./drift-ai/scope.js";
 
-export type DriftCheckId = "duplicates" | "ghost-files" | "comments";
+export type DriftCheckId = "duplicates" | "ghost-files" | "comments" | "suppressions";
 
-export const ALL_CHECKS: readonly DriftCheckId[] = ["duplicates", "ghost-files", "comments"];
+export const ALL_CHECKS: readonly DriftCheckId[] = [
+  "duplicates",
+  "ghost-files",
+  "comments",
+  "suppressions",
+];
 
 export type ChangedFileStatus = "added" | "modified" | "renamed" | "copied" | "deleted";
 
@@ -80,6 +91,9 @@ export type DriftFinding = {
   readonly message: string;
   readonly hint?: string;
   readonly relatedFiles?: readonly string[];
+  // Optional check-specific stable fields for JSON consumers. The suppressions
+  // check uses kind, target, line, reasonPresent, and text.
+  readonly details?: Readonly<Record<string, string | number | boolean | readonly string[]>>;
 };
 
 export type DriftReport = {
@@ -199,7 +213,7 @@ function usage(): string {
     "  bun run drift:ai",
     "  bun run drift:ai --scope <changed|current>",
     "  bun run drift:ai --base <ref>",
-    "  bun run drift:ai --check <duplicates|ghost-files|comments|all> [--check <...>]",
+    "  bun run drift:ai --check <duplicates|ghost-files|comments|suppressions|all> [--check <...>]",
     "  bun run drift:ai --root <path> [--root <path>]",
     "  bun run drift:ai --config <path>",
     "  bun run drift:ai --format <text|json>",
@@ -266,7 +280,9 @@ export function parseArgs(argv: readonly string[]): CliOptions {
     if (arg === "--check" || arg.startsWith("--check=")) {
       const parsed = readOptionValue(arg, argv, index);
       if (!parsed.value) {
-        throw new DriftAiError("--check requires duplicates, ghost-files, comments, or all.");
+        throw new DriftAiError(
+          "--check requires duplicates, ghost-files, comments, suppressions, or all.",
+        );
       }
       if (parsed.value === "all") {
         allRequested = true;
@@ -485,6 +501,9 @@ export type CheckContext = {
   readonly listDirectory: DirectoryListing;
   readonly inventoryByDir?: ReadonlyMap<string, readonly string[]>;
   readonly readFile: FileReader;
+  readonly suppressionsGit?: SuppressionsGitRunner;
+  readonly repoRoot?: string;
+  readonly suppressionDiffRef?: string;
   readonly config?: DriftAiConfig;
   readonly roots?: readonly string[];
   readonly sourceExtensions?: ReadonlySet<string>;
@@ -533,6 +552,7 @@ const CHECK_RUNNERS: Record<DriftCheckId, CheckRunner> = {
         context.detectorScope.scopeMode === "current"
           ? config.checks["ghost-files"].excludeGlobs
           : ghostExcludeGlobs(config),
+      currentAllowedPairs: config.checks["ghost-files"].currentAllowedPairs,
       sourceExtensions:
         context.sourceExtensions ?? buildSourceExtensions(config.additionalSourceExtensions),
     });
@@ -545,6 +565,15 @@ const CHECK_RUNNERS: Record<DriftCheckId, CheckRunner> = {
       excludePrefixes: config.checks.comments.excludePrefixes,
     });
   },
+  suppressions: (context) => {
+    return runSuppressionsCheck({
+      detectorScope: context.detectorScope,
+      repoRoot: context.repoRoot ?? process.cwd(),
+      ref: context.suppressionDiffRef ?? "",
+      git: context.suppressionsGit ?? noopSuppressionsGitRunner(),
+      readFile: context.readFile,
+    });
+  },
 };
 
 // All checks are wired through the same runners; detectors branch on the
@@ -553,6 +582,7 @@ const IMPLEMENTED_CHECKS: ReadonlySet<DriftCheckId> = new Set<DriftCheckId>([
   "duplicates",
   "ghost-files",
   "comments",
+  "suppressions",
 ]);
 
 function configFor(context: CheckContext): DriftAiConfig {
@@ -586,8 +616,8 @@ export function buildReport(
     readFile: noopFileReader(),
   },
 ): DriftReport {
-  const enabled = options.checks.filter((check) => IMPLEMENTED_CHECKS.has(check));
-  const skipped = options.checks.filter((check) => !IMPLEMENTED_CHECKS.has(check));
+  const enabled = options.checks.filter((check) => checkRunsForScope(check, detectorScope));
+  const skipped = options.checks.filter((check) => !checkRunsForScope(check, detectorScope));
   const findings: DriftFinding[] = [];
   const inventoryByDir = inventoryByDirForReport(detectorScope, context.inventoryByDir);
   for (const check of enabled) {
@@ -598,6 +628,13 @@ export function buildReport(
         listDirectory: context.listDirectory,
         ...(inventoryByDir === undefined ? {} : { inventoryByDir }),
         readFile: context.readFile,
+        ...(context.suppressionsGit === undefined
+          ? {}
+          : { suppressionsGit: context.suppressionsGit }),
+        ...(context.repoRoot === undefined ? {} : { repoRoot: context.repoRoot }),
+        ...(context.suppressionDiffRef === undefined
+          ? {}
+          : { suppressionDiffRef: context.suppressionDiffRef }),
         ...(context.config === undefined ? {} : { config: context.config }),
         roots: options.roots.length > 0 ? options.roots : configFor(context).roots,
         ...(context.sourceExtensions === undefined
@@ -620,6 +657,11 @@ export function buildReport(
     scope: detectorScope.files,
     findings,
   };
+}
+
+function checkRunsForScope(check: DriftCheckId, detectorScope: DetectorScope): boolean {
+  if (!IMPLEMENTED_CHECKS.has(check)) return false;
+  return !(check === "suppressions" && detectorScope.scopeMode === "current");
 }
 
 function inventoryByDirForReport(
@@ -647,6 +689,10 @@ function noopFileReader(): FileReader {
   return () => undefined;
 }
 
+function noopSuppressionsGitRunner(): SuppressionsGitRunner {
+  return () => "";
+}
+
 export function formatText(report: DriftReport): string {
   const lines: string[] = [];
   if (report.scopeMode === "changed") {
@@ -660,7 +706,7 @@ export function formatText(report: DriftReport): string {
   }
   lines.push(`  scope: ${report.scope.length} file(s) considered after ignore filters`);
   if (report.skippedChecks.length > 0) {
-    lines.push(`  skipped: ${report.skippedChecks.join(", ")} (no scanner wired yet)`);
+    lines.push(`  skipped: ${report.skippedChecks.join(", ")} (not run for this scope)`);
   }
   if (report.findings.length === 0) {
     if (report.enabledChecks.length === 0) {
@@ -791,6 +837,9 @@ export type RunOptions = {
   // Test override — the CLI entrypoint constructs defaultFileReader with the
   // resolved repo root so source reads stay inside the repo.
   readonly readFile?: FileReader;
+  // Test override for the suppressions check. When omitted in tests with a
+  // stub string Git runner, the stub also handles `git diff <merge-base>`.
+  readonly suppressionsGit?: SuppressionsGitRunner;
   readonly warnStderr?: (message: string) => void;
   readonly writer?: (path: string, contents: string) => void;
 };
@@ -808,6 +857,7 @@ type PreparedRun = {
   readonly config: DriftAiConfig;
   readonly configPath: string | null;
   readonly resolvedRef: string | null;
+  readonly suppressionDiffRef: string | null;
   readonly roots: readonly string[];
   readonly detectorScope: DetectorScope;
   readonly inventoryByDir?: ReadonlyMap<string, readonly string[]>;
@@ -839,6 +889,11 @@ export function runDriftAi(options: RunOptions): RunResult {
   const jscpd = options.jscpd ?? defaultJscpdRunner({ repoRoot: prepared.repoRoot });
   const listDirectory = options.listDirectory ?? defaultDirectoryListing(prepared.repoRoot);
   const readFile = options.readFile ?? defaultFileReader(prepared.repoRoot);
+  const suppressionsGit =
+    options.suppressionsGit ??
+    (options.git === undefined
+      ? defaultSuppressionsGitRunner
+      : suppressionsGitRunnerFromStringGit(options.git));
   const warnStderr = options.warnStderr ?? defaultWarnStderr;
   warnForUnsupportedDuplicateExtensions(prepared.config, parsed.checks, warnStderr);
   const report = buildReport(reportOptions, prepared.resolvedRef, prepared.detectorScope, {
@@ -847,6 +902,11 @@ export function runDriftAi(options: RunOptions): RunResult {
     listDirectory,
     ...(prepared.inventoryByDir === undefined ? {} : { inventoryByDir: prepared.inventoryByDir }),
     readFile,
+    suppressionsGit,
+    repoRoot: prepared.repoRoot,
+    ...(prepared.suppressionDiffRef === null
+      ? {}
+      : { suppressionDiffRef: prepared.suppressionDiffRef }),
     config: prepared.config,
     roots: prepared.roots,
     sourceExtensions: prepared.sourceExtensions,
@@ -860,6 +920,10 @@ export function runDriftAi(options: RunOptions): RunResult {
 
 function defaultReportWriter(target: string, contents: string): void {
   writeFileSync(target, contents);
+}
+
+function suppressionsGitRunnerFromStringGit(git: GitRunner): SuppressionsGitRunner {
+  return (_repoRoot, ref) => git(["diff", ref]);
 }
 
 function writeReportOutputs(
@@ -954,7 +1018,9 @@ function warnForUnsupportedDuplicateExtensions(
 }
 
 function unsupportedDuplicateExtensions(additionalSourceExtensions: readonly string[]): string[] {
-  return additionalSourceExtensions.filter((extension) => !JSCPD_SUPPORTED_EXTENSIONS.has(extension));
+  return additionalSourceExtensions.filter(
+    (extension) => !JSCPD_SUPPORTED_EXTENSIONS.has(extension),
+  );
 }
 
 function prepareChangedRun(parsed: CliOptions, options: RunOptions): PreparedRun {
@@ -964,8 +1030,9 @@ function prepareChangedRun(parsed: CliOptions, options: RunOptions): PreparedRun
   const loadedConfig = explicitConfig ?? loadDriftAiConfig({ repoRoot });
   const sourceExtensions = buildSourceExtensions(loadedConfig.config.additionalSourceExtensions);
   const resolvedRef = resolveBaseRef(parsed.base, git);
+  const mergeBase = resolveMergeBase(resolvedRef, git);
   const changedFiles = filterScope(
-    discoverChangedFiles(resolveMergeBase(resolvedRef, git), git),
+    discoverChangedFiles(mergeBase, git),
     loadedConfig.config.ignore,
   );
   return {
@@ -973,6 +1040,7 @@ function prepareChangedRun(parsed: CliOptions, options: RunOptions): PreparedRun
     config: loadedConfig.config,
     configPath: loadedConfig.configPath,
     resolvedRef,
+    suppressionDiffRef: mergeBase,
     roots: parsed.roots.length > 0 ? parsed.roots : loadedConfig.config.roots,
     detectorScope: {
       scopeMode: "changed",
@@ -1009,6 +1077,7 @@ function prepareCurrentRun(parsed: CliOptions, options: RunOptions): PreparedRun
     config: loadedConfig.config,
     configPath: loadedConfig.configPath,
     resolvedRef: null,
+    suppressionDiffRef: null,
     roots,
     detectorScope: { scopeMode: "current", files },
     inventoryByDir: buildInventoryByDir(files),

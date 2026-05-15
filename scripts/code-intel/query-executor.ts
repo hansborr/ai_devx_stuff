@@ -8,6 +8,7 @@ import {
 import { queryExports } from "./export-query.js";
 import { queryDependents, queryTests, summarizeDependentProjects } from "./graph-queries.js";
 import { buildImportGraph } from "./import-graph.js";
+import { queryOverview } from "./overview-query.js";
 import { queryReferences } from "./references-query.js";
 import type { CodeIntelContext } from "./source-project.js";
 import {
@@ -34,10 +35,13 @@ type QueryExecutorContext = {
 type DefinitionCommand = Extract<ExecutableCliCommand, { kind: "def" }>;
 type DefinitionNameCommand = Extract<ExecutableCliCommand, { kind: "defName" }>;
 type ExportsCommand = Extract<ExecutableCliCommand, { kind: "exports" }>;
+type OverviewCommand = Extract<ExecutableCliCommand, { kind: "overview" }>;
 type RefsCommand = Extract<ExecutableCliCommand, { kind: "refs" }>;
 type DependentsCommand = Extract<ExecutableCliCommand, { kind: "dependents" }>;
 type TestsCommand = Extract<ExecutableCliCommand, { kind: "tests" }>;
 type GraphCommand = DependentsCommand | TestsCommand;
+
+const OVERVIEW_CANDIDATE_TEST_LIMIT = 5;
 
 export function executeCodeIntelQuery(
   command: ExecutableCliCommand,
@@ -62,6 +66,7 @@ function executeCommand(
   if (command.kind === "def") return executeDefinition(command, runner);
   if (command.kind === "defName") return executeDefinitionName(command, runner);
   if (command.kind === "exports") return executeExports(command, runner);
+  if (command.kind === "overview") return executeOverview(command, runner);
   if (command.kind === "refs") return executeRefs(command, runner);
   return executeGraphCommand(command, runner);
 }
@@ -110,6 +115,30 @@ function executeExports(
     header: `exports ${runner.resolver.relative(command.file)}`,
     results: queryExports(project, runner.resolver, command.file),
   };
+}
+
+function executeOverview(
+  command: OverviewCommand,
+  runner: QueryExecutorContext,
+): CodeIntelQueryResult {
+  const project = runner.context.project ?? createProjectForFile(runner.repoRoot, command.file);
+  const candidateTests = overviewCandidateTests(command.file, runner);
+  return {
+    kind: "overview",
+    file: runner.resolver.relative(command.file),
+    results: queryOverview(project, runner.resolver, command.file, candidateTests),
+  };
+}
+
+function overviewCandidateTests(file: string, runner: QueryExecutorContext): string[] {
+  try {
+    const graph = runner.context.graph ?? buildGraphFromContext(runner);
+    return queryTests(runner.resolver, graph, file, { depth: 1 })
+      .flatMap((result) => (result.kind === "test" ? [result.file] : []))
+      .slice(0, OVERVIEW_CANDIDATE_TEST_LIMIT);
+  } catch {
+    return [];
+  }
 }
 
 function executeRefs(command: RefsCommand, runner: QueryExecutorContext): CodeIntelQueryResult {

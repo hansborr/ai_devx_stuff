@@ -439,6 +439,51 @@ describe("runGhostFilesCheck", () => {
     ]);
   });
 
+  it("current-mode suppresses configured allowed pairs only", () => {
+    const paths = [
+      "src/foo/bar.ts",
+      "src/foo/bar-helper.ts",
+      "src/foo/baz.ts",
+      "src/foo/baz-helper.ts",
+    ];
+    const findings = runGhostFilesCheck({
+      detectorScope: current(paths),
+      inventoryByDir: inventoryByDir(paths),
+      currentAllowedPairs: [{ files: ["src/foo/bar-helper.ts", "src/foo/bar.ts"] }],
+    });
+    expect(findings).toEqual([
+      {
+        check: "ghost-files",
+        file: "src/foo/baz-helper.ts",
+        message:
+          "src/foo/baz-helper.ts ↔ src/foo/baz.ts -- suspicious sibling pair (weak-suffix-variant; shared tokens: baz)",
+        hint: expect.stringContaining(
+          "bun run code:intel -- dependents src/foo/baz-helper.ts; bun run code:intel -- dependents src/foo/baz.ts",
+        ),
+        relatedFiles: ["src/foo/baz-helper.ts", "src/foo/baz.ts"],
+      },
+    ]);
+  });
+
+  it("changed-mode keeps reporting pairs that are allowed only for current scope", () => {
+    const findings = runGhostFilesCheck({
+      detectorScope: changed([{ path: `${dir}/foo-helper.ts` }]),
+      listDirectory: makeListing({
+        [dir]: ["foo-helper.ts", "foo.ts"],
+      }),
+      currentAllowedPairs: [{ files: [`${dir}/foo-helper.ts`, `${dir}/foo.ts`] }],
+    });
+    expect(findings).toEqual([
+      {
+        check: "ghost-files",
+        file: `${dir}/foo-helper.ts`,
+        message: `looks like a sibling of ${dir}/foo.ts (weak-suffix-variant; shared tokens: foo)`,
+        hint: `${GHOST_FILES_REPAIR_HINT_PREFIX} bun run code:intel -- dependents ${dir}/foo.ts`,
+        relatedFiles: [`${dir}/foo-helper.ts`, `${dir}/foo.ts`].sort(compareStrings),
+      },
+    ]);
+  });
+
   it("current-mode scores entry-point pairs in either direction", () => {
     const paths = ["src/main.ts", "src/main2.ts"];
     const findings = runGhostFilesCheck({

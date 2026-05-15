@@ -22,6 +22,11 @@ export type DriftAiCommentsConfig = {
 
 export type DriftAiGhostFilesConfig = {
   readonly excludeGlobs: readonly string[];
+  readonly currentAllowedPairs: readonly GhostFileAllowedPair[];
+};
+
+export type GhostFileAllowedPair = {
+  readonly files: readonly [string, string];
 };
 
 export type DriftAiChecksConfig = {
@@ -67,7 +72,7 @@ export const DEFAULT_DRIFT_AI_CONFIG: DriftAiConfig = {
   checks: {
     duplicates: { excludeGlobs: [] },
     comments: { excludePrefixes: [] },
-    "ghost-files": { excludeGlobs: [] },
+    "ghost-files": { excludeGlobs: [], currentAllowedPairs: [] },
   },
 };
 
@@ -164,15 +169,24 @@ function parseIgnoreConfig(
     segments:
       raw["segments"] === undefined
         ? defaults.segments
-        : uniqSorted([...defaults.segments, ...readStringArray(raw["segments"], `${keyPath}.segments`).map(normalizeSegment)]),
+        : uniqSorted([
+            ...defaults.segments,
+            ...readStringArray(raw["segments"], `${keyPath}.segments`).map(normalizeSegment),
+          ]),
     prefixes:
       raw["prefixes"] === undefined
         ? defaults.prefixes
-        : uniqSorted([...defaults.prefixes, ...readStringArray(raw["prefixes"], `${keyPath}.prefixes`).map(normalizePrefix)]),
+        : uniqSorted([
+            ...defaults.prefixes,
+            ...readStringArray(raw["prefixes"], `${keyPath}.prefixes`).map(normalizePrefix),
+          ]),
     globs:
       raw["globs"] === undefined
         ? defaults.globs
-        : uniqSorted([...defaults.globs, ...readStringArray(raw["globs"], `${keyPath}.globs`).map(normalizeGlob)]),
+        : uniqSorted([
+            ...defaults.globs,
+            ...readStringArray(raw["globs"], `${keyPath}.globs`).map(normalizeGlob),
+          ]),
   };
 }
 
@@ -210,7 +224,10 @@ function parseDuplicatesConfig(
 ): DriftAiDuplicatesConfig {
   if (!isRecord(raw)) throw new DriftAiError(`drift:ai config '${keyPath}' must be an object.`);
   assertKnownKeys(raw, ["minLines", "excludeGlobs"], keyPath);
-  const minLines = raw["minLines"] === undefined ? defaults.minLines : parsePositiveInt(raw["minLines"], `${keyPath}.minLines`);
+  const minLines =
+    raw["minLines"] === undefined
+      ? defaults.minLines
+      : parsePositiveInt(raw["minLines"], `${keyPath}.minLines`);
   return {
     ...(minLines === undefined ? {} : { minLines }),
     excludeGlobs:
@@ -249,16 +266,21 @@ function parseGhostFilesConfig(
   defaults: DriftAiGhostFilesConfig,
 ): DriftAiGhostFilesConfig {
   if (!isRecord(raw)) throw new DriftAiError(`drift:ai config '${keyPath}' must be an object.`);
-  assertKnownKeys(raw, ["excludeGlobs"], keyPath);
+  assertKnownKeys(raw, ["excludeGlobs", "currentAllowedPairs"], keyPath);
   return {
     excludeGlobs:
       raw["excludeGlobs"] === undefined
         ? defaults.excludeGlobs
         : uniqSorted([
             ...defaults.excludeGlobs,
-            ...readStringArray(raw["excludeGlobs"], `${keyPath}.excludeGlobs`).map(
-              normalizeGlob,
-            ),
+            ...readStringArray(raw["excludeGlobs"], `${keyPath}.excludeGlobs`).map(normalizeGlob),
+          ]),
+    currentAllowedPairs:
+      raw["currentAllowedPairs"] === undefined
+        ? defaults.currentAllowedPairs
+        : uniqAllowedPairs([
+            ...defaults.currentAllowedPairs,
+            ...readAllowedPairs(raw["currentAllowedPairs"], `${keyPath}.currentAllowedPairs`),
           ]),
   };
 }
@@ -282,6 +304,7 @@ function cloneDefaultConfig(): DriftAiConfig {
       },
       "ghost-files": {
         excludeGlobs: [...DEFAULT_DRIFT_AI_CONFIG.checks["ghost-files"].excludeGlobs],
+        currentAllowedPairs: [...DEFAULT_DRIFT_AI_CONFIG.checks["ghost-files"].currentAllowedPairs],
       },
     },
   };
@@ -304,6 +327,32 @@ function readStringArray(raw: unknown, keyPath: string): string[] {
     }
     return item;
   });
+}
+
+function readAllowedPairs(raw: unknown, keyPath: string): GhostFileAllowedPair[] {
+  if (!Array.isArray(raw)) throw new DriftAiError(`drift:ai config '${keyPath}' must be an array.`);
+  return raw.map((item, index) => readAllowedPair(item, `${keyPath}[${index}]`));
+}
+
+function readAllowedPair(raw: unknown, keyPath: string): GhostFileAllowedPair {
+  if (!Array.isArray(raw) || raw.length !== 2) {
+    throw new DriftAiError(`drift:ai config '${keyPath}' must be a two-path array.`);
+  }
+  const paths = raw.map((item, index) => {
+    if (typeof item !== "string" || item.trim().length === 0) {
+      throw new DriftAiError(`drift:ai config '${keyPath}[${index}]' must be a non-empty string.`);
+    }
+    return normalizePairPath(item, `${keyPath}[${index}]`);
+  });
+  const left = paths[0];
+  const right = paths[1];
+  if (left === undefined || right === undefined) {
+    throw new DriftAiError(`drift:ai config '${keyPath}' must be a two-path array.`);
+  }
+  if (left === right) {
+    throw new DriftAiError(`drift:ai config '${keyPath}' must contain two distinct paths.`);
+  }
+  return { files: left < right ? [left, right] : [right, left] };
 }
 
 function parsePositiveInt(raw: unknown, keyPath: string): number {
@@ -344,6 +393,14 @@ function normalizeGlob(value: string): string {
     throw new DriftAiError("drift:ai config globs must not be empty.");
   }
   return normalized;
+}
+
+function normalizePairPath(value: string, keyPath: string): string {
+  const collapsed = collapseRepoPath(value);
+  if (pathEscapesRepo(collapsed)) {
+    throw new DriftAiError(`drift:ai config '${keyPath}' must stay inside the repo.`);
+  }
+  return collapsed;
 }
 
 function normalizeExtension(value: string, keyPath: string): string {
@@ -443,4 +500,16 @@ function isRecord(value: unknown): value is UnknownRecord {
 
 function uniqSorted(values: readonly string[]): string[] {
   return [...new Set(values)].sort((left, right) => left.localeCompare(right, "en"));
+}
+
+function uniqAllowedPairs(values: readonly GhostFileAllowedPair[]): GhostFileAllowedPair[] {
+  const byKey = new Map<string, GhostFileAllowedPair>();
+  for (const pair of values) {
+    byKey.set(`${pair.files[0]}\u0000${pair.files[1]}`, pair);
+  }
+  return [...byKey.values()].sort(
+    (left, right) =>
+      left.files[0].localeCompare(right.files[0], "en") ||
+      left.files[1].localeCompare(right.files[1], "en"),
+  );
 }

@@ -32,7 +32,7 @@ export default {
     },
     messages: {
       needsSharedOutput:
-        "Move this output shape to packages/shared/src/schemas/<domain>.ts (run: `bun run codemod:trpc-shared-output -- <file>`). Complex or wrapped output shapes must be moved manually.",
+        "Why: Router output schemas are the client/server contract and must live in shared. How to fix: Move this output shape to packages/shared/src/schemas/<domain>.ts (run: `bun run codemod:trpc-shared-output -- <file>`). Move complex or wrapped output shapes manually.",
     },
     schema: [],
   },

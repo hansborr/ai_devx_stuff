@@ -1,6 +1,7 @@
 import {
   type GraphDaemonCommand,
   isGraphCommand,
+  isSymbolCommand,
   type SymbolDaemonCommand,
 } from "./daemon-commands.js";
 import {
@@ -22,9 +23,12 @@ export function executeDaemonQuery(
   projectCache: ProjectCache,
 ): CodeIntelDaemonResponse {
   try {
-    const result: CodeIntelQueryResult = isGraphCommand(envelope.command)
-      ? executeGraphQuery(envelope.command, repoRoot, graphCache)
-      : executeSymbolQuery(envelope.command, repoRoot, projectCache);
+    const result: CodeIntelQueryResult = executeRoutableDaemonQuery(
+      envelope.command,
+      repoRoot,
+      graphCache,
+      projectCache,
+    );
     return {
       id: envelope.id,
       ok: true,
@@ -37,6 +41,17 @@ export function executeDaemonQuery(
       name: error instanceof CodeIntelError ? "CodeIntelError" : "Error",
     });
   }
+}
+
+function executeRoutableDaemonQuery(
+  command: CodeIntelDaemonRequest["command"],
+  repoRoot: string,
+  graphCache: GraphCache,
+  projectCache: ProjectCache,
+): CodeIntelQueryResult {
+  if (isGraphCommand(command)) return executeGraphQuery(command, repoRoot, graphCache);
+  if (isSymbolCommand(command)) return executeSymbolQuery(command, repoRoot, projectCache);
+  throw new CodeIntelError(`Command is not daemon-routable: ${command.kind}`);
 }
 
 function executeGraphQuery(

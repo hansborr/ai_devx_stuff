@@ -21,8 +21,10 @@ export default {
       description: "Enforce *.test.ts(x) naming and require at least one test block",
     },
     messages: {
-      wrongNaming: "Test file should follow naming convention: *.test.ts or *.test.tsx",
-      missingTests: "Test file should contain at least one test or describe block",
+      wrongNaming:
+        "Test file basename is missing a name prefix. Rename to `<feature>.test.ts` (or `.test.tsx`) so the file colocates with the code it covers.",
+      missingTests:
+        "This file is named `*.test.ts(x)` but contains no `describe`, `it`, or `test` blocks (suite hooks alone don't count). Either add a test block or rename the file; helpers belong outside the `.test.` naming.",
     },
     schema: [],
   },

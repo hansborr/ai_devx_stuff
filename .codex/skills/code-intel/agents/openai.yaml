@@ -1,4 +1,0 @@
-interface:
-  display_name: "Code Intel"
-  short_description: "Navigate Musi TypeScript import graphs"
-  default_prompt: "Use $code-intel to find definitions, dependents, exports, references, or candidate tests in the Musi TypeScript graph."

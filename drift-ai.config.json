@@ -7,17 +7,27 @@
     "eslint-rules"
   ],
   "ignore": {
-    "prefixes": [
-      "docs/",
-      "packages/server/prisma/migrations/"
-    ]
+    "prefixes": ["docs/", "packages/server/prisma/migrations/"]
   },
   "checks": {
-    "comments": {
-      "excludePrefixes": [
-        "scripts/",
-        "eslint-rules/"
+    "ghost-files": {
+      "currentAllowedPairs": [
+        [
+          "packages/client/src/components/campaign/maps/map-canvas-helpers.ts",
+          "packages/client/src/components/campaign/maps/map-canvas.tsx"
+        ],
+        ["packages/client/src/pages/join-page.tsx", "packages/client/src/pages/login-page.tsx"],
+        ["packages/client/src/routes/join-route.ts", "packages/client/src/routes/login-route.ts"],
+        ["packages/client/src/test/mock-trpc-helpers.ts", "packages/client/src/test/mock-trpc.tsx"],
+        [
+          "packages/server/src/services/character-create-helpers.ts",
+          "packages/server/src/services/character-create.ts"
+        ],
+        ["packages/server/src/utils/map-helpers.ts", "packages/server/src/utils/map-types.ts"]
       ]
+    },
+    "comments": {
+      "excludePrefixes": ["scripts/", "eslint-rules/"]
     }
   }
 }

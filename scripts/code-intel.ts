@@ -16,6 +16,7 @@ export type {
   CodeIntelQueryResult,
   ExecutableCliCommand,
   IntelResult,
+  OverviewResult,
 } from "./code-intel/types.js";
 
 type DefinitionQueryModule = typeof import("./code-intel/definition-query.js");
@@ -23,6 +24,7 @@ type ExportQueryModule = typeof import("./code-intel/export-query.js");
 type FormatModule = typeof import("./code-intel/format.js");
 type GraphQueriesModule = typeof import("./code-intel/graph-queries.js");
 type ImportGraphModule = typeof import("./code-intel/import-graph.js");
+type OverviewQueryModule = typeof import("./code-intel/overview-query.js");
 type QueryExecutorModule = typeof import("./code-intel/query-executor.js");
 type RunnerModule = typeof import("./code-intel/runner.js");
 type WorkspaceResolverModule = typeof import("./code-intel/workspace-resolver.js");
@@ -35,6 +37,7 @@ type CodeIntelApiModules = {
   format: FormatModule;
   graphQueries: GraphQueriesModule;
   importGraph: ImportGraphModule;
+  overviewQuery: OverviewQueryModule;
   queryExecutor: QueryExecutorModule;
   runner: RunnerModule;
   workspaceResolver: WorkspaceResolverModule;
@@ -56,6 +59,9 @@ export const queryDefinitionsByName: DefinitionQueryModule["queryDefinitionsByNa
 
 export const queryExports: ExportQueryModule["queryExports"] = (...args) =>
   requireCodeIntelApiModules().exportQuery.queryExports(...args);
+
+export const queryOverview: OverviewQueryModule["queryOverview"] = (...args) =>
+  requireCodeIntelApiModules().overviewQuery.queryOverview(...args);
 
 export const queryDependents: GraphQueriesModule["queryDependents"] = (...args) =>
   requireCodeIntelApiModules().graphQueries.queryDependents(...args);
@@ -90,6 +96,7 @@ async function loadCodeIntelApiModules(): Promise<CodeIntelApiModules> {
     format,
     graphQueries,
     importGraph,
+    overviewQuery,
     queryExecutor,
     runner,
     workspaceResolver,
@@ -99,6 +106,7 @@ async function loadCodeIntelApiModules(): Promise<CodeIntelApiModules> {
     import("./code-intel/format.js"),
     import("./code-intel/graph-queries.js"),
     import("./code-intel/import-graph.js"),
+    import("./code-intel/overview-query.js"),
     import("./code-intel/query-executor.js"),
     import("./code-intel/runner.js"),
     import("./code-intel/workspace-resolver.js"),
@@ -109,6 +117,7 @@ async function loadCodeIntelApiModules(): Promise<CodeIntelApiModules> {
     format,
     graphQueries,
     importGraph,
+    overviewQuery,
     queryExecutor,
     runner,
     workspaceResolver,

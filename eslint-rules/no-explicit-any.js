@@ -18,7 +18,7 @@ export default {
     },
     messages: {
       noAny:
-        "Avoid `any` by default. Prefer `unknown` plus narrowing, an existing shared type, or a small local type for key concepts. If adding a type would be clutter rather than clarity, keep the `any` and suppress this exact line with `// eslint-disable-next-line local/no-explicit-any -- <why this boundary is intentionally untyped>`.",
+        "Why: `any` removes type checking from the value it touches. How to fix: Prefer `unknown` plus narrowing, an existing shared type, or a small local type for key concepts. If adding a type would be clutter rather than clarity, keep the `any` and suppress this exact line with `// eslint-disable-next-line local/no-explicit-any -- <why this boundary is intentionally untyped>`.",
     },
     schema: [],
   },

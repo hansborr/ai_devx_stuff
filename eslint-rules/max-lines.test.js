@@ -35,18 +35,14 @@ describe("max-lines", () => {
           errors: [{ messageId: "exceed", line: 3 }],
         },
         {
-          code: [
-            "const a = 1;",
-            "",
-            "const b = 2;",
-            "// comment-only line",
-            "const c = 3;",
-          ].join("\n"),
+          code: ["const a = 1;", "", "const b = 2;", "// comment-only line", "const c = 3;"].join(
+            "\n",
+          ),
           options: [{ max: 2, skipBlankLines: true, skipComments: true }],
           errors: [
             {
               message:
-                "File has 3 effective lines; limit is 2. Prefer splitting the module into focused components, helpers, or types so it stays under the default limit. If this file should stay larger for now, do not use eslint-disable. Add or adjust a targeted eslint.config.js override for this exact file with `local/max-lines` set to `warn`, choose a modest max just above the current count, and keep a comment above the block explaining why the larger file is acceptable.",
+                "Why: This file has 3 effective lines, above the 2 line limit, which makes future edits harder to localize. How to fix: Prefer splitting the module into focused components, helpers, or types. If it should stay larger for now, do not use eslint-disable; add or adjust a targeted eslint.config.js override for this exact file with `local/max-lines` set to `warn`, choose a modest max just above the current count, and keep the existing comment pattern explaining the exception.",
             },
           ],
         },

@@ -14,7 +14,7 @@ import path from "node:path";
 
 import type { ChangedFile, DriftFinding } from "../drift-ai.js";
 
-import { matchesAnyGlob } from "./config.js";
+import { matchesAnyGlob, type GhostFileAllowedPair } from "./config.js";
 import type { DetectorScope } from "./scope.js";
 
 const SOURCE_LIKE_EXTS = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"]);
@@ -272,6 +272,7 @@ export type RunGhostFilesCheckOptions = {
   readonly detectorScope: DetectorScope;
   readonly sourceExtensions?: ReadonlySet<string>;
   readonly excludeGlobs?: readonly string[];
+  readonly currentAllowedPairs?: readonly GhostFileAllowedPair[];
   readonly listDirectory?: DirectoryListing;
   readonly inventoryByDir?: ReadonlyMap<string, readonly string[]>;
 };
@@ -280,7 +281,12 @@ export function runGhostFilesCheck(options: RunGhostFilesCheckOptions): DriftFin
   const excludeGlobs = options.excludeGlobs ?? [];
   const sourceExtensions = options.sourceExtensions ?? SOURCE_LIKE_EXTS;
   if (options.detectorScope.scopeMode === "current") {
-    return runCurrentGhostFilesCheck(options.inventoryByDir, excludeGlobs, sourceExtensions);
+    return runCurrentGhostFilesCheck(
+      options.inventoryByDir,
+      excludeGlobs,
+      sourceExtensions,
+      options.currentAllowedPairs ?? [],
+    );
   }
   if (options.listDirectory === undefined) {
     throw new Error("runGhostFilesCheck requires listDirectory for changed scope.");
@@ -340,10 +346,12 @@ function runCurrentGhostFilesCheck(
   inventoryByDir: ReadonlyMap<string, readonly string[]> | undefined,
   excludeGlobs: readonly string[],
   sourceExtensions: ReadonlySet<string>,
+  allowedPairs: readonly GhostFileAllowedPair[],
 ): DriftFinding[] {
   if (inventoryByDir === undefined) {
     throw new Error("runGhostFilesCheck requires inventoryByDir for current scope.");
   }
+  const allowedPairKeys = currentAllowedPairKeys(allowedPairs);
   const findings: DriftFinding[] = [];
   for (const directory of currentInventoryDirectories(
     inventoryByDir,
@@ -351,10 +359,21 @@ function runCurrentGhostFilesCheck(
     sourceExtensions,
   )) {
     findings.push(
-      ...runCurrentDirectoryCheck(directory.path, directory.siblings, sourceExtensions),
+      ...runCurrentDirectoryCheck(
+        directory.path,
+        directory.siblings,
+        sourceExtensions,
+        allowedPairKeys,
+      ),
     );
   }
   return sortFindings(findings);
+}
+
+function currentAllowedPairKeys(allowedPairs: readonly GhostFileAllowedPair[]): Set<string> {
+  return new Set(
+    allowedPairs.map((pair) => pairKey(toPosix(pair.files[0]), toPosix(pair.files[1]))),
+  );
 }
 
 type CurrentDirectoryInventory = {
@@ -407,17 +426,19 @@ function runCurrentDirectoryCheck(
   directory: string,
   siblings: readonly string[],
   sourceExtensions: ReadonlySet<string>,
+  allowedPairKeys: ReadonlySet<string>,
 ): DriftFinding[] {
   if (siblings.length <= GHOST_FILES_DIRECTORY_PAIR_THRESHOLD) {
-    return runPairwise(siblings, sourceExtensions, new Set<string>());
+    return runPairwise(siblings, sourceExtensions, new Set<string>(), allowedPairKeys);
   }
-  return runBucketedDirectory(directory, siblings, sourceExtensions);
+  return runBucketedDirectory(directory, siblings, sourceExtensions, allowedPairKeys);
 }
 
 function runPairwise(
   siblings: readonly string[],
   sourceExtensions: ReadonlySet<string>,
   emittedPairs: Set<string>,
+  allowedPairKeys: ReadonlySet<string>,
 ): DriftFinding[] {
   const ordered = uniqSorted(siblings);
   const findings: DriftFinding[] = [];
@@ -429,6 +450,7 @@ function runPairwise(
         ordered[rightIndex] ?? "",
         sourceExtensions,
         emittedPairs,
+        allowedPairKeys,
       );
     }
   }
@@ -441,9 +463,11 @@ function addCurrentPairFinding(
   right: string,
   sourceExtensions: ReadonlySet<string>,
   emittedPairs: Set<string>,
+  allowedPairKeys: ReadonlySet<string>,
 ): void {
   if (left.length === 0 || right.length === 0) return;
   const key = pairKey(left, right);
+  if (allowedPairKeys.has(key)) return;
   if (emittedPairs.has(key)) return;
   const match = tryFindGhostMatchEitherDirection(left, right, sourceExtensions);
   if (match === undefined) return;
@@ -482,13 +506,14 @@ function runBucketedDirectory(
   directory: string,
   siblings: readonly string[],
   sourceExtensions: ReadonlySet<string>,
+  allowedPairKeys: ReadonlySet<string>,
 ): DriftFinding[] {
   const findings: DriftFinding[] = [];
   const emittedPairs = new Set<string>();
   const oversized: OversizedBucket[] = [];
   for (const bucket of tokenBuckets(siblings)) {
     if (bucket.files.length <= GHOST_FILES_BUCKET_CAP) {
-      findings.push(...runPairwise(bucket.files, sourceExtensions, emittedPairs));
+      findings.push(...runPairwise(bucket.files, sourceExtensions, emittedPairs, allowedPairKeys));
     } else {
       oversized.push({ key: bucket.key, size: bucket.files.length });
     }

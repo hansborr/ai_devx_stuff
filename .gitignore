@@ -39,13 +39,13 @@ Thumbs.db
 !.claude/hooks/
 !.claude/skills/
 .claude/skills/*
-!.claude/skills/code-intel/
+!.claude/skills/ts-graph/
 
 # Codex — track shared skills opted in below; keep personal repo-local skills
 # out of git.
 .codex/skills/*
-!.codex/skills/code-intel/
-!.codex/skills/code-intel/**
+!.codex/skills/ts-graph/
+!.codex/skills/ts-graph/**
 
 # SRD reference repos (local only, not committed)
 docs/refs/

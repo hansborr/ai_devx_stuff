@@ -1,5 +1,6 @@
 // @ts-check
 import js from "@eslint/js";
+import { defineConfig } from "eslint/config";
 import tseslint from "typescript-eslint";
 import eslintConfigPrettier from "eslint-config-prettier";
 import reactHooks from "eslint-plugin-react-hooks";
@@ -43,7 +44,7 @@ const localPlugin = {
   },
 };
 
-export default tseslint.config(
+export default defineConfig(
   {
     ignores: [
       "**/dist/",
@@ -194,7 +195,7 @@ export default tseslint.config(
 
       // Forbid the `@musi/shared/schemas` barrel; import from the source
       // file (e.g. `@musi/shared/schemas/spell.js`) so module boundaries stay
-      // visible. See `AGENTS.md` ("No barrel files; import from source").
+      // visible.
       "@typescript-eslint/no-restricted-imports": [
         "error",
         {
@@ -567,7 +568,7 @@ export default tseslint.config(
   // shim in prisma-types.ts and must only be imported by the mutation
   // helpers that act as the single trust boundary for each race-sensitive
   // table. Adding a new importer is a reviewable decision, not a
-  // convenience. See docs/CONCURRENCY.md and CLAUDE.md.
+  // convenience. See docs/CONCURRENCY.md.
   {
     files: ["packages/server/src/**/*.ts"],
     ignores: [
@@ -605,7 +606,9 @@ export default tseslint.config(
   {
     files: ["packages/client/**/*.{ts,tsx}"],
     plugins: {
-      "react-hooks": reactHooks,
+      // eslint-plugin-react-hooks@7's `configs.flat` shape doesn't satisfy
+      // ESLint core's `Plugin` type. Runtime works fine — cast at the boundary.
+      "react-hooks": /** @type {import("eslint").ESLint.Plugin} */ (reactHooks),
     },
     rules: {
       "react-hooks/rules-of-hooks": "error",

@@ -7,6 +7,7 @@ export function usage(topic?: HelpTopic): string {
     "  bun run code:intel -- [--format text|json] def <file>:<line>:<col>",
     "  bun run code:intel -- [--format text|json] def --name <symbol>",
     "  bun run code:intel -- [--format text|json] exports <file>",
+    "  bun run code:intel -- [--format text|json] overview <file>",
     "  bun run code:intel -- [--format text|json] refs <file>:<line>:<col> [--limit <N>]",
     "  bun run code:intel -- [--format text|json] dependents <file> [--depth <N>] [--project <shared|server|client>] [--exclude-tests] [--limit <N>]",
     "  bun run code:intel -- [--format text|json] tests <file> [--depth <N>] [--direct] [--project <shared|server|client>] [--limit <N>]",
@@ -18,6 +19,7 @@ export function usage(topic?: HelpTopic): string {
     "  bun run code:intel -- dependents packages/shared/src/schemas/character.ts --depth 2 --project server --exclude-tests",
     "  bun run code:intel -- tests packages/server/src/services/level-up/level-up.ts --direct",
     "  bun run code:intel -- tests packages/shared/src/schemas/character.ts --depth 2 --project server",
+    "  bun run code:intel -- overview packages/server/src/routers/cast-spell.ts",
     "  bun run code:intel -- exports scripts/code-intel.ts --format json",
     "",
     "Name-only workflow: start with def --name, then use dependents, refs, or tests on the returned file.",
@@ -49,6 +51,9 @@ function subcommandUsage(topic: HelpTopic): string {
       "  bun run code:intel -- exports packages/shared/src/schemas/character.ts",
       "  bun run code:intel -- exports scripts/code-intel.ts --format json",
     ].join("\n");
+  }
+  if (topic === "overview") {
+    return "Usage:\n  bun run code:intel -- [--format text|json] overview <file>";
   }
   if (topic === "dependents") return dependentsUsage();
   if (topic === "refs") return refsUsage();

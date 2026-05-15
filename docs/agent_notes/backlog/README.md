@@ -31,6 +31,13 @@ Do **not** read this folder at session start. Promote an item back into
 - `ai-harness-followups.md` — remaining conditional harness work after the
   broad harness plan landed: 5e rules guide, migration-safety output, JSON
   diagnostics, behavior fixtures, slow drift reports, and scoped review.
+- `ai-harness-external-tooling-ideas.md` — research note from Svelte AI tools
+  and the Effect language service: docs discovery, read-only autofix loops,
+  LLM-oriented overviews, quick-fix previews, doctor fix plans, task prompts,
+  protocol tests, rule metadata, and adapter-synced agent assets.
+- `ai-harness-prioritized-backlog.md` — ordered promotion list merging the
+  transcript review, scheduled harness-review ideas, and external-tooling
+  research into one AI-harness backlog queue.
 - `cache-budget-followups.md` — conditional verification-budget work: typecheck
   optimization only if measurements justify it, per-test slow helpers, async
   e2e design, and future Stop-reporter guardrails.

@@ -35,6 +35,7 @@ import { parseDriftAiConfig } from "./drift-ai/config.js";
 import type { StatRunner } from "./drift-ai/current-inventory.js";
 import type { JscpdRunner } from "./drift-ai/duplicates.js";
 import type { DirectoryListing } from "./drift-ai/ghost-files.js";
+import type { SuppressionsGitRunner } from "./drift-ai/suppressions.js";
 
 function emptyJscpdRunner(): JscpdRunner {
   return () => ({ ok: true, reportJson: '{"duplicates":[]}' });
@@ -82,6 +83,7 @@ function makeRunDriftGit(
     "merge-base main HEAD": `${mergeBase}\n`,
     "rev-parse --show-toplevel": repoRoot,
     [`diff --name-status ${mergeBase}`]: changedOutput,
+    [`diff ${mergeBase}`]: "",
     "ls-files --others --exclude-standard": untrackedOutput,
   });
 }
@@ -170,6 +172,11 @@ describe("parseArgs", () => {
     expect(options.outputPath).toBeUndefined();
     expect(options.chunkDir).toBeUndefined();
     expect(options.chunkSize).toBeUndefined();
+  });
+
+  it("includes suppressions in ALL_CHECKS and accepts --check suppressions", () => {
+    expect(ALL_CHECKS).toContain("suppressions");
+    expect(parseArgs(["--check", "suppressions"]).checks).toEqual(["suppressions"]);
   });
 
   it("accepts --base ref and --base=ref", () => {
@@ -296,7 +303,13 @@ describe("parseDriftAiConfig", () => {
       checks: {
         duplicates: { minLines: 12, excludeGlobs: ["**/*.fixture.ts"] },
         comments: { excludePrefixes: ["scripts/"] },
-        "ghost-files": { excludeGlobs: ["**/*.stories.tsx"] },
+        "ghost-files": {
+          excludeGlobs: ["**/*.stories.tsx"],
+          currentAllowedPairs: [
+            ["./src/foo-helper.ts", "src/foo.ts"],
+            ["src/b.ts", "src/a.ts"],
+          ],
+        },
       },
     });
     expect(config.roots).toEqual(["packages/server/src"]);
@@ -308,6 +321,10 @@ describe("parseDriftAiConfig", () => {
     expect(config.checks.duplicates.minLines).toBe(12);
     expect(config.checks.comments.excludePrefixes).toEqual(["scripts/"]);
     expect(config.checks["ghost-files"].excludeGlobs).toEqual(["**/*.stories.tsx"]);
+    expect(config.checks["ghost-files"].currentAllowedPairs).toEqual([
+      { files: ["src/a.ts", "src/b.ts"] },
+      { files: ["src/foo-helper.ts", "src/foo.ts"] },
+    ]);
   });
 
   it("collapses internal dot segments in config roots", () => {
@@ -323,6 +340,20 @@ describe("parseDriftAiConfig", () => {
     expect(() => parseDriftAiConfig({ roots: ["packages/../../escape"] })).toThrow(
       /must stay inside the repo/u,
     );
+    expect(() =>
+      parseDriftAiConfig({
+        checks: {
+          "ghost-files": { currentAllowedPairs: [["src/foo.ts"]] },
+        },
+      }),
+    ).toThrow(/two-path array/u);
+    expect(() =>
+      parseDriftAiConfig({
+        checks: {
+          "ghost-files": { currentAllowedPairs: [["src/foo.ts", "../outside.ts"]] },
+        },
+      }),
+    ).toThrow(/must stay inside the repo/u);
   });
 });
 
@@ -479,7 +510,7 @@ describe("buildReport / formatText / formatJson", () => {
       listDirectory: emptyDirectoryListing(),
       readFile: emptyFileReader(),
     });
-    expect(report.enabledChecks).toEqual(["duplicates", "ghost-files", "comments"]);
+    expect(report.enabledChecks).toEqual([...ALL_CHECKS]);
     expect(report.skippedChecks).toEqual([]);
     expect(report.findings).toEqual([]);
 
@@ -487,7 +518,7 @@ describe("buildReport / formatText / formatJson", () => {
     expect(text).toContain("drift:ai (report-only) -- scope changed -- base main");
     expect(text).toContain("scope: 1 file(s) considered");
     expect(text).not.toContain("skipped:");
-    expect(text).toContain("OK: no findings from checks: duplicates, ghost-files, comments");
+    expect(text).toContain(`OK: no findings from checks: ${ALL_CHECKS.join(", ")}`);
 
     const json = JSON.parse(formatJson(report)) as Record<string, unknown>;
     expect(json["schemaVersion"]).toBe(1);
@@ -495,10 +526,53 @@ describe("buildReport / formatText / formatJson", () => {
     expect(json["base"]).toBe("main");
     expect(json["roots"]).toEqual([]);
     expect(json["configPath"]).toBeNull();
-    expect(json["enabledChecks"]).toEqual(["duplicates", "ghost-files", "comments"]);
+    expect(json["enabledChecks"]).toEqual([...ALL_CHECKS]);
     expect(json["skippedChecks"]).toEqual([]);
     expect(json["scope"]).toEqual(scope.map(toChangedScopeFile));
     expect(json["findings"]).toEqual([]);
+  });
+
+  it("wires suppressions through buildReport", () => {
+    const options = parseArgs(["--check", "suppressions"]);
+    const scope: ChangedFile[] = [{ path: "packages/server/src/foo.ts", status: "modified" }];
+    const detectorScope = changedDetectorScope(scope);
+    const suppressionsGit: SuppressionsGitRunner = () =>
+      [
+        "diff --git a/packages/server/src/foo.ts b/packages/server/src/foo.ts",
+        "index 1111111..2222222 100644",
+        "--- a/packages/server/src/foo.ts",
+        "+++ b/packages/server/src/foo.ts",
+        "@@ -4,1 +4,1 @@",
+        "+// @ts-ignore -- legacy fixture",
+      ].join("\n");
+
+    const report = buildReport(options, "main", detectorScope, {
+      detectorScope,
+      jscpd: emptyJscpdRunner(),
+      listDirectory: emptyDirectoryListing(),
+      readFile: emptyFileReader(),
+      suppressionsGit,
+      repoRoot: "/repo/musi",
+      suppressionDiffRef: "merge-base",
+    });
+
+    expect(report.enabledChecks).toEqual(["suppressions"]);
+    expect(report.skippedChecks).toEqual([]);
+    expect(report.findings).toEqual([
+      {
+        check: "suppressions",
+        file: "packages/server/src/foo.ts",
+        message: "new @ts-ignore suppression at line 4 targets next-line (reason: present)",
+        hint: expect.stringContaining("prefer `@ts-expect-error`"),
+        details: {
+          kind: "@ts-ignore",
+          target: "next-line",
+          line: 4,
+          reasonPresent: true,
+          text: "// @ts-ignore -- legacy fixture",
+        },
+      },
+    ]);
   });
 
   it("falls back to no-op runners when no context is supplied", () => {
@@ -569,6 +643,9 @@ describe("runDriftAi", () => {
       expect(result.stdout).toContain("Usage:");
       expect(result.stdout).toContain("bun run drift:ai --base <ref>");
       expect(result.stdout).toContain("bun run drift:ai --scope <changed|current>");
+      expect(result.stdout).toContain(
+        "bun run drift:ai --check <duplicates|ghost-files|comments|suppressions|all>",
+      );
       expect(result.stdout).toContain("bun run drift:ai --root <path>");
     });
   }
@@ -585,9 +662,7 @@ describe("runDriftAi", () => {
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain("drift:ai (report-only) -- scope changed -- base main");
     expect(result.stdout).toContain("scope: 1 file(s) considered");
-    expect(result.stdout).toContain(
-      "OK: no findings from checks: duplicates, ghost-files, comments",
-    );
+    expect(result.stdout).toContain(`OK: no findings from checks: ${ALL_CHECKS.join(", ")}`);
     expect(result.report?.scope).toEqual([
       { scope: "changed", path: "packages/server/src/foo.ts", status: "added" },
     ]);
@@ -763,6 +838,43 @@ describe("runDriftAi", () => {
         relatedFiles: ["src/foo/bar-helper.ts", "src/foo/bar.ts"],
       },
     ]);
+  });
+
+  it("honors currentAllowedPairs from config for current ghost-files only", () => {
+    const repoRoot = makeTempDir();
+    writeFileSync(
+      path.join(repoRoot, "drift-ai.config.json"),
+      JSON.stringify({
+        checks: {
+          "ghost-files": {
+            currentAllowedPairs: [["src/foo/bar-helper.ts", "src/foo/bar.ts"]],
+          },
+        },
+      }),
+    );
+    const files = [
+      "src/foo/bar.ts",
+      "src/foo/bar-helper.ts",
+      "src/foo/baz.ts",
+      "src/foo/baz-helper.ts",
+    ];
+    const result = runDriftAi({
+      argv: ["--scope", "current", "--check", "ghost-files"],
+      git: makeCurrentGit(repoRoot),
+      gitBuffer: () => nulDelimited(files),
+      stat: statForCurrentFiles(repoRoot, files),
+      listDirectory: () => {
+        throw new Error("current ghost-files must not use listDirectory");
+      },
+    });
+    expect(result.exitCode).toBe(0);
+    expect(result.report?.findings).toHaveLength(1);
+    expect(result.report?.findings[0]?.relatedFiles).toEqual([
+      "src/foo/baz-helper.ts",
+      "src/foo/baz.ts",
+    ]);
+    expect(result.stdout).not.toContain("src/foo/bar-helper.ts");
+    expect(result.stdout).toContain("WARN ghost-files: src/foo/baz-helper.ts");
   });
 
   it("does not reapply shared ignore globs for current ghost-files", () => {
@@ -962,6 +1074,8 @@ describe("runDriftAi", () => {
             "M\tpackages/server/src/feature.ts",
             "M\tpackages/shared/src/worktree-edit.ts",
           ].join("\n");
+        case "diff branch-point-sha":
+          return "";
         case "ls-files --others --exclude-standard":
           return "packages/client/src/untracked.tsx\n";
         case "rev-parse --show-toplevel":

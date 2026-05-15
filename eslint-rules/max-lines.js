@@ -58,9 +58,8 @@ function readOptions(option) {
     return { max: option, skipBlankLines: false, skipComments: false };
   }
   if (option && typeof option === "object") {
-    const values = /** @type {{ max?: unknown; skipBlankLines?: unknown; skipComments?: unknown }} */ (
-      option
-    );
+    const values =
+      /** @type {{ max?: unknown; skipBlankLines?: unknown; skipComments?: unknown }} */ (option);
     return {
       max: typeof values.max === "number" ? values.max : DEFAULT_MAX_LINES,
       skipBlankLines: values.skipBlankLines === true,
@@ -107,7 +106,7 @@ export default {
     },
     messages: {
       exceed:
-        "File has {{actual}} effective lines; limit is {{max}}. Prefer splitting the module into focused components, helpers, or types so it stays under the default limit. If this file should stay larger for now, do not use eslint-disable. Add or adjust a targeted eslint.config.js override for this exact file with `local/max-lines` set to `warn`, choose a modest max just above the current count, and keep a comment above the block explaining why the larger file is acceptable.",
+        "Why: This file has {{actual}} effective lines, above the {{max}} line limit, which makes future edits harder to localize. How to fix: Prefer splitting the module into focused components, helpers, or types. If it should stay larger for now, do not use eslint-disable; add or adjust a targeted eslint.config.js override for this exact file with `local/max-lines` set to `warn`, choose a modest max just above the current count, and keep the existing comment pattern explaining the exception.",
     },
     schema: [
       {

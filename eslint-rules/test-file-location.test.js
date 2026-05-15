@@ -43,11 +43,17 @@ describe("test-file-location", () => {
         },
       ],
       invalid: [
+        // .test.ts with no feature prefix — must point to colocated naming guidance.
+        {
+          filename: "packages/server/src/.test.ts",
+          code: "it('works', () => {});",
+          errors: [{ message: /Rename to `<feature>\.test\.ts`/u }],
+        },
         // .test.ts with only setup/teardown hooks — must flag missingTests.
         {
           filename: "packages/server/src/setup.test.ts",
           code: "beforeEach(() => {}); afterEach(() => {});",
-          errors: [{ messageId: "missingTests" }],
+          errors: [{ message: /helpers belong outside the `\.test\.` naming/u }],
         },
         // .test.ts with no test blocks at all.
         {
