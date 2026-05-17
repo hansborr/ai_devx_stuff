@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 
 const DEFAULT_TEST_DATABASE_NAME = "musi_test";
-const WORKER_ID_PATTERN = /^[1-9][0-9]*$/;
+const WORKER_ID_PATTERN = /^[1-9]\d*$/;
 const REGISTRY_HASH_LENGTH = 16;
 const WORKER_KEY_PATTERN = /^[a-z0-9]{1,2}$/;
 

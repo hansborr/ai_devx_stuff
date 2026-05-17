@@ -40,7 +40,7 @@ describe("strict-trpc-input", () => {
         // Bare z.object.
         {
           code: "p.input(z.object({ id: z.string() }))",
-          errors: [{ messageId: "needsStrict" }],
+          errors: [{ message: /docs\/guides\/add-trpc-procedure\.md/u }],
         },
         // Chained but no mode call.
         {

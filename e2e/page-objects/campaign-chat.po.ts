@@ -3,7 +3,7 @@ import { expect, type Page } from "@playwright/test";
 import { TIMEOUT_LONG, TIMEOUT_MEDIUM, TIMEOUT_SHORT } from "../helpers/timeouts.js";
 
 export class CampaignChatPO {
-  constructor(private page: Page) {}
+  constructor(private readonly page: Page) {}
 
   // ── Locators ───────────────────────────────────────────────────────
   readonly chatMessages = this.page.locator('[data-testid="chat-messages"]');

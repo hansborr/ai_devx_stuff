@@ -151,7 +151,7 @@ export class DaemonRequestTimeoutError extends Error {
   }
 }
 
-export const defaultDaemonTransport: DaemonTransport = (socketPath, payload, timeoutMs) =>
+export const defaultDaemonTransport: DaemonTransport = async (socketPath, payload, timeoutMs) =>
   new Promise<string>((resolve, reject) => {
     const socket: Socket = createConnection(socketPath);
     const chunks: string[] = [];

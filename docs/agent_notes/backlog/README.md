@@ -53,6 +53,10 @@ Do **not** read this folder at session start. Promote an item back into
   `code:intel` latency justifies a daemon or cache.
 - `mutation-testing-stryker.md` — parked plan for adding StrykerJS mutation
   testing as a manual test-quality audit lane before any score gate.
+- `lint-hardening-cross-repo-review.md` + `lint-hardening/` — parked
+  lint-hardening index and leaf notes from a Rust/Clippy vs Musi ESLint
+  comparison. Promote one leaf at a time; start with zero-warning cleanup,
+  changed-gate content correctness, then Vitest lint evaluation.
 - `agent-hook-git-safety.md` — implemented source plan for the shared
   agent-hook policy blocks on history rewrites, force pushes, force
   branch/tag deletion, dangerous `gh` mutations, and raw `grep` (context

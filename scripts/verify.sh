@@ -4,9 +4,10 @@
 # Mirrors `.husky/pre-commit` but runs steps sequentially so an AI session
 # can read each step's output one at a time. Reuses pre-commit's lock and
 # log directory so manual runs queue cleanly behind any in-flight commit.
-# Manual verify markers watch the full worktree state. Pre-commit uses its own
-# staged/relevant-input marker first, then may bridge from a fresh matching
-# manual marker when the worktree fingerprint proves the same state was checked.
+# Full manual verify markers watch the full worktree state. Changed manual
+# verify markers watch staged content after the source-relevant preflight.
+# Pre-commit uses its own staged/relevant-input marker first, then may bridge
+# from a fresh matching manual marker.
 #
 # Usage:
 #   bash scripts/verify.sh            # full lint, typecheck, test
@@ -68,13 +69,19 @@ if [ "$MODE" = changed ]; then
   LINT_CMD=(bun run lint:changed)
   TEST_CMD=(bun run test:changed --reporter=dot --reporter=json --outputFile.json="$TIMINGS_FILE")
   SCRIPTS_CMD=(bun run test:scripts:changed)
+  META_MODE=serial-verify-changed
 else
   MARKER="${MUSI_VERIFY_MARKER_FULL:-/tmp/musi-verify-last}"
   LINT_CMD=(bun run lint)
   TEST_CMD=(bun run test --reporter=dot --reporter=json --outputFile.json="$TIMINGS_FILE")
   SCRIPTS_CMD=(bun run test:scripts)
+  META_MODE=serial-verify
 fi
 TYPECHECK_CMD=(bun run typecheck)
+
+if [ "$MODE" = changed ]; then
+  musi_changed_gate_fail_if_unstaged "$REPO_ROOT" "$LABEL" || exit 1
+fi
 
 # --- 1. Single-writer lock -------------------------------------------------
 # Blocking flock: a manual run is fine to queue behind an in-flight pre-commit
@@ -118,10 +125,15 @@ fi
 
 # --- 2. Last-verified short-circuit ----------------------------------------
 # Same key format as pre-commit's marker (LAST_TS / LAST_HEAD / LAST_HASH);
-# different file because manual verify keys on the worktree fingerprint.
+# full verify keys on the worktree fingerprint, changed verify keys on the
+# staged fingerprint.
 # Parsed line-by-line by verify-metadata.sh — never eval /tmp files.
 CUR_HEAD=$(git rev-parse HEAD 2>/dev/null || echo none)
-CUR_HASH=$(ai_worktree_fingerprint "$REPO_ROOT")
+if [ "$MODE" = changed ]; then
+  CUR_HASH=$(ai_staged_fingerprint "$REPO_ROOT")
+else
+  CUR_HASH=$(ai_worktree_fingerprint "$REPO_ROOT")
+fi
 
 if [ -f "$MARKER" ] \
    && [ "${FORCE_VERIFY:-}" != "1" ] \
@@ -174,10 +186,10 @@ write_signal_wrapper_meta() {
   local exit_code="$1" end_ts end_time
   end_ts=$(date +%s)
   end_time=$(date -Iseconds)
-  musi_write_wrapper_meta "$META_DIR/wrapper.json" serial-verify \
+  musi_write_wrapper_meta "$META_DIR/wrapper.json" "$META_MODE" \
     "${START_TS:-$end_ts}" "${START_TIME:-$end_time}" "$end_ts" "$end_time" "$exit_code" "$WRAPPER_COMMAND" \
     "$CUR_HEAD" "$CUR_HASH"
-  musi_combine_run_meta "$LOG_DIR" serial-verify "$META_DIR/wrapper.json"
+  musi_combine_run_meta "$LOG_DIR" "$META_MODE" "$META_DIR/wrapper.json"
 }
 trap 'cleanup_children; write_signal_wrapper_meta 130; exit 130' INT
 trap 'cleanup_children; write_signal_wrapper_meta 124; report_timeout_budget; exit 124' TERM
@@ -214,7 +226,7 @@ run_step() {
     CURRENT_PID=""
     step_end=$(date +%s)
     step_end_time=$(date -Iseconds)
-    musi_write_step_meta "$META_DIR/${name}.json" "$name" serial-verify \
+    musi_write_step_meta "$META_DIR/${name}.json" "$name" "$META_MODE" \
       "$step_start" "$step_start_time" "$step_end" "$step_end_time" "$exit_code" "$command"
     passed="$passed $name"
     return 0
@@ -223,7 +235,7 @@ run_step() {
   CURRENT_PID=""
   step_end=$(date +%s)
   step_end_time=$(date -Iseconds)
-  musi_write_step_meta "$META_DIR/${name}.json" "$name" serial-verify \
+  musi_write_step_meta "$META_DIR/${name}.json" "$name" "$META_MODE" \
     "$step_start" "$step_start_time" "$step_end" "$step_end_time" "$exit_code" "$command"
   failed="$failed $name"
   return 1
@@ -243,10 +255,10 @@ END_TS=$(date +%s)
 END_TIME=$(date -Iseconds)
 
 if [ -n "$failed" ]; then
-  musi_write_wrapper_meta "$META_DIR/wrapper.json" serial-verify \
+  musi_write_wrapper_meta "$META_DIR/wrapper.json" "$META_MODE" \
     "$START_TS" "$START_TIME" "$END_TS" "$END_TIME" 1 "$WRAPPER_COMMAND" \
     "$CUR_HEAD" "$CUR_HASH"
-  musi_combine_run_meta "$LOG_DIR" serial-verify "$META_DIR/wrapper.json"
+  musi_combine_run_meta "$LOG_DIR" "$META_MODE" "$META_DIR/wrapper.json"
   printf '\n=== %s FAILED (%ds) ===\n' "$LABEL" "$ELAPSED"
   printf 'Passed:%s\n' "$passed"
   printf 'Failed:%s\n' "$failed"
@@ -260,10 +272,10 @@ if [ -n "$failed" ]; then
   exit 1
 fi
 
-musi_write_wrapper_meta "$META_DIR/wrapper.json" serial-verify \
+musi_write_wrapper_meta "$META_DIR/wrapper.json" "$META_MODE" \
   "$START_TS" "$START_TIME" "$END_TS" "$END_TIME" 0 "$WRAPPER_COMMAND" \
   "$CUR_HEAD" "$CUR_HASH"
-musi_combine_run_meta "$LOG_DIR" serial-verify "$META_DIR/wrapper.json"
+musi_combine_run_meta "$LOG_DIR" "$META_MODE" "$META_DIR/wrapper.json"
 
 # --- 5. Success marker (same format as pre-commit's) -----------------------
 if ! musi_write_success_marker "$MARKER" "$CUR_HEAD" "$CUR_HASH"; then

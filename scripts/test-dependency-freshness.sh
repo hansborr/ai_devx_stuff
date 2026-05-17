@@ -121,6 +121,10 @@ cp "$SCRIPT_DIR/../.husky/pre-commit" "$hook_repo/.husky/pre-commit"
 (
   cd "$hook_repo"
   git init -q
+  git config user.name "Test User"
+  git config user.email "test@example.invalid"
+  git add .husky scripts
+  git commit -q -m init
   printf 'lock\n' > bun.lock
   touch -t 202604260102 node_modules/.bin
   touch -t 202604260103 bun.lock
@@ -204,6 +208,10 @@ chmod +x "$gate_repo/bin/bun"
 (
   cd "$gate_repo"
   git init -q
+  git config user.name "Test User"
+  git config user.email "test@example.invalid"
+  git add .husky scripts bin
+  git commit -q -m init
   printf 'rule\n' > eslint-rules/example.js
   git add eslint-rules/example.js
 
@@ -229,6 +237,48 @@ chmod +x "$gate_repo/bin/bun"
     || fail "pre-commit with eslint-rules edit missing OK output: $output"
 )
 ok "pre-commit runs checks for staged eslint-rules changes"
+
+deletion_repo="$TMP_ROOT/deletion-repo"
+mkdir -p "$deletion_repo/scripts/ai-hooks" "$deletion_repo/.husky" "$deletion_repo/node_modules/.bin" "$deletion_repo/bin"
+copy_precommit_fixture "$deletion_repo"
+(
+  cd "$deletion_repo"
+  git init -q
+  git config user.name "Test User"
+  git config user.email "test@example.invalid"
+  git add .husky scripts bin
+  git commit -q -m init
+
+  mkdir -p packages
+  printf 'delete me\n' > packages/delete-me.ts
+  git add packages/delete-me.ts
+  git commit -q -m source
+  git rm -q packages/delete-me.ts
+
+  marker="$deletion_repo/precommit-marker-deletion"
+  log_dir="$deletion_repo/precommit-logs-deletion"
+  stub_log="$deletion_repo/bun-deletion.log"
+  : > "$stub_log"
+
+  output="$(
+    PATH="$deletion_repo/bin:$PATH" \
+    STUB_LOG="$stub_log" \
+    MUSI_PRECOMMIT_MARKER="$marker" \
+    MUSI_VERIFY_LOCK="$deletion_repo/precommit-lock-deletion" \
+    MUSI_VERIFY_LOG_DIR="$log_dir" \
+      sh .husky/pre-commit 2>&1
+  )" || fail "pre-commit should run checks for staged source deletions: $output"
+
+  grep -qF "stub bun run lint:changed" "$stub_log" \
+    || fail "staged source deletion did not run lint"
+  grep -qF "stub bun run typecheck" "$stub_log" \
+    || fail "staged source deletion did not run typecheck"
+  grep -qF "stub bun run test:changed --reporter=dot" "$stub_log" \
+    || fail "staged source deletion did not run test:changed"
+  grep -qF "pre-commit: OK" <<< "$output" \
+    || fail "pre-commit with source deletion missing OK output: $output"
+)
+ok "pre-commit runs checks for staged source deletions"
 
 cache_repo="$TMP_ROOT/cache-repo"
 mkdir -p "$cache_repo/scripts/ai-hooks" "$cache_repo/.husky" "$cache_repo/node_modules/.bin" "$cache_repo/bin"
@@ -273,6 +323,7 @@ chmod +x "$cache_repo/bin/bun"
     || fail "initial pre-commit missing OK output: $output"
 
   printf 'staged\nunstaged\n' > packages/example.ts
+  set +e
   output="$(
     PATH="$cache_repo/bin:$PATH" \
     STUB_LOG="$stub_log" \
@@ -280,23 +331,34 @@ chmod +x "$cache_repo/bin/bun"
     MUSI_VERIFY_LOCK="$cache_repo/precommit-lock-cache" \
     MUSI_VERIFY_LOG_DIR="$log_dir" \
       sh .husky/pre-commit 2>&1
-  )" || fail "pre-commit should rerun after unstaged source changes: $output"
+  )"
+  exit_code=$?
+  set -e
 
+  [ "$exit_code" -ne 0 ] || fail "pre-commit should fail after unstaged source changes"
+  grep -qF "source-relevant unstaged or untracked changes" <<< "$output" \
+    || fail "pre-commit unstaged source diagnostic missing reason: $output"
+  grep -qF "packages/example.ts" <<< "$output" \
+    || fail "pre-commit unstaged source diagnostic missing file: $output"
+  grep -qF "stage" <<< "$output" \
+    || fail "pre-commit unstaged source diagnostic should mention staging: $output"
+  grep -qF "stash" <<< "$output" \
+    || fail "pre-commit unstaged source diagnostic should mention stashing: $output"
   lint_runs=$(grep -cF "stub bun run lint:changed" "$stub_log")
-  [ "$lint_runs" -eq 2 ] || fail "pre-commit marker ignored unstaged source change; lint runs=$lint_runs"
+  [ "$lint_runs" -eq 1 ] || fail "pre-commit should fail before rerunning lint after unstaged source change; lint runs=$lint_runs"
   if grep -qF "already verified" <<< "$output"; then
     fail "pre-commit should not short-circuit after unstaged source change: $output"
   fi
 )
-ok "pre-commit cache key includes relevant working-tree changes"
+ok "pre-commit fails fast on unstaged source changes before cache reuse"
 
 bridge_changed_repo="$TMP_ROOT/bridge-changed-repo"
 init_bridge_repo "$bridge_changed_repo"
 (
   cd "$bridge_changed_repo"
   printf 'tracked edit\n' > packages/example.ts
-  worktree_hash="$(ai_worktree_fingerprint "$PWD")"
   git add packages/example.ts
+  staged_hash="$(ai_staged_fingerprint "$PWD")"
 
   precommit_marker="$TMP_ROOT/bridge-changed-precommit-marker"
   changed_marker="$TMP_ROOT/bridge-changed-verify-marker"
@@ -307,7 +369,7 @@ init_bridge_repo "$bridge_changed_repo"
   printf 'verify run meta\n' > "$log_dir/run-meta.json"
   printf 'verify wrapper\n' > "$log_dir/meta/wrapper.json"
   : > "$stub_log"
-  musi_write_success_marker "$changed_marker" "$(git rev-parse HEAD)" "$worktree_hash" \
+  musi_write_success_marker "$changed_marker" "$(git rev-parse HEAD)" "$staged_hash" \
     || fail "test setup failed to write changed verify marker"
 
   output="$(
@@ -346,45 +408,47 @@ init_bridge_repo "$bridge_changed_repo"
     fail "second pre-commit should not re-use the bridge path: $output"
   fi
 )
-ok "pre-commit bridges from verify:changed and writes native marker"
+ok "pre-commit bridges from staged verify:changed marker and writes native marker"
 
-bridge_new_file_repo="$TMP_ROOT/bridge-new-file-repo"
-init_bridge_repo "$bridge_new_file_repo"
+bridge_changed_stale_repo="$TMP_ROOT/bridge-changed-stale-repo"
+init_bridge_repo "$bridge_changed_stale_repo"
 (
-  cd "$bridge_new_file_repo"
-  printf 'new source\n' > packages/new-file.ts
-  worktree_hash="$(ai_worktree_fingerprint "$PWD")"
-  git add packages/new-file.ts
+  cd "$bridge_changed_stale_repo"
+  printf 'first staged edit\n' > packages/example.ts
+  git add packages/example.ts
+  staged_hash="$(ai_staged_fingerprint "$PWD")"
+  printf 'second staged file\n' > packages/second.ts
+  git add packages/second.ts
 
-  precommit_marker="$TMP_ROOT/bridge-new-file-precommit-marker"
-  changed_marker="$TMP_ROOT/bridge-new-file-verify-marker"
-  full_marker="$TMP_ROOT/bridge-new-file-full-marker"
-  log_dir="$TMP_ROOT/bridge-new-file-logs"
-  stub_log="$TMP_ROOT/bridge-new-file-bun.log"
+  precommit_marker="$TMP_ROOT/bridge-changed-stale-precommit-marker"
+  changed_marker="$TMP_ROOT/bridge-changed-stale-verify-marker"
+  full_marker="$TMP_ROOT/bridge-changed-stale-full-marker"
+  log_dir="$TMP_ROOT/bridge-changed-stale-logs"
+  stub_log="$TMP_ROOT/bridge-changed-stale-bun.log"
   : > "$stub_log"
-  musi_write_success_marker "$changed_marker" "$(git rev-parse HEAD)" "$worktree_hash" \
-    || fail "test setup failed to write new-file verify marker"
+  musi_write_success_marker "$changed_marker" "$(git rev-parse HEAD)" "$staged_hash" \
+    || fail "test setup failed to write stale staged verify marker"
 
   output="$(
-    PATH="$bridge_new_file_repo/bin:$PATH" \
+    PATH="$bridge_changed_stale_repo/bin:$PATH" \
     STUB_LOG="$stub_log" \
     MUSI_PRECOMMIT_MARKER="$precommit_marker" \
     MUSI_VERIFY_MARKER_CHANGED="$changed_marker" \
     MUSI_VERIFY_MARKER_FULL="$full_marker" \
-    MUSI_VERIFY_LOCK="$TMP_ROOT/bridge-new-file-lock" \
+    MUSI_VERIFY_LOCK="$TMP_ROOT/bridge-changed-stale-lock" \
     MUSI_VERIFY_LOG_DIR="$log_dir" \
       sh .husky/pre-commit 2>&1
-  )" || fail "pre-commit should run when untracked file becomes staged: $output"
+  )" || fail "pre-commit should run when staged diff changes after verify:changed: $output"
 
   grep -qF "pre-commit: OK" <<< "$output" \
-    || fail "new-file bridge miss should run checks successfully: $output"
+    || fail "staged-diff bridge miss should run checks successfully: $output"
   grep -qF "stub bun run lint:changed" "$stub_log" \
-    || fail "new-file bridge miss did not run lint"
+    || fail "staged-diff bridge miss did not run lint"
   if grep -qF "passed" <<< "$output"; then
-    fail "new-file bridge miss should not print a bridge skip: $output"
+    fail "staged-diff bridge miss should not print a bridge skip: $output"
   fi
 )
-ok "pre-commit does not bridge when a verified untracked file becomes staged"
+ok "pre-commit does not bridge when staged diff changes after verify:changed"
 
 bridge_full_repo="$TMP_ROOT/bridge-full-repo"
 init_bridge_repo "$bridge_full_repo"
@@ -432,7 +496,7 @@ init_bridge_repo "$bridge_negative_repo"
   cd "$bridge_negative_repo"
   printf 'tracked negative edit\n' > packages/example.ts
   git add packages/example.ts
-  worktree_hash="$(ai_worktree_fingerprint "$PWD")"
+  staged_hash="$(ai_staged_fingerprint "$PWD")"
   head="$(git rev-parse HEAD)"
 
   run_bridge_miss_case() {
@@ -462,13 +526,13 @@ init_bridge_repo "$bridge_negative_repo"
       || fail "$name bridge miss should finish with OK output: $output"
     grep -qF "stub bun run lint:changed" "$stub_log" \
       || fail "$name bridge miss did not run lint"
-    if grep -qF "for this worktree" <<< "$output"; then
+    if grep -qF "for this staged/worktree state" <<< "$output"; then
       fail "$name should not print a bridge skip: $output"
     fi
   }
 
   stale_ts=$(( $(date +%s) - 500 ))
-  write_marker_with_ts "$TMP_ROOT/stale-manual-changed-marker" "$stale_ts" "$head" "$worktree_hash"
+  write_marker_with_ts "$TMP_ROOT/stale-manual-changed-marker" "$stale_ts" "$head" "$staged_hash"
   run_bridge_miss_case stale-manual
 
   {
@@ -480,22 +544,22 @@ init_bridge_repo "$bridge_negative_repo"
   {
     printf 'LAST_TS=%s\n' "$(date +%s)"
     printf 'LAST_HEAD=%s\n' "$head"
-    printf 'LAST_HASH=%s\n' "$worktree_hash"
+    printf 'LAST_HASH=%s\n' "$staged_hash"
     printf 'EXTRA=unexpected\n'
   } > "$TMP_ROOT/unknown-key-changed-marker"
   run_bridge_miss_case unknown-key
 
-  musi_write_success_marker "$TMP_ROOT/wrong-head-changed-marker" "wrong-head" "$worktree_hash" \
+  musi_write_success_marker "$TMP_ROOT/wrong-head-changed-marker" "wrong-head" "$staged_hash" \
     || fail "test setup failed to write wrong-head marker"
   run_bridge_miss_case wrong-head
 
   bad_hash="$(printf '0%.0s' {1..64})"
-  [ "$bad_hash" = "$worktree_hash" ] && bad_hash="$(printf '1%.0s' {1..64})"
+  [ "$bad_hash" = "$staged_hash" ] && bad_hash="$(printf '1%.0s' {1..64})"
   musi_write_success_marker "$TMP_ROOT/hash-mismatch-changed-marker" "$head" "$bad_hash" \
     || fail "test setup failed to write hash-mismatch marker"
   run_bridge_miss_case hash-mismatch
 
-  musi_write_success_marker "$TMP_ROOT/force-verify-changed-marker" "$head" "$worktree_hash" \
+  musi_write_success_marker "$TMP_ROOT/force-verify-changed-marker" "$head" "$staged_hash" \
     || fail "test setup failed to write force marker"
   run_bridge_miss_case force-verify 1
 )
@@ -569,6 +633,42 @@ ok "pre-commit timeout records wrapper metadata"
 )
 ok "pre-commit runs script smoke tests for staged script changes"
 
+script_deletion_repo="$TMP_ROOT/script-deletion-repo"
+mkdir -p "$script_deletion_repo"
+copy_precommit_fixture "$script_deletion_repo"
+(
+  cd "$script_deletion_repo"
+  git init -q
+  git config user.name "Test User"
+  git config user.email "test@example.invalid"
+  git add .husky scripts bin
+  git commit -q -m init
+  printf 'script source\n' > scripts/example.sh
+  git add scripts/example.sh
+  git commit -q -m script
+  git rm -q scripts/example.sh
+
+  marker="$script_deletion_repo/precommit-marker-script-deletion"
+  log_dir="$script_deletion_repo/precommit-logs-script-deletion"
+  stub_log="$script_deletion_repo/bun-script-deletion.log"
+  : > "$stub_log"
+
+  output="$(
+    PATH="$script_deletion_repo/bin:$PATH" \
+    STUB_LOG="$stub_log" \
+    MUSI_PRECOMMIT_MARKER="$marker" \
+    MUSI_VERIFY_LOCK="$script_deletion_repo/precommit-lock-script-deletion" \
+    MUSI_VERIFY_LOG_DIR="$log_dir" \
+      sh .husky/pre-commit 2>&1
+  )" || fail "pre-commit should run script smoke tests for staged script deletions: $output"
+
+  grep -qF "stub bun run test:scripts:changed" "$stub_log" \
+    || fail "staged script deletion did not run test:scripts:changed"
+  grep -qF "pre-commit: OK" <<< "$output" \
+    || fail "pre-commit with script deletion missing OK output: $output"
+)
+ok "pre-commit runs script smoke tests for staged script deletions"
+
 hook_only_repo="$TMP_ROOT/hook-only-repo"
 mkdir -p "$hook_only_repo/scripts/ai-hooks" "$hook_only_repo/.husky" "$hook_only_repo/node_modules/.bin" "$hook_only_repo/bin"
 cp "$SCRIPT_DIR/dependency-freshness.sh" "$hook_only_repo/scripts/dependency-freshness.sh"
@@ -586,6 +686,10 @@ chmod +x "$hook_only_repo/bin/bun"
 (
   cd "$hook_only_repo"
   git init -q
+  git config user.name "Test User"
+  git config user.email "test@example.invalid"
+  git add scripts bin
+  git commit -q -m init
   git add .husky/pre-commit
 
   marker="$hook_only_repo/precommit-marker"

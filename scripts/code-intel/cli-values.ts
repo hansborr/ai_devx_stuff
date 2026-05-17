@@ -2,7 +2,7 @@ import { CodeIntelError } from "./errors.js";
 import type { ProjectFilter, SourceLocation } from "./types.js";
 
 const IDENTIFIER_START_PATTERN = /^[$_\p{ID_Start}]$/u;
-const IDENTIFIER_PART_PATTERN = /^[$_\p{ID_Continue}]$/u;
+const IDENTIFIER_PART_PATTERN = /^[$\p{ID_Continue}]$/u;
 const ZERO_WIDTH_IDENTIFIER_PARTS = new Set(["\u200c", "\u200d"]);
 
 export function parseDepth(value: string): number {
@@ -11,7 +11,7 @@ export function parseDepth(value: string): number {
 }
 
 export function parseLimit(value: string): number {
-  if (!/^(0|[1-9]\d*)$/u.test(value)) {
+  if (!/^(?:0|[1-9]\d*)$/u.test(value)) {
     throw new CodeIntelError("--limit requires a non-negative integer.");
   }
   return Number(value);

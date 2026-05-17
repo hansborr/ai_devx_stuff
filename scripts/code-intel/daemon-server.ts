@@ -22,7 +22,7 @@ import { GraphCache } from "./graph-cache.js";
 import { isRecord } from "./json-utils.js";
 import { ProjectCache } from "./project-cache.js";
 
-export const DAEMON_FALLBACK_ERROR_NAME = "CodeIntelDaemonFallback";
+const DAEMON_FALLBACK_ERROR_NAME = "CodeIntelDaemonFallback";
 const FALLBACK_RESPONSE_ID = "unknown";
 
 export type RunDaemonOptions = {
@@ -44,7 +44,7 @@ export type RunningDaemon = {
 
 const DEFAULT_SIGNAL_EVENTS: NodeJS.Signals[] = ["SIGINT", "SIGTERM"];
 
-export function runDaemon(options: RunDaemonOptions): Promise<RunningDaemon> {
+export async function runDaemon(options: RunDaemonOptions): Promise<RunningDaemon> {
   const pid = options.pid ?? process.pid;
   const paths = options.paths;
   const graphCache = options.graphCache ?? new GraphCache(options.repoRoot);

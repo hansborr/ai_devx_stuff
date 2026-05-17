@@ -13,7 +13,7 @@ import { isRecord } from "./json-utils.js";
 const LIFECYCLE_PROBE_TIMEOUT_MS = 1000;
 const LIFECYCLE_PROBE_ID = "lifecycle-probe";
 
-export type DaemonLifecycleFailureKind = "stale" | "unverified";
+type DaemonLifecycleFailureKind = "stale" | "unverified";
 
 export type DaemonLifecycleProbeResult =
   | { ok: true }

@@ -52,6 +52,19 @@ run_subcommand() {
   fi
 }
 
+run_report_subcommand() {
+  local title="$1" hint="$2"
+  shift 2
+  printf '\n=== %s ===\n' "$title"
+  (cd "$REPO_ROOT" && "$@") 2>&1
+  local rc=$?
+  if [[ $rc -eq 0 ]]; then
+    note_pass "$title completed without reported findings"
+  else
+    note_warn "$title exited $rc (report-only) — $hint"
+  fi
+}
+
 # --- Aggregated existing diagnostics (DX1.1, DX1.2) ---------------------------
 
 run_subcommand "worktree:status" \
@@ -225,12 +238,20 @@ check_port_binding
 check_dependency_freshness
 
 run_subcommand "eslint-disable register" \
-  "add '-- reason' to new eslint-disable directives, or remove the suppression if it is no longer needed" \
+  "add '-- reason', prefer eslint-disable-next-line, or add a targeted broad-disable allowlist entry when the suppression is intentionally scoped" \
   bash "$REPO_ROOT/scripts/eslint-disable-register.sh" "$REPO_ROOT"
+
+run_subcommand "suppression register" \
+  "add '-- reason' to each suppression, migrate @ts-ignore to @ts-expect-error, restrict @ts-nocheck to scripts/drift-ai/suppressions.{ts,test.ts}, or prefer Stryker disable next-line over broad disable" \
+  bash "$REPO_ROOT/scripts/suppression-register.sh" "$REPO_ROOT"
 
 run_subcommand "migration safety" \
   "review the WARN findings above; for an intentional destructive migration, confirm backfill/dependent reads are handled and add an entry to packages/server/prisma/migrations/.safety-acknowledged" \
   bash "$REPO_ROOT/scripts/migration-safety-scan.sh"
+
+run_report_subcommand "knip unused-code sensor" \
+  "review inventory above; run 'bun run sensor:knip' for the raw report" \
+  bun run sensor:knip
 
 printf '\n=== summary ===\n'
 printf 'PASS=%d  WARN=%d  FAIL=%d\n' "$PASS_COUNT" "$WARN_COUNT" "$FAIL_COUNT"

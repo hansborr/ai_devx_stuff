@@ -11,7 +11,7 @@ const POLL_INTERVAL_MS = 50;
 
 export type DaemonSpawner = (repoRoot: string, scriptPath: string) => SpawnedDaemonHandle;
 
-export type SpawnedDaemonHandle = {
+type SpawnedDaemonHandle = {
   pid: number;
 };
 

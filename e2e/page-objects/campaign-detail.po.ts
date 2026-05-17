@@ -12,7 +12,7 @@ export class CampaignDetailPO {
   readonly npcs: CampaignNpcsPO;
   readonly settings: CampaignSettingsPO;
 
-  constructor(private page: Page) {
+  constructor(private readonly page: Page) {
     this.chat = new CampaignChatPO(page);
     this.notes = new CampaignNotesPO(page);
     this.npcs = new CampaignNpcsPO(page);

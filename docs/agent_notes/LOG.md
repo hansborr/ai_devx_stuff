@@ -8,15 +8,616 @@ Newest on top.
 
 ---
 
-## 2026-05-15 — Playwright Harness Reference Restored
+- 2026-05-17: Leaf 7b — knip dead-export sweep. Triaged 161 findings:
+  5 deleted, 41 carved out (intentional surface), 115 dual-use export
+  drops. @commitlint/cli + @commitlint/types declaration fixes.
+- 2026-05-17: Leaf 9 Pass A — promise-function-async adopted at error.
+  3 override blocks (test files, mock-trpc factories, dynamic-import
+  loaders) + 22 code/helper files updated for production/helper fixes.
+  strict-boolean-expressions remains deferred (423 case-by-case, separate pass).
+- 2026-05-17: Leaf 19 Pass 2 — eslint-plugin-import-x adopted at error.
+  Tiered file-glob: strict packageDir for src, root fallback for
+  tests/test-helpers. prettier added to packages/server devDeps to
+  resolve seed-generator findings.
+- 2026-05-16: Leaf 24 — backlog housekeeping; both sort-comparator
+  follow-up sites were already fixed in commit `0652826e`. Doc-only
+  close-out; underlying rule remains unadopted.
+- 2026-05-16: Leaf 15 — Zod parse helpers
+  (`expectParseSuccess` / `expectParseFailure`) added in
+  `packages/shared/src/test/parse-helpers.ts`; 679 current parse-result
+  boolean assertion sites migrated across shared/server/client.
+- 2026-05-16: Leaf 23 — generated lint guidance spike landed for
+  3 local rules; decision (keep/drop/fold) pending after rule diffs.
+- 2026-05-16: Leaf 22 — local-rule message-guidance test extended
+  to cover every eslint-rules/* diagnostic; classified guidance
+  vs policy; convention documented in
+  docs/guides/local-eslint-rules.md.
+- 2026-05-16: Leaf 11 - process.exit() banned outside a 6-file
+  CLI/bootstrap allowlist via no-restricted-syntax; remaining
+  restricted-primitive candidates (raw fetch, env reads, Date.now, timers)
+  deferred to a follow-up slice.
+- 2026-05-16: Leaf 21 Pass 2a - eslint-plugin-regexp recommended adopted;
+  9 mechanical findings cleaned (8 auto-fixed, 1 hand-fixed); 3 rules
+  (no-super-linear-backtracking, no-misleading-capturing-group,
+  no-contradiction-with-assertion) deferred to Pass 2b for parser semantic
+  rewrites.
+- 2026-05-16: Leaf 21 — eslint-plugin-regexp Pass 1 inventory stopped by
+  the >15 finding threshold (35 problems; 24 no-super-linear-backtracking).
+  Temporary install/config was reverted; inventory is in
+  `finished_work/lint-hardening-leaf-21-regexp-inventory.md`.
+- 2026-05-16: Leaf 17 — @eslint/json adopted at error for JSON and
+  JSONC files (4 recommended rules). No fixes needed.
+- 2026-05-16: Leaf 10 — adopted 3 core ESLint AI-footgun rules at
+  error (no-constant-binary-expression, no-param-reassign, radix);
+  deferred no-await-in-loop (164 sites, mostly intentional
+  sequential code).
+- 2026-05-16: Leaf 16 closed out — suppression-register flipped to hard-gate after separator migration; wired into doctor.sh.
+- 2026-05-16: Leaf 20 — commitlint commit-msg hook landed; enforces conventional commits + body ≥ 40 chars.
+- 2026-05-16: Leaf 16 suppression register landed v1 report-only with a
+  pure-shell TypeScript/Stryker scanner, smoke coverage, and baseline inventory
+  in `finished_work/lint-hardening-leaf-16-suppression-register-baseline.md`.
+- 2026-05-16: Leaf 13 eslint-plugin-react partially landed for client TSX:
+  five rules now run at `error`, eight findings were cleaned to 0, and
+  `jsx-no-leaked-render` is deferred in the verdict register.
+- 2026-05-16: Leaf 14 react-hooks broadened coverage partially landed: `recommended-latest` now runs on client TS/TSX with `set-state-in-effect` deferred, and the 5 refs plus 1 static-components findings were cleaned to 0.
+- 2026-05-16: Leaf 9 TypeScript ESLint stricter opt-ins partially landed: `consistent-type-exports`, `prefer-readonly`, and `switch-exhaustiveness-check` now run at `error`; 17 readonly fixes and 2 switch fixes cleaned lint to 0, while `strict-boolean-expressions` and `promise-function-async` are deferred in the verdict register.
+- 2026-05-16: Leaf 6 TanStack Query ESLint plugin landed for client TS/TSX with all seven recommended rules enabled at final severities and the 13-finding baseline cleaned to 0; inventory moved to `finished_work/lint-hardening-leaf-6-tanstack-query-inventory.md`.
 
-Restored the upstream Playwright harness surface that had been treated as an
-accidental divergence in the reference copy: tracked Claude/Codex
-`playwright-cli` skills, `docs/guides/add-e2e-test.md`, Playwright lint wiring,
-`local/e2e-prefer-role-selectors`, the `drift:e2e` locator-usage reporter,
-`playwright.config.ts`, `tsconfig.e2e.json`, and the upstream `e2e/` examples.
-The archived `a11y-tree-playwright-plan.md` now documents the rationale. No
-tests were run in this reference repo by request.
+## 2026-05-16 — Leaf 5 jsx-a11y Adopted
+
+Enabled `eslint-plugin-jsx-a11y` recommended rules for client TSX at `error`.
+TanStack Router `Link` is handled through `anchor-is-valid` `specialLink:
+["to"]` compatibility config while the intended `linkComponents` setting is
+recorded for future plugin support. Source cleanup associated labels, removed
+redundant roles, fixed keyboard support for interactive surfaces, renamed the
+lucide `Link` icon import, and documented the accepted modal/test/primitive
+line suppressions.
+
+Final jsx-a11y finding count is 0. The Pass 1 inventory moved to
+`finished_work/lint-hardening-leaf-5-jsx-a11y-inventory.md`.
+Verification included `bun run lint -- --max-warnings=0`,
+`bun run typecheck`, `bun run test:client`, and
+`bash scripts/eslint-disable-register.sh /workspace`. The requested
+`bun run --filter @musi/client test` command did not match a Bun workspace
+package in this checkout, so `test:client` was used as the equivalent client
+project gate.
+
+- Same-day reviewer fixup replaced the initiative row `role="button"` pattern
+  with native `ul`/`li` rows and an overlay select button, restored
+  focus-before-select for inline initiative editing, kept the notification
+  popover `role="list"` Safari/VoiceOver workaround documented, removed the
+  avoidable `CardTitle` disable, and named the map background URL input.
+
+---
+
+## 2026-05-16 — Leaf 5 jsx-a11y Pass 1 Inventory
+
+- Installed `eslint-plugin-jsx-a11y` at the workspace root and captured the
+  client TSX recommended-rule inventory with a temporary warn-only config.
+  The inventory found 58 jsx-a11y warnings, led by TanStack Router `Link`
+  fit issues, autofocus usage, and unassociated form labels; details are in
+  `finished_work/lint-hardening-leaf-5-jsx-a11y-inventory.md`.
+
+---
+
+## 2026-05-16 — Leaf 8 Drift ESLint Coverage Landed
+
+Enabled ESLint coverage for `scripts/drift/**/*.ts` by re-including the drift
+script directory and sharing the existing `tsconfig.scripts.json` config block
+used by code-intel scripts. Cleaned up the drift locator usage reporter's
+baseline findings with explicit numeric string conversion, a named JSON indent
+constant, and a targeted Node argv offset suppression.
+
+Codemod coverage remains deferred to the recorded Leaf 8 codemod inventory.
+Verification included `bun run lint -- --max-warnings=0`, `bun run typecheck`,
+`bun run test:scripts:changed`, and
+`bash scripts/eslint-disable-register.sh /workspace`.
+
+---
+
+## 2026-05-16 — Leaf 8 Codemod ESLint Inventory Deferred
+
+Attempted the first Leaf 8 slice for `scripts/codemods/**/*.ts` by
+temporarily mirroring the `scripts/code-intel/**/*.ts` ESLint project block
+with `tsconfig.scripts.json` and keeping `scripts/codemods/fixtures/**`
+ignored.
+
+The lint probe hit the slice stop condition: `bun run lint --
+--max-warnings=0` reported 70 findings, mostly complexity, parameter-count,
+and file-size pressure in the codemod implementations plus repeated codemod
+test harness assertion/error-shape findings. No ESLint config or codemod fixes
+landed. Inventory details remain in
+`in_progress/lint-hardening-leaf-8-codemods.md`, with the deferral recorded in
+the Leaf 8 doc and lint-hardening verdict register.
+
+---
+
+## 2026-05-16 — Knip Sensor Adopted Report-Only
+
+Landed lint-hardening Leaf 7 Pass 2. `knip.config.ts` now treats shared
+schemas/rules as the shared contract surface, treats client `components/ui`
+exports as the shadcn-style component surface, marks server compile-only type
+tests and one-off SRD generator scripts as entries, and documents the
+`@prisma/client`, `jscpd`, and `pino-pretty` dependency false positives.
+
+Removed the two confirmed unused devDependencies:
+`@tanstack/react-router-devtools` from the client package and
+`@types/bcryptjs` from the server package. Added `bun run sensor:knip` and
+wired it into `doctor` as report-only; nonzero knip findings are surfaced as a
+doctor `WARN`, not a `FAIL`. The remaining 87 unused exports and 74 unused
+exported types are deferred to Leaf 7b for per-finding triage.
+
+Verification included `bun run lint -- --max-warnings=0`,
+`bun run typecheck`, `bun run verify:changed`, `bun run sensor:knip` (expected
+exit 1 with the deferred inventory), `bun run doctor` (exit 0),
+`bash scripts/eslint-disable-register.sh /workspace`, and
+`bun run drift:ai --scope current` (exit 0 with the existing duplicate-code
+warnings).
+
+---
+
+## 2026-05-16 — Leaf 3 Conditional Expect Review Fix
+
+Closed two vacuous-pass test bugs surfaced by review of the Leaf 3 Vitest
+inventory: the high-bonus combat spell HP test now asserts the spell hit before
+checking damage, and the SRD spell sort test now asserts a multi-item result
+before pairwise order checks.
+
+Updated the Leaf 3 verdict to record that `vitest/no-conditional-expect` had
+mixed signal, not just async/concurrency noise. The backlog index now tracks a
+thin Leaf 3b follow-up for vacuous conditional expectations, and the
+`rate-limit.test.ts` cleanup now uses the lint-hostile double invocation
+framing.
+
+Verification included `bun run lint -- --max-warnings=0`, `bun run typecheck`,
+targeted server Vitest for `encounter-combat-spell.test.ts` and
+`srd-spell.test.ts`, `bun run verify:changed`, and
+`bash scripts/eslint-disable-register.sh /workspace`.
+
+---
+
+## 2026-05-16 — Vitest ESLint First Slice Landed
+
+Landed lint-hardening Leaf 3's first slice. The root ESLint config now loads
+`@vitest/eslint-plugin` only for non-e2e `**/*.test.{ts,tsx}` and
+`**/*.spec.ts`, while Playwright specs stay on the Playwright block.
+
+Inventory adopted a subset: focused/disabled/duplicate/commented-out test
+guards, valid Vitest title/callback/expect rules, standalone/async expect
+guards, wrong-import/mock/snapshot tripwires, `expect-expect` with Musi
+assertion helpers, `valid-expect` with Vitest assertion-message support, and
+zero-baseline matcher rules for comparison/equality/containment. Deferred
+`no-conditional-expect` and two style-only matcher rules to the verdict
+register.
+
+`local/test-file-location` now matches the same non-e2e test scope, including
+non-e2e `.spec.ts` files, and continues to leave Playwright e2e specs to
+Playwright lint rules.
+
+Verification included `bun run lint -- --max-warnings=0`,
+`bun run typecheck`, `bun run lint:changed`, `bun run verify:changed`,
+`bash scripts/eslint-disable-register.sh /workspace`,
+`bash scripts/test-eslint-disable-register.sh`,
+`bun run vitest run --project=eslint-rules`, targeted client/server Vitest
+files touched by cleanup, and `bun run drift:ai --scope current` (exit 0 with
+the two existing duplicate-code warnings outside this leaf).
+
+---
+
+## 2026-05-16 — ESLint Comments Hygiene Landed
+
+Landed lint-hardening Leaf 4. The root ESLint config now loads
+`@eslint-community/eslint-plugin-eslint-comments`, enforces described
+disable/enable directives plus structural suppression hygiene, and enables
+ESLint's built-in `reportUnusedDisableDirectives: "error"`.
+
+Inventory found eight findings, all missing descriptions on existing
+`eslint-enable` comments. Those comments now explain the scoped disable
+boundary. `eslint-comments/no-unused-disable` stayed wired: a stale-disable
+stdin probe produced one built-in unused-disable diagnostic and no plugin
+duplicate.
+
+Verification included `bun run lint -- --max-warnings=0`,
+`bun run typecheck`, `bun run lint:changed`, `bun run verify:changed`,
+`bash scripts/eslint-disable-register.sh /workspace`,
+`bash scripts/test-eslint-disable-register.sh`, and
+`bun run drift:ai --scope current` (exit 0 with two report-only duplicate
+warnings outside this leaf).
+
+---
+
+## 2026-05-16 — Leaf 2 P2 Changed-Gate Fixes
+
+Fixed two follow-ups from the Leaf 2 review. `verify:changed` run metadata now
+uses `serial-verify-changed`, and `ai_stop_verify_status` compares that mode
+against `ai_staged_fingerprint` instead of treating the staged hash as a full
+worktree hash. Full `serial-verify` and `parallel-precommit` metadata keep
+their existing fingerprint semantics.
+
+`test:changed` and `test:scripts:changed` now include deletions in their
+changed-file selectors. Source deletions force the affected Vitest project to
+run without `--changed`; script or hook deletions force the full shell smoke
+suite rather than selecting nothing.
+
+Verification included `bash scripts/test-lint-changed.sh`,
+`bash scripts/test-dependency-freshness.sh`, `bash scripts/test-test-scripts.sh`,
+`bash scripts/ai-hooks/test.sh`, `bash scripts/test-test-changed.sh`,
+`bash scripts/test-verify.sh`, `bun run lint -- --max-warnings=0`, and
+`bun run typecheck`.
+
+---
+
+## 2026-05-16 — Changed Gates Verify Staged Content
+
+Landed lint-hardening Leaf 2. `lint:changed`, `verify:changed`, and
+pre-commit now reject source-relevant unstaged or untracked changes before
+changed verification, so the gates check the staged commit snapshot instead of
+a staged/unstaged working-tree mix. `lint:changed` selects staged/base files,
+keeps the full-lint fallback for lint-affecting config changes, and names the
+scope it is checking in diagnostics.
+
+Pre-commit now includes staged deletions in source-relevant and script-gate
+selection. The manual `verify:changed` marker is keyed to a staged fingerprint,
+and pre-commit can bridge from that marker when the staged fingerprint matches.
+
+Verification included `bash -n scripts/lint-changed.sh`,
+`bash scripts/test-lint-changed.sh`, `bash scripts/test-dependency-freshness.sh`,
+`bash scripts/test-ai-hooks.sh`, `bash scripts/test-test-scripts.sh`,
+`bash scripts/test-verify.sh`, `bun run test:scripts:changed`,
+`bun run verify:changed`, a throwaway `bun run lint:changed` unstaged-source
+failure smoke, and a real `.husky/pre-commit` marker-bridge smoke.
+
+---
+
+## 2026-05-16 — Zero-Warning Lint Gate Landed
+
+Landed lint-hardening Leaf 1. `bun run lint` and `bun run lint:changed` now
+pass `--max-warnings=0`, so warning-severity ESLint findings are deterministic
+gate failures. Cleared the 102-warning baseline by extending the existing SRD
+reference-table `no-magic-numbers` exception to the prepared-spell tables and
+moving the two targeted `local/max-lines` overrides to modest error caps.
+
+Updated `lint-changed` smoke coverage for the new eslint argument contract.
+`bun run lint`, `bun run lint:changed`, `bun run vitest run --project=shared`,
+`bun run typecheck`, and `bun run test:scripts:changed` passed.
+
+---
+
+## 2026-05-16 — Lint Hardening Iteration Guidance Tightened
+
+Clarified the lint-hardening backlog after review feedback without promoting a
+leaf. The index now links the `NEXT.md` fresh-checkout preflight, keeps one
+promoted lint-hardening slice unless a human explicitly authorizes parallel
+work, and names backlog-draining as the failure mode to avoid.
+
+Added sharper guidance for future agents: dependency details for Leaf 1
+consumers, exit criteria for the type-assertion boundary rule, a suppression
+tool responsibility table, a default scripts logging recommendation, sample
+verdict-register row shapes, and Leaf 23/25 sequencing so generated lint
+guidance and metadata do not become parallel systems.
+
+---
+
+## 2026-05-16 — Lint Hardening Review Renumbering
+
+Renumbered the parked lint-hardening leaves so numeric order matches the
+review-adjusted promotion order. The index now treats that order as advisory,
+not a queue, and `NEXT.md` explicitly says idle backlog state does not authorize
+pulling the next numbered leaf without a human request.
+
+Folded in reviewer guardrails: bundled leaves must promote one narrow slice at
+a time, Leaf 2 is independent from Leaf 1, eslint-disable hygiene moved earlier,
+knip moved earlier as an inventory sensor, scripts coverage now depends on the
+zero-warning gate or an explicit `--max-warnings=0` slice, regexp coverage
+depends on scripts coverage for global rollout, type-assertion lint now has a
+required parseable reason syntax, stricter switch lint gets a default-branch
+precheck, noisy React inventories have stop conditions, mocked-DB test policy
+has revisit triggers, and verdict-register rows are required for full adoption
+with caveats as well as reject/defer/subset outcomes.
+
+---
+
+## 2026-05-16 — Lint Hardening Deferred Verdict Path
+
+Made "defer after inventory" an explicit lint-hardening evaluation outcome.
+The index principle now lists four valid responses to rule findings: fix,
+scope-silence, scope/reject, or defer with a recorded inventory and revisit
+trigger. The verdict register's pending-evaluation guidance now covers
+deferred candidates, not only rejected or subset-adopted candidates.
+
+Leaf 10 (built-in AI-footgun rules; was Leaf 14 before the later same-day
+renumbering) now gives `no-await-in-loop` four outcomes after inventory: adopt
+globally, adopt scoped, defer after inventory when findings remain unclear, or
+reject globally. The scoped-adoption examples now point at actual likely
+clusters such as `packages/server/src/socket/`, e2e helpers, seed scripts, and
+transaction helpers instead of an invented rate-limited services path.
+
+---
+
+## 2026-05-16 — Lint Hardening Verdict Register
+
+Added `backlog/lint-hardening/evaluation-verdicts.md` as the centralized
+place to record rejected, deferred, or subset-adopted lint candidates. The
+register was seeded with the 2026-05-11 `eslint-plugin-llm-core` parked-rule
+verdicts so future agents do not have to rediscover those decisions across
+in-progress notes. Updated the lint-hardening index and plugin-evaluation
+leaves to point at the register whenever inventory rejects or narrows a rule.
+
+Also tightened rollout details for early implementation leaves: TanStack Query
+now names the flat-config keys (`flat/recommended`,
+`flat/recommended-strict`), `@eslint/json` now calls out explicit
+`json/json` vs `json/jsonc` language blocks and avoids implying schema
+validation, jsx-a11y now names the correct
+`settings["jsx-a11y"].components` shape, broadened react-hooks now tells
+agents to inspect `reactHooks.configs.flat`, and eslint-comments hygiene is
+documented as independent from the broader suppression register.
+
+---
+
+## 2026-05-16 — Lint Hardening Second-Pass Review Adjustments
+
+Applied second-pass review feedback to the lint-hardening backlog. Split
+the React lint surface into separate jsx-a11y, main `eslint-plugin-react`,
+and broadened `react-hooks` leaves so each can be evaluated and promoted
+independently. Softened cross-repo-review.md principle 4 from "adapt the
+code, not the rule" to "fix real findings; scope or reject rules that
+cannot explain a real bug or smell" — preserves leverage for strong-
+semantic rules while acknowledging that broad-plugin false positives are
+signal about rule fit. Added "Possible Outcomes" blocks to plugin
+evaluation leaves so the
+"adopt/subset/reject" framing survives leaf-by-leaf reading. Corrected
+the TanStack Query leaf's stated rule coverage against the actual
+`@tanstack/eslint-plugin-query` rule set (added `prefer-query-options`,
+noted `no-rest-destructuring` ships at `warn` in recommended). Added an
+explicit deliberate-breadth note to the index so future agents
+understand the backlog is a curated parking lot, not a TODO list to
+drain.
+
+---
+
+## 2026-05-16 — Lint Hardening Backlog Split
+
+Split `backlog/lint-hardening-cross-repo-review.md` into a short start-here
+index plus leaf-sized notes under `backlog/lint-hardening/`. Future agents can
+promote one lint-hardening leaf at a time without reading the full cross-repo
+review; detailed ma-toki/hookrail provenance now lives in
+`backlog/lint-hardening/00-context-and-rollout.md`.
+
+---
+
+## 2026-05-16 — Lint Hardening Backlog Re-Triaged
+
+Refreshed `backlog/lint-hardening-cross-repo-review.md` after direct inspection
+of `/home/node/tmp/ma-toki`. The main adjustment is rollout semantics: ma-toki's
+Clippy `warn` lints still gate because its lint command uses `-D warnings`,
+while Musi's ESLint warnings currently do not. Added a zero-warning lint gate as
+the first candidate leaf, with the 2026-05-16 baseline from
+`bun run lint -- --max-warnings=0`: 102 warnings, concentrated in
+`spellcasting.ts` prepared-spell reference tables plus two targeted
+`local/max-lines` pressure warnings.
+
+---
+
+## 2026-05-15 — code:intel tRPC Router Overview
+
+Added `bun run code:intel -- overview <router-file>` with text and JSON output
+for exported tRPC router procedures. The report includes procedure kind, auth
+helper, input/output schema references or inline markers, imported service
+calls, deterministic broadcast helper/socket emit detection, and up to five
+direct candidate tests from the existing `tests --direct` graph path.
+`packages/server/src/routers/cast-spell.ts` smoke output reports `cast` and
+`dropConcentration` with their spell-casting service calls and
+`emitCharacterUpdate` broadcasts. `bun test scripts/code-intel/`, `bun run
+typecheck`, and `bun run verify:changed` passed.
+
+Follow-up review fixed two overview edge cases: aggregator/spread-only routers
+now return a clean "no direct tRPC procedures" error instead of `0
+procedure(s)`, and resolver summaries include imported service/broadcast calls
+made through locally defined helper functions.
+
+---
+
+## 2026-05-15 — Drift AI Suppression Diff Fixes
+
+Fixed `drift:ai --check suppressions` so untracked added files are scanned via
+the injected file reader when absent from `git diff`, and made `+++` path
+normalization preserve no-prefix paths that actually start with `a/` or `b/`.
+Focused tests, `bun run typecheck`, and the untracked-file smoke test passed.
+
+---
+
+## 2026-05-15 — AI Harness External Tooling Research
+
+Captured parked recommendations from the Svelte AI tools and Effect language
+service in `backlog/ai-harness-external-tooling-ideas.md`. Highest-leverage
+ideas for Musi are a domain `code:intel -- overview` command, docs discovery
+before retrieval, quick-fix preview output for existing codemods/sensors, and
+canonical task/skill/subagent sources synced into harness-specific adapters.
+
+---
+
+## 2026-05-15 — AGENTS Area-Specific Details Trimmed
+
+Trimmed another set of startup-only details from `AGENTS.md`: the worktree
+helper command, low-level auth token placement, and named test helper
+inventory. Auth/test bullets now point agents at the relevant docs and
+existing helper patterns instead. The delegation note now says subagents are
+allowed only when both the user and harness explicitly allow delegation.
+
+---
+
+## 2026-05-15 — AGENTS Startup Guidance Trimmed
+
+Trimmed `AGENTS.md` entries that are already carried by deterministic
+lint/hooks: hook bypass, Docker, explicit `any`, barrels, complexity, tRPC
+output schemas, TODO references, helper `.test.` filenames, push-to-main, and
+the direct race-sensitive write rule. Kept non-enforced judgment and
+area-orientation guidance. `docs/ai-harness.md` now records `local/no-barrel`
+and points removed startup rules at diagnostics/codemods instead of AGENTS.
+
+---
+
+## 2026-05-15 — SRD Rules Divergence Fixed
+
+Validated `backlog/srd-rules-divergence.md` against SRD 5.2.1 PDF/markdown
+references and fixed both issues. Seeded SRD weapon data now stores weapon
+property indexes, inventory weapon parsing normalizes property names before
+rules code sees them, and regression coverage proves capitalized `Finesse`
+still uses the finesse branch. Prepared-spell limits now use fixed SRD
+per-class tables for Bard, Cleric, Druid, Paladin, Ranger, Sorcerer, Warlock,
+and Wizard; server/client callers pass `classId`, while non-SRD/homebrew and
+third-caster subclass paths keep the legacy formula fallback. `bun run
+verify:changed` passed.
+
+---
+
+## 2026-05-14 — Codebase Audit Notes Archived
+
+Deleted `docs/agent_notes/in_progress/codebase-audit/` (lint, drift-ai,
+mutation-testing, coverage workstream notes) and
+`codebase-audit-findings.md`; the per-leaf detail is already preserved in
+this log and recoverable from commits. Two pre-existing SRD 5.2.1 rules bugs
+flagged during review were captured in
+`docs/agent_notes/backlog/srd-rules-divergence.md`: weapon-property case
+mismatch silently drops finesse on seeded weapons
+(`packages/server/src/seed/seed-srd-equipment.ts:215` ↔
+`packages/shared/src/rules/attack-damage.ts:443`), and `getMaxPreparedSpells`
+still uses the 2014 `level + ability mod` formula instead of the 2024 fixed
+per-class table (`packages/shared/src/rules/spellcasting.ts:153`).
+`STATUS.md` and `NEXT.md` updated to drop the deleted iteration index;
+`decisions-build.md` reference to the coverage workstream note removed.
+
+---
+
+## 2026-05-14 — AUD-MUT-005 Equivalent Mutant Suppressions
+
+Annotated reviewed-equivalent shared-rules survivors in attack-roll, combat,
+initiative, spellcasting, sorcery, multiclass, encounter difficulty, and XP.
+`bun run verify:changed` passed. The encounter/xp suppressions rely on the
+add-participant and mapper contract; `encounterParticipantSchema` remains
+permissive for archived/output rows.
+
+---
+
+## 2026-05-13 — Codebase Audit Review Follow-ups
+
+Closed the human-prioritized audit review handoff: weapon mastery coverage now
+table-drives every SRD 5.2.1 weapon mastery and fixes Halberd to Cleave; the
+MagicItemList consumer suite now proves accumulated cursor-list pages clear
+after a search change.
+
+---
+
+## 2026-05-13 — AUD-COV-002 Coverage Runbook And Floors
+
+Added the out-of-band coverage cadence guide, build ADR, and whole-percent
+global/package floors. Coverage stays out of `verify:changed`, pre-push, and
+CI; the stale GitHub Actions coverage step was replaced with the normal test
+command.
+
+---
+
+## 2026-05-13 — AUD-DRIFT-008 Current Ghost-File Tuning
+
+Added `checks.ghost-files.currentAllowedPairs` for current-scope-only ghost
+file suppressions. The six stable sibling pairs in `drift-ai.config.json` no
+longer warn under `bun run drift:ai --scope current --check ghost-files`, while
+changed-scope new sibling detection remains strict.
+
+---
+
+## 2026-05-13 — AUD-MUT-003 Spellcasting Slot Coverage
+
+Table-drove all SRD 5.2.1 full-caster slot rows, added single-class
+multiclass-slot branch coverage, and corrected half-caster slots to start at
+level 1 with multiclass half levels rounded up for 2024 Paladin/Ranger rules.
+
+---
+
+## 2026-05-13 — AUD-MUT-001 Attack Damage Mutation Coverage
+
+Added exact SRD 5.2.1 weapon-table coverage and parser boundary tests. The
+SRD weapon data now matches the bundled PDF, including firearms and 2024 weapon
+property updates, and a forced Stryker milestone reported `attack-damage.ts` at
+100% mutation score with the remaining survivors covered by later audit leaves.
+
+---
+
+## 2026-05-11 — Swallowed Error Lint Rule
+
+Added `local/no-swallowed-errors` for catch blocks whose executable body only
+calls direct `console.log`, `console.warn`, `console.error`, or
+`console.debug` and then continues. The first pass intentionally leaves
+logger-only catches, named handlers, comment-only catches, returns, and
+rethrows outside the rule. The new sensor is listed in `docs/ai-harness.md`.
+The next promoted ESLint leaf is local rule message guidance tests.
+
+---
+
+## 2026-05-11 — Remaining ESLint Candidate Audit
+
+Audited the remaining `eslint-plugin-llm-core` candidates against the current
+ESLint source scope. Skipped exported-function-expression and early-return
+style rules, skipped commented-out-code after a prose false positive, parked
+default `.sort()` because the direct rule hit 21 mostly string/test ordering
+sites, and skipped upstream empty-catch because the 7 hits were documented
+intentional outcomes already tolerated by core `no-empty`. The next promoted
+leaf is narrow `local/no-swallowed-errors` for console-only catch blocks; the
+baseline audit found 0 current hits.
+
+---
+
+## 2026-05-11 — Async Array Callback Lint Rule
+
+Added `local/no-async-array-callbacks` with repair text for async
+`forEach`, predicate methods, reducers, and unconsumed async `map`. The rule
+preserves immediate `Promise.all` / `allSettled` / `race` / `any` consumption
+and simple const-then-Promise-combinator shapes, so the existing router-source
+audit stayed clean. The next promoted ESLint leaf is to audit and decide the
+remaining upstream candidates.
+
+---
+
+## 2026-05-11 — Core ESLint Companion Rules
+
+Enabled `no-useless-assignment`, `preserve-caught-error`,
+`no-promise-executor-return`, and global `require-atomic-updates`. Fixed the
+baseline by preserving caught causes in tRPC tests, using block-bodied timer
+promise executors, clearing the Redis singleton before awaiting `quit()`,
+assigning Socket auth data through a post-await local reference, and reshaping
+serial e2e shared-state updates so edit/read assertions keep their flow without
+post-await reassignment. The next promoted ESLint leaf is
+`local/no-async-array-callbacks`.
+
+---
+
+## 2026-05-11 — LLM Artifact Lint Rule
+
+Added `local/no-llm-artifacts` for narrow AI editing leftovers: comments like
+`... existing code ...`, "rest of the function remains the same", and
+"abbreviated for brevity"; bare TODO comments without issue/PR/roadmap/agent
+note references; and exact incomplete `throw new Error("Not implemented")`
+bodies. The rule is wired globally through ESLint and documented in
+`docs/ai-harness.md`. The next promoted ESLint leaf is the core-rule companion
+set from the evaluation note.
+
+---
+
+## 2026-05-11 — ESLint Disable Policy Gate
+
+Tightened `scripts/eslint-disable-register.sh` from a report-only counter into
+a policy gate: suppressions now fail when they omit `-- reason`, and broad
+`eslint-disable` directives must match an explicit file/rule allowlist. Current
+legitimate broad suppressions remain allowlisted, `doctor` reports the stronger
+hint, and script smoke coverage pins missing-reason and unallowlisted-broad
+failure paths. The next promoted ESLint leaf is `local/no-llm-artifacts`.
+
+---
+
+## 2026-05-10 — E2E Locator Drift Counter
+
+Added `bun run drift:e2e`, a report-only raw `.locator(` counter for `e2e/**`
+with the current `local/e2e-prefer-role-selectors` allowlist size.
 
 ---
 

@@ -98,7 +98,13 @@ warn_if_staged_schema_needs_generate
 warn_if_staged_hot_doc_too_long
 
 # --- 1. Skip when nothing source-relevant is staged ------------------------
-if ! git diff --cached --name-only --diff-filter=ACMR \
+# Changed gates verify staged content. Reject source-relevant unstaged or
+# untracked files before marker reuse or source-skip decisions.
+musi_changed_gate_fail_if_unstaged "$REPO_ROOT" "pre-commit" || exit 1
+
+# Include D here so pure staged deletions still run typecheck/test gates. The
+# advisory freshness/doc filters above keep their narrower behavior.
+if ! git diff --cached --name-only --diff-filter=ACMRD \
      | grep -qE '^(.husky/|packages/|e2e/|scripts/|eslint-rules/|package\.json$|eslint\.config\.|tsconfig[^/]*\.json$|vitest[^/]*\.config\.)'; then
   echo "pre-commit: no source changes staged — skipping checks."
   exit 0
@@ -219,7 +225,7 @@ run_parallel_step test bun run test:changed --reporter=dot --reporter=json --out
 pid_test=$STEP_PID
 pid_scripts=""
 run_scripts=0
-if git diff --cached --name-only --diff-filter=ACMR \
+if git diff --cached --name-only --diff-filter=ACMRD \
      | grep -qE '^(.husky/|scripts/)'; then
   run_parallel_step scripts bun run test:scripts:changed
   pid_scripts=$STEP_PID

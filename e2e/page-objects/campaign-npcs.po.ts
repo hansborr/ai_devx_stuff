@@ -3,7 +3,7 @@ import { expect, type Page } from "@playwright/test";
 import { TIMEOUT_SHORT } from "../helpers/timeouts.js";
 
 export class CampaignNpcsPO {
-  constructor(private page: Page) {}
+  constructor(private readonly page: Page) {}
 
   // ── Locators ───────────────────────────────────────────────────────
   readonly newNpcButton = this.page.getByRole("button", { name: /new npc/i });

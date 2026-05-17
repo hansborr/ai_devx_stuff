@@ -24,7 +24,7 @@ export async function runCodeIntelCli(
   }
 }
 
-export async function runCodeIntelCliCommand(args: string[]): Promise<string> {
+async function runCodeIntelCliCommand(args: string[]): Promise<string> {
   const parsed = parseArgs(args);
   if (parsed.command.kind === "help") return usage(parsed.command.topic);
   const daemonOutput = await tryDaemonRoute(parsed);

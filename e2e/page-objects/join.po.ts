@@ -3,7 +3,7 @@ import { expect, type Page } from "@playwright/test";
 import { TIMEOUT_LONG, TIMEOUT_MEDIUM } from "../helpers/timeouts.js";
 
 export class JoinPO {
-  constructor(private page: Page) {}
+  constructor(private readonly page: Page) {}
 
   async goto(code: string): Promise<void> {
     await this.page.goto(`/join/${code}`);

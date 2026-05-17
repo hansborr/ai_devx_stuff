@@ -17,7 +17,7 @@ import { isRecord } from "./json-utils.js";
 const REPO_KEY_LENGTH = 16;
 const METADATA_INDENT = 2;
 
-export const DEFAULT_DAEMON_ROOT_DIR = "/tmp/musi-code-intel";
+const DEFAULT_DAEMON_ROOT_DIR = "/tmp/musi-code-intel";
 
 export type DaemonStatePaths = {
   metadataPath: string;

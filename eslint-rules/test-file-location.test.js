@@ -26,6 +26,11 @@ describe("test-file-location", () => {
           filename: "packages/client/src/foo.test.tsx",
           code: "test('works', () => {});",
         },
+        // Non-e2e .spec.ts files use the scripts test convention.
+        {
+          filename: "scripts/code-intel/overview-query.spec.ts",
+          code: "describe('overview', () => { it('works', () => {}); });",
+        },
         // describe.each(...) and it.skip(...) member-expression callees count.
         {
           filename: "packages/server/src/foo.test.ts",
@@ -36,7 +41,7 @@ describe("test-file-location", () => {
           filename: "packages/server/src/foo.ts",
           code: "export const x = 1;",
         },
-        // .spec.ts is also out of scope (e2e convention).
+        // Playwright specs stay out of scope.
         {
           filename: "e2e/foo.spec.ts",
           code: "test('e2e', () => {});",
@@ -49,11 +54,23 @@ describe("test-file-location", () => {
           code: "it('works', () => {});",
           errors: [{ message: /Rename to `<feature>\.test\.ts`/u }],
         },
+        // .spec.ts also needs a feature prefix when it is a non-e2e test file.
+        {
+          filename: "scripts/code-intel/.spec.ts",
+          code: "it('works', () => {});",
+          errors: [{ message: /Rename to `<feature>\.test\.ts`/u }],
+        },
         // .test.ts with only setup/teardown hooks — must flag missingTests.
         {
           filename: "packages/server/src/setup.test.ts",
           code: "beforeEach(() => {}); afterEach(() => {});",
-          errors: [{ message: /helpers belong outside the `\.test\.` naming/u }],
+          errors: [{ message: /helpers belong outside the test-file naming/u }],
+        },
+        // .spec.ts with only setup/teardown hooks — must flag missingTests.
+        {
+          filename: "scripts/code-intel/setup.spec.ts",
+          code: "beforeEach(() => {}); afterEach(() => {});",
+          errors: [{ messageId: "missingTests" }],
         },
         // .test.ts with no test blocks at all.
         {

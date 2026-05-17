@@ -36,7 +36,7 @@ export function buildImportGraph(
   return { incoming };
 }
 
-export function collectImportEdges(
+function collectImportEdges(
   sourceFile: SourceFile,
   resolver: WorkspaceResolver,
   from: string,
@@ -83,7 +83,7 @@ export function collectImportEdges(
   return uniqueEdges(edges);
 }
 
-export function importDeclarationHasRuntimeEdge(importDeclaration: ImportDeclaration): boolean {
+function importDeclarationHasRuntimeEdge(importDeclaration: ImportDeclaration): boolean {
   if (importDeclaration.isTypeOnly()) return false;
   if (importDeclaration.getDefaultImport() || importDeclaration.getNamespaceImport()) return true;
   const namedImports = importDeclaration.getNamedImports();
@@ -91,7 +91,7 @@ export function importDeclarationHasRuntimeEdge(importDeclaration: ImportDeclara
   return namedImports.some((specifier) => !specifier.isTypeOnly());
 }
 
-export function exportDeclarationHasRuntimeEdge(exportDeclaration: ExportDeclaration): boolean {
+function exportDeclarationHasRuntimeEdge(exportDeclaration: ExportDeclaration): boolean {
   if (exportDeclaration.isTypeOnly()) return false;
   if (exportDeclaration.getNamespaceExport()) return true;
   const namedExports = exportDeclaration.getNamedExports();
@@ -99,7 +99,7 @@ export function exportDeclarationHasRuntimeEdge(exportDeclaration: ExportDeclara
   return namedExports.some((specifier) => !specifier.isTypeOnly());
 }
 
-export function addResolvedEdge(candidate: EdgeCandidate): void {
+function addResolvedEdge(candidate: EdgeCandidate): void {
   const to = candidate.resolver.resolveModule(candidate.specifier, candidate.from);
   if (!to || to === candidate.from) return;
   candidate.edges.push({
@@ -110,7 +110,7 @@ export function addResolvedEdge(candidate: EdgeCandidate): void {
   });
 }
 
-export function collectViMockSpecifiers(sourceFile: SourceFile): Set<string> {
+function collectViMockSpecifiers(sourceFile: SourceFile): Set<string> {
   const specifiers = new Set<string>();
   sourceFile.forEachDescendant((node) => {
     if (!Node.isCallExpression(node)) return;
@@ -123,7 +123,7 @@ export function collectViMockSpecifiers(sourceFile: SourceFile): Set<string> {
   return specifiers;
 }
 
-export function literalFirstArgument(callExpression: CallExpression): string | undefined {
+function literalFirstArgument(callExpression: CallExpression): string | undefined {
   const firstArgument = callExpression.getArguments()[0];
   if (!firstArgument) return undefined;
   if (Node.isStringLiteral(firstArgument) || Node.isNoSubstitutionTemplateLiteral(firstArgument)) {
@@ -132,7 +132,7 @@ export function literalFirstArgument(callExpression: CallExpression): string | u
   return undefined;
 }
 
-export function uniqueEdges(edges: ImportEdge[]): ImportEdge[] {
+function uniqueEdges(edges: ImportEdge[]): ImportEdge[] {
   const unique = new Map<string, ImportEdge>();
   for (const edge of edges) {
     const key = `${edge.from}\0${edge.to}\0${edge.via}`;

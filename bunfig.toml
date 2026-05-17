@@ -1,0 +1,9 @@
+[install]
+# Delay new package resolution so short-lived malicious publishes are less likely to install.
+minimumReleaseAge = 259200
+
+# Keep Bun from auto-installing packages during script/runtime execution.
+auto = "disable"
+
+# Save future direct dependencies as exact versions instead of caret ranges.
+exact = true

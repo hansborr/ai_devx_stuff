@@ -1,0 +1,53 @@
+{
+  "name": "Claude Code Sandbox",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "app",
+  "workspaceFolder": "/workspace",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "anthropic.claude-code",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "eamodio.gitlens",
+        "Prisma.prisma"
+      ],
+      "settings": {
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "editor.codeActionsOnSave": {
+          "source.fixAll.eslint": "explicit"
+        },
+        "terminal.integrated.defaultProfile.linux": "zsh",
+        "terminal.integrated.profiles.linux": {
+          "bash": {
+            "path": "bash",
+            "icon": "terminal-bash"
+          },
+          "zsh": {
+            "path": "zsh"
+          }
+        }
+      }
+    }
+  },
+  "initializeCommand": "mkdir -p /tmp/musi && chmod 1777 /tmp/musi",
+  "remoteUser": "node",
+  "mounts": [],
+  "containerEnv": {
+    "NODE_OPTIONS": "--max-old-space-size=4096",
+    "CLAUDE_CONFIG_DIR": "/home/node/.claude",
+    "POWERLEVEL9K_DISABLE_GITSTATUS": "true"
+  },
+  "forwardPorts": [8000, 8001, 8002, 8003, 8004],
+  "portsAttributes": {
+    "8000": { "label": "Frontend (Vite)" },
+    "8001": { "label": "Backend (Fastify)" },
+    "8002": { "label": "PostgreSQL" },
+    "8003": { "label": "Prisma Studio" },
+    "8004": { "label": "Redis" }
+  },
+  "postCreateCommand": "bun install 2>/dev/null; bun run --filter @musi/server prisma:generate 2>/dev/null; bun run --filter @musi/server db:migrate:deploy 2>/dev/null; bunx playwright install chromium 2>/dev/null; echo 'postCreateCommand complete (some steps may have been skipped if packages are not yet scaffolded)'; touch /workspace/.setup-complete",
+  "postStartCommand": "(cd /workspace && bun run worktree:gc >/tmp/musi_logs/worktree-gc.log 2>&1 &); sudo /usr/local/bin/init-firewall.sh",
+  "waitFor": "postStartCommand"
+}

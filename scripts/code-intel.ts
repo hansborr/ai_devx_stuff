@@ -7,7 +7,6 @@ export { runCodeIntelCli } from "./code-intel/cli-main.js";
 export { CODE_INTEL_DAEMON_PROTOCOL_VERSION } from "./code-intel/daemon-protocol.js";
 export type {
   CodeIntelDaemonError,
-  CodeIntelDaemonProtocolVersion,
   CodeIntelDaemonRequest,
   CodeIntelDaemonResponse,
 } from "./code-intel/daemon-protocol.js";

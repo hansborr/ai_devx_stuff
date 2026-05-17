@@ -53,6 +53,7 @@ SMOKE_NAMES=(
   test-dependency-freshness
   test-ai-hooks
   test-eslint-disable-register
+  test-suppression-register
   test-codemod-structured-logging-fix
   test-codemod-trpc-shared-input
   test-codemod-trpc-shared-output
@@ -61,6 +62,7 @@ SMOKE_NAMES=(
   test-test-changed
   test-test-slow
   test-generate-module-index
+  test-generate-lint-guidance
   test-migration-safety-scan
   test-test-scripts
 )
@@ -72,14 +74,16 @@ declare -A SMOKE_SUBJECTS=(
   [test-dependency-freshness]="scripts/dependency-freshness.sh scripts/prisma-client-freshness.sh scripts/doc-length-policy.sh scripts/verify-metadata.sh scripts/ai-hooks/output-filter.sh .husky/pre-commit scripts/test-dependency-freshness.sh"
   [test-ai-hooks]="scripts/test-ai-hooks.sh scripts/ai-hooks/test.sh scripts/ai-hooks/common.sh scripts/ai-hooks/cache.sh scripts/verify-metadata.sh scripts/ai-hooks/policy.sh scripts/ai-hooks/protected-files.sh scripts/ai-hooks/doc-length.sh scripts/ai-hooks/output-filter.sh scripts/ai-hooks/process-runner.sh scripts/ai-hooks/stop-policy.sh scripts/ai-hooks/stop-reminder.sh .claude/hooks/bun-run-quiet.sh .claude/hooks/stop-reminder.sh .codex/hooks/pre-tool-use.sh .codex/hooks/post-tool-use.sh .codex/hooks/stop-reminder.sh .claude/settings.json .codex/hooks.json"
   [test-eslint-disable-register]="scripts/eslint-disable-register.sh scripts/test-eslint-disable-register.sh"
+  [test-suppression-register]="scripts/suppression-register.sh scripts/test-suppression-register.sh"
   [test-codemod-structured-logging-fix]="scripts/codemods/structured-logging-fix.ts scripts/codemods/lib/trpc-shared-schema.ts scripts/test-codemod-structured-logging-fix.sh package.json tsconfig.scripts.json"
   [test-codemod-trpc-shared-input]="scripts/codemods/trpc-shared-input.ts scripts/codemods/lib/trpc-shared-schema.ts scripts/test-codemod-trpc-shared-input.sh package.json tsconfig.scripts.json"
   [test-codemod-trpc-shared-output]="scripts/codemods/trpc-shared-output.ts scripts/codemods/lib/trpc-shared-schema.ts scripts/test-codemod-trpc-shared-output.sh package.json tsconfig.scripts.json"
   [test-code-intel]="scripts/code-intel.ts scripts/code-intel/ scripts/code-intel.test.ts scripts/test-code-intel.sh scripts/vitest.config.ts package.json tsconfig.scripts.json packages/shared/package.json packages/server/package.json packages/client/tsconfig.json"
-  [test-lint-changed]="scripts/lint-changed.sh scripts/test-lint-changed.sh"
+  [test-lint-changed]="scripts/lint-changed.sh scripts/verify-metadata.sh scripts/test-lint-changed.sh"
   [test-test-changed]="scripts/test-changed.sh scripts/vitest.sh scripts/ai-hooks/output-filter.sh scripts/test-test-changed.sh"
   [test-test-slow]="scripts/test-slow.sh scripts/test-changed.sh scripts/vitest.sh scripts/ai-hooks/output-filter.sh vitest.slow.config.ts packages/shared/vitest.config.ts packages/server/vitest.config.ts packages/client/vitest.config.ts packages/shared/src/test-tier-sentinel.test.ts packages/shared/src/test-tier-sentinel.slow.test.ts scripts/test-test-slow.sh"
   [test-generate-module-index]="scripts/generate-module-index.sh scripts/test-generate-module-index.sh"
+  [test-generate-lint-guidance]="scripts/generate-lint-guidance.ts scripts/test-generate-lint-guidance.sh eslint.config.js package.json tsconfig.scripts.json docs/generated/local-lint-rules.md eslint-rules/structured-logging.js eslint-rules/no-barrel.js eslint-rules/strict-trpc-input.js"
   [test-migration-safety-scan]="scripts/migration-safety-scan.sh scripts/test-migration-safety-scan.sh"
   [test-test-scripts]="scripts/test-scripts.sh scripts/test-test-scripts.sh"
 )
@@ -104,10 +108,32 @@ read_changed_files() {
   fi
   local ref
   ref="$(resolve_changed_ref)" || return 1
-  git diff --name-only --diff-filter=ACMR "$ref"...HEAD 2>/dev/null || true
+  git diff --name-only --diff-filter=ACMRD "$ref"...HEAD 2>/dev/null || true
   if git rev-parse --verify HEAD >/dev/null 2>&1; then
-    git diff --name-only --diff-filter=ACMR HEAD 2>/dev/null || true
+    git diff --name-only --diff-filter=ACMRD HEAD 2>/dev/null || true
   fi
+}
+
+read_deleted_files() {
+  if [ -n "${MUSI_SCRIPTS_CHANGED_FILES:-}" ]; then
+    return 0
+  fi
+  local ref
+  ref="$(resolve_changed_ref)" || return 1
+  git diff --name-only --diff-filter=D "$ref"...HEAD 2>/dev/null || true
+  if git rev-parse --verify HEAD >/dev/null 2>&1; then
+    git diff --name-only --diff-filter=D HEAD 2>/dev/null || true
+  fi
+}
+
+script_smoke_deletion_requires_full_suite() {
+  local file="$1"
+  case "$file" in
+    .husky/*|scripts/*)
+      return 0
+      ;;
+  esac
+  return 1
 }
 
 matches_smoke_subject() {
@@ -136,6 +162,7 @@ select_smoke_tests() {
     printf '%s\n' "${SMOKE_NAMES[@]}"
     return 0
   fi
+  local name subjects f subject
   local -a changed=()
   while IFS= read -r f; do
     [ -n "$f" ] || continue
@@ -144,7 +171,18 @@ select_smoke_tests() {
   if [ "${#changed[@]}" -eq 0 ]; then
     return 0
   fi
-  local name subjects f subject
+  local -a deleted=()
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    deleted+=("$f")
+  done < <(read_deleted_files)
+  for f in "${deleted[@]}"; do
+    if script_smoke_deletion_requires_full_suite "$f"; then
+      printf "test:scripts: script deletion staged — running full smoke suite.\n" >&2
+      printf '%s\n' "${SMOKE_NAMES[@]}"
+      return 0
+    fi
+  done
   for name in "${SMOKE_NAMES[@]}"; do
     subjects="${SMOKE_SUBJECTS[$name]}"
     for f in "${changed[@]}"; do

@@ -1,17 +1,25 @@
 # Next Up
 
-One-leaf queue for agent loops. This file is the queue, not the design doc.
-Parked work stays in `backlog/` unless this file names it or a human asks for
-re-triage.
+Promotion pointer for the next human-requested leaf. This file is not a FIFO
+queue, and backlog numbering/order is advisory, not permission to keep pulling
+work. Parked work stays in `backlog/` unless this file names it or a human
+asks for re-triage.
 
 ## Ready now
 
-- No ready leaf is promoted. Re-triage before starting another drift or
-  BatonLoop leaf.
+No promoted lint-hardening leaf is ready now. The `chore/codebase_audit`
+workstream landed and its iteration index was deleted with the per-leaf notes.
+Leaf 2, Leaf 3's Vitest first slice, Leaf 4, and Leaf 19 Pass 2 were completed
+when explicitly requested; do not promote another lint-hardening leaf unless a
+human asks for that specific next cycle.
 
-## Promotion Source
+Even when this section is empty or idle, do not pull from a backlog's
+suggested order without a human asking for that specific next cycle. When a
+human does ask, re-run the audit tools below from a fresh checkout and promote
+exactly one leaf:
 
-- This leaf was explicitly promoted by the user from
-  `docs/agent_notes/in_progress/drift-ai-current-scope.md`.
-- It landed on 2026-05-10. Re-triage before promoting another drift or
-  BatonLoop leaf.
+```bash
+bun run drift:ai --scope current
+bun run test:coverage
+bun run test:mutation
+```

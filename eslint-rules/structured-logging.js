@@ -173,17 +173,22 @@ export default {
     docs: {
       description:
         "Pino logger messages must be static; pass dynamic values via the metadata object",
+      principle:
+        "Logger calls must use static message strings with variable data in the metadata object so log aggregation can group identical messages. Direct console calls bypass structured fields and request context.",
     },
     messages: {
       noTemplate:
-        "Logger message must be a static string. Move `${...}` values into the metadata object (e.g., `log.error({ userId }, 'failed')`).",
+        "Why: Interpolated logger messages fragment log aggregation because the message text changes per value. How to fix: Move `${...}` values into the metadata object and keep the message static, for example `log.error({ userId }, 'failed')`.",
       noConcat:
-        "Logger message must be a static string. Move concatenated values into the metadata object.",
+        "Why: Concatenated logger messages fragment log aggregation because the message text changes per value. How to fix: Move concatenated values into the metadata object and keep the message argument static.",
       noDynamic:
-        "Logger message must be a static string literal. Move dynamic values into the metadata object.",
-      noConsole: "Use structured logging instead of direct console. Try: " + REPAIR_COMMAND,
+        "Why: Dynamic logger message variables fragment log aggregation because the message text changes outside the call site. How to fix: Move the variable data into the metadata object and pass a static string literal as the message.",
+      noConsole:
+        "Why: Direct console calls bypass structured logging fields, request context, and log formatting. How to fix: Use structured logging instead, or run `" +
+        REPAIR_COMMAND +
+        "`.",
       noScriptLoggerImport:
-        "createScriptLogger is only for seed, generator, Prisma seed, and server script entry points. Runtime server code must use request/server log context.",
+        "Why: createScriptLogger is only for seed, generator, Prisma seed, and server script entry points. How to fix: Use request or server log context in runtime server code instead.",
     },
     schema: [],
   },

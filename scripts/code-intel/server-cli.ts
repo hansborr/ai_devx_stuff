@@ -27,7 +27,7 @@ import {
   defaultProcessIdentityProbe,
 } from "./lifecycle-probe.js";
 
-export type ServerCliCommand = "restart" | "start" | "status" | "stop";
+type ServerCliCommand = "restart" | "start" | "status" | "stop";
 
 const PROCESS_ARG_OFFSET = 2;
 
@@ -91,7 +91,7 @@ function parseServerCliCommand(args: string[]): ServerCliCommand {
   throw new CodeIntelError(`Unknown server command: ${first}\n${serverUsage()}`);
 }
 
-export function serverUsage(): string {
+function serverUsage(): string {
   return [
     "Usage:",
     "  bun run code:intel:server -- status",

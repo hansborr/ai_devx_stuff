@@ -7,7 +7,7 @@ export const DEF_NAME_NEAR_MATCH_LIMIT = 10;
 export const JS_EXTENSIONS = [".js", ".jsx", ".mjs", ".cjs"];
 
 export type Via = "direct" | "re-export" | "dynamic";
-export type TestReason = "co-located" | "direct" | "transitive";
+type TestReason = "co-located" | "direct" | "transitive";
 export type ProjectFilter = "client" | "server" | "shared";
 export type ProjectBucket = ProjectFilter | "scripts";
 export type ExportSpace = "type" | "value";

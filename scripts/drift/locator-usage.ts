@@ -33,6 +33,7 @@ type EslintConfigExports = {
 };
 
 const DEFAULT_ROOT = "e2e";
+const JSON_INDENT_SPACES = 2;
 const LOCATOR_PATTERN = ".locator(";
 const SOURCE_EXTENSIONS = new Set([".ts", ".tsx"]);
 
@@ -151,21 +152,21 @@ export function formatText(report: LocatorUsageReport): string {
   const lines = [
     "drift:e2e (report-only) -- raw locator usage",
     `  root: ${report.root}/**`,
-    `  raw .locator( calls: ${report.totalLocatorCalls}`,
-    `  files with raw .locator(: ${report.filesWithLocatorCalls}`,
-    `  local/e2e-prefer-role-selectors allowlisted files: ${report.allowlistedFileCount}`,
+    `  raw .locator( calls: ${String(report.totalLocatorCalls)}`,
+    `  files with raw .locator(: ${String(report.filesWithLocatorCalls)}`,
+    `  local/e2e-prefer-role-selectors allowlisted files: ${String(report.allowlistedFileCount)}`,
   ];
   if (report.files.length === 0) {
     lines.push("OK: no raw .locator( calls found.");
     return lines.join("\n");
   }
   lines.push("  by file:");
-  for (const file of report.files) lines.push(`    ${file.path}: ${file.count}`);
+  for (const file of report.files) lines.push(`    ${file.path}: ${String(file.count)}`);
   return lines.join("\n");
 }
 
 export function formatJson(report: LocatorUsageReport): string {
-  return JSON.stringify(report, null, 2);
+  return JSON.stringify(report, null, JSON_INDENT_SPACES);
 }
 
 export async function runLocatorUsage(
@@ -202,6 +203,7 @@ function isDirectRun(): boolean {
 }
 
 if (isDirectRun()) {
+  // eslint-disable-next-line no-magic-numbers -- standard Node argv skips node and script path
   const result = await runLocatorUsage(process.argv.slice(2));
   if (result.stdout) console.log(result.stdout);
   process.exitCode = result.exitCode;

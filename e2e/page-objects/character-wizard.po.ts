@@ -23,7 +23,7 @@ export interface CharacterBuildOptions {
 }
 
 export class CharacterWizardPO {
-  constructor(private page: Page) {}
+  constructor(private readonly page: Page) {}
 
   readonly continueButton = this.page.getByRole("button", { name: "Continue" });
   readonly manualEntryButton = this.page.getByRole("button", { name: "Manual Entry" });

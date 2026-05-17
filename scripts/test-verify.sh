@@ -92,15 +92,15 @@ grep -qE 'bun run test:changed --reporter=dot --reporter=json --outputFile\.json
 ok "verify --changed pairs dot reporter with json timings file"
 
 [ -f "$LOG_DIR/run-meta.json" ] || fail "verify --changed did not write run-meta.json"
-grep -q '"mode":"serial-verify"' "$LOG_DIR/run-meta.json" \
-  || fail "verify --changed metadata should record serial-verify mode"
+grep -q '"mode":"serial-verify-changed"' "$LOG_DIR/run-meta.json" \
+  || fail "verify --changed metadata should record serial-verify-changed mode"
 grep -q '"name":"wrapper"' "$LOG_DIR/run-meta.json" \
   || fail "verify --changed metadata should record wrapper timing"
 grep -q '"name":"test"' "$LOG_DIR/run-meta.json" \
   || fail "verify --changed metadata should record test step timing"
 grep -q 'bun run test:changed --reporter=dot --reporter=json --outputFile.json='"$LOG_DIR"'/test-timings.json' "$LOG_DIR/run-meta.json" \
   || fail "verify --changed metadata should record test command"
-ok "verify --changed writes serial run metadata"
+ok "verify --changed writes changed serial run metadata"
 
 # --- MR1: changed mode runs script smoke tests after Vitest --------------
 # verify --changed must invoke `bun run test:scripts:changed` so script-only
@@ -194,6 +194,8 @@ grep -qF 'TIMED OUT' <<< "$output" || fail "watchdog did not print TIMED OUT ban
 grep -qF "logs: $LOG_DIR" <<< "$output" || fail "watchdog did not print log dir breadcrumb"
 grep -qF 'verify:logs budget' <<< "$output" || fail "watchdog did not print verify:logs budget hint"
 [ -f "$LOG_DIR/run-meta.json" ] || fail "watchdog did not write run-meta.json"
+grep -q '"mode":"serial-verify-changed"' "$LOG_DIR/run-meta.json" \
+  || fail "watchdog metadata should record serial-verify-changed mode"
 grep -q '"name":"wrapper"' "$LOG_DIR/run-meta.json" \
   || fail "watchdog metadata should record wrapper timing"
 grep -q '"exit_code":124' "$LOG_DIR/run-meta.json" \

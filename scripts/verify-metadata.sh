@@ -27,10 +27,13 @@ ai_worktree_fingerprint() {
 ai_staged_fingerprint() {
   local repo_root="$1"
 
-  git -C "$repo_root" diff --cached --diff-filter=ACMR | sha256sum | awk '{print $1}'
+  {
+    git -C "$repo_root" rev-parse HEAD 2>/dev/null || echo none
+    git -C "$repo_root" diff --cached --binary --diff-filter=ACMRD
+  } | sha256sum | awk '{print $1}'
 }
 
-ai_precommit_tracked_relevant_path() {
+musi_changed_gate_relevant_path() {
   local path="$1"
 
   case "$path" in
@@ -43,16 +46,7 @@ ai_precommit_tracked_relevant_path() {
   esac
 
   case "$path" in
-    .husky/*|.claude/*|.codex/*|scripts/*.sh)
-      return 0
-      ;;
-    packages/*.ts|packages/*.tsx|packages/*.js|packages/*.jsx|packages/*.mjs|packages/*.cjs)
-      return 0
-      ;;
-    e2e/*.ts|e2e/*.tsx|e2e/*.js|e2e/*.jsx|e2e/*.mjs|e2e/*.cjs)
-      return 0
-      ;;
-    eslint-rules/*.ts|eslint-rules/*.tsx|eslint-rules/*.js|eslint-rules/*.jsx|eslint-rules/*.mjs|eslint-rules/*.cjs)
+    .husky/*|packages/*|e2e/*|scripts/*|eslint-rules/*)
       return 0
       ;;
   esac
@@ -60,28 +54,56 @@ ai_precommit_tracked_relevant_path() {
   return 1
 }
 
-ai_precommit_untracked_relevant_path() {
+ai_precommit_tracked_relevant_path() {
   local path="$1"
 
   case "$path" in
-    package.json|tsconfig*.json|vitest*.config.*|eslint.config.*)
-      return 0
-      ;;
-    packages/*/package.json|packages/*/tsconfig*.json|packages/*/vitest*.config.*)
-      return 0
-      ;;
-    packages/*.ts|packages/*.tsx|packages/*.js|packages/*.jsx|packages/*.mjs|packages/*.cjs)
-      return 0
-      ;;
-    e2e/*.ts|e2e/*.tsx|e2e/*.js|e2e/*.jsx|e2e/*.mjs|e2e/*.cjs)
-      return 0
-      ;;
-    eslint-rules/*.ts|eslint-rules/*.tsx|eslint-rules/*.js|eslint-rules/*.jsx|eslint-rules/*.mjs|eslint-rules/*.cjs)
+    .claude/*|.codex/*)
       return 0
       ;;
   esac
 
-  return 1
+  musi_changed_gate_relevant_path "$path"
+}
+
+ai_precommit_untracked_relevant_path() {
+  local path="$1"
+
+  musi_changed_gate_relevant_path "$path"
+}
+
+musi_changed_gate_fail_if_unstaged() {
+  local repo_root="$1"
+  local label="${2:-changed verification}"
+  local tmp file
+
+  tmp=$(mktemp "${TMPDIR:-/tmp}/musi-changed-gate.XXXXXX") || return 2
+  (
+    cd "$repo_root" || exit 2
+    {
+      git diff --name-only --diff-filter=ACMRD 2>/dev/null || true
+      git ls-files --others --exclude-standard 2>/dev/null || true
+    } | sort -u | while IFS= read -r file; do
+      [ -n "$file" ] || continue
+      if musi_changed_gate_relevant_path "$file"; then
+        printf '%s\n' "$file"
+      fi
+    done
+  ) > "$tmp"
+
+  if [ -s "$tmp" ]; then
+    printf '%s: source-relevant unstaged or untracked changes are present.\n' "$label" >&2
+    printf '%s: stage the intended commit, or stash/restore unrelated source-relevant work, before running changed verification.\n' "$label" >&2
+    while IFS= read -r file; do
+      [ -n "$file" ] || continue
+      printf '%s:   - %s\n' "$label" "$file" >&2
+    done < "$tmp"
+    rm -f "$tmp"
+    return 1
+  fi
+
+  rm -f "$tmp"
+  return 0
 }
 
 ai_precommit_fingerprint() {
@@ -89,7 +111,7 @@ ai_precommit_fingerprint() {
 
   {
     git -C "$repo_root" rev-parse HEAD 2>/dev/null || echo none
-    git -C "$repo_root" diff --cached --diff-filter=ACMR
+    git -C "$repo_root" diff --cached --binary --diff-filter=ACMRD
     (
       cd "$repo_root" || exit 1
       {
@@ -211,16 +233,16 @@ musi_try_single_verify_marker_bridge() {
   local label="$4"
   local freshness_seconds="$5"
   local current_head="$6"
-  local current_worktree_hash="$7"
+  local current_verify_hash="$7"
   local current_precommit_hash age
 
-  musi_success_marker_matches "$verify_marker" "$current_head" "$current_worktree_hash" "$freshness_seconds" || return 1
+  musi_success_marker_matches "$verify_marker" "$current_head" "$current_verify_hash" "$freshness_seconds" || return 1
   age=$MUSI_MARKER_MATCH_AGE
   current_precommit_hash=$(ai_precommit_fingerprint "$repo_root")
   if ! musi_write_success_marker "$precommit_marker" "$current_head" "$current_precommit_hash"; then
     printf 'pre-commit: WARN: failed to write marker %s\n' "$precommit_marker" >&2
   fi
-  printf 'pre-commit: %s passed %ss ago for this worktree — skipping (set FORCE_VERIFY=1 to re-run).\n' \
+  printf 'pre-commit: %s passed %ss ago for this staged/worktree state — skipping (set FORCE_VERIFY=1 to re-run).\n' \
     "$label" "$age"
 }
 
@@ -228,17 +250,18 @@ musi_try_verify_marker_bridge() {
   local repo_root="$1"
   local precommit_marker="${2:-${MUSI_PRECOMMIT_MARKER:-/tmp/musi-pre-commit-last}}"
   local freshness_seconds="${3:-120}"
-  local current_head current_worktree_hash changed_marker full_marker
+  local current_head current_staged_hash current_worktree_hash changed_marker full_marker
 
   [ "${FORCE_VERIFY:-}" = "1" ] && return 1
 
   current_head=$(git -C "$repo_root" rev-parse HEAD 2>/dev/null || echo none)
+  current_staged_hash=$(ai_staged_fingerprint "$repo_root")
   current_worktree_hash=$(ai_worktree_fingerprint "$repo_root")
   changed_marker="${MUSI_VERIFY_MARKER_CHANGED:-/tmp/musi-verify-changed-last}"
   full_marker="${MUSI_VERIFY_MARKER_FULL:-/tmp/musi-verify-last}"
 
   musi_try_single_verify_marker_bridge "$repo_root" "$precommit_marker" "$changed_marker" \
-    "verify:changed" "$freshness_seconds" "$current_head" "$current_worktree_hash" \
+    "verify:changed" "$freshness_seconds" "$current_head" "$current_staged_hash" \
     && return 0
   musi_try_single_verify_marker_bridge "$repo_root" "$precommit_marker" "$full_marker" \
     "verify" "$freshness_seconds" "$current_head" "$current_worktree_hash"

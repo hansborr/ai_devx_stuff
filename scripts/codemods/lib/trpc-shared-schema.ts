@@ -13,8 +13,8 @@ import {
   VariableStatement,
 } from "ts-morph";
 
-export const ROUTER_ROOT = path.join("packages", "server", "src", "routers");
-export const SHARED_SCHEMA_ROOT = path.join("packages", "shared", "src", "schemas");
+const ROUTER_ROOT = path.join("packages", "server", "src", "routers");
+const SHARED_SCHEMA_ROOT = path.join("packages", "shared", "src", "schemas");
 export const SHARED_SCHEMA_PREFIX = "@musi/shared/schemas/";
 
 export type ImportSpecifierInfo = {
@@ -72,7 +72,7 @@ export function moduleSource(importDeclaration: ImportDeclaration): string {
   return importDeclaration.getModuleSpecifierValue();
 }
 
-export function namedImportSpecifiers(importDeclaration: ImportDeclaration): ImportSpecifierInfo[] {
+function namedImportSpecifiers(importDeclaration: ImportDeclaration): ImportSpecifierInfo[] {
   return importDeclaration.getNamedImports().map((specifier) => ({
     imported: specifier.getName(),
     isTypeOnly: !importDeclaration.isTypeOnly() && specifier.isTypeOnly(),
@@ -80,7 +80,7 @@ export function namedImportSpecifiers(importDeclaration: ImportDeclaration): Imp
   }));
 }
 
-export function collectSharedSchemaValueImports(
+function collectSharedSchemaValueImports(
   sourceFile: SourceFile,
   sourcePrefix = SHARED_SCHEMA_PREFIX,
 ): Set<string> {
@@ -118,13 +118,13 @@ export function collectAllowlistedRouterImports(
   return bindings;
 }
 
-export function specifierText(specifier: ImportSpecifierInfo): string {
+function specifierText(specifier: ImportSpecifierInfo): string {
   const typePrefix = specifier.isTypeOnly ? "type " : "";
   if (specifier.imported === specifier.local) return `${typePrefix}${specifier.local}`;
   return `${typePrefix}${specifier.imported} as ${specifier.local}`;
 }
 
-export function normalizedImportText(importDeclaration: ImportDeclaration): string {
+function normalizedImportText(importDeclaration: ImportDeclaration): string {
   const source = moduleSource(importDeclaration);
   const namedImports = namedImportSpecifiers(importDeclaration).sort((left, right) =>
     left.local.localeCompare(right.local, "en"),
@@ -226,7 +226,7 @@ export function normalizeRelativeRouterPath(
   return relative;
 }
 
-export function discoverRouterFiles(root: string): string[] {
+function discoverRouterFiles(root: string): string[] {
   const routerRoot = path.join(root, ROUTER_ROOT);
   if (!existsSync(routerRoot)) return [];
 
@@ -370,11 +370,11 @@ export function collectTargetIdentifiers(sourceFile: SourceFile): TargetIdentifi
   return identifiers;
 }
 
-export function targetHasIdentifier(targetIdentifiers: TargetIdentifiers, name: string): boolean {
+function targetHasIdentifier(targetIdentifiers: TargetIdentifiers, name: string): boolean {
   return targetIdentifiers.value.has(name) || targetIdentifiers.type.has(name);
 }
 
-export function isProcedureSchemaCall(callExpression: CallExpression, methodName: string): boolean {
+function isProcedureSchemaCall(callExpression: CallExpression, methodName: string): boolean {
   const expression = callExpression.getExpression();
   return Node.isPropertyAccessExpression(expression) && expression.getName() === methodName;
 }
@@ -398,7 +398,7 @@ export function isZObjectCall(node: Node): boolean {
   return expression.getName() === "object" && expression.getExpression().getText() === "z";
 }
 
-export function propertyAssignmentName(propertyAssignment: PropertyAssignment): string | undefined {
+function propertyAssignmentName(propertyAssignment: PropertyAssignment): string | undefined {
   const nameNode = propertyAssignment.getNameNode();
   if (
     Node.isIdentifier(nameNode) ||
@@ -410,7 +410,7 @@ export function propertyAssignmentName(propertyAssignment: PropertyAssignment): 
   return undefined;
 }
 
-export function variableDeclarationName(declaration: VariableDeclaration): string | undefined {
+function variableDeclarationName(declaration: VariableDeclaration): string | undefined {
   const nameNode = declaration.getNameNode();
   return Node.isIdentifier(nameNode) ? nameNode.getText() : undefined;
 }
@@ -423,7 +423,7 @@ export function procedureNameForSchemaCall(schemaCall: CallExpression): string |
   return undefined;
 }
 
-export function getTopLevelConstSchemas(sourceFile: SourceFile): Map<string, VariableStatement> {
+function getTopLevelConstSchemas(sourceFile: SourceFile): Map<string, VariableStatement> {
   const declarations = new Map<string, VariableStatement>();
   for (const statement of sourceFile.getStatements()) {
     if (!Node.isVariableStatement(statement)) continue;
@@ -459,7 +459,7 @@ export function collectSchemaCallCandidates<TCandidate extends SharedSchemaCodem
   return candidates;
 }
 
-export function codemodErrorReason(codemodName: string, error: CodemodError): string {
+function codemodErrorReason(codemodName: string, error: CodemodError): string {
   const prefix = `${codemodName} codemod: `;
   return error.message.startsWith(prefix) ? error.message.slice(prefix.length) : error.message;
 }
@@ -565,7 +565,7 @@ export function ensureNamedImport(
   });
 }
 
-export function removeMatchingTypeOnlyNamedImport(
+function removeMatchingTypeOnlyNamedImport(
   sourceFile: SourceFile,
   source: string,
   specifier: ImportSpecifierInfo,
@@ -589,7 +589,7 @@ export function removeMatchingTypeOnlyNamedImport(
   }
 }
 
-export function hasTypeOnlyImport(sourceFile: SourceFile, localName: string): boolean {
+function hasTypeOnlyImport(sourceFile: SourceFile, localName: string): boolean {
   for (const importDeclaration of sourceFile.getImportDeclarations()) {
     if (importDeclaration.isTypeOnly()) {
       const defaultImport = importDeclaration.getDefaultImport();
@@ -606,7 +606,7 @@ export function hasTypeOnlyImport(sourceFile: SourceFile, localName: string): bo
   return false;
 }
 
-export function ensureValueImportAvailable(
+function ensureValueImportAvailable(
   codemodName: string,
   sourceFile: SourceFile,
   source: string,
@@ -752,14 +752,14 @@ export function rewriteRouterSharedSchemaReferences<
   removeUnusedNamedImport(routerFile, "z");
 }
 
-export function hasReference(sourceFile: SourceFile, name: string): boolean {
+function hasReference(sourceFile: SourceFile, name: string): boolean {
   for (const identifier of sourceFile.getDescendantsOfKind(SyntaxKind.Identifier)) {
     if (identifier.getText() === name && isReferenceIdentifier(identifier)) return true;
   }
   return false;
 }
 
-export function removeUnusedNamedImport(sourceFile: SourceFile, localName: string): void {
+function removeUnusedNamedImport(sourceFile: SourceFile, localName: string): void {
   if (hasReference(sourceFile, localName)) return;
   for (const importDeclaration of sourceFile.getImportDeclarations()) {
     for (const specifier of importDeclaration.getNamedImports()) {

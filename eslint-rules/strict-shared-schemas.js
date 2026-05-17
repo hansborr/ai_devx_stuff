@@ -92,7 +92,7 @@ export default {
     },
     messages: {
       needsExplicit:
-        "Exported Zod object schemas must end with .strict() or .passthrough(). Use .strict() for API inputs to reject unknown keys; use .passthrough() if extra keys are intentional.",
+        "Use `.strict()` on exported `*InputSchema` z.object schemas, or `.passthrough()` only for intentional extra keys. See docs/guides/add-trpc-procedure.md.",
     },
     schema: [],
   },

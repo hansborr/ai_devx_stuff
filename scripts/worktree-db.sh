@@ -610,7 +610,7 @@ template_refresh_for_fingerprint() {
     # Run migrations + SRD seed against the fresh template.
     (
       cd "$wt_root/packages/server"
-      DATABASE_URL="$(db_url "$target_template")" bunx prisma migrate deploy
+      DATABASE_URL="$(db_url "$target_template")" bunx --no-install prisma migrate deploy
       DATABASE_URL="$(db_url "$target_template")" bun prisma/seed-template.ts
     ) >&2 || die "template_refresh: prisma migrate deploy / seed-template.ts failed for $target_template"
   fi
@@ -769,7 +769,7 @@ ensure_per_worktree_dbs() {
       (( just_created )) && continue
       (
         cd "$wt_root/packages/server"
-        DATABASE_URL="$(db_url "$target")" bunx prisma migrate deploy
+        DATABASE_URL="$(db_url "$target")" bunx --no-install prisma migrate deploy
       ) >&2
     done
   fi
@@ -968,7 +968,7 @@ reseed_worktree_db() {
   log "applying migrations + SRD seed to $db (preserves non-SRD rows)"
   (
     cd "$wt_root/packages/server"
-    DATABASE_URL="$(db_url "$db")" bunx prisma migrate deploy
+    DATABASE_URL="$(db_url "$db")" bunx --no-install prisma migrate deploy
     DATABASE_URL="$(db_url "$db")" bun prisma/seed-template.ts
   ) >&2 || die "reseed_worktree_db: prisma migrate deploy / seed-template.ts failed for $db"
 }

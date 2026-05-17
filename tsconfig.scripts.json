@@ -14,6 +14,7 @@
     "scripts/drift-ai.test.ts",
     "scripts/drift-ai/**/*.ts",
     "scripts/drift/**/*.ts",
+    "scripts/generate-lint-guidance.ts",
     "scripts/logs-audit.ts",
     "scripts/logs-audit.test.ts",
     "scripts/logs-audit/**/*.ts"

@@ -3,7 +3,7 @@ import path from "node:path";
 
 import { DriftAiError } from "./errors.js";
 
-export const AUTO_CONFIG_FILENAME = "drift-ai.config.json";
+const AUTO_CONFIG_FILENAME = "drift-ai.config.json";
 
 export type DriftAiIgnoreConfig = {
   readonly segments: readonly string[];
@@ -11,16 +11,16 @@ export type DriftAiIgnoreConfig = {
   readonly globs: readonly string[];
 };
 
-export type DriftAiDuplicatesConfig = {
+type DriftAiDuplicatesConfig = {
   readonly minLines?: number;
   readonly excludeGlobs: readonly string[];
 };
 
-export type DriftAiCommentsConfig = {
+type DriftAiCommentsConfig = {
   readonly excludePrefixes: readonly string[];
 };
 
-export type DriftAiGhostFilesConfig = {
+type DriftAiGhostFilesConfig = {
   readonly excludeGlobs: readonly string[];
   readonly currentAllowedPairs: readonly GhostFileAllowedPair[];
 };
@@ -29,7 +29,7 @@ export type GhostFileAllowedPair = {
   readonly files: readonly [string, string];
 };
 
-export type DriftAiChecksConfig = {
+type DriftAiChecksConfig = {
   readonly duplicates: DriftAiDuplicatesConfig;
   readonly comments: DriftAiCommentsConfig;
   readonly "ghost-files": DriftAiGhostFilesConfig;

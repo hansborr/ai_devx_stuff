@@ -12,7 +12,7 @@ import type { ChangedFile, DriftFinding } from "../drift-ai.js";
 import { matchesAnyGlob, normalizeRepoPath } from "./config.js";
 import type { DetectorScope } from "./scope.js";
 
-export type JscpdFileEntry = {
+type JscpdFileEntry = {
   readonly name: string;
   readonly start: number;
   readonly end: number;
@@ -25,7 +25,7 @@ export type JscpdClone = {
   readonly secondFile: JscpdFileEntry;
 };
 
-export type JscpdReport = {
+type JscpdReport = {
   readonly duplicates: readonly JscpdClone[];
 };
 
@@ -165,7 +165,7 @@ export const DEFAULT_DUPLICATES_IGNORE_GLOBS: readonly string[] = [
   "**/*.d.ts",
 ];
 
-export type DuplicateScopeKey = string;
+type DuplicateScopeKey = string;
 
 export type DuplicateScope = {
   readonly key: DuplicateScopeKey;
@@ -258,7 +258,7 @@ export type JscpdRunnerInput = {
   readonly ignoreGlobs: readonly string[];
 };
 
-export type JscpdRunnerResult =
+type JscpdRunnerResult =
   | { readonly ok: true; readonly reportJson: string }
   | { readonly ok: false; readonly error: string };
 

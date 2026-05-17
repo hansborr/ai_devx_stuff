@@ -28,10 +28,13 @@ fi
 # entirely, which `--project` filters to pass, and whether to drop `--changed`
 # so config/dependency edits run the relevant suite in full instead of
 # selecting nothing.
-mapfile -t CHANGED_FILES < <(git diff --name-only --diff-filter=ACMR "$REF"...HEAD)
+mapfile -t CHANGED_FILES < <(git diff --name-only --diff-filter=ACMRD "$REF"...HEAD)
+mapfile -t DELETED_FILES < <(git diff --name-only --diff-filter=D "$REF"...HEAD)
 if git rev-parse --verify HEAD >/dev/null 2>&1; then
-  mapfile -t WORKTREE_FILES < <(git diff --name-only --diff-filter=ACMR HEAD)
-  CHANGED_FILES+=(${WORKTREE_FILES[@]+"${WORKTREE_FILES[@]}"})
+  mapfile -t WORKTREE_FILES < <(git diff --name-only --diff-filter=ACMRD HEAD)
+  mapfile -t WORKTREE_DELETED_FILES < <(git diff --name-only --diff-filter=D HEAD)
+  CHANGED_FILES+=("${WORKTREE_FILES[@]}")
+  DELETED_FILES+=("${WORKTREE_DELETED_FILES[@]}")
 fi
 
 if [ "${#CHANGED_FILES[@]}" -eq 0 ]; then
@@ -69,32 +72,47 @@ has_vitest_relevant=0
 # how unchanged tests run, so the relevant suite must run in full.
 full_run=0
 
+is_deleted_change() {
+  local needle="$1" deleted
+  for deleted in "${DELETED_FILES[@]}"; do
+    [ "$deleted" = "$needle" ] && return 0
+  done
+  return 1
+}
+
 for file in "${CHANGED_FILES[@]}"; do
+  file_vitest_relevant=0
   case "$file" in
     bun.lock|package.json|vitest.config.*|tsconfig*.json)
       has_global=1
       has_vitest_relevant=1
+      file_vitest_relevant=1
       full_run=1
       ;;
     packages/shared/*)
       has_shared=1
       has_vitest_relevant=1
+      file_vitest_relevant=1
       ;;
     packages/server/*)
       has_server=1
       has_vitest_relevant=1
+      file_vitest_relevant=1
       ;;
     packages/client/*)
       has_client=1
       has_vitest_relevant=1
+      file_vitest_relevant=1
       ;;
     eslint-rules/*)
       has_eslint_rules=1
       has_vitest_relevant=1
+      file_vitest_relevant=1
       ;;
     scripts/*.test.ts|scripts/**/*.test.ts|scripts/codemods/*|scripts/code-intel*.ts|scripts/drift-ai.ts|scripts/drift-ai/*|scripts/drift/*|scripts/logs-audit.ts|scripts/logs-audit/*)
       has_scripts=1
       has_vitest_relevant=1
+      file_vitest_relevant=1
       full_run=1
       ;;
   esac
@@ -102,14 +120,20 @@ for file in "${CHANGED_FILES[@]}"; do
   case "$file" in
     packages/*/package.json|packages/*/vitest.config.*|packages/*/tsconfig*.json|eslint-rules/vitest.config.*)
       has_vitest_relevant=1
+      file_vitest_relevant=1
       full_run=1
       ;;
     scripts/vitest.config.*)
       has_scripts=1
       has_vitest_relevant=1
+      file_vitest_relevant=1
       full_run=1
       ;;
   esac
+
+  if [ "$file_vitest_relevant" -eq 1 ] && is_deleted_change "$file"; then
+    full_run=1
+  fi
 done
 
 if [ "$has_vitest_relevant" -eq 0 ]; then

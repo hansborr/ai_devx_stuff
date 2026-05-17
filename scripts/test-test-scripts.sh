@@ -39,7 +39,7 @@ chmod +x "$SANDBOX/bin/runner"
 
 STUB_LOG_FILE="$SANDBOX/runner.log"
 : > "$STUB_LOG_FILE"
-ALL_SMOKE_TESTS=$'runner ran test-verify\nrunner ran test-verify-async\nrunner ran test-verify-logs\nrunner ran test-worktree-db\nrunner ran test-dependency-freshness\nrunner ran test-ai-hooks\nrunner ran test-eslint-disable-register\nrunner ran test-codemod-structured-logging-fix\nrunner ran test-codemod-trpc-shared-input\nrunner ran test-codemod-trpc-shared-output\nrunner ran test-code-intel\nrunner ran test-lint-changed\nrunner ran test-test-changed\nrunner ran test-test-slow\nrunner ran test-generate-module-index\nrunner ran test-migration-safety-scan\nrunner ran test-test-scripts'
+ALL_SMOKE_TESTS=$'runner ran test-verify\nrunner ran test-verify-async\nrunner ran test-verify-logs\nrunner ran test-worktree-db\nrunner ran test-dependency-freshness\nrunner ran test-ai-hooks\nrunner ran test-eslint-disable-register\nrunner ran test-suppression-register\nrunner ran test-codemod-structured-logging-fix\nrunner ran test-codemod-trpc-shared-input\nrunner ran test-codemod-trpc-shared-output\nrunner ran test-code-intel\nrunner ran test-lint-changed\nrunner ran test-test-changed\nrunner ran test-test-slow\nrunner ran test-generate-module-index\nrunner ran test-generate-lint-guidance\nrunner ran test-migration-safety-scan\nrunner ran test-test-scripts'
 
 run_runner() {
   STUB_LOG="$STUB_LOG_FILE" \
@@ -92,6 +92,29 @@ grep -qF 'no script smoke tests selected' <<< "$output" \
   || fail "blank --changed should announce skip: $output"
 ok "--changed is a no-op when changed list is blank"
 
+# --- --changed falls back to full suite for staged script deletions --------
+: > "$STUB_LOG_FILE"
+script_delete_repo="$SANDBOX/script-delete-repo"
+mkdir -p "$script_delete_repo/scripts"
+git -C "$SANDBOX" init -q -b main "$script_delete_repo"
+git -C "$script_delete_repo" config user.email test@example.com
+git -C "$script_delete_repo" config user.name Test
+printf 'echo delete me\n' > "$script_delete_repo/scripts/delete-me.sh"
+git -C "$script_delete_repo" add scripts/delete-me.sh
+git -C "$script_delete_repo" commit -qm base
+git -C "$script_delete_repo" rm -q scripts/delete-me.sh
+output="$(
+  cd "$script_delete_repo"
+  STUB_LOG="$STUB_LOG_FILE" \
+  MUSI_SCRIPTS_RUNNER="$SANDBOX/bin/runner" \
+    bash "$RUNNER_SH" --changed 2>&1
+)"
+[ "$(cat "$STUB_LOG_FILE")" = "$ALL_SMOKE_TESTS" ] \
+  || fail "staged script deletion should run all smoke tests: $(cat "$STUB_LOG_FILE")"
+grep -qF 'test:scripts: script deletion staged' <<< "$output" \
+  || fail "staged script deletion should announce full-suite fallback: $output"
+ok "--changed falls back to full suite for staged script deletions"
+
 # --- --changed selects test-verify on scripts/verify.sh change ------------
 : > "$STUB_LOG_FILE"
 MUSI_SCRIPTS_CHANGED_FILES="scripts/verify.sh" run_runner --changed >/dev/null
@@ -128,6 +151,13 @@ MUSI_SCRIPTS_CHANGED_FILES="scripts/eslint-disable-register.sh" run_runner --cha
   || fail "eslint-disable register change should select its smoke test: $(cat "$STUB_LOG_FILE")"
 ok "--changed selects test-eslint-disable-register on diagnostics change"
 
+# --- --changed selects suppression register diagnostics smoke ------------
+: > "$STUB_LOG_FILE"
+MUSI_SCRIPTS_CHANGED_FILES="scripts/suppression-register.sh" run_runner --changed >/dev/null
+[ "$(cat "$STUB_LOG_FILE")" = "runner ran test-suppression-register" ] \
+  || fail "suppression register change should select its smoke test: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects test-suppression-register on diagnostics change"
+
 # --- --changed selects tRPC shared-schema codemod smokes -----------------
 : > "$STUB_LOG_FILE"
 MUSI_SCRIPTS_CHANGED_FILES="scripts/codemods/structured-logging-fix.ts" run_runner --changed >/dev/null
@@ -149,7 +179,7 @@ ok "--changed selects output codemod smoke on output codemod change"
 
 : > "$STUB_LOG_FILE"
 MUSI_SCRIPTS_CHANGED_FILES="package.json" run_runner --changed >/dev/null
-expected=$'runner ran test-codemod-structured-logging-fix\nrunner ran test-codemod-trpc-shared-input\nrunner ran test-codemod-trpc-shared-output\nrunner ran test-code-intel'
+expected=$'runner ran test-codemod-structured-logging-fix\nrunner ran test-codemod-trpc-shared-input\nrunner ran test-codemod-trpc-shared-output\nrunner ran test-code-intel\nrunner ran test-generate-lint-guidance'
 [ "$(cat "$STUB_LOG_FILE")" = "$expected" ] \
   || fail "package.json change should select codemod smokes: $(cat "$STUB_LOG_FILE")"
 ok "--changed selects package-script smokes on package script change"
@@ -186,6 +216,13 @@ MUSI_SCRIPTS_CHANGED_FILES="scripts/lint-changed.sh" run_runner --changed >/dev/
 [ "$(cat "$STUB_LOG_FILE")" = "runner ran test-lint-changed" ] \
   || fail "lint-changed.sh change should select lint-changed smoke: $(cat "$STUB_LOG_FILE")"
 ok "--changed selects test-lint-changed on lint wrapper change"
+
+: > "$STUB_LOG_FILE"
+MUSI_SCRIPTS_CHANGED_FILES="scripts/verify-metadata.sh" run_runner --changed >/dev/null
+expected=$'runner ran test-verify\nrunner ran test-dependency-freshness\nrunner ran test-ai-hooks\nrunner ran test-lint-changed'
+[ "$(cat "$STUB_LOG_FILE")" = "$expected" ] \
+  || fail "verify-metadata.sh change should select dependent smokes: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects dependent smokes on verify metadata change"
 
 # --- --changed selects ai-hooks smoke on shared hook changes -------------
 : > "$STUB_LOG_FILE"
@@ -236,6 +273,19 @@ MUSI_SCRIPTS_CHANGED_FILES="scripts/generate-module-index.sh" run_runner --chang
 [ "$(cat "$STUB_LOG_FILE")" = "runner ran test-generate-module-index" ] \
   || fail "module index generator change should select module-index smoke: $(cat "$STUB_LOG_FILE")"
 ok "--changed selects test-generate-module-index on generator change"
+
+# --- --changed selects lint-guidance smoke -------------------------------
+: > "$STUB_LOG_FILE"
+MUSI_SCRIPTS_CHANGED_FILES="scripts/generate-lint-guidance.ts" run_runner --changed >/dev/null
+[ "$(cat "$STUB_LOG_FILE")" = "runner ran test-generate-lint-guidance" ] \
+  || fail "lint guidance generator change should select lint-guidance smoke: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects test-generate-lint-guidance on generator change"
+
+: > "$STUB_LOG_FILE"
+MUSI_SCRIPTS_CHANGED_FILES="eslint-rules/structured-logging.js" run_runner --changed >/dev/null
+[ "$(cat "$STUB_LOG_FILE")" = "runner ran test-generate-lint-guidance" ] \
+  || fail "principle source change should select lint-guidance smoke: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects test-generate-lint-guidance on principle source change"
 
 # --- --changed selects migration-safety smoke on its subject change -------
 : > "$STUB_LOG_FILE"

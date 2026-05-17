@@ -42,7 +42,7 @@ describe("no-broadcast-in-transaction", () => {
             "  broadcastEncounterUpdate(io, campaignId, encounterId, logger);",
             "});",
           ].join("\n"),
-          errors: [{ messageId: "noBroadcastInTransaction" }],
+          errors: [{ message: /docs\/guides\/add-socket-broadcast\.md/u }],
         },
         {
           code: [

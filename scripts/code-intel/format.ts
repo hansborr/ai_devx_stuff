@@ -66,7 +66,7 @@ function appendCandidateTests(lines: string[], tests: string[]): void {
   }
 }
 
-export function formatResults(
+function formatResults(
   header: string,
   results: IntelResult[],
   format: OutputFormat,
@@ -105,7 +105,7 @@ export function formatResults(
   return lines.join("\n");
 }
 
-export function formatDefinitionNameMiss(
+function formatDefinitionNameMiss(
   header: string,
   hint: DefinitionNearMatchHint,
   format: OutputFormat,
@@ -128,7 +128,7 @@ export function formatDefinitionNameMiss(
   return lines.join("\n");
 }
 
-export function formatDependentsProjectSummary(
+function formatDependentsProjectSummary(
   summary: ProjectBucketSummary,
   project: ProjectFilter | undefined,
 ): string | undefined {

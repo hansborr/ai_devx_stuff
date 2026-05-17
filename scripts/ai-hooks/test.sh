@@ -427,20 +427,26 @@ assert_policy_blocks_each "$AI_POLICY_GREP" \
   "grep TODO packages/client/src/main.ts" \
   "egrep TODO packages/client/src/main.ts" \
   "fgrep TODO packages/client/src/main.ts" \
-  "echo TODO | grep TODO" \
   "find . -exec grep TODO {} +" \
   "printf '%s\n' TODO | xargs grep TODO" \
   "echo ok && grep TODO package.json" \
+  "true; grep TODO package.json" \
   "bash -lc 'grep TODO package.json'" \
   "sh -c \"grep TODO package.json\""
 assert_policy_allows_each \
   "echo ok" \
   "git status --short" \
   "git grep needle" \
+  "git -C /tmp/some/path grep needle" \
   "rg needle" \
   "rg --files" \
   "ripgrep needle" \
   "which grep" \
+  "echo TODO | grep TODO" \
+  "cat package.json | grep -v node_modules" \
+  "rg pattern packages | grep -v test" \
+  "find . -name '*.ts' | grep components" \
+  "rg -n 'FOO|grep' packages/client/src" \
   "bun run test:changed"
 
 PROTECTED_MSG=$(ai_protected_file_advisory "$REPO_ROOT/packages/server/prisma/schema.prisma")
@@ -1150,6 +1156,23 @@ VERIFY_MSG=$(MUSI_VERIFY_LOG_DIR="$VERIFY_LOG_DIR" ai_stop_verify_status "$VERIF
   || fail "serial-verify failing should emit"
 assert_contains "$VERIFY_MSG" "cached verify"
 
+# serial-verify-changed mode keys freshness to the staged fingerprint, not the
+# full worktree fingerprint.
+printf 'staged verify changed\n' > "$VERIFY_REPO/file.txt"
+git -C "$VERIFY_REPO" add file.txt
+VERIFY_STAGED_FP=$(ai_staged_fingerprint "$VERIFY_REPO")
+mkdir -p "$VERIFY_REPO/docs"
+printf 'scratch\n' > "$VERIFY_REPO/docs/scratch.md"
+write_verify_wrapper serial-verify-changed 1 "$VERIFY_STAGED_FP"
+rm -f "$VERIFY_COUNTER"
+VERIFY_MSG=$(MUSI_VERIFY_LOG_DIR="$VERIFY_LOG_DIR" ai_stop_verify_status "$VERIFY_REPO") \
+  || fail "serial-verify-changed failing should emit against staged fingerprint"
+assert_contains "$VERIFY_MSG" "cached verify:changed"
+rm -f "$VERIFY_REPO/docs/scratch.md"
+rmdir "$VERIFY_REPO/docs" 2>/dev/null || true
+git -C "$VERIFY_REPO" reset -- file.txt >/dev/null 2>&1
+git -C "$VERIFY_REPO" checkout -- file.txt
+
 mkdir -p "$VERIFY_REPO/scripts"
 printf 'echo before\n' > "$VERIFY_REPO/scripts/check.sh"
 git -C "$VERIFY_REPO" add scripts/check.sh
@@ -1165,7 +1188,8 @@ VERIFY_PRECOMMIT_FP=$(ai_precommit_fingerprint "$VERIFY_REPO")
 write_verify_wrapper parallel-precommit 1 "$VERIFY_PRECOMMIT_FP"
 rm -f "$VERIFY_COUNTER"
 printf 'unstaged side edit\n' > "$VERIFY_REPO/side.txt"
-printf 'echo scratch\n' > "$VERIFY_REPO/scripts/scratch.sh"
+mkdir -p "$VERIFY_REPO/docs"
+printf 'scratch\n' > "$VERIFY_REPO/docs/scratch.md"
 VERIFY_MSG=$(MUSI_VERIFY_LOG_DIR="$VERIFY_LOG_DIR" ai_stop_verify_status "$VERIFY_REPO") \
   || fail "untracked non-input edit should not stale a pre-commit failure"
 assert_contains "$VERIFY_MSG" "cached pre-commit"
@@ -1178,7 +1202,8 @@ if MUSI_VERIFY_LOG_DIR="$VERIFY_LOG_DIR" ai_stop_verify_status "$VERIFY_REPO" >/
   fail "changed staged diff should stale a pre-commit failure"
 fi
 git -C "$VERIFY_REPO" checkout -- file.txt
-rm -f "$VERIFY_REPO/side.txt" "$VERIFY_REPO/scripts/scratch.sh"
+rm -f "$VERIFY_REPO/side.txt" "$VERIFY_REPO/docs/scratch.md"
+rmdir "$VERIFY_REPO/docs" 2>/dev/null || true
 
 # A relevant unstaged source/config edit is a pre-commit input, so changing it
 # after the failed run makes the cached result stale.

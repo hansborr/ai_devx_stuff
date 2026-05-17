@@ -1,9 +1,16 @@
 #!/bin/bash
-# Run ESLint only on files changed vs the base branch (plus staged/unstaged).
+# Run ESLint only on files changed vs the base branch plus staged changes.
 # Exits 0 with a no-op message when no lintable files changed.
 set -eu
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+. "$SCRIPT_DIR/verify-metadata.sh"
+
 BASE="${1:-main}"
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+
+musi_changed_gate_fail_if_unstaged "$REPO_ROOT" "lint:changed"
 
 # Resolve the base ref: prefer local, fall back to origin/<base>.
 if git rev-parse --verify "$BASE" >/dev/null 2>&1; then
@@ -11,12 +18,13 @@ if git rev-parse --verify "$BASE" >/dev/null 2>&1; then
 elif git rev-parse --verify "origin/$BASE" >/dev/null 2>&1; then
   BASE="origin/$BASE"
 else
-  echo "lint:changed: neither '$BASE' nor 'origin/$BASE' exists — running full lint instead." >&2
-  exec eslint --cache --cache-location node_modules/.cache/eslint/ .
+  echo "lint:changed: neither '$BASE' nor 'origin/$BASE' exists — checking full repo working tree with eslint." >&2
+  exec eslint --cache --cache-location node_modules/.cache/eslint/ --max-warnings=0 .
 fi
 
-# Collect changed + staged + unstaged files (NUL-delimited for space-safety),
-# filter to lintable extensions and existing files, deduplicate.
+# Collect base + staged files (NUL-delimited for space-safety), filter to
+# lintable extensions and existing files, deduplicate. Unstaged source-relevant
+# changes are rejected above instead of being mixed into this selection.
 declare -A SEEN
 FILES=()
 FULL_LINT=0
@@ -37,21 +45,20 @@ while IFS= read -r -d '' f; do
   FILES+=("$f")
 done < <(
   {
-    git diff -z --name-only --diff-filter=ACMR "$BASE"...HEAD
-    git diff -z --name-only --diff-filter=ACMR
-    git diff -z --name-only --diff-filter=ACMR --cached
+    git diff -z --name-only --diff-filter=ACMRD "$BASE"...HEAD
+    git diff -z --name-only --diff-filter=ACMRD --cached
   }
 )
 
 if [ "$FULL_LINT" -eq 1 ]; then
-  echo "lint:changed: lint-affecting config changed — running full lint."
-  exec eslint --cache --cache-location node_modules/.cache/eslint/ .
+  echo "lint:changed: lint-affecting staged/base config changed — checking full repo working tree with eslint."
+  exec eslint --cache --cache-location node_modules/.cache/eslint/ --max-warnings=0 .
 fi
 
 if [ "${#FILES[@]}" -eq 0 ]; then
-  echo "No changed lintable files vs $BASE — skipping lint."
+  echo "lint:changed: no staged/base changed lintable files vs $BASE — skipping lint."
   exit 0
 fi
 
-echo "Linting ${#FILES[@]} changed file(s)..."
-exec eslint --cache --cache-location node_modules/.cache/eslint/ --no-warn-ignored "${FILES[@]}"
+echo "lint:changed: checking ${#FILES[@]} staged/base changed working-tree file(s) with eslint."
+exec eslint --cache --cache-location node_modules/.cache/eslint/ --max-warnings=0 --no-warn-ignored "${FILES[@]}"

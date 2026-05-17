@@ -1,0 +1,302 @@
+# Archgate ADR Plan for Musi
+
+Date: 2026-05-10
+Repo inspected: `/workspace`
+
+## Constraint
+
+I did not modify the repo. `docs/agent_notes/STATUS.md` and `NEXT.md` currently
+say no active leaf is promoted, so this is a handoff plan rather than an active
+queue change.
+
+## Goal
+
+Add a narrow ADR layer for architectural decisions that are enforced by
+deterministic gates. The outcome should be:
+
+- lint/check messages name a stable ADR id for non-obvious architecture rules;
+- each ADR explains the "why", status, related guide, and enforcing gates;
+- a small checker prevents broken ADR/gate cross-links;
+- existing repair guidance stays in rule messages and guides.
+
+This should extend Musi's existing guide + sensor + repair model in
+`docs/ai-harness.md`, not replace it.
+
+## Non-Goals
+
+- Do not ADR every lint rule.
+- Do not move general how-to recipes out of `docs/guides/`.
+- Do not replace `docs/authorization.md`, `docs/CONCURRENCY.md`, or
+  `docs/socket-architecture.md`.
+- Do not add more global `AGENTS.md` instructions unless the workflow changes
+  for every agent on every session.
+
+## ADR Rule
+
+Only create an ADR when all of these are true:
+
+1. The decision is architectural or behavior-significant.
+2. The reason is not obvious from the local code.
+3. At least one deterministic gate enforces it now or in the same leaf.
+
+If there is no gate, keep the note in `docs/agent_notes/DECISIONS.md` or the
+area doc. If the rule is just maintainability pressure, improve the lint
+message instead.
+
+## Proposed ADR Format
+
+Create `docs/adr/NNNN-title.md`:
+
+```markdown
+---
+id: ADR-0001
+date: 2026-05-10
+status: Accepted
+enforced_by:
+  - local/concurrency-guard
+  - RawTxClient restricted import
+  - Restricted Prisma delegate types
+guide: docs/guides/add-race-sensitive-mutation.md
+---
+
+# Race-sensitive writes go through mutation helpers
+
+## Context
+Why this rule exists and what broke or could break without it.
+
+## Decision
+The invariant contributors must preserve.
+
+## Consequences
+How future changes should behave, including sibling gates and repair path.
+```
+
+Use `Superseded by ADR-000N` rather than editing history when a decision
+changes materially.
+
+## Initial ADR Candidates
+
+Start with six. These already exist as docs or `DECISIONS` entries, so the work
+is mostly extraction and cross-linking.
+
+1. `ADR-0001` Race-sensitive writes go through mutation helpers.
+   - Source: `docs/CONCURRENCY.md`,
+     `docs/agent_notes/decisions-concurrency.md`.
+   - Gates: `local/concurrency-guard`, `RawTxClient` restricted import,
+     restricted Prisma delegate types, `codemod:concurrency-guard`.
+
+2. `ADR-0002` Character ownership mismatch returns `NOT_FOUND`.
+   - Source: `docs/authorization.md`,
+     `docs/agent_notes/decisions-auth.md`.
+   - Gates: auth/router tests around character access helpers.
+
+3. `ADR-0003` Socket broadcasts happen after commit and through the registry.
+   - Source: `docs/socket-architecture.md`,
+     `docs/guides/add-socket-broadcast.md`.
+   - Gates: `local/no-broadcast-in-transaction`,
+     `local/socket-registry-broadcasts`, broadcast registry tests.
+
+4. `ADR-0004` tRPC procedures use shared schemas and explicit outputs.
+   - Source: `docs/guides/add-trpc-procedure.md`,
+     `docs/agent_notes/decisions-schemas.md`.
+   - Gates: `local/strict-trpc-input`, `local/trpc-require-output-schema`,
+     `local/trpc-shared-input-schema`, `local/trpc-shared-output-schema`,
+     app-router output coverage test.
+
+5. `ADR-0005` Shared package APIs use subpath exports, not broad barrels.
+   - Source: `docs/agent_notes/decisions-build.md`,
+     `docs/roadmap/developer-experience.md`.
+   - Gates: shared schema barrel import ban, `local/no-barrel`,
+     `codemod:expand-barrel`.
+
+6. `ADR-0006` `packages/shared` cannot depend on app/runtime adapters.
+   - Source: `AGENTS.md`, architecture docs, current import restrictions.
+   - Gates: restricted imports in `eslint.config.js`.
+
+Skip `local/max-lines`, `local/no-explicit-any`, and `local/test-file-location`
+for now. Their current messages are the right level of ceremony.
+
+## Retiring `decisions-*.md` Sources
+
+Where an ADR's source is a `docs/agent_notes/decisions-*.md` note, retire that
+note as part of the ADR's leaf. Architecture docs (`authorization.md`,
+`CONCURRENCY.md`, `socket-architecture.md`) and guides stay — see Non-Goals.
+
+Retirement requires, in order:
+
+1. **Parity check.** The ADR (plus any guide it links to) covers every
+   durable detail from the decisions note: the rule itself, the rationale,
+   sibling gates, and the repair path. Drop only redundancy, not history.
+2. **Reference sweep.** `rg -n "decisions-<topic>"` across the repo returns
+   no remaining live references, or each one has been updated to point at
+   the ADR id.
+3. **Delete, don't stub.** Remove the `decisions-*.md` file outright. The
+   ADR id is the new stable handle; redirect stubs rot and split rationale
+   across two files again.
+
+An ADR without its source-note retired counts as half-landed. Concretely:
+
+- ADR-0001 retires `decisions-concurrency.md`.
+- ADR-0002 retires `decisions-auth.md`.
+- ADR-0004 retires `decisions-schemas.md`.
+- ADR-0005 retires `decisions-build.md`.
+- ADR-0003 and ADR-0006 have no `decisions-*.md` source; nothing to retire.
+
+`decisions-realtime.md` and `decisions-services.md` are not claimed by any
+candidate ADR and stay as-is.
+
+## Implementation Plan
+
+### 1. Add the ADR skeleton
+
+- Add `docs/adr/README.md` with:
+  - when ADRs are allowed;
+  - frontmatter schema;
+  - status values: `Proposed`, `Accepted`, `Superseded by ADR-000N`,
+    `Deprecated`;
+  - rule that every accepted ADR needs `enforced_by`.
+- Add `docs/adr/0001-race-sensitive-writes.md` and
+  `docs/adr/0003-socket-broadcasts-after-commit.md` as the pilot.
+- Keep each ADR short. Link to the longer guide or architecture doc instead of
+  duplicating it.
+
+### 2. Cross-link the pilot gates
+
+Update only the messages for the pilot decisions:
+
+- `eslint-rules/concurrency-guard.js`
+- `eslint-rules/no-broadcast-in-transaction.js`
+- `eslint-rules/socket-registry-broadcasts.js`
+- RawTxClient restricted import message in `eslint.config.js`
+
+Message shape (WHY/FIX template):
+
+```text
+Direct encounter.update bypasses the mutation-helper boundary (ADR-0001)
+  WHY: race-sensitive writes must run inside the helper's transaction wrapper
+       to avoid lost updates under concurrent writers.
+  FIX: use the documented helper or run
+       `bun run codemod:concurrency-guard -- <file>`. See docs/CONCURRENCY.md.
+```
+
+Three jobs, one per line: the ADR id makes the decision discoverable; the WHY
+line keeps the rationale legible at fire-time so the agent doesn't have to
+follow the link to know whether to suppress or fix; the FIX line carries the
+repair command and guide path. Cap each line at roughly one sentence — if the
+why doesn't fit, the ADR is doing the wrong job.
+
+Apply the same template to `local/no-broadcast-in-transaction` and
+`local/socket-registry-broadcasts` in the pilot. Existing one-line messages on
+those rules get rewritten, not appended to.
+
+### 3. Add `adr:check`
+
+Add a small deterministic checker:
+
+- script path: `scripts/check-adr-archgates.ts` or
+  `scripts/adr-check.ts`;
+- package script: `adr:check`;
+- test coverage in `scripts/test-adr-check.sh` or a Vitest script test.
+
+Minimum checks (cross-link scanning, no separate registry):
+
+- every `ADR-000N` referenced in `eslint-rules/`, `eslint.config.js`,
+  `scripts/`, and `packages/` exists under `docs/adr/`;
+- every accepted ADR has non-empty `enforced_by`;
+- every `enforced_by` entry resolves against the actual repo: ESLint rule
+  names exist in `eslint-rules/` or `eslint.config.js`; codemod names exist
+  as scripts; named test files exist; documented import restrictions are
+  present in `eslint.config.js`;
+- superseded ADRs are not referenced by active gate messages;
+- duplicate ADR ids fail.
+
+Resolve `enforced_by` entries by scanning the actual source — don't maintain a
+separate registry of "known gates." A registry is a third source of truth that
+rots quietly the moment a gate is renamed or removed; cross-link scanning fails
+loudly in the same situation, which is the whole point of the sensor.
+
+For this to work, `enforced_by` entries need to be machine-resolvable. Use
+stable identifiers (rule names, file paths, named import-restriction ids in
+`eslint.config.js`) rather than free prose. The pilot ADRs should establish the
+naming convention.
+
+### 4. Wire the checker into the harness map
+
+- Add `adr:check` to `docs/ai-harness.md` as a sensor.
+- Add the ADR guide row to the guide table.
+- Mention the rule in the Promotion Rule area:
+  architectural gates should carry repair text and, when non-obvious, an ADR id.
+- Decide later whether `adr:check` belongs in `verify:changed`, `doctor`, or
+  only `test:scripts`. The first leaf can keep it as a script smoke test.
+
+### 5. Expand after the pilot
+
+After the checker and first two ADRs land cleanly, add the remaining candidates
+in a second leaf:
+
+- `ADR-0002` character `NOT_FOUND`;
+- `ADR-0004` tRPC schema/output boundary;
+- `ADR-0005` subpath exports / no broad barrels;
+- `ADR-0006` shared package layering.
+
+Update only their related gate messages and tests. Avoid rewriting all docs in
+one pass.
+
+## Verification
+
+For the pilot leaf:
+
+```bash
+bun run vitest run --project=eslint-rules \
+  eslint-rules/concurrency-guard.test.js \
+  eslint-rules/no-broadcast-in-transaction.test.js \
+  eslint-rules/socket-registry-broadcasts.test.js
+bun run test:scripts
+bun run adr:check
+bun run verify:changed
+```
+
+If `adr:check` is implemented as a script smoke test, `bun run test:scripts`
+should cover it as well.
+
+## Acceptance Criteria
+
+- `docs/adr/README.md` exists and defines the narrow ADR policy.
+- Pilot ADRs exist with stable ids, status, date, guide, and `enforced_by`.
+- Pilot lint/config messages follow the WHY/FIX template and name the ADR id
+  on the summary line.
+- `adr:check` fails on: missing ids, duplicate ids, accepted ADRs without
+  gates, `enforced_by` entries that don't resolve in the repo, and active
+  references to superseded ADRs.
+- For each pilot ADR with a `decisions-*.md` source: that file is deleted and
+  `rg -n "decisions-<topic>"` returns no live in-repo references.
+- `docs/ai-harness.md` lists ADRs and `adr:check` in the guide/sensor map.
+- No maintainability-only rules were promoted into ADRs.
+
+## Risks and Guardrails
+
+- Risk: ADRs become another stale doc pile.
+  - Guardrail: no accepted ADR without `enforced_by`; checker enforces it.
+
+- Risk: lint messages become too verbose.
+  - Guardrail: include only `ADR-000N`, one-line why, repair command/path.
+
+- Risk: duplicate rationale across ADRs, guides, and architecture docs.
+  - Guardrail: ADR states the invariant and links outward; guides keep recipes.
+
+- Risk: checker turns into a broad static-analysis project.
+  - Guardrail: start with explicit registry and exact id scanning.
+
+## Recommended First Leaf
+
+Promote a small pilot:
+
+> Add ADR skeleton, implement `adr:check`, cross-link concurrency and
+> socket-broadcast gates with the WHY/FIX template, and retire
+> `decisions-concurrency.md` once ADR-0001 reaches parity. (ADR-0003 has no
+> `decisions-*.md` source to retire.)
+
+This gives the pattern enough surface to prove itself — message format,
+sensor, and source-retirement all exercised — while keeping the first change
+reviewable. If it feels heavy after that pilot, stop there and keep the
+current `decisions-*.md` files as the primary record for the rest.

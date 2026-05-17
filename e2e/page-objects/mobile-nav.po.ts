@@ -3,7 +3,7 @@ import { expect, type Locator, type Page } from "@playwright/test";
 import { TIMEOUT_MEDIUM } from "../helpers/timeouts.js";
 
 export class MobileNavPO {
-  constructor(private page: Page) {}
+  constructor(private readonly page: Page) {}
 
   private trigger(): Locator {
     return this.page.getByRole("button", { name: /open menu/i });

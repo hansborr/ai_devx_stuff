@@ -1,37 +1,43 @@
 // @ts-check
 
 /**
- * Test files must be named *.test.ts(x) and contain at least one test block.
+ * Unit/integration test files must be named with a feature prefix and contain
+ * at least one test block.
  *
  * Adapted from @factory/eslint-plugin's test-file-location rule. The original
  * also flagged any `test/` or `__tests__/` segment in the path; that heuristic
  * is dropped here because Musi has legitimate cross-cutting tests under
- * `packages/server/src/test/` that sit next to their helpers.
+ * `packages/server/src/test/` that sit next to their helpers. Playwright e2e
+ * specs stay on Playwright-specific lint rules.
  */
 
 // Setup/teardown hooks (beforeEach/afterEach/beforeAll/afterAll) deliberately
 // don't count: a file containing only those is a stub, not a test file.
 const TEST_BLOCK_NAMES = new Set(["describe", "it", "test"]);
+const UNIT_TEST_FILE_PATTERN = /\.(?:test\.(?:ts|tsx)|spec\.ts)$/;
+const UNIT_TEST_BASENAME_PATTERN = /^.+\.(?:test\.(?:ts|tsx)|spec\.ts)$/;
+const E2E_SEGMENT_PATTERN = /(?:^|[/\\])e2e(?:[/\\]|$)/;
 
 /** @type {import('eslint').Rule.RuleModule} */
 export default {
   meta: {
     type: "suggestion",
     docs: {
-      description: "Enforce *.test.ts(x) naming and require at least one test block",
+      description: "Enforce test file naming and require at least one test block",
     },
     messages: {
       wrongNaming:
-        "Test file basename is missing a name prefix. Rename to `<feature>.test.ts` (or `.test.tsx`) so the file colocates with the code it covers.",
+        "Test file basename is missing a name prefix. Rename to `<feature>.test.ts`, `.test.tsx`, or `.spec.ts` so the file colocates with the code it covers.",
       missingTests:
-        "This file is named `*.test.ts(x)` but contains no `describe`, `it`, or `test` blocks (suite hooks alone don't count). Either add a test block or rename the file; helpers belong outside the `.test.` naming.",
+        "Add a `describe`, `it`, or `test` block, or rename the file; helpers belong outside the test-file naming convention.",
     },
     schema: [],
   },
 
   create(context) {
     const filename = context.filename;
-    const isTestFile = /\.test\.(ts|tsx)$/.test(filename);
+    const isTestFile =
+      UNIT_TEST_FILE_PATTERN.test(filename) && !E2E_SEGMENT_PATTERN.test(filename);
 
     if (!isTestFile) {
       return {};
@@ -56,7 +62,7 @@ export default {
       },
 
       "Program:exit"(node) {
-        if (!/^.+\.test\.(ts|tsx)$/.test(filename.split("/").pop() ?? "")) {
+        if (!UNIT_TEST_BASENAME_PATTERN.test(filename.split(/[/\\]/).pop() ?? "")) {
           context.report({ node, messageId: "wrongNaming" });
         }
         if (!hasTestBlocks) {

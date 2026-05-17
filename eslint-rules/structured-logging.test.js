@@ -114,7 +114,7 @@ describe("structured-logging", () => {
           errors: [
             {
               message:
-                "Use structured logging instead of direct console. Try: bun run codemod:structured-logging-fix -- <file>",
+                "Why: Direct console calls bypass structured logging fields, request context, and log formatting. How to fix: Use structured logging instead, or run `bun run codemod:structured-logging-fix -- <file>`.",
             },
           ],
         },

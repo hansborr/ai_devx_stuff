@@ -41,7 +41,7 @@ describe("concurrency-guard", () => {
         {
           filename: "packages/server/src/routers/character.ts",
           code: "await ctx.prisma.characterStats.update({ where: { characterId }, data });",
-          errors: [{ messageId: "noDirectWrite" }],
+          errors: [{ message: /codemod:concurrency-guard -- <file>.*docs\/CONCURRENCY\.md/u }],
         },
         {
           filename: "packages/server/src/services/rest-service.ts",

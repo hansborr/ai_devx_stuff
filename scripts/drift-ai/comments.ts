@@ -18,12 +18,12 @@ import type { DetectorScope } from "./scope.js";
 // 120 effective code lines is large enough that a real file can earn its
 // invariant comments without warning. Tighten only after we have real reports
 // to look at.
-export const DEFAULT_EFFECTIVE_LINES_THRESHOLD = 120;
+const DEFAULT_EFFECTIVE_LINES_THRESHOLD = 120;
 
 // 40% comment lines among non-blank lines: the conservative end of the
 // 35-40% range in docs/agent_notes/in_progress/ai-drift-sensors.md. Higher
 // keeps false positives down while the sensor is report-only.
-export const DEFAULT_COMMENT_RATIO_WARN = 0.4;
+const DEFAULT_COMMENT_RATIO_WARN = 0.4;
 
 export const COMMENTS_REPAIR_HINT =
   "keep comments that explain invariants, concurrency, authorization, or rules provenance; remove narration that restates code.";

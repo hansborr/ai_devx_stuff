@@ -4,7 +4,7 @@ import { TIMEOUT_MEDIUM, TIMEOUT_SHORT } from "../helpers/timeouts.js";
 import { SpellsPanelPO } from "./spells-panel.po.js";
 
 export class CharacterSheetPO {
-  constructor(private page: Page) {}
+  constructor(private readonly page: Page) {}
 
   // ── Named locators ──────────────────────────────────────────────────
 

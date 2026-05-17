@@ -2,7 +2,7 @@ import type { CodeIntelQueryResult, ExecutableCliCommand } from "./types.js";
 
 export const CODE_INTEL_DAEMON_PROTOCOL_VERSION = 1;
 
-export type CodeIntelDaemonProtocolVersion = typeof CODE_INTEL_DAEMON_PROTOCOL_VERSION;
+type CodeIntelDaemonProtocolVersion = typeof CODE_INTEL_DAEMON_PROTOCOL_VERSION;
 
 export type CodeIntelDaemonRequest = {
   command: ExecutableCliCommand;

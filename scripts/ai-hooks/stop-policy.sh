@@ -544,8 +544,8 @@ ai_stop_verify_meta_int() {
 
 # Reports the cached `verify:changed` / pre-commit run when its wrapper meta
 # matches the current checked state and exit_code != 0. Pre-commit is matched
-# against the source/config state its tasks read; serial verify is matched
-# against the full worktree.
+# against the source/config state its tasks read, full serial verify against
+# the full worktree, and changed serial verify against the staged snapshot.
 # Reads only `$LOG_DIR/meta/wrapper.json`; never starts verification. A wrapper
 # whose fingerprint no longer matches is treated as stale and skipped silently.
 ai_stop_verify_status() {
@@ -577,6 +577,7 @@ ai_stop_verify_status() {
   case "$mode" in
     parallel-precommit) fp=$(ai_precommit_fingerprint "$repo_root") ;;
     serial-verify) fp=$(ai_worktree_fingerprint "$repo_root") ;;
+    serial-verify-changed) fp=$(ai_staged_fingerprint "$repo_root") ;;
     *) return 1 ;;
   esac
   counter=$(ai_stop_verify_counter_path "$repo_root")
@@ -606,6 +607,7 @@ ai_stop_verify_status() {
   case "$mode" in
     parallel-precommit) source_label="cached pre-commit" ;;
     serial-verify) source_label="cached verify" ;;
+    serial-verify-changed) source_label="cached verify:changed" ;;
   esac
 
   printf '%s\n\n%s' \

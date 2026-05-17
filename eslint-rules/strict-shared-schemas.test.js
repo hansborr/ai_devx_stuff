@@ -45,7 +45,7 @@ describe("strict-shared-schemas", () => {
         // Bare z.object — must flag and autofix to .strict().
         {
           code: "export const FooInputSchema = z.object({ id: z.string() });",
-          errors: [{ messageId: "needsExplicit" }],
+          errors: [{ message: /docs\/guides\/add-trpc-procedure\.md/u }],
           output: "export const FooInputSchema = z.object({ id: z.string() }).strict();",
         },
         // .strict() then .strip() — strip wins, must flag.

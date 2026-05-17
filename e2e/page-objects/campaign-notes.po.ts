@@ -3,7 +3,7 @@ import { expect, type Page } from "@playwright/test";
 import { TIMEOUT_MEDIUM, TIMEOUT_SHORT } from "../helpers/timeouts.js";
 
 export class CampaignNotesPO {
-  constructor(private page: Page) {}
+  constructor(private readonly page: Page) {}
 
   // ── Locators ───────────────────────────────────────────────────────
   readonly newNoteButton = this.page.getByRole("button", { name: /new note/i });

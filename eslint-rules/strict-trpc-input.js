@@ -52,10 +52,12 @@ export default {
     type: "suggestion",
     docs: {
       description: "tRPC .input(z.object(...)) schemas must call .strict()",
+      principle:
+        "tRPC procedures with z.object input schemas must call .strict() so unknown keys are rejected at the API boundary, preventing silent typo bugs from clients.",
     },
     messages: {
       needsStrict:
-        "tRPC input schemas must call .strict() on z.object(...) so unknown keys are rejected at the API boundary.",
+        "Use `.strict()` on tRPC input `z.object(...)` schemas so unknown keys are rejected at the API boundary. See docs/guides/add-trpc-procedure.md.",
     },
     schema: [],
   },

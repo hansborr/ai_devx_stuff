@@ -15,10 +15,12 @@ export default {
     type: "problem",
     docs: {
       description: "Disallow index.ts barrel re-exports",
+      principle:
+        "Barrel files (index.ts re-exports) defeat tree-shaking and obscure dependency graphs. Imports should point at the specific module that defines the export.",
     },
     messages: {
       noBarrel:
-        "Barrel file detected. Run: bun run codemod:expand-barrel -- --barrel {{path}}.",
+        "Use `bun run codemod:expand-barrel -- --barrel {{path}}` to replace this barrel file with direct imports.",
     },
     schema: [],
   },

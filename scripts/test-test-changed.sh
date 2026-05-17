@@ -81,6 +81,17 @@ grep -qF 'stub vitest run --passWithNoTests --project=server --changed main' "$r
   || fail "server change should run server project with --changed: $(cat "$repo/bun.log")"
 ok "server-only changes run server changed tests"
 
+repo="$(new_repo staged-source-deletion)"
+git -C "$repo" rm -q packages/server/src/base.ts
+: > "$repo/bun.log"
+run_test_changed "$repo" >/dev/null || fail "staged source deletion should run"
+grep -qF 'stub vitest run --passWithNoTests --project=server' "$repo/bun.log" \
+  || fail "staged source deletion should run server project tests: $(cat "$repo/bun.log")"
+if grep -q -- '--changed' "$repo/bun.log"; then
+  fail "staged source deletions should run affected project in full: $(cat "$repo/bun.log")"
+fi
+ok "staged source deletions run affected project tests in full"
+
 repo="$(new_repo script-codemod-change)"
 mkdir -p "$repo/scripts/codemods"
 printf 'changed\n' > "$repo/scripts/codemods/trpc-shared-input.ts"

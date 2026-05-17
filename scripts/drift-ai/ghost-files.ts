@@ -52,7 +52,7 @@ const PEER_EXCLUDE_PATTERNS: readonly RegExp[] = [
 export const GHOST_FILES_REPAIR_HINT_PREFIX =
   "check whether the existing module should be extended. Run:";
 
-export type GhostFileMatchKind =
+type GhostFileMatchKind =
   | "identical-normalized"
   | "weak-suffix-variant"
   | "near-edit-distance";
@@ -123,7 +123,7 @@ function normalizedTokens(basename: string): string[] {
   return tokenize(basename).map(singularize);
 }
 
-export function strongTokens(tokens: readonly string[]): string[] {
+function strongTokens(tokens: readonly string[]): string[] {
   return tokens.filter((token) => !WEAK_TOKENS.has(token));
 }
 

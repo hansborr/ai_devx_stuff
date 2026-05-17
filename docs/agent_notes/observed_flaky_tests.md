@@ -1,5 +1,29 @@
 # Observed Flaky Tests
 
+## 3. Server encounter combat spell attack — high-bonus hit assertion
+
+### Problem
+`bun run test:changed` failed once during pre-commit on 2026-05-16:
+`packages/server/src/routers/encounter-combat-spell.test.ts` >
+`encounterCombat.castCombatSpell` > `custom spell attack` >
+`reduces target HP on hit`, with `spellResult.hit` unexpectedly `false`.
+
+### Observed Behavior
+- The pre-commit run had already passed lint, typecheck, and script checks.
+- The focused rerun passed immediately afterward:
+  `bun run test:server -- packages/server/src/routers/encounter-combat-spell.test.ts -t "reduces target HP on hit"`.
+- Repeated during Leaf 22 pre-commit on 2026-05-16 after the required
+  `eslint-rules` Vitest, lint, and typecheck gates passed; the leaf did not
+  rerun server Vitest because its verification scope is local ESLint rules.
+
+### Root Cause Hypothesis
+Likely a nondeterministic combat roll/test isolation issue under the broad
+changed-test run. The test intends `attackBonus: 50` to guarantee a hit.
+
+### Priority
+Low unless it repeats. If seen again, inspect the spell attack roll path and
+whether any mocked/random state leaks across concurrent server tests.
+
 ## 1. E2E campaign-lifecycle / campaign-collab — undefined `context` in `afterAll`
 
 Closed 2026-04-15 in `85d951f6`. Both `e2e/campaign-lifecycle.spec.ts:27` and

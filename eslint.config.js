@@ -1,11 +1,21 @@
 // @ts-check
+import path from "node:path";
+
 import js from "@eslint/js";
+import json from "@eslint/json";
+import eslintComments from "@eslint-community/eslint-plugin-eslint-comments";
 import { defineConfig } from "eslint/config";
 import tseslint from "typescript-eslint";
 import eslintConfigPrettier from "eslint-config-prettier";
+import importX from "eslint-plugin-import-x";
+import jsxA11y from "eslint-plugin-jsx-a11y";
 import playwright from "eslint-plugin-playwright";
+import pluginReact from "eslint-plugin-react";
 import reactHooks from "eslint-plugin-react-hooks";
+import regexp from "eslint-plugin-regexp";
 import simpleImportSort from "eslint-plugin-simple-import-sort";
+import pluginQuery from "@tanstack/eslint-plugin-query";
+import vitestPlugin from "@vitest/eslint-plugin";
 
 import maxLines from "./eslint-rules/max-lines.js";
 import noAsyncArrayCallbacks from "./eslint-rules/no-async-array-callbacks.js";
@@ -69,7 +79,25 @@ const localPlugin = {
   },
 };
 
+const codeFiles = ["**/*.{js,cjs,mjs,ts,tsx,mts,cts}"];
+const typescriptFiles = ["**/*.{ts,tsx,mts,cts}"];
+
+const repoRoot = import.meta.dirname;
+const sharedDir = path.resolve(repoRoot, "packages/shared");
+const serverDir = path.resolve(repoRoot, "packages/server");
+const clientDir = path.resolve(repoRoot, "packages/client");
+const serverSeedGeneratorGlob = path.resolve(
+  repoRoot,
+  "packages/server/src/seed/generate-srd-*.ts",
+);
+
 export default defineConfig(
+  {
+    linterOptions: {
+      reportUnusedDisableDirectives: "error",
+    },
+  },
+
   {
     ignores: [
       "**/dist/",
@@ -91,19 +119,174 @@ export default defineConfig(
       "scripts/**/*",
       "!scripts/code-intel/",
       "!scripts/code-intel/**/*.ts",
+      "!scripts/drift/",
+      "!scripts/drift/**/*.ts",
+      "!scripts/generate-lint-guidance.ts",
       "worktrees/",
       "eslint-rules/",
     ],
   },
 
-  js.configs.recommended,
+  {
+    ...js.configs.recommended,
+    files: codeFiles,
+  },
 
-  ...tseslint.configs.strictTypeChecked,
+  ...tseslint.configs.strictTypeChecked.map((config) =>
+    config.files ? config : { ...config, files: typescriptFiles },
+  ),
+
+  {
+    files: ["**/*.{ts,tsx}"],
+    rules: {
+      "@typescript-eslint/consistent-type-exports": "error",
+      "@typescript-eslint/prefer-readonly": "error",
+      "@typescript-eslint/promise-function-async": "error",
+      "@typescript-eslint/switch-exhaustiveness-check": "error",
+    },
+  },
 
   eslintConfigPrettier,
 
+  // packages/shared — strict tier: production-ish source
   {
+    files: ["packages/shared/src/**/*.{ts,tsx}"],
+    ignores: [
+      "packages/shared/src/**/*.{test,spec}.{ts,tsx}",
+      "packages/shared/src/**/*.test-helper.{ts,tsx}",
+      "packages/shared/src/test/**/*.{ts,tsx}",
+    ],
+    plugins: { "import-x": importX },
+    rules: {
+      "import-x/no-extraneous-dependencies": [
+        "error",
+        { packageDir: [sharedDir] },
+      ],
+    },
+  },
+
+  // packages/shared — tests & helpers: root devDeps allowed
+  {
+    files: [
+      "packages/shared/src/**/*.{test,spec}.{ts,tsx}",
+      "packages/shared/src/**/*.test-helper.{ts,tsx}",
+      "packages/shared/src/test/**/*.{ts,tsx}",
+    ],
+    plugins: { "import-x": importX },
+    rules: {
+      "import-x/no-extraneous-dependencies": [
+        "error",
+        {
+          packageDir: [sharedDir, repoRoot],
+          devDependencies: true,
+        },
+      ],
+    },
+  },
+
+  // packages/server — strict tier: production-ish source
+  {
+    files: ["packages/server/src/**/*.{ts,tsx}"],
+    ignores: [
+      "packages/server/src/**/*.{test,spec}.{ts,tsx}",
+      "packages/server/src/**/*.test-helper.{ts,tsx}",
+      "packages/server/src/test/**/*.{ts,tsx}",
+    ],
+    plugins: { "import-x": importX },
+    rules: {
+      "import-x/no-extraneous-dependencies": [
+        "error",
+        {
+          packageDir: [serverDir],
+          devDependencies: [serverSeedGeneratorGlob],
+        },
+      ],
+    },
+  },
+
+  // packages/server — tests & helpers: root devDeps allowed
+  {
+    files: [
+      "packages/server/src/**/*.{test,spec}.{ts,tsx}",
+      "packages/server/src/**/*.test-helper.{ts,tsx}",
+      "packages/server/src/test/**/*.{ts,tsx}",
+    ],
+    plugins: { "import-x": importX },
+    rules: {
+      "import-x/no-extraneous-dependencies": [
+        "error",
+        {
+          packageDir: [serverDir, repoRoot],
+          devDependencies: true,
+        },
+      ],
+    },
+  },
+
+  // packages/client — strict tier: production-ish source
+  {
+    files: ["packages/client/src/**/*.{ts,tsx}"],
+    ignores: [
+      "packages/client/src/**/*.{test,spec}.{ts,tsx}",
+      "packages/client/src/**/*.test-helper.{ts,tsx}",
+      "packages/client/src/test/**/*.{ts,tsx}",
+    ],
+    plugins: { "import-x": importX },
+    rules: {
+      "import-x/no-extraneous-dependencies": [
+        "error",
+        { packageDir: [clientDir] },
+      ],
+    },
+  },
+
+  // packages/client — tests & helpers: root devDeps allowed
+  {
+    files: [
+      "packages/client/src/**/*.{test,spec}.{ts,tsx}",
+      "packages/client/src/**/*.test-helper.{ts,tsx}",
+      "packages/client/src/test/**/*.{ts,tsx}",
+    ],
+    plugins: { "import-x": importX },
+    rules: {
+      "import-x/no-extraneous-dependencies": [
+        "error",
+        {
+          packageDir: [clientDir, repoRoot],
+          devDependencies: true,
+        },
+      ],
+    },
+  },
+
+  {
+    files: codeFiles,
+    plugins: { regexp },
+    rules: {
+      ...regexp.configs["flat/recommended"].rules,
+      "regexp/confusing-quantifier": "error",
+      "regexp/no-empty-alternative": "error",
+      "regexp/no-lazy-ends": "error",
+      "regexp/no-potentially-useless-backreference": "error",
+      "regexp/no-useless-flag": "error",
+      "regexp/optimal-lookaround-quantifier": "error",
+      // Deferred to Pass 2b - needs careful semantic rewrites of seed/parser
+      // regexes (24 sites across markdown parsers, spell blocks, glossary
+      // entries, etc.). See inventory in
+      // finished_work/lint-hardening-leaf-21-regexp-inventory.md.
+      "regexp/no-super-linear-backtracking": "off",
+      "regexp/no-misleading-capturing-group": "off",
+      "regexp/no-contradiction-with-assertion": "off",
+      // Style-only per Leaf 21 backlog; not part of v3 flat/recommended but
+      // override explicitly so future plugin upgrades do not surprise us.
+      "regexp/prefer-named-capture-group": "off",
+    },
+  },
+
+  {
+    files: codeFiles,
     plugins: {
+      "eslint-comments": eslintComments,
       "simple-import-sort": simpleImportSort,
       local: localPlugin,
     },
@@ -205,6 +388,11 @@ export default defineConfig(
 
       "simple-import-sort/imports": "error",
       "simple-import-sort/exports": "error",
+      "eslint-comments/require-description": ["error", { ignore: [] }],
+      "eslint-comments/no-aggregating-enable": "error",
+      "eslint-comments/no-duplicate-disable": "error",
+      "eslint-comments/no-unlimited-disable": "error",
+      "eslint-comments/no-unused-disable": "error",
 
       "@typescript-eslint/no-unused-vars": [
         "error",
@@ -218,6 +406,9 @@ export default defineConfig(
 
       "prefer-const": "error",
       "no-var": "error",
+      "no-constant-binary-expression": "error",
+      "no-param-reassign": "error",
+      "radix": "error",
       "no-useless-assignment": "error",
       "preserve-caught-error": "error",
       "no-promise-executor-return": "error",
@@ -244,6 +435,123 @@ export default defineConfig(
     },
   },
 
+  // Ban process.exit(...) outside named bootstrap/script entrypoints.
+  // Prefer `process.exitCode = N` plus a clean return/throw so the
+  // runtime can flush logs, close sockets, and run finally blocks.
+  {
+    files: codeFiles,
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "CallExpression[callee.object.name='process'][callee.property.name='exit']",
+          message:
+            "Avoid process.exit(...) outside CLI/bootstrap entrypoints. Set process.exitCode and return/throw so finally blocks, log flushing, and socket teardown can run. If this IS a terminating entrypoint, add the file to the allowlist override in eslint.config.js.",
+        },
+      ],
+    },
+  },
+
+  // Bootstrap/script entrypoints where process.exit(...) is the correct
+  // termination path. This is the first no-restricted-syntax selector in the
+  // config, so turning the whole rule off here only drops the process.exit
+  // ban for these named files.
+  {
+    files: [
+      "scripts/db-status.ts",
+      "scripts/code-intel/daemon-server.ts",
+      "packages/server/src/main.ts",
+      "packages/server/prisma/seed.ts",
+      "packages/server/prisma/seed-template.ts",
+      "packages/server/scripts/pgexec.ts",
+    ],
+    rules: {
+      "no-restricted-syntax": "off",
+    },
+  },
+
+  {
+    ...jsxA11y.flatConfigs.recommended,
+    files: ["packages/client/**/*.tsx"],
+    settings: {
+      "jsx-a11y": {
+        components: {
+          Button: "button",
+          Input: "input",
+          Label: "label",
+          SelectTrigger: "button",
+          TabsTrigger: "button",
+          Textarea: "textarea",
+        },
+        linkComponents: [{ name: "Link", linkAttribute: "to" }],
+      },
+    },
+    rules: {
+      ...jsxA11y.flatConfigs.recommended.rules,
+      "jsx-a11y/anchor-is-valid": [
+        "error",
+        {
+          components: ["Link"],
+          specialLink: ["to"],
+          aspects: ["noHref", "invalidHref", "preferButton"],
+        },
+      ],
+    },
+  },
+
+  {
+    files: ["packages/client/**/*.tsx"],
+    plugins: { react: pluginReact },
+    settings: { react: { version: "detect" } },
+    rules: {
+      "react/jsx-key": "error",
+      "react/no-unstable-nested-components": "error",
+      "react/self-closing-comp": "error",
+      "react/no-array-index-key": "error",
+      "react/no-unused-prop-types": "error",
+    },
+  },
+
+  {
+    files: ["packages/client/**/*.{ts,tsx}"],
+    plugins: { "@tanstack/query": pluginQuery },
+    rules: {
+      "@tanstack/query/exhaustive-deps": "error",
+      "@tanstack/query/no-rest-destructuring": "warn",
+      "@tanstack/query/stable-query-client": "error",
+      "@tanstack/query/no-unstable-deps": "error",
+      "@tanstack/query/infinite-query-property-order": "error",
+      "@tanstack/query/no-void-query-fn": "error",
+      "@tanstack/query/mutation-property-order": "error",
+    },
+  },
+
+  {
+    files: ["**/*.json"],
+    ignores: ["**/tsconfig*.json", "**/.vscode/*.json"],
+    plugins: { json },
+    language: "json/json",
+    rules: {
+      "json/no-duplicate-keys": "error",
+      "json/no-empty-keys": "error",
+      "json/no-unnormalized-keys": "error",
+      "json/no-unsafe-values": "error",
+    },
+  },
+
+  {
+    files: ["**/*.jsonc", "**/tsconfig*.json", "**/.vscode/*.json"],
+    plugins: { json },
+    language: "json/jsonc",
+    languageOptions: { allowTrailingCommas: true },
+    rules: {
+      "json/no-duplicate-keys": "error",
+      "json/no-empty-keys": "error",
+      "json/no-unnormalized-keys": "error",
+      "json/no-unsafe-values": "error",
+    },
+  },
+
   {
     // Compact rules modules are the default. This file is a rules-domain
     // calculator with several tightly-coupled D&D damage branches; keep the
@@ -251,7 +559,7 @@ export default defineConfig(
     // refactor decides where the branches should live.
     files: ["packages/shared/src/rules/attack-damage.ts"],
     rules: {
-      "local/max-lines": ["warn", { max: 430, skipBlankLines: true, skipComments: true }],
+      "local/max-lines": ["error", { max: 440, skipBlankLines: true, skipComments: true }],
     },
   },
 
@@ -430,7 +738,7 @@ export default defineConfig(
     // surfaces should move into narrower test helpers.
     files: ["packages/client/src/test/mock-trpc.tsx"],
     rules: {
-      "local/max-lines": ["warn", { max: 580, skipBlankLines: true, skipComments: true }],
+      "local/max-lines": ["error", { max: 600, skipBlankLines: true, skipComments: true }],
     },
   },
 
@@ -568,10 +876,14 @@ export default defineConfig(
     },
   },
 
-  // Code-intel internals are the first linted scripts/ modules. They live
-  // outside package tsconfigs, so point ESLint at the scripts project.
+  // Linted scripts/ modules and selected entrypoints live outside package
+  // tsconfigs, so point ESLint at the scripts project.
   {
-    files: ["scripts/code-intel/**/*.ts"],
+    files: [
+      "scripts/code-intel/**/*.ts",
+      "scripts/drift/**/*.ts",
+      "scripts/generate-lint-guidance.ts",
+    ],
     languageOptions: {
       parserOptions: {
         projectService: false,
@@ -591,6 +903,36 @@ export default defineConfig(
         project: "./packages/server/tsconfig.scripts.json",
         tsconfigRootDir: import.meta.dirname,
       },
+    },
+  },
+
+  // Test files — vitest mocks, react-query option mocks, and test-only
+  // promise fakes legitimately return promises from non-async callbacks
+  {
+    files: ["**/*.{test,spec}.{ts,tsx}"],
+    rules: {
+      "@typescript-eslint/promise-function-async": "off",
+    },
+  },
+
+  // Client tRPC mock factories — model tRPC's promise-returning contract,
+  // not production promise boundaries
+  {
+    files: ["packages/client/src/test/mock-trpc*.{ts,tsx}"],
+    rules: {
+      "@typescript-eslint/promise-function-async": "off",
+    },
+  },
+
+  // Dynamic-import loader callbacks — framework loaders (TanStack Router,
+  // React.lazy wrappers) intentionally return import() promises
+  {
+    files: [
+      "packages/client/src/routes/**/*-route.ts",
+      "packages/client/src/pages/character-sheet/sheet-dialogs.tsx",
+    ],
+    rules: {
+      "@typescript-eslint/promise-function-async": "off",
     },
   },
 
@@ -684,15 +1026,11 @@ export default defineConfig(
   },
 
   {
+    ...reactHooks.configs.flat["recommended-latest"],
     files: ["packages/client/**/*.{ts,tsx}"],
-    plugins: {
-      // eslint-plugin-react-hooks@7's `configs.flat` shape doesn't satisfy
-      // ESLint core's `Plugin` type. Runtime works fine — cast at the boundary.
-      "react-hooks": /** @type {import("eslint").ESLint.Plugin} */ (reactHooks),
-    },
     rules: {
-      "react-hooks/rules-of-hooks": "error",
-      "react-hooks/exhaustive-deps": "warn",
+      ...reactHooks.configs.flat["recommended-latest"].rules,
+      "react-hooks/set-state-in-effect": "off",
       "no-magic-numbers": "off",
       "@typescript-eslint/explicit-function-return-type": "off",
     },
@@ -734,7 +1072,7 @@ export default defineConfig(
   },
 
   {
-    files: ["**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts"],
+    files: ["**/*.test.{ts,tsx}", "**/*.spec.ts"],
     rules: {
       "max-lines": "off",
       "local/max-lines": "off",
@@ -743,7 +1081,54 @@ export default defineConfig(
       "@typescript-eslint/no-non-null-assertion": "off",
       "@typescript-eslint/no-unsafe-return": "off",
       "@typescript-eslint/no-unnecessary-type-assertion": "off",
+    },
+  },
+
+  {
+    files: ["**/*.test.{ts,tsx}", "**/*.spec.ts"],
+    ignores: ["e2e/**/*", "**/e2e/**/*"],
+    rules: {
       "local/test-file-location": "error",
+    },
+  },
+
+  {
+    files: ["**/*.test.{ts,tsx}", "**/*.spec.ts"],
+    ignores: ["e2e/**/*", "**/e2e/**/*"],
+    plugins: { vitest: vitestPlugin },
+    rules: {
+      "vitest/expect-expect": [
+        "error",
+        {
+          assertFunctionNames: [
+            "expect",
+            "assertNonPermissiveOutput",
+            "expectClean",
+            "expectHit",
+            "expectOneFulfilledOneConflict",
+            "expectParseFailure",
+            "expectParseSuccess",
+          ],
+        },
+      ],
+      "vitest/no-commented-out-tests": "error",
+      "vitest/no-disabled-tests": "error",
+      "vitest/no-focused-tests": "error",
+      "vitest/no-identical-title": "error",
+      "vitest/no-import-node-test": "error",
+      "vitest/no-interpolation-in-snapshots": "error",
+      "vitest/no-mocks-import": "error",
+      "vitest/no-standalone-expect": "error",
+      "vitest/no-unneeded-async-expect-function": "error",
+      "vitest/prefer-called-exactly-once-with": "error",
+      "vitest/prefer-comparison-matcher": "error",
+      "vitest/prefer-equality-matcher": "error",
+      "vitest/prefer-to-contain": "error",
+      "vitest/require-local-test-context-for-concurrent-snapshots": "error",
+      "vitest/valid-describe-callback": "error",
+      "vitest/valid-expect": ["error", { maxArgs: 2 }],
+      "vitest/valid-expect-in-promise": "error",
+      "vitest/valid-title": "error",
     },
   },
 );

@@ -1,0 +1,130 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  validate:
+    name: Lint, Typecheck, Test, Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: musi_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=5
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/musi_test
+      JWT_SECRET: ci-test-secret-not-for-production
+      NODE_ENV: test
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: "1.3.11"
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+        # postinstall in packages/server runs `prisma generate` automatically.
+
+      - name: Check formatting
+        run: bun run format:check
+
+      # Typecheck before lint: `tsc -b` builds referenced-project dists
+      # (packages/{shared,server}/dist) that ESLint's projectService needs
+      # to resolve cross-package type imports like `@musi/server/router-type`.
+      # Without this, every client file that reaches into tRPC types lints
+      # as a sea of "unsafe any" errors on a fresh checkout.
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Script smoke tests
+        run: bun run test:scripts
+
+      - name: Check module index
+        run: bun run module:index:check
+
+      - name: Test
+        run: bun run test
+
+      - name: Build
+        run: bun run build
+
+  e2e:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    needs: validate
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: musi_test_e2e
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=5
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/musi_test_e2e
+      E2E_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/musi_test_e2e
+      JWT_SECRET: ci-test-secret-not-for-production
+      NODE_ENV: test
+      CI: true
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: "1.3.11"
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+        # postinstall in packages/server runs `prisma generate` automatically.
+
+      - name: Install Playwright browsers
+        run: bunx --no-install playwright install --with-deps chromium
+
+      - name: Run E2E tests
+        run: bun run e2e
+
+      - name: Upload test artifacts
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: playwright-traces
+          path: test-results/
+          retention-days: 7

@@ -21,7 +21,7 @@ import { type CurrentScopeFile, toCurrentScopeFile } from "./scope.js";
 export type StringGitRunner = (args: readonly string[]) => string;
 export type BufferGitRunner = (args: readonly string[]) => Buffer;
 export type DefaultBufferGitRunnerOptions = { readonly repoRoot: string };
-export type StatLike = { readonly isFile: () => boolean };
+type StatLike = { readonly isFile: () => boolean };
 export type StatRunner = (absolutePath: string) => StatLike | undefined;
 
 const GIT_CURRENT_INVENTORY_ARGS = [

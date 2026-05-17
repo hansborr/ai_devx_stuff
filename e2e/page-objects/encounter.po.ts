@@ -7,7 +7,7 @@ import { TIMEOUT_MEDIUM, TIMEOUT_SHORT } from "../helpers/timeouts.js";
  * Assumes the Encounters tab is already active.
  */
 export class EncounterPO {
-  constructor(private page: Page) {}
+  constructor(private readonly page: Page) {}
 
   // ── Encounter list ──────────────────────────────────────────────────
 

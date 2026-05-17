@@ -46,7 +46,7 @@ On every session start, read `docs/agent_notes/STATUS.md` and `docs/agent_notes/
 - Use subagents as you work (exploring code, reviewing changes, etc).
 - Before calling work done, verify the user flow across shared -> server -> client.
 - For non-trivial work, create `docs/agent_notes/in_progress/<task>.md`; when it lands, keep only durable details in `LOG.md`, `DECISIONS.md`, or a small `finished_work/` note.
-- If you commit, use `feature/...` or `fix/...` branches and conventional commits.
+- If you commit, use `feature/...` or `fix/...` branches and conventional commits. The `commit-msg` hook enforces: `<type>(<scope>): <subject>` with subject ≥ 20 chars, plus a non-empty body ≥ 40 chars (trailers like `Co-Authored-By:` don't count). Merge, revert, fixup, and squash commits are exempt.
 
 ## Domain
 
