@@ -10,6 +10,13 @@ set -euo pipefail
 # sandbox repos this script creates stand alone.
 unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE GIT_PREFIX
 
+# Strip FORCE_VERIFY from the parent environment. The bridge / cache cases below
+# probe markers and expect default freshness semantics; if a developer runs
+# `FORCE_VERIFY=1 verify:changed` it would leak through into the sandbox
+# pre-commit invocations and turn every bridge case into a forced re-run.
+# The two cases that need it set it explicitly via inline env.
+unset FORCE_VERIFY
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=/dev/null
 . "$SCRIPT_DIR/dependency-freshness.sh"
@@ -237,6 +244,60 @@ chmod +x "$gate_repo/bin/bun"
     || fail "pre-commit with eslint-rules edit missing OK output: $output"
 )
 ok "pre-commit runs checks for staged eslint-rules changes"
+
+manifest_repo="$TMP_ROOT/manifest-repo"
+mkdir -p "$manifest_repo/scripts/ai-hooks" "$manifest_repo/.husky" "$manifest_repo/node_modules/.bin" "$manifest_repo/bin"
+cp "$SCRIPT_DIR/dependency-freshness.sh" "$manifest_repo/scripts/dependency-freshness.sh"
+cp "$SCRIPT_DIR/prisma-client-freshness.sh" "$manifest_repo/scripts/prisma-client-freshness.sh"
+cp "$SCRIPT_DIR/doc-length-policy.sh" "$manifest_repo/scripts/doc-length-policy.sh"
+cp "$SCRIPT_DIR/verify-metadata.sh" "$manifest_repo/scripts/verify-metadata.sh"
+cp "$SCRIPT_DIR/ai-hooks/output-filter.sh" "$manifest_repo/scripts/ai-hooks/output-filter.sh"
+cp "$SCRIPT_DIR/../.husky/pre-commit" "$manifest_repo/.husky/pre-commit"
+cat > "$manifest_repo/bin/bun" <<'STUB'
+#!/usr/bin/env sh
+printf 'stub bun %s\n' "$*" >> "$STUB_LOG"
+exit 0
+STUB
+chmod +x "$manifest_repo/bin/bun"
+(
+  cd "$manifest_repo"
+  git init -q
+  git config user.name "Test User"
+  git config user.email "test@example.invalid"
+  git add .husky scripts bin
+  git commit -q -m init
+  printf '{"controls":[]}\n' > harness.controls.json
+  git add harness.controls.json
+
+  marker="$manifest_repo/precommit-marker-manifest"
+  log_dir="$manifest_repo/precommit-logs-manifest"
+  stub_log="$manifest_repo/bun-manifest.log"
+  : > "$stub_log"
+
+  output="$(
+    PATH="$manifest_repo/bin:$PATH" \
+    STUB_LOG="$stub_log" \
+    MUSI_PRECOMMIT_MARKER="$marker" \
+    MUSI_VERIFY_LOCK="$manifest_repo/precommit-lock-manifest" \
+    MUSI_VERIFY_LOG_DIR="$log_dir" \
+      sh .husky/pre-commit 2>&1
+  )" || fail "pre-commit should run checks for staged harness.controls.json: $output"
+
+  if grep -qF "no source changes staged" <<< "$output"; then
+    fail "manifest-only staged change should not be treated as source-irrelevant: $output"
+  fi
+  grep -qF "stub bun run lint:changed" "$stub_log" \
+    || fail "manifest staged change did not run lint"
+  grep -qF "stub bun run lint:ratchet" "$stub_log" \
+    || fail "manifest staged change did not run lint:ratchet"
+  grep -qF "stub bun run test:changed --reporter=dot" "$stub_log" \
+    || fail "manifest staged change did not run test:changed"
+  grep -qF "stub bun run test:scripts:changed" "$stub_log" \
+    || fail "manifest staged change did not run script smokes (test-harness-check is the gate that actually invokes harness:check)"
+  grep -qF "pre-commit: OK" <<< "$output" \
+    || fail "pre-commit with manifest edit missing OK output: $output"
+)
+ok "pre-commit runs lint+ratchet+scripts smokes for staged harness.controls.json"
 
 deletion_repo="$TMP_ROOT/deletion-repo"
 mkdir -p "$deletion_repo/scripts/ai-hooks" "$deletion_repo/.husky" "$deletion_repo/node_modules/.bin" "$deletion_repo/bin"

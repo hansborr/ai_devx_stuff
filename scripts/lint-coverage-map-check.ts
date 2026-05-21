@@ -1,0 +1,299 @@
+import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+import { lintRatchets } from "./lint-ratchet-config.js";
+
+const PATH_COLUMN = 0;
+const RATCHET_COLUMN = 3;
+const STATUS_COLUMN = 6;
+const CODE_SPAN_PATTERN = /`([^`]+)`/gu;
+const GLOB_META_PATTERN = /[*?{]/u;
+const RATCHET_ID_PATTERN = /ratchet\/[a-z0-9-]+/gu;
+const DUPLICATE_EXTENSION_PATTERN = /\.([A-Za-z0-9]+)\.\1$/u;
+const GENERATED_DIR_PATTERN = /(^|\/)(node_modules|dist|build|coverage|\.next|\.bun|\.turbo|\.cache|tmp|temp)(\/|$)/u;
+const TRACKED_EXTENSION_PATTERN = /\.(?:ts|tsx|js|mjs|cjs|json|ya?ml|toml|sh|md|prisma|sql)$/u;
+const VALID_STATUS_PARTS = new Set(["linted", "ratcheted", "proposed", "pending-leaf", "excluded", "not-code"]);
+const ROOT_PATH_PREFIXES = new Set(["packages", "scripts", "docs", "e2e", "eslint-rules"]);
+
+interface TableRow {
+  readonly line: number;
+  readonly pathGroup: string;
+  readonly ratchets: string;
+  readonly status: string;
+}
+
+interface PathPattern {
+  readonly line: number;
+  readonly source: string;
+  readonly pattern: string;
+  readonly matcher: (file: string) => boolean;
+}
+
+interface CheckFinding {
+  readonly kind: "stale-path" | "unknown-ratchet" | "invalid-status" | "unaccounted-file";
+  readonly line?: number;
+  readonly value: string;
+}
+
+export interface LintCoverageMapCheckResult {
+  readonly exitCode: number;
+  readonly stdout: string;
+  readonly stderr: string;
+  readonly findings: readonly CheckFinding[];
+}
+
+export interface LintCoverageMapCheckOptions {
+  readonly cwd?: string;
+  readonly mapText?: string;
+  readonly trackedFiles?: readonly string[];
+  readonly ratchetIds?: ReadonlySet<string>;
+}
+
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const defaultMapPath = resolve(repoRoot, "docs/agent_notes/backlog/lint-followups/lint-coverage-map.md");
+
+function parseRows(mapText: string): TableRow[] {
+  const rows: TableRow[] = [];
+  const lines = mapText.split(/\r?\n/u);
+  for (const [index, rawLine] of lines.entries()) {
+    const line = rawLine.trim();
+    if (!line.startsWith("|")) continue;
+    const cells = line
+      .replace(/^\|/u, "")
+      .replace(/\|$/u, "")
+      .split("|")
+      .map((cell) => cell.trim());
+    const pathGroup = cells[PATH_COLUMN];
+    const ratchets = cells[RATCHET_COLUMN];
+    const status = cells[STATUS_COLUMN];
+    if (pathGroup === undefined || ratchets === undefined || status === undefined) continue;
+    if (pathGroup === "Path / group") continue;
+    if (cells.every((cell) => /^:?-{3,}:?$/u.test(cell))) continue;
+    rows.push({
+      line: index + 1,
+      pathGroup,
+      ratchets,
+      status,
+    });
+  }
+  return rows;
+}
+
+function stableBaseForPattern(pattern: string): string {
+  const slashIndex = pattern.lastIndexOf("/");
+  if (slashIndex < 0) return "";
+  const beforeLast = pattern.slice(0, slashIndex);
+  const globIndex = beforeLast.search(GLOB_META_PATTERN);
+  const stable = globIndex < 0 ? beforeLast : beforeLast.slice(0, globIndex);
+  return stable.replace(/\/$/u, "");
+}
+
+function shouldUpdateBase(pattern: string, base: string): boolean {
+  if (base === "") return false;
+  if (!pattern.includes("**")) return true;
+  return base.split("/").length > 1;
+}
+
+function sourceIsRooted(source: string): boolean {
+  if (source.startsWith(".") || !source.includes("/")) return true;
+  return ROOT_PATH_PREFIXES.has(source.split("/", 1)[0] ?? "");
+}
+
+function resolvePatternSource(source: string, base: string): string {
+  if (base !== "" && !source.startsWith(".") && source !== "bunfig.toml" && (!source.includes("/") || !sourceIsRooted(source))) return `${base}/${GLOB_META_PATTERN.test(source) ? "**/" : ""}${source}`;
+  return !source.includes("/") && GLOB_META_PATTERN.test(source) ? `**/${source}` : source;
+}
+
+function extractPathPatterns(row: TableRow): PathPattern[] {
+  const patterns: PathPattern[] = [];
+  let base = "";
+  for (const match of row.pathGroup.matchAll(CODE_SPAN_PATTERN)) {
+    const rawSource = match[1];
+    if (rawSource === undefined) continue;
+    const source = rawSource.trim();
+    if (source === "") continue;
+    const pattern = resolvePatternSource(source, base);
+    patterns.push({
+      line: row.line,
+      source,
+      pattern,
+      matcher: createMatcher(pattern),
+    });
+    const nextBase = stableBaseForPattern(pattern);
+    if ((!source.includes("/") || sourceIsRooted(source)) && shouldUpdateBase(pattern, nextBase)) base = nextBase;
+  }
+  return patterns;
+}
+
+function expandBraces(pattern: string): string[] {
+  const open = pattern.indexOf("{");
+  if (open < 0) return [pattern];
+  const close = pattern.indexOf("}", open + 1);
+  if (close < 0) return [pattern];
+  const before = pattern.slice(0, open);
+  const after = pattern.slice(close + 1);
+  const variants: string[] = [];
+  for (const part of pattern.slice(open + 1, close).split(",")) {
+    variants.push(...expandBraces(`${before}${part}${after}`));
+  }
+  return variants;
+}
+
+function normalizePatternVariants(pattern: string): string[] {
+  const variants = new Set<string>();
+  for (const expanded of expandBraces(pattern)) {
+    variants.add(expanded);
+    variants.add(expanded.replace(DUPLICATE_EXTENSION_PATTERN, ".$1"));
+  }
+  return [...variants];
+}
+
+function escapeRegexChar(char: string): string {
+  return /[\\^$+?.()|[\]{}]/u.test(char) ? `\\${char}` : char;
+}
+
+function globVariantToRegExp(pattern: string): RegExp {
+  let regex = "";
+  for (let index = 0; index < pattern.length; ) {
+    const char = pattern.charAt(index);
+    const next = pattern.charAt(index + 1);
+    const afterNext = pattern.charAt(index + 2);
+    if (char === "*" && next === "*" && afterNext === "/") {
+      regex += "(?:.*/)?";
+      index += 3;
+    } else if (char === "*" && next === "*") {
+      regex += ".*";
+      index += 2;
+    } else if (char === "*") {
+      regex += "[^/]*";
+      index += 1;
+    } else if (char === "?") {
+      regex += "[^/]";
+      index += 1;
+    } else {
+      regex += escapeRegexChar(char);
+      index += 1;
+    }
+  }
+  return new RegExp(`^${regex}$`, "u");
+}
+
+function createMatcher(pattern: string): (file: string) => boolean {
+  const regexes = normalizePatternVariants(pattern).map(globVariantToRegExp);
+  return (file) => regexes.some((regex) => regex.test(file));
+}
+
+function isValidStatus(status: string): boolean {
+  const parts = status.split("+").map((part) => part.trim());
+  return parts.length > 0 && parts.every((part) => VALID_STATUS_PARTS.has(part));
+}
+
+function trackedFileIsInScope(file: string): boolean {
+  if (GENERATED_DIR_PATTERN.test(file)) return false;
+  if (file === "Dockerfile" || file.endsWith("/Dockerfile")) return true;
+  return TRACKED_EXTENSION_PATTERN.test(file);
+}
+
+function loadTrackedFiles(cwd: string): string[] {
+  const output = execFileSync("git", ["ls-files"], { cwd, encoding: "utf8" });
+  return output.split(/\r?\n/u).filter((line) => line.length > 0).sort();
+}
+
+function groupByDirectory(files: readonly string[]): string[] {
+  const groups = new Map<string, string[]>();
+  for (const file of files) {
+    const slash = file.lastIndexOf("/");
+    const directory = slash < 0 ? "." : file.slice(0, slash);
+    const bucket = groups.get(directory) ?? [];
+    bucket.push(file);
+    groups.set(directory, bucket);
+  }
+  const lines: string[] = [];
+  for (const [directory, groupFiles] of [...groups.entries()].sort()) {
+    lines.push(`- ${directory}:`);
+    for (const file of groupFiles) lines.push(`    ${file}`);
+  }
+  return lines;
+}
+
+function formatFindings(findings: readonly CheckFinding[]): string {
+  const lines = ["lint-coverage-map-check found drift:"];
+  const stale = findings.filter((finding) => finding.kind === "stale-path");
+  const unknown = findings.filter((finding) => finding.kind === "unknown-ratchet");
+  const invalid = findings.filter((finding) => finding.kind === "invalid-status");
+  const unaccounted = findings.filter((finding) => finding.kind === "unaccounted-file");
+  if (stale.length > 0) {
+    lines.push("", "Stale path/group patterns:");
+    for (const finding of stale) lines.push(`- line ${String(finding.line)}: ${finding.value}`);
+  }
+  if (unknown.length > 0) {
+    lines.push("", "Unknown ratchet IDs:");
+    for (const finding of unknown) lines.push(`- line ${String(finding.line)}: ${finding.value}`);
+  }
+  if (invalid.length > 0) {
+    lines.push("", "Invalid status values:");
+    for (const finding of invalid) lines.push(`- line ${String(finding.line)}: ${finding.value}`);
+  }
+  if (unaccounted.length > 0) {
+    lines.push("", "Unaccounted tracked files:");
+    lines.push(...groupByDirectory(unaccounted.map((finding) => finding.value)));
+  }
+  return `${lines.join("\n")}\n`;
+}
+
+export async function runLintCoverageMapCheck(
+  options: LintCoverageMapCheckOptions = {},
+): Promise<LintCoverageMapCheckResult> {
+  const cwd = options.cwd ?? repoRoot;
+  const mapText = options.mapText ?? readFileSync(defaultMapPath, "utf8");
+  const trackedFiles = [...(options.trackedFiles ?? loadTrackedFiles(cwd))].sort();
+  const ratchetIds = options.ratchetIds ?? new Set(lintRatchets.map((ratchet) => ratchet.id));
+  const rows = parseRows(mapText);
+  const pathPatterns = rows.flatMap(extractPathPatterns);
+  const findings: CheckFinding[] = [];
+
+  for (const pattern of pathPatterns) {
+    if (!trackedFiles.some(pattern.matcher)) {
+      findings.push({
+        kind: "stale-path",
+        line: pattern.line,
+        value: `\`${pattern.source}\` (${pattern.pattern}) matched 0 tracked files`,
+      });
+    }
+  }
+  for (const row of rows) {
+    for (const match of row.ratchets.matchAll(RATCHET_ID_PATTERN)) {
+      if (!ratchetIds.has(match[0])) {
+        findings.push({ kind: "unknown-ratchet", line: row.line, value: match[0] });
+      }
+    }
+    if (!isValidStatus(row.status)) {
+      findings.push({ kind: "invalid-status", line: row.line, value: row.status });
+    }
+  }
+  for (const file of trackedFiles.filter(trackedFileIsInScope)) {
+    if (!pathPatterns.some((pattern) => pattern.matcher(file))) {
+      findings.push({ kind: "unaccounted-file", value: file });
+    }
+  }
+
+  if (findings.length > 0) {
+    return { exitCode: 1, stdout: "", stderr: formatFindings(findings), findings };
+  }
+  return {
+    exitCode: 0,
+    stdout: `lint-coverage-map-check OK — ${String(rows.length)} row(s), ${String(pathPatterns.length)} path pattern(s), ${String(trackedFiles.length)} tracked file(s) checked.\n`,
+    stderr: "",
+    findings,
+  };
+}
+
+const invokedPath = process.argv[1] === undefined ? "" : resolve(process.argv[1]);
+if (fileURLToPath(import.meta.url) === invokedPath) {
+  const result = await runLintCoverageMapCheck();
+  process.stdout.write(result.stdout);
+  process.stderr.write(result.stderr);
+  process.exitCode = result.exitCode;
+}

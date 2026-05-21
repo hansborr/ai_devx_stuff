@@ -60,6 +60,11 @@ export default {
     type: "problem",
     docs: {
       description: "Require tRPC router procedures to declare output schemas",
+      principle:
+        "Every tRPC router query and mutation must validate its response with a shared output schema.",
+      category: "architecture-fitness",
+      pairedGuide: "docs/guides/add-trpc-procedure.md",
+      repairKind: "manual",
     },
     messages: {
       missingOutput:

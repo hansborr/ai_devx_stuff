@@ -37,7 +37,7 @@ musi_changed_gate_relevant_path() {
   local path="$1"
 
   case "$path" in
-    bun.lock|package.json|tsconfig*.json|vitest*.config.*|eslint.config.*)
+    bun.lock|package.json|lint-ratchet.baseline.json|harness.controls.json|tsconfig*.json|vitest*.config.*|eslint.config.*)
       return 0
       ;;
     packages/*/package.json|packages/*/tsconfig*.json|packages/*/vitest*.config.*)

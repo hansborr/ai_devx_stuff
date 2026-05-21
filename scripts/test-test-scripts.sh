@@ -39,7 +39,7 @@ chmod +x "$SANDBOX/bin/runner"
 
 STUB_LOG_FILE="$SANDBOX/runner.log"
 : > "$STUB_LOG_FILE"
-ALL_SMOKE_TESTS=$'runner ran test-verify\nrunner ran test-verify-async\nrunner ran test-verify-logs\nrunner ran test-worktree-db\nrunner ran test-dependency-freshness\nrunner ran test-ai-hooks\nrunner ran test-eslint-disable-register\nrunner ran test-suppression-register\nrunner ran test-codemod-structured-logging-fix\nrunner ran test-codemod-trpc-shared-input\nrunner ran test-codemod-trpc-shared-output\nrunner ran test-code-intel\nrunner ran test-lint-changed\nrunner ran test-test-changed\nrunner ran test-test-slow\nrunner ran test-generate-module-index\nrunner ran test-generate-lint-guidance\nrunner ran test-migration-safety-scan\nrunner ran test-test-scripts'
+ALL_SMOKE_TESTS=$'runner ran test-verify\nrunner ran test-verify-async\nrunner ran test-verify-logs\nrunner ran test-worktree-db\nrunner ran test-dependency-freshness\nrunner ran test-ai-hooks\nrunner ran test-eslint-disable-register\nrunner ran test-suppression-register\nrunner ran test-codemod-structured-logging-fix\nrunner ran test-codemod-trpc-shared-input\nrunner ran test-codemod-trpc-shared-output\nrunner ran test-code-intel\nrunner ran test-lint-changed\nrunner ran test-test-changed\nrunner ran test-test-slow\nrunner ran test-generate-module-index\nrunner ran test-generate-lint-guidance\nrunner ran test-generate-harness-controls\nrunner ran test-harness-check\nrunner ran test-lint-agent\nrunner ran test-lint-agent-changed\nrunner ran test-harness-emit-envelope\nrunner ran test-lint-ratchet\nrunner ran test-migration-safety-scan\nrunner ran test-doctor-json\nrunner ran test-test-scripts'
 
 run_runner() {
   STUB_LOG="$STUB_LOG_FILE" \
@@ -179,7 +179,7 @@ ok "--changed selects output codemod smoke on output codemod change"
 
 : > "$STUB_LOG_FILE"
 MUSI_SCRIPTS_CHANGED_FILES="package.json" run_runner --changed >/dev/null
-expected=$'runner ran test-codemod-structured-logging-fix\nrunner ran test-codemod-trpc-shared-input\nrunner ran test-codemod-trpc-shared-output\nrunner ran test-code-intel\nrunner ran test-generate-lint-guidance'
+expected=$'runner ran test-codemod-structured-logging-fix\nrunner ran test-codemod-trpc-shared-input\nrunner ran test-codemod-trpc-shared-output\nrunner ran test-code-intel\nrunner ran test-generate-lint-guidance\nrunner ran test-generate-harness-controls\nrunner ran test-harness-check\nrunner ran test-lint-agent\nrunner ran test-lint-agent-changed\nrunner ran test-lint-ratchet'
 [ "$(cat "$STUB_LOG_FILE")" = "$expected" ] \
   || fail "package.json change should select codemod smokes: $(cat "$STUB_LOG_FILE")"
 ok "--changed selects package-script smokes on package script change"
@@ -283,9 +283,69 @@ ok "--changed selects test-generate-lint-guidance on generator change"
 
 : > "$STUB_LOG_FILE"
 MUSI_SCRIPTS_CHANGED_FILES="eslint-rules/structured-logging.js" run_runner --changed >/dev/null
-[ "$(cat "$STUB_LOG_FILE")" = "runner ran test-generate-lint-guidance" ] \
-  || fail "principle source change should select lint-guidance smoke: $(cat "$STUB_LOG_FILE")"
-ok "--changed selects test-generate-lint-guidance on principle source change"
+expected=$'runner ran test-generate-lint-guidance\nrunner ran test-generate-harness-controls\nrunner ran test-harness-check\nrunner ran test-lint-agent\nrunner ran test-lint-ratchet'
+[ "$(cat "$STUB_LOG_FILE")" = "$expected" ] \
+  || fail "principle source change should select rule-derived smokes: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects rule-derived smokes on principle source change"
+
+: > "$STUB_LOG_FILE"
+MUSI_SCRIPTS_CHANGED_FILES="scripts/lint-rule-docs.ts" run_runner --changed >/dev/null
+expected=$'runner ran test-generate-lint-guidance\nrunner ran test-generate-harness-controls\nrunner ran test-lint-agent\nrunner ran test-lint-ratchet'
+[ "$(cat "$STUB_LOG_FILE")" = "$expected" ] \
+  || fail "shared rule-docs loader change should select both generator smokes and lint-agent: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects generator smokes and lint-agent on shared rule-docs loader change"
+
+: > "$STUB_LOG_FILE"
+MUSI_SCRIPTS_CHANGED_FILES="scripts/lint-agent.ts" run_runner --changed >/dev/null
+expected=$'runner ran test-lint-agent\nrunner ran test-lint-agent-changed'
+[ "$(cat "$STUB_LOG_FILE")" = "$expected" ] \
+  || fail "lint-agent change should select lint-agent and lint-agent-changed smokes: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects test-lint-agent + test-lint-agent-changed on lint-agent script change"
+
+: > "$STUB_LOG_FILE"
+MUSI_SCRIPTS_CHANGED_FILES="scripts/lint-agent-changed.sh" run_runner --changed >/dev/null
+[ "$(cat "$STUB_LOG_FILE")" = "runner ran test-lint-agent-changed" ] \
+  || fail "lint-agent-changed wrapper change should select only its smoke: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects test-lint-agent-changed on wrapper script change"
+
+: > "$STUB_LOG_FILE"
+MUSI_SCRIPTS_CHANGED_FILES="scripts/harness-emit-envelope.ts" run_runner --changed >/dev/null
+expected=$'runner ran test-verify-logs\nrunner ran test-generate-module-index\nrunner ran test-lint-agent-changed\nrunner ran test-harness-emit-envelope\nrunner ran test-migration-safety-scan\nrunner ran test-doctor-json'
+[ "$(cat "$STUB_LOG_FILE")" = "$expected" ] \
+  || fail "harness-emit-envelope change should select all emitter-dependent smokes: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects all emitter-dependent smokes on harness-emit-envelope change"
+
+: > "$STUB_LOG_FILE"
+MUSI_SCRIPTS_CHANGED_FILES="scripts/test-harness-emit-envelope.sh" run_runner --changed >/dev/null
+[ "$(cat "$STUB_LOG_FILE")" = "runner ran test-harness-emit-envelope" ] \
+  || fail "harness emitter smoke change should select itself: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects test-harness-emit-envelope on its own file change"
+
+: > "$STUB_LOG_FILE"
+MUSI_SCRIPTS_CHANGED_FILES="packages/shared/src/schemas/harness-diagnostics.ts" run_runner --changed >/dev/null
+expected=$'runner ran test-verify-logs\nrunner ran test-generate-module-index\nrunner ran test-lint-agent\nrunner ran test-lint-agent-changed\nrunner ran test-harness-emit-envelope\nrunner ran test-lint-ratchet\nrunner ran test-migration-safety-scan\nrunner ran test-doctor-json'
+[ "$(cat "$STUB_LOG_FILE")" = "$expected" ] \
+  || fail "harness-diagnostics schema change should select all envelope-emitting smokes: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects all envelope-emitting smokes on harness-diagnostics schema change"
+
+: > "$STUB_LOG_FILE"
+MUSI_SCRIPTS_CHANGED_FILES="scripts/lint-ratchet.ts" run_runner --changed >/dev/null
+[ "$(cat "$STUB_LOG_FILE")" = "runner ran test-lint-ratchet" ] \
+  || fail "lint-ratchet change should select only its smoke: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects test-lint-ratchet on lint-ratchet script change"
+
+: > "$STUB_LOG_FILE"
+MUSI_SCRIPTS_CHANGED_FILES="lint-ratchet.baseline.json" run_runner --changed >/dev/null
+[ "$(cat "$STUB_LOG_FILE")" = "runner ran test-lint-ratchet" ] \
+  || fail "ratchet baseline change should select lint-ratchet smoke: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects test-lint-ratchet on ratchet baseline change"
+
+: > "$STUB_LOG_FILE"
+MUSI_SCRIPTS_CHANGED_FILES="harness.controls.json" run_runner --changed >/dev/null
+expected=$'runner ran test-generate-harness-controls\nrunner ran test-harness-check\nrunner ran test-doctor-json'
+[ "$(cat "$STUB_LOG_FILE")" = "$expected" ] \
+  || fail "manifest change should select harness smokes: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects harness smokes on manifest change"
 
 # --- --changed selects migration-safety smoke on its subject change -------
 : > "$STUB_LOG_FILE"

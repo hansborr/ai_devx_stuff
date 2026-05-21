@@ -1,6 +1,8 @@
 # Leaf 12: Type-Assertion Boundary Lint
 
-Status: Parked
+Status: Pass C landed (2026-05-17); `local/type-assertion-boundary`
+at error for `e2e/**/*.ts` and linted scripts subset. 321 remaining
+packages/* findings deferred to future leaves.
 Depends on: Leaf 1
 Related: Leaf 11's sanctioned-path pattern
 

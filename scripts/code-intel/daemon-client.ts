@@ -124,6 +124,7 @@ function interpretResponse(raw: string, expectedId: string): DaemonOutcome {
   }
   if (parsed.id !== expectedId) return { kind: "fallback", reason: "response id mismatch" };
   if (parsed.ok === true) {
+    // type-assertion-boundary: json - daemon stdin response already discriminated by `ok: true` above; widening to the success variant
     const response = parsed as Extract<CodeIntelDaemonResponse, { ok: true }>;
     return { kind: "result", result: response.result };
   }
@@ -134,6 +135,7 @@ function interpretErrorResponse(parsed: Record<string, unknown>): DaemonOutcome 
   if (parsed.ok !== false || !isRecord(parsed.error)) {
     return { kind: "fallback", reason: "malformed error response" };
   }
+  // type-assertion-boundary: json - daemon error envelope parsed from JSON; only message/name fields are read
   const errorRecord = parsed.error as { message?: unknown; name?: unknown };
   const errorName = typeof errorRecord.name === "string" ? errorRecord.name : "Error";
   const message =

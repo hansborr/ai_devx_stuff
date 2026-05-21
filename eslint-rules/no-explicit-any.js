@@ -15,6 +15,11 @@ export default {
     type: "suggestion",
     docs: {
       description: "Disallow explicit any with repair guidance",
+      principle:
+        "'any' removes type checking from the value it touches; prefer 'unknown' with narrowing or a concrete type.",
+      category: "maintainability",
+      pairedGuide: "docs/guides/local-eslint-rules.md",
+      repairKind: "manual",
     },
     messages: {
       noAny:

@@ -187,6 +187,7 @@ export async function runLocatorUsage(
 
 async function loadAllowlistedFileCount(repoRoot: string): Promise<number> {
   const configUrl = pathToFileURL(path.join(repoRoot, "eslint.config.js")).href;
+  // type-assertion-boundary: interop - dynamic import of eslint config; module shape is external and not exported as a type
   const config = (await import(configUrl)) as EslintConfigExports;
   const allowlist = config.e2ePreferRoleSelectorAllowlist;
   if (!Array.isArray(allowlist)) {

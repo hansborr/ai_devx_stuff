@@ -11,6 +11,27 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VERIFY="$SCRIPT_DIR/verify.sh"
 
+if [ "${MUSI_TEST_VERIFY_IN_FIXTURE:-}" != "1" ]; then
+  FIXTURE_ROOT="$(mktemp -d /tmp/musi-verify-smoke-repo.XXXXXX)"
+  mkdir -p "$FIXTURE_ROOT/scripts/ai-hooks"
+  cp "$SCRIPT_DIR/verify.sh" "$SCRIPT_DIR/test-verify.sh" "$SCRIPT_DIR/verify-metadata.sh" \
+    "$FIXTURE_ROOT/scripts/"
+  cp "$SCRIPT_DIR/ai-hooks/cache.sh" "$SCRIPT_DIR/ai-hooks/output-filter.sh" \
+    "$FIXTURE_ROOT/scripts/ai-hooks/"
+  (
+    cd "$FIXTURE_ROOT"
+    git init -q -b main
+    git config user.email test@example.invalid
+    git config user.name Test
+    git add scripts
+    git commit -qm init
+    MUSI_TEST_VERIFY_IN_FIXTURE=1 bash scripts/test-verify.sh
+  )
+  status=$?
+  rm -rf "$FIXTURE_ROOT"
+  exit "$status"
+fi
+
 # Hermetic env: the cache short-circuit test below requires FORCE_VERIFY to
 # be unset so the second sandbox run is a cache hit. The outer caller can
 # legitimately set FORCE_VERIFY=1 (e.g. when this smoke test runs under
@@ -36,8 +57,10 @@ cat > "$SANDBOX/bin/bun" <<'STUB'
 # used by the watchdog test below.
 printf 'stub bun %s\n' "$*" >> "${STUB_LOG:-/dev/null}"
 if [ "${1:-}" = run ] && [ -n "${2:-}" ]; then
-  var_fail="STUB_FAIL_${2//:/_}"
-  var_sleep="STUB_SLEEP_${2//:/_}"
+  safe_name="${2//:/_}"
+  safe_name="${safe_name//-/_}"
+  var_fail="STUB_FAIL_${safe_name}"
+  var_sleep="STUB_SLEEP_${safe_name}"
   if [ -n "${!var_sleep:-}" ]; then
     sleep "${!var_sleep}"
   fi
@@ -110,6 +133,14 @@ grep -qF 'bun run test:scripts:changed' "$STUB_LOG_FILE" \
   || fail "verify --changed should invoke bun run test:scripts:changed"
 ok "verify --changed runs script smoke tests"
 
+grep -qF 'bun run lint:ratchet' "$STUB_LOG_FILE" \
+  || fail "verify --changed should invoke bun run lint:ratchet"
+ok "verify --changed runs lint ratchet"
+
+grep -qF 'bun run docs:lint-coverage-map:check' "$STUB_LOG_FILE" \
+  || fail "verify --changed should invoke bun run docs:lint-coverage-map:check"
+ok "verify --changed runs lint coverage map check"
+
 # --- cache short-circuit: second run skips entirely -----------------------
 LINES_BEFORE=$(wc -l < "$STUB_LOG_FILE")
 output=$(run_verify --changed) || fail "second verify --changed unexpectedly failed"
@@ -147,7 +178,8 @@ exit_code=$?
 set -e
 [ "$exit_code" -ne 0 ] || fail "verify --changed did not propagate failure"
 grep -qF 'Failed: typecheck' <<< "$output" || fail "summary missed Failed: typecheck"
-grep -qF 'Passed: lint' <<< "$output" || fail "summary missed Passed: lint"
+grep -qF 'Passed: lint ratchet coverage-map' <<< "$output" \
+  || fail "summary missed Passed: lint ratchet coverage-map"
 grep -qF 'verify:changed FAILED' <<< "$output" || fail "summary missed banner"
 [ -f "$MARKER_CHANGED" ] && fail "marker should not be written on failure"
 # test:changed must not run after typecheck failure.
@@ -172,6 +204,9 @@ grep -qF "bun run lint:fix" <<< "$output" || fail "lint failure missing lint:fix
 if grep -q 'bun run typecheck' "$STUB_LOG_FILE"; then
   fail "typecheck step ran after lint failure"
 fi
+if grep -q 'bun run lint:ratchet' "$STUB_LOG_FILE"; then
+  fail "ratchet step ran after lint failure"
+fi
 if grep -q 'bun run test:changed' "$STUB_LOG_FILE"; then
   fail "test step ran after lint failure"
 fi
@@ -179,6 +214,45 @@ if grep -q 'bun run test:scripts' "$STUB_LOG_FILE"; then
   fail "scripts step ran after lint failure"
 fi
 ok "verify --changed prints lint:fix hint and stops at lint failure"
+
+# --- ratchet failure stops typecheck and test from running ----------------
+rm -f "$MARKER_CHANGED"
+: > "$STUB_LOG_FILE"
+set +e
+output=$(STUB_FAIL_lint_ratchet=1 run_verify --changed 2>&1)
+exit_code=$?
+set -e
+[ "$exit_code" -ne 0 ] || fail "verify --changed did not propagate ratchet failure"
+grep -qF 'Failed: ratchet' <<< "$output" || fail "summary missed Failed: ratchet"
+grep -qF 'Passed: lint' <<< "$output" || fail "summary missed Passed: lint"
+if grep -q 'bun run typecheck' "$STUB_LOG_FILE"; then
+  fail "typecheck step ran after ratchet failure"
+fi
+if grep -q 'bun run docs:lint-coverage-map:check' "$STUB_LOG_FILE"; then
+  fail "coverage-map step ran after ratchet failure"
+fi
+if grep -q 'bun run test:changed' "$STUB_LOG_FILE"; then
+  fail "test step ran after ratchet failure"
+fi
+ok "verify --changed stops at ratchet failure"
+
+# --- coverage-map failure stops typecheck and test from running -----------
+rm -f "$MARKER_CHANGED"
+: > "$STUB_LOG_FILE"
+set +e
+output=$(STUB_FAIL_docs_lint_coverage_map_check=1 run_verify --changed 2>&1)
+exit_code=$?
+set -e
+[ "$exit_code" -ne 0 ] || fail "verify --changed did not propagate coverage-map failure"
+grep -qF 'Failed: coverage-map' <<< "$output" || fail "summary missed Failed: coverage-map"
+grep -qF 'Passed: lint ratchet' <<< "$output" || fail "summary missed Passed: lint ratchet"
+if grep -q 'bun run typecheck' "$STUB_LOG_FILE"; then
+  fail "typecheck step ran after coverage-map failure"
+fi
+if grep -q 'bun run test:changed' "$STUB_LOG_FILE"; then
+  fail "test step ran after coverage-map failure"
+fi
+ok "verify --changed stops at coverage-map failure"
 
 # --- watchdog kills a hung step and reports a timeout banner --------------
 rm -f "$MARKER_CHANGED"
@@ -278,6 +352,14 @@ ok "verify (full) writes its own marker"
 grep -qE 'bun run test --reporter=dot --reporter=json --outputFile\.json='"$LOG_DIR"'/test-timings\.json' "$STUB_LOG_FILE" \
   || fail "verify (full) should request Vitest json timings into \$LOG_DIR/test-timings.json"
 ok "verify (full) pairs dot reporter with json timings file"
+
+grep -qF 'bun run lint:ratchet' "$STUB_LOG_FILE" \
+  || fail "verify (full) should invoke bun run lint:ratchet"
+ok "verify (full) runs lint ratchet"
+
+grep -qF 'bun run docs:lint-coverage-map:check' "$STUB_LOG_FILE" \
+  || fail "verify (full) should invoke bun run docs:lint-coverage-map:check"
+ok "verify (full) runs lint coverage map check"
 
 # --- MR1: full mode runs the full script smoke suite ---------------------
 # Full verify always runs the smoke suite — even when nothing under

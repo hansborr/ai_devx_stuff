@@ -17,6 +17,10 @@ export default {
       description: "Disallow index.ts barrel re-exports",
       principle:
         "Barrel files (index.ts re-exports) defeat tree-shaking and obscure dependency graphs. Imports should point at the specific module that defines the export.",
+      category: "architecture-fitness",
+      pairedGuide: "docs/guides/local-eslint-rules.md",
+      repairKind: "codemod",
+      repairCommand: "bun run codemod:expand-barrel",
     },
     messages: {
       noBarrel:

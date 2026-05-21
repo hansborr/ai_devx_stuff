@@ -54,6 +54,9 @@ export default {
       description: "tRPC .input(z.object(...)) schemas must call .strict()",
       principle:
         "tRPC procedures with z.object input schemas must call .strict() so unknown keys are rejected at the API boundary, preventing silent typo bugs from clients.",
+      category: "architecture-fitness",
+      pairedGuide: "docs/guides/add-trpc-procedure.md",
+      repairKind: "manual",
     },
     messages: {
       needsStrict:

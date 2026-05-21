@@ -72,6 +72,7 @@ async function trpcMutate<T>(
     const body = await resp.text();
     throw new Error(`tRPC ${path} failed (${String(resp.status())}): ${body}`);
   }
+  // type-assertion-boundary: json - tRPC response body parsed from JSON; downstream callers narrow via TrpcResult shape
   const json = (await resp.json()) as TrpcResult<T>;
   return json.result.data;
 }
@@ -92,6 +93,7 @@ async function trpcQuery<T>(
     const body = await resp.text();
     throw new Error(`tRPC ${path} failed (${String(resp.status())}): ${body}`);
   }
+  // type-assertion-boundary: json - tRPC response body parsed from JSON; downstream callers narrow via TrpcResult shape
   const json = (await resp.json()) as TrpcResult<T>;
   return json.result.data;
 }

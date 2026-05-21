@@ -90,6 +90,11 @@ export default {
     type: "problem",
     docs: {
       description: "Disallow async callbacks in array methods unless Promise arrays are consumed",
+      principle:
+        "Async callbacks passed to array methods like .map() and .filter() are silently ignored or return Promise objects instead of expected values.",
+      category: "behavior",
+      pairedGuide: "none",
+      repairKind: "manual",
     },
     messages: {
       droppedPromise:

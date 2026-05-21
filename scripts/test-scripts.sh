@@ -63,13 +63,20 @@ SMOKE_NAMES=(
   test-test-slow
   test-generate-module-index
   test-generate-lint-guidance
+  test-generate-harness-controls
+  test-harness-check
+  test-lint-agent
+  test-lint-agent-changed
+  test-harness-emit-envelope
+  test-lint-ratchet
   test-migration-safety-scan
+  test-doctor-json
   test-test-scripts
 )
 declare -A SMOKE_SUBJECTS=(
   [test-verify]="scripts/verify.sh scripts/verify-metadata.sh scripts/test-verify.sh scripts/ai-hooks/cache.sh scripts/ai-hooks/output-filter.sh"
   [test-verify-async]="scripts/verify-async.sh scripts/test-verify-async.sh scripts/verify.sh scripts/ai-hooks/cache.sh"
-  [test-verify-logs]="scripts/verify-logs.sh scripts/test-verify-logs.sh scripts/ai-hooks/cache.sh scripts/ai-hooks/output-filter.sh"
+  [test-verify-logs]="scripts/verify-logs.sh scripts/test-verify-logs.sh scripts/ai-hooks/cache.sh scripts/ai-hooks/output-filter.sh scripts/harness-emit-envelope.ts packages/shared/src/schemas/harness-diagnostics.ts"
   [test-worktree-db]="scripts/worktree-db.sh scripts/worktree-new.sh scripts/worktree-drift-hook.sh scripts/dev.sh scripts/test-worktree-db.sh"
   [test-dependency-freshness]="scripts/dependency-freshness.sh scripts/prisma-client-freshness.sh scripts/doc-length-policy.sh scripts/verify-metadata.sh scripts/ai-hooks/output-filter.sh .husky/pre-commit scripts/test-dependency-freshness.sh"
   [test-ai-hooks]="scripts/test-ai-hooks.sh scripts/ai-hooks/test.sh scripts/ai-hooks/common.sh scripts/ai-hooks/cache.sh scripts/verify-metadata.sh scripts/ai-hooks/policy.sh scripts/ai-hooks/protected-files.sh scripts/ai-hooks/doc-length.sh scripts/ai-hooks/output-filter.sh scripts/ai-hooks/process-runner.sh scripts/ai-hooks/stop-policy.sh scripts/ai-hooks/stop-reminder.sh .claude/hooks/bun-run-quiet.sh .claude/hooks/stop-reminder.sh .codex/hooks/pre-tool-use.sh .codex/hooks/post-tool-use.sh .codex/hooks/stop-reminder.sh .claude/settings.json .codex/hooks.json"
@@ -82,9 +89,16 @@ declare -A SMOKE_SUBJECTS=(
   [test-lint-changed]="scripts/lint-changed.sh scripts/verify-metadata.sh scripts/test-lint-changed.sh"
   [test-test-changed]="scripts/test-changed.sh scripts/vitest.sh scripts/ai-hooks/output-filter.sh scripts/test-test-changed.sh"
   [test-test-slow]="scripts/test-slow.sh scripts/test-changed.sh scripts/vitest.sh scripts/ai-hooks/output-filter.sh vitest.slow.config.ts packages/shared/vitest.config.ts packages/server/vitest.config.ts packages/client/vitest.config.ts packages/shared/src/test-tier-sentinel.test.ts packages/shared/src/test-tier-sentinel.slow.test.ts scripts/test-test-slow.sh"
-  [test-generate-module-index]="scripts/generate-module-index.sh scripts/test-generate-module-index.sh"
-  [test-generate-lint-guidance]="scripts/generate-lint-guidance.ts scripts/test-generate-lint-guidance.sh eslint.config.js package.json tsconfig.scripts.json docs/generated/local-lint-rules.md eslint-rules/structured-logging.js eslint-rules/no-barrel.js eslint-rules/strict-trpc-input.js"
-  [test-migration-safety-scan]="scripts/migration-safety-scan.sh scripts/test-migration-safety-scan.sh"
+  [test-generate-module-index]="scripts/generate-module-index.sh scripts/test-generate-module-index.sh scripts/harness-emit-envelope.ts packages/shared/src/schemas/harness-diagnostics.ts"
+  [test-generate-lint-guidance]="scripts/generate-lint-guidance.ts scripts/lint-rule-docs.ts scripts/test-generate-lint-guidance.sh scripts/fixtures/generate-lint-guidance/ eslint.config.js package.json tsconfig.scripts.json docs/generated/local-lint-rules.md eslint-rules/"
+  [test-generate-harness-controls]="scripts/generate-harness-controls.ts scripts/lint-rule-docs.ts scripts/test-generate-harness-controls.sh scripts/fixtures/generate-harness-controls/ harness.controls.json eslint.config.js package.json tsconfig.scripts.json docs/generated/harness-controls.md eslint-rules/"
+  [test-harness-check]="scripts/harness-check.ts scripts/test-harness-check.sh harness.controls.json eslint.config.js package.json tsconfig.scripts.json eslint-rules/"
+  [test-lint-agent]="scripts/lint-agent.ts scripts/lint-rule-docs.ts scripts/test-lint-agent.sh packages/shared/src/schemas/harness-diagnostics.ts package.json tsconfig.scripts.json eslint.config.js eslint-rules/"
+  [test-lint-agent-changed]="scripts/lint-agent-changed.sh scripts/lint-agent.ts scripts/harness-emit-envelope.ts scripts/test-lint-agent-changed.sh packages/shared/src/schemas/harness-diagnostics.ts package.json"
+  [test-harness-emit-envelope]="scripts/harness-emit-envelope.ts scripts/test-harness-emit-envelope.sh packages/shared/src/schemas/harness-diagnostics.ts"
+  [test-lint-ratchet]="scripts/lint-ratchet.ts scripts/lint-ratchet-config.ts scripts/lint-ratchet-baseline.ts scripts/lint-ratchet-baseline.test.ts scripts/lint-rule-docs.ts scripts/test-lint-ratchet.sh lint-ratchet.baseline.json packages/shared/src/schemas/harness-diagnostics.ts package.json tsconfig.scripts.json eslint.config.js eslint-rules/"
+  [test-migration-safety-scan]="scripts/migration-safety-scan.sh scripts/test-migration-safety-scan.sh scripts/harness-emit-envelope.ts packages/shared/src/schemas/harness-diagnostics.ts"
+  [test-doctor-json]="scripts/doctor.sh scripts/dependency-freshness.sh scripts/harness-emit-envelope.ts scripts/test-doctor-json.sh harness.controls.json packages/shared/src/schemas/harness-diagnostics.ts"
   [test-test-scripts]="scripts/test-scripts.sh scripts/test-test-scripts.sh"
 )
 

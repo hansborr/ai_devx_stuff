@@ -5,15 +5,19 @@ repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root"
 
 mode="write"
-case "${1:-}" in
-  --check) mode="check" ;;
-  '') ;;
-  *)
-    printf 'module:index: unknown argument: %s\n' "$1" >&2
-    printf 'usage: generate-module-index.sh [--check]\n' >&2
-    exit 2
-    ;;
-esac
+emit_json=0
+for arg in "$@"; do
+  case "$arg" in
+    --check) mode="check" ;;
+    --json) emit_json=1; mode="check" ;;
+    '') ;;
+    *)
+      printf 'module:index: unknown argument: %s\n' "$arg" >&2
+      printf 'usage: generate-module-index.sh [--check] [--json]\n' >&2
+      exit 2
+      ;;
+  esac
+done
 
 tmp_file="$(mktemp)"
 trap 'rm -f "$tmp_file"' EXIT
@@ -66,7 +70,26 @@ trap 'rm -f "$tmp_file"' EXIT
 } > "$tmp_file"
 
 if [ "$mode" = "check" ]; then
+  fresh="false"
   if [ -f MODULE-INDEX.md ] && cmp -s "$tmp_file" MODULE-INDEX.md; then
+    fresh="true"
+  fi
+
+  if [ "$emit_json" -eq 1 ]; then
+    if [ "$fresh" = "true" ]; then
+      finding=""
+    elif [ -f MODULE-INDEX.md ]; then
+      finding='{"control":"doc-generator/module-index","severity":"warn","path":"MODULE-INDEX.md","why":"MODULE-INDEX.md is out of date.","howToFix":"Run `bun run module:index` to regenerate.","repairKind":"manual"}'
+    else
+      finding='{"control":"doc-generator/module-index","severity":"warn","path":"MODULE-INDEX.md","why":"MODULE-INDEX.md is missing.","howToFix":"Run `bun run module:index` to generate it.","repairKind":"manual"}'
+    fi
+    printf '%s\n' "$finding" \
+      | bun run scripts/harness-emit-envelope.ts --tool module:index:check
+    [ "$fresh" = "true" ] || exit 1
+    exit 0
+  fi
+
+  if [ "$fresh" = "true" ]; then
     echo "module:index: OK"
     exit 0
   fi

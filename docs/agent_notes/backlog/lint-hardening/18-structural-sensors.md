@@ -1,6 +1,7 @@
 # Leaf 18: Adjacent Structural Sensors
 
-Status: Parked
+Status: Partially landed (harness freshness + staged blob-size); remaining
+candidate sensors parked
 Depends on: early lint leaves preferred
 
 ## Problem
@@ -40,9 +41,9 @@ eventual narrow gates only when the baseline is low-noise.
 
 ## Best First Candidates
 
-Start with ASCII/smart-character checks for hot docs, then blob-size. Spell
-checking is useful but usually needs dictionary cleanup before it is quiet
-enough to gate.
+This partial landing covers harness freshness and staged blob-size. The
+ASCII/smart-character sensor was explicitly rejected by the user for this
+pass. Spell-check and architecture-boundary checks remain parked.
 
 ## Verification
 

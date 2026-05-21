@@ -99,7 +99,7 @@ export function unlinkSocketFile(paths: DaemonStatePaths): void {
   try {
     unlinkSync(paths.socketPath);
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; // type-assertion-boundary: interop - node:fs unlinkSync throws ErrnoException; narrowing to inspect .code and tolerate ENOENT races
   }
 }
 

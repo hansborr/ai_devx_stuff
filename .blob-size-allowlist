@@ -1,0 +1,2 @@
+docs/SRD_CC_v5.2.1.pdf # Canonical 5.5e SRD reference used for rules provenance checks.
+packages/server/src/seed/data/5e-srd-monsters.json # SRD monster seed fixture intentionally kept in-repo for generator input.

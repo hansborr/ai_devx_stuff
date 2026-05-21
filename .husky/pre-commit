@@ -1,6 +1,6 @@
 #!/bin/bash
 # ----------------------------------------------------------------------------
-# Pre-commit gate. Runs three changed-file checks IN PARALLEL.
+# Pre-commit gate. Runs changed-file checks and global drift checks IN PARALLEL.
 #
 # Why parallel here but sequential for manual Claude invocations:
 #   - Pre-commit is automatic (git-invoked, no Claude involvement). Faster is
@@ -105,7 +105,7 @@ musi_changed_gate_fail_if_unstaged "$REPO_ROOT" "pre-commit" || exit 1
 # Include D here so pure staged deletions still run typecheck/test gates. The
 # advisory freshness/doc filters above keep their narrower behavior.
 if ! git diff --cached --name-only --diff-filter=ACMRD \
-     | grep -qE '^(.husky/|packages/|e2e/|scripts/|eslint-rules/|package\.json$|eslint\.config\.|tsconfig[^/]*\.json$|vitest[^/]*\.config\.)'; then
+     | grep -qE '^(.husky/|packages/|e2e/|scripts/|eslint-rules/|package\.json$|lint-ratchet\.baseline\.json$|harness\.controls\.json$|docs/agent_notes/backlog/lint-followups/lint-coverage-map\.md$|eslint\.config\.|tsconfig[^/]*\.json$|vitest[^/]*\.config\.)'; then
   echo "pre-commit: no source changes staged — skipping checks."
   exit 0
 fi
@@ -150,10 +150,12 @@ if [ -f "$MARKER" ] && [ "${FORCE_VERIFY:-}" != "1" ]; then
 fi
 
 # Manual verify is a strict superset of the changed checks here: full verify
-# covers lint/test/scripts, verify:changed covers lint:changed/test:changed/
-# test:scripts:changed, and typecheck is identical. Pre-commit only runs
-# test:scripts:changed when staged hook/script paths match, so either manual
-# marker also covers that optional step.
+# covers lint/ratchet/test/scripts, verify:changed covers lint:changed/
+# lint:ratchet/test:changed/test:scripts:changed, and typecheck is identical.
+# Pre-commit only runs test:scripts:changed when staged hook/script paths
+# match (or when harness.controls.json / lint-ratchet.baseline.json change —
+# see the regex below), so either manual marker also covers that optional
+# step.
 if musi_try_verify_marker_bridge "$REPO_ROOT" "$MARKER" 120; then
   exit 0
 fi
@@ -219,6 +221,10 @@ run_parallel_step() {
 
 run_parallel_step lint bun run lint:changed
 pid_lint=$STEP_PID
+run_parallel_step ratchet bun run lint:ratchet
+pid_ratchet=$STEP_PID
+run_parallel_step coverage-map bun run docs:lint-coverage-map:check
+pid_coverage_map=$STEP_PID
 run_parallel_step typecheck bun run typecheck
 pid_tc=$STEP_PID
 run_parallel_step test bun run test:changed --reporter=dot --reporter=json --outputFile.json="$TIMINGS_FILE"
@@ -226,7 +232,7 @@ pid_test=$STEP_PID
 pid_scripts=""
 run_scripts=0
 if git diff --cached --name-only --diff-filter=ACMRD \
-     | grep -qE '^(.husky/|scripts/)'; then
+     | grep -qE '^(.husky/|scripts/|harness\.controls\.json$|lint-ratchet\.baseline\.json$)'; then
   run_parallel_step scripts bun run test:scripts:changed
   pid_scripts=$STEP_PID
   run_scripts=1
@@ -241,7 +247,7 @@ report_timeout_budget() {
 }
 cleanup_parallel_children() {
   [ -n "$pid_scripts" ] && kill "$pid_scripts" 2>/dev/null
-  kill "$pid_lint" "$pid_tc" "$pid_test" "$WD" 2>/dev/null
+  kill "$pid_lint" "$pid_ratchet" "$pid_coverage_map" "$pid_tc" "$pid_test" "$WD" 2>/dev/null
 }
 write_signal_wrapper_meta() {
   exit_code="$1"
@@ -258,6 +264,10 @@ trap 'kill $WD 2>/dev/null' EXIT
 
 exit_lint=0; exit_tc=0; exit_test=0; exit_scripts=0
 wait "$pid_lint" || exit_lint=$?
+exit_ratchet=0
+wait "$pid_ratchet" || exit_ratchet=$?
+exit_coverage_map=0
+wait "$pid_coverage_map" || exit_coverage_map=$?
 wait "$pid_tc"   || exit_tc=$?
 wait "$pid_test" || exit_test=$?
 if [ "$run_scripts" -eq 1 ]; then
@@ -267,6 +277,8 @@ fi
 # --- 6. Aggregate results --------------------------------------------------
 passed=""; failed=""
 [ "$exit_lint" -eq 0 ] && passed="$passed lint" || failed="$failed lint"
+[ "$exit_ratchet" -eq 0 ] && passed="$passed ratchet" || failed="$failed ratchet"
+[ "$exit_coverage_map" -eq 0 ] && passed="$passed coverage-map" || failed="$failed coverage-map"
 [ "$exit_tc"   -eq 0 ] && passed="$passed typecheck" || failed="$failed typecheck"
 [ "$exit_test" -eq 0 ] && passed="$passed test" || failed="$failed test"
 if [ "$run_scripts" -eq 1 ]; then

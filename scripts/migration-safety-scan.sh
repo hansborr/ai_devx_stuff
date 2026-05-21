@@ -44,6 +44,12 @@
 
 set -uo pipefail
 
+# Resolve script-relative paths so the scanner works from any cwd; tests run
+# from a sandbox directory and would otherwise fail to invoke the envelope
+# emitter (relative `scripts/harness-emit-envelope.ts` only resolves at the
+# repo root).
+SCRIPT_DIR="$(cd "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+
 # `git rev-parse` is only used to resolve the default migrations directory
 # and to shorten paths in the output. Explicit PATH arguments work outside a
 # git repository (useful for tests that point the scanner at a sandbox).
@@ -54,7 +60,7 @@ ALLOWLIST_FILE="${MUSI_MIGRATION_ALLOWLIST:-$DEFAULT_ALLOWLIST}"
 
 usage() {
   cat <<'EOF'
-usage: migration-safety-scan.sh [PATH ...]
+usage: migration-safety-scan.sh [--json] [PATH ...]
 
 Scans Prisma SQL migrations for destructive operations:
   - DROP TABLE
@@ -66,20 +72,88 @@ PATH may be a migration directory (containing migration.sql), a single
 .sql file, or the migrations root. With no arguments the scanner walks
 packages/server/prisma/migrations.
 
-The scanner is warn-only and always exits 0.
+With --json, emits a harness-diagnostics envelope on stdout instead of
+the human-readable report. The scanner is warn-only and always exits 0.
 EOF
 }
 
-case "${1:-}" in
-  -h|--help)
-    usage
-    exit 0
-    ;;
-esac
+emit_json=0
+declare -a POSITIONAL_PATHS=()
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    --json)
+      emit_json=1
+      shift
+      ;;
+    --)
+      # End-of-options: subsequent arguments are positional even if they look
+      # like flags. Lets `bash migration-safety-scan.sh -- --weird-name` scan a
+      # directory literally named `--weird-name`.
+      shift
+      while [ "$#" -gt 0 ]; do
+        POSITIONAL_PATHS+=("$1")
+        shift
+      done
+      break
+      ;;
+    *)
+      POSITIONAL_PATHS+=("$1")
+      shift
+      ;;
+  esac
+done
+if [ "${#POSITIONAL_PATHS[@]}" -gt 0 ]; then
+  set -- "${POSITIONAL_PATHS[@]}"
+else
+  set --
+fi
 
 # --- collect target migration.sql files ------------------------------------
 
 declare -a SQL_FILES=()
+declare -a COLLECTION_FINDINGS=()
+
+require_jq_for_json() {
+  if ! command -v jq >/dev/null 2>&1; then
+    printf 'FAIL: jq is required for --json mode but is not installed\n' >&2
+    exit 1
+  fi
+}
+
+append_collection_warning_finding() {
+  [ "$emit_json" -eq 1 ] || return 0
+  require_jq_for_json
+  local message_id="$1" path="$2" why="$3" how_to_fix="$4"
+  local finding
+  finding="$(
+    jq -nc \
+      --arg path "$path" \
+      --arg messageId "$message_id" \
+      --arg why "$why" \
+      --arg howToFix "$how_to_fix" \
+      '{control:"sensor/db-migration-safety",severity:"warn",path:$path,messageId:$messageId,why:$why,howToFix:$howToFix,repairKind:"manual"}'
+  )" || {
+    printf 'FAIL: --json jq failed to construct collection warning for %s\n' "$path" >&2
+    exit 1
+  }
+  COLLECTION_FINDINGS+=("$finding")
+}
+
+emit_collection_envelope() {
+  local findings_ndjson
+  findings_ndjson="$(mktemp)"
+  if [ "${#COLLECTION_FINDINGS[@]}" -gt 0 ]; then
+    printf '%s\n' "${COLLECTION_FINDINGS[@]}" > "$findings_ndjson"
+  fi
+  bun run "$SCRIPT_DIR/harness-emit-envelope.ts" --tool migration-safety-scan < "$findings_ndjson"
+  local rc=$?
+  rm -f "$findings_ndjson"
+  return "$rc"
+}
 
 collect_dir() {
   local dir="$1"
@@ -102,8 +176,17 @@ if [ "$#" -eq 0 ]; then
     exit 1
   fi
   if [ ! -d "$DEFAULT_MIGRATIONS_DIR" ]; then
-    printf 'WARN: no migrations directory at %s — nothing to scan\n' \
-      "$DEFAULT_MIGRATIONS_DIR" >&2
+    message="no migrations directory at $DEFAULT_MIGRATIONS_DIR — nothing to scan"
+    printf 'WARN: %s\n' "$message" >&2
+    append_collection_warning_finding \
+      "missing-migrations-directory" \
+      "$DEFAULT_MIGRATIONS_DIR" \
+      "$message" \
+      "Create the migrations directory, or pass an existing migration directory or .sql file."
+    if [ "$emit_json" -eq 1 ]; then
+      emit_collection_envelope
+      exit "$?"
+    fi
     exit 0
   fi
   collect_dir "$DEFAULT_MIGRATIONS_DIR"
@@ -114,12 +197,26 @@ else
     elif [ -f "$target" ]; then
       SQL_FILES+=("$target")
     else
-      printf 'WARN: not a file or directory, skipping: %s\n' "$target" >&2
+      message="not a file or directory, skipping: $target"
+      printf 'WARN: %s\n' "$message" >&2
+      append_collection_warning_finding \
+        "missing-target" \
+        "$target" \
+        "$message" \
+        "Pass an existing migration directory or .sql file, or remove this path from the scanner invocation."
     fi
   done
 fi
 
 if [ "${#SQL_FILES[@]}" -eq 0 ]; then
+  if [ "$emit_json" -eq 1 ]; then
+    # Empty envelope honours the --json contract: consumers (doctor, CI
+    # aggregators) always parse JSON in this mode, so we must not fall
+    # through to the bare "INFO:" text line. Collection warnings, if any,
+    # still become findings so missing targets are visible to machines.
+    emit_collection_envelope
+    exit "$?"
+  fi
   printf 'INFO: no migration.sql files found\n'
   exit 0
 fi
@@ -176,6 +273,15 @@ scan_file() {
   local file="$1"
   local rel
   rel="$(relpath "$file")"
+  # The TMP_FINDINGS TSV uses tab/newline as field/record separators. A tab
+  # or newline in a path would corrupt the TSV (and the downstream JSON
+  # framing). Reject loudly rather than silently shifting fields.
+  case "$rel" in
+    *$'\t'*|*$'\n'*)
+      printf 'FAIL: migration path contains tab or newline; cannot be processed safely: %q\n' "$file" >&2
+      exit 1
+      ;;
+  esac
 
   # The four detection rules. Each emits zero or more findings; line numbers
   # come from grep -n. Awk handles the SNIPPET trim so the output stays
@@ -308,8 +414,11 @@ guidance_for() {
 migration_name_for() {
   local rel="$1"
   local mig_dir
-  mig_dir="$(dirname "$rel")"
-  basename "$mig_dir"
+  # `dirname --` / `basename --` are required because relative paths starting
+  # with `-` (a sandbox name like `--weird-dir`) are otherwise misinterpreted
+  # as flags.
+  mig_dir="$(dirname -- "$rel")"
+  basename -- "$mig_dir"
 }
 
 # Detect allowlist entries that do not correspond to an on-disk migration
@@ -329,8 +438,14 @@ if [ -n "$ALLOWLIST_FILE" ] && [ -f "$ALLOWLIST_FILE" ] && [ "${#ACK_REASONS[@]}
 fi
 stale_count="${#STALE_ENTRIES[@]}"
 
-printf '== migration safety scanner ==\n'
-printf 'Scanned %d migration file(s).\n' "${#SQL_FILES[@]}"
+# Sort findings unconditionally so both the human-readable report and the
+# JSON envelope see the same stable ordering.
+sorted_findings=""
+if [ -s "$TMP_FINDINGS" ]; then
+  sorted_findings="$(mktemp)"
+  trap 'rm -f "$TMP_FINDINGS" "$sorted_findings"' EXIT
+  sort -t $'\t' -k1,1 -k2,2n "$TMP_FINDINGS" > "$sorted_findings"
+fi
 
 unack_count=0
 ack_count=0
@@ -338,17 +453,7 @@ total=0
 files=0
 unack_files=0
 
-if [ ! -s "$TMP_FINDINGS" ]; then
-  printf 'No destructive operations detected.\n'
-else
-  # Stable sort so identical input always produces identical output: rule
-  # order matches per-file source order; files are alphabetical. The report
-  # then renders actionable WARN findings before acknowledged INFO findings
-  # so humans, hooks, and future dashboards can separate work from history.
-  sorted_findings="$(mktemp)"
-  trap 'rm -f "$TMP_FINDINGS" "$sorted_findings"' EXIT
-  sort -t $'\t' -k1,1 -k2,2n "$TMP_FINDINGS" > "$sorted_findings"
-
+if [ -n "$sorted_findings" ]; then
   total=$(wc -l < "$TMP_FINDINGS" | tr -d ' ')
   files=$(cut -f1 "$TMP_FINDINGS" | sort -u | wc -l | tr -d ' ')
 
@@ -360,6 +465,98 @@ else
       unack_count=$((unack_count + 1))
     fi
   done < "$sorted_findings"
+fi
+
+# --- JSON emit branch ------------------------------------------------------
+# When --json is set, emit a harness-diagnostics envelope on stdout instead
+# of the human-readable report. Scanner stays warn-only (always exit 0).
+if [ "$emit_json" -eq 1 ]; then
+  require_jq_for_json
+  allow_rel=""
+  allow_dir_rel=""
+  if [ -n "$ALLOWLIST_FILE" ]; then
+    allow_rel="$(relpath "$ALLOWLIST_FILE")"
+    allow_dir_rel="$(relpath "$(dirname -- "$ALLOWLIST_FILE")")"
+  fi
+  how_warn="Acknowledge intentional destructive migrations by adding the migration directory name to ${allow_rel:-the allowlist}, or split into the safe multi-step pattern (add nullable, backfill, then SET NOT NULL)."
+  how_info="Already acknowledged. If the migration is renamed or dropped, also remove the line from ${allow_rel:-the allowlist}."
+  how_stale="Remove the stale entry from ${allow_rel:-the allowlist}, or fix the typo if the migration was renamed."
+
+  # Build findings into a temp file rather than a `{ ... } | emitter` pipe
+  # so a jq failure mid-loop can terminate the script. A brace group on the
+  # left of a pipe runs in a subshell and exposes only the last command's
+  # exit status; a per-finding `exit` inside such a subshell does not stop
+  # the script and the failed finding is silently dropped.
+  FINDINGS_NDJSON="$(mktemp)"
+  trap 'rm -f "$TMP_FINDINGS" "$sorted_findings" "$FINDINGS_NDJSON"' EXIT
+
+  # Construct each finding directly as JSON via `jq` so the pipeline is
+  # delimiter-safe: a TSV bridge here would corrupt fields when a path or an
+  # allowlist reason contains a tab/newline. jq handles all JSON escaping.
+  if [ "${#COLLECTION_FINDINGS[@]}" -gt 0 ]; then
+    printf '%s\n' "${COLLECTION_FINDINGS[@]}" >> "$FINDINGS_NDJSON"
+  fi
+  if [ -n "$sorted_findings" ]; then
+    while IFS=$'\t' read -r rel lineno rule snippet; do
+      # The TMP_FINDINGS TSV is generated by awk with `%d` for line, so this
+      # should always be numeric. Guarding here turns a future producer bug
+      # into a loud error rather than a silent `--argjson` invalid-JSON drop.
+      if ! [[ "$lineno" =~ ^[0-9]+$ ]]; then
+        printf 'FAIL: --json bridge expected numeric line but got: %q\n' "$lineno" >&2
+        exit 1
+      fi
+      name="$(migration_name_for "$rel")"
+      if [ -n "${ACK_REASONS[$name]+set}" ]; then
+        severity="info"
+        why="$rule (acknowledged): ${ACK_REASONS[$name]}"
+        how="$how_info"
+      else
+        severity="warn"
+        why="$rule — $(guidance_for "$rule")"
+        how="$how_warn"
+      fi
+      jq -nc \
+        --arg severity "$severity" \
+        --arg path "$rel" \
+        --argjson line "$lineno" \
+        --arg messageId "$rule" \
+        --arg why "$why" \
+        --arg howToFix "$how" \
+        '{control:"sensor/db-migration-safety",severity:$severity,path:$path,line:$line,messageId:$messageId,why:$why,howToFix:$howToFix,repairKind:"manual"}' \
+        >> "$FINDINGS_NDJSON" || {
+          printf 'FAIL: --json jq failed to construct finding for %s:%s\n' "$rel" "$lineno" >&2
+          exit 1
+        }
+    done < "$sorted_findings"
+  fi
+  if [ "$stale_count" -gt 0 ] && [ -n "$allow_rel" ]; then
+    for stale_name in "${STALE_ENTRIES[@]}"; do
+      jq -nc \
+        --arg path "$allow_rel" \
+        --argjson line "${ACK_LINENO[$stale_name]}" \
+        --arg why "stale acknowledgement \"$stale_name\" — no migration at $allow_dir_rel/$stale_name/migration.sql" \
+        --arg howToFix "$how_stale" \
+        '{control:"sensor/db-migration-safety",severity:"warn",path:$path,line:$line,messageId:"stale-allowlist",why:$why,howToFix:$howToFix,repairKind:"manual"}' \
+        >> "$FINDINGS_NDJSON" || {
+          printf 'FAIL: --json jq failed to construct stale-allowlist finding for %s\n' "$stale_name" >&2
+          exit 1
+        }
+    done
+  fi
+
+  # Feed the validated NDJSON into the envelope emitter without a brace-group
+  # pipe so the emitter's rc is the script's rc (set -uo pipefail is already
+  # set; pipefail still applies to `<` redirection failure exits).
+  bun run "$SCRIPT_DIR/harness-emit-envelope.ts" --tool migration-safety-scan < "$FINDINGS_NDJSON"
+  exit "$?"
+fi
+
+printf '== migration safety scanner ==\n'
+printf 'Scanned %d migration file(s).\n' "${#SQL_FILES[@]}"
+
+if [ -z "$sorted_findings" ]; then
+  printf 'No destructive operations detected.\n'
+else
 
   if [ "$unack_count" -gt 0 ]; then
     unack_files=$(awk -v acks="$(printf '%s\n' "${!ACK_REASONS[@]}")" '

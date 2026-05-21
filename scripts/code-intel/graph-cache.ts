@@ -11,6 +11,7 @@ import { createWorkspaceResolver } from "./workspace-resolver.js";
 
 const MANIFEST_HASH_LENGTH = 32;
 const HEAD_REF_PREFIX = "ref:";
+const GITDIR_PREFIX = "gitdir:";
 
 export type CachedGraphEntry = {
   graph: ImportGraph;
@@ -125,11 +126,16 @@ function resolveGitDir(repoRoot: string, gitPath: string): string | undefined {
   const stat = statSync(gitPath);
   if (stat.isDirectory()) return gitPath;
   if (!stat.isFile()) return undefined;
-  const content = readFileSync(gitPath, "utf8").trim();
-  const match = /^gitdir:\s*(.+)$/u.exec(content);
-  if (!match) return undefined;
-  return path.resolve(repoRoot, match[1] ?? "");
+  const content = readFileSync(gitPath, "utf8").trimEnd();
+  if (!content.startsWith(GITDIR_PREFIX)) return undefined;
+  const gitDir = content.slice(GITDIR_PREFIX.length);
+  if (gitDir.includes("\n") || gitDir.includes("\r")) return undefined;
+  const resolvedGitDir = gitDir.trimStart();
+  if (!resolvedGitDir) return undefined;
+  return path.resolve(repoRoot, resolvedGitDir);
 }
+
+export const graphCacheTest = { readGitHead, resolveGitDir };
 
 function readPackedRef(packedRefsPath: string, refPath: string): string | undefined {
   for (const line of readFileSync(packedRefsPath, "utf8").split("\n")) {

@@ -20,6 +20,7 @@ export function isProcessAlive(pid: number): boolean {
     process.kill(pid, 0);
     return true;
   } catch (error) {
+    // type-assertion-boundary: interop - node:process.kill throws an Error whose .code is typed loosely; narrowing to read the errno
     const code = (error as NodeJS.ErrnoException).code;
     if (code === "ESRCH") return false;
     if (code === "EPERM") return true;
@@ -101,7 +102,7 @@ function sendSignal(pid: number, signal: NodeJS.Signals | number): void {
   try {
     process.kill(pid, signal);
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ESRCH") return;
+    if ((error as NodeJS.ErrnoException).code === "ESRCH") return; // type-assertion-boundary: interop - node:process.kill rejects with ErrnoException; .code is the errno string
     throw error;
   }
 }

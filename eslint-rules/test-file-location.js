@@ -24,6 +24,11 @@ export default {
     type: "suggestion",
     docs: {
       description: "Enforce test file naming and require at least one test block",
+      principle:
+        "Test files must follow naming conventions and contain test blocks so they colocate with the code they cover.",
+      category: "maintainability",
+      pairedGuide: "none",
+      repairKind: "manual",
     },
     messages: {
       wrongNaming:

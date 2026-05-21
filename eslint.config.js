@@ -23,6 +23,7 @@ import noBarrel from "./eslint-rules/no-barrel.js";
 import noExplicitAny from "./eslint-rules/no-explicit-any.js";
 import noLlmArtifacts from "./eslint-rules/no-llm-artifacts.js";
 import noSwallowedErrors from "./eslint-rules/no-swallowed-errors.js";
+import typeAssertionBoundary from "./eslint-rules/type-assertion-boundary.js";
 import e2ePreferRoleSelectors from "./eslint-rules/e2e-prefer-role-selectors.js";
 import concurrencyGuard from "./eslint-rules/concurrency-guard.js";
 import noBroadcastInTransaction from "./eslint-rules/no-broadcast-in-transaction.js";
@@ -66,6 +67,7 @@ const localPlugin = {
     "no-explicit-any": noExplicitAny,
     "no-llm-artifacts": noLlmArtifacts,
     "no-swallowed-errors": noSwallowedErrors,
+    "type-assertion-boundary": typeAssertionBoundary,
     "e2e-prefer-role-selectors": e2ePreferRoleSelectors,
     "no-broadcast-in-transaction": noBroadcastInTransaction,
     "test-file-location": testFileLocation,
@@ -81,6 +83,23 @@ const localPlugin = {
 
 const codeFiles = ["**/*.{js,cjs,mjs,ts,tsx,mts,cts}"];
 const typescriptFiles = ["**/*.{ts,tsx,mts,cts}"];
+const testAndHelperFiles = [
+  "**/*.{test,spec}.{js,cjs,mjs,ts,tsx,mts,cts}",
+  "**/*test-helper*.{js,cjs,mjs,ts,tsx,mts,cts}",
+  "**/test/**/*.{js,cjs,mjs,ts,tsx,mts,cts}",
+  "e2e/**/*.{js,cjs,mjs,ts,tsx,mts,cts}",
+];
+
+const processExitRestrictedSyntax = {
+  selector: "CallExpression[callee.object.name='process'][callee.property.name='exit']",
+  message:
+    "Avoid process.exit(...) outside CLI/bootstrap entrypoints. Set process.exitCode and return/throw so finally blocks, log flushing, and socket teardown can run. If this IS a terminating entrypoint, add the file to the allowlist override in eslint.config.js.",
+};
+const processEnvRestrictedSyntax = {
+  selector: "MemberExpression[object.name='process'][property.name='env']",
+  message:
+    "Avoid reading process.env outside config/env.ts. Use serverEnv from packages/server/src/config/env.ts (or add the key there). For child-process spawn `env:` pass-through and the db-status admin tool, add the file to the allowlist override below.",
+};
 
 const repoRoot = import.meta.dirname;
 const sharedDir = path.resolve(repoRoot, "packages/shared");
@@ -122,8 +141,17 @@ export default defineConfig(
       "!scripts/drift/",
       "!scripts/drift/**/*.ts",
       "!scripts/generate-lint-guidance.ts",
+      "!scripts/lint-rule-docs.ts",
+      "!scripts/lint-ratchet-config.ts",
+      "!scripts/code-intel-server.ts",
+      "!scripts/logs-audit.test.ts",
+      "!scripts/drift-ai/",
+      "!scripts/drift-ai/errors.ts",
+      "!scripts/drift-ai/scope.ts",
+      "!scripts/drift-ai/scope.test.ts",
       "worktrees/",
-      "eslint-rules/",
+      "eslint-rules/*",
+      "!eslint-rules/*.js",
     ],
   },
 
@@ -261,6 +289,7 @@ export default defineConfig(
 
   {
     files: codeFiles,
+    ignores: ["eslint-rules/*.js"],
     plugins: { regexp },
     rules: {
       ...regexp.configs["flat/recommended"].rules,
@@ -270,13 +299,9 @@ export default defineConfig(
       "regexp/no-potentially-useless-backreference": "error",
       "regexp/no-useless-flag": "error",
       "regexp/optimal-lookaround-quantifier": "error",
-      // Deferred to Pass 2b - needs careful semantic rewrites of seed/parser
-      // regexes (24 sites across markdown parsers, spell blocks, glossary
-      // entries, etc.). See inventory in
-      // finished_work/lint-hardening-leaf-21-regexp-inventory.md.
-      "regexp/no-super-linear-backtracking": "off",
-      "regexp/no-misleading-capturing-group": "off",
-      "regexp/no-contradiction-with-assertion": "off",
+      "regexp/no-super-linear-backtracking": "error",
+      "regexp/no-misleading-capturing-group": "error",
+      "regexp/no-contradiction-with-assertion": "error",
       // Style-only per Leaf 21 backlog; not part of v3 flat/recommended but
       // override explicitly so future plugin upgrades do not surprise us.
       "regexp/prefer-named-capture-group": "off",
@@ -285,6 +310,7 @@ export default defineConfig(
 
   {
     files: codeFiles,
+    ignores: ["eslint-rules/*.js"],
     plugins: {
       "eslint-comments": eslintComments,
       "simple-import-sort": simpleImportSort,
@@ -292,6 +318,9 @@ export default defineConfig(
     },
     languageOptions: {
       parserOptions: {
+        // The lint-ratchet `type-aware-ts` parser profile mirrors these
+        // project-service knobs; update docs/guides/lint-ratchet.md if this
+        // changes.
         projectService: true,
         tsconfigRootDir: import.meta.dirname,
       },
@@ -435,31 +464,138 @@ export default defineConfig(
     },
   },
 
-  // Ban process.exit(...) outside named bootstrap/script entrypoints.
-  // Prefer `process.exitCode = N` plus a clean return/throw so the
-  // runtime can flush logs, close sockets, and run finally blocks.
+  {
+    files: ["eslint-rules/*.js"],
+    ignores: ["eslint-rules/*.test.js"],
+    plugins: { regexp, local: localPlugin },
+    rules: {
+      complexity: ["error", { max: 10 }],
+      "local/max-lines": ["error", { max: 300, skipBlankLines: true, skipComments: true }],
+      "max-lines-per-function": ["error", { max: 200, skipBlankLines: true, skipComments: true }],
+      "max-params": ["error", { max: 4 }],
+      "no-nested-ternary": "error",
+      "no-magic-numbers": [
+        "warn",
+        {
+          ignore: [0, 1, -1],
+          ignoreArrayIndexes: true,
+          ignoreDefaultValues: true,
+          enforceConst: true,
+        },
+      ],
+
+      ...regexp.configs["flat/recommended"].rules,
+      "regexp/confusing-quantifier": "error",
+      "regexp/no-empty-alternative": "error",
+      "regexp/no-lazy-ends": "error",
+      "regexp/no-potentially-useless-backreference": "error",
+      "regexp/no-useless-flag": "error",
+      "regexp/optimal-lookaround-quantifier": "error",
+      "regexp/no-super-linear-backtracking": "error",
+      "regexp/no-misleading-capturing-group": "error",
+      "regexp/no-contradiction-with-assertion": "error",
+      // Style-only per Leaf 21 backlog; not part of v3 flat/recommended but
+      // override explicitly so future plugin upgrades do not surprise us.
+      "regexp/prefer-named-capture-group": "off",
+    },
+  },
+
+  // Phase A.2 existing findings stay ratcheted until drained; keep the
+  // syntactic floor active everywhere else.
+  {
+    files: [
+      "eslint-rules/strict-trpc-input.js",
+      "eslint-rules/structured-logging.js",
+      "eslint-rules/type-assertion-boundary.js",
+    ],
+    rules: {
+      complexity: "off",
+    },
+  },
+
+  {
+    files: ["eslint-rules/type-assertion-boundary.js"],
+    rules: {
+      "no-magic-numbers": "off",
+    },
+  },
+
+  {
+    files: ["eslint-rules/no-barrel.js", "eslint-rules/structured-logging.js"],
+    rules: {
+      "regexp/no-unused-capturing-group": "off",
+    },
+  },
+
+  {
+    files: ["eslint-rules/no-llm-artifacts.js"],
+    rules: {
+      "regexp/no-useless-non-capturing-group": "off",
+    },
+  },
+
+  {
+    files: ["eslint-rules/*.js"],
+    ignores: ["eslint-rules/*.test.js"],
+    rules: {
+      "no-unused-vars": "error",
+    },
+  },
+
+  {
+    files: ["eslint-rules/*.test.js"],
+    plugins: { vitest: vitestPlugin },
+    rules: {
+      ...vitestPlugin.configs.recommended.rules,
+      "no-unused-vars": "error",
+      "vitest/expect-expect": [
+        "error",
+        { assertFunctionNames: ["expect", "ruleTester.run"] },
+      ],
+      "vitest/valid-expect": ["error", { maxArgs: 2 }],
+    },
+  },
+
+  // Phase B existing RuleTester harness findings stay ratcheted until drained;
+  // keep the vitest floor active everywhere else.
+  {
+    files: ["eslint-rules/message-guidance.test.js"],
+    rules: {
+      "vitest/no-conditional-expect": "off",
+    },
+  },
+
+  {
+    files: ["eslint-rules/test-file-location.test.js"],
+    rules: {
+      "vitest/no-commented-out-tests": "off",
+    },
+  },
+
+  // Ban restricted process primitives outside named bootstrap/config/script
+  // boundaries.
   {
     files: codeFiles,
     rules: {
       "no-restricted-syntax": [
         "error",
-        {
-          selector: "CallExpression[callee.object.name='process'][callee.property.name='exit']",
-          message:
-            "Avoid process.exit(...) outside CLI/bootstrap entrypoints. Set process.exitCode and return/throw so finally blocks, log flushing, and socket teardown can run. If this IS a terminating entrypoint, add the file to the allowlist override in eslint.config.js.",
-        },
+        processExitRestrictedSyntax,
+        processEnvRestrictedSyntax,
       ],
     },
   },
 
-  // Bootstrap/script entrypoints where process.exit(...) is the correct
-  // termination path. This is the first no-restricted-syntax selector in the
-  // config, so turning the whole rule off here only drops the process.exit
-  // ban for these named files.
+  // Bootstrap/config/script entrypoints where the restricted process
+  // primitive is the correct boundary. This is the first no-restricted-syntax
+  // selector in the config, so turning the whole rule off here only drops the
+  // process primitive bans for these named files.
   {
     files: [
       "scripts/db-status.ts",
+      "scripts/code-intel/daemon-process.ts",
       "scripts/code-intel/daemon-server.ts",
+      "scripts/code-intel/perf-check.ts",
+      "packages/server/src/config/env.ts",
       "packages/server/src/main.ts",
       "packages/server/prisma/seed.ts",
       "packages/server/prisma/seed-template.ts",
@@ -467,6 +603,15 @@ export default defineConfig(
     ],
     rules: {
       "no-restricted-syntax": "off",
+    },
+  },
+
+  // Test, helper, and e2e setup code may read/mutate environment variables
+  // to isolate processes and databases; keep process.exit(...) restricted.
+  {
+    files: testAndHelperFiles,
+    rules: {
+      "no-restricted-syntax": ["error", processExitRestrictedSyntax],
     },
   },
 
@@ -523,6 +668,7 @@ export default defineConfig(
       "@tanstack/query/infinite-query-property-order": "error",
       "@tanstack/query/no-void-query-fn": "error",
       "@tanstack/query/mutation-property-order": "error",
+      "@tanstack/query/prefer-query-options": "error",
     },
   },
 
@@ -552,6 +698,19 @@ export default defineConfig(
     },
   },
 
+  // These exact-path `local/max-lines` overrides are mirrored in the
+  // `ratchet/local-max-lines` ignores in scripts/lint-ratchet-config.ts.
+  // When renaming a file in this list, update the matching entry in
+  // scripts/lint-ratchet-config.ts. See docs/guides/lint-ratchet.md.
+  {
+    // The ratchet registry grows as new ratchets land; the floor
+    // protects against accidental drift, not registry growth.
+    files: ["scripts/lint-ratchet-config.ts"],
+    rules: {
+      "local/max-lines": ["error", { max: 600, skipBlankLines: true, skipComments: true }],
+    },
+  },
+
   {
     // Compact rules modules are the default. This file is a rules-domain
     // calculator with several tightly-coupled D&D damage branches; keep the
@@ -569,7 +728,7 @@ export default defineConfig(
     // until those flows are split behind smaller services.
     files: ["packages/server/src/routers/encounter.ts"],
     rules: {
-      "local/max-lines": ["warn", { max: 470, skipBlankLines: true, skipComments: true }],
+      "local/max-lines": ["warn", { max: 480, skipBlankLines: true, skipComments: true }],
     },
   },
 
@@ -876,13 +1035,51 @@ export default defineConfig(
     },
   },
 
+  {
+    files: [
+      "packages/client/src/**/*.{ts,tsx}",
+      "packages/server/src/**/*.ts",
+    ],
+    rules: {
+      "no-restricted-globals": [
+        "error",
+        {
+          name: "fetch",
+          message:
+            "Use a sanctioned API helper instead of raw fetch. Client API calls go through tRPC (packages/client/src/lib/trpc.ts). Add a file to the allowlist override if this is a sanctioned framework boundary or upload endpoint.",
+        },
+      ],
+    },
+  },
+
+  {
+    files: [
+      "packages/client/src/lib/trpc.ts",
+      "packages/client/src/hooks/use-map-image-upload.ts",
+    ],
+    rules: {
+      "no-restricted-globals": "off",
+    },
+  },
+
   // Linted scripts/ modules and selected entrypoints live outside package
   // tsconfigs, so point ESLint at the scripts project.
   {
     files: [
       "scripts/code-intel/**/*.ts",
+      "scripts/code-intel-server.ts",
+      "scripts/db-status.ts",
       "scripts/drift/**/*.ts",
+      "scripts/drift-ai/errors.ts",
+      "scripts/drift-ai/scope.test.ts",
+      "scripts/drift-ai/scope.ts",
       "scripts/generate-lint-guidance.ts",
+      "scripts/harness-emit-envelope.ts",
+      "scripts/lint-ratchet-config.ts",
+      "scripts/lint-rule-docs.ts",
+      "scripts/logs-audit.test.ts",
+      "scripts/sensor-blob-size.test.ts",
+      "scripts/sensor-blob-size.ts",
     ],
     languageOptions: {
       parserOptions: {
@@ -890,6 +1087,28 @@ export default defineConfig(
         project: "./tsconfig.scripts.json",
         tsconfigRootDir: import.meta.dirname,
       },
+    },
+  },
+
+  {
+    files: [
+      "scripts/code-intel/**/*.ts",
+      "scripts/code-intel-server.ts",
+      "scripts/db-status.ts",
+      "scripts/drift/**/*.ts",
+      "scripts/drift-ai/errors.ts",
+      "scripts/drift-ai/scope.test.ts",
+      "scripts/drift-ai/scope.ts",
+      "scripts/generate-lint-guidance.ts",
+      "scripts/harness-emit-envelope.ts",
+      "scripts/lint-ratchet-config.ts",
+      "scripts/lint-rule-docs.ts",
+      "scripts/logs-audit.test.ts",
+      "scripts/sensor-blob-size.test.ts",
+      "scripts/sensor-blob-size.ts",
+    ],
+    rules: {
+      "local/type-assertion-boundary": "error",
     },
   },
 
@@ -976,6 +1195,13 @@ export default defineConfig(
       "local/e2e-prefer-role-selectors": "error",
       // Existing page objects use first()/last() heavily; migrating selectors is Stage 4 scope.
       "playwright/no-nth-methods": "off",
+    },
+  },
+
+  {
+    files: ["e2e/**/*.ts"],
+    rules: {
+      "local/type-assertion-boundary": "error",
     },
   },
 

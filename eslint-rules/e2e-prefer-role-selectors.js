@@ -34,6 +34,11 @@ export default {
     type: "suggestion",
     docs: {
       description: "Prefer role, label, or text selectors over raw locators in e2e tests",
+      principle:
+        "E2E tests should select by role/label/text instead of CSS to remain resilient to implementation changes.",
+      category: "maintainability",
+      pairedGuide: "docs/guides/add-e2e-test.md",
+      repairKind: "manual",
     },
     messages: {
       preferRoleSelectors:

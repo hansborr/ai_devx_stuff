@@ -195,6 +195,7 @@ function parseEnvelope(payload: string): ParsedEnvelopeOutcome {
       error: { message: "Request envelope is missing a command.", name: "Error" },
     };
   }
+  // type-assertion-boundary: json - request envelope parsed from JSON and shape-validated above (isRecord + command/protocolVersion checks); cast just narrows to the validated envelope type
   return { kind: "ok", envelope: parsed as unknown as ParsedRequestEnvelope };
 }
 

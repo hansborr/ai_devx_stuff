@@ -57,6 +57,10 @@ export default {
     type: "problem",
     docs: {
       description: "Disallow leftover LLM editing artifacts and untracked TODO comments",
+      principle: "LLM editing artifacts and untracked TODO comments should never land in committed code.",
+      category: "maintainability",
+      pairedGuide: "docs/guides/local-eslint-rules.md",
+      repairKind: "manual",
     },
     messages: {
       leftoverEditNote:

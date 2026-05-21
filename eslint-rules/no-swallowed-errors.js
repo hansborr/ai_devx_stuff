@@ -38,6 +38,11 @@ export default {
     type: "problem",
     docs: {
       description: "Disallow catch blocks that only log to console and continue",
+      principle:
+        "Catch blocks that only log to console hide failures from callers, preventing error propagation and handling.",
+      category: "behavior",
+      pairedGuide: "docs/guides/local-eslint-rules.md",
+      repairKind: "manual",
     },
     messages: {
       swallowedError:

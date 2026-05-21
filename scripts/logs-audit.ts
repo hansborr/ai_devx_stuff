@@ -191,7 +191,7 @@ function isJsonObject(value: unknown): value is JsonObject {
 }
 
 function parseJsonLine(line: string): unknown {
-  return JSON.parse(line) as unknown;
+  return JSON.parse(line);
 }
 
 function normalizedKey(key: string): string {

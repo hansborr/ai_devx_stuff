@@ -8,13 +8,494 @@ Newest on top.
 
 ---
 
+- 2026-05-21: Leaf 38 codex-review P2 follow-up widened every
+  `*-top-level-scripts` ratchet to the full four-file Leaf 38 set:
+  `scripts/db-status.ts`, `scripts/harness-emit-envelope.ts`,
+  `scripts/sensor-blob-size.ts`, and `scripts/sensor-blob-size.test.ts`.
+  `core-no-magic-numbers-top-level-scripts` includes the test in `files` and
+  excludes it via `ignores`; the other six ratchets apply to all four files.
+  `lint-ratchet:update` refreshed only scope metadata/config hashes, with all
+  seven affected counts unchanged (1, 11, 1, 1, 1, 6, 1; live registry remains
+  99). Probe proof staged a temporary 11-branch complexity function in
+  `scripts/db-status.ts`; `bun run lint:ratchet` failed with one
+  `ratchet/core-complexity-top-level-scripts` regression, then passed after the
+  probe was reverted. Details:
+  `finished_work/lint-hardening-leaf-38-top-level-scripts.md`.
+- 2026-05-20: Leaf 38 adopted `scripts/db-status.ts`,
+  `scripts/harness-emit-envelope.ts`, `scripts/sensor-blob-size.ts`, and
+  `scripts/sensor-blob-size.test.ts` into `tsconfig.scripts.json` and the
+  scripts-project parser mapping. The top-level script floor adds seven
+  ratchets (`core-complexity`, `core-no-magic-numbers`,
+  `core-preserve-caught-error`, `simple-import-sort/imports`,
+  `@typescript-eslint/no-unsafe-argument`,
+  `@typescript-eslint/restrict-template-expressions`, and
+  `@typescript-eslint/unbound-method`) for 22 current findings, raising the
+  live ratchet baseline to 99. Typecheck adoption required changing
+  `db-status.ts` to a `.js` import specifier and sorting a copied array in
+  `sensor-blob-size.ts`. Details:
+  `finished_work/lint-hardening-leaf-38-top-level-scripts.md`.
+- 2026-05-20: Leaf 41 Batch 5 added core ESLint rule-source support to the
+  lint ratchet runner without adding any live core ratchet entries. The new
+  `source: { kind: "core" }` path supports both parser profiles, validates
+  bare built-in rule ids, hashes the installed ESLint package version with the
+  core rule identity, and emits generated configs with no plugin import or
+  `plugins` block. Verification passed:
+  `bun run lint:ratchet`, `bun run lint:ratchet:check-baseline`,
+  `bash scripts/test-lint-ratchet.sh`,
+  `bun test scripts/lint-ratchet-baseline.test.ts`,
+  `bun run harness:check`, `bun run docs:harness-controls:check`,
+  `bash scripts/test-harness-check.sh`, and `FORCE_VERIFY=1 bun run typecheck`.
+  Details:
+  `finished_work/lint-hardening-leaf-41-core-rule-source-support.md`.
+- 2026-05-20: Leaf 41 Batch 1 added
+  `ratchet/local-max-lines-codemods`, scoped to
+  `scripts/codemods/**/*.ts` while excluding fixtures and codemod test files.
+  The initial `lint-ratchet.baseline.json` ceiling is six current
+  production-codemod `local/max-lines` findings. Harness controls regenerated
+  for the fourth ratchet. Verification passed:
+  `bun run lint:ratchet`, `bun run lint:ratchet:check-baseline`,
+  `bash scripts/test-lint-ratchet.sh`, `bun run harness:check`, and
+  `bun run docs:harness-controls:check`. Details:
+  `finished_work/lint-hardening-leaf-41-codemods-max-lines-ratchet.md`.
+- 2026-05-20: Landed the load-bearing Leaf 41 coverage map at
+  `docs/agent_notes/backlog/lint-followups/lint-coverage-map.md` on
+  `feature/lint-hardening-review-followup` via merge `b3c0ca0c`
+  (`feature/lint-hardening-leaf-41-coverage-map` was probe-branch
+  `40d7feac` + codex-review refinement `21a8a1d3`, then `--no-ff` merge
+  and branch deletion). The committed map enumerates every tracked file
+  family with a status in `{linted, ratcheted, proposed, pending-leaf,
+  excluded, not-code}`; no `unknown` rows remain. A codex review on the
+  initial draft surfaced two P2 findings (parseable scripts mis-marked
+  as parser-blocked, and `scripts/vitest.config.ts` mis-shelved as a
+  fixture) that landed before the merge. Next Leaf 41 step is small
+  measured ratchet/floor batches against this frozen scope, starting
+  with whichever 2–3 ratchets give the highest signal.
+- 2026-05-20: Pinned the Leaf 41 coverage-map artifact path to
+  `docs/agent_notes/backlog/lint-followups/lint-coverage-map.md` and added a
+  placeholder there so future ratchet/floor cycles update one diffable map
+  instead of re-deriving inventories in sibling locations.
+- 2026-05-20: Reviewer feedback tightened the Leaf 41 expansion: the first
+  deliverable is now a committed coverage-map artifact derived from
+  `git ls-files` plus actual ESLint/ratchet scope matching, not a narrative
+  inventory from memory. The map must drive temporary `unknown` classifications
+  to zero before ratchet/floor batches begin. Non-ESLint floors remain in scope,
+  but ShellCheck/actionlint/YAML/TOML/JSON/package-metadata tool setup should
+  split into named child leaves when it is more than a narrow same-cycle change.
+- 2026-05-20: Human clarified the Leaf 41 goal is first to set up
+  ratchets/floors everywhere reasonable, even in areas not intended for
+  immediate cleanup. The handoff now names additional overlooked surfaces:
+  `eslint-rules/**/*.js`, shell scripts and hooks, root/package config files,
+  workflow/agent/devcontainer configs, package/workspace automation metadata,
+  `scripts/sensor-blob-size.ts`, and
+  `scripts/codemods/lib/trpc-shared-schema.ts`. Leaf 41 now treats Leaves 30-40
+  as seed inputs rather than the full boundary and allows floor-only batches
+  before later drain work.
+- 2026-05-20: Ratchet-first handoff follow-up after reviewer discussion
+  clarified that ratchets are migration floors, not indefinite parking. Leaf 41
+  now says to add ratchets in small measured batches, re-measure runtime after
+  each batch, make standalone script project/parser decisions before ratcheting,
+  avoid overlapping same-rule/file `drift-ai` ratchets, and treat bug-class
+  findings such as `vitest/expect-expect` and non-`Error` throws as fix-soon
+  drains. Also cleaned stale PR 3 header/status wording, marked Leaf 06 resolved
+  in the follow-up index, refreshed resolved Leaf 22/23 future-tense prose, and
+  updated the verdict register date.
+- 2026-05-20: Ratchet-first planning review follow-up refreshed the lint
+  handoff docs after human clarification. Decisions recorded: new ratchets stay
+  in local/pre-commit enforcement even if runtime grows; core ESLint rule
+  support can be the first Leaf 41 phase when complexity/max-params are the
+  right guard; zero-finding ratchets need matched-file proof, preferably a
+  temporary-violation probe that is reverted before commit; script/test
+  max-lines debt should use narrow script-family ratchet IDs rather than
+  broadening the default package-oriented ratchet. Stale statuses for Leaves 07,
+  22, and 23 were marked resolved, PR 3b final merge-back was clarified as
+  `b0876f0c` (`9431308f` remains prep-branch ancestry), and Leaves 30-40 now
+  list ratchet/baseline/manifest/doc verification gates.
+- 2026-05-20: Leaf 19 re-probed the slice 4 `scripts/code-intel.ts`
+  deferral after the autonomous loop fired again. Confirmed the
+  deferral stands: 10 lint errors surface
+  (`simple-import-sort/exports` × 1 autofixable, plus 9
+  `@typescript-eslint/consistent-type-imports` on the `typeof
+  import("./code-intel/*.js")` annotations at lines 21–29 — these
+  are not autofixable). Adopting the file would require manually
+  rewriting all 9 module type aliases to top-level
+  `import type * as X from "./y.js"` declarations, a structural
+  source change beyond the autonomous slice's three-narrow-config-
+  additions pattern. No commits landed; the
+  `feature/lint-hardening-leaf-19-code-intel-typeof-import-rewrite`
+  branch was deleted. Note recorded in
+  `backlog/lint-followups/19-scripts-eslint-remaining-families.md`
+  under "Re-probe (2026-05-20)".
+- 2026-05-19: Leaf 19 probed four codemod test files
+  (`scripts/codemods/{concurrency-guard,expand-barrel,structured-logging-fix,trpc-shared-schema-codemod}.test.ts`,
+  191–234 lines each, all already in `tsconfig.scripts.json`) and
+  deferred them. Full lint surfaced 20 errors in repeating shapes:
+  `@typescript-eslint/no-confusing-void-expression` (arrow void
+  returns), `@typescript-eslint/only-throw-error` (throw literal),
+  `vitest/expect-expect` (codemod-shape tests without inline
+  asserts), and one autofixable `simple-import-sort/imports`. The
+  expect-expect and throw-error repairs change test semantics; the
+  void-expression brace fixes need per-site review. Folds into
+  Leaf 11's parked codemod-coverage decision or a future
+  test-quality leaf. No commits landed; the work branch was
+  deleted. Details:
+  `finished_work/lint-hardening-leaf-19-scripts-codemod-test-files-deferral.md`.
+- 2026-05-19: Leaf 19 probed three top-level `scripts/*.ts` files
+  under the 300-line ceiling (`db-status.ts` 102, `harness-emit-envelope.ts`
+  172, `sensor-blob-size.test.ts` 195) and deferred them. All three
+  failed the lint probe immediately with a `parserOptions.project`
+  "file not found" error: none appear in `tsconfig.scripts.json` or
+  any other root tsconfig — they're standalone Bun scripts outside
+  the TypeScript project graph. Adoption requires modifying
+  `tsconfig.scripts.json` first, a project-shape decision the
+  autonomous slice declined. No commits landed; the unused work
+  branch was deleted. Details:
+  `finished_work/lint-hardening-leaf-19-scripts-top-level-non-scripts-tsconfig-deferral.md`.
+- 2026-05-19: Leaf 19 slice 5 extended ESLint coverage to three
+  `scripts/drift-ai/**` files: `errors.ts` (6), `scope.ts` (62), and
+  `scope.test.ts` (44) — the under-ceiling modules that probe clean
+  once the directory is unignored. Config-only adoption: a new
+  `!scripts/drift-ai/` directory unignore (codex review P2 on the
+  initial commit caught that file-level negations silently bypass
+  the full-repo lint walk without it), three file-level exemptions,
+  parser-options block entries, and `local/type-assertion-boundary`
+  block entries. Four more under-ceiling files
+  (`current-inventory.ts`, `current-inventory.test.ts`,
+  `harness-freshness.test.ts`, `comments.ts`) exposed real findings
+  after the directory walk started working
+  (autofixable `simple-import-sort`, `explicit-function-return-type`,
+  and `complexity` 21 + `restrict-template-expressions`); carved
+  out for a future budgeted leaf. Nine larger `drift-ai/` files
+  (332–696 lines) also remain parked pending splits or warn-only
+  overrides. Full `bun run lint`, `bun run typecheck`, and
+  `bun run test:scripts:changed` all pass. Details:
+  `finished_work/lint-hardening-leaf-19-scripts-drift-ai-small-modules-adoption.md`.
+- 2026-05-19: Leaf 19 slice 4 extended ESLint coverage to two
+  additional `tsconfig.scripts.json` inputs: `scripts/code-intel-server.ts`
+  (4 lines, the entrypoint sibling of the already-linted
+  `code-intel/**/*.ts` cohort) and `scripts/logs-audit.test.ts`
+  (273 lines, a script-side test). Both files probed at 0 ESLint
+  findings before adoption, so only the standard three narrow
+  `eslint.config.js` additions landed (ignore exemption, scripts
+  parser-options block, `local/type-assertion-boundary` block).
+  `scripts/code-intel.ts` (136 lines) was probed alongside the pair
+  but carved out — its 9
+  `@typescript-eslint/consistent-type-imports` violations on
+  `typeof import("./code-intel/...")` annotations would need a
+  structural rewrite to top-level `import type` declarations, which
+  the autonomous slice declined to make on its own. Full
+  `bun run lint`, `bun run typecheck`, and `bun run test:scripts:changed`
+  all pass. Details:
+  `finished_work/lint-hardening-leaf-19-scripts-code-intel-server-and-logs-audit-test-adoption.md`.
+- 2026-05-19: Leaf 19 slice 3 extended ESLint coverage to
+  `scripts/lint-ratchet-config.ts`, the central configuration module for
+  the PR 4 lint ratchet. The file had 0 ESLint findings before adoption
+  (166 lines, well under the 300 `local/max-lines` ceiling), so only
+  three narrow `eslint.config.js` additions landed: ignore exemption,
+  scripts parser-options block, and `local/type-assertion-boundary`
+  block. Full `bun run lint`, `bun run typecheck`, and
+  `bun run test:scripts:changed` all pass. Details:
+  `finished_work/lint-hardening-leaf-19-scripts-lint-ratchet-config-adoption.md`.
+- 2026-05-19: Leaf 19 slice 2 probed `scripts/generate-harness-controls.ts`
+  as the next sibling candidate for the linted scripts subset. The probe
+  surfaced two findings — `resolveNonLintControl` cyclomatic complexity 13
+  vs the 10 ceiling, and 384 effective lines vs the 300 `local/max-lines`
+  ceiling. The `local/max-lines` diagnostic itself offers either a
+  structural split or a targeted warn-only override; both are local debt
+  decisions the autonomous slice declined to make on its own. Defer
+  until a leaf with explicit budget picks the repair. The temporary
+  `eslint.config.js` probe was reverted; no production or config changes
+  landed. Details:
+  `finished_work/lint-hardening-leaf-19-scripts-generate-harness-controls-deferral.md`.
+- 2026-05-19: Leaf 19 slice 1 extended ESLint coverage to one additional
+  `tsconfig.scripts.json` input, `scripts/lint-rule-docs.ts` — the shared
+  loader behind the PR 1 `meta.docs` contract, consumed by
+  `scripts/generate-lint-guidance.ts` (already linted),
+  `scripts/generate-harness-controls.ts`, and `scripts/lint-agent.ts`. The
+  file had 0 ESLint findings before adoption, so only three narrow
+  `eslint.config.js` additions landed: ignore exemption, scripts
+  parser-options block, and `local/type-assertion-boundary` block. Full
+  `bun run lint`, `bun run typecheck`, and `bun run test:scripts:changed`
+  all pass. Remaining script families (codemods, drift-ai, logs-audit,
+  top-level utilities) stay parked. Details:
+  `finished_work/lint-hardening-leaf-19-scripts-lint-rule-docs-adoption.md`.
+- 2026-05-19: Leaf 21 inventoried the assertion-quality local rule candidate
+  after the Zod parse helper migration. The refreshed probes found 38
+  `expectParseSuccess` / `expectParseFailure` helper files, 0 raw
+  `.safeParse(...).success` test assertion sites, 0
+  `.safeParseAsync(...).success` rows, and one production-only
+  `packages/shared/src/schemas/map-inputs.ts` Zod `.refine(...)` predicate
+  that would be a false positive. Broader `.success` test assertions are tRPC
+  response-body checks or a `toast.success` spy, and the remaining Zod
+  `.success` guards are post-helper narrowing for data/error detail
+  assertions. Verdict: defer the local rule until a real regression or wider
+  parse-result helper surface appears. Details:
+  `finished_work/lint-hardening-leaf-21-assertion-quality-inventory.md`.
+- 2026-05-19: Leaf 14c adopted the raw global `fetch` restricted primitive
+  slice for client/server source. The inventory over production
+  `packages/shared/src/**`, `packages/server/src/**`,
+  `packages/client/src/**`, and `scripts/**` found 0 shared rows, 0 script
+  rows, 0 server global fetch sites (the three server `rg` rows are a
+  shadowing DI parameter named `fetch`), and two sanctioned client bare
+  globals: the auth-token refresh endpoint in `packages/client/src/lib/trpc.ts`
+  and multipart map-image upload in
+  `packages/client/src/hooks/use-map-image-upload.ts`. `no-restricted-globals`
+  now bans raw global `fetch` in client/server source with those two boundary
+  files on the allowlist. Details:
+  `finished_work/lint-hardening-leaf-14c-raw-fetch-adoption.md`.
+- 2026-05-19: Leaf 14b adopted the raw `process.env` restricted primitive
+  slice over production `packages/shared/src/**`, `packages/server/src/**`,
+  and `scripts/**`, excluding tests, test helpers, and generated server
+  Prisma code. Initial probe found 0 shared rows, one unsanctioned server
+  production read (`packages/server/src/prisma/client.ts`
+  `DATABASE_POOL_MAX`), the sanctioned env helper default source, the
+  db-status admin display reads, and two child-process spawn pass-through
+  scripts. `DATABASE_POOL_MAX` is now an optional positive integer in
+  `loadServerEnv`, Prisma consumes `serverEnv.databasePoolMax`, and
+  `no-restricted-syntax` bans `process.env` member access outside named
+  allowlist sites. Details:
+  `finished_work/lint-hardening-leaf-14b-process-env-adoption.md`.
+- 2026-05-19: Leaf 14a inventoried raw clock primitives
+  (`Date.now()`, `new Date(`) over production `packages/shared/src/**`
+  and `packages/server/src/**`, excluding tests and test helpers. Final
+  probe: 0 shared rows, 20 server rows after the explicit
+  `*-test-helper.ts` exclude; the legacy probe shape reports 22 server
+  rows because `level-up-test-helper.ts` contributes two false-positive
+  test-helper rows. Production buckets: 7 input-date-parsing /
+  3 persisted-now-write / 3 expiry-computation / 3 expiry-comparison /
+  2 rate-limit-window / 2 logging-timestamp / 0 other. Verdict: defer a
+  raw clock primitive ban until a sanctioned `Clock` helper exists, since
+  a naive `new Date(` ban would flag parsed input dates and the genuine
+  clock reads need `Clock.now()` / `Clock.nowMs()` threaded through server
+  context/service factories before a diagnostic can name the repair path.
+  Details:
+  `finished_work/lint-hardening-leaf-14a-clock-primitives-inventory.md`.
+- 2026-05-19: Leaf 15b re-inventoried
+  `react/jsx-no-leaked-render` over `packages/client/src/**/*.tsx`.
+  87 findings across 38 files matched the previous total; a 35-site
+  sample classified as 3 attribute-boolean / 0 string-array-length /
+  9 nullable-object / 9 truthy-string / 0 actual-bug / 14 other.
+  Verdict: defer the rule for this client TSX scope — current findings
+  are React-safe attribute, nullable-object, optional-string, and
+  boolean/comparison guards, and `eslint-plugin-react@7.37.5` still has
+  no `allowExpressions` option. No production rewrite landed. Details:
+  `finished_work/lint-hardening-leaf-15b-jsx-no-leaked-render-inventory.md`.
+- 2026-05-19: Leaf 15 re-inventoried
+  `react-hooks/set-state-in-effect` over `packages/client/src/**/*.{ts,tsx}`.
+  24 findings classified as 11 dialog-reset / 6 props-to-local-state /
+  5 external-system-sync / 0 derived-state / 0 cleanup-reset / 2 other.
+  Verdict: defer the rule for this client source scope — the rule still
+  cannot distinguish intentional dialog draft resets, props-to-local draft
+  sync, external resource/socket bridges, and state-machine resets from its
+  target bug class. No production rewrite landed. Details:
+  `finished_work/lint-hardening-leaf-15-react-set-state-in-effect-inventory.md`.
+- 2026-05-19: Leaf 13b re-inventoried `no-param-reassign` with
+  `{ props: true }` over scripts plus shared/server/client source
+  scopes. 17 findings classified as 9 intentional-helper-state /
+  4 canvas-mutation / 2 accumulator / 1 prisma-update-input /
+  1 mock-state / 0 other. Verdict: defer the option for this scope —
+  every current hit is an intentional mutation boundary, with no
+  surfaced bug or small production rewrite candidate. Details:
+  `finished_work/lint-hardening-leaf-13b-no-param-reassign-props-inventory.md`.
+- 2026-05-19: Leaf 13a re-inventoried `no-await-in-loop` over
+  `packages/server/src/services/**`. 7 findings classified as 3
+  intentional-sequential / 1 promise-all-safe / 3 transaction-boundary.
+  Verdict: defer the rule for this family — Prisma `$transaction`
+  serialization and ordered post-commit fan-out dominate. No production
+  rewrite landed. Details:
+  `finished_work/lint-hardening-leaf-13a-no-await-in-loop-services-inventory.md`.
+- 2026-05-19: Leaf 27 doc-only status flip — the
+  `ratchet/local-type-assertion-boundary` ignore for
+  `scripts/codemods/fixtures/**` had already landed in `49d3149b` during
+  the boundary drain; refreshed the leaf doc to point at that commit.
+- 2026-05-19: Leaf 10a re-triaged `vitest/no-conditional-expect`. 55
+  findings classified as 5 bug / 6 safeParse / 20 unreachable / 16
+  concurrency / 8 other. Verdict: defer the rule, fix the 5 bugs. Bug
+  fixes thread a bounded mid-roll RNG (`midRng = (min, max) =>
+  Math.floor((min + max) / 2)`) into two `combat-actions.test.ts`
+  hit-path tests so natural-1 branches no longer silently skip
+  assertions. Codex review caught an unbounded `() => 10` first pass
+  that violated the dice `[min, max]` contract; bounded fix landed in
+  `dafe67e2`. Details:
+  `finished_work/lint-hardening-leaf-10a-vitest-conditional-expect-inventory.md`.
+- 2026-05-19: Four post-merge harness cleanups on top of the Leaf 06
+  merge — `f0bef95e` merge-base preflight, `2f3068ab` doctor BLOCK→warn
+  severity, `8391976a` lint:agent:changed repo-root chdir, `517879e7`
+  harness-emit-envelope `--output` validation. Each delegated to a
+  separate codex exec per the prompt-size rule; post-fix codex review
+  came back clean.
+- 2026-05-19: Stale leaf doc cleanup — Leaves 24 and 28 already
+  resolved in followup history; flipped their status markers to point
+  at the resolution commits (`d4bc777f` for the TanStack Query slice,
+  `2a56f0bc`/`565f9080` for the homebrew armor builder).
+- 2026-05-19: Leaf 29.2 spell-filter-bar and monster-ability-scores
+  helper sibling unit tests landed; helpers exported alongside test
+  coverage.
+- 2026-05-19: Leaves 01, 02, 26 verified as already landed in followup
+  history; refreshed their status markers to reference the
+  implementation commits.
+- 2026-05-19: Prepared `local/type-assertion-boundary` client batch 5a.
+  Labeled all 40 current one-count client findings and one additional
+  `entry-dialog.tsx` Radix Select boundary to hit the requested 82 -> 41
+  ratchet target. The remaining 41 findings are still isolated to
+  `packages/client/src/components/homebrew/entries/entry-dialog.tsx`.
+  Verification: `lint:fix`, cold-cache `lint:ratchet`, `typecheck`,
+  `test:changed`, and `lint:ratchet:update`. Details:
+  `finished_work/local-type-assertion-boundary-batch-5a.md`.
+- 2026-05-19: Prepared `local/type-assertion-boundary` server batch 4a.
+  Labeled three framework boundaries around Fastify/socket.io runtime
+  typing, labeled two test-only tRPC response envelope unwrap helpers, and
+  replaced the map layer Prisma JSON cast with the sanctioned `fromJson`
+  helper. Cold-cache `lint:ratchet` now reports 91 current findings, 0
+  regressions, and blocking=0. Verification: `lint:fix`, cold-cache
+  `lint:ratchet`, `typecheck`, and `test:changed`. Details:
+  `finished_work/local-type-assertion-boundary-batch-4a.md`.
+- 2026-05-19: Prepared `local/type-assertion-boundary` script batch 3c.
+  Removed the `db-status` catch cast and redundant `logs-audit` JSON cast,
+  labeled the `pgexec` multi-statement driver assertion as `framework`, and
+  labeled the guarded `harness-check` manifest cast as `interop`. Cold-cache
+  `lint:ratchet` now reports 97 current findings, not the promoted target of
+  98, because the `harness-check` chained assertion contained two nested
+  `TSAsExpression` nodes covered by one boundary comment. Verification:
+  `lint:fix`, cold-cache `lint:ratchet`, `typecheck`, `test:changed`, and
+  `git diff --check`. Details:
+  `finished_work/local-type-assertion-boundary-batch-3c.md`.
+- 2026-05-19: Prepared `local/type-assertion-boundary` client batch 3b.
+  Removed all 12 target casts across notes, NPC monster filters, homebrew
+  monster ability scores, spell add/filter UI, and API base URL handling.
+  The Vite env read now uses a client ambient env declaration instead of a
+  chained cast. No boundary labels or new latent-bug leaves were needed.
+  Verification: `lint:fix`, temp-index `lint:changed`, `typecheck`,
+  `test:changed`, and cold-cache `lint:ratchet`; ratchet count is now 102.
+  Details: `finished_work/local-type-assertion-boundary-batch-3b.md`.
+- 2026-05-19: Added four more lint follow-up leaves to
+  `backlog/lint-followups/`: Leaf 22 for explicit third-party/type-aware
+  ratchet support, Leaf 23 for a scoped
+  `@typescript-eslint/strict-boolean-expressions` ratchet candidate, Leaf 24
+  for the deferred TanStack Query `prefer-query-options` strict rule, and
+  Leaf 25 for the mocked-database test-boundary footgun from the original
+  hardening index. Updated the index and cross-linked Leaf 10 to clarify that
+  the `vitest/no-conditional-expect` bug-triage slice already exists there,
+  bringing the lint follow-up index to 25 leaves.
+- 2026-05-19: Organized remaining lint follow-up work into
+  `backlog/lint-followups/` with a `00-index.md` promotion guide and initial 21
+  focused leaves. The new folder covers ratchet infrastructure, PR 3b JSON
+  emitters, type-assertion ratchet debt, next-ratchet candidates, staged
+  changed-gate correctness, test-quality follow-ups, script ESLint coverage,
+  deferred TypeScript/core/React/restricted-primitive rules, structural
+  sensors, generated lint guidance, package manifest policy, assertion-quality
+  lint, and watchlist-only plugin areas. Existing `lint-hardening/` and
+  `lint-ratchet-followups.md` notes remain provenance.
+- 2026-05-17: Lint-hardening review follow-up Tier 2 PR 3a —
+  Machine-Readable Diagnostics, `lint:agent` slice (`93ea96a6`
+  harness-diagnostics Zod schema, `5b6bd434` shared `lint-rule-docs.ts`
+  loader, `372a4872` `scripts/lint-agent.ts`). New `harness-diagnostics`
+  envelope (version `"1"`) lives in
+  `packages/shared/src/schemas/harness-diagnostics.ts` with control-id
+  regex `^[a-z][a-z0-9-]*(?:\/[a-z0-9-]+)+$/u`, severity ∈
+  {block, warn, info}, repairKind ∈ {autofix, suggestion, codemod,
+  manual}, and a `.superRefine` invariant that ties `summary.blocking|
+  warning|info|byControl` to the actual `findings` array. `lint:agent`
+  spawns `node_modules/.bin/eslint --format=json`, re-projects PR-1
+  `meta.docs` onto local-rule findings, synthesizes a
+  `lint/parser-error` block-severity finding for fatal parser
+  diagnostics (so they no longer get silently dropped — codex P2 fix),
+  skips non-local findings with a stderr count, exits 1 on blocking.
+  Wired into `package.json` (`lint:agent`), `harness-check.ts`
+  EXEMPT_SCRIPTS (it re-projects existing per-rule controls, not a new
+  control), and `test:scripts` with a new
+  `test-lint-agent.sh` smoke covering happy-path, all three repair
+  kinds, and the parser-error path. Details:
+  `in_progress/lint-hardening-review-followup-pr-3-machine-readable-diagnostics.md`
+  (status block documents 3a/3b split). PR 3b — `--json` modes on
+  `doctor`, `verify:logs`, `module:index:check`,
+  `migration-safety-scan` — deferred for right-sizing.
+- 2026-05-17: Lint-hardening review follow-up Tier 2 PR 2 — Harness
+  Manifest + Generated Map (`0d82461a`). `harness.controls.json` declares
+  55 controls across 9 kinds (18 lint rules, 5 sensors, 6 verify wrappers,
+  5 doctor checks, 4 drift scopes, 3 doc generators, 1 logs audit, 5
+  codemods, 8 hooks) using PR 1's `meta.docs` vocabulary; lint-rule fields
+  are re-projected from each rule's own metadata so there is one source
+  of truth. `scripts/generate-harness-controls.ts` writes
+  `docs/generated/harness-controls.md`; `scripts/harness-check.ts` asserts
+  manifest / live-tree / package.json parity with a widened
+  `CONTROL_PREFIX_PATTERN` (`sensor|verify|codemod|drift|logs|doctor|module|docs|db|worktree|harness|lint:`)
+  and a named `EXEMPT_SCRIPTS` set. Wired into doctor, CI (harness:check
+  before docs:harness-controls:check), and `test:scripts` with two new
+  fixture-based smokes. Retires Leaf 25 sensor-half. Details in
+  `finished_work/lint-hardening-review-followup-pr-2-harness-manifest.md`.
+- 2026-05-17: Lint-hardening review follow-up Tier 2 PR 1 — Local Lint Rule
+  Contract (`acee0f7f`). All 18 `local/*` rules carry a validated
+  `meta.docs` contract (description, principle, category, pairedGuide,
+  repairKind, repairCommand iff codemod). Generator enforces; vitest
+  contract test enforces both metadata shape and Why/How diagnostic
+  wording on every rule. Retires Leaf 25 (subset adopted; sensor half
+  deferred to PR 2). Details in
+  `finished_work/lint-hardening-review-followup-pr-1-rule-contract.md`.
+- 2026-05-17: Lint-hardening review follow-up Tier 1 bundle —
+  six small fixes from the post-merge review of Leaf 12 Pass C, on branch
+  `feature/lint-hardening-review-followup`. Verified with the six standard
+  gates plus `verify:changed`.
+  - Item 1 (`ad069759`): deleted dead `sorceryPoint.use`/`recover` tRPC
+    procedures + support (service commands, input schemas, tests, mutation-log
+    cases, client mock-trpc entries). Kept `sorceryPointResultSchema`
+    (`flexibleCastingResultSchema` extends it) and the React
+    `useSorceryPoints` hook. Adjacent Knip cleanup deleted the stale Leaf 12
+    scout and un-exported `PathIgnored` in harness-freshness.
+  - Item 2 (`dbeb45ff`, `e0b8ed82`): `type-assertion-boundary` ESLint rule
+    now accepts JSDoc inline + multi-line shapes, `.spec.ts`,
+    same-line-before and one-blank-line-above positions; allowed-category
+    list is built from the `ALLOWED_CATEGORIES` set.
+  - Item 3 (`b74fd7d4`, `944779fc`): `test-generate-lint-guidance.sh` rewritten
+    as a drift smoke (snapshot + mutate + assert --check fails + trap-restore).
+    CI now runs `docs:lint-guidance:check` after Lint.
+  - Item 4 (`e28fcc54` then `39b0f4ca`): commitlint trailer widening tried
+    then reverted. Scout premise was wrong — `@commitlint/parse@21.0.1`
+    already routes `Fixes:`/`Closes:`/`Refs:`/`BREAKING CHANGE:` to
+    `parsed.footer`; widening regressed `Why:`-style body paragraphs.
+  - Item 5 (`057155e7`, `efd23ec2`): `sensor-blob-size` emits `BLOCK:` for
+    block-severity findings; `doctor.sh` counts both `WARN:` and `BLOCK:`.
+  - Item 6 (`ea6f43cd`): six shared schema test files bind
+    `expectParseSuccess(result)`'s return value and drop redundant
+    `if (result.success)` guards.
+- 2026-05-17: Leaf 12 Pass C — landed local/type-assertion-boundary
+  at error for e2e/**/*.ts and the linted scripts subset
+  (code-intel, drift, generate-lint-guidance). 11 legitimate
+  json/interop boundary casts received parseable comments. 321
+  findings in packages/* are deferred — they need code rewrites,
+  not comments.
+- 2026-05-17: Leaf 12 Pass A — landed local/type-assertion-boundary
+  rule + tests, wired as plugin but not yet enabled. Pass B will
+  inventory violations and adopt at error for a narrow first scope.
+- 2026-05-17: Leaf 18 fix pass — `drift:ai harness-freshness` now ignores
+  backtick paths matched by Git ignore rules, including generated
+  `reports/mutation/*` references, and `sensor:blob-size --block` now fails
+  only on block-severity findings.
+- 2026-05-17: Leaf 18 — landed harness inventory freshness sensor
+  (`bun run drift:ai harness-freshness`) and staged blob-size sensor
+  (`bun run sensor:blob-size`). Both WARN-only, surfaced via
+  doctor. ASCII / smart-character sensor explicitly rejected by user.
+- 2026-05-17: Leaf 21 Pass 2b Fix C — landed Sites 2/3/4/11
+  rewrites (level-heading, preamble-header, section-header) and
+  promoted regexp/no-super-linear-backtracking,
+  no-misleading-capturing-group, no-contradiction-with-assertion
+  from `off` to `error`. Pass 2b closed.
+- 2026-05-17: Leaf 21 Pass 2b Fix B — rewrote the spell-parser
+  `FIELD_BOUNDARY_LOOKAHEAD` cluster (Sites 6-9) with one generic inline
+  marker scanner. Added parser characterization tests for near-marker values,
+  singular/plural component boundaries, and Fly-style appended duration prose.
+  Deferred regexp rules remain off; 4 sites remain.
+- 2026-05-17: Leaf 21 Pass 2b Fix A — rewrote 3 warm-up deferred regexp
+  sites with tests first: monster comma pairs, rules glossary headers, and
+  code-intel gitfile parsing. Deferred regexp rules remain off until the
+  remaining 8 sites are clean.
 - 2026-05-17: Leaf 7b — knip dead-export sweep. Triaged 161 findings:
   5 deleted, 41 carved out (intentional surface), 115 dual-use export
   drops. @commitlint/cli + @commitlint/types declaration fixes.
 - 2026-05-17: Leaf 9 Pass A — promise-function-async adopted at error.
   3 override blocks (test files, mock-trpc factories, dynamic-import
   loaders) + 22 code/helper files updated for production/helper fixes.
-  strict-boolean-expressions remains deferred (423 case-by-case, separate pass).
+  strict-boolean-expressions was deferred at that point (423 case-by-case,
+  later partially ratcheted for shared in Leaf 23).
 - 2026-05-17: Leaf 19 Pass 2 — eslint-plugin-import-x adopted at error.
   Tiered file-glob: strict packageDir for src, root fallback for
   tests/test-helpers. prettier added to packages/server devDeps to

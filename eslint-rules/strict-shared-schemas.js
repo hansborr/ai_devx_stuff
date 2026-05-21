@@ -89,6 +89,11 @@ export default {
     docs: {
       description:
         "Exported z.object schemas must call .strict() or .passthrough() to be explicit about unknown keys",
+      principle:
+        "Exported z.object schemas must declare unknown-key behavior explicitly ('.strict()' or '.passthrough()') for clear API contracts.",
+      category: "architecture-fitness",
+      pairedGuide: "docs/guides/add-trpc-procedure.md",
+      repairKind: "autofix",
     },
     messages: {
       needsExplicit:

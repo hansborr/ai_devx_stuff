@@ -1,5 +1,5 @@
 #!/bin/bash
-# verify.sh — manual lint/typecheck/test umbrella for humans and AIs.
+# verify.sh — manual lint/ratchet/typecheck/test umbrella for humans and AIs.
 #
 # Mirrors `.husky/pre-commit` but runs steps sequentially so an AI session
 # can read each step's output one at a time. Reuses pre-commit's lock and
@@ -19,7 +19,7 @@
 #   MUSI_VERIFY_MARKER_FULL
 #                      override paths for tests; do not use in production.
 #
-# Why sequential: the pre-commit hook runs the three primitives in parallel
+# Why sequential: the pre-commit hook runs the primitives in parallel
 # because it is git-invoked and there is no benefit to spreading the output
 # over time. Manual verification is read by an AI or a human as it streams,
 # and a parallel failure summary is harder to act on than "stopped at step 2".
@@ -67,12 +67,16 @@ WARN_AFTER="${MUSI_INTERACTIVE_WARN_AFTER:-210}"
 if [ "$MODE" = changed ]; then
   MARKER="${MUSI_VERIFY_MARKER_CHANGED:-/tmp/musi-verify-changed-last}"
   LINT_CMD=(bun run lint:changed)
+  RATCHET_CMD=(bun run lint:ratchet)
+  COVERAGE_MAP_CMD=(bun run docs:lint-coverage-map:check)
   TEST_CMD=(bun run test:changed --reporter=dot --reporter=json --outputFile.json="$TIMINGS_FILE")
   SCRIPTS_CMD=(bun run test:scripts:changed)
   META_MODE=serial-verify-changed
 else
   MARKER="${MUSI_VERIFY_MARKER_FULL:-/tmp/musi-verify-last}"
   LINT_CMD=(bun run lint)
+  RATCHET_CMD=(bun run lint:ratchet)
+  COVERAGE_MAP_CMD=(bun run docs:lint-coverage-map:check)
   TEST_CMD=(bun run test --reporter=dot --reporter=json --outputFile.json="$TIMINGS_FILE")
   SCRIPTS_CMD=(bun run test:scripts)
   META_MODE=serial-verify
@@ -246,6 +250,8 @@ run_step() {
 # just buries the actionable error under more output.
 overall=0
 run_step lint "${LINT_CMD[@]}" || overall=1
+[ "$overall" -eq 0 ] && { run_step ratchet "${RATCHET_CMD[@]}" || overall=1; }
+[ "$overall" -eq 0 ] && { run_step coverage-map "${COVERAGE_MAP_CMD[@]}" || overall=1; }
 [ "$overall" -eq 0 ] && { run_step typecheck "${TYPECHECK_CMD[@]}" || overall=1; }
 [ "$overall" -eq 0 ] && { run_step test "${TEST_CMD[@]}" || overall=1; }
 [ "$overall" -eq 0 ] && { run_step scripts "${SCRIPTS_CMD[@]}" || overall=1; }

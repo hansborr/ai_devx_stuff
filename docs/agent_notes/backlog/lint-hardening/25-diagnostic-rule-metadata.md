@@ -1,12 +1,17 @@
 # Leaf 25: Diagnostic And Rule Metadata
 
-Status: Parked
-Depends on: at least one new lint-hardening or structural sensor leaf landed
+Status: Adopted (subset) — see
+`finished_work/lint-hardening-review-followup-pr-1-rule-contract.md`
+(commit `acee0f7f`, 2026-05-17). The ESLint-rule half of this leaf is
+landed: every `local/*` rule now carries `description`, `principle`,
+`category`, `pairedGuide`, `repairKind`, and `repairCommand` (iff
+codemod), validated by both the generator and a vitest contract test.
+The remaining "sensors and script findings carry the same metadata"
+half is deferred to PR 2 (`in_progress/lint-hardening-review-followup-
+pr-2-harness-manifest.md`).
 
-Related: Leaf 23. Do not promote this leaf until Leaf 23 has either been kept,
-dropped, or explicitly skipped. If Leaf 23 lands, this leaf should formalise
-the metadata fields that generator actually used instead of designing a second
-parallel model.
+Related: Leaf 23 (the spike that introduced `meta.docs.principle` and
+the generator) was the foundation; PR 1 generalised it.
 
 ## Problem
 

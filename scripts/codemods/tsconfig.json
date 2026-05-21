@@ -1,0 +1,9 @@
+{
+  "extends": "../../tsconfig.scripts.json",
+  "include": [
+    "concurrency-guard.test.ts",
+    "expand-barrel.test.ts",
+    "structured-logging-fix.test.ts",
+    "trpc-shared-schema-codemod.test.ts"
+  ]
+}

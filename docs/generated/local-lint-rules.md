@@ -4,22 +4,226 @@
 > Refresh with `bun run docs:lint-guidance`.
 
 This document is the agent-facing reference for Musi's `local/*` ESLint rules.
-Each entry shows the rule's principle: a one- or two-sentence statement of why the rule exists, so an AI agent reading a diagnostic can repair from message.
+This table is generated from `meta.docs` on each rule and grouped into maintainability, architecture-fitness, and behavior categories so an AI agent can repair from a diagnostic.
 
-## `local/no-barrel`
+## Maintainability
+
+### `local/e2e-prefer-role-selectors`
+
+**Description:** Prefer role, label, or text selectors over raw locators in e2e tests
+
+**Principle:** E2E tests should select by role/label/text instead of CSS to remain resilient to implementation changes.
+
+**Category:** maintainability
+
+**Paired guide:** [docs/guides/add-e2e-test.md](../guides/add-e2e-test.md)
+
+**Repair:** manual
+
+### `local/max-lines`
+
+**Description:** Enforce a maximum file length with Musi repair guidance
+
+**Principle:** Files with excessive lines become harder to maintain and reason about; split into focused modules.
+
+**Category:** maintainability
+
+**Paired guide:** [docs/guides/local-eslint-rules.md](../guides/local-eslint-rules.md)
+
+**Repair:** manual
+
+### `local/no-explicit-any`
+
+**Description:** Disallow explicit any with repair guidance
+
+**Principle:** 'any' removes type checking from the value it touches; prefer 'unknown' with narrowing or a concrete type.
+
+**Category:** maintainability
+
+**Paired guide:** [docs/guides/local-eslint-rules.md](../guides/local-eslint-rules.md)
+
+**Repair:** manual
+
+### `local/no-llm-artifacts`
+
+**Description:** Disallow leftover LLM editing artifacts and untracked TODO comments
+
+**Principle:** LLM editing artifacts and untracked TODO comments should never land in committed code.
+
+**Category:** maintainability
+
+**Paired guide:** [docs/guides/local-eslint-rules.md](../guides/local-eslint-rules.md)
+
+**Repair:** manual
+
+### `local/structured-logging`
+
+**Description:** Pino logger messages must be static; pass dynamic values via the metadata object
+
+**Principle:** Logger calls must use static message strings with variable data in the metadata object so log aggregation can group identical messages. Direct console calls bypass structured fields and request context.
+
+**Category:** maintainability
+
+**Paired guide:** [docs/guides/local-eslint-rules.md](../guides/local-eslint-rules.md)
+
+**Repair:** codemod — `bun run codemod:structured-logging-fix`
+
+### `local/test-file-location`
+
+**Description:** Enforce test file naming and require at least one test block
+
+**Principle:** Test files must follow naming conventions and contain test blocks so they colocate with the code they cover.
+
+**Category:** maintainability
+
+**Paired guide:** none
+
+**Repair:** manual
+
+### `local/type-assertion-boundary`
+
+**Description:** Require justified boundary comments for TypeScript type assertions
+
+**Principle:** TypeScript type assertions hide type bugs by silently overriding the checker; they need explicit justified boundary comments.
+
+**Category:** maintainability
+
+**Paired guide:** [docs/guides/local-eslint-rules.md](../guides/local-eslint-rules.md)
+
+**Repair:** manual
+
+## Architecture fitness
+
+### `local/no-barrel`
 
 **Description:** Disallow index.ts barrel re-exports
 
 **Principle:** Barrel files (index.ts re-exports) defeat tree-shaking and obscure dependency graphs. Imports should point at the specific module that defines the export.
 
-## `local/strict-trpc-input`
+**Category:** architecture-fitness
+
+**Paired guide:** [docs/guides/local-eslint-rules.md](../guides/local-eslint-rules.md)
+
+**Repair:** codemod — `bun run codemod:expand-barrel`
+
+### `local/strict-shared-schemas`
+
+**Description:** Exported z.object schemas must call .strict() or .passthrough() to be explicit about unknown keys
+
+**Principle:** Exported z.object schemas must declare unknown-key behavior explicitly ('.strict()' or '.passthrough()') for clear API contracts.
+
+**Category:** architecture-fitness
+
+**Paired guide:** [docs/guides/add-trpc-procedure.md](../guides/add-trpc-procedure.md)
+
+**Repair:** autofix
+
+### `local/strict-trpc-input`
 
 **Description:** tRPC .input(z.object(...)) schemas must call .strict()
 
 **Principle:** tRPC procedures with z.object input schemas must call .strict() so unknown keys are rejected at the API boundary, preventing silent typo bugs from clients.
 
-## `local/structured-logging`
+**Category:** architecture-fitness
 
-**Description:** Pino logger messages must be static; pass dynamic values via the metadata object
+**Paired guide:** [docs/guides/add-trpc-procedure.md](../guides/add-trpc-procedure.md)
 
-**Principle:** Logger calls must use static message strings with variable data in the metadata object so log aggregation can group identical messages. Direct console calls bypass structured fields and request context.
+**Repair:** manual
+
+### `local/trpc-require-output-schema`
+
+**Description:** Require tRPC router procedures to declare output schemas
+
+**Principle:** Every tRPC router query and mutation must validate its response with a shared output schema.
+
+**Category:** architecture-fitness
+
+**Paired guide:** [docs/guides/add-trpc-procedure.md](../guides/add-trpc-procedure.md)
+
+**Repair:** manual
+
+### `local/trpc-shared-input-schema`
+
+**Description:** Require tRPC router input schemas to be imported from shared schemas
+
+**Principle:** Router input schemas are the client/server contract and must live in shared packages instead of server-only router files.
+
+**Category:** architecture-fitness
+
+**Paired guide:** [docs/guides/add-trpc-procedure.md](../guides/add-trpc-procedure.md)
+
+**Repair:** codemod — `bun run codemod:trpc-shared-input`
+
+### `local/trpc-shared-output-schema`
+
+**Description:** Require tRPC router output schemas to be imported from shared schemas
+
+**Principle:** Router output schemas are the client/server contract and must live in shared packages instead of server-only router files.
+
+**Category:** architecture-fitness
+
+**Paired guide:** [docs/guides/add-trpc-procedure.md](../guides/add-trpc-procedure.md)
+
+**Repair:** codemod — `bun run codemod:trpc-shared-output`
+
+## Behavior
+
+### `local/concurrency-guard`
+
+**Description:** Disallow direct Prisma update/upsert calls on concurrency-gated delegates
+
+**Principle:** Direct writes to Prisma's concurrency-gated delegates must use documented helper boundaries to prevent lost-update races.
+
+**Category:** behavior
+
+**Paired guide:** [docs/guides/add-race-sensitive-mutation.md](../guides/add-race-sensitive-mutation.md)
+
+**Repair:** codemod — `bun run codemod:concurrency-guard`
+
+### `local/no-async-array-callbacks`
+
+**Description:** Disallow async callbacks in array methods unless Promise arrays are consumed
+
+**Principle:** Async callbacks passed to array methods like .map() and .filter() are silently ignored or return Promise objects instead of expected values.
+
+**Category:** behavior
+
+**Paired guide:** none
+
+**Repair:** manual
+
+### `local/no-broadcast-in-transaction`
+
+**Description:** Disallow socket broadcasts inside Prisma transaction callbacks
+
+**Principle:** Socket broadcasts must happen after persistence commits; broadcasting inside a Prisma transaction can notify clients about state that later rolls back.
+
+**Category:** behavior
+
+**Paired guide:** [docs/guides/add-socket-broadcast.md](../guides/add-socket-broadcast.md)
+
+**Repair:** manual
+
+### `local/no-swallowed-errors`
+
+**Description:** Disallow catch blocks that only log to console and continue
+
+**Principle:** Catch blocks that only log to console hide failures from callers, preventing error propagation and handling.
+
+**Category:** behavior
+
+**Paired guide:** [docs/guides/local-eslint-rules.md](../guides/local-eslint-rules.md)
+
+**Repair:** manual
+
+### `local/socket-registry-broadcasts`
+
+**Description:** Require registry-owned socket events to use broadcast helpers instead of direct emit calls
+
+**Principle:** Registry-owned server-to-client socket events must be emitted through broadcast helpers to keep payload validation and logging centralized.
+
+**Category:** behavior
+
+**Paired guide:** [docs/guides/add-socket-broadcast.md](../guides/add-socket-broadcast.md)
+
+**Repair:** manual

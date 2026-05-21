@@ -109,7 +109,7 @@ for file in "${CHANGED_FILES[@]}"; do
       has_vitest_relevant=1
       file_vitest_relevant=1
       ;;
-    scripts/*.test.ts|scripts/**/*.test.ts|scripts/codemods/*|scripts/code-intel*.ts|scripts/drift-ai.ts|scripts/drift-ai/*|scripts/drift/*|scripts/logs-audit.ts|scripts/logs-audit/*)
+    scripts/*.test.ts|scripts/**/*.test.ts|scripts/codemods/*|scripts/code-intel*.ts|scripts/drift-ai.ts|scripts/drift-ai/*|scripts/drift/*|scripts/logs-audit.ts|scripts/logs-audit/*|scripts/sensor-blob-size.ts|scripts/lint-coverage-map-check.ts)
       has_scripts=1
       has_vitest_relevant=1
       file_vitest_relevant=1

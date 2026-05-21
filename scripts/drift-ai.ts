@@ -1,8 +1,8 @@
 #!/usr/bin/env bun
 // Report-only AI drift sensors.
 //
-// `duplicates`, `ghost-files`, `comments`, and `suppressions` are live
-// warning-only checks.
+// `duplicates`, `ghost-files`, `comments`, `suppressions`, and
+// `harness-freshness` are live warning-only checks.
 // The command owns the stable interface: argument parsing, changed-file
 // scope, ignore patterns, and text/JSON output.
 
@@ -45,6 +45,10 @@ import {
   type DirectoryListing,
   runGhostFilesCheck,
 } from "./drift-ai/ghost-files.js";
+import {
+  formatHarnessFreshnessText,
+  runHarnessFreshnessCheck,
+} from "./drift-ai/harness-freshness.js";
 import { buildSourceExtensions, toChangedScopeFile } from "./drift-ai/scope.js";
 import type { DetectorScope, ScopeFile, ScopeMode } from "./drift-ai/scope.js";
 import {
@@ -211,6 +215,7 @@ function usage(): string {
   return [
     "Usage:",
     "  bun run drift:ai",
+    "  bun run drift:ai harness-freshness",
     "  bun run drift:ai --scope <changed|current>",
     "  bun run drift:ai --base <ref>",
     "  bun run drift:ai --check <duplicates|ghost-files|comments|suppressions|all> [--check <...>]",
@@ -865,6 +870,10 @@ type PreparedRun = {
 };
 
 export function runDriftAi(options: RunOptions): RunResult {
+  if (options.argv[0] === "harness-freshness") {
+    return runHarnessFreshnessSubcommand(options);
+  }
+
   let parsed: CliOptions;
   try {
     parsed = parseArgs(options.argv);
@@ -916,6 +925,34 @@ export function runDriftAi(options: RunOptions): RunResult {
   const writer = options.writer ?? defaultReportWriter;
   const stdout = writeReportOutputs(parsed, rendered, report, writer, warnStderr);
   return { exitCode: 0, stdout, report };
+}
+
+function runHarnessFreshnessSubcommand(options: RunOptions): RunResult {
+  const extraArgs = options.argv.slice(1);
+  if (extraArgs.includes("--help") || extraArgs.includes("-h")) {
+    return {
+      exitCode: 0,
+      stdout: [
+        "Usage:",
+        "  bun run drift:ai harness-freshness",
+        "",
+        "Report-only. Checks docs/ai-harness.md against docs/guides and backtick paths.",
+      ].join("\n"),
+    };
+  }
+  if (extraArgs.length > 0) {
+    return {
+      exitCode: 2,
+      stdout: `Unknown argument for harness-freshness: ${extraArgs[0] ?? ""}`,
+    };
+  }
+  const git = options.git ?? defaultGitRunner();
+  const repoRoot = resolveRepoRoot(git);
+  const findings = runHarnessFreshnessCheck({ repoRoot });
+  return {
+    exitCode: 0,
+    stdout: formatHarnessFreshnessText(findings),
+  };
 }
 
 function defaultReportWriter(target: string, contents: string): void {

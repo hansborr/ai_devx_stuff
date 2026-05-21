@@ -41,7 +41,7 @@ test.describe("Homebrew export/import round-trip", () => {
     const download = await downloadPromise;
     const stream = await download.createReadStream();
     const chunks: Buffer[] = [];
-    for await (const chunk of stream) chunks.push(chunk as Buffer);
+    for await (const chunk of stream) chunks.push(chunk as Buffer); // type-assertion-boundary: interop - node:stream async iterator yields Buffer chunks under our usage
     const fileBuffer = Buffer.concat(chunks);
 
     await page.getByRole("button", { name: "Import" }).click();

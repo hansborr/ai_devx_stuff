@@ -437,6 +437,104 @@ set -e
 [ "$rc" -eq 0 ] || fail "scanner must exit 0 on findings (warn-only)"
 ok "scanner exits 0 even when findings are present"
 
+# --- --json emits a harness-diagnostics envelope -------------------------
+# Use the existing fixtures: safe (no findings), drop_column (one WARN),
+# and the repo's acknowledged set (info severity). The envelope must
+# validate against harnessDiagnosticsSchema and reflect the right
+# severities. Always exits 0 (warn-only).
+assert_envelope() {
+  local file=$1
+  local expected_warnings=$2
+  local expected_infos=$3
+  ASSERT_FILE="$file" ASSERT_WARN="$expected_warnings" ASSERT_INFO="$expected_infos" bun -e '
+    const fs = require("fs");
+    const env = JSON.parse(fs.readFileSync(process.env.ASSERT_FILE, "utf8"));
+    const expectedWarn = Number(process.env.ASSERT_WARN);
+    const expectedInfo = Number(process.env.ASSERT_INFO);
+    if (env.version !== "1") throw new Error("bad version");
+    if (env.tool !== "migration-safety-scan") throw new Error(`bad tool ${env.tool}`);
+    if (!Array.isArray(env.findings)) throw new Error("findings not array");
+    if (env.summary.blocking !== 0) throw new Error(`blocking expected 0, got ${env.summary.blocking}`);
+    if (env.summary.warning !== expectedWarn) {
+      throw new Error(`warning expected ${expectedWarn}, got ${env.summary.warning}`);
+    }
+    if (env.summary.info !== expectedInfo) {
+      throw new Error(`info expected ${expectedInfo}, got ${env.summary.info}`);
+    }
+    for (const f of env.findings) {
+      if (f.control !== "sensor/db-migration-safety") {
+        throw new Error(`bad control ${f.control}`);
+      }
+      if (f.repairKind !== "manual") {
+        throw new Error(`bad repairKind ${f.repairKind}`);
+      }
+    }
+  ' || fail "invalid migration-safety-scan envelope: $file"
+}
+
+JSON_OUT="$SANDBOX/json-safe.json"
+bash "$SCRIPT" --json "$SANDBOX/20260101000000_safe" > "$JSON_OUT" \
+  || fail "--json on safe migration must exit 0"
+assert_envelope "$JSON_OUT" 0 0
+ok "--json on safe migration emits empty envelope"
+
+JSON_OUT="$SANDBOX/json-drop.json"
+bash "$SCRIPT" --json "$SANDBOX/20260103000000_drop_column" > "$JSON_OUT" \
+  || fail "--json on drop_column must exit 0"
+assert_envelope "$JSON_OUT" 1 0
+# Sanity: the warn finding must carry path/line/messageId.
+ASSERT_FILE="$JSON_OUT" bun -e '
+  const fs = require("fs");
+  const env = JSON.parse(fs.readFileSync(process.env.ASSERT_FILE, "utf8"));
+  const finding = env.findings[0];
+  if (!finding.path || !finding.path.endsWith("/migration.sql")) {
+    throw new Error("missing path");
+  }
+  if (finding.line !== 1) throw new Error(`bad line ${finding.line}`);
+  if (finding.messageId !== "DROP COLUMN") throw new Error(`bad messageId ${finding.messageId}`);
+  if (finding.severity !== "warn") throw new Error(`bad severity ${finding.severity}`);
+' || fail "drop_column envelope missing expected finding shape"
+ok "--json on drop_column emits warn finding with messageId/path/line"
+
+# Acknowledged migrations come from the repo's real allowlist; severity must
+# be info rather than warn.
+JSON_OUT="$SANDBOX/json-repo.json"
+bash "$SCRIPT" --json > "$JSON_OUT" \
+  || fail "--json on real repo migrations must exit 0"
+ASSERT_FILE="$JSON_OUT" bun -e '
+  const fs = require("fs");
+  const env = JSON.parse(fs.readFileSync(process.env.ASSERT_FILE, "utf8"));
+  if (env.summary.warning !== 0) {
+    throw new Error(`real repo should have 0 warnings, got ${env.summary.warning}`);
+  }
+  if (env.summary.info < 1) {
+    throw new Error("real repo should have at least one acknowledged finding");
+  }
+  for (const f of env.findings) {
+    if (f.severity !== "info") throw new Error(`real repo finding has severity ${f.severity}`);
+  }
+' || fail "real repo --json envelope failed"
+ok "--json on the real repo emits info-severity acknowledged findings"
+
+# Stale allowlist must surface as a warn-severity finding pointing at the
+# allowlist file with the entry's line number.
+JSON_OUT="$SANDBOX/json-stale.json"
+MUSI_MIGRATION_ALLOWLIST="$STALE_ALLOWLIST" bash "$SCRIPT" --json \
+  "$SANDBOX/20260101000000_safe" > "$JSON_OUT" \
+  || fail "--json on stale allowlist must exit 0"
+ASSERT_FILE="$JSON_OUT" bun -e '
+  const fs = require("fs");
+  const env = JSON.parse(fs.readFileSync(process.env.ASSERT_FILE, "utf8"));
+  const stale = env.findings.find((f) => f.messageId === "stale-allowlist");
+  if (!stale) throw new Error("missing stale-allowlist finding");
+  if (stale.severity !== "warn") throw new Error(`stale severity ${stale.severity}`);
+  if (!stale.path.endsWith(".safety-acknowledged-stale")) {
+    throw new Error(`stale path ${stale.path}`);
+  }
+  if (stale.line !== 3) throw new Error(`stale line ${stale.line}`);
+' || fail "stale --json envelope missing expected finding shape"
+ok "--json surfaces stale allowlist entries as warn-severity findings"
+
 # --- empty migrations dir is benign --------------------------------------
 EMPTY="$SANDBOX/empty"
 mkdir -p "$EMPTY"
@@ -444,6 +542,130 @@ output=$(bash "$SCRIPT" "$EMPTY")
 grep -qF 'no migration.sql files found' <<< "$output" \
   || fail "empty dir should report 'no migration.sql files found'"
 ok "scanner handles a directory without migration.sql files"
+
+# --json must always emit an envelope, even when nothing was scanned. Bare
+# "INFO: no migration.sql files found" output would break consumers that
+# parse stdout as JSON.
+JSON_OUT="$SANDBOX/json-empty-dir.json"
+bash "$SCRIPT" --json "$EMPTY" > "$JSON_OUT" \
+  || fail "--json on empty dir must exit 0"
+assert_envelope "$JSON_OUT" 0 0
+ok "--json on empty directory emits empty envelope"
+
+# --json must preserve tabs in allowlist reasons. The earlier TSV bridge
+# silently shifted fields when a reason contained a tab; the regression test
+# fails if the bridge is reintroduced.
+TAB_ALLOWLIST="$SANDBOX/.safety-acknowledged-tab"
+{
+  printf '20260103000000_drop_column  Reviewed: data export\tand verified\n'
+} > "$TAB_ALLOWLIST"
+JSON_OUT="$SANDBOX/json-tab-reason.json"
+MUSI_MIGRATION_ALLOWLIST="$TAB_ALLOWLIST" bash "$SCRIPT" --json \
+  "$SANDBOX/20260103000000_drop_column" > "$JSON_OUT" \
+  || fail "--json with tab in allowlist reason must exit 0"
+assert_envelope "$JSON_OUT" 0 1
+ASSERT_FILE="$JSON_OUT" bun -e '
+  const fs = require("fs");
+  const env = JSON.parse(fs.readFileSync(process.env.ASSERT_FILE, "utf8"));
+  if (env.findings.length !== 1) throw new Error(`expected 1 finding, got ${env.findings.length}`);
+  const f = env.findings[0];
+  if (f.severity !== "info") throw new Error(`expected info, got ${f.severity}`);
+  if (!f.why.includes("data export")) throw new Error(`why missing reason prefix: ${f.why}`);
+  if (!f.why.includes("and verified")) throw new Error(`why missing reason suffix: ${f.why}`);
+  if (!f.howToFix.startsWith("Already acknowledged")) {
+    throw new Error(`howToFix shifted by tab corruption: ${f.howToFix}`);
+  }
+' || fail "tab-in-reason envelope corrupted"
+ok "--json preserves tabs in allowlist reasons without corrupting fields"
+
+# Missing explicit targets are WARN lines in the human-readable collection
+# phase. JSON mode must preserve that signal in the envelope instead of
+# reporting an empty, clean scan.
+JSON_OUT="$SANDBOX/json-missing-target.json"
+JSON_ERR="$SANDBOX/json-missing-target.err"
+bash "$SCRIPT" --json "$SANDBOX/does-not-exist-json" > "$JSON_OUT" 2> "$JSON_ERR" \
+  || fail "--json on a missing explicit target must exit 0"
+assert_envelope "$JSON_OUT" 1 0
+grep -qF 'not a file or directory, skipping' "$JSON_ERR" \
+  || fail "missing explicit target should still emit stderr WARN"
+ASSERT_FILE="$JSON_OUT" bun -e '
+  import { readFileSync } from "node:fs";
+  const env = JSON.parse(readFileSync(process.env.ASSERT_FILE, "utf8"));
+  if (env.summary.warning !== 1) throw new Error(`expected one warning, got ${env.summary.warning}`);
+  const finding = env.findings.find((f) => f.messageId === "missing-target");
+  if (!finding) throw new Error("missing missing-target finding");
+  if (finding.severity !== "warn") throw new Error(`bad severity ${finding.severity}`);
+  if (!finding.why.includes("not a file or directory")) throw new Error(`bad why ${finding.why}`);
+  if (!finding.path.endsWith("does-not-exist-json")) throw new Error(`bad path ${finding.path}`);
+' || fail "missing-target JSON envelope missing expected finding"
+ok "--json surfaces missing explicit targets as warn-severity findings"
+
+# Default collection can also fail before any SQL files are collected when the
+# repo has no packages/server/prisma/migrations directory. JSON consumers still
+# need a parseable envelope with that warning.
+NO_MIG_REPO="$SANDBOX/no-migrations-repo"
+git init -q "$NO_MIG_REPO"
+JSON_OUT="$SANDBOX/json-missing-dir.json"
+JSON_ERR="$SANDBOX/json-missing-dir.err"
+(
+  cd "$NO_MIG_REPO" && bash "$SCRIPT" --json > "$JSON_OUT" 2> "$JSON_ERR"
+) || fail "--json with no default migrations directory must exit 0"
+assert_envelope "$JSON_OUT" 1 0
+grep -qF 'no migrations directory' "$JSON_ERR" \
+  || fail "missing default migrations directory should still emit stderr WARN"
+ASSERT_FILE="$JSON_OUT" bun -e '
+  import { readFileSync } from "node:fs";
+  const env = JSON.parse(readFileSync(process.env.ASSERT_FILE, "utf8"));
+  if (env.summary.warning !== 1) throw new Error(`expected one warning, got ${env.summary.warning}`);
+  const finding = env.findings.find((f) => f.messageId === "missing-migrations-directory");
+  if (!finding) throw new Error("missing missing-migrations-directory finding");
+  if (finding.severity !== "warn") throw new Error(`bad severity ${finding.severity}`);
+  if (!finding.why.includes("no migrations directory")) throw new Error(`bad why ${finding.why}`);
+  if (!finding.path.endsWith("packages/server/prisma/migrations")) {
+    throw new Error(`bad path ${finding.path}`);
+  }
+' || fail "missing-directory JSON envelope missing expected finding"
+ok "--json surfaces missing default migrations directory as warn-severity finding"
+
+# Path containing a tab must be rejected before it can corrupt the TSV.
+# The previous version silently shifted fields, downstream jq failed with
+# `invalid JSON text passed to --argjson`, but a mid-loop failure in a
+# brace-group pipe never propagated. Now the scanner fails loudly at the
+# detection stage.
+TAB=$(printf '\t')
+TABBED_DIR="$SANDBOX/20260104${TAB}_tabbed_dir"
+mkdir -p "$TABBED_DIR"
+printf 'ALTER TABLE "widgets" DROP COLUMN "obsolete";\n' > "$TABBED_DIR/migration.sql"
+set +e
+output=$(bash "$SCRIPT" --json "$TABBED_DIR" 2>&1)
+rc=$?
+set -e
+[ "$rc" -ne 0 ] || fail "tab in path must produce a non-zero exit, got $rc"
+grep -qF 'contains tab or newline' <<< "$output" \
+  || fail "tab in path should produce a 'contains tab or newline' diagnostic"
+ok "scanner rejects paths containing tabs before they can corrupt the TSV"
+rm -rf "$TABBED_DIR"
+
+# `--` end-of-options must let option-shaped path arguments through. The
+# parser only sees `-` as a leading char if the *argument itself* starts
+# with `-`. Using an absolute sandbox path like `/tmp/.../--weird-name`
+# doesn't exercise the new branch because the arg starts with `/`. Use a
+# relative basename so the parser sees a real `--<flag>`-looking token.
+mkdir -p "$SANDBOX/--weird-name"
+printf 'ALTER TABLE "widgets" DROP COLUMN "obsolete";\n' > "$SANDBOX/--weird-name/migration.sql"
+JSON_OUT="$SANDBOX/json-weird-name.json"
+JSON_ERR="$SANDBOX/json-weird-name.err"
+(
+  cd "$SANDBOX" && bash "$SCRIPT" --json -- "--weird-name" > "$JSON_OUT" 2> "$JSON_ERR"
+) || fail "-- end-of-options must accept option-shaped paths"
+assert_envelope "$JSON_OUT" 1 0
+# Without --, the parser would either reject `--weird-name` as an unknown
+# flag (exit 0 with no findings) or downstream tools would emit `dirname:
+# unrecognized option` errors to stderr. Assert clean stderr to lock in both
+# the parser fix and the `dirname --` / `basename --` calls in
+# migration_name_for.
+[ ! -s "$JSON_ERR" ] || fail "-- end-of-options should not produce stderr noise (got: $(cat "$JSON_ERR"))"
+ok "-- end-of-options passes option-shaped paths through cleanly"
 
 # --- non-existent path is reported but not fatal -------------------------
 set +e

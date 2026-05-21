@@ -1,7 +1,7 @@
 # Lint Hardening Evaluation Verdict Register
 
 Status: Central register
-Last updated: 2026-05-17
+Last updated: 2026-05-20
 
 Use this file when a promoted lint-hardening leaf evaluates a rule, plugin,
 or structural sensor and chooses **reject**, **defer after inventory**,
@@ -48,26 +48,79 @@ real inventory produced the outcome.
 
 ## Verdicts
 
+### 2026-05-17 - Leaf 12 `local/type-assertion-boundary` Pass C
+
+Source:
+`docs/agent_notes/backlog/lint-hardening/12-type-assertion-boundary-lint.md`
+and
+`docs/agent_notes/finished_work/lint-hardening-leaf-12-pass-b-scout.md`.
+
+Outcome: scoped adoption with packages deferred.
+
+- `local/type-assertion-boundary` now runs at `error` for `e2e/**/*.ts` and
+  the linted scripts subset
+  (`scripts/code-intel/**/*.ts`, `scripts/drift/**/*.ts`, and
+  `scripts/generate-lint-guidance.ts`).
+- Evidence: the Pass B scout found 11 in-scope findings, all legitimate
+  json/interop boundary casts; Pass C added parseable comments and kept lint
+  clean for the narrow scope.
+- Deferred: the remaining 321 findings in `packages/shared`,
+  `packages/server`, and `packages/client` need code rewrites for the
+  convenience-cast subset alongside any true boundary comments. Revisit in
+  follow-up package or feature slices, not by widening this scoped override.
+
+### 2026-05-17 - Leaf 18 adjacent structural sensors
+
+Source:
+`docs/agent_notes/backlog/lint-hardening/18-structural-sensors.md`.
+
+Outcome: partial adoption with report-only caveats; one candidate rejected.
+
+- Adopted `bun run drift:ai harness-freshness` as a WARN-only harness
+  inventory check and surfaced it from `doctor`. Baseline was cleaned by
+  linking the two existing unreferenced guides in `docs/ai-harness.md`.
+- Adopted `bun run sensor:blob-size` as a WARN-only staged-file sensor and
+  surfaced it from `doctor`. It is not wired into pre-commit in this leaf.
+- Initial `.blob-size-allowlist` covers existing tracked blobs over 500 KiB:
+  `docs/SRD_CC_v5.2.1.pdf` and
+  `packages/server/src/seed/data/5e-srd-monsters.json`.
+- ASCII/smart-character hygiene was explicitly rejected by the user for this
+  leaf. Spell-check and architecture-boundary sensors were not implemented.
+  Revisit blob-size gating only after the report stays low-noise and the
+  allowlist remains reasoned and small.
+
 ### 2026-05-16 - Leaf 23 generated lint guidance spike
 
 Source:
 `docs/agent_notes/backlog/lint-hardening/23-llm-core-generated-lint-guidance-spike.md`.
+Follow-up tracked at
+`docs/agent_notes/backlog/lint-followups/17-generated-lint-guidance-decision.md`
+(closed 2026-05-19).
 
-Outcome: spike landed; KEEP / DROP / FOLD decision pending after a few rule
-changes.
+Outcome: **KEEP and EXPANDED** — confirmed 2026-05-19 in commit `77522709`.
 
-- `principle` field added to local/{structured-logging, no-barrel,
-  strict-trpc-input}.
+- `principle` field expanded from the three-rule spike (structured-logging,
+  no-barrel, strict-trpc-input) to every `local/*` rule via the PR 1
+  `meta.docs` contract enforced in `scripts/lint-rule-docs.ts`. As of
+  2026-05-19, `scripts/generate-lint-guidance.ts` emits 18 entries —
+  one per file in `eslint-rules/*.js`.
 - Generator: `scripts/generate-lint-guidance.ts`; outputs
   `docs/generated/local-lint-rules.md`.
 - Scripts: `bun run docs:lint-guidance` (write),
-  `bun run docs:lint-guidance:check` (CI freshness).
-- Smoke test: `scripts/test-generate-lint-guidance.sh`.
-- Linked from `docs/ai-harness.md`.
-- Decision: keep through one or two rule diffs; if the principle field does
-  not drift and the generated doc stays useful, expand to all local rules and
-  revisit Leaf 25 metadata schema. If the principle field rots, drop and
-  revisit Leaf 25 alone.
+  `bun run docs:lint-guidance:check` (CI freshness, gated after Lint in
+  `.github/workflows/ci.yml:71` per commit `944779fc`).
+  `scripts/harness-check.ts:43` exempts the `:check` variant from
+  manifest parity — only the writer is in `harness.controls.json` under
+  the `doc-generator/lint-guidance` control.
+- Smoke test: `scripts/test-generate-lint-guidance.sh`, wired into
+  `scripts/test-scripts.sh` runner list and changed-manifest table.
+- Linked from `docs/ai-harness.md` as the local-rule reference.
+- The harness controls manifest references the lint-rules doc by path
+  (`scripts/fixtures/generate-harness-controls/expected.md:8`), keeping
+  the two outputs orthogonal (manifest = enumeration; lint-rules =
+  per-rule principle + repair kind). Folding the lint-rules doc into the
+  manifest would lose the per-rule principle/repair surface that an
+  agent uses to recover from a diagnostic, so the decision is keep-as-is.
 
 ### 2026-05-16 - Leaf 19 `import-x/no-extraneous-dependencies`
 
@@ -174,6 +227,22 @@ Outcome: subset adoption; 3 rules deferred to Pass 2b.
 - `regexp/prefer-named-capture-group`: explicitly off (style, not
   correctness).
 
+### 2026-05-17 - Leaf 21 `eslint-plugin-regexp` (Pass 2b)
+
+Source: `docs/agent_notes/backlog/lint-hardening/21-regexp-plugin.md` and
+`docs/agent_notes/finished_work/lint-hardening-leaf-21-pass-2b-scout.md`.
+
+Outcome: deferred semantic rules adopted at error.
+
+- `regexp/no-super-linear-backtracking`: adopted at error after all 24
+  findings across the 10 backtracking sites were rewritten with targeted
+  characterization coverage.
+- `regexp/no-misleading-capturing-group`: adopted at error after the monster
+  comma-pair parser rewrite in Fix A.
+- `regexp/no-contradiction-with-assertion`: adopted at error after the
+  `SECTION_HEADER_RE` minimum rewrite in Fix C.
+- `regexp/prefer-named-capture-group` remains explicitly off as style-only.
+
 ### 2026-05-16 - Leaf 13 `react/jsx-no-leaked-render`
 
 Source: `docs/agent_notes/backlog/lint-hardening/13-eslint-plugin-react.md`
@@ -221,8 +290,11 @@ Outcome: partial adoption with deferred rules.
   adopted at `error`. Evidence: three targeted overrides cover test files,
   client tRPC mock factories, and dynamic-import loaders; the remaining 87
   findings were resolved with 84 `async` additions and 3 reasoned per-line
-  disables. `@typescript-eslint/strict-boolean-expressions` remains deferred
-  with 423 case-by-case findings.
+  disables. `@typescript-eslint/strict-boolean-expressions` remained deferred
+  globally with 423 case-by-case findings.
+- Leaf 23 update (2026-05-19): the shared-package slice landed as
+  `ratchet/strict-boolean-expressions-shared` and was drained to 0 current
+  findings. Global normal-ESLint adoption remains a separate rollout decision.
 
 ### 2026-05-16 - Leaf 10 Core ESLint AI-Footgun Rules
 
@@ -438,6 +510,467 @@ Outcome: landed cleanup; knip export/dependency inventory is clean.
   `@commitlint/types` is now a root devDependency for the JSDoc config type.
 - Final `bun run sensor:knip` exits 0. The sensor remains report-only unless a
   separate leaf promotes it to a hard gate.
+
+### 2026-05-19 - Leaf 10a: `vitest/no-conditional-expect` Re-Triage
+
+Sources:
+`docs/agent_notes/finished_work/lint-hardening-leaf-10a-vitest-conditional-expect-inventory.md`,
+`docs/agent_notes/backlog/lint-followups/10-test-quality-followups.md`.
+Branch: `feature/lint-hardening-leaf-10a-vitest-conditional-expect`.
+
+Outcome: **defer rule, fix surfaced bugs**.
+
+- `vitest/no-conditional-expect`: defer (rule remains off in
+  `eslint.config.js`). 55 findings across `packages/**/*.test.{ts,tsx}`
+  classified as 5 bug / 6 safeParse / 20 unreachable / 16 concurrency /
+  8 other. Five real silent-pass sites in
+  `packages/server/src/services/combat-actions/combat-actions.test.ts`
+  (`hit`/`criticalMiss` conditional branches around lines 210-214 and
+  329-331) were repaired in commit `a44e71a4` by injecting a
+  deterministic mid-roll RNG (`midRng = () => 10`) and dropping the
+  conditional guards. The remaining 50 findings are legitimate Zod
+  `expectParseSuccess` / `expectParseFailure` narrowing, `try {
+  expect.unreachable(); } catch {...}` / `expect.fail()` shapes,
+  concurrency-branch assertions (both branches assert valid final
+  states), and table-driven optional-property checks. The rule cannot
+  distinguish these from real bugs without inline suppressions on >30%
+  of findings, so promoting it now would add disable noise without
+  bug-prevention benefit beyond the 5 already-fixed sites. Revisit only
+  if a future helper convention makes the legitimate shapes
+  rule-friendly (e.g. a typed `assertHit(...)` helper that the rule
+  recognizes), or if a different rule/config catches the silent-pass
+  shapes without the false-positive density.
+
+### 2026-05-19 - Leaf 13a: `no-await-in-loop` Server Services Re-Triage
+
+Sources:
+`docs/agent_notes/finished_work/lint-hardening-leaf-13a-no-await-in-loop-services-inventory.md`,
+`docs/agent_notes/backlog/lint-followups/13-core-footgun-deferred-rules.md`.
+Branch: `feature/lint-hardening-leaf-13a-no-await-in-loop-services`.
+
+Outcome: **defer rule for this family**.
+
+- `no-await-in-loop`: defer for `packages/server/src/services/**`
+  (rule remains off in `eslint.config.js`). 7 findings classified as
+  3 intentional-sequential, 1 promise-all-safe, 3 transaction-boundary,
+  0 rate-limit-boundary, 0 other. Intentional patterns:
+  `character-live-state/side-effects.ts:23` and
+  `encounter-combat/broadcast-helpers.ts:36` preserve observable
+  ordering for the deduplicated post-commit character-update fan-out
+  and the combat-result socket fan-out; `rest-service.ts:411` is the
+  long-rest retry loop that depends on the previous attempt's
+  serialization-failure outcome. Transaction-boundary patterns are all
+  Prisma `$transaction` callbacks where parallel awaits against the
+  same client are unsafe (`character-delete.ts:37` turn-index CAS,
+  `combat-actions/initiative.ts:44` initiative/sort-order writes,
+  `rest-service.ts:229` hit-dice writes in the canonical
+  `Stats -> CharacterClass` lock order). The lone promise-all-safe
+  candidate at `character-delete.ts:50` is a deletion-path read fan-out
+  — not a bug — and not worth rewriting outside a broader perf pass.
+  6/7 sites would need inline disables if the rule were enabled, so
+  adoption would mostly add suppression noise. The other deferred
+  Leaf 13 rule, `no-param-reassign` with `{ props: true }`, is not
+  part of this slice and remains parked.
+
+### 2026-05-19 — Leaf 13b: `no-param-reassign` Props Re-Triage
+
+Sources:
+`docs/agent_notes/finished_work/lint-hardening-leaf-13b-no-param-reassign-props-inventory.md`,
+`docs/agent_notes/backlog/lint-followups/13-core-footgun-deferred-rules.md`.
+Branch: `feature/lint-hardening-leaf-13b-no-param-reassign-props`.
+
+Outcome: **defer option for this scope**.
+
+- Rule: `no-param-reassign` with `{ props: true }` remains off; the
+  default `no-param-reassign` shape with `props: false` stays adopted
+  from Leaf 10.
+- Scope: `scripts/**/*.ts`, `packages/client/src/**/*.{ts,tsx}`,
+  `packages/server/src/**/*.ts`, and `packages/shared/src/**/*.ts`,
+  excluding tests except the intentional
+  `packages/client/src/test/mock-trpc.tsx` helper.
+- Findings: 17 total, classified as 9 intentional-helper-state,
+  4 canvas-mutation, 2 accumulator, 1 prisma-update-input, 1 mock-state,
+  0 other. The exact probe matched the expected branch total.
+- Verdict: defer the `{ props: true }` option for this scope.
+- Reasoning: every current hit is an intentional mutation boundary:
+  CLI parser state passed to option consumers, Canvas 2D context property
+  writes, lazy project-cache/compiler-path accumulator helpers, a
+  documented Prisma dynamic update input boundary, or mock fixture state.
+  The inventory found no genuine bug and no obvious 1-2 line
+  bug-prevention rewrite, so adoption would mostly add inline disables
+  or return-new-state style churn.
+- Follow-up: "Defer `no-param-reassign` with `{ props: true }` — all 17 current findings are intentional canvas/API/helper-state/Prisma/mock mutations, so enabling it would mostly add suppressions or style rewrites with no surfaced bug-prevention value."
+
+### 2026-05-19 — Leaf 15 (set-state-in-effect)
+
+Sources:
+`docs/agent_notes/finished_work/lint-hardening-leaf-15-react-set-state-in-effect-inventory.md`,
+`docs/agent_notes/backlog/lint-followups/15-react-deferred-rules.md`.
+Branch: `feature/lint-hardening-leaf-15-react-set-state-in-effect`.
+
+Outcome: **defer rule for this scope**.
+
+- Rule: `react-hooks/set-state-in-effect` remains off in
+  `eslint.config.js`.
+- Scope: `packages/client/src/**/*.{ts,tsx}`, excluding tests; no test
+  files produced findings.
+- Findings: 24 total, classified as 11 dialog-reset,
+  6 props-to-local-state, 5 external-system-sync, 0 derived-state,
+  0 cleanup-reset, 2 other. The exact probe matched the expected branch
+  total and is +1 from Leaf 14's 23-warning inventory.
+- Verdict: defer the rule for this client source scope.
+- Reasoning: current hits are intentional dialog resets, editable local
+  draft synchronization, browser/socket resource bridges, or
+  non-trivial state-machine resets. The rule still cannot distinguish
+  those accepted patterns from its target bug class without broad
+  disables or a larger UI state-pattern refactor, and the inventory
+  found no genuine bug or obvious 1-2 line bug-prevention cleanup.
+- Follow-up: "Defer `react-hooks/set-state-in-effect` for the client source scope — all 24 current findings are intentional dialog resets, props-to-local draft sync, external resource/socket bridges, or non-trivial state-machine resets, so enabling it now would require broad disables or behavior refactors without surfacing a clear bug."
+
+### 2026-05-19 — Leaf 15b (jsx-no-leaked-render)
+
+Sources:
+`docs/agent_notes/finished_work/lint-hardening-leaf-15b-jsx-no-leaked-render-inventory.md`,
+`docs/agent_notes/backlog/lint-followups/15-react-deferred-rules.md`.
+Branch: `feature/lint-hardening-leaf-15b-jsx-no-leaked-render`.
+
+Outcome: **defer rule for this scope**.
+
+- Rule: `react/jsx-no-leaked-render` remains off in `eslint.config.js`.
+- Scope: `packages/client/src/**/*.tsx`.
+- Findings: 87 total across 38 files, unchanged from the prior inventory.
+  A 35-site sample classified as 3 attribute-boolean,
+  0 string-array-length, 9 nullable-object, 9 truthy-string,
+  0 actual-bug, 14 other.
+- Verdict: defer the rule for this client TSX scope.
+- Reasoning: sampled sites are React-safe JSX attribute booleans,
+  nullable object/query guards, optional string guards, and boolean or
+  comparison child guards. The rule still cannot separate those accepted
+  patterns from bare numeric render leaks. In `eslint-plugin-react@7.37.5`,
+  the schema still only exposes `validStrategies: ["ternary", "coerce"]`
+  and no `allowExpressions` option.
+- Follow-up: "Defer `react/jsx-no-leaked-render` for the client TSX scope — the fresh probe still reports 87 findings, the sampled sites are React-safe attribute, nullable-object, optional-string, and boolean/comparison guards with 0 actual leaked-render bugs, and eslint-plugin-react v7.37.5 still has no `allowExpressions` option to separate those patterns from bare numeric render leaks."
+
+### 2026-05-19 — Leaf 14a (clock primitives)
+
+Sources:
+`docs/agent_notes/finished_work/lint-hardening-leaf-14a-clock-primitives-inventory.md`,
+`docs/agent_notes/backlog/lint-followups/14-restricted-primitives.md`.
+Branch: `feature/lint-hardening-leaf-14a-clock-primitives`.
+
+Outcome: **defer until sanctioned clock helper exists**.
+
+- Candidate: raw clock primitives (`Date.now()`, `new Date(`) in production
+  `packages/shared/src/**` and `packages/server/src/**`, excluding tests and
+  test helpers.
+- Findings: 0 shared rows and 20 server rows after the explicit
+  `*-test-helper.ts` exclude; the legacy probe shape reports 22 server rows
+  because `level-up-test-helper.ts` contributes two test-helper false
+  positives. Production rows classify as 7 input-date-parsing,
+  3 persisted-now-write, 3 expiry-computation, 3 expiry-comparison,
+  2 rate-limit-window, 2 logging-timestamp, and 0 other. The 20 rows contain
+  23 raw primitive expression matches because three expiry computations use
+  `new Date(Date.now() + ...)`.
+- Verdict: defer a raw clock primitive ban for this shared/server scope.
+- Reasoning: the policy requires the diagnostic to name the sanctioned
+  alternative, and no `Clock` boundary exists yet. A naive `new Date(` ban
+  would false-positive on parsed cursor/date-field constructors, while the
+  genuine clock reads need `Clock.now()` / `Clock.nowMs()` threaded through
+  server context, service factories, and rate-limit construction before the
+  rule can offer a repair path.
+- Follow-up: "Defer a raw clock primitive ban until a sanctioned `Clock` helper exists — the current production probe has 20 server rows, including 7 input-date-parsing false positives for a naive `new Date(` ban, and the genuine clock reads need `Clock.now()` / `Clock.nowMs()` threaded through service context before a diagnostic can name a repair path."
+
+### 2026-05-19 — Leaf 14b (process.env)
+
+Sources:
+`docs/agent_notes/finished_work/lint-hardening-leaf-14b-process-env-adoption.md`,
+`docs/agent_notes/backlog/lint-followups/14-restricted-primitives.md`.
+Branch: `feature/lint-hardening-leaf-14b-process-env`.
+
+Outcome: **adopt full with scoped allowlist caveats**.
+
+- Candidate: raw `process.env` member access in production
+  `packages/shared/src/**`, `packages/server/src/**`, and `scripts/**`,
+  excluding tests, test helpers, and `packages/server/src/generated/**`.
+- Findings: 0 shared rows. Server production had one unsanctioned row,
+  `packages/server/src/prisma/client.ts` reading `DATABASE_POOL_MAX`;
+  it moved into `loadServerEnv` as an optional positive integer and is now
+  consumed through `serverEnv.databasePoolMax`. Remaining rows are sanctioned:
+  the env helper default source, the db-status admin display tool, and
+  child-process spawn `env: process.env` pass-through scripts.
+- Verdict: adopt the `no-restricted-syntax` selector
+  `MemberExpression[object.name='process'][property.name='env']` with named
+  allowlist files.
+- Reasoning: the diagnostic can name the repair path (`serverEnv` / add the
+  key in `packages/server/src/config/env.ts`) and the only production config
+  read outside the helper had a small schema-backed rewrite. The shared
+  override intentionally disables the whole restricted-syntax rule for named
+  files, so some entries receive both the `process.exit` and `process.env`
+  bypass even when they only need one. Test/helper/e2e setup files keep the
+  `process.exit(...)` selector while allowing env setup reads outside the
+  production ban.
+- Follow-up: "Adopt the `process.env` ban: `loadServerEnv` is the sanctioned reader, one production site (`prisma/client.ts`) moves into the env schema, and the existing `no-restricted-syntax` allowlist extends to cover the child-process spawn pass-through scripts."
+
+### 2026-05-19 — Leaf 14c (raw fetch)
+
+Sources:
+`docs/agent_notes/finished_work/lint-hardening-leaf-14c-raw-fetch-adoption.md`,
+`docs/agent_notes/backlog/lint-followups/14-restricted-primitives.md`.
+Branch: `feature/lint-hardening-leaf-14c-raw-fetch`.
+
+Outcome: **adopt full with scoped allowlist caveats**.
+
+- Candidate: raw global `fetch(...)` calls in production
+  `packages/shared/src/**`, `packages/server/src/**`,
+  `packages/client/src/**`, and `scripts/**`, excluding tests, test helpers,
+  and `packages/server/src/generated/**`.
+- Findings: 0 shared rows and 0 script rows. Server has three textual
+  `fetch(` rows in `packages/server/src/utils/srd-query-helpers.ts`, but all
+  call a shadowing DI parameter and are not global fetch sites. Client has two
+  sanctioned bare global fetch calls: the auth-token refresh endpoint in
+  `packages/client/src/lib/trpc.ts` and the multipart map-image upload in
+  `packages/client/src/hooks/use-map-image-upload.ts`. The tRPC object method
+  named `fetch` and explicit `globalThis.fetch(...)` calls are not reported by
+  `no-restricted-globals`.
+- Verdict: adopt `no-restricted-globals` for `fetch` across client/server
+  source with a named allowlist for the two sanctioned client boundary files.
+- Reasoning: the diagnostic can name the repair path for app API calls
+  (tRPC via `packages/client/src/lib/trpc.ts`) while allowing the framework
+  refresh/upload boundaries. `no-restricted-globals` matches the intended
+  semantics because it reports only unresolved global identifiers; a
+  `no-restricted-syntax` `CallExpression[callee.name='fetch']` selector would
+  false-positive on the server DI parameter.
+- Follow-up: "Adopt the raw-fetch ban via `no-restricted-globals`: the inventory shows 0 sites in shared/server/scripts and only 2 sanctioned client sites (auth-token refresh and multipart map-image upload), both of which the allowlist override covers explicitly."
+- Caveat (codex review [P2], merge 36250691): `no-restricted-globals` only
+  reports the bare global identifier, so `globalThis.fetch(...)` and
+  `window.fetch(...)` member expressions outside the allowlisted boundary
+  files would slip past. This was the explicit design trade-off so the
+  framework escape hatch in `lib/trpc.ts` doesn't false-positive. Inventory
+  shows 0 such sites in production code; revisit if a member-expression
+  fetch lands outside the allowlist.
+
+### 2026-05-19 — Leaf 21 (assertion-quality lint rule)
+
+Sources:
+`docs/agent_notes/finished_work/lint-hardening-leaf-21-assertion-quality-inventory.md`,
+`docs/agent_notes/backlog/lint-followups/21-assertion-quality-lint-rule.md`.
+Branch: `feature/lint-hardening-leaf-21-assertion-quality`.
+
+Outcome: **defer after inventory**.
+
+- Candidate: a local Musi-specific lint rule to prevent regressions from
+  `expectParseSuccess` / `expectParseFailure` back to raw Zod parse-result
+  boolean assertions.
+- Findings: helper usage has soaked across 38 files. There are 0 raw
+  `.safeParse(...).success` test assertion sites and 0
+  `.safeParseAsync(...).success` rows. The only direct
+  `.safeParse(...).success` row is a production Zod `.refine(...)` predicate
+  in `packages/shared/src/schemas/map-inputs.ts:36`.
+- Verdict: defer the local rule. The current target pattern is absent, while
+  the nearby `.success` rows are tRPC response-body `{ success: boolean }`
+  assertions, a `toast.success` spy assertion, or post-helper Zod result
+  narrowing guards for data/error detail assertions.
+- Reasoning: a rule narrow enough to be correct currently has nothing to
+  flag, and a generic `.success` assertion rule would false-positive on
+  unrelated result shapes and legitimate narrowing. Revisit after a
+  code-review/postmortem catches a regression to the old pattern or after a
+  wider parse-result helper surface such as `safeParseAsync(...)` needs lint
+  protection.
+
+### 2026-05-19 — Leaf 19 slice 1 (`scripts/lint-rule-docs.ts` coverage)
+
+Sources:
+`docs/agent_notes/finished_work/lint-hardening-leaf-19-scripts-lint-rule-docs-adoption.md`,
+`docs/agent_notes/backlog/lint-followups/19-scripts-eslint-remaining-families.md`.
+Branch: `feature/lint-hardening-leaf-19-lint-rule-docs`.
+
+Outcome: **adopt full** for this one file.
+
+- Candidate: extend ESLint coverage to one additional `tsconfig.scripts.json`
+  input — the shared `local/*` `meta.docs` loader at
+  `scripts/lint-rule-docs.ts`.
+- Findings: 0 ESLint findings before adoption. No code changes required.
+- Verdict: enable lint coverage via three narrow `eslint.config.js`
+  additions (ignore exemption, scripts parser-options block,
+  `local/type-assertion-boundary` block).
+- Reasoning: the file is the shared loader behind the PR 1 `meta.docs`
+  contract, consumed by `scripts/generate-lint-guidance.ts` (already
+  linted), `scripts/generate-harness-controls.ts`, and
+  `scripts/lint-agent.ts`. Mirroring the linted sibling closes a one-file
+  gap without expanding into broader script families that remain parked.
+- Follow-up: the next narrow candidate was
+  `scripts/generate-harness-controls.ts`, probed immediately as Leaf 19
+  slice 2 — see the next entry for the deferral. The broader script
+  families (codemods, drift-ai, logs-audit) remain parked in Leaf 11 and
+  the rest of Leaf 19.
+
+### 2026-05-19 — Leaf 19 slice 3 (`scripts/lint-ratchet-config.ts` coverage)
+
+Sources:
+`docs/agent_notes/finished_work/lint-hardening-leaf-19-scripts-lint-ratchet-config-adoption.md`,
+`docs/agent_notes/backlog/lint-followups/19-scripts-eslint-remaining-families.md`.
+Branch: `feature/lint-hardening-leaf-19-lint-ratchet-config`.
+
+Outcome: **adopt full** for this one file.
+
+- Candidate: extend ESLint coverage to `scripts/lint-ratchet-config.ts`,
+  the central configuration module for the PR 4 lint ratchet
+  (`scripts/lint-ratchet.ts`, `scripts/lint-ratchet-baseline.ts`).
+- Findings: 0 ESLint findings before adoption. 166 lines, well under
+  the 300 `local/max-lines` ceiling.
+- Verdict: enable lint coverage via three narrow `eslint.config.js`
+  additions (ignore exemption, scripts parser-options block,
+  `local/type-assertion-boundary` block).
+- Reasoning: the file is the central ratchet configuration module that
+  pairs with already-linted scripts in `scripts/code-intel/**`. Closes
+  another single-file gap with no architectural blockers.
+- Follow-up: the remaining ratchet runtime files (`lint-ratchet.ts` at
+  846 lines, `lint-ratchet-baseline.ts` at 880, `harness-check.ts` at
+  529, `lint-agent.ts` at 332) all likely surface `local/max-lines`
+  and/or complexity findings — same shape as slice 2's deferral. They
+  need explicit budget to either split or take warn-only overrides.
+
+### 2026-05-19 — Leaf 19 slice 2 (`scripts/generate-harness-controls.ts` deferral)
+
+Sources:
+`docs/agent_notes/finished_work/lint-hardening-leaf-19-scripts-generate-harness-controls-deferral.md`,
+`docs/agent_notes/backlog/lint-followups/19-scripts-eslint-remaining-families.md`.
+Branch: `feature/lint-hardening-leaf-19-generate-harness-controls`.
+
+Outcome: **defer after inventory**.
+
+- Candidate: extend ESLint coverage to `scripts/generate-harness-controls.ts`
+  as the next sibling of the already-linted scripts subset.
+- Findings: 2 ESLint errors before adoption — `resolveNonLintControl`
+  cyclomatic complexity 13 vs the 10 ceiling, and 384 effective lines vs
+  the 300 `local/max-lines` ceiling.
+- Verdict: defer. The probe was reverted; no production or config
+  changes landed.
+- Reasoning: both findings would need either structural refactoring
+  (helper extraction, module splitting) or a targeted warn-only
+  `local/max-lines` override entered above the current line count. The
+  `local/max-lines` diagnostic itself offers either repair path; both
+  are local debt decisions the autonomous slice declined to make on its
+  own judgment alone. Revisit when a planned refactor of the generator
+  lands on its own, when the repo changes the relevant ceilings, or when
+  a future leaf has explicit budget to pick the repair and pair it with
+  coverage adoption.
+
+### 2026-05-19 — Leaf 19 slice 4 (`scripts/code-intel-server.ts` + `scripts/logs-audit.test.ts` coverage)
+
+Sources:
+`docs/agent_notes/finished_work/lint-hardening-leaf-19-scripts-code-intel-server-and-logs-audit-test-adoption.md`,
+`docs/agent_notes/backlog/lint-followups/19-scripts-eslint-remaining-families.md`.
+Branch: `feature/lint-hardening-leaf-19-code-intel-entry-and-logs-audit-test`.
+
+Outcome: **adopt subset** (two files adopted, one carved out).
+
+- Candidates probed: `scripts/code-intel.ts` (136 lines),
+  `scripts/code-intel-server.ts` (4 lines),
+  `scripts/logs-audit.test.ts` (273 lines).
+- Findings: `code-intel-server.ts` and `logs-audit.test.ts` both probed
+  at 0 ESLint findings. `code-intel.ts` produced 10 errors — 1
+  autofixable `simple-import-sort/exports` reorder plus 9
+  `@typescript-eslint/consistent-type-imports` violations on
+  `typeof import("./code-intel/...")` annotations.
+- Verdict: adopt `code-intel-server.ts` and `logs-audit.test.ts` via
+  the standard three narrow `eslint.config.js` additions (ignore
+  exemption, scripts parser-options block,
+  `local/type-assertion-boundary` block). Carve `code-intel.ts` out for
+  a future leaf.
+- Reasoning: converting the `typeof import()` annotations to top-level
+  `import type` declarations is a structural rewrite, not a mechanical
+  edit — the file uses these typeof-import shapes deliberately for
+  deferred module-loading metadata. Mirrors the slice 2 deferral
+  pattern. Revisit when a planned refactor of the code-intel facade
+  lands or when a future leaf has explicit budget for the rewrite.
+
+### 2026-05-19 — Leaf 19 slice 5 (drift-ai small-module subset coverage)
+
+Sources:
+`docs/agent_notes/finished_work/lint-hardening-leaf-19-scripts-drift-ai-small-modules-adoption.md`,
+`docs/agent_notes/backlog/lint-followups/19-scripts-eslint-remaining-families.md`.
+Branch: `feature/lint-hardening-leaf-19-drift-ai-small-modules`.
+
+Outcome: **adopt subset** (3 of 16 `drift-ai/` files).
+
+- Candidates: `scripts/drift-ai/**/*.ts` glob.
+- Findings: 0 ESLint findings for 3 files (`errors.ts`, `scope.ts`,
+  `scope.test.ts`). Four other under-ceiling files exposed findings
+  after a codex review correction added the required directory
+  unignore (`!scripts/drift-ai/`): `current-inventory.ts` and
+  `current-inventory.test.ts` autofixable `simple-import-sort/imports`,
+  `harness-freshness.test.ts` `explicit-function-return-type`, and
+  `comments.ts` complexity 21 plus
+  `restrict-template-expressions`/`regexp/no-unused-capturing-group`.
+  Probe of the whole glob would also surface `local/max-lines` on 9
+  more files (332–696 lines): `suppressions.test.ts`,
+  `harness-freshness.ts`, `comments.test.ts`, `suppressions.ts`,
+  `config.ts`, `duplicates.ts`, `ghost-files.ts`,
+  `ghost-files.test.ts`, `duplicates.test.ts`.
+- Verdict: adopt the 3 clean files via the standard `eslint.config.js`
+  additions plus a `!scripts/drift-ai/` directory unignore. Defer
+  the 4 finding-bearing under-ceiling files and the 9 oversized files
+  to a future leaf with explicit budget.
+- Reasoning: per the slice 2 deferral pattern, the autonomous slice
+  doesn't pick autofix applications, type-annotation additions,
+  structural splits, or warn-only overrides on its own. The codex
+  review caught that file-level negations without a directory
+  unignore silently bypass the full-repo lint walk — important
+  gotcha to record for future single-file slices in scripts/.
+  Revisit the whole-glob adoption when the oversized files come
+  under the ceiling and the finding-bearing files are repaired.
+
+### 2026-05-19 — Leaf 19 probe deferral (top-level scripts outside tsconfig)
+
+Sources:
+`docs/agent_notes/finished_work/lint-hardening-leaf-19-scripts-top-level-non-scripts-tsconfig-deferral.md`,
+`docs/agent_notes/backlog/lint-followups/19-scripts-eslint-remaining-families.md`.
+Branch: deleted after the probe (no commits landed).
+
+Outcome: **defer after inventory**.
+
+- Candidates: three under-ceiling top-level `scripts/*.ts` files —
+  `db-status.ts` (102), `harness-emit-envelope.ts` (172),
+  `sensor-blob-size.test.ts` (195).
+- Findings: parse error before lint runs; none are listed in
+  `tsconfig.scripts.json` or any root tsconfig. The
+  `harness-emit-envelope.ts` reference in test:scripts smoke
+  subjects confirms the file is live, just outside the project graph.
+- Verdict: defer. Adopting requires first adding entries to
+  `tsconfig.scripts.json` and dealing with any latent type errors
+  surfaced — a project-shape decision the autonomous slice declined.
+- Reasoning: the slice 2 deferral pattern. Pair the tsconfig
+  change with a future leaf with explicit budget. Alternative is a
+  separate non-type-aware lint flavor for ad-hoc Bun scripts, which
+  is itself a design decision and not in this slice's scope.
+
+### 2026-05-19 — Leaf 19 probe deferral (codemod test files)
+
+Sources:
+`docs/agent_notes/finished_work/lint-hardening-leaf-19-scripts-codemod-test-files-deferral.md`,
+`docs/agent_notes/backlog/lint-followups/19-scripts-eslint-remaining-families.md`.
+Branch: deleted after the probe (no commits landed).
+
+Outcome: **defer after inventory**.
+
+- Candidates: `scripts/codemods/concurrency-guard.test.ts`,
+  `expand-barrel.test.ts`, `structured-logging-fix.test.ts`,
+  `trpc-shared-schema-codemod.test.ts` (191–234 lines each, all
+  under ceiling, all already in `tsconfig.scripts.json`).
+- Findings: 20 ESLint errors total across the four files in
+  repeating shapes: `@typescript-eslint/no-confusing-void-expression`
+  (arrow returns), `@typescript-eslint/only-throw-error` (throw
+  literal), `vitest/expect-expect` (codemod-shape tests without
+  inline asserts), and one autofixable
+  `simple-import-sort/imports` reorder.
+- Verdict: defer. The `only-throw-error` and `expect-expect`
+  repairs change test semantics; the void-expression brace fixes
+  need per-site review; the autofix is still a code change.
+- Reasoning: folds naturally into Leaf 11's parked codemod-coverage
+  decision or a future test-quality leaf. Mirrors the slice 5
+  carve-out pattern: autonomous slice declines to apply autofixes
+  or modify test assertions on its own judgment alone.
 
 ## Pending Evaluations
 

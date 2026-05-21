@@ -29,6 +29,12 @@ export default {
     type: "problem",
     docs: {
       description: "Require tRPC router output schemas to be imported from shared schemas",
+      principle:
+        "Router output schemas are the client/server contract and must live in shared packages instead of server-only router files.",
+      category: "architecture-fitness",
+      pairedGuide: "docs/guides/add-trpc-procedure.md",
+      repairKind: "codemod",
+      repairCommand: "bun run codemod:trpc-shared-output",
     },
     messages: {
       needsSharedOutput:

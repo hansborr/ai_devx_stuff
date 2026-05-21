@@ -64,6 +64,18 @@ jobs:
       - name: Lint
         run: bun run lint
 
+      - name: Lint ratchet
+        run: bun run lint:ratchet
+
+      - name: Check generated lint guidance is up to date
+        run: bun run docs:lint-guidance:check
+
+      - name: Check harness manifest parity with rules and scripts
+        run: bun run harness:check
+
+      - name: Check generated harness controls map is up to date
+        run: bun run docs:harness-controls:check
+
       - name: Script smoke tests
         run: bun run test:scripts
 

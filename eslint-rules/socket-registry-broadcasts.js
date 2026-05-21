@@ -48,6 +48,11 @@ export default {
     docs: {
       description:
         "Require registry-owned socket events to use broadcast helpers instead of direct emit calls",
+      principle:
+        "Registry-owned server-to-client socket events must be emitted through broadcast helpers to keep payload validation and logging centralized.",
+      category: "behavior",
+      pairedGuide: "docs/guides/add-socket-broadcast.md",
+      repairKind: "manual",
     },
     messages: {
       noDirectEmit:

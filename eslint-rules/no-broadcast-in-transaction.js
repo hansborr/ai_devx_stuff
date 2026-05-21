@@ -46,6 +46,11 @@ export default {
     type: "problem",
     docs: {
       description: "Disallow socket broadcasts inside Prisma transaction callbacks",
+      principle:
+        "Socket broadcasts must happen after persistence commits; broadcasting inside a Prisma transaction can notify clients about state that later rolls back.",
+      category: "behavior",
+      pairedGuide: "docs/guides/add-socket-broadcast.md",
+      repairKind: "manual",
     },
     messages: {
       noBroadcastInTransaction:

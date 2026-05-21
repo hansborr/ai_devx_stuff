@@ -175,6 +175,10 @@ export default {
         "Pino logger messages must be static; pass dynamic values via the metadata object",
       principle:
         "Logger calls must use static message strings with variable data in the metadata object so log aggregation can group identical messages. Direct console calls bypass structured fields and request context.",
+      category: "maintainability",
+      pairedGuide: "docs/guides/local-eslint-rules.md",
+      repairKind: "codemod",
+      repairCommand: "bun run codemod:structured-logging-fix",
     },
     messages: {
       noTemplate:

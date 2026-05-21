@@ -1,60 +1,33 @@
-// Walks the project ESLint config, collects principle strings from rules under
-// the local/* namespace, and emits an agent-facing markdown doc.
+// Walks the project ESLint config, validates rule guidance metadata under the
+// local/* namespace, and emits an agent-facing markdown doc.
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { dirname, join, relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+import {
+  formatRuleDocsFailures,
+  loadLintRuleDocs,
+  RULE_DOC_CATEGORIES,
+  type RuleDocCategory,
+  type RuleDocsEntry,
+} from "./lint-rule-docs.js";
 
 const PROCESS_ARG_OFFSET = 2;
 
-const here = dirname(fileURLToPath(import.meta.url));
-const repoRoot = resolve(here, "..");
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const outputPath = join(repoRoot, "docs/generated/local-lint-rules.md");
 
-interface RuleEntry {
-  readonly id: string;
-  readonly description?: string;
-  readonly principle: string;
-}
+type RuleEntry = RuleDocsEntry;
 
-interface RuleDocs {
-  readonly description?: string;
-  readonly principle?: string;
-}
+const CATEGORY_HEADINGS: Record<RuleDocCategory, string> = {
+  maintainability: "Maintainability",
+  "architecture-fitness": "Architecture fitness",
+  behavior: "Behavior",
+};
 
-interface LocalRule {
-  readonly meta?: {
-    readonly docs?: RuleDocs;
-  };
-}
-
-interface LocalPlugin {
-  readonly rules: Record<string, LocalRule>;
-}
-
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-function hasLocalRules(value: unknown): value is LocalPlugin {
-  if (!isObject(value)) return false;
-  return isObject(value.rules);
-}
-
-function blockLocalPlugin(block: unknown): LocalPlugin | undefined {
-  if (!isObject(block)) return undefined;
-  const plugins = block.plugins;
-  if (!isObject(plugins)) return undefined;
-  const local = plugins.local;
-  return hasLocalRules(local) ? local : undefined;
-}
-
-function findLocalPlugin(config: readonly unknown[]): LocalPlugin | undefined {
-  for (const block of config) {
-    const localPlugin = blockLocalPlugin(block);
-    if (localPlugin !== undefined) return localPlugin;
-  }
-  return undefined;
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
 }
 
 function readCurrentOutput(): string {
@@ -65,32 +38,33 @@ function readCurrentOutput(): string {
   }
 }
 
-async function collectRules(): Promise<RuleEntry[]> {
-  const configPath = pathToFileURL(join(repoRoot, "eslint.config.js")).href;
-  const configModule: unknown = await import(configPath);
-  if (!isObject(configModule) || !Array.isArray(configModule.default)) {
-    throw new Error("eslint.config.js did not export a config array");
+async function collectRules(): Promise<RuleEntry[] | undefined> {
+  const { entries, failures } = await loadLintRuleDocs(repoRoot);
+  if (failures.length > 0) {
+    console.error(formatRuleDocsFailures(failures));
+    process.exitCode = 1;
+    return undefined;
   }
+  const sorted = [...entries];
+  sorted.sort((a, b) => {
+    const categoryOrder =
+      RULE_DOC_CATEGORIES.indexOf(a.category) - RULE_DOC_CATEGORIES.indexOf(b.category);
+    return categoryOrder === 0 ? a.id.localeCompare(b.id) : categoryOrder;
+  });
+  return sorted;
+}
 
-  const localPlugin = findLocalPlugin(configModule.default);
-  if (localPlugin === undefined) {
-    throw new Error("Could not find local plugin in eslint.config.js");
-  }
+function formatPairedGuide(pairedGuide: string): string {
+  if (pairedGuide === "none") return "none";
+  const href = relative("docs/generated", pairedGuide).replaceAll("\\", "/");
+  return `[${pairedGuide}](${href})`;
+}
 
-  const entries: RuleEntry[] = [];
-  for (const [id, rule] of Object.entries(localPlugin.rules)) {
-    const docs = rule.meta?.docs;
-    const principle = docs?.principle;
-    if (typeof principle !== "string") continue;
-    const description = docs?.description;
-    entries.push({
-      id: `local/${id}`,
-      description,
-      principle,
-    });
-  }
-  entries.sort((a, b) => a.id.localeCompare(b.id));
-  return entries;
+function formatRepair(entry: RuleEntry): string {
+  if (entry.repairKind !== "codemod") return entry.repairKind;
+  const command = entry.repairCommand;
+  if (!isNonEmptyString(command)) throw new Error(`Missing repair command for ${entry.id}`);
+  return `${entry.repairKind} — \`${command}\``;
 }
 
 function renderMarkdown(entries: readonly RuleEntry[]): string {
@@ -102,17 +76,27 @@ function renderMarkdown(entries: readonly RuleEntry[]): string {
   lines.push("");
   lines.push("This document is the agent-facing reference for Musi's `local/*` ESLint rules.");
   lines.push(
-    "Each entry shows the rule's principle: a one- or two-sentence statement of why the rule exists, so an AI agent reading a diagnostic can repair from message.",
+    "This table is generated from `meta.docs` on each rule and grouped into maintainability, architecture-fitness, and behavior categories so an AI agent can repair from a diagnostic.",
   );
   lines.push("");
+  let currentCategory: RuleDocCategory | undefined;
   for (const entry of entries) {
-    lines.push(`## \`${entry.id}\``);
-    lines.push("");
-    if (entry.description !== undefined) {
-      lines.push(`**Description:** ${entry.description}`);
+    if (entry.category !== currentCategory) {
+      lines.push(`## ${CATEGORY_HEADINGS[entry.category]}`);
       lines.push("");
+      currentCategory = entry.category;
     }
+    lines.push(`### \`${entry.id}\``);
+    lines.push("");
+    lines.push(`**Description:** ${entry.description}`);
+    lines.push("");
     lines.push(`**Principle:** ${entry.principle}`);
+    lines.push("");
+    lines.push(`**Category:** ${entry.category}`);
+    lines.push("");
+    lines.push(`**Paired guide:** ${formatPairedGuide(entry.pairedGuide)}`);
+    lines.push("");
+    lines.push(`**Repair:** ${formatRepair(entry)}`);
     lines.push("");
   }
   while (lines[lines.length - 1] === "") {
@@ -132,6 +116,7 @@ function parseArgs(args: readonly string[]): { readonly checkMode: boolean } {
 async function main(): Promise<void> {
   const { checkMode } = parseArgs(process.argv.slice(PROCESS_ARG_OFFSET));
   const entries = await collectRules();
+  if (entries === undefined) return;
   const rendered = renderMarkdown(entries);
 
   if (checkMode) {
@@ -149,7 +134,7 @@ async function main(): Promise<void> {
 
   mkdirSync(dirname(outputPath), { recursive: true });
   writeFileSync(outputPath, rendered);
-  console.log(`Wrote ${outputPath} (${String(entries.length)} rule(s) with principles).`);
+  console.log(`Wrote ${outputPath} (${String(entries.length)} rule(s) with metadata).`);
 }
 
 await main();

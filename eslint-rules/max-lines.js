@@ -103,6 +103,11 @@ export default {
     type: "suggestion",
     docs: {
       description: "Enforce a maximum file length with Musi repair guidance",
+      principle:
+        "Files with excessive lines become harder to maintain and reason about; split into focused modules.",
+      category: "maintainability",
+      pairedGuide: "docs/guides/local-eslint-rules.md",
+      repairKind: "manual",
     },
     messages: {
       exceed:

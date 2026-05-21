@@ -1,6 +1,6 @@
 # Leaf 21: eslint-plugin-regexp
 
-Status: Pass 2a landed (2026-05-16); 3 rules deferred to Pass 2b.
+Status: Pass 2b landed (2026-05-17); all 11 sites cleared and 3 deferred rules at error.
 Depends on: Leaf 8 for full scripts coverage, unless scoped only to the TS
 files ESLint already covers.
 
@@ -92,14 +92,19 @@ Pass 2a cleaned the mechanical subset to zero: 5
 `scripts/code-intel/cli-values.ts`. `regexp/prefer-named-capture-group`
 remains explicitly off as style-only.
 
+Pass 2b cleared all deferred semantic-review sites in three fix batches:
+Sites 1/5/10 in Fix A, Sites 6-9 in Fix B, and Sites 2/3/4/11 in Fix C.
+Fix C extracted shared seed helpers for level headings and spell splitting,
+preserved the SRD corpus counts (232 level feature headings, 12 subclass
+headings, 339 spell blocks, 155 glossary entries), and promoted
+`regexp/no-super-linear-backtracking`,
+`regexp/no-misleading-capturing-group`, and
+`regexp/no-contradiction-with-assertion` from `off` to `error`.
+
 ## Followups
 
-Pass 2b should handle the deferred backtracking cluster as a focused semantic
-rewrite leaf. Cover the seed parsers, spell block extractors, glossary entry
-parser, monster comma-pair parser, and graph-cache gitfile parser with targeted
-tests before enabling `regexp/no-super-linear-backtracking`,
-`regexp/no-misleading-capturing-group`, and
-`regexp/no-contradiction-with-assertion`.
+No Pass 2b followups remain. `regexp/prefer-named-capture-group` stays
+explicitly off as a style-only rule.
 
 ## References
 

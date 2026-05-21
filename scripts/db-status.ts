@@ -1,5 +1,5 @@
 /* Quick DB diagnostics. Run via: bun run db:status */
-import { prisma } from "../packages/server/src/prisma/client.ts";
+import { prisma } from "../packages/server/src/prisma/client.js";
 
 function maskUrl(raw: string | undefined): string {
   if (!raw) return "<unset>";
@@ -82,7 +82,8 @@ async function main(): Promise<void> {
     await prisma.$queryRaw`SELECT 1`;
     console.log("OK  : connected to database");
   } catch (err) {
-    console.error("FAIL: cannot connect —", (err as Error).message);
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("FAIL: cannot connect —", message);
     process.exit(1);
   }
 

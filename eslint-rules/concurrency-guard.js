@@ -101,6 +101,12 @@ export default {
     type: "problem",
     docs: {
       description: "Disallow direct Prisma update/upsert calls on concurrency-gated delegates",
+      principle:
+        "Direct writes to Prisma's concurrency-gated delegates must use documented helper boundaries to prevent lost-update races.",
+      category: "behavior",
+      pairedGuide: "docs/guides/add-race-sensitive-mutation.md",
+      repairKind: "codemod",
+      repairCommand: "bun run codemod:concurrency-guard",
     },
     messages: {
       noDirectWrite:

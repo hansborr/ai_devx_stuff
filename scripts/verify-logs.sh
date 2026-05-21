@@ -47,11 +47,12 @@ RUN_META_FILE="$PRECOMMIT_LOG_DIR/run-meta.json"
 
 usage() {
   cat <<EOF
-Usage: bun run verify:logs [task] [--full]
+Usage: bun run verify:logs [task] [--full] [--json]
 
   bun run verify:logs               summary for lint, typecheck, test, e2e
   bun run verify:logs <task>        focused view with a 30-line tail
   bun run verify:logs <task> --full print the full log to stdout
+  bun run verify:logs --json        harness-diagnostics envelope for summary
   bun run verify:logs budget        wrapper, step, and slow-test timings
   bun run verify:logs slow-tests    top 10 slow Vitest files and cases
 
@@ -569,8 +570,98 @@ is_known_task() {
   return 1
 }
 
+# Emit a harness-diagnostics envelope summarising the same state the human
+# `print_summary` view renders: one warn finding per task whose last marker
+# says FAIL, plus warn findings for corrupt wrapper markers, plus info
+# findings for tasks whose state cannot be confirmed (log exists but no
+# per-task marker and no fresh wrapper marker). OK / OK* / no-log states
+# emit nothing so consumers see only the actionable list.
+emit_summary_json() {
+  if ! command -v jq >/dev/null 2>&1; then
+    printf 'verify:logs: jq is required for --json mode but is not installed\n' >&2
+    return 1
+  fi
+
+  # Build findings into a temp NDJSON file rather than a `{ ... } | emitter`
+  # pipe. A brace group on the left of a pipe runs in a subshell, so a
+  # mid-loop `exit` would not terminate the script and pipefail only exposes
+  # the last command's status — silent finding-drop. Writing to a temp file
+  # keeps each jq invocation in the parent shell where its exit code matters.
+  local findings_ndjson
+  findings_ndjson="$(mktemp)"
+  trap 'rm -f "$findings_ndjson"' RETURN
+
+  local wrapper_ts; wrapper_ts=$(latest_wrapper_ts)
+  local task log mtime marker now
+  now=$(date +%s)
+  for task in "${TASKS[@]}"; do
+    if ! log=$(newest_log "$task"); then
+      continue
+    fi
+    mtime=$(stat -c %Y "$log" 2>/dev/null || echo 0)
+    marker=$(marker_for_log "$log")
+    if [ -n "$marker" ] && read_marker_state "$marker"; then
+      if [ "$MARK_EXIT" -ne 0 ]; then
+        jq -nc \
+          --arg path "$log" \
+          --arg messageId "$task-failure" \
+          --arg why "verify task '$task' last exited with code $MARK_EXIT (recorded $(human_age "$MARK_AGE") ago)." \
+          --arg howToFix "Re-run \`bun run verify:changed\` (or \`bun run e2e\` for e2e); inspect $log via \`bun run verify:logs $task\`." \
+          '{control:"verify-wrapper/verify-logs",severity:"warn",path:$path,messageId:$messageId,why:$why,howToFix:$howToFix,repairKind:"manual"}' \
+          >> "$findings_ndjson" || {
+            printf 'verify:logs: jq failed to construct failure finding for %s\n' "$task" >&2
+            return 1
+          }
+      fi
+    elif [ -z "$marker" ] && [ -n "$wrapper_ts" ] && [ "$wrapper_ts" -ge "$mtime" ]; then
+      # OK*: pre-commit/verify wrapper marker promotes this row to clean.
+      continue
+    else
+      local age=$(( now - mtime ))
+      [ "$age" -lt 0 ] && age=0
+      jq -nc \
+        --arg path "$log" \
+        --arg messageId "$task-state-unknown" \
+        --arg why "verify task '$task' has a log ($(human_age "$age") old) but no per-task marker and no fresh wrapper marker; state cannot be confirmed." \
+        --arg howToFix "Re-run \`bun run verify:changed\` to refresh state; or inspect $log via \`bun run verify:logs $task\`." \
+        '{control:"verify-wrapper/verify-logs",severity:"info",path:$path,messageId:$messageId,why:$why,howToFix:$howToFix,repairKind:"manual"}' \
+        >> "$findings_ndjson" || {
+          printf 'verify:logs: jq failed to construct state-unknown finding for %s\n' "$task" >&2
+          return 1
+        }
+    fi
+  done
+
+  # Corrupt wrapper markers indicate a writer bug or manual tampering;
+  # surface each so they get fixed rather than silently ignored.
+  local label name path
+  for label in "verify-full:$VERIFY_MARKER_FULL" "verify-changed:$VERIFY_MARKER_CHANGED" "pre-commit:$PRECOMMIT_MARKER"; do
+    name=${label%%:*}
+    path=${label#*:}
+    if [ -f "$path" ] && ! read_wrapper_marker_ts "$path" >/dev/null; then
+      jq -nc \
+        --arg path "$path" \
+        --arg messageId "wrapper-marker-corrupt-$name" \
+        --arg why "wrapper marker $path is corrupt or unreadable; the $name run cannot be promoted to OK*." \
+        --arg howToFix "Delete the marker (\`rm $path\`) and re-run the corresponding wrapper to regenerate it." \
+        '{control:"verify-wrapper/verify-logs",severity:"warn",path:$path,messageId:$messageId,why:$why,howToFix:$howToFix,repairKind:"manual"}' \
+        >> "$findings_ndjson" || {
+          printf 'verify:logs: jq failed to construct corrupt-marker finding for %s\n' "$name" >&2
+          return 1
+        }
+    fi
+  done
+
+  # Feed the validated NDJSON into the envelope emitter. SCRIPT_DIR is needed
+  # because tests cd into a sandbox before invoking the wrapper; a relative
+  # `scripts/harness-emit-envelope.ts` would only resolve at the repo root.
+  bun run "$SCRIPT_DIR/harness-emit-envelope.ts" --tool verify:logs < "$findings_ndjson"
+  return "$?"
+}
+
 TASK=""
 FULL=0
+JSON=0
 for arg in "$@"; do
   case "$arg" in
     -h|--help)
@@ -579,6 +670,9 @@ for arg in "$@"; do
       ;;
     --full)
       FULL=1
+      ;;
+    --json)
+      JSON=1
       ;;
     *)
       if is_known_task "$arg"; then
@@ -604,6 +698,25 @@ fi
 if [ "$FULL" -eq 1 ] && { [ "$TASK" = "$SLOW_TESTS_TASK" ] || [ "$TASK" = "$BUDGET_TASK" ]; }; then
   printf 'verify:logs: --full is not supported for %s; use `bun run verify:logs %s`.\n' "$TASK" "$TASK" >&2
   exit 2
+fi
+
+if [ "$JSON" -eq 1 ] && [ "$FULL" -eq 1 ]; then
+  printf 'verify:logs: --json cannot be combined with --full\n' >&2
+  exit 2
+fi
+
+if [ "$JSON" -eq 1 ] && [ -n "$TASK" ]; then
+  # --json wraps the summary view only: focused/budget/slow-tests are
+  # interactive surfaces with their own data shapes and no obvious harness
+  # consumer. Adding per-task JSON later is straightforward but out of
+  # scope for the summary contract.
+  printf 'verify:logs: --json is only supported for the summary view (omit the task argument)\n' >&2
+  exit 2
+fi
+
+if [ "$JSON" -eq 1 ]; then
+  emit_summary_json
+  exit "$?"
 fi
 
 if [ -z "$TASK" ]; then
