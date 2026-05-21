@@ -52,7 +52,7 @@ if [[ "$REPO_ROOT" != "$PRIMARY_ROOT" ]]; then
 fi
 
 # --- Migrations (also validates connectivity) ---
-cd "$REPO_ROOT/packages/server"
+cd "$REPO_ROOT/packages/server" || exit 1
 STATUS=$(bun x prisma migrate status 2>&1 || true)
 if echo "$STATUS" | grep -q "Database schema is up to date"; then
   echo "OK  : migrations up to date"
@@ -69,7 +69,7 @@ else
 fi
 
 # --- Env diagnostics + connectivity + SRD seed ---
-cd "$REPO_ROOT"
+cd "$REPO_ROOT" || exit 1
 bun run scripts/db-status.ts
 
 # --- Prisma client freshness ---

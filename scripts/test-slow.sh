@@ -24,7 +24,7 @@ set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null || {
-  cd "$SCRIPT_DIR/.."
+  cd "$SCRIPT_DIR/.." || exit 1
   pwd
 })"
 

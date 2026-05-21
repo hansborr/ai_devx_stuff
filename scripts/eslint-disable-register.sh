@@ -79,13 +79,10 @@ is_broad_rule_allowed() {
   for entry in "${BROAD_ALLOWLIST[@]}"; do
     pattern="${entry%%|*}"
     allowed_rule="${entry#*|}"
-    case "$path" in
-      $pattern)
-        if [[ "$rule" == "$allowed_rule" ]]; then
-          return 0
-        fi
-        ;;
-    esac
+    # shellcheck disable=SC2053  # allowlist entries intentionally use glob patterns.
+    if [[ "$path" == $pattern && "$rule" == "$allowed_rule" ]]; then
+      return 0
+    fi
   done
   return 1
 }

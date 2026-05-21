@@ -40,7 +40,7 @@ case "${1:-}" in
 esac
 
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-cd "$REPO_ROOT"
+cd "$REPO_ROOT" || exit 1
 
 # Smoke test name → subject paths it covers. A change to any subject (or
 # the smoke test file itself) triggers that smoke test in --changed mode.
@@ -59,6 +59,8 @@ SMOKE_NAMES=(
   test-codemod-trpc-shared-output
   test-code-intel
   test-lint-changed
+  test-lint-shell
+  test-lint-config-sensors
   test-test-changed
   test-test-slow
   test-generate-module-index
@@ -86,7 +88,9 @@ declare -A SMOKE_SUBJECTS=(
   [test-codemod-trpc-shared-input]="scripts/codemods/trpc-shared-input.ts scripts/codemods/lib/trpc-shared-schema.ts scripts/test-codemod-trpc-shared-input.sh package.json tsconfig.scripts.json"
   [test-codemod-trpc-shared-output]="scripts/codemods/trpc-shared-output.ts scripts/codemods/lib/trpc-shared-schema.ts scripts/test-codemod-trpc-shared-output.sh package.json tsconfig.scripts.json"
   [test-code-intel]="scripts/code-intel.ts scripts/code-intel/ scripts/code-intel.test.ts scripts/test-code-intel.sh scripts/vitest.config.ts package.json tsconfig.scripts.json packages/shared/package.json packages/server/package.json packages/client/tsconfig.json"
-  [test-lint-changed]="scripts/lint-changed.sh scripts/verify-metadata.sh scripts/test-lint-changed.sh"
+  [test-lint-changed]="scripts/lint-changed.sh scripts/lint-shell.sh scripts/verify-metadata.sh scripts/test-lint-changed.sh"
+  [test-lint-shell]="scripts/lint-shell.sh scripts/test-lint-shell.sh package.json bun.lock"
+  [test-lint-config-sensors]="scripts/lint-config-sensors.sh scripts/test-lint-config-sensors.sh scripts/lint-changed.sh scripts/verify-metadata.sh .yamllint.yml package.json bun.lock .github/workflows/ docker-compose.yml .devcontainer/docker-compose.yml .devcontainer/Dockerfile .codex/config.toml .codex/skills/ bunfig.toml"
   [test-test-changed]="scripts/test-changed.sh scripts/vitest.sh scripts/ai-hooks/output-filter.sh scripts/test-test-changed.sh"
   [test-test-slow]="scripts/test-slow.sh scripts/test-changed.sh scripts/vitest.sh scripts/ai-hooks/output-filter.sh vitest.slow.config.ts packages/shared/vitest.config.ts packages/server/vitest.config.ts packages/client/vitest.config.ts packages/shared/src/test-tier-sentinel.test.ts packages/shared/src/test-tier-sentinel.slow.test.ts scripts/test-test-slow.sh"
   [test-generate-module-index]="scripts/generate-module-index.sh scripts/test-generate-module-index.sh scripts/harness-emit-envelope.ts packages/shared/src/schemas/harness-diagnostics.ts"

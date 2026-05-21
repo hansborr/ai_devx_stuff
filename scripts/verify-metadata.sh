@@ -37,10 +37,13 @@ musi_changed_gate_relevant_path() {
   local path="$1"
 
   case "$path" in
-    bun.lock|package.json|lint-ratchet.baseline.json|harness.controls.json|tsconfig*.json|vitest*.config.*|eslint.config.*)
+    bun.lock|package.json|drift-ai.config.json|lint-ratchet.baseline.json|harness.controls.json|docs/agent_notes/backlog/lint-followups/lint-coverage-map.md|.claude/settings.json|.codex/hooks.json|.devcontainer/devcontainer.json|.playwright/cli.config.json|.yamllint.yml|bunfig.toml|docker-compose.yml|tsconfig*.json|vitest*.config.*|eslint.config.*|commitlint.config.*|stryker.config.*|knip.config.*|playwright.config.*|prisma.config.*)
       return 0
       ;;
-    packages/*/package.json|packages/*/tsconfig*.json|packages/*/vitest*.config.*)
+    packages/*/package.json|packages/*/tsconfig*.json|packages/*/vitest*.config.*|packages/*/prisma.config.*)
+      return 0
+      ;;
+    .claude/hooks/*.sh|.codex/hooks/*.sh|.devcontainer/*.sh|.devcontainer/Dockerfile|.devcontainer/docker-compose.yml|.github/workflows/*.yml|.github/workflows/*.yaml|.codex/config.toml|.codex/skills/*/agents/openai.yaml)
       return 0
       ;;
   esac

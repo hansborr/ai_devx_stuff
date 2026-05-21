@@ -2,6 +2,7 @@ import { defineConfig } from "@playwright/test";
 
 const DEFAULT_SERVER_PORT = 8001;
 const DEFAULT_CLIENT_PORT = 8000;
+const CI_RETRIES = 2;
 
 const SERVER_PORT = Number(process.env["SERVER_PORT"] ?? DEFAULT_SERVER_PORT);
 // CLIENT_PORT wins over VITE_DEV_PORT when both are set. In practice
@@ -25,7 +26,7 @@ export default defineConfig({
   testDir: "./e2e",
   fullyParallel: false,
   forbidOnly: !!process.env["CI"],
-  retries: process.env["CI"] ? 2 : 0,
+  retries: process.env["CI"] ? CI_RETRIES : 0,
   workers: 4,
   reporter: "list",
   use: {

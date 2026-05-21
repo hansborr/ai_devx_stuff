@@ -23,7 +23,7 @@ assert_usage_failure() {
   local description=$1
   local expected_substring=$2
   shift 2
-  local out err status
+  local err status
   set +e
   err=$(bun run scripts/lint-ratchet.ts "$@" 2>&1 >/dev/null)
   status=$?
@@ -59,6 +59,7 @@ build_fixture() {
   cp scripts/lint-ratchet.ts "$fixture_dir/scripts/lint-ratchet.ts"
   cp scripts/lint-ratchet-config.ts "$fixture_dir/scripts/lint-ratchet-config.ts"
   cp scripts/lint-ratchet-baseline.ts "$fixture_dir/scripts/lint-ratchet-baseline.ts"
+  cp scripts/lint-ratchet-metrics.ts "$fixture_dir/scripts/lint-ratchet-metrics.ts"
   cp scripts/lint-rule-docs.ts "$fixture_dir/scripts/lint-rule-docs.ts"
   cp packages/shared/src/schemas/harness-diagnostics.ts \
     "$fixture_dir/packages/shared/src/schemas/harness-diagnostics.ts"
@@ -319,6 +320,7 @@ write_core_config() {
   local rule_id=${2-"complexity"}
   local parser_profile=${3-"minimal-ts"}
   local rule_options=${4-"[{ max: 1 }]"}
+  local metric=${5-"message-count"}
 
   cat >"$fixture_dir/scripts/lint-ratchet-config.ts" <<TS
 type JsonPrimitive = string | number | boolean | null;
@@ -326,7 +328,7 @@ export type JsonObject = { readonly [key: string]: JsonValue };
 export type JsonValue = JsonPrimitive | readonly JsonValue[] | JsonObject;
 
 export type LintRatchetMode = "no-new" | "ratchet-down" | "report-only";
-export type LintRatchetMetric = "message-count";
+export type LintRatchetMetric = "message-count" | "complexity-severity";
 type LintRatchetRepairKind = "manual";
 export type LintRatchetParserProfile = "minimal-ts" | "type-aware-ts";
 export type LintRatchetPluginExport = "default" | "plugin";
@@ -395,7 +397,7 @@ export const lintRatchets = [
     parserProfile: "$parser_profile",
     mode: "no-new",
     target: 0,
-    metric: "message-count",
+    metric: "$metric",
     repairKind: "manual",
   },
 ] as const satisfies readonly LintRatchetConfig[];
@@ -498,6 +500,25 @@ write_complexity_source() {
   mkdir -p "$fixture_dir/packages/app/src"
   cat >"$fixture_dir/packages/app/src/example.ts" <<'TS'
 export function choose(value: number): number {
+  if (value > 0) {
+    return 1;
+  }
+  if (value < 0) {
+    return -1;
+  }
+  return 0;
+}
+TS
+}
+
+write_more_complexity_source() {
+  local fixture_dir=$1
+  mkdir -p "$fixture_dir/packages/app/src"
+  cat >"$fixture_dir/packages/app/src/example.ts" <<'TS'
+export function choose(value: number): number {
+  if (value > 10) {
+    return 10;
+  }
   if (value > 0) {
     return 1;
   }
@@ -681,6 +702,9 @@ ASSERT_FILE="$TMP_ROOT/max-lines.out" bun -e '
   const finding = env.findings[0];
   if (finding.control !== "ratchet/fixture-max-lines") throw new Error("bad control");
   if (finding.ruleId !== "local/max-lines") throw new Error("bad ruleId");
+  if (finding.reason !== "increased-lines") throw new Error(`bad reason ${finding.reason}`);
+  if (finding.baselineLines !== 4) throw new Error(`bad baselineLines ${finding.baselineLines}`);
+  if (finding.currentLines !== 5) throw new Error(`bad currentLines ${finding.currentLines}`);
   if (!finding.howToFix.includes("effective line count from 5")) {
     throw new Error(`missing line-count fix text: ${finding.howToFix}`);
   }
@@ -961,6 +985,72 @@ grep -qF 'rules: { "complexity": ["error",{"max":1}] }' "$CORE_CONFIG" \
 CORE_CACHE=$(core_cache_files "$CORE_DIR")
 [ -n "$CORE_CACHE" ] \
   || fail "minimal-ts core ratchet did not create an eslint cache file"
+
+# --- Fixture: complexity-severity catches growth without count growth -------
+COMPLEXITY_DIR="$TMP_ROOT/complexity-severity"
+build_fixture "$COMPLEXITY_DIR"
+write_complexity_source "$COMPLEXITY_DIR"
+write_core_config "$COMPLEXITY_DIR" "complexity" "minimal-ts" "[{ max: 1 }]" "complexity-severity"
+run_fixture_update "$COMPLEXITY_DIR" \
+  || fail "complexity-severity initial update failed: $(cat "$TMP_ROOT/update.err")"
+grep -qF '"count": 1' "$COMPLEXITY_DIR/lint-ratchet.baseline.json" \
+  || fail "complexity-severity baseline missing finding count"
+grep -qF '"maxComplexity": 3' "$COMPLEXITY_DIR/lint-ratchet.baseline.json" \
+  || fail "complexity-severity baseline missing max complexity"
+write_more_complexity_source "$COMPLEXITY_DIR"
+set +e
+(cd "$COMPLEXITY_DIR" && bun run scripts/lint-ratchet.ts \
+  >"$TMP_ROOT/complexity.out" 2>"$TMP_ROOT/complexity.err")
+status=$?
+set -e
+[ "$status" -eq 1 ] \
+  || fail "complexity-severity default run should fail on complexity growth, got $status: $(cat "$TMP_ROOT/complexity.err")"
+assert_envelope "$TMP_ROOT/complexity.out" 1
+ASSERT_FILE="$TMP_ROOT/complexity.out" bun -e '
+  const fs = require("fs");
+  const env = JSON.parse(fs.readFileSync(process.env.ASSERT_FILE, "utf8"));
+  const finding = env.findings[0];
+  if (finding.control !== "ratchet/fixture-core") throw new Error("bad control");
+  if (finding.ruleId !== "complexity") throw new Error("bad ruleId");
+  if (finding.reason !== "increased-complexity") throw new Error(`bad reason ${finding.reason}`);
+  if (finding.baselineComplexity !== 3) throw new Error(`bad baselineComplexity ${finding.baselineComplexity}`);
+  if (finding.currentComplexity !== 4) throw new Error(`bad currentComplexity ${finding.currentComplexity}`);
+  if (!finding.howToFix.includes("complexity from 4")) {
+    throw new Error(`missing complexity fix text: ${finding.howToFix}`);
+  }
+' || fail "complexity envelope missing severity detail"
+set +e
+(cd "$COMPLEXITY_DIR" && bun run scripts/lint-ratchet.ts --check-baseline \
+  >"$TMP_ROOT/complexity-check.out" 2>"$TMP_ROOT/complexity-check.err")
+status=$?
+set -e
+[ "$status" -eq 1 ] \
+  || fail "complexity check-baseline should fail on complexity growth, got $status: $(cat "$TMP_ROOT/complexity-check.err")"
+grep -qF "complexity increased from 3 to 4" "$TMP_ROOT/complexity-check.err" \
+  || fail "complexity check-baseline missing growth detail: $(cat "$TMP_ROOT/complexity-check.err")"
+set +e
+(cd "$COMPLEXITY_DIR" && bun run scripts/lint-ratchet.ts --update \
+  >"$TMP_ROOT/complexity-update.out" 2>"$TMP_ROOT/complexity-update.err")
+status=$?
+set -e
+[ "$status" -ne 0 ] || fail "complexity update should refuse worse severity"
+grep -qF "generated baseline is worse" "$TMP_ROOT/complexity-update.err" \
+  || fail "complexity update stderr missing refusal: $(cat "$TMP_ROOT/complexity-update.err")"
+
+COMPLEXITY_IMPROVE_DIR="$TMP_ROOT/complexity-severity-improve"
+build_fixture "$COMPLEXITY_IMPROVE_DIR"
+write_more_complexity_source "$COMPLEXITY_IMPROVE_DIR"
+write_core_config "$COMPLEXITY_IMPROVE_DIR" "complexity" "minimal-ts" "[{ max: 1 }]" "complexity-severity"
+run_fixture_update "$COMPLEXITY_IMPROVE_DIR" \
+  || fail "complexity improvement update failed: $(cat "$TMP_ROOT/update.err")"
+write_complexity_source "$COMPLEXITY_IMPROVE_DIR"
+if ! (cd "$COMPLEXITY_IMPROVE_DIR" && bun run scripts/lint-ratchet.ts --check-baseline \
+      >"$TMP_ROOT/complexity-improve-check.out" 2>"$TMP_ROOT/complexity-improve-check.err"); then
+  cat "$TMP_ROOT/complexity-improve-check.err"
+  fail "complexity check-baseline should pass when complexity shrinks"
+fi
+grep -qF "improved" "$TMP_ROOT/complexity-improve-check.err" \
+  || fail "complexity improvement note missing: $(cat "$TMP_ROOT/complexity-improve-check.err")"
 
 # --- Fixture: supported third-party rule executes and baselines findings -----
 THIRD_PARTY_DIR="$TMP_ROOT/third-party"

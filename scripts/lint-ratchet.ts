@@ -7,6 +7,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { HARNESS_DIAGNOSTICS_SCHEMA_VERSION, harnessDiagnosticsSchema, summarizeHarnessFindings, type HarnessDiagnostics, type HarnessFinding } from "../packages/shared/src/schemas/harness-diagnostics.js";
 import { LINT_RATCHET_CONFIG_HASH_PREFIX, buildLintRatchetBaseline, compareCurrentToBaseline, computeCoreLintRatchetRuleSourceHash, computeLintRatchetConfigHash, decideLintRatchetUpdate, formatLintRatchetBaseline, parseLintRatchetBaseline, parseLintRatchetBaselineStructure, ruleNamespace, validateLintRatchetRegistry, type LintRatchetCurrentById, type LintRatchetCurrentItem, type LintRatchetRegression, type LintRatchetRuleSourceHashesById } from "./lint-ratchet-baseline.js";
 import { lintRatchetThirdPartyPluginAllowlist, lintRatchets, type LintRatchetConfig, type LintRatchetParserProfile, type LintRatchetRuleSource, type LintRatchetThirdPartyPluginAllowlistEntry } from "./lint-ratchet-config.js";
+import { ConfigError, parseComplexitySeverityMessage, type LintRatchetComplexityFunction } from "./lint-ratchet-metrics.js";
 import { formatRuleDocsFailures, loadLintRuleDocs, type RuleDocsEntry } from "./lint-rule-docs.js";
 
 const PROCESS_ARG_OFFSET = 2;
@@ -18,12 +19,11 @@ const MAX_LINES_MESSAGE_PATTERN = /This file has (?<lines>\d+) effective lines, 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const baselinePath = join(repoRoot, BASELINE_FILENAME);
 
-interface ESLintMessage { readonly ruleId: string | null; readonly severity: number; readonly message: string; readonly line?: number; readonly fatal?: boolean; }
+interface ESLintMessage { readonly ruleId: string | null; readonly severity: number; readonly message: string; readonly line?: number; readonly nodeType?: string; readonly messageId?: string; readonly fatal?: boolean; }
 interface ESLintFileResult { readonly filePath: string; readonly messages: readonly ESLintMessage[]; }
 interface ParsedArgs { readonly mode: "default" | "update" | "check-baseline"; readonly allowWorse: boolean; readonly reason?: string; }
 
 class UsageError extends Error {}
-class ConfigError extends Error {}
 class WorseBaselineError extends Error {}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -542,23 +542,17 @@ function minDefined(left: number | undefined, right: number | undefined): number
   return Math.min(left, right);
 }
 
-function makeCurrentItem(count: number, firstLine: number | undefined, lines: number | undefined): LintRatchetCurrentItem {
-  return { count, ...(firstLine === undefined ? {} : { firstLine }), ...(lines === undefined ? {} : { lines }) };
+interface MetricFinding { readonly lines?: number; readonly complexity?: LintRatchetComplexityFunction; }
+
+function makeCurrentItem(count: number, firstLine: number | undefined, lines: number | undefined, perFunction: readonly LintRatchetComplexityFunction[] | undefined): LintRatchetCurrentItem {
+  return { count, ...(firstLine === undefined ? {} : { firstLine }), ...(lines === undefined ? {} : { lines }), ...(perFunction === undefined ? {} : { perFunction }) };
 }
 
-function addFinding(
-  items: Map<string, LintRatchetCurrentItem>,
-  path: string,
-  line: number | undefined,
-  lines: number | undefined,
-): void {
+function addFinding(items: Map<string, LintRatchetCurrentItem>, path: string, line: number | undefined, metric: MetricFinding): void {
   const previous = items.get(path);
-  if (previous === undefined) {
-    items.set(path, makeCurrentItem(1, line, lines));
-    return;
-  }
-  const maxLines = lines === undefined || previous.lines === undefined ? (lines ?? previous.lines) : Math.max(previous.lines, lines);
-  items.set(path, makeCurrentItem(previous.count + 1, minDefined(previous.firstLine, line), maxLines));
+  const maxLines = metric.lines === undefined || previous?.lines === undefined ? (metric.lines ?? previous?.lines) : Math.max(previous.lines, metric.lines);
+  const perFunction = metric.complexity === undefined ? previous?.perFunction : [...(previous?.perFunction ?? []), metric.complexity];
+  items.set(path, makeCurrentItem((previous?.count ?? 0) + 1, minDefined(previous?.firstLine, line), maxLines, perFunction));
 }
 
 function effectiveLineCountFor(ratchet: LintRatchetConfig, path: string, message: ESLintMessage): number | undefined {
@@ -568,11 +562,16 @@ function effectiveLineCountFor(ratchet: LintRatchetConfig, path: string, message
   }
   const lines = MAX_LINES_MESSAGE_PATTERN.exec(message.message)?.groups?.lines;
   if (lines === undefined) {
-    throw new ConfigError(
-      `ratchet ${ratchet.id}: could not parse effective line count for ${path}: ${message.message}`,
-    );
+    throw new ConfigError(`ratchet ${ratchet.id}: could not parse effective line count for ${path}: ${message.message}`);
   }
   return Number(lines);
+}
+
+function metricFindingFor(ratchet: LintRatchetConfig, path: string, message: ESLintMessage): MetricFinding {
+  if (ratchet.metric === "effective-line-count") return { lines: effectiveLineCountFor(ratchet, path, message) };
+  if (ratchet.metric !== "complexity-severity") return {};
+  if (ratchet.ruleId !== "complexity") throw new ConfigError(`ratchet ${ratchet.id}: complexity-severity requires complexity`);
+  return { complexity: parseComplexitySeverityMessage(ratchet.id, path, message) };
 }
 
 async function collectCurrentById(
@@ -597,7 +596,7 @@ async function collectCurrentById(
           );
         }
         if (message.ruleId !== ratchet.ruleId) continue;
-        addFinding(items, path, message.line, effectiveLineCountFor(ratchet, path, message));
+        addFinding(items, path, message.line, metricFindingFor(ratchet, path, message));
       }
     }
     currentById.set(ratchet.id, items);
@@ -641,13 +640,11 @@ function howToFixFor(entry: RuleDocsEntry, regression: LintRatchetRegression): s
 }
 
 function ratchetFixText(regression: LintRatchetRegression): string {
-  if (regression.reason === "increased-lines" && regression.currentLines !== undefined && regression.baselineLines !== undefined) {
-    return (
-      `Reduce this file's ${regression.ruleId} effective line count from ${String(regression.currentLines)} ` +
-      `back to the committed baseline (${String(regression.baselineLines)}), or run ` +
-      "`bun run lint:ratchet:update` in a cleanup PR when the baseline movement is intentional."
-    );
+  if (regression.currentLines !== undefined) {
+    const target = regression.baselineLines === undefined ? "until this new path has no ratcheted finding" : `back to the committed baseline (${String(regression.baselineLines)})`;
+    return `Reduce this file's ${regression.ruleId} effective line count from ${String(regression.currentLines)} ${target}, or run ` + "`bun run lint:ratchet:update` in a cleanup PR when the baseline movement is intentional.";
   }
+  if (regression.currentComplexity !== undefined) return `Reduce this file's ${regression.ruleId} complexity from ${String(regression.currentComplexity)} ${regression.baselineComplexity === undefined ? "until this new path has no ratcheted finding" : `back to the committed baseline (${String(regression.baselineComplexity)})`}, or run ` + "`bun run lint:ratchet:update` in a cleanup PR when the baseline movement is intentional.";
   return (
     `Reduce this file's ${regression.ruleId} finding count from ${String(regression.currentCount)} ` +
     `back to the committed baseline (${String(regression.baselineCount)}), or run ` +
@@ -656,10 +653,13 @@ function ratchetFixText(regression: LintRatchetRegression): string {
 }
 
 function regressionDetail(regression: LintRatchetRegression): string {
-  if (regression.reason === "increased-lines") {
-    return `${regression.testId} ${regression.path}: effective lines increased from ${String(regression.baselineLines)} to ${String(regression.currentLines)}`;
-  }
+  if (regression.currentLines !== undefined) return regression.baselineLines === undefined ? `${regression.testId} ${regression.path}: new path has ${String(regression.currentLines)} effective lines` : `${regression.testId} ${regression.path}: effective lines increased from ${String(regression.baselineLines)} to ${String(regression.currentLines)}`;
+  if (regression.currentComplexity !== undefined) return regression.baselineComplexity === undefined ? `${regression.testId} ${regression.path}: new path has complexity ${String(regression.currentComplexity)}` : `${regression.testId} ${regression.path}: complexity increased from ${String(regression.baselineComplexity)} to ${String(regression.currentComplexity)}`;
   return `${regression.testId} ${regression.path}: finding count increased from ${String(regression.baselineCount)} to ${String(regression.currentCount)}`;
+}
+
+function structuredRatchetFields(regression: LintRatchetRegression) {
+  return { reason: regression.reason, baselineCount: regression.baselineCount, currentCount: regression.currentCount, ...(regression.baselineLines === undefined ? {} : { baselineLines: regression.baselineLines }), ...(regression.currentLines === undefined ? {} : { currentLines: regression.currentLines }), ...(regression.baselineComplexity === undefined ? {} : { baselineComplexity: regression.baselineComplexity }), ...(regression.currentComplexity === undefined ? {} : { currentComplexity: regression.currentComplexity }) };
 }
 
 function buildLocalFinding(
@@ -675,6 +675,7 @@ function buildLocalFinding(
     severity: "block",
     path: regression.path,
     ruleId: regression.ruleId,
+    ...structuredRatchetFields(regression),
     why: `Ratchet regression: ${entry.principle}`,
     howToFix: howToFixFor(entry, regression),
     repairKind: entry.repairKind,
@@ -692,6 +693,7 @@ function buildGenericFinding(regression: LintRatchetRegression): HarnessFinding 
     severity: "block",
     path: regression.path,
     ruleId: regression.ruleId,
+    ...structuredRatchetFields(regression),
     why: `Ratchet regression for ${regression.ruleId}.`,
     howToFix: ratchetFixText(regression),
     repairKind: "manual",

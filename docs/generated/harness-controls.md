@@ -341,6 +341,20 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Repair:** manual
 
+### `ratchet/core-complexity-lint-ratchet-runtime`
+
+**Principle:** Prevent lint-ratchet runtime complexity debt from growing while those runtime files remain excluded from normal lint.
+
+**Category:** maintainability
+
+**Source:** `scripts/lint-ratchet-config.ts`
+
+**Invocation:** `bun run lint:ratchet`
+
+**Paired guide:** [docs/guides/lint-ratchet.md](../guides/lint-ratchet.md)
+
+**Repair:** manual
+
 ### `ratchet/core-complexity-top-level-scripts`
 
 **Principle:** Prevent top-level script complexity debt from growing while the Leaf 38 script files drain toward normal lint coverage.
@@ -467,6 +481,20 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Repair:** manual
 
+### `ratchet/local-max-lines-lint-coverage-map-check`
+
+**Principle:** Prevent the lint coverage-map checker source from crossing the max-lines floor while Leaf 41 drain work is prioritized.
+
+**Category:** maintainability
+
+**Source:** `scripts/lint-ratchet-config.ts`
+
+**Invocation:** `bun run lint:ratchet`
+
+**Paired guide:** [docs/guides/lint-ratchet.md](../guides/lint-ratchet.md)
+
+**Repair:** manual
+
 ### `ratchet/local-max-lines-logs-audit`
 
 **Principle:** Prevent logs-audit max-lines debt from growing while Leaf 40 drains the current script findings.
@@ -509,9 +537,37 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Repair:** manual
 
+### `ratchet/regexp-no-super-linear-backtracking-script-tests`
+
+**Principle:** Prevent script-test regex backtracking debt from growing while the Leaf 41g singleton test findings drain.
+
+**Category:** behavior
+
+**Source:** `scripts/lint-ratchet-config.ts`
+
+**Invocation:** `bun run lint:ratchet`
+
+**Paired guide:** [docs/guides/lint-ratchet.md](../guides/lint-ratchet.md)
+
+**Repair:** manual
+
 ### `ratchet/regexp-no-unused-capturing-group-eslint-rules`
 
 **Principle:** Prevent eslint-rules unused regex capturing-group debt from growing while Phase A.3 and follow-up drains audit the remaining rule implementation lint floor.
+
+**Category:** behavior
+
+**Source:** `scripts/lint-ratchet-config.ts`
+
+**Invocation:** `bun run lint:ratchet`
+
+**Paired guide:** [docs/guides/lint-ratchet.md](../guides/lint-ratchet.md)
+
+**Repair:** manual
+
+### `ratchet/regexp-no-unused-capturing-group-lint-coverage-map-check`
+
+**Principle:** Prevent unused capturing-group debt in the lint coverage-map checker from growing while the current regex is reviewed.
 
 **Category:** behavior
 
@@ -565,6 +621,20 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Repair:** manual
 
+### `ratchet/typescript-eslint-explicit-function-return-type-script-tests`
+
+**Principle:** Prevent script-test explicit-return-type debt from growing while the newly linted singleton tests are split or annotated.
+
+**Category:** maintainability
+
+**Source:** `scripts/lint-ratchet-config.ts`
+
+**Invocation:** `bun run lint:ratchet`
+
+**Paired guide:** [docs/guides/lint-ratchet.md](../guides/lint-ratchet.md)
+
+**Repair:** manual
+
 ### `ratchet/typescript-eslint-no-misused-promises-codemod-tests`
 
 **Principle:** Prevent promise-return misuse in codemod test-harness files while Leaf 35 drains the current bug-class debt.
@@ -593,9 +663,37 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Repair:** manual
 
+### `ratchet/typescript-eslint-no-misused-promises-script-tests`
+
+**Principle:** Prevent promise-return misuse in the newly linted singleton script tests while Leaf 41 drain work proceeds.
+
+**Category:** maintainability
+
+**Source:** `scripts/lint-ratchet-config.ts`
+
+**Invocation:** `bun run lint:ratchet`
+
+**Paired guide:** [docs/guides/lint-ratchet.md](../guides/lint-ratchet.md)
+
+**Repair:** manual
+
 ### `ratchet/typescript-eslint-no-unsafe-argument-top-level-scripts`
 
 **Principle:** Prevent top-level script unsafe-argument debt from growing while the Leaf 38 script files drain toward normal lint coverage.
+
+**Category:** behavior
+
+**Source:** `scripts/lint-ratchet-config.ts`
+
+**Invocation:** `bun run lint:ratchet`
+
+**Paired guide:** [docs/guides/lint-ratchet.md](../guides/lint-ratchet.md)
+
+**Repair:** manual
+
+### `ratchet/typescript-eslint-no-unsafe-assignment-script-tests`
+
+**Principle:** Prevent unsafe-assignment debt in the code-intel script test from growing while the large test drains.
 
 **Category:** behavior
 
@@ -624,6 +722,34 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 ### `ratchet/typescript-eslint-only-throw-error-drift-ai-tests`
 
 **Principle:** Prevent non-Error throws in drift-ai test-harness files while Leaves 33, 34, and 40 restore normal lint coverage.
+
+**Category:** maintainability
+
+**Source:** `scripts/lint-ratchet-config.ts`
+
+**Invocation:** `bun run lint:ratchet`
+
+**Paired guide:** [docs/guides/lint-ratchet.md](../guides/lint-ratchet.md)
+
+**Repair:** manual
+
+### `ratchet/typescript-eslint-only-throw-error-script-tests`
+
+**Principle:** Prevent non-Error throws in the newly linted singleton script tests while Leaf 41 drain work proceeds.
+
+**Category:** maintainability
+
+**Source:** `scripts/lint-ratchet-config.ts`
+
+**Invocation:** `bun run lint:ratchet`
+
+**Paired guide:** [docs/guides/lint-ratchet.md](../guides/lint-ratchet.md)
+
+**Repair:** manual
+
+### `ratchet/typescript-eslint-require-await-script-singletons`
+
+**Principle:** Prevent require-await debt in the newly linted script singletons from growing while the current async test doubles and checker entrypoint drain.
 
 **Category:** maintainability
 
@@ -691,6 +817,20 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Repair:** manual
 
+### `ratchet/vitest-expect-expect-script-tests`
+
+**Principle:** Prevent singleton script tests without recognized assertions from growing now that the final Leaf 41g test rows are linted.
+
+**Category:** maintainability
+
+**Source:** `scripts/lint-ratchet-config.ts`
+
+**Invocation:** `bun run lint:ratchet`
+
+**Paired guide:** [docs/guides/lint-ratchet.md](../guides/lint-ratchet.md)
+
+**Repair:** manual
+
 ### `ratchet/vitest-no-commented-out-tests-eslint-rules-tests`
 
 **Principle:** Prevent commented-out Vitest tests in eslint-rules RuleTester files from growing while Phase A.3 and follow-up drains audit the remaining rule-test floor.
@@ -736,6 +876,20 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 ### `ratchet/vitest-valid-expect-drift-ai-tests`
 
 **Principle:** Prevent malformed Vitest expect calls in drift-ai test-harness files while Leaves 33, 34, and 40 restore normal lint coverage.
+
+**Category:** maintainability
+
+**Source:** `scripts/lint-ratchet-config.ts`
+
+**Invocation:** `bun run lint:ratchet`
+
+**Paired guide:** [docs/guides/lint-ratchet.md](../guides/lint-ratchet.md)
+
+**Repair:** manual
+
+### `ratchet/vitest-valid-expect-script-tests`
+
+**Principle:** Prevent malformed Vitest expect calls in the newly linted singleton script tests while Leaf 41 drain work proceeds.
 
 **Category:** maintainability
 
@@ -823,7 +977,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `verify-wrapper/doctor`
 
-**Principle:** Aggregated read-only diagnostic: composes worktree:status, db:status, env-file sanity, port binding, dependency freshness, suppression registers, migration safety, drift:ai harness-freshness, knip, and blob-size; report-only — exits non-zero only on FAIL counts.
+**Principle:** Aggregated read-only diagnostic: composes worktree:status, db:status, env-file sanity, port binding, dependency freshness, yamllint and ShellCheck system-tool availability, suppression registers, migration safety, drift:ai harness-freshness, knip, and blob-size; report-only — exits non-zero only on FAIL counts.
 
 **Category:** maintainability
 
@@ -963,6 +1117,20 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Repair:** manual
 
+### `doctor-check/shellcheck-system-tool`
+
+**Principle:** Report whether ShellCheck is available from the system PATH; shell lint requires the apt-provided shellcheck package rather than the npm wrapper.
+
+**Category:** maintainability
+
+**Source:** `scripts/doctor.sh`
+
+**Invocation:** `bun run doctor`
+
+**Paired guide:** none
+
+**Repair:** manual
+
 ### `doctor-check/suppression-register`
 
 **Principle:** Scan for current-state TypeScript and Stryker suppressions missing `-- reason`, deprecated `@ts-ignore`, `@ts-nocheck` outside the allowlist, or broad Stryker disables; report-only baseline.
@@ -970,6 +1138,20 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 **Category:** maintainability
 
 **Source:** `scripts/suppression-register.sh`
+
+**Invocation:** `bun run doctor`
+
+**Paired guide:** none
+
+**Repair:** manual
+
+### `doctor-check/yamllint-system-tool`
+
+**Principle:** Report whether yamllint is available from the system PATH; config-sensor lint requires the apt-provided yamllint package rather than a repo-local Python venv.
+
+**Category:** maintainability
+
+**Source:** `scripts/doctor.sh`
 
 **Invocation:** `bun run doctor`
 
@@ -1081,6 +1263,20 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ## Checks
 
+### `check/config-sensors`
+
+**Principle:** Run actionlint, yamllint, taplo, and hadolint over maintained workflow and config files so non-ESLint config surfaces stay covered by the normal lint floor.
+
+**Category:** maintainability
+
+**Source:** `scripts/lint-config-sensors.sh`
+
+**Invocation:** `bun run lint:config-sensors`
+
+**Paired guide:** [docs/agent_notes/backlog/lint-followups/lint-coverage-map.md](../agent_notes/backlog/lint-followups/lint-coverage-map.md)
+
+**Repair:** manual
+
 ### `check/lint-coverage-map`
 
 **Principle:** Detect drift between the Leaf 41 lint coverage map and tracked repository paths, cited ratchet IDs, and status vocabulary so the hand-maintained inventory stays load-bearing.
@@ -1090,6 +1286,20 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 **Source:** `scripts/lint-coverage-map-check.ts`
 
 **Invocation:** `bun run docs:lint-coverage-map:check`
+
+**Paired guide:** [docs/agent_notes/backlog/lint-followups/lint-coverage-map.md](../agent_notes/backlog/lint-followups/lint-coverage-map.md)
+
+**Repair:** manual
+
+### `check/shellcheck`
+
+**Principle:** Run ShellCheck over maintained shell scripts and hooks so shell bug classes are covered by the normal lint floor.
+
+**Category:** maintainability
+
+**Source:** `scripts/lint-shell.sh`
+
+**Invocation:** `bun run lint:shell`
 
 **Paired guide:** [docs/agent_notes/backlog/lint-followups/lint-coverage-map.md](../agent_notes/backlog/lint-followups/lint-coverage-map.md)
 

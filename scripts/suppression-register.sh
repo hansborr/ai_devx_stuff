@@ -93,9 +93,10 @@ has_reason() {
 is_ts_nocheck_allowed() {
   local path="$1" pattern
   for pattern in "${TS_NOCHECK_ALLOWLIST[@]}"; do
-    case "$path" in
-      $pattern) return 0 ;;
-    esac
+    # shellcheck disable=SC2053  # allowlist entries intentionally use glob patterns.
+    if [[ "$path" == $pattern ]]; then
+      return 0
+    fi
   done
   return 1
 }

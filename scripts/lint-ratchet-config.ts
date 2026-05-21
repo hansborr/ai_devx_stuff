@@ -3,7 +3,7 @@ export type JsonObject = { readonly [key: string]: JsonValue };
 export type JsonValue = JsonPrimitive | readonly JsonValue[] | JsonObject;
 
 export type LintRatchetMode = "no-new" | "ratchet-down" | "report-only";
-export type LintRatchetMetric = "effective-line-count" | "message-count";
+export type LintRatchetMetric = "complexity-severity" | "effective-line-count" | "message-count";
 type LintRatchetRepairKind = "manual";
 export type LintRatchetParserProfile = "minimal-ts" | "type-aware-ts";
 export type LintRatchetPluginExport = "default" | "plugin";
@@ -79,7 +79,7 @@ export const lintRatchets = [
     ruleOptions: [{ max: 10 }],
     mode: "no-new",
     target: 0,
-    metric: "message-count",
+    metric: "complexity-severity",
     repairKind: "manual",
   },
   {
@@ -96,7 +96,7 @@ export const lintRatchets = [
     ruleOptions: [{ max: 10 }],
     mode: "no-new",
     target: 0,
-    metric: "message-count",
+    metric: "complexity-severity",
     repairKind: "manual",
   },
   {
@@ -109,7 +109,24 @@ export const lintRatchets = [
     ruleOptions: [{ max: 10 }],
     mode: "no-new",
     target: 0,
-    metric: "message-count",
+    metric: "complexity-severity",
+    repairKind: "manual",
+  },
+  {
+    id: "ratchet/core-complexity-lint-ratchet-runtime",
+    ruleId: "complexity",
+    source: { kind: "core" },
+    parserProfile: "minimal-ts",
+    files: [
+      "scripts/lint-ratchet-baseline.ts",
+      "scripts/lint-ratchet-metrics.ts",
+      "scripts/lint-ratchet.ts",
+    ],
+    ignores: ["scripts/*.test.ts"],
+    ruleOptions: [{ max: 10 }],
+    mode: "no-new",
+    target: 0,
+    metric: "complexity-severity",
     repairKind: "manual",
   },
   {
@@ -120,6 +137,7 @@ export const lintRatchets = [
     files: [
       "scripts/db-status.ts",
       "scripts/harness-emit-envelope.ts",
+      "scripts/lint-coverage-map-check.ts",
       "scripts/sensor-blob-size.test.ts",
       "scripts/sensor-blob-size.ts",
     ],
@@ -127,7 +145,7 @@ export const lintRatchets = [
     ruleOptions: [{ max: 10 }],
     mode: "no-new",
     target: 0,
-    metric: "message-count",
+    metric: "complexity-severity",
     repairKind: "manual",
   },
   {
@@ -158,6 +176,7 @@ export const lintRatchets = [
     files: [
       "scripts/db-status.ts",
       "scripts/harness-emit-envelope.ts",
+      "scripts/lint-coverage-map-check.ts",
       "scripts/sensor-blob-size.test.ts",
       "scripts/sensor-blob-size.ts",
     ],
@@ -255,6 +274,7 @@ export const lintRatchets = [
     repairKind: "manual",
   },
   { id: "ratchet/local-max-lines-generate-harness-controls", ruleId: "local/max-lines", files: ["scripts/generate-harness-controls.ts"], ignores: [], ruleOptions: [{ max: 300, skipBlankLines: true, skipComments: true }], mode: "no-new", target: 0, metric: "effective-line-count", repairKind: "manual" },
+  { id: "ratchet/local-max-lines-lint-coverage-map-check", ruleId: "local/max-lines", files: ["scripts/lint-coverage-map-check.ts"], ignores: [], ruleOptions: [{ max: 300, skipBlankLines: true, skipComments: true }], mode: "no-new", target: 0, metric: "effective-line-count", repairKind: "manual" },
   { id: "ratchet/local-max-lines-logs-audit", ruleId: "local/max-lines", files: ["scripts/logs-audit.ts"], ignores: [], ruleOptions: [{ max: 300, skipBlankLines: true, skipComments: true }], mode: "no-new", target: 0, metric: "effective-line-count", repairKind: "manual" },
   {
     id: "ratchet/local-max-lines-runtime",
@@ -296,9 +316,11 @@ export const lintRatchets = [
     metric: "message-count",
     repairKind: "manual",
   },
+  { id: "ratchet/regexp-no-super-linear-backtracking-script-tests", ruleId: "regexp/no-super-linear-backtracking", source: { kind: "third-party", pluginModule: "eslint-plugin-regexp" }, parserProfile: "minimal-ts", files: ["scripts/lint-ratchet-baseline.test.ts"], ignores: [], ruleOptions: [], mode: "no-new", target: 0, metric: "message-count", repairKind: "manual" },
   {
     id: "ratchet/regexp-no-unused-capturing-group-eslint-rules", ruleId: "regexp/no-unused-capturing-group", source: { kind: "third-party", pluginModule: "eslint-plugin-regexp" }, parserProfile: "minimal-ts", files: ["eslint-rules/*.js"], ignores: ["eslint-rules/*.test.js"], ruleOptions: [], mode: "no-new", target: 0, metric: "message-count", repairKind: "manual",
   },
+  { id: "ratchet/regexp-no-unused-capturing-group-lint-coverage-map-check", ruleId: "regexp/no-unused-capturing-group", source: { kind: "third-party", pluginModule: "eslint-plugin-regexp" }, parserProfile: "minimal-ts", files: ["scripts/lint-coverage-map-check.ts"], ignores: [], ruleOptions: [], mode: "no-new", target: 0, metric: "message-count", repairKind: "manual" },
   {
     id: "ratchet/regexp-no-useless-non-capturing-group-eslint-rules", ruleId: "regexp/no-useless-non-capturing-group", source: { kind: "third-party", pluginModule: "eslint-plugin-regexp" }, parserProfile: "minimal-ts", files: ["eslint-rules/*.js"], ignores: ["eslint-rules/*.test.js"], ruleOptions: [], mode: "no-new", target: 0, metric: "message-count", repairKind: "manual",
   },
@@ -334,6 +356,7 @@ export const lintRatchets = [
     metric: "message-count",
     repairKind: "manual",
   },
+  { id: "ratchet/typescript-eslint-explicit-function-return-type-script-tests", ruleId: "@typescript-eslint/explicit-function-return-type", source: { kind: "third-party", pluginModule: "typescript-eslint" }, parserProfile: "type-aware-ts", files: ["scripts/code-intel.test.ts", "scripts/lint-ratchet-baseline.test.ts"], ignores: [], ruleOptions: [{ allowExpressions: true, allowTypedFunctionExpressions: true, allowHigherOrderFunctions: true }], mode: "no-new", target: 0, metric: "message-count", repairKind: "manual" },
   {
     id: "ratchet/typescript-eslint-no-misused-promises-codemod-tests",
     ruleId: "@typescript-eslint/no-misused-promises",
@@ -373,7 +396,9 @@ export const lintRatchets = [
     metric: "message-count",
     repairKind: "manual",
   },
+  { id: "ratchet/typescript-eslint-no-misused-promises-script-tests", ruleId: "@typescript-eslint/no-misused-promises", source: { kind: "third-party", pluginModule: "typescript-eslint" }, parserProfile: "type-aware-ts", files: ["scripts/code-intel.test.ts", "scripts/lint-coverage-map-check.test.ts", "scripts/lint-ratchet-baseline.test.ts"], ignores: [], ruleOptions: [], mode: "no-new", target: 0, metric: "message-count", repairKind: "manual" },
   { id: "ratchet/typescript-eslint-no-unsafe-argument-top-level-scripts", ruleId: "@typescript-eslint/no-unsafe-argument", source: { kind: "third-party", pluginModule: "typescript-eslint" }, parserProfile: "type-aware-ts", files: ["scripts/db-status.ts", "scripts/harness-emit-envelope.ts", "scripts/sensor-blob-size.test.ts", "scripts/sensor-blob-size.ts"], ignores: [], ruleOptions: [], mode: "no-new", target: 0, metric: "message-count", repairKind: "manual" },
+  { id: "ratchet/typescript-eslint-no-unsafe-assignment-script-tests", ruleId: "@typescript-eslint/no-unsafe-assignment", source: { kind: "third-party", pluginModule: "typescript-eslint" }, parserProfile: "type-aware-ts", files: ["scripts/code-intel.test.ts"], ignores: [], ruleOptions: [], mode: "no-new", target: 0, metric: "message-count", repairKind: "manual" },
   {
     id: "ratchet/typescript-eslint-only-throw-error-codemod-tests",
     ruleId: "@typescript-eslint/only-throw-error",
@@ -413,12 +438,15 @@ export const lintRatchets = [
     metric: "message-count",
     repairKind: "manual",
   },
+  { id: "ratchet/typescript-eslint-only-throw-error-script-tests", ruleId: "@typescript-eslint/only-throw-error", source: { kind: "third-party", pluginModule: "typescript-eslint" }, parserProfile: "type-aware-ts", files: ["scripts/code-intel.test.ts", "scripts/lint-coverage-map-check.test.ts", "scripts/lint-ratchet-baseline.test.ts"], ignores: [], ruleOptions: [], mode: "no-new", target: 0, metric: "message-count", repairKind: "manual" },
+  { id: "ratchet/typescript-eslint-require-await-script-singletons", ruleId: "@typescript-eslint/require-await", source: { kind: "third-party", pluginModule: "typescript-eslint" }, parserProfile: "type-aware-ts", files: ["scripts/code-intel.test.ts", "scripts/lint-coverage-map-check.ts"], ignores: [], ruleOptions: [], mode: "no-new", target: 0, metric: "message-count", repairKind: "manual" },
   {
     id: "ratchet/typescript-eslint-restrict-template-expressions-top-level-scripts",
     ruleId: "@typescript-eslint/restrict-template-expressions",
     source: { kind: "third-party", pluginModule: "typescript-eslint" },
     parserProfile: "type-aware-ts",
     files: [
+      "scripts/code-intel.test.ts",
       "scripts/db-status.ts",
       "scripts/harness-emit-envelope.ts",
       "scripts/sensor-blob-size.test.ts",
@@ -496,6 +524,7 @@ export const lintRatchets = [
     metric: "message-count",
     repairKind: "manual",
   },
+  { id: "ratchet/vitest-expect-expect-script-tests", ruleId: "vitest/expect-expect", source: { kind: "third-party", pluginModule: "@vitest/eslint-plugin" }, parserProfile: "minimal-ts", files: ["scripts/code-intel.test.ts", "scripts/lint-coverage-map-check.test.ts", "scripts/lint-ratchet-baseline.test.ts"], ignores: [], ruleOptions: [{ assertFunctionNames: ["expect", "assertNonPermissiveOutput", "expectClean", "expectHit", "expectOneFulfilledOneConflict", "expectParseFailure", "expectParseSuccess"] }], mode: "no-new", target: 0, metric: "message-count", repairKind: "manual" },
   {
     id: "ratchet/vitest-no-commented-out-tests-eslint-rules-tests",
     ruleId: "vitest/no-commented-out-tests",
@@ -561,4 +590,5 @@ export const lintRatchets = [
     metric: "message-count",
     repairKind: "manual",
   },
+  { id: "ratchet/vitest-valid-expect-script-tests", ruleId: "vitest/valid-expect", source: { kind: "third-party", pluginModule: "@vitest/eslint-plugin" }, parserProfile: "minimal-ts", files: ["scripts/code-intel.test.ts", "scripts/lint-coverage-map-check.test.ts", "scripts/lint-ratchet-baseline.test.ts"], ignores: [], ruleOptions: [{ maxArgs: 2 }], mode: "no-new", target: 0, metric: "message-count", repairKind: "manual" },
 ] as const satisfies readonly LintRatchetConfig[];

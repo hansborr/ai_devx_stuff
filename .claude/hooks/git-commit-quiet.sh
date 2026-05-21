@@ -58,7 +58,7 @@ fi
 OUTFILE=$(mktemp /tmp/musi-git-commit.XXXXXX)
 trap 'rm -f "$OUTFILE"' EXIT
 
-cd "$REPO_ROOT"
+cd "$REPO_ROOT" || exit 1
 
 # Snapshot HEAD before the commit. Cross-checking HEAD_BEFORE != HEAD_AFTER
 # catches the case where CMD swallows the real exit code (e.g. `git commit ...
@@ -87,7 +87,6 @@ fi
 # back to a raw tail only if there's no structured output.
 LOG_DIR="$AI_PRECOMMIT_LOG_DIR"
 OUTPUT=$(cat "$OUTFILE" 2>/dev/null)
-FAILED_TASKS=$(ai_precommit_failed_tasks "$OUTPUT")
 
 if SUMMARY=$(ai_precommit_failure_summary "$OUTPUT" "$LOG_DIR"); then
   :

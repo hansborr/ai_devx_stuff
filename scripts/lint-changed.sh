@@ -6,6 +6,8 @@ set -eu
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=/dev/null
 . "$SCRIPT_DIR/verify-metadata.sh"
+LINT_SHELL="$SCRIPT_DIR/lint-shell.sh"
+LINT_CONFIG_SENSORS="$SCRIPT_DIR/lint-config-sensors.sh"
 
 BASE="${1:-main}"
 REPO_ROOT="$(git rev-parse --show-toplevel)"
@@ -18,7 +20,9 @@ if git rev-parse --verify "$BASE" >/dev/null 2>&1; then
 elif git rev-parse --verify "origin/$BASE" >/dev/null 2>&1; then
   BASE="origin/$BASE"
 else
-  echo "lint:changed: neither '$BASE' nor 'origin/$BASE' exists — checking full repo working tree with eslint." >&2
+  echo "lint:changed: neither '$BASE' nor 'origin/$BASE' exists — checking full repo working tree with ShellCheck, config sensors, and eslint." >&2
+  bash "$LINT_SHELL"
+  bash "$LINT_CONFIG_SENSORS"
   exec eslint --cache --cache-location node_modules/.cache/eslint/ --max-warnings=0 .
 fi
 
@@ -30,13 +34,13 @@ FILES=()
 FULL_LINT=0
 while IFS= read -r -d '' f; do
   case "$f" in
-    bun.lock|package.json|eslint.config.*|tsconfig*.json|packages/*/package.json|packages/*/tsconfig*.json|eslint-rules/*)
+    bun.lock|package.json|eslint.config.*|tsconfig*.json|.yamllint.yml|packages/*/package.json|packages/*/tsconfig*.json|eslint-rules/*)
       FULL_LINT=1
       ;;
   esac
 
   case "$f" in
-    *.ts|*.tsx|*.js|*.jsx|*.mjs|*.cjs) ;;
+    *.ts|*.tsx|*.js|*.jsx|*.mjs|*.cjs|*.json|*.jsonc) ;;
     *) continue ;;
   esac
   [ -f "$f" ] || continue
@@ -51,9 +55,14 @@ done < <(
 )
 
 if [ "$FULL_LINT" -eq 1 ]; then
-  echo "lint:changed: lint-affecting staged/base config changed — checking full repo working tree with eslint."
+  echo "lint:changed: lint-affecting staged/base config changed — checking full repo working tree with ShellCheck, config sensors, and eslint."
+  bash "$LINT_SHELL"
+  bash "$LINT_CONFIG_SENSORS"
   exec eslint --cache --cache-location node_modules/.cache/eslint/ --max-warnings=0 .
 fi
+
+bash "$LINT_SHELL" --changed "$BASE"
+bash "$LINT_CONFIG_SENSORS" --changed "$BASE"
 
 if [ "${#FILES[@]}" -eq 0 ]; then
   echo "lint:changed: no staged/base changed lintable files vs $BASE — skipping lint."

@@ -224,10 +224,13 @@ Opportunistic follow-ons after the named batches (no scheduled order):
 - Leaf 38 parser-project decisions for `db-status.ts`, `harness-emit-envelope.ts`,
   `sensor-blob-size.ts` (+ test), then a ratchet for that family.
 - Root/package `*.config.{ts,mts,cts}` block with its own parser project.
-- Non-ESLint child leaves: 41b (ShellCheck over `scripts/**/*.sh`, `.husky/*`,
-  `.codex/hooks/*.sh`, `.claude/hooks/*.sh`, `.devcontainer/*.sh`); 41c
-  (actionlint + yamllint/taplo/hadolint over workflows, agent/devcontainer
-  config, Dockerfiles).
+- **Landed child leaf 41b: ShellCheck floor.** `scripts/lint-shell.sh` now
+  resolves system `shellcheck` on `PATH` (`apt install shellcheck`) after the
+  Leaf 41d follow-up, and full/changed lint cover `scripts/**/*.sh`,
+  `.husky/*`, `.codex/hooks/*.sh`, `.claude/hooks/*.sh`, and
+  `.devcontainer/*.sh`.
+- Remaining Non-ESLint child leaf: 41c (actionlint + yamllint/taplo/hadolint
+  over workflows, agent/devcontainer config, Dockerfiles).
 
 Standing rules: keep new ratchets in the local/pre-commit gate (external CI is
 not reliable enough to be the sole enforcement point). Land in small measured
@@ -256,8 +259,7 @@ or stays staged because Y) so floors do not become indefinite parking.
   named child leaves when tool setup is more than a narrow same-cycle change:
   - `eslint-rules/**/*.js`: normal ESLint coverage or ratchets for local-rule
     implementation/test quality.
-  - Shell and hooks: ShellCheck or equivalent baseline over maintained
-    `*.sh`/hook files.
+  - Shell and hooks: ShellCheck floor landed in child Leaf 41b.
   - Config files: ESLint or a comparable config-file lint floor for root and
     package `*.config.*` files.
   - Workflow/agent/devcontainer config: actionlint/yaml/json/toml validation or

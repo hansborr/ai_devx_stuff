@@ -159,6 +159,16 @@
       "invocation": "bun run lint:ratchet"
     },
     {
+      "id": "ratchet/core-complexity-lint-ratchet-runtime",
+      "kind": "ratchet",
+      "category": "maintainability",
+      "principle": "Prevent lint-ratchet runtime complexity debt from growing while those runtime files remain excluded from normal lint.",
+      "pairedGuide": "docs/guides/lint-ratchet.md",
+      "repairKind": "manual",
+      "source": "scripts/lint-ratchet-config.ts",
+      "invocation": "bun run lint:ratchet"
+    },
+    {
       "id": "ratchet/core-complexity-top-level-scripts",
       "kind": "ratchet",
       "category": "maintainability",
@@ -213,6 +223,26 @@
       "kind": "ratchet",
       "category": "behavior",
       "principle": "Prevent eslint-rules useless regex non-capturing-group debt from growing while Phase A.3 and follow-up drains audit the remaining rule implementation lint floor.",
+      "pairedGuide": "docs/guides/lint-ratchet.md",
+      "repairKind": "manual",
+      "source": "scripts/lint-ratchet-config.ts",
+      "invocation": "bun run lint:ratchet"
+    },
+    {
+      "id": "ratchet/regexp-no-super-linear-backtracking-script-tests",
+      "kind": "ratchet",
+      "category": "behavior",
+      "principle": "Prevent script-test regex backtracking debt from growing while the Leaf 41g singleton test findings drain.",
+      "pairedGuide": "docs/guides/lint-ratchet.md",
+      "repairKind": "manual",
+      "source": "scripts/lint-ratchet-config.ts",
+      "invocation": "bun run lint:ratchet"
+    },
+    {
+      "id": "ratchet/regexp-no-unused-capturing-group-lint-coverage-map-check",
+      "kind": "ratchet",
+      "category": "behavior",
+      "principle": "Prevent unused capturing-group debt in the lint coverage-map checker from growing while the current regex is reviewed.",
       "pairedGuide": "docs/guides/lint-ratchet.md",
       "repairKind": "manual",
       "source": "scripts/lint-ratchet-config.ts",
@@ -279,6 +309,16 @@
       "invocation": "bun run lint:ratchet"
     },
     {
+      "id": "ratchet/local-max-lines-lint-coverage-map-check",
+      "kind": "ratchet",
+      "category": "maintainability",
+      "principle": "Prevent the lint coverage-map checker source from crossing the max-lines floor while Leaf 41 drain work is prioritized.",
+      "pairedGuide": "docs/guides/lint-ratchet.md",
+      "repairKind": "manual",
+      "source": "scripts/lint-ratchet-config.ts",
+      "invocation": "bun run lint:ratchet"
+    },
+    {
       "id": "ratchet/local-max-lines-logs-audit",
       "kind": "ratchet",
       "category": "maintainability",
@@ -319,6 +359,16 @@
       "invocation": "bun run lint:ratchet"
     },
     {
+      "id": "ratchet/typescript-eslint-explicit-function-return-type-script-tests",
+      "kind": "ratchet",
+      "category": "maintainability",
+      "principle": "Prevent script-test explicit-return-type debt from growing while the newly linted singleton tests are split or annotated.",
+      "pairedGuide": "docs/guides/lint-ratchet.md",
+      "repairKind": "manual",
+      "source": "scripts/lint-ratchet-config.ts",
+      "invocation": "bun run lint:ratchet"
+    },
+    {
       "id": "ratchet/typescript-eslint-no-misused-promises-codemod-tests",
       "kind": "ratchet",
       "category": "maintainability",
@@ -339,10 +389,30 @@
       "invocation": "bun run lint:ratchet"
     },
     {
+      "id": "ratchet/typescript-eslint-no-misused-promises-script-tests",
+      "kind": "ratchet",
+      "category": "maintainability",
+      "principle": "Prevent promise-return misuse in the newly linted singleton script tests while Leaf 41 drain work proceeds.",
+      "pairedGuide": "docs/guides/lint-ratchet.md",
+      "repairKind": "manual",
+      "source": "scripts/lint-ratchet-config.ts",
+      "invocation": "bun run lint:ratchet"
+    },
+    {
       "id": "ratchet/typescript-eslint-no-unsafe-argument-top-level-scripts",
       "kind": "ratchet",
       "category": "behavior",
       "principle": "Prevent top-level script unsafe-argument debt from growing while the Leaf 38 script files drain toward normal lint coverage.",
+      "pairedGuide": "docs/guides/lint-ratchet.md",
+      "repairKind": "manual",
+      "source": "scripts/lint-ratchet-config.ts",
+      "invocation": "bun run lint:ratchet"
+    },
+    {
+      "id": "ratchet/typescript-eslint-no-unsafe-assignment-script-tests",
+      "kind": "ratchet",
+      "category": "behavior",
+      "principle": "Prevent unsafe-assignment debt in the code-intel script test from growing while the large test drains.",
       "pairedGuide": "docs/guides/lint-ratchet.md",
       "repairKind": "manual",
       "source": "scripts/lint-ratchet-config.ts",
@@ -363,6 +433,26 @@
       "kind": "ratchet",
       "category": "maintainability",
       "principle": "Prevent non-Error throws in drift-ai test-harness files while Leaves 33, 34, and 40 restore normal lint coverage.",
+      "pairedGuide": "docs/guides/lint-ratchet.md",
+      "repairKind": "manual",
+      "source": "scripts/lint-ratchet-config.ts",
+      "invocation": "bun run lint:ratchet"
+    },
+    {
+      "id": "ratchet/typescript-eslint-only-throw-error-script-tests",
+      "kind": "ratchet",
+      "category": "maintainability",
+      "principle": "Prevent non-Error throws in the newly linted singleton script tests while Leaf 41 drain work proceeds.",
+      "pairedGuide": "docs/guides/lint-ratchet.md",
+      "repairKind": "manual",
+      "source": "scripts/lint-ratchet-config.ts",
+      "invocation": "bun run lint:ratchet"
+    },
+    {
+      "id": "ratchet/typescript-eslint-require-await-script-singletons",
+      "kind": "ratchet",
+      "category": "maintainability",
+      "principle": "Prevent require-await debt in the newly linted script singletons from growing while the current async test doubles and checker entrypoint drain.",
       "pairedGuide": "docs/guides/lint-ratchet.md",
       "repairKind": "manual",
       "source": "scripts/lint-ratchet-config.ts",
@@ -409,6 +499,16 @@
       "invocation": "bun run lint:ratchet"
     },
     {
+      "id": "ratchet/vitest-expect-expect-script-tests",
+      "kind": "ratchet",
+      "category": "maintainability",
+      "principle": "Prevent singleton script tests without recognized assertions from growing now that the final Leaf 41g test rows are linted.",
+      "pairedGuide": "docs/guides/lint-ratchet.md",
+      "repairKind": "manual",
+      "source": "scripts/lint-ratchet-config.ts",
+      "invocation": "bun run lint:ratchet"
+    },
+    {
       "id": "ratchet/vitest-no-commented-out-tests-eslint-rules-tests",
       "kind": "ratchet",
       "category": "maintainability",
@@ -443,6 +543,16 @@
       "kind": "ratchet",
       "category": "maintainability",
       "principle": "Prevent malformed Vitest expect calls in drift-ai test-harness files while Leaves 33, 34, and 40 restore normal lint coverage.",
+      "pairedGuide": "docs/guides/lint-ratchet.md",
+      "repairKind": "manual",
+      "source": "scripts/lint-ratchet-config.ts",
+      "invocation": "bun run lint:ratchet"
+    },
+    {
+      "id": "ratchet/vitest-valid-expect-script-tests",
+      "kind": "ratchet",
+      "category": "maintainability",
+      "principle": "Prevent malformed Vitest expect calls in the newly linted singleton script tests while Leaf 41 drain work proceeds.",
       "pairedGuide": "docs/guides/lint-ratchet.md",
       "repairKind": "manual",
       "source": "scripts/lint-ratchet-config.ts",
@@ -554,7 +664,7 @@
       "id": "verify-wrapper/doctor",
       "kind": "verify-wrapper",
       "category": "maintainability",
-      "principle": "Aggregated read-only diagnostic: composes worktree:status, db:status, env-file sanity, port binding, dependency freshness, suppression registers, migration safety, drift:ai harness-freshness, knip, and blob-size; report-only — exits non-zero only on FAIL counts.",
+      "principle": "Aggregated read-only diagnostic: composes worktree:status, db:status, env-file sanity, port binding, dependency freshness, yamllint and ShellCheck system-tool availability, suppression registers, migration safety, drift:ai harness-freshness, knip, and blob-size; report-only — exits non-zero only on FAIL counts.",
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": "scripts/doctor.sh",
@@ -589,6 +699,26 @@
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": "scripts/dependency-freshness.sh",
+      "invocation": "bun run doctor"
+    },
+    {
+      "id": "doctor-check/yamllint-system-tool",
+      "kind": "doctor-check",
+      "category": "maintainability",
+      "principle": "Report whether yamllint is available from the system PATH; config-sensor lint requires the apt-provided yamllint package rather than a repo-local Python venv.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/doctor.sh",
+      "invocation": "bun run doctor"
+    },
+    {
+      "id": "doctor-check/shellcheck-system-tool",
+      "kind": "doctor-check",
+      "category": "maintainability",
+      "principle": "Report whether ShellCheck is available from the system PATH; shell lint requires the apt-provided shellcheck package rather than the npm wrapper.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/doctor.sh",
       "invocation": "bun run doctor"
     },
     {
@@ -693,6 +823,26 @@
       "repairKind": "manual",
       "source": "scripts/lint-coverage-map-check.ts",
       "invocation": "bun run docs:lint-coverage-map:check"
+    },
+    {
+      "id": "check/shellcheck",
+      "kind": "check",
+      "category": "maintainability",
+      "principle": "Run ShellCheck over maintained shell scripts and hooks so shell bug classes are covered by the normal lint floor.",
+      "pairedGuide": "docs/agent_notes/backlog/lint-followups/lint-coverage-map.md",
+      "repairKind": "manual",
+      "source": "scripts/lint-shell.sh",
+      "invocation": "bun run lint:shell"
+    },
+    {
+      "id": "check/config-sensors",
+      "kind": "check",
+      "category": "maintainability",
+      "principle": "Run actionlint, yamllint, taplo, and hadolint over maintained workflow and config files so non-ESLint config surfaces stay covered by the normal lint floor.",
+      "pairedGuide": "docs/agent_notes/backlog/lint-followups/lint-coverage-map.md",
+      "repairKind": "manual",
+      "source": "scripts/lint-config-sensors.sh",
+      "invocation": "bun run lint:config-sensors"
     },
 
     {

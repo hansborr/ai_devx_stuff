@@ -551,9 +551,55 @@ check_dependency_freshness() {
   CURRENT_HINT=""
 }
 
+check_yamllint_system_tool() {
+  CURRENT_CONTROL="doctor-check/yamllint-system-tool"
+  CURRENT_HINT="Install yamllint with 'apt install yamllint' (version >=1.29.0)."
+  prose_print ""
+  prose_print "=== yamllint system tool ==="
+  local bin version
+  if ! command -v yamllint >/dev/null 2>&1; then
+    note_warn "yamllint not found on PATH - install with 'apt install yamllint' (version >=1.29.0)"
+    CURRENT_CONTROL=""; CURRENT_HINT=""
+    return 0
+  fi
+  bin="$(command -v yamllint)"
+  version="$("$bin" --version 2>/dev/null || true)"
+  if [[ -n "$version" ]]; then
+    note_pass "yamllint available at $bin ($version)"
+  else
+    note_pass "yamllint available at $bin"
+  fi
+  CURRENT_CONTROL=""
+  CURRENT_HINT=""
+}
+
+check_shellcheck_system_tool() {
+  CURRENT_CONTROL="doctor-check/shellcheck-system-tool"
+  CURRENT_HINT="Install shellcheck with 'apt install shellcheck'."
+  prose_print ""
+  prose_print "=== shellcheck system tool ==="
+  local bin version
+  if ! command -v shellcheck >/dev/null 2>&1; then
+    note_warn "shellcheck not found on PATH - install with 'apt install shellcheck'"
+    CURRENT_CONTROL=""; CURRENT_HINT=""
+    return 0
+  fi
+  bin="$(command -v shellcheck)"
+  version="$("$bin" --version 2>/dev/null | awk -F': ' '/^version:/ {print $2; exit}' || true)"
+  if [[ -n "$version" ]]; then
+    note_pass "shellcheck available at $bin (version $version)"
+  else
+    note_pass "shellcheck available at $bin"
+  fi
+  CURRENT_CONTROL=""
+  CURRENT_HINT=""
+}
+
 check_env_files
 check_port_binding
 check_dependency_freshness
+check_yamllint_system_tool
+check_shellcheck_system_tool
 
 run_subcommand "eslint-disable register" \
   "add '-- reason', prefer eslint-disable-next-line, or add a targeted broad-disable allowlist entry when the suppression is intentionally scoped" \

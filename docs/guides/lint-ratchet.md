@@ -30,18 +30,29 @@ Registry entries choose one metric:
   `{ "count": 1, "lines": N }` for each over-limit file. The count still catches
   new over-limit files, while `lines` catches an already-over-limit file getting
   longer even though ESLint still emits only one diagnostic for that file.
+- `complexity-severity` is reserved for core ESLint `complexity` ratchets. It
+  stores `{ "count": N, "maxComplexity": N, "perFunction": [...] }` per file.
+  Count still catches newly over-complex functions. `maxComplexity` and the
+  sorted descending per-function complexity vector catch an already-covered
+  function or file getting more complex while the diagnostic count is unchanged.
 
 The runner reads the `local/max-lines` effective count from the rule's own
 interpolated message (`This file has <N> effective lines...`) instead of
 reimplementing the rule's blank-line/comment logic. If that message shape
 changes, the ratchet fails loudly and the rule-source hash also forces a
 baseline review.
+For `complexity-severity`, the runner reads the core rule's interpolated
+message (`Function '<name>' has a complexity of <N>...`) plus ESLint's
+diagnostic line and `nodeType`; it does not reimplement ESLint's cyclomatic
+complexity visitor.
 
 Default and check-baseline modes require metric-specific fields. For a converted
-`effective-line-count` ratchet, a count-only committed item is a schema mismatch.
+`effective-line-count` or `complexity-severity` ratchet, a count-only committed
+item is a schema mismatch.
 `update` mode uses structural parsing so one-shot migrations can rewrite old
-count-only entries, but it still refuses any generated count or `lines`
-regression unless `--allow-worse --reason "<why>"` is supplied.
+count-only entries, but it still refuses any generated count, `lines`, max
+complexity, or complexity-vector regression unless
+`--allow-worse --reason "<why>"` is supplied.
 
 ## Current Ratchets
 
@@ -138,8 +149,9 @@ identity reviewable in the same diff as the ratchet entry.
 Core ESLint entries use `source: { kind: "core" }` with a bare built-in rule id
 such as `complexity`; slashed ids are rejected and no allowlist entry is needed.
 Core ratchets can use either parser profile, and their source hash includes the
-installed ESLint package version so upgrades invalidate cached findings. Leaf 41
-Batch 6 is planned as the first core-rule user.
+installed ESLint package version so upgrades invalidate cached findings.
+Current core `complexity` ratchets use `complexity-severity`, including the
+top-level-scripts ratchet.
 
 ## Adding a Ratchet
 

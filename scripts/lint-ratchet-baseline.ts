@@ -1,11 +1,12 @@
 import { createHash } from "node:crypto";
 
 import type { JsonObject, JsonValue, LintRatchetConfig, LintRatchetMetric, LintRatchetMode, LintRatchetParserProfile, LintRatchetRuleSource, LintRatchetThirdPartyPluginAllowlistEntry } from "./lint-ratchet-config.js";
+import { complexityDelta, metricItemForFormat, parseMetricFields, validateMetricItem, type LintRatchetComplexityFunction, type LintRatchetMetricItem } from "./lint-ratchet-metrics.js";
 
 const LINT_RATCHET_BASELINE_VERSION = 1 as const;
 export const LINT_RATCHET_CONFIG_HASH_PREFIX = "sha256:" as const;
 
-interface LintRatchetBaselineItem { readonly count: number; readonly lines?: number; }
+type LintRatchetBaselineItem = LintRatchetMetricItem;
 interface LintRatchetBaselineTest { readonly ruleId: string; readonly mode: LintRatchetMode; readonly target: number; readonly metric: LintRatchetMetric; readonly files: readonly string[]; readonly ignores: readonly string[]; readonly ruleOptions: readonly JsonValue[]; readonly configHash: string; readonly ruleSourceHash: string; readonly items: Readonly<Record<string, LintRatchetBaselineItem>>; }
 
 export type LintRatchetRuleSourceHashesById = ReadonlyMap<string, string>;
@@ -16,9 +17,9 @@ export interface LintRatchetCurrentItem extends LintRatchetBaselineItem { readon
 
 export type LintRatchetCurrentById = ReadonlyMap<string, ReadonlyMap<string, LintRatchetCurrentItem>>;
 
-export interface LintRatchetRegression { readonly testId: string; readonly ruleId: string; readonly path: string; readonly baselineCount: number; readonly currentCount: number; readonly baselineLines?: number; readonly currentLines?: number; readonly line?: number; readonly reason: "new-path" | "increased-count" | "increased-lines"; }
+export interface LintRatchetRegression { readonly testId: string; readonly ruleId: string; readonly path: string; readonly baselineCount: number; readonly currentCount: number; readonly baselineLines?: number; readonly currentLines?: number; readonly baselineComplexity?: number; readonly currentComplexity?: number; readonly line?: number; readonly reason: "new-path" | "increased-count" | "increased-lines" | "increased-complexity"; }
 
-interface LintRatchetImprovement { readonly testId: string; readonly path: string; readonly baselineCount: number; readonly currentCount: number; readonly baselineLines?: number; readonly currentLines?: number; readonly reason: "removed-path" | "lower-count" | "lower-lines"; }
+interface LintRatchetImprovement { readonly testId: string; readonly path: string; readonly baselineCount: number; readonly currentCount: number; readonly baselineLines?: number; readonly currentLines?: number; readonly baselineComplexity?: number; readonly currentComplexity?: number; readonly reason: "removed-path" | "lower-count" | "lower-lines" | "lower-complexity"; }
 
 export interface LintRatchetComparison { readonly regressions: readonly LintRatchetRegression[]; readonly improvements: readonly LintRatchetImprovement[]; }
 
@@ -29,7 +30,7 @@ export interface ParsedLintRatchetBaseline { readonly baseline?: LintRatchetBase
 export interface StructuralLintRatchetBaseline { readonly baseline?: LintRatchetBaseline; readonly failures: readonly string[]; }
 
 const IMPLEMENTED_MODES = new Set<LintRatchetMode>(["no-new"]);
-const IMPLEMENTED_METRICS = new Set<LintRatchetMetric>(["effective-line-count", "message-count"]);
+const IMPLEMENTED_METRICS = new Set<LintRatchetMetric>(["complexity-severity", "effective-line-count", "message-count"]);
 const IMPLEMENTED_PARSER_PROFILES = new Set<LintRatchetParserProfile>(["minimal-ts", "type-aware-ts"]);
 const RATCHET_ID_PATTERN = /^ratchet\/[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 const LOCAL_RULE_ID_PATTERN = /^local\/[a-z0-9]+(?:-[a-z0-9]+)*$/u;
@@ -37,6 +38,18 @@ const CORE_RULE_ID_PATTERN = /^[a-z][a-z0-9-]*$/u;
 export const RULE_ID_PATTERN = /^(?:[a-z0-9][a-z0-9-]*(?:\/[a-z0-9][a-z0-9-]*)+|@[a-z0-9][a-z0-9-]*\/[a-z0-9][a-z0-9-]*(?:\/[a-z0-9][a-z0-9-]*)*)$/u;
 const BASELINE_RULE_ID_PATTERN = /^(?:[a-z][a-z0-9-]*|[a-z0-9][a-z0-9-]*(?:\/[a-z0-9][a-z0-9-]*)+|@[a-z0-9][a-z0-9-]*\/[a-z0-9][a-z0-9-]*(?:\/[a-z0-9][a-z0-9-]*)*)$/u;
 const PACKAGE_SPECIFIER_PATTERN = /^(?:@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*$/u;
+
+function newPathSeverityPayload(
+  ratchet: LintRatchetConfig,
+  current: LintRatchetCurrentItem,
+): Partial<Pick<LintRatchetRegression, "currentComplexity" | "currentLines" | "line">> {
+  if (ratchet.metric === "effective-line-count" && current.lines !== undefined) return { currentLines: current.lines, ...(current.firstLine === undefined ? {} : { line: current.firstLine }) };
+  if (ratchet.metric !== "complexity-severity") return current.firstLine === undefined ? {} : { line: current.firstLine };
+  const maxEntry = current.perFunction?.reduce<LintRatchetComplexityFunction | undefined>((best, entry) => (best === undefined || entry.complexity > best.complexity ? entry : best), undefined);
+  const currentComplexity = maxEntry?.complexity ?? current.maxComplexity;
+  if (currentComplexity !== undefined) return { currentComplexity, ...((maxEntry?.line ?? current.firstLine) === undefined ? {} : { line: maxEntry?.line ?? current.firstLine }) };
+  return current.firstLine === undefined ? {} : { line: current.firstLine };
+}
 
 interface ValidateLintRatchetRegistryOptions { readonly localRuleIds?: ReadonlySet<string>; readonly thirdPartyPlugins?: readonly LintRatchetThirdPartyPluginAllowlistEntry[]; }
 
@@ -350,6 +363,9 @@ export function validateLintRatchetRegistry(
     if (ratchet.metric === "effective-line-count" && ratchet.ruleId !== "local/max-lines") {
       failures.push(`${ratchet.id}: effective-line-count metric requires ruleId local/max-lines`);
     }
+    if (ratchet.metric === "complexity-severity" && (source.kind !== "core" || ratchet.ruleId !== "complexity")) {
+      failures.push(`${ratchet.id}: complexity-severity metric requires core ruleId complexity`);
+    }
     if (!Number.isInteger(ratchet.target) || ratchet.target < 0) {
       failures.push(`${ratchet.id}: target must be a non-negative integer`);
     }
@@ -381,10 +397,7 @@ function baselineTestFromConfig(
   );
   for (const [path, item] of sortedItems) {
     if (item.count > 0) {
-      items[path] =
-        config.metric === "effective-line-count" && item.lines !== undefined
-          ? { count: item.count, lines: item.lines }
-          : { count: item.count };
+      items[path] = metricItemForFormat(config.metric, item);
     }
   }
   return {
@@ -435,7 +448,7 @@ export function currentByIdFromBaseline(
   for (const [testId, test] of Object.entries(baseline.tests)) {
     const items = new Map<string, LintRatchetCurrentItem>();
     for (const [path, item] of Object.entries(test.items)) {
-      items.set(path, item.lines === undefined ? { count: item.count } : { count: item.count, lines: item.lines });
+      items.set(path, item);
     }
     currentById.set(testId, items);
   }
@@ -451,10 +464,7 @@ function orderedBaselineForFormat(baseline: LintRatchetBaseline): LintRatchetBas
     for (const path of Object.keys(test.items).sort()) {
       const item = test.items[path];
       if (item !== undefined && item.count > 0) {
-        items[path] =
-          test.metric === "effective-line-count" && item.lines !== undefined
-            ? { count: item.count, lines: item.lines }
-            : { count: item.count };
+        items[path] = metricItemForFormat(test.metric, item);
       }
     }
     tests[testId] = {
@@ -541,13 +551,12 @@ function parseBaselineItems(
       failures.push(`${path}.${itemPath}.count must be a non-negative integer`);
       continue;
     }
-    const lines = rawItem.lines;
-    if (lines !== undefined && (typeof lines !== "number" || !Number.isInteger(lines) || lines < 0)) {
-      failures.push(`${path}.${itemPath}.lines must be a non-negative integer`);
-      continue;
-    }
+    const metricFields = parseMetricFields(rawItem, `${path}.${itemPath}`, failures);
     if (count > 0) {
-      items[itemPath] = lines === undefined ? { count } : { count, lines };
+      items[itemPath] = {
+        count,
+        ...(metricFields ?? {}),
+      };
     }
   }
   return items;
@@ -558,7 +567,7 @@ function isLintRatchetMode(value: unknown): value is LintRatchetMode {
 }
 
 function isLintRatchetMetric(value: unknown): value is LintRatchetMetric {
-  return value === "effective-line-count" || value === "message-count";
+  return value === "complexity-severity" || value === "effective-line-count" || value === "message-count";
 }
 
 function isNonNegativeInteger(value: unknown): value is number {
@@ -701,12 +710,7 @@ function validateBaselineAgainstRegistry(
       failures.push(`${testId}.ruleSourceHash is stale`);
     }
     for (const [itemPath, item] of Object.entries(test.items)) {
-      if (test.metric === "effective-line-count" && item.lines === undefined) {
-        failures.push(`${testId}.items.${itemPath}.lines is required for effective-line-count`);
-      }
-      if (test.metric === "message-count" && item.lines !== undefined) {
-        failures.push(`${testId}.items.${itemPath}.lines is only valid for effective-line-count`);
-      }
+      validateMetricItem(testId, itemPath, test.metric, item, failures);
     }
   }
   for (const ratchet of ratchets) {
@@ -795,7 +799,17 @@ export function compareCurrentToBaseline(
     for (const [path, current] of currentItems.entries()) {
       const baselineItem = test.items[path];
       const baselineCount = baselineItem?.count ?? 0;
-      if (current.count > baselineCount) {
+      const complexityChange = ratchet.metric === "complexity-severity" ? complexityDelta(baselineItem, current) : undefined;
+      if (
+        ratchet.metric === "effective-line-count" &&
+        baselineItem?.lines !== undefined &&
+        current.lines !== undefined &&
+        current.lines > baselineItem.lines
+      ) {
+        regressions.push({ testId: ratchet.id, ruleId: ratchet.ruleId, path, baselineCount, currentCount: current.count, baselineLines: baselineItem.lines, currentLines: current.lines, reason: "increased-lines", ...(current.firstLine === undefined ? {} : { line: current.firstLine }) });
+      } else if (complexityChange?.regression === true) {
+        regressions.push({ testId: ratchet.id, ruleId: ratchet.ruleId, path, baselineCount, currentCount: current.count, baselineComplexity: complexityChange.baselineComplexity, currentComplexity: complexityChange.currentComplexity, reason: "increased-complexity", ...(complexityChange.line === undefined ? {} : { line: complexityChange.line }) });
+      } else if (current.count > baselineCount) {
         const base = {
           testId: ratchet.id,
           ruleId: ratchet.ruleId,
@@ -805,7 +819,7 @@ export function compareCurrentToBaseline(
           reason: baselineCount === 0 ? "new-path" : "increased-count",
         } as const;
         regressions.push(
-          current.firstLine !== undefined ? { ...base, line: current.firstLine } : base,
+          baselineCount === 0 ? { ...base, ...newPathSeverityPayload(ratchet, current) } : current.firstLine !== undefined ? { ...base, line: current.firstLine } : base,
         );
       } else if (current.count < baselineCount) {
         improvements.push({
@@ -819,26 +833,11 @@ export function compareCurrentToBaseline(
         ratchet.metric === "effective-line-count" &&
         baselineItem?.lines !== undefined &&
         current.lines !== undefined &&
-        current.lines !== baselineItem.lines
+        current.lines < baselineItem.lines
       ) {
-        const base = {
-          testId: ratchet.id,
-          path,
-          baselineCount,
-          currentCount: current.count,
-          baselineLines: baselineItem.lines,
-          currentLines: current.lines,
-        } as const;
-        if (current.lines > baselineItem.lines) {
-          regressions.push({
-            ...base,
-            ruleId: ratchet.ruleId,
-            reason: "increased-lines",
-            ...(current.firstLine === undefined ? {} : { line: current.firstLine }),
-          });
-        } else {
-          improvements.push({ ...base, reason: "lower-lines" });
-        }
+        improvements.push({ testId: ratchet.id, path, baselineCount, currentCount: current.count, baselineLines: baselineItem.lines, currentLines: current.lines, reason: "lower-lines" });
+      } else if (complexityChange !== undefined) {
+        improvements.push({ testId: ratchet.id, path, baselineCount, currentCount: current.count, baselineComplexity: complexityChange.baselineComplexity, currentComplexity: complexityChange.currentComplexity, reason: "lower-complexity" });
       }
     }
     for (const [path, item] of Object.entries(test.items)) {

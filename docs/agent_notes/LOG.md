@@ -8,6 +8,108 @@ Newest on top.
 
 ---
 
+- 2026-05-21: Codex review P2 follow-up for Leaf 41d tightened the
+  coverage-map staged-content gate. `scripts/lint-coverage-map-check.ts` now
+  accepts `--staged` and reads the map via `git show :...`; `verify --changed`
+  and `.husky/pre-commit` use that staged path, while full verify still reads
+  the worktree. A temp-repo Vitest regression catches the stale staged map /
+  fixed worktree map failure mode. Details:
+  `finished_work/lint-hardening-leaf-41e-coverage-map-staged.md`.
+- 2026-05-21: Leaf 41d ShellCheck install-path follow-up swapped ShellCheck
+  from the pinned npm wrapper to the system `shellcheck` binary on `PATH`
+  (`apt install shellcheck`; this container reports `/usr/bin/shellcheck`
+  0.9.0, down from the wrapper's upstream 0.11.0). `lint-shell.sh` now fails
+  with the apt hint when shellcheck is missing, while `doctor.sh` reports the
+  same gap as WARN and continues. The smoke fixtures still pass with ShellCheck
+  0.9.0. `actionlint`, `taplo`, and `hadolint` stay on their npm wrappers
+  because they are not available from the Debian/Ubuntu main repos. Details:
+  `finished_work/lint-hardening-leaf-41d-shellcheck-system-binary-followup.md`.
+- 2026-05-21: Codex review P2 follow-up for Leaf 41c fixed the first-run
+  `hadolint@0.4.2` wrapper cache failure on the config sensors probe branch.
+  Fresh installs could download `hadolint-2.14.0` with mode 0644 and fail the
+  immediate spawn with `EACCES`; `lint-config-sensors.sh` now primes the
+  wrapper only when the cache is missing, chmods the downloaded binary, then
+  invokes hadolint normally. The smoke test no longer injects a pre-chmodded
+  cache binary, so it exercises the production wrapper path. `actionlint` and
+  `taplo` were checked and do not have the same lazy executable download shape.
+  Details:
+  `finished_work/lint-hardening-leaf-41c-hadolint-prime-followup.md`.
+- 2026-05-21: Leaf 41c yamllint install-path follow-up swapped yamllint from
+  the repo-local Python venv to the system `yamllint` binary on `PATH`
+  (`apt install yamllint`, version >=1.29.0; this container reports
+  `/usr/bin/yamllint` 1.29.0). `lint-config-sensors.sh` now fails with the apt
+  hint when yamllint is missing, while `doctor.sh` reports the same gap as WARN
+  and continues. `actionlint`, `taplo`, and `hadolint` stay on their npm
+  wrappers because they are not in the Debian/Ubuntu main repos. No
+  `.yamllint.yml` rule-profile changes were needed. Details:
+  `finished_work/lint-hardening-leaf-41c-yamllint-system-binary-followup.md`.
+- 2026-05-21: Codex review P2 follow-up for Leaf 41c fixed the
+  `node-actionlint` wrapper argv gap from `aca65e31`. The pinned wrapper calls
+  `run(args[0])`, so `run_actionlint()` now invokes the wrapper once per
+  collected workflow file, echoes each path, and accumulates failures before
+  returning nonzero. A regression smoke fixture with valid `ci.yml` plus invalid
+  `zz-bad.yml` catches the former bad-second-workflow pass. `yamllint`,
+  `taplo`, and `hadolint` were checked for native multi-file argv support and
+  left unchanged. Details:
+  `finished_work/lint-hardening-leaf-41c-actionlint-wrapper-followup.md`.
+- 2026-05-21: Leaf 41c workflow/config sensors added
+  `bun run lint:config-sensors` over GitHub workflows, maintained YAML,
+  TOML configs, and Dockerfiles. Install paths: `@tktco/node-actionlint@1.6.0`,
+  system `yamllint` from `PATH` (`apt install yamllint`, version >=1.29.0),
+  `@taplo/cli@0.7.0`, and `hadolint@0.4.2` with upstream Hadolint pinned to
+  2.14.0. Full `bun run lint`
+  now runs ShellCheck, config sensors, then ESLint; `lint:changed` and
+  pre-commit relevance include workflow/YAML/TOML/Dockerfile paths. Findings
+  were limited to two long Codex skill YAML prompt lines plus low-value
+  hadolint warnings handled by narrow ignores; no ratchet baseline was added.
+  Details: `finished_work/lint-hardening-leaf-41c-config-sensors.md`.
+- 2026-05-21: Leaf 41 root/package config-file linting sub-batch B brought the
+  maintained TS config files under normal ESLint with exact re-includes from
+  `**/*.config.{js,mjs,ts}`, a dedicated `tsconfig.configs.json`, and a
+  project-service config block with `local/max-lines` disabled. The first full
+  lint run found three import-sort autofixes, one Playwright retry literal, and
+  three Vitest slow-project config imports that needed `await` before spread; no
+  ratchet or baseline update was needed. Changed-gate relevance now explicitly
+  covers `knip.config.*`, `playwright.config.*`, and Prisma config paths. The
+  Root/package config block is done. Details:
+  `finished_work/lint-hardening-config-files-ts-coverage.md`.
+- 2026-05-21: Converted
+  `ratchet/core-complexity-top-level-scripts` from `message-count` to
+  `complexity-severity`, closing the Batch 2 review gap where the Leaf 38
+  top-level scripts ratchet was the lone core `complexity` holdout. The
+  refreshed baseline has one severity item:
+  `scripts/sensor-blob-size.ts` count 1 / maxComplexity 11; the other three
+  files in scope have zero complexity findings. No function exceeded the
+  >30 follow-up threshold. Details:
+  `finished_work/lint-hardening-top-level-scripts-complexity-severity.md`.
+- 2026-05-21: Codex review P2 follow-up for commit `45c47264` fixed
+  `complexity-severity` new-path regression payloads. Live runtime current
+  items from `collectCurrentById` do not populate `maxComplexity`, so
+  `newPathSeverityPayload` now reports `currentComplexity` and `line` from the
+  highest-complexity `perFunction` entry instead of the first source-order
+  diagnostic, while keeping a `maxComplexity` fallback for structural paths.
+  Focused Vitest coverage pins the multi-diagnostic live path and fallback.
+  Details:
+  `finished_work/lint-ratchet-newpath-maxcomplexity-fix.md`.
+- 2026-05-21: Added
+  `ratchet/core-complexity-lint-ratchet-runtime`, an opportunistic Batch 2
+  review follow-up that locks `complexity-severity` ceilings for
+  `scripts/lint-ratchet-baseline.ts`, `scripts/lint-ratchet-metrics.ts`, and
+  `scripts/lint-ratchet.ts` while those files stay excluded from normal
+  `bun run lint`. The baseline captured counts/maxes of 5/44, 3/15, and 2/22
+  respectively; `validateLintRatchetRegistry` at complexity 44 is a separate
+  follow-up candidate. Details:
+  `finished_work/lint-hardening-lint-ratchet-runtime-complexity-coverage.md`.
+- 2026-05-21: Leaf 41 Batch 2 metric-alignment review fix-up landed six
+  requested hardening fixes for `complexity-severity` and
+  `effective-line-count`: structural count-only migration coverage for
+  complexity baselines, `messageId === "complex"` parser guarding,
+  severity payloads on new-path regressions and ratchet envelopes, duplicate
+  complexity-identity collision preservation, structured smoke assertions for
+  severity fields, and a baseline refresh limited to
+  `scripts/lint-ratchet-baseline.ts` line ceiling shrinkage. Verification
+  passed the full requested gate list from focused vitest through lint and
+  typecheck.
 - 2026-05-21: Leaf 38 codex-review P2 follow-up widened every
   `*-top-level-scripts` ratchet to the full four-file Leaf 38 set:
   `scripts/db-status.ts`, `scripts/harness-emit-envelope.ts`,

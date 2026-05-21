@@ -44,7 +44,7 @@ esac
 WRAPPER_COMMAND="$0 ${1:-}"
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
-cd "$REPO_ROOT"
+cd "$REPO_ROOT" || exit 1
 
 # shellcheck source=/dev/null
 . "$REPO_ROOT/scripts/ai-hooks/cache.sh"
@@ -68,7 +68,7 @@ if [ "$MODE" = changed ]; then
   MARKER="${MUSI_VERIFY_MARKER_CHANGED:-/tmp/musi-verify-changed-last}"
   LINT_CMD=(bun run lint:changed)
   RATCHET_CMD=(bun run lint:ratchet)
-  COVERAGE_MAP_CMD=(bun run docs:lint-coverage-map:check)
+  COVERAGE_MAP_CMD=(bun run docs:lint-coverage-map:check -- --staged)
   TEST_CMD=(bun run test:changed --reporter=dot --reporter=json --outputFile.json="$TIMINGS_FILE")
   SCRIPTS_CMD=(bun run test:scripts:changed)
   META_MODE=serial-verify-changed

@@ -2,6 +2,11 @@
 
 Date: 2026-05-20
 
+Archived: 2026-05-21 after Batch 1 `effective-line-count` and Batch 2
+`complexity-severity` both landed. See
+`lint-hardening-leaf-41-metric-batch-1-effective-line-count.md` and
+`lint-hardening-leaf-41-metric-batch-2-complexity-severity.md`.
+
 ## Summary
 
 This is a plan-only handoff for aligning the lint ratchet metrics that are

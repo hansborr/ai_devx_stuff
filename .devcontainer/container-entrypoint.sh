@@ -12,7 +12,7 @@ done
 mkdir -p /tmp/musi_logs
 
 if [ -f "$SENTINEL" ]; then
-  cd /workspace
+  cd /workspace || exit 1
   bun run dev >> /tmp/musi_logs/dev-servers.log 2>&1 &
   echo "$(date -Iseconds): dev servers started (PID $!)" >> /tmp/musi_logs/dev-servers.log
   # Sweep orphan per-worktree databases. Runs on every container start so

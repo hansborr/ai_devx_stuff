@@ -4,7 +4,10 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 LINT_CHANGED="$SCRIPT_DIR/lint-changed.sh"
+LINT_SHELL="$SCRIPT_DIR/lint-shell.sh"
+LINT_CONFIG_SENSORS="$SCRIPT_DIR/lint-config-sensors.sh"
 VERIFY_METADATA="$SCRIPT_DIR/verify-metadata.sh"
 
 PASS=0
@@ -28,14 +31,40 @@ exit "${STUB_ESLINT_EXIT:-0}"
 STUB
 chmod +x "$SANDBOX/bin/eslint"
 
+cat > "$SANDBOX/bin/shellcheck" <<'STUB'
+#!/usr/bin/env bash
+{
+  printf 'stub shellcheck'
+  for arg in "$@"; do
+    printf ' <%s>' "$arg"
+  done
+  printf '\n'
+} >> "${SHELLCHECK_LOG:-/dev/null}"
+exit "${STUB_SHELLCHECK_EXIT:-0}"
+STUB
+chmod +x "$SANDBOX/bin/shellcheck"
+
 new_repo() {
   local name="$1"
   local repo="$SANDBOX/$name"
-  mkdir -p "$repo/scripts" "$repo/packages/server/src" "$repo/eslint-rules"
+  mkdir -p "$repo/scripts" "$repo/packages/server/src" "$repo/eslint-rules" "$repo/.github/workflows"
   git -C "$SANDBOX" init -q -b main "$repo"
   cp "$LINT_CHANGED" "$repo/scripts/lint-changed.sh"
+  cp "$LINT_SHELL" "$repo/scripts/lint-shell.sh"
   cp "$VERIFY_METADATA" "$repo/scripts/verify-metadata.sh"
+  cat > "$repo/scripts/lint-config-sensors.sh" <<'STUB'
+#!/usr/bin/env bash
+{
+  printf 'stub config sensors'
+  for arg in "$@"; do
+    printf ' <%s>' "$arg"
+  done
+  printf '\n'
+} >> "${CONFIG_SENSOR_LOG:-/dev/null}"
+exit "${STUB_CONFIG_SENSOR_EXIT:-0}"
+STUB
   printf 'export default [];\n' > "$repo/eslint.config.js"
+  printf 'name: CI\non: push\njobs: {}\n' > "$repo/.github/workflows/ci.yml"
   printf 'base\n' > "$repo/packages/server/src/app.ts"
   printf 'rule\n' > "$repo/eslint-rules/example.js"
   printf '{}\n' > "$repo/package.json"
@@ -47,11 +76,53 @@ new_repo() {
   printf '%s\n' "$repo"
 }
 
+new_json_lint_repo() {
+  local name="$1"
+  local repo
+
+  repo="$(new_repo "$name")"
+  ln -s "$REPO_ROOT/node_modules" "$repo/node_modules"
+  cat > "$repo/package.json" <<'JSON'
+{"type":"module"}
+JSON
+  cat > "$repo/eslint.config.js" <<'JS'
+import json from "@eslint/json";
+
+export default [
+  {
+    files: ["**/*.json"],
+    plugins: { json },
+    language: "json/json",
+    rules: {
+      "json/no-duplicate-keys": "error",
+    },
+  },
+];
+JS
+  git -C "$repo" add package.json eslint.config.js
+  git -C "$repo" commit -qm json-eslint-config
+  printf '%s\n' "$repo"
+}
+
 run_lint_changed() {
   local repo="$1"; shift
   (
     cd "$repo"
     STUB_LOG="$repo/eslint.log" PATH="$SANDBOX/bin:$PATH" \
+      SHELLCHECK_LOG="$repo/shellcheck.log" \
+      CONFIG_SENSOR_LOG="$repo/config-sensors.log" \
+      STUB_SHELLCHECK_EXIT="${STUB_SHELLCHECK_EXIT:-0}" \
+      STUB_CONFIG_SENSOR_EXIT="${STUB_CONFIG_SENSOR_EXIT:-0}" \
+      bash scripts/lint-changed.sh "$@"
+  )
+}
+
+run_lint_changed_real_eslint() {
+  local repo="$1"; shift
+  (
+    cd "$repo"
+    PATH="$REPO_ROOT/node_modules/.bin:$PATH" \
+      CONFIG_SENSOR_LOG="$repo/config-sensors.log" \
       bash scripts/lint-changed.sh "$@"
   )
 }
@@ -72,6 +143,12 @@ assert_stage_or_stash_failure() {
 bash -n "$LINT_CHANGED" || fail "lint-changed.sh fails bash -n"
 ok "lint-changed.sh passes bash -n"
 
+bash -n "$LINT_SHELL" || fail "lint-shell.sh fails bash -n"
+ok "lint-shell.sh passes bash -n"
+
+bash -n "$LINT_CONFIG_SENSORS" || fail "lint-config-sensors.sh fails bash -n"
+ok "lint-config-sensors.sh passes bash -n"
+
 repo="$(new_repo clean)"
 : > "$repo/eslint.log"
 output="$(run_lint_changed "$repo")" || fail "clean repo should not fail: $output"
@@ -89,6 +166,69 @@ expected='stub eslint <--cache> <--cache-location> <node_modules/.cache/eslint/>
 [ "$(cat "$repo/eslint.log")" = "$expected" ] \
   || fail "staged source change should lint only staged source file: $(cat "$repo/eslint.log")"
 ok "staged source-only changes lint staged files"
+
+repo="$(new_json_lint_repo staged-json-duplicate-key)"
+mkdir -p "$repo/packages/server/src/data"
+printf '{ "name": "one", "name": "two" }\n' > "$repo/packages/server/src/data/duplicate.json"
+git -C "$repo" add packages/server/src/data/duplicate.json
+set +e
+output="$(run_lint_changed_real_eslint "$repo" 2>&1)"
+exit_code=$?
+set -e
+[ "$exit_code" -ne 0 ] || fail "staged JSON duplicate key should fail lint:changed"
+grep -qF 'packages/server/src/data/duplicate.json' <<< "$output" \
+  || fail "JSON lint failure should name staged JSON file: $output"
+grep -qF 'json/no-duplicate-keys' <<< "$output" \
+  || fail "JSON lint failure should report json/no-duplicate-keys: $output"
+ok "staged JSON duplicate keys fail lint:changed"
+
+repo="$(new_repo staged-shell-change)"
+cat > "$repo/scripts/new-hook.sh" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "ok"
+SH
+git -C "$repo" add scripts/new-hook.sh
+: > "$repo/eslint.log"
+: > "$repo/shellcheck.log"
+run_lint_changed "$repo" >/dev/null || fail "staged shell change should run ShellCheck"
+expected='stub shellcheck <--external-sources> <--severity=warning> <scripts/new-hook.sh>'
+[ "$(cat "$repo/shellcheck.log")" = "$expected" ] \
+  || fail "staged shell change should shellcheck only staged shell file: $(cat "$repo/shellcheck.log")"
+[ ! -s "$repo/eslint.log" ] \
+  || fail "shell-only change should not invoke eslint: $(cat "$repo/eslint.log")"
+ok "staged shell-only changes run ShellCheck"
+
+repo="$(new_repo staged-workflow-change)"
+printf 'name: CI\non: push\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo ok\n' > "$repo/.github/workflows/ci.yml"
+git -C "$repo" add .github/workflows/ci.yml
+: > "$repo/eslint.log"
+: > "$repo/config-sensors.log"
+run_lint_changed "$repo" >/dev/null || fail "staged workflow change should run config sensors"
+expected='stub config sensors <--changed> <main>'
+[ "$(cat "$repo/config-sensors.log")" = "$expected" ] \
+  || fail "staged workflow change should run changed config sensors: $(cat "$repo/config-sensors.log")"
+[ ! -s "$repo/eslint.log" ] \
+  || fail "workflow-only change should not invoke eslint: $(cat "$repo/eslint.log")"
+ok "staged workflow-only changes run config sensors"
+
+repo="$(new_repo staged-shellcheck-failure)"
+cat > "$repo/scripts/bad-hook.sh" <<'SH'
+#!/usr/bin/env bash
+echo $1
+SH
+git -C "$repo" add scripts/bad-hook.sh
+: > "$repo/eslint.log"
+: > "$repo/shellcheck.log"
+set +e
+output="$(STUB_SHELLCHECK_EXIT=1 run_lint_changed "$repo" 2>&1)"
+exit_code=$?
+set -e
+[ "$exit_code" -ne 0 ] || fail "ShellCheck failure should fail lint:changed"
+grep -qF 'lint:shell: checking 1 staged/base changed maintained shell file' <<< "$output" \
+  || fail "ShellCheck failure should announce changed shell check: $output"
+[ ! -s "$repo/eslint.log" ] \
+  || fail "ShellCheck failure should happen before eslint: $(cat "$repo/eslint.log")"
+ok "ShellCheck failures fail lint:changed before eslint"
 
 repo="$(new_repo unstaged-source-change)"
 printf 'unstaged\n' > "$repo/packages/server/src/app.ts"
@@ -191,8 +331,20 @@ repo="$SANDBOX/no-main"
 mkdir -p "$repo/scripts"
 git -C "$SANDBOX" init -q "$repo"
 cp "$LINT_CHANGED" "$repo/scripts/lint-changed.sh"
+cp "$LINT_SHELL" "$repo/scripts/lint-shell.sh"
 cp "$VERIFY_METADATA" "$repo/scripts/verify-metadata.sh"
-git -C "$repo" add scripts/lint-changed.sh scripts/verify-metadata.sh
+cat > "$repo/scripts/lint-config-sensors.sh" <<'STUB'
+#!/usr/bin/env bash
+{
+  printf 'stub config sensors'
+  for arg in "$@"; do
+    printf ' <%s>' "$arg"
+  done
+  printf '\n'
+} >> "${CONFIG_SENSOR_LOG:-/dev/null}"
+exit "${STUB_CONFIG_SENSOR_EXIT:-0}"
+STUB
+git -C "$repo" add scripts/lint-changed.sh scripts/lint-shell.sh scripts/lint-config-sensors.sh scripts/verify-metadata.sh
 : > "$repo/eslint.log"
 output="$(run_lint_changed "$repo" 2>&1)" || fail "missing base should fall back to full lint: $output"
 grep -qF "neither 'main' nor 'origin/main' exists" <<< "$output" \

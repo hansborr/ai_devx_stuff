@@ -49,7 +49,7 @@ if is_debounced; then
   ai_emit_continue
 fi
 
-cd "$REPO_ROOT"
+cd "$REPO_ROOT" || exit 1
 if bun run --filter @musi/server prisma:generate > "$LOG" 2>&1 9>&-; then
   {
     printf 'LAST_TS=%s\n' "$(date +%s)"

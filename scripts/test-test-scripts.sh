@@ -39,7 +39,7 @@ chmod +x "$SANDBOX/bin/runner"
 
 STUB_LOG_FILE="$SANDBOX/runner.log"
 : > "$STUB_LOG_FILE"
-ALL_SMOKE_TESTS=$'runner ran test-verify\nrunner ran test-verify-async\nrunner ran test-verify-logs\nrunner ran test-worktree-db\nrunner ran test-dependency-freshness\nrunner ran test-ai-hooks\nrunner ran test-eslint-disable-register\nrunner ran test-suppression-register\nrunner ran test-codemod-structured-logging-fix\nrunner ran test-codemod-trpc-shared-input\nrunner ran test-codemod-trpc-shared-output\nrunner ran test-code-intel\nrunner ran test-lint-changed\nrunner ran test-test-changed\nrunner ran test-test-slow\nrunner ran test-generate-module-index\nrunner ran test-generate-lint-guidance\nrunner ran test-generate-harness-controls\nrunner ran test-harness-check\nrunner ran test-lint-agent\nrunner ran test-lint-agent-changed\nrunner ran test-harness-emit-envelope\nrunner ran test-lint-ratchet\nrunner ran test-migration-safety-scan\nrunner ran test-doctor-json\nrunner ran test-test-scripts'
+ALL_SMOKE_TESTS=$'runner ran test-verify\nrunner ran test-verify-async\nrunner ran test-verify-logs\nrunner ran test-worktree-db\nrunner ran test-dependency-freshness\nrunner ran test-ai-hooks\nrunner ran test-eslint-disable-register\nrunner ran test-suppression-register\nrunner ran test-codemod-structured-logging-fix\nrunner ran test-codemod-trpc-shared-input\nrunner ran test-codemod-trpc-shared-output\nrunner ran test-code-intel\nrunner ran test-lint-changed\nrunner ran test-lint-shell\nrunner ran test-lint-config-sensors\nrunner ran test-test-changed\nrunner ran test-test-slow\nrunner ran test-generate-module-index\nrunner ran test-generate-lint-guidance\nrunner ran test-generate-harness-controls\nrunner ran test-harness-check\nrunner ran test-lint-agent\nrunner ran test-lint-agent-changed\nrunner ran test-harness-emit-envelope\nrunner ran test-lint-ratchet\nrunner ran test-migration-safety-scan\nrunner ran test-doctor-json\nrunner ran test-test-scripts'
 
 run_runner() {
   STUB_LOG="$STUB_LOG_FILE" \
@@ -76,7 +76,7 @@ ok "--changed is a no-op when no script subjects changed"
 # --- --changed falls back to full suite when the base ref is unavailable --
 : > "$STUB_LOG_FILE"
 mkdir -p "$SANDBOX/no-git"
-output=$((cd "$SANDBOX/no-git" && run_runner --changed) 2>&1)
+output=$( (cd "$SANDBOX/no-git" && run_runner --changed) 2>&1 )
 [ "$(cat "$STUB_LOG_FILE")" = "$ALL_SMOKE_TESTS" ] \
   || fail "missing base ref should run all smoke tests: $(cat "$STUB_LOG_FILE")"
 grep -qF "neither 'main' nor 'origin/main' exists" <<< "$output" \
@@ -179,7 +179,7 @@ ok "--changed selects output codemod smoke on output codemod change"
 
 : > "$STUB_LOG_FILE"
 MUSI_SCRIPTS_CHANGED_FILES="package.json" run_runner --changed >/dev/null
-expected=$'runner ran test-codemod-structured-logging-fix\nrunner ran test-codemod-trpc-shared-input\nrunner ran test-codemod-trpc-shared-output\nrunner ran test-code-intel\nrunner ran test-generate-lint-guidance\nrunner ran test-generate-harness-controls\nrunner ran test-harness-check\nrunner ran test-lint-agent\nrunner ran test-lint-agent-changed\nrunner ran test-lint-ratchet'
+expected=$'runner ran test-codemod-structured-logging-fix\nrunner ran test-codemod-trpc-shared-input\nrunner ran test-codemod-trpc-shared-output\nrunner ran test-code-intel\nrunner ran test-lint-shell\nrunner ran test-lint-config-sensors\nrunner ran test-generate-lint-guidance\nrunner ran test-generate-harness-controls\nrunner ran test-harness-check\nrunner ran test-lint-agent\nrunner ran test-lint-agent-changed\nrunner ran test-lint-ratchet'
 [ "$(cat "$STUB_LOG_FILE")" = "$expected" ] \
   || fail "package.json change should select codemod smokes: $(cat "$STUB_LOG_FILE")"
 ok "--changed selects package-script smokes on package script change"
@@ -213,13 +213,32 @@ ok "--changed selects test-code-intel on package export change"
 # --- --changed selects lint-changed smoke on lint wrapper changes ---------
 : > "$STUB_LOG_FILE"
 MUSI_SCRIPTS_CHANGED_FILES="scripts/lint-changed.sh" run_runner --changed >/dev/null
-[ "$(cat "$STUB_LOG_FILE")" = "runner ran test-lint-changed" ] \
+[ "$(cat "$STUB_LOG_FILE")" = $'runner ran test-lint-changed\nrunner ran test-lint-config-sensors' ] \
   || fail "lint-changed.sh change should select lint-changed smoke: $(cat "$STUB_LOG_FILE")"
 ok "--changed selects test-lint-changed on lint wrapper change"
 
 : > "$STUB_LOG_FILE"
+MUSI_SCRIPTS_CHANGED_FILES="scripts/lint-config-sensors.sh" run_runner --changed >/dev/null
+[ "$(cat "$STUB_LOG_FILE")" = "runner ran test-lint-config-sensors" ] \
+  || fail "config sensor wrapper change should select its smoke: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects test-lint-config-sensors on config sensor wrapper change"
+
+: > "$STUB_LOG_FILE"
+MUSI_SCRIPTS_CHANGED_FILES=".github/workflows/ci.yml" run_runner --changed >/dev/null
+[ "$(cat "$STUB_LOG_FILE")" = "runner ran test-lint-config-sensors" ] \
+  || fail "workflow change should select config sensor smoke: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects test-lint-config-sensors on workflow change"
+
+: > "$STUB_LOG_FILE"
+MUSI_SCRIPTS_CHANGED_FILES="scripts/lint-shell.sh" run_runner --changed >/dev/null
+expected=$'runner ran test-lint-changed\nrunner ran test-lint-shell'
+[ "$(cat "$STUB_LOG_FILE")" = "$expected" ] \
+  || fail "lint-shell.sh change should select shell lint smokes: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects ShellCheck smokes on shell lint wrapper change"
+
+: > "$STUB_LOG_FILE"
 MUSI_SCRIPTS_CHANGED_FILES="scripts/verify-metadata.sh" run_runner --changed >/dev/null
-expected=$'runner ran test-verify\nrunner ran test-dependency-freshness\nrunner ran test-ai-hooks\nrunner ran test-lint-changed'
+expected=$'runner ran test-verify\nrunner ran test-dependency-freshness\nrunner ran test-ai-hooks\nrunner ran test-lint-changed\nrunner ran test-lint-config-sensors'
 [ "$(cat "$STUB_LOG_FILE")" = "$expected" ] \
   || fail "verify-metadata.sh change should select dependent smokes: $(cat "$STUB_LOG_FILE")"
 ok "--changed selects dependent smokes on verify metadata change"

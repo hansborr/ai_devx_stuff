@@ -3,7 +3,6 @@ import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 
 import {
-  LINT_RATCHET_CONFIG_HASH_PREFIX,
   buildLintRatchetBaseline,
   compareCurrentToBaseline,
   computeCoreLintRatchetRuleSourceHash,
@@ -11,14 +10,16 @@ import {
   currentByIdFromBaseline,
   decideLintRatchetUpdate,
   formatLintRatchetBaseline,
+  LINT_RATCHET_CONFIG_HASH_PREFIX,
+  type LintRatchetCurrentById,
+  type LintRatchetRuleSourceHashesById,
   parseLintRatchetBaseline,
   parseLintRatchetBaselineStructure,
   ruleNamespace,
   validateLintRatchetRegistry,
-  type LintRatchetCurrentById,
-  type LintRatchetRuleSourceHashesById,
 } from "./lint-ratchet-baseline.js";
 import type { LintRatchetConfig } from "./lint-ratchet-config.js";
+import { complexityDelta, ConfigError, type LintRatchetComplexityFunction, parseComplexitySeverityMessage, uniqueComplexityMap } from "./lint-ratchet-metrics.js";
 
 const baseRatchet: LintRatchetConfig = {
   id: "ratchet/local-type-assertion-boundary",
@@ -75,23 +76,42 @@ const maxLinesRatchet = {
   repairKind: "manual",
 } as unknown as LintRatchetConfig;
 
+const complexityRatchet: LintRatchetConfig = {
+  id: "ratchet/fixture-complexity",
+  ruleId: "complexity",
+  files: ["packages/**/*.ts"],
+  ignores: [],
+  ruleOptions: [{ max: 10 }],
+  source: { kind: "core" },
+  parserProfile: "minimal-ts",
+  mode: "no-new",
+  target: 0,
+  metric: "complexity-severity",
+  repairKind: "manual",
+};
+
 const FIXTURE_RULE_SOURCE_HASH = `${LINT_RATCHET_CONFIG_HASH_PREFIX}${"a".repeat(64)}`;
 const fixtureRuleSourceHashes: LintRatchetRuleSourceHashesById = new Map([
   [baseRatchet.id, FIXTURE_RULE_SOURCE_HASH],
+  [complexityRatchet.id, FIXTURE_RULE_SOURCE_HASH],
   [maxLinesRatchet.id, FIXTURE_RULE_SOURCE_HASH],
 ]);
 
+type ComplexityVector = readonly LintRatchetComplexityFunction[];
+type CurrentPathEntry = readonly [string, number, number?, number?, ComplexityVector?];
+
 function current(
-  entries: readonly [string, readonly [string, number, number?, number?][]][],
+  entries: readonly [string, readonly CurrentPathEntry[]][],
 ): LintRatchetCurrentById {
-  const byId = new Map<string, ReadonlyMap<string, { readonly count: number; readonly firstLine?: number; readonly lines?: number }>>();
+  const byId = new Map<string, ReadonlyMap<string, { readonly count: number; readonly firstLine?: number; readonly lines?: number; readonly perFunction?: readonly LintRatchetComplexityFunction[] }>>();
   for (const [testId, paths] of entries) {
-    const items = new Map<string, { readonly count: number; readonly firstLine?: number; readonly lines?: number }>();
-    for (const [path, count, firstLine, lines] of paths) {
+    const items = new Map<string, { readonly count: number; readonly firstLine?: number; readonly lines?: number; readonly perFunction?: readonly LintRatchetComplexityFunction[] }>();
+    for (const [path, count, firstLine, lines, perFunction] of paths) {
       items.set(path, {
         count,
         ...(firstLine === undefined ? {} : { firstLine }),
         ...(lines === undefined ? {} : { lines }),
+        ...(perFunction === undefined ? {} : { perFunction }),
       });
     }
     byId.set(testId, items);
@@ -112,13 +132,60 @@ function oneTestBaseline(paths: readonly [string, number][]) {
   );
 }
 
-function maxLinesBaseline(path: string, lines: number) {
+function maxLinesBaseline(path: string, lines: number, count = 1) {
   return buildLintRatchetBaseline(
     [maxLinesRatchet],
-    current([[maxLinesRatchet.id, [[path, 1, 301, lines]]]]),
+    current([[maxLinesRatchet.id, [[path, count, 301, lines]]]]),
     fixtureRuleSourceHashes,
   );
 }
+
+function complexityFunction(line: number, label: string, complexity: number): LintRatchetComplexityFunction {
+  return { line, nodeType: "FunctionDeclaration", label, complexity };
+}
+
+function complexityBaseline(path: string, perFunction: readonly LintRatchetComplexityFunction[]) {
+  return buildLintRatchetBaseline(
+    [complexityRatchet],
+    current([[complexityRatchet.id, [[path, perFunction.length, perFunction[0]?.line, undefined, perFunction]]]]),
+    fixtureRuleSourceHashes,
+  );
+}
+
+describe("complexity message parsing", () => {
+  it("parses core complexity diagnostics and rejects unknown message formats", () => {
+    expect(
+      parseComplexitySeverityMessage("ratchet/fixture-complexity", "packages/app/src/example.ts", {
+        message: "Function 'choose' has a complexity of 12. Maximum allowed is 10.",
+        line: 7,
+        nodeType: "FunctionDeclaration",
+        messageId: "complex",
+      }),
+    ).toEqual(complexityFunction(7, "Function 'choose'", 12));
+    expect(
+      parseComplexitySeverityMessage("ratchet/fixture-complexity", "packages/app/src/example.ts", {
+        message: "Function 'choose' has a complexity of 12. Maximum allowed is 10.",
+        line: 7,
+        nodeType: "FunctionDeclaration",
+      }),
+    ).toEqual(complexityFunction(7, "Function 'choose'", 12));
+    expect(() =>
+      parseComplexitySeverityMessage("ratchet/fixture-complexity", "packages/app/src/example.ts", {
+        message: "Function 'choose' has a complexity of 12. Maximum allowed is 10.",
+        line: 7,
+        nodeType: "FunctionDeclaration",
+        messageId: "complexity-high",
+      }),
+    ).toThrow(ConfigError);
+    expect(() =>
+      parseComplexitySeverityMessage("ratchet/fixture-complexity", "packages/app/src/example.ts", {
+        message: "Function 'choose' is too complex.",
+        line: 7,
+        nodeType: "FunctionDeclaration",
+      }),
+    ).toThrow(ConfigError);
+  });
+});
 
 describe("lint ratchet comparison", () => {
   it("flags a new path with findings as a regression", () => {
@@ -140,6 +207,126 @@ describe("lint ratchet comparison", () => {
         reason: "new-path",
       },
     ]);
+  });
+
+  it("carries effective line severity on new-path regressions", () => {
+    const path = "packages/server/src/new-large.ts";
+    const baseline = buildLintRatchetBaseline(
+      [maxLinesRatchet],
+      current([[maxLinesRatchet.id, []]]),
+      fixtureRuleSourceHashes,
+    );
+    const generated = maxLinesBaseline(path, 350);
+    const comparison = compareCurrentToBaseline(
+      baseline,
+      [maxLinesRatchet],
+      currentByIdFromBaseline(generated),
+    );
+
+    expect(comparison.regressions).toEqual([
+      {
+        testId: maxLinesRatchet.id,
+        ruleId: maxLinesRatchet.ruleId,
+        path,
+        baselineCount: 0,
+        currentCount: 1,
+        currentLines: 350,
+        reason: "new-path",
+      },
+    ]);
+  });
+
+  it("carries complexity severity on new-path regressions", () => {
+    const path = "packages/server/src/new-branchy.ts";
+    const baseline = buildLintRatchetBaseline(
+      [complexityRatchet],
+      current([[complexityRatchet.id, []]]),
+      fixtureRuleSourceHashes,
+    );
+    const generated = complexityBaseline(path, [complexityFunction(10, "Function 'newBranch'", 25)]);
+    const comparison = compareCurrentToBaseline(
+      baseline,
+      [complexityRatchet],
+      currentByIdFromBaseline(generated),
+    );
+
+    expect(comparison.regressions).toEqual([
+      {
+        testId: complexityRatchet.id,
+        ruleId: complexityRatchet.ruleId,
+        path,
+        baselineCount: 0,
+        currentCount: 1,
+        currentComplexity: 25,
+        line: 10,
+        reason: "new-path",
+      },
+    ]);
+  });
+
+  it("reports the maximum complexity entry for live new-path regressions", () => {
+    const path = "packages/server/src/new-branchy.ts";
+    const baseline = buildLintRatchetBaseline(
+      [complexityRatchet],
+      current([[complexityRatchet.id, []]]),
+      fixtureRuleSourceHashes,
+    );
+    const comparison = compareCurrentToBaseline(
+      baseline,
+      [complexityRatchet],
+      current([
+        [
+          complexityRatchet.id,
+          [
+            [
+              path,
+              3,
+              10,
+              undefined,
+              [
+                complexityFunction(10, "low", 12),
+                complexityFunction(200, "high", 25),
+                complexityFunction(350, "medium", 14),
+              ],
+            ],
+          ],
+        ],
+      ]),
+    );
+
+    expect(comparison.regressions[0]).toMatchObject({
+      testId: complexityRatchet.id,
+      ruleId: complexityRatchet.ruleId,
+      path,
+      currentComplexity: 25,
+      line: 200,
+      reason: "new-path",
+    });
+  });
+
+  it("keeps maxComplexity-only fallback for new-path complexity regressions", () => {
+    const path = "packages/server/src/new-branchy.ts";
+    const baseline = buildLintRatchetBaseline(
+      [complexityRatchet],
+      current([[complexityRatchet.id, []]]),
+      fixtureRuleSourceHashes,
+    );
+    const currentById: LintRatchetCurrentById = new Map([
+      [complexityRatchet.id, new Map([[path, { count: 1, maxComplexity: 33 }]])],
+    ]);
+    const comparison = compareCurrentToBaseline(
+      baseline,
+      [complexityRatchet],
+      currentById,
+    );
+
+    expect(comparison.regressions[0]).toMatchObject({
+      testId: complexityRatchet.id,
+      ruleId: complexityRatchet.ruleId,
+      path,
+      currentComplexity: 33,
+      reason: "new-path",
+    });
   });
 
   it("flags an existing path with a higher count as a regression", () => {
@@ -217,6 +404,31 @@ describe("lint ratchet comparison", () => {
     ]);
   });
 
+  it("flags effective line growth even when diagnostic count decreases", () => {
+    const path = "packages/server/src/large.ts";
+    const baseline = maxLinesBaseline(path, 320, 2);
+    const comparison = compareCurrentToBaseline(
+      baseline,
+      [maxLinesRatchet],
+      current([[maxLinesRatchet.id, [[path, 1, 301, 321]]]]),
+    );
+
+    expect(comparison.regressions).toEqual([
+      {
+        testId: maxLinesRatchet.id,
+        ruleId: maxLinesRatchet.ruleId,
+        path,
+        baselineCount: 2,
+        currentCount: 1,
+        baselineLines: 320,
+        currentLines: 321,
+        line: 301,
+        reason: "increased-lines",
+      },
+    ]);
+    expect(comparison.improvements).toEqual([]);
+  });
+
   it("reports effective line shrinkage as an improvement", () => {
     const path = "packages/server/src/large.ts";
     const comparison = compareCurrentToBaseline(
@@ -235,6 +447,179 @@ describe("lint ratchet comparison", () => {
         baselineLines: 320,
         currentLines: 319,
         reason: "lower-lines",
+      },
+    ]);
+  });
+
+  it("flags complexity growth even when diagnostic count decreases", () => {
+    const path = "packages/server/src/branchy.ts";
+    const baseline = complexityBaseline(path, [
+      complexityFunction(12, "Function 'first'", 20),
+      complexityFunction(32, "Function 'second'", 11),
+    ]);
+    const comparison = compareCurrentToBaseline(
+      baseline,
+      [complexityRatchet],
+      current([
+        [
+          complexityRatchet.id,
+          [[path, 1, 14, undefined, [complexityFunction(14, "Function 'current'", 25)]]],
+        ],
+      ]),
+    );
+
+    expect(comparison.regressions).toEqual([
+      {
+        testId: complexityRatchet.id,
+        ruleId: complexityRatchet.ruleId,
+        path,
+        baselineCount: 2,
+        currentCount: 1,
+        baselineComplexity: 20,
+        currentComplexity: 25,
+        line: 14,
+        reason: "increased-complexity",
+      },
+    ]);
+    expect(comparison.improvements).toEqual([]);
+  });
+
+  it("does not flag a shorter equal-max complexity vector as a regression", () => {
+    const path = "packages/server/src/branchy.ts";
+    const baseline = complexityBaseline(path, [
+      complexityFunction(12, "Function 'first'", 20),
+      complexityFunction(32, "Function 'second'", 11),
+    ]);
+    const comparison = compareCurrentToBaseline(
+      baseline,
+      [complexityRatchet],
+      current([
+        [
+          complexityRatchet.id,
+          [[path, 1, 12, undefined, [complexityFunction(12, "Function 'first'", 20)]]],
+        ],
+      ]),
+    );
+
+    expect(comparison.regressions).toEqual([]);
+    expect(comparison.improvements).toEqual([
+      {
+        testId: complexityRatchet.id,
+        path,
+        baselineCount: 2,
+        currentCount: 1,
+        reason: "lower-count",
+      },
+    ]);
+  });
+
+  it("reports lower count and lower complexity as an improvement", () => {
+    const path = "packages/server/src/branchy.ts";
+    const baseline = complexityBaseline(path, [
+      complexityFunction(12, "Function 'first'", 20),
+      complexityFunction(32, "Function 'second'", 11),
+    ]);
+    const comparison = compareCurrentToBaseline(
+      baseline,
+      [complexityRatchet],
+      current([
+        [
+          complexityRatchet.id,
+          [[path, 1, 12, undefined, [complexityFunction(12, "Function 'first'", 18)]]],
+        ],
+      ]),
+    );
+
+    expect(comparison.regressions).toEqual([]);
+    expect(comparison.improvements).toEqual([
+      {
+        testId: complexityRatchet.id,
+        path,
+        baselineCount: 2,
+        currentCount: 1,
+        reason: "lower-count",
+      },
+    ]);
+  });
+
+  it("flags complexity growth when diagnostic count is unchanged", () => {
+    const path = "packages/server/src/branchy.ts";
+    const comparison = compareCurrentToBaseline(
+      complexityBaseline(path, [complexityFunction(12, "Function 'choose'", 11)]),
+      [complexityRatchet],
+      current([[complexityRatchet.id, [[path, 1, 12, undefined, [complexityFunction(12, "Function 'choose'", 12)]]]]]),
+    );
+
+    expect(comparison.regressions).toEqual([
+      {
+        testId: complexityRatchet.id,
+        ruleId: complexityRatchet.ruleId,
+        path,
+        baselineCount: 1,
+        currentCount: 1,
+        baselineComplexity: 11,
+        currentComplexity: 12,
+        line: 12,
+        reason: "increased-complexity",
+      },
+    ]);
+  });
+
+  it("flags complexity vector growth when functions cannot be matched exactly", () => {
+    const path = "packages/server/src/branchy.ts";
+    const comparison = compareCurrentToBaseline(
+      complexityBaseline(path, [complexityFunction(10, "Function 'first'", 15), complexityFunction(30, "Function 'second'", 13)]),
+      [complexityRatchet],
+      current([[complexityRatchet.id, [[path, 2, 11, undefined, [complexityFunction(11, "Function 'movedFirst'", 15), complexityFunction(31, "Function 'movedSecond'", 14)]]]]]),
+    );
+
+    expect(comparison.regressions[0]).toMatchObject({
+      testId: complexityRatchet.id,
+      path,
+      baselineComplexity: 13,
+      currentComplexity: 14,
+      line: 31,
+      reason: "increased-complexity",
+    });
+  });
+
+  it("keeps a conservative complexity identity when duplicate diagnostics collide", () => {
+    const lower = complexityFunction(12, "Function 'choose'", 11);
+    const higher = complexityFunction(12, "Function 'choose'", 13);
+    const byIdentity = uniqueComplexityMap([lower, higher]);
+
+    expect([...byIdentity.values()]).toEqual([higher]);
+    expect(
+      complexityDelta(
+        { count: 1, maxComplexity: 13, perFunction: [higher] },
+        { count: 1, maxComplexity: 14, perFunction: [complexityFunction(12, "Function 'choose'", 14)] },
+      ),
+    ).toEqual({
+      baselineComplexity: 13,
+      currentComplexity: 14,
+      line: 12,
+      regression: true,
+    });
+  });
+
+  it("reports complexity shrinkage as an improvement", () => {
+    const path = "packages/server/src/branchy.ts";
+    const comparison = compareCurrentToBaseline(
+      complexityBaseline(path, [complexityFunction(12, "Function 'choose'", 12)]),
+      [complexityRatchet],
+      current([[complexityRatchet.id, [[path, 1, 12, undefined, [complexityFunction(12, "Function 'choose'", 11)]]]]]),
+    );
+
+    expect(comparison.regressions).toEqual([]);
+    expect(comparison.improvements).toEqual([
+      {
+        testId: complexityRatchet.id,
+        path,
+        baselineCount: 1,
+        currentCount: 1,
+        baselineComplexity: 12,
+        currentComplexity: 11,
+        reason: "lower-complexity",
       },
     ]);
   });
@@ -305,6 +690,19 @@ describe("lint ratchet baseline parsing", () => {
         fixtureRuleSourceHashes,
       ).failures,
     ).toContain(`${maxLinesRatchet.id}.items.${path}.lines is required for effective-line-count`);
+    expect(parseLintRatchetBaselineStructure(countOnly).failures).toEqual([]);
+  });
+
+  it("requires complexity-severity items to carry maxComplexity and perFunction in strict parse", () => {
+    const path = "packages/server/src/branchy.ts";
+    const rendered = formatLintRatchetBaseline(complexityBaseline(path, [complexityFunction(12, "Function 'choose'", 12)]));
+    expect(parseLintRatchetBaseline(rendered, [complexityRatchet], fixtureRuleSourceHashes).failures).toEqual([]);
+
+    const countOnly = rendered.replace(/,\n\s+"maxComplexity": 12,\n\s+"perFunction": \[[\s\S]*?\n\s+\]/u, "");
+    expect(parseLintRatchetBaseline(countOnly, [complexityRatchet], fixtureRuleSourceHashes).failures).toEqual([
+      `${complexityRatchet.id}.items.${path}.maxComplexity is required for complexity-severity`,
+      `${complexityRatchet.id}.items.${path}.perFunction is required for complexity-severity`,
+    ]);
     expect(parseLintRatchetBaselineStructure(countOnly).failures).toEqual([]);
   });
 
@@ -389,6 +787,25 @@ describe("lint ratchet update decisions", () => {
     const accepted = decideLintRatchetUpdate(committed, generated, [maxLinesRatchet], {
       allowWorse: true,
       reason: "intentional max-lines migration",
+    });
+    expect(accepted.allowed).toBe(true);
+  });
+
+  it("refuses complexity regressions unless allowed with a reason", () => {
+    const path = "packages/server/src/branchy.ts";
+    const committed = complexityBaseline(path, [complexityFunction(12, "Function 'choose'", 11)]);
+    const generated = complexityBaseline(path, [complexityFunction(12, "Function 'choose'", 12)]);
+    const refused = decideLintRatchetUpdate(committed, generated, [complexityRatchet], {
+      allowWorse: false,
+    });
+
+    expect(refused.allowed).toBe(false);
+    expect(refused.failures[0]).toContain("generated baseline is worse");
+    expect(refused.regressions[0]?.reason).toBe("increased-complexity");
+
+    const accepted = decideLintRatchetUpdate(committed, generated, [complexityRatchet], {
+      allowWorse: true,
+      reason: "intentional complexity migration",
     });
     expect(accepted.allowed).toBe(true);
   });
@@ -590,6 +1007,35 @@ describe("lint ratchet update mode with stale committed baseline", () => {
 
     expect(decision.allowed).toBe(false);
     expect(decision.failures[0]).toContain("generated baseline is worse");
+  });
+
+  it("allows complexity-severity structural count-only migration while still rejecting worse counts", () => {
+    const path = "packages/server/src/branchy.ts";
+    const committed = complexityBaseline(path, [complexityFunction(12, "Function 'choose'", 12)]);
+    const countOnly = formatLintRatchetBaseline(committed).replace(/,\n\s+"maxComplexity": 12,\n\s+"perFunction": \[[\s\S]*?\n\s+\]/u, "");
+    const structural = parseLintRatchetBaselineStructure(countOnly);
+    expect(structural.failures).toEqual([]);
+    expect(structural.baseline?.tests[complexityRatchet.id]?.items[path]).toEqual({ count: 1 });
+
+    const sameCount = decideLintRatchetUpdate(
+      structural.baseline ?? committed,
+      complexityBaseline(path, [complexityFunction(12, "Function 'choose'", 50)]),
+      [complexityRatchet],
+      { allowWorse: false },
+    );
+    expect(sameCount.allowed).toBe(true);
+
+    const worseCount = decideLintRatchetUpdate(
+      structural.baseline ?? committed,
+      complexityBaseline(path, [
+        complexityFunction(12, "Function 'choose'", 50),
+        complexityFunction(32, "Function 'other'", 11),
+      ]),
+      [complexityRatchet],
+      { allowWorse: false },
+    );
+    expect(worseCount.allowed).toBe(false);
+    expect(worseCount.regressions[0]?.reason).toBe("increased-count");
   });
 });
 

@@ -93,5 +93,5 @@ shrinking from five to four effective lines reports an improvement.
 
 This batch is ceiling-integrity work, not a drain. The migrated
 `local/max-lines-*` baselines should drain only through normal file splits or
-future cleanup leaves. The next named metric-alignment item is Batch 2:
-`complexity-severity` for the three `core-complexity-*` ratchets.
+future cleanup leaves. Batch 2 later landed `complexity-severity` for the three
+`core-complexity-*` ratchets, completing the metric-alignment plan.

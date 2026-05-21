@@ -59,7 +59,7 @@ done
 ok "every package vitest.config.ts excludes **/*.slow.test.* alongside defaultExclude"
 
 # --- 1. Default config skips the slow sentinel -----------------------------
-default_list="$(MUSI_RUN_SLOW_TESTS= "$VITEST_BIN" list --project=shared 2>&1)" \
+default_list="$(MUSI_RUN_SLOW_TESTS='' "$VITEST_BIN" list --project=shared 2>&1)" \
   || fail "vitest list (default) should succeed: $default_list"
 
 if grep -qF 'src/test-tier-sentinel.slow.test.ts' <<< "$default_list"; then

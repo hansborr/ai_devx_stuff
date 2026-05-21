@@ -141,7 +141,7 @@ SCRIPT_SAFE=$(ai_safe_script_name "$SCRIPT")
 LOG="$LOG_DIR/$SCRIPT_SAFE.log"
 MARKER="$LOG_DIR/last.$SCRIPT_SAFE"
 
-cd "$REPO_ROOT"
+cd "$REPO_ROOT" || exit 1
 
 # --- Content-keyed idempotency --------------------------------------------
 # Fingerprint: HEAD + tracked-file diff + hashes of untracked files. Captures
@@ -205,7 +205,8 @@ on_sigterm() {
   kill "$CHILD" "$WD" 2>/dev/null
   wait "$CHILD" 2>/dev/null
   local el=$(( $(date +%s) - START ))
-  local summary="$SCRIPT killed by watchdog at ${TIMEOUT}s (${el}s elapsed). Likely a hung test or slow dev server, not a genuine failure — investigate the slow step, or raise AI_BUN_TIMEOUT for this invocation. Full log: $LOG
+  local summary
+  summary="$SCRIPT killed by watchdog at ${TIMEOUT}s (${el}s elapsed). Likely a hung test or slow dev server, not a genuine failure — investigate the slow step, or raise AI_BUN_TIMEOUT for this invocation. Full log: $LOG
 
 --- last 40 lines ---
 $(tail -n 40 "$LOG" 2>/dev/null)"

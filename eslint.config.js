@@ -83,6 +83,24 @@ const localPlugin = {
 
 const codeFiles = ["**/*.{js,cjs,mjs,ts,tsx,mts,cts}"];
 const typescriptFiles = ["**/*.{ts,tsx,mts,cts}"];
+const rootJsConfigFiles = [
+  "eslint.config.js",
+  "commitlint.config.js",
+  "stryker.config.mjs",
+];
+const tsConfigFiles = [
+  "knip.config.ts",
+  "playwright.config.ts",
+  "vitest.config.ts",
+  "vitest.slow.config.ts",
+  "packages/client/vite.config.ts",
+  "packages/client/vitest.config.ts",
+  "packages/server/prisma.config.ts",
+  "packages/server/vitest.config.ts",
+  "packages/shared/vitest.config.ts",
+  "scripts/vitest.config.ts",
+  "eslint-rules/vitest.config.ts",
+];
 const testAndHelperFiles = [
   "**/*.{test,spec}.{js,cjs,mjs,ts,tsx,mts,cts}",
   "**/*test-helper*.{js,cjs,mjs,ts,tsx,mts,cts}",
@@ -125,6 +143,18 @@ export default defineConfig(
       ".playwright-mcp/",
       "e2e-ux-screenshots/",
       "**/*.config.{js,mjs,ts}",
+      "!eslint.config.js",
+      "!commitlint.config.js",
+      "!stryker.config.mjs",
+      "!knip.config.ts",
+      "!playwright.config.ts",
+      "!vitest.config.ts",
+      "!vitest.slow.config.ts",
+      "!packages/client/vite.config.ts",
+      "!packages/client/vitest.config.ts",
+      "!packages/server/prisma.config.ts",
+      "!packages/server/vitest.config.ts",
+      "!packages/shared/vitest.config.ts",
       "docs/",
       "**/generated/",
       "e2e-walkthrough/",
@@ -138,11 +168,17 @@ export default defineConfig(
       "scripts/**/*",
       "!scripts/code-intel/",
       "!scripts/code-intel/**/*.ts",
+      "!scripts/code-intel.test.ts",
       "!scripts/drift/",
       "!scripts/drift/**/*.ts",
       "!scripts/generate-lint-guidance.ts",
+      "!scripts/lint-coverage-map-check-eslint-reach.ts",
+      "!scripts/lint-coverage-map-check.test.ts",
+      "!scripts/lint-coverage-map-check.ts",
       "!scripts/lint-rule-docs.ts",
+      "!scripts/lint-ratchet-baseline.test.ts",
       "!scripts/lint-ratchet-config.ts",
+      "!scripts/vitest.config.ts",
       "!scripts/code-intel-server.ts",
       "!scripts/logs-audit.test.ts",
       "!scripts/drift-ai/",
@@ -152,12 +188,22 @@ export default defineConfig(
       "worktrees/",
       "eslint-rules/*",
       "!eslint-rules/*.js",
+      "!eslint-rules/vitest.config.ts",
     ],
   },
 
   {
     ...js.configs.recommended,
     files: codeFiles,
+    ignores: rootJsConfigFiles,
+  },
+
+  {
+    files: rootJsConfigFiles,
+    rules: {
+      ...js.configs.recommended.rules,
+      "no-unused-vars": "error",
+    },
   },
 
   ...tseslint.configs.strictTypeChecked.map((config) =>
@@ -289,7 +335,7 @@ export default defineConfig(
 
   {
     files: codeFiles,
-    ignores: ["eslint-rules/*.js"],
+    ignores: ["eslint-rules/*.js", ...rootJsConfigFiles],
     plugins: { regexp },
     rules: {
       ...regexp.configs["flat/recommended"].rules,
@@ -310,7 +356,7 @@ export default defineConfig(
 
   {
     files: codeFiles,
-    ignores: ["eslint-rules/*.js"],
+    ignores: ["eslint-rules/*.js", ...rootJsConfigFiles],
     plugins: {
       "eslint-comments": eslintComments,
       "simple-import-sort": simpleImportSort,
@@ -467,7 +513,12 @@ export default defineConfig(
   {
     files: ["eslint-rules/*.js"],
     ignores: ["eslint-rules/*.test.js"],
-    plugins: { regexp, local: localPlugin },
+    plugins: {
+      "eslint-comments": eslintComments,
+      "simple-import-sort": simpleImportSort,
+      regexp,
+      local: localPlugin,
+    },
     rules: {
       complexity: ["error", { max: 10 }],
       "local/max-lines": ["error", { max: 300, skipBlankLines: true, skipComments: true }],
@@ -497,6 +548,17 @@ export default defineConfig(
       // Style-only per Leaf 21 backlog; not part of v3 flat/recommended but
       // override explicitly so future plugin upgrades do not surprise us.
       "regexp/prefer-named-capture-group": "off",
+
+      "simple-import-sort/imports": "error",
+      "simple-import-sort/exports": "error",
+      "eslint-comments/require-description": ["error", { ignore: [] }],
+      "eslint-comments/no-aggregating-enable": "error",
+      "eslint-comments/no-duplicate-disable": "error",
+      "eslint-comments/no-unlimited-disable": "error",
+      "eslint-comments/no-unused-disable": "error",
+      "local/no-llm-artifacts": "error",
+      "local/no-swallowed-errors": "error",
+      "local/no-async-array-callbacks": "error",
     },
   },
 
@@ -572,10 +634,41 @@ export default defineConfig(
     },
   },
 
+  // Leaf 41g existing singleton findings stay ratcheted until drained; keep
+  // these rules active everywhere else.
+  {
+    files: ["scripts/code-intel.test.ts"],
+    rules: {
+      "@typescript-eslint/explicit-function-return-type": "off",
+      "@typescript-eslint/no-unsafe-assignment": "off",
+      "@typescript-eslint/require-await": "off",
+      "@typescript-eslint/restrict-template-expressions": "off",
+    },
+  },
+
+  {
+    files: ["scripts/lint-ratchet-baseline.test.ts"],
+    rules: {
+      "@typescript-eslint/explicit-function-return-type": "off",
+      "regexp/no-super-linear-backtracking": "off",
+    },
+  },
+
+  {
+    files: ["scripts/lint-coverage-map-check.ts"],
+    rules: {
+      complexity: "off",
+      "no-magic-numbers": "off",
+      "@typescript-eslint/require-await": "off",
+      "regexp/no-unused-capturing-group": "off",
+    },
+  },
+
   // Ban restricted process primitives outside named bootstrap/config/script
   // boundaries.
   {
     files: codeFiles,
+    ignores: [...rootJsConfigFiles, ...tsConfigFiles],
     rules: {
       "no-restricted-syntax": [
         "error",
@@ -1067,6 +1160,7 @@ export default defineConfig(
   {
     files: [
       "scripts/code-intel/**/*.ts",
+      "scripts/code-intel.test.ts",
       "scripts/code-intel-server.ts",
       "scripts/db-status.ts",
       "scripts/drift/**/*.ts",
@@ -1075,6 +1169,10 @@ export default defineConfig(
       "scripts/drift-ai/scope.ts",
       "scripts/generate-lint-guidance.ts",
       "scripts/harness-emit-envelope.ts",
+      "scripts/lint-coverage-map-check-eslint-reach.ts",
+      "scripts/lint-coverage-map-check.test.ts",
+      "scripts/lint-coverage-map-check.ts",
+      "scripts/lint-ratchet-baseline.test.ts",
       "scripts/lint-ratchet-config.ts",
       "scripts/lint-rule-docs.ts",
       "scripts/logs-audit.test.ts",
@@ -1294,6 +1392,44 @@ export default defineConfig(
     ignores: ["**/*.test.{ts,tsx}"],
     rules: {
       "no-console": "warn",
+    },
+  },
+
+  // Maintained root/package TS configs are re-included from the global config
+  // ignore. Project service uses this dedicated project as its default because
+  // these files intentionally live outside package production tsconfig includes.
+  {
+    files: tsConfigFiles,
+    languageOptions: {
+      parserOptions: {
+        projectService: {
+          allowDefaultProject: tsConfigFiles,
+          defaultProject: "./tsconfig.configs.json",
+          maximumDefaultProjectFileMatchCount_THIS_WILL_SLOW_DOWN_LINTING:
+            tsConfigFiles.length,
+        },
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+    rules: {
+      "local/max-lines": "off",
+      "no-magic-numbers": [
+        "warn",
+        {
+          ignore: [0, 1, -1],
+          ignoreArrayIndexes: true,
+          ignoreDefaultValues: true,
+          enforceConst: true,
+        },
+      ],
+      "@typescript-eslint/explicit-function-return-type": [
+        "error",
+        {
+          allowExpressions: true,
+          allowTypedFunctionExpressions: true,
+          allowHigherOrderFunctions: true,
+        },
+      ],
     },
   },
 

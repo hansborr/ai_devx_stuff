@@ -1,8 +1,9 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { collectEslintReachFindings, type EslintReachChecker } from "./lint-coverage-map-check-eslint-reach.js";
 import { lintRatchets } from "./lint-ratchet-config.js";
 
 const PATH_COLUMN = 0;
@@ -32,7 +33,7 @@ interface PathPattern {
 }
 
 interface CheckFinding {
-  readonly kind: "stale-path" | "unknown-ratchet" | "invalid-status" | "unaccounted-file";
+  readonly kind: "stale-path" | "unknown-ratchet" | "invalid-status" | "unaccounted-file" | "eslint-reach-missing";
   readonly line?: number;
   readonly value: string;
 }
@@ -46,9 +47,13 @@ export interface LintCoverageMapCheckResult {
 
 export interface LintCoverageMapCheckOptions {
   readonly cwd?: string;
+  readonly mapPath?: string;
   readonly mapText?: string;
+  readonly staged?: boolean;
   readonly trackedFiles?: readonly string[];
   readonly ratchetIds?: ReadonlySet<string>;
+  readonly checkEslintReach?: boolean;
+  readonly eslintReachChecker?: EslintReachChecker;
 }
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -71,12 +76,7 @@ function parseRows(mapText: string): TableRow[] {
     if (pathGroup === undefined || ratchets === undefined || status === undefined) continue;
     if (pathGroup === "Path / group") continue;
     if (cells.every((cell) => /^:?-{3,}:?$/u.test(cell))) continue;
-    rows.push({
-      line: index + 1,
-      pathGroup,
-      ratchets,
-      status,
-    });
+    rows.push({ line: index + 1, pathGroup, ratchets, status });
   }
   return rows;
 }
@@ -115,12 +115,7 @@ function extractPathPatterns(row: TableRow): PathPattern[] {
     const source = rawSource.trim();
     if (source === "") continue;
     const pattern = resolvePatternSource(source, base);
-    patterns.push({
-      line: row.line,
-      source,
-      pattern,
-      matcher: createMatcher(pattern),
-    });
+    patterns.push({ line: row.line, source, pattern, matcher: createMatcher(pattern) });
     const nextBase = stableBaseForPattern(pattern);
     if ((!source.includes("/") || sourceIsRooted(source)) && shouldUpdateBase(pattern, nextBase)) base = nextBase;
   }
@@ -201,6 +196,19 @@ function loadTrackedFiles(cwd: string): string[] {
   return output.split(/\r?\n/u).filter((line) => line.length > 0).sort();
 }
 
+function loadStagedMapText(cwd: string, mapPath: string): string {
+  const topLevel = execFileSync("git", ["rev-parse", "--show-toplevel"], { cwd, encoding: "utf8" }).trim();
+  const gitPath = relative(topLevel, mapPath).replaceAll("\\", "/");
+  return execFileSync("git", ["show", `:${gitPath}`], { cwd: topLevel, encoding: "utf8" });
+}
+
+function loadMapText(options: LintCoverageMapCheckOptions, cwd: string): string {
+  if (options.mapText !== undefined) return options.mapText;
+  const mapPath = options.mapPath ?? defaultMapPath;
+  if (options.staged === true) return loadStagedMapText(cwd, mapPath);
+  return readFileSync(mapPath, "utf8");
+}
+
 function groupByDirectory(files: readonly string[]): string[] {
   const groups = new Map<string, string[]>();
   for (const file of files) {
@@ -224,6 +232,7 @@ function formatFindings(findings: readonly CheckFinding[]): string {
   const unknown = findings.filter((finding) => finding.kind === "unknown-ratchet");
   const invalid = findings.filter((finding) => finding.kind === "invalid-status");
   const unaccounted = findings.filter((finding) => finding.kind === "unaccounted-file");
+  const eslintReachMissing = findings.filter((finding) => finding.kind === "eslint-reach-missing");
   if (stale.length > 0) {
     lines.push("", "Stale path/group patterns:");
     for (const finding of stale) lines.push(`- line ${String(finding.line)}: ${finding.value}`);
@@ -240,6 +249,10 @@ function formatFindings(findings: readonly CheckFinding[]): string {
     lines.push("", "Unaccounted tracked files:");
     lines.push(...groupByDirectory(unaccounted.map((finding) => finding.value)));
   }
+  if (eslintReachMissing.length > 0) {
+    lines.push("", "ESLint reach gaps:");
+    for (const finding of eslintReachMissing) lines.push(`- line ${String(finding.line)}: ${finding.value}`);
+  }
   return `${lines.join("\n")}\n`;
 }
 
@@ -247,7 +260,7 @@ export async function runLintCoverageMapCheck(
   options: LintCoverageMapCheckOptions = {},
 ): Promise<LintCoverageMapCheckResult> {
   const cwd = options.cwd ?? repoRoot;
-  const mapText = options.mapText ?? readFileSync(defaultMapPath, "utf8");
+  const mapText = loadMapText(options, cwd);
   const trackedFiles = [...(options.trackedFiles ?? loadTrackedFiles(cwd))].sort();
   const ratchetIds = options.ratchetIds ?? new Set(lintRatchets.map((ratchet) => ratchet.id));
   const rows = parseRows(mapText);
@@ -278,6 +291,7 @@ export async function runLintCoverageMapCheck(
       findings.push({ kind: "unaccounted-file", value: file });
     }
   }
+  findings.push(...(await collectEslintReachFindings({ checkEslintReach: options.checkEslintReach, cwd, extractPathPatterns, reachChecker: options.eslintReachChecker, rows, staged: options.staged, trackedFileIsInScope, trackedFiles })));
 
   if (findings.length > 0) {
     return { exitCode: 1, stdout: "", stderr: formatFindings(findings), findings };
@@ -290,10 +304,25 @@ export async function runLintCoverageMapCheck(
   };
 }
 
+function parseCliArgs(args: readonly string[]): LintCoverageMapCheckOptions | undefined {
+  const flags = args.filter((arg) => arg !== "--");
+  if (flags.every((arg) => arg === "--staged" || arg === "--check-eslint-reach")) {
+    const staged = flags.includes("--staged");
+    return { staged, checkEslintReach: flags.includes("--check-eslint-reach") && !staged };
+  }
+  process.stderr.write("usage: lint-coverage-map-check.ts [--check-eslint-reach] [--staged]\n");
+  return undefined;
+}
+
 const invokedPath = process.argv[1] === undefined ? "" : resolve(process.argv[1]);
 if (fileURLToPath(import.meta.url) === invokedPath) {
-  const result = await runLintCoverageMapCheck();
-  process.stdout.write(result.stdout);
-  process.stderr.write(result.stderr);
-  process.exitCode = result.exitCode;
+  const options = parseCliArgs(process.argv.slice(2));
+  if (options === undefined) {
+    process.exitCode = 2;
+  } else {
+    const result = await runLintCoverageMapCheck(options);
+    process.stdout.write(result.stdout);
+    process.stderr.write(result.stderr);
+    process.exitCode = result.exitCode;
+  }
 }

@@ -182,6 +182,7 @@ BAD_MARKER
 
   grep -qF "pre-commit: OK" <<< "$output" || fail "pre-commit missing OK output: $output"
   grep -qF "stub bun run lint:changed" "$stub_log" || fail "corrupt marker did not rerun lint"
+  grep -qF "stub bun run docs:lint-coverage-map:check -- --staged" "$stub_log" || fail "corrupt marker did not run staged coverage-map check"
   grep -qF "stub bun run typecheck" "$stub_log" || fail "corrupt marker did not rerun typecheck"
   grep -qF "stub bun run test:changed --reporter=dot" "$stub_log" || fail "corrupt marker did not rerun test"
   if grep -qF "stub bun run test:scripts:changed" "$stub_log"; then
@@ -298,6 +299,54 @@ chmod +x "$manifest_repo/bin/bun"
     || fail "pre-commit with manifest edit missing OK output: $output"
 )
 ok "pre-commit runs lint+ratchet+scripts smokes for staged harness.controls.json"
+
+source_relevant_json_paths=(
+  ".claude/settings.json"
+  ".codex/hooks.json"
+  ".devcontainer/devcontainer.json"
+  ".playwright/cli.config.json"
+  "drift-ai.config.json"
+)
+json_index=0
+for json_path in "${source_relevant_json_paths[@]}"; do
+  json_index=$((json_index + 1))
+  json_repo="$TMP_ROOT/source-relevant-json-$json_index"
+  copy_precommit_fixture "$json_repo"
+  (
+    cd "$json_repo"
+    git init -q
+    git config user.name "Test User"
+    git config user.email "test@example.invalid"
+    git add .husky scripts bin
+    git commit -q -m init
+    mkdir -p "$(dirname "$json_path")"
+    printf '{"ok":true}\n' > "$json_path"
+    git add "$json_path"
+
+    marker="$json_repo/precommit-marker-json-$json_index"
+    log_dir="$json_repo/precommit-logs-json-$json_index"
+    stub_log="$json_repo/bun-json-$json_index.log"
+    : > "$stub_log"
+
+    output="$(
+      PATH="$json_repo/bin:$PATH" \
+      STUB_LOG="$stub_log" \
+      MUSI_PRECOMMIT_MARKER="$marker" \
+      MUSI_VERIFY_LOCK="$json_repo/precommit-lock-json-$json_index" \
+      MUSI_VERIFY_LOG_DIR="$log_dir" \
+        sh .husky/pre-commit 2>&1
+    )" || fail "pre-commit should run checks for staged $json_path: $output"
+
+    if grep -qF "no source changes staged" <<< "$output"; then
+      fail "$json_path should not be treated as source-irrelevant: $output"
+    fi
+    grep -qF "stub bun run lint:changed" "$stub_log" \
+      || fail "$json_path staged change did not run lint"
+    grep -qF "pre-commit: OK" <<< "$output" \
+      || fail "pre-commit with $json_path edit missing OK output: $output"
+  )
+  ok "pre-commit runs lint for staged $json_path"
+done
 
 deletion_repo="$TMP_ROOT/deletion-repo"
 mkdir -p "$deletion_repo/scripts/ai-hooks" "$deletion_repo/.husky" "$deletion_repo/node_modules/.bin" "$deletion_repo/bin"

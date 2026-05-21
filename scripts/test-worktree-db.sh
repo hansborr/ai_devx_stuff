@@ -245,16 +245,13 @@ ok "musi_template_drift_warning includes expected warning text"
 
 unset MUSI_DEV_DRIFT_GATE
 [[ "$(musi_dev_drift_gate_mode)" == "warn" ]] || fail "default dev drift gate mode should warn"
-MUSI_DEV_DRIFT_GATE=fail
-[[ "$(musi_dev_drift_gate_mode)" == "fail" ]] || fail "MUSI_DEV_DRIFT_GATE=fail should fail"
-MUSI_DEV_DRIFT_GATE=off
-[[ "$(musi_dev_drift_gate_mode)" == "off" ]] || fail "MUSI_DEV_DRIFT_GATE=off should opt out"
-unset MUSI_DEV_DRIFT_GATE
+[[ "$(MUSI_DEV_DRIFT_GATE=fail musi_dev_drift_gate_mode)" == "fail" ]] || fail "MUSI_DEV_DRIFT_GATE=fail should fail"
+[[ "$(MUSI_DEV_DRIFT_GATE=off musi_dev_drift_gate_mode)" == "off" ]] || fail "MUSI_DEV_DRIFT_GATE=off should opt out"
 ok "dev drift gate mode defaults to warn and supports fail/off"
 
-if ( MUSI_DEV_LOG_COLOR=off; musi_dev_log_color_enabled ); then fail "MUSI_DEV_LOG_COLOR=off should disable color"; fi
-( MUSI_DEV_LOG_COLOR=on; musi_dev_log_color_enabled ) || fail "MUSI_DEV_LOG_COLOR=on should enable color"
-if ( MUSI_DEV_LOG_COLOR=auto NO_COLOR=1; musi_dev_log_color_enabled ); then fail "NO_COLOR should disable auto color"; fi
+if MUSI_DEV_LOG_COLOR=off musi_dev_log_color_enabled; then fail "MUSI_DEV_LOG_COLOR=off should disable color"; fi
+MUSI_DEV_LOG_COLOR=on musi_dev_log_color_enabled || fail "MUSI_DEV_LOG_COLOR=on should enable color"
+if MUSI_DEV_LOG_COLOR=auto NO_COLOR=1 musi_dev_log_color_enabled; then fail "NO_COLOR should disable auto color"; fi
 ok "dev log color mode supports on/off/auto with NO_COLOR"
 
 prefixed="$(printf 'alpha\nbeta' | musi_dev_prefix_stream server 0)"

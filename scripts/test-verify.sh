@@ -90,6 +90,8 @@ run_verify() {
     bash "$VERIFY" "$@"
 }
 
+. "$SCRIPT_DIR/verify-metadata.sh"
+
 # --- syntax / argument parsing --------------------------------------------
 bash -n "$VERIFY" || fail "verify.sh fails bash -n"
 ok "verify.sh passes bash -n"
@@ -137,9 +139,58 @@ grep -qF 'bun run lint:ratchet' "$STUB_LOG_FILE" \
   || fail "verify --changed should invoke bun run lint:ratchet"
 ok "verify --changed runs lint ratchet"
 
-grep -qF 'bun run docs:lint-coverage-map:check' "$STUB_LOG_FILE" \
-  || fail "verify --changed should invoke bun run docs:lint-coverage-map:check"
-ok "verify --changed runs lint coverage map check"
+grep -qF 'bun run docs:lint-coverage-map:check -- --staged' "$STUB_LOG_FILE" \
+  || fail "verify --changed should invoke staged lint coverage map check"
+ok "verify --changed runs staged lint coverage map check"
+
+# --- changed gate rejects unstaged source-relevant worktree drift -----------
+GATE_REPO="$SANDBOX/changed-gate-repo"
+SOURCE_RELEVANT_DRIFT_PATHS=(
+  "docs/agent_notes/backlog/lint-followups/lint-coverage-map.md"
+  ".claude/settings.json"
+  ".codex/hooks.json"
+  ".github/workflows/ci.yml"
+  ".devcontainer/devcontainer.json"
+  ".playwright/cli.config.json"
+  ".yamllint.yml"
+  "bunfig.toml"
+  "drift-ai.config.json"
+  "docker-compose.yml"
+  "commitlint.config.js"
+  "stryker.config.mjs"
+  "knip.config.ts"
+  "playwright.config.ts"
+  "prisma.config.ts"
+  ".claude/hooks/stop-reminder.sh"
+  ".codex/hooks/pre-tool-use.sh"
+  ".codex/config.toml"
+  ".codex/skills/ts-graph/agents/openai.yaml"
+  ".devcontainer/Dockerfile"
+  ".devcontainer/docker-compose.yml"
+  ".devcontainer/start-servers.sh"
+  "packages/server/prisma.config.ts"
+)
+for source_relevant_path in "${SOURCE_RELEVANT_DRIFT_PATHS[@]}"; do
+  rm -rf "$GATE_REPO"
+  mkdir -p "$GATE_REPO/$(dirname "$source_relevant_path")"
+  git -C "$GATE_REPO" init -q -b main
+  git -C "$GATE_REPO" config user.email test@example.invalid
+  git -C "$GATE_REPO" config user.name Test
+  printf 'committed\n' > "$GATE_REPO/$source_relevant_path"
+  git -C "$GATE_REPO" add "$source_relevant_path"
+  git -C "$GATE_REPO" commit -qm init
+  printf 'staged\n' > "$GATE_REPO/$source_relevant_path"
+  git -C "$GATE_REPO" add "$source_relevant_path"
+  printf 'unstaged\n' > "$GATE_REPO/$source_relevant_path"
+  set +e
+  output=$(musi_changed_gate_fail_if_unstaged "$GATE_REPO" "test changed gate" 2>&1)
+  exit_code=$?
+  set -e
+  [ "$exit_code" -ne 0 ] || fail "changed gate accepted unstaged drift for $source_relevant_path"
+  grep -qF "test changed gate:   - $source_relevant_path" <<< "$output" \
+    || fail "changed gate did not report $source_relevant_path"
+  ok "changed gate treats $source_relevant_path as source-relevant"
+done
 
 # --- cache short-circuit: second run skips entirely -----------------------
 LINES_BEFORE=$(wc -l < "$STUB_LOG_FILE")
@@ -359,6 +410,9 @@ ok "verify (full) runs lint ratchet"
 
 grep -qF 'bun run docs:lint-coverage-map:check' "$STUB_LOG_FILE" \
   || fail "verify (full) should invoke bun run docs:lint-coverage-map:check"
+if grep -qF 'bun run docs:lint-coverage-map:check -- --staged' "$STUB_LOG_FILE"; then
+  fail "verify (full) must not invoke the staged lint coverage map check"
+fi
 ok "verify (full) runs lint coverage map check"
 
 # --- MR1: full mode runs the full script smoke suite ---------------------

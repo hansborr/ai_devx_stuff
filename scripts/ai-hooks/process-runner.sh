@@ -4,6 +4,8 @@
 # child cleanup. Callers own lock/cache policy; this file only manages the
 # process lifecycle and log capture.
 
+# shellcheck disable=SC2034
+# AI_RUN_* globals are intentional status outputs for scripts that source this file.
 AI_RUN_EXIT=0
 AI_RUN_ELAPSED=0
 AI_RUN_TIMED_OUT=0

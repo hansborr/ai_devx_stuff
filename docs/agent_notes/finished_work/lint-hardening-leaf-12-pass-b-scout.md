@@ -1,0 +1,640 @@
+# Leaf 12 Pass B Scout: Type-Assertion Boundary Inventory
+
+Generated: 2026-05-17
+
+## Summary
+- Total violations: 332
+- By package: shared=14, server=166, client=141, scripts=8, e2e=3
+- By messageId: missingBoundary=332, invalidCategory=0, emptyReason=0
+- By heuristic classification (missingBoundary only):
+  - prisma-likely=75
+  - json-likely=74
+  - framework-likely=1
+  - interop-likely=0
+  - test-mock-likely=12
+  - shortcut-likely=170
+
+## Recommendation
+Start with `e2e/**/*.ts (2 files with findings)`: it has 3 shortcut-likely finding(s) and 0 clearly bounded finding(s). Pass C can rewrite those shortcut casts, with no sanctioned-boundary comments needed in this scope, then enable `local/type-assertion-boundary` at error for that narrow target.
+
+## Findings by package
+
+### packages/shared/src
+- packages/shared/src/dice/dice-notation.ts:126:20 [shortcut-likely] `const keepType = match[3] as "h" | "l" | undefined;`
+- packages/shared/src/rules/character-rules.ts:313:11 [shortcut-likely] `return (ASI_LEVELS as number[]).includes(level);`
+- packages/shared/src/rules/conditions.ts:63:11 [shortcut-likely] `return (SRD_CONDITIONS as readonly string[]).includes(condition);`
+- packages/shared/src/rules/damage-types.ts:28:11 [shortcut-likely] `return (DAMAGE_TYPES as readonly string[]).includes(value);`
+- packages/shared/src/rules/encounter-difficulty.ts:73:10 [shortcut-likely] `return Math.max(MIN_LEVEL, Math.min(MAX_LEVEL, level)) as CharacterLevel;`
+- packages/shared/src/rules/initiative.ts:45:12 [json-likely] `return { ...rest, sortOrder } as unknown as T & { sortOrder: number };`
+- packages/shared/src/rules/initiative.ts:45:12 [json-likely] `return { ...rest, sortOrder } as unknown as T & { sortOrder: number };`
+- packages/shared/src/rules/multiclass-rules.ts:53:45 [shortcut-likely] `const key = ABILITY_ABBREVIATION_TO_KEY[abbr as AbilityAbbreviation];`
+- packages/shared/src/rules/multiclass-rules.ts:56:31 [shortcut-likely] `\`${ABILITY_FULL_NAMES[abbr as AbilityAbbreviation]} must be at least ${String(minScore)} (current: ${String(scores[key])})\`,`
+- packages/shared/src/rules/multiclass-rules.ts:67:47 [shortcut-likely] `const key = ABILITY_ABBREVIATION_TO_KEY[abbr as AbilityAbbreviation];`
+- packages/shared/src/rules/multiclass-rules.ts:75:48 [shortcut-likely] `.map(([a, min]) => \`${ABILITY_FULL_NAMES[a as AbilityAbbreviation]} at least ${String(min)}\`)`
+- packages/shared/src/rules/spellcasting.ts:83:10 [shortcut-likely] `return clamped as SpellSlotTableLevel;`
+- packages/shared/src/schemas/homebrew.ts:99:18 [shortcut-likely] `const record = value as Record<string, unknown>;`
+- packages/shared/src/schemas/homebrew.ts:256:35 [json-likely] `return { success: true, data: result.data as Record<string, unknown> };`
+
+### packages/server/src
+- packages/server/src/routers/campaign.ts:264:29 [shortcut-likely] `const prismaError = error as { code?: string };`
+- packages/server/src/routers/encounter.ts:87:13 [shortcut-likely] `(k) => (input as Record<string, unknown>)[k] !== undefined,`
+- packages/server/src/routers/encounter.ts:290:20 [prisma-likely] `const from = encounter.state as EncounterDetail["state"];`
+- packages/server/src/routers/encounter.ts:311:17 [prisma-likely] `from: from as "active" | "paused",`
+- packages/server/src/routers/encounter.ts:312:15 [prisma-likely] `to: input.to as "active" | "paused" | "resolved",`
+- packages/server/src/routers/encounter.ts:381:34 [shortcut-likely] `data.conditions = [...(existing as unknown[]), ...persistent];`
+- packages/server/src/routers/encounter.ts:386:15 [prisma-likely] `data: data as Parameters<typeof ctx.prisma.encounterParticipant.create>[0]["data"],`
+- packages/server/src/routers/homebrew.ts:227:15 [shortcut-likely] `const obj = data as Record<string, unknown>;`
+- packages/server/src/routers/inventory.ts:70:15 [shortcut-likely] `itemType: row.itemType as InventoryItem["itemType"],`
+- packages/server/src/routers/inventory.ts:77:17 [shortcut-likely] `sourceType: row.sourceType as InventoryItem["sourceType"],`
+- packages/server/src/routers/magic-item.ts:113:22 [shortcut-likely] `const lastItem = items[items.length - 1] as (typeof items)[number] | undefined;`
+- packages/server/src/routers/monster.ts:88:18 [shortcut-likely] `frequency: ms.frequency as Monster["spells"][number]["frequency"],`
+- packages/server/src/routers/monster.ts:156:22 [shortcut-likely] `const lastItem = monsters[monsters.length - 1] as (typeof monsters)[number] | undefined;`
+- packages/server/src/routers/note.ts:148:39 [shortcut-likely] `updateData.sessionDate = new Date(updateData.sessionDate as string);`
+- packages/server/src/routes/upload-routes.ts:10:12 [prisma-likely] `const db = prisma as unknown as DbClient;`
+- packages/server/src/routes/upload-routes.ts:10:12 [prisma-likely] `const db = prisma as unknown as DbClient;`
+- packages/server/src/routes/upload-routes.ts:46:9 [shortcut-likely] `if (!(ALLOWED_IMAGE_MIME_TYPES as readonly string[]).includes(mime)) {`
+- packages/server/src/seed/seed-srd-backgrounds.ts:105:23 [prisma-likely] `const backgrounds = JSON.parse(raw) as BackgroundJson[];`
+- packages/server/src/seed/seed-srd-backgrounds.ts:124:30 [prisma-likely] `const equipmentOptions = parseEquipmentOptions(bg) as object[] | undefined;`
+- packages/server/src/seed/seed-srd-equipment.ts:234:17 [prisma-likely] `const items = JSON.parse(raw) as EquipmentJson[];`
+- packages/server/src/seed/seed-srd-magic-items.ts:32:17 [prisma-likely] `const items = JSON.parse(raw) as MagicItemSeed[];`
+- packages/server/src/seed/seed-srd-monsters.ts:57:46 [prisma-likely] `return value === null ? Prisma.JsonNull : (value as JsonValue);`
+- packages/server/src/seed/seed-srd-monsters.ts:75:26 [shortcut-likely] `spellcastingAbility: sc.ability as string,`
+- packages/server/src/seed/seed-srd-monsters.ts:76:21 [shortcut-likely] `spellcastingDc: sc.dc as number,`
+- packages/server/src/seed/seed-srd-monsters.ts:77:30 [shortcut-likely] `spellcastingAttackBonus: sc.attackBonus as number,`
+- packages/server/src/seed/seed-srd-monsters.ts:78:29 [shortcut-likely] `spellcastingHeaderText: sc.headerText as string,`
+- packages/server/src/seed/seed-srd-monsters.ts:94:12 [prisma-likely] `speed: m.speed as JsonValue,`
+- packages/server/src/seed/seed-srd-monsters.ts:102:19 [prisma-likely] `savingThrows: m.savingThrows as JsonValue,`
+- packages/server/src/seed/seed-srd-monsters.ts:103:13 [prisma-likely] `skills: m.skills as JsonValue,`
+- packages/server/src/seed/seed-srd-monsters.ts:114:13 [prisma-likely] `traits: m.traits as JsonValue,`
+- packages/server/src/seed/seed-srd-monsters.ts:115:14 [prisma-likely] `actions: m.actions as JsonValue,`
+- packages/server/src/seed/seed-srd-monsters.ts:116:19 [prisma-likely] `bonusActions: m.bonusActions as JsonValue,`
+- packages/server/src/seed/seed-srd-monsters.ts:117:16 [prisma-likely] `reactions: m.reactions as JsonValue,`
+- packages/server/src/seed/seed-srd-monsters.ts:172:16 [json-likely] `const sc = m.spellcasting as unknown as SpellcastingJson;`
+- packages/server/src/seed/seed-srd-monsters.ts:172:16 [json-likely] `const sc = m.spellcasting as unknown as SpellcastingJson;`
+- packages/server/src/seed/seed-srd-monsters.ts:189:20 [prisma-likely] `const monsters = JSON.parse(raw) as MonsterJson[];`
+- packages/server/src/seed/seed-srd-reference-tables.ts:48:10 [prisma-likely] `return JSON.parse(raw) as T[];`
+- packages/server/src/seed/seed-srd-reference-tables.ts:153:17 [prisma-likely] `const items = JSON.parse(raw) as GlossaryItem[];`
+- packages/server/src/seed/seed-srd-reference-tables.ts:158:17 [prisma-likely] `category: item.category as RulesGlossaryCategory,`
+- packages/server/src/seed/seed-srd-spells.ts:74:13 [shortcut-likely] `school: s.school as SpellSchool,`
+- packages/server/src/seed/seed-srd-spells.ts:77:17 [shortcut-likely] `attackType: s.attack_type as SpellAttackType | null,`
+- packages/server/src/seed/seed-srd-spells.ts:78:18 [shortcut-likely] `savingThrow: s.saving_throw as AbilityAbbreviation | null,`
+- packages/server/src/seed/seed-srd-spells.ts:85:18 [prisma-likely] `const spells = JSON.parse(raw) as SpellJson[];`
+- packages/server/src/seed/seed-srd.ts:20:10 [json-likely] `return JSON.parse(raw) as unknown;`
+- packages/server/src/seed/seed-srd.ts:95:18 [prisma-likely] `const skills = loadJson("5e-SRD-Skills.json") as SkillJson[];`
+- packages/server/src/seed/seed-srd.ts:124:18 [prisma-likely] `const traits = loadJson("5e-SRD-Traits.json") as TraitJson[];`
+- packages/server/src/seed/seed-srd.ts:189:23 [prisma-likely] `const speciesList = loadJson("5e-SRD-Species.json") as SpeciesJson[];`
+- packages/server/src/seed/seed-srd.ts:190:26 [prisma-likely] `const subspeciesList = loadJson("5e-SRD-Subspecies.json") as SubspeciesJson[];`
+- packages/server/src/seed/seed-srd.ts:205:17 [prisma-likely] `const feats = loadJson("5e-SRD-Feats.json") as FeatJson[];`
+- packages/server/src/seed/seed-srd.ts:208:22 [shortcut-likely] `const featType = FEAT_TYPE_MAP[f.type as keyof typeof FEAT_TYPE_MAP] as FeatTypeValue;`
+- packages/server/src/seed/seed-srd.ts:208:36 [shortcut-likely] `const featType = FEAT_TYPE_MAP[f.type as keyof typeof FEAT_TYPE_MAP] as FeatTypeValue;`
+- packages/server/src/services/character-live-state/feature.ts:41:10 [shortcut-likely] `return feature as ActiveCharacterFeature;`
+- packages/server/src/services/combat-actions/load-participants.ts:55:35 [json-likely] `const attacker = mapParticipant(attackerRow as unknown as ParticipantRow);`
+- packages/server/src/services/combat-actions/load-participants.ts:55:35 [json-likely] `const attacker = mapParticipant(attackerRow as unknown as ParticipantRow);`
+- packages/server/src/services/combat-actions/load-participants.ts:56:33 [json-likely] `const target = mapParticipant(targetRow as unknown as ParticipantRow);`
+- packages/server/src/services/combat-actions/load-participants.ts:56:33 [json-likely] `const target = mapParticipant(targetRow as unknown as ParticipantRow);`
+- packages/server/src/services/combat-actions/load-participants.ts:63:18 [json-likely] `attackerRaw: attackerRow as unknown as Record<string, unknown>,`
+- packages/server/src/services/combat-actions/load-participants.ts:63:18 [json-likely] `attackerRaw: attackerRow as unknown as Record<string, unknown>,`
+- packages/server/src/services/combat-actions/resolve-attack.ts:34:21 [shortcut-likely] `const character = attackerRaw.character as {`
+- packages/server/src/services/combat-actions/resolve-attack.ts:54:16 [shortcut-likely] `(item) => (item as { id: string }).id === input.weaponItemId,`
+- packages/server/src/services/combat-actions/resolve-attack.ts:60:44 [json-likely] `const weaponData = getWeaponDataFromItem(weaponItem as unknown as InventoryItem);`
+- packages/server/src/services/combat-actions/resolve-attack.ts:60:44 [json-likely] `const weaponData = getWeaponDataFromItem(weaponItem as unknown as InventoryItem);`
+- packages/server/src/services/combat-actions/resolve-attack.ts:81:5 [json-likely] `character.proficiencies as unknown as Pick<CharacterProficiency, "type" | "name">[],`
+- packages/server/src/services/combat-actions/resolve-attack.ts:81:5 [json-likely] `character.proficiencies as unknown as Pick<CharacterProficiency, "type" | "name">[],`
+- packages/server/src/services/combat-actions/resolve-attack.ts:83:6 [json-likely] `(weaponItem as { name: string }).name,`
+- packages/server/src/services/combat-actions/resolve-attack.ts:99:18 [shortcut-likely] `attackName: (weaponItem as { name: string }).name,`
+- packages/server/src/services/level-up/asi.ts:37:29 [shortcut-likely] `const current = stats[key as keyof typeof stats];`
+- packages/server/src/services/level-up/asi.ts:82:21 [shortcut-likely] `const current = freshStats[key as keyof CharacterStats] as number;`
+- packages/server/src/services/level-up/asi.ts:82:32 [shortcut-likely] `const current = freshStats[key as keyof CharacterStats] as number;`
+- packages/server/src/services/level-up/asi.ts:90:6 [shortcut-likely] `(data as Record<string, unknown>)[key] = next;`
+- packages/server/src/services/level-up/asi.ts:111:19 [shortcut-likely] `const prereqs = feat.prerequisites as { minimumLevel?: number } | null;`
+- packages/server/src/services/rest-service.ts:93:10 [json-likely] `return character as unknown as CharacterForRest;`
+- packages/server/src/services/rest-service.ts:93:10 [json-likely] `return character as unknown as CharacterForRest;`
+- packages/server/src/services/spell-casting/load-participants.ts:54:33 [json-likely] `const caster = mapParticipant(casterRow as unknown as ParticipantRow);`
+- packages/server/src/services/spell-casting/load-participants.ts:54:33 [json-likely] `const caster = mapParticipant(casterRow as unknown as ParticipantRow);`
+- packages/server/src/services/spell-casting/load-participants.ts:55:33 [json-likely] `const target = mapParticipant(targetRow as unknown as ParticipantRow);`
+- packages/server/src/services/spell-casting/load-participants.ts:55:33 [json-likely] `const target = mapParticipant(targetRow as unknown as ParticipantRow);`
+- packages/server/src/services/spell-casting/load-participants.ts:58:16 [json-likely] `casterRaw: casterRow as unknown as Record<string, unknown>,`
+- packages/server/src/services/spell-casting/load-participants.ts:58:16 [json-likely] `casterRaw: casterRow as unknown as Record<string, unknown>,`
+- packages/server/src/services/spell-casting/load-participants.ts:59:16 [json-likely] `targetRaw: targetRow as unknown as Record<string, unknown>,`
+- packages/server/src/services/spell-casting/load-participants.ts:59:16 [json-likely] `targetRaw: targetRow as unknown as Record<string, unknown>,`
+- packages/server/src/services/spell-casting/resolve-spell.ts:46:21 [shortcut-likely] `const character = casterRaw.character as {`
+- packages/server/src/services/spell-casting/resolve-spell.ts:86:21 [shortcut-likely] `const character = casterRaw.character as {`
+- packages/server/src/services/spell-casting/resolve-spell.ts:183:21 [shortcut-likely] `const character = targetRaw.character as {`
+- packages/server/src/services/spell-casting/resolve-spell.ts:222:5 [shortcut-likely] `casterRaw.character as {`
+- packages/server/src/services/starting-equipment-service.ts:24:31 [shortcut-likely] `if (ref?.weaponData) return ref.weaponData as object;`
+- packages/server/src/services/starting-equipment-service.ts:25:30 [shortcut-likely] `if (ref?.armorData) return ref.armorData as object;`
+- packages/server/src/services/upload-service.ts:43:11 [shortcut-likely] `return (ALLOWED_IMAGE_MIME_TYPES as readonly string[]).includes(mime);`
+- packages/server/src/socket/auth-middleware.ts:18:19 [framework-likely] `const token = socket.handshake.auth["token"] as string | undefined;`
+- packages/server/src/test/auth-helper.ts:19:16 [json-likely] `const body = JSON.parse(response.body) as {`
+- packages/server/src/test/auth-helper.ts:23:27 [test-mock-likely] `const setCookieHeader = response.headers["set-cookie"] as string;`
+- packages/server/src/test/character-fixtures.ts:29:11 [json-likely] `return (JSON.parse(res.body) as { result: { data: { id: string } } }).result.data.id;`
+- packages/server/src/test/socket-helper.ts:60:15 [json-likely] `const io = (server as unknown as { io: AppSocketServer }).io;`
+- packages/server/src/test/socket-helper.ts:60:15 [json-likely] `const io = (server as unknown as { io: AppSocketServer }).io;`
+- packages/server/src/test/socket-helper.ts:75:7 [test-mock-likely] `event as keyof ServerToClientEvents,`
+- packages/server/src/test/socket-helper.ts:76:7 [test-mock-likely] `((...args: unknown[]) => {`
+- packages/server/src/test/socket-helper.ts:78:17 [test-mock-likely] `resolve(args[0] as T);`
+- packages/server/src/test/test-db.ts:7:19 [prisma-likely] `export const db = prisma as unknown as DbClient;`
+- packages/server/src/test/test-db.ts:7:19 [prisma-likely] `export const db = prisma as unknown as DbClient;`
+- packages/server/src/test/trpc-helpers.ts:3:11 [json-likely] `return (JSON.parse(body) as { result: { data: T } }).result.data;`
+- packages/server/src/trpc/context.ts:50:20 [prisma-likely] `return { prisma: prisma as unknown as DbClient, user, logger: toRequestLogger(req.log), req, res };`
+- packages/server/src/trpc/context.ts:50:20 [prisma-likely] `return { prisma: prisma as unknown as DbClient, user, logger: toRequestLogger(req.log), req, res };`
+- packages/server/src/trpc/trpc.ts:30:19 [shortcut-likely] `const errors = (rest as { errors?: zodCore.$ZodIssue[][] }).errors;`
+- packages/server/src/trpc/trpc.ts:33:30 [shortcut-likely] `branch.map((nested) => stripIssue(nested) as zodCore.$ZodIssue),`
+- packages/server/src/trpc/trpc.ts:36:25 [shortcut-likely] `const nestedIssues = (rest as { issues?: zodCore.$ZodIssue[] }).issues;`
+- packages/server/src/trpc/trpc.ts:38:48 [shortcut-likely] `safe.issues = nestedIssues.map((nested) => stripIssue(nested) as zodCore.$ZodIssue);`
+- packages/server/src/trpc/trpc.ts:40:10 [prisma-likely] `return safe as SafeIssue;`
+- packages/server/src/utils/character-campaign.ts:70:20 [shortcut-likely] `const server = ctx.req.server as ServerWithLog;`
+- packages/server/src/utils/character-class-mutations.ts:32:15 [prisma-likely] `const raw = tx as unknown as RawTxClient;`
+- packages/server/src/utils/character-class-mutations.ts:32:15 [prisma-likely] `const raw = tx as unknown as RawTxClient;`
+- packages/server/src/utils/character-class-mutations.ts:50:15 [prisma-likely] `const raw = client as unknown as RawTxClient;`
+- packages/server/src/utils/character-class-mutations.ts:50:15 [prisma-likely] `const raw = client as unknown as RawTxClient;`
+- packages/server/src/utils/character-class-mutations.ts:73:15 [prisma-likely] `const raw = tx as unknown as RawTxClient;`
+- packages/server/src/utils/character-class-mutations.ts:73:15 [prisma-likely] `const raw = tx as unknown as RawTxClient;`
+- packages/server/src/utils/character-class-mutations.ts:99:15 [prisma-likely] `const raw = tx as unknown as RawTxClient;`
+- packages/server/src/utils/character-class-mutations.ts:99:15 [prisma-likely] `const raw = tx as unknown as RawTxClient;`
+- packages/server/src/utils/character-mapping.ts:88:21 [shortcut-likely] `featureName: (f as { classFeature?: { name: string } }).classFeature?.name,`
+- packages/server/src/utils/character-stats-mutations.ts:61:15 [prisma-likely] `const raw = tx as unknown as RawTxClient;`
+- packages/server/src/utils/character-stats-mutations.ts:61:15 [prisma-likely] `const raw = tx as unknown as RawTxClient;`
+- packages/server/src/utils/character-stats-mutations.ts:102:15 [prisma-likely] `const raw = tx as unknown as RawTxClient;`
+- packages/server/src/utils/character-stats-mutations.ts:102:15 [prisma-likely] `const raw = tx as unknown as RawTxClient;`
+- packages/server/src/utils/encounter-query.ts:163:11 [shortcut-likely] `type: row.type as EncounterParticipantType["type"],`
+- packages/server/src/utils/encounter-query.ts:187:13 [shortcut-likely] `action: row.action as CombatLogType["action"],`
+- packages/server/src/utils/encounter-query.ts:206:12 [shortcut-likely] `state: enc.state as EncounterDetail["state"],`
+- packages/server/src/utils/encounter-query.ts:224:12 [shortcut-likely] `state: e.state as EncounterSummary["state"],`
+- packages/server/src/utils/encounter-state-mutations.ts:71:15 [prisma-likely] `const raw = client as unknown as RawTxClient;`
+- packages/server/src/utils/encounter-state-mutations.ts:71:15 [prisma-likely] `const raw = client as unknown as RawTxClient;`
+- packages/server/src/utils/encounter-state-mutations.ts:107:15 [prisma-likely] `const raw = tx as unknown as RawTxClient;`
+- packages/server/src/utils/encounter-state-mutations.ts:107:15 [prisma-likely] `const raw = tx as unknown as RawTxClient;`
+- packages/server/src/utils/encounter-state-mutations.ts:140:15 [prisma-likely] `const raw = client as unknown as RawTxClient;`
+- packages/server/src/utils/encounter-state-mutations.ts:140:15 [prisma-likely] `const raw = client as unknown as RawTxClient;`
+- packages/server/src/utils/encounter-state-mutations.ts:189:15 [prisma-likely] `const raw = tx as unknown as RawTxClient;`
+- packages/server/src/utils/encounter-state-mutations.ts:189:15 [prisma-likely] `const raw = tx as unknown as RawTxClient;`
+- packages/server/src/utils/encounter-state-mutations.ts:250:15 [prisma-likely] `const raw = client as unknown as RawTxClient;`
+- packages/server/src/utils/encounter-state-mutations.ts:250:15 [prisma-likely] `const raw = client as unknown as RawTxClient;`
+- packages/server/src/utils/map-helpers.ts:126:11 [shortcut-likely] `data: (l.data ?? {}) as Record<string, unknown>,`
+- packages/server/src/utils/participant-stats-mutations.ts:63:15 [prisma-likely] `const raw = tx as unknown as RawTxClient;`
+- packages/server/src/utils/participant-stats-mutations.ts:63:15 [prisma-likely] `const raw = tx as unknown as RawTxClient;`
+- packages/server/src/utils/participant-stats-mutations.ts:106:15 [prisma-likely] `const raw = tx as unknown as RawTxClient;`
+- packages/server/src/utils/participant-stats-mutations.ts:106:15 [prisma-likely] `const raw = tx as unknown as RawTxClient;`
+- packages/server/src/utils/participant-stats-mutations.ts:181:15 [prisma-likely] `const raw = client as unknown as RawTxClient;`
+- packages/server/src/utils/participant-stats-mutations.ts:181:15 [prisma-likely] `const raw = client as unknown as RawTxClient;`
+- packages/server/src/utils/prisma-json.ts:40:10 [shortcut-likely] `return (fallback !== undefined ? (value ?? fallback) : value) as T;`
+- packages/server/src/utils/prisma-json.ts:90:10 [prisma-likely] `return value as InputJsonValue;`
+- packages/server/src/utils/socket-helpers.ts:5:13 [shortcut-likely] `return (server as { io: AppSocketServer }).io;`
+- packages/server/src/utils/spell-slot-mutations.ts:38:15 [prisma-likely] `const raw = tx as unknown as RawTxClient;`
+- packages/server/src/utils/spell-slot-mutations.ts:38:15 [prisma-likely] `const raw = tx as unknown as RawTxClient;`
+- packages/server/src/utils/spell-slot-mutations.ts:74:15 [prisma-likely] `const raw = tx as unknown as RawTxClient;`
+- packages/server/src/utils/spell-slot-mutations.ts:74:15 [prisma-likely] `const raw = tx as unknown as RawTxClient;`
+- packages/server/src/utils/spell-slot-mutations.ts:108:15 [prisma-likely] `const raw = client as unknown as RawTxClient;`
+- packages/server/src/utils/spell-slot-mutations.ts:108:15 [prisma-likely] `const raw = client as unknown as RawTxClient;`
+- packages/server/src/utils/spell-slot-mutations.ts:126:15 [prisma-likely] `const raw = tx as unknown as RawTxClient;`
+- packages/server/src/utils/spell-slot-mutations.ts:126:15 [prisma-likely] `const raw = tx as unknown as RawTxClient;`
+- packages/server/src/utils/spell-slot-mutations.ts:143:15 [prisma-likely] `const raw = tx as unknown as RawTxClient;`
+- packages/server/src/utils/spell-slot-mutations.ts:143:15 [prisma-likely] `const raw = tx as unknown as RawTxClient;`
+- packages/server/src/utils/srd-narrowing.ts:32:13 [shortcut-likely] `hitDie: row.hitDie as HitDie,`
+- packages/server/src/utils/srd-narrowing.ts:33:17 [shortcut-likely] `casterType: row.casterType as CasterType,`
+- packages/server/src/utils/srd-narrowing.ts:34:26 [shortcut-likely] `spellcastingAbility: row.spellcastingAbility as AbilityAbbreviation | null,`
+- packages/server/src/utils/srd-narrowing.ts:53:17 [shortcut-likely] `casterType: row.casterType as CasterType,`
+- packages/server/src/utils/srd-narrowing.ts:54:26 [shortcut-likely] `spellcastingAbility: row.spellcastingAbility as AbilityAbbreviation | null,`
+- packages/server/src/utils/srd-narrowing.ts:59:10 [shortcut-likely] `return value as AbilityAbbreviation;`
+- packages/server/src/utils/srd-narrowing.ts:63:10 [shortcut-likely] `return value as DamageTypeName | null;`
+- packages/server/src/utils/srd-query-helpers.ts:44:12 [shortcut-likely] `return rows.map(map) as never;`
+- packages/server/src/utils/srd-query-helpers.ts:63:32 [shortcut-likely] `const rows = await fetch(opts.input as z.output<TInput>, opts.ctx);`
+- packages/server/src/utils/srd-query-helpers.ts:64:14 [shortcut-likely] `return rows.map(map) as never;`
+- packages/server/src/utils/srd-query-helpers.ts:83:14 [shortcut-likely] `return map(row) as never;`
+
+### packages/client/src
+- packages/client/src/components/campaign/combat/combat-log-panel.tsx:196:23 [shortcut-likely] `setAction(e.target.value as CombatActionType);`
+- packages/client/src/components/campaign/combat/combat-map-panel.tsx:52:15 [shortcut-likely] `const map = mapQuery.data as MapDetail | undefined;`
+- packages/client/src/components/campaign/combat/condition-toggle-popover.tsx:88:8 [shortcut-likely] `(e.target as HTMLInputElement).blur();`
+- packages/client/src/components/campaign/combat/hp-adjustment-dialog.tsx:44:9 [shortcut-likely] `{(Object.keys(MODE_CONFIG) as HpAdjustmentMode[]).map((m) => {`
+- packages/client/src/components/campaign/encounters/add-participant-dialog.tsx:151:20 [shortcut-likely] `const campaign = campaignQuery.data as`
+- packages/client/src/components/campaign/encounters/encounter-detail-view.tsx:373:21 [shortcut-likely] `const encounter = encounterQuery.data as EncounterDetail | undefined;`
+- packages/client/src/components/campaign/encounters/encounter-map-link.tsx:25:16 [shortcut-likely] `const maps = (mapsQuery.data ?? []) as MapSummary[];`
+- packages/client/src/components/campaign/encounters/encounters-panel.tsx:102:22 [shortcut-likely] `const encounters = (encountersQuery.data ?? []) as EncounterSummary[];`
+- packages/client/src/components/campaign/maps/create-map-dialog.tsx:180:49 [shortcut-likely] `setForm((f) => ({ ...f, gridType: v as GridType }));`
+- packages/client/src/components/campaign/maps/map-canvas-overlays.tsx:153:14 [shortcut-likely] `shape={shape as "cone" | "cube" | "sphere" | "line" | "emanation"}`
+- packages/client/src/components/campaign/maps/map-detail-view.tsx:67:15 [shortcut-likely] `const map = mapQuery.data as MapDetail | undefined;`
+- packages/client/src/components/campaign/maps/maps-panel.tsx:94:16 [shortcut-likely] `const maps = (mapsQuery.data ?? []) as MapSummary[];`
+- packages/client/src/components/campaign/members/invite-panel.tsx:141:19 [shortcut-likely] `const invites = (invitesQuery.data ?? []) as CampaignInvite[];`
+- packages/client/src/components/campaign/members/members-panel.tsx:71:17 [shortcut-likely] `const chars = data as CharListItem[] | undefined;`
+- packages/client/src/components/campaign/notes/note-editor.tsx:83:34 [shortcut-likely] `onVisibilityChange(v as NoteVisibility);`
+- packages/client/src/components/campaign/notes/notes-panel.tsx:272:29 [shortcut-likely] `updateMutation.mutate(data as NoteFormData & { id: string });`
+- packages/client/src/components/campaign/notes/notes-panel.tsx:274:29 [shortcut-likely] `createMutation.mutate(data as NoteFormData & { campaignId: string });`
+- packages/client/src/components/campaign/npcs/monster-tab.tsx:100:36 [prisma-likely] `onChange({ creatureType: (v || "") as CreatureType | "" });`
+- packages/client/src/components/campaign/npcs/monster-tab.tsx:110:28 [prisma-likely] `onChange({ size: (v || "") as MonsterSize | "" });`
+- packages/client/src/components/campaign/npcs/npc-panel.tsx:235:16 [shortcut-likely] `const npcs = (npcsQuery.data ?? []) as NpcWithCreator[];`
+- packages/client/src/components/campaign/npcs/npc-panel.tsx:250:29 [shortcut-likely] `updateMutation.mutate(data as NpcFormData & { id: string });`
+- packages/client/src/components/campaign/npcs/npc-panel.tsx:252:29 [shortcut-likely] `createMutation.mutate(data as NpcFormData & { campaignId: string });`
+- packages/client/src/components/campaign/tokens/add-token-dialog.tsx:125:45 [shortcut-likely] `setForm((f) => ({ ...f, type: v as TokenType }));`
+- packages/client/src/components/campaign/tokens/token-context-menu.tsx:242:56 [shortcut-likely] `if (menuRef.current && !menuRef.current.contains(e.target as Node)) onClose();`
+- packages/client/src/components/character-create/steps/ability-boost-section.tsx:47:20 [shortcut-likely] `onChange(v as AbilityAbbreviation);`
+- packages/client/src/components/character-create/steps/ability-scores-step.tsx:43:35 [shortcut-likely] `if (STANDARD_ARRAY.includes(val as (typeof STANDARD_ARRAY)[number])) a[ab] = val;`
+- packages/client/src/components/character-create/steps/equipment-step.tsx:101:11 [shortcut-likely] `() => (selectedBg?.equipmentOptions ?? []) as EquipmentOption[],`
+- packages/client/src/components/compendium/magic-item-list.tsx:30:49 [shortcut-likely] `].map((c) => ({ value: c, label: formatCategory(c as MagicItemCategory) }));`
+- packages/client/src/components/compendium/magic-item-list.tsx:40:47 [shortcut-likely] `].map((r) => ({ value: r, label: formatRarity(r as MagicItemRarity) }));`
+- packages/client/src/components/compendium/magic-item-list.tsx:74:32 [prisma-likely] `onChange({ category: (v || "") as MagicItemCategory | "" });`
+- packages/client/src/components/compendium/magic-item-list.tsx:84:30 [shortcut-likely] `onChange({ rarity: (v || "") as MagicItemRarity | "" });`
+- packages/client/src/components/homebrew/collections/collection-form-fields.tsx:67:32 [shortcut-likely] `onVisibilityChange(v as HomebrewVisibility);`
+- packages/client/src/components/homebrew/entries/entry-dialog.tsx:77:12 [json-likely] `build: buildFeatData as EditorHandler["build"],`
+- packages/client/src/components/homebrew/entries/entry-dialog.tsx:78:29 [json-likely] `getName: (f: never) => (f as ReturnType<typeof getDefaultFeatData>).name,`
+- packages/client/src/components/homebrew/entries/entry-dialog.tsx:79:16 [json-likely] `Component: FeatFormFields as unknown as EditorHandler["Component"],`
+- packages/client/src/components/homebrew/entries/entry-dialog.tsx:79:16 [json-likely] `Component: FeatFormFields as unknown as EditorHandler["Component"],`
+- packages/client/src/components/homebrew/entries/entry-dialog.tsx:83:12 [json-likely] `build: buildSpellData as EditorHandler["build"],`
+- packages/client/src/components/homebrew/entries/entry-dialog.tsx:84:29 [json-likely] `getName: (f: never) => (f as ReturnType<typeof getDefaultSpellData>).name,`
+- packages/client/src/components/homebrew/entries/entry-dialog.tsx:85:16 [json-likely] `Component: SpellFormFields as unknown as EditorHandler["Component"],`
+- packages/client/src/components/homebrew/entries/entry-dialog.tsx:85:16 [json-likely] `Component: SpellFormFields as unknown as EditorHandler["Component"],`
+- packages/client/src/components/homebrew/entries/entry-dialog.tsx:89:12 [json-likely] `build: buildItemData as EditorHandler["build"],`
+- packages/client/src/components/homebrew/entries/entry-dialog.tsx:90:29 [json-likely] `getName: (f: never) => (f as ReturnType<typeof getDefaultItemData>).name,`
+- packages/client/src/components/homebrew/entries/entry-dialog.tsx:91:16 [json-likely] `Component: ItemFormFields as unknown as EditorHandler["Component"],`
+- packages/client/src/components/homebrew/entries/entry-dialog.tsx:91:16 [json-likely] `Component: ItemFormFields as unknown as EditorHandler["Component"],`
+- packages/client/src/components/homebrew/entries/entry-dialog.tsx:95:12 [json-likely] `build: buildSpeciesData as EditorHandler["build"],`
+- packages/client/src/components/homebrew/entries/entry-dialog.tsx:96:29 [json-likely] `getName: (f: never) => (f as ReturnType<typeof getDefaultSpeciesData>).name,`
+- packages/client/src/components/homebrew/entries/entry-dialog.tsx:97:16 [json-likely] `Component: SpeciesFormFields as unknown as EditorHandler["Component"],`
+- packages/client/src/components/homebrew/entries/entry-dialog.tsx:97:16 [json-likely] `Component: SpeciesFormFields as unknown as EditorHandler["Component"],`
+- packages/client/src/components/homebrew/entries/entry-dialog.tsx:101:12 [json-likely] `build: buildBackgroundData as EditorHandler["build"],`
+- packages/client/src/components/homebrew/entries/entry-dialog.tsx:102:29 [json-likely] `getName: (f: never) => (f as ReturnType<typeof getDefaultBackgroundData>).name,`
+- packages/client/src/components/homebrew/entries/entry-dialog.tsx:103:16 [json-likely] `Component: BackgroundFormFields as unknown as EditorHandler["Component"],`
+- packages/client/src/components/homebrew/entries/entry-dialog.tsx:103:16 [json-likely] `Component: BackgroundFormFields as unknown as EditorHandler["Component"],`
+- packages/client/src/components/homebrew/entries/entry-dialog.tsx:107:12 [json-likely] `build: buildClassData as EditorHandler["build"],`
+- packages/client/src/components/homebrew/entries/entry-dialog.tsx:108:29 [json-likely] `getName: (f: never) => (f as ReturnType<typeof getDefaultClassData>).name,`
+- packages/client/src/components/homebrew/entries/entry-dialog.tsx:109:16 [json-likely] `Component: ClassFormFields as unknown as EditorHandler["Component"],`
+- packages/client/src/components/homebrew/entries/entry-dialog.tsx:109:16 [json-likely] `Component: ClassFormFields as unknown as EditorHandler["Component"],`
+- packages/client/src/components/homebrew/entries/entry-dialog.tsx:113:12 [json-likely] `build: buildSubclassData as EditorHandler["build"],`
+- packages/client/src/components/homebrew/entries/entry-dialog.tsx:114:29 [json-likely] `getName: (f: never) => (f as ReturnType<typeof getDefaultSubclassData>).name,`
+- packages/client/src/components/homebrew/entries/entry-dialog.tsx:115:16 [json-likely] `Component: SubclassFormFields as unknown as EditorHandler["Component"],`
+- packages/client/src/components/homebrew/entries/entry-dialog.tsx:115:16 [json-likely] `Component: SubclassFormFields as unknown as EditorHandler["Component"],`
+- packages/client/src/components/homebrew/entries/entry-dialog.tsx:119:12 [json-likely] `build: buildMagicItemData as EditorHandler["build"],`
+- packages/client/src/components/homebrew/entries/entry-dialog.tsx:120:29 [json-likely] `getName: (f: never) => (f as ReturnType<typeof getDefaultMagicItemData>).name,`
+- packages/client/src/components/homebrew/entries/entry-dialog.tsx:121:16 [json-likely] `Component: MagicItemFormFields as unknown as EditorHandler["Component"],`
+- packages/client/src/components/homebrew/entries/entry-dialog.tsx:121:16 [json-likely] `Component: MagicItemFormFields as unknown as EditorHandler["Component"],`
+- packages/client/src/components/homebrew/entries/entry-dialog.tsx:125:12 [json-likely] `build: buildMonsterData as EditorHandler["build"],`
+- packages/client/src/components/homebrew/entries/entry-dialog.tsx:126:29 [json-likely] `getName: (f: never) => (f as ReturnType<typeof getDefaultMonsterData>).name,`
+- packages/client/src/components/homebrew/entries/entry-dialog.tsx:127:16 [json-likely] `Component: MonsterFormFields as unknown as EditorHandler["Component"],`
+- packages/client/src/components/homebrew/entries/entry-dialog.tsx:127:16 [json-likely] `Component: MonsterFormFields as unknown as EditorHandler["Component"],`
+- packages/client/src/components/homebrew/entries/entry-dialog.tsx:194:20 [shortcut-likely] `onChange(v as HomebrewEntryType);`
+- packages/client/src/components/homebrew/entries/entry-dialog.tsx:234:13 [shortcut-likely] `form={formState as never}`
+- packages/client/src/components/homebrew/entries/entry-dialog.tsx:235:17 [shortcut-likely] `onChange={setFormState as (f: never) => void}`
+- packages/client/src/components/homebrew/entries/entry-dialog.tsx:255:62 [shortcut-likely] `const [entryType, setEntryType] = useState(entry?.type ?? ("feat" as HomebrewEntryType));`
+- packages/client/src/components/homebrew/entries/entry-dialog.tsx:304:34 [json-likely] `const name = handler.getName(formState as never);`
+- packages/client/src/components/homebrew/entries/entry-dialog.tsx:305:32 [json-likely] `const data = handler.build(formState as never);`
+- packages/client/src/components/homebrew/feat/feat-form-fields.tsx:43:39 [shortcut-likely] `return VALID_FEAT_TYPES.has(raw) ? (raw as FeatFormData["featType"]) : "general";`
+- packages/client/src/components/homebrew/feat/feat-form-fields.tsx:48:19 [shortcut-likely] `const prereqs = data.prerequisites as`
+- packages/client/src/components/homebrew/feat/feat-form-fields.tsx:147:32 [shortcut-likely] `update({ featType: v as FeatFormData["featType"] });`
+- packages/client/src/components/homebrew/item/item-form-data.ts:119:39 [shortcut-likely] `return VALID_CATEGORIES.has(raw) ? (raw as EquipmentCategory) : "gear";`
+- packages/client/src/components/homebrew/item/item-form-data.ts:130:13 [shortcut-likely] `const d = data as Record<string, unknown>;`
+- packages/client/src/components/homebrew/item/item-form-data.ts:134:49 [shortcut-likely] `rangeNormal: d.rangeNormal != null ? String(d.rangeNormal as number) : "",`
+- packages/client/src/components/homebrew/item/item-form-data.ts:135:45 [shortcut-likely] `rangeLong: d.rangeLong != null ? String(d.rangeLong as number) : "",`
+- packages/client/src/components/homebrew/item/item-form-data.ts:146:13 [shortcut-likely] `const d = data as Record<string, unknown>;`
+- packages/client/src/components/homebrew/item/item-form-data.ts:148:35 [shortcut-likely] `base: d.base != null ? String(d.base as number) : "",`
+- packages/client/src/components/homebrew/item/item-form-data.ts:150:39 [shortcut-likely] `maxDex: d.maxDex != null ? String(d.maxDex as number) : "",`
+- packages/client/src/components/homebrew/item/item-form-data.ts:152:47 [shortcut-likely] `strMinimum: d.strMinimum != null ? String(d.strMinimum as number) : "",`
+- packages/client/src/components/homebrew/item/item-form-data.ts:164:54 [shortcut-likely] `costQuantity: data.costQuantity != null ? String(data.costQuantity as number) : "",`
+- packages/client/src/components/homebrew/item/item-form-data.ts:166:42 [shortcut-likely] `weight: data.weight != null ? String(data.weight as number) : "",`
+- packages/client/src/components/homebrew/item/item-form-fields.tsx:57:32 [shortcut-likely] `update({ category: v as ItemFormData["category"] });`
+- packages/client/src/components/homebrew/magic-item/magic-item-form-data.ts:63:13 [shortcut-likely] `const d = data as Record<string, unknown>;`
+- packages/client/src/components/homebrew/monster/monster-ability-scores.tsx:37:24 [shortcut-likely] `value={form[key] as string}`
+- packages/client/src/components/homebrew/monster/monster-ability-scores.tsx:39:26 [shortcut-likely] `update({ [key]: e.target.value } as Partial<MonsterFormData>);`
+- packages/client/src/components/homebrew/monster/monster-defenses-fields.tsx:35:24 [shortcut-likely] `value={form[key] as string}`
+- packages/client/src/components/homebrew/monster/monster-form-data.ts:200:25 [shortcut-likely] `return Object.entries(v as Record<string, unknown>)`
+- packages/client/src/components/homebrew/monster/monster-form-data.ts:229:13 [shortcut-likely] `const s = d as Record<string, unknown>;`
+- packages/client/src/components/homebrew/monster/monster-form-data.ts:253:13 [shortcut-likely] `const o = d as Record<string, unknown>;`
+- packages/client/src/components/homebrew/monster/monster-form-data.ts:356:32 [shortcut-likely] `return VALID_FREQS.has(f) ? (f as MonsterSpellFrequency) : "at_will";`
+- packages/client/src/components/homebrew/monster/monster-form-fields.tsx:206:22 [shortcut-likely] `value={form[key] as string}`
+- packages/client/src/components/homebrew/species/species-form-data.ts:69:13 [shortcut-likely] `const d = data as Record<string, unknown>;`
+- packages/client/src/components/sheet/add-item-dialog.tsx:37:20 [shortcut-likely] `onChange(v as ItemType);`
+- packages/client/src/components/sheet/add-spell-dialog.tsx:122:35 [shortcut-likely] `return SPELL_CLASS_IDS.includes(primary as SpellClassId) ? primary : ALL_CLASSES;`
+- packages/client/src/components/sheet/add-spell-dialog.tsx:144:54 [shortcut-likely] `if (schoolFilter !== ALL_SCHOOLS) input.school = schoolFilter as SpellSchool;`
+- packages/client/src/components/sheet/asi-step.tsx:44:51 [shortcut-likely] `i.ability === ability ? { ...i, amount: (i.amount + 1) as 1 | 2 } : i,`
+- packages/client/src/components/sheet/asi-step.tsx:60:51 [shortcut-likely] `i.ability === ability ? { ...i, amount: (i.amount - 1) as 1 | 2 } : i,`
+- packages/client/src/components/sheet/asi-step.tsx:140:21 [shortcut-likely] `const prereqs = f.prerequisites as { minimumLevel?: number } | null;`
+- packages/client/src/components/sheet/edit-item-dialog.tsx:103:29 [shortcut-likely] `setItemType(v as ItemType);`
+- packages/client/src/components/sheet/homebrew-item-tab.tsx:45:44 [shortcut-likely] `return EQUIPMENT_CATEGORY_TO_ITEM_TYPE[category as EquipmentCategory];`
+- packages/client/src/components/sheet/homebrew-item-tab.tsx:60:10 [shortcut-likely] `return result as ItemProperties;`
+- packages/client/src/components/sheet/homebrew-item-tab.tsx:73:10 [shortcut-likely] `return result as ItemProperties;`
+- packages/client/src/components/sheet/roll-context-menu.tsx:78:23 [shortcut-likely] `const current = document.activeElement as HTMLElement;`
+- packages/client/src/components/sheet/spell-filter-bar.tsx:85:50 [shortcut-likely] `update({ school: v === ALL ? null : (v as SpellSchool) });`
+- packages/client/src/components/sheet/spell-filter-bar.tsx:94:32 [shortcut-likely] `update({ prepared: v as SpellFilters["prepared"] });`
+- packages/client/src/hooks/canvas-input/tool-handlers.ts:97:10 [shortcut-likely] `return tool.slice("template-".length) as TemplateShape;`
+- packages/client/src/hooks/character-sheet/use-character-stats.ts:36:11 [shortcut-likely] `return (err as { data?: { code?: string } } | null)?.data?.code === "CONFLICT";`
+- packages/client/src/hooks/use-ability-roll.ts:25:24 [shortcut-likely] `const result = data.metadata as RollResult | undefined;`
+- packages/client/src/hooks/use-character-actions.ts:66:47 [shortcut-likely] `const newVisibility = VISIBILITY_TOGGLE[current as CharacterVisibility];`
+- packages/client/src/hooks/use-long-press.ts:133:39 [shortcut-likely] `onLongPress(elementCenter(e.currentTarget as HTMLElement));`
+- packages/client/src/hooks/use-map-image-upload.ts:31:11 [shortcut-likely] `if (!(ALLOWED_IMAGE_MIME_TYPES as readonly string[]).includes(file.type)) {`
+- packages/client/src/hooks/use-map-image-upload.ts:62:22 [shortcut-likely] `const body = (await res.json().catch(() => ({ error: "Upload failed" }))) as {`
+- packages/client/src/hooks/use-map-image-upload.ts:70:20 [shortcut-likely] `const data = (await res.json()) as { url: string };`
+- packages/client/src/hooks/use-srd-lookups.ts:130:12 [shortcut-likely] `feats: feats as Feat[],`
+- packages/client/src/hooks/use-weapon-roll.ts:40:24 [shortcut-likely] `const result = data.metadata as RollResult | undefined;`
+- packages/client/src/hooks/use-weapon-roll.ts:52:24 [shortcut-likely] `const result = data.metadata as RollResult | undefined;`
+- packages/client/src/hooks/use-weapon-roll.ts:71:34 [shortcut-likely] `const rollResult = data.metadata as RollResult | undefined;`
+- packages/client/src/lib/api-base.ts:2:17 [json-likely] `const envUrl = (import.meta as unknown as Record<string, Record<string, string>>)["env"]?.[`
+- packages/client/src/lib/api-base.ts:2:17 [json-likely] `const envUrl = (import.meta as unknown as Record<string, Record<string, string>>)["env"]?.[`
+- packages/client/src/lib/trpc.ts:25:18 [shortcut-likely] `const json = (await res.json()) as { result?: { data?: { accessToken?: string } } };`
+- packages/client/src/pages/campaign-detail-page.tsx:250:20 [shortcut-likely] `const campaign = campaignQuery.data as CampaignDetail | undefined;`
+- packages/client/src/pages/campaigns-page.tsx:76:21 [shortcut-likely] `const campaigns = campaignsQuery.data as CampaignSummary[] | undefined;`
+- packages/client/src/pages/collection-detail-page.tsx:143:52 [shortcut-likely] `if (typeFilter !== ALL_TYPES_VALUE) input.type = typeFilter as ListEntriesInput["type"];`
+- packages/client/src/pages/collection-detail-page.tsx:160:22 [shortcut-likely] `const collection = collectionQuery.data as`
+- packages/client/src/pages/collection-detail-page.tsx:167:19 [shortcut-likely] `const entries = entriesQuery.data as HomebrewEntry[] | undefined;`
+- packages/client/src/pages/homebrew-page.tsx:140:23 [shortcut-likely] `const collections = collectionsQuery.data as HomebrewCollectionWithAuthor[] | undefined;`
+- packages/client/src/routes/campaign-detail-route.ts:23:40 [shortcut-likely] `return typeof value === "string" && (CAMPAIGN_TABS as readonly string[]).includes(value);`
+- packages/client/src/test/fixtures-character.ts:20:15 [test-mock-likely] `campaignId: null as string | null,`
+- packages/client/src/test/fixtures-character.ts:104:15 [test-mock-likely] `conditions: [] as Array<{ id: string; characterId: string; conditionName: string }>,`
+- packages/client/src/test/fixtures-character.ts:105:15 [test-mock-likely] `spellSlots: [] as Array<{`
+- packages/client/src/test/fixtures-character.ts:112:11 [test-mock-likely] `spells: [] as Array<{`
+- packages/client/src/test/fixtures-character.ts:127:13 [test-mock-likely] `features: [] as Array<{`
+- packages/client/src/test/fixtures-character.ts:135:17 [test-mock-likely] `levelChoices: [] as Array<{`
+- packages/client/src/test/fixtures-character.ts:143:20 [test-mock-likely] `weaponMasteries: [] as CharacterWeaponMastery[],`
+- packages/client/src/test/fixtures-character.ts:144:15 [test-mock-likely] `metamagics: [] as Array<{ id: string; characterId: string; metamagicId: string }>,`
+
+### scripts
+- scripts/code-intel/daemon-client.ts:127:22 [shortcut-likely] `const response = parsed as Extract<CodeIntelDaemonResponse, { ok: true }>;`
+- scripts/code-intel/daemon-client.ts:137:23 [shortcut-likely] `const errorRecord = parsed.error as { message?: unknown; name?: unknown };`
+- scripts/code-intel/daemon-process.ts:23:19 [shortcut-likely] `const code = (error as NodeJS.ErrnoException).code;`
+- scripts/code-intel/daemon-process.ts:104:10 [shortcut-likely] `if ((error as NodeJS.ErrnoException).code === "ESRCH") return;`
+- scripts/code-intel/daemon-server.ts:198:34 [json-likely] `return { kind: "ok", envelope: parsed as unknown as ParsedRequestEnvelope };`
+- scripts/code-intel/daemon-server.ts:198:34 [json-likely] `return { kind: "ok", envelope: parsed as unknown as ParsedRequestEnvelope };`
+- scripts/code-intel/daemon-state.ts:102:10 [shortcut-likely] `if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;`
+- scripts/drift/locator-usage.ts:190:18 [shortcut-likely] `const config = (await import(configUrl)) as EslintConfigExports;`
+
+### e2e
+- e2e/helpers/api.ts:75:16 [shortcut-likely] `const json = (await resp.json()) as TrpcResult<T>;`
+- e2e/helpers/api.ts:95:16 [shortcut-likely] `const json = (await resp.json()) as TrpcResult<T>;`
+- e2e/homebrew-sharing.spec.ts:44:51 [shortcut-likely] `for await (const chunk of stream) chunks.push(chunk as Buffer);`
+
+## Shortcut-likely findings (priority for rewrite, not commenting)
+
+- e2e/helpers/api.ts
+  - 75:16 `const json = (await resp.json()) as TrpcResult<T>;`
+  - 95:16 `const json = (await resp.json()) as TrpcResult<T>;`
+- e2e/homebrew-sharing.spec.ts
+  - 44:51 `for await (const chunk of stream) chunks.push(chunk as Buffer);`
+- packages/client/src/components/campaign/combat/combat-log-panel.tsx
+  - 196:23 `setAction(e.target.value as CombatActionType);`
+- packages/client/src/components/campaign/combat/combat-map-panel.tsx
+  - 52:15 `const map = mapQuery.data as MapDetail | undefined;`
+- packages/client/src/components/campaign/combat/condition-toggle-popover.tsx
+  - 88:8 `(e.target as HTMLInputElement).blur();`
+- packages/client/src/components/campaign/combat/hp-adjustment-dialog.tsx
+  - 44:9 `{(Object.keys(MODE_CONFIG) as HpAdjustmentMode[]).map((m) => {`
+- packages/client/src/components/campaign/encounters/add-participant-dialog.tsx
+  - 151:20 `const campaign = campaignQuery.data as`
+- packages/client/src/components/campaign/encounters/encounter-detail-view.tsx
+  - 373:21 `const encounter = encounterQuery.data as EncounterDetail | undefined;`
+- packages/client/src/components/campaign/encounters/encounter-map-link.tsx
+  - 25:16 `const maps = (mapsQuery.data ?? []) as MapSummary[];`
+- packages/client/src/components/campaign/encounters/encounters-panel.tsx
+  - 102:22 `const encounters = (encountersQuery.data ?? []) as EncounterSummary[];`
+- packages/client/src/components/campaign/maps/create-map-dialog.tsx
+  - 180:49 `setForm((f) => ({ ...f, gridType: v as GridType }));`
+- packages/client/src/components/campaign/maps/map-canvas-overlays.tsx
+  - 153:14 `shape={shape as "cone" | "cube" | "sphere" | "line" | "emanation"}`
+- packages/client/src/components/campaign/maps/map-detail-view.tsx
+  - 67:15 `const map = mapQuery.data as MapDetail | undefined;`
+- packages/client/src/components/campaign/maps/maps-panel.tsx
+  - 94:16 `const maps = (mapsQuery.data ?? []) as MapSummary[];`
+- packages/client/src/components/campaign/members/invite-panel.tsx
+  - 141:19 `const invites = (invitesQuery.data ?? []) as CampaignInvite[];`
+- packages/client/src/components/campaign/members/members-panel.tsx
+  - 71:17 `const chars = data as CharListItem[] | undefined;`
+- packages/client/src/components/campaign/notes/note-editor.tsx
+  - 83:34 `onVisibilityChange(v as NoteVisibility);`
+- packages/client/src/components/campaign/notes/notes-panel.tsx
+  - 272:29 `updateMutation.mutate(data as NoteFormData & { id: string });`
+  - 274:29 `createMutation.mutate(data as NoteFormData & { campaignId: string });`
+- packages/client/src/components/campaign/npcs/npc-panel.tsx
+  - 235:16 `const npcs = (npcsQuery.data ?? []) as NpcWithCreator[];`
+  - 250:29 `updateMutation.mutate(data as NpcFormData & { id: string });`
+  - 252:29 `createMutation.mutate(data as NpcFormData & { campaignId: string });`
+- packages/client/src/components/campaign/tokens/add-token-dialog.tsx
+  - 125:45 `setForm((f) => ({ ...f, type: v as TokenType }));`
+- packages/client/src/components/campaign/tokens/token-context-menu.tsx
+  - 242:56 `if (menuRef.current && !menuRef.current.contains(e.target as Node)) onClose();`
+- packages/client/src/components/character-create/steps/ability-boost-section.tsx
+  - 47:20 `onChange(v as AbilityAbbreviation);`
+- packages/client/src/components/character-create/steps/ability-scores-step.tsx
+  - 43:35 `if (STANDARD_ARRAY.includes(val as (typeof STANDARD_ARRAY)[number])) a[ab] = val;`
+- packages/client/src/components/character-create/steps/equipment-step.tsx
+  - 101:11 `() => (selectedBg?.equipmentOptions ?? []) as EquipmentOption[],`
+- packages/client/src/components/compendium/magic-item-list.tsx
+  - 30:49 `].map((c) => ({ value: c, label: formatCategory(c as MagicItemCategory) }));`
+  - 40:47 `].map((r) => ({ value: r, label: formatRarity(r as MagicItemRarity) }));`
+  - 84:30 `onChange({ rarity: (v || "") as MagicItemRarity | "" });`
+- packages/client/src/components/homebrew/collections/collection-form-fields.tsx
+  - 67:32 `onVisibilityChange(v as HomebrewVisibility);`
+- packages/client/src/components/homebrew/entries/entry-dialog.tsx
+  - 194:20 `onChange(v as HomebrewEntryType);`
+  - 234:13 `form={formState as never}`
+  - 235:17 `onChange={setFormState as (f: never) => void}`
+  - 255:62 `const [entryType, setEntryType] = useState(entry?.type ?? ("feat" as HomebrewEntryType));`
+- packages/client/src/components/homebrew/feat/feat-form-fields.tsx
+  - 43:39 `return VALID_FEAT_TYPES.has(raw) ? (raw as FeatFormData["featType"]) : "general";`
+  - 48:19 `const prereqs = data.prerequisites as`
+  - 147:32 `update({ featType: v as FeatFormData["featType"] });`
+- packages/client/src/components/homebrew/item/item-form-data.ts
+  - 119:39 `return VALID_CATEGORIES.has(raw) ? (raw as EquipmentCategory) : "gear";`
+  - 130:13 `const d = data as Record<string, unknown>;`
+  - 134:49 `rangeNormal: d.rangeNormal != null ? String(d.rangeNormal as number) : "",`
+  - 135:45 `rangeLong: d.rangeLong != null ? String(d.rangeLong as number) : "",`
+  - 146:13 `const d = data as Record<string, unknown>;`
+  - 148:35 `base: d.base != null ? String(d.base as number) : "",`
+  - 150:39 `maxDex: d.maxDex != null ? String(d.maxDex as number) : "",`
+  - 152:47 `strMinimum: d.strMinimum != null ? String(d.strMinimum as number) : "",`
+  - 164:54 `costQuantity: data.costQuantity != null ? String(data.costQuantity as number) : "",`
+  - 166:42 `weight: data.weight != null ? String(data.weight as number) : "",`
+- packages/client/src/components/homebrew/item/item-form-fields.tsx
+  - 57:32 `update({ category: v as ItemFormData["category"] });`
+- packages/client/src/components/homebrew/magic-item/magic-item-form-data.ts
+  - 63:13 `const d = data as Record<string, unknown>;`
+- packages/client/src/components/homebrew/monster/monster-ability-scores.tsx
+  - 37:24 `value={form[key] as string}`
+  - 39:26 `update({ [key]: e.target.value } as Partial<MonsterFormData>);`
+- packages/client/src/components/homebrew/monster/monster-defenses-fields.tsx
+  - 35:24 `value={form[key] as string}`
+- packages/client/src/components/homebrew/monster/monster-form-data.ts
+  - 200:25 `return Object.entries(v as Record<string, unknown>)`
+  - 229:13 `const s = d as Record<string, unknown>;`
+  - 253:13 `const o = d as Record<string, unknown>;`
+  - 356:32 `return VALID_FREQS.has(f) ? (f as MonsterSpellFrequency) : "at_will";`
+- packages/client/src/components/homebrew/monster/monster-form-fields.tsx
+  - 206:22 `value={form[key] as string}`
+- packages/client/src/components/homebrew/species/species-form-data.ts
+  - 69:13 `const d = data as Record<string, unknown>;`
+- packages/client/src/components/sheet/add-item-dialog.tsx
+  - 37:20 `onChange(v as ItemType);`
+- packages/client/src/components/sheet/add-spell-dialog.tsx
+  - 122:35 `return SPELL_CLASS_IDS.includes(primary as SpellClassId) ? primary : ALL_CLASSES;`
+  - 144:54 `if (schoolFilter !== ALL_SCHOOLS) input.school = schoolFilter as SpellSchool;`
+- packages/client/src/components/sheet/asi-step.tsx
+  - 44:51 `i.ability === ability ? { ...i, amount: (i.amount + 1) as 1 | 2 } : i,`
+  - 60:51 `i.ability === ability ? { ...i, amount: (i.amount - 1) as 1 | 2 } : i,`
+  - 140:21 `const prereqs = f.prerequisites as { minimumLevel?: number } | null;`
+- packages/client/src/components/sheet/edit-item-dialog.tsx
+  - 103:29 `setItemType(v as ItemType);`
+- packages/client/src/components/sheet/homebrew-item-tab.tsx
+  - 45:44 `return EQUIPMENT_CATEGORY_TO_ITEM_TYPE[category as EquipmentCategory];`
+  - 60:10 `return result as ItemProperties;`
+  - 73:10 `return result as ItemProperties;`
+- packages/client/src/components/sheet/roll-context-menu.tsx
+  - 78:23 `const current = document.activeElement as HTMLElement;`
+- packages/client/src/components/sheet/spell-filter-bar.tsx
+  - 85:50 `update({ school: v === ALL ? null : (v as SpellSchool) });`
+  - 94:32 `update({ prepared: v as SpellFilters["prepared"] });`
+- packages/client/src/hooks/canvas-input/tool-handlers.ts
+  - 97:10 `return tool.slice("template-".length) as TemplateShape;`
+- packages/client/src/hooks/character-sheet/use-character-stats.ts
+  - 36:11 `return (err as { data?: { code?: string } } | null)?.data?.code === "CONFLICT";`
+- packages/client/src/hooks/use-ability-roll.ts
+  - 25:24 `const result = data.metadata as RollResult | undefined;`
+- packages/client/src/hooks/use-character-actions.ts
+  - 66:47 `const newVisibility = VISIBILITY_TOGGLE[current as CharacterVisibility];`
+- packages/client/src/hooks/use-long-press.ts
+  - 133:39 `onLongPress(elementCenter(e.currentTarget as HTMLElement));`
+- packages/client/src/hooks/use-map-image-upload.ts
+  - 31:11 `if (!(ALLOWED_IMAGE_MIME_TYPES as readonly string[]).includes(file.type)) {`
+  - 62:22 `const body = (await res.json().catch(() => ({ error: "Upload failed" }))) as {`
+  - 70:20 `const data = (await res.json()) as { url: string };`
+- packages/client/src/hooks/use-srd-lookups.ts
+  - 130:12 `feats: feats as Feat[],`
+- packages/client/src/hooks/use-weapon-roll.ts
+  - 40:24 `const result = data.metadata as RollResult | undefined;`
+  - 52:24 `const result = data.metadata as RollResult | undefined;`
+  - 71:34 `const rollResult = data.metadata as RollResult | undefined;`
+- packages/client/src/lib/trpc.ts
+  - 25:18 `const json = (await res.json()) as { result?: { data?: { accessToken?: string } } };`
+- packages/client/src/pages/campaign-detail-page.tsx
+  - 250:20 `const campaign = campaignQuery.data as CampaignDetail | undefined;`
+- packages/client/src/pages/campaigns-page.tsx
+  - 76:21 `const campaigns = campaignsQuery.data as CampaignSummary[] | undefined;`
+- packages/client/src/pages/collection-detail-page.tsx
+  - 143:52 `if (typeFilter !== ALL_TYPES_VALUE) input.type = typeFilter as ListEntriesInput["type"];`
+  - 160:22 `const collection = collectionQuery.data as`
+  - 167:19 `const entries = entriesQuery.data as HomebrewEntry[] | undefined;`
+- packages/client/src/pages/homebrew-page.tsx
+  - 140:23 `const collections = collectionsQuery.data as HomebrewCollectionWithAuthor[] | undefined;`
+- packages/client/src/routes/campaign-detail-route.ts
+  - 23:40 `return typeof value === "string" && (CAMPAIGN_TABS as readonly string[]).includes(value);`
+- packages/server/src/routers/campaign.ts
+  - 264:29 `const prismaError = error as { code?: string };`
+- packages/server/src/routers/encounter.ts
+  - 87:13 `(k) => (input as Record<string, unknown>)[k] !== undefined,`
+  - 381:34 `data.conditions = [...(existing as unknown[]), ...persistent];`
+- packages/server/src/routers/homebrew.ts
+  - 227:15 `const obj = data as Record<string, unknown>;`
+- packages/server/src/routers/inventory.ts
+  - 70:15 `itemType: row.itemType as InventoryItem["itemType"],`
+  - 77:17 `sourceType: row.sourceType as InventoryItem["sourceType"],`
+- packages/server/src/routers/magic-item.ts
+  - 113:22 `const lastItem = items[items.length - 1] as (typeof items)[number] | undefined;`
+- packages/server/src/routers/monster.ts
+  - 88:18 `frequency: ms.frequency as Monster["spells"][number]["frequency"],`
+  - 156:22 `const lastItem = monsters[monsters.length - 1] as (typeof monsters)[number] | undefined;`
+- packages/server/src/routers/note.ts
+  - 148:39 `updateData.sessionDate = new Date(updateData.sessionDate as string);`
+- packages/server/src/routes/upload-routes.ts
+  - 46:9 `if (!(ALLOWED_IMAGE_MIME_TYPES as readonly string[]).includes(mime)) {`
+- packages/server/src/seed/seed-srd-monsters.ts
+  - 75:26 `spellcastingAbility: sc.ability as string,`
+  - 76:21 `spellcastingDc: sc.dc as number,`
+  - 77:30 `spellcastingAttackBonus: sc.attackBonus as number,`
+  - 78:29 `spellcastingHeaderText: sc.headerText as string,`
+- packages/server/src/seed/seed-srd-spells.ts
+  - 74:13 `school: s.school as SpellSchool,`
+  - 77:17 `attackType: s.attack_type as SpellAttackType | null,`
+  - 78:18 `savingThrow: s.saving_throw as AbilityAbbreviation | null,`
+- packages/server/src/seed/seed-srd.ts
+  - 208:22 `const featType = FEAT_TYPE_MAP[f.type as keyof typeof FEAT_TYPE_MAP] as FeatTypeValue;`
+  - 208:36 `const featType = FEAT_TYPE_MAP[f.type as keyof typeof FEAT_TYPE_MAP] as FeatTypeValue;`
+- packages/server/src/services/character-live-state/feature.ts
+  - 41:10 `return feature as ActiveCharacterFeature;`
+- packages/server/src/services/combat-actions/resolve-attack.ts
+  - 34:21 `const character = attackerRaw.character as {`
+  - 54:16 `(item) => (item as { id: string }).id === input.weaponItemId,`
+  - 99:18 `attackName: (weaponItem as { name: string }).name,`
+- packages/server/src/services/level-up/asi.ts
+  - 37:29 `const current = stats[key as keyof typeof stats];`
+  - 82:21 `const current = freshStats[key as keyof CharacterStats] as number;`
+  - 82:32 `const current = freshStats[key as keyof CharacterStats] as number;`
+  - 90:6 `(data as Record<string, unknown>)[key] = next;`
+  - 111:19 `const prereqs = feat.prerequisites as { minimumLevel?: number } | null;`
+- packages/server/src/services/spell-casting/resolve-spell.ts
+  - 46:21 `const character = casterRaw.character as {`
+  - 86:21 `const character = casterRaw.character as {`
+  - 183:21 `const character = targetRaw.character as {`
+  - 222:5 `casterRaw.character as {`
+- packages/server/src/services/starting-equipment-service.ts
+  - 24:31 `if (ref?.weaponData) return ref.weaponData as object;`
+  - 25:30 `if (ref?.armorData) return ref.armorData as object;`
+- packages/server/src/services/upload-service.ts
+  - 43:11 `return (ALLOWED_IMAGE_MIME_TYPES as readonly string[]).includes(mime);`
+- packages/server/src/trpc/trpc.ts
+  - 30:19 `const errors = (rest as { errors?: zodCore.$ZodIssue[][] }).errors;`
+  - 33:30 `branch.map((nested) => stripIssue(nested) as zodCore.$ZodIssue),`
+  - 36:25 `const nestedIssues = (rest as { issues?: zodCore.$ZodIssue[] }).issues;`
+  - 38:48 `safe.issues = nestedIssues.map((nested) => stripIssue(nested) as zodCore.$ZodIssue);`
+- packages/server/src/utils/character-campaign.ts
+  - 70:20 `const server = ctx.req.server as ServerWithLog;`
+- packages/server/src/utils/character-mapping.ts
+  - 88:21 `featureName: (f as { classFeature?: { name: string } }).classFeature?.name,`
+- packages/server/src/utils/encounter-query.ts
+  - 163:11 `type: row.type as EncounterParticipantType["type"],`
+  - 187:13 `action: row.action as CombatLogType["action"],`
+  - 206:12 `state: enc.state as EncounterDetail["state"],`
+  - 224:12 `state: e.state as EncounterSummary["state"],`
+- packages/server/src/utils/map-helpers.ts
+  - 126:11 `data: (l.data ?? {}) as Record<string, unknown>,`
+- packages/server/src/utils/prisma-json.ts
+  - 40:10 `return (fallback !== undefined ? (value ?? fallback) : value) as T;`
+- packages/server/src/utils/socket-helpers.ts
+  - 5:13 `return (server as { io: AppSocketServer }).io;`
+- packages/server/src/utils/srd-narrowing.ts
+  - 32:13 `hitDie: row.hitDie as HitDie,`
+  - 33:17 `casterType: row.casterType as CasterType,`
+  - 34:26 `spellcastingAbility: row.spellcastingAbility as AbilityAbbreviation | null,`
+  - 53:17 `casterType: row.casterType as CasterType,`
+  - 54:26 `spellcastingAbility: row.spellcastingAbility as AbilityAbbreviation | null,`
+  - 59:10 `return value as AbilityAbbreviation;`
+  - 63:10 `return value as DamageTypeName | null;`
+- packages/server/src/utils/srd-query-helpers.ts
+  - 44:12 `return rows.map(map) as never;`
+  - 63:32 `const rows = await fetch(opts.input as z.output<TInput>, opts.ctx);`
+  - 64:14 `return rows.map(map) as never;`
+  - 83:14 `return map(row) as never;`
+- packages/shared/src/dice/dice-notation.ts
+  - 126:20 `const keepType = match[3] as "h" | "l" | undefined;`
+- packages/shared/src/rules/character-rules.ts
+  - 313:11 `return (ASI_LEVELS as number[]).includes(level);`
+- packages/shared/src/rules/conditions.ts
+  - 63:11 `return (SRD_CONDITIONS as readonly string[]).includes(condition);`
+- packages/shared/src/rules/damage-types.ts
+  - 28:11 `return (DAMAGE_TYPES as readonly string[]).includes(value);`
+- packages/shared/src/rules/encounter-difficulty.ts
+  - 73:10 `return Math.max(MIN_LEVEL, Math.min(MAX_LEVEL, level)) as CharacterLevel;`
+- packages/shared/src/rules/multiclass-rules.ts
+  - 53:45 `const key = ABILITY_ABBREVIATION_TO_KEY[abbr as AbilityAbbreviation];`
+  - 56:31 `\`${ABILITY_FULL_NAMES[abbr as AbilityAbbreviation]} must be at least ${String(minScore)} (current: ${String(scores[key])})\`,`
+  - 67:47 `const key = ABILITY_ABBREVIATION_TO_KEY[abbr as AbilityAbbreviation];`
+  - 75:48 `.map(([a, min]) => \`${ABILITY_FULL_NAMES[a as AbilityAbbreviation]} at least ${String(min)}\`)`
+- packages/shared/src/rules/spellcasting.ts
+  - 83:10 `return clamped as SpellSlotTableLevel;`
+- packages/shared/src/schemas/homebrew.ts
+  - 99:18 `const record = value as Record<string, unknown>;`
+- scripts/code-intel/daemon-client.ts
+  - 127:22 `const response = parsed as Extract<CodeIntelDaemonResponse, { ok: true }>;`
+  - 137:23 `const errorRecord = parsed.error as { message?: unknown; name?: unknown };`
+- scripts/code-intel/daemon-process.ts
+  - 23:19 `const code = (error as NodeJS.ErrnoException).code;`
+  - 104:10 `if ((error as NodeJS.ErrnoException).code === "ESRCH") return;`
+- scripts/code-intel/daemon-state.ts
+  - 102:10 `if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;`
+- scripts/drift/locator-usage.ts
+  - 190:18 `const config = (await import(configUrl)) as EslintConfigExports;`
+
+## Closing summary
+
+Pass C (2026-05-17) enabled `local/type-assertion-boundary` at error
+for the narrow first scope: `e2e/**/*.ts` and the linted scripts
+subset. The 11 in-scope findings were all legitimate json/interop
+boundary casts and were given parseable comments. The 321 findings
+in `packages/shared`, `packages/server`, and `packages/client` remain
+out of scope this leaf — they need code rewrites alongside the
+boundary comments and will be addressed in follow-up leaves.

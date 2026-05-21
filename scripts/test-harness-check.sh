@@ -128,6 +128,16 @@ write_valid_manifest() {
       "invocation": "bun run lint:ratchet"
     },
     {
+      "id": "ratchet/core-complexity-lint-ratchet-runtime",
+      "kind": "ratchet",
+      "category": "maintainability",
+      "principle": "Lint-ratchet runtime complexity ratchet fixture principle.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/lint-ratchet-config.ts",
+      "invocation": "bun run lint:ratchet"
+    },
+    {
       "id": "ratchet/core-complexity-top-level-scripts",
       "kind": "ratchet",
       "category": "maintainability",
@@ -218,6 +228,16 @@ write_valid_manifest() {
       "invocation": "bun run lint:ratchet"
     },
     {
+      "id": "ratchet/local-max-lines-lint-coverage-map-check",
+      "kind": "ratchet",
+      "category": "maintainability",
+      "principle": "Lint coverage-map checker max lines ratchet fixture principle.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/lint-ratchet-config.ts",
+      "invocation": "bun run lint:ratchet"
+    },
+    {
       "id": "ratchet/local-max-lines-logs-audit",
       "kind": "ratchet",
       "category": "maintainability",
@@ -248,10 +268,30 @@ write_valid_manifest() {
       "invocation": "bun run lint:ratchet"
     },
     {
+      "id": "ratchet/regexp-no-super-linear-backtracking-script-tests",
+      "kind": "ratchet",
+      "category": "behavior",
+      "principle": "Script tests regex backtracking ratchet fixture principle.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/lint-ratchet-config.ts",
+      "invocation": "bun run lint:ratchet"
+    },
+    {
       "id": "ratchet/regexp-no-unused-capturing-group-eslint-rules",
       "kind": "ratchet",
       "category": "behavior",
       "principle": "ESLint-rules unused regex capturing-group ratchet fixture principle.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/lint-ratchet-config.ts",
+      "invocation": "bun run lint:ratchet"
+    },
+    {
+      "id": "ratchet/regexp-no-unused-capturing-group-lint-coverage-map-check",
+      "kind": "ratchet",
+      "category": "behavior",
+      "principle": "Lint coverage-map checker unused regex capturing-group ratchet fixture principle.",
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": "scripts/lint-ratchet-config.ts",
@@ -288,6 +328,16 @@ write_valid_manifest() {
       "invocation": "bun run lint:ratchet"
     },
     {
+      "id": "ratchet/typescript-eslint-explicit-function-return-type-script-tests",
+      "kind": "ratchet",
+      "category": "maintainability",
+      "principle": "TypeScript-ESLint explicit-function-return-type script test ratchet fixture principle.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/lint-ratchet-config.ts",
+      "invocation": "bun run lint:ratchet"
+    },
+    {
       "id": "ratchet/typescript-eslint-no-misused-promises-codemod-tests",
       "kind": "ratchet",
       "category": "maintainability",
@@ -308,6 +358,16 @@ write_valid_manifest() {
       "invocation": "bun run lint:ratchet"
     },
     {
+      "id": "ratchet/typescript-eslint-no-misused-promises-script-tests",
+      "kind": "ratchet",
+      "category": "maintainability",
+      "principle": "TypeScript-ESLint no-misused-promises script test ratchet fixture principle.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/lint-ratchet-config.ts",
+      "invocation": "bun run lint:ratchet"
+    },
+    {
       "id": "ratchet/typescript-eslint-no-unsafe-argument-top-level-scripts",
       "kind": "ratchet",
       "category": "behavior",
@@ -318,10 +378,40 @@ write_valid_manifest() {
       "invocation": "bun run lint:ratchet"
     },
     {
+      "id": "ratchet/typescript-eslint-no-unsafe-assignment-script-tests",
+      "kind": "ratchet",
+      "category": "behavior",
+      "principle": "TypeScript-ESLint no-unsafe-assignment script test ratchet fixture principle.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/lint-ratchet-config.ts",
+      "invocation": "bun run lint:ratchet"
+    },
+    {
       "id": "ratchet/typescript-eslint-only-throw-error-codemod-tests",
       "kind": "ratchet",
       "category": "maintainability",
       "principle": "TypeScript-ESLint only-throw-error codemod test ratchet fixture principle.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/lint-ratchet-config.ts",
+      "invocation": "bun run lint:ratchet"
+    },
+    {
+      "id": "ratchet/typescript-eslint-only-throw-error-script-tests",
+      "kind": "ratchet",
+      "category": "maintainability",
+      "principle": "TypeScript-ESLint only-throw-error script test ratchet fixture principle.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/lint-ratchet-config.ts",
+      "invocation": "bun run lint:ratchet"
+    },
+    {
+      "id": "ratchet/typescript-eslint-require-await-script-singletons",
+      "kind": "ratchet",
+      "category": "maintainability",
+      "principle": "TypeScript-ESLint require-await script singleton ratchet fixture principle.",
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": "scripts/lint-ratchet-config.ts",
@@ -378,6 +468,16 @@ write_valid_manifest() {
       "invocation": "bun run lint:ratchet"
     },
     {
+      "id": "ratchet/vitest-expect-expect-script-tests",
+      "kind": "ratchet",
+      "category": "maintainability",
+      "principle": "Vitest expect-expect script test ratchet fixture principle.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/lint-ratchet-config.ts",
+      "invocation": "bun run lint:ratchet"
+    },
+    {
       "id": "ratchet/vitest-no-commented-out-tests-eslint-rules-tests",
       "kind": "ratchet",
       "category": "maintainability",
@@ -412,6 +512,16 @@ write_valid_manifest() {
       "kind": "ratchet",
       "category": "maintainability",
       "principle": "Vitest valid-expect drift-ai test ratchet fixture principle.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/lint-ratchet-config.ts",
+      "invocation": "bun run lint:ratchet"
+    },
+    {
+      "id": "ratchet/vitest-valid-expect-script-tests",
+      "kind": "ratchet",
+      "category": "maintainability",
+      "principle": "Vitest valid-expect script test ratchet fixture principle.",
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": "scripts/lint-ratchet-config.ts",

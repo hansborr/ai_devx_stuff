@@ -1,5 +1,5 @@
-import { spawnSync } from "node:child_process";
 import type { SpawnSyncReturns } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import {
   existsSync,
   mkdirSync,
@@ -17,6 +17,7 @@ import path from "node:path";
 import { ModuleKind, ModuleResolutionKind, Project, ScriptTarget, ts } from "ts-morph";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import type { CodeIntelQueryResult, ExecutableCliCommand, IntelResult } from "./code-intel.js";
 import {
   buildImportGraph,
   CODE_INTEL_DAEMON_PROTOCOL_VERSION,
@@ -30,7 +31,6 @@ import {
   queryTests,
   runCodeIntel,
 } from "./code-intel.js";
-import type { CodeIntelQueryResult, ExecutableCliCommand, IntelResult } from "./code-intel.js";
 import { DaemonRequestTimeoutError, requestDaemonQuery } from "./code-intel/daemon-client.js";
 import type { DaemonSpawner } from "./code-intel/daemon-process.js";
 import { runDaemon, type RunningDaemon } from "./code-intel/daemon-server.js";
@@ -44,8 +44,8 @@ import {
 } from "./code-intel/daemon-state.js";
 import {
   computeWorkspaceManifest,
-  graphCacheTest,
   GraphCache,
+  graphCacheTest,
 } from "./code-intel/graph-cache.js";
 import { ProjectCache } from "./code-intel/project-cache.js";
 import { runServerCliCommand } from "./code-intel/server-cli.js";
