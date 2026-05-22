@@ -7,6 +7,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 LINT_SHELL="$SCRIPT_DIR/lint-shell.sh"
 LINT_CHANGED="$SCRIPT_DIR/lint-changed.sh"
+PARALLEL_RUNNER="$SCRIPT_DIR/parallel-runner.sh"
 VERIFY_METADATA="$SCRIPT_DIR/verify-metadata.sh"
 
 PASS=0
@@ -29,7 +30,12 @@ new_repo() {
   git -C "$SANDBOX" init -q -b main "$repo"
   cp "$LINT_SHELL" "$repo/scripts/lint-shell.sh"
   cp "$LINT_CHANGED" "$repo/scripts/lint-changed.sh"
+  cp "$PARALLEL_RUNNER" "$repo/scripts/parallel-runner.sh"
   cp "$VERIFY_METADATA" "$repo/scripts/verify-metadata.sh"
+  cat > "$repo/scripts/lint-config-sensors.sh" <<'SH'
+#!/usr/bin/env bash
+exit 0
+SH
   cat > "$repo/scripts/good.sh" <<'SH'
 #!/usr/bin/env bash
 set -u
@@ -52,6 +58,9 @@ run_lint_shell() {
 
 bash -n "$LINT_SHELL" || fail "lint-shell.sh fails bash -n"
 ok "lint-shell.sh passes bash -n"
+
+bash -n "$PARALLEL_RUNNER" || fail "parallel-runner.sh fails bash -n"
+ok "parallel-runner.sh passes bash -n"
 
 [ "$SHELLCHECK_BIN" != "$REPO_ROOT/node_modules/.bin/shellcheck" ] \
   || fail "shellcheck smoke test should use system PATH binary"
@@ -142,8 +151,10 @@ set -e
 [ "$exit_code" -ne 0 ] || fail "lint:changed should fail when changed ShellCheck fails"
 grep -qF 'SC2164' <<< "$output" \
   || fail "lint:changed ShellCheck output should report SC2164: $output"
+grep -qF 'lint:changed: ShellCheck failed with exit' <<< "$output" \
+  || fail "lint:changed should aggregate the ShellCheck failure: $output"
 [ ! -s "$repo/eslint.log" ] \
-  || fail "lint:changed should fail before eslint on shell-only violation"
-ok "lint-changed wiring fails on changed shell violation before eslint"
+  || fail "lint:changed should not invoke eslint for shell-only violation"
+ok "lint-changed wiring fails on changed shell violation without eslint files"
 
 printf 'lint-shell tests passed (%d)\n' "$PASS"

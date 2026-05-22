@@ -165,6 +165,22 @@ function expectStdout(output: string, expectedSnippets: string[]): void {
   for (const snippet of expectedSnippets) expect(output).toContain(snippet);
 }
 
+function errorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  try {
+    const structured = JSON.stringify(error, null, 2);
+    return structured ?? String(error);
+  } catch {
+    return String(error);
+  }
+}
+
+function throwCapturedError(error: unknown): never {
+  if (error instanceof Error) throw error;
+  throw new Error(errorMessage(error));
+}
+
 function runFixture(name: string): void {
   const caseRoot = path.join(fixtureRoot, name);
   const metadata = readMetadata(caseRoot);
@@ -182,14 +198,14 @@ function runFixture(name: string): void {
     expectDirectoriesToMatch(workRoot, path.join(caseRoot, "after"));
     return;
   }
-  if (firstRun.error) throw firstRun.error;
+  if (firstRun.error) throwCapturedError(firstRun.error);
 
   let output = firstRun.output;
   if (metadata.runTwice) {
     const secondRun = withCapturedStdout(() =>
       runStructuredLoggingFixCodemod(metadata.args, workRoot),
     );
-    if (secondRun.error) throw secondRun.error;
+    if (secondRun.error) throwCapturedError(secondRun.error);
     output = `${output}\n${secondRun.output}`;
   }
   expectStdout(output, metadata.expectedStdout);

@@ -298,6 +298,134 @@ musi_meta_command_string() {
   printf '%s' "$out"
 }
 
+musi_run_meta_wrapper_fragment() {
+  local json="$1"
+
+  printf '%s\n' "$json" | sed -n 's/^.*"wrapper":\({[^}]*}\).*$/\1/p'
+}
+
+musi_run_meta_json_string_field() {
+  local json="$1"
+  local key="$2"
+
+  printf '%s\n' "$json" | sed -n "s/^.*\"$key\":\"\\([^\"]*\\)\".*$/\\1/p"
+}
+
+musi_run_meta_json_int_field() {
+  local json="$1"
+  local key="$2"
+
+  printf '%s\n' "$json" | sed -n "s/^.*\"$key\":\\([0-9][0-9]*\\).*$/\\1/p"
+}
+
+musi_run_meta_warn() {
+  printf 'verify history: WARN: %s\n' "$*" >&2
+}
+
+musi_run_meta_start_epoch() {
+  local start_time="$1"
+  local elapsed_seconds="${2:-}"
+  local epoch now
+
+  if [ -n "$start_time" ] && epoch=$(date -d "$start_time" +%s 2>/dev/null); then
+    case "$epoch" in
+      ''|*[!0-9]*) ;;
+      *) printf '%s\n' "$epoch"; return 0 ;;
+    esac
+  fi
+
+  case "$elapsed_seconds" in
+    ''|*[!0-9]*) return 1 ;;
+  esac
+  now=$(date +%s)
+  epoch=$((now - elapsed_seconds))
+  [ "$epoch" -lt 0 ] && epoch=0
+  printf '%s\n' "$epoch"
+}
+
+musi_prune_run_meta_history() {
+  local history_dir="$1"
+  local limit="$2"
+  local keep_from files
+
+  case "$limit" in
+    ''|*[!0-9]*)
+      musi_run_meta_warn "invalid MUSI_VERIFY_HISTORY_LIMIT '$limit'; using 50"
+      limit=50
+      ;;
+  esac
+
+  keep_from=$((limit + 1))
+  (
+    cd "$history_dir" || exit 1
+    files=$(ls -1t -- *.json 2>/dev/null || true)
+    [ -n "$files" ] || exit 0
+    printf '%s\n' "$files" | tail -n +"$keep_from" | xargs -r rm --
+  )
+}
+
+musi_persist_run_meta_history() {
+  local log_dir="$1"
+  local history_dir="$2"
+  local run_meta="$log_dir/run-meta.json"
+  local limit="${MUSI_VERIFY_HISTORY_LIMIT:-50}"
+  local json wrapper mode start_time elapsed_seconds exit_code start_epoch target
+
+  if [ ! -f "$run_meta" ]; then
+    musi_run_meta_warn "missing run metadata at $run_meta"
+    return 0
+  fi
+  if ! json=$(sed -n '1p' "$run_meta" 2>/dev/null); then
+    musi_run_meta_warn "could not read run metadata at $run_meta"
+    return 0
+  fi
+
+  wrapper=$(musi_run_meta_wrapper_fragment "$json")
+  if [ -z "$wrapper" ]; then
+    musi_run_meta_warn "could not find wrapper metadata in $run_meta"
+    return 0
+  fi
+
+  mode=$(musi_run_meta_json_string_field "$wrapper" mode)
+  start_time=$(musi_run_meta_json_string_field "$wrapper" start_time)
+  elapsed_seconds=$(musi_run_meta_json_int_field "$wrapper" elapsed_seconds)
+  exit_code=$(musi_run_meta_json_int_field "$wrapper" exit_code)
+
+  case "$mode" in
+    ''|*[!A-Za-z0-9._-]*)
+      musi_run_meta_warn "malformed wrapper mode in $run_meta"
+      return 0
+      ;;
+  esac
+  case "$exit_code" in
+    ''|*[!0-9]*)
+      musi_run_meta_warn "malformed wrapper exit_code in $run_meta"
+      return 0
+      ;;
+  esac
+  if ! start_epoch=$(musi_run_meta_start_epoch "$start_time" "$elapsed_seconds"); then
+    musi_run_meta_warn "malformed wrapper start_time in $run_meta"
+    return 0
+  fi
+
+  if ! mkdir -p "$history_dir"; then
+    musi_run_meta_warn "could not create history directory $history_dir"
+    return 0
+  fi
+
+  target="$history_dir/$start_epoch-$mode-$exit_code.json"
+  if ! cp "$run_meta" "$target"; then
+    musi_run_meta_warn "could not write history file $target"
+    return 0
+  fi
+
+  if ! musi_prune_run_meta_history "$history_dir" "$limit"; then
+    musi_run_meta_warn "could not prune history directory $history_dir"
+  fi
+
+  return 0
+}
+
 musi_write_step_meta() {
   local file="$1"
   local name="$2"

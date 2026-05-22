@@ -75,6 +75,7 @@ chmod +x "$SANDBOX/bin/bun"
 
 LOCK="$SANDBOX/lock"
 LOG_DIR="$SANDBOX/logs"
+HISTORY_DIR="$SANDBOX/history"
 MARKER_CHANGED="$SANDBOX/marker-changed"
 MARKER_FULL="$SANDBOX/marker-full"
 STUB_LOG_FILE="$SANDBOX/bun.log"
@@ -85,6 +86,7 @@ run_verify() {
   PATH="$SANDBOX/bin:$PATH" \
   MUSI_VERIFY_LOCK="$LOCK" \
   MUSI_VERIFY_LOG_DIR="$LOG_DIR" \
+  MUSI_VERIFY_HISTORY_DIR="$HISTORY_DIR" \
   MUSI_VERIFY_MARKER_CHANGED="$MARKER_CHANGED" \
   MUSI_VERIFY_MARKER_FULL="$MARKER_FULL" \
     bash "$VERIFY" "$@"
@@ -126,6 +128,10 @@ grep -q '"name":"test"' "$LOG_DIR/run-meta.json" \
 grep -q 'bun run test:changed --reporter=dot --reporter=json --outputFile.json='"$LOG_DIR"'/test-timings.json' "$LOG_DIR/run-meta.json" \
   || fail "verify --changed metadata should record test command"
 ok "verify --changed writes changed serial run metadata"
+
+history_match="$(find "$HISTORY_DIR" -maxdepth 1 -type f -name '*-serial-verify-changed-0.json' -print -quit)"
+[ -n "$history_match" ] || fail "verify --changed did not persist successful run metadata history"
+ok "verify --changed persists successful run metadata history"
 
 # --- MR1: changed mode runs script smoke tests after Vitest --------------
 # verify --changed must invoke `bun run test:scripts:changed` so script-only
@@ -233,6 +239,8 @@ grep -qF 'Passed: lint ratchet coverage-map' <<< "$output" \
   || fail "summary missed Passed: lint ratchet coverage-map"
 grep -qF 'verify:changed FAILED' <<< "$output" || fail "summary missed banner"
 [ -f "$MARKER_CHANGED" ] && fail "marker should not be written on failure"
+history_match="$(find "$HISTORY_DIR" -maxdepth 1 -type f -name '*-serial-verify-changed-1.json' -print -quit)"
+[ -n "$history_match" ] || fail "verify --changed did not persist failed run metadata history"
 # test:changed must not run after typecheck failure.
 if grep -q 'bun run test:changed' "$STUB_LOG_FILE"; then
   fail "test step ran after typecheck failure"

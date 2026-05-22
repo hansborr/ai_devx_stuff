@@ -1031,6 +1031,20 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Repair:** manual
 
+### `verify-wrapper/verify-history`
+
+**Principle:** Surface recent persisted verify and pre-commit run metadata snapshots so slow-run performance evidence survives the latest-log wipe.
+
+**Category:** maintainability
+
+**Source:** `scripts/verify-history.sh`
+
+**Invocation:** `bun run verify:history`
+
+**Paired guide:** none
+
+**Repair:** manual
+
 ### `verify-wrapper/verify-logs`
 
 **Principle:** Surface cached verify logs without copying paths; supports budget and slow-test analysis so failures discovered in a prior run stay visible.

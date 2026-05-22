@@ -12,6 +12,8 @@ import {
 } from "../packages/shared/src/schemas/harness-diagnostics.js";
 
 const PROCESS_ARG_OFFSET = 2;
+const OPTION_WITH_VALUE_ARG_SPAN = 2;
+const JSON_INDENT_SPACES = 2;
 
 class UsageError extends Error {}
 
@@ -65,7 +67,7 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
     const arg = argv[i] ?? "";
     if (arg === "--tool") {
       tool = requireToolValue(argv[i + 1], "--tool");
-      i += 2;
+      i += OPTION_WITH_VALUE_ARG_SPAN;
       continue;
     }
     if (arg.startsWith("--tool=")) {
@@ -75,7 +77,7 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
     }
     if (arg === "--output") {
       outputPath = requireOutputValue(argv[i + 1], "--output");
-      i += 2;
+      i += OPTION_WITH_VALUE_ARG_SPAN;
       continue;
     }
     if (arg.startsWith("--output=")) {
@@ -117,7 +119,7 @@ function parseFindings(text: string): readonly HarnessFinding[] {
     }
     const result = harnessFindingSchema.safeParse(parsed);
     if (!result.success) {
-      const issues = JSON.stringify(result.error.issues, null, 2);
+      const issues = JSON.stringify(result.error.issues, null, JSON_INDENT_SPACES);
       throw new Error(
         `stdin line ${String(lineNumber)} failed harnessFindingSchema:\n${issues}`,
       );
@@ -151,11 +153,11 @@ async function main(): Promise<void> {
   };
   const validated = harnessDiagnosticsSchema.safeParse(envelope);
   if (!validated.success) {
-    const issues = JSON.stringify(validated.error.issues, null, 2);
+    const issues = JSON.stringify(validated.error.issues, null, JSON_INDENT_SPACES);
     throw new Error(`harness-emit-envelope produced an invalid envelope:\n${issues}`);
   }
 
-  const rendered = `${JSON.stringify(envelope, null, 2)}\n`;
+  const rendered = `${JSON.stringify(envelope, null, JSON_INDENT_SPACES)}\n`;
   if (args.outputPath !== undefined) {
     const outPath = isAbsolute(args.outputPath)
       ? args.outputPath

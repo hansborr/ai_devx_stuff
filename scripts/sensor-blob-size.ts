@@ -7,8 +7,14 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-export const DEFAULT_WARN_THRESHOLD_BYTES = 500 * 1024;
-export const DEFAULT_BLOCK_THRESHOLD_BYTES = 5 * 1024 * 1024;
+const DEFAULT_WARN_THRESHOLD_KIBIBYTES = 500;
+const DEFAULT_BLOCK_THRESHOLD_MEBIBYTES = 5;
+const BYTES_PER_KIBIBYTE = 1024;
+const BYTES_PER_MEBIBYTE = BYTES_PER_KIBIBYTE * BYTES_PER_KIBIBYTE;
+const PROCESS_ARGV_USER_ARGS_START = 2;
+
+export const DEFAULT_WARN_THRESHOLD_BYTES = DEFAULT_WARN_THRESHOLD_KIBIBYTES * BYTES_PER_KIBIBYTE;
+export const DEFAULT_BLOCK_THRESHOLD_BYTES = DEFAULT_BLOCK_THRESHOLD_MEBIBYTES * BYTES_PER_MEBIBYTE;
 export const DEFAULT_ALLOWLIST_PATH = ".blob-size-allowlist";
 
 export type BlobSizeMode = "check" | "block";
@@ -319,7 +325,7 @@ function isCliEntrypoint(): boolean {
 }
 
 if (isCliEntrypoint()) {
-  const result = runBlobSizeCli({ argv: process.argv.slice(2) });
+  const result = runBlobSizeCli({ argv: process.argv.slice(PROCESS_ARGV_USER_ARGS_START) });
   if (result.stdout) console.log(result.stdout);
   if (result.exitCode !== 0) process.exitCode = result.exitCode;
 }

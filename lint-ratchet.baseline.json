@@ -227,29 +227,23 @@
       "ruleSourceHash": "sha256:97723dbbc0772ac4813351c8ac7f2b4b6f3d49ffca7184ce4409747f68e94501",
       "items": {
         "scripts/drift-ai.ts": {
-          "count": 4,
-          "maxComplexity": 49,
+          "count": 3,
+          "maxComplexity": 18,
           "perFunction": [
             {
-              "line": 249,
-              "nodeType": "FunctionDeclaration",
-              "label": "Function 'parseArgs'",
-              "complexity": 49
-            },
-            {
-              "line": 872,
+              "line": 883,
               "nodeType": "FunctionDeclaration",
               "label": "Function 'runDriftAi'",
               "complexity": 18
             },
             {
-              "line": 613,
+              "line": 624,
               "nodeType": "FunctionDeclaration",
               "label": "Function 'buildReport'",
               "complexity": 16
             },
             {
-              "line": 701,
+              "line": 712,
               "nodeType": "FunctionDeclaration",
               "label": "Function 'formatText'",
               "complexity": 11
@@ -381,6 +375,8 @@
       "target": 0,
       "metric": "complexity-severity",
       "files": [
+        "scripts/lint-ratchet-baseline-compare.ts",
+        "scripts/lint-ratchet-baseline-parse.ts",
         "scripts/lint-ratchet-baseline.ts",
         "scripts/lint-ratchet-metrics.ts",
         "scripts/lint-ratchet.ts"
@@ -393,88 +389,9 @@
           "max": 10
         }
       ],
-      "configHash": "sha256:979555928ce1779c8cf565f8d1ff86c6ba82b52addaf933b9a4919fd0f3b52a8",
+      "configHash": "sha256:84fc634d16065320ee4374f09140dc8beaf82cd972530d24ecb672aca7a960fd",
       "ruleSourceHash": "sha256:97723dbbc0772ac4813351c8ac7f2b4b6f3d49ffca7184ce4409747f68e94501",
-      "items": {
-        "scripts/lint-ratchet-baseline.ts": {
-          "count": 5,
-          "maxComplexity": 44,
-          "perFunction": [
-            {
-              "line": 246,
-              "nodeType": "FunctionDeclaration",
-              "label": "Function 'validateLintRatchetRegistry'",
-              "complexity": 44
-            },
-            {
-              "line": 788,
-              "nodeType": "FunctionDeclaration",
-              "label": "Function 'compareCurrentToBaseline'",
-              "complexity": 30
-            },
-            {
-              "line": 584,
-              "nodeType": "FunctionDeclaration",
-              "label": "Function 'parseBaselineTest'",
-              "complexity": 29
-            },
-            {
-              "line": 674,
-              "nodeType": "FunctionDeclaration",
-              "label": "Function 'validateBaselineAgainstRegistry'",
-              "complexity": 18
-            },
-            {
-              "line": 42,
-              "nodeType": "FunctionDeclaration",
-              "label": "Function 'newPathSeverityPayload'",
-              "complexity": 16
-            }
-          ]
-        },
-        "scripts/lint-ratchet-metrics.ts": {
-          "count": 3,
-          "maxComplexity": 15,
-          "perFunction": [
-            {
-              "line": 19,
-              "nodeType": "FunctionDeclaration",
-              "label": "Function 'parseComplexitySeverityMessage'",
-              "complexity": 15
-            },
-            {
-              "line": 110,
-              "nodeType": "FunctionDeclaration",
-              "label": "Function 'validateMetricItem'",
-              "complexity": 15
-            },
-            {
-              "line": 63,
-              "nodeType": "FunctionDeclaration",
-              "label": "Function 'parseComplexityFunction'",
-              "complexity": 14
-            }
-          ]
-        },
-        "scripts/lint-ratchet.ts": {
-          "count": 2,
-          "maxComplexity": 22,
-          "perFunction": [
-            {
-              "line": 33,
-              "nodeType": "FunctionDeclaration",
-              "label": "Function 'parseArgs'",
-              "complexity": 22
-            },
-            {
-              "line": 551,
-              "nodeType": "FunctionDeclaration",
-              "label": "Function 'addFinding'",
-              "complexity": 13
-            }
-          ]
-        }
-      }
+      "items": {}
     },
     "ratchet/core-complexity-top-level-scripts": {
       "ruleId": "complexity",
@@ -502,7 +419,7 @@
           "maxComplexity": 14,
           "perFunction": [
             {
-              "line": 259,
+              "line": 262,
               "nodeType": "FunctionDeclaration",
               "label": "Async function 'runLintCoverageMapCheck'",
               "complexity": 14
@@ -514,7 +431,7 @@
           "maxComplexity": 11,
           "perFunction": [
             {
-              "line": 114,
+              "line": 120,
               "nodeType": "FunctionDeclaration",
               "label": "Function 'parseArgs'",
               "complexity": 11
@@ -583,17 +500,7 @@
       ],
       "configHash": "sha256:5ad4a5d8dbd4d4d68de4f78eeba36d6a3bcedf921a52445e693d24ce749a40d0",
       "ruleSourceHash": "sha256:d1fd643ef473dc245de74e3fb63d363c8f4bce2e014b4bc5e534059ab72ab5d4",
-      "items": {
-        "scripts/harness-emit-envelope.ts": {
-          "count": 5
-        },
-        "scripts/lint-coverage-map-check.ts": {
-          "count": 4
-        },
-        "scripts/sensor-blob-size.ts": {
-          "count": 6
-        }
-      }
+      "items": {}
     },
     "ratchet/core-preserve-caught-error-top-level-scripts": {
       "ruleId": "preserve-caught-error",
@@ -762,7 +669,7 @@
       "items": {
         "scripts/drift-ai.ts": {
           "count": 1,
-          "lines": 1060
+          "lines": 1058
         },
         "scripts/drift-ai/config.ts": {
           "count": 1,
@@ -864,6 +771,8 @@
       "files": [
         "scripts/harness-check.ts",
         "scripts/lint-agent.ts",
+        "scripts/lint-ratchet-baseline-compare.ts",
+        "scripts/lint-ratchet-baseline-parse.ts",
         "scripts/lint-ratchet-baseline.ts",
         "scripts/lint-ratchet.ts"
       ],
@@ -877,7 +786,7 @@
           "skipComments": true
         }
       ],
-      "configHash": "sha256:ae2b49dda9feea71412ea3af82553e3ebde8695763f9e1119fc225ba3ed13f50",
+      "configHash": "sha256:50abaa3a93a1a16021ce9aaa2134106713bf107ab0e5b69cb9f100d5ffa328a2",
       "ruleSourceHash": "sha256:e418fb9ef876b51950789d09a0baa38cdfe8f6e80944ee38977a0c2a7e9a32f1",
       "items": {
         "scripts/harness-check.ts": {
@@ -886,7 +795,7 @@
         },
         "scripts/lint-ratchet-baseline.ts": {
           "count": 1,
-          "lines": 838
+          "lines": 725
         },
         "scripts/lint-ratchet.ts": {
           "count": 1,
@@ -1181,20 +1090,7 @@
       "ruleOptions": [],
       "configHash": "sha256:7a96a3c280e1c2fd914f7de7d2fc47fdf5f665d4808db2185f7d6f534ea55bf2",
       "ruleSourceHash": "sha256:93d12d3b65778d0e19278fbb205eeab80317f76f87bf7423f11a244670dc247a",
-      "items": {
-        "scripts/codemods/concurrency-guard.test.ts": {
-          "count": 1
-        },
-        "scripts/codemods/expand-barrel.test.ts": {
-          "count": 2
-        },
-        "scripts/codemods/structured-logging-fix.test.ts": {
-          "count": 2
-        },
-        "scripts/codemods/trpc-shared-schema-codemod.test.ts": {
-          "count": 2
-        }
-      }
+      "items": {}
     },
     "ratchet/typescript-eslint-only-throw-error-drift-ai-tests": {
       "ruleId": "@typescript-eslint/only-throw-error",
@@ -1245,11 +1141,7 @@
       "ruleOptions": [],
       "configHash": "sha256:819678f7eda617b9918a18c4dda5574c5ace9cc3dc88dbffd1d054867d7945aa",
       "ruleSourceHash": "sha256:93d12d3b65778d0e19278fbb205eeab80317f76f87bf7423f11a244670dc247a",
-      "items": {
-        "scripts/code-intel.test.ts": {
-          "count": 11
-        }
-      }
+      "items": {}
     },
     "ratchet/typescript-eslint-restrict-template-expressions-top-level-scripts": {
       "ruleId": "@typescript-eslint/restrict-template-expressions",
@@ -1330,26 +1222,14 @@
             "expectHit",
             "expectOneFulfilledOneConflict",
             "expectParseFailure",
-            "expectParseSuccess"
+            "expectParseSuccess",
+            "runFixture"
           ]
         }
       ],
-      "configHash": "sha256:c677d03c0f824df77cb37ead0ff27fda849546692451a94f94831d1ab930f28a",
+      "configHash": "sha256:351c826457c71b6d0cd898c401448e9c8d3cf5c66dc1807992cfcfed0ebcffe4",
       "ruleSourceHash": "sha256:dca95346de5edfbb32d2f084bec47542f1d2edc7c66eb352455c417747e61259",
-      "items": {
-        "scripts/codemods/concurrency-guard.test.ts": {
-          "count": 1
-        },
-        "scripts/codemods/expand-barrel.test.ts": {
-          "count": 1
-        },
-        "scripts/codemods/structured-logging-fix.test.ts": {
-          "count": 1
-        },
-        "scripts/codemods/trpc-shared-schema-codemod.test.ts": {
-          "count": 2
-        }
-      }
+      "items": {}
     },
     "ratchet/vitest-expect-expect-drift-ai-tests": {
       "ruleId": "vitest/expect-expect",

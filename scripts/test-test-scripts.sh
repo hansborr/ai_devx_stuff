@@ -28,7 +28,24 @@ cat > "$SANDBOX/bin/runner" <<'STUB'
 script_path="$1"
 name="$(basename "$script_path" .sh)"
 printf 'runner ran %s\n' "$name" >> "${STUB_LOG:-/dev/null}"
+printf 'runner stdout %s\n' "$name"
 var_fail="STUB_FAIL_${name//-/_}"
+var_sleep="STUB_SLEEP_${name//-/_}"
+if [ -n "${!var_sleep:-}" ]; then
+  sleep_pid=""
+  if [ -n "${STUB_PID_LOG:-}" ]; then
+    printf '%s\n' "$$" >> "$STUB_PID_LOG"
+  fi
+  sleep "${!var_sleep}" &
+  sleep_pid=$!
+  if [ -n "${STUB_PID_LOG:-}" ]; then
+    printf '%s\n' "$sleep_pid" >> "$STUB_PID_LOG"
+  fi
+  trap 'kill "$sleep_pid" 2>/dev/null || true; wait "$sleep_pid" 2>/dev/null || true; exit 130' INT
+  trap 'kill "$sleep_pid" 2>/dev/null || true; wait "$sleep_pid" 2>/dev/null || true; exit 143' TERM
+  wait "$sleep_pid"
+  trap - INT TERM
+fi
 if [ "${!var_fail:-0}" = "1" ]; then
   printf 'stub: forced failure for %s\n' "$name" >&2
   exit 1
@@ -39,12 +56,33 @@ chmod +x "$SANDBOX/bin/runner"
 
 STUB_LOG_FILE="$SANDBOX/runner.log"
 : > "$STUB_LOG_FILE"
-ALL_SMOKE_TESTS=$'runner ran test-verify\nrunner ran test-verify-async\nrunner ran test-verify-logs\nrunner ran test-worktree-db\nrunner ran test-dependency-freshness\nrunner ran test-ai-hooks\nrunner ran test-eslint-disable-register\nrunner ran test-suppression-register\nrunner ran test-codemod-structured-logging-fix\nrunner ran test-codemod-trpc-shared-input\nrunner ran test-codemod-trpc-shared-output\nrunner ran test-code-intel\nrunner ran test-lint-changed\nrunner ran test-lint-shell\nrunner ran test-lint-config-sensors\nrunner ran test-test-changed\nrunner ran test-test-slow\nrunner ran test-generate-module-index\nrunner ran test-generate-lint-guidance\nrunner ran test-generate-harness-controls\nrunner ran test-harness-check\nrunner ran test-lint-agent\nrunner ran test-lint-agent-changed\nrunner ran test-harness-emit-envelope\nrunner ran test-lint-ratchet\nrunner ran test-migration-safety-scan\nrunner ran test-doctor-json\nrunner ran test-test-scripts'
+ALL_SMOKE_TESTS=$'runner ran test-verify\nrunner ran test-verify-async\nrunner ran test-verify-logs\nrunner ran test-verify-history\nrunner ran test-worktree-db\nrunner ran test-dependency-freshness\nrunner ran test-ai-hooks\nrunner ran test-eslint-disable-register\nrunner ran test-suppression-register\nrunner ran test-codemod-structured-logging-fix\nrunner ran test-codemod-trpc-shared-input\nrunner ran test-codemod-trpc-shared-output\nrunner ran test-code-intel\nrunner ran test-lint-changed\nrunner ran test-lint-shell\nrunner ran test-lint-config-sensors\nrunner ran test-test-changed\nrunner ran test-test-slow\nrunner ran test-generate-module-index\nrunner ran test-generate-lint-guidance\nrunner ran test-generate-harness-controls\nrunner ran test-harness-check\nrunner ran test-lint-agent\nrunner ran test-lint-agent-changed\nrunner ran test-harness-emit-envelope\nrunner ran test-lint-ratchet\nrunner ran test-migration-safety-scan\nrunner ran test-doctor-json\nrunner ran test-test-scripts'
 
 run_runner() {
   STUB_LOG="$STUB_LOG_FILE" \
+  MUSI_SCRIPTS_CONCURRENCY="${MUSI_SCRIPTS_CONCURRENCY:-1}" \
   MUSI_SCRIPTS_RUNNER="$SANDBOX/bin/runner" \
     bash "$RUNNER_SH" "$@"
+}
+
+wait_for_line_count() {
+  local file="$1"
+  local expected="$2"
+  local count attempt
+
+  attempt=0
+  while [ "$attempt" -lt 100 ]; do
+    count=0
+    if [ -f "$file" ]; then
+      count="$(wc -l < "$file" | tr -d ' ')"
+    fi
+    if [ "$count" -ge "$expected" ]; then
+      return 0
+    fi
+    attempt=$((attempt + 1))
+    sleep 0.1
+  done
+  return 1
 }
 
 # --- syntax / argument parsing --------------------------------------------
@@ -56,12 +94,27 @@ if run_runner --bogus >/dev/null 2>&1; then
 fi
 ok "test-scripts.sh rejects unknown flags"
 
-# --- no-arg form runs all smoke tests in order ----------------------------
+# --- no-arg form selects all smoke tests; concurrency=1 keeps order -------
 : > "$STUB_LOG_FILE"
 run_runner >/dev/null || fail "test-scripts.sh unexpectedly failed in default mode"
 [ "$(cat "$STUB_LOG_FILE")" = "$ALL_SMOKE_TESTS" ] \
-  || fail "default mode did not run all smoke tests in order: $(cat "$STUB_LOG_FILE")"
-ok "default mode runs all smoke tests in order"
+  || fail "no-arg concurrency=1 did not run all smoke tests in order: $(cat "$STUB_LOG_FILE")"
+ok "no-arg concurrency=1 runs all smoke tests in order"
+
+# --- concurrency=1 preserves the old single-stream sequential shape -------
+: > "$STUB_LOG_FILE"
+output=$(MUSI_SCRIPTS_CONCURRENCY=1 \
+  MUSI_SCRIPTS_CHANGED_FILES=$'scripts/verify.sh\nscripts/migration-safety-scan.sh' \
+  run_runner --changed 2>&1)
+expected=$'runner ran test-verify\nrunner ran test-verify-async\nrunner ran test-migration-safety-scan'
+[ "$(cat "$STUB_LOG_FILE")" = "$expected" ] \
+  || fail "concurrency=1 should run selected smokes in order: $(cat "$STUB_LOG_FILE")"
+grep -qF 'runner stdout test-verify' <<< "$output" \
+  || fail "concurrency=1 should stream smoke output directly: $output"
+if grep -qF 'test:scripts: test-verify OK (' <<< "$output"; then
+  fail "concurrency=1 should not print parallel per-smoke finish lines: $output"
+fi
+ok "concurrency=1 keeps the sequential output shape"
 
 # --- --changed with no relevant changes is a no-op ------------------------
 : > "$STUB_LOG_FILE"
@@ -106,6 +159,7 @@ git -C "$script_delete_repo" rm -q scripts/delete-me.sh
 output="$(
   cd "$script_delete_repo"
   STUB_LOG="$STUB_LOG_FILE" \
+  MUSI_SCRIPTS_CONCURRENCY=1 \
   MUSI_SCRIPTS_RUNNER="$SANDBOX/bin/runner" \
     bash "$RUNNER_SH" --changed 2>&1
 )"
@@ -130,6 +184,13 @@ MUSI_SCRIPTS_CHANGED_FILES="scripts/verify-logs.sh" run_runner --changed >/dev/n
   || fail "verify-logs.sh change should select only test-verify-logs: $(cat "$STUB_LOG_FILE")"
 ok "--changed selects test-verify-logs when scripts/verify-logs.sh changed"
 
+# --- --changed selects test-verify-history on verify history changes -----
+: > "$STUB_LOG_FILE"
+MUSI_SCRIPTS_CHANGED_FILES="scripts/verify-history.sh" run_runner --changed >/dev/null
+[ "$(cat "$STUB_LOG_FILE")" = "runner ran test-verify-history" ] \
+  || fail "verify-history.sh change should select only test-verify-history: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects test-verify-history when scripts/verify-history.sh changed"
+
 # --- --changed selects worktree-db smoke on worktree helper changes ------
 : > "$STUB_LOG_FILE"
 MUSI_SCRIPTS_CHANGED_FILES="scripts/worktree-db.sh" run_runner --changed >/dev/null
@@ -140,9 +201,10 @@ ok "--changed selects test-worktree-db on worktree helper change"
 # --- --changed selects dependency freshness smoke on hook changes --------
 : > "$STUB_LOG_FILE"
 MUSI_SCRIPTS_CHANGED_FILES=".husky/pre-commit" run_runner --changed >/dev/null
-[ "$(cat "$STUB_LOG_FILE")" = "runner ran test-dependency-freshness" ] \
-  || fail "pre-commit change should select dependency freshness smoke: $(cat "$STUB_LOG_FILE")"
-ok "--changed selects test-dependency-freshness on pre-commit change"
+expected=$'runner ran test-verify-history\nrunner ran test-dependency-freshness'
+[ "$(cat "$STUB_LOG_FILE")" = "$expected" ] \
+  || fail "pre-commit change should select hook smokes: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects hook smokes on pre-commit change"
 
 # --- --changed selects eslint-disable diagnostics smoke ------------------
 : > "$STUB_LOG_FILE"
@@ -179,7 +241,7 @@ ok "--changed selects output codemod smoke on output codemod change"
 
 : > "$STUB_LOG_FILE"
 MUSI_SCRIPTS_CHANGED_FILES="package.json" run_runner --changed >/dev/null
-expected=$'runner ran test-codemod-structured-logging-fix\nrunner ran test-codemod-trpc-shared-input\nrunner ran test-codemod-trpc-shared-output\nrunner ran test-code-intel\nrunner ran test-lint-shell\nrunner ran test-lint-config-sensors\nrunner ran test-generate-lint-guidance\nrunner ran test-generate-harness-controls\nrunner ran test-harness-check\nrunner ran test-lint-agent\nrunner ran test-lint-agent-changed\nrunner ran test-lint-ratchet'
+expected=$'runner ran test-verify-history\nrunner ran test-codemod-structured-logging-fix\nrunner ran test-codemod-trpc-shared-input\nrunner ran test-codemod-trpc-shared-output\nrunner ran test-code-intel\nrunner ran test-lint-shell\nrunner ran test-lint-config-sensors\nrunner ran test-generate-lint-guidance\nrunner ran test-generate-harness-controls\nrunner ran test-harness-check\nrunner ran test-lint-agent\nrunner ran test-lint-agent-changed\nrunner ran test-lint-ratchet'
 [ "$(cat "$STUB_LOG_FILE")" = "$expected" ] \
   || fail "package.json change should select codemod smokes: $(cat "$STUB_LOG_FILE")"
 ok "--changed selects package-script smokes on package script change"
@@ -237,8 +299,15 @@ expected=$'runner ran test-lint-changed\nrunner ran test-lint-shell'
 ok "--changed selects ShellCheck smokes on shell lint wrapper change"
 
 : > "$STUB_LOG_FILE"
+MUSI_SCRIPTS_CHANGED_FILES="scripts/parallel-runner.sh" run_runner --changed >/dev/null
+expected=$'runner ran test-lint-changed\nrunner ran test-lint-shell'
+[ "$(cat "$STUB_LOG_FILE")" = "$expected" ] \
+  || fail "parallel runner change should select lint wrapper smokes: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects lint smokes on parallel runner change"
+
+: > "$STUB_LOG_FILE"
 MUSI_SCRIPTS_CHANGED_FILES="scripts/verify-metadata.sh" run_runner --changed >/dev/null
-expected=$'runner ran test-verify\nrunner ran test-dependency-freshness\nrunner ran test-ai-hooks\nrunner ran test-lint-changed\nrunner ran test-lint-config-sensors'
+expected=$'runner ran test-verify\nrunner ran test-verify-history\nrunner ran test-dependency-freshness\nrunner ran test-ai-hooks\nrunner ran test-lint-changed\nrunner ran test-lint-config-sensors'
 [ "$(cat "$STUB_LOG_FILE")" = "$expected" ] \
   || fail "verify-metadata.sh change should select dependent smokes: $(cat "$STUB_LOG_FILE")"
 ok "--changed selects dependent smokes on verify metadata change"
@@ -428,7 +497,97 @@ expected=$'runner ran test-verify\nrunner ran test-verify-async'
   || fail "duplicate-subject changes should still run a smoke test only once: $(cat "$STUB_LOG_FILE")"
 ok "--changed runs a smoke test once when multiple subjects map to it"
 
-# --- failing smoke test halts the runner and reports failure --------------
+# --- concurrency>1 runs every selected smoke when none fail ---------------
+: > "$STUB_LOG_FILE"
+parallel_log_dir="$SANDBOX/parallel-logs"
+output=$(MUSI_SCRIPTS_CONCURRENCY=3 \
+  MUSI_SCRIPTS_LOG_DIR="$parallel_log_dir" \
+  MUSI_SCRIPTS_CHANGED_FILES="scripts/ai-hooks/cache.sh" \
+  run_runner --changed 2>&1)
+for name in test-verify test-verify-async test-verify-logs test-ai-hooks; do
+  grep -qF "runner ran $name" "$STUB_LOG_FILE" \
+    || fail "parallel mode did not run $name: $(cat "$STUB_LOG_FILE")"
+  grep -qF "test:scripts: running $name..." <<< "$output" \
+    || fail "parallel mode did not announce $name start: $output"
+  grep -qF "test:scripts: $name OK (" <<< "$output" \
+    || fail "parallel mode did not announce $name success: $output"
+  [ -f "$parallel_log_dir/$name.log" ] \
+    || fail "parallel mode did not write $name log"
+  grep -qF "runner stdout $name" "$parallel_log_dir/$name.log" \
+    || fail "parallel mode did not capture $name stdout in its log"
+done
+[ "$(wc -l < "$STUB_LOG_FILE" | tr -d ' ')" = "4" ] \
+  || fail "parallel mode should run exactly four selected smokes: $(cat "$STUB_LOG_FILE")"
+grep -qF 'test:scripts: OK — test-verify test-verify-async test-verify-logs test-ai-hooks' <<< "$output" \
+  || fail "parallel mode summary missing selected smokes: $output"
+ok "concurrency>1 runs all selected smokes when none fail"
+
+# --- concurrency>1 reports failures and dumps failed log tails ------------
+: > "$STUB_LOG_FILE"
+parallel_fail_log_dir="$SANDBOX/parallel-fail-logs"
+set +e
+output=$(STUB_FAIL_test_verify=1 \
+  STUB_SLEEP_test_verify_async=1 \
+  MUSI_SCRIPTS_CONCURRENCY=2 \
+  MUSI_SCRIPTS_LOG_DIR="$parallel_fail_log_dir" \
+  MUSI_SCRIPTS_CHANGED_FILES="scripts/ai-hooks/cache.sh" \
+  run_runner --changed 2>&1)
+exit_code=$?
+set -e
+[ "$exit_code" -ne 0 ] || fail "parallel failure should propagate non-zero exit"
+grep -qF 'test:scripts: test-verify FAILED (' <<< "$output" \
+  || fail "parallel failure output missing failed finish line: $output"
+grep -qF 'test:scripts: FAILED — passed: test-verify-async failed: test-verify' <<< "$output" \
+  || fail "parallel failure summary missing passed/failed sets: $output"
+grep -qF "test:scripts: last 30 log lines for test-verify ($parallel_fail_log_dir/test-verify.log):" <<< "$output" \
+  || fail "parallel failure output missing failed log tail header: $output"
+grep -qF 'stub: forced failure for test-verify' <<< "$output" \
+  || fail "parallel failure output missing failed smoke log tail: $output"
+if grep -qF 'runner ran test-verify-logs' "$STUB_LOG_FILE"; then
+  fail "parallel mode started a new smoke after the first failure: $(cat "$STUB_LOG_FILE")"
+fi
+ok "concurrency>1 surfaces failures and failed log tails"
+
+# --- SIGINT forwards to in-flight children and exits 130 ------------------
+: > "$STUB_LOG_FILE"
+signal_pid_log="$SANDBOX/signal-pids"
+signal_output="$SANDBOX/signal-output"
+: > "$signal_pid_log"
+STUB_LOG="$STUB_LOG_FILE" \
+STUB_PID_LOG="$signal_pid_log" \
+STUB_SLEEP_test_verify=30 \
+STUB_SLEEP_test_verify_async=30 \
+MUSI_SCRIPTS_CHANGED_FILES="scripts/ai-hooks/cache.sh" \
+MUSI_SCRIPTS_CONCURRENCY=2 \
+MUSI_SCRIPTS_LOG_DIR="$SANDBOX/signal-logs" \
+MUSI_SCRIPTS_RUNNER="$SANDBOX/bin/runner" \
+  env --default-signal=INT bash "$RUNNER_SH" --changed \
+  >"$signal_output" 2>&1 &
+signal_runner_pid=$!
+wait_for_line_count "$signal_pid_log" 4 || {
+  kill "$signal_runner_pid" 2>/dev/null || true
+  fail "SIGINT test did not observe two running stub smokes"
+}
+kill -INT "$signal_runner_pid"
+set +e
+wait "$signal_runner_pid"
+exit_code=$?
+set -e
+[ "$exit_code" -eq 130 ] \
+  || fail "SIGINT should exit 130, got $exit_code: $(cat "$signal_output")"
+sleep 0.2
+while IFS= read -r pid; do
+  [ -n "$pid" ] || continue
+  if kill -0 "$pid" 2>/dev/null; then
+    fail "SIGINT left child process running: pid $pid"
+  fi
+done < "$signal_pid_log"
+if grep -qF 'test:scripts: running test-verify-logs...' "$signal_output"; then
+  fail "SIGINT should prevent new smoke startups: $(cat "$signal_output")"
+fi
+ok "SIGINT during parallel mode exits 130 without orphaned stubs"
+
+# --- failing smoke test halts the sequential runner and reports failure ---
 : > "$STUB_LOG_FILE"
 set +e
 output=$(STUB_FAIL_test_verify=1 run_runner 2>&1)
@@ -442,6 +601,6 @@ grep -qF 'failed: test-verify' <<< "$output" \
 # Subsequent smoke tests must not run after a failure.
 grep -qF 'runner ran test-verify-logs' "$STUB_LOG_FILE" \
   && fail "smoke test runner did not halt at first failure: $(cat "$STUB_LOG_FILE")"
-ok "first failing smoke test halts the runner"
+ok "first failing smoke test halts the sequential runner"
 
 printf 'test-scripts tests passed (%d)\n' "$PASS"

@@ -10,6 +10,15 @@ if [ "${1:-}" = "--" ]; then
   shift
 fi
 
-bash "$SCRIPT_DIR/lint-shell.sh"
-bash "$SCRIPT_DIR/lint-config-sensors.sh"
-exec eslint . --cache --cache-location node_modules/.cache/eslint/ --max-warnings=0 "$@"
+# shellcheck source=scripts/parallel-runner.sh
+. "$SCRIPT_DIR/parallel-runner.sh"
+
+musi_parallel_init "musi-lint"
+musi_parallel_install_traps
+
+musi_parallel_start "ShellCheck" "shell" bash "$SCRIPT_DIR/lint-shell.sh"
+musi_parallel_start "config sensors" "config" bash "$SCRIPT_DIR/lint-config-sensors.sh"
+musi_parallel_start "ESLint" "eslint" eslint . --cache --cache-location node_modules/.cache/eslint/ --max-warnings=0 "$@"
+
+musi_parallel_wait_all "lint"
+exit "$MUSI_PARALLEL_EXIT"

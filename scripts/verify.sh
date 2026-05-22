@@ -53,6 +53,7 @@ cd "$REPO_ROOT" || exit 1
 
 LOCK="${MUSI_VERIFY_LOCK:-/tmp/musi-pre-commit.lock}"
 LOG_DIR="${MUSI_VERIFY_LOG_DIR:-/tmp/musi-pre-commit-logs}"
+HISTORY_DIR="${MUSI_VERIFY_HISTORY_DIR:-/tmp/musi-verify-history}"
 # DX7.0a Vitest timing capture: pair the dot reporter with Vitest's json
 # reporter so every wrapper-driven test run leaves a parseable timings file
 # alongside test.log. The file lives in $LOG_DIR so it shares the same
@@ -194,6 +195,7 @@ write_signal_wrapper_meta() {
     "${START_TS:-$end_ts}" "${START_TIME:-$end_time}" "$end_ts" "$end_time" "$exit_code" "$WRAPPER_COMMAND" \
     "$CUR_HEAD" "$CUR_HASH"
   musi_combine_run_meta "$LOG_DIR" "$META_MODE" "$META_DIR/wrapper.json"
+  musi_persist_run_meta_history "$LOG_DIR" "$HISTORY_DIR"
 }
 trap 'cleanup_children; write_signal_wrapper_meta 130; exit 130' INT
 trap 'cleanup_children; write_signal_wrapper_meta 124; report_timeout_budget; exit 124' TERM
@@ -265,6 +267,7 @@ if [ -n "$failed" ]; then
     "$START_TS" "$START_TIME" "$END_TS" "$END_TIME" 1 "$WRAPPER_COMMAND" \
     "$CUR_HEAD" "$CUR_HASH"
   musi_combine_run_meta "$LOG_DIR" "$META_MODE" "$META_DIR/wrapper.json"
+  musi_persist_run_meta_history "$LOG_DIR" "$HISTORY_DIR"
   printf '\n=== %s FAILED (%ds) ===\n' "$LABEL" "$ELAPSED"
   printf 'Passed:%s\n' "$passed"
   printf 'Failed:%s\n' "$failed"
@@ -282,6 +285,7 @@ musi_write_wrapper_meta "$META_DIR/wrapper.json" "$META_MODE" \
   "$START_TS" "$START_TIME" "$END_TS" "$END_TIME" 0 "$WRAPPER_COMMAND" \
   "$CUR_HEAD" "$CUR_HASH"
 musi_combine_run_meta "$LOG_DIR" "$META_MODE" "$META_DIR/wrapper.json"
+musi_persist_run_meta_history "$LOG_DIR" "$HISTORY_DIR"
 
 # --- 5. Success marker (same format as pre-commit's) -----------------------
 if ! musi_write_success_marker "$MARKER" "$CUR_HEAD" "$CUR_HASH"; then

@@ -16,6 +16,7 @@ unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE GIT_PREFIX
 # pre-commit invocations and turn every bridge case into a forced re-run.
 # The two cases that need it set it explicitly via inline env.
 unset FORCE_VERIFY
+unset MUSI_CAPTURE_TEST_TIMINGS
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=/dev/null
@@ -185,6 +186,9 @@ BAD_MARKER
   grep -qF "stub bun run docs:lint-coverage-map:check -- --staged" "$stub_log" || fail "corrupt marker did not run staged coverage-map check"
   grep -qF "stub bun run typecheck" "$stub_log" || fail "corrupt marker did not rerun typecheck"
   grep -qF "stub bun run test:changed --reporter=dot" "$stub_log" || fail "corrupt marker did not rerun test"
+  if grep -qF -- "--reporter=json" "$stub_log"; then
+    fail "pre-commit should not request json timing capture by default"
+  fi
   if grep -qF "stub bun run test:scripts:changed" "$stub_log"; then
     fail "non-script staged change should not run script smoke tests"
   fi
@@ -193,9 +197,36 @@ BAD_MARKER
     || fail "pre-commit metadata should record parallel-precommit mode"
   grep -q '"name":"wrapper"' "$log_dir/run-meta.json" \
     || fail "pre-commit metadata should record wrapper timing"
-  grep -q 'bun run test:changed --reporter=dot --reporter=json --outputFile.json='"$log_dir"'/test-timings.json' "$log_dir/run-meta.json" \
-    || fail "pre-commit metadata should record json timing capture command"
+  grep -qF '"command":"bun run test:changed --reporter=dot"' "$log_dir/run-meta.json" \
+    || fail "pre-commit metadata should record default dot-only test command"
+  if grep -qF -- "--reporter=json" "$log_dir/run-meta.json"; then
+    fail "pre-commit metadata should not record json timing capture command by default"
+  fi
   grep -q '^LAST_TS=[0-9]\+$' "$marker" || fail "pre-commit did not rewrite marker with numeric LAST_TS"
+
+  timing_marker="$hook_repo/precommit-marker-with-timings"
+  timing_log_dir="$hook_repo/precommit-logs-with-timings"
+  timing_stub_log="$hook_repo/bun-with-timings.log"
+  expected_timing_command="\"command\":\"bun run test:changed --reporter=dot --reporter=json --outputFile.json=$timing_log_dir/test-timings.json\""
+  : > "$timing_stub_log"
+
+  output="$(
+    PATH="$hook_repo/bin:$PATH" \
+    STUB_LOG="$timing_stub_log" \
+    MUSI_CAPTURE_TEST_TIMINGS=1 \
+    MUSI_PRECOMMIT_MARKER="$timing_marker" \
+    MUSI_VERIFY_LOCK="$hook_repo/precommit-lock-with-timings" \
+    MUSI_VERIFY_LOG_DIR="$timing_log_dir" \
+      sh .husky/pre-commit 2>&1
+  )" || fail "pre-commit should run checks with json timing capture enabled: $output"
+
+  grep -qF "pre-commit: OK" <<< "$output" \
+    || fail "pre-commit with timing capture missing OK output: $output"
+  grep -qF "stub bun run test:changed --reporter=dot --reporter=json --outputFile.json=$timing_log_dir/test-timings.json" "$timing_stub_log" \
+    || fail "pre-commit did not request json timing capture when MUSI_CAPTURE_TEST_TIMINGS=1"
+  [ -f "$timing_log_dir/run-meta.json" ] || fail "pre-commit with timing capture did not write run-meta.json"
+  grep -qF "$expected_timing_command" "$timing_log_dir/run-meta.json" \
+    || fail "pre-commit metadata should record json timing capture command when enabled"
 )
 ok "pre-commit treats corrupt success marker as a cache miss"
 

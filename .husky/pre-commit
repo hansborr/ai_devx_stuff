@@ -187,6 +187,7 @@ WD=$!
 
 # --- 5. Parallel tasks -----------------------------------------------------
 LOG_DIR="${MUSI_VERIFY_LOG_DIR:-/tmp/musi-pre-commit-logs}"
+HISTORY_DIR="${MUSI_VERIFY_HISTORY_DIR:-/tmp/musi-verify-history}"
 rm -rf "$LOG_DIR"
 mkdir -p "$LOG_DIR" "$LOG_DIR/meta"
 TIMINGS_FILE="$LOG_DIR/test-timings.json"
@@ -227,12 +228,16 @@ run_parallel_step coverage-map bun run docs:lint-coverage-map:check -- --staged
 pid_coverage_map=$STEP_PID
 run_parallel_step typecheck bun run typecheck
 pid_tc=$STEP_PID
-run_parallel_step test bun run test:changed --reporter=dot --reporter=json --outputFile.json="$TIMINGS_FILE"
+if [ "${MUSI_CAPTURE_TEST_TIMINGS:-}" = "1" ]; then
+  run_parallel_step test bun run test:changed --reporter=dot --reporter=json --outputFile.json="$TIMINGS_FILE"
+else
+  run_parallel_step test bun run test:changed --reporter=dot
+fi
 pid_test=$STEP_PID
 pid_scripts=""
 run_scripts=0
 if git diff --cached --name-only --diff-filter=ACMRD \
-     | grep -qE '^(.husky/|.claude/hooks/|.codex/hooks/|.devcontainer/[^/]+\.sh$|scripts/|harness\.controls\.json$|lint-ratchet\.baseline\.json$)'; then
+     | grep -qE '^(.husky/|.claude/hooks/|.codex/hooks/|.devcontainer/[^/]+\.sh$|scripts/|package\.json$|harness\.controls\.json$|lint-ratchet\.baseline\.json$)'; then
   run_parallel_step scripts bun run test:scripts:changed
   pid_scripts=$STEP_PID
   run_scripts=1
@@ -257,6 +262,7 @@ write_signal_wrapper_meta() {
     "$START_TS" "$START_TIME" "$end_ts" "$end_time" "$exit_code" "$0" \
     "$META_HEAD" "$META_FP"
   musi_combine_run_meta "$LOG_DIR" parallel-precommit "$META_DIR/wrapper.json"
+  musi_persist_run_meta_history "$LOG_DIR" "$HISTORY_DIR"
 }
 trap 'cleanup_parallel_children; write_signal_wrapper_meta 130; exit 130' INT
 trap 'cleanup_parallel_children; write_signal_wrapper_meta 124; report_timeout_budget; exit 124' TERM
@@ -294,6 +300,7 @@ if [ -n "$failed" ]; then
     "$START_TS" "$START_TIME" "$END_TS" "$END_TIME" 1 "$0" \
     "$META_HEAD" "$META_FP"
   musi_combine_run_meta "$LOG_DIR" parallel-precommit "$META_DIR/wrapper.json"
+  musi_persist_run_meta_history "$LOG_DIR" "$HISTORY_DIR"
   # Structured lines — git-commit-quiet.sh parses these.
   echo ""
   echo "=== PRE-COMMIT FAILED (${ELAPSED}s) ==="
@@ -314,6 +321,7 @@ musi_write_wrapper_meta "$META_DIR/wrapper.json" parallel-precommit \
   "$START_TS" "$START_TIME" "$END_TS" "$END_TIME" 0 "$0" \
   "$META_HEAD" "$META_FP"
 musi_combine_run_meta "$LOG_DIR" parallel-precommit "$META_DIR/wrapper.json"
+musi_persist_run_meta_history "$LOG_DIR" "$HISTORY_DIR"
 
 # --- 7. Success marker -----------------------------------------------------
 if ! musi_write_success_marker "$MARKER" \

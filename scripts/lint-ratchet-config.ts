@@ -118,6 +118,8 @@ export const lintRatchets = [
     source: { kind: "core" },
     parserProfile: "minimal-ts",
     files: [
+      "scripts/lint-ratchet-baseline-compare.ts",
+      "scripts/lint-ratchet-baseline-parse.ts",
       "scripts/lint-ratchet-baseline.ts",
       "scripts/lint-ratchet-metrics.ts",
       "scripts/lint-ratchet.ts",
@@ -282,6 +284,8 @@ export const lintRatchets = [
     files: [
       "scripts/harness-check.ts",
       "scripts/lint-agent.ts",
+      "scripts/lint-ratchet-baseline-compare.ts",
+      "scripts/lint-ratchet-baseline-parse.ts",
       "scripts/lint-ratchet-baseline.ts",
       "scripts/lint-ratchet.ts",
     ],
@@ -491,6 +495,7 @@ export const lintRatchets = [
           "expectOneFulfilledOneConflict",
           "expectParseFailure",
           "expectParseSuccess",
+          "runFixture",
         ],
       },
     ],

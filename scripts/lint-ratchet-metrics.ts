@@ -7,6 +7,8 @@ export interface LintRatchetComplexityFunction { readonly line: number; readonly
 export interface LintRatchetMetricItem { readonly count: number; readonly lines?: number; readonly maxComplexity?: number; readonly perFunction?: readonly LintRatchetComplexityFunction[]; }
 export interface LintRatchetComplexityMessage { readonly message: string; readonly line?: number; readonly nodeType?: string; readonly messageId?: string; }
 export interface ComplexityDelta { readonly baselineComplexity: number; readonly currentComplexity: number; readonly line?: number; readonly regression: boolean; }
+interface ComplexityMessageContext { readonly ratchetId: string; readonly path: string; readonly message: LintRatchetComplexityMessage; }
+interface ParsedComplexityFunctionFields { readonly line?: number; readonly nodeType?: string; readonly label?: string; readonly complexity?: number; }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -16,26 +18,50 @@ function isNonNegativeInteger(value: unknown): value is number {
   return typeof value === "number" && Number.isInteger(value) && value >= 0;
 }
 
+function complexityDiagnosticPrefix(context: ComplexityMessageContext): string {
+  return `ratchet ${context.ratchetId}: complexity diagnostic for ${context.path}`;
+}
+
+function assertComplexityMessageId(context: ComplexityMessageContext): void {
+  if (context.message.messageId !== undefined && context.message.messageId !== "complex") {
+    throw new ConfigError(`${complexityDiagnosticPrefix(context)} has unexpected messageId ${context.message.messageId}`);
+  }
+}
+
+function parseComplexityMessageGroups(context: ComplexityMessageContext): Pick<LintRatchetComplexityFunction, "label" | "complexity"> {
+  const groups = COMPLEXITY_MESSAGE_PATTERN.exec(context.message.message)?.groups;
+  const complexity = groups?.complexity === undefined ? undefined : Number(groups.complexity);
+  if (groups?.label === undefined || complexity === undefined || !Number.isInteger(complexity)) {
+    throw new ConfigError(`ratchet ${context.ratchetId}: could not parse complexity for ${context.path}: ${context.message.message}`);
+  }
+  return { label: groups.label, complexity };
+}
+
+function assertComplexityMessageLine(context: ComplexityMessageContext): number {
+  if (context.message.line === undefined || !Number.isInteger(context.message.line) || context.message.line < 0) {
+    throw new ConfigError(`${complexityDiagnosticPrefix(context)} is missing a line`);
+  }
+  return context.message.line;
+}
+
+function assertComplexityMessageNodeType(context: ComplexityMessageContext): string {
+  if (typeof context.message.nodeType !== "string" || context.message.nodeType.length === 0) {
+    throw new ConfigError(`${complexityDiagnosticPrefix(context)} is missing nodeType`);
+  }
+  return context.message.nodeType;
+}
+
 export function parseComplexitySeverityMessage(
   ratchetId: string,
   path: string,
   message: LintRatchetComplexityMessage,
 ): LintRatchetComplexityFunction {
-  if (message.messageId !== undefined && message.messageId !== "complex") {
-    throw new ConfigError(`ratchet ${ratchetId}: complexity diagnostic for ${path} has unexpected messageId ${message.messageId}`);
-  }
-  const groups = COMPLEXITY_MESSAGE_PATTERN.exec(message.message)?.groups;
-  const complexity = groups?.complexity === undefined ? undefined : Number(groups.complexity);
-  if (groups?.label === undefined || complexity === undefined || !Number.isInteger(complexity)) {
-    throw new ConfigError(`ratchet ${ratchetId}: could not parse complexity for ${path}: ${message.message}`);
-  }
-  if (message.line === undefined || !Number.isInteger(message.line) || message.line < 0) {
-    throw new ConfigError(`ratchet ${ratchetId}: complexity diagnostic for ${path} is missing a line`);
-  }
-  if (typeof message.nodeType !== "string" || message.nodeType.length === 0) {
-    throw new ConfigError(`ratchet ${ratchetId}: complexity diagnostic for ${path} is missing nodeType`);
-  }
-  return { line: message.line, nodeType: message.nodeType, label: groups.label, complexity };
+  const context = { ratchetId, path, message };
+  assertComplexityMessageId(context);
+  const { label, complexity } = parseComplexityMessageGroups(context);
+  const line = assertComplexityMessageLine(context);
+  const nodeType = assertComplexityMessageNodeType(context);
+  return { line, nodeType, label, complexity };
 }
 
 function compareComplexityFunction(left: LintRatchetComplexityFunction, right: LintRatchetComplexityFunction): number {
@@ -60,19 +86,59 @@ export function metricItemForFormat(metric: LintRatchetMetric, item: LintRatchet
   return { count: item.count };
 }
 
+function parseComplexityFunctionLine(value: unknown, path: string, failures: string[]): number | undefined {
+  if (!isNonNegativeInteger(value)) {
+    failures.push(`${path}.line must be a non-negative integer`);
+    return undefined;
+  }
+  return value;
+}
+
+function parseComplexityFunctionNodeType(value: unknown, path: string, failures: string[]): string | undefined {
+  if (typeof value !== "string" || value.length === 0) {
+    failures.push(`${path}.nodeType must be a non-empty string`);
+    return undefined;
+  }
+  return value;
+}
+
+function parseComplexityFunctionLabel(value: unknown, path: string, failures: string[]): string | undefined {
+  if (typeof value !== "string" || value.length === 0) {
+    failures.push(`${path}.label must be a non-empty string`);
+    return undefined;
+  }
+  return value;
+}
+
+function parseComplexityFunctionComplexity(value: unknown, path: string, failures: string[]): number | undefined {
+  if (!isNonNegativeInteger(value)) {
+    failures.push(`${path}.complexity must be a non-negative integer`);
+    return undefined;
+  }
+  return value;
+}
+
+function parseComplexityFunctionFields(value: Record<string, unknown>, path: string, failures: string[]): ParsedComplexityFunctionFields {
+  return {
+    line: parseComplexityFunctionLine(value.line, path, failures),
+    nodeType: parseComplexityFunctionNodeType(value.nodeType, path, failures),
+    label: parseComplexityFunctionLabel(value.label, path, failures),
+    complexity: parseComplexityFunctionComplexity(value.complexity, path, failures),
+  };
+}
+
+function isCompleteComplexityFunction(fields: ParsedComplexityFunctionFields): fields is LintRatchetComplexityFunction {
+  return fields.line !== undefined && fields.nodeType !== undefined && fields.label !== undefined && fields.complexity !== undefined;
+}
+
 function parseComplexityFunction(value: unknown, path: string, failures: string[]): LintRatchetComplexityFunction | undefined {
   if (!isRecord(value)) {
     failures.push(`${path} must be an object`);
     return undefined;
   }
-  const { line, nodeType, label, complexity } = value;
-  if (!isNonNegativeInteger(line)) failures.push(`${path}.line must be a non-negative integer`);
-  if (typeof nodeType !== "string" || nodeType.length === 0) failures.push(`${path}.nodeType must be a non-empty string`);
-  if (typeof label !== "string" || label.length === 0) failures.push(`${path}.label must be a non-empty string`);
-  if (!isNonNegativeInteger(complexity)) failures.push(`${path}.complexity must be a non-negative integer`);
-  return isNonNegativeInteger(line) && typeof nodeType === "string" && nodeType.length > 0 && typeof label === "string" && label.length > 0 && isNonNegativeInteger(complexity)
-    ? { line, nodeType, label, complexity }
-    : undefined;
+  const fields = parseComplexityFunctionFields(value, path, failures);
+  if (!isCompleteComplexityFunction(fields)) return undefined;
+  return fields;
 }
 
 function parseComplexityFunctions(value: unknown, path: string, failures: string[]): readonly LintRatchetComplexityFunction[] | undefined {
@@ -107,21 +173,38 @@ export function parseMetricFields(rawItem: Record<string, unknown>, path: string
   };
 }
 
-export function validateMetricItem(testId: string, itemPath: string, metric: LintRatchetMetric, item: LintRatchetMetricItem, failures: string[]): void {
-  const path = `${testId}.items.${itemPath}`;
-  if (metric === "effective-line-count" && item.lines === undefined) failures.push(`${path}.lines is required for effective-line-count`);
-  if (metric === "complexity-severity") {
-    if (item.maxComplexity === undefined) failures.push(`${path}.maxComplexity is required for complexity-severity`);
-    if (item.perFunction === undefined) failures.push(`${path}.perFunction is required for complexity-severity`);
-    if (item.lines !== undefined) failures.push(`${path}.lines is only valid for effective-line-count`);
-    if (item.perFunction !== undefined && item.perFunction.length !== item.count) failures.push(`${path}.perFunction length must equal count`);
-    const maxComplexity = maxComplexityFor(item.perFunction);
-    if (maxComplexity !== undefined && item.maxComplexity !== maxComplexity) failures.push(`${path}.maxComplexity must match perFunction maximum`);
-    return;
-  }
-  if (metric !== "effective-line-count" && item.lines !== undefined) failures.push(`${path}.lines is only valid for effective-line-count`);
+function validateEffectiveLineCountItem(path: string, item: LintRatchetMetricItem, failures: string[]): void {
+  if (item.lines === undefined) failures.push(`${path}.lines is required for effective-line-count`);
   if (item.maxComplexity !== undefined) failures.push(`${path}.maxComplexity is only valid for complexity-severity`);
   if (item.perFunction !== undefined) failures.push(`${path}.perFunction is only valid for complexity-severity`);
+}
+
+function validateComplexitySeverityItem(path: string, item: LintRatchetMetricItem, failures: string[]): void {
+  if (item.maxComplexity === undefined) failures.push(`${path}.maxComplexity is required for complexity-severity`);
+  if (item.perFunction === undefined) failures.push(`${path}.perFunction is required for complexity-severity`);
+  if (item.lines !== undefined) failures.push(`${path}.lines is only valid for effective-line-count`);
+  if (item.perFunction !== undefined && item.perFunction.length !== item.count) failures.push(`${path}.perFunction length must equal count`);
+  const maxComplexity = maxComplexityFor(item.perFunction);
+  if (maxComplexity !== undefined && item.maxComplexity !== maxComplexity) failures.push(`${path}.maxComplexity must match perFunction maximum`);
+}
+
+function validateOtherMetricItem(path: string, item: LintRatchetMetricItem, failures: string[]): void {
+  if (item.lines !== undefined) failures.push(`${path}.lines is only valid for effective-line-count`);
+  if (item.maxComplexity !== undefined) failures.push(`${path}.maxComplexity is only valid for complexity-severity`);
+  if (item.perFunction !== undefined) failures.push(`${path}.perFunction is only valid for complexity-severity`);
+}
+
+export function validateMetricItem(testId: string, itemPath: string, metric: LintRatchetMetric, item: LintRatchetMetricItem, failures: string[]): void {
+  const path = `${testId}.items.${itemPath}`;
+  if (metric === "complexity-severity") {
+    validateComplexitySeverityItem(path, item, failures);
+    return;
+  }
+  if (metric === "effective-line-count") {
+    validateEffectiveLineCountItem(path, item, failures);
+    return;
+  }
+  validateOtherMetricItem(path, item, failures);
 }
 
 function complexityIdentity(entry: LintRatchetComplexityFunction): string {

@@ -1,7 +1,9 @@
 import { createHash } from "node:crypto";
 
 import type { JsonObject, JsonValue, LintRatchetConfig, LintRatchetMetric, LintRatchetMode, LintRatchetParserProfile, LintRatchetRuleSource, LintRatchetThirdPartyPluginAllowlistEntry } from "./lint-ratchet-config.js";
-import { complexityDelta, metricItemForFormat, parseMetricFields, validateMetricItem, type LintRatchetComplexityFunction, type LintRatchetMetricItem } from "./lint-ratchet-metrics.js";
+import { compareCurrentToBaseline as compareCurrentToBaselineImpl } from "./lint-ratchet-baseline-compare.js";
+import { parseBaselineTest } from "./lint-ratchet-baseline-parse.js";
+import { metricItemForFormat, validateMetricItem, type LintRatchetMetricItem } from "./lint-ratchet-metrics.js";
 
 const LINT_RATCHET_BASELINE_VERSION = 1 as const;
 export const LINT_RATCHET_CONFIG_HASH_PREFIX = "sha256:" as const;
@@ -36,20 +38,7 @@ const RATCHET_ID_PATTERN = /^ratchet\/[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 const LOCAL_RULE_ID_PATTERN = /^local\/[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 const CORE_RULE_ID_PATTERN = /^[a-z][a-z0-9-]*$/u;
 export const RULE_ID_PATTERN = /^(?:[a-z0-9][a-z0-9-]*(?:\/[a-z0-9][a-z0-9-]*)+|@[a-z0-9][a-z0-9-]*\/[a-z0-9][a-z0-9-]*(?:\/[a-z0-9][a-z0-9-]*)*)$/u;
-const BASELINE_RULE_ID_PATTERN = /^(?:[a-z][a-z0-9-]*|[a-z0-9][a-z0-9-]*(?:\/[a-z0-9][a-z0-9-]*)+|@[a-z0-9][a-z0-9-]*\/[a-z0-9][a-z0-9-]*(?:\/[a-z0-9][a-z0-9-]*)*)$/u;
 const PACKAGE_SPECIFIER_PATTERN = /^(?:@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*$/u;
-
-function newPathSeverityPayload(
-  ratchet: LintRatchetConfig,
-  current: LintRatchetCurrentItem,
-): Partial<Pick<LintRatchetRegression, "currentComplexity" | "currentLines" | "line">> {
-  if (ratchet.metric === "effective-line-count" && current.lines !== undefined) return { currentLines: current.lines, ...(current.firstLine === undefined ? {} : { line: current.firstLine }) };
-  if (ratchet.metric !== "complexity-severity") return current.firstLine === undefined ? {} : { line: current.firstLine };
-  const maxEntry = current.perFunction?.reduce<LintRatchetComplexityFunction | undefined>((best, entry) => (best === undefined || entry.complexity > best.complexity ? entry : best), undefined);
-  const currentComplexity = maxEntry?.complexity ?? current.maxComplexity;
-  if (currentComplexity !== undefined) return { currentComplexity, ...((maxEntry?.line ?? current.firstLine) === undefined ? {} : { line: maxEntry?.line ?? current.firstLine }) };
-  return current.firstLine === undefined ? {} : { line: current.firstLine };
-}
 
 interface ValidateLintRatchetRegistryOptions { readonly localRuleIds?: ReadonlySet<string>; readonly thirdPartyPlugins?: readonly LintRatchetThirdPartyPluginAllowlistEntry[]; }
 
@@ -243,6 +232,235 @@ function normalizeRegistryOptions(
   return optionsOrLocalRuleIds;
 }
 
+type ThirdPartyRatchetSource = Extract<LintRatchetRuleSource, { readonly kind: "third-party" }>;
+
+interface ValidateRatchetEntryContext {
+  readonly localRuleIds: ReadonlySet<string> | undefined;
+  readonly allowedThirdPartyPlugins: ReadonlySet<string>;
+  readonly seenScopes: Map<string, string>;
+}
+
+function validateThirdPartyPluginAllowlistEntry(
+  entry: LintRatchetThirdPartyPluginAllowlistEntry,
+  allowedThirdPartyPlugins: Set<string>,
+  seenThirdPartyPlugins: Set<string>,
+  failures: string[],
+): void {
+  const key = thirdPartyAllowlistKey(entry.pluginModule, entry.ruleNamespace);
+  if (!PACKAGE_SPECIFIER_PATTERN.test(entry.pluginModule)) {
+    failures.push(`third-party allowlist: pluginModule must be a package name: ${entry.pluginModule}`);
+  }
+  if (ruleNamespace(`${entry.ruleNamespace}/fixture-rule`) !== entry.ruleNamespace) {
+    failures.push(`third-party allowlist: ruleNamespace is invalid: ${entry.ruleNamespace}`);
+  }
+  if (entry.pluginExport !== undefined && entry.pluginExport !== "default" && entry.pluginExport !== "plugin") {
+    failures.push(`third-party allowlist: pluginExport is invalid for ${entry.pluginModule}`);
+  }
+  if (seenThirdPartyPlugins.has(key)) {
+    failures.push(
+      `third-party allowlist: duplicate pluginModule/ruleNamespace entry for ${entry.pluginModule} ${entry.ruleNamespace}`,
+    );
+  }
+  seenThirdPartyPlugins.add(key);
+  allowedThirdPartyPlugins.add(key);
+}
+
+function validateThirdPartyPluginAllowlist(
+  thirdPartyPlugins: readonly LintRatchetThirdPartyPluginAllowlistEntry[],
+  failures: string[],
+): ReadonlySet<string> {
+  const allowedThirdPartyPlugins = new Set<string>();
+  const seenThirdPartyPlugins = new Set<string>();
+  for (const entry of thirdPartyPlugins) {
+    validateThirdPartyPluginAllowlistEntry(
+      entry,
+      allowedThirdPartyPlugins,
+      seenThirdPartyPlugins,
+      failures,
+    );
+  }
+  return allowedThirdPartyPlugins;
+}
+
+function validateRatchetIdAndParserProfile(
+  ratchet: LintRatchetConfig,
+  parserProfile: LintRatchetParserProfile,
+  failures: string[],
+): void {
+  if (!RATCHET_ID_PATTERN.test(ratchet.id)) {
+    failures.push(`${ratchet.id}: id must match ratchet/<name>`);
+  }
+  if (!IMPLEMENTED_PARSER_PROFILES.has(parserProfile)) {
+    failures.push(`${ratchet.id}: parserProfile ${parserProfile} is not implemented`);
+  }
+}
+
+function validateLocalSource(
+  ratchet: LintRatchetConfig,
+  parserProfile: LintRatchetParserProfile,
+  localRuleIds: ReadonlySet<string> | undefined,
+  failures: string[],
+): void {
+  if (parserProfile !== "minimal-ts") {
+    failures.push(`${ratchet.id}: local ratchets must use parserProfile minimal-ts`);
+  }
+  if (!LOCAL_RULE_ID_PATTERN.test(ratchet.ruleId)) {
+    failures.push(`${ratchet.id}: local source ruleId must match local/<rule-name>`);
+  } else if (localRuleIds !== undefined && !localRuleIds.has(ratchet.ruleId)) {
+    failures.push(`${ratchet.id}: ruleId ${ratchet.ruleId} is not registered`);
+  }
+}
+
+function validateCoreSource(
+  ratchet: LintRatchetConfig,
+  failures: string[],
+): void {
+  if (!CORE_RULE_ID_PATTERN.test(ratchet.ruleId)) {
+    failures.push(
+      `${ratchet.id}: core ruleId must be a bare ESLint built-in id (no slash): ${ratchet.ruleId}`,
+    );
+  }
+}
+
+function validateThirdPartySource(
+  ratchet: LintRatchetConfig,
+  source: ThirdPartyRatchetSource,
+  allowedThirdPartyPlugins: ReadonlySet<string>,
+  failures: string[],
+): void {
+  const namespace = ruleNamespace(ratchet.ruleId);
+  if (!PACKAGE_SPECIFIER_PATTERN.test(source.pluginModule)) {
+    failures.push(
+      `${ratchet.id}: third-party pluginModule must be a package name: ${source.pluginModule}`,
+    );
+  }
+  if (namespace === undefined) {
+    failures.push(
+      `${ratchet.id}: third-party source ruleId is not a valid lint rule identifier`,
+    );
+  } else if (namespace === "local") {
+    failures.push(
+      `${ratchet.id}: third-party source ruleId must be a non-local namespaced rule id`,
+    );
+  } else if (!allowedThirdPartyPlugins.has(thirdPartyAllowlistKey(source.pluginModule, namespace))) {
+    failures.push(
+      `${ratchet.id}: third-party plugin ${source.pluginModule} for namespace ${namespace} is not allowlisted`,
+    );
+  }
+}
+
+function validateRatchetSource(
+  ratchet: LintRatchetConfig,
+  source: LintRatchetRuleSource,
+  parserProfile: LintRatchetParserProfile,
+  ctx: ValidateRatchetEntryContext,
+  failures: string[],
+): void {
+  switch (source.kind) {
+    case "local":
+      validateLocalSource(ratchet, parserProfile, ctx.localRuleIds, failures);
+      return;
+    case "core":
+      validateCoreSource(ratchet, failures);
+      return;
+    case "third-party":
+      validateThirdPartySource(ratchet, source, ctx.allowedThirdPartyPlugins, failures);
+      return;
+    default:
+      assertNever(source);
+  }
+}
+
+function validateSortedPathList(
+  ratchetId: string,
+  fieldName: "files" | "ignores",
+  itemLabel: "file glob" | "ignore glob",
+  values: readonly string[],
+  failures: string[],
+): void {
+  if (!isSortedUnique(values)) {
+    failures.push(`${ratchetId}: ${fieldName} must be sorted and duplicate-free`);
+  }
+  for (const value of values) {
+    if (!hasNormalizedPath(value)) {
+      failures.push(`${ratchetId}: ${itemLabel} must be normalized: ${value}`);
+    }
+  }
+}
+
+function validateRatchetGlobs(
+  ratchet: LintRatchetConfig,
+  failures: string[],
+): void {
+  if (ratchet.files.length === 0) {
+    failures.push(`${ratchet.id}: files must be non-empty`);
+  }
+  validateSortedPathList(ratchet.id, "files", "file glob", ratchet.files, failures);
+  validateSortedPathList(ratchet.id, "ignores", "ignore glob", ratchet.ignores, failures);
+}
+
+function validateRatchetModeAndMetric(
+  ratchet: LintRatchetConfig,
+  source: LintRatchetRuleSource,
+  failures: string[],
+): void {
+  if (!IMPLEMENTED_MODES.has(ratchet.mode)) {
+    failures.push(`${ratchet.id}: mode ${ratchet.mode} is reserved but not implemented`);
+  }
+  if (!IMPLEMENTED_METRICS.has(ratchet.metric)) {
+    failures.push(`${ratchet.id}: metric ${ratchet.metric} is not implemented`);
+  }
+  if (ratchet.metric === "effective-line-count" && ratchet.ruleId !== "local/max-lines") {
+    failures.push(`${ratchet.id}: effective-line-count metric requires ruleId local/max-lines`);
+  }
+  if (ratchet.metric === "complexity-severity" && (source.kind !== "core" || ratchet.ruleId !== "complexity")) {
+    failures.push(`${ratchet.id}: complexity-severity metric requires core ruleId complexity`);
+  }
+}
+
+function validateRatchetTargetAndOptions(
+  ratchet: LintRatchetConfig,
+  failures: string[],
+): void {
+  if (!Number.isInteger(ratchet.target) || ratchet.target < 0) {
+    failures.push(`${ratchet.id}: target must be a non-negative integer`);
+  }
+  for (const option of ratchet.ruleOptions) {
+    if (!isJsonValue(option)) {
+      failures.push(`${ratchet.id}: ruleOptions must be JSON values`);
+    }
+  }
+}
+
+function validateRatchetScope(
+  ratchet: LintRatchetConfig,
+  ctx: ValidateRatchetEntryContext,
+  failures: string[],
+): void {
+  const scopeKey = duplicateScopeKey(ratchet);
+  const previous = ctx.seenScopes.get(scopeKey);
+  if (previous !== undefined) {
+    failures.push(`${ratchet.id}: duplicates ratchet scope already used by ${previous}`);
+  } else {
+    ctx.seenScopes.set(scopeKey, ratchet.id);
+  }
+}
+
+function validateRatchetEntry(
+  ratchet: LintRatchetConfig,
+  ctx: ValidateRatchetEntryContext,
+  failures: string[],
+): void {
+  const source = lintRatchetSource(ratchet);
+  const parserProfile = lintRatchetParserProfile(ratchet);
+  validateRatchetIdAndParserProfile(ratchet, parserProfile, failures);
+  validateRatchetSource(ratchet, source, parserProfile, ctx, failures);
+  validateRatchetGlobs(ratchet, failures);
+  validateRatchetModeAndMetric(ratchet, source, failures);
+  validateRatchetTargetAndOptions(ratchet, failures);
+  validateRatchetScope(ratchet, ctx, failures);
+}
+
 export function validateLintRatchetRegistry(
   ratchets: readonly LintRatchetConfig[],
   optionsOrLocalRuleIds?: ReadonlySet<string> | ValidateLintRatchetRegistryOptions,
@@ -256,131 +474,17 @@ export function validateLintRatchetRegistry(
     failures.push("ratchet ids must be sorted and unique");
   }
 
-  const allowedThirdPartyPlugins = new Set<string>();
-  const seenThirdPartyPlugins = new Set<string>();
-  for (const entry of thirdPartyPlugins) {
-    const key = thirdPartyAllowlistKey(entry.pluginModule, entry.ruleNamespace);
-    if (!PACKAGE_SPECIFIER_PATTERN.test(entry.pluginModule)) {
-      failures.push(`third-party allowlist: pluginModule must be a package name: ${entry.pluginModule}`);
-    }
-    if (ruleNamespace(`${entry.ruleNamespace}/fixture-rule`) !== entry.ruleNamespace) {
-      failures.push(`third-party allowlist: ruleNamespace is invalid: ${entry.ruleNamespace}`);
-    }
-    if (entry.pluginExport !== undefined && entry.pluginExport !== "default" && entry.pluginExport !== "plugin") {
-      failures.push(`third-party allowlist: pluginExport is invalid for ${entry.pluginModule}`);
-    }
-    if (seenThirdPartyPlugins.has(key)) {
-      failures.push(
-        `third-party allowlist: duplicate pluginModule/ruleNamespace entry for ${entry.pluginModule} ${entry.ruleNamespace}`,
-      );
-    }
-    seenThirdPartyPlugins.add(key);
-    allowedThirdPartyPlugins.add(key);
-  }
-
-  const seenScopes = new Map<string, string>();
+  const allowedThirdPartyPlugins = validateThirdPartyPluginAllowlist(
+    thirdPartyPlugins,
+    failures,
+  );
+  const ctx: ValidateRatchetEntryContext = {
+    localRuleIds,
+    allowedThirdPartyPlugins,
+    seenScopes: new Map<string, string>(),
+  };
   for (const ratchet of ratchets) {
-    const source = lintRatchetSource(ratchet);
-    const parserProfile = lintRatchetParserProfile(ratchet);
-    if (!RATCHET_ID_PATTERN.test(ratchet.id)) {
-      failures.push(`${ratchet.id}: id must match ratchet/<name>`);
-    }
-    if (!IMPLEMENTED_PARSER_PROFILES.has(parserProfile)) {
-      failures.push(`${ratchet.id}: parserProfile ${parserProfile} is not implemented`);
-    }
-    switch (source.kind) {
-      case "local":
-        if (parserProfile !== "minimal-ts") {
-          failures.push(`${ratchet.id}: local ratchets must use parserProfile minimal-ts`);
-        }
-        if (!LOCAL_RULE_ID_PATTERN.test(ratchet.ruleId)) {
-          failures.push(`${ratchet.id}: local source ruleId must match local/<rule-name>`);
-        } else if (localRuleIds !== undefined && !localRuleIds.has(ratchet.ruleId)) {
-          failures.push(`${ratchet.id}: ruleId ${ratchet.ruleId} is not registered`);
-        }
-        break;
-      case "core":
-        if (!CORE_RULE_ID_PATTERN.test(ratchet.ruleId)) {
-          failures.push(
-            `${ratchet.id}: core ruleId must be a bare ESLint built-in id (no slash): ${ratchet.ruleId}`,
-          );
-        }
-        break;
-      case "third-party": {
-        const namespace = ruleNamespace(ratchet.ruleId);
-        if (!PACKAGE_SPECIFIER_PATTERN.test(source.pluginModule)) {
-          failures.push(
-            `${ratchet.id}: third-party pluginModule must be a package name: ${source.pluginModule}`,
-          );
-        }
-        if (namespace === undefined) {
-          failures.push(
-            `${ratchet.id}: third-party source ruleId is not a valid lint rule identifier`,
-          );
-        } else if (namespace === "local") {
-          failures.push(
-            `${ratchet.id}: third-party source ruleId must be a non-local namespaced rule id`,
-          );
-        } else if (
-          !allowedThirdPartyPlugins.has(
-            thirdPartyAllowlistKey(source.pluginModule, namespace),
-          )
-        ) {
-          failures.push(
-            `${ratchet.id}: third-party plugin ${source.pluginModule} for namespace ${namespace} is not allowlisted`,
-          );
-        }
-        break;
-      }
-      default:
-        assertNever(source);
-    }
-    if (ratchet.files.length === 0) {
-      failures.push(`${ratchet.id}: files must be non-empty`);
-    }
-    if (!isSortedUnique(ratchet.files)) {
-      failures.push(`${ratchet.id}: files must be sorted and duplicate-free`);
-    }
-    for (const file of ratchet.files) {
-      if (!hasNormalizedPath(file)) {
-        failures.push(`${ratchet.id}: file glob must be normalized: ${file}`);
-      }
-    }
-    if (!isSortedUnique(ratchet.ignores)) {
-      failures.push(`${ratchet.id}: ignores must be sorted and duplicate-free`);
-    }
-    for (const ignore of ratchet.ignores) {
-      if (!hasNormalizedPath(ignore)) {
-        failures.push(`${ratchet.id}: ignore glob must be normalized: ${ignore}`);
-      }
-    }
-    if (!IMPLEMENTED_MODES.has(ratchet.mode)) {
-      failures.push(`${ratchet.id}: mode ${ratchet.mode} is reserved but not implemented`);
-    }
-    if (!IMPLEMENTED_METRICS.has(ratchet.metric)) {
-      failures.push(`${ratchet.id}: metric ${ratchet.metric} is not implemented`);
-    }
-    if (ratchet.metric === "effective-line-count" && ratchet.ruleId !== "local/max-lines") {
-      failures.push(`${ratchet.id}: effective-line-count metric requires ruleId local/max-lines`);
-    }
-    if (ratchet.metric === "complexity-severity" && (source.kind !== "core" || ratchet.ruleId !== "complexity")) {
-      failures.push(`${ratchet.id}: complexity-severity metric requires core ruleId complexity`);
-    }
-    if (!Number.isInteger(ratchet.target) || ratchet.target < 0) {
-      failures.push(`${ratchet.id}: target must be a non-negative integer`);
-    }
-    for (const option of ratchet.ruleOptions) {
-      if (!isJsonValue(option)) {
-        failures.push(`${ratchet.id}: ruleOptions must be JSON values`);
-      }
-    }
-    const scopeKey = duplicateScopeKey(ratchet);
-    const previous = seenScopes.get(scopeKey);
-    if (previous !== undefined) {
-      failures.push(`${ratchet.id}: duplicates ratchet scope already used by ${previous}`);
-    } else {
-      seenScopes.set(scopeKey, ratchet.id);
-    }
+    validateRatchetEntry(ratchet, ctx, failures);
   }
 
   return failures;
@@ -487,188 +591,64 @@ export function formatLintRatchetBaseline(baseline: LintRatchetBaseline): string
   return `${JSON.stringify(orderedBaselineForFormat(baseline), null, 2)}\n`;
 }
 
-function parseStringArray(
-  value: unknown,
-  path: string,
-  failures: string[],
-): readonly string[] | undefined {
-  if (!Array.isArray(value)) {
-    failures.push(`${path} must be an array`);
-    return undefined;
-  }
-  const parsed: string[] = [];
-  for (const entry of value) {
-    if (typeof entry !== "string") {
-      failures.push(`${path} must contain only strings`);
-      return undefined;
-    }
-    parsed.push(entry);
-  }
-  return parsed;
-}
-
-function parseRuleOptions(
-  value: unknown,
-  path: string,
-  failures: string[],
-): readonly JsonValue[] | undefined {
-  if (!Array.isArray(value)) {
-    failures.push(`${path} must be an array`);
-    return undefined;
-  }
-  const parsed: JsonValue[] = [];
-  for (const entry of value) {
-    if (!isJsonValue(entry)) {
-      failures.push(`${path} must contain only JSON values`);
-      return undefined;
-    }
-    parsed.push(normalizeJsonValue(entry));
-  }
-  return parsed;
-}
-
-function parseBaselineItems(
-  value: unknown,
-  path: string,
-  failures: string[],
-): Readonly<Record<string, LintRatchetBaselineItem>> | undefined {
-  if (!isRecord(value)) {
-    failures.push(`${path} must be an object`);
-    return undefined;
-  }
-  const items: Record<string, LintRatchetBaselineItem> = {};
-  for (const [itemPath, rawItem] of Object.entries(value)) {
-    if (!hasNormalizedPath(itemPath)) {
-      failures.push(`${path}.${itemPath}: path must be normalized`);
-      continue;
-    }
-    if (!isRecord(rawItem)) {
-      failures.push(`${path}.${itemPath} must be an object`);
-      continue;
-    }
-    const count = rawItem.count;
-    if (typeof count !== "number" || !Number.isInteger(count) || count < 0) {
-      failures.push(`${path}.${itemPath}.count must be a non-negative integer`);
-      continue;
-    }
-    const metricFields = parseMetricFields(rawItem, `${path}.${itemPath}`, failures);
-    if (count > 0) {
-      items[itemPath] = {
-        count,
-        ...(metricFields ?? {}),
-      };
-    }
-  }
-  return items;
-}
-
-function isLintRatchetMode(value: unknown): value is LintRatchetMode {
-  return value === "no-new" || value === "ratchet-down" || value === "report-only";
-}
-
-function isLintRatchetMetric(value: unknown): value is LintRatchetMetric {
-  return value === "complexity-severity" || value === "effective-line-count" || value === "message-count";
-}
-
-function isNonNegativeInteger(value: unknown): value is number {
-  return typeof value === "number" && Number.isInteger(value) && value >= 0;
-}
-
-function isSha256Hash(value: unknown): value is string {
-  return (
-    typeof value === "string" &&
-    value.startsWith(LINT_RATCHET_CONFIG_HASH_PREFIX)
-  );
-}
-
-function parseBaselineTest(
+function validateBaselineTestMetadata(
   testId: string,
-  value: unknown,
+  test: LintRatchetBaselineTest,
+  expected: LintRatchetBaselineTest,
   failures: string[],
-): LintRatchetBaselineTest | undefined {
-  if (!RATCHET_ID_PATTERN.test(testId)) {
-    failures.push(`${testId}: id must match ratchet/<name>`);
+): void {
+  if (test.ruleId !== expected.ruleId) failures.push(`${testId}.ruleId is stale`);
+  if (test.mode !== expected.mode) failures.push(`${testId}.mode is stale`);
+  if (test.target !== expected.target) failures.push(`${testId}.target is stale`);
+  if (test.metric !== expected.metric) failures.push(`${testId}.metric is stale`);
+  if (stableJson(test.files) !== stableJson(expected.files)) {
+    failures.push(`${testId}.files is stale`);
   }
-  if (!isRecord(value)) {
-    failures.push(`${testId} must be an object`);
-    return undefined;
+  if (stableJson(test.ignores) !== stableJson(expected.ignores)) {
+    failures.push(`${testId}.ignores is stale`);
   }
+  if (stableJson(test.ruleOptions) !== stableJson(expected.ruleOptions)) {
+    failures.push(`${testId}.ruleOptions is stale`);
+  }
+  if (test.configHash !== expected.configHash) {
+    failures.push(`${testId}.configHash is stale`);
+  }
+}
 
-  const ruleId = value.ruleId;
-  const mode = value.mode;
-  const target = value.target;
-  const metric = value.metric;
-  const configHash = value.configHash;
-  const rawRuleSourceHash = value.ruleSourceHash;
-  const parsedRuleId =
-    typeof ruleId === "string" && BASELINE_RULE_ID_PATTERN.test(ruleId)
-      ? ruleId
-      : undefined;
-  const parsedMode = isLintRatchetMode(mode) ? mode : undefined;
-  const parsedTarget = isNonNegativeInteger(target) ? target : undefined;
-  const parsedMetric = isLintRatchetMetric(metric) ? metric : undefined;
-  const parsedConfigHash = isSha256Hash(configHash) ? configHash : undefined;
-  const parsedRuleSourceHash = isSha256Hash(rawRuleSourceHash)
-    ? rawRuleSourceHash
-    : undefined;
-  if (parsedRuleId === undefined) {
-    failures.push(`${testId}.ruleId must be a bare or namespaced ESLint rule id`);
+function validateBaselineRuleSourceHash(
+  testId: string,
+  test: LintRatchetBaselineTest,
+  expected: LintRatchetBaselineTest,
+  failures: string[],
+): void {
+  if (test.ruleSourceHash === "") {
+    failures.push(`${testId}.ruleSourceHash is required`);
+  } else if (test.ruleSourceHash !== expected.ruleSourceHash) {
+    failures.push(`${testId}.ruleSourceHash is stale`);
   }
-  if (parsedMode === undefined) {
-    failures.push(`${testId}.mode is unknown`);
-  }
-  if (parsedTarget === undefined) {
-    failures.push(`${testId}.target must be a non-negative integer`);
-  }
-  if (parsedMetric === undefined) {
-    failures.push(`${testId}.metric is unknown`);
-  }
-  if (parsedConfigHash === undefined) {
-    failures.push(`${testId}.configHash must be a sha256 hash`);
-  }
-  // ruleSourceHash is optional in structural parse so update mode can rewrite
-  // a pre-Leaf-01 baseline that omits the field; strict parse layered above
-  // (validateBaselineAgainstRegistry) requires it to be present and current.
-  if (Object.hasOwn(value, "ruleSourceHash") && parsedRuleSourceHash === undefined) {
-    failures.push(`${testId}.ruleSourceHash must be a sha256 hash`);
-  }
-  if (!Object.hasOwn(value, "files")) {
-    failures.push(`${testId}.files is required`);
-  }
-  if (!Object.hasOwn(value, "ruleOptions")) {
-    failures.push(`${testId}.ruleOptions is required`);
-  }
-  const files = parseStringArray(value.files, `${testId}.files`, failures);
-  const ignores = parseStringArray(value.ignores, `${testId}.ignores`, failures);
-  const ruleOptions = parseRuleOptions(value.ruleOptions, `${testId}.ruleOptions`, failures);
-  const items = parseBaselineItems(value.items, `${testId}.items`, failures);
+}
 
-  if (
-    parsedRuleId === undefined ||
-    parsedMode === undefined ||
-    parsedTarget === undefined ||
-    parsedMetric === undefined ||
-    parsedConfigHash === undefined ||
-    files === undefined ||
-    ignores === undefined ||
-    ruleOptions === undefined ||
-    items === undefined
-  ) {
-    return undefined;
+function validateBaselineMetricItems(
+  testId: string,
+  test: LintRatchetBaselineTest,
+  failures: string[],
+): void {
+  for (const [itemPath, item] of Object.entries(test.items)) {
+    validateMetricItem(testId, itemPath, test.metric, item, failures);
   }
+}
 
-  return {
-    ruleId: parsedRuleId,
-    mode: parsedMode,
-    target: parsedTarget,
-    metric: parsedMetric,
-    files,
-    ignores,
-    ruleOptions,
-    configHash: parsedConfigHash,
-    ruleSourceHash: parsedRuleSourceHash ?? "",
-    items,
-  };
+function validateBaselineTestAgainstRatchet(
+  testId: string,
+  test: LintRatchetBaselineTest,
+  ratchet: LintRatchetConfig,
+  expectedRuleSourceHash: string,
+  failures: string[],
+): void {
+  const expected = baselineTestFromConfig(ratchet, undefined, expectedRuleSourceHash);
+  validateBaselineTestMetadata(testId, test, expected, failures);
+  validateBaselineRuleSourceHash(testId, test, expected, failures);
+  validateBaselineMetricItems(testId, test, failures);
 }
 
 function validateBaselineAgainstRegistry(
@@ -687,31 +667,13 @@ function validateBaselineAgainstRegistry(
     const test = baseline.tests[testId];
     if (test === undefined) continue;
     const expectedRuleSourceHash = ruleSourceHashesById.get(testId) ?? "";
-    const expected = baselineTestFromConfig(ratchet, undefined, expectedRuleSourceHash);
-    if (test.ruleId !== expected.ruleId) failures.push(`${testId}.ruleId is stale`);
-    if (test.mode !== expected.mode) failures.push(`${testId}.mode is stale`);
-    if (test.target !== expected.target) failures.push(`${testId}.target is stale`);
-    if (test.metric !== expected.metric) failures.push(`${testId}.metric is stale`);
-    if (stableJson(test.files) !== stableJson(expected.files)) {
-      failures.push(`${testId}.files is stale`);
-    }
-    if (stableJson(test.ignores) !== stableJson(expected.ignores)) {
-      failures.push(`${testId}.ignores is stale`);
-    }
-    if (stableJson(test.ruleOptions) !== stableJson(expected.ruleOptions)) {
-      failures.push(`${testId}.ruleOptions is stale`);
-    }
-    if (test.configHash !== expected.configHash) {
-      failures.push(`${testId}.configHash is stale`);
-    }
-    if (test.ruleSourceHash === "") {
-      failures.push(`${testId}.ruleSourceHash is required`);
-    } else if (test.ruleSourceHash !== expected.ruleSourceHash) {
-      failures.push(`${testId}.ruleSourceHash is stale`);
-    }
-    for (const [itemPath, item] of Object.entries(test.items)) {
-      validateMetricItem(testId, itemPath, test.metric, item, failures);
-    }
+    validateBaselineTestAgainstRatchet(
+      testId,
+      test,
+      ratchet,
+      expectedRuleSourceHash,
+      failures,
+    );
   }
   for (const ratchet of ratchets) {
     if (baseline.tests[ratchet.id] === undefined) {
@@ -790,79 +752,7 @@ export function compareCurrentToBaseline(
   ratchets: readonly LintRatchetConfig[],
   currentById: LintRatchetCurrentById,
 ): LintRatchetComparison {
-  const regressions: LintRatchetRegression[] = [];
-  const improvements: LintRatchetImprovement[] = [];
-  for (const ratchet of ratchets) {
-    const test = baseline.tests[ratchet.id];
-    if (test === undefined) continue;
-    const currentItems = currentById.get(ratchet.id) ?? new Map<string, LintRatchetCurrentItem>();
-    for (const [path, current] of currentItems.entries()) {
-      const baselineItem = test.items[path];
-      const baselineCount = baselineItem?.count ?? 0;
-      const complexityChange = ratchet.metric === "complexity-severity" ? complexityDelta(baselineItem, current) : undefined;
-      if (
-        ratchet.metric === "effective-line-count" &&
-        baselineItem?.lines !== undefined &&
-        current.lines !== undefined &&
-        current.lines > baselineItem.lines
-      ) {
-        regressions.push({ testId: ratchet.id, ruleId: ratchet.ruleId, path, baselineCount, currentCount: current.count, baselineLines: baselineItem.lines, currentLines: current.lines, reason: "increased-lines", ...(current.firstLine === undefined ? {} : { line: current.firstLine }) });
-      } else if (complexityChange?.regression === true) {
-        regressions.push({ testId: ratchet.id, ruleId: ratchet.ruleId, path, baselineCount, currentCount: current.count, baselineComplexity: complexityChange.baselineComplexity, currentComplexity: complexityChange.currentComplexity, reason: "increased-complexity", ...(complexityChange.line === undefined ? {} : { line: complexityChange.line }) });
-      } else if (current.count > baselineCount) {
-        const base = {
-          testId: ratchet.id,
-          ruleId: ratchet.ruleId,
-          path,
-          baselineCount,
-          currentCount: current.count,
-          reason: baselineCount === 0 ? "new-path" : "increased-count",
-        } as const;
-        regressions.push(
-          baselineCount === 0 ? { ...base, ...newPathSeverityPayload(ratchet, current) } : current.firstLine !== undefined ? { ...base, line: current.firstLine } : base,
-        );
-      } else if (current.count < baselineCount) {
-        improvements.push({
-          testId: ratchet.id,
-          path,
-          baselineCount,
-          currentCount: current.count,
-          reason: "lower-count",
-        });
-      } else if (
-        ratchet.metric === "effective-line-count" &&
-        baselineItem?.lines !== undefined &&
-        current.lines !== undefined &&
-        current.lines < baselineItem.lines
-      ) {
-        improvements.push({ testId: ratchet.id, path, baselineCount, currentCount: current.count, baselineLines: baselineItem.lines, currentLines: current.lines, reason: "lower-lines" });
-      } else if (complexityChange !== undefined) {
-        improvements.push({ testId: ratchet.id, path, baselineCount, currentCount: current.count, baselineComplexity: complexityChange.baselineComplexity, currentComplexity: complexityChange.currentComplexity, reason: "lower-complexity" });
-      }
-    }
-    for (const [path, item] of Object.entries(test.items)) {
-      if (!currentItems.has(path)) {
-        improvements.push({
-          testId: ratchet.id,
-          path,
-          baselineCount: item.count,
-          currentCount: 0,
-          reason: "removed-path",
-        });
-      }
-    }
-  }
-  regressions.sort((left, right) => {
-    const testCompare = left.testId.localeCompare(right.testId);
-    if (testCompare !== 0) return testCompare;
-    return left.path.localeCompare(right.path);
-  });
-  improvements.sort((left, right) => {
-    const testCompare = left.testId.localeCompare(right.testId);
-    if (testCompare !== 0) return testCompare;
-    return left.path.localeCompare(right.path);
-  });
-  return { regressions, improvements };
+  return compareCurrentToBaselineImpl(baseline, ratchets, currentById);
 }
 
 export function decideLintRatchetUpdate(

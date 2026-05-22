@@ -651,6 +651,16 @@
       "invocation": "bun run verify:logs"
     },
     {
+      "id": "verify-wrapper/verify-history",
+      "kind": "verify-wrapper",
+      "category": "maintainability",
+      "principle": "Surface recent persisted verify and pre-commit run metadata snapshots so slow-run performance evidence survives the latest-log wipe.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/verify-history.sh",
+      "invocation": "bun run verify:history"
+    },
+    {
       "id": "verify-wrapper/verify-async",
       "kind": "verify-wrapper",
       "category": "maintainability",

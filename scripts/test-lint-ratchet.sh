@@ -58,6 +58,10 @@ build_fixture() {
   mkdir -p "$fixture_dir/eslint-rules" "$fixture_dir/docs/guides"
   cp scripts/lint-ratchet.ts "$fixture_dir/scripts/lint-ratchet.ts"
   cp scripts/lint-ratchet-config.ts "$fixture_dir/scripts/lint-ratchet-config.ts"
+  cp scripts/lint-ratchet-baseline-compare.ts \
+    "$fixture_dir/scripts/lint-ratchet-baseline-compare.ts"
+  cp scripts/lint-ratchet-baseline-parse.ts \
+    "$fixture_dir/scripts/lint-ratchet-baseline-parse.ts"
   cp scripts/lint-ratchet-baseline.ts "$fixture_dir/scripts/lint-ratchet-baseline.ts"
   cp scripts/lint-ratchet-metrics.ts "$fixture_dir/scripts/lint-ratchet-metrics.ts"
   cp scripts/lint-rule-docs.ts "$fixture_dir/scripts/lint-rule-docs.ts"

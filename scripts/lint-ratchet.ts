@@ -22,6 +22,7 @@ const baselinePath = join(repoRoot, BASELINE_FILENAME);
 interface ESLintMessage { readonly ruleId: string | null; readonly severity: number; readonly message: string; readonly line?: number; readonly nodeType?: string; readonly messageId?: string; readonly fatal?: boolean; }
 interface ESLintFileResult { readonly filePath: string; readonly messages: readonly ESLintMessage[]; }
 interface ParsedArgs { readonly mode: "default" | "update" | "check-baseline"; readonly allowWorse: boolean; readonly reason?: string; }
+interface ParsedArgsState { mode: ParsedArgs["mode"]; allowWorse: boolean; reason?: string; }
 
 class UsageError extends Error {}
 class WorseBaselineError extends Error {}
@@ -30,51 +31,47 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function parseArgs(args: readonly string[]): ParsedArgs {
-  let mode: ParsedArgs["mode"] = "default";
-  let allowWorse = false;
-  let reason: string | undefined;
+function setMode(state: ParsedArgsState, mode: Exclude<ParsedArgs["mode"], "default">): void { if (state.mode !== "default") throw new UsageError("choose only one mode"); state.mode = mode; }
+
+function consumeReasonArgument(state: ParsedArgsState, args: readonly string[], index: number): number {
+  const value = args[index + 1];
+  if (value === undefined || value.startsWith("--")) {
+    throw new UsageError("--reason requires a non-empty argument");
+  }
+  state.reason = value;
+  return index + 2;
+}
+
+function consumeParsedArg(state: ParsedArgsState, args: readonly string[], index: number): number {
+  const arg = args[index] ?? "";
+  switch (arg) {
+    case "--": return index + 1;
+    case "--update":
+      setMode(state, "update"); return index + 1;
+    case "--check-baseline":
+      setMode(state, "check-baseline"); return index + 1;
+    case "--allow-worse":
+      state.allowWorse = true; return index + 1;
+    case "--reason":
+      return consumeReasonArgument(state, args, index);
+    default:
+      if (!arg.startsWith("--reason=")) throw new UsageError(`Unknown argument: ${arg}`);
+      state.reason = arg.slice("--reason=".length);
+      return index + 1;
+  }
+}
+
+function parseArgFlags(args: readonly string[]): ParsedArgsState {
+  const state: ParsedArgsState = { mode: "default", allowWorse: false };
   let i = 0;
   while (i < args.length) {
-    const arg = args[i] ?? "";
-    if (arg === "--") {
-      i += 1;
-      continue;
-    }
-    if (arg === "--update") {
-      if (mode !== "default") throw new UsageError("choose only one mode");
-      mode = "update";
-      i += 1;
-      continue;
-    }
-    if (arg === "--check-baseline") {
-      if (mode !== "default") throw new UsageError("choose only one mode");
-      mode = "check-baseline";
-      i += 1;
-      continue;
-    }
-    if (arg === "--allow-worse") {
-      allowWorse = true;
-      i += 1;
-      continue;
-    }
-    if (arg === "--reason") {
-      const value = args[i + 1];
-      if (value === undefined || value.startsWith("--")) {
-        throw new UsageError("--reason requires a non-empty argument");
-      }
-      reason = value;
-      i += 2;
-      continue;
-    }
-    if (arg.startsWith("--reason=")) {
-      reason = arg.slice("--reason=".length);
-      i += 1;
-      continue;
-    }
-    throw new UsageError(`Unknown argument: ${arg}`);
+    i = consumeParsedArg(state, args, i);
   }
+  return state;
+}
 
+function parseArgs(args: readonly string[]): ParsedArgs {
+  const { mode, allowWorse, reason } = parseArgFlags(args);
   if (allowWorse && mode !== "update") {
     throw new UsageError("--allow-worse is only valid with --update");
   }
@@ -84,7 +81,6 @@ function parseArgs(args: readonly string[]): ParsedArgs {
   if (allowWorse && (reason?.trim() ?? "").length === 0) {
     throw new UsageError("--allow-worse requires a non-empty --reason");
   }
-
   return reason === undefined ? { mode, allowWorse } : { mode, allowWorse, reason };
 }
 
@@ -548,11 +544,19 @@ function makeCurrentItem(count: number, firstLine: number | undefined, lines: nu
   return { count, ...(firstLine === undefined ? {} : { firstLine }), ...(lines === undefined ? {} : { lines }), ...(perFunction === undefined ? {} : { perFunction }) };
 }
 
+function mergeLines(previous: LintRatchetCurrentItem | undefined, metric: MetricFinding): number | undefined {
+  if (metric.lines === undefined) return previous?.lines;
+  if (previous?.lines === undefined) return metric.lines;
+  return Math.max(previous.lines, metric.lines);
+}
+
+function mergePerFunction(previous: LintRatchetCurrentItem | undefined, metric: MetricFinding): readonly LintRatchetComplexityFunction[] | undefined {
+  return metric.complexity === undefined ? previous?.perFunction : [...(previous?.perFunction ?? []), metric.complexity];
+}
+
 function addFinding(items: Map<string, LintRatchetCurrentItem>, path: string, line: number | undefined, metric: MetricFinding): void {
   const previous = items.get(path);
-  const maxLines = metric.lines === undefined || previous?.lines === undefined ? (metric.lines ?? previous?.lines) : Math.max(previous.lines, metric.lines);
-  const perFunction = metric.complexity === undefined ? previous?.perFunction : [...(previous?.perFunction ?? []), metric.complexity];
-  items.set(path, makeCurrentItem((previous?.count ?? 0) + 1, minDefined(previous?.firstLine, line), maxLines, perFunction));
+  items.set(path, makeCurrentItem((previous?.count ?? 0) + 1, minDefined(previous?.firstLine, line), mergeLines(previous, metric), mergePerFunction(previous, metric)));
 }
 
 function effectiveLineCountFor(ratchet: LintRatchetConfig, path: string, message: ESLintMessage): number | undefined {

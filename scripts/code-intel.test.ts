@@ -1148,16 +1148,20 @@ describe("code:intel:server lifecycle", () => {
     writeFileSync(paths.socketPath, "");
   }
 
-  async function okProbe(): Promise<{ ok: true }> {
-    return { ok: true };
+  function okProbe(): Promise<{ ok: true }> {
+    return Promise.resolve({ ok: true });
   }
 
-  async function failedProbe(): Promise<{
+  function failedProbe(): Promise<{
     failureKind: "unverified";
     ok: false;
     reason: string;
   }> {
-    return { failureKind: "unverified", ok: false, reason: "socket probe timed out" };
+    return Promise.resolve({
+      failureKind: "unverified",
+      ok: false,
+      reason: "socket probe timed out",
+    });
   }
 
   it("derives different state directories per repo realpath", () => {
@@ -1227,9 +1231,9 @@ describe("code:intel:server lifecycle", () => {
       state: { rootDir: stateRoot },
       isAlive: () => true,
       probeDaemon: okProbe,
-      stopProcess: async () => {
+      stopProcess: () => {
         stopSignalled = true;
-        return true;
+        return Promise.resolve(true);
       },
     });
     expect(liveStop.output).toContain("stopped");
@@ -1284,9 +1288,9 @@ describe("code:intel:server lifecycle", () => {
       },
       probeDaemon: okProbe,
       spawner: fakeSpawner,
-      stopProcess: async () => {
+      stopProcess: () => {
         stopped = true;
-        return true;
+        return Promise.resolve(true);
       },
     });
     expect(result.exitCode).toBe(0);
@@ -1314,9 +1318,9 @@ describe("code:intel:server lifecycle", () => {
       repoRoot: repoA,
       state: { rootDir: stateRoot },
       isAlive: () => true,
-      stopProcess: async () => {
+      stopProcess: () => {
         stopCalled = true;
-        return true;
+        return Promise.resolve(true);
       },
     });
     expect(stop.output).toContain("cleared invalid state");
@@ -1346,9 +1350,9 @@ describe("code:intel:server lifecycle", () => {
         writeFileSync(targetPaths.socketPath, "");
         return { pid: 424243 };
       },
-      stopProcess: async () => {
+      stopProcess: () => {
         stopCalled = true;
-        return true;
+        return Promise.resolve(true);
       },
     });
     expect(result.output).toContain("started");
@@ -1365,9 +1369,9 @@ describe("code:intel:server lifecycle", () => {
       state: { rootDir: stateRoot },
       isAlive: () => true,
       probeDaemon: failedProbe,
-      stopProcess: async () => {
+      stopProcess: () => {
         stopCalled = true;
-        return true;
+        return Promise.resolve(true);
       },
     });
     expect(stop.exitCode).toBe(1);
@@ -1403,9 +1407,9 @@ describe("code:intel:server lifecycle", () => {
         writeFileSync(targetPaths.socketPath, "");
         return { pid: 424244 };
       },
-      stopProcess: async () => {
+      stopProcess: () => {
         stopCalled = true;
-        return true;
+        return Promise.resolve(true);
       },
     });
     expect(result.exitCode).toBe(1);
@@ -1426,9 +1430,9 @@ describe("code:intel:server lifecycle", () => {
       state: { rootDir: stateRoot },
       isAlive: () => true,
       probeDaemon: failedProbe,
-      stopProcess: async () => {
+      stopProcess: () => {
         stopCalled = true;
-        return true;
+        return Promise.resolve(true);
       },
       verifyProcessIdentity: () => ({ kind: "verified" }),
     });
@@ -2046,9 +2050,9 @@ describe("code:intel daemon query route", () => {
           isAlive: () => true,
           repoRoot,
           state: { rootDir: stateRoot },
-          transport: async (_socketPath, _payload, timeoutMs) => {
+          transport: (_socketPath, _payload, timeoutMs) => {
             refsTimeout = timeoutMs;
-            throw new DaemonRequestTimeoutError(timeoutMs);
+            return Promise.reject(new DaemonRequestTimeoutError(timeoutMs));
           },
         },
       ),
@@ -2067,9 +2071,9 @@ describe("code:intel daemon query route", () => {
         isAlive: () => true,
         repoRoot,
         state: { rootDir: stateRoot },
-        transport: async (_socketPath, _payload, timeoutMs) => {
+        transport: (_socketPath, _payload, timeoutMs) => {
           graphTimeout = timeoutMs;
-          throw new DaemonRequestTimeoutError(timeoutMs);
+          return Promise.reject(new DaemonRequestTimeoutError(timeoutMs));
         },
       },
     );

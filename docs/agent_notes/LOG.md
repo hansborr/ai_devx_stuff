@@ -8,6 +8,77 @@ Newest on top.
 
 ---
 
+- 2026-05-21: Baseline drain batch on
+  `feature/lint-hardening-baseline-drain-audit` (merged `9d0d1f9b`).
+  Four focused commits drained 39 ratchet items
+  (`lint:ratchet` `128 -> 89`): magic-numbers in top-level scripts
+  `15 -> 0`, `require-await` in `scripts/code-intel.test.ts` `11 -> 0`,
+  codemod-test `only-throw-error` + `expect-expect` `12 -> 0`, and
+  `scripts/drift-ai.ts:249` `parseArgs` complexity `49 -> 6` (file
+  max `49 -> 18`). CLI behavior preserved byte-for-byte for spot-checked
+  entrypoints; codex review found no regressions. Audit:
+  `/tmp/codex-drain-audit-report.md`. Details:
+  `finished_work/baseline-drain-batch.md`.
+- 2026-05-22: Pre-commit perf Leaf 5 added a non-wiped run-meta history
+  archive for pre-commit and verify. After wrapper meta is combined,
+  `$LOG_DIR/run-meta.json` is copied to
+  `${MUSI_VERIFY_HISTORY_DIR:-/tmp/musi-verify-history}/<unix-ts>-<mode>-<exit_code>.json`
+  on success, failure, and signal/timeout paths, with
+  `${MUSI_VERIFY_HISTORY_LIMIT:-50}` retention and warning-only failure
+  handling. `bun run verify:history` prints recent rows with `--limit N`.
+  Details: `finished_work/precommit-run-meta-history-leaf-5.md`.
+- 2026-05-21: Pre-commit perf Leaf 3 made the Vitest JSON timing sidecar
+  opt-in for pre-commit via `MUSI_CAPTURE_TEST_TIMINGS=1`. Default
+  pre-commit `test:changed` now records and runs the dot-only command, avoiding
+  the measured ~10s full-suite overhead (`118.90s` dot+json vs `107.90s`
+  dot-only, with a 2.08 MB sidecar). Manual verify still captures the JSON
+  sidecar for diagnostics, and `verify:logs slow-tests` keeps its existing
+  missing-sidecar guidance for pre-commit-only runs. Details:
+  `finished_work/precommit-vitest-json-sidecar-leaf-3.md`.
+- 2026-05-21: Pre-commit perf Leaf 2 parallelized the root lint composite and
+  `lint:changed` full/check paths. `scripts/parallel-runner.sh` now provides
+  tagged child output, `INT`/`TERM` cleanup, reader reaping, and aggregated
+  failure reporting for ShellCheck, config sensors, and ESLint. `scripts/lint.sh`
+  keeps the leading `--` separator behavior and forwards remaining args only to
+  ESLint; ESLint cache and `--max-warnings=0` are unchanged. Timed
+  `bun run lint` passed at `real 0m6.158s` versus the perf report's `11.37s`
+  sequential composite. Details:
+  `finished_work/precommit-lint-parallelization-leaf-2.md`.
+- 2026-05-21: Pre-commit perf Leaf 1 parallelized the root `typecheck`
+  script. `scripts/typecheck.sh` now runs `tsc -b` and
+  `tsc -p tsconfig.scripts.json` concurrently, labels streamed output by
+  command, aggregates both exit codes, and traps `INT`/`TERM` to kill/reap both
+  child TypeScript checks. `typecheck:watch` is unchanged. Timed
+  `bun run typecheck` passed at `real 0m5.126s` versus the perf report's
+  `6.90s` sequential composite. Details:
+  `finished_work/precommit-typecheck-parallelization-leaf-1.md`.
+- 2026-05-21: Leaf 42c drained `scripts/lint-ratchet-baseline.ts` from
+  `ratchet/core-complexity-lint-ratchet-runtime`. The five starting findings
+  (`validateLintRatchetRegistry` 44, `compareCurrentToBaseline` 30,
+  `parseBaselineTest` 29, `validateBaselineAgainstRegistry` 18, and
+  `newPathSeverityPayload` 16) now sit under the cap through file-local helper
+  extraction plus `scripts/lint-ratchet-baseline-compare.ts` and
+  `scripts/lint-ratchet-baseline-parse.ts`. Public API, behavior, and
+  user-facing text are unchanged. The runtime complexity item map is now empty;
+  the same file's runtime max-lines entry lowered from 838 to 725 effective
+  lines. Details:
+  `finished_work/lint-hardening-leaf-42c-ratchet-baseline-complexity.md`.
+- 2026-05-21: Leaf 42b drained `scripts/lint-ratchet.ts` from
+  `ratchet/core-complexity-lint-ratchet-runtime`. `parseArgs` (22) now uses
+  file-local flag walking helpers, and `addFinding` (13) delegates the two
+  metric merges to small helpers. Public behavior, CLI error text, and
+  baseline shape are unchanged. The refreshed baseline removed the file's
+  runtime complexity item; `scripts/lint-ratchet-baseline.ts` remains for the
+  next sub-leaf. Details:
+  `finished_work/lint-hardening-leaf-42b-ratchet-script-complexity.md`.
+- 2026-05-21: Leaf 42a drained `scripts/lint-ratchet-metrics.ts` from
+  `ratchet/core-complexity-lint-ratchet-runtime`. The three over-cap functions
+  (`parseComplexitySeverityMessage` 15, `validateMetricItem` 15, and
+  `parseComplexityFunction` 14) were split into file-local helpers while
+  preserving public exports, validation order, errors, and return shapes. The
+  refreshed baseline removed the file's runtime complexity item; the other two
+  runtime files remain for later sub-leaves. Details:
+  `finished_work/lint-hardening-leaf-42a-ratchet-metrics-complexity.md`.
 - 2026-05-21: Codex review P2 follow-up for Leaf 41d tightened the
   coverage-map staged-content gate. `scripts/lint-coverage-map-check.ts` now
   accepts `--staged` and reads the map via `git show :...`; `verify --changed`

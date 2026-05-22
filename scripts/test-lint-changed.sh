@@ -7,6 +7,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 LINT_CHANGED="$SCRIPT_DIR/lint-changed.sh"
 LINT_SHELL="$SCRIPT_DIR/lint-shell.sh"
+PARALLEL_RUNNER="$SCRIPT_DIR/parallel-runner.sh"
 LINT_CONFIG_SENSORS="$SCRIPT_DIR/lint-config-sensors.sh"
 VERIFY_METADATA="$SCRIPT_DIR/verify-metadata.sh"
 
@@ -51,6 +52,7 @@ new_repo() {
   git -C "$SANDBOX" init -q -b main "$repo"
   cp "$LINT_CHANGED" "$repo/scripts/lint-changed.sh"
   cp "$LINT_SHELL" "$repo/scripts/lint-shell.sh"
+  cp "$PARALLEL_RUNNER" "$repo/scripts/parallel-runner.sh"
   cp "$VERIFY_METADATA" "$repo/scripts/verify-metadata.sh"
   cat > "$repo/scripts/lint-config-sensors.sh" <<'STUB'
 #!/usr/bin/env bash
@@ -143,6 +145,9 @@ assert_stage_or_stash_failure() {
 bash -n "$LINT_CHANGED" || fail "lint-changed.sh fails bash -n"
 ok "lint-changed.sh passes bash -n"
 
+bash -n "$PARALLEL_RUNNER" || fail "parallel-runner.sh fails bash -n"
+ok "parallel-runner.sh passes bash -n"
+
 bash -n "$LINT_SHELL" || fail "lint-shell.sh fails bash -n"
 ok "lint-shell.sh passes bash -n"
 
@@ -226,9 +231,33 @@ set -e
 [ "$exit_code" -ne 0 ] || fail "ShellCheck failure should fail lint:changed"
 grep -qF 'lint:shell: checking 1 staged/base changed maintained shell file' <<< "$output" \
   || fail "ShellCheck failure should announce changed shell check: $output"
+grep -qF 'lint:changed: ShellCheck failed with exit 1' <<< "$output" \
+  || fail "ShellCheck failure should be aggregated by lint:changed: $output"
 [ ! -s "$repo/eslint.log" ] \
-  || fail "ShellCheck failure should happen before eslint: $(cat "$repo/eslint.log")"
-ok "ShellCheck failures fail lint:changed before eslint"
+  || fail "shell-only ShellCheck failure should not invoke eslint: $(cat "$repo/eslint.log")"
+ok "ShellCheck failures fail lint:changed without eslint files"
+
+repo="$(new_repo staged-shell-and-source-failures)"
+cat > "$repo/scripts/bad-hook.sh" <<'SH'
+#!/usr/bin/env bash
+echo $1
+SH
+printf 'changed\n' > "$repo/packages/server/src/app.ts"
+git -C "$repo" add scripts/bad-hook.sh packages/server/src/app.ts
+: > "$repo/eslint.log"
+: > "$repo/shellcheck.log"
+set +e
+output="$(STUB_SHELLCHECK_EXIT=1 STUB_ESLINT_EXIT=2 run_lint_changed "$repo" 2>&1)"
+exit_code=$?
+set -e
+[ "$exit_code" -ne 0 ] || fail "combined ShellCheck/ESLint failures should fail lint:changed"
+grep -qF 'lint:changed: ShellCheck failed with exit 1' <<< "$output" \
+  || fail "combined failure should report ShellCheck exit: $output"
+grep -qF 'lint:changed: ESLint failed with exit 2' <<< "$output" \
+  || fail "combined failure should report ESLint exit: $output"
+[ -s "$repo/eslint.log" ] \
+  || fail "combined ShellCheck/ESLint failure should still invoke eslint"
+ok "lint:changed reports all failing parallel substeps"
 
 repo="$(new_repo unstaged-source-change)"
 printf 'unstaged\n' > "$repo/packages/server/src/app.ts"
@@ -332,6 +361,7 @@ mkdir -p "$repo/scripts"
 git -C "$SANDBOX" init -q "$repo"
 cp "$LINT_CHANGED" "$repo/scripts/lint-changed.sh"
 cp "$LINT_SHELL" "$repo/scripts/lint-shell.sh"
+cp "$PARALLEL_RUNNER" "$repo/scripts/parallel-runner.sh"
 cp "$VERIFY_METADATA" "$repo/scripts/verify-metadata.sh"
 cat > "$repo/scripts/lint-config-sensors.sh" <<'STUB'
 #!/usr/bin/env bash
@@ -344,7 +374,7 @@ cat > "$repo/scripts/lint-config-sensors.sh" <<'STUB'
 } >> "${CONFIG_SENSOR_LOG:-/dev/null}"
 exit "${STUB_CONFIG_SENSOR_EXIT:-0}"
 STUB
-git -C "$repo" add scripts/lint-changed.sh scripts/lint-shell.sh scripts/lint-config-sensors.sh scripts/verify-metadata.sh
+git -C "$repo" add scripts/lint-changed.sh scripts/lint-shell.sh scripts/parallel-runner.sh scripts/lint-config-sensors.sh scripts/verify-metadata.sh
 : > "$repo/eslint.log"
 output="$(run_lint_changed "$repo" 2>&1)" || fail "missing base should fall back to full lint: $output"
 grep -qF "neither 'main' nor 'origin/main' exists" <<< "$output" \

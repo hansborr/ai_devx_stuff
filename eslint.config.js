@@ -8,6 +8,7 @@ import { defineConfig } from "eslint/config";
 import tseslint from "typescript-eslint";
 import eslintConfigPrettier from "eslint-config-prettier";
 import importX from "eslint-plugin-import-x";
+import jsdoc from "eslint-plugin-jsdoc";
 import jsxA11y from "eslint-plugin-jsx-a11y";
 import playwright from "eslint-plugin-playwright";
 import pluginReact from "eslint-plugin-react";
@@ -515,6 +516,7 @@ export default defineConfig(
     ignores: ["eslint-rules/*.test.js"],
     plugins: {
       "eslint-comments": eslintComments,
+      jsdoc,
       "simple-import-sort": simpleImportSort,
       regexp,
       local: localPlugin,
@@ -556,6 +558,15 @@ export default defineConfig(
       "eslint-comments/no-duplicate-disable": "error",
       "eslint-comments/no-unlimited-disable": "error",
       "eslint-comments/no-unused-disable": "error",
+      "jsdoc/check-alignment": "error",
+      "jsdoc/check-param-names": "error",
+      "jsdoc/check-tag-names": "error",
+      "jsdoc/check-types": "error",
+      "jsdoc/no-undefined-types": "error",
+      "jsdoc/require-param-name": "error",
+      "jsdoc/require-param-type": "error",
+      "jsdoc/require-returns-check": "error",
+      "jsdoc/valid-types": "error",
       "local/no-llm-artifacts": "error",
       "local/no-swallowed-errors": "error",
       "local/no-async-array-callbacks": "error",

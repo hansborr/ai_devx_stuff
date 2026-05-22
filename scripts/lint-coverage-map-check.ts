@@ -17,6 +17,9 @@ const GENERATED_DIR_PATTERN = /(^|\/)(node_modules|dist|build|coverage|\.next|\.
 const TRACKED_EXTENSION_PATTERN = /\.(?:ts|tsx|js|mjs|cjs|json|ya?ml|toml|sh|md|prisma|sql)$/u;
 const VALID_STATUS_PARTS = new Set(["linted", "ratcheted", "proposed", "pending-leaf", "excluded", "not-code"]);
 const ROOT_PATH_PREFIXES = new Set(["packages", "scripts", "docs", "e2e", "eslint-rules"]);
+const GLOBSTAR_WIDTH = 2;
+const GLOBSTAR_WITH_SLASH_WIDTH = 3;
+const PROCESS_ARGV_USER_ARGS_START = 2;
 
 interface TableRow {
   readonly line: number;
@@ -154,13 +157,13 @@ function globVariantToRegExp(pattern: string): RegExp {
   for (let index = 0; index < pattern.length; ) {
     const char = pattern.charAt(index);
     const next = pattern.charAt(index + 1);
-    const afterNext = pattern.charAt(index + 2);
+    const afterNext = pattern.charAt(index + GLOBSTAR_WIDTH);
     if (char === "*" && next === "*" && afterNext === "/") {
       regex += "(?:.*/)?";
-      index += 3;
+      index += GLOBSTAR_WITH_SLASH_WIDTH;
     } else if (char === "*" && next === "*") {
       regex += ".*";
-      index += 2;
+      index += GLOBSTAR_WIDTH;
     } else if (char === "*") {
       regex += "[^/]*";
       index += 1;
@@ -316,7 +319,7 @@ function parseCliArgs(args: readonly string[]): LintCoverageMapCheckOptions | un
 
 const invokedPath = process.argv[1] === undefined ? "" : resolve(process.argv[1]);
 if (fileURLToPath(import.meta.url) === invokedPath) {
-  const options = parseCliArgs(process.argv.slice(2));
+  const options = parseCliArgs(process.argv.slice(PROCESS_ARGV_USER_ARGS_START));
   if (options === undefined) {
     process.exitCode = 2;
   } else {
