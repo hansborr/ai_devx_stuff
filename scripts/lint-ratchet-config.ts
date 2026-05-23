@@ -33,6 +33,7 @@ interface LintRatchetConfigBase {
   readonly target: number;
   readonly metric: LintRatchetMetric;
   readonly repairKind: LintRatchetRepairKind;
+  readonly allowEmpty?: boolean;
 }
 
 // This union intentionally rejects type-aware local entries; see Leaf 22

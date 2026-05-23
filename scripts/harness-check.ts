@@ -12,9 +12,8 @@
 // per-control diagnostic list so the harness gates surface drift loudly.
 
 import { existsSync, readFileSync } from "node:fs";
-import { isAbsolute, relative, resolve } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { dirname, join } from "node:path";
 
 import { lintRatchets } from "./lint-ratchet-config.js";
 
@@ -56,7 +55,8 @@ const EXEMPT_SCRIPTS = new Set<string>([
   "lint:agent",
   "lint:agent:changed",
   "lint:ratchet:update",
-  "lint:ratchet:check-baseline",
+  "lint:ratchet:check-baseline", "lint:ratchet:check-registry", "lint:ratchet:report",
+  "lint:ratchet:summary",
   // worktree provisioning utilities — dev ergonomics, not enforcement
   // gates. `worktree:status` is the read-only sensor and IS in the
   // manifest (sensor/worktree-status).

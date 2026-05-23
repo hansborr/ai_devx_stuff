@@ -2,6 +2,8 @@ import { createHash } from "node:crypto";
 
 import { describe, expect, it } from "vitest";
 
+import { harnessDiagnosticsSchema } from "../packages/shared/src/schemas/harness-diagnostics.js";
+import { assertCheckBaselineComparisonClean, buildEnvelope } from "./lint-ratchet.js";
 import {
   buildLintRatchetBaseline,
   compareCurrentToBaseline,
@@ -11,6 +13,7 @@ import {
   decideLintRatchetUpdate,
   formatLintRatchetBaseline,
   LINT_RATCHET_CONFIG_HASH_PREFIX,
+  type LintRatchetComparison,
   type LintRatchetCurrentById,
   type LintRatchetRuleSourceHashesById,
   parseLintRatchetBaseline,
@@ -142,6 +145,16 @@ function maxLinesBaseline(path: string, lines: number, count = 1) {
 
 function complexityFunction(line: number, label: string, complexity: number): LintRatchetComplexityFunction {
   return { line, nodeType: "FunctionDeclaration", label, complexity };
+}
+
+function thrownMessage(action: () => void): string {
+  try {
+    action();
+  } catch (error) {
+    if (error instanceof Error) return error.message;
+    throw error;
+  }
+  throw new Error("expected action to throw");
 }
 
 function complexityBaseline(path: string, perFunction: readonly LintRatchetComplexityFunction[]) {
@@ -365,6 +378,7 @@ describe("lint ratchet comparison", () => {
     expect(comparison.improvements).toEqual([
       {
         testId: baseRatchet.id,
+        ruleId: baseRatchet.ruleId,
         path: "packages/client/src/b.ts",
         baselineCount: 3,
         currentCount: 1,
@@ -372,6 +386,7 @@ describe("lint ratchet comparison", () => {
       },
       {
         testId: baseRatchet.id,
+        ruleId: baseRatchet.ruleId,
         path: "packages/client/src/c.ts",
         baselineCount: 1,
         currentCount: 0,
@@ -441,6 +456,7 @@ describe("lint ratchet comparison", () => {
     expect(comparison.improvements).toEqual([
       {
         testId: maxLinesRatchet.id,
+        ruleId: maxLinesRatchet.ruleId,
         path,
         baselineCount: 1,
         currentCount: 1,
@@ -505,6 +521,7 @@ describe("lint ratchet comparison", () => {
     expect(comparison.improvements).toEqual([
       {
         testId: complexityRatchet.id,
+        ruleId: complexityRatchet.ruleId,
         path,
         baselineCount: 2,
         currentCount: 1,
@@ -534,6 +551,7 @@ describe("lint ratchet comparison", () => {
     expect(comparison.improvements).toEqual([
       {
         testId: complexityRatchet.id,
+        ruleId: complexityRatchet.ruleId,
         path,
         baselineCount: 2,
         currentCount: 1,
@@ -614,6 +632,7 @@ describe("lint ratchet comparison", () => {
     expect(comparison.improvements).toEqual([
       {
         testId: complexityRatchet.id,
+        ruleId: complexityRatchet.ruleId,
         path,
         baselineCount: 1,
         currentCount: 1,
@@ -622,6 +641,189 @@ describe("lint ratchet comparison", () => {
         reason: "lower-complexity",
       },
     ]);
+  });
+});
+
+describe("lint ratchet diagnostics envelope", () => {
+  it("turns a strict complexity improvement into a blocking finding", () => {
+    const path = "packages/server/src/branchy.ts";
+    const envelope = buildEnvelope(
+      [],
+      [
+        {
+          testId: complexityRatchet.id,
+          ruleId: complexityRatchet.ruleId,
+          path,
+          baselineCount: 1,
+          currentCount: 1,
+          baselineComplexity: 12,
+          currentComplexity: 11,
+          reason: "lower-complexity",
+        },
+      ],
+      new Map(),
+      [complexityRatchet],
+    );
+
+    expect(harnessDiagnosticsSchema.safeParse(envelope).success).toBe(true);
+    expect(envelope.findings).toEqual([
+      {
+        control: complexityRatchet.id,
+        severity: "block",
+        path,
+        ruleId: complexityRatchet.ruleId,
+        baselineCount: 1,
+        currentCount: 1,
+        baselineComplexity: 12,
+        currentComplexity: 11,
+        reason: "lower-complexity",
+        why: `Current tree is better than the committed baseline for ${complexityRatchet.ruleId}; lock it in.`,
+        howToFix: "Run `bun run lint:ratchet:update` to lower the committed baseline and lock in this improvement.",
+        repairKind: "manual",
+      },
+    ]);
+    expect(envelope.summary).toEqual({
+      blocking: 1,
+      warning: 0,
+      info: 0,
+      byControl: { [complexityRatchet.id]: 1 },
+    });
+    expect(envelope.findings[0]).not.toHaveProperty("baselineLines");
+    expect(envelope.findings[0]).not.toHaveProperty("currentLines");
+    expect(envelope.findings[0]).not.toHaveProperty("line");
+  });
+
+  it("turns multiple improvements into sorted blocking findings", () => {
+    const envelope = buildEnvelope(
+      [],
+      [
+        {
+          testId: maxLinesRatchet.id,
+          ruleId: maxLinesRatchet.ruleId,
+          path: "packages/server/src/c-removed.ts",
+          baselineCount: 1,
+          currentCount: 0,
+          reason: "removed-path",
+        },
+        {
+          testId: maxLinesRatchet.id,
+          ruleId: maxLinesRatchet.ruleId,
+          path: "packages/server/src/a-count.ts",
+          baselineCount: 2,
+          currentCount: 1,
+          reason: "lower-count",
+        },
+        {
+          testId: maxLinesRatchet.id,
+          ruleId: maxLinesRatchet.ruleId,
+          path: "packages/server/src/b-lines.ts",
+          baselineCount: 1,
+          currentCount: 1,
+          baselineLines: 320,
+          currentLines: 319,
+          reason: "lower-lines",
+        },
+      ],
+      new Map(),
+      [maxLinesRatchet],
+    );
+
+    expect(envelope.findings).toEqual([
+      {
+        control: maxLinesRatchet.id,
+        severity: "block",
+        path: "packages/server/src/a-count.ts",
+        ruleId: maxLinesRatchet.ruleId,
+        baselineCount: 2,
+        currentCount: 1,
+        reason: "lower-count",
+        why: `Current tree is better than the committed baseline for ${maxLinesRatchet.ruleId}; lock it in.`,
+        howToFix: "Run `bun run lint:ratchet:update` to lower the committed baseline and lock in this improvement.",
+        repairKind: "manual",
+      },
+      {
+        control: maxLinesRatchet.id,
+        severity: "block",
+        path: "packages/server/src/b-lines.ts",
+        ruleId: maxLinesRatchet.ruleId,
+        baselineCount: 1,
+        currentCount: 1,
+        baselineLines: 320,
+        currentLines: 319,
+        reason: "lower-lines",
+        why: `Current tree is better than the committed baseline for ${maxLinesRatchet.ruleId}; lock it in.`,
+        howToFix: "Run `bun run lint:ratchet:update` to lower the committed baseline and lock in this improvement.",
+        repairKind: "manual",
+      },
+      {
+        control: maxLinesRatchet.id,
+        severity: "block",
+        path: "packages/server/src/c-removed.ts",
+        ruleId: maxLinesRatchet.ruleId,
+        baselineCount: 1,
+        currentCount: 0,
+        reason: "removed-path",
+        why: `Current tree is better than the committed baseline for ${maxLinesRatchet.ruleId}; lock it in.`,
+        howToFix: "Run `bun run lint:ratchet:update` to lower the committed baseline and lock in this improvement.",
+        repairKind: "manual",
+      },
+    ]);
+    expect(envelope.summary.blocking).toBe(3);
+  });
+
+  it("keeps regressions and improvements in one blocking envelope", () => {
+    const envelope = buildEnvelope(
+      [
+        {
+          testId: coreRatchet.id,
+          ruleId: coreRatchet.ruleId,
+          path: "packages/server/src/regressed.ts",
+          baselineCount: 1,
+          currentCount: 2,
+          reason: "increased-count",
+        },
+      ],
+      [
+        {
+          testId: complexityRatchet.id,
+          ruleId: complexityRatchet.ruleId,
+          path: "packages/server/src/improved.ts",
+          baselineCount: 2,
+          currentCount: 1,
+          reason: "lower-count",
+        },
+      ],
+      new Map(),
+      [coreRatchet, complexityRatchet],
+    );
+
+    expect(harnessDiagnosticsSchema.safeParse(envelope).success).toBe(true);
+    expect(envelope.findings.map((finding) => [finding.control, finding.reason])).toEqual([
+      [complexityRatchet.id, "lower-count"],
+      [coreRatchet.id, "increased-count"],
+    ]);
+    expect(envelope.summary).toEqual({
+      blocking: 2,
+      warning: 0,
+      info: 0,
+      byControl: {
+        [complexityRatchet.id]: 1,
+        [coreRatchet.id]: 1,
+      },
+    });
+  });
+
+  it("produces no findings for a clean comparison", () => {
+    const envelope = buildEnvelope([], [], new Map(), [coreRatchet]);
+
+    expect(envelope.findings).toEqual([]);
+    expect(envelope.summary).toEqual({
+      blocking: 0,
+      warning: 0,
+      info: 0,
+      byControl: {},
+    });
+    expect(harnessDiagnosticsSchema.safeParse(envelope).success).toBe(true);
   });
 });
 
@@ -835,6 +1037,7 @@ describe("lint ratchet update decisions", () => {
     expect(decision.improvements).toEqual([
       {
         testId: baseRatchet.id,
+        ruleId: baseRatchet.ruleId,
         path: "packages/server/src/a.ts",
         baselineCount: 2,
         currentCount: 1,
@@ -843,17 +1046,85 @@ describe("lint ratchet update decisions", () => {
     ]);
   });
 
-  it("uses the same comparator for check-baseline improvement notes", () => {
-    const committed = oneTestBaseline([["packages/server/src/a.ts", 2]]);
-    const generated = oneTestBaseline([["packages/server/src/a.ts", 1]]);
-    const comparison = compareCurrentToBaseline(
-      committed,
-      [baseRatchet],
-      currentByIdFromBaseline(generated),
-    );
+  it("fails check-baseline when current findings improve", () => {
+    const comparison = {
+      regressions: [],
+      improvements: [
+        {
+          testId: baseRatchet.id,
+          ruleId: baseRatchet.ruleId,
+          path: "packages/server/src/a.ts",
+          baselineCount: 2,
+          currentCount: 1,
+          reason: "lower-count",
+        },
+        {
+          testId: maxLinesRatchet.id,
+          ruleId: maxLinesRatchet.ruleId,
+          path: "packages/server/src/large.ts",
+          baselineCount: 1,
+          currentCount: 1,
+          baselineLines: 320,
+          currentLines: 319,
+          reason: "lower-lines",
+        },
+        {
+          testId: complexityRatchet.id,
+          ruleId: complexityRatchet.ruleId,
+          path: "packages/server/src/branchy.ts",
+          baselineCount: 1,
+          currentCount: 1,
+          baselineComplexity: 12,
+          currentComplexity: 11,
+          reason: "lower-complexity",
+        },
+      ],
+    } satisfies LintRatchetComparison;
 
-    expect(comparison.regressions).toEqual([]);
-    expect(comparison.improvements).toHaveLength(1);
+    expect(thrownMessage(() => {
+      assertCheckBaselineComparisonClean(comparison);
+    })).toBe(
+      "current findings are better than lint-ratchet.baseline.json for 3 path(s): " +
+        "ratchet/local-type-assertion-boundary packages/server/src/a.ts: finding count decreased from 2 to 1; " +
+        "ratchet/local-max-lines-fixture packages/server/src/large.ts: effective lines decreased from 320 to 319; " +
+        "ratchet/fixture-complexity packages/server/src/branchy.ts: complexity decreased from 12 to 11; " +
+        "run bun run lint:ratchet:update",
+    );
+  });
+
+  it("reports regressions and improvements together in check-baseline failures", () => {
+    const comparison = {
+      regressions: [
+        {
+          testId: coreRatchet.id,
+          ruleId: coreRatchet.ruleId,
+          path: "packages/server/src/regressed.ts",
+          baselineCount: 1,
+          currentCount: 2,
+          reason: "increased-count",
+        },
+      ],
+      improvements: [
+        {
+          testId: baseRatchet.id,
+          ruleId: baseRatchet.ruleId,
+          path: "packages/server/src/improved.ts",
+          baselineCount: 2,
+          currentCount: 1,
+          reason: "lower-count",
+        },
+      ],
+    } satisfies LintRatchetComparison;
+
+    expect(thrownMessage(() => {
+      assertCheckBaselineComparisonClean(comparison);
+    })).toBe(
+      "current findings are worse than lint-ratchet.baseline.json for 1 path(s): " +
+        "ratchet/fixture-core packages/server/src/regressed.ts: finding count increased from 1 to 2; " +
+        "current findings are better than lint-ratchet.baseline.json for 1 path(s): " +
+        "ratchet/local-type-assertion-boundary packages/server/src/improved.ts: finding count decreased from 2 to 1; " +
+        "fix regressions, then run bun run lint:ratchet:update",
+    );
   });
 });
 

@@ -18,6 +18,9 @@ jobs:
     name: Lint, Typecheck, Test, Build
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: write
 
     services:
       postgres:
@@ -64,8 +67,103 @@ jobs:
       - name: Lint
         run: bun run lint
 
+      - name: Lint ratchet check-registry
+        run: bun run lint:ratchet:check-registry
+
       - name: Lint ratchet
+        env:
+          HARNESS_DIAGNOSTICS_OUTPUT: lint-ratchet-diagnostics.json
         run: bun run lint:ratchet
+
+      - name: Lint ratchet check-baseline
+        run: bun run lint:ratchet:check-baseline
+
+      - name: Lint ratchet step summary
+        if: always()
+        run: |
+          diagnostics="lint-ratchet-diagnostics.json"
+          report_path="lint-ratchet-report.md"
+          artifact_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts"
+
+          if [ ! -s "$diagnostics" ]; then
+            {
+              echo "<!-- lint-ratchet-summary -->"
+              echo "### Lint ratchet"
+              echo
+              echo "Lint ratchet diagnostics envelope was not produced; the runner may have failed before emitting it."
+              echo
+              echo "Artifact: $artifact_url"
+              echo "Recovery: \`bun run lint:ratchet:update\`"
+            } > "$report_path"
+          else
+            report_stdout="$(mktemp)"
+            report_stderr="$(mktemp)"
+            if LINT_RATCHET_REPORT_ARTIFACT_URL="$artifact_url" \
+              bun run lint:ratchet:report < "$diagnostics" > "$report_stdout" 2> "$report_stderr"; then
+              mv "$report_stdout" "$report_path"
+            else
+              {
+                echo "<!-- lint-ratchet-summary -->"
+                echo "### Lint ratchet"
+                echo
+                echo "Lint ratchet diagnostics envelope was produced, but the report formatter failed."
+                echo
+                echo "Formatter output:"
+                echo '```'
+                cat "$report_stdout"
+                cat "$report_stderr"
+                echo '```'
+                echo
+                echo "Artifact: $artifact_url"
+                echo "Recovery: \`bun run lint:ratchet:update\`"
+              } > "$report_path"
+            fi
+            rm -f "$report_stdout" "$report_stderr"
+          fi
+
+          cat "$report_path" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Sticky PR comment for lint-ratchet report
+        if: >-
+          !cancelled() &&
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          pr_number="${{ github.event.pull_request.number }}"
+          marker="<!-- lint-ratchet-summary -->"
+
+          post_comment() {
+            if ! comment_id="$(
+              gh api --paginate "repos/${{ github.repository }}/issues/$pr_number/comments" \
+                --jq "first(.[] | select(.body | contains(\"$marker\")) | .id) // \"\""
+            )"; then
+              return 1
+            fi
+
+            if [ -n "$comment_id" ]; then
+              # gh --field body=@file reads the file contents into the request field.
+              gh api "repos/${{ github.repository }}/issues/comments/$comment_id" \
+                --method PATCH \
+                --field body=@lint-ratchet-report.md >/dev/null
+            else
+              gh pr comment "$pr_number" --body-file lint-ratchet-report.md >/dev/null
+            fi
+          }
+
+          if ! post_comment; then
+            echo "::warning::failed to post sticky PR comment"
+            exit 0
+          fi
+
+      - name: Upload lint-ratchet diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: lint-ratchet-diagnostics
+          path: lint-ratchet-diagnostics.json
+          retention-days: 7
 
       - name: Check generated lint guidance is up to date
         run: bun run docs:lint-guidance:check

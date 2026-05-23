@@ -1,0 +1,29 @@
+{
+  "version": "1",
+  "tool": "lint:ratchet",
+  "findings": [
+    {
+      "control": "lint/local/complexity",
+      "severity": "block",
+      "path": "packages/server/src/services/example.ts",
+      "line": 42,
+      "ruleId": "complexity",
+      "reason": "increased-complexity",
+      "baselineCount": 3,
+      "currentCount": 1,
+      "baselineComplexity": 12,
+      "currentComplexity": 18,
+      "why": "Ratchet regression for complexity.",
+      "howToFix": "Reduce this file's complexity back to the committed baseline.",
+      "repairKind": "manual"
+    }
+  ],
+  "summary": {
+    "blocking": 1,
+    "warning": 0,
+    "info": 0,
+    "byControl": {
+      "lint/local/complexity": 1
+    }
+  }
+}

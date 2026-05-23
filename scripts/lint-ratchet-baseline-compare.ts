@@ -124,7 +124,7 @@ function countDecreaseImprovement(
   baselineCount: number,
 ): LintRatchetImprovement | undefined {
   if (current.count >= baselineCount) return undefined;
-  return { testId: ratchet.id, path, baselineCount, currentCount: current.count, reason: "lower-count" };
+  return { testId: ratchet.id, ruleId: ratchet.ruleId, path, baselineCount, currentCount: current.count, reason: "lower-count" };
 }
 
 function lowerLinesImprovement(
@@ -140,6 +140,7 @@ function lowerLinesImprovement(
   if (current.lines >= baselineItem.lines) return undefined;
   return {
     testId: ratchet.id,
+    ruleId: ratchet.ruleId,
     path,
     baselineCount,
     currentCount: current.count,
@@ -160,6 +161,7 @@ function lowerComplexityImprovement(
   if (complexityChange.regression) return undefined;
   return {
     testId: ratchet.id,
+    ruleId: ratchet.ruleId,
     path,
     baselineCount,
     currentCount: current.count,
@@ -221,6 +223,7 @@ function collectRemovedPathImprovements(
     if (!currentItems.has(path)) {
       improvements.push({
         testId: ratchet.id,
+        ruleId: ratchet.ruleId,
         path,
         baselineCount: item.count,
         currentCount: 0,

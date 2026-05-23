@@ -12,6 +12,7 @@
 // the parent's `exclude` into ours, which would re-add `**/*.slow.test.*`
 // and skip every slow file.
 import path from "node:path";
+
 import { defaultExclude, defineConfig, defineProject } from "vitest/config";
 
 import clientConfig from "./packages/client/vitest.config.ts";
@@ -19,32 +20,35 @@ import serverConfig from "./packages/server/vitest.config.ts";
 import sharedConfig from "./packages/shared/vitest.config.ts";
 
 const repoRoot = path.dirname(new URL(import.meta.url).pathname);
+const sharedBaseConfig = await sharedConfig;
+const serverBaseConfig = await serverConfig;
+const clientBaseConfig = await clientConfig;
 
 const sharedSlow = defineProject({
-  ...sharedConfig,
+  ...sharedBaseConfig,
   root: path.join(repoRoot, "packages/shared"),
   test: {
-    ...sharedConfig.test,
+    ...sharedBaseConfig.test,
     include: ["src/**/*.slow.test.{ts,tsx}"],
     exclude: defaultExclude,
   },
 });
 
 const serverSlow = defineProject({
-  ...serverConfig,
+  ...serverBaseConfig,
   root: path.join(repoRoot, "packages/server"),
   test: {
-    ...serverConfig.test,
+    ...serverBaseConfig.test,
     include: ["src/**/*.slow.test.{ts,tsx}"],
     exclude: defaultExclude,
   },
 });
 
 const clientSlow = defineProject({
-  ...clientConfig,
+  ...clientBaseConfig,
   root: path.join(repoRoot, "packages/client"),
   test: {
-    ...clientConfig.test,
+    ...clientBaseConfig.test,
     include: ["src/**/*.slow.test.{ts,tsx}"],
     exclude: defaultExclude,
   },

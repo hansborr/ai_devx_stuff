@@ -2,7 +2,7 @@
 # Smoke test for scripts/lint-ratchet.ts.
 #
 # Covers the real committed baseline plus fixture regressions, update refusal,
-# check-baseline validation, and improvement notes.
+# check-baseline validation, and strict improvement failures.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -63,7 +63,12 @@ build_fixture() {
   cp scripts/lint-ratchet-baseline-parse.ts \
     "$fixture_dir/scripts/lint-ratchet-baseline-parse.ts"
   cp scripts/lint-ratchet-baseline.ts "$fixture_dir/scripts/lint-ratchet-baseline.ts"
+  cp scripts/lint-ratchet-check-registry.ts \
+    "$fixture_dir/scripts/lint-ratchet-check-registry.ts"
   cp scripts/lint-ratchet-metrics.ts "$fixture_dir/scripts/lint-ratchet-metrics.ts"
+  cp scripts/lint-ratchet-output.ts "$fixture_dir/scripts/lint-ratchet-output.ts"
+  cp scripts/lint-ratchet-report.ts "$fixture_dir/scripts/lint-ratchet-report.ts"
+  cp scripts/lint-ratchet-summary.ts "$fixture_dir/scripts/lint-ratchet-summary.ts"
   cp scripts/lint-rule-docs.ts "$fixture_dir/scripts/lint-rule-docs.ts"
   cp packages/shared/src/schemas/harness-diagnostics.ts \
     "$fixture_dir/packages/shared/src/schemas/harness-diagnostics.ts"
@@ -624,6 +629,12 @@ if ! bun run lint:ratchet:check-baseline >"$TMP_ROOT/real-check.out" 2>"$TMP_ROO
   cat "$TMP_ROOT/real-check.err"
   fail "lint:ratchet:check-baseline failed on the real tree"
 fi
+if ! bun run lint:ratchet:check-registry >"$TMP_ROOT/real-registry.out" 2>"$TMP_ROOT/real-registry.err"; then
+  cat "$TMP_ROOT/real-registry.err"
+  fail "lint:ratchet:check-registry failed on the real tree"
+fi
+grep -qF "lint:ratchet:check-registry OK" "$TMP_ROOT/real-registry.err" \
+  || fail "lint:ratchet:check-registry OK line missing: $(cat "$TMP_ROOT/real-registry.err")"
 assert_local_identity_regression
 
 # --- Usage errors return exit 2 (CLI contract for harness wrappers) ----------
@@ -737,13 +748,60 @@ write_max_lines_config "$MAX_LINES_IMPROVE_DIR"
 write_max_lines_source "$MAX_LINES_IMPROVE_DIR" 5
 run_fixture_update "$MAX_LINES_IMPROVE_DIR" || fail "max-lines improve update failed"
 write_max_lines_source "$MAX_LINES_IMPROVE_DIR" 4
-if ! (cd "$MAX_LINES_IMPROVE_DIR" && bun run scripts/lint-ratchet.ts --check-baseline \
-      >"$TMP_ROOT/max-lines-improve-check.out" 2>"$TMP_ROOT/max-lines-improve-check.err"); then
-  cat "$TMP_ROOT/max-lines-improve-check.err"
-  fail "max-lines check-baseline should pass when effective lines shrink"
+set +e
+(cd "$MAX_LINES_IMPROVE_DIR" && bun run scripts/lint-ratchet.ts --check-baseline \
+  >"$TMP_ROOT/max-lines-improve-check.out" 2>"$TMP_ROOT/max-lines-improve-check.err")
+status=$?
+set -e
+[ "$status" -eq 1 ] \
+  || fail "max-lines check-baseline should fail when effective lines shrink, got $status: $(cat "$TMP_ROOT/max-lines-improve-check.err")"
+grep -qF "effective lines decreased from 5 to 4" "$TMP_ROOT/max-lines-improve-check.err" \
+  || fail "max-lines improvement detail missing: $(cat "$TMP_ROOT/max-lines-improve-check.err")"
+grep -qF "run bun run lint:ratchet:update" "$TMP_ROOT/max-lines-improve-check.err" \
+  || fail "max-lines improvement repair command missing: $(cat "$TMP_ROOT/max-lines-improve-check.err")"
+max_lines_before=$(ASSERT_FILE="$MAX_LINES_IMPROVE_DIR/lint-ratchet.baseline.json" bun -e '
+  const fs = require("fs");
+  const parsed = JSON.parse(fs.readFileSync(process.env.ASSERT_FILE, "utf8"));
+  const item = parsed.tests["ratchet/fixture-max-lines"].items["packages/app/src/example.ts"];
+  if (item === undefined) throw new Error("missing max-lines item");
+  console.log(item.lines);
+') || fail "max-lines improvement baseline read failed"
+[ "$max_lines_before" -eq 5 ] \
+  || fail "max-lines improvement baseline should start at 5 lines, got $max_lines_before"
+run_fixture_update "$MAX_LINES_IMPROVE_DIR" \
+  || fail "max-lines improvement update did not clear failure: $(cat "$TMP_ROOT/update.err")"
+set +e
+(cd "$MAX_LINES_IMPROVE_DIR" && bun run scripts/lint-ratchet.ts --check-baseline \
+  >"$TMP_ROOT/max-lines-improve-clean-check.out" \
+  2>"$TMP_ROOT/max-lines-improve-clean-check.err")
+status=$?
+set -e
+[ "$status" -eq 0 ] \
+  || fail "max-lines check-baseline should pass after update, got $status: $(cat "$TMP_ROOT/max-lines-improve-clean-check.err")"
+grep -qF "lint:ratchet:check-baseline OK — 1 current finding(s)." \
+  "$TMP_ROOT/max-lines-improve-clean-check.err" \
+  || fail "max-lines check-baseline OK line missing after update: $(cat "$TMP_ROOT/max-lines-improve-clean-check.err")"
+if grep -qF "current findings are better" "$TMP_ROOT/max-lines-improve-clean-check.err"; then
+  fail "max-lines check-baseline still reported an improvement after update: $(cat "$TMP_ROOT/max-lines-improve-clean-check.err")"
 fi
-grep -qF "improved" "$TMP_ROOT/max-lines-improve-check.err" \
-  || fail "max-lines improvement note missing: $(cat "$TMP_ROOT/max-lines-improve-check.err")"
+if ! (cd "$MAX_LINES_IMPROVE_DIR" && bun run scripts/lint-ratchet.ts \
+      >"$TMP_ROOT/max-lines-improve-clean.out" \
+      2>"$TMP_ROOT/max-lines-improve-clean.err"); then
+  cat "$TMP_ROOT/max-lines-improve-clean.err"
+  fail "max-lines default run should pass after improvement update"
+fi
+assert_envelope "$TMP_ROOT/max-lines-improve-clean.out" 0
+max_lines_after=$(ASSERT_FILE="$MAX_LINES_IMPROVE_DIR/lint-ratchet.baseline.json" bun -e '
+  const fs = require("fs");
+  const parsed = JSON.parse(fs.readFileSync(process.env.ASSERT_FILE, "utf8"));
+  const item = parsed.tests["ratchet/fixture-max-lines"].items["packages/app/src/example.ts"];
+  if (item === undefined) throw new Error("missing max-lines item");
+  console.log(item.lines);
+') || fail "max-lines improvement baseline reread failed"
+[ "$max_lines_after" -eq 4 ] \
+  || fail "max-lines improvement baseline should update to 4 lines, got $max_lines_after"
+[ "$max_lines_before" -gt "$max_lines_after" ] \
+  || fail "max-lines improvement baseline did not shrink: $max_lines_before -> $max_lines_after"
 
 # --- Fixture check-baseline validation is non-mutating -----------------------
 # Mutate the baseline JSON structurally (drop ruleOptions) so the smoke does
@@ -1048,13 +1106,60 @@ write_core_config "$COMPLEXITY_IMPROVE_DIR" "complexity" "minimal-ts" "[{ max: 1
 run_fixture_update "$COMPLEXITY_IMPROVE_DIR" \
   || fail "complexity improvement update failed: $(cat "$TMP_ROOT/update.err")"
 write_complexity_source "$COMPLEXITY_IMPROVE_DIR"
-if ! (cd "$COMPLEXITY_IMPROVE_DIR" && bun run scripts/lint-ratchet.ts --check-baseline \
-      >"$TMP_ROOT/complexity-improve-check.out" 2>"$TMP_ROOT/complexity-improve-check.err"); then
-  cat "$TMP_ROOT/complexity-improve-check.err"
-  fail "complexity check-baseline should pass when complexity shrinks"
+set +e
+(cd "$COMPLEXITY_IMPROVE_DIR" && bun run scripts/lint-ratchet.ts --check-baseline \
+  >"$TMP_ROOT/complexity-improve-check.out" 2>"$TMP_ROOT/complexity-improve-check.err")
+status=$?
+set -e
+[ "$status" -eq 1 ] \
+  || fail "complexity check-baseline should fail when complexity shrinks, got $status: $(cat "$TMP_ROOT/complexity-improve-check.err")"
+grep -qF "complexity decreased from 4 to 3" "$TMP_ROOT/complexity-improve-check.err" \
+  || fail "complexity improvement detail missing: $(cat "$TMP_ROOT/complexity-improve-check.err")"
+grep -qF "run bun run lint:ratchet:update" "$TMP_ROOT/complexity-improve-check.err" \
+  || fail "complexity improvement repair command missing: $(cat "$TMP_ROOT/complexity-improve-check.err")"
+complexity_before=$(ASSERT_FILE="$COMPLEXITY_IMPROVE_DIR/lint-ratchet.baseline.json" bun -e '
+  const fs = require("fs");
+  const parsed = JSON.parse(fs.readFileSync(process.env.ASSERT_FILE, "utf8"));
+  const item = parsed.tests["ratchet/fixture-core"].items["packages/app/src/example.ts"];
+  if (item === undefined) throw new Error("missing complexity item");
+  console.log(item.maxComplexity);
+') || fail "complexity improvement baseline read failed"
+[ "$complexity_before" -eq 4 ] \
+  || fail "complexity improvement baseline should start at 4, got $complexity_before"
+run_fixture_update "$COMPLEXITY_IMPROVE_DIR" \
+  || fail "complexity improvement update did not clear failure: $(cat "$TMP_ROOT/update.err")"
+set +e
+(cd "$COMPLEXITY_IMPROVE_DIR" && bun run scripts/lint-ratchet.ts --check-baseline \
+  >"$TMP_ROOT/complexity-improve-clean-check.out" \
+  2>"$TMP_ROOT/complexity-improve-clean-check.err")
+status=$?
+set -e
+[ "$status" -eq 0 ] \
+  || fail "complexity check-baseline should pass after update, got $status: $(cat "$TMP_ROOT/complexity-improve-clean-check.err")"
+grep -qF "lint:ratchet:check-baseline OK — 1 current finding(s)." \
+  "$TMP_ROOT/complexity-improve-clean-check.err" \
+  || fail "complexity check-baseline OK line missing after update: $(cat "$TMP_ROOT/complexity-improve-clean-check.err")"
+if grep -qF "current findings are better" "$TMP_ROOT/complexity-improve-clean-check.err"; then
+  fail "complexity check-baseline still reported an improvement after update: $(cat "$TMP_ROOT/complexity-improve-clean-check.err")"
 fi
-grep -qF "improved" "$TMP_ROOT/complexity-improve-check.err" \
-  || fail "complexity improvement note missing: $(cat "$TMP_ROOT/complexity-improve-check.err")"
+if ! (cd "$COMPLEXITY_IMPROVE_DIR" && bun run scripts/lint-ratchet.ts \
+      >"$TMP_ROOT/complexity-improve-clean.out" \
+      2>"$TMP_ROOT/complexity-improve-clean.err"); then
+  cat "$TMP_ROOT/complexity-improve-clean.err"
+  fail "complexity default run should pass after improvement update"
+fi
+assert_envelope "$TMP_ROOT/complexity-improve-clean.out" 0
+complexity_after=$(ASSERT_FILE="$COMPLEXITY_IMPROVE_DIR/lint-ratchet.baseline.json" bun -e '
+  const fs = require("fs");
+  const parsed = JSON.parse(fs.readFileSync(process.env.ASSERT_FILE, "utf8"));
+  const item = parsed.tests["ratchet/fixture-core"].items["packages/app/src/example.ts"];
+  if (item === undefined) throw new Error("missing complexity item");
+  console.log(item.maxComplexity);
+') || fail "complexity improvement baseline reread failed"
+[ "$complexity_after" -eq 3 ] \
+  || fail "complexity improvement baseline should update to 3, got $complexity_after"
+[ "$complexity_before" -gt "$complexity_after" ] \
+  || fail "complexity improvement baseline did not shrink: $complexity_before -> $complexity_after"
 
 # --- Fixture: supported third-party rule executes and baselines findings -----
 THIRD_PARTY_DIR="$TMP_ROOT/third-party"
@@ -1276,18 +1381,77 @@ run_fixture_update "$SWEEP_DIR" || fail "sweep fixture initial update failed"
 cleanup_sweep_decoys
 trap cleanup EXIT
 
-# --- Fixture improvements pass check-baseline with a note --------------------
+# --- Fixture improvements fail check-baseline with update guidance -----------
 IMPROVE_DIR="$TMP_ROOT/improve"
 build_fixture "$IMPROVE_DIR"
 write_violation_source "$IMPROVE_DIR"
 run_fixture_update "$IMPROVE_DIR" || fail "fixture improve update failed"
 write_clean_source "$IMPROVE_DIR"
-if ! (cd "$IMPROVE_DIR" && bun run scripts/lint-ratchet.ts --check-baseline \
-      >"$TMP_ROOT/improve-check.out" 2>"$TMP_ROOT/improve-check.err"); then
-  cat "$TMP_ROOT/improve-check.err"
-  fail "check-baseline should pass when current findings improve"
+set +e
+(cd "$IMPROVE_DIR" && bun run scripts/lint-ratchet.ts --check-baseline \
+  >"$TMP_ROOT/improve-check.out" 2>"$TMP_ROOT/improve-check.err")
+status=$?
+set -e
+[ "$status" -eq 1 ] \
+  || fail "check-baseline should fail when current findings improve, got $status: $(cat "$TMP_ROOT/improve-check.err")"
+grep -qF "finding count decreased from 1 to 0" "$TMP_ROOT/improve-check.err" \
+  || fail "improvement detail missing: $(cat "$TMP_ROOT/improve-check.err")"
+grep -qF "run bun run lint:ratchet:update" "$TMP_ROOT/improve-check.err" \
+  || fail "improvement repair command missing: $(cat "$TMP_ROOT/improve-check.err")"
+improve_before=$(ASSERT_FILE="$IMPROVE_DIR/lint-ratchet.baseline.json" bun -e '
+  const fs = require("fs");
+  const parsed = JSON.parse(fs.readFileSync(process.env.ASSERT_FILE, "utf8"));
+  const test = parsed.tests["ratchet/local-type-assertion-boundary"];
+  if (test === undefined) throw new Error("missing type-assertion ratchet");
+  const count = Object.values(test.items).reduce((sum, item) => sum + item.count, 0);
+  console.log(count);
+') || fail "improvement baseline read failed"
+[ "$improve_before" -eq 1 ] \
+  || fail "improvement baseline should start at 1 finding, got $improve_before"
+run_fixture_update "$IMPROVE_DIR" \
+  || fail "improvement update did not clear failure: $(cat "$TMP_ROOT/update.err")"
+improve_total_after_update=$(ASSERT_FILE="$IMPROVE_DIR/lint-ratchet.baseline.json" bun -e '
+  const fs = require("fs");
+  const parsed = JSON.parse(fs.readFileSync(process.env.ASSERT_FILE, "utf8"));
+  const total = Object.values(parsed.tests).reduce(
+    (sum, test) => sum + Object.values(test.items).reduce(
+      (itemSum, item) => itemSum + item.count,
+      0,
+    ),
+    0,
+  );
+  console.log(total);
+') || fail "improvement total baseline count read failed"
+set +e
+(cd "$IMPROVE_DIR" && bun run scripts/lint-ratchet.ts --check-baseline \
+  >"$TMP_ROOT/improve-clean-check.out" 2>"$TMP_ROOT/improve-clean-check.err")
+status=$?
+set -e
+[ "$status" -eq 0 ] \
+  || fail "check-baseline should pass after improvement update, got $status: $(cat "$TMP_ROOT/improve-clean-check.err")"
+grep -qF "lint:ratchet:check-baseline OK — $improve_total_after_update current finding(s)." \
+  "$TMP_ROOT/improve-clean-check.err" \
+  || fail "check-baseline OK line missing after improvement update: $(cat "$TMP_ROOT/improve-clean-check.err")"
+if grep -qF "current findings are better" "$TMP_ROOT/improve-clean-check.err"; then
+  fail "check-baseline still reported an improvement after update: $(cat "$TMP_ROOT/improve-clean-check.err")"
 fi
-grep -qF "improved" "$TMP_ROOT/improve-check.err" \
-  || fail "improvement note missing: $(cat "$TMP_ROOT/improve-check.err")"
+if ! (cd "$IMPROVE_DIR" && bun run scripts/lint-ratchet.ts \
+      >"$TMP_ROOT/improve-clean.out" 2>"$TMP_ROOT/improve-clean.err"); then
+  cat "$TMP_ROOT/improve-clean.err"
+  fail "default run should pass after improvement update"
+fi
+assert_envelope "$TMP_ROOT/improve-clean.out" 0
+improve_after=$(ASSERT_FILE="$IMPROVE_DIR/lint-ratchet.baseline.json" bun -e '
+  const fs = require("fs");
+  const parsed = JSON.parse(fs.readFileSync(process.env.ASSERT_FILE, "utf8"));
+  const test = parsed.tests["ratchet/local-type-assertion-boundary"];
+  if (test === undefined) throw new Error("missing type-assertion ratchet");
+  const count = Object.values(test.items).reduce((sum, item) => sum + item.count, 0);
+  console.log(count);
+') || fail "improvement baseline reread failed"
+[ "$improve_after" -eq 0 ] \
+  || fail "improvement baseline should update to 0 findings, got $improve_after"
+[ "$improve_before" -gt "$improve_after" ] \
+  || fail "improvement baseline did not shrink: $improve_before -> $improve_after"
 
 echo "PASS: lint-ratchet smoke"

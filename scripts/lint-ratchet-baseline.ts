@@ -21,7 +21,7 @@ export type LintRatchetCurrentById = ReadonlyMap<string, ReadonlyMap<string, Lin
 
 export interface LintRatchetRegression { readonly testId: string; readonly ruleId: string; readonly path: string; readonly baselineCount: number; readonly currentCount: number; readonly baselineLines?: number; readonly currentLines?: number; readonly baselineComplexity?: number; readonly currentComplexity?: number; readonly line?: number; readonly reason: "new-path" | "increased-count" | "increased-lines" | "increased-complexity"; }
 
-interface LintRatchetImprovement { readonly testId: string; readonly path: string; readonly baselineCount: number; readonly currentCount: number; readonly baselineLines?: number; readonly currentLines?: number; readonly baselineComplexity?: number; readonly currentComplexity?: number; readonly reason: "removed-path" | "lower-count" | "lower-lines" | "lower-complexity"; }
+export interface LintRatchetImprovement { readonly testId: string; readonly ruleId: string; readonly path: string; readonly baselineCount: number; readonly currentCount: number; readonly baselineLines?: number; readonly currentLines?: number; readonly baselineComplexity?: number; readonly currentComplexity?: number; readonly reason: "removed-path" | "lower-count" | "lower-lines" | "lower-complexity"; }
 
 export interface LintRatchetComparison { readonly regressions: readonly LintRatchetRegression[]; readonly improvements: readonly LintRatchetImprovement[]; }
 

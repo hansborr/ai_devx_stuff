@@ -5,9 +5,12 @@ import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { HARNESS_DIAGNOSTICS_SCHEMA_VERSION, harnessDiagnosticsSchema, summarizeHarnessFindings, type HarnessDiagnostics, type HarnessFinding } from "../packages/shared/src/schemas/harness-diagnostics.js";
-import { LINT_RATCHET_CONFIG_HASH_PREFIX, buildLintRatchetBaseline, compareCurrentToBaseline, computeCoreLintRatchetRuleSourceHash, computeLintRatchetConfigHash, decideLintRatchetUpdate, formatLintRatchetBaseline, parseLintRatchetBaseline, parseLintRatchetBaselineStructure, ruleNamespace, validateLintRatchetRegistry, type LintRatchetCurrentById, type LintRatchetCurrentItem, type LintRatchetRegression, type LintRatchetRuleSourceHashesById } from "./lint-ratchet-baseline.js";
+import { LINT_RATCHET_CONFIG_HASH_PREFIX, buildLintRatchetBaseline, compareCurrentToBaseline, computeCoreLintRatchetRuleSourceHash, computeLintRatchetConfigHash, decideLintRatchetUpdate, formatLintRatchetBaseline, parseLintRatchetBaseline, parseLintRatchetBaselineStructure, ruleNamespace, validateLintRatchetRegistry, type LintRatchetComparison, type LintRatchetCurrentById, type LintRatchetCurrentItem, type LintRatchetImprovement, type LintRatchetRegression, type LintRatchetRuleSourceHashesById } from "./lint-ratchet-baseline.js";
 import { lintRatchetThirdPartyPluginAllowlist, lintRatchets, type LintRatchetConfig, type LintRatchetParserProfile, type LintRatchetRuleSource, type LintRatchetThirdPartyPluginAllowlistEntry } from "./lint-ratchet-config.js";
 import { ConfigError, parseComplexitySeverityMessage, type LintRatchetComplexityFunction } from "./lint-ratchet-metrics.js";
+import { emitHarnessDiagnosticsEnvelope } from "./lint-ratchet-output.js";
+import { LINT_RATCHET_REPORT_ARTIFACT_URL_ENV, runLintRatchetReport } from "./lint-ratchet-report.js";
+import { runLintRatchetSummary } from "./lint-ratchet-summary.js";
 import { formatRuleDocsFailures, loadLintRuleDocs, type RuleDocsEntry } from "./lint-rule-docs.js";
 
 const PROCESS_ARG_OFFSET = 2;
@@ -21,11 +24,18 @@ const baselinePath = join(repoRoot, BASELINE_FILENAME);
 
 interface ESLintMessage { readonly ruleId: string | null; readonly severity: number; readonly message: string; readonly line?: number; readonly nodeType?: string; readonly messageId?: string; readonly fatal?: boolean; }
 interface ESLintFileResult { readonly filePath: string; readonly messages: readonly ESLintMessage[]; }
-interface ParsedArgs { readonly mode: "default" | "update" | "check-baseline"; readonly allowWorse: boolean; readonly reason?: string; }
+interface ParsedArgs { readonly mode: "default" | "update" | "check-baseline" | "check-registry" | "summary" | "report"; readonly allowWorse: boolean; readonly reason?: string; }
 interface ParsedArgsState { mode: ParsedArgs["mode"]; allowWorse: boolean; reason?: string; }
 
 class UsageError extends Error {}
 class WorseBaselineError extends Error {}
+
+const parsedArgModes = new Map<string, Exclude<ParsedArgs["mode"], "default">>([
+  ["--update", "update"],
+  ["--check-baseline", "check-baseline"], ["--check-registry", "check-registry"],
+  ["--summary", "summary"],
+  ["--report", "report"],
+]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -42,20 +52,20 @@ function consumeReasonArgument(state: ParsedArgsState, args: readonly string[], 
   return index + 2;
 }
 
+function unknownArgumentMessage(arg: string): string { return arg.startsWith("--input") ? "--input is not supported; use bun run lint:ratchet:report < diagnostics.json" : `Unknown argument: ${arg}`; }
+
 function consumeParsedArg(state: ParsedArgsState, args: readonly string[], index: number): number {
   const arg = args[index] ?? "";
+  const mode = parsedArgModes.get(arg);
+  if (mode !== undefined) { setMode(state, mode); return index + 1; }
   switch (arg) {
     case "--": return index + 1;
-    case "--update":
-      setMode(state, "update"); return index + 1;
-    case "--check-baseline":
-      setMode(state, "check-baseline"); return index + 1;
     case "--allow-worse":
       state.allowWorse = true; return index + 1;
     case "--reason":
       return consumeReasonArgument(state, args, index);
     default:
-      if (!arg.startsWith("--reason=")) throw new UsageError(`Unknown argument: ${arg}`);
+      if (!arg.startsWith("--reason=")) throw new UsageError(unknownArgumentMessage(arg));
       state.reason = arg.slice("--reason=".length);
       return index + 1;
   }
@@ -72,23 +82,18 @@ function parseArgFlags(args: readonly string[]): ParsedArgsState {
 
 function parseArgs(args: readonly string[]): ParsedArgs {
   const { mode, allowWorse, reason } = parseArgFlags(args);
-  if (allowWorse && mode !== "update") {
-    throw new UsageError("--allow-worse is only valid with --update");
-  }
-  if (reason !== undefined && mode !== "update") {
-    throw new UsageError("--reason is only valid with --update");
-  }
-  if (allowWorse && (reason?.trim() ?? "").length === 0) {
-    throw new UsageError("--allow-worse requires a non-empty --reason");
-  }
+  if (allowWorse && mode !== "update") throw new UsageError("--allow-worse is only valid with --update");
+  if (reason !== undefined && mode !== "update") throw new UsageError("--reason is only valid with --update");
+  if (allowWorse && (reason?.trim() ?? "").length === 0) throw new UsageError("--allow-worse requires a non-empty --reason");
   return reason === undefined ? { mode, allowWorse } : { mode, allowWorse, reason };
 }
 
 function usage(): string {
   return [
-    "usage: bun scripts/lint-ratchet.ts [--update [--allow-worse --reason <why>] | --check-baseline]",
+    "usage: bun scripts/lint-ratchet.ts [--update [--allow-worse --reason <why>] | --check-baseline | --check-registry | --summary | --report]",
     "",
-    "Default mode emits a harness-diagnostics envelope and fails on ratchet regressions.",
+    "Default mode emits a harness-diagnostics envelope and fails on ratchet regressions or uncommitted improvements.",
+    "--summary prints committed baseline totals without running ESLint; --report formats a diagnostics envelope from stdin.",
   ].join("\n");
 }
 
@@ -662,8 +667,22 @@ function regressionDetail(regression: LintRatchetRegression): string {
   return `${regression.testId} ${regression.path}: finding count increased from ${String(regression.baselineCount)} to ${String(regression.currentCount)}`;
 }
 
-function structuredRatchetFields(regression: LintRatchetRegression) {
-  return { reason: regression.reason, baselineCount: regression.baselineCount, currentCount: regression.currentCount, ...(regression.baselineLines === undefined ? {} : { baselineLines: regression.baselineLines }), ...(regression.currentLines === undefined ? {} : { currentLines: regression.currentLines }), ...(regression.baselineComplexity === undefined ? {} : { baselineComplexity: regression.baselineComplexity }), ...(regression.currentComplexity === undefined ? {} : { currentComplexity: regression.currentComplexity }) };
+function improvementDetail(improvement: LintRatchetImprovement): string {
+  if (improvement.currentLines !== undefined) return `${improvement.testId} ${improvement.path}: effective lines decreased from ${String(improvement.baselineLines)} to ${String(improvement.currentLines)}`;
+  if (improvement.currentComplexity !== undefined) return `${improvement.testId} ${improvement.path}: complexity decreased from ${String(improvement.baselineComplexity)} to ${String(improvement.currentComplexity)}`;
+  return `${improvement.testId} ${improvement.path}: finding count decreased from ${String(improvement.baselineCount)} to ${String(improvement.currentCount)}`;
+}
+
+export function assertCheckBaselineComparisonClean(comparison: LintRatchetComparison): void {
+  const regressionMessage = comparison.regressions.length === 0 ? undefined : `current findings are worse than ${BASELINE_FILENAME} for ${String(comparison.regressions.length)} path(s): ${comparison.regressions.map(regressionDetail).join("; ")}`;
+  const improvementMessage = comparison.improvements.length === 0 ? undefined : `current findings are better than ${BASELINE_FILENAME} for ${String(comparison.improvements.length)} path(s): ${comparison.improvements.map(improvementDetail).join("; ")}`;
+  if (regressionMessage === undefined && improvementMessage === undefined) return;
+  const suffix = improvementMessage === undefined ? "run bun run lint:ratchet for details" : comparison.regressions.length === 0 ? "run bun run lint:ratchet:update" : "fix regressions, then run bun run lint:ratchet:update";
+  throw new WorseBaselineError(`${[regressionMessage, improvementMessage].filter((message): message is string => message !== undefined).join("; ")}; ${suffix}`);
+}
+
+function structuredRatchetFields(delta: LintRatchetRegression | LintRatchetImprovement) {
+  return { reason: delta.reason, baselineCount: delta.baselineCount, currentCount: delta.currentCount, ...(delta.baselineLines === undefined ? {} : { baselineLines: delta.baselineLines }), ...(delta.currentLines === undefined ? {} : { currentLines: delta.currentLines }), ...(delta.baselineComplexity === undefined ? {} : { baselineComplexity: delta.baselineComplexity }), ...(delta.currentComplexity === undefined ? {} : { currentComplexity: delta.currentComplexity }) };
 }
 
 function buildLocalFinding(
@@ -726,15 +745,16 @@ function buildFinding(
   }
 }
 
-function buildEnvelope(
-  regressions: readonly LintRatchetRegression[],
-  ruleDocsById: ReadonlyMap<string, RuleDocsEntry>,
-  ratchets: readonly LintRatchetConfig[],
+function buildImprovementFinding(improvement: LintRatchetImprovement): HarnessFinding {
+  return { control: improvement.testId, severity: "block", path: improvement.path, ruleId: improvement.ruleId, ...structuredRatchetFields(improvement), why: `Current tree is better than the committed baseline for ${improvement.ruleId}; lock it in.`, howToFix: "Run `bun run lint:ratchet:update` to lower the committed baseline and lock in this improvement.", repairKind: "manual" };
+}
+
+export function buildEnvelope(
+  regressions: readonly LintRatchetRegression[], improvements: readonly LintRatchetImprovement[],
+  ruleDocsById: ReadonlyMap<string, RuleDocsEntry>, ratchets: readonly LintRatchetConfig[],
 ): HarnessDiagnostics {
   const ratchetsById = new Map(ratchets.map((ratchet) => [ratchet.id, ratchet]));
-  const findings = regressions.map((regression) =>
-    buildFinding(regression, ruleDocsById, ratchetsById),
-  );
+  const findings = [...regressions.map((regression) => buildFinding(regression, ruleDocsById, ratchetsById)), ...improvements.map(buildImprovementFinding)];
   findings.sort((left, right) => {
     const controlCompare = left.control.localeCompare(right.control);
     if (controlCompare !== 0) return controlCompare;
@@ -757,12 +777,12 @@ function readBaseline(): string {
   return readFileSync(baselinePath, "utf8");
 }
 
+async function runCheckRegistry(): Promise<void> { await (await import("./lint-ratchet-check-registry.js")).runLintRatchetCheckRegistry(); } function runSummary(): void { process.stdout.write(runLintRatchetSummary({ baselinePath, registry: lintRatchets })); }
+
+function runReport(): void { const artifactName = process.env[LINT_RATCHET_REPORT_ARTIFACT_URL_ENV]; process.stdout.write(runLintRatchetReport(artifactName === undefined || artifactName.length === 0 ? {} : { artifactName })); }
+
 function parseCommittedBaseline(ruleSourceHashesById: LintRatchetRuleSourceHashesById) {
-  const parsed = parseLintRatchetBaseline(
-    readBaseline(),
-    lintRatchets,
-    ruleSourceHashesById,
-  );
+  const parsed = parseLintRatchetBaseline(readBaseline(), lintRatchets, ruleSourceHashesById);
   if (parsed.baseline === undefined) {
     throw new ConfigError(parsed.failures.join("\n"));
   }
@@ -803,20 +823,17 @@ async function runDefault(): Promise<void> {
   const baseline = parseCommittedBaseline(ruleSourceHashesById);
   const currentById = await collectCurrentById(ruleSourceHashesById);
   const comparison = compareCurrentToBaseline(baseline, lintRatchets, currentById);
-  const envelope = buildEnvelope(comparison.regressions, ruleDocsById, lintRatchets);
+  const envelope = buildEnvelope(comparison.regressions, comparison.improvements, ruleDocsById, lintRatchets);
   validateEnvelope(envelope);
-  process.stdout.write(`${JSON.stringify(envelope, null, 2)}\n`);
-  const label = comparison.regressions.length > 0 ? "FAIL" : "OK";
+  emitHarnessDiagnosticsEnvelope(envelope);
+  const label = comparison.regressions.length + comparison.improvements.length > 0 ? "FAIL" : "OK";
   console.error(
     `lint:ratchet ${label} — ${String(totalCurrentCount(currentById))} current finding(s); ` +
-      `${String(comparison.regressions.length)} regression(s); ` +
+      `${String(comparison.regressions.length)} regression(s); ${String(comparison.improvements.length)} improvement(s); ` +
       `blocking=${String(envelope.summary.blocking)} ` +
-      `warning=${String(envelope.summary.warning)} ` +
-      `info=${String(envelope.summary.info)}`,
+      `warning=${String(envelope.summary.warning)} info=${String(envelope.summary.info)}`,
   );
-  if (comparison.regressions.length > 0) {
-    process.exitCode = 1;
-  }
+  if (comparison.regressions.length + comparison.improvements.length > 0) process.exitCode = 1;
 }
 
 async function runUpdate(args: ParsedArgs): Promise<void> {
@@ -829,9 +846,7 @@ async function runUpdate(args: ParsedArgs): Promise<void> {
   );
   const rendered = formatLintRatchetBaseline(generated);
   const parsedGenerated = parseLintRatchetBaseline(
-    rendered,
-    lintRatchets,
-    ruleSourceHashesById,
+    rendered, lintRatchets, ruleSourceHashesById,
   );
   if (parsedGenerated.baseline === undefined) {
     throw new ConfigError(`generated baseline failed validation:\n${parsedGenerated.failures.join("\n")}`);
@@ -867,26 +882,16 @@ async function runCheckBaseline(): Promise<void> {
   const baseline = parseCommittedBaseline(ruleSourceHashesById);
   const currentById = await collectCurrentById(ruleSourceHashesById);
   const comparison = compareCurrentToBaseline(baseline, lintRatchets, currentById);
-  if (comparison.regressions.length > 0) {
-    throw new WorseBaselineError(
-      `current findings are worse than ${BASELINE_FILENAME} for ` +
-        `${String(comparison.regressions.length)} path(s): ` +
-        `${comparison.regressions.map(regressionDetail).join("; ")}; ` +
-        "run bun run lint:ratchet for details",
-    );
-  }
-  const improvementNote =
-    comparison.improvements.length > 0
-      ? ` ${String(comparison.improvements.length)} path(s) improved; run bun run lint:ratchet:update to lower the baseline.`
-      : "";
-  console.error(
-    `lint:ratchet:check-baseline OK — ${String(totalCurrentCount(currentById))} current finding(s).${improvementNote}`,
-  );
+  assertCheckBaselineComparisonClean(comparison);
+  const currentCount = totalCurrentCount(currentById);
+  console.error(`lint:ratchet:check-baseline OK — ${String(currentCount)} current finding(s).`);
 }
 
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(PROCESS_ARG_OFFSET));
+  if (args.mode === "report") { runReport(); return; }
   await validateRegistry();
+  if (args.mode === "check-registry") { await runCheckRegistry(); return; } if (args.mode === "summary") { runSummary(); return; }
   if (args.mode === "update") {
     await runUpdate(args);
     return;
@@ -898,19 +903,21 @@ async function main(): Promise<void> {
   await runDefault();
 }
 
-try {
-  await main();
-} catch (error) {
-  if (error instanceof UsageError) {
-    console.error(`lint:ratchet: ${error.message}\n${usage()}`);
-    process.exitCode = 2;
-  } else if (error instanceof ConfigError) {
-    console.error(`lint:ratchet: ${error.message}`);
-    process.exitCode = 2;
-  } else if (error instanceof WorseBaselineError) {
-    console.error(`lint:ratchet: ${error.message}`);
-    process.exitCode = 1;
-  } else {
-    throw error;
+if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+  try {
+    await main();
+  } catch (error) {
+    if (error instanceof UsageError) {
+      console.error(`lint:ratchet: ${error.message}\n${usage()}`);
+      process.exitCode = 2;
+    } else if (error instanceof ConfigError) {
+      console.error(`lint:ratchet: ${error.message}`);
+      process.exitCode = 2;
+    } else if (error instanceof WorseBaselineError) {
+      console.error(`lint:ratchet: ${error.message}`);
+      process.exitCode = 1;
+    } else {
+      throw error;
+    }
   }
 }

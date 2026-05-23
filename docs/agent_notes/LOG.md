@@ -8,6 +8,63 @@ Newest on top.
 
 ---
 
+- 2026-05-23: Lint-ratchet sharing Leaf 07 completed on
+  `feature/lint-ratchet-sharing-backlog` across `3ed81324ada4` (new
+  `scripts/lint-ratchet-check-registry.ts` sibling, runner
+  `--check-registry` mode, `lint:ratchet:check-registry` package script,
+  fixture + tests, harness wiring, and coverage-map entry), `8401dd01dd2f`
+  (forward-slash Windows absolute-path detection), `0ee4656ae66d` (separate
+  labeled CI `Lint ratchet check-registry` step before the heavy ratchet run),
+  `55a412b34bb0` (guide Commands, Minimum runtime file set, CI parity, and
+  Substitutable bits coverage), and `3b470daf8ae0` (clarified that
+  `empty-glob` and `absolute-path` detection live only in
+  `lint:ratchet:check-registry`). Details:
+  `finished_work/lint-ratchet-check-registry-leaf-07.md`.
+- 2026-05-22: Lint-ratchet sharing Leaf 05 completed on
+  `feature/lint-ratchet-sharing-backlog` across `7006d2032cbb` (new
+  `scripts/lint-ratchet-report.ts` sibling, runner `--report` mode,
+  `lint:ratchet:report` package script, fixture + tests, harness wiring, and
+  coverage-map entry), `b116a8257c67` (reason-based improvement detection and
+  state-aware footer), `73ee478d65c7` (CI step-summary pipe, same-repo sticky
+  PR comment, marker, artifact URL env, and permissions), `c0e401b6d65a`
+  (`!cancelled()` guard and `--paginate` marker search), `e6026bae81bc`
+  (guide Commands, Minimum runtime file set, CI parity, and Substitutable bits
+  coverage), and `0e120502ffca` (env-var rename contract and best-effort
+  sticky-comment sketch clarifications). Details:
+  `finished_work/lint-ratchet-pr-comment-formatter-leaf-05.md`.
+- 2026-05-22: Lint-ratchet sharing Leaf 04 completed on
+  `feature/lint-ratchet-sharing-backlog` across `2b4f91003d4d` (new
+  `scripts/lint-ratchet-summary.ts` sibling + `--summary` mode in the runner +
+  `lint:ratchet:summary` package script + Vitest + test-script + fixture
+  wiring + harness exempt-script + coverage-map entry) and `eb591d3bee0f`
+  (Commands section bullet, Minimum runtime file set entry, and Substitutable
+  bits note in the portable guide). Details:
+  `finished_work/lint-ratchet-summary-command-leaf-04.md`.
+- 2026-05-22: Lint-ratchet sharing Leaf 03 completed on
+  `feature/lint-ratchet-sharing-backlog` across `e2c42988`
+  (`HARNESS_DIAGNOSTICS_OUTPUT` env var via new
+  `scripts/lint-ratchet-output.ts` sibling), `61364eca` (CI workflow runs
+  `lint:ratchet` + check-baseline, captures envelope, uploads artifact, writes
+  step summary), `23f0a583` (CI parity subsection in the guide + output helper
+  in the portable file list), `1efca5bd` (improvement-vs-regression recovery
+  split and broader path-filter union), and `6df8f428` (no-filter lead
+  recommendation; union references the runtime file set; parser project
+  configs called out). Details:
+  `finished_work/lint-ratchet-ci-workflow-parity-leaf-03.md`.
+- 2026-05-22: Lint-ratchet sharing Leaf 02 completed on
+  `feature/lint-ratchet-sharing-backlog` across `8fcbdd8e` (portable adoption
+  section in the guide; neutralised internal `Leaf N` references) and
+  `44700037` (README + AGENTS task-guide pointers). Details:
+  `finished_work/lint-ratchet-portable-adoption-doc-leaf-02.md`.
+- 2026-05-22: Lint-ratchet sharing Leaf 01 completed on
+  `feature/lint-ratchet-sharing-backlog` across five commits: `2e24ca7e`
+  carries `ruleId` on improvement comparisons, `75044e60` makes default
+  `lint:ratchet` fail with blocking harness findings for improvements,
+  `331f02e4` makes `lint:ratchet:check-baseline` fail through
+  `WorseBaselineError`, `5978d19c` proves `lint-ratchet --update` clears the
+  failure for message-count, effective-line-count, and complexity-severity
+  fixtures, and `0be8c03f` updates the guide. Details:
+  `finished_work/lint-ratchet-strict-improvement-enforcement-leaf-01.md`.
 - 2026-05-21: Baseline drain batch on
   `feature/lint-hardening-baseline-drain-audit` (merged `9d0d1f9b`).
   Four focused commits drained 39 ratchet items
