@@ -11,6 +11,15 @@ the eslint plugin assumes the source layout, and the husky/claude/codex
 hooks expect Prisma + tRPC + Bun. Treat it as a catalog of techniques to
 borrow, not a starter template.
 
+Musi-specific application code (game logic, server routes, client
+components) is intentionally omitted. What's here is the DX
+infrastructure: guides, sensors, hooks, codemods, and the lint-ratchet
+system. When adopting a pattern, copy the relevant scripts and configs
+into your project and adapt the paths, package manager commands, and
+registry entries to your own layout.
+
+Licensed under [MIT](LICENSE).
+
 The most interesting parts are probably:
 
 - `docs/ai-harness.md` — the **inventory and gap map** of the whole
