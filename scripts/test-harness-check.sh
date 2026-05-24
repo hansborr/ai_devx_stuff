@@ -238,6 +238,16 @@ write_valid_manifest() {
       "invocation": "bun run lint:ratchet"
     },
     {
+      "id": "ratchet/local-max-lines-lint-rule-docs",
+      "kind": "ratchet",
+      "category": "maintainability",
+      "principle": "Lint-rule-docs max lines ratchet fixture principle.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/lint-ratchet-config.ts",
+      "invocation": "bun run lint:ratchet"
+    },
+    {
       "id": "ratchet/local-max-lines-logs-audit",
       "kind": "ratchet",
       "category": "maintainability",

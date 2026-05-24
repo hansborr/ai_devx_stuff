@@ -31,10 +31,17 @@ LOCK="$SANDBOX/verify.lock"
 REPO_KEY="$(printf '%s' "$REPO_ROOT" | sha256sum | awk '{print $1}')"
 REPO_STATE="$STATE_ROOT/$REPO_KEY"
 
+STD_MARKER_DIR="$SANDBOX/std-markers"
+mkdir -p "$STD_MARKER_DIR"
+STD_CHANGED_MARKER="$STD_MARKER_DIR/verify-changed-last"
+STD_FULL_MARKER="$STD_MARKER_DIR/verify-last"
+
 run_async() {
   MUSI_VERIFY_ASYNC_STATE_ROOT="$STATE_ROOT" \
   MUSI_VERIFY_LOCK="$LOCK" \
   MUSI_ASYNC_VERIFY_TIMEOUT=20 \
+  MUSI_STANDARD_VERIFY_MARKER_CHANGED="$STD_CHANGED_MARKER" \
+  MUSI_STANDARD_VERIFY_MARKER_FULL="$STD_FULL_MARKER" \
     bash "$ASYNC" "$@"
 }
 
@@ -44,6 +51,8 @@ run_async_with_timeout() {
   MUSI_VERIFY_ASYNC_STATE_ROOT="$STATE_ROOT" \
   MUSI_VERIFY_LOCK="$LOCK" \
   MUSI_ASYNC_VERIFY_TIMEOUT="$timeout" \
+  MUSI_STANDARD_VERIFY_MARKER_CHANGED="$STD_CHANGED_MARKER" \
+  MUSI_STANDARD_VERIFY_MARKER_FULL="$STD_FULL_MARKER" \
     bash "$ASYNC" "$@"
 }
 
@@ -64,6 +73,8 @@ run_async_no_setsid() {
   MUSI_VERIFY_ASYNC_STATE_ROOT="$STATE_ROOT" \
   MUSI_VERIFY_LOCK="$LOCK" \
   MUSI_ASYNC_VERIFY_TIMEOUT=20 \
+  MUSI_STANDARD_VERIFY_MARKER_CHANGED="$STD_CHANGED_MARKER" \
+  MUSI_STANDARD_VERIFY_MARKER_FULL="$STD_FULL_MARKER" \
     bash "$ASYNC" "$@"
 }
 
@@ -329,5 +340,83 @@ grep -qF 'verify:async: pruned 2 old run(s)' <<< "$output" \
 [ ! -e "$OLD_FINISHED" ] || fail "GC did not prune old finished run"
 [ ! -e "$OLD_DEAD" ] || fail "GC did not prune old dead run"
 ok "status marks dead state and prunes old runs"
+
+# --- async success promotes private markers to standard paths ----------------
+PROMO_MARKER_SCRIPT="$SANDBOX/write-changed-marker.sh"
+PROMO_HASH=$(printf 'a%.0s' $(seq 1 64))
+cat > "$PROMO_MARKER_SCRIPT" <<MARKER_SCRIPT
+#!/usr/bin/env bash
+marker="\$MUSI_VERIFY_MARKER_CHANGED"
+mkdir -p "\$(dirname "\$marker")"
+printf 'LAST_TS=%s\nLAST_HEAD=promo-head-abc\nLAST_HASH=%s\n' "\$(date +%s)" "$PROMO_HASH" > "\$marker"
+MARKER_SCRIPT
+chmod +x "$PROMO_MARKER_SCRIPT"
+
+rm -f "$STD_CHANGED_MARKER" "$STD_FULL_MARKER"
+output=$(run_async start --command bash "$PROMO_MARKER_SCRIPT")
+grep -qF 'verify:async: started PID ' <<< "$output" || fail "promotion start failed: $output"
+output=$(wait_for_status passed) || fail "promotion payload never passed: $output"
+[ -f "$STD_CHANGED_MARKER" ] || fail "async success did not promote changed marker to standard path"
+grep -qF "LAST_HEAD=promo-head-abc" "$STD_CHANGED_MARKER" \
+  || fail "promoted changed marker has wrong HEAD: $(cat "$STD_CHANGED_MARKER")"
+grep -qF "LAST_HASH=$PROMO_HASH" "$STD_CHANGED_MARKER" \
+  || fail "promoted changed marker has wrong HASH: $(cat "$STD_CHANGED_MARKER")"
+grep -qF "LAST_TS=" "$STD_CHANGED_MARKER" \
+  || fail "promoted changed marker missing TS: $(cat "$STD_CHANGED_MARKER")"
+[ ! -f "$STD_FULL_MARKER" ] \
+  || fail "full marker should not be promoted when only changed was written"
+ok "async success promotes changed marker to standard path"
+
+# --- async success promotes full marker when payload writes it ---------------
+PROMO_FULL_SCRIPT="$SANDBOX/write-full-marker.sh"
+PROMO_FULL_HASH=$(printf 'b%.0s' $(seq 1 64))
+cat > "$PROMO_FULL_SCRIPT" <<MARKER_SCRIPT
+#!/usr/bin/env bash
+marker="\$MUSI_VERIFY_MARKER_FULL"
+mkdir -p "\$(dirname "\$marker")"
+printf 'LAST_TS=%s\nLAST_HEAD=promo-full-head\nLAST_HASH=%s\n' "\$(date +%s)" "$PROMO_FULL_HASH" > "\$marker"
+MARKER_SCRIPT
+chmod +x "$PROMO_FULL_SCRIPT"
+
+rm -f "$STD_CHANGED_MARKER" "$STD_FULL_MARKER"
+output=$(run_async start --command bash "$PROMO_FULL_SCRIPT")
+grep -qF 'verify:async: started PID ' <<< "$output" || fail "full promotion start failed: $output"
+output=$(wait_for_status passed) || fail "full promotion payload never passed: $output"
+[ -f "$STD_FULL_MARKER" ] || fail "async success did not promote full marker to standard path"
+grep -qF "LAST_HEAD=promo-full-head" "$STD_FULL_MARKER" \
+  || fail "promoted full marker has wrong HEAD: $(cat "$STD_FULL_MARKER")"
+grep -qF "LAST_HASH=$PROMO_FULL_HASH" "$STD_FULL_MARKER" \
+  || fail "promoted full marker has wrong HASH: $(cat "$STD_FULL_MARKER")"
+ok "async success promotes full marker to standard path"
+
+# --- async failure does not promote markers ----------------------------------
+PROMO_FAIL_SCRIPT="$SANDBOX/write-marker-then-fail.sh"
+cat > "$PROMO_FAIL_SCRIPT" <<MARKER_SCRIPT
+#!/usr/bin/env bash
+marker="\$MUSI_VERIFY_MARKER_CHANGED"
+mkdir -p "\$(dirname "\$marker")"
+printf 'LAST_TS=%s\nLAST_HEAD=should-not-promote\nLAST_HASH=%s\n' "\$(date +%s)" "$(printf 'c%.0s' $(seq 1 64))" > "\$marker"
+exit 1
+MARKER_SCRIPT
+chmod +x "$PROMO_FAIL_SCRIPT"
+
+rm -f "$STD_CHANGED_MARKER" "$STD_FULL_MARKER"
+output=$(run_async start --command bash "$PROMO_FAIL_SCRIPT")
+grep -qF 'verify:async: started PID ' <<< "$output" || fail "fail-promo start failed: $output"
+output=$(wait_for_status failed) || fail "fail-promo payload never failed: $output"
+[ ! -f "$STD_CHANGED_MARKER" ] \
+  || fail "failed async run should not promote markers: $(cat "$STD_CHANGED_MARKER")"
+ok "async failure does not promote markers to standard paths"
+
+# --- no private marker means no promotion (custom commands) ------------------
+rm -f "$STD_CHANGED_MARKER" "$STD_FULL_MARKER"
+output=$(run_async start --command bash -c 'echo no-marker; exit 0')
+grep -qF 'verify:async: started PID ' <<< "$output" || fail "no-marker start failed: $output"
+output=$(wait_for_status passed) || fail "no-marker payload never passed: $output"
+[ ! -f "$STD_CHANGED_MARKER" ] \
+  || fail "success without private marker should not create standard changed marker"
+[ ! -f "$STD_FULL_MARKER" ] \
+  || fail "success without private marker should not create standard full marker"
+ok "no private marker means no standard promotion"
 
 printf 'verify-async tests passed (%d)\n' "$PASS"

@@ -54,8 +54,8 @@ type BacktickPathReference = {
 const DEFAULT_HARNESS_PATH = "docs/ai-harness.md";
 const DEFAULT_GUIDES_DIR = "docs/guides";
 const PATH_LIKE_RE =
-  /^[A-Za-z0-9._@-]+(?:\/[A-Za-z0-9._@-]+)+(?:\/|\.[A-Za-z0-9][A-Za-z0-9_-]*)$/u;
-const GUIDE_REFERENCE_RE = /docs\/guides\/[A-Za-z0-9._-]+\.md/gu;
+  /^[\w.@-]+(?:\/[\w.@-]+)+(?:\/|\.[A-Za-z0-9][\w-]*)$/u;
+const GUIDE_REFERENCE_RE = /docs\/guides\/[\w.-]+\.md/gu;
 const INLINE_BACKTICK_RE = /`([^`\n]+)`/gu;
 
 export function runHarnessFreshnessCheck(

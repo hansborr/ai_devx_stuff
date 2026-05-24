@@ -57,6 +57,13 @@ Do **not** read this folder at session start. Promote an item back into
   lint-hardening index and leaf notes from a Rust/Clippy vs Musi ESLint
   comparison. Promote one leaf at a time; start with zero-warning cleanup,
   changed-gate content correctness, then Vitest lint evaluation.
+- `lint-ratchet-sharing/` — 2026-05-22 backlog for making the
+  `lint:ratchet` setup share-ready outside Musi plus a strict-improvement
+  gate that forces baseline tightening when code improves. Leaf 01
+  (strict-improvement enforcement, including first-class improvement
+  diagnostics) is the highest-value local change; Leaves 02-07 cover
+  portable docs/scaffolding, existing CI parity, summary command, PR-comment
+  formatting, the existing reference repo/license path, and registry linting.
 - `agent-hook-git-safety.md` — implemented source plan for the shared
   agent-hook policy blocks on history rewrites, force pushes, force
   branch/tag deletion, dangerous `gh` mutations, and raw `grep` (context

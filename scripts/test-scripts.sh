@@ -80,16 +80,18 @@ SMOKE_NAMES=(
   test-lint-ratchet
   test-migration-safety-scan
   test-doctor-json
+  test-parallel-runner
+  test-verify-metadata
   test-test-scripts
 )
 declare -A SMOKE_SUBJECTS=(
-  [test-verify]="scripts/verify.sh scripts/verify-metadata.sh scripts/test-verify.sh scripts/ai-hooks/cache.sh scripts/ai-hooks/output-filter.sh"
-  [test-verify-async]="scripts/verify-async.sh scripts/test-verify-async.sh scripts/verify.sh scripts/ai-hooks/cache.sh"
+  [test-verify]="scripts/verify.sh scripts/verify-metadata.sh scripts/process-tree.sh scripts/test-verify.sh scripts/ai-hooks/cache.sh scripts/ai-hooks/output-filter.sh"
+  [test-verify-async]="scripts/verify-async.sh scripts/test-verify-async.sh scripts/process-tree.sh scripts/verify.sh scripts/verify-metadata.sh scripts/ai-hooks/cache.sh"
   [test-verify-logs]="scripts/verify-logs.sh scripts/test-verify-logs.sh scripts/ai-hooks/cache.sh scripts/ai-hooks/output-filter.sh scripts/harness-emit-envelope.ts packages/shared/src/schemas/harness-diagnostics.ts"
   [test-verify-history]="scripts/verify-history.sh scripts/test-verify-history.sh scripts/verify-metadata.sh .husky/pre-commit package.json"
   [test-worktree-db]="scripts/worktree-db.sh scripts/worktree-new.sh scripts/worktree-drift-hook.sh scripts/dev.sh scripts/test-worktree-db.sh"
-  [test-dependency-freshness]="scripts/dependency-freshness.sh scripts/prisma-client-freshness.sh scripts/doc-length-policy.sh scripts/verify-metadata.sh scripts/ai-hooks/output-filter.sh .husky/pre-commit scripts/test-dependency-freshness.sh"
-  [test-ai-hooks]="scripts/test-ai-hooks.sh scripts/ai-hooks/test.sh scripts/ai-hooks/common.sh scripts/ai-hooks/cache.sh scripts/verify-metadata.sh scripts/ai-hooks/policy.sh scripts/ai-hooks/protected-files.sh scripts/ai-hooks/doc-length.sh scripts/ai-hooks/output-filter.sh scripts/ai-hooks/process-runner.sh scripts/ai-hooks/stop-policy.sh scripts/ai-hooks/stop-reminder.sh .claude/hooks/bun-run-quiet.sh .claude/hooks/stop-reminder.sh .codex/hooks/pre-tool-use.sh .codex/hooks/post-tool-use.sh .codex/hooks/stop-reminder.sh .claude/settings.json .codex/hooks.json"
+  [test-dependency-freshness]="scripts/dependency-freshness.sh scripts/prisma-client-freshness.sh scripts/doc-length-policy.sh scripts/verify-metadata.sh scripts/process-tree.sh scripts/ai-hooks/output-filter.sh .husky/pre-commit scripts/test-dependency-freshness.sh"
+  [test-ai-hooks]="scripts/test-ai-hooks.sh scripts/ai-hooks/test.sh scripts/ai-hooks/common.sh scripts/ai-hooks/cache.sh scripts/verify-metadata.sh scripts/ai-hooks/policy.sh scripts/ai-hooks/protected-files.sh scripts/ai-hooks/doc-length.sh scripts/ai-hooks/output-filter.sh scripts/ai-hooks/process-runner.sh scripts/ai-hooks/commit-output.sh scripts/ai-hooks/commit-timeout-status.sh scripts/ai-hooks/stop-policy.sh scripts/ai-hooks/stop-reminder.sh .claude/hooks/ .codex/hooks/pre-tool-use.sh .codex/hooks/post-tool-use.sh .codex/hooks/stop-reminder.sh .claude/settings.json .codex/hooks.json"
   [test-eslint-disable-register]="scripts/eslint-disable-register.sh scripts/test-eslint-disable-register.sh"
   [test-suppression-register]="scripts/suppression-register.sh scripts/test-suppression-register.sh"
   [test-codemod-structured-logging-fix]="scripts/codemods/structured-logging-fix.ts scripts/codemods/lib/trpc-shared-schema.ts scripts/test-codemod-structured-logging-fix.sh package.json tsconfig.scripts.json"
@@ -108,9 +110,11 @@ declare -A SMOKE_SUBJECTS=(
   [test-lint-agent]="scripts/lint-agent.ts scripts/lint-rule-docs.ts scripts/test-lint-agent.sh packages/shared/src/schemas/harness-diagnostics.ts package.json tsconfig.scripts.json eslint.config.js eslint-rules/"
   [test-lint-agent-changed]="scripts/lint-agent-changed.sh scripts/lint-agent.ts scripts/harness-emit-envelope.ts scripts/test-lint-agent-changed.sh packages/shared/src/schemas/harness-diagnostics.ts package.json"
   [test-harness-emit-envelope]="scripts/harness-emit-envelope.ts scripts/test-harness-emit-envelope.sh packages/shared/src/schemas/harness-diagnostics.ts"
-  [test-lint-ratchet]="scripts/lint-ratchet.ts scripts/lint-ratchet-config.ts scripts/lint-ratchet-baseline-compare.ts scripts/lint-ratchet-baseline-parse.ts scripts/lint-ratchet-baseline.ts scripts/lint-ratchet-baseline.test.ts scripts/lint-ratchet-check-registry.ts scripts/lint-ratchet-check-registry.test.ts scripts/lint-ratchet-output.ts scripts/lint-ratchet-output.test.ts scripts/lint-ratchet-report.ts scripts/lint-ratchet-report.test.ts scripts/lint-ratchet-summary.ts scripts/lint-ratchet-summary.test.ts scripts/lint-rule-docs.ts scripts/test-lint-ratchet.sh lint-ratchet.baseline.json packages/shared/src/schemas/harness-diagnostics.ts package.json tsconfig.scripts.json eslint.config.js eslint-rules/"
+  [test-lint-ratchet]="scripts/lint-ratchet.ts scripts/lint-ratchet-config.ts scripts/lint-ratchet-metrics.ts scripts/lint-ratchet-baseline-compare.ts scripts/lint-ratchet-baseline-parse.ts scripts/lint-ratchet-baseline.ts scripts/lint-ratchet-baseline.test.ts scripts/lint-ratchet-check-registry.ts scripts/lint-ratchet-check-registry.test.ts scripts/lint-ratchet-output.ts scripts/lint-ratchet-output.test.ts scripts/lint-ratchet-report.ts scripts/lint-ratchet-report.test.ts scripts/lint-ratchet-summary.ts scripts/lint-ratchet-summary.test.ts scripts/lint-rule-docs.ts scripts/test-lint-ratchet.sh lint-ratchet.baseline.json packages/shared/src/schemas/harness-diagnostics.ts package.json tsconfig.scripts.json eslint.config.js eslint-rules/"
   [test-migration-safety-scan]="scripts/migration-safety-scan.sh scripts/test-migration-safety-scan.sh scripts/harness-emit-envelope.ts packages/shared/src/schemas/harness-diagnostics.ts"
   [test-doctor-json]="scripts/doctor.sh scripts/dependency-freshness.sh scripts/harness-emit-envelope.ts scripts/test-doctor-json.sh harness.controls.json packages/shared/src/schemas/harness-diagnostics.ts"
+  [test-parallel-runner]="scripts/parallel-runner.sh scripts/test-parallel-runner.sh"
+  [test-verify-metadata]="scripts/verify-metadata.sh scripts/test-verify-metadata.sh"
   [test-test-scripts]="scripts/test-scripts.sh scripts/test-test-scripts.sh"
 )
 
@@ -141,6 +145,10 @@ read_changed_files() {
 }
 
 read_deleted_files() {
+  if [ -n "${MUSI_SCRIPTS_DELETED_FILES:-}" ]; then
+    printf '%s\n' "$MUSI_SCRIPTS_DELETED_FILES"
+    return 0
+  fi
   if [ -n "${MUSI_SCRIPTS_CHANGED_FILES:-}" ]; then
     return 0
   fi

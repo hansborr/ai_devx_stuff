@@ -4,7 +4,6 @@
 import { execFileSync } from "node:child_process";
 
 import type { DriftFinding } from "../drift-ai.js";
-
 import type { FileReader } from "./comments.js";
 import type { DetectorScope } from "./scope.js";
 
@@ -106,6 +105,63 @@ type ParsedDiff = {
   readonly files: ReadonlySet<string>;
 };
 
+type DiffLineKind =
+  | "file-header"
+  | "new-file"
+  | "hunk-header"
+  | "added"
+  | "context"
+  | "deleted"
+  | "meta"
+  | "other";
+
+function classifyDiffLine(line: string, inHunk: boolean): DiffLineKind {
+  if (line.startsWith("diff --git ")) return "file-header";
+  if (!inHunk && line.startsWith("+++ ")) return "new-file";
+  if (line.startsWith("@@ ")) return "hunk-header";
+  if (!inHunk) return "other";
+  if (line.startsWith("+")) return "added";
+  if (line.startsWith(" ")) return "context";
+  if (line.startsWith("-")) return "deleted";
+  if (line.startsWith("\\")) return "meta";
+  return "other";
+}
+
+function parseHunkStart(line: string): number | undefined {
+  const match = HUNK_HEADER_RE.exec(line);
+  if (!match) return undefined;
+  const start = match[1];
+  if (start === undefined) return undefined;
+  return Number(start);
+}
+
+function scanContent(
+  text: string,
+  currentFile: string | undefined,
+  changedPaths: ReadonlySet<string>,
+  scanState: CommentScanState,
+): CommentScanState {
+  if (currentFile === undefined || !changedPaths.has(currentFile)) return scanState;
+  return scanCommentSegments(text, scanState).state;
+}
+
+function scanAndDetect(
+  text: string,
+  currentFile: string | undefined,
+  changedPaths: ReadonlySet<string>,
+  scanState: CommentScanState,
+  newLine: number,
+): { readonly state: CommentScanState; readonly findings: readonly ParsedSuppression[] } {
+  if (currentFile === undefined || !changedPaths.has(currentFile)) {
+    return { state: scanState, findings: [] };
+  }
+  const scanned = scanCommentSegments(text, scanState);
+  return {
+    state: scanned.state,
+    findings: detectSuppressions(scanned.segments, { file: currentFile, line: newLine, text }),
+  };
+}
+
 function parseSuppressionDiff(
   diffText: string,
   changedPaths: ReadonlySet<string>,
@@ -119,57 +175,33 @@ function parseSuppressionDiff(
 
   for (const rawLine of diffText.replace(/\r\n/gu, "\n").split("\n")) {
     const line = rawLine.replace(/\r$/u, "");
-    if (line.startsWith("diff --git ")) {
+    const classified = classifyDiffLine(line, inHunk);
+    if (classified === "file-header") {
       currentFile = undefined;
       inHunk = false;
       scanState = initialCommentScanState();
-      continue;
-    }
-    if (!inHunk && line.startsWith("+++ ")) {
+    } else if (classified === "new-file") {
       currentFile = parseNewFilePath(line, changedPaths);
       if (currentFile !== undefined) files.add(currentFile);
       scanState = initialCommentScanState();
-      continue;
-    }
-    const hunk = HUNK_HEADER_RE.exec(line);
-    if (hunk) {
-      const start = hunk[1];
+    } else if (classified === "hunk-header") {
+      const start = parseHunkStart(line);
       if (start === undefined) continue;
-      newLine = Number(start);
+      newLine = start;
       inHunk = true;
       scanState = initialCommentScanState();
-      continue;
-    }
-    if (!inHunk) continue;
-
-    if (line.startsWith("+")) {
-      const addedText = line.slice(1);
-      if (currentFile !== undefined && changedPaths.has(currentFile)) {
-        const scanned = scanCommentSegments(addedText, scanState);
-        scanState = scanned.state;
-        findings.push(
-          ...detectSuppressions(scanned.segments, {
-            file: currentFile,
-            line: newLine,
-            text: addedText,
-          }),
-        );
-      }
+    } else if (classified === "added") {
+      const result = scanAndDetect(line.slice(1), currentFile, changedPaths, scanState, newLine);
+      scanState = result.state;
+      findings.push(...result.findings);
       newLine += 1;
-      continue;
-    }
-    if (line.startsWith(" ")) {
-      if (currentFile !== undefined && changedPaths.has(currentFile)) {
-        scanState = scanCommentSegments(line.slice(1), scanState).state;
-      }
+    } else if (classified === "context") {
+      scanState = scanContent(line.slice(1), currentFile, changedPaths, scanState);
       newLine += 1;
-      continue;
+    } else if (classified === "other") {
+      inHunk = false;
+      scanState = initialCommentScanState();
     }
-    if (line.startsWith("-")) continue;
-    if (line.startsWith("\\")) continue;
-
-    inHunk = false;
-    scanState = initialCommentScanState();
   }
 
   return { findings, files };
@@ -227,6 +259,45 @@ function stripDiffPathPrefix(value: string, changedPaths: ReadonlySet<string>): 
   return value;
 }
 
+function advanceBlockSegment(
+  line: string,
+  index: number,
+): { readonly segment: CommentSegment; readonly newIndex: number; readonly exited: boolean } {
+  const end = line.indexOf("*/", index);
+  if (end < 0) {
+    return { segment: { kind: "block", text: line.slice(index) }, newIndex: line.length, exited: false };
+  }
+  return { segment: { kind: "block", text: line.slice(index, end) }, newIndex: end + 2, exited: true };
+}
+
+function advanceSegmentString(
+  line: string,
+  index: number,
+  delim: StringDelim,
+): { readonly newIndex: number; readonly closed: boolean } {
+  const ch = line.charAt(index);
+  if (ch === "\\") return { newIndex: index + 2, closed: false };
+  if (ch === delim) return { newIndex: index + 1, closed: true };
+  return { newIndex: index + 1, closed: false };
+}
+
+type SegmentCodeAdvance =
+  | { readonly kind: "line-comment"; readonly newIndex: number; readonly text: string }
+  | { readonly kind: "block-comment"; readonly newIndex: number }
+  | { readonly kind: "string"; readonly newIndex: number; readonly delim: StringDelim }
+  | { readonly kind: "other"; readonly newIndex: number };
+
+function advanceSegmentCode(line: string, index: number): SegmentCodeAdvance {
+  const ch = line.charAt(index);
+  const next = line[index + 1];
+  if (ch === "/" && next === "/") {
+    return { kind: "line-comment", newIndex: line.length, text: line.slice(index + 2) };
+  }
+  if (ch === "/" && next === "*") return { kind: "block-comment", newIndex: index + 2 };
+  if (ch === '"' || ch === "'" || ch === "`") return { kind: "string", newIndex: index + 1, delim: ch };
+  return { kind: "other", newIndex: index + 1 };
+}
+
 function scanCommentSegments(
   line: string,
   state: CommentScanState,
@@ -239,45 +310,28 @@ function scanCommentSegments(
   let inString = state.inString;
   let index = 0;
   while (index < line.length) {
-    const ch = line[index] ?? "";
-    const next = line[index + 1];
     if (inBlockComment) {
-      const end = line.indexOf("*/", index);
-      if (end < 0) {
-        segments.push({ kind: "block", text: line.slice(index) });
-        index = line.length;
-        continue;
-      }
-      segments.push({ kind: "block", text: line.slice(index, end) });
-      inBlockComment = false;
-      index = end + 2;
+      const result = advanceBlockSegment(line, index);
+      segments.push(result.segment);
+      inBlockComment = !result.exited;
+      index = result.newIndex;
       continue;
     }
     if (inString) {
-      if (ch === "\\") {
-        index += 2;
-        continue;
-      }
-      if (ch === inString) inString = false;
-      index += 1;
+      const result = advanceSegmentString(line, index, inString);
+      if (result.closed) inString = false;
+      index = result.newIndex;
       continue;
     }
-    if (ch === "/" && next === "/") {
-      segments.push({ kind: "line", text: line.slice(index + 2) });
-      index = line.length;
-      continue;
-    }
-    if (ch === "/" && next === "*") {
+    const result = advanceSegmentCode(line, index);
+    if (result.kind === "line-comment") {
+      segments.push({ kind: "line", text: result.text });
+    } else if (result.kind === "block-comment") {
       inBlockComment = true;
-      index += 2;
-      continue;
+    } else if (result.kind === "string") {
+      inString = result.delim;
     }
-    if (ch === '"' || ch === "'" || ch === "`") {
-      inString = ch;
-      index += 1;
-      continue;
-    }
-    index += 1;
+    index = result.newIndex;
   }
   return { segments, state: { inBlockComment, inString } };
 }

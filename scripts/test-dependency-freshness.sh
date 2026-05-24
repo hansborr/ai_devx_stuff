@@ -47,6 +47,8 @@ copy_precommit_fixture() {
   cp "$SCRIPT_DIR/prisma-client-freshness.sh" "$target/scripts/prisma-client-freshness.sh"
   cp "$SCRIPT_DIR/doc-length-policy.sh" "$target/scripts/doc-length-policy.sh"
   cp "$SCRIPT_DIR/verify-metadata.sh" "$target/scripts/verify-metadata.sh"
+  cp "$SCRIPT_DIR/process-tree.sh" "$target/scripts/process-tree.sh"
+  cp "$SCRIPT_DIR/parallel-step.sh" "$target/scripts/parallel-step.sh"
   cp "$SCRIPT_DIR/ai-hooks/output-filter.sh" "$target/scripts/ai-hooks/output-filter.sh"
   cp "$SCRIPT_DIR/../.husky/pre-commit" "$target/.husky/pre-commit"
   cat > "$target/bin/bun" <<'STUB'
@@ -124,6 +126,8 @@ cp "$SCRIPT_DIR/dependency-freshness.sh" "$hook_repo/scripts/dependency-freshnes
 cp "$SCRIPT_DIR/prisma-client-freshness.sh" "$hook_repo/scripts/prisma-client-freshness.sh"
 cp "$SCRIPT_DIR/doc-length-policy.sh" "$hook_repo/scripts/doc-length-policy.sh"
 cp "$SCRIPT_DIR/verify-metadata.sh" "$hook_repo/scripts/verify-metadata.sh"
+cp "$SCRIPT_DIR/process-tree.sh" "$hook_repo/scripts/process-tree.sh"
+cp "$SCRIPT_DIR/parallel-step.sh" "$hook_repo/scripts/parallel-step.sh"
 cp "$SCRIPT_DIR/ai-hooks/output-filter.sh" "$hook_repo/scripts/ai-hooks/output-filter.sh"
 cp "$SCRIPT_DIR/../.husky/pre-commit" "$hook_repo/.husky/pre-commit"
 (
@@ -189,9 +193,8 @@ BAD_MARKER
   if grep -qF -- "--reporter=json" "$stub_log"; then
     fail "pre-commit should not request json timing capture by default"
   fi
-  if grep -qF "stub bun run test:scripts:changed" "$stub_log"; then
-    fail "non-script staged change should not run script smoke tests"
-  fi
+  grep -qF "stub bun run test:scripts:changed" "$stub_log" \
+    || fail "pre-commit should always invoke test:scripts:changed (runner no-ops when no subjects match)"
   [ -f "$log_dir/run-meta.json" ] || fail "pre-commit did not write run-meta.json"
   grep -q '"mode":"parallel-precommit"' "$log_dir/run-meta.json" \
     || fail "pre-commit metadata should record parallel-precommit mode"
@@ -236,6 +239,8 @@ cp "$SCRIPT_DIR/dependency-freshness.sh" "$gate_repo/scripts/dependency-freshnes
 cp "$SCRIPT_DIR/prisma-client-freshness.sh" "$gate_repo/scripts/prisma-client-freshness.sh"
 cp "$SCRIPT_DIR/doc-length-policy.sh" "$gate_repo/scripts/doc-length-policy.sh"
 cp "$SCRIPT_DIR/verify-metadata.sh" "$gate_repo/scripts/verify-metadata.sh"
+cp "$SCRIPT_DIR/process-tree.sh" "$gate_repo/scripts/process-tree.sh"
+cp "$SCRIPT_DIR/parallel-step.sh" "$gate_repo/scripts/parallel-step.sh"
 cp "$SCRIPT_DIR/ai-hooks/output-filter.sh" "$gate_repo/scripts/ai-hooks/output-filter.sh"
 cp "$SCRIPT_DIR/../.husky/pre-commit" "$gate_repo/.husky/pre-commit"
 cat > "$gate_repo/bin/bun" <<'STUB'
@@ -283,6 +288,8 @@ cp "$SCRIPT_DIR/dependency-freshness.sh" "$manifest_repo/scripts/dependency-fres
 cp "$SCRIPT_DIR/prisma-client-freshness.sh" "$manifest_repo/scripts/prisma-client-freshness.sh"
 cp "$SCRIPT_DIR/doc-length-policy.sh" "$manifest_repo/scripts/doc-length-policy.sh"
 cp "$SCRIPT_DIR/verify-metadata.sh" "$manifest_repo/scripts/verify-metadata.sh"
+cp "$SCRIPT_DIR/process-tree.sh" "$manifest_repo/scripts/process-tree.sh"
+cp "$SCRIPT_DIR/parallel-step.sh" "$manifest_repo/scripts/parallel-step.sh"
 cp "$SCRIPT_DIR/ai-hooks/output-filter.sh" "$manifest_repo/scripts/ai-hooks/output-filter.sh"
 cp "$SCRIPT_DIR/../.husky/pre-commit" "$manifest_repo/.husky/pre-commit"
 cat > "$manifest_repo/bin/bun" <<'STUB'
@@ -427,6 +434,8 @@ cp "$SCRIPT_DIR/dependency-freshness.sh" "$cache_repo/scripts/dependency-freshne
 cp "$SCRIPT_DIR/prisma-client-freshness.sh" "$cache_repo/scripts/prisma-client-freshness.sh"
 cp "$SCRIPT_DIR/doc-length-policy.sh" "$cache_repo/scripts/doc-length-policy.sh"
 cp "$SCRIPT_DIR/verify-metadata.sh" "$cache_repo/scripts/verify-metadata.sh"
+cp "$SCRIPT_DIR/process-tree.sh" "$cache_repo/scripts/process-tree.sh"
+cp "$SCRIPT_DIR/parallel-step.sh" "$cache_repo/scripts/parallel-step.sh"
 cp "$SCRIPT_DIR/ai-hooks/output-filter.sh" "$cache_repo/scripts/ai-hooks/output-filter.sh"
 cp "$SCRIPT_DIR/../.husky/pre-commit" "$cache_repo/.husky/pre-commit"
 cat > "$cache_repo/bin/bun" <<'STUB'
@@ -816,6 +825,8 @@ cp "$SCRIPT_DIR/dependency-freshness.sh" "$hook_only_repo/scripts/dependency-fre
 cp "$SCRIPT_DIR/prisma-client-freshness.sh" "$hook_only_repo/scripts/prisma-client-freshness.sh"
 cp "$SCRIPT_DIR/doc-length-policy.sh" "$hook_only_repo/scripts/doc-length-policy.sh"
 cp "$SCRIPT_DIR/verify-metadata.sh" "$hook_only_repo/scripts/verify-metadata.sh"
+cp "$SCRIPT_DIR/process-tree.sh" "$hook_only_repo/scripts/process-tree.sh"
+cp "$SCRIPT_DIR/parallel-step.sh" "$hook_only_repo/scripts/parallel-step.sh"
 cp "$SCRIPT_DIR/ai-hooks/output-filter.sh" "$hook_only_repo/scripts/ai-hooks/output-filter.sh"
 cp "$SCRIPT_DIR/../.husky/pre-commit" "$hook_only_repo/.husky/pre-commit"
 cat > "$hook_only_repo/bin/bun" <<'STUB'
@@ -853,5 +864,151 @@ chmod +x "$hook_only_repo/bin/bun"
     || fail "pre-commit with hook edit missing OK output: $output"
 )
 ok "pre-commit runs script smoke tests for staged hook changes"
+
+# --- pre-commit with staged .claude/settings.json invokes test:scripts:changed
+config_json_repo="$TMP_ROOT/config-json-repo"
+copy_precommit_fixture "$config_json_repo"
+(
+  cd "$config_json_repo"
+  git init -q
+  git config user.name "Test User"
+  git config user.email "test@example.invalid"
+  mkdir -p .claude
+  printf '{"permissions":{}}\n' > .claude/settings.json
+  git add scripts bin .husky .claude/settings.json
+  git commit -q -m init
+  printf '{"permissions":{"allow":["Bash(bun)"]}}\n' > .claude/settings.json
+  git add .claude/settings.json
+
+  marker="$config_json_repo/precommit-marker"
+  log_dir="$config_json_repo/precommit-logs"
+  stub_log="$config_json_repo/bun.log"
+  : > "$stub_log"
+
+  output="$(
+    PATH="$config_json_repo/bin:$PATH" \
+    STUB_LOG="$stub_log" \
+    MUSI_PRECOMMIT_MARKER="$marker" \
+    MUSI_VERIFY_LOCK="$config_json_repo/precommit-lock" \
+    MUSI_VERIFY_LOG_DIR="$log_dir" \
+      sh .husky/pre-commit 2>&1
+  )" || fail "pre-commit should run for staged .claude/settings.json: $output"
+
+  grep -qF "stub bun run test:scripts:changed" "$stub_log" \
+    || fail "staged .claude/settings.json did not run test:scripts:changed"
+  grep -qF "pre-commit: OK" <<< "$output" \
+    || fail "pre-commit with .claude/settings.json missing OK output: $output"
+)
+ok "pre-commit runs test:scripts:changed for staged .claude/settings.json"
+
+# --- pre-commit with staged .codex/hooks.json invokes test:scripts:changed
+codex_hooks_repo="$TMP_ROOT/codex-hooks-repo"
+copy_precommit_fixture "$codex_hooks_repo"
+(
+  cd "$codex_hooks_repo"
+  git init -q
+  git config user.name "Test User"
+  git config user.email "test@example.invalid"
+  mkdir -p .codex
+  printf '{"hooks":[]}\n' > .codex/hooks.json
+  git add scripts bin .husky .codex/hooks.json
+  git commit -q -m init
+  printf '{"hooks":[{"type":"pre-tool-use"}]}\n' > .codex/hooks.json
+  git add .codex/hooks.json
+
+  marker="$codex_hooks_repo/precommit-marker"
+  log_dir="$codex_hooks_repo/precommit-logs"
+  stub_log="$codex_hooks_repo/bun.log"
+  : > "$stub_log"
+
+  output="$(
+    PATH="$codex_hooks_repo/bin:$PATH" \
+    STUB_LOG="$stub_log" \
+    MUSI_PRECOMMIT_MARKER="$marker" \
+    MUSI_VERIFY_LOCK="$codex_hooks_repo/precommit-lock" \
+    MUSI_VERIFY_LOG_DIR="$log_dir" \
+      sh .husky/pre-commit 2>&1
+  )" || fail "pre-commit should run for staged .codex/hooks.json: $output"
+
+  grep -qF "stub bun run test:scripts:changed" "$stub_log" \
+    || fail "staged .codex/hooks.json did not run test:scripts:changed"
+  grep -qF "pre-commit: OK" <<< "$output" \
+    || fail "pre-commit with .codex/hooks.json missing OK output: $output"
+)
+ok "pre-commit runs test:scripts:changed for staged .codex/hooks.json"
+
+# --- pre-commit with non-script deletion passes staged files through --------
+non_script_del_repo="$TMP_ROOT/non-script-del-repo"
+copy_precommit_fixture "$non_script_del_repo"
+(
+  cd "$non_script_del_repo"
+  git init -q
+  git config user.name "Test User"
+  git config user.email "test@example.invalid"
+  mkdir -p packages/server/src
+  printf 'export const x = 1;\n' > packages/server/src/example.ts
+  printf 'echo verify\n' > scripts/verify.sh
+  git add scripts bin .husky packages
+  git commit -q -m init
+
+  git rm -q packages/server/src/example.ts
+  printf 'echo changed\n' > scripts/verify.sh
+  git add scripts/verify.sh
+
+  marker="$non_script_del_repo/precommit-marker"
+  log_dir="$non_script_del_repo/precommit-logs"
+  stub_log="$non_script_del_repo/bun.log"
+  : > "$stub_log"
+
+  output="$(
+    PATH="$non_script_del_repo/bin:$PATH" \
+    STUB_LOG="$stub_log" \
+    MUSI_PRECOMMIT_MARKER="$marker" \
+    MUSI_VERIFY_LOCK="$non_script_del_repo/precommit-lock" \
+    MUSI_VERIFY_LOG_DIR="$log_dir" \
+      sh .husky/pre-commit 2>&1
+  )" || fail "pre-commit should succeed with non-script deletion + script edit: $output"
+
+  grep -qF "stub bun run test:scripts:changed" "$stub_log" \
+    || fail "non-script deletion with script edit did not run test:scripts:changed"
+  grep -qF "pre-commit: OK" <<< "$output" \
+    || fail "pre-commit with non-script deletion missing OK output: $output"
+)
+ok "pre-commit passes staged files through when non-script deletion is staged"
+
+# --- pre-commit with script deletion does NOT pass staged files through -----
+script_del_fallback_repo="$TMP_ROOT/script-del-fallback-repo"
+copy_precommit_fixture "$script_del_fallback_repo"
+(
+  cd "$script_del_fallback_repo"
+  git init -q
+  git config user.name "Test User"
+  git config user.email "test@example.invalid"
+  printf 'echo old\n' > scripts/old-helper.sh
+  git add scripts bin .husky
+  git commit -q -m init
+
+  git rm -q scripts/old-helper.sh
+
+  marker="$script_del_fallback_repo/precommit-marker"
+  log_dir="$script_del_fallback_repo/precommit-logs"
+  stub_log="$script_del_fallback_repo/bun.log"
+  : > "$stub_log"
+
+  output="$(
+    PATH="$script_del_fallback_repo/bin:$PATH" \
+    STUB_LOG="$stub_log" \
+    MUSI_PRECOMMIT_MARKER="$marker" \
+    MUSI_VERIFY_LOCK="$script_del_fallback_repo/precommit-lock" \
+    MUSI_VERIFY_LOG_DIR="$log_dir" \
+      sh .husky/pre-commit 2>&1
+  )" || fail "pre-commit should succeed with script deletion: $output"
+
+  grep -qF "stub bun run test:scripts:changed" "$stub_log" \
+    || fail "script deletion did not run test:scripts:changed"
+  grep -qF "pre-commit: OK" <<< "$output" \
+    || fail "pre-commit with script deletion missing OK output: $output"
+)
+ok "pre-commit uses full fallback when script deletion is staged"
 
 printf 'dependency freshness tests passed\n'

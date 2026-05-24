@@ -27,9 +27,11 @@ COMBINED=$(ai_combined_response_text "$RESPONSE")
 if ai_is_git_commit_cmd "$CMD"; then
   STATE_FILE=""
   HEAD_BEFORE=""
+  START_TS=""
   if [ -n "$TOOL_USE_ID" ]; then
     STATE_FILE="$AI_GIT_STATE_DIR/$TOOL_USE_ID"
     HEAD_BEFORE=$(ai_read_state_value "$STATE_FILE" HEAD_BEFORE 2>/dev/null || true)
+    START_TS=$(ai_read_state_value "$STATE_FILE" START_TS 2>/dev/null || true)
   fi
   HEAD_AFTER=$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || echo none)
   DRY_RUN=0
@@ -49,6 +51,16 @@ if ai_is_git_commit_cmd "$CMD"; then
     SUMMARY=$(ai_commit_dry_run_summary "$COMBINED")
   elif [ -n "$HEAD_BEFORE" ] && [ "$HEAD_AFTER" = "$HEAD_BEFORE" ] && [ "$EXIT_CODE" = "0" ]; then
     SUMMARY=$(ai_commit_no_landing_summary "$HEAD_BEFORE" "$COMBINED")
+  elif [ "$EXIT_CODE" = "124" ] || [ "$EXIT_CODE" = "130" ] || [ "$EXIT_CODE" = "143" ] || { [ -z "$EXIT_CODE" ] && [ -z "$COMBINED" ]; }; then
+    DETAIL="Codex did not observe a completed commit result before the tool returned."
+    if ai_is_integer "${START_TS:-}"; then
+      DETAIL="$DETAIL Elapsed before post-hook summary: $(( $(date +%s) - START_TS ))s."
+    fi
+    if [ -n "$EXIT_CODE" ]; then
+      SUMMARY=$(ai_commit_maybe_running_summary "Commit status unknown (exit $EXIT_CODE)." "$HEAD_BEFORE" "$COMBINED" "$DETAIL")
+    else
+      SUMMARY=$(ai_commit_maybe_running_summary "Commit status unknown." "$HEAD_BEFORE" "$COMBINED" "$DETAIL")
+    fi
   else
     if [ -n "$EXIT_CODE" ]; then
       SUMMARY=$(ai_commit_generic_summary "Commit finished with exit $EXIT_CODE." "$COMBINED")

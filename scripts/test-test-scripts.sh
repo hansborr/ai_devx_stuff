@@ -56,7 +56,7 @@ chmod +x "$SANDBOX/bin/runner"
 
 STUB_LOG_FILE="$SANDBOX/runner.log"
 : > "$STUB_LOG_FILE"
-ALL_SMOKE_TESTS=$'runner ran test-verify\nrunner ran test-verify-async\nrunner ran test-verify-logs\nrunner ran test-verify-history\nrunner ran test-worktree-db\nrunner ran test-dependency-freshness\nrunner ran test-ai-hooks\nrunner ran test-eslint-disable-register\nrunner ran test-suppression-register\nrunner ran test-codemod-structured-logging-fix\nrunner ran test-codemod-trpc-shared-input\nrunner ran test-codemod-trpc-shared-output\nrunner ran test-code-intel\nrunner ran test-lint-changed\nrunner ran test-lint-shell\nrunner ran test-lint-config-sensors\nrunner ran test-test-changed\nrunner ran test-test-slow\nrunner ran test-generate-module-index\nrunner ran test-generate-lint-guidance\nrunner ran test-generate-harness-controls\nrunner ran test-harness-check\nrunner ran test-lint-agent\nrunner ran test-lint-agent-changed\nrunner ran test-harness-emit-envelope\nrunner ran test-lint-ratchet\nrunner ran test-migration-safety-scan\nrunner ran test-doctor-json\nrunner ran test-test-scripts'
+ALL_SMOKE_TESTS=$'runner ran test-verify\nrunner ran test-verify-async\nrunner ran test-verify-logs\nrunner ran test-verify-history\nrunner ran test-worktree-db\nrunner ran test-dependency-freshness\nrunner ran test-ai-hooks\nrunner ran test-eslint-disable-register\nrunner ran test-suppression-register\nrunner ran test-codemod-structured-logging-fix\nrunner ran test-codemod-trpc-shared-input\nrunner ran test-codemod-trpc-shared-output\nrunner ran test-code-intel\nrunner ran test-lint-changed\nrunner ran test-lint-shell\nrunner ran test-lint-config-sensors\nrunner ran test-test-changed\nrunner ran test-test-slow\nrunner ran test-generate-module-index\nrunner ran test-generate-lint-guidance\nrunner ran test-generate-harness-controls\nrunner ran test-harness-check\nrunner ran test-lint-agent\nrunner ran test-lint-agent-changed\nrunner ran test-harness-emit-envelope\nrunner ran test-lint-ratchet\nrunner ran test-migration-safety-scan\nrunner ran test-doctor-json\nrunner ran test-parallel-runner\nrunner ran test-verify-metadata\nrunner ran test-test-scripts'
 
 run_runner() {
   STUB_LOG="$STUB_LOG_FILE" \
@@ -300,17 +300,17 @@ ok "--changed selects ShellCheck smokes on shell lint wrapper change"
 
 : > "$STUB_LOG_FILE"
 MUSI_SCRIPTS_CHANGED_FILES="scripts/parallel-runner.sh" run_runner --changed >/dev/null
-expected=$'runner ran test-lint-changed\nrunner ran test-lint-shell'
+expected=$'runner ran test-lint-changed\nrunner ran test-lint-shell\nrunner ran test-parallel-runner'
 [ "$(cat "$STUB_LOG_FILE")" = "$expected" ] \
-  || fail "parallel runner change should select lint wrapper smokes: $(cat "$STUB_LOG_FILE")"
-ok "--changed selects lint smokes on parallel runner change"
+  || fail "parallel runner change should select lint wrapper and dedicated smokes: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects lint and dedicated smokes on parallel runner change"
 
 : > "$STUB_LOG_FILE"
 MUSI_SCRIPTS_CHANGED_FILES="scripts/verify-metadata.sh" run_runner --changed >/dev/null
-expected=$'runner ran test-verify\nrunner ran test-verify-history\nrunner ran test-dependency-freshness\nrunner ran test-ai-hooks\nrunner ran test-lint-changed\nrunner ran test-lint-config-sensors'
+expected=$'runner ran test-verify\nrunner ran test-verify-async\nrunner ran test-verify-history\nrunner ran test-dependency-freshness\nrunner ran test-ai-hooks\nrunner ran test-lint-changed\nrunner ran test-lint-config-sensors\nrunner ran test-verify-metadata'
 [ "$(cat "$STUB_LOG_FILE")" = "$expected" ] \
-  || fail "verify-metadata.sh change should select dependent smokes: $(cat "$STUB_LOG_FILE")"
-ok "--changed selects dependent smokes on verify metadata change"
+  || fail "verify-metadata.sh change should select dependent and dedicated smokes: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects dependent and dedicated smokes on verify metadata change"
 
 # --- --changed selects ai-hooks smoke on shared hook changes -------------
 : > "$STUB_LOG_FILE"
@@ -330,6 +330,66 @@ MUSI_SCRIPTS_CHANGED_FILES=".codex/hooks/post-tool-use.sh" run_runner --changed 
 [ "$(cat "$STUB_LOG_FILE")" = "runner ran test-ai-hooks" ] \
   || fail "Codex post hook change should select ai-hooks smoke: $(cat "$STUB_LOG_FILE")"
 ok "--changed selects test-ai-hooks on Codex hook change"
+
+# --- --changed selects test-ai-hooks on .claude/settings.json change ------
+: > "$STUB_LOG_FILE"
+MUSI_SCRIPTS_CHANGED_FILES=".claude/settings.json" run_runner --changed >/dev/null
+[ "$(cat "$STUB_LOG_FILE")" = "runner ran test-ai-hooks" ] \
+  || fail ".claude/settings.json change should select ai-hooks smoke: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects test-ai-hooks on .claude/settings.json change"
+
+# --- --changed selects test-ai-hooks on .codex/hooks.json change ---------
+: > "$STUB_LOG_FILE"
+MUSI_SCRIPTS_CHANGED_FILES=".codex/hooks.json" run_runner --changed >/dev/null
+[ "$(cat "$STUB_LOG_FILE")" = "runner ran test-ai-hooks" ] \
+  || fail ".codex/hooks.json change should select ai-hooks smoke: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects test-ai-hooks on .codex/hooks.json change"
+
+# --- --changed selects config-sensor smoke on .codex/config.toml change ---
+: > "$STUB_LOG_FILE"
+MUSI_SCRIPTS_CHANGED_FILES=".codex/config.toml" run_runner --changed >/dev/null
+[ "$(cat "$STUB_LOG_FILE")" = "runner ran test-lint-config-sensors" ] \
+  || fail ".codex/config.toml change should select config-sensor smoke: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects test-lint-config-sensors on .codex/config.toml change"
+
+# --- --changed selects config-sensor smoke on .codex/skills agent change --
+: > "$STUB_LOG_FILE"
+MUSI_SCRIPTS_CHANGED_FILES=".codex/skills/ts-graph/agents/openai.yaml" run_runner --changed >/dev/null
+[ "$(cat "$STUB_LOG_FILE")" = "runner ran test-lint-config-sensors" ] \
+  || fail "Codex skill agent change should select config-sensor smoke: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects test-lint-config-sensors on Codex skill agent change"
+
+# --- non-script staged deletion does not force full script-smoke suite ----
+# A deletion of a package source file should not suppress
+# MUSI_SCRIPTS_CHANGED_FILES — only .husky/* or scripts/* deletions require
+# the conservative full fallback.
+: > "$STUB_LOG_FILE"
+delete_non_script_repo="$SANDBOX/delete-non-script-repo"
+mkdir -p "$delete_non_script_repo/packages/server/src" "$delete_non_script_repo/scripts"
+git -C "$SANDBOX" init -q -b main "$delete_non_script_repo"
+git -C "$delete_non_script_repo" config user.email test@example.com
+git -C "$delete_non_script_repo" config user.name Test
+printf 'export const x = 1;\n' > "$delete_non_script_repo/packages/server/src/example.ts"
+printf 'echo hi\n' > "$delete_non_script_repo/scripts/verify.sh"
+git -C "$delete_non_script_repo" add .
+git -C "$delete_non_script_repo" commit -qm base
+git -C "$delete_non_script_repo" rm -q packages/server/src/example.ts
+printf 'echo changed\n' > "$delete_non_script_repo/scripts/verify.sh"
+git -C "$delete_non_script_repo" add scripts/verify.sh
+output="$(
+  cd "$delete_non_script_repo"
+  STUB_LOG="$STUB_LOG_FILE" \
+  MUSI_SCRIPTS_CONCURRENCY=1 \
+  MUSI_SCRIPTS_RUNNER="$SANDBOX/bin/runner" \
+    bash "$RUNNER_SH" --changed 2>&1
+)"
+# Should select smokes based on changed files, not full suite
+if [ "$(cat "$STUB_LOG_FILE")" = "$ALL_SMOKE_TESTS" ]; then
+  fail "non-script deletion should not force full smoke suite: $(cat "$STUB_LOG_FILE")"
+fi
+grep -qF 'runner ran test-verify' "$STUB_LOG_FILE" \
+  || fail "non-script deletion should still select test-verify from scripts/verify.sh change: $(cat "$STUB_LOG_FILE")"
+ok "non-script staged deletion does not force full script-smoke suite"
 
 # --- --changed selects test-changed and test-slow smokes ------------------
 # test-test-slow exercises the slow-test hint emitted by test-changed.sh, so
@@ -602,5 +662,68 @@ grep -qF 'failed: test-verify' <<< "$output" \
 grep -qF 'runner ran test-verify-logs' "$STUB_LOG_FILE" \
   && fail "smoke test runner did not halt at first failure: $(cat "$STUB_LOG_FILE")"
 ok "first failing smoke test halts the sequential runner"
+
+# --- --changed selects test-parallel-runner on its own file change -----------
+: > "$STUB_LOG_FILE"
+MUSI_SCRIPTS_CHANGED_FILES="scripts/test-parallel-runner.sh" run_runner --changed >/dev/null
+[ "$(cat "$STUB_LOG_FILE")" = "runner ran test-parallel-runner" ] \
+  || fail "test-parallel-runner.sh change should select its own smoke: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects test-parallel-runner on its own file change"
+
+# --- --changed selects test-verify-metadata on its own file change -----------
+: > "$STUB_LOG_FILE"
+MUSI_SCRIPTS_CHANGED_FILES="scripts/test-verify-metadata.sh" run_runner --changed >/dev/null
+[ "$(cat "$STUB_LOG_FILE")" = "runner ran test-verify-metadata" ] \
+  || fail "test-verify-metadata.sh change should select its own smoke: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects test-verify-metadata on its own file change"
+
+# --- MUSI_SCRIPTS_DELETED_FILES carries config deletion to smoke selection ---
+: > "$STUB_LOG_FILE"
+MUSI_SCRIPTS_CHANGED_FILES=$'.codex/config.toml\npackages/server/src/app.ts' \
+MUSI_SCRIPTS_DELETED_FILES='.codex/config.toml' \
+  run_runner --changed >/dev/null
+grep -qF 'runner ran test-lint-config-sensors' "$STUB_LOG_FILE" \
+  || fail "deleted .codex/config.toml via MUSI_SCRIPTS_DELETED_FILES should select config-sensor smoke: $(cat "$STUB_LOG_FILE")"
+ok "MUSI_SCRIPTS_DELETED_FILES carries .codex/config.toml deletion to smoke selection"
+
+: > "$STUB_LOG_FILE"
+MUSI_SCRIPTS_CHANGED_FILES=$'.claude/settings.json\npackages/server/src/app.ts' \
+MUSI_SCRIPTS_DELETED_FILES='.claude/settings.json' \
+  run_runner --changed >/dev/null
+grep -qF 'runner ran test-ai-hooks' "$STUB_LOG_FILE" \
+  || fail "deleted .claude/settings.json via MUSI_SCRIPTS_DELETED_FILES should select ai-hooks smoke: $(cat "$STUB_LOG_FILE")"
+ok "MUSI_SCRIPTS_DELETED_FILES carries .claude/settings.json deletion to smoke selection"
+
+# --- MUSI_SCRIPTS_DELETED_FILES with script deletion forces full fallback ----
+: > "$STUB_LOG_FILE"
+MUSI_SCRIPTS_CHANGED_FILES=$'scripts/old.sh\npackages/server/src/app.ts' \
+MUSI_SCRIPTS_DELETED_FILES='scripts/old.sh' \
+  run_runner --changed >/dev/null 2>&1
+[ "$(cat "$STUB_LOG_FILE")" = "$ALL_SMOKE_TESTS" ] \
+  || fail "scripts/ deletion via MUSI_SCRIPTS_DELETED_FILES should force full suite: $(cat "$STUB_LOG_FILE")"
+ok "MUSI_SCRIPTS_DELETED_FILES with scripts/ deletion forces full suite"
+
+# --- non-script deletion in MUSI_SCRIPTS_DELETED_FILES does not force full ---
+: > "$STUB_LOG_FILE"
+MUSI_SCRIPTS_CHANGED_FILES=$'.codex/config.toml\nscripts/verify.sh' \
+MUSI_SCRIPTS_DELETED_FILES='.codex/config.toml' \
+  run_runner --changed >/dev/null
+if [ "$(cat "$STUB_LOG_FILE")" = "$ALL_SMOKE_TESTS" ]; then
+  fail "non-script deletion in MUSI_SCRIPTS_DELETED_FILES should not force full suite: $(cat "$STUB_LOG_FILE")"
+fi
+grep -qF 'runner ran test-verify' "$STUB_LOG_FILE" \
+  || fail "non-script deletion should still select test-verify from scripts/verify.sh change: $(cat "$STUB_LOG_FILE")"
+grep -qF 'runner ran test-lint-config-sensors' "$STUB_LOG_FILE" \
+  || fail "non-script deletion should select config-sensor from .codex/config.toml: $(cat "$STUB_LOG_FILE")"
+ok "non-script deletion in MUSI_SCRIPTS_DELETED_FILES does not force full suite"
+
+# --- MUSI_SCRIPTS_CHANGED_FILES without MUSI_SCRIPTS_DELETED_FILES is backward-compatible ---
+: > "$STUB_LOG_FILE"
+unset MUSI_SCRIPTS_DELETED_FILES 2>/dev/null || true
+MUSI_SCRIPTS_CHANGED_FILES="scripts/verify.sh" run_runner --changed >/dev/null
+expected=$'runner ran test-verify\nrunner ran test-verify-async'
+[ "$(cat "$STUB_LOG_FILE")" = "$expected" ] \
+  || fail "MUSI_SCRIPTS_CHANGED_FILES without DELETED should keep old behavior: $(cat "$STUB_LOG_FILE")"
+ok "MUSI_SCRIPTS_CHANGED_FILES without MUSI_SCRIPTS_DELETED_FILES is backward-compatible"
 
 printf 'test-scripts tests passed (%d)\n' "$PASS"

@@ -1,18 +1,17 @@
 import { describe, expect, it } from "vitest";
 
 import type { ChangedFile } from "../drift-ai.js";
-
 import type { DetectorScope } from "./scope.js";
 import { toChangedScopeFile, toCurrentScopeFile } from "./scope.js";
 import {
   ESLINT_BROAD_SUPPRESSION_HINT,
   ESLINT_INLINE_SUPPRESSION_HINT,
+  runSuppressionsCheck,
   STRYKER_SUPPRESSION_HINT,
+  type SuppressionsGitRunner,
   TS_EXPECT_ERROR_SUPPRESSION_HINT,
   TS_IGNORE_SUPPRESSION_HINT,
   TS_NOCHECK_SUPPRESSION_HINT,
-  runSuppressionsCheck,
-  type SuppressionsGitRunner,
 } from "./suppressions.js";
 
 const filePath = "packages/server/src/example.ts";

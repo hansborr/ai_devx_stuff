@@ -5,9 +5,6 @@ import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 import type { ChangedFile } from "../drift-ai.js";
-
-import type { DetectorScope } from "./scope.js";
-import { toChangedScopeFile, toCurrentScopeFile } from "./scope.js";
 import {
   analyzeCommentMetrics,
   COMMENTS_REPAIR_HINT,
@@ -15,6 +12,8 @@ import {
   type FileReader,
   runCommentsCheck,
 } from "./comments.js";
+import type { DetectorScope } from "./scope.js";
+import { toChangedScopeFile, toCurrentScopeFile } from "./scope.js";
 
 function makeReader(files: Record<string, string>): FileReader {
   return (filePath) => files[filePath];

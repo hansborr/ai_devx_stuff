@@ -1,6 +1,6 @@
+import type { LintRatchetBaseline } from "./lint-ratchet-baseline.js";
 import type { JsonObject, JsonValue, LintRatchetMetric, LintRatchetMode } from "./lint-ratchet-config.js";
 import { parseMetricFields } from "./lint-ratchet-metrics.js";
-import type { LintRatchetBaseline } from "./lint-ratchet-baseline.js";
 
 const LINT_RATCHET_CONFIG_HASH_PREFIX = "sha256:" as const;
 const RATCHET_ID_PATTERN = /^ratchet\/[a-z0-9]+(?:-[a-z0-9]+)*$/u;

@@ -4,10 +4,10 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { HARNESS_DIAGNOSTICS_SCHEMA_VERSION, harnessDiagnosticsSchema, summarizeHarnessFindings, type HarnessDiagnostics, type HarnessFinding } from "../packages/shared/src/schemas/harness-diagnostics.js";
-import { LINT_RATCHET_CONFIG_HASH_PREFIX, buildLintRatchetBaseline, compareCurrentToBaseline, computeCoreLintRatchetRuleSourceHash, computeLintRatchetConfigHash, decideLintRatchetUpdate, formatLintRatchetBaseline, parseLintRatchetBaseline, parseLintRatchetBaselineStructure, ruleNamespace, validateLintRatchetRegistry, type LintRatchetComparison, type LintRatchetCurrentById, type LintRatchetCurrentItem, type LintRatchetImprovement, type LintRatchetRegression, type LintRatchetRuleSourceHashesById } from "./lint-ratchet-baseline.js";
-import { lintRatchetThirdPartyPluginAllowlist, lintRatchets, type LintRatchetConfig, type LintRatchetParserProfile, type LintRatchetRuleSource, type LintRatchetThirdPartyPluginAllowlistEntry } from "./lint-ratchet-config.js";
-import { ConfigError, parseComplexitySeverityMessage, type LintRatchetComplexityFunction } from "./lint-ratchet-metrics.js";
+import { HARNESS_DIAGNOSTICS_SCHEMA_VERSION, type HarnessDiagnostics, harnessDiagnosticsSchema, type HarnessFinding, summarizeHarnessFindings } from "../packages/shared/src/schemas/harness-diagnostics.js";
+import { buildLintRatchetBaseline, compareCurrentToBaseline, computeCoreLintRatchetRuleSourceHash, computeLintRatchetConfigHash, decideLintRatchetUpdate, formatLintRatchetBaseline, LINT_RATCHET_CONFIG_HASH_PREFIX, type LintRatchetComparison, type LintRatchetCurrentById, type LintRatchetCurrentItem, type LintRatchetImprovement, type LintRatchetRegression, type LintRatchetRuleSourceHashesById, parseLintRatchetBaseline, parseLintRatchetBaselineStructure, ruleNamespace, validateLintRatchetRegistry } from "./lint-ratchet-baseline.js";
+import { type LintRatchetConfig, type LintRatchetParserProfile, type LintRatchetRuleSource, lintRatchets, lintRatchetThirdPartyPluginAllowlist, type LintRatchetThirdPartyPluginAllowlistEntry } from "./lint-ratchet-config.js";
+import { ConfigError, type LintRatchetComplexityFunction, parseComplexitySeverityMessage } from "./lint-ratchet-metrics.js";
 import { emitHarnessDiagnosticsEnvelope } from "./lint-ratchet-output.js";
 import { LINT_RATCHET_REPORT_ARTIFACT_URL_ENV, runLintRatchetReport } from "./lint-ratchet-report.js";
 import { runLintRatchetSummary } from "./lint-ratchet-summary.js";

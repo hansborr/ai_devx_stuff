@@ -80,6 +80,7 @@
     "module:index:check": "bash scripts/generate-module-index.sh --check",
     "verify": "bash scripts/verify.sh",
     "verify:changed": "bash scripts/verify.sh --changed",
+    "verify:parallel": "bash scripts/verify.sh --parallel",
     "verify:slow": "bun run verify && bun run test:slow",
     "verify:async": "bash scripts/verify-async.sh start verify",
     "verify:async:changed": "bash scripts/verify-async.sh start changed",

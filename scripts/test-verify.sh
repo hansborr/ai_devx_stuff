@@ -2,8 +2,8 @@
 # test-verify.sh — pure-shell smoke tests for scripts/verify.sh.
 #
 # Stubs `bun` so the script never actually runs lint/typecheck/test. Verifies
-# argument parsing, the cache short-circuit, FORCE_VERIFY=1 bypass, sequential
-# fail-fast behavior, and the failure summary shape. Run via
+# argument parsing, the cache short-circuit, FORCE_VERIFY=1 bypass, changed
+# parallel failure aggregation, and the failure summary shape. Run via
 # `bash scripts/test-verify.sh`.
 
 set -euo pipefail
@@ -15,6 +15,7 @@ if [ "${MUSI_TEST_VERIFY_IN_FIXTURE:-}" != "1" ]; then
   FIXTURE_ROOT="$(mktemp -d /tmp/musi-verify-smoke-repo.XXXXXX)"
   mkdir -p "$FIXTURE_ROOT/scripts/ai-hooks"
   cp "$SCRIPT_DIR/verify.sh" "$SCRIPT_DIR/test-verify.sh" "$SCRIPT_DIR/verify-metadata.sh" \
+    "$SCRIPT_DIR/process-tree.sh" "$SCRIPT_DIR/parallel-step.sh" \
     "$FIXTURE_ROOT/scripts/"
   cp "$SCRIPT_DIR/ai-hooks/cache.sh" "$SCRIPT_DIR/ai-hooks/output-filter.sh" \
     "$FIXTURE_ROOT/scripts/ai-hooks/"
@@ -54,7 +55,8 @@ cat > "$SANDBOX/bin/bun" <<'STUB'
 # Stub: succeeds for every `bun run <script>` invocation by default. Force a
 # specific subcommand to fail by setting STUB_FAIL_<sub-with-colon-as-_>=1.
 # Force a specific subcommand to sleep by setting STUB_SLEEP_<sub>=<seconds>;
-# used by the watchdog test below.
+# used by the watchdog test below. STUB_PID_LOG logs PIDs for process-tree
+# survival checks.
 printf 'stub bun %s\n' "$*" >> "${STUB_LOG:-/dev/null}"
 if [ "${1:-}" = run ] && [ -n "${2:-}" ]; then
   safe_name="${2//:/_}"
@@ -62,7 +64,14 @@ if [ "${1:-}" = run ] && [ -n "${2:-}" ]; then
   var_fail="STUB_FAIL_${safe_name}"
   var_sleep="STUB_SLEEP_${safe_name}"
   if [ -n "${!var_sleep:-}" ]; then
-    sleep "${!var_sleep}"
+    sleep_pid=""
+    [ -n "${STUB_PID_LOG:-}" ] && printf '%s\n' "$$" >> "$STUB_PID_LOG"
+    sleep "${!var_sleep}" &
+    sleep_pid=$!
+    [ -n "${STUB_PID_LOG:-}" ] && printf '%s\n' "$sleep_pid" >> "$STUB_PID_LOG"
+    trap 'kill "$sleep_pid" 2>/dev/null || true; wait "$sleep_pid" 2>/dev/null || true; exit 143' TERM
+    wait "$sleep_pid"
+    trap - TERM
   fi
   if [ "${!var_fail:-0}" = "1" ]; then
     printf 'stub: forced failure for bun run %s\n' "$2" >&2
@@ -119,17 +128,17 @@ grep -qE 'bun run test:changed --reporter=dot --reporter=json --outputFile\.json
 ok "verify --changed pairs dot reporter with json timings file"
 
 [ -f "$LOG_DIR/run-meta.json" ] || fail "verify --changed did not write run-meta.json"
-grep -q '"mode":"serial-verify-changed"' "$LOG_DIR/run-meta.json" \
-  || fail "verify --changed metadata should record serial-verify-changed mode"
+grep -q '"mode":"parallel-verify-changed"' "$LOG_DIR/run-meta.json" \
+  || fail "verify --changed metadata should record parallel-verify-changed mode"
 grep -q '"name":"wrapper"' "$LOG_DIR/run-meta.json" \
   || fail "verify --changed metadata should record wrapper timing"
 grep -q '"name":"test"' "$LOG_DIR/run-meta.json" \
   || fail "verify --changed metadata should record test step timing"
 grep -q 'bun run test:changed --reporter=dot --reporter=json --outputFile.json='"$LOG_DIR"'/test-timings.json' "$LOG_DIR/run-meta.json" \
   || fail "verify --changed metadata should record test command"
-ok "verify --changed writes changed serial run metadata"
+ok "verify --changed writes changed parallel run metadata"
 
-history_match="$(find "$HISTORY_DIR" -maxdepth 1 -type f -name '*-serial-verify-changed-0.json' -print -quit)"
+history_match="$(find "$HISTORY_DIR" -maxdepth 1 -type f -name '*-parallel-verify-changed-0.json' -print -quit)"
 [ -n "$history_match" ] || fail "verify --changed did not persist successful run metadata history"
 ok "verify --changed persists successful run metadata history"
 
@@ -226,7 +235,7 @@ if ! grep -q 'bun run lint:changed' "$STUB_LOG_FILE"; then
 fi
 ok "verify --changed treats corrupt marker as a cache miss"
 
-# --- failure halts at first failing step (sequential fail-fast) -----------
+# --- changed-mode failure aggregates parallel task results ----------------
 rm -f "$MARKER_CHANGED"
 : > "$STUB_LOG_FILE"
 set +e
@@ -235,23 +244,19 @@ exit_code=$?
 set -e
 [ "$exit_code" -ne 0 ] || fail "verify --changed did not propagate failure"
 grep -qF 'Failed: typecheck' <<< "$output" || fail "summary missed Failed: typecheck"
-grep -qF 'Passed: lint ratchet coverage-map' <<< "$output" \
-  || fail "summary missed Passed: lint ratchet coverage-map"
+grep -qF 'Passed: lint ratchet coverage-map test scripts' <<< "$output" \
+  || fail "summary missed other passed parallel tasks"
 grep -qF 'verify:changed FAILED' <<< "$output" || fail "summary missed banner"
 [ -f "$MARKER_CHANGED" ] && fail "marker should not be written on failure"
-history_match="$(find "$HISTORY_DIR" -maxdepth 1 -type f -name '*-serial-verify-changed-1.json' -print -quit)"
+history_match="$(find "$HISTORY_DIR" -maxdepth 1 -type f -name '*-parallel-verify-changed-1.json' -print -quit)"
 [ -n "$history_match" ] || fail "verify --changed did not persist failed run metadata history"
-# test:changed must not run after typecheck failure.
-if grep -q 'bun run test:changed' "$STUB_LOG_FILE"; then
-  fail "test step ran after typecheck failure"
-fi
-# scripts step must not run after typecheck failure either.
-if grep -q 'bun run test:scripts' "$STUB_LOG_FILE"; then
-  fail "scripts step ran after typecheck failure"
-fi
-ok "verify --changed halts at first failing step"
+grep -q 'bun run test:changed' "$STUB_LOG_FILE" \
+  || fail "parallel changed verify should still run test after typecheck failure"
+grep -q 'bun run test:scripts:changed' "$STUB_LOG_FILE" \
+  || fail "parallel changed verify should still run scripts after typecheck failure"
+ok "verify --changed aggregates parallel failures"
 
-# --- lint failure stops typecheck and test from running -------------------
+# --- lint failure still prints lint guidance ------------------------------
 rm -f "$MARKER_CHANGED"
 : > "$STUB_LOG_FILE"
 set +e
@@ -260,21 +265,17 @@ exit_code=$?
 set -e
 [ "$exit_code" -ne 0 ] || fail "verify --changed did not propagate lint failure"
 grep -qF "bun run lint:fix" <<< "$output" || fail "lint failure missing lint:fix hint"
-if grep -q 'bun run typecheck' "$STUB_LOG_FILE"; then
-  fail "typecheck step ran after lint failure"
-fi
-if grep -q 'bun run lint:ratchet' "$STUB_LOG_FILE"; then
-  fail "ratchet step ran after lint failure"
-fi
-if grep -q 'bun run test:changed' "$STUB_LOG_FILE"; then
-  fail "test step ran after lint failure"
-fi
-if grep -q 'bun run test:scripts' "$STUB_LOG_FILE"; then
-  fail "scripts step ran after lint failure"
-fi
-ok "verify --changed prints lint:fix hint and stops at lint failure"
+grep -q 'bun run typecheck' "$STUB_LOG_FILE" \
+  || fail "parallel changed verify should still start typecheck after lint failure"
+grep -q 'bun run lint:ratchet' "$STUB_LOG_FILE" \
+  || fail "parallel changed verify should still start ratchet after lint failure"
+grep -q 'bun run test:changed' "$STUB_LOG_FILE" \
+  || fail "parallel changed verify should still start test after lint failure"
+grep -q 'bun run test:scripts:changed' "$STUB_LOG_FILE" \
+  || fail "parallel changed verify should still start scripts after lint failure"
+ok "verify --changed prints lint:fix hint on parallel lint failure"
 
-# --- ratchet failure stops typecheck and test from running ----------------
+# --- ratchet failure is reported in the parallel summary ------------------
 rm -f "$MARKER_CHANGED"
 : > "$STUB_LOG_FILE"
 set +e
@@ -284,18 +285,15 @@ set -e
 [ "$exit_code" -ne 0 ] || fail "verify --changed did not propagate ratchet failure"
 grep -qF 'Failed: ratchet' <<< "$output" || fail "summary missed Failed: ratchet"
 grep -qF 'Passed: lint' <<< "$output" || fail "summary missed Passed: lint"
-if grep -q 'bun run typecheck' "$STUB_LOG_FILE"; then
-  fail "typecheck step ran after ratchet failure"
-fi
-if grep -q 'bun run docs:lint-coverage-map:check' "$STUB_LOG_FILE"; then
-  fail "coverage-map step ran after ratchet failure"
-fi
-if grep -q 'bun run test:changed' "$STUB_LOG_FILE"; then
-  fail "test step ran after ratchet failure"
-fi
-ok "verify --changed stops at ratchet failure"
+grep -q 'bun run typecheck' "$STUB_LOG_FILE" \
+  || fail "parallel changed verify should still start typecheck after ratchet failure"
+grep -q 'bun run docs:lint-coverage-map:check' "$STUB_LOG_FILE" \
+  || fail "parallel changed verify should still start coverage-map after ratchet failure"
+grep -q 'bun run test:changed' "$STUB_LOG_FILE" \
+  || fail "parallel changed verify should still start test after ratchet failure"
+ok "verify --changed reports ratchet failure"
 
-# --- coverage-map failure stops typecheck and test from running -----------
+# --- coverage-map failure is reported in the parallel summary -------------
 rm -f "$MARKER_CHANGED"
 : > "$STUB_LOG_FILE"
 set +e
@@ -305,13 +303,11 @@ set -e
 [ "$exit_code" -ne 0 ] || fail "verify --changed did not propagate coverage-map failure"
 grep -qF 'Failed: coverage-map' <<< "$output" || fail "summary missed Failed: coverage-map"
 grep -qF 'Passed: lint ratchet' <<< "$output" || fail "summary missed Passed: lint ratchet"
-if grep -q 'bun run typecheck' "$STUB_LOG_FILE"; then
-  fail "typecheck step ran after coverage-map failure"
-fi
-if grep -q 'bun run test:changed' "$STUB_LOG_FILE"; then
-  fail "test step ran after coverage-map failure"
-fi
-ok "verify --changed stops at coverage-map failure"
+grep -q 'bun run typecheck' "$STUB_LOG_FILE" \
+  || fail "parallel changed verify should still start typecheck after coverage-map failure"
+grep -q 'bun run test:changed' "$STUB_LOG_FILE" \
+  || fail "parallel changed verify should still start test after coverage-map failure"
+ok "verify --changed reports coverage-map failure"
 
 # --- watchdog kills a hung step and reports a timeout banner --------------
 rm -f "$MARKER_CHANGED"
@@ -326,15 +322,44 @@ set -e
 grep -qF 'TIMED OUT' <<< "$output" || fail "watchdog did not print TIMED OUT banner"
 grep -qF "logs: $LOG_DIR" <<< "$output" || fail "watchdog did not print log dir breadcrumb"
 grep -qF 'verify:logs budget' <<< "$output" || fail "watchdog did not print verify:logs budget hint"
+grep -qF 'stopped the verification process tree' <<< "$output" \
+  || fail "watchdog did not print process-tree cleanup message"
+grep -qF 'verify:async' <<< "$output" \
+  || fail "watchdog did not mention async alternative"
 [ -f "$LOG_DIR/run-meta.json" ] || fail "watchdog did not write run-meta.json"
-grep -q '"mode":"serial-verify-changed"' "$LOG_DIR/run-meta.json" \
-  || fail "watchdog metadata should record serial-verify-changed mode"
+grep -q '"mode":"parallel-verify-changed"' "$LOG_DIR/run-meta.json" \
+  || fail "watchdog metadata should record parallel-verify-changed mode"
 grep -q '"name":"wrapper"' "$LOG_DIR/run-meta.json" \
   || fail "watchdog metadata should record wrapper timing"
 grep -q '"exit_code":124' "$LOG_DIR/run-meta.json" \
   || fail "watchdog metadata should record exit_code 124"
 [ -f "$MARKER_CHANGED" ] && fail "marker should not be written when the watchdog fires"
 ok "watchdog kills hung steps and records timeout metadata"
+
+# --- watchdog kills child process tree, not just the wrapper PID ----------
+# The bun stub sleeps in the foreground, creating a child process tree:
+#   verify.sh -> subshell -> env -> stub -> sleep
+# After the watchdog fires, ALL descendants must be gone.
+rm -f "$MARKER_CHANGED"
+: > "$STUB_LOG_FILE"
+TREE_PID_LOG="$SANDBOX/tree-pids"
+rm -f "$TREE_PID_LOG"
+set +e
+output=$(MUSI_VERIFY_TIMEOUT=2 STUB_SLEEP_lint_changed=30 STUB_PID_LOG="$TREE_PID_LOG" run_verify --changed 2>&1)
+exit_code=$?
+set -e
+[ "$exit_code" -eq 124 ] || fail "tree-cleanup watchdog should exit 124 (got $exit_code)"
+sleep 0.3
+if [ -f "$TREE_PID_LOG" ]; then
+  while IFS= read -r pid; do
+    [ -n "$pid" ] || continue
+    if kill -0 "$pid" 2>/dev/null; then
+      kill "$pid" 2>/dev/null || true
+      fail "watchdog left child process $pid alive after timeout"
+    fi
+  done < "$TREE_PID_LOG"
+fi
+ok "watchdog kills child process tree on timeout"
 
 # --- MUSI_INTERACTIVE_TIMEOUT is honored when MUSI_VERIFY_TIMEOUT is unset --
 rm -f "$MARKER_CHANGED"
@@ -433,7 +458,61 @@ if grep -q 'bun run test:scripts:changed' "$STUB_LOG_FILE"; then
 fi
 ok "verify (full) runs the full script smoke suite"
 
+# --- parallel mode writes the full marker and runs full commands -----------
+: > "$STUB_LOG_FILE"
+rm -f "$MARKER_FULL" "$MARKER_CHANGED"
+run_verify --parallel >/dev/null || fail "verify --parallel unexpectedly failed"
+[ -f "$MARKER_FULL" ] || fail "verify --parallel did not write full marker"
+[ -f "$MARKER_CHANGED" ] && fail "verify --parallel wrote the changed marker"
+ok "verify --parallel writes full marker"
+
+grep -qE 'bun run test --reporter=dot --reporter=json --outputFile\.json='"$LOG_DIR"'/test-timings\.json' "$STUB_LOG_FILE" \
+  || fail "verify --parallel should request full Vitest test"
+ok "verify --parallel runs full test suite"
+
+grep -qF 'bun run lint' "$STUB_LOG_FILE" \
+  || fail "verify --parallel should invoke bun run lint"
+if grep -q 'bun run lint:changed' "$STUB_LOG_FILE"; then
+  fail "verify --parallel must not invoke lint:changed"
+fi
+ok "verify --parallel runs full lint"
+
+grep -qF 'bun run lint:ratchet' "$STUB_LOG_FILE" \
+  || fail "verify --parallel should invoke bun run lint:ratchet"
+ok "verify --parallel runs lint ratchet"
+
+grep -qF 'bun run test:scripts' "$STUB_LOG_FILE" \
+  || fail "verify --parallel should invoke bun run test:scripts"
+if grep -q 'bun run test:scripts:changed' "$STUB_LOG_FILE"; then
+  fail "verify --parallel must not invoke the changed-mode script smoke suite"
+fi
+ok "verify --parallel runs full script smoke suite"
+
+[ -f "$LOG_DIR/run-meta.json" ] || fail "verify --parallel did not write run-meta.json"
+grep -q '"mode":"parallel-verify"' "$LOG_DIR/run-meta.json" \
+  || fail "verify --parallel metadata should record parallel-verify mode"
+ok "verify --parallel writes parallel-verify metadata"
+
+# --- parallel mode aggregates failures ------------------------------------
+rm -f "$MARKER_FULL"
+: > "$STUB_LOG_FILE"
+set +e
+output=$(STUB_FAIL_typecheck=1 run_verify --parallel 2>&1)
+exit_code=$?
+set -e
+[ "$exit_code" -ne 0 ] || fail "verify --parallel did not propagate failure"
+grep -qF 'Failed: typecheck' <<< "$output" || fail "parallel summary missed Failed: typecheck"
+grep -qF 'Passed: lint ratchet coverage-map test scripts' <<< "$output" \
+  || fail "parallel summary missed other passed tasks"
+grep -q 'bun run test ' "$STUB_LOG_FILE" \
+  || fail "parallel verify should still run test after typecheck failure"
+ok "verify --parallel aggregates parallel failures"
+
 # --- marker format matches pre-commit (LAST_TS / LAST_HEAD / LAST_HASH) ---
+# Re-run a successful verify to produce a fresh marker for format checking.
+rm -f "$MARKER_FULL"
+: > "$STUB_LOG_FILE"
+FORCE_VERIFY=1 run_verify >/dev/null || fail "verify (full) unexpectedly failed before marker check"
 grep -q '^LAST_TS=[0-9]\+$' "$MARKER_FULL" || fail "marker missing LAST_TS"
 grep -q '^LAST_HEAD=' "$MARKER_FULL" || fail "marker missing LAST_HEAD"
 grep -q '^LAST_HASH=[0-9a-f]\{64\}$' "$MARKER_FULL" || fail "marker missing or malformed LAST_HASH"

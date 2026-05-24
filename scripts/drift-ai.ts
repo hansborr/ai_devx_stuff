@@ -13,17 +13,10 @@ import { pathToFileURL } from "node:url";
 
 import { defaultFileReader, type FileReader, runCommentsCheck } from "./drift-ai/comments.js";
 import {
-  defaultJscpdRunner,
-  DEFAULT_DUPLICATES_IGNORE_GLOBS,
-  JSCPD_SUPPORTED_EXTENSIONS,
-  type JscpdRunner,
-  runDuplicatesCheck,
-} from "./drift-ai/duplicates.js";
-import {
   collapseRepoPath,
   DEFAULT_DRIFT_AI_CONFIG,
-  globsForIgnoredPaths,
   type DriftAiConfig,
+  globsForIgnoredPaths,
   loadDriftAiConfig,
   matchesAnyGlob,
   pathEscapesRepo,
@@ -31,14 +24,21 @@ import {
   pathHasAnySegment,
 } from "./drift-ai/config.js";
 import {
+  type BufferGitRunner,
   defaultBufferGitRunner,
   defaultStatRunner,
   discoverCurrentFiles,
   normalizeCurrentRoots,
   resolveStrictRepoRoot,
-  type BufferGitRunner,
   type StatRunner,
 } from "./drift-ai/current-inventory.js";
+import {
+  DEFAULT_DUPLICATES_IGNORE_GLOBS,
+  defaultJscpdRunner,
+  JSCPD_SUPPORTED_EXTENSIONS,
+  type JscpdRunner,
+  runDuplicatesCheck,
+} from "./drift-ai/duplicates.js";
 import { DriftAiError } from "./drift-ai/errors.js";
 import {
   defaultDirectoryListing,
@@ -49,8 +49,8 @@ import {
   formatHarnessFreshnessText,
   runHarnessFreshnessCheck,
 } from "./drift-ai/harness-freshness.js";
-import { buildSourceExtensions, toChangedScopeFile } from "./drift-ai/scope.js";
 import type { DetectorScope, ScopeFile, ScopeMode } from "./drift-ai/scope.js";
+import { buildSourceExtensions, toChangedScopeFile } from "./drift-ai/scope.js";
 import {
   defaultSuppressionsGitRunner,
   runSuppressionsCheck,
@@ -58,18 +58,18 @@ import {
 } from "./drift-ai/suppressions.js";
 
 export { DriftAiError } from "./drift-ai/errors.js";
-export {
-  buildSourceExtensions,
-  BUILT_IN_SOURCE_EXTENSIONS,
-  toChangedScopeFile,
-  toCurrentScopeFile,
-} from "./drift-ai/scope.js";
 export type {
   ChangedScopeFile,
   CurrentScopeFile,
   DetectorScope,
   ScopeFile,
   ScopeMode,
+} from "./drift-ai/scope.js";
+export {
+  buildSourceExtensions,
+  BUILT_IN_SOURCE_EXTENSIONS,
+  toChangedScopeFile,
+  toCurrentScopeFile,
 } from "./drift-ai/scope.js";
 
 export type DriftCheckId = "duplicates" | "ghost-files" | "comments" | "suppressions";
@@ -621,6 +621,34 @@ function ghostExcludeGlobs(config: DriftAiConfig): string[] {
   return [...config.ignore.globs, ...config.checks["ghost-files"].excludeGlobs];
 }
 
+function buildCheckRunnerContext(
+  detectorScope: DetectorScope,
+  context: CheckContext,
+  inventoryByDir: ReadonlyMap<string, readonly string[]> | undefined,
+  roots: readonly string[],
+): CheckContext {
+  return {
+    detectorScope,
+    jscpd: context.jscpd,
+    listDirectory: context.listDirectory,
+    ...(inventoryByDir === undefined ? {} : { inventoryByDir }),
+    readFile: context.readFile,
+    ...(context.suppressionsGit === undefined
+      ? {}
+      : { suppressionsGit: context.suppressionsGit }),
+    ...(context.repoRoot === undefined ? {} : { repoRoot: context.repoRoot }),
+    ...(context.suppressionDiffRef === undefined
+      ? {}
+      : { suppressionDiffRef: context.suppressionDiffRef }),
+    ...(context.config === undefined ? {} : { config: context.config }),
+    roots,
+    ...(context.sourceExtensions === undefined
+      ? {}
+      : { sourceExtensions: context.sourceExtensions }),
+    ...(context.warnStderr === undefined ? {} : { warnStderr: context.warnStderr }),
+  };
+}
+
 export function buildReport(
   options: CliOptions,
   resolvedRef: string | null,
@@ -636,28 +664,12 @@ export function buildReport(
   const skipped = options.checks.filter((check) => !checkRunsForScope(check, detectorScope));
   const findings: DriftFinding[] = [];
   const inventoryByDir = inventoryByDirForReport(detectorScope, context.inventoryByDir);
+  const roots = options.roots.length > 0 ? options.roots : configFor(context).roots;
   for (const check of enabled) {
     findings.push(
-      ...CHECK_RUNNERS[check]({
-        detectorScope,
-        jscpd: context.jscpd,
-        listDirectory: context.listDirectory,
-        ...(inventoryByDir === undefined ? {} : { inventoryByDir }),
-        readFile: context.readFile,
-        ...(context.suppressionsGit === undefined
-          ? {}
-          : { suppressionsGit: context.suppressionsGit }),
-        ...(context.repoRoot === undefined ? {} : { repoRoot: context.repoRoot }),
-        ...(context.suppressionDiffRef === undefined
-          ? {}
-          : { suppressionDiffRef: context.suppressionDiffRef }),
-        ...(context.config === undefined ? {} : { config: context.config }),
-        roots: options.roots.length > 0 ? options.roots : configFor(context).roots,
-        ...(context.sourceExtensions === undefined
-          ? {}
-          : { sourceExtensions: context.sourceExtensions }),
-        ...(context.warnStderr === undefined ? {} : { warnStderr: context.warnStderr }),
-      }),
+      ...CHECK_RUNNERS[check](
+        buildCheckRunnerContext(detectorScope, context, inventoryByDir, roots),
+      ),
     );
   }
   const config = context.config ?? DEFAULT_DRIFT_AI_CONFIG;
@@ -709,7 +721,7 @@ function noopSuppressionsGitRunner(): SuppressionsGitRunner {
   return () => "";
 }
 
-export function formatText(report: DriftReport): string {
+function formatTextHeader(report: DriftReport): string[] {
   const lines: string[] = [];
   if (report.scopeMode === "changed") {
     const base = report.base ?? DEFAULT_BASE;
@@ -724,11 +736,13 @@ export function formatText(report: DriftReport): string {
   if (report.skippedChecks.length > 0) {
     lines.push(`  skipped: ${report.skippedChecks.join(", ")} (not run for this scope)`);
   }
+  return lines;
+}
+
+export function formatText(report: DriftReport): string {
+  const lines = formatTextHeader(report);
   if (report.findings.length === 0) {
     if (report.enabledChecks.length === 0) {
-      // Reachable only when an in-flight leaf adds a new id to ALL_CHECKS
-      // before wiring it into IMPLEMENTED_CHECKS. The message keeps the
-      // CLI self-describing during that handoff window.
       lines.push("drift:ai: no implemented checks selected.");
     } else {
       lines.push(`OK: no findings from checks: ${report.enabledChecks.join(", ")}`);
@@ -880,6 +894,48 @@ type PreparedRun = {
   readonly sourceExtensions: ReadonlySet<string>;
 };
 
+function resolveRunContext(
+  prepared: PreparedRun,
+  options: RunOptions,
+): {
+  readonly checkContext: CheckContext;
+  readonly warnStderr: (message: string) => void;
+  readonly writer: ReportWriter;
+} {
+  const jscpd = options.jscpd ?? defaultJscpdRunner({ repoRoot: prepared.repoRoot });
+  const listDirectory = options.listDirectory ?? defaultDirectoryListing(prepared.repoRoot);
+  const readFile = options.readFile ?? defaultFileReader(prepared.repoRoot);
+  const suppressionsGit =
+    options.suppressionsGit ??
+    (options.git === undefined
+      ? defaultSuppressionsGitRunner
+      : suppressionsGitRunnerFromStringGit(options.git));
+  const warnStderr = options.warnStderr ?? defaultWarnStderr;
+  const writer = options.writer ?? defaultReportWriter;
+  return {
+    checkContext: {
+      detectorScope: prepared.detectorScope,
+      jscpd,
+      listDirectory,
+      ...(prepared.inventoryByDir === undefined
+        ? {}
+        : { inventoryByDir: prepared.inventoryByDir }),
+      readFile,
+      suppressionsGit,
+      repoRoot: prepared.repoRoot,
+      ...(prepared.suppressionDiffRef === null
+        ? {}
+        : { suppressionDiffRef: prepared.suppressionDiffRef }),
+      config: prepared.config,
+      roots: prepared.roots,
+      sourceExtensions: prepared.sourceExtensions,
+      warnStderr,
+    },
+    warnStderr,
+    writer,
+  };
+}
+
 export function runDriftAi(options: RunOptions): RunResult {
   if (options.argv[0] === "harness-freshness") {
     return runHarnessFreshnessSubcommand(options);
@@ -905,36 +961,23 @@ export function runDriftAi(options: RunOptions): RunResult {
     throw err;
   }
 
+  const resolved = resolveRunContext(prepared, options);
   const reportOptions = optionsForReport(parsed, prepared);
-  const jscpd = options.jscpd ?? defaultJscpdRunner({ repoRoot: prepared.repoRoot });
-  const listDirectory = options.listDirectory ?? defaultDirectoryListing(prepared.repoRoot);
-  const readFile = options.readFile ?? defaultFileReader(prepared.repoRoot);
-  const suppressionsGit =
-    options.suppressionsGit ??
-    (options.git === undefined
-      ? defaultSuppressionsGitRunner
-      : suppressionsGitRunnerFromStringGit(options.git));
-  const warnStderr = options.warnStderr ?? defaultWarnStderr;
-  warnForUnsupportedDuplicateExtensions(prepared.config, parsed.checks, warnStderr);
-  const report = buildReport(reportOptions, prepared.resolvedRef, prepared.detectorScope, {
-    detectorScope: prepared.detectorScope,
-    jscpd,
-    listDirectory,
-    ...(prepared.inventoryByDir === undefined ? {} : { inventoryByDir: prepared.inventoryByDir }),
-    readFile,
-    suppressionsGit,
-    repoRoot: prepared.repoRoot,
-    ...(prepared.suppressionDiffRef === null
-      ? {}
-      : { suppressionDiffRef: prepared.suppressionDiffRef }),
-    config: prepared.config,
-    roots: prepared.roots,
-    sourceExtensions: prepared.sourceExtensions,
-    warnStderr,
-  });
+  warnForUnsupportedDuplicateExtensions(prepared.config, parsed.checks, resolved.warnStderr);
+  const report = buildReport(
+    reportOptions,
+    prepared.resolvedRef,
+    prepared.detectorScope,
+    resolved.checkContext,
+  );
   const rendered = parsed.format === "json" ? formatJson(report) : formatText(report);
-  const writer = options.writer ?? defaultReportWriter;
-  const stdout = writeReportOutputs(parsed, rendered, report, writer, warnStderr);
+  const stdout = writeReportOutputs(
+    parsed,
+    rendered,
+    report,
+    resolved.writer,
+    resolved.warnStderr,
+  );
   return { exitCode: 0, stdout, report };
 }
 

@@ -14,15 +14,15 @@ import {
   type LintRatchetRuleSourceHashesById,
 } from "./lint-ratchet-baseline.js";
 import {
-  lintRatchetThirdPartyPluginAllowlist,
-  lintRatchets,
-  type LintRatchetConfig,
-} from "./lint-ratchet-config.js";
-import {
   checkLintRatchetRegistry,
   type RegistryCheckFailure,
   type RegistryCheckFailureKind,
 } from "./lint-ratchet-check-registry.js";
+import {
+  type LintRatchetConfig,
+  lintRatchets,
+  lintRatchetThirdPartyPluginAllowlist,
+} from "./lint-ratchet-config.js";
 import { loadLintRuleDocs } from "./lint-rule-docs.js";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");

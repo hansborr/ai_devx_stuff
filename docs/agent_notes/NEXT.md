@@ -24,6 +24,17 @@ Details: `finished_work/baseline-drain-batch.md`.
 
 Recent context (see `finished_work/` for full notes):
 
+- `fix/hook-output` local: Claude git-commit timeout JSON handling from
+  `c50ab5` now has a Codex post-hook follow-up. Timeout/signal or empty
+  Codex commit responses report uncertain commit state, warn that a
+  backgrounded commit may still land, and point agents at
+  `commit-timeout-status.sh` to check HEAD, wait up to 240s for the
+  pre-commit lock, and rerun that status command if the lock remains held.
+- `fix/lint-alignment-gaps` local budget follow-up + review follow-ups
+  (implemented, needs final review): five budget-review slices plus
+  async marker promotion to standard paths, shared staged-input builder
+  with `MUSI_SCRIPTS_DELETED_FILES` env contract, shared standard marker
+  path helpers, and softened `verify:parallel` doc wording.
 - `feature/jsdoc-plugin-eslint-rules` (merged): scoped
   `eslint-plugin-jsdoc@62.9.0` starter floor to `eslint-rules/*.js`.
 - `feature/lint-hardening-pre-commit-perf-exploration` (merged):

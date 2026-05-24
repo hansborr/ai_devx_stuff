@@ -8,9 +8,9 @@ import {
   validateLintRatchetRegistry,
 } from "./lint-ratchet-baseline.js";
 import {
-  lintRatchetThirdPartyPluginAllowlist,
-  lintRatchets,
   type LintRatchetConfig,
+  lintRatchets,
+  lintRatchetThirdPartyPluginAllowlist,
   type LintRatchetThirdPartyPluginAllowlistEntry,
 } from "./lint-ratchet-config.js";
 import { ConfigError } from "./lint-ratchet-metrics.js";

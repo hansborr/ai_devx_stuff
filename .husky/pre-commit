@@ -2,11 +2,10 @@
 # ----------------------------------------------------------------------------
 # Pre-commit gate. Runs changed-file checks and global drift checks IN PARALLEL.
 #
-# Why parallel here but sequential for manual Claude invocations:
-#   - Pre-commit is automatic (git-invoked, no Claude involvement). Faster is
-#     strictly better; there's no redundancy concern.
-#   - Manual `verify` / `verify:changed` runs are sequential so a human or AI
-#     can read and act on one step at a time.
+# Why parallel: pre-commit and `verify:changed` / `verify:parallel` all run
+# checks in parallel to stay inside the interactive budget. Only full manual
+# `verify` (no flags) is sequential so a human or AI can act on one failure
+# at a time.
 #
 # Design:
 #   - `flock` keeps this to a single writer. Contention message embeds the
@@ -16,8 +15,8 @@
 #     short-circuits the "re-run just to double-check" reflex. After that
 #     misses, a fresh matching manual verify marker may bridge when its
 #     worktree fingerprint proves the same state was already checked.
-#   - 240s watchdog stays under Claude Code's session-cache budget (~5min)
-#     so a hung commit never burns the agent's tool-call cache. On timeout
+#   - 240s watchdog keeps the git-invoked gate inside the interactive command
+#     budget. On timeout
 #     the gate fails closed and prints log paths plus a `verify:logs budget`
 #     pointer; no success marker is written.
 #   - Per-task logs at $LOG_DIR/<task>.log; Passed/Failed status lines let
@@ -40,6 +39,10 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 . "$REPO_ROOT/scripts/ai-hooks/output-filter.sh"
 # shellcheck source=/dev/null
 . "$REPO_ROOT/scripts/verify-metadata.sh"
+# shellcheck source=/dev/null
+. "$REPO_ROOT/scripts/process-tree.sh"
+# shellcheck source=/dev/null
+. "$REPO_ROOT/scripts/parallel-step.sh"
 
 warn_if_staged_lockfile_needs_install() {
   if ! git diff --cached --name-only --diff-filter=ACMR \
@@ -160,12 +163,10 @@ if musi_try_verify_marker_bridge "$REPO_ROOT" "$MARKER" 120; then
   exit 0
 fi
 
-# --- 4. Watchdog (under Claude's session-cache budget) ---------------------
-# 240s default keeps the gate inside the agent's interactive cache window;
-# overruns lose cache state, so we cut the run and print breadcrumbs instead
-# of letting it drift into a 9-minute Bash timeout. `MUSI_VERIFY_TIMEOUT` stays
-# as a back-compat override; new callers should set `MUSI_INTERACTIVE_TIMEOUT`
-# / `MUSI_INTERACTIVE_WARN_AFTER`.
+# --- 4. Watchdog (_over_ Claude's session-cache budget) ---------------------
+# Keep the default under the interactive cache budget. `MUSI_VERIFY_TIMEOUT`
+# stays as a back-compat override; new callers should set
+# `MUSI_INTERACTIVE_TIMEOUT` / `MUSI_INTERACTIVE_WARN_AFTER`.
 TIMEOUT="${MUSI_VERIFY_TIMEOUT:-${MUSI_INTERACTIVE_TIMEOUT:-240}}"
 WARN_AFTER="${MUSI_INTERACTIVE_WARN_AFTER:-210}"
 HOOK_PID=$$
@@ -201,44 +202,33 @@ META_FP=$(ai_precommit_fingerprint "$REPO_ROOT")
 START_TS=$(date +%s)
 START_TIME=$(date -Iseconds)
 
-run_parallel_step() {
-  local name="$1"; shift
-  local log="$LOG_DIR/${name}.log"
-  local command
-  command="$(musi_meta_command_string "$@")"
-  (
-    step_start=$(date +%s)
-    step_start_time=$(date -Iseconds)
-    "$@" > "$log" 2>&1 9>&-
-    exit_code=$?
-    step_end=$(date +%s)
-    step_end_time=$(date -Iseconds)
-    musi_write_step_meta "$META_DIR/${name}.json" "$name" parallel-precommit \
-      "$step_start" "$step_start_time" "$step_end" "$step_end_time" "$exit_code" "$command"
-    exit "$exit_code"
-  ) &
-  STEP_PID=$!
-}
-
-run_parallel_step lint bun run lint:changed
+musi_run_parallel_step parallel-precommit "" lint bun run lint:changed
 pid_lint=$STEP_PID
-run_parallel_step ratchet bun run lint:ratchet
+musi_run_parallel_step parallel-precommit "" ratchet bun run lint:ratchet
 pid_ratchet=$STEP_PID
-run_parallel_step coverage-map bun run docs:lint-coverage-map:check -- --staged
+musi_run_parallel_step parallel-precommit "" coverage-map bun run docs:lint-coverage-map:check -- --staged
 pid_coverage_map=$STEP_PID
-run_parallel_step typecheck bun run typecheck
+musi_run_parallel_step parallel-precommit "" typecheck bun run typecheck
 pid_tc=$STEP_PID
 if [ "${MUSI_CAPTURE_TEST_TIMINGS:-}" = "1" ]; then
-  run_parallel_step test bun run test:changed --reporter=dot --reporter=json --outputFile.json="$TIMINGS_FILE"
+  musi_run_parallel_step parallel-precommit "" test bun run test:changed --reporter=dot --reporter=json --outputFile.json="$TIMINGS_FILE"
 else
-  run_parallel_step test bun run test:changed --reporter=dot
+  musi_run_parallel_step parallel-precommit "" test bun run test:changed --reporter=dot
 fi
 pid_test=$STEP_PID
 pid_scripts=""
 run_scripts=0
-if git diff --cached --name-only --diff-filter=ACMRD \
-     | grep -qE '^(.husky/|.claude/hooks/|.codex/hooks/|.devcontainer/[^/]+\.sh$|scripts/|package\.json$|harness\.controls\.json$|lint-ratchet\.baseline\.json$)'; then
-  run_parallel_step scripts bun run test:scripts:changed
+_script_rc=0
+musi_classify_staged_script_input || _script_rc=$?
+if [ "$_script_rc" -eq 0 ]; then
+  musi_run_parallel_step parallel-precommit "" scripts env \
+    MUSI_SCRIPTS_CHANGED_FILES="$MUSI_STAGED_SCRIPT_ALL" \
+    MUSI_SCRIPTS_DELETED_FILES="$MUSI_STAGED_SCRIPT_DELETED" \
+    bun run test:scripts:changed
+  pid_scripts=$STEP_PID
+  run_scripts=1
+elif [ "$_script_rc" -eq 1 ]; then
+  musi_run_parallel_step parallel-precommit "" scripts bun run test:scripts:changed
   pid_scripts=$STEP_PID
   run_scripts=1
 fi
@@ -247,12 +237,17 @@ fi
 #   INT  (Ctrl-C) → 130
 #   TERM (watchdog timeout or external kill) → 124 (GNU `timeout` convention)
 report_timeout_budget() {
+  printf 'Timed out and stopped the verification process tree.\n' >&2
+  printf 'For deliberate long verification, use bun run verify:async[:changed] and check bun run verify:async:status.\n' >&2
   printf 'logs: %s\n' "$LOG_DIR" >&2
   printf 'inspect: bun run verify:logs budget\n' >&2
 }
 cleanup_parallel_children() {
-  [ -n "$pid_scripts" ] && kill "$pid_scripts" 2>/dev/null
-  kill "$pid_lint" "$pid_ratchet" "$pid_coverage_map" "$pid_tc" "$pid_test" "$WD" 2>/dev/null
+  local pid
+  for pid in $pid_scripts $pid_lint $pid_ratchet $pid_coverage_map $pid_tc $pid_test; do
+    [ -n "$pid" ] && musi_signal_process_tree "$pid" TERM
+  done
+  kill "$WD" 2>/dev/null
 }
 write_signal_wrapper_meta() {
   exit_code="$1"

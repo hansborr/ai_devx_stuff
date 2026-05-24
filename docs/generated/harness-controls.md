@@ -495,6 +495,20 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Repair:** manual
 
+### `ratchet/local-max-lines-lint-rule-docs`
+
+**Principle:** Prevent lint-rule-docs max-lines debt from growing.
+
+**Category:** maintainability
+
+**Source:** `scripts/lint-ratchet-config.ts`
+
+**Invocation:** `bun run lint:ratchet`
+
+**Paired guide:** [docs/guides/lint-ratchet.md](../guides/lint-ratchet.md)
+
+**Repair:** manual
+
 ### `ratchet/local-max-lines-logs-audit`
 
 **Principle:** Prevent logs-audit max-lines debt from growing while Leaf 40 drains the current script findings.
@@ -1054,6 +1068,20 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 **Source:** `scripts/verify-logs.sh`
 
 **Invocation:** `bun run verify:logs`
+
+**Paired guide:** none
+
+**Repair:** manual
+
+### `verify-wrapper/verify-parallel`
+
+**Principle:** Run the full lint, ratchet, typecheck, test, and scripts suites in parallel; reduces full-verify wall time when the full script suite fits the selected timeout or cached state.
+
+**Category:** maintainability
+
+**Source:** `scripts/verify.sh`
+
+**Invocation:** `bun run verify:parallel`
 
 **Paired guide:** none
 

@@ -1,9 +1,10 @@
 #!/bin/bash
 # verify.sh — manual lint/ratchet/typecheck/test umbrella for humans and AIs.
 #
-# Mirrors `.husky/pre-commit` but runs steps sequentially so an AI session
-# can read each step's output one at a time. Reuses pre-commit's lock and
-# log directory so manual runs queue cleanly behind any in-flight commit.
+# Mirrors `.husky/pre-commit`: changed-mode runs checks in parallel for the
+# edit-loop budget, while full verify stays sequential so a human or AI can
+# read one failure at a time. Reuses pre-commit's lock and log directory so
+# manual runs queue cleanly behind any in-flight commit.
 # Full manual verify markers watch the full worktree state. Changed manual
 # verify markers watch staged content after the source-relevant preflight.
 # Pre-commit uses its own staged/relevant-input marker first, then may bridge
@@ -19,10 +20,10 @@
 #   MUSI_VERIFY_MARKER_FULL
 #                      override paths for tests; do not use in production.
 #
-# Why sequential: the pre-commit hook runs the primitives in parallel
-# because it is git-invoked and there is no benefit to spreading the output
-# over time. Manual verification is read by an AI or a human as it streams,
-# and a parallel failure summary is harder to act on than "stopped at step 2".
+# Why mixed mode: the pre-commit hook and changed-mode verify are edit-loop
+# gates, so wall time matters most and each step logs separately. Full verify
+# remains sequential because release-shaped failures are easier to act on one
+# step at a time.
 
 set -u
 
@@ -33,11 +34,15 @@ case "${1:-}" in
     MODE=changed
     LABEL='verify:changed'
     ;;
+  --parallel)
+    MODE=parallel
+    LABEL='verify:parallel'
+    ;;
   '')
     ;;
   *)
     printf 'verify: unknown argument: %s\n' "$1" >&2
-    printf 'usage: verify.sh [--changed]\n' >&2
+    printf 'usage: verify.sh [--changed|--parallel]\n' >&2
     exit 2
     ;;
 esac
@@ -50,6 +55,10 @@ cd "$REPO_ROOT" || exit 1
 . "$REPO_ROOT/scripts/ai-hooks/cache.sh"
 # shellcheck source=/dev/null
 . "$REPO_ROOT/scripts/verify-metadata.sh"
+# shellcheck source=/dev/null
+. "$REPO_ROOT/scripts/process-tree.sh"
+# shellcheck source=/dev/null
+. "$REPO_ROOT/scripts/parallel-step.sh"
 
 LOCK="${MUSI_VERIFY_LOCK:-/tmp/musi-pre-commit.lock}"
 LOG_DIR="${MUSI_VERIFY_LOG_DIR:-/tmp/musi-pre-commit-logs}"
@@ -65,24 +74,47 @@ TIMINGS_FILE="$LOG_DIR/test-timings.json"
 META_DIR="$LOG_DIR/meta"
 INTERACTIVE_TIMEOUT="${MUSI_VERIFY_TIMEOUT:-${MUSI_INTERACTIVE_TIMEOUT:-240}}"
 WARN_AFTER="${MUSI_INTERACTIVE_WARN_AFTER:-210}"
-if [ "$MODE" = changed ]; then
-  MARKER="${MUSI_VERIFY_MARKER_CHANGED:-/tmp/musi-verify-changed-last}"
-  LINT_CMD=(bun run lint:changed)
-  RATCHET_CMD=(bun run lint:ratchet)
-  COVERAGE_MAP_CMD=(bun run docs:lint-coverage-map:check -- --staged)
-  TEST_CMD=(bun run test:changed --reporter=dot --reporter=json --outputFile.json="$TIMINGS_FILE")
-  SCRIPTS_CMD=(bun run test:scripts:changed)
-  META_MODE=serial-verify-changed
-else
-  MARKER="${MUSI_VERIFY_MARKER_FULL:-/tmp/musi-verify-last}"
-  LINT_CMD=(bun run lint)
-  RATCHET_CMD=(bun run lint:ratchet)
-  COVERAGE_MAP_CMD=(bun run docs:lint-coverage-map:check)
-  TEST_CMD=(bun run test --reporter=dot --reporter=json --outputFile.json="$TIMINGS_FILE")
-  SCRIPTS_CMD=(bun run test:scripts)
-  META_MODE=serial-verify
-fi
+case "$MODE" in
+  changed)
+    MARKER="${MUSI_VERIFY_MARKER_CHANGED:-$(musi_standard_verify_changed_marker)}"
+    LINT_CMD=(bun run lint:changed)
+    RATCHET_CMD=(bun run lint:ratchet)
+    COVERAGE_MAP_CMD=(bun run docs:lint-coverage-map:check -- --staged)
+    TEST_CMD=(bun run test:changed --reporter=dot --reporter=json --outputFile.json="$TIMINGS_FILE")
+    SCRIPTS_CMD=(bun run test:scripts:changed)
+    META_MODE=parallel-verify-changed
+    ;;
+  parallel)
+    MARKER="${MUSI_VERIFY_MARKER_FULL:-$(musi_standard_verify_full_marker)}"
+    LINT_CMD=(bun run lint)
+    RATCHET_CMD=(bun run lint:ratchet)
+    COVERAGE_MAP_CMD=(bun run docs:lint-coverage-map:check)
+    TEST_CMD=(bun run test --reporter=dot --reporter=json --outputFile.json="$TIMINGS_FILE")
+    SCRIPTS_CMD=(bun run test:scripts)
+    META_MODE=parallel-verify
+    ;;
+  *)
+    MARKER="${MUSI_VERIFY_MARKER_FULL:-$(musi_standard_verify_full_marker)}"
+    LINT_CMD=(bun run lint)
+    RATCHET_CMD=(bun run lint:ratchet)
+    COVERAGE_MAP_CMD=(bun run docs:lint-coverage-map:check)
+    TEST_CMD=(bun run test --reporter=dot --reporter=json --outputFile.json="$TIMINGS_FILE")
+    SCRIPTS_CMD=(bun run test:scripts)
+    META_MODE=serial-verify
+    ;;
+esac
 TYPECHECK_CMD=(bun run typecheck)
+
+if [ "$MODE" = changed ]; then
+  _script_rc=0
+  musi_classify_staged_script_input || _script_rc=$?
+  if [ "$_script_rc" -eq 0 ]; then
+    SCRIPTS_CMD=(env
+      MUSI_SCRIPTS_CHANGED_FILES="$MUSI_STAGED_SCRIPT_ALL"
+      MUSI_SCRIPTS_DELETED_FILES="$MUSI_STAGED_SCRIPT_DELETED"
+      bun run test:scripts:changed)
+  fi
+fi
 
 if [ "$MODE" = changed ]; then
   musi_changed_gate_fail_if_unstaged "$REPO_ROOT" "$LABEL" || exit 1
@@ -149,9 +181,9 @@ if [ -f "$MARKER" ] \
 fi
 
 # --- 3. Watchdog ------------------------------------------------------------
-# Mirrors pre-commit. The 240s default is the Claude Code session-cache
-# budget: an interactive tool call that overruns it loses cache state, so the
-# wrapper cuts the run before that happens and prints log paths plus a
+# Mirrors pre-commit. Changed-mode verification runs its gate checks in
+# parallel so the default watchdog can stay inside the interactive 240s
+# budget. The wrapper cuts the run on overrun and prints log paths plus a
 # `verify:logs budget` pointer. `MUSI_VERIFY_TIMEOUT` stays as a back-compat
 # override so existing tests / overrides keep working; new callers should
 # prefer `MUSI_INTERACTIVE_TIMEOUT` and `MUSI_INTERACTIVE_WARN_AFTER`.
@@ -172,18 +204,24 @@ HOOK_PID=$$
 WD=$!
 
 CURRENT_PID=""
+PARALLEL_PIDS=()
 cleanup_children() {
   if [ -n "$CURRENT_PID" ]; then
-    kill "$CURRENT_PID" 2>/dev/null
-    # Reap so the dying child's inherited fds (including the lock fd) close
-    # before this hook exits. Mirrors bun-run-quiet.sh's on_sigterm pattern.
+    musi_signal_process_tree "$CURRENT_PID" TERM
     wait "$CURRENT_PID" 2>/dev/null
   fi
+  local pid
+  for pid in "${PARALLEL_PIDS[@]}"; do
+    musi_signal_process_tree "$pid" TERM
+  done
+  for pid in "${PARALLEL_PIDS[@]}"; do
+    wait "$pid" 2>/dev/null
+  done
   kill "$WD" 2>/dev/null
 }
 report_timeout_budget() {
-  # Watchdog already printed the TIMED OUT banner. Add the breadcrumbs the
-  # agent needs to investigate without rerunning the wrapper from scratch.
+  printf 'Timed out and stopped the verification process tree.\n' >&2
+  printf 'For deliberate long verification, use bun run verify:async[:changed] and check bun run verify:async:status.\n' >&2
   printf 'logs: %s\n' "$LOG_DIR" >&2
   printf 'inspect: bun run verify:logs budget\n' >&2
 }
@@ -247,16 +285,56 @@ run_step() {
   return 1
 }
 
-# Stop at the first failure. Manual verification is iterative — a contributor
-# fixes one step then re-runs — so dragging on through the remaining steps
-# just buries the actionable error under more output.
+STEP_PID=""
+run_steps_parallel() {
+  local pid_lint pid_ratchet pid_coverage_map pid_tc pid_test pid_scripts
+  local exit_lint=0 exit_ratchet=0 exit_coverage_map=0 exit_tc=0 exit_test=0 exit_scripts=0
+
+  musi_run_parallel_step "$META_MODE" "$LABEL" lint "${LINT_CMD[@]}"
+  pid_lint=$STEP_PID; PARALLEL_PIDS+=("$STEP_PID")
+  musi_run_parallel_step "$META_MODE" "$LABEL" ratchet "${RATCHET_CMD[@]}"
+  pid_ratchet=$STEP_PID; PARALLEL_PIDS+=("$STEP_PID")
+  musi_run_parallel_step "$META_MODE" "$LABEL" coverage-map "${COVERAGE_MAP_CMD[@]}"
+  pid_coverage_map=$STEP_PID; PARALLEL_PIDS+=("$STEP_PID")
+  musi_run_parallel_step "$META_MODE" "$LABEL" typecheck "${TYPECHECK_CMD[@]}"
+  pid_tc=$STEP_PID; PARALLEL_PIDS+=("$STEP_PID")
+  musi_run_parallel_step "$META_MODE" "$LABEL" test "${TEST_CMD[@]}"
+  pid_test=$STEP_PID; PARALLEL_PIDS+=("$STEP_PID")
+  musi_run_parallel_step "$META_MODE" "$LABEL" scripts "${SCRIPTS_CMD[@]}"
+  pid_scripts=$STEP_PID; PARALLEL_PIDS+=("$STEP_PID")
+
+  wait "$pid_lint" || exit_lint=$?
+  wait "$pid_ratchet" || exit_ratchet=$?
+  wait "$pid_coverage_map" || exit_coverage_map=$?
+  wait "$pid_tc" || exit_tc=$?
+  wait "$pid_test" || exit_test=$?
+  wait "$pid_scripts" || exit_scripts=$?
+  PARALLEL_PIDS=()
+
+  [ "$exit_lint" -eq 0 ] && passed="$passed lint" || failed="$failed lint"
+  [ "$exit_ratchet" -eq 0 ] && passed="$passed ratchet" || failed="$failed ratchet"
+  [ "$exit_coverage_map" -eq 0 ] && passed="$passed coverage-map" || failed="$failed coverage-map"
+  [ "$exit_tc" -eq 0 ] && passed="$passed typecheck" || failed="$failed typecheck"
+  [ "$exit_test" -eq 0 ] && passed="$passed test" || failed="$failed test"
+  [ "$exit_scripts" -eq 0 ] && passed="$passed scripts" || failed="$failed scripts"
+
+  [ -z "$failed" ]
+}
+
+# Full manual verification remains sequential and stops at the first failure.
+# Changed and parallel modes run in parallel to preserve the 240s interactive
+# budget while still writing the same per-step logs.
 overall=0
-run_step lint "${LINT_CMD[@]}" || overall=1
-[ "$overall" -eq 0 ] && { run_step ratchet "${RATCHET_CMD[@]}" || overall=1; }
-[ "$overall" -eq 0 ] && { run_step coverage-map "${COVERAGE_MAP_CMD[@]}" || overall=1; }
-[ "$overall" -eq 0 ] && { run_step typecheck "${TYPECHECK_CMD[@]}" || overall=1; }
-[ "$overall" -eq 0 ] && { run_step test "${TEST_CMD[@]}" || overall=1; }
-[ "$overall" -eq 0 ] && { run_step scripts "${SCRIPTS_CMD[@]}" || overall=1; }
+if [ "$MODE" = changed ] || [ "$MODE" = parallel ]; then
+  run_steps_parallel || overall=1
+else
+  run_step lint "${LINT_CMD[@]}" || overall=1
+  [ "$overall" -eq 0 ] && { run_step ratchet "${RATCHET_CMD[@]}" || overall=1; }
+  [ "$overall" -eq 0 ] && { run_step coverage-map "${COVERAGE_MAP_CMD[@]}" || overall=1; }
+  [ "$overall" -eq 0 ] && { run_step typecheck "${TYPECHECK_CMD[@]}" || overall=1; }
+  [ "$overall" -eq 0 ] && { run_step test "${TEST_CMD[@]}" || overall=1; }
+  [ "$overall" -eq 0 ] && { run_step scripts "${SCRIPTS_CMD[@]}" || overall=1; }
+fi
 
 ELAPSED=$(( $(date +%s) - START_TS ))
 END_TS=$(date +%s)

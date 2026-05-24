@@ -8,6 +8,33 @@ Newest on top.
 
 ---
 
+- 2026-05-24: Codex git-commit post-hook timeout handling now treats empty,
+  signal, and timeout-shaped commit responses as uncertain instead of generic
+  output. The summary says the commit may still be running and may still land,
+  and points the agent at `commit-timeout-status.sh` to check whether HEAD
+  moved, wait up to 240s for the pre-commit lock, and rerun that status command
+  if the lock remains held. Claude's `git-commit-quiet.sh` timeout denial uses
+  the same guidance, and `test-ai-hooks` is now selected for `.claude/hooks/`
+  changes.
+- 2026-05-23: Pre-commit 240s budget review follow-ups on
+  `fix/lint-alignment-gaps`. Implemented five slices: (1) shared
+  `scripts/process-tree.sh` for recursive process-tree cleanup on timeout,
+  (2) `verify --parallel` / `bun run verify:parallel` for full-parallel
+  verification within the 240s budget, (3) pre-commit always runs
+  `test:scripts:changed` instead of maintaining a separate trigger regex,
+  (4) smart deletion classification — only `.husky/` and `scripts/` deletions
+  force full smoke fallback, and (5) focused tests for all new behaviors.
+  Details: `finished_work/precommit-240-budget-review-followups.md`.
+- 2026-05-23: Pre-commit 240s budget follow-up on
+  `fix/lint-alignment-gaps`. Changed-mode verify now runs the local gate in
+  parallel (`parallel-verify-changed`), verify/pre-commit defaults returned to
+  hard=240s / warn=210s, and both paths pass staged changed files into
+  `test:scripts:changed` when there are no staged deletions. The heavy
+  ratchet smoke was narrowed so type-assertion fixture cases use a one-rule
+  registry instead of the live full ratchet matrix (`test-lint-ratchet.sh`
+  `4m46s -> 1m54s`). Measured `FORCE_VERIFY=1 bun run verify:changed` at
+  `199s` and `FORCE_VERIFY=1 .husky/pre-commit` at `204s`. Details:
+  `finished_work/precommit-240-budget-followup.md`.
 - 2026-05-23: Lint-ratchet sharing backlog complete on
   `feature/lint-ratchet-sharing-backlog` (33 commits, Leaves 01-07). Added
   strict improvement enforcement, portable adoption guide, CI workflow parity

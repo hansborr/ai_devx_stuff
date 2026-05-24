@@ -1,5 +1,5 @@
-import type { LintRatchetConfig } from "./lint-ratchet-config.js";
 import type { LintRatchetBaseline, LintRatchetComparison, LintRatchetCurrentById, LintRatchetCurrentItem, LintRatchetRegression } from "./lint-ratchet-baseline.js";
+import type { LintRatchetConfig } from "./lint-ratchet-config.js";
 import { complexityDelta, type LintRatchetComplexityFunction } from "./lint-ratchet-metrics.js";
 
 type LintRatchetBaselineTest = NonNullable<LintRatchetBaseline["tests"][string]>;

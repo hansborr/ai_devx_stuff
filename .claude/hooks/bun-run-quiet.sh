@@ -77,7 +77,7 @@ Run verification commands in the foreground, one at a time. Backgrounding them a
 This hook already caches results (${SCRIPT} on an unchanged worktree replays the previous run instantly) and caps output at a 40-line tail on failure, so there is no context benefit to backgrounding it.
 
 Retry with run_in_background: false."
-  jq -Rn --arg r "$REASON" '{decision:"deny", reason:$r}'
+  jq -Rn --arg r "$REASON" '{decision:"block", reason:$r}'
   exit 0
 fi
 
@@ -106,7 +106,7 @@ on_early_signal() {
   local holder
   holder=$(cat "$LOCK" 2>/dev/null || echo '<holder info unavailable>')
   jq -Rn --arg r "bun-run-quiet.sh killed while waiting for $LOCK (holder: $holder). Retry once the in-flight run completes." \
-    '{decision:"deny", reason:$r}'
+    '{decision:"block", reason:$r}'
   exit 0
 }
 trap on_early_signal TERM INT
@@ -123,7 +123,7 @@ To wait for the in-flight run WITHOUT polling, launch this command in the backgr
   flock $LOCK true && echo FREE
 
 When Monitor reports FREE, retry this command. If the holder PID above is stuck, inspect it first — don't just wait forever."
-  jq -Rn --arg r "$REASON" '{decision:"deny", reason:$r}'
+  jq -Rn --arg r "$REASON" '{decision:"block", reason:$r}'
   exit 0
 fi
 LOCK_WAITED=$(( $(date +%s) - LOCK_START ))
@@ -161,7 +161,7 @@ if ai_read_bun_marker "$MARKER" && [ -z "$FORCE_VERIFY_REQ" ] && [ "${FORCE_VERI
     fi
     # Cached failure — replay the tail so Claude doesn't lose context.
     SUMMARY=$(ai_bun_cached_failure_summary "$SCRIPT" "$LOG" "$AGE" "$AI_MARKER_LAST_EXIT")
-    jq -Rn --arg r "$SUMMARY" '{decision:"deny", reason:$r}'
+    jq -Rn --arg r "$SUMMARY" '{decision:"block", reason:$r}'
     exit 0
   fi
 fi
@@ -195,12 +195,12 @@ START=$(date +%s)
 bash -c "$CMD" > "$LOG" 2>&1 9>&- &
 CHILD=$!
 
-# INT (user cancel) and TERM (watchdog / external kill): emit a deny JSON
+# INT (user cancel) and TERM (watchdog / external kill): emit a block JSON
 # and exit 0, NOT exit 130/124. If the hook exits non-zero without a
 # decision, Claude Code treats it as a non-blocking error and runs the
 # ORIGINAL bun command raw — doubling the runtime we just timed out and
 # streaming the very verbose output the hook exists to suppress. A proper
-# deny keeps the tool call blocked with a readable explanation.
+# block keeps the tool call blocked with a readable explanation.
 on_sigterm() {
   kill "$CHILD" "$WD" 2>/dev/null
   wait "$CHILD" 2>/dev/null
@@ -210,7 +210,7 @@ on_sigterm() {
 
 --- last 40 lines ---
 $(tail -n 40 "$LOG" 2>/dev/null)"
-  jq -Rn --arg r "$summary" '{decision:"deny", reason:$r}'
+  jq -Rn --arg r "$summary" '{decision:"block", reason:$r}'
   exit 0
 }
 
@@ -218,7 +218,7 @@ on_sigint() {
   kill "$CHILD" "$WD" 2>/dev/null
   wait "$CHILD" 2>/dev/null
   local el=$(( $(date +%s) - START ))
-  jq -Rn --arg r "$SCRIPT cancelled (${el}s elapsed). Full log: $LOG" '{decision:"deny", reason:$r}'
+  jq -Rn --arg r "$SCRIPT cancelled (${el}s elapsed). Full log: $LOG" '{decision:"block", reason:$r}'
   exit 0
 }
 
@@ -246,4 +246,4 @@ fi
 # Failure path: return a bounded tail of the full log.
 SUMMARY=$(ai_bun_failure_summary "$SCRIPT" "$LOG" "$EXIT" "$ELAPSED" "$(cat "$LOG" 2>/dev/null)")
 
-jq -Rn --arg r "$SUMMARY" '{decision:"deny", reason:$r}'
+jq -Rn --arg r "$SUMMARY" '{decision:"block", reason:$r}'

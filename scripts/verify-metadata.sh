@@ -229,6 +229,32 @@ musi_write_success_marker() {
   return 1
 }
 
+musi_standard_verify_changed_marker() {
+  printf '%s' "${MUSI_STANDARD_VERIFY_MARKER_CHANGED:-/tmp/musi-verify-changed-last}"
+}
+
+musi_standard_verify_full_marker() {
+  printf '%s' "${MUSI_STANDARD_VERIFY_MARKER_FULL:-/tmp/musi-verify-last}"
+}
+
+musi_staged_has_script_relevant_deletion() {
+  printf '%s\n' "$1" | grep -qE '^(\.husky/|scripts/)'
+}
+
+musi_classify_staged_script_input() {
+  MUSI_STAGED_SCRIPT_ALL="$(git diff --cached --name-only --diff-filter=ACMRD 2>/dev/null || true)"
+  MUSI_STAGED_SCRIPT_DELETED="$(git diff --cached --name-only --diff-filter=D 2>/dev/null || true)"
+
+  [ -n "$MUSI_STAGED_SCRIPT_ALL" ] || return 2
+
+  if [ -n "$MUSI_STAGED_SCRIPT_DELETED" ] \
+     && musi_staged_has_script_relevant_deletion "$MUSI_STAGED_SCRIPT_DELETED"; then
+    return 1
+  fi
+
+  return 0
+}
+
 musi_try_single_verify_marker_bridge() {
   local repo_root="$1"
   local precommit_marker="$2"
@@ -260,8 +286,8 @@ musi_try_verify_marker_bridge() {
   current_head=$(git -C "$repo_root" rev-parse HEAD 2>/dev/null || echo none)
   current_staged_hash=$(ai_staged_fingerprint "$repo_root")
   current_worktree_hash=$(ai_worktree_fingerprint "$repo_root")
-  changed_marker="${MUSI_VERIFY_MARKER_CHANGED:-/tmp/musi-verify-changed-last}"
-  full_marker="${MUSI_VERIFY_MARKER_FULL:-/tmp/musi-verify-last}"
+  changed_marker="${MUSI_VERIFY_MARKER_CHANGED:-$(musi_standard_verify_changed_marker)}"
+  full_marker="${MUSI_VERIFY_MARKER_FULL:-$(musi_standard_verify_full_marker)}"
 
   musi_try_single_verify_marker_bridge "$repo_root" "$precommit_marker" "$changed_marker" \
     "verify:changed" "$freshness_seconds" "$current_head" "$current_staged_hash" \

@@ -39,7 +39,7 @@ ai_is_git_commit_cmd "$CMD" || {
 }
 
 # --- Single-writer lock ----------------------------------------------------
-LOCK=/tmp/musi-git-commit-lock
+LOCK="${AI_GIT_COMMIT_LOCK:-/tmp/musi-git-commit-lock}"
 exec 9<>"$LOCK"
 if ! flock -n 9; then
   HOLDER=$(cat "$LOCK" 2>/dev/null || echo '<holder info unavailable>')
@@ -47,16 +47,15 @@ if ! flock -n 9; then
 
 Do NOT retry — it will fail here again and waste tokens on repeated polling. To wait for the in-flight commit WITHOUT polling, launch this command in the background and attach Monitor:
 
-  flock /tmp/musi-git-commit-lock true && echo FREE
+  flock $LOCK true && echo FREE
 
 When Monitor reports FREE, check git status before retrying — the previous commit may already have succeeded."
-  jq -Rn --arg r "$REASON" '{decision:"deny", reason:$r}'
+  jq -Rn --arg r "$REASON" '{decision:"block", reason:$r}'
   exit 0
 fi
 { printf 'PID=%s STARTED=%s\n' "$$" "$(date -Iseconds)"; } > "$LOCK"
 
 OUTFILE=$(mktemp /tmp/musi-git-commit.XXXXXX)
-trap 'rm -f "$OUTFILE"' EXIT
 
 cd "$REPO_ROOT" || exit 1
 
@@ -68,8 +67,58 @@ cd "$REPO_ROOT" || exit 1
 # the new one — exactly the "misleading success" bug this guards against.
 HEAD_BEFORE=$(git rev-parse HEAD 2>/dev/null || echo none)
 
-# Close FD 9 in the child so anything it spawns doesn't inherit the flock.
-bash -c "$CMD" > "$OUTFILE" 2>&1 9>&-
+# Run in background so TERM/INT traps fire immediately (foreground children
+# block trap delivery until they exit, defeating timeout handling).
+HOOK_PID=$$
+START=$(date +%s)
+bash -c "$CMD" > "$OUTFILE" 2>&1 9>&- &
+CHILD=$!
+
+# Watchdog: 540s internal keeps us under the 600s harness backstop. The
+# pre-commit hook's own 240s watchdog covers the common case; this catches
+# hangs in git itself or between the pre-commit exit and our wait.
+TIMEOUT="${AI_GIT_COMMIT_TIMEOUT:-540}"
+(
+  exec 9<&-
+  SLEEP_PID=""
+  trap '[ -n "$SLEEP_PID" ] && kill "$SLEEP_PID" 2>/dev/null; exit 0' TERM INT
+  sleep "$TIMEOUT" &
+  SLEEP_PID=$!
+  wait "$SLEEP_PID"
+  kill -TERM "$HOOK_PID" 2>/dev/null
+) &
+WD=$!
+
+on_sigterm() {
+  kill "$CHILD" "$WD" 2>/dev/null
+  wait "$CHILD" 2>/dev/null
+  local el=$(( $(date +%s) - START ))
+  local summary output
+  output=$(cat "$OUTFILE" 2>/dev/null || true)
+  summary=$(ai_commit_maybe_running_summary \
+    "git commit wrapper timed out at ${TIMEOUT}s (${el}s elapsed)." \
+    "$HEAD_BEFORE" \
+    "$output" \
+    "Claude Code may have backgrounded the original command. The wrapper stopped waiting before Claude's 600s hook timeout, but commit/pre-commit descendants may still finish.")
+  jq -Rn --arg r "$summary" '{decision:"block", reason:$r}' \
+    || printf '{"decision":"block","reason":"git commit status unknown after timeout (%ss). Check git status and git log before retrying."}\n' "$TIMEOUT"
+  exit 0
+}
+
+on_sigint() {
+  kill "$CHILD" "$WD" 2>/dev/null
+  wait "$CHILD" 2>/dev/null
+  local el=$(( $(date +%s) - START ))
+  jq -Rn --arg r "git commit cancelled (${el}s elapsed). Full output: $OUTFILE" '{decision:"block", reason:$r}' \
+    || printf '{"decision":"block","reason":"git commit cancelled."}\n'
+  exit 0
+}
+
+trap on_sigint INT
+trap on_sigterm TERM
+trap 'kill "$WD" 2>/dev/null; rm -f "$OUTFILE"' EXIT
+
+wait "$CHILD"
 EXIT_CODE=$?
 
 HEAD_AFTER=$(git rev-parse HEAD 2>/dev/null || echo none)
@@ -103,4 +152,5 @@ else
   SUMMARY=$(ai_commit_generic_summary "Commit failed (exit $EXIT_CODE)." "$OUTPUT")
 fi
 
-jq -Rn --arg r "$SUMMARY" '{decision:"deny", reason:$r}'
+jq -Rn --arg r "$SUMMARY" '{decision:"block", reason:$r}' \
+  || printf '{"decision":"block","reason":"Pre-commit failed. Hook summary generation also failed — see logs at %s"}\n' "$LOG_DIR"

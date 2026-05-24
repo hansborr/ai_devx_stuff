@@ -1,8 +1,8 @@
 import { readFileSync } from "node:fs";
 
 import {
-  harnessDiagnosticsSchema,
   type HarnessDiagnostics,
+  harnessDiagnosticsSchema,
   type HarnessFinding,
   type HarnessFindingSeverity,
 } from "../packages/shared/src/schemas/harness-diagnostics.js";

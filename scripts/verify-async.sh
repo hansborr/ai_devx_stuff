@@ -12,6 +12,8 @@ REPO_ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel)"
 
 # shellcheck source=/dev/null
 . "$SCRIPT_DIR/ai-hooks/cache.sh"
+# shellcheck source=/dev/null
+. "$SCRIPT_DIR/process-tree.sh"
 
 STATE_ROOT="${MUSI_VERIFY_ASYNC_STATE_ROOT:-/tmp/musi-verify-async}"
 LOCK="${MUSI_VERIFY_LOCK:-/tmp/musi-pre-commit.lock}"
@@ -46,9 +48,7 @@ usage:
 EOF
 }
 
-is_integer() {
-  [[ "${1:-}" =~ ^-?[0-9]+$ ]]
-}
+is_integer() { musi_is_integer "$@"; }
 
 iso_now() {
   date -Iseconds
@@ -186,27 +186,8 @@ process_running() {
   [ -n "$stat" ] && [[ "$stat" != Z* ]]
 }
 
-child_pids() {
-  local pid="$1"
-  is_integer "$pid" || return 0
-  [ "$pid" -gt 0 ] || return 0
-  if command -v pgrep >/dev/null 2>&1; then
-    pgrep -P "$pid" 2>/dev/null || true
-    return 0
-  fi
-  ps -o pid= --ppid "$pid" 2>/dev/null | awk '{print $1}' || true
-}
-
-signal_process_tree() {
-  local pid="$1" signal="${2:-TERM}" child
-  is_integer "$pid" || return 0
-  [ "$pid" -gt 0 ] || return 0
-  while IFS= read -r child; do
-    [ -n "$child" ] || continue
-    signal_process_tree "$child" "$signal"
-  done < <(child_pids "$pid")
-  kill "-$signal" "$pid" 2>/dev/null || true
-}
+child_pids() { musi_child_pids "$@"; }
+signal_process_tree() { musi_signal_process_tree "$@"; }
 
 state_status() {
   local file="$1" pid exit_code
@@ -341,6 +322,28 @@ run_child() {
     update_finished_state "$state" "$code" "$now" "$(iso_at "$now")"
   }
 
+  promote_async_marker() {
+    local private_marker="$1" target_marker="$2"
+    musi_read_success_marker "$private_marker" || return 0
+    if ! musi_write_success_marker \
+        "$target_marker" \
+        "$MUSI_MARKER_LAST_HEAD" \
+        "$MUSI_MARKER_LAST_HASH"; then
+      printf 'verify:async: WARN: failed to promote marker %s\n' "$target_marker" >&2
+    fi
+  }
+
+  promote_async_verify_markers() {
+    local run_dir
+    run_dir=$(dirname "$state")
+    promote_async_marker \
+      "$run_dir/markers/verify-changed-last" \
+      "$(musi_standard_verify_changed_marker)"
+    promote_async_marker \
+      "$run_dir/markers/verify-last" \
+      "$(musi_standard_verify_full_marker)"
+  }
+
   signal_payload() {
     local signal="${1:-TERM}"
     [ -n "$current_pid" ] && signal_process_tree "$current_pid" "$signal"
@@ -450,6 +453,11 @@ run_child() {
   fi
 
   finish_child "$exit_code"
+
+  if [ "$exit_code" -eq 0 ]; then
+    promote_async_verify_markers
+  fi
+
   exit "$exit_code"
 }
 

@@ -12,8 +12,8 @@ import type { LintRatchetConfig } from "./lint-ratchet-config.js";
 import type { LintRatchetComplexityFunction } from "./lint-ratchet-metrics.js";
 import {
   formatLintRatchetSummary,
-  summarizeLintRatchetBaseline,
   type LintRatchetSummaryRow,
+  summarizeLintRatchetBaseline,
 } from "./lint-ratchet-summary.js";
 
 const FIXTURE_HASH = `${LINT_RATCHET_CONFIG_HASH_PREFIX}${"a".repeat(64)}`;

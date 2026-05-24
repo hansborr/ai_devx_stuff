@@ -104,6 +104,8 @@ copy_precommit_fixture() {
   cp "$SCRIPT_DIR/prisma-client-freshness.sh" "$target/scripts/prisma-client-freshness.sh"
   cp "$SCRIPT_DIR/doc-length-policy.sh" "$target/scripts/doc-length-policy.sh"
   cp "$SCRIPT_DIR/verify-metadata.sh" "$target/scripts/verify-metadata.sh"
+  cp "$SCRIPT_DIR/process-tree.sh" "$target/scripts/process-tree.sh"
+  cp "$SCRIPT_DIR/parallel-step.sh" "$target/scripts/parallel-step.sh"
   cp "$SCRIPT_DIR/ai-hooks/output-filter.sh" "$target/scripts/ai-hooks/output-filter.sh"
   cp "$SCRIPT_DIR/../.husky/pre-commit" "$target/.husky/pre-commit"
   cat > "$target/bin/bun" <<'STUB'

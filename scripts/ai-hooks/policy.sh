@@ -228,9 +228,7 @@ ai_policy_violation_reason() {
     return 0
   fi
 
-  if ai_policy_has_command "$cmd" "(e?grep|fgrep)$AI_POLICY_CMD_END" "$AI_POLICY_CMD_START_NO_PIPE" \
-    || ai_policy_has_command "$cmd" "find[^;&|]*[[:space:]]-exec[[:space:]]+(e?grep|fgrep)$AI_POLICY_CMD_END" \
-    || ai_policy_has_command "$cmd" "xargs[^;&|]*[[:space:]](e?grep|fgrep)$AI_POLICY_CMD_END"; then
+  if ai_policy_has_command "$cmd" "(e?grep|fgrep)[[:space:]]([^;&|]*[[:space:]])?(-[a-zA-Z]*[rR][a-zA-Z]*|--recursive)$AI_POLICY_CMD_END" "$AI_POLICY_CMD_START_NO_PIPE"; then
     printf '%s' "$AI_POLICY_GREP"
     return 0
   fi

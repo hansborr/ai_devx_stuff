@@ -8,7 +8,6 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 
 import type { ChangedFile, DriftFinding } from "../drift-ai.js";
-
 import { matchesAnyGlob, normalizeRepoPath } from "./config.js";
 import type { DetectorScope } from "./scope.js";
 
@@ -199,6 +198,20 @@ export type MapChangedFilesToScopesOptions = {
   readonly supportedExtensions?: ReadonlySet<string>;
 };
 
+function resolveDuplicateScope(
+  file: ChangedFile,
+  roots: readonly string[],
+  excludeGlobs: readonly string[],
+  supportedExtensions: ReadonlySet<string>,
+): string | undefined {
+  if (file.status === "deleted") return undefined;
+  if (!isSourceLike(file.path, supportedExtensions)) return undefined;
+  if (isExcludedFromDuplicates(file.path, excludeGlobs)) return undefined;
+  const scopePath = configuredRootFor(file.path, roots) ?? inferScopeRoot(file.path);
+  if (!scopePath) return undefined;
+  return scopePath;
+}
+
 export function mapChangedFilesToScopes(
   files: readonly ChangedFile[],
   options: MapChangedFilesToScopesOptions = {},
@@ -208,15 +221,11 @@ export function mapChangedFilesToScopes(
   const supportedExtensions = options.supportedExtensions ?? JSCPD_SUPPORTED_EXTENSIONS;
   const buckets = new Map<DuplicateScopeKey, string[]>();
   for (const file of files) {
-    if (file.status === "deleted") continue;
-    if (!isSourceLike(file.path, supportedExtensions)) continue;
-    if (isExcludedFromDuplicates(file.path, excludeGlobs)) continue;
-    const scopePath = configuredRootFor(file.path, roots) ?? inferScopeRoot(file.path);
-    if (!scopePath) continue;
-    const key = scopePath;
-    const list = buckets.get(key) ?? [];
+    const scope = resolveDuplicateScope(file, roots, excludeGlobs, supportedExtensions);
+    if (scope === undefined) continue;
+    const list = buckets.get(scope) ?? [];
     if (!list.includes(file.path)) list.push(file.path);
-    buckets.set(key, list);
+    buckets.set(scope, list);
   }
   const scopes: DuplicateScope[] = [];
   for (const [key, changedPaths] of buckets) {

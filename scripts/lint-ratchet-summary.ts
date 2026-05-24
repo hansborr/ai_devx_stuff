@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 
-import { parseLintRatchetBaselineStructure, type LintRatchetBaseline } from "./lint-ratchet-baseline.js";
+import { type LintRatchetBaseline, parseLintRatchetBaselineStructure } from "./lint-ratchet-baseline.js";
 import type { LintRatchetConfig, LintRatchetMetric, LintRatchetMode } from "./lint-ratchet-config.js";
 import { ConfigError } from "./lint-ratchet-metrics.js";
 

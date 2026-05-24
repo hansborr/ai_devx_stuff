@@ -1,13 +1,10 @@
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
 import type { ChangedFile } from "../drift-ai.js";
-
-import type { DetectorScope } from "./scope.js";
-import { buildSourceExtensions, toChangedScopeFile, toCurrentScopeFile } from "./scope.js";
 import {
   defaultDirectoryListing,
   type DirectoryListing,
@@ -20,6 +17,8 @@ import {
   singularize,
   tokenize,
 } from "./ghost-files.js";
+import type { DetectorScope } from "./scope.js";
+import { buildSourceExtensions, toChangedScopeFile, toCurrentScopeFile } from "./scope.js";
 
 // Inline directory fixtures: each test builds the smallest peer set that
 // exercises one rule, then injects a listDirectory that returns those names

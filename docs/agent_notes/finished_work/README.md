@@ -19,6 +19,9 @@ detail that cannot be recovered from code, tests, commits, `LOG.md`, or
 - `cache-budget-verification-plan.md` — landed cache-budget verification
   implementation; conditional follow-ups live in
   `../backlog/cache-budget-followups.md`.
+- `precommit-240-budget-followup.md` — changed-mode verify parallelization,
+  staged script-smoke selection, and ratchet-smoke fixture narrowing that
+  restored local verify/pre-commit runs under the 240s hard budget.
 - `ai-harness-improvements.md` — landed broad harness-improvement plan;
   remaining conditional work lives in `../backlog/ai-harness-followups.md`.
 - `concurrency-codemod-feasibility.md` — checker-first concurrency codemod

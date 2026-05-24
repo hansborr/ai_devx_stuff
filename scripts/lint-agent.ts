@@ -21,7 +21,6 @@ import {
   type HarnessFindingSeverity,
   summarizeHarnessFindings,
 } from "../packages/shared/src/schemas/harness-diagnostics.js";
-
 import {
   formatRuleDocsFailures,
   loadLintRuleDocs,

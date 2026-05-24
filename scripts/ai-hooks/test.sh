@@ -131,6 +131,15 @@ assert_contains() {
   grep -qF "$needle" <<< "$haystack" || fail "expected [$haystack] to contain [$needle]"
 }
 
+assert_not_contains() {
+  local haystack="$1"
+  local needle="$2"
+
+  if grep -qF "$needle" <<< "$haystack"; then
+    fail "expected [$haystack] not to contain [$needle]"
+  fi
+}
+
 assert_response_combined_exit() {
   local payload="$1"
   local expected_combined="$2"
@@ -423,16 +432,18 @@ assert_policy_allows_each \
   "gh api graphql -f query='query { viewer { login } }'"
 
 assert_policy_blocks_each "$AI_POLICY_GREP" \
-  " grep TODO packages/client/src/main.ts" \
-  "grep TODO packages/client/src/main.ts" \
-  "egrep TODO packages/client/src/main.ts" \
-  "fgrep TODO packages/client/src/main.ts" \
-  "find . -exec grep TODO {} +" \
-  "printf '%s\n' TODO | xargs grep TODO" \
-  "echo ok && grep TODO package.json" \
-  "true; grep TODO package.json" \
-  "bash -lc 'grep TODO package.json'" \
-  "sh -c \"grep TODO package.json\""
+  "grep -r TODO ." \
+  "grep -R TODO src/" \
+  "grep -rn TODO packages/" \
+  "grep -nrl TODO ." \
+  "grep --recursive TODO dir" \
+  "egrep -r TODO ." \
+  "fgrep -R TODO src/" \
+  "grep -n -r TODO ." \
+  "echo ok && grep -r TODO ." \
+  "true; grep -rn TODO src/" \
+  "bash -lc 'grep -r TODO .'" \
+  "sh -c \"grep -R TODO .\""
 assert_policy_allows_each \
   "echo ok" \
   "git status --short" \
@@ -442,6 +453,14 @@ assert_policy_allows_each \
   "rg --files" \
   "ripgrep needle" \
   "which grep" \
+  "grep TODO packages/client/src/main.ts" \
+  "egrep TODO packages/client/src/main.ts" \
+  "grep -n TODO file.txt" \
+  "grep -l TODO *.txt" \
+  "find . -exec grep TODO {} +" \
+  "printf '%s\n' TODO | xargs grep TODO" \
+  "echo ok && grep TODO package.json" \
+  "true; grep TODO package.json" \
   "echo TODO | grep TODO" \
   "cat package.json | grep -v node_modules" \
   "rg pattern packages | grep -v test" \
@@ -531,7 +550,7 @@ BUN_HOOK_OUT=$(
     | AI_BUN_LOCK="$BUN_HOOK_LOCK" AI_BUN_LOCK_WAIT=1 bash "$BUN_HOOK"
 )
 wait "$BUN_HOOK_HOLDER" 2>/dev/null || true
-assert_contains "$BUN_HOOK_OUT" '"decision": "deny"'
+assert_contains "$BUN_HOOK_OUT" '"decision": "block"'
 assert_contains "$BUN_HOOK_OUT" 'Waited 1s'
 assert_contains "$BUN_HOOK_OUT" 'flock '"$BUN_HOOK_LOCK"' true && echo FREE'
 
@@ -716,6 +735,189 @@ assert_codex_bun_post_failure_keeps_bounded_block() {
   [ "$AI_MARKER_LAST_EXIT" = "1" ] || fail "failure marker should record exit 1"
 }
 
+init_commit_timeout_status_repo() {
+  local name="$1"
+  local repo="$TMP_ROOT/commit-timeout-status-$name"
+
+  mkdir -p "$repo"
+  git init -b main "$repo" >/dev/null 2>&1 || fail "failed to init commit status repo"
+  git -C "$repo" config user.email hooks@example.test
+  git -C "$repo" config user.name "Hook Test"
+  printf 'base\n' > "$repo/file.txt"
+  git -C "$repo" add file.txt
+  git -C "$repo" commit -qm "initial commit" || fail "failed to create initial commit status fixture"
+  printf '%s' "$repo"
+}
+
+assert_commit_timeout_status_no_running_commit() {
+  local repo lock head output rc
+
+  repo=$(init_commit_timeout_status_repo "not-running")
+  lock="$repo/precommit.lock"
+  head=$(git -C "$repo" rev-parse HEAD)
+  printf 'change\n' >> "$repo/file.txt"
+  git -C "$repo" add file.txt
+
+  if output=$(cd "$repo" && MUSI_COMMIT_STATUS_LOCK="$lock" bash "$REPO_ROOT/scripts/ai-hooks/commit-timeout-status.sh" "$head" 1); then
+    rc=0
+  else
+    rc=$?
+  fi
+
+  [ "$rc" -eq 1 ] || fail "commit status helper should exit 1 when no commit is running or landed: $output"
+  assert_contains "$output" "No commit has landed, and the pre-commit lock is not held."
+  assert_contains "$output" "Retry the original git commit command"
+}
+
+assert_commit_timeout_status_waits_for_landing_commit() {
+  local repo lock head output holder commit_pid
+
+  repo=$(init_commit_timeout_status_repo "landing")
+  lock="$repo/precommit.lock"
+  head=$(git -C "$repo" rev-parse HEAD)
+  printf 'change\n' >> "$repo/file.txt"
+  git -C "$repo" add file.txt
+
+  (
+    exec 8<>"$lock"
+    flock -n 8 || exit 1
+    printf 'PID=fixture STARTED=now\n' > "$lock"
+    sleep 1
+  ) &
+  holder=$!
+  sleep 0.1
+  (
+    sleep 0.2
+    git -C "$repo" commit -qm "delayed commit"
+  ) &
+  commit_pid=$!
+
+  output=$(cd "$repo" && MUSI_COMMIT_STATUS_LOCK="$lock" bash "$REPO_ROOT/scripts/ai-hooks/commit-timeout-status.sh" "$head" 5) \
+    || fail "commit status helper should report delayed commit success: $output"
+  wait "$holder" 2>/dev/null || true
+  wait "$commit_pid" 2>/dev/null || fail "delayed commit fixture failed"
+
+  assert_contains "$output" "A commit/pre-commit process still appears to be running"
+  assert_contains "$output" "Commit finished: HEAD moved"
+  assert_contains "$output" "delayed commit"
+}
+
+assert_commit_timeout_status_retries_when_still_running() {
+  local repo lock head output rc holder
+
+  repo=$(init_commit_timeout_status_repo "still-running")
+  lock="$repo/precommit.lock"
+  head=$(git -C "$repo" rev-parse HEAD)
+
+  (
+    exec 8<>"$lock"
+    flock -n 8 || exit 1
+    printf 'PID=fixture STARTED=now\n' > "$lock"
+    sleep 3
+  ) &
+  holder=$!
+  sleep 0.1
+
+  if output=$(cd "$repo" && MUSI_COMMIT_STATUS_LOCK="$lock" bash "$REPO_ROOT/scripts/ai-hooks/commit-timeout-status.sh" "$head" 1); then
+    rc=0
+  else
+    rc=$?
+  fi
+  kill "$holder" 2>/dev/null || true
+  wait "$holder" 2>/dev/null || true
+
+  [ "$rc" -eq 2 ] || fail "commit status helper should exit 2 when lock remains held: $output"
+  assert_contains "$output" "Commit still is not finished after waiting 1s"
+  assert_contains "$output" "Try this status command again"
+  assert_contains "$output" "commit-timeout-status.sh"
+  assert_contains "$output" "$head"
+}
+
+assert_codex_git_commit_unknown_guidance() {
+  local tool_id="codex-git-unknown"
+  local cmd="git commit -m test"
+  local state_file="$AI_GIT_STATE_DIR/$tool_id"
+  local head payload codex_out reason
+
+  head=$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || echo none)
+  {
+    printf 'HEAD_BEFORE=%s\n' "$head"
+    printf 'START_TS=%s\n' "$(date +%s)"
+  } > "$state_file"
+
+  payload=$(jq -n --arg id "$tool_id" --arg cmd "$cmd" \
+    '{tool_use_id:$id, tool_input:{command:$cmd}, tool_response:{raw:""}}')
+  codex_out=$(printf '%s' "$payload" \
+    | AI_STATE_ROOT="$AI_STATE_ROOT" AI_PRECOMMIT_LOG_DIR="$AI_PRECOMMIT_LOG_DIR" bash "$REPO_ROOT/.codex/hooks/post-tool-use.sh")
+  reason=$(printf '%s' "$codex_out" | jq -r '.reason // empty')
+
+  [ "$(printf '%s' "$codex_out" | jq -r '.decision // empty')" = "block" ] \
+    || fail "Codex post hook should block unknown commit output with guidance: $codex_out"
+  assert_contains "$reason" "Commit status unknown."
+  assert_contains "$reason" "may still be running and may still land the commit"
+  assert_contains "$reason" "Do not retry git commit immediately"
+  assert_contains "$reason" "Run this status command"
+  assert_contains "$reason" "commit-timeout-status.sh"
+  assert_contains "$reason" "240 seconds"
+  assert_contains "$reason" "$head"
+  assert_not_contains "$reason" "Monitor"
+  [ ! -f "$state_file" ] || fail "Codex git state file should be removed after post hook"
+}
+
+assert_codex_git_commit_signal_guidance() {
+  local tool_id="codex-git-signal"
+  local cmd="git commit -m test"
+  local state_file="$AI_GIT_STATE_DIR/$tool_id"
+  local head payload codex_out reason
+
+  head=$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || echo none)
+  {
+    printf 'HEAD_BEFORE=%s\n' "$head"
+    printf 'START_TS=%s\n' "$(date +%s)"
+  } > "$state_file"
+
+  payload=$(jq -n --arg id "$tool_id" --arg cmd "$cmd" \
+    '{tool_use_id:$id, tool_input:{command:$cmd}, tool_response:{raw:"partial output", exit_code:124}}')
+  codex_out=$(printf '%s' "$payload" \
+    | AI_STATE_ROOT="$AI_STATE_ROOT" AI_PRECOMMIT_LOG_DIR="$AI_PRECOMMIT_LOG_DIR" bash "$REPO_ROOT/.codex/hooks/post-tool-use.sh")
+  reason=$(printf '%s' "$codex_out" | jq -r '.reason // empty')
+
+  [ "$(printf '%s' "$codex_out" | jq -r '.decision // empty')" = "block" ] \
+    || fail "Codex post hook should block signal commit output with guidance: $codex_out"
+  assert_contains "$reason" "Commit status unknown (exit 124)."
+  assert_contains "$reason" "partial output"
+  assert_contains "$reason" "may still be running and may still land the commit"
+  assert_contains "$reason" "Do not retry git commit immediately"
+  assert_contains "$reason" "Run this status command"
+  assert_contains "$reason" "commit-timeout-status.sh"
+  assert_not_contains "$reason" "Monitor"
+}
+
+assert_claude_git_commit_timeout_guidance() {
+  local marker="54321"
+  local hook_out reason pid args
+
+  hook_out=$(
+    printf '{"tool_input":{"command":"git commit --dry-run >/dev/null 2>&1; sleep %s; echo done >/dev/null"}}' "$marker" \
+      | AI_GIT_COMMIT_LOCK="$TMP_ROOT/git-commit-lock" AI_GIT_COMMIT_TIMEOUT=1 bash "$REPO_ROOT/.claude/hooks/git-commit-quiet.sh"
+  )
+  while IFS= read -r pid; do
+    args=$(ps -o args= -p "$pid" 2>/dev/null || true)
+    [ "$args" = "sleep $marker" ] && kill "$pid" 2>/dev/null || true
+  done < <(pgrep -x sleep 2>/dev/null || true)
+  reason=$(printf '%s' "$hook_out" | jq -r '.reason // empty')
+
+  [ "$(printf '%s' "$hook_out" | jq -r '.decision // empty')" = "block" ] \
+    || fail "Claude git commit hook should block timeout with valid JSON: $hook_out"
+  assert_contains "$reason" "git commit wrapper timed out"
+  assert_contains "$reason" "may still be running and may still land the commit"
+  assert_contains "$reason" "Do not retry git commit immediately"
+  assert_contains "$reason" "Run this status command"
+  assert_contains "$reason" "commit-timeout-status.sh"
+  assert_contains "$reason" "240 seconds"
+  assert_not_contains "$reason" "Monitor"
+}
+
 assert_claude_cache_bypass_rewrites_to_repo_root "bun run verify:logs budget" "verify_logs"
 assert_claude_cache_bypass_rewrites_to_repo_root "bun run verify:async:status" "verify_async_status"
 assert_claude_cache_bypass_rewrites_to_repo_root "bun run code:intel -- exports packages/shared/src/constants.ts" "code_intel"
@@ -724,6 +926,12 @@ assert_bun_cache_bypass_preserves_cached_marker "bun run verify:async:stop" "ver
 assert_bun_cache_bypass_preserves_cached_marker "bun run code:intel -- exports packages/shared/src/constants.ts" "code_intel"
 assert_codex_bun_post_success_is_non_blocking
 assert_codex_bun_post_failure_keeps_bounded_block
+assert_commit_timeout_status_no_running_commit
+assert_commit_timeout_status_waits_for_landing_commit
+assert_commit_timeout_status_retries_when_still_running
+assert_codex_git_commit_unknown_guidance
+assert_codex_git_commit_signal_guidance
+assert_claude_git_commit_timeout_guidance
 
 # Enforce that every Stop status reporter has loop protection before it can notify.
 assert_stop_status_reporters_have_loop_protection
@@ -1156,8 +1364,8 @@ VERIFY_MSG=$(MUSI_VERIFY_LOG_DIR="$VERIFY_LOG_DIR" ai_stop_verify_status "$VERIF
   || fail "serial-verify failing should emit"
 assert_contains "$VERIFY_MSG" "cached verify"
 
-# serial-verify-changed mode keys freshness to the staged fingerprint, not the
-# full worktree fingerprint.
+# changed verify modes key freshness to the staged fingerprint, not the full
+# worktree fingerprint.
 printf 'staged verify changed\n' > "$VERIFY_REPO/file.txt"
 git -C "$VERIFY_REPO" add file.txt
 VERIFY_STAGED_FP=$(ai_staged_fingerprint "$VERIFY_REPO")
@@ -1167,6 +1375,11 @@ write_verify_wrapper serial-verify-changed 1 "$VERIFY_STAGED_FP"
 rm -f "$VERIFY_COUNTER"
 VERIFY_MSG=$(MUSI_VERIFY_LOG_DIR="$VERIFY_LOG_DIR" ai_stop_verify_status "$VERIFY_REPO") \
   || fail "serial-verify-changed failing should emit against staged fingerprint"
+assert_contains "$VERIFY_MSG" "cached verify:changed"
+write_verify_wrapper parallel-verify-changed 1 "$VERIFY_STAGED_FP"
+rm -f "$VERIFY_COUNTER"
+VERIFY_MSG=$(MUSI_VERIFY_LOG_DIR="$VERIFY_LOG_DIR" ai_stop_verify_status "$VERIFY_REPO") \
+  || fail "parallel-verify-changed failing should emit against staged fingerprint"
 assert_contains "$VERIFY_MSG" "cached verify:changed"
 rm -f "$VERIFY_REPO/docs/scratch.md"
 rmdir "$VERIFY_REPO/docs" 2>/dev/null || true

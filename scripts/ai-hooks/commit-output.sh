@@ -96,3 +96,42 @@ ai_commit_generic_summary() {
   ai_limit_lines "$label
 $(printf '%s\n' "$output" | tail -n 40)" 80 "... truncated ({lines} lines total). Read the referenced log files for complete output."
 }
+
+ai_commit_maybe_running_summary() {
+  local label="$1"
+  local head_before="$2"
+  local output="$3"
+  local detail="${4:-}"
+  local lock="${5:-/tmp/musi-pre-commit.lock}"
+  local head_guidance=""
+  local detail_block=""
+  local head_arg lock_arg status_command
+
+  if [ -n "$head_before" ]; then
+    head_guidance="If HEAD moved from $head_before, treat the commit as succeeded."
+  else
+    head_guidance="If HEAD moved, treat the commit as succeeded."
+  fi
+
+  if [ -n "$detail" ]; then
+    detail_block="
+$detail"
+  fi
+
+  printf -v head_arg '%q' "$head_before"
+  printf -v lock_arg '%q' "$lock"
+  status_command="MUSI_COMMIT_STATUS_LOCK=$lock_arg bash \"\$(git rev-parse --show-toplevel)/scripts/ai-hooks/commit-timeout-status.sh\" $head_arg"
+
+  ai_limit_lines "$label
+The git commit result is uncertain. A backgrounded git/pre-commit process may still be running and may still land the commit. Do not retry git commit immediately; checking too early can show a transient unchanged HEAD or staged state.
+
+Run this status command. It checks whether HEAD moved, waits up to 240 seconds for the pre-commit lock if a commit is still running, and tells you to run it again if the lock is still held:
+  $status_command
+
+The 240-second wait is capped for Claude Code's token-cache TTL.
+
+$head_guidance$detail_block
+
+--- last 40 lines ---
+$(printf '%s\n' "$output" | tail -n 40)" 80 "... truncated ({lines} lines total). Read the referenced log files for complete output."
+}

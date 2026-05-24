@@ -319,6 +319,16 @@
       "invocation": "bun run lint:ratchet"
     },
     {
+      "id": "ratchet/local-max-lines-lint-rule-docs",
+      "kind": "ratchet",
+      "category": "maintainability",
+      "principle": "Prevent lint-rule-docs max-lines debt from growing.",
+      "pairedGuide": "docs/guides/lint-ratchet.md",
+      "repairKind": "manual",
+      "source": "scripts/lint-ratchet-config.ts",
+      "invocation": "bun run lint:ratchet"
+    },
+    {
       "id": "ratchet/local-max-lines-logs-audit",
       "kind": "ratchet",
       "category": "maintainability",
@@ -629,6 +639,16 @@
       "repairKind": "manual",
       "source": "scripts/verify.sh",
       "invocation": "bun run verify:changed"
+    },
+    {
+      "id": "verify-wrapper/verify-parallel",
+      "kind": "verify-wrapper",
+      "category": "maintainability",
+      "principle": "Run the full lint, ratchet, typecheck, test, and scripts suites in parallel; reduces full-verify wall time when the full script suite fits the selected timeout or cached state.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/verify.sh",
+      "invocation": "bun run verify:parallel"
     },
     {
       "id": "verify-wrapper/verify-slow",

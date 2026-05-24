@@ -11,7 +11,6 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 
 import type { DriftFinding } from "../drift-ai.js";
-
 import { pathHasAnyPrefix } from "./config.js";
 import type { DetectorScope } from "./scope.js";
 
@@ -84,71 +83,83 @@ export function analyzeCommentMetrics(source: string): CommentMetrics {
   return { effective, comment, blank, total: segments.length };
 }
 
+type CodeCharKind =
+  | { readonly kind: "line-comment"; readonly newIndex: number }
+  | { readonly kind: "block-comment"; readonly newIndex: number }
+  | { readonly kind: "string"; readonly newIndex: number; readonly delim: StringDelim }
+  | { readonly kind: "code"; readonly newIndex: number }
+  | { readonly kind: "whitespace"; readonly newIndex: number };
+
+function advanceBlockComment(
+  line: string,
+  i: number,
+): { readonly newIndex: number; readonly exited: boolean } {
+  const ch = line.charAt(i);
+  const next = line[i + 1];
+  if (ch === "*" && next === "/") return { newIndex: i + 2, exited: true };
+  return { newIndex: i + 1, exited: false };
+}
+
+function advanceInString(
+  line: string,
+  i: number,
+  delim: StringDelim,
+): { readonly newIndex: number; readonly closed: boolean; readonly hasCode: boolean } {
+  const ch = line.charAt(i);
+  const hasCode = ch !== " " && ch !== "\t";
+  if (ch === "\\") return { newIndex: i + 2, closed: false, hasCode };
+  if (ch === delim) return { newIndex: i + 1, closed: true, hasCode };
+  return { newIndex: i + 1, closed: false, hasCode };
+}
+
+function advanceCode(line: string, i: number): CodeCharKind {
+  const ch = line.charAt(i);
+  const next = line[i + 1];
+  if (ch === "/" && next === "/") return { kind: "line-comment", newIndex: line.length };
+  if (ch === "/" && next === "*") return { kind: "block-comment", newIndex: i + 2 };
+  if (ch === '"' || ch === "'" || ch === "`") return { kind: "string", newIndex: i + 1, delim: ch };
+  if (ch !== " " && ch !== "\t") return { kind: "code", newIndex: i + 1 };
+  return { kind: "whitespace", newIndex: i + 1 };
+}
+
 function classifyLine(
   line: string,
   startInBlockComment: boolean,
   startInString: StringDelim | false,
 ): LineState {
   let inBlockComment = startInBlockComment;
-  let inLineComment = false;
   let inString: StringDelim | false = startInString;
   let hasCode = false;
   let hasComment = false;
   let i = 0;
   while (i < line.length) {
-    const ch = line[i] ?? "";
-    const next = line[i + 1];
     if (inBlockComment) {
       hasComment = true;
-      if (ch === "*" && next === "/") {
-        inBlockComment = false;
-        i += 2;
-        continue;
-      }
-      i += 1;
-      continue;
-    }
-    if (inLineComment) {
-      hasComment = true;
-      i += 1;
+      const result = advanceBlockComment(line, i);
+      inBlockComment = !result.exited;
+      i = result.newIndex;
       continue;
     }
     if (inString) {
-      // A line that only continues a multi-line string (no other tokens
-      // beyond the string body) is still code, not a comment line.
-      if (ch !== " " && ch !== "\t") hasCode = true;
-      if (ch === "\\") {
-        i += 2;
-        continue;
-      }
-      if (ch === inString) {
-        inString = false;
-      }
-      i += 1;
+      const result = advanceInString(line, i, inString);
+      if (result.hasCode) hasCode = true;
+      if (result.closed) inString = false;
+      i = result.newIndex;
       continue;
     }
-    if (ch === "/" && next === "/") {
-      inLineComment = true;
+    const result = advanceCode(line, i);
+    if (result.kind === "line-comment") {
       hasComment = true;
-      i += 2;
-      continue;
-    }
-    if (ch === "/" && next === "*") {
+    } else if (result.kind === "block-comment") {
       inBlockComment = true;
       hasComment = true;
-      i += 2;
-      continue;
-    }
-    if (ch === '"' || ch === "'" || ch === "`") {
-      inString = ch;
+    } else if (result.kind === "string") {
+      inString = result.delim;
       hasCode = true;
-      i += 1;
-      continue;
-    }
-    if (ch !== " " && ch !== "\t") {
+    } else if (result.kind === "code") {
       hasCode = true;
     }
-    i += 1;
+    i = result.newIndex;
   }
   return {
     hasCode,

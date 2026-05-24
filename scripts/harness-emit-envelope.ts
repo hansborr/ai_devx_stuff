@@ -2,13 +2,13 @@ import { isAbsolute, resolve } from "node:path";
 
 import {
   HARNESS_DIAGNOSTICS_SCHEMA_VERSION,
+  type HarnessDiagnostics,
   harnessDiagnosticsSchema,
+  type HarnessDiagnosticTool,
   harnessDiagnosticToolSchema,
+  type HarnessFinding,
   harnessFindingSchema,
   summarizeHarnessFindings,
-  type HarnessDiagnosticTool,
-  type HarnessDiagnostics,
-  type HarnessFinding,
 } from "../packages/shared/src/schemas/harness-diagnostics.js";
 
 const PROCESS_ARG_OFFSET = 2;

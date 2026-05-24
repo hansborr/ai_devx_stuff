@@ -225,92 +225,7 @@
       ],
       "configHash": "sha256:1b1fe70f7b974d485180c60d0b98e4c5d2bad41760de4b1ef68a5a766c8cabf4",
       "ruleSourceHash": "sha256:97723dbbc0772ac4813351c8ac7f2b4b6f3d49ffca7184ce4409747f68e94501",
-      "items": {
-        "scripts/drift-ai.ts": {
-          "count": 3,
-          "maxComplexity": 18,
-          "perFunction": [
-            {
-              "line": 883,
-              "nodeType": "FunctionDeclaration",
-              "label": "Function 'runDriftAi'",
-              "complexity": 18
-            },
-            {
-              "line": 624,
-              "nodeType": "FunctionDeclaration",
-              "label": "Function 'buildReport'",
-              "complexity": 16
-            },
-            {
-              "line": 712,
-              "nodeType": "FunctionDeclaration",
-              "label": "Function 'formatText'",
-              "complexity": 11
-            }
-          ]
-        },
-        "scripts/drift-ai/comments.ts": {
-          "count": 1,
-          "maxComplexity": 21,
-          "perFunction": [
-            {
-              "line": 87,
-              "nodeType": "FunctionDeclaration",
-              "label": "Function 'classifyLine'",
-              "complexity": 21
-            }
-          ]
-        },
-        "scripts/drift-ai/duplicates.ts": {
-          "count": 1,
-          "maxComplexity": 14,
-          "perFunction": [
-            {
-              "line": 202,
-              "nodeType": "FunctionDeclaration",
-              "label": "Function 'mapChangedFilesToScopes'",
-              "complexity": 14
-            }
-          ]
-        },
-        "scripts/drift-ai/ghost-files.ts": {
-          "count": 2,
-          "maxComplexity": 13,
-          "perFunction": [
-            {
-              "line": 155,
-              "nodeType": "FunctionDeclaration",
-              "label": "Function 'levenshteinBounded'",
-              "complexity": 13
-            },
-            {
-              "line": 211,
-              "nodeType": "FunctionDeclaration",
-              "label": "Function 'findGhostMatches'",
-              "complexity": 12
-            }
-          ]
-        },
-        "scripts/drift-ai/suppressions.ts": {
-          "count": 2,
-          "maxComplexity": 17,
-          "perFunction": [
-            {
-              "line": 109,
-              "nodeType": "FunctionDeclaration",
-              "label": "Function 'parseSuppressionDiff'",
-              "complexity": 17
-            },
-            {
-              "line": 230,
-              "nodeType": "FunctionDeclaration",
-              "label": "Function 'scanCommentSegments'",
-              "complexity": 15
-            }
-          ]
-        }
-      }
+      "items": {}
     },
     "ratchet/core-complexity-eslint-rules": {
       "ruleId": "complexity",
@@ -378,7 +293,11 @@
         "scripts/lint-ratchet-baseline-compare.ts",
         "scripts/lint-ratchet-baseline-parse.ts",
         "scripts/lint-ratchet-baseline.ts",
+        "scripts/lint-ratchet-check-registry.ts",
         "scripts/lint-ratchet-metrics.ts",
+        "scripts/lint-ratchet-output.ts",
+        "scripts/lint-ratchet-report.ts",
+        "scripts/lint-ratchet-summary.ts",
         "scripts/lint-ratchet.ts"
       ],
       "ignores": [
@@ -389,7 +308,7 @@
           "max": 10
         }
       ],
-      "configHash": "sha256:84fc634d16065320ee4374f09140dc8beaf82cd972530d24ecb672aca7a960fd",
+      "configHash": "sha256:d12e885748cb5929bdf057892575d3996c2a290152e96f21f76d67666d8cd541",
       "ruleSourceHash": "sha256:97723dbbc0772ac4813351c8ac7f2b4b6f3d49ffca7184ce4409747f68e94501",
       "items": {}
     },
@@ -669,7 +588,7 @@
       "items": {
         "scripts/drift-ai.ts": {
           "count": 1,
-          "lines": 1058
+          "lines": 1101
         },
         "scripts/drift-ai/config.ts": {
           "count": 1,
@@ -677,11 +596,11 @@
         },
         "scripts/drift-ai/duplicates.ts": {
           "count": 1,
-          "lines": 422
+          "lines": 431
         },
         "scripts/drift-ai/ghost-files.ts": {
           "count": 1,
-          "lines": 579
+          "lines": 601
         },
         "scripts/drift-ai/harness-freshness.ts": {
           "count": 1,
@@ -689,7 +608,7 @@
         },
         "scripts/drift-ai/suppressions.ts": {
           "count": 1,
-          "lines": 420
+          "lines": 468
         }
       }
     },
@@ -724,6 +643,7 @@
       "target": 0,
       "metric": "effective-line-count",
       "files": [
+        "scripts/lint-coverage-map-check-eslint-reach.ts",
         "scripts/lint-coverage-map-check.ts"
       ],
       "ignores": [],
@@ -734,7 +654,27 @@
           "skipComments": true
         }
       ],
-      "configHash": "sha256:1b7e490de3b734dcc193a30f6c701878d8799b262e360c229a1570384db3743a",
+      "configHash": "sha256:278c7bd8f68f8a3b66c6a79fca15f16ffb0f97fa3a520d12f1ae082b22ca2655",
+      "ruleSourceHash": "sha256:e418fb9ef876b51950789d09a0baa38cdfe8f6e80944ee38977a0c2a7e9a32f1",
+      "items": {}
+    },
+    "ratchet/local-max-lines-lint-rule-docs": {
+      "ruleId": "local/max-lines",
+      "mode": "no-new",
+      "target": 0,
+      "metric": "effective-line-count",
+      "files": [
+        "scripts/lint-rule-docs.ts"
+      ],
+      "ignores": [],
+      "ruleOptions": [
+        {
+          "max": 300,
+          "skipBlankLines": true,
+          "skipComments": true
+        }
+      ],
+      "configHash": "sha256:9d2d533e6ab3a8a0ec45a771822f25d2db1019482a190aae9bd07e85a281533a",
       "ruleSourceHash": "sha256:e418fb9ef876b51950789d09a0baa38cdfe8f6e80944ee38977a0c2a7e9a32f1",
       "items": {}
     },
@@ -774,6 +714,11 @@
         "scripts/lint-ratchet-baseline-compare.ts",
         "scripts/lint-ratchet-baseline-parse.ts",
         "scripts/lint-ratchet-baseline.ts",
+        "scripts/lint-ratchet-check-registry.ts",
+        "scripts/lint-ratchet-metrics.ts",
+        "scripts/lint-ratchet-output.ts",
+        "scripts/lint-ratchet-report.ts",
+        "scripts/lint-ratchet-summary.ts",
         "scripts/lint-ratchet.ts"
       ],
       "ignores": [
@@ -786,7 +731,7 @@
           "skipComments": true
         }
       ],
-      "configHash": "sha256:50abaa3a93a1a16021ce9aaa2134106713bf107ab0e5b69cb9f100d5ffa328a2",
+      "configHash": "sha256:0448bc894c7e67e002fac94a2006528cca76b31b469163b1c2ef197a648f049b",
       "ruleSourceHash": "sha256:e418fb9ef876b51950789d09a0baa38cdfe8f6e80944ee38977a0c2a7e9a32f1",
       "items": {
         "scripts/harness-check.ts": {
@@ -917,11 +862,7 @@
       "ruleOptions": [],
       "configHash": "sha256:a480df867fafbf3082e5a1532eaf67d281a70a0c4a15f56cdf8bc30c8dc95955",
       "ruleSourceHash": "sha256:7592cf6f9871b808817c140f4c220258781d6bb19e4e67f14629a7bf2293f416",
-      "items": {
-        "scripts/harness-emit-envelope.ts": {
-          "count": 1
-        }
-      }
+      "items": {}
     },
     "ratchet/strict-boolean-expressions-shared": {
       "ruleId": "@typescript-eslint/strict-boolean-expressions",

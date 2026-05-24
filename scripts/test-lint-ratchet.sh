@@ -487,6 +487,80 @@ export const lintRatchets = [
 TS
 }
 
+write_type_assertion_config() {
+  local fixture_dir=$1
+
+  cat >"$fixture_dir/scripts/lint-ratchet-config.ts" <<'TS'
+type JsonPrimitive = string | number | boolean | null;
+export type JsonObject = { readonly [key: string]: JsonValue };
+export type JsonValue = JsonPrimitive | readonly JsonValue[] | JsonObject;
+
+export type LintRatchetMode = "no-new" | "ratchet-down" | "report-only";
+export type LintRatchetMetric = "message-count";
+type LintRatchetRepairKind = "manual";
+export type LintRatchetParserProfile = "minimal-ts" | "type-aware-ts";
+export type LintRatchetPluginExport = "default" | "plugin";
+
+export interface LintRatchetLocalSource {
+  readonly kind: "local";
+}
+
+export interface LintRatchetThirdPartySource {
+  readonly kind: "third-party";
+  readonly pluginModule: string;
+}
+
+export type LintRatchetRuleSource =
+  | LintRatchetLocalSource
+  | LintRatchetThirdPartySource;
+
+interface LintRatchetConfigBase {
+  readonly id: string;
+  readonly ruleId: string;
+  readonly files: readonly string[];
+  readonly ignores: readonly string[];
+  readonly ruleOptions: readonly JsonValue[];
+  readonly mode: LintRatchetMode;
+  readonly target: number;
+  readonly metric: LintRatchetMetric;
+  readonly repairKind: LintRatchetRepairKind;
+}
+
+export type LintRatchetConfig =
+  | (LintRatchetConfigBase & {
+      readonly source?: LintRatchetLocalSource;
+      readonly parserProfile?: "minimal-ts";
+    })
+  | (LintRatchetConfigBase & {
+      readonly source: LintRatchetThirdPartySource;
+      readonly parserProfile: LintRatchetParserProfile;
+    });
+
+export interface LintRatchetThirdPartyPluginAllowlistEntry {
+  readonly pluginModule: string;
+  readonly ruleNamespace: string;
+  readonly pluginExport?: LintRatchetPluginExport;
+}
+
+export const lintRatchetThirdPartyPluginAllowlist: readonly LintRatchetThirdPartyPluginAllowlistEntry[] =
+  [];
+
+export const lintRatchets = [
+  {
+    id: "ratchet/local-type-assertion-boundary",
+    ruleId: "local/type-assertion-boundary",
+    files: ["packages/app/src/**/*.ts"],
+    ignores: ["**/dist/**", "**/generated/**", "**/node_modules/**"],
+    ruleOptions: [],
+    mode: "no-new",
+    target: 0,
+    metric: "message-count",
+    repairKind: "manual",
+  },
+] as const satisfies readonly LintRatchetConfig[];
+TS
+}
+
 write_clean_source() {
   local fixture_dir=$1
   mkdir -p "$fixture_dir/packages/app/src"
@@ -651,6 +725,7 @@ assert_usage_failure "--allow-worse with blank --reason" "--allow-worse requires
 # --- Fixture clean run -------------------------------------------------------
 CLEAN_DIR="$TMP_ROOT/clean"
 build_fixture "$CLEAN_DIR"
+write_type_assertion_config "$CLEAN_DIR"
 write_clean_source "$CLEAN_DIR"
 run_fixture_update "$CLEAN_DIR" || fail "fixture clean update failed: $(cat "$TMP_ROOT/update.err")"
 if ! (cd "$CLEAN_DIR" && bun run scripts/lint-ratchet.ts \
@@ -663,6 +738,7 @@ assert_envelope "$TMP_ROOT/clean.out" 0
 # --- Fixture regression ------------------------------------------------------
 REGRESSION_DIR="$TMP_ROOT/regression"
 build_fixture "$REGRESSION_DIR"
+write_type_assertion_config "$REGRESSION_DIR"
 write_clean_source "$REGRESSION_DIR"
 run_fixture_update "$REGRESSION_DIR" || fail "fixture regression update failed"
 write_violation_source "$REGRESSION_DIR"
@@ -808,6 +884,7 @@ max_lines_after=$(ASSERT_FILE="$MAX_LINES_IMPROVE_DIR/lint-ratchet.baseline.json
 # not depend on the exact textual layout `formatLintRatchetBaseline` emits.
 MUTATE_DIR="$TMP_ROOT/mutate"
 build_fixture "$MUTATE_DIR"
+write_type_assertion_config "$MUTATE_DIR"
 write_clean_source "$MUTATE_DIR"
 run_fixture_update "$MUTATE_DIR" || fail "fixture mutate update failed"
 ASSERT_FILE="$MUTATE_DIR/lint-ratchet.baseline.json" bun -e '
@@ -834,6 +911,7 @@ after=$(cat "$MUTATE_DIR/lint-ratchet.baseline.json")
 # instead of failing on the strict registry-identity check.
 STALE_DIR="$TMP_ROOT/stale-recover"
 build_fixture "$STALE_DIR"
+write_type_assertion_config "$STALE_DIR"
 write_clean_source "$STALE_DIR"
 run_fixture_update "$STALE_DIR" || fail "stale-recover initial update failed"
 ASSERT_FILE="$STALE_DIR/lint-ratchet.baseline.json" bun -e '
@@ -871,6 +949,7 @@ grep -qF "sha256:stale" "$STALE_DIR/lint-ratchet.baseline.json" \
 # though the structural parse can still rebuild the file.
 ORPHAN_DIR="$TMP_ROOT/orphan"
 build_fixture "$ORPHAN_DIR"
+write_type_assertion_config "$ORPHAN_DIR"
 write_clean_source "$ORPHAN_DIR"
 run_fixture_update "$ORPHAN_DIR" || fail "orphan initial update failed"
 ASSERT_FILE="$ORPHAN_DIR/lint-ratchet.baseline.json" bun -e '
@@ -915,6 +994,7 @@ grep -qF "-removed" "$ORPHAN_DIR/lint-ratchet.baseline.json" \
 # strict-parse ruleSourceHash check force a re-run.
 RULESRC_DIR="$TMP_ROOT/rule-source"
 build_fixture "$RULESRC_DIR"
+write_type_assertion_config "$RULESRC_DIR"
 write_violation_source "$RULESRC_DIR"
 run_fixture_update "$RULESRC_DIR" || fail "rule-source initial update failed"
 # Baseline now expects 1 finding under the real rule.
@@ -1369,6 +1449,7 @@ echo "// prefix" > "$PREFIX_CONFIG"
 echo "unrelated" > "$UNRELATED_CACHE/.eslintcache"
 SWEEP_DIR="$TMP_ROOT/sweep"
 build_fixture "$SWEEP_DIR"
+write_type_assertion_config "$SWEEP_DIR"
 write_clean_source "$SWEEP_DIR"
 run_fixture_update "$SWEEP_DIR" || fail "sweep fixture initial update failed"
 [ ! -e "$STALE_CACHE" ] || fail "sweep did not remove stale cache sibling: $STALE_CACHE"
@@ -1384,6 +1465,7 @@ trap cleanup EXIT
 # --- Fixture improvements fail check-baseline with update guidance -----------
 IMPROVE_DIR="$TMP_ROOT/improve"
 build_fixture "$IMPROVE_DIR"
+write_type_assertion_config "$IMPROVE_DIR"
 write_violation_source "$IMPROVE_DIR"
 run_fixture_update "$IMPROVE_DIR" || fail "fixture improve update failed"
 write_clean_source "$IMPROVE_DIR"

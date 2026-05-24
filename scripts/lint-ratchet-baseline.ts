@@ -1,9 +1,9 @@
 import { createHash } from "node:crypto";
 
-import type { JsonObject, JsonValue, LintRatchetConfig, LintRatchetMetric, LintRatchetMode, LintRatchetParserProfile, LintRatchetRuleSource, LintRatchetThirdPartyPluginAllowlistEntry } from "./lint-ratchet-config.js";
 import { compareCurrentToBaseline as compareCurrentToBaselineImpl } from "./lint-ratchet-baseline-compare.js";
 import { parseBaselineTest } from "./lint-ratchet-baseline-parse.js";
-import { metricItemForFormat, validateMetricItem, type LintRatchetMetricItem } from "./lint-ratchet-metrics.js";
+import type { JsonObject, JsonValue, LintRatchetConfig, LintRatchetMetric, LintRatchetMode, LintRatchetParserProfile, LintRatchetRuleSource, LintRatchetThirdPartyPluginAllowlistEntry } from "./lint-ratchet-config.js";
+import { type LintRatchetMetricItem, metricItemForFormat, validateMetricItem } from "./lint-ratchet-metrics.js";
 
 const LINT_RATCHET_BASELINE_VERSION = 1 as const;
 export const LINT_RATCHET_CONFIG_HASH_PREFIX = "sha256:" as const;

@@ -5,25 +5,24 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import type { ChangedFile } from "../drift-ai.js";
-
-import type { DetectorScope } from "./scope.js";
-import { toChangedScopeFile, toCurrentScopeFile } from "./scope.js";
 import {
   buildDuplicatesFindings,
   DEFAULT_DUPLICATES_IGNORE_GLOBS,
   DEFAULT_DUPLICATES_MIN_LINES,
   DUPLICATE_REPAIR_HINT,
   filterClonesToChangedFiles,
+  JSCPD_SUPPORTED_EXTENSIONS,
   type JscpdClone,
   type JscpdRunner,
   type JscpdRunnerInput,
-  JSCPD_SUPPORTED_EXTENSIONS,
   LARGE_INVENTORY_WARNING_THRESHOLD,
   mapChangedFilesToScopes,
   normalizeReportPath,
   parseDuplicatesReport,
   runDuplicatesCheck,
 } from "./duplicates.js";
+import type { DetectorScope } from "./scope.js";
+import { toChangedScopeFile, toCurrentScopeFile } from "./scope.js";
 
 const FIXTURES_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures");
 

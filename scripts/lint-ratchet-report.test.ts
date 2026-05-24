@@ -6,9 +6,9 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import {
   HARNESS_DIAGNOSTICS_SCHEMA_VERSION,
-  summarizeHarnessFindings,
   type HarnessDiagnostics,
   type HarnessFinding,
+  summarizeHarnessFindings,
 } from "../packages/shared/src/schemas/harness-diagnostics.js";
 import {
   formatHarnessDiagnosticsReport,

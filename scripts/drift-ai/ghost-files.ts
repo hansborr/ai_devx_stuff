@@ -13,8 +13,7 @@ import { readdirSync } from "node:fs";
 import path from "node:path";
 
 import type { ChangedFile, DriftFinding } from "../drift-ai.js";
-
-import { matchesAnyGlob, type GhostFileAllowedPair } from "./config.js";
+import { type GhostFileAllowedPair, matchesAnyGlob } from "./config.js";
 import type { DetectorScope } from "./scope.js";
 
 const SOURCE_LIKE_EXTS = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"]);
@@ -71,7 +70,7 @@ export function tokenize(basename: string): string[] {
   const segments = stem.split(/[^a-zA-Z0-9]+/u).filter((part) => part.length > 0);
   const tokens: string[] = [];
   for (const segment of segments) {
-    const matches = segment.match(/[A-Z]+(?=[A-Z][a-z])|[A-Z]?[a-z]+|[A-Z]+|[0-9]+/gu);
+    const matches = segment.match(/[A-Z]+(?=[A-Z][a-z])|[A-Z]?[a-z]+|[A-Z]+|\d+/gu);
     const parts = matches && matches.length > 0 ? matches : [segment];
     for (const part of parts) tokens.push(part.toLowerCase());
   }
@@ -89,7 +88,7 @@ export function singularize(token: string): string {
   // Strip the full "es" only when it follows a sibilant (-shes, -ches,
   // -ses, -xes, -zes); a bare "-es" rule misfires on words like
   // "bytes" → "byt".
-  if (token.length > 4 && /(?:s|x|z|sh|ch)es$/u.test(token)) return token.slice(0, -2);
+  if (token.length > 4 && /(?:[sxz]|sh|ch)es$/u.test(token)) return token.slice(0, -2);
   if (token.length > 2 && token.endsWith("s") && !token.endsWith("ss")) {
     return token.slice(0, -1);
   }
@@ -152,23 +151,34 @@ function intersection(a: readonly string[], b: readonly string[]): string[] {
 // real basename typo or singular/plural variant slips past the other two
 // rules, and we already require length >= 4 to keep short names like
 // "a.ts" and "b.ts" from matching by accident.
+function computeLevenshteinRow(
+  a: string,
+  b: string,
+  i: number,
+  prev: readonly number[],
+  curr: number[],
+): number {
+  curr[0] = i;
+  let rowMin = curr[0] ?? 0;
+  for (let j = 1; j <= b.length; j += 1) {
+    const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+    const left = curr[j - 1] ?? 0;
+    const above = prev[j] ?? 0;
+    const diag = prev[j - 1] ?? 0;
+    const value = Math.min(left + 1, above + 1, diag + cost);
+    curr[j] = value;
+    if (value < rowMin) rowMin = value;
+  }
+  return rowMin;
+}
+
 function levenshteinBounded(a: string, b: string, cap: number): number {
   if (a === b) return 0;
   if (Math.abs(a.length - b.length) > cap) return cap + 1;
   let prev = Array.from({ length: b.length + 1 }, (_, index) => index);
   const curr = new Array<number>(b.length + 1).fill(0);
   for (let i = 1; i <= a.length; i += 1) {
-    curr[0] = i;
-    let rowMin = curr[0] ?? 0;
-    for (let j = 1; j <= b.length; j += 1) {
-      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-      const left = curr[j - 1] ?? 0;
-      const above = prev[j] ?? 0;
-      const diag = prev[j - 1] ?? 0;
-      const value = Math.min(left + 1, above + 1, diag + cost);
-      curr[j] = value;
-      if (value < rowMin) rowMin = value;
-    }
+    const rowMin = computeLevenshteinRow(a, b, i, prev, curr);
     if (rowMin > cap) return cap + 1;
     prev = [...curr];
   }
@@ -208,35 +218,49 @@ function basenameStem(filename: string): string {
   return ext.length > 0 ? filename.slice(0, -ext.length) : filename;
 }
 
+type GhostCandidate = {
+  readonly tokens: readonly string[];
+  readonly strong: readonly string[];
+  readonly normalized: string;
+};
+
+function prepareGhostCandidate(
+  filePath: string,
+  sourceExtensions: ReadonlySet<string>,
+): GhostCandidate | undefined {
+  const base = path.basename(filePath);
+  if (isExcludedPath(filePath) || !isSourceLike(base, sourceExtensions)) return undefined;
+  const tokens = normalizedTokens(base);
+  if (tokens.length === 0) return undefined;
+  return { tokens, strong: strongTokens(tokens), normalized: tokens.join("-") };
+}
+
 export function findGhostMatches(
   newPath: string,
   peerPaths: readonly string[],
   sourceExtensions: ReadonlySet<string> = SOURCE_LIKE_EXTS,
 ): GhostFileMatch[] {
-  const newBase = path.basename(newPath);
-  if (isExcludedPath(newPath) || !isSourceLike(newBase, sourceExtensions)) return [];
-  if (ENTRY_POINT_STEMS.has(basenameStem(newBase).toLowerCase())) return [];
-  const newTokens = normalizedTokens(newBase);
-  if (newTokens.length === 0) return [];
-  const newStrong = strongTokens(newTokens);
-  const newNormalized = newTokens.join("-");
+  const newCandidate = prepareGhostCandidate(newPath, sourceExtensions);
+  if (!newCandidate) return [];
+  if (ENTRY_POINT_STEMS.has(basenameStem(path.basename(newPath)).toLowerCase())) return [];
 
   const matches: GhostFileMatch[] = [];
   for (const peerPath of peerPaths) {
     if (peerPath === newPath) continue;
-    const peerBase = path.basename(peerPath);
-    if (isExcludedPath(peerPath) || !isSourceLike(peerBase, sourceExtensions)) continue;
-    const peerTokens = normalizedTokens(peerBase);
-    if (peerTokens.length === 0) continue;
-    const peerStrong = strongTokens(peerTokens);
-    const peerNormalized = peerTokens.join("-");
-    const kind = classifyMatch({ newNormalized, peerNormalized, newStrong, peerStrong });
+    const peerCandidate = prepareGhostCandidate(peerPath, sourceExtensions);
+    if (!peerCandidate) continue;
+    const kind = classifyMatch({
+      newNormalized: newCandidate.normalized,
+      peerNormalized: peerCandidate.normalized,
+      newStrong: newCandidate.strong,
+      peerStrong: peerCandidate.strong,
+    });
     if (!kind) continue;
     matches.push({
       newPath,
       peerPath,
       kind,
-      sharedTokens: intersection(newStrong, peerStrong),
+      sharedTokens: intersection(newCandidate.strong, peerCandidate.strong),
     });
   }
   return matches;

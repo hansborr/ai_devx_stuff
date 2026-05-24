@@ -8,12 +8,12 @@ import {
 } from "../drift-ai.js";
 import {
   collapseRepoPath,
+  type DriftAiIgnoreConfig,
   matchesAnyGlob,
   normalizeRepoPath,
   pathEscapesRepo,
   pathHasAnyPrefix,
   pathHasAnySegment,
-  type DriftAiIgnoreConfig,
 } from "./config.js";
 import { DriftAiError } from "./errors.js";
 import { type CurrentScopeFile, toCurrentScopeFile } from "./scope.js";
