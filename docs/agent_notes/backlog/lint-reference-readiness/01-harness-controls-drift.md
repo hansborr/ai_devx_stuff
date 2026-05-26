@@ -1,7 +1,8 @@
 # Fix Harness Controls Drift
 
-Status: Parked
+Status: Done
 Order: 1
+Landed: commit 17c41412, 2026-05-25
 
 ## Context
 

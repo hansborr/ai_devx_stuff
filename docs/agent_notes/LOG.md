@@ -8,6 +8,25 @@ Newest on top.
 
 ---
 
+- 2026-05-26: Biome fast edit-loop spike completed locally. Installed
+  `@biomejs/biome@2.4.15`, measured migration compatibility, latency, and
+  diff churn, and recorded a narrow decision: keep ESLint authoritative; only
+  revisit Biome as an opt-in lint-only advisory tier with formatter and assist
+  disabled. Details: `finished_work/biome-fast-edit-loop-spike.md`.
+- 2026-05-26: Biome lint adoption guide landed locally. Added
+  `docs/guides/biome-lint-adoption.md` to document how Biome adopters can
+  preserve Musi's custom lint guidance, post-edit tidy hook, and lint-ratchet
+  semantics through adapter layers. Cross-linked the guide from the local
+  ESLint rule and lint-ratchet guides, and pointed the parked fast edit-loop
+  linter spike at it. Details:
+  `finished_work/biome-lint-adoption-guide.md`.
+- 2026-05-26: Lint system improvements review migrated into the backlog. The
+  2026-05-26 synthesis preserved by commit `a0975f3a` now lives as the split
+  task folder `backlog/lint-system-improvements/`, with 22 promotable leaves
+  covering CI/local parity, duplicate gate wiring, generated policy ownership,
+  hook/tool portability, severity docs, and measured architecture spikes.
+  Details:
+  `finished_work/lint-system-improvements-backlog-migration.md`.
 - 2026-05-26: Fixture Git environment hardening landed locally. Added
   `scripts/test-git-env.sh` and sourced it from fixture-heavy smoke scripts so
   direct invocations clear inherited hook `GIT_*` variables before creating

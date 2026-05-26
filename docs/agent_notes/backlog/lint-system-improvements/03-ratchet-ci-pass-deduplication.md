@@ -1,7 +1,8 @@
 # Ratchet CI Pass Deduplication
 
-Status: Parked
+Status: Parked (decision recorded)
 Order: 3
+Decision: Drop check-baseline, fold check-registry
 
 ## Context
 
@@ -34,6 +35,15 @@ pass.
 
 CI keeps the ratchet safety properties while avoiding redundant full ESLint
 collection passes unless a measured reason remains.
+
+## Decision (2026-05-26)
+
+Drop `check-baseline` from CI and fold away the visible `check-registry` step.
+Default `lint:ratchet` already runs registry preflight before collection in
+`scripts/lint-ratchet/modes.ts`, then collects current findings and compares to
+baseline. `check-baseline` repeats that current collection. Keep the package
+scripts for local/debug use, but CI should run only the two semantic gates:
+`lint:ratchet` and `lint:ratchet:zero-baseline`.
 
 ## Verification
 

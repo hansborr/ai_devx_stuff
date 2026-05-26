@@ -1,7 +1,8 @@
 # Document Lint Coverage Map Design
 
-Status: Parked
+Status: Done
 Order: 28
+Landed: see finished_work/task-28-lint-coverage-map-readiness.md
 
 ## Context
 

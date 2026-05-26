@@ -56,6 +56,26 @@ cycle.
 When promoting an overlapping task, check both folders and close or merge stale
 duplicates as part of the leaf.
 
+## Active Work
+
+None.
+
+## Recorded Decisions
+
+These tasks have a design direction recorded but are not yet implemented:
+
+- `02` — composite CI lint floor (drop separate `lint:shell` /
+  `lint:config-sensors` steps).
+- `03` — drop `check-baseline` from CI, fold `check-registry` into
+  `lint:ratchet` preflight. CI runs only `lint:ratchet` +
+  `lint:ratchet:zero-baseline`.
+- `04` — resolved by task 03; `verify:changed` already matches the simplified
+  CI ratchet surface.
+- `08` — document why `parallel-runner.sh` and `parallel-step.sh` are separate;
+  do not unify.
+- `18` — keep ESLint authoritative. Biome is fast enough to revisit only as an
+  opt-in lint-only advisory tier with formatter and assist disabled.
+
 ## Ordering
 
 Correctness and parity work comes first, then policy ownership and portability,
@@ -97,11 +117,10 @@ Check these before promoting a leaf:
   harness docs.
 
 1. `01-ci-coverage-map-gate.md` - add the full coverage-map gate to CI.
-2. `02-ci-lint-step-deduplication.md` - remove duplicate CI lint surfaces or
-   rename commands so duplication is intentional.
-3. `03-ratchet-ci-pass-deduplication.md` - reduce redundant ratchet CI passes.
-4. `04-verify-ratchet-ci-parity.md` - decide how local verify should preview
-   extra ratchet CI checks.
+2. `02-ci-lint-step-deduplication.md` - *(decision recorded)* composite floor.
+3. `03-ratchet-ci-pass-deduplication.md` - *(decision recorded)* drop
+   check-baseline, fold check-registry.
+4. `04-verify-ratchet-ci-parity.md` - *(resolved by 03)* parity achieved.
 5. `05-derive-linted-script-reinclude-patterns.md` - derive flat-config
    reinclude patterns from the linted script surface.
 6. `06-ratchet-suppression-metadata.md` - generate normal-lint suppressions
@@ -114,8 +133,8 @@ Check these before promoting a leaf:
    runner wiring from the manifest.
 10. `07d-harness-controls-changed-semantics.md` - model changed/staged input
     semantics before migrating complex slots.
-11. `08-parallel-runner-unification.md` - inventory and unify parallel runner
-    shell abstractions where justified.
+11. `08-parallel-runner-unification.md` - *(decision recorded)* document
+    separation, do not unify.
 12. `09-agent-hook-pinned-tools.md` - replace agent-hook `npx` usage with the
    pinned local toolchain.
 13. `10-lint-tool-doctor-parity.md` - make lint tool provisioning and version
@@ -134,8 +153,8 @@ Check these before promoting a leaf:
     `lint:agent` aliases.
 20. `17-typescript-hook-runner-spike.md` - spike one TypeScript hook runner
     path without rewriting the shell layer wholesale.
-21. `18-fast-edit-loop-linter-spike.md` - measure a fast approximate edit-loop
-    linter tier.
+21. `18-fast-edit-loop-linter-spike.md` - **done** — narrow Biome advisory
+    decision.
 22. `19-lint-platform-positioning.md` - present the setup as a lint platform
     with minimal and full adoption paths.
 

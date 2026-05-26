@@ -1,7 +1,8 @@
 # CI Lint Step Deduplication
 
-Status: Parked
+Status: Parked (decision recorded)
 Order: 2
+Decision: Composite floor
 
 ## Context
 
@@ -28,6 +29,15 @@ or step-visible failure labels.
 
 CI no longer runs ShellCheck or config sensors twice unless the duplication is
 explicitly documented and intentional.
+
+## Decision (2026-05-26)
+
+Composite floor (option A). CI keeps one `bun run lint` step and drops the
+separate `lint:shell` / `lint:config-sensors` steps. `bun run lint` already
+fans out ShellCheck, config sensors, and ESLint in `scripts/lint.sh`, while CI
+currently repeats the first two in `.github/workflows/ci.yml`. The step-visible
+benefit is marginal; the parallel runner already labels subtask pass/fail in its
+output.
 
 ## Verification
 

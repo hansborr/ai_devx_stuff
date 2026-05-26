@@ -58,7 +58,7 @@ performance work. Path-policy infrastructure is split into model, shell
 interface, and caller-family migrations so agents can review one boundary at a
 time.
 
-1. `01-harness-controls-drift.md` - fix harness controls drift.
+1. `01-harness-controls-drift.md` - *(done)* fix harness controls drift.
 2. `02-zero-baseline-normal-covered.md` - retire or narrow zero-baseline rows
    already covered by normal lint.
 3. `03-zero-baseline-complexity-core.md` - decide zero-baseline complexity and
@@ -102,18 +102,19 @@ time.
     surface policy.
 24. `24-eslint-max-lines-policy.md` - unify large-file caps with ratchet
     ignores.
-25. `25-eslint-config-composition.md` - split the remaining ESLint config only
-    where justified.
+25. `25-eslint-config-composition.md` - *(done)* split the remaining ESLint
+    config only where justified.
 26. `26-ratchet-registry-builders.md` - add ratchet family builders after
     zero-baseline cleanup.
 27. `27-ratchet-test-portability.md` - verify the ratchet test copy story.
-28. `28-lint-coverage-map-readiness.md` - document coverage-map in the
+28. `28-lint-coverage-map-readiness.md` - *(done)* document coverage-map in the
     reference design.
 29. `29-ratchet-adopter-quickstart.md` - add a short first-ratchet quickstart.
 30. `30-local-rule-adopter-docs.md` - improve local-rule catalog and
     JavaScript-rule rationale.
 31. `31-ratchet-run-grouping.md` - investigate compatible ratchet run grouping.
-32. `32-ci-parallelization.md` - investigate CI validate parallelization.
+32. `32-ci-parallelization.md` - *(superseded by lint-system-improvements/12)*
+    investigate CI validate parallelization.
 33. `33-ci-commit-shape-validation.md` - document commit-shape policy without
     adding CI enforcement.
 

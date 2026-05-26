@@ -1,7 +1,8 @@
 # ESLint Config Composition
 
-Status: Parked
+Status: Done
 Order: 25
+Landed: see finished_work/task-25-eslint-config-composition.md
 
 ## Context
 

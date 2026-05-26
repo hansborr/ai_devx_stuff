@@ -1,6 +1,6 @@
 # CI Parallelization
 
-Status: Parked
+Status: Parked (superseded by lint-system-improvements/12-ci-validate-fanout.md)
 Order: 32
 
 ## Context

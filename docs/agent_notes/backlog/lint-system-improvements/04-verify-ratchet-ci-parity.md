@@ -1,7 +1,8 @@
 # Verify Ratchet CI Parity
 
-Status: Parked
+Status: Parked (resolved by task 03 decision)
 Order: 4
+Decision: Parity achieved by task 03
 
 ## Context
 
@@ -27,6 +28,14 @@ is a clear exception.
 
 Contributors can tell whether `verify:changed` previews every ratchet CI check,
 and the command behavior or documentation matches that contract.
+
+## Decision (2026-05-26)
+
+Resolved by task 03's decision. Once `check-baseline` and the separate
+`check-registry` step are removed from CI, `verify:changed` already runs the
+same two ratchet gates as CI (`lint:ratchet` and `lint:ratchet:zero-baseline`
+in `scripts/verify.sh`). No additional local work or documentation exception
+needed.
 
 ## Verification
 

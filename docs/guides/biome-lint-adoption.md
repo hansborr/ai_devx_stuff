@@ -7,9 +7,103 @@ tidy hook, and ratcheted adoption of rules with existing findings.
 Musi remains ESLint-first today. Treat this as an adapter guide, not an
 implementation decision.
 
-Audit note: checked on 2026-05-26 against `@biomejs/biome` 2.4.15 and the
-current Biome docs. Biome moves quickly; re-check the linked docs before
-committing to a migration.
+Audit note: checked on 2026-05-26 against `@biomejs/biome` 2.4.15, the
+current Biome docs, and the live Musi lint surface. Biome moves quickly;
+re-check the linked docs before committing to a migration.
+
+## Musi Spike Findings
+
+Decision from the 2026-05-26 fast edit-loop spike: keep ESLint authoritative
+and do not wire Biome into CI, ratchets, import sorting, or formatting yet.
+Biome is fast enough to justify a later narrow advisory tier, but only as
+`biome lint` with explicit rule selection and with formatter/assist ownership
+disabled unless those owners are deliberately changed.
+
+Installed/tested versions:
+
+- `@biomejs/biome` 2.4.15
+- `bun` 1.3.14
+- Branch: `spike/biome-fast-edit-loop`
+
+Inventory commands tested:
+
+```sh
+node_modules/.bin/biome init
+node_modules/.bin/biome migrate eslint
+node_modules/.bin/biome migrate eslint --include-inspired --include-nursery
+node_modules/.bin/biome lint --files-ignore-unknown=true --no-errors-on-unmatched
+node_modules/.bin/biome lint --write --files-ignore-unknown=true --no-errors-on-unmatched
+node_modules/.bin/biome check --write --files-ignore-unknown=true --no-errors-on-unmatched
+```
+
+The direct `biome migrate eslint` run failed against the current flat config:
+Biome's resolver tried to stringify the loaded config and hit a circular
+`eslint-plugin-regexp` plugin object. A scratch sanitized config that preserved
+only `files`, `ignores`, and `rules` let the migrator act as a rule inventory.
+That run found 746 ESLint rule entries:
+
+- 345 fully covered by Biome or its formatter, 46% of entries.
+- 188 directly migratable to Biome rules, 25% of entries.
+- 157 obsolete because of Biome formatter behavior.
+- 28 covered by formatter options requiring manual migration.
+- 259 not yet implemented.
+- 77 from unknown sources.
+
+Useful covered candidates include many core correctness rules, simple
+mechanical style rules such as `prefer-const`, many JSX a11y rules, and subsets
+of React hooks, Playwright, and Vitest checks. That coverage is not enough for
+Musi's current policy because these families remain ESLint-owned:
+
+- all `local/*` rules and their `meta.docs` repair guidance;
+- type-aware `@typescript-eslint` rules such as `no-unsafe-*`,
+  `restrict-template-expressions`, `unbound-method`,
+  `no-unnecessary-type-assertion`, and `promise-function-async`;
+- `@tanstack/query/*`, `eslint-comments/*`,
+  `import-x/no-extraneous-dependencies`, `simple-import-sort/*`, JSDoc, and
+  most regexp policy;
+- ratchet metrics such as `effective-line-count` and `complexity-severity`;
+- shell/config sensors outside JavaScript and TypeScript.
+
+Spot checks also found current-policy divergences. Biome's defaults flagged
+`packages/client/src/components/campaign/encounters/encounter-detail-view.tsx`
+with `lint/correctness/useExhaustiveDependencies` even though ESLint passes,
+and flagged a literal repair-guidance string in
+`eslint-rules/structured-logging.js` with
+`lint/suspicious/noTemplateCurlyInString`. On the path-policy lintable file
+list, default Biome lint reported 77 errors, 737 warnings, and 258 infos
+across 1,851 files while current full ESLint still passes its configured
+surface.
+
+Latency measurements on the warmed workspace:
+
+| Slice | ESLint/current command | Biome command | Result |
+| --- | ---: | ---: | --- |
+| Single TSX file lint | 2,591 ms | 51 ms | Biome about 51x faster, but nonzero due default diagnostics. |
+| Current post-edit sequence | 286 ms Prettier + 2,829 ms ESLint fix | 50 ms Biome lint write | Biome lint-only is far faster; it does not replace Prettier. |
+| Five-file changed slice | 760 ms cached ESLint | 53 ms Biome lint | Biome about 14x faster, but nonzero due default diagnostics. |
+| Full path-policy lintable list | 3,655 ms cached ESLint | 638 ms Biome lint | Biome about 5.7x faster across 1,851 files. |
+
+The full-run comparison is directional rather than a gate-for-gate equivalent:
+ESLint used the repository's configured `eslint .` surface, while Biome used
+the broader path-policy lintable list because no Biome path policy exists yet.
+
+Diff-churn checks:
+
+- Actual Prettier check and ESLint `--fix-dry-run` reported no changes for the
+  six representative files.
+- `biome lint --write` made no safe-fix changes on those files, but still
+  reported policy-divergent diagnostics.
+- `biome check --write` after `biome migrate prettier --write` reordered
+  imports in `packages/server/src/routers/encounter.ts` and
+  `scripts/lint-agent.ts`. A following ESLint `--fix` restored both import
+  orders, proving a direct conflict with the current import-sort owner.
+
+Practical next step, if Biome is revisited: add a non-blocking or opt-in
+lint-only command that disables formatter and assist behavior, enables only a
+small allowlist of mechanical rules, and fixture-tests JSON reporter parsing
+before any post-edit hook integration. Do not add a ratchet or CI gate until
+the adapter has stable category mapping, explicit path policy, and a committed
+baseline strategy.
 
 ## Musi Surfaces
 
