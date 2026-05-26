@@ -12,6 +12,7 @@ const DEFAULT_BLOCK_THRESHOLD_MEBIBYTES = 5;
 const BYTES_PER_KIBIBYTE = 1024;
 const BYTES_PER_MEBIBYTE = BYTES_PER_KIBIBYTE * BYTES_PER_KIBIBYTE;
 const PROCESS_ARGV_USER_ARGS_START = 2;
+const HELP_FLAGS = new Set(["--help", "-h"]);
 
 export const DEFAULT_WARN_THRESHOLD_BYTES = DEFAULT_WARN_THRESHOLD_KIBIBYTES * BYTES_PER_KIBIBYTE;
 export const DEFAULT_BLOCK_THRESHOLD_BYTES = DEFAULT_BLOCK_THRESHOLD_MEBIBYTES * BYTES_PER_MEBIBYTE;
@@ -124,7 +125,7 @@ function parseArgs(argv: readonly string[]): BlobSizeCliOptions {
   let allowlistPath = DEFAULT_ALLOWLIST_PATH;
 
   for (const arg of argv) {
-    if (arg === "--help" || arg === "-h") throw new BlobSizeHelp();
+    if (HELP_FLAGS.has(arg)) throw new BlobSizeHelp();
     if (arg === "--check") {
       mode = "check";
       continue;
@@ -223,7 +224,7 @@ function readAllowlist(cwd: string, allowlistPath: string): ParsedAllowlist {
 function allowlistFinding(allowlistPath: string, line: number): BlobSizeAllowlistFinding {
   return {
     severity: "warn",
-    file: `${allowlistPath}:${line}`,
+    file: `${allowlistPath}:${String(line)}`,
     message: "allowlist entry must be '<relative-path> # reason'",
   };
 }
@@ -284,7 +285,7 @@ function formatBlobSizeText(
 ): string {
   const modeLabel = options.mode === "block" ? "blocking" : "report-only";
   const lines = [
-    `sensor:blob-size (${modeLabel}) -- warn ${options.thresholdWarn} bytes, block ${options.thresholdBlock} bytes`,
+    `sensor:blob-size (${modeLabel}) -- warn ${String(options.thresholdWarn)} bytes, block ${String(options.thresholdBlock)} bytes`,
   ];
   if (findings.length === 0) {
     lines.push("OK: no staged blob-size findings");
@@ -302,8 +303,8 @@ function formatFinding(finding: BlobSizeFinding): string {
   }
   const prefix = finding.severity === "block" ? "BLOCK" : "WARN";
   return [
-    `${prefix}: ${finding.file}: staged blob is ${finding.sizeBytes} bytes;`,
-    `exceeds ${finding.severity} threshold ${finding.thresholdBytes} bytes`,
+    `${prefix}: ${finding.file}: staged blob is ${String(finding.sizeBytes)} bytes;`,
+    `exceeds ${finding.severity} threshold ${String(finding.thresholdBytes)} bytes`,
   ].join(" ");
 }
 

@@ -1,8 +1,8 @@
-import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 
+import { trackedFilesFromGit } from "./lint-ratchet/git-tracked-files.js";
+import { BASELINE_FILENAME, baselinePath, repoRoot } from "./lint-ratchet/paths.js";
+import { matchesRatchet } from "./lint-ratchet/ratchet-globs.js";
 import {
   parseLintRatchetBaselineStructure,
   validateLintRatchetRegistry,
@@ -16,11 +16,7 @@ import {
 import { ConfigError } from "./lint-ratchet-metrics.js";
 import { formatRuleDocsFailures, loadLintRuleDocs } from "./lint-rule-docs.js";
 
-const BASELINE_FILENAME = "lint-ratchet.baseline.json";
 const WINDOWS_ABSOLUTE_PATH_PATTERN = /^[A-Z]:[\\/]/iu;
-
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const baselinePath = join(repoRoot, BASELINE_FILENAME);
 
 export type RegistryCheckFailureKind =
   | "registry-shape"
@@ -85,64 +81,6 @@ function absolutePathFailures(
   return failures;
 }
 
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
-}
-
-function braceAlternative(pattern: string, start: number): { readonly source: string; readonly next: number } | undefined {
-  const end = pattern.indexOf("}", start + 1);
-  if (end === -1) return undefined;
-  const parts = pattern
-    .slice(start + 1, end)
-    .split(",")
-    .map((part) => escapeRegExp(part));
-  return { source: `(?:${parts.join("|")})`, next: end + 1 };
-}
-
-function globToRegExp(pattern: string): RegExp {
-  let source = "^";
-  let index = 0;
-  while (index < pattern.length) {
-    const char = pattern[index] ?? "";
-    if (char === "*" && pattern[index + 1] === "*") {
-      if (pattern[index + 2] === "/") {
-        source += "(?:[^/]+/)*";
-        index += 3;
-      } else {
-        source += ".*";
-        index += 2;
-      }
-    } else if (char === "*") {
-      source += "[^/]*";
-      index += 1;
-    } else if (char === "?") {
-      source += "[^/]";
-      index += 1;
-    } else if (char === "{") {
-      const alternative = braceAlternative(pattern, index);
-      if (alternative === undefined) {
-        source += "\\{";
-        index += 1;
-      } else {
-        source += alternative.source;
-        index = alternative.next;
-      }
-    } else {
-      source += escapeRegExp(char);
-      index += 1;
-    }
-  }
-  return new RegExp(`${source}$`, "u");
-}
-
-function matchesAny(path: string, patterns: readonly string[]): boolean {
-  return patterns.some((pattern) => globToRegExp(pattern).test(path));
-}
-
-function matchesRatchet(ratchet: LintRatchetConfig, trackedFile: string): boolean {
-  return matchesAny(trackedFile, ratchet.files) && !matchesAny(trackedFile, ratchet.ignores);
-}
-
 function emptyGlobFailures(
   ratchets: readonly LintRatchetConfig[],
   trackedFiles: readonly string[],
@@ -200,18 +138,6 @@ export function checkLintRatchetRegistry(
   return { ok: failures.length === 0, failures };
 }
 
-function trackedFilesFromGit(): readonly string[] {
-  try {
-    return execFileSync("git", ["ls-files"], { cwd: repoRoot, encoding: "utf8" })
-      .split("\n")
-      .filter((line) => line.length > 0)
-      .sort((left, right) => left.localeCompare(right));
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "unknown error";
-    throw new ConfigError(`git ls-files failed while checking lint ratchet globs: ${message}`);
-  }
-}
-
 async function loadRuleDocsById(): Promise<ReadonlyMap<string, string>> {
   const { entries, failures } = await loadLintRuleDocs(repoRoot);
   if (failures.length > 0) throw new ConfigError(formatRuleDocsFailures(failures));
@@ -227,24 +153,41 @@ function writeResult(result: RegistryCheckResult, ratchetCount: number): void {
     console.error(`lint:ratchet:check-registry OK — ${String(ratchetCount)} ratchets validated.`);
     return;
   }
-  console.error(
-    `lint:ratchet:check-registry FAIL — ${String(result.failures.length)} failure(s).`,
-  );
-  for (const failure of result.failures) {
-    console.error(`${failure.kind}: ${failure.message}`);
-  }
+  console.error(formatRegistryCheckFailures("lint:ratchet:check-registry", result.failures));
   process.exitCode = 1;
 }
 
-export async function runLintRatchetCheckRegistry(): Promise<void> {
+function formatRegistryCheckFailures(
+  label: string,
+  failures: readonly RegistryCheckFailure[],
+): string {
+  return [
+    `${label} FAIL — ${String(failures.length)} failure(s).`,
+    ...failures.map((failure) => `${failure.kind}: ${failure.message}`),
+  ].join("\n");
+}
+
+async function checkCurrentLintRatchetRegistry(): Promise<RegistryCheckResult> {
   const ruleDocsById = await loadRuleDocsById();
-  const result = checkLintRatchetRegistry({
+  return checkLintRatchetRegistry({
     ratchets: lintRatchets,
     localRuleIds: new Set(ruleDocsById.keys()),
     thirdPartyPlugins: lintRatchetThirdPartyPluginAllowlist,
-    trackedFiles: trackedFilesFromGit(),
+    trackedFiles: trackedFilesFromGit("checking lint ratchet globs"),
     baselineText: baselineTextIfPresent(),
     baselineLabel: BASELINE_FILENAME,
   });
+}
+
+export async function assertLintRatchetRegistryClean(): Promise<void> {
+  const result = await checkCurrentLintRatchetRegistry();
+  if (result.ok) return;
+  throw new ConfigError(
+    formatRegistryCheckFailures("lint:ratchet registry preflight", result.failures),
+  );
+}
+
+export async function runLintRatchetCheckRegistry(): Promise<void> {
+  const result = await checkCurrentLintRatchetRegistry();
   writeResult(result, lintRatchets.length);
 }

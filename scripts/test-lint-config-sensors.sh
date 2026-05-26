@@ -4,10 +4,18 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=./test-git-env.sh
+. "$SCRIPT_DIR/test-git-env.sh"
+musi_clear_inherited_git_hook_env
+musi_exit_after_git_hook_env_assertion_if_requested
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 LINT_CONFIG_SENSORS="$SCRIPT_DIR/lint-config-sensors.sh"
 VERIFY_METADATA="$SCRIPT_DIR/verify-metadata.sh"
 YAMLLINT_CONFIG="$REPO_ROOT/.yamllint.yml"
+PATH_POLICY_QUERY="$SCRIPT_DIR/path-policy-query.ts"
+PATH_POLICY_QUERY_CORE="$SCRIPT_DIR/path-policy-query-core.ts"
+PATH_POLICY="$SCRIPT_DIR/path-policy.ts"
+PATH_POLICY_SMOKE_SUBJECTS="$SCRIPT_DIR/path-policy-smoke-subjects.ts"
 
 PASS=0
 fail() { printf 'FAIL: %s\n' "$1" >&2; exit 1; }
@@ -27,9 +35,35 @@ require_path_bin() {
   command -v "$command_name"
 }
 
-remove_hadolint_cache() {
+hadolint_test_lock_file() {
+  local cache_dir="$REPO_ROOT/node_modules/hadolint/.cache/hadolint"
+  mkdir -p "$cache_dir"
+  printf '%s\n' "$cache_dir/.musi-hadolint.lock"
+}
+
+run_with_hadolint_test_lock() {
+  local lock_file
+  if ! command -v flock >/dev/null 2>&1; then
+    "$@"
+    return
+  fi
+  lock_file="$(hadolint_test_lock_file)" || {
+    "$@"
+    return
+  }
+  (
+    flock 9
+    "$@"
+  ) 9>"$lock_file"
+}
+
+remove_hadolint_cache_unlocked() {
   find "$REPO_ROOT/node_modules/hadolint/.cache/hadolint" -maxdepth 1 -type f \
     -name 'hadolint-*' -delete 2>/dev/null || true
+}
+
+remove_hadolint_cache() {
+  run_with_hadolint_test_lock remove_hadolint_cache_unlocked
 }
 
 SANDBOX="$(mktemp -d /tmp/musi-lint-config-sensors-test.XXXXXX)"
@@ -48,6 +82,10 @@ new_repo() {
   git -C "$SANDBOX" init -q -b main "$repo"
   cp "$LINT_CONFIG_SENSORS" "$repo/scripts/lint-config-sensors.sh"
   cp "$VERIFY_METADATA" "$repo/scripts/verify-metadata.sh"
+  cp "$PATH_POLICY_QUERY" "$repo/scripts/path-policy-query.ts"
+  cp "$PATH_POLICY_QUERY_CORE" "$repo/scripts/path-policy-query-core.ts"
+  cp "$PATH_POLICY" "$repo/scripts/path-policy.ts"
+  cp "$PATH_POLICY_SMOKE_SUBJECTS" "$repo/scripts/path-policy-smoke-subjects.ts"
   cp "$YAMLLINT_CONFIG" "$repo/.yamllint.yml"
   cat > "$repo/.github/workflows/ci.yml" <<'YML'
 name: CI
@@ -107,6 +145,7 @@ run_lint_config_sensors() {
   (
     cd "$repo"
     MUSI_ACTIONLINT_BIN="$ACTIONLINT_BIN" \
+      MUSI_ACTIONLINT_TIMEOUT=8s \
       MUSI_TAPLO_BIN="$TAPLO_BIN" \
       bash scripts/lint-config-sensors.sh "$@"
   )
@@ -143,7 +182,7 @@ grep -qF 'github.nope' <<< "$output" || fail "actionlint output should name inva
 ok "actionlint fails on invalid workflow expression"
 
 repo="$(new_repo actionlint-second-workflow-violation)"
-cat > "$repo/.github/workflows/zz-bad.yml" <<'YML'
+cat > "$repo/.github/workflows/second-bad.yml" <<'YML'
 name: Bad Second Workflow
 on: push
 jobs:
@@ -157,7 +196,7 @@ output="$(run_lint_config_sensors "$repo" 2>&1)"
 exit_code=$?
 set -e
 [ "$exit_code" -ne 0 ] || fail "second actionlint fixture should fail"
-grep -qF '.github/workflows/zz-bad.yml' <<< "$output" \
+grep -qF '.github/workflows/second-bad.yml' <<< "$output" \
   || fail "actionlint output should name second workflow path: $output"
 grep -qF 'github.nope' <<< "$output" \
   || fail "actionlint output should name invalid expression in second workflow: $output"
@@ -211,5 +250,20 @@ set -e
 [ "$exit_code" -ne 0 ] || fail "changed config sensors should fail on staged TOML violation"
 grep -qF 'taplo' <<< "$output" || fail "changed config output should run taplo: $output"
 ok "changed config sensor mode fails on staged TOML violation"
+
+repo="$(new_repo changed-package-full-scan)"
+printf '[install\n' > "$repo/bunfig.toml"
+git -C "$repo" add bunfig.toml
+git -C "$repo" commit -qm "commit invalid toml fixture"
+printf '{"name":"changed-package-full-scan"}\n' > "$repo/package.json"
+git -C "$repo" add package.json
+set +e
+output="$(run_lint_config_sensors "$repo" --changed main 2>&1)"
+exit_code=$?
+set -e
+[ "$exit_code" -ne 0 ] || fail "package.json full-scan trigger should expose committed TOML violation"
+grep -qF 'taplo' <<< "$output" \
+  || fail "package.json full-scan trigger should run full TOML sensor set: $output"
+ok "changed package.json trigger runs full config sensor set"
 
 printf 'lint-config-sensors tests passed (%d)\n' "$PASS"

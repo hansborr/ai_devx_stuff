@@ -1,6 +1,6 @@
 # Agent Hook Git Safety
 
-Status: Implemented in working tree on 2026-05-08
+Status: Implemented on 2026-05-08
 Source: `docs/agent_notes/backlog/agent-hook-git-safety.md`
 
 ## Scope Landed

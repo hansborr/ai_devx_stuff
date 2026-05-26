@@ -113,7 +113,7 @@ afterEach(() => {
 });
 
 describe("lint ratchet check-registry", () => {
-  it("accepts the Musi registry fixture", async () => {
+  it("accepts the Musi registry fixture", { timeout: 15_000 }, async () => {
     const result = checkLintRatchetRegistry({
       ratchets: structuredClone(lintRatchets),
       localRuleIds: await localRuleIds(),
@@ -172,6 +172,29 @@ describe("lint ratchet check-registry", () => {
 
     const failure = failureOfKind(result.failures, "orphan-baseline");
     expect(failure.message).toContain(orphanRatchet.id);
+  });
+
+  it("validates zero-baseline lifecycle metadata shape", () => {
+    const result = checkLintRatchetRegistry({
+      ratchets: [
+        {
+          ...matchingRatchet,
+          zeroBaselineDisposition: {
+            kind: "temporary-ratchet-only",
+            reason: "",
+          },
+        },
+      ],
+      trackedFiles: ["packages/app/src/index.ts"],
+    });
+
+    const failureMessages = result.failures
+      .filter((failure) => failure.kind === "registry-shape")
+      .map((failure) => failure.message);
+    expect(failureMessages.some((message) => message.includes("reason must be non-empty"))).toBe(
+      true,
+    );
+    expect(failureMessages.some((message) => message.includes("exitPath is required"))).toBe(true);
   });
 
   it("returns byte-identical failure ordering for identical input", () => {

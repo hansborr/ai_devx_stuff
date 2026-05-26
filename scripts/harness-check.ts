@@ -11,10 +11,26 @@
 // Run via `bun run harness:check`. Exits non-zero on any failure with a
 // per-control diagnostic list so the harness gates surface drift loudly.
 
-import { existsSync, readFileSync } from "node:fs";
-import { dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { readFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
+import type { ControlFailures, RawControl } from "./harness-check-validation.js";
+import {
+  checkRatchetParity,
+  checkRuleParity,
+  checkScriptParity,
+  checkWrapperSlotParity,
+  extractBunRunScript,
+  formatFailures,
+  isNonEmptyString,
+  pushFailure,
+  validateControlShape,
+  validateLintRuleEntry,
+  validateNonLintEntry,
+  validateRatchetEntry,
+  validateSourceField,
+} from "./harness-check-validation.js";
 import { lintRatchets } from "./lint-ratchet-config.js";
 
 const CONTROL_PREFIX_PATTERN =
@@ -45,17 +61,17 @@ const EXEMPT_SCRIPTS = new Set<string>([
   "module:index:check",
   // lint family: `lint:changed` is the changed-file variant of the
   // lint runner (the per-rule manifest entries enumerate the gate);
-  // `lint:fix` is the repair entry point; `lint:agent` re-projects the
-  // same per-rule diagnostics into the harness-diagnostics envelope;
-  // `lint:agent:changed` is the changed-file variant of `lint:agent`
-  // (file selection only — the underlying control surface is the
-  // per-rule manifest entries above).
+  // `lint:fix` is the repair entry point. The preferred local-rule
+  // diagnostics envelope scripts are manifest entries; these old
+  // lint-agent names remain compatibility aliases for one transition.
   "lint:changed",
   "lint:fix",
   "lint:agent",
   "lint:agent:changed",
   "lint:ratchet:update",
-  "lint:ratchet:check-baseline", "lint:ratchet:check-registry", "lint:ratchet:report",
+  "lint:ratchet:check-baseline",
+  "lint:ratchet:check-registry",
+  "lint:ratchet:report",
   "lint:ratchet:summary",
   // worktree provisioning utilities — dev ergonomics, not enforcement
   // gates. `worktree:status` is the read-only sensor and IS in the
@@ -70,40 +86,6 @@ const EXEMPT_SCRIPTS = new Set<string>([
   "harness:check",
 ]);
 
-const KINDS = [
-  "lint-rule",
-  "ratchet",
-  "sensor",
-  "verify-wrapper",
-  "doctor-check",
-  "drift-scope",
-  "doc-generator",
-  "check",
-  "logs-audit",
-  "codemod",
-  "hook",
-] as const;
-
-const CATEGORIES = ["maintainability", "architecture-fitness", "behavior"] as const;
-const REPAIR_KINDS = ["autofix", "suggestion", "codemod", "manual"] as const;
-
-type ControlKind = (typeof KINDS)[number];
-type Category = (typeof CATEGORIES)[number];
-type RepairKind = (typeof REPAIR_KINDS)[number];
-
-interface RawControl {
-  readonly id?: unknown;
-  readonly kind?: unknown;
-  readonly ruleName?: unknown;
-  readonly category?: unknown;
-  readonly principle?: unknown;
-  readonly pairedGuide?: unknown;
-  readonly repairKind?: unknown;
-  readonly repairCommand?: unknown;
-  readonly source?: unknown;
-  readonly invocation?: unknown;
-}
-
 interface LocalPlugin {
   readonly rules: Record<string, { readonly meta?: { readonly docs?: unknown } }>;
 }
@@ -114,27 +96,6 @@ const packageJsonPath = join(repoRoot, "package.json");
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
-}
-
-function isNonEmptyString(value: unknown): value is string {
-  return typeof value === "string" && value.trim().length > 0;
-}
-
-function isControlKind(value: unknown): value is ControlKind {
-  return typeof value === "string" && KINDS.some((kind) => kind === value);
-}
-
-function isCategory(value: unknown): value is Category {
-  return typeof value === "string" && CATEGORIES.some((category) => category === value);
-}
-
-function isRepairKind(value: unknown): value is RepairKind {
-  return typeof value === "string" && REPAIR_KINDS.some((kind) => kind === value);
-}
-
-function isUnderRoot(candidate: string): boolean {
-  const relativePath = relative(repoRoot, candidate);
-  return relativePath === "" || (!relativePath.startsWith("..") && !isAbsolute(relativePath));
 }
 
 function hasLocalRules(value: unknown): value is LocalPlugin {
@@ -204,263 +165,6 @@ function loadManifest(): RawControl[] {
   return parsed.controls as unknown as RawControl[];
 }
 
-interface ControlFailures {
-  readonly id: string;
-  readonly failures: string[];
-}
-
-function pushFailure(failures: Map<string, ControlFailures>, id: string, message: string): void {
-  let bucket = failures.get(id);
-  if (bucket === undefined) {
-    bucket = { id, failures: [] };
-    failures.set(id, bucket);
-  }
-  bucket.failures.push(message);
-}
-
-function extractBunRunScript(invocation: string): string | undefined {
-  const trimmed = invocation.trim();
-  const prefix = "bun run ";
-  if (!trimmed.startsWith(prefix)) return undefined;
-  const rest = trimmed.slice(prefix.length).trim();
-  // The first whitespace-separated token is the script name; flags or
-  // additional positional args follow (e.g. `bun run drift:ai --scope current`,
-  // `bun run lint -- --max-warnings=0`).
-  const firstToken = rest.split(/\s+/u)[0];
-  return firstToken === "" ? undefined : firstToken;
-}
-
-function extractRepairCommandScript(repairCommand: string): string | undefined {
-  return extractBunRunScript(repairCommand);
-}
-
-function validateControlShape(
-  raw: RawControl,
-  failures: Map<string, ControlFailures>,
-): { id: string; kind: ControlKind } | undefined {
-  const id = raw.id;
-  if (!isNonEmptyString(id)) {
-    pushFailure(failures, "(missing id)", "id must be a non-empty string");
-    return undefined;
-  }
-  if (!isControlKind(raw.kind)) {
-    pushFailure(failures, id, `kind must be one of: ${KINDS.join(", ")}`);
-    return undefined;
-  }
-  return { id, kind: raw.kind };
-}
-
-function validateSourceField(
-  id: string,
-  source: unknown,
-  failures: Map<string, ControlFailures>,
-): void {
-  if (!isNonEmptyString(source)) {
-    pushFailure(failures, id, "source must be a non-empty string");
-    return;
-  }
-  const resolved = resolve(repoRoot, source);
-  if (!isUnderRoot(resolved)) {
-    pushFailure(failures, id, "source must resolve under repoRoot");
-    return;
-  }
-  if (!existsSync(resolved)) {
-    pushFailure(failures, id, `source does not resolve to an existing file: ${source}`);
-  }
-}
-
-function validatePairedGuideField(
-  id: string,
-  pairedGuide: unknown,
-  failures: Map<string, ControlFailures>,
-): void {
-  if (!isNonEmptyString(pairedGuide)) {
-    pushFailure(failures, id, 'pairedGuide must be "none" or a non-empty path string');
-    return;
-  }
-  if (pairedGuide === "none") return;
-  const resolved = resolve(repoRoot, pairedGuide);
-  if (!isUnderRoot(resolved)) {
-    pushFailure(failures, id, "pairedGuide must resolve under repoRoot");
-    return;
-  }
-  if (!existsSync(resolved)) {
-    pushFailure(
-      failures,
-      id,
-      `pairedGuide does not resolve to an existing file: ${pairedGuide}`,
-    );
-  }
-}
-
-function validateRepairCommandField(
-  id: string,
-  repairKind: RepairKind,
-  repairCommand: unknown,
-  scripts: ReadonlyMap<string, string>,
-  failures: Map<string, ControlFailures>,
-): void {
-  if (repairKind !== "codemod") {
-    if (repairCommand !== undefined) {
-      pushFailure(failures, id, "repairCommand must be absent unless repairKind is codemod");
-    }
-    return;
-  }
-  if (!isNonEmptyString(repairCommand)) {
-    pushFailure(
-      failures,
-      id,
-      "repairCommand must be a non-empty string when repairKind is codemod",
-    );
-    return;
-  }
-  const scriptName = extractRepairCommandScript(repairCommand);
-  if (scriptName === undefined) {
-    pushFailure(
-      failures,
-      id,
-      `repairCommand must start with "bun run "; got: ${repairCommand}`,
-    );
-    return;
-  }
-  if (!scripts.has(scriptName)) {
-    pushFailure(
-      failures,
-      id,
-      `repairCommand references unknown package.json script: ${scriptName}`,
-    );
-  }
-}
-
-function validateLintRuleEntry(
-  raw: RawControl,
-  id: string,
-  ruleNames: ReadonlySet<string>,
-  failures: Map<string, ControlFailures>,
-): { ruleName: string } | undefined {
-  if (!isNonEmptyString(raw.ruleName)) {
-    pushFailure(failures, id, "lint-rule entries must declare ruleName");
-    return undefined;
-  }
-  if (!ruleNames.has(raw.ruleName)) {
-    pushFailure(
-      failures,
-      id,
-      `ruleName ${raw.ruleName} is not registered in the local ESLint plugin`,
-    );
-    return undefined;
-  }
-  for (const field of ["category", "principle", "pairedGuide", "repairKind", "repairCommand"] as const) {
-    if (raw[field] !== undefined) {
-      pushFailure(
-        failures,
-        id,
-        `lint-rule entries must not restate ${field}; it is re-projected from meta.docs`,
-      );
-    }
-  }
-  return { ruleName: raw.ruleName };
-}
-
-function validateNonLintEntry(
-  raw: RawControl,
-  id: string,
-  scripts: ReadonlyMap<string, string>,
-  failures: Map<string, ControlFailures>,
-): void {
-  if (raw.ruleName !== undefined) {
-    pushFailure(failures, id, "ruleName is only allowed on lint-rule entries");
-  }
-  if (!isCategory(raw.category)) {
-    pushFailure(failures, id, `category must be one of: ${CATEGORIES.join(", ")}`);
-  }
-  if (!isNonEmptyString(raw.principle)) {
-    pushFailure(failures, id, "principle must be a non-empty string");
-  }
-  validatePairedGuideField(id, raw.pairedGuide, failures);
-  if (!isRepairKind(raw.repairKind)) {
-    pushFailure(failures, id, `repairKind must be one of: ${REPAIR_KINDS.join(", ")}`);
-  } else {
-    validateRepairCommandField(id, raw.repairKind, raw.repairCommand, scripts, failures);
-  }
-  if (!isNonEmptyString(raw.invocation)) {
-    pushFailure(failures, id, "invocation must be a non-empty string");
-  }
-}
-
-function validateRatchetEntry(
-  raw: RawControl,
-  id: string,
-  ratchetIds: ReadonlySet<string>,
-  scripts: ReadonlyMap<string, string>,
-  failures: Map<string, ControlFailures>,
-): void {
-  validateNonLintEntry(raw, id, scripts, failures);
-  if (!ratchetIds.has(id)) {
-    pushFailure(failures, id, "ratchet id is not exported by scripts/lint-ratchet-config.ts");
-  }
-}
-
-function checkScriptParity(
-  scripts: ReadonlyMap<string, string>,
-  declaredScripts: ReadonlySet<string>,
-  failures: Map<string, ControlFailures>,
-): void {
-  for (const name of scripts.keys()) {
-    if (!CONTROL_PREFIX_PATTERN.test(name)) continue;
-    if (EXEMPT_SCRIPTS.has(name)) continue;
-    if (declaredScripts.has(name)) continue;
-    pushFailure(
-      failures,
-      "(parity)",
-      `package.json script "${name}" is not declared in the manifest and not exempt`,
-    );
-  }
-}
-
-function checkRuleParity(
-  ruleNames: ReadonlySet<string>,
-  declaredRules: ReadonlySet<string>,
-  failures: Map<string, ControlFailures>,
-): void {
-  for (const ruleName of ruleNames) {
-    if (!declaredRules.has(ruleName)) {
-      pushFailure(
-        failures,
-        "(parity)",
-        `local rule ${ruleName} is not declared in the manifest`,
-      );
-    }
-  }
-}
-
-function checkRatchetParity(
-  ratchetIds: ReadonlySet<string>,
-  declaredRatchets: ReadonlySet<string>,
-  failures: Map<string, ControlFailures>,
-): void {
-  for (const ratchetId of ratchetIds) {
-    if (!declaredRatchets.has(ratchetId)) {
-      pushFailure(
-        failures,
-        "(parity)",
-        `ratchet ${ratchetId} is not declared in the manifest as kind: "ratchet"`,
-      );
-    }
-  }
-}
-
-function formatFailures(failures: ReadonlyMap<string, ControlFailures>): string {
-  const lines = ["harness:check found drift between harness.controls.json and the live tree:"];
-  for (const entry of failures.values()) {
-    lines.push(`- ${entry.id}:`);
-    for (const message of entry.failures) {
-      lines.push(`    ${message}`);
-    }
-  }
-  return lines.join("\n");
-}
-
 async function main(): Promise<void> {
   const args = process.argv.slice(2).filter((arg) => arg !== "--");
   if (args.length > 0) {
@@ -482,7 +186,7 @@ async function main(): Promise<void> {
     const shape = validateControlShape(raw, failures);
     if (shape === undefined) continue;
     const { id, kind } = shape;
-    validateSourceField(id, raw.source, failures);
+    validateSourceField(repoRoot, id, raw.source, failures);
 
     if (kind === "lint-rule") {
       const lintEntry = validateLintRuleEntry(raw, id, ruleNames, failures);
@@ -491,10 +195,10 @@ async function main(): Promise<void> {
         pushFailure(failures, id, "invocation must be a non-empty string");
       }
     } else if (kind === "ratchet") {
-      validateRatchetEntry(raw, id, ratchetIds, scripts, failures);
+      validateRatchetEntry(repoRoot, raw, id, ratchetIds, scripts, failures);
       if (ratchetIds.has(id)) declaredRatchets.add(id);
     } else {
-      validateNonLintEntry(raw, id, scripts, failures);
+      validateNonLintEntry(repoRoot, raw, id, scripts, failures);
     }
 
     if (isNonEmptyString(raw.invocation)) {
@@ -515,7 +219,8 @@ async function main(): Promise<void> {
 
   checkRuleParity(ruleNames, declaredRules, failures);
   checkRatchetParity(ratchetIds, declaredRatchets, failures);
-  checkScriptParity(scripts, declaredScripts, failures);
+  checkWrapperSlotParity(repoRoot, controls, scripts, declaredScripts, failures);
+  checkScriptParity(CONTROL_PREFIX_PATTERN, EXEMPT_SCRIPTS, scripts, declaredScripts, failures);
 
   if (failures.size > 0) {
     console.error(formatFailures(failures));

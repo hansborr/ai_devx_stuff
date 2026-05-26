@@ -3,21 +3,23 @@
 // repairKind / repairCommand from the rule's own meta.docs so there is one
 // source of truth.
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
+  formatValidationFailures,
+  resolveControl,
+} from "./generate-harness-controls-validation.js";
+import {
   loadLintRuleDocs,
-  RULE_DOC_CATEGORIES,
-  RULE_DOC_REPAIR_KINDS,
   type RuleDocCategory,
   type RuleDocRepairKind,
   type RuleDocs,
 } from "./lint-rule-docs.js";
 
 const PROCESS_ARG_OFFSET = 2;
-const KINDS = [
+export const KINDS = [
   "lint-rule",
   "ratchet",
   "sensor",
@@ -31,9 +33,9 @@ const KINDS = [
   "hook",
 ] as const;
 
-type ControlCategory = RuleDocCategory;
-type RepairKind = RuleDocRepairKind;
-type ControlKind = (typeof KINDS)[number];
+export type ControlCategory = RuleDocCategory;
+export type RepairKind = RuleDocRepairKind;
+export type ControlKind = (typeof KINDS)[number];
 
 const KIND_HEADINGS: Record<ControlKind, string> = {
   "lint-rule": "Lint rules",
@@ -49,7 +51,7 @@ const KIND_HEADINGS: Record<ControlKind, string> = {
   hook: "Hooks",
 };
 
-interface RawControl {
+export interface RawControl {
   readonly id: string;
   readonly kind: string;
   readonly ruleName?: string;
@@ -60,9 +62,22 @@ interface RawControl {
   readonly repairCommand?: string;
   readonly source?: string;
   readonly invocation?: string;
+  readonly slots?: readonly RawControlSlot[];
 }
 
-interface ResolvedControl {
+export interface RawControlSlot {
+  readonly name?: unknown;
+  readonly script?: unknown;
+  readonly condition?: unknown;
+}
+
+export interface ControlSlot {
+  readonly name: string;
+  readonly script: string;
+  readonly condition?: string;
+}
+
+export interface ResolvedControl {
   readonly id: string;
   readonly kind: ControlKind;
   readonly ruleName?: string;
@@ -73,9 +88,10 @@ interface ResolvedControl {
   readonly repairCommand?: string;
   readonly source: string;
   readonly invocation: string;
+  readonly slots?: readonly ControlSlot[];
 }
 
-interface ControlValidationFailure {
+export interface ControlValidationFailure {
   readonly id: string;
   readonly failures: readonly string[];
 }
@@ -90,177 +106,6 @@ function isObject(value: unknown): value is Record<string, unknown> {
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
-}
-
-function isControlCategory(value: unknown): value is ControlCategory {
-  return typeof value === "string" && RULE_DOC_CATEGORIES.some((category) => category === value);
-}
-
-function isRepairKind(value: unknown): value is RepairKind {
-  return typeof value === "string" && RULE_DOC_REPAIR_KINDS.some((kind) => kind === value);
-}
-
-function isControlKind(value: unknown): value is ControlKind {
-  return typeof value === "string" && KINDS.some((kind) => kind === value);
-}
-
-function isUnderRoot(root: string, candidate: string): boolean {
-  const relativePath = relative(root, candidate);
-  return relativePath === "" || (!relativePath.startsWith("..") && !isAbsolute(relativePath));
-}
-
-function validatePairedGuide(value: string, failures: string[]): void {
-  if (value === "none") return;
-  const resolved = resolve(repoRoot, value);
-  if (!isUnderRoot(repoRoot, resolved)) {
-    failures.push("pairedGuide must resolve under repoRoot");
-    return;
-  }
-  if (!existsSync(resolved)) {
-    failures.push(`pairedGuide does not resolve to an existing file: ${value}`);
-  }
-}
-
-function validateSource(value: string, failures: string[]): void {
-  const resolved = resolve(repoRoot, value);
-  if (!isUnderRoot(repoRoot, resolved)) {
-    failures.push("source must resolve under repoRoot");
-    return;
-  }
-  if (!existsSync(resolved)) {
-    failures.push(`source does not resolve to an existing file: ${value}`);
-  }
-}
-
-function resolveLintRuleControl(
-  raw: RawControl,
-  ruleDocs: ReadonlyMap<string, RuleDocs>,
-  failures: string[],
-): ResolvedControl | undefined {
-  const ruleName = raw.ruleName;
-  if (!isNonEmptyString(ruleName)) {
-    failures.push("lint-rule entries must declare a ruleName");
-    return undefined;
-  }
-  const docs = ruleDocs.get(ruleName);
-  if (docs === undefined) {
-    failures.push(`ruleName ${ruleName} has no parseable meta.docs in eslint.config.js`);
-    return undefined;
-  }
-  for (const field of ["category", "principle", "pairedGuide", "repairKind", "repairCommand"] as const) {
-    if (raw[field] !== undefined) {
-      failures.push(`lint-rule entries must not restate ${field}; it is re-projected from meta.docs`);
-    }
-  }
-  if (!isNonEmptyString(raw.source)) {
-    failures.push("source must be a non-empty string");
-    return undefined;
-  }
-  if (!isNonEmptyString(raw.invocation)) {
-    failures.push("invocation must be a non-empty string");
-    return undefined;
-  }
-  validateSource(raw.source, failures);
-  if (failures.length > 0) return undefined;
-  return {
-    id: raw.id,
-    kind: "lint-rule",
-    ruleName,
-    category: docs.category,
-    principle: docs.principle,
-    pairedGuide: docs.pairedGuide,
-    repairKind: docs.repairKind,
-    ...(docs.repairCommand !== undefined ? { repairCommand: docs.repairCommand } : {}),
-    source: raw.source,
-    invocation: raw.invocation,
-  };
-}
-
-function resolveNonLintControl(
-  raw: RawControl,
-  kind: ControlKind,
-  failures: string[],
-): ResolvedControl | undefined {
-  if (raw.ruleName !== undefined) {
-    failures.push("ruleName is only allowed on lint-rule entries");
-  }
-  if (!isControlCategory(raw.category)) {
-    failures.push(`category must be one of: ${RULE_DOC_CATEGORIES.join(", ")}`);
-  }
-  if (!isNonEmptyString(raw.principle)) {
-    failures.push("principle must be a non-empty string");
-  }
-  if (!isNonEmptyString(raw.pairedGuide)) {
-    failures.push('pairedGuide must be "none" or a non-empty path string');
-  } else {
-    validatePairedGuide(raw.pairedGuide, failures);
-  }
-  if (!isRepairKind(raw.repairKind)) {
-    failures.push(`repairKind must be one of: ${RULE_DOC_REPAIR_KINDS.join(", ")}`);
-  }
-  const hasRepairCommand = raw.repairCommand !== undefined;
-  if (raw.repairKind === "codemod") {
-    if (!isNonEmptyString(raw.repairCommand)) {
-      failures.push("repairCommand must be a non-empty string when repairKind is codemod");
-    }
-  } else if (hasRepairCommand) {
-    failures.push("repairCommand must be absent unless repairKind is codemod");
-  }
-  if (!isNonEmptyString(raw.source)) {
-    failures.push("source must be a non-empty string");
-  } else {
-    validateSource(raw.source, failures);
-  }
-  if (!isNonEmptyString(raw.invocation)) {
-    failures.push("invocation must be a non-empty string");
-  }
-  if (failures.length > 0) return undefined;
-  /*
-   * type-assertion-boundary: json - each field above was shape-validated by an
-   * `isControlCategory` / `isRepairKind` / `isNonEmptyString` type guard, but
-   * the guards push into `failures` rather than early-returning (so the caller
-   * sees every problem at once), and TypeScript can't carry the per-field
-   * narrowings through the intermediate `failures.push(...)` statements. The
-   * casts narrow back to the validated shape at the single return point.
-   */
-  return {
-    id: raw.id,
-    kind,
-    category: raw.category as ControlCategory,
-    principle: raw.principle as string,
-    pairedGuide: raw.pairedGuide as string,
-    repairKind: raw.repairKind as RepairKind,
-    ...(raw.repairCommand !== undefined ? { repairCommand: raw.repairCommand } : {}),
-    source: raw.source as string,
-    invocation: raw.invocation as string,
-  };
-}
-
-function resolveControl(
-  raw: RawControl,
-  ruleDocs: ReadonlyMap<string, RuleDocs>,
-): ResolvedControl | ControlValidationFailure {
-  const failures: string[] = [];
-  if (!isControlKind(raw.kind)) {
-    failures.push(`kind must be one of: ${KINDS.join(", ")}`);
-    return { id: raw.id, failures };
-  }
-  const resolved =
-    raw.kind === "lint-rule"
-      ? resolveLintRuleControl(raw, ruleDocs, failures)
-      : resolveNonLintControl(raw, raw.kind, failures);
-  if (resolved === undefined) {
-    return { id: raw.id, failures };
-  }
-  return resolved;
-}
-
-function formatValidationFailures(failures: readonly ControlValidationFailure[]): string {
-  const lines = ["Invalid harness manifest entries:"];
-  for (const failure of failures) {
-    lines.push(`- ${failure.id}: ${failure.failures.join("; ")}`);
-  }
-  return lines.join("\n");
 }
 
 function readManifest(): RawControl[] {
@@ -308,14 +153,12 @@ async function collectControls(): Promise<ResolvedControl[] | undefined> {
       .join("\n");
     throw new Error(`Failed to load local rule meta.docs:\n${detail}`);
   }
-  const ruleDocs = new Map<string, RuleDocs>(
-    ruleDocEntries.map((entry) => [entry.id, entry]),
-  );
+  const ruleDocs = new Map<string, RuleDocs>(ruleDocEntries.map((entry) => [entry.id, entry]));
   const rawControls = readManifest();
   const entries: ResolvedControl[] = [];
   const failures: ControlValidationFailure[] = [];
   for (const raw of rawControls) {
-    const result = resolveControl(raw, ruleDocs);
+    const result = resolveControl(raw, ruleDocs, repoRoot);
     if ("failures" in result) {
       failures.push(result);
     } else {
@@ -347,6 +190,17 @@ function formatRepair(entry: ResolvedControl): string {
     throw new Error(`Missing repair command for ${entry.id}`);
   }
   return `${entry.repairKind} — \`${command}\``;
+}
+
+function formatSlots(slots: readonly ControlSlot[] | undefined): string[] {
+  if (slots === undefined || slots.length === 0) return [];
+  const lines = ["**Slots:**", ""];
+  for (const slot of slots) {
+    const condition = slot.condition === undefined ? "" : ` (${slot.condition})`;
+    lines.push(`- \`${slot.name}\` — \`${slot.script}\`${condition}`);
+  }
+  lines.push("");
+  return lines;
 }
 
 function renderMarkdown(entries: readonly ResolvedControl[]): string {
@@ -385,6 +239,7 @@ function renderMarkdown(entries: readonly ResolvedControl[]): string {
     lines.push("");
     lines.push(`**Invocation:** \`${entry.invocation}\``);
     lines.push("");
+    lines.push(...formatSlots(entry.slots));
     lines.push(`**Paired guide:** ${formatPairedGuide(entry.pairedGuide)}`);
     lines.push("");
     lines.push(`**Repair:** ${formatRepair(entry)}`);

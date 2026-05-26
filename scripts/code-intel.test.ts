@@ -17,7 +17,7 @@ import path from "node:path";
 import { ModuleKind, ModuleResolutionKind, Project, ScriptTarget, ts } from "ts-morph";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import type { CodeIntelQueryResult, ExecutableCliCommand, IntelResult } from "./code-intel.js";
+import type { CodeIntelQueryResult, ExecutableCliCommand, IntelResult, WorkspaceResolver } from "./code-intel.js";
 import {
   buildImportGraph,
   CODE_INTEL_DAEMON_PROTOCOL_VERSION,
@@ -130,7 +130,7 @@ function addSource(project: Project, file: string, text: string): void {
   project.createSourceFile(sourcePath(file), text, { overwrite: true });
 }
 
-function createFixtureResolver(project: Project) {
+function createFixtureResolver(project: Project): WorkspaceResolver {
   return createWorkspaceResolver(repoRoot, {
     fileExists: (filePath) => project.getSourceFile(path.resolve(filePath)) !== undefined,
     fileIsFile: (filePath) => project.getSourceFile(path.resolve(filePath)) !== undefined,
@@ -138,7 +138,7 @@ function createFixtureResolver(project: Project) {
   });
 }
 
-function graphFor(project: Project, resolver: ReturnType<typeof createFixtureResolver>) {
+function graphFor(project: Project, resolver: WorkspaceResolver): ReturnType<typeof buildImportGraph> {
   return buildImportGraph(project.getSourceFiles(), resolver);
 }
 
@@ -318,7 +318,7 @@ describe("code intel queries", () => {
     addSource(
       project,
       "packages/client/src/hooks/use-character.ts",
-      `${nearNames.map((name, index) => `export const ${name} = ${index};`).join("\n")}\n`,
+      `${nearNames.map((name, index) => `export const ${name} = ${String(index)};`).join("\n")}\n`,
     );
     addSource(project, "scripts/builders.ts", "const buildEncounterDraft = () => 1;\n");
     const resolver = createFixtureResolver(project);
@@ -596,7 +596,7 @@ describe("code intel queries", () => {
     const snapped = runCodeIntel(["refs", "packages/shared/src/rules/core.ts:1:13"], context);
     expect(snapped).toBe(textOutput);
 
-    const jsonOutput = JSON.parse(
+    const jsonOutput: unknown = JSON.parse(
       runCodeIntel(["refs", "packages/shared/src/rules/core.ts:1:14", "--format=json"], context),
     );
     expect(jsonOutput).toMatchObject({
@@ -604,7 +604,7 @@ describe("code intel queries", () => {
       count: 10,
     });
 
-    const limitedJson = JSON.parse(
+    const limitedJson: unknown = JSON.parse(
       runCodeIntel(
         ["refs", "packages/shared/src/rules/core.ts:1:14", "--limit", "2", "--format=json"],
         context,

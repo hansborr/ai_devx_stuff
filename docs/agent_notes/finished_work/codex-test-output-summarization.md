@@ -1,6 +1,6 @@
 # Codex Test Output Summarization Handoff
 
-Status: Implemented in working tree on 2026-05-08; targeted smoke tests and
+Status: Implemented on 2026-05-08; targeted smoke tests and
 real Codex single-file pass/fail checks have been run. Cross-verified from
 Claude on the same date.
 Source: human noticed that passing tests still leave large output blocks in the

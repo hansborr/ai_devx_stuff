@@ -18,6 +18,10 @@
 set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=./test-git-env.sh
+. "$SCRIPT_DIR/test-git-env.sh"
+musi_clear_inherited_git_hook_env
+musi_exit_after_git_hook_env_assertion_if_requested
 REPO_ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel)"
 VITEST_BIN="$REPO_ROOT/node_modules/.bin/vitest"
 TEST_SLOW_SH="$SCRIPT_DIR/test-slow.sh"

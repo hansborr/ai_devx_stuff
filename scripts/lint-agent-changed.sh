@@ -1,6 +1,6 @@
 #!/bin/bash
-# lint-agent-changed.sh — emit the agent-facing JSON envelope, scoped to
-# files an in-progress branch has touched vs a base ref. Unlike
+# lint-agent-changed.sh — emit the local-rule agent-facing JSON envelope,
+# scoped to files an in-progress branch has touched vs a base ref. Unlike
 # lint:changed, this script does NOT fail on unstaged work: agents are
 # expected to run this against their uncommitted changes. The scoping
 # rule is "any file appearing in committed (base..HEAD) or working-tree
@@ -18,16 +18,18 @@
 # the contract surface (not a no-op exit with no JSON).
 #
 # Debug: pass --print-files to print the file selection outcome (FULL_SCAN /
-# EMPTY / one file per line) instead of invoking lint:agent. Used by
-# scripts/test-lint-agent-changed.sh.
+# EMPTY / one file per line) instead of invoking lint:agent:local-rules.
+# Used by scripts/test-lint-agent-changed.sh.
 set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CALLER_CWD="$PWD"
 cd "$(git rev-parse --show-toplevel)"
+PATH_POLICY_QUERY="$SCRIPT_DIR/path-policy-query.ts"
+COMMAND_LABEL="lint:agent:local-rules:changed"
 
 usage_error() {
-  printf 'lint:agent:changed: %s\n' "$1" >&2
+  printf '%s: %s\n' "$COMMAND_LABEL" "$1" >&2
   printf 'usage: lint-agent-changed.sh [--print-files] [BASE_REF] [--output PATH|--output=PATH] [--prefix VALUE|--prefix=VALUE]\n' >&2
   exit 2
 }
@@ -37,6 +39,13 @@ normalize_output_path() {
     /*) printf '%s\n' "$1" ;;
     *) printf '%s/%s\n' "$CALLER_CWD" "$1" ;;
   esac
+}
+
+path_policy_has_match() {
+  local query="$1"
+  shift
+
+  IFS= read -r -d '' < <(printf '%s\0' "$@" | bun --config=/dev/null "$PATH_POLICY_QUERY" "$query")
 }
 
 PRINT_FILES=0
@@ -126,7 +135,7 @@ else
     printf 'FULL_SCAN\n'
     exit 0
   fi
-  echo "lint:agent:changed: neither '$BASE' nor 'origin/$BASE' exists — running full lint:agent." >&2
+  echo "$COMMAND_LABEL: neither '$BASE' nor 'origin/$BASE' exists — running full lint:agent:local-rules." >&2
   exec bun "$SCRIPT_DIR/lint-agent.ts" "${LINT_AGENT_ARGS[@]}"
 fi
 
@@ -141,30 +150,20 @@ if ! git merge-base "$BASE" HEAD >/dev/null 2>&1; then
     printf 'FULL_SCAN\n'
     exit 0
   fi
-  echo "lint:agent:changed: '$BASE' shares no history with HEAD — running full lint:agent." >&2
+  echo "$COMMAND_LABEL: '$BASE' shares no history with HEAD — running full lint:agent:local-rules." >&2
   exec bun "$SCRIPT_DIR/lint-agent.ts" "${LINT_AGENT_ARGS[@]}"
 fi
 
 # Collect base-vs-HEAD, staged, and unstaged file lists (NUL-delimited
-# for space-safety). Dedupe via an associative array. Track whether any
-# lint-affecting config file appears so we can upgrade to a full scan.
+# for space-safety). Dedupe via an associative array after querying the
+# shared path policy. Track whether any lint-affecting config file appears so
+# we can upgrade to a full scan.
 declare -A SEEN
+CHANGED_FILES=()
 FILES=()
 FULL_SCAN=0
 while IFS= read -r -d '' f; do
-  case "$f" in
-    bun.lock|package.json|eslint.config.*|tsconfig*.json|packages/*/package.json|packages/*/tsconfig*.json|eslint-rules/*)
-      FULL_SCAN=1
-      ;;
-  esac
-  case "$f" in
-    *.ts|*.tsx|*.js|*.jsx|*.mjs|*.cjs) ;;
-    *) continue ;;
-  esac
-  [ -f "$f" ] || continue
-  [ -n "${SEEN[$f]:-}" ] && continue
-  SEEN[$f]=1
-  FILES+=("$f")
+  CHANGED_FILES+=("$f")
 done < <(
   {
     git diff -z --name-only --diff-filter=ACMRD "$BASE"...HEAD
@@ -177,12 +176,24 @@ done < <(
   }
 )
 
+if [ "${#CHANGED_FILES[@]}" -gt 0 ] \
+   && path_policy_has_match full-scan-trigger:agent-lint-changed "${CHANGED_FILES[@]}"; then
+  FULL_SCAN=1
+fi
+
+while IFS= read -r -d '' f; do
+  [ -f "$f" ] || continue
+  [ -n "${SEEN[$f]:-}" ] && continue
+  SEEN[$f]=1
+  FILES+=("$f")
+done < <(printf '%s\0' "${CHANGED_FILES[@]}" | bun --config=/dev/null "$PATH_POLICY_QUERY" lintable:agent-changed)
+
 if [ "$FULL_SCAN" -eq 1 ]; then
   if [ "$PRINT_FILES" -eq 1 ]; then
     printf 'FULL_SCAN\n'
     exit 0
   fi
-  echo "lint:agent:changed: lint-affecting config changed — running full lint:agent." >&2
+  echo "$COMMAND_LABEL: lint-affecting config changed — running full lint:agent:local-rules." >&2
   exec bun "$SCRIPT_DIR/lint-agent.ts" "${LINT_AGENT_ARGS[@]}"
 fi
 
@@ -193,7 +204,7 @@ if [ "${#FILES[@]}" -eq 0 ]; then
   fi
   # Empty envelope path: route through the shared emitter rather than
   # hand-rolling JSON so the schema contract stays single-sourced.
-  echo "lint:agent:changed: no changed lintable files vs $BASE — emitting empty envelope." >&2
+  echo "$COMMAND_LABEL: no changed lintable files vs $BASE — emitting empty envelope." >&2
   exec bun "$SCRIPT_DIR/harness-emit-envelope.ts" --tool lint:agent "${OUTPUT_FLAGS[@]}" </dev/null
 fi
 
@@ -201,5 +212,5 @@ if [ "$PRINT_FILES" -eq 1 ]; then
   for f in "${FILES[@]}"; do printf '%s\n' "$f"; done
   exit 0
 fi
-echo "lint:agent:changed: checking ${#FILES[@]} changed file(s) vs $BASE." >&2
+echo "$COMMAND_LABEL: checking ${#FILES[@]} changed file(s) vs $BASE." >&2
 exec bun "$SCRIPT_DIR/lint-agent.ts" "${FILES[@]}" "${LINT_AGENT_ARGS[@]}"

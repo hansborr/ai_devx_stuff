@@ -26,6 +26,7 @@ copy_generator() {
   local fixture_dir=$1
   mkdir -p "$fixture_dir/scripts"
   cp scripts/generate-harness-controls.ts "$fixture_dir/scripts/generate-harness-controls.ts"
+  cp scripts/generate-harness-controls-validation.ts "$fixture_dir/scripts/generate-harness-controls-validation.ts"
   cp scripts/lint-rule-docs.ts "$fixture_dir/scripts/lint-rule-docs.ts"
 }
 

@@ -16,6 +16,10 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=./test-git-env.sh
+. "$SCRIPT_DIR/test-git-env.sh"
+musi_clear_inherited_git_hook_env
+musi_exit_after_git_hook_env_assertion_if_requested
 WRAPPER="$SCRIPT_DIR/lint-agent-changed.sh"
 
 PASS=0
@@ -96,6 +100,23 @@ out=$(run_print "$REPO3" | sort)
 expected=$(printf 'other.tsx\nseed.ts\n')
 [ "$out" = "$expected" ] || { printf 'got:\n%s\nwant:\n%s\n' "$out" "$expected"; fail "case3 selection wrong"; }
 ok "staged + unstaged dedup, non-lintable filtered out"
+
+REPO3b="$ROOT/case3b"
+new_repo "$REPO3b"
+printf '{"ok":true}\n' >"$REPO3b/data.json"
+printf '{ "extends": "./base.json" }\n' >"$REPO3b/data.jsonc"
+git -C "$REPO3b" add data.json data.jsonc
+out=$(run_print "$REPO3b")
+[ "$out" = "EMPTY" ] || { printf '%s\n' "$out"; fail "case3b expected EMPTY for JSON/JSONC agent lint inputs, got '$out'"; }
+ok "agent changed lint excludes JSON and JSONC files"
+
+REPO3c="$ROOT/case3c"
+new_repo "$REPO3c"
+printf 'notes\n' >"$REPO3c/notes.md"
+git -C "$REPO3c" add notes.md
+out=$(run_print "$REPO3c")
+[ "$out" = "EMPTY" ] || { printf '%s\n' "$out"; fail "case3c expected EMPTY for unsupported files, got '$out'"; }
+ok "agent changed lint excludes unsupported files"
 
 REPO4="$ROOT/case4"
 new_repo "$REPO4"
@@ -247,52 +268,52 @@ ok "leading --output is not consumed as the base ref"
 REPO17="$ROOT/case17-empty-no-output"
 new_repo "$REPO17"
 expect_wrapper_reject "case17-empty-no-output" "$REPO17" \
-  "lint:agent:changed: --output requires a path argument" \
+  "lint:agent:local-rules:changed: --output requires a path argument" \
   base --output
 REPO17b="$ROOT/case17b-nonempty-no-output"
 new_repo "$REPO17b"
 make_nonempty "$REPO17b"
 expect_wrapper_reject "case17b-nonempty-no-output" "$REPO17b" \
-  "lint:agent:changed: --output requires a path argument" \
+  "lint:agent:local-rules:changed: --output requires a path argument" \
   base --output
 ok "--output with no value is rejected on empty and non-empty paths"
 
 REPO18="$ROOT/case18-empty-flag-output"
 new_repo "$REPO18"
 expect_wrapper_reject "case18-empty-flag-output" "$REPO18" \
-  "lint:agent:changed: --output requires a path argument" \
+  "lint:agent:local-rules:changed: --output requires a path argument" \
   base --output --prefix
 REPO18b="$ROOT/case18b-nonempty-flag-output"
 new_repo "$REPO18b"
 make_nonempty "$REPO18b"
 expect_wrapper_reject "case18b-nonempty-flag-output" "$REPO18b" \
-  "lint:agent:changed: --output requires a path argument" \
+  "lint:agent:local-rules:changed: --output requires a path argument" \
   base --output --prefix
 ok "--output rejects flag-shaped values on empty and non-empty paths"
 
 REPO19="$ROOT/case19-empty-equals-flag-output"
 new_repo "$REPO19"
 expect_wrapper_reject "case19-empty-equals-flag-output" "$REPO19" \
-  "lint:agent:changed: --output= requires a path argument, got: --prefix" \
+  "lint:agent:local-rules:changed: --output= requires a path argument, got: --prefix" \
   base --output=--prefix
 REPO19b="$ROOT/case19b-nonempty-equals-flag-output"
 new_repo "$REPO19b"
 make_nonempty "$REPO19b"
 expect_wrapper_reject "case19b-nonempty-equals-flag-output" "$REPO19b" \
-  "lint:agent:changed: --output= requires a path argument, got: --prefix" \
+  "lint:agent:local-rules:changed: --output= requires a path argument, got: --prefix" \
   base --output=--prefix
 ok "--output= rejects flag-shaped values on empty and non-empty paths"
 
 REPO20="$ROOT/case20-empty-unknown"
 new_repo "$REPO20"
 expect_wrapper_reject "case20-empty-unknown" "$REPO20" \
-  "lint:agent:changed: unknown argument: --bogus" \
+  "lint:agent:local-rules:changed: unknown argument: --bogus" \
   base --bogus
 REPO20b="$ROOT/case20b-nonempty-unknown"
 new_repo "$REPO20b"
 make_nonempty "$REPO20b"
 expect_wrapper_reject "case20b-nonempty-unknown" "$REPO20b" \
-  "lint:agent:changed: unknown argument: --bogus" \
+  "lint:agent:local-rules:changed: unknown argument: --bogus" \
   base --bogus
 ok "unknown flags are rejected on empty and non-empty paths"
 
@@ -331,21 +352,27 @@ git -C "$REPO23" rm -q -rf .
 printf 'orphan\n' >"$REPO23/README.md"
 git -C "$REPO23" add README.md
 git -C "$REPO23" -c commit.gpgsign=false commit -q -m "orphan seed"
+mkdir -p "$ROOT/case23-bin"
+cat >"$ROOT/case23-bin/bun" <<'STUB'
+#!/usr/bin/env bash
+exit 0
+STUB
+chmod +x "$ROOT/case23-bin/bun"
 out="$ROOT/case23.out"
 err="$ROOT/case23.err"
 set +e
-( cd "$REPO23" && bash "$WRAPPER" base >"$out" 2>"$err" )
+( cd "$REPO23" && PATH="$ROOT/case23-bin:$PATH" bash "$WRAPPER" base >"$out" 2>"$err" )
 rc=$?
 set -e
 [ "$rc" -eq 0 ] || {
   printf 'stdout:\n%s\nstderr:\n%s\n' "$(cat "$out")" "$(cat "$err")"
   fail "case23 expected no-history full-scan fallback to exit 0"
 }
-grep -qF "lint:agent:changed: 'base' shares no history with HEAD" "$err" || {
+grep -qF "lint:agent:local-rules:changed: 'base' shares no history with HEAD" "$err" || {
   printf 'stderr:\n%s\n' "$(cat "$err")"
   fail "case23 missing no-history fallback diagnostic"
 }
-ok "no merge base real run falls back to full lint:agent"
+ok "no merge base real run falls back to full lint:agent:local-rules"
 
 REPO24="$ROOT/case24-subdir-print-files"
 new_repo "$REPO24"

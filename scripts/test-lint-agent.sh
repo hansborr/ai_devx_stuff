@@ -123,10 +123,10 @@ echo "$CLEAN_JSON" | bun -e '
 
 # --- Run 1b: --output=path (equals form) must work the same as --output <path> -
 # lint-agent.ts is invoked with both forms across the repo; the changed-file
-# wrapper (lint:agent:changed) emits --output=path when an agent passes the
-# equals form. Without this assertion, a regression in either parser branch
-# would only surface in the wrapper's non-empty path which the wrapper smoke
-# can't exercise hermetically.
+# wrapper (lint:agent:local-rules:changed) emits --output=path when an agent
+# passes the equals form. Without this assertion, a regression in either parser
+# branch would only surface in the wrapper's non-empty path which the wrapper
+# smoke can't exercise hermetically.
 if ! (cd "$CLEAN_DIR" && bun run scripts/lint-agent.ts --output=./envelope-equals.json empty-src/ \
       >"$TMP_ROOT/clean-equals.out" 2>"$TMP_ROOT/clean-equals.err"); then
   echo "FAIL: lint-agent --output=path run exited non-zero"

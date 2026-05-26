@@ -1,6 +1,7 @@
 {
   "name": "musi",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "workspaces": [
     "packages/*"
@@ -45,6 +46,8 @@
     "lint:changed": "bash scripts/lint-changed.sh",
     "lint:shell": "bash scripts/lint-shell.sh",
     "lint:config-sensors": "bash scripts/lint-config-sensors.sh",
+    "lint:agent:local-rules": "bun scripts/lint-agent.ts",
+    "lint:agent:local-rules:changed": "bash scripts/lint-agent-changed.sh",
     "lint:agent": "bun scripts/lint-agent.ts",
     "lint:agent:changed": "bash scripts/lint-agent-changed.sh",
     "lint:ratchet": "bun scripts/lint-ratchet.ts",
@@ -53,9 +56,11 @@
     "lint:ratchet:report": "bun scripts/lint-ratchet.ts --report",
     "lint:ratchet:summary": "bun scripts/lint-ratchet.ts --summary",
     "lint:ratchet:update": "bun scripts/lint-ratchet.ts --update",
+    "lint:ratchet:zero-baseline": "bun scripts/lint-ratchet.ts --zero-baseline",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "format:changed": "bash scripts/format-changed.sh",
+    "format:changed:check": "bash scripts/format-changed.sh --check",
     "typecheck": "bash scripts/typecheck.sh",
     "typecheck:watch": "tsc -b --watch",
     "e2e": "playwright test",

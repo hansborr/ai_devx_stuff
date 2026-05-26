@@ -38,6 +38,9 @@ Do **not** read this folder at session start. Promote an item back into
 - `ai-harness-prioritized-backlog.md` — ordered promotion list merging the
   transcript review, scheduled harness-review ideas, and external-tooling
   research into one AI-harness backlog queue.
+- `autonomous-agent-iteration-candidates.md` — 2026-05-25 gathered queue of
+  ready autonomous AI-harness and lint-drain leaves, including the proposed
+  post-edit tidy hook and stale/blocked notes to avoid.
 - `cache-budget-followups.md` — conditional verification-budget work: typecheck
   optimization only if measurements justify it, per-test slow helpers, async
   e2e design, and future Stop-reporter guardrails.
@@ -55,20 +58,19 @@ Do **not** read this folder at session start. Promote an item back into
   testing as a manual test-quality audit lane before any score gate.
 - `lint-hardening-cross-repo-review.md` + `lint-hardening/` — parked
   lint-hardening index and leaf notes from a Rust/Clippy vs Musi ESLint
-  comparison. Promote one leaf at a time; start with zero-warning cleanup,
-  changed-gate content correctness, then Vitest lint evaluation.
-- `lint-ratchet-sharing/` — 2026-05-22 backlog for making the
-  `lint:ratchet` setup share-ready outside Musi plus a strict-improvement
-  gate that forces baseline tightening when code improves. Leaf 01
-  (strict-improvement enforcement, including first-class improvement
-  diagnostics) is the highest-value local change; Leaves 02-07 cover
-  portable docs/scaffolding, existing CI parity, summary command, PR-comment
-  formatting, the existing reference repo/license path, and registry linting.
+  comparison. Promote one unresolved leaf at a time; changed-gate content
+  correctness is already resolved.
+- `lint-reference-readiness/00-index.md` — split task index for the
+  lint-system work needed before treating Musi's lint setup as reference
+  material for other projects. Promote one task file at a time. The old
+  `lint-reference-readiness-roadmap.md` path is a compatibility pointer; use
+  the folder index instead of the removed `lint-ratchet-sharing/` backlog
+  folder. The canonical adopter guide is `docs/guides/lint-ratchet.md`.
 - `agent-hook-git-safety.md` — implemented source plan for the shared
   agent-hook policy blocks on history rewrites, force pushes, force
   branch/tag deletion, dangerous `gh` mutations, and raw `grep` (context
   hygiene). Rollout note:
-  `docs/agent_notes/in_progress/agent-hook-git-safety.md`.
+  `docs/agent_notes/finished_work/agent-hook-git-safety.md`.
 - `drift-ai-current-findings.md` — 2026-05-10 triage of the first
   `drift:ai --scope current` report: current ghost-file tuning plus duplicate
   refactor candidates for token mutations, cursor lists, test contexts, token
@@ -78,5 +80,4 @@ Do **not** read this folder at session start. Promote an item back into
 
 1. Promote only work that is ready now.
 2. Move the note or folder back into `in_progress/`.
-3. Add a one-line snapshot entry in `STATUS.md`.
-4. Add only the ready-now leaf slice to `NEXT.md`.
+3. Add one line to `LOG.md` if context is needed.

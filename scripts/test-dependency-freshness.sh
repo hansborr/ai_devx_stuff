@@ -3,12 +3,17 @@
 
 set -euo pipefail
 
-# When run inside a parent `git commit`, git exports GIT_DIR / GIT_INDEX_FILE /
-# GIT_WORK_TREE / GIT_PREFIX. Inherited values would make every `git add` and
-# `git diff --cached` below operate on the outer repo's index, leaking staged
-# entries into the parent and tripping the pre-commit flock. Clear them so the
-# sandbox repos this script creates stand alone.
-unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE GIT_PREFIX
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=./test-git-env.sh
+. "$SCRIPT_DIR/test-git-env.sh"
+
+# When run inside a parent `git commit`, git exports Git hook environment
+# variables. Inherited values would make every `git add` and `git diff --cached`
+# below operate on the outer repo's index, leaking staged entries into the
+# parent and tripping the pre-commit flock. Clear them so the sandbox repos this
+# script creates stand alone.
+musi_clear_inherited_git_hook_env
+musi_exit_after_git_hook_env_assertion_if_requested
 
 # Strip FORCE_VERIFY from the parent environment. The bridge / cache cases below
 # probe markers and expect default freshness semantics; if a developer runs
@@ -18,11 +23,14 @@ unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE GIT_PREFIX
 unset FORCE_VERIFY
 unset MUSI_CAPTURE_TEST_TIMINGS
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=/dev/null
 . "$SCRIPT_DIR/dependency-freshness.sh"
 # shellcheck source=/dev/null
 . "$SCRIPT_DIR/verify-metadata.sh"
+
+export MUSI_PATH_POLICY_QUERY="$SCRIPT_DIR/path-policy-query.ts"
+MUSI_PATH_POLICY_BUN="$(command -v bun)"
+export MUSI_PATH_POLICY_BUN
 
 PASS=0
 TMP_ROOT="$(mktemp -d)"
@@ -153,11 +161,15 @@ ok "pre-commit lockfile warning works when invoked through sh"
 (
   cd "$hook_repo"
   mkdir -p bin packages
-  cat > bin/bun <<'STUB'
+cat > bin/bun <<'STUB'
 #!/usr/bin/env sh
 printf 'stub bun %s\n' "$*" >> "$STUB_LOG"
 if [ "${2:-}" = "lint:changed" ] && [ -n "${STUB_SLEEP_LINT_CHANGED:-}" ]; then
   sleep "$STUB_SLEEP_LINT_CHANGED"
+fi
+if [ "${2:-}" = "format:changed:check" ] && [ "${STUB_FAIL_FORMAT_CHANGED_CHECK:-0}" = "1" ]; then
+  printf 'stub: forced failure for bun run %s\n' "$2" >&2
+  exit 1
 fi
 exit 0
 STUB
@@ -188,6 +200,7 @@ BAD_MARKER
   grep -qF "pre-commit: OK" <<< "$output" || fail "pre-commit missing OK output: $output"
   grep -qF "stub bun run lint:changed" "$stub_log" || fail "corrupt marker did not rerun lint"
   grep -qF "stub bun run docs:lint-coverage-map:check -- --staged" "$stub_log" || fail "corrupt marker did not run staged coverage-map check"
+  grep -qF "stub bun run format:changed:check" "$stub_log" || fail "corrupt marker did not run changed format check"
   grep -qF "stub bun run typecheck" "$stub_log" || fail "corrupt marker did not rerun typecheck"
   grep -qF "stub bun run test:changed --reporter=dot" "$stub_log" || fail "corrupt marker did not rerun test"
   if grep -qF -- "--reporter=json" "$stub_log"; then
@@ -232,6 +245,37 @@ BAD_MARKER
     || fail "pre-commit metadata should record json timing capture command when enabled"
 )
 ok "pre-commit treats corrupt success marker as a cache miss"
+
+(
+  cd "$hook_repo"
+
+  marker="$hook_repo/precommit-marker-format-fail"
+  log_dir="$hook_repo/precommit-logs-format-fail"
+  stub_log="$hook_repo/bun-format-fail.log"
+  : > "$stub_log"
+
+  set +e
+  output="$(
+    PATH="$hook_repo/bin:$PATH" \
+    STUB_LOG="$stub_log" \
+    STUB_FAIL_FORMAT_CHANGED_CHECK=1 \
+    MUSI_PRECOMMIT_MARKER="$marker" \
+    MUSI_VERIFY_LOCK="$hook_repo/precommit-lock-format-fail" \
+    MUSI_VERIFY_LOG_DIR="$log_dir" \
+      sh .husky/pre-commit 2>&1
+  )"
+  exit_code=$?
+  set -e
+
+  [ "$exit_code" -ne 0 ] || fail "pre-commit should fail when format-check fails"
+  grep -qF "Failed: format-check" <<< "$output" \
+    || fail "pre-commit format-check failure missing summary: $output"
+  grep -qF "bun run format:changed" <<< "$output" \
+    || fail "pre-commit format-check failure missing format hint: $output"
+  grep -qF "stub bun run typecheck" "$stub_log" \
+    || fail "pre-commit should still start typecheck after format-check failure"
+)
+ok "pre-commit prints format hint on format-check failure"
 
 gate_repo="$TMP_ROOT/gate-repo"
 mkdir -p "$gate_repo/scripts/ai-hooks" "$gate_repo/.husky" "$gate_repo/node_modules/.bin" "$gate_repo/bin" "$gate_repo/eslint-rules"
@@ -340,6 +384,7 @@ ok "pre-commit runs lint+ratchet+scripts smokes for staged harness.controls.json
 
 source_relevant_json_paths=(
   ".claude/settings.json"
+  ".codex/hooks/custom.json"
   ".codex/hooks.json"
   ".devcontainer/devcontainer.json"
   ".playwright/cli.config.json"

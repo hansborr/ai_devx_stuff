@@ -89,7 +89,7 @@ async function main(): Promise<void> {
 
   const speciesCount = await prisma.species.count().catch(() => -1);
   if (speciesCount > 0) {
-    console.log(`OK  : SRD seed present (Species rows: ${speciesCount})`);
+    console.log(`OK  : SRD seed present (Species rows: ${String(speciesCount)})`);
   } else if (speciesCount === 0) {
     console.warn("WARN: SRD seed is empty — run 'bun run --filter @musi/server db:seed'");
   } else {

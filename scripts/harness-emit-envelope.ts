@@ -98,7 +98,9 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
 async function readStdin(): Promise<string> {
   const chunks: Buffer[] = [];
   for await (const chunk of process.stdin) {
-    chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
+    // type-assertion-boundary: framework - process.stdin yields any
+    const buf: Buffer = typeof chunk === "string" ? Buffer.from(chunk) : Buffer.from(chunk as Uint8Array);
+    chunks.push(buf);
   }
   return Buffer.concat(chunks).toString("utf8");
 }
@@ -115,7 +117,7 @@ function parseFindings(text: string): readonly HarnessFinding[] {
       parsed = JSON.parse(line);
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
-      throw new Error(`stdin line ${String(lineNumber)} is not valid JSON: ${reason}`);
+      throw new Error(`stdin line ${String(lineNumber)} is not valid JSON: ${reason}`, { cause: error });
     }
     const result = harnessFindingSchema.safeParse(parsed);
     if (!result.success) {
@@ -162,10 +164,10 @@ async function main(): Promise<void> {
     const outPath = isAbsolute(args.outputPath)
       ? args.outputPath
       : resolve(process.cwd(), args.outputPath);
-    const { writeFileSync, mkdirSync } = await import("node:fs");
-    const { dirname } = await import("node:path");
-    mkdirSync(dirname(outPath), { recursive: true });
-    writeFileSync(outPath, rendered);
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    fs.mkdirSync(path.dirname(outPath), { recursive: true });
+    fs.writeFileSync(outPath, rendered);
   } else {
     process.stdout.write(rendered);
   }

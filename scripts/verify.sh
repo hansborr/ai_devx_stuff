@@ -79,7 +79,9 @@ case "$MODE" in
     MARKER="${MUSI_VERIFY_MARKER_CHANGED:-$(musi_standard_verify_changed_marker)}"
     LINT_CMD=(bun run lint:changed)
     RATCHET_CMD=(bun run lint:ratchet)
+    ZERO_BASELINE_CMD=(bun run lint:ratchet:zero-baseline)
     COVERAGE_MAP_CMD=(bun run docs:lint-coverage-map:check -- --staged)
+    FORMAT_CHECK_CMD=(bun run format:changed:check)
     TEST_CMD=(bun run test:changed --reporter=dot --reporter=json --outputFile.json="$TIMINGS_FILE")
     SCRIPTS_CMD=(bun run test:scripts:changed)
     META_MODE=parallel-verify-changed
@@ -88,7 +90,9 @@ case "$MODE" in
     MARKER="${MUSI_VERIFY_MARKER_FULL:-$(musi_standard_verify_full_marker)}"
     LINT_CMD=(bun run lint)
     RATCHET_CMD=(bun run lint:ratchet)
+    ZERO_BASELINE_CMD=(bun run lint:ratchet:zero-baseline)
     COVERAGE_MAP_CMD=(bun run docs:lint-coverage-map:check)
+    FORMAT_CHECK_CMD=(bun run format:check)
     TEST_CMD=(bun run test --reporter=dot --reporter=json --outputFile.json="$TIMINGS_FILE")
     SCRIPTS_CMD=(bun run test:scripts)
     META_MODE=parallel-verify
@@ -97,7 +101,9 @@ case "$MODE" in
     MARKER="${MUSI_VERIFY_MARKER_FULL:-$(musi_standard_verify_full_marker)}"
     LINT_CMD=(bun run lint)
     RATCHET_CMD=(bun run lint:ratchet)
+    ZERO_BASELINE_CMD=(bun run lint:ratchet:zero-baseline)
     COVERAGE_MAP_CMD=(bun run docs:lint-coverage-map:check)
+    FORMAT_CHECK_CMD=(bun run format:check)
     TEST_CMD=(bun run test --reporter=dot --reporter=json --outputFile.json="$TIMINGS_FILE")
     SCRIPTS_CMD=(bun run test:scripts)
     META_MODE=serial-verify
@@ -287,15 +293,20 @@ run_step() {
 
 STEP_PID=""
 run_steps_parallel() {
-  local pid_lint pid_ratchet pid_coverage_map pid_tc pid_test pid_scripts
-  local exit_lint=0 exit_ratchet=0 exit_coverage_map=0 exit_tc=0 exit_test=0 exit_scripts=0
+  local pid_lint pid_ratchet pid_zero_baseline pid_coverage_map pid_format_check pid_tc pid_test pid_scripts
+  local exit_lint=0 exit_ratchet=0 exit_zero_baseline=0 exit_coverage_map=0 exit_format_check=0
+  local exit_tc=0 exit_test=0 exit_scripts=0
 
   musi_run_parallel_step "$META_MODE" "$LABEL" lint "${LINT_CMD[@]}"
   pid_lint=$STEP_PID; PARALLEL_PIDS+=("$STEP_PID")
   musi_run_parallel_step "$META_MODE" "$LABEL" ratchet "${RATCHET_CMD[@]}"
   pid_ratchet=$STEP_PID; PARALLEL_PIDS+=("$STEP_PID")
+  musi_run_parallel_step "$META_MODE" "$LABEL" zero-baseline "${ZERO_BASELINE_CMD[@]}"
+  pid_zero_baseline=$STEP_PID; PARALLEL_PIDS+=("$STEP_PID")
   musi_run_parallel_step "$META_MODE" "$LABEL" coverage-map "${COVERAGE_MAP_CMD[@]}"
   pid_coverage_map=$STEP_PID; PARALLEL_PIDS+=("$STEP_PID")
+  musi_run_parallel_step "$META_MODE" "$LABEL" format-check "${FORMAT_CHECK_CMD[@]}"
+  pid_format_check=$STEP_PID; PARALLEL_PIDS+=("$STEP_PID")
   musi_run_parallel_step "$META_MODE" "$LABEL" typecheck "${TYPECHECK_CMD[@]}"
   pid_tc=$STEP_PID; PARALLEL_PIDS+=("$STEP_PID")
   musi_run_parallel_step "$META_MODE" "$LABEL" test "${TEST_CMD[@]}"
@@ -305,7 +316,9 @@ run_steps_parallel() {
 
   wait "$pid_lint" || exit_lint=$?
   wait "$pid_ratchet" || exit_ratchet=$?
+  wait "$pid_zero_baseline" || exit_zero_baseline=$?
   wait "$pid_coverage_map" || exit_coverage_map=$?
+  wait "$pid_format_check" || exit_format_check=$?
   wait "$pid_tc" || exit_tc=$?
   wait "$pid_test" || exit_test=$?
   wait "$pid_scripts" || exit_scripts=$?
@@ -313,7 +326,9 @@ run_steps_parallel() {
 
   [ "$exit_lint" -eq 0 ] && passed="$passed lint" || failed="$failed lint"
   [ "$exit_ratchet" -eq 0 ] && passed="$passed ratchet" || failed="$failed ratchet"
+  [ "$exit_zero_baseline" -eq 0 ] && passed="$passed zero-baseline" || failed="$failed zero-baseline"
   [ "$exit_coverage_map" -eq 0 ] && passed="$passed coverage-map" || failed="$failed coverage-map"
+  [ "$exit_format_check" -eq 0 ] && passed="$passed format-check" || failed="$failed format-check"
   [ "$exit_tc" -eq 0 ] && passed="$passed typecheck" || failed="$failed typecheck"
   [ "$exit_test" -eq 0 ] && passed="$passed test" || failed="$failed test"
   [ "$exit_scripts" -eq 0 ] && passed="$passed scripts" || failed="$failed scripts"
@@ -330,7 +345,9 @@ if [ "$MODE" = changed ] || [ "$MODE" = parallel ]; then
 else
   run_step lint "${LINT_CMD[@]}" || overall=1
   [ "$overall" -eq 0 ] && { run_step ratchet "${RATCHET_CMD[@]}" || overall=1; }
+  [ "$overall" -eq 0 ] && { run_step zero-baseline "${ZERO_BASELINE_CMD[@]}" || overall=1; }
   [ "$overall" -eq 0 ] && { run_step coverage-map "${COVERAGE_MAP_CMD[@]}" || overall=1; }
+  [ "$overall" -eq 0 ] && { run_step format-check "${FORMAT_CHECK_CMD[@]}" || overall=1; }
   [ "$overall" -eq 0 ] && { run_step typecheck "${TYPECHECK_CMD[@]}" || overall=1; }
   [ "$overall" -eq 0 ] && { run_step test "${TEST_CMD[@]}" || overall=1; }
   [ "$overall" -eq 0 ] && { run_step scripts "${SCRIPTS_CMD[@]}" || overall=1; }
@@ -355,6 +372,9 @@ if [ -n "$failed" ]; then
   done
   case "$failed" in
     *lint*) printf "\nHint: try 'bun run lint:fix' to auto-fix formatting issues.\n" ;;
+  esac
+  case "$failed" in
+    *format-check*) printf "\nHint: run 'bun run format:changed' to apply Prettier to changed files, or 'bun run format' for the full tree.\n" ;;
   esac
   exit 1
 fi

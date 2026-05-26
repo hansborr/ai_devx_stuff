@@ -4,6 +4,10 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=./test-git-env.sh
+. "$SCRIPT_DIR/test-git-env.sh"
+musi_clear_inherited_git_hook_env
+musi_exit_after_git_hook_env_assertion_if_requested
 TEST_CHANGED="$SCRIPT_DIR/test-changed.sh"
 VITEST_RUNNER="$SCRIPT_DIR/vitest.sh"
 OUTPUT_FILTER="$SCRIPT_DIR/ai-hooks/output-filter.sh"
@@ -179,6 +183,18 @@ if grep -q -- '--changed' "$repo/bun.log"; then
   fail "logs-audit script changes should run scripts project in full: $(cat "$repo/bun.log")"
 fi
 ok "logs-audit script changes run scripts project tests"
+
+repo="$(new_repo script-logs-audit-helper-change)"
+printf 'changed\n' > "$repo/scripts/logs-audit-checks.ts"
+git -C "$repo" add scripts/logs-audit-checks.ts
+: > "$repo/bun.log"
+run_test_changed "$repo" >/dev/null || fail "logs-audit helper change should run"
+grep -qF 'stub vitest run --passWithNoTests --project=scripts' "$repo/bun.log" \
+  || fail "logs-audit helper change should run scripts project: $(cat "$repo/bun.log")"
+if grep -q -- '--changed' "$repo/bun.log"; then
+  fail "logs-audit helper changes should run scripts project in full: $(cat "$repo/bun.log")"
+fi
+ok "logs-audit helper changes run scripts project tests"
 
 repo="$(new_repo script-logs-audit-test-change)"
 printf 'changed\n' > "$repo/scripts/logs-audit.test.ts"

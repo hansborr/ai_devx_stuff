@@ -16,7 +16,7 @@ const EDIT_NOTE_PATTERNS = [
 
 const TODO_PATTERN = /\bTODO\b/iu;
 const TODO_REFERENCE_PATTERN =
-  /(?:https?:\/\/|docs\/(?:roadmap|agent_notes)\/|(?:issue|pr)\s*#?\d+|#\d+|GH-\d+|[A-Z][A-Z0-9]+-\d+|\broadmap\b|\bagent\s+note\b)/iu;
+  /https?:\/\/|docs\/(?:roadmap|agent_notes)\/|(?:issue|pr)\s*#?\d+|#\d+|GH-\d+|[A-Z][A-Z0-9]+-\d+|\broadmap\b|\bagent\s+note\b/iu;
 const INCOMPLETE_ERROR_PATTERN = /^(?:not implemented|not yet implemented|todo|implement me)[.!]?$/iu;
 
 /** @param {import('eslint').AST.Token} comment */

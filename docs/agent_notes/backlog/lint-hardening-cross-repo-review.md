@@ -217,9 +217,10 @@ it.
 
 1. `lint-hardening/01-zero-warning-lint-gate.md` — clean the current
    warning baseline and make warning behavior deterministic.
-2. `lint-hardening/02-changed-gate-content-correctness.md` — make
-   `lint:changed`, `verify:changed`, and pre-commit verify the staged
-   commit content.
+2. `lint-hardening/02-changed-gate-content-correctness.md` — **resolved**;
+   `lint:changed`, `verify:changed`, and pre-commit now reject
+   source-relevant unstaged/untracked drift before changed verification and
+   include staged deletions in relevant changed-gate selection.
 3. `lint-hardening/03-vitest-test-quality-rules.md` —
    `@vitest/eslint-plugin` first; Testing Library and jest-dom are
    separate scoped follow-up slices.
@@ -327,10 +328,8 @@ revisit triggers.
 1. **Leaf 1**: zero-warning lint gate cleanup. Blocks meaningful
    rollout of anything that lands at `warn` first and unlocks the later
    plugin leaves that rely on deterministic warning behavior.
-2. **Leaf 2**: changed-file lint and pre-commit content correctness. This is
-   independent of Leaf 1 and can run in parallel with it when two sessions are
-   available; use separate branches/sessions because both can touch shared
-   verification scripts and package scripts.
+2. **Leaf 2**: resolved; changed-file lint and pre-commit content correctness
+   now use the staged-first changed-gate behavior.
 3. **Leaf 3** (Vitest first, then Testing Library + jest-dom as scoped
    follow-ups): high-signal for AI-generated tests; cleanest inventory
    profile of the test-quality leaves.

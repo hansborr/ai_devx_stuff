@@ -8,6 +8,10 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=./test-git-env.sh
+. "$SCRIPT_DIR/test-git-env.sh"
+musi_clear_inherited_git_hook_env
+musi_exit_after_git_hook_env_assertion_if_requested
 VERIFY_METADATA="$SCRIPT_DIR/verify-metadata.sh"
 
 PASS=0
@@ -291,6 +295,19 @@ fp2=$(ai_precommit_fingerprint "$repo")
   || fail "precommit fingerprint should change for relevant untracked paths (scripts/*)"
 ok "ai_precommit_fingerprint includes relevant unstaged/untracked paths"
 
+# --- ai_precommit_fingerprint includes tracked .codex/.claude extras ----------
+repo="$(new_repo precommit-tracked-agent-extra)"
+mkdir -p "$repo/.codex"
+printf 'committed\n' > "$repo/.codex/local-note.md"
+git -C "$repo" add .codex/local-note.md
+git -C "$repo" commit -qm "add tracked codex note"
+fp1=$(ai_precommit_fingerprint "$repo")
+printf 'tracked edit\n' > "$repo/.codex/local-note.md"
+fp2=$(ai_precommit_fingerprint "$repo")
+[ "$fp1" != "$fp2" ] \
+  || fail "precommit fingerprint should include tracked .codex/.claude extra paths"
+ok "ai_precommit_fingerprint includes tracked .codex/.claude extra paths"
+
 # --- ai_precommit_fingerprint ignores irrelevant untracked paths --------------
 repo="$(new_repo precommit-irrelevant)"
 fp1=$(ai_precommit_fingerprint "$repo")
@@ -347,5 +364,23 @@ exit_code=$?
 set -e
 [ "$exit_code" -eq 0 ] || fail "gate should accept irrelevant unstaged files: $output"
 ok "musi_changed_gate_fail_if_unstaged ignores irrelevant paths"
+
+# --- staged script deletion classifier uses shared deletion policy ------------
+repo="$(new_repo script-deletion-classifier)"
+mkdir -p "$repo/scripts"
+printf '#!/usr/bin/env bash\n' > "$repo/scripts/delete-me.sh"
+git -C "$repo" add scripts/delete-me.sh
+git -C "$repo" commit -qm "add script"
+git -C "$repo" rm -q scripts/delete-me.sh
+set +e
+(
+  cd "$repo" || exit 2
+  musi_classify_staged_script_input
+)
+classifier_rc=$?
+set -e
+[ "$classifier_rc" -eq 1 ] \
+  || fail "staged script deletion should request full script-smoke fallback, got $classifier_rc"
+ok "musi_classify_staged_script_input detects script-smoke-sensitive deletions"
 
 printf 'verify-metadata tests passed (%d)\n' "$PASS"

@@ -2,6 +2,19 @@
 
 Authoring conventions for rules in `eslint-rules/`.
 
+## Rule Catalog
+
+Use the generated [local rule catalog](../generated/local-lint-rules.md) to
+find the current `local/*` rules, their principles, paired guides, and repair
+kinds. The catalog is generated from rule metadata; refresh it with
+`bun run docs:lint-guidance` after changing rule docs.
+
+## Rule Implementation Format
+
+Local rules are intentionally plain `.js` files with `// @ts-check` and JSDoc.
+This trades away some implementation type safety so ESLint can load the rules
+directly before any TypeScript compilation or repository build step.
+
 ## Message Guidance
 
 Every rule diagnostic message must follow one of two shapes, verified by
@@ -53,3 +66,11 @@ When you add a rule under `eslint-rules/`:
 A rule whose messageIds are not covered by the guidance test will not fail CI
 today, but adding new untracked rule messages should be a reviewer flag. Bring
 them into the convention test with the rule change.
+
+When a new local rule becomes a normal-lint or ratchet responsibility, treat it
+as a coverage change too. Update the affected file-family rows in the lint
+coverage map and run the
+[Coverage Map Gate](lint-ratchet.md#coverage-map-gate). The gate catches stale
+map rows, unknown ratchet ids, unaccounted tracked files, and full-mode ESLint
+reach gaps before reviewers rely on a `local/*` rule for files ESLint does not
+actually reach.

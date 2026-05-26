@@ -75,7 +75,7 @@ function allowsScriptLoggerImport(filename) {
 /** @param {import('estree').ImportDeclaration} node */
 function importsScriptLoggerFactory(node) {
   if (typeof node.source.value !== "string") return false;
-  if (!/(^|\/)script-logger\.(?:js|ts)$/u.test(node.source.value)) return false;
+  if (!/(?:^|\/)script-logger\.(?:js|ts)$/u.test(node.source.value)) return false;
   return node.specifiers.some((specifier) => {
     if (specifier.type !== "ImportSpecifier") return false;
     const imported = specifier.imported;
@@ -100,11 +100,11 @@ function allowsConsole(filename, level, node) {
   );
 }
 
-/** @param {import('estree').CallExpression} node */
-function consoleCallLevel(node) {
-  const callee = unwrapChain(node.callee);
-  if (callee.type !== "MemberExpression") return undefined;
-  if (callee.object.type !== "Identifier" || callee.object.name !== "console") return undefined;
+/**
+ * @param {import('estree').MemberExpression} callee
+ * @returns {string | undefined}
+ */
+function resolveConsoleLevelProperty(callee) {
   const property = callee.property;
   if (!callee.computed && property.type === "Identifier" && CONSOLE_LEVELS.has(property.name)) {
     return property.name;
@@ -113,6 +113,14 @@ function consoleCallLevel(node) {
     return CONSOLE_LEVELS.has(property.value) ? property.value : undefined;
   }
   return undefined;
+}
+
+/** @param {import('estree').CallExpression} node */
+function consoleCallLevel(node) {
+  const callee = unwrapChain(node.callee);
+  if (callee.type !== "MemberExpression") return undefined;
+  if (callee.object.type !== "Identifier" || callee.object.name !== "console") return undefined;
+  return resolveConsoleLevelProperty(callee);
 }
 
 /** @param {import('estree').Node} node */

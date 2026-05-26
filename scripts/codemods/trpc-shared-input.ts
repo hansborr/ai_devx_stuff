@@ -2,29 +2,22 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { CallExpression, Node, Project, SourceFile, SyntaxKind, VariableStatement } from "ts-morph";
+import { Project, SourceFile } from "ts-morph";
 
 import {
   appendSharedSchemaExports,
   CodemodError,
   SHARED_SCHEMA_PREFIX,
-  assertSafeSchemaIdentifier,
   collectAllowlistedRouterImports,
   collectExportedTopLevelIdentifiers,
-  collectSchemaCallCandidates,
   collectTargetIdentifiers,
   createProject,
   discoverSharedSchemaCandidates,
   ensureSharedSchemaImports,
   fail as failWithName,
   getSourceFileAtPath,
-  isReferenceIdentifier,
-  isZObjectCall,
   moduleSource,
   normalizeRelativeRouterPath,
-  procedureNameForSchemaCall,
-  propertyCallMethod,
-  propertyCallObject,
   reportSharedSchemaDiscovery,
   rewriteRouterSharedSchemaReferences,
   targetPathFromSource,
@@ -33,11 +26,14 @@ import {
   writeOrPreviewFiles,
 } from "./lib/trpc-shared-schema.js";
 import type { ImportBinding, SharedSchemaCodemodCandidate } from "./lib/trpc-shared-schema.js";
+import {
+  assertConstSchemaIsOnlyInputReference,
+  collectInputCandidates,
+  inputTypeNameForSchema,
+} from "./trpc-shared-input-candidates.js";
 
 const CODEMOD_NAME = "trpc-shared-input";
 const SHARED_INPUT_PREFIX = SHARED_SCHEMA_PREFIX;
-const INPUT_SCHEMA_SUFFIX = "InputSchema";
-const STRUCTURAL_METHODS = new Set(["extend", "merge", "and", "or"]);
 
 type Candidate = SharedSchemaCodemodCandidate;
 
@@ -54,54 +50,89 @@ type CliArgs =
 
 export type TrpcSharedInputCodemodArgs = string[];
 
+type ParsedCliFlags = {
+  check: boolean;
+  dryRun: boolean;
+  positional: string[];
+  targetSource?: string;
+};
+
 function fail(message: string): never {
   failWithName(CODEMOD_NAME, message);
 }
 
-function parseArgs(args: string[]): CliArgs {
-  const positional: string[] = [];
-  let targetSource: string | undefined;
-  let dryRun = false;
-  let check = false;
-  for (let index = 0; index < args.length; index += 1) {
-    const arg = args[index];
-    if (!arg) fail("Empty arguments are not supported.");
-    if (arg === "--check") {
-      check = true;
-      continue;
-    }
-    if (arg === "--dry-run") {
-      dryRun = true;
-      continue;
-    }
-    if (arg === "--target") {
-      const value = args[index + 1];
-      if (!value) fail("--target requires a shared schema module source.");
-      targetSource = value;
-      index += 1;
-      continue;
-    }
-    if (arg.startsWith("--target=")) {
-      targetSource = arg.slice("--target=".length);
-      continue;
-    }
-    if (arg.startsWith("-")) fail(`Unknown argument: ${arg}`);
-    positional.push(arg);
+function initialParsedFlags(): ParsedCliFlags {
+  return {
+    check: false,
+    dryRun: false,
+    positional: [],
+  };
+}
+
+function targetValue(args: string[], index: number): string {
+  const value = args[index + 1];
+  if (!value) fail("--target requires a shared schema module source.");
+  return value;
+}
+
+function readFlagArg(args: string[], index: number, parsed: ParsedCliFlags): number {
+  const arg = args[index];
+  if (!arg) fail("Empty arguments are not supported.");
+  if (arg === "--check") {
+    parsed.check = true;
+    return index;
   }
-  if (check) {
-    if (positional.length !== 0 || targetSource || dryRun) {
-      fail("Usage: bun run codemod:trpc-shared-input -- --check");
-    }
-    return { mode: "check" };
+  if (arg === "--dry-run") {
+    parsed.dryRun = true;
+    return index;
   }
-  if (positional.length !== 1) {
+  if (arg === "--target") {
+    parsed.targetSource = targetValue(args, index);
+    return index + 1;
+  }
+  if (arg.startsWith("--target=")) {
+    parsed.targetSource = arg.slice("--target=".length);
+    return index;
+  }
+  if (arg.startsWith("-")) fail(`Unknown argument: ${arg}`);
+  parsed.positional.push(arg);
+  return index;
+}
+
+function checkModeArgs(parsed: ParsedCliFlags): CliArgs | undefined {
+  if (!parsed.check) return undefined;
+  if (parsed.positional.length !== 0 || parsed.targetSource || parsed.dryRun) {
+    fail("Usage: bun run codemod:trpc-shared-input -- --check");
+  }
+  return { mode: "check" };
+}
+
+function singleModeArgs(parsed: ParsedCliFlags): CliArgs {
+  if (parsed.positional.length !== 1) {
     fail(
       "Usage: bun run codemod:trpc-shared-input -- [--dry-run] [--target <shared-schema.js>] <router-file> | --check",
     );
   }
-  const routerFile = positional[0];
+  const routerFile = parsed.positional[0];
   if (!routerFile) fail("Router file argument is required.");
-  return { mode: "single", routerFile, targetSource, dryRun };
+  return {
+    mode: "single",
+    routerFile,
+    targetSource: parsed.targetSource,
+    dryRun: parsed.dryRun,
+  };
+}
+
+function finalizeArgs(parsed: ParsedCliFlags): CliArgs {
+  return checkModeArgs(parsed) ?? singleModeArgs(parsed);
+}
+
+function parseArgs(args: string[]): CliArgs {
+  const parsed = initialParsedFlags();
+  for (let index = 0; index < args.length; index += 1) {
+    index = readFlagArg(args, index, parsed);
+  }
+  return finalizeArgs(parsed);
 }
 
 function validateTargetSource(source: string): void {
@@ -123,7 +154,7 @@ function targetHasInputExports(project: Project, root: string, source: string): 
   if (!existsSync(targetPath)) return false;
   const sourceFile = getSourceFileAtPath(project, targetPath);
   return [...collectExportedTopLevelIdentifiers(sourceFile)].some(
-    (identifier) => identifier.endsWith(INPUT_SCHEMA_SUFFIX) || identifier.endsWith("Input"),
+    (identifier) => identifier.endsWith("InputSchema") || identifier.endsWith("Input"),
   );
 }
 
@@ -163,125 +194,12 @@ function resolveTargetSource(
   return defaultTargetSource(routerFile);
 }
 
-function isStrictZObjectExpression(node: Node): boolean {
-  if (!Node.isCallExpression(node) || propertyCallMethod(node) !== "strict") return false;
-  const object = propertyCallObject(node);
-  return object ? isZObjectCall(object) : false;
-}
-
-function structuralCombinator(node: Node): string | undefined {
-  const calls = [node, ...node.getDescendantsOfKind(SyntaxKind.CallExpression)];
-  for (const current of calls) {
-    if (!Node.isCallExpression(current)) continue;
-    const method = propertyCallMethod(current);
-    if (method && STRUCTURAL_METHODS.has(method)) return method;
-  }
-  return undefined;
-}
-
-function sharedInputRootName(node: Node): string | undefined {
-  if (Node.isIdentifier(node)) return node.getText();
-  if (!Node.isCallExpression(node)) return undefined;
-  const method = propertyCallMethod(node);
-  if (method !== "optional" && method !== "describe") return undefined;
-  const object = propertyCallObject(node);
-  return object ? sharedInputRootName(object) : undefined;
-}
-
-function resolveInputCandidate(
-  inputCall: CallExpression,
-  constSchemas: Map<string, VariableStatement>,
-  sharedImports: Set<string>,
-): Candidate | undefined {
-  const argument = inputCall.getArguments()[0];
-  if (!argument) fail(".input(...) call has no argument.");
-
-  const sharedRoot = sharedInputRootName(argument);
-  if (sharedRoot && sharedImports.has(sharedRoot)) return undefined;
-
-  const combinator = structuralCombinator(argument);
-  if (combinator) fail(`Unsupported .${combinator}(...) input shape. Move it manually.`);
-
-  if (Node.isIdentifier(argument)) {
-    const constStatement = constSchemas.get(argument.getText());
-    if (!constStatement) {
-      fail(
-        `${argument.getText()} is not a supported top-level z.object(...).strict() const schema.`,
-      );
-    }
-    const declaration = constStatement.getDeclarations()[0];
-    if (!declaration) fail(`${argument.getText()} is not a supported const schema.`);
-    const initializer = declaration.getInitializer();
-    if (!initializer || !isStrictZObjectExpression(initializer)) {
-      fail(`${argument.getText()} is not initialized to z.object(...).strict().`);
-    }
-    return {
-      kind: "const",
-      schemaName: argument.getText(),
-      schemaCall: inputCall,
-      schemaExpression: initializer,
-      schemaText: initializer.getText(),
-      constStatement,
-    };
-  }
-
-  if (isStrictZObjectExpression(argument)) {
-    const name = procedureNameForSchemaCall(inputCall);
-    if (!name) fail("Could not derive a schema name for inline .input(...) shape.");
-    assertSafeSchemaIdentifier(CODEMOD_NAME, name);
-    return {
-      kind: "inline",
-      schemaName: `${name}${INPUT_SCHEMA_SUFFIX}`,
-      schemaCall: inputCall,
-      schemaExpression: argument,
-      schemaText: argument.getText(),
-    };
-  }
-
-  fail(`Unsupported .input(...) shape: ${argument.getText()}.`);
-}
-
-function collectCandidates(sourceFile: SourceFile): Candidate[] {
-  return collectSchemaCallCandidates(
-    sourceFile,
-    "input",
-    SHARED_INPUT_PREFIX,
-    resolveInputCandidate,
-  );
-}
-
 function runCheck(root: string): void {
   reportSharedSchemaDiscovery(
     CODEMOD_NAME,
     "input",
-    discoverSharedSchemaCandidates(CODEMOD_NAME, root, collectCandidates),
+    discoverSharedSchemaCandidates(CODEMOD_NAME, root, collectInputCandidates),
   );
-}
-
-function typeNameForSchema(schemaName: string): string {
-  if (!schemaName.endsWith(INPUT_SCHEMA_SUFFIX)) {
-    fail(
-      `${schemaName} does not end with InputSchema; move it manually so the input type name is explicit.`,
-    );
-  }
-  const base = schemaName.slice(0, -INPUT_SCHEMA_SUFFIX.length);
-  return `${base.slice(0, 1).toUpperCase()}${base.slice(1)}Input`;
-}
-
-function isInputCallArgument(identifier: Node, inputCall: CallExpression): boolean {
-  return identifier === inputCall.getArguments()[0];
-}
-
-function assertConstSchemaIsOnlyInputReference(candidate: Candidate, sourceFile: SourceFile): void {
-  if (!candidate.constStatement) return;
-  for (const identifier of sourceFile.getDescendantsOfKind(SyntaxKind.Identifier)) {
-    if (identifier.getText() !== candidate.schemaName) continue;
-    if (!isReferenceIdentifier(identifier)) continue;
-    if (isInputCallArgument(identifier, candidate.schemaCall)) continue;
-    fail(
-      `${candidate.schemaName} has references outside the migrated .input(...) call; move it manually.`,
-    );
-  }
 }
 
 function rewriteRouter(
@@ -327,7 +245,7 @@ export function runTrpcSharedInputCodemod(
     ? getSourceFileAtPath(project, targetPath)
     : project.createSourceFile(targetPath, "", { overwrite: true });
 
-  const candidates = collectCandidates(routerFile);
+  const candidates = collectInputCandidates(routerFile);
   if (candidates.length === 0) {
     console.log(
       `${CODEMOD_NAME} codemod: no router-local input schemas found in ${relativeRouterPath}.`,
@@ -343,11 +261,11 @@ export function runTrpcSharedInputCodemod(
     codemodName: CODEMOD_NAME,
     sourceFile: routerFile,
     targetIdentifiers,
-    typeNameForSchema,
+    typeNameForSchema: inputTypeNameForSchema,
   });
 
   ensureSharedSchemaImports(CODEMOD_NAME, targetFile, neededImports, targetIdentifiers);
-  appendSharedSchemaExports(targetFile, candidates, typeNameForSchema);
+  appendSharedSchemaExports(targetFile, candidates, inputTypeNameForSchema);
   rewriteRouter(routerFile, targetSource, candidates, neededImports);
   writeOrPreviewFiles(
     CODEMOD_NAME,

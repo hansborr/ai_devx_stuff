@@ -13,6 +13,7 @@ import {
   decideLintRatchetUpdate,
   formatLintRatchetBaseline,
   LINT_RATCHET_CONFIG_HASH_PREFIX,
+  type LintRatchetBaseline,
   type LintRatchetComparison,
   type LintRatchetCurrentById,
   type LintRatchetRuleSourceHashesById,
@@ -122,7 +123,7 @@ function current(
   return byId;
 }
 
-function oneTestBaseline(paths: readonly [string, number][]) {
+function oneTestBaseline(paths: readonly [string, number][]): LintRatchetBaseline {
   return buildLintRatchetBaseline(
     [baseRatchet],
     current([
@@ -135,7 +136,7 @@ function oneTestBaseline(paths: readonly [string, number][]) {
   );
 }
 
-function maxLinesBaseline(path: string, lines: number, count = 1) {
+function maxLinesBaseline(path: string, lines: number, count = 1): LintRatchetBaseline {
   return buildLintRatchetBaseline(
     [maxLinesRatchet],
     current([[maxLinesRatchet.id, [[path, count, 301, lines]]]]),
@@ -157,7 +158,7 @@ function thrownMessage(action: () => void): string {
   throw new Error("expected action to throw");
 }
 
-function complexityBaseline(path: string, perFunction: readonly LintRatchetComplexityFunction[]) {
+function complexityBaseline(path: string, perFunction: readonly LintRatchetComplexityFunction[]): LintRatchetBaseline {
   return buildLintRatchetBaseline(
     [complexityRatchet],
     current([[complexityRatchet.id, [[path, perFunction.length, perFunction[0]?.line, undefined, perFunction]]]]),
@@ -900,7 +901,7 @@ describe("lint ratchet baseline parsing", () => {
     const rendered = formatLintRatchetBaseline(complexityBaseline(path, [complexityFunction(12, "Function 'choose'", 12)]));
     expect(parseLintRatchetBaseline(rendered, [complexityRatchet], fixtureRuleSourceHashes).failures).toEqual([]);
 
-    const countOnly = rendered.replace(/,\n\s+"maxComplexity": 12,\n\s+"perFunction": \[[\s\S]*?\n\s+\]/u, "");
+    const countOnly = rendered.replace(/,\n\s+"maxComplexity": 12,\n\s+"perFunction": \[(?:[^\n]*\n)*?[ \t]+\]/u, "");
     expect(parseLintRatchetBaseline(countOnly, [complexityRatchet], fixtureRuleSourceHashes).failures).toEqual([
       `${complexityRatchet.id}.items.${path}.maxComplexity is required for complexity-severity`,
       `${complexityRatchet.id}.items.${path}.perFunction is required for complexity-severity`,
@@ -1283,7 +1284,7 @@ describe("lint ratchet update mode with stale committed baseline", () => {
   it("allows complexity-severity structural count-only migration while still rejecting worse counts", () => {
     const path = "packages/server/src/branchy.ts";
     const committed = complexityBaseline(path, [complexityFunction(12, "Function 'choose'", 12)]);
-    const countOnly = formatLintRatchetBaseline(committed).replace(/,\n\s+"maxComplexity": 12,\n\s+"perFunction": \[[\s\S]*?\n\s+\]/u, "");
+    const countOnly = formatLintRatchetBaseline(committed).replace(/,\n\s+"maxComplexity": 12,\n\s+"perFunction": \[(?:[^\n]*\n)*?[ \t]+\]/u, "");
     const structural = parseLintRatchetBaselineStructure(countOnly);
     expect(structural.failures).toEqual([]);
     expect(structural.baseline?.tests[complexityRatchet.id]?.items[path]).toEqual({ count: 1 });

@@ -4,11 +4,19 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=./test-git-env.sh
+. "$SCRIPT_DIR/test-git-env.sh"
+musi_clear_inherited_git_hook_env
+musi_exit_after_git_hook_env_assertion_if_requested
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 LINT_SHELL="$SCRIPT_DIR/lint-shell.sh"
 LINT_CHANGED="$SCRIPT_DIR/lint-changed.sh"
 PARALLEL_RUNNER="$SCRIPT_DIR/parallel-runner.sh"
 VERIFY_METADATA="$SCRIPT_DIR/verify-metadata.sh"
+PATH_POLICY_QUERY="$SCRIPT_DIR/path-policy-query.ts"
+PATH_POLICY_QUERY_CORE="$SCRIPT_DIR/path-policy-query-core.ts"
+PATH_POLICY="$SCRIPT_DIR/path-policy.ts"
+PATH_POLICY_SMOKE_SUBJECTS="$SCRIPT_DIR/path-policy-smoke-subjects.ts"
 
 PASS=0
 fail() { printf 'FAIL: %s\n' "$1" >&2; exit 1; }
@@ -32,6 +40,10 @@ new_repo() {
   cp "$LINT_CHANGED" "$repo/scripts/lint-changed.sh"
   cp "$PARALLEL_RUNNER" "$repo/scripts/parallel-runner.sh"
   cp "$VERIFY_METADATA" "$repo/scripts/verify-metadata.sh"
+  cp "$PATH_POLICY_QUERY" "$repo/scripts/path-policy-query.ts"
+  cp "$PATH_POLICY_QUERY_CORE" "$repo/scripts/path-policy-query-core.ts"
+  cp "$PATH_POLICY" "$repo/scripts/path-policy.ts"
+  cp "$PATH_POLICY_SMOKE_SUBJECTS" "$repo/scripts/path-policy-smoke-subjects.ts"
   cat > "$repo/scripts/lint-config-sensors.sh" <<'SH'
 #!/usr/bin/env bash
 exit 0
@@ -123,6 +135,14 @@ grep -qF 'checking 1 staged/base changed maintained shell file' <<< "$output" \
 grep -qF 'SC2164' <<< "$output" \
   || fail "changed ShellCheck output should report SC2164: $output"
 ok "changed ShellCheck fails on known staged violation"
+
+repo="$(new_repo changed-deleted-shell)"
+git -C "$repo" rm -q scripts/good.sh
+output="$(run_lint_shell "$repo" --changed main)" \
+  || fail "changed ShellCheck should skip deleted shell files: $output"
+grep -qF 'no staged/base changed maintained shell files vs main' <<< "$output" \
+  || fail "deleted shell file should leave changed ShellCheck empty: $output"
+ok "changed ShellCheck skips deleted maintained shell files"
 
 repo="$(new_repo lint-changed-wiring)"
 mkdir -p "$repo/bin"

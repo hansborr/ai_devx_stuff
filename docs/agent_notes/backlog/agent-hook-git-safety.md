@@ -1,7 +1,7 @@
 # Agent Hook: Git Safety & Tool Discipline
 
-Status: Implemented in working tree; rollout note in
-`docs/agent_notes/in_progress/agent-hook-git-safety.md`
+Status: Implemented; rollout note in
+`docs/agent_notes/finished_work/agent-hook-git-safety.md`
 Date: 2026-05-08
 
 Expand the shared `scripts/ai-hooks/policy.sh` blocklist so both Claude

@@ -6,7 +6,14 @@ set -euo pipefail
 unset FORCE_VERIFY
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=./test-git-env.sh
+. "$SCRIPT_DIR/test-git-env.sh"
+musi_clear_inherited_git_hook_env
+musi_exit_after_git_hook_env_assertion_if_requested
 VERIFY_HISTORY="$SCRIPT_DIR/verify-history.sh"
+export MUSI_PATH_POLICY_QUERY="$SCRIPT_DIR/path-policy-query.ts"
+MUSI_PATH_POLICY_BUN="$(command -v bun)"
+export MUSI_PATH_POLICY_BUN
 # shellcheck source=./verify-metadata.sh
 . "$SCRIPT_DIR/verify-metadata.sh"
 

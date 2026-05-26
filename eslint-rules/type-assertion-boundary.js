@@ -6,6 +6,7 @@
  */
 
 const ALLOWED_CATEGORIES = new Set(["framework", "json", "prisma", "test", "interop"]);
+const LINE_OFFSET_WITH_BLANK = 2;
 // Allows JSDoc block shapes: single-line `/** ... */` (leading space) and
 // multi-line `/**\n * ... */` (leading `*\n *`). Line comments are filtered
 // separately by LINE_BOUNDARY_COMMENT_PATTERN below so a stray `*` prefix on
@@ -64,6 +65,20 @@ function findContainingStatement(node) {
 }
 
 /**
+ * @param {import('eslint').AST.Token} comment
+ * @returns {"valid" | "invalidCategory" | "emptyReason" | "skip"}
+ */
+function classifyBoundaryComment(comment) {
+  const text = comment.value;
+  if (!BOUNDARY_COMMENT_PATTERN.test(text)) return "skip";
+  if (comment.type !== "Block" && !LINE_BOUNDARY_COMMENT_PATTERN.test(text)) return "skip";
+  if (BOUNDARY_REASON_PATTERN.test(text)) return "valid";
+  const category = text.match(CATEGORY_PATTERN)?.[1];
+  if (!category || !ALLOWED_CATEGORIES.has(category)) return "invalidCategory";
+  return "emptyReason";
+}
+
+/**
  * @param {import('eslint').AST.Token[]} comments
  * @returns {"valid" | "missingBoundary" | "invalidCategory" | "emptyReason"}
  */
@@ -72,18 +87,10 @@ function boundaryCommentStatus(comments) {
   let hasEmptyReason = false;
 
   for (const comment of comments) {
-    const text = comment.value;
-    if (!BOUNDARY_COMMENT_PATTERN.test(text)) continue;
-    if (comment.type !== "Block" && !LINE_BOUNDARY_COMMENT_PATTERN.test(text)) continue;
-    if (BOUNDARY_REASON_PATTERN.test(text)) return "valid";
-
-    const category = text.match(CATEGORY_PATTERN)?.[1];
-    if (!category || !ALLOWED_CATEGORIES.has(category)) {
-      hasInvalidCategory = true;
-      continue;
-    }
-
-    hasEmptyReason = true;
+    const status = classifyBoundaryComment(comment);
+    if (status === "valid") return "valid";
+    if (status === "invalidCategory") hasInvalidCategory = true;
+    else if (status === "emptyReason") hasEmptyReason = true;
   }
 
   if (hasInvalidCategory) return "invalidCategory";
@@ -107,9 +114,9 @@ function nearbyBoundaryComments(node, sourceCode, allComments) {
 
   const statement = findContainingStatement(node);
   const lineAboveStatement = statement.loc.start.line - 1;
-  const lineWithBlankBetween = statement.loc.start.line - 2;
+  const lineWithBlankBetween = statement.loc.start.line - LINE_OFFSET_WITH_BLANK;
   const hasBlankLineAboveStatement =
-    sourceCode.lines[statement.loc.start.line - 2]?.trim() === "";
+    sourceCode.lines[statement.loc.start.line - LINE_OFFSET_WITH_BLANK]?.trim() === "";
   const statementLeadingComments = sourceCode
     .getCommentsBefore(statement)
     .filter(

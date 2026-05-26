@@ -1,6 +1,6 @@
 // @ts-check
 
-const INDEX_FILE_RE = /(^|[/\\])index\.tsx?$/;
+const INDEX_FILE_RE = /(?:^|[/\\])index\.tsx?$/;
 
 /**
  * @param {string} filename

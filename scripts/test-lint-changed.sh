@@ -4,12 +4,20 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=./test-git-env.sh
+. "$SCRIPT_DIR/test-git-env.sh"
+musi_clear_inherited_git_hook_env
+musi_exit_after_git_hook_env_assertion_if_requested
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 LINT_CHANGED="$SCRIPT_DIR/lint-changed.sh"
 LINT_SHELL="$SCRIPT_DIR/lint-shell.sh"
 PARALLEL_RUNNER="$SCRIPT_DIR/parallel-runner.sh"
 LINT_CONFIG_SENSORS="$SCRIPT_DIR/lint-config-sensors.sh"
 VERIFY_METADATA="$SCRIPT_DIR/verify-metadata.sh"
+PATH_POLICY_QUERY="$SCRIPT_DIR/path-policy-query.ts"
+PATH_POLICY_QUERY_CORE="$SCRIPT_DIR/path-policy-query-core.ts"
+PATH_POLICY="$SCRIPT_DIR/path-policy.ts"
+PATH_POLICY_SMOKE_SUBJECTS="$SCRIPT_DIR/path-policy-smoke-subjects.ts"
 
 PASS=0
 fail() { printf 'FAIL: %s\n' "$1" >&2; exit 1; }
@@ -54,6 +62,10 @@ new_repo() {
   cp "$LINT_SHELL" "$repo/scripts/lint-shell.sh"
   cp "$PARALLEL_RUNNER" "$repo/scripts/parallel-runner.sh"
   cp "$VERIFY_METADATA" "$repo/scripts/verify-metadata.sh"
+  cp "$PATH_POLICY_QUERY" "$repo/scripts/path-policy-query.ts"
+  cp "$PATH_POLICY_QUERY_CORE" "$repo/scripts/path-policy-query-core.ts"
+  cp "$PATH_POLICY" "$repo/scripts/path-policy.ts"
+  cp "$PATH_POLICY_SMOKE_SUBJECTS" "$repo/scripts/path-policy-smoke-subjects.ts"
   cat > "$repo/scripts/lint-config-sensors.sh" <<'STUB'
 #!/usr/bin/env bash
 {
@@ -172,6 +184,17 @@ expected='stub eslint <--cache> <--cache-location> <node_modules/.cache/eslint/>
   || fail "staged source change should lint only staged source file: $(cat "$repo/eslint.log")"
 ok "staged source-only changes lint staged files"
 
+repo="$(new_repo staged-jsonc-change)"
+mkdir -p "$repo/packages/server/src/data"
+printf '{ "extends": "./base.json" }\n' > "$repo/packages/server/src/data/tsconfig.jsonc"
+git -C "$repo" add packages/server/src/data/tsconfig.jsonc
+: > "$repo/eslint.log"
+run_lint_changed "$repo" >/dev/null || fail "staged JSONC change should run lint"
+expected='stub eslint <--cache> <--cache-location> <node_modules/.cache/eslint/> <--max-warnings=0> <--no-warn-ignored> <packages/server/src/data/tsconfig.jsonc>'
+[ "$(cat "$repo/eslint.log")" = "$expected" ] \
+  || fail "staged JSONC change should lint JSONC file: $(cat "$repo/eslint.log")"
+ok "staged JSONC changes are selected for ESLint"
+
 repo="$(new_json_lint_repo staged-json-duplicate-key)"
 mkdir -p "$repo/packages/server/src/data"
 printf '{ "name": "one", "name": "two" }\n' > "$repo/packages/server/src/data/duplicate.json"
@@ -215,6 +238,17 @@ expected='stub config sensors <--changed> <main>'
 [ ! -s "$repo/eslint.log" ] \
   || fail "workflow-only change should not invoke eslint: $(cat "$repo/eslint.log")"
 ok "staged workflow-only changes run config sensors"
+
+repo="$(new_repo staged-unsupported-change)"
+printf 'notes\n' > "$repo/notes.md"
+git -C "$repo" add notes.md
+: > "$repo/eslint.log"
+output="$(run_lint_changed "$repo")" || fail "staged unsupported change should not fail: $output"
+grep -qF 'no staged/base changed lintable files vs main' <<< "$output" \
+  || fail "unsupported staged change should announce no lintable files: $output"
+[ ! -s "$repo/eslint.log" ] \
+  || fail "unsupported staged change should not invoke eslint: $(cat "$repo/eslint.log")"
+ok "unsupported staged files are not selected for ESLint"
 
 repo="$(new_repo staged-shellcheck-failure)"
 cat > "$repo/scripts/bad-hook.sh" <<'SH'
@@ -324,6 +358,16 @@ expected='stub eslint <--cache> <--cache-location> <node_modules/.cache/eslint/>
   || fail "source path with spaces should be passed as one eslint argument: $(cat "$repo/eslint.log")"
 ok "paths with spaces are linted safely"
 
+repo="$(new_repo staged-deleted-source)"
+git -C "$repo" rm -q packages/server/src/app.ts
+: > "$repo/eslint.log"
+output="$(run_lint_changed "$repo")" || fail "deleted source should not fail lint: $output"
+grep -qF 'no staged/base changed lintable files vs main' <<< "$output" \
+  || fail "deleted lintable file should announce no lintable files: $output"
+[ ! -s "$repo/eslint.log" ] \
+  || fail "deleted source should not invoke eslint: $(cat "$repo/eslint.log")"
+ok "deleted lintable files are not passed to ESLint"
+
 repo="$(new_repo eslint-config-change)"
 printf 'export default [{ rules: {} }];\n' > "$repo/eslint.config.js"
 git -C "$repo" add eslint.config.js
@@ -356,6 +400,26 @@ expected='stub eslint <--cache> <--cache-location> <node_modules/.cache/eslint/>
   || fail "tsconfig change should run full lint: $(cat "$repo/eslint.log")"
 ok "tsconfig changes force full lint"
 
+for trigger_path in \
+  package.json \
+  bun.lock \
+  .yamllint.yml \
+  packages/server/package.json \
+  packages/server/tsconfig.json; do
+  repo="$(new_repo "full-trigger-${trigger_path//\//-}")"
+  mkdir -p "$repo/$(dirname "$trigger_path")"
+  printf '{"trigger":"%s"}\n' "$trigger_path" > "$repo/$trigger_path"
+  git -C "$repo" add "$trigger_path"
+  : > "$repo/eslint.log"
+  output="$(run_lint_changed "$repo")" || fail "$trigger_path change should run lint: $output"
+  grep -qF 'lint-affecting staged/base config changed' <<< "$output" \
+    || fail "$trigger_path change should announce full lint: $output"
+  expected='stub eslint <--cache> <--cache-location> <node_modules/.cache/eslint/> <--max-warnings=0> <.>'
+  [ "$(cat "$repo/eslint.log")" = "$expected" ] \
+    || fail "$trigger_path change should run full lint: $(cat "$repo/eslint.log")"
+  ok "$trigger_path changes force full lint"
+done
+
 repo="$SANDBOX/no-main"
 mkdir -p "$repo/scripts"
 git -C "$SANDBOX" init -q "$repo"
@@ -363,6 +427,10 @@ cp "$LINT_CHANGED" "$repo/scripts/lint-changed.sh"
 cp "$LINT_SHELL" "$repo/scripts/lint-shell.sh"
 cp "$PARALLEL_RUNNER" "$repo/scripts/parallel-runner.sh"
 cp "$VERIFY_METADATA" "$repo/scripts/verify-metadata.sh"
+cp "$PATH_POLICY_QUERY" "$repo/scripts/path-policy-query.ts"
+cp "$PATH_POLICY_QUERY_CORE" "$repo/scripts/path-policy-query-core.ts"
+cp "$PATH_POLICY" "$repo/scripts/path-policy.ts"
+cp "$PATH_POLICY_SMOKE_SUBJECTS" "$repo/scripts/path-policy-smoke-subjects.ts"
 cat > "$repo/scripts/lint-config-sensors.sh" <<'STUB'
 #!/usr/bin/env bash
 {
@@ -374,7 +442,7 @@ cat > "$repo/scripts/lint-config-sensors.sh" <<'STUB'
 } >> "${CONFIG_SENSOR_LOG:-/dev/null}"
 exit "${STUB_CONFIG_SENSOR_EXIT:-0}"
 STUB
-git -C "$repo" add scripts/lint-changed.sh scripts/lint-shell.sh scripts/parallel-runner.sh scripts/lint-config-sensors.sh scripts/verify-metadata.sh
+git -C "$repo" add scripts/lint-changed.sh scripts/lint-shell.sh scripts/parallel-runner.sh scripts/lint-config-sensors.sh scripts/verify-metadata.sh scripts/path-policy-query.ts scripts/path-policy-query-core.ts scripts/path-policy.ts scripts/path-policy-smoke-subjects.ts
 : > "$repo/eslint.log"
 output="$(run_lint_changed "$repo" 2>&1)" || fail "missing base should fall back to full lint: $output"
 grep -qF "neither 'main' nor 'origin/main' exists" <<< "$output" \

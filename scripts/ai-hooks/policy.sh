@@ -20,7 +20,7 @@ AI_POLICY_GH_AUTH="GitHub auth token output and auth reconfiguration are not all
 AI_POLICY_GREP="grep can dump minified/build files. Use 'rg' instead: 'rg pattern path/', or 'find | rg -v node_modules', etc. For TypeScript symbol work, start with 'bun run code:intel -- def --name <symbol>' or use 'bun run code:intel -- {def|exports|dependents|refs|tests} ...'."
 AI_FLAKY_NOTE="Note: If this failure looks flaky (passes in isolation, fails under load), ensure you document it under docs/agent_notes/observed_flaky_tests.md if you are unable to resolve it right now."
 
-AI_WRAPPED_BUN_RE='^bun run (lint|lint:changed|lint:fix|typecheck|test|test:changed|test:server|test:client|test:shared|test:coverage|test:slow|e2e|format|format:check|format:changed|build|code:intel|verify|verify:changed|verify:slow|verify:logs|verify:async:status|verify:async:tail|verify:async:stop)( --| [A-Za-z0-9._:/=-]+| --[A-Za-z0-9._=-]+)*$'
+AI_WRAPPED_BUN_RE='^bun run (lint|lint:changed|lint:fix|typecheck|test|test:changed|test:server|test:client|test:shared|test:coverage|test:slow|e2e|format|format:check|format:changed|format:changed:check|build|code:intel|verify|verify:changed|verify:slow|verify:logs|verify:async:status|verify:async:tail|verify:async:stop)( --| [A-Za-z0-9._:/=-]+| --[A-Za-z0-9._=-]+)*$'
 AI_POLICY_CMD_START='(^[[:space:]]*|[;&|][[:space:]]*)'
 # Same as CMD_START but excludes `|` so a policy can opt to allow pipeline
 # filter use (e.g. `cmd | grep pattern`) while still blocking the command at
@@ -72,6 +72,10 @@ ai_policy_has_dangerous_git_reset() {
 ai_policy_has_git_push_to_main() {
   local cmd="$1"
   local branch
+  local push_command_end
+  local push_flags_re
+  local push_redirect_tail
+  local push_remote_re
 
   ai_policy_has_command "$cmd" "git[[:space:]]+push[^;&|]*[[:space:]]((refs/heads/)?(main|master)|[^[:space:];|&'\"]+:(refs/heads/)?(main|master))$AI_POLICY_CMD_END" && return 0
   ai_policy_has_command "$cmd" "git[[:space:]]+push[^;&|]*[[:space:]]--(all|branches)$AI_POLICY_CMD_END" && return 0
@@ -79,8 +83,15 @@ ai_policy_has_git_push_to_main() {
   branch=$(ai_current_branch)
   case "$branch" in
     main|master)
-      ai_policy_has_command "$cmd" "git[[:space:]]+push([[:space:]]+(-[A-Za-z][A-Za-z0-9-]*|--[A-Za-z0-9-]+(=[^[:space:]]+)?))*([[:space:]]+[A-Za-z0-9._/-]+)?[[:space:]]*$AI_POLICY_CMD_END"
-      return $?
+      push_command_end="($|[;|&'\"])"
+      push_flags_re="([[:space:]]+(-[A-Za-z][A-Za-z0-9-]*|--[A-Za-z0-9-]+(=[^[:space:]]+)?))*"
+      push_redirect_tail="[[:space:]]*[0-9]*(>&|<&|[<>])[^[:space:];|&'\"]*"
+      push_remote_re="([[:space:]]+[A-Za-z0-9._/-]+)?"
+      ai_policy_has_command "$cmd" "git[[:space:]]+push${push_flags_re}${push_remote_re}[[:space:]]*$push_command_end" && return 0
+      ai_policy_has_command "$cmd" "git[[:space:]]+push${push_flags_re}${push_remote_re}${push_redirect_tail}" && return 0
+      ai_policy_has_command "$cmd" "git[[:space:]]+push${push_flags_re}${push_remote_re}[[:space:]]+HEAD[[:space:]]*$push_command_end" && return 0
+      ai_policy_has_command "$cmd" "git[[:space:]]+push${push_flags_re}${push_remote_re}[[:space:]]+HEAD${push_redirect_tail}" && return 0
+      return 1
       ;;
     *)
       return 1

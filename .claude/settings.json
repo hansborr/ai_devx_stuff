@@ -46,6 +46,16 @@
           {
             "type": "command",
             "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/doc-length.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/tidy-edited-file.sh",
+            "timeout": 120
+          },
+          {
+            "type": "command",
+            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/lint-coverage-check.sh",
+            "timeout": 15
           }
         ]
       }

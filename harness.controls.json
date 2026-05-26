@@ -142,7 +142,7 @@
       "id": "ratchet/core-complexity-drift-ai",
       "kind": "ratchet",
       "category": "maintainability",
-      "principle": "Prevent drift-ai complexity debt from growing while Leaves 32, 33, and 34 drain the current core-rule findings.",
+      "principle": "Prevent drift-ai complexity debt from returning; the former core-rule findings are drained to zero.",
       "pairedGuide": "docs/guides/lint-ratchet.md",
       "repairKind": "manual",
       "source": "scripts/lint-ratchet-config.ts",
@@ -249,26 +249,6 @@
       "invocation": "bun run lint:ratchet"
     },
     {
-      "id": "ratchet/simple-import-sort-imports-top-level-scripts",
-      "kind": "ratchet",
-      "category": "maintainability",
-      "principle": "Prevent top-level script import-order debt from growing while the Leaf 38 script files drain toward normal lint coverage.",
-      "pairedGuide": "docs/guides/lint-ratchet.md",
-      "repairKind": "manual",
-      "source": "scripts/lint-ratchet-config.ts",
-      "invocation": "bun run lint:ratchet"
-    },
-    {
-      "id": "ratchet/local-max-lines",
-      "kind": "ratchet",
-      "category": "maintainability",
-      "principle": "Prevent the default max-lines debt pool from growing while cleanup proceeds incrementally.",
-      "pairedGuide": "docs/guides/lint-ratchet.md",
-      "repairKind": "manual",
-      "source": "scripts/lint-ratchet-config.ts",
-      "invocation": "bun run lint:ratchet"
-    },
-    {
       "id": "ratchet/local-max-lines-code-intel",
       "kind": "ratchet",
       "category": "maintainability",
@@ -303,26 +283,6 @@
       "kind": "ratchet",
       "category": "maintainability",
       "principle": "Prevent generate-harness-controls max-lines debt from growing while Leaf 30 drains the current script findings.",
-      "pairedGuide": "docs/guides/lint-ratchet.md",
-      "repairKind": "manual",
-      "source": "scripts/lint-ratchet-config.ts",
-      "invocation": "bun run lint:ratchet"
-    },
-    {
-      "id": "ratchet/local-max-lines-lint-coverage-map-check",
-      "kind": "ratchet",
-      "category": "maintainability",
-      "principle": "Prevent the lint coverage-map checker source from crossing the max-lines floor while Leaf 41 drain work is prioritized.",
-      "pairedGuide": "docs/guides/lint-ratchet.md",
-      "repairKind": "manual",
-      "source": "scripts/lint-ratchet-config.ts",
-      "invocation": "bun run lint:ratchet"
-    },
-    {
-      "id": "ratchet/local-max-lines-lint-rule-docs",
-      "kind": "ratchet",
-      "category": "maintainability",
-      "principle": "Prevent lint-rule-docs max-lines debt from growing.",
       "pairedGuide": "docs/guides/lint-ratchet.md",
       "repairKind": "manual",
       "source": "scripts/lint-ratchet-config.ts",
@@ -389,26 +349,6 @@
       "invocation": "bun run lint:ratchet"
     },
     {
-      "id": "ratchet/typescript-eslint-no-misused-promises-drift-ai-tests",
-      "kind": "ratchet",
-      "category": "maintainability",
-      "principle": "Prevent promise-return misuse in drift-ai test-harness files while Leaves 33, 34, and 40 restore normal lint coverage.",
-      "pairedGuide": "docs/guides/lint-ratchet.md",
-      "repairKind": "manual",
-      "source": "scripts/lint-ratchet-config.ts",
-      "invocation": "bun run lint:ratchet"
-    },
-    {
-      "id": "ratchet/typescript-eslint-no-misused-promises-script-tests",
-      "kind": "ratchet",
-      "category": "maintainability",
-      "principle": "Prevent promise-return misuse in the newly linted singleton script tests while Leaf 41 drain work proceeds.",
-      "pairedGuide": "docs/guides/lint-ratchet.md",
-      "repairKind": "manual",
-      "source": "scripts/lint-ratchet-config.ts",
-      "invocation": "bun run lint:ratchet"
-    },
-    {
       "id": "ratchet/typescript-eslint-no-unsafe-argument-top-level-scripts",
       "kind": "ratchet",
       "category": "behavior",
@@ -433,26 +373,6 @@
       "kind": "ratchet",
       "category": "maintainability",
       "principle": "Prevent non-Error throws in codemod test-harness files while Leaf 35 drains the current bug-class debt.",
-      "pairedGuide": "docs/guides/lint-ratchet.md",
-      "repairKind": "manual",
-      "source": "scripts/lint-ratchet-config.ts",
-      "invocation": "bun run lint:ratchet"
-    },
-    {
-      "id": "ratchet/typescript-eslint-only-throw-error-drift-ai-tests",
-      "kind": "ratchet",
-      "category": "maintainability",
-      "principle": "Prevent non-Error throws in drift-ai test-harness files while Leaves 33, 34, and 40 restore normal lint coverage.",
-      "pairedGuide": "docs/guides/lint-ratchet.md",
-      "repairKind": "manual",
-      "source": "scripts/lint-ratchet-config.ts",
-      "invocation": "bun run lint:ratchet"
-    },
-    {
-      "id": "ratchet/typescript-eslint-only-throw-error-script-tests",
-      "kind": "ratchet",
-      "category": "maintainability",
-      "principle": "Prevent non-Error throws in the newly linted singleton script tests while Leaf 41 drain work proceeds.",
       "pairedGuide": "docs/guides/lint-ratchet.md",
       "repairKind": "manual",
       "source": "scripts/lint-ratchet-config.ts",
@@ -624,31 +544,61 @@
       "id": "verify-wrapper/verify",
       "kind": "verify-wrapper",
       "category": "maintainability",
-      "principle": "Run lint, lint:ratchet, typecheck, test, and script smoke suites against the full tree with shared cache, lock, and log directory so a failing slot leaves the rest reusable.",
+      "principle": "Run lint, lint:ratchet, the zero-baseline lifecycle check, coverage-map, format check, typecheck, test, and script smoke suites against the full tree with shared cache, lock, and log directory so a failing slot leaves the rest reusable.",
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": "scripts/verify.sh",
-      "invocation": "bun run verify"
+      "invocation": "bun run verify",
+      "slots": [
+        { "name": "lint", "script": "lint" },
+        { "name": "ratchet", "script": "lint:ratchet" },
+        { "name": "zero-baseline", "script": "lint:ratchet:zero-baseline" },
+        { "name": "coverage-map", "script": "docs:lint-coverage-map:check" },
+        { "name": "format-check", "script": "format:check" },
+        { "name": "typecheck", "script": "typecheck" },
+        { "name": "test", "script": "test" },
+        { "name": "scripts", "script": "test:scripts" }
+      ]
     },
     {
       "id": "verify-wrapper/verify-changed",
       "kind": "verify-wrapper",
       "category": "maintainability",
-      "principle": "Run lint:changed, lint:ratchet, typecheck, test:changed, and test:scripts:changed in parallel against the changed-file set; default edit-loop gate before commit.",
+      "principle": "Run lint:changed, lint:ratchet, the zero-baseline lifecycle check, coverage-map, format:changed:check, typecheck, test:changed, and test:scripts:changed in parallel against the changed-file set; default edit-loop gate before commit.",
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": "scripts/verify.sh",
-      "invocation": "bun run verify:changed"
+      "invocation": "bun run verify:changed",
+      "slots": [
+        { "name": "lint", "script": "lint:changed" },
+        { "name": "ratchet", "script": "lint:ratchet" },
+        { "name": "zero-baseline", "script": "lint:ratchet:zero-baseline" },
+        { "name": "coverage-map", "script": "docs:lint-coverage-map:check" },
+        { "name": "format-check", "script": "format:changed:check" },
+        { "name": "typecheck", "script": "typecheck" },
+        { "name": "test", "script": "test:changed" },
+        { "name": "scripts", "script": "test:scripts:changed" }
+      ]
     },
     {
       "id": "verify-wrapper/verify-parallel",
       "kind": "verify-wrapper",
       "category": "maintainability",
-      "principle": "Run the full lint, ratchet, typecheck, test, and scripts suites in parallel; reduces full-verify wall time when the full script suite fits the selected timeout or cached state.",
+      "principle": "Run the full lint, ratchet, zero-baseline lifecycle check, coverage-map, format check, typecheck, test, and scripts suites in parallel; reduces full-verify wall time when the full script suite fits the selected timeout or cached state.",
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": "scripts/verify.sh",
-      "invocation": "bun run verify:parallel"
+      "invocation": "bun run verify:parallel",
+      "slots": [
+        { "name": "lint", "script": "lint" },
+        { "name": "ratchet", "script": "lint:ratchet" },
+        { "name": "zero-baseline", "script": "lint:ratchet:zero-baseline" },
+        { "name": "coverage-map", "script": "docs:lint-coverage-map:check" },
+        { "name": "format-check", "script": "format:check" },
+        { "name": "typecheck", "script": "typecheck" },
+        { "name": "test", "script": "test" },
+        { "name": "scripts", "script": "test:scripts" }
+      ]
     },
     {
       "id": "verify-wrapper/verify-slow",
@@ -845,6 +795,26 @@
     },
 
     {
+      "id": "check/lint-agent-local-rules",
+      "kind": "check",
+      "category": "maintainability",
+      "principle": "Emit a schema-validated harness diagnostics envelope for `local/*` ESLint findings and parser errors; this is a local-rule view, not full lint parity.",
+      "pairedGuide": "docs/guides/local-eslint-rules.md",
+      "repairKind": "manual",
+      "source": "scripts/lint-agent.ts",
+      "invocation": "bun run lint:agent:local-rules"
+    },
+    {
+      "id": "check/lint-agent-local-rules-changed",
+      "kind": "check",
+      "category": "maintainability",
+      "principle": "Scope the local-rule diagnostics envelope to changed JS/TS-like files while preserving the `local/*` and parser-error contract; this is not `lint:changed` parity.",
+      "pairedGuide": "docs/guides/local-eslint-rules.md",
+      "repairKind": "manual",
+      "source": "scripts/lint-agent-changed.sh",
+      "invocation": "bun run lint:agent:local-rules:changed"
+    },
+    {
       "id": "check/lint-coverage-map",
       "kind": "check",
       "category": "maintainability",
@@ -853,6 +823,16 @@
       "repairKind": "manual",
       "source": "scripts/lint-coverage-map-check.ts",
       "invocation": "bun run docs:lint-coverage-map:check"
+    },
+    {
+      "id": "check/lint-ratchet-zero-baseline",
+      "kind": "check",
+      "category": "maintainability",
+      "principle": "Fail when drained lint ratchets are not documented with a zero-baseline lifecycle disposition, while still reporting normal ESLint promotion status.",
+      "pairedGuide": "docs/guides/lint-ratchet.md",
+      "repairKind": "manual",
+      "source": "scripts/lint-ratchet-zero-baseline.ts",
+      "invocation": "bun run lint:ratchet:zero-baseline"
     },
     {
       "id": "check/shellcheck",
@@ -947,11 +927,25 @@
       "id": "hook/pre-commit",
       "kind": "hook",
       "category": "maintainability",
-      "principle": "Run lint:changed, typecheck, test:changed, and test:scripts:changed in parallel before allowing the commit; the verify wrapper's edit-loop entrypoint with a strict time budget.",
+      "principle": "Run lint:changed, lint:ratchet, the zero-baseline lifecycle check, coverage-map, format:changed:check, typecheck, test:changed, and conditionally test:scripts:changed in parallel before allowing the commit; the verify wrapper's edit-loop entrypoint with a strict time budget.",
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": ".husky/pre-commit",
-      "invocation": "git commit"
+      "invocation": "git commit",
+      "slots": [
+        { "name": "lint", "script": "lint:changed" },
+        { "name": "ratchet", "script": "lint:ratchet" },
+        { "name": "zero-baseline", "script": "lint:ratchet:zero-baseline" },
+        { "name": "coverage-map", "script": "docs:lint-coverage-map:check" },
+        { "name": "format-check", "script": "format:changed:check" },
+        { "name": "typecheck", "script": "typecheck" },
+        { "name": "test", "script": "test:changed" },
+        {
+          "name": "scripts",
+          "script": "test:scripts:changed",
+          "condition": "when staged hook/script/harness inputs require script smoke"
+        }
+      ]
     },
     {
       "id": "hook/commit-msg",

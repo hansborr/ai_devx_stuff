@@ -27,3 +27,11 @@ and async Stop-reporter hardening are in place.
 
 No cache-budget follow-up is justified unless new timing data shows a recurring
 budget problem or a concrete hook/dashboard consumer appears.
+
+2026-05-25 update: the user explicitly requested a new autonomous optimization
+entry for commands agents run and commands hooks run, covering `verify`,
+`verify:changed`, `verify:parallel`, pre-commit latency, and the subcommands
+those wrappers invoke. Include possible `AGENTS.md` and commit-hook changes
+when measurement shows they reduce wait time or duplicate work. Treat that as a
+human-promoted reason to start with measurement and one bottleneck at a time;
+the gathered entry lives in `autonomous-agent-iteration-candidates.md`.

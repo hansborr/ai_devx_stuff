@@ -20,9 +20,15 @@ trap cleanup EXIT
 
 copy_validator() {
   local fixture_dir=$1
-  mkdir -p "$fixture_dir/scripts"
+  mkdir -p "$fixture_dir/eslint-config" "$fixture_dir/scripts"
+  cp eslint-config/shared-policy.js "$fixture_dir/eslint-config/shared-policy.js"
   cp scripts/harness-check.ts "$fixture_dir/scripts/harness-check.ts"
+  cp scripts/harness-check-validation.ts "$fixture_dir/scripts/harness-check-validation.ts"
+  cp scripts/harness-wrapper-slot-parity.ts "$fixture_dir/scripts/harness-wrapper-slot-parity.ts"
+  cp scripts/harness-wrapper-slot-parser.ts "$fixture_dir/scripts/harness-wrapper-slot-parser.ts"
   cp scripts/lint-ratchet-config.ts "$fixture_dir/scripts/lint-ratchet-config.ts"
+  cp scripts/lint-ratchet-registry-builders.ts \
+    "$fixture_dir/scripts/lint-ratchet-registry-builders.ts"
 }
 
 write_eslint_plugin() {
@@ -65,6 +71,7 @@ write_source_files() {
   mkdir -p "$fixture_dir/eslint-rules" "$fixture_dir/scripts" "$fixture_dir/scripts/codemods"
   : >"$fixture_dir/eslint-rules/fixture-rule.js"
   : >"$fixture_dir/scripts/sensor-fixture.ts"
+  : >"$fixture_dir/scripts/lint-coverage-map-check.ts"
   : >"$fixture_dir/scripts/codemods/fixture.ts"
 }
 
@@ -76,12 +83,96 @@ write_package_json() {
   "name": "harness-check-fixture",
   "scripts": {
     "lint": "eslint .",
+    "lint:changed": "eslint . --changed",
     "lint:ratchet": "bun scripts/lint-ratchet.ts",
+    "lint:ratchet:zero-baseline": "bun scripts/lint-ratchet.ts --zero-baseline",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:changed": "vitest related",
+    "test:scripts": "bash scripts/test-scripts.sh",
+    "test:scripts:changed": "bash scripts/test-scripts.sh --changed",
+    "docs:lint-coverage-map:check": "bun scripts/lint-coverage-map-check.ts -- --check-eslint-reach",
+    "format:check": "prettier --check .",
+    "format:changed:check": "bash scripts/format-changed.sh --check",
+    "verify": "bash scripts/verify.sh",
+    "verify:changed": "bash scripts/verify.sh --changed",
+    "verify:parallel": "bash scripts/verify.sh --parallel",
     "sensor:fixture": "bun scripts/sensor-fixture.ts",
     "codemod:fixture": "bun scripts/codemods/fixture.ts"$extra_scripts
   }
 }
 JSON
+}
+
+write_wrapper_shells() {
+  local fixture_dir=$1
+  cat >"$fixture_dir/scripts/verify.sh" <<'SH'
+case "$MODE" in
+  changed)
+    LINT_CMD=(bun run lint:changed)
+    RATCHET_CMD=(bun run lint:ratchet)
+    ZERO_BASELINE_CMD=(bun run lint:ratchet:zero-baseline)
+    COVERAGE_MAP_CMD=(bun run docs:lint-coverage-map:check -- --staged)
+    FORMAT_CHECK_CMD=(bun run format:changed:check)
+    TEST_CMD=(bun run test:changed)
+    SCRIPTS_CMD=(bun run test:scripts:changed)
+    ;;
+  parallel)
+    LINT_CMD=(bun run lint)
+    RATCHET_CMD=(bun run lint:ratchet)
+    ZERO_BASELINE_CMD=(bun run lint:ratchet:zero-baseline)
+    COVERAGE_MAP_CMD=(bun run docs:lint-coverage-map:check)
+    FORMAT_CHECK_CMD=(bun run format:check)
+    TEST_CMD=(bun run test)
+    SCRIPTS_CMD=(bun run test:scripts)
+    ;;
+  *)
+    LINT_CMD=(bun run lint)
+    RATCHET_CMD=(bun run lint:ratchet)
+    ZERO_BASELINE_CMD=(bun run lint:ratchet:zero-baseline)
+    COVERAGE_MAP_CMD=(bun run docs:lint-coverage-map:check)
+    FORMAT_CHECK_CMD=(bun run format:check)
+    TEST_CMD=(bun run test)
+    SCRIPTS_CMD=(bun run test:scripts)
+    ;;
+esac
+TYPECHECK_CMD=(bun run typecheck)
+
+run_steps_parallel() {
+  musi_run_parallel_step "$META_MODE" "$LABEL" lint "${LINT_CMD[@]}"
+  musi_run_parallel_step "$META_MODE" "$LABEL" ratchet "${RATCHET_CMD[@]}"
+  musi_run_parallel_step "$META_MODE" "$LABEL" zero-baseline "${ZERO_BASELINE_CMD[@]}"
+  musi_run_parallel_step "$META_MODE" "$LABEL" coverage-map "${COVERAGE_MAP_CMD[@]}"
+  musi_run_parallel_step "$META_MODE" "$LABEL" format-check "${FORMAT_CHECK_CMD[@]}"
+  musi_run_parallel_step "$META_MODE" "$LABEL" typecheck "${TYPECHECK_CMD[@]}"
+  musi_run_parallel_step "$META_MODE" "$LABEL" test "${TEST_CMD[@]}"
+  musi_run_parallel_step "$META_MODE" "$LABEL" scripts "${SCRIPTS_CMD[@]}"
+}
+
+if [ "$MODE" = changed ] || [ "$MODE" = parallel ]; then
+  run_steps_parallel
+else
+  run_step lint "${LINT_CMD[@]}"
+  run_step ratchet "${RATCHET_CMD[@]}"
+  run_step zero-baseline "${ZERO_BASELINE_CMD[@]}"
+  run_step coverage-map "${COVERAGE_MAP_CMD[@]}"
+  run_step format-check "${FORMAT_CHECK_CMD[@]}"
+  run_step typecheck "${TYPECHECK_CMD[@]}"
+  run_step test "${TEST_CMD[@]}"
+  run_step scripts "${SCRIPTS_CMD[@]}"
+fi
+SH
+  mkdir -p "$fixture_dir/.husky"
+  cat >"$fixture_dir/.husky/pre-commit" <<'SH'
+musi_run_parallel_step parallel-precommit "" lint bun run lint:changed
+musi_run_parallel_step parallel-precommit "" ratchet bun run lint:ratchet
+musi_run_parallel_step parallel-precommit "" zero-baseline bun run lint:ratchet:zero-baseline
+musi_run_parallel_step parallel-precommit "" coverage-map bun run docs:lint-coverage-map:check -- --staged
+musi_run_parallel_step parallel-precommit "" format-check bun run format:changed:check
+musi_run_parallel_step parallel-precommit "" typecheck bun run typecheck
+musi_run_parallel_step parallel-precommit "" test bun run test:changed --reporter=dot
+musi_run_parallel_step parallel-precommit "" scripts bun run test:scripts:changed
+SH
 }
 
 write_valid_manifest() {
@@ -178,16 +269,6 @@ write_valid_manifest() {
       "invocation": "bun run lint:ratchet"
     },
     {
-      "id": "ratchet/local-max-lines",
-      "kind": "ratchet",
-      "category": "maintainability",
-      "principle": "Max lines ratchet fixture principle.",
-      "pairedGuide": "none",
-      "repairKind": "manual",
-      "source": "scripts/lint-ratchet-config.ts",
-      "invocation": "bun run lint:ratchet"
-    },
-    {
       "id": "ratchet/local-max-lines-code-intel",
       "kind": "ratchet",
       "category": "maintainability",
@@ -222,26 +303,6 @@ write_valid_manifest() {
       "kind": "ratchet",
       "category": "maintainability",
       "principle": "Generate-harness-controls max lines ratchet fixture principle.",
-      "pairedGuide": "none",
-      "repairKind": "manual",
-      "source": "scripts/lint-ratchet-config.ts",
-      "invocation": "bun run lint:ratchet"
-    },
-    {
-      "id": "ratchet/local-max-lines-lint-coverage-map-check",
-      "kind": "ratchet",
-      "category": "maintainability",
-      "principle": "Lint coverage-map checker max lines ratchet fixture principle.",
-      "pairedGuide": "none",
-      "repairKind": "manual",
-      "source": "scripts/lint-ratchet-config.ts",
-      "invocation": "bun run lint:ratchet"
-    },
-    {
-      "id": "ratchet/local-max-lines-lint-rule-docs",
-      "kind": "ratchet",
-      "category": "maintainability",
-      "principle": "Lint-rule-docs max lines ratchet fixture principle.",
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": "scripts/lint-ratchet-config.ts",
@@ -318,16 +379,6 @@ write_valid_manifest() {
       "invocation": "bun run lint:ratchet"
     },
     {
-      "id": "ratchet/simple-import-sort-imports-top-level-scripts",
-      "kind": "ratchet",
-      "category": "maintainability",
-      "principle": "Top-level scripts import-sort ratchet fixture principle.",
-      "pairedGuide": "none",
-      "repairKind": "manual",
-      "source": "scripts/lint-ratchet-config.ts",
-      "invocation": "bun run lint:ratchet"
-    },
-    {
       "id": "ratchet/strict-boolean-expressions-shared",
       "kind": "ratchet",
       "category": "maintainability",
@@ -352,26 +403,6 @@ write_valid_manifest() {
       "kind": "ratchet",
       "category": "maintainability",
       "principle": "TypeScript-ESLint no-misused-promises codemod test ratchet fixture principle.",
-      "pairedGuide": "none",
-      "repairKind": "manual",
-      "source": "scripts/lint-ratchet-config.ts",
-      "invocation": "bun run lint:ratchet"
-    },
-    {
-      "id": "ratchet/typescript-eslint-no-misused-promises-drift-ai-tests",
-      "kind": "ratchet",
-      "category": "maintainability",
-      "principle": "TypeScript-ESLint no-misused-promises drift-ai test ratchet fixture principle.",
-      "pairedGuide": "none",
-      "repairKind": "manual",
-      "source": "scripts/lint-ratchet-config.ts",
-      "invocation": "bun run lint:ratchet"
-    },
-    {
-      "id": "ratchet/typescript-eslint-no-misused-promises-script-tests",
-      "kind": "ratchet",
-      "category": "maintainability",
-      "principle": "TypeScript-ESLint no-misused-promises script test ratchet fixture principle.",
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": "scripts/lint-ratchet-config.ts",
@@ -408,16 +439,6 @@ write_valid_manifest() {
       "invocation": "bun run lint:ratchet"
     },
     {
-      "id": "ratchet/typescript-eslint-only-throw-error-script-tests",
-      "kind": "ratchet",
-      "category": "maintainability",
-      "principle": "TypeScript-ESLint only-throw-error script test ratchet fixture principle.",
-      "pairedGuide": "none",
-      "repairKind": "manual",
-      "source": "scripts/lint-ratchet-config.ts",
-      "invocation": "bun run lint:ratchet"
-    },
-    {
       "id": "ratchet/typescript-eslint-require-await-script-singletons",
       "kind": "ratchet",
       "category": "maintainability",
@@ -442,16 +463,6 @@ write_valid_manifest() {
       "kind": "ratchet",
       "category": "behavior",
       "principle": "Top-level scripts unbound-method ratchet fixture principle.",
-      "pairedGuide": "none",
-      "repairKind": "manual",
-      "source": "scripts/lint-ratchet-config.ts",
-      "invocation": "bun run lint:ratchet"
-    },
-    {
-      "id": "ratchet/typescript-eslint-only-throw-error-drift-ai-tests",
-      "kind": "ratchet",
-      "category": "maintainability",
-      "principle": "TypeScript-ESLint only-throw-error drift-ai test ratchet fixture principle.",
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": "scripts/lint-ratchet-config.ts",
@@ -557,6 +568,100 @@ write_valid_manifest() {
       "repairCommand": "bun run codemod:fixture",
       "source": "scripts/codemods/fixture.ts",
       "invocation": "bun run codemod:fixture"
+    },
+    {
+      "id": "check/lint-coverage-map",
+      "kind": "check",
+      "category": "maintainability",
+      "principle": "Coverage-map fixture principle.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/lint-coverage-map-check.ts",
+      "invocation": "bun run docs:lint-coverage-map:check"
+    },
+    {
+      "id": "verify-wrapper/verify",
+      "kind": "verify-wrapper",
+      "category": "maintainability",
+      "principle": "Verify fixture principle.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/verify.sh",
+      "invocation": "bun run verify",
+      "slots": [
+        { "name": "lint", "script": "lint" },
+        { "name": "ratchet", "script": "lint:ratchet" },
+        { "name": "zero-baseline", "script": "lint:ratchet:zero-baseline" },
+        { "name": "coverage-map", "script": "docs:lint-coverage-map:check" },
+        { "name": "format-check", "script": "format:check" },
+        { "name": "typecheck", "script": "typecheck" },
+        { "name": "test", "script": "test" },
+        { "name": "scripts", "script": "test:scripts" }
+      ]
+    },
+    {
+      "id": "verify-wrapper/verify-changed",
+      "kind": "verify-wrapper",
+      "category": "maintainability",
+      "principle": "Verify changed fixture principle.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/verify.sh",
+      "invocation": "bun run verify:changed",
+      "slots": [
+        { "name": "lint", "script": "lint:changed" },
+        { "name": "ratchet", "script": "lint:ratchet" },
+        { "name": "zero-baseline", "script": "lint:ratchet:zero-baseline" },
+        { "name": "coverage-map", "script": "docs:lint-coverage-map:check" },
+        { "name": "format-check", "script": "format:changed:check" },
+        { "name": "typecheck", "script": "typecheck" },
+        { "name": "test", "script": "test:changed" },
+        { "name": "scripts", "script": "test:scripts:changed" }
+      ]
+    },
+    {
+      "id": "verify-wrapper/verify-parallel",
+      "kind": "verify-wrapper",
+      "category": "maintainability",
+      "principle": "Verify parallel fixture principle.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/verify.sh",
+      "invocation": "bun run verify:parallel",
+      "slots": [
+        { "name": "lint", "script": "lint" },
+        { "name": "ratchet", "script": "lint:ratchet" },
+        { "name": "zero-baseline", "script": "lint:ratchet:zero-baseline" },
+        { "name": "coverage-map", "script": "docs:lint-coverage-map:check" },
+        { "name": "format-check", "script": "format:check" },
+        { "name": "typecheck", "script": "typecheck" },
+        { "name": "test", "script": "test" },
+        { "name": "scripts", "script": "test:scripts" }
+      ]
+    },
+    {
+      "id": "hook/pre-commit",
+      "kind": "hook",
+      "category": "maintainability",
+      "principle": "Pre-commit fixture principle.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": ".husky/pre-commit",
+      "invocation": "git commit",
+      "slots": [
+        { "name": "lint", "script": "lint:changed" },
+        { "name": "ratchet", "script": "lint:ratchet" },
+        { "name": "zero-baseline", "script": "lint:ratchet:zero-baseline" },
+        { "name": "coverage-map", "script": "docs:lint-coverage-map:check" },
+        { "name": "format-check", "script": "format:changed:check" },
+        { "name": "typecheck", "script": "typecheck" },
+        { "name": "test", "script": "test:changed" },
+        {
+          "name": "scripts",
+          "script": "test:scripts:changed",
+          "condition": "when staged hook/script/harness inputs require script smoke"
+        }
+      ]
     }$extra_entries
   ]
 }
@@ -568,6 +673,7 @@ write_valid_fixture() {
   copy_validator "$fixture_dir"
   write_eslint_plugin "$fixture_dir"
   write_source_files "$fixture_dir"
+  write_wrapper_shells "$fixture_dir"
   write_package_json "$fixture_dir"
   write_valid_manifest "$fixture_dir"
 }
@@ -868,6 +974,36 @@ mutate_paired_guide_missing() {
 JSON
 }
 
+remove_manifest_slot() {
+  local fixture_dir=$1
+  local control_id=$2
+  local slot_name=$3
+  MANIFEST_PATH="$fixture_dir/harness.controls.json" \
+  CONTROL_ID="$control_id" \
+  SLOT_NAME="$slot_name" \
+    bun --eval '
+const fs = require("node:fs");
+const manifestPath = process.env.MANIFEST_PATH;
+const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+for (const control of manifest.controls) {
+  if (control.id === process.env.CONTROL_ID && Array.isArray(control.slots)) {
+    control.slots = control.slots.filter((slot) => slot.name !== process.env.SLOT_NAME);
+  }
+}
+fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+'
+}
+
+mutate_missing_verify_coverage_slot() {
+  local fixture_dir=$1
+  remove_manifest_slot "$fixture_dir" "verify-wrapper/verify-changed" "coverage-map"
+}
+
+mutate_missing_precommit_ratchet_slot() {
+  local fixture_dir=$1
+  remove_manifest_slot "$fixture_dir" "hook/pre-commit" "ratchet"
+}
+
 run_failure_checks() {
   run_failure_case "orphan-rule" "is not declared in the manifest" mutate_orphan_rule
   run_failure_case "undeclared-script" "not declared in the manifest and not exempt" mutate_undeclared_script
@@ -881,6 +1017,8 @@ run_failure_checks() {
   run_failure_case "lint-restates-field" "must not restate category" mutate_lint_restates_field
   run_failure_case "paired-guide-missing" "pairedGuide does not resolve" mutate_paired_guide_missing
   run_failure_case "missing-ratchet-control" "is not declared in the manifest as kind" mutate_missing_ratchet_control
+  run_failure_case "missing-verify-coverage-slot" "coverage-map" mutate_missing_verify_coverage_slot
+  run_failure_case "missing-precommit-ratchet-slot" "hook/pre-commit" mutate_missing_precommit_ratchet_slot
 }
 
 run_real_tree_check() {

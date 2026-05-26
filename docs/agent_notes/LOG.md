@@ -8,6 +8,284 @@ Newest on top.
 
 ---
 
+- 2026-05-26: Fixture Git environment hardening landed locally. Added
+  `scripts/test-git-env.sh` and sourced it from fixture-heavy smoke scripts so
+  direct invocations clear inherited hook `GIT_*` variables before creating
+  temp repos. `test:scripts:changed` now selects every affected smoke when the
+  helper changes, and `scripts/test-test-scripts.sh` has a fast direct
+  inherited-env assertion for those smokes.
+- 2026-05-26: ESLint shared policy extraction landed locally. Reused file
+  scopes, linted script surfaces, package test/helper scopes, process
+  primitive selectors, the E2E selector allowlist, and the repeated
+  `@musi/shared/schemas` barrel restriction now live in
+  `eslint-config/shared-policy.js`; `eslint.config.js` re-exports the E2E
+  allowlist for existing drift tooling.
+- 2026-05-25: Lint-agent local-rule envelope rename landed locally.
+  Preferred package scripts are now `lint:agent:local-rules` and
+  `lint:agent:local-rules:changed`; `lint:agent` and `lint:agent:changed`
+  remain compatibility aliases. Harness controls now document the preferred
+  local-rule envelope surfaces.
+- 2026-05-25: Lint reference-readiness external tool provisioning landed
+  locally. CI validate now installs system `shellcheck` and `yamllint` before
+  linting, and runs `bun run lint:shell` plus `bun run lint:config-sensors`.
+  The local doctor/tool-missing surfaces already report actionable install
+  guidance and versions for those system tools.
+- 2026-05-25: Lint reference-readiness path-policy data model landed locally.
+  `scripts/path-policy.ts` now exports descriptive path/file-surface policy
+  data for lintable extensions, source relevance, full-scan triggers, shell and
+  config surfaces, format candidates, script-smoke subjects, directory-prefix
+  subjects, and deletion classes. Details:
+  `finished_work/lint-reference-readiness-14-path-policy-data-model.md`.
+- 2026-05-25: Lint ratchet registry safe-default landed locally. Default
+  `bun run lint:ratchet` now runs the full registry preflight, so local
+  pre-commit and `verify:changed` reject empty ratchet globs, absolute paths,
+  orphan baseline ids, and registry-shape failures without adding a separate
+  harness slot. Details:
+  `finished_work/lint-ratchet-registry-safe-default.md`.
+- 2026-05-25: Lint reference-readiness zero-baseline lifecycle gate landed
+  locally. `bun run lint:ratchet:zero-baseline` now fails when a drained
+  ratchet lacks `zeroBaselineDisposition`, and verify, verify:changed,
+  verify:parallel, pre-commit, and CI run the gate after `lint:ratchet`.
+  Harness controls and the lint-ratchet guide document the new lifecycle-check
+  behavior. Details:
+  `finished_work/lint-reference-zero-baseline-lifecycle-check.md`.
+- 2026-05-25: Lint reference-readiness zero-baseline tasks 04-10 landed
+  locally. The remaining 29 undocumented zero-baseline ratchets now have
+  `zeroBaselineDisposition` metadata in `scripts/lint-ratchet-config.ts`, and
+  the task notes are marked Done. The audit now reports 36 documented
+  lifecycles and 0 rows needing action. Details:
+  `finished_work/lint-reference-readiness-zero-baseline-04-10.md`.
+- 2026-05-25: Lint reference-readiness complexity/core zero-baseline
+  dispositions landed locally. Seven core complexity and top-level script
+  ratchets now document their ratchet-only lifecycle in
+  `scripts/lint-ratchet-config.ts`: codemods are intentional-ratchet-only
+  because normal ESLint ignores that implementation family; the mixed/off
+  script and eslint-rule rows use narrow-floor metadata. The audit now reports
+  7 documented zero-baseline lifecycles and 29 remaining undocumented rows.
+- 2026-05-25: Lint reference-readiness policy decisions recorded locally.
+  The local-rule envelope rename direction was recorded as
+  `lint:agent:local-rules` / `lint:agent:local-rules:changed` while keeping
+  compatibility aliases if needed. Coverage-map should be documented as part
+  of the recommended lint-ratchet/local-rule design. Conventional commits
+  remain required with intentional non-squash merges, but CI commit-shape
+  enforcement is not desired right now. The `/home/node/tmp/ai_devx_stuff`
+  reference dump is out of date and should sync only at the end of the
+  lint-reference readiness
+  cycle. Details: `finished_work/lint-reference-policy-decisions.md`.
+- 2026-05-25: Lint reference-readiness path-policy task split refined locally.
+  The active backlog now has 33 task files: path-policy work is separated into
+  data model, shell interface, lint caller migration, format caller migration,
+  and source-relevance/script-smoke migration leaves. Downstream lint-reference
+  readiness tasks were renumbered to keep one linear promotion order. Details:
+  `finished_work/lint-reference-roadmap-split.md`.
+- 2026-05-25: Lint reference-readiness roadmap split landed locally. The old
+  `backlog/lint-reference-readiness-roadmap.md` file is now a compatibility
+  pointer to `backlog/lint-reference-readiness/00-index.md`; the active backlog
+  is split into task files so implementers can promote one leaf without reading
+  the whole roadmap. The review verdict table, resolved
+  license detail, and repeated "reviewed/updated" context were trimmed from
+  active task notes. Oversized work was broken down for zero-baseline cleanup,
+  shared path policy, external tool provisioning, ESLint policy extraction, and
+  adopter docs. Details:
+  `finished_work/lint-reference-roadmap-split.md`.
+- 2026-05-25: Lint reference-readiness roadmap review follow-up and MIT
+  licensing update landed locally. The roadmap now uses one ordered
+  implementation backlog instead of phases plus a separate order, records
+  licensing as resolved, scopes path policy to shared data instead of one
+  shared classifier, moves changed-format checking behind path-policy data,
+  combines shared ESLint policy extraction with max-lines/ratchet ignore
+  unification, adds missing ratchet-test/custom-rule-test/coverage-map
+  readiness items, and reframes commit-shape validation as policy
+  documentation for the non-squash merge policy that preserves commit text.
+  Added root MIT `LICENSE`, updated the README license section, and added
+  `"license": "MIT"` to the root and workspace package manifests. Details:
+  `finished_work/lint-reference-roadmap-review-followup.md`.
+- 2026-05-25: Lint reference-readiness roadmap added from two external lint
+  setup reviews. The new backlog note classifies each suggestion as implement,
+  defer, reject, or already covered; prioritizes zero-baseline lifecycle
+  cleanup, local registry validation, centralized path policy, format checking,
+  external tool provisioning, harness manifest parity, and ESLint config
+  modularization; and fixes the backlog index pointer away from the removed
+  `lint-ratchet-sharing/` folder. Current task index:
+  `backlog/lint-reference-readiness/00-index.md`; the original full triage is
+  preserved in git history before the roadmap split.
+- 2026-05-25: Zero-baseline ratchet audit automation landed locally.
+  Added `bun run lint:ratchet:zero-baseline`, which reports drained ratchets
+  against normal ESLint resolved-rule coverage and names the promotion or
+  ratchet-only lifecycle action. Registry entries now support optional
+  `zeroBaselineDisposition` metadata, the lint-ratchet guide documents the
+  lifecycle policy for downstream adopters, and the new command is declared in
+  the harness controls manifest. The branch leaves lifecycle cleanup explicit:
+  current output is 44 zero-baseline ratchets, 8 normal-lint error-covered
+  rows, 0 documented dispositions, and 36 rows still needing action. Details:
+  `finished_work/zero-baseline-ratchet-lifecycle.md`.
+- 2026-05-25: Changed-smoke selection review follow-up on
+  `feat/autonomous-batch-iteration`. The three dependent tRPC/shared-schema
+  codemod smoke entries now use `scripts/codemods/lib/`, so split helper edits
+  select the structured-logging, trpc-shared-input, and trpc-shared-output
+  smokes. Added direct CLI smokes and changed-selection subjects for
+  `scripts/codemods/expand-barrel/` and
+  `scripts/codemods/concurrency-guard/`. `test-ai-hooks` now includes
+  `.codex/hooks/tidy-edited-file.sh`, and the regression suite also covers the
+  Claude tidy adapter path. Restored the drift-ai `CheckContext` facade export,
+  merged the expand-barrel mock imports, and gitignored killed tidy-hook temp
+  directories. `scripts/drift-ai/` still has no dedicated script-smoke entry.
+  Details:
+  `finished_work/changed-smoke-split-helper-coverage.md`.
+- 2026-05-25: Doctor JSON smoke perf on
+  `feat/autonomous-batch-iteration`. Fixture-scoped the
+  `scripts/test-doctor-json.sh` JSON, default-mode, and harness-failure
+  contract runs so they still execute real `doctor.sh` and the real
+  `harness-emit-envelope.ts`, but stub full-repo DB/worktree/register,
+  migration, drift, knip, blob-size, and harness subcommands when those
+  checks are not under test. Local timing dropped from the user-reported
+  `~58-59s` (`~55.8s` across the instrumented slow sections) to `real 1.30`.
+  Details: `finished_work/test-doctor-json-smoke-perf.md`.
+- 2026-05-25: Lint-ratchet smoke perf on
+  `feat/autonomous-batch-iteration`. Removed two full real-tree ESLint
+  collections from `scripts/test-lint-ratchet.sh` by keeping the real-tree
+  preflight to committed registry/baseline shape and generated local
+  config/cache identity checks, while leaving fixture CLI runs to cover
+  default mode, `--check-baseline`, `--update`, update refusal, metrics, cache,
+  and parser-profile behavior. Local wall time dropped from 95.1s to 23.6s;
+  `test:scripts:changed` now observes `test-lint-ratchet` at 26s and is paced
+  by `test-doctor-json` at 57s. Details:
+  `finished_work/lint-ratchet-smoke-perf.md`.
+- 2026-05-25: Tidy edited-file hook test coverage on
+  `feat/autonomous-batch-iteration`. Expanded `scripts/ai-hooks/test.sh`
+  coverage for the shared tidy hook with an unformatted `.ts` success fixture,
+  missing-file and `node_modules/foo.ts` unsupported skips, non-blocking
+  Prettier/ESLint failures, exact bounded ESLint output assertions,
+  no-file/malformed-payload JSON continue branches, and a Codex
+  `apply_patch` fixture that extracts paths from `tool_input.command` while
+  ignoring `tool_input.file_path`. Verification: `bash
+  scripts/test-ai-hooks.sh` and `bun run test:scripts:changed`. Details:
+  `finished_work/tidy-edited-file-test-coverage.md`.
+- 2026-05-25: Tidy edited-file adapter wiring on
+  `feat/autonomous-batch-iteration`. Added executable Claude and Codex
+  wrappers that exec `scripts/ai-hooks/tidy-edited-file.sh`, registered the
+  Claude hook after Prisma generation and doc-length for `PostToolUse`
+  `Edit|Write`, and registered the Codex hook for `PostToolUse`
+  `apply_patch` with a 120s timeout. Verification: `bash
+  scripts/test-ai-hooks.sh`, `jq . .claude/settings.json`, `jq .
+  .codex/hooks.json`, and `bun run verify:changed`. Details:
+  `finished_work/tidy-edited-file-adapters.md`.
+- 2026-05-25: Shared post-edit tidy hook on
+  `feat/autonomous-batch-iteration`. Added
+  `scripts/ai-hooks/tidy-edited-file.sh` for future Claude/Codex post-edit
+  adapters. The script reads Claude `tool_input.file_path` payloads, parses
+  Codex `tool_name: "apply_patch"` patch paths from `tool_input.command`,
+  skips missing/deleted, unsupported, outside-repo, and binary paths, runs
+  per-file Prettier and ESLint autofix where applicable, and emits non-blocking
+  bounded hook JSON for success, skip, and failure cases. Added ai-hooks smoke
+  coverage with stubbed `npx` for Claude payloads, Codex apply_patch paths,
+  skipped files, formatter/linter failures, truncation, and
+  `SKIP_TIDY_HOOK=1`. Details:
+  `finished_work/tidy-edited-file-hook.md`.
+- 2026-05-25: Codemod complexity drain on
+  `feat/autonomous-batch-iteration`. Flattened the final six
+  `ratchet/core-complexity-codemods` findings across structured-logging,
+  trpc-shared-input, and trpc-shared-output codemod helpers by extracting CLI
+  parser finalizers, run orchestration helpers, script replacement shape
+  helpers, and const/inline schema candidate helpers. The codemod complexity
+  ratchet is now empty (`6 -> 0`) and total `lint:ratchet` findings are now
+  `0` (`6 -> 0`). Verification: structured-logging and trpc shared schema
+  fixture tests, all three relevant codemod `--check` smokes,
+  `bun run lint:ratchet`, `bun run lint:ratchet:check-baseline`,
+  `bun run lint -- --max-warnings=0`, `bun run typecheck`, and
+  `bun run test:scripts:changed`. Details:
+  `finished_work/codemod-complexity-drain.md`.
+- 2026-05-25: Concurrency-guard codemod ratchet drain on
+  `feat/autonomous-batch-iteration`. Split
+  `scripts/codemods/concurrency-guard.ts` into a CLI/export facade plus
+  focused modules for CLI parsing/path normalization, constants and shape
+  tables, AST/delegate helper predicates, raw/direct finding producers,
+  helper-shape classifiers, and scan/run orchestration. Flattened the
+  `parseArgs` and `patternCFinding` complexity findings while keeping the
+  fixture suite and `--check` smoke behavior stable.
+  `ratchet/core-complexity-codemods` is now `6` (`8 -> 6`),
+  `ratchet/local-max-lines-codemods` is now `0` (`1 -> 0`), and total
+  `lint:ratchet` findings are now `6` (`9 -> 6`). Verification:
+  `bun test scripts/codemods/concurrency-guard.test.ts`,
+  `bun run codemod:concurrency-guard -- --check`,
+  `bun run lint:ratchet`, `bun run lint:ratchet:check-baseline`,
+  `bun run lint -- --max-warnings=0`, `bun run typecheck`, and
+  `bun run test:scripts:changed`; coverage-map staged reach check also passed
+  for the new helper directory. Details:
+  `finished_work/concurrency-guard-codemod-ratchet-drain.md`.
+- 2026-05-25: Expand-barrel codemod ratchet drain on
+  `feat/autonomous-batch-iteration`. Split
+  `scripts/codemods/expand-barrel.ts` into a CLI/export facade plus focused
+  modules for CLI parsing, known barrel contexts, path/module resolution,
+  export binding collection, symbol-map traversal, import grouping/replacement,
+  mock-string rewriting, and run/check orchestration. The fixture suite kept
+  named/default/namespace/star re-export, type import, mixed barrel, warning,
+  and mock rewrite behavior stable. `ratchet/core-complexity-codemods` is now
+  `8` (`16 -> 8`), `ratchet/local-max-lines-codemods` is now `1` (`2 -> 1`),
+  and total `lint:ratchet` findings are now `9` (`18 -> 9`). Verification:
+  `bun test scripts/codemods/expand-barrel.test.ts`,
+  `bun run lint:ratchet`, `bun run lint:ratchet:check-baseline`,
+  `bun run lint -- --max-warnings=0`, `bun run typecheck`, and
+  `bun run test:scripts:changed`.
+- 2026-05-25: Runtime max-lines split on `feat/autonomous-batch-iteration`.
+  Split `scripts/lint-ratchet.ts` into a CLI/export facade plus focused
+  runtime modules for CLI parsing, path constants, rule-source hashing,
+  generated ESLint config/cache handling, ESLint execution, current finding
+  aggregation, diagnostics formatting, mode orchestration, and runtime errors.
+  Split `scripts/lint-ratchet-baseline.ts` into a public baseline facade plus
+  helper modules for constants, hashing, registry validation, baseline
+  build/format, parse validation, and update decisions.
+  `ratchet/local-max-lines-runtime` is empty (`2 -> 0`; total `lint:ratchet`
+  findings `29 -> 27`). Verification: `bash scripts/test-lint-ratchet.sh`,
+  `bun test scripts/lint-ratchet*.test.ts`, `bun run lint:ratchet`,
+  `bun run lint:ratchet:check-baseline`, `bun run typecheck`, and
+  `bun run verify:changed`. Details:
+  `finished_work/runtime-max-lines-split.md`.
+- 2026-05-25: Drift-ai max-lines drain on `feat/autonomous-batch-iteration`.
+  Split `scripts/drift-ai.ts` into a CLI/export facade plus focused modules for
+  CLI parsing, changed-scope git helpers, run preparation, report construction,
+  formatting, chunk output, and runtime orchestration. Split
+  `scripts/drift-ai/ghost-files.ts` into a detector facade plus token,
+  matching, changed/current-scope runner, bucket fallback, and finding-message
+  modules. `ratchet/local-max-lines-drift-ai` is empty (`2 -> 0`; total
+  `lint:ratchet` findings `31 -> 29`). Verification: `bun run lint:ratchet`,
+  `bun run lint:ratchet:check-baseline`, `FORCE_VERIFY=1 bun run typecheck`,
+  `bun run test:scripts:changed`, and
+  `FORCE_VERIFY=1 bun run verify:changed`.
+- 2026-05-25: `fix/unbound-method-harness-emit-envelope` drained the final
+  top-level script `@typescript-eslint/unbound-method` finding. The
+  `scripts/harness-emit-envelope.ts` output path now calls dynamic `node:fs`
+  and `node:path` imports through their module namespaces instead of
+  destructuring methods, and
+  `ratchet/typescript-eslint-unbound-method-top-level-scripts` is empty
+  (`1 -> 0`, total `lint:ratchet` findings `32 -> 31`). Verification:
+  `bun run lint:ratchet`, `bun run lint:ratchet:check-baseline`,
+  `bun run lint -- --max-warnings=0`, `bun run typecheck`, and
+  `bun run test:scripts:changed`.
+- 2026-05-25: Added
+  `backlog/autonomous-agent-iteration-candidates.md`, a gathered promotion
+  snapshot for autonomous AI-harness and lint-drain work. The note promotes a
+  shared Claude/Codex post-edit tidy hook idea and live ratchet drains. Cleanup
+  trimmed the active batch to six items by removing the already-landed Vitest
+  install/inventory slice, removed stale in-progress notes for the already-zero
+  drift-ai complexity drain and already-fixed async verify marker/deletion
+  follow-up, and moved implemented hook provenance notes to `finished_work/`.
+  Updated after the user supplied the official Codex hook docs
+  (`https://developers.openai.com/codex/hooks#posttooluse`): Codex post-edit
+  hooks can be matched through `apply_patch` / `Edit` / `Write`, with hook input
+  still reporting `tool_name: "apply_patch"` and the patch under
+  `tool_input.command`. Added a user-requested optimization entry for commands
+  agents run and commands hooks run, covering `verify`, `verify:changed`,
+  `verify:parallel`, pre-commit, their subcommands, `AGENTS.md`, and
+  commit-hook changes where measured bottlenecks justify them.
+- 2026-05-24: Drain-remaining-ratchets review follow-up on
+  `fix/drain-remaining-ratchets`. Split the logs-audit request-id and
+  event-field helpers out of `scripts/logs-audit-checks.ts`, expanded
+  `ratchet/local-max-lines-logs-audit` to cover `scripts/logs-audit-*.ts`,
+  refreshed the committed baseline metadata with empty `items`, and added a
+  `test:changed` regression so top-level logs-audit helper edits run the
+  scripts Vitest project in full. The coverage map now lists the helper glob
+  under the logs-audit max-lines ratchet.
 - 2026-05-24: Codex git-commit post-hook timeout handling now treats empty,
   signal, and timeout-shaped commit responses as uncertain instead of generic
   output. The summary says the commit may still be running and may still land,

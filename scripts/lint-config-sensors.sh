@@ -5,6 +5,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$REPO_ROOT"
+PATH_POLICY_QUERY="$SCRIPT_DIR/path-policy-query.ts"
 
 MODE=full
 BASE=main
@@ -55,97 +56,8 @@ DOCKERFILES=()
 REFERENCE_DOCKERFILES=()
 FULL_SENSOR_RUN=0
 
-path_is_excluded() {
-  local path="$1"
-  case "$path" in
-    node_modules/*|*/node_modules/*|worktrees/*|*/worktrees/*|.playwright-cli/*|*/.playwright-cli/*)
-      return 0
-      ;;
-  esac
-  return 1
-}
-
-is_workflow_path() {
-  local path="$1" rest
-  path_is_excluded "$path" && return 1
-  case "$path" in
-    .github/workflows/*.yml|.github/workflows/*.yaml)
-      rest="${path#.github/workflows/}"
-      case "$rest" in
-        */*) return 1 ;;
-        *) return 0 ;;
-      esac
-      ;;
-  esac
-  return 1
-}
-
-is_maintained_yaml_path() {
-  local path="$1" rest skill
-  path_is_excluded "$path" && return 1
-  case "$path" in
-    .yamllint.yml|docker-compose.yml|.devcontainer/docker-compose.yml)
-      return 0
-      ;;
-    .github/workflows/*.yml|.github/workflows/*.yaml)
-      is_workflow_path "$path"
-      return
-      ;;
-    .codex/skills/*/agents/openai.yaml)
-      rest="${path#.codex/skills/}"
-      skill="${rest%%/agents/openai.yaml}"
-      [ -n "$skill" ] && [ "$skill" != "$rest" ] && [ "${skill#*/}" = "$skill" ]
-      return
-      ;;
-  esac
-  return 1
-}
-
-is_maintained_toml_path() {
-  local path="$1"
-  path_is_excluded "$path" && return 1
-  case "$path" in
-    bunfig.toml|.codex/config.toml)
-      return 0
-      ;;
-  esac
-  return 1
-}
-
-is_maintained_dockerfile_path() {
-  local path="$1"
-  path_is_excluded "$path" && return 1
-  case "$path" in
-    .devcontainer/Dockerfile)
-      return 0
-      ;;
-  esac
-  return 1
-}
-
-is_reference_dockerfile_path() {
-  local path="$1"
-  case "$path" in
-    docs/refs/5e-database/Dockerfile)
-      return 0
-      ;;
-  esac
-  return 1
-}
-
-is_config_sensor_infra_path() {
-  local path="$1"
-  case "$path" in
-    package.json|bun.lock|.yamllint.yml|scripts/lint-config-sensors.sh)
-      return 0
-      ;;
-  esac
-  return 1
-}
-
 add_actionlint_file() {
   local file="$1"
-  is_workflow_path "$file" || return 0
   [ -f "$file" ] || return 0
   [ -n "${SEEN_ACTIONLINT[$file]:-}" ] && return 0
   SEEN_ACTIONLINT[$file]=1
@@ -154,7 +66,6 @@ add_actionlint_file() {
 
 add_yaml_file() {
   local file="$1"
-  is_maintained_yaml_path "$file" || return 0
   [ -f "$file" ] || return 0
   [ -n "${SEEN_YAML[$file]:-}" ] && return 0
   SEEN_YAML[$file]=1
@@ -163,7 +74,6 @@ add_yaml_file() {
 
 add_toml_file() {
   local file="$1"
-  is_maintained_toml_path "$file" || return 0
   [ -f "$file" ] || return 0
   [ -n "${SEEN_TOML[$file]:-}" ] && return 0
   SEEN_TOML[$file]=1
@@ -172,7 +82,6 @@ add_toml_file() {
 
 add_dockerfile() {
   local file="$1"
-  is_maintained_dockerfile_path "$file" || return 0
   [ -f "$file" ] || return 0
   [ -n "${SEEN_DOCKERFILE[$file]:-}" ] && return 0
   SEEN_DOCKERFILE[$file]=1
@@ -181,44 +90,82 @@ add_dockerfile() {
 
 add_reference_dockerfile() {
   local file="$1"
-  is_reference_dockerfile_path "$file" || return 0
   [ -f "$file" ] || return 0
   [ -n "${SEEN_REFERENCE_DOCKERFILE[$file]:-}" ] && return 0
   SEEN_REFERENCE_DOCKERFILE[$file]=1
   REFERENCE_DOCKERFILES+=("$file")
 }
 
-add_config_sensor_file() {
-  local file="$1"
-  if is_config_sensor_infra_path "$file"; then
-    FULL_SENSOR_RUN=1
-  fi
-  add_actionlint_file "$file"
-  add_yaml_file "$file"
-  add_toml_file "$file"
-  add_dockerfile "$file"
-  add_reference_dockerfile "$file"
+path_policy_has_match() {
+  local query="$1"
+  shift
+
+  IFS= read -r -d '' < <(printf '%s\0' "$@" | bun --config=/dev/null "$PATH_POLICY_QUERY" "$query")
 }
 
-collect_find_results() {
-  local dir="$1"
-  shift
-  [ -d "$dir" ] || return 0
+reset_config_sensor_files() {
+  ACTIONLINT_FILES=()
+  YAML_FILES=()
+  TOML_FILES=()
+  DOCKERFILES=()
+  REFERENCE_DOCKERFILES=()
+  SEEN_ACTIONLINT=()
+  SEEN_YAML=()
+  SEEN_TOML=()
+  SEEN_DOCKERFILE=()
+  SEEN_REFERENCE_DOCKERFILE=()
+}
+
+collect_repo_files() {
+  if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    {
+      git ls-files -z --cached --others --exclude-standard
+      # Reference Dockerfile is gitignored but explicitly linted with relaxed rules.
+      printf '%s\0' "docs/refs/5e-database/Dockerfile"
+    } | sort -z -u
+    return 0
+  fi
+
   while IFS= read -r -d '' file; do
-    add_config_sensor_file "$file"
-  done < <(find "$dir" "$@" -print0 | sort -z)
+    printf '%s\0' "${file#./}"
+  done < <(find . -path ./.git -prune -o -type f -print0 | sort -z)
+}
+
+collect_config_sensor_candidates() {
+  local file
+  declare -A REFERENCE_POLICY_MATCH=()
+
+  while IFS= read -r -d '' file; do
+    REFERENCE_POLICY_MATCH[$file]=1
+    add_reference_dockerfile "$file"
+  done < <(printf '%s\0' "$@" | bun --config=/dev/null "$PATH_POLICY_QUERY" config-surface:reference-dockerfile)
+
+  while IFS= read -r -d '' file; do
+    add_actionlint_file "$file"
+  done < <(printf '%s\0' "$@" | bun --config=/dev/null "$PATH_POLICY_QUERY" config-surface:workflow-yaml)
+
+  while IFS= read -r -d '' file; do
+    add_yaml_file "$file"
+  done < <(printf '%s\0' "$@" | bun --config=/dev/null "$PATH_POLICY_QUERY" config-surface:yaml)
+
+  while IFS= read -r -d '' file; do
+    add_toml_file "$file"
+  done < <(printf '%s\0' "$@" | bun --config=/dev/null "$PATH_POLICY_QUERY" config-surface:toml)
+
+  while IFS= read -r -d '' file; do
+    [ -n "${REFERENCE_POLICY_MATCH[$file]:-}" ] && continue
+    add_dockerfile "$file"
+  done < <(printf '%s\0' "$@" | bun --config=/dev/null "$PATH_POLICY_QUERY" config-surface:dockerfile)
 }
 
 collect_full_files() {
-  add_config_sensor_file .yamllint.yml
-  add_config_sensor_file docker-compose.yml
-  add_config_sensor_file bunfig.toml
-  add_config_sensor_file .codex/config.toml
-  add_config_sensor_file .devcontainer/docker-compose.yml
-  add_config_sensor_file .devcontainer/Dockerfile
-  add_config_sensor_file docs/refs/5e-database/Dockerfile
-  collect_find_results .github/workflows -maxdepth 1 -type f \( -name '*.yml' -o -name '*.yaml' \)
-  collect_find_results .codex/skills -path '*/agents/openai.yaml' -type f
+  local candidates=() file
+
+  while IFS= read -r -d '' file; do
+    candidates+=("$file")
+  done < <(collect_repo_files)
+
+  collect_config_sensor_candidates "${candidates[@]}"
 }
 
 resolve_base_ref() {
@@ -233,6 +180,8 @@ resolve_base_ref() {
 }
 
 collect_changed_files() {
+  local changed_files=() file
+
   # shellcheck source=/dev/null
   . "$SCRIPT_DIR/verify-metadata.sh"
 
@@ -245,7 +194,7 @@ collect_changed_files() {
   fi
 
   while IFS= read -r -d '' file; do
-    add_config_sensor_file "$file"
+    changed_files+=("$file")
   done < <(
     {
       git diff -z --name-only --diff-filter=ACMRD "$BASE"...HEAD
@@ -253,19 +202,18 @@ collect_changed_files() {
     }
   )
 
-  if [ "$FULL_SENSOR_RUN" -eq 1 ]; then
-    ACTIONLINT_FILES=()
-    YAML_FILES=()
-    TOML_FILES=()
-    DOCKERFILES=()
-    REFERENCE_DOCKERFILES=()
-    SEEN_ACTIONLINT=()
-    SEEN_YAML=()
-    SEEN_TOML=()
-    SEEN_DOCKERFILE=()
-    SEEN_REFERENCE_DOCKERFILE=()
-    collect_full_files
+  if [ "${#changed_files[@]}" -gt 0 ] \
+     && path_policy_has_match full-scan-trigger:config-sensors-changed "${changed_files[@]}"; then
+    FULL_SENSOR_RUN=1
   fi
+
+  if [ "$FULL_SENSOR_RUN" -eq 1 ]; then
+    reset_config_sensor_files
+    collect_full_files
+    return 0
+  fi
+
+  collect_config_sensor_candidates "${changed_files[@]}"
 }
 
 command_from_env_or_path() {
@@ -292,6 +240,24 @@ actionlint_command() {
   command_from_env_or_path "${MUSI_ACTIONLINT_BIN:-}" "$REPO_ROOT/node_modules/.bin/node-actionlint" node-actionlint
 }
 
+run_actionlint_file() {
+  local bin="$1" file="$2" limit="${MUSI_ACTIONLINT_TIMEOUT:-10s}" rc
+
+  if command -v timeout >/dev/null 2>&1; then
+    if timeout "$limit" "$bin" "$file"; then
+      return 0
+    else
+      rc=$?
+    fi
+    if [ "$rc" -eq 124 ]; then
+      printf 'lint:config-sensors: actionlint timed out after %s on %s\n' "$limit" "$file" >&2
+    fi
+    return "$rc"
+  fi
+
+  "$bin" "$file"
+}
+
 yamllint_command() {
   if command -v yamllint >/dev/null 2>&1; then
     command -v yamllint
@@ -311,9 +277,33 @@ hadolint_cache_file() {
     -name "hadolint-$HADOLINT_VERSION" -print -quit 2>/dev/null || true
 }
 
-ensure_hadolint_wrapper_executable() {
+hadolint_lock_file() {
+  local cache_dir package_dir wrapper="$1"
+  package_dir="$(cd "$(dirname "$wrapper")/../hadolint" 2>/dev/null && pwd -P)" || return 1
+  cache_dir="$package_dir/.cache/hadolint"
+  mkdir -p "$cache_dir"
+  printf '%s\n' "$cache_dir/.musi-hadolint.lock"
+}
+
+run_with_hadolint_lock() {
+  local lock_file wrapper="$1"
+  shift
+  if ! command -v flock >/dev/null 2>&1; then
+    "$@"
+    return
+  fi
+  lock_file="$(hadolint_lock_file "$wrapper")" || {
+    "$@"
+    return
+  }
+  (
+    flock 9
+    "$@"
+  ) 9>"$lock_file"
+}
+
+ensure_hadolint_wrapper_executable_unlocked() {
   local file wrapper="$1"
-  [ -x "$wrapper" ] || return 0
   file="$(hadolint_cache_file "$wrapper")"
   if [ -z "$file" ]; then
     # hadolint@0.4.2 downloads the binary without executable mode on first run.
@@ -322,6 +312,12 @@ ensure_hadolint_wrapper_executable() {
   fi
   [ -n "$file" ] || return 0
   [ -x "$file" ] || chmod +x "$file"
+}
+
+ensure_hadolint_wrapper_executable() {
+  local wrapper="$1"
+  [ -x "$wrapper" ] || return 0
+  run_with_hadolint_lock "$wrapper" ensure_hadolint_wrapper_executable_unlocked "$wrapper"
 }
 
 hadolint_command() {
@@ -356,7 +352,7 @@ EOF
   failed=0
   for file in "${ACTIONLINT_FILES[@]}"; do
     echo "lint:config-sensors: actionlint checking $file."
-    if ! "$bin" "$file"; then
+    if ! run_actionlint_file "$bin" "$file"; then
       failed=1
     fi
   done
@@ -395,7 +391,7 @@ EOF
 
 run_hadolint() {
   [ "${#DOCKERFILES[@]}" -gt 0 ] || [ "${#REFERENCE_DOCKERFILES[@]}" -gt 0 ] || return 0
-  local bin
+  local bin wrapper="$REPO_ROOT/node_modules/.bin/hadolint"
   bin="$(hadolint_command)" || {
     cat >&2 <<'EOF'
 lint:config-sensors: hadolint is not available.
@@ -407,11 +403,11 @@ EOF
   # release stream. Keep DL3007 out of this repo's floor until that changes.
   if [ "${#DOCKERFILES[@]}" -gt 0 ]; then
     echo "lint:config-sensors: hadolint checking ${#DOCKERFILES[@]} maintained Dockerfile(s)."
-    "$bin" --ignore DL3007 "${DOCKERFILES[@]}"
+    run_with_hadolint_lock "$wrapper" "$bin" --ignore DL3007 "${DOCKERFILES[@]}"
   fi
   if [ "${#REFERENCE_DOCKERFILES[@]}" -gt 0 ]; then
     echo "lint:config-sensors: hadolint checking ${#REFERENCE_DOCKERFILES[@]} local reference Dockerfile(s)."
-    "$bin" --ignore DL3008 --ignore DL3015 --ignore DL4006 "${REFERENCE_DOCKERFILES[@]}"
+    run_with_hadolint_lock "$wrapper" "$bin" --ignore DL3008 --ignore DL3015 --ignore DL4006 "${REFERENCE_DOCKERFILES[@]}"
   fi
 }
 

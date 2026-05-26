@@ -14,7 +14,15 @@ musi_run_parallel_step() {
     local step_start step_start_time step_end step_end_time exit_code
     step_start=$(date +%s)
     step_start_time=$(date -Iseconds)
-    env -u MUSI_VERIFY_LOCK_ALREADY_HELD "$@" > "$log" 2>&1 9>&-
+    # Git hooks export repository metadata into child processes. Clear it so
+    # fixture repos created by tests use their own .git directories and index.
+    env -u MUSI_VERIFY_LOCK_ALREADY_HELD \
+      -u GIT_DIR \
+      -u GIT_INDEX_FILE \
+      -u GIT_WORK_TREE \
+      -u GIT_PREFIX \
+      -u GIT_COMMON_DIR \
+      "$@" > "$log" 2>&1 9>&-
     exit_code=$?
     step_end=$(date +%s)
     step_end_time=$(date -Iseconds)

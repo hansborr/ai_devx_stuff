@@ -99,8 +99,6 @@ drifts.
 
 ### Parked Hardening Leaves
 
-9. `09-changed-gate-content-correctness.md` - make changed verification
-   staged-first so pre-commit verifies the committed content.
 10. `10-test-quality-followups.md` - Testing Library, jest-dom, and
     `vitest/no-conditional-expect` follow-ups.
 11. `11-codemod-eslint-coverage.md` - revisit ESLint coverage for
@@ -192,6 +190,11 @@ drifts.
     surfaces; split non-ESLint sensor/tool setup into named child leaves when
     ShellCheck, actionlint, YAML/TOML/JSON validation, or metadata floors are
     more than a narrow same-cycle change.
+43. `43-zero-baseline-lifecycle-cleanup.md` - parked cleanup for the
+    zero-baseline audit output. Current report shows 44 zero-baseline ratchets,
+    8 normal-lint error-covered rows, 0 documented dispositions, and 36 rows
+    still needing lifecycle action; split by rule family or file surface before
+    promoting, retiring, narrowing, or documenting ratchet-only floors.
 
 Expected child splits after the Leaf 41 coverage map, if the map confirms they
 need separate tool infrastructure:

@@ -24,6 +24,48 @@ ai_worktree_fingerprint() {
   } | sha256sum | awk '{print $1}'
 }
 
+musi_path_policy_query_script() {
+  if [ -n "${MUSI_PATH_POLICY_QUERY:-}" ]; then
+    printf '%s\n' "$MUSI_PATH_POLICY_QUERY"
+    return 0
+  fi
+
+  if [ -n "${REPO_ROOT:-}" ] && [ -f "$REPO_ROOT/scripts/path-policy-query.ts" ]; then
+    printf '%s\n' "$REPO_ROOT/scripts/path-policy-query.ts"
+    return 0
+  fi
+
+  if [ -n "${BASH_SOURCE:-}" ]; then
+    printf '%s\n' "$(cd "$(dirname "$BASH_SOURCE")" && pwd)/path-policy-query.ts"
+    return 0
+  fi
+
+  printf '%s\n' "$(cd "$(dirname "$0")" && pwd)/path-policy-query.ts"
+}
+
+musi_path_policy_query_lines() {
+  local query="$1"
+  local script bun_bin tmp status
+  script="$(musi_path_policy_query_script)"
+  bun_bin="${MUSI_PATH_POLICY_BUN:-bun}"
+  tmp=$(mktemp "${TMPDIR:-/tmp}/musi-path-policy-query.XXXXXX") || return 2
+  if ! "$bun_bin" --config=/dev/null "$script" "$query" > "$tmp"; then
+    rm -f "$tmp"
+    return 2
+  fi
+  tr '\0' '\n' < "$tmp"
+  status=$?
+  rm -f "$tmp"
+  return "$status"
+}
+
+musi_path_policy_path_matches() {
+  local query="$1"
+  local path="$2"
+
+  printf '%s\n' "$path" | musi_path_policy_query_lines "$query" | grep -q .
+}
+
 ai_staged_fingerprint() {
   local repo_root="$1"
 
@@ -36,37 +78,31 @@ ai_staged_fingerprint() {
 musi_changed_gate_relevant_path() {
   local path="$1"
 
-  case "$path" in
-    bun.lock|package.json|drift-ai.config.json|lint-ratchet.baseline.json|harness.controls.json|docs/agent_notes/backlog/lint-followups/lint-coverage-map.md|.claude/settings.json|.codex/hooks.json|.devcontainer/devcontainer.json|.playwright/cli.config.json|.yamllint.yml|bunfig.toml|docker-compose.yml|tsconfig*.json|vitest*.config.*|eslint.config.*|commitlint.config.*|stryker.config.*|knip.config.*|playwright.config.*|prisma.config.*)
-      return 0
-      ;;
-    packages/*/package.json|packages/*/tsconfig*.json|packages/*/vitest*.config.*|packages/*/prisma.config.*)
-      return 0
-      ;;
-    .claude/hooks/*.sh|.codex/hooks/*.sh|.devcontainer/*.sh|.devcontainer/Dockerfile|.devcontainer/docker-compose.yml|.github/workflows/*.yml|.github/workflows/*.yaml|.codex/config.toml|.codex/skills/*/agents/openai.yaml)
-      return 0
-      ;;
-  esac
+  musi_path_policy_path_matches source-relevant "$path"
+}
 
-  case "$path" in
-    .husky/*|packages/*|e2e/*|scripts/*|eslint-rules/*)
-      return 0
-      ;;
-  esac
+musi_staged_has_source_relevant_change() {
+  local tmp
 
+  tmp=$(mktemp "${TMPDIR:-/tmp}/musi-staged-source.XXXXXX") || return 2
+  if ! {
+    git diff --cached --name-only --diff-filter=ACMRD 2>/dev/null || true
+  } | musi_path_policy_query_lines source-relevant:precommit-staged > "$tmp"; then
+    rm -f "$tmp"
+    return 2
+  fi
+  if [ -s "$tmp" ]; then
+    rm -f "$tmp"
+    return 0
+  fi
+  rm -f "$tmp"
   return 1
 }
 
 ai_precommit_tracked_relevant_path() {
   local path="$1"
 
-  case "$path" in
-    .claude/*|.codex/*)
-      return 0
-      ;;
-  esac
-
-  musi_changed_gate_relevant_path "$path"
+  musi_path_policy_path_matches source-relevant:precommit-tracked "$path"
 }
 
 ai_precommit_untracked_relevant_path() {
@@ -86,11 +122,9 @@ musi_changed_gate_fail_if_unstaged() {
     {
       git diff --name-only --diff-filter=ACMRD 2>/dev/null || true
       git ls-files --others --exclude-standard 2>/dev/null || true
-    } | sort -u | while IFS= read -r file; do
+    } | sort -u | musi_path_policy_query_lines source-relevant | while IFS= read -r file; do
       [ -n "$file" ] || continue
-      if musi_changed_gate_relevant_path "$file"; then
-        printf '%s\n' "$file"
-      fi
+      printf '%s\n' "$file"
     done
   ) > "$tmp"
 
@@ -119,18 +153,16 @@ ai_precommit_fingerprint() {
       cd "$repo_root" || exit 1
       {
         git diff --name-only --diff-filter=ACMRD HEAD 2>/dev/null
-      } | sort -u | while IFS= read -r file; do
+      } | sort -u | musi_path_policy_query_lines source-relevant:precommit-tracked | while IFS= read -r file; do
         [ -n "$file" ] || continue
-        ai_precommit_tracked_relevant_path "$file" || continue
         if [ -f "$file" ]; then
           sha256sum "$file"
         else
           printf 'deleted %s\n' "$file"
         fi
       done
-      git ls-files --others --exclude-standard 2>/dev/null | sort -u | while IFS= read -r file; do
+      git ls-files --others --exclude-standard 2>/dev/null | sort -u | musi_path_policy_query_lines source-relevant | while IFS= read -r file; do
         [ -n "$file" ] || continue
-        ai_precommit_untracked_relevant_path "$file" || continue
         [ -f "$file" ] || continue
         sha256sum "$file"
       done
@@ -238,7 +270,15 @@ musi_standard_verify_full_marker() {
 }
 
 musi_staged_has_script_relevant_deletion() {
-  printf '%s\n' "$1" | grep -qE '^(\.husky/|scripts/)'
+  local tmp
+  tmp=$(mktemp "${TMPDIR:-/tmp}/musi-script-deletion.XXXXXX") || return 2
+  printf '%s\n' "$1" | musi_path_policy_query_lines deletion-class:script-smoke-sensitive > "$tmp"
+  if [ -s "$tmp" ]; then
+    rm -f "$tmp"
+    return 0
+  fi
+  rm -f "$tmp"
+  return 1
 }
 
 musi_classify_staged_script_input() {

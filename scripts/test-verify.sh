@@ -9,13 +9,25 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=./test-git-env.sh
+. "$SCRIPT_DIR/test-git-env.sh"
+musi_clear_inherited_git_hook_env
+musi_exit_after_git_hook_env_assertion_if_requested
 VERIFY="$SCRIPT_DIR/verify.sh"
+
+if [ -z "${MUSI_PATH_POLICY_QUERY:-}" ]; then
+  export MUSI_PATH_POLICY_QUERY="$SCRIPT_DIR/path-policy-query.ts"
+fi
+if [ -z "${MUSI_PATH_POLICY_BUN:-}" ]; then
+  MUSI_PATH_POLICY_BUN="$(command -v bun)"
+  export MUSI_PATH_POLICY_BUN
+fi
 
 if [ "${MUSI_TEST_VERIFY_IN_FIXTURE:-}" != "1" ]; then
   FIXTURE_ROOT="$(mktemp -d /tmp/musi-verify-smoke-repo.XXXXXX)"
   mkdir -p "$FIXTURE_ROOT/scripts/ai-hooks"
-  cp "$SCRIPT_DIR/verify.sh" "$SCRIPT_DIR/test-verify.sh" "$SCRIPT_DIR/verify-metadata.sh" \
-    "$SCRIPT_DIR/process-tree.sh" "$SCRIPT_DIR/parallel-step.sh" \
+  cp "$SCRIPT_DIR/verify.sh" "$SCRIPT_DIR/test-verify.sh" "$SCRIPT_DIR/test-git-env.sh" \
+    "$SCRIPT_DIR/verify-metadata.sh" "$SCRIPT_DIR/process-tree.sh" "$SCRIPT_DIR/parallel-step.sh" \
     "$FIXTURE_ROOT/scripts/"
   cp "$SCRIPT_DIR/ai-hooks/cache.sh" "$SCRIPT_DIR/ai-hooks/output-filter.sh" \
     "$FIXTURE_ROOT/scripts/ai-hooks/"
@@ -107,6 +119,38 @@ run_verify() {
 bash -n "$VERIFY" || fail "verify.sh fails bash -n"
 ok "verify.sh passes bash -n"
 
+PARALLEL_STEP_LOG_DIR="$SANDBOX/parallel-step-logs"
+mkdir -p "$PARALLEL_STEP_LOG_DIR/meta"
+set +e
+parallel_step_output=$(
+  export LOG_DIR="$PARALLEL_STEP_LOG_DIR"
+  export META_DIR="$PARALLEL_STEP_LOG_DIR/meta"
+  # shellcheck source=./verify-metadata.sh
+  . "$SCRIPT_DIR/verify-metadata.sh"
+  # shellcheck source=./parallel-step.sh
+  . "$SCRIPT_DIR/parallel-step.sh"
+  GIT_DIR=/outer/git \
+    GIT_INDEX_FILE=/outer/index \
+    GIT_WORK_TREE=/outer/worktree \
+    GIT_PREFIX=outer \
+    GIT_COMMON_DIR=/outer/common \
+    musi_run_parallel_step test "" env-check bash -c '
+      for name in GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE GIT_PREFIX GIT_COMMON_DIR; do
+        value="${!name-}"
+        [ -z "$value" ] || {
+          printf "%s=%s\n" "$name" "$value"
+          exit 1
+        }
+      done
+    '
+  wait "$STEP_PID"
+)
+parallel_step_exit=$?
+set -e
+[ "$parallel_step_exit" -eq 0 ] \
+  || fail "parallel-step should clear inherited Git env for child commands: $parallel_step_output"
+ok "parallel-step clears inherited Git hook env for child commands"
+
 if run_verify --bogus >/dev/null 2>&1; then
   fail "verify.sh accepted unknown flag"
 fi
@@ -154,9 +198,17 @@ grep -qF 'bun run lint:ratchet' "$STUB_LOG_FILE" \
   || fail "verify --changed should invoke bun run lint:ratchet"
 ok "verify --changed runs lint ratchet"
 
+grep -qF 'bun run lint:ratchet:zero-baseline' "$STUB_LOG_FILE" \
+  || fail "verify --changed should invoke bun run lint:ratchet:zero-baseline"
+ok "verify --changed runs zero-baseline lifecycle check"
+
 grep -qF 'bun run docs:lint-coverage-map:check -- --staged' "$STUB_LOG_FILE" \
   || fail "verify --changed should invoke staged lint coverage map check"
 ok "verify --changed runs staged lint coverage map check"
+
+grep -qF 'bun run format:changed:check' "$STUB_LOG_FILE" \
+  || fail "verify --changed should invoke bun run format:changed:check"
+ok "verify --changed runs changed format check"
 
 # --- changed gate rejects unstaged source-relevant worktree drift -----------
 GATE_REPO="$SANDBOX/changed-gate-repo"
@@ -244,7 +296,7 @@ exit_code=$?
 set -e
 [ "$exit_code" -ne 0 ] || fail "verify --changed did not propagate failure"
 grep -qF 'Failed: typecheck' <<< "$output" || fail "summary missed Failed: typecheck"
-grep -qF 'Passed: lint ratchet coverage-map test scripts' <<< "$output" \
+grep -qF 'Passed: lint ratchet zero-baseline coverage-map format-check test scripts' <<< "$output" \
   || fail "summary missed other passed parallel tasks"
 grep -qF 'verify:changed FAILED' <<< "$output" || fail "summary missed banner"
 [ -f "$MARKER_CHANGED" ] && fail "marker should not be written on failure"
@@ -308,6 +360,22 @@ grep -q 'bun run typecheck' "$STUB_LOG_FILE" \
 grep -q 'bun run test:changed' "$STUB_LOG_FILE" \
   || fail "parallel changed verify should still start test after coverage-map failure"
 ok "verify --changed reports coverage-map failure"
+
+# --- format-check failure is reported with a repair hint ------------------
+rm -f "$MARKER_CHANGED"
+: > "$STUB_LOG_FILE"
+set +e
+output=$(STUB_FAIL_format_changed_check=1 run_verify --changed 2>&1)
+exit_code=$?
+set -e
+[ "$exit_code" -ne 0 ] || fail "verify --changed did not propagate format-check failure"
+grep -qF 'Failed: format-check' <<< "$output" || fail "summary missed Failed: format-check"
+grep -qF "bun run format:changed" <<< "$output" || fail "format-check failure missing format hint"
+grep -q 'bun run typecheck' "$STUB_LOG_FILE" \
+  || fail "parallel changed verify should still start typecheck after format-check failure"
+grep -q 'bun run test:changed' "$STUB_LOG_FILE" \
+  || fail "parallel changed verify should still start test after format-check failure"
+ok "verify --changed reports format-check failure with hint"
 
 # --- watchdog kills a hung step and reports a timeout banner --------------
 rm -f "$MARKER_CHANGED"
@@ -448,6 +516,13 @@ if grep -qF 'bun run docs:lint-coverage-map:check -- --staged' "$STUB_LOG_FILE";
 fi
 ok "verify (full) runs lint coverage map check"
 
+grep -qF 'bun run format:check' "$STUB_LOG_FILE" \
+  || fail "verify (full) should invoke bun run format:check"
+if grep -qF 'bun run format:changed:check' "$STUB_LOG_FILE"; then
+  fail "verify (full) must not invoke the changed format check"
+fi
+ok "verify (full) runs full format check"
+
 # --- MR1: full mode runs the full script smoke suite ---------------------
 # Full verify always runs the smoke suite — even when nothing under
 # scripts/ changed — so a release-shaped check exercises the wrappers.
@@ -481,6 +556,13 @@ grep -qF 'bun run lint:ratchet' "$STUB_LOG_FILE" \
   || fail "verify --parallel should invoke bun run lint:ratchet"
 ok "verify --parallel runs lint ratchet"
 
+grep -qF 'bun run format:check' "$STUB_LOG_FILE" \
+  || fail "verify --parallel should invoke bun run format:check"
+if grep -qF 'bun run format:changed:check' "$STUB_LOG_FILE"; then
+  fail "verify --parallel must not invoke the changed format check"
+fi
+ok "verify --parallel runs full format check"
+
 grep -qF 'bun run test:scripts' "$STUB_LOG_FILE" \
   || fail "verify --parallel should invoke bun run test:scripts"
 if grep -q 'bun run test:scripts:changed' "$STUB_LOG_FILE"; then
@@ -502,7 +584,7 @@ exit_code=$?
 set -e
 [ "$exit_code" -ne 0 ] || fail "verify --parallel did not propagate failure"
 grep -qF 'Failed: typecheck' <<< "$output" || fail "parallel summary missed Failed: typecheck"
-grep -qF 'Passed: lint ratchet coverage-map test scripts' <<< "$output" \
+grep -qF 'Passed: lint ratchet zero-baseline coverage-map format-check test scripts' <<< "$output" \
   || fail "parallel summary missed other passed tasks"
 grep -q 'bun run test ' "$STUB_LOG_FILE" \
   || fail "parallel verify should still run test after typecheck failure"

@@ -1,11 +1,16 @@
 #!/usr/bin/env bash
 # Smoke test for scripts/lint-ratchet.ts.
 #
-# Covers the real committed baseline plus fixture regressions, update refusal,
-# check-baseline validation, and strict improvement failures.
+# Covers the committed registry/baseline shape plus fixture regressions, update
+# refusal, check-baseline validation, and strict improvement failures.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
+
+# shellcheck source=scripts/test-git-env.sh
+. scripts/test-git-env.sh
+musi_clear_inherited_git_hook_env
+musi_exit_after_git_hook_env_assertion_if_requested
 
 REPO_ROOT="$(pwd)"
 TMP_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/lint-ratchet-smoke-XXXXXX")
@@ -56,8 +61,14 @@ build_fixture() {
   local fixture_dir=$1
   mkdir -p "$fixture_dir/scripts" "$fixture_dir/packages/shared/src/schemas"
   mkdir -p "$fixture_dir/eslint-rules" "$fixture_dir/docs/guides"
+  mkdir -p "$fixture_dir/eslint-config"
+  cp eslint-config/shared-policy.js "$fixture_dir/eslint-config/shared-policy.js"
   cp scripts/lint-ratchet.ts "$fixture_dir/scripts/lint-ratchet.ts"
+  mkdir -p "$fixture_dir/scripts/lint-ratchet"
+  cp scripts/lint-ratchet/*.ts "$fixture_dir/scripts/lint-ratchet/"
   cp scripts/lint-ratchet-config.ts "$fixture_dir/scripts/lint-ratchet-config.ts"
+  cp scripts/lint-ratchet-registry-builders.ts \
+    "$fixture_dir/scripts/lint-ratchet-registry-builders.ts"
   cp scripts/lint-ratchet-baseline-compare.ts \
     "$fixture_dir/scripts/lint-ratchet-baseline-compare.ts"
   cp scripts/lint-ratchet-baseline-parse.ts \
@@ -69,13 +80,19 @@ build_fixture() {
   cp scripts/lint-ratchet-output.ts "$fixture_dir/scripts/lint-ratchet-output.ts"
   cp scripts/lint-ratchet-report.ts "$fixture_dir/scripts/lint-ratchet-report.ts"
   cp scripts/lint-ratchet-summary.ts "$fixture_dir/scripts/lint-ratchet-summary.ts"
+  cp scripts/lint-ratchet-zero-baseline.ts \
+    "$fixture_dir/scripts/lint-ratchet-zero-baseline.ts"
   cp scripts/lint-rule-docs.ts "$fixture_dir/scripts/lint-rule-docs.ts"
   cp packages/shared/src/schemas/harness-diagnostics.ts \
     "$fixture_dir/packages/shared/src/schemas/harness-diagnostics.ts"
   cp eslint-rules/type-assertion-boundary.js \
     "$fixture_dir/eslint-rules/type-assertion-boundary.js"
   cp eslint-rules/max-lines.js "$fixture_dir/eslint-rules/max-lines.js"
-  ln -s "$REPO_ROOT/node_modules" "$fixture_dir/node_modules"
+  mkdir -p "$fixture_dir/node_modules"
+  ln -s "$REPO_ROOT/node_modules/.bin" "$fixture_dir/node_modules/.bin"
+  ln -s "$REPO_ROOT/node_modules/eslint" "$fixture_dir/node_modules/eslint"
+  ln -s "$REPO_ROOT/node_modules/typescript-eslint" \
+    "$fixture_dir/node_modules/typescript-eslint"
   ln -s "$REPO_ROOT/packages/shared/node_modules" "$fixture_dir/packages/shared/node_modules"
 
   cat >"$fixture_dir/package.json" <<'JSON'
@@ -94,6 +111,7 @@ import typeAssertionBoundary from "./eslint-rules/type-assertion-boundary.js";
 
 export default [
   {
+    files: ["**/*.ts"],
     plugins: {
       local: {
         rules: {
@@ -101,6 +119,9 @@ export default [
           "type-assertion-boundary": typeAssertionBoundary,
         },
       },
+    },
+    rules: {
+      "local/type-assertion-boundary": "off",
     },
   },
 ];
@@ -128,19 +149,53 @@ assert_generated_config_matches_expected() {
 }
 
 assert_local_identity_regression() {
-  local max_key="04f2e06f57af"
-  local type_key="02e6d4270880"
+  local max_key="1e2f5eebd328"
+  local type_key="bd9d52b00104"
   local config_root="$REPO_ROOT/node_modules/.cache/eslint-ratchet/configs"
-  local max_config="$config_root/ratchet-local-max-lines-$max_key.mjs"
+  local max_config="$config_root/ratchet-local-max-lines-code-intel-$max_key.mjs"
   local type_config="$config_root/ratchet-local-type-assertion-boundary-$type_key.mjs"
+  local cache_root="$REPO_ROOT/node_modules/.cache/eslint-ratchet"
+  local max_cache="$cache_root/ratchet-local-max-lines-code-intel-$max_key/.eslintcache"
+  local type_cache="$cache_root/ratchet-local-type-assertion-boundary-$type_key/.eslintcache"
+  MAX_CONFIG="$max_config" TYPE_CONFIG="$type_config" \
+    MAX_CACHE="$max_cache" TYPE_CACHE="$type_cache" bun -e '
+      const { lintRatchets } = await import("./scripts/lint-ratchet-config.ts");
+      const { writeEslintConfig, eslintCachePathFor } =
+        await import("./scripts/lint-ratchet/eslint-config.ts");
+      const { buildRuleSourceHashesById } =
+        await import("./scripts/lint-ratchet/rule-source.ts");
+      const hashes = buildRuleSourceHashesById(lintRatchets);
+      const cases = [
+        [
+          "ratchet/local-max-lines-code-intel",
+          process.env.MAX_CONFIG,
+          process.env.MAX_CACHE,
+        ],
+        [
+          "ratchet/local-type-assertion-boundary",
+          process.env.TYPE_CONFIG,
+          process.env.TYPE_CACHE,
+        ],
+      ];
+      for (const [id, expectedConfig, expectedCache] of cases) {
+        const ratchet = lintRatchets.find((entry) => entry.id === id);
+        if (ratchet === undefined) throw new Error(`missing ratchet ${id}`);
+        const hash = hashes.get(id);
+        if (hash === undefined) throw new Error(`missing rule source hash ${id}`);
+        const configPath = writeEslintConfig(ratchet, hash);
+        if (configPath !== expectedConfig) {
+          throw new Error(`config path changed for ${id}: ${configPath}`);
+        }
+        const cachePath = eslintCachePathFor(ratchet, hash);
+        if (cachePath !== expectedCache) {
+          throw new Error(`cache path changed for ${id}: ${cachePath}`);
+        }
+      }
+    ' || fail "local generated config/cache identity changed"
   [ -f "$max_config" ] \
     || fail "local max-lines cache key changed or config missing: $max_config"
   [ -f "$type_config" ] \
     || fail "local type-assertion cache key changed or config missing: $type_config"
-  [ -f "$REPO_ROOT/node_modules/.cache/eslint-ratchet/ratchet-local-max-lines-$max_key/.eslintcache" ] \
-    || fail "local max-lines eslint cache path changed"
-  [ -f "$REPO_ROOT/node_modules/.cache/eslint-ratchet/ratchet-local-type-assertion-boundary-$type_key/.eslintcache" ] \
-    || fail "local type-assertion eslint cache path changed"
   assert_generated_config_matches_expected "$max_config" \
     "$REPO_ROOT/scripts/test-fixtures/lint-ratchet/expected-local-max-lines.config.mjs"
   assert_generated_config_matches_expected "$type_config" \
@@ -149,9 +204,10 @@ assert_local_identity_regression() {
 
 use_fixture_node_modules_with_fake_plugin() {
   local fixture_dir=$1
-  rm "$fixture_dir/node_modules"
+  rm -rf "$fixture_dir/node_modules"
   mkdir -p "$fixture_dir/node_modules/eslint-plugin-ratchet-fixture"
   ln -s "$REPO_ROOT/node_modules/.bin" "$fixture_dir/node_modules/.bin"
+  ln -s "$REPO_ROOT/node_modules/eslint" "$fixture_dir/node_modules/eslint"
   ln -s "$REPO_ROOT/node_modules/typescript-eslint" \
     "$fixture_dir/node_modules/typescript-eslint"
 
@@ -258,6 +314,17 @@ export type LintRatchetMetric = "message-count";
 type LintRatchetRepairKind = "manual";
 export type LintRatchetParserProfile = "minimal-ts" | "type-aware-ts";
 export type LintRatchetPluginExport = "default" | "plugin";
+export type LintRatchetZeroBaselineDispositionKind =
+  | "intentional-ratchet-only"
+  | "narrow-floor"
+  | "promote-to-normal-lint"
+  | "temporary-ratchet-only";
+
+export interface LintRatchetZeroBaselineDisposition {
+  readonly kind: LintRatchetZeroBaselineDispositionKind;
+  readonly reason: string;
+  readonly exitPath?: string;
+}
 
 export interface LintRatchetLocalSource {
   readonly kind: "local";
@@ -282,6 +349,7 @@ interface LintRatchetConfigBase {
   readonly target: number;
   readonly metric: LintRatchetMetric;
   readonly repairKind: LintRatchetRepairKind;
+  readonly zeroBaselineDisposition?: LintRatchetZeroBaselineDisposition;
 }
 
 export type LintRatchetConfig =
@@ -341,6 +409,17 @@ export type LintRatchetMetric = "message-count" | "complexity-severity";
 type LintRatchetRepairKind = "manual";
 export type LintRatchetParserProfile = "minimal-ts" | "type-aware-ts";
 export type LintRatchetPluginExport = "default" | "plugin";
+export type LintRatchetZeroBaselineDispositionKind =
+  | "intentional-ratchet-only"
+  | "narrow-floor"
+  | "promote-to-normal-lint"
+  | "temporary-ratchet-only";
+
+export interface LintRatchetZeroBaselineDisposition {
+  readonly kind: LintRatchetZeroBaselineDispositionKind;
+  readonly reason: string;
+  readonly exitPath?: string;
+}
 
 export interface LintRatchetLocalSource {
   readonly kind: "local";
@@ -370,6 +449,7 @@ interface LintRatchetConfigBase {
   readonly target: number;
   readonly metric: LintRatchetMetric;
   readonly repairKind: LintRatchetRepairKind;
+  readonly zeroBaselineDisposition?: LintRatchetZeroBaselineDisposition;
 }
 
 export type LintRatchetConfig =
@@ -426,6 +506,17 @@ export type LintRatchetMetric = "message-count" | "effective-line-count";
 type LintRatchetRepairKind = "manual";
 export type LintRatchetParserProfile = "minimal-ts" | "type-aware-ts";
 export type LintRatchetPluginExport = "default" | "plugin";
+export type LintRatchetZeroBaselineDispositionKind =
+  | "intentional-ratchet-only"
+  | "narrow-floor"
+  | "promote-to-normal-lint"
+  | "temporary-ratchet-only";
+
+export interface LintRatchetZeroBaselineDisposition {
+  readonly kind: LintRatchetZeroBaselineDispositionKind;
+  readonly reason: string;
+  readonly exitPath?: string;
+}
 
 export interface LintRatchetLocalSource {
   readonly kind: "local";
@@ -450,6 +541,7 @@ interface LintRatchetConfigBase {
   readonly target: number;
   readonly metric: LintRatchetMetric;
   readonly repairKind: LintRatchetRepairKind;
+  readonly zeroBaselineDisposition?: LintRatchetZeroBaselineDisposition;
 }
 
 export type LintRatchetConfig =
@@ -489,8 +581,9 @@ TS
 
 write_type_assertion_config() {
   local fixture_dir=$1
+  local files_glob=${2-"packages/app/src/**/*.ts"}
 
-  cat >"$fixture_dir/scripts/lint-ratchet-config.ts" <<'TS'
+  cat >"$fixture_dir/scripts/lint-ratchet-config.ts" <<TS
 type JsonPrimitive = string | number | boolean | null;
 export type JsonObject = { readonly [key: string]: JsonValue };
 export type JsonValue = JsonPrimitive | readonly JsonValue[] | JsonObject;
@@ -500,6 +593,17 @@ export type LintRatchetMetric = "message-count";
 type LintRatchetRepairKind = "manual";
 export type LintRatchetParserProfile = "minimal-ts" | "type-aware-ts";
 export type LintRatchetPluginExport = "default" | "plugin";
+export type LintRatchetZeroBaselineDispositionKind =
+  | "intentional-ratchet-only"
+  | "narrow-floor"
+  | "promote-to-normal-lint"
+  | "temporary-ratchet-only";
+
+export interface LintRatchetZeroBaselineDisposition {
+  readonly kind: LintRatchetZeroBaselineDispositionKind;
+  readonly reason: string;
+  readonly exitPath?: string;
+}
 
 export interface LintRatchetLocalSource {
   readonly kind: "local";
@@ -524,6 +628,7 @@ interface LintRatchetConfigBase {
   readonly target: number;
   readonly metric: LintRatchetMetric;
   readonly repairKind: LintRatchetRepairKind;
+  readonly zeroBaselineDisposition?: LintRatchetZeroBaselineDisposition;
 }
 
 export type LintRatchetConfig =
@@ -549,13 +654,18 @@ export const lintRatchets = [
   {
     id: "ratchet/local-type-assertion-boundary",
     ruleId: "local/type-assertion-boundary",
-    files: ["packages/app/src/**/*.ts"],
+    files: ["$files_glob"],
     ignores: ["**/dist/**", "**/generated/**", "**/node_modules/**"],
     ruleOptions: [],
     mode: "no-new",
     target: 0,
     metric: "message-count",
     repairKind: "manual",
+    zeroBaselineDisposition: {
+      kind: "temporary-ratchet-only",
+      reason: "fixture keeps this clean ratchet outside normal lint to exercise checked zero-baseline success",
+      exitPath: "docs/guides/lint-ratchet.md",
+    },
   },
 ] as const satisfies readonly LintRatchetConfig[];
 TS
@@ -660,8 +770,20 @@ TS
 
 run_fixture_update() {
   local fixture_dir=$1
-  (cd "$fixture_dir" && bun run scripts/lint-ratchet.ts --update \
-    >"$TMP_ROOT/update.out" 2>"$TMP_ROOT/update.err")
+  if (cd "$fixture_dir" && bun run scripts/lint-ratchet.ts --update \
+      >"$TMP_ROOT/update.out" 2>"$TMP_ROOT/update.err"); then
+    ensure_fixture_git_index "$fixture_dir"
+    return 0
+  fi
+  return 1
+}
+
+ensure_fixture_git_index() {
+  local fixture_dir=$1
+  if ! git -C "$fixture_dir" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    git -C "$fixture_dir" init -q
+  fi
+  git -C "$fixture_dir" add -A
 }
 
 third_party_config_path() {
@@ -692,17 +814,10 @@ core_cache_files() {
     -path "*/ratchet-fixture-core-*/*" | sort
 }
 
-# --- Real tree: committed baseline is clean under the default gate -----------
-if ! bun run lint:ratchet >"$TMP_ROOT/real.out" 2>"$TMP_ROOT/real.err"; then
-  cat "$TMP_ROOT/real.err"
-  fail "lint:ratchet failed on the real tree"
-fi
-assert_envelope "$TMP_ROOT/real.out" 0
-
-if ! bun run lint:ratchet:check-baseline >"$TMP_ROOT/real-check.out" 2>"$TMP_ROOT/real-check.err"; then
-  cat "$TMP_ROOT/real-check.err"
-  fail "lint:ratchet:check-baseline failed on the real tree"
-fi
+# --- Real tree: committed registry shape and generated identity -------------
+# Full real-tree ESLint collection is covered by the dedicated lint:ratchet
+# verify lane. This smoke keeps the real-tree preflight to checks that are not
+# already repeated by the fixture CLI runs below.
 if ! bun run lint:ratchet:check-registry >"$TMP_ROOT/real-registry.out" 2>"$TMP_ROOT/real-registry.err"; then
   cat "$TMP_ROOT/real-registry.err"
   fail "lint:ratchet:check-registry failed on the real tree"
@@ -722,6 +837,26 @@ assert_usage_failure "--reason missing value" "--reason requires a non-empty arg
 assert_usage_failure "--allow-worse without --reason" "--allow-worse requires a non-empty --reason" --update --allow-worse
 assert_usage_failure "--allow-worse with blank --reason" "--allow-worse requires a non-empty --reason" --update --allow-worse --reason=""
 
+# --- Fixture: default lint:ratchet rejects empty registry globs --------------
+EMPTY_GLOB_DIR="$TMP_ROOT/empty-glob"
+build_fixture "$EMPTY_GLOB_DIR"
+write_type_assertion_config "$EMPTY_GLOB_DIR" "packages/app/src/missing/**/*.ts"
+write_clean_source "$EMPTY_GLOB_DIR"
+run_fixture_update "$EMPTY_GLOB_DIR" || fail "empty-glob update failed: $(cat "$TMP_ROOT/update.err")"
+set +e
+(cd "$EMPTY_GLOB_DIR" && bun run scripts/lint-ratchet.ts \
+  >"$TMP_ROOT/empty-glob.out" 2>"$TMP_ROOT/empty-glob.err")
+status=$?
+set -e
+[ "$status" -eq 2 ] \
+  || fail "empty-glob default run should exit 2, got $status: $(cat "$TMP_ROOT/empty-glob.err")"
+grep -qF "empty-glob: ratchet/local-type-assertion-boundary" \
+  "$TMP_ROOT/empty-glob.err" \
+  || fail "empty-glob failure should name the ratchet: $(cat "$TMP_ROOT/empty-glob.err")"
+grep -qF "files globs match zero tracked files after ignores" \
+  "$TMP_ROOT/empty-glob.err" \
+  || fail "empty-glob failure should explain the missing tracked match: $(cat "$TMP_ROOT/empty-glob.err")"
+
 # --- Fixture clean run -------------------------------------------------------
 CLEAN_DIR="$TMP_ROOT/clean"
 build_fixture "$CLEAN_DIR"
@@ -734,6 +869,18 @@ if ! (cd "$CLEAN_DIR" && bun run scripts/lint-ratchet.ts \
   fail "fixture clean run failed"
 fi
 assert_envelope "$TMP_ROOT/clean.out" 0
+(cd "$CLEAN_DIR" && git init -q && git add .)
+if ! (cd "$CLEAN_DIR" && bun run scripts/lint-ratchet.ts --zero-baseline \
+      >"$TMP_ROOT/zero-baseline.out" 2>"$TMP_ROOT/zero-baseline.err"); then
+  cat "$TMP_ROOT/zero-baseline.err"
+  fail "fixture zero-baseline audit failed"
+fi
+grep -qF "# Lint Ratchet Zero-Baseline Audit" "$TMP_ROOT/zero-baseline.out" \
+  || fail "zero-baseline audit missing heading"
+grep -qF "ratchet/local-type-assertion-boundary" "$TMP_ROOT/zero-baseline.out" \
+  || fail "zero-baseline audit missing fixture ratchet"
+grep -qF "normal-off" "$TMP_ROOT/zero-baseline.out" \
+  || fail "zero-baseline audit missing normal lint status"
 
 # --- Fixture regression ------------------------------------------------------
 REGRESSION_DIR="$TMP_ROOT/regression"
@@ -1408,7 +1555,7 @@ VERSION_PATH_AFTER=$(third_party_config_path "$THIRD_PARTY_DIR")
   || fail "third-party package version did not change the cache/config path"
 
 # --- Fixture: stale cache siblings get swept on next run --------------------
-# Inject fake stale cache + config siblings under the production cache layout.
+# Inject fake stale cache + config siblings under the fixture cache layout.
 # Sweep must remove the matching stale entries (`<safe-id>-<12hex>`) and leave:
 #   - the live entry created by this run (`<safe-id>-<currentHash>`),
 #   - an entry for an unrelated ratchet (different safe-id prefix),
@@ -1417,7 +1564,9 @@ VERSION_PATH_AFTER=$(third_party_config_path "$THIRD_PARTY_DIR")
 # Stale entries follow the production naming so the sweeper sees them; the
 # prefix-collision and unrelated decoys deliberately use a 12-hex hash so they
 # look like real live caches of those (hypothetical) sibling ratchets.
-CACHE_ROOT="$REPO_ROOT/node_modules/.cache/eslint-ratchet"
+SWEEP_DIR="$TMP_ROOT/sweep"
+build_fixture "$SWEEP_DIR"
+CACHE_ROOT="$SWEEP_DIR/node_modules/.cache/eslint-ratchet"
 CONFIG_ROOT="$CACHE_ROOT/configs"
 SAFE_ID="ratchet-local-type-assertion-boundary"
 mkdir -p "$CACHE_ROOT" "$CONFIG_ROOT"
@@ -1434,9 +1583,8 @@ PREFIX_CONFIG="$CONFIG_ROOT/$SAFE_ID-extended-$PREFIX_HASH.mjs"
 # Unrelated ratchet whose safe-id is a non-prefix. Must survive the sweep.
 UNRELATED_HASH="abcdef012345"
 UNRELATED_CACHE="$CACHE_ROOT/ratchet-other-rule-$UNRELATED_HASH"
-# Decoys are written into the real cache directory. Register a dedicated trap
-# (additive to the existing TMP_ROOT cleanup) so a failed assertion still
-# scrubs the surviving decoys.
+# Register a dedicated trap (additive to the existing TMP_ROOT cleanup) so a
+# failed assertion still scrubs the surviving decoys before the root cleanup.
 cleanup_sweep_decoys() {
   rm -rf "$STALE_CACHE" "$STALE_CONFIG" "$PREFIX_CACHE" "$PREFIX_CONFIG" "$UNRELATED_CACHE"
 }
@@ -1447,8 +1595,6 @@ echo "// stale" > "$STALE_CONFIG"
 echo "prefix" > "$PREFIX_CACHE/.eslintcache"
 echo "// prefix" > "$PREFIX_CONFIG"
 echo "unrelated" > "$UNRELATED_CACHE/.eslintcache"
-SWEEP_DIR="$TMP_ROOT/sweep"
-build_fixture "$SWEEP_DIR"
 write_type_assertion_config "$SWEEP_DIR"
 write_clean_source "$SWEEP_DIR"
 run_fixture_update "$SWEEP_DIR" || fail "sweep fixture initial update failed"

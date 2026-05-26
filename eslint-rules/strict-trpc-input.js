@@ -11,6 +11,20 @@
  * cases need to be handled at the schema definition site, not the call site.
  */
 
+const MODE_NAMES = new Set(["strict", "passthrough", "strip", "catchall"]);
+
+/** @param {import('estree').Node} node */
+function isZObjectCall(node) {
+  return (
+    node.type === "CallExpression" &&
+    node.callee.type === "MemberExpression" &&
+    node.callee.object.type === "Identifier" &&
+    node.callee.object.name === "z" &&
+    node.callee.property.type === "Identifier" &&
+    node.callee.property.name === "object"
+  );
+}
+
 /**
  * Walk down a method-call chain rooted at `arg`. Returns whether the chain
  * ultimately calls `z.object(...)` and which unknown-key mode wins, i.e. the
@@ -24,26 +38,17 @@ function analyzeChain(arg) {
   let outermostMode = null;
   let cur = arg;
   while (cur.type === "CallExpression" && cur.callee.type === "MemberExpression") {
-    if (cur.callee.property.type === "Identifier") {
-      const name = cur.callee.property.name;
-      if (
-        outermostMode === null &&
-        (name === "strict" || name === "passthrough" || name === "strip" || name === "catchall")
-      ) {
-        outermostMode = name;
-      }
+    if (
+      outermostMode === null &&
+      cur.callee.property.type === "Identifier" &&
+      MODE_NAMES.has(cur.callee.property.name)
+    ) {
+      outermostMode = cur.callee.property.name;
     }
     if (cur.callee.object.type !== "CallExpression") break;
     cur = cur.callee.object;
   }
-  const rootIsZObject =
-    cur.type === "CallExpression" &&
-    cur.callee.type === "MemberExpression" &&
-    cur.callee.object.type === "Identifier" &&
-    cur.callee.object.name === "z" &&
-    cur.callee.property.type === "Identifier" &&
-    cur.callee.property.name === "object";
-  return { rootIsZObject, outermostMode };
+  return { rootIsZObject: isZObjectCall(cur), outermostMode };
 }
 
 /** @type {import('eslint').Rule.RuleModule} */

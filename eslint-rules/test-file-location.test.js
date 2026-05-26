@@ -31,7 +31,7 @@ describe("test-file-location", () => {
           filename: "scripts/code-intel/overview-query.spec.ts",
           code: "describe('overview', () => { it('works', () => {}); });",
         },
-        // describe.each(...) and it.skip(...) member-expression callees count.
+        // Member-expression callees (.each, .skip, .only) count as test blocks.
         {
           filename: "packages/server/src/foo.test.ts",
           code: "describe.each([1])('x', () => { it.skip('y', () => {}); });",

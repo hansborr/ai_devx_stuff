@@ -74,10 +74,10 @@ START=$(date +%s)
 bash -c "$CMD" > "$OUTFILE" 2>&1 9>&- &
 CHILD=$!
 
-# Watchdog: 540s internal keeps us under the 600s harness backstop. The
+# Watchdog: 270s internal keeps us under the 300s cache-warm window. The
 # pre-commit hook's own 240s watchdog covers the common case; this catches
 # hangs in git itself or between the pre-commit exit and our wait.
-TIMEOUT="${AI_GIT_COMMIT_TIMEOUT:-540}"
+TIMEOUT="${AI_GIT_COMMIT_TIMEOUT:-270}"
 (
   exec 9<&-
   SLEEP_PID=""

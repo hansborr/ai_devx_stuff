@@ -21,6 +21,10 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=./test-git-env.sh
+. "$SCRIPT_DIR/test-git-env.sh"
+musi_clear_inherited_git_hook_env
+musi_exit_after_git_hook_env_assertion_if_requested
 SCRIPT="$SCRIPT_DIR/doctor.sh"
 REPO_ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel)"
 MANIFEST="$REPO_ROOT/harness.controls.json"
@@ -30,6 +34,104 @@ fail() { printf 'FAIL: %s\n' "$1" >&2; exit 1; }
 ok()   { PASS=$((PASS + 1)); printf 'ok %d - %s\n' "$PASS" "$1"; }
 
 command -v jq >/dev/null 2>&1 || fail "jq is required for these tests"
+
+REAL_BUN="$(command -v bun)"
+FAST_ROOT="$(mktemp -d)"
+FAST_FAKE_BIN="$(mktemp -d)"
+
+setup_fast_doctor_fixture() {
+  git -C "$FAST_ROOT" init -q
+  mkdir -p \
+    "$FAST_ROOT/.devcontainer" \
+    "$FAST_ROOT/node_modules/.bin" \
+    "$FAST_ROOT/packages/client" \
+    "$FAST_ROOT/scripts"
+  printf 'JWT_SECRET=synthetic-doctor-json-secret\n' >"$FAST_ROOT/.devcontainer/.env"
+  cat >"$FAST_ROOT/.env" <<'EOF'
+DATABASE_URL=postgresql://musi:musi@localhost:5432/musi_synthetic
+REDIS_URL=redis://localhost:6379/0
+SERVER_PORT=47777
+CORS_ORIGIN=http://localhost:47778
+JWT_SECRET=synthetic-doctor-json-secret
+EOF
+  printf 'VITE_API_BASE_URL=http://localhost:47777\n' >"$FAST_ROOT/packages/client/.env"
+  touch "$FAST_ROOT/bun.lock"
+  touch "$FAST_ROOT/node_modules/.bin"
+
+  for fake_script in worktree-db.sh db-status.sh suppression-register.sh; do
+    cat >"$FAST_ROOT/scripts/$fake_script" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'PASS: synthetic clean check\n'
+SH
+    chmod +x "$FAST_ROOT/scripts/$fake_script"
+  done
+
+  cat >"$FAST_ROOT/scripts/eslint-disable-register.sh" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'WARN: synthetic eslint-disable register warning\n'
+SH
+  chmod +x "$FAST_ROOT/scripts/eslint-disable-register.sh"
+
+  cat >"$FAST_ROOT/scripts/migration-safety-scan.sh" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+if [ "${1:-}" = "--json" ]; then
+  printf '{"findings":[{"control":"sensor/db-migration-safety","severity":"warn","path":"packages/server/prisma/migrations/synthetic/migration.sql","line":1,"messageId":"synthetic-migration-warning","why":"synthetic migration warning","howToFix":"review the synthetic migration warning","repairKind":"manual"}],"summary":{"blocking":0,"warning":1,"info":0}}\n'
+else
+  printf 'WARN: synthetic migration warning\n'
+fi
+SH
+  chmod +x "$FAST_ROOT/scripts/migration-safety-scan.sh"
+
+  cat >"$FAST_FAKE_BIN/bun" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+if [ "${1:-}" = "run" ]; then
+  case "${2:-}" in
+    drift:ai)
+      if [ "${3:-}" = "harness-freshness" ]; then
+        printf 'WARN synthetic-drift: synthetic harness freshness warning\n'
+        exit 0
+      fi
+      ;;
+    sensor:knip)
+      exit 0
+      ;;
+    sensor:blob-size)
+      printf 'PASS: synthetic blob-size clean\n'
+      exit 0
+      ;;
+    harness:check)
+      if [ "${DOCTOR_JSON_FORCE_HARNESS_FAIL:-0}" = "1" ]; then
+        printf 'forced harness check stdout\n'
+        printf 'forced harness check stderr\n' >&2
+        exit 1
+      fi
+      exit 0
+      ;;
+  esac
+fi
+exec "${REAL_BUN:?}" "$@"
+SH
+  chmod +x "$FAST_FAKE_BIN/bun"
+
+  cat >"$FAST_FAKE_BIN/ss" <<'SH'
+#!/usr/bin/env bash
+exit 1
+SH
+  chmod +x "$FAST_FAKE_BIN/ss"
+}
+
+run_fast_doctor() {
+  (
+    cd "$FAST_ROOT"
+    REAL_BUN="$REAL_BUN" PATH="$FAST_FAKE_BIN:$PATH" "$@"
+  )
+}
+
+setup_fast_doctor_fixture
 
 # --- syntax / argument parsing --------------------------------------------
 bash -n "$SCRIPT" || fail "doctor.sh fails bash -n"
@@ -54,7 +156,7 @@ ok "doctor with unknown arg exits 2"
 DOCTOR_JSON="$(mktemp)"
 DOCTOR_STDERR="$(mktemp)"
 DOCTOR_EXIT=0
-bash "$SCRIPT" --json >"$DOCTOR_JSON" 2>"$DOCTOR_STDERR" || DOCTOR_EXIT=$?
+run_fast_doctor bash "$SCRIPT" --json >"$DOCTOR_JSON" 2>"$DOCTOR_STDERR" || DOCTOR_EXIT=$?
 
 if ! jq -e . <"$DOCTOR_JSON" >/dev/null 2>&1; then
   printf '--- doctor --json stdout (head) ---\n' >&2
@@ -139,7 +241,7 @@ ok "every finding has non-empty why/howToFix and valid enums"
 # `WARN=` / `FAIL=` summary tail.
 DEFAULT_OUT="$(mktemp)"
 DEFAULT_EXIT=0
-bash "$SCRIPT" >"$DEFAULT_OUT" 2>&1 || DEFAULT_EXIT=$?
+run_fast_doctor bash "$SCRIPT" >"$DEFAULT_OUT" 2>&1 || DEFAULT_EXIT=$?
 if [ "$DEFAULT_EXIT" -ne 0 ] && [ "$DEFAULT_EXIT" -ne 1 ]; then
   fail "default-mode doctor exit code must be 0 or 1, got $DEFAULT_EXIT"
 fi
@@ -180,7 +282,6 @@ ok "empty-findings doctor envelope passes schema and reports zeroed summary"
 # --- BLOCK prefix is report-only in JSON -------------------------------------
 # Isolate doctor in a tiny git repo so the only finding is a synthetic
 # `BLOCK:` line from the blob-size subcommand.
-REAL_BUN="$(command -v bun)"
 BLOCK_ROOT="$(mktemp -d)"
 BLOCK_JSON="$(mktemp)"
 BLOCK_ERR="$(mktemp)"
@@ -263,28 +364,17 @@ ok "BLOCK-only doctor --json run exits 0 and maps BLOCK to warn"
 
 # --- harness:check failure is represented in JSON ---------------------------
 # JSON mode must not produce an apparently clean envelope when harness:check
-# exits non-zero. Shim only that package script and delegate every other bun
-# invocation (including the final envelope emitter) to the real binary.
-FAKE_BIN="$(mktemp -d)"
-FAKE_BUN="$FAKE_BIN/bun"
-cat >"$FAKE_BUN" <<'SH'
-#!/usr/bin/env bash
-set -euo pipefail
-if [ "${1:-}" = "run" ] && [ "${2:-}" = "harness:check" ]; then
-  printf 'forced harness check stdout\n'
-  printf 'forced harness check stderr\n' >&2
-  exit 1
-fi
-exec "${REAL_BUN:?}" "$@"
-SH
-chmod +x "$FAKE_BUN"
+# exits non-zero. Reuse the fast fixture and flip only the harness-check
+# branch in its fake bun wrapper.
 
 HARNESS_FAIL_JSON="$(mktemp)"
 HARNESS_FAIL_ERR="$(mktemp)"
 HARNESS_FAIL_EXIT=0
-REAL_BUN="$REAL_BUN" PATH="$FAKE_BIN:$PATH" \
-  bash "$SCRIPT" --json >"$HARNESS_FAIL_JSON" 2>"$HARNESS_FAIL_ERR" \
-  || HARNESS_FAIL_EXIT=$?
+(
+  cd "$FAST_ROOT"
+  DOCTOR_JSON_FORCE_HARNESS_FAIL=1 REAL_BUN="$REAL_BUN" PATH="$FAST_FAKE_BIN:$PATH" \
+    bash "$SCRIPT" --json >"$HARNESS_FAIL_JSON" 2>"$HARNESS_FAIL_ERR"
+) || HARNESS_FAIL_EXIT=$?
 [ "$HARNESS_FAIL_EXIT" -eq 1 ] \
   || fail "doctor --json should exit 1 when harness:check fails, got $HARNESS_FAIL_EXIT"
 jq -e '
@@ -302,6 +392,6 @@ ok "harness:check failure emits a blocking doctor finding in --json mode"
 
 # --- cleanup ----------------------------------------------------------------
 rm -f "$DOCTOR_JSON" "$DOCTOR_STDERR" "$REGISTERED_CONTROLS" "$EMITTED_CONTROLS" "$DEFAULT_OUT" "$EMPTY_ENV" "$BLOCK_JSON" "$BLOCK_ERR" "$HARNESS_FAIL_JSON" "$HARNESS_FAIL_ERR" /tmp/doctor-help.out /tmp/doctor-bad.out
-rm -rf "$BLOCK_ROOT" "$BLOCK_FAKE_BIN" "$FAKE_BIN"
+rm -rf "$FAST_ROOT" "$FAST_FAKE_BIN" "$BLOCK_ROOT" "$BLOCK_FAKE_BIN"
 
 printf '\n%d/%d tests passed\n' "$PASS" "$PASS"

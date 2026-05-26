@@ -4,6 +4,66 @@ The lint ratchet tracks selected existing lint debt without allowing it to
 grow. Normal `bun run lint` stays strict; `bun run lint:ratchet` is an
 additional gate for rules that are being drained from a committed baseline.
 
+## First ratchet in 10 minutes
+
+Start with one core ESLint rule and a small, real file scope. Copy the portable
+runtime set first:
+
+- `scripts/lint-ratchet.ts`
+- `scripts/lint-ratchet/`
+- `scripts/lint-ratchet-baseline.ts`
+- `scripts/lint-ratchet-baseline-compare.ts`
+- `scripts/lint-ratchet-baseline-parse.ts`
+- `scripts/lint-ratchet-check-registry.ts`
+- `scripts/lint-ratchet-config.ts`
+- `scripts/lint-ratchet-metrics.ts`
+- `scripts/lint-ratchet-output.ts`
+- `scripts/lint-ratchet-report.ts`
+- `scripts/lint-ratchet-summary.ts`
+- `scripts/lint-ratchet-zero-baseline.ts`
+- `scripts/lint-rule-docs.ts`, or a same-export stub when you are not using
+  local rules
+- `packages/shared/src/schemas/harness-diagnostics.ts`, or an equivalent local
+  schema with the runner imports updated
+- `lint-ratchet.baseline.json`, initially `{ "version": 1, "tests": {} }`
+
+Add package scripts for `lint:ratchet:check-registry`,
+`lint:ratchet:update`, and `lint:ratchet`, then put one raw entry in
+`lintRatchets`:
+
+```ts
+{
+  id: "ratchet/core-no-console-src",
+  ruleId: "no-console",
+  source: { kind: "core" },
+  parserProfile: "minimal-ts",
+  files: ["src/**/*.ts", "src/**/*.tsx"],
+  ignores: ["src/**/*.test.ts", "src/**/*.test.tsx", "src/generated/**"],
+  ruleOptions: [{ allow: ["warn", "error"] }],
+  mode: "no-new",
+  target: 0,
+  metric: "message-count",
+  repairKind: "manual",
+},
+```
+
+Run the adoption commands in this order:
+
+```sh
+bun run lint:ratchet:check-registry
+bun run lint:ratchet:update
+bun run lint:ratchet
+```
+
+What happened: the registry check proved the id, rule source, globs, and
+baseline references are structurally safe; the update generated the committed
+per-file floor from today's findings; the final run proved the working tree
+matches that floor. Future increases fail as regressions, and future decreases
+fail as uncommitted improvements until `lint:ratchet:update` locks in the lower
+baseline. Do not hand-edit the generated baseline after the starter JSON.
+
+For the minimum copied test set, see [Test portability](#test-portability).
+
 ## Portable adoption
 
 The design has three required pieces:
@@ -18,6 +78,13 @@ The design has three required pieces:
   findings are above the committed floor; un-reflected improvements also fail
   because current findings are below the baseline and must be locked in with
   `lint:ratchet:update`.
+
+For local-rule and unlinted-area rollouts, add one recommended reference guard:
+a committed coverage map protected by the
+[Coverage Map Gate](#coverage-map-gate). The ratchet baseline proves selected
+rules do not get worse; the map proves the project has accounted for every
+tracked maintained surface and has not confused "planned", "ratcheted",
+"normal-linted", and "intentionally excluded" coverage.
 
 Minimum runtime file set:
 
@@ -47,6 +114,9 @@ Minimum runtime file set:
   the `LINT_RATCHET_REPORT_ARTIFACT_URL` env-var contract.
 - `scripts/lint-ratchet-summary.ts` - sibling helper that prints a per-ratchet
   baseline summary table without running ESLint.
+- `scripts/lint-ratchet-zero-baseline.ts` - sibling helper that audits
+  committed zero-baseline ratchets against normal ESLint's resolved config and
+  prints a lifecycle report.
 - `scripts/lint-rule-docs.ts` - local-rule metadata loader used for `local/*`
   ratchets; replace it with a same-export stub if the project only ratchets
   core or third-party rules.
@@ -111,6 +181,65 @@ Substitutable bits:
   real gate in CI at minimum, and in local pre-commit when you want the same
   guarantee before push.
 
+### Coverage Map Gate
+
+The coverage map is the inventory companion to the ratchet. A ratchet entry
+protects the files named by that one rule's `files` and `ignores`; it does not
+prove that every maintained file family has a lint owner. The map records that
+broader boundary in a committed Markdown table derived from `git ls-files`,
+normal ESLint reach, and the current ratchet registry. Musi's current map lives
+at `docs/agent_notes/backlog/lint-followups/lint-coverage-map.md`.
+
+`bun run docs:lint-coverage-map:check` validates map drift rather than style:
+
+- Every path code span in the path column must match at least one tracked file.
+- Every `ratchet/<name>` in the ratchet column must exist in
+  `scripts/lint-ratchet-config.ts`.
+- Every status must be one of `linted`, `ratcheted`, `proposed`,
+  `pending-leaf`, `excluded`, or `not-code`, combined with `+` when needed.
+- Every tracked maintained file must be accounted for by some row. The Musi
+  checker intentionally ignores generated/cache directories and only treats
+  common code, config, script, docs, Prisma, SQL, and Dockerfile paths as
+  coverage-map inputs.
+
+The `--check-eslint-reach` flag adds the slow but important proof for rows
+marked `linted`: each matched ESLint-managed tracked file must resolve an
+ESLint config through `ESLint.calculateConfigForFile()`. That catches
+ignore/unignore mistakes where a row says "normal lint owns this" but ESLint
+would never run on the file. It is especially important when adopting local
+rules, because a `local/*` rule can have metadata, tests, and even a ratchet
+baseline while the target file family is still outside normal ESLint reach. The
+reach check proves the prerequisite for a normal-lint claim; it does not inspect
+every rule setting or replace targeted rule tests.
+
+Staged and full modes have different jobs:
+
+- Full mode reads the worktree map and should run with `--check-eslint-reach`
+  in CI or full verification. In Musi, the package script bakes that flag into
+  `docs:lint-coverage-map:check`.
+- Staged mode reads the index copy of the map with `git show :<map-path>`, so
+  pre-commit validates the map that will actually be committed. It deliberately
+  skips ESLint reach, even when the package script also supplies
+  `--check-eslint-reach`, so a hook invocation that includes both flags still
+  treats `--staged` as the reach-skip mode. That keeps the parallel pre-commit
+  gate fast and avoids mixing staged map content with slow worktree ESLint
+  config resolution.
+
+Adopters should copy the pattern, not the Musi paths verbatim:
+
+- Keep a committed coverage map with the same table columns and status
+  vocabulary, or adapt the parser with the map format.
+- Copy `scripts/lint-coverage-map-check.ts` and
+  `scripts/lint-coverage-map-check-eslint-reach.ts`, then update the map path,
+  root path prefixes, tracked extensions, generated-directory exclusions, and
+  ratchet-registry import for the adopting repository.
+- Expose one full command that includes `--check-eslint-reach`, and wire that
+  command into CI or full verification. Wire the pre-commit slot to the same
+  package script plus `--staged`.
+- If the project lints non-ESLint surfaces such as shell, YAML, TOML, Prisma,
+  SQL, or Markdown with other tools, keep those rows in the map but treat
+  tool-specific reach checks as separate sensors or future extensions.
+
 A small core-rule registry entry is the lowest-dependency starting point:
 
 ```ts
@@ -172,6 +301,8 @@ if needed:
   run: HARNESS_DIAGNOSTICS_OUTPUT=lint-ratchet-diagnostics.json bun run lint:ratchet
 - name: Check lint ratchet baseline
   run: bun run lint:ratchet:check-baseline
+- name: Check zero-baseline lifecycle
+  run: bun run lint:ratchet:zero-baseline
 - name: Upload lint ratchet diagnostics
   if: always()
   uses: actions/upload-artifact@v4
@@ -321,6 +452,15 @@ plugin allowlisting, complexity-severity vectors, and rule-source hashing.
   findings rather than a `maxComplexity` aggregate. Use it to spot which
   ratchets carry the most debt without diffing the 1390-line baseline JSON by
   hand.
+- `bun run lint:ratchet:zero-baseline` reads the committed baseline, finds
+  ratchets with zero findings, expands their registry globs against
+  `git ls-files`, and compares the same rule/options against normal ESLint's
+  resolved config for each matched file. The report classifies each drained
+  ratchet as normal-lint `error`, `warn`, `off`, `ignored`, `mixed`, or
+  different-options coverage, then names the lifecycle action to take. The
+  command exits non-zero when any zero-baseline ratchet lacks
+  `zeroBaselineDisposition`; add disposition metadata, promote and remove the
+  ratchet, or update the committed baseline after narrowing the ratchet.
 - `bun run lint:ratchet:report` reads a `harness-diagnostics` envelope from
   stdin; the typical flow is
   `bun run lint:ratchet:report < lint-ratchet-diagnostics.json`. It emits
@@ -348,6 +488,78 @@ a regression nor an improvement may diverge from the committed baseline without
 explicit acknowledgement. Regressions require fixing the new or worse findings,
 or updating with `--allow-worse`; improvements require
 `bun run lint:ratchet:update` so the committed floor moves down monotonically.
+
+## Zero-Baseline Lifecycle
+
+A ratchet reaching zero is not the end of the lifecycle. It is a decision point:
+the project must either promote the rule into the normal lint floor, narrow the
+floor, or document why a zero ratchet is still intentionally separate.
+
+Default to promotion:
+
+1. Run `bun run lint:ratchet:summary` and confirm the ratchet has zero
+   findings.
+2. Run `bun run lint:ratchet:zero-baseline` and inspect the row for that
+   ratchet.
+3. If normal ESLint already reports the same rule/options as `error` on the
+   same effective file set, remove the ratchet entry and run
+   `bun run lint:ratchet:update`.
+4. If normal ESLint is `off`, `warn`, ignored, mixed, or uses different options,
+   promote the matching rule/options to normal ESLint at `error` before removing
+   the ratchet.
+
+Normal-lint `warn` is not fully promoted. `bun run lint` and
+`bun run lint:changed` use `--max-warnings=0`, but the post-edit tidy hook runs
+per-file `eslint --fix --no-warn-ignored`; a warning can be missed in the edit
+loop. Use `error` for drained ratchets that represent permanent policy.
+
+Leaving a zero ratchet in the registry is acceptable only when one of these
+cases applies:
+
+- `temporary-ratchet-only`: normal ESLint re-inclusion is blocked by unrelated
+  rule noise, parser/project setup, or a named adoption leaf. Record the
+  blocker and `exitPath`.
+- `intentional-ratchet-only`: the file family is deliberately outside normal
+  ESLint, but still maintained enough to need this floor. Record why normal
+  lint is not the owner.
+- `narrow-floor`: the ratchet is intentionally narrower, faster, or differently
+  scoped than normal lint; record what invariant the narrower floor protects.
+- `promote-to-normal-lint`: promotion is the chosen outcome, but it is tracked
+  as a follow-up rather than completed in the current change. Record the
+  `exitPath`.
+
+Use the registry's optional `zeroBaselineDisposition` field for these cases:
+
+```ts
+{
+  id: "ratchet/example",
+  ruleId: "example/rule",
+  // ...
+  zeroBaselineDisposition: {
+    kind: "temporary-ratchet-only",
+    reason: "normal ESLint still ignores this generated-adjacent tool family",
+    exitPath: "docs/agent_notes/backlog/lint-followups/example.md",
+  },
+}
+```
+
+`bun run lint:ratchet:zero-baseline` is a gate, not just a report. Every
+zero-baseline ratchet must either carry `zeroBaselineDisposition` or be removed
+after promotion or narrowing work updates the committed baseline. Normal-lint
+`error` coverage is useful evidence for removal, but it is not by itself
+durable lifecycle documentation.
+
+For files ignored by normal ESLint, do not blindly unignore the whole tree.
+Record the intended parser profile, fixture/generated exclusions, and any
+unrelated findings that would appear after re-inclusion. A zero-baseline probe
+still matters: temporarily introduce one in-scope violation, prove
+`lint:ratchet` catches it, revert the probe, then decide whether promotion or a
+documented ratchet-only disposition is the right next step.
+
+The post-edit tidy hook should remain ratchet-free. It is a fast mechanical
+formatter/autofix hook, not a policy gate. Immediate feedback for drained
+ratchets should come from normal ESLint promotion; `lint:ratchet` remains the
+pre-commit and verification floor until the ratchet is retired.
 
 ## Metrics and baseline items
 
@@ -391,10 +603,6 @@ complexity, or complexity-vector regression unless
 
 ## Current ratchets
 
-- `ratchet/local-max-lines` tracks `local/max-lines` by effective line count
-  across the default 300-effective-line scope. Files with explicit higher caps
-  in `eslint.config.js` remain governed by those local overrides instead of
-  being mixed into this default-options ratchet.
 - `ratchet/local-type-assertion-boundary` tracks
   `local/type-assertion-boundary` by per-file message count across package,
   script, and e2e TypeScript files.
@@ -402,13 +610,6 @@ complexity, or complexity-vector regression unless
   `@typescript-eslint/strict-boolean-expressions` by per-file message count
   across `packages/shared/src` production TypeScript. Its initial 6-finding
   scope and options came from a focused type-aware rule inventory.
-
-For `ratchet/local-max-lines`, the exact-path ignores in
-`scripts/lint-ratchet-config.ts` mirror the per-file higher-cap overrides in
-`eslint.config.js`. When renaming or splitting one of those files, update both
-lists in the same change so the ratchet and ESLint gate keep the same scope.
-Script or test max-lines debt should normally get its own narrowly named
-ratchet instead of expanding this default package-oriented scope.
 
 Path renames move baseline keys. A rename that keeps or lowers the count should
 update the baseline in the same commit. A rename that also increases the count
@@ -534,11 +735,12 @@ not yet inspect.
    normal ESLint, which parser profile they need, and which fixture or generated
    paths must stay ignored. For broad coverage sweeps, commit a map artifact
    derived from `git ls-files`, checked against the actual ESLint
-   ignore/unignore/parser config and current ratchet registry. Keep that map in
-   a durable project-doc location. Classify tracked maintained surfaces as
-   normal lint, existing ratchet/floor, proposed floor, intentional exclusion,
-   or named blocker/follow-up; do not start baselining batches while any
-   temporary `unknown` classification remains.
+   ignore/unignore/parser config and current ratchet registry, and protect it
+   with the [Coverage Map Gate](#coverage-map-gate). Keep that map in a durable
+   project-doc location. Classify tracked maintained surfaces as normal lint,
+   existing ratchet/floor, proposed floor, intentional exclusion, or named
+   blocker/follow-up; do not start baselining batches while any temporary
+   `unknown` classification remains.
 2. Run a scoped inventory with the rule set you want to enforce. Keep the
    inventory narrow enough that the first baseline is reviewable by file family
    or tool surface.
@@ -621,3 +823,35 @@ acknowledgement. Increases require a fix or an explicit worse-baseline update;
 decreases require a normal update that tightens the baseline. The exact parser
 profiles, cache identity, and plugin allowlist can be simpler or stricter
 depending on that project's lint surface.
+
+## Test portability
+
+The minimum portable ratchet test set is the fixture-driven runtime behavior,
+the fixture-driven summary behavior, the copied-runtime smoke test, and the
+portable registry-validation failure cases. In this repository, those live in:
+
+- `scripts/lint-ratchet-baseline.test.ts`: portable. It exercises baseline
+  building, strict and structural parsing, comparison, update decisions,
+  diagnostics-envelope formatting, rule-source hashes, and registry validation
+  with fixture ratchet configs and synthetic paths. The `packages/...` strings
+  are baseline keys, not dependencies on Musi app files.
+- `scripts/lint-ratchet-summary.test.ts`: portable. It builds fixture
+  baselines and registry entries to verify summary reduction and table
+  formatting.
+- `scripts/lint-ratchet-output.test.ts`: portable. It copies the runtime files
+  into a temporary fixture repository, writes a small core-rule registry, runs
+  the CLI there, and verifies `HARNESS_DIAGNOSTICS_OUTPUT` behavior without
+  Musi app state. Keep its `runtimeFiles` list synchronized with the
+  "Minimum runtime file set" above.
+- `scripts/lint-ratchet-check-registry.test.ts`: mixed. The portable cases are
+  the synthetic failure-mode tests for empty globs, absolute paths, orphan
+  baseline ids, zero-baseline metadata shape, deterministic failure ordering,
+  and absent-baseline behavior. The `accepts the Musi registry fixture` case is
+  Musi-only because it loads this repository's `lintRatchets`,
+  third-party-plugin allowlist, local-rule docs, and tracked Git files.
+
+An adopter should copy the three fully portable files and either copy
+`scripts/lint-ratchet-check-registry.test.ts` with the Musi registry fixture
+case replaced by an equivalent project-local registry smoke test, or keep only
+the portable synthetic cases from that file. Musi verifies the current split
+with `bun run test:scripts:changed`.

@@ -13,7 +13,7 @@ const CODE_SPAN_PATTERN = /`([^`]+)`/gu;
 const GLOB_META_PATTERN = /[*?{]/u;
 const RATCHET_ID_PATTERN = /ratchet\/[a-z0-9-]+/gu;
 const DUPLICATE_EXTENSION_PATTERN = /\.([A-Za-z0-9]+)\.\1$/u;
-const GENERATED_DIR_PATTERN = /(^|\/)(node_modules|dist|build|coverage|\.next|\.bun|\.turbo|\.cache|tmp|temp)(\/|$)/u;
+const GENERATED_DIR_PATTERN = /(?:^|\/)(?:node_modules|dist|build|coverage|\.next|\.bun|\.turbo|\.cache|tmp|temp)(?:\/|$)/u;
 const TRACKED_EXTENSION_PATTERN = /\.(?:ts|tsx|js|mjs|cjs|json|ya?ml|toml|sh|md|prisma|sql)$/u;
 const VALID_STATUS_PARTS = new Set(["linted", "ratcheted", "proposed", "pending-leaf", "excluded", "not-code"]);
 const ROOT_PATH_PREFIXES = new Set(["packages", "scripts", "docs", "e2e", "eslint-rules"]);
@@ -259,6 +259,28 @@ function formatFindings(findings: readonly CheckFinding[]): string {
   return `${lines.join("\n")}\n`;
 }
 
+function collectStalePathFindings(pathPatterns: PathPattern[], trackedFiles: string[]): CheckFinding[] {
+  return pathPatterns
+    .filter((p) => !trackedFiles.some(p.matcher))
+    .map((p): CheckFinding => ({ kind: "stale-path", line: p.line, value: `\`${p.source}\` (${p.pattern}) matched 0 tracked files` }));
+}
+
+function collectRowFindings(rows: TableRow[], ratchetIds: ReadonlySet<string>): CheckFinding[] {
+  return rows.flatMap((row): CheckFinding[] => [
+    ...[...row.ratchets.matchAll(RATCHET_ID_PATTERN)]
+      .filter((m) => !ratchetIds.has(m[0]))
+      .map((m): CheckFinding => ({ kind: "unknown-ratchet", line: row.line, value: m[0] })),
+    ...(isValidStatus(row.status) ? [] : [{ kind: "invalid-status" as const, line: row.line, value: row.status }]),
+  ]);
+}
+
+function collectUnaccountedFileFindings(trackedFiles: string[], pathPatterns: PathPattern[]): CheckFinding[] {
+  return trackedFiles
+    .filter(trackedFileIsInScope)
+    .filter((file) => !pathPatterns.some((p) => p.matcher(file)))
+    .map((file): CheckFinding => ({ kind: "unaccounted-file", value: file }));
+}
+
 export async function runLintCoverageMapCheck(
   options: LintCoverageMapCheckOptions = {},
 ): Promise<LintCoverageMapCheckResult> {
@@ -268,33 +290,12 @@ export async function runLintCoverageMapCheck(
   const ratchetIds = options.ratchetIds ?? new Set(lintRatchets.map((ratchet) => ratchet.id));
   const rows = parseRows(mapText);
   const pathPatterns = rows.flatMap(extractPathPatterns);
-  const findings: CheckFinding[] = [];
-
-  for (const pattern of pathPatterns) {
-    if (!trackedFiles.some(pattern.matcher)) {
-      findings.push({
-        kind: "stale-path",
-        line: pattern.line,
-        value: `\`${pattern.source}\` (${pattern.pattern}) matched 0 tracked files`,
-      });
-    }
-  }
-  for (const row of rows) {
-    for (const match of row.ratchets.matchAll(RATCHET_ID_PATTERN)) {
-      if (!ratchetIds.has(match[0])) {
-        findings.push({ kind: "unknown-ratchet", line: row.line, value: match[0] });
-      }
-    }
-    if (!isValidStatus(row.status)) {
-      findings.push({ kind: "invalid-status", line: row.line, value: row.status });
-    }
-  }
-  for (const file of trackedFiles.filter(trackedFileIsInScope)) {
-    if (!pathPatterns.some((pattern) => pattern.matcher(file))) {
-      findings.push({ kind: "unaccounted-file", value: file });
-    }
-  }
-  findings.push(...(await collectEslintReachFindings({ checkEslintReach: options.checkEslintReach, cwd, extractPathPatterns, reachChecker: options.eslintReachChecker, rows, staged: options.staged, trackedFileIsInScope, trackedFiles })));
+  const findings: CheckFinding[] = [
+    ...collectStalePathFindings(pathPatterns, trackedFiles),
+    ...collectRowFindings(rows, ratchetIds),
+    ...collectUnaccountedFileFindings(trackedFiles, pathPatterns),
+    ...(await collectEslintReachFindings({ checkEslintReach: options.checkEslintReach, cwd, extractPathPatterns, reachChecker: options.eslintReachChecker, rows, staged: options.staged, trackedFileIsInScope, trackedFiles })),
+  ];
 
   if (findings.length > 0) {
     return { exitCode: 1, stdout: "", stderr: formatFindings(findings), findings };

@@ -107,10 +107,14 @@ musi_changed_gate_fail_if_unstaged "$REPO_ROOT" "pre-commit" || exit 1
 
 # Include D here so pure staged deletions still run typecheck/test gates. The
 # advisory freshness/doc filters above keep their narrower behavior.
-if ! git diff --cached --name-only --diff-filter=ACMRD \
-     | grep -qE '^(.husky/|.claude/hooks/|\.claude/settings\.json$|.codex/hooks/|\.codex/hooks\.json$|.codex/config\.toml$|.codex/skills/[^/]+/agents/openai\.yaml$|.devcontainer/([^/]+\.sh|Dockerfile|docker-compose\.yml)$|\.devcontainer/devcontainer\.json$|.github/workflows/[^/]+\.ya?ml$|\.playwright/cli\.config\.json$|packages/|e2e/|scripts/|eslint-rules/|package\.json$|drift-ai\.config\.json$|bunfig\.toml$|docker-compose\.yml$|.yamllint\.yml$|lint-ratchet\.baseline\.json$|harness\.controls\.json$|docs/agent_notes/backlog/lint-followups/lint-coverage-map\.md$|eslint\.config\.|commitlint\.config\.|stryker\.config\.|knip\.config\.|playwright\.config\.|prisma\.config\.|tsconfig[^/]*\.json$|vitest[^/]*\.config\.)'; then
+staged_source_rc=0
+musi_staged_has_source_relevant_change || staged_source_rc=$?
+if [ "$staged_source_rc" -eq 1 ]; then
   echo "pre-commit: no source changes staged — skipping checks."
   exit 0
+fi
+if [ "$staged_source_rc" -ne 0 ]; then
+  exit "$staged_source_rc"
 fi
 
 # --- 2. Non-blocking lock --------------------------------------------------
@@ -153,8 +157,9 @@ if [ -f "$MARKER" ] && [ "${FORCE_VERIFY:-}" != "1" ]; then
 fi
 
 # Manual verify is a strict superset of the changed checks here: full verify
-# covers lint/ratchet/test/scripts, verify:changed covers lint:changed/
-# lint:ratchet/test:changed/test:scripts:changed, and typecheck is identical.
+# covers lint/ratchet/zero-baseline/test/scripts, verify:changed covers
+# lint:changed/lint:ratchet/zero-baseline/test:changed/test:scripts:changed,
+# and typecheck is identical.
 # Pre-commit only runs test:scripts:changed when staged hook/script paths
 # match (or when harness.controls.json / lint-ratchet.baseline.json change —
 # see the regex below), so either manual marker also covers that optional
@@ -206,8 +211,12 @@ musi_run_parallel_step parallel-precommit "" lint bun run lint:changed
 pid_lint=$STEP_PID
 musi_run_parallel_step parallel-precommit "" ratchet bun run lint:ratchet
 pid_ratchet=$STEP_PID
+musi_run_parallel_step parallel-precommit "" zero-baseline bun run lint:ratchet:zero-baseline
+pid_zero_baseline=$STEP_PID
 musi_run_parallel_step parallel-precommit "" coverage-map bun run docs:lint-coverage-map:check -- --staged
 pid_coverage_map=$STEP_PID
+musi_run_parallel_step parallel-precommit "" format-check bun run format:changed:check
+pid_format_check=$STEP_PID
 musi_run_parallel_step parallel-precommit "" typecheck bun run typecheck
 pid_tc=$STEP_PID
 if [ "${MUSI_CAPTURE_TEST_TIMINGS:-}" = "1" ]; then
@@ -244,7 +253,7 @@ report_timeout_budget() {
 }
 cleanup_parallel_children() {
   local pid
-  for pid in $pid_scripts $pid_lint $pid_ratchet $pid_coverage_map $pid_tc $pid_test; do
+  for pid in $pid_scripts $pid_lint $pid_ratchet $pid_zero_baseline $pid_coverage_map $pid_format_check $pid_tc $pid_test; do
     [ -n "$pid" ] && musi_signal_process_tree "$pid" TERM
   done
   kill "$WD" 2>/dev/null
@@ -267,8 +276,12 @@ exit_lint=0; exit_tc=0; exit_test=0; exit_scripts=0
 wait "$pid_lint" || exit_lint=$?
 exit_ratchet=0
 wait "$pid_ratchet" || exit_ratchet=$?
+exit_zero_baseline=0
+wait "$pid_zero_baseline" || exit_zero_baseline=$?
 exit_coverage_map=0
 wait "$pid_coverage_map" || exit_coverage_map=$?
+exit_format_check=0
+wait "$pid_format_check" || exit_format_check=$?
 wait "$pid_tc"   || exit_tc=$?
 wait "$pid_test" || exit_test=$?
 if [ "$run_scripts" -eq 1 ]; then
@@ -279,7 +292,9 @@ fi
 passed=""; failed=""
 [ "$exit_lint" -eq 0 ] && passed="$passed lint" || failed="$failed lint"
 [ "$exit_ratchet" -eq 0 ] && passed="$passed ratchet" || failed="$failed ratchet"
+[ "$exit_zero_baseline" -eq 0 ] && passed="$passed zero-baseline" || failed="$failed zero-baseline"
 [ "$exit_coverage_map" -eq 0 ] && passed="$passed coverage-map" || failed="$failed coverage-map"
+[ "$exit_format_check" -eq 0 ] && passed="$passed format-check" || failed="$failed format-check"
 [ "$exit_tc"   -eq 0 ] && passed="$passed typecheck" || failed="$failed typecheck"
 [ "$exit_test" -eq 0 ] && passed="$passed test" || failed="$failed test"
 if [ "$run_scripts" -eq 1 ]; then
@@ -308,6 +323,9 @@ if [ -n "$failed" ]; then
   done
   case "$failed" in
     *lint*) echo ""; echo "Hint: try 'bun run lint:fix' to auto-fix formatting issues." ;;
+  esac
+  case "$failed" in
+    *format-check*) echo ""; echo "Hint: run 'bun run format:changed' to apply Prettier to changed files, or 'bun run format' for the full tree." ;;
   esac
   exit 1
 fi

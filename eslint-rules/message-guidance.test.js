@@ -132,14 +132,12 @@ describe("local rule message guidance", () => {
       );
 
       const hasRepairCommand = Object.hasOwn(docs, "repairCommand");
-      if (docs.repairKind === "codemod") {
-        expect(hasRepairCommand, `${entry.id} meta.docs.repairCommand`).toBe(true);
-        expect(isNonEmptyString(docs.repairCommand), `${entry.id} meta.docs.repairCommand`).toBe(
-          true,
-        );
-      } else {
-        expect(hasRepairCommand, `${entry.id} meta.docs.repairCommand`).toBe(false);
-      }
+      const isCodemod = docs.repairKind === "codemod";
+      expect(hasRepairCommand, `${entry.id} meta.docs.repairCommand`).toBe(isCodemod);
+      expect(
+        !isCodemod || isNonEmptyString(docs.repairCommand),
+        `${entry.id} meta.docs.repairCommand`,
+      ).toBe(true);
     }
   });
 
@@ -151,18 +149,16 @@ describe("local rule message guidance", () => {
         expect(typeof message, context).toBe("string");
         if (typeof message !== "string") continue;
 
-        if (EXEMPT_MESSAGE_IDS.has(context)) {
-          expect(isNonEmptyString(message), context).toBe(true);
-          expect(message.length, context).toBeLessThanOrEqual(MAX_SIMPLE_MESSAGE_LENGTH);
-          continue;
-        }
+        const isExempt = EXEMPT_MESSAGE_IDS.has(context);
+        const maxLen = isExempt ? MAX_SIMPLE_MESSAGE_LENGTH : MAX_MULTI_STEP_MESSAGE_LENGTH;
+
+        expect(isNonEmptyString(message), context).toBe(true);
+        expect(message.length, context).toBeLessThanOrEqual(maxLen);
 
         const howToFix = message.split("How to fix: ")[1] ?? "";
-
-        expect(message, context).toMatch(WHY_HOW_PATTERN);
-        expect(howToFix, context).toMatch(ACTION_WORD_PATTERN);
-        expect(message, context).not.toMatch(/\n/u);
-        expect(message.length, context).toBeLessThanOrEqual(MAX_MULTI_STEP_MESSAGE_LENGTH);
+        expect(isExempt || WHY_HOW_PATTERN.test(message), `${context} Why/How`).toBe(true);
+        expect(isExempt || ACTION_WORD_PATTERN.test(howToFix), `${context} action`).toBe(true);
+        expect(isExempt || !/\n/u.test(message), `${context} newline`).toBe(true);
       }
     }
   });

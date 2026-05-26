@@ -21,11 +21,7 @@ import {
   type HarnessFindingSeverity,
   summarizeHarnessFindings,
 } from "../packages/shared/src/schemas/harness-diagnostics.js";
-import {
-  formatRuleDocsFailures,
-  loadLintRuleDocs,
-  type RuleDocsEntry,
-} from "./lint-rule-docs.js";
+import { formatRuleDocsFailures, loadLintRuleDocs, type RuleDocsEntry } from "./lint-rule-docs.js";
 
 const PROCESS_ARG_OFFSET = 2;
 const ESLINT_SEVERITY_ERROR = 2;
@@ -33,6 +29,9 @@ const ESLINT_SEVERITY_WARN = 1;
 const LOCAL_RULE_PREFIX = "local/";
 const LINT_CONTROL_PREFIX = "lint/";
 const PARSER_ERROR_CONTROL = "lint/parser-error";
+// The schema tool id is stable; the preferred package script name is more explicit.
+const ENVELOPE_TOOL = "lint:agent";
+const DISPLAY_COMMAND = "lint:agent:local-rules";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -127,10 +126,7 @@ function relativePath(filePath: string): string {
   return rel === "" ? filePath : rel;
 }
 
-function buildParserErrorFinding(
-  message: ESLintMessage,
-  filePath: string,
-): HarnessFinding {
+function buildParserErrorFinding(message: ESLintMessage, filePath: string): HarnessFinding {
   const path = relativePath(filePath);
   const base = {
     control: PARSER_ERROR_CONTROL,
@@ -283,7 +279,7 @@ async function buildEnvelope(patterns: readonly string[]): Promise<{
 
   const envelope: HarnessDiagnostics = {
     version: HARNESS_DIAGNOSTICS_SCHEMA_VERSION,
-    tool: "lint:agent",
+    tool: ENVELOPE_TOOL,
     findings,
     summary: summarizeHarnessFindings(findings),
   };
@@ -297,7 +293,9 @@ async function main(): Promise<void> {
   const parseResult = harnessDiagnosticsSchema.safeParse(envelope);
   if (!parseResult.success) {
     const issues = JSON.stringify(parseResult.error.issues, null, 2);
-    throw new Error(`lint:agent produced an envelope that failed schema validation:\n${issues}`);
+    throw new Error(
+      `${DISPLAY_COMMAND} produced an envelope that failed schema validation:\n${issues}`,
+    );
   }
 
   const rendered = `${JSON.stringify(envelope, null, 2)}\n`;
@@ -317,7 +315,7 @@ async function main(): Promise<void> {
       ? ` (skipped ${String(skippedNonLocal)} non-local finding(s) — see \`bun run lint\` for the full view)`
       : "";
   console.error(
-    `lint:agent OK — ${String(envelope.findings.length)} finding(s); ` +
+    `${DISPLAY_COMMAND} OK — ${String(envelope.findings.length)} finding(s); ` +
       `blocking=${String(envelope.summary.blocking)} ` +
       `warning=${String(envelope.summary.warning)} ` +
       `info=${String(envelope.summary.info)}${skippedNote}`,

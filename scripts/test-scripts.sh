@@ -47,76 +47,43 @@ esac
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$REPO_ROOT" || exit 1
 
-# Smoke test name → subject paths it covers. A change to any subject (or
-# the smoke test file itself) triggers that smoke test in --changed mode.
-# Order is selection order; MUSI_SCRIPTS_CONCURRENCY=1 uses it as run order
-# and halts at the first failure to mirror verify.sh.
-SMOKE_NAMES=(
-  test-verify
-  test-verify-async
-  test-verify-logs
-  test-verify-history
-  test-worktree-db
-  test-dependency-freshness
-  test-ai-hooks
-  test-eslint-disable-register
-  test-suppression-register
-  test-codemod-structured-logging-fix
-  test-codemod-trpc-shared-input
-  test-codemod-trpc-shared-output
-  test-code-intel
-  test-lint-changed
-  test-lint-shell
-  test-lint-config-sensors
-  test-test-changed
-  test-test-slow
-  test-generate-module-index
-  test-generate-lint-guidance
-  test-generate-harness-controls
-  test-harness-check
-  test-lint-agent
-  test-lint-agent-changed
-  test-harness-emit-envelope
-  test-lint-ratchet
-  test-migration-safety-scan
-  test-doctor-json
-  test-parallel-runner
-  test-verify-metadata
-  test-test-scripts
-)
-declare -A SMOKE_SUBJECTS=(
-  [test-verify]="scripts/verify.sh scripts/verify-metadata.sh scripts/process-tree.sh scripts/test-verify.sh scripts/ai-hooks/cache.sh scripts/ai-hooks/output-filter.sh"
-  [test-verify-async]="scripts/verify-async.sh scripts/test-verify-async.sh scripts/process-tree.sh scripts/verify.sh scripts/verify-metadata.sh scripts/ai-hooks/cache.sh"
-  [test-verify-logs]="scripts/verify-logs.sh scripts/test-verify-logs.sh scripts/ai-hooks/cache.sh scripts/ai-hooks/output-filter.sh scripts/harness-emit-envelope.ts packages/shared/src/schemas/harness-diagnostics.ts"
-  [test-verify-history]="scripts/verify-history.sh scripts/test-verify-history.sh scripts/verify-metadata.sh .husky/pre-commit package.json"
-  [test-worktree-db]="scripts/worktree-db.sh scripts/worktree-new.sh scripts/worktree-drift-hook.sh scripts/dev.sh scripts/test-worktree-db.sh"
-  [test-dependency-freshness]="scripts/dependency-freshness.sh scripts/prisma-client-freshness.sh scripts/doc-length-policy.sh scripts/verify-metadata.sh scripts/process-tree.sh scripts/ai-hooks/output-filter.sh .husky/pre-commit scripts/test-dependency-freshness.sh"
-  [test-ai-hooks]="scripts/test-ai-hooks.sh scripts/ai-hooks/test.sh scripts/ai-hooks/common.sh scripts/ai-hooks/cache.sh scripts/verify-metadata.sh scripts/ai-hooks/policy.sh scripts/ai-hooks/protected-files.sh scripts/ai-hooks/doc-length.sh scripts/ai-hooks/output-filter.sh scripts/ai-hooks/process-runner.sh scripts/ai-hooks/commit-output.sh scripts/ai-hooks/commit-timeout-status.sh scripts/ai-hooks/stop-policy.sh scripts/ai-hooks/stop-reminder.sh .claude/hooks/ .codex/hooks/pre-tool-use.sh .codex/hooks/post-tool-use.sh .codex/hooks/stop-reminder.sh .claude/settings.json .codex/hooks.json"
-  [test-eslint-disable-register]="scripts/eslint-disable-register.sh scripts/test-eslint-disable-register.sh"
-  [test-suppression-register]="scripts/suppression-register.sh scripts/test-suppression-register.sh"
-  [test-codemod-structured-logging-fix]="scripts/codemods/structured-logging-fix.ts scripts/codemods/lib/trpc-shared-schema.ts scripts/test-codemod-structured-logging-fix.sh package.json tsconfig.scripts.json"
-  [test-codemod-trpc-shared-input]="scripts/codemods/trpc-shared-input.ts scripts/codemods/lib/trpc-shared-schema.ts scripts/test-codemod-trpc-shared-input.sh package.json tsconfig.scripts.json"
-  [test-codemod-trpc-shared-output]="scripts/codemods/trpc-shared-output.ts scripts/codemods/lib/trpc-shared-schema.ts scripts/test-codemod-trpc-shared-output.sh package.json tsconfig.scripts.json"
-  [test-code-intel]="scripts/code-intel.ts scripts/code-intel/ scripts/code-intel.test.ts scripts/test-code-intel.sh scripts/vitest.config.ts package.json tsconfig.scripts.json packages/shared/package.json packages/server/package.json packages/client/tsconfig.json"
-  [test-lint-changed]="scripts/lint-changed.sh scripts/lint-shell.sh scripts/parallel-runner.sh scripts/verify-metadata.sh scripts/test-lint-changed.sh"
-  [test-lint-shell]="scripts/lint-shell.sh scripts/parallel-runner.sh scripts/test-lint-shell.sh package.json bun.lock"
-  [test-lint-config-sensors]="scripts/lint-config-sensors.sh scripts/test-lint-config-sensors.sh scripts/lint-changed.sh scripts/verify-metadata.sh .yamllint.yml package.json bun.lock .github/workflows/ docker-compose.yml .devcontainer/docker-compose.yml .devcontainer/Dockerfile .codex/config.toml .codex/skills/ bunfig.toml"
-  [test-test-changed]="scripts/test-changed.sh scripts/vitest.sh scripts/ai-hooks/output-filter.sh scripts/test-test-changed.sh"
-  [test-test-slow]="scripts/test-slow.sh scripts/test-changed.sh scripts/vitest.sh scripts/ai-hooks/output-filter.sh vitest.slow.config.ts packages/shared/vitest.config.ts packages/server/vitest.config.ts packages/client/vitest.config.ts packages/shared/src/test-tier-sentinel.test.ts packages/shared/src/test-tier-sentinel.slow.test.ts scripts/test-test-slow.sh"
-  [test-generate-module-index]="scripts/generate-module-index.sh scripts/test-generate-module-index.sh scripts/harness-emit-envelope.ts packages/shared/src/schemas/harness-diagnostics.ts"
-  [test-generate-lint-guidance]="scripts/generate-lint-guidance.ts scripts/lint-rule-docs.ts scripts/test-generate-lint-guidance.sh scripts/fixtures/generate-lint-guidance/ eslint.config.js package.json tsconfig.scripts.json docs/generated/local-lint-rules.md eslint-rules/"
-  [test-generate-harness-controls]="scripts/generate-harness-controls.ts scripts/lint-rule-docs.ts scripts/test-generate-harness-controls.sh scripts/fixtures/generate-harness-controls/ harness.controls.json eslint.config.js package.json tsconfig.scripts.json docs/generated/harness-controls.md eslint-rules/"
-  [test-harness-check]="scripts/harness-check.ts scripts/test-harness-check.sh harness.controls.json eslint.config.js package.json tsconfig.scripts.json eslint-rules/"
-  [test-lint-agent]="scripts/lint-agent.ts scripts/lint-rule-docs.ts scripts/test-lint-agent.sh packages/shared/src/schemas/harness-diagnostics.ts package.json tsconfig.scripts.json eslint.config.js eslint-rules/"
-  [test-lint-agent-changed]="scripts/lint-agent-changed.sh scripts/lint-agent.ts scripts/harness-emit-envelope.ts scripts/test-lint-agent-changed.sh packages/shared/src/schemas/harness-diagnostics.ts package.json"
-  [test-harness-emit-envelope]="scripts/harness-emit-envelope.ts scripts/test-harness-emit-envelope.sh packages/shared/src/schemas/harness-diagnostics.ts"
-  [test-lint-ratchet]="scripts/lint-ratchet.ts scripts/lint-ratchet-config.ts scripts/lint-ratchet-metrics.ts scripts/lint-ratchet-baseline-compare.ts scripts/lint-ratchet-baseline-parse.ts scripts/lint-ratchet-baseline.ts scripts/lint-ratchet-baseline.test.ts scripts/lint-ratchet-check-registry.ts scripts/lint-ratchet-check-registry.test.ts scripts/lint-ratchet-output.ts scripts/lint-ratchet-output.test.ts scripts/lint-ratchet-report.ts scripts/lint-ratchet-report.test.ts scripts/lint-ratchet-summary.ts scripts/lint-ratchet-summary.test.ts scripts/lint-rule-docs.ts scripts/test-lint-ratchet.sh lint-ratchet.baseline.json packages/shared/src/schemas/harness-diagnostics.ts package.json tsconfig.scripts.json eslint.config.js eslint-rules/"
-  [test-migration-safety-scan]="scripts/migration-safety-scan.sh scripts/test-migration-safety-scan.sh scripts/harness-emit-envelope.ts packages/shared/src/schemas/harness-diagnostics.ts"
-  [test-doctor-json]="scripts/doctor.sh scripts/dependency-freshness.sh scripts/harness-emit-envelope.ts scripts/test-doctor-json.sh harness.controls.json packages/shared/src/schemas/harness-diagnostics.ts"
-  [test-parallel-runner]="scripts/parallel-runner.sh scripts/test-parallel-runner.sh"
-  [test-verify-metadata]="scripts/verify-metadata.sh scripts/test-verify-metadata.sh"
-  [test-test-scripts]="scripts/test-scripts.sh scripts/test-test-scripts.sh"
-)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PATH_POLICY_QUERY="${MUSI_PATH_POLICY_QUERY:-$SCRIPT_DIR/path-policy-query.ts}"
+PATH_POLICY_BUN="${MUSI_PATH_POLICY_BUN:-bun}"
+
+path_policy_query_lines() {
+  local query="$1"
+  local tmp status
+
+  tmp=$(mktemp "${TMPDIR:-/tmp}/musi-test-scripts-policy.XXXXXX") || return 2
+  if ! "$PATH_POLICY_BUN" --config=/dev/null "$PATH_POLICY_QUERY" "$query" >"$tmp"; then
+    rm -f "$tmp"
+    return 2
+  fi
+  tr '\0' '\n' <"$tmp"
+  status=$?
+  rm -f "$tmp"
+  return "$status"
+}
+
+path_policy_args_have_match() {
+  local query="$1"
+  local tmp
+  shift
+
+  [ "$#" -gt 0 ] || return 1
+  tmp=$(mktemp "${TMPDIR:-/tmp}/musi-test-scripts-policy.XXXXXX") || return 2
+  if ! printf '%s\0' "$@" | "$PATH_POLICY_BUN" --config=/dev/null "$PATH_POLICY_QUERY" "$query" >"$tmp"; then
+    rm -f "$tmp"
+    return 2
+  fi
+  if [ -s "$tmp" ]; then
+    rm -f "$tmp"
+    return 0
+  fi
+  rm -f "$tmp"
+  return 1
+}
 
 resolve_changed_ref() {
   local base="main"
@@ -160,43 +127,17 @@ read_deleted_files() {
   fi
 }
 
-script_smoke_deletion_requires_full_suite() {
-  local file="$1"
-  case "$file" in
-    .husky/*|scripts/*)
-      return 0
-      ;;
-  esac
-  return 1
-}
-
-matches_smoke_subject() {
-  local changed_file="$1"
-  local subject="$2"
-  if [ "$changed_file" = "$subject" ]; then
-    return 0
-  fi
-  case "$subject" in
-    */)
-      case "$changed_file" in
-        "$subject"*) return 0 ;;
-      esac
-      ;;
-  esac
-  return 1
-}
-
 select_smoke_tests() {
   if [ "$CHANGED" -eq 0 ]; then
-    printf '%s\n' "${SMOKE_NAMES[@]}"
-    return 0
+    path_policy_query_lines script-smoke-test-names < /dev/null
+    return $?
   fi
   if [ -z "${MUSI_SCRIPTS_CHANGED_FILES:-}" ] && ! resolve_changed_ref >/dev/null; then
     printf "test:scripts: neither 'main' nor 'origin/main' exists — running full smoke suite.\n" >&2
-    printf '%s\n' "${SMOKE_NAMES[@]}"
-    return 0
+    path_policy_query_lines script-smoke-test-names < /dev/null
+    return $?
   fi
-  local name subjects f subject
+  local f deletion_match
   local -a changed=()
   while IFS= read -r f; do
     [ -n "$f" ] || continue
@@ -210,27 +151,27 @@ select_smoke_tests() {
     [ -n "$f" ] || continue
     deleted+=("$f")
   done < <(read_deleted_files)
-  for f in "${deleted[@]}"; do
-    if script_smoke_deletion_requires_full_suite "$f"; then
-      printf "test:scripts: script deletion staged — running full smoke suite.\n" >&2
-      printf '%s\n' "${SMOKE_NAMES[@]}"
-      return 0
-    fi
-  done
-  for name in "${SMOKE_NAMES[@]}"; do
-    subjects="${SMOKE_SUBJECTS[$name]}"
-    for f in "${changed[@]}"; do
-      for subject in $subjects; do
-        if matches_smoke_subject "$f" "$subject"; then
-          printf '%s\n' "$name"
-          continue 3
-        fi
-      done
-    done
-  done
+  deletion_match=0
+  path_policy_args_have_match deletion-class:script-smoke-sensitive "${deleted[@]}" || deletion_match=$?
+  if [ "$deletion_match" -eq 0 ]; then
+    printf "test:scripts: script deletion staged — running full smoke suite.\n" >&2
+    path_policy_query_lines script-smoke-test-names < /dev/null
+    return $?
+  fi
+  if [ "$deletion_match" -gt 1 ]; then
+    return "$deletion_match"
+  fi
+  printf '%s\0' "${changed[@]}" | path_policy_query_lines script-smoke-tests
 }
 
-mapfile -t SELECTED < <(select_smoke_tests)
+SELECTED=()
+selection_tmp=$(mktemp "${TMPDIR:-/tmp}/musi-test-scripts-selection.XXXXXX") || exit 2
+if ! select_smoke_tests >"$selection_tmp"; then
+  rm -f "$selection_tmp"
+  exit 2
+fi
+mapfile -t SELECTED <"$selection_tmp"
+rm -f "$selection_tmp"
 
 if [ "${#SELECTED[@]}" -eq 0 ]; then
   if [ "$CHANGED" -eq 1 ]; then
@@ -301,7 +242,8 @@ run_selected_sequential() {
 
   for name in "${SELECTED[@]}"; do
     printf 'test:scripts: running %s...\n' "$name"
-    if "$RUNNER" "scripts/$name.sh"; then
+    if env -u GIT_DIR -u GIT_INDEX_FILE -u GIT_WORK_TREE -u GIT_PREFIX -u GIT_COMMON_DIR \
+      "$RUNNER" "scripts/$name.sh"; then
       passed="$passed $name"
       continue
     fi
@@ -340,7 +282,8 @@ musi_scripts_run_logged_child() {
   trap 'musi_scripts_forward_child_signal INT "$child_pid"; exit 130' INT
   trap 'musi_scripts_forward_child_signal TERM "$child_pid"; exit 143' TERM
 
-  env --default-signal=INT --default-signal=TERM \
+  env -u GIT_DIR -u GIT_INDEX_FILE -u GIT_WORK_TREE -u GIT_PREFIX -u GIT_COMMON_DIR \
+    --default-signal=INT --default-signal=TERM \
     "$RUNNER" "scripts/$name.sh" >"$log_file" 2>&1 &
   child_pid=$!
   wait "$child_pid" || exit_code=$?

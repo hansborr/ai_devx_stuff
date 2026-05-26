@@ -1,5 +1,14 @@
-import { spawnSync } from "node:child_process";
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { execFileSync, spawnSync } from "node:child_process";
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -15,6 +24,26 @@ const tempRoots: string[] = [];
 
 const runtimeFiles = [
   "scripts/lint-ratchet.ts",
+  "scripts/lint-ratchet/baseline-constants.ts",
+  "scripts/lint-ratchet/baseline-format.ts",
+  "scripts/lint-ratchet/baseline-hash.ts",
+  "scripts/lint-ratchet/baseline-update.ts",
+  "scripts/lint-ratchet/baseline-validation.ts",
+  "scripts/lint-ratchet/cli.ts",
+  "scripts/lint-ratchet/current-collector.ts",
+  "scripts/lint-ratchet/diagnostics.ts",
+  "scripts/lint-ratchet/errors.ts",
+  "scripts/lint-ratchet/eslint-config.ts",
+  "scripts/lint-ratchet/eslint-runner.ts",
+  "scripts/lint-ratchet/git-tracked-files.ts",
+  "scripts/lint-ratchet/modes.ts",
+  "scripts/lint-ratchet/paths.ts",
+  "scripts/lint-ratchet/ratchet-globs.ts",
+  "scripts/lint-ratchet/registry-validation.ts",
+  "scripts/lint-ratchet/rule-source.ts",
+  "scripts/lint-ratchet/runtime-config.ts",
+  "scripts/lint-ratchet/zero-baseline-disposition.ts",
+  "scripts/lint-ratchet/zero-baseline-types.ts",
   "scripts/lint-ratchet-baseline-compare.ts",
   "scripts/lint-ratchet-baseline-parse.ts",
   "scripts/lint-ratchet-baseline.ts",
@@ -23,6 +52,7 @@ const runtimeFiles = [
   "scripts/lint-ratchet-output.ts",
   "scripts/lint-ratchet-report.ts",
   "scripts/lint-ratchet-summary.ts",
+  "scripts/lint-ratchet-zero-baseline.ts",
   "scripts/lint-rule-docs.ts",
   "packages/shared/src/schemas/harness-diagnostics.ts",
 ] as const;
@@ -51,14 +81,9 @@ function writeFixturePackage(fixtureRoot: string): void {
 function writeFixtureEslintConfig(fixtureRoot: string): void {
   writeFileSync(
     join(fixtureRoot, "eslint.config.js"),
-    [
-      "export default [",
-      "  {",
-      "    plugins: { local: { rules: {} } },",
-      "  },",
-      "];",
-      "",
-    ].join("\n"),
+    ["export default [", "  {", "    plugins: { local: { rules: {} } },", "  },", "];", ""].join(
+      "\n",
+    ),
   );
 }
 
@@ -75,6 +100,16 @@ function writeFixtureRatchetConfig(fixtureRoot: string): void {
       'type LintRatchetRepairKind = "manual";',
       'export type LintRatchetParserProfile = "minimal-ts" | "type-aware-ts";',
       'export type LintRatchetPluginExport = "default" | "plugin";',
+      "export type LintRatchetZeroBaselineDispositionKind =",
+      '  | "intentional-ratchet-only"',
+      '  | "narrow-floor"',
+      '  | "promote-to-normal-lint"',
+      '  | "temporary-ratchet-only";',
+      "export interface LintRatchetZeroBaselineDisposition {",
+      "  readonly kind: LintRatchetZeroBaselineDispositionKind;",
+      "  readonly reason: string;",
+      "  readonly exitPath?: string;",
+      "}",
       "",
       'export interface LintRatchetLocalSource { readonly kind: "local"; }',
       'export interface LintRatchetThirdPartySource { readonly kind: "third-party"; readonly pluginModule: string; }',
@@ -94,6 +129,7 @@ function writeFixtureRatchetConfig(fixtureRoot: string): void {
       "  readonly target: number;",
       "  readonly metric: LintRatchetMetric;",
       "  readonly repairKind: LintRatchetRepairKind;",
+      "  readonly zeroBaselineDisposition?: LintRatchetZeroBaselineDisposition;",
       "}",
       "",
       "export type LintRatchetConfig =",
@@ -151,6 +187,11 @@ function writeDebugSource(fixtureRoot: string): void {
   );
 }
 
+function initializeFixtureGitIndex(fixtureRoot: string): void {
+  execFileSync("git", ["init", "-q"], { cwd: fixtureRoot });
+  execFileSync("git", ["add", "-A"], { cwd: fixtureRoot });
+}
+
 function makeFixture(): string {
   const fixtureRoot = mkdtempSync(join(tmpdir(), "lint-ratchet-output-"));
   tempRoots.push(fixtureRoot);
@@ -167,6 +208,7 @@ function makeFixture(): string {
     join(fixtureRoot, "packages/shared/node_modules"),
     "dir",
   );
+  initializeFixtureGitIndex(fixtureRoot);
   return fixtureRoot;
 }
 
@@ -215,29 +257,37 @@ afterEach(() => {
 });
 
 describe("lint ratchet diagnostics output file", () => {
-  it("writes the same default-mode envelope to HARNESS_DIAGNOSTICS_OUTPUT", () => {
-    const fixtureRoot = makeFixture();
-    seedCleanBaseline(fixtureRoot);
-    const outputPath = join(fixtureRoot, "diagnostics.json");
+  it(
+    "writes the same default-mode envelope to HARNESS_DIAGNOSTICS_OUTPUT",
+    { timeout: 15_000 },
+    () => {
+      const fixtureRoot = makeFixture();
+      seedCleanBaseline(fixtureRoot);
+      const outputPath = join(fixtureRoot, "diagnostics.json");
 
-    const result = runLintRatchet(fixtureRoot, [], { [OUTPUT_ENV]: outputPath });
+      const result = runLintRatchet(fixtureRoot, [], { [OUTPUT_ENV]: outputPath });
 
-    expect(result.status, result.stderr).toBe(0);
-    expect(readFileSync(outputPath, "utf8")).toBe(result.stdout);
-    expect(parseEnvelope(result.stdout).summary.blocking).toBe(0);
-  });
+      expect(result.status, result.stderr).toBe(0);
+      expect(readFileSync(outputPath, "utf8")).toBe(result.stdout);
+      expect(parseEnvelope(result.stdout).summary.blocking).toBe(0);
+    },
+  );
 
-  it("leaves default-mode behavior unchanged when the env var is unset", () => {
-    const fixtureRoot = makeFixture();
-    seedCleanBaseline(fixtureRoot);
-    const outputPath = join(fixtureRoot, "diagnostics.json");
+  it(
+    "leaves default-mode behavior unchanged when the env var is unset",
+    { timeout: 15_000 },
+    () => {
+      const fixtureRoot = makeFixture();
+      seedCleanBaseline(fixtureRoot);
+      const outputPath = join(fixtureRoot, "diagnostics.json");
 
-    const result = runLintRatchet(fixtureRoot);
+      const result = runLintRatchet(fixtureRoot);
 
-    expect(result.status, result.stderr).toBe(0);
-    expect(existsSync(outputPath)).toBe(false);
-    expect(parseEnvelope(result.stdout).summary.blocking).toBe(0);
-  });
+      expect(result.status, result.stderr).toBe(0);
+      expect(existsSync(outputPath)).toBe(false);
+      expect(parseEnvelope(result.stdout).summary.blocking).toBe(0);
+    },
+  );
 
   it("treats an empty HARNESS_DIAGNOSTICS_OUTPUT value as unset", () => {
     const fixtureRoot = makeFixture();

@@ -1,18 +1,20 @@
 # Leaf 3: Vitest And Client Test-Quality Rules
 
-Status: Parked
-Depends on: Leaf 1 and preferably Leaf 2
+Status: Parked; initial `@vitest/eslint-plugin` slice landed 2026-05-16.
+Remaining work is tracked in `../lint-followups/10-test-quality-followups.md`.
+Depends on: none (Leaf 1 and Leaf 2 are both resolved)
 
-Dependency detail: Leaf 1 is needed so any committed warning-severity plugin
-rule still fails deterministically; before Leaf 1 lands, use throwaway local
-inventory only. Leaf 2 is preferred because test lint should run against the
-same staged content that will be committed.
+Dependency detail: Leaf 1 (zero-warning gate) landed 2026-05-16 — committed
+warning-severity rules now fail deterministically. Leaf 2 (staged-content
+correctness) is also resolved. No blockers remain.
 
 ## Problem
 
-Musi has many Vitest tests and currently relies on Playwright-specific linting
-only for e2e. Vitest itself is installed, but no Vitest ESLint plugin is
-configured.
+Musi has many Vitest tests. The initial Vitest ESLint plugin slice is already
+installed and configured; this note preserves the original rollout and verdict.
+Do not re-promote the install/inventory step. Remaining test-quality work is
+client-scoped Testing Library/jest-dom inventory or explicitly named deferred
+Vitest rule cleanup.
 
 ## Initial Rule Goals
 
@@ -36,10 +38,13 @@ which Musi already has.
 
 ## Rollout
 
-Promotion note: this file intentionally tracks three related plugins, but a
-single iteration should name one narrow slice in `NEXT.md`. Start with
-`@vitest/eslint-plugin`; promote Testing Library and jest-dom as separate
-scoped follow-ups, or split them into new leaf files if that is clearer.
+Promotion note: this file intentionally tracks three related plugins, but the
+`@vitest/eslint-plugin` slice below already landed. Promote Testing Library and
+jest-dom as separate scoped follow-ups from
+`lint-followups/10-test-quality-followups.md`, or split them into new leaf
+files if that is clearer.
+
+Historical `@vitest/eslint-plugin` rollout:
 
 1. Add `@vitest/eslint-plugin` and a scoped config block for
    `**/*.test.{ts,tsx}` and `**/*.spec.ts`, explicitly excluding `e2e/**/*`.
