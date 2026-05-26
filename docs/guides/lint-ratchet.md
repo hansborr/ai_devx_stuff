@@ -4,6 +4,10 @@ The lint ratchet tracks selected existing lint debt without allowing it to
 grow. Normal `bun run lint` stays strict; `bun run lint:ratchet` is an
 additional gate for rules that are being drained from a committed baseline.
 
+For projects adapting the ratchet to Biome diagnostics, see
+[Biome Lint Adoption](biome-lint-adoption.md). The baseline and comparison
+model are portable; the current runner and reach checks are ESLint-specific.
+
 ## First ratchet in 10 minutes
 
 Start with one core ESLint rule and a small, real file scope. Copy the portable

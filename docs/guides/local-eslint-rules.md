@@ -2,6 +2,11 @@
 
 Authoring conventions for rules in `eslint-rules/`.
 
+For projects adapting the guidance pipeline to Biome, see
+[Biome Lint Adoption](biome-lint-adoption.md). The portable part is the
+metadata and `HarnessDiagnostics` envelope; the current discovery mechanism is
+ESLint-specific.
+
 ## Rule Catalog
 
 Use the generated [local rule catalog](../generated/local-lint-rules.md) to
