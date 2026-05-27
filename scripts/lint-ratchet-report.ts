@@ -57,8 +57,7 @@ function groupedFindings(
       control,
       [...group].sort(
         (left, right) =>
-          (left.path ?? "").localeCompare(right.path ?? "") ||
-          (left.line ?? 0) - (right.line ?? 0),
+          (left.path ?? "").localeCompare(right.path ?? "") || (left.line ?? 0) - (right.line ?? 0),
       ),
     ]);
 }
@@ -105,11 +104,15 @@ function isImprovement(finding: HarnessFinding): boolean {
 
 function findingLocation(finding: HarnessFinding): string | undefined {
   if (finding.path === undefined) return undefined;
-  return finding.line === undefined ? `\`${finding.path}\`` : `\`${finding.path}:${String(finding.line)}\``;
+  return finding.line === undefined
+    ? `\`${finding.path}\``
+    : `\`${finding.path}:${String(finding.line)}\``;
 }
 
 function findingPrefix(finding: HarnessFinding): string {
-  return [findingLocation(finding), findingDelta(finding)].filter((part) => part !== undefined).join(" — ");
+  return [findingLocation(finding), findingDelta(finding)]
+    .filter((part) => part !== undefined)
+    .join(" — ");
 }
 
 function formatFindingBullet(finding: HarnessFinding): string {
@@ -125,9 +128,7 @@ function recoveryLineFor(group: readonly HarnessFinding[]): string | undefined {
   return `Run \`${RECOVERY_COMMAND}\` to lock in the improvement.`;
 }
 
-function maxFindingsPerControl(
-  options: FormatHarnessDiagnosticsReportOptions | undefined,
-): number {
+function maxFindingsPerControl(options: FormatHarnessDiagnosticsReportOptions | undefined): number {
   const requested = options?.maxFindingsPerControl ?? DEFAULT_MAX_FINDINGS_PER_CONTROL;
   return Math.max(0, Math.floor(requested));
 }
@@ -207,7 +208,8 @@ function parseDiagnostics(input: string): HarnessDiagnostics {
 }
 
 export function runLintRatchetReport(options: RunLintRatchetReportOptions): string {
-  const input = options.input === undefined ? readFileSync(0, "utf8") : readFileSync(options.input, "utf8");
+  const input =
+    options.input === undefined ? readFileSync(0, "utf8") : readFileSync(options.input, "utf8");
   return formatHarnessDiagnosticsReport(parseDiagnostics(input), options);
 }
 

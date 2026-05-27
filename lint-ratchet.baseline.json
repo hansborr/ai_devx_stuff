@@ -81,7 +81,8 @@
         "scripts/lint-ratchet-report.ts",
         "scripts/lint-ratchet-summary.ts",
         "scripts/lint-ratchet.ts",
-        "scripts/lint-ratchet/**/*.ts"
+        "scripts/lint-ratchet/**/*.ts",
+        "scripts/ratchet-manifest-message.ts"
       ],
       "ignores": [
         "scripts/*.test.ts"
@@ -91,7 +92,7 @@
           "max": 10
         }
       ],
-      "configHash": "sha256:fe1260ec49183632bb9ff681ccf2edf4513b5cfd1a22ce2767c1d0984a05d7e0",
+      "configHash": "sha256:09fa088d4f132d5fedb136e45688441f596e804e7b18b26a3daa1ee23c7c15de",
       "ruleSourceHash": "sha256:97723dbbc0772ac4813351c8ac7f2b4b6f3d49ffca7184ce4409747f68e94501",
       "items": {}
     },
@@ -209,7 +210,7 @@
         }
       ],
       "configHash": "sha256:f546ca5fe0555f82955d527316efb62fc70f613b2c3ffb3c58828447490136dc",
-      "ruleSourceHash": "sha256:e418fb9ef876b51950789d09a0baa38cdfe8f6e80944ee38977a0c2a7e9a32f1",
+      "ruleSourceHash": "sha256:df1dc41ea6404739147b565babb45cebd0bfdbab4648df0e14287a59d28c288f",
       "items": {}
     },
     "ratchet/local-max-lines-codemods": {
@@ -233,7 +234,7 @@
         }
       ],
       "configHash": "sha256:10e0bd309ea24a12bde12b98f247e8140aa976310d981db251b36a8c47f3c9e4",
-      "ruleSourceHash": "sha256:e418fb9ef876b51950789d09a0baa38cdfe8f6e80944ee38977a0c2a7e9a32f1",
+      "ruleSourceHash": "sha256:df1dc41ea6404739147b565babb45cebd0bfdbab4648df0e14287a59d28c288f",
       "items": {}
     },
     "ratchet/local-max-lines-drift-ai": {
@@ -258,7 +259,7 @@
         }
       ],
       "configHash": "sha256:9d4a4e7c00900079851e3a11f101311fb690c3ddf8fcbe2e142f8344e9a08cb5",
-      "ruleSourceHash": "sha256:e418fb9ef876b51950789d09a0baa38cdfe8f6e80944ee38977a0c2a7e9a32f1",
+      "ruleSourceHash": "sha256:df1dc41ea6404739147b565babb45cebd0bfdbab4648df0e14287a59d28c288f",
       "items": {}
     },
     "ratchet/local-max-lines-generate-harness-controls": {
@@ -279,8 +280,33 @@
         }
       ],
       "configHash": "sha256:2d685cee3bf8e667028ddaa65318c74482c46cde5072c571e504dde5f87696dc",
-      "ruleSourceHash": "sha256:e418fb9ef876b51950789d09a0baa38cdfe8f6e80944ee38977a0c2a7e9a32f1",
+      "ruleSourceHash": "sha256:df1dc41ea6404739147b565babb45cebd0bfdbab4648df0e14287a59d28c288f",
       "items": {}
+    },
+    "ratchet/local-max-lines-lint-coverage-map-check": {
+      "ruleId": "local/max-lines",
+      "mode": "no-new",
+      "target": 0,
+      "metric": "effective-line-count",
+      "files": [
+        "scripts/lint-coverage-map-check.ts"
+      ],
+      "ignores": [],
+      "ruleOptions": [
+        {
+          "max": 300,
+          "skipBlankLines": true,
+          "skipComments": true
+        }
+      ],
+      "configHash": "sha256:1b7e490de3b734dcc193a30f6c701878d8799b262e360c229a1570384db3743a",
+      "ruleSourceHash": "sha256:df1dc41ea6404739147b565babb45cebd0bfdbab4648df0e14287a59d28c288f",
+      "items": {
+        "scripts/lint-coverage-map-check.ts": {
+          "count": 1,
+          "lines": 355
+        }
+      }
     },
     "ratchet/local-max-lines-logs-audit": {
       "ruleId": "local/max-lines",
@@ -300,7 +326,7 @@
         }
       ],
       "configHash": "sha256:9428f45f1f3d3b1ef9ef5169ee86ffd5e18258d61316706a10fb459aeea66da2",
-      "ruleSourceHash": "sha256:e418fb9ef876b51950789d09a0baa38cdfe8f6e80944ee38977a0c2a7e9a32f1",
+      "ruleSourceHash": "sha256:df1dc41ea6404739147b565babb45cebd0bfdbab4648df0e14287a59d28c288f",
       "items": {}
     },
     "ratchet/local-max-lines-runtime": {
@@ -323,7 +349,8 @@
         "scripts/lint-ratchet-report.ts",
         "scripts/lint-ratchet-summary.ts",
         "scripts/lint-ratchet.ts",
-        "scripts/lint-ratchet/**/*.ts"
+        "scripts/lint-ratchet/**/*.ts",
+        "scripts/ratchet-manifest-message.ts"
       ],
       "ignores": [
         "scripts/*.test.ts"
@@ -335,9 +362,18 @@
           "skipComments": true
         }
       ],
-      "configHash": "sha256:93aba30495ad6cb170b3ed005060e7cef297bb6b7e47eefa315199e8cb36f052",
-      "ruleSourceHash": "sha256:e418fb9ef876b51950789d09a0baa38cdfe8f6e80944ee38977a0c2a7e9a32f1",
-      "items": {}
+      "configHash": "sha256:9bcf258ecfce1cdeb8921c105176ce8513386ce483c1bf0eeb25bae8b9ef09a9",
+      "ruleSourceHash": "sha256:df1dc41ea6404739147b565babb45cebd0bfdbab4648df0e14287a59d28c288f",
+      "items": {
+        "scripts/lint-ratchet-baseline-parse.ts": {
+          "count": 1,
+          "lines": 302
+        },
+        "scripts/lint-ratchet-metrics.ts": {
+          "count": 1,
+          "lines": 387
+        }
+      }
     },
     "ratchet/local-type-assertion-boundary": {
       "ruleId": "local/type-assertion-boundary",
@@ -356,7 +392,7 @@
       ],
       "ruleOptions": [],
       "configHash": "sha256:f2824bf2b9e91c167340be31ebf6b8193410bf44928c37915b372f76eb5e2261",
-      "ruleSourceHash": "sha256:498bb4fb47f9494e8218f7c77c40dedb67813429fe7e10541f074bdd039ce9fc",
+      "ruleSourceHash": "sha256:b8dad9dd286c1d8613bcd0918ea7b77f08b16c4edac05f2c42e71e12bbc091e3",
       "items": {}
     },
     "ratchet/regexp-no-super-linear-backtracking-script-tests": {

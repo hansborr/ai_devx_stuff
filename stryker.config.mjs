@@ -13,11 +13,7 @@ export default {
     dir: "packages/shared",
     related: true,
   },
-  mutate: [
-    "packages/shared/src/rules/**/*.ts",
-    "!**/*.test.ts",
-    "!**/*.slow.test.ts",
-  ],
+  mutate: ["packages/shared/src/rules/**/*.ts", "!**/*.test.ts", "!**/*.slow.test.ts"],
   reporters: ["clear-text", "progress", "html", "json"],
   htmlReporter: {
     fileName: "reports/mutation/index.html",

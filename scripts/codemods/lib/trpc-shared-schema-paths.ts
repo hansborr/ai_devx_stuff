@@ -3,7 +3,12 @@ import path from "node:path";
 
 import { Project, type SourceFile } from "ts-morph";
 
-import { fail, ROUTER_ROOT, SHARED_SCHEMA_PREFIX, SHARED_SCHEMA_ROOT } from "./trpc-shared-schema-types.js";
+import {
+  fail,
+  ROUTER_ROOT,
+  SHARED_SCHEMA_PREFIX,
+  SHARED_SCHEMA_ROOT,
+} from "./trpc-shared-schema-types.js";
 
 export function normalizeRelativeRouterPath(
   codemodName: string,

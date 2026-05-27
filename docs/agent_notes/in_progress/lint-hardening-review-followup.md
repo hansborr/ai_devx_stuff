@@ -84,10 +84,10 @@ but never documented or wired it" drift.
 Scout: [`lint-hardening-review-followup-pr-3-machine-readable-diagnostics.md`](./lint-hardening-review-followup-pr-3-machine-readable-diagnostics.md)
 
 `--json` output for `doctor`, `verify:logs`, `module:index:check`, and
-`migration-safety-scan`. `lint:agent` consumes ESLint JSON output plus the PR 1
-rule metadata to produce compact agent-facing repair summaries. The shape is
-the same `Why: / How to fix:` contract as the in-message guidance, but
-structured so an agent can `jq` it.
+`migration-safety-scan`. `lint:agent:local-rules` consumes ESLint JSON output
+plus the PR 1 rule metadata to produce compact agent-facing repair summaries.
+The shape is the same `Why: / How to fix:` contract as the in-message guidance,
+but structured so an agent can `jq` it.
 
 ## Dependencies and ordering
 

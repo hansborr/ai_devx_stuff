@@ -3,6 +3,9 @@
 Status: Done
 Order: 22
 
+Follow-up: the compatibility aliases named below were retired by
+`backlog/lint-system-improvements/16-lint-agent-alias-retirement.md`.
+
 ## Context
 
 `lint:agent:changed` is intentionally not equivalent to `lint:changed`. It
@@ -19,6 +22,7 @@ parity.
   - `lint:agent:local-rules:changed` for the changed-file wrapper.
 - Keep `lint:agent` and `lint:agent:changed` as compatibility aliases for one
   transition unless all internal callers can move safely in the same leaf.
+  That transition has ended; use the explicit package-script names.
 - Rename or document the wrapper script only where it improves clarity; avoid a
   noisy file rename if package-script aliases give users the right interface.
 - Update harness controls, generated docs, script-smoke selection, and authored

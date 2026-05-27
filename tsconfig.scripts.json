@@ -54,6 +54,7 @@
     "scripts/path-policy-query.ts",
     "scripts/path-policy-query-core.ts",
     "scripts/path-policy-query.test.ts",
+    "scripts/ratchet-manifest-message.ts",
     "scripts/sensor-blob-size.ts",
     "scripts/sensor-blob-size.test.ts"
   ],

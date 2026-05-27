@@ -147,8 +147,6 @@ export function computeCoreLintRatchetRuleSourceHash(
     ruleOptions: normalizeRuleOptions(config.ruleOptions),
     eslintVersion,
   };
-  const hash = createHash("sha256")
-    .update(JSON.stringify(sourceIdentity))
-    .digest("hex");
+  const hash = createHash("sha256").update(JSON.stringify(sourceIdentity)).digest("hex");
   return `${LINT_RATCHET_CONFIG_HASH_PREFIX}${hash}`;
 }

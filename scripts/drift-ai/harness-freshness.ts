@@ -62,8 +62,7 @@ export type BacktickPathReference = {
 
 const DEFAULT_HARNESS_PATH = "docs/ai-harness.md";
 const DEFAULT_GUIDES_DIR = "docs/guides";
-const PATH_LIKE_RE =
-  /^[\w.@-]+(?:\/[\w.@-]+)+(?:\/|\.[A-Za-z0-9][\w-]*)$/u;
+const PATH_LIKE_RE = /^[\w.@-]+(?:\/[\w.@-]+)+(?:\/|\.[A-Za-z0-9][\w-]*)$/u;
 const GUIDE_REFERENCE_RE = /docs\/guides\/[\w.-]+\.md/gu;
 const INLINE_BACKTICK_RE = /`([^`\n]+)`/gu;
 
@@ -72,7 +71,9 @@ export function runHarnessFreshnessCheck(
 ): HarnessFreshnessFinding[] {
   const repoRoot = options.repoRoot ?? process.cwd();
   const harnessPath = normalizeConfiguredPath(options.harnessPath ?? DEFAULT_HARNESS_PATH);
-  const guidesDir = stripTrailingSlash(normalizeConfiguredPath(options.guidesDir ?? DEFAULT_GUIDES_DIR));
+  const guidesDir = stripTrailingSlash(
+    normalizeConfiguredPath(options.guidesDir ?? DEFAULT_GUIDES_DIR),
+  );
   const readFile = options.readFile ?? defaultFileReader(repoRoot);
   const listDirectory = options.listDirectory ?? defaultDirectoryListing(repoRoot);
   const pathExists = options.pathExists ?? defaultPathExists(repoRoot);
@@ -94,8 +95,7 @@ export function runHarnessFreshnessCheck(
   const guideReferences = extractGuideReferences(harness);
   const backtickPaths = extractBacktickPathReferences(harness);
   const isIgnored =
-    options.isIgnored ??
-    defaultPathIgnored(repoRoot, backtickPathIgnoreCandidates(backtickPaths));
+    options.isIgnored ?? defaultPathIgnored(repoRoot, backtickPathIgnoreCandidates(backtickPaths));
 
   return [
     ...unreferencedGuideFindings(harnessPath, guidePaths, guideReferences),
@@ -194,10 +194,7 @@ function missingReferencedGuideFindings(
   return findings;
 }
 
-function discoverGuidePaths(
-  guidesDir: string,
-  listDirectory: DirectoryListing,
-): readonly string[] {
+function discoverGuidePaths(guidesDir: string, listDirectory: DirectoryListing): readonly string[] {
   return listDirectory(guidesDir)
     .filter((entry) => entry.endsWith(".md") && !entry.includes("/"))
     .map((entry) => `${guidesDir}/${entry}`)

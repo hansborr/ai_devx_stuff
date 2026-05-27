@@ -21,8 +21,8 @@ REPO_ROOT=$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel)
 . "$SCRIPT_DIR/output-filter.sh"
 
 TMP_ROOT=$(mktemp -d /tmp/musi-ai-hooks-test.XXXXXX)
-TIDY_REPO_TMP="$REPO_ROOT/.musi-ai-hooks-tidy-test.$$"
-LINT_COVERAGE_REPO_TMP="$REPO_ROOT/.musi-ai-hooks-lint-coverage-test.$$"
+TIDY_REPO_TMP="$TMP_ROOT/tidy-repo"
+LINT_COVERAGE_REPO_TMP="$TMP_ROOT/lint-coverage-repo"
 trap 'rm -rf "$TMP_ROOT" "$TIDY_REPO_TMP" "$LINT_COVERAGE_REPO_TMP"' EXIT
 
 AI_STATE_ROOT="$TMP_ROOT/state"
@@ -506,57 +506,62 @@ fi
 
 # --- tidy-edited-file hook ----------------------------------------------------
 rm -rf "$TIDY_REPO_TMP"
-mkdir -p "$TIDY_REPO_TMP/src" "$TMP_ROOT/tidy-bin"
-TIDY_NPX_LOG="$TMP_ROOT/tidy-npx.log"
-cat > "$TMP_ROOT/tidy-bin/npx" <<'EOF'
+mkdir -p "$TIDY_REPO_TMP/scripts/ai-hooks" "$TIDY_REPO_TMP/src" "$TIDY_REPO_TMP/node_modules/.bin"
+cp "$REPO_ROOT/scripts/ai-hooks/common.sh" "$REPO_ROOT/scripts/ai-hooks/tidy-edited-file.sh" "$TIDY_REPO_TMP/scripts/ai-hooks/"
+git -C "$TIDY_REPO_TMP" init -q
+HOOK_FIXTURE_REPO_ROOT="$TIDY_REPO_TMP"
+TIDY_PINNED_LOG="$TMP_ROOT/tidy-pinned.log"
+cat > "$TIDY_REPO_TMP/node_modules/.bin/prettier" <<'EOF'
 #!/bin/bash
 set -u
 
-cmd="${1:-}"
-printf '%s' "$cmd" >> "$TIDY_NPX_LOG"
-shift || true
+printf 'prettier' >> "$TIDY_PINNED_LOG"
 for arg in "$@"; do
-  printf '\t%s' "$arg" >> "$TIDY_NPX_LOG"
+  printf '\t%s' "$arg" >> "$TIDY_PINNED_LOG"
 done
-printf '\n' >> "$TIDY_NPX_LOG"
+printf '\n' >> "$TIDY_PINNED_LOG"
 
-case "$cmd" in
-  prettier)
-    if [ "${TIDY_NPX_PRETTIER_FAIL:-0}" = "1" ]; then
-      printf 'prettier failed line\n'
-      exit 7
-    fi
-    if [ "${TIDY_NPX_PRETTIER_FORMAT_FIXTURE:-0}" = "1" ]; then
-      target=""
-      for arg in "$@"; do
-        target="$arg"
-      done
-      [ -n "$target" ] && printf 'const value = { answer: 1 };\n' > "$target"
-    fi
-    ;;
-  eslint)
-    if [ "${TIDY_NPX_ESLINT_FAIL:-0}" = "1" ]; then
-      i=1
-      while [ "$i" -le 60 ]; do
-        printf 'eslint line %02d\n' "$i"
-        i=$((i + 1))
-      done
-      exit 8
-    fi
-    ;;
-esac
+if [ "${TIDY_PINNED_PRETTIER_FAIL:-0}" = "1" ]; then
+  printf 'prettier failed line\n'
+  exit 7
+fi
+if [ "${TIDY_PINNED_PRETTIER_FORMAT_FIXTURE:-0}" = "1" ]; then
+  target=""
+  for arg in "$@"; do
+    target="$arg"
+  done
+  [ -n "$target" ] && printf 'const value = { answer: 1 };\n' > "$target"
+fi
 EOF
-chmod +x "$TMP_ROOT/tidy-bin/npx"
+cat > "$TIDY_REPO_TMP/node_modules/.bin/eslint" <<'EOF'
+#!/bin/bash
+set -u
+
+printf 'eslint' >> "$TIDY_PINNED_LOG"
+for arg in "$@"; do
+  printf '\t%s' "$arg" >> "$TIDY_PINNED_LOG"
+done
+printf '\n' >> "$TIDY_PINNED_LOG"
+
+if [ "${TIDY_PINNED_ESLINT_FAIL:-0}" = "1" ]; then
+  i=1
+  while [ "$i" -le 60 ]; do
+    printf 'eslint line %02d\n' "$i"
+    i=$((i + 1))
+  done
+  exit 8
+fi
+EOF
+chmod +x "$TIDY_REPO_TMP/node_modules/.bin/prettier" "$TIDY_REPO_TMP/node_modules/.bin/eslint"
 
 run_tidy_hook() {
   local payload="$1"
 
-  PATH="$TMP_ROOT/tidy-bin:$PATH" \
-    TIDY_NPX_LOG="$TIDY_NPX_LOG" \
-    TIDY_NPX_PRETTIER_FAIL="${TIDY_NPX_PRETTIER_FAIL:-0}" \
-    TIDY_NPX_PRETTIER_FORMAT_FIXTURE="${TIDY_NPX_PRETTIER_FORMAT_FIXTURE:-0}" \
-    TIDY_NPX_ESLINT_FAIL="${TIDY_NPX_ESLINT_FAIL:-0}" \
-    bash "$REPO_ROOT/scripts/ai-hooks/tidy-edited-file.sh" <<< "$payload"
+  TIDY_PINNED_LOG="$TIDY_PINNED_LOG" \
+    TIDY_PINNED_PRETTIER_FAIL="${TIDY_PINNED_PRETTIER_FAIL:-0}" \
+    TIDY_PINNED_PRETTIER_FORMAT_FIXTURE="${TIDY_PINNED_PRETTIER_FORMAT_FIXTURE:-0}" \
+    TIDY_PINNED_ESLINT_FAIL="${TIDY_PINNED_ESLINT_FAIL:-0}" \
+    bash "$TIDY_REPO_TMP/scripts/ai-hooks/tidy-edited-file.sh" <<< "$payload"
 }
 
 tidy_context() {
@@ -584,66 +589,79 @@ tidy_payload_for_file() {
 }
 
 tidy_relative_path() {
-  realpath --relative-to="$REPO_ROOT" "$1"
+  realpath --relative-to="${HOOK_FIXTURE_REPO_ROOT:-$REPO_ROOT}" "$1"
 }
 
 TIDY_TS="$TIDY_REPO_TMP/src/needs-formatting.ts"
 TIDY_TS_REL=$(tidy_relative_path "$TIDY_TS")
 printf 'const value={answer:1}\n' > "$TIDY_TS"
-: > "$TIDY_NPX_LOG"
-TIDY_OUTPUT=$(TIDY_NPX_PRETTIER_FORMAT_FIXTURE=1 run_tidy_hook "$(tidy_payload_for_file "$TIDY_TS_REL")") \
+: > "$TIDY_PINNED_LOG"
+TIDY_OUTPUT=$(TIDY_PINNED_PRETTIER_FORMAT_FIXTURE=1 run_tidy_hook "$(tidy_payload_for_file "$TIDY_TS_REL")") \
   || fail "tidy hook should not fail for Claude .ts payload"
 assert_hook_json "$TIDY_OUTPUT"
-assert_contains "$(tidy_context "$TIDY_OUTPUT")" "$TIDY_TS_REL OK (prettier, eslint --fix)"
+TIDY_CONTEXT=$(tidy_context "$TIDY_OUTPUT")
+[ "$TIDY_CONTEXT" = "tidy-edited-file: $TIDY_TS_REL tidied" ] \
+  || fail "Claude .ts tidy should report changed file, got: $TIDY_CONTEXT"
+assert_not_contains "$TIDY_CONTEXT" "OK"
 TIDY_EXPECTED_LOG=$(printf 'prettier\t--write\t--ignore-unknown\t%s\neslint\t--fix\t--no-warn-ignored\t%s' "$TIDY_TS" "$TIDY_TS")
-[ "$(cat "$TIDY_NPX_LOG")" = "$TIDY_EXPECTED_LOG" ] \
-  || fail "Claude .ts tidy command log mismatch: $(cat "$TIDY_NPX_LOG")"
+[ "$(cat "$TIDY_PINNED_LOG")" = "$TIDY_EXPECTED_LOG" ] \
+  || fail "Claude .ts tidy command log mismatch: $(cat "$TIDY_PINNED_LOG")"
 [ "$(cat "$TIDY_TS")" = 'const value = { answer: 1 };' ] \
   || fail "Claude .ts tidy should format the fixture: $(cat "$TIDY_TS")"
+
+TIDY_CLEAN_TS="$TIDY_REPO_TMP/src/already-tidy.ts"
+TIDY_CLEAN_TS_REL=$(tidy_relative_path "$TIDY_CLEAN_TS")
+printf 'const clean = { answer: 1 };\n' > "$TIDY_CLEAN_TS"
+: > "$TIDY_PINNED_LOG"
+TIDY_OUTPUT=$(run_tidy_hook "$(tidy_payload_for_file "$TIDY_CLEAN_TS_REL")") \
+  || fail "tidy hook should not fail for already-tidy .ts payload"
+assert_hook_continue_json "$TIDY_OUTPUT"
+TIDY_EXPECTED_LOG=$(printf 'prettier\t--write\t--ignore-unknown\t%s\neslint\t--fix\t--no-warn-ignored\t%s' "$TIDY_CLEAN_TS" "$TIDY_CLEAN_TS")
+[ "$(cat "$TIDY_PINNED_LOG")" = "$TIDY_EXPECTED_LOG" ] \
+  || fail "already-tidy .ts command log mismatch: $(cat "$TIDY_PINNED_LOG")"
 
 TIDY_MD="$TIDY_REPO_TMP/src/note.md"
 TIDY_MD_REL=$(tidy_relative_path "$TIDY_MD")
 printf '# title\n' > "$TIDY_MD"
-: > "$TIDY_NPX_LOG"
+: > "$TIDY_PINNED_LOG"
 TIDY_OUTPUT=$(run_tidy_hook "$(tidy_payload_for_file "$TIDY_MD_REL")") \
   || fail "tidy hook should not fail for Markdown payload"
-assert_hook_json "$TIDY_OUTPUT"
-assert_contains "$(tidy_context "$TIDY_OUTPUT")" "$TIDY_MD_REL OK (prettier)"
+assert_hook_continue_json "$TIDY_OUTPUT"
 TIDY_EXPECTED_LOG=$'prettier\t--write\t--ignore-unknown\t'"$TIDY_MD"
-[ "$(cat "$TIDY_NPX_LOG")" = "$TIDY_EXPECTED_LOG" ] \
-  || fail "Markdown tidy should only run prettier: $(cat "$TIDY_NPX_LOG")"
+[ "$(cat "$TIDY_PINNED_LOG")" = "$TIDY_EXPECTED_LOG" ] \
+  || fail "Markdown tidy should only run prettier: $(cat "$TIDY_PINNED_LOG")"
 
 TIDY_MISSING_REL=$(tidy_relative_path "$TIDY_REPO_TMP/src/missing.ts")
-: > "$TIDY_NPX_LOG"
+: > "$TIDY_PINNED_LOG"
 TIDY_OUTPUT=$(run_tidy_hook "$(tidy_payload_for_file "$TIDY_MISSING_REL")") \
   || fail "tidy hook should not fail for missing file"
 assert_hook_json "$TIDY_OUTPUT"
 assert_contains "$(tidy_context "$TIDY_OUTPUT")" "$TIDY_MISSING_REL skipped (missing/deleted file)"
-[ ! -s "$TIDY_NPX_LOG" ] || fail "missing file should not invoke npx"
+[ ! -s "$TIDY_PINNED_LOG" ] || fail "missing file should not invoke pinned tools"
 
-: > "$TIDY_NPX_LOG"
+: > "$TIDY_PINNED_LOG"
 TIDY_OUTPUT=$(run_tidy_hook "$(tidy_payload_for_file ".git/config")") \
   || fail "tidy hook should not fail for unsupported .git path"
 assert_hook_json "$TIDY_OUTPUT"
 assert_contains "$(tidy_context "$TIDY_OUTPUT")" ".git/config skipped (unsupported path)"
-[ ! -s "$TIDY_NPX_LOG" ] || fail ".git path should not invoke npx"
+[ ! -s "$TIDY_PINNED_LOG" ] || fail ".git path should not invoke pinned tools"
 
-: > "$TIDY_NPX_LOG"
+: > "$TIDY_PINNED_LOG"
 TIDY_OUTPUT=$(run_tidy_hook "$(tidy_payload_for_file "node_modules/foo.ts")") \
   || fail "tidy hook should not fail for unsupported node_modules path"
 assert_hook_json "$TIDY_OUTPUT"
 assert_contains "$(tidy_context "$TIDY_OUTPUT")" "node_modules/foo.ts skipped (unsupported path)"
-[ ! -s "$TIDY_NPX_LOG" ] || fail "node_modules path should not invoke npx"
+[ ! -s "$TIDY_PINNED_LOG" ] || fail "node_modules path should not invoke pinned tools"
 
 TIDY_BINARY="$TIDY_REPO_TMP/src/blob.bin"
 TIDY_BINARY_REL=$(tidy_relative_path "$TIDY_BINARY")
 printf 'a\0b' > "$TIDY_BINARY"
-: > "$TIDY_NPX_LOG"
+: > "$TIDY_PINNED_LOG"
 TIDY_OUTPUT=$(run_tidy_hook "$(tidy_payload_for_file "$TIDY_BINARY_REL")") \
   || fail "tidy hook should not fail for binary file"
 assert_hook_json "$TIDY_OUTPUT"
 assert_contains "$(tidy_context "$TIDY_OUTPUT")" "$TIDY_BINARY_REL skipped (binary file)"
-[ ! -s "$TIDY_NPX_LOG" ] || fail "binary file should not invoke npx"
+[ ! -s "$TIDY_PINNED_LOG" ] || fail "binary file should not invoke pinned tools"
 
 TIDY_CODEX_TS="$TIDY_REPO_TMP/src/codex one.ts"
 TIDY_CODEX_MD="$TIDY_REPO_TMP/src/codex-note.md"
@@ -679,23 +697,42 @@ TIDY_PATCH=$(printf '%s\n' \
   '*** End Patch')
 TIDY_CODEX_PAYLOAD=$(jq -n --arg command "$TIDY_PATCH" --arg ignored "node_modules/ignored.ts" \
   '{tool_name:"apply_patch",tool_input:{file_path:$ignored,command:$command}}')
-: > "$TIDY_NPX_LOG"
+: > "$TIDY_PINNED_LOG"
 TIDY_OUTPUT=$(run_tidy_hook "$TIDY_CODEX_PAYLOAD") \
   || fail "tidy hook should not fail for Codex apply_patch payload"
 assert_hook_json "$TIDY_OUTPUT"
 TIDY_CONTEXT=$(tidy_context "$TIDY_OUTPUT")
-assert_contains "$TIDY_CONTEXT" "$TIDY_CODEX_TS_REL OK (prettier, eslint --fix)"
-assert_contains "$TIDY_CONTEXT" "$TIDY_CODEX_MD_REL OK (prettier)"
+assert_not_contains "$TIDY_CONTEXT" "OK"
 assert_contains "$TIDY_CONTEXT" "$TIDY_CODEX_DELETED_REL skipped (missing/deleted file)"
 assert_contains "$TIDY_CONTEXT" "$TIDY_CODEX_OLD_REL skipped (missing/deleted file)"
-assert_contains "$TIDY_CONTEXT" "$TIDY_CODEX_MOVED_REL OK (prettier, eslint --fix)"
 assert_not_contains "$TIDY_CONTEXT" "node_modules/ignored.ts"
 TIDY_EXPECTED_LOG=$(printf 'prettier\t--write\t--ignore-unknown\t%s\neslint\t--fix\t--no-warn-ignored\t%s\nprettier\t--write\t--ignore-unknown\t%s\nprettier\t--write\t--ignore-unknown\t%s\neslint\t--fix\t--no-warn-ignored\t%s' "$TIDY_CODEX_TS" "$TIDY_CODEX_TS" "$TIDY_CODEX_MD" "$TIDY_CODEX_MOVED" "$TIDY_CODEX_MOVED")
-[ "$(cat "$TIDY_NPX_LOG")" = "$TIDY_EXPECTED_LOG" ] \
-  || fail "Codex apply_patch tidy command log mismatch: $(cat "$TIDY_NPX_LOG")"
+[ "$(cat "$TIDY_PINNED_LOG")" = "$TIDY_EXPECTED_LOG" ] \
+  || fail "Codex apply_patch tidy command log mismatch: $(cat "$TIDY_PINNED_LOG")"
 
-: > "$TIDY_NPX_LOG"
-TIDY_OUTPUT=$(TIDY_NPX_PRETTIER_FAIL=1 run_tidy_hook "$(tidy_payload_for_file "$TIDY_MD_REL")") \
+TIDY_CODEX_FORMAT="$TIDY_REPO_TMP/src/codex-needs-formatting.ts"
+TIDY_CODEX_FORMAT_REL=$(tidy_relative_path "$TIDY_CODEX_FORMAT")
+printf 'const codexFormat={answer:1}\n' > "$TIDY_CODEX_FORMAT"
+TIDY_FORMAT_PATCH=$(printf '%s\n' \
+  '*** Begin Patch' \
+  "*** Update File: $TIDY_CODEX_FORMAT_REL" \
+  '@@' \
+  '-const codexFormat={answer:0}' \
+  '+const codexFormat={answer:1}' \
+  '*** End Patch')
+TIDY_CODEX_FORMAT_PAYLOAD=$(jq -n --arg command "$TIDY_FORMAT_PATCH" \
+  '{tool_name:"apply_patch",tool_input:{command:$command}}')
+: > "$TIDY_PINNED_LOG"
+TIDY_OUTPUT=$(TIDY_PINNED_PRETTIER_FORMAT_FIXTURE=1 run_tidy_hook "$TIDY_CODEX_FORMAT_PAYLOAD") \
+  || fail "tidy hook should not fail for Codex formatted apply_patch payload"
+assert_hook_json "$TIDY_OUTPUT"
+TIDY_CONTEXT=$(tidy_context "$TIDY_OUTPUT")
+[ "$TIDY_CONTEXT" = "tidy-edited-file: $TIDY_CODEX_FORMAT_REL tidied" ] \
+  || fail "Codex apply_patch tidy should report changed file, got: $TIDY_CONTEXT"
+assert_not_contains "$TIDY_CONTEXT" "OK"
+
+: > "$TIDY_PINNED_LOG"
+TIDY_OUTPUT=$(TIDY_PINNED_PRETTIER_FAIL=1 run_tidy_hook "$(tidy_payload_for_file "$TIDY_MD_REL")") \
   || fail "tidy hook should not fail when prettier fails"
 assert_hook_json "$TIDY_OUTPUT"
 TIDY_CONTEXT=$(tidy_context "$TIDY_OUTPUT")
@@ -703,8 +740,8 @@ assert_contains "$TIDY_CONTEXT" "$TIDY_MD_REL ERROR (non-blocking)"
 assert_contains "$TIDY_CONTEXT" "prettier exited 7"
 assert_contains "$TIDY_CONTEXT" "prettier failed line"
 
-: > "$TIDY_NPX_LOG"
-TIDY_OUTPUT=$(TIDY_NPX_ESLINT_FAIL=1 run_tidy_hook "$(tidy_payload_for_file "$TIDY_TS_REL")") \
+: > "$TIDY_PINNED_LOG"
+TIDY_OUTPUT=$(TIDY_PINNED_ESLINT_FAIL=1 run_tidy_hook "$(tidy_payload_for_file "$TIDY_TS_REL")") \
   || fail "tidy hook should not fail when eslint fails"
 assert_hook_json "$TIDY_OUTPUT"
 TIDY_CONTEXT=$(tidy_context "$TIDY_OUTPUT")
@@ -719,40 +756,64 @@ TIDY_ESLINT_LINE_COUNT=$(grep -c '^eslint line ' <<< "$TIDY_CONTEXT" || true)
 assert_not_contains "$TIDY_CONTEXT" "eslint line 01"
 assert_not_contains "$TIDY_CONTEXT" "eslint line 30"
 
-: > "$TIDY_NPX_LOG"
+: > "$TIDY_PINNED_LOG"
 TIDY_OUTPUT=$(run_tidy_hook '{"tool_name":"Edit","tool_input":{}}') \
   || fail "tidy hook should not fail when payload has no file path"
 assert_hook_continue_json "$TIDY_OUTPUT"
-[ ! -s "$TIDY_NPX_LOG" ] || fail "no-path payload should not invoke npx"
+[ ! -s "$TIDY_PINNED_LOG" ] || fail "no-path payload should not invoke pinned tools"
 
-: > "$TIDY_NPX_LOG"
+: > "$TIDY_PINNED_LOG"
 TIDY_OUTPUT=$(run_tidy_hook 'not json') \
   || fail "tidy hook should not fail for malformed JSON payload"
 assert_hook_continue_json "$TIDY_OUTPUT"
-[ ! -s "$TIDY_NPX_LOG" ] || fail "malformed payload should not invoke npx"
+[ ! -s "$TIDY_PINNED_LOG" ] || fail "malformed payload should not invoke pinned tools"
 
-: > "$TIDY_NPX_LOG"
+: > "$TIDY_PINNED_LOG"
 TIDY_OUTPUT=$(SKIP_TIDY_HOOK=1 run_tidy_hook "$(tidy_payload_for_file "$TIDY_TS_REL")") \
   || fail "tidy hook should not fail when skipped"
 assert_hook_json "$TIDY_OUTPUT"
 assert_contains "$(tidy_context "$TIDY_OUTPUT")" "SKIP_TIDY_HOOK=1"
-[ ! -s "$TIDY_NPX_LOG" ] || fail "SKIP_TIDY_HOOK=1 should not invoke npx"
+[ ! -s "$TIDY_PINNED_LOG" ] || fail "SKIP_TIDY_HOOK=1 should not invoke pinned tools"
 
 # --- lint-coverage-check hook ------------------------------------------------
 rm -rf "$LINT_COVERAGE_REPO_TMP"
-mkdir -p "$LINT_COVERAGE_REPO_TMP/src" "$TMP_ROOT/lint-coverage-bin"
-LINT_COVERAGE_NPX_LOG="$TMP_ROOT/lint-coverage-npx.log"
-cat > "$TMP_ROOT/lint-coverage-bin/npx" <<'EOF'
+mkdir -p "$LINT_COVERAGE_REPO_TMP/scripts/ai-hooks" "$LINT_COVERAGE_REPO_TMP/src/ratcheted" "$LINT_COVERAGE_REPO_TMP/node_modules/.bin"
+cp "$REPO_ROOT/scripts/ai-hooks/common.sh" "$REPO_ROOT/scripts/ai-hooks/lint-coverage-check.sh" "$LINT_COVERAGE_REPO_TMP/scripts/ai-hooks/"
+git -C "$LINT_COVERAGE_REPO_TMP" init -q
+HOOK_FIXTURE_REPO_ROOT="$LINT_COVERAGE_REPO_TMP"
+LINT_COVERAGE_PINNED_LOG="$TMP_ROOT/lint-coverage-pinned.log"
+cat > "$LINT_COVERAGE_REPO_TMP/lint-ratchet.baseline.json" <<'JSON'
+{
+  "version": 1,
+  "tests": {
+    "ratchet/fixture": {
+      "ruleId": "fixture/rule",
+      "mode": "no-new",
+      "target": 0,
+      "metric": "message-count",
+      "files": [
+        "src/ratcheted/**/*.ts"
+      ],
+      "ignores": [
+        "src/ratcheted/**/*.test.ts"
+      ],
+      "ruleOptions": [],
+      "configHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "ruleSourceHash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "items": {}
+    }
+  }
+}
+JSON
+cat > "$LINT_COVERAGE_REPO_TMP/node_modules/.bin/eslint" <<'EOF'
 #!/bin/bash
 set -u
 
-cmd="${1:-}"
-printf '%s' "$cmd" >> "$LINT_COVERAGE_NPX_LOG"
-shift || true
+printf 'eslint' >> "$LINT_COVERAGE_PINNED_LOG"
 for arg in "$@"; do
-  printf '\t%s' "$arg" >> "$LINT_COVERAGE_NPX_LOG"
+  printf '\t%s' "$arg" >> "$LINT_COVERAGE_PINNED_LOG"
 done
-printf '\n' >> "$LINT_COVERAGE_NPX_LOG"
+printf '\n' >> "$LINT_COVERAGE_PINNED_LOG"
 
 target=""
 for arg in "$@"; do
@@ -768,14 +829,13 @@ case "$target" in
     ;;
 esac
 EOF
-chmod +x "$TMP_ROOT/lint-coverage-bin/npx"
+chmod +x "$LINT_COVERAGE_REPO_TMP/node_modules/.bin/eslint"
 
 run_lint_coverage_hook() {
   local payload="$1"
 
-  PATH="$TMP_ROOT/lint-coverage-bin:$PATH" \
-    LINT_COVERAGE_NPX_LOG="$LINT_COVERAGE_NPX_LOG" \
-    bash "$REPO_ROOT/scripts/ai-hooks/lint-coverage-check.sh" <<< "$payload"
+  LINT_COVERAGE_PINNED_LOG="$LINT_COVERAGE_PINNED_LOG" \
+    bash "$LINT_COVERAGE_REPO_TMP/scripts/ai-hooks/lint-coverage-check.sh" <<< "$payload"
 }
 
 lint_coverage_context() {
@@ -785,42 +845,68 @@ lint_coverage_context() {
 LINT_COVERAGE_COVERED_TS="$LINT_COVERAGE_REPO_TMP/src/covered.ts"
 LINT_COVERAGE_COVERED_TS_REL=$(tidy_relative_path "$LINT_COVERAGE_COVERED_TS")
 printf 'const covered = 1;\n' > "$LINT_COVERAGE_COVERED_TS"
-: > "$LINT_COVERAGE_NPX_LOG"
+: > "$LINT_COVERAGE_PINNED_LOG"
 LINT_COVERAGE_OUTPUT=$(run_lint_coverage_hook "$(tidy_payload_for_file "$LINT_COVERAGE_COVERED_TS_REL")") \
   || fail "lint coverage hook should not fail for covered Claude .ts payload"
 assert_hook_continue_json "$LINT_COVERAGE_OUTPUT"
 LINT_COVERAGE_EXPECTED_LOG=$(printf 'eslint\t--print-config\t%s' "$LINT_COVERAGE_COVERED_TS")
-[ "$(cat "$LINT_COVERAGE_NPX_LOG")" = "$LINT_COVERAGE_EXPECTED_LOG" ] \
-  || fail "Claude lint coverage command log mismatch: $(cat "$LINT_COVERAGE_NPX_LOG")"
+[ "$(cat "$LINT_COVERAGE_PINNED_LOG")" = "$LINT_COVERAGE_EXPECTED_LOG" ] \
+  || fail "Claude lint coverage command log mismatch: $(cat "$LINT_COVERAGE_PINNED_LOG")"
 
 LINT_COVERAGE_UNCOVERED_JSONC="$LINT_COVERAGE_REPO_TMP/src/uncovered.jsonc"
 LINT_COVERAGE_UNCOVERED_JSONC_REL=$(tidy_relative_path "$LINT_COVERAGE_UNCOVERED_JSONC")
 printf '{ "uncovered": true }\n' > "$LINT_COVERAGE_UNCOVERED_JSONC"
-: > "$LINT_COVERAGE_NPX_LOG"
+: > "$LINT_COVERAGE_PINNED_LOG"
 LINT_COVERAGE_OUTPUT=$(run_lint_coverage_hook "$(tidy_payload_for_file "$LINT_COVERAGE_UNCOVERED_JSONC_REL")") \
   || fail "lint coverage hook should not fail for uncovered Claude .jsonc payload"
 assert_hook_json "$LINT_COVERAGE_OUTPUT"
 assert_contains "$(lint_coverage_context "$LINT_COVERAGE_OUTPUT")" "$LINT_COVERAGE_UNCOVERED_JSONC_REL is NOT covered by ESLint"
 LINT_COVERAGE_EXPECTED_LOG=$(printf 'eslint\t--print-config\t%s' "$LINT_COVERAGE_UNCOVERED_JSONC")
-[ "$(cat "$LINT_COVERAGE_NPX_LOG")" = "$LINT_COVERAGE_EXPECTED_LOG" ] \
-  || fail "Claude lint coverage JSONC command log mismatch: $(cat "$LINT_COVERAGE_NPX_LOG")"
+[ "$(cat "$LINT_COVERAGE_PINNED_LOG")" = "$LINT_COVERAGE_EXPECTED_LOG" ] \
+  || fail "Claude lint coverage JSONC command log mismatch: $(cat "$LINT_COVERAGE_PINNED_LOG")"
+
+LINT_COVERAGE_RATCHETED_TS="$LINT_COVERAGE_REPO_TMP/src/ratcheted/uncovered-ratchet.ts"
+LINT_COVERAGE_RATCHETED_TS_REL=$(tidy_relative_path "$LINT_COVERAGE_RATCHETED_TS")
+printf 'const ratcheted = 1;\n' > "$LINT_COVERAGE_RATCHETED_TS"
+: > "$LINT_COVERAGE_PINNED_LOG"
+LINT_COVERAGE_OUTPUT=$(run_lint_coverage_hook "$(tidy_payload_for_file "$LINT_COVERAGE_RATCHETED_TS_REL")") \
+  || fail "lint coverage hook should not warn for ratchet-covered payload"
+assert_hook_continue_json "$LINT_COVERAGE_OUTPUT"
+LINT_COVERAGE_EXPECTED_LOG=$(printf 'eslint\t--print-config\t%s' "$LINT_COVERAGE_RATCHETED_TS")
+[ "$(cat "$LINT_COVERAGE_PINNED_LOG")" = "$LINT_COVERAGE_EXPECTED_LOG" ] \
+  || fail "Claude lint coverage ratcheted command log mismatch: $(cat "$LINT_COVERAGE_PINNED_LOG")"
+
+LINT_COVERAGE_RATCHET_IGNORED_TS="$LINT_COVERAGE_REPO_TMP/src/ratcheted/uncovered-ratchet.test.ts"
+LINT_COVERAGE_RATCHET_IGNORED_TS_REL=$(tidy_relative_path "$LINT_COVERAGE_RATCHET_IGNORED_TS")
+printf 'const ratchetIgnored = 1;\n' > "$LINT_COVERAGE_RATCHET_IGNORED_TS"
+: > "$LINT_COVERAGE_PINNED_LOG"
+LINT_COVERAGE_OUTPUT=$(run_lint_coverage_hook "$(tidy_payload_for_file "$LINT_COVERAGE_RATCHET_IGNORED_TS_REL")") \
+  || fail "lint coverage hook should not fail for ratchet-ignored uncovered payload"
+assert_hook_json "$LINT_COVERAGE_OUTPUT"
+assert_contains "$(lint_coverage_context "$LINT_COVERAGE_OUTPUT")" "$LINT_COVERAGE_RATCHET_IGNORED_TS_REL is NOT covered by ESLint"
+LINT_COVERAGE_EXPECTED_LOG=$(printf 'eslint\t--print-config\t%s' "$LINT_COVERAGE_RATCHET_IGNORED_TS")
+[ "$(cat "$LINT_COVERAGE_PINNED_LOG")" = "$LINT_COVERAGE_EXPECTED_LOG" ] \
+  || fail "Claude lint coverage ratchet-ignored command log mismatch: $(cat "$LINT_COVERAGE_PINNED_LOG")"
 
 LINT_COVERAGE_MD="$LINT_COVERAGE_REPO_TMP/src/note.md"
 LINT_COVERAGE_MD_REL=$(tidy_relative_path "$LINT_COVERAGE_MD")
 printf '# note\n' > "$LINT_COVERAGE_MD"
-: > "$LINT_COVERAGE_NPX_LOG"
+: > "$LINT_COVERAGE_PINNED_LOG"
 LINT_COVERAGE_OUTPUT=$(run_lint_coverage_hook "$(tidy_payload_for_file "$LINT_COVERAGE_MD_REL")") \
   || fail "lint coverage hook should not fail for non-lintable payload"
 assert_hook_continue_json "$LINT_COVERAGE_OUTPUT"
-[ ! -s "$LINT_COVERAGE_NPX_LOG" ] || fail "non-lintable file should not invoke npx"
+[ ! -s "$LINT_COVERAGE_PINNED_LOG" ] || fail "non-lintable file should not invoke pinned tools"
 
 LINT_COVERAGE_CODEX_UNCOVERED_TS="$LINT_COVERAGE_REPO_TMP/src/codex-uncovered.ts"
 LINT_COVERAGE_CODEX_COVERED_JSON="$LINT_COVERAGE_REPO_TMP/src/codex-covered.json"
+LINT_COVERAGE_CODEX_RATCHETED_TS="$LINT_COVERAGE_REPO_TMP/src/ratcheted/codex-uncovered-ratchet.ts"
 LINT_COVERAGE_CODEX_MISSING="$LINT_COVERAGE_REPO_TMP/src/codex-missing.ts"
 printf 'const uncovered = 1;\n' > "$LINT_COVERAGE_CODEX_UNCOVERED_TS"
 printf '{ "covered": true }\n' > "$LINT_COVERAGE_CODEX_COVERED_JSON"
+printf 'const ratcheted = 1;\n' > "$LINT_COVERAGE_CODEX_RATCHETED_TS"
 LINT_COVERAGE_CODEX_UNCOVERED_TS_REL=$(tidy_relative_path "$LINT_COVERAGE_CODEX_UNCOVERED_TS")
 LINT_COVERAGE_CODEX_COVERED_JSON_REL=$(tidy_relative_path "$LINT_COVERAGE_CODEX_COVERED_JSON")
+LINT_COVERAGE_CODEX_RATCHETED_TS_REL=$(tidy_relative_path "$LINT_COVERAGE_CODEX_RATCHETED_TS")
 LINT_COVERAGE_CODEX_MISSING_REL=$(tidy_relative_path "$LINT_COVERAGE_CODEX_MISSING")
 LINT_COVERAGE_PATCH=$(printf '%s\n' \
   '*** Begin Patch' \
@@ -830,6 +916,10 @@ LINT_COVERAGE_PATCH=$(printf '%s\n' \
   '@@' \
   '-{ "covered": false }' \
   '+{ "covered": true }' \
+  "*** Update File: $LINT_COVERAGE_CODEX_RATCHETED_TS_REL" \
+  '@@' \
+  '-const ratcheted = 0;' \
+  '+const ratcheted = 1;' \
   "*** Update File: $LINT_COVERAGE_CODEX_UNCOVERED_TS_REL" \
   '@@' \
   '-const uncovered = 0;' \
@@ -838,18 +928,19 @@ LINT_COVERAGE_PATCH=$(printf '%s\n' \
   '*** End Patch')
 LINT_COVERAGE_CODEX_PAYLOAD=$(jq -n --arg command "$LINT_COVERAGE_PATCH" --arg ignored "node_modules/ignored.ts" \
   '{tool_name:"apply_patch",tool_input:{file_path:$ignored,command:$command}}')
-: > "$LINT_COVERAGE_NPX_LOG"
+: > "$LINT_COVERAGE_PINNED_LOG"
 LINT_COVERAGE_OUTPUT=$(run_lint_coverage_hook "$LINT_COVERAGE_CODEX_PAYLOAD") \
   || fail "lint coverage hook should not fail for Codex apply_patch payload"
 assert_hook_json "$LINT_COVERAGE_OUTPUT"
 LINT_COVERAGE_CONTEXT=$(lint_coverage_context "$LINT_COVERAGE_OUTPUT")
 assert_contains "$LINT_COVERAGE_CONTEXT" "$LINT_COVERAGE_CODEX_UNCOVERED_TS_REL is NOT covered by ESLint"
 assert_not_contains "$LINT_COVERAGE_CONTEXT" "$LINT_COVERAGE_CODEX_COVERED_JSON_REL"
+assert_not_contains "$LINT_COVERAGE_CONTEXT" "$LINT_COVERAGE_CODEX_RATCHETED_TS_REL"
 assert_not_contains "$LINT_COVERAGE_CONTEXT" "$LINT_COVERAGE_CODEX_MISSING_REL"
 assert_not_contains "$LINT_COVERAGE_CONTEXT" "node_modules/ignored.ts"
-LINT_COVERAGE_EXPECTED_LOG=$(printf 'eslint\t--print-config\t%s\neslint\t--print-config\t%s' "$LINT_COVERAGE_CODEX_UNCOVERED_TS" "$LINT_COVERAGE_CODEX_COVERED_JSON")
-[ "$(cat "$LINT_COVERAGE_NPX_LOG")" = "$LINT_COVERAGE_EXPECTED_LOG" ] \
-  || fail "Codex lint coverage command log mismatch: $(cat "$LINT_COVERAGE_NPX_LOG")"
+LINT_COVERAGE_EXPECTED_LOG=$(printf 'eslint\t--print-config\t%s\neslint\t--print-config\t%s\neslint\t--print-config\t%s' "$LINT_COVERAGE_CODEX_UNCOVERED_TS" "$LINT_COVERAGE_CODEX_COVERED_JSON" "$LINT_COVERAGE_CODEX_RATCHETED_TS")
+[ "$(cat "$LINT_COVERAGE_PINNED_LOG")" = "$LINT_COVERAGE_EXPECTED_LOG" ] \
+  || fail "Codex lint coverage command log mismatch: $(cat "$LINT_COVERAGE_PINNED_LOG")"
 
 OUTSIDE_HOOK_OUTPUT=$(
   cd /tmp

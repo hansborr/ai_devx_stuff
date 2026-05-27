@@ -165,10 +165,7 @@ describe("runHarnessFreshnessCheck", () => {
     const findings = runFixture({
       harness: ["`docs/guides/add-trpc-procedure.md`", "`docs/guides/`"].join("\n"),
       guides: ["add-trpc-procedure.md"],
-      existingPaths: [
-        "directory:docs/guides/add-trpc-procedure.md",
-        "file:docs/guides",
-      ],
+      existingPaths: ["directory:docs/guides/add-trpc-procedure.md", "file:docs/guides"],
     });
 
     expect(findings.map((finding) => finding.message)).toEqual([

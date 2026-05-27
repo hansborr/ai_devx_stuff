@@ -73,8 +73,8 @@ Likely files:
 
 ## Verification
 
-- `bun run lint:agent`
-- `bun run lint:agent --json | jq .summary`
+- `bun run lint:agent:local-rules`
+- `bun run lint:agent:local-rules --json | jq .summary`
 - `bun run doctor --json | jq '.findings | length'`
 - `bun run verify:logs --json`
 - `bun run module:index:check --json`
@@ -315,13 +315,14 @@ trigger (eslint.config.*, package.json, tsconfig*.json, eslint-rules/*);
 committed `base..HEAD` diff is selected on a branch; missing base ref
 escalates to FULL_SCAN.
 
-Manifest parity: `lint:agent:changed` is registered in
-`scripts/harness-check.ts` EXEMPT_SCRIPTS (alongside `lint:changed` and
-`lint:fix`) because the per-rule manifest entries already enumerate the
-gate — the `:changed` variant is a file-selection wrapper around the
-same control surface. `scripts/test-scripts.sh` declares the new smoke
-with subjects `{lint-agent-changed.sh, lint-agent.ts,
-harness-emit-envelope.ts, test-lint-agent-changed.sh}`, and
+Manifest parity: the current explicit package scripts are covered by harness
+controls. During the transition, the old `lint:agent:changed` package alias
+was registered in `scripts/harness-check.ts` EXEMPT_SCRIPTS (alongside
+`lint:changed` and `lint:fix`) because the per-rule manifest entries already
+enumerated the gate — the `:changed` variant is a file-selection wrapper around
+the same control surface. `scripts/test-scripts.sh` declares the new smoke with
+subjects `{lint-agent-changed.sh, lint-agent.ts, harness-emit-envelope.ts,
+test-lint-agent-changed.sh}`, and
 `scripts/test-test-scripts.sh` asserts both the new positive case
 (wrapper change → only its smoke) and that a `lint-agent.ts` change
 selects both `test-lint-agent` and `test-lint-agent-changed`.
@@ -422,7 +423,8 @@ Fixed in the third pass:
 
 - **Leading flag was eaten as the base ref** (codex P2 introduced by
   `e9fd4902`). My pre-emptive `shift` in `e9fd4902` consumed `$1`
-  unconditionally — but `bun run lint:agent:changed --output env.json`
+  unconditionally — but
+  `bun run lint:agent:local-rules:changed --output env.json`
   has `$1 == "--output"`, which got swallowed as the base ref. The
   resolve then failed (`--output` is not a ref) and the missing-base
   fallback ran `bun lint-agent.ts env.json`, treating `env.json` as
@@ -434,8 +436,9 @@ Fixed in the third pass:
 - **`--output=path` failed for non-empty changed sets** (codex P2).
   `lint-agent.ts` only accepted the space form (`--output <path>`);
   the wrapper extracted both forms for the empty-envelope path but
-  forwarded `$@` unchanged on the non-empty path. Result: `bun run
-  lint:agent:changed --output=env.json` worked when no files changed
+  forwarded `$@` unchanged on the non-empty path. Result:
+  `bun run lint:agent:local-rules:changed --output=env.json` worked when no
+  files changed
   and crashed with `Unknown argument: --output=env.json` when any did.
   Fix: add `--output=path` parsing to `lint-agent.ts` so both forms
   are accepted consistently. `harness-emit-envelope.ts` already

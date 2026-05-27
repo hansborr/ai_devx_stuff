@@ -1,6 +1,6 @@
 # Derive Linted Script Reinclude Patterns
 
-Status: Parked
+Status: Done
 Order: 5
 
 ## Context
@@ -32,6 +32,16 @@ unignore patterns need to stay aligned.
 
 The linted script surface has one owner, and flat-config reinclude patterns are
 derived or validated from that owner.
+
+## Resolution
+
+`eslint-config/shared-policy.js` now derives regular script reinclude patterns
+from `lintedScriptFiles` through `deriveLintedScriptReincludePatterns`. The
+helper emits the direct `!<pattern>` unignore plus parent and descendant
+directory unignores for recursive globstar entries so ESLint flat config can
+traverse re-opened script directories. `scripts/vitest.config.ts` remains the
+only extra script-tree reinclude because it is linted by the TS config-file
+policy rather than the runtime script policy.
 
 ## Verification
 

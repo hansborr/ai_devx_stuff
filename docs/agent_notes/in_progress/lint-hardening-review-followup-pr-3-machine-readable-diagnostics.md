@@ -16,19 +16,17 @@ Split into two slices for right-sizing:
   in `packages/shared/src/schemas/harness-diagnostics.ts` enumerates
   all five tool values up front (`doctor`, `verify:logs`,
   `module:index:check`, `migration-safety-scan`, `lint:agent`) so
-  PR 3b is per-emitter wiring, not schema work. `lint:agent`
+  PR 3b is per-emitter wiring, not schema work. `lint:agent:local-rules`
   re-projects PR-1 `meta.docs` onto local-rule findings, synthesizes
   a `lint/parser-error` block-severity finding for fatal parser
   diagnostics (codex P2 fix — so they no longer get silently
   dropped), skips non-local findings with a stderr count, and exits 1
-  on blocking. Wired into `package.json` (`lint:agent`),
-  `harness-check.ts` `EXEMPT_SCRIPTS` (it re-projects existing
-  per-rule controls — not a new control kind), and `test:scripts`
-  with a `test-lint-agent.sh` smoke covering happy-path, all three
-  repair kinds, and the parser-error path.
+  on blocking. Wired into `package.json` (`lint:agent:local-rules`)
+  and `test:scripts` with a `test-lint-agent.sh` smoke covering happy-path,
+  all three repair kinds, and the parser-error path.
 - **PR 3b — landed.** `doctor`, `verify:logs`, `module:index:check`, and
   `migration-safety-scan` gained `--json` modes, plus the stretch
-  `lint:agent:changed` wrapper. Final merge-back to
+  `lint:agent:local-rules:changed` wrapper. Final merge-back to
   `feature/lint-hardening-review-followup` is `b0876f0c`; prep-branch ancestry
   includes `9431308f`. Durable status lives in
   `docs/agent_notes/backlog/lint-followups/06-harness-json-emitters.md`.
@@ -44,9 +42,9 @@ How to fix: ...` guidance; PR 3 makes that same content available as JSON.
 ## Goal
 
 `doctor`, `verify:logs`, `module:index:check`, and `migration-safety-scan`
-each accept a `--json` flag and emit a stable schema. `lint:agent` consumes
-ESLint JSON output plus PR-1 rule metadata to produce a compact agent-facing
-repair summary in the same schema.
+each accept a `--json` flag and emit a stable schema.
+`lint:agent:local-rules` consumes ESLint JSON output plus PR-1 rule metadata to
+produce a compact agent-facing repair summary in the same schema.
 
 ## Diagnostic schema
 
@@ -111,7 +109,7 @@ tables, drop columns, etc. The `--json` mode emits one finding per flagged
 migration with `path` to the migration directory and `howToFix` set to the
 documented mitigation (re-stage in a follow-up, add a backfill, etc.).
 
-### `lint:agent`
+### `lint:agent:local-rules`
 
 New script. Consumes:
 
@@ -125,9 +123,9 @@ identical `messageId`s into a count when a single agent run would otherwise
 get repetitive output. The repair fields come straight from the rule's
 `meta.docs`.
 
-Add `bun run lint:agent` (and an `lint:agent:changed` variant gated on
-`scripts/lint-changed.sh`) so agents can prefer the JSON path over prose log
-parsing.
+Add `bun run lint:agent:local-rules` (and a
+`lint:agent:local-rules:changed` variant gated on `scripts/lint-changed.sh`)
+so agents can prefer the JSON path over prose log parsing.
 
 ## Tests
 
@@ -143,15 +141,15 @@ consumers and harness scripts validate it.
 ## Consumer wiring
 
 - The `.claude/hooks/` git-safety hooks that surface pre-commit failures can
-  read `lint:agent --json` instead of regexing the log tail.
+  read `lint:agent:local-rules --json` instead of regexing the log tail.
 - Agent invocation prompts (CLAUDE.md / AGENTS.md or task-flow guides) can
-  call `bun run lint:agent | jq` and pipe to the repair flow.
+  call `bun run lint:agent:local-rules | jq` and pipe to the repair flow.
 
 ## Verification
 
 ```
-bun run lint:agent
-bun run lint:agent --json | jq .summary
+bun run lint:agent:local-rules
+bun run lint:agent:local-rules --json | jq .summary
 bun run doctor --json | jq '.findings | length'
 bun run verify:logs --json
 bun run module:index:check --json

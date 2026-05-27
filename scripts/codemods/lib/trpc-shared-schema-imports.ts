@@ -1,7 +1,11 @@
 import { Node, Project, type ImportDeclaration, type SourceFile } from "ts-morph";
 
 import { rewriteAllowedSharedImportSource } from "./trpc-shared-schema-paths.js";
-import { SHARED_SCHEMA_PREFIX, type ImportBinding, type ImportSpecifierInfo } from "./trpc-shared-schema-types.js";
+import {
+  SHARED_SCHEMA_PREFIX,
+  type ImportBinding,
+  type ImportSpecifierInfo,
+} from "./trpc-shared-schema-types.js";
 
 export function moduleSource(importDeclaration: ImportDeclaration): string {
   return importDeclaration.getModuleSpecifierValue();
@@ -139,7 +143,9 @@ export function sortImportBlocks(source: string, filePath: string): string {
     replacements.push({
       start: first.getStart(),
       end: last.getEnd(),
-      text: sortedImportGroups(block).map((group) => group.join("\n")).join("\n\n"),
+      text: sortedImportGroups(block)
+        .map((group) => group.join("\n"))
+        .join("\n\n"),
     });
     block = [];
   };

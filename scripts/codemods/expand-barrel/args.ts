@@ -23,15 +23,12 @@ const emptyTokens: ParsedArgTokens = {
 
 function nextValue(argv: readonly string[], index: number, flag: string): string {
   const value = argv[index + 1];
-  if (!value) fail(`${flag} requires ${flag === "--barrel" ? "an index.ts path" : "a package subpath"}.`);
+  if (!value)
+    fail(`${flag} requires ${flag === "--barrel" ? "an index.ts path" : "a package subpath"}.`);
   return value;
 }
 
-function scanArgToken(
-  argv: readonly string[],
-  index: number,
-  tokens: ParsedArgTokens,
-): ScanResult {
+function scanArgToken(argv: readonly string[], index: number, tokens: ParsedArgTokens): ScanResult {
   const arg = argv[index];
   if (!arg) fail("Empty arguments are not supported.");
 

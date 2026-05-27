@@ -57,7 +57,9 @@ export function runAll(root: string, dryRun: boolean): void {
 }
 
 function reportCheckFinding(root: string, filePath: string, line: number, message: string): void {
-  console.log(`${CODEMOD_NAME} codemod: ${path.relative(root, filePath)}:${String(line)} ${message}`);
+  console.log(
+    `${CODEMOD_NAME} codemod: ${path.relative(root, filePath)}:${String(line)} ${message}`,
+  );
 }
 
 function checkImportDeclarations(root: string, sourceFile: SourceFile): number {

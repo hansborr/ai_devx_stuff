@@ -17,7 +17,12 @@ import path from "node:path";
 import { ModuleKind, ModuleResolutionKind, Project, ScriptTarget, ts } from "ts-morph";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import type { CodeIntelQueryResult, ExecutableCliCommand, IntelResult, WorkspaceResolver } from "./code-intel.js";
+import type {
+  CodeIntelQueryResult,
+  ExecutableCliCommand,
+  IntelResult,
+  WorkspaceResolver,
+} from "./code-intel.js";
 import {
   buildImportGraph,
   CODE_INTEL_DAEMON_PROTOCOL_VERSION,
@@ -42,11 +47,7 @@ import {
   resolveDaemonStatePaths,
   writeDaemonMetadata,
 } from "./code-intel/daemon-state.js";
-import {
-  computeWorkspaceManifest,
-  GraphCache,
-  graphCacheTest,
-} from "./code-intel/graph-cache.js";
+import { computeWorkspaceManifest, GraphCache, graphCacheTest } from "./code-intel/graph-cache.js";
 import { ProjectCache } from "./code-intel/project-cache.js";
 import { runServerCliCommand } from "./code-intel/server-cli.js";
 
@@ -138,7 +139,10 @@ function createFixtureResolver(project: Project): WorkspaceResolver {
   });
 }
 
-function graphFor(project: Project, resolver: WorkspaceResolver): ReturnType<typeof buildImportGraph> {
+function graphFor(
+  project: Project,
+  resolver: WorkspaceResolver,
+): ReturnType<typeof buildImportGraph> {
   return buildImportGraph(project.getSourceFiles(), resolver);
 }
 

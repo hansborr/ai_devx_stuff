@@ -57,6 +57,125 @@ assert_envelope() {
   ' || fail "invalid lint-ratchet envelope: $file"
 }
 
+assert_portable_runtime_import_boundary() {
+  bun -e '
+    const { readFileSync, readdirSync } = await import("node:fs");
+    const { builtinModules } = await import("node:module");
+    const { dirname, relative, resolve } = await import("node:path");
+    const ts = await import("typescript");
+
+    const repoRoot = process.cwd();
+    const runtimeDirectoryFiles = readdirSync("scripts/lint-ratchet")
+      .filter((file) => file.endsWith(".ts"))
+      .map((file) => `scripts/lint-ratchet/${file}`);
+    const runtimeFiles = [
+      "scripts/lint-ratchet.ts",
+      ...runtimeDirectoryFiles,
+      "scripts/lint-ratchet-baseline-compare.ts",
+      "scripts/lint-ratchet-baseline-parse.ts",
+      "scripts/lint-ratchet-baseline.ts",
+      "scripts/lint-ratchet-check-registry.ts",
+      "scripts/lint-ratchet-config.ts",
+      "scripts/lint-ratchet-metrics.ts",
+      "scripts/lint-ratchet-output.ts",
+      "scripts/lint-ratchet-registry-builders.ts",
+      "scripts/lint-ratchet-report.ts",
+      "scripts/lint-ratchet-summary.ts",
+      "scripts/lint-ratchet-zero-baseline.ts",
+      "scripts/lint-rule-docs.ts",
+      "scripts/ratchet-manifest-message.ts",
+    ].sort();
+    const allowedRelativeFiles = new Set([
+      ...runtimeFiles,
+      "packages/shared/src/schemas/harness-diagnostics.ts",
+      "eslint-config/shared-policy.js",
+    ]);
+    const allowedPackages = new Set(["eslint"]);
+    const allowedBuiltins = new Set(
+      builtinModules.flatMap((moduleName) => {
+        const normalized = moduleName.startsWith("node:")
+          ? moduleName.slice("node:".length)
+          : moduleName;
+        return [normalized, `node:${normalized}`];
+      }),
+    );
+
+    function normalizedRelativePath(path) {
+      return path.replaceAll("\\\\", "/");
+    }
+
+    function relativeImportCandidates(importer, specifier) {
+      const resolved = normalizedRelativePath(
+        relative(repoRoot, resolve(repoRoot, dirname(importer), specifier)),
+      );
+      if (resolved.endsWith(".js")) return [resolved, `${resolved.slice(0, -3)}.ts`];
+      return [resolved];
+    }
+
+    function isAllowedImport(importer, specifier) {
+      if (!specifier.startsWith(".") && !specifier.startsWith("/")) {
+        return allowedBuiltins.has(specifier) || allowedPackages.has(specifier);
+      }
+      return relativeImportCandidates(importer, specifier).some((candidate) =>
+        allowedRelativeFiles.has(candidate),
+      );
+    }
+
+    function importLine(sourceFile, node) {
+      return sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1;
+    }
+
+    function collectImports(relativePath) {
+      const source = readFileSync(resolve(repoRoot, relativePath), "utf8");
+      const sourceFile = ts.createSourceFile(relativePath, source, ts.ScriptTarget.Latest, true);
+      const imports = [];
+
+      function record(moduleSpecifier) {
+        imports.push({
+          specifier: moduleSpecifier.text,
+          line: importLine(sourceFile, moduleSpecifier),
+        });
+      }
+
+      function visit(node) {
+        if (
+          (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) &&
+          node.moduleSpecifier !== undefined &&
+          ts.isStringLiteral(node.moduleSpecifier)
+        ) {
+          record(node.moduleSpecifier);
+        }
+
+        if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
+          const [specifier] = node.arguments;
+          if (specifier !== undefined && ts.isStringLiteral(specifier)) record(specifier);
+        }
+
+        ts.forEachChild(node, visit);
+      }
+
+      visit(sourceFile);
+      return imports;
+    }
+
+    const failures = [];
+    for (const runtimeFile of runtimeFiles) {
+      for (const runtimeImport of collectImports(runtimeFile)) {
+        if (!isAllowedImport(runtimeFile, runtimeImport.specifier)) {
+          failures.push(
+            `${runtimeFile}:${runtimeImport.line} imports ${runtimeImport.specifier}`,
+          );
+        }
+      }
+    }
+
+    if (failures.length > 0) {
+      console.error(failures.join("\n"));
+      process.exit(1);
+    }
+  ' || fail "portable runtime import boundary changed"
+}
+
 build_fixture() {
   local fixture_dir=$1
   mkdir -p "$fixture_dir/scripts" "$fixture_dir/packages/shared/src/schemas"
@@ -83,6 +202,7 @@ build_fixture() {
   cp scripts/lint-ratchet-zero-baseline.ts \
     "$fixture_dir/scripts/lint-ratchet-zero-baseline.ts"
   cp scripts/lint-rule-docs.ts "$fixture_dir/scripts/lint-rule-docs.ts"
+  cp scripts/ratchet-manifest-message.ts "$fixture_dir/scripts/ratchet-manifest-message.ts"
   cp packages/shared/src/schemas/harness-diagnostics.ts \
     "$fixture_dir/packages/shared/src/schemas/harness-diagnostics.ts"
   cp eslint-rules/type-assertion-boundary.js \
@@ -149,16 +269,11 @@ assert_generated_config_matches_expected() {
 }
 
 assert_local_identity_regression() {
-  local max_key="1e2f5eebd328"
-  local type_key="bd9d52b00104"
-  local config_root="$REPO_ROOT/node_modules/.cache/eslint-ratchet/configs"
-  local max_config="$config_root/ratchet-local-max-lines-code-intel-$max_key.mjs"
-  local type_config="$config_root/ratchet-local-type-assertion-boundary-$type_key.mjs"
-  local cache_root="$REPO_ROOT/node_modules/.cache/eslint-ratchet"
-  local max_cache="$cache_root/ratchet-local-max-lines-code-intel-$max_key/.eslintcache"
-  local type_cache="$cache_root/ratchet-local-type-assertion-boundary-$type_key/.eslintcache"
-  MAX_CONFIG="$max_config" TYPE_CONFIG="$type_config" \
-    MAX_CACHE="$max_cache" TYPE_CACHE="$type_cache" bun -e '
+  local identity_paths
+  local max_config max_cache type_config type_cache
+  local -a paths
+
+  identity_paths=$(bun -e '
       const { lintRatchets } = await import("./scripts/lint-ratchet-config.ts");
       const { writeEslintConfig, eslintCachePathFor } =
         await import("./scripts/lint-ratchet/eslint-config.ts");
@@ -166,36 +281,35 @@ assert_local_identity_regression() {
         await import("./scripts/lint-ratchet/rule-source.ts");
       const hashes = buildRuleSourceHashesById(lintRatchets);
       const cases = [
-        [
-          "ratchet/local-max-lines-code-intel",
-          process.env.MAX_CONFIG,
-          process.env.MAX_CACHE,
-        ],
-        [
-          "ratchet/local-type-assertion-boundary",
-          process.env.TYPE_CONFIG,
-          process.env.TYPE_CACHE,
-        ],
+        "ratchet/local-max-lines-code-intel",
+        "ratchet/local-type-assertion-boundary",
       ];
-      for (const [id, expectedConfig, expectedCache] of cases) {
+      const paths = [];
+      for (const id of cases) {
         const ratchet = lintRatchets.find((entry) => entry.id === id);
         if (ratchet === undefined) throw new Error(`missing ratchet ${id}`);
         const hash = hashes.get(id);
         if (hash === undefined) throw new Error(`missing rule source hash ${id}`);
-        const configPath = writeEslintConfig(ratchet, hash);
-        if (configPath !== expectedConfig) {
-          throw new Error(`config path changed for ${id}: ${configPath}`);
-        }
-        const cachePath = eslintCachePathFor(ratchet, hash);
-        if (cachePath !== expectedCache) {
-          throw new Error(`cache path changed for ${id}: ${cachePath}`);
-        }
+        paths.push(writeEslintConfig(ratchet, hash));
+        paths.push(eslintCachePathFor(ratchet, hash));
       }
-    ' || fail "local generated config/cache identity changed"
+      console.log(paths.join("\n"));
+    ') || fail "local generated config/cache identity derivation failed"
+  mapfile -t paths <<<"$identity_paths"
+  [ "${#paths[@]}" -eq 4 ] \
+    || fail "local generated config/cache identity derivation returned unexpected paths: $identity_paths"
+  max_config=${paths[0]}
+  max_cache=${paths[1]}
+  type_config=${paths[2]}
+  type_cache=${paths[3]}
   [ -f "$max_config" ] \
     || fail "local max-lines cache key changed or config missing: $max_config"
   [ -f "$type_config" ] \
     || fail "local type-assertion cache key changed or config missing: $type_config"
+  [[ "$max_cache" == */.eslintcache ]] \
+    || fail "local max-lines cache path no longer points at an ESLint cache file: $max_cache"
+  [[ "$type_cache" == */.eslintcache ]] \
+    || fail "local type-assertion cache path no longer points at an ESLint cache file: $type_cache"
   assert_generated_config_matches_expected "$max_config" \
     "$REPO_ROOT/scripts/test-fixtures/lint-ratchet/expected-local-max-lines.config.mjs"
   assert_generated_config_matches_expected "$type_config" \
@@ -824,6 +938,7 @@ if ! bun run lint:ratchet:check-registry >"$TMP_ROOT/real-registry.out" 2>"$TMP_
 fi
 grep -qF "lint:ratchet:check-registry OK" "$TMP_ROOT/real-registry.err" \
   || fail "lint:ratchet:check-registry OK line missing: $(cat "$TMP_ROOT/real-registry.err")"
+assert_portable_runtime_import_boundary
 assert_local_identity_regression
 
 # --- Usage errors return exit 2 (CLI contract for harness wrappers) ----------

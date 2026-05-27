@@ -8,6 +8,8 @@ import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
+import { e2ePreferRoleSelectorAllowlist } from "../../eslint-config/shared-policy.js";
+
 export type LocatorUsageFile = {
   readonly path: string;
   readonly count: number;
@@ -26,10 +28,6 @@ export type LocatorUsageReport = {
 export type LocatorUsageCliOptions = {
   readonly format: "text" | "json";
   readonly repoRoot: string;
-};
-
-type EslintConfigExports = {
-  readonly e2ePreferRoleSelectorAllowlist?: readonly string[];
 };
 
 const DEFAULT_ROOT = "e2e";
@@ -76,7 +74,10 @@ function readOptionValue(
   return { value: next, nextIndex: index + 1 };
 }
 
-export function parseArgs(argv: readonly string[], repoRoot = process.cwd()): LocatorUsageCliOptions {
+export function parseArgs(
+  argv: readonly string[],
+  repoRoot = process.cwd(),
+): LocatorUsageCliOptions {
   let format: "text" | "json" = "text";
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -169,12 +170,13 @@ export function formatJson(report: LocatorUsageReport): string {
   return JSON.stringify(report, null, JSON_INDENT_SPACES);
 }
 
-export async function runLocatorUsage(
-  argv: readonly string[],
-): Promise<{ readonly exitCode: number; readonly stdout: string }> {
+export function runLocatorUsage(argv: readonly string[]): {
+  readonly exitCode: number;
+  readonly stdout: string;
+} {
   try {
     const options = parseArgs(argv);
-    const allowlistedFileCount = await loadAllowlistedFileCount(options.repoRoot);
+    const allowlistedFileCount = loadAllowlistedFileCount();
     const report = buildLocatorUsageReport(options.repoRoot, allowlistedFileCount);
     const stdout = options.format === "json" ? formatJson(report) : formatText(report);
     return { exitCode: 0, stdout };
@@ -185,17 +187,8 @@ export async function runLocatorUsage(
   }
 }
 
-async function loadAllowlistedFileCount(repoRoot: string): Promise<number> {
-  const configUrl = pathToFileURL(path.join(repoRoot, "eslint.config.js")).href;
-  // type-assertion-boundary: interop - dynamic import of eslint config; module shape is external and not exported as a type
-  const config = (await import(configUrl)) as EslintConfigExports;
-  const allowlist = config.e2ePreferRoleSelectorAllowlist;
-  if (!Array.isArray(allowlist)) {
-    throw new LocatorUsageError(
-      "eslint.config.js must export e2ePreferRoleSelectorAllowlist for drift:e2e.",
-    );
-  }
-  return allowlist.length;
+function loadAllowlistedFileCount(): number {
+  return e2ePreferRoleSelectorAllowlist.length;
 }
 
 function isDirectRun(): boolean {
@@ -205,7 +198,7 @@ function isDirectRun(): boolean {
 
 if (isDirectRun()) {
   // eslint-disable-next-line no-magic-numbers -- standard Node argv skips node and script path
-  const result = await runLocatorUsage(process.argv.slice(2));
+  const result = runLocatorUsage(process.argv.slice(2));
   if (result.stdout) console.log(result.stdout);
   process.exitCode = result.exitCode;
 }

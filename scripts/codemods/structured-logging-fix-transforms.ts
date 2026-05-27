@@ -117,7 +117,10 @@ function objectFieldsScriptReplacement(
   };
 }
 
-function seededCountScriptReplacement(args: Node[], firstMessage: string): ReplacementResult | undefined {
+function seededCountScriptReplacement(
+  args: Node[],
+  firstMessage: string,
+): ReplacementResult | undefined {
   if (args.length !== 3 || !/^ +Seeded$/u.test(firstMessage)) return undefined;
   const count = args[1];
   const unit = staticString(args[2]);
@@ -191,7 +194,9 @@ function nearestLexicalContainer(node: Node): Node | undefined {
 function hasVariableNamedBefore(call: CallExpression, name: string): boolean {
   const containers = lexicalContainers(call);
   const callStart = call.getStart();
-  for (const declaration of call.getSourceFile().getDescendantsOfKind(SyntaxKind.VariableDeclaration)) {
+  for (const declaration of call
+    .getSourceFile()
+    .getDescendantsOfKind(SyntaxKind.VariableDeclaration)) {
     if (declaration.getName() !== name || declaration.getStart() >= callStart) continue;
     const container = nearestLexicalContainer(declaration);
     if (container && containers.has(container)) return true;

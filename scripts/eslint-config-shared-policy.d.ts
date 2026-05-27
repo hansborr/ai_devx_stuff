@@ -32,4 +32,5 @@ declare module "*eslint-config/shared-policy.js" {
   }
 
   export const maxLinesPolicy: MaxLinesPolicy;
+  export const e2ePreferRoleSelectorAllowlist: readonly string[];
 }

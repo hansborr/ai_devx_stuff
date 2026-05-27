@@ -19,7 +19,7 @@ Everything under `docs/agent_notes/` is on-demand. When a leaf lands, update dur
 
 `bun run` lists every script. Non-obvious ones:
 
-- `bun run verify:changed` — default verification (lint:changed, typecheck, test:changed, test:scripts:changed). Set `FORCE_VERIFY=1` to bypass the unchanged-worktree cache.
+- `bun run verify:changed` — default verification (lint:changed, typecheck, test:changed, test:scripts:changed). Stage intended source-relevant changes first; changed verification intentionally aborts on unstaged or untracked source-relevant work. Set `FORCE_VERIFY=1` to bypass the unchanged-worktree cache.
 - `bun run --filter @musi/server db:migrate` / `prisma:generate` — schema change path; follow `docs/guides/add-prisma-migration.md`. `db:push` is local-only, never committed schema work.
 - `bun run --filter @musi/server db:{push,seed,reset,studio}` — local DB utilities; package filter required.
 - `bun run code:intel -- {def|exports|dependents|refs|tests} ...` — cross-file TypeScript symbol/import queries; resolves package exports, re-exports, and the client `@/*` alias. See `docs/guides/code-intel.md`.

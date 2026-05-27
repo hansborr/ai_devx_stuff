@@ -97,6 +97,9 @@ const maxLinesDriftAiRatchet = maxLinesRatchetById("ratchet/local-max-lines-drif
 const maxLinesGenerateHarnessControlsRatchet = maxLinesRatchetById(
   "ratchet/local-max-lines-generate-harness-controls",
 );
+const maxLinesLintCoverageMapRatchet = maxLinesRatchetById(
+  "ratchet/local-max-lines-lint-coverage-map-check",
+);
 const maxLinesLogsAuditRatchet = maxLinesRatchetById("ratchet/local-max-lines-logs-audit");
 const maxLinesRuntimeRatchet = maxLinesRatchetById("ratchet/local-max-lines-runtime");
 
@@ -154,6 +157,7 @@ export const lintRatchets = [
       "scripts/lint-ratchet-summary.ts",
       "scripts/lint-ratchet.ts",
       "scripts/lint-ratchet/**/*.ts",
+      "scripts/ratchet-manifest-message.ts",
     ],
     ignores: ["scripts/*.test.ts"],
     zeroBaselineDisposition: {
@@ -227,6 +231,12 @@ export const lintRatchets = [
     files: maxLinesGenerateHarnessControlsRatchet.files,
     ignores: maxLinesGenerateHarnessControlsRatchet.ignores,
     zeroBaselineDisposition: maxLinesGenerateHarnessControlsRatchet.zeroBaselineDisposition,
+  }),
+  localMaxLinesRatchet({
+    id: maxLinesLintCoverageMapRatchet.id,
+    files: maxLinesLintCoverageMapRatchet.files,
+    ignores: maxLinesLintCoverageMapRatchet.ignores,
+    zeroBaselineDisposition: maxLinesLintCoverageMapRatchet.zeroBaselineDisposition,
   }),
   localMaxLinesRatchet({
     id: maxLinesLogsAuditRatchet.id,

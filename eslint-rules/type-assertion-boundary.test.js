@@ -1,7 +1,7 @@
 // @ts-check
 import { RuleTester } from "eslint";
 import tseslint from "typescript-eslint";
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import rule from "./type-assertion-boundary.js";
 
@@ -13,6 +13,18 @@ const ruleTester = new RuleTester({
     parserOptions: { ecmaVersion: 2022, sourceType: "module" },
   },
 });
+
+const jsxTester = new RuleTester({
+  languageOptions: {
+    parser: tseslint.parser,
+    parserOptions: {
+      ecmaVersion: 2022,
+      sourceType: "module",
+      jsx: true,
+    },
+  },
+});
+const jsxFilename = "packages/client/src/components/Foo.tsx";
 
 describe("type-assertion-boundary", () => {
   it("requires boundary comments for non-test type assertions", () => {
@@ -132,10 +144,9 @@ describe("type-assertion-boundary", () => {
           errors: [{ messageId: "invalidCategory" }],
         },
         {
-          code: [
-            "// type-assertion-boundary: framework -   ",
-            "const x = value as Foo;",
-          ].join("\n"),
+          code: ["// type-assertion-boundary: framework -   ", "const x = value as Foo;"].join(
+            "\n",
+          ),
           filename: nonTestFilename,
           errors: [{ messageId: "emptyReason" }],
         },
@@ -174,5 +185,101 @@ describe("type-assertion-boundary", () => {
         },
       ],
     });
+  });
+
+  it("accepts Prettier-shaped JSX trailing boundary comments", () => {
+    expect(() => {
+      jsxTester.run("type-assertion-boundary (jsx trailing comments)", rule, {
+        valid: [
+          {
+            code: [
+              "const el = (",
+              "  <Input",
+              "    value={",
+              "      form[key] as string",
+              "    } /* type-assertion-boundary: framework - form field cast */",
+              "  />",
+              ");",
+            ].join("\n"),
+            filename: jsxFilename,
+          },
+          {
+            code: [
+              "const el = (",
+              "  <Input value={ form[key] as string } /* type-assertion-boundary: framework - inline */ />",
+              ");",
+            ].join("\n"),
+            filename: jsxFilename,
+          },
+        ],
+        invalid: [],
+      });
+    }).not.toThrow();
+  });
+
+  it("rejects JSX assertions with no boundary comment", () => {
+    expect(() => {
+      jsxTester.run("type-assertion-boundary (jsx missing comment)", rule, {
+        valid: [],
+        invalid: [
+          {
+            code: [
+              "const el = (",
+              "  <Input",
+              "    value={",
+              "      form[key] as string",
+              "    }",
+              "  />",
+              ");",
+            ].join("\n"),
+            filename: jsxFilename,
+            errors: [{ messageId: "missingBoundary" }],
+          },
+        ],
+      });
+    }).not.toThrow();
+  });
+
+  it("rejects multiline detached JSX boundary comments", () => {
+    expect(() => {
+      jsxTester.run("type-assertion-boundary (jsx multiline detached comment)", rule, {
+        valid: [],
+        invalid: [
+          {
+            code: [
+              "const el = (",
+              "  <Input",
+              "    value={",
+              "      form[key] as string",
+              "    }",
+              "    other={bar} /* type-assertion-boundary: framework - detached prop comment */",
+              "  />",
+              ");",
+            ].join("\n"),
+            filename: jsxFilename,
+            errors: [{ messageId: "missingBoundary" }],
+          },
+        ],
+      });
+    }).not.toThrow();
+  });
+
+  it("rejects inline detached JSX boundary comments", () => {
+    expect(() => {
+      jsxTester.run("type-assertion-boundary (jsx inline detached comment)", rule, {
+        valid: [],
+        invalid: [
+          {
+            code: [
+              "const el = (",
+              "  <Input value={form[key] as string} other={bar} /* type-assertion-boundary: framework - detached prop comment */ />",
+              ");",
+            ].join("\n"),
+            filename: jsxFilename,
+            errors: [{ messageId: "missingBoundary" }],
+          },
+        ],
+      });
+    }).not.toThrow();
   });
 });

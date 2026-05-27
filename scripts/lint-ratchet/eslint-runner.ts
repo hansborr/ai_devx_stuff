@@ -141,7 +141,9 @@ export async function runEslint(
       }
       if (code !== 0 && code !== 1) {
         rejectResults(
-          new ConfigError(`ESLint failed for ${ratchet.id}. exit=${String(code)} stderr:\n${stderr}`),
+          new ConfigError(
+            `ESLint failed for ${ratchet.id}. exit=${String(code)} stderr:\n${stderr}`,
+          ),
         );
         return;
       }

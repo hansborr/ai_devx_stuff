@@ -10,10 +10,7 @@ import {
   type HarnessFinding,
   summarizeHarnessFindings,
 } from "../packages/shared/src/schemas/harness-diagnostics.js";
-import {
-  formatHarnessDiagnosticsReport,
-  runLintRatchetReport,
-} from "./lint-ratchet-report.js";
+import { formatHarnessDiagnosticsReport, runLintRatchetReport } from "./lint-ratchet-report.js";
 
 const tempRoots: string[] = [];
 const IMPROVEMENT_RECOVERY_LINE = "Run `bun run lint:ratchet:update` to lock in the improvement.";
@@ -100,7 +97,8 @@ describe("lint ratchet report", () => {
         {
           ...baseFinding,
           why: "Current tree is better than the committed baseline.",
-          howToFix: "Run `bun run lint:ratchet:update` to lower the committed baseline and lock in this improvement.",
+          howToFix:
+            "Run `bun run lint:ratchet:update` to lower the committed baseline and lock in this improvement.",
           reason: "lower-count",
           baselineCount: 3,
           currentCount: 1,
@@ -139,19 +137,20 @@ describe("lint ratchet report", () => {
   });
 
   it("caps each mixed control at 10 findings and points to the artifact", () => {
-    const findings = Array.from({ length: 12 }, (_, index): HarnessFinding => ({
-      ...baseFinding,
-      path: `packages/client/src/file-${String(index).padStart(2, "0")}.ts`,
-      line: index + 1,
-      reason: index === 0 ? "lower-count" : "increased-count",
-      baselineCount: index === 0 ? 3 : 0,
-      currentCount: 1,
-    }));
+    const findings = Array.from(
+      { length: 12 },
+      (_, index): HarnessFinding => ({
+        ...baseFinding,
+        path: `packages/client/src/file-${String(index).padStart(2, "0")}.ts`,
+        line: index + 1,
+        reason: index === 0 ? "lower-count" : "increased-count",
+        baselineCount: index === 0 ? 3 : 0,
+        currentCount: 1,
+      }),
+    );
 
     const report = formatHarnessDiagnosticsReport(envelope(findings));
-    const bullets = report
-      .split("\n")
-      .filter((line) => line.startsWith("- `"));
+    const bullets = report.split("\n").filter((line) => line.startsWith("- `"));
 
     expect(bullets).toHaveLength(10);
     expect(report).toContain("_2 more in artifact._");

@@ -17,6 +17,7 @@ build/
 logs/
 *.log
 ralph-logs/
+tmp/
 
 # Devcontainer sentinel
 .setup-complete
@@ -62,6 +63,7 @@ packages/server/prisma/*.db-journal
 coverage/
 reports/mutation/
 reports/drift-ai/
+.musi-ai-hooks-tidy-test.*/
 .stryker-tmp/
 test-results/
 playwright-report/

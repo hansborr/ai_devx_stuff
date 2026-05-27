@@ -124,7 +124,10 @@ export async function collectCurrentById(
     for (const result of await runEslint(ratchet, ruleSourceHash)) {
       const path = relativePath(result.filePath);
       for (const message of result.messages) {
-        if (message.ruleId === null && (message.fatal === true || message.severity === ESLINT_SEVERITY_ERROR)) {
+        if (
+          message.ruleId === null &&
+          (message.fatal === true || message.severity === ESLINT_SEVERITY_ERROR)
+        ) {
           throw new ConfigError(`ESLint could not parse ${path}: ${message.message}`);
         }
         if (message.ruleId !== ratchet.ruleId) continue;

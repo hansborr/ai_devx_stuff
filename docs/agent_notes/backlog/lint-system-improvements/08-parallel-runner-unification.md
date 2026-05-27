@@ -1,6 +1,6 @@
 # Parallel Runner Unification
 
-Status: Parked (decision recorded)
+Status: Done
 Order: 8
 Decision: Document separation, do not unify
 

@@ -2,10 +2,7 @@ import { execFileSync } from "node:child_process";
 import { lstatSync } from "node:fs";
 import path from "node:path";
 
-import {
-  DEFAULT_IGNORE_EXTENSIONS,
-  DEFAULT_IGNORE_FILES,
-} from "../drift-ai.js";
+import { DEFAULT_IGNORE_EXTENSIONS, DEFAULT_IGNORE_FILES } from "../drift-ai.js";
 import {
   collapseRepoPath,
   type DriftAiIgnoreConfig,
@@ -24,13 +21,7 @@ export type DefaultBufferGitRunnerOptions = { readonly repoRoot: string };
 type StatLike = { readonly isFile: () => boolean };
 export type StatRunner = (absolutePath: string) => StatLike | undefined;
 
-const GIT_CURRENT_INVENTORY_ARGS = [
-  "ls-files",
-  "-z",
-  "--cached",
-  "--others",
-  "--exclude-standard",
-];
+const GIT_CURRENT_INVENTORY_ARGS = ["ls-files", "-z", "--cached", "--others", "--exclude-standard"];
 
 export function resolveStrictRepoRoot(git: StringGitRunner): string {
   let output: string;
@@ -42,7 +33,9 @@ export function resolveStrictRepoRoot(git: StringGitRunner): string {
   }
   const repoRoot = output.trim();
   if (repoRoot.length === 0) {
-    throw new DriftAiError("drift:ai: could not resolve Git repo root: git returned an empty path.");
+    throw new DriftAiError(
+      "drift:ai: could not resolve Git repo root: git returned an empty path.",
+    );
   }
   return repoRoot;
 }
@@ -173,9 +166,6 @@ function isRegularFile(repoRoot: string, filePath: string, stat: StatRunner): bo
   return fileStat?.isFile() === true;
 }
 
-function hasSourceExtension(
-  filePath: string,
-  sourceExtensions: ReadonlySet<string>,
-): boolean {
+function hasSourceExtension(filePath: string, sourceExtensions: ReadonlySet<string>): boolean {
   return sourceExtensions.has(path.posix.extname(filePath).toLowerCase());
 }

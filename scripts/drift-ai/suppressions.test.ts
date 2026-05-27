@@ -304,10 +304,7 @@ describe("runSuppressionsCheck", () => {
 
   it("ignores suppressions on removed diff lines", () => {
     const findings = run(
-      unifiedDiff(filePath, [
-        "-// @ts-ignore -- old suppression",
-        "+const stillChecked = true;",
-      ]),
+      unifiedDiff(filePath, ["-// @ts-ignore -- old suppression", "+const stillChecked = true;"]),
     );
     expect(findings).toEqual([]);
   });

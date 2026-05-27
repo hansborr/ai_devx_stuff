@@ -93,10 +93,7 @@ function fixtureBaseline(): LintRatchetBaseline {
           ["packages/app/src/b.ts", { count: 3 }],
         ],
       ],
-      [
-        maxLinesRatchet.id,
-        [["packages/app/src/large.ts", { count: 1, lines: 340 }]],
-      ],
+      [maxLinesRatchet.id, [["packages/app/src/large.ts", { count: 1, lines: 340 }]]],
     ]),
     ruleSourceHashes,
   );
@@ -105,10 +102,7 @@ function fixtureBaseline(): LintRatchetBaseline {
 describe("lint ratchet summary", () => {
   it("reduces a parsed baseline and matching registry to per-ratchet rows", () => {
     expect(
-      summarizeLintRatchetBaseline(fixtureBaseline(), [
-        messageRatchet,
-        maxLinesRatchet,
-      ]),
+      summarizeLintRatchetBaseline(fixtureBaseline(), [messageRatchet, maxLinesRatchet]),
     ).toEqual([
       {
         id: messageRatchet.id,

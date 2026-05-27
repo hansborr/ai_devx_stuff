@@ -162,26 +162,27 @@ ai_tidy_skip_reason() {
 ai_tidy_run_file() {
   local requested_path="$1"
   local absolute_path relative_path prettier_output prettier_status
-  local eslint_output eslint_status eslint_ran=0 tool_summary
+  local eslint_output eslint_status before_hash after_hash
 
   absolute_path=$(ai_tidy_absolute_path "$requested_path")
   relative_path=$(ai_tidy_relative_path "$absolute_path")
+  before_hash=$(git hash-object --no-filters -- "$absolute_path" 2>/dev/null || true)
 
-  prettier_output=$(npx prettier --write --ignore-unknown "$absolute_path" 2>&1)
+  prettier_output=$(node_modules/.bin/prettier --write --ignore-unknown "$absolute_path" 2>&1)
   prettier_status=$?
 
   eslint_output=""
   eslint_status=0
   if ai_tidy_eslint_supported "$absolute_path"; then
-    eslint_ran=1
-    eslint_output=$(npx eslint --fix --no-warn-ignored "$absolute_path" 2>&1)
+    eslint_output=$(node_modules/.bin/eslint --fix --no-warn-ignored "$absolute_path" 2>&1)
     eslint_status=$?
   fi
 
   if [ "$prettier_status" -eq 0 ] && [ "$eslint_status" -eq 0 ]; then
-    tool_summary="prettier"
-    [ "$eslint_ran" -eq 1 ] && tool_summary="$tool_summary, eslint --fix"
-    printf 'tidy-edited-file: %s OK (%s)\n' "$relative_path" "$tool_summary"
+    after_hash=$(git hash-object --no-filters -- "$absolute_path" 2>/dev/null || true)
+    if [ -n "$before_hash" ] && [ -n "$after_hash" ] && [ "$before_hash" != "$after_hash" ]; then
+      printf 'tidy-edited-file: %s tidied\n' "$relative_path"
+    fi
     return 0
   fi
 
@@ -232,13 +233,18 @@ ai_tidy_hook_main() {
       result=$(ai_tidy_run_file "$path")
     fi
 
-    if [ -n "$message" ]; then
-      message="${message}"$'\n'"$result"
-    else
-      message="$result"
+    if [ -n "$result" ]; then
+      if [ -n "$message" ]; then
+        message="${message}"$'\n'"$result"
+      else
+        message="$result"
+      fi
     fi
   done
 
+  if [ -z "$message" ]; then
+    ai_emit_continue
+  fi
   ai_emit_additional_context "PostToolUse" "$message"
 }
 

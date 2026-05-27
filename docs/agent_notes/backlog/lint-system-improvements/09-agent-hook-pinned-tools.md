@@ -1,6 +1,6 @@
 # Agent Hook Pinned Tools
 
-Status: Parked
+Status: Done
 Order: 9
 
 ## Context

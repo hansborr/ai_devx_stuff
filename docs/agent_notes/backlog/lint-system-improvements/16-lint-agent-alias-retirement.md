@@ -1,6 +1,6 @@
 # Lint Agent Alias Retirement
 
-Status: Parked
+Status: Done
 Order: 16
 
 ## Context
@@ -28,6 +28,13 @@ records the rename leaf that introduced the preferred names.
 
 The legacy `lint:agent` aliases are either removed safely or have an explicit
 compatibility sunset plan.
+
+## Resolution
+
+The live audit found no hook, harness-control, or package-script callers of the
+legacy package aliases. `package.json` now exposes only
+`lint:agent:local-rules` and `lint:agent:local-rules:changed`; the stable
+machine-readable envelope tool id remains `lint:agent`.
 
 ## Verification
 

@@ -2,7 +2,13 @@ import { type ImportDeclaration, type ImportSpecifier, type SourceFile } from "t
 
 import { referencedIdentifiers, targetHasIdentifier } from "./trpc-shared-schema-identifiers.js";
 import { ensureNamedImport, moduleSource } from "./trpc-shared-schema-imports.js";
-import { fail, type ImportBinding, type ImportSpecifierInfo, type SharedSchemaCodemodCandidate, type TargetIdentifiers } from "./trpc-shared-schema-types.js";
+import {
+  fail,
+  type ImportBinding,
+  type ImportSpecifierInfo,
+  type SharedSchemaCodemodCandidate,
+  type TargetIdentifiers,
+} from "./trpc-shared-schema-types.js";
 
 function removeImportDeclarationIfEmpty(importDeclaration: ImportDeclaration): void {
   if (importDeclaration.getNamedImports().length > 0) return;
@@ -19,7 +25,10 @@ function namedImportMatchesSpecifier(
   return imported === specifier.imported && local === specifier.local;
 }
 
-function namedImportIsTypeOnly(importDeclaration: ImportDeclaration, namedImport: ImportSpecifier): boolean {
+function namedImportIsTypeOnly(
+  importDeclaration: ImportDeclaration,
+  namedImport: ImportSpecifier,
+): boolean {
   return importDeclaration.isTypeOnly() || namedImport.isTypeOnly();
 }
 
@@ -173,7 +182,13 @@ export function validateSharedSchemaCandidates<TCandidate extends SharedSchemaCo
   const neededImports = new Map<string, ImportBinding>();
   for (const candidate of candidates) {
     validateCandidateSchemaName(candidate, codemodName, seen, targetIdentifiers);
-    validateCandidateTypeName(candidate, codemodName, seenTypeNames, targetIdentifiers, typeNameForSchema);
+    validateCandidateTypeName(
+      candidate,
+      codemodName,
+      seenTypeNames,
+      targetIdentifiers,
+      typeNameForSchema,
+    );
     assertConstSchemaIsOnlyCallReference(candidate, sourceFile);
     addNeededImportsForCandidate(
       candidate,

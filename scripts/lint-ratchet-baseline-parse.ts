@@ -1,10 +1,16 @@
 import type { LintRatchetBaseline } from "./lint-ratchet-baseline.js";
-import type { JsonObject, JsonValue, LintRatchetMetric, LintRatchetMode } from "./lint-ratchet-config.js";
+import type {
+  JsonObject,
+  JsonValue,
+  LintRatchetMetric,
+  LintRatchetMode,
+} from "./lint-ratchet-config.js";
 import { parseMetricFields } from "./lint-ratchet-metrics.js";
 
 const LINT_RATCHET_CONFIG_HASH_PREFIX = "sha256:" as const;
 const RATCHET_ID_PATTERN = /^ratchet\/[a-z0-9]+(?:-[a-z0-9]+)*$/u;
-const BASELINE_RULE_ID_PATTERN = /^(?:[a-z][a-z0-9-]*|[a-z0-9][a-z0-9-]*(?:\/[a-z0-9][a-z0-9-]*)+|@[a-z0-9][a-z0-9-]*\/[a-z0-9][a-z0-9-]*(?:\/[a-z0-9][a-z0-9-]*)*)$/u;
+const BASELINE_RULE_ID_PATTERN =
+  /^(?:[a-z][a-z0-9-]*|[a-z0-9][a-z0-9-]*(?:\/[a-z0-9][a-z0-9-]*)+|@[a-z0-9][a-z0-9-]*\/[a-z0-9][a-z0-9-]*(?:\/[a-z0-9][a-z0-9-]*)*)$/u;
 
 type LintRatchetBaselineTest = NonNullable<LintRatchetBaseline["tests"][string]>;
 type LintRatchetBaselineItem = NonNullable<LintRatchetBaselineTest["items"][string]>;
@@ -120,7 +126,9 @@ function isLintRatchetMode(value: unknown): value is LintRatchetMode {
 }
 
 function isLintRatchetMetric(value: unknown): value is LintRatchetMetric {
-  return value === "complexity-severity" || value === "effective-line-count" || value === "message-count";
+  return (
+    value === "complexity-severity" || value === "effective-line-count" || value === "message-count"
+  );
 }
 
 function isNonNegativeInteger(value: unknown): value is number {
@@ -131,42 +139,66 @@ function isSha256Hash(value: unknown): value is string {
   return typeof value === "string" && value.startsWith(LINT_RATCHET_CONFIG_HASH_PREFIX);
 }
 
-function parseBaselineRuleId(testId: string, value: Record<string, unknown>, failures: string[]): string | undefined {
+function parseBaselineRuleId(
+  testId: string,
+  value: Record<string, unknown>,
+  failures: string[],
+): string | undefined {
   const ruleId = value.ruleId;
   if (typeof ruleId === "string" && BASELINE_RULE_ID_PATTERN.test(ruleId)) return ruleId;
   failures.push(`${testId}.ruleId must be a bare or namespaced ESLint rule id`);
   return undefined;
 }
 
-function parseBaselineMode(testId: string, value: Record<string, unknown>, failures: string[]): LintRatchetMode | undefined {
+function parseBaselineMode(
+  testId: string,
+  value: Record<string, unknown>,
+  failures: string[],
+): LintRatchetMode | undefined {
   const mode = value.mode;
   if (isLintRatchetMode(mode)) return mode;
   failures.push(`${testId}.mode is unknown`);
   return undefined;
 }
 
-function parseBaselineTarget(testId: string, value: Record<string, unknown>, failures: string[]): number | undefined {
+function parseBaselineTarget(
+  testId: string,
+  value: Record<string, unknown>,
+  failures: string[],
+): number | undefined {
   const target = value.target;
   if (isNonNegativeInteger(target)) return target;
   failures.push(`${testId}.target must be a non-negative integer`);
   return undefined;
 }
 
-function parseBaselineMetric(testId: string, value: Record<string, unknown>, failures: string[]): LintRatchetMetric | undefined {
+function parseBaselineMetric(
+  testId: string,
+  value: Record<string, unknown>,
+  failures: string[],
+): LintRatchetMetric | undefined {
   const metric = value.metric;
   if (isLintRatchetMetric(metric)) return metric;
   failures.push(`${testId}.metric is unknown`);
   return undefined;
 }
 
-function parseBaselineConfigHash(testId: string, value: Record<string, unknown>, failures: string[]): string | undefined {
+function parseBaselineConfigHash(
+  testId: string,
+  value: Record<string, unknown>,
+  failures: string[],
+): string | undefined {
   const configHash = value.configHash;
   if (isSha256Hash(configHash)) return configHash;
   failures.push(`${testId}.configHash must be a sha256 hash`);
   return undefined;
 }
 
-function parseBaselineRuleSourceHash(testId: string, value: Record<string, unknown>, failures: string[]): string | undefined {
+function parseBaselineRuleSourceHash(
+  testId: string,
+  value: Record<string, unknown>,
+  failures: string[],
+): string | undefined {
   const rawRuleSourceHash = value.ruleSourceHash;
   const parsedRuleSourceHash = isSha256Hash(rawRuleSourceHash) ? rawRuleSourceHash : undefined;
   if (Object.hasOwn(value, "ruleSourceHash") && parsedRuleSourceHash === undefined) {
@@ -175,7 +207,11 @@ function parseBaselineRuleSourceHash(testId: string, value: Record<string, unkno
   return parsedRuleSourceHash;
 }
 
-function validateBaselineTestRequiredFields(testId: string, value: Record<string, unknown>, failures: string[]): void {
+function validateBaselineTestRequiredFields(
+  testId: string,
+  value: Record<string, unknown>,
+  failures: string[],
+): void {
   if (!Object.hasOwn(value, "files")) failures.push(`${testId}.files is required`);
   if (!Object.hasOwn(value, "ruleOptions")) failures.push(`${testId}.ruleOptions is required`);
 }

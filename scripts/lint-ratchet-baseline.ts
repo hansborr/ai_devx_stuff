@@ -50,11 +50,7 @@ export interface LintRatchetRegression {
   readonly baselineComplexity?: number;
   readonly currentComplexity?: number;
   readonly line?: number;
-  readonly reason:
-    | "new-path"
-    | "increased-count"
-    | "increased-lines"
-    | "increased-complexity";
+  readonly reason: "new-path" | "increased-count" | "increased-lines" | "increased-complexity";
 }
 
 export interface LintRatchetImprovement {
@@ -78,6 +74,7 @@ export interface LintRatchetComparison {
 export interface LintRatchetUpdateDecision extends LintRatchetComparison {
   readonly allowed: boolean;
   readonly failures: readonly string[];
+  readonly warnings: readonly string[];
 }
 
 export interface ParsedLintRatchetBaseline {
@@ -102,7 +99,10 @@ export {
   RULE_ID_PATTERN,
   ruleNamespace,
 } from "./lint-ratchet/baseline-hash.js";
-export { decideLintRatchetUpdate } from "./lint-ratchet/baseline-update.js";
+export {
+  decideLintRatchetUpdate,
+  formatZeroToNonzeroWarnings,
+} from "./lint-ratchet/baseline-update.js";
 export {
   parseLintRatchetBaseline,
   parseLintRatchetBaselineStructure,

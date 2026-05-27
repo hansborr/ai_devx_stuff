@@ -116,7 +116,9 @@ function addLocalImportBinding(
   );
 }
 
-export function collectLocalImportBindings(sourceFile: SourceFile): Map<string, DirectExportBinding> {
+export function collectLocalImportBindings(
+  sourceFile: SourceFile,
+): Map<string, DirectExportBinding> {
   const bindings = new Map<string, DirectExportBinding>();
   for (const importDeclaration of sourceFile.getImportDeclarations()) {
     const source = moduleSource(importDeclaration);

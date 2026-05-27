@@ -70,25 +70,16 @@ jobs:
       - name: Lint
         run: bun run lint
 
-      - name: Lint shell scripts
-        run: bun run lint:shell
-
-      - name: Lint config sensors
-        run: bun run lint:config-sensors
-
-      - name: Lint ratchet check-registry
-        run: bun run lint:ratchet:check-registry
-
       - name: Lint ratchet
         env:
           HARNESS_DIAGNOSTICS_OUTPUT: lint-ratchet-diagnostics.json
         run: bun run lint:ratchet
 
-      - name: Lint ratchet check-baseline
-        run: bun run lint:ratchet:check-baseline
-
       - name: Lint ratchet zero-baseline lifecycle
         run: bun run lint:ratchet:zero-baseline
+
+      - name: Check lint coverage map
+        run: bun run docs:lint-coverage-map:check
 
       - name: Lint ratchet step summary
         if: always()

@@ -1,4 +1,10 @@
-import type { LintRatchetBaseline, LintRatchetComparison, LintRatchetCurrentById, LintRatchetCurrentItem, LintRatchetRegression } from "./lint-ratchet-baseline.js";
+import type {
+  LintRatchetBaseline,
+  LintRatchetComparison,
+  LintRatchetCurrentById,
+  LintRatchetCurrentItem,
+  LintRatchetRegression,
+} from "./lint-ratchet-baseline.js";
 import type { LintRatchetConfig } from "./lint-ratchet-config.js";
 import { complexityDelta, type LintRatchetComplexityFunction } from "./lint-ratchet-metrics.js";
 
@@ -11,7 +17,9 @@ function linePayload(line: number | undefined): Partial<Pick<LintRatchetRegressi
   return line === undefined ? {} : { line };
 }
 
-function defaultNewPathSeverityPayload(current: LintRatchetCurrentItem): Partial<Pick<LintRatchetRegression, "line">> {
+function defaultNewPathSeverityPayload(
+  current: LintRatchetCurrentItem,
+): Partial<Pick<LintRatchetRegression, "line">> {
   return linePayload(current.firstLine);
 }
 
@@ -22,7 +30,9 @@ function effectiveLineCountNewPathPayload(
   return { currentLines: current.lines, ...linePayload(current.firstLine) };
 }
 
-function highestComplexityFunction(current: LintRatchetCurrentItem): LintRatchetComplexityFunction | undefined {
+function highestComplexityFunction(
+  current: LintRatchetCurrentItem,
+): LintRatchetComplexityFunction | undefined {
   return current.perFunction?.reduce<LintRatchetComplexityFunction | undefined>(
     (best, entry) => (best === undefined || entry.complexity > best.complexity ? entry : best),
     undefined,
@@ -114,7 +124,9 @@ function countIncreaseRegression(
     currentCount: current.count,
     reason: baselineCount === 0 ? "new-path" : "increased-count",
   } as const;
-  return baselineCount === 0 ? { ...base, ...newPathSeverityPayload(ratchet, current) } : { ...base, ...linePayload(current.firstLine) };
+  return baselineCount === 0
+    ? { ...base, ...newPathSeverityPayload(ratchet, current) }
+    : { ...base, ...linePayload(current.firstLine) };
 }
 
 function countDecreaseImprovement(
@@ -124,7 +136,14 @@ function countDecreaseImprovement(
   baselineCount: number,
 ): LintRatchetImprovement | undefined {
   if (current.count >= baselineCount) return undefined;
-  return { testId: ratchet.id, ruleId: ratchet.ruleId, path, baselineCount, currentCount: current.count, reason: "lower-count" };
+  return {
+    testId: ratchet.id,
+    ruleId: ratchet.ruleId,
+    path,
+    baselineCount,
+    currentCount: current.count,
+    reason: "lower-count",
+  };
 }
 
 function lowerLinesImprovement(
@@ -184,18 +203,43 @@ function compareCurrentItemToBaseline(
 ): ComparedCurrentItem {
   const baselineItem = test.items[path];
   const baselineCount = baselineItem?.count ?? 0;
-  const lineRegression = increasedLinesRegression(ratchet, path, baselineItem, current, baselineCount);
+  const lineRegression = increasedLinesRegression(
+    ratchet,
+    path,
+    baselineItem,
+    current,
+    baselineCount,
+  );
   if (lineRegression !== undefined) return { regression: lineRegression };
-  const complexityChange = ratchet.metric === "complexity-severity" ? complexityDelta(baselineItem, current) : undefined;
-  const complexityRegression = increasedComplexityRegression(ratchet, path, current, baselineCount, complexityChange);
+  const complexityChange =
+    ratchet.metric === "complexity-severity" ? complexityDelta(baselineItem, current) : undefined;
+  const complexityRegression = increasedComplexityRegression(
+    ratchet,
+    path,
+    current,
+    baselineCount,
+    complexityChange,
+  );
   if (complexityRegression !== undefined) return { regression: complexityRegression };
   const countRegression = countIncreaseRegression(ratchet, path, current, baselineCount);
   if (countRegression !== undefined) return { regression: countRegression };
   const countImprovement = countDecreaseImprovement(ratchet, path, current, baselineCount);
   if (countImprovement !== undefined) return { improvement: countImprovement };
-  const lineImprovement = lowerLinesImprovement(ratchet, path, baselineItem, current, baselineCount);
+  const lineImprovement = lowerLinesImprovement(
+    ratchet,
+    path,
+    baselineItem,
+    current,
+    baselineCount,
+  );
   if (lineImprovement !== undefined) return { improvement: lineImprovement };
-  const complexityImprovement = lowerComplexityImprovement(ratchet, path, current, baselineCount, complexityChange);
+  const complexityImprovement = lowerComplexityImprovement(
+    ratchet,
+    path,
+    current,
+    baselineCount,
+    complexityChange,
+  );
   return complexityImprovement === undefined ? {} : { improvement: complexityImprovement };
 }
 

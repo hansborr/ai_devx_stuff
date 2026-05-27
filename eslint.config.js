@@ -24,10 +24,7 @@ import {
   processPrimitiveConfigs,
   scriptDebtOverrideConfigs,
 } from "./eslint-config/script-configs.js";
-import { e2ePreferRoleSelectorAllowlist } from "./eslint-config/shared-policy.js";
 import { createTestAndE2eConfigs, unitTestConfigs } from "./eslint-config/test-configs.js";
-
-export { e2ePreferRoleSelectorAllowlist };
 
 const repoRoot = import.meta.dirname;
 

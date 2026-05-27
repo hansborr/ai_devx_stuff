@@ -133,10 +133,7 @@ function scanAndDetect(
   };
 }
 
-function parseSuppressionDiff(
-  diffText: string,
-  changedPaths: ReadonlySet<string>,
-): ParsedDiff {
+function parseSuppressionDiff(diffText: string, changedPaths: ReadonlySet<string>): ParsedDiff {
   const findings: ParsedSuppression[] = [];
   const files = new Set<string>();
   let currentFile: string | undefined;

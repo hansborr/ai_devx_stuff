@@ -315,7 +315,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `ratchet/core-complexity-drift-ai`
 
-**Principle:** Prevent drift-ai complexity debt from growing while Leaves 32, 33, and 34 drain the current core-rule findings.
+**Principle:** Prevent drift-ai complexity debt from returning; the former core-rule findings are drained to zero.
 
 **Category:** maintainability
 
@@ -411,20 +411,6 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Repair:** manual
 
-### `ratchet/local-max-lines`
-
-**Principle:** Prevent the default max-lines debt pool from growing while cleanup proceeds incrementally.
-
-**Category:** maintainability
-
-**Source:** `scripts/lint-ratchet-config.ts`
-
-**Invocation:** `bun run lint:ratchet`
-
-**Paired guide:** [docs/guides/lint-ratchet.md](../guides/lint-ratchet.md)
-
-**Repair:** manual
-
 ### `ratchet/local-max-lines-code-intel`
 
 **Principle:** Prevent code-intel facade max-lines debt from growing while Leaf 31 drains the current script findings.
@@ -483,21 +469,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `ratchet/local-max-lines-lint-coverage-map-check`
 
-**Principle:** Prevent the lint coverage-map checker source from crossing the max-lines floor while Leaf 41 drain work is prioritized.
-
-**Category:** maintainability
-
-**Source:** `scripts/lint-ratchet-config.ts`
-
-**Invocation:** `bun run lint:ratchet`
-
-**Paired guide:** [docs/guides/lint-ratchet.md](../guides/lint-ratchet.md)
-
-**Repair:** manual
-
-### `ratchet/local-max-lines-lint-rule-docs`
-
-**Principle:** Prevent lint-rule-docs max-lines debt from growing.
+**Principle:** Prevent lint coverage-map checker max-lines debt from growing while coverage-map parsing remains consolidated.
 
 **Category:** maintainability
 
@@ -607,20 +579,6 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Repair:** manual
 
-### `ratchet/simple-import-sort-imports-top-level-scripts`
-
-**Principle:** Prevent top-level script import-order debt from growing while the Leaf 38 script files drain toward normal lint coverage.
-
-**Category:** maintainability
-
-**Source:** `scripts/lint-ratchet-config.ts`
-
-**Invocation:** `bun run lint:ratchet`
-
-**Paired guide:** [docs/guides/lint-ratchet.md](../guides/lint-ratchet.md)
-
-**Repair:** manual
-
 ### `ratchet/strict-boolean-expressions-shared`
 
 **Principle:** Prevent strict-boolean-expressions debt from growing in packages/shared/src production code while cleanup proceeds incrementally.
@@ -663,34 +621,6 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Repair:** manual
 
-### `ratchet/typescript-eslint-no-misused-promises-drift-ai-tests`
-
-**Principle:** Prevent promise-return misuse in drift-ai test-harness files while Leaves 33, 34, and 40 restore normal lint coverage.
-
-**Category:** maintainability
-
-**Source:** `scripts/lint-ratchet-config.ts`
-
-**Invocation:** `bun run lint:ratchet`
-
-**Paired guide:** [docs/guides/lint-ratchet.md](../guides/lint-ratchet.md)
-
-**Repair:** manual
-
-### `ratchet/typescript-eslint-no-misused-promises-script-tests`
-
-**Principle:** Prevent promise-return misuse in the newly linted singleton script tests while Leaf 41 drain work proceeds.
-
-**Category:** maintainability
-
-**Source:** `scripts/lint-ratchet-config.ts`
-
-**Invocation:** `bun run lint:ratchet`
-
-**Paired guide:** [docs/guides/lint-ratchet.md](../guides/lint-ratchet.md)
-
-**Repair:** manual
-
 ### `ratchet/typescript-eslint-no-unsafe-argument-top-level-scripts`
 
 **Principle:** Prevent top-level script unsafe-argument debt from growing while the Leaf 38 script files drain toward normal lint coverage.
@@ -722,34 +652,6 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 ### `ratchet/typescript-eslint-only-throw-error-codemod-tests`
 
 **Principle:** Prevent non-Error throws in codemod test-harness files while Leaf 35 drains the current bug-class debt.
-
-**Category:** maintainability
-
-**Source:** `scripts/lint-ratchet-config.ts`
-
-**Invocation:** `bun run lint:ratchet`
-
-**Paired guide:** [docs/guides/lint-ratchet.md](../guides/lint-ratchet.md)
-
-**Repair:** manual
-
-### `ratchet/typescript-eslint-only-throw-error-drift-ai-tests`
-
-**Principle:** Prevent non-Error throws in drift-ai test-harness files while Leaves 33, 34, and 40 restore normal lint coverage.
-
-**Category:** maintainability
-
-**Source:** `scripts/lint-ratchet-config.ts`
-
-**Invocation:** `bun run lint:ratchet`
-
-**Paired guide:** [docs/guides/lint-ratchet.md](../guides/lint-ratchet.md)
-
-**Repair:** manual
-
-### `ratchet/typescript-eslint-only-throw-error-script-tests`
-
-**Principle:** Prevent non-Error throws in the newly linted singleton script tests while Leaf 41 drain work proceeds.
 
 **Category:** maintainability
 
@@ -1005,13 +907,24 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `verify-wrapper/verify`
 
-**Principle:** Run lint, lint:ratchet, typecheck, test, and script smoke suites against the full tree with shared cache, lock, and log directory so a failing slot leaves the rest reusable.
+**Principle:** Run lint, lint:ratchet, the zero-baseline lifecycle check, coverage-map, format check, typecheck, test, and script smoke suites against the full tree with shared cache, lock, and log directory so a failing slot leaves the rest reusable.
 
 **Category:** maintainability
 
 **Source:** `scripts/verify.sh`
 
 **Invocation:** `bun run verify`
+
+**Slots:**
+
+- `lint` — `lint`
+- `ratchet` — `lint:ratchet`
+- `zero-baseline` — `lint:ratchet:zero-baseline`
+- `coverage-map` — `docs:lint-coverage-map:check`
+- `format-check` — `format:check`
+- `typecheck` — `typecheck`
+- `test` — `test`
+- `scripts` — `test:scripts`
 
 **Paired guide:** none
 
@@ -1033,13 +946,24 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `verify-wrapper/verify-changed`
 
-**Principle:** Run lint:changed, lint:ratchet, typecheck, test:changed, and test:scripts:changed in parallel against the changed-file set; default edit-loop gate before commit.
+**Principle:** Run lint:changed, lint:ratchet, the zero-baseline lifecycle check, coverage-map, format:changed:check, typecheck, test:changed, and test:scripts:changed in parallel against the changed-file set; default edit-loop gate before commit.
 
 **Category:** maintainability
 
 **Source:** `scripts/verify.sh`
 
 **Invocation:** `bun run verify:changed`
+
+**Slots:**
+
+- `lint` — `lint:changed`
+- `ratchet` — `lint:ratchet`
+- `zero-baseline` — `lint:ratchet:zero-baseline`
+- `coverage-map` — `docs:lint-coverage-map:check`
+- `format-check` — `format:changed:check`
+- `typecheck` — `typecheck`
+- `test` — `test:changed`
+- `scripts` — `test:scripts:changed`
 
 **Paired guide:** none
 
@@ -1075,13 +999,24 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `verify-wrapper/verify-parallel`
 
-**Principle:** Run the full lint, ratchet, typecheck, test, and scripts suites in parallel; reduces full-verify wall time when the full script suite fits the selected timeout or cached state.
+**Principle:** Run the full lint, ratchet, zero-baseline lifecycle check, coverage-map, format check, typecheck, test, and scripts suites in parallel; reduces full-verify wall time when the full script suite fits the selected timeout or cached state.
 
 **Category:** maintainability
 
 **Source:** `scripts/verify.sh`
 
 **Invocation:** `bun run verify:parallel`
+
+**Slots:**
+
+- `lint` — `lint`
+- `ratchet` — `lint:ratchet`
+- `zero-baseline` — `lint:ratchet:zero-baseline`
+- `coverage-map` — `docs:lint-coverage-map:check`
+- `format-check` — `format:check`
+- `typecheck` — `typecheck`
+- `test` — `test`
+- `scripts` — `test:scripts`
 
 **Paired guide:** none
 
@@ -1319,6 +1254,34 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Repair:** manual
 
+### `check/lint-agent-local-rules`
+
+**Principle:** Emit a schema-validated harness diagnostics envelope for `local/*` ESLint findings and parser errors; this is a local-rule view, not full lint parity.
+
+**Category:** maintainability
+
+**Source:** `scripts/lint-agent.ts`
+
+**Invocation:** `bun run lint:agent:local-rules`
+
+**Paired guide:** [docs/guides/local-eslint-rules.md](../guides/local-eslint-rules.md)
+
+**Repair:** manual
+
+### `check/lint-agent-local-rules-changed`
+
+**Principle:** Scope the local-rule diagnostics envelope to changed JS/TS-like files while preserving the `local/*` and parser-error contract; this is not `lint:changed` parity.
+
+**Category:** maintainability
+
+**Source:** `scripts/lint-agent-changed.sh`
+
+**Invocation:** `bun run lint:agent:local-rules:changed`
+
+**Paired guide:** [docs/guides/local-eslint-rules.md](../guides/local-eslint-rules.md)
+
+**Repair:** manual
+
 ### `check/lint-coverage-map`
 
 **Principle:** Detect drift between the Leaf 41 lint coverage map and tracked repository paths, cited ratchet IDs, and status vocabulary so the hand-maintained inventory stays load-bearing.
@@ -1330,6 +1293,20 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 **Invocation:** `bun run docs:lint-coverage-map:check`
 
 **Paired guide:** [docs/agent_notes/backlog/lint-followups/lint-coverage-map.md](../agent_notes/backlog/lint-followups/lint-coverage-map.md)
+
+**Repair:** manual
+
+### `check/lint-ratchet-zero-baseline`
+
+**Principle:** Fail when drained lint ratchets are not documented with a zero-baseline lifecycle disposition, while still reporting normal ESLint promotion status.
+
+**Category:** maintainability
+
+**Source:** `scripts/lint-ratchet-zero-baseline.ts`
+
+**Invocation:** `bun run lint:ratchet:zero-baseline`
+
+**Paired guide:** [docs/guides/lint-ratchet.md](../guides/lint-ratchet.md)
 
 **Repair:** manual
 
@@ -1537,13 +1514,24 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `hook/pre-commit`
 
-**Principle:** Run lint:changed, typecheck, test:changed, and test:scripts:changed in parallel before allowing the commit; the verify wrapper's edit-loop entrypoint with a strict time budget.
+**Principle:** Run lint:changed, lint:ratchet, the zero-baseline lifecycle check, coverage-map, format:changed:check, typecheck, test:changed, and conditionally test:scripts:changed in parallel before allowing the commit; the verify wrapper's edit-loop entrypoint with a strict time budget.
 
 **Category:** maintainability
 
 **Source:** `.husky/pre-commit`
 
 **Invocation:** `git commit`
+
+**Slots:**
+
+- `lint` — `lint:changed`
+- `ratchet` — `lint:ratchet`
+- `zero-baseline` — `lint:ratchet:zero-baseline`
+- `coverage-map` — `docs:lint-coverage-map:check`
+- `format-check` — `format:changed:check`
+- `typecheck` — `typecheck`
+- `test` — `test:changed`
+- `scripts` — `test:scripts:changed` (when staged hook/script/harness inputs require script smoke)
 
 **Paired guide:** none
 

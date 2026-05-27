@@ -1,10 +1,7 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 
-import {
-  KNOWN_PACKAGE_BARRELS,
-  type KnownPackageBarrel,
-} from "./constants.js";
+import { KNOWN_PACKAGE_BARRELS, type KnownPackageBarrel } from "./constants.js";
 import { fail } from "./errors.js";
 import type { BarrelContext } from "./types.js";
 
@@ -31,10 +28,7 @@ export function contextForKnown(root: string, known: KnownPackageBarrel): Barrel
   };
 }
 
-function knownPackageForBarrel(
-  root: string,
-  barrelPath: string,
-): KnownPackageBarrel | undefined {
+function knownPackageForBarrel(root: string, barrelPath: string): KnownPackageBarrel | undefined {
   const normalized = path.resolve(barrelPath);
   return KNOWN_PACKAGE_BARRELS.find((candidate) => {
     return path.resolve(root, candidate.barrelRelativePath) === normalized;

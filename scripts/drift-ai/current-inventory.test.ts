@@ -33,10 +33,7 @@ function repoRelativePath(absolutePath: string): string {
   return path.relative(REPO_ROOT, absolutePath).split(path.sep).join("/");
 }
 
-function statFor(
-  filePaths: readonly string[],
-  nonFilePaths: readonly string[] = [],
-): StatRunner {
+function statFor(filePaths: readonly string[], nonFilePaths: readonly string[] = []): StatRunner {
   const files = new Set(filePaths.map(normalizeFixturePath));
   const nonFiles = new Set(nonFilePaths.map(normalizeFixturePath));
   return (absolutePath) => {
@@ -125,11 +122,7 @@ describe("discoverCurrentFiles", () => {
       paths: ["src/zeta.ts", "./src/alpha.ts", "src/zeta.ts", "src/nested\\beta.ts"],
     });
 
-    expect(discoveredPaths(files)).toEqual([
-      "src/alpha.ts",
-      "src/nested/beta.ts",
-      "src/zeta.ts",
-    ]);
+    expect(discoveredPaths(files)).toEqual(["src/alpha.ts", "src/nested/beta.ts", "src/zeta.ts"]);
   });
 
   it("parses NUL-delimited paths with embedded spaces and newlines unchanged", () => {

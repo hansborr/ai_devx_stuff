@@ -42,7 +42,7 @@ describe("max-lines", () => {
           errors: [
             {
               message:
-                "Why: This file has 3 effective lines, above the 2 line limit, which makes future edits harder to localize. How to fix: Prefer splitting the module into focused components, helpers, or types. If it should stay larger for now, do not use eslint-disable; add or adjust a targeted eslint.config.js override for this exact file with `local/max-lines` set to `warn`, choose a modest max just above the current count, and keep the existing comment pattern explaining the exception.",
+                "Why: This file has 3 effective lines, above the 2 line limit, which makes future edits harder to localize. How to fix: Prefer splitting the module into focused components, helpers, or types. If it should stay larger for now, do not use eslint-disable; add or adjust a targeted override in eslint-config/shared-policy.js (maxLinesPolicy.exceptions) for this exact file with severity `warn`, choose a modest max just above the current count, and include a reason explaining the exception.",
             },
           ],
         },

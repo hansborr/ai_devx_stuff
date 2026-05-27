@@ -1,7 +1,14 @@
 import { readFileSync } from "node:fs";
 
-import { type LintRatchetBaseline, parseLintRatchetBaselineStructure } from "./lint-ratchet-baseline.js";
-import type { LintRatchetConfig, LintRatchetMetric, LintRatchetMode } from "./lint-ratchet-config.js";
+import {
+  type LintRatchetBaseline,
+  parseLintRatchetBaselineStructure,
+} from "./lint-ratchet-baseline.js";
+import type {
+  LintRatchetConfig,
+  LintRatchetMetric,
+  LintRatchetMode,
+} from "./lint-ratchet-config.js";
 import { ConfigError } from "./lint-ratchet-metrics.js";
 
 type LintRatchetBaselineTest = NonNullable<LintRatchetBaseline["tests"][string]>;
@@ -98,10 +105,7 @@ function summaryColumnWidths(
   };
 }
 
-function formatRow(
-  row: LintRatchetSummaryCells,
-  widths: LintRatchetSummaryColumnWidths,
-): string {
+function formatRow(row: LintRatchetSummaryCells, widths: LintRatchetSummaryColumnWidths): string {
   return [
     row.ratchet.padEnd(widths.ratchet),
     row.rule.padEnd(widths.rule),
@@ -121,9 +125,7 @@ function rowCells(row: LintRatchetSummaryRow): LintRatchetSummaryCells {
   };
 }
 
-export function formatLintRatchetSummary(
-  rows: readonly LintRatchetSummaryRow[],
-): string {
+export function formatLintRatchetSummary(rows: readonly LintRatchetSummaryRow[]): string {
   const widths = summaryColumnWidths(rows);
   const header = formatRow(
     {
@@ -135,18 +137,15 @@ export function formatLintRatchetSummary(
     },
     widths,
   );
-  const body = rows.length === 0 ? ["(no ratchets)"] : rows.map((row) => formatRow(rowCells(row), widths));
+  const body =
+    rows.length === 0 ? ["(no ratchets)"] : rows.map((row) => formatRow(rowCells(row), widths));
   return `${[header, ...body].join("\n")}\n`;
 }
 
-export function runLintRatchetSummary(
-  options: RunLintRatchetSummaryOptions,
-): string {
+export function runLintRatchetSummary(options: RunLintRatchetSummaryOptions): string {
   const parsed = parseLintRatchetBaselineStructure(readFileSync(options.baselinePath, "utf8"));
   if (parsed.baseline === undefined) {
     throw new ConfigError(parsed.failures.join("\n"));
   }
-  return formatLintRatchetSummary(
-    summarizeLintRatchetBaseline(parsed.baseline, options.registry),
-  );
+  return formatLintRatchetSummary(summarizeLintRatchetBaseline(parsed.baseline, options.registry));
 }

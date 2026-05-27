@@ -7,8 +7,7 @@ export type SuppressionsGitRunner = (repoRoot: string, ref: string) => string;
 
 export const ESLINT_BROAD_SUPPRESSION_HINT =
   "prefer `eslint-disable-next-line` over a broad disable; include `-- <reason>`.";
-export const ESLINT_INLINE_SUPPRESSION_HINT =
-  "narrow the rule list and include `-- <reason>`.";
+export const ESLINT_INLINE_SUPPRESSION_HINT = "narrow the rule list and include `-- <reason>`.";
 export const TS_EXPECT_ERROR_SUPPRESSION_HINT =
   "keep the suppression line-specific and include `-- <reason>`.";
 export const TS_IGNORE_SUPPRESSION_HINT =
@@ -62,9 +61,17 @@ function advanceBlockSegment(
 ): { readonly segment: CommentSegment; readonly newIndex: number; readonly exited: boolean } {
   const end = line.indexOf("*/", index);
   if (end < 0) {
-    return { segment: { kind: "block", text: line.slice(index) }, newIndex: line.length, exited: false };
+    return {
+      segment: { kind: "block", text: line.slice(index) },
+      newIndex: line.length,
+      exited: false,
+    };
   }
-  return { segment: { kind: "block", text: line.slice(index, end) }, newIndex: end + 2, exited: true };
+  return {
+    segment: { kind: "block", text: line.slice(index, end) },
+    newIndex: end + 2,
+    exited: true,
+  };
 }
 
 function advanceSegmentString(
@@ -91,7 +98,8 @@ function advanceSegmentCode(line: string, index: number): SegmentCodeAdvance {
     return { kind: "line-comment", newIndex: line.length, text: line.slice(index + 2) };
   }
   if (ch === "/" && next === "*") return { kind: "block-comment", newIndex: index + 2 };
-  if (ch === '"' || ch === "'" || ch === "`") return { kind: "string", newIndex: index + 1, delim: ch };
+  if (ch === '"' || ch === "'" || ch === "`")
+    return { kind: "string", newIndex: index + 1, delim: ch };
   return { kind: "other", newIndex: index + 1 };
 }
 
@@ -193,10 +201,9 @@ function parseEslintSuppression(
   };
 }
 
-function isEslintSuppressionKind(value: string | undefined): value is
-  | "eslint-disable"
-  | "eslint-disable-next-line"
-  | "eslint-disable-line" {
+function isEslintSuppressionKind(
+  value: string | undefined,
+): value is "eslint-disable" | "eslint-disable-next-line" | "eslint-disable-line" {
   return (
     value === "eslint-disable" ||
     value === "eslint-disable-next-line" ||
@@ -236,10 +243,9 @@ function parseTypeScriptSuppression(
   };
 }
 
-function isTypeScriptSuppressionKind(value: string | undefined): value is
-  | "@ts-expect-error"
-  | "@ts-ignore"
-  | "@ts-nocheck" {
+function isTypeScriptSuppressionKind(
+  value: string | undefined,
+): value is "@ts-expect-error" | "@ts-ignore" | "@ts-nocheck" {
   return value === "@ts-expect-error" || value === "@ts-ignore" || value === "@ts-nocheck";
 }
 

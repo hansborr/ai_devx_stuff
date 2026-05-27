@@ -4,11 +4,7 @@ import path from "node:path";
 import type { SourceFile } from "ts-morph";
 
 import { contextForKnown } from "./barrel-context.js";
-import {
-  KNOWN_PACKAGE_BARRELS,
-  PACKAGES_ROOT,
-  SHARED_SRC_ROOT,
-} from "./constants.js";
+import { KNOWN_PACKAGE_BARRELS, PACKAGES_ROOT, SHARED_SRC_ROOT } from "./constants.js";
 import { fail } from "./errors.js";
 import type { BarrelContext } from "./types.js";
 
@@ -35,10 +31,7 @@ function sourcePathCandidates(resolvedModulePath: string): string[] {
   ];
 }
 
-export function resolveRelativeModulePath(
-  fromFile: string,
-  specifier: string,
-): string | undefined {
+export function resolveRelativeModulePath(fromFile: string, specifier: string): string | undefined {
   const resolvedModulePath = path.resolve(path.dirname(fromFile), specifier);
   return sourcePathCandidates(resolvedModulePath).find((candidate) => existsSync(candidate));
 }

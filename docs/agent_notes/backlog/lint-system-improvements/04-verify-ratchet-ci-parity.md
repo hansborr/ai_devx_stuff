@@ -1,6 +1,6 @@
 # Verify Ratchet CI Parity
 
-Status: Parked (resolved by task 03 decision)
+Status: Done
 Order: 4
 Decision: Parity achieved by task 03
 

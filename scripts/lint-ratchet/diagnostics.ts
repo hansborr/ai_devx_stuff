@@ -12,27 +12,31 @@ import type {
 } from "../lint-ratchet-baseline.js";
 import type { LintRatchetConfig } from "../lint-ratchet-config.js";
 import { ConfigError } from "../lint-ratchet-metrics.js";
-import {
-  formatRuleDocsFailures,
-  loadLintRuleDocs,
-  type RuleDocsEntry,
-} from "../lint-rule-docs.js";
+import { formatRuleDocsFailures, loadLintRuleDocs, type RuleDocsEntry } from "../lint-rule-docs.js";
 import { WorseBaselineError } from "./errors.js";
 import { BASELINE_FILENAME, repoRoot } from "./paths.js";
 import { assertNever, ratchetSource } from "./runtime-config.js";
 
 function ratchetFixText(regression: LintRatchetRegression): string {
   if (regression.currentLines !== undefined) {
-    const target = regression.baselineLines === undefined
-      ? "until this new path has no ratcheted finding"
-      : `back to the committed baseline (${String(regression.baselineLines)})`;
-    return `Reduce this file's ${regression.ruleId} effective line count from ${String(regression.currentLines)} ${target}, or run ` + "`bun run lint:ratchet:update` in a cleanup PR when the baseline movement is intentional.";
+    const target =
+      regression.baselineLines === undefined
+        ? "until this new path has no ratcheted finding"
+        : `back to the committed baseline (${String(regression.baselineLines)})`;
+    return (
+      `Reduce this file's ${regression.ruleId} effective line count from ${String(regression.currentLines)} ${target}, or run ` +
+      "`bun run lint:ratchet:update` in a cleanup PR when the baseline movement is intentional."
+    );
   }
   if (regression.currentComplexity !== undefined) {
-    const target = regression.baselineComplexity === undefined
-      ? "until this new path has no ratcheted finding"
-      : `back to the committed baseline (${String(regression.baselineComplexity)})`;
-    return `Reduce this file's ${regression.ruleId} complexity from ${String(regression.currentComplexity)} ${target}, or run ` + "`bun run lint:ratchet:update` in a cleanup PR when the baseline movement is intentional.";
+    const target =
+      regression.baselineComplexity === undefined
+        ? "until this new path has no ratcheted finding"
+        : `back to the committed baseline (${String(regression.baselineComplexity)})`;
+    return (
+      `Reduce this file's ${regression.ruleId} complexity from ${String(regression.currentComplexity)} ${target}, or run ` +
+      "`bun run lint:ratchet:update` in a cleanup PR when the baseline movement is intentional."
+    );
   }
   return (
     `Reduce this file's ${regression.ruleId} finding count from ${String(regression.currentCount)} ` +
@@ -66,18 +70,21 @@ function improvementDetail(improvement: LintRatchetImprovement): string {
 }
 
 export function assertCheckBaselineComparisonClean(comparison: LintRatchetComparison): void {
-  const regressionMessage = comparison.regressions.length === 0
-    ? undefined
-    : `current findings are worse than ${BASELINE_FILENAME} for ${String(comparison.regressions.length)} path(s): ${comparison.regressions.map(regressionDetail).join("; ")}`;
-  const improvementMessage = comparison.improvements.length === 0
-    ? undefined
-    : `current findings are better than ${BASELINE_FILENAME} for ${String(comparison.improvements.length)} path(s): ${comparison.improvements.map(improvementDetail).join("; ")}`;
+  const regressionMessage =
+    comparison.regressions.length === 0
+      ? undefined
+      : `current findings are worse than ${BASELINE_FILENAME} for ${String(comparison.regressions.length)} path(s): ${comparison.regressions.map(regressionDetail).join("; ")}`;
+  const improvementMessage =
+    comparison.improvements.length === 0
+      ? undefined
+      : `current findings are better than ${BASELINE_FILENAME} for ${String(comparison.improvements.length)} path(s): ${comparison.improvements.map(improvementDetail).join("; ")}`;
   if (regressionMessage === undefined && improvementMessage === undefined) return;
-  const suffix = improvementMessage === undefined
-    ? "run bun run lint:ratchet for details"
-    : comparison.regressions.length === 0
-      ? "run bun run lint:ratchet:update"
-      : "fix regressions, then run bun run lint:ratchet:update";
+  const suffix =
+    improvementMessage === undefined
+      ? "run bun run lint:ratchet for details"
+      : comparison.regressions.length === 0
+        ? "run bun run lint:ratchet:update"
+        : "fix regressions, then run bun run lint:ratchet:update";
   const message = [regressionMessage, improvementMessage]
     .filter((entry): entry is string => entry !== undefined)
     .join("; ");
@@ -110,8 +117,12 @@ function structuredRatchetFields(delta: LintRatchetRegression | LintRatchetImpro
     currentCount: delta.currentCount,
     ...(delta.baselineLines === undefined ? {} : { baselineLines: delta.baselineLines }),
     ...(delta.currentLines === undefined ? {} : { currentLines: delta.currentLines }),
-    ...(delta.baselineComplexity === undefined ? {} : { baselineComplexity: delta.baselineComplexity }),
-    ...(delta.currentComplexity === undefined ? {} : { currentComplexity: delta.currentComplexity }),
+    ...(delta.baselineComplexity === undefined
+      ? {}
+      : { baselineComplexity: delta.baselineComplexity }),
+    ...(delta.currentComplexity === undefined
+      ? {}
+      : { currentComplexity: delta.currentComplexity }),
   };
 }
 
@@ -120,7 +131,8 @@ function buildLocalFinding(
   ruleDocsById: ReadonlyMap<string, RuleDocsEntry>,
 ): HarnessFinding {
   const entry = ruleDocsById.get(regression.ruleId);
-  if (entry === undefined) throw new ConfigError(`No local rule metadata found for ${regression.ruleId}`);
+  if (entry === undefined)
+    throw new ConfigError(`No local rule metadata found for ${regression.ruleId}`);
   const base = {
     control: regression.testId,
     severity: "block",
@@ -181,7 +193,8 @@ function buildImprovementFinding(improvement: LintRatchetImprovement): HarnessFi
     ruleId: improvement.ruleId,
     ...structuredRatchetFields(improvement),
     why: `Current tree is better than the committed baseline for ${improvement.ruleId}; lock it in.`,
-    howToFix: "Run `bun run lint:ratchet:update` to lower the committed baseline and lock in this improvement.",
+    howToFix:
+      "Run `bun run lint:ratchet:update` to lower the committed baseline and lock in this improvement.",
     repairKind: "manual",
   };
 }

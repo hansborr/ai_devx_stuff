@@ -62,12 +62,9 @@ const EXEMPT_SCRIPTS = new Set<string>([
   // lint family: `lint:changed` is the changed-file variant of the
   // lint runner (the per-rule manifest entries enumerate the gate);
   // `lint:fix` is the repair entry point. The preferred local-rule
-  // diagnostics envelope scripts are manifest entries; these old
-  // lint-agent names remain compatibility aliases for one transition.
+  // diagnostics envelope scripts are manifest entries.
   "lint:changed",
   "lint:fix",
-  "lint:agent",
-  "lint:agent:changed",
   "lint:ratchet:update",
   "lint:ratchet:check-baseline",
   "lint:ratchet:check-registry",

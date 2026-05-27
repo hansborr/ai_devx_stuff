@@ -111,7 +111,8 @@ export function collectTargetIdentifiers(sourceFile: SourceFile): TargetIdentifi
   for (const importDeclaration of sourceFile.getImportDeclarations()) {
     addImportDeclarationIdentifiers(identifiers, importDeclaration);
   }
-  for (const statement of sourceFile.getStatements()) addStatementIdentifiers(identifiers, statement);
+  for (const statement of sourceFile.getStatements())
+    addStatementIdentifiers(identifiers, statement);
   return identifiers;
 }
 
@@ -165,7 +166,9 @@ const nonReferenceIdentifierParents = [
 export function isReferenceIdentifier(identifier: Node): boolean {
   const parent = identifier.getParent();
   if (!parent) return true;
-  return !nonReferenceIdentifierParents.some((isNonReference) => isNonReference(parent, identifier));
+  return !nonReferenceIdentifierParents.some((isNonReference) =>
+    isNonReference(parent, identifier),
+  );
 }
 
 export function referencedIdentifiers(node: Node): Set<string> {

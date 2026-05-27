@@ -4,6 +4,11 @@ The lint ratchet tracks selected existing lint debt without allowing it to
 grow. Normal `bun run lint` stays strict; `bun run lint:ratchet` is an
 additional gate for rules that are being drained from a committed baseline.
 
+For projects copying the ratchet to their own codebase, start with
+[Lint Ratchet Adoption](lint-ratchet-adoption.md). It presents two adoption
+tiers (minimal ratchet vs full platform), lists exactly what to copy, and names
+the ongoing ownership cost. This guide is the full reference.
+
 For projects adapting the ratchet to Biome diagnostics, see
 [Biome Lint Adoption](biome-lint-adoption.md). The baseline and comparison
 model are portable; the current runner and reach checks are ESLint-specific.
@@ -27,8 +32,9 @@ runtime set first:
 - `scripts/lint-ratchet-zero-baseline.ts`
 - `scripts/lint-rule-docs.ts`, or a same-export stub when you are not using
   local rules
+- `scripts/ratchet-manifest-message.ts`
 - `packages/shared/src/schemas/harness-diagnostics.ts`, or an equivalent local
-  schema with the runner imports updated
+  schema with the output, diagnostics, report, and test imports updated
 - `lint-ratchet.baseline.json`, initially `{ "version": 1, "tests": {} }`
 
 Add package scripts for `lint:ratchet:check-registry`,
@@ -124,16 +130,38 @@ Minimum runtime file set:
 - `scripts/lint-rule-docs.ts` - local-rule metadata loader used for `local/*`
   ratchets; replace it with a same-export stub if the project only ratchets
   core or third-party rules.
+- `scripts/ratchet-manifest-message.ts` - shared formatter for missing manifest
+  ratchet diagnostics used by the registry preflight and harness validator.
 - `packages/shared/src/schemas/harness-diagnostics.ts` - Zod schema and summary
   helper for the runner's output envelope; copy it at this path or update the
-  runner import to a project-local equivalent.
+  output, diagnostics, report, and copied-test imports to a project-local
+  equivalent.
 - `lint-ratchet.baseline.json` - committed generated baseline; a new setup can
   start with `{ "version": 1, "tests": {} }`, then `lint:ratchet:update`
   rewrites it from the current tree.
 
 The runner also expects normal package dependencies for ESLint,
 `typescript-eslint`, Zod, and any third-party plugin named by the registry or
-allowlist.
+allowlist. The current implementation assumes a classic `node_modules` layout:
+it spawns `node_modules/.bin/eslint`, reads ESLint and plugin versions from
+`node_modules/<package>/package.json`, and writes generated config/cache files
+under `node_modules/.cache/eslint-ratchet/`. Package-manager script aliases can
+change freely, but Yarn PnP, global tool installs, and custom cache roots need
+runtime changes.
+
+Registry preflight and lifecycle checks are Git-tracked-file based. They call
+`git ls-files`, so new source files must be tracked before empty-glob,
+coverage-map, and zero-baseline checks can prove anything about them.
+
+The ratchet runner writes isolated ESLint configs for each registry entry. It
+does not reuse the project's full flat config and toggle one rule. Rules that
+depend on project `settings`, globals, processors, import resolvers, or custom
+TypeScript project setup need changes in `scripts/lint-ratchet/eslint-config.ts`
+before they are reliable ratchet candidates. The built-in registry preflight
+glob matcher intentionally supports only the simple relative glob forms used by
+current ratchets (`*`, `**`, `?`, and brace alternatives); extend
+`scripts/lint-ratchet/ratchet-globs.ts` before adopting broader minimatch
+syntax.
 
 Local-rule scaffold is only needed for `local/*` ratchets:
 
@@ -176,14 +204,13 @@ Substitutable bits:
   `scripts/lint-ratchet-report.ts`. If you rename it, update that constant and
   every workflow `env:` key that still exports the old literal name; otherwise
   the runner silently omits the `Artifact:` line.
-- Registry preflight: `lint:ratchet` and `lint:ratchet:check-registry` both
-  enforce `registry-shape`, so adopters whose pre-commit invokes the heavy
-  runner already get that shape validation. `empty-glob` and `absolute-path`
-  detection live only in `lint:ratchet:check-registry`; skipping it leaves real
-  holes where a typoed `files` glob can silently create a no-op ratchet and
-  absolute local paths are not rejected. Run `lint:ratchet:check-registry` as a
-  real gate in CI at minimum, and in local pre-commit when you want the same
-  guarantee before push.
+- Registry preflight: default `lint:ratchet` starts by running the same
+  registry preflight as `lint:ratchet:check-registry`, including
+  `registry-shape`, `empty-glob`, `absolute-path`, and `orphan-baseline`
+  failures. Keep `lint:ratchet:check-registry` as a fast standalone
+  setup/debug command when you want those labels without a full ESLint
+  collection; CI does not need a separate visible step if `lint:ratchet` is
+  already a gate.
 
 ### Coverage Map Gate
 
@@ -294,32 +321,32 @@ CI parity matters when:
 - In-house teams want a visible PR-time status check alongside the local
   pre-commit gate.
 
-The minimum CI setup runs the ratchet, checks the committed baseline, and always
-uploads the diagnostics envelope. Swap `bun` for the adopter's package manager
-if needed:
+The minimum CI setup runs the ratchet, audits zero-baseline lifecycle metadata,
+and always uploads the diagnostics envelope. Swap `bun` for the adopter's
+package manager if needed:
 
 ```yaml
-- name: Check lint ratchet registry
-  run: bun run lint:ratchet:check-registry
-- name: Run lint ratchet
-  run: HARNESS_DIAGNOSTICS_OUTPUT=lint-ratchet-diagnostics.json bun run lint:ratchet
-- name: Check lint ratchet baseline
-  run: bun run lint:ratchet:check-baseline
-- name: Check zero-baseline lifecycle
+- name: Lint ratchet
+  env:
+    HARNESS_DIAGNOSTICS_OUTPUT: lint-ratchet-diagnostics.json
+  run: bun run lint:ratchet
+- name: Lint ratchet zero-baseline lifecycle
   run: bun run lint:ratchet:zero-baseline
-- name: Upload lint ratchet diagnostics
+- name: Upload lint-ratchet diagnostics
   if: always()
   uses: actions/upload-artifact@v4
   with:
     name: lint-ratchet-diagnostics
     path: lint-ratchet-diagnostics.json
+    retention-days: 7
 ```
 
-The registry preflight gives those misconfigurations a `check-registry` failure
-label separate from a generic "Lint ratchet failed" ESLint step, so adopters
-can identify a missing local-rule file, empty glob, absolute path, or orphan
-baseline id from the workflow run UI before expanding logs. See
-`.github/workflows/ci.yml` in this repository for the worked example.
+Default `lint:ratchet` runs registry preflight before collecting ESLint
+findings, then compares the current findings to the committed baseline and
+emits the diagnostics envelope. That keeps missing local-rule files, empty
+globs, absolute paths, orphan baseline ids, regressions, and uncommitted
+improvements behind one semantic CI gate. See `.github/workflows/ci.yml` in
+this repository for the worked example.
 
 CI should not run `lint:ratchet:update` automatically:
 
@@ -425,28 +452,31 @@ plugin allowlisting, complexity-severity vectors, and rule-source hashing.
 ## Commands
 
 - `bun run lint:ratchet` emits a `harness-diagnostics` envelope and fails when
-  a ratcheted path diverges from the committed baseline in either direction:
-  regressions above the floor, or improvements below the floor because the
-  current findings are lower than the baseline. Improvements enter the envelope
-  as blocking harness findings with the recovery command in `howToFix`.
+  registry preflight fails or a ratcheted path diverges from the committed
+  baseline in either direction: regressions above the floor, or improvements
+  below the floor because the current findings are lower than the baseline.
+  Improvements enter the envelope as blocking harness findings with the
+  recovery command in `howToFix`.
 - `bun run lint:ratchet:check-registry` validates the ratchet registry, the
   `files`/`ignores` globs, and the committed baseline ids without running
-  ESLint. It is the fast preflight an adopter runs after copying the files and
-  writing one registry entry, before `bun run lint:ratchet:update` generates a
+  ESLint. In Musi, it also reads `harness.controls.json` when present and
+  fails if a `ratchet/*` registry entry is missing a matching manifest control.
+  It is the fast preflight an adopter runs after copying the files and writing
+  one registry entry, before `bun run lint:ratchet:update` generates a
   baseline. On failure it prints adopter-friendly `<kind>: <message>` lines and
-  exits non-zero, where `<kind>` is one of `registry-shape`, `empty-glob`,
-  `absolute-path`, or `orphan-baseline`. Its `registry-shape` failure kind
-  overlaps with the heavy runner's startup validation, so adopters who run
-  `lint:ratchet` already get registry-shape failures from pre-commit; the
-  `empty-glob` and `absolute-path` failure kinds are unique to
-  `lint:ratchet:check-registry`, not caught by the heavy runner, and the labeled
-  CI step both surfaces a clearer failure name and closes those two gaps. When
-  `lint-ratchet.baseline.json` does not yet exist, the orphan-baseline check is a
-  no-op, so the command remains useful before the first baseline is generated.
+  exits non-zero, where `<kind>` includes `registry-shape`, `empty-glob`,
+  `absolute-path`, `orphan-baseline`, and `missing-harness-ratchet`. Default
+  `lint:ratchet` invokes the same preflight before collection; keep this
+  standalone command for setup/debug runs where you want the registry check
+  without the ESLint pass. When `lint-ratchet.baseline.json` does not yet exist,
+  the orphan-baseline check is a no-op, so the command remains useful before
+  the first baseline is generated.
 - `bun run lint:ratchet:check-baseline` validates that
   `lint-ratchet.baseline.json` is deterministic, still matches the ratchet
   registry, and enforces the same strict gate in both directions. It exits
-  non-zero on regressions or improvements and names the affected paths.
+  non-zero on regressions or improvements and names the affected paths. CI does
+  not need this after `lint:ratchet`, because it repeats the same current
+  collection and baseline comparison without the diagnostics envelope.
 - `bun run lint:ratchet:summary` reads the committed
   `lint-ratchet.baseline.json` and prints a per-ratchet table without running
   ESLint. It is informational only: it never fails on findings and never
@@ -515,7 +545,9 @@ Default to promotion:
 Normal-lint `warn` is not fully promoted. `bun run lint` and
 `bun run lint:changed` use `--max-warnings=0`, but the post-edit tidy hook runs
 per-file `eslint --fix --no-warn-ignored`; a warning can be missed in the edit
-loop. Use `error` for drained ratchets that represent permanent policy.
+loop. Use `error` for drained ratchets that represent permanent policy. See
+[Local ESLint Rules](local-eslint-rules.md#severity-semantics) for the broader
+normal-ESLint versus agent-envelope severity convention.
 
 Leaving a zero ratchet in the registry is acceptable only when one of these
 cases applies:
@@ -758,9 +790,8 @@ not yet inspect.
 4. Run `bun run lint:ratchet:update` and review
    `lint-ratchet.baseline.json`. The initial baseline is the maximum allowed
    debt for that scope.
-5. Run `bun run lint:ratchet` and
-   `bun run lint:ratchet:check-baseline`. For new source kinds or parser
-   behavior, also add or update the focused ratchet smoke tests.
+5. Run `bun run lint:ratchet`. For new source kinds or parser behavior, also
+   add or update the focused ratchet smoke tests.
    If the baseline has zero findings, prove the scope is not empty by
    temporarily introducing a small violation in an in-scope file, confirming
    `bun run lint:ratchet` reports it, and reverting the probe before commit.
@@ -812,7 +843,7 @@ before rolling it out across the monorepo.
 4. Add the ratchet entry with the same rule options you plan to use for eventual
    normal ESLint enforcement.
 5. Run `bun run lint:ratchet:update`, review the baseline, then run
-   `bun run lint:ratchet` and `bun run lint:ratchet:check-baseline`.
+   `bun run lint:ratchet`.
    For zero-finding scopes, use the same temporary-violation probe described
    above to prove the files are actually covered.
 6. Drain the baseline in focused changes. Once the baseline is zero and the

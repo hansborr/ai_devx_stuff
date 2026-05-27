@@ -25,8 +25,10 @@ function validateBaselineTestMetadata(
   if (test.mode !== expected.mode) failures.push(`${testId}.mode is stale`);
   if (test.target !== expected.target) failures.push(`${testId}.target is stale`);
   if (test.metric !== expected.metric) failures.push(`${testId}.metric is stale`);
-  if (stableJson(test.files) !== stableJson(expected.files)) failures.push(`${testId}.files is stale`);
-  if (stableJson(test.ignores) !== stableJson(expected.ignores)) failures.push(`${testId}.ignores is stale`);
+  if (stableJson(test.files) !== stableJson(expected.files))
+    failures.push(`${testId}.files is stale`);
+  if (stableJson(test.ignores) !== stableJson(expected.ignores))
+    failures.push(`${testId}.ignores is stale`);
   if (stableJson(test.ruleOptions) !== stableJson(expected.ruleOptions)) {
     failures.push(`${testId}.ruleOptions is stale`);
   }
@@ -42,7 +44,9 @@ function validateBaselineRuleSourceHash(
   if (test.ruleSourceHash === "") {
     failures.push(`${testId}.ruleSourceHash is required`);
   } else if (test.ruleSourceHash !== expected.ruleSourceHash) {
-    failures.push(`${testId}.ruleSourceHash is stale`);
+    failures.push(
+      `${testId}.ruleSourceHash is stale (run "bun run lint:ratchet:update" to regenerate)`,
+    );
   }
 }
 
@@ -141,7 +145,5 @@ export function parseLintRatchetBaseline(
   if (failures.length === 0 && formatLintRatchetBaseline(structural.baseline) !== text) {
     failures.push("baseline JSON is not deterministic; run bun run lint:ratchet:update");
   }
-  return failures.length > 0
-    ? { failures }
-    : { baseline: structural.baseline, failures: [] };
+  return failures.length > 0 ? { failures } : { baseline: structural.baseline, failures: [] };
 }

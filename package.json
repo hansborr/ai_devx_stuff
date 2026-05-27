@@ -48,8 +48,6 @@
     "lint:config-sensors": "bash scripts/lint-config-sensors.sh",
     "lint:agent:local-rules": "bun scripts/lint-agent.ts",
     "lint:agent:local-rules:changed": "bash scripts/lint-agent-changed.sh",
-    "lint:agent": "bun scripts/lint-agent.ts",
-    "lint:agent:changed": "bash scripts/lint-agent-changed.sh",
     "lint:ratchet": "bun scripts/lint-ratchet.ts",
     "lint:ratchet:check-baseline": "bun scripts/lint-ratchet.ts --check-baseline",
     "lint:ratchet:check-registry": "bun scripts/lint-ratchet.ts --check-registry",

@@ -138,6 +138,9 @@ async function runUpdate(args: ParsedArgs): Promise<void> {
     const committed = parseCommittedBaselineStructure();
     const decision = decideLintRatchetUpdate(committed, generated, lintRatchets, args);
     if (!decision.allowed) throw new WorseBaselineError(decision.failures.join("\n"));
+    for (const warning of decision.warnings) {
+      console.error(`⚠ ${warning}`);
+    }
   }
 
   const currentText = existsSync(baselinePath) ? readFileSync(baselinePath, "utf8") : "";

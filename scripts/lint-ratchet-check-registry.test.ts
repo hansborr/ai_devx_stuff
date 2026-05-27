@@ -218,4 +218,19 @@ describe("lint ratchet check-registry", () => {
 
     expect(result.failures.some((failure) => failure.kind === "orphan-baseline")).toBe(false);
   });
+
+  it("detects ratchets missing from the harness manifest", () => {
+    const result = checkLintRatchetRegistry({
+      ratchets: [matchingRatchet],
+      trackedFiles: ["packages/app/src/index.ts"],
+      harnessManifestRatchetIds: new Set(),
+    });
+
+    const failure = failureOfKind(result.failures, "missing-harness-ratchet");
+    expect(failure.message).toContain(matchingRatchet.id);
+    expect(failure.message).toContain("Next steps:");
+    expect(failure.message).toContain("harness.controls.json");
+    expect(failure.message).toContain("docs:harness-controls");
+    expect(failure.message).toContain("scripts/test-harness-check.sh");
+  });
 });

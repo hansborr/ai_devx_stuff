@@ -1,7 +1,10 @@
 dist/
 node_modules/
 bun.lock
+lint-ratchet.baseline.json
 docs/
 .claude/
 worktrees/
 .worktree-state/
+scripts/codemods/fixtures/
+scripts/test-fixtures/lint-ratchet/

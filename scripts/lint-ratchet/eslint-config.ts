@@ -3,10 +3,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 
-import {
-  computeLintRatchetConfigHash,
-  ruleNamespace,
-} from "../lint-ratchet-baseline.js";
+import { computeLintRatchetConfigHash, ruleNamespace } from "../lint-ratchet-baseline.js";
 import type { LintRatchetConfig } from "../lint-ratchet-config.js";
 import { ConfigError } from "../lint-ratchet-metrics.js";
 import { repoRoot, safeRatchetId } from "./paths.js";
@@ -117,10 +114,7 @@ function thirdPartyPluginImportLines(
   ];
 }
 
-function writeThirdPartyEslintConfig(
-  ratchet: LintRatchetConfig,
-  configPath: string,
-): void {
+function writeThirdPartyEslintConfig(ratchet: LintRatchetConfig, configPath: string): void {
   const source = ratchetSource(ratchet);
   if (source.kind !== "third-party") {
     throw new ConfigError(`ratchet ${ratchet.id}: expected third-party source`);

@@ -12,6 +12,7 @@ import {
   currentByIdFromBaseline,
   decideLintRatchetUpdate,
   formatLintRatchetBaseline,
+  formatZeroToNonzeroWarnings,
   LINT_RATCHET_CONFIG_HASH_PREFIX,
   type LintRatchetBaseline,
   type LintRatchetComparison,
@@ -23,7 +24,13 @@ import {
   validateLintRatchetRegistry,
 } from "./lint-ratchet-baseline.js";
 import type { LintRatchetConfig } from "./lint-ratchet-config.js";
-import { complexityDelta, ConfigError, type LintRatchetComplexityFunction, parseComplexitySeverityMessage, uniqueComplexityMap } from "./lint-ratchet-metrics.js";
+import {
+  complexityDelta,
+  ConfigError,
+  type LintRatchetComplexityFunction,
+  parseComplexitySeverityMessage,
+  uniqueComplexityMap,
+} from "./lint-ratchet-metrics.js";
 
 const baseRatchet: LintRatchetConfig = {
   id: "ratchet/local-type-assertion-boundary",
@@ -107,9 +114,28 @@ type CurrentPathEntry = readonly [string, number, number?, number?, ComplexityVe
 function current(
   entries: readonly [string, readonly CurrentPathEntry[]][],
 ): LintRatchetCurrentById {
-  const byId = new Map<string, ReadonlyMap<string, { readonly count: number; readonly firstLine?: number; readonly lines?: number; readonly perFunction?: readonly LintRatchetComplexityFunction[] }>>();
+  const byId = new Map<
+    string,
+    ReadonlyMap<
+      string,
+      {
+        readonly count: number;
+        readonly firstLine?: number;
+        readonly lines?: number;
+        readonly perFunction?: readonly LintRatchetComplexityFunction[];
+      }
+    >
+  >();
   for (const [testId, paths] of entries) {
-    const items = new Map<string, { readonly count: number; readonly firstLine?: number; readonly lines?: number; readonly perFunction?: readonly LintRatchetComplexityFunction[] }>();
+    const items = new Map<
+      string,
+      {
+        readonly count: number;
+        readonly firstLine?: number;
+        readonly lines?: number;
+        readonly perFunction?: readonly LintRatchetComplexityFunction[];
+      }
+    >();
     for (const [path, count, firstLine, lines, perFunction] of paths) {
       items.set(path, {
         count,
@@ -126,12 +152,7 @@ function current(
 function oneTestBaseline(paths: readonly [string, number][]): LintRatchetBaseline {
   return buildLintRatchetBaseline(
     [baseRatchet],
-    current([
-      [
-        baseRatchet.id,
-        paths.map(([path, count]) => [path, count]),
-      ],
-    ]),
+    current([[baseRatchet.id, paths.map(([path, count]) => [path, count])]]),
     fixtureRuleSourceHashes,
   );
 }
@@ -144,7 +165,11 @@ function maxLinesBaseline(path: string, lines: number, count = 1): LintRatchetBa
   );
 }
 
-function complexityFunction(line: number, label: string, complexity: number): LintRatchetComplexityFunction {
+function complexityFunction(
+  line: number,
+  label: string,
+  complexity: number,
+): LintRatchetComplexityFunction {
   return { line, nodeType: "FunctionDeclaration", label, complexity };
 }
 
@@ -158,10 +183,18 @@ function thrownMessage(action: () => void): string {
   throw new Error("expected action to throw");
 }
 
-function complexityBaseline(path: string, perFunction: readonly LintRatchetComplexityFunction[]): LintRatchetBaseline {
+function complexityBaseline(
+  path: string,
+  perFunction: readonly LintRatchetComplexityFunction[],
+): LintRatchetBaseline {
   return buildLintRatchetBaseline(
     [complexityRatchet],
-    current([[complexityRatchet.id, [[path, perFunction.length, perFunction[0]?.line, undefined, perFunction]]]]),
+    current([
+      [
+        complexityRatchet.id,
+        [[path, perFunction.length, perFunction[0]?.line, undefined, perFunction]],
+      ],
+    ]),
     fixtureRuleSourceHashes,
   );
 }
@@ -257,7 +290,9 @@ describe("lint ratchet comparison", () => {
       current([[complexityRatchet.id, []]]),
       fixtureRuleSourceHashes,
     );
-    const generated = complexityBaseline(path, [complexityFunction(10, "Function 'newBranch'", 25)]);
+    const generated = complexityBaseline(path, [
+      complexityFunction(10, "Function 'newBranch'", 25),
+    ]);
     const comparison = compareCurrentToBaseline(
       baseline,
       [complexityRatchet],
@@ -328,11 +363,7 @@ describe("lint ratchet comparison", () => {
     const currentById: LintRatchetCurrentById = new Map([
       [complexityRatchet.id, new Map([[path, { count: 1, maxComplexity: 33 }]])],
     ]);
-    const comparison = compareCurrentToBaseline(
-      baseline,
-      [complexityRatchet],
-      currentById,
-    );
+    const comparison = compareCurrentToBaseline(baseline, [complexityRatchet], currentById);
 
     expect(comparison.regressions[0]).toMatchObject({
       testId: complexityRatchet.id,
@@ -566,7 +597,12 @@ describe("lint ratchet comparison", () => {
     const comparison = compareCurrentToBaseline(
       complexityBaseline(path, [complexityFunction(12, "Function 'choose'", 11)]),
       [complexityRatchet],
-      current([[complexityRatchet.id, [[path, 1, 12, undefined, [complexityFunction(12, "Function 'choose'", 12)]]]]]),
+      current([
+        [
+          complexityRatchet.id,
+          [[path, 1, 12, undefined, [complexityFunction(12, "Function 'choose'", 12)]]],
+        ],
+      ]),
     );
 
     expect(comparison.regressions).toEqual([
@@ -587,9 +623,28 @@ describe("lint ratchet comparison", () => {
   it("flags complexity vector growth when functions cannot be matched exactly", () => {
     const path = "packages/server/src/branchy.ts";
     const comparison = compareCurrentToBaseline(
-      complexityBaseline(path, [complexityFunction(10, "Function 'first'", 15), complexityFunction(30, "Function 'second'", 13)]),
+      complexityBaseline(path, [
+        complexityFunction(10, "Function 'first'", 15),
+        complexityFunction(30, "Function 'second'", 13),
+      ]),
       [complexityRatchet],
-      current([[complexityRatchet.id, [[path, 2, 11, undefined, [complexityFunction(11, "Function 'movedFirst'", 15), complexityFunction(31, "Function 'movedSecond'", 14)]]]]]),
+      current([
+        [
+          complexityRatchet.id,
+          [
+            [
+              path,
+              2,
+              11,
+              undefined,
+              [
+                complexityFunction(11, "Function 'movedFirst'", 15),
+                complexityFunction(31, "Function 'movedSecond'", 14),
+              ],
+            ],
+          ],
+        ],
+      ]),
     );
 
     expect(comparison.regressions[0]).toMatchObject({
@@ -611,7 +666,11 @@ describe("lint ratchet comparison", () => {
     expect(
       complexityDelta(
         { count: 1, maxComplexity: 13, perFunction: [higher] },
-        { count: 1, maxComplexity: 14, perFunction: [complexityFunction(12, "Function 'choose'", 14)] },
+        {
+          count: 1,
+          maxComplexity: 14,
+          perFunction: [complexityFunction(12, "Function 'choose'", 14)],
+        },
       ),
     ).toEqual({
       baselineComplexity: 13,
@@ -626,7 +685,12 @@ describe("lint ratchet comparison", () => {
     const comparison = compareCurrentToBaseline(
       complexityBaseline(path, [complexityFunction(12, "Function 'choose'", 12)]),
       [complexityRatchet],
-      current([[complexityRatchet.id, [[path, 1, 12, undefined, [complexityFunction(12, "Function 'choose'", 11)]]]]]),
+      current([
+        [
+          complexityRatchet.id,
+          [[path, 1, 12, undefined, [complexityFunction(12, "Function 'choose'", 11)]]],
+        ],
+      ]),
     );
 
     expect(comparison.regressions).toEqual([]);
@@ -679,7 +743,8 @@ describe("lint ratchet diagnostics envelope", () => {
         currentComplexity: 11,
         reason: "lower-complexity",
         why: `Current tree is better than the committed baseline for ${complexityRatchet.ruleId}; lock it in.`,
-        howToFix: "Run `bun run lint:ratchet:update` to lower the committed baseline and lock in this improvement.",
+        howToFix:
+          "Run `bun run lint:ratchet:update` to lower the committed baseline and lock in this improvement.",
         repairKind: "manual",
       },
     ]);
@@ -739,7 +804,8 @@ describe("lint ratchet diagnostics envelope", () => {
         currentCount: 1,
         reason: "lower-count",
         why: `Current tree is better than the committed baseline for ${maxLinesRatchet.ruleId}; lock it in.`,
-        howToFix: "Run `bun run lint:ratchet:update` to lower the committed baseline and lock in this improvement.",
+        howToFix:
+          "Run `bun run lint:ratchet:update` to lower the committed baseline and lock in this improvement.",
         repairKind: "manual",
       },
       {
@@ -753,7 +819,8 @@ describe("lint ratchet diagnostics envelope", () => {
         currentLines: 319,
         reason: "lower-lines",
         why: `Current tree is better than the committed baseline for ${maxLinesRatchet.ruleId}; lock it in.`,
-        howToFix: "Run `bun run lint:ratchet:update` to lower the committed baseline and lock in this improvement.",
+        howToFix:
+          "Run `bun run lint:ratchet:update` to lower the committed baseline and lock in this improvement.",
         repairKind: "manual",
       },
       {
@@ -765,7 +832,8 @@ describe("lint ratchet diagnostics envelope", () => {
         currentCount: 0,
         reason: "removed-path",
         why: `Current tree is better than the committed baseline for ${maxLinesRatchet.ruleId}; lock it in.`,
-        howToFix: "Run `bun run lint:ratchet:update` to lower the committed baseline and lock in this improvement.",
+        howToFix:
+          "Run `bun run lint:ratchet:update` to lower the committed baseline and lock in this improvement.",
         repairKind: "manual",
       },
     ]);
@@ -840,18 +908,11 @@ describe("lint ratchet baseline parsing", () => {
 
   it("rejects unknown version, missing tests, bad ids, negative counts, and non-deterministic output", () => {
     expect(
-      parseLintRatchetBaseline(
-        '{"version":2,"tests":{}}\n',
-        [baseRatchet],
-        fixtureRuleSourceHashes,
-      ).failures,
+      parseLintRatchetBaseline('{"version":2,"tests":{}}\n', [baseRatchet], fixtureRuleSourceHashes)
+        .failures,
     ).toContain("version must be 1");
     expect(
-      parseLintRatchetBaseline(
-        '{"version":1}\n',
-        [baseRatchet],
-        fixtureRuleSourceHashes,
-      ).failures,
+      parseLintRatchetBaseline('{"version":1}\n', [baseRatchet], fixtureRuleSourceHashes).failures,
     ).toContain("tests must be an object");
     expect(
       parseLintRatchetBaseline(
@@ -866,43 +927,46 @@ describe("lint ratchet baseline parsing", () => {
         [baseRatchet],
         fixtureRuleSourceHashes,
       ).failures,
-    ).toContain("ratchet/local-type-assertion-boundary.items.packages/a.ts.count must be a non-negative integer");
+    ).toContain(
+      "ratchet/local-type-assertion-boundary.items.packages/a.ts.count must be a non-negative integer",
+    );
 
     const rendered = formatLintRatchetBaseline(oneTestBaseline([])).trimEnd();
-    expect(parseLintRatchetBaseline(rendered, [baseRatchet], fixtureRuleSourceHashes).failures).toContain(
-      "baseline JSON is not deterministic; run bun run lint:ratchet:update",
-    );
+    expect(
+      parseLintRatchetBaseline(rendered, [baseRatchet], fixtureRuleSourceHashes).failures,
+    ).toContain("baseline JSON is not deterministic; run bun run lint:ratchet:update");
   });
 
   it("requires effective-line-count items to carry lines in strict parse", () => {
     const path = "packages/server/src/large.ts";
     const rendered = formatLintRatchetBaseline(maxLinesBaseline(path, 320));
     expect(
-      parseLintRatchetBaseline(
-        rendered,
-        [maxLinesRatchet],
-        fixtureRuleSourceHashes,
-      ).failures,
+      parseLintRatchetBaseline(rendered, [maxLinesRatchet], fixtureRuleSourceHashes).failures,
     ).toEqual([]);
 
     const countOnly = rendered.replace(/,\n\s+"lines": 320/u, "");
     expect(
-      parseLintRatchetBaseline(
-        countOnly,
-        [maxLinesRatchet],
-        fixtureRuleSourceHashes,
-      ).failures,
+      parseLintRatchetBaseline(countOnly, [maxLinesRatchet], fixtureRuleSourceHashes).failures,
     ).toContain(`${maxLinesRatchet.id}.items.${path}.lines is required for effective-line-count`);
     expect(parseLintRatchetBaselineStructure(countOnly).failures).toEqual([]);
   });
 
   it("requires complexity-severity items to carry maxComplexity and perFunction in strict parse", () => {
     const path = "packages/server/src/branchy.ts";
-    const rendered = formatLintRatchetBaseline(complexityBaseline(path, [complexityFunction(12, "Function 'choose'", 12)]));
-    expect(parseLintRatchetBaseline(rendered, [complexityRatchet], fixtureRuleSourceHashes).failures).toEqual([]);
+    const rendered = formatLintRatchetBaseline(
+      complexityBaseline(path, [complexityFunction(12, "Function 'choose'", 12)]),
+    );
+    expect(
+      parseLintRatchetBaseline(rendered, [complexityRatchet], fixtureRuleSourceHashes).failures,
+    ).toEqual([]);
 
-    const countOnly = rendered.replace(/,\n\s+"maxComplexity": 12,\n\s+"perFunction": \[(?:[^\n]*\n)*?[ \t]+\]/u, "");
-    expect(parseLintRatchetBaseline(countOnly, [complexityRatchet], fixtureRuleSourceHashes).failures).toEqual([
+    const countOnly = rendered.replace(
+      /,\n\s+"maxComplexity": 12,\n\s+"perFunction": \[(?:[^\n]*\n)*?[ \t]+\]/u,
+      "",
+    );
+    expect(
+      parseLintRatchetBaseline(countOnly, [complexityRatchet], fixtureRuleSourceHashes).failures,
+    ).toEqual([
       `${complexityRatchet.id}.items.${path}.maxComplexity is required for complexity-severity`,
       `${complexityRatchet.id}.items.${path}.perFunction is required for complexity-severity`,
     ]);
@@ -1047,6 +1111,68 @@ describe("lint ratchet update decisions", () => {
     ]);
   });
 
+  it("warns when a previously clean ratchet gains findings", () => {
+    const committed = oneTestBaseline([]);
+    const generated = oneTestBaseline([
+      ["packages/server/src/a.ts", 1],
+      ["packages/server/src/b.ts", 2],
+    ]);
+
+    const refused = decideLintRatchetUpdate(committed, generated, [baseRatchet], {
+      allowWorse: false,
+    });
+    expect(refused.allowed).toBe(false);
+    expect(refused.warnings).toHaveLength(1);
+    expect(refused.warnings[0]).toContain("previously clean ratchet");
+    expect(refused.warnings[0]).toContain(baseRatchet.id);
+    expect(refused.warnings[0]).toContain(baseRatchet.ruleId);
+    expect(refused.warnings[0]).toContain("2 path(s)");
+    expect(refused.warnings[0]).toContain("packages/server/src/a.ts: 1");
+    expect(refused.warnings[0]).toContain("packages/server/src/b.ts: 2");
+
+    const accepted = decideLintRatchetUpdate(committed, generated, [baseRatchet], {
+      allowWorse: true,
+      reason: "intentional new boundary",
+    });
+    expect(accepted.allowed).toBe(true);
+    expect(accepted.warnings).toHaveLength(1);
+    expect(accepted.warnings[0]).toContain("previously clean ratchet");
+  });
+
+  it("does not warn when a non-empty ratchet gains more findings", () => {
+    const committed = oneTestBaseline([["packages/server/src/a.ts", 1]]);
+    const generated = oneTestBaseline([
+      ["packages/server/src/a.ts", 1],
+      ["packages/server/src/b.ts", 1],
+    ]);
+
+    const decision = decideLintRatchetUpdate(committed, generated, [baseRatchet], {
+      allowWorse: true,
+      reason: "already had findings",
+    });
+    expect(decision.warnings).toHaveLength(0);
+  });
+
+  it("formats zero-to-nonzero warnings with ratchet id, rule id, and paths", () => {
+    const warnings = formatZeroToNonzeroWarnings([
+      {
+        testId: "ratchet/test-boundary",
+        ruleId: "local/type-assertion-boundary",
+        newPaths: [
+          { path: "packages/server/src/a.ts", count: 1 },
+          { path: "packages/server/src/b.ts", count: 2 },
+        ],
+      },
+    ]);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain("ratchet/test-boundary");
+    expect(warnings[0]).toContain("local/type-assertion-boundary");
+    expect(warnings[0]).toContain("2 path(s)");
+    expect(warnings[0]).toContain("packages/server/src/a.ts: 1");
+    expect(warnings[0]).toContain("packages/server/src/b.ts: 2");
+    expect(warnings[0]).toContain("Inspect these paths before committing");
+  });
+
   it("fails check-baseline when current findings improve", () => {
     const comparison = {
       regressions: [],
@@ -1082,9 +1208,11 @@ describe("lint ratchet update decisions", () => {
       ],
     } satisfies LintRatchetComparison;
 
-    expect(thrownMessage(() => {
-      assertCheckBaselineComparisonClean(comparison);
-    })).toBe(
+    expect(
+      thrownMessage(() => {
+        assertCheckBaselineComparisonClean(comparison);
+      }),
+    ).toBe(
       "current findings are better than lint-ratchet.baseline.json for 3 path(s): " +
         "ratchet/local-type-assertion-boundary packages/server/src/a.ts: finding count decreased from 2 to 1; " +
         "ratchet/local-max-lines-fixture packages/server/src/large.ts: effective lines decreased from 320 to 319; " +
@@ -1117,9 +1245,11 @@ describe("lint ratchet update decisions", () => {
       ],
     } satisfies LintRatchetComparison;
 
-    expect(thrownMessage(() => {
-      assertCheckBaselineComparisonClean(comparison);
-    })).toBe(
+    expect(
+      thrownMessage(() => {
+        assertCheckBaselineComparisonClean(comparison);
+      }),
+    ).toBe(
       "current findings are worse than lint-ratchet.baseline.json for 1 path(s): " +
         "ratchet/fixture-core packages/server/src/regressed.ts: finding count increased from 1 to 2; " +
         "current findings are better than lint-ratchet.baseline.json for 1 path(s): " +
@@ -1141,8 +1271,7 @@ describe("lint ratchet structural parsing", () => {
       "sha256:stale",
     );
     expect(
-      parseLintRatchetBaseline(staleConfigHash, [baseRatchet], fixtureRuleSourceHashes)
-        .failures,
+      parseLintRatchetBaseline(staleConfigHash, [baseRatchet], fixtureRuleSourceHashes).failures,
     ).toContain("ratchet/local-type-assertion-boundary.configHash is stale");
     const structuralStale = parseLintRatchetBaselineStructure(staleConfigHash);
     expect(structuralStale.failures).toEqual([]);
@@ -1158,22 +1287,20 @@ describe("lint ratchet structural parsing", () => {
       baseRatchet.id,
       "ratchet/old-removed-rule",
     );
-    expect(parseLintRatchetBaseline(rendered, [baseRatchet], fixtureRuleSourceHashes).failures).toContain(
-      "ratchet/old-removed-rule: baseline has no matching ratchet registry entry",
-    );
+    expect(
+      parseLintRatchetBaseline(rendered, [baseRatchet], fixtureRuleSourceHashes).failures,
+    ).toContain("ratchet/old-removed-rule: baseline has no matching ratchet registry entry");
     const structural = parseLintRatchetBaselineStructure(rendered);
     expect(structural.failures).toEqual([]);
-    expect(Object.keys(structural.baseline?.tests ?? {})).toEqual([
-      "ratchet/old-removed-rule",
-    ]);
+    expect(Object.keys(structural.baseline?.tests ?? {})).toEqual(["ratchet/old-removed-rule"]);
   });
 
   it("accepts a non-deterministic but well-formed JSON layout so update can re-emit canonical text", () => {
     const baseline = oneTestBaseline([]);
     const rendered = formatLintRatchetBaseline(baseline).trimEnd();
-    expect(parseLintRatchetBaseline(rendered, [baseRatchet], fixtureRuleSourceHashes).failures).toContain(
-      "baseline JSON is not deterministic; run bun run lint:ratchet:update",
-    );
+    expect(
+      parseLintRatchetBaseline(rendered, [baseRatchet], fixtureRuleSourceHashes).failures,
+    ).toContain("baseline JSON is not deterministic; run bun run lint:ratchet:update");
     expect(parseLintRatchetBaselineStructure(rendered).failures).toEqual([]);
   });
 
@@ -1193,9 +1320,7 @@ describe("lint ratchet structural parsing", () => {
     const bad = parseLintRatchetBaselineStructure(
       '{"version":1,"tests":{"ratchet/local-type-assertion-boundary":{"ruleId":"local/type-assertion-boundary","mode":"no-new","target":0,"metric":"line-count","files":["packages/**/*.ts"],"ignores":[],"ruleOptions":[],"configHash":"sha256:x","items":{}}}}\n',
     );
-    expect(bad.failures).toContain(
-      "ratchet/local-type-assertion-boundary.metric is unknown",
-    );
+    expect(bad.failures).toContain("ratchet/local-type-assertion-boundary.metric is unknown");
   });
 });
 
@@ -1222,9 +1347,7 @@ describe("lint ratchet update mode with stale committed baseline", () => {
     );
     expect(refused.allowed).toBe(false);
     expect(refused.failures.some((f) => f.includes("ratchet/old-removed-rule"))).toBe(true);
-    expect(
-      refused.failures.some((f) => f.includes("rename or removal")),
-    ).toBe(true);
+    expect(refused.failures.some((f) => f.includes("rename or removal"))).toBe(true);
 
     const accepted = decideLintRatchetUpdate(
       structural.baseline ?? generated,
@@ -1284,7 +1407,10 @@ describe("lint ratchet update mode with stale committed baseline", () => {
   it("allows complexity-severity structural count-only migration while still rejecting worse counts", () => {
     const path = "packages/server/src/branchy.ts";
     const committed = complexityBaseline(path, [complexityFunction(12, "Function 'choose'", 12)]);
-    const countOnly = formatLintRatchetBaseline(committed).replace(/,\n\s+"maxComplexity": 12,\n\s+"perFunction": \[(?:[^\n]*\n)*?[ \t]+\]/u, "");
+    const countOnly = formatLintRatchetBaseline(committed).replace(
+      /,\n\s+"maxComplexity": 12,\n\s+"perFunction": \[(?:[^\n]*\n)*?[ \t]+\]/u,
+      "",
+    );
     const structural = parseLintRatchetBaselineStructure(countOnly);
     expect(structural.failures).toEqual([]);
     expect(structural.baseline?.tests[complexityRatchet.id]?.items[path]).toEqual({ count: 1 });
@@ -1321,14 +1447,16 @@ describe("lint ratchet rule source hash binding", () => {
     const parsed = parseLintRatchetBaseline(rendered, [baseRatchet], driftedHashes);
     expect(parsed.baseline).toBeUndefined();
     expect(parsed.failures).toContain(
-      "ratchet/local-type-assertion-boundary.ruleSourceHash is stale",
+      'ratchet/local-type-assertion-boundary.ruleSourceHash is stale (run "bun run lint:ratchet:update" to regenerate)',
     );
   });
 
   it("requires ruleSourceHash to be present in the committed baseline", () => {
     const baseline = oneTestBaseline([]);
-    const renderedWithoutRuleSourceHash = formatLintRatchetBaseline(baseline)
-      .replace(/^\s*"ruleSourceHash": "[^"]+",\n/mu, "");
+    const renderedWithoutRuleSourceHash = formatLintRatchetBaseline(baseline).replace(
+      /^\s*"ruleSourceHash": "[^"]+",\n/mu,
+      "",
+    );
     const parsed = parseLintRatchetBaseline(
       renderedWithoutRuleSourceHash,
       [baseRatchet],
@@ -1346,9 +1474,7 @@ describe("lint ratchet rule source hash binding", () => {
     expect(rendered).toContain(`"ruleSourceHash": "${FIXTURE_RULE_SOURCE_HASH}"`);
     const parsed = parseLintRatchetBaseline(rendered, [baseRatchet], fixtureRuleSourceHashes);
     expect(parsed.failures).toEqual([]);
-    expect(parsed.baseline?.tests[baseRatchet.id]?.ruleSourceHash).toBe(
-      FIXTURE_RULE_SOURCE_HASH,
-    );
+    expect(parsed.baseline?.tests[baseRatchet.id]?.ruleSourceHash).toBe(FIXTURE_RULE_SOURCE_HASH);
   });
 
   it("structural parse accepts a baseline missing ruleSourceHash so update can fill it in", () => {
@@ -1364,11 +1490,7 @@ describe("lint ratchet rule source hash binding", () => {
 
   it("buildLintRatchetBaseline throws when a ratchet has no rule source hash", () => {
     expect(() =>
-      buildLintRatchetBaseline(
-        [baseRatchet],
-        current([[baseRatchet.id, []]]),
-        new Map(),
-      ),
+      buildLintRatchetBaseline([baseRatchet], current([[baseRatchet.id, []]]), new Map()),
     ).toThrow(/missing rule source hash/u);
   });
 });
@@ -1376,10 +1498,7 @@ describe("lint ratchet rule source hash binding", () => {
 describe("lint ratchet registry validation", () => {
   it("accepts the valid fixture registry and hashes normalized config deterministically", () => {
     expect(
-      validateLintRatchetRegistry(
-        [baseRatchet],
-        new Set(["local/type-assertion-boundary"]),
-      ),
+      validateLintRatchetRegistry([baseRatchet], new Set(["local/type-assertion-boundary"])),
     ).toEqual([]);
 
     const sameConfigDifferentOptionKeyOrder: LintRatchetConfig = {
@@ -1484,14 +1603,11 @@ describe("lint ratchet registry validation", () => {
         thirdPartyPlugins: [],
       }),
     ).toEqual([]);
-    expect(
-      computeLintRatchetConfigHash(typeAwareCoreRatchet),
-    ).not.toBe(computeLintRatchetConfigHash(coreRatchet));
-
-    const ruleSourceHash = computeCoreLintRatchetRuleSourceHash(
-      coreRatchet,
-      "9.0.0",
+    expect(computeLintRatchetConfigHash(typeAwareCoreRatchet)).not.toBe(
+      computeLintRatchetConfigHash(coreRatchet),
     );
+
+    const ruleSourceHash = computeCoreLintRatchetRuleSourceHash(coreRatchet, "9.0.0");
     const baseline = buildLintRatchetBaseline(
       [coreRatchet],
       current([[coreRatchet.id, [["packages/shared/src/core.ts", 1]]]]),
@@ -1506,8 +1622,7 @@ describe("lint ratchet registry validation", () => {
   });
 
   it("rejects core sources with slashed or non-bare rule ids", () => {
-    const bareIdError =
-      "core ruleId must be a bare ESLint built-in id (no slash)";
+    const bareIdError = "core ruleId must be a bare ESLint built-in id (no slash)";
     expect(
       validateLintRatchetRegistry([
         {

@@ -169,10 +169,7 @@ function runDuplicateScopes(
   return findings;
 }
 
-function buildFindingsForScope(
-  scope: DuplicateScope,
-  result: JscpdRunnerResult,
-): DriftFinding[] {
+function buildFindingsForScope(scope: DuplicateScope, result: JscpdRunnerResult): DriftFinding[] {
   if (!result.ok) return [buildRunnerFailureFinding(scope.scopePath, result.error)];
   const parsed = parseDuplicatesReport(result.reportJson);
   if (!parsed.ok) return [buildUnreadableReportFinding(scope.scopePath, parsed.error)];
@@ -205,10 +202,7 @@ function toPosix(filePath: string): string {
   return normalizeRepoPath(filePath);
 }
 
-function isSourceLike(
-  filePath: string,
-  supportedExtensions: ReadonlySet<string>,
-): boolean {
+function isSourceLike(filePath: string, supportedExtensions: ReadonlySet<string>): boolean {
   return supportedExtensions.has(path.posix.extname(toPosix(filePath)).toLowerCase());
 }
 
@@ -294,8 +288,7 @@ function rootsNormalizeToRepoRoot(roots: readonly string[]): boolean {
 function sortDuplicateFindings(findings: readonly DriftFinding[]): DriftFinding[] {
   return [...findings].sort(
     (left, right) =>
-      left.file.localeCompare(right.file, "en") ||
-      left.message.localeCompare(right.message, "en"),
+      left.file.localeCompare(right.file, "en") || left.message.localeCompare(right.message, "en"),
   );
 }
 

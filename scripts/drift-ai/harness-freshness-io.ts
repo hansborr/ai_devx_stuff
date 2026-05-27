@@ -75,7 +75,10 @@ export function defaultPathExists(repoRoot: string): PathExists {
   };
 }
 
-export function defaultPathIgnored(repoRoot: string, candidatePaths: readonly string[]): PathIgnored {
+export function defaultPathIgnored(
+  repoRoot: string,
+  candidatePaths: readonly string[],
+): PathIgnored {
   const root = path.resolve(repoRoot);
   const candidates = [...new Set(candidatePaths)].sort(compareStrings);
   if (candidates.length === 0) return () => false;
@@ -90,10 +93,7 @@ export function defaultPathIgnored(repoRoot: string, candidatePaths: readonly st
   if (result.status !== 0 && result.status !== 1) {
     const detail = result.stderr.trim();
     throw new Error(
-      [
-        "harness-freshness git check-ignore failed",
-        detail.length === 0 ? undefined : detail,
-      ]
+      ["harness-freshness git check-ignore failed", detail.length === 0 ? undefined : detail]
         .filter((line) => line !== undefined)
         .join(": "),
     );

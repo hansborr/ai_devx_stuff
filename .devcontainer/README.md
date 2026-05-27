@@ -198,6 +198,46 @@ application at runtime.
 
 ---
 
+## External lint tools
+
+The lint reference checks use a small surface of tools that are intentionally split
+between system binaries and npm-pinned wrappers.
+
+### System tools
+
+`shellcheck` and `yamllint` are baked into the devcontainer base image and must be
+available on `PATH`. The current base image provides `shellcheck` at
+`/usr/bin/shellcheck` and `yamllint` at `/usr/local/bin/yamllint`.
+
+CI installs these same tools with `apt`, so they are treated as environment
+prerequisites rather than project dependencies. `bun run doctor` reports the
+resolved binary paths and versions so missing or mismatched local environments are
+visible before commit or CI.
+
+### npm-pinned tools
+
+`actionlint`, `taplo`, and `hadolint` are installed by `bun install` from pinned
+package.json dependencies:
+
+- `@tktco/node-actionlint`
+- `@taplo/cli`
+- `hadolint`
+
+These do not need separate system installation inside the devcontainer.
+
+### Checking the tool surface
+
+Run the full environment check from the workspace root:
+
+```bash
+bun run doctor
+```
+
+The doctor output reports the lint tool surface, including the system binary paths
+and versions for `shellcheck` and `yamllint`.
+
+---
+
 ## Reusing this setup in another project
 
 The Podman and persistence fixes are not project-specific. To apply them elsewhere:

@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 
 import { trackedFilesFromGit } from "./lint-ratchet/git-tracked-files.js";
 import { BASELINE_FILENAME, baselinePath, repoRoot } from "./lint-ratchet/paths.js";
@@ -15,6 +16,7 @@ import {
 } from "./lint-ratchet-config.js";
 import { ConfigError } from "./lint-ratchet-metrics.js";
 import { formatRuleDocsFailures, loadLintRuleDocs } from "./lint-rule-docs.js";
+import { formatMissingRatchetManifestMessage } from "./ratchet-manifest-message.js";
 
 const WINDOWS_ABSOLUTE_PATH_PATTERN = /^[A-Z]:[\\/]/iu;
 
@@ -25,7 +27,8 @@ export type RegistryCheckFailureKind =
   | "orphan-baseline"
   | "missing-local-rule"
   | "missing-paired-guide"
-  | "missing-third-party";
+  | "missing-third-party"
+  | "missing-harness-ratchet";
 
 export interface RegistryCheckFailure {
   readonly kind: RegistryCheckFailureKind;
@@ -44,6 +47,13 @@ export interface CheckLintRatchetRegistryOptions {
   readonly trackedFiles: readonly string[];
   readonly baselineText?: string;
   readonly baselineLabel?: string;
+  readonly harnessManifestRatchetIds?: ReadonlySet<string>;
+}
+
+const harnessManifestPath = join(repoRoot, "harness.controls.json");
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }
 
 function registryShapeFailures(
@@ -79,6 +89,19 @@ function absolutePathFailures(
     }
   }
   return failures;
+}
+
+function missingHarnessRatchetFailures(
+  ratchets: readonly LintRatchetConfig[],
+  manifestRatchetIds: ReadonlySet<string> | undefined,
+): readonly RegistryCheckFailure[] {
+  if (manifestRatchetIds === undefined) return [];
+  return ratchets
+    .filter((ratchet) => !manifestRatchetIds.has(ratchet.id))
+    .map((ratchet) => ({
+      kind: "missing-harness-ratchet" as const,
+      message: formatMissingRatchetManifestMessage(ratchet.id),
+    }));
 }
 
 function emptyGlobFailures(
@@ -134,6 +157,7 @@ export function checkLintRatchetRegistry(
     ...absolutePathFailures(options.ratchets),
     ...emptyGlobFailures(options.ratchets, options.trackedFiles),
     ...orphanBaselineFailures(options),
+    ...missingHarnessRatchetFailures(options.ratchets, options.harnessManifestRatchetIds),
   ]);
   return { ok: failures.length === 0, failures };
 }
@@ -146,6 +170,21 @@ async function loadRuleDocsById(): Promise<ReadonlyMap<string, string>> {
 
 function baselineTextIfPresent(): string | undefined {
   return existsSync(baselinePath) ? readFileSync(baselinePath, "utf8") : undefined;
+}
+
+function harnessManifestRatchetIdsIfPresent(): ReadonlySet<string> | undefined {
+  if (!existsSync(harnessManifestPath)) return undefined;
+  const parsed: unknown = JSON.parse(readFileSync(harnessManifestPath, "utf8"));
+  if (!isObject(parsed) || !Array.isArray(parsed.controls)) {
+    throw new ConfigError("harness.controls.json must declare a controls array");
+  }
+  const ratchetIds = new Set<string>();
+  for (const entry of parsed.controls) {
+    if (isObject(entry) && entry.kind === "ratchet" && typeof entry.id === "string") {
+      ratchetIds.add(entry.id);
+    }
+  }
+  return ratchetIds;
 }
 
 function writeResult(result: RegistryCheckResult, ratchetCount: number): void {
@@ -176,6 +215,7 @@ async function checkCurrentLintRatchetRegistry(): Promise<RegistryCheckResult> {
     trackedFiles: trackedFilesFromGit("checking lint ratchet globs"),
     baselineText: baselineTextIfPresent(),
     baselineLabel: BASELINE_FILENAME,
+    harnessManifestRatchetIds: harnessManifestRatchetIdsIfPresent(),
   });
 }
 

@@ -6,8 +6,6 @@ Persistent working notes for context future agents cannot quickly recover from c
 
 ```text
 agent_notes/
-├── STATUS.md
-├── NEXT.md
 ├── LOG.md
 ├── DECISIONS.md         # index for decisions-*.md domain files
 ├── decisions-*.md       # per-domain ADR-lite entries
@@ -20,17 +18,13 @@ agent_notes/
 
 ## Use It This Way
 
-- Read `STATUS.md`, then `NEXT.md`, at session start. Everything else is on demand.
-- `STATUS.md` is the snapshot, `NEXT.md` is the active leaf queue, `LOG.md`
-  is curated recent history, and `backlog/` holds parked workstreams. Do not
-  turn one file into all four.
+- Everything under `agent_notes/` is on-demand. `LOG.md` is curated recent
+  history, and `backlog/` holds parked workstreams.
 - Open `DECISIONS.md` only when the task is about to change a cross-cutting pattern.
 - Keep `backlog/` out of normal session-start reads. Promote an item back into `in_progress/` only when it becomes active again.
 - `finished_work/` is pruned by default. Add a note there only when the
   details cannot be recovered from code, tests, commits, `LOG.md`, or
   `DECISIONS.md`.
-- Keep hot-path docs short. Hook adapters nudge when `STATUS.md`, `NEXT.md`,
-  tool wrappers, or active notes grow too large.
 
 ## When To Create `in_progress/<task>.md`
 
@@ -66,8 +60,7 @@ Date: YYYY-MM-DD
 ```
 
 When work lands, fold durable history into `LOG.md`, `DECISIONS.md`, or a
-small `finished_work/` note, then refresh `STATUS.md` / `NEXT.md` if the
-snapshot changed.
+small `finished_work/` note.
 
 ## Backlog
 
@@ -80,8 +73,7 @@ Use `backlog/` for work that still matters but should not be visible in the defa
 When promoting backlog work:
 
 1. Move the note or folder back into `in_progress/`.
-2. Add one line to `STATUS.md`.
-3. Add only the ready-now leaf slice to `NEXT.md`.
+2. Add one line to `LOG.md` if context is needed.
 
 ## Naming
 

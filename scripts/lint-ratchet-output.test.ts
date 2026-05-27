@@ -54,6 +54,7 @@ const runtimeFiles = [
   "scripts/lint-ratchet-summary.ts",
   "scripts/lint-ratchet-zero-baseline.ts",
   "scripts/lint-rule-docs.ts",
+  "scripts/ratchet-manifest-message.ts",
   "packages/shared/src/schemas/harness-diagnostics.ts",
 ] as const;
 

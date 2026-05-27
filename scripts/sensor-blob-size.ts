@@ -153,7 +153,9 @@ function parseArgs(argv: readonly string[]): BlobSizeCliOptions {
   }
 
   if (thresholdBlock < thresholdWarn) {
-    throw new BlobSizeCliError("--threshold-block must be greater than or equal to --threshold-warn.");
+    throw new BlobSizeCliError(
+      "--threshold-block must be greater than or equal to --threshold-warn.",
+    );
   }
 
   return { mode, thresholdWarn, thresholdBlock, allowlistPath };

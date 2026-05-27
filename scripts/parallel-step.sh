@@ -1,8 +1,13 @@
 #!/bin/bash
-# parallel-step.sh — shared parallel step runner for pre-commit and verify.sh.
+# Verify/pre-commit parallel step launcher.
 #
-# Callers must set: LOG_DIR, META_DIR (directories for logs and step metadata).
-# Sets: STEP_PID (PID of the backgrounded subshell).
+# Called by scripts/verify.sh and .husky/pre-commit. Callers set LOG_DIR and
+# META_DIR. Starts one labeled command in the background, captures stdout/stderr
+# to $LOG_DIR/<step>.log, writes per-step metadata, scrubs Git-hook env from the
+# child, and exposes STEP_PID. Keep separate from scripts/parallel-runner.sh:
+# callers own waiting, summaries, process-tree cleanup, and wrapper metadata;
+# this helper does not stream FIFO-prefixed output, install traps, or aggregate
+# exits into MUSI_PARALLEL_EXIT.
 
 musi_run_parallel_step() {
   local meta_mode="$1" label="$2" name="$3"; shift 3

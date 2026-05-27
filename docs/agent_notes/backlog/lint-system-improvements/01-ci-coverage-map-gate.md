@@ -1,6 +1,6 @@
 # CI Coverage-Map Gate
 
-Status: Parked
+Status: Done
 Order: 1
 
 ## Context
@@ -34,6 +34,9 @@ is documentation-focused. This task is CI enforcement.
 
 CI rejects stale lint coverage-map rows, unknown ratchet ids, and ESLint reach
 gaps with the same full-tree check available locally.
+
+Done 2026-05-26: `.github/workflows/ci.yml` validate now runs
+`bun run docs:lint-coverage-map:check` after the lint-ratchet gates.
 
 ## Verification
 

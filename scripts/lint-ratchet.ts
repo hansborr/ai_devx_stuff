@@ -6,16 +6,16 @@ import { WorseBaselineError } from "./lint-ratchet/errors.js";
 import { runLintRatchetCli } from "./lint-ratchet/modes.js";
 import { ConfigError } from "./lint-ratchet-metrics.js";
 
-export {
-  assertCheckBaselineComparisonClean,
-  buildEnvelope,
-} from "./lint-ratchet/diagnostics.js";
+export { assertCheckBaselineComparisonClean, buildEnvelope } from "./lint-ratchet/diagnostics.js";
 
 async function main(): Promise<void> {
   await runLintRatchetCli(parseArgs(process.argv.slice(PROCESS_ARG_OFFSET)));
 }
 
-if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+if (
+  process.argv[1] !== undefined &&
+  import.meta.url === pathToFileURL(resolve(process.argv[1])).href
+) {
   try {
     await main();
   } catch (error) {

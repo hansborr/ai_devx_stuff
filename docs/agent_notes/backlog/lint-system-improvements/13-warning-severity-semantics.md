@@ -1,6 +1,6 @@
 # Warning Severity Semantics
 
-Status: Parked
+Status: Done
 Order: 13
 
 ## Context

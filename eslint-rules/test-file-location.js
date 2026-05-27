@@ -41,8 +41,7 @@ export default {
 
   create(context) {
     const filename = context.filename;
-    const isTestFile =
-      UNIT_TEST_FILE_PATTERN.test(filename) && !E2E_SEGMENT_PATTERN.test(filename);
+    const isTestFile = UNIT_TEST_FILE_PATTERN.test(filename) && !E2E_SEGMENT_PATTERN.test(filename);
 
     if (!isTestFile) {
       return {};

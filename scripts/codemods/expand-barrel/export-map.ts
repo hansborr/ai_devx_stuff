@@ -12,12 +12,7 @@ import {
   exportedNameOfSpecifier,
 } from "./export-bindings.js";
 import { resolveExportModulePath } from "./paths.js";
-import type {
-  BarrelContext,
-  DirectExportBinding,
-  ExportBinding,
-  ExportMap,
-} from "./types.js";
+import type { BarrelContext, DirectExportBinding, ExportBinding, ExportMap } from "./types.js";
 
 type NamedExportSpecifiers = ReturnType<
   ReturnType<SourceFile["getExportDeclarations"]>[number]["getNamedExports"]
@@ -191,7 +186,13 @@ function reExportedBinding(
     if (namespaceExport?.getName() === symbolName) {
       return { kind: "namespace", sourcePath: targetPath };
     }
-    const namedBinding = namedReExportedBinding(project, targetPath, symbolName, nextSeen, namedExports);
+    const namedBinding = namedReExportedBinding(
+      project,
+      targetPath,
+      symbolName,
+      nextSeen,
+      namedExports,
+    );
     if (namedBinding) return namedBinding;
     if (namedExports.length === 0) {
       const binding = collectExportMap(project, targetPath, new Set()).get(symbolName);

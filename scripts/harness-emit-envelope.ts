@@ -44,10 +44,7 @@ function requireToolValue(raw: string | undefined, source: "--tool" | "--tool=")
   return raw;
 }
 
-function requireOutputValue(
-  raw: string | undefined,
-  source: "--output" | "--output=",
-): string {
+function requireOutputValue(raw: string | undefined, source: "--output" | "--output="): string {
   if (raw === undefined || raw === "") {
     const value = source === "--output=" ? "a non-empty path" : "a path argument";
     throw new UsageError(`${source} requires ${value}`);
@@ -99,7 +96,8 @@ async function readStdin(): Promise<string> {
   const chunks: Buffer[] = [];
   for await (const chunk of process.stdin) {
     // type-assertion-boundary: framework - process.stdin yields any
-    const buf: Buffer = typeof chunk === "string" ? Buffer.from(chunk) : Buffer.from(chunk as Uint8Array);
+    const buf: Buffer =
+      typeof chunk === "string" ? Buffer.from(chunk) : Buffer.from(chunk as Uint8Array);
     chunks.push(buf);
   }
   return Buffer.concat(chunks).toString("utf8");
@@ -117,14 +115,14 @@ function parseFindings(text: string): readonly HarnessFinding[] {
       parsed = JSON.parse(line);
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
-      throw new Error(`stdin line ${String(lineNumber)} is not valid JSON: ${reason}`, { cause: error });
+      throw new Error(`stdin line ${String(lineNumber)} is not valid JSON: ${reason}`, {
+        cause: error,
+      });
     }
     const result = harnessFindingSchema.safeParse(parsed);
     if (!result.success) {
       const issues = JSON.stringify(result.error.issues, null, JSON_INDENT_SPACES);
-      throw new Error(
-        `stdin line ${String(lineNumber)} failed harnessFindingSchema:\n${issues}`,
-      );
+      throw new Error(`stdin line ${String(lineNumber)} failed harnessFindingSchema:\n${issues}`);
     }
     findings.push(result.data);
   }

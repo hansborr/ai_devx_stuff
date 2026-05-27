@@ -7,7 +7,11 @@ import { SyntaxKind, type SourceFile } from "ts-morph";
 import { propertyCallMethod } from "./trpc-shared-schema-candidates.js";
 import { isReferenceIdentifier } from "./trpc-shared-schema-identifiers.js";
 import { ensureNamedImport, sortImportBlocks } from "./trpc-shared-schema-imports.js";
-import { fail, type SharedSchemaCodemodCandidate, type WritePlan } from "./trpc-shared-schema-types.js";
+import {
+  fail,
+  type SharedSchemaCodemodCandidate,
+  type WritePlan,
+} from "./trpc-shared-schema-types.js";
 
 export function appendSharedSchemaExports<TCandidate extends SharedSchemaCodemodCandidate>(
   targetFile: SourceFile,

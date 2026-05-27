@@ -66,6 +66,12 @@ Do **not** read this folder at session start. Promote an item back into
   `lint-reference-readiness-roadmap.md` path is a compatibility pointer; use
   the folder index instead of the removed `lint-ratchet-sharing/` backlog
   folder. The canonical adopter guide is `docs/guides/lint-ratchet.md`.
+- `lint-system-improvements/00-index.md` — split task index migrated from the
+  2026-05-26 lint-system review synthesis preserved by commit `a0975f3a`. This
+  is a later lint-platform refinement queue covering CI/local parity, duplicate
+  gate wiring, generated policy ownership, hook/tool portability, severity
+  docs, and measured architecture spikes. Check overlap with
+  `lint-reference-readiness/` before promoting.
 - `agent-hook-git-safety.md` — implemented source plan for the shared
   agent-hook policy blocks on history rewrites, force pushes, force
   branch/tag deletion, dangerous `gh` mutations, and raw `grep` (context

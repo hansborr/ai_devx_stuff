@@ -139,7 +139,10 @@ function isInputCallArgument(identifier: Node, inputCall: CallExpression): boole
   return identifier === inputCall.getArguments()[0];
 }
 
-export function assertConstSchemaIsOnlyInputReference(candidate: Candidate, sourceFile: SourceFile): void {
+export function assertConstSchemaIsOnlyInputReference(
+  candidate: Candidate,
+  sourceFile: SourceFile,
+): void {
   if (!candidate.constStatement) return;
   for (const identifier of sourceFile.getDescendantsOfKind(SyntaxKind.Identifier)) {
     if (identifier.getText() !== candidate.schemaName) continue;

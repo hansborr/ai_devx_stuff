@@ -10,18 +10,9 @@ import { existsSync } from "node:fs";
 import { isAbsolute, join, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-export const RULE_DOC_CATEGORIES = [
-  "maintainability",
-  "architecture-fitness",
-  "behavior",
-] as const;
+export const RULE_DOC_CATEGORIES = ["maintainability", "architecture-fitness", "behavior"] as const;
 
-export const RULE_DOC_REPAIR_KINDS = [
-  "autofix",
-  "suggestion",
-  "codemod",
-  "manual",
-] as const;
+export const RULE_DOC_REPAIR_KINDS = ["autofix", "suggestion", "codemod", "manual"] as const;
 
 export type RuleDocCategory = (typeof RULE_DOC_CATEGORIES)[number];
 export type RuleDocRepairKind = (typeof RULE_DOC_REPAIR_KINDS)[number];
@@ -106,10 +97,7 @@ function validateStringField(
   return "";
 }
 
-function validateCategory(
-  docs: Record<string, unknown>,
-  failures: string[],
-): RuleDocCategory {
+function validateCategory(docs: Record<string, unknown>, failures: string[]): RuleDocCategory {
   const category = docs.category;
   if (isRuleDocCategory(category)) return category;
   failures.push(`category must be one of: ${RULE_DOC_CATEGORIES.join(", ")}`);
@@ -139,10 +127,7 @@ function validatePairedGuide(
   return pairedGuide;
 }
 
-function validateRepairKind(
-  docs: Record<string, unknown>,
-  failures: string[],
-): RuleDocRepairKind {
+function validateRepairKind(docs: Record<string, unknown>, failures: string[]): RuleDocRepairKind {
   const repairKind = docs.repairKind;
   if (isRuleDocRepairKind(repairKind)) return repairKind;
   failures.push(`repairKind must be one of: ${RULE_DOC_REPAIR_KINDS.join(", ")}`);

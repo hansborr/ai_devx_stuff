@@ -123,8 +123,7 @@ function validateEnvelopeSummary(
       ctx.addIssue({
         code: "custom",
         path: ["summary", "byControl", control],
-        message:
-          `summary.byControl["${control}"] expected ${String(count)}, got ${String(envelope.summary.byControl[control])}`,
+        message: `summary.byControl["${control}"] expected ${String(count)}, got ${String(envelope.summary.byControl[control])}`,
       });
     }
   }

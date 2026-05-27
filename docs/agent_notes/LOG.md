@@ -8,6 +8,79 @@ Newest on top.
 
 ---
 
+- 2026-05-27: Lint adopter docs follow-up landed locally. The adoption and
+  reference guides now call out the runtime assumptions external adopters need:
+  Git-tracked file checks, classic `node_modules` layout, isolated generated
+  ESLint configs, simple ratchet globs, required `lint-rule-docs` stubs, and all
+  `HarnessDiagnostics` import sites. The local-rule guide now spells out the
+  closed `meta.docs` vocabulary and `ALL_LOCAL_RULES` registration step; the
+  Biome adapter guide warns that `--only` can re-enable off non-recommended
+  rules as warnings, so ratchet adapters must force/block severity deliberately.
+- 2026-05-27: Tidy hook changed-file notice landed locally. Successful
+  `scripts/ai-hooks/tidy-edited-file.sh` runs now stay silent when content is
+  already tidy, but emit one brief `tidied` line when Prettier or ESLint
+  changes a file. Smoke coverage includes Claude-style file payloads and Codex
+  `apply_patch` payloads. Details:
+  `finished_work/codex-tidy-hook-changed-message.md`.
+- 2026-05-27: ESLint entrypoint exports cleanup landed locally.
+  `scripts/drift/locator-usage.ts` now imports
+  `e2ePreferRoleSelectorAllowlist` from `eslint-config/shared-policy.js`
+  directly, and `eslint.config.js` no longer re-exports shared policy data for
+  non-ESLint tooling. Backlog task
+  `backlog/lint-system-improvements/15-eslint-entrypoint-exports.md` is marked
+  Done.
+- 2026-05-26: Linted script reinclude patterns landed locally.
+  `eslint-config/shared-policy.js` now derives
+  `lintedScriptReincludePatterns` from `lintedScriptFiles`, including the
+  flat-config directory unignores needed for recursive script globs. The only
+  extra script-tree reinclude remains `scripts/vitest.config.ts` because it is
+  linted by the TS config-file policy. Backlog task
+  `backlog/lint-system-improvements/05-derive-linted-script-reinclude-patterns.md`
+  is marked Done.
+- 2026-05-26: Lint-agent compatibility aliases retired locally. The live audit
+  found no hook, harness-control, or package-script callers of `lint:agent` /
+  `lint:agent:changed`, so `package.json` now exposes only
+  `lint:agent:local-rules` and `lint:agent:local-rules:changed`; the stable
+  harness diagnostics tool id remains `lint:agent`. Backlog task
+  `backlog/lint-system-improvements/16-lint-agent-alias-retirement.md` is
+  marked Done.
+- 2026-05-26: Warning severity semantics documented locally. Normal ESLint
+  `warn` diagnostics are editor-advisory but still gate-failing because lint
+  gates use `--max-warnings=0`; the agent local-rule envelope maps warnings to
+  non-blocking harness advisory findings and exits nonzero only for blocking
+  findings. Backlog task
+  `backlog/lint-system-improvements/13-warning-severity-semantics.md` is marked
+  Done.
+- 2026-05-26: Agent hook pinned tools landed locally. The tidy and
+  lint-coverage hooks now call `node_modules/.bin/prettier` and
+  `node_modules/.bin/eslint`, and the commit-msg hook uses
+  `node_modules/.bin/commitlint` instead of `bunx`. Backlog task
+  `backlog/lint-system-improvements/09-agent-hook-pinned-tools.md` is marked
+  Done.
+- 2026-05-26: CI coverage-map gate landed locally. The validate job now runs
+  `bun run docs:lint-coverage-map:check` after the lint-ratchet gates so CI
+  rejects stale coverage-map rows, unknown ratchet ids, and ESLint reach gaps.
+  Backlog task `backlog/lint-system-improvements/01-ci-coverage-map-gate.md`
+  is marked Done.
+- 2026-05-26: Parallel runner ownership docs landed locally.
+  `scripts/parallel-runner.sh` is documented as the live-output FIFO fanout
+  helper for lint wrappers, while `scripts/parallel-step.sh` is documented as
+  the verify/pre-commit log-and-metadata launcher. Backlog task
+  `backlog/lint-system-improvements/08-parallel-runner-unification.md` is
+  marked Done.
+- 2026-05-26: Ratchet CI pass deduplication landed locally. The validate job
+  now runs only the semantic ratchet gates, `lint:ratchet` and
+  `lint:ratchet:zero-baseline`; the standalone `check-registry` and
+  `check-baseline` scripts remain available for local/debug use. Backlog tasks
+  `backlog/lint-system-improvements/03-ratchet-ci-pass-deduplication.md` and
+  `04-verify-ratchet-ci-parity.md` are marked Done.
+- 2026-05-26: CI lint step deduplication landed locally. The validate job now
+  keeps the composite `bun run lint` step and drops the separate
+  `lint:shell` / `lint:config-sensors` workflow steps because
+  `scripts/lint.sh` already runs ShellCheck, config sensors, and ESLint through
+  the parallel lint runner. Backlog task
+  `backlog/lint-system-improvements/02-ci-lint-step-deduplication.md` is marked
+  Done.
 - 2026-05-26: Biome fast edit-loop spike completed locally. Installed
   `@biomejs/biome@2.4.15`, measured migration compatibility, latency, and
   diff churn, and recorded a narrow decision: keep ESLint authoritative; only

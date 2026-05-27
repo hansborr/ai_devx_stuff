@@ -1,5 +1,12 @@
 #!/usr/bin/env bash
-# Shared helpers for wrappers that run labeled child commands concurrently.
+# Live-output fanout runner for lint-style wrappers.
+#
+# Called by scripts/lint.sh and scripts/lint-changed.sh. Owns temporary FIFOs
+# for child stdout/stderr, prefixes streamed lines with step labels, installs
+# INT/TERM/EXIT traps, waits every child and reader, and records the aggregate
+# result in MUSI_PARALLEL_EXIT. Keep separate from scripts/parallel-step.sh:
+# this helper is for direct terminal output and internal wait/aggregation, not
+# per-step log files, metadata, or verify/pre-commit wrapper lifecycle.
 set -euo pipefail
 
 MUSI_PARALLEL_TMP_DIR=""

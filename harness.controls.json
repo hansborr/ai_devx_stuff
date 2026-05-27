@@ -289,6 +289,16 @@
       "invocation": "bun run lint:ratchet"
     },
     {
+      "id": "ratchet/local-max-lines-lint-coverage-map-check",
+      "kind": "ratchet",
+      "category": "maintainability",
+      "principle": "Prevent lint coverage-map checker max-lines debt from growing while coverage-map parsing remains consolidated.",
+      "pairedGuide": "docs/guides/lint-ratchet.md",
+      "repairKind": "manual",
+      "source": "scripts/lint-ratchet-config.ts",
+      "invocation": "bun run lint:ratchet"
+    },
+    {
       "id": "ratchet/local-max-lines-logs-audit",
       "kind": "ratchet",
       "category": "maintainability",

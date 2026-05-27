@@ -3,7 +3,10 @@ import { readFileSync } from "node:fs";
 import { dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { collectEslintReachFindings, type EslintReachChecker } from "./lint-coverage-map-check-eslint-reach.js";
+import {
+  collectEslintReachFindings,
+  type EslintReachChecker,
+} from "./lint-coverage-map-check-eslint-reach.js";
 import { lintRatchets } from "./lint-ratchet-config.js";
 
 const PATH_COLUMN = 0;
@@ -13,9 +16,17 @@ const CODE_SPAN_PATTERN = /`([^`]+)`/gu;
 const GLOB_META_PATTERN = /[*?{]/u;
 const RATCHET_ID_PATTERN = /ratchet\/[a-z0-9-]+/gu;
 const DUPLICATE_EXTENSION_PATTERN = /\.([A-Za-z0-9]+)\.\1$/u;
-const GENERATED_DIR_PATTERN = /(?:^|\/)(?:node_modules|dist|build|coverage|\.next|\.bun|\.turbo|\.cache|tmp|temp)(?:\/|$)/u;
+const GENERATED_DIR_PATTERN =
+  /(?:^|\/)(?:node_modules|dist|build|coverage|\.next|\.bun|\.turbo|\.cache|tmp|temp)(?:\/|$)/u;
 const TRACKED_EXTENSION_PATTERN = /\.(?:ts|tsx|js|mjs|cjs|json|ya?ml|toml|sh|md|prisma|sql)$/u;
-const VALID_STATUS_PARTS = new Set(["linted", "ratcheted", "proposed", "pending-leaf", "excluded", "not-code"]);
+const VALID_STATUS_PARTS = new Set([
+  "linted",
+  "ratcheted",
+  "proposed",
+  "pending-leaf",
+  "excluded",
+  "not-code",
+]);
 const ROOT_PATH_PREFIXES = new Set(["packages", "scripts", "docs", "e2e", "eslint-rules"]);
 const GLOBSTAR_WIDTH = 2;
 const GLOBSTAR_WITH_SLASH_WIDTH = 3;
@@ -36,7 +47,12 @@ interface PathPattern {
 }
 
 interface CheckFinding {
-  readonly kind: "stale-path" | "unknown-ratchet" | "invalid-status" | "unaccounted-file" | "eslint-reach-missing";
+  readonly kind:
+    | "stale-path"
+    | "unknown-ratchet"
+    | "invalid-status"
+    | "unaccounted-file"
+    | "eslint-reach-missing";
   readonly line?: number;
   readonly value: string;
 }
@@ -60,7 +76,10 @@ export interface LintCoverageMapCheckOptions {
 }
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const defaultMapPath = resolve(repoRoot, "docs/agent_notes/backlog/lint-followups/lint-coverage-map.md");
+const defaultMapPath = resolve(
+  repoRoot,
+  "docs/agent_notes/backlog/lint-followups/lint-coverage-map.md",
+);
 
 function parseRows(mapText: string): TableRow[] {
   const rows: TableRow[] = [];
@@ -105,7 +124,13 @@ function sourceIsRooted(source: string): boolean {
 }
 
 function resolvePatternSource(source: string, base: string): string {
-  if (base !== "" && !source.startsWith(".") && source !== "bunfig.toml" && (!source.includes("/") || !sourceIsRooted(source))) return `${base}/${GLOB_META_PATTERN.test(source) ? "**/" : ""}${source}`;
+  if (
+    base !== "" &&
+    !source.startsWith(".") &&
+    source !== "bunfig.toml" &&
+    (!source.includes("/") || !sourceIsRooted(source))
+  )
+    return `${base}/${GLOB_META_PATTERN.test(source) ? "**/" : ""}${source}`;
   return !source.includes("/") && GLOB_META_PATTERN.test(source) ? `**/${source}` : source;
 }
 
@@ -120,7 +145,8 @@ function extractPathPatterns(row: TableRow): PathPattern[] {
     const pattern = resolvePatternSource(source, base);
     patterns.push({ line: row.line, source, pattern, matcher: createMatcher(pattern) });
     const nextBase = stableBaseForPattern(pattern);
-    if ((!source.includes("/") || sourceIsRooted(source)) && shouldUpdateBase(pattern, nextBase)) base = nextBase;
+    if ((!source.includes("/") || sourceIsRooted(source)) && shouldUpdateBase(pattern, nextBase))
+      base = nextBase;
   }
   return patterns;
 }
@@ -196,11 +222,17 @@ function trackedFileIsInScope(file: string): boolean {
 
 function loadTrackedFiles(cwd: string): string[] {
   const output = execFileSync("git", ["ls-files"], { cwd, encoding: "utf8" });
-  return output.split(/\r?\n/u).filter((line) => line.length > 0).sort();
+  return output
+    .split(/\r?\n/u)
+    .filter((line) => line.length > 0)
+    .sort();
 }
 
 function loadStagedMapText(cwd: string, mapPath: string): string {
-  const topLevel = execFileSync("git", ["rev-parse", "--show-toplevel"], { cwd, encoding: "utf8" }).trim();
+  const topLevel = execFileSync("git", ["rev-parse", "--show-toplevel"], {
+    cwd,
+    encoding: "utf8",
+  }).trim();
   const gitPath = relative(topLevel, mapPath).replaceAll("\\", "/");
   return execFileSync("git", ["show", `:${gitPath}`], { cwd: topLevel, encoding: "utf8" });
 }
@@ -254,15 +286,25 @@ function formatFindings(findings: readonly CheckFinding[]): string {
   }
   if (eslintReachMissing.length > 0) {
     lines.push("", "ESLint reach gaps:");
-    for (const finding of eslintReachMissing) lines.push(`- line ${String(finding.line)}: ${finding.value}`);
+    for (const finding of eslintReachMissing)
+      lines.push(`- line ${String(finding.line)}: ${finding.value}`);
   }
   return `${lines.join("\n")}\n`;
 }
 
-function collectStalePathFindings(pathPatterns: PathPattern[], trackedFiles: string[]): CheckFinding[] {
+function collectStalePathFindings(
+  pathPatterns: PathPattern[],
+  trackedFiles: string[],
+): CheckFinding[] {
   return pathPatterns
     .filter((p) => !trackedFiles.some(p.matcher))
-    .map((p): CheckFinding => ({ kind: "stale-path", line: p.line, value: `\`${p.source}\` (${p.pattern}) matched 0 tracked files` }));
+    .map(
+      (p): CheckFinding => ({
+        kind: "stale-path",
+        line: p.line,
+        value: `\`${p.source}\` (${p.pattern}) matched 0 tracked files`,
+      }),
+    );
 }
 
 function collectRowFindings(rows: TableRow[], ratchetIds: ReadonlySet<string>): CheckFinding[] {
@@ -270,11 +312,16 @@ function collectRowFindings(rows: TableRow[], ratchetIds: ReadonlySet<string>): 
     ...[...row.ratchets.matchAll(RATCHET_ID_PATTERN)]
       .filter((m) => !ratchetIds.has(m[0]))
       .map((m): CheckFinding => ({ kind: "unknown-ratchet", line: row.line, value: m[0] })),
-    ...(isValidStatus(row.status) ? [] : [{ kind: "invalid-status" as const, line: row.line, value: row.status }]),
+    ...(isValidStatus(row.status)
+      ? []
+      : [{ kind: "invalid-status" as const, line: row.line, value: row.status }]),
   ]);
 }
 
-function collectUnaccountedFileFindings(trackedFiles: string[], pathPatterns: PathPattern[]): CheckFinding[] {
+function collectUnaccountedFileFindings(
+  trackedFiles: string[],
+  pathPatterns: PathPattern[],
+): CheckFinding[] {
   return trackedFiles
     .filter(trackedFileIsInScope)
     .filter((file) => !pathPatterns.some((p) => p.matcher(file)))
@@ -294,7 +341,16 @@ export async function runLintCoverageMapCheck(
     ...collectStalePathFindings(pathPatterns, trackedFiles),
     ...collectRowFindings(rows, ratchetIds),
     ...collectUnaccountedFileFindings(trackedFiles, pathPatterns),
-    ...(await collectEslintReachFindings({ checkEslintReach: options.checkEslintReach, cwd, extractPathPatterns, reachChecker: options.eslintReachChecker, rows, staged: options.staged, trackedFileIsInScope, trackedFiles })),
+    ...(await collectEslintReachFindings({
+      checkEslintReach: options.checkEslintReach,
+      cwd,
+      extractPathPatterns,
+      reachChecker: options.eslintReachChecker,
+      rows,
+      staged: options.staged,
+      trackedFileIsInScope,
+      trackedFiles,
+    })),
   ];
 
   if (findings.length > 0) {

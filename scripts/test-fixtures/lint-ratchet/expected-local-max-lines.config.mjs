@@ -14,6 +14,6 @@ export default [
       },
     },
     plugins: { local: { rules: { "max-lines": ratchetedRule } } },
-    rules: { "local/max-lines": ["error", { max: 300, skipBlankLines: true, skipComments: true }] },
+    rules: { "local/max-lines": ["error",{"max":300,"skipBlankLines":true,"skipComments":true}] },
   },
 ];

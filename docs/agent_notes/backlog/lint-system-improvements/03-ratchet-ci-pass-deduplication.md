@@ -1,6 +1,6 @@
 # Ratchet CI Pass Deduplication
 
-Status: Parked (decision recorded)
+Status: Done
 Order: 3
 Decision: Drop check-baseline, fold check-registry
 

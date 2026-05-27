@@ -224,6 +224,11 @@ Then add a `scripts/biome-agent.ts` equivalent of `scripts/lint-agent.ts`:
 - Normalize `diagnostics[].category` into `ruleId` or `control`.
 - Map Biome severities: `error -> block`, `warning -> warn`, `information` or
   `info -> info`.
+- Do not let CLI-selected severity decide ratchet blocking semantics. Biome's
+  `--only` can enable an otherwise-off non-recommended rule at warning severity;
+  ratchet adapters should either force the generated rule config to `error` or
+  treat every matched ratcheted diagnostic as blocking independently of Biome's
+  display severity.
 - Use `diagnostics[].location.path` and `location.start.line` for file
   location.
 - Join each diagnostic to the registry entry and emit the same
@@ -342,9 +347,12 @@ directly:
 
 For built-in Biome rules, the runner can either pass `--only=style/useConst` or
 write a generated Biome config that disables recommended rules and enables just
-the ratcheted rule. Prefer config `includes` over CLI globs. Biome v2 resolves
-config globs relative to the config file, so either write the generated config
-at the repository root or rewrite every include relative to the cache directory:
+the ratcheted rule. Generated config is safer for blocking ratchets because it
+can set an explicit `error` severity; `--only` may re-enable off
+non-recommended rules as warnings. Prefer config `includes` over CLI globs.
+Biome v2 resolves config globs relative to the config file, so either write the
+generated config at the repository root or rewrite every include relative to the
+cache directory:
 
 ```json
 {

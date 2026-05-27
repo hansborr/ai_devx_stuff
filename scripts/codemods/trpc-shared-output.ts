@@ -113,7 +113,7 @@ function readFlagArg(args: string[], index: number, parsed: ParsedCliFlags): num
 function checkModeArgs(parsed: ParsedCliFlags): CliArgs | undefined {
   if (!parsed.check) return undefined;
   if (parsed.positional.length !== 0 || parsed.targetSource || parsed.dryRun) {
-      fail("Usage: bun run codemod:trpc-shared-output -- --check");
+    fail("Usage: bun run codemod:trpc-shared-output -- --check");
   }
   return { mode: "check" };
 }
@@ -121,7 +121,7 @@ function checkModeArgs(parsed: ParsedCliFlags): CliArgs | undefined {
 function allModeArgs(parsed: ParsedCliFlags): CliArgs | undefined {
   if (!parsed.all) return undefined;
   if (parsed.positional.length !== 0 || parsed.targetSource) {
-      fail("Usage: bun run codemod:trpc-shared-output -- [--dry-run] --all");
+    fail("Usage: bun run codemod:trpc-shared-output -- [--dry-run] --all");
   }
   return { mode: "all", dryRun: parsed.dryRun };
 }

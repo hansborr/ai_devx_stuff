@@ -19,10 +19,7 @@ const BOUNDARY_REASON_PATTERN = new RegExp(
   `${BOUNDARY_COMMENT_PREFIX_PATTERN}\\s*(?:${ALLOWED_CATEGORY_ALTERNATION})\\s*-\\s*\\S+`,
   "u",
 );
-const CATEGORY_PATTERN = new RegExp(
-  `${BOUNDARY_COMMENT_PREFIX_PATTERN}\\s*([^\\s-]+)`,
-  "u",
-);
+const CATEGORY_PATTERN = new RegExp(`${BOUNDARY_COMMENT_PREFIX_PATTERN}\\s*([^\\s-]+)`, "u");
 const TEST_FILENAME_PATTERN = /^.*\.(?:test|spec)\.[jt]sx?$/u;
 const TEST_HELPER_FILENAME_PATTERN = /^.*\.test-helper\.[jt]sx?$/u;
 
@@ -98,16 +95,44 @@ function boundaryCommentStatus(comments) {
   return "missingBoundary";
 }
 
+/** @param {import('estree').Node} node */
+function findAncestorJSXExpressionContainer(node) {
+  let current = node.parent;
+  while (current) {
+    if (current.type === "JSXExpressionContainer") return current;
+    if (current.type === "Program" || current.type === "BlockStatement") return null;
+    current = current.parent;
+  }
+  return null;
+}
+
+/**
+ * @param {import('eslint').AST.Token | null} left
+ * @param {import('eslint').AST.Token} right
+ */
+function isSameToken(left, right) {
+  return (
+    left !== null &&
+    left.loc.start.line === right.loc.start.line &&
+    left.loc.start.column === right.loc.start.column &&
+    left.loc.end.line === right.loc.end.line &&
+    left.loc.end.column === right.loc.end.column
+  );
+}
+
 /**
  * @param {import('estree').Node} node
  * @param {import('eslint').SourceCode} sourceCode
  * @param {import('eslint').AST.Token[]} allComments
  */
 function nearbyBoundaryComments(node, sourceCode, allComments) {
+  const jsxContainer = findAncestorJSXExpressionContainer(node);
+  const immediateTrailingNodeToken = sourceCode.getTokenAfter(node, { includeComments: true });
   const sameLineComments = allComments.filter(
     (comment) =>
       (comment.loc.start.line === node.loc.end.line &&
-        comment.loc.start.column >= node.loc.end.column) ||
+        comment.loc.start.column >= node.loc.end.column &&
+        (jsxContainer === null || isSameToken(immediateTrailingNodeToken, comment))) ||
       (comment.loc.end.line === node.loc.start.line &&
         comment.loc.end.column <= node.loc.start.column),
   );
@@ -125,7 +150,20 @@ function nearbyBoundaryComments(node, sourceCode, allComments) {
         (comment.loc.end.line === lineWithBlankBetween && hasBlankLineAboveStatement),
     );
 
-  return [...sameLineComments, ...statementLeadingComments];
+  const jsxTrailingComments = [];
+  if (jsxContainer) {
+    const token = sourceCode.getTokenAfter(jsxContainer, { includeComments: true });
+    if (
+      token !== null &&
+      (token.type === "Block" || token.type === "Line") &&
+      token.loc.start.line === jsxContainer.loc.end.line &&
+      token.loc.start.column >= jsxContainer.loc.end.column
+    ) {
+      jsxTrailingComments.push(token);
+    }
+  }
+
+  return [...sameLineComments, ...statementLeadingComments, ...jsxTrailingComments];
 }
 
 /** @type {import('eslint').Rule.RuleModule} */
@@ -161,9 +199,7 @@ export default {
       if (isConstAssertion(node)) return;
       if (isTestFile(filename)) return;
 
-      const status = boundaryCommentStatus(
-        nearbyBoundaryComments(node, sourceCode, allComments),
-      );
+      const status = boundaryCommentStatus(nearbyBoundaryComments(node, sourceCode, allComments));
       if (status === "valid") return;
 
       context.report({ node, messageId: status });

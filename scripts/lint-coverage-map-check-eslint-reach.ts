@@ -43,7 +43,10 @@ function createEslintReachChecker(cwd: string): EslintReachChecker {
 }
 
 function statusIncludesPart(status: string, part: string): boolean {
-  return status.split("+").map((value) => value.trim()).includes(part);
+  return status
+    .split("+")
+    .map((value) => value.trim())
+    .includes(part);
 }
 
 function trackedFileUsesEslint(file: string): boolean {
@@ -67,7 +70,10 @@ export async function collectEslintReachFindings<Row extends EslintReachRow>({
     if (!statusIncludesPart(row.status, "linted")) continue;
     const rowPatterns = extractPathPatterns(row);
     const rowFiles = trackedFiles.filter(
-      (file) => trackedFileIsInScope(file) && trackedFileUsesEslint(file) && rowPatterns.some((pattern) => pattern.matcher(file)),
+      (file) =>
+        trackedFileIsInScope(file) &&
+        trackedFileUsesEslint(file) &&
+        rowPatterns.some((pattern) => pattern.matcher(file)),
     );
     const missing: string[] = [];
     for (const file of rowFiles) {

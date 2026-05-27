@@ -8,7 +8,10 @@
 import { existsSync } from "node:fs";
 import { isAbsolute, relative, resolve } from "node:path";
 
+import { formatMissingRatchetManifestMessage } from "./ratchet-manifest-message.js";
+
 export { checkWrapperSlotParity } from "./harness-wrapper-slot-parity.js";
+export { formatMissingRatchetManifestMessage };
 
 const KINDS = [
   "lint-rule",
@@ -308,11 +311,7 @@ export function checkRatchetParity(
 ): void {
   for (const ratchetId of ratchetIds) {
     if (!declaredRatchets.has(ratchetId)) {
-      pushFailure(
-        failures,
-        "(parity)",
-        `ratchet ${ratchetId} is not declared in the manifest as kind: "ratchet"`,
-      );
+      pushFailure(failures, "(parity)", formatMissingRatchetManifestMessage(ratchetId));
     }
   }
 }

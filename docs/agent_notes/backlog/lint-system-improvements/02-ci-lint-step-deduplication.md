@@ -1,6 +1,6 @@
 # CI Lint Step Deduplication
 
-Status: Parked (decision recorded)
+Status: Done
 Order: 2
 Decision: Composite floor
 
