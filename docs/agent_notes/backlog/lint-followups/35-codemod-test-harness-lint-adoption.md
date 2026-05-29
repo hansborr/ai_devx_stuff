@@ -5,7 +5,6 @@ Sources:
 
 - `docs/agent_notes/backlog/lint-followups/11-codemod-eslint-coverage.md`
 - `docs/agent_notes/backlog/lint-followups/19-scripts-eslint-remaining-families.md`
-- `docs/agent_notes/finished_work/lint-hardening-leaf-19-scripts-codemod-test-files-deferral.md`
 - `scripts/codemods/concurrency-guard.test.ts`
 - `scripts/codemods/expand-barrel.test.ts`
 - `scripts/codemods/structured-logging-fix.test.ts`

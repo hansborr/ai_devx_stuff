@@ -9,10 +9,9 @@ ShellCheck and yamllint are system dependencies in CI. Taplo, actionlint, and
 hadolint use mixed npm/system-wrapper surfaces. The source review recommends
 making provisioning and version reporting first-class for reference users.
 
-Overlap:
-`docs/agent_notes/backlog/lint-reference-readiness/20-external-tool-provisioning.md`
-and `21-external-tool-dev-parity.md` cover part of this. Re-audit before
-promoting; some provisioning work has already landed locally.
+Overlap: earlier external-tool provisioning and dev-parity tasks covered part
+of this and have landed. Re-audit before promoting; some provisioning work has
+already landed locally.
 
 ## Scope
 

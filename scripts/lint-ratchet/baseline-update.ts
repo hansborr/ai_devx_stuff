@@ -1,4 +1,9 @@
-import type { LintRatchetBaseline, LintRatchetUpdateDecision } from "../lint-ratchet-baseline.js";
+import type {
+  LintRatchetBaseline,
+  LintRatchetOrphanBaselineItem,
+  LintRatchetOrphanRemoval,
+  LintRatchetUpdateDecision,
+} from "../lint-ratchet-baseline.js";
 import { compareCurrentToBaseline as compareCurrentToBaselineImpl } from "../lint-ratchet-baseline-compare.js";
 import type { LintRatchetConfig } from "../lint-ratchet-config.js";
 import { currentByIdFromBaseline } from "./baseline-format.js";
@@ -45,15 +50,43 @@ export function formatZeroToNonzeroWarnings(
   );
 }
 
-function collectOrphanFailure(
+function orphanBaselineItems(
+  test: LintRatchetBaseline["tests"][string],
+): readonly LintRatchetOrphanBaselineItem[] {
+  return Object.entries(test.items)
+    .map(([path, item]) => ({ path, ...item }))
+    .sort((left, right) => left.path.localeCompare(right.path));
+}
+
+// Snapshot every committed baseline entry whose id no longer matches the
+// registry (a rename or removal). Always computed so an accepted --allow-worse
+// run can record the exact debt being dropped; the caller decides whether the
+// non-empty set is a failure (without --allow-worse) or a logged acceptance.
+export function collectOrphanRemovals(
   committed: LintRatchetBaseline,
   ratchets: readonly LintRatchetConfig[],
-): string | undefined {
+): readonly LintRatchetOrphanRemoval[] {
   const registryIds = new Set(ratchets.map((ratchet) => ratchet.id));
-  const orphanIds = Object.keys(committed.tests)
-    .filter((id) => !registryIds.has(id))
-    .sort();
-  if (orphanIds.length === 0) return undefined;
+  const removals: LintRatchetOrphanRemoval[] = [];
+  for (const testId of Object.keys(committed.tests).sort()) {
+    if (registryIds.has(testId)) continue;
+    const test = committed.tests[testId];
+    if (test === undefined) continue;
+    removals.push({
+      testId,
+      ruleId: test.ruleId,
+      metric: test.metric,
+      baselineItems: orphanBaselineItems(test),
+    });
+  }
+  return removals;
+}
+
+function formatOrphanFailure(
+  orphanRemovals: readonly LintRatchetOrphanRemoval[],
+): string | undefined {
+  if (orphanRemovals.length === 0) return undefined;
+  const orphanIds = orphanRemovals.map((removal) => removal.testId);
   return (
     `committed baseline carries ${String(orphanIds.length)} entr${orphanIds.length === 1 ? "y" : "ies"} ` +
     `with no matching registry id (${orphanIds.join(", ")}); ` +
@@ -83,7 +116,8 @@ export function decideLintRatchetUpdate(
     );
   }
 
-  const orphanFailure = collectOrphanFailure(committed, ratchets);
+  const orphanRemovals = collectOrphanRemovals(committed, ratchets);
+  const orphanFailure = formatOrphanFailure(orphanRemovals);
   if (orphanFailure !== undefined && !options.allowWorse) {
     failures.push(orphanFailure);
   }
@@ -96,5 +130,5 @@ export function decideLintRatchetUpdate(
     warnings.push(...formatZeroToNonzeroWarnings(zeroToNonzero));
   }
 
-  return { ...comparison, allowed: failures.length === 0, failures, warnings };
+  return { ...comparison, allowed: failures.length === 0, failures, warnings, orphanRemovals };
 }

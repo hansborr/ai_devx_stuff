@@ -16,8 +16,7 @@ is TypeScript.
 - Document JavaScript custom rules as an intentional bootstrap choice: less
   implementation type safety in exchange for direct ESLint loading before any
   build step.
-- Keep this separate from broad custom-rule test cleanup, which belongs in
-  `10-zero-baseline-custom-rule-tests.md`.
+- Keep this separate from broad custom-rule test cleanup.
 
 ## Definition Of Done
 

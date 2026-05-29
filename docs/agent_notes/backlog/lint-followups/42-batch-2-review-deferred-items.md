@@ -30,7 +30,7 @@ asserts the parser extracts the right label.
 
 Fix: add a table-driven test that iterates a representative list of
 `getFunctionNameWithKind` outputs (the upstream rule's source has the full
-catalog) and asserts each parses to the expected `{nodeType, label}` pair.
+catalog) and asserts each parses to the expected `label`.
 Low risk because ESLint already enforces those strings; the test is insurance
 against a future ESLint change reshaping any of them.
 

@@ -74,9 +74,7 @@ Result: 35 problems (33 errors, 2 warnings) across 20 reported regex line
 sites, exceeding the leaf's `>15` stop threshold. The dominant blocker was
 `regexp/no-super-linear-backtracking` with 24 findings across parser, seed,
 and code-intel regexes that need semantic review and targeted tests. The
-temporary dependency/config was reverted, no regex fixes were made, and the
-Pass 1 inventory is recorded in
-`docs/agent_notes/finished_work/lint-hardening-leaf-21-regexp-inventory.md`.
+temporary dependency/config was reverted and no regex fixes were made.
 
 Pass 2a re-added `eslint-plugin-regexp@3.1.0` and adopted
 `regexp.configs["flat/recommended"]` for code files. The upstream recommended

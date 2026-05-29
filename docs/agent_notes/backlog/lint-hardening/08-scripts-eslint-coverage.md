@@ -84,9 +84,7 @@ Codemods slice evaluated on 2026-05-16 and stopped before enabling coverage.
   and missing explicit assertions; smaller import/type-import and magic-number
   cleanup remains.
 - Outcome: no ESLint config or codemod fixes landed. The temporary config was
-  reverted, the inventory was recorded in
-  `docs/agent_notes/in_progress/lint-hardening-leaf-8-codemods.md`, and the
-  deferral was recorded in
+  reverted, and the deferral was recorded in
   `docs/agent_notes/backlog/lint-hardening/evaluation-verdicts.md`.
 
 ### Drift slice: landed

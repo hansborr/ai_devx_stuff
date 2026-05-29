@@ -21,6 +21,11 @@ ai_payload_tool_use_id() {
   printf '%s' "$payload" | jq -r '.tool_use_id // empty' 2>/dev/null || true
 }
 
+ai_payload_session_id() {
+  local payload="$1"
+  printf '%s' "$payload" | jq -r '.session_id // .sessionId // empty' 2>/dev/null || true
+}
+
 ai_payload_file_path() {
   local payload="$1"
   printf '%s' "$payload" | jq -r '.tool_input.file_path // empty' 2>/dev/null || true
@@ -29,6 +34,12 @@ ai_payload_file_path() {
 ai_payload_background() {
   local payload="$1"
   printf '%s' "$payload" | jq -r '.tool_input.run_in_background // false' 2>/dev/null || true
+}
+
+# Current epoch seconds, overridable via AI_FAKE_NOW so throttle state machines
+# stay deterministic under test.
+ai_now() {
+  printf '%s' "${AI_FAKE_NOW:-$(date +%s)}"
 }
 
 ai_emit_continue() {

@@ -120,9 +120,6 @@ Deferred:
   canvas-context mutation, CLI parser state accumulation, and project-cache
   lazy init. Defer to a focused refactor leaf.
 
-Full inventory:
-`docs/agent_notes/finished_work/lint-hardening-leaf-10-core-eslint-ai-footgun-inventory.md`.
-
 ## Verification
 
 - `bun run lint -- --max-warnings=0`

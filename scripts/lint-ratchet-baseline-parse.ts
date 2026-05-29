@@ -1,3 +1,4 @@
+import { parseLintRatchetBaselineItem } from "./lint-ratchet/baseline-item-parse.js";
 import type { LintRatchetBaseline } from "./lint-ratchet-baseline.js";
 import type {
   JsonObject,
@@ -5,7 +6,6 @@ import type {
   LintRatchetMetric,
   LintRatchetMode,
 } from "./lint-ratchet-config.js";
-import { parseMetricFields } from "./lint-ratchet-metrics.js";
 
 const LINT_RATCHET_CONFIG_HASH_PREFIX = "sha256:" as const;
 const RATCHET_ID_PATTERN = /^ratchet\/[a-z0-9]+(?:-[a-z0-9]+)*$/u;
@@ -45,10 +45,6 @@ function normalizeJsonValue(value: JsonValue): JsonValue {
     normalized[key] = normalizeJsonValue(value[key] ?? null);
   }
   return normalized;
-}
-
-function hasNormalizedPath(value: string): boolean {
-  return value.length > 0 && !value.includes("\\") && !value.startsWith("./");
 }
 
 function parseStringArray(
@@ -102,21 +98,10 @@ function parseBaselineItems(
   }
   const items: Record<string, LintRatchetBaselineItem> = {};
   for (const [itemPath, rawItem] of Object.entries(value)) {
-    if (!hasNormalizedPath(itemPath)) {
-      failures.push(`${path}.${itemPath}: path must be normalized`);
-      continue;
+    const item = parseLintRatchetBaselineItem(itemPath, rawItem, `${path}.${itemPath}`, failures);
+    if (item !== undefined && item.count > 0) {
+      items[itemPath] = item;
     }
-    if (!isRecord(rawItem)) {
-      failures.push(`${path}.${itemPath} must be an object`);
-      continue;
-    }
-    const count = rawItem.count;
-    if (typeof count !== "number" || !Number.isInteger(count) || count < 0) {
-      failures.push(`${path}.${itemPath}.count must be a non-negative integer`);
-      continue;
-    }
-    const metricFields = parseMetricFields(rawItem, `${path}.${itemPath}`, failures);
-    if (count > 0) items[itemPath] = { count, ...(metricFields ?? {}) };
   }
   return items;
 }

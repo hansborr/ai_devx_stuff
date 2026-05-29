@@ -209,7 +209,7 @@ START_TIME=$(date -Iseconds)
 
 musi_run_parallel_step parallel-precommit "" lint bun run lint:changed
 pid_lint=$STEP_PID
-musi_run_parallel_step parallel-precommit "" ratchet bun run lint:ratchet
+musi_run_parallel_step parallel-precommit "" ratchet env "HARNESS_DIAGNOSTICS_OUTPUT=$LOG_DIR/ratchet-diagnostics.json" bun run lint:ratchet
 pid_ratchet=$STEP_PID
 musi_run_parallel_step parallel-precommit "" zero-baseline bun run lint:ratchet:zero-baseline
 pid_zero_baseline=$STEP_PID
@@ -319,7 +319,11 @@ if [ -n "$failed" ]; then
   for task in $failed; do
     echo ""
     echo "--- $task (full log: $LOG_DIR/${task}.log) ---"
-    ai_filtered_task_log_excerpt "$task" "$LOG_DIR/${task}.log" 30
+    if [ "$task" = ratchet ]; then
+      ai_ratchet_failure_excerpt "$LOG_DIR/ratchet-diagnostics.json" "$LOG_DIR/${task}.log" 30
+    else
+      ai_filtered_task_log_excerpt "$task" "$LOG_DIR/${task}.log" 30
+    fi
   done
   case "$failed" in
     *lint*) echo ""; echo "Hint: try 'bun run lint:fix' to auto-fix formatting issues." ;;

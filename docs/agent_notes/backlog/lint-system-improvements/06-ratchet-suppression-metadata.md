@@ -13,10 +13,9 @@ lint suppressions must be maintained separately.
 The source review recommends moving ownership to exact ratchet metadata before
 generating any ESLint suppression fragment.
 
-Prerequisite: complete or consciously revalidate
-`05-derive-linted-script-reinclude-patterns.md`, and recheck ratchet command
-semantics from `04-verify-ratchet-ci-parity.md` if CI/local ratchet wiring has
-changed.
+Prerequisite: tasks 04 and 05 have landed (files removed). Recheck ratchet
+command semantics and linted-script reinclude patterns if CI/local ratchet
+wiring has changed since they landed.
 
 ## Scope
 

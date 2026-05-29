@@ -16,14 +16,9 @@ evaluates a rule, plugin, or sensor.
 
 ## Source Notes
 
-- Ratchet follow-ups:
-  `docs/agent_notes/backlog/lint-ratchet-followups.md`.
-- PR 3b machine-readable diagnostics:
-  `docs/agent_notes/in_progress/lint-hardening-review-followup-pr-3-machine-readable-diagnostics.md`.
+- PR 3b machine-readable diagnostics (PR 3 has landed).
 - Original lint-hardening backlog:
   `docs/agent_notes/backlog/lint-hardening/`.
-- Cross-repo lint-hardening index:
-  `docs/agent_notes/backlog/lint-hardening-cross-repo-review.md`.
 - Verdict register:
   `docs/agent_notes/backlog/lint-hardening/evaluation-verdicts.md`.
 - Current promotion pointer:
@@ -63,39 +58,9 @@ drifts.
 
 ## Leaf Index
 
-### Ratchet Infrastructure
-
-1. `01-ratchet-cache-invalidation.md` - include local rule implementation
-   content in the ratchet ESLint cache key.
-2. `02-ratchet-update-stale-metadata.md` - let update mode rewrite stale
-   baseline registry metadata safely.
-3. `03-ratchet-harness-parity.md` - close manifest and pre-commit relevance
-   gaps for ratchet controls.
-4. `04-ratchet-runtime-budget.md` - measure ratchet cold/warm runtime and
-   decide hook-budget posture before another ratchet.
-5. `05-ratchet-cleanups.md` - small ratchet CLI, smoke, cache, and test
-   cleanups from the PR 4 review.
-
-### Machine-Readable Harness Diagnostics
-
-6. `06-harness-json-emitters.md` - **resolved**; PR 3b added `--json` modes to
-   `doctor`, `verify:logs`, `module:index:check`, and
-   `migration-safety-scan`.
-
-### Existing Debt Ratchets
-
-7. `07-type-assertion-package-drain.md` - **resolved**; the package-side
-   `local/type-assertion-boundary` baseline drained to 0 current findings.
-8. `08-next-ratchet-local-max-lines.md` - consider `local/max-lines` as the
-   next ratchet after infrastructure follow-ups are settled.
-
-### Ratchet Expansion Candidates
-
-22. `22-ratchet-third-party-type-aware-rules.md` - **resolved**; `lint:ratchet`
-    now supports explicit third-party plugin/parser/cache identity support.
-23. `23-strict-boolean-ratchet-candidate.md` - **resolved**; shared
-    `@typescript-eslint/strict-boolean-expressions` was ratcheted and drained to
-    0 current findings.
+Ratchet infrastructure (01-08), ratchet expansion candidates (22-24), and
+resolved leaves (17, 21, 26-28, 38) have landed and their leaf files have been
+removed. Historical context is in git history and `docs/agent_notes/LOG.md`.
 
 ### Parked Hardening Leaves
 
@@ -114,32 +79,14 @@ drifts.
     scopes.
 16. `16-structural-sensors-and-knip-gating.md` - remaining report-only
     sensors and any decision to hard-gate `knip`.
-17. `17-generated-lint-guidance-decision.md` - **closed 2026-05-19** as
-    kept-and-expanded; the generator already covers all `local/*` rules via
-    the PR 1 `meta.docs` contract.
 18. `18-tailwind-broad-plugin-watchlist.md` - informational watchlist for
     Tailwind v4 lint and broad plugin cherry-picks.
 19. `19-scripts-eslint-remaining-families.md` - continue ESLint coverage over
     top-level TypeScript script families beyond code-intel and drift.
 20. `20-package-manifest-policy.md` - add a report-first package/workspace
     manifest policy sensor after `import-x` source import enforcement.
-21. `21-assertion-quality-lint-rule.md` - decide whether the Zod/result parse
-    helper migration should become a local lint rule.
-24. `24-tanstack-query-prefer-query-options.md` - evaluate the strict
-    `@tanstack/query/prefer-query-options` rule left open after the recommended
-    Query plugin slice landed.
 25. `25-mocked-db-test-boundary.md` - revisit mocked-database test policy after
     a sanctioned helper or module boundary can be named.
-26. `26-ratchet-rename-count-protection.md` - decide whether Leaf 02's
-    structural parse should preserve old counts across a ratchet rename
-    (raised by codex review of Leaf 02; optional follow-up).
-27. `27-ratchet-codemod-fixtures-scope.md` - lint-ratchet inspects 36
-    codemod-fixture findings that the main `eslint.config.js` already
-    ignores; harmonize the ratchet scope when Leaf 11 is unblocked.
-28. `28-homebrew-armor-schema-mismatch.md` - `buildArmorProperties` casts a
-    partially-populated record to `ItemProperties` even when the required
-    `base` field is absent; tighten `homebrewArmorDisplaySchema` or return
-    `null` in the builder.
 29. `29-batch-3b-residuals.md` - residual peer findings from the type-assertion
     drain batch 3b: an informational note that notes-panel now silently fixes
     a strict-schema mismatch, plus a tracker for the spell-filter-bar and
@@ -172,9 +119,6 @@ drifts.
 37. `37-codemod-barrel-and-trpc-lint-adoption.md` - ratchet then split and
     drain the expand-barrel and tRPC shared-schema codemod implementation
     files, including the shared codemod helper under `scripts/codemods/lib/`.
-38. `38-top-level-script-project-lint-adoption.md` - **resolved**; the four
-    top-level scripts joined `tsconfig.scripts.json` and current findings are
-    floored by Leaf 38 ratchets. Drain/re-include is future cleanup.
 39. `39-ratchet-runtime-script-lint-adoption.md` - ratchet the ratchet runtime,
     baseline, agent, and harness-check TypeScript files before splitting them.
 40. `40-logs-audit-and-drift-entrypoint-lint-adoption.md` - ratchet the largest
@@ -190,6 +134,8 @@ drifts.
     surfaces; split non-ESLint sensor/tool setup into named child leaves when
     ShellCheck, actionlint, YAML/TOML/JSON validation, or metadata floors are
     more than a narrow same-cycle change.
+42. `42-batch-2-review-deferred-items.md` - three small deferred items from
+    Leaf 41 Batch 2 reviews.
 43. `43-zero-baseline-lifecycle-cleanup.md` - parked cleanup for the
     zero-baseline audit output. Current report shows 44 zero-baseline ratchets,
     8 normal-lint error-covered rows, 0 documented dispositions, and 36 rows

@@ -41,6 +41,26 @@ Do **not** read this folder at session start. Promote an item back into
 - `autonomous-agent-iteration-candidates.md` — 2026-05-25 gathered queue of
   ready autonomous AI-harness and lint-drain leaves, including the proposed
   post-edit tidy hook and stale/blocked notes to avoid.
+- `dependency-age-gated-followups.md` — rerun the package age-gate queue after
+  fresh same-major tags clear the seven-day policy; keep separate from major
+  migrations.
+- `fast-uri-override-removal.md` — drop the transitive `fast-uri` 3.1.2
+  `overrides` pin once upstream chains stop pinning the vulnerable 3.1.0.
+  Enforced by `scripts/check-fast-uri-override.sh` (wired into `audit:deps` and
+  CI), so promotion is triggered by a failing watchdog, not a calendar.
+- `eslint-react-peer-exception-removal.md` — drop the ESLint 10 peer exception
+  for `eslint-plugin-react` / `eslint-plugin-jsx-a11y` once both ship an ESLint
+  `^10` peer. Enforced by `scripts/check-eslint-react-peer-exception.sh` (wired
+  into `audit:deps` and CI), so promotion is triggered by a failing watchdog.
+- `typescript-6-upgrade.md` — isolated TypeScript 6 compiler migration plan
+  covering project references, script TypeScript API consumers, and package
+  flow verification.
+- `fastify-multipart-10-upgrade.md` — focused `@fastify/multipart` 10 server
+  runtime migration for map-image uploads and multipart parser behavior.
+- `eslint-plugin-jsdoc-63-upgrade.md` — scoped major upgrade plan for the
+  JSDoc plugin used by local rule authoring lint.
+- `node-types-25-upgrade.md` — type-only `@types/node` 25 migration plan for
+  scripts, configs, e2e, and Node-compatible Bun code.
 - `cache-budget-followups.md` — conditional verification-budget work: typecheck
   optimization only if measurements justify it, per-test slow helpers, async
   e2e design, and future Stop-reporter guardrails.
@@ -56,27 +76,28 @@ Do **not** read this folder at session start. Promote an item back into
   `code:intel` latency justifies a daemon or cache.
 - `mutation-testing-stryker.md` — parked plan for adding StrykerJS mutation
   testing as a manual test-quality audit lane before any score gate.
-- `lint-hardening-cross-repo-review.md` + `lint-hardening/` — parked
-  lint-hardening index and leaf notes from a Rust/Clippy vs Musi ESLint
-  comparison. Promote one unresolved leaf at a time; changed-gate content
-  correctness is already resolved.
+- `lint-hardening/` — parked lint-hardening leaf notes from a Rust/Clippy vs
+  Musi ESLint comparison. Promote one unresolved leaf at a time; fully landed
+  leaves have been removed. Context and rollout rationale is in
+  `lint-hardening/00-context-and-rollout.md`.
 - `lint-reference-readiness/00-index.md` — split task index for the
   lint-system work needed before treating Musi's lint setup as reference
-  material for other projects. Promote one task file at a time. The old
-  `lint-reference-readiness-roadmap.md` path is a compatibility pointer; use
-  the folder index instead of the removed `lint-ratchet-sharing/` backlog
-  folder. The canonical adopter guide is `docs/guides/lint-ratchet.md`.
+  material for other projects. Promote one task file at a time. Done tasks
+  have been removed. The canonical adopter guide is
+  `docs/guides/lint-ratchet.md`.
 - `lint-system-improvements/00-index.md` — split task index migrated from the
   2026-05-26 lint-system review synthesis preserved by commit `a0975f3a`. This
   is a later lint-platform refinement queue covering CI/local parity, duplicate
   gate wiring, generated policy ownership, hook/tool portability, severity
   docs, and measured architecture spikes. Check overlap with
   `lint-reference-readiness/` before promoting.
-- `agent-hook-git-safety.md` — implemented source plan for the shared
-  agent-hook policy blocks on history rewrites, force pushes, force
-  branch/tag deletion, dangerous `gh` mutations, and raw `grep` (context
-  hygiene). Rollout note:
-  `docs/agent_notes/finished_work/agent-hook-git-safety.md`.
+- `lint-followups/00-index.md` — parked lint follow-up leaves after the
+  lint-hardening rollout. Resolved leaves have been removed.
+- `lint-ratchet-cached-baseline-context.md` — deferred no-ESLint edit-time
+  advisory ("this file carries N accepted ratchet floors as of baseline"), split
+  out of the per-file ratchet plan (`in_progress/per-file-ratchet-edit-feedback.md`)
+  so that plan ships only the fresh regression detector. Promote once the
+  detector lands and a high-debt rule is added.
 - `drift-ai-current-findings.md` — 2026-05-10 triage of the first
   `drift:ai --scope current` report: current ghost-file tuning plus duplicate
   refactor candidates for token mutations, cursor lists, test contexts, token

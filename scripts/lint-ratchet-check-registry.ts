@@ -5,6 +5,7 @@ import { trackedFilesFromGit } from "./lint-ratchet/git-tracked-files.js";
 import { BASELINE_FILENAME, baselinePath, repoRoot } from "./lint-ratchet/paths.js";
 import { matchesRatchet } from "./lint-ratchet/ratchet-globs.js";
 import {
+  collectOrphanRemovals,
   parseLintRatchetBaselineStructure,
   validateLintRatchetRegistry,
 } from "./lint-ratchet-baseline.js";
@@ -132,14 +133,10 @@ function orphanBaselineFailures(
       message: `${label}: ${message}`,
     }));
   }
-  const registryIds = new Set(options.ratchets.map((ratchet) => ratchet.id));
-  return Object.keys(parsed.baseline.tests)
-    .filter((id) => !registryIds.has(id))
-    .sort((left, right) => left.localeCompare(right))
-    .map((id) => ({
-      kind: "orphan-baseline",
-      message: `${id}: baseline has no matching registry id; this looks like a rename or removal`,
-    }));
+  return collectOrphanRemovals(parsed.baseline, options.ratchets).map((removal) => ({
+    kind: "orphan-baseline",
+    message: `${removal.testId}: baseline has no matching registry id; this looks like a rename or removal`,
+  }));
 }
 
 function sortFailures(failures: readonly RegistryCheckFailure[]): readonly RegistryCheckFailure[] {

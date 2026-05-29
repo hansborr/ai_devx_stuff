@@ -6,10 +6,13 @@ import {
   type HarnessFinding,
   type HarnessFindingSeverity,
 } from "../packages/shared/src/schemas/harness-diagnostics.js";
+import {
+  RATCHET_UPDATE_COMMAND,
+  REGRESSION_RECOVERY_FOOTER,
+} from "./lint-ratchet/recovery-command.js";
 import { ConfigError } from "./lint-ratchet-metrics.js";
 
 const DEFAULT_MAX_FINDINGS_PER_CONTROL = 10;
-const RECOVERY_COMMAND = "bun run lint:ratchet:update";
 const STICKY_COMMENT_MARKER = "<!-- lint-ratchet-summary -->";
 export const LINT_RATCHET_REPORT_ARTIFACT_URL_ENV = "LINT_RATCHET_REPORT_ARTIFACT_URL" as const;
 const IMPROVEMENT_REASONS: ReadonlySet<string> = new Set([
@@ -18,8 +21,6 @@ const IMPROVEMENT_REASONS: ReadonlySet<string> = new Set([
   "lower-complexity",
   "removed-path",
 ]);
-const REGRESSION_RECOVERY_FOOTER =
-  'Recovery: fix the regressions above; if the new findings are intentional, run `bun run lint:ratchet:update -- --allow-worse --reason "<why>"`.';
 
 interface FormatHarnessDiagnosticsReportOptions {
   readonly maxFindingsPerControl?: number;
@@ -124,8 +125,8 @@ function formatFindingBullet(finding: HarnessFinding): string {
 function recoveryLineFor(group: readonly HarnessFinding[]): string | undefined {
   const improvement = group.find(isImprovement);
   if (improvement === undefined) return undefined;
-  if (improvement.howToFix.includes(RECOVERY_COMMAND)) return improvement.howToFix;
-  return `Run \`${RECOVERY_COMMAND}\` to lock in the improvement.`;
+  if (improvement.howToFix.includes(RATCHET_UPDATE_COMMAND)) return improvement.howToFix;
+  return `Run \`${RATCHET_UPDATE_COMMAND}\` to lock in the improvement.`;
 }
 
 function maxFindingsPerControl(options: FormatHarnessDiagnosticsReportOptions | undefined): number {
@@ -153,8 +154,9 @@ function formatControlSection(
 
 function footerRecoveryLine(findings: readonly HarnessFinding[]): string {
   if (findings.length === 0) return "Recovery: nothing to do.";
-  if (findings.some(isImprovement)) return `Recovery: \`${RECOVERY_COMMAND}\``;
-  return REGRESSION_RECOVERY_FOOTER;
+  const hasRegression = findings.some((finding) => !isImprovement(finding));
+  if (hasRegression) return REGRESSION_RECOVERY_FOOTER;
+  return `Recovery: \`${RATCHET_UPDATE_COMMAND}\``;
 }
 
 function footerLines(

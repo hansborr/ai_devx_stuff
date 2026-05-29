@@ -7,9 +7,6 @@ Sources:
 
 - `docs/agent_notes/backlog/lint-hardening/11-restricted-primitives.md`
 - `docs/agent_notes/backlog/lint-hardening/evaluation-verdicts.md`
-- `docs/agent_notes/finished_work/lint-hardening-leaf-14a-clock-primitives-inventory.md`
-- `docs/agent_notes/finished_work/lint-hardening-leaf-14b-process-env-adoption.md`
-- `docs/agent_notes/finished_work/lint-hardening-leaf-14c-raw-fetch-adoption.md`
 
 ## 14c Resolution (2026-05-19)
 

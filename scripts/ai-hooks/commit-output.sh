@@ -54,6 +54,13 @@ $failed_line"
   for task in $failed_tasks; do
     log="$log_dir/${task}.log"
     if [ -f "$log" ]; then
+      if [ "$task" = ratchet ]; then
+        summary="$summary
+
+--- $task (full log: $log) ---
+$(ai_ratchet_failure_excerpt "$log_dir/ratchet-diagnostics.json" "$log" 30)"
+        continue
+      fi
       summary="$summary
 
 --- $task (last 30 lines; full log: $log) ---

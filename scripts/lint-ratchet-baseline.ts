@@ -71,10 +71,25 @@ export interface LintRatchetComparison {
   readonly improvements: readonly LintRatchetImprovement[];
 }
 
+// A committed baseline path snapshot carried when an orphaned (renamed/removed)
+// ratchet id is accepted via --allow-worse, so the debt log records the exact
+// count protection being dropped, not just the id.
+export interface LintRatchetOrphanBaselineItem extends LintRatchetBaselineItem {
+  readonly path: string;
+}
+
+export interface LintRatchetOrphanRemoval {
+  readonly testId: string;
+  readonly ruleId: string;
+  readonly metric: LintRatchetMetric;
+  readonly baselineItems: readonly LintRatchetOrphanBaselineItem[];
+}
+
 export interface LintRatchetUpdateDecision extends LintRatchetComparison {
   readonly allowed: boolean;
   readonly failures: readonly string[];
   readonly warnings: readonly string[];
+  readonly orphanRemovals: readonly LintRatchetOrphanRemoval[];
 }
 
 export interface ParsedLintRatchetBaseline {
@@ -100,6 +115,7 @@ export {
   ruleNamespace,
 } from "./lint-ratchet/baseline-hash.js";
 export {
+  collectOrphanRemovals,
   decideLintRatchetUpdate,
   formatZeroToNonzeroWarnings,
 } from "./lint-ratchet/baseline-update.js";

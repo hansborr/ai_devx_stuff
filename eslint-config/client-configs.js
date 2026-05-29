@@ -40,7 +40,12 @@ export const clientFrameworkConfigs = [
   {
     files: ["packages/client/**/*.tsx"],
     plugins: { react: pluginReact },
-    settings: { react: { version: "detect" } },
+    // Pin the React version instead of "detect": under ESLint 10,
+    // eslint-plugin-react 7.37.5's "detect" path (version.js resolveBasedir)
+    // calls the removed context.getFilename() and crashes every rule. Pinning
+    // skips that path. Revisit when the plugin ships an ESLint ^10 peer — see
+    // docs/agent_notes/backlog/eslint-react-peer-exception-removal.md.
+    settings: { react: { version: "19.2" } },
     rules: {
       "react/jsx-key": "error",
       "react/no-unstable-nested-components": "error",

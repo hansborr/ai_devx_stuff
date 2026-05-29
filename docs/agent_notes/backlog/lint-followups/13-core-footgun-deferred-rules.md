@@ -6,9 +6,6 @@ follow-up.
 Sources:
 
 - `docs/agent_notes/backlog/lint-hardening/10-builtin-ai-footgun-rules.md`
-- `docs/agent_notes/finished_work/lint-hardening-leaf-10-core-eslint-ai-footgun-inventory.md`
-- `docs/agent_notes/finished_work/lint-hardening-leaf-13a-no-await-in-loop-services-inventory.md`
-- `docs/agent_notes/finished_work/lint-hardening-leaf-13b-no-param-reassign-props-inventory.md`
 - `docs/agent_notes/backlog/lint-hardening/evaluation-verdicts.md`
 
 ## 13a Resolution (2026-05-19)

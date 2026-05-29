@@ -50,6 +50,7 @@ Runtime files (all paths relative to repo root):
 | `scripts/lint-ratchet-metrics.ts` | Metric helpers for `message-count`, `effective-line-count`, `complexity-severity` |
 | `scripts/lint-ratchet-output.ts` | Harness diagnostics envelope output to stdout and optional file |
 | `scripts/lint-ratchet-report.ts` | Markdown report formatter for CI step summaries and PR comments |
+| `scripts/lint-ratchet-debt-log.ts` | Read-only renderer for the committed `lint-ratchet.debt-log.jsonl` acceptance log (the runner imports it to dispatch `--debt-log`) |
 | `scripts/lint-ratchet-summary.ts` | Baseline summary table printer (no ESLint run) |
 | `scripts/lint-ratchet-zero-baseline.ts` | Zero-baseline lifecycle audit and gate |
 | `scripts/lint-rule-docs.ts` | Local-rule metadata loader; replace with a same-export stub if you only ratchet core or third-party rules |

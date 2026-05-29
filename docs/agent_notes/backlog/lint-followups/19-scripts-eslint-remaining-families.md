@@ -6,7 +6,6 @@ were drafted 2026-05-20 from the deferred inventories below.
 Sources:
 
 - `docs/agent_notes/backlog/lint-hardening/08-scripts-eslint-coverage.md`
-- `docs/agent_notes/finished_work/lint-hardening-leaf-19-scripts-lint-rule-docs-adoption.md`
 
 ## Resolution Slice 1 (2026-05-19)
 
@@ -38,8 +37,7 @@ the throw-error and expect-expect repairs change test semantics,
 the void-expression brace additions need per-site review, and the
 autonomous slice doesn't apply autofixes on its own. Folds naturally
 into Leaf 11's codemod coverage decision or a future test-quality
-leaf. No commits landed; the work branch was deleted. Details:
-`finished_work/lint-hardening-leaf-19-scripts-codemod-test-files-deferral.md`.
+leaf. No commits landed; the work branch was deleted.
 
 ## Probe Deferral (2026-05-19) — top-level non-tsconfig scripts
 
@@ -52,8 +50,7 @@ any of the provided project(s)". A grep confirmed none appear in
 standalone Bun scripts outside the TypeScript project graph.
 Adopting them would require modifying `tsconfig.scripts.json`
 first, a project-shape decision the autonomous slice declined. No
-commits landed; the work branch was deleted. Details:
-`finished_work/lint-hardening-leaf-19-scripts-top-level-non-scripts-tsconfig-deferral.md`.
+commits landed; the work branch was deleted.
 
 ## Resolution Slice 5 (2026-05-19)
 
@@ -72,8 +69,7 @@ real findings exposed once the directory walk worked:
 (complexity 21, plus `restrict-template-expressions`,
 `regexp/no-unused-capturing-group`). The whole-glob adoption stays
 deferred because nine more `drift-ai/` files (332–696 lines) exceed
-the `local/max-lines` ceiling. Details:
-`finished_work/lint-hardening-leaf-19-scripts-drift-ai-small-modules-adoption.md`.
+the `local/max-lines` ceiling.
 
 ## Resolution Slice 4 (2026-05-19)
 
@@ -89,8 +85,7 @@ probed alongside the pair but carved out: it produced 9
 `@typescript-eslint/consistent-type-imports` errors on `typeof import()`
 annotations that need a structural rewrite to top-level
 `import type` declarations. Verdict: defer until a leaf with explicit
-budget picks the rewrite. Details:
-`finished_work/lint-hardening-leaf-19-scripts-code-intel-server-and-logs-audit-test-adoption.md`.
+budget picks the rewrite.
 
 ## Slice 2 Deferral (2026-05-19)
 
@@ -100,8 +95,7 @@ vs the 10 ceiling, and 384 effective lines vs the 300 `local/max-lines`
 ceiling. Either repair path (structural split or a targeted warn-only
 override above the current line count) is a local debt decision the
 autonomous slice declined to make on its own. Verdict: defer until a
-leaf with explicit budget picks the repair. Details:
-`finished_work/lint-hardening-leaf-19-scripts-generate-harness-controls-deferral.md`.
+leaf with explicit budget picks the repair.
 
 Remaining script families (codemods, drift-ai, logs-audit, top-level
 utilities, `scripts/harness-check.ts`, `scripts/lint-agent.ts`,
@@ -119,7 +113,6 @@ Concrete ratchet-first/drain leaves drafted from those deferrals:
 - `35-codemod-test-harness-lint-adoption.md`
 - `36-codemod-concurrency-and-logging-lint-adoption.md`
 - `37-codemod-barrel-and-trpc-lint-adoption.md`
-- `38-top-level-script-project-lint-adoption.md`
 - `39-ratchet-runtime-script-lint-adoption.md`
 - `40-logs-audit-and-drift-entrypoint-lint-adoption.md`
 

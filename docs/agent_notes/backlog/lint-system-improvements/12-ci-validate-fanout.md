@@ -10,9 +10,7 @@ project output. After typecheck, many checks can fan out: lint, ratchet,
 zero-baseline, coverage-map, generated docs and harness checks, module index,
 script smoke tests, and unit tests if resource contention is controlled.
 
-Overlap: `docs/agent_notes/backlog/lint-reference-readiness/32-ci-parallelization.md`
-tracks a related reference-readiness item. Merge or close stale duplicates when
-promoting.
+Overlap: the earlier CI parallelization task was superseded by this task.
 
 ## Scope
 

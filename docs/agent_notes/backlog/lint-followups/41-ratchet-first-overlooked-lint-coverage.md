@@ -27,7 +27,6 @@ Sources:
 - `docs/agent_notes/backlog/lint-followups/35-codemod-test-harness-lint-adoption.md`
 - `docs/agent_notes/backlog/lint-followups/36-codemod-concurrency-and-logging-lint-adoption.md`
 - `docs/agent_notes/backlog/lint-followups/37-codemod-barrel-and-trpc-lint-adoption.md`
-- `docs/agent_notes/backlog/lint-followups/38-top-level-script-project-lint-adoption.md`
 - `docs/agent_notes/backlog/lint-followups/39-ratchet-runtime-script-lint-adoption.md`
 - `docs/agent_notes/backlog/lint-followups/40-logs-audit-and-drift-entrypoint-lint-adoption.md`
 - `docs/agent_notes/backlog/lint-followups/lint-coverage-map.md`
@@ -188,10 +187,9 @@ Current known ratchet support constraints:
 
 ## Phase 2 Batch Order (post-coverage-map)
 
-Batches 1-3 added per-family `local/max-lines` ratchets (codemods, drift-ai,
-ratchet/harness runtime) — see `finished_work/lint-hardening-leaf-41-*-max-lines-ratchet.md`
-and the coverage map for landed scope. The next batches are named in order;
-deviating requires a documented reason in the finished-work note.
+Batches 1-3 added per-family `local/max-lines` ratchets for codemods, drift-ai,
+and ratchet/harness runtime. The coverage map carries the landed scope. The
+next batches are named in order; deviating requires a short durable note.
 
 - **Batch 4: Vitest allowlist + codemod test-harness bug-class ratchet.** Add
   `vitest` (or `eslint-plugin-vitest`) to `lintRatchetThirdPartyPluginAllowlist`,

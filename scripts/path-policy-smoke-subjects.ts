@@ -71,6 +71,7 @@ export const SCRIPT_SMOKE_SUBJECTS = {
     "scripts/ai-hooks/doc-length.sh",
     "scripts/ai-hooks/tidy-edited-file.sh",
     "scripts/ai-hooks/lint-coverage-check.sh",
+    "scripts/ai-hooks/lint-coverage-state.sh",
     "scripts/ai-hooks/output-filter.sh",
     "scripts/ai-hooks/process-runner.sh",
     "scripts/ai-hooks/commit-output.sh",
@@ -307,6 +308,10 @@ export const SCRIPT_SMOKE_SUBJECTS = {
     "scripts/lint-ratchet.ts",
     "scripts/lint-ratchet/",
     "scripts/lint-ratchet-config.ts",
+    "scripts/lint-ratchet-debt-log.ts",
+    "scripts/lint-ratchet-debt-log.test.ts",
+    "scripts/lint-ratchet-debt-log-schema.test.ts",
+    "scripts/lint-ratchet-debt-log-write.test.ts",
     "scripts/lint-ratchet-metrics.ts",
     "scripts/lint-ratchet-baseline-compare.ts",
     "scripts/lint-ratchet-baseline-parse.ts",
@@ -368,5 +373,13 @@ export const SCRIPT_SMOKE_SUBJECTS = {
     "scripts/path-policy-query-core.ts",
     "scripts/path-policy.ts",
     "scripts/path-policy-smoke-subjects.ts",
+  ],
+  "test-check-fast-uri-override": [
+    "scripts/check-fast-uri-override.sh",
+    "scripts/test-check-fast-uri-override.sh",
+  ],
+  "test-check-eslint-react-peer-exception": [
+    "scripts/check-eslint-react-peer-exception.sh",
+    "scripts/test-check-eslint-react-peer-exception.sh",
   ],
 } as const satisfies ScriptSmokeSubjects;

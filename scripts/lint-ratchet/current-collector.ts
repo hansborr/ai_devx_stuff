@@ -9,8 +9,8 @@ import {
   type LintRatchetComplexityFunction,
   parseComplexitySeverityMessage,
 } from "../lint-ratchet-metrics.js";
-import type { ESLintMessage } from "./eslint-runner.js";
-import { runEslint } from "./eslint-runner.js";
+import type { ESLintFileResult, ESLintMessage } from "./eslint-runner.js";
+import { runEslint, runEslintForFiles } from "./eslint-runner.js";
 import { relativePath } from "./paths.js";
 
 const ESLINT_SEVERITY_ERROR = 2;
@@ -111,6 +111,27 @@ function metricFindingFor(
   return { complexity: parseComplexitySeverityMessage(ratchet.id, path, message) };
 }
 
+function itemsFromResults(
+  ratchet: LintRatchetConfig,
+  results: readonly ESLintFileResult[],
+): Map<string, LintRatchetCurrentItem> {
+  const items = new Map<string, LintRatchetCurrentItem>();
+  for (const result of results) {
+    const path = relativePath(result.filePath);
+    for (const message of result.messages) {
+      if (
+        message.ruleId === null &&
+        (message.fatal === true || message.severity === ESLINT_SEVERITY_ERROR)
+      ) {
+        throw new ConfigError(`ESLint could not parse ${path}: ${message.message}`);
+      }
+      if (message.ruleId !== ratchet.ruleId) continue;
+      addFinding(items, path, message.line, metricFindingFor(ratchet, path, message));
+    }
+  }
+  return items;
+}
+
 export async function collectCurrentById(
   ruleSourceHashesById: LintRatchetRuleSourceHashesById,
 ): Promise<LintRatchetCurrentById> {
@@ -120,23 +141,23 @@ export async function collectCurrentById(
     if (ruleSourceHash === undefined) {
       throw new ConfigError(`lint:ratchet: missing rule source hash for ${ratchet.id}`);
     }
-    const items = new Map<string, LintRatchetCurrentItem>();
-    for (const result of await runEslint(ratchet, ruleSourceHash)) {
-      const path = relativePath(result.filePath);
-      for (const message of result.messages) {
-        if (
-          message.ruleId === null &&
-          (message.fatal === true || message.severity === ESLINT_SEVERITY_ERROR)
-        ) {
-          throw new ConfigError(`ESLint could not parse ${path}: ${message.message}`);
-        }
-        if (message.ruleId !== ratchet.ruleId) continue;
-        addFinding(items, path, message.line, metricFindingFor(ratchet, path, message));
-      }
-    }
-    currentById.set(ratchet.id, items);
+    currentById.set(
+      ratchet.id,
+      itemsFromResults(ratchet, await runEslint(ratchet, ruleSourceHash)),
+    );
   }
   return currentById;
+}
+
+// Narrow single-ratchet collection for the edit-time check: lints an explicit
+// file set via the cache-safe positional runner and reuses the same message
+// filtering, fatal-parse handling, and metric parsing as the full sweep.
+export async function collectCurrentForRatchet(
+  ratchet: LintRatchetConfig,
+  ruleSourceHash: string,
+  files: readonly string[],
+): Promise<ReadonlyMap<string, LintRatchetCurrentItem>> {
+  return itemsFromResults(ratchet, await runEslintForFiles(ratchet, ruleSourceHash, files));
 }
 
 export function totalCurrentCount(currentById: LintRatchetCurrentById): number {

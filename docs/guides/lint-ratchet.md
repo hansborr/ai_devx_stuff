@@ -28,6 +28,7 @@ runtime set first:
 - `scripts/lint-ratchet-metrics.ts`
 - `scripts/lint-ratchet-output.ts`
 - `scripts/lint-ratchet-report.ts`
+- `scripts/lint-ratchet-debt-log.ts`
 - `scripts/lint-ratchet-summary.ts`
 - `scripts/lint-ratchet-zero-baseline.ts`
 - `scripts/lint-rule-docs.ts`, or a same-export stub when you are not using
@@ -122,6 +123,12 @@ Minimum runtime file set:
 - `scripts/lint-ratchet-report.ts` - sibling helper that formats a captured
   harness-diagnostics envelope as a GitHub-flavored markdown report; it owns
   the `LINT_RATCHET_REPORT_ARTIFACT_URL` env-var contract.
+- `scripts/lint-ratchet-debt-log.ts` - read-only renderer for the committed
+  `lint-ratchet.debt-log.jsonl` acceptance log; the runner imports it to dispatch
+  `--debt-log`, and it pairs with the `scripts/lint-ratchet/debt-log-schema.ts`
+  validator, `scripts/lint-ratchet/debt-log-write.ts` writer, and neutral
+  `scripts/lint-ratchet/baseline-update-apply.ts` update applicator under the
+  portable `scripts/lint-ratchet/` directory.
 - `scripts/lint-ratchet-summary.ts` - sibling helper that prints a per-ratchet
   baseline summary table without running ESLint.
 - `scripts/lint-ratchet-zero-baseline.ts` - sibling helper that audits
@@ -514,8 +521,28 @@ plugin allowlisting, complexity-severity vectors, and rule-source hashing.
   No `--allow-worse` flag is needed because lowering the baseline is not
   worsening it. If a rename or intentional policy change makes the generated
   baseline worse, use
-  `bun run lint:ratchet:update -- --allow-worse --reason "<why>"` and put the
-  durable rationale in the commit message.
+  `bun run lint:ratchet:update -- --allow-worse --reason "<why>"`. The `--reason`
+  text is durably recorded as the `acceptanceReason` field of a new line in the
+  committed debt log `lint-ratchet.debt-log.jsonl` (see the next bullet), so the
+  rationale outlives the commit message. The update records that line immediately
+  before rewriting the baseline and treats the same line already present at the
+  debt-log tail as a retry, so stage and commit `lint-ratchet.debt-log.jsonl`
+  alongside `lint-ratchet.baseline.json` — a human commits the paired diff.
+- `bun run lint:ratchet:debt-log` renders the committed debt log as
+  GitHub-flavored markdown (sticky-comment marker `<!-- lint-ratchet-debt-log -->`,
+  one section per acceptance, oldest first). It is read-only and never fails: on a
+  clean tree with no recorded acceptances it prints an empty report and exits 0.
+  Only *worse* acceptances are logged — the `--allow-worse` regression set plus
+  orphan (renamed/removed registry id) removals with the committed baseline
+  snapshot that is being dropped; routine tightening updates and improvement locks
+  write nothing, and a first-ever baseline (initial adoption) logs nothing because
+  there is no committed baseline to compare against. Each line deliberately omits
+  timestamp, branch, parent commit, committer, and baseline hashes: PR reviewers
+  derive those from the commit, blame, and the `lint-ratchet.baseline.json` diff,
+  so the log stays a minimal, human-reviewable record of *why* debt was accepted.
+  Enforcement stays local by design — there is no CI commitlint gate for the log
+  and the tool never auto-commits; staging and committing the log is a deliberate
+  human step.
 
 Strict improvement enforcement is the default. The ratchet is symmetric: neither
 a regression nor an improvement may diverge from the committed baseline without
@@ -626,8 +653,9 @@ changes, the ratchet fails loudly and the rule-source hash also forces a
 baseline review.
 For `complexity-severity`, the runner reads the core rule's interpolated
 message (`Function '<name>' has a complexity of <N>...`) plus ESLint's
-diagnostic line and `nodeType`; it does not reimplement ESLint's cyclomatic
-complexity visitor.
+diagnostic line; it does not reimplement ESLint's cyclomatic complexity visitor.
+(ESLint 10 removed `LintMessage#nodeType`, so per-function identity keys on the
+line and the parsed label only.)
 
 Default and check-baseline modes require metric-specific fields. For a converted
 `effective-line-count` or `complexity-severity` ratchet, a count-only committed

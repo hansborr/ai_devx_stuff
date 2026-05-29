@@ -4,7 +4,6 @@ Status: Drafted 2026-05-20 - parked ratchet-first/drain leaf
 Sources:
 
 - `docs/agent_notes/backlog/lint-followups/19-scripts-eslint-remaining-families.md`
-- `docs/agent_notes/finished_work/lint-hardening-leaf-19-scripts-drift-ai-small-modules-adoption.md`
 - `scripts/drift-ai/current-inventory.ts`
 - `scripts/drift-ai/current-inventory.test.ts`
 - `scripts/drift-ai/harness-freshness.test.ts`

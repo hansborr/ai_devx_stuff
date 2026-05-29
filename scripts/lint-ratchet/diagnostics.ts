@@ -15,7 +15,15 @@ import { ConfigError } from "../lint-ratchet-metrics.js";
 import { formatRuleDocsFailures, loadLintRuleDocs, type RuleDocsEntry } from "../lint-rule-docs.js";
 import { WorseBaselineError } from "./errors.js";
 import { BASELINE_FILENAME, repoRoot } from "./paths.js";
+import { RATCHET_REGRESSION_UPDATE_COMMAND } from "./recovery-command.js";
 import { assertNever, ratchetSource } from "./runtime-config.js";
+
+// ratchetFixText starts a standalone sentence ("Reduce …"); when it is appended
+// mid-sentence after "…, then " its leading capital reads wrong, so callers that
+// concatenate it lower-case the first character.
+function lowercaseFirst(text: string): string {
+  return text.slice(0, 1).toLowerCase() + text.slice(1);
+}
 
 function ratchetFixText(regression: LintRatchetRegression): string {
   if (regression.currentLines !== undefined) {
@@ -25,7 +33,7 @@ function ratchetFixText(regression: LintRatchetRegression): string {
         : `back to the committed baseline (${String(regression.baselineLines)})`;
     return (
       `Reduce this file's ${regression.ruleId} effective line count from ${String(regression.currentLines)} ${target}, or run ` +
-      "`bun run lint:ratchet:update` in a cleanup PR when the baseline movement is intentional."
+      `\`${RATCHET_REGRESSION_UPDATE_COMMAND}\` in a cleanup PR when the baseline movement is intentional.`
     );
   }
   if (regression.currentComplexity !== undefined) {
@@ -35,13 +43,13 @@ function ratchetFixText(regression: LintRatchetRegression): string {
         : `back to the committed baseline (${String(regression.baselineComplexity)})`;
     return (
       `Reduce this file's ${regression.ruleId} complexity from ${String(regression.currentComplexity)} ${target}, or run ` +
-      "`bun run lint:ratchet:update` in a cleanup PR when the baseline movement is intentional."
+      `\`${RATCHET_REGRESSION_UPDATE_COMMAND}\` in a cleanup PR when the baseline movement is intentional.`
     );
   }
   return (
     `Reduce this file's ${regression.ruleId} finding count from ${String(regression.currentCount)} ` +
     `back to the committed baseline (${String(regression.baselineCount)}), or run ` +
-    "`bun run lint:ratchet:update` in a cleanup PR when the baseline movement is intentional."
+    `\`${RATCHET_REGRESSION_UPDATE_COMMAND}\` in a cleanup PR when the baseline movement is intentional.`
   );
 }
 
@@ -98,7 +106,7 @@ export async function loadRuleDocsById(): Promise<ReadonlyMap<string, RuleDocsEn
 }
 
 function howToFixFor(entry: RuleDocsEntry, regression: LintRatchetRegression): string {
-  const ratchetFix = ratchetFixText(regression);
+  const ratchetFix = lowercaseFirst(ratchetFixText(regression));
   if (entry.repairKind === "codemod") {
     if (entry.repairCommand === undefined) {
       throw new ConfigError(`Rule ${entry.id} declares repairKind=codemod without repairCommand`);
@@ -150,14 +158,24 @@ function buildLocalFinding(
   return withLine;
 }
 
-function buildGenericFinding(regression: LintRatchetRegression): HarnessFinding {
+function buildGenericFinding(
+  regression: LintRatchetRegression,
+  ratchet: LintRatchetConfig,
+): HarnessFinding {
+  // Off-in-normal-lint and option-stricter rules are the ones where the ratchet
+  // is the sole signal, so surface the registry's rationale instead of a bare
+  // "Ratchet regression for <rule>." with no "why".
+  const reason = ratchet.zeroBaselineDisposition?.reason;
   const base = {
     control: regression.testId,
     severity: "block",
     path: regression.path,
     ruleId: regression.ruleId,
     ...structuredRatchetFields(regression),
-    why: `Ratchet regression for ${regression.ruleId}.`,
+    why:
+      reason === undefined
+        ? `Ratchet regression for ${regression.ruleId}.`
+        : `Ratchet regression for ${regression.ruleId}: ${reason}`,
     howToFix: ratchetFixText(regression),
     repairKind: "manual",
   } as const;
@@ -179,7 +197,7 @@ function buildFinding(
       return buildLocalFinding(regression, ruleDocsById);
     case "third-party":
     case "core":
-      return buildGenericFinding(regression);
+      return buildGenericFinding(regression, ratchet);
     default:
       return assertNever(source);
   }

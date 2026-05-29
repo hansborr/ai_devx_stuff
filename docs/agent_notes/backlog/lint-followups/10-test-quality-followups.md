@@ -5,7 +5,6 @@ Sources:
 
 - `docs/agent_notes/backlog/lint-hardening/03-vitest-test-quality-rules.md`
 - `docs/agent_notes/backlog/lint-hardening/evaluation-verdicts.md`
-- `docs/agent_notes/finished_work/lint-hardening-leaf-10a-vitest-conditional-expect-inventory.md`
 
 ## 10a Resolution (2026-05-19)
 

@@ -18,7 +18,6 @@ export interface ESLintMessage {
   readonly severity: number;
   readonly message: string;
   readonly line?: number;
-  readonly nodeType?: string;
   readonly messageId?: string;
   readonly fatal?: boolean;
 }
@@ -93,27 +92,10 @@ function sweepStaleCacheSiblings(ratchet: LintRatchetConfig, currentHash: string
   }
 }
 
-export async function runEslint(
+function spawnEslint(
   ratchet: LintRatchetConfig,
-  ruleSourceHash: string,
+  args: readonly string[],
 ): Promise<readonly ESLintFileResult[]> {
-  sweepStaleCacheSiblings(ratchet, cacheKeyHashFor(ratchet, ruleSourceHash));
-  const configPath = writeEslintConfig(ratchet, ruleSourceHash);
-  const cacheArgs: string[] = [];
-  if (usesEslintCache(ratchet)) {
-    const cachePath = eslintCachePathFor(ratchet, ruleSourceHash);
-    mkdirSync(dirname(cachePath), { recursive: true });
-    cacheArgs.push("--cache", "--cache-location", cachePath);
-  }
-  const args = [
-    "--format=json",
-    "--no-error-on-unmatched-pattern",
-    ...cacheArgs,
-    "--config",
-    configPath,
-    ...ratchet.files,
-  ];
-
   return new Promise((resolveResults, rejectResults) => {
     const child = spawn(resolve(repoRoot, "node_modules/.bin/eslint"), args, {
       cwd: repoRoot,
@@ -154,4 +136,40 @@ export async function runEslint(
       }
     });
   });
+}
+
+// Run ESLint for an explicit file set with the ratchet object UNCHANGED (same
+// config/cache hash) and WITHOUT sweeping stale cache siblings. Passing the
+// edited file as a positional arg reuses the canonical sweep's warm cache and
+// leaves it intact — the cache-safe shape the edit-time hook depends on (see
+// docs/agent_notes Phase 0 measurement). Never call this with a mutated ratchet.
+export async function runEslintForFiles(
+  ratchet: LintRatchetConfig,
+  ruleSourceHash: string,
+  files: readonly string[],
+): Promise<readonly ESLintFileResult[]> {
+  const configPath = writeEslintConfig(ratchet, ruleSourceHash);
+  const cacheArgs: string[] = [];
+  if (usesEslintCache(ratchet)) {
+    const cachePath = eslintCachePathFor(ratchet, ruleSourceHash);
+    mkdirSync(dirname(cachePath), { recursive: true });
+    cacheArgs.push("--cache", "--cache-location", cachePath);
+  }
+  const args = [
+    "--format=json",
+    "--no-error-on-unmatched-pattern",
+    ...cacheArgs,
+    "--config",
+    configPath,
+    ...files,
+  ];
+  return spawnEslint(ratchet, args);
+}
+
+export async function runEslint(
+  ratchet: LintRatchetConfig,
+  ruleSourceHash: string,
+): Promise<readonly ESLintFileResult[]> {
+  sweepStaleCacheSiblings(ratchet, cacheKeyHashFor(ratchet, ruleSourceHash));
+  return runEslintForFiles(ratchet, ruleSourceHash, ratchet.files);
 }

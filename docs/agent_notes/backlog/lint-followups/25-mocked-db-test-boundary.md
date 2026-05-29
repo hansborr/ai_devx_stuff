@@ -3,7 +3,7 @@
 Status: Parked until replacement helper boundary exists
 Sources:
 
-- `docs/agent_notes/backlog/lint-hardening-cross-repo-review.md`
+- `docs/agent_notes/backlog/lint-hardening/00-context-and-rollout.md`
 
 ## Problem
 

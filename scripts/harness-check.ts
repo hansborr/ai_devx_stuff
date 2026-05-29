@@ -69,6 +69,7 @@ const EXEMPT_SCRIPTS = new Set<string>([
   "lint:ratchet:check-baseline",
   "lint:ratchet:check-registry",
   "lint:ratchet:report",
+  "lint:ratchet:debt-log",
   "lint:ratchet:summary",
   // worktree provisioning utilities — dev ergonomics, not enforcement
   // gates. `worktree:status` is the read-only sensor and IS in the
@@ -148,18 +149,16 @@ function loadManifest(): RawControl[] {
   if (!isObject(parsed) || !Array.isArray(parsed.controls)) {
     throw new Error("harness.controls.json must declare a controls array");
   }
+  const controls: RawControl[] = [];
   for (const [index, entry] of parsed.controls.entries()) {
     if (!isObject(entry)) {
       throw new Error(
         `harness.controls.json: control entry at index ${String(index)} is not an object`,
       );
     }
+    controls.push(entry);
   }
-  /*
-   * type-assertion-boundary: interop - manual structural guard above narrows to array-of-objects;
-   * downstream code re-validates each field via has-property checks.
-   */
-  return parsed.controls as unknown as RawControl[];
+  return controls;
 }
 
 async function main(): Promise<void> {

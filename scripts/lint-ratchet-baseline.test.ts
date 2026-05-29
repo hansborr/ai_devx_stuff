@@ -23,7 +23,7 @@ import {
   ruleNamespace,
   validateLintRatchetRegistry,
 } from "./lint-ratchet-baseline.js";
-import type { LintRatchetConfig } from "./lint-ratchet-config.js";
+import { type LintRatchetConfig, lintRatchets } from "./lint-ratchet-config.js";
 import {
   complexityDelta,
   ConfigError,
@@ -31,6 +31,7 @@ import {
   parseComplexitySeverityMessage,
   uniqueComplexityMap,
 } from "./lint-ratchet-metrics.js";
+import type { RuleDocsEntry } from "./lint-rule-docs.js";
 
 const baseRatchet: LintRatchetConfig = {
   id: "ratchet/local-type-assertion-boundary",
@@ -170,7 +171,7 @@ function complexityFunction(
   label: string,
   complexity: number,
 ): LintRatchetComplexityFunction {
-  return { line, nodeType: "FunctionDeclaration", label, complexity };
+  return { line, label, complexity };
 }
 
 function thrownMessage(action: () => void): string {
@@ -205,7 +206,6 @@ describe("complexity message parsing", () => {
       parseComplexitySeverityMessage("ratchet/fixture-complexity", "packages/app/src/example.ts", {
         message: "Function 'choose' has a complexity of 12. Maximum allowed is 10.",
         line: 7,
-        nodeType: "FunctionDeclaration",
         messageId: "complex",
       }),
     ).toEqual(complexityFunction(7, "Function 'choose'", 12));
@@ -213,14 +213,12 @@ describe("complexity message parsing", () => {
       parseComplexitySeverityMessage("ratchet/fixture-complexity", "packages/app/src/example.ts", {
         message: "Function 'choose' has a complexity of 12. Maximum allowed is 10.",
         line: 7,
-        nodeType: "FunctionDeclaration",
       }),
     ).toEqual(complexityFunction(7, "Function 'choose'", 12));
     expect(() =>
       parseComplexitySeverityMessage("ratchet/fixture-complexity", "packages/app/src/example.ts", {
         message: "Function 'choose' has a complexity of 12. Maximum allowed is 10.",
         line: 7,
-        nodeType: "FunctionDeclaration",
         messageId: "complexity-high",
       }),
     ).toThrow(ConfigError);
@@ -228,7 +226,6 @@ describe("complexity message parsing", () => {
       parseComplexitySeverityMessage("ratchet/fixture-complexity", "packages/app/src/example.ts", {
         message: "Function 'choose' is too complex.",
         line: 7,
-        nodeType: "FunctionDeclaration",
       }),
     ).toThrow(ConfigError);
   });
@@ -882,6 +879,118 @@ describe("lint ratchet diagnostics envelope", () => {
     });
   });
 
+  it("recommends the allow-worse update form for third-party regressions", () => {
+    const envelope = buildEnvelope(
+      [
+        {
+          testId: thirdPartyRatchet.id,
+          ruleId: thirdPartyRatchet.ruleId,
+          path: "packages/server/src/regressed.ts",
+          baselineCount: 0,
+          currentCount: 1,
+          reason: "new-path",
+        },
+      ],
+      [],
+      new Map(),
+      [thirdPartyRatchet],
+    );
+
+    const howToFix = envelope.findings[0]?.howToFix ?? "";
+    expect(howToFix).toContain(" -- ");
+    expect(howToFix).toContain('bun run lint:ratchet:update -- --allow-worse --reason "<why>"');
+    expect(howToFix).not.toContain("run `bun run lint:ratchet:update`");
+  });
+
+  it("surfaces the registry disposition reason in a generic finding why", () => {
+    const strictBoolean = lintRatchets.find(
+      (ratchet) => ratchet.id === "ratchet/strict-boolean-expressions-shared",
+    );
+    if (strictBoolean === undefined) {
+      throw new Error("expected ratchet/strict-boolean-expressions-shared in the registry");
+    }
+    const envelope = buildEnvelope(
+      [
+        {
+          testId: strictBoolean.id,
+          ruleId: strictBoolean.ruleId,
+          path: "packages/shared/src/regressed.ts",
+          baselineCount: 0,
+          currentCount: 1,
+          reason: "new-path",
+        },
+      ],
+      [],
+      new Map(),
+      [strictBoolean],
+    );
+
+    const why = envelope.findings[0]?.why ?? "";
+    expect(why).toContain(`Ratchet regression for ${strictBoolean.ruleId}:`);
+    expect(why).toContain("normal ESLint deliberately keeps");
+  });
+
+  it("lower-cases the ratchet fix when appended to a local rule howToFix", () => {
+    const localRuleDocs: RuleDocsEntry = {
+      id: baseRatchet.ruleId,
+      description: "Type assertions must stay at framework/JSON/Prisma/test boundaries.",
+      principle: "Keep type assertions at boundaries.",
+      category: "maintainability",
+      pairedGuide: "docs/guides/type-assertions.md",
+      repairKind: "manual",
+    };
+    const envelope = buildEnvelope(
+      [
+        {
+          testId: baseRatchet.id,
+          ruleId: baseRatchet.ruleId,
+          path: "packages/server/src/regressed.ts",
+          baselineCount: 1,
+          currentCount: 2,
+          reason: "increased-count",
+        },
+      ],
+      [],
+      new Map([[localRuleDocs.id, localRuleDocs]]),
+      [baseRatchet],
+    );
+
+    const howToFix = envelope.findings[0]?.howToFix ?? "";
+    expect(howToFix).toContain(", then reduce this file's");
+    expect(howToFix).not.toContain(", then Reduce this file's");
+  });
+
+  it("names the differing option in option-mismatch ratchet why text", () => {
+    const cases = [
+      {
+        id: "ratchet/typescript-eslint-restrict-template-expressions-top-level-scripts",
+        option: "allowNumber",
+      },
+      { id: "ratchet/vitest-expect-expect-drift-ai-tests", option: "assertFunctionNames" },
+      { id: "ratchet/vitest-expect-expect-script-tests", option: "assertFunctionNames" },
+    ] as const;
+    for (const { id, option } of cases) {
+      const ratchet = lintRatchets.find((entry) => entry.id === id);
+      if (ratchet === undefined) throw new Error(`expected ${id} in the registry`);
+      const envelope = buildEnvelope(
+        [
+          {
+            testId: ratchet.id,
+            ruleId: ratchet.ruleId,
+            path: "scripts/example.test.ts",
+            baselineCount: 0,
+            currentCount: 1,
+            reason: "new-path",
+          },
+        ],
+        [],
+        new Map(),
+        [ratchet],
+      );
+      expect(envelope.findings[0]?.why, id).toContain(option);
+    }
+  });
+
   it("produces no findings for a clean comparison", () => {
     const envelope = buildEnvelope([], [], new Map(), [coreRatchet]);
 
@@ -1356,6 +1465,51 @@ describe("lint ratchet update mode with stale committed baseline", () => {
       { allowWorse: true, reason: "renamed ratchet/local-foo to ratchet/local-bar" },
     );
     expect(accepted.allowed).toBe(true);
+  });
+
+  it("records structured orphan removals on the decision regardless of --allow-worse", () => {
+    // The debt log needs the dropped baseline evidence, not just the id, so the
+    // removal snapshot is always computed; --allow-worse only flips the gate.
+    const committedStale = oneTestBaseline([["packages/server/src/a.ts", 1]]);
+    const stale = formatLintRatchetBaseline(committedStale).replace(
+      baseRatchet.id,
+      "ratchet/old-removed-rule",
+    );
+    const structural = parseLintRatchetBaselineStructure(stale);
+    expect(structural.baseline).toBeDefined();
+    const generated = oneTestBaseline([["packages/server/src/a.ts", 1]]);
+
+    const expectedRemovals = [
+      {
+        testId: "ratchet/old-removed-rule",
+        ruleId: "local/type-assertion-boundary",
+        metric: "message-count",
+        baselineItems: [{ path: "packages/server/src/a.ts", count: 1 }],
+      },
+    ];
+
+    const refused = decideLintRatchetUpdate(
+      structural.baseline ?? generated,
+      generated,
+      [baseRatchet],
+      {
+        allowWorse: false,
+      },
+    );
+    expect(refused.allowed).toBe(false);
+    expect(refused.orphanRemovals).toEqual(expectedRemovals);
+
+    const accepted = decideLintRatchetUpdate(
+      structural.baseline ?? generated,
+      generated,
+      [baseRatchet],
+      {
+        allowWorse: true,
+        reason: "removed ratchet/old-removed-rule after deleting the rule",
+      },
+    );
+    expect(accepted.allowed).toBe(true);
+    expect(accepted.orphanRemovals).toEqual(expectedRemovals);
   });
 
   it("lists multiple orphan ids alphabetically in a single failure", () => {

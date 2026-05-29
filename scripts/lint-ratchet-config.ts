@@ -472,10 +472,10 @@ export const lintRatchets = [
     repairKind: "manual",
     zeroBaselineDisposition: {
       kind: "narrow-floor",
-      reason: "normal Vitest lint uses the shared test helper allowlist plus resolved plugin defaults; this drift-ai ratchet keeps a narrower expect-only assertion floor",
+      reason: "normal Vitest lint uses resolved plugin defaults for expect-expect; this drift-ai ratchet narrows the assertFunctionNames allowlist to expect only",
     },
   },
-  { id: "ratchet/vitest-expect-expect-script-tests", ruleId: "vitest/expect-expect", source: { kind: "third-party", pluginModule: "@vitest/eslint-plugin" }, parserProfile: "minimal-ts", files: ["scripts/code-intel.test.ts", "scripts/lint-coverage-map-check.test.ts", "scripts/lint-ratchet-baseline.test.ts"], ignores: [], ruleOptions: [{ assertFunctionNames: ["expect", "assertNonPermissiveOutput", "expectClean", "expectHit", "expectOneFulfilledOneConflict", "expectParseFailure", "expectParseSuccess"] }], mode: "no-new", target: 0, metric: "message-count", repairKind: "manual", zeroBaselineDisposition: { kind: "narrow-floor", reason: "normal Vitest lint resolves extra plugin-default expect-expect options while applying the broad script-test helper allowlist; this ratchet keeps that floor scoped to the selected script tests" } },
+  { id: "ratchet/vitest-expect-expect-script-tests", ruleId: "vitest/expect-expect", source: { kind: "third-party", pluginModule: "@vitest/eslint-plugin" }, parserProfile: "minimal-ts", files: ["scripts/code-intel.test.ts", "scripts/lint-coverage-map-check.test.ts", "scripts/lint-ratchet-baseline.test.ts"], ignores: [], ruleOptions: [{ assertFunctionNames: ["expect", "assertNonPermissiveOutput", "expectClean", "expectHit", "expectOneFulfilledOneConflict", "expectParseFailure", "expectParseSuccess"] }], mode: "no-new", target: 0, metric: "message-count", repairKind: "manual", zeroBaselineDisposition: { kind: "narrow-floor", reason: "normal Vitest lint resolves extra plugin-default expect-expect options; this ratchet pins the assertFunctionNames allowlist (expect plus the named script-test helpers) scoped to the selected script tests" } },
   {
     id: "ratchet/vitest-no-commented-out-tests-eslint-rules-tests",
     ruleId: "vitest/no-commented-out-tests",

@@ -6,7 +6,6 @@ probe.
 Sources:
 
 - `docs/agent_notes/backlog/lint-hardening/08-scripts-eslint-coverage.md`
-- `docs/agent_notes/in_progress/lint-hardening-leaf-8-codemods.md`
 - `docs/agent_notes/backlog/lint-hardening/evaluation-verdicts.md`
 
 ## Problem

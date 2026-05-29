@@ -20,7 +20,7 @@
         }
       ],
       "configHash": "sha256:7dc09df20f747f6f3babd9885b11d639fff30f07011524b0471c3cf192f4b92e",
-      "ruleSourceHash": "sha256:97723dbbc0772ac4813351c8ac7f2b4b6f3d49ffca7184ce4409747f68e94501",
+      "ruleSourceHash": "sha256:f9359f01925b0b1eface54bb27cc9f6b440575d7cec1762c10501358bd080894",
       "items": {}
     },
     "ratchet/core-complexity-drift-ai": {
@@ -43,7 +43,7 @@
         }
       ],
       "configHash": "sha256:1b1fe70f7b974d485180c60d0b98e4c5d2bad41760de4b1ef68a5a766c8cabf4",
-      "ruleSourceHash": "sha256:97723dbbc0772ac4813351c8ac7f2b4b6f3d49ffca7184ce4409747f68e94501",
+      "ruleSourceHash": "sha256:f9359f01925b0b1eface54bb27cc9f6b440575d7cec1762c10501358bd080894",
       "items": {}
     },
     "ratchet/core-complexity-eslint-rules": {
@@ -63,7 +63,7 @@
         }
       ],
       "configHash": "sha256:67f6a88cd4955b35d8513d9e412aa9ae020383f649e551783b4faa827d42ecb3",
-      "ruleSourceHash": "sha256:97723dbbc0772ac4813351c8ac7f2b4b6f3d49ffca7184ce4409747f68e94501",
+      "ruleSourceHash": "sha256:f9359f01925b0b1eface54bb27cc9f6b440575d7cec1762c10501358bd080894",
       "items": {}
     },
     "ratchet/core-complexity-lint-ratchet-runtime": {
@@ -93,7 +93,7 @@
         }
       ],
       "configHash": "sha256:09fa088d4f132d5fedb136e45688441f596e804e7b18b26a3daa1ee23c7c15de",
-      "ruleSourceHash": "sha256:97723dbbc0772ac4813351c8ac7f2b4b6f3d49ffca7184ce4409747f68e94501",
+      "ruleSourceHash": "sha256:f9359f01925b0b1eface54bb27cc9f6b440575d7cec1762c10501358bd080894",
       "items": {}
     },
     "ratchet/core-complexity-top-level-scripts": {
@@ -115,7 +115,7 @@
         }
       ],
       "configHash": "sha256:9dfafaa6cd3fbb08f84b63bf240a86543af18286a6c2ac7496642007e43495c3",
-      "ruleSourceHash": "sha256:97723dbbc0772ac4813351c8ac7f2b4b6f3d49ffca7184ce4409747f68e94501",
+      "ruleSourceHash": "sha256:f9359f01925b0b1eface54bb27cc9f6b440575d7cec1762c10501358bd080894",
       "items": {}
     },
     "ratchet/core-no-magic-numbers-eslint-rules": {
@@ -142,7 +142,7 @@
         }
       ],
       "configHash": "sha256:ee0210b68db48f911d94318315d81883190a34c2db8b8cd36cfb13269246925b",
-      "ruleSourceHash": "sha256:d1fd643ef473dc245de74e3fb63d363c8f4bce2e014b4bc5e534059ab72ab5d4",
+      "ruleSourceHash": "sha256:0935fef3e106f4add6ff582d2e3e89b43f4856f538cf2d3069a083b19a99d656",
       "items": {}
     },
     "ratchet/core-no-magic-numbers-top-level-scripts": {
@@ -173,7 +173,7 @@
         }
       ],
       "configHash": "sha256:5ad4a5d8dbd4d4d68de4f78eeba36d6a3bcedf921a52445e693d24ce749a40d0",
-      "ruleSourceHash": "sha256:d1fd643ef473dc245de74e3fb63d363c8f4bce2e014b4bc5e534059ab72ab5d4",
+      "ruleSourceHash": "sha256:0935fef3e106f4add6ff582d2e3e89b43f4856f538cf2d3069a083b19a99d656",
       "items": {}
     },
     "ratchet/core-preserve-caught-error-top-level-scripts": {
@@ -190,7 +190,7 @@
       "ignores": [],
       "ruleOptions": [],
       "configHash": "sha256:f4949cb2347faa5a5ec85be3892c736bba99dbe7ed4e9047576959c407503fc3",
-      "ruleSourceHash": "sha256:9ccd340e27257b0319d829f10d8d4dfac86d5c4b0045444a8a99fa0751107584",
+      "ruleSourceHash": "sha256:2a9677d88dd35e59a76344e8298959a975744786d7a0a3ec6d9e4dceee4353a2",
       "items": {}
     },
     "ratchet/local-max-lines-code-intel": {
@@ -365,13 +365,9 @@
       "configHash": "sha256:9bcf258ecfce1cdeb8921c105176ce8513386ce483c1bf0eeb25bae8b9ef09a9",
       "ruleSourceHash": "sha256:df1dc41ea6404739147b565babb45cebd0bfdbab4648df0e14287a59d28c288f",
       "items": {
-        "scripts/lint-ratchet-baseline-parse.ts": {
-          "count": 1,
-          "lines": 302
-        },
         "scripts/lint-ratchet-metrics.ts": {
           "count": 1,
-          "lines": 387
+          "lines": 357
         }
       }
     },
@@ -484,7 +480,7 @@
         }
       ],
       "configHash": "sha256:2b79e77804a4842916434288e178f430bc4f877725a0b1a5b9cca0050f75d5b8",
-      "ruleSourceHash": "sha256:93d12d3b65778d0e19278fbb205eeab80317f76f87bf7423f11a244670dc247a",
+      "ruleSourceHash": "sha256:b59cb4594a258f43ffa276e84e5c1e16ed5c1152003e1755851a1ccfc1ded457",
       "items": {}
     },
     "ratchet/typescript-eslint-explicit-function-return-type-script-tests": {
@@ -505,7 +501,7 @@
         }
       ],
       "configHash": "sha256:8a8cf62e185e84abac42d732dd9e7705d24321344385805754708f50b8bb962a",
-      "ruleSourceHash": "sha256:93d12d3b65778d0e19278fbb205eeab80317f76f87bf7423f11a244670dc247a",
+      "ruleSourceHash": "sha256:b59cb4594a258f43ffa276e84e5c1e16ed5c1152003e1755851a1ccfc1ded457",
       "items": {}
     },
     "ratchet/typescript-eslint-no-misused-promises-codemod-tests": {
@@ -522,7 +518,7 @@
       "ignores": [],
       "ruleOptions": [],
       "configHash": "sha256:53f6f6a040d19538a7b5d6bb171f1e83af014eb08c9bd4b91fc06f1f88fb24b2",
-      "ruleSourceHash": "sha256:93d12d3b65778d0e19278fbb205eeab80317f76f87bf7423f11a244670dc247a",
+      "ruleSourceHash": "sha256:b59cb4594a258f43ffa276e84e5c1e16ed5c1152003e1755851a1ccfc1ded457",
       "items": {}
     },
     "ratchet/typescript-eslint-no-unsafe-argument-top-level-scripts": {
@@ -539,7 +535,7 @@
       "ignores": [],
       "ruleOptions": [],
       "configHash": "sha256:94c5a902c9f47dceb5e37b411579ec6444f7c8650883abc02b9ac297645a0ac1",
-      "ruleSourceHash": "sha256:93d12d3b65778d0e19278fbb205eeab80317f76f87bf7423f11a244670dc247a",
+      "ruleSourceHash": "sha256:b59cb4594a258f43ffa276e84e5c1e16ed5c1152003e1755851a1ccfc1ded457",
       "items": {}
     },
     "ratchet/typescript-eslint-no-unsafe-assignment-script-tests": {
@@ -553,7 +549,7 @@
       "ignores": [],
       "ruleOptions": [],
       "configHash": "sha256:adf92d82a813e3a3c61f5a7b6e24c6ee750ace396b2c7982cf4494232aa11fbb",
-      "ruleSourceHash": "sha256:93d12d3b65778d0e19278fbb205eeab80317f76f87bf7423f11a244670dc247a",
+      "ruleSourceHash": "sha256:b59cb4594a258f43ffa276e84e5c1e16ed5c1152003e1755851a1ccfc1ded457",
       "items": {}
     },
     "ratchet/typescript-eslint-only-throw-error-codemod-tests": {
@@ -570,7 +566,7 @@
       "ignores": [],
       "ruleOptions": [],
       "configHash": "sha256:7a96a3c280e1c2fd914f7de7d2fc47fdf5f665d4808db2185f7d6f534ea55bf2",
-      "ruleSourceHash": "sha256:93d12d3b65778d0e19278fbb205eeab80317f76f87bf7423f11a244670dc247a",
+      "ruleSourceHash": "sha256:b59cb4594a258f43ffa276e84e5c1e16ed5c1152003e1755851a1ccfc1ded457",
       "items": {}
     },
     "ratchet/typescript-eslint-require-await-script-singletons": {
@@ -585,7 +581,7 @@
       "ignores": [],
       "ruleOptions": [],
       "configHash": "sha256:819678f7eda617b9918a18c4dda5574c5ace9cc3dc88dbffd1d054867d7945aa",
-      "ruleSourceHash": "sha256:93d12d3b65778d0e19278fbb205eeab80317f76f87bf7423f11a244670dc247a",
+      "ruleSourceHash": "sha256:b59cb4594a258f43ffa276e84e5c1e16ed5c1152003e1755851a1ccfc1ded457",
       "items": {}
     },
     "ratchet/typescript-eslint-restrict-template-expressions-top-level-scripts": {
@@ -612,7 +608,7 @@
         }
       ],
       "configHash": "sha256:e7662eddf3dbc57d109c7284110224b394f0ce752300d03bdb902515d36d7b26",
-      "ruleSourceHash": "sha256:93d12d3b65778d0e19278fbb205eeab80317f76f87bf7423f11a244670dc247a",
+      "ruleSourceHash": "sha256:b59cb4594a258f43ffa276e84e5c1e16ed5c1152003e1755851a1ccfc1ded457",
       "items": {}
     },
     "ratchet/typescript-eslint-unbound-method-top-level-scripts": {
@@ -629,7 +625,7 @@
       "ignores": [],
       "ruleOptions": [],
       "configHash": "sha256:a76b84dfd378bbfe874552339c925f339e087ad433e5407f0ca7d4b5248ef791",
-      "ruleSourceHash": "sha256:93d12d3b65778d0e19278fbb205eeab80317f76f87bf7423f11a244670dc247a",
+      "ruleSourceHash": "sha256:b59cb4594a258f43ffa276e84e5c1e16ed5c1152003e1755851a1ccfc1ded457",
       "items": {}
     },
     "ratchet/vitest-expect-expect-codemod-tests": {

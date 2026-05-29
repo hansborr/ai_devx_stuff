@@ -228,6 +228,8 @@ describe("path-policy-query CLI", () => {
       "test-parallel-runner",
       "test-verify-metadata",
       "test-test-scripts",
+      "test-check-fast-uri-override",
+      "test-check-eslint-react-peer-exception",
     ]);
   });
 

@@ -90,9 +90,6 @@ Source notes:
 
 - `docs/agent_notes/backlog/cache-budget-followups.md`
 - `docs/agent_notes/finished_work/precommit-240-budget-followup.md`
-- `docs/agent_notes/finished_work/precommit-240-budget-review-followups.md`
-- `docs/agent_notes/finished_work/precommit-lint-parallelization-leaf-2.md`
-- `docs/agent_notes/finished_work/precommit-script-smoke-parallelization-leaf-4.md`
 
 Suggested split:
 

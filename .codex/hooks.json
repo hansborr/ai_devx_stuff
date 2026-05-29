@@ -28,6 +28,12 @@
             "command": "bash \"$(git rev-parse --show-toplevel)/.codex/hooks/lint-coverage-check.sh\"",
             "statusMessage": "Checking ESLint coverage",
             "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.codex/hooks/ratchet-regression-check.sh\"",
+            "statusMessage": "Checking lint-ratchet regressions",
+            "timeout": 60
           }
         ]
       },

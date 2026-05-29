@@ -424,7 +424,7 @@ export const maxLinesPolicy = {
     },
     {
       path: "scripts/path-policy-smoke-subjects.ts",
-      cap: 375,
+      cap: 385,
       severity: "warn",
       reason:
         "Smoke subject data is one flat lookup table keyed by test name and grows with smoke tests, not logic.",

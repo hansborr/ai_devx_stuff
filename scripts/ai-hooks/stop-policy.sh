@@ -542,6 +542,35 @@ ai_stop_verify_meta_int() {
   ' "$file"
 }
 
+# Collects the names of the gates whose per-step meta records a non-zero exit,
+# sorted and comma-joined, derived from metadata rather than hard-coded. Gates
+# short-circuit in serial mode (only the first failing step's meta exists) and
+# run fully in parallel mode, so this reports whatever non-zero meta is present
+# without implying it is the only problem. Prints nothing when no step meta is
+# available (the caller then falls back to the generic message).
+ai_stop_verify_failing_gates() {
+  local meta_dir="$1"
+  local file base name step_exit
+  local names=""
+
+  [ -d "$meta_dir" ] || return 0
+  for file in "$meta_dir"/*.json; do
+    [ -e "$file" ] || continue
+    base=$(basename "$file")
+    [ "$base" = "wrapper.json" ] && continue
+    step_exit=$(ai_stop_verify_meta_int "$file" exit_code)
+    ai_is_integer "$step_exit" || continue
+    [ "$step_exit" -ne 0 ] || continue
+    name=$(ai_stop_verify_meta_string "$file" name)
+    [ -n "$name" ] || continue
+    names+="$name"$'\n'
+  done
+
+  [ -n "$names" ] || return 0
+  printf '%s' "$names" | sort -u \
+    | awk 'NR > 1 { printf ", " } { printf "%s", $0 } END { if (NR > 0) printf "\n" }'
+}
+
 # Reports the cached `verify:changed` / pre-commit run when its wrapper meta
 # matches the current checked state and exit_code != 0. Pre-commit is matched
 # against the source/config state its tasks read, full serial verify against
@@ -551,7 +580,7 @@ ai_stop_verify_meta_int() {
 ai_stop_verify_status() {
   local repo_root="$1"
   local log_dir wrapper fp recorded_fp head mode exit_code counter count
-  local source_label current_head
+  local source_label current_head failing_gates first_line
 
   ai_stop_verify_disabled "$repo_root" && return 1
   git -C "$repo_root" rev-parse --is-inside-work-tree >/dev/null 2>&1 || return 1
@@ -610,8 +639,15 @@ ai_stop_verify_status() {
     serial-verify-changed|parallel-verify-changed) source_label="cached verify:changed" ;;
   esac
 
+  failing_gates=$(ai_stop_verify_failing_gates "$log_dir/meta")
+  if [ -n "$failing_gates" ]; then
+    first_line="$source_label run is failing (exit $exit_code at $head); failing gate(s): $failing_gates. Inspect: bun run verify:logs"
+  else
+    first_line="$source_label run is failing (exit $exit_code at $head). Inspect: bun run verify:logs"
+  fi
+
   printf '%s\n\n%s' \
-    "$source_label run is failing (exit $exit_code at $head). Inspect: bun run verify:logs" \
+    "$first_line" \
     "If you intentionally need to leave this verification red, stop again; this reminder will not repeat more than $AI_STOP_VERIFY_MAX_NOTIFY times for the same change set. Disable entirely with: touch $repo_root/$AI_STOP_VERIFY_KILL_SWITCH"
 }
 

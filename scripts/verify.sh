@@ -78,7 +78,7 @@ case "$MODE" in
   changed)
     MARKER="${MUSI_VERIFY_MARKER_CHANGED:-$(musi_standard_verify_changed_marker)}"
     LINT_CMD=(bun run lint:changed)
-    RATCHET_CMD=(bun run lint:ratchet)
+    RATCHET_CMD=(env "HARNESS_DIAGNOSTICS_OUTPUT=$LOG_DIR/ratchet-diagnostics.json" bun run lint:ratchet)
     ZERO_BASELINE_CMD=(bun run lint:ratchet:zero-baseline)
     COVERAGE_MAP_CMD=(bun run docs:lint-coverage-map:check -- --staged)
     FORMAT_CHECK_CMD=(bun run format:changed:check)
@@ -89,7 +89,7 @@ case "$MODE" in
   parallel)
     MARKER="${MUSI_VERIFY_MARKER_FULL:-$(musi_standard_verify_full_marker)}"
     LINT_CMD=(bun run lint)
-    RATCHET_CMD=(bun run lint:ratchet)
+    RATCHET_CMD=(env "HARNESS_DIAGNOSTICS_OUTPUT=$LOG_DIR/ratchet-diagnostics.json" bun run lint:ratchet)
     ZERO_BASELINE_CMD=(bun run lint:ratchet:zero-baseline)
     COVERAGE_MAP_CMD=(bun run docs:lint-coverage-map:check)
     FORMAT_CHECK_CMD=(bun run format:check)
@@ -100,7 +100,7 @@ case "$MODE" in
   *)
     MARKER="${MUSI_VERIFY_MARKER_FULL:-$(musi_standard_verify_full_marker)}"
     LINT_CMD=(bun run lint)
-    RATCHET_CMD=(bun run lint:ratchet)
+    RATCHET_CMD=(env "HARNESS_DIAGNOSTICS_OUTPUT=$LOG_DIR/ratchet-diagnostics.json" bun run lint:ratchet)
     ZERO_BASELINE_CMD=(bun run lint:ratchet:zero-baseline)
     COVERAGE_MAP_CMD=(bun run docs:lint-coverage-map:check)
     FORMAT_CHECK_CMD=(bun run format:check)
@@ -368,7 +368,11 @@ if [ -n "$failed" ]; then
   printf 'Failed:%s\n' "$failed"
   for task in $failed; do
     printf '\n--- %s (full log: %s/%s.log) ---\n' "$task" "$LOG_DIR" "$task"
-    ai_filtered_task_log_excerpt "$task" "$LOG_DIR/${task}.log" 30
+    if [ "$task" = ratchet ]; then
+      ai_ratchet_failure_excerpt "$LOG_DIR/ratchet-diagnostics.json" "$LOG_DIR/${task}.log" 30
+    else
+      ai_filtered_task_log_excerpt "$task" "$LOG_DIR/${task}.log" 30
+    fi
   done
   case "$failed" in
     *lint*) printf "\nHint: try 'bun run lint:fix' to auto-fix formatting issues.\n" ;;

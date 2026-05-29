@@ -56,7 +56,7 @@ function validateBaselineMetricItems(
   failures: string[],
 ): void {
   for (const [itemPath, item] of Object.entries(test.items)) {
-    validateMetricItem(testId, itemPath, test.metric, item, failures);
+    validateMetricItem(`${testId}.items.${itemPath}`, test.metric, item, failures);
   }
 }
 

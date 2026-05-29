@@ -4,8 +4,7 @@ Date: 2026-05-16
 Status: On-demand rationale
 
 Read this only when the chosen lint-hardening leaf needs provenance from the
-external repo review. Implementation agents should usually start from
-`../lint-hardening-cross-repo-review.md` and then read one leaf file.
+external repo review. Implementation agents should read one leaf file directly.
 
 ## Source
 

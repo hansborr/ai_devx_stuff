@@ -6,7 +6,6 @@ const COMPLEXITY_MESSAGE_PATTERN =
 export class ConfigError extends Error {}
 export interface LintRatchetComplexityFunction {
   readonly line: number;
-  readonly nodeType: string;
   readonly label: string;
   readonly complexity: number;
 }
@@ -19,7 +18,6 @@ export interface LintRatchetMetricItem {
 export interface LintRatchetComplexityMessage {
   readonly message: string;
   readonly line?: number;
-  readonly nodeType?: string;
   readonly messageId?: string;
 }
 export interface ComplexityDelta {
@@ -35,7 +33,6 @@ interface ComplexityMessageContext {
 }
 interface ParsedComplexityFunctionFields {
   readonly line?: number;
-  readonly nodeType?: string;
   readonly label?: string;
   readonly complexity?: number;
 }
@@ -84,13 +81,6 @@ function assertComplexityMessageLine(context: ComplexityMessageContext): number 
   return context.message.line;
 }
 
-function assertComplexityMessageNodeType(context: ComplexityMessageContext): string {
-  if (typeof context.message.nodeType !== "string" || context.message.nodeType.length === 0) {
-    throw new ConfigError(`${complexityDiagnosticPrefix(context)} is missing nodeType`);
-  }
-  return context.message.nodeType;
-}
-
 export function parseComplexitySeverityMessage(
   ratchetId: string,
   path: string,
@@ -100,8 +90,7 @@ export function parseComplexitySeverityMessage(
   assertComplexityMessageId(context);
   const { label, complexity } = parseComplexityMessageGroups(context);
   const line = assertComplexityMessageLine(context);
-  const nodeType = assertComplexityMessageNodeType(context);
-  return { line, nodeType, label, complexity };
+  return { line, label, complexity };
 }
 
 function compareComplexityFunction(
@@ -111,8 +100,7 @@ function compareComplexityFunction(
   return (
     right.complexity - left.complexity ||
     left.line - right.line ||
-    left.label.localeCompare(right.label) ||
-    left.nodeType.localeCompare(right.nodeType)
+    left.label.localeCompare(right.label)
   );
 }
 
@@ -160,18 +148,6 @@ function parseComplexityFunctionLine(
   return value;
 }
 
-function parseComplexityFunctionNodeType(
-  value: unknown,
-  path: string,
-  failures: string[],
-): string | undefined {
-  if (typeof value !== "string" || value.length === 0) {
-    failures.push(`${path}.nodeType must be a non-empty string`);
-    return undefined;
-  }
-  return value;
-}
-
 function parseComplexityFunctionLabel(
   value: unknown,
   path: string,
@@ -203,7 +179,6 @@ function parseComplexityFunctionFields(
 ): ParsedComplexityFunctionFields {
   return {
     line: parseComplexityFunctionLine(value.line, path, failures),
-    nodeType: parseComplexityFunctionNodeType(value.nodeType, path, failures),
     label: parseComplexityFunctionLabel(value.label, path, failures),
     complexity: parseComplexityFunctionComplexity(value.complexity, path, failures),
   };
@@ -212,12 +187,7 @@ function parseComplexityFunctionFields(
 function isCompleteComplexityFunction(
   fields: ParsedComplexityFunctionFields,
 ): fields is LintRatchetComplexityFunction {
-  return (
-    fields.line !== undefined &&
-    fields.nodeType !== undefined &&
-    fields.label !== undefined &&
-    fields.complexity !== undefined
-  );
+  return fields.line !== undefined && fields.label !== undefined && fields.complexity !== undefined;
 }
 
 function parseComplexityFunction(
@@ -321,13 +291,11 @@ function validateOtherMetricItem(
 }
 
 export function validateMetricItem(
-  testId: string,
-  itemPath: string,
+  path: string,
   metric: LintRatchetMetric,
   item: LintRatchetMetricItem,
   failures: string[],
 ): void {
-  const path = `${testId}.items.${itemPath}`;
   if (metric === "complexity-severity") {
     validateComplexitySeverityItem(path, item, failures);
     return;
@@ -340,7 +308,7 @@ export function validateMetricItem(
 }
 
 function complexityIdentity(entry: LintRatchetComplexityFunction): string {
-  return `${String(entry.line)}\u0000${entry.nodeType}\u0000${entry.label}`;
+  return `${String(entry.line)}\u0000${entry.label}`;
 }
 
 export function uniqueComplexityMap(

@@ -11,44 +11,12 @@ REPO_ROOT=$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null || git re
 REPO_ROOT=$(realpath -m "$REPO_ROOT")
 # shellcheck source=/dev/null
 . "$SCRIPT_DIR/common.sh"
-
-ai_lint_coverage_payload_tool_name() {
-  local payload="$1"
-  printf '%s' "$payload" | jq -r '.tool_name // empty' 2>/dev/null || true
-}
-
-ai_lint_coverage_patch_paths() {
-  local patch="$1"
-
-  printf '%s\n' "$patch" | awk '
-    /^\*\*\* (Add|Update|Delete) File: / {
-      sub(/^\*\*\* (Add|Update|Delete) File: /, "")
-      sub(/\r$/, "")
-      print
-      next
-    }
-    /^\*\*\* Move to: / {
-      sub(/^\*\*\* Move to: /, "")
-      sub(/\r$/, "")
-      print
-    }
-  '
-}
-
-ai_lint_coverage_payload_paths() {
-  local payload="$1"
-  local tool_name file command
-
-  tool_name=$(ai_lint_coverage_payload_tool_name "$payload")
-  if [ "$tool_name" = "apply_patch" ]; then
-    command=$(ai_payload_command "$payload")
-    ai_lint_coverage_patch_paths "$command"
-    return 0
-  fi
-
-  file=$(ai_payload_file_path "$payload")
-  [ -n "$file" ] && printf '%s\n' "$file"
-}
+# shellcheck source=/dev/null
+. "$SCRIPT_DIR/edited-paths.sh"
+# shellcheck source=/dev/null
+. "$SCRIPT_DIR/cache.sh"
+# shellcheck source=/dev/null
+. "$SCRIPT_DIR/lint-coverage-state.sh"
 
 ai_lint_coverage_is_lintable() {
   local file="$1"
@@ -178,11 +146,20 @@ try {
   const tests = baseline && typeof baseline === "object" ? baseline.tests : undefined;
   if (!tests || typeof tests !== "object") process.exit(1);
 
+  let matchedAny = false;
+  const ruleIds = new Set();
   for (const test of Object.values(tests)) {
     if (!test || typeof test !== "object") continue;
     if (matchesAny(test.files, relativePath) && !matchesAny(test.ignores, relativePath)) {
-      process.exit(0);
+      matchedAny = true;
+      if (typeof test.ruleId === "string" && test.ruleId.length > 0) {
+        ruleIds.add(test.ruleId);
+      }
     }
+  }
+  if (matchedAny) {
+    process.stdout.write([...ruleIds].sort().join(", "));
+    process.exit(0);
   }
 } catch {
   process.exit(1);
@@ -192,33 +169,102 @@ process.exit(1);
 JS
 }
 
+# Classify one file into a coverage tier. Prints a tab-delimited record the
+# main loop buckets — `ratchet<TAB>relative/path<TAB>rule list` or
+# `uncovered<TAB>relative/path` — and returns non-zero as the internal "captured
+# this file" signal. A fully-covered file prints nothing and returns 0. Message
+# prose is composed later so throttling can drop a whole tier at once.
 ai_lint_coverage_check_file() {
   local absolute_path="$1"
   local relative_path="$2"
-  local config_output
+  local config_output ratchet_rules
 
   # Ask ESLint if it has config for this file. With flat config, ignored or
   # uncovered files produce the literal string "undefined".
   config_output=$(node_modules/.bin/eslint --print-config "$absolute_path" 2>/dev/null) || true
 
   if [ "$config_output" = "undefined" ] || [ -z "$config_output" ]; then
-    if ai_lint_coverage_is_ratchet_covered "$relative_path"; then
-      return 0
+    # A ratchet entry tracks a single rule's message count, not the full ESLint
+    # rule set, so an ESLint-ignored file is not really "covered" — record it in
+    # the softer `ratchet` tier naming the tracked rule(s) instead of the louder
+    # `uncovered` warning.
+    if ratchet_rules=$(ai_lint_coverage_is_ratchet_covered "$relative_path"); then
+      printf 'ratchet\t%s\t%s\n' "$relative_path" "$ratchet_rules"
+      return 1
     fi
 
-    printf 'lint-coverage: WARNING - %s is NOT covered by ESLint. ' "$relative_path"
-    printf 'If this file should be linted, update eslint.config.js (and any relevant tsconfig) to include it.\n'
+    printf 'uncovered\t%s\n' "$relative_path"
     return 1
   fi
   return 0
 }
 
+AI_LINT_COVERAGE_MAX_PATHS=25
+
+# Render a bounded bullet list from the buckets. Each argument is one entry:
+# for the ratchet tier `relative/path<TAB>rule list`, for the uncovered tier the
+# bare `relative/path`. Caps at AI_LINT_COVERAGE_MAX_PATHS lines with an
+# "... and N more" suffix so a large patch does not dump a huge hook message.
+ai_lint_coverage_bullets() {
+  local tier="$1"
+  shift
+  local total=$#
+  local shown=0
+  local entry path rules
+
+  for entry in "$@"; do
+    if [ "$shown" -ge "$AI_LINT_COVERAGE_MAX_PATHS" ]; then
+      printf '  ... and %s more\n' "$(( total - AI_LINT_COVERAGE_MAX_PATHS ))"
+      break
+    fi
+    if [ "$tier" = ratchet ]; then
+      path="${entry%%$'\t'*}"
+      rules="${entry#*$'\t'}"
+      printf '  - %s (%s)\n' "$path" "$rules"
+    else
+      printf '  - %s\n' "$entry"
+    fi
+    shown=$(( shown + 1 ))
+  done
+}
+
+ai_lint_coverage_throttle_note() {
+  local ttl max minutes
+  ttl=$(ai_lint_coverage_ttl)
+  max=$(ai_lint_coverage_max_detections)
+  minutes=$(( ttl / 60 ))
+  printf "This reminder is throttled per session: it won't repeat until about %s min pass, %s more matching edit batches are detected, or a new top-level session starts." \
+    "$minutes" "$max"
+}
+
+# Compose the full tier message: header, bounded path list, generic map-pointing
+# body, throttle note. Each entry argument follows ai_lint_coverage_bullets.
+ai_lint_coverage_compose() {
+  local tier="$1"
+  shift
+  local header body bullets
+
+  bullets=$(ai_lint_coverage_bullets "$tier" "$@")
+  if [ "$tier" = ratchet ]; then
+    header="lint-coverage (info): file(s) you just edited are covered only by lint:ratchet (single-rule floors), not full ESLint:"
+    body="That's an accepted floor, not an error. If you added a new lint surface (a new directory or file group), add a row in docs/agent_notes/backlog/lint-followups/lint-coverage-map.md. The per-file counts there are descriptive, but new surfaces/globs should get a row."
+  else
+    header="lint-coverage (WARNING): file(s) you just edited are NOT covered by ESLint at all:"
+    body="If it should be linted, add it to eslint.config.js and the relevant tsconfig. Either way, account for it in docs/agent_notes/backlog/lint-followups/lint-coverage-map.md; verify:changed / pre-commit will block on source-relevant files matching no coverage-map row."
+  fi
+
+  printf '%s\n%s\n%s\n\n%s' "$header" "$bullets" "$body" "$(ai_lint_coverage_throttle_note)"
+}
+
 ai_lint_coverage_main() {
-  local payload path absolute_path relative_path result message
+  local payload path absolute_path relative_path result tier rest key now message tier_message
   local -a paths=()
   local -A seen=()
+  local -a ratchet_entries=()
+  local -a uncovered_entries=()
 
   cd "$REPO_ROOT" || ai_emit_continue
+  ai_cache_init
 
   payload=$(ai_read_payload)
   while IFS= read -r path; do
@@ -227,11 +273,10 @@ ai_lint_coverage_main() {
       paths+=("$path")
       seen[$path]=1
     fi
-  done < <(ai_lint_coverage_payload_paths "$payload")
+  done < <(ai_edited_payload_paths "$payload")
 
   [ "${#paths[@]}" -gt 0 ] || ai_emit_continue
 
-  message=""
   for path in "${paths[@]}"; do
     if [[ "$path" = /* ]]; then
       absolute_path=$(realpath -m -- "$path")
@@ -254,13 +299,35 @@ ai_lint_coverage_main() {
     [ -f "$absolute_path" ] || continue
 
     result=$(ai_lint_coverage_check_file "$absolute_path" "$relative_path") || {
-      if [ -n "$message" ]; then
-        message="${message}"$'\n'"$result"
-      else
-        message="$result"
-      fi
+      tier="${result%%$'\t'*}"
+      rest="${result#*$'\t'}"
+      case "$tier" in
+        ratchet) ratchet_entries+=("$rest") ;;
+        uncovered) uncovered_entries+=("$rest") ;;
+      esac
     }
   done
+
+  # Covered/non-lintable edits never reach a tier, so they touch no state.
+  if [ "${#ratchet_entries[@]}" -eq 0 ] && [ "${#uncovered_entries[@]}" -eq 0 ]; then
+    ai_emit_continue
+  fi
+
+  key=$(ai_lint_coverage_throttle_key "$payload" "$REPO_ROOT")
+  now=$(ai_now)
+
+  message=""
+  if [ "${#ratchet_entries[@]}" -gt 0 ] && ai_lint_coverage_should_emit ratchet "$key" "$now"; then
+    message=$(ai_lint_coverage_compose ratchet "${ratchet_entries[@]}")
+  fi
+  if [ "${#uncovered_entries[@]}" -gt 0 ] && ai_lint_coverage_should_emit uncovered "$key" "$now"; then
+    tier_message=$(ai_lint_coverage_compose uncovered "${uncovered_entries[@]}")
+    if [ -n "$message" ]; then
+      message="${message}"$'\n\n'"$tier_message"
+    else
+      message="$tier_message"
+    fi
+  fi
 
   if [ -n "$message" ]; then
     ai_emit_additional_context "PostToolUse" "$message"

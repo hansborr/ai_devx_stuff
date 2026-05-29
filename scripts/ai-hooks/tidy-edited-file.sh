@@ -10,6 +10,8 @@ REPO_ROOT=$(realpath -m "$REPO_ROOT")
 . "$SCRIPT_DIR/common.sh"
 
 AI_TIDY_MAX_OUTPUT_LINES="${AI_TIDY_MAX_OUTPUT_LINES:-30}"
+AI_TIDY_WARNING_RULE_CAP="${AI_TIDY_WARNING_RULE_CAP:-5}"
+AI_TIDY_SKIP_MISSING_DELETED="missing/deleted file"
 
 ai_tidy_payload_tool_name() {
   local payload="$1"
@@ -136,7 +138,7 @@ ai_tidy_skip_reason() {
   fi
 
   if [ ! -e "$absolute_path" ]; then
-    printf 'missing/deleted file'
+    printf '%s' "$AI_TIDY_SKIP_MISSING_DELETED"
     return 0
   fi
 
@@ -157,6 +159,40 @@ ai_tidy_skip_reason() {
   fi
 
   return 1
+}
+
+# After a clean prettier+eslint --fix pass, run a second, non-mutating
+# `eslint -f json` pass to surface warn-level violations. The fixing run uses
+# `--max-warnings`-free defaults, so warnings exit 0 and print nothing, yet
+# `bun run lint` (--max-warnings=0) fails them — this closes that edit-loop blind
+# spot. Every warn-level rule in this config is non-autofixable, so reading
+# warnings after the fix pass is sound. The advisory is additive and never
+# changes the hook's non-blocking exit behaviour.
+ai_tidy_emit_residual_warnings() {
+  local absolute_path="$1" relative_path="$2"
+  ai_tidy_eslint_supported "$absolute_path" || return 0
+
+  local json warning_count listed detail remaining
+  json=$(node_modules/.bin/eslint -f json --no-warn-ignored "$absolute_path" 2>/dev/null) || return 0
+  [ -n "$json" ] || return 0
+
+  warning_count=$(printf '%s' "$json" | jq '[.[].warningCount] | add // 0' 2>/dev/null) || return 0
+  case "$warning_count" in
+    '' | *[!0-9]*) return 0 ;;
+  esac
+  [ "$warning_count" -gt 0 ] || return 0
+
+  listed=$(printf '%s' "$json" | jq -r --argjson cap "$AI_TIDY_WARNING_RULE_CAP" '
+    [.[].messages[] | select(.severity == 1) | "\(.ruleId // "(unknown rule)") at \(.line):\(.column)"]
+    | .[0:$cap] | join(", ")' 2>/dev/null) || return 0
+  detail="$listed"
+  if [ "$warning_count" -gt "$AI_TIDY_WARNING_RULE_CAP" ]; then
+    remaining=$((warning_count - AI_TIDY_WARNING_RULE_CAP))
+    detail="$detail (+$remaining more)"
+  fi
+
+  printf 'tidy-edited-file: %s has %s eslint warning(s) (these block `bun run lint`): %s\n' \
+    "$relative_path" "$warning_count" "$(ai_tidy_bounded_tail "$detail")"
 }
 
 ai_tidy_run_file() {
@@ -183,6 +219,7 @@ ai_tidy_run_file() {
     if [ -n "$before_hash" ] && [ -n "$after_hash" ] && [ "$before_hash" != "$after_hash" ]; then
       printf 'tidy-edited-file: %s tidied\n' "$relative_path"
     fi
+    ai_tidy_emit_residual_warnings "$absolute_path" "$relative_path"
     return 0
   fi
 
@@ -228,7 +265,11 @@ ai_tidy_hook_main() {
   message=""
   for path in "${paths[@]}"; do
     if skip_reason=$(ai_tidy_skip_reason "$path"); then
-      result=$(printf 'tidy-edited-file: %s skipped (%s)\n' "$path" "$skip_reason")
+      if [ "$skip_reason" = "$AI_TIDY_SKIP_MISSING_DELETED" ]; then
+        result=""
+      else
+        result=$(printf 'tidy-edited-file: %s skipped (%s)\n' "$path" "$skip_reason")
+      fi
     else
       result=$(ai_tidy_run_file "$path")
     fi

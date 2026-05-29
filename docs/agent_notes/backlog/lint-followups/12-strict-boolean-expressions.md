@@ -4,7 +4,6 @@ Status: Deferred after inventory
 Sources:
 
 - `docs/agent_notes/backlog/lint-hardening/09-ts-eslint-stricter-optins.md`
-- `docs/agent_notes/in_progress/lint-hardening-leaf-9-pass-2-buckets.md`
 - `docs/agent_notes/backlog/lint-hardening/evaluation-verdicts.md`
 
 ## Problem
@@ -18,10 +17,9 @@ global enablement pass would create broad semantic churn.
 Roll out package-by-package or module-by-module. The source note recommends
 starting with shared, then e2e/scripts, then smaller server/client slices.
 
-If the team wants to use the ratchet for this rule instead of pure scoped
-adoption, promote `22-ratchet-third-party-type-aware-rules.md` first, then
-`23-strict-boolean-ratchet-candidate.md`. The current ratchet runner only
-supports `local/*` rules.
+The shared-package ratchet slice already landed and drained to zero current
+findings. Future work should either expand the ratchet to another package or
+promote a narrow normal-ESLint scope after a fresh inventory.
 
 ## Candidate Work
 

@@ -1,16 +1,15 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 import {
   buildLintRatchetBaseline,
   compareCurrentToBaseline,
-  decideLintRatchetUpdate,
   formatLintRatchetBaseline,
   parseLintRatchetBaseline,
-  parseLintRatchetBaselineStructure,
   type LintRatchetRuleSourceHashesById,
   validateLintRatchetRegistry,
 } from "../lint-ratchet-baseline.js";
 import { lintRatchets, lintRatchetThirdPartyPluginAllowlist } from "../lint-ratchet-config.js";
+import { runLintRatchetDebtLogReport } from "../lint-ratchet-debt-log.js";
 import { ConfigError } from "../lint-ratchet-metrics.js";
 import { emitHarnessDiagnosticsEnvelope } from "../lint-ratchet-output.js";
 import {
@@ -25,12 +24,17 @@ import {
 import type { ParsedArgs } from "./cli.js";
 import { collectCurrentById, totalCurrentCount } from "./current-collector.js";
 import {
+  discoverEditCheckTargets,
+  type EditCheckTarget,
+  runEditCheckRegressions,
+} from "./edit-check.js";
+import { applyLintRatchetUpdate } from "./baseline-update-apply.js";
+import {
   assertCheckBaselineComparisonClean,
   buildEnvelope,
   loadRuleDocsById,
   validateEnvelope,
 } from "./diagnostics.js";
-import { WorseBaselineError } from "./errors.js";
 import { BASELINE_FILENAME, baselinePath } from "./paths.js";
 import { buildRuleSourceHashesById } from "./rule-source.js";
 
@@ -74,14 +78,12 @@ function runReport(): void {
   );
 }
 
-function parseCommittedBaseline(ruleSourceHashesById: LintRatchetRuleSourceHashesById) {
-  const parsed = parseLintRatchetBaseline(readBaseline(), lintRatchets, ruleSourceHashesById);
-  if (parsed.baseline === undefined) throw new ConfigError(parsed.failures.join("\n"));
-  return parsed.baseline;
+function runDebtLogReport(): void {
+  process.stdout.write(runLintRatchetDebtLogReport());
 }
 
-function parseCommittedBaselineStructure() {
-  const parsed = parseLintRatchetBaselineStructure(readBaseline());
+function parseCommittedBaseline(ruleSourceHashesById: LintRatchetRuleSourceHashesById) {
+  const parsed = parseLintRatchetBaseline(readBaseline(), lintRatchets, ruleSourceHashesById);
   if (parsed.baseline === undefined) throw new ConfigError(parsed.failures.join("\n"));
   return parsed.baseline;
 }
@@ -134,26 +136,13 @@ async function runUpdate(args: ParsedArgs): Promise<void> {
     );
   }
 
-  if (existsSync(baselinePath)) {
-    const committed = parseCommittedBaselineStructure();
-    const decision = decideLintRatchetUpdate(committed, generated, lintRatchets, args);
-    if (!decision.allowed) throw new WorseBaselineError(decision.failures.join("\n"));
-    for (const warning of decision.warnings) {
-      console.error(`⚠ ${warning}`);
-    }
-  }
-
-  const currentText = existsSync(baselinePath) ? readFileSync(baselinePath, "utf8") : "";
-  if (currentText === rendered) {
-    console.error(
-      `lint:ratchet:update OK — ${BASELINE_FILENAME} already matches ${String(totalCurrentCount(currentById))} current finding(s).`,
-    );
-    return;
-  }
-  writeFileSync(baselinePath, rendered);
-  console.error(
-    `lint:ratchet:update OK — wrote ${BASELINE_FILENAME} with ${String(totalCurrentCount(currentById))} current finding(s).`,
-  );
+  applyLintRatchetUpdate({
+    generated,
+    rendered,
+    registry: lintRatchets,
+    options: args,
+    currentFindingCount: totalCurrentCount(currentById),
+  });
 }
 
 async function runCheckBaseline(): Promise<void> {
@@ -167,20 +156,81 @@ async function runCheckBaseline(): Promise<void> {
   );
 }
 
-export async function runLintRatchetCli(args: ParsedArgs): Promise<void> {
+function runEditCheckTargets(args: ParsedArgs): void {
+  const targets = discoverEditCheckTargets(args.editCheckTargets ?? []);
+  const lines = targets.map(
+    (target) => `target\t${target.path}\t${target.testId}\t${target.ruleId}`,
+  );
+  if (lines.length > 0) process.stdout.write(`${lines.join("\n")}\n`);
+}
+
+function editCheckConcurrency(): number {
+  const raw = process.env.AI_RATCHET_REGRESSION_CONCURRENCY;
+  const parsed = raw === undefined ? Number.NaN : Number.parseInt(raw, 10);
+  return Number.isInteger(parsed) && parsed >= 1 ? parsed : 3;
+}
+
+function parseTargetsFile(file: string): EditCheckTarget[] {
+  const targets: EditCheckTarget[] = [];
+  for (const line of readFileSync(file, "utf8").split("\n")) {
+    if (line.length === 0) continue;
+    const [kind, path, testId, ruleId] = line.split("\t");
+    if (kind !== "target") continue;
+    if (path === undefined || testId === undefined || ruleId === undefined) continue;
+    targets.push({ path, testId, ruleId });
+  }
+  return targets;
+}
+
+// Two-step contract: --edit-check-targets lists candidate ratchets (no ESLint)
+// so the hook can throttle before linting; --edit-check then lints only the
+// surviving targets written to <file> and prints fresh regressions.
+async function runEditCheck(args: ParsedArgs): Promise<void> {
+  if (args.targetsFile === undefined || !existsSync(args.targetsFile)) return;
+  const targets = parseTargetsFile(args.targetsFile);
+  const result = await runEditCheckRegressions(targets, editCheckConcurrency());
+  // `checked` rows let the hook distinguish a genuinely-linted-clean file from a
+  // soft skip, so it only content-caches bytes ESLint actually inspected.
+  const lines = [
+    ...result.checked.map((path) => `checked\t${path}`),
+    ...result.regressions.map(
+      (regression) =>
+        `regression\t${regression.path}\t${regression.testId}\t${regression.ruleId}\t` +
+        `${regression.reason}\t${regression.line ?? ""}\t${String(regression.baselineCount)}\t` +
+        String(regression.currentCount),
+    ),
+  ];
+  if (lines.length > 0) process.stdout.write(`${lines.join("\n")}\n`);
+}
+
+// Modes that skip the registry preflight/validate gate entirely (pure reports
+// and the edit-time check). Returns true when it handled the mode so the caller
+// can return before the heavier validation path.
+async function runUnvalidatedMode(args: ParsedArgs): Promise<boolean> {
   if (args.mode === "report") {
     runReport();
-    return;
+    return true;
+  }
+  if (args.mode === "debt-log") {
+    runDebtLogReport();
+    return true;
+  }
+  if (args.mode === "edit-check-targets") {
+    runEditCheckTargets(args);
+    return true;
+  }
+  if (args.mode === "edit-check") {
+    await runEditCheck(args);
+    return true;
   }
   if (args.mode === "check-registry") {
     await runCheckRegistry();
-    return;
+    return true;
   }
-  if (args.mode === "default") {
-    await assertRegistryPreflight();
-  } else {
-    await validateRegistry();
-  }
+  return false;
+}
+
+async function runValidatedMode(args: ParsedArgs): Promise<void> {
   if (args.mode === "summary") {
     runSummary();
     return;
@@ -198,4 +248,14 @@ export async function runLintRatchetCli(args: ParsedArgs): Promise<void> {
     return;
   }
   await runDefault();
+}
+
+export async function runLintRatchetCli(args: ParsedArgs): Promise<void> {
+  if (await runUnvalidatedMode(args)) return;
+  if (args.mode === "default") {
+    await assertRegistryPreflight();
+  } else {
+    await validateRegistry();
+  }
+  await runValidatedMode(args);
 }

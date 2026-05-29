@@ -76,6 +76,7 @@ assert_portable_runtime_import_boundary() {
       "scripts/lint-ratchet-baseline.ts",
       "scripts/lint-ratchet-check-registry.ts",
       "scripts/lint-ratchet-config.ts",
+      "scripts/lint-ratchet-debt-log.ts",
       "scripts/lint-ratchet-metrics.ts",
       "scripts/lint-ratchet-output.ts",
       "scripts/lint-ratchet-registry-builders.ts",
@@ -198,6 +199,7 @@ build_fixture() {
   cp scripts/lint-ratchet-metrics.ts "$fixture_dir/scripts/lint-ratchet-metrics.ts"
   cp scripts/lint-ratchet-output.ts "$fixture_dir/scripts/lint-ratchet-output.ts"
   cp scripts/lint-ratchet-report.ts "$fixture_dir/scripts/lint-ratchet-report.ts"
+  cp scripts/lint-ratchet-debt-log.ts "$fixture_dir/scripts/lint-ratchet-debt-log.ts"
   cp scripts/lint-ratchet-summary.ts "$fixture_dir/scripts/lint-ratchet-summary.ts"
   cp scripts/lint-ratchet-zero-baseline.ts \
     "$fixture_dir/scripts/lint-ratchet-zero-baseline.ts"
@@ -1796,5 +1798,124 @@ improve_after=$(ASSERT_FILE="$IMPROVE_DIR/lint-ratchet.baseline.json" bun -e '
   || fail "improvement baseline should update to 0 findings, got $improve_after"
 [ "$improve_before" -gt "$improve_after" ] \
   || fail "improvement baseline did not shrink: $improve_before -> $improve_after"
+
+# --- Fixture: edit-time check (--edit-check-targets / --edit-check) ----------
+# Discovery lists matching minimal-TS ratchets without running ESLint; the
+# two-step --edit-check then lints only the listed targets and prints fresh
+# ratchet regressions. Type-aware ratchets are excluded from discovery,
+# improvements are never reported, and baseline/hash drift soft-skips rather
+# than inventing a regression.
+run_edit_check_targets() {
+  local dir=$1
+  shift
+  (cd "$dir" && bun run scripts/lint-ratchet.ts --edit-check-targets "$@" \
+    >"$TMP_ROOT/edit-targets.txt" 2>"$TMP_ROOT/edit-targets.err") \
+    || fail "edit-check-targets failed: $(cat "$TMP_ROOT/edit-targets.err")"
+}
+
+run_edit_check() {
+  local dir=$1
+  shift
+  run_edit_check_targets "$dir" "$@"
+  (cd "$dir" && bun run scripts/lint-ratchet.ts --edit-check \
+    --targets-file "$TMP_ROOT/edit-targets.txt" \
+    >"$TMP_ROOT/edit-regress.txt" 2>"$TMP_ROOT/edit-regress.err") \
+    || fail "edit-check failed: $(cat "$TMP_ROOT/edit-regress.err")"
+}
+
+EDIT_CHECK_DIR="$TMP_ROOT/edit-check"
+build_fixture "$EDIT_CHECK_DIR"
+write_type_assertion_config "$EDIT_CHECK_DIR"
+write_violation_source "$EDIT_CHECK_DIR"
+run_fixture_update "$EDIT_CHECK_DIR" || fail "edit-check fixture update failed: $(cat "$TMP_ROOT/update.err")"
+
+# (1) Discovery lists the matching minimal-TS ratchet; an unchanged file at its
+# committed floor produces no regression row.
+run_edit_check "$EDIT_CHECK_DIR" "packages/app/src/example.ts"
+grep -qF $'target\tpackages/app/src/example.ts\tratchet/local-type-assertion-boundary\tlocal/type-assertion-boundary' \
+  "$TMP_ROOT/edit-targets.txt" \
+  || fail "edit-check discovery missing target row: $(cat "$TMP_ROOT/edit-targets.txt")"
+if grep -q '^regression' "$TMP_ROOT/edit-regress.txt"; then
+  fail "edit-check should emit no regression for an unchanged file at its floor: $(cat "$TMP_ROOT/edit-regress.txt")"
+fi
+
+# (2) No discovery output when no minimal-TS ratchet matches the edited path.
+(cd "$EDIT_CHECK_DIR" && bun run scripts/lint-ratchet.ts --edit-check-targets "README.md" \
+  >"$TMP_ROOT/edit-nomatch.txt" 2>"$TMP_ROOT/edit-nomatch.err") \
+  || fail "edit-check-targets non-matching run failed: $(cat "$TMP_ROOT/edit-nomatch.err")"
+[ ! -s "$TMP_ROOT/edit-nomatch.txt" ] \
+  || fail "edit-check discovery should be empty for a non-matching path: $(cat "$TMP_ROOT/edit-nomatch.txt")"
+
+# (3) Fresh new-path regression on a drained baseline path.
+cat > "$EDIT_CHECK_DIR/packages/app/src/fresh.ts" <<'TS'
+const rawFresh = {};
+export const freshValue = rawFresh as { value: number };
+TS
+run_edit_check "$EDIT_CHECK_DIR" "packages/app/src/fresh.ts"
+grep -qF $'regression\tpackages/app/src/fresh.ts\tratchet/local-type-assertion-boundary\tlocal/type-assertion-boundary\tnew-path' \
+  "$TMP_ROOT/edit-regress.txt" \
+  || fail "edit-check missing fresh new-path regression: $(cat "$TMP_ROOT/edit-regress.txt")"
+rm -f "$EDIT_CHECK_DIR/packages/app/src/fresh.ts"
+
+# (4) Worsening output for a file that already carries a committed baseline item.
+cat > "$EDIT_CHECK_DIR/packages/app/src/example.ts" <<'TS'
+const rawA = {};
+export const valueA = rawA as { value: number };
+const rawB = {};
+export const valueB = rawB as { value: number };
+TS
+run_edit_check "$EDIT_CHECK_DIR" "packages/app/src/example.ts"
+grep -qF $'regression\tpackages/app/src/example.ts\tratchet/local-type-assertion-boundary\tlocal/type-assertion-boundary\tincreased-count' \
+  "$TMP_ROOT/edit-regress.txt" \
+  || fail "edit-check missing increased-count regression: $(cat "$TMP_ROOT/edit-regress.txt")"
+
+# (5) Improvements are intentionally omitted at edit time.
+printf 'export const cleaned = 1;\n' > "$EDIT_CHECK_DIR/packages/app/src/example.ts"
+run_edit_check "$EDIT_CHECK_DIR" "packages/app/src/example.ts"
+if grep -q '^regression' "$TMP_ROOT/edit-regress.txt"; then
+  fail "edit-check should omit improvements: $(cat "$TMP_ROOT/edit-regress.txt")"
+fi
+
+# (6) Type-aware ratchets are skipped from edit-time discovery entirely.
+EDIT_CHECK_TA_DIR="$TMP_ROOT/edit-check-type-aware"
+build_fixture "$EDIT_CHECK_TA_DIR"
+use_fixture_node_modules_with_fake_plugin "$EDIT_CHECK_TA_DIR"
+write_fixture_tsconfig "$EDIT_CHECK_TA_DIR"
+write_clean_source "$EDIT_CHECK_TA_DIR"
+write_third_party_config "$EDIT_CHECK_TA_DIR" "no-fixture-marker" "type-aware-ts"
+run_fixture_update "$EDIT_CHECK_TA_DIR" \
+  || fail "edit-check type-aware update failed: $(cat "$TMP_ROOT/update.err")"
+run_edit_check_targets "$EDIT_CHECK_TA_DIR" "packages/app/src/example.ts"
+[ ! -s "$TMP_ROOT/edit-targets.txt" ] \
+  || fail "edit-check discovery must skip type-aware ratchets: $(cat "$TMP_ROOT/edit-targets.txt")"
+
+# (7) Baseline/rule-source hash drift soft-skips instead of reporting a false
+# regression: the file gains a second violation (which would normally worsen the
+# count) while the local rule source drifts from the committed baseline hash.
+EDIT_CHECK_DRIFT_DIR="$TMP_ROOT/edit-check-drift"
+build_fixture "$EDIT_CHECK_DRIFT_DIR"
+write_type_assertion_config "$EDIT_CHECK_DRIFT_DIR"
+write_violation_source "$EDIT_CHECK_DRIFT_DIR"
+run_fixture_update "$EDIT_CHECK_DRIFT_DIR" \
+  || fail "edit-check drift update failed: $(cat "$TMP_ROOT/update.err")"
+cat > "$EDIT_CHECK_DRIFT_DIR/packages/app/src/example.ts" <<'TS'
+const rawA = {};
+export const valueA = rawA as { value: number };
+const rawB = {};
+export const valueB = rawB as { value: number };
+TS
+printf '\n// edit-check drift marker\n' >> "$EDIT_CHECK_DRIFT_DIR/eslint-rules/type-assertion-boundary.js"
+run_edit_check "$EDIT_CHECK_DRIFT_DIR" "packages/app/src/example.ts"
+grep -qF $'target\tpackages/app/src/example.ts\tratchet/local-type-assertion-boundary' \
+  "$TMP_ROOT/edit-targets.txt" \
+  || fail "edit-check drift discovery should still list the target: $(cat "$TMP_ROOT/edit-targets.txt")"
+if grep -q '^regression' "$TMP_ROOT/edit-regress.txt"; then
+  fail "edit-check should soft-skip on hash drift, not report a regression: $(cat "$TMP_ROOT/edit-regress.txt")"
+fi
+# A soft skip never lints the drifted ratchet, so there is no `checked` row
+# either — distinguishing it from a genuine clean lint.
+if grep -q '^checked' "$TMP_ROOT/edit-regress.txt"; then
+  fail "edit-check hash drift should not lint (no checked row): $(cat "$TMP_ROOT/edit-regress.txt")"
+fi
 
 echo "PASS: lint-ratchet smoke"

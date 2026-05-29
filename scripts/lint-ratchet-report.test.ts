@@ -154,7 +154,7 @@ describe("lint ratchet report", () => {
 
     expect(bullets).toHaveLength(10);
     expect(report).toContain("_2 more in artifact._");
-    expect(report).toContain("Recovery: `bun run lint:ratchet:update`");
+    expect(report).toContain(REGRESSION_FOOTER_LINE);
   });
 
   it("renders byte-identical output for the same envelope", () => {

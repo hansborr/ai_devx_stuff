@@ -43,3 +43,35 @@ ai_filtered_task_log_excerpt() {
 
   tail -n 200 "$log" | ai_filter_known_output_noise | tail -n "$tail_lines"
 }
+
+# Render the state-aware lint:ratchet report on a local gate failure instead of a
+# raw JSON tail (which loses the head and totals on multi-finding regressions).
+# The ratchet step writes its envelope to <diag_file> via HARNESS_DIAGNOSTICS_OUTPUT.
+# Three branches mirror CI (ci.yml): a missing/empty envelope means the run
+# crashed before emitting one (config/runtime error), a non-zero formatter status
+# means a malformed/partial envelope or formatter bug — both fall back to the raw
+# tail with a note so the failure stays visible and cannot masquerade as a clean
+# "0 findings" render.
+ai_ratchet_failure_excerpt() {
+  local diag_file="$1"
+  local log="$2"
+  local tail_lines="${3:-30}"
+  local report report_status
+
+  if [ ! -s "$diag_file" ]; then
+    printf 'lint:ratchet failed before producing a diagnostics envelope (likely a config or runtime error); raw log tail follows.\n'
+    ai_filtered_task_log_excerpt ratchet "$log" "$tail_lines"
+    return 0
+  fi
+
+  report=$(bun run lint:ratchet:report < "$diag_file" 2>&1)
+  report_status=$?
+  if [ "$report_status" -ne 0 ]; then
+    printf 'lint:ratchet report formatter failed (exit %s); raw log tail follows.\n' "$report_status"
+    printf '%s\n' "$report"
+    ai_filtered_task_log_excerpt ratchet "$log" "$tail_lines"
+    return 0
+  fi
+
+  printf '%s\n' "$report"
+}

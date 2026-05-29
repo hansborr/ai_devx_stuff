@@ -1,8 +1,6 @@
 # Leaf 23: Generated Lint Guidance Spike
 
 Status: Spike landed (2026-05-16); 3-rule subset, decision pending.
-Source: `docs/agent_notes/in_progress/eslint-llm-core-evaluation.md` —
-"`instructions/generator.ts` + `cli/generate-instructions.ts`" section.
 
 ## Problem
 
@@ -85,6 +83,6 @@ the generated-doc layer unless a different consumer justifies it.
 
 ## References
 
-- `docs/agent_notes/in_progress/eslint-llm-core-evaluation.md`
+- See git history for original evaluation
 - `/home/node/tmp/eslint-plugin-llm-core/` — upstream reference (not
   committed)

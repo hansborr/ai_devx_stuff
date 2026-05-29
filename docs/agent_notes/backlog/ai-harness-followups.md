@@ -12,7 +12,7 @@ only one concrete leaf at a time.
 ## Active Leaf Elsewhere
 
 No AI-harness leaf is currently promoted from this note. The 5e/5.5e rules
-logic guide landed through `docs/agent_notes/in_progress/batonloop-queue.md`.
+logic guide landed (BatonLoop queue is complete).
 
 ## Remaining Work
 
@@ -22,7 +22,7 @@ logic guide landed through `docs/agent_notes/in_progress/batonloop-queue.md`.
 - Add reviewed behavior fixtures for Character Live-State and other high-risk
   workflows as they are scoped.
 - Evaluate the parked lint-hardening plan in
-  `lint-hardening-cross-repo-review.md` one leaf at a time. The first candidate
+  `lint-hardening/00-context-and-rollout.md` one leaf at a time. The first candidate
   is adding a scoped Vitest ESLint plugin configuration for test-quality rules;
   follow-ups include restricted primitive tripwires, stronger suppression
   hygiene, assertion-quality helpers, warning cleanup, and rule metadata.
@@ -32,7 +32,7 @@ logic guide landed through `docs/agent_notes/in_progress/batonloop-queue.md`.
   flake/timing trends. AI-specific duplicate/ghost/comment drift sensors now
   live as the report-only `bun run drift:ai` command, mapped in
   `../../ai-harness.md`; promoting any subcheck into a gate is gated on the
-  Leaf 6 evaluation in `../in_progress/ai-drift-sensors.md`.
+  current noise profile. Drift sensors work is complete.
 - Consider a Musi-specific inferential reviewer only after deterministic
   checks pass; it must complement, not replace, lint/typecheck/tests.
 

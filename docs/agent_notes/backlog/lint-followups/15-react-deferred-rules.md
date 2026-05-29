@@ -7,10 +7,6 @@ Sources:
 
 - `docs/agent_notes/backlog/lint-hardening/13-eslint-plugin-react.md`
 - `docs/agent_notes/backlog/lint-hardening/14-react-hooks-broadened.md`
-- `docs/agent_notes/finished_work/lint-hardening-leaf-13-eslint-plugin-react-inventory.md`
-- `docs/agent_notes/finished_work/lint-hardening-leaf-14-react-hooks-inventory.md`
-- `docs/agent_notes/finished_work/lint-hardening-leaf-15-react-set-state-in-effect-inventory.md`
-- `docs/agent_notes/finished_work/lint-hardening-leaf-15b-jsx-no-leaked-render-inventory.md`
 - `docs/agent_notes/backlog/lint-hardening/evaluation-verdicts.md`
 
 ## set-state-in-effect Resolution (2026-05-19)

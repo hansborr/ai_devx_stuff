@@ -50,10 +50,7 @@ real inventory produced the outcome.
 
 ### 2026-05-17 - Leaf 12 `local/type-assertion-boundary` Pass C
 
-Source:
-`docs/agent_notes/backlog/lint-hardening/12-type-assertion-boundary-lint.md`
-and
-`docs/agent_notes/finished_work/lint-hardening-leaf-12-pass-b-scout.md`.
+Leaf: `docs/agent_notes/backlog/lint-hardening/12-type-assertion-boundary-lint.md`.
 
 Outcome: scoped adoption with packages deferred.
 
@@ -91,11 +88,7 @@ Outcome: partial adoption with report-only caveats; one candidate rejected.
 
 ### 2026-05-16 - Leaf 23 generated lint guidance spike
 
-Source:
-`docs/agent_notes/backlog/lint-hardening/23-llm-core-generated-lint-guidance-spike.md`.
-Follow-up tracked at
-`docs/agent_notes/backlog/lint-followups/17-generated-lint-guidance-decision.md`
-(closed 2026-05-19).
+Leaf: `docs/agent_notes/backlog/lint-hardening/23-llm-core-generated-lint-guidance-spike.md`.
 
 Outcome: **KEEP and EXPANDED** — confirmed 2026-05-19 in commit `77522709`.
 
@@ -124,9 +117,7 @@ Outcome: **KEEP and EXPANDED** — confirmed 2026-05-19 in commit `77522709`.
 
 ### 2026-05-16 - Leaf 19 `import-x/no-extraneous-dependencies`
 
-Source: `docs/agent_notes/backlog/lint-hardening/19-package-dependency-policy.md`
-and
-`docs/agent_notes/finished_work/lint-hardening-leaf-19-import-x-inventory.md`.
+Leaf: `docs/agent_notes/backlog/lint-hardening/19-package-dependency-policy.md`.
 
 Outcome: defer after inventory.
 
@@ -145,9 +136,7 @@ Outcome: defer after inventory.
 
 ### 2026-05-17 - Leaf 19 `import-x/no-extraneous-dependencies` Pass 2
 
-Source: `docs/agent_notes/backlog/lint-hardening/19-package-dependency-policy.md`
-and
-`docs/agent_notes/finished_work/lint-hardening-leaf-19-import-x-inventory.md`.
+Leaf: `docs/agent_notes/backlog/lint-hardening/19-package-dependency-policy.md`.
 
 Outcome: full adoption with scoped file-glob caveats.
 
@@ -172,8 +161,6 @@ Outcome: full adoption with scoped file-glob caveats.
   generators move out of `src/seed`.
 
 ### 2026-05-16 - Leaf 22 local-rule message guidance tests
-
-Source: `docs/agent_notes/backlog/lint-hardening/22-llm-core-rule-message-guidance.md`.
 
 Outcome: convention adopted as test + doc.
 
@@ -200,8 +187,7 @@ Outcome: scoped adoption (process.exit only).
 
 ### 2026-05-16 - Leaf 21 `eslint-plugin-regexp` (Pass 2a)
 
-Source: `docs/agent_notes/backlog/lint-hardening/21-regexp-plugin.md` and
-`docs/agent_notes/finished_work/lint-hardening-leaf-21-regexp-inventory.md`.
+Leaf: `docs/agent_notes/backlog/lint-hardening/21-regexp-plugin.md`.
 
 Outcome: subset adoption; 3 rules deferred to Pass 2b.
 
@@ -229,8 +215,7 @@ Outcome: subset adoption; 3 rules deferred to Pass 2b.
 
 ### 2026-05-17 - Leaf 21 `eslint-plugin-regexp` (Pass 2b)
 
-Source: `docs/agent_notes/backlog/lint-hardening/21-regexp-plugin.md` and
-`docs/agent_notes/finished_work/lint-hardening-leaf-21-pass-2b-scout.md`.
+Leaf: `docs/agent_notes/backlog/lint-hardening/21-regexp-plugin.md`.
 
 Outcome: deferred semantic rules adopted at error.
 
@@ -245,9 +230,7 @@ Outcome: deferred semantic rules adopted at error.
 
 ### 2026-05-16 - Leaf 13 `react/jsx-no-leaked-render`
 
-Source: `docs/agent_notes/backlog/lint-hardening/13-eslint-plugin-react.md`
-and
-`docs/agent_notes/finished_work/lint-hardening-leaf-13-eslint-plugin-react-inventory.md`.
+Leaf: `docs/agent_notes/backlog/lint-hardening/13-eslint-plugin-react.md`.
 
 Outcome: defer after inventory.
 
@@ -258,9 +241,7 @@ Outcome: defer after inventory.
 
 ### 2026-05-16 - Leaf 14 `react-hooks/set-state-in-effect`
 
-Source: `docs/agent_notes/backlog/lint-hardening/14-react-hooks-broadened.md`
-and
-`docs/agent_notes/finished_work/lint-hardening-leaf-14-react-hooks-inventory.md`.
+Leaf: `docs/agent_notes/backlog/lint-hardening/14-react-hooks-broadened.md`.
 
 Outcome: defer after inventory.
 
@@ -272,9 +253,7 @@ Outcome: defer after inventory.
 
 ### 2026-05-16 - Leaf 9 `typescript-eslint` Stricter Opt-Ins
 
-Source: `docs/agent_notes/backlog/lint-hardening/09-ts-eslint-stricter-optins.md`
-and
-`docs/agent_notes/finished_work/lint-hardening-leaf-9-ts-eslint-strict-inventory.md`.
+Leaf: `docs/agent_notes/backlog/lint-hardening/09-ts-eslint-stricter-optins.md`.
 
 Outcome: partial adoption with deferred rules.
 
@@ -298,9 +277,7 @@ Outcome: partial adoption with deferred rules.
 
 ### 2026-05-16 - Leaf 10 Core ESLint AI-Footgun Rules
 
-Source: `docs/agent_notes/backlog/lint-hardening/10-builtin-ai-footgun-rules.md`
-and
-`docs/agent_notes/finished_work/lint-hardening-leaf-10-core-eslint-ai-footgun-inventory.md`.
+Leaf: `docs/agent_notes/backlog/lint-hardening/10-builtin-ai-footgun-rules.md`.
 
 Outcome: partial adoption with deferred rules.
 
@@ -323,8 +300,6 @@ Outcome: partial adoption with deferred rules.
 
 ### 2026-05-16 - Leaf 17 `@eslint/json`
 
-Source: `docs/agent_notes/backlog/lint-hardening/17-json-lint-eslint-json.md`.
-
 Outcome: full adoption.
 
 - `json/no-duplicate-keys`: adopted at `error`. 0 findings.
@@ -338,9 +313,6 @@ Outcome: full adoption.
   JSON outside ESLint scope.
 
 ### 2026-05-16 - Leaf 5 `eslint-plugin-jsx-a11y`
-
-Source: `docs/agent_notes/backlog/lint-hardening/05-jsx-a11y.md` and
-`docs/agent_notes/finished_work/lint-hardening-leaf-5-jsx-a11y-inventory.md`.
 
 Outcome: adopt full with caveats/scoped exceptions.
 
@@ -359,8 +331,7 @@ Outcome: adopt full with caveats/scoped exceptions.
 
 ### 2026-05-16 - Leaf 8 Codemod Scripts ESLint Coverage
 
-Source: `docs/agent_notes/backlog/lint-hardening/08-scripts-eslint-coverage.md`
-and `docs/agent_notes/in_progress/lint-hardening-leaf-8-codemods.md`.
+Leaf: `docs/agent_notes/backlog/lint-hardening/08-scripts-eslint-coverage.md`.
 
 Outcome: defer after inventory.
 
@@ -384,8 +355,7 @@ Outcome: defer after inventory.
 
 ### 2026-05-16 - Leaf 7 `knip` Unused-Code Sensor
 
-Source: `docs/agent_notes/backlog/lint-hardening/07-knip-unused-export-sensor.md`
-and `docs/agent_notes/finished_work/lint-hardening-leaf-7-knip-inventory.md`.
+Leaf: `docs/agent_notes/backlog/lint-hardening/07-knip-unused-export-sensor.md`.
 
 Outcome: adopted as sensor, report-only via `doctor`.
 
@@ -433,9 +403,6 @@ Outcome: adopt subset.
 
 ### 2026-05-11 - `eslint-plugin-llm-core` Parked Rules Audit
 
-Source: `docs/agent_notes/in_progress/eslint-llm-parked-rules-verification.md`.
-Leaf 24 carries the two hand-fix follow-ups.
-
 Outcome: no upstream rules promoted.
 
 - `no-incorrect-sort`: reject rule; fix two sites by hand. Evidence: 21 hits,
@@ -464,8 +431,6 @@ Outcome: no upstream rules promoted.
 
 ### 2026-05-16 — Leaf 15 assertion failure quality (Zod parse helpers)
 
-Source: `docs/agent_notes/backlog/lint-hardening/15-assertion-failure-quality.md`.
-
 Outcome: helpers landed + current migration complete (shared/server/client).
 
 - `expectParseSuccess` / `expectParseFailure` added at
@@ -481,8 +446,6 @@ Outcome: helpers landed + current migration complete (shared/server/client).
   pattern needs to prove itself first).
 
 ### 2026-05-16 — Leaf 24 parked LLM-core sort-comparator fixes
-
-Source: `docs/agent_notes/backlog/lint-hardening/24-llm-core-parked-rules-followups.md`.
 
 Outcome: housekeeping close-out — both sites already fixed.
 
@@ -513,9 +476,7 @@ Outcome: landed cleanup; knip export/dependency inventory is clean.
 
 ### 2026-05-19 - Leaf 10a: `vitest/no-conditional-expect` Re-Triage
 
-Sources:
-`docs/agent_notes/finished_work/lint-hardening-leaf-10a-vitest-conditional-expect-inventory.md`,
-`docs/agent_notes/backlog/lint-followups/10-test-quality-followups.md`.
+Follow-up: `docs/agent_notes/backlog/lint-followups/10-test-quality-followups.md`.
 Branch: `feature/lint-hardening-leaf-10a-vitest-conditional-expect`.
 
 Outcome: **defer rule, fix surfaced bugs**.
@@ -543,9 +504,7 @@ Outcome: **defer rule, fix surfaced bugs**.
 
 ### 2026-05-19 - Leaf 13a: `no-await-in-loop` Server Services Re-Triage
 
-Sources:
-`docs/agent_notes/finished_work/lint-hardening-leaf-13a-no-await-in-loop-services-inventory.md`,
-`docs/agent_notes/backlog/lint-followups/13-core-footgun-deferred-rules.md`.
+Follow-up: `docs/agent_notes/backlog/lint-followups/13-core-footgun-deferred-rules.md`.
 Branch: `feature/lint-hardening-leaf-13a-no-await-in-loop-services`.
 
 Outcome: **defer rule for this family**.
@@ -574,9 +533,7 @@ Outcome: **defer rule for this family**.
 
 ### 2026-05-19 — Leaf 13b: `no-param-reassign` Props Re-Triage
 
-Sources:
-`docs/agent_notes/finished_work/lint-hardening-leaf-13b-no-param-reassign-props-inventory.md`,
-`docs/agent_notes/backlog/lint-followups/13-core-footgun-deferred-rules.md`.
+Follow-up: `docs/agent_notes/backlog/lint-followups/13-core-footgun-deferred-rules.md`.
 Branch: `feature/lint-hardening-leaf-13b-no-param-reassign-props`.
 
 Outcome: **defer option for this scope**.
@@ -603,9 +560,7 @@ Outcome: **defer option for this scope**.
 
 ### 2026-05-19 — Leaf 15 (set-state-in-effect)
 
-Sources:
-`docs/agent_notes/finished_work/lint-hardening-leaf-15-react-set-state-in-effect-inventory.md`,
-`docs/agent_notes/backlog/lint-followups/15-react-deferred-rules.md`.
+Follow-up: `docs/agent_notes/backlog/lint-followups/15-react-deferred-rules.md`.
 Branch: `feature/lint-hardening-leaf-15-react-set-state-in-effect`.
 
 Outcome: **defer rule for this scope**.
@@ -629,9 +584,7 @@ Outcome: **defer rule for this scope**.
 
 ### 2026-05-19 — Leaf 15b (jsx-no-leaked-render)
 
-Sources:
-`docs/agent_notes/finished_work/lint-hardening-leaf-15b-jsx-no-leaked-render-inventory.md`,
-`docs/agent_notes/backlog/lint-followups/15-react-deferred-rules.md`.
+Follow-up: `docs/agent_notes/backlog/lint-followups/15-react-deferred-rules.md`.
 Branch: `feature/lint-hardening-leaf-15b-jsx-no-leaked-render`.
 
 Outcome: **defer rule for this scope**.
@@ -653,9 +606,7 @@ Outcome: **defer rule for this scope**.
 
 ### 2026-05-19 — Leaf 14a (clock primitives)
 
-Sources:
-`docs/agent_notes/finished_work/lint-hardening-leaf-14a-clock-primitives-inventory.md`,
-`docs/agent_notes/backlog/lint-followups/14-restricted-primitives.md`.
+Follow-up: `docs/agent_notes/backlog/lint-followups/14-restricted-primitives.md`.
 Branch: `feature/lint-hardening-leaf-14a-clock-primitives`.
 
 Outcome: **defer until sanctioned clock helper exists**.
@@ -682,9 +633,7 @@ Outcome: **defer until sanctioned clock helper exists**.
 
 ### 2026-05-19 — Leaf 14b (process.env)
 
-Sources:
-`docs/agent_notes/finished_work/lint-hardening-leaf-14b-process-env-adoption.md`,
-`docs/agent_notes/backlog/lint-followups/14-restricted-primitives.md`.
+Follow-up: `docs/agent_notes/backlog/lint-followups/14-restricted-primitives.md`.
 Branch: `feature/lint-hardening-leaf-14b-process-env`.
 
 Outcome: **adopt full with scoped allowlist caveats**.
@@ -713,9 +662,7 @@ Outcome: **adopt full with scoped allowlist caveats**.
 
 ### 2026-05-19 — Leaf 14c (raw fetch)
 
-Sources:
-`docs/agent_notes/finished_work/lint-hardening-leaf-14c-raw-fetch-adoption.md`,
-`docs/agent_notes/backlog/lint-followups/14-restricted-primitives.md`.
+Follow-up: `docs/agent_notes/backlog/lint-followups/14-restricted-primitives.md`.
 Branch: `feature/lint-hardening-leaf-14c-raw-fetch`.
 
 Outcome: **adopt full with scoped allowlist caveats**.
@@ -751,9 +698,6 @@ Outcome: **adopt full with scoped allowlist caveats**.
 
 ### 2026-05-19 — Leaf 21 (assertion-quality lint rule)
 
-Sources:
-`docs/agent_notes/finished_work/lint-hardening-leaf-21-assertion-quality-inventory.md`,
-`docs/agent_notes/backlog/lint-followups/21-assertion-quality-lint-rule.md`.
 Branch: `feature/lint-hardening-leaf-21-assertion-quality`.
 
 Outcome: **defer after inventory**.
@@ -779,9 +723,7 @@ Outcome: **defer after inventory**.
 
 ### 2026-05-19 — Leaf 19 slice 1 (`scripts/lint-rule-docs.ts` coverage)
 
-Sources:
-`docs/agent_notes/finished_work/lint-hardening-leaf-19-scripts-lint-rule-docs-adoption.md`,
-`docs/agent_notes/backlog/lint-followups/19-scripts-eslint-remaining-families.md`.
+Follow-up: `docs/agent_notes/backlog/lint-followups/19-scripts-eslint-remaining-families.md`.
 Branch: `feature/lint-hardening-leaf-19-lint-rule-docs`.
 
 Outcome: **adopt full** for this one file.
@@ -806,9 +748,7 @@ Outcome: **adopt full** for this one file.
 
 ### 2026-05-19 — Leaf 19 slice 3 (`scripts/lint-ratchet-config.ts` coverage)
 
-Sources:
-`docs/agent_notes/finished_work/lint-hardening-leaf-19-scripts-lint-ratchet-config-adoption.md`,
-`docs/agent_notes/backlog/lint-followups/19-scripts-eslint-remaining-families.md`.
+Follow-up: `docs/agent_notes/backlog/lint-followups/19-scripts-eslint-remaining-families.md`.
 Branch: `feature/lint-hardening-leaf-19-lint-ratchet-config`.
 
 Outcome: **adopt full** for this one file.
@@ -832,9 +772,7 @@ Outcome: **adopt full** for this one file.
 
 ### 2026-05-19 — Leaf 19 slice 2 (`scripts/generate-harness-controls.ts` deferral)
 
-Sources:
-`docs/agent_notes/finished_work/lint-hardening-leaf-19-scripts-generate-harness-controls-deferral.md`,
-`docs/agent_notes/backlog/lint-followups/19-scripts-eslint-remaining-families.md`.
+Follow-up: `docs/agent_notes/backlog/lint-followups/19-scripts-eslint-remaining-families.md`.
 Branch: `feature/lint-hardening-leaf-19-generate-harness-controls`.
 
 Outcome: **defer after inventory**.
@@ -858,9 +796,7 @@ Outcome: **defer after inventory**.
 
 ### 2026-05-19 — Leaf 19 slice 4 (`scripts/code-intel-server.ts` + `scripts/logs-audit.test.ts` coverage)
 
-Sources:
-`docs/agent_notes/finished_work/lint-hardening-leaf-19-scripts-code-intel-server-and-logs-audit-test-adoption.md`,
-`docs/agent_notes/backlog/lint-followups/19-scripts-eslint-remaining-families.md`.
+Follow-up: `docs/agent_notes/backlog/lint-followups/19-scripts-eslint-remaining-families.md`.
 Branch: `feature/lint-hardening-leaf-19-code-intel-entry-and-logs-audit-test`.
 
 Outcome: **adopt subset** (two files adopted, one carved out).
@@ -887,9 +823,7 @@ Outcome: **adopt subset** (two files adopted, one carved out).
 
 ### 2026-05-19 — Leaf 19 slice 5 (drift-ai small-module subset coverage)
 
-Sources:
-`docs/agent_notes/finished_work/lint-hardening-leaf-19-scripts-drift-ai-small-modules-adoption.md`,
-`docs/agent_notes/backlog/lint-followups/19-scripts-eslint-remaining-families.md`.
+Follow-up: `docs/agent_notes/backlog/lint-followups/19-scripts-eslint-remaining-families.md`.
 Branch: `feature/lint-hardening-leaf-19-drift-ai-small-modules`.
 
 Outcome: **adopt subset** (3 of 16 `drift-ai/` files).
@@ -923,9 +857,7 @@ Outcome: **adopt subset** (3 of 16 `drift-ai/` files).
 
 ### 2026-05-19 — Leaf 19 probe deferral (top-level scripts outside tsconfig)
 
-Sources:
-`docs/agent_notes/finished_work/lint-hardening-leaf-19-scripts-top-level-non-scripts-tsconfig-deferral.md`,
-`docs/agent_notes/backlog/lint-followups/19-scripts-eslint-remaining-families.md`.
+Follow-up: `docs/agent_notes/backlog/lint-followups/19-scripts-eslint-remaining-families.md`.
 Branch: deleted after the probe (no commits landed).
 
 Outcome: **defer after inventory**.
@@ -947,9 +879,7 @@ Outcome: **defer after inventory**.
 
 ### 2026-05-19 — Leaf 19 probe deferral (codemod test files)
 
-Sources:
-`docs/agent_notes/finished_work/lint-hardening-leaf-19-scripts-codemod-test-files-deferral.md`,
-`docs/agent_notes/backlog/lint-followups/19-scripts-eslint-remaining-families.md`.
+Follow-up: `docs/agent_notes/backlog/lint-followups/19-scripts-eslint-remaining-families.md`.
 Branch: deleted after the probe (no commits landed).
 
 Outcome: **defer after inventory**.

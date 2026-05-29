@@ -4,7 +4,6 @@ Status: Drafted 2026-05-20 - parked ratchet-first/drain leaf
 Sources:
 
 - `docs/agent_notes/backlog/lint-followups/19-scripts-eslint-remaining-families.md`
-- `docs/agent_notes/backlog/lint-followups/05-ratchet-cleanups.md`
 - `scripts/harness-check.ts`
 - `scripts/lint-agent.ts`
 - `scripts/lint-ratchet.ts`

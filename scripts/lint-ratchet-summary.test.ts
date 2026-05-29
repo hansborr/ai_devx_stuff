@@ -79,7 +79,7 @@ function complexityFunction(
   label: string,
   complexity: number,
 ): LintRatchetComplexityFunction {
-  return { line, nodeType: "FunctionDeclaration", label, complexity };
+  return { line, label, complexity };
 }
 
 function fixtureBaseline(): LintRatchetBaseline {

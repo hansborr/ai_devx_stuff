@@ -4,7 +4,6 @@ Status: Drafted 2026-05-20 - parked ratchet-first/drain leaf
 Sources:
 
 - `docs/agent_notes/backlog/lint-followups/19-scripts-eslint-remaining-families.md`
-- `docs/agent_notes/finished_work/lint-hardening-leaf-19-scripts-code-intel-server-and-logs-audit-test-adoption.md`
 - `scripts/code-intel.ts`
 - `scripts/test-code-intel.sh`
 
