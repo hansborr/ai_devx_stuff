@@ -11,11 +11,13 @@ export interface ParsedArgs {
     | "report"
     | "debt-log"
     | "edit-check-targets"
-    | "edit-check";
+    | "edit-check"
+    | "edit-ratchet-coverage";
   readonly allowWorse: boolean;
   readonly reason?: string;
   readonly editCheckTargets?: readonly string[];
   readonly targetsFile?: string;
+  readonly editRatchetCoveragePaths?: readonly string[];
 }
 
 interface ParsedArgsState {
@@ -24,6 +26,7 @@ interface ParsedArgsState {
   reason?: string;
   editCheckTargets?: readonly string[];
   targetsFile?: string;
+  editRatchetCoveragePaths?: readonly string[];
 }
 
 export class UsageError extends Error {}
@@ -70,6 +73,19 @@ function consumeEditCheckTargets(
   return args.length;
 }
 
+// --edit-ratchet-coverage consumes the rest of argv as edited relpaths, like
+// --edit-check-targets. It answers the lint-coverage hook's "is this path
+// tracked by a committed ratchet floor?" query without running ESLint.
+function consumeEditRatchetCoverage(
+  state: ParsedArgsState,
+  args: readonly string[],
+  index: number,
+): number {
+  setMode(state, "edit-ratchet-coverage");
+  state.editRatchetCoveragePaths = args.slice(index + 1).filter((value) => value.length > 0);
+  return args.length;
+}
+
 function consumeTargetsFileArgument(
   state: ParsedArgsState,
   args: readonly string[],
@@ -106,6 +122,8 @@ function consumeParsedArg(state: ParsedArgsState, args: readonly string[], index
       return consumeReasonArgument(state, args, index);
     case "--edit-check-targets":
       return consumeEditCheckTargets(state, args, index);
+    case "--edit-ratchet-coverage":
+      return consumeEditRatchetCoverage(state, args, index);
     case "--targets-file":
       return consumeTargetsFileArgument(state, args, index);
     default:
@@ -139,6 +157,19 @@ function assertEditCheckArgs(state: ParsedArgsState): void {
   }
 }
 
+function assertEditRatchetCoverageArgs(state: ParsedArgsState): void {
+  if (state.mode === "edit-ratchet-coverage") {
+    if (
+      state.editRatchetCoveragePaths === undefined ||
+      state.editRatchetCoveragePaths.length === 0
+    ) {
+      throw new UsageError("--edit-ratchet-coverage requires at least one path");
+    }
+  } else if (state.editRatchetCoveragePaths !== undefined) {
+    throw new UsageError("--edit-ratchet-coverage is only valid in edit-ratchet-coverage mode");
+  }
+}
+
 function assertUpdateArgs(state: ParsedArgsState): void {
   const { mode, allowWorse, reason } = state;
   if (allowWorse && mode !== "update") {
@@ -159,6 +190,9 @@ function buildParsedArgs(state: ParsedArgsState): ParsedArgs {
     ...(state.reason === undefined ? {} : { reason: state.reason }),
     ...(state.editCheckTargets === undefined ? {} : { editCheckTargets: state.editCheckTargets }),
     ...(state.targetsFile === undefined ? {} : { targetsFile: state.targetsFile }),
+    ...(state.editRatchetCoveragePaths === undefined
+      ? {}
+      : { editRatchetCoveragePaths: state.editRatchetCoveragePaths }),
   };
 }
 
@@ -166,15 +200,17 @@ export function parseArgs(args: readonly string[]): ParsedArgs {
   const state = parseArgFlags(args);
   assertUpdateArgs(state);
   assertEditCheckArgs(state);
+  assertEditRatchetCoverageArgs(state);
   return buildParsedArgs(state);
 }
 
 export function usage(): string {
   return [
-    "usage: bun scripts/lint-ratchet.ts [--update [--allow-worse --reason <why>] | --check-baseline | --check-registry | --summary | --zero-baseline | --report | --debt-log | --edit-check-targets <relpath>... | --edit-check --targets-file <file>]",
+    "usage: bun scripts/lint-ratchet.ts [--update [--allow-worse --reason <why>] | --check-baseline | --check-registry | --summary | --zero-baseline | --report | --debt-log | --edit-check-targets <relpath>... | --edit-check --targets-file <file> | --edit-ratchet-coverage <relpath>...]",
     "",
     "Default mode emits a harness-diagnostics envelope and fails on ratchet regressions or uncommitted improvements.",
     "--summary prints committed baseline totals without running ESLint; --zero-baseline audits drained ratchets against normal ESLint; --report formats a diagnostics envelope from stdin; --debt-log renders the committed --allow-worse acceptance log.",
     "--edit-check-targets lists matching minimal-TS ratchets for edited paths (no ESLint); --edit-check lints the targets in <file> and prints only fresh ratchet regressions, for the edit-time advisory hook.",
+    "--edit-ratchet-coverage prints, per edited path, the committed-baseline ratchet rule ids tracking it (no ESLint), for the lint-coverage advisory hook.",
   ].join("\n");
 }

@@ -167,6 +167,26 @@ describe("discoverCurrentFiles", () => {
     expect(discoveredPaths(discoverWithStubs({ paths, roots: ["missing"] }))).toEqual([]);
   });
 
+  it("treats an explicit repo root as whole-repo inventory", () => {
+    const paths = ["scripts/drift-ai.ts", "src/app.ts"];
+
+    expect(discoveredPaths(discoverWithStubs({ paths, roots: ["."] }))).toEqual(paths);
+  });
+
+  it("treats mixed repo-root and narrow current roots as whole-repo inventory", () => {
+    const paths = ["scripts/drift-ai.ts", "src/app.ts"];
+
+    expect(discoveredPaths(discoverWithStubs({ paths, roots: [".", "src"] }))).toEqual(paths);
+  });
+
+  it("uses whole-repo ignore semantics when repo root is mixed with narrower roots", () => {
+    const paths = ["src/generated/app.ts", "src/keep.ts"];
+
+    expect(discoveredPaths(discoverWithStubs({ paths, roots: [".", "src/generated"] }))).toEqual([
+      "src/keep.ts",
+    ]);
+  });
+
   it("normalizes duplicate current roots before matching inventory paths", () => {
     const files = discoverWithStubs({
       paths: ["src/app.ts", "other/app.ts"],

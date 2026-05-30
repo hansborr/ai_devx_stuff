@@ -2,7 +2,9 @@ import path from "node:path";
 
 import { GHOST_FILES_BUCKET_CAP } from "./ghost-files-constants.js";
 import { oversizedBucketHint } from "./ghost-files-findings.js";
-import { normalizedTokens, strongTokens, uniqSorted } from "./ghost-files-tokens.js";
+import type { GhostFileTuning } from "./ghost-files-match.js";
+import { normalizedTokens, strongTokens } from "./ghost-files-tokens.js";
+import { uniqSorted } from "./path-util.js";
 import type { DriftFinding } from "./types.js";
 
 type TokenBucket = {
@@ -25,10 +27,12 @@ export function runBucketedDirectory(
   directory: string,
   siblings: readonly string[],
   sourceExtensions: ReadonlySet<string>,
+  tuning: GhostFileTuning,
   allowedPairKeys: ReadonlySet<string>,
   runPairwise: (
     siblings: readonly string[],
     sourceExtensions: ReadonlySet<string>,
+    tuning: GhostFileTuning,
     emittedPairs: Set<string>,
     allowedPairKeys: ReadonlySet<string>,
   ) => DriftFinding[],
@@ -36,9 +40,11 @@ export function runBucketedDirectory(
   const findings: DriftFinding[] = [];
   const emittedPairs = new Set<string>();
   const oversized: OversizedBucket[] = [];
-  for (const bucket of tokenBuckets(siblings)) {
+  for (const bucket of tokenBuckets(siblings, tuning.weakTokens)) {
     if (bucket.files.length <= GHOST_FILES_BUCKET_CAP) {
-      findings.push(...runPairwise(bucket.files, sourceExtensions, emittedPairs, allowedPairKeys));
+      findings.push(
+        ...runPairwise(bucket.files, sourceExtensions, tuning, emittedPairs, allowedPairKeys),
+      );
     } else {
       oversized.push({ key: bucket.key, size: bucket.files.length });
     }
@@ -47,9 +53,9 @@ export function runBucketedDirectory(
   return findings;
 }
 
-function tokenBuckets(siblings: readonly string[]): TokenBucket[] {
+function tokenBuckets(siblings: readonly string[], weakTokens: ReadonlySet<string>): TokenBucket[] {
   const buckets = new Map<string, Set<string>>();
-  for (const file of siblings.map(tokenizeFileForBuckets)) {
+  for (const file of siblings.map((sibling) => tokenizeFileForBuckets(sibling, weakTokens))) {
     addTokenBucketMember(buckets, `identical-normalized:${file.normalized}`, file.filePath);
     for (const token of uniqSorted(file.strong)) {
       addTokenBucketMember(buckets, `strong:${token}`, file.filePath);
@@ -58,12 +64,12 @@ function tokenBuckets(siblings: readonly string[]): TokenBucket[] {
   return [...buckets.entries()].map(toTokenBucket).sort(compareBucket);
 }
 
-function tokenizeFileForBuckets(filePath: string): TokenizedFile {
+function tokenizeFileForBuckets(filePath: string, weakTokens: ReadonlySet<string>): TokenizedFile {
   const tokens = normalizedTokens(path.posix.basename(filePath));
   return {
     filePath,
     normalized: tokens.join("-"),
-    strong: strongTokens(tokens),
+    strong: strongTokens(tokens, weakTokens),
   };
 }
 

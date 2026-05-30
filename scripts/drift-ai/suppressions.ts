@@ -3,8 +3,8 @@
 
 import { execFileSync } from "node:child_process";
 
-import type { DriftFinding } from "../drift-ai.js";
 import type { FileReader } from "./comments.js";
+import { changedFilesFromScope } from "./path-util.js";
 import type { DetectorScope } from "./scope.js";
 import {
   type CommentScanState,
@@ -13,19 +13,11 @@ import {
   initialCommentScanState,
   type ParsedSuppression,
   scanCommentSegments,
-  type SuppressionsGitRunner,
   toFinding,
 } from "./suppressions-parse.js";
+import type { DriftFinding } from "./types.js";
 
-export type { SuppressionsGitRunner } from "./suppressions-parse.js";
-export {
-  ESLINT_BROAD_SUPPRESSION_HINT,
-  ESLINT_INLINE_SUPPRESSION_HINT,
-  STRYKER_SUPPRESSION_HINT,
-  TS_EXPECT_ERROR_SUPPRESSION_HINT,
-  TS_IGNORE_SUPPRESSION_HINT,
-  TS_NOCHECK_SUPPRESSION_HINT,
-} from "./suppressions-parse.js";
+export type SuppressionsGitRunner = (repoRoot: string, ref: string) => string;
 
 export type RunSuppressionsCheckOptions = {
   readonly detectorScope: DetectorScope;
@@ -41,7 +33,7 @@ export function defaultSuppressionsGitRunner(repoRoot: string, ref: string): str
 
 export function runSuppressionsCheck(options: RunSuppressionsCheckOptions): DriftFinding[] {
   if (options.detectorScope.scopeMode !== "changed") return [];
-  const changedFiles = changedFilesFromScope(options.detectorScope);
+  const changedFiles = suppressionChangedFilesFromScope(options.detectorScope);
   if (changedFiles.size === 0) return [];
   const changedPaths = new Set(changedFiles.keys());
   const diffText = options.git(options.repoRoot, options.ref);
@@ -57,12 +49,11 @@ export function runSuppressionsCheck(options: RunSuppressionsCheckOptions): Drif
   return findings.sort(compareSuppressions).map(toFinding);
 }
 
-function changedFilesFromScope(
+function suppressionChangedFilesFromScope(
   detectorScope: DetectorScope,
 ): ReadonlyMap<string, "added" | "modified" | "renamed" | "copied"> {
   const files = new Map<string, "added" | "modified" | "renamed" | "copied">();
-  for (const file of detectorScope.files) {
-    if (file.scope !== "changed") continue;
+  for (const file of changedFilesFromScope(detectorScope)) {
     if (file.status === "deleted") continue;
     files.set(file.path, file.status);
   }

@@ -6,6 +6,8 @@ import { pathToFileURL } from "node:url";
 
 import { runDriftAi } from "./drift-ai/runner.js";
 
+export { ALL_CHECKS, DEFAULT_CHECKS, IMPLEMENTED_CHECKS } from "./drift-ai/check-metadata.js";
+export { CHECK_PLUGINS } from "./drift-ai/check-registry.js";
 export { buildChunkManifest, groupFindingsForChunks } from "./drift-ai/chunks.js";
 export { parseArgs } from "./drift-ai/cli-args.js";
 export { DriftAiError } from "./drift-ai/errors.js";
@@ -20,8 +22,46 @@ export {
   resolveMergeBase,
   resolveRepoRoot,
 } from "./drift-ai/git-changed-scope.js";
+export {
+  type HotspotsRunOptions,
+  type HotspotsRunResult,
+  runHotspots,
+} from "./drift-ai/hotspots.js";
+export {
+  type ChurnHotspot,
+  type ChurnSection,
+  type CouplingHotspot,
+  type CouplingSection,
+  formatHotspotsJson,
+  formatHotspotsText,
+  type FragmentationHotspot,
+  type FragmentationSection,
+  type HotspotAuthor,
+  type HotspotBaselineDelta,
+  type HotspotLens,
+  type HotspotsAdvisory,
+  type HotspotSection,
+  type SuppressionChurnHotspot,
+  type SuppressionChurnSection,
+  type ThrashHotspot,
+  type ThrashSection,
+} from "./drift-ai/hotspots-format.js";
+export {
+  type CollectedHistory,
+  collectHistory,
+  type CommitFileChange,
+  type CommitRecord,
+  defaultHistoryGitRunner,
+  GIT_LOG_FORMAT,
+  parseGitLog,
+} from "./drift-ai/hotspots-history.js";
 export { buildInventoryByDir } from "./drift-ai/inventory-by-dir.js";
-export { buildReport, type CheckContext } from "./drift-ai/report-builder.js";
+export {
+  buildReport,
+  type CheckContext,
+  type CheckRunContext,
+  type CheckRunInput,
+} from "./drift-ai/report-builder.js";
 export { formatJson, formatText } from "./drift-ai/report-format.js";
 export type { RunOptions, RunResult } from "./drift-ai/runner.js";
 export { runDriftAi } from "./drift-ai/runner.js";
@@ -38,25 +78,36 @@ export {
   toChangedScopeFile,
   toCurrentScopeFile,
 } from "./drift-ai/scope.js";
+export {
+  parseSubcommandArgs,
+  type SubcommandBaseOptions,
+  type SubcommandFormat,
+  writeSubcommandOutput,
+} from "./drift-ai/subcommand-args.js";
 export type {
   ChangedFile,
   ChangedFileStatus,
   CliOptions,
+  ConfigSource,
   DriftCheckId,
   DriftChunkManifest,
   DriftChunkManifestEntry,
   DriftFinding,
   DriftFindingChunk,
   DriftReport,
+  DriftReportSummary,
+  FindingProvenance,
+  SkippedDriftCheck,
+  SkipReasonCode,
 } from "./drift-ai/types.js";
 export {
-  ALL_CHECKS,
   DEFAULT_BASE,
   DEFAULT_CHUNK_SIZE,
   DEFAULT_IGNORE_DIR_PREFIXES,
   DEFAULT_IGNORE_EXTENSIONS,
   DEFAULT_IGNORE_FILES,
   DEFAULT_SCOPE_MODE,
+  DRIFT_SCHEMA_VERSION,
 } from "./drift-ai/types.js";
 
 function isCliEntrypoint(): boolean {

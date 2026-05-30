@@ -13,14 +13,18 @@ import {
   filterClonesToChangedFiles,
   JSCPD_SUPPORTED_EXTENSIONS,
   type JscpdClone,
-  type JscpdRunner,
-  type JscpdRunnerInput,
-  LARGE_INVENTORY_WARNING_THRESHOLD,
   mapChangedFilesToScopes,
   normalizeReportPath,
   parseDuplicatesReport,
-  runDuplicatesCheck,
+  SAME_FILE_DUPLICATE_REPAIR_HINT,
 } from "./duplicates.js";
+import {
+  type JscpdRunner,
+  type JscpdRunnerInput,
+  LARGE_INVENTORY_WARNING_THRESHOLD,
+  runDuplicatesCheck,
+} from "./duplicates-runner.js";
+import { resolveJscpdBin } from "./jscpd-bin.js";
 import type { DetectorScope } from "./scope.js";
 import { toChangedScopeFile, toCurrentScopeFile } from "./scope.js";
 
@@ -264,6 +268,28 @@ describe("buildDuplicatesFindings", () => {
       new Set(["packages/server/src/foo.ts"]),
     );
     expect(findings[0]?.hint).toBe(DUPLICATE_REPAIR_HINT);
+  });
+
+  it("uses same-file wording and a local extraction hint for self repeats", () => {
+    const findings = buildDuplicatesFindings(
+      [
+        {
+          lines: 39,
+          firstFile: { name: "packages/client/src/monster-form-fields.tsx", start: 436, end: 474 },
+          secondFile: { name: "packages/client/src/monster-form-fields.tsx", start: 435, end: 473 },
+        },
+      ],
+      new Set(["packages/client/src/monster-form-fields.tsx"]),
+    );
+
+    expect(findings).toEqual([
+      {
+        check: "duplicates",
+        file: "packages/client/src/monster-form-fields.tsx:436-474",
+        message: "repeats within the same file at lines 435-473 (39 lines)",
+        hint: SAME_FILE_DUPLICATE_REPAIR_HINT,
+      },
+    ]);
   });
 });
 
@@ -660,12 +686,38 @@ describe("runDuplicatesCheck", () => {
     ]);
   });
 
+  it("prints the current-mode large-inventory nudge for an explicit repo root", () => {
+    const messages: string[] = [];
+    runDuplicatesCheck({
+      detectorScope: currentDetectorScope(["packages/server/src/a.ts"]),
+      runner: () => ({ ok: true, reportJson: '{"duplicates":[]}' }),
+      roots: ["."],
+      regularFileInventoryCount: 25_000,
+      warnStderr: (message) => messages.push(message),
+    });
+    expect(messages).toEqual([
+      "drift:ai: large repository (25000 files); duplicates over the whole repo can be slow. Try --check ghost-files first or pass --root <path>.",
+    ]);
+  });
+
   it("does not print the large-inventory nudge when current roots are narrowed", () => {
     const messages: string[] = [];
     runDuplicatesCheck({
       detectorScope: currentDetectorScope(["packages/server/src/a.ts"]),
       runner: () => ({ ok: true, reportJson: '{"duplicates":[]}' }),
       roots: ["packages/server/src"],
+      regularFileInventoryCount: 25_000,
+      warnStderr: (message) => messages.push(message),
+    });
+    expect(messages).toEqual([]);
+  });
+
+  it("does not print the large-inventory nudge when repo root is mixed with narrowed roots", () => {
+    const messages: string[] = [];
+    runDuplicatesCheck({
+      detectorScope: currentDetectorScope(["packages/server/src/a.ts"]),
+      runner: () => ({ ok: true, reportJson: '{"duplicates":[]}' }),
+      roots: [".", "packages/server/src"],
       regularFileInventoryCount: 25_000,
       warnStderr: (message) => messages.push(message),
     });
@@ -682,6 +734,68 @@ describe("runDuplicatesCheck", () => {
       warnStderr: (message) => messages.push(message),
     });
     expect(messages).toEqual([]);
+  });
+});
+
+describe("resolveJscpdBin", () => {
+  const moduleDir = path.join("/tools", "scripts", "drift-ai");
+  const toolsBin = path.join("/tools", "node_modules", ".bin", "jscpd");
+  const targetRoot = "/target";
+  const targetBin = path.join(targetRoot, "node_modules", ".bin", "jscpd");
+  const override = path.join("/custom", "jscpd");
+
+  it("resolves the tools-checkout bin first, even when the target and override also exist", () => {
+    const resolution = resolveJscpdBin({
+      moduleDir,
+      analyzedRepoRoot: targetRoot,
+      override,
+      fileExists: (candidate) =>
+        candidate === toolsBin || candidate === targetBin || candidate === override,
+    });
+    expect(resolution).toEqual({ found: true, binPath: toolsBin, source: "tools-checkout" });
+  });
+
+  it("falls back to the target repo when the tools checkout has no jscpd", () => {
+    const resolution = resolveJscpdBin({
+      moduleDir,
+      analyzedRepoRoot: targetRoot,
+      override,
+      fileExists: (candidate) => candidate === targetBin,
+    });
+    expect(resolution).toEqual({ found: true, binPath: targetBin, source: "target-repo" });
+  });
+
+  it("uses the --jscpd-bin override only when neither checkout resolves", () => {
+    const resolution = resolveJscpdBin({
+      moduleDir,
+      analyzedRepoRoot: targetRoot,
+      override,
+      fileExists: (candidate) => candidate === override,
+    });
+    expect(resolution).toEqual({ found: true, binPath: override, source: "override" });
+  });
+
+  it("reports a not-found skip signal listing where it looked when nothing resolves", () => {
+    const resolution = resolveJscpdBin({
+      moduleDir,
+      analyzedRepoRoot: targetRoot,
+      override,
+      fileExists: () => false,
+    });
+    if (resolution.found) throw new Error("expected jscpd to be unresolved");
+    expect(resolution.searched).toContain(toolsBin);
+    expect(resolution.searched).toContain(targetBin);
+    expect(resolution.searched).toContain(override);
+  });
+
+  it("does not consider an override that was not supplied", () => {
+    const resolution = resolveJscpdBin({
+      moduleDir,
+      analyzedRepoRoot: targetRoot,
+      fileExists: () => false,
+    });
+    if (resolution.found) throw new Error("expected jscpd to be unresolved");
+    expect(resolution.searched).not.toContain(override);
   });
 });
 

@@ -1,12 +1,10 @@
 // jscpd duplicate-code parser, changed-file filter, scope mapping, and
-// finding builder.  The subprocess runner and check-integration entrypoint
-// live in duplicates-runner.ts and are re-exported at the bottom of this
-// file for backward-compatible imports.
+// finding builder. The subprocess runner and check-integration entrypoint live
+// in duplicates-runner.ts; executable resolution lives in jscpd-bin.ts.
 
-import path from "node:path";
-
-import type { ChangedFile, DriftFinding } from "../drift-ai.js";
-import { matchesAnyGlob, normalizeRepoPath } from "./config.js";
+import { matchesAnyGlob } from "./config-match.js";
+import { configuredRootFor, isSourceLike, toPosix } from "./path-util.js";
+import type { ChangedFile, DriftFinding } from "./types.js";
 
 type JscpdFileEntry = {
   readonly name: string;
@@ -31,6 +29,9 @@ export type ParseDuplicatesReportResult =
 
 export const DUPLICATE_REPAIR_HINT =
   "extract or reuse the existing helper if the behavior is shared; otherwise keep both paths and add a short reason in the PR/handoff.";
+
+export const SAME_FILE_DUPLICATE_REPAIR_HINT =
+  "extract the repeated block into a local component/helper if it represents shared behavior; otherwise keep both blocks and add a short reason in the PR/handoff.";
 
 export const JSCPD_SUPPORTED_EXTENSIONS: ReadonlySet<string> = new Set([
   ".ts",
@@ -65,9 +66,7 @@ export function parseDuplicatesReport(jsonText: string): ParseDuplicatesReportRe
 // separator; both shapes need to compare equal to the changed-file scope built
 // by `discoverChangedFiles` in scripts/drift-ai.ts.
 export function normalizeReportPath(filePath: string): string {
-  let posix = filePath.split(path.sep).join("/");
-  while (posix.startsWith("./")) posix = posix.slice(2);
-  return posix;
+  return toPosix(filePath);
 }
 
 export function filterClonesToChangedFiles(
@@ -99,14 +98,21 @@ export function buildDuplicatesFindings(
     const useFirstAsPrimary = aChanged && (!bChanged || a.name <= b.name);
     const primary = useFirstAsPrimary ? a : b;
     const secondary = useFirstAsPrimary ? b : a;
+    const sameFile = primary.name === secondary.name;
     findings.push({
       check: "duplicates",
       file: `${primary.name}:${primary.start}-${primary.end}`,
-      message: `duplicates ${secondary.name}:${secondary.start}-${secondary.end} (${clone.lines} lines)`,
-      hint: DUPLICATE_REPAIR_HINT,
+      message: sameFile
+        ? sameFileDuplicateMessage(secondary, clone.lines)
+        : `duplicates ${secondary.name}:${secondary.start}-${secondary.end} (${clone.lines} lines)`,
+      hint: sameFile ? SAME_FILE_DUPLICATE_REPAIR_HINT : DUPLICATE_REPAIR_HINT,
     });
   }
   return findings;
+}
+
+function sameFileDuplicateMessage(secondary: JscpdFileEntry, lines: number): string {
+  return `repeats within the same file at lines ${secondary.start}-${secondary.end} (${lines} lines)`;
 }
 
 function parseClone(value: unknown): JscpdClone | undefined {
@@ -167,21 +173,6 @@ export type DuplicateScope = {
   readonly changedPaths: readonly string[];
 };
 
-function toPosix(filePath: string): string {
-  return normalizeRepoPath(filePath);
-}
-
-function isSourceLike(
-  filePath: string,
-  supportedExtensions: ReadonlySet<string> = JSCPD_SUPPORTED_EXTENSIONS,
-): boolean {
-  return supportedExtensions.has(path.posix.extname(toPosix(filePath)).toLowerCase());
-}
-
-function isExcludedFromDuplicates(filePath: string, excludeGlobs: readonly string[]): boolean {
-  return matchesAnyGlob(toPosix(filePath), excludeGlobs);
-}
-
 // Only the new path of a renamed/copied file counts as "in scope": jscpd
 // scans the working tree, so the previousPath no longer exists there. A
 // rename out of a recognised scope therefore drops off the list, which
@@ -201,7 +192,7 @@ function resolveDuplicateScope(
 ): string | undefined {
   if (file.status === "deleted") return undefined;
   if (!isSourceLike(file.path, supportedExtensions)) return undefined;
-  if (isExcludedFromDuplicates(file.path, excludeGlobs)) return undefined;
+  if (matchesAnyGlob(file.path, excludeGlobs)) return undefined;
   const scopePath = configuredRootFor(file.path, roots) ?? inferScopeRoot(file.path);
   if (!scopePath) return undefined;
   return scopePath;
@@ -230,18 +221,9 @@ export function mapChangedFilesToScopes(
 }
 
 export function normalizeRoots(roots: readonly string[]): string[] {
-  return [...new Set(roots.map((root) => normalizeRepoPath(root) || "."))].sort(
+  return [...new Set(roots.map((root) => toPosix(root) || "."))].sort(
     (left, right) => right.length - left.length || left.localeCompare(right, "en"),
   );
-}
-
-function configuredRootFor(filePath: string, roots: readonly string[]): string | undefined {
-  const posix = toPosix(filePath);
-  for (const root of roots) {
-    if (root === ".") return root;
-    if (posix === root || posix.startsWith(`${root}/`)) return root;
-  }
-  return undefined;
 }
 
 function inferScopeRoot(filePath: string): string | undefined {
@@ -253,15 +235,3 @@ function inferScopeRoot(filePath: string): string | undefined {
   if (segments.length > 1) return segments[0];
   return ".";
 }
-
-// Re-export runner + check-integration API from the extracted module so that
-// existing consumers can continue importing from this file unchanged.
-export {
-  defaultJscpdRunner,
-  type DefaultJscpdRunnerOptions,
-  type JscpdRunner,
-  type JscpdRunnerInput,
-  LARGE_INVENTORY_WARNING_THRESHOLD,
-  runDuplicatesCheck,
-  type RunDuplicatesCheckOptions,
-} from "./duplicates-runner.js";

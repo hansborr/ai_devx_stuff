@@ -1,8 +1,10 @@
 import path from "node:path";
 
-export const SOURCE_LIKE_EXTS = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"]);
+import { toPosix } from "./path-util.js";
 
-const WEAK_TOKENS = new Set<string>([
+export { isSourceLike, SOURCE_LIKE_EXTS, toPosix, uniqSorted } from "./path-util.js";
+
+export const DEFAULT_GHOST_FILE_WEAK_TOKENS: readonly string[] = [
   "helper",
   "util",
   "service",
@@ -13,7 +15,9 @@ const WEAK_TOKENS = new Set<string>([
   "model",
   "manager",
   "handler",
-]);
+];
+
+const DEFAULT_WEAK_TOKEN_SET: ReadonlySet<string> = new Set(DEFAULT_GHOST_FILE_WEAK_TOKENS);
 
 const PEER_EXCLUDE_PATTERNS: readonly RegExp[] = [
   /\.test\.[cm]?[jt]sx?$/u,
@@ -64,23 +68,15 @@ export function isExcludedPath(filePath: string): boolean {
   return isExcludedSibling(basename);
 }
 
-export function isSourceLike(
-  filename: string,
-  sourceExtensions: ReadonlySet<string> = SOURCE_LIKE_EXTS,
-): boolean {
-  return sourceExtensions.has(path.extname(filename).toLowerCase());
-}
-
 export function normalizedTokens(basename: string): string[] {
   return tokenize(basename).map(singularize);
 }
 
-export function strongTokens(tokens: readonly string[]): string[] {
-  return tokens.filter((token) => !WEAK_TOKENS.has(token));
-}
-
-export function uniqSorted(values: readonly string[]): string[] {
-  return [...new Set(values)].sort((left, right) => left.localeCompare(right, "en"));
+export function strongTokens(
+  tokens: readonly string[],
+  weakTokens: ReadonlySet<string> = DEFAULT_WEAK_TOKEN_SET,
+): string[] {
+  return tokens.filter((token) => !weakTokens.has(token));
 }
 
 export function arraysEqual(a: readonly string[], b: readonly string[]): boolean {
@@ -91,15 +87,18 @@ export function arraysEqual(a: readonly string[], b: readonly string[]): boolean
   return true;
 }
 
+// Members of `a` that are also in `b`, in `a`'s order, deduped. Both membership
+// and dedup use Sets so the cost stays linear rather than the quadratic
+// `Array.includes` scan a hand-rolled version invites.
 export function intersection(a: readonly string[], b: readonly string[]): string[] {
   const lookup = new Set(b);
+  const seen = new Set<string>();
   const out: string[] = [];
   for (const item of a) {
-    if (lookup.has(item) && !out.includes(item)) out.push(item);
+    if (lookup.has(item) && !seen.has(item)) {
+      seen.add(item);
+      out.push(item);
+    }
   }
   return out;
-}
-
-export function toPosix(filePath: string): string {
-  return filePath.replace(/\\/gu, "/").split(path.sep).join("/");
 }

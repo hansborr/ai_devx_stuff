@@ -2,16 +2,17 @@
 // module under the effective-line-count ratchet.
 
 import { spawnSync } from "node:child_process";
-import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 
-import type {
-  BacktickPathReference,
-  DirectoryListing,
-  PathExists,
-  PathIgnored,
-  RepoFileReader,
-} from "./harness-freshness.js";
+import type { BacktickPathReference, PathIgnored } from "./harness-freshness.js";
+import {
+  compareStrings,
+  defaultDirectoryListing,
+  defaultFileReader,
+  defaultPathExists,
+} from "./repo-io.js";
+
+export { compareStrings, defaultDirectoryListing, defaultFileReader, defaultPathExists };
 
 export function normalizeConfiguredPath(value: string): string {
   return value.replaceAll("\\", "/").replace(/^\.\//u, "");
@@ -19,60 +20,6 @@ export function normalizeConfiguredPath(value: string): string {
 
 export function stripTrailingSlash(value: string): string {
   return value.endsWith("/") ? value.slice(0, -1) : value;
-}
-
-export function compareStrings(left: string, right: string): number {
-  return left.localeCompare(right, "en");
-}
-
-function safeRepoPath(root: string, repoRelativePath: string): string | undefined {
-  const rootWithSep = root.endsWith(path.sep) ? root : `${root}${path.sep}`;
-  const target = path.resolve(root, repoRelativePath);
-  if (target !== root && !target.startsWith(rootWithSep)) return undefined;
-  return target;
-}
-
-export function defaultFileReader(repoRoot: string): RepoFileReader {
-  const root = path.resolve(repoRoot);
-  return (filePath) => {
-    const target = safeRepoPath(root, filePath);
-    if (target === undefined) return undefined;
-    try {
-      return readFileSync(target, "utf8");
-    } catch {
-      return undefined;
-    }
-  };
-}
-
-export function defaultDirectoryListing(repoRoot: string): DirectoryListing {
-  const root = path.resolve(repoRoot);
-  return (directory) => {
-    const target = safeRepoPath(root, directory);
-    if (target === undefined) return [];
-    try {
-      return readdirSync(target, { withFileTypes: true })
-        .filter((entry) => entry.isFile())
-        .map((entry) => entry.name)
-        .sort(compareStrings);
-    } catch {
-      return [];
-    }
-  };
-}
-
-export function defaultPathExists(repoRoot: string): PathExists {
-  const root = path.resolve(repoRoot);
-  return (repoRelativePath, kind) => {
-    const target = safeRepoPath(root, stripTrailingSlash(repoRelativePath));
-    if (target === undefined) return false;
-    try {
-      const stat = statSync(target);
-      return kind === "file" ? stat.isFile() : stat.isDirectory();
-    } catch {
-      return false;
-    }
-  };
 }
 
 export function defaultPathIgnored(

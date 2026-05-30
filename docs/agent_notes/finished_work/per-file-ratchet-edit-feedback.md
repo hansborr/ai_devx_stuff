@@ -63,21 +63,31 @@ throwaway script committed.
 - Edited-path extraction was factored into `scripts/ai-hooks/edited-paths.sh`
   (`ai_edited_payload_paths`), now shared by `lint-coverage-check.sh` and the new
   hook — no fourth glob/path matcher.
-- Throttle reuses `lint-coverage-state.sh` (same state dir + session/repo key)
-  with a distinct per-(file,rule) tier `ratchetreg:<sha1(relpath)>:<sha1(ruleId)>`
-  so the two hooks can never collide. Added side-effect-free
-  `ai_lint_coverage_would_emit` (read-only probe) for throttle-before-lint; the
-  writing `ai_lint_coverage_should_emit` is called ONLY after a regression is
-  confirmed, so a clean lint never burns an emit slot. Re-warn cadence is
-  TTL-governed.
+- Throttle uses `throttle-state.sh` (same state dir + session/repo key) with a
+  distinct per-(file,rule) tier `ratchetreg:<sha1(relpath)>:<sha1(ruleId)>` so
+  the hooks can never collide. `ai_throttle_would_emit` is the read-only probe
+  for throttle-before-lint; the writing `ai_throttle_should_emit` is called ONLY
+  after a regression is confirmed, so a clean lint never burns a warning slot.
+  Re-warn cadence is TTL-governed.
 - Content-hash cache under `$AI_STATE_ROOT/ratchet-regression-content`: token =
-  `sha1(file content | sorted matching ratchet ids)`, so identical re-saves (and
-  only those) skip ESLint, while a newly-matching ratchet forces a re-check. The
-  cache is written ONLY when the engine confirmed it linted the file's full
-  matched target set (`matched == checked` count) — a soft skip or a
-  throttle-dropped target never caches, so it is re-checked once that clears
-  (closes the two codex P1 findings). Regression rows are parsed with a
-  non-whitespace (\x1f) separator so an empty `line` field is not collapsed.
+  `sha1(file content | sorted matching ratchet ids)` over the FULL discovered
+  target set (not the capped slice), so identical re-saves (and only those) skip
+  ESLint, while a newly-matching ratchet forces a re-check. The cache is written
+  ONLY when the engine confirmed it linted the file's full matched target set
+  (`matched == checked` count, where `matched` is counted over the complete
+  discovered set) — a soft skip, a throttle-dropped target, or a cap-dropped
+  target never caches, so it is re-checked once that clears (closes the two codex
+  P1 findings). Regression rows are parsed with a non-whitespace (\x1f) separator
+  so an empty `line` field is not collapsed.
+- Per-edit cap (lint-debt issue 01): the cap truncates an `exec_target_rows`
+  slice for linting, but discovery's full `all_target_rows` drives both the cache
+  token and the per-file matched count, so a capped file can never be cached as
+  complete. When the cap drops any target, the hook emits a quiet, throttled
+  partial-check advisory ("(+N more matching target(s) not checked this edit; run
+  bun run lint:ratchet for the full picture.)") so a partial edit-time result is
+  never mistaken for a clean check — whether the surviving subset linted clean,
+  or nothing survived the cache/throttle filter at all (the latter the codex P2
+  from the issue-01 review).
 - Env knobs: `AI_RATCHET_REGRESSION_TTL=1800`, `AI_RATCHET_REGRESSION_MAX=10`,
   `AI_RATCHET_REGRESSION_MAX_TARGETS=3` (per-edit cap; dropped targets noted),
   `AI_RATCHET_REGRESSION_CONCURRENCY=3`. Kill switch: `touch .no-edit-lint`.
@@ -87,12 +97,13 @@ throwaway script committed.
 - `scripts/test-lint-ratchet.sh`: discovery, no-match, fresh `new-path`,
   worsening (`increased-count`), improvements omitted, type-aware skipped,
   baseline/hash-drift soft skip.
-- `scripts/ai-hooks/test.sh`: `ai_lint_coverage_would_emit` unit checks, Claude
-  Edit + Codex apply_patch path extraction, deleted/node_modules skipped,
-  content-identical re-saves skip the lint step, throttle-before-lint drops a
-  suppressed target, per-(file,rule) tiering, advisory + exit-0 on engine
-  failure, `.no-edit-lint` kill switch. Driven by a fake `bun` on PATH so the
-  bash logic is isolated from the real engine.
+- `scripts/ai-hooks/test-ratchet-regression.sh`: Claude Edit + Codex apply_patch
+  path extraction, deleted/node_modules skipped, content-identical re-saves skip
+  the lint step, throttle-before-lint drops a suppressed target, per-(file,rule)
+  tiering, advisory + exit-0 on engine failure, `.no-edit-lint` kill switch, and
+  cap/partial-check coverage. Driven by a fake `bun` on PATH so the bash logic is
+  isolated from the real engine; the aggregate `scripts/ai-hooks/test.sh` invokes
+  the focused suite.
 
 ## Not done / future
 

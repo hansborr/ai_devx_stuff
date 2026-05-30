@@ -2,14 +2,13 @@ import path from "node:path";
 
 import {
   arraysEqual,
+  DEFAULT_GHOST_FILE_WEAK_TOKENS,
   intersection,
   isExcludedPath,
-  isSourceLike,
   normalizedTokens,
-  SOURCE_LIKE_EXTS,
   strongTokens,
-  uniqSorted,
 } from "./ghost-files-tokens.js";
+import { isSourceLike, SOURCE_LIKE_EXTS, uniqSorted } from "./path-util.js";
 
 export type GhostFileMatchKind =
   | "identical-normalized"
@@ -81,7 +80,22 @@ function classifyMatch(inputs: MatchInputs): GhostFileMatchKind | undefined {
   return undefined;
 }
 
-const ENTRY_POINT_STEMS = new Set<string>(["index", "main"]);
+export const DEFAULT_GHOST_FILE_ENTRY_POINT_STEMS: readonly string[] = ["index", "main"];
+
+const DEFAULT_ENTRY_POINT_STEM_SET: ReadonlySet<string> = new Set(
+  DEFAULT_GHOST_FILE_ENTRY_POINT_STEMS,
+);
+const DEFAULT_WEAK_TOKEN_SET: ReadonlySet<string> = new Set(DEFAULT_GHOST_FILE_WEAK_TOKENS);
+
+export type GhostFileMatchOptions = {
+  readonly weakTokens?: ReadonlySet<string>;
+  readonly entryPointStems?: ReadonlySet<string>;
+};
+
+export type GhostFileTuning = {
+  readonly weakTokens: ReadonlySet<string>;
+  readonly entryPointStems: ReadonlySet<string>;
+};
 
 function basenameStem(filename: string): string {
   const ext = path.extname(filename);
@@ -97,27 +111,34 @@ type GhostCandidate = {
 function prepareGhostCandidate(
   filePath: string,
   sourceExtensions: ReadonlySet<string>,
+  weakTokens: ReadonlySet<string>,
 ): GhostCandidate | undefined {
   const base = path.basename(filePath);
   if (isExcludedPath(filePath) || !isSourceLike(base, sourceExtensions)) return undefined;
   const tokens = normalizedTokens(base);
   if (tokens.length === 0) return undefined;
-  return { tokens, strong: strongTokens(tokens), normalized: tokens.join("-") };
+  return { tokens, strong: strongTokens(tokens, weakTokens), normalized: tokens.join("-") };
 }
 
 export function findGhostMatches(
   newPath: string,
   peerPaths: readonly string[],
   sourceExtensions: ReadonlySet<string> = SOURCE_LIKE_EXTS,
+  options: GhostFileMatchOptions = {},
 ): GhostFileMatch[] {
-  const newCandidate = prepareGhostCandidate(newPath, sourceExtensions);
+  const resolvedOptions = resolveMatchOptions(options);
+  const newCandidate = prepareGhostCandidate(newPath, sourceExtensions, resolvedOptions.weakTokens);
   if (!newCandidate) return [];
-  if (ENTRY_POINT_STEMS.has(basenameStem(path.basename(newPath)).toLowerCase())) return [];
+  if (isEntryPointCandidate(newPath, resolvedOptions.entryPointStems)) return [];
 
   const matches: GhostFileMatch[] = [];
   for (const peerPath of peerPaths) {
     if (peerPath === newPath) continue;
-    const peerCandidate = prepareGhostCandidate(peerPath, sourceExtensions);
+    const peerCandidate = prepareGhostCandidate(
+      peerPath,
+      sourceExtensions,
+      resolvedOptions.weakTokens,
+    );
     if (!peerCandidate) continue;
     const kind = classifyMatch({
       newNormalized: newCandidate.normalized,
@@ -134,4 +155,15 @@ export function findGhostMatches(
     });
   }
   return matches;
+}
+
+function resolveMatchOptions(options: GhostFileMatchOptions): GhostFileTuning {
+  return {
+    weakTokens: options.weakTokens ?? DEFAULT_WEAK_TOKEN_SET,
+    entryPointStems: options.entryPointStems ?? DEFAULT_ENTRY_POINT_STEM_SET,
+  };
+}
+
+function isEntryPointCandidate(filePath: string, entryPointStems: ReadonlySet<string>): boolean {
+  return entryPointStems.has(basenameStem(path.basename(filePath)).toLowerCase());
 }

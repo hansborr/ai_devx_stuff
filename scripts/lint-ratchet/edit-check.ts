@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 
 import {
@@ -7,8 +8,15 @@ import {
   type LintRatchetCurrentItem,
   parseLintRatchetBaselineStructure,
 } from "../lint-ratchet-baseline.js";
-import { lintRatchets, type LintRatchetConfig } from "../lint-ratchet-config.js";
+import {
+  lintRatchets,
+  type JsonObject,
+  type JsonValue,
+  type LintRatchetConfig,
+} from "../lint-ratchet-config.js";
 import { collectCurrentForRatchet } from "./current-collector.js";
+import { validateBaselineTestForRatchet } from "./baseline-validation.js";
+import { stableJson } from "./baseline-hash.js";
 import { usesEslintCache } from "./eslint-config.js";
 import { baselinePath, relativePath } from "./paths.js";
 import { matchesRatchet } from "./ratchet-globs.js";
@@ -19,6 +27,7 @@ export interface EditCheckTarget {
   readonly path: string;
   readonly testId: string;
   readonly ruleId: string;
+  readonly cacheIdentity?: string;
 }
 
 export interface EditCheckRegression {
@@ -45,6 +54,7 @@ function byPathThenTestId(
 export function discoverEditCheckTargets(paths: readonly string[]): EditCheckTarget[] {
   const targets: EditCheckTarget[] = [];
   const seen = new Set<string>();
+  const matchedRatchets = new Map<string, LintRatchetConfig>();
   for (const rawPath of paths) {
     const path = relativePath(rawPath);
     for (const ratchet of lintRatchets) {
@@ -53,10 +63,87 @@ export function discoverEditCheckTargets(paths: readonly string[]): EditCheckTar
       const key = `${path}\t${ratchet.id}`;
       if (seen.has(key)) continue;
       seen.add(key);
+      matchedRatchets.set(ratchet.id, ratchet);
       targets.push({ path, testId: ratchet.id, ruleId: ratchet.ruleId });
     }
   }
-  return targets.sort(byPathThenTestId);
+  if (targets.length === 0) return [];
+  const structural = existsSync(baselinePath)
+    ? parseLintRatchetBaselineStructure(readFileSync(baselinePath, "utf8"))
+    : undefined;
+  const baseline = structural?.baseline;
+  const ruleSourceHashesById = buildRuleSourceHashesById([...matchedRatchets.values()]);
+  return targets
+    .map((target) => {
+      const ratchet = matchedRatchets.get(target.testId);
+      if (ratchet === undefined) return target;
+      return {
+        ...target,
+        cacheIdentity: editCheckTargetCacheIdentity(
+          ratchet,
+          baseline?.tests[ratchet.id],
+          ruleSourceHashesById.get(ratchet.id),
+        ),
+      };
+    })
+    .sort(byPathThenTestId);
+}
+
+type BaselineTest = LintRatchetBaseline["tests"][string];
+type BaselineItem = BaselineTest["items"][string];
+
+function baselineItemIdentity(item: BaselineItem): JsonObject {
+  const identity: Record<string, JsonValue> = { count: item.count };
+  if (item.lines !== undefined) identity.lines = item.lines;
+  if (item.maxComplexity !== undefined) identity.maxComplexity = item.maxComplexity;
+  if (item.perFunction !== undefined) {
+    identity.perFunction = item.perFunction.map((entry) => ({
+      complexity: entry.complexity,
+      label: entry.label,
+      line: entry.line,
+    }));
+  }
+  return identity;
+}
+
+function baselineItemsIdentity(items: BaselineTest["items"]): JsonObject {
+  const identity: Record<string, JsonValue> = {};
+  for (const [path, item] of Object.entries(items)) {
+    identity[path] = baselineItemIdentity(item);
+  }
+  return identity;
+}
+
+function editCheckTargetCacheIdentity(
+  ratchet: LintRatchetConfig,
+  baselineTest: BaselineTest | undefined,
+  ruleSourceHash: string | undefined,
+): string {
+  const hash = createHash("sha256")
+    .update(
+      stableJson({
+        baselineTest:
+          baselineTest === undefined
+            ? null
+            : {
+                configHash: baselineTest.configHash,
+                files: baselineTest.files,
+                ignores: baselineTest.ignores,
+                items: baselineItemsIdentity(baselineTest.items),
+                metric: baselineTest.metric,
+                mode: baselineTest.mode,
+                ruleId: baselineTest.ruleId,
+                ruleOptions: baselineTest.ruleOptions,
+                ruleSourceHash: baselineTest.ruleSourceHash,
+                target: baselineTest.target,
+              },
+        liveConfigHash: computeLintRatchetConfigHash(ratchet),
+        liveRuleSourceHash: ruleSourceHash ?? null,
+        testId: ratchet.id,
+      }),
+    )
+    .digest("hex");
+  return `sha256:${hash}`;
 }
 
 interface RatchetGroup {
@@ -79,12 +166,17 @@ function groupTargets(
   for (const target of targets) {
     const ratchet = ratchetById.get(target.testId);
     if (ratchet === undefined || !usesEslintCache(ratchet)) continue;
+    // The wire ruleId must match the registry ratchet found by testId. A
+    // hand-written or stale target file that pairs a real testId with the wrong
+    // ruleId is soft-skipped rather than linted against a mismatched floor.
+    if (target.ruleId !== ratchet.ruleId) continue;
     const test = baseline.tests[target.testId];
     if (test === undefined) continue;
     const ruleSourceHash = ruleSourceHashesById.get(target.testId);
     if (ruleSourceHash === undefined) continue;
-    if (test.configHash !== computeLintRatchetConfigHash(ratchet)) continue;
-    if (test.ruleSourceHash !== ruleSourceHash) continue;
+    if (validateBaselineTestForRatchet(target.testId, test, ratchet, ruleSourceHash).length > 0) {
+      continue;
+    }
     let group = groups.get(target.testId);
     if (group === undefined) {
       group = { ratchet, ruleSourceHash, files: [] };

@@ -63,8 +63,11 @@ export function parseOptionalNonNegativeInteger(
   failures: string[],
 ): number | undefined {
   if (value === undefined) return undefined;
-  if (!isNonNegativeInteger(value)) failures.push(`${path} must be a non-negative integer`);
-  return isNonNegativeInteger(value) ? value : undefined;
+  if (!isNonNegativeInteger(value)) {
+    failures.push(`${path} must be a non-negative integer`);
+    return undefined;
+  }
+  return value;
 }
 
 export function parseArrayOf<T>(

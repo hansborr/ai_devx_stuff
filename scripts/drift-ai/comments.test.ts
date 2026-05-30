@@ -123,6 +123,18 @@ describe("analyzeCommentMetrics", () => {
     });
   });
 
+  it("keeps comment markers inside template literals out of comment counts", () => {
+    const source = ["const text = `", "/* not a block comment */", "`;", "// real comment"].join(
+      "\n",
+    );
+    expect(analyzeCommentMetrics(source)).toEqual({
+      effective: 3,
+      comment: 1,
+      blank: 0,
+      total: 4,
+    });
+  });
+
   it("persists single/double quote state across a backslash-continued newline", () => {
     // JavaScript line-continuation: a `\` immediately before the newline
     // keeps the string open. classifyLine eats the `\` plus the next char,
@@ -131,6 +143,16 @@ describe("analyzeCommentMetrics", () => {
     const metrics = analyzeCommentMetrics(source);
     expect(metrics.comment).toBe(0);
     expect(metrics.effective).toBe(2);
+  });
+
+  it("keeps escaped delimiters from exposing comment markers inside strings", () => {
+    const source = ['const value = "escaped \\" // still string";', "// real comment"].join("\n");
+    expect(analyzeCommentMetrics(source)).toEqual({
+      effective: 1,
+      comment: 1,
+      blank: 0,
+      total: 2,
+    });
   });
 });
 

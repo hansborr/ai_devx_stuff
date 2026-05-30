@@ -247,6 +247,16 @@ ai_policy_violation_reason() {
   return 1
 }
 
+# Soft-guidance policies nudge toward a better command instead of forbidding an
+# action; the nudged command is one we do NOT want to run. Keep this list
+# agent-neutral — each adapter decides how or whether to act on it.
+ai_policy_is_soft_guidance() {
+  case "$1" in
+    "$AI_POLICY_GREP") return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 ai_is_git_commit_cmd() {
   [[ "$1" =~ (^|[[:space:];|&])git[[:space:]]+commit($|[[:space:]]) ]]
 }

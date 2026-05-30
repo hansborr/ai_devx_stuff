@@ -1,6 +1,12 @@
 import { DriftAiError } from "./errors.js";
 import type { ScopeMode } from "./scope.js";
-import type { DriftCheckId, DriftChunkManifest, DriftFinding, DriftFindingChunk } from "./types.js";
+import {
+  DRIFT_SCHEMA_VERSION,
+  type DriftCheckId,
+  type DriftChunkManifest,
+  type DriftFinding,
+  type DriftFindingChunk,
+} from "./types.js";
 
 export function groupFindingsForChunks(
   findings: readonly DriftFinding[],
@@ -13,24 +19,27 @@ export function groupFindingsForChunks(
     throw new DriftAiError("drift:ai: chunkSize must be a positive integer.");
   }
   const grouped = groupFindingsByCheck(findings, enabledChecks);
-  const chunkCount = Math.ceil(grouped.length / chunkSize);
+  const chunkCount = grouped.reduce(
+    (total, group) => total + Math.ceil(group.findings.length / chunkSize),
+    0,
+  );
   const chunks: DriftFindingChunk[] = [];
-  for (let offset = 0; offset < grouped.length; offset += chunkSize) {
-    const slice = grouped.slice(offset, offset + chunkSize);
-    const first = slice[0];
-    if (first === undefined) continue;
-    chunks.push({
-      schemaVersion: 1,
-      scopeMode,
-      roots,
-      enabledChecks,
-      totalFindings: findings.length,
-      chunkSize,
-      chunkIndex: chunks.length + 1,
-      chunkCount,
-      check: first.check,
-      findings: slice,
-    });
+  for (const group of grouped) {
+    for (let offset = 0; offset < group.findings.length; offset += chunkSize) {
+      const slice = group.findings.slice(offset, offset + chunkSize);
+      chunks.push({
+        schemaVersion: DRIFT_SCHEMA_VERSION,
+        scopeMode,
+        roots,
+        enabledChecks,
+        totalFindings: findings.length,
+        chunkSize,
+        chunkIndex: chunks.length + 1,
+        chunkCount,
+        check: group.check,
+        findings: slice,
+      });
+    }
   }
   return chunks;
 }
@@ -44,7 +53,7 @@ export function buildChunkManifest(
   chunks: readonly DriftFindingChunk[],
 ): DriftChunkManifest {
   return {
-    schemaVersion: 1,
+    schemaVersion: DRIFT_SCHEMA_VERSION,
     scopeMode,
     roots,
     enabledChecks,
@@ -62,13 +71,19 @@ export function buildChunkManifest(
 function groupFindingsByCheck(
   findings: readonly DriftFinding[],
   enabledChecks: readonly DriftCheckId[],
-): DriftFinding[] {
-  const grouped: DriftFinding[] = [];
+): FindingGroup[] {
+  const grouped: FindingGroup[] = [];
   for (const check of orderedChunkChecks(findings, enabledChecks)) {
-    grouped.push(...findings.filter((finding) => finding.check === check));
+    const checkFindings = findings.filter((finding) => finding.check === check);
+    if (checkFindings.length > 0) grouped.push({ check, findings: checkFindings });
   }
   return grouped;
 }
+
+type FindingGroup = {
+  readonly check: DriftCheckId;
+  readonly findings: readonly DriftFinding[];
+};
 
 function orderedChunkChecks(
   findings: readonly DriftFinding[],

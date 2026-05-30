@@ -736,7 +736,7 @@
       "id": "drift-scope/changed",
       "kind": "drift-scope",
       "category": "maintainability",
-      "principle": "Default AI-drift scope: scan changed files for copy/paste duplicates, suspicious new sibling modules, over-narrated comments, and newly added suppression comments.",
+      "principle": "Default AI-drift scope: scan changed files for copy/paste duplicates, suspicious sibling modules, over-narrated comments, and newly added suppression comments; report-only unless --fail-on-findings is passed.",
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": "scripts/drift-ai.ts",
@@ -746,11 +746,21 @@
       "id": "drift-scope/current",
       "kind": "drift-scope",
       "category": "maintainability",
-      "principle": "Whole-repo AI-drift scope: same checks as the changed scope against the full current tree; used for audits, not the edit loop.",
+      "principle": "Whole-repo AI-drift scope: audit the current source inventory with the default AI-drift checks; suppressions is diff-only and skips with a reason.",
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": "scripts/drift-ai.ts",
       "invocation": "bun run drift:ai --scope current"
+    },
+    {
+      "id": "drift-scope/hotspots",
+      "kind": "drift-scope",
+      "category": "maintainability",
+      "principle": "Report advisory git-history hotspots across churn, coupling, fragmentation, suppression-churn, and thrash lenses; areas to inspect, not defects.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/drift-ai/hotspots.ts",
+      "invocation": "bun run drift:ai hotspots"
     },
     {
       "id": "drift-scope/harness-freshness",
@@ -863,6 +873,36 @@
       "repairKind": "manual",
       "source": "scripts/lint-config-sensors.sh",
       "invocation": "bun run lint:config-sensors"
+    },
+    {
+      "id": "check/drift-ai-import-cycles",
+      "kind": "check",
+      "category": "architecture-fitness",
+      "principle": "Opt-in drift:ai TypeScript graph check for circular imports, including labeled type-only cycles; uses the target tsconfig or --tsconfig override.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/drift-ai/import-cycles-check.ts",
+      "invocation": "bun run drift:ai --check import-cycles"
+    },
+    {
+      "id": "check/drift-ai-near-duplicates",
+      "kind": "check",
+      "category": "maintainability",
+      "principle": "Opt-in drift:ai AST-similarity check for same-shaped function clones that exact duplicate detection misses; findings carry drift-baseline provenance.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/drift-ai/near-duplicates-check.ts",
+      "invocation": "bun run drift:ai --check near-duplicates"
+    },
+    {
+      "id": "check/drift-ai-orphan-files",
+      "kind": "check",
+      "category": "maintainability",
+      "principle": "Opt-in drift:ai knip adapter for never-imported files; findings use the target's knip config and carry target-config provenance.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/drift-ai/knip-orphan-files-check.ts",
+      "invocation": "bun run drift:ai --check orphan-files"
     },
 
     {

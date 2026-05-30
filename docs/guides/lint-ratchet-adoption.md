@@ -57,9 +57,11 @@ Runtime files (all paths relative to repo root):
 | `packages/shared/src/schemas/harness-diagnostics.ts` | Zod schema for the diagnostics envelope; copy at this path or move it and update the imports in the ratchet output, diagnostics, report, and copied tests |
 | `lint-ratchet.baseline.json` | Start with `{ "version": 1, "tests": {} }` |
 
-The canonical copy list is the `runtimeFiles` array in
-`scripts/lint-ratchet-output.test.ts` — it drives a portable smoke test that
-copies these files into a temporary repo and runs the CLI there.
+The full in-repo smoke copy list is the `PORTABLE_RUNTIME_FILES` array in
+`scripts/test-lint-ratchet.sh`. The narrower `runtimeFiles` array in
+`scripts/lint-ratchet-output.test.ts` drives a portable smoke that writes its own
+small fixture registry, so it intentionally omits the repository registry/config
+files while still exercising the copied CLI runtime.
 
 ### Runtime assumptions
 

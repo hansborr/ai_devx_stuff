@@ -25,6 +25,35 @@ function asJson(value: unknown): unknown {
   return JSON.parse(JSON.stringify(value));
 }
 
+function entryWithRegression(regression: Record<string, unknown>): unknown {
+  return asJson({ ...validEntry, regressions: [regression] });
+}
+
+const lineRegressionBase = {
+  testId: "ratchet/max-lines",
+  ruleId: "local/max-lines",
+  path: "packages/server/src/big.ts",
+  baselineCount: 1,
+  currentCount: 1,
+};
+
+const complexityRegressionBase = {
+  testId: "ratchet/complexity",
+  ruleId: "complexity",
+  path: "packages/server/src/complex.ts",
+  baselineCount: 1,
+  currentCount: 1,
+};
+
+const newPathRegressionBase = {
+  testId: "ratchet/max-lines",
+  ruleId: "local/max-lines",
+  path: "packages/server/src/new.ts",
+  baselineCount: 0,
+  currentCount: 1,
+  reason: "new-path",
+};
+
 describe("parseLintRatchetDebtLogEntry", () => {
   it("accepts a minimal worse-acceptance entry", () => {
     const result = parseLintRatchetDebtLogEntry(asJson(validEntry));
@@ -292,5 +321,147 @@ describe("parseLintRatchetDebtLogEntry", () => {
     );
     expect(result.entry).toBeUndefined();
     expect(result.failures.join("\n")).toContain("weird");
+  });
+
+  describe("regression shape by reason", () => {
+    it("accepts an increased-lines regression with both line fields", () => {
+      const result = parseLintRatchetDebtLogEntry(
+        entryWithRegression({
+          ...lineRegressionBase,
+          baselineLines: 200,
+          currentLines: 240,
+          reason: "increased-lines",
+        }),
+      );
+      expect(result.failures).toEqual([]);
+      expect(result.entry).toBeDefined();
+    });
+
+    it("rejects an increased-lines regression missing currentLines", () => {
+      const result = parseLintRatchetDebtLogEntry(
+        entryWithRegression({
+          ...lineRegressionBase,
+          baselineLines: 200,
+          reason: "increased-lines",
+        }),
+      );
+      expect(result.entry).toBeUndefined();
+      expect(result.failures.join("\n")).toContain("currentLines");
+    });
+
+    it("rejects an increased-lines regression missing baselineLines", () => {
+      const result = parseLintRatchetDebtLogEntry(
+        entryWithRegression({
+          ...lineRegressionBase,
+          currentLines: 240,
+          reason: "increased-lines",
+        }),
+      );
+      expect(result.entry).toBeUndefined();
+      expect(result.failures.join("\n")).toContain("baselineLines");
+    });
+
+    it("rejects an increased-lines regression carrying complexity fields", () => {
+      const result = parseLintRatchetDebtLogEntry(
+        entryWithRegression({
+          ...lineRegressionBase,
+          baselineLines: 200,
+          currentLines: 240,
+          baselineComplexity: 10,
+          currentComplexity: 12,
+          reason: "increased-lines",
+        }),
+      );
+      expect(result.entry).toBeUndefined();
+      expect(result.failures.join("\n")).toContain("baselineComplexity");
+    });
+
+    it("accepts an increased-complexity regression with both complexity fields", () => {
+      const result = parseLintRatchetDebtLogEntry(
+        entryWithRegression({
+          ...complexityRegressionBase,
+          baselineComplexity: 18,
+          currentComplexity: 24,
+          reason: "increased-complexity",
+        }),
+      );
+      expect(result.failures).toEqual([]);
+      expect(result.entry).toBeDefined();
+    });
+
+    it("rejects an increased-complexity regression carrying line fields", () => {
+      const result = parseLintRatchetDebtLogEntry(
+        entryWithRegression({
+          ...complexityRegressionBase,
+          baselineComplexity: 18,
+          currentComplexity: 24,
+          baselineLines: 100,
+          currentLines: 120,
+          reason: "increased-complexity",
+        }),
+      );
+      expect(result.entry).toBeUndefined();
+      expect(result.failures.join("\n")).toContain("baselineLines");
+    });
+
+    it("rejects an increased-count regression carrying line details", () => {
+      const result = parseLintRatchetDebtLogEntry(
+        entryWithRegression({ ...validEntry.regressions[0], currentLines: 50 }),
+      );
+      expect(result.entry).toBeUndefined();
+      expect(result.failures.join("\n")).toContain("currentLines");
+    });
+
+    it("rejects an increased-count regression carrying complexity details", () => {
+      const result = parseLintRatchetDebtLogEntry(
+        entryWithRegression({ ...validEntry.regressions[0], currentComplexity: 12 }),
+      );
+      expect(result.entry).toBeUndefined();
+      expect(result.failures.join("\n")).toContain("currentComplexity");
+    });
+
+    it("accepts a new-path regression with no severity detail", () => {
+      const result = parseLintRatchetDebtLogEntry(
+        entryWithRegression({ ...newPathRegressionBase }),
+      );
+      expect(result.failures).toEqual([]);
+      expect(result.entry).toBeDefined();
+    });
+
+    it("accepts a new-path regression carrying only currentLines", () => {
+      const result = parseLintRatchetDebtLogEntry(
+        entryWithRegression({ ...newPathRegressionBase, currentLines: 240, line: 12 }),
+      );
+      expect(result.failures).toEqual([]);
+      expect(result.entry).toBeDefined();
+    });
+
+    it("accepts a new-path regression carrying only currentComplexity", () => {
+      const result = parseLintRatchetDebtLogEntry(
+        entryWithRegression({ ...newPathRegressionBase, currentComplexity: 18, line: 12 }),
+      );
+      expect(result.failures).toEqual([]);
+      expect(result.entry).toBeDefined();
+    });
+
+    it("rejects a new-path regression carrying baseline severity detail", () => {
+      const result = parseLintRatchetDebtLogEntry(
+        entryWithRegression({ ...newPathRegressionBase, baselineLines: 100, currentLines: 240 }),
+      );
+      expect(result.entry).toBeUndefined();
+      expect(result.failures.join("\n")).toContain("baselineLines");
+    });
+
+    it("rejects a new-path regression carrying both current lines and complexity", () => {
+      const result = parseLintRatchetDebtLogEntry(
+        entryWithRegression({
+          ...newPathRegressionBase,
+          currentLines: 240,
+          currentComplexity: 18,
+        }),
+      );
+      expect(result.entry).toBeUndefined();
+      expect(result.failures.join("\n")).toMatch(/currentLines|currentComplexity/);
+    });
   });
 });

@@ -126,15 +126,19 @@ why in the adapter or this file.
 | `local/no-broadcast-in-transaction` | Architecture fitness, behavior | Computational | Socket broadcast helpers called inside Prisma `$transaction` callbacks instead of after commit | `bun run lint`, `bun run lint:changed` | `docs/guides/add-socket-broadcast.md` |
 | Mutation testing | Behavior | Computational | Tests that execute rules code without proving meaningful behavior | Manual: `bun run test:mutation` | `docs/agent_notes/backlog/mutation-testing-stryker.md` |
 | `drift:ai harness-freshness` | Maintainability | Computational | `docs/ai-harness.md` guide inventory drift: unreferenced `docs/guides/*.md`, missing referenced guides, and stale backtick repo paths | `bun run drift:ai harness-freshness`, via `doctor` | This map |
-| `drift:ai` (duplicates, ghost-files, comments, suppressions) | Maintainability, architecture fitness | Computational | AI-specific drift on changed files: copy/paste duplicates, suspicious newly added sibling modules, over-narrated comments, and newly added suppression comments; repo-specific roots and exclusions live in `drift-ai.config.json` | Manual, report-only: `bun run drift:ai` (filter with `--check`; pass `--config <path>` to test another config) | `drift-ai.config.json`, `docs/agent_notes/backlog/drift-ai-current-scope.md` |
+| `drift:ai` default report | Maintainability, architecture fitness | Computational | AI-specific drift on changed files: copy/paste duplicates, suspicious sibling modules, over-narrated comments, and newly added suppression comments; repo-specific roots and exclusions live in `drift-ai.config.json` | Manual, report-only by default: `bun run drift:ai` (filter with `--check`; pass `--config <path>` to test another config) | `scripts/drift-ai/README.md`, `drift-ai.config.json` |
+| `drift:ai` opt-in checks | Maintainability, architecture fitness | Computational | Slower whole-graph AI-drift signals: knip-backed orphan files, TypeScript import cycles, and AST-similar near-duplicate functions | Manual, report-only by default: `bun run drift:ai --check orphan-files`, `--check import-cycles`, `--check near-duplicates`, or `--check all` | `scripts/drift-ai/README.md`, target `knip` / `tsconfig` |
+| `drift:ai hotspots` | Maintainability | Computational | Advisory git-history hotspots: churn, coupling, fragmentation, suppression-churn, and thrash lenses; areas to inspect, not defects | Manual advisory: `bun run drift:ai hotspots --lens all` | `scripts/drift-ai/README.md` |
 | Future approved behavior fixtures | Behavior | Computational | Generated tests proving the wrong shape or missing reviewed scenario data | Targeted Vitest suites | Domain docs, SRD reference |
-| Future slow drift reports | Maintainability, architecture fitness | Computational | Dead exports, cycles, stale module docs, flake trends, layer drift | `doctor`, CI, scheduled, or manual | This map |
+| Future slow drift reports | Maintainability, architecture fitness | Computational | Stale module docs, flake trends, layer drift, and other drift reports not already covered by `drift:ai` or existing sensors | `doctor`, CI, scheduled, or manual | This map |
 | Future project-specific reviewer | Architecture fitness, behavior | Inferential | Semantic drift not expressible as deterministic checks | Manual after deterministic checks pass | This map and area docs |
 
 For `drift:ai`, `--scope current` audits the current whole repo instead of the
-default diff against `main`. Use `--chunk-dir <path>` and optional
-`--chunk-size <n>` for AI handoff; the primary report remains complete and
-chunks are additive.
+default diff against `main`. `--check all` enables the slower opt-in checks;
+without `--check`, the default set is tuned for routine changed-file review.
+Use `--chunk-dir <path>` and optional `--chunk-size <n>` for AI handoff; the
+primary report remains complete and chunks are additive. Reports exit `0` by
+default even with findings; `--fail-on-findings` is the explicit gate mode.
 
 ## Mutation Testing
 

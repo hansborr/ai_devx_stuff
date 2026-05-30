@@ -1,0 +1,118 @@
+// Shared argument parser for drift:ai SUBCOMMANDS (hotspots, harness-freshness).
+// Subcommands historically did bespoke arg handling with no `--format`/`--output`
+// parity; this gives them one parser so they converge instead of forking. The
+// main `drift:ai` command keeps its own richer parser in `cli-args.ts`.
+//
+// Coordinates with backlog task 50 (Med-1 / M4 / L1): that cleanup defers to this
+// parser shape for the harness-freshness retrofit. A future declarative per-option
+// table (task 50 Low-1) could unify this with cli-args, but they are kept separate
+// for now so the main command's flag surface stays stable.
+
+import type { OutputFormat } from "./arg-readers.js";
+import { optionName, readFormat, readPath, readValue } from "./arg-readers.js";
+import { DriftAiHelp } from "./cli-args.js";
+import { DriftAiError } from "./errors.js";
+import { defaultReportWriter, type ReportWriter } from "./report-output.js";
+
+export type SubcommandFormat = OutputFormat;
+
+export type SubcommandBaseOptions = {
+  readonly format: SubcommandFormat;
+  readonly outputPath: string | null;
+  readonly configPath: string | null;
+};
+
+// A per-subcommand value option: given the raw value, validate and stash it
+// (mutating the subcommand's own accumulator). Throws DriftAiError on a bad value.
+export type SubcommandValueOption = (value: string) => void;
+
+export type SubcommandSpec = {
+  // Full usage text, shown on `--help` and appended to unknown-arg / missing-value
+  // errors so the surface is discoverable.
+  readonly usage: string;
+  // Subcommand-specific value-taking options keyed by flag name (e.g. "--lens").
+  readonly valueOptions?: Readonly<Record<string, SubcommandValueOption>>;
+  // Whether this subcommand consumes `--config`. Opt-in: a subcommand that does not
+  // read config (e.g. harness-freshness) rejects `--config` as unknown rather than
+  // advertising an inert flag whose value is silently ignored.
+  readonly acceptsConfig?: boolean;
+};
+
+type MutableBase = {
+  format: SubcommandFormat;
+  outputPath: string | null;
+  configPath: string | null;
+};
+
+// `--format` and `--output` are accepted by every subcommand. `--config` is opt-in
+// (see SubcommandSpec.acceptsConfig) and handled separately below.
+const UNIVERSAL_SETTERS: Readonly<Record<string, (value: string, base: MutableBase) => void>> = {
+  "--format": (value, base) => {
+    base.format = readFormat(value);
+  },
+  "--output": (value, base) => {
+    base.outputPath = readPath("--output", value);
+  },
+};
+
+function configSetter(value: string, base: MutableBase): void {
+  base.configPath = readPath("--config", value);
+}
+
+// Resolve the universal setter for a flag: `--format`/`--output` always, `--config`
+// only when the subcommand opts in. Returns undefined for non-universal flags so the
+// caller can fall through to subcommand-specific options.
+function universalSetterFor(
+  name: string,
+  spec: SubcommandSpec,
+): ((value: string, base: MutableBase) => void) | undefined {
+  const setter = UNIVERSAL_SETTERS[name];
+  if (setter !== undefined) return setter;
+  if (name === "--config" && spec.acceptsConfig === true) return configSetter;
+  return undefined;
+}
+
+// Parse subcommand argv (already sliced past the subcommand token) into the
+// `--format`/`--output` options (plus opt-in `--config`; see acceptsConfig),
+// dispatching subcommand extras (e.g. `--lens`, `--window`) to the spec's
+// value-option handlers.
+export function parseSubcommandArgs(
+  argv: readonly string[],
+  spec: SubcommandSpec,
+): SubcommandBaseOptions {
+  const base: MutableBase = { format: "text", outputPath: null, configPath: null };
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+    if (arg === undefined) throw new DriftAiError("Empty arguments are not supported.");
+    if (arg === "--help" || arg === "-h") throw new DriftAiHelp(spec.usage);
+    const name = optionName(arg);
+    const universal = universalSetterFor(name, spec);
+    if (universal !== undefined) {
+      const { value, nextIndex } = readValue(arg, argv, index, spec.usage);
+      universal(value, base);
+      index = nextIndex;
+      continue;
+    }
+    const extra = spec.valueOptions?.[name];
+    if (extra !== undefined) {
+      const { value, nextIndex } = readValue(arg, argv, index, spec.usage);
+      extra(value);
+      index = nextIndex;
+      continue;
+    }
+    throw new DriftAiError(`Unknown argument: ${arg}\n${spec.usage}`);
+  }
+  return { format: base.format, outputPath: base.outputPath, configPath: base.configPath };
+}
+
+// Write a subcommand's rendered output: to a file (returning a pointer message)
+// when `--output` is set, else return the rendering itself for stdout.
+export function writeSubcommandOutput(
+  options: Pick<SubcommandBaseOptions, "format" | "outputPath">,
+  rendered: string,
+  writer: ReportWriter = defaultReportWriter,
+): string {
+  if (options.outputPath === null) return rendered;
+  writer(options.outputPath, `${rendered}\n`);
+  return `drift:ai: wrote ${options.format} report to ${options.outputPath}`;
+}

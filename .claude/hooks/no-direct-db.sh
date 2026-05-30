@@ -15,6 +15,11 @@ CMD=$(ai_payload_command "$PAYLOAD")
 [ -z "$CMD" ] && ai_emit_continue
 
 if REASON=$(ai_policy_violation_reason "$CMD"); then
+  if ai_policy_is_soft_guidance "$REASON"; then
+    # A PreToolUse deny can cascade-cancel sibling Bash calls in Claude's
+    # parallel batch. Replace soft nudges with successful guidance output.
+    ai_claude_result_command "$REASON" /tmp/musi-policy-guidance
+  fi
   ai_emit_block "$REASON"
 fi
 

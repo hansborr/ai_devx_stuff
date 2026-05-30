@@ -7,12 +7,14 @@
 // runner depends only on an injectable file reader so the same shape can be
 // tested in isolation and wired into drift-ai.ts at the integration layer.
 
-import { readFileSync } from "node:fs";
-import path from "node:path";
-
-import type { DriftFinding } from "../drift-ai.js";
-import { pathHasAnyPrefix } from "./config.js";
+import { pathHasAnyPrefix } from "./config-match.js";
+import { initialLineScanState, type LineScanState, scanLine } from "./line-scanner.js";
+import { isSourceLike, toPosix } from "./path-util.js";
+import type { RepoFileReader } from "./repo-io.js";
 import type { DetectorScope } from "./scope.js";
+import type { DriftFinding } from "./types.js";
+
+export { defaultFileReader } from "./repo-io.js";
 
 // 120 effective code lines is large enough that a real file can earn its
 // invariant comments without warning. Tighten only after we have real reports
@@ -27,8 +29,6 @@ const DEFAULT_COMMENT_RATIO_WARN = 0.4;
 export const COMMENTS_REPAIR_HINT =
   "keep comments that explain invariants, concurrency, authorization, or rules provenance; remove narration that restates code.";
 
-const SOURCE_LIKE_EXTS = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"]);
-
 export type CommentMetrics = {
   readonly effective: number;
   readonly comment: number;
@@ -36,13 +36,11 @@ export type CommentMetrics = {
   readonly total: number;
 };
 
-type StringDelim = '"' | "'" | "`";
-
 type LineState = {
   readonly hasCode: boolean;
   readonly hasComment: boolean;
   readonly endInBlockComment: boolean;
-  readonly endInString: StringDelim | false;
+  readonly endInString: LineScanState["inString"];
 };
 
 // Single-pass classifier: walks the source once, tracking string and block
@@ -67,15 +65,16 @@ export function analyzeCommentMetrics(source: string): CommentMetrics {
   const segments = normalized.split("\n");
   if (segments.length > 0 && segments[segments.length - 1] === "") segments.pop();
 
-  let inBlockComment = false;
-  let inString: StringDelim | false = false;
+  let scanState = initialLineScanState();
   let effective = 0;
   let comment = 0;
   let blank = 0;
   for (const line of segments) {
-    const result = classifyLine(line, inBlockComment, inString);
-    inBlockComment = result.endInBlockComment;
-    inString = result.endInString;
+    const result = classifyLine(line, scanState);
+    scanState = {
+      inBlockComment: result.endInBlockComment,
+      inString: result.endInString,
+    };
     if (result.hasCode) effective += 1;
     else if (result.hasComment) comment += 1;
     else blank += 1;
@@ -83,89 +82,28 @@ export function analyzeCommentMetrics(source: string): CommentMetrics {
   return { effective, comment, blank, total: segments.length };
 }
 
-type CodeCharKind =
-  | { readonly kind: "line-comment"; readonly newIndex: number }
-  | { readonly kind: "block-comment"; readonly newIndex: number }
-  | { readonly kind: "string"; readonly newIndex: number; readonly delim: StringDelim }
-  | { readonly kind: "code"; readonly newIndex: number }
-  | { readonly kind: "whitespace"; readonly newIndex: number };
-
-function advanceBlockComment(
-  line: string,
-  i: number,
-): { readonly newIndex: number; readonly exited: boolean } {
-  const ch = line.charAt(i);
-  const next = line[i + 1];
-  if (ch === "*" && next === "/") return { newIndex: i + 2, exited: true };
-  return { newIndex: i + 1, exited: false };
-}
-
-function advanceInString(
-  line: string,
-  i: number,
-  delim: StringDelim,
-): { readonly newIndex: number; readonly closed: boolean; readonly hasCode: boolean } {
-  const ch = line.charAt(i);
-  const hasCode = ch !== " " && ch !== "\t";
-  if (ch === "\\") return { newIndex: i + 2, closed: false, hasCode };
-  if (ch === delim) return { newIndex: i + 1, closed: true, hasCode };
-  return { newIndex: i + 1, closed: false, hasCode };
-}
-
-function advanceCode(line: string, i: number): CodeCharKind {
-  const ch = line.charAt(i);
-  const next = line[i + 1];
-  if (ch === "/" && next === "/") return { kind: "line-comment", newIndex: line.length };
-  if (ch === "/" && next === "*") return { kind: "block-comment", newIndex: i + 2 };
-  if (ch === '"' || ch === "'" || ch === "`") return { kind: "string", newIndex: i + 1, delim: ch };
-  if (ch !== " " && ch !== "\t") return { kind: "code", newIndex: i + 1 };
-  return { kind: "whitespace", newIndex: i + 1 };
-}
-
-function classifyLine(
-  line: string,
-  startInBlockComment: boolean,
-  startInString: StringDelim | false,
-): LineState {
-  let inBlockComment = startInBlockComment;
-  let inString: StringDelim | false = startInString;
+function classifyLine(line: string, scanState: LineScanState): LineState {
   let hasCode = false;
   let hasComment = false;
-  let i = 0;
-  while (i < line.length) {
-    if (inBlockComment) {
+  const endState = scanLine(line, scanState, {
+    onCode: (text) => {
+      if (text !== " " && text !== "\t") hasCode = true;
+    },
+    onCommentStart: () => {
       hasComment = true;
-      const result = advanceBlockComment(line, i);
-      inBlockComment = !result.exited;
-      i = result.newIndex;
-      continue;
-    }
-    if (inString) {
-      const result = advanceInString(line, i, inString);
-      if (result.hasCode) hasCode = true;
-      if (result.closed) inString = false;
-      i = result.newIndex;
-      continue;
-    }
-    const result = advanceCode(line, i);
-    if (result.kind === "line-comment") {
+    },
+    onLineComment: () => {
       hasComment = true;
-    } else if (result.kind === "block-comment") {
-      inBlockComment = true;
+    },
+    onBlockComment: () => {
       hasComment = true;
-    } else if (result.kind === "string") {
-      inString = result.delim;
-      hasCode = true;
-    } else if (result.kind === "code") {
-      hasCode = true;
-    }
-    i = result.newIndex;
-  }
+    },
+  });
   return {
     hasCode,
     hasComment,
-    endInBlockComment: inBlockComment,
-    endInString: inString,
+    endInBlockComment: endState.inBlockComment,
+    endInString: endState.inString,
   };
 }
 
@@ -185,14 +123,6 @@ function isExcludedFromComments(filePath: string, excludePrefixes: readonly stri
   return false;
 }
 
-function isSourceLike(filePath: string): boolean {
-  return SOURCE_LIKE_EXTS.has(path.extname(filePath).toLowerCase());
-}
-
-function toPosix(filePath: string): string {
-  return filePath.split(path.sep).join("/");
-}
-
 function nonBlank(metrics: CommentMetrics): number {
   return metrics.effective + metrics.comment;
 }
@@ -206,25 +136,7 @@ function formatPercent(value: number): number {
   return Math.round(value * 100);
 }
 
-export type FileReader = (filePath: string) => string | undefined;
-
-// Defense in depth mirroring defaultDirectoryListing: changed-file paths are
-// git-tracked, but a `..` segment or absolute path in scope would otherwise
-// let `path.resolve` walk outside the repo. Collapse first, verify the result
-// is contained in the repo root, then read.
-export function defaultFileReader(repoRoot: string): FileReader {
-  const root = path.resolve(repoRoot);
-  const rootWithSep = root.endsWith(path.sep) ? root : `${root}${path.sep}`;
-  return (filePath) => {
-    const target = path.resolve(root, filePath);
-    if (target !== root && !target.startsWith(rootWithSep)) return undefined;
-    try {
-      return readFileSync(target, "utf8");
-    } catch {
-      return undefined;
-    }
-  };
-}
+export type FileReader = RepoFileReader;
 
 export type RunCommentsCheckOptions = {
   readonly detectorScope: DetectorScope;

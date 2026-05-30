@@ -901,11 +901,12 @@ portable registry-validation failure cases. In this repository, those live in:
 - `scripts/lint-ratchet-summary.test.ts`: portable. It builds fixture
   baselines and registry entries to verify summary reduction and table
   formatting.
-- `scripts/lint-ratchet-output.test.ts`: portable. It copies the runtime files
-  into a temporary fixture repository, writes a small core-rule registry, runs
-  the CLI there, and verifies `HARNESS_DIAGNOSTICS_OUTPUT` behavior without
-  Musi app state. Keep its `runtimeFiles` list synchronized with the
-  "Minimum runtime file set" above.
+- `scripts/lint-ratchet-output.test.ts`: portable. It copies the CLI runtime
+  files into a temporary fixture repository, writes a small core-rule registry,
+  runs the CLI there, and verifies `HARNESS_DIAGNOSTICS_OUTPUT` behavior without
+  Musi app state. Its `runtimeFiles` list intentionally omits the repository
+  registry/config files that the fixture replaces; the full smoke copy list is
+  `PORTABLE_RUNTIME_FILES` in `scripts/test-lint-ratchet.sh`.
 - `scripts/lint-ratchet-check-registry.test.ts`: mixed. The portable cases are
   the synthetic failure-mode tests for empty globs, absolute paths, orphan
   baseline ids, zero-baseline metadata shape, deterministic failure ordering,

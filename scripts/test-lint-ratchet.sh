@@ -13,6 +13,32 @@ musi_clear_inherited_git_hook_env
 musi_exit_after_git_hook_env_assertion_if_requested
 
 REPO_ROOT="$(pwd)"
+
+# Single source of truth for the portable lint-ratchet runtime file set.
+# Both the import-boundary check (assert_portable_runtime_import_boundary) and
+# the smoke fixture copy (build_fixture) consume this array, so the two can no
+# longer drift when a runtime file is added or removed. Paths are repo-relative;
+# the scripts/lint-ratchet/*.ts directory is glob-expanded here once (cwd is the
+# repo root) rather than enumerated by hand.
+PORTABLE_RUNTIME_FILES=(
+  scripts/lint-ratchet.ts
+  scripts/lint-ratchet-baseline-compare.ts
+  scripts/lint-ratchet-baseline-parse.ts
+  scripts/lint-ratchet-baseline.ts
+  scripts/lint-ratchet-check-registry.ts
+  scripts/lint-ratchet-config.ts
+  scripts/lint-ratchet-debt-log.ts
+  scripts/lint-ratchet-metrics.ts
+  scripts/lint-ratchet-output.ts
+  scripts/lint-ratchet-registry-builders.ts
+  scripts/lint-ratchet-report.ts
+  scripts/lint-ratchet-summary.ts
+  scripts/lint-ratchet-zero-baseline.ts
+  scripts/lint-rule-docs.ts
+  scripts/ratchet-manifest-message.ts
+  scripts/lint-ratchet/*.ts
+)
+
 TMP_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/lint-ratchet-smoke-XXXXXX")
 cleanup() {
   rm -rf "$TMP_ROOT"
@@ -58,34 +84,21 @@ assert_envelope() {
 }
 
 assert_portable_runtime_import_boundary() {
+  PORTABLE_RUNTIME_FILE_LIST=$(printf '%s\n' "${PORTABLE_RUNTIME_FILES[@]}") \
   bun -e '
-    const { readFileSync, readdirSync } = await import("node:fs");
+    const { readFileSync } = await import("node:fs");
     const { builtinModules } = await import("node:module");
     const { dirname, relative, resolve } = await import("node:path");
     const ts = await import("typescript");
 
     const repoRoot = process.cwd();
-    const runtimeDirectoryFiles = readdirSync("scripts/lint-ratchet")
-      .filter((file) => file.endsWith(".ts"))
-      .map((file) => `scripts/lint-ratchet/${file}`);
-    const runtimeFiles = [
-      "scripts/lint-ratchet.ts",
-      ...runtimeDirectoryFiles,
-      "scripts/lint-ratchet-baseline-compare.ts",
-      "scripts/lint-ratchet-baseline-parse.ts",
-      "scripts/lint-ratchet-baseline.ts",
-      "scripts/lint-ratchet-check-registry.ts",
-      "scripts/lint-ratchet-config.ts",
-      "scripts/lint-ratchet-debt-log.ts",
-      "scripts/lint-ratchet-metrics.ts",
-      "scripts/lint-ratchet-output.ts",
-      "scripts/lint-ratchet-registry-builders.ts",
-      "scripts/lint-ratchet-report.ts",
-      "scripts/lint-ratchet-summary.ts",
-      "scripts/lint-ratchet-zero-baseline.ts",
-      "scripts/lint-rule-docs.ts",
-      "scripts/ratchet-manifest-message.ts",
-    ].sort();
+    // Consume the single shell-side portable runtime file list (see
+    // PORTABLE_RUNTIME_FILES) so this boundary check and the smoke fixture copy
+    // cannot disagree about which files make up the runtime.
+    const runtimeFiles = (process.env.PORTABLE_RUNTIME_FILE_LIST ?? "")
+      .split("\n")
+      .filter((line) => line.length > 0)
+      .sort();
     const allowedRelativeFiles = new Set([
       ...runtimeFiles,
       "packages/shared/src/schemas/harness-diagnostics.ts",
@@ -183,28 +196,15 @@ build_fixture() {
   mkdir -p "$fixture_dir/eslint-rules" "$fixture_dir/docs/guides"
   mkdir -p "$fixture_dir/eslint-config"
   cp eslint-config/shared-policy.js "$fixture_dir/eslint-config/shared-policy.js"
-  cp scripts/lint-ratchet.ts "$fixture_dir/scripts/lint-ratchet.ts"
+  # Copy the portable runtime file set from the single shared source so the
+  # fixture and the import-boundary check (assert_portable_runtime_import_boundary)
+  # stay in lockstep. Every entry is repo-relative under scripts/, so the
+  # destination path mirrors the source path.
   mkdir -p "$fixture_dir/scripts/lint-ratchet"
-  cp scripts/lint-ratchet/*.ts "$fixture_dir/scripts/lint-ratchet/"
-  cp scripts/lint-ratchet-config.ts "$fixture_dir/scripts/lint-ratchet-config.ts"
-  cp scripts/lint-ratchet-registry-builders.ts \
-    "$fixture_dir/scripts/lint-ratchet-registry-builders.ts"
-  cp scripts/lint-ratchet-baseline-compare.ts \
-    "$fixture_dir/scripts/lint-ratchet-baseline-compare.ts"
-  cp scripts/lint-ratchet-baseline-parse.ts \
-    "$fixture_dir/scripts/lint-ratchet-baseline-parse.ts"
-  cp scripts/lint-ratchet-baseline.ts "$fixture_dir/scripts/lint-ratchet-baseline.ts"
-  cp scripts/lint-ratchet-check-registry.ts \
-    "$fixture_dir/scripts/lint-ratchet-check-registry.ts"
-  cp scripts/lint-ratchet-metrics.ts "$fixture_dir/scripts/lint-ratchet-metrics.ts"
-  cp scripts/lint-ratchet-output.ts "$fixture_dir/scripts/lint-ratchet-output.ts"
-  cp scripts/lint-ratchet-report.ts "$fixture_dir/scripts/lint-ratchet-report.ts"
-  cp scripts/lint-ratchet-debt-log.ts "$fixture_dir/scripts/lint-ratchet-debt-log.ts"
-  cp scripts/lint-ratchet-summary.ts "$fixture_dir/scripts/lint-ratchet-summary.ts"
-  cp scripts/lint-ratchet-zero-baseline.ts \
-    "$fixture_dir/scripts/lint-ratchet-zero-baseline.ts"
-  cp scripts/lint-rule-docs.ts "$fixture_dir/scripts/lint-rule-docs.ts"
-  cp scripts/ratchet-manifest-message.ts "$fixture_dir/scripts/ratchet-manifest-message.ts"
+  local runtime_file
+  for runtime_file in "${PORTABLE_RUNTIME_FILES[@]}"; do
+    cp "$runtime_file" "$fixture_dir/$runtime_file"
+  done
   cp packages/shared/src/schemas/harness-diagnostics.ts \
     "$fixture_dir/packages/shared/src/schemas/harness-diagnostics.ts"
   cp eslint-rules/type-assertion-boundary.js \
@@ -929,6 +929,9 @@ core_cache_files() {
   find "$cache_root" -mindepth 2 -maxdepth 2 -name ".eslintcache" -type f \
     -path "*/ratchet-fixture-core-*/*" | sort
 }
+
+# shellcheck source=scripts/test-lint-ratchet-edit-check-fixtures.sh
+. scripts/test-lint-ratchet-edit-check-fixtures.sh
 
 # --- Real tree: committed registry shape and generated identity -------------
 # Full real-tree ESLint collection is covered by the dedicated lint:ratchet
@@ -1799,123 +1802,67 @@ improve_after=$(ASSERT_FILE="$IMPROVE_DIR/lint-ratchet.baseline.json" bun -e '
 [ "$improve_before" -gt "$improve_after" ] \
   || fail "improvement baseline did not shrink: $improve_before -> $improve_after"
 
-# --- Fixture: edit-time check (--edit-check-targets / --edit-check) ----------
-# Discovery lists matching minimal-TS ratchets without running ESLint; the
-# two-step --edit-check then lints only the listed targets and prints fresh
-# ratchet regressions. Type-aware ratchets are excluded from discovery,
-# improvements are never reported, and baseline/hash drift soft-skips rather
-# than inventing a regression.
-run_edit_check_targets() {
+run_lint_ratchet_edit_check_fixtures
+
+# --- Fixture: ratchet coverage query (--edit-ratchet-coverage) ---------------
+# The lint-coverage advisory hook asks this no-ESLint mode which committed
+# baseline ratchets track an edited path. It reuses the canonical ratchet glob
+# matcher (scripts/lint-ratchet/ratchet-globs.ts) instead of the hook embedding
+# its own copy: a path matched by a ratchet's files (and not its ignores) returns
+# the sorted rule id(s); ignored / unmatched paths and a missing or malformed
+# baseline return nothing so the hook degrades to its uncovered behavior.
+run_edit_ratchet_coverage() {
   local dir=$1
   shift
-  (cd "$dir" && bun run scripts/lint-ratchet.ts --edit-check-targets "$@" \
-    >"$TMP_ROOT/edit-targets.txt" 2>"$TMP_ROOT/edit-targets.err") \
-    || fail "edit-check-targets failed: $(cat "$TMP_ROOT/edit-targets.err")"
+  (cd "$dir" && bun run scripts/lint-ratchet.ts --edit-ratchet-coverage "$@" \
+    >"$TMP_ROOT/edit-coverage.txt" 2>"$TMP_ROOT/edit-coverage.err") \
+    || fail "edit-ratchet-coverage failed: $(cat "$TMP_ROOT/edit-coverage.err")"
 }
 
-run_edit_check() {
-  local dir=$1
-  shift
-  run_edit_check_targets "$dir" "$@"
-  (cd "$dir" && bun run scripts/lint-ratchet.ts --edit-check \
-    --targets-file "$TMP_ROOT/edit-targets.txt" \
-    >"$TMP_ROOT/edit-regress.txt" 2>"$TMP_ROOT/edit-regress.err") \
-    || fail "edit-check failed: $(cat "$TMP_ROOT/edit-regress.err")"
-}
+EDIT_COVERAGE_DIR="$TMP_ROOT/edit-ratchet-coverage"
+build_fixture "$EDIT_COVERAGE_DIR"
+write_type_assertion_config "$EDIT_COVERAGE_DIR"
+write_violation_source "$EDIT_COVERAGE_DIR"
+run_fixture_update "$EDIT_COVERAGE_DIR" \
+  || fail "edit-ratchet-coverage fixture update failed: $(cat "$TMP_ROOT/update.err")"
 
-EDIT_CHECK_DIR="$TMP_ROOT/edit-check"
-build_fixture "$EDIT_CHECK_DIR"
-write_type_assertion_config "$EDIT_CHECK_DIR"
-write_violation_source "$EDIT_CHECK_DIR"
-run_fixture_update "$EDIT_CHECK_DIR" || fail "edit-check fixture update failed: $(cat "$TMP_ROOT/update.err")"
+# (1) A path matched by the ratchet's files (and not its ignores) returns the
+# tracked rule id on a ratchet-covered row.
+run_edit_ratchet_coverage "$EDIT_COVERAGE_DIR" "packages/app/src/example.ts"
+grep -qF $'ratchet-covered\tpackages/app/src/example.ts\tlocal/type-assertion-boundary' \
+  "$TMP_ROOT/edit-coverage.txt" \
+  || fail "edit-ratchet-coverage missing covered row: $(cat "$TMP_ROOT/edit-coverage.txt")"
 
-# (1) Discovery lists the matching minimal-TS ratchet; an unchanged file at its
-# committed floor produces no regression row.
-run_edit_check "$EDIT_CHECK_DIR" "packages/app/src/example.ts"
-grep -qF $'target\tpackages/app/src/example.ts\tratchet/local-type-assertion-boundary\tlocal/type-assertion-boundary' \
-  "$TMP_ROOT/edit-targets.txt" \
-  || fail "edit-check discovery missing target row: $(cat "$TMP_ROOT/edit-targets.txt")"
-if grep -q '^regression' "$TMP_ROOT/edit-regress.txt"; then
-  fail "edit-check should emit no regression for an unchanged file at its floor: $(cat "$TMP_ROOT/edit-regress.txt")"
-fi
+# (2) A path that matches the ratchet's files but also an ignores glob
+# (**/generated/**) returns no row.
+run_edit_ratchet_coverage "$EDIT_COVERAGE_DIR" "packages/app/src/generated/example.ts"
+[ ! -s "$TMP_ROOT/edit-coverage.txt" ] \
+  || fail "edit-ratchet-coverage should skip an ignored path: $(cat "$TMP_ROOT/edit-coverage.txt")"
 
-# (2) No discovery output when no minimal-TS ratchet matches the edited path.
-(cd "$EDIT_CHECK_DIR" && bun run scripts/lint-ratchet.ts --edit-check-targets "README.md" \
-  >"$TMP_ROOT/edit-nomatch.txt" 2>"$TMP_ROOT/edit-nomatch.err") \
-  || fail "edit-check-targets non-matching run failed: $(cat "$TMP_ROOT/edit-nomatch.err")"
-[ ! -s "$TMP_ROOT/edit-nomatch.txt" ] \
-  || fail "edit-check discovery should be empty for a non-matching path: $(cat "$TMP_ROOT/edit-nomatch.txt")"
+# (3) A path matched by no ratchet returns no row.
+run_edit_ratchet_coverage "$EDIT_COVERAGE_DIR" "README.md"
+[ ! -s "$TMP_ROOT/edit-coverage.txt" ] \
+  || fail "edit-ratchet-coverage should skip an unmatched path: $(cat "$TMP_ROOT/edit-coverage.txt")"
 
-# (3) Fresh new-path regression on a drained baseline path.
-cat > "$EDIT_CHECK_DIR/packages/app/src/fresh.ts" <<'TS'
-const rawFresh = {};
-export const freshValue = rawFresh as { value: number };
-TS
-run_edit_check "$EDIT_CHECK_DIR" "packages/app/src/fresh.ts"
-grep -qF $'regression\tpackages/app/src/fresh.ts\tratchet/local-type-assertion-boundary\tlocal/type-assertion-boundary\tnew-path' \
-  "$TMP_ROOT/edit-regress.txt" \
-  || fail "edit-check missing fresh new-path regression: $(cat "$TMP_ROOT/edit-regress.txt")"
-rm -f "$EDIT_CHECK_DIR/packages/app/src/fresh.ts"
+# (4) A multi-path query emits one row per covered path and skips the rest.
+run_edit_ratchet_coverage "$EDIT_COVERAGE_DIR" \
+  "packages/app/src/example.ts" "packages/app/src/generated/example.ts" "README.md"
+[ "$(grep -c '^ratchet-covered' "$TMP_ROOT/edit-coverage.txt")" -eq 1 ] \
+  || fail "edit-ratchet-coverage multi-path should emit exactly one covered row: $(cat "$TMP_ROOT/edit-coverage.txt")"
 
-# (4) Worsening output for a file that already carries a committed baseline item.
-cat > "$EDIT_CHECK_DIR/packages/app/src/example.ts" <<'TS'
-const rawA = {};
-export const valueA = rawA as { value: number };
-const rawB = {};
-export const valueB = rawB as { value: number };
-TS
-run_edit_check "$EDIT_CHECK_DIR" "packages/app/src/example.ts"
-grep -qF $'regression\tpackages/app/src/example.ts\tratchet/local-type-assertion-boundary\tlocal/type-assertion-boundary\tincreased-count' \
-  "$TMP_ROOT/edit-regress.txt" \
-  || fail "edit-check missing increased-count regression: $(cat "$TMP_ROOT/edit-regress.txt")"
+# (5) A malformed baseline degrades to no rows (the advisory stays quiet rather
+# than guessing) and the mode still exits 0.
+cp "$EDIT_COVERAGE_DIR/lint-ratchet.baseline.json" "$TMP_ROOT/coverage-baseline.bak"
+printf '{ not valid json' > "$EDIT_COVERAGE_DIR/lint-ratchet.baseline.json"
+run_edit_ratchet_coverage "$EDIT_COVERAGE_DIR" "packages/app/src/example.ts"
+[ ! -s "$TMP_ROOT/edit-coverage.txt" ] \
+  || fail "edit-ratchet-coverage should emit nothing for a malformed baseline: $(cat "$TMP_ROOT/edit-coverage.txt")"
+cp "$TMP_ROOT/coverage-baseline.bak" "$EDIT_COVERAGE_DIR/lint-ratchet.baseline.json"
 
-# (5) Improvements are intentionally omitted at edit time.
-printf 'export const cleaned = 1;\n' > "$EDIT_CHECK_DIR/packages/app/src/example.ts"
-run_edit_check "$EDIT_CHECK_DIR" "packages/app/src/example.ts"
-if grep -q '^regression' "$TMP_ROOT/edit-regress.txt"; then
-  fail "edit-check should omit improvements: $(cat "$TMP_ROOT/edit-regress.txt")"
-fi
-
-# (6) Type-aware ratchets are skipped from edit-time discovery entirely.
-EDIT_CHECK_TA_DIR="$TMP_ROOT/edit-check-type-aware"
-build_fixture "$EDIT_CHECK_TA_DIR"
-use_fixture_node_modules_with_fake_plugin "$EDIT_CHECK_TA_DIR"
-write_fixture_tsconfig "$EDIT_CHECK_TA_DIR"
-write_clean_source "$EDIT_CHECK_TA_DIR"
-write_third_party_config "$EDIT_CHECK_TA_DIR" "no-fixture-marker" "type-aware-ts"
-run_fixture_update "$EDIT_CHECK_TA_DIR" \
-  || fail "edit-check type-aware update failed: $(cat "$TMP_ROOT/update.err")"
-run_edit_check_targets "$EDIT_CHECK_TA_DIR" "packages/app/src/example.ts"
-[ ! -s "$TMP_ROOT/edit-targets.txt" ] \
-  || fail "edit-check discovery must skip type-aware ratchets: $(cat "$TMP_ROOT/edit-targets.txt")"
-
-# (7) Baseline/rule-source hash drift soft-skips instead of reporting a false
-# regression: the file gains a second violation (which would normally worsen the
-# count) while the local rule source drifts from the committed baseline hash.
-EDIT_CHECK_DRIFT_DIR="$TMP_ROOT/edit-check-drift"
-build_fixture "$EDIT_CHECK_DRIFT_DIR"
-write_type_assertion_config "$EDIT_CHECK_DRIFT_DIR"
-write_violation_source "$EDIT_CHECK_DRIFT_DIR"
-run_fixture_update "$EDIT_CHECK_DRIFT_DIR" \
-  || fail "edit-check drift update failed: $(cat "$TMP_ROOT/update.err")"
-cat > "$EDIT_CHECK_DRIFT_DIR/packages/app/src/example.ts" <<'TS'
-const rawA = {};
-export const valueA = rawA as { value: number };
-const rawB = {};
-export const valueB = rawB as { value: number };
-TS
-printf '\n// edit-check drift marker\n' >> "$EDIT_CHECK_DRIFT_DIR/eslint-rules/type-assertion-boundary.js"
-run_edit_check "$EDIT_CHECK_DRIFT_DIR" "packages/app/src/example.ts"
-grep -qF $'target\tpackages/app/src/example.ts\tratchet/local-type-assertion-boundary' \
-  "$TMP_ROOT/edit-targets.txt" \
-  || fail "edit-check drift discovery should still list the target: $(cat "$TMP_ROOT/edit-targets.txt")"
-if grep -q '^regression' "$TMP_ROOT/edit-regress.txt"; then
-  fail "edit-check should soft-skip on hash drift, not report a regression: $(cat "$TMP_ROOT/edit-regress.txt")"
-fi
-# A soft skip never lints the drifted ratchet, so there is no `checked` row
-# either — distinguishing it from a genuine clean lint.
-if grep -q '^checked' "$TMP_ROOT/edit-regress.txt"; then
-  fail "edit-check hash drift should not lint (no checked row): $(cat "$TMP_ROOT/edit-regress.txt")"
-fi
+# (6) A missing baseline also degrades to no rows.
+rm -f "$EDIT_COVERAGE_DIR/lint-ratchet.baseline.json"
+run_edit_ratchet_coverage "$EDIT_COVERAGE_DIR" "packages/app/src/example.ts"
+[ ! -s "$TMP_ROOT/edit-coverage.txt" ] \
+  || fail "edit-ratchet-coverage should emit nothing for a missing baseline: $(cat "$TMP_ROOT/edit-coverage.txt")"
 
 echo "PASS: lint-ratchet smoke"

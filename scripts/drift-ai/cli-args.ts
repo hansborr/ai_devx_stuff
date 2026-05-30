@@ -1,6 +1,7 @@
+import { optionName, readFormat, readPath, readValue } from "./arg-readers.js";
+import { ALL_CHECKS, CHECK_USAGE, DEFAULT_CHECKS } from "./check-metadata.js";
 import { DriftAiError } from "./errors.js";
 import {
-  ALL_CHECKS,
   type CliOptions,
   DEFAULT_BASE,
   DEFAULT_CHUNK_SIZE,
@@ -9,8 +10,10 @@ import {
 } from "./types.js";
 
 export class DriftAiHelp extends Error {
-  constructor() {
-    super(usage());
+  // Defaults to the main-command usage; subcommands pass their own usage text so
+  // `drift:ai <subcommand> --help` shows the right surface.
+  constructor(message: string = usage()) {
+    super(message);
     this.name = "DriftAiHelp";
   }
 }
@@ -26,34 +29,24 @@ function usage(): string {
     "Usage:",
     "  bun run drift:ai",
     "  bun run drift:ai harness-freshness",
+    "  bun run drift:ai hotspots [--lens <churn|coupling|fragmentation|suppression-churn|thrash|all>] [--window <days>]",
     "  bun run drift:ai --scope <changed|current>",
     "  bun run drift:ai --base <ref>",
-    "  bun run drift:ai --check <duplicates|ghost-files|comments|suppressions|all> [--check <...>]",
+    `  bun run drift:ai --check <${CHECK_USAGE}> [--check <...>]`,
     "  bun run drift:ai --root <path> [--root <path>]",
     "  bun run drift:ai --config <path>",
     "  bun run drift:ai --format <text|json>",
+    "  bun run drift:ai --format json --include-scope",
     "  bun run drift:ai --output <path>",
     "  bun run drift:ai --chunk-dir <path> [--chunk-size <count>]",
+    "  bun run drift:ai --jscpd-bin <path>",
+    "  bun run drift:ai --knip-config <path>",
+    "  bun run drift:ai --tsconfig <path>",
+    "  bun run drift:ai --fail-on-findings",
     "",
     "Report-only. Changed scope is the default; current scope audits the working tree.",
+    "--fail-on-findings opts into exit 1 when findings exist; the default stays exit 0.",
   ].join("\n");
-}
-
-function readOptionValue(
-  arg: string,
-  argv: readonly string[],
-  index: number,
-): {
-  value: string;
-  nextIndex: number;
-} {
-  const equalsIndex = arg.indexOf("=");
-  if (equalsIndex >= 0) {
-    return { value: arg.slice(equalsIndex + 1), nextIndex: index };
-  }
-  const next = argv[index + 1];
-  if (next === undefined) throw new DriftAiError(`${arg} requires a value.\n${usage()}`);
-  return { value: next, nextIndex: index + 1 };
 }
 
 type ParsedCliOptions = {
@@ -66,8 +59,13 @@ type ParsedCliOptions = {
   outputPath?: string;
   chunkDir?: string;
   chunkSize?: number;
+  jscpdBin?: string;
+  knipConfig?: string;
+  tsconfig?: string;
   requested: DriftCheckId[];
   allRequested: boolean;
+  includeScope: boolean;
+  failOnFindings: boolean;
 };
 
 function initialParsedOptions(): ParsedCliOptions {
@@ -79,12 +77,9 @@ function initialParsedOptions(): ParsedCliOptions {
     roots: [],
     requested: [],
     allRequested: false,
+    includeScope: false,
+    failOnFindings: false,
   };
-}
-
-function optionNameFor(arg: string): string {
-  const equalsIndex = arg.indexOf("=");
-  return equalsIndex < 0 ? arg : arg.slice(0, equalsIndex);
 }
 
 function parseScopeOption(
@@ -93,7 +88,7 @@ function parseScopeOption(
   index: number,
   parsed: ParsedCliOptions,
 ): number | undefined {
-  const option = readOptionValue(arg, argv, index);
+  const option = readValue(arg, argv, index, usage());
   if (option.value !== "changed" && option.value !== "current") {
     throw new DriftAiError("--scope requires changed or current.");
   }
@@ -107,17 +102,17 @@ function parsePathOption(
   index: number,
   parsed: ParsedCliOptions,
 ): number | undefined {
-  const optionName = optionNameFor(arg);
-  const option = readOptionValue(arg, argv, index);
+  const name = optionName(arg);
+  const option = readValue(arg, argv, index, usage());
   if (!option.value) {
     throw new DriftAiError(
-      optionName === "--base" ? "--base requires a ref." : `${optionName} requires a path.`,
+      name === "--base" ? "--base requires a ref." : `${name} requires a path.`,
     );
   }
-  if (optionName === "--base") {
+  if (name === "--base") {
     parsed.base = option.value;
     parsed.baseExplicit = true;
-  } else if (optionName === "--root") {
+  } else if (name === "--root") {
     parsed.roots.push(option.value);
   } else {
     parsed.configPath = option.value;
@@ -131,17 +126,13 @@ function parseOutputOption(
   index: number,
   parsed: ParsedCliOptions,
 ): number | undefined {
-  if (optionNameFor(arg) === "--format") {
-    const option = readOptionValue(arg, argv, index);
-    if (option.value !== "text" && option.value !== "json") {
-      throw new DriftAiError("--format requires text or json.");
-    }
-    parsed.format = option.value;
+  if (optionName(arg) === "--format") {
+    const option = readValue(arg, argv, index, usage());
+    parsed.format = readFormat(option.value);
     return option.nextIndex;
   }
-  const option = readOptionValue(arg, argv, index);
-  if (!option.value) throw new DriftAiError("--output requires a path.");
-  parsed.outputPath = option.value;
+  const option = readValue(arg, argv, index, usage());
+  parsed.outputPath = readPath("--output", option.value);
   return option.nextIndex;
 }
 
@@ -151,18 +142,51 @@ function parseChunkOption(
   index: number,
   parsed: ParsedCliOptions,
 ): number | undefined {
-  if (optionNameFor(arg) === "--chunk-dir") {
-    const option = readOptionValue(arg, argv, index);
-    if (!option.value) throw new DriftAiError("--chunk-dir requires a path.");
-    parsed.chunkDir = option.value;
+  if (optionName(arg) === "--chunk-dir") {
+    const option = readValue(arg, argv, index, usage());
+    parsed.chunkDir = readPath("--chunk-dir", option.value);
     return option.nextIndex;
   }
-  const option = readOptionValue(arg, argv, index);
+  const option = readValue(arg, argv, index, usage());
   if (!/^[1-9]\d*$/u.test(option.value)) {
     throw new DriftAiError("--chunk-size requires a positive integer.");
   }
   parsed.chunkSize = Number(option.value);
   return option.nextIndex;
+}
+
+// Single-valued tool/path options that just stash a path on `parsed`: --jscpd-bin,
+// --knip-config, --tsconfig. They share the read-value-or-error shape, so one
+// parser keyed by option name keeps them DRY.
+function parseToolPathOption(
+  arg: string,
+  argv: readonly string[],
+  index: number,
+  parsed: ParsedCliOptions,
+): number | undefined {
+  const name = optionName(arg);
+  const option = readValue(arg, argv, index, usage());
+  const pathValue = readPath(name, option.value);
+  if (name === "--jscpd-bin") parsed.jscpdBin = pathValue;
+  else if (name === "--knip-config") parsed.knipConfig = pathValue;
+  else parsed.tsconfig = pathValue;
+  return option.nextIndex;
+}
+
+// Valueless boolean flags (present = true): --include-scope, --fail-on-findings.
+// One parser keyed by option name keeps them DRY alongside the declarative
+// OPTION_PARSERS table, mirroring parseToolPathOption for the single-value paths.
+function parseBooleanFlag(
+  arg: string,
+  _argv: readonly string[],
+  index: number,
+  parsed: ParsedCliOptions,
+): number | undefined {
+  const name = optionName(arg);
+  if (arg !== name) throw new DriftAiError(`${name} does not accept a value.`);
+  if (name === "--include-scope") parsed.includeScope = true;
+  else parsed.failOnFindings = true;
+  return index;
 }
 
 function parseCheckOption(
@@ -171,11 +195,9 @@ function parseCheckOption(
   index: number,
   parsed: ParsedCliOptions,
 ): number | undefined {
-  const option = readOptionValue(arg, argv, index);
+  const option = readValue(arg, argv, index, usage());
   if (!option.value) {
-    throw new DriftAiError(
-      "--check requires duplicates, ghost-files, comments, suppressions, or all.",
-    );
+    throw new DriftAiError(`--check requires ${CHECK_USAGE.replace(/\|/gu, ", ")}.`);
   }
   if (option.value === "all") {
     parsed.allRequested = true;
@@ -204,6 +226,11 @@ const OPTION_PARSERS: Readonly<Record<string, OptionParser>> = {
   "--output": parseOutputOption,
   "--chunk-dir": parseChunkOption,
   "--chunk-size": parseChunkOption,
+  "--jscpd-bin": parseToolPathOption,
+  "--knip-config": parseToolPathOption,
+  "--tsconfig": parseToolPathOption,
+  "--include-scope": parseBooleanFlag,
+  "--fail-on-findings": parseBooleanFlag,
 };
 
 function parseKnownOption(
@@ -212,7 +239,7 @@ function parseKnownOption(
   index: number,
   parsed: ParsedCliOptions,
 ): number | undefined {
-  return OPTION_PARSERS[optionNameFor(arg)]?.(arg, argv, index, parsed);
+  return OPTION_PARSERS[optionName(arg)]?.(arg, argv, index, parsed);
 }
 
 function validateScopeOptions(parsed: ParsedCliOptions): void {
@@ -233,13 +260,18 @@ function validateChunkOptions(parsed: ParsedCliOptions): void {
   }
 }
 
+function resolveChecks(parsed: ParsedCliOptions): DriftCheckId[] {
+  if (parsed.allRequested) return [...ALL_CHECKS];
+  if (parsed.requested.length === 0) return [...DEFAULT_CHECKS];
+  return parsed.requested;
+}
+
 function cliOptionsFromParsed(parsed: ParsedCliOptions): CliOptions {
   return {
     scopeMode: parsed.scopeMode,
     base: parsed.base,
     baseExplicit: parsed.baseExplicit,
-    checks:
-      parsed.allRequested || parsed.requested.length === 0 ? [...ALL_CHECKS] : parsed.requested,
+    checks: resolveChecks(parsed),
     format: parsed.format,
     roots: parsed.roots,
     ...(parsed.configPath === undefined ? {} : { configPath: parsed.configPath }),
@@ -247,6 +279,11 @@ function cliOptionsFromParsed(parsed: ParsedCliOptions): CliOptions {
     ...(parsed.chunkDir === undefined
       ? {}
       : { chunkDir: parsed.chunkDir, chunkSize: parsed.chunkSize ?? DEFAULT_CHUNK_SIZE }),
+    ...(parsed.jscpdBin === undefined ? {} : { jscpdBin: parsed.jscpdBin }),
+    ...(parsed.knipConfig === undefined ? {} : { knipConfig: parsed.knipConfig }),
+    ...(parsed.tsconfig === undefined ? {} : { tsconfig: parsed.tsconfig }),
+    includeScope: parsed.includeScope,
+    failOnFindings: parsed.failOnFindings,
   };
 }
 

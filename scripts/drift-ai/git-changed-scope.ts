@@ -1,21 +1,14 @@
 import { execFileSync } from "node:child_process";
-import path from "node:path";
 
-import {
-  DEFAULT_DRIFT_AI_CONFIG,
-  matchesAnyGlob,
-  pathHasAnyPrefix,
-  pathHasAnySegment,
-} from "./config.js";
+import { DEFAULT_DRIFT_AI_CONFIG } from "./config.js";
+import { isPathIgnored } from "./config-match.js";
 import { DriftAiError } from "./errors.js";
-import {
-  type ChangedFile,
-  type ChangedFileStatus,
-  DEFAULT_IGNORE_EXTENSIONS,
-  DEFAULT_IGNORE_FILES,
-} from "./types.js";
+import { type ChangedFile, type ChangedFileStatus } from "./types.js";
 
 export type GitRunner = (args: readonly string[]) => string;
+
+const SHALLOW_OR_BLOBLESS_CHANGED_SCOPE_MESSAGE =
+  "drift:ai: changed scope needs full git history; this looks like a shallow/blobless clone. Run `git fetch --unshallow` (or use `--scope current`).";
 
 export function defaultGitRunner(): GitRunner {
   return (args) => execFileSync("git", [...args], { encoding: "utf8" });
@@ -97,15 +90,7 @@ function mapStatus(code: NameStatusCode): ChangedFileStatus {
 }
 
 export function isIgnoredPath(filePath: string, ignore = DEFAULT_DRIFT_AI_CONFIG.ignore): boolean {
-  const normalized = filePath.split(path.sep).join("/");
-  const ignoredSegments = new Set(ignore.segments);
-  if (pathHasAnySegment(normalized, ignoredSegments)) return true;
-  if (pathHasAnyPrefix(normalized, ignore.prefixes)) return true;
-  if (matchesAnyGlob(normalized, ignore.globs)) return true;
-  if (DEFAULT_IGNORE_FILES.includes(path.basename(normalized))) return true;
-  const ext = path.extname(normalized).toLowerCase();
-  if (DEFAULT_IGNORE_EXTENSIONS.includes(ext)) return true;
-  return false;
+  return isPathIgnored(filePath, ignore);
 }
 
 export function filterScope(
@@ -116,7 +101,8 @@ export function filterScope(
 }
 
 export function discoverChangedFiles(ref: string, git: GitRunner): ChangedFile[] {
-  const changed = parseNameStatus(git(["diff", "--name-status", ref]));
+  ensureChangedScopeCanDiff(git);
+  const changed = parseNameStatus(runChangedDiff(ref, git));
   const untracked = parseUntrackedFiles(git(["ls-files", "--others", "--exclude-standard"]));
   const merged = new Map<string, ChangedFile>();
   for (const file of changed) {
@@ -126,6 +112,68 @@ export function discoverChangedFiles(ref: string, git: GitRunner): ChangedFile[]
     if (!merged.has(file.path)) merged.set(file.path, file);
   }
   return [...merged.values()].sort((left, right) => left.path.localeCompare(right.path, "en"));
+}
+
+function ensureChangedScopeCanDiff(git: GitRunner): void {
+  try {
+    if (git(["rev-parse", "--is-shallow-repository"]).trim() === "true") {
+      throw new DriftAiError(SHALLOW_OR_BLOBLESS_CHANGED_SCOPE_MESSAGE);
+    }
+  } catch (err) {
+    if (err instanceof DriftAiError) throw err;
+    // Older Git versions or unusual repo states may not support this probe.
+    // The diff wrapper below is the authoritative fallback.
+  }
+}
+
+function runChangedDiff(ref: string, git: GitRunner): string {
+  try {
+    return git(["diff", "--name-status", ref]);
+  } catch (err) {
+    if (isShallowOrBloblessDiffError(err)) {
+      throw new DriftAiError(SHALLOW_OR_BLOBLESS_CHANGED_SCOPE_MESSAGE);
+    }
+    throw err;
+  }
+}
+
+function isShallowOrBloblessDiffError(err: unknown): boolean {
+  if (hasSignal(err, "SIGSEGV")) return true;
+  const text = errorText(err).toLowerCase();
+  return [
+    "segmentation fault",
+    "bad tree object",
+    "bad object",
+    "missing blob",
+    "unable to read tree",
+    "unable to read sha1 file",
+    "not a tree object",
+  ].some((fragment) => text.includes(fragment));
+}
+
+function hasSignal(err: unknown, signal: string): boolean {
+  return typeof err === "object" && err !== null && "signal" in err && err.signal === signal;
+}
+
+function errorText(err: unknown): string {
+  const parts: string[] = [];
+  if (err instanceof Error) parts.push(err.message);
+  if (typeof err === "object" && err !== null) {
+    appendErrorPayload(parts, "stderr" in err ? err.stderr : undefined);
+    appendErrorPayload(parts, "stdout" in err ? err.stdout : undefined);
+  }
+  return parts.join("\n");
+}
+
+function appendErrorPayload(parts: string[], payload: unknown): void {
+  if (payload === undefined || payload === null) return;
+  if (typeof payload === "string") {
+    parts.push(payload);
+    return;
+  }
+  if (payload instanceof Uint8Array) {
+    parts.push(Buffer.from(payload).toString("utf8"));
+  }
 }
 
 function parseUntrackedFiles(output: string): ChangedFile[] {

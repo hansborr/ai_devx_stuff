@@ -82,6 +82,7 @@ describe("PATH_POLICY known path surfaces", () => {
     ).toBe(true);
     expect(matchesAny("bun.lock", selectors)).toBe(true);
     expect(matchesAny(".prettierignore", selectors)).toBe(true);
+    expect(matchesAny("drift-ai.config.example.json", selectors)).toBe(true);
     expect(matchesAny("lint-ratchet.debt-log.jsonl", selectors)).toBe(true);
     expect(
       matchesAny("bun.lock", PATH_POLICY.sourceRelevant.precommitStagedExcludedSelectors),

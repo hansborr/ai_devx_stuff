@@ -1,4 +1,4 @@
-import type { ChangedFile, ChangedFileStatus } from "../drift-ai.js";
+import type { ChangedFile, ChangedFileStatus } from "./types.js";
 
 export type ScopeMode = "changed" | "current";
 

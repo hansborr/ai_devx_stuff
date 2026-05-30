@@ -6,6 +6,70 @@ when to add, entry template) and the index of domain files.
 
 ---
 
+## Soft AI-hook nudges must not hard-deny in Claude
+
+Status: Active
+Domain: build
+
+### Context
+Claude Code can cascade-cancel sibling Bash calls in the same parallel batch
+when one PreToolUse hook returns a denied/tool-error result. The recursive
+`grep` policy is advisory guidance ("use rg") rather than a dangerous command
+block, but returning it as a hard block made unrelated parallel work vanish
+behind generic cancellation messages.
+
+### Decision
+Keep policy classification agent-neutral in `scripts/ai-hooks/policy.sh` via
+`ai_policy_is_soft_guidance`. Claude's Bash adapter routes soft guidance through
+`ai_claude_result_command`, replacing the original command with successful
+stdout guidance. Dangerous policies keep using the shared hard-block shape.
+Codex's adapter intentionally keeps recursive `grep` as a hard block because it
+does not reproduce Claude's sibling-cancellation behavior.
+
+### Consequences
+- Only commands that should be replaced, not merely warned about, belong in the
+  soft-guidance list.
+- Do not change shared `ai_emit_block` to Claude-specific
+  `permissionDecision:"deny"` output; Codex and other hook paths rely on the
+  legacy root block shape.
+- Dangerous commands must never be converted to allow+rewrite, because a dropped
+  rewrite would allow the original risky command to run.
+
+### Known harness limitation (residual; not fixable here)
+The grep rewrite is a targeted workaround, not a fix for the underlying cause.
+Sibling cancellation is a Claude Code main-loop bug (cf. anthropics/claude-code
+#22264): when any parallel Bash call resolves as denied/errored, still-in-flight
+siblings in the same batch get cancelled and returned to the model as a generic
+`Cancelled: parallel tool call Bash(...) errored` with no reason. Only an
+upstream Claude Code fix resolves this; the grep rewrite just removes the single
+highest-frequency trigger (recursive `grep`, constantly co-batched with reads).
+
+What remains live, verified 2026-05-30 in this repo:
+- **Our other hard-block denies still cancel siblings.** A batch with
+  `docker ps` / `psql postgres` blocked alongside slower `sleep` calls cancelled
+  a sibling. We deliberately do NOT extend the exit-0 rewrite to these — see the
+  dangerous-command consequence above. These are rarely co-batched with read
+  work, so the collateral damage is low.
+- **Raw command errors trigger it too**, independent of our hooks. Observed:
+  exit 0 and exit 1 are treated as normal results (no cancellation); a non-1
+  failing exit (e.g. exit 3) and command-not-found do cancel siblings.
+- **The cascade can cross a turn boundary** — an errored call in one turn was
+  observed cancelling a call issued in the next turn.
+- **Symptom to recognize:** surviving real output vanishes behind generic
+  cancellation lines, which reads like a broken/tampered/hostile shell. It is
+  not. Re-run the cancelled calls in isolation before concluding the environment
+  is broken. To avoid it, don't co-batch a known-blocked or likely-failing
+  command with slower siblings whose output you need.
+
+### References
+- `.claude/hooks/no-direct-db.sh`
+- `.codex/hooks/pre-tool-use.sh`
+- `scripts/ai-hooks/policy.sh`
+- `scripts/ai-hooks/test.sh`
+- anthropics/claude-code#22264 (sibling parallel-call cancellation)
+
+---
+
 ## `@musi/shared`: subpath exports, no root barrel
 
 Status: Active

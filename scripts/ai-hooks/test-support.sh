@@ -1,0 +1,42 @@
+#!/bin/bash
+
+# Shared assertion helpers for the ai-hooks shell test suites. Sourced by the
+# aggregate runner (test.sh) and the focused per-hook scripts (e.g.
+# test-ratchet-regression.sh) so both share one definition of the generic
+# pass/fail and hook-JSON assertions. Keep this file scoped to test support
+# only: pure helper functions with no hook fixtures or stateful setup.
+
+fail() {
+  printf 'FAIL: %s\n' "$1" >&2
+  exit 1
+}
+
+assert_contains() {
+  local haystack="$1"
+  local needle="$2"
+
+  grep -qF "$needle" <<< "$haystack" || fail "expected [$haystack] to contain [$needle]"
+}
+
+assert_not_contains() {
+  local haystack="$1"
+  local needle="$2"
+
+  if grep -qF "$needle" <<< "$haystack"; then
+    fail "expected [$haystack] not to contain [$needle]"
+  fi
+}
+
+assert_hook_json() {
+  local output="$1"
+
+  jq -e . >/dev/null <<< "$output" || fail "invalid hook JSON: $output"
+}
+
+assert_hook_continue_json() {
+  local output="$1"
+
+  assert_hook_json "$output"
+  jq -e '.continue == true and length == 1' >/dev/null <<< "$output" \
+    || fail "expected continue hook JSON, got: $output"
+}

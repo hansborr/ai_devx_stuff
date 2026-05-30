@@ -3,16 +3,15 @@ import { describe, expect, it } from "vitest";
 import type { ChangedFile } from "../drift-ai.js";
 import type { DetectorScope } from "./scope.js";
 import { toChangedScopeFile, toCurrentScopeFile } from "./scope.js";
+import { runSuppressionsCheck, type SuppressionsGitRunner } from "./suppressions.js";
 import {
   ESLINT_BROAD_SUPPRESSION_HINT,
   ESLINT_INLINE_SUPPRESSION_HINT,
-  runSuppressionsCheck,
   STRYKER_SUPPRESSION_HINT,
-  type SuppressionsGitRunner,
   TS_EXPECT_ERROR_SUPPRESSION_HINT,
   TS_IGNORE_SUPPRESSION_HINT,
   TS_NOCHECK_SUPPRESSION_HINT,
-} from "./suppressions.js";
+} from "./suppressions-parse.js";
 
 const filePath = "packages/server/src/example.ts";
 
@@ -263,6 +262,62 @@ describe("runSuppressionsCheck", () => {
         reasonPresent: true,
         text: "// @ts-expect-error -- fixture line reason",
       },
+    ]);
+  });
+
+  it("ignores suppression markers inside multiline template literals in added files", () => {
+    const addedPath = "packages/server/src/template-fixture.ts";
+    const git: SuppressionsGitRunner = () => "";
+    const sourceByPath = new Map([
+      [
+        addedPath,
+        [
+          "const text = `",
+          "// @ts-ignore",
+          "/* eslint-disable */",
+          "`;",
+          "// @ts-expect-error -- real suppression",
+        ].join("\n"),
+      ],
+    ]);
+
+    const findings = runSuppressionsCheck({
+      detectorScope: changed([{ path: addedPath, status: "added" }]),
+      repoRoot: "/repo/musi",
+      ref: "merge-base",
+      git,
+      readFile: (path) => sourceByPath.get(path),
+    });
+
+    expect(findings.map((finding) => finding.message)).toEqual([
+      "new @ts-expect-error suppression at line 5 targets next-line (reason: present)",
+    ]);
+  });
+
+  it("ignores suppression markers after escaped delimiters inside strings", () => {
+    const addedPath = "packages/server/src/escaped-string-fixture.ts";
+    const git: SuppressionsGitRunner = () => "";
+    const sourceByPath = new Map([
+      [
+        addedPath,
+        [
+          'const line = "escaped \\" // @ts-ignore";',
+          'const block = "escaped \\" /* eslint-disable */";',
+          "// @ts-ignore -- real suppression",
+        ].join("\n"),
+      ],
+    ]);
+
+    const findings = runSuppressionsCheck({
+      detectorScope: changed([{ path: addedPath, status: "added" }]),
+      repoRoot: "/repo/musi",
+      ref: "merge-base",
+      git,
+      readFile: (path) => sourceByPath.get(path),
+    });
+
+    expect(findings.map((finding) => finding.message)).toEqual([
+      "new @ts-ignore suppression at line 3 targets next-line (reason: present)",
     ]);
   });
 

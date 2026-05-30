@@ -6,20 +6,22 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import {
   ALL_CHECKS,
-  buildChunkManifest,
+  buildInventoryByDir,
   buildReport,
+  buildSourceExtensions,
   type ChangedFile,
+  CHECK_PLUGINS,
   DEFAULT_BASE,
+  DEFAULT_CHECKS,
   DEFAULT_CHUNK_SIZE,
   type DetectorScope,
   discoverChangedFiles,
-  type DriftCheckId,
-  type DriftFinding,
+  DRIFT_SCHEMA_VERSION,
+  DriftAiError,
   filterScope,
   formatJson,
   formatText,
   type GitRunner,
-  groupFindingsForChunks,
   isIgnoredPath,
   parseArgs,
   parseNameStatus,
@@ -30,11 +32,26 @@ import {
   toChangedScopeFile,
   toCurrentScopeFile,
 } from "./drift-ai.js";
+import type { CheckOverrides, CheckRunInput } from "./drift-ai/check-plugin.js";
 import type { FileReader } from "./drift-ai/comments.js";
 import { parseDriftAiConfig } from "./drift-ai/config.js";
 import type { StatRunner } from "./drift-ai/current-inventory.js";
-import type { JscpdRunner } from "./drift-ai/duplicates.js";
-import type { DirectoryListing } from "./drift-ai/ghost-files.js";
+import type { JscpdRunner } from "./drift-ai/duplicates-runner.js";
+import {
+  DEFAULT_DEPENDENTS_HINT,
+  DEFAULT_GHOST_FILE_ENTRY_POINT_STEMS,
+  DEFAULT_GHOST_FILE_WEAK_TOKENS,
+  type DirectoryListing,
+  GHOST_FILES_REPAIR_HINT_PREFIX,
+} from "./drift-ai/ghost-files.js";
+import {
+  DEFAULT_NEAR_DUPLICATE_MIN_LINES,
+  DEFAULT_NEAR_DUPLICATE_MIN_TOKENS,
+  DEFAULT_NEAR_DUPLICATE_SIMILARITY,
+  DEFAULT_NEAR_DUPLICATE_TOKEN_BAND_RATIO,
+  NEAR_DUPLICATE_TOOL,
+} from "./drift-ai/near-duplicates.js";
+import { nearDuplicatesCheck } from "./drift-ai/near-duplicates-check.js";
 import type { SuppressionsGitRunner } from "./drift-ai/suppressions.js";
 
 function emptyJscpdRunner(): JscpdRunner {
@@ -47,6 +64,56 @@ function emptyDirectoryListing(): DirectoryListing {
 
 function emptyFileReader(): FileReader {
   return () => undefined;
+}
+
+// Hermetic default injection seam: no-op runners for every adapter so a buildReport
+// test never spawns a real tool or touches the filesystem. Tests override individual
+// entries (or set `jscpd: undefined` + `binExists` to exercise tool-unavailable).
+const DEFAULT_OVERRIDES: CheckOverrides = {
+  jscpd: emptyJscpdRunner(),
+  knip: () => ({ ok: false, reason: "tool-unavailable", error: "knip not provided in test" }),
+  moduleGraph: () => ({ ok: false, error: "module-graph not provided in test" }),
+  nearDuplicates: () => ({ ok: true, engine: "ts-morph", functions: [] }),
+  listDirectory: () => [],
+  readFile: () => undefined,
+  suppressionsGit: () => "",
+  pathExists: () => false,
+};
+
+// Overrides for the buildReport run input. `overrides` is the injected runner seam
+// each plugin resolves its own services from; `cli` lets a test drive the
+// tool-override flags (jscpd-bin/knip-config/tsconfig) plugins read at resolve time.
+type CheckContextOverrides = {
+  readonly config?: CheckRunInput["config"];
+  readonly repoRoot?: string;
+  readonly suppressionDiffRef?: string | null;
+  readonly warnStderr?: (message: string) => void;
+  readonly overrides?: CheckOverrides;
+  readonly cli?: ReturnType<typeof parseArgs>;
+};
+
+function makeCheckRunContext(
+  detectorScope: DetectorScope,
+  overrides: CheckContextOverrides = {},
+): CheckRunInput {
+  const config = overrides.config ?? parseDriftAiConfig({});
+  const repoRoot = overrides.repoRoot ?? "/repo/musi";
+  return {
+    detectorScope,
+    inventoryByDir:
+      detectorScope.scopeMode === "current" ? buildInventoryByDir(detectorScope.files) : null,
+    repoRoot,
+    suppressionDiffRef: overrides.suppressionDiffRef ?? null,
+    config,
+    roots: config.roots,
+    sourceExtensions: buildSourceExtensions(config.additionalSourceExtensions),
+    warnStderr: overrides.warnStderr ?? (() => undefined),
+    env: {
+      repoRoot,
+      overrides: { ...DEFAULT_OVERRIDES, ...overrides.overrides },
+      cli: overrides.cli ?? parseArgs([]),
+    },
+  };
 }
 
 const tempRoots: string[] = [];
@@ -72,6 +139,15 @@ function makeStubGit(responses: Record<string, string>): GitRunner {
   };
 }
 
+function captureThrown(callback: () => void): unknown {
+  try {
+    callback();
+  } catch (err) {
+    return err;
+  }
+  throw new Error("expected callback to throw");
+}
+
 function makeRunDriftGit(
   changedOutput: string,
   untrackedOutput = "",
@@ -82,6 +158,7 @@ function makeRunDriftGit(
     "rev-parse --verify main": "main-sha",
     "merge-base main HEAD": `${mergeBase}\n`,
     "rev-parse --show-toplevel": repoRoot,
+    "rev-parse --is-shallow-repository": "false\n",
     [`diff --name-status ${mergeBase}`]: changedOutput,
     [`diff ${mergeBase}`]: "",
     "ls-files --others --exclude-standard": untrackedOutput,
@@ -129,22 +206,27 @@ function ghostPairFiles(count: number): string[] {
   return files;
 }
 
-function duplicateFinding(file: string): DriftFinding {
-  return {
-    check: "duplicates",
-    file,
-    message: "duplicates src/shared.ts:1-30 (30 lines)",
-    hint: "extract or reuse",
-  };
+const CODE_INTEL_DEPENDENTS_HINT = "Run: bun run code:intel -- dependents {path}";
+
+function renderDependentsHint(template: string, peerPath: string): string {
+  return template.split("{path}").join(peerPath);
 }
 
-function ghostFinding(file: string): DriftFinding {
-  return {
-    check: "ghost-files",
-    file,
-    message: `${file} ↔ ${file.replace("-helper", "")} -- suspicious sibling pair`,
-    hint: "review the pair",
-  };
+function defaultCurrentPairHint(left: string, right: string): string {
+  return [
+    "review whether the pair should be merged, renamed, or documented as intentionally separate.",
+    `${renderDependentsHint(DEFAULT_DEPENDENTS_HINT, left)}; ${renderDependentsHint(
+      DEFAULT_DEPENDENTS_HINT,
+      right,
+    )}`,
+  ].join(" ");
+}
+
+function defaultRepairHint(peerPath: string): string {
+  return `${GHOST_FILES_REPAIR_HINT_PREFIX} ${renderDependentsHint(
+    DEFAULT_DEPENDENTS_HINT,
+    peerPath,
+  )}`;
 }
 
 function writtenJson(writes: readonly CapturedWrite[], target: string): Record<string, unknown> {
@@ -160,18 +242,20 @@ function writtenText(writes: readonly CapturedWrite[], target: string): string {
 }
 
 describe("parseArgs", () => {
-  it("defaults to base main, all checks, text format", () => {
+  it("defaults to base main, default checks, text format", () => {
     const options = parseArgs([]);
     expect(options.scopeMode).toBe("changed");
     expect(options.base).toBe(DEFAULT_BASE);
     expect(options.baseExplicit).toBe(false);
-    expect(options.checks).toEqual([...ALL_CHECKS]);
+    expect(options.checks).toEqual([...DEFAULT_CHECKS]);
     expect(options.format).toBe("text");
     expect(options.roots).toEqual([]);
     expect(options.configPath).toBeUndefined();
     expect(options.outputPath).toBeUndefined();
     expect(options.chunkDir).toBeUndefined();
     expect(options.chunkSize).toBeUndefined();
+    expect(options.includeScope).toBe(false);
+    expect(options.failOnFindings).toBe(false);
   });
 
   it("includes suppressions in ALL_CHECKS and accepts --check suppressions", () => {
@@ -218,6 +302,22 @@ describe("parseArgs", () => {
     expect(() => parseArgs(["--format", "yaml"])).toThrow(/--format requires text or json/u);
   });
 
+  it("parses --include-scope as an opt-in JSON flag", () => {
+    expect(parseArgs([]).includeScope).toBe(false);
+    expect(parseArgs(["--include-scope"]).includeScope).toBe(true);
+    expect(() => parseArgs(["--include-scope=true"])).toThrow(
+      /--include-scope does not accept a value/u,
+    );
+  });
+
+  it("parses --fail-on-findings as an opt-in exit flag", () => {
+    expect(parseArgs([]).failOnFindings).toBe(false);
+    expect(parseArgs(["--fail-on-findings"]).failOnFindings).toBe(true);
+    expect(() => parseArgs(["--fail-on-findings=true"])).toThrow(
+      /--fail-on-findings does not accept a value/u,
+    );
+  });
+
   it("captures --output path and rejects missing values", () => {
     expect(parseArgs(["--output", "report.json"]).outputPath).toBe("report.json");
     expect(() => parseArgs(["--output"])).toThrow(/--output requires a value/u);
@@ -244,6 +344,15 @@ describe("parseArgs", () => {
     expect(() => parseArgs(["--chunk-dir", "reports/chunks", "--chunk-size", "0"])).toThrow(
       /positive integer/u,
     );
+  });
+
+  it("captures --jscpd-bin path and rejects an empty value", () => {
+    expect(parseArgs(["--jscpd-bin", "/tools/node_modules/.bin/jscpd"]).jscpdBin).toBe(
+      "/tools/node_modules/.bin/jscpd",
+    );
+    expect(parseArgs(["--jscpd-bin=/abs/jscpd"]).jscpdBin).toBe("/abs/jscpd");
+    expect(parseArgs([]).jscpdBin).toBeUndefined();
+    expect(() => parseArgs(["--jscpd-bin="])).toThrow(/--jscpd-bin requires a path/u);
   });
 
   it("rejects invalid flag combinations for the first slice", () => {
@@ -305,6 +414,9 @@ describe("parseDriftAiConfig", () => {
         comments: { excludePrefixes: ["scripts/"] },
         "ghost-files": {
           excludeGlobs: ["**/*.stories.tsx"],
+          dependentsHint: CODE_INTEL_DEPENDENTS_HINT,
+          weakTokens: ["Controller", "controller", "service"],
+          entryPointStems: ["Mod", "mod", "index.server"],
           currentAllowedPairs: [
             ["./src/foo-helper.ts", "src/foo.ts"],
             ["src/b.ts", "src/a.ts"],
@@ -321,15 +433,79 @@ describe("parseDriftAiConfig", () => {
     expect(config.checks.duplicates.minLines).toBe(12);
     expect(config.checks.comments.excludePrefixes).toEqual(["scripts/"]);
     expect(config.checks["ghost-files"].excludeGlobs).toEqual(["**/*.stories.tsx"]);
+    expect(config.checks["ghost-files"].dependentsHint).toBe(CODE_INTEL_DEPENDENTS_HINT);
+    expect(config.checks["ghost-files"].weakTokens).toEqual(["controller", "service"]);
+    expect(config.checks["ghost-files"].entryPointStems).toEqual(["index.server", "mod"]);
     expect(config.checks["ghost-files"].currentAllowedPairs).toEqual([
       { files: ["src/a.ts", "src/b.ts"] },
       { files: ["src/foo-helper.ts", "src/foo.ts"] },
     ]);
   });
 
+  it("merges custom ignore segments with defaults, deduping and sorting", () => {
+    const config = parseDriftAiConfig({
+      ignore: { segments: ["custom-generated", "node_modules"] },
+    });
+    // "node_modules" is also a built-in default; the merge must keep it once.
+    expect(config.ignore.segments.filter((segment) => segment === "node_modules")).toHaveLength(1);
+    expect(config.ignore.segments).toContain("custom-generated");
+    expect(config.ignore.segments).toEqual(
+      [...config.ignore.segments].sort((left, right) => left.localeCompare(right, "en")),
+    );
+  });
+
+  it("keeps ghost-files weak-token and entrypoint defaults when unset", () => {
+    const config = parseDriftAiConfig({});
+    expect(config.checks["ghost-files"].weakTokens).toEqual(DEFAULT_GHOST_FILE_WEAK_TOKENS);
+    expect(config.checks["ghost-files"].entryPointStems).toEqual(
+      DEFAULT_GHOST_FILE_ENTRY_POINT_STEMS,
+    );
+  });
+
+  it("uses plugin defaults for every omitted check config", () => {
+    const config = parseDriftAiConfig({ checks: {} });
+    for (const plugin of CHECK_PLUGINS) {
+      expect(config.checks[plugin.id], plugin.id).toEqual(plugin.defaultConfig);
+    }
+  });
+
+  it("keeps empty per-check config parsing aligned with plugin defaults", () => {
+    for (const plugin of CHECK_PLUGINS) {
+      const config = parseDriftAiConfig({ checks: { [plugin.id]: {} } });
+      expect(config.checks[plugin.id], plugin.id).toEqual(plugin.defaultConfig);
+    }
+  });
+
+  it("keeps near-duplicates defaults aligned for omitted and empty config", () => {
+    const expected = {
+      engine: NEAR_DUPLICATE_TOOL,
+      minLines: DEFAULT_NEAR_DUPLICATE_MIN_LINES,
+      minTokens: DEFAULT_NEAR_DUPLICATE_MIN_TOKENS,
+      similarityThreshold: DEFAULT_NEAR_DUPLICATE_SIMILARITY,
+      tokenBandRatio: DEFAULT_NEAR_DUPLICATE_TOKEN_BAND_RATIO,
+      excludeGlobs: [],
+    };
+    const omitted = parseDriftAiConfig({ checks: { comments: { excludePrefixes: ["docs/"] } } });
+    const empty = parseDriftAiConfig({ checks: { "near-duplicates": {} } });
+
+    expect(nearDuplicatesCheck.defaultConfig).toEqual(expected);
+    expect(omitted.checks["near-duplicates"]).toEqual(expected);
+    expect(empty.checks["near-duplicates"]).toEqual(expected);
+  });
+
   it("collapses internal dot segments in config roots", () => {
     const config = parseDriftAiConfig({ roots: ["packages/../shared"] });
     expect(config.roots).toEqual(["shared"]);
+  });
+
+  it("keeps the root starter config parseable as a generic example", () => {
+    const raw = JSON.parse(
+      readFileSync(path.join(process.cwd(), "drift-ai.config.example.json"), "utf8"),
+    ) as unknown;
+    const config = parseDriftAiConfig(raw, "drift-ai.config.example.json");
+    expect(config.roots).toEqual(["src", "packages", "apps"]);
+    expect(config.checks["ghost-files"].dependentsHint).toBe("Check what imports {path}");
+    expect(config.checks["ghost-files"].currentAllowedPairs).toEqual([]);
   });
 
   it("rejects unknown keys and invalid extension entries", () => {
@@ -354,6 +530,41 @@ describe("parseDriftAiConfig", () => {
         },
       }),
     ).toThrow(/must stay inside the repo/u);
+    expect(() =>
+      parseDriftAiConfig({
+        checks: {
+          "ghost-files": { dependentsHint: "Run a dependents lookup" },
+        },
+      }),
+    ).toThrow(/must include a \{path\} placeholder/u);
+    expect(() =>
+      parseDriftAiConfig({
+        checks: {
+          "ghost-files": { dependentsHint: "" },
+        },
+      }),
+    ).toThrow(/must be a non-empty string/u);
+    expect(() =>
+      parseDriftAiConfig({
+        checks: {
+          "ghost-files": { dependentsHint: 12 },
+        },
+      }),
+    ).toThrow(/must be a non-empty string/u);
+    expect(() =>
+      parseDriftAiConfig({
+        checks: {
+          "ghost-files": { weakTokens: ["not-a-token"] },
+        },
+      }),
+    ).toThrow(/must be an alphanumeric token/u);
+    expect(() =>
+      parseDriftAiConfig({
+        checks: {
+          "ghost-files": { entryPointStems: ["src/index"] },
+        },
+      }),
+    ).toThrow(/must be one filename stem/u);
   });
 });
 
@@ -411,6 +622,7 @@ describe("isIgnoredPath / filterScope", () => {
 describe("discoverChangedFiles", () => {
   it("uses the net working-tree diff from the base and adds untracked files", () => {
     const git = makeStubGit({
+      "rev-parse --is-shallow-repository": "false\n",
       "diff --name-status main": [
         "A\tpackages/server/src/new.ts",
         "R100\tpackages/server/src/from.ts\tpackages/server/src/to.ts",
@@ -433,11 +645,74 @@ describe("discoverChangedFiles", () => {
 
   it("includes uncommitted edits to tracked files (two-dot diff against base)", () => {
     const git = makeStubGit({
+      "rev-parse --is-shallow-repository": "false\n",
       "diff --name-status main": "M\tpackages/shared/src/already-tracked.ts",
       "ls-files --others --exclude-standard": "",
     });
     const files = discoverChangedFiles("main", git);
     expect(files).toEqual([{ path: "packages/shared/src/already-tracked.ts", status: "modified" }]);
+  });
+
+  it("raises a clear DriftAiError before diffing a shallow repository", () => {
+    const calls: string[] = [];
+    const git: GitRunner = (args) => {
+      const key = args.join(" ");
+      calls.push(key);
+      if (key === "rev-parse --is-shallow-repository") return "true\n";
+      throw new Error(`unexpected git invocation: git ${key}`);
+    };
+
+    const error = captureThrown(() => discoverChangedFiles("main", git));
+
+    expect(error).toBeInstanceOf(DriftAiError);
+    expect(error).toHaveProperty(
+      "message",
+      expect.stringContaining("changed scope needs full git history"),
+    );
+    expect(calls).toEqual(["rev-parse --is-shallow-repository"]);
+  });
+
+  it("converts a SIGSEGV-like diff failure into the same clear shallow-clone error", () => {
+    const rawError = Object.assign(new Error("Command failed: git diff --name-status main"), {
+      signal: "SIGSEGV",
+    });
+    const git: GitRunner = (args) => {
+      const key = args.join(" ");
+      if (key === "rev-parse --is-shallow-repository") return "false\n";
+      if (key === "diff --name-status main") throw rawError;
+      throw new Error(`unexpected git invocation: git ${key}`);
+    };
+
+    const error = captureThrown(() => discoverChangedFiles("main", git));
+
+    expect(error).toBeInstanceOf(DriftAiError);
+    expect(error).toHaveProperty("message", expect.stringContaining("shallow/blobless clone"));
+  });
+
+  it("converts missing-object diff failures into the shallow-clone error", () => {
+    const rawError = new Error("fatal: bad tree object abc123");
+    const git: GitRunner = (args) => {
+      const key = args.join(" ");
+      if (key === "rev-parse --is-shallow-repository") return "false\n";
+      if (key === "diff --name-status main") throw rawError;
+      throw new Error(`unexpected git invocation: git ${key}`);
+    };
+
+    expect(() => discoverChangedFiles("main", git)).toThrow(
+      /changed scope needs full git history/u,
+    );
+  });
+
+  it("preserves unrelated diff failures", () => {
+    const rawError = new Error("fatal: ambiguous argument 'main'");
+    const git: GitRunner = (args) => {
+      const key = args.join(" ");
+      if (key === "rev-parse --is-shallow-repository") return "false\n";
+      if (key === "diff --name-status main") throw rawError;
+      throw new Error(`unexpected git invocation: git ${key}`);
+    };
+
+    expect(() => discoverChangedFiles("main", git)).toThrow(rawError);
   });
 });
 
@@ -500,36 +775,86 @@ describe("resolveMergeBase", () => {
 });
 
 describe("buildReport / formatText / formatJson", () => {
-  it("enables every implemented check by default with no skipped list", () => {
+  it("enables every default check with no skipped list", () => {
     const options = parseArgs([]);
     const scope: ChangedFile[] = [{ path: "packages/server/src/foo.ts", status: "modified" }];
     const detectorScope = changedDetectorScope(scope);
-    const report = buildReport(options, "main", detectorScope, {
-      detectorScope,
-      jscpd: emptyJscpdRunner(),
-      listDirectory: emptyDirectoryListing(),
-      readFile: emptyFileReader(),
-    });
-    expect(report.enabledChecks).toEqual([...ALL_CHECKS]);
+    const report = buildReport(options, "main", detectorScope, makeCheckRunContext(detectorScope));
+    expect(report.enabledChecks).toEqual([...DEFAULT_CHECKS]);
     expect(report.skippedChecks).toEqual([]);
+    expect(report.summary).toEqual({
+      total: 0,
+      byCheck: { duplicates: 0, "ghost-files": 0, comments: 0, suppressions: 0 },
+    });
+    expect(report.scopeCount).toBe(1);
     expect(report.findings).toEqual([]);
 
     const text = formatText(report);
     expect(text).toContain("drift:ai (report-only) -- scope changed -- base main");
     expect(text).toContain("scope: 1 file(s) considered");
+    expect(text).toContain("findings: 0 (duplicates 0, ghost-files 0, comments 0, suppressions 0)");
     expect(text).not.toContain("skipped:");
-    expect(text).toContain(`OK: no findings from checks: ${ALL_CHECKS.join(", ")}`);
+    expect(text).toContain(`OK: no findings from checks: ${DEFAULT_CHECKS.join(", ")}`);
 
     const json = JSON.parse(formatJson(report)) as Record<string, unknown>;
-    expect(json["schemaVersion"]).toBe(1);
+    const keys = Object.keys(json);
+    expect(json["schemaVersion"]).toBe(DRIFT_SCHEMA_VERSION);
     expect(json["scopeMode"]).toBe("changed");
     expect(json["base"]).toBe("main");
     expect(json["roots"]).toEqual([]);
     expect(json["configPath"]).toBeNull();
-    expect(json["enabledChecks"]).toEqual([...ALL_CHECKS]);
+    expect(json["enabledChecks"]).toEqual([...DEFAULT_CHECKS]);
     expect(json["skippedChecks"]).toEqual([]);
-    expect(json["scope"]).toEqual(scope.map(toChangedScopeFile));
+    expect(json["summary"]).toEqual({
+      total: 0,
+      byCheck: { duplicates: 0, "ghost-files": 0, comments: 0, suppressions: 0 },
+    });
     expect(json["findings"]).toEqual([]);
+    expect(json["scopeCount"]).toBe(1);
+    expect(json).not.toHaveProperty("scope");
+    expect(keys.indexOf("summary")).toBeLessThan(keys.indexOf("findings"));
+    expect(keys.indexOf("findings")).toBeLessThan(keys.indexOf("scopeCount"));
+    const jsonWithScope = JSON.parse(formatJson(report, { includeScope: true })) as Record<
+      string,
+      unknown
+    >;
+    expect(jsonWithScope["scope"]).toEqual(scope.map(toChangedScopeFile));
+    expect(Object.keys(jsonWithScope).indexOf("findings")).toBeLessThan(
+      Object.keys(jsonWithScope).indexOf("scope"),
+    );
+  });
+
+  it("summarizes findings by checks that actually ran", () => {
+    const options = parseArgs(["--check", "duplicates", "--check", "comments"]);
+    const scope: ChangedFile[] = [{ path: "packages/server/src/foo.ts", status: "modified" }];
+    const detectorScope = changedDetectorScope(scope);
+    const report = buildReport(
+      options,
+      "main",
+      detectorScope,
+      makeCheckRunContext(detectorScope, {
+        overrides: {
+          jscpd: () => ({
+            ok: true,
+            reportJson: JSON.stringify({
+              duplicates: [
+                {
+                  lines: 12,
+                  firstFile: { name: "packages/server/src/foo.ts", start: 1, end: 12 },
+                  secondFile: { name: "packages/server/src/shared.ts", start: 1, end: 12 },
+                },
+              ],
+            }),
+          }),
+        },
+      }),
+    );
+
+    expect(report.summary).toEqual({ total: 1, byCheck: { duplicates: 1, comments: 0 } });
+    expect(formatText(report)).toContain("findings: 1 (duplicates 1, comments 0)");
+    const json = JSON.parse(formatJson(report)) as Record<string, unknown>;
+    expect(json["summary"]).toEqual({ total: 1, byCheck: { duplicates: 1, comments: 0 } });
+    expect(json["findings"]).toHaveLength(1);
   });
 
   it("wires suppressions through buildReport", () => {
@@ -546,15 +871,16 @@ describe("buildReport / formatText / formatJson", () => {
         "+// @ts-ignore -- legacy fixture",
       ].join("\n");
 
-    const report = buildReport(options, "main", detectorScope, {
+    const report = buildReport(
+      options,
+      "main",
       detectorScope,
-      jscpd: emptyJscpdRunner(),
-      listDirectory: emptyDirectoryListing(),
-      readFile: emptyFileReader(),
-      suppressionsGit,
-      repoRoot: "/repo/musi",
-      suppressionDiffRef: "merge-base",
-    });
+      makeCheckRunContext(detectorScope, {
+        overrides: { suppressionsGit },
+        repoRoot: "/repo/musi",
+        suppressionDiffRef: "merge-base",
+      }),
+    );
 
     expect(report.enabledChecks).toEqual(["suppressions"]);
     expect(report.skippedChecks).toEqual([]);
@@ -575,22 +901,97 @@ describe("buildReport / formatText / formatJson", () => {
     ]);
   });
 
-  it("falls back to no-op runners when no context is supplied", () => {
-    // Direct buildReport callers should not need to construct real runners;
-    // the defaults keep unit tests free of subprocess and filesystem wiring.
+  it("skips duplicates with a reason instead of a finding when jscpd is unavailable", () => {
     const options = parseArgs([]);
     const scope: ChangedFile[] = [{ path: "packages/server/src/foo.ts", status: "modified" }];
-    const report = buildReport(options, "main", changedDetectorScope(scope));
+    const detectorScope = changedDetectorScope(scope);
+    const messages: string[] = [];
+    // No injected jscpd runner and binExists always-false: the duplicates plugin
+    // resolves its own jscpd, finds none, and skips (never a finding) in preflight.
+    const report = buildReport(
+      options,
+      "main",
+      detectorScope,
+      makeCheckRunContext(detectorScope, {
+        // Drop the default no-op jscpd so the plugin must resolve a real binary;
+        // binExists:false makes that resolution fail, the tool-unavailable path.
+        overrides: { jscpd: undefined, binExists: () => false },
+        warnStderr: (message) => messages.push(message),
+      }),
+    );
+    expect(report.enabledChecks).not.toContain("duplicates");
+    const duplicatesSkip = report.skippedChecks.find((skip) => skip.check === "duplicates");
+    expect(duplicatesSkip?.reason).toContain("jscpd executable not found");
+    expect(report.findings.filter((finding) => finding.check === "duplicates")).toEqual([]);
+    expect(messages).toEqual([expect.stringContaining("jscpd executable not found")]);
+  });
+
+  it("does not resolve an unselected check's expensive service (lazy, plugin-owned)", () => {
+    const scope: ChangedFile[] = [{ path: "packages/server/src/foo.ts", status: "modified" }];
+    const detectorScope = changedDetectorScope(scope);
+    let binProbes = 0;
+    const binExists = () => {
+      binProbes += 1;
+      return false;
+    };
+
+    // comments selected, duplicates NOT: the duplicates plugin's jscpd binary probe
+    // must never run, because buildReport only dispatches selected checks and each
+    // plugin resolves its own services lazily on dispatch.
+    buildReport(
+      parseArgs(["--check", "comments"]),
+      "main",
+      detectorScope,
+      makeCheckRunContext(detectorScope, { overrides: { jscpd: undefined, binExists } }),
+    );
+    expect(binProbes).toBe(0);
+
+    // duplicates selected: now the same probe is exercised, proving the counter is
+    // a faithful witness (the zero above is laziness, not a dead seam).
+    buildReport(
+      parseArgs(["--check", "duplicates"]),
+      "main",
+      detectorScope,
+      makeCheckRunContext(detectorScope, { overrides: { jscpd: undefined, binExists } }),
+    );
+    expect(binProbes).toBeGreaterThan(0);
+  });
+
+  it("skips suppressions in current scope with a structured reason", () => {
+    const options = parseArgs(["--scope", "current", "--check", "suppressions"]);
+    const detectorScope: DetectorScope = {
+      scopeMode: "current",
+      files: ["src/current.ts"].map(toCurrentScopeFile),
+    };
+    const report = buildReport(options, null, detectorScope, makeCheckRunContext(detectorScope));
+
+    expect(report.enabledChecks).toEqual([]);
+    expect(report.skippedChecks).toEqual([
+      { check: "suppressions", reason: "only available in changed scope" },
+    ]);
+    const text = formatText(report);
+    expect(text).toContain("skipped: suppressions — only available in changed scope");
+    expect(text).toContain(
+      "drift:ai: suppressions is only available in changed scope; nothing to run.",
+    );
+    expect(text).not.toContain("drift:ai: no implemented checks selected.");
+  });
+
+  it("uses explicit no-op runners from the supplied context", () => {
+    const options = parseArgs([]);
+    const scope: ChangedFile[] = [{ path: "packages/server/src/foo.ts", status: "modified" }];
+    const detectorScope = changedDetectorScope(scope);
+    const report = buildReport(options, "main", detectorScope, makeCheckRunContext(detectorScope));
     expect(report.findings).toEqual([]);
   });
 
-  it("builds current inventory for direct no-context callers", () => {
+  it("uses current inventory from the supplied context", () => {
     const options = parseArgs(["--scope", "current", "--check", "ghost-files"]);
     const detectorScope: DetectorScope = {
       scopeMode: "current",
       files: ["src/foo.ts", "src/foo-helper.ts"].map(toCurrentScopeFile),
     };
-    const report = buildReport(options, null, detectorScope);
+    const report = buildReport(options, null, detectorScope, makeCheckRunContext(detectorScope));
     expect(report.findings).toHaveLength(1);
     expect(report.findings[0]?.relatedFiles).toEqual(["src/foo-helper.ts", "src/foo.ts"]);
   });
@@ -600,9 +1001,9 @@ describe("buildReport / formatText / formatJson", () => {
     // wiring it into IMPLEMENTED_CHECKS. The branch keeps the CLI
     // self-describing during that handoff window. Using "comments" here is
     // arbitrary — formatText only branches on enabledChecks being empty.
-    const skipped: ReadonlyArray<DriftCheckId> = ["comments"];
+    const skipped = [{ check: "comments" as const, reason: "check is not implemented" }];
     const text = formatText({
-      schemaVersion: 1,
+      schemaVersion: DRIFT_SCHEMA_VERSION,
       scopeMode: "changed",
       base: "main",
       resolvedRef: "main",
@@ -610,6 +1011,8 @@ describe("buildReport / formatText / formatJson", () => {
       configPath: null,
       enabledChecks: [],
       skippedChecks: skipped,
+      summary: { total: 0, byCheck: {} },
+      scopeCount: 0,
       scope: [],
       findings: [],
     });
@@ -620,12 +1023,12 @@ describe("buildReport / formatText / formatJson", () => {
   it("includes the resolved ref when it differs from --base", () => {
     const options = parseArgs(["--base", "main"]);
     const detectorScope = changedDetectorScope([]);
-    const report = buildReport(options, "origin/main", detectorScope, {
+    const report = buildReport(
+      options,
+      "origin/main",
       detectorScope,
-      jscpd: emptyJscpdRunner(),
-      listDirectory: emptyDirectoryListing(),
-      readFile: emptyFileReader(),
-    });
+      makeCheckRunContext(detectorScope),
+    );
     expect(formatText(report)).toContain("base main (resolved origin/main)");
   });
 });
@@ -644,7 +1047,7 @@ describe("runDriftAi", () => {
       expect(result.stdout).toContain("bun run drift:ai --base <ref>");
       expect(result.stdout).toContain("bun run drift:ai --scope <changed|current>");
       expect(result.stdout).toContain(
-        "bun run drift:ai --check <duplicates|ghost-files|comments|suppressions|all>",
+        "bun run drift:ai --check <duplicates|ghost-files|comments|suppressions|orphan-files|import-cycles|near-duplicates|all>",
       );
       expect(result.stdout).toContain("bun run drift:ai --root <path>");
     });
@@ -662,7 +1065,7 @@ describe("runDriftAi", () => {
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain("drift:ai (report-only) -- scope changed -- base main");
     expect(result.stdout).toContain("scope: 1 file(s) considered");
-    expect(result.stdout).toContain(`OK: no findings from checks: ${ALL_CHECKS.join(", ")}`);
+    expect(result.stdout).toContain(`OK: no findings from checks: ${DEFAULT_CHECKS.join(", ")}`);
     expect(result.report?.scope).toEqual([
       { scope: "changed", path: "packages/server/src/foo.ts", status: "added" },
     ]);
@@ -705,14 +1108,76 @@ describe("runDriftAi", () => {
     ]);
     if (result.report === undefined) throw new Error("expected current report");
     const json = JSON.parse(formatJson(result.report)) as Record<string, unknown>;
-    expect(json["schemaVersion"]).toBe(1);
+    expect(json["schemaVersion"]).toBe(DRIFT_SCHEMA_VERSION);
     expect(json["scopeMode"]).toBe("current");
     expect(json["base"]).toBeNull();
     expect(json["resolvedRef"]).toBeNull();
-    expect(json["scope"]).toEqual([
-      { scope: "current", path: "src/app.ts" },
-      { scope: "current", path: "src/view.tsx" },
+    expect(json["scopeCount"]).toBe(2);
+    expect(json).not.toHaveProperty("scope");
+  });
+
+  it("skips import-cycles for a missing explicit --tsconfig instead of reporting cycles", () => {
+    const repoRoot = makeTempDir();
+    mkdirSync(path.join(repoRoot, "src"), { recursive: true });
+    writeFileSync(
+      path.join(repoRoot, "src/a.ts"),
+      `import { b } from "./b";\nexport const a = () => b();\n`,
+    );
+    writeFileSync(
+      path.join(repoRoot, "src/b.ts"),
+      `import { a } from "./a";\nexport const b = () => a();\n`,
+    );
+    const files = ["src/a.ts", "src/b.ts"];
+    const result = runDriftAi({
+      argv: [
+        "--scope",
+        "current",
+        "--check",
+        "import-cycles",
+        "--tsconfig",
+        "missing-tsconfig.json",
+      ],
+      git: makeCurrentGit(repoRoot),
+      gitBuffer: () => nulDelimited(files),
+      stat: statForCurrentFiles(repoRoot, files),
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.report?.findings).toEqual([]);
+    expect(result.report?.enabledChecks).toEqual([]);
+    expect(result.report?.skippedChecks).toEqual([
+      {
+        check: "import-cycles",
+        code: "no-target-config",
+        reason: expect.stringContaining("explicit --tsconfig missing-tsconfig.json"),
+      },
     ]);
+    expect(result.stdout).toContain("missing-tsconfig.json");
+  });
+
+  it("does not probe shallow-clone state for --scope current", () => {
+    const repoRoot = makeTempDir();
+    const files = ["src/app.ts"];
+    const git: GitRunner = (args) => {
+      const key = args.join(" ");
+      if (key === "rev-parse --show-toplevel") return `${repoRoot}\n`;
+      if (key === "rev-parse --is-shallow-repository") {
+        throw new Error("current scope must not run shallow changed-scope probes");
+      }
+      throw new Error(`unexpected git invocation: git ${key}`);
+    };
+
+    const result = runDriftAi({
+      argv: ["--scope", "current", "--check", "comments"],
+      git,
+      gitBuffer: () => nulDelimited(files),
+      stat: statForCurrentFiles(repoRoot, files),
+      readFile: () => "const value = 1;\n",
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.report?.scopeMode).toBe("current");
+    expect(result.report?.scope).toEqual([{ scope: "current", path: "src/app.ts" }]);
   });
 
   it("drives --scope current --check duplicates end-to-end with a jscpd clone", () => {
@@ -832,12 +1297,41 @@ describe("runDriftAi", () => {
         check: "ghost-files",
         file: "src/foo/bar-helper.ts",
         message: expect.stringContaining("src/foo/bar-helper.ts ↔ src/foo/bar.ts"),
-        hint: expect.stringContaining(
-          "bun run code:intel -- dependents src/foo/bar-helper.ts; bun run code:intel -- dependents src/foo/bar.ts",
-        ),
+        hint: defaultCurrentPairHint("src/foo/bar-helper.ts", "src/foo/bar.ts"),
         relatedFiles: ["src/foo/bar-helper.ts", "src/foo/bar.ts"],
       },
     ]);
+  });
+
+  it("honors dependentsHint from config for current ghost-files pair hints", () => {
+    const repoRoot = makeTempDir();
+    writeFileSync(
+      path.join(repoRoot, "drift-ai.config.json"),
+      JSON.stringify({
+        checks: {
+          "ghost-files": {
+            dependentsHint: CODE_INTEL_DEPENDENTS_HINT,
+          },
+        },
+      }),
+    );
+    const files = ["src/foo/bar.ts", "src/foo/bar-helper.ts"];
+    const result = runDriftAi({
+      argv: ["--scope", "current", "--check", "ghost-files"],
+      git: makeCurrentGit(repoRoot),
+      gitBuffer: () => nulDelimited(files),
+      stat: statForCurrentFiles(repoRoot, files),
+      listDirectory: () => {
+        throw new Error("current ghost-files must not use listDirectory");
+      },
+    });
+    expect(result.exitCode).toBe(0);
+    expect(result.report?.findings[0]?.hint).toContain(
+      "Run: bun run code:intel -- dependents src/foo/bar-helper.ts",
+    );
+    expect(result.report?.findings[0]?.hint).toContain(
+      "Run: bun run code:intel -- dependents src/foo/bar.ts",
+    );
   });
 
   it("honors currentAllowedPairs from config for current ghost-files only", () => {
@@ -959,10 +1453,11 @@ describe("runDriftAi", () => {
       git: makeCurrentGit(repoRoot),
       gitBuffer: () => nulDelimited(["src/app.ts"]),
       stat: statForCurrentFiles(repoRoot, ["src/app.ts"]),
+      jscpd: emptyJscpdRunner(),
     });
     expect(result.exitCode).toBe(0);
     const payload = JSON.parse(result.stdout) as Record<string, unknown>;
-    expect(payload["schemaVersion"]).toBe(1);
+    expect(payload["schemaVersion"]).toBe(DRIFT_SCHEMA_VERSION);
     expect(payload["configPath"]).toBe("drift-ai.config.json");
   });
 
@@ -1154,9 +1649,30 @@ describe("runDriftAi", () => {
     if (!written) throw new Error("expected one write");
     expect(written.path).toBe(target);
     const payload = JSON.parse(written.contents) as Record<string, unknown>;
-    expect(payload["schemaVersion"]).toBe(1);
+    expect(payload["schemaVersion"]).toBe(DRIFT_SCHEMA_VERSION);
     expect(payload["scopeMode"]).toBe("changed");
     expect(payload["base"]).toBe("main");
+    expect(payload["scopeCount"]).toBe(1);
+    expect(payload).not.toHaveProperty("scope");
+  });
+
+  it("includes the full scope in JSON output when --include-scope is set", () => {
+    const target = path.join(makeTempDir(), "drift.json");
+    const git = makeRunDriftGit("A\tpackages/server/src/foo.ts");
+    const writes: CapturedWrite[] = [];
+    const result = runDriftAi({
+      argv: ["--format", "json", "--include-scope", "--output", target],
+      git,
+      jscpd: emptyJscpdRunner(),
+      listDirectory: emptyDirectoryListing(),
+      readFile: emptyFileReader(),
+      writer: (writePath, contents) => {
+        writes.push({ path: writePath, contents });
+      },
+    });
+    expect(result.exitCode).toBe(0);
+    const payload = JSON.parse(writtenText(writes, target)) as Record<string, unknown>;
+    expect(payload["scopeCount"]).toBe(1);
     expect(payload["scope"]).toEqual([
       { scope: "changed", path: "packages/server/src/foo.ts", status: "added" },
     ]);
@@ -1175,9 +1691,10 @@ describe("runDriftAi", () => {
     });
     expect(result.exitCode).toBe(0);
     const onDisk = JSON.parse(readFileSync(target, "utf8")) as Record<string, unknown>;
-    expect(onDisk["schemaVersion"]).toBe(1);
+    expect(onDisk["schemaVersion"]).toBe(DRIFT_SCHEMA_VERSION);
     expect(onDisk["base"]).toBe("main");
-    expect(onDisk["scope"]).toEqual([]);
+    expect(onDisk["scopeCount"]).toBe(0);
+    expect(onDisk).not.toHaveProperty("scope");
   });
 
   it("forwards a stubbed jscpd runner finding through to the rendered report", () => {
@@ -1327,11 +1844,39 @@ describe("runDriftAi", () => {
         check: "ghost-files",
         file: `${dir}/character-auth-utils.ts`,
         message: expect.stringContaining(`looks like a sibling of ${dir}/character-auth.ts`),
-        hint: expect.stringContaining(`bun run code:intel -- dependents ${dir}/character-auth.ts`),
+        hint: defaultRepairHint(`${dir}/character-auth.ts`),
         relatedFiles: [`${dir}/character-auth-utils.ts`, `${dir}/character-auth.ts`].sort(),
       },
     ]);
     expect(result.stdout).toContain(`WARN ghost-files: ${dir}/character-auth-utils.ts`);
+  });
+
+  it("honors dependentsHint from config for changed ghost-files hints", () => {
+    const repoRoot = makeTempDir();
+    writeFileSync(
+      path.join(repoRoot, "drift-ai.config.json"),
+      JSON.stringify({
+        checks: {
+          "ghost-files": {
+            dependentsHint: CODE_INTEL_DEPENDENTS_HINT,
+          },
+        },
+      }),
+    );
+    const dir = "packages/server/src/utils";
+    const listDirectory: DirectoryListing = (queried) =>
+      queried === dir ? ["character-auth-utils.ts", "character-auth.ts"] : [];
+    const result = runDriftAi({
+      argv: [],
+      git: makeRunDriftGit("A\tpackages/server/src/utils/character-auth-utils.ts", "", repoRoot),
+      jscpd: emptyJscpdRunner(),
+      listDirectory,
+      readFile: emptyFileReader(),
+    });
+    expect(result.exitCode).toBe(0);
+    expect(result.report?.findings[0]?.hint).toContain(
+      `bun run code:intel -- dependents ${dir}/character-auth.ts`,
+    );
   });
 
   it("forwards a stubbed readFile finding through to the rendered comments report", () => {
@@ -1412,7 +1957,7 @@ describe("runDriftAi", () => {
       `chunks: ${path.join(chunkDir, "manifest.json")} (3 chunk(s), 5 finding(s))`,
     );
     const manifest = writtenJson(writes, path.join(chunkDir, "manifest.json"));
-    expect(manifest["schemaVersion"]).toBe(1);
+    expect(manifest["schemaVersion"]).toBe(DRIFT_SCHEMA_VERSION);
     expect(manifest["scopeMode"]).toBe("current");
     expect(manifest["roots"]).toEqual([]);
     expect(manifest["enabledChecks"]).toEqual(["ghost-files"]);
@@ -1462,49 +2007,12 @@ describe("runDriftAi", () => {
     expect(result.exitCode).toBe(0);
     expect(writes.map((write) => write.path)).toEqual([path.join(chunkDir, "manifest.json")]);
     expect(writtenJson(writes, path.join(chunkDir, "manifest.json"))).toMatchObject({
-      schemaVersion: 1,
+      schemaVersion: DRIFT_SCHEMA_VERSION,
       scopeMode: "current",
       totalFindings: 0,
       chunkSize: DEFAULT_CHUNK_SIZE,
       chunks: [],
     });
-  });
-
-  it("chunk helpers let chunks straddle check groups", () => {
-    const findings: DriftFinding[] = [
-      ghostFinding("src/a-helper.ts"),
-      ghostFinding("src/b-helper.ts"),
-      ghostFinding("src/c-helper.ts"),
-      duplicateFinding("src/a.ts:1-30"),
-      duplicateFinding("src/b.ts:1-30"),
-    ];
-    const chunks = groupFindingsForChunks(
-      findings,
-      "current",
-      ["src"],
-      ["ghost-files", "duplicates"],
-      4,
-    );
-    const manifest = buildChunkManifest(
-      "current",
-      ["src"],
-      ["ghost-files", "duplicates"],
-      findings.length,
-      4,
-      chunks,
-    );
-
-    expect(manifest.chunks).toEqual([
-      { index: 1, path: "001-ghost-files.json", check: "ghost-files", findingCount: 4 },
-      { index: 2, path: "002-duplicates.json", check: "duplicates", findingCount: 1 },
-    ]);
-    expect(chunks[0]?.findings.map((finding) => finding.check)).toEqual([
-      "ghost-files",
-      "ghost-files",
-      "ghost-files",
-      "duplicates",
-    ]);
-    expect(chunks[1]?.findings.map((finding) => finding.check)).toEqual(["duplicates"]);
   });
 
   it("--chunk-dir is additive to --output", () => {
@@ -1605,7 +2113,7 @@ describe("runDriftAi", () => {
     // Stdout must remain valid JSON when --format json is paired with --chunk-dir
     // (no --output) — the chunk pointer is routed to stderr to avoid corrupting it.
     const payload = JSON.parse(result.stdout) as Record<string, unknown>;
-    expect(payload["schemaVersion"]).toBe(1);
+    expect(payload["schemaVersion"]).toBe(DRIFT_SCHEMA_VERSION);
     expect(payload["scopeMode"]).toBe("current");
     expect(stderr).toContain(
       `chunks: ${path.join(chunkDir, "manifest.json")} (1 chunk(s), 1 finding(s))`,
@@ -1638,5 +2146,67 @@ describe("runDriftAi", () => {
     const result = runDriftAi({ argv: [], git });
     expect(result.exitCode).toBe(2);
     expect(result.stdout).toContain("could not find a merge base between 'main' and HEAD");
+  });
+
+  function duplicateFindingJscpd(): JscpdRunner {
+    return () => ({
+      ok: true,
+      reportJson: JSON.stringify({
+        duplicates: [
+          {
+            lines: 12,
+            firstFile: { name: "packages/server/src/utils/character-auth.ts", start: 1, end: 12 },
+            secondFile: { name: "packages/server/src/utils/campaign-auth.ts", start: 1, end: 12 },
+          },
+        ],
+      }),
+    });
+  }
+
+  it("keeps the default exit code at 0 even when findings exist (report-only)", () => {
+    const result = runDriftAi({
+      argv: [],
+      git: makeRunDriftGit("M\tpackages/server/src/utils/character-auth.ts"),
+      jscpd: duplicateFindingJscpd(),
+      listDirectory: emptyDirectoryListing(),
+      readFile: emptyFileReader(),
+    });
+    expect(result.report?.findings.length).toBeGreaterThan(0);
+    expect(result.exitCode).toBe(0);
+  });
+
+  it("exits 1 under --fail-on-findings when findings exist", () => {
+    const result = runDriftAi({
+      argv: ["--fail-on-findings"],
+      git: makeRunDriftGit("M\tpackages/server/src/utils/character-auth.ts"),
+      jscpd: duplicateFindingJscpd(),
+      listDirectory: emptyDirectoryListing(),
+      readFile: emptyFileReader(),
+    });
+    expect(result.report?.findings.length).toBeGreaterThan(0);
+    expect(result.exitCode).toBe(1);
+    // The opt-in flag changes only the process exit code; report content is unchanged.
+    expect(result.stdout).toContain("WARN duplicates:");
+  });
+
+  it("exits 0 under --fail-on-findings when there are no findings", () => {
+    const result = runDriftAi({
+      argv: ["--fail-on-findings"],
+      git: makeRunDriftGit("A\tpackages/server/src/foo.ts"),
+      jscpd: emptyJscpdRunner(),
+      listDirectory: emptyDirectoryListing(),
+      readFile: emptyFileReader(),
+    });
+    expect(result.report?.findings).toEqual([]);
+    expect(result.exitCode).toBe(0);
+  });
+
+  it("still exits 2 for usage errors even with --fail-on-findings set", () => {
+    const result = runDriftAi({
+      argv: ["--fail-on-findings", "--check", "made-up"],
+      git: makeStubGit({}),
+    });
+    expect(result.exitCode).toBe(2);
+    expect(result.stdout).toContain("Unknown check: made-up");
   });
 });

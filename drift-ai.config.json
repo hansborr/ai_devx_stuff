@@ -11,6 +11,7 @@
   },
   "checks": {
     "ghost-files": {
+      "dependentsHint": "Run: bun run code:intel -- dependents {path}",
       "currentAllowedPairs": [
         [
           "packages/client/src/components/campaign/maps/map-canvas-helpers.ts",

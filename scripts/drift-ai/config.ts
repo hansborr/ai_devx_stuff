@@ -1,7 +1,13 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
-import { cloneDefaultConfig, normalizeRepoPath, parseDriftAiConfig } from "./config-parsing.js";
+import { makeDefaultDriftAiConfig, parseDriftAiConfig } from "./config-parsing.js";
+export {
+  globsForIgnoredPaths,
+  matchesAnyGlob,
+  pathHasAnyPrefix,
+  pathHasAnySegment,
+} from "./config-match.js";
 export {
   collapseRepoPath,
   DEFAULT_DRIFT_AI_CONFIG,
@@ -29,6 +35,22 @@ export type DriftAiCommentsConfig = {
 export type DriftAiGhostFilesConfig = {
   readonly excludeGlobs: readonly string[];
   readonly currentAllowedPairs: readonly GhostFileAllowedPair[];
+  readonly weakTokens: readonly string[];
+  readonly entryPointStems: readonly string[];
+  // Optional override for the ghost-files FIX hint's "find dependents" template
+  // (a `{path}` placeholder is substituted with each file path). Absent means the
+  // repo-agnostic DEFAULT_DEPENDENTS_HINT is used. Lets a repo wire in its own
+  // tooling without baking a Musi command into the portable default.
+  readonly dependentsHint?: string;
+};
+
+export type DriftAiNearDuplicatesConfig = {
+  readonly engine: "ts-morph" | "similarity-ts";
+  readonly minLines: number;
+  readonly minTokens: number;
+  readonly similarityThreshold: number;
+  readonly tokenBandRatio: number;
+  readonly excludeGlobs: readonly string[];
 };
 
 export type GhostFileAllowedPair = {
@@ -39,6 +61,17 @@ export type DriftAiChecksConfig = {
   readonly duplicates: DriftAiDuplicatesConfig;
   readonly comments: DriftAiCommentsConfig;
   readonly "ghost-files": DriftAiGhostFilesConfig;
+  readonly suppressions: Record<string, never>;
+  // Tier-1 pass-through over the target's own knip; the verdict and its scoping
+  // come from the target's knip config, so the drift-side check takes no options.
+  readonly "orphan-files": Record<string, never>;
+  // Config-honoring structural adapter over the target's tsconfig (it honors the
+  // target's path aliases for resolution), but cycles are verdict-free, so the
+  // drift-side check takes no options.
+  readonly "import-cycles": Record<string, never>;
+  // Measurement-ish adapter over drift:ai-authored function-similarity
+  // thresholds. Findings carry `drift-baseline` provenance.
+  readonly "near-duplicates": DriftAiNearDuplicatesConfig;
 };
 
 export type DriftAiConfig = {
@@ -71,7 +104,7 @@ export function loadDriftAiConfig(options: LoadDriftAiConfigOptions): LoadedDrif
     if (explicit) {
       throw new DriftAiError(`drift:ai config '${options.configPath}' does not exist.`);
     }
-    return { config: cloneDefaultConfig(), configPath: null };
+    return { config: makeDefaultDriftAiConfig(), configPath: null };
   }
 
   let text: string;
@@ -94,67 +127,4 @@ export function loadDriftAiConfig(options: LoadDriftAiConfigOptions): LoadedDrif
     config: parseDriftAiConfig(raw, displayPath),
     configPath: displayPath,
   };
-}
-
-export function pathHasAnySegment(filePath: string, segments: ReadonlySet<string>): boolean {
-  return normalizeRepoPath(filePath)
-    .split("/")
-    .some((segment) => segments.has(segment));
-}
-
-export function pathHasAnyPrefix(filePath: string, prefixes: readonly string[]): boolean {
-  const normalized = normalizeRepoPath(filePath);
-  return prefixes.some((prefix) => normalized.startsWith(prefix));
-}
-
-export function matchesAnyGlob(filePath: string, globs: readonly string[]): boolean {
-  if (globs.length === 0) return false;
-  const normalized = normalizeRepoPath(filePath);
-  return globs.some((glob) => globToRegExp(glob).test(normalized));
-}
-
-export function globsForIgnoredPaths(ignore: DriftAiIgnoreConfig): string[] {
-  return uniqSorted([
-    ...ignore.segments.map((segment) => `**/${segment}/**`),
-    ...ignore.prefixes.map((prefix) => `${prefix.endsWith("/") ? prefix : `${prefix}/`}**`),
-    ...ignore.globs,
-  ]);
-}
-
-function globToRegExp(glob: string): RegExp {
-  let out = "^";
-  for (let index = 0; index < glob.length; index += 1) {
-    const char = glob[index];
-    const next = glob[index + 1];
-    if (char === "*" && next === "*") {
-      const after = glob[index + 2];
-      if (after === "/") {
-        out += "(?:.*/)?";
-        index += 2;
-      } else {
-        out += ".*";
-        index += 1;
-      }
-      continue;
-    }
-    if (char === "*") {
-      out += "[^/]*";
-      continue;
-    }
-    if (char === "?") {
-      out += "[^/]";
-      continue;
-    }
-    out += escapeRegExp(char ?? "");
-  }
-  out += "$";
-  return new RegExp(out, "u");
-}
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[|\\{}()[\]^$+*?.]/gu, "\\$&");
-}
-
-function uniqSorted(values: readonly string[]): string[] {
-  return [...new Set(values)].sort((left, right) => left.localeCompare(right, "en"));
 }

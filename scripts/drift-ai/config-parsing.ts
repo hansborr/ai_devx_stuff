@@ -1,31 +1,24 @@
-import type {
-  DriftAiChecksConfig,
-  DriftAiCommentsConfig,
-  DriftAiConfig,
-  DriftAiDuplicatesConfig,
-  DriftAiGhostFilesConfig,
-  DriftAiIgnoreConfig,
-  GhostFileAllowedPair,
-} from "./config.js";
+import { CHECK_METADATA } from "./check-metadata.js";
+import type { DriftAiChecksConfig, DriftAiConfig, DriftAiIgnoreConfig } from "./config.js";
+import { makeDefaultDriftAiConfig } from "./config-defaults.js";
 import {
-  cloneDefaultConfig,
   normalizeExtension,
   normalizeGlob,
-  normalizePairPath,
   normalizePrefix,
   normalizeRoot,
   normalizeSegment,
 } from "./config-paths.js";
-export {
-  cloneDefaultConfig,
-  collapseRepoPath,
-  DEFAULT_DRIFT_AI_CONFIG,
-  normalizeRepoPath,
-  pathEscapesRepo,
-} from "./config-paths.js";
+import {
+  assertConfigObject,
+  assertKnownKeys,
+  isRecord,
+  mergeNormalizedStringArray,
+  readStringArray,
+} from "./config-readers.js";
+export { DEFAULT_DRIFT_AI_CONFIG, makeDefaultDriftAiConfig } from "./config-defaults.js";
+export { collapseRepoPath, normalizeRepoPath, pathEscapesRepo } from "./config-paths.js";
 import { DriftAiError } from "./errors.js";
-
-type UnknownRecord = Record<string, unknown>;
+import { uniqSorted } from "./path-util.js";
 
 export function parseDriftAiConfig(raw: unknown, displayPath = "config"): DriftAiConfig {
   if (!isRecord(raw)) {
@@ -33,7 +26,7 @@ export function parseDriftAiConfig(raw: unknown, displayPath = "config"): DriftA
   }
   assertKnownKeys(raw, ["roots", "additionalSourceExtensions", "ignore", "checks"], displayPath);
 
-  let config = cloneDefaultConfig();
+  let config = makeDefaultDriftAiConfig();
   if (raw["roots"] !== undefined) {
     config = {
       ...config,
@@ -60,7 +53,7 @@ export function parseDriftAiConfig(raw: unknown, displayPath = "config"): DriftA
   if (raw["checks"] !== undefined) {
     config = {
       ...config,
-      checks: parseChecksConfig(raw["checks"], `${displayPath}.checks`, config.checks),
+      checks: parseChecksConfig(raw["checks"], `${displayPath}.checks`),
     };
   }
   return config;
@@ -71,196 +64,59 @@ function parseIgnoreConfig(
   keyPath: string,
   defaults: DriftAiIgnoreConfig,
 ): DriftAiIgnoreConfig {
-  if (!isRecord(raw)) throw new DriftAiError(`drift:ai config '${keyPath}' must be an object.`);
-  assertKnownKeys(raw, ["segments", "prefixes", "globs"], keyPath);
+  const record = assertConfigObject(raw, keyPath);
+  assertKnownKeys(record, ["segments", "prefixes", "globs"], keyPath);
   return {
     segments:
-      raw["segments"] === undefined
+      record["segments"] === undefined
         ? defaults.segments
-        : uniqSorted([
-            ...defaults.segments,
-            ...readStringArray(raw["segments"], `${keyPath}.segments`).map(normalizeSegment),
-          ]),
+        : mergeNormalizedStringArray(
+            record["segments"],
+            defaults.segments,
+            `${keyPath}.segments`,
+            normalizeSegment,
+          ),
     prefixes:
-      raw["prefixes"] === undefined
+      record["prefixes"] === undefined
         ? defaults.prefixes
-        : uniqSorted([
-            ...defaults.prefixes,
-            ...readStringArray(raw["prefixes"], `${keyPath}.prefixes`).map(normalizePrefix),
-          ]),
+        : mergeNormalizedStringArray(
+            record["prefixes"],
+            defaults.prefixes,
+            `${keyPath}.prefixes`,
+            normalizePrefix,
+          ),
     globs:
-      raw["globs"] === undefined
+      record["globs"] === undefined
         ? defaults.globs
-        : uniqSorted([
-            ...defaults.globs,
-            ...readStringArray(raw["globs"], `${keyPath}.globs`).map(normalizeGlob),
-          ]),
-  };
-}
-
-function parseChecksConfig(
-  raw: unknown,
-  keyPath: string,
-  defaults: DriftAiChecksConfig,
-): DriftAiChecksConfig {
-  if (!isRecord(raw)) throw new DriftAiError(`drift:ai config '${keyPath}' must be an object.`);
-  assertKnownKeys(raw, ["duplicates", "comments", "ghost-files"], keyPath);
-  return {
-    duplicates:
-      raw["duplicates"] === undefined
-        ? defaults.duplicates
-        : parseDuplicatesConfig(raw["duplicates"], `${keyPath}.duplicates`, defaults.duplicates),
-    comments:
-      raw["comments"] === undefined
-        ? defaults.comments
-        : parseCommentsConfig(raw["comments"], `${keyPath}.comments`, defaults.comments),
-    "ghost-files":
-      raw["ghost-files"] === undefined
-        ? defaults["ghost-files"]
-        : parseGhostFilesConfig(
-            raw["ghost-files"],
-            `${keyPath}.ghost-files`,
-            defaults["ghost-files"],
+        : mergeNormalizedStringArray(
+            record["globs"],
+            defaults.globs,
+            `${keyPath}.globs`,
+            normalizeGlob,
           ),
   };
 }
 
-function parseDuplicatesConfig(
-  raw: unknown,
-  keyPath: string,
-  defaults: DriftAiDuplicatesConfig,
-): DriftAiDuplicatesConfig {
-  if (!isRecord(raw)) throw new DriftAiError(`drift:ai config '${keyPath}' must be an object.`);
-  assertKnownKeys(raw, ["minLines", "excludeGlobs"], keyPath);
-  const minLines =
-    raw["minLines"] === undefined
-      ? defaults.minLines
-      : parsePositiveInt(raw["minLines"], `${keyPath}.minLines`);
-  return {
-    ...(minLines === undefined ? {} : { minLines }),
-    excludeGlobs:
-      raw["excludeGlobs"] === undefined
-        ? defaults.excludeGlobs
-        : uniqSorted([
-            ...defaults.excludeGlobs,
-            ...readStringArray(raw["excludeGlobs"], `${keyPath}.excludeGlobs`).map(normalizeGlob),
-          ]),
-  };
-}
-
-function parseCommentsConfig(
-  raw: unknown,
-  keyPath: string,
-  defaults: DriftAiCommentsConfig,
-): DriftAiCommentsConfig {
-  if (!isRecord(raw)) throw new DriftAiError(`drift:ai config '${keyPath}' must be an object.`);
-  assertKnownKeys(raw, ["excludePrefixes"], keyPath);
-  return {
-    excludePrefixes:
-      raw["excludePrefixes"] === undefined
-        ? defaults.excludePrefixes
-        : uniqSorted([
-            ...defaults.excludePrefixes,
-            ...readStringArray(raw["excludePrefixes"], `${keyPath}.excludePrefixes`).map(
-              normalizePrefix,
-            ),
-          ]),
-  };
-}
-
-function parseGhostFilesConfig(
-  raw: unknown,
-  keyPath: string,
-  defaults: DriftAiGhostFilesConfig,
-): DriftAiGhostFilesConfig {
-  if (!isRecord(raw)) throw new DriftAiError(`drift:ai config '${keyPath}' must be an object.`);
-  assertKnownKeys(raw, ["excludeGlobs", "currentAllowedPairs"], keyPath);
-  return {
-    excludeGlobs:
-      raw["excludeGlobs"] === undefined
-        ? defaults.excludeGlobs
-        : uniqSorted([
-            ...defaults.excludeGlobs,
-            ...readStringArray(raw["excludeGlobs"], `${keyPath}.excludeGlobs`).map(normalizeGlob),
-          ]),
-    currentAllowedPairs:
-      raw["currentAllowedPairs"] === undefined
-        ? defaults.currentAllowedPairs
-        : uniqAllowedPairs([
-            ...defaults.currentAllowedPairs,
-            ...readAllowedPairs(raw["currentAllowedPairs"], `${keyPath}.currentAllowedPairs`),
-          ]),
-  };
-}
-
-function assertKnownKeys(raw: UnknownRecord, allowed: readonly string[], keyPath: string): void {
-  const allowedSet = new Set(allowed);
-  for (const key of Object.keys(raw)) {
-    if (!allowedSet.has(key)) {
-      throw new DriftAiError(`drift:ai config '${keyPath}' has unknown key '${key}'.`);
-    }
-  }
-}
-
-function readStringArray(raw: unknown, keyPath: string): string[] {
-  if (!Array.isArray(raw)) throw new DriftAiError(`drift:ai config '${keyPath}' must be an array.`);
-  return raw.map((item, index) => {
-    if (typeof item !== "string" || item.trim().length === 0) {
-      throw new DriftAiError(`drift:ai config '${keyPath}[${index}]' must be a non-empty string.`);
-    }
-    return item;
-  });
-}
-
-function readAllowedPairs(raw: unknown, keyPath: string): GhostFileAllowedPair[] {
-  if (!Array.isArray(raw)) throw new DriftAiError(`drift:ai config '${keyPath}' must be an array.`);
-  return raw.map((item, index) => readAllowedPair(item, `${keyPath}[${index}]`));
-}
-
-function readAllowedPair(raw: unknown, keyPath: string): GhostFileAllowedPair {
-  if (!Array.isArray(raw) || raw.length !== 2) {
-    throw new DriftAiError(`drift:ai config '${keyPath}' must be a two-path array.`);
-  }
-  const paths = raw.map((item, index) => {
-    if (typeof item !== "string" || item.trim().length === 0) {
-      throw new DriftAiError(`drift:ai config '${keyPath}[${index}]' must be a non-empty string.`);
-    }
-    return normalizePairPath(item, `${keyPath}[${index}]`);
-  });
-  const left = paths[0];
-  const right = paths[1];
-  if (left === undefined || right === undefined) {
-    throw new DriftAiError(`drift:ai config '${keyPath}' must be a two-path array.`);
-  }
-  if (left === right) {
-    throw new DriftAiError(`drift:ai config '${keyPath}' must contain two distinct paths.`);
-  }
-  return { files: left < right ? [left, right] : [right, left] };
-}
-
-function parsePositiveInt(raw: unknown, keyPath: string): number {
-  if (typeof raw !== "number" || !Number.isInteger(raw) || raw <= 0) {
-    throw new DriftAiError(`drift:ai config '${keyPath}' must be a positive integer.`);
-  }
-  return raw;
-}
-
-function isRecord(value: unknown): value is UnknownRecord {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function uniqSorted(values: readonly string[]): string[] {
-  return [...new Set(values)].sort((left, right) => left.localeCompare(right, "en"));
-}
-
-function uniqAllowedPairs(values: readonly GhostFileAllowedPair[]): GhostFileAllowedPair[] {
-  const byKey = new Map<string, GhostFileAllowedPair>();
-  for (const pair of values) {
-    byKey.set(`${pair.files[0]}\u0000${pair.files[1]}`, pair);
-  }
-  return [...byKey.values()].sort(
-    (left, right) =>
-      left.files[0].localeCompare(right.files[0], "en") ||
-      left.files[1].localeCompare(right.files[1], "en"),
+function parseChecksConfig(raw: unknown, keyPath: string): DriftAiChecksConfig {
+  const record = assertConfigObject(raw, keyPath);
+  assertKnownKeys(
+    record,
+    CHECK_METADATA.map((meta) => meta.id),
+    keyPath,
   );
+  const entries = CHECK_METADATA.map((meta) => {
+    const rawConfig = record[meta.id];
+    return [
+      meta.id,
+      rawConfig === undefined
+        ? structuredClone(meta.defaultConfig)
+        : meta.parseConfig(rawConfig, keyPathForPlugin(meta.id, keyPath)),
+    ];
+  });
+  // type-assertion-boundary: json - registry preserves id/config correlation; Object.fromEntries widens computed keys.
+  return Object.fromEntries(entries) as DriftAiChecksConfig;
+}
+
+function keyPathForPlugin(id: string, keyPath: string): string {
+  return `${keyPath}.${id}`;
 }

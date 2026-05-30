@@ -28,6 +28,13 @@ import {
   type EditCheckTarget,
   runEditCheckRegressions,
 } from "./edit-check.js";
+import {
+  formatEditCheckChecked,
+  formatEditCheckRegression,
+  formatEditCheckTarget,
+  parseEditCheckTargetLine,
+} from "./edit-check-protocol.js";
+import { formatRatchetCoverageRow, ratchetCoverageForPaths } from "./ratchet-coverage.js";
 import { applyLintRatchetUpdate } from "./baseline-update-apply.js";
 import {
   assertCheckBaselineComparisonClean,
@@ -158,9 +165,16 @@ async function runCheckBaseline(): Promise<void> {
 
 function runEditCheckTargets(args: ParsedArgs): void {
   const targets = discoverEditCheckTargets(args.editCheckTargets ?? []);
-  const lines = targets.map(
-    (target) => `target\t${target.path}\t${target.testId}\t${target.ruleId}`,
-  );
+  const lines = targets.map(formatEditCheckTarget);
+  if (lines.length > 0) process.stdout.write(`${lines.join("\n")}\n`);
+}
+
+// Edit-time helper for the lint-coverage advisory hook: print which committed
+// baseline ratchets track each edited path so the hook reuses the ratchet
+// matcher instead of embedding its own. No ESLint, no registry validation.
+function runEditRatchetCoverage(args: ParsedArgs): void {
+  const rows = ratchetCoverageForPaths(args.editRatchetCoveragePaths ?? []);
+  const lines = rows.map(formatRatchetCoverageRow);
   if (lines.length > 0) process.stdout.write(`${lines.join("\n")}\n`);
 }
 
@@ -174,10 +188,8 @@ function parseTargetsFile(file: string): EditCheckTarget[] {
   const targets: EditCheckTarget[] = [];
   for (const line of readFileSync(file, "utf8").split("\n")) {
     if (line.length === 0) continue;
-    const [kind, path, testId, ruleId] = line.split("\t");
-    if (kind !== "target") continue;
-    if (path === undefined || testId === undefined || ruleId === undefined) continue;
-    targets.push({ path, testId, ruleId });
+    const target = parseEditCheckTargetLine(line);
+    if (target !== undefined) targets.push(target);
   }
   return targets;
 }
@@ -192,13 +204,8 @@ async function runEditCheck(args: ParsedArgs): Promise<void> {
   // `checked` rows let the hook distinguish a genuinely-linted-clean file from a
   // soft skip, so it only content-caches bytes ESLint actually inspected.
   const lines = [
-    ...result.checked.map((path) => `checked\t${path}`),
-    ...result.regressions.map(
-      (regression) =>
-        `regression\t${regression.path}\t${regression.testId}\t${regression.ruleId}\t` +
-        `${regression.reason}\t${regression.line ?? ""}\t${String(regression.baselineCount)}\t` +
-        String(regression.currentCount),
-    ),
+    ...result.checked.map(formatEditCheckChecked),
+    ...result.regressions.map(formatEditCheckRegression),
   ];
   if (lines.length > 0) process.stdout.write(`${lines.join("\n")}\n`);
 }
@@ -221,6 +228,10 @@ async function runUnvalidatedMode(args: ParsedArgs): Promise<boolean> {
   }
   if (args.mode === "edit-check") {
     await runEditCheck(args);
+    return true;
+  }
+  if (args.mode === "edit-ratchet-coverage") {
+    runEditRatchetCoverage(args);
     return true;
   }
   if (args.mode === "check-registry") {

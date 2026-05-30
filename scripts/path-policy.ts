@@ -96,6 +96,7 @@ export const PATH_POLICY = {
       { kind: "exact", path: "package.json" },
       { kind: "exact", path: ".prettierignore" },
       { kind: "exact", path: ".prettierrc" },
+      { kind: "exact", path: "drift-ai.config.example.json" },
       { kind: "exact", path: "drift-ai.config.json" },
       { kind: "exact", path: "lint-ratchet.baseline.json" },
       { kind: "exact", path: "lint-ratchet.debt-log.jsonl" },

@@ -73,6 +73,17 @@ function validateBaselineTestAgainstRatchet(
   validateBaselineMetricItems(testId, test, failures);
 }
 
+export function validateBaselineTestForRatchet(
+  testId: string,
+  test: LintRatchetBaselineTest,
+  ratchet: LintRatchetConfig,
+  expectedRuleSourceHash: string,
+): readonly string[] {
+  const failures: string[] = [];
+  validateBaselineTestAgainstRatchet(testId, test, ratchet, expectedRuleSourceHash, failures);
+  return failures;
+}
+
 function validateBaselineAgainstRegistry(
   baseline: LintRatchetBaseline,
   ratchets: readonly LintRatchetConfig[],
@@ -88,12 +99,13 @@ function validateBaselineAgainstRegistry(
     }
     const test = baseline.tests[testId];
     if (test === undefined) continue;
-    validateBaselineTestAgainstRatchet(
-      testId,
-      test,
-      ratchet,
-      ruleSourceHashesById.get(testId) ?? "",
-      failures,
+    failures.push(
+      ...validateBaselineTestForRatchet(
+        testId,
+        test,
+        ratchet,
+        ruleSourceHashesById.get(testId) ?? "",
+      ),
     );
   }
   for (const ratchet of ratchets) {

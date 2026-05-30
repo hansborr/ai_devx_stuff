@@ -6,8 +6,7 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import type { ChangedFile, DriftFinding } from "../drift-ai.js";
-import { matchesAnyGlob, normalizeRepoPath } from "./config.js";
+import { matchesAnyGlob } from "./config-match.js";
 import {
   buildDuplicatesFindings,
   DEFAULT_DUPLICATES_IGNORE_GLOBS,
@@ -20,7 +19,15 @@ import {
   normalizeRoots,
   parseDuplicatesReport,
 } from "./duplicates.js";
+import {
+  changedFilesFromScope,
+  configuredRootFor,
+  isSourceLike,
+  sortFindingsByFileMessage,
+  toPosix,
+} from "./path-util.js";
 import type { DetectorScope } from "./scope.js";
+import type { DriftFinding } from "./types.js";
 
 // --- Subprocess runner ------------------------------------------------------
 
@@ -39,17 +46,21 @@ export type JscpdRunner = (input: JscpdRunnerInput) => JscpdRunnerResult;
 const JSCPD_REPORT_FILENAME = "jscpd-report.json";
 
 export type DefaultJscpdRunnerOptions = {
-  // Repo root used for both resolving node_modules/.bin/jscpd and as the
-  // subprocess cwd. jscpd writes the changed-file paths in the JSON report
-  // relative to its cwd, so the report-paths and the changed-set we hand to
-  // filterClonesToChangedFiles must share the same anchor (the repo root).
-  // Pass a real value when invoking from outside the repo root; defaults to
-  // process.cwd() for the common bun-run-from-root case.
-  readonly repoRoot?: string;
+  // The subprocess cwd: the analyzed/target repo root. jscpd writes the
+  // changed-file paths in the JSON report relative to its cwd, so the
+  // report-paths and the changed-set we hand to filterClonesToChangedFiles must
+  // share the same anchor (the analyzed repo root). Defaults to process.cwd()
+  // for the common bun-run-from-root case. Kept distinct from the executable
+  // location (jscpdBin) so an uninstalled target can be scanned with jscpd
+  // resolved from the tools checkout while output stays repo-relative.
+  readonly analyzedRepoRoot?: string;
+  // Resolved jscpd executable (see resolveJscpdBin).
+  readonly jscpdBin: string;
 };
 
-export function defaultJscpdRunner(options: DefaultJscpdRunnerOptions = {}): JscpdRunner {
-  const repoRoot = options.repoRoot ?? process.cwd();
+export function defaultJscpdRunner(options: DefaultJscpdRunnerOptions): JscpdRunner {
+  const analyzedRepoRoot = options.analyzedRepoRoot ?? process.cwd();
+  const bin = options.jscpdBin;
   return ({ scopePath, minLines, ignoreGlobs }) => {
     const outputDir = mkdtempSync(path.join(tmpdir(), "drift-ai-jscpd-"));
     try {
@@ -70,9 +81,8 @@ export function defaultJscpdRunner(options: DefaultJscpdRunnerOptions = {}): Jsc
       if (ignoreGlobs.length > 0) args.push("--ignore", ignoreGlobs.join(","));
       args.push(scopePath);
 
-      const bin = path.join(repoRoot, "node_modules", ".bin", "jscpd");
       const result = spawnSync(bin, args, {
-        cwd: repoRoot,
+        cwd: analyzedRepoRoot,
         encoding: "utf8",
         stdio: ["ignore", "pipe", "pipe"],
       });
@@ -148,7 +158,9 @@ function runCurrentDuplicatesCheck(
     supportedExtensions,
   });
   if (scopes.length === 0) return [];
-  return sortDuplicateFindings(runDuplicateScopes(scopes, options.runner, minLines, ignoreGlobs));
+  return sortFindingsByFileMessage(
+    runDuplicateScopes(scopes, options.runner, minLines, ignoreGlobs),
+  );
 }
 
 function runDuplicateScopes(
@@ -185,7 +197,7 @@ function buildRunnerFailureFinding(scopePath: string, error: string): DriftFindi
     check: "duplicates",
     file: scopePath,
     message: `jscpd subprocess failed (${error})`,
-    hint: "Re-run drift:ai locally to inspect; ensure node_modules/.bin/jscpd is installed.",
+    hint: "Re-run drift:ai locally to inspect; if jscpd is missing, run `bun install` in the drift:ai tools checkout, or pass --jscpd-bin <path>.",
   };
 }
 
@@ -196,27 +208,6 @@ function buildUnreadableReportFinding(scopePath: string, error: string): DriftFi
     message: `jscpd produced unreadable JSON (${error})`,
     hint: "report-only: re-run drift:ai locally and capture the jscpd output for inspection.",
   };
-}
-
-function toPosix(filePath: string): string {
-  return normalizeRepoPath(filePath);
-}
-
-function isSourceLike(filePath: string, supportedExtensions: ReadonlySet<string>): boolean {
-  return supportedExtensions.has(path.posix.extname(toPosix(filePath)).toLowerCase());
-}
-
-function isExcludedFromDuplicates(filePath: string, excludeGlobs: readonly string[]): boolean {
-  return matchesAnyGlob(toPosix(filePath), excludeGlobs);
-}
-
-function configuredRootFor(filePath: string, roots: readonly string[]): string | undefined {
-  const posix = toPosix(filePath);
-  for (const root of roots) {
-    if (root === ".") return root;
-    if (posix === root || posix.startsWith(`${root}/`)) return root;
-  }
-  return undefined;
 }
 
 function mapCurrentFilesToScopes(
@@ -250,7 +241,7 @@ function currentDuplicateSourcePaths(
     if (file.scope !== "current") continue;
     const filePath = toPosix(file.path);
     if (!isSourceLike(filePath, options.supportedExtensions)) continue;
-    if (isExcludedFromDuplicates(filePath, options.ignoreGlobs)) continue;
+    if (matchesAnyGlob(filePath, options.ignoreGlobs)) continue;
     paths.add(filePath);
   }
   return [...paths].sort((left, right) => left.localeCompare(right, "en"));
@@ -281,26 +272,9 @@ function warnForLargeCurrentInventory(options: RunDuplicatesCheckOptions): void 
 }
 
 function rootsNormalizeToRepoRoot(roots: readonly string[]): boolean {
+  // The large-inventory nudge is stricter than broad current-scope root
+  // semantics: mixed roots such as [".", "src"] are treated as an explicit
+  // operator choice, not as the default whole-repo scan.
   const normalized = normalizeRoots(roots);
   return normalized.length === 0 || (normalized.length === 1 && normalized[0] === ".");
-}
-
-function sortDuplicateFindings(findings: readonly DriftFinding[]): DriftFinding[] {
-  return [...findings].sort(
-    (left, right) =>
-      left.file.localeCompare(right.file, "en") || left.message.localeCompare(right.message, "en"),
-  );
-}
-
-function changedFilesFromScope(detectorScope: DetectorScope): ChangedFile[] {
-  const files: ChangedFile[] = [];
-  for (const file of detectorScope.files) {
-    if (file.scope !== "changed") continue;
-    files.push({
-      path: file.path,
-      status: file.status,
-      ...(file.previousPath === undefined ? {} : { previousPath: file.previousPath }),
-    });
-  }
-  return files;
 }

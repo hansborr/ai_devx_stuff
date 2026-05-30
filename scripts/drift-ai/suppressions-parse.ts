@@ -1,9 +1,13 @@
-// Comment-segment tokenizer and suppression-pattern classifiers. Extracted
-// from suppressions.ts to keep each module under the max-lines ratchet.
+// Comment-segment tokenizer and suppression-pattern classifiers. The
+// changed-scope diff orchestration lives in suppressions.ts.
 
-import type { DriftFinding } from "../drift-ai.js";
-
-export type SuppressionsGitRunner = (repoRoot: string, ref: string) => string;
+import {
+  type CommentKind,
+  initialLineScanState,
+  type LineScanState,
+  scanLine,
+} from "./line-scanner.js";
+import type { DriftFinding } from "./types.js";
 
 export const ESLINT_BROAD_SUPPRESSION_HINT =
   "prefer `eslint-disable-next-line` over a broad disable; include `-- <reason>`.";
@@ -37,70 +41,15 @@ export type ParsedSuppression = {
   readonly hint: string;
 };
 
-export type CommentKind = "line" | "block";
-
 export type CommentSegment = {
   readonly kind: CommentKind;
   readonly text: string;
 };
 
-type StringDelim = '"' | "'" | "`";
-
-export type CommentScanState = {
-  readonly inBlockComment: boolean;
-  readonly inString: StringDelim | false;
-};
+export type CommentScanState = LineScanState;
 
 export function initialCommentScanState(): CommentScanState {
-  return { inBlockComment: false, inString: false };
-}
-
-function advanceBlockSegment(
-  line: string,
-  index: number,
-): { readonly segment: CommentSegment; readonly newIndex: number; readonly exited: boolean } {
-  const end = line.indexOf("*/", index);
-  if (end < 0) {
-    return {
-      segment: { kind: "block", text: line.slice(index) },
-      newIndex: line.length,
-      exited: false,
-    };
-  }
-  return {
-    segment: { kind: "block", text: line.slice(index, end) },
-    newIndex: end + 2,
-    exited: true,
-  };
-}
-
-function advanceSegmentString(
-  line: string,
-  index: number,
-  delim: StringDelim,
-): { readonly newIndex: number; readonly closed: boolean } {
-  const ch = line.charAt(index);
-  if (ch === "\\") return { newIndex: index + 2, closed: false };
-  if (ch === delim) return { newIndex: index + 1, closed: true };
-  return { newIndex: index + 1, closed: false };
-}
-
-type SegmentCodeAdvance =
-  | { readonly kind: "line-comment"; readonly newIndex: number; readonly text: string }
-  | { readonly kind: "block-comment"; readonly newIndex: number }
-  | { readonly kind: "string"; readonly newIndex: number; readonly delim: StringDelim }
-  | { readonly kind: "other"; readonly newIndex: number };
-
-function advanceSegmentCode(line: string, index: number): SegmentCodeAdvance {
-  const ch = line.charAt(index);
-  const next = line[index + 1];
-  if (ch === "/" && next === "/") {
-    return { kind: "line-comment", newIndex: line.length, text: line.slice(index + 2) };
-  }
-  if (ch === "/" && next === "*") return { kind: "block-comment", newIndex: index + 2 };
-  if (ch === '"' || ch === "'" || ch === "`")
-    return { kind: "string", newIndex: index + 1, delim: ch };
-  return { kind: "other", newIndex: index + 1 };
+  return initialLineScanState();
 }
 
 export function scanCommentSegments(
@@ -111,34 +60,15 @@ export function scanCommentSegments(
   readonly state: CommentScanState;
 } {
   const segments: CommentSegment[] = [];
-  let inBlockComment = state.inBlockComment;
-  let inString = state.inString;
-  let index = 0;
-  while (index < line.length) {
-    if (inBlockComment) {
-      const result = advanceBlockSegment(line, index);
-      segments.push(result.segment);
-      inBlockComment = !result.exited;
-      index = result.newIndex;
-      continue;
-    }
-    if (inString) {
-      const result = advanceSegmentString(line, index, inString);
-      if (result.closed) inString = false;
-      index = result.newIndex;
-      continue;
-    }
-    const result = advanceSegmentCode(line, index);
-    if (result.kind === "line-comment") {
-      segments.push({ kind: "line", text: result.text });
-    } else if (result.kind === "block-comment") {
-      inBlockComment = true;
-    } else if (result.kind === "string") {
-      inString = result.delim;
-    }
-    index = result.newIndex;
-  }
-  return { segments, state: { inBlockComment, inString } };
+  const nextState = scanLine(line, state, {
+    onLineComment: (text) => {
+      segments.push({ kind: "line", text });
+    },
+    onBlockComment: (text) => {
+      segments.push({ kind: "block", text });
+    },
+  });
+  return { segments, state: nextState };
 }
 
 export function detectSuppressions(

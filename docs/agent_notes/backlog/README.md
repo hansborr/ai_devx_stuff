@@ -38,6 +38,13 @@ Do **not** read this folder at session start. Promote an item back into
 - `ai-harness-prioritized-backlog.md` — ordered promotion list merging the
   transcript review, scheduled harness-review ideas, and external-tooling
   research into one AI-harness backlog queue.
+- `drift-ai-improvements.md` — 2026-05-28 four-perspective review of the
+  `drift:ai` sensor (reporting UX, code quality, standalone extraction, new-check
+  research), updated 2026-05-29 for the Bun-powered tools-checkout portability
+  target. Central thesis: ship a small external-repo workflow first, then use a
+  `CheckPlugin` registry for maintainability, new checks (import-cycles,
+  near-duplicate), and single-report adapters. Includes a prioritized roadmap;
+  detail in `drift-ai-review/`.
 - `autonomous-agent-iteration-candidates.md` — 2026-05-25 gathered queue of
   ready autonomous AI-harness and lint-drain leaves, including the proposed
   post-edit tidy hook and stale/blocked notes to avoid.
@@ -102,6 +109,42 @@ Do **not** read this folder at session start. Promote an item back into
   `drift:ai --scope current` report: current ghost-file tuning plus duplicate
   refactor candidates for token mutations, cursor lists, test contexts, token
   forms, selectable cards, sheet rows, codemods, and homebrew fields.
+- `drift-ai-hotspots-subcommand.md` — 2026-05-28 design note re-opening the
+  rejected "churn × complexity hotspots" idea as a **separate advisory
+  subcommand** (sibling to `harness-freshness`, not a drift `check`). Captures
+  the subcommand reframe and why it dissolves the original objections, a
+  three-lens roadmap (churn×complexity v1; merge-conflict frequency; thrash /
+  whack-a-mole), locked churn-window decisions (14d default, time-window with
+  commit-count option, revisions default + lines alternate, sparse-history
+  widen-with-note), the deferred eslint-vs-ts-morph complexity-source choice, an
+  explicit "open knobs" list for the next session, and a clarification that the
+  "do NOT add lint/knip-gated checks" rule is target-conditional (reimplement =
+  no; orchestrate via adapter = yes, with care). User intends to revisit before
+  building v1.
+- `drift-ai-hotspots-brainstorm.md` — 2026-05-29 five-perspective blue-sky
+  brainstorm (+ skeptic seat) stress-testing `drift-ai-hotspots-subcommand.md`
+  and the adapter thread, empirically grounded against two repos: this one (solo
+  → non-probative for the value thesis) and OpenClaw (a multi-dev AI-augmented
+  TS/pnpm monorepo, where the git-only signals come back rich — 48-author files,
+  real cross-package co-change). Headline shifts: churn×complexity is the wrong
+  v1 (lowest team-altitude signal, only portability-hostile dependency); the real
+  v1 is the shared git-history **collector**; adds **temporal co-change
+  coupling** and **author/agent fragmentation** as the missing flagship signals
+  and a revised lens roadmap; resolves the open knobs (ts-morph default,
+  percentile normalization, dynamic-range sparse guard); reframes the adapter
+  boundary as **verdict ownership** ("delegate the verdict, not just the engine")
+  with a two-tier config-authority policy and the ESLint-subset inversion;
+  establishes that the tool does **not** auto-detect generated/ignorable files
+  (the reader supplies that context). Ends with six open forks and a
+  kill-criterion experiment. No source changed.
+- `drift-ai-tasks/00-index.md` — **the actionable decomposition** of the drift:ai
+  improvement program into 17 self-contained task files (Tracks P portability /
+  A architecture / C checks+adapters / H hotspots / X cleanup), plus
+  `01-shared-context.md` and a verified `02-seam-map.md`. Each task file is
+  workable from the two shared files alone. Validated against the OpenClaw target
+  repo (revised assumptions noted inline). Start here to implement; promote one
+  task file at a time and mark its row Done in `00-index.md`. Supersedes the
+  `drift-ai-*` planning notes above for execution; those remain as deeper rationale.
 
 ## Promotion rules
 

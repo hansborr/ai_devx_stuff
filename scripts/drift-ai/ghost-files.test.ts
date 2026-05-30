@@ -6,6 +6,9 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import type { ChangedFile } from "../drift-ai.js";
 import {
+  DEFAULT_DEPENDENTS_HINT,
+  DEFAULT_GHOST_FILE_ENTRY_POINT_STEMS,
+  DEFAULT_GHOST_FILE_WEAK_TOKENS,
   defaultDirectoryListing,
   type DirectoryListing,
   findGhostMatches,
@@ -87,6 +90,50 @@ function word(index: number): string {
 
 function compareStrings(left: string, right: string): number {
   return left.localeCompare(right, "en");
+}
+
+// The built-in, repo-agnostic FIX hint produced when no dependentsHint is configured.
+function renderDependentsHint(template: string, peerPath: string): string {
+  return template.split("{path}").join(peerPath);
+}
+
+function defaultRepairHint(peerPath: string): string {
+  return `${GHOST_FILES_REPAIR_HINT_PREFIX} ${renderDependentsHint(DEFAULT_DEPENDENTS_HINT, peerPath)}`;
+}
+
+function defaultCurrentPairHint(left: string, right: string): string {
+  return [
+    "review whether the pair should be merged, renamed, or documented as intentionally separate.",
+    `${renderDependentsHint(DEFAULT_DEPENDENTS_HINT, left)}; ${renderDependentsHint(
+      DEFAULT_DEPENDENTS_HINT,
+      right,
+    )}`,
+  ].join(" ");
+}
+
+// A config-supplied template (Musi wires its `code:intel` command this way).
+const CODE_INTEL_DEPENDENTS_HINT = "Run: bun run code:intel -- dependents {path}";
+
+function codeIntelRepairHint(peerPath: string): string {
+  return `${GHOST_FILES_REPAIR_HINT_PREFIX} ${renderDependentsHint(CODE_INTEL_DEPENDENTS_HINT, peerPath)}`;
+}
+
+function codeIntelCurrentPairHint(left: string, right: string): string {
+  return [
+    "review whether the pair should be merged, renamed, or documented as intentionally separate.",
+    `${renderDependentsHint(CODE_INTEL_DEPENDENTS_HINT, left)}; ${renderDependentsHint(
+      CODE_INTEL_DEPENDENTS_HINT,
+      right,
+    )}`,
+  ].join(" ");
+}
+
+function weakTokensWith(...tokens: readonly string[]): ReadonlySet<string> {
+  return new Set([...DEFAULT_GHOST_FILE_WEAK_TOKENS, ...tokens]);
+}
+
+function entryPointStemsWith(...stems: readonly string[]): ReadonlySet<string> {
+  return new Set([...DEFAULT_GHOST_FILE_ENTRY_POINT_STEMS, ...stems]);
 }
 
 describe("tokenize", () => {
@@ -251,6 +298,20 @@ describe("findGhostMatches", () => {
     expect(findGhostMatches(`${dir}/main.tsx`, [`${dir}/main.ts`])).toEqual([]);
   });
 
+  it("honors configured weak tokens and entrypoint stems", () => {
+    const candidate = `${dir}/billing-controller.ts`;
+    const peer = `${dir}/billing-service.ts`;
+    expect(findGhostMatches(candidate, [peer])).toEqual([]);
+    expect(
+      findGhostMatches(candidate, [peer], undefined, { weakTokens: weakTokensWith("controller") }),
+    ).toHaveLength(1);
+    expect(
+      findGhostMatches(`${dir}/mod.ts`, [`${dir}/mod-helper.ts`], undefined, {
+        entryPointStems: entryPointStemsWith("mod"),
+      }),
+    ).toEqual([]);
+  });
+
   it("near-edit-distance still requires strong-token overlap", () => {
     // 'list' and 'lost' are 1 edit apart but share no strong token, so the
     // overlap guard must keep them from triggering.
@@ -261,7 +322,7 @@ describe("findGhostMatches", () => {
 describe("runGhostFilesCheck", () => {
   const dir = "packages/server/src/utils";
 
-  it("emits a finding with the canonical repair hint pointing at code:intel", () => {
+  it("emits a finding with the generic default repair hint when no dependentsHint is configured", () => {
     const findings = runGhostFilesCheck({
       detectorScope: changed([{ path: `${dir}/character-auth-utils.ts` }]),
       listDirectory: makeListing({
@@ -273,12 +334,25 @@ describe("runGhostFilesCheck", () => {
         check: "ghost-files",
         file: `${dir}/character-auth-utils.ts`,
         message: `looks like a sibling of ${dir}/character-auth.ts (weak-suffix-variant; shared tokens: character, auth)`,
-        hint: `${GHOST_FILES_REPAIR_HINT_PREFIX} bun run code:intel -- dependents ${dir}/character-auth.ts`,
+        hint: defaultRepairHint(`${dir}/character-auth.ts`),
         relatedFiles: [`${dir}/character-auth-utils.ts`, `${dir}/character-auth.ts`].sort(
           compareStrings,
         ),
       },
     ]);
+    // The default must not leak a Musi-only command onto a foreign target.
+    expect(findings[0]?.hint).not.toContain("code:intel");
+  });
+
+  it("renders a configured dependentsHint template for the changed-scope repair hint", () => {
+    const findings = runGhostFilesCheck({
+      detectorScope: changed([{ path: `${dir}/character-auth-utils.ts` }]),
+      listDirectory: makeListing({
+        [dir]: ["character-auth-utils.ts", "character-auth.ts", "encounter.ts"],
+      }),
+      dependentsHint: CODE_INTEL_DEPENDENTS_HINT,
+    });
+    expect(findings[0]?.hint).toBe(codeIntelRepairHint(`${dir}/character-auth.ts`));
   });
 
   it("uses configured source extensions for changed-scope candidates and peers", () => {
@@ -296,12 +370,42 @@ describe("runGhostFilesCheck", () => {
         check: "ghost-files",
         file: `${dir}/character-auth-utils.vue`,
         message: `looks like a sibling of ${dir}/character-auth.vue (weak-suffix-variant; shared tokens: character, auth)`,
-        hint: `${GHOST_FILES_REPAIR_HINT_PREFIX} bun run code:intel -- dependents ${dir}/character-auth.vue`,
+        hint: defaultRepairHint(`${dir}/character-auth.vue`),
         relatedFiles: [`${dir}/character-auth-utils.vue`, `${dir}/character-auth.vue`].sort(
           compareStrings,
         ),
       },
     ]);
+  });
+
+  it("uses configured weak tokens for changed-scope matching", () => {
+    const findings = runGhostFilesCheck({
+      detectorScope: changed([{ path: `${dir}/billing-controller.ts` }]),
+      listDirectory: makeListing({
+        [dir]: ["billing-controller.ts", "billing-service.ts"],
+      }),
+      weakTokens: weakTokensWith("controller"),
+    });
+
+    expect(findings.map((finding) => finding.message)).toEqual([
+      `looks like a sibling of ${dir}/billing-service.ts (weak-suffix-variant; shared tokens: billing)`,
+    ]);
+  });
+
+  it("uses configured entrypoint stems to skip changed-scope entry modules", () => {
+    const baseOptions = {
+      detectorScope: changed([{ path: `${dir}/mod.ts` }]),
+      listDirectory: makeListing({
+        [dir]: ["mod.ts", "mod-helper.ts"],
+      }),
+    };
+    expect(runGhostFilesCheck(baseOptions)).toHaveLength(1);
+    expect(
+      runGhostFilesCheck({
+        ...baseOptions,
+        entryPointStems: entryPointStemsWith("mod"),
+      }),
+    ).toEqual([]);
   });
 
   it("inspects added and copied files, ignoring modified or deleted entries", () => {
@@ -323,7 +427,7 @@ describe("runGhostFilesCheck", () => {
         check: "ghost-files",
         file: `${dir}/character-auth-utils.ts`,
         message: `looks like a sibling of ${dir}/character-auth.ts (weak-suffix-variant; shared tokens: character, auth)`,
-        hint: `${GHOST_FILES_REPAIR_HINT_PREFIX} bun run code:intel -- dependents ${dir}/character-auth.ts`,
+        hint: defaultRepairHint(`${dir}/character-auth.ts`),
         relatedFiles: [`${dir}/character-auth-utils.ts`, `${dir}/character-auth.ts`].sort(
           compareStrings,
         ),
@@ -412,9 +516,9 @@ describe("runGhostFilesCheck", () => {
       }),
     });
     expect(findings.map((finding) => finding.hint)).toEqual([
-      `${GHOST_FILES_REPAIR_HINT_PREFIX} bun run code:intel -- dependents ${dir}/alpha-component.ts`,
-      `${GHOST_FILES_REPAIR_HINT_PREFIX} bun run code:intel -- dependents ${dir}/alpha-handler.ts`,
-      `${GHOST_FILES_REPAIR_HINT_PREFIX} bun run code:intel -- dependents ${dir}/alpha-manager.ts`,
+      defaultRepairHint(`${dir}/alpha-component.ts`),
+      defaultRepairHint(`${dir}/alpha-handler.ts`),
+      defaultRepairHint(`${dir}/alpha-manager.ts`),
     ]);
   });
 
@@ -430,12 +534,22 @@ describe("runGhostFilesCheck", () => {
         file: "src/foo/bar-helper.ts",
         message:
           "src/foo/bar-helper.ts ↔ src/foo/bar.ts -- suspicious sibling pair (weak-suffix-variant; shared tokens: bar)",
-        hint: expect.stringContaining(
-          "bun run code:intel -- dependents src/foo/bar-helper.ts; bun run code:intel -- dependents src/foo/bar.ts",
-        ),
+        hint: defaultCurrentPairHint("src/foo/bar-helper.ts", "src/foo/bar.ts"),
         relatedFiles: ["src/foo/bar-helper.ts", "src/foo/bar.ts"],
       },
     ]);
+  });
+
+  it("current-mode renders a configured dependentsHint template for both peer paths", () => {
+    const paths = ["src/foo/bar.ts", "src/foo/bar-helper.ts"];
+    const findings = runGhostFilesCheck({
+      detectorScope: current(paths),
+      inventoryByDir: inventoryByDir(paths),
+      dependentsHint: CODE_INTEL_DEPENDENTS_HINT,
+    });
+    expect(findings[0]?.hint).toBe(
+      codeIntelCurrentPairHint("src/foo/bar-helper.ts", "src/foo/bar.ts"),
+    );
   });
 
   it("current-mode suppresses configured allowed pairs only", () => {
@@ -456,9 +570,7 @@ describe("runGhostFilesCheck", () => {
         file: "src/foo/baz-helper.ts",
         message:
           "src/foo/baz-helper.ts ↔ src/foo/baz.ts -- suspicious sibling pair (weak-suffix-variant; shared tokens: baz)",
-        hint: expect.stringContaining(
-          "bun run code:intel -- dependents src/foo/baz-helper.ts; bun run code:intel -- dependents src/foo/baz.ts",
-        ),
+        hint: defaultCurrentPairHint("src/foo/baz-helper.ts", "src/foo/baz.ts"),
         relatedFiles: ["src/foo/baz-helper.ts", "src/foo/baz.ts"],
       },
     ]);
@@ -477,7 +589,7 @@ describe("runGhostFilesCheck", () => {
         check: "ghost-files",
         file: `${dir}/foo-helper.ts`,
         message: `looks like a sibling of ${dir}/foo.ts (weak-suffix-variant; shared tokens: foo)`,
-        hint: `${GHOST_FILES_REPAIR_HINT_PREFIX} bun run code:intel -- dependents ${dir}/foo.ts`,
+        hint: defaultRepairHint(`${dir}/foo.ts`),
         relatedFiles: [`${dir}/foo-helper.ts`, `${dir}/foo.ts`].sort(compareStrings),
       },
     ]);
@@ -541,6 +653,24 @@ describe("runGhostFilesCheck", () => {
     expect(findings).toHaveLength(1);
     expect(findings[0]?.relatedFiles).toEqual(["src/large/bar-helper.ts", "src/large/bar.ts"]);
     expect(findings[0]?.message).not.toContain("oversized buckets");
+  });
+
+  it("current-mode bucket fallback uses configured weak tokens", () => {
+    const paths = [
+      "src/large/billing-controller.ts",
+      "src/large/billing-service.ts",
+      ...uniqueSourceFiles("src/large", GHOST_FILES_DIRECTORY_PAIR_THRESHOLD - 1),
+    ];
+    const findings = runGhostFilesCheck({
+      detectorScope: current(paths),
+      inventoryByDir: inventoryByDir(paths),
+      weakTokens: weakTokensWith("controller"),
+    });
+    expect(paths).toHaveLength(GHOST_FILES_DIRECTORY_PAIR_THRESHOLD + 1);
+    expect(findings.map((finding) => finding.relatedFiles)).toContainEqual([
+      "src/large/billing-controller.ts",
+      "src/large/billing-service.ts",
+    ]);
   });
 
   it("current-mode emits an oversized bucket warning when a bucket exceeds the cap", () => {

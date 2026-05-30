@@ -3,6 +3,7 @@
 
 import path from "node:path";
 
+import { formatFindingLines } from "./finding-lines.js";
 import {
   backtickPathIgnoreCandidates,
   compareStrings,
@@ -60,6 +61,9 @@ export type BacktickPathReference = {
   readonly line: number;
 };
 
+// Musi-specific defaults. This subcommand intentionally stays outside the
+// portable default check surface; callers that need another layout can use the
+// existing harnessPath/guidesDir options directly.
 const DEFAULT_HARNESS_PATH = "docs/ai-harness.md";
 const DEFAULT_GUIDES_DIR = "docs/guides";
 const PATH_LIKE_RE = /^[\w.@-]+(?:\/[\w.@-]+)+(?:\/|\.[A-Za-z0-9][\w-]*)$/u;
@@ -104,6 +108,17 @@ export function runHarnessFreshnessCheck(
   ];
 }
 
+// harness-freshness IS a trusted findings stream (unlike the hotspots advisory),
+// so its JSON stays findings-shaped. Emitted when the subcommand is run with
+// --format json (the shared subcommand parser; backlog tasks 40 / 50-M4).
+export function formatHarnessFreshnessJson(findings: readonly HarnessFreshnessFinding[]): string {
+  return JSON.stringify(
+    { check: "harness-freshness", findingCount: findings.length, findings },
+    null,
+    2,
+  );
+}
+
 export function formatHarnessFreshnessText(findings: readonly HarnessFreshnessFinding[]): string {
   const lines = ["drift:ai harness-freshness (report-only)"];
   if (findings.length === 0) {
@@ -111,8 +126,7 @@ export function formatHarnessFreshnessText(findings: readonly HarnessFreshnessFi
     return lines.join("\n");
   }
   for (const finding of findings) {
-    lines.push(`WARN harness-freshness: ${finding.file} — ${finding.message}`);
-    if (finding.hint) lines.push(`  FIX: ${finding.hint}`);
+    lines.push(...formatFindingLines(finding));
   }
   return lines.join("\n");
 }

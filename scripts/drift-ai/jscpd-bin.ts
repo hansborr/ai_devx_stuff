@@ -1,0 +1,57 @@
+// Resolution of the jscpd executable for the duplicates check. Kept separate
+// from the subprocess runner so locating the binary (a portability concern) and
+// invoking it (an I/O concern) stay focused modules.
+
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+import {
+  resolveToolBin,
+  type ToolBinConfig,
+  type ToolBinResolution,
+  type ToolBinSource,
+} from "./tool-bin.js";
+
+// Relative location of the jscpd executable shim inside any node_modules tree.
+const JSCPD_BIN_RELATIVE = path.join("node_modules", ".bin", "jscpd");
+
+// This module's own directory, used to locate the tools-checkout node_modules.
+const DRIFT_AI_MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
+
+const JSCPD_TOOL_BIN: ToolBinConfig = {
+  toolName: "jscpd",
+  binRelativePath: JSCPD_BIN_RELATIVE,
+  moduleDir: DRIFT_AI_MODULE_DIR,
+};
+
+export type JscpdBinSource = ToolBinSource;
+
+export type JscpdBinResolution = ToolBinResolution;
+
+export type ResolveJscpdBinOptions = {
+  // Subprocess cwd / target repo being scanned; its node_modules is the
+  // secondary lookup. Defaults to process.cwd().
+  readonly analyzedRepoRoot?: string;
+  // Explicit --jscpd-bin path; the lowest-precedence escape hatch.
+  readonly override?: string;
+  // Directory this module lives in; overridable for tests. Production callers
+  // leave it defaulted so the tools checkout is found regardless of cwd.
+  readonly moduleDir?: string;
+  // Injected existence check (the fs seam) so resolution is testable with a fake.
+  readonly fileExists?: (candidate: string) => boolean;
+};
+
+// Resolve the jscpd executable. Precedence (first existing wins):
+//   1. the tools checkout (this script's own node_modules) — the PRIMARY path,
+//      so a pnpm/npm/yarn or entirely uninstalled target need not own jscpd;
+//   2. the target repo's node_modules (an already-installed target still works);
+//   3. an explicit --jscpd-bin override (escape hatch for odd / hoisted layouts).
+// The tools-checkout bin is found by walking up from this module's directory to
+// the nearest `node_modules/.bin/jscpd`, rather than `import.meta.resolve("jscpd")`:
+// resolve() yields the package *entry* (build/index.js), and deriving the
+// `.bin/jscpd` shim from it is unreliable across nested/pnpm layouts. The tools
+// checkout uses a flat Bun `node_modules/.bin`, which the walk-up finds directly
+// and independently of the subprocess cwd.
+export function resolveJscpdBin(options: ResolveJscpdBinOptions = {}): JscpdBinResolution {
+  return resolveToolBin(JSCPD_TOOL_BIN, options);
+}

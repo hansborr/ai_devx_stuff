@@ -31,142 +31,28 @@ ai_lint_coverage_is_lintable() {
   esac
 }
 
+# Ask the ratchet engine whether the committed baseline tracks this path, and if
+# so for which rule(s). The matcher lives in scripts/lint-ratchet/ratchet-globs.ts
+# (shared with the authoritative gate) so this hook no longer carries its own copy
+# of the ratchet glob semantics. Output row, when matched:
+#   ratchet-covered<TAB><relpath><TAB><comma-separated rule ids>
+# Any tooling failure, a missing/malformed baseline, or a non-matching path
+# yields no row -> non-zero, so the caller falls back to the louder uncovered tier.
 ai_lint_coverage_is_ratchet_covered() {
   local relative_path="$1"
   local baseline_path="$REPO_ROOT/lint-ratchet.baseline.json"
+  local row rules
 
   [ -f "$baseline_path" ] || return 1
-  command -v node >/dev/null 2>&1 || return 1
+  command -v bun >/dev/null 2>&1 || return 1
 
-  node - "$baseline_path" "$relative_path" <<'JS'
-const fs = require("fs");
-
-const [, , baselinePath, relativePath] = process.argv;
-
-function splitBraceParts(value) {
-  const parts = [];
-  let depth = 0;
-  let start = 0;
-
-  for (let index = 0; index < value.length; index += 1) {
-    const char = value[index];
-    if (char === "{") depth += 1;
-    if (char === "}") depth -= 1;
-    if (char === "," && depth === 0) {
-      parts.push(value.slice(start, index));
-      start = index + 1;
-    }
-  }
-
-  parts.push(value.slice(start));
-  return parts;
-}
-
-function expandBraces(pattern) {
-  const start = pattern.indexOf("{");
-  if (start === -1) return [pattern];
-
-  let depth = 0;
-  let end = -1;
-  for (let index = start; index < pattern.length; index += 1) {
-    const char = pattern[index];
-    if (char === "{") depth += 1;
-    if (char === "}") {
-      depth -= 1;
-      if (depth === 0) {
-        end = index;
-        break;
-      }
-    }
-  }
-
-  if (end === -1) return [pattern];
-
-  const before = pattern.slice(0, start);
-  const after = pattern.slice(end + 1);
-  return splitBraceParts(pattern.slice(start + 1, end)).flatMap((part) =>
-    expandBraces(`${before}${part}${after}`),
-  );
-}
-
-function escapeRegex(value) {
-  return value.replace(/[\\^$+?.()|[\]{}]/gu, "\\$&");
-}
-
-function globToRegex(pattern) {
-  let source = "^";
-  const normalized = pattern.replaceAll("\\", "/");
-
-  for (let index = 0; index < normalized.length; ) {
-    const char = normalized[index];
-    const next = normalized[index + 1];
-    const afterNext = normalized[index + 2];
-
-    if (char === "*" && next === "*" && afterNext === "/") {
-      source += "(?:[^/]+/)*";
-      index += 3;
-      continue;
-    }
-
-    if (char === "*" && next === "*") {
-      source += ".*";
-      index += 2;
-      continue;
-    }
-
-    if (char === "*") {
-      source += "[^/]*";
-      index += 1;
-      continue;
-    }
-
-    if (char === "?") {
-      source += "[^/]";
-      index += 1;
-      continue;
-    }
-
-    source += escapeRegex(char);
-    index += 1;
-  }
-
-  return new RegExp(`${source}$`, "u");
-}
-
-function matchesAny(patterns, path) {
-  if (!Array.isArray(patterns)) return false;
-  return patterns.some((pattern) =>
-    typeof pattern === "string" &&
-    expandBraces(pattern).some((expanded) => globToRegex(expanded).test(path)),
-  );
-}
-
-try {
-  const baseline = JSON.parse(fs.readFileSync(baselinePath, "utf8"));
-  const tests = baseline && typeof baseline === "object" ? baseline.tests : undefined;
-  if (!tests || typeof tests !== "object") process.exit(1);
-
-  let matchedAny = false;
-  const ruleIds = new Set();
-  for (const test of Object.values(tests)) {
-    if (!test || typeof test !== "object") continue;
-    if (matchesAny(test.files, relativePath) && !matchesAny(test.ignores, relativePath)) {
-      matchedAny = true;
-      if (typeof test.ruleId === "string" && test.ruleId.length > 0) {
-        ruleIds.add(test.ruleId);
-      }
-    }
-  }
-  if (matchedAny) {
-    process.stdout.write([...ruleIds].sort().join(", "));
-    process.exit(0);
-  }
-} catch {
-  process.exit(1);
-}
-
-process.exit(1);
-JS
+  row=$(bun "$REPO_ROOT/scripts/lint-ratchet.ts" --edit-ratchet-coverage "$relative_path" 2>/dev/null) \
+    || return 1
+  [ -n "$row" ] || return 1
+  # First row only (one path in -> at most one row); split off the rule-id field.
+  IFS=$'\t' read -r _ _ rules <<< "$row"
+  printf '%s' "$rules"
+  return 0
 }
 
 # Classify one file into a coverage tier. Prints a tab-delimited record the
@@ -257,7 +143,7 @@ ai_lint_coverage_compose() {
 }
 
 ai_lint_coverage_main() {
-  local payload path absolute_path relative_path result tier rest key now message tier_message
+  local payload path absolute_path relative_path result tier rest key now message tier_message throttle_ttl throttle_max
   local -a paths=()
   local -A seen=()
   local -a ratchet_entries=()
@@ -313,14 +199,16 @@ ai_lint_coverage_main() {
     ai_emit_continue
   fi
 
-  key=$(ai_lint_coverage_throttle_key "$payload" "$REPO_ROOT")
+  key=$(ai_throttle_key "$payload" "$REPO_ROOT")
   now=$(ai_now)
+  throttle_ttl=$(ai_lint_coverage_ttl)
+  throttle_max=$(ai_lint_coverage_max_detections)
 
   message=""
-  if [ "${#ratchet_entries[@]}" -gt 0 ] && ai_lint_coverage_should_emit ratchet "$key" "$now"; then
+  if [ "${#ratchet_entries[@]}" -gt 0 ] && ai_throttle_should_emit ratchet "$key" "$now" "$throttle_ttl" "$throttle_max"; then
     message=$(ai_lint_coverage_compose ratchet "${ratchet_entries[@]}")
   fi
-  if [ "${#uncovered_entries[@]}" -gt 0 ] && ai_lint_coverage_should_emit uncovered "$key" "$now"; then
+  if [ "${#uncovered_entries[@]}" -gt 0 ] && ai_throttle_should_emit uncovered "$key" "$now" "$throttle_ttl" "$throttle_max"; then
     tier_message=$(ai_lint_coverage_compose uncovered "${uncovered_entries[@]}")
     if [ -n "$message" ]; then
       message="${message}"$'\n\n'"$tier_message"

@@ -1,24 +1,43 @@
 import path from "node:path";
 
 import type { GhostFileAllowedPair } from "./config.js";
-import { matchesAnyGlob } from "./config.js";
+import { matchesAnyGlob } from "./config-match.js";
 import { runBucketedDirectory } from "./ghost-files-buckets.js";
 import { GHOST_FILES_DIRECTORY_PAIR_THRESHOLD } from "./ghost-files-constants.js";
 import { currentPairFinding, pairKey, sortFindings } from "./ghost-files-findings.js";
-import { findGhostMatches, type GhostFileMatch } from "./ghost-files-match.js";
-import { isExcludedPath, isSourceLike, toPosix, uniqSorted } from "./ghost-files-tokens.js";
+import {
+  findGhostMatches,
+  type GhostFileMatch,
+  type GhostFileTuning,
+} from "./ghost-files-match.js";
+import { isExcludedPath } from "./ghost-files-tokens.js";
+import { isSourceLike, toPosix, uniqSorted } from "./path-util.js";
 import type { DriftFinding } from "./types.js";
+
+type PairwiseRunner = (
+  siblings: readonly string[],
+  sourceExtensions: ReadonlySet<string>,
+  tuning: GhostFileTuning,
+  emittedPairs: Set<string>,
+  allowedPairKeys: ReadonlySet<string>,
+) => DriftFinding[];
 
 export function runCurrentGhostFilesCheck(
   inventoryByDir: ReadonlyMap<string, readonly string[]> | undefined,
   excludeGlobs: readonly string[],
   sourceExtensions: ReadonlySet<string>,
+  tuning: GhostFileTuning,
   allowedPairs: readonly GhostFileAllowedPair[],
+  dependentsHint: string,
 ): DriftFinding[] {
   if (inventoryByDir === undefined) {
     throw new Error("runGhostFilesCheck requires inventoryByDir for current scope.");
   }
   const allowedPairKeys = currentAllowedPairKeys(allowedPairs);
+  // Capture dependentsHint in the pairwise runner so the bucket fallback callback
+  // signature stays unchanged (it only needs to forward, not know the hint).
+  const pairwise: PairwiseRunner = (siblings, extensions, pairTuning, emittedPairs, pairKeys) =>
+    runPairwise(siblings, extensions, pairTuning, emittedPairs, pairKeys, dependentsHint);
   const findings: DriftFinding[] = [];
   for (const directory of currentInventoryDirectories(
     inventoryByDir,
@@ -30,7 +49,9 @@ export function runCurrentGhostFilesCheck(
         directory.path,
         directory.siblings,
         sourceExtensions,
+        tuning,
         allowedPairKeys,
+        pairwise,
       ),
     );
   }
@@ -93,32 +114,51 @@ function runCurrentDirectoryCheck(
   directory: string,
   siblings: readonly string[],
   sourceExtensions: ReadonlySet<string>,
+  tuning: GhostFileTuning,
   allowedPairKeys: ReadonlySet<string>,
+  pairwise: PairwiseRunner,
 ): DriftFinding[] {
   if (siblings.length <= GHOST_FILES_DIRECTORY_PAIR_THRESHOLD) {
-    return runPairwise(siblings, sourceExtensions, new Set<string>(), allowedPairKeys);
+    return pairwise(siblings, sourceExtensions, tuning, new Set<string>(), allowedPairKeys);
   }
-  return runBucketedDirectory(directory, siblings, sourceExtensions, allowedPairKeys, runPairwise);
+  return runBucketedDirectory(
+    directory,
+    siblings,
+    sourceExtensions,
+    tuning,
+    allowedPairKeys,
+    pairwise,
+  );
 }
+
+type CurrentPairContext = {
+  readonly sourceExtensions: ReadonlySet<string>;
+  readonly tuning: GhostFileTuning;
+  readonly emittedPairs: Set<string>;
+  readonly allowedPairKeys: ReadonlySet<string>;
+  readonly dependentsHint: string;
+};
 
 function runPairwise(
   siblings: readonly string[],
   sourceExtensions: ReadonlySet<string>,
+  tuning: GhostFileTuning,
   emittedPairs: Set<string>,
   allowedPairKeys: ReadonlySet<string>,
+  dependentsHint: string,
 ): DriftFinding[] {
   const ordered = uniqSorted(siblings);
+  const context: CurrentPairContext = {
+    sourceExtensions,
+    tuning,
+    emittedPairs,
+    allowedPairKeys,
+    dependentsHint,
+  };
   const findings: DriftFinding[] = [];
   for (let leftIndex = 0; leftIndex < ordered.length; leftIndex += 1) {
     for (let rightIndex = leftIndex + 1; rightIndex < ordered.length; rightIndex += 1) {
-      addCurrentPairFinding(
-        findings,
-        ordered[leftIndex] ?? "",
-        ordered[rightIndex] ?? "",
-        sourceExtensions,
-        emittedPairs,
-        allowedPairKeys,
-      );
+      addCurrentPairFinding(findings, ordered[leftIndex] ?? "", ordered[rightIndex] ?? "", context);
     }
   }
   return findings;
@@ -128,27 +168,31 @@ function addCurrentPairFinding(
   findings: DriftFinding[],
   left: string,
   right: string,
-  sourceExtensions: ReadonlySet<string>,
-  emittedPairs: Set<string>,
-  allowedPairKeys: ReadonlySet<string>,
+  context: CurrentPairContext,
 ): void {
   if (left.length === 0 || right.length === 0) return;
   const key = pairKey(left, right);
-  if (allowedPairKeys.has(key)) return;
-  if (emittedPairs.has(key)) return;
-  const match = tryFindGhostMatchEitherDirection(left, right, sourceExtensions);
+  if (context.allowedPairKeys.has(key)) return;
+  if (context.emittedPairs.has(key)) return;
+  const match = tryFindGhostMatchEitherDirection(
+    left,
+    right,
+    context.sourceExtensions,
+    context.tuning,
+  );
   if (match === undefined) return;
-  emittedPairs.add(key);
-  findings.push(currentPairFinding(match));
+  context.emittedPairs.add(key);
+  findings.push(currentPairFinding(match, context.dependentsHint));
 }
 
 function tryFindGhostMatchEitherDirection(
   left: string,
   right: string,
   sourceExtensions: ReadonlySet<string>,
+  tuning: GhostFileTuning,
 ): GhostFileMatch | undefined {
-  const [leftMatch] = findGhostMatches(left, [right], sourceExtensions);
+  const [leftMatch] = findGhostMatches(left, [right], sourceExtensions, tuning);
   if (leftMatch !== undefined) return leftMatch;
-  const [rightMatch] = findGhostMatches(right, [left], sourceExtensions);
+  const [rightMatch] = findGhostMatches(right, [left], sourceExtensions, tuning);
   return rightMatch;
 }

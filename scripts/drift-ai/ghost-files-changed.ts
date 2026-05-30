@@ -1,17 +1,19 @@
 import path from "node:path";
 
-import { matchesAnyGlob } from "./config.js";
+import { matchesAnyGlob } from "./config-match.js";
 import type { DirectoryListing, RunGhostFilesCheckOptions } from "./ghost-files.js";
 import { ghostMessage, pairKey, relatedFiles, repairHint } from "./ghost-files-findings.js";
-import { findGhostMatches } from "./ghost-files-match.js";
-import { isSourceLike, toPosix } from "./ghost-files-tokens.js";
+import { findGhostMatches, type GhostFileTuning } from "./ghost-files-match.js";
+import { changedFilesFromScope, isSourceLike, toPosix } from "./path-util.js";
 import type { DetectorScope } from "./scope.js";
-import type { ChangedFile, DriftFinding } from "./types.js";
+import type { DriftFinding } from "./types.js";
 
 export function runChangedGhostFilesCheck(
   options: RunGhostFilesCheckOptions,
   excludeGlobs: readonly string[],
   sourceExtensions: ReadonlySet<string>,
+  tuning: GhostFileTuning,
+  dependentsHint: string,
 ): DriftFinding[] {
   const listDirectory = options.listDirectory;
   if (listDirectory === undefined) {
@@ -22,6 +24,8 @@ export function runChangedGhostFilesCheck(
     excludeGlobs,
     listDirectory,
     sourceExtensions,
+    tuning,
+    dependentsHint,
   });
 }
 
@@ -30,6 +34,8 @@ type ChangedGhostFilesOptions = {
   readonly excludeGlobs: readonly string[];
   readonly listDirectory: DirectoryListing;
   readonly sourceExtensions: ReadonlySet<string>;
+  readonly tuning: GhostFileTuning;
+  readonly dependentsHint: string;
 };
 
 function runChangedGhostFiles(options: ChangedGhostFilesOptions): DriftFinding[] {
@@ -53,7 +59,12 @@ function runChangedGhostFiles(options: ChangedGhostFilesOptions): DriftFinding[]
       options.excludeGlobs,
       options.sourceExtensions,
     );
-    for (const match of findGhostMatches(newPath, peerPaths, options.sourceExtensions)) {
+    for (const match of findGhostMatches(
+      newPath,
+      peerPaths,
+      options.sourceExtensions,
+      options.tuning,
+    )) {
       if (newFileSet.has(match.peerPath) && match.peerPath < match.newPath) continue;
       const key = pairKey(match.newPath, match.peerPath);
       if (emittedPairs.has(key)) continue;
@@ -62,7 +73,7 @@ function runChangedGhostFiles(options: ChangedGhostFilesOptions): DriftFinding[]
         check: "ghost-files",
         file: match.newPath,
         message: ghostMessage(match),
-        hint: repairHint(match.peerPath),
+        hint: repairHint(match.peerPath, options.dependentsHint),
         relatedFiles: relatedFiles(match.newPath, match.peerPath),
       });
     }
@@ -81,17 +92,4 @@ function peerPathsForDirectory(
     .filter((filePath) => isSourceLike(path.basename(filePath), sourceExtensions))
     .filter((filePath) => !matchesAnyGlob(filePath, excludeGlobs))
     .sort((left, right) => left.localeCompare(right, "en"));
-}
-
-function changedFilesFromScope(detectorScope: DetectorScope): ChangedFile[] {
-  const files: ChangedFile[] = [];
-  for (const file of detectorScope.files) {
-    if (file.scope !== "changed") continue;
-    files.push({
-      path: file.path,
-      status: file.status,
-      ...(file.previousPath === undefined ? {} : { previousPath: file.previousPath }),
-    });
-  }
-  return files;
 }

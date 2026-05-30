@@ -5,6 +5,13 @@ Source: user wants a whole-repo/current-state audit mode for a separate
 project whose initial commit already contains many files and likely many
 ghost modules, so a clean diff baseline is unavailable.
 
+Supersession note, 2026-05-29: the non-goals in this note describe the landed
+current-scope v1 implementation only. The follow-up roadmap in
+`drift-ai-improvements.md` intentionally reopens the plugin question and moves
+import-cycle / orphan-file surfacing into scope for a later single-report,
+tool-checkout portability phase. Treat this document as historical context for
+current mode, not as the active boundary for future drift:ai work.
+
 ## Progress
 
 - 2026-05-10: Config foundation landed for changed scope. `--config` now
@@ -700,6 +707,10 @@ bun run drift:ai --scope current --check duplicates --root packages/server/src
   detector behavior, and chunking as coherent steps.
 
 ## Non-Goals
+
+These were the boundaries for current-scope v1. They do not prohibit the
+2026-05-29 follow-up roadmap from adding a `CheckPlugin` registry or external
+adapters after the current-mode feature has landed.
 
 - Do not gate pre-commit, `verify:changed`, or Stop hooks.
 - Do not clean up the polluted project automatically.

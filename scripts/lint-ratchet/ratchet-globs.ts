@@ -1,4 +1,10 @@
-import type { LintRatchetConfig } from "../lint-ratchet-config.js";
+// The glob-bearing subset shared by a registry ratchet and a committed baseline
+// test, so the single matcher serves both without importing either concrete
+// type. Both expose `files`/`ignores` as relative-glob arrays.
+export interface RatchetGlobScope {
+  readonly files: readonly string[];
+  readonly ignores: readonly string[];
+}
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
@@ -57,6 +63,6 @@ export function matchesAny(path: string, patterns: readonly string[]): boolean {
   return patterns.some((pattern) => globToRegExp(pattern).test(path));
 }
 
-export function matchesRatchet(ratchet: LintRatchetConfig, trackedFile: string): boolean {
+export function matchesRatchet(ratchet: RatchetGlobScope, trackedFile: string): boolean {
   return matchesAny(trackedFile, ratchet.files) && !matchesAny(trackedFile, ratchet.ignores);
 }

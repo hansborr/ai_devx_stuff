@@ -2,18 +2,12 @@ import { execFileSync } from "node:child_process";
 import { lstatSync } from "node:fs";
 import path from "node:path";
 
-import { DEFAULT_IGNORE_EXTENSIONS, DEFAULT_IGNORE_FILES } from "../drift-ai.js";
-import {
-  collapseRepoPath,
-  type DriftAiIgnoreConfig,
-  matchesAnyGlob,
-  normalizeRepoPath,
-  pathEscapesRepo,
-  pathHasAnyPrefix,
-  pathHasAnySegment,
-} from "./config.js";
+import { collapseRepoPath, type DriftAiIgnoreConfig, pathEscapesRepo } from "./config.js";
+import { matchesAnyGlob, pathHasAnyPrefix, pathHasAnySegment } from "./config-match.js";
 import { DriftAiError } from "./errors.js";
+import { configuredRootFor, isSourceLike, isWholeRepoRoots, toPosix } from "./path-util.js";
 import { type CurrentScopeFile, toCurrentScopeFile } from "./scope.js";
+import { DEFAULT_IGNORE_EXTENSIONS, DEFAULT_IGNORE_FILES } from "./types.js";
 
 export type StringGitRunner = (args: readonly string[]) => string;
 export type BufferGitRunner = (args: readonly string[]) => Buffer;
@@ -81,14 +75,14 @@ export function discoverCurrentFiles(
     .filter((filePath) => isWithinRoots(filePath, roots))
     .filter((filePath) => !isIgnoredCurrentPathForRoots(filePath, roots, options.ignore))
     .filter((filePath) => isRegularFile(options.repoRoot, filePath, stat))
-    .filter((filePath) => hasSourceExtension(filePath, options.sourceExtensions))
+    .filter((filePath) => isSourceLike(filePath, options.sourceExtensions))
     .sort((left, right) => left.localeCompare(right, "en"));
 
   return paths.map(toCurrentScopeFile);
 }
 
 export function isIgnoredCurrentPath(filePath: string, ignore: DriftAiIgnoreConfig): boolean {
-  const normalized = normalizeInventoryPath(filePath);
+  const normalized = toPosix(filePath);
   if (pathHasAnySegment(normalized, new Set(ignore.segments))) return true;
   if (pathHasAnyPrefix(normalized, ignore.prefixes)) return true;
   if (matchesAnyGlob(normalized, ignore.globs)) return true;
@@ -110,12 +104,8 @@ function parseGitInventory(output: Buffer): string[] {
 
 function addGitPath(paths: Set<string>, chunk: Buffer): void {
   if (chunk.length === 0) return;
-  const normalized = normalizeInventoryPath(chunk.toString("utf8"));
+  const normalized = toPosix(chunk.toString("utf8"));
   if (normalized.length > 0) paths.add(normalized);
-}
-
-function normalizeInventoryPath(filePath: string): string {
-  return normalizeRepoPath(filePath.replace(/\\/gu, "/"));
 }
 
 export function normalizeCurrentRoots(roots: readonly string[]): string[] {
@@ -133,7 +123,7 @@ function normalizeCurrentRoot(root: string): string {
 }
 
 function isWithinRoots(filePath: string, roots: readonly string[]): boolean {
-  if (roots.length === 0 || roots.includes(".")) return true;
+  if (isWholeRepoRoots(roots)) return true;
   return roots.some((root) => filePath === root || filePath.startsWith(`${root}/`));
 }
 
@@ -143,17 +133,14 @@ function isIgnoredCurrentPathForRoots(
   roots: readonly string[],
   ignore: DriftAiIgnoreConfig,
 ): boolean {
+  if (isWholeRepoRoots(roots)) return isIgnoredCurrentPath(filePath, ignore);
   const root = matchingRootFor(filePath, roots);
   if (root === undefined || root === ".") return isIgnoredCurrentPath(filePath, ignore);
   return isIgnoredCurrentPath(suffixForRoot(filePath, root), ignore);
 }
 
 function matchingRootFor(filePath: string, roots: readonly string[]): string | undefined {
-  for (const root of roots) {
-    if (root === ".") return root;
-    if (filePath === root || filePath.startsWith(`${root}/`)) return root;
-  }
-  return undefined;
+  return configuredRootFor(filePath, roots);
 }
 
 function suffixForRoot(filePath: string, root: string): string {
@@ -164,8 +151,4 @@ function suffixForRoot(filePath: string, root: string): string {
 function isRegularFile(repoRoot: string, filePath: string, stat: StatRunner): boolean {
   const fileStat = stat(path.resolve(repoRoot, filePath));
   return fileStat?.isFile() === true;
-}
-
-function hasSourceExtension(filePath: string, sourceExtensions: ReadonlySet<string>): boolean {
-  return sourceExtensions.has(path.posix.extname(filePath).toLowerCase());
 }

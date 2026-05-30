@@ -58,6 +58,7 @@ Files, tests, finished_work notes, docs.
 - [decisions-services.md](decisions-services.md)
   - Service layer: three-tier taxonomy (deep module / flat service / utils).
 - [decisions-build.md](decisions-build.md)
+  - AI-hook soft guidance: Claude rewrites advisory nudges to successful output.
   - `@musi/shared`: subpath exports, no root barrel.
   - Migration safety: surface via doctor + acknowledge intentional risk.
   - Coverage runs out-of-band, not in CI or pre-push.

@@ -1,67 +1,10 @@
 import path from "node:path";
 
-import type { DriftAiConfig } from "./config.js";
 import { DriftAiError } from "./errors.js";
-
-export const DEFAULT_DRIFT_AI_CONFIG: DriftAiConfig = {
-  roots: [],
-  additionalSourceExtensions: [],
-  ignore: {
-    segments: [
-      "node_modules",
-      "vendor",
-      "dist",
-      "build",
-      "coverage",
-      ".next",
-      "out",
-      "target",
-      "reports",
-      "tmp",
-      "generated",
-      ".git",
-      ".husky",
-    ],
-    prefixes: [".claude/worktrees/"],
-    globs: [],
-  },
-  checks: {
-    duplicates: { excludeGlobs: [] },
-    comments: { excludePrefixes: [] },
-    "ghost-files": { excludeGlobs: [], currentAllowedPairs: [] },
-  },
-};
-
-export function cloneDefaultConfig(): DriftAiConfig {
-  return {
-    roots: [...DEFAULT_DRIFT_AI_CONFIG.roots],
-    additionalSourceExtensions: [...DEFAULT_DRIFT_AI_CONFIG.additionalSourceExtensions],
-    ignore: {
-      segments: [...DEFAULT_DRIFT_AI_CONFIG.ignore.segments],
-      prefixes: [...DEFAULT_DRIFT_AI_CONFIG.ignore.prefixes],
-      globs: [...DEFAULT_DRIFT_AI_CONFIG.ignore.globs],
-    },
-    checks: {
-      duplicates: {
-        ...DEFAULT_DRIFT_AI_CONFIG.checks.duplicates,
-        excludeGlobs: [...DEFAULT_DRIFT_AI_CONFIG.checks.duplicates.excludeGlobs],
-      },
-      comments: {
-        excludePrefixes: [...DEFAULT_DRIFT_AI_CONFIG.checks.comments.excludePrefixes],
-      },
-      "ghost-files": {
-        excludeGlobs: [...DEFAULT_DRIFT_AI_CONFIG.checks["ghost-files"].excludeGlobs],
-        currentAllowedPairs: [...DEFAULT_DRIFT_AI_CONFIG.checks["ghost-files"].currentAllowedPairs],
-      },
-    },
-  };
-}
+import { toPosix } from "./path-util.js";
 
 export function normalizeRepoPath(value: string): string {
-  let normalized = value.split(path.sep).join("/").trim();
-  while (normalized.startsWith("./")) normalized = normalized.slice(2);
-  while (normalized.endsWith("/") && normalized !== "/") normalized = normalized.slice(0, -1);
-  return normalized;
+  return toPosix(value);
 }
 
 export function collapseRepoPath(value: string): string {

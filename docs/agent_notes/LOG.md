@@ -7,6 +7,485 @@ Newest on top.
 
 ---
 
+## 2026-05-30 — Drift:ai documentation refresh
+
+Refreshed the drift:ai operator and harness docs after reviewing the current
+CLI/check surface. `scripts/drift-ai/README.md` now has a quick-reference table
+for scopes, checks, output, chunking, subcommands, and exit behavior; the stale
+"always exits 0" language was replaced with the `--fail-on-findings` contract.
+`docs/ai-harness.md` now separates the default report, opt-in whole-graph
+checks, and `hotspots` advisory. `harness.controls.json` now inventories
+`drift:ai hotspots` plus the opt-in `orphan-files`, `import-cycles`, and
+`near-duplicates` checks, and `docs/generated/harness-controls.md` was
+regenerated. CLI help for `drift:ai hotspots` now lists every implemented lens.
+
+Validation: `bun run docs:harness-controls:check`, `bun run drift:ai
+harness-freshness`, `bun run drift:ai --help`, `bun run drift:ai hotspots
+--help`, and focused drift-ai Vitest for the main runner, hotspots, subcommand
+args, and check metadata.
+
+---
+
+## 2026-05-30 — Drift:ai metadata runtime boundary
+
+Completed drift-ai review task 20. The check-metadata boundary test now walks
+transitive relative value import/re-export closure for the lightweight metadata,
+CLI-args, config-parsing, and config-defaults entry points while ignoring
+type-only imports. Near-duplicate config constants and `NearDuplicateEngine`
+moved to a pure leaf module so config parsing no longer reaches
+`near-duplicates-fingerprint`/`ts-morph`. See
+`finished_work/drift-ai-metadata-runtime-boundary.md`.
+
+Validation: focused drift-ai Vitest for `check-metadata`, `near-duplicates`, and
+`config-defaults`; `tsconfig.scripts` typecheck; `bun run verify:changed`.
+
+---
+
+## 2026-05-30 — Drift:ai root scope predicate
+
+Completed drift-ai review task 18. `path-util.ts` now owns broad current-scope
+whole-repo root semantics via `isWholeRepoRoots()`, and current inventory uses
+that helper for root inclusion and ignore handling. The duplicates
+large-inventory warning keeps its stricter local predicate so mixed roots such as
+`[".", "packages/server/src"]` do not warn. See
+`finished_work/drift-ai-root-scope-predicate.md`.
+
+Validation: focused drift-ai Vitest for `path-util`, `current-inventory`,
+`duplicates`, and `knip-orphan-files`; `drift:ai --scope current --root
+scripts/drift-ai --check orphan-files --format text`.
+
+---
+
+## 2026-05-30 — Lint Ratchet Smoke Edit-Check Fixture Split
+
+Lint-debt issue 08g. The edit-time check fixture family moved from
+`scripts/test-lint-ratchet.sh` into
+`scripts/test-lint-ratchet-edit-check-fixtures.sh`, sourced by the aggregate at
+the original point in the smoke sequence. The new helper reuses the aggregate's
+fixture setup and the script-smoke path policy now selects `test-lint-ratchet`
+when that helper changes.
+
+Follow-up review fix: `test-ai-hooks` changed-file selection now covers the
+`scripts/ai-hooks/` directory by prefix, including
+`scripts/ai-hooks/ratchet-regression-check.sh` and
+`scripts/ai-hooks/edited-paths.sh`, with assertions in
+`scripts/test-test-scripts.sh`. The temporary backlog note for that coverage gap
+was removed because the gap is closed.
+
+---
+
+## 2026-05-29 — Ratchet-Regression Hook: Cap No Longer Caches A Partial Check
+
+Lint-debt issue 01. The edit-time ratchet-regression advisory hook
+(`scripts/ai-hooks/ratchet-regression-check.sh`) applied its per-edit target cap
+BEFORE computing the content-cache token and the `matched == checked` cache
+guard, so a file matching more ratchets than `AI_RATCHET_REGRESSION_MAX_TARGETS`
+could cache the capped slice as if complete and silently skip the dropped
+targets on later identical saves. Discovery now keeps a full `all_target_rows`
+set distinct from the capped `exec_target_rows`; the cache token and per-file
+matched count both derive from the full set, so a capped file is never cached as
+complete and is re-linted on re-save. When the cap drops targets the hook now
+emits a quiet, throttled partial-check advisory even when the checked subset is
+clean, so a partial result is never mistaken for a clean full check without
+repeating on every save. Advisory-only; the commit/verify `lint:ratchet` gate was
+unaffected either way.
+emits a quiet partial-check advisory even when the checked subset is clean, so a
+partial result is never mistaken for a clean full check. Advisory-only; the
+commit/verify `lint:ratchet` gate was unaffected either way.
+## 2026-05-30 — Drift:ai default config plain factory
+
+Completed drift-ai review task 15. `DEFAULT_DRIFT_AI_CONFIG.checks` is no longer a
+memoized lazy getter — it is plain materialized data. New
+`makeDefaultDriftAiConfig()` factory returns a fresh, fully plain config on every
+call and replaces `cloneDefaultConfig()` (callers updated). The getter's old
+registry/runtime cycle is gone: `config-defaults`'s runtime closure
+(`-> check-metadata -> *-check-config -> leaf modules`) never re-enters
+`config-defaults`/`config-parsing`, so eager materialization is cycle-safe. See
+`finished_work/drift-ai-default-config-plain-factory.md`.
+
+Validation: full `scripts/drift-ai` Vitest (478), `drift:ai --check near-duplicates`
+JSON + `--check all` text, `typecheck`, ESLint on touched files.
+
+---
+
+## 2026-05-30 — Drift:ai check defaults single source
+
+Completed drift-ai review task 06. Check defaults now flow from
+`CHECK_PLUGINS[*].defaultConfig` into `DEFAULT_DRIFT_AI_CONFIG.checks` via
+`buildDefaultChecksConfig()`, and omitted check parsing clones plugin defaults
+directly. `config-paths.ts` is now normalization-only, avoiding the
+registry -> plugin -> path-helper cycle risk. Tests cover omitted defaults, empty
+per-check parse defaults, and the full `near-duplicates` default shape.
+
+Validation: focused scripts Vitest for `drift-ai` and `near-duplicates`,
+`drift:ai --check near-duplicates`, `typecheck`, `lint:ratchet`, and full
+`test:scripts`.
+
+---
+
+## 2026-05-30 — Drift:ai shared source walking
+
+Completed drift-ai review task 04. `scripts/drift-ai/source-walk.ts` now owns
+recursive source traversal for import-cycles and near-duplicates: configured root
+handling, missing-root tolerance, ignore filtering, `.d.ts` exclusion, extension
+filtering, overlapping-root dedupe, caller `accept(relPath)` filtering, and
+locale sorting. Import-cycles uses the absolute-path wrapper for TypeScript
+resolution; near-duplicates keeps repo-relative paths and maps `excludeGlobs`
+through the shared predicate.
+
+Validation: focused Vitest for `source-walk`, `import-cycles`, and
+`near-duplicates`, targeted lint, and full `test:scripts`.
+
+---
+
+## 2026-05-30 — Drift:ai invalid explicit tsconfig handling
+
+Completed drift-ai review task 02. `import-cycles` now caches tsconfig load
+state as `loaded | missing | invalid`, rejects missing/malformed explicit
+`--tsconfig` overrides as skipped `no-target-config` outcomes, and counts only
+successfully loaded configs for nearest discovery. The TypeScript read/parse
+diagnostics are surfaced compactly in the skip reason. Validation: focused
+`bun test` for `import-cycles` + `drift-ai`, full `test:scripts`, `typecheck`,
+`lint:ratchet`, and the manual missing-tsconfig drift command.
+
+---
+
+## 2026-05-29 — Drift:ai task 50 cleanup complete
+
+Closed the remaining task 50 checklist items. Added `line-scanner.ts` as the
+shared string/comment scanner used by comment metrics and suppression extraction,
+with template-literal and escaped-delimiter tests on both paths. Added
+`repo-io.ts` for safe repo-relative path/read/list/probe factories and
+`finding-lines.ts` for shared WARN/FIX rendering across the main report and
+`harness-freshness`.
+
+Also removed the duplicates runner/bin re-export round-trip (`duplicates.ts`
+stays parser/scope/finding engine; `duplicates-runner.ts` owns execution;
+`jscpd-bin.ts` owns binary resolution) and kept suppression parser constants in
+`suppressions-parse.ts` while `suppressions.ts` owns diff orchestration.
+`ghost-files` now exposes `weakTokens` and `entryPointStems` config knobs, with
+the previous hardcoded values preserved as defaults and threaded through
+changed/current matching plus current-scope bucket fallback. Validation:
+drift-ai test suite (425 tests) and `lint:ratchet` green.
+
+## 2026-05-29 — Drift:ai hotspots first lenses: churn + coupling (task 41)
+
+Shipped the two required hotspot lenses on task 40's collector. New modules:
+`hotspots-churn.ts`, `hotspots-coupling.ts`, `hotspots-actionability.ts`
+(shared per-row context). The churn reduction moved out of `hotspots.ts`.
+
+Durable decisions:
+
+- **Advisory shape moved to `sections`.** Task 40's flat `hotspots: HotspotEntry[]`
+  became `sections: HotspotSection[]` (discriminated by `lens`), with per-lens
+  metadata on the section (churn standout factor/median; coupling
+  minSupport/degreeCap/sweepCap). `--lens all` emits both sections and future
+  lenses (42) just append. Brand firewall preserved (`kind: "advisory"`, no
+  `findings`/WARN/FIX, reachable only via `drift:ai hotspots`).
+- **Churn is thresholded, never padded.** A file shows only if score ≥ 2× the
+  in-window median churn; a flat distribution yields "no clear hotspots this
+  window" and zero rows. This is the closest hotspots gets to the main report's
+  "a clean run is meaningful" virtue.
+- **Coupling: symmetric score + two structural legibility controls.** Score
+  `coOccur / min(coRevs[a], coRevs[b])` where `coRevs` counts only the 2..K-file
+  commits (so `coOccur ≤ coRevs`, score ∈ (0,1]). `minSupport` (3) cuts the long
+  tail; a per-node degree cap (5) bounds how many partners any one file
+  contributes to the list (greedy in rank order) so a lockfile/locale clique is
+  *bounded but visible*, not filtered. Wide commits (> 40 files) are skipped as
+  sweeps. These are structural controls, NOT generated-file classification (01 §3).
+- **Cross-boundary = first path segment differs.** Repo-agnostic and matches the
+  OpenClaw depth-1 example; deliberately not a package-depth heuristic (that would
+  be an unportable drift:ai opinion about a foreign repo). Cross-boundary pairs
+  sort above same-directory pairs unconditionally.
+- **Actionability without recommendation** (brainstorm §1.8): every row carries
+  top authors/agents (commit author + `Co-authored-by` trailers, email stripped),
+  3 most-recent subjects (records are newest-first from `git log`, no date parse),
+  raw numbers behind the score, and a copy-paste `git log` inspect command.
+  `--baseline <prev.json>` tags rows `↑NEW`/`↑+N`/`↓-N`/`=steady` — so JSON is the
+  substrate and text renders from the same data. New flags: `--top`,
+  `--min-support`, `--baseline`.
+
+Hardened after a codex second-opinion pass (no P0; 1 P1 + 4 P2 applied):
+churn baseline deltas are metric-aware (a prior `lines` advisory is not compared
+against a current `revisions` run — deltas omitted with a disclosing note); a
+`--baseline` file containing literal `null` tags rows NEW rather than reading as
+"no baseline"; non-finite baseline scores are rejected (Infinity/NaN would render
+as JSON `null`); coupling row context (authors/recent subjects) is filtered to the
+same 2..sweepCap window the score uses, so a wide sweep can't appear as a pair's
+evidence; inspect commands shell-quote paths with spaces/metacharacters.
+
+Validated read-only on OpenClaw (30d, 15,454 commits, blobless → revisions-only):
+the predicted discord↔config cross-boundary coupling surfaces near the top
+(`extensions/discord/src/config-schema.test.ts ↔
+src/config/zod-schema.providers-core.ts`, 17×); lockfile/CHANGELOG partners are
+bounded by the degree cap, not filtered; churn top-N is the realistic noisy list
+(CHANGELOG 3678, package.json, pnpm-lock, generated `.sha256`). Musi: coupling
+surfaces `.claude/… ↔ .codex/…`; baseline round-trip tags all `=steady`. 396
+drift-ai tests green; lint:ratchet clean.
+
+## 2026-05-29 — Drift:ai hotspots collector + subcommand scaffold (task 40)
+
+Landed the foundation of the hotspots track: a shared windowed git-history
+collector (`hotspots-history.ts`) and the brand-firewalled `hotspots` subcommand
+(`hotspots.ts` runner + `hotspots-format.ts` advisory/render), with a trivial
+churn placeholder reduction (real lenses are tasks 41/42). Also introduced a
+shared subcommand arg parser (`subcommand-args.ts`: universal
+`--format`/`--output`/`--config` + per-subcommand value options) and retrofitted
+`harness-freshness` onto it, closing the M4/L1 wart from task 50.
+
+Durable decisions:
+
+- **Collector is git-only and reduce-once.** One windowed `git log` walk parsed
+  into typed per-commit records; every future lens reduces over the same walk.
+  `--no-merges` + `--no-renames` (the latter is load-bearing for parser
+  correctness — arrow-form paths would corrupt the tab-split). Format uses
+  `%x00`-prefixed metadata lines (NUL can't occur in a path → unambiguous commit
+  boundary), `%x1f` field sep, `%x1d` co-author sep. The `%x..` escapes are passed
+  as literal text to git (a raw NUL in argv would truncate the arg); the parser
+  works on the expanded bytes.
+- **Blobless partial clones → `--name-only` fallback.** `--numstat` needs blob
+  content and hangs fetching blobs on a `blob:none` clone (OpenClaw). The
+  collector probes `remote.*.partialclonefilter` / `extensions.partialclone` and
+  falls back to `--name-only`: revisions stay exact, line counts are disclosed as
+  unavailable. This is a delta from the task spec, which had only flagged
+  shallow-clone `git diff` (not hotspots numstat).
+- **Honest adaptive header.** Sparse history widens the window (14d → up to 180d)
+  and reports the effective window; squash-y history (high single-revision ratio)
+  auto-switches the churn metric to `lines` and discloses it — but never switches
+  when line counts are unavailable. Conservative thresholds so near-linear repos
+  (OpenClaw) do not misfire.
+- **Brand firewall** (three layers): JSON is `{ kind: "advisory", hotspots: [...] }`
+  (never `findings`/WARN/FIX/DriftFinding); reachable only via `drift:ai hotspots`
+  (no `DriftCheckId` entry); mandatory header + "areas to check, not defects"
+  banner. churn × complexity is deliberately NOT a lens (complexity is a
+  lint-baseline concern, task 30).
+
+Validated read-only on OpenClaw (4,134 non-merge commits/14d, `--name-only`
+fallback, squash guard does not fire) and on Musi (numstat, full clone). 362
+drift-ai tests green.
+
+## 2026-05-29 — Drift:ai near-duplicate functions adapter (task 33)
+
+Added the opt-in `near-duplicates` check, a measurement-ish adapter over
+drift:ai-authored function-similarity thresholds. The default engine fingerprints
+named functions/methods/assigned arrows with ts-morph/TypeScript, normalizes
+binding identifiers and type annotations, retains property names, and compares
+functions in conservative normalized-statement buckets. Findings carry
+`[drift-baseline]` provenance and are sorted by `lines * similarity`; changed
+scope reports only pairs touching a changed file.
+
+`similarity-ts` is supported as an optional config-selected engine name; because it
+is a Cargo binary rather than a tools-checkout npm dependency, absence is a clean
+`tool-not-installed` skip, not a finding. The check is excluded from
+`DEFAULT_CHECKS` and activates via `--check near-duplicates` / `--check all`.
+
+Validation: Musi `scripts/drift-ai` current scope found the existing jscpd/knip
+resolver helper clones in ~0.13s. OpenClaw current scope over
+`src/packages/apps/extensions/ui/config` completed in ~9s over 14,923 scoped files
+with 619 `near-duplicates` findings, no skips. An initial all-pairs comparison was
+aborted after >60s; the landed statement-bucket pass keeps the check usable on
+large foreign repos.
+
+## 2026-05-29 — Drift:ai knip orphan-files adapter (task 32)
+
+Landed the **first external-tool adapter** — `orphan-files`, a Tier-1
+pass-through over the target's own knip (unused-files category only). As the
+foundational adapter it introduced the shared adapter infrastructure tasks 31/33
+build on, all against the task-30 contract:
+
+- **Provenance + schema bump.** New optional `DriftFinding.provenance`
+  (`{ configSource, tool, configPath? }`) and `SkippedDriftCheck.code`
+  (`SkipReasonCode`); `DRIFT_SCHEMA_VERSION` 2 → 3 (both additive). Text output
+  tags findings `[target-config]` so a verdict's authorship is never disguised.
+- **Shared helpers** (`adapter-support.ts`): `PathProbe` + `defaultPathProbe`,
+  `detectTargetInstall`, `discoverToolConfig` (ladder rungs 1–2). New injected
+  `CheckRunDeps.pathExists` (reused by 31/33) and `CheckRunDeps.knip` runner
+  (`knip-runner.ts`, bin resolved from the tools checkout first, mirroring jscpd).
+  `--knip-config <path>` override (ladder rung 1).
+- **Skip vs finding (jscpd-precedent correction).** Expected absence → `skipped`
+  with a machine `code`: `no-target-config` / `target-not-installed` /
+  `tool-not-installed`. Only an attempted-and-failed run (cannot spawn, or
+  unparseable stdout) emits **one** diagnostic finding — never one-per-root. knip
+  exit 1 = issues found, not failure.
+- **Opt-in by default.** New `runByDefault` plugin flag + `DEFAULT_CHECKS` (vs
+  `ALL_CHECKS`): knip analyzes the whole graph on every run, so orphan-files stays
+  off the routine changed-scope run and activates via `--check orphan-files` /
+  `--check all`. No knip latency or skip-noise on the common path.
+- **Validated:** Musi (root `knip.config.ts`, installed) → 3 orphans, byte-for-byte
+  matching raw `knip --include files`, stamped `[target-config]`. OpenClaw
+  (non-root `config/knip.config.ts`, **no** `node_modules`) → config located, then
+  a clean `target-not-installed` skip (the headline foreign-repo case), exit 0.
+
+## 2026-05-29 — Drift:ai Adapter Policy & Base Contract (task 30)
+
+Landed the policy + base contract that governs every external-tool adapter in
+drift:ai, as `docs/agent_notes/backlog/drift-ai-tasks/03-adapter-contract.md`
+(doc/contract only — no runnable code; validated when tasks 31/32 implement
+against it). Governing rule: **own the provenance of the verdict** — every adapter
+finding is stamped `target-config` / `tool-default` / `drift-baseline`, and
+drift:ai may run our own `ai_devx_stuff-lint` baseline against a foreign repo
+(Tier-2, explicit `--baseline-profile=ai_devx_stuff-lint`) as long as it says so.
+
+The contract is grounded in the real task-21 types: an adapter is a `CheckPlugin`
+whose `run` delegates to tool orchestration (`preflight` → `resolveConfig` skip),
+returning the existing `CheckOutcome` (`ran | skipped`) — so the jscpd-precedent
+correction (expected absence = `skipped` with a machine `code`; tool-ran-and-failed
+= one `ran` diagnostic, never one-WARN-per-root) needs no schema change. Reconciled
+the source prose's hypothetical `status: "error"` with the landed two-state union.
+Also documented the four-rung config-authority ladder (config-honoring adapters
+only), the measurement-ish carve-out, the candidate catalog, and the shared
+install-detection / config-discovery helpers tasks 31/32 consume. Split the flat
+"Explicitly do NOT add" lists in `drift-ai-improvements.md` (Part D) and
+`drift-ai-review/additional-checks-research.md` into Category 1 (don't hand-roll) /
+Category 2 (may orchestrate via adapter) / Still-excluded. Tasks 31/32/33 now cite
+the contract from their Background sections.
+
+## 2026-05-29 — Drift:ai Reporting Trust Pass (task 22)
+
+Made drift:ai JSON findings-first and scope-light by default. Reports now carry a
+`summary` (`total` plus per-ran-check counts) and `scopeCount`; `formatJson`
+omits the full `scope` array unless `--include-scope` is passed. Text output now
+prints the same findings summary line and renders skip reasons directly.
+
+Chunk output is now strictly per-check, so chunk labels and `NNN-<check>.json`
+filenames cannot describe mixed-check contents. The suppressions current-scope
+dead-end now reports that suppressions is only available in changed scope, and
+same-file duplicate clones use local-repeat wording with a local extraction hint.
+
+OpenClaw current-scope JSON dropped from 1,673,333 bytes to 217,984 bytes by
+default; `--include-scope` restored the full scoped payload at 1,673,613 bytes.
+The default JSON top now reaches `summary` and `findings` before any scope data.
+
+## 2026-05-29 — Drift:ai Check Plugin Registry (task 21)
+
+Replaced bespoke drift:ai check dispatch with a `CHECK_PLUGINS` registry and
+`CheckOutcome` union. The runner now builds one `CheckRunContext` with grouped
+I/O deps; duplicates, ghost-files, comments, and suppressions each have a plugin
+module owning config parsing, preflight, and run behavior.
+
+`DriftReport.skippedChecks` is now structured `{ check, reason }[]`, with
+suppressions skipped in current scope and missing jscpd skipped through the same
+channel. Schema version moved to `DRIFT_SCHEMA_VERSION = 2` and is shared by
+reports, chunks, and manifests. Runtime `ALL_CHECKS` and CLI usage derive from
+the registry; `DriftCheckId` stays leaf-local in `types.ts` to avoid a runtime
+cycle through the plugin modules.
+
+OpenClaw current-scope smoke exited 0 with schema 2, 14,923 scoped files, 360
+findings (20 duplicates, 329 ghost-files, 11 comments), and suppressions skipped
+with reason `not run for current scope`.
+
+---
+
+## 2026-05-29 — Drift:ai Shared Path Utilities (task 20)
+
+Extracted `scripts/drift-ai/path-util.ts` as the canonical home for POSIX path
+normalization, source-extension checks, sorted unique strings, changed-scope
+file extraction, finding sorting, and configured-root matching. `normalizeRepoPath`
+now delegates to the shared `toPosix`, closing the previous comments /
+ghost-files normalization divergence around `./`, trailing slashes, and
+backslashes.
+
+Updated duplicates, ghost-files, comments, current-inventory, config parsing,
+and suppressions callers to import the shared helpers. Suppressions keeps its
+map-shaped status filtering local because it deliberately drops deleted files.
+
+---
+
+## 2026-05-29 — Drift:ai Shallow-Clone Degradation (task 14)
+
+Changed scope now degrades cleanly when git history or objects are unavailable.
+`discoverChangedFiles` proactively checks `git rev-parse --is-shallow-repository`
+and reactively converts SIGSEGV/missing-object diff failures into a clear
+`DriftAiError` that suggests `git fetch --unshallow` or `--scope current`.
+Unrelated diff errors still propagate, and current scope does not run the new
+probe.
+
+No target-`node_modules` hook was added: with task 12 landed, `duplicates`
+resolves `jscpd` from the tools checkout and the other default checks do not
+need target-local installs. Adapter skip policy remains for tasks 31/32.
+
+## 2026-05-29 — Drift:ai Portable Output Cleanup (task 13)
+
+Ghost-files hints are now repo-agnostic by default and configurable per target.
+`checks["ghost-files"].dependentsHint` is a validated `{path}` template; the
+built-in hint is `Check what imports {path}`, while Musi's committed config opts
+back into `bun run code:intel -- dependents {path}`. Current-scope pair hints
+apply the same template once per peer path and separate the rendered hints with a
+semicolon.
+
+Added `drift-ai.config.example.json` as a generic TypeScript starter config and
+linked it from `scripts/drift-ai/README.md`. The portable README and
+`harness-freshness.ts` now document `harness-freshness` as a Musi-specific
+subcommand outside the portable default check surface. Validated with the full
+drift-ai test set plus OpenClaw and Musi current-scope smoke checks.
+
+## 2026-05-29 — Drift:ai Target `cd` Flow (task 11)
+
+Expanded `scripts/drift-ai/README.md` to make the supported target-selection
+flow explicit: `cd <target-repo>` first, then invoke the tools-checkout script by
+absolute path. Deferred `--repo <path>` remains intentional and now records the
+six path semantics that must be designed together before it can land: Git cwd,
+config discovery root, `--output` base, `--chunk-dir` base, `--root` validation,
+and subprocess cwd. No wrapper was added. Verified the documented OpenClaw
+current-scope command exits 0 with repo-relative finding paths; the remaining
+duplicate warnings are the known task-12 jscpd-resolution gap.
+
+---
+
+## 2026-05-29 — Drift:ai Tools-Checkout Contract (task 10)
+
+Documented the portable "tools checkout vs. target repo" contract at
+`scripts/drift-ai/README.md` (doc-only; first Portability MVP task). It travels
+with the tool: Bun is the tool runtime, the tools checkout owns implementation
+deps (`bun install` once), the target supplies only source and never installs
+drift:ai deps, config is discovered from the target cwd, and the `cd <target>`
+flow is the supported MVP (no `--repo` flag). A "Known gaps (tracked)" section
+cross-links the behaviors still being aligned: jscpd bin resolution (task 12),
+shallow-clone degradation (task 14), Musi-ism output cleanup (task 13). Verified
+the documented invocation runs to exit 0 with repo-relative paths against
+OpenClaw. Unblocks tasks 11 and 12.
+
+---
+
+## 2026-05-29 — Drift:ai Hotspots Shape Lock
+
+Hotspots now locks churn and co-change coupling as required lenses rather than a
+fork; implementation order is flexible. The former churn × complexity v5 lens is
+closed as won't-do because complexity is covered directly by the
+`ai_devx_stuff-lint` baseline adapter from task 30.
+
+---
+
+## 2026-05-29 — Drift:ai Adapter Baseline Direction
+
+Adapter policy now treats imposed baselines as a first-class product direction
+for foreign repos: drift:ai may run shared lint rules against a target and report
+the violations, with findings clearly stamped as `drift-baseline` rather than
+target-owned standards. The adapter ceiling now includes lint-rule orchestration,
+not only structural cross-file checks; task 30 still keeps implementation of a
+concrete lint-baseline adapter out of scope.
+
+The public profile UX is `--baseline-profile=ai_devx_stuff-lint`. The first
+profile should be curated and portable, focused on generic AI-drift signals such
+as complexity, file length, and too many arguments, not repo-specific rules from
+this codebase.
+
+---
+
+## 2026-05-29 — Drift:ai Backlog Decision Lock
+
+Locked several drift:ai backlog choices so future agents do not re-escalate
+them: portable docs live at `scripts/drift-ai/README.md`; task 13 commits
+`drift-ai.config.example.json` and uses `checks["ghost-files"].dependentsHint`
+with a `{path}` placeholder; the external-repo flow is docs-only
+`cd <target>; bun <tools>/scripts/drift-ai.ts` with no wrapper; reporting uses
+per-check chunks, `{ total, byCheck }` summaries with zero-count ran checks, and
+JSON-only `--include-scope`; import cycles spike `ts-morph` first with
+`import-x` fallback and no new `madge` dependency by default. Task 51 standalone
+Node/npm extraction is closed as won't-do.
+
+---
+
 ## 2026-05-29 — Lint Ratchet Debt Log Hardening
 
 Debt-log acceptances now use a retry-idempotent append before baseline writes:
@@ -120,6 +599,15 @@ planning clarified: ratchets are migration floors not indefinite parking, add
 in small measured batches, re-measure runtime after each batch, bug-class
 findings are fix-soon drains. Core ESLint rule-source support added to the
 ratchet runner. First batch: `ratchet/local-max-lines-codemods`.
+
+## 2026-05-29 — drift:ai Hotspots Lenses Complete
+
+Closed backlog task 42 by adding the remaining git-only hotspot sections:
+author/agent fragmentation, suppression-churn, and thrash. `--lens all` now
+renders churn, coupling, fragmentation, suppression-churn, and thrash in the
+advisory `sections` shape. OpenClaw validation exposed that `git log -G` needs
+blob content, so suppression-churn skips with a clear reason on blobless partial
+clones; thrash already reports line-count unavailability there.
 
 ## 2026-05-19 — Type Assertion Boundary Drain and Lint Leaf Inventories
 

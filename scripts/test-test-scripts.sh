@@ -486,6 +486,18 @@ MUSI_SCRIPTS_CHANGED_FILES="scripts/ai-hooks/lint-coverage-check.sh" run_runner 
 ok "--changed selects test-ai-hooks on lint coverage hook change"
 
 : > "$STUB_LOG_FILE"
+MUSI_SCRIPTS_CHANGED_FILES="scripts/ai-hooks/ratchet-regression-check.sh" run_runner --changed >/dev/null
+[ "$(cat "$STUB_LOG_FILE")" = "runner ran test-ai-hooks" ] \
+  || fail "ratchet-regression-check.sh change should select ai-hooks smoke: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects test-ai-hooks on ratchet regression hook change"
+
+: > "$STUB_LOG_FILE"
+MUSI_SCRIPTS_CHANGED_FILES="scripts/ai-hooks/edited-paths.sh" run_runner --changed >/dev/null
+[ "$(cat "$STUB_LOG_FILE")" = "runner ran test-ai-hooks" ] \
+  || fail "edited-paths.sh change should select ai-hooks smoke: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects test-ai-hooks on edited-paths helper change"
+
+: > "$STUB_LOG_FILE"
 MUSI_SCRIPTS_CHANGED_FILES=".codex/hooks/post-tool-use.sh" run_runner --changed >/dev/null
 [ "$(cat "$STUB_LOG_FILE")" = "runner ran test-ai-hooks" ] \
   || fail "Codex post hook change should select ai-hooks smoke: $(cat "$STUB_LOG_FILE")"
@@ -665,6 +677,12 @@ MUSI_SCRIPTS_CHANGED_FILES="scripts/lint-ratchet/cli.ts" run_runner --changed >/
 [ "$(cat "$STUB_LOG_FILE")" = "runner ran test-lint-ratchet" ] \
   || fail "lint-ratchet split helper change should select its smoke: $(cat "$STUB_LOG_FILE")"
 ok "--changed selects test-lint-ratchet on lint-ratchet split helper change"
+
+: > "$STUB_LOG_FILE"
+MUSI_SCRIPTS_CHANGED_FILES="scripts/test-lint-ratchet-edit-check-fixtures.sh" run_runner --changed >/dev/null
+[ "$(cat "$STUB_LOG_FILE")" = "runner ran test-lint-ratchet" ] \
+  || fail "lint-ratchet edit-check fixture helper change should select its smoke: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects test-lint-ratchet on lint-ratchet edit-check fixture helper change"
 
 : > "$STUB_LOG_FILE"
 MUSI_SCRIPTS_CHANGED_FILES="scripts/lint-ratchet-zero-baseline.ts" run_runner --changed >/dev/null

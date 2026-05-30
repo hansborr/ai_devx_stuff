@@ -670,6 +670,7 @@
         "scripts/drift-ai/duplicates.test.ts",
         "scripts/drift-ai/ghost-files.test.ts",
         "scripts/drift-ai/harness-freshness.test.ts",
+        "scripts/drift-ai/path-util.test.ts",
         "scripts/drift-ai/suppressions.test.ts"
       ],
       "ignores": [],
@@ -680,7 +681,7 @@
           ]
         }
       ],
-      "configHash": "sha256:2b7cc06d12bf052f221817287b3402379161446333a16c6ecadf97d549ddfd26",
+      "configHash": "sha256:c6d3bd11a9874762acaccc3dd2e826bbc783034efef7faa439d4d65de118631b",
       "ruleSourceHash": "sha256:dca95346de5edfbb32d2f084bec47542f1d2edc7c66eb352455c417747e61259",
       "items": {}
     },
@@ -773,6 +774,7 @@
         "scripts/drift-ai/duplicates.test.ts",
         "scripts/drift-ai/ghost-files.test.ts",
         "scripts/drift-ai/harness-freshness.test.ts",
+        "scripts/drift-ai/path-util.test.ts",
         "scripts/drift-ai/suppressions.test.ts"
       ],
       "ignores": [],
@@ -781,7 +783,7 @@
           "maxArgs": 2
         }
       ],
-      "configHash": "sha256:04a63f560c7eadcfec0b866b5c004ffefaf4f74f545365b35ab0afef9744d16c",
+      "configHash": "sha256:535736be6d0ea6cd1ca1070c7de249ccbd505ec341582b021b42093f93ab632d",
       "ruleSourceHash": "sha256:dca95346de5edfbb32d2f084bec47542f1d2edc7c66eb352455c417747e61259",
       "items": {}
     },
