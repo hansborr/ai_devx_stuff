@@ -14,6 +14,8 @@ REPO_ROOT=$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel)
 # shellcheck source=/dev/null
 . "$SCRIPT_DIR/policy.sh"
 # shellcheck source=/dev/null
+. "$SCRIPT_DIR/claude-guidance.sh"
+# shellcheck source=/dev/null
 . "$SCRIPT_DIR/protected-files.sh"
 # shellcheck source=/dev/null
 . "$SCRIPT_DIR/doc-length.sh"
@@ -432,15 +434,25 @@ assert_claude_soft_grep_guidance() {
   rewritten=$(jq -r '.hookSpecificOutput.updatedInput.command' <<< "$out")
   stdout=$(bash -c "$rewritten") || fail "rewritten guidance command failed: $rewritten"
   [ "$stdout" = "$AI_POLICY_GREP" ] || fail "rewritten command stdout mismatch: [$stdout]"
+  # Soft guidance takes the rewrite-to-success path and never cascades, so it
+  # must NOT carry the hard-block cancellation inoculation suffix.
+  assert_not_contains "$stdout" "$AI_CLAUDE_CANCEL_INOCULATION"
 }
 
 assert_claude_hard_block() {
-  local out
+  local out reason
 
   out=$(claude_policy_out "$1")
   assert_hook_json "$out"
   [ "$(jq -r '.decision' <<< "$out")" = "block" ] || fail "expected block for [$1]: $out"
-  [ "$(jq -r '.reason' <<< "$out")" = "$2" ] || fail "block reason mismatch for [$1]: $out"
+  reason=$(jq -r '.reason' <<< "$out")
+  case "$reason" in
+    "$2"*) ;;
+    *) fail "block reason should start with policy reason for [$1]: $out" ;;
+  esac
+  # Claude hard blocks carry the parallel-cancel inoculation suffix so a sibling
+  # cancellation cascade reads as this block, not a broken shell.
+  assert_contains "$reason" "$AI_CLAUDE_CANCEL_INOCULATION"
   [ "$(jq -r '.hookSpecificOutput // empty' <<< "$out")" = "" ] \
     || fail "hard block must not rewrite [$1]: $out"
 }
@@ -458,6 +470,25 @@ assert_codex_grep_still_blocks() {
   [ "$(jq -r '.reason' <<< "$out")" = "$AI_POLICY_GREP" ] || fail "Codex grep reason mismatch: $out"
 }
 
+assert_codex_hard_block_unchanged() {
+  local cmd="$1"
+  local expected="$2"
+  local out reason
+
+  out=$(printf '%s' "$(jq -n --arg c "$cmd" '{tool_input:{command:$c}}')" \
+    | AI_STATE_ROOT="$AI_STATE_ROOT" \
+      AI_BUN_LOG_DIR="$TMP_ROOT/codex-bun-logs" \
+      AI_PRECOMMIT_LOG_DIR="$AI_PRECOMMIT_LOG_DIR" \
+      bash "$CODEX_PRE")
+  assert_hook_json "$out"
+  [ "$(jq -r '.decision' <<< "$out")" = "block" ] || fail "Codex must hard-block [$cmd]: $out"
+  reason=$(jq -r '.reason' <<< "$out")
+  # The inoculation suffix is Claude-only: the helper must not be reachable from
+  # the shared block path Codex uses. Codex never reproduces the cascade.
+  [ "$reason" = "$expected" ] || fail "Codex block reason must be unchanged for [$cmd]: $out"
+  assert_not_contains "$reason" "$AI_CLAUDE_CANCEL_INOCULATION"
+}
+
 assert_claude_soft_grep_guidance
 assert_claude_hard_block "docker ps" "$AI_POLICY_DOCKER"
 assert_claude_hard_block "docker ps; grep -r TODO ." "$AI_POLICY_DOCKER"
@@ -465,6 +496,7 @@ assert_claude_hard_block "git rebase main" "$AI_POLICY_GIT_REBASE"
 assert_hook_continue_json "$(claude_policy_out 'rg needle')"
 assert_hook_continue_json "$(claude_policy_out 'bun run test:changed')"
 assert_codex_grep_still_blocks
+assert_codex_hard_block_unchanged "docker ps" "$AI_POLICY_DOCKER"
 
 PROTECTED_MSG=$(ai_protected_file_advisory "$REPO_ROOT/packages/server/prisma/schema.prisma")
 assert_contains "$PROTECTED_MSG" "Create a migration"
@@ -780,6 +812,12 @@ assert_claude_git_commit_timeout_guidance
 # aggregate keeps its single "ai-hooks tests passed" success line; any failure
 # still exits non-zero and prints its FAIL reason on stderr.
 bash "$SCRIPT_DIR/test-stop-policy.sh" >/dev/null
+# --- parallel-cancel-note hook (PostToolBatch) -------------------------------
+# Extracted to a focused script so this behavior family can also run on its own
+# (`bash scripts/ai-hooks/test-parallel-cancel.sh`). Stdout is discarded so the
+# aggregate keeps its single "ai-hooks tests passed" success line; any failure
+# still exits non-zero and prints its FAIL reason on stderr.
+bash "$SCRIPT_DIR/test-parallel-cancel.sh" >/dev/null
 
 NOISY_TEST_OUTPUT=$'useful failure line\n(node:123) DeprecationWarning: Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0. Use async/await or an external async flow control mechanism instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\nreal assertion line'
 FILTERED_TEST_OUTPUT=$(printf '%s\n' "$NOISY_TEST_OUTPUT" | ai_filter_known_output_noise)

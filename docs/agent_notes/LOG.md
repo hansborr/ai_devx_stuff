@@ -7,6 +7,34 @@ Newest on top.
 
 ---
 
+## 2026-05-31 — Parallel sibling-cancellation mitigation (Phases 1 + 2E)
+
+Shipped two Claude-only nudges that re-inject one calm pointer when the upstream
+parallel-cancel bug (claude-code#22264) cascades sibling Bash calls. Phase 1:
+`no-direct-db.sh` appends an inoculation suffix to hard-block reasons (new
+Claude-only `scripts/ai-hooks/claude-guidance.sh`; shared `ai_emit_block` /
+Codex output untouched). Phase 2E: new `.claude/hooks/parallel-cancel-note.sh`
+on `PostToolBatch` injects the same wording once per batch when a real cancelled
+sibling is present (detection keyed to the wrapped marker at the absolute start
+of `tool_response` — `\A<tool_use_error>Cancelled…` — to avoid false-firing on
+docs/block-reasons that merely quote the phrase). Phase 3 (Stop scan) not needed:
+Phase 0 proved `PostToolBatch` delivers `additionalContext` same-turn. Durable
+detail in `decisions-build.md` and `finished_work/parallel-cancel-guidance-hook.md`;
+backlog brainstorm marked superseded. Gates: `bash scripts/ai-hooks/test.sh`,
+`shellcheck --severity=warning`, `bun run verify:changed`.
+
+---
+
+## 2026-05-31 — Harness Review Notes
+
+Added `docs/agent_notes/harness-review-2026-05/`, a six-file harness review
+artifact covering current-state audit, source findings, recommendations,
+rejections/deferred ideas, and generic harness principles. Follow-up review
+corrected source attribution/title details, narrowed overstated repo claims, and
+clarified the proposed timing-history and diagnostics-aggregation contracts.
+
+---
+
 ## 2026-05-30 — Drift:ai documentation refresh
 
 Refreshed the drift:ai operator and harness docs after reviewing the current
