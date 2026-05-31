@@ -10,7 +10,13 @@ import type { FileReader } from "./comments.js";
 import type { KnipRunner } from "./knip-runner.js";
 import { changedFilesFromScope, sortFindingsByFileMessage, toPosix } from "./path-util.js";
 import type { DetectorScope } from "./scope.js";
-import type { ConfigSource, DriftFinding, FindingProvenance, SkipReasonCode } from "./types.js";
+import type {
+  ConfigSource,
+  DriftCheckId,
+  DriftFinding,
+  FindingProvenance,
+  SkipReasonCode,
+} from "./types.js";
 
 // Services the orphan-files adapter resolves for itself (plugin-owned setup). The
 // knip runner plus the repo-relative probes/readers and the explicit --knip-config
@@ -45,8 +51,11 @@ export const KNIP_CONFIG_CANDIDATES: readonly string[] = [
 export const ORPHAN_FILES_REPAIR_HINT =
   "if the file is dead code, remove it; if it is an entry point or used dynamically (CLI, config, plugin), add it to the target's knip entry/ignore config so the signal stays clean.";
 
+// Check-agnostic on purpose: shared by both knip pass-through checks (orphan-files
+// and unused-exports), so it must not name a single one of them in the diagnostic
+// the user reads when they asked for the other.
 const NO_CONFIG_REASON =
-  "no target-authored knip config found (searched knip.json, knip.config.ts, config/knip.config.ts, and package.json#knip). This is the expected state on a repo that does not use knip — orphan-files is a Tier-1 pass-through and needs the target's own knip config. Pass --knip-config <path> to point at one.";
+  "no target-authored knip config found (searched knip.json, knip.config.ts, config/knip.config.ts, and package.json#knip). This is the expected state on a repo that does not use knip — the knip pass-through checks are Tier-1 and need the target's own knip config. Pass --knip-config <path> to point at one.";
 
 const TARGET_NOT_INSTALLED_REASON =
   "target has no node_modules; knip cannot resolve the module graph to tell an orphaned file from a merely-unresolved import. Install the target's dependencies and re-run.";
@@ -57,6 +66,10 @@ export function targetNotInstalledReason(): string {
 
 export function toolNotInstalledReason(detail: string): string {
   return `knip executable not found in the tools checkout (${detail}); run \`bun install\` in the drift:ai tools checkout.`;
+}
+
+export function toolTimedOutReason(detail: string): string {
+  return `knip exceeded the configured timeout (${detail}); no knip-backed findings were reported for this run.`;
 }
 
 // --- knip JSON parsing ------------------------------------------------------
@@ -208,12 +221,18 @@ function filterOrphansToScope(
 // A single diagnostic for an attempted-and-failed run (adapter contract §4): knip
 // ran (or could not be spawned) and broke. Deliberately one finding, not one per
 // root (the jscpd mistake). No provenance — a failure is not an authored verdict.
-export function buildKnipDiagnosticFinding(file: string, message: string): DriftFinding {
+// `check` is parameterized so both knip-backed checks (orphan-files,
+// unused-exports) emit the diagnostic under their own id; defaults to orphan-files.
+export function buildKnipDiagnosticFinding(
+  file: string,
+  message: string,
+  check: DriftCheckId = "orphan-files",
+): DriftFinding {
   return {
-    check: "orphan-files",
+    check,
     file,
     message,
-    hint: "report-only: re-run knip locally against the target to inspect the failure; orphan-files is otherwise not reported for this run.",
+    hint: `report-only: re-run knip locally against the target to inspect the failure; ${check} is otherwise not reported for this run.`,
   };
 }
 

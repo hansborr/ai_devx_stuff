@@ -1,6 +1,7 @@
 import type { PathProbe } from "./adapter-support.js";
 import type { CheckRunInput } from "./check-plugin.js";
 import { DriftAiHelp, parseArgs } from "./cli-args.js";
+import { runColdspots } from "./coldspots.js";
 import type { FileReader } from "./comments.js";
 import { type BufferGitRunner, type StatRunner } from "./current-inventory.js";
 import type { JscpdRunner } from "./duplicates-runner.js";
@@ -148,13 +149,22 @@ export function runDriftAi(options: RunOptions): RunResult {
 }
 
 // Subcommands sit outside the CHECK_RUNNERS registry. `harness-freshness` is a
-// Musi-only findings check; `hotspots` is a brand-firewalled advisory. Both use
-// the shared subcommand arg parser for `--format`/`--output`; only `hotspots` opts
-// into `--config` (harness-freshness does not read config, so it rejects the flag).
+// Musi-only findings check; `hotspots` and `coldspots` are brand-firewalled
+// advisories (sibling subcommands over the same windowed git collector, viewed from
+// opposite ends — velocity vs stillness). All use the shared subcommand arg parser
+// for `--format`/`--output`; only `hotspots`/`coldspots` opt into `--config`
+// (harness-freshness does not read config, so it rejects the flag).
 function runSubcommand(options: RunOptions): RunResult | undefined {
   if (options.argv[0] === "harness-freshness") return runHarnessFreshnessSubcommand(options);
   if (options.argv[0] === "hotspots") {
     return runHotspots({
+      argv: options.argv.slice(1),
+      ...(options.git === undefined ? {} : { git: options.git }),
+      ...(options.writer === undefined ? {} : { writer: options.writer }),
+    });
+  }
+  if (options.argv[0] === "coldspots") {
+    return runColdspots({
       argv: options.argv.slice(1),
       ...(options.git === undefined ? {} : { git: options.git }),
       ...(options.writer === undefined ? {} : { writer: options.writer }),

@@ -1,0 +1,209 @@
+// knip unused-exports adapter: parse knip's symbol-level reachability categories
+// (`exports`, `types`, `enumMembers`, `namespaceMembers`) and build provenance-
+// stamped, category-tagged findings. This is the symbol-level companion to the
+// FILE-level orphan-files adapter — both pass through the target's OWN knip
+// verdict verbatim (adapter contract §1), so this module REUSES orphan-files'
+// config resolution, services shape, and skip-reason helpers rather than
+// duplicating them. The subprocess I/O lives in knip-runner.ts; the CheckPlugin
+// wiring in knip-unused-exports-check.ts.
+
+import { changedFilesFromScope, sortFindingsByFileMessage, toPosix } from "./path-util.js";
+import type { DetectorScope } from "./scope.js";
+import type { DriftFinding, FindingProvenance } from "./types.js";
+
+// The four symbol-level knip categories drift:ai surfaces. `files` (orphan files)
+// stays with the orphan-files check; `duplicates` is deferred (a duplication
+// signal partly covered by the duplicate-* family). Each category renders a
+// category-specific message and is tagged via `details.category`.
+export const UNUSED_EXPORT_CATEGORIES = [
+  "exports",
+  "types",
+  "enumMembers",
+  "namespaceMembers",
+] as const;
+
+export type UnusedExportCategory = (typeof UNUSED_EXPORT_CATEGORIES)[number];
+
+// A single symbol knip flagged as unused. `line`/`col` are present only when
+// knip emits a positive-integer location pair; malformed locations keep the
+// file-level evidence without fabricating a precise coordinate. `namespace` is
+// the enclosing enum/namespace name, present only for enumMembers and
+// namespaceMembers (knip's `namespace` field on those rows).
+export type UnusedExportSymbol = {
+  readonly category: UnusedExportCategory;
+  readonly file: string;
+  readonly name: string;
+  readonly line?: number;
+  readonly col?: number;
+  readonly namespace?: string;
+};
+
+export type ParseKnipUnusedExportsResult =
+  | { readonly ok: true; readonly symbols: readonly UnusedExportSymbol[] }
+  | { readonly ok: false; readonly error: string };
+
+// Parse the symbol-level categories from `knip --reporter json` (knip 6.14.1
+// shape, confirmed at runtime against the pinned version). A row is keyed by
+// `file` and carries a per-category array of items:
+//   { "file": "<path>",
+//     "exports":          [ { "name", "line", "col", "pos" }, ... ],
+//     "types":            [ { "name", "line", "col", "pos" }, ... ],
+//     "enumMembers":      [ { "namespace", "name", "line", "col", "pos" }, ... ],
+//     "namespaceMembers": [ { "namespace", "name", "line", "col", "pos" }, ... ],
+//     "files":            [ { "name" } ] }   // file-level; handled by orphan-files
+// A category requested via --include but with no issues is an empty array; a
+// category NOT requested is absent from the row entirely. Both mean "no symbols"
+// here — a missing/empty/non-array category is skipped, never an error. The
+// `files` category is ignored: orphan-files owns file-level reachability.
+export function parseKnipUnusedExports(jsonText: string): ParseKnipUnusedExportsResult {
+  // knip always prints `{"issues":[]}` even when clean, so empty output means the
+  // run never produced a report (attempted-and-failed), not "no unused exports".
+  if (jsonText.trim().length === 0) return { ok: false, error: "knip produced no JSON output" };
+  let raw: unknown;
+  try {
+    raw = JSON.parse(jsonText);
+  } catch (err) {
+    return { ok: false, error: errorMessage(err) };
+  }
+  if (!isObject(raw)) return { ok: false, error: "expected a JSON object with an 'issues' array" };
+  const issues = raw["issues"];
+  if (!Array.isArray(issues)) return { ok: true, symbols: [] };
+  const symbols: UnusedExportSymbol[] = [];
+  for (const row of issues) symbols.push(...symbolsFromRow(row));
+  return { ok: true, symbols };
+}
+
+function symbolsFromRow(row: unknown): UnusedExportSymbol[] {
+  if (!isObject(row)) return [];
+  const file = row["file"];
+  if (typeof file !== "string" || file.length === 0) return [];
+  const posixFile = toPosix(file);
+  const symbols: UnusedExportSymbol[] = [];
+  for (const category of UNUSED_EXPORT_CATEGORIES) {
+    const items = row[category];
+    if (!Array.isArray(items)) continue;
+    for (const item of items) {
+      const symbol = symbolFromItem(category, posixFile, item);
+      if (symbol !== undefined) symbols.push(symbol);
+    }
+  }
+  return symbols;
+}
+
+function symbolFromItem(
+  category: UnusedExportCategory,
+  file: string,
+  item: unknown,
+): UnusedExportSymbol | undefined {
+  if (!isObject(item)) return undefined;
+  const name = item["name"];
+  if (typeof name !== "string" || name.length === 0) return undefined;
+  const namespace = item["namespace"];
+  const base = { category, file, name, ...locationFromItem(item) };
+  return typeof namespace === "string" && namespace.length > 0 ? { ...base, namespace } : base;
+}
+
+// --- findings ---------------------------------------------------------------
+
+export const UNUSED_EXPORTS_REPAIR_HINT =
+  "if the symbol is dead, remove it; if it is part of the public API or used in a way knip cannot see (dynamic access, framework magic, string-keyed lookup), add it (or its file/pattern) to the target's knip ignore config so the signal stays clean.";
+
+// Category-specific message. Names the engine's own framing — never asserts the
+// symbol IS dead (evidence, not verdicts); the FIX hint points at the resolution.
+function messageFor(symbol: UnusedExportSymbol): string {
+  const where = `${symbol.name} (${locationLabel(symbol)})`;
+  switch (symbol.category) {
+    case "exports":
+      return `exported symbol ${where} is never imported (knip reports it as an unused export)`;
+    case "types":
+      return `exported type ${where} is never referenced (knip reports it as an unused type)`;
+    case "enumMembers": {
+      const member = symbol.namespace === undefined ? where : `${symbol.namespace}.${where}`;
+      return `enum member ${member} is never used (knip reports it as an unused enum member)`;
+    }
+    case "namespaceMembers": {
+      const member = symbol.namespace === undefined ? where : `${symbol.namespace}.${where}`;
+      return `namespace member ${member} is never used (knip reports it as an unused namespace member)`;
+    }
+  }
+}
+
+export function buildUnusedExportFindings(
+  symbols: readonly UnusedExportSymbol[],
+  detectorScope: DetectorScope,
+  provenance: FindingProvenance,
+): DriftFinding[] {
+  const inScope = filterSymbolsToScope(symbols, detectorScope);
+  const findings = inScope.map<DriftFinding>((symbol) => {
+    const location = fullLocation(symbol);
+    return {
+      check: "unused-exports",
+      file: symbol.file,
+      message: messageFor(symbol),
+      hint: UNUSED_EXPORTS_REPAIR_HINT,
+      details: {
+        category: symbol.category,
+        symbol: symbol.name,
+        ...(location === undefined ? {} : location),
+        ...(symbol.namespace === undefined ? {} : { namespace: symbol.namespace }),
+      },
+      provenance,
+    };
+  });
+  return sortFindingsByFileMessage(findings);
+}
+
+// knip analyzes the whole project, so the symbol set is global. We scope it to
+// the run's canonical relevance set, identically to orphan-files:
+//   - changed scope: intersect with the changed set.
+//   - current scope: intersect with detector scope files (already filtered
+//     through roots, ignore rules, regular-file checks, source-extension policy).
+// This only scopes report relevance, never knip's verdict (the target's knip
+// config already owns what counts as used) — evidence, not verdicts.
+function filterSymbolsToScope(
+  symbols: readonly UnusedExportSymbol[],
+  detectorScope: DetectorScope,
+): UnusedExportSymbol[] {
+  const inScope = scopeFileSet(detectorScope);
+  return symbols.filter((symbol) => inScope.has(toPosix(symbol.file)));
+}
+
+function scopeFileSet(detectorScope: DetectorScope): ReadonlySet<string> {
+  if (detectorScope.scopeMode === "current") {
+    return new Set(detectorScope.files.map((file) => toPosix(file.path)));
+  }
+  return new Set(changedFilesFromScope(detectorScope).map((file) => toPosix(file.path)));
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function locationFromItem(
+  item: Record<string, unknown>,
+): { readonly line: number; readonly col: number } | undefined {
+  const line = positiveIntegerOrUndefined(item["line"]);
+  const col = positiveIntegerOrUndefined(item["col"]);
+  return line === undefined || col === undefined ? undefined : { line, col };
+}
+
+function locationLabel(symbol: UnusedExportSymbol): string {
+  const location = fullLocation(symbol);
+  return location === undefined ? symbol.file : `${symbol.file}:${location.line}:${location.col}`;
+}
+
+function fullLocation(
+  symbol: UnusedExportSymbol,
+): { readonly line: number; readonly col: number } | undefined {
+  const line = positiveIntegerOrUndefined(symbol.line);
+  const col = positiveIntegerOrUndefined(symbol.col);
+  return line === undefined || col === undefined ? undefined : { line, col };
+}
+
+function positiveIntegerOrUndefined(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : undefined;
+}
+
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}

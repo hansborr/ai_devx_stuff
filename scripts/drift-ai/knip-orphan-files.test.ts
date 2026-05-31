@@ -323,6 +323,15 @@ describe("orphanFilesCheck", () => {
     if (outcome.status === "skipped") expect(outcome.code).toBe("no-target-config");
   });
 
+  it("gives a coherent no-config skip reason that points at the knip config", () => {
+    const outcome = orphanFilesCheck.runWithSelectedConfig(makeInput());
+    expect(outcome.status).toBe("skipped");
+    if (outcome.status === "skipped") {
+      expect(outcome.reason).toContain("knip config");
+      expect(outcome.reason).toContain("--knip-config");
+    }
+  });
+
   it("skips target-not-installed when a config exists but node_modules does not", () => {
     const outcome = orphanFilesCheck.runWithSelectedConfig(
       makeInput({ pathExists: pathExistsFor(["knip.config.ts"]) }),
@@ -340,6 +349,24 @@ describe("orphanFilesCheck", () => {
     );
     expect(outcome.status).toBe("skipped");
     if (outcome.status === "skipped") expect(outcome.code).toBe("tool-not-installed");
+  });
+
+  it("skips tool-timeout when knip exceeds the configured timeout", () => {
+    const outcome = orphanFilesCheck.runWithSelectedConfig(
+      makeInput({
+        pathExists: pathExistsFor(INSTALLED_WITH_ROOT_CONFIG),
+        knip: () => ({
+          ok: false,
+          reason: "timeout",
+          error: "timeout of 600000ms",
+        }),
+      }),
+    );
+    expect(outcome.status).toBe("skipped");
+    if (outcome.status === "skipped") {
+      expect(outcome.code).toBe("tool-timeout");
+      expect(outcome.reason).toContain("knip exceeded the configured timeout");
+    }
   });
 
   it("emits a single diagnostic finding when knip cannot be spawned", () => {

@@ -1,5 +1,6 @@
 import type { CheckRunInput } from "./check-plugin.js";
 import { checkPluginFor } from "./check-registry.js";
+import { clearKnipRunCache } from "./knip-runner.js";
 import type { DetectorScope } from "./scope.js";
 import {
   type CliOptions,
@@ -20,6 +21,14 @@ export function buildReport(
   detectorScope: DetectorScope,
   input: CheckRunInput,
 ): DriftReport {
+  // Bound the cross-check knip memo to this report build. The two whole-project
+  // knip checks still share one spawn inside the loop below, but repeated direct
+  // buildReport callers never inherit stale JSON from a prior build.
+  clearKnipRunCache();
+  const reportInput: CheckRunInput = {
+    ...input,
+    env: { ...input.env, reportCache: new Map<string, unknown>() },
+  };
   const enabled: DriftCheckId[] = [];
   const skipped: SkippedDriftCheck[] = [];
   const findings: DriftFinding[] = [];
@@ -30,7 +39,7 @@ export function buildReport(
       skipped.push({ check, reason: "check is not implemented" });
       continue;
     }
-    const outcome = plugin.runWithSelectedConfig(input);
+    const outcome = plugin.runWithSelectedConfig(reportInput);
     if (outcome.status === "skipped") {
       skipped.push({
         check,

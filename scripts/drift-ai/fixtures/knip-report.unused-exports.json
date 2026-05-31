@@ -1,0 +1,54 @@
+{
+  "issues": [
+    {
+      "file": "src/orphan.ts",
+      "enumMembers": [],
+      "exports": [],
+      "files": [
+        {
+          "name": "src/orphan.ts"
+        }
+      ],
+      "namespaceMembers": [],
+      "types": []
+    },
+    {
+      "file": "src/symbols.ts",
+      "enumMembers": [
+        {
+          "namespace": "Color",
+          "name": "Green",
+          "line": 7,
+          "col": 3,
+          "pos": 154
+        }
+      ],
+      "exports": [
+        {
+          "name": "neverImported",
+          "line": 1,
+          "col": 17,
+          "pos": 16
+        }
+      ],
+      "files": [],
+      "namespaceMembers": [
+        {
+          "namespace": "Geometry",
+          "name": "unusedConst",
+          "line": 11,
+          "col": 16,
+          "pos": 246
+        }
+      ],
+      "types": [
+        {
+          "name": "NeverReferencedType",
+          "line": 4,
+          "col": 13,
+          "pos": 69
+        }
+      ]
+    }
+  ]
+}

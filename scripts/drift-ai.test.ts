@@ -45,6 +45,12 @@ import {
   GHOST_FILES_REPAIR_HINT_PREFIX,
 } from "./drift-ai/ghost-files.js";
 import {
+  clearKnipRunCache,
+  KNIP_INCLUDE_CATEGORIES,
+  type KnipRunner,
+  memoizingDefaultKnipRunner,
+} from "./drift-ai/knip-runner.js";
+import {
   DEFAULT_NEAR_DUPLICATE_MIN_LINES,
   DEFAULT_NEAR_DUPLICATE_MIN_TOKENS,
   DEFAULT_NEAR_DUPLICATE_SIMILARITY,
@@ -119,6 +125,7 @@ function makeCheckRunContext(
 const tempRoots: string[] = [];
 
 afterEach(() => {
+  clearKnipRunCache();
   while (tempRoots.length > 0) {
     const root = tempRoots.pop();
     if (root) rmSync(root, { recursive: true, force: true });
@@ -171,6 +178,56 @@ function changedDetectorScope(files: readonly ChangedFile[]): DetectorScope {
 
 function nulDelimited(paths: readonly string[]): Buffer {
   return Buffer.from(`${paths.join("\0")}\0`, "utf8");
+}
+
+type FakeKnipTarget = {
+  readonly argsFile: string;
+  readonly binPath: string;
+  readonly reportFile: string;
+  readonly repoRoot: string;
+};
+
+function makeFakeKnipTarget(initialReportJson: string): FakeKnipTarget {
+  const repoRoot = makeTempDir();
+  const binDir = path.join(repoRoot, "node_modules", ".bin");
+  mkdirSync(binDir, { recursive: true });
+  const argsFile = path.join(repoRoot, "knip-args.log");
+  const reportFile = path.join(repoRoot, "knip-report.json");
+  const binPath = path.join(binDir, "knip");
+  writeFileSync(argsFile, "");
+  writeFileSync(reportFile, initialReportJson);
+  writeFileSync(
+    binPath,
+    [
+      "#!/usr/bin/env node",
+      'const { appendFileSync, readFileSync } = require("node:fs");',
+      `const argsFile = ${JSON.stringify(argsFile)};`,
+      `const reportFile = ${JSON.stringify(reportFile)};`,
+      "appendFileSync(argsFile, `${JSON.stringify(process.argv.slice(2))}\\n`);",
+      'process.stdout.write(readFileSync(reportFile, "utf8"));',
+    ].join("\n"),
+    { mode: 0o755 },
+  );
+  return { argsFile, binPath, reportFile, repoRoot };
+}
+
+function pathExistsFor(present: readonly string[]): (relativePath: string) => boolean {
+  const presentSet = new Set(present);
+  return (relativePath) => presentSet.has(relativePath);
+}
+
+function readCapturedKnipArgs(argsFile: string): readonly (readonly string[])[] {
+  const text = readFileSync(argsFile, "utf8").trim();
+  if (text.length === 0) return [];
+  return text.split("\n").map(parseCapturedKnipArgs);
+}
+
+function parseCapturedKnipArgs(line: string): readonly string[] {
+  const parsed: unknown = JSON.parse(line);
+  if (!Array.isArray(parsed) || !parsed.every((value) => typeof value === "string")) {
+    throw new Error(`invalid captured knip args: ${line}`);
+  }
+  return parsed;
 }
 
 function makeCurrentGit(repoRoot: string): GitRunner {
@@ -957,6 +1014,70 @@ describe("buildReport / formatText / formatJson", () => {
     expect(binProbes).toBeGreaterThan(0);
   });
 
+  it("bounds the default knip memo to each direct report build", () => {
+    const reportFor = (file: string, symbol: string): string =>
+      JSON.stringify({
+        issues: [
+          {
+            file,
+            files: [{ name: file }],
+            exports: [{ name: symbol, line: 1, col: 1, pos: 0 }],
+          },
+        ],
+      });
+    const fixture = makeFakeKnipTarget(reportFor("src/a.ts", "unusedA"));
+    const detectorScope: DetectorScope = {
+      scopeMode: "current",
+      files: ["src/a.ts", "src/b.ts"].map(toCurrentScopeFile),
+    };
+    const options = parseArgs([
+      "--scope",
+      "current",
+      "--check",
+      "orphan-files",
+      "--check",
+      "unused-exports",
+    ]);
+    const context = (): CheckRunInput =>
+      makeCheckRunContext(detectorScope, {
+        repoRoot: fixture.repoRoot,
+        overrides: {
+          binExists: (candidate) => candidate === fixture.binPath,
+          knip: undefined,
+          pathExists: pathExistsFor(["node_modules", "knip.config.ts"]),
+          readFile: () => undefined,
+        },
+      });
+    const expectedKnipArgs = [
+      "--reporter",
+      "json",
+      "--include",
+      KNIP_INCLUDE_CATEGORIES,
+      "--no-progress",
+      "--config",
+      "knip.config.ts",
+    ];
+
+    const first = buildReport(options, null, detectorScope, context());
+
+    expect(readCapturedKnipArgs(fixture.argsFile)).toEqual([expectedKnipArgs]);
+    expect(first.findings.map((finding) => finding.file)).toEqual(["src/a.ts", "src/a.ts"]);
+    expect(first.findings.map((finding) => finding.check)).toEqual([
+      "orphan-files",
+      "unused-exports",
+    ]);
+
+    writeFileSync(fixture.reportFile, reportFor("src/b.ts", "unusedB"));
+    const second = buildReport(options, null, detectorScope, context());
+
+    expect(readCapturedKnipArgs(fixture.argsFile)).toEqual([expectedKnipArgs, expectedKnipArgs]);
+    expect(second.findings.map((finding) => finding.file)).toEqual(["src/b.ts", "src/b.ts"]);
+    expect(second.findings.map((finding) => finding.check)).toEqual([
+      "orphan-files",
+      "unused-exports",
+    ]);
+  });
+
   it("skips suppressions in current scope with a structured reason", () => {
     const options = parseArgs(["--scope", "current", "--check", "suppressions"]);
     const detectorScope: DetectorScope = {
@@ -1047,7 +1168,7 @@ describe("runDriftAi", () => {
       expect(result.stdout).toContain("bun run drift:ai --base <ref>");
       expect(result.stdout).toContain("bun run drift:ai --scope <changed|current>");
       expect(result.stdout).toContain(
-        "bun run drift:ai --check <duplicates|ghost-files|comments|suppressions|orphan-files|import-cycles|near-duplicates|all>",
+        "bun run drift:ai --check <duplicates|ghost-files|comments|suppressions|orphan-files|import-cycles|near-duplicates|duplicate-types|duplicate-schemas|duplicate-literals|duplicate-constants|unused-exports|all>",
       );
       expect(result.stdout).toContain("bun run drift:ai --root <path>");
     });
@@ -1070,6 +1191,45 @@ describe("runDriftAi", () => {
       { scope: "changed", path: "packages/server/src/foo.ts", status: "added" },
     ]);
     expect(result.report?.scopeMode).toBe("changed");
+  });
+
+  it("reaches the report-owned knip memo clear before building a CLI report", () => {
+    // Prime the module-level knip memo as if a prior report had run both knip
+    // checks: one spawn populates the (repoRoot, bin, configPath) key.
+    let spawns = 0;
+    const counting: KnipRunner = () => {
+      spawns += 1;
+      return { ok: true, reportJson: '{"issues":[]}', exitCode: 0, stderr: "" };
+    };
+    const prime = (): void => {
+      const runner = memoizingDefaultKnipRunner({
+        analyzedRepoRoot: "/repo/target",
+        knipBin: "/bin/knip",
+        underlyingRunner: counting,
+      });
+      runner({ configPath: "knip.config.ts" });
+    };
+    prime();
+    expect(spawns).toBe(1);
+    // A second prime against the warm cache must NOT re-spawn (sanity: the memo
+    // is live and holding the key).
+    prime();
+    expect(spawns).toBe(1);
+
+    // runDriftAi reaches buildReport, which owns the clear at the report boundary.
+    const git = makeRunDriftGit("A\tpackages/server/src/foo.ts");
+    const result = runDriftAi({
+      argv: [],
+      git,
+      jscpd: emptyJscpdRunner(),
+      listDirectory: emptyDirectoryListing(),
+      readFile: emptyFileReader(),
+    });
+    expect(result.exitCode).toBe(0);
+
+    // The report build cleared the cache, so re-priming the same key re-spawns.
+    prime();
+    expect(spawns).toBe(2);
   });
 
   it("returns exit code 2 for --scope current outside Git", () => {

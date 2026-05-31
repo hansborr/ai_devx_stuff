@@ -1,8 +1,17 @@
 # drift:ai — next checks brainstorm (AI-slop auditing)
 
-Status: brainstorm / research · not yet decomposed into tasks · supersedes nothing
+Status: brainstorm / research · default-lane tracks SHIPPED 2026-05-31 · prototype/
+heavy queue still open
 Updated 2026-05-30: second-pass review of the rejected-idea lists under a more
 prototype-friendly posture.
+
+**Shipped (2026-05-31):** the three resolved default-lane tracks landed on
+`feat/drift-ai-enhancements` — the `coldspots` subcommand (coldspot + stale-markers
+lenses), the four non-function structural-duplication checks
+(`duplicate-{types,schemas,literals,constants}`), and the `unused-exports` knip
+pass-through. See `finished_work/drift-ai-next-checks-default-tracks.md` for the
+build, decisions, and the still-open follow-ups (knip `duplicates`, the shared
+ts-morph Project layer, and the whole prototype/heavy queue below).
 
 Research synthesis on making `drift:ai` more useful for auditing codebases for "AI
 slop" — duplication two agents write differently, dead code left after refactors,

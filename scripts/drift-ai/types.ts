@@ -7,7 +7,12 @@ export type DriftCheckId =
   | "suppressions"
   | "orphan-files"
   | "import-cycles"
-  | "near-duplicates";
+  | "near-duplicates"
+  | "duplicate-types"
+  | "duplicate-schemas"
+  | "duplicate-literals"
+  | "duplicate-constants"
+  | "unused-exports";
 
 // Bumped to 3 for the additive adapter fields landed by the knip orphan-files
 // adapter (task 32): `DriftFinding.provenance` and `SkippedDriftCheck.code`. Both
@@ -32,6 +37,7 @@ export type FindingProvenance = {
 // finding. Carried alongside the human reason so JSON consumers can branch on it.
 export type SkipReasonCode =
   | "tool-not-installed"
+  | "tool-timeout"
   | "target-not-installed"
   | "no-target-config"
   | "resolution-too-partial";

@@ -22,6 +22,112 @@ Phase 0 proved `PostToolBatch` delivers `additionalContext` same-turn. Durable
 detail in `decisions-build.md` and `finished_work/parallel-cancel-guidance-hook.md`;
 backlog brainstorm marked superseded. Gates: `bash scripts/ai-hooks/test.sh`,
 `shellcheck --severity=warning`, `bun run verify:changed`.
+## 2026-05-31 — Drift:ai duplicate AST source cache
+
+Completed drift-ai review task 34. Duplicate-types, duplicate-schemas,
+duplicate-literals, and duplicate-constants now share a report-scoped parsed
+source cache created by `buildReport`; the duplicate-shape runner still applies
+each check's effective `excludeGlobs` after shared collection so per-check
+filters do not leak.
+
+Validation: focused duplicate-shape/type/schema/literal/constant Vitest and
+`drift:ai --scope current --root scripts/drift-ai --check all` (existing
+findings; knip-backed checks timed out and skipped after 600000ms).
+
+---
+
+## 2026-05-31 — Drift:ai typed duplicate-shape extras
+
+Completed drift-ai review task 37. The duplicate-shape core now carries a
+generic extractor payload type through collection, grouping, finding building,
+and check execution. Type, schema, literal, and constant extractors export their
+payload contracts, and check wrappers read those fields directly via a shared
+first-member helper instead of defensive fallback lookups.
+
+Validation: focused duplicate-shape/type/schema/literal/constant Vitest,
+scripts `tsc`, and `drift:ai --scope current --root scripts/drift-ai --check all`
+(existing findings; knip-backed checks timed out and skipped after 600000ms).
+
+---
+
+## 2026-05-31 — Drift:ai shared knip check wiring
+
+Completed drift-ai review task 36. `orphan-files` and `unused-exports` now use a
+shared knip pass-through check helper for service resolution, config/install
+preflight, runner lookup, subprocess failure mapping, unreadable-JSON diagnostics,
+and provenance handoff. The check wrappers now own only their parser and finding
+builder callbacks.
+
+Validation: focused knip pass-through/orphan-files/unused-exports/runner Vitest
+and root `bun run typecheck`.
+
+---
+
+## 2026-05-31 — Drift:ai knip optional symbol locations
+
+Completed drift-ai review task 33. The unused-exports adapter no longer
+fabricates `file:0:0` evidence for malformed knip symbol coordinates; invalid or
+incomplete locations now render as file-only symbol findings, and structured
+details include `line`/`col` only when both are positive integers.
+
+Validation: focused `knip-unused-exports` Vitest.
+
+---
+
+## 2026-05-31 — Drift:ai coldspots baseline text tags
+
+Completed drift-ai review task 29. Coldspots text output now renders the existing
+per-row baseline deltas for both coldspot and stale-marker rows using the
+hotspots tag vocabulary (`[↑NEW]`, `[↑+N]`, `[↓N]`, `[=steady]`). JSON output was
+unchanged.
+
+Validation: focused coldspots Vitest.
+
+---
+
+## 2026-05-31 — Drift:ai stale-marker dirty blame guard
+
+Completed drift-ai review task 27. The stale-marker lens now checks
+marker-bearing files with `git status --porcelain --untracked-files=all --
+<path>` before blame, skips dirty/untracked files so worktree line numbers are
+not aged against `HEAD`, and discloses that those marker ages are unavailable.
+Clean marker files in the same run still blame and qualify normally; dirty
+age-unknown files do not pass the stale age gate from counts alone.
+
+Review follow-up tightened the empty reason for dirty-only runs and forced
+untracked files into the status check. The remaining `assume-unchanged` /
+`skip-worktree` edge case is parked in
+`backlog/drift-ai-stale-markers-hidden-index-flags.md`.
+
+Validation: focused stale-marker/coldspots Vitest and `FORCE_VERIFY=1 bun run
+test -- scripts/drift-ai`.
+
+---
+
+## 2026-05-31 — Drift:ai coldspots in-window candidate disclosure
+
+Completed drift-ai review task 26. The coldspot section now carries a
+JSON-visible `candidateModel` for `in-window-touched-files`, and text output,
+empty reasons, and `--help` disclose that current files with no in-window commits
+are outside the existing lens. True zero-touch current-file detection remains a
+future separate evidence section.
+
+Validation: focused coldspots Vitest and `drift:ai coldspots --lens coldspot
+--window 180 --format text`.
+
+---
+
+## 2026-05-31 — Drift:ai duplicate value review fixes
+
+Completed drift-ai review task 24. Multi-line duplicate string/template literal
+and duplicate-constant locations now report their true end line instead of
+collapsing to `startLine-startLine`; focused tests cover both extractor paths.
+
+Task 22's numeric duplicate-value guard was already landed in commit `81559ae3`;
+the stale in-progress note for that landed task was removed.
+
+Validation: focused duplicate-literals / duplicate-constants Vitest and
+`bun run lint:ratchet`.
 
 ---
 
@@ -636,6 +742,12 @@ renders churn, coupling, fragmentation, suppression-churn, and thrash in the
 advisory `sections` shape. OpenClaw validation exposed that `git log -G` needs
 blob content, so suppression-churn skips with a clear reason on blobless partial
 clones; thrash already reports line-count unavailability there.
+
+## 2026-05-31 — Drift:ai knip include selection
+
+Closed review task 28: knip-backed drift:ai checks now choose `--include`
+categories from the resolved check set. Single-check runs stay narrow, both/all
+runs keep the shared full report, and the memo key includes include categories.
 
 ## 2026-05-19 — Type Assertion Boundary Drain and Lint Leaf Inventories
 

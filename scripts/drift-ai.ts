@@ -10,6 +10,46 @@ export { ALL_CHECKS, DEFAULT_CHECKS, IMPLEMENTED_CHECKS } from "./drift-ai/check
 export { CHECK_PLUGINS } from "./drift-ai/check-registry.js";
 export { buildChunkManifest, groupFindingsForChunks } from "./drift-ai/chunks.js";
 export { parseArgs } from "./drift-ai/cli-args.js";
+export {
+  type ColdspotsRunOptions,
+  type ColdspotsRunResult,
+  runColdspots,
+} from "./drift-ai/coldspots.js";
+export {
+  COLDSPOT_LENS_SELECTIONS,
+  type ConcreteColdspotLens,
+  parseColdspotsArgs,
+  type ParsedColdspotsArgs,
+} from "./drift-ai/coldspots-args.js";
+export { blameLineIntroductions, type LineIntroduction } from "./drift-ai/coldspots-blame.js";
+export { reduceColdspot, type ReduceColdspotOptions } from "./drift-ai/coldspots-coldspot.js";
+export {
+  type ColdspotAmplifier,
+  type ColdspotAmplifierKind,
+  type ColdspotLens,
+  type ColdspotRow,
+  type ColdspotsAdvisory,
+  type ColdspotSection,
+  type ColdspotsSection,
+  type ColdspotThresholds,
+  formatColdspotsJson,
+  formatColdspotsText,
+  type StaleMarkerOrigin,
+  type StaleMarkerRow,
+  type StaleMarkerSection,
+  type StaleMarkerThresholds,
+} from "./drift-ai/coldspots-format.js";
+export {
+  scanStaleMarkers,
+  STALE_MARKER_KINDS,
+  type StaleMarker,
+  type StaleMarkerKind,
+} from "./drift-ai/coldspots-markers.js";
+export {
+  DEFAULT_STALE_MARKER_AGE_THRESHOLD_DAYS,
+  reduceStaleMarkers,
+  type ReduceStaleMarkersOptions,
+} from "./drift-ai/coldspots-stale-markers.js";
 export { DriftAiError } from "./drift-ai/errors.js";
 export type { GitRunner } from "./drift-ai/git-changed-scope.js";
 export {

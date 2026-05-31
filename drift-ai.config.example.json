@@ -1,0 +1,40 @@
+{
+  "roots": ["src", "packages", "apps"],
+  "additionalSourceExtensions": [".vue", ".svelte"],
+  "ignore": {
+    "prefixes": ["docs/generated/", "fixtures/generated/"],
+    "globs": ["**/*.generated.ts", "**/*.gen.ts", "**/*.snap"]
+  },
+  "checks": {
+    "duplicates": {
+      "minLines": 20,
+      "excludeGlobs": ["**/*.generated.*", "**/*.snap"]
+    },
+    "ghost-files": {
+      "dependentsHint": "Check what imports {path}",
+      "excludeGlobs": ["**/*.stories.tsx", "**/*.stories.ts"],
+      "weakTokens": [
+        "helper",
+        "util",
+        "service",
+        "router",
+        "component",
+        "type",
+        "schema",
+        "model",
+        "manager",
+        "handler"
+      ],
+      "entryPointStems": ["index", "main"]
+    },
+    "comments": {
+      "excludePrefixes": ["docs/generated/", "fixtures/generated/"]
+    },
+    "near-duplicates": {
+      "minLines": 10,
+      "minTokens": 60,
+      "similarityThreshold": 0.9,
+      "excludeGlobs": ["**/*.stories.tsx", "**/*.stories.ts"]
+    }
+  }
+}

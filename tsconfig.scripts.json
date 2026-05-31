@@ -39,6 +39,7 @@
     "scripts/lint-ratchet-debt-log.test.ts",
     "scripts/lint-ratchet-debt-log-schema.test.ts",
     "scripts/lint-ratchet-debt-log-write.test.ts",
+    "scripts/lint-ratchet-edit-check-protocol.test.ts",
     "scripts/lint-ratchet-output.ts",
     "scripts/lint-ratchet-output.test.ts",
     "scripts/lint-ratchet-registry-builders.ts",

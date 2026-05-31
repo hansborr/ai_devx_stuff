@@ -11,6 +11,60 @@ statements. Findings are evidence for a human by default: normal reports exit
 `0`, usage/config errors exit `2`, and `--fail-on-findings` is the explicit
 opt-in gate that exits `1` when findings exist.
 
+## Quickstart: scan an external repo
+
+If you have never run drift:ai before and just want to point it at another repo,
+these four steps are the whole path. The deeper sections below explain the model
+and every flag; this is the minimum to get a report.
+
+1. **Clone this repo once as your "tools checkout" and install its deps.** Only
+   this checkout needs Bun and the implementation tools (`jscpd`, `knip`,
+   `ts-morph`); the repo you scan installs nothing.
+
+   ```sh
+   git clone <this-repo-url> drift-ai-tools
+   cd drift-ai-tools
+   bun install
+   ```
+
+2. **`cd` into the target repo** — the repo you want to scan. drift:ai uses the
+   current directory as its anchor: scanner output, config discovery, and Git
+   operations all resolve from here, so finding paths come out repo-relative. The
+   target only needs to be a Git repo; it can use any package manager, or have no
+   `node_modules` at all.
+
+   ```sh
+   cd /path/to/target-repo
+   ```
+
+3. **Run a whole-tree audit**, pointing `--root` at the target's source
+   directories (repeat `--root` per directory). Use `--scope current` for a
+   foreign repo: it audits the working-tree inventory rather than a git diff.
+
+   ```sh
+   bun /path/to/drift-ai-tools/scripts/drift-ai.ts --scope current --root src
+   ```
+
+   This runs the default check set (`duplicates`, `ghost-files`, `comments`, and
+   `suppressions`) and exits `0` — findings are evidence to read, not a failing
+   gate. `suppressions` is diff-only, so in `current` scope it skips with a
+   printed reason; the other three audit the inventory.
+
+4. **Turn on the opt-in checks when you want a deeper sweep.** `--check all`
+   adds the whole-project adapters (orphan files, import cycles, near-duplicates,
+   the `duplicate-*` family); checks that need a resolver or a vendored tool the
+   target lacks skip with a printed reason instead of crashing.
+
+   ```sh
+   bun /path/to/drift-ai-tools/scripts/drift-ai.ts --scope current --root src --check all
+   ```
+
+Add `--format json --output report.json`, or `--chunk-dir <dir>` to emit
+AI-handoff chunks. Run the entrypoint with `--help` for the full flag list. If
+the target ships its own `drift-ai.config.json`, its `roots` are used and you can
+drop `--root`; otherwise see [Config discovery](#config-discovery) and the
+[starter config](#starter-config).
+
 ## Main report quick reference
 
 Run it inside Musi with the package script:
@@ -45,21 +99,27 @@ Primary flags:
 
 Implemented checks:
 
-| Check             |             Default? | What it reports                                                    | Notes                                                                                                         |
-| ----------------- | -------------------: | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
-| `duplicates`      |                  Yes | Copy/paste duplicate blocks                                        | Uses `jscpd`; skips cleanly if the executable cannot be resolved.                                             |
-| `ghost-files`     |                  Yes | Suspicious sibling modules such as `foo-helper.ts` beside `foo.ts` | Uses filename tokens and directory peers; configurable allow-pairs for known-good current-state siblings.     |
-| `comments`        |                  Yes | Over-narrated files with high comment-to-code ratios               | Honors `checks.comments.excludePrefixes`.                                                                     |
-| `suppressions`    | Yes in changed scope | Newly added `eslint-disable` / `@ts-*` suppressions                | Diff-only; skipped in `current` scope with a reason.                                                          |
-| `orphan-files`    |               Opt-in | Never-imported files from the target's knip config                 | Adapter finding provenance is `[target-config]`; skips when the target cannot support a trustworthy knip run. |
-| `import-cycles`   |               Opt-in | Circular import components                                         | Uses ts-morph/TypeScript resolution; type-only cycles are labeled.                                            |
-| `near-duplicates` |               Opt-in | AST-similar function clones missed by exact duplicate detection    | Default engine is in-process ts-morph; findings carry `[drift-baseline]` provenance.                          |
+| Check                 |             Default? | What it reports                                                    | Notes                                                                                                                                                                                    |
+| --------------------- | -------------------: | ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `duplicates`          |                  Yes | Copy/paste duplicate blocks                                        | Uses `jscpd`; skips cleanly if the executable cannot be resolved.                                                                                                                        |
+| `ghost-files`         |                  Yes | Suspicious sibling modules such as `foo-helper.ts` beside `foo.ts` | Uses filename tokens and directory peers; configurable allow-pairs for known-good current-state siblings.                                                                                |
+| `comments`            |                  Yes | Over-narrated files with high comment-to-code ratios               | Honors `checks.comments.excludePrefixes`.                                                                                                                                                |
+| `suppressions`        | Yes in changed scope | Newly added `eslint-disable` / `@ts-*` suppressions                | Diff-only; skipped in `current` scope with a reason.                                                                                                                                     |
+| `orphan-files`        |               Opt-in | Never-imported files from the target's knip config                 | Adapter finding provenance is `[target-config]`; skips when the target cannot support a trustworthy knip run.                                                                            |
+| `unused-exports`      |               Opt-in | Unused exported symbols/types/enum & namespace members from knip   | Same knip adapter as `orphan-files` (`[target-config]`, identical skips); each finding is tagged `details.category`. Shares a single knip spawn with `orphan-files` under `--check all`. |
+| `import-cycles`       |               Opt-in | Circular import components                                         | Uses ts-morph/TypeScript resolution; type-only cycles are labeled.                                                                                                                       |
+| `near-duplicates`     |               Opt-in | AST-similar function clones missed by exact duplicate detection    | Default engine is in-process ts-morph; findings carry `[drift-baseline]` provenance.                                                                                                     |
+| `duplicate-types`     |               Opt-in | Repeated interface/type-literal property shapes                    | Exact ts-morph structural hashes over non-function type shapes; filters tiny shapes with `minProps`. Findings carry `[drift-baseline]` provenance.                                       |
+| `duplicate-schemas`   |               Opt-in | Repeated object-schema key shapes                                  | Exact ts-morph structural hashes over `<receiver>.object({...})` chains; filters tiny schemas with `minKeys`. Findings carry `[drift-baseline]` provenance.                              |
+| `duplicate-literals`  |               Opt-in | Repeated literal values across files                               | Exact ts-morph grouping. Strings are length-filtered; raw numbers are skipped unless `includeNumbers` is enabled.                                                                        |
+| `duplicate-constants` |               Opt-in | Module-level constants sharing the same literal value              | Exact ts-morph grouping. Short strings and trivial numeric values are filtered before grouping.                                                                                          |
 
 Subcommands:
 
 | Command                              | Purpose                                                                                                                          |
 | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
 | `bun run drift:ai hotspots`          | Advisory git-history lenses (`churn`, `coupling`, `fragmentation`, `suppression-churn`, `thrash`); not a trusted finding stream. |
+| `bun run drift:ai coldspots`         | Advisory git-history lenses (`coldspot`, `stale-markers`); `coldspot` considers files touched in the effective git window.       |
 | `bun run drift:ai harness-freshness` | Musi-only docs freshness check for `docs/ai-harness.md` against `docs/guides` and backtick paths.                                |
 
 This document is the **tools-checkout contract**: how to run drift:ai from a
@@ -161,13 +221,40 @@ module graph, the check **skips with a reason** (never a finding) when:
 - the target has **no `node_modules`** (`code: target-not-installed`) — the common
   foreign-repo case;
 - **no target knip config** is found (`code: no-target-config`);
-- knip itself is missing from the tools checkout (`code: tool-not-installed`).
+- knip itself is missing from the tools checkout (`code: tool-not-installed`);
+- knip exceeds drift:ai's subprocess timeout (`code: tool-timeout`).
 
 A skip is an expected absence, not "the target passed this check". Only a knip run
 that actually breaks (cannot spawn, or emits unparseable output) produces a single
 diagnostic finding. In `changed` scope the reported orphans are intersected with
 the changed set; in `current` scope they are intersected with drift:ai's current
 inventory after roots, ignores, file checks, and source-extension filtering.
+
+### The `unused-exports` check (knip adapter)
+
+`unused-exports` is the **symbol-level** companion to `orphan-files`: it surfaces
+the knip reachability categories `orphan-files` leaves alone — unused **exports**,
+unused **types**, and unused **enum / namespace members**. It is the same
+pass-through knip adapter (same config resolution, same `[target-config]`
+provenance, the same skip behavior, and the same single-diagnostic behavior on a
+broken run), so everything above about config discovery, `--knip-config`, and skips
+applies identically. It is **opt-in**: enable it with `--check unused-exports` or
+`--check all`.
+
+Each finding carries a category-specific message and a `details.category` tag
+(`exports` / `types` / `enumMembers` / `namespaceMembers`), with the symbol name
+and `file:line:col` from knip. As with `orphan-files`, this is **evidence, not a
+verdict**: the hint points at the fix (remove if dead, or add to the target's knip
+ignore config if used in a way knip cannot see) without asserting the symbol is
+dead. Which categories appear is entirely the target's knip config's call.
+
+Single-check runs request only the needed knip `--include` categories
+(`files` for `orphan-files`; symbol categories for `unused-exports`). When both
+whole-project knip checks are selected, including under `--check all`, they request
+the shared full category superset so knip is **spawned once** and both
+`orphan-files` and `unused-exports` parse from the same report. knip's
+`duplicates` category is a deliberate follow-up (it overlaps the `duplicate-*`
+family); it is easy to add to the same parser when wanted.
 
 ### The `import-cycles` check (ts-morph)
 
@@ -225,6 +312,35 @@ same filtered inventory: drift's ignore config, `excludeGlobs`, configured
 receives that explicit file list as positional paths rather than the raw roots —
 so it never reaches ignored, excluded, unsupported-extension, or declaration
 files.
+
+### The duplicate value checks (ts-morph)
+
+`duplicate-literals` and `duplicate-constants` are opt-in exact-value checks over
+the same filtered source inventory as the other drift-authored structural checks.
+They are evidence, not verdicts: a group says the value is repeated, not that a
+particular occurrence is wrong.
+
+`duplicate-literals` skips raw numeric literals by default because tiny values
+such as `0`, `1`, and `2` can dominate the report. Enable numeric literal groups
+only when you want that signal:
+
+```json
+{
+  "checks": {
+    "duplicate-literals": {
+      "includeNumbers": true,
+      "minNumberDigits": 3
+    },
+    "duplicate-constants": {
+      "minNumberDigits": 3
+    }
+  }
+}
+```
+
+`minNumberDigits` is a source-text triviality floor. It strips a leading sign,
+underscores, and the decimal point before counting digits; non-decimal literal
+forms count their base digits. Strings keep the existing `minLength` filter.
 
 ### Why `cd` into the target (and no `--repo` flag)
 

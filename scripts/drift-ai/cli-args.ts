@@ -30,6 +30,7 @@ function usage(): string {
     "  bun run drift:ai",
     "  bun run drift:ai harness-freshness",
     "  bun run drift:ai hotspots [--lens <churn|coupling|fragmentation|suppression-churn|thrash|all>] [--window <days>]",
+    "  bun run drift:ai coldspots [--lens <coldspot|stale-markers|all>] [--window <days>]",
     "  bun run drift:ai --scope <changed|current>",
     "  bun run drift:ai --base <ref>",
     `  bun run drift:ai --check <${CHECK_USAGE}> [--check <...>]`,

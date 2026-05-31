@@ -53,6 +53,45 @@ export type DriftAiNearDuplicatesConfig = {
   readonly excludeGlobs: readonly string[];
 };
 
+// duplicate-types: minimum prop count below which an interface/type-literal shape
+// is too trivial to report (a noise filter, not adjudication).
+export type DriftAiDuplicateTypesConfig = {
+  readonly minProps: number;
+  readonly excludeGlobs: readonly string[];
+};
+
+// duplicate-schemas: minimum key count below which a normalized z.object schema is
+// too trivial to report.
+export type DriftAiDuplicateSchemasConfig = {
+  readonly minKeys: number;
+  readonly excludeGlobs: readonly string[];
+};
+
+// duplicate-literals: a literal must appear in at least `minDistinctFiles` files.
+// Strings must be at least `minLength` chars. Raw numeric literals are skipped
+// unless `includeNumbers` is true, and then must satisfy `minNumberDigits`.
+// `skipTestTitleStrings` drops literals in test-title call positions
+// (describe/it/test) — all noise filters.
+export type DriftAiDuplicateLiteralsConfig = {
+  readonly minDistinctFiles: number;
+  readonly minLength: number;
+  readonly includeNumbers: boolean;
+  readonly minNumberDigits: number;
+  readonly skipTestTitleStrings: boolean;
+  readonly excludeGlobs: readonly string[];
+};
+
+// duplicate-constants: a module-level `const` initialized to the same non-trivial
+// literal value across at least `minDistinctFiles` files (a missed shared
+// constant). `minLength` applies the same trivial-string filter as literals, and
+// `minNumberDigits` filters trivial numeric constants.
+export type DriftAiDuplicateConstantsConfig = {
+  readonly minDistinctFiles: number;
+  readonly minLength: number;
+  readonly minNumberDigits: number;
+  readonly excludeGlobs: readonly string[];
+};
+
 export type GhostFileAllowedPair = {
   readonly files: readonly [string, string];
 };
@@ -72,6 +111,17 @@ export type DriftAiChecksConfig = {
   // Measurement-ish adapter over drift:ai-authored function-similarity
   // thresholds. Findings carry `drift-baseline` provenance.
   readonly "near-duplicates": DriftAiNearDuplicatesConfig;
+  // Exact structural-hash analyzers over non-function shapes (drift:ai's own
+  // structural analysis; findings carry `drift-baseline` provenance).
+  readonly "duplicate-types": DriftAiDuplicateTypesConfig;
+  readonly "duplicate-schemas": DriftAiDuplicateSchemasConfig;
+  readonly "duplicate-literals": DriftAiDuplicateLiteralsConfig;
+  readonly "duplicate-constants": DriftAiDuplicateConstantsConfig;
+  // Tier-1 pass-through over the target's own knip, surfacing the symbol-level
+  // reachability categories orphan-files leaves alone (exports/types/enum &
+  // namespace members). The verdict and its scoping come from the target's knip
+  // config, so the drift-side check takes no options.
+  readonly "unused-exports": Record<string, never>;
 };
 
 export type DriftAiConfig = {

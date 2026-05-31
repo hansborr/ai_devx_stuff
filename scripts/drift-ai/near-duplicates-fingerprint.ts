@@ -5,6 +5,7 @@
 
 import { ts } from "ts-morph";
 
+import { hashFeature } from "./feature-hash.js";
 import type { NearDuplicateFunction } from "./near-duplicates.js";
 import { toPosix } from "./path-util.js";
 
@@ -191,13 +192,4 @@ function isPropertyNameOwner(node: ts.Node): node is PropertyNameOwner {
     ts.isGetAccessor(node) ||
     ts.isSetAccessor(node)
   );
-}
-
-function hashFeature(value: string): string {
-  let hash = 2_166_136_261;
-  for (let index = 0; index < value.length; index += 1) {
-    hash ^= value.charCodeAt(index);
-    hash = Math.imul(hash, 16_777_619);
-  }
-  return (hash >>> 0).toString(36);
 }

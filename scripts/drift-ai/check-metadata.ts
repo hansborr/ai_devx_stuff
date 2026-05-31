@@ -7,10 +7,15 @@
 
 import { commentsCheckConfig } from "./comments-check-config.js";
 import type { DriftAiChecksConfig } from "./config.js";
+import { duplicateConstantsCheckConfig } from "./duplicate-constants-check-config.js";
+import { duplicateLiteralsCheckConfig } from "./duplicate-literals-check-config.js";
+import { duplicateSchemasCheckConfig } from "./duplicate-schemas-check-config.js";
+import { duplicateTypesCheckConfig } from "./duplicate-types-check-config.js";
 import { duplicatesCheckConfig } from "./duplicates-check-config.js";
 import { ghostFilesCheckConfig } from "./ghost-files-check-config.js";
 import { importCyclesCheckConfig } from "./import-cycles-check-config.js";
 import { orphanFilesCheckConfig } from "./knip-orphan-files-check-config.js";
+import { unusedExportsCheckConfig } from "./knip-unused-exports-check-config.js";
 import { nearDuplicatesCheckConfig } from "./near-duplicates-check-config.js";
 import { suppressionsCheckConfig } from "./suppressions-check-config.js";
 import type { DriftCheckId } from "./types.js";
@@ -25,6 +30,11 @@ export const CHECK_METADATA = [
   orphanFilesCheckConfig,
   importCyclesCheckConfig,
   nearDuplicatesCheckConfig,
+  duplicateTypesCheckConfig,
+  duplicateSchemasCheckConfig,
+  duplicateLiteralsCheckConfig,
+  duplicateConstantsCheckConfig,
+  unusedExportsCheckConfig,
 ] as const;
 
 export type DriftAiCheckMetadata = (typeof CHECK_METADATA)[number];

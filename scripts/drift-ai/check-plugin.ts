@@ -42,6 +42,7 @@ export type CheckServiceEnv = {
   readonly repoRoot: string;
   readonly overrides: CheckOverrides;
   readonly cli: CliOptions;
+  readonly reportCache?: Map<string, unknown>;
 };
 
 // Common run state shared by every check, independent of any adapter. Kept central
