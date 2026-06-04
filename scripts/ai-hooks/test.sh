@@ -932,7 +932,7 @@ JSON
 RATCHET_VALID_EXCERPT=$(ai_ratchet_failure_excerpt "$RATCHET_DIAG_VALID" "$RATCHET_FAILURE_LOG" 30)
 assert_contains "$RATCHET_VALID_EXCERPT" "### Lint ratchet"
 assert_contains "$RATCHET_VALID_EXCERPT" '#### `lint/local/no-debugger`'
-assert_contains "$RATCHET_VALID_EXCERPT" 'bun run lint:ratchet:update -- --allow-worse --reason "<why>"'
+assert_contains "$RATCHET_VALID_EXCERPT" 'bun run lint:ratchet:update -- --allow-worse --reason "<why accepting this baseline increase is better than forcing a low-quality fix now>"'
 
 RATCHET_PRECOMMIT_LOG_DIR="$TMP_ROOT/precommit-ratchet-summary"
 mkdir -p "$RATCHET_PRECOMMIT_LOG_DIR"

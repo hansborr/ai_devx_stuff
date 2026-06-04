@@ -22,6 +22,7 @@ build_fixture() {
   mkdir -p "$fixture_dir/scripts"
   mkdir -p "$fixture_dir/packages/shared/src/schemas"
   cp scripts/lint-agent.ts "$fixture_dir/scripts/lint-agent.ts"
+  cp scripts/lint-agent-fix-text.ts "$fixture_dir/scripts/lint-agent-fix-text.ts"
   cp scripts/lint-rule-docs.ts "$fixture_dir/scripts/lint-rule-docs.ts"
   cp packages/shared/src/schemas/harness-diagnostics.ts \
     "$fixture_dir/packages/shared/src/schemas/harness-diagnostics.ts"
@@ -29,17 +30,33 @@ build_fixture() {
   ln -s "$REPO_ROOT/packages/shared/node_modules" "$fixture_dir/packages/shared/node_modules"
 
   cat >"$fixture_dir/local-plugin.js" <<'JS'
-const violatingRule = (docs) => ({
+const violatingRule = ({ docs, message = "fixture diagnostic", suggest }) => ({
   meta: {
     type: "problem",
     docs,
-    messages: { default: "fixture diagnostic" },
+    messages: { default: message },
     schema: [],
+    ...(suggest === undefined ? {} : { hasSuggestions: true }),
   },
   create(context) {
     return {
       Program(node) {
-        context.report({ node, messageId: "default" });
+        context.report({
+          node,
+          messageId: "default",
+          ...(suggest === "concrete"
+            ? {
+                suggest: [
+                  {
+                    desc: "Use fixture replacement",
+                    fix(fixer) {
+                      return fixer.replaceText(node, "const replacement = 1;");
+                    },
+                  },
+                ],
+              }
+            : {}),
+        });
       },
     };
   },
@@ -48,26 +65,67 @@ const violatingRule = (docs) => ({
 export default {
   rules: {
     "always-flag-manual": violatingRule({
-      description: "Manual repair fixture rule",
-      principle: "Fixture principle for manual repair.",
-      category: "behavior",
-      pairedGuide: "docs/guides/local-eslint-rules.md",
-      repairKind: "manual",
+      docs: {
+        description: "Manual repair fixture rule",
+        principle: "Fixture principle for manual repair.",
+        category: "behavior",
+        pairedGuide: "docs/guides/local-eslint-rules.md",
+        repairKind: "manual",
+      },
+    }),
+    "always-flag-manual-how": violatingRule({
+      message: "Why: fixture manual why. How to fix: Extract the fixture behavior into a helper.",
+      docs: {
+        description: "Manual repair fixture rule with rendered guidance",
+        principle: "Fixture principle for manual guidance repair.",
+        category: "behavior",
+        pairedGuide: "docs/guides/local-eslint-rules.md",
+        repairKind: "manual",
+      },
     }),
     "always-flag-codemod": violatingRule({
-      description: "Codemod repair fixture rule",
-      principle: "Fixture principle for codemod repair.",
-      category: "maintainability",
-      pairedGuide: "docs/guides/local-eslint-rules.md",
-      repairKind: "codemod",
-      repairCommand: "bun run codemod:fixture",
+      message:
+        "Why: fixture codemod why. How to fix: Run `bun run codemod:fixture -- src/buggy.js`, then review the generated edit before committing.",
+      docs: {
+        description: "Codemod repair fixture rule",
+        principle: "Fixture principle for codemod repair.",
+        category: "maintainability",
+        pairedGuide: "docs/guides/local-eslint-rules.md",
+        repairKind: "codemod",
+        repairCommand: "bun run codemod:fixture",
+      },
     }),
     "always-flag-autofix": violatingRule({
-      description: "Autofix repair fixture rule",
-      principle: "Fixture principle for autofix repair.",
-      category: "maintainability",
-      pairedGuide: "docs/guides/local-eslint-rules.md",
-      repairKind: "autofix",
+      message:
+        "Why: fixture autofix why. How to fix: Confirm the autofix preserved the behavior.",
+      docs: {
+        description: "Autofix repair fixture rule",
+        principle: "Fixture principle for autofix repair.",
+        category: "maintainability",
+        pairedGuide: "docs/guides/local-eslint-rules.md",
+        repairKind: "autofix",
+      },
+    }),
+    "always-flag-suggestion": violatingRule({
+      message: "Why: fixture suggestion why. How to fix: Use the visible suggestion.",
+      suggest: "concrete",
+      docs: {
+        description: "Suggestion repair fixture rule",
+        principle: "Fixture principle for suggestion repair.",
+        category: "maintainability",
+        pairedGuide: "docs/guides/local-eslint-rules.md",
+        repairKind: "suggestion",
+      },
+    }),
+    "always-flag-suggestion-fallback": violatingRule({
+      message: "suggestion fallback diagnostic",
+      docs: {
+        description: "Suggestion repair fixture rule without a concrete visible suggestion",
+        principle: "Fixture principle for suggestion fallback repair.",
+        category: "maintainability",
+        pairedGuide: "docs/guides/local-eslint-rules.md",
+        repairKind: "suggestion",
+      },
     }),
   },
 };
@@ -81,8 +139,11 @@ export default [
     plugins: { local },
     rules: {
       "local/always-flag-manual": "error",
+      "local/always-flag-manual-how": "error",
       "local/always-flag-codemod": "warn",
       "local/always-flag-autofix": "error",
+      "local/always-flag-suggestion": "error",
+      "local/always-flag-suggestion-fallback": "error",
       "no-var": "error",
     },
   },
@@ -203,36 +264,64 @@ echo "$VIO_JSON" | bun -e '
   const env = JSON.parse(fs.readFileSync(0, "utf8"));
   if (env.version !== "1") { console.error("bad version"); process.exit(1); }
   if (env.tool !== "lint:agent") { console.error("bad tool"); process.exit(1); }
-  if (!Array.isArray(env.findings) || env.findings.length !== 3) {
-    console.error("expected 3 local findings, got", env.findings?.length); process.exit(1);
+  if (!Array.isArray(env.findings) || env.findings.length !== 6) {
+    console.error("expected 6 local findings, got", env.findings?.length); process.exit(1);
   }
   const byControl = Object.fromEntries(env.findings.map((f) => [f.control, f]));
   const manual = byControl["lint/local/always-flag-manual"];
   if (!manual) { console.error("missing manual finding"); process.exit(1); }
   if (manual.severity !== "block") { console.error("manual severity wrong"); process.exit(1); }
   if (manual.repairKind !== "manual") { console.error("manual repairKind wrong"); process.exit(1); }
-  if (!/Repair manually/.test(manual.howToFix)) { console.error("manual howToFix wrong:", manual.howToFix); process.exit(1); }
+  if (manual.howToFix !== "fixture diagnostic. See docs/guides/local-eslint-rules.md.") { console.error("manual fallback howToFix wrong:", manual.howToFix); process.exit(1); }
+  if (/Repair manually/.test(manual.howToFix)) { console.error("manual fallback leaked generic repair text:", manual.howToFix); process.exit(1); }
   if (manual.repairCommand !== undefined) { console.error("manual must not carry repairCommand"); process.exit(1); }
+
+  const manualHow = byControl["lint/local/always-flag-manual-how"];
+  if (!manualHow) { console.error("missing manual Why/How finding"); process.exit(1); }
+  if (manualHow.howToFix !== "Extract the fixture behavior into a helper. See docs/guides/local-eslint-rules.md.") { console.error("manual Why/How tail wrong:", manualHow.howToFix); process.exit(1); }
 
   const codemod = byControl["lint/local/always-flag-codemod"];
   if (!codemod) { console.error("missing codemod finding"); process.exit(1); }
   if (codemod.severity !== "warn") { console.error("codemod severity wrong"); process.exit(1); }
   if (codemod.repairKind !== "codemod") { console.error("codemod repairKind wrong"); process.exit(1); }
   if (codemod.repairCommand !== "bun run codemod:fixture") { console.error("codemod repairCommand wrong"); process.exit(1); }
-  if (!/bun run codemod:fixture/.test(codemod.howToFix)) { console.error("codemod howToFix wrong"); process.exit(1); }
+  if (codemod.howToFix !== "Run `bun run codemod:fixture -- src/buggy.js`, then review the generated edit before committing.") {
+    console.error("codemod howToFix wrong:", codemod.howToFix); process.exit(1);
+  }
 
   const autofix = byControl["lint/local/always-flag-autofix"];
   if (!autofix) { console.error("missing autofix finding"); process.exit(1); }
   if (autofix.repairKind !== "autofix") { console.error("autofix repairKind wrong"); process.exit(1); }
-  if (!/lint:fix/.test(autofix.howToFix)) { console.error("autofix howToFix wrong"); process.exit(1); }
+  if (autofix.howToFix !== "Confirm the autofix preserved the behavior.") {
+    console.error("autofix howToFix wrong:", autofix.howToFix); process.exit(1);
+  }
 
-  if (env.summary.blocking !== 2) { console.error("blocking count wrong:", env.summary.blocking); process.exit(1); }
+  const suggestion = byControl["lint/local/always-flag-suggestion"];
+  if (!suggestion) { console.error("missing suggestion finding"); process.exit(1); }
+  if (suggestion.repairKind !== "suggestion") { console.error("suggestion repairKind wrong"); process.exit(1); }
+  if (suggestion.howToFix !== "Apply ESLint suggestion \"Use fixture replacement\": replace with `const replacement = 1;`.") {
+    console.error("suggestion howToFix wrong:", suggestion.howToFix); process.exit(1);
+  }
+
+  const suggestionFallback = byControl["lint/local/always-flag-suggestion-fallback"];
+  if (!suggestionFallback) { console.error("missing suggestion fallback finding"); process.exit(1); }
+  if (suggestionFallback.howToFix !== "suggestion fallback diagnostic. See docs/guides/local-eslint-rules.md.") {
+    console.error("suggestion fallback howToFix wrong:", suggestionFallback.howToFix); process.exit(1);
+  }
+  if (/Apply the ESLint suggestion|Repair manually/.test(suggestionFallback.howToFix)) {
+    console.error("suggestion fallback leaked invisible repair text:", suggestionFallback.howToFix); process.exit(1);
+  }
+
+  if (env.summary.blocking !== 5) { console.error("blocking count wrong:", env.summary.blocking); process.exit(1); }
   if (env.summary.warning !== 1) { console.error("warning count wrong:", env.summary.warning); process.exit(1); }
   if (env.summary.info !== 0) { console.error("info count wrong"); process.exit(1); }
   const byControlCounts = env.summary.byControl;
   if (byControlCounts["lint/local/always-flag-manual"] !== 1) { console.error("byControl manual wrong"); process.exit(1); }
+  if (byControlCounts["lint/local/always-flag-manual-how"] !== 1) { console.error("byControl manual-how wrong"); process.exit(1); }
   if (byControlCounts["lint/local/always-flag-codemod"] !== 1) { console.error("byControl codemod wrong"); process.exit(1); }
   if (byControlCounts["lint/local/always-flag-autofix"] !== 1) { console.error("byControl autofix wrong"); process.exit(1); }
+  if (byControlCounts["lint/local/always-flag-suggestion"] !== 1) { console.error("byControl suggestion wrong"); process.exit(1); }
+  if (byControlCounts["lint/local/always-flag-suggestion-fallback"] !== 1) { console.error("byControl suggestion fallback wrong"); process.exit(1); }
 '
 
 if ! grep -q "skipped 1 non-local finding" "$TMP_ROOT/violations.err"; then

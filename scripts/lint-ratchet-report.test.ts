@@ -10,12 +10,11 @@ import {
   type HarnessFinding,
   summarizeHarnessFindings,
 } from "../packages/shared/src/schemas/harness-diagnostics.js";
+import { REGRESSION_RECOVERY_FOOTER } from "./lint-ratchet/recovery-command.js";
 import { formatHarnessDiagnosticsReport, runLintRatchetReport } from "./lint-ratchet-report.js";
 
 const tempRoots: string[] = [];
 const IMPROVEMENT_RECOVERY_LINE = "Run `bun run lint:ratchet:update` to lock in the improvement.";
-const REGRESSION_FOOTER_LINE =
-  'Recovery: fix the regressions above; if the new findings are intentional, run `bun run lint:ratchet:update -- --allow-worse --reason "<why>"`.';
 
 const baseFinding: HarnessFinding = {
   control: "lint/local/no-debugger",
@@ -88,7 +87,7 @@ describe("lint ratchet report", () => {
     expect(report).toContain("#### `lint/local/no-debugger` (1 finding");
     expect(report).toContain("`packages/client/src/app.ts:12`");
     expect(report).toContain("1 → 2");
-    expect(report).toContain(REGRESSION_FOOTER_LINE);
+    expect(report).toContain(REGRESSION_RECOVERY_FOOTER);
   });
 
   it("formats an improvement with the exact recovery command line", () => {
@@ -133,7 +132,7 @@ describe("lint ratchet report", () => {
 
     expect(report).toContain("12 → 18");
     expect(report).not.toContain(IMPROVEMENT_RECOVERY_LINE);
-    expect(report).toContain(REGRESSION_FOOTER_LINE);
+    expect(report).toContain(REGRESSION_RECOVERY_FOOTER);
   });
 
   it("caps each mixed control at 10 findings and points to the artifact", () => {
@@ -154,7 +153,7 @@ describe("lint ratchet report", () => {
 
     expect(bullets).toHaveLength(10);
     expect(report).toContain("_2 more in artifact._");
-    expect(report).toContain(REGRESSION_FOOTER_LINE);
+    expect(report).toContain(REGRESSION_RECOVERY_FOOTER);
   });
 
   it("renders byte-identical output for the same envelope", () => {

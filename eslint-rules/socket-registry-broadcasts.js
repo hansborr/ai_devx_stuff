@@ -56,7 +56,7 @@ export default {
     },
     messages: {
       noDirectEmit:
-        'Use {{helper}} instead of emitting "{{eventName}}" directly. Registry-owned socket events are payload-validated and logged in broadcast-registry.ts.',
+        'Why: Emitting "{{eventName}}" directly bypasses payload validation and broadcast logging in broadcast-registry.ts. How to fix: Use {{helper}} so the event stays validated and logged. See docs/guides/add-socket-broadcast.md.',
     },
     schema: [],
   },

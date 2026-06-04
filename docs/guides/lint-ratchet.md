@@ -371,9 +371,14 @@ For a failed CI run:
 - If the current tree is better than the committed baseline, recover with
   `bun run lint:ratchet:update`, then commit and re-push the tighter baseline.
 - If the current tree is worse than the committed baseline, fix the new
-  findings. For intentional accepted debt, run
-  `bun run lint:ratchet:update -- --allow-worse --reason "<why>"` and capture
-  the rationale in the commit message.
+  findings. For intentional accepted debt, run:
+
+  ```sh
+  bun run lint:ratchet:update -- --allow-worse \
+    --reason "<why accepting this baseline increase is better than forcing a low-quality fix now>"
+  ```
+
+  Capture the rationale in the commit message.
 
 Avoid hand-written path filters on the ratchet workflow:
 
@@ -520,9 +525,14 @@ plugin allowlisting, complexity-severity vectors, and rule-source hashing.
   rewrites the baseline from the current tree to the tighter counts and metrics.
   No `--allow-worse` flag is needed because lowering the baseline is not
   worsening it. If a rename or intentional policy change makes the generated
-  baseline worse, use
-  `bun run lint:ratchet:update -- --allow-worse --reason "<why>"`. The `--reason`
-  text is durably recorded as the `acceptanceReason` field of a new line in the
+  baseline worse, use:
+
+  ```sh
+  bun run lint:ratchet:update -- --allow-worse \
+    --reason "<why accepting this baseline increase is better than forcing a low-quality fix now>"
+  ```
+
+  The `--reason` text is durably recorded as the `acceptanceReason` field of a new line in the
   committed debt log `lint-ratchet.debt-log.jsonl` (see the next bullet), so the
   rationale outlives the commit message. The update records that line immediately
   before rewriting the baseline and treats the same line already present at the
@@ -662,8 +672,10 @@ Default and check-baseline modes require metric-specific fields. For a converted
 item is a schema mismatch.
 `update` mode uses structural parsing so one-shot migrations can rewrite old
 count-only entries, but it still refuses any generated count, `lines`, max
-complexity, or complexity-vector regression unless
-`--allow-worse --reason "<why>"` is supplied.
+complexity, or complexity-vector regression unless `--allow-worse --reason` is
+supplied with a real rationale. The command template shows the placeholder
+`"<why accepting this baseline increase is better than forcing a low-quality fix now>"`;
+replace it before running the update.
 
 ## Current ratchets
 
@@ -711,8 +723,10 @@ runtime are expected to be similar.
 `update` mode uses a structural parse that tolerates stale or missing hashes
 so it can re-baseline cleanly across registry edits, rule rewrites, and the
 first run after strict-improvement metadata is introduced. Generated baseline
-regressions are still rejected unless `--allow-worse --reason "<why>"` is
-supplied.
+regressions are still rejected unless `--allow-worse --reason` is supplied with
+a real rationale. The command template shows the placeholder
+`"<why accepting this baseline increase is better than forcing a low-quality fix now>"`;
+replace it before running the update.
 
 ## Rule sources and parser profiles
 

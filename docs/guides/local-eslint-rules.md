@@ -103,8 +103,7 @@ Constraints:
   guide link.
 
 Examples: `no-barrel/noBarrel`,
-`no-llm-artifacts/leftoverEditNote`,
-`trpc-require-output-schema/missingOutput`.
+`no-llm-artifacts/leftoverEditNote`.
 
 ### Adding A New Rule
 

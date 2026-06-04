@@ -16,14 +16,14 @@ export default {
     docs: {
       description: "Disallow explicit any with repair guidance",
       principle:
-        "'any' removes type checking from the value it touches; prefer 'unknown' with narrowing or a concrete type.",
+        "'any' removes type checking from the value it touches; add useful types when they help prevent errors, especially for key concepts, and keep intentional untyped boundaries line-scoped with a reason.",
       category: "maintainability",
       pairedGuide: "docs/guides/local-eslint-rules.md",
       repairKind: "manual",
     },
     messages: {
       noAny:
-        "Why: `any` removes type checking from the value it touches. How to fix: Prefer `unknown` plus narrowing, an existing shared type, or a small local type for key concepts. If adding a type would be clutter rather than clarity, keep the `any` and suppress this exact line with `// eslint-disable-next-line local/no-explicit-any -- <why this boundary is intentionally untyped>`.",
+        "Why: `any` removes type checking from the value it touches. How to fix: Add a useful type when it helps prevent errors, especially for key concepts: use `unknown` plus narrowing for untrusted data, an existing shared type for domain values, or a small local type. Do not add noisy types just to satisfy lint. If `any` is the clearer boundary, suppress this exact line with `// eslint-disable-next-line local/no-explicit-any -- <why this boundary is intentionally untyped>`.",
     },
     schema: [],
   },

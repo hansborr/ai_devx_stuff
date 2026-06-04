@@ -36,7 +36,7 @@ This table is generated from `meta.docs` on each rule and grouped into maintaina
 
 **Description:** Disallow explicit any with repair guidance
 
-**Principle:** 'any' removes type checking from the value it touches; prefer 'unknown' with narrowing or a concrete type.
+**Principle:** 'any' removes type checking from the value it touches; add useful types when they help prevent errors, especially for key concepts, and keep intentional untyped boundaries line-scoped with a reason.
 
 **Category:** maintainability
 

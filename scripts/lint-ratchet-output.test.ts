@@ -23,6 +23,7 @@ const OUTPUT_ENV = "HARNESS_DIAGNOSTICS_OUTPUT";
 const tempRoots: string[] = [];
 
 const runtimeFiles = [
+  "eslint-rules/max-lines.js",
   "scripts/lint-ratchet.ts",
   "scripts/lint-ratchet/baseline-constants.ts",
   "scripts/lint-ratchet/baseline-format.ts",

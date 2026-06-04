@@ -1,3 +1,5 @@
+import { ratchetRegressionReasonFailure } from "./recovery-command.js";
+
 export const PROCESS_ARG_OFFSET = 2;
 
 export interface ParsedArgs {
@@ -178,8 +180,9 @@ function assertUpdateArgs(state: ParsedArgsState): void {
   if (reason !== undefined && mode !== "update") {
     throw new UsageError("--reason is only valid with --update");
   }
-  if (allowWorse && (reason?.trim() ?? "").length === 0) {
-    throw new UsageError("--allow-worse requires a non-empty --reason");
+  if (allowWorse) {
+    const failure = ratchetRegressionReasonFailure(reason);
+    if (failure !== undefined) throw new UsageError(failure);
   }
 }
 

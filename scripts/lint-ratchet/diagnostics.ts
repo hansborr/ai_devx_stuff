@@ -5,6 +5,10 @@ import {
   type HarnessFinding,
   summarizeHarnessFindings,
 } from "../../packages/shared/src/schemas/harness-diagnostics.js";
+import {
+  MAX_LINES_METRIC_GUIDANCE,
+  MAX_LINES_SPLIT_GUIDANCE,
+} from "../../eslint-rules/max-lines.js";
 import type {
   LintRatchetComparison,
   LintRatchetImprovement,
@@ -29,27 +33,30 @@ function ratchetFixText(regression: LintRatchetRegression): string {
   if (regression.currentLines !== undefined) {
     const target =
       regression.baselineLines === undefined
-        ? "until this new path has no ratcheted finding"
+        ? "down until this new path has no ratcheted finding"
         : `back to the committed baseline (${String(regression.baselineLines)})`;
     return (
-      `Reduce this file's ${regression.ruleId} effective line count from ${String(regression.currentLines)} ${target}, or run ` +
-      `\`${RATCHET_REGRESSION_UPDATE_COMMAND}\` in a cleanup PR when the baseline movement is intentional.`
+      `${MAX_LINES_SPLIT_GUIDANCE} and brings this file's ${regression.ruleId} effective line count ${target}. ` +
+      `${MAX_LINES_METRIC_GUIDANCE} If a split would make the code worse, run ` +
+      `\`${RATCHET_REGRESSION_UPDATE_COMMAND}\` before committing your work.`
     );
   }
   if (regression.currentComplexity !== undefined) {
     const target =
       regression.baselineComplexity === undefined
-        ? "until this new path has no ratcheted finding"
+        ? "down until this new path has no ratcheted finding"
         : `back to the committed baseline (${String(regression.baselineComplexity)})`;
     return (
-      `Reduce this file's ${regression.ruleId} complexity from ${String(regression.currentComplexity)} ${target}, or run ` +
-      `\`${RATCHET_REGRESSION_UPDATE_COMMAND}\` in a cleanup PR when the baseline movement is intentional.`
+      `Split complex logic into focused functions, modules, helpers, or types when that makes the code clearer and brings ` +
+      `this file's complexity ${target}. Do not code-golf by flattening branches, hiding conditionals, or inlining helpers ` +
+      `just to satisfy the metric. If a refactor would make the code worse, run ` +
+      `\`${RATCHET_REGRESSION_UPDATE_COMMAND}\` before committing your work.`
     );
   }
   return (
     `Reduce this file's ${regression.ruleId} finding count from ${String(regression.currentCount)} ` +
     `back to the committed baseline (${String(regression.baselineCount)}), or run ` +
-    `\`${RATCHET_REGRESSION_UPDATE_COMMAND}\` in a cleanup PR when the baseline movement is intentional.`
+    `\`${RATCHET_REGRESSION_UPDATE_COMMAND}\` before committing your work.`
   );
 }
 
@@ -106,16 +113,18 @@ export async function loadRuleDocsById(): Promise<ReadonlyMap<string, RuleDocsEn
 }
 
 function howToFixFor(entry: RuleDocsEntry, regression: LintRatchetRegression): string {
-  const ratchetFix = lowercaseFirst(ratchetFixText(regression));
+  const ratchetFix = ratchetFixText(regression);
+  const appendedRatchetFix = lowercaseFirst(ratchetFix);
   if (entry.repairKind === "codemod") {
     if (entry.repairCommand === undefined) {
       throw new ConfigError(`Rule ${entry.id} declares repairKind=codemod without repairCommand`);
     }
-    return `Run \`${entry.repairCommand}\`, then ${ratchetFix}`;
+    return `Run \`${entry.repairCommand}\`, then ${appendedRatchetFix}`;
   }
-  if (entry.repairKind === "autofix") return `Run \`bun run lint:fix\`, then ${ratchetFix}`;
-  if (entry.repairKind === "suggestion") return `Apply the ESLint suggestion, then ${ratchetFix}`;
-  return `Repair manually following the paired guide (${entry.pairedGuide}), then ${ratchetFix}`;
+  if (entry.repairKind === "autofix") {
+    return `Run \`bun run lint:fix\`, then ${appendedRatchetFix}`;
+  }
+  return ratchetFix;
 }
 
 function structuredRatchetFields(delta: LintRatchetRegression | LintRatchetImprovement) {

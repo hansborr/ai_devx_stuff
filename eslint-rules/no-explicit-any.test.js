@@ -28,7 +28,12 @@ describe("no-explicit-any", () => {
       invalid: [
         {
           code: "const value: any = input;",
-          errors: [{ messageId: "noAny" }],
+          errors: [
+            {
+              message:
+                /Do not add noisy types just to satisfy lint\. If `any` is the clearer boundary, suppress this exact line with `\/\/ eslint-disable-next-line local\/no-explicit-any -- <why this boundary is intentionally untyped>`\./u,
+            },
+          ],
         },
         {
           code: "function parse(value: any): any { return value; }",

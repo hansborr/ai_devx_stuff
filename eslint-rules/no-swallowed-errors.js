@@ -46,7 +46,7 @@ export default {
     },
     messages: {
       swallowedError:
-        "Catch block only logs to console, so callers cannot detect the failure. Rethrow with `cause`, return a failure value, or delegate to a named error handler.",
+        "Why: This catch block only logs to console, so callers cannot detect the failure. How to fix: Rethrow with `cause`, return a failure value, or delegate to a named error handler.",
     },
     schema: [],
   },

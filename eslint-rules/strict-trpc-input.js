@@ -65,7 +65,7 @@ export default {
     },
     messages: {
       needsStrict:
-        "Use `.strict()` on tRPC input `z.object(...)` schemas so unknown keys are rejected at the API boundary. See docs/guides/add-trpc-procedure.md.",
+        "Why: A tRPC input `z.object(...)` without `.strict()` silently drops unknown keys, hiding client-side typos at the API boundary. How to fix: Add `.strict()` so unknown keys are rejected. See docs/guides/add-trpc-procedure.md.",
     },
     schema: [],
   },

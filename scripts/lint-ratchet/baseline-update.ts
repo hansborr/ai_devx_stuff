@@ -7,6 +7,10 @@ import type {
 import { compareCurrentToBaseline as compareCurrentToBaselineImpl } from "../lint-ratchet-baseline-compare.js";
 import type { LintRatchetConfig } from "../lint-ratchet-config.js";
 import { currentByIdFromBaseline } from "./baseline-format.js";
+import {
+  ratchetRegressionReasonFailure,
+  RATCHET_REGRESSION_REASON_PLACEHOLDER,
+} from "./recovery-command.js";
 
 interface ZeroToNonzeroPath {
   readonly path: string;
@@ -90,7 +94,7 @@ function formatOrphanFailure(
   return (
     `committed baseline carries ${String(orphanIds.length)} entr${orphanIds.length === 1 ? "y" : "ies"} ` +
     `with no matching registry id (${orphanIds.join(", ")}); ` +
-    'this looks like a rename or removal — pass --allow-worse --reason "<why>" ' +
+    `this looks like a rename or removal — pass --allow-worse --reason "${RATCHET_REGRESSION_REASON_PLACEHOLDER}" ` +
     "so count protection is not bypassed silently"
   );
 }
@@ -112,7 +116,7 @@ export function decideLintRatchetUpdate(
   if (comparison.regressions.length > 0 && !options.allowWorse) {
     failures.push(
       `generated baseline is worse for ${String(comparison.regressions.length)} path(s); ` +
-        'pass --allow-worse --reason "<why>" to accept intentional new debt',
+        `pass --allow-worse --reason "${RATCHET_REGRESSION_REASON_PLACEHOLDER}" to accept intentional new debt`,
     );
   }
 
@@ -121,8 +125,9 @@ export function decideLintRatchetUpdate(
   if (orphanFailure !== undefined && !options.allowWorse) {
     failures.push(orphanFailure);
   }
-  if (options.allowWorse && reason.length === 0) {
-    failures.push("--allow-worse requires a non-empty --reason");
+  if (options.allowWorse) {
+    const reasonFailure = ratchetRegressionReasonFailure(reason);
+    if (reasonFailure !== undefined) failures.push(reasonFailure);
   }
 
   const zeroToNonzero = detectZeroToNonzeroTransitions(committed, generated);

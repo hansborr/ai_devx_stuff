@@ -17,10 +17,10 @@ import {
   type HarnessDiagnostics,
   harnessDiagnosticsSchema,
   type HarnessFinding,
-  type HarnessFindingRepairKind,
   type HarnessFindingSeverity,
   summarizeHarnessFindings,
 } from "../packages/shared/src/schemas/harness-diagnostics.js";
+import { lintAgentHowToFixFor } from "./lint-agent-fix-text.js";
 import { formatRuleDocsFailures, loadLintRuleDocs, type RuleDocsEntry } from "./lint-rule-docs.js";
 
 const PROCESS_ARG_OFFSET = 2;
@@ -107,19 +107,6 @@ function severityFromEslint(severity: number): HarnessFindingSeverity {
   return "info";
 }
 
-function howToFixFor(entry: RuleDocsEntry): string {
-  const kind: HarnessFindingRepairKind = entry.repairKind;
-  if (kind === "codemod") {
-    if (entry.repairCommand === undefined) {
-      throw new Error(`Rule ${entry.id} declares repairKind=codemod without a repairCommand`);
-    }
-    return `Run \`${entry.repairCommand}\`.`;
-  }
-  if (kind === "autofix") return "Run `bun run lint:fix`.";
-  if (kind === "suggestion") return "Apply the ESLint suggestion for this diagnostic.";
-  return `Repair manually following the paired guide (${entry.pairedGuide}).`;
-}
-
 function relativePath(filePath: string): string {
   if (!isAbsolute(filePath)) return filePath;
   const rel = relative(repoRoot, filePath);
@@ -163,7 +150,7 @@ function buildFinding(
     path,
     ruleId,
     why: entry.principle,
-    howToFix: howToFixFor(entry),
+    howToFix: lintAgentHowToFixFor(entry, message),
     repairKind: entry.repairKind,
   } as const;
 

@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { harnessDiagnosticsSchema } from "../packages/shared/src/schemas/harness-diagnostics.js";
 import { assertCheckBaselineComparisonClean, buildEnvelope } from "./lint-ratchet.js";
+import { RATCHET_REGRESSION_REASON_PLACEHOLDER } from "./lint-ratchet/recovery-command.js";
 import {
   buildLintRatchetBaseline,
   compareCurrentToBaseline,
@@ -707,6 +708,107 @@ describe("lint ratchet comparison", () => {
 });
 
 describe("lint ratchet diagnostics envelope", () => {
+  it("uses split-first guidance for local effective-line-count regressions", () => {
+    const path = "packages/server/src/large.ts";
+    const localRuleDocs: RuleDocsEntry = {
+      id: maxLinesRatchet.ruleId,
+      description: "Keep modules within the local max-lines budget.",
+      principle: "Keep modules focused enough to review safely.",
+      category: "maintainability",
+      pairedGuide: "docs/guides/lint-ratchet.md",
+      repairKind: "manual",
+    };
+    const envelope = buildEnvelope(
+      [
+        {
+          testId: maxLinesRatchet.id,
+          ruleId: maxLinesRatchet.ruleId,
+          path,
+          baselineCount: 1,
+          currentCount: 1,
+          baselineLines: 320,
+          currentLines: 333,
+          reason: "increased-lines",
+        },
+      ],
+      [],
+      new Map([[localRuleDocs.id, localRuleDocs]]),
+      [maxLinesRatchet],
+    );
+
+    expect(harnessDiagnosticsSchema.safeParse(envelope).success).toBe(true);
+    expect(envelope.findings[0]).toMatchObject({
+      control: maxLinesRatchet.id,
+      severity: "block",
+      path,
+      ruleId: maxLinesRatchet.ruleId,
+      baselineCount: 1,
+      currentCount: 1,
+      baselineLines: 320,
+      currentLines: 333,
+      reason: "increased-lines",
+      repairKind: "manual",
+    });
+    const howToFix = envelope.findings[0]?.howToFix ?? "";
+    expect(howToFix).toContain("Split the module into focused components, helpers, or types");
+    expect(howToFix).toContain(
+      "brings this file's local/max-lines effective line count back to the committed baseline (320)",
+    );
+    expect(howToFix).toContain(
+      "Do not compress lines or inline useful helpers just to satisfy the metric.",
+    );
+    expect(howToFix).toContain("before committing your work");
+    expect(howToFix).not.toContain("code-golf");
+    expect(howToFix).not.toContain("effective line count from 333");
+    expect(howToFix).not.toContain("in a cleanup PR");
+    expect(howToFix).not.toContain("Repair manually");
+    expect(howToFix).not.toContain("Apply the ESLint suggestion");
+  });
+
+  it("uses split-first guidance for complexity regressions without duplicated wording", () => {
+    const path = "packages/server/src/branchy.ts";
+    const envelope = buildEnvelope(
+      [
+        {
+          testId: complexityRatchet.id,
+          ruleId: complexityRatchet.ruleId,
+          path,
+          baselineCount: 1,
+          currentCount: 1,
+          baselineComplexity: 12,
+          currentComplexity: 14,
+          reason: "increased-complexity",
+        },
+      ],
+      [],
+      new Map(),
+      [complexityRatchet],
+    );
+
+    expect(harnessDiagnosticsSchema.safeParse(envelope).success).toBe(true);
+    expect(envelope.findings[0]).toMatchObject({
+      control: complexityRatchet.id,
+      severity: "block",
+      path,
+      ruleId: complexityRatchet.ruleId,
+      baselineCount: 1,
+      currentCount: 1,
+      baselineComplexity: 12,
+      currentComplexity: 14,
+      reason: "increased-complexity",
+      repairKind: "manual",
+    });
+    const howToFix = envelope.findings[0]?.howToFix ?? "";
+    expect(howToFix).toContain(
+      "Split complex logic into focused functions, modules, helpers, or types",
+    );
+    expect(howToFix).toContain("brings this file's complexity back to the committed baseline (12)");
+    expect(howToFix).toContain("before committing your work");
+    expect(howToFix).not.toContain("complexity from 14");
+    expect(howToFix).not.toContain("complexity complexity");
+    expect(howToFix).not.toContain("in a cleanup PR");
+  });
+
   it("turns a strict complexity improvement into a blocking finding", () => {
     const path = "packages/server/src/branchy.ts";
     const envelope = buildEnvelope(
@@ -898,7 +1000,9 @@ describe("lint ratchet diagnostics envelope", () => {
 
     const howToFix = envelope.findings[0]?.howToFix ?? "";
     expect(howToFix).toContain(" -- ");
-    expect(howToFix).toContain('bun run lint:ratchet:update -- --allow-worse --reason "<why>"');
+    expect(howToFix).toContain(
+      'bun run lint:ratchet:update -- --allow-worse --reason "<why accepting this baseline increase is better than forcing a low-quality fix now>"',
+    );
     expect(howToFix).not.toContain("run `bun run lint:ratchet:update`");
   });
 
@@ -930,34 +1034,49 @@ describe("lint ratchet diagnostics envelope", () => {
     expect(why).toContain("normal ESLint deliberately keeps");
   });
 
-  it("lower-cases the ratchet fix when appended to a local rule howToFix", () => {
-    const localRuleDocs: RuleDocsEntry = {
-      id: baseRatchet.ruleId,
-      description: "Type assertions must stay at framework/JSON/Prisma/test boundaries.",
-      principle: "Keep type assertions at boundaries.",
-      category: "maintainability",
-      pairedGuide: "docs/guides/type-assertions.md",
-      repairKind: "manual",
-    };
-    const envelope = buildEnvelope(
-      [
-        {
-          testId: baseRatchet.id,
-          ruleId: baseRatchet.ruleId,
-          path: "packages/server/src/regressed.ts",
-          baselineCount: 1,
-          currentCount: 2,
-          reason: "increased-count",
-        },
-      ],
-      [],
-      new Map([[localRuleDocs.id, localRuleDocs]]),
-      [baseRatchet],
-    );
+  it("lower-cases the ratchet fix when appended to command-based local rule howToFix", () => {
+    const cases = [
+      {
+        repairKind: "codemod" as const,
+        repairCommand: "bun run codemod:type-assertion-boundary",
+        prefix: "Run `bun run codemod:type-assertion-boundary`, then reduce this file's",
+      },
+      {
+        repairKind: "autofix" as const,
+        prefix: "Run `bun run lint:fix`, then reduce this file's",
+      },
+    ];
 
-    const howToFix = envelope.findings[0]?.howToFix ?? "";
-    expect(howToFix).toContain(", then reduce this file's");
-    expect(howToFix).not.toContain(", then Reduce this file's");
+    for (const { repairKind, repairCommand, prefix } of cases) {
+      const localRuleDocs: RuleDocsEntry = {
+        id: baseRatchet.ruleId,
+        description: "Type assertions must stay at framework/JSON/Prisma/test boundaries.",
+        principle: "Keep type assertions at boundaries.",
+        category: "maintainability",
+        pairedGuide: "docs/guides/type-assertions.md",
+        repairKind,
+        ...(repairCommand === undefined ? {} : { repairCommand }),
+      };
+      const envelope = buildEnvelope(
+        [
+          {
+            testId: baseRatchet.id,
+            ruleId: baseRatchet.ruleId,
+            path: "packages/server/src/regressed.ts",
+            baselineCount: 1,
+            currentCount: 2,
+            reason: "increased-count",
+          },
+        ],
+        [],
+        new Map([[localRuleDocs.id, localRuleDocs]]),
+        [baseRatchet],
+      );
+
+      const howToFix = envelope.findings[0]?.howToFix ?? "";
+      expect(howToFix).toContain(prefix);
+      expect(howToFix).not.toContain(", then Reduce this file's");
+    }
   });
 
   it("names the differing option in option-mismatch ratchet why text", () => {
@@ -1133,6 +1252,7 @@ describe("lint ratchet update decisions", () => {
     });
     expect(refused.allowed).toBe(false);
     expect(refused.failures[0]).toContain("generated baseline is worse");
+    expect(refused.failures[0]).toContain(`--reason "${RATCHET_REGRESSION_REASON_PLACEHOLDER}"`);
 
     const missingReason = decideLintRatchetUpdate(committed, generated, [baseRatchet], {
       allowWorse: true,
@@ -1140,6 +1260,15 @@ describe("lint ratchet update decisions", () => {
     });
     expect(missingReason.allowed).toBe(false);
     expect(missingReason.failures).toContain("--allow-worse requires a non-empty --reason");
+
+    const placeholderReason = decideLintRatchetUpdate(committed, generated, [baseRatchet], {
+      allowWorse: true,
+      reason: RATCHET_REGRESSION_REASON_PLACEHOLDER,
+    });
+    expect(placeholderReason.allowed).toBe(false);
+    expect(placeholderReason.failures).toContain(
+      "--allow-worse requires a real --reason, not the placeholder",
+    );
 
     const accepted = decideLintRatchetUpdate(committed, generated, [baseRatchet], {
       allowWorse: true,
@@ -1535,6 +1664,7 @@ describe("lint ratchet update mode with stale committed baseline", () => {
     expect(orphanFailure).toBeDefined();
     // Alphabetical: ratchet/old-alpha then ratchet/old-zeta.
     expect(orphanFailure).toContain("ratchet/old-alpha, ratchet/old-zeta");
+    expect(orphanFailure).toContain(`--reason "${RATCHET_REGRESSION_REASON_PLACEHOLDER}"`);
   });
 
   it("still rejects worse counts via structural parse when both ids match", () => {

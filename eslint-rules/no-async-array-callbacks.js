@@ -98,13 +98,13 @@ export default {
     },
     messages: {
       droppedPromise:
-        "Async callbacks passed to `{{method}}` are not awaited. Use `for...of` for sequential work, or `await Promise.all(items.map(async ...))` for parallel work.",
+        "Why: Async callbacks passed to `{{method}}` are not awaited, so the promises they return are dropped. How to fix: Use `for...of` for sequential work, or `await Promise.all(items.map(async ...))` for parallel work.",
       asyncPredicate:
-        "Async predicates passed to `{{method}}` return Promise objects, not booleans. Resolve values with `await Promise.all(...)` first, then run `{{method}}` on the resolved data.",
+        "Why: Async predicates passed to `{{method}}` return Promise objects, not booleans. How to fix: Resolve values with `await Promise.all(...)` first, then run `{{method}}` on the resolved data.",
       asyncReduce:
-        "Async reducers are easy to mis-order. Use a `for...of` loop for sequential accumulation, or resolve mapped promises before reducing.",
+        "Why: Async reducers are easy to mis-order. How to fix: Use a `for...of` loop for sequential accumulation, or resolve mapped promises before reducing.",
       asyncMap:
-        "Async `map` returns `Promise[]`. Consume it with `Promise.all`, `Promise.allSettled`, `Promise.race`, or `Promise.any`, and await or return that Promise.",
+        "Why: Async `map` returns `Promise[]`. How to fix: Consume it with `Promise.all`, `Promise.allSettled`, `Promise.race`, or `Promise.any`, and await or return that Promise.",
     },
     schema: [],
   },

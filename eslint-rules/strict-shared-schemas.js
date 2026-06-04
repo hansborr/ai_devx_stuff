@@ -97,7 +97,7 @@ export default {
     },
     messages: {
       needsExplicit:
-        "Use `.strict()` on exported `*InputSchema` z.object schemas, or `.passthrough()` only for intentional extra keys. See docs/guides/add-trpc-procedure.md.",
+        "Why: Exported `*InputSchema` z.objects without an explicit unknown-key mode silently accept extra keys across the client/server contract. How to fix: Add `.strict()`, or `.passthrough()` only for intentional extra keys. See docs/guides/add-trpc-procedure.md.",
     },
     schema: [],
   },

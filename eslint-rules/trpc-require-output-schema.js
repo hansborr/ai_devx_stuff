@@ -68,7 +68,7 @@ export default {
     },
     messages: {
       missingOutput:
-        "Add `.output(<sharedSchema>)` before `.{{method}}(...)`. Every router query and mutation must validate its response with a shared output schema.",
+        "Why: A router {{method}} without `.output(...)` returns unvalidated data, so response-shape drift reaches clients silently. How to fix: Add `.output(<sharedSchema>)` before `.{{method}}(...)` to validate the response against a shared schema.",
     },
     schema: [],
   },

@@ -28,8 +28,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const MAX_MULTI_STEP_MESSAGE_LENGTH = 520;
 const MAX_SIMPLE_MESSAGE_LENGTH = 180;
 const WHY_HOW_PATTERN = /^Why: .+ How to fix: .+/u;
+// This allowlist encodes repair intent, not just grammar. Delete, Shrink, and
+// Suppress are deliberately omitted because they tend to steer low-quality fixes.
 const ACTION_WORD_PATTERN =
-  /\b(?:Add|Consume|Delegate|Link|Move|Persist|Prefer|Remove|Rename|Replace|Resolve|Restore|Rethrow|Return|Try|Update|Use|rewrite)\b/u;
+  /\b(?:Add|Consume|Delegate|Extract|Link|Move|Persist|Prefer|Remove|Rename|Replace|Resolve|Restore|Rethrow|Return|Split|Try|Update|Use|rewrite)\b/u;
 
 // keep in sync with scripts/generate-lint-guidance.ts
 const ACCEPTED_CATEGORIES = new Set(["maintainability", "architecture-fitness", "behavior"]);
@@ -68,18 +70,6 @@ const EXEMPT_MESSAGE_IDS = new Set([
   "test-file-location/missingTests",
   // Repair is the codemod command; prose would just restate it.
   "no-barrel/noBarrel",
-  // Existing cause-and-fix diagnostics whose narrative wording predates the
-  // Why/How convention. Rewriting them is a separate sweep tracked outside
-  // PR 1's scope; keep terse rather than mechanically re-shaping.
-  "no-async-array-callbacks/droppedPromise",
-  "no-async-array-callbacks/asyncPredicate",
-  "no-async-array-callbacks/asyncReduce",
-  "no-async-array-callbacks/asyncMap",
-  "no-swallowed-errors/swallowedError",
-  "socket-registry-broadcasts/noDirectEmit",
-  "strict-shared-schemas/needsExplicit",
-  "strict-trpc-input/needsStrict",
-  "trpc-require-output-schema/missingOutput",
 ]);
 
 const RULE_BY_ID = new Map(ALL_LOCAL_RULES.map((entry) => [entry.id, entry.rule]));

@@ -2,6 +2,13 @@
 
 const DEFAULT_MAX_LINES = 300;
 
+export const MAX_LINES_SPLIT_GUIDANCE =
+  "Split the module into focused components, helpers, or types when that makes the code clearer";
+export const MAX_LINES_METRIC_GUIDANCE =
+  "Do not compress lines or inline useful helpers just to satisfy the metric.";
+
+const MAX_LINES_REPAIR_GUIDANCE = `${MAX_LINES_SPLIT_GUIDANCE}. ${MAX_LINES_METRIC_GUIDANCE}`;
+
 /** @param {number} start @param {number} end */
 function lineRange(start, end) {
   return Array.from({ length: end - start }, (_value, index) => start + index);
@@ -110,8 +117,7 @@ export default {
       repairKind: "manual",
     },
     messages: {
-      exceed:
-        "Why: This file has {{actual}} effective lines, above the {{max}} line limit, which makes future edits harder to localize. How to fix: Prefer splitting the module into focused components, helpers, or types. If it should stay larger for now, do not use eslint-disable; add or adjust a targeted override in eslint-config/shared-policy.js (maxLinesPolicy.exceptions) for this exact file with severity `warn`, choose a modest max just above the current count, and include a reason explaining the exception.",
+      exceed: `Why: This file has {{actual}} effective lines, above the {{max}} line limit, which makes future edits harder to localize. How to fix: ${MAX_LINES_REPAIR_GUIDANCE} If it should stay larger for now, do not use eslint-disable; add or adjust maxLinesPolicy.exceptions for this exact file with a modest max and a reason.`,
     },
     schema: [
       {

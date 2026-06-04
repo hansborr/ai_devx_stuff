@@ -34,3 +34,13 @@ declare module "*eslint-config/shared-policy.js" {
   export const maxLinesPolicy: MaxLinesPolicy;
   export const e2ePreferRoleSelectorAllowlist: readonly string[];
 }
+
+declare module "*eslint-rules/max-lines.js" {
+  import type { Rule } from "eslint";
+
+  export const MAX_LINES_SPLIT_GUIDANCE: string;
+  export const MAX_LINES_METRIC_GUIDANCE: string;
+
+  const rule: Rule.RuleModule;
+  export default rule;
+}

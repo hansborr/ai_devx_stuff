@@ -19,8 +19,10 @@ REPO_ROOT="$(pwd)"
 # the smoke fixture copy (build_fixture) consume this array, so the two can no
 # longer drift when a runtime file is added or removed. Paths are repo-relative;
 # the scripts/lint-ratchet/*.ts directory is glob-expanded here once (cwd is the
-# repo root) rather than enumerated by hand.
+# repo root) rather than enumerated by hand. The max-lines rule is included
+# because ratchet diagnostics imports its exported repair guidance.
 PORTABLE_RUNTIME_FILES=(
+  eslint-rules/max-lines.js
   scripts/lint-ratchet.ts
   scripts/lint-ratchet-baseline-compare.ts
   scripts/lint-ratchet-baseline-parse.ts
@@ -198,8 +200,8 @@ build_fixture() {
   cp eslint-config/shared-policy.js "$fixture_dir/eslint-config/shared-policy.js"
   # Copy the portable runtime file set from the single shared source so the
   # fixture and the import-boundary check (assert_portable_runtime_import_boundary)
-  # stay in lockstep. Every entry is repo-relative under scripts/, so the
-  # destination path mirrors the source path.
+  # stay in lockstep. Every entry is repo-relative, so the destination path
+  # mirrors the source path.
   mkdir -p "$fixture_dir/scripts/lint-ratchet"
   local runtime_file
   for runtime_file in "${PORTABLE_RUNTIME_FILES[@]}"; do
@@ -956,6 +958,10 @@ assert_usage_failure "--reason outside --update" "--reason is only valid with --
 assert_usage_failure "--reason missing value" "--reason requires a non-empty argument" --update --reason
 assert_usage_failure "--allow-worse without --reason" "--allow-worse requires a non-empty --reason" --update --allow-worse
 assert_usage_failure "--allow-worse with blank --reason" "--allow-worse requires a non-empty --reason" --update --allow-worse --reason=""
+assert_usage_failure "--allow-worse with placeholder --reason" \
+  "--allow-worse requires a real --reason, not the placeholder" \
+  --update --allow-worse \
+  --reason "<why accepting this baseline increase is better than forcing a low-quality fix now>"
 
 # --- Fixture: default lint:ratchet rejects empty registry globs --------------
 EMPTY_GLOB_DIR="$TMP_ROOT/empty-glob"
@@ -1063,8 +1069,20 @@ ASSERT_FILE="$TMP_ROOT/max-lines.out" bun -e '
   if (finding.reason !== "increased-lines") throw new Error(`bad reason ${finding.reason}`);
   if (finding.baselineLines !== 4) throw new Error(`bad baselineLines ${finding.baselineLines}`);
   if (finding.currentLines !== 5) throw new Error(`bad currentLines ${finding.currentLines}`);
-  if (!finding.howToFix.includes("effective line count from 5")) {
-    throw new Error(`missing line-count fix text: ${finding.howToFix}`);
+  if (!finding.howToFix.includes("Split the module")) {
+    throw new Error(`missing split fix text: ${finding.howToFix}`);
+  }
+  if (finding.howToFix.includes("effective line count from 5")) {
+    throw new Error(`line-count fix text kept old from-current anchor: ${finding.howToFix}`);
+  }
+  if (!finding.howToFix.includes("before committing your work")) {
+    throw new Error(`line-count fix text missing commit timing: ${finding.howToFix}`);
+  }
+  if (finding.howToFix.includes("in a cleanup PR")) {
+    throw new Error(`line-count fix text kept cleanup PR wording: ${finding.howToFix}`);
+  }
+  if (/Repair manually|Apply the ESLint suggestion/.test(finding.howToFix)) {
+    throw new Error(`line-count fix text leaked generic local-rule prefix: ${finding.howToFix}`);
   }
 ' || fail "max-lines envelope missing effective-line-count detail"
 set +e
@@ -1424,8 +1442,20 @@ ASSERT_FILE="$TMP_ROOT/complexity.out" bun -e '
   if (finding.reason !== "increased-complexity") throw new Error(`bad reason ${finding.reason}`);
   if (finding.baselineComplexity !== 3) throw new Error(`bad baselineComplexity ${finding.baselineComplexity}`);
   if (finding.currentComplexity !== 4) throw new Error(`bad currentComplexity ${finding.currentComplexity}`);
-  if (!finding.howToFix.includes("complexity from 4")) {
-    throw new Error(`missing complexity fix text: ${finding.howToFix}`);
+  if (!finding.howToFix.includes("Split complex logic")) {
+    throw new Error(`missing split-complexity fix text: ${finding.howToFix}`);
+  }
+  if (finding.howToFix.includes("complexity from 4")) {
+    throw new Error(`complexity fix text kept old from-current anchor: ${finding.howToFix}`);
+  }
+  if (finding.howToFix.includes("complexity complexity")) {
+    throw new Error(`complexity fix text duplicated complexity: ${finding.howToFix}`);
+  }
+  if (!finding.howToFix.includes("before committing your work")) {
+    throw new Error(`complexity fix text missing commit timing: ${finding.howToFix}`);
+  }
+  if (finding.howToFix.includes("in a cleanup PR")) {
+    throw new Error(`complexity fix text kept cleanup PR wording: ${finding.howToFix}`);
   }
 ' || fail "complexity envelope missing severity detail"
 set +e

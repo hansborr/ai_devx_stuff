@@ -109,7 +109,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Rule:** `local/no-explicit-any`
 
-**Principle:** 'any' removes type checking from the value it touches; prefer 'unknown' with narrowing or a concrete type.
+**Principle:** 'any' removes type checking from the value it touches; add useful types when they help prevent errors, especially for key concepts, and keep intentional untyped boundaries line-scoped with a reason.
 
 **Category:** maintainability
 

@@ -4,6 +4,7 @@ import {
   type LintRatchetDebtLogEntry,
   parseLintRatchetDebtLogEntry,
 } from "./lint-ratchet/debt-log-schema.js";
+import { RATCHET_REGRESSION_REASON_PLACEHOLDER } from "./lint-ratchet/recovery-command.js";
 
 const validEntry: LintRatchetDebtLogEntry = {
   version: "1",
@@ -134,6 +135,17 @@ describe("parseLintRatchetDebtLogEntry", () => {
     expect(
       parseLintRatchetDebtLogEntry(asJson({ ...validEntry, acceptanceReason: "   " })).entry,
     ).toBeUndefined();
+  });
+
+  it("rejects the regression reason placeholder as an acceptanceReason", () => {
+    const result = parseLintRatchetDebtLogEntry(
+      asJson({ ...validEntry, acceptanceReason: RATCHET_REGRESSION_REASON_PLACEHOLDER }),
+    );
+
+    expect(result.entry).toBeUndefined();
+    expect(result.failures).toContain(
+      "debt-log entry acceptanceReason must be a real reason, not the placeholder",
+    );
   });
 
   it("rejects a no-op acceptance with no regressions or orphan removals", () => {

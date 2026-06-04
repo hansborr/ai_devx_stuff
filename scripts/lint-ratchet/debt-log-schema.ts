@@ -2,6 +2,7 @@ import type { LintRatchetOrphanRemoval, LintRatchetRegression } from "../lint-ra
 import { isRecord, parseArrayOf, rejectUnknownKeys } from "./debt-log-parse-helpers.js";
 import { parseDebtLogOrphanRemoval } from "./debt-log-orphan-schema.js";
 import { parseDebtLogRegression } from "./debt-log-regression-schema.js";
+import { isRatchetRegressionReasonPlaceholder } from "./recovery-command.js";
 
 // Hand-rolled (deliberately NOT zod) validator for one committed debt-log line.
 // This file is part of the portable lint-ratchet runtime: the import-boundary
@@ -43,9 +44,15 @@ function parseVersion(value: unknown, failures: string[]): "1" | undefined {
 }
 
 function parseAcceptanceReason(value: unknown, failures: string[]): string | undefined {
-  if (typeof value === "string" && value.trim().length > 0) return value;
-  failures.push("debt-log entry acceptanceReason must be a non-empty string");
-  return undefined;
+  if (typeof value !== "string" || value.trim().length === 0) {
+    failures.push("debt-log entry acceptanceReason must be a non-empty string");
+    return undefined;
+  }
+  if (isRatchetRegressionReasonPlaceholder(value)) {
+    failures.push("debt-log entry acceptanceReason must be a real reason, not the placeholder");
+    return undefined;
+  }
+  return value;
 }
 
 function validateAcceptedDebt(parts: DebtLogEntryParts, failures: string[]): void {
