@@ -1382,9 +1382,9 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ## Logs audit
 
-### `logs-audit/console`
+### `logs-audit/event-fields`
 
-**Principle:** Detect server code using console.* instead of structured logging; report-only counterpart to the structured-logging lint rule.
+**Principle:** Detect runtime log records whose event fields are missing or unstable, so log consumers can group behavior without parsing free-form messages.
 
 **Category:** maintainability
 
@@ -1394,7 +1394,63 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Paired guide:** none
 
-**Repair:** codemod — `bun run codemod:structured-logging-fix`
+**Repair:** manual
+
+### `logs-audit/input`
+
+**Principle:** Detect selected log files that cannot be read, so automation distinguishes missing inputs from clean log quality.
+
+**Category:** maintainability
+
+**Source:** `scripts/logs-audit.ts`
+
+**Invocation:** `bun run logs:audit`
+
+**Paired guide:** none
+
+**Repair:** manual
+
+### `logs-audit/jsonl`
+
+**Principle:** Detect malformed JSONL records and empty log lines before downstream diagnostics consume runtime logs.
+
+**Category:** maintainability
+
+**Source:** `scripts/logs-audit.ts`
+
+**Invocation:** `bun run logs:audit`
+
+**Paired guide:** none
+
+**Repair:** manual
+
+### `logs-audit/redaction`
+
+**Principle:** Detect obvious unredacted sensitive fields in runtime logs so verification artifacts do not leak credentials or private tokens.
+
+**Category:** behavior
+
+**Source:** `scripts/logs-audit.ts`
+
+**Invocation:** `bun run logs:audit`
+
+**Paired guide:** none
+
+**Repair:** manual
+
+### `logs-audit/request-id`
+
+**Principle:** Detect runtime log records with missing or inconsistent request ids so request-scoped behavior remains traceable.
+
+**Category:** maintainability
+
+**Source:** `scripts/logs-audit.ts`
+
+**Invocation:** `bun run logs:audit`
+
+**Paired guide:** none
+
+**Repair:** manual
 
 ## Codemods
 
@@ -1472,13 +1528,13 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `hook/ai-doc-length`
 
-**Principle:** Warn when hot documentation files (STATUS.md, NEXT.md, AGENTS.md, CLAUDE.md) grow past their length budget so AI-generated additions get trimmed rather than accumulating.
+**Principle:** Advise when always-loaded agent context files grow past their length budget during AI edits, and warn at pre-commit when canonical agent docs or working notes exceed their budget.
 
 **Category:** maintainability
 
 **Source:** `scripts/ai-hooks/doc-length.sh`
 
-**Invocation:** `Claude PostToolUse / Codex post-tool-use hook`
+**Invocation:** `Claude PostToolUse / Husky pre-commit warning`
 
 **Paired guide:** none
 

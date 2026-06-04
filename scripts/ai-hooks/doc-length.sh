@@ -14,6 +14,10 @@ ai_doc_length_rule() {
   musi_doc_length_set_rule "$1"
 }
 
+ai_doc_length_rule_surface() {
+  musi_doc_length_rule_surface "$1"
+}
+
 ai_doc_length_advisory_for_count() {
   musi_doc_length_advisory_for_count "$1" "$2"
 }
@@ -23,11 +27,14 @@ ai_doc_length_advisory() {
 }
 
 ai_doc_length_hook_main() {
-  local payload file advisory
+  local payload file surface advisory
 
   payload=$(ai_read_payload)
   file=$(ai_payload_file_path "$payload")
   [ -z "$file" ] && ai_emit_continue
+
+  surface=$(ai_doc_length_rule_surface "$file" || true)
+  [ "$surface" = "edit" ] || ai_emit_continue
 
   advisory=$(ai_doc_length_advisory "$file" || true)
   if [ -n "$advisory" ]; then

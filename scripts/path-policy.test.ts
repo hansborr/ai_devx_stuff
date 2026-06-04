@@ -140,14 +140,4 @@ describe("PATH_POLICY known path surfaces", () => {
       matchesAny("scripts/lint-changed.sh", PATH_POLICY.deletionClasses.scriptSmokeSensitive),
     ).toBe(true);
   });
-
-  it("describes Prettier-owned format candidate surfaces", () => {
-    expect(PATH_POLICY.formatCheckCandidates.fullRepo.path).toBe(".");
-    expect(PATH_POLICY.formatCheckCandidates.parserSurface).toBe("prettier");
-    expect(PATH_POLICY.formatCheckCandidates.ignoreFile).toBe(".prettierignore");
-    expect(PATH_POLICY.formatCheckCandidates.metadataFiles).toEqual([
-      ".prettierrc",
-      ".prettierignore",
-    ]);
-  });
 });

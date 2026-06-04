@@ -1,7 +1,3 @@
-# AGENTS.md
-
-Shared guidance for AI coding agents working in this repository.
-
 ## Project
 
 Musi is a D&D 5.5E virtual tabletop and campaign management system.
@@ -11,15 +7,11 @@ Musi is a D&D 5.5E virtual tabletop and campaign management system.
 - Key docs: `docs/architecture-plan.md`, `docs/authorization.md`, `docs/socket-architecture.md`, `docs/CONCURRENCY.md`
 - Task guides: see `docs/guides/` before tRPC, Prisma, socket, race-sensitive, client cache/socket, e2e, rules changes, or ratcheted-lint changes.
 
-## Agent Notes
-
-Everything under `docs/agent_notes/` is on-demand. When a leaf lands, update durable handoff (`LOG.md`, `DECISIONS.md`, or a `finished_work/` note).
-
 ## Commands
 
 `bun run` lists every script. Non-obvious ones:
 
-- `bun run verify:changed` — default verification (lint:changed, typecheck, test:changed, test:scripts:changed). Stage intended source-relevant changes first; changed verification intentionally aborts on unstaged or untracked source-relevant work. Set `FORCE_VERIFY=1` to bypass the unchanged-worktree cache.
+- `bun run verify:changed` — default verification (lint:changed, typecheck, test:changed, test:scripts:changed). Stage intended source-relevant changes first; changed verification intentionally aborts on unstaged or untracked source-relevant work.
 - `bun run --filter @musi/server db:migrate` / `prisma:generate` — schema change path; follow `docs/guides/add-prisma-migration.md`. `db:push` is local-only, never committed schema work.
 - `bun run --filter @musi/server db:{push,seed,reset,studio}` — local DB utilities; package filter required.
 - `bun run code:intel -- {def|exports|dependents|refs|tests} ...` — cross-file TypeScript symbol/import queries; resolves package exports, re-exports, and the client `@/*` alias. See `docs/guides/code-intel.md`.
@@ -43,12 +35,5 @@ Everything under `docs/agent_notes/` is on-demand. When a leaf lands, update dur
 ## Workflow
 
 - Use TDD.
-- Use subagents as you work (exploring code, reviewing changes, etc).
-- Before calling work done, verify the user flow across shared -> server -> client.
-- For non-trivial work, create `docs/agent_notes/in_progress/<task>.md`; when it lands, keep only durable details in `LOG.md`, `DECISIONS.md`, or a small `finished_work/` note.
-- If you commit, use `feature/...` or `fix/...` branches and conventional commits. The local Husky `commit-msg` hook enforces: `<type>(<scope>): <subject>` with subject ≥ 20 chars, plus a non-empty body ≥ 40 chars (trailers like `Co-Authored-By:` don't count). Merge, revert, fixup, and squash commits are exempt.
-- The repository intentionally does not use squash merges, so commit text is preserved. Commit-shape enforcement is local by design; do not add CI commitlint unless that policy changes.
-
-## Domain
-
-When making 5e/5.5e rules claims, verify against `docs/SRD_CC_v5.2.1.pdf`. Canonical rule logic lives in `packages/shared/src/rules/`; check existing helpers before writing new ones.
+- Use `feat/...` or `fix/...` branches and conventional commits. The local Husky `commit-msg` hook enforces: `<type>(<scope>): <subject>` with subject ≥ 20 chars, plus a non-empty body ≥ 40 chars.
+- Commit your work, which runs tests for you automatically.

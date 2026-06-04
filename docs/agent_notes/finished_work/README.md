@@ -42,3 +42,6 @@ detail that cannot be recovered from code, tests, commits, `LOG.md`, or
 - `shared-rules-stryker-triage.md` — focused `attack-roll.ts` mutation
   survivor triage with the useful/equivalent mutant classification that led to
   the multi-digit crit-dice fixture.
+- `doc-length-hook-redesign.md` — landed doc-length surface split
+  (edit vs commit), softened advisory wording, phantom-arm cleanup, and the
+  decisions to leave Codex unwired and defer throttling.

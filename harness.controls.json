@@ -906,13 +906,52 @@
     },
 
     {
-      "id": "logs-audit/console",
+      "id": "logs-audit/event-fields",
       "kind": "logs-audit",
       "category": "maintainability",
-      "principle": "Detect server code using console.* instead of structured logging; report-only counterpart to the structured-logging lint rule.",
+      "principle": "Detect runtime log records whose event fields are missing or unstable, so log consumers can group behavior without parsing free-form messages.",
       "pairedGuide": "none",
-      "repairKind": "codemod",
-      "repairCommand": "bun run codemod:structured-logging-fix",
+      "repairKind": "manual",
+      "source": "scripts/logs-audit.ts",
+      "invocation": "bun run logs:audit"
+    },
+    {
+      "id": "logs-audit/input",
+      "kind": "logs-audit",
+      "category": "maintainability",
+      "principle": "Detect selected log files that cannot be read, so automation distinguishes missing inputs from clean log quality.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/logs-audit.ts",
+      "invocation": "bun run logs:audit"
+    },
+    {
+      "id": "logs-audit/jsonl",
+      "kind": "logs-audit",
+      "category": "maintainability",
+      "principle": "Detect malformed JSONL records and empty log lines before downstream diagnostics consume runtime logs.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/logs-audit.ts",
+      "invocation": "bun run logs:audit"
+    },
+    {
+      "id": "logs-audit/redaction",
+      "kind": "logs-audit",
+      "category": "behavior",
+      "principle": "Detect obvious unredacted sensitive fields in runtime logs so verification artifacts do not leak credentials or private tokens.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/logs-audit.ts",
+      "invocation": "bun run logs:audit"
+    },
+    {
+      "id": "logs-audit/request-id",
+      "kind": "logs-audit",
+      "category": "maintainability",
+      "principle": "Detect runtime log records with missing or inconsistent request ids so request-scoped behavior remains traceable.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
       "source": "scripts/logs-audit.ts",
       "invocation": "bun run logs:audit"
     },
@@ -1061,11 +1100,11 @@
       "id": "hook/ai-doc-length",
       "kind": "hook",
       "category": "maintainability",
-      "principle": "Warn when hot documentation files (STATUS.md, NEXT.md, AGENTS.md, CLAUDE.md) grow past their length budget so AI-generated additions get trimmed rather than accumulating.",
+      "principle": "Advise when always-loaded agent context files grow past their length budget during AI edits, and warn at pre-commit when canonical agent docs or working notes exceed their budget.",
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": "scripts/ai-hooks/doc-length.sh",
-      "invocation": "Claude PostToolUse / Codex post-tool-use hook"
+      "invocation": "Claude PostToolUse / Husky pre-commit warning"
     }
   ]
 }

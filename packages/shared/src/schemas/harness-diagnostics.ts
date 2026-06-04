@@ -9,6 +9,9 @@ export const harnessDiagnosticToolSchema = z.enum([
   "migration-safety-scan",
   "lint:agent",
   "lint:ratchet",
+  "drift:ai",
+  "logs:audit",
+  "harness:audit",
 ]);
 
 export type HarnessDiagnosticTool = z.infer<typeof harnessDiagnosticToolSchema>;

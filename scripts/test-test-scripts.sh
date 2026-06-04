@@ -66,6 +66,11 @@ fi
 exit 0
 STUB
 chmod +x "$SANDBOX/bin/runner"
+cat > "$SANDBOX/bin/nproc" <<'STUB'
+#!/usr/bin/env bash
+printf '8\n'
+STUB
+chmod +x "$SANDBOX/bin/nproc"
 
 STUB_LOG_FILE="$SANDBOX/runner.log"
 : > "$STUB_LOG_FILE"
@@ -131,6 +136,28 @@ if grep -qF 'test:scripts: test-verify OK (' <<< "$output"; then
   fail "concurrency=1 should not print parallel per-smoke finish lines: $output"
 fi
 ok "concurrency=1 keeps the sequential output shape"
+
+# --- default concurrency uses parallel mode when nproc reports headroom -----
+: > "$STUB_LOG_FILE"
+default_parallel_log_dir="$SANDBOX/default-parallel-logs"
+output=$(PATH="$SANDBOX/bin:$PATH" \
+  STUB_LOG="$STUB_LOG_FILE" \
+  MUSI_SCRIPTS_LOG_DIR="$default_parallel_log_dir" \
+  MUSI_SCRIPTS_CHANGED_FILES="scripts/ai-hooks/cache.sh" \
+  MUSI_SCRIPTS_RUNNER="$SANDBOX/bin/runner" \
+    bash "$RUNNER_SH" --changed 2>&1)
+for name in test-verify test-verify-async test-verify-logs test-ai-hooks; do
+  grep -qF "runner ran $name" "$STUB_LOG_FILE" \
+    || fail "default concurrency did not run $name: $(cat "$STUB_LOG_FILE")"
+  grep -qF "test:scripts: $name OK (" <<< "$output" \
+    || fail "default concurrency did not use parallel finish lines for $name: $output"
+  [ -f "$default_parallel_log_dir/$name.log" ] \
+    || fail "default concurrency did not write $name log"
+done
+if grep -qF 'runner stdout test-verify' <<< "$output"; then
+  fail "default concurrency should capture smoke stdout in per-smoke logs: $output"
+fi
+ok "default concurrency uses parallel mode when nproc reports headroom"
 
 # --- smoke children do not inherit parent commit-hook git env ------------
 : > "$STUB_LOG_FILE"

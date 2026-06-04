@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -19,8 +19,11 @@ import {
   SAME_FILE_DUPLICATE_REPAIR_HINT,
 } from "./duplicates.js";
 import {
+  DEFAULT_JSCPD_TIMEOUT_MS,
+  defaultJscpdRunner,
   type JscpdRunner,
   type JscpdRunnerInput,
+  type JscpdSpawn,
   LARGE_INVENTORY_WARNING_THRESHOLD,
   runDuplicatesCheck,
 } from "./duplicates-runner.js";
@@ -736,6 +739,72 @@ describe("runDuplicatesCheck", () => {
     expect(messages).toEqual([]);
   });
 });
+
+describe("defaultJscpdRunner", () => {
+  it("passes the default timeout to the jscpd subprocess", () => {
+    let observedTimeout: number | undefined;
+    let observedKillSignal: number | NodeJS.Signals | undefined;
+    const spawn: JscpdSpawn = (_command, args, options) => {
+      observedTimeout = options.timeout;
+      observedKillSignal = options.killSignal;
+      writeFileSync(path.join(outputDirFromArgs(args), "jscpd-report.json"), '{"duplicates":[]}');
+      return {
+        error: undefined,
+        status: 0,
+        stdout: "",
+        stderr: "",
+        signal: null,
+      };
+    };
+
+    const runner = defaultJscpdRunner({
+      analyzedRepoRoot: "/repo/target",
+      jscpdBin: "/bin/jscpd",
+      spawn,
+    });
+
+    expect(runner({ scopePath: "src", minLines: 10, ignoreGlobs: [] })).toEqual({
+      ok: true,
+      reportJson: '{"duplicates":[]}',
+    });
+    expect(observedTimeout).toBe(DEFAULT_JSCPD_TIMEOUT_MS);
+    expect(observedKillSignal).toBe("SIGKILL");
+  });
+
+  it("returns a stable failure when spawnSync times out", () => {
+    const timeoutError = Object.assign(new Error("spawnSync timed out"), {
+      code: "ETIMEDOUT",
+    });
+    const spawn: JscpdSpawn = () => ({
+      error: timeoutError,
+      status: null,
+      stdout: "",
+      stderr: "",
+      signal: "SIGTERM",
+    });
+
+    const runner = defaultJscpdRunner({
+      analyzedRepoRoot: "/repo/target",
+      jscpdBin: "/bin/jscpd",
+      spawn,
+      timeoutMs: 1234,
+    });
+
+    expect(runner({ scopePath: "src", minLines: 10, ignoreGlobs: [] })).toEqual({
+      ok: false,
+      error: "timeout of 1234ms",
+    });
+  });
+});
+
+function outputDirFromArgs(args: readonly string[]): string {
+  const outputFlagIndex = args.indexOf("--output");
+  const outputDir = args[outputFlagIndex + 1];
+  if (outputFlagIndex < 0 || outputDir === undefined) {
+    throw new Error("expected jscpd --output argument");
+  }
+  return outputDir;
+}
 
 describe("resolveJscpdBin", () => {
   const moduleDir = path.join("/tools", "scripts", "drift-ai");

@@ -158,6 +158,33 @@ cp "$SCRIPT_DIR/../.husky/pre-commit" "$hook_repo/.husky/pre-commit"
 )
 ok "pre-commit lockfile warning works when invoked through sh"
 
+doc_length_repo="$TMP_ROOT/doc-length-repo"
+copy_precommit_fixture "$doc_length_repo"
+(
+  cd "$doc_length_repo"
+  git init -q
+  git config user.name "Test User"
+  git config user.email "test@example.invalid"
+  git add .husky scripts bin
+  git commit -q -m init
+  mkdir -p docs/agent_notes/in_progress
+  long_doc="docs/agent_notes/in_progress/long.md"
+  for _ in $(seq 1 301); do
+    printf 'line\n' >> "$long_doc"
+  done
+  git add "$long_doc"
+
+  output="$(sh .husky/pre-commit 2>&1)" \
+    || fail "doc-length warning should be non-blocking for commit-surface docs: $output"
+  printf '%s\n' "$output" | grep -qF "pre-commit: WARN: doc-length advisory" \
+    || fail "pre-commit output missing doc-length warning: $output"
+  printf '%s\n' "$output" | grep -qF "long.md is 301 lines (budget: 300)" \
+    || fail "pre-commit doc-length warning missing budget detail: $output"
+  printf '%s\n' "$output" | grep -qF "no source changes staged" \
+    || fail "pre-commit doc-length-only path should remain non-blocking: $output"
+)
+ok "pre-commit warns non-blockingly for commit-surface doc length"
+
 (
   cd "$hook_repo"
   mkdir -p bin packages

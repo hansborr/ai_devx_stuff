@@ -4,6 +4,7 @@ import { DriftAiHelp, parseArgs } from "./cli-args.js";
 import { runColdspots } from "./coldspots.js";
 import type { FileReader } from "./comments.js";
 import { type BufferGitRunner, type StatRunner } from "./current-inventory.js";
+import { writeDriftDiagnosticsSidecar } from "./diagnostics-projection.js";
 import type { JscpdRunner } from "./duplicates-runner.js";
 import { DriftAiError } from "./errors.js";
 import type { DirectoryListing } from "./ghost-files.js";
@@ -142,6 +143,14 @@ export function runDriftAi(options: RunOptions): RunResult {
       ? formatJson(report, { includeScope: parsed.includeScope })
       : formatText(report);
   const stdout = writeReportOutputs(parsed, rendered, report, resolved.writer, resolved.warnStderr);
+  // Opt-in HarnessDiagnostics sidecar: native stdout/report files above are
+  // untouched; a bad output path or failed write is a CLI/tool error (exit 2),
+  // not a drift finding. A non-diagnostics run never reaches the projection.
+  try {
+    writeDriftDiagnosticsSidecar(report);
+  } catch (err) {
+    return toExitResult(err);
+  }
   // Report-only by default (exit 0). --fail-on-findings opts into exit 1 when the
   // run produced findings; usage/config errors already returned exit 2 above.
   const exitCode = parsed.failOnFindings && report.findings.length > 0 ? 1 : 0;

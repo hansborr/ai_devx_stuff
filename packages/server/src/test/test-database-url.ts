@@ -7,7 +7,15 @@ const WORKER_ID_PATTERN = /^[1-9]\d*$/;
 const REGISTRY_HASH_LENGTH = 16;
 const WORKER_KEY_PATTERN = /^[a-z0-9]{1,2}$/;
 
-export const SERVER_TEST_MAX_WORKERS = 4;
+// 6 workers on an 8-core box. Raising the cap from 4 to 6 cut the server vitest
+// project from ~134s to ~50s (measured in isolation). 8 is within noise of 6 in
+// isolation (~46s vs ~50s), so the extra two workers buy nothing on their own —
+// and the test step runs concurrently with the other parallel verify/pre-commit
+// steps (lint, typecheck, ratchet, the client test workers, …) on the same 8
+// cores, so capping at 6 leaves headroom instead of oversubscribing the box.
+// Each worker gets its own postgres DB (musi_*_w<n>); at SERVER_TEST_POOL_MAX=5
+// that is 6*5=30 connections, well under postgres' default 100 ceiling.
+export const SERVER_TEST_MAX_WORKERS = 6;
 export const SERVER_TEST_POOL_MAX = 5;
 
 // Two characters covers SERVER_TEST_MAX_WORKERS and keeps

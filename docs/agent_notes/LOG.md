@@ -7,6 +7,49 @@ Newest on top.
 
 ---
 
+## 2026-06-02 - Drift:ai next-items inventory second pass
+
+Re-audited `backlog/drift-ai-next-items/` against live drift/diagnostics seams
+and the prior brainstorm. The pack was already directionally strong, but several
+prototype notes bundled parser/evaluator work with user-facing advisory output.
+Added task 10a for a sidecar-only diagnostics writer, split coverage/env/class
+prototype tasks into library-first and advisory-integration leaves, and added
+operator/governance leaves for JSON contract fixtures, effective-config
+inspection, and field-run calibration. Durable detail in
+`finished_work/drift-ai-next-items-inventory-second-pass.md`.
+
+Validation: docs-only change; `git diff --check`.
+
+---
+
+## 2026-06-02 - Drift:ai next-items task pack review
+
+Validated the drift-ai next-items task pack against the brainstorm, shipped-work
+note, and live code, then updated `backlog/drift-ai-next-items/` to add missing
+leaf tasks and clarify prototype output. The pack now has an explicit
+one-task/one-session norm, a prototype advisory output contract before noisy
+prototype lenses, a commented-out-code check, complexity-at-birth and
+commit-message intent tasks, split coverage parser/correlation tasks, split
+ownership/test-source tasks, and an explicit out-of-pack note for portable
+ts-morph unused-exports until it is split further.
+
+Validation: docs-only change; `git diff --check`.
+
+---
+
+## 2026-06-01 - Harness review task pack
+
+Created `backlog/harness-review-tasks/` as the execution queue for the 2026-05
+harness review and selected overlapping backlog items. The folder contains an
+index, shared context, live seam map, and small task files across
+docs/feedforward, diagnostics, loop rehydration, architecture sensors, and
+governance. Older AI-harness backlog notes now point agents to the task pack for
+overlapping work.
+
+Validation: docs-only change; `git diff --check`.
+
+---
+
 ## 2026-05-31 — Parallel sibling-cancellation mitigation (Phases 1 + 2E)
 
 Shipped two Claude-only nudges that re-inject one calm pointer when the upstream

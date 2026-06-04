@@ -1,9 +1,10 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { harnessDiagnosticsSchema } from "../packages/shared/src/schemas/harness-diagnostics.js";
 import {
   ALL_CHECKS,
   buildInventoryByDir,
@@ -59,6 +60,7 @@ import {
 } from "./drift-ai/near-duplicates.js";
 import { nearDuplicatesCheck } from "./drift-ai/near-duplicates-check.js";
 import type { SuppressionsGitRunner } from "./drift-ai/suppressions.js";
+import { HARNESS_DIAGNOSTICS_OUTPUT_ENV } from "./harness-diagnostics-output.js";
 
 function emptyJscpdRunner(): JscpdRunner {
   return () => ({ ok: true, reportJson: '{"duplicates":[]}' });
@@ -1380,7 +1382,31 @@ describe("runDriftAi", () => {
     ]);
   });
 
-  it("does not reapply shared ignore globs for current duplicates", () => {
+  it("passes built-in universal ignore globs to current duplicates jscpd", () => {
+    const repoRoot = makeTempDir();
+    const files = ["src/a.ts", "src/b.ts"];
+    const ignoreArgs: string[][] = [];
+    const jscpd: JscpdRunner = (input) => {
+      ignoreArgs.push([...input.ignoreGlobs]);
+      return { ok: true, reportJson: '{"duplicates":[]}' };
+    };
+
+    const result = runDriftAi({
+      argv: ["--scope", "current", "--check", "duplicates"],
+      git: makeCurrentGit(repoRoot),
+      gitBuffer: () => nulDelimited(files),
+      stat: statForCurrentFiles(repoRoot, files),
+      jscpd,
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(ignoreArgs).toHaveLength(1);
+    expect(ignoreArgs[0]).toEqual(
+      expect.arrayContaining(["**/node_modules/**", "**/dist/**", "**/generated/**"]),
+    );
+  });
+
+  it("adjusts shared ignore globs relative to an explicit current duplicates root", () => {
     const repoRoot = makeTempDir();
     mkdirSync(path.join(repoRoot, "ignored"), { recursive: true });
     writeFileSync(
@@ -1417,6 +1443,7 @@ describe("runDriftAi", () => {
     expect(result.stdout).toContain("roots: ignored");
     expect(result.stdout).toContain("scope: 2 file(s) considered after ignore filters");
     expect(ignoreArgs).toHaveLength(1);
+    expect(ignoreArgs[0]).toContain("ignored/ignored/**");
     expect(ignoreArgs[0]).not.toContain("ignored/**");
     expect(warnLines).toHaveLength(1);
     expect(warnLines[0]).toContain("WARN duplicates: ignored/a.ts:7-18");
@@ -2368,5 +2395,88 @@ describe("runDriftAi", () => {
     });
     expect(result.exitCode).toBe(2);
     expect(result.stdout).toContain("Unknown check: made-up");
+  });
+});
+
+describe("runDriftAi HARNESS_DIAGNOSTICS_OUTPUT sidecar", () => {
+  let savedOutputEnv: string | undefined;
+
+  beforeEach(() => {
+    savedOutputEnv = process.env[HARNESS_DIAGNOSTICS_OUTPUT_ENV];
+    delete process.env[HARNESS_DIAGNOSTICS_OUTPUT_ENV];
+  });
+
+  afterEach(() => {
+    if (savedOutputEnv === undefined) delete process.env[HARNESS_DIAGNOSTICS_OUTPUT_ENV];
+    else process.env[HARNESS_DIAGNOSTICS_OUTPUT_ENV] = savedOutputEnv;
+  });
+
+  function sidecarDuplicateJscpd(): JscpdRunner {
+    return () => ({
+      ok: true,
+      reportJson: JSON.stringify({
+        duplicates: [
+          {
+            lines: 12,
+            firstFile: { name: "packages/server/src/utils/character-auth.ts", start: 1, end: 12 },
+            secondFile: { name: "packages/server/src/utils/campaign-auth.ts", start: 1, end: 12 },
+          },
+        ],
+      }),
+    });
+  }
+
+  it("writes a schema-valid sidecar and leaves native stdout unchanged", () => {
+    const outputPath = path.join(makeTempDir(), "diag", "drift.json");
+    process.env[HARNESS_DIAGNOSTICS_OUTPUT_ENV] = outputPath;
+
+    const result = runDriftAi({
+      argv: [],
+      git: makeRunDriftGit("M\tpackages/server/src/utils/character-auth.ts"),
+      jscpd: sidecarDuplicateJscpd(),
+      listDirectory: emptyDirectoryListing(),
+      readFile: emptyFileReader(),
+    });
+
+    expect(result.exitCode).toBe(0);
+    // Native report stdout is untouched by the opt-in sidecar.
+    expect(result.stdout).toContain("WARN duplicates:");
+    expect(existsSync(outputPath)).toBe(true);
+    const envelope: unknown = JSON.parse(readFileSync(outputPath, "utf8"));
+    const parsed = harnessDiagnosticsSchema.parse(envelope);
+    expect(parsed.tool).toBe("drift:ai");
+    expect(parsed.summary.warning).toBeGreaterThan(0);
+  });
+
+  it("writes no sidecar when the env var is unset", () => {
+    const outputPath = path.join(makeTempDir(), "drift.json");
+
+    const result = runDriftAi({
+      argv: [],
+      git: makeRunDriftGit("A\tpackages/server/src/foo.ts"),
+      jscpd: emptyJscpdRunner(),
+      listDirectory: emptyDirectoryListing(),
+      readFile: emptyFileReader(),
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(existsSync(outputPath)).toBe(false);
+  });
+
+  it("treats an unwritable sidecar path as a tool error (exit 2)", () => {
+    const dirAsOutput = path.join(makeTempDir(), "diag-dir");
+    mkdirSync(dirAsOutput);
+    process.env[HARNESS_DIAGNOSTICS_OUTPUT_ENV] = dirAsOutput;
+
+    const result = runDriftAi({
+      argv: [],
+      git: makeRunDriftGit("A\tpackages/server/src/foo.ts"),
+      jscpd: emptyJscpdRunner(),
+      listDirectory: emptyDirectoryListing(),
+      readFile: emptyFileReader(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(result.stdout).toContain("HARNESS_DIAGNOSTICS_OUTPUT sidecar");
   });
 });

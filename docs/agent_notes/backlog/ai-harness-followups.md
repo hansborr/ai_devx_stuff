@@ -9,6 +9,11 @@ repo-owned lint sensors, codemods, cached-verify Stop replay, `code:intel` v1,
 and module `Concepts:` breadcrumbs exist. Keep this note short and promote
 only one concrete leaf at a time.
 
+Execution note 2026-06-01: overlapping diagnostics, slow-drift, behavior
+confidence, and `logs:audit` follow-ups have been split into task files under
+`harness-review-tasks/00-index.md`. Prefer that folder when promoting reviewed
+harness work.
+
 ## Active Leaf Elsewhere
 
 No AI-harness leaf is currently promoted from this note. The 5e/5.5e rules

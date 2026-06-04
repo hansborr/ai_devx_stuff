@@ -29,7 +29,7 @@
 #                                to stub execution without running the real
 #                                smoke tests.
 #   MUSI_SCRIPTS_CONCURRENCY   — selected-smoke concurrency override; default
-#                                is min(4, nproc), falling back to 4.
+#                                is min(8, nproc), falling back to 4.
 #   MUSI_SCRIPTS_LOG_DIR       — parallel-mode per-smoke log directory;
 #                                default /tmp/musi-test-scripts-logs.
 
@@ -193,11 +193,11 @@ default_scripts_concurrency() {
   if [[ ! "$cpu_count" =~ ^[1-9][0-9]*$ ]]; then
     cpu_count=4
   fi
-  if [ "$cpu_count" -lt 4 ]; then
+  if [ "$cpu_count" -lt 8 ]; then
     printf '%s\n' "$cpu_count"
     return 0
   fi
-  printf '4\n'
+  printf '8\n'
 }
 
 resolve_scripts_concurrency() {

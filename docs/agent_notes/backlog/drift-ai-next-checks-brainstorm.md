@@ -1,11 +1,10 @@
 # drift:ai — next checks brainstorm (AI-slop auditing)
 
-Status: brainstorm / research · default-lane tracks SHIPPED 2026-05-31 · prototype/
-heavy queue still open
+Status: brainstorm / research · prototype/heavy queue still open
 Updated 2026-05-30: second-pass review of the rejected-idea lists under a more
 prototype-friendly posture.
 
-**Shipped (2026-05-31):** the three resolved default-lane tracks landed on
+**Default-lane baseline (2026-05-31):** the three default-lane tracks landed on
 `feat/drift-ai-enhancements` — the `coldspots` subcommand (coldspot + stale-markers
 lenses), the four non-function structural-duplication checks
 (`duplicate-{types,schemas,literals,constants}`), and the `unused-exports` knip
@@ -537,7 +536,9 @@ are the only ones I won't unilaterally close; the rest are recommended defaults.
    awareness. Keep both opt-in and candidate-framed.
 
 These resolve the brainstorm into default implementable tracks plus a prototype
-queue. Next step is to decompose the default tracks into
-`backlog/drift-ai-tasks/` task files (the existing 00-index shape), and add a
-separate heavy/prototype task set for clone-deep, runtime/dead-code overlays, and
-archaeology ownership lenses.
+queue. The active follow-up execution queue now lives in
+`backlog/drift-ai-next-items/`, with heavy clone, runtime/dead-code, and
+archaeology ownership ideas kept prototype-only. The queue now also has a shared
+bounded full-history foundation, separate clone and dead-code calibration
+corpora, Dolos as a parked external clone engine, and noisy dead-code overlays
+kept for opt-in experimentation rather than dropped.

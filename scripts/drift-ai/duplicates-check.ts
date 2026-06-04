@@ -1,10 +1,11 @@
 import { type CheckRunContext, type CheckServiceEnv, defineCheckPlugin } from "./check-plugin.js";
-import type { DriftAiDuplicatesConfig } from "./config.js";
+import type { DriftAiDuplicatesConfig, DriftAiIgnoreConfig } from "./config.js";
 import { globsForIgnoredPaths } from "./config-match.js";
 import { DEFAULT_DUPLICATES_IGNORE_GLOBS, JSCPD_SUPPORTED_EXTENSIONS } from "./duplicates.js";
 import { duplicatesCheckConfig } from "./duplicates-check-config.js";
 import { defaultJscpdRunner, type JscpdRunner, runDuplicatesCheck } from "./duplicates-runner.js";
 import { resolveJscpdBin } from "./jscpd-bin.js";
+import { isWholeRepoRoots, uniqSorted } from "./path-util.js";
 
 // jscpd runner plus the reason (if any) it could not be resolved. A null reason
 // means the runner is usable; a non-null reason means the duplicates check skips
@@ -36,7 +37,7 @@ export const duplicatesCheck = defineCheckPlugin<
       ...(config.minLines === undefined ? {} : { minLines: config.minLines }),
       ignoreGlobs:
         ctx.detectorScope.scopeMode === "current"
-          ? currentDuplicateIgnoreGlobs(config)
+          ? currentDuplicateIgnoreGlobs(ctx, config)
           : duplicateIgnoreGlobs(ctx, config),
       ...(ctx.detectorScope.scopeMode === "current"
         ? {
@@ -57,8 +58,37 @@ function duplicateIgnoreGlobs(ctx: CheckRunContext, config: DriftAiDuplicatesCon
   ];
 }
 
-function currentDuplicateIgnoreGlobs(config: DriftAiDuplicatesConfig): string[] {
-  return [...DEFAULT_DUPLICATES_IGNORE_GLOBS, ...config.excludeGlobs];
+function currentDuplicateIgnoreGlobs(
+  ctx: CheckRunContext,
+  config: DriftAiDuplicatesConfig,
+): string[] {
+  return [
+    ...DEFAULT_DUPLICATES_IGNORE_GLOBS,
+    ...currentUniversalIgnoreGlobs(ctx.roots, ctx.config.ignore),
+    ...config.excludeGlobs,
+  ];
+}
+
+function currentUniversalIgnoreGlobs(
+  roots: readonly string[],
+  ignore: DriftAiIgnoreConfig,
+): string[] {
+  if (isWholeRepoRoots(roots)) return globsForIgnoredPaths(ignore);
+  return uniqSorted(roots.flatMap((root) => rootRelativeIgnoreGlobs(root, ignore)));
+}
+
+function rootRelativeIgnoreGlobs(root: string, ignore: DriftAiIgnoreConfig): string[] {
+  return [
+    ...ignore.segments.map((segment) => `${root}/**/${segment}/**`),
+    ...ignore.prefixes.map((prefix) => `${root}/${prefix.endsWith("/") ? prefix : `${prefix}/`}**`),
+    ...ignore.globs.map((glob) => `${root}/${trimLeadingDotSlash(glob)}`),
+  ];
+}
+
+function trimLeadingDotSlash(value: string): string {
+  let out = value;
+  while (out.startsWith("./")) out = out.slice(2);
+  return out;
 }
 
 function warnForUnsupportedDuplicateExtensions(ctx: CheckRunContext): void {

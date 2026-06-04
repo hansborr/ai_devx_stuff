@@ -1,7 +1,11 @@
 // jscpd subprocess runner and check-integration entrypoint.
 // Extracted from duplicates.ts to keep each module under the max-lines ratchet.
 
-import { spawnSync } from "node:child_process";
+import {
+  spawnSync,
+  type SpawnSyncOptionsWithStringEncoding,
+  type SpawnSyncReturns,
+} from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -37,6 +41,17 @@ export type JscpdRunnerInput = {
   readonly ignoreGlobs: readonly string[];
 };
 
+export type JscpdSpawnResult = Pick<
+  SpawnSyncReturns<string>,
+  "error" | "status" | "stdout" | "stderr" | "signal"
+>;
+
+export type JscpdSpawn = (
+  command: string,
+  args: readonly string[],
+  options: SpawnSyncOptionsWithStringEncoding,
+) => JscpdSpawnResult;
+
 type JscpdRunnerResult =
   | { readonly ok: true; readonly reportJson: string }
   | { readonly ok: false; readonly error: string };
@@ -44,6 +59,7 @@ type JscpdRunnerResult =
 export type JscpdRunner = (input: JscpdRunnerInput) => JscpdRunnerResult;
 
 const JSCPD_REPORT_FILENAME = "jscpd-report.json";
+export const DEFAULT_JSCPD_TIMEOUT_MS = 10 * 60 * 1000;
 
 export type DefaultJscpdRunnerOptions = {
   // The subprocess cwd: the analyzed/target repo root. jscpd writes the
@@ -56,11 +72,15 @@ export type DefaultJscpdRunnerOptions = {
   readonly analyzedRepoRoot?: string;
   // Resolved jscpd executable (see resolveJscpdBin).
   readonly jscpdBin: string;
+  readonly timeoutMs?: number;
+  readonly spawn?: JscpdSpawn;
 };
 
 export function defaultJscpdRunner(options: DefaultJscpdRunnerOptions): JscpdRunner {
   const analyzedRepoRoot = options.analyzedRepoRoot ?? process.cwd();
   const bin = options.jscpdBin;
+  const timeoutMs = options.timeoutMs ?? DEFAULT_JSCPD_TIMEOUT_MS;
+  const spawn = options.spawn ?? spawnSync;
   return ({ scopePath, minLines, ignoreGlobs }) => {
     const outputDir = mkdtempSync(path.join(tmpdir(), "drift-ai-jscpd-"));
     try {
@@ -81,12 +101,17 @@ export function defaultJscpdRunner(options: DefaultJscpdRunnerOptions): JscpdRun
       if (ignoreGlobs.length > 0) args.push("--ignore", ignoreGlobs.join(","));
       args.push(scopePath);
 
-      const result = spawnSync(bin, args, {
+      const result = spawn(bin, args, {
         cwd: analyzedRepoRoot,
         encoding: "utf8",
         stdio: ["ignore", "pipe", "pipe"],
+        timeout: timeoutMs,
+        killSignal: "SIGKILL",
       });
       if (result.error) {
+        if (isTimeoutResult(result)) {
+          return { ok: false, error: `timeout of ${timeoutMs}ms` };
+        }
         return { ok: false, error: `jscpd subprocess failed: ${result.error.message}` };
       }
       if (result.status !== 0) {
@@ -111,6 +136,20 @@ export function defaultJscpdRunner(options: DefaultJscpdRunnerOptions): JscpdRun
       rmSync(outputDir, { recursive: true, force: true });
     }
   };
+}
+
+function isTimeoutResult(result: JscpdSpawnResult): boolean {
+  if (hasErrorCode(result.error, "ETIMEDOUT")) return true;
+  if (result.error === undefined || result.signal === null) return false;
+  return /\b(?:ETIMEDOUT|timed out|timeout)\b/iu.test(result.error.message);
+}
+
+function hasErrorCode(error: unknown, expectedCode: string): boolean {
+  return isObject(error) && error["code"] === expectedCode;
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 // --- Check integration ------------------------------------------------------

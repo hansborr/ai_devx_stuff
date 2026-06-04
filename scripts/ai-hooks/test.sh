@@ -504,16 +504,52 @@ if ai_protected_file_advisory "$REPO_ROOT/packages/server/src/main.ts" >/dev/nul
   fail "unexpected protected-file advisory for unprotected file"
 fi
 
-mkdir -p "$TMP_ROOT/docs/agent_notes"
-STATUS_DOC="$TMP_ROOT/docs/agent_notes/STATUS.md"
-for _ in $(seq 1 121); do
-  printf 'line\n' >> "$STATUS_DOC"
+AGENTS_DOC="$TMP_ROOT/AGENTS.md"
+for _ in $(seq 1 251); do
+  printf 'line\n' >> "$AGENTS_DOC"
 done
-DOC_MSG=$(ai_doc_length_advisory "$STATUS_DOC")
-assert_contains "$DOC_MSG" "STATUS.md is 121 lines"
-COUNT_MSG=$(ai_doc_length_advisory_for_count "$STATUS_DOC" 122)
-assert_contains "$COUNT_MSG" "STATUS.md is 122 lines"
-SHORT_DOC="$TMP_ROOT/docs/agent_notes/NEXT.md"
+DOC_MSG=$(ai_doc_length_advisory "$AGENTS_DOC")
+assert_contains "$DOC_MSG" "doc-length advisory"
+assert_contains "$DOC_MSG" "AGENTS.md is 251 lines"
+assert_contains "$DOC_MSG" "budget: 250"
+assert_contains "$DOC_MSG" "loaded into every agent session"
+assert_not_contains "$DOC_MSG" "Trim it now"
+assert_not_contains "$DOC_MSG" "threshold:"
+[ "$(ai_doc_length_rule_surface "$AGENTS_DOC")" = "edit" ] \
+  || fail "AGENTS.md should be an edit-surface doc-length rule"
+
+HOOK_MSG=$(
+  jq -n --arg path "$AGENTS_DOC" '{tool_input:{file_path:$path}}' \
+    | CLAUDE_PROJECT_DIR="$REPO_ROOT" bash "$SCRIPT_DIR/doc-length.sh"
+)
+assert_hook_json "$HOOK_MSG"
+[ "$(jq -r '.hookSpecificOutput.hookEventName // empty' <<< "$HOOK_MSG")" = "PostToolUse" ] \
+  || fail "doc-length edit hook should emit PostToolUse context: $HOOK_MSG"
+HOOK_CONTEXT=$(jq -r '.hookSpecificOutput.additionalContext // empty' <<< "$HOOK_MSG")
+assert_contains "$HOOK_CONTEXT" "doc-length advisory"
+assert_contains "$HOOK_CONTEXT" "AGENTS.md is 251 lines"
+
+mkdir -p "$TMP_ROOT/docs/agent_notes/in_progress" "$TMP_ROOT/docs/agent_notes"
+IN_PROGRESS_DOC="$TMP_ROOT/docs/agent_notes/in_progress/long.md"
+for _ in $(seq 1 301); do
+  printf 'line\n' >> "$IN_PROGRESS_DOC"
+done
+COUNT_MSG=$(ai_doc_length_advisory_for_count "$IN_PROGRESS_DOC" 301)
+assert_contains "$COUNT_MSG" "doc-length advisory"
+assert_contains "$COUNT_MSG" "long.md is 301 lines"
+assert_contains "$COUNT_MSG" "budget: 300"
+assert_contains "$COUNT_MSG" "in_progress notes can be long while work is active"
+assert_not_contains "$COUNT_MSG" "Trim it now"
+[ "$(ai_doc_length_rule_surface "$IN_PROGRESS_DOC")" = "commit" ] \
+  || fail "in_progress docs should be commit-surface doc-length rules"
+
+HOOK_MSG=$(
+  jq -n --arg path "$IN_PROGRESS_DOC" '{tool_input:{file_path:$path}}' \
+    | CLAUDE_PROJECT_DIR="$REPO_ROOT" bash "$SCRIPT_DIR/doc-length.sh"
+)
+assert_hook_continue_json "$HOOK_MSG"
+
+SHORT_DOC="$TMP_ROOT/docs/agent_notes/README.md"
 printf 'short\n' > "$SHORT_DOC"
 if ai_doc_length_advisory "$SHORT_DOC" >/dev/null; then
   fail "unexpected doc-length advisory for short doc"
