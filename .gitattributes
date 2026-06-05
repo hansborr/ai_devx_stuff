@@ -1,1 +1,11 @@
 docs/agent_notes/LOG.md merge=union
+# Append-only JSONL acceptance log (see scripts/lint-ratchet/paths.ts); union
+# merge is safe because each line is an independent record. Do NOT add the
+# baseline JSON here — it is a structured document, not line-appendable.
+# Both patterns are anchored to the repo root so same-named fixtures committed
+# under test directories never pick up these merge semantics.
+/lint-ratchet.debt-log.jsonl merge=union
+# Derived from the source tree, so no textual merge is ever correct. The custom
+# driver keeps "ours" (still valid JSON), prints the regeneration recipe, and
+# still declares a conflict; see "Merge Conflicts" in docs/guides/lint-ratchet.md.
+/lint-ratchet.baseline.json merge=lint-ratchet-baseline

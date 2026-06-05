@@ -560,6 +560,104 @@ explicit acknowledgement. Regressions require fixing the new or worse findings,
 or updating with `--allow-worse`; improvements require
 `bun run lint:ratchet:update` so the committed floor moves down monotonically.
 
+## Merge Conflicts
+
+Both committed ratchet files declare explicit merge semantics in
+`.gitattributes`, because their correct merge behavior is opposite:
+
+- `/lint-ratchet.debt-log.jsonl merge=union` — the log is append-only JSONL
+  where every line is an independent record, so a union merge that keeps both
+  sides' lines is always correct. The relative order of the two sides'
+  appended entries is arbitrary; nothing reads the log positionally.
+- `/lint-ratchet.baseline.json merge=lint-ratchet-baseline` — the baseline is
+  derived from the source tree, so no textual merge of two baselines is ever
+  correct. The custom driver prints the resolution recipe, keeps the 'ours'
+  side in the working tree (still valid JSON, never conflict markers), and
+  declares a conflict whenever both sides touched it.
+
+Both patterns are anchored to the repo root so a same-named fixture committed
+under a test directory never picks up these merge semantics. The driver fires
+for every operation that uses the merge machinery, not just `git merge`:
+during `git merge` and `git cherry-pick` the kept 'ours' side is the current
+branch, but during `git rebase` the sides are swapped — the kept version is
+the upstream base, not the branch being rebased.
+
+Every developer and agent clone must install the local driver config once:
+
+```sh
+bun run lint:ratchet:install-merge-driver
+```
+
+Git does not load merge-driver commands from committed files; `.gitattributes`
+only names the driver. The install script copies the driver into the clone's
+Git common directory, writes `merge.lint-ratchet-baseline.*` to local Git
+config, and mirrors the ratchet attributes into `.git/info/attributes`,
+replacing stale local `lint-ratchet.baseline.json -merge` entries from the
+transition window. The installed command resolves the Git common directory at
+merge time, so linked worktrees do not keep pointing at whichever checkout ran
+the installer.
+
+Installation is intentionally manual rather than chained from `prepare` or
+`worktree:new`: package lifecycle scripts and worktree provisioning should not
+silently mutate a developer's local Git config. Rerun the installer after
+pulling changes to the ratchet merge attributes or driver scripts; local
+`.git/info/attributes` entries override in-tree `.gitattributes` until they are
+refreshed.
+
+To resolve a baseline conflict, never hand-edit the file. The kept version is
+only a placeholder; the real resolution is regeneration against the merged
+tree. The driver prints this same recipe when the conflict is created:
+
+1. Resolve every other conflict in the merge first; leave the baseline as git
+   left it (the kept 'ours' version).
+2. Run `bun run lint:ratchet:update`. It rewrites the baseline from the merged
+   code and compares that generated file against the kept floor.
+3. Inspect the regenerated baseline against both sides before staging it:
+
+   ```sh
+   git diff HEAD -- lint-ratchet.baseline.json
+   git diff MERGE_HEAD -- lint-ratchet.baseline.json
+   ```
+
+   `MERGE_HEAD` exists only during `git merge`; use `REBASE_HEAD` during a
+   rebase or `CHERRY_PICK_HEAD` during a cherry-pick.
+
+   If the other side had lower floors, preserve them by fixing the merged code
+   and rerunning the update, or explicitly accept the regression in the merge
+   review.
+4. `git add lint-ratchet.baseline.json` and complete the merge commit.
+
+If step 2 fails asking for `--allow-worse`, the merged code is worse than the
+kept floor — the merge itself introduced a regression. Treat it like any other
+regression: fix the findings, or accept the debt with:
+
+```sh
+bun run lint:ratchet:update -- --allow-worse \
+  --reason "<why accepting this baseline increase is better than forcing a low-quality fix now>"
+```
+
+That appends the acceptance to the union-merged debt log.
+
+If a baseline conflict contains `<<<<<<<` markers or Git did not print the
+driver guidance, the clone is missing the local driver config or has stale
+`.git/info/attributes`. Run `bun run lint:ratchet:install-merge-driver`, restore
+the 'ours' baseline placeholder
+(`git checkout --ours -- lint-ratchet.baseline.json`), then continue the recipe
+above.
+
+Keeping only the 'ours' side discards the other side's floors before
+regeneration, so the update command compares only against the kept side. That is
+why the both-sides baseline diff check above is part of the required conflict
+recipe: when both sides locked improvements, reviewers need to confirm the
+merged code preserved them or that any loss was intentional.
+
+Merge attributes are read from the tree that is checked out, not from the
+branch being merged in, so branches created before the `.gitattributes`
+entries existed do not honor them when merged *into*. The install script's
+`.git/info/attributes` mirror applies to every operation in the clone regardless
+of checkout, as long as the installer has been run after the relevant merge
+attribute changes landed.
+
 ## Zero-Baseline Lifecycle
 
 A ratchet reaching zero is not the end of the lifecycle. It is a decision point:

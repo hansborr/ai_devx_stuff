@@ -63,6 +63,7 @@ packages/server/prisma/*.db-journal
 coverage/
 reports/mutation/
 reports/drift-ai/
+reports/slow-drift/
 .musi-ai-hooks-tidy-test.*/
 .stryker-tmp/
 test-results/

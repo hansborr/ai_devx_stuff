@@ -320,6 +320,137 @@ assert_local_identity_regression() {
     "$REPO_ROOT/scripts/test-fixtures/lint-ratchet/expected-local-type-assertion-boundary.config.mjs"
 }
 
+assert_lint_ratchet_merge_driver() {
+  local repo="$TMP_ROOT/merge-driver"
+  local attr_output driver_command git_common_dir installed_driver status unmerged_count
+
+  mkdir -p "$repo/scripts/git"
+  cp scripts/git/install-lint-ratchet-merge-driver.sh "$repo/scripts/git/"
+  cp scripts/git/lint-ratchet-baseline-merge-driver.sh "$repo/scripts/git/"
+  git -C "$TMP_ROOT" init -q -b main "$repo"
+  git -C "$repo" config user.email test@example.com
+  git -C "$repo" config user.name Test
+
+  mkdir -p "$repo/.git/info"
+  cat >"$repo/.git/info/attributes" <<'EOF'
+unrelated/path merge=union
+lint-ratchet.baseline.json -merge
+/lint-ratchet.baseline.json -merge
+lint-ratchet.debt-log.jsonl merge=text
+EOF
+
+  mkdir -p "$repo/nested/invoke"
+  (
+    cd "$repo/nested/invoke"
+    bash ../../scripts/git/install-lint-ratchet-merge-driver.sh
+  ) >"$TMP_ROOT/merge-driver-install.out"
+
+  grep -qF "merge driver installed" "$TMP_ROOT/merge-driver-install.out" \
+    || fail "merge-driver install did not report success: $(cat "$TMP_ROOT/merge-driver-install.out")"
+  driver_command=$(git -C "$repo" config --get merge.lint-ratchet-baseline.driver)
+  grep -qF "git rev-parse --git-common-dir" <<< "$driver_command" \
+    || fail "merge-driver install should resolve the installed driver through git-common-dir: $driver_command"
+  grep -qF "musi/lint-ratchet-baseline-merge-driver.sh" <<< "$driver_command" \
+    || fail "merge-driver install did not configure the installed driver command: $driver_command"
+  grep -qF "$repo/scripts/git" <<< "$driver_command" \
+    && fail "merge-driver command should not depend on the installing worktree path: $driver_command"
+  [ "$(git -C "$repo" config --get merge.lint-ratchet-baseline.recursive)" = "binary" ] \
+    || fail "merge-driver install did not configure recursive=binary"
+  git_common_dir=$(cd "$repo" && git rev-parse --git-common-dir)
+  case "$git_common_dir" in
+    /*) installed_driver="$git_common_dir/musi/lint-ratchet-baseline-merge-driver.sh" ;;
+    *) installed_driver="$repo/$git_common_dir/musi/lint-ratchet-baseline-merge-driver.sh" ;;
+  esac
+  [ -x "$installed_driver" ] \
+    || fail "merge-driver install should copy an executable driver into the git common dir"
+  # The installer prints the physical path (pwd -P), so canonicalize the
+  # expected path the same way before comparing; on macOS $TMPDIR resolves
+  # through the /var -> /private/var symlink.
+  installed_driver=$(cd "$(dirname "$installed_driver")" && pwd -P)/$(basename "$installed_driver")
+  grep -qF "  installed driver: $installed_driver" "$TMP_ROOT/merge-driver-install.out" \
+    || fail "merge-driver install should print the absolute installed driver path: $(cat "$TMP_ROOT/merge-driver-install.out")"
+
+  attr_output=$(git -C "$repo" check-attr merge -- lint-ratchet.baseline.json)
+  [ "$attr_output" = "lint-ratchet.baseline.json: merge: lint-ratchet-baseline" ] \
+    || fail "merge-driver install did not replace stale info attributes: $attr_output"
+  attr_output=$(git -C "$repo" check-attr merge -- nested/lint-ratchet.baseline.json)
+  [ "$attr_output" = "nested/lint-ratchet.baseline.json: merge: unspecified" ] \
+    || fail "anchored baseline attribute should not match nested paths: $attr_output"
+  grep -qF "unrelated/path merge=union" "$repo/.git/info/attributes" \
+    || fail "merge-driver install should preserve unrelated info attributes"
+  grep -qF "/lint-ratchet.debt-log.jsonl merge=union" "$repo/.git/info/attributes" \
+    || fail "merge-driver install should mirror anchored debt-log union attribute"
+  grep -qF "/lint-ratchet.baseline.json merge=lint-ratchet-baseline" \
+    "$repo/.git/info/attributes" \
+    || fail "merge-driver install should mirror anchored baseline driver attribute"
+  grep -qF "lint-ratchet.baseline.json -merge" "$repo/.git/info/attributes" \
+    && fail "merge-driver install should remove stale baseline -merge attributes"
+
+  rm -rf "$repo/scripts"
+
+  cat >"$repo/.gitattributes" <<'EOF'
+/lint-ratchet.baseline.json merge=lint-ratchet-baseline
+EOF
+  cat >"$repo/lint-ratchet.baseline.json" <<'JSON'
+{"version":1,"tests":{"base":{}}}
+JSON
+  git -C "$repo" add .gitattributes lint-ratchet.baseline.json
+  git -C "$repo" commit -qm base
+
+  git -C "$repo" checkout -q -b side
+  cat >"$repo/lint-ratchet.baseline.json" <<'JSON'
+{"version":1,"tests":{"side":{}}}
+JSON
+  git -C "$repo" commit -qam side
+
+  git -C "$repo" checkout -q main
+  cat >"$repo/lint-ratchet.baseline.json" <<'JSON'
+{"version":1,"tests":{"main":{}}}
+JSON
+  git -C "$repo" commit -qam main
+
+  [ ! -e "$repo/scripts/git/lint-ratchet-baseline-merge-driver.sh" ] \
+    || fail "merge-driver smoke should simulate a checkout without scripts/git"
+
+  set +e
+  git -C "$repo" merge side >"$TMP_ROOT/merge-driver-merge.out" \
+    2>"$TMP_ROOT/merge-driver-merge.err"
+  status=$?
+  set -e
+  [ "$status" -ne 0 ] || fail "merge-driver merge should leave a conflict"
+  grep -qF "lint-ratchet baseline conflict" "$TMP_ROOT/merge-driver-merge.err" \
+    || fail "merge-driver conflict guidance missing: $(cat "$TMP_ROOT/merge-driver-merge.err")"
+  grep -qF "bun run lint:ratchet:update" "$TMP_ROOT/merge-driver-merge.err" \
+    || fail "merge-driver guidance missing update command: $(cat "$TMP_ROOT/merge-driver-merge.err")"
+  grep -qF \
+    'bun run lint:ratchet:update -- --allow-worse --reason "<why accepting this baseline increase is better than forcing a low-quality fix now>"' \
+    "$TMP_ROOT/merge-driver-merge.err" \
+    || fail "merge-driver guidance missing allow-worse reason placeholder: $(cat "$TMP_ROOT/merge-driver-merge.err")"
+  grep -qF "inspect the baseline diff against both sides" \
+    "$TMP_ROOT/merge-driver-merge.err" \
+    || fail "merge-driver guidance missing both-sides diff review: $(cat "$TMP_ROOT/merge-driver-merge.err")"
+  grep -qF "During git rebase the sides are swapped" \
+    "$TMP_ROOT/merge-driver-merge.err" \
+    || fail "merge-driver guidance missing rebase side-swap note: $(cat "$TMP_ROOT/merge-driver-merge.err")"
+  grep -qF "MERGE_HEAD exists only during git merge" \
+    "$TMP_ROOT/merge-driver-merge.err" \
+    || fail "merge-driver guidance missing MERGE_HEAD caveat: $(cat "$TMP_ROOT/merge-driver-merge.err")"
+  grep -qF "CHERRY_PICK_HEAD during a cherry-pick" \
+    "$TMP_ROOT/merge-driver-merge.err" \
+    || fail "merge-driver guidance missing rebase/cherry-pick refs: $(cat "$TMP_ROOT/merge-driver-merge.err")"
+  unmerged_count=$(git -C "$repo" ls-files -u -- lint-ratchet.baseline.json | wc -l | tr -d ' ')
+  [ "$unmerged_count" = "3" ] \
+    || fail "merge-driver should leave baseline unmerged, got $unmerged_count index stages"
+  grep -qF "<<<<<<<" "$repo/lint-ratchet.baseline.json" \
+    && fail "merge-driver should not write conflict markers into the baseline"
+  grep -qF '"main"' "$repo/lint-ratchet.baseline.json" \
+    || fail "merge-driver should keep the current-branch baseline placeholder"
+  BASELINE="$repo/lint-ratchet.baseline.json" bun -e '
+    const { readFileSync } = require("fs");
+    JSON.parse(readFileSync(process.env.BASELINE, "utf8"));
+  ' || fail "merge-driver should leave parseable JSON"
+}
+
 use_fixture_node_modules_with_fake_plugin() {
   local fixture_dir=$1
   rm -rf "$fixture_dir/node_modules"
@@ -947,6 +1078,7 @@ grep -qF "lint:ratchet:check-registry OK" "$TMP_ROOT/real-registry.err" \
   || fail "lint:ratchet:check-registry OK line missing: $(cat "$TMP_ROOT/real-registry.err")"
 assert_portable_runtime_import_boundary
 assert_local_identity_regression
+assert_lint_ratchet_merge_driver
 
 # --- Usage errors return exit 2 (CLI contract for harness wrappers) ----------
 # Each assertion runs against the real tree; usage errors throw before ESLint

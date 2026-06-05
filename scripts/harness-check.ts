@@ -71,6 +71,7 @@ const EXEMPT_SCRIPTS = new Set<string>([
   "lint:ratchet:report",
   "lint:ratchet:debt-log",
   "lint:ratchet:summary",
+  "lint:ratchet:install-merge-driver",
   // worktree provisioning utilities — dev ergonomics, not enforcement
   // gates. `worktree:status` is the read-only sensor and IS in the
   // manifest (sensor/worktree-status).

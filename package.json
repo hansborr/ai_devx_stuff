@@ -59,6 +59,7 @@
     "lint:ratchet:debt-log": "bun scripts/lint-ratchet.ts --debt-log",
     "lint:ratchet:report": "bun scripts/lint-ratchet.ts --report",
     "lint:ratchet:summary": "bun scripts/lint-ratchet.ts --summary",
+    "lint:ratchet:install-merge-driver": "bash scripts/git/install-lint-ratchet-merge-driver.sh",
     "lint:ratchet:update": "bun scripts/lint-ratchet.ts --update",
     "lint:ratchet:zero-baseline": "bun scripts/lint-ratchet.ts --zero-baseline",
     "format": "prettier --write .",

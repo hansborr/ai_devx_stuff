@@ -706,6 +706,12 @@ MUSI_SCRIPTS_CHANGED_FILES="scripts/lint-ratchet/cli.ts" run_runner --changed >/
 ok "--changed selects test-lint-ratchet on lint-ratchet split helper change"
 
 : > "$STUB_LOG_FILE"
+MUSI_SCRIPTS_CHANGED_FILES="scripts/git/lint-ratchet-baseline-merge-driver.sh" run_runner --changed >/dev/null
+[ "$(cat "$STUB_LOG_FILE")" = "runner ran test-lint-ratchet" ] \
+  || fail "lint-ratchet merge driver change should select its smoke: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects test-lint-ratchet on lint-ratchet merge driver change"
+
+: > "$STUB_LOG_FILE"
 MUSI_SCRIPTS_CHANGED_FILES="scripts/test-lint-ratchet-edit-check-fixtures.sh" run_runner --changed >/dev/null
 [ "$(cat "$STUB_LOG_FILE")" = "runner ran test-lint-ratchet" ] \
   || fail "lint-ratchet edit-check fixture helper change should select its smoke: $(cat "$STUB_LOG_FILE")"

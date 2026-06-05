@@ -309,6 +309,8 @@ export const SCRIPT_SMOKE_SUBJECTS = {
     "scripts/lint-ratchet-summary.test.ts",
     "scripts/lint-ratchet-zero-baseline.ts",
     "scripts/lint-ratchet-zero-baseline.test.ts",
+    "scripts/git/install-lint-ratchet-merge-driver.sh",
+    "scripts/git/lint-ratchet-baseline-merge-driver.sh",
     "scripts/lint-rule-docs.ts",
     "scripts/ratchet-manifest-message.ts",
     "scripts/test-git-env.sh",
