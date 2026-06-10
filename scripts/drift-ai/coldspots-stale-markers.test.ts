@@ -19,30 +19,40 @@ function blameGit(
   byPath: Readonly<Record<string, ReadonlyArray<{ line: number; author: string; epoch: number }>>>,
   recorder?: string[][],
   dirtyPaths: readonly string[] = [],
+  // `git ls-files -v` tag per path: `S` = skip-worktree, a lowercase letter =
+  // assume-unchanged, `H` (the default) = a normal cached file. Paths listed in
+  // `lsFilesFailPaths` make the hidden-index probe throw.
+  lsFilesTags: Readonly<Record<string, string>> = {},
+  lsFilesFailPaths: readonly string[] = [],
 ): GitRunner {
   const dirty = new Set(dirtyPaths);
+  const lsFail = new Set(lsFilesFailPaths);
   return (args) => {
-    if (args[0] === "status") {
-      const path = args[args.length - 1] ?? "";
-      return dirty.has(path) ? ` M ${path}\n` : "";
+    const path = args[args.length - 1] ?? "";
+    if (args[0] === "status") return dirty.has(path) ? ` M ${path}\n` : "";
+    if (args[0] === "ls-files") {
+      if (lsFail.has(path)) throw new Error(`ls-files failed: ${path}`);
+      return `${lsFilesTags[path] ?? "H"} ${path}\n`;
     }
     recorder?.push([...args]);
     if (args[0] !== "blame") throw new Error(`unexpected git: ${args.join(" ")}`);
-    const path = args[args.length - 1] ?? "";
-    const rows = byPath[path] ?? [];
-    const out: string[] = [];
-    for (const row of rows) {
-      // A valid-looking 7-hex-char sha (git porcelain shas are hex).
-      const sha = row.line.toString(16).padStart(7, "a");
-      out.push(`${sha} ${row.line} ${row.line} 1`);
-      out.push(`author ${row.author}`);
-      out.push(`author-time ${row.epoch}`);
-      out.push("author-tz +0000");
-      out.push(`summary subj ${row.line}`);
-      out.push(`\tcontent line ${row.line}`);
-    }
-    return out.join("\n");
+    return renderBlame(byPath[path] ?? []);
   };
+}
+
+function renderBlame(rows: ReadonlyArray<{ line: number; author: string; epoch: number }>): string {
+  const out: string[] = [];
+  for (const row of rows) {
+    // A valid-looking 7-hex-char sha (git porcelain shas are hex).
+    const sha = row.line.toString(16).padStart(7, "a");
+    out.push(`${sha} ${row.line} ${row.line} 1`);
+    out.push(`author ${row.author}`);
+    out.push(`author-time ${row.epoch}`);
+    out.push("author-tz +0000");
+    out.push(`summary subj ${row.line}`);
+    out.push(`\tcontent line ${row.line}`);
+  }
+  return out.join("\n");
 }
 
 function reader(byPath: Readonly<Record<string, string>>): (path: string) => string | undefined {
@@ -252,6 +262,152 @@ describe("reduceStaleMarkers", () => {
     expect(section.entries.map((entry) => entry.path)).toEqual(["src/clean.ts"]);
     expect(section.entries[0]?.oldestMarker.author).toBe("Bob");
     expect(section.degradations.some((note) => /1 marker-bearing file/u.test(note))).toBe(true);
+  });
+
+  it("still blames a normal cached marker file (ls-files -v reports H)", () => {
+    const recorder: string[][] = [];
+    const section = reduceStaleMarkers({
+      files: ["src/normal.ts"],
+      readFile: reader({ "src/normal.ts": "// TODO normal cached file\n" }),
+      git: blameGit(
+        { "src/normal.ts": [{ line: 1, author: "Ada", epoch: epochDaysAgo(400) }] },
+        recorder,
+        [],
+        { "src/normal.ts": "H" },
+      ),
+      repoRoot: "/repo",
+      agesAvailable: true,
+      nowMs: NOW_MS,
+      ageThresholdDays: 180,
+    });
+
+    expect(recorder.map((args) => args[args.length - 1])).toEqual(["src/normal.ts"]);
+    expect(section.entries.map((entry) => entry.path)).toEqual(["src/normal.ts"]);
+    expect(section.entries[0]?.oldestMarker.author).toBe("Ada");
+  });
+
+  it("skips blame for skip-worktree marker files (hidden index, status looks clean)", () => {
+    const recorder: string[][] = [];
+    const section = reduceStaleMarkers({
+      files: ["src/skip.ts"],
+      readFile: reader({ "src/skip.ts": "// TODO behind skip-worktree\n" }),
+      git: blameGit(
+        { "src/skip.ts": [{ line: 1, author: "Ada", epoch: epochDaysAgo(500) }] },
+        recorder,
+        [], // clean per `git status`
+        { "src/skip.ts": "S" }, // skip-worktree
+      ),
+      repoRoot: "/repo",
+      agesAvailable: true,
+      nowMs: NOW_MS,
+      ageThresholdDays: 180,
+    });
+
+    // Never blamed, and counts alone do not qualify the row.
+    expect(recorder).toEqual([]);
+    expect(section.entries).toEqual([]);
+    expect(section.degradations.some((note) => /assume-unchanged\/skip-worktree/u.test(note))).toBe(
+      true,
+    );
+    expect(section.emptyReason).toContain("assume-unchanged/skip-worktree");
+    expect(section.emptyReason).toContain("1 marker-bearing file");
+  });
+
+  it("skips blame for assume-unchanged marker files (lowercase ls-files -v tag)", () => {
+    const recorder: string[][] = [];
+    const section = reduceStaleMarkers({
+      files: ["src/au.ts"],
+      readFile: reader({ "src/au.ts": "// FIXME behind assume-unchanged\n" }),
+      git: blameGit(
+        { "src/au.ts": [{ line: 1, author: "Ada", epoch: epochDaysAgo(500) }] },
+        recorder,
+        [],
+        { "src/au.ts": "h" }, // lowercase tag → assume-unchanged bit set
+      ),
+      repoRoot: "/repo",
+      agesAvailable: true,
+      nowMs: NOW_MS,
+      ageThresholdDays: 180,
+    });
+
+    expect(recorder).toEqual([]);
+    expect(section.entries).toEqual([]);
+    expect(section.degradations.some((note) => /assume-unchanged\/skip-worktree/u.test(note))).toBe(
+      true,
+    );
+  });
+
+  it("skips blame when the hidden-index probe fails (cannot prove worktree matches HEAD)", () => {
+    const recorder: string[][] = [];
+    const section = reduceStaleMarkers({
+      files: ["src/probe-fail.ts"],
+      readFile: reader({ "src/probe-fail.ts": "// HACK probe will throw\n" }),
+      git: blameGit(
+        { "src/probe-fail.ts": [{ line: 1, author: "Ada", epoch: epochDaysAgo(500) }] },
+        recorder,
+        [],
+        {},
+        ["src/probe-fail.ts"], // `git ls-files -v` throws for this path
+      ),
+      repoRoot: "/repo",
+      agesAvailable: true,
+      nowMs: NOW_MS,
+      ageThresholdDays: 180,
+    });
+
+    expect(recorder).toEqual([]);
+    expect(section.entries).toEqual([]);
+    expect(section.degradations.some((note) => /assume-unchanged\/skip-worktree/u.test(note))).toBe(
+      true,
+    );
+  });
+
+  it("does not probe hidden-index flags on a blobless clone (ages already unavailable)", () => {
+    const recorder: string[][] = [];
+    const section = reduceStaleMarkers({
+      files: ["src/probe-fail.ts"],
+      readFile: reader({ "src/probe-fail.ts": "// TODO marker\n" }),
+      // The ls-files probe would throw if called; ages are unavailable, so it must not run.
+      git: blameGit({ "src/probe-fail.ts": [] }, recorder, [], {}, ["src/probe-fail.ts"]),
+      repoRoot: "/repo",
+      agesAvailable: false,
+      nowMs: NOW_MS,
+      ageThresholdDays: 180,
+    });
+
+    // Did not throw, still surfaces the count row, and never blamed.
+    expect(recorder).toEqual([]);
+    expect(section.entries).toHaveLength(1);
+    expect(section.entries[0]?.oldestMarkerAgeDays).toBeNull();
+  });
+
+  it("classifies a dirty + hidden-index file as dirty only (no double count)", () => {
+    const recorder: string[][] = [];
+    const section = reduceStaleMarkers({
+      files: ["src/both.ts"],
+      readFile: reader({ "src/both.ts": "// TODO dirty and skip-worktree\n" }),
+      git: blameGit(
+        { "src/both.ts": [{ line: 1, author: "Ada", epoch: epochDaysAgo(500) }] },
+        recorder,
+        ["src/both.ts"], // dirty per `git status` (status probe runs first)
+        { "src/both.ts": "S" }, // and also skip-worktree
+      ),
+      repoRoot: "/repo",
+      agesAvailable: true,
+      nowMs: NOW_MS,
+      ageThresholdDays: 180,
+    });
+
+    // Still skips blame, and the dirty probe short-circuits so the file is counted
+    // once under "uncommitted changes" rather than also under hidden-index.
+    expect(recorder).toEqual([]);
+    expect(section.entries).toEqual([]);
+    expect(section.degradations.some((note) => /uncommitted changes/u.test(note))).toBe(true);
+    expect(section.degradations.some((note) => /assume-unchanged\/skip-worktree/u.test(note))).toBe(
+      false,
+    );
+    expect(section.emptyReason).toContain("1 marker-bearing file with uncommitted changes");
+    expect(section.emptyReason).not.toContain("assume-unchanged/skip-worktree");
   });
 
   it("carries totalQualified so a --top cap is disclosed, not silent (regression)", () => {

@@ -285,6 +285,7 @@ export const SCRIPT_SMOKE_SUBJECTS = {
     "scripts/test-harness-emit-envelope.sh",
     "packages/shared/src/schemas/harness-diagnostics.ts",
   ],
+  "test-slow-drift-audit": ["scripts/slow-drift-audit.sh", "scripts/test-slow-drift-audit.sh"],
   "test-lint-ratchet": [
     "scripts/lint-ratchet.ts",
     "scripts/lint-ratchet/",

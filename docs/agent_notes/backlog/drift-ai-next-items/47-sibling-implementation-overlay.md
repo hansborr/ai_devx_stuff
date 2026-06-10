@@ -1,6 +1,6 @@
 # 47 - sibling implementation naming overlay
 
-Status: Parked
+Status: Done
 Track: P
 Size: small-medium
 Depends on: 39, 40b, 47a
@@ -54,3 +54,29 @@ whose rows are explicitly candidate-framed.
 - Deletion advice.
 - A standalone default check.
 - Semantic proof that one sibling replaces another.
+
+## Implementation notes
+
+- First consumer: `clone-candidates` prototype advisory rows. It already carries
+  paired source paths from near-duplicate evidence, so the task-47a classifier can
+  add sibling-naming overlay context without creating standalone findings.
+
+## Done notes (2026-06-04)
+
+- Added `scripts/drift-ai/clone-candidates-sibling-overlay.ts` as the narrow
+  overlay helper for `clone-candidates` rows. It reuses the task-47a classifier,
+  only emits when a near-duplicate candidate row already exists, includes sibling
+  paths/shared tokens/marker pattern/caveats, and records the clone row as
+  `near-duplicate-row` supporting evidence.
+- `clone-candidates` now passes `checks.ghost-files.currentAllowedPairs` through
+  as a compatible allow-pair escape hatch. Allowed pairs suppress only the
+  sibling-naming overlay; the clone candidate row remains visible.
+- Tests cover overlay rendering, no standalone sibling rows, allow-pair
+  suppression, and public API/test-only/dynamic-use caveats from the dead-code
+  FP-trap families.
+
+Validation:
+
+- `FORCE_VERIFY=1 bun run test -- scripts/drift-ai/clone-candidates-advisory.test.ts`
+- `FORCE_VERIFY=1 bun run test -- scripts/drift-ai.test.ts`
+- `bun run lint:ratchet`

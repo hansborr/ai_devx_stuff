@@ -3,13 +3,14 @@
 `drift:ai` is a **report-only** code-quality sensor that flags patterns AI coding
 agents tend to introduce: copy/paste duplicates, suspicious sibling modules
 (`foo-helpers.ts` beside `foo.ts`), over-narration in comments, and newly added
-lint/type suppressions. Opt-in adapters add an `orphan-files` check (a knip
-adapter) that surfaces never-imported files and an `import-cycles` check
-(ts-morph) that surfaces circular imports. The opt-in `near-duplicates` check
-uses ts-morph to find AST-similar functions with renamed variables or reordered
-statements. Findings are evidence for a human by default: normal reports exit
-`0`, usage/config errors exit `2`, and `--fail-on-findings` is the explicit
-opt-in gate that exits `1` when findings exist.
+lint/type suppressions. Opt-in checks deepen the sweep: knip adapters
+(`orphan-files`, `knip-duplicates`, `unused-exports`), ts-morph structural checks
+(`import-cycles`, `layer-direction`, `near-duplicates`, and the `duplicate-*`
+value/shape family), plus `module-doc-paths` (stale module-doc file references)
+and `commented-out-code` (tombstoned code blocks) — the implemented-checks table
+below is the authoritative list. Findings are evidence for a human by default:
+normal reports exit `0`, usage/config errors exit `2`, and `--fail-on-findings`
+is the explicit opt-in gate that exits `1` when findings exist.
 
 ## Quickstart: scan an external repo
 
@@ -51,9 +52,11 @@ and every flag; this is the minimum to get a report.
    printed reason; the other three audit the inventory.
 
 4. **Turn on the opt-in checks when you want a deeper sweep.** `--check all`
-   adds the whole-project adapters (orphan files, import cycles, near-duplicates,
-   the `duplicate-*` family); checks that need a resolver or a vendored tool the
-   target lacks skip with a printed reason instead of crashing.
+   adds every opt-in check: the whole-project adapters (knip pass-through
+   categories, import cycles, server layer direction, near-duplicates, the
+   `duplicate-*` family) plus `module-doc-paths` and `commented-out-code`; checks
+   that need a resolver or a vendored tool the target lacks skip with a printed
+   reason instead of crashing.
 
    ```sh
    bun /path/to/drift-ai-tools/scripts/drift-ai.ts --scope current --root src --check all
@@ -64,6 +67,44 @@ AI-handoff chunks. Run the entrypoint with `--help` for the full flag list. If
 the target ships its own `drift-ai.config.json`, its `roots` are used and you can
 drop `--root`; otherwise see [Config discovery](#config-discovery) and the
 [starter config](#starter-config).
+
+### Optional: Semgrep community-rule scan
+
+`--check all` does **not** run Semgrep. Semgrep is a separate prototype advisory
+subcommand because rule choice and rule licensing belong to the operator. drift:ai
+does not distribute Semgrep rules or write Semgrep config into the target repo,
+but it can run useful third-party/community rules that you install or explicitly
+select.
+
+The fastest no-vendoring path is a live Semgrep Registry pack. It is mutable and
+not reproducible, so both network and license consent are explicit:
+
+```sh
+cd <target-repo>
+bun <tools-checkout>/scripts/drift-ai.ts semgrep-candidates --root src \
+  --registry-pack p/default \
+  --allow-live-registry \
+  --allow-rule-license Semgrep-Rules-License-1.0
+```
+
+For reproducible local scans, install the Semgrep engine in the tools checkout,
+clone a permissively licensed third-party/community rules repo yourself, and point
+drift:ai at that local rule file or directory:
+
+```sh
+cd <tools-checkout>
+python3 -m venv .tools/semgrep/.venv
+.tools/semgrep/.venv/bin/pip install semgrep==1.165.0
+git clone https://github.com/<org>/<permissive-rules-repo> .tools/semgrep/rules/<rules-repo>
+
+cd <target-repo>
+bun <tools-checkout>/scripts/drift-ai.ts semgrep-candidates --root src \
+  --semgrep-config /abs/path/to/tools-checkout/.tools/semgrep/rules/<rules-repo>/<rules.yml> \
+  --rule-license MIT
+```
+
+See the [Semgrep candidate setup](docs/prototype-subcommands.md#the-semgrep-candidates-prototype-subcommand)
+for manifests, license gates, absolute-path guidance, and JSON output.
 
 ## Main report quick reference
 
@@ -99,28 +140,85 @@ Primary flags:
 
 Implemented checks:
 
-| Check                 |             Default? | What it reports                                                    | Notes                                                                                                                                                                                    |
-| --------------------- | -------------------: | ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `duplicates`          |                  Yes | Copy/paste duplicate blocks                                        | Uses `jscpd`; skips cleanly if the executable cannot be resolved.                                                                                                                        |
-| `ghost-files`         |                  Yes | Suspicious sibling modules such as `foo-helper.ts` beside `foo.ts` | Uses filename tokens and directory peers; configurable allow-pairs for known-good current-state siblings.                                                                                |
-| `comments`            |                  Yes | Over-narrated files with high comment-to-code ratios               | Honors `checks.comments.excludePrefixes`.                                                                                                                                                |
-| `suppressions`        | Yes in changed scope | Newly added `eslint-disable` / `@ts-*` suppressions                | Diff-only; skipped in `current` scope with a reason.                                                                                                                                     |
-| `orphan-files`        |               Opt-in | Never-imported files from the target's knip config                 | Adapter finding provenance is `[target-config]`; skips when the target cannot support a trustworthy knip run.                                                                            |
-| `unused-exports`      |               Opt-in | Unused exported symbols/types/enum & namespace members from knip   | Same knip adapter as `orphan-files` (`[target-config]`, identical skips); each finding is tagged `details.category`. Shares a single knip spawn with `orphan-files` under `--check all`. |
-| `import-cycles`       |               Opt-in | Circular import components                                         | Uses ts-morph/TypeScript resolution; type-only cycles are labeled.                                                                                                                       |
-| `near-duplicates`     |               Opt-in | AST-similar function clones missed by exact duplicate detection    | Default engine is in-process ts-morph; findings carry `[drift-baseline]` provenance.                                                                                                     |
-| `duplicate-types`     |               Opt-in | Repeated interface/type-literal property shapes                    | Exact ts-morph structural hashes over non-function type shapes; filters tiny shapes with `minProps`. Findings carry `[drift-baseline]` provenance.                                       |
-| `duplicate-schemas`   |               Opt-in | Repeated object-schema key shapes                                  | Exact ts-morph structural hashes over `<receiver>.object({...})` chains; filters tiny schemas with `minKeys`. Findings carry `[drift-baseline]` provenance.                              |
-| `duplicate-literals`  |               Opt-in | Repeated literal values across files                               | Exact ts-morph grouping. Strings are length-filtered; raw numbers are skipped unless `includeNumbers` is enabled.                                                                        |
-| `duplicate-constants` |               Opt-in | Module-level constants sharing the same literal value              | Exact ts-morph grouping. Short strings and trivial numeric values are filtered before grouping.                                                                                          |
+| Check                 |             Default? | What it reports                                                    | Notes                                                                                                                                                                                                                                                |
+| --------------------- | -------------------: | ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `duplicates`          |                  Yes | Copy/paste duplicate blocks                                        | Uses `jscpd`; skips cleanly if the executable cannot be resolved.                                                                                                                                                                                    |
+| `ghost-files`         |                  Yes | Suspicious sibling modules such as `foo-helper.ts` beside `foo.ts` | Uses filename tokens and directory peers; configurable allow-pairs for known-good current-state siblings. In `current` scope, established role-split families are suppressed (see below).                                                            |
+| `comments`            |                  Yes | Over-narrated files with high comment-to-code ratios               | Honors `checks.comments.excludePrefixes`.                                                                                                                                                                                                            |
+| `commented-out-code`  |               Opt-in | Tombstoned code blocks left behind in comments                     | Flags consecutive comment runs that parse cleanly as operative code; `checks.commented-out-code.minLines` / `excludePrefixes`. Evidence only — it does not call the code dead.                                                                       |
+| `suppressions`        | Yes in changed scope | Newly added `eslint-disable` / `@ts-*` suppressions                | Diff-only; skipped in `current` scope with a reason.                                                                                                                                                                                                 |
+| `module-doc-paths`    |               Opt-in | Stale backtick **file** references in `MODULE.md` / `*-MODULE.md`  | Path existence only (symbols in prose are out of scope); resolves across candidate bases, so it favors precision over recall. Scans every module doc under the roots regardless of scope.                                                            |
+| `orphan-files`        |               Opt-in | Never-imported files from the target's knip config                 | Adapter finding provenance is `[target-config]`; skips when the target cannot support a trustworthy knip run.                                                                                                                                        |
+| `knip-duplicates`     |               Opt-in | Duplicate export aliases from knip                                 | Same knip adapter as `orphan-files` (`[target-config]`, identical skips). Separate from jscpd `duplicates`, which reports source clone blocks.                                                                                                       |
+| `unused-exports`      |               Opt-in | Unused exported symbols/types/enum & namespace members from knip   | Same knip adapter as `orphan-files` (`[target-config]`, identical skips); each finding is tagged `details.category`, and a symbol that is also `@deprecated` gains `details.deprecated`. Shares a single knip spawn with other selected knip checks. |
+| `import-cycles`       |               Opt-in | Circular import components                                         | Uses ts-morph/TypeScript resolution; type-only cycles are labeled.                                                                                                                                                                                   |
+| `layer-direction`     |               Opt-in | Server `utils`/`services` reverse layer imports                    | Uses the resolved TypeScript graph; starts with `utils -> services` and `services -> routers` bans. Findings carry `[drift-baseline]` provenance.                                                                                                    |
+| `near-duplicates`     |               Opt-in | AST-similar function clones missed by exact duplicate detection    | Default engine is in-process ts-morph; findings carry `[drift-baseline]` provenance.                                                                                                                                                                 |
+| `duplicate-types`     |               Opt-in | Repeated interface/type-literal property shapes                    | Exact ts-morph structural hashes over non-function type shapes; filters tiny shapes with `minProps`. Findings carry `[drift-baseline]` provenance.                                                                                                   |
+| `duplicate-schemas`   |               Opt-in | Repeated object-schema key shapes                                  | Exact ts-morph structural hashes over `<receiver>.object({...})` chains; filters tiny schemas with `minKeys`. Findings carry `[drift-baseline]` provenance.                                                                                          |
+| `duplicate-literals`  |               Opt-in | Repeated literal values across files                               | Exact ts-morph grouping. Strings are length-filtered; raw numbers are skipped unless `includeNumbers` is enabled.                                                                                                                                    |
+| `duplicate-constants` |               Opt-in | Module-level constants sharing the same literal value              | Exact ts-morph grouping. Short strings and trivial numeric values are filtered before grouping.                                                                                                                                                      |
 
 Subcommands:
 
-| Command                              | Purpose                                                                                                                          |
-| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
-| `bun run drift:ai hotspots`          | Advisory git-history lenses (`churn`, `coupling`, `fragmentation`, `suppression-churn`, `thrash`); not a trusted finding stream. |
-| `bun run drift:ai coldspots`         | Advisory git-history lenses (`coldspot`, `stale-markers`); `coldspot` considers files touched in the effective git window.       |
-| `bun run drift:ai harness-freshness` | Musi-only docs freshness check for `docs/ai-harness.md` against `docs/guides` and backtick paths.                                |
+| Command                                    | Purpose                                                                                                                                                             |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `bun run drift:ai coverage-evidence`       | Prototype coverage-artifact evidence from configured `coverage.artifacts`; not a trusted finding stream and never runs tests.                                       |
+| `bun run drift:ai coverage-unused-exports` | Prototype overlay of a supplied knip unused-exports report onto `coverage.artifacts`; flags covered-but-unused conflicts, never a deletion verdict.                 |
+| `bun run drift:ai env-branches`            | Prototype env/define stale-branch predictions under a configured `envDefine` matrix; candidate leads, never findings or branch deletions.                           |
+| `bun run drift:ai clone-candidates`        | Prototype MinHash/LSH function clone candidates with ts-morph agreement and sibling-naming overlay evidence; not a trusted finding stream.                          |
+| `bun run drift:ai dolos-candidates`        | Prototype fragment-level clone candidates from the external Dolos engine; opt-in (missing binary is an expected absence).                                           |
+| `bun run drift:ai semgrep-candidates`      | Prototype Semgrep candidate groups from operator-supplied, license-gated rule sources; opt-in (missing binary or blocked rule source is an expected absence).       |
+| `bun run drift:ai ownership`               | Prototype bounded-history file ownership / DOA archaeology; emits owner concentration, recency, co-author, and agent-hand evidence.                                 |
+| `bun run drift:ai test-orphaning`          | Prototype bounded-history source/test orphaning; flags source files that churned without their inferred tests moving with them, never a verdict.                    |
+| `bun run drift:ai birth-size-delta`        | Prototype bounded-history path-birth size deltas; compares birth/current bytes, effective LOC, and a branch-points complexity overlay, never a refactor verdict.    |
+| `bun run drift:ai class-construction`      | Prototype class-construction evidence for classes with no direct construction signal; optional unused-export report correlation, never a deletion verdict.          |
+| `bun run drift:ai hotspots`                | Advisory git-history lenses (`churn`, `coupling`, `fragmentation`, `suppression-churn`, `thrash`); not a trusted finding stream.                                    |
+| `bun run drift:ai coldspots`               | Advisory git-history lenses (`coldspot`, `stale-markers`); `coldspot` considers files touched in the effective git window.                                          |
+| `bun run drift:ai harness-freshness`       | Musi-only docs freshness check for `docs/ai-harness.md` against `docs/guides` and backtick paths.                                                                   |
+| `bun run drift:ai config`                  | Read-only inspection of the effective drift:ai config (source, repo root, roots, source extensions, default/implemented checks); runs no checks and writes nothing. |
+
+### Per-check timing
+
+Every report records the wall-clock each check took, skips included (a cheap skip
+reads as `0ms`). Text output adds a `timing:` line under the summary; JSON adds
+`checkTimings` (one `{ check, durationMs }` per dispatched check, in run order)
+and `totalDurationMs` (their sum). Durations are whole milliseconds, so a
+sub-millisecond check reads as `0ms`.
+
+This is **evidence only** — timing never changes the exit code, finding order, or
+severity. Use it to decide whether a check is cheap enough to run by default. The
+fields are additive (report schema v4); a tolerant reader can ignore them, while a
+strict reader must accept the new version.
+
+### Field-run calibration records
+
+Record a calibration run before promoting a prototype/advisory lens, making an
+opt-in check default-on, materially changing thresholds, or tuning a noisy
+default-on check. A useful record names the exact command, repo/commit/date,
+config source, scope, roots, checks, raw findings by check, reviewed
+true/false/uncertain counts, top false-positive classes, timing/cost evidence,
+and the recommended action: keep opt-in, keep default-on, tune, promote, demote,
+or split follow-up.
+
+The reusable template and first Musi current-scope baseline live in
+`docs/agent_notes/finished_work/drift-ai-field-run-calibration.md`.
+
+### Portable JSON report contract
+
+`--format json` is the **portable report contract** for downstream/foreign-repo
+consumers: a `DriftReport` with a top-level `schemaVersion` (`DRIFT_SCHEMA_VERSION`),
+optional `details`/`provenance` on findings, machine-readable `code` on skips, and
+`scope` only when `--include-scope` is passed. Its shape is pinned by golden
+fixtures in `fixtures/report-contract.*.json` (see `report-contract.test.ts`):
+adding, removing, renaming, or reordering a key fails that test until the fixtures
+are regenerated with `UPDATE_DRIFT_CONTRACT=1`, so schema changes stay deliberate.
+Additive optional fields plus a documented `schemaVersion` bump remain allowed.
+
+This JSON report is the only portable surface. The Musi-internal
+`HARNESS_DIAGNOSTICS_OUTPUT` sidecar (`HarnessDiagnostics`) is a separate,
+harness-facing envelope — not part of the foreign-repo contract — and depends on
+the shared schema and Musi control ids, so do not treat it as the portable shape.
 
 This document is the **tools-checkout contract**: how to run drift:ai from a
 shared checkout of this repo against _another_ Git repository. If you only ever
@@ -179,8 +277,8 @@ if it has one). For a foreign repo without a config, pass `--root` explicitly.
 Validated example (the OpenClaw monorepo, a pnpm + oxlint TypeScript repo):
 
 ```sh
-cd /home/node/tmp/openclaw
-bun /workspace/worktrees/exploration/scripts/drift-ai.ts --scope current \
+cd <path-to>/openclaw
+bun <tools-checkout>/scripts/drift-ai.ts --scope current \
   --root src --root packages --root apps --root extensions --root ui --root config
 ```
 
@@ -191,14 +289,44 @@ full flag list (`--format text|json`, `--output`, `--check`, `--config`,
 
 ### jscpd resolution for the `duplicates` check
 
-The `duplicates` check shells out to `jscpd`. drift:ai resolves the executable
+The `duplicates` check shells out to `jscpd`. An explicit `--jscpd-bin <path>`
+is **authoritative**: when supplied it is the only candidate, and a missing
+override reads as unresolved rather than silently scanning with a different
+executable. That matches the explicit-override precedence of `--semgrep-bin` and
+`--dolos-bin`, while `duplicates` additionally preflights the path and reports a
+skip when it is missing. Without an override, drift:ai resolves the executable
 from the **tools checkout** first (its own `node_modules/.bin/jscpd`), then the
 target's `node_modules/.bin/jscpd`, so an uninstalled target needs no
 `node_modules` of its own — jscpd scans source files and runs with the target as
-cwd, keeping finding paths repo-relative. Pass `--jscpd-bin <path>` to point at a
-specific executable for odd or hoisted layouts. If jscpd resolves nowhere, the
+cwd, keeping finding paths repo-relative. If jscpd resolves nowhere, the
 `duplicates` check is **skipped with a reason** on stderr (the other checks still
 run); it never crashes or emits a false-positive finding.
+
+### The `ghost-files` check: current-scope role families
+
+In `changed` scope, `ghost-files` flags every newly added file that looks like a
+near-duplicate of an existing directory peer (`foo-helper.ts` beside `foo.ts`) —
+the canonical "did you mean to extend the existing module?" signal.
+
+A whole-tree `--scope current` sweep is noisier: a mature codebase is full of
+**intentional role-split families** — `foo-types.ts` / `foo-schema.ts` companions,
+or parallel detectors like `duplicate-schemas.ts` / `duplicate-types.ts` /
+`duplicates.ts`. These share a stem and so look like ghost siblings, but neither
+should have extended the other. In `current` scope only, such a pair is
+**suppressed** when the only thing that differs between the two filenames is a
+**role-marker token** (`checks.ghost-files.roleMarkerTokens`, default
+`type` / `schema` / `model`) or a token the two names already share (e.g.
+`coldspots-coldspot` vs `coldspots`). A difference that introduces a genuinely new,
+non-marker token — the `util` in `foo-util.ts` vs `foo.ts` — is **not** a role
+split and still reports.
+
+This is a **naming-convention heuristic, not a dependency proof**: a suppressed
+pair is treated as an intentional role family because its filenames look like a
+role split, not because drift:ai verified the two modules are independent. The
+suppression is deliberately scoped to `current`; the `changed` pass still surfaces
+a freshly added `foo-types.ts` so a new companion gets one look. For a residual
+current-state pair the heuristic cannot classify (two distinct modules that happen
+to be a near-edit apart), use `checks.ghost-files.currentAllowedPairs`.
 
 ### The `orphan-files` check (knip adapter)
 
@@ -248,13 +376,45 @@ verdict**: the hint points at the fix (remove if dead, or add to the target's kn
 ignore config if used in a way knip cannot see) without asserting the symbol is
 dead. Which categories appear is entirely the target's knip config's call.
 
+**`@deprecated` tombstone overlay.** When a symbol knip reports unused is also
+annotated `@deprecated` in its own JSDoc/declaration trivia, the same finding gains
+`details.deprecated: true`, names the annotation in its message ("…is marked
+@deprecated and never imported…"), and uses a stronger removal hint. The two
+signals together — a tombstone the author already marked, plus the target's own
+reachability verdict that nothing uses it — make it a high-confidence removal
+candidate. This is still an **overlay, not a new verdict**: knip's
+target-configured reachability provenance is unchanged, and the `@deprecated` half
+is local annotation evidence. Detection is AST-exact (the declaration knip points
+at must carry the tag) and conservative — a missing location, unreadable file, or
+a position that resolves to no named declaration leaves the row un-flagged, and a
+container's `@deprecated` never bleeds onto its members (or vice versa). drift:ai
+does **not** hunt for `@deprecated` symbols knip considers reachable; the overlay
+only rides rows knip already surfaced.
+
 Single-check runs request only the needed knip `--include` categories
-(`files` for `orphan-files`; symbol categories for `unused-exports`). When both
-whole-project knip checks are selected, including under `--check all`, they request
-the shared full category superset so knip is **spawned once** and both
-`orphan-files` and `unused-exports` parse from the same report. knip's
-`duplicates` category is a deliberate follow-up (it overlaps the `duplicate-*`
-family); it is easy to add to the same parser when wanted.
+(`files` for `orphan-files`; symbol categories for `unused-exports`;
+`duplicates` for `knip-duplicates`). When multiple whole-project knip checks are
+selected, including under `--check all`, they request the selected category
+superset so knip is **spawned once** and each selected adapter parses from the
+same report.
+
+### The `knip-duplicates` check (knip adapter)
+
+`knip-duplicates` surfaces knip's `duplicates` issue category: duplicate export
+aliases in a single module, such as `export const alias = original` or
+`export default original` next to the original named export. It is **not** source
+clone detection; drift:ai's existing `duplicates` check owns copy/paste blocks
+via jscpd.
+
+It uses the same pass-through knip adapter as `orphan-files` and `unused-exports`
+(same config discovery, `[target-config]` provenance, skip behavior, and
+single-diagnostic behavior on a broken run). Enable it with
+`--check knip-duplicates` or `--check all`.
+
+Each finding carries `details.category: "duplicates"`, a `details.symbols` list,
+and the duplicate export count. The hint points either to consolidating redundant
+aliases or ignoring intentional public-API compatibility aliases in the target's
+knip config.
 
 ### The `import-cycles` check (ts-morph)
 
@@ -287,6 +447,28 @@ target installed, alias/relative imports resolve offline, so an uninstalled targ
 with tsconfig path aliases is still reported on (validated against OpenClaw). In
 `changed` scope only cycles touching a changed file are reported; in `current`
 scope every cycle in the graph is surfaced.
+
+### The `layer-direction` check (ts-morph)
+
+`layer-direction` surfaces resolved reverse imports across Musi's server source
+layers. It starts with two report-only rules: files under
+`packages/server/src/utils/` must not import `packages/server/src/services/`, and
+files under `packages/server/src/services/` must not import
+`packages/server/src/routers/`. It reuses the same TypeScript module graph as
+`import-cycles`, so relative imports and tsconfig path aliases are resolved before
+the rule runs.
+
+Findings name the source file, the resolved target file (`details.targetFile`),
+the source/target layers, and whether the edge is type-only. Type-only reverse
+imports are still reported as architecture coupling evidence. Findings are
+stamped `[drift-baseline]`, and the check is **opt-in** until field runs prove the
+rules are low-noise: enable it with `--check layer-direction` or `--check all`.
+
+The check shares the import graph skip behavior: no tsconfig or a too-partial
+graph becomes a skip with a reason, not a finding. The current allowlist contains
+only the known test fixture edge
+`packages/server/src/utils/character-mapping.test.ts ->
+packages/server/src/services/character-create.ts`.
 
 ### The `near-duplicates` check (ts-morph)
 
@@ -342,6 +524,59 @@ only when you want that signal:
 underscores, and the decimal point before counting digits; non-decimal literal
 forms count their base digits. Strings keep the existing `minLength` filter.
 
+### The `module-doc-paths` check
+
+`module-doc-paths` is the module-doc counterpart to `harness-freshness`: it
+validates backtick **file** references inside `MODULE.md` / `*-MODULE.md` notes so
+a renamed or deleted file leaves a visible trail in the doc that points at it. It
+is **opt-in** and report-only; enable it with `--check module-doc-paths` or
+`--check all`. It scans every module doc under the configured roots regardless of
+`--scope`, since a path can go stale from a source change far from the doc itself.
+
+It checks **path existence only** — exported symbols named in prose are out of
+scope. A token is treated as a reference only when it is a multi-segment relative
+path (contains `/`) ending in a known file extension; that filter keeps
+`identifier.member` prose (`character.get`, `socket.broadcast`), bare filenames,
+directory references, and `@scope/pkg` specifiers out of the stream. Fenced code
+blocks are ignored.
+
+Resolution is deliberately **multi-base**, because MODULE.md authors anchor paths
+differently: the module's own directory (`./auth-middleware.ts`), a shared sibling
+under the parent (`entries/entry-dialog.tsx`), the package `src`/package root
+(`utils/foo.ts`, `src/test/mock-trpc.tsx`), or the repo root
+(`docs/CONCURRENCY.md`). A reference is fresh when it resolves under **any**
+candidate base, and `.js`/`.jsx` specifiers also try their `.ts`/`.tsx` source.
+`./` and `../` references are anchored to the module directory only. This favors
+precision (few false positives) over recall: a path that has genuinely drifted but
+also happens to exist under another base is not flagged. If a particular doc's
+reference style still produces noise, exclude the whole doc with
+`checks.module-doc-paths.excludeGlobs`.
+
+### The `commented-out-code` check
+
+`commented-out-code` is the refactor-residue counterpart to `comments`: the
+`comments` check flags files where prose crowds out code, while this one flags a
+**tombstoned code block** left behind in comments. It is **opt-in** and report-only;
+enable it with `--check commented-out-code` or `--check all`.
+
+It collects each run of consecutive **pure-comment** lines (`//` lines or the body
+of a `/* … */` block, with a leading `*` JSDoc decoration stripped), and flags a
+run of at least `minLines` (default `3`) only when the stripped text **parses
+cleanly as operative code** — a declaration, control-flow statement, call,
+assignment, `import`/`export`, etc. The clean-parse gate is what separates
+commented-out code from prose: ordinary sentences and JSDoc do not parse as
+statements, and a block that contains only bare identifiers or string literals is
+not flagged. This favors **precision over recall** — an unbalanced fragment that
+does not parse is left alone rather than guessed at.
+
+Each finding names the line range, the line count, the first operative construct
+(evidence for why it reads as code), a first-line preview, and a short snippet hash
+in `details`; the whole block is never dumped into text output. It is **evidence,
+not a verdict**: the row says the block _appears_ to be commented-out code, never
+that the code is unreachable or safe to delete. Tune the block-size floor with
+`checks.commented-out-code.minLines` (minimum `2`) and drop whole path prefixes
+with `checks.commented-out-code.excludePrefixes`.
+
 ### Why `cd` into the target (and no `--repo` flag)
 
 The target repo is the subprocess **cwd**, which keeps scanner output
@@ -366,8 +601,9 @@ for every place drift:ai currently relies on cwd:
   the target as cwd so emitted paths stay repo-relative.
 
 The `cd <target-repo>` form satisfies all six by construction because cwd is
-already the target. Target selection is owned by
-[task 11](../../docs/agent_notes/backlog/drift-ai-tasks/11-target-cd-wrapper.md).
+already the target. A `--repo` wrapper stays deferred; if target-selection work is
+revived it is tracked in the
+[drift:ai backlog](../../docs/agent_notes/backlog/drift-ai-next-items/00-index.md).
 
 ## Target assumptions
 
@@ -410,6 +646,48 @@ not apply.
 Any example config is an **illustrative starting point**, not an authoritative
 default. drift:ai's built-in defaults (universal ignores, etc.) are the real
 defaults; the example just shows the shape and common knobs.
+
+Top-level `coverage.artifacts` is an evidence-source list for prototype coverage
+surfaces. Each entry is read-only and has a repo-relative artifact path plus a
+free-text label such as `unit`, `e2e`, or `prod`; artifacts are kept separate in
+output and are never silently unioned.
+
+### The `config` subcommand (read-only inspection)
+
+`config` answers "what config will drift:ai actually use here?" before you run a
+scan. When a sweep skips files or runs unexpected checks, it confirms which config
+was auto-discovered, which roots are in effect, and what defaults were filled in —
+without having to run the whole report first.
+
+```sh
+cd <target-repo>
+bun <tools-checkout>/scripts/drift-ai.ts config
+bun <tools-checkout>/scripts/drift-ai.ts config --config drift-ai.config.json
+bun <tools-checkout>/scripts/drift-ai.ts config --format json --output effective-config.json
+```
+
+It is **strictly read-only**: it loads and normalizes config exactly as a scan
+would (same auto-discovery, same `--config` override), then renders the result. It
+runs no checks and **never creates, rewrites, or normalizes a config file on
+disk** — generating a `drift-ai.config.json` is deliberately out of scope.
+
+Like the other subcommands it anchors discovery to the **target** repo (the cwd's
+`git --show-toplevel`), not the tools checkout, so the reported roots and repo
+root describe the repo you are scanning. The output names:
+
+- the **config source** — `default` (no file; built-in defaults), `auto-discovered`
+  (`drift-ai.config.json` at the target root), or `explicit` (a `--config` path);
+- the **repo root** used for discovery;
+- the **roots** and **source extensions** (built-in extensions plus any
+  `additionalSourceExtensions`) the scan would consider;
+- the **default check set** (a no-`--check` run) and the **implemented check set**
+  (everything `--check all` enables).
+
+Text output is a concise summary; `--format json` carries the full effective
+config (ignore rules, per-check config, `coverage`, `envDefine`) under a
+`kind: "config-inspection"` envelope. That envelope is intentionally **not** the
+portable `DriftReport` (`--format json` on a scan) nor a `kind: "advisory"` row, so
+a consumer can tell an inspection from a scan or an advisory at a glance.
 
 ## The `hotspots` subcommand (advisory)
 
@@ -459,12 +737,14 @@ Lenses (`--lens`, default `churn`; `all` fans out to every implemented lens):
 
 Every hotspot row carries the cheap context that makes a human's judgment fast:
 top authors/agents (from commit + `Co-authored-by` trailers), the 3 most-recent
-commit subjects, the **raw** numbers behind any score, and a copy-paste
-`git log` inspect command. Pass `--baseline <prev.json>` (an earlier advisory
-JSON) to tag each row `↑NEW` / `↑+N` / `↓-N` / `=steady` vs the prior run. (If the
-baseline measured churn with a different metric — e.g. a squash run recorded
-`lines` — the churn deltas are omitted and the header says so, since the scores
-are not comparable.)
+commit subjects, regex commit-intent labels over those displayed subjects
+(`fix`, `refactor`, `scaffold`, `generated`, `update`, or `unknown`), the **raw**
+numbers behind any score, and a copy-paste `git log` inspect command. Intent
+labels are overlay context only; they do not create rows or gates. Pass
+`--baseline <prev.json>` (an earlier advisory JSON) to tag each row `↑NEW` /
+`↑+N` / `↓-N` / `=steady` vs the prior run. (If the baseline measured churn with
+a different metric — e.g. a squash run recorded `lines` — the churn deltas are
+omitted and the header says so, since the scores are not comparable.)
 
 Behavior worth knowing:
 
@@ -480,6 +760,26 @@ Behavior worth knowing:
 - **Blobless partial clones** (`--filter=blob:none`) have no blob content, so the
   walk falls back to `git log --name-only`: revision counts stay exact, but
   per-file line counts are reported as unavailable (the header says so).
+
+## Prototype advisory lane (heavy/experimental lenses)
+
+Heavy, noisy prototype lenses are indexed in this README but documented in
+focused files so the supported quick-reference stays skimmable:
+
+- [Prototype advisory contract](docs/prototype-contract.md) defines the
+  `kind: "advisory"`, `lane: "prototype"` envelope, partial-run disclosures,
+  caps, prerequisites, and no-findings firewall.
+- [Prototype subcommands](docs/prototype-subcommands.md) covers
+  `clone-candidates`, `dolos-candidates`, `semgrep-candidates`,
+  `coverage-evidence`, `coverage-unused-exports`, `env-branches`, `ownership`,
+  `test-orphaning`, `birth-size-delta`, and `class-construction`.
+- [Prototype calibration infrastructure](docs/prototype-calibration.md) covers the
+  bounded full-history helper, clone/dead-code corpora, sibling naming classifier,
+  and class-construction inventory.
+
+Prototype subcommands are not check ids, are not included in `--check all`, and
+never emit `DriftFinding` rows. Treat their output as review leads until a lens
+earns promotion.
 
 ## Musi-only subcommands
 
@@ -536,5 +836,6 @@ brought fully in line with it:
   to checks that can run usefully across arbitrary TypeScript repos.
 
 For maintainers, the full backlog and the contract's rationale live in
-[`docs/agent_notes/backlog/drift-ai-tasks/`](../../docs/agent_notes/backlog/drift-ai-tasks/00-index.md)
-(start with `01-shared-context.md`).
+[`docs/agent_notes/backlog/drift-ai-next-items/`](../../docs/agent_notes/backlog/drift-ai-next-items/00-index.md)
+(start with
+[`01-shared-context.md`](../../docs/agent_notes/backlog/drift-ai-next-items/01-shared-context.md)).

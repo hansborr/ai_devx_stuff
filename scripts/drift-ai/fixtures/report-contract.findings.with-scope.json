@@ -1,0 +1,118 @@
+{
+  "schemaVersion": 4,
+  "scopeMode": "current",
+  "base": null,
+  "resolvedRef": null,
+  "roots": [
+    "packages/server/src",
+    "packages/shared/src"
+  ],
+  "configPath": "drift-ai.config.json",
+  "enabledChecks": [
+    "duplicates",
+    "import-cycles",
+    "near-duplicates",
+    "orphan-files"
+  ],
+  "skippedChecks": [
+    {
+      "check": "unused-exports",
+      "reason": "no knip config found in target",
+      "code": "no-target-config"
+    },
+    {
+      "check": "suppressions",
+      "reason": "only available in changed scope"
+    }
+  ],
+  "summary": {
+    "total": 4,
+    "byCheck": {
+      "duplicates": 1,
+      "import-cycles": 1,
+      "near-duplicates": 1,
+      "orphan-files": 1
+    }
+  },
+  "checkTimings": [
+    {
+      "check": "duplicates",
+      "durationMs": 12
+    },
+    {
+      "check": "import-cycles",
+      "durationMs": 40
+    },
+    {
+      "check": "near-duplicates",
+      "durationMs": 88
+    },
+    {
+      "check": "orphan-files",
+      "durationMs": 5
+    }
+  ],
+  "totalDurationMs": 145,
+  "findings": [
+    {
+      "check": "duplicates",
+      "file": "packages/server/src/services/foo.ts",
+      "message": "12-line copy/paste clone shared with packages/server/src/services/bar.ts",
+      "hint": "extract the shared block into one helper",
+      "relatedFiles": [
+        "packages/server/src/services/bar.ts"
+      ]
+    },
+    {
+      "check": "import-cycles",
+      "file": "packages/server/src/a.ts",
+      "message": "import cycle of 3 modules",
+      "details": {
+        "cycleSize": 3,
+        "typeOnly": false,
+        "members": [
+          "packages/server/src/a.ts",
+          "packages/server/src/b.ts",
+          "packages/server/src/c.ts"
+        ]
+      }
+    },
+    {
+      "check": "near-duplicates",
+      "file": "packages/server/src/services/x.ts",
+      "message": "same-shaped function clone of packages/server/src/services/y.ts",
+      "relatedFiles": [
+        "packages/server/src/services/y.ts"
+      ],
+      "details": {
+        "similarity": 0.92,
+        "minLines": 8
+      },
+      "provenance": {
+        "configSource": "drift-baseline",
+        "tool": "ts-morph"
+      }
+    },
+    {
+      "check": "orphan-files",
+      "file": "packages/server/src/legacy/unused.ts",
+      "message": "file is never imported",
+      "provenance": {
+        "configSource": "target-config",
+        "tool": "knip",
+        "configPath": "knip.json"
+      }
+    }
+  ],
+  "scopeCount": 2,
+  "scope": [
+    {
+      "scope": "current",
+      "path": "packages/server/src/services/foo.ts"
+    },
+    {
+      "scope": "current",
+      "path": "packages/server/src/legacy/unused.ts"
+    }
+  ]
+}

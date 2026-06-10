@@ -15,6 +15,8 @@ import {
   mergeNormalizedStringArray,
   readStringArray,
 } from "./config-readers.js";
+import { parseCoverageConfig } from "./coverage-config.js";
+import { parseEnvDefineConfig } from "./env-define-matrix-config.js";
 export { DEFAULT_DRIFT_AI_CONFIG, makeDefaultDriftAiConfig } from "./config-defaults.js";
 export { collapseRepoPath, normalizeRepoPath, pathEscapesRepo } from "./config-paths.js";
 import { DriftAiError } from "./errors.js";
@@ -24,7 +26,11 @@ export function parseDriftAiConfig(raw: unknown, displayPath = "config"): DriftA
   if (!isRecord(raw)) {
     throw new DriftAiError(`drift:ai config '${displayPath}' must be a JSON object.`);
   }
-  assertKnownKeys(raw, ["roots", "additionalSourceExtensions", "ignore", "checks"], displayPath);
+  assertKnownKeys(
+    raw,
+    ["roots", "additionalSourceExtensions", "ignore", "checks", "coverage", "envDefine"],
+    displayPath,
+  );
 
   let config = makeDefaultDriftAiConfig();
   if (raw["roots"] !== undefined) {
@@ -54,6 +60,18 @@ export function parseDriftAiConfig(raw: unknown, displayPath = "config"): DriftA
     config = {
       ...config,
       checks: parseChecksConfig(raw["checks"], `${displayPath}.checks`),
+    };
+  }
+  if (raw["coverage"] !== undefined) {
+    config = {
+      ...config,
+      coverage: parseCoverageConfig(raw["coverage"], `${displayPath}.coverage`),
+    };
+  }
+  if (raw["envDefine"] !== undefined) {
+    config = {
+      ...config,
+      envDefine: parseEnvDefineConfig(raw["envDefine"], `${displayPath}.envDefine`),
     };
   }
   return config;

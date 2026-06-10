@@ -1,10 +1,12 @@
 import type { PathProbe } from "./adapter-support.js";
-import type { CheckRunInput } from "./check-plugin.js";
+import type { BoundedHistoryGitRunner } from "./bounded-full-history.js";
 import { DriftAiHelp, parseArgs } from "./cli-args.js";
-import { runColdspots } from "./coldspots.js";
+import { type ColdspotsRunOptions, runColdspots } from "./coldspots.js";
 import type { FileReader } from "./comments.js";
+import { type ConfigInspectRunOptions, runConfigInspect } from "./config-inspect-command.js";
 import { type BufferGitRunner, type StatRunner } from "./current-inventory.js";
 import { writeDriftDiagnosticsSidecar } from "./diagnostics-projection.js";
+import type { DolosRunner } from "./dolos-runner.js";
 import type { JscpdRunner } from "./duplicates-runner.js";
 import { DriftAiError } from "./errors.js";
 import type { DirectoryListing } from "./ghost-files.js";
@@ -14,7 +16,7 @@ import {
   formatHarnessFreshnessText,
   runHarnessFreshnessCheck,
 } from "./harness-freshness.js";
-import { runHotspots } from "./hotspots.js";
+import { type HotspotsRunOptions, runHotspots } from "./hotspots.js";
 import type { ModuleGraphRunner } from "./import-cycles-graph.js";
 import type { KnipRunner } from "./knip-runner.js";
 import type { NearDuplicateRunner } from "./near-duplicates-runner.js";
@@ -24,9 +26,11 @@ import {
   prepareCurrentRun,
   type PreparedRun,
 } from "./prepare-run.js";
-import { buildReport } from "./report-builder.js";
+import { runPrototypeSubcommand } from "./prototype-subcommands.js";
+import { buildReport, type ReportBuildInput } from "./report-builder.js";
 import { formatJson, formatText } from "./report-format.js";
 import { defaultReportWriter, type ReportWriter, writeReportOutputs } from "./report-output.js";
+import type { SemgrepRunner } from "./semgrep-runner.js";
 import {
   parseSubcommandArgs,
   type SubcommandBaseOptions,
@@ -45,9 +49,12 @@ export type RunOptions = {
   readonly knip?: KnipRunner;
   readonly moduleGraph?: ModuleGraphRunner;
   readonly nearDuplicates?: NearDuplicateRunner;
+  readonly dolos?: DolosRunner;
+  readonly semgrep?: SemgrepRunner;
   readonly listDirectory?: DirectoryListing;
   readonly readFile?: FileReader;
   readonly suppressionsGit?: SuppressionsGitRunner;
+  readonly boundedGit?: BoundedHistoryGitRunner;
   readonly pathExists?: PathProbe;
   // Absolute-path existence probe for external-tool executable resolution
   // (jscpd/knip bin lookup); overridable so tool-unavailable paths stay testable.
@@ -63,15 +70,13 @@ export type RunResult = {
 };
 
 // Assemble the central run state plus the service-resolution env. The env carries
-// only repo root, the injected-override seam, and parsed CLI; each plugin resolves
-// its own adapter dependencies from it (see defineCheckPlugin.resolveServices), so
-// the runner no longer imports or wires any per-check tool runner directly.
+// only repo root and the injected-override seam here; buildReport stamps the resolved
+// CLI once before plugins read it.
 function resolveRunContext(
   prepared: PreparedRun,
-  parsed: CliOptions,
   options: RunOptions,
 ): {
-  readonly input: CheckRunInput;
+  readonly input: ReportBuildInput;
   readonly warnStderr: (message: string) => void;
   readonly writer: ReportWriter;
 } {
@@ -90,7 +95,6 @@ function resolveRunContext(
       env: {
         repoRoot: prepared.repoRoot,
         overrides: options,
-        cli: parsed,
       },
     },
     warnStderr,
@@ -130,7 +134,7 @@ export function runDriftAi(options: RunOptions): RunResult {
     return toExitResult(err);
   }
 
-  const resolved = resolveRunContext(prepared, parsed, options);
+  const resolved = resolveRunContext(prepared, options);
   const reportOptions = optionsForReport(parsed, prepared);
   const report = buildReport(
     reportOptions,
@@ -157,29 +161,50 @@ export function runDriftAi(options: RunOptions): RunResult {
   return { exitCode, stdout, report };
 }
 
-// Subcommands sit outside the CHECK_RUNNERS registry. `harness-freshness` is a
-// Musi-only findings check; `hotspots` and `coldspots` are brand-firewalled
-// advisories (sibling subcommands over the same windowed git collector, viewed from
-// opposite ends — velocity vs stillness). All use the shared subcommand arg parser
-// for `--format`/`--output`; only `hotspots`/`coldspots` opt into `--config`
-// (harness-freshness does not read config, so it rejects the flag).
+type TopLevelSubcommandHandler = (options: RunOptions) => RunResult;
+const TOP_LEVEL_SUBCOMMANDS = new Map<string, TopLevelSubcommandHandler>([
+  ["config", (options) => runConfigInspect(configInspectOptions(options))],
+  ["harness-freshness", runHarnessFreshnessSubcommand],
+  ["hotspots", (options) => runHotspots(hotspotsOptions(options))],
+  ["coldspots", (options) => runColdspots(coldspotsOptions(options))],
+]);
+
+export const TOP_LEVEL_SUBCOMMAND_IDS: readonly string[] = [...TOP_LEVEL_SUBCOMMANDS.keys()];
+
+// Subcommands sit outside the CHECK_RUNNERS registry. `config` inspects effective
+// config, `harness-freshness` is a Musi-only findings check, hotspots/coldspots are
+// promoted advisories, and prototype-lane advisories are registered by
+// `prototype-subcommands.ts` from `prototype-subcommand-definitions.ts`.
 function runSubcommand(options: RunOptions): RunResult | undefined {
-  if (options.argv[0] === "harness-freshness") return runHarnessFreshnessSubcommand(options);
-  if (options.argv[0] === "hotspots") {
-    return runHotspots({
-      argv: options.argv.slice(1),
-      ...(options.git === undefined ? {} : { git: options.git }),
-      ...(options.writer === undefined ? {} : { writer: options.writer }),
-    });
-  }
-  if (options.argv[0] === "coldspots") {
-    return runColdspots({
-      argv: options.argv.slice(1),
-      ...(options.git === undefined ? {} : { git: options.git }),
-      ...(options.writer === undefined ? {} : { writer: options.writer }),
-    });
-  }
-  return undefined;
+  const prototype = runPrototypeSubcommand(options);
+  if (prototype !== undefined) return prototype;
+  const subcommand = options.argv[0];
+  if (subcommand === undefined) return undefined;
+  return TOP_LEVEL_SUBCOMMANDS.get(subcommand)?.(options);
+}
+
+function configInspectOptions(options: RunOptions): ConfigInspectRunOptions {
+  return {
+    argv: options.argv.slice(1),
+    ...(options.git === undefined ? {} : { git: options.git }),
+    ...(options.writer === undefined ? {} : { writer: options.writer }),
+  };
+}
+
+function hotspotsOptions(options: RunOptions): HotspotsRunOptions {
+  return {
+    argv: options.argv.slice(1),
+    ...(options.git === undefined ? {} : { git: options.git }),
+    ...(options.writer === undefined ? {} : { writer: options.writer }),
+  };
+}
+
+function coldspotsOptions(options: RunOptions): ColdspotsRunOptions {
+  return {
+    argv: options.argv.slice(1),
+    ...(options.git === undefined ? {} : { git: options.git }),
+    ...(options.writer === undefined ? {} : { writer: options.writer }),
+  };
 }
 
 const HARNESS_FRESHNESS_USAGE = [

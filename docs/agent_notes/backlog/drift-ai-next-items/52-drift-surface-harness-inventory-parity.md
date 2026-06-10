@@ -1,6 +1,6 @@
 # 52 - drift surface harness inventory parity
 
-Status: Parked
+Status: Done
 Track: G
 Size: small-medium
 Depends on: none
@@ -54,3 +54,60 @@ inventory.
 - Adding new drift checks.
 - Diagnostics-envelope projection; use tasks 10-13.
 - Auto-generating `docs/ai-harness.md` from the registry.
+
+## Triage note (2026-06-04, from task 53 implementer)
+
+This task has grown well past its original "small-medium" sizing and now hides a
+design fork. Confirmed against live `main`:
+
+- `harness.controls.json` lists only **3 of 16** live drift checks as individual
+  `check/` controls (`import-cycles`, `near-duplicates`, `orphan-files`). Missing:
+  `knip-duplicates`, `layer-direction`, `module-doc-paths`, `commented-out-code`,
+  `duplicate-types`, `duplicate-schemas`, `duplicate-literals`,
+  `duplicate-constants`, `unused-exports` (the default checks `duplicates`,
+  `ghost-files`, `comments`, `suppressions` are grouped under
+  `drift-scope/{changed,current}`).
+- `drift-scope/` entries are missing `coldspots` and the **9 prototype-lane
+  subcommands** (`env-branches`, `coverage-evidence`, `coverage-unused-exports`,
+  `clone-candidates`, `dolos-candidates`, `ownership`, `test-orphaning`,
+  `birth-size-delta`, `class-construction`).
+- `scripts/drift-ai/README.md` tables, by contrast, are already current — so the
+  README half of task 51 is largely a no-op; the staleness is concentrated here in
+  the manifest and (per the task) `docs/ai-harness.md`.
+
+**Design fork to resolve before implementing:** do experimental, brand-firewalled
+prototype-lane advisories belong in the *authoritative* harness inventory at all,
+or do they go on a documented omit list until promoted? The promoted advisories
+(`hotspots` already in; add `coldspots`) clearly belong. Recommend splitting this
+task: (a) refresh manifest + generated controls + `docs/ai-harness.md` for the
+stable check/subcommand surface, deciding the prototype omit-list policy; (b) add
+the narrow parity guard. Keeping both in one commit produces a large,
+judgment-laden manifest diff that the index's own "split before implementation"
+guidance warns against.
+
+## Done note (2026-06-05)
+
+Resolved the design fork by keeping the authoritative harness inventory to the
+stable drift surface:
+
+- default drift checks stay grouped under `drift-scope/changed` and
+  `drift-scope/current`;
+- every opt-in drift check now has a dedicated `check/drift-ai-*` control;
+- `coldspots` now has a promoted advisory `drift-scope/coldspots` control;
+- prototype-lane advisory subcommands stay intentionally omitted until promoted.
+
+Refreshed `docs/generated/harness-controls.md` with `bun run docs:harness-controls`
+and updated `docs/ai-harness.md` so the opt-in checks name
+`unused-exports`, duplicate-shape checks, `commented-out-code`,
+`module-doc-paths`, and `coldspots`.
+
+Added `scripts/drift-ai/harness-controls-parity.test.ts` as the narrow guard.
+It fails when a live opt-in check lacks a dedicated manifest control, when the
+default grouped-check set changes without a policy update, when `coldspots` or
+another top-level drift subcommand listed there lacks a control, or when the
+explicit prototype omit list drifts from the live prototype registry.
+
+Focused verification:
+
+- `bun run test scripts/drift-ai/harness-controls-parity.test.ts`
+- `bun run docs:harness-controls:check`

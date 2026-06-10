@@ -113,12 +113,16 @@ describe("reduceChurn", () => {
     const section = reduceChurn(history(records), { top: 20 });
     const hot = section.entries.find((entry) => entry.path === "src/hot.ts");
 
+    expect(section.entries).toHaveLength(1);
     expect(hot?.authors[0]).toEqual({ name: "Ada", commits: 3 });
     expect(hot?.authors).toContainEqual({ name: "Bob", commits: 1 });
     // Co-author trailer attributed by display name only (email stripped).
     expect(hot?.authors).toContainEqual({ name: "Claude", commits: 1 });
     // Newest-first, capped at 3.
     expect(hot?.recentSubjects).toEqual(["fix C", "fix B", "fix A"]);
+    expect(hot?.commitIntent).toEqual([
+      { category: "fix", subjects: ["fix C", "fix B", "fix A"], trailerHints: [] },
+    ]);
     expect(hot?.inspectCommand).toBe("git log --oneline -- src/hot.ts");
     expect(hot?.baseline).toBeNull();
   });

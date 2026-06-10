@@ -80,6 +80,7 @@
     "docs:lint-coverage-map:check": "bun run scripts/lint-coverage-map-check.ts -- --check-eslint-reach",
     "docs:lint-guidance": "bun run scripts/generate-lint-guidance.ts",
     "docs:lint-guidance:check": "bun run scripts/generate-lint-guidance.ts -- --check",
+    "harness:audit": "bun scripts/harness-audit.ts",
     "harness:check": "bun run scripts/harness-check.ts",
     "sensor:blob-size": "bun scripts/sensor-blob-size.ts",
     "sensor:knip": "knip --no-progress",

@@ -303,6 +303,8 @@ function markersGit(opts: {
     if (staticResponse !== undefined) return staticResponse;
     const statusResponse = markerStatusGitResponse(args, dirtyPaths);
     if (statusResponse !== undefined) return statusResponse;
+    const lsFilesResponse = markerLsFilesGitResponse(args);
+    if (lsFilesResponse !== undefined) return lsFilesResponse;
     const blameResponse = markerBlameGitResponse(args, opts.blame, blamed);
     if (blameResponse !== undefined) return blameResponse;
     throw new Error(`unexpected git invocation: git ${args.join(" ")}`);
@@ -330,6 +332,15 @@ function markerStatusGitResponse(
   if (args[0] !== "status") return undefined;
   const statusPath = args[args.length - 1] ?? "";
   return dirtyPaths.has(statusPath) ? ` M ${statusPath}\n` : "";
+}
+
+function markerLsFilesGitResponse(args: readonly string[]): string | undefined {
+  if (args[0] !== "ls-files") return undefined;
+  // The hidden-index safety probe. These fixture files are ordinary cached files,
+  // so report the `H` tag and leave blame enabled; assume-unchanged/skip-worktree
+  // handling is unit-tested directly in coldspots-stale-markers.test.ts.
+  const lsPath = args[args.length - 1] ?? "";
+  return `H ${lsPath}\n`;
 }
 
 function markerBlameGitResponse(

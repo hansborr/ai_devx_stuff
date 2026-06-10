@@ -9,8 +9,6 @@ HOOK_LIB="$REPO_ROOT/scripts/ai-hooks"
 . "$HOOK_LIB/common.sh"
 # shellcheck source=/dev/null
 . "$HOOK_LIB/policy.sh"
-# shellcheck source=/dev/null
-. "$HOOK_LIB/claude-guidance.sh"
 
 PAYLOAD=$(ai_read_payload)
 CMD=$(ai_payload_command "$PAYLOAD")
@@ -18,15 +16,11 @@ CMD=$(ai_payload_command "$PAYLOAD")
 
 if REASON=$(ai_policy_violation_reason "$CMD"); then
   if ai_policy_is_soft_guidance "$REASON"; then
-    # A PreToolUse deny can cascade-cancel sibling Bash calls in Claude's
-    # parallel batch. Replace soft nudges with successful guidance output.
+    # Soft nudges should return guidance without turning advisory policy into a
+    # hard block.
     ai_claude_result_command "$REASON" /tmp/musi-policy-guidance
   fi
-  # Hard block: a denied call can still cascade-cancel queued sibling Bash calls
-  # in the same parallel batch (claude-code#22264). Append a calm pointer so the
-  # model attributes those `Cancelled: …` results to this block, not a broken
-  # shell. Claude-only; the shared block shape Codex uses stays untouched.
-  ai_emit_block "$(ai_claude_cancel_inoculation "$REASON")"
+  ai_emit_block "$REASON"
 fi
 
 ai_emit_continue

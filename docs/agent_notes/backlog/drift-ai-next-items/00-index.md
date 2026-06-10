@@ -37,45 +37,46 @@ Tracks: **Dg** diagnostics/fusion, **C** checks/adapters, **A** architecture/doc
 | 10 | [Diagnostics tool ids](./10-diagnostics-tool-ids.md) | Dg | S | none | 11, 12 | Done |
 | 10a | [diagnostics sidecar writer helper](./10a-diagnostics-sidecar-writer-helper.md) | Dg | S | none | 11, 12 | Done |
 | 11 | [drift:ai diagnostics projection](./11-drift-ai-diagnostics-projection.md) | Dg | M | 10, 10a | 13 | Done |
-| 12 | [logs:audit diagnostics projection](./12-logs-audit-diagnostics-projection.md) | Dg | M | 10, 10a | 13 | Parked |
-| 13 | [harness:audit fusion consumer](./13-harness-audit-fusion-consumer.md) | Dg | M | 11, 12 | 14 | Parked |
-| 14 | [Scheduled slow-drift lane](./14-scheduled-slow-drift-lane.md) | Dg | S-M | 13 | none | Parked |
-| 15 | [per-check timing and cost disclosure](./15-per-check-timing-disclosure.md) | Dg | S-M | none | none | Parked |
-| 20 | [module-doc path freshness check](./20-module-doc-paths-check.md) | A | S-M | none | none | Parked |
-| 21 | [stale-marker hidden-index guard](./21-stale-marker-hidden-index-guard.md) | C | S | none | none | Parked |
-| 22 | [server layer-direction advisory](./22-server-layer-direction-advisory.md) | A | M | none | none | Parked |
-| 30 | [knip duplicates category](./30-knip-duplicates-category.md) | C | S-M | none | none | Parked |
-| 31 | [`@deprecated` unused overlay](./31-deprecated-unused-overlay.md) | C | S-M | 30 optional | none | Parked |
-| 32 | [commented-out code blocks check](./32-commented-out-code-blocks.md) | C | S-M | none | none | Parked |
-| 33 | [current-scope ghost-files family tuning](./33-current-scope-ghost-files-family-tuning.md) | C | S-M | none | none | Parked |
-| 38 | [bounded full-history collector](./38-bounded-full-history-collector.md) | P | S-M | none | 44a, 44b, 45a | Parked |
-| 39 | [prototype advisory output contract](./39-prototype-advisory-output-contract.md) | P | S-M | none | 41, 41c, 42b, 42c, 43, 44a, 44b, 45a, 45b, 46, 47, 48 | Parked |
-| 40 | [clone benchmark corpus](./40-clone-benchmark-corpus.md) | P | M | none | 41a, 41, 41b, 41c | Parked |
-| 40b | [dead-code FP-trap corpus](./40b-dead-code-fp-trap-corpus.md) | P | S-M | none | 42b, 47a, 47, 48a, 48 | Parked |
-| 41a | [MinHash/LSH candidate benchmark](./41a-minhash-lsh-candidate-benchmark.md) | P | S-M | 40 | 41 | Parked |
-| 41 | [MinHash/LSH advisory integration](./41-deep-clone-prototype.md) | P | M | 39, 40, 41a | none | Parked |
-| 41b | [Dolos parser and runner harness](./41b-dolos-near-duplicates-engine.md) | P | S-M | 40 | 41c | Parked |
-| 41c | [Dolos advisory integration](./41c-dolos-advisory-integration.md) | P | M | 39, 40, 41b | none | Parked |
-| 42a | [coverage artifact parser and labels](./42a-coverage-artifact-parser.md) | P | S-M | none | 42b, 42c | Parked |
-| 42c | [coverage artifact advisory surface](./42c-coverage-advisory-surface.md) | P | S-M | 39, 42a | 42b | Parked |
-| 42b | [coverage and unused-export correlation](./42b-coverage-unused-export-correlation.md) | P | M | 39, 40b, 42a, 42c | none | Parked |
-| 43a | [env and define evaluator calibration](./43a-env-define-evaluator-calibration.md) | P | S-M | none | 43 | Parked |
-| 43 | [env and feature-flag advisory integration](./43-env-feature-flag-prototype.md) | P | S-M | 39, 43a | none | Parked |
-| 44a | [ownership DOA prototype](./44a-ownership-doa-prototype.md) | P | M | 38, 39 | none | Parked |
-| 44b | [test/source orphaning prototype](./44b-test-source-orphaning-prototype.md) | P | M | 38, 39 | none | Parked |
-| 45a | [birth and size-delta lens](./45a-birth-size-delta-lens.md) | P | S-M | 38, 39 | 45b | Parked |
-| 45b | [complexity metric overlay](./45b-complexity-metric-overlay.md) | P | M | 39, 45a | none | Parked |
-| 46 | [commit-message intent overlay](./46-commit-message-intent-overlay.md) | P | M | 39 | none | Parked |
-| 47a | [sibling naming classifier calibration](./47a-sibling-naming-classifier-calibration.md) | P | S-M | 40b | 47 | Parked |
-| 47 | [sibling implementation naming overlay](./47-sibling-implementation-overlay.md) | P | S-M | 39, 40b, 47a | none | Parked |
-| 48a | [class construction evidence inventory](./48a-class-construction-evidence-inventory.md) | P | S-M | 40b | 48 | Parked |
-| 48 | [never-instantiated classes advisory integration](./48-never-instantiated-classes-prototype.md) | P | S-M | 39, 40b, 48a | none | Parked |
-| 50 | [drift-ai test-ratchet coverage audit](./50-test-ratchet-coverage-audit.md) | G | S | none | none | Parked |
-| 51 | [config-example and README registry freshness guard](./51-config-readme-freshness-guard.md) | G | S | none | none | Parked |
-| 52 | [drift surface harness inventory parity](./52-drift-surface-harness-inventory-parity.md) | G | S-M | none | none | Parked |
-| 53 | [drift report JSON contract fixtures](./53-drift-report-json-contract-fixtures.md) | G | S | none | none | Parked |
-| 54 | [effective config inspection](./54-effective-config-inspection.md) | G | S-M | none | none | Parked |
-| 55 | [field-run calibration cadence](./55-field-run-calibration-cadence.md) | G | S | 15 optional | none | Parked |
+| 12 | [logs:audit diagnostics projection](./12-logs-audit-diagnostics-projection.md) | Dg | M | 10, 10a | 13 | Done |
+| 13 | [harness:audit fusion consumer](./13-harness-audit-fusion-consumer.md) | Dg | M | 11, 12 | 14 | Done |
+| 14 | [Scheduled slow-drift lane](./14-scheduled-slow-drift-lane.md) | Dg | S-M | 13 | none | Done |
+| 15 | [per-check timing and cost disclosure](./15-per-check-timing-disclosure.md) | Dg | S-M | none | none | Done |
+| 20 | [module-doc path freshness check](./20-module-doc-paths-check.md) | A | S-M | none | none | Done |
+| 21 | [stale-marker hidden-index guard](./21-stale-marker-hidden-index-guard.md) | C | S | none | none | Done |
+| 22 | [server layer-direction advisory](./22-server-layer-direction-advisory.md) | A | M | none | none | Done |
+| 30 | [knip duplicates category](./30-knip-duplicates-category.md) | C | S-M | none | none | Done |
+| 31 | [`@deprecated` unused overlay](./31-deprecated-unused-overlay.md) | C | S-M | 30 optional | none | Done |
+| 32 | [commented-out code blocks check](./32-commented-out-code-blocks.md) | C | S-M | none | none | Done |
+| 33 | [current-scope ghost-files family tuning](./33-current-scope-ghost-files-family-tuning.md) | C | S-M | none | none | Done |
+| 34 | [commented-out-code precision calibration](./34-commented-out-code-precision-calibration.md) | C | S | 32 | none | Done |
+| 38 | [bounded full-history collector](./38-bounded-full-history-collector.md) | P | S-M | none | 44a, 44b, 45a | Done |
+| 39 | [prototype advisory output contract](./39-prototype-advisory-output-contract.md) | P | S-M | none | 41, 41c, 42b, 42c, 43, 44a, 44b, 45a, 45b, 46, 47, 48 | Done |
+| 40 | [clone benchmark corpus](./40-clone-benchmark-corpus.md) | P | M | none | 41a, 41, 41b, 41c | Done |
+| 40b | [dead-code FP-trap corpus](./40b-dead-code-fp-trap-corpus.md) | P | S-M | none | 42b, 47a, 47, 48a, 48 | Done |
+| 41a | [MinHash/LSH candidate benchmark](./41a-minhash-lsh-candidate-benchmark.md) | P | S-M | 40 | 41 | Done |
+| 41 | [MinHash/LSH advisory integration](./41-deep-clone-prototype.md) | P | M | 39, 40, 41a | none | Done |
+| 41b | [Dolos parser and runner harness](./41b-dolos-near-duplicates-engine.md) | P | S-M | 40 | 41c | Done |
+| 41c | [Dolos advisory integration](./41c-dolos-advisory-integration.md) | P | M | 39, 40, 41b | none | Done |
+| 42a | [coverage artifact parser and labels](./42a-coverage-artifact-parser.md) | P | S-M | none | 42b, 42c | Done |
+| 42c | [coverage artifact advisory surface](./42c-coverage-advisory-surface.md) | P | S-M | 39, 42a | 42b | Done |
+| 42b | [coverage and unused-export correlation](./42b-coverage-unused-export-correlation.md) | P | M | 39, 40b, 42a, 42c | none | Done |
+| 43a | [env and define evaluator calibration](./43a-env-define-evaluator-calibration.md) | P | S-M | none | 43 | Done |
+| 43 | [env and feature-flag advisory integration](./43-env-feature-flag-prototype.md) | P | S-M | 39, 43a | none | Done |
+| 44a | [ownership DOA prototype](./44a-ownership-doa-prototype.md) | P | M | 38, 39 | none | Done |
+| 44b | [test/source orphaning prototype](./44b-test-source-orphaning-prototype.md) | P | M | 38, 39 | none | Done |
+| 45a | [birth and size-delta lens](./45a-birth-size-delta-lens.md) | P | S-M | 38, 39 | 45b | Done |
+| 45b | [complexity metric overlay](./45b-complexity-metric-overlay.md) | P | M | 39, 45a | none | Done |
+| 46 | [commit-message intent overlay](./46-commit-message-intent-overlay.md) | P | M | 39 | none | Done |
+| 47a | [sibling naming classifier calibration](./47a-sibling-naming-classifier-calibration.md) | P | S-M | 40b | 47 | Done |
+| 47 | [sibling implementation naming overlay](./47-sibling-implementation-overlay.md) | P | S-M | 39, 40b, 47a | none | Done |
+| 48a | [class construction evidence inventory](./48a-class-construction-evidence-inventory.md) | P | S-M | 40b | 48 | Done |
+| 48 | [never-instantiated classes advisory integration](./48-never-instantiated-classes-prototype.md) | P | S-M | 39, 40b, 48a | none | Done |
+| 50 | [drift-ai test-ratchet coverage audit](./50-test-ratchet-coverage-audit.md) | G | S | none | none | Done |
+| 51 | [config-example and README registry freshness guard](./51-config-readme-freshness-guard.md) | G | S | none | none | Done |
+| 52 | [drift surface harness inventory parity](./52-drift-surface-harness-inventory-parity.md) | G | S-M | none | none | Done |
+| 53 | [drift report JSON contract fixtures](./53-drift-report-json-contract-fixtures.md) | G | S | none | none | Done |
+| 54 | [effective config inspection](./54-effective-config-inspection.md) | G | S-M | none | none | Done |
+| 55 | [field-run calibration cadence](./55-field-run-calibration-cadence.md) | G | S | 15 optional | none | Done |
 
 ## Recommended order
 
@@ -166,4 +167,7 @@ Do not promote these unless a new requirement changes the boundary:
   `NOT_FOUND` semantics, restricted Prisma writes, socket broadcast registry,
   Zod-as-contract. Those belong to the separate security & architecture-fitness
   backlog item; the structural layer-direction advisory (task 22) is the limit of
-  architecture sensing here.
+  architecture sensing here. A generic external bug-pattern engine (e.g.,
+  Semgrep) running operator-supplied or drift-owned generic rule packs may run
+  in the prototype advisory lane; domain/security rule packs remain excluded
+  and belong to the security & architecture-fitness backlog item.

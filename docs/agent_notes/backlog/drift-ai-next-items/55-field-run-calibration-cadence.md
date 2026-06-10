@@ -1,10 +1,30 @@
 # 55 - field-run calibration cadence
 
-Status: Parked
+Status: Done
 Track: G
 Size: small
 Depends on: 15 optional
 Blocks: none
+
+## Outcome (2026-06-05)
+
+Added the calibration cadence/template and first focused Musi baseline in
+`docs/agent_notes/finished_work/drift-ai-field-run-calibration.md`, linked from
+`scripts/drift-ai/README.md`. The baseline command was:
+
+```sh
+bun run drift:ai --scope current --root scripts/drift-ai --check duplicates --check ghost-files --check comments --format json
+```
+
+It scanned 316 `scripts/drift-ai` files with auto-loaded `drift-ai.config.json`,
+reported 0 `duplicates`, 1 `ghost-files`, and 0 `comments` findings, and recorded
+per-check timing (`duplicates` 1262ms, `ghost-files` 215ms, `comments` 1ms,
+1478ms total).
+
+Manual review classified the lone `ghost-files` row
+(`env-define-evaluation.ts` <-> `env-define-evaluator.ts`) as an intentional
+role split from task 43a, not a true suspicious sibling. Filed the parked tuning
+follow-up at `docs/agent_notes/backlog/drift-ai-ghost-files-agent-noun-pairs.md`.
 
 ## Goal
 

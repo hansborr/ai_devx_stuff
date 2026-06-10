@@ -92,26 +92,50 @@ export type DefaultKnipRunnerOptions = {
 
 export const KNIP_FILE_INCLUDE_CATEGORIES = "files" as const;
 export const KNIP_SYMBOL_INCLUDE_CATEGORIES = "exports,types,enumMembers,namespaceMembers" as const;
-// The full superset of knip issue categories drift:ai's two whole-project checks
-// can consume from a SINGLE report: orphan-files reads `files`; unused-exports
-// reads the symbol-level categories. Requesting all of them in one spawn lets the
-// memo below feed both checks from the same JSON when both checks are selected.
-export const KNIP_INCLUDE_CATEGORIES =
+export const KNIP_DUPLICATES_INCLUDE_CATEGORIES = "duplicates" as const;
+export const KNIP_FILE_SYMBOL_INCLUDE_CATEGORIES =
   `${KNIP_FILE_INCLUDE_CATEGORIES},${KNIP_SYMBOL_INCLUDE_CATEGORIES}` as const;
+export const KNIP_FILE_DUPLICATES_INCLUDE_CATEGORIES =
+  `${KNIP_FILE_INCLUDE_CATEGORIES},${KNIP_DUPLICATES_INCLUDE_CATEGORIES}` as const;
+export const KNIP_SYMBOL_DUPLICATES_INCLUDE_CATEGORIES =
+  `${KNIP_SYMBOL_INCLUDE_CATEGORIES},${KNIP_DUPLICATES_INCLUDE_CATEGORIES}` as const;
+// The full superset of knip issue categories drift:ai's whole-project knip
+// checks can consume from a SINGLE report. Requesting the selected superset in
+// one spawn lets the memo below feed every selected knip-backed check from the
+// same JSON.
+export const KNIP_INCLUDE_CATEGORIES =
+  `${KNIP_FILE_INCLUDE_CATEGORIES},${KNIP_SYMBOL_INCLUDE_CATEGORIES},${KNIP_DUPLICATES_INCLUDE_CATEGORIES}` as const;
 
 export type KnipIncludeCategories =
   | typeof KNIP_FILE_INCLUDE_CATEGORIES
   | typeof KNIP_SYMBOL_INCLUDE_CATEGORIES
+  | typeof KNIP_DUPLICATES_INCLUDE_CATEGORIES
+  | typeof KNIP_FILE_SYMBOL_INCLUDE_CATEGORIES
+  | typeof KNIP_FILE_DUPLICATES_INCLUDE_CATEGORIES
+  | typeof KNIP_SYMBOL_DUPLICATES_INCLUDE_CATEGORIES
   | typeof KNIP_INCLUDE_CATEGORIES;
+
+const INCLUDE_CATEGORIES_BY_SELECTION: Readonly<Record<string, KnipIncludeCategories>> = {
+  "001": KNIP_DUPLICATES_INCLUDE_CATEGORIES,
+  "010": KNIP_SYMBOL_INCLUDE_CATEGORIES,
+  "011": KNIP_SYMBOL_DUPLICATES_INCLUDE_CATEGORIES,
+  "100": KNIP_FILE_INCLUDE_CATEGORIES,
+  "101": KNIP_FILE_DUPLICATES_INCLUDE_CATEGORIES,
+  "110": KNIP_FILE_SYMBOL_INCLUDE_CATEGORIES,
+  "111": KNIP_INCLUDE_CATEGORIES,
+};
 
 export function resolveKnipIncludeCategories(
   selectedChecks: readonly DriftCheckId[],
 ): KnipIncludeCategories {
-  const hasOrphanFiles = selectedChecks.includes("orphan-files");
-  const hasUnusedExports = selectedChecks.includes("unused-exports");
-  if (hasOrphanFiles && !hasUnusedExports) return KNIP_FILE_INCLUDE_CATEGORIES;
-  if (hasUnusedExports && !hasOrphanFiles) return KNIP_SYMBOL_INCLUDE_CATEGORIES;
-  return KNIP_INCLUDE_CATEGORIES;
+  const key = [
+    selectedChecks.includes("orphan-files"),
+    selectedChecks.includes("unused-exports"),
+    selectedChecks.includes("knip-duplicates"),
+  ]
+    .map((selected) => (selected ? "1" : "0"))
+    .join("");
+  return INCLUDE_CATEGORIES_BY_SELECTION[key] ?? KNIP_INCLUDE_CATEGORIES;
 }
 
 export function defaultKnipRunner(options: DefaultKnipRunnerOptions): KnipRunner {
@@ -171,12 +195,13 @@ function isObject(value: unknown): value is Record<string, unknown> {
 // --- single-spawn memoization -----------------------------------------------
 
 // Cache the raw KnipRunResult by every input that changes either the report or
-// subprocess behavior. When both whole-project knip checks are selected, their
+// subprocess behavior. When multiple whole-project knip checks are selected, their
 // resolvers request the same full `--include` superset against the same project
-// graph, so the second check reuses the first's report instead of spawning knip a
-// second time. Module-level on purpose: the two checks resolve their runners
+// graph, so later checks reuse the first's report instead of spawning knip again.
+// Module-level on purpose: knip checks resolve their runners
 // independently (plugins own their own service resolution), so the memo must
-// outlive a single plugin's resolveServices call to be shared across both.
+// outlive a single plugin's resolveServices call to be shared across selected
+// knip checks.
 //
 // Injected runners (tests, runDriftAi callers via env.overrides.knip) NEVER pass
 // through this factory, so they always bypass the cache — each test's fake runner
@@ -204,7 +229,7 @@ export type MemoizingKnipRunnerOptions = DefaultKnipRunnerOptions & {
 // The production default runner: a memoizing wrapper over defaultKnipRunner. The
 // memo key tracks configPath, include categories, and timeout because each can
 // change the report or subprocess behavior; a single config resolution per run
-// means the two checks hit the same key and share one spawn when both are selected.
+// means selected knip checks hit the same key and share one spawn.
 export function memoizingDefaultKnipRunner(options: MemoizingKnipRunnerOptions): KnipRunner {
   const analyzedRepoRoot = options.analyzedRepoRoot ?? process.cwd();
   const timeoutMs = options.timeoutMs ?? DEFAULT_KNIP_TIMEOUT_MS;
@@ -250,11 +275,11 @@ export type ResolveKnipBinOptions = {
   readonly fileExists?: (candidate: string) => boolean;
 };
 
-// Resolve the knip executable. Precedence mirrors resolveJscpdBin (first existing
-// wins): the tools checkout (this script's own node_modules) is PRIMARY so an
-// uninstalled or non-Bun target need not own knip; then the target repo; then an
-// explicit override. The tools-checkout bin is found by walking up from this
-// module's directory to the nearest node_modules/.bin/knip.
+// Resolve the knip executable. Precedence mirrors resolveJscpdBin: an explicit
+// override is authoritative when supplied; otherwise the tools checkout (this
+// script's own node_modules) is PRIMARY so an uninstalled or non-Bun target need
+// not own knip, then the target repo. The tools-checkout bin is found by walking
+// up from this module's directory to the nearest node_modules/.bin/knip.
 export function resolveKnipBin(options: ResolveKnipBinOptions = {}): KnipBinResolution {
   return resolveToolBin(KNIP_TOOL_BIN, options);
 }

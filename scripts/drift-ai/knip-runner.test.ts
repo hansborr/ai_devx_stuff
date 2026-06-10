@@ -5,8 +5,12 @@ import {
   clearKnipRunCache,
   DEFAULT_KNIP_TIMEOUT_MS,
   defaultKnipRunner,
+  KNIP_DUPLICATES_INCLUDE_CATEGORIES,
+  KNIP_FILE_DUPLICATES_INCLUDE_CATEGORIES,
   KNIP_FILE_INCLUDE_CATEGORIES,
+  KNIP_FILE_SYMBOL_INCLUDE_CATEGORIES,
   KNIP_INCLUDE_CATEGORIES,
+  KNIP_SYMBOL_DUPLICATES_INCLUDE_CATEGORIES,
   KNIP_SYMBOL_INCLUDE_CATEGORIES,
   type KnipRunner,
   type KnipSpawn,
@@ -25,11 +29,27 @@ describe("defaultKnipRunner", () => {
       expectedInclude: KNIP_SYMBOL_INCLUDE_CATEGORIES,
     },
     {
+      argv: ["--check", "knip-duplicates"],
+      expectedInclude: KNIP_DUPLICATES_INCLUDE_CATEGORIES,
+    },
+    {
       argv: ["--check", "orphan-files", "--check", "unused-exports"],
-      expectedInclude: KNIP_INCLUDE_CATEGORIES,
+      expectedInclude: KNIP_FILE_SYMBOL_INCLUDE_CATEGORIES,
     },
     {
       argv: ["--check", "unused-exports", "--check", "orphan-files"],
+      expectedInclude: KNIP_FILE_SYMBOL_INCLUDE_CATEGORIES,
+    },
+    {
+      argv: ["--check", "orphan-files", "--check", "knip-duplicates"],
+      expectedInclude: KNIP_FILE_DUPLICATES_INCLUDE_CATEGORIES,
+    },
+    {
+      argv: ["--check", "unused-exports", "--check", "knip-duplicates"],
+      expectedInclude: KNIP_SYMBOL_DUPLICATES_INCLUDE_CATEGORIES,
+    },
+    {
+      argv: ["--check", "orphan-files", "--check", "unused-exports", "--check", "knip-duplicates"],
       expectedInclude: KNIP_INCLUDE_CATEGORIES,
     },
     {

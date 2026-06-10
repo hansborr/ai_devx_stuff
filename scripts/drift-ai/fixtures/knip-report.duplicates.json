@@ -1,0 +1,29 @@
+{
+  "issues": [
+    {
+      "file": "src/symbols.ts",
+      "duplicates": [
+        [
+          {
+            "name": "publicValue",
+            "line": 1,
+            "col": 14,
+            "pos": 13
+          },
+          {
+            "name": "aliasValue",
+            "line": 2,
+            "col": 14,
+            "pos": 43
+          },
+          {
+            "name": "default",
+            "line": 3,
+            "col": 16,
+            "pos": 84
+          }
+        ]
+      ]
+    }
+  ]
+}

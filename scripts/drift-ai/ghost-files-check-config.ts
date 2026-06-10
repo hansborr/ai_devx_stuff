@@ -12,6 +12,7 @@ import {
 } from "./config-readers.js";
 import { DriftAiError } from "./errors.js";
 import { DEFAULT_GHOST_FILE_ENTRY_POINT_STEMS } from "./ghost-files-match.js";
+import { DEFAULT_GHOST_FILE_ROLE_MARKER_TOKENS } from "./ghost-files-role-family.js";
 import { DEFAULT_GHOST_FILE_WEAK_TOKENS } from "./ghost-files-tokens.js";
 import { uniqSorted } from "./path-util.js";
 
@@ -20,6 +21,7 @@ const DEFAULT_GHOST_FILES_CONFIG: DriftAiGhostFilesConfig = {
   currentAllowedPairs: [],
   weakTokens: DEFAULT_GHOST_FILE_WEAK_TOKENS,
   entryPointStems: DEFAULT_GHOST_FILE_ENTRY_POINT_STEMS,
+  roleMarkerTokens: DEFAULT_GHOST_FILE_ROLE_MARKER_TOKENS,
 };
 
 export const ghostFilesCheckConfig: CheckConfigMetadata<DriftAiGhostFilesConfig, "ghost-files"> = {
@@ -34,7 +36,14 @@ function parseGhostFilesConfig(raw: unknown, keyPath: string): DriftAiGhostFiles
   const record = assertConfigObject(raw, keyPath);
   assertKnownKeys(
     record,
-    ["excludeGlobs", "currentAllowedPairs", "dependentsHint", "weakTokens", "entryPointStems"],
+    [
+      "excludeGlobs",
+      "currentAllowedPairs",
+      "dependentsHint",
+      "weakTokens",
+      "entryPointStems",
+      "roleMarkerTokens",
+    ],
     keyPath,
   );
   const dependentsHint =
@@ -66,6 +75,10 @@ function parseGhostFilesConfig(raw: unknown, keyPath: string): DriftAiGhostFiles
       record["entryPointStems"] === undefined
         ? DEFAULT_GHOST_FILES_CONFIG.entryPointStems
         : readEntryPointStems(record["entryPointStems"], `${keyPath}.entryPointStems`),
+    roleMarkerTokens:
+      record["roleMarkerTokens"] === undefined
+        ? DEFAULT_GHOST_FILES_CONFIG.roleMarkerTokens
+        : readWeakTokens(record["roleMarkerTokens"], `${keyPath}.roleMarkerTokens`),
     ...(dependentsHint === undefined ? {} : { dependentsHint }),
   };
 }

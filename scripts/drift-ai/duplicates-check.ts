@@ -101,12 +101,12 @@ function warnForUnsupportedDuplicateExtensions(ctx: CheckRunContext): void {
   );
 }
 
-// Resolve the jscpd executable from the tools checkout (primary), the target repo,
-// or an explicit --jscpd-bin override. An injected runner wins as-is. This only
-// runs when the duplicates check is selected (plugins resolve their own services
-// lazily), so an unrelated run never resolves or spawns jscpd. When jscpd resolves
-// nowhere the runner is a placeholder and the check skips with a reason during
-// preflight rather than emitting a failure finding.
+// Resolve the jscpd executable from an explicit --jscpd-bin override, the tools
+// checkout, or the target repo. An injected runner wins as-is. This only runs when
+// the duplicates check is selected (plugins resolve their own services lazily), so
+// an unrelated run never resolves or spawns jscpd. When jscpd resolves nowhere the
+// runner is a placeholder and the check skips with a reason during preflight
+// rather than emitting a failure finding.
 function resolveJscpdSetup(env: CheckServiceEnv): DuplicatesServices {
   if (env.overrides.jscpd !== undefined) {
     return { jscpd: env.overrides.jscpd, jscpdUnavailableReason: null };
@@ -122,7 +122,10 @@ function resolveJscpdSetup(env: CheckServiceEnv): DuplicatesServices {
       jscpdUnavailableReason: null,
     };
   }
-  return { jscpd: unresolvedJscpdRunner(), jscpdUnavailableReason: jscpdUnavailableMessage() };
+  return {
+    jscpd: unresolvedJscpdRunner(),
+    jscpdUnavailableReason: jscpdUnavailableMessage(resolution.searched, env.cli.jscpdBin ?? null),
+  };
 }
 
 // Placeholder for when jscpd is unresolved: the duplicates check skips in preflight
@@ -131,6 +134,10 @@ function unresolvedJscpdRunner(): JscpdRunner {
   return () => ({ ok: false, error: "jscpd executable was not resolved" });
 }
 
-function jscpdUnavailableMessage(): string {
-  return "drift:ai: jscpd executable not found in the tools checkout or the target repo; skipping the duplicates check. Run `bun install` in the drift:ai tools checkout, or pass --jscpd-bin <path>.";
+function jscpdUnavailableMessage(searched: readonly string[], override: string | null): string {
+  const searchedText = searched.length === 0 ? "no candidate paths" : searched.join(", ");
+  if (override !== null) {
+    return `drift:ai: jscpd executable not found at --jscpd-bin path (searched ${searchedText}); skipping the duplicates check. Pass a valid --jscpd-bin path, or omit --jscpd-bin to use the tools checkout/target lookup.`;
+  }
+  return `drift:ai: jscpd executable not found (searched ${searchedText}); skipping the duplicates check. Run \`bun install\` in the drift:ai tools checkout, or pass --jscpd-bin <path>.`;
 }

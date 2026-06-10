@@ -45,3 +45,6 @@ detail that cannot be recovered from code, tests, commits, `LOG.md`, or
 - `doc-length-hook-redesign.md` — landed doc-length surface split
   (edit vs commit), softened advisory wording, phantom-arm cleanup, and the
   decisions to leave Codex unwired and defer throttling.
+- `drift-ai-field-run-calibration.md` — repeatable `drift:ai` calibration
+  record template plus the first focused Musi current-scope baseline and linked
+  detector-tuning follow-up.

@@ -1,6 +1,6 @@
 # 50 - drift-ai test-ratchet coverage audit
 
-Status: Parked
+Status: Done
 Track: G
 Size: small
 Depends on: none
@@ -52,3 +52,15 @@ baseline still includes only a selected subset in
 - Draining unrelated lint debt.
 - Reworking drift-ai tests.
 - Changing ratchet policy globally.
+
+## Completion notes
+
+- Audited tracked drift-ai tests with `git ls-files 'scripts/drift-ai*.test.ts' 'scripts/drift-ai/**/*.test.ts'`.
+- Enrolled the maintained drift-ai test family in the existing
+  `ratchet/vitest-expect-expect-drift-ai-tests` and
+  `ratchet/vitest-valid-expect-drift-ai-tests` controls via
+  `scripts/drift-ai.test.ts` plus `scripts/drift-ai/**/*.test.ts`.
+- Kept `scripts/drift-ai/fixtures/**` intentionally out of those ratchets as
+  synthetic fixture data.
+- Regenerated `lint-ratchet.baseline.json`; the widened drift-ai test ratchets
+  stayed at zero findings.

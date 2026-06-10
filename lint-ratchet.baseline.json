@@ -665,15 +665,11 @@
       "metric": "message-count",
       "files": [
         "scripts/drift-ai.test.ts",
-        "scripts/drift-ai/comments.test.ts",
-        "scripts/drift-ai/current-inventory.test.ts",
-        "scripts/drift-ai/duplicates.test.ts",
-        "scripts/drift-ai/ghost-files.test.ts",
-        "scripts/drift-ai/harness-freshness.test.ts",
-        "scripts/drift-ai/path-util.test.ts",
-        "scripts/drift-ai/suppressions.test.ts"
+        "scripts/drift-ai/**/*.test.ts"
       ],
-      "ignores": [],
+      "ignores": [
+        "scripts/drift-ai/fixtures/**"
+      ],
       "ruleOptions": [
         {
           "assertFunctionNames": [
@@ -681,7 +677,7 @@
           ]
         }
       ],
-      "configHash": "sha256:c6d3bd11a9874762acaccc3dd2e826bbc783034efef7faa439d4d65de118631b",
+      "configHash": "sha256:49cfa4e3968baabeaabb8059517eeaa623d9ecdf498c00a937635601a7446bec",
       "ruleSourceHash": "sha256:dca95346de5edfbb32d2f084bec47542f1d2edc7c66eb352455c417747e61259",
       "items": {}
     },
@@ -769,21 +765,17 @@
       "metric": "message-count",
       "files": [
         "scripts/drift-ai.test.ts",
-        "scripts/drift-ai/comments.test.ts",
-        "scripts/drift-ai/current-inventory.test.ts",
-        "scripts/drift-ai/duplicates.test.ts",
-        "scripts/drift-ai/ghost-files.test.ts",
-        "scripts/drift-ai/harness-freshness.test.ts",
-        "scripts/drift-ai/path-util.test.ts",
-        "scripts/drift-ai/suppressions.test.ts"
+        "scripts/drift-ai/**/*.test.ts"
       ],
-      "ignores": [],
+      "ignores": [
+        "scripts/drift-ai/fixtures/**"
+      ],
       "ruleOptions": [
         {
           "maxArgs": 2
         }
       ],
-      "configHash": "sha256:535736be6d0ea6cd1ca1070c7de249ccbd505ec341582b021b42093f93ab632d",
+      "configHash": "sha256:20d2c0f6fbbd924d344b0dcaeb4572a8a28f95212a4dacf207db23ed4bb33960",
       "ruleSourceHash": "sha256:dca95346de5edfbb32d2f084bec47542f1d2edc7c66eb352455c417747e61259",
       "items": {}
     },

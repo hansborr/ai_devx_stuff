@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 4,
+  "scopeMode": "changed",
+  "base": "main",
+  "resolvedRef": "1f3a9c2",
+  "roots": [],
+  "configPath": null,
+  "enabledChecks": [
+    "duplicates",
+    "ghost-files",
+    "comments",
+    "suppressions"
+  ],
+  "skippedChecks": [],
+  "summary": {
+    "total": 0,
+    "byCheck": {
+      "duplicates": 0,
+      "ghost-files": 0,
+      "comments": 0,
+      "suppressions": 0
+    }
+  },
+  "findings": [],
+  "scopeCount": 2
+}

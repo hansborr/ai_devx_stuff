@@ -235,7 +235,7 @@ export function collectHistory(options: CollectHistoryOptions): CollectedHistory
 // blob content, so `--numstat` would lazily fetch every blob and hang. Detect it
 // up front and fall back to `--name-only` (trees only). Probes fail closed: if
 // git errors on the config query, assume a full clone (numstat).
-function isPartialClone(git: GitRunner): boolean {
+export function isPartialClone(git: GitRunner): boolean {
   return (
     configValuePresent(git, ["config", "--get", "extensions.partialclone"]) ||
     configValuePresent(git, ["config", "--get-regexp", "remote\\..*\\.partialclonefilter"])
@@ -315,7 +315,7 @@ function walkWindow(
   ]);
   const parsed = parseGitLog(output, { numstat });
   const ignore = options.ignore ?? DEFAULT_DRIFT_AI_CONFIG.ignore;
-  const records = parsed.map((record) => filterRecordFiles(record, ignore));
+  const records = filterGitLogRecords(parsed, ignore);
   return { records, commitCount: parsed.length };
 }
 
@@ -323,6 +323,13 @@ function walkWindow(
 // defaults plus the user's `ignore` config. No generated/codegen/i18n detection
 // (evidence, not verdicts): auto-classifying "ignorable" files on an arbitrary
 // target is an unwinnable, unportable calibration treadmill.
+export function filterGitLogRecords(
+  records: readonly CommitRecord[],
+  ignore: DriftAiIgnoreConfig,
+): CommitRecord[] {
+  return records.map((record) => filterRecordFiles(record, ignore));
+}
+
 function filterRecordFiles(record: CommitRecord, ignore: DriftAiIgnoreConfig): CommitRecord {
   return { ...record, files: record.files.filter((file) => !isIgnoredPath(file.path, ignore)) };
 }

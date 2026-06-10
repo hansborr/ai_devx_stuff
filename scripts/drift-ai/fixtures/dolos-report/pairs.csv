@@ -1,0 +1,4 @@
+id,leftFileId,leftFilePath,rightFileId,rightFilePath,similarity,totalOverlap,longestFragment,leftCovered,rightCovered
+2,3,near-miss-distances.ts#manhattanDistance,4,near-miss-distances.ts#chebyshevDistance,0.42,36,18,0.4,0.39
+3,1,exact-clones.ts#sumDiagonalGrid,3,near-miss-distances.ts#manhattanDistance,0.1,8,4,0.08,0.07
+1,1,exact-clones.ts#sumDiagonalGrid,2,exact-clones.ts#sumDiagonalMatrix,0.98,120,60,0.98,0.96

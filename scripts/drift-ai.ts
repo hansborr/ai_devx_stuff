@@ -101,6 +101,7 @@ export {
   type CheckContext,
   type CheckRunContext,
   type CheckRunInput,
+  type Clock,
 } from "./drift-ai/report-builder.js";
 export { formatJson, formatText } from "./drift-ai/report-format.js";
 export type { RunOptions, RunResult } from "./drift-ai/runner.js";
@@ -127,6 +128,7 @@ export {
 export type {
   ChangedFile,
   ChangedFileStatus,
+  CheckTiming,
   CliOptions,
   ConfigSource,
   DriftCheckId,

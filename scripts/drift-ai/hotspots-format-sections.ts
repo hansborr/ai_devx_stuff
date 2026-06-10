@@ -1,3 +1,4 @@
+import { formatCommitIntentOverlay } from "./commit-intent.js";
 import type {
   ChurnHotspot,
   ChurnSection,
@@ -162,6 +163,9 @@ function appendRowContext(
   }
   if (entry.recentSubjects.length > 0) {
     lines.push(`        recent: ${entry.recentSubjects.map((s) => `"${s}"`).join("; ")}`);
+  }
+  if (entry.commitIntent.length > 0) {
+    lines.push(`        intent: ${formatCommitIntentOverlay(entry.commitIntent)}`);
   }
   lines.push(`        inspect: ${entry.inspectCommand}`);
 }

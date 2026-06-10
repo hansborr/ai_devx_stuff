@@ -1,6 +1,7 @@
 import { optionName, readFormat, readPath, readValue } from "./arg-readers.js";
 import { ALL_CHECKS, CHECK_USAGE, DEFAULT_CHECKS } from "./check-metadata.js";
 import { DriftAiError } from "./errors.js";
+import { PROTOTYPE_ROOT_USAGE_LINES } from "./prototype-subcommand-definitions.js";
 import {
   type CliOptions,
   DEFAULT_BASE,
@@ -28,7 +29,9 @@ function usage(): string {
   return [
     "Usage:",
     "  bun run drift:ai",
+    "  bun run drift:ai config [--config <path>] [--format <text|json>]",
     "  bun run drift:ai harness-freshness",
+    ...PROTOTYPE_ROOT_USAGE_LINES,
     "  bun run drift:ai hotspots [--lens <churn|coupling|fragmentation|suppression-churn|thrash|all>] [--window <days>]",
     "  bun run drift:ai coldspots [--lens <coldspot|stale-markers|all>] [--window <days>]",
     "  bun run drift:ai --scope <changed|current>",

@@ -31,6 +31,7 @@ export const ghostFilesCheck = defineCheckPlugin<
       ...(config.dependentsHint === undefined ? {} : { dependentsHint: config.dependentsHint }),
       weakTokens: new Set(config.weakTokens),
       entryPointStems: new Set(config.entryPointStems),
+      roleMarkerTokens: new Set(config.roleMarkerTokens),
       sourceExtensions: ctx.sourceExtensions,
     });
     return { status: "ran", findings };

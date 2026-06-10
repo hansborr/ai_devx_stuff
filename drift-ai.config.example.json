@@ -25,9 +25,14 @@
         "manager",
         "handler"
       ],
-      "entryPointStems": ["index", "main"]
+      "entryPointStems": ["index", "main"],
+      "roleMarkerTokens": ["type", "schema", "model"]
     },
     "comments": {
+      "excludePrefixes": ["docs/generated/", "fixtures/generated/"]
+    },
+    "commented-out-code": {
+      "minLines": 3,
       "excludePrefixes": ["docs/generated/", "fixtures/generated/"]
     },
     "near-duplicates": {
@@ -36,5 +41,12 @@
       "similarityThreshold": 0.9,
       "excludeGlobs": ["**/*.stories.tsx", "**/*.stories.ts"]
     }
+  },
+  "coverage": {
+    "artifacts": [{ "path": "coverage/lcov.info", "label": "unit" }]
+  },
+  "envDefine": {
+    "processEnv": { "NODE_ENV": { "value": "production", "source": "prod deploy" } },
+    "defines": { "__DEV__": { "value": false, "source": "vite define" } }
   }
 }

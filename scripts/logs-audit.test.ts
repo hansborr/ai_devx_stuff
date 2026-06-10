@@ -1,10 +1,29 @@
-import { readFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { auditJsonlText, formatJson, formatText, parseArgs, runLogsAudit } from "./logs-audit.js";
+import {
+  HARNESS_DIAGNOSTICS_SCHEMA_VERSION,
+  harnessDiagnosticsSchema,
+} from "../packages/shared/src/schemas/harness-diagnostics.js";
+import { HARNESS_DIAGNOSTICS_OUTPUT_ENV } from "./harness-diagnostics-output.js";
+import {
+  auditJsonlText,
+  formatJson,
+  formatText,
+  type LogsAuditReport,
+  parseArgs,
+  runLogsAudit,
+} from "./logs-audit.js";
+import {
+  controlForCheck,
+  LOGS_AUDIT_DIAGNOSTIC_CONTROL_IDS,
+  projectLogsAuditDiagnostics,
+  writeLogsAuditDiagnosticsSidecar,
+} from "./logs-audit-diagnostics.js";
 
 const fixtureDir = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -269,5 +288,241 @@ describe("runLogsAudit", () => {
     const help = runLogsAudit({ argv: ["--help"] });
     expect(help.exitCode).toBe(0);
     expect(help.stdout).toContain("Usage:");
+  });
+});
+
+const manifestText = readFileSync(
+  path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "harness.controls.json"),
+  "utf8",
+);
+
+function auditReport(findings: LogsAuditReport["findings"]): LogsAuditReport {
+  return {
+    files: [{ file: "server.jsonl", totalLines: 1, records: 0, rejectedLines: 0 }],
+    findings,
+  };
+}
+
+describe("projectLogsAuditDiagnostics", () => {
+  it("projects a clean report to a valid empty envelope", () => {
+    const envelope = projectLogsAuditDiagnostics(auditReport([]));
+    expect(envelope.tool).toBe("logs:audit");
+    expect(envelope.version).toBe(HARNESS_DIAGNOSTICS_SCHEMA_VERSION);
+    expect(envelope.findings).toEqual([]);
+    expect(envelope.summary).toEqual({ blocking: 0, warning: 0, info: 0, byControl: {} });
+    expect(harnessDiagnosticsSchema.safeParse(envelope).success).toBe(true);
+  });
+
+  it("projects audit findings to block entries, carrying the field in reason", () => {
+    const envelope = projectLogsAuditDiagnostics(
+      auditReport([
+        {
+          check: "redaction",
+          file: "server.jsonl",
+          line: 1,
+          field: "token",
+          message: "sensitive field 'token' is not redacted",
+        },
+      ]),
+    );
+    const [entry] = envelope.findings;
+    expect(entry).toMatchObject({
+      control: "logs-audit/redaction",
+      severity: "block",
+      path: "server.jsonl",
+      line: 1,
+      why: "sensitive field 'token' is not redacted",
+      reason: "token",
+      repairKind: "manual",
+    });
+    expect(entry?.howToFix).toContain("Redact");
+    expect(envelope.summary.blocking).toBe(1);
+    expect(envelope.summary.warning).toBe(0);
+    expect(envelope.summary.byControl).toEqual({ "logs-audit/redaction": 1 });
+    expect(harnessDiagnosticsSchema.safeParse(envelope).success).toBe(true);
+  });
+
+  it("omits reason and line for findings without a field or line", () => {
+    const envelope = projectLogsAuditDiagnostics(
+      auditReport([{ check: "input", file: "missing.jsonl", message: "could not read log file" }]),
+    );
+    const [entry] = envelope.findings;
+    expect(entry?.control).toBe("logs-audit/input");
+    expect(entry?.line).toBeUndefined();
+    expect(entry?.reason).toBeUndefined();
+    expect(entry === undefined ? {} : entry).not.toHaveProperty("reason");
+    expect(harnessDiagnosticsSchema.safeParse(envelope).success).toBe(true);
+  });
+
+  it("maps every check to its logs-audit control, all resolving in the manifest", () => {
+    expect(controlForCheck("input")).toBe("logs-audit/input");
+    expect(controlForCheck("jsonl")).toBe("logs-audit/jsonl");
+    expect(controlForCheck("redaction")).toBe("logs-audit/redaction");
+    expect(controlForCheck("request-id")).toBe("logs-audit/request-id");
+    expect(controlForCheck("event-fields")).toBe("logs-audit/event-fields");
+    for (const control of LOGS_AUDIT_DIAGNOSTIC_CONTROL_IDS) {
+      expect(manifestText).toContain(`"id": "${control}"`);
+    }
+  });
+
+  it("orders findings deterministically by control, then path, then line", () => {
+    const envelope = projectLogsAuditDiagnostics(
+      auditReport([
+        { check: "redaction", file: "b.jsonl", line: 2, field: "token", message: "later" },
+        { check: "redaction", file: "b.jsonl", line: 1, field: "cookie", message: "earlier" },
+        { check: "input", file: "a.jsonl", message: "could not read log file" },
+      ]),
+    );
+    // logs-audit/input sorts before logs-audit/redaction; within a control,
+    // ascending path then line.
+    expect(envelope.findings.map((finding) => [finding.control, finding.line])).toEqual([
+      ["logs-audit/input", undefined],
+      ["logs-audit/redaction", 1],
+      ["logs-audit/redaction", 2],
+    ]);
+  });
+
+  it("never echoes a secret value into the projected envelope", () => {
+    const envelope = projectLogsAuditDiagnostics(
+      auditJsonlText("leaky.jsonl", JSON.stringify({ token: "super-secret-value" })),
+    );
+    expect(envelope.summary.blocking).toBeGreaterThan(0);
+    expect(JSON.stringify(envelope)).not.toContain("super-secret-value");
+  });
+});
+
+describe("writeLogsAuditDiagnosticsSidecar and runLogsAudit sidecar", () => {
+  const tempRoots: string[] = [];
+  let savedOutputEnv: string | undefined;
+
+  beforeEach(() => {
+    savedOutputEnv = process.env[HARNESS_DIAGNOSTICS_OUTPUT_ENV];
+    delete process.env[HARNESS_DIAGNOSTICS_OUTPUT_ENV];
+  });
+
+  afterEach(() => {
+    if (savedOutputEnv === undefined) delete process.env[HARNESS_DIAGNOSTICS_OUTPUT_ENV];
+    else process.env[HARNESS_DIAGNOSTICS_OUTPUT_ENV] = savedOutputEnv;
+    while (tempRoots.length > 0) {
+      const root = tempRoots.pop();
+      if (root !== undefined) rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  function makeTempRoot(): string {
+    const root = mkdtempSync(path.join(tmpdir(), "logs-audit-diagnostics-"));
+    tempRoots.push(root);
+    return root;
+  }
+
+  it("is a no-op when the env var is unset", () => {
+    expect(() => {
+      writeLogsAuditDiagnosticsSidecar(auditReport([]));
+    }).not.toThrow();
+  });
+
+  it("writes a schema-valid envelope when the env var names a path", () => {
+    const outputPath = path.join(makeTempRoot(), "nested", "diag.json");
+    process.env[HARNESS_DIAGNOSTICS_OUTPUT_ENV] = outputPath;
+
+    writeLogsAuditDiagnosticsSidecar(
+      auditReport([
+        {
+          check: "redaction",
+          file: "server.jsonl",
+          line: 1,
+          field: "token",
+          message: "sensitive field 'token' is not redacted",
+        },
+      ]),
+    );
+
+    expect(existsSync(outputPath)).toBe(true);
+    const written = harnessDiagnosticsSchema.parse(JSON.parse(readFileSync(outputPath, "utf8")));
+    expect(written.tool).toBe("logs:audit");
+    expect(written.summary.blocking).toBe(1);
+  });
+
+  it("re-throws a descriptive error when the sidecar path cannot be written", () => {
+    const dirAsOutput = path.join(makeTempRoot(), "diag-dir");
+    mkdirSync(dirAsOutput);
+    process.env[HARNESS_DIAGNOSTICS_OUTPUT_ENV] = dirAsOutput;
+
+    expect(() => {
+      writeLogsAuditDiagnosticsSidecar(auditReport([]));
+    }).toThrow(/HARNESS_DIAGNOSTICS_OUTPUT sidecar/u);
+  });
+
+  it("writes the sidecar through runLogsAudit while leaving native stdout unchanged", () => {
+    const outputPath = path.join(makeTempRoot(), "diag", "logs.json");
+    process.env[HARNESS_DIAGNOSTICS_OUTPUT_ENV] = outputPath;
+
+    const result = runLogsAudit({
+      argv: ["--file", "server.jsonl"],
+      readFile: () => fixture("redacted-server.jsonl"),
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("logs:audit: 1 file(s) audited");
+    expect(result.stdout).toContain("OK: JSONL parsed and sensitive fields are redacted");
+    const written = harnessDiagnosticsSchema.parse(JSON.parse(readFileSync(outputPath, "utf8")));
+    expect(written.tool).toBe("logs:audit");
+    expect(written.findings).toEqual([]);
+  });
+
+  it("projects malformed-log findings as block entries while preserving exit 1", () => {
+    const outputPath = path.join(makeTempRoot(), "logs.json");
+    process.env[HARNESS_DIAGNOSTICS_OUTPUT_ENV] = outputPath;
+
+    const result = runLogsAudit({ argv: ["server.jsonl"], readFile: () => "not-json\n" });
+
+    expect(result.exitCode).toBe(1);
+    const written = harnessDiagnosticsSchema.parse(JSON.parse(readFileSync(outputPath, "utf8")));
+    expect(written.summary.blocking).toBeGreaterThan(0);
+    expect(written.findings.every((finding) => finding.severity === "block")).toBe(true);
+    expect(written.findings.some((finding) => finding.control === "logs-audit/jsonl")).toBe(true);
+  });
+
+  it("projects an unreadable-file input finding as a block entry while preserving exit 1", () => {
+    const outputPath = path.join(makeTempRoot(), "logs.json");
+    process.env[HARNESS_DIAGNOSTICS_OUTPUT_ENV] = outputPath;
+
+    const result = runLogsAudit({
+      argv: ["missing.jsonl"],
+      readFile: () => {
+        throw new Error("ENOENT: no such file");
+      },
+    });
+
+    expect(result.exitCode).toBe(1);
+    const written = harnessDiagnosticsSchema.parse(JSON.parse(readFileSync(outputPath, "utf8")));
+    const [entry] = written.findings;
+    expect(entry?.control).toBe("logs-audit/input");
+    expect(entry?.severity).toBe("block");
+    expect(entry?.path).toBe("missing.jsonl");
+    expect(entry?.why).toBe("could not read log file");
+    expect(entry?.line).toBeUndefined();
+    expect(entry?.reason).toBeUndefined();
+    expect(written.summary.byControl).toEqual({ "logs-audit/input": 1 });
+  });
+
+  it("treats an unwritable sidecar path as a tool error (exit 2)", () => {
+    const dirAsOutput = path.join(makeTempRoot(), "diag-dir");
+    mkdirSync(dirAsOutput);
+    process.env[HARNESS_DIAGNOSTICS_OUTPUT_ENV] = dirAsOutput;
+
+    const result = runLogsAudit({ argv: ["server.jsonl"], readFile: () => '{"message":"ok"}\n' });
+
+    expect(result.exitCode).toBe(2);
+    expect(result.stdout).toContain("HARNESS_DIAGNOSTICS_OUTPUT sidecar");
+  });
+
+  it("writes no sidecar when the env var is unset", () => {
+    const outputPath = path.join(makeTempRoot(), "logs.json");
+
+    const result = runLogsAudit({ argv: ["server.jsonl"], readFile: () => '{"message":"ok"}\n' });
+
+    expect(result.exitCode).toBe(0);
+    expect(existsSync(outputPath)).toBe(false);
   });
 });

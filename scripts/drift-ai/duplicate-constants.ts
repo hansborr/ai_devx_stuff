@@ -14,6 +14,7 @@ import { ts } from "ts-morph";
 
 import type { ShapeEntry } from "./duplicate-shapes.js";
 import { hasMinNumericLiteralDigits } from "./numeric-literal-text.js";
+import { scriptKindFor } from "./ts-source-util.js";
 
 export {
   DEFAULT_DUPLICATE_CONSTANTS_MIN_DISTINCT_FILES,
@@ -44,11 +45,6 @@ export function extractConstantShapes(
     scriptKindFor(filePath),
   );
   return extractConstantShapesFrom(filePath, sourceFile, options);
-}
-
-function scriptKindFor(filePath: string): ts.ScriptKind {
-  if (filePath.endsWith(".tsx") || filePath.endsWith(".jsx")) return ts.ScriptKind.TSX;
-  return ts.ScriptKind.TS;
 }
 
 export function extractConstantShapesFrom(

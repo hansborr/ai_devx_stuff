@@ -5,6 +5,9 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import type { ChangedFile } from "../drift-ai.js";
+import type { CheckRunInput } from "./check-plugin.js";
+import { parseArgs } from "./cli-args.js";
+import { DEFAULT_DRIFT_AI_CONFIG } from "./config.js";
 import {
   buildDuplicatesFindings,
   DEFAULT_DUPLICATES_IGNORE_GLOBS,
@@ -18,6 +21,7 @@ import {
   parseDuplicatesReport,
   SAME_FILE_DUPLICATE_REPAIR_HINT,
 } from "./duplicates.js";
+import { duplicatesCheck } from "./duplicates-check.js";
 import {
   DEFAULT_JSCPD_TIMEOUT_MS,
   defaultJscpdRunner,
@@ -29,7 +33,7 @@ import {
 } from "./duplicates-runner.js";
 import { resolveJscpdBin } from "./jscpd-bin.js";
 import type { DetectorScope } from "./scope.js";
-import { toChangedScopeFile, toCurrentScopeFile } from "./scope.js";
+import { buildSourceExtensions, toChangedScopeFile, toCurrentScopeFile } from "./scope.js";
 
 const FIXTURES_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures");
 
@@ -57,6 +61,30 @@ function changedDetectorScope(files: readonly ChangedFile[]): DetectorScope {
 
 function currentDetectorScope(files: readonly string[]): DetectorScope {
   return { scopeMode: "current", files: files.map(toCurrentScopeFile) };
+}
+
+function makeDuplicatesPluginInput(options: {
+  readonly argv?: readonly string[];
+  readonly binExists?: (candidate: string) => boolean;
+  readonly warnStderr?: (message: string) => void;
+}): CheckRunInput {
+  return {
+    detectorScope: currentDetectorScope([]),
+    inventoryByDir: null,
+    repoRoot: "/repo/target",
+    suppressionDiffRef: null,
+    config: DEFAULT_DRIFT_AI_CONFIG,
+    roots: [],
+    sourceExtensions: buildSourceExtensions([]),
+    warnStderr: options.warnStderr ?? (() => undefined),
+    env: {
+      repoRoot: "/repo/target",
+      overrides: {
+        ...(options.binExists === undefined ? {} : { binExists: options.binExists }),
+      },
+      cli: parseArgs(["--scope", "current", "--check", "duplicates", ...(options.argv ?? [])]),
+    },
+  };
 }
 
 describe("parseDuplicatesReport", () => {
@@ -797,6 +825,26 @@ describe("defaultJscpdRunner", () => {
   });
 });
 
+describe("duplicates check service wiring", () => {
+  it("reports the missing --jscpd-bin path instead of the checkout/target fallback", () => {
+    const warnings: string[] = [];
+    const outcome = duplicatesCheck.runWithSelectedConfig(
+      makeDuplicatesPluginInput({
+        argv: ["--jscpd-bin", "/bad/path/jscpd"],
+        binExists: () => false,
+        warnStderr: (message) => warnings.push(message),
+      }),
+    );
+
+    expect(outcome.status).toBe("skipped");
+    if (outcome.status !== "skipped") throw new Error("expected duplicates to skip");
+    expect(outcome.reason).toContain("searched /bad/path/jscpd");
+    expect(outcome.reason).toContain("Pass a valid --jscpd-bin path");
+    expect(outcome.reason).not.toContain("tools checkout or the target repo");
+    expect(warnings).toEqual([outcome.reason]);
+  });
+});
+
 function outputDirFromArgs(args: readonly string[]): string {
   const outputFlagIndex = args.indexOf("--output");
   const outputDir = args[outputFlagIndex + 1];
@@ -813,13 +861,33 @@ describe("resolveJscpdBin", () => {
   const targetBin = path.join(targetRoot, "node_modules", ".bin", "jscpd");
   const override = path.join("/custom", "jscpd");
 
-  it("resolves the tools-checkout bin first, even when the target and override also exist", () => {
+  it("uses the --jscpd-bin override even when the tools checkout and target also resolve", () => {
     const resolution = resolveJscpdBin({
       moduleDir,
       analyzedRepoRoot: targetRoot,
       override,
       fileExists: (candidate) =>
         candidate === toolsBin || candidate === targetBin || candidate === override,
+    });
+    expect(resolution).toEqual({ found: true, binPath: override, source: "override" });
+  });
+
+  it("reports a missing override as unresolved instead of silently substituting a checkout bin", () => {
+    const resolution = resolveJscpdBin({
+      moduleDir,
+      analyzedRepoRoot: targetRoot,
+      override,
+      fileExists: (candidate) => candidate === toolsBin || candidate === targetBin,
+    });
+    if (resolution.found) throw new Error("expected the missing override to stay unresolved");
+    expect(resolution.searched).toEqual([override]);
+  });
+
+  it("resolves the tools-checkout bin before the target when no override is supplied", () => {
+    const resolution = resolveJscpdBin({
+      moduleDir,
+      analyzedRepoRoot: targetRoot,
+      fileExists: (candidate) => candidate === toolsBin || candidate === targetBin,
     });
     expect(resolution).toEqual({ found: true, binPath: toolsBin, source: "tools-checkout" });
   });
@@ -828,33 +896,20 @@ describe("resolveJscpdBin", () => {
     const resolution = resolveJscpdBin({
       moduleDir,
       analyzedRepoRoot: targetRoot,
-      override,
       fileExists: (candidate) => candidate === targetBin,
     });
     expect(resolution).toEqual({ found: true, binPath: targetBin, source: "target-repo" });
-  });
-
-  it("uses the --jscpd-bin override only when neither checkout resolves", () => {
-    const resolution = resolveJscpdBin({
-      moduleDir,
-      analyzedRepoRoot: targetRoot,
-      override,
-      fileExists: (candidate) => candidate === override,
-    });
-    expect(resolution).toEqual({ found: true, binPath: override, source: "override" });
   });
 
   it("reports a not-found skip signal listing where it looked when nothing resolves", () => {
     const resolution = resolveJscpdBin({
       moduleDir,
       analyzedRepoRoot: targetRoot,
-      override,
       fileExists: () => false,
     });
     if (resolution.found) throw new Error("expected jscpd to be unresolved");
     expect(resolution.searched).toContain(toolsBin);
     expect(resolution.searched).toContain(targetBin);
-    expect(resolution.searched).toContain(override);
   });
 
   it("does not consider an override that was not supplied", () => {

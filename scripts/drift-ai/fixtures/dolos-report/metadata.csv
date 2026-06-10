@@ -1,0 +1,6 @@
+property,value,type
+kgramLength,23,number
+kgramsInWindow,17,number
+language,typescript,string
+minSimilarity,0.3,number
+createdAt,2026-06-02T12:00:00.000Z,string

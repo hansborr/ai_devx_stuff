@@ -1,3 +1,4 @@
+import { readPositiveInt } from "./arg-readers.js";
 import { DriftAiError } from "./errors.js";
 import type { HotspotLens } from "./hotspots-format.js";
 import { DEFAULT_WINDOW_DAYS } from "./hotspots-history.js";
@@ -69,10 +70,10 @@ export function parseHotspotsArgs(argv: readonly string[]): ParsedHotspotsArgs {
         windowDays = parseWindowDays(value);
       },
       "--top": (value) => {
-        top = parsePositiveInt(value, "--top");
+        top = readPositiveInt(value, "--top");
       },
       "--min-support": (value) => {
-        minSupport = parsePositiveInt(value, "--min-support");
+        minSupport = readPositiveInt(value, "--min-support");
       },
       "--baseline": (value) => {
         if (!value) throw new DriftAiError("--baseline requires a path.");
@@ -98,12 +99,4 @@ function parseWindowDays(value: string): number {
     throw new DriftAiError("--window requires a positive number of days, e.g. 14 or 14d.");
   }
   return days;
-}
-
-function parsePositiveInt(value: string, flag: string): number {
-  const parsed = Number(value.trim());
-  if (!Number.isInteger(parsed) || parsed <= 0) {
-    throw new DriftAiError(`${flag} requires a positive integer (got '${value}').`);
-  }
-  return parsed;
 }

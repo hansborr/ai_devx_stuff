@@ -1,6 +1,6 @@
 # 39 - prototype advisory output contract
 
-Status: Parked
+Status: Done
 Track: P
 Size: small-medium
 Depends on: none
@@ -62,3 +62,38 @@ look gateable before it has field data.
 - Implementing any prototype lens.
 - Adding a generic `prototype` super-command if separate subcommands stay simpler.
 - Adding `severity`, `lane`, or `experimental` to `DriftFinding`.
+
+## Implementation notes (2026-06-04)
+
+Landed as a standalone type-home + shared-wording module rather than a refactor of
+hotspots/coldspots (per "what to do" #2 — they were not made simpler by going
+through a generic abstraction, and the prototype banner is intentionally stronger
+than their "areas to check" wording, so they keep their own banners).
+
+- `scripts/drift-ai/prototype-advisory.ts` — the contract:
+  - `PROTOTYPE_ADVISORY_LANE` / `PROTOTYPE_ADVISORY_BANNER` constants (shared
+    discriminant + mandatory candidate banner, no WARN/FIX language);
+  - `PrototypeAdvisory<TSection>` envelope (`kind: "advisory"`, `lane: "prototype"`,
+    `subcommand`, `banner`, `prerequisites[]`, `caps[]`, `degradations[]`,
+    `sections[]`) with `PrototypePrerequisite`, `PrototypeCap`,
+    `PrototypeSection<TRow>` (generic over row; carries `candidateKind`,
+    `totalCandidates`, `emptyReason`, `entries`);
+  - `buildPrototypeAdvisory` stamps the invariant `kind`/`lane`/`banner` so a lens
+    cannot forget the firewall or drift the banner; `formatPrototypeAdvisoryJson`
+    is the single JSON chokepoint (guarantees no top-level `findings` key);
+  - `formatPrototypeHeader` + `appendPrototypeSection` + `prototypeTruncationNote`
+    own the shared partial-run wording: unmet prerequisites (`prerequisite … :
+    unmet`), hit caps (`cap … : HIT -- PARTIAL run: <stopped-after>`),
+    degradations, and `showing N of M candidates (K more; raise --top …)`.
+- `scripts/drift-ai/prototype-advisory.test.ts` — 17 tests including the required
+  fixture proving advisory JSON has no top-level `findings` key and text output
+  has no `WARN`/`FIX:`, plus the prerequisite/cap/truncation/empty-section
+  disclosure wording.
+- `scripts/drift-ai/README.md` — new "Prototype advisory contract (heavy/
+  experimental lenses)" section documenting the envelope, partial-run disclosure
+  rules, and that this is the default route for prototype rows (DriftFinding stays
+  unchanged).
+
+Task 38 still owns the full-history scanned-range / stopped-reason DATA; a
+history-backed prototype lens feeds that into a `PrototypeCap.detail` here rather
+than inventing its own disclosure wording. `DriftFinding` left unchanged (#5).

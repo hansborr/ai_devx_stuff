@@ -5,6 +5,7 @@
 // checks or parsing config never loads the tool runners / graph builders that the
 // concrete plugins (`check-registry.ts` -> `*-check.ts`) pull in.
 
+import { commentedOutCodeCheckConfig } from "./commented-out-code-check-config.js";
 import { commentsCheckConfig } from "./comments-check-config.js";
 import type { DriftAiChecksConfig } from "./config.js";
 import { duplicateConstantsCheckConfig } from "./duplicate-constants-check-config.js";
@@ -14,8 +15,11 @@ import { duplicateTypesCheckConfig } from "./duplicate-types-check-config.js";
 import { duplicatesCheckConfig } from "./duplicates-check-config.js";
 import { ghostFilesCheckConfig } from "./ghost-files-check-config.js";
 import { importCyclesCheckConfig } from "./import-cycles-check-config.js";
+import { knipDuplicatesCheckConfig } from "./knip-duplicates-check-config.js";
 import { orphanFilesCheckConfig } from "./knip-orphan-files-check-config.js";
 import { unusedExportsCheckConfig } from "./knip-unused-exports-check-config.js";
+import { layerDirectionCheckConfig } from "./layer-direction-check-config.js";
+import { moduleDocPathsCheckConfig } from "./module-doc-paths-check-config.js";
 import { nearDuplicatesCheckConfig } from "./near-duplicates-check-config.js";
 import { suppressionsCheckConfig } from "./suppressions-check-config.js";
 import type { DriftCheckId } from "./types.js";
@@ -26,9 +30,13 @@ export const CHECK_METADATA = [
   duplicatesCheckConfig,
   ghostFilesCheckConfig,
   commentsCheckConfig,
+  commentedOutCodeCheckConfig,
   suppressionsCheckConfig,
+  moduleDocPathsCheckConfig,
   orphanFilesCheckConfig,
+  knipDuplicatesCheckConfig,
   importCyclesCheckConfig,
+  layerDirectionCheckConfig,
   nearDuplicatesCheckConfig,
   duplicateTypesCheckConfig,
   duplicateSchemasCheckConfig,

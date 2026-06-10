@@ -1,0 +1,34 @@
+{
+  "version": "1",
+  "tool": "logs:audit",
+  "findings": [
+    {
+      "control": "logs-audit/jsonl",
+      "severity": "block",
+      "path": "server.jsonl",
+      "line": 2,
+      "why": "line is not valid JSON",
+      "howToFix": "Emit one valid JSON object per line; fix or drop the malformed record at the reported line.",
+      "repairKind": "manual"
+    },
+    {
+      "control": "logs-audit/redaction",
+      "severity": "block",
+      "path": "server.jsonl",
+      "line": 1,
+      "reason": "token",
+      "why": "sensitive field 'token' is not redacted",
+      "howToFix": "Redact the sensitive field before the log record is written; logs:audit reports the leak but does not modify logs.",
+      "repairKind": "manual"
+    }
+  ],
+  "summary": {
+    "blocking": 2,
+    "warning": 0,
+    "info": 0,
+    "byControl": {
+      "logs-audit/jsonl": 1,
+      "logs-audit/redaction": 1
+    }
+  }
+}

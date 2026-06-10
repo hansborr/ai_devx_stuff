@@ -4,6 +4,7 @@ import type { PathProbe } from "./adapter-support.js";
 import type { CheckRunInput } from "./check-plugin.js";
 import { parseArgs } from "./cli-args.js";
 import { DEFAULT_DRIFT_AI_CONFIG } from "./config.js";
+import { knipDuplicatesCheck } from "./knip-duplicates-check.js";
 import { orphanFilesCheck } from "./knip-orphan-files-check.js";
 import type { KnipRunner } from "./knip-runner.js";
 import { unusedExportsCheck } from "./knip-unused-exports-check.js";
@@ -29,6 +30,7 @@ const INSTALLED_WITH_ROOT_CONFIG = ["node_modules", "knip.config.ts"];
 const KNIP_CHECKS = [
   { id: "orphan-files", plugin: orphanFilesCheck },
   { id: "unused-exports", plugin: unusedExportsCheck },
+  { id: "knip-duplicates", plugin: knipDuplicatesCheck },
 ] as const;
 
 function makeInput(check: (typeof KNIP_CHECKS)[number]["id"], knip: KnipRunner): CheckRunInput {

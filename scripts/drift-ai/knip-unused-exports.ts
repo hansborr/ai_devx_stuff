@@ -108,22 +108,39 @@ function symbolFromItem(
 export const UNUSED_EXPORTS_REPAIR_HINT =
   "if the symbol is dead, remove it; if it is part of the public API or used in a way knip cannot see (dynamic access, framework magic, string-keyed lookup), add it (or its file/pattern) to the target's knip ignore config so the signal stays clean.";
 
+// Overlay hint for a symbol that knip reports unused AND that is locally annotated
+// `@deprecated`: the two signals together make it a strong tombstone-removal
+// candidate. Still evidence, not a verdict — the escape hatches mirror the base
+// hint (drop the annotation or add a knip ignore if the symbol is reachable
+// invisibly).
+export const DEPRECATED_UNUSED_EXPORTS_REPAIR_HINT =
+  "annotated @deprecated and reported unused by knip — a strong tombstone-removal candidate; if it is still part of the public API or used in a way knip cannot see (dynamic access, framework magic, string-keyed lookup), drop the @deprecated tag or add it (or its file/pattern) to the target's knip ignore config so the signal stays clean.";
+
+// A predicate that says whether a symbol is locally annotated `@deprecated`. Kept
+// as a plain predicate so this module stays free of the ts-morph parsing seam; the
+// real lookup lives in knip-unused-exports-deprecated.ts and is injected by the
+// check plugin, while direct unit tests pass a fake (or omit it entirely).
+export type DeprecatedSymbolPredicate = (symbol: UnusedExportSymbol) => boolean;
+
 // Category-specific message. Names the engine's own framing — never asserts the
 // symbol IS dead (evidence, not verdicts); the FIX hint points at the resolution.
-function messageFor(symbol: UnusedExportSymbol): string {
+// When the symbol is also `@deprecated`, the message names that local annotation
+// alongside knip's reachability verdict.
+function messageFor(symbol: UnusedExportSymbol, deprecated: boolean): string {
   const where = `${symbol.name} (${locationLabel(symbol)})`;
+  const dep = deprecated ? "marked @deprecated and " : "";
   switch (symbol.category) {
     case "exports":
-      return `exported symbol ${where} is never imported (knip reports it as an unused export)`;
+      return `exported symbol ${where} is ${dep}never imported (knip reports it as an unused export)`;
     case "types":
-      return `exported type ${where} is never referenced (knip reports it as an unused type)`;
+      return `exported type ${where} is ${dep}never referenced (knip reports it as an unused type)`;
     case "enumMembers": {
       const member = symbol.namespace === undefined ? where : `${symbol.namespace}.${where}`;
-      return `enum member ${member} is never used (knip reports it as an unused enum member)`;
+      return `enum member ${member} is ${dep}never used (knip reports it as an unused enum member)`;
     }
     case "namespaceMembers": {
       const member = symbol.namespace === undefined ? where : `${symbol.namespace}.${where}`;
-      return `namespace member ${member} is never used (knip reports it as an unused namespace member)`;
+      return `namespace member ${member} is ${dep}never used (knip reports it as an unused namespace member)`;
     }
   }
 }
@@ -132,20 +149,23 @@ export function buildUnusedExportFindings(
   symbols: readonly UnusedExportSymbol[],
   detectorScope: DetectorScope,
   provenance: FindingProvenance,
+  isDeprecated?: DeprecatedSymbolPredicate,
 ): DriftFinding[] {
   const inScope = filterSymbolsToScope(symbols, detectorScope);
   const findings = inScope.map<DriftFinding>((symbol) => {
     const location = fullLocation(symbol);
+    const deprecated = isDeprecated?.(symbol) ?? false;
     return {
       check: "unused-exports",
       file: symbol.file,
-      message: messageFor(symbol),
-      hint: UNUSED_EXPORTS_REPAIR_HINT,
+      message: messageFor(symbol, deprecated),
+      hint: deprecated ? DEPRECATED_UNUSED_EXPORTS_REPAIR_HINT : UNUSED_EXPORTS_REPAIR_HINT,
       details: {
         category: symbol.category,
         symbol: symbol.name,
         ...(location === undefined ? {} : location),
         ...(symbol.namespace === undefined ? {} : { namespace: symbol.namespace }),
+        ...(deprecated ? { deprecated: true } : {}),
       },
       provenance,
     };

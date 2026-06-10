@@ -1,0 +1,89 @@
+{
+  "version": "1.165.0",
+  "results": [
+    {
+      "check_id": "rules.hardcoded-secret",
+      "path": "src/server/auth.go",
+      "start": {
+        "line": 12,
+        "col": 3,
+        "offset": 200
+      },
+      "end": {
+        "line": 12,
+        "col": 40,
+        "offset": 237
+      },
+      "extra": {
+        "message": "Possible hardcoded secret",
+        "metadata": {
+          "category": "security",
+          "subcategory": ["audit"],
+          "confidence": "MEDIUM",
+          "likelihood": "HIGH",
+          "impact": "MEDIUM",
+          "cwe": ["CWE-798: Use of Hard-coded Credentials"],
+          "owasp": ["A07:2021 - Identification and Authentication Failures"],
+          "references": ["https://example.invalid/rule-docs"]
+        },
+        "severity": "ERROR",
+        "fingerprint": "requires login",
+        "lines": "requires login",
+        "validation_state": "NO_VALIDATOR",
+        "engine_kind": "OSS"
+      }
+    },
+    {
+      "check_id": "rules.scalar-metadata",
+      "path": "src/app.ts",
+      "start": {
+        "line": 3,
+        "col": 1,
+        "offset": 30
+      },
+      "end": {
+        "line": 5,
+        "col": 2,
+        "offset": 80
+      },
+      "extra": {
+        "message": "Scalar metadata shapes still parse",
+        "metadata": {
+          "category": "correctness",
+          "subcategory": "audit",
+          "confidence": "LOW",
+          "cwe": "CWE-477",
+          "owasp": "A1:2017 misc"
+        },
+        "severity": "INFO",
+        "fingerprint": "requires login",
+        "lines": "requires login",
+        "engine_kind": "OSS"
+      }
+    }
+  ],
+  "errors": [
+    {
+      "code": 2,
+      "level": "warn",
+      "type": "PartialParsing",
+      "message": "Syntax error at line src/broken.ts:10",
+      "path": "src/broken.ts"
+    }
+  ],
+  "paths": {
+    "scanned": ["src/app.ts", "src/server/auth.go"]
+  },
+  "skipped_rules": [
+    {
+      "rule_id": "rules.invalid-pattern",
+      "details": "Invalid pattern",
+      "position": {
+        "line": 1,
+        "col": 1
+      }
+    }
+  ],
+  "engine_requested": "OSS",
+  "profiling_results": []
+}

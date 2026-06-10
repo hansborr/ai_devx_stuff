@@ -8,6 +8,7 @@ import type { ChangedFile } from "../drift-ai.js";
 import {
   DEFAULT_DEPENDENTS_HINT,
   DEFAULT_GHOST_FILE_ENTRY_POINT_STEMS,
+  DEFAULT_GHOST_FILE_ROLE_MARKER_TOKENS,
   DEFAULT_GHOST_FILE_WEAK_TOKENS,
   defaultDirectoryListing,
   type DirectoryListing,
@@ -16,6 +17,7 @@ import {
   GHOST_FILES_DIRECTORY_PAIR_THRESHOLD,
   GHOST_FILES_REPAIR_HINT_PREFIX,
   isExcludedSibling,
+  isRoleSplitFamilyPair,
   runGhostFilesCheck,
   singularize,
   tokenize,
@@ -134,6 +136,10 @@ function weakTokensWith(...tokens: readonly string[]): ReadonlySet<string> {
 
 function entryPointStemsWith(...stems: readonly string[]): ReadonlySet<string> {
   return new Set([...DEFAULT_GHOST_FILE_ENTRY_POINT_STEMS, ...stems]);
+}
+
+function roleMarkerTokensWith(...tokens: readonly string[]): ReadonlySet<string> {
+  return new Set([...DEFAULT_GHOST_FILE_ROLE_MARKER_TOKENS, ...tokens]);
 }
 
 describe("tokenize", () => {
@@ -316,6 +322,69 @@ describe("findGhostMatches", () => {
     // 'list' and 'lost' are 1 edit apart but share no strong token, so the
     // overlap guard must keep them from triggering.
     expect(findGhostMatches(`${dir}/list.ts`, [`${dir}/lost.ts`])).toEqual([]);
+  });
+});
+
+describe("isRoleSplitFamilyPair", () => {
+  const dir = "scripts/drift-ai";
+  const markers = new Set(DEFAULT_GHOST_FILE_ROLE_MARKER_TOKENS);
+
+  it("treats parallel detector families that differ by a role marker as role splits", () => {
+    expect(
+      isRoleSplitFamilyPair(`${dir}/duplicate-schemas.ts`, `${dir}/duplicate-types.ts`, markers),
+    ).toBe(true);
+    expect(
+      isRoleSplitFamilyPair(
+        `${dir}/duplicate-schemas-check-config.ts`,
+        `${dir}/duplicate-types-check-config.ts`,
+        markers,
+      ),
+    ).toBe(true);
+  });
+
+  it("treats a one-sided role-marker companion as a role split", () => {
+    // `duplicate-schemas` vs `duplicates` (extra `schema`) and a `-types` companion.
+    expect(
+      isRoleSplitFamilyPair(`${dir}/duplicate-schemas.ts`, `${dir}/duplicates.ts`, markers),
+    ).toBe(true);
+    expect(
+      isRoleSplitFamilyPair(
+        "scripts/codemods/lib/trpc-shared-schema-types.ts",
+        "scripts/codemods/lib/trpc-shared-schema.ts",
+        markers,
+      ),
+    ).toBe(true);
+  });
+
+  it("treats a repeated shared token as a role split", () => {
+    // `coldspots-coldspot` repeats the token it already shares with `coldspots`.
+    expect(
+      isRoleSplitFamilyPair(`${dir}/coldspots-coldspot.ts`, `${dir}/coldspots.ts`, markers),
+    ).toBe(true);
+  });
+
+  it("does not treat a generic ghost suffix as a role split", () => {
+    // `util`/`helper` are ghost signals, not role markers.
+    expect(
+      isRoleSplitFamilyPair(
+        "packages/server/src/utils/character-auth-utils.ts",
+        "packages/server/src/utils/character-auth.ts",
+        markers,
+      ),
+    ).toBe(false);
+  });
+
+  it("does not treat a distinct strong-token difference as a role split", () => {
+    // `match` vs `path` are different domain words, not role markers or repeats.
+    expect(isRoleSplitFamilyPair(`${dir}/config-match.ts`, `${dir}/config-paths.ts`, markers)).toBe(
+      false,
+    );
+  });
+
+  it("returns false when the two filenames share an identical token multiset", () => {
+    expect(isRoleSplitFamilyPair(`${dir}/foo-helper.ts`, `${dir}/foo-helpers.ts`, markers)).toBe(
+      false,
+    );
   });
 });
 
@@ -592,6 +661,80 @@ describe("runGhostFilesCheck", () => {
         hint: defaultRepairHint(`${dir}/foo.ts`),
         relatedFiles: [`${dir}/foo-helper.ts`, `${dir}/foo.ts`].sort(compareStrings),
       },
+    ]);
+  });
+
+  it("current-mode does not flag parallel detector families differing by a role marker", () => {
+    const paths = ["src/dup/duplicate-schemas.ts", "src/dup/duplicate-types.ts"];
+    const findings = runGhostFilesCheck({
+      detectorScope: current(paths),
+      inventoryByDir: inventoryByDir(paths),
+    });
+    expect(findings).toEqual([]);
+  });
+
+  it("current-mode does not flag a one-sided role-marker companion", () => {
+    const paths = ["src/foo/foo.ts", "src/foo/foo-types.ts"];
+    const findings = runGhostFilesCheck({
+      detectorScope: current(paths),
+      inventoryByDir: inventoryByDir(paths),
+    });
+    expect(findings).toEqual([]);
+  });
+
+  it("current-mode does not flag a repeated-token role-family member", () => {
+    const paths = ["src/cold/coldspots.ts", "src/cold/coldspots-coldspot.ts"];
+    const findings = runGhostFilesCheck({
+      detectorScope: current(paths),
+      inventoryByDir: inventoryByDir(paths),
+    });
+    expect(findings).toEqual([]);
+  });
+
+  it("current-mode still flags a generic ghost suffix beside the role-family rule", () => {
+    const paths = ["src/foo/foo.ts", "src/foo/foo-util.ts"];
+    const findings = runGhostFilesCheck({
+      detectorScope: current(paths),
+      inventoryByDir: inventoryByDir(paths),
+    });
+    expect(findings).toHaveLength(1);
+    expect(findings[0]?.relatedFiles).toEqual(["src/foo/foo-util.ts", "src/foo/foo.ts"]);
+  });
+
+  it("changed-mode still reports a freshly added role-marker companion", () => {
+    // The role-family suppression is current-scope only: a newly added `foo-types.ts`
+    // still gets a look in the changed pass.
+    const findings = runGhostFilesCheck({
+      detectorScope: changed([{ path: `${dir}/foo-types.ts` }]),
+      listDirectory: makeListing({
+        [dir]: ["foo-types.ts", "foo.ts"],
+      }),
+    });
+    expect(findings.map((finding) => finding.message)).toEqual([
+      `looks like a sibling of ${dir}/foo.ts (weak-suffix-variant; shared tokens: foo)`,
+    ]);
+  });
+
+  it("current-mode honors configured role-marker tokens", () => {
+    const paths = ["src/foo/foo.ts", "src/foo/foo-helper.ts"];
+    const findings = runGhostFilesCheck({
+      detectorScope: current(paths),
+      inventoryByDir: inventoryByDir(paths),
+      roleMarkerTokens: roleMarkerTokensWith("helper"),
+    });
+    expect(findings).toEqual([]);
+  });
+
+  it("changed-mode ignores configured role-marker tokens", () => {
+    const findings = runGhostFilesCheck({
+      detectorScope: changed([{ path: `${dir}/foo-helper.ts` }]),
+      listDirectory: makeListing({
+        [dir]: ["foo-helper.ts", "foo.ts"],
+      }),
+      roleMarkerTokens: roleMarkerTokensWith("helper"),
+    });
+    expect(findings.map((finding) => finding.message)).toEqual([
+      `looks like a sibling of ${dir}/foo.ts (weak-suffix-variant; shared tokens: foo)`,
     ]);
   });
 

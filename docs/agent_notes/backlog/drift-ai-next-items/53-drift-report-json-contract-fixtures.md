@@ -1,10 +1,39 @@
 # 53 - drift report JSON contract fixtures
 
-Status: Parked
+Status: Done
 Track: G
 Size: small
 Depends on: none
 Blocks: none
+
+## Resolution (2026-06-04)
+
+Added `scripts/drift-ai/report-contract.test.ts` plus four golden fixtures under
+`scripts/drift-ai/fixtures/`:
+
+- `report-contract.clean.json` — clean changed-scope run; `scope`, `checkTimings`,
+  and `totalDurationMs` omitted (the timing-absent / v3-tolerant path).
+- `report-contract.clean.with-scope.json` — the clean run rendered with
+  `includeScope: true`, byte-pinning the changed-scope `ScopeFile` entry shape
+  (`status` plus optional `previousPath` on a renamed entry).
+- `report-contract.findings.json` — current-scope run exercising a plain finding,
+  a `details`-only finding (number/boolean/string[] values), a `details` +
+  `drift-baseline` `provenance` finding (no configPath), a `target-config`
+  `provenance` finding (with configPath), skips with and without a machine-readable
+  `code`, and the additive v4 timing block. `scope` omitted by default.
+- `report-contract.findings.with-scope.json` — same report rendered with
+  `includeScope: true`, proving `scope` is appended after `scopeCount`.
+
+The test byte-compares `formatJson` output against each golden file, so any
+add/remove/rename/reorder of a key fails until the fixtures are regenerated with
+`UPDATE_DRIFT_CONTRACT=1`. A final test pins each fixture's `schemaVersion` to the
+live `DRIFT_SCHEMA_VERSION`, so a schema bump must travel with regenerated
+fixtures. README "Portable JSON report contract" subsection documents that
+`--format json` is the portable surface and `HARNESS_DIAGNOSTICS_OUTPUT` is a
+separate Musi-harness sidecar.
+
+No formal JSON Schema generator was added (out of scope); additive optional fields
+and documented `schemaVersion` bumps stay allowed.
 
 ## Goal
 

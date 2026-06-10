@@ -8,6 +8,7 @@ import { ts } from "ts-morph";
 import { hashFeature } from "./feature-hash.js";
 import type { NearDuplicateFunction } from "./near-duplicates.js";
 import { toPosix } from "./path-util.js";
+import { scriptKindFor } from "./ts-source-util.js";
 
 type BlockFunctionNode =
   | ts.FunctionDeclaration
@@ -46,11 +47,6 @@ export function extractNearDuplicateFunctions(
   };
   visit(sourceFile);
   return functions;
-}
-
-function scriptKindFor(filePath: string): ts.ScriptKind {
-  if (filePath.endsWith(".tsx") || filePath.endsWith(".jsx")) return ts.ScriptKind.TSX;
-  return ts.ScriptKind.TS;
 }
 
 function isFunctionLikeWithBody(node: ts.Node): node is FunctionNode {

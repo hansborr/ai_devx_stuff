@@ -1,6 +1,6 @@
 # 38 - bounded full-history collector
 
-Status: Parked
+Status: Done
 Track: P
 Size: small-medium
 Depends on: none
@@ -54,6 +54,29 @@ not invent its own truncation semantics.
 - Tests proving the helper observes one extra commit or otherwise discloses that
   more history may exist when a cap is hit.
 - Tests for parser reuse and rename-caveat propagation.
+
+## Implementation notes
+
+Done 2026-06-04:
+
+- Added `scripts/drift-ai/bounded-full-history.ts` and
+  `bounded-full-history-disclosure.ts`.
+- Reuses `GIT_LOG_FORMAT`, `parseGitLog`, partial-clone detection, and git-log
+  record filtering from `hotspots-history.ts`.
+- Walks `git log --no-merges --no-renames` with optional `--since`,
+  `--max-count=maxCommits+1`, `maxFiles` truncation, output-buffer cap metadata,
+  and timeout metadata.
+- Returns requested caps, scanned range, `partial`, stopped reason,
+  observed-extra-commit state, unexamined-count disclosures, rename caveat,
+  blobless degradation, and `prototypeCaps` for task 39's advisory envelope.
+- Review follow-up: `--since` runs now report as partial range-limited history,
+  and git output-buffer overflow reports as `stoppedReason: "max-output"` with a
+  `full-history output bytes` prototype cap.
+- Documented the helper in `scripts/drift-ai/README.md`.
+
+Verification:
+
+- `bash scripts/vitest.sh run scripts/drift-ai/bounded-full-history.test.ts scripts/drift-ai/hotspots-history.test.ts`
 
 ## Out of scope
 

@@ -1,6 +1,6 @@
 # 48 - never-instantiated classes advisory integration
 
-Status: Parked
+Status: Done
 Track: P
 Size: small-medium
 Depends on: 39, 40b, 48a
@@ -46,3 +46,21 @@ candidate-framed advisory surface and optional correlation with stronger signals
 - Default-on findings or gates.
 - Deletion/refactor verdicts.
 - Full type-checker reachability.
+
+## Done notes
+
+Implemented as the `class-construction` prototype advisory subcommand. It reuses
+the task-48a `inventoryClasses` helper, reports only classes with zero direct
+construction signals (`new`, subclass, JSX, custom-element registration), shows
+raw count buckets and caveats, and keeps the task-39 prototype envelope
+(`kind: "advisory"`, `lane: "prototype"`, no `findings`).
+
+Optional `--unused-exports-report <knip --reporter json output>` correlation is
+consume-only and disclosed as a prerequisite; no knip run is spawned. The dead
+code FP-trap corpus calibration is covered by advisory tests that keep public
+API/barrel, dynamic import, framework entrypoint, reflection, and known-unused
+contexts candidate-framed.
+
+Verification:
+
+- `bunx vitest run scripts/drift-ai/class-construction-advisory.test.ts scripts/drift-ai/class-construction-command.test.ts --config scripts/vitest.config.ts`

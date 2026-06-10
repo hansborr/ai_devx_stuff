@@ -41,13 +41,14 @@ import type { JscpdRunner } from "./drift-ai/duplicates-runner.js";
 import {
   DEFAULT_DEPENDENTS_HINT,
   DEFAULT_GHOST_FILE_ENTRY_POINT_STEMS,
+  DEFAULT_GHOST_FILE_ROLE_MARKER_TOKENS,
   DEFAULT_GHOST_FILE_WEAK_TOKENS,
   type DirectoryListing,
   GHOST_FILES_REPAIR_HINT_PREFIX,
 } from "./drift-ai/ghost-files.js";
 import {
   clearKnipRunCache,
-  KNIP_INCLUDE_CATEGORIES,
+  KNIP_FILE_SYMBOL_INCLUDE_CATEGORIES,
   type KnipRunner,
   memoizingDefaultKnipRunner,
 } from "./drift-ai/knip-runner.js";
@@ -176,6 +177,19 @@ function makeRunDriftGit(
 
 function changedDetectorScope(files: readonly ChangedFile[]): DetectorScope {
   return { scopeMode: "changed", files: files.map(toChangedScopeFile) };
+}
+
+// Deterministic clock seam for per-check timing tests. `buildReport` reads the
+// clock twice per dispatched check (start + end), so a fixed sequence makes each
+// check's duration the gap between its two reads. The last value repeats so an
+// extra read never throws.
+function sequenceClock(values: readonly number[]): () => number {
+  let index = 0;
+  return () => {
+    const value = values[Math.min(index, values.length - 1)] ?? 0;
+    index += 1;
+    return value;
+  };
 }
 
 function nulDelimited(paths: readonly string[]): Buffer {
@@ -476,6 +490,7 @@ describe("parseDriftAiConfig", () => {
           dependentsHint: CODE_INTEL_DEPENDENTS_HINT,
           weakTokens: ["Controller", "controller", "service"],
           entryPointStems: ["Mod", "mod", "index.server"],
+          roleMarkerTokens: ["Kind", "kind", "type"],
           currentAllowedPairs: [
             ["./src/foo-helper.ts", "src/foo.ts"],
             ["src/b.ts", "src/a.ts"],
@@ -495,6 +510,7 @@ describe("parseDriftAiConfig", () => {
     expect(config.checks["ghost-files"].dependentsHint).toBe(CODE_INTEL_DEPENDENTS_HINT);
     expect(config.checks["ghost-files"].weakTokens).toEqual(["controller", "service"]);
     expect(config.checks["ghost-files"].entryPointStems).toEqual(["index.server", "mod"]);
+    expect(config.checks["ghost-files"].roleMarkerTokens).toEqual(["kind", "type"]);
     expect(config.checks["ghost-files"].currentAllowedPairs).toEqual([
       { files: ["src/a.ts", "src/b.ts"] },
       { files: ["src/foo-helper.ts", "src/foo.ts"] },
@@ -513,11 +529,14 @@ describe("parseDriftAiConfig", () => {
     );
   });
 
-  it("keeps ghost-files weak-token and entrypoint defaults when unset", () => {
+  it("keeps ghost-files weak-token, entrypoint, and role-marker defaults when unset", () => {
     const config = parseDriftAiConfig({});
     expect(config.checks["ghost-files"].weakTokens).toEqual(DEFAULT_GHOST_FILE_WEAK_TOKENS);
     expect(config.checks["ghost-files"].entryPointStems).toEqual(
       DEFAULT_GHOST_FILE_ENTRY_POINT_STEMS,
+    );
+    expect(config.checks["ghost-files"].roleMarkerTokens).toEqual(
+      DEFAULT_GHOST_FILE_ROLE_MARKER_TOKENS,
     );
   });
 
@@ -1054,7 +1073,7 @@ describe("buildReport / formatText / formatJson", () => {
       "--reporter",
       "json",
       "--include",
-      KNIP_INCLUDE_CATEGORIES,
+      KNIP_FILE_SYMBOL_INCLUDE_CATEGORIES,
       "--no-progress",
       "--config",
       "knip.config.ts",
@@ -1154,6 +1173,66 @@ describe("buildReport / formatText / formatJson", () => {
     );
     expect(formatText(report)).toContain("base main (resolved origin/main)");
   });
+
+  it("records per-check wall-clock as additive evidence in text and JSON", () => {
+    const options = parseArgs(["--check", "duplicates", "--check", "comments"]);
+    const scope: ChangedFile[] = [{ path: "packages/server/src/foo.ts", status: "modified" }];
+    const detectorScope = changedDetectorScope(scope);
+    // Two checks dispatch, so the clock is read four times (start+end each). The
+    // gaps make duplicates 5ms and comments 3ms; the total is their sum, 8ms.
+    const clock = sequenceClock([0, 5, 5, 8]);
+    const report = buildReport(
+      options,
+      "main",
+      detectorScope,
+      makeCheckRunContext(detectorScope),
+      clock,
+    );
+
+    expect(report.checkTimings).toEqual([
+      { check: "duplicates", durationMs: 5 },
+      { check: "comments", durationMs: 3 },
+    ]);
+    // The run total is exactly the sum of the per-check durations.
+    expect(report.totalDurationMs).toBe(8);
+    expect(report.totalDurationMs).toBe(
+      (report.checkTimings ?? []).reduce((sum, timing) => sum + timing.durationMs, 0),
+    );
+
+    expect(formatText(report)).toContain("timing: total 8ms (duplicates 5ms, comments 3ms)");
+
+    const json = JSON.parse(formatJson(report)) as Record<string, unknown>;
+    expect(json["checkTimings"]).toEqual([
+      { check: "duplicates", durationMs: 5 },
+      { check: "comments", durationMs: 3 },
+    ]);
+    expect(json["totalDurationMs"]).toBe(8);
+    const keys = Object.keys(json);
+    expect(keys.indexOf("summary")).toBeLessThan(keys.indexOf("checkTimings"));
+    expect(keys.indexOf("checkTimings")).toBeLessThan(keys.indexOf("findings"));
+  });
+
+  it("times a skipped check so a skip's cheapness is visible", () => {
+    const options = parseArgs(["--scope", "current", "--check", "suppressions"]);
+    const detectorScope: DetectorScope = {
+      scopeMode: "current",
+      files: ["src/current.ts"].map(toCurrentScopeFile),
+    };
+    // suppressions preflight-skips in current scope, but still gets a timing row.
+    const clock = sequenceClock([0, 2]);
+    const report = buildReport(
+      options,
+      null,
+      detectorScope,
+      makeCheckRunContext(detectorScope),
+      clock,
+    );
+
+    expect(report.enabledChecks).toEqual([]);
+    expect(report.checkTimings).toEqual([{ check: "suppressions", durationMs: 2 }]);
+    expect(report.totalDurationMs).toBe(2);
+    expect(formatText(report)).toContain("timing: total 2ms (suppressions 2ms)");
+  });
 });
 
 describe("runDriftAi", () => {
@@ -1167,10 +1246,11 @@ describe("runDriftAi", () => {
       });
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain("Usage:");
+      expect(result.stdout).toContain("bun run drift:ai clone-candidates --root <path>");
       expect(result.stdout).toContain("bun run drift:ai --base <ref>");
       expect(result.stdout).toContain("bun run drift:ai --scope <changed|current>");
       expect(result.stdout).toContain(
-        "bun run drift:ai --check <duplicates|ghost-files|comments|suppressions|orphan-files|import-cycles|near-duplicates|duplicate-types|duplicate-schemas|duplicate-literals|duplicate-constants|unused-exports|all>",
+        "bun run drift:ai --check <duplicates|ghost-files|comments|commented-out-code|suppressions|module-doc-paths|orphan-files|knip-duplicates|import-cycles|layer-direction|near-duplicates|duplicate-types|duplicate-schemas|duplicate-literals|duplicate-constants|unused-exports|all>",
       );
       expect(result.stdout).toContain("bun run drift:ai --root <path>");
     });
@@ -1315,6 +1395,54 @@ describe("runDriftAi", () => {
       },
     ]);
     expect(result.stdout).toContain("missing-tsconfig.json");
+  });
+
+  it("drives --scope current --check layer-direction through the module graph", () => {
+    const repoRoot = makeTempDir();
+    const files = [
+      "packages/server/src/utils/character-mapping.ts",
+      "packages/server/src/services/character-create.ts",
+    ];
+    const result = runDriftAi({
+      argv: ["--scope", "current", "--check", "layer-direction"],
+      git: makeCurrentGit(repoRoot),
+      gitBuffer: () => nulDelimited(files),
+      stat: statForCurrentFiles(repoRoot, files),
+      pathExists: () => true,
+      moduleGraph: () => ({
+        ok: true,
+        graph: {
+          edges: new Map([
+            [
+              "packages/server/src/utils/character-mapping.ts",
+              [
+                {
+                  to: "packages/server/src/services/character-create.ts",
+                  typeOnly: false,
+                },
+              ],
+            ],
+            ["packages/server/src/services/character-create.ts", []],
+          ]),
+          candidateCount: 1,
+          unresolvedCount: 0,
+          fileCount: 2,
+          tsconfigCount: 1,
+        },
+      }),
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.report?.enabledChecks).toEqual(["layer-direction"]);
+    expect(result.report?.findings).toHaveLength(1);
+    expect(result.report?.findings[0]).toMatchObject({
+      check: "layer-direction",
+      file: "packages/server/src/utils/character-mapping.ts",
+      relatedFiles: ["packages/server/src/services/character-create.ts"],
+      provenance: { configSource: "drift-baseline", tool: "ts-morph" },
+    });
+    expect(result.stdout).toContain("WARN layer-direction");
+    expect(result.stdout).toContain("[drift-baseline]");
   });
 
   it("does not probe shallow-clone state for --scope current", () => {

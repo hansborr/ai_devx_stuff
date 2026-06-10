@@ -7,6 +7,29 @@ Newest on top.
 
 ---
 
+## 2026-06-10 - Claude cancellation workaround removal
+
+Removed the repo-specific Claude Code sibling-cancellation workaround after the
+upstream fix in Claude Code 2.1.161. Claude hard-block reasons now return the
+plain shared policy text again, while advisory grep guidance still uses the
+successful stdout guidance path.
+
+Validation: `bash scripts/ai-hooks/test.sh`, `bun run verify:changed`.
+
+---
+
+## 2026-06-05 - Drift:ai field-run calibration cadence
+
+Added the reusable `drift:ai` field-run calibration template and the first
+focused Musi current-scope baseline (`scripts/drift-ai`, checks `duplicates`,
+`ghost-files`, and `comments`). The run found one reviewed `ghost-files` false
+positive, filed as a parked noun/agent role-pair tuning follow-up, and task 55 in
+`backlog/drift-ai-next-items/` is now closed.
+
+Validation: docs-only change; `git diff --check`.
+
+---
+
 ## 2026-06-02 - Drift:ai next-items inventory second pass
 
 Re-audited `backlog/drift-ai-next-items/` against live drift/diagnostics seams
@@ -50,21 +73,6 @@ Validation: docs-only change; `git diff --check`.
 
 ---
 
-## 2026-05-31 — Parallel sibling-cancellation mitigation (Phases 1 + 2E)
-
-Shipped two Claude-only nudges that re-inject one calm pointer when the upstream
-parallel-cancel bug (claude-code#22264) cascades sibling Bash calls. Phase 1:
-`no-direct-db.sh` appends an inoculation suffix to hard-block reasons (new
-Claude-only `scripts/ai-hooks/claude-guidance.sh`; shared `ai_emit_block` /
-Codex output untouched). Phase 2E: new `.claude/hooks/parallel-cancel-note.sh`
-on `PostToolBatch` injects the same wording once per batch when a real cancelled
-sibling is present (detection keyed to the wrapped marker at the absolute start
-of `tool_response` — `\A<tool_use_error>Cancelled…` — to avoid false-firing on
-docs/block-reasons that merely quote the phrase). Phase 3 (Stop scan) not needed:
-Phase 0 proved `PostToolBatch` delivers `additionalContext` same-turn. Durable
-detail in `decisions-build.md` and `finished_work/parallel-cancel-guidance-hook.md`;
-backlog brainstorm marked superseded. Gates: `bash scripts/ai-hooks/test.sh`,
-`shellcheck --severity=warning`, `bun run verify:changed`.
 ## 2026-05-31 — Drift:ai duplicate AST source cache
 
 Completed drift-ai review task 34. Duplicate-types, duplicate-schemas,

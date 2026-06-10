@@ -52,6 +52,11 @@ export type NearDuplicateRunnerInput = {
   readonly similarityThreshold: number;
 };
 
+export type NearDuplicateSourceInventoryInput = Pick<
+  NearDuplicateRunnerInput,
+  "excludeGlobs" | "ignore" | "repoRoot" | "roots" | "sourceExtensions"
+>;
+
 export type NearDuplicateRunnerResult =
   | {
       readonly ok: true;
@@ -98,7 +103,9 @@ export function unresolvedNearDuplicateRunner(
 // similarity-ts and ts-morph from silently scanning different file sets: the
 // drift ignore config, excludeGlobs, sourceExtensions, and .d.ts exclusion are
 // all applied here once.
-function collectFilteredSourceFiles(input: NearDuplicateRunnerInput): string[] {
+export function collectNearDuplicateSourceFiles(
+  input: NearDuplicateSourceInventoryInput,
+): string[] {
   return walkSourceFiles({
     repoRoot: input.repoRoot,
     roots: input.roots,
@@ -110,7 +117,7 @@ function collectFilteredSourceFiles(input: NearDuplicateRunnerInput): string[] {
 
 function runTsMorph(input: NearDuplicateRunnerInput): NearDuplicateRunnerResult {
   try {
-    const functions = collectFilteredSourceFiles(input).flatMap((filePath) =>
+    const functions = collectNearDuplicateSourceFiles(input).flatMap((filePath) =>
       extractNearDuplicateFunctions(
         filePath,
         readFileSync(path.join(input.repoRoot, filePath), "utf8"),
@@ -132,7 +139,7 @@ function runSimilarityTs(
   // ignored, excluded, unsupported-extension, or .d.ts files. With no eligible
   // files there is nothing to compare — short-circuit instead of spawning, which
   // would let similarity-ts fall back to scanning the whole cwd.
-  const files = collectFilteredSourceFiles(input);
+  const files = collectNearDuplicateSourceFiles(input);
   if (files.length === 0) return { ok: true, engine: SIMILARITY_TS_TOOL, pairs: [] };
   const result = spawn(binPath, similarityTsArgs(input, files), {
     cwd: input.repoRoot,

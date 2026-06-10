@@ -6,15 +6,16 @@
 import type { CheckOutcome, CheckRunContext } from "./check-plugin.js";
 import { defineCheckPlugin } from "./check-plugin.js";
 import type { DriftAiNearDuplicatesConfig } from "./config.js";
-import { globsForIgnoredPaths } from "./config-match.js";
 import {
   buildNearDuplicateDiagnosticFinding,
   buildNearDuplicateFindings,
-  DEFAULT_NEAR_DUPLICATE_IGNORE_GLOBS,
   findNearDuplicatePairs,
   NEAR_DUPLICATE_TOOL,
 } from "./near-duplicates.js";
-import { nearDuplicatesCheckConfig } from "./near-duplicates-check-config.js";
+import {
+  nearDuplicateExcludeGlobs,
+  nearDuplicatesCheckConfig,
+} from "./near-duplicates-check-config.js";
 import { defaultNearDuplicateRunner, type NearDuplicateRunner } from "./near-duplicates-runner.js";
 
 type NearDuplicatesServices = { readonly nearDuplicates: NearDuplicateRunner };
@@ -40,7 +41,7 @@ function runNearDuplicatesCheck(
     roots: ctx.roots,
     sourceExtensions: ctx.sourceExtensions,
     ignore: ctx.config.ignore,
-    excludeGlobs: nearDuplicateIgnoreGlobs(ctx, config),
+    excludeGlobs: nearDuplicateExcludeGlobs(ctx.config.ignore, config),
     engine: config.engine,
     minLines: config.minLines,
     minTokens: config.minTokens,
@@ -74,15 +75,4 @@ function outcomeForRunnerFailure(
     status: "ran",
     findings: [buildNearDuplicateDiagnosticFinding(result.error)],
   };
-}
-
-function nearDuplicateIgnoreGlobs(
-  ctx: CheckRunContext,
-  config: DriftAiNearDuplicatesConfig,
-): readonly string[] {
-  return [
-    ...DEFAULT_NEAR_DUPLICATE_IGNORE_GLOBS,
-    ...globsForIgnoredPaths(ctx.config.ignore),
-    ...config.excludeGlobs,
-  ];
 }

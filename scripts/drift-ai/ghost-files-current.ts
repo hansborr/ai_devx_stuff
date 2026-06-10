@@ -10,6 +10,7 @@ import {
   type GhostFileMatch,
   type GhostFileTuning,
 } from "./ghost-files-match.js";
+import { isRoleSplitFamilyPair } from "./ghost-files-role-family.js";
 import { isExcludedPath } from "./ghost-files-tokens.js";
 import { isSourceLike, toPosix, uniqSorted } from "./path-util.js";
 import type { DriftFinding } from "./types.js";
@@ -22,22 +23,30 @@ type PairwiseRunner = (
   allowedPairKeys: ReadonlySet<string>,
 ) => DriftFinding[];
 
-export function runCurrentGhostFilesCheck(
-  inventoryByDir: ReadonlyMap<string, readonly string[]> | undefined,
-  excludeGlobs: readonly string[],
-  sourceExtensions: ReadonlySet<string>,
-  tuning: GhostFileTuning,
-  allowedPairs: readonly GhostFileAllowedPair[],
-  dependentsHint: string,
-): DriftFinding[] {
+export type RunCurrentGhostFilesOptions = {
+  readonly inventoryByDir: ReadonlyMap<string, readonly string[]> | undefined;
+  readonly excludeGlobs: readonly string[];
+  readonly sourceExtensions: ReadonlySet<string>;
+  readonly tuning: GhostFileTuning;
+  readonly allowedPairs: readonly GhostFileAllowedPair[];
+  readonly dependentsHint: string;
+  readonly roleMarkerTokens: ReadonlySet<string>;
+};
+
+export function runCurrentGhostFilesCheck(options: RunCurrentGhostFilesOptions): DriftFinding[] {
+  const { inventoryByDir, excludeGlobs, sourceExtensions, tuning } = options;
   if (inventoryByDir === undefined) {
     throw new Error("runGhostFilesCheck requires inventoryByDir for current scope.");
   }
-  const allowedPairKeys = currentAllowedPairKeys(allowedPairs);
-  // Capture dependentsHint in the pairwise runner so the bucket fallback callback
-  // signature stays unchanged (it only needs to forward, not know the hint).
+  const allowedPairKeys = currentAllowedPairKeys(options.allowedPairs);
+  // Capture dependentsHint and roleMarkerTokens in the pairwise runner so the bucket
+  // fallback callback signature stays unchanged (it only needs to forward, not know
+  // either value).
   const pairwise: PairwiseRunner = (siblings, extensions, pairTuning, emittedPairs, pairKeys) =>
-    runPairwise(siblings, extensions, pairTuning, emittedPairs, pairKeys, dependentsHint);
+    runPairwise(siblings, extensions, pairTuning, emittedPairs, pairKeys, {
+      dependentsHint: options.dependentsHint,
+      roleMarkerTokens: options.roleMarkerTokens,
+    });
   const findings: DriftFinding[] = [];
   for (const directory of currentInventoryDirectories(
     inventoryByDir,
@@ -131,12 +140,16 @@ function runCurrentDirectoryCheck(
   );
 }
 
-type CurrentPairContext = {
+type CurrentPairLabeling = {
+  readonly dependentsHint: string;
+  readonly roleMarkerTokens: ReadonlySet<string>;
+};
+
+type CurrentPairContext = CurrentPairLabeling & {
   readonly sourceExtensions: ReadonlySet<string>;
   readonly tuning: GhostFileTuning;
   readonly emittedPairs: Set<string>;
   readonly allowedPairKeys: ReadonlySet<string>;
-  readonly dependentsHint: string;
 };
 
 function runPairwise(
@@ -145,7 +158,7 @@ function runPairwise(
   tuning: GhostFileTuning,
   emittedPairs: Set<string>,
   allowedPairKeys: ReadonlySet<string>,
-  dependentsHint: string,
+  labeling: CurrentPairLabeling,
 ): DriftFinding[] {
   const ordered = uniqSorted(siblings);
   const context: CurrentPairContext = {
@@ -153,7 +166,7 @@ function runPairwise(
     tuning,
     emittedPairs,
     allowedPairKeys,
-    dependentsHint,
+    ...labeling,
   };
   const findings: DriftFinding[] = [];
   for (let leftIndex = 0; leftIndex < ordered.length; leftIndex += 1) {
@@ -181,6 +194,17 @@ function addCurrentPairFinding(
     context.tuning,
   );
   if (match === undefined) return;
+  // Current-scope only: an established role-split family (parallel `duplicate-*`
+  // detectors, a `foo-types.ts` companion) is intentional, not a sibling that
+  // should have extended the other. Changed scope still reports a freshly added
+  // companion. A `weak-suffix-variant` already shares its strong-token set, so only
+  // here can a role marker or repeated token be the whole difference.
+  if (
+    match.kind === "weak-suffix-variant" &&
+    isRoleSplitFamilyPair(left, right, context.roleMarkerTokens)
+  ) {
+    return;
+  }
   context.emittedPairs.add(key);
   findings.push(currentPairFinding(match, context.dependentsHint));
 }

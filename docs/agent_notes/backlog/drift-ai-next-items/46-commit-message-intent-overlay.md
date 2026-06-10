@@ -1,6 +1,6 @@
 # 46 - commit-message intent overlay
 
-Status: Parked
+Status: Done
 Track: P
 Size: medium
 Depends on: 39
@@ -46,6 +46,17 @@ advisory row. If it starts scanning history itself, add a dependency on task 38.
 - Unit tests for category regexes, precedence, unknown fallbacks, and case
   handling.
 - Advisory-row tests showing intent labels do not create extra rows.
+
+## Done notes
+
+- Added a deterministic `commit-intent` helper with subject regexes, optional
+  generated-trailer hints, grouped evidence, and compact text formatting.
+- Added `commitIntent` overlay context to hotspot/coldspot rows and the
+  ownership/test-orphaning prototype rows that already expose `recentSubjects`.
+- The overlay is derived only from existing row subjects; it does not start a new
+  history walk, create standalone rows, or affect gates.
+- Focused tests cover classifier categories/precedence/fallbacks and row overlay
+  behavior.
 
 ## Out of scope
 

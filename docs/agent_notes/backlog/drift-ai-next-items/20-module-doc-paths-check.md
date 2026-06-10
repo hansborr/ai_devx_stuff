@@ -1,6 +1,6 @@
 # 20 - module-doc path freshness check
 
-Status: Parked
+Status: Done
 Track: A
 Size: small-medium
 Depends on: none
@@ -56,3 +56,40 @@ deferred.
 - Checking exported symbols named in prose.
 - Rewriting stale docs.
 - Making this a gate.
+
+## Implementation notes (Done 2026-06-03)
+
+Shipped as a check id `module-doc-paths` (not a subcommand), opt-in
+(`runByDefault: false`), report-only. Files:
+
+- `scripts/drift-ai/backtick-paths.ts` — extracted the fenced-code-aware inline
+  token scanner shared with `harness-freshness` (which was refactored to use it;
+  its `normalizeBacktickPath` was **not** shared because it rejects `../`, which
+  this check needs).
+- `scripts/drift-ai/module-doc-paths.ts` — core: qualify → multi-base resolve →
+  existence → gitignore guard → finding.
+- `scripts/drift-ai/module-doc-paths-io.ts` — `defaultListModuleDocs` (reuses
+  `walkSourceFiles` with a `.md` extension set) + `isModuleDocPath`.
+- `scripts/drift-ai/module-doc-paths-check{,-config}.ts` — plugin + lightweight
+  metadata; wired into both registries (after `suppressions`), `types.ts`,
+  `config.ts`.
+- Docs: README check-table row + detailed section; `docs/ai-harness.md` row.
+
+**Key design decision — precision over recall.** MODULE.md path conventions are
+loose and mixed-base. I measured the live corpus (35 module docs) before coding:
+a naive repo-root check (like harness-freshness) would be ~almost all false
+positives. The shipped rules — file refs only (multi-segment + known extension,
+so `identifier.member` prose and bare filenames are skipped), `@scope` and
+directory refs skipped, `.js`→`.ts/.tsx` fallback, resolve across
+[moduleDir, parentDir, roots, package-roots, repoRoot] with `./`/`../` anchored to
+moduleDir only — yield **2 findings repo-wide, both genuine doc bugs**
+(`collections/MODULE.md:18` `../../lib/trpc.js` + `download-json.js` use `../../`
+where the homebrew convention is `../../../lib/`). Left unfixed per "rewriting
+stale docs is out of scope"; a human can fix those two paths.
+
+**Deliberate scope cuts (candidates for field-data follow-up):** directory
+references are not validated (empirically all-noise in this corpus: cross-package
+refs, hypothetical future dirs, child-perspective relative paths); single-segment
+filename refs are not validated (collide with member-access prose). Config is just
+`excludeGlobs` (skips whole docs). If field data wants finer suppression, add a
+per-reference allowlist later.

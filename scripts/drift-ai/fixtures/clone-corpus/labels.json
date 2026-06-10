@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "description": "Labeled clone-detection benchmark corpus for drift:ai near-duplicate engine evaluation. Function references use the `<corpus-relative-path>#<functionName>` form. Labels are engine-agnostic ground truth: clonePairs are genuine clones, nonPairs are genuine non-clones. The `category` tags the clone type so an evaluator can report recall per kind. The current ts-morph engine is expected to recover exact/renamed/reordered pairs and to MISS extracted-helper and semantic (same-behavior, different-structure) pairs; future engines (tasks 41a-41c) can be scored against the same labels.",
+  "clonePairs": [
+    {
+      "a": "exact-clones.ts#sumDiagonalGrid",
+      "b": "exact-clones.ts#sumDiagonalMatrix",
+      "category": "exact",
+      "note": "Byte-identical body, only the function name differs."
+    },
+    {
+      "a": "renamed-clones.ts#totalForInvoice",
+      "b": "renamed-clones.ts#totalForLedger",
+      "category": "renamed",
+      "note": "Same structure with every local and parameter renamed."
+    },
+    {
+      "a": "reordered-left.ts#buildDispatchPayload",
+      "b": "reordered-right.ts#makeDispatchPayload",
+      "category": "reordered",
+      "note": "Same independent statements emitted in a different order, with renamed bindings."
+    },
+    {
+      "a": "extracted-helper.ts#inlineWeightedAverage",
+      "b": "extracted-helper.ts#extractedWeightedAverage",
+      "category": "extracted-helper",
+      "note": "One inlines the accumulation loop; the other delegates it to the `accumulate` helper. Statement structure diverges."
+    },
+    {
+      "a": "semantic-different-structure.ts#uniqueViaSet",
+      "b": "semantic-different-structure.ts#uniqueViaScan",
+      "category": "semantic",
+      "note": "Same behavior (first-seen de-duplication), different structure (Set vs. nested membership scan)."
+    }
+  ],
+  "nonPairs": [
+    {
+      "a": "non-clones.ts#availableBalance",
+      "b": "non-clones.ts#summarizeTokens",
+      "category": "unrelated",
+      "note": "Comparable size, no shared logic or domain."
+    },
+    {
+      "a": "near-miss-distances.ts#manhattanDistance",
+      "b": "near-miss-distances.ts#chebyshevDistance",
+      "category": "near-miss",
+      "note": "Mostly identical shape but combine per-axis deltas differently (sum vs. max), so they compute different metrics."
+    }
+  ]
+}

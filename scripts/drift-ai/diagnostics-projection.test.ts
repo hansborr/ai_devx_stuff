@@ -11,7 +11,7 @@ import {
   harnessDiagnosticsSchema,
 } from "../../packages/shared/src/schemas/harness-diagnostics.js";
 import { HARNESS_DIAGNOSTICS_OUTPUT_ENV } from "../harness-diagnostics-output.js";
-import { ALL_CHECKS } from "./check-metadata.js";
+import { ALL_CHECKS, DEFAULT_CHECKS } from "./check-metadata.js";
 import {
   controlForCheck,
   projectDriftDiagnostics,
@@ -77,16 +77,22 @@ function finding(overrides: Partial<DriftFinding> = {}): DriftFinding {
 }
 
 describe("controlForCheck", () => {
-  it("maps the three external-tool adapters to their dedicated controls", () => {
-    expect(controlForCheck("import-cycles", "changed")).toBe("check/drift-ai-import-cycles");
-    expect(controlForCheck("near-duplicates", "changed")).toBe("check/drift-ai-near-duplicates");
-    expect(controlForCheck("orphan-files", "changed")).toBe("check/drift-ai-orphan-files");
+  const defaultCheckIds = new Set(DEFAULT_CHECKS);
+
+  it("maps every non-default check to its dedicated drift:ai control", () => {
+    const nonDefaultChecks = ALL_CHECKS.filter((check) => !defaultCheckIds.has(check));
+    expect(nonDefaultChecks).toContain("unused-exports");
+    for (const check of nonDefaultChecks) {
+      expect(controlForCheck(check, "changed")).toBe(`check/drift-ai-${check}`);
+      expect(controlForCheck(check, "current")).toBe(`check/drift-ai-${check}`);
+    }
   });
 
-  it("maps every other check to the scope control for its scope mode", () => {
-    expect(controlForCheck("duplicates", "changed")).toBe("drift-scope/changed");
-    expect(controlForCheck("duplicates", "current")).toBe("drift-scope/current");
-    expect(controlForCheck("unused-exports", "current")).toBe("drift-scope/current");
+  it("maps default checks to the scope control for its scope mode", () => {
+    for (const check of DEFAULT_CHECKS) {
+      expect(controlForCheck(check, "changed")).toBe("drift-scope/changed");
+      expect(controlForCheck(check, "current")).toBe("drift-scope/current");
+    }
   });
 
   it("only returns control ids that resolve in harness.controls.json", () => {
@@ -141,22 +147,22 @@ describe("projectDriftDiagnostics", () => {
     expect(envelope.findings[0]?.howToFix).toContain("report-only");
   });
 
-  it("routes adapter findings to their dedicated control id", () => {
+  it("routes non-default check findings to their dedicated control id", () => {
     const envelope = projectDriftDiagnostics(
       makeReport({
         scopeMode: "current",
-        enabledChecks: ["orphan-files"],
+        enabledChecks: ["unused-exports"],
         findings: [
           finding({
-            check: "orphan-files",
-            file: "packages/server/src/orphan.ts",
+            check: "unused-exports",
+            file: "packages/server/src/orphan.ts:unusedSymbol",
             hint: undefined,
           }),
         ],
       }),
     );
-    expect(envelope.findings[0]?.control).toBe("check/drift-ai-orphan-files");
-    expect(envelope.summary.byControl).toEqual({ "check/drift-ai-orphan-files": 1 });
+    expect(envelope.findings[0]?.control).toBe("check/drift-ai-unused-exports");
+    expect(envelope.summary.byControl).toEqual({ "check/drift-ai-unused-exports": 1 });
   });
 
   it("represents skipped checks as info entries without pretending a pass", () => {

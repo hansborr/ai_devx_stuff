@@ -1,5 +1,6 @@
 import type { CheckConfigMetadata } from "./check-plugin.js";
-import type { DriftAiNearDuplicatesConfig } from "./config.js";
+import type { DriftAiIgnoreConfig, DriftAiNearDuplicatesConfig } from "./config.js";
+import { globsForIgnoredPaths } from "./config-match.js";
 import { normalizeGlob } from "./config-paths.js";
 import {
   assertConfigObject,
@@ -9,6 +10,7 @@ import {
 } from "./config-readers.js";
 import { DriftAiError } from "./errors.js";
 import {
+  DEFAULT_NEAR_DUPLICATE_IGNORE_GLOBS,
   DEFAULT_NEAR_DUPLICATE_MIN_LINES,
   DEFAULT_NEAR_DUPLICATE_MIN_TOKENS,
   DEFAULT_NEAR_DUPLICATE_SIMILARITY,
@@ -40,6 +42,17 @@ export const nearDuplicatesCheckConfig: CheckConfigMetadata<
   // final report is changed-scope-filtered.
   runByDefault: false,
 };
+
+export function nearDuplicateExcludeGlobs(
+  ignore: DriftAiIgnoreConfig,
+  config: DriftAiNearDuplicatesConfig,
+): readonly string[] {
+  return [
+    ...DEFAULT_NEAR_DUPLICATE_IGNORE_GLOBS,
+    ...globsForIgnoredPaths(ignore),
+    ...config.excludeGlobs,
+  ];
+}
 
 function parseNearDuplicatesConfig(raw: unknown, keyPath: string): DriftAiNearDuplicatesConfig {
   const record = assertConfigObject(raw, keyPath);

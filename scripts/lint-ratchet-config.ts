@@ -102,6 +102,11 @@ const maxLinesLintCoverageMapRatchet = maxLinesRatchetById(
 );
 const maxLinesLogsAuditRatchet = maxLinesRatchetById("ratchet/local-max-lines-logs-audit");
 const maxLinesRuntimeRatchet = maxLinesRatchetById("ratchet/local-max-lines-runtime");
+const driftAiVitestTestFiles = [
+  "scripts/drift-ai.test.ts",
+  "scripts/drift-ai/**/*.test.ts",
+] as const;
+const driftAiVitestTestIgnores = ["scripts/drift-ai/fixtures/**"] as const;
 
 // prettier-ignore
 export const lintRatchets = [
@@ -451,17 +456,8 @@ export const lintRatchets = [
     ruleId: "vitest/expect-expect",
     source: { kind: "third-party", pluginModule: "@vitest/eslint-plugin" },
     parserProfile: "minimal-ts",
-    files: [
-      "scripts/drift-ai.test.ts",
-      "scripts/drift-ai/comments.test.ts",
-      "scripts/drift-ai/current-inventory.test.ts",
-      "scripts/drift-ai/duplicates.test.ts",
-      "scripts/drift-ai/ghost-files.test.ts",
-      "scripts/drift-ai/harness-freshness.test.ts",
-      "scripts/drift-ai/path-util.test.ts",
-      "scripts/drift-ai/suppressions.test.ts",
-    ],
-    ignores: [],
+    files: driftAiVitestTestFiles,
+    ignores: driftAiVitestTestIgnores,
     ruleOptions: [
       {
         assertFunctionNames: ["expect"],
@@ -527,17 +523,8 @@ export const lintRatchets = [
   }),
   vitestValidExpectRatchet({
     id: "ratchet/vitest-valid-expect-drift-ai-tests",
-    files: [
-      "scripts/drift-ai.test.ts",
-      "scripts/drift-ai/comments.test.ts",
-      "scripts/drift-ai/current-inventory.test.ts",
-      "scripts/drift-ai/duplicates.test.ts",
-      "scripts/drift-ai/ghost-files.test.ts",
-      "scripts/drift-ai/harness-freshness.test.ts",
-      "scripts/drift-ai/path-util.test.ts",
-      "scripts/drift-ai/suppressions.test.ts",
-    ],
-    ignores: [],
+    files: driftAiVitestTestFiles,
+    ignores: driftAiVitestTestIgnores,
     zeroBaselineDisposition: {
       kind: "narrow-floor",
       reason: "normal Vitest lint resolves valid-expect defaults in addition to maxArgs:2; this drift-ai ratchet keeps the selected test-family floor",

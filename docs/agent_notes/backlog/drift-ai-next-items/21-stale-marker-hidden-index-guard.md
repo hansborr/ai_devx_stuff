@@ -1,10 +1,30 @@
 # 21 - stale-marker hidden-index guard
 
-Status: Parked
+Status: Done
 Track: C
 Size: small
 Depends on: none
 Blocks: none
+
+## Completion notes (2026-06-04)
+
+- `scripts/drift-ai/coldspots-stale-markers.ts`: blame safety now goes through
+  `blameSkipReason()`, which checks `markerFileDirty()` first (the common case) and
+  then `markerFileHiddenIndex()` via `git ls-files -v -- <path>`. A `S` tag
+  (skip-worktree) or any lowercase tag (assume-unchanged) marks the file unsafe; a
+  failed probe is conservatively treated as unsafe, mirroring the existing dirty-probe
+  catch. The probe only runs for marker-bearing files and only when ages are otherwise
+  available (blobless clones still skip blame wholesale upstream), so the cost gate is
+  preserved.
+- `BuiltRow.skippedDirtyBlame: boolean` became `blameSkip: "dirty" | "hidden-index" | null`
+  so the disclosure can split the counts. `degradations()`/`emptyReason()` gained a
+  separate hidden-index note and clause; dirty wording is unchanged.
+- No `DriftFinding`/section-shape change — `StaleMarkerSection.degradations` is still a
+  `string[]`, so `coldspots-format.ts` and the README needed no edits (the README does
+  not enumerate stale-marker degradation reasons).
+- Tests: reducer-level fake-git cases for normal/skip-worktree/assume-unchanged/probe
+  failure plus a no-probe-on-blobless guard in `coldspots-stale-markers.test.ts`; the
+  `coldspots.test.ts` runner fake gained an `ls-files` responder returning `H`.
 
 ## Goal
 

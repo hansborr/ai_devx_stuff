@@ -6,6 +6,7 @@ import { ts } from "ts-morph";
 import type { DriftAiIgnoreConfig } from "./config.js";
 import { toPosix } from "./path-util.js";
 import { walkSourceFiles } from "./source-walk.js";
+import { scriptKindFor } from "./ts-source-util.js";
 
 export type ParsedSourceFile = {
   readonly filePath: string;
@@ -91,11 +92,6 @@ function defaultParseSourceFile(filePath: string, source: string): ts.SourceFile
     true,
     scriptKindFor(filePath),
   );
-}
-
-function scriptKindFor(filePath: string): ts.ScriptKind {
-  if (filePath.endsWith(".tsx") || filePath.endsWith(".jsx")) return ts.ScriptKind.TSX;
-  return ts.ScriptKind.TS;
 }
 
 function cacheKey(input: ParsedSourceCollectionInput): string {

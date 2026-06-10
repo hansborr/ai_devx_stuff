@@ -154,6 +154,29 @@ export const harnessDiagnosticsSchema = z
 
 export type HarnessDiagnostics = z.infer<typeof harnessDiagnosticsSchema>;
 
+export function compareHarnessFindings(left: HarnessFinding, right: HarnessFinding): number {
+  const controlCompare = left.control.localeCompare(right.control);
+  if (controlCompare !== 0) return controlCompare;
+  const pathCompare = (left.path ?? "").localeCompare(right.path ?? "");
+  if (pathCompare !== 0) return pathCompare;
+  const lineCompare = (left.line ?? 0) - (right.line ?? 0);
+  if (lineCompare !== 0) return lineCompare;
+  return left.why.localeCompare(right.why);
+}
+
+export function buildHarnessDiagnostics(
+  tool: HarnessDiagnosticTool,
+  findings: readonly HarnessFinding[],
+): HarnessDiagnostics {
+  const orderedFindings = [...findings].sort(compareHarnessFindings);
+  return {
+    version: HARNESS_DIAGNOSTICS_SCHEMA_VERSION,
+    tool,
+    findings: orderedFindings,
+    summary: summarizeHarnessFindings(orderedFindings),
+  };
+}
+
 export function summarizeHarnessFindings(
   findings: readonly HarnessFinding[],
 ): HarnessDiagnosticsSummary {

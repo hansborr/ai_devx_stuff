@@ -1,0 +1,31 @@
+{
+  "version": "1",
+  "tool": "drift:ai",
+  "findings": [
+    {
+      "control": "check/drift-ai-orphan-files",
+      "severity": "warn",
+      "path": "packages/server/src/services/orphan.ts",
+      "why": "orphan-files packages/server/src/services/orphan.ts is unreferenced",
+      "howToFix": "Review this orphan-files finding in the drift:ai report and decide whether to act; drift:ai is report-only, so it makes no change on its own.",
+      "repairKind": "manual"
+    },
+    {
+      "control": "drift-scope/current",
+      "severity": "warn",
+      "path": "packages/server/src/services/a.ts:7-18",
+      "why": "duplicates packages/server/src/services/b.ts:3-14 (12 lines)",
+      "howToFix": "extract or reuse the shared block",
+      "repairKind": "manual"
+    }
+  ],
+  "summary": {
+    "blocking": 0,
+    "warning": 2,
+    "info": 0,
+    "byControl": {
+      "check/drift-ai-orphan-files": 1,
+      "drift-scope/current": 1
+    }
+  }
+}

@@ -2,6 +2,7 @@
 // section with overlay columns (young-in-window, fix/revert tie-breaker, and
 // test-vs-source churn ratio), not separate verdicts.
 
+import { buildCommitIntentOverlay } from "./commit-intent.js";
 import { aggregateAuthors, recentSubjects, shellQuoteArg } from "./hotspots-actionability.js";
 import type { ThrashHotspot, ThrashSection } from "./hotspots-format.js";
 import type { CollectedHistory, CommitRecord } from "./hotspots-history.js";
@@ -202,10 +203,12 @@ function compareCandidates(left: ThrashCandidate, right: ThrashCandidate): numbe
 function withContext(candidate: ThrashCandidate, records: readonly CommitRecord[]): ThrashHotspot {
   const touches = (record: CommitRecord): boolean =>
     record.files.some((file) => file.path === candidate.path);
+  const subjects = recentSubjects(records, touches);
   return {
     ...candidate,
     authors: aggregateAuthors(records, touches),
-    recentSubjects: recentSubjects(records, touches),
+    recentSubjects: subjects,
+    commitIntent: buildCommitIntentOverlay(subjects),
     inspectCommand: `git log --oneline -- ${shellQuoteArg(candidate.path)}`,
     baseline: null,
   };

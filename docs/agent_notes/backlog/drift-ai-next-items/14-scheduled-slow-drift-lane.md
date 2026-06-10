@@ -1,6 +1,6 @@
 # 14 - Scheduled slow-drift lane
 
-Status: Parked
+Status: Done
 Track: Dg
 Size: small-medium
 Depends on: 13
@@ -51,3 +51,17 @@ implementation if the maintainer wants it.
   that as its own task if chosen.
 - Failing on findings.
 - Mutation testing or timing trend add-ons.
+
+## Done notes
+
+- Added `.github/workflows/slow-drift.yml`, a weekly plus manual workflow that
+  installs Bun dependencies like CI, runs `bash scripts/slow-drift-audit.sh`, and
+  uploads producer envelopes, producer output, and fused text/JSON reports.
+- Added `scripts/slow-drift-audit.sh` plus a script-smoke test. The driver runs
+  `lint:ratchet` and `drift:ai --scope current --check all` by default, treats
+  producer exit `1` as report-only findings, and still fails on missing sidecars
+  or tool/setup errors.
+- `logs:audit` is included only when `MUSI_SLOW_DRIFT_LOG_FILES` supplies
+  newline-separated runtime JSONL paths; the scheduled job skips it by default
+  because it does not collect runtime logs.
+- Documented artifact locations and inspection workflow in `docs/ai-harness.md`.

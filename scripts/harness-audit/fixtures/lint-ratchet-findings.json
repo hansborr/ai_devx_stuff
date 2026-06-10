@@ -1,0 +1,41 @@
+{
+  "version": "1",
+  "tool": "lint:ratchet",
+  "findings": [
+    {
+      "control": "lint/local/complexity",
+      "severity": "block",
+      "path": "packages/server/src/services/example.ts",
+      "line": 42,
+      "ruleId": "complexity",
+      "reason": "increased-complexity",
+      "baselineComplexity": 12,
+      "currentComplexity": 18,
+      "why": "Ratchet regression for complexity.",
+      "howToFix": "Reduce this file's complexity back to the committed baseline.",
+      "repairKind": "manual"
+    },
+    {
+      "control": "lint/local/no-debugger",
+      "severity": "block",
+      "path": "packages/client/src/app.ts",
+      "line": 12,
+      "ruleId": "no-debugger",
+      "reason": "increased-count",
+      "baselineCount": 0,
+      "currentCount": 1,
+      "why": "Ratchet regression for no-debugger.",
+      "howToFix": "Remove the debugger statement.",
+      "repairKind": "manual"
+    }
+  ],
+  "summary": {
+    "blocking": 2,
+    "warning": 0,
+    "info": 0,
+    "byControl": {
+      "lint/local/complexity": 1,
+      "lint/local/no-debugger": 1
+    }
+  }
+}

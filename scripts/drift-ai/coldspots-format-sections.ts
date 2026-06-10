@@ -10,6 +10,7 @@ import type {
   StaleMarkerRow,
   StaleMarkerSection,
 } from "./coldspots-format.js";
+import { formatCommitIntentOverlay } from "./commit-intent.js";
 import type { HotspotAuthor, HotspotBaselineDelta } from "./hotspots-format.js";
 
 // Dispatch by `lens`, mirroring how `hotspots-format-sections.ts` fans out. A new
@@ -130,6 +131,9 @@ function appendRowContext(lines: string[], entry: ColdspotRow): void {
   }
   if (entry.recentSubjects.length > 0) {
     lines.push(`        recent: ${entry.recentSubjects.map((s) => `"${s}"`).join("; ")}`);
+  }
+  if (entry.commitIntent.length > 0) {
+    lines.push(`        intent: ${formatCommitIntentOverlay(entry.commitIntent)}`);
   }
   lines.push(`        inspect: ${entry.inspectCommand}`);
 }

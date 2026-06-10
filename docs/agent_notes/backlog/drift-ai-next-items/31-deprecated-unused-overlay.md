@@ -1,10 +1,37 @@
 # 31 - `@deprecated` unused overlay
 
-Status: Parked
+Status: Done
 Track: C
 Size: small-medium
 Depends on: 30 optional
 Blocks: none
+
+## Implementation note (Done 2026-06-04)
+
+Landed as an overlay on the existing `unused-exports` knip adapter — no extra rows,
+no new check id.
+
+- New module `scripts/drift-ai/knip-unused-exports-deprecated.ts`:
+  `createDeprecatedExportLookup(readFile)` returns a memoizing predicate. It parses
+  each in-scope file once with `ts.createSourceFile`, indexes the `(line, col)` of
+  every named declaration carrying a `@deprecated` JSDoc tag (`ts.getJSDocTags`),
+  and answers by knip's reported name position. AST-exact, so a container's
+  `@deprecated` never bleeds onto its members or vice versa (verified by test);
+  `getJSDocTags` correctly hoists a leading JSDoc block onto a `const`/`let`
+  declaration.
+- `buildUnusedExportFindings` gained an optional `isDeprecated` predicate. When it
+  matches: `details.deprecated: true`, the message names the annotation ("…is
+  marked @deprecated and never imported…"), and the hint becomes
+  `DEPRECATED_UNUSED_EXPORTS_REPAIR_HINT` (tombstone-removal framing). knip's
+  `[target-config]` provenance is untouched — the overlay is local annotation
+  evidence only.
+- `knip-unused-exports-check.ts` injects the lookup from `ctx.services.readFile`.
+- Conservative by construction: no location, unreadable file, or a position that
+  resolves to no named declaration → no overlay. Does NOT search for `@deprecated`
+  symbols knip considers reachable (out of scope, as specified).
+- Docs: `scripts/drift-ai/README.md` (summary table + unused-exports section).
+- Tests: `knip-unused-exports-deprecated.test.ts` (lookup, including no-bleed and
+  `.tsx`/memoization) plus overlay + end-to-end cases in `knip-unused-exports.test.ts`.
 
 ## Goal
 

@@ -14,6 +14,7 @@
 import { ts } from "ts-morph";
 
 import type { ShapeEntry } from "./duplicate-shapes.js";
+import { scriptKindFor } from "./ts-source-util.js";
 
 export { DEFAULT_DUPLICATE_TYPES_MIN_PROPS } from "./duplicate-shapes-config-values.js";
 
@@ -37,11 +38,6 @@ export function extractTypeShapes(
     scriptKindFor(filePath),
   );
   return extractTypeShapesFrom(filePath, sourceFile, options);
-}
-
-function scriptKindFor(filePath: string): ts.ScriptKind {
-  if (filePath.endsWith(".tsx") || filePath.endsWith(".jsx")) return ts.ScriptKind.TSX;
-  return ts.ScriptKind.TS;
 }
 
 // The shared-core entry point: extract from an already-parsed source file (so the

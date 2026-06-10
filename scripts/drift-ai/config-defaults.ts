@@ -31,6 +31,8 @@ export function makeDefaultDriftAiConfig(): DriftAiConfig {
       globs: [],
     },
     checks: buildDefaultChecksConfig(),
+    coverage: { artifacts: [] },
+    envDefine: {},
   };
 }
 

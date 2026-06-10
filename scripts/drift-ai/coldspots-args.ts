@@ -4,6 +4,7 @@
 // coldspot lens's threshold overrides. Reuses the shared subcommand arg base
 // (`parseSubcommandArgs`/`SubcommandBaseOptions`).
 
+import { readPositiveInt } from "./arg-readers.js";
 import type { ColdspotLens } from "./coldspots-format.js";
 import { DriftAiError } from "./errors.js";
 import { parseSubcommandArgs, type SubcommandBaseOptions } from "./subcommand-args.js";
@@ -109,35 +110,35 @@ export function parseColdspotsArgs(argv: readonly string[]): ParsedColdspotsArgs
         windowDays = parseWindowDays(value);
       },
       "--top": (value) => {
-        top = parsePositiveInt(value, "--top");
+        top = readPositiveInt(value, "--top");
       },
       "--baseline": (value) => {
         if (!value) throw new DriftAiError("--baseline requires a path.");
         baselinePath = value;
       },
       "--age-threshold": (value) => {
-        thresholds.ageThresholdDays = parsePositiveInt(value, "--age-threshold");
+        thresholds.ageThresholdDays = readPositiveInt(value, "--age-threshold");
       },
       "--revision-floor": (value) => {
-        thresholds.revisionFloor = parsePositiveInt(value, "--revision-floor");
+        thresholds.revisionFloor = readPositiveInt(value, "--revision-floor");
       },
       "--neighborhood-ratio": (value) => {
-        thresholds.neighborhoodChurnRatio = parsePositiveInt(value, "--neighborhood-ratio");
+        thresholds.neighborhoodChurnRatio = readPositiveInt(value, "--neighborhood-ratio");
       },
       "--birth-burst-files": (value) => {
-        thresholds.birthBurstFiles = parsePositiveInt(value, "--birth-burst-files");
+        thresholds.birthBurstFiles = readPositiveInt(value, "--birth-burst-files");
       },
       "--birth-burst-lines": (value) => {
-        thresholds.birthBurstLines = parsePositiveInt(value, "--birth-burst-lines");
+        thresholds.birthBurstLines = readPositiveInt(value, "--birth-burst-lines");
       },
       "--gone-silent-days": (value) => {
-        thresholds.goneSilentDays = parsePositiveInt(value, "--gone-silent-days");
+        thresholds.goneSilentDays = readPositiveInt(value, "--gone-silent-days");
       },
       "--large-file-lines": (value) => {
-        thresholds.largeFileChurnLines = parsePositiveInt(value, "--large-file-lines");
+        thresholds.largeFileChurnLines = readPositiveInt(value, "--large-file-lines");
       },
       "--marker-age-threshold": (value) => {
-        thresholds.markerAgeThresholdDays = parsePositiveInt(value, "--marker-age-threshold");
+        thresholds.markerAgeThresholdDays = readPositiveInt(value, "--marker-age-threshold");
       },
     },
   });
@@ -157,12 +158,4 @@ function parseWindowDays(value: string): number {
     throw new DriftAiError("--window requires a positive number of days, e.g. 180 or 180d.");
   }
   return days;
-}
-
-function parsePositiveInt(value: string, flag: string): number {
-  const parsed = Number(value.trim());
-  if (!Number.isInteger(parsed) || parsed <= 0) {
-    throw new DriftAiError(`${flag} requires a positive integer (got '${value}').`);
-  }
-  return parsed;
 }

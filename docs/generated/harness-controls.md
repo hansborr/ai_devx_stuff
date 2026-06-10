@@ -861,6 +861,20 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Repair:** manual
 
+### `sensor/harness-audit`
+
+**Principle:** Read-only fusion of HarnessDiagnostics envelope files (lint:ratchet, drift:ai, logs:audit) into one report grouped by tool, with totals and per-control counts; an artifact generator for scheduled or manual review, not an edit-loop gate — findings never gate, only unreadable or malformed envelopes exit non-zero.
+
+**Category:** maintainability
+
+**Source:** `scripts/harness-audit.ts`
+
+**Invocation:** `bun run harness:audit`
+
+**Paired guide:** none
+
+**Repair:** manual
+
 ### `sensor/knip`
 
 **Principle:** Detect workspace-unused files, exports, types, and dependencies so dead code does not accumulate behind import-graph blind spots.
@@ -1152,6 +1166,34 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Repair:** manual
 
+### `drift-scope/coldspots`
+
+**Principle:** Report advisory git-history coldspots across coldspot and stale-marker lenses; areas to inspect, not defects.
+
+**Category:** maintainability
+
+**Source:** `scripts/drift-ai/coldspots.ts`
+
+**Invocation:** `bun run drift:ai coldspots`
+
+**Paired guide:** none
+
+**Repair:** manual
+
+### `drift-scope/config`
+
+**Principle:** Inspect the effective drift:ai config for the target repo: config source, repo root, roots, source extensions, and the default/implemented check sets; read-only and never rewrites a config file.
+
+**Category:** maintainability
+
+**Source:** `scripts/drift-ai/config-inspect-command.ts`
+
+**Invocation:** `bun run drift:ai config`
+
+**Paired guide:** none
+
+**Repair:** manual
+
 ### `drift-scope/current`
 
 **Principle:** Whole-repo AI-drift scope: audit the current source inventory with the default AI-drift checks; suppressions is diff-only and skips with a reason.
@@ -1268,6 +1310,76 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Repair:** manual
 
+### `check/drift-ai-commented-out-code`
+
+**Principle:** Opt-in drift:ai comment-block sensor for likely tombstoned commented-out code; report-only and gated by configured minimum block length.
+
+**Category:** maintainability
+
+**Source:** `scripts/drift-ai/commented-out-code-check.ts`
+
+**Invocation:** `bun run drift:ai --check commented-out-code`
+
+**Paired guide:** none
+
+**Repair:** manual
+
+### `check/drift-ai-duplicate-constants`
+
+**Principle:** Opt-in drift:ai structural duplicate check for module-level constants initialized to the same literal value across files; findings carry drift-baseline provenance.
+
+**Category:** maintainability
+
+**Source:** `scripts/drift-ai/duplicate-constants-check.ts`
+
+**Invocation:** `bun run drift:ai --check duplicate-constants`
+
+**Paired guide:** none
+
+**Repair:** manual
+
+### `check/drift-ai-duplicate-literals`
+
+**Principle:** Opt-in drift:ai structural duplicate check for repeated string or numeric literals across multiple files; findings carry drift-baseline provenance.
+
+**Category:** maintainability
+
+**Source:** `scripts/drift-ai/duplicate-literals-check.ts`
+
+**Invocation:** `bun run drift:ai --check duplicate-literals`
+
+**Paired guide:** none
+
+**Repair:** manual
+
+### `check/drift-ai-duplicate-schemas`
+
+**Principle:** Opt-in drift:ai structural duplicate check for z.object schemas with matching key sets across files; findings carry drift-baseline provenance.
+
+**Category:** maintainability
+
+**Source:** `scripts/drift-ai/duplicate-schemas-check.ts`
+
+**Invocation:** `bun run drift:ai --check duplicate-schemas`
+
+**Paired guide:** none
+
+**Repair:** manual
+
+### `check/drift-ai-duplicate-types`
+
+**Principle:** Opt-in drift:ai structural duplicate check for identical interface or object type property bags across files; findings carry drift-baseline provenance.
+
+**Category:** maintainability
+
+**Source:** `scripts/drift-ai/duplicate-types-check.ts`
+
+**Invocation:** `bun run drift:ai --check duplicate-types`
+
+**Paired guide:** none
+
+**Repair:** manual
+
 ### `check/drift-ai-import-cycles`
 
 **Principle:** Opt-in drift:ai TypeScript graph check for circular imports, including labeled type-only cycles; uses the target tsconfig or --tsconfig override.
@@ -1277,6 +1389,48 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 **Source:** `scripts/drift-ai/import-cycles-check.ts`
 
 **Invocation:** `bun run drift:ai --check import-cycles`
+
+**Paired guide:** none
+
+**Repair:** manual
+
+### `check/drift-ai-knip-duplicates`
+
+**Principle:** Opt-in drift:ai knip adapter for duplicate export aliases; findings use the target's knip config and carry target-config provenance.
+
+**Category:** maintainability
+
+**Source:** `scripts/drift-ai/knip-duplicates-check.ts`
+
+**Invocation:** `bun run drift:ai --check knip-duplicates`
+
+**Paired guide:** none
+
+**Repair:** manual
+
+### `check/drift-ai-layer-direction`
+
+**Principle:** Opt-in drift:ai server layer-direction check for reverse imports across configured layers; findings carry drift-baseline provenance.
+
+**Category:** architecture-fitness
+
+**Source:** `scripts/drift-ai/layer-direction-check.ts`
+
+**Invocation:** `bun run drift:ai --check layer-direction`
+
+**Paired guide:** none
+
+**Repair:** manual
+
+### `check/drift-ai-module-doc-paths`
+
+**Principle:** Opt-in drift:ai path-freshness check for backtick file references in MODULE.md and *-MODULE.md docs; resolves references under configured roots.
+
+**Category:** maintainability
+
+**Source:** `scripts/drift-ai/module-doc-paths-check.ts`
+
+**Invocation:** `bun run drift:ai --check module-doc-paths`
 
 **Paired guide:** none
 
@@ -1305,6 +1459,20 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 **Source:** `scripts/drift-ai/knip-orphan-files-check.ts`
 
 **Invocation:** `bun run drift:ai --check orphan-files`
+
+**Paired guide:** none
+
+**Repair:** manual
+
+### `check/drift-ai-unused-exports`
+
+**Principle:** Opt-in drift:ai knip adapter for unused exported symbols, types, enum members, and namespace members; findings use the target's knip config and carry target-config provenance.
+
+**Category:** maintainability
+
+**Source:** `scripts/drift-ai/knip-unused-exports-check.ts`
+
+**Invocation:** `bun run drift:ai --check unused-exports`
 
 **Paired guide:** none
 

@@ -15,6 +15,7 @@ import { ts } from "ts-morph";
 
 import type { ShapeEntry } from "./duplicate-shapes.js";
 import { hasMinNumericLiteralDigits } from "./numeric-literal-text.js";
+import { scriptKindFor } from "./ts-source-util.js";
 
 export {
   DEFAULT_DUPLICATE_LITERALS_INCLUDE_NUMBERS,
@@ -49,11 +50,6 @@ export function extractLiteralShapes(
     scriptKindFor(filePath),
   );
   return extractLiteralShapesFrom(filePath, sourceFile, options);
-}
-
-function scriptKindFor(filePath: string): ts.ScriptKind {
-  if (filePath.endsWith(".tsx") || filePath.endsWith(".jsx")) return ts.ScriptKind.TSX;
-  return ts.ScriptKind.TS;
 }
 
 export function extractLiteralShapesFrom(

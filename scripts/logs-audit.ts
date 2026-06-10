@@ -10,6 +10,7 @@ import { pathToFileURL } from "node:url";
 
 import type { ParsedLogRecord } from "./logs-audit-checks.js";
 import { auditEventFields, auditRequestIds } from "./logs-audit-checks.js";
+import { writeLogsAuditDiagnosticsSidecar } from "./logs-audit-diagnostics.js";
 import { inspectRedaction, isJsonObject } from "./logs-audit-redaction.js";
 
 export type LogsAuditFormat = "text" | "json";
@@ -65,6 +66,8 @@ function usage(): string {
     "  bun run logs:audit --format <text|json> --file <server.jsonl>",
     "",
     "Read-only. Exits 1 when the audited logs contain findings.",
+    "Set HARNESS_DIAGNOSTICS_OUTPUT=<path> to also write a HarnessDiagnostics",
+    "sidecar (opt-in; native stdout and exit code stay unchanged).",
   ].join("\n");
 }
 
@@ -262,6 +265,15 @@ export function runLogsAudit(options: RunLogsAuditOptions): RunLogsAuditResult {
 
   const report = auditLogFiles(parsed.files, options.readFile);
   const stdout = parsed.format === "json" ? formatJson(report) : formatText(report);
+  // Opt-in HarnessDiagnostics sidecar: native stdout above is untouched, and a
+  // run without HARNESS_DIAGNOSTICS_OUTPUT set never reaches the projection. A
+  // bad output path or failed write is a CLI/tool error (exit 2), not a log
+  // finding; the audit findings keep their existing exit-1 semantics below.
+  try {
+    writeLogsAuditDiagnosticsSidecar(report);
+  } catch (err) {
+    return { exitCode: 2, stdout: err instanceof Error ? err.message : String(err), report };
+  }
   return {
     exitCode: report.findings.length === 0 ? 0 : 1,
     stdout,

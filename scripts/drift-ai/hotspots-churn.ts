@@ -6,6 +6,7 @@
 // padded to N (brainstorm §1.8 move 4). Evidence, not verdicts: the noisy real
 // top-N (CHANGELOG / lockfile / i18n) is shown, never auto-filtered.
 
+import { buildCommitIntentOverlay } from "./commit-intent.js";
 import { aggregateAuthors, recentSubjects, shellQuoteArg } from "./hotspots-actionability.js";
 import type { ChurnHotspot, ChurnSection } from "./hotspots-format.js";
 import type { CollectedHistory, CommitRecord } from "./hotspots-history.js";
@@ -68,10 +69,12 @@ function withContext(
 ): ChurnHotspot {
   const touches = (record: CommitRecord): boolean =>
     record.files.some((file) => file.path === entry.path);
+  const subjects = recentSubjects(records, touches);
   return {
     ...entry,
     authors: aggregateAuthors(records, touches),
-    recentSubjects: recentSubjects(records, touches),
+    recentSubjects: subjects,
+    commitIntent: buildCommitIntentOverlay(subjects),
     inspectCommand: `git log --oneline -- ${shellQuoteArg(entry.path)}`,
     baseline: null,
   };

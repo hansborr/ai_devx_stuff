@@ -1,6 +1,6 @@
 # 42c - coverage artifact advisory surface
 
-Status: Parked
+Status: Done
 Track: P
 Size: small-medium
 Depends on: 39, 42a
@@ -51,3 +51,28 @@ verdict.
 - Correlating coverage with `unused-exports`; use task 42b.
 - Treating uncovered code as dead.
 - Coverage gates or score thresholds.
+
+## Implementation notes (2026-06-04)
+
+Implemented `drift:ai coverage-evidence` as a prototype-lane advisory subcommand
+over the task-42a coverage artifact parser.
+
+- `scripts/drift-ai/coverage-evidence-advisory.ts` builds and formats the
+  advisory envelope (`kind: "advisory"`, `lane: "prototype"`, no top-level
+  `findings`) with one section per configured artifact.
+- `scripts/drift-ai/coverage-evidence-command.ts` resolves the repo root, loads
+  config, reads `coverage.artifacts`, and renders text/JSON without running tests
+  or building source inventory.
+- Text and JSON preserve artifact path, label, parser format, timestamp, parsed
+  function/line hit rows, summaries, parse notes, missing-artifact read failures,
+  and per-artifact display truncation via `--top`.
+- README and `drift-ai.config.example.json` now document the config shape and
+  subcommand.
+
+Verification:
+
+- `bunx vitest run scripts/drift-ai/coverage-evidence-advisory.test.ts scripts/drift-ai/coverage-evidence-command.test.ts scripts/drift-ai/coverage-config.test.ts --config scripts/vitest.config.ts`
+- `bunx vitest run scripts/drift-ai.test.ts --config scripts/vitest.config.ts --testNamePattern "example config|config"`
+- `bun scripts/drift-ai.ts coverage-evidence --config <fixture process-substitution> --top 2`
+- `bun run test:scripts:changed`
+- `bun run lint:ratchet`

@@ -126,9 +126,12 @@ why in the adapter or this file.
 | `local/no-broadcast-in-transaction` | Architecture fitness, behavior | Computational | Socket broadcast helpers called inside Prisma `$transaction` callbacks instead of after commit | `bun run lint`, `bun run lint:changed` | `docs/guides/add-socket-broadcast.md` |
 | Mutation testing | Behavior | Computational | Tests that execute rules code without proving meaningful behavior | Manual: `bun run test:mutation` | `docs/agent_notes/backlog/mutation-testing-stryker.md` |
 | `drift:ai harness-freshness` | Maintainability | Computational | `docs/ai-harness.md` guide inventory drift: unreferenced `docs/guides/*.md`, missing referenced guides, and stale backtick repo paths | `bun run drift:ai harness-freshness`, via `doctor` | This map |
+| `drift:ai module-doc-paths` | Maintainability | Computational | Stale backtick file references in `MODULE.md` / `*-MODULE.md` notes (path existence only; multi-base resolution, precision over recall); opt-in, report-only | Manual: `bun run drift:ai --check module-doc-paths` (or `--check all`) | `scripts/drift-ai/README.md`, `MODULE.md` files |
 | `drift:ai` default report | Maintainability, architecture fitness | Computational | AI-specific drift on changed files: copy/paste duplicates, suspicious sibling modules, over-narrated comments, and newly added suppression comments; repo-specific roots and exclusions live in `drift-ai.config.json` | Manual, report-only by default: `bun run drift:ai` (filter with `--check`; pass `--config <path>` to test another config) | `scripts/drift-ai/README.md`, `drift-ai.config.json` |
-| `drift:ai` opt-in checks | Maintainability, architecture fitness | Computational | Slower whole-graph AI-drift signals: knip-backed orphan files, TypeScript import cycles, and AST-similar near-duplicate functions | Manual, report-only by default: `bun run drift:ai --check orphan-files`, `--check import-cycles`, `--check near-duplicates`, or `--check all` | `scripts/drift-ai/README.md`, target `knip` / `tsconfig` |
+| `drift:ai` opt-in checks | Maintainability, architecture fitness | Computational | Slower whole-graph AI-drift signals: commented-out code blocks, stale module-doc paths, knip-backed orphan files / duplicate export aliases / unused exports, TypeScript import cycles, server layer-direction reverse imports, AST-similar near-duplicate functions, and duplicate type/schema/literal/constant shapes | Manual, report-only by default: `bun run drift:ai --check commented-out-code`, `--check module-doc-paths`, `--check orphan-files`, `--check knip-duplicates`, `--check import-cycles`, `--check layer-direction`, `--check near-duplicates`, `--check duplicate-types`, `--check duplicate-schemas`, `--check duplicate-literals`, `--check duplicate-constants`, `--check unused-exports`, or `--check all` | `scripts/drift-ai/README.md`, target `knip` / `tsconfig` |
 | `drift:ai hotspots` | Maintainability | Computational | Advisory git-history hotspots: churn, coupling, fragmentation, suppression-churn, and thrash lenses; areas to inspect, not defects | Manual advisory: `bun run drift:ai hotspots --lens all` | `scripts/drift-ai/README.md` |
+| `drift:ai coldspots` | Maintainability | Computational | Advisory git-history coldspots: low-churn source files and stale-marker lines that may need a human look; areas to inspect, not defects | Manual advisory: `bun run drift:ai coldspots --lens all` | `scripts/drift-ai/README.md` |
+| `harness:audit` fusion | Maintainability | Computational | Read-only fusion of `HarnessDiagnostics` envelope files (`lint:ratchet`, `drift:ai`, `logs:audit`) into one bounded report grouped by tool, with totals and per-control counts; an artifact generator for scheduled/manual review, not an edit-loop gate (findings never gate; only unreadable/malformed envelopes exit non-zero) | Manual: run a producer with `HARNESS_DIAGNOSTICS_OUTPUT=<path>`, then `bun run harness:audit <path...>` (`--format text\|json`, `--output <file>`). Scheduled weekly: `.github/workflows/slow-drift.yml` runs `bash scripts/slow-drift-audit.sh` and uploads fused artifacts. | `scripts/harness-audit.ts`, `scripts/slow-drift-audit.sh`, `packages/shared/src/schemas/harness-diagnostics.ts` |
 | Future approved behavior fixtures | Behavior | Computational | Generated tests proving the wrong shape or missing reviewed scenario data | Targeted Vitest suites | Domain docs, SRD reference |
 | Future slow drift reports | Maintainability, architecture fitness | Computational | Stale module docs, flake trends, layer drift, and other drift reports not already covered by `drift:ai` or existing sensors | `doctor`, CI, scheduled, or manual | This map |
 | Future project-specific reviewer | Architecture fitness, behavior | Inferential | Semantic drift not expressible as deterministic checks | Manual after deterministic checks pass | This map and area docs |
@@ -139,6 +142,31 @@ without `--check`, the default set is tuned for routine changed-file review.
 Use `--chunk-dir <path>` and optional `--chunk-size <n>` for AI handoff; the
 primary report remains complete and chunks are additive. Reports exit `0` by
 default even with findings; `--fail-on-findings` is the explicit gate mode.
+The harness control inventory groups the default drift checks under
+`drift-scope/changed` and `drift-scope/current`, gives each opt-in drift check
+and promoted advisory subcommand its own control, and intentionally omits
+prototype-lane `drift:ai` advisory subcommands until a lens is promoted.
+
+## Slow Drift Schedule
+
+`.github/workflows/slow-drift.yml` runs weekly and on manual
+`workflow_dispatch`. It calls `bash scripts/slow-drift-audit.sh`, which writes:
+
+- producer envelopes to `reports/slow-drift/envelopes/`;
+- producer stdout/stderr captures to `reports/slow-drift/producers/`;
+- fused `harness:audit` text and JSON reports to `reports/slow-drift/fused/`.
+
+GitHub uploads those paths as `slow-drift-producer-envelopes`,
+`slow-drift-producer-output`, and `slow-drift-fused-reports`. The default
+scheduled producers are `lint:ratchet` and `drift:ai --scope current --check
+all`. `logs:audit` joins the same fusion path when the driver receives
+newline-separated runtime JSONL paths through `MUSI_SLOW_DRIFT_LOG_FILES`; the
+scheduled CI job skips it by default because that job does not collect runtime
+server logs.
+
+Findings are report-only. Producer exit `1` still produces artifacts and
+continues to fusion; unreadable envelopes, missing sidecars, and setup/tool
+errors remain infrastructure failures.
 
 ## Mutation Testing
 
@@ -180,13 +208,17 @@ Triage rules:
 - Behavior confidence is still weaker than maintainability and architecture
   fitness. Continue adding reviewed scenario fixtures for Character Live-State
   and other high-risk workflows as they are scoped.
-- Diagnostics are mostly human text. JSON output for `verify:logs`, `doctor`,
-  `module:index:check`, migration safety, and script smoke tests would let
-  future hooks or dashboards combine signals without parsing prose.
-- Slow drift sensors are not yet collected into a regular report: dead
-  exports, import cycles, stale module docs, changed behavior without nearby
-  tests, mutation testing for `packages/shared/src/rules/`, and flake/timing
-  trends.
+- Diagnostics are partly human text. `lint:ratchet`, `drift:ai`, and
+  `logs:audit` now emit the shared `HarnessDiagnostics` envelope
+  (`HARNESS_DIAGNOSTICS_OUTPUT=<path>`), and `bun run harness:audit` fuses those
+  envelope files into one report (text or JSON). `verify:logs`, `doctor`,
+  `module:index:check`, migration safety, and the script smoke tests still emit
+  only human text; adding the envelope there would let `harness:audit` (or
+  future hooks or dashboards) combine every signal without parsing prose.
+- Slow drift now has a weekly fused artifact for `lint:ratchet` plus
+  current-scope `drift:ai --check all`. Remaining slow-lane gaps include runtime
+  JSONL capture for `logs:audit`, changed behavior without nearby tests, scoped
+  mutation testing for `packages/shared/src/rules/`, and flake/timing trends.
 
 ## Promotion Rule
 

@@ -259,13 +259,33 @@ describe("resolveKnipBin", () => {
   const targetBin = path.join(targetRoot, "node_modules", ".bin", "knip");
   const override = path.join("/custom", "knip");
 
-  it("resolves the tools-checkout bin first, even when the target and override also exist", () => {
+  it("uses the override even when the tools checkout and target also resolve", () => {
     const resolution = resolveKnipBin({
       moduleDir,
       analyzedRepoRoot: targetRoot,
       override,
       fileExists: (candidate) =>
         candidate === toolsBin || candidate === targetBin || candidate === override,
+    });
+    expect(resolution).toEqual({ found: true, binPath: override, source: "override" });
+  });
+
+  it("reports a missing override as unresolved instead of silently substituting a checkout bin", () => {
+    const resolution = resolveKnipBin({
+      moduleDir,
+      analyzedRepoRoot: targetRoot,
+      override,
+      fileExists: (candidate) => candidate === toolsBin || candidate === targetBin,
+    });
+    if (resolution.found) throw new Error("expected the missing override to stay unresolved");
+    expect(resolution.searched).toEqual([override]);
+  });
+
+  it("resolves the tools-checkout bin before the target when no override is supplied", () => {
+    const resolution = resolveKnipBin({
+      moduleDir,
+      analyzedRepoRoot: targetRoot,
+      fileExists: (candidate) => candidate === toolsBin || candidate === targetBin,
     });
     expect(resolution).toEqual({ found: true, binPath: toolsBin, source: "tools-checkout" });
   });
@@ -274,33 +294,20 @@ describe("resolveKnipBin", () => {
     const resolution = resolveKnipBin({
       moduleDir,
       analyzedRepoRoot: targetRoot,
-      override,
       fileExists: (candidate) => candidate === targetBin,
     });
     expect(resolution).toEqual({ found: true, binPath: targetBin, source: "target-repo" });
-  });
-
-  it("uses the override only when neither checkout resolves", () => {
-    const resolution = resolveKnipBin({
-      moduleDir,
-      analyzedRepoRoot: targetRoot,
-      override,
-      fileExists: (candidate) => candidate === override,
-    });
-    expect(resolution).toEqual({ found: true, binPath: override, source: "override" });
   });
 
   it("reports a not-found skip signal listing where it looked when nothing resolves", () => {
     const resolution = resolveKnipBin({
       moduleDir,
       analyzedRepoRoot: targetRoot,
-      override,
       fileExists: () => false,
     });
     if (resolution.found) throw new Error("expected knip to be unresolved");
     expect(resolution.searched).toContain(toolsBin);
     expect(resolution.searched).toContain(targetBin);
-    expect(resolution.searched).toContain(override);
   });
 
   it("does not consider an override that was not supplied", () => {

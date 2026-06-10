@@ -1,6 +1,6 @@
 # 47a - sibling naming classifier calibration
 
-Status: Parked
+Status: Done
 Track: P
 Size: small-medium
 Depends on: 40b
@@ -53,3 +53,51 @@ calibration.
 - User-facing output.
 - Deletion advice.
 - Proving one sibling replaces another.
+
+## Implementation notes (done 2026-06-04)
+
+What landed:
+
+- `scripts/drift-ai/sibling-naming.ts` is the library/test-only classifier. No
+  `DriftCheckId`, subcommand, or advisory output — task 47 owns user-facing rows.
+- `tokenizeSiblingName` keeps a `v`-number version run intact (`v2`, `V2`) where
+  the ghost-files tokenizer splits `v` from `2`, so version markers survive.
+  `classifySiblingMarker` labels a token `version` (`/^v\d+$/`), `lifecycle`
+  (`old`/`legacy`/`new`/`deprecated`/`obsolete`/`previous`/`prev`), or
+  `copy-backup` (`copy`/`backup`/`bak`/`orig`/`original`/`tmp`/`temp`/`draft`/`wip`).
+  The seed sets are configurable via `resolveSiblingNamingConfig`
+  (`lifecycle`/`copyBackup`/`versionPattern`) so task 47 can expose overrides only
+  if a field run needs it (point 3).
+- `classifySiblingPair` / `findSiblingVariantPairs` emit a pair only when the two
+  basenames share at least one **non-marker** base token and every differing token
+  is a marker. This rejects `foo.ts` vs `foo-helper.ts` (a genuine ghost signal,
+  not a variant) and `old.ts` vs `old-config.ts` (no real base to fork from).
+  Output is `{ leftPath, rightPath, sharedTokens, leftMarkers, rightMarkers,
+  relation, caveats }`, where `relation` is `plain-vs-marked` or `marked-vs-marked`
+  and each marker carries a `prefix`/`infix`/`suffix` position (point 5). Pairs are
+  canonically ordered and deterministically sorted.
+- Caveat labeling (point 4): every pair carries `SIBLING_NAMING_STANDING_CAVEAT`
+  (a marker filename is a fork lead, never a deletion verdict). `siblingPathCaveats`
+  adds `test-only` / `public-api` / `framework-entrypoint` labels derivable from
+  path conventions; an injectable `caveatLabeler` carries evidence a path cannot
+  show (dynamic-import-only, reflection). The `public API`, `test-only`,
+  `dynamic-use`, and `framework-entry` trap families are exactly the task-40b
+  corpus families.
+- `scripts/drift-ai/sibling-naming.test.ts` covers tokenization, marker
+  classification (incl. the configurable seed set and bare-number/`version2`
+  rejections), each relation/position, the non-marker and all-marker-base guards,
+  benign API vocabulary still surfacing with the standing caveat, path caveats,
+  deterministic ordering, and corpus calibration: a `-legacy` variant beside each
+  true-trap fixture preserves the injected `true-trap:` label (it can never read as
+  "delete the dead sibling"), and a barrel trap keeps both its path-convention and
+  injected trap caveats.
+
+Validation:
+
+- `FORCE_VERIFY=1 bun run test -- scripts/drift-ai/sibling-naming.test.ts` (20 passed)
+- `bun run verify:changed`
+
+Follow-up for task 47: bucket by directory like ghost-files before calling
+`findSiblingVariantPairs` (the library stays O(n^2) and caller-bounded), render the
+evidence through the task-39 prototype advisory contract, and keep the standing
+caveat and risky-context labels on every row.

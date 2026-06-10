@@ -14,6 +14,7 @@ import { orphanFilesCheck } from "./knip-orphan-files-check.js";
 import {
   clearKnipRunCache,
   KNIP_FILE_INCLUDE_CATEGORIES,
+  KNIP_FILE_SYMBOL_INCLUDE_CATEGORIES,
   KNIP_INCLUDE_CATEGORIES,
   KNIP_SYMBOL_INCLUDE_CATEGORIES,
   type KnipRunner,
@@ -22,7 +23,9 @@ import {
 } from "./knip-runner.js";
 import {
   buildUnusedExportFindings,
+  DEPRECATED_UNUSED_EXPORTS_REPAIR_HINT,
   parseKnipUnusedExports,
+  UNUSED_EXPORTS_REPAIR_HINT,
   type UnusedExportSymbol,
 } from "./knip-unused-exports.js";
 import { unusedExportsCheck } from "./knip-unused-exports-check.js";
@@ -36,7 +39,7 @@ const FIXTURE_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "fix
 // The committed fixture is captured verbatim from knip 6.14.1 `--reporter json
 // --include files,exports,types,enumMembers,namespaceMembers` against a temp
 // project with one deliberately-unused symbol per category plus a coexisting
-// orphan file (so the single full-include spawn feeds both checks).
+// orphan file (so one file+symbol include spawn feeds both legacy checks).
 const UNUSED_EXPORTS_FIXTURE = readFileSync(
   path.join(FIXTURE_DIR, "knip-report.unused-exports.json"),
   "utf8",
@@ -393,6 +396,43 @@ describe("buildUnusedExportFindings", () => {
       expect(finding.details).toEqual({ category: "exports", symbol: finding.details?.symbol });
     }
   });
+
+  it("overlays a @deprecated tombstone flag (detail, message, hint) when the predicate matches", () => {
+    // Predicate flags only `beta`; the other two symbols stay base-shaped, so the
+    // overlay is per-symbol and never a blanket relabel.
+    const findings = buildUnusedExportFindings(
+      SYMBOLS,
+      currentScope(["src/a.ts", "src/b.ts"]),
+      PROVENANCE,
+      (symbol) => symbol.name === "beta",
+    );
+
+    const deprecated = findings.find((f) => f.details?.symbol === "beta");
+    expect(deprecated?.details?.deprecated).toBe(true);
+    expect(deprecated?.message).toContain("exported symbol beta");
+    expect(deprecated?.message).toContain("marked @deprecated and never imported");
+    expect(deprecated?.hint).toBe(DEPRECATED_UNUSED_EXPORTS_REPAIR_HINT);
+    // knip's verdict provenance is untouched — the overlay is a local annotation.
+    expect(deprecated?.provenance).toEqual(PROVENANCE);
+
+    for (const finding of findings.filter((f) => f.details?.symbol !== "beta")) {
+      expect(finding.details).not.toHaveProperty("deprecated");
+      expect(finding.message).not.toContain("@deprecated");
+      expect(finding.hint).toBe(UNUSED_EXPORTS_REPAIR_HINT);
+    }
+  });
+
+  it("treats an omitted predicate as 'never deprecated' (no overlay)", () => {
+    const findings = buildUnusedExportFindings(
+      SYMBOLS,
+      currentScope(["src/a.ts", "src/b.ts"]),
+      PROVENANCE,
+    );
+    for (const finding of findings) {
+      expect(finding.details).not.toHaveProperty("deprecated");
+      expect(finding.hint).toBe(UNUSED_EXPORTS_REPAIR_HINT);
+    }
+  });
 });
 
 // --- unusedExportsCheck (plugin) --------------------------------------------
@@ -505,6 +545,82 @@ describe("unusedExportsCheck", () => {
       }
     }
   });
+
+  it("overlays the @deprecated tombstone flag end-to-end via the target source", () => {
+    // knip reports `goneSymbol` unused at its name position; the target source marks
+    // it @deprecated, so the overlay rides the same row (no extra finding).
+    const report =
+      '{"issues":[{"file":"src/dep.ts","exports":[{"name":"goneSymbol","line":2,"col":14}]}]}';
+    const source = "/** @deprecated */\nexport const goneSymbol = 1;\n";
+    const outcome = unusedExportsCheck.runWithSelectedConfig(
+      makeInput("unused-exports", {
+        detectorScope: currentScope(["src/dep.ts"]),
+        pathExists: pathExistsFor(INSTALLED_WITH_ROOT_CONFIG),
+        knip: knipReporting(report),
+        readFile: (file) => (file === "src/dep.ts" ? source : undefined),
+      }),
+    );
+    expect(outcome.status).toBe("ran");
+    if (outcome.status === "ran") {
+      expect(outcome.findings).toHaveLength(1);
+      const finding = outcome.findings[0];
+      expect(finding?.details?.deprecated).toBe(true);
+      expect(finding?.message).toContain("marked @deprecated and never imported");
+      expect(finding?.hint).toContain("tombstone-removal candidate");
+      // The verdict is still knip's, target-configured — the overlay only annotates.
+      expect(finding?.provenance).toEqual({
+        configSource: "target-config",
+        tool: "knip",
+        configPath: "knip.config.ts",
+      });
+    }
+  });
+
+  it("leaves an unused symbol un-flagged when the target source is not @deprecated", () => {
+    const report =
+      '{"issues":[{"file":"src/dep.ts","exports":[{"name":"liveSymbol","line":1,"col":14}]}]}';
+    const source = "export const liveSymbol = 1;\n";
+    const outcome = unusedExportsCheck.runWithSelectedConfig(
+      makeInput("unused-exports", {
+        detectorScope: currentScope(["src/dep.ts"]),
+        pathExists: pathExistsFor(INSTALLED_WITH_ROOT_CONFIG),
+        knip: knipReporting(report),
+        readFile: (file) => (file === "src/dep.ts" ? source : undefined),
+      }),
+    );
+    expect(outcome.status).toBe("ran");
+    if (outcome.status === "ran") {
+      expect(outcome.findings).toHaveLength(1);
+      expect(outcome.findings[0]?.details).not.toHaveProperty("deprecated");
+      expect(outcome.findings[0]?.message).not.toContain("@deprecated");
+    }
+  });
+
+  it("overlays @deprecated on an enumMembers row using knip's real member column", () => {
+    // Guards that the AST name-position index aligns with knip's reported (line,col)
+    // for a non-`exports` category: knip points at the member name (`Old` at 3:3),
+    // and the @deprecated tag sits on the member declaration, not the enum.
+    const report =
+      '{"issues":[{"file":"src/e.ts","enumMembers":[{"namespace":"Status","name":"Old","line":3,"col":3}]}]}';
+    const source = "export enum Status {\n  /** @deprecated */\n  Old,\n  New,\n}\n";
+    const outcome = unusedExportsCheck.runWithSelectedConfig(
+      makeInput("unused-exports", {
+        detectorScope: currentScope(["src/e.ts"]),
+        pathExists: pathExistsFor(INSTALLED_WITH_ROOT_CONFIG),
+        knip: knipReporting(report),
+        readFile: (file) => (file === "src/e.ts" ? source : undefined),
+      }),
+    );
+    expect(outcome.status).toBe("ran");
+    if (outcome.status === "ran") {
+      expect(outcome.findings).toHaveLength(1);
+      const finding = outcome.findings[0];
+      expect(finding?.details?.deprecated).toBe(true);
+      expect(finding?.details?.category).toBe("enumMembers");
+      expect(finding?.message).toContain("enum member Status.Old");
+      expect(finding?.message).toContain("marked @deprecated and never used");
+    }
+  });
 });
 
 // --- formatText provenance tag ----------------------------------------------
@@ -570,7 +686,7 @@ describe("knip service resolver include categories", () => {
     });
   });
 
-  it("uses the full category set and one spawn when both knip checks are selected", () => {
+  it("uses the file+symbol category set and one spawn when both legacy knip checks are selected", () => {
     withFakeTargetKnip((fixture) => {
       clearKnipRunCache();
       const input = makeDefaultKnipInput(fixture, [
@@ -586,7 +702,7 @@ describe("knip service resolver include categories", () => {
       expect(orphanOutcome.status).toBe("ran");
       expect(unusedOutcome.status).toBe("ran");
       expect(readCapturedKnipArgs(fixture.argsFile)).toEqual([
-        expectedKnipArgs(KNIP_INCLUDE_CATEGORIES),
+        expectedKnipArgs(KNIP_FILE_SYMBOL_INCLUDE_CATEGORIES),
       ]);
     });
   });
@@ -609,11 +725,11 @@ describe("knip service resolver include categories", () => {
 // --- single-spawn memoization -----------------------------------------------
 
 describe("memoizingDefaultKnipRunner", () => {
-  it("spawns knip once for both checks sharing repo+bin+config (single-spawn memo)", () => {
+  it("spawns knip once for the legacy checks sharing repo+bin+config (single-spawn memo)", () => {
     clearKnipRunCache();
     let spawnCount = 0;
     // Stands in for the spawned subprocess; the memo wraps this, so a shared key
-    // across the two checks' independently-built runners means one underlying call.
+    // across the checks' independently-built runners means one underlying call.
     const underlyingRunner: KnipRunner = () => {
       spawnCount += 1;
       return { ok: true, reportJson: UNUSED_EXPORTS_FIXTURE, exitCode: 1, stderr: "" };

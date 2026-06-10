@@ -1,0 +1,17 @@
+id,ignored,path,content,amountOfKgrams,ast,mapping,extra
+1,false,exact-clones.ts#sumDiagonalGrid,"export function sumDiagonalGrid() {
+  return 42;
+}
+",12,[],[],{}
+2,false,exact-clones.ts#sumDiagonalMatrix,"export function sumDiagonalMatrix() {
+  return 42;
+}
+",12,[],[],{}
+3,false,near-miss-distances.ts#manhattanDistance,"export function manhattanDistance() {
+  return 10;
+}
+",12,[],[],{}
+4,false,near-miss-distances.ts#chebyshevDistance,"export function chebyshevDistance() {
+  return 9;
+}
+",12,[],[],{}

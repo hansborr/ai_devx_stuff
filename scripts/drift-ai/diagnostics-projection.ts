@@ -7,32 +7,30 @@
 // sidecar. The portable foreign-repo surface remains `drift:ai --format json`.
 
 import {
-  HARNESS_DIAGNOSTICS_SCHEMA_VERSION,
+  buildHarnessDiagnostics,
   type HarnessDiagnostics,
   type HarnessFinding,
-  summarizeHarnessFindings,
 } from "../../packages/shared/src/schemas/harness-diagnostics.js";
 import {
   harnessDiagnosticsOutputPath,
   writeHarnessDiagnosticsSidecar,
 } from "../harness-diagnostics-output.js";
+import { DEFAULT_CHECKS } from "./check-metadata.js";
 import { DriftAiError } from "./errors.js";
 import type { ScopeMode } from "./scope.js";
 import type { DriftCheckId, DriftFinding, DriftReport, SkippedDriftCheck } from "./types.js";
 
-// Checks whose findings have a dedicated `check/drift-ai-*` control in
-// harness.controls.json. Every other check is part of the drift scope itself,
-// so its findings attribute to the scope control that ran them (see
-// `scopeControl`). Reusing manifest control ids keeps the envelope's `control`
-// field resolvable rather than synthesizing per-finding ids.
-const ADAPTER_CONTROL_BY_CHECK: Readonly<Partial<Record<DriftCheckId, string>>> = {
-  "import-cycles": "check/drift-ai-import-cycles",
-  "near-duplicates": "check/drift-ai-near-duplicates",
-  "orphan-files": "check/drift-ai-orphan-files",
-};
+// Default drift checks are intentionally grouped under the scope control that ran
+// them. Opt-in checks are represented by dedicated `check/drift-ai-*` controls in
+// harness.controls.json so slow-drift audit summaries keep per-check counts.
+const GROUPED_BY_SCOPE_CHECKS: ReadonlySet<DriftCheckId> = new Set(DEFAULT_CHECKS);
 
 function scopeControl(scopeMode: ScopeMode): string {
   return scopeMode === "current" ? "drift-scope/current" : "drift-scope/changed";
+}
+
+function dedicatedCheckControl(check: DriftCheckId): string {
+  return `check/drift-ai-${check}`;
 }
 
 // The harness.controls.json control id a check's findings attribute to. The
@@ -40,7 +38,9 @@ function scopeControl(scopeMode: ScopeMode): string {
 // diagnostics-projection.test.ts asserts every one of them resolves in the
 // manifest.
 export function controlForCheck(check: DriftCheckId, scopeMode: ScopeMode): string {
-  return ADAPTER_CONTROL_BY_CHECK[check] ?? scopeControl(scopeMode);
+  return GROUPED_BY_SCOPE_CHECKS.has(check)
+    ? scopeControl(scopeMode)
+    : dedicatedCheckControl(check);
 }
 
 // drift:ai is report-only, so there is no automated repair for a finding. The
@@ -81,14 +81,6 @@ function skipToHarnessFinding(skip: SkippedDriftCheck, scopeMode: ScopeMode): Ha
   return skip.code === undefined ? base : { ...base, reason: skip.code };
 }
 
-function compareFindings(left: HarnessFinding, right: HarnessFinding): number {
-  const controlCompare = left.control.localeCompare(right.control);
-  if (controlCompare !== 0) return controlCompare;
-  const pathCompare = (left.path ?? "").localeCompare(right.path ?? "");
-  if (pathCompare !== 0) return pathCompare;
-  return left.why.localeCompare(right.why);
-}
-
 /**
  * Project a `DriftReport` into a `HarnessDiagnostics` envelope tagged
  * `tool: "drift:ai"`. Drift findings become `warn` entries and skipped checks
@@ -101,13 +93,7 @@ export function projectDriftDiagnostics(report: DriftReport): HarnessDiagnostics
     ...report.findings.map((finding) => driftFindingToHarnessFinding(finding, report.scopeMode)),
     ...report.skippedChecks.map((skip) => skipToHarnessFinding(skip, report.scopeMode)),
   ];
-  findings.sort(compareFindings);
-  return {
-    version: HARNESS_DIAGNOSTICS_SCHEMA_VERSION,
-    tool: "drift:ai",
-    findings,
-    summary: summarizeHarnessFindings(findings),
-  };
+  return buildHarnessDiagnostics("drift:ai", findings);
 }
 
 function describeError(error: unknown): string {

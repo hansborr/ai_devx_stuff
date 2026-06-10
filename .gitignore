@@ -43,6 +43,8 @@ Thumbs.db
 !.claude/skills/ts-graph/
 !.claude/skills/playwright-cli/
 !.claude/skills/playwright-cli/**
+!.claude/skills/codex-cli/
+!.claude/skills/codex-cli/**
 
 # Codex — track shared skills opted in below; keep personal repo-local skills
 # out of git.
@@ -54,6 +56,9 @@ Thumbs.db
 
 # SRD reference repos (local only, not committed)
 docs/refs/
+
+# Operator-managed external tools (e.g. .tools/semgrep/.venv; per-checkout)
+.tools/
 
 # Prisma
 packages/server/prisma/*.db

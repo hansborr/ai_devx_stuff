@@ -1,6 +1,6 @@
 # 44a - ownership DOA prototype
 
-Status: Parked
+Status: Done
 Track: P
 Size: medium
 Depends on: 38, 39
@@ -53,3 +53,12 @@ stream. Test/source orphaning is split into task 44b.
 - Per-line ownership as the first slice.
 - User-cache-backed blame cache.
 - Telling agents to "fix" ownership rows.
+
+## Notes
+
+Implemented `bun run drift:ai ownership` as a prototype advisory subcommand.
+It uses the bounded full-history collector, honors `.mailmap` through
+`git check-mailmap`, emits first author / dominant owner / author / co-author /
+agent-hand evidence as distinct JSON fields, and discloses full-history caps,
+scanned range, recent subjects, and inspect commands. Agent hand detection is
+regex-based with seeded defaults plus repeatable `--agent-identity-pattern`.

@@ -1,6 +1,6 @@
 # 51 - config-example and README registry freshness guard
 
-Status: Parked
+Status: Done
 Track: G
 Size: small
 Depends on: none
@@ -59,3 +59,35 @@ that class of stale internal link too.
 - Auto-generating the README or example config.
 - Broadening to non-drift docs.
 - Changing config schema or defaults.
+
+## Done note (2026-06-04)
+
+Implemented as `scripts/drift-ai/readme-config-parity.test.ts`, beside the registry
+in the drift-ai test family. The guard asserts:
+
+- the example config (`drift-ai.config.example.json`) carries no unknown check ids;
+- the example config's `checks` key set matches an explicit starter-example
+  allowlist, and every live check id is classified into exactly one of
+  `STARTER_EXAMPLE_CHECK_IDS` / `OMITTED_FROM_EXAMPLE_CHECK_IDS` (a new registry id
+  forces a conscious add-or-omit decision, never an exhaustive defaults dump);
+- the README "Implemented checks" table id set equals the live `ALL_CHECKS`;
+- the README "Subcommands" table set equals the live subcommands
+  (`runner.ts` top-level + `PROTOTYPE_SUBCOMMAND_IDS`) minus an explicit (empty)
+  omit list;
+- every README backlog link resolves to a non-empty file.
+
+Deliberately-stale fixtures prove each assertion fails on drift (unknown id, README
+table missing a registry id, README listing an unknown subcommand, and a dead
+backlog link).
+
+Found and fixed two real stale links: the README pointed at the removed
+`docs/agent_notes/backlog/drift-ai-tasks/` folder in two places (the `--repo`
+deferral section and the maintainer-backlog pointer). Both now point at the live
+`drift-ai-next-items/` queue. Exported `PROTOTYPE_SUBCOMMAND_IDS` from
+`prototype-subcommands.ts` so the subcommand half derives from the real registry
+instead of a hand-copied list.
+
+The README check/subcommand *tables* were already current (matching the task-52
+triage note); the guard's value is preventing future drift, plus catching the dead
+backlog links. Task 52 still owns the broader `harness.controls.json` /
+`docs/ai-harness.md` inventory parity.

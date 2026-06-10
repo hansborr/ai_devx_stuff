@@ -14,6 +14,8 @@ function formatTextHeader(report: DriftReport): string[] {
   }
   lines.push(`  scope: ${report.scope.length} file(s) considered after ignore filters`);
   lines.push(`  ${formatSummary(report.summary)}`);
+  const timingLine = formatTimingLine(report);
+  if (timingLine !== undefined) lines.push(`  ${timingLine}`);
   if (report.skippedChecks.length > 0) {
     lines.push(`  skipped: ${report.skippedChecks.map(formatSkippedCheck).join("; ")}`);
   }
@@ -30,6 +32,21 @@ function formatSummary(summary: DriftReport["summary"]): string {
   return `findings: ${summary.total} (${byCheck
     .map(([check, count]) => `${check} ${count}`)
     .join(", ")})`;
+}
+
+// Evidence-only per-check wall-clock line, e.g.
+// `timing: total 12ms (duplicates 3ms, comments 9ms)`. Omitted when the report
+// carries no timings (a hand-built report or a run that dispatched nothing).
+function formatTimingLine(report: DriftReport): string | undefined {
+  const timings = report.checkTimings;
+  if (timings === undefined || timings.length === 0) return undefined;
+  const total = report.totalDurationMs ?? totalOf(timings);
+  const perCheck = timings.map((timing) => `${timing.check} ${timing.durationMs}ms`).join(", ");
+  return `timing: total ${total}ms (${perCheck})`;
+}
+
+function totalOf(timings: NonNullable<DriftReport["checkTimings"]>): number {
+  return timings.reduce((sum, timing) => sum + timing.durationMs, 0);
 }
 
 export function formatText(report: DriftReport): string {
@@ -70,6 +87,16 @@ export type FormatJsonOptions = {
 };
 
 export function formatJson(report: DriftReport, options: FormatJsonOptions = {}): string {
+  // Timing is additive evidence (schema v4): emit it only when the report carries
+  // it, so a hand-built v3-shaped report still renders without the keys. Placed
+  // between `summary` and `findings` to keep the run-metadata block together.
+  const timing =
+    report.checkTimings === undefined
+      ? {}
+      : {
+          checkTimings: report.checkTimings,
+          totalDurationMs: report.totalDurationMs ?? totalOf(report.checkTimings),
+        };
   const payloadWithoutScope = {
     schemaVersion: report.schemaVersion,
     scopeMode: report.scopeMode,
@@ -80,6 +107,7 @@ export function formatJson(report: DriftReport, options: FormatJsonOptions = {})
     enabledChecks: report.enabledChecks,
     skippedChecks: report.skippedChecks,
     summary: report.summary,
+    ...timing,
     findings: report.findings,
     scopeCount: report.scopeCount,
   };

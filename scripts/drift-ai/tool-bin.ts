@@ -28,9 +28,13 @@ type ResolvedToolBinInput = {
   readonly override: string | undefined;
 };
 
-// Resolve a tools-checkout-owned executable before falling back to the target
-// repo and finally an explicit override. This preserves the portable-adapter
-// contract: targets do not have to install drift:ai's tool dependencies.
+// Resolve a tool executable. An explicit operator override (e.g. --jscpd-bin) is
+// authoritative: when supplied it is the only candidate, and a missing override
+// resolves to not-found rather than silently substituting a checkout bin — the
+// same explicit-override precedence as the Semgrep and Dolos runners, with this
+// helper's checked not-found reporting. Without an override, the tools checkout
+// is searched before the target repo, preserving the portable-adapter contract:
+// targets do not have to install drift:ai's tool dependencies.
 export function resolveToolBin(
   config: ToolBinConfig,
   options: ResolveToolBinOptions = {},
@@ -45,6 +49,16 @@ export function resolveToolBin(
 }
 
 function resolveToolBinCandidates(input: ResolvedToolBinInput): ToolBinResolution {
+  if (input.override !== undefined) {
+    if (input.fileExists(input.override)) {
+      return { found: true, binPath: input.override, source: "override" };
+    }
+    // The operator named a specific binary; reporting not-found (searched lists
+    // only the override) keeps the skip reason accurate instead of scanning with
+    // a different executable than the one they asked for.
+    return { found: false, searched: [input.override] };
+  }
+
   const searched: string[] = [];
 
   for (const candidate of toolsCheckoutBinPaths(input.moduleDir, input.binRelativePath)) {
@@ -59,17 +73,14 @@ function resolveToolBinCandidates(input: ResolvedToolBinInput): ToolBinResolutio
   if (input.fileExists(targetBin))
     return { found: true, binPath: targetBin, source: "target-repo" };
 
-  if (input.override !== undefined) {
-    searched.push(input.override);
-    if (input.fileExists(input.override)) {
-      return { found: true, binPath: input.override, source: "override" };
-    }
-  }
-
   return { found: false, searched };
 }
 
-function toolsCheckoutBinPaths(moduleDir: string, binRelativePath: string): string[] {
+// Candidate locations for a tools-checkout-owned file: `binRelativePath` joined
+// onto `moduleDir` and each of its ancestors. Exported so adapters whose
+// fallback differs from resolveToolBin (e.g. the Semgrep runner falls back to
+// `semgrep` on PATH rather than the target repo) can reuse the same upward walk.
+export function toolsCheckoutBinPaths(moduleDir: string, binRelativePath: string): string[] {
   const candidates: string[] = [];
   let dir = moduleDir;
   for (;;) {

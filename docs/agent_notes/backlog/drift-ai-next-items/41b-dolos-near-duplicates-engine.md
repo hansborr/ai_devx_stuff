@@ -1,6 +1,6 @@
 # 41b - Dolos parser and runner harness
 
-Status: Parked
+Status: Done
 Track: P
 Size: small-medium
 Depends on: 40
@@ -49,6 +49,18 @@ fixtures; task 41c owns the advisory output.
 - Parser fixtures for representative Dolos output.
 - Corpus evaluator test that records the first Dolos baseline from fake/fixture
   rows.
+
+## Notes
+
+Implemented as a library/test-only Dolos harness:
+
+- shared the existing near-duplicates filtered source inventory through
+  `collectNearDuplicateSourceFiles`;
+- added Dolos CSV/version parsing, fixture report files, clone-corpus scoring,
+  and candidate/report cap disclosure;
+- added an optional subprocess runner that detects Dolos with `--version`, uses a
+  temp report directory, handles missing tools/failures/timeouts, and caps the
+  filtered file inventory before invoking Dolos.
 
 ## Out of scope
 

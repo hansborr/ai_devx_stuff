@@ -3,6 +3,7 @@
 
 import path from "node:path";
 
+import { extractInlineCodeTokens } from "./backtick-paths.js";
 import { formatFindingLines } from "./finding-lines.js";
 import {
   backtickPathIgnoreCandidates,
@@ -68,7 +69,6 @@ const DEFAULT_HARNESS_PATH = "docs/ai-harness.md";
 const DEFAULT_GUIDES_DIR = "docs/guides";
 const PATH_LIKE_RE = /^[\w.@-]+(?:\/[\w.@-]+)+(?:\/|\.[A-Za-z0-9][\w-]*)$/u;
 const GUIDE_REFERENCE_RE = /docs\/guides\/[\w.-]+\.md/gu;
-const INLINE_BACKTICK_RE = /`([^`\n]+)`/gu;
 
 export function runHarnessFreshnessCheck(
   options: RunHarnessFreshnessCheckOptions = {},
@@ -229,20 +229,10 @@ function extractGuideReferences(markdown: string): readonly GuideReference[] {
 
 function extractBacktickPathReferences(markdown: string): readonly BacktickPathReference[] {
   const references: BacktickPathReference[] = [];
-  let inFence = false;
-  for (const [lineIndex, line] of markdown.split("\n").entries()) {
-    if (/^ {0,3}```/u.test(line)) {
-      inFence = !inFence;
-      continue;
-    }
-    if (inFence) continue;
-    for (const match of line.matchAll(INLINE_BACKTICK_RE)) {
-      const raw = match[1];
-      if (raw === undefined) continue;
-      const pathReference = parseBacktickPath(raw);
-      if (pathReference === undefined) continue;
-      references.push({ ...pathReference, line: lineIndex + 1 });
-    }
+  for (const token of extractInlineCodeTokens(markdown)) {
+    const pathReference = parseBacktickPath(token.raw);
+    if (pathReference === undefined) continue;
+    references.push({ ...pathReference, line: token.line });
   }
   return references;
 }

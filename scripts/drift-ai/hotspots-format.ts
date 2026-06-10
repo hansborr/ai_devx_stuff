@@ -10,6 +10,7 @@
 // lens math (the churn/coupling reducers import these types, not the reverse), so
 // there is no cycle.
 
+import type { CommitIntentOverlay } from "./commit-intent.js";
 import { appendSection } from "./hotspots-format-sections.js";
 import type { ChurnMetric } from "./hotspots-history.js";
 
@@ -46,6 +47,7 @@ export type HotspotBaselineDelta = {
 export type HotspotRowContext = {
   readonly authors: readonly HotspotAuthor[];
   readonly recentSubjects: readonly string[]; // up to 3 most-recent commit subjects
+  readonly commitIntent: readonly CommitIntentOverlay[]; // regex labels over recentSubjects
   readonly inspectCommand: string; // copy-paste `git log` to inspect the row
   readonly baseline: HotspotBaselineDelta | null; // null unless --baseline given
 };

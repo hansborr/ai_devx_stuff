@@ -222,6 +222,7 @@ describe("path-policy-query CLI", () => {
       "test-lint-agent",
       "test-lint-agent-changed",
       "test-harness-emit-envelope",
+      "test-slow-drift-audit",
       "test-lint-ratchet",
       "test-migration-safety-scan",
       "test-doctor-json",

@@ -1,6 +1,6 @@
 # 54 - effective config inspection
 
-Status: Parked
+Status: Done
 Track: G
 Size: small-medium
 Depends on: none
@@ -55,3 +55,31 @@ This should be an inspection command, not a mutation or generator.
 - Generating `drift-ai.config.json`.
 - Validating target-specific semantics beyond the existing parser.
 - Adding a full JSON Schema for config.
+
+## Implementation notes (2026-06-04)
+
+Shipped as a `drift:ai config` top-level subcommand, read-only.
+
+- `scripts/drift-ai/config-inspect.ts` — pure inspection model + text/JSON
+  formatters. Output carries a `kind: "config-inspection"` discriminant so it is
+  never confused with the portable `DriftReport` (`--format json` on a scan) or a
+  `kind: "advisory"` envelope. It imports nothing from `packages/shared`, so the
+  portable-core constraint (shared context #8) holds.
+- `scripts/drift-ai/config-inspect-command.ts` — CLI runner on the shared
+  `subcommand-args` parser (`--format`/`--output`/`--config`). Resolves the
+  target repo root from the subprocess cwd (`resolveRepoRoot`, i.e.
+  `git --show-toplevel`) and loads config exactly as a scan would, so foreign-repo
+  invocation anchors discovery to the target, not the tools checkout. Runs no
+  checks and writes no config file; a missing explicit `--config` is exit 2.
+- Source classification: `explicit` (`--config` passed) / `auto-discovered`
+  (`drift-ai.config.json` at the target root) / `default` (no file). Text output
+  is concise (source, repo root, roots, source extensions, default/implemented
+  checks); `--format json` carries the full effective config.
+- Registered in `runner.ts` `TOP_LEVEL_SUBCOMMANDS`, so the README subcommand
+  table, `harness.controls.json` (`drift-scope/config`, regenerated doc), and the
+  `cli-args` usage all gained the surface — guarded by the existing
+  readme-config-parity and harness-controls-parity tests. New files are accounted
+  for in `docs/agent_notes/backlog/lint-followups/lint-coverage-map.md`.
+- Tests: `scripts/drift-ai/config-inspect.test.ts` (model classification,
+  text/JSON rendering, end-to-end default/auto-discovered/explicit/missing-config,
+  `--help`, and `--output` writes-only-the-report).

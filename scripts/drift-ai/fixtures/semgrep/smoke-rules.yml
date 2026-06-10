@@ -1,0 +1,19 @@
+rules:
+  - id: smoke-empty-catch
+    languages: [typescript]
+    severity: WARNING
+    message: Empty catch block swallows errors
+    patterns:
+      - pattern: |
+          try { ... } catch ($E) {}
+    metadata:
+      category: correctness
+      confidence: HIGH
+  - id: smoke-console-log
+    languages: [typescript]
+    severity: INFO
+    message: console.log left in source
+    pattern: console.log(...)
+    metadata:
+      category: maintainability
+      confidence: LOW

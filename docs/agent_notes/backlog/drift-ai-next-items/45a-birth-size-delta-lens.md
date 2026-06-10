@@ -1,6 +1,6 @@
 # 45a - birth and size-delta lens
 
-Status: Parked
+Status: Done
 Track: P
 Size: small-medium
 Depends on: 38, 39
@@ -56,3 +56,35 @@ squash, missing-blob, and cap caveats visible.
 - Hosted history APIs.
 - Using this lens as a deletion or refactor verdict.
 - A persistent blame/history cache.
+
+## Completion notes
+
+- Added the `birth-size-delta` prototype advisory subcommand. It uses current
+  source inventory, bounded full-history records, `git show <sha>:<path>` birth
+  blob reads, and the existing comment-aware line scanner for deterministic
+  effective LOC.
+- Rows include path-birth metadata, commit-wide birth-burst size, bytes and
+  effective LOC then/current/delta, per-path churn since observed birth, missing
+  blob caveats, partial-history caveats, and inspect/blob commands.
+- Follow-up review fix: added `--max-blob-reads`, per-blob byte and timeout caps
+  for `git show`, and advisory cap disclosure so `--top` is not mistaken for the
+  cost bound.
+- Split prototype subcommand dispatch from `runner.ts` into
+  `prototype-subcommands.ts` so adding this subcommand did not grow the runner
+  past the local max-lines policy.
+- Updated `scripts/drift-ai/README.md`, CLI help, and public
+  `scripts/drift-ai.ts` exports.
+
+Verification:
+
+- `bun test scripts/drift-ai/birth-size-delta-advisory.test.ts scripts/drift-ai/birth-size-delta-command.test.ts`
+- `bun run lint:ratchet`
+- `bun run typecheck`
+- `bun run lint`
+- `bun run docs:lint-coverage-map:check`
+- `bun run verify:changed`
+
+Note: a broader manual `bun test scripts/drift-ai.test.ts ...` run passed for the
+main checkout files but also discovered `worktrees/exploration/scripts/...` tests,
+which failed on that separate worktree's stale config parser. This was recorded
+in `/home/node/pain-points-drift-ai.log`.

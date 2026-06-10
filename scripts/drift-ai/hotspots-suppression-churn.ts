@@ -2,6 +2,7 @@
 // This intentionally does NOT reduce over the shared numstat collector; the
 // collector has no content signal about lines that gained/lost suppressions.
 
+import { buildCommitIntentOverlay } from "./commit-intent.js";
 import { DEFAULT_DRIFT_AI_CONFIG, type DriftAiIgnoreConfig } from "./config.js";
 import { type GitRunner, isIgnoredPath } from "./git-changed-scope.js";
 import { aggregateAuthors, recentSubjects, shellQuoteArg } from "./hotspots-actionability.js";
@@ -101,10 +102,12 @@ function withContext(
 ): SuppressionChurnHotspot {
   const touches = (record: CommitRecord): boolean =>
     record.files.some((file) => file.path === candidate.path);
+  const subjects = recentSubjects(records, touches);
   return {
     ...candidate,
     authors: aggregateAuthors(records, touches),
-    recentSubjects: recentSubjects(records, touches),
+    recentSubjects: subjects,
+    commitIntent: buildCommitIntentOverlay(subjects),
     inspectCommand: `git log --oneline -G'${SUPPRESSION_CHURN_PATTERN}' -- ${shellQuoteArg(
       candidate.path,
     )}`,

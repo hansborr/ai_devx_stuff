@@ -4,9 +4,13 @@ export type DriftCheckId =
   | "duplicates"
   | "ghost-files"
   | "comments"
+  | "commented-out-code"
   | "suppressions"
+  | "module-doc-paths"
   | "orphan-files"
+  | "knip-duplicates"
   | "import-cycles"
+  | "layer-direction"
   | "near-duplicates"
   | "duplicate-types"
   | "duplicate-schemas"
@@ -14,10 +18,13 @@ export type DriftCheckId =
   | "duplicate-constants"
   | "unused-exports";
 
-// Bumped to 3 for the additive adapter fields landed by the knip orphan-files
-// adapter (task 32): `DriftFinding.provenance` and `SkippedDriftCheck.code`. Both
-// are optional, so older consumers reading a v3 report degrade gracefully.
-export const DRIFT_SCHEMA_VERSION = 3 as const;
+// Bumped to 4 for the additive per-check timing evidence (task 15):
+// `DriftReport.checkTimings` and `DriftReport.totalDurationMs`. Both are optional,
+// so a tolerant reader can ignore them and a v3 consumer degrades gracefully; a
+// strict reader must accept the new version. The v3 fields stay: v2 -> v3 added
+// the knip orphan-files adapter's `DriftFinding.provenance` and
+// `SkippedDriftCheck.code`.
+export const DRIFT_SCHEMA_VERSION = 4 as const;
 
 // Who authored the verdict behind an adapter finding (adapter contract §0/§6):
 // the target's own config, a tool's published default, or a drift:ai baseline.
@@ -72,6 +79,16 @@ export type DriftReportSummary = {
   readonly byCheck: Readonly<Partial<Record<DriftCheckId, number>>>;
 };
 
+// Wall-clock spent dispatching one check during a report build, recorded even for
+// a check that skipped so a skip's cheapness is visible. One entry per dispatched
+// check, in run order. `durationMs` is whole milliseconds. Evidence only: timing
+// never gates, sorts, or changes a finding's severity (task 15). The report's
+// `totalDurationMs` is the sum of every `checkTimings[].durationMs`.
+export type CheckTiming = {
+  readonly check: DriftCheckId;
+  readonly durationMs: number;
+};
+
 export type DriftReport = {
   readonly schemaVersion: typeof DRIFT_SCHEMA_VERSION;
   readonly scopeMode: ScopeMode;
@@ -82,6 +99,11 @@ export type DriftReport = {
   readonly enabledChecks: readonly DriftCheckId[];
   readonly skippedChecks: readonly SkippedDriftCheck[];
   readonly summary: DriftReportSummary;
+  // Per-check wall-clock evidence (task 15). Present on reports produced by
+  // `buildReport`; optional so consumers and fixtures that ignore timing need not
+  // supply it. `totalDurationMs` is the sum of `checkTimings[].durationMs`.
+  readonly checkTimings?: readonly CheckTiming[];
+  readonly totalDurationMs?: number;
   readonly findings: readonly DriftFinding[];
   readonly scopeCount: number;
   readonly scope: readonly ScopeFile[];

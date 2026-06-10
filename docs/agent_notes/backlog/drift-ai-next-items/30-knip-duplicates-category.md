@@ -1,6 +1,6 @@
 # 30 - knip duplicates category
 
-Status: Parked
+Status: Done
 Track: C
 Size: small-medium
 Depends on: none
@@ -54,3 +54,14 @@ added without building a new detector.
 - Reimplementing knip reachability.
 - Making knip checks default-on.
 - Solving knip runtime performance broadly.
+
+## Notes
+
+- Implemented as a separate opt-in `knip-duplicates` check so knip's duplicate
+  export aliases do not blur with the existing jscpd `duplicates` source-clone
+  check.
+- Added a knip 6.14.1 JSON fixture for the `duplicates` category, parser/check
+  tests, selected `--include` category tests, and README/operator docs.
+- `buildReport` now binds the check run context's `env.cli` to the `CliOptions`
+  it is executing so direct callers get the same selected-check service
+  resolution as the CLI path.

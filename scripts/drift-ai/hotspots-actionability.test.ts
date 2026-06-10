@@ -300,6 +300,7 @@ function churnEntry(path: string, score: number): ChurnSection["entries"][number
     score,
     authors: [],
     recentSubjects: [],
+    commitIntent: [],
     inspectCommand: `git log --oneline -- ${path}`,
     baseline: null,
   };
@@ -316,6 +317,7 @@ function couplingEntry(a: string, b: string, score: number): CouplingSection["en
     crossBoundary: true,
     authors: [],
     recentSubjects: [],
+    commitIntent: [],
     inspectCommand: `git log --oneline -- ${a} ${b}`,
     baseline: null,
   };
@@ -332,6 +334,7 @@ function fragmentationEntry(path: string, score: number): FragmentationSection["
     score,
     authors: [],
     recentSubjects: [],
+    commitIntent: [],
     inspectCommand: `git log --oneline -- ${path}`,
     baseline: null,
   };
@@ -347,6 +350,7 @@ function suppressionChurnEntry(
     score,
     authors: [],
     recentSubjects: [],
+    commitIntent: [],
     inspectCommand: `git log --oneline -- ${path}`,
     baseline: null,
   };
@@ -366,6 +370,7 @@ function thrashEntry(path: string, score: number): ThrashSection["entries"][numb
     score,
     authors: [],
     recentSubjects: [],
+    commitIntent: [],
     inspectCommand: `git log --oneline -- ${path}`,
     baseline: null,
   };

@@ -1,0 +1,21 @@
+{
+  "version": "1",
+  "tool": "drift:ai",
+  "findings": [
+    {
+      "control": "drift-scope/current",
+      "severity": "info",
+      "why": "drift:ai did not run the suppressions check, so it neither passed nor failed: only available in changed scope",
+      "howToFix": "Resolve the skip cause (only available in changed scope) and re-run drift:ai if you need a suppressions result; an absent check is not a clean check.",
+      "repairKind": "manual"
+    }
+  ],
+  "summary": {
+    "blocking": 0,
+    "warning": 0,
+    "info": 1,
+    "byControl": {
+      "drift-scope/current": 1
+    }
+  }
+}

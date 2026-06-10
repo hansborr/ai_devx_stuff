@@ -1,6 +1,6 @@
 # 41 - MinHash/LSH advisory integration
 
-Status: Parked
+Status: Done
 Track: P
 Size: medium
 Depends on: 39, 40, 41a
@@ -59,3 +59,31 @@ integration), so this task stays focused on the in-tree engine.
 - Hosted embeddings on private code.
 - Making prototype clone findings part of default `--check all`.
 - Auto-fixing or deleting clone candidates.
+
+## Implementation notes (done 2026-06-04)
+
+Shipped `drift:ai clone-candidates` as a prototype advisory subcommand. It is not
+a `DriftCheckId`, is not in `--check all`, and renders through
+`prototype-advisory.ts` with `kind: "advisory"` and `lane: "prototype"`.
+
+What landed:
+
+- `scripts/drift-ai/clone-candidates-advisory.ts` builds and renders MinHash/LSH
+  candidate rows. It discloses function, shingle, and candidate-pair caps from
+  task 41a plus normal section display truncation.
+- `scripts/drift-ai/clone-candidates-command.ts` and
+  `scripts/drift-ai/clone-candidates-args.ts` wire the subcommand through the
+  current-scope/config prep path. It reuses the same function inventory and
+  ignore globs as `near-duplicates`, and inherits `checks.near-duplicates`
+  floors/thresholds unless flags override them.
+- `scripts/drift-ai/near-duplicates.ts` now exports
+  `compareNearDuplicateFunctions` for precise per-pair scoring. Advisory
+  `comparatorAgreed` means the existing `near-duplicates` engine selected the
+  same pair, not merely that the raw score crossed the threshold.
+- `scripts/drift-ai/README.md` documents the prototype subcommand.
+- `docs/agent_notes/finished_work/drift-ai-minhash-advisory-integration.md`
+  records the clone-corpus rendered advisory baseline.
+
+Verification:
+
+- `bash scripts/vitest.sh run --project=scripts scripts/drift-ai/clone-candidates-advisory.test.ts scripts/drift-ai.test.ts`

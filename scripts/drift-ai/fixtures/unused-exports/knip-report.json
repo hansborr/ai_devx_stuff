@@ -1,0 +1,19 @@
+{
+  "issues": [
+    {
+      "file": "src/math.ts",
+      "exports": [
+        { "name": "add", "line": 1, "col": 17, "pos": 16 },
+        { "name": "subtract", "line": 5, "col": 17, "pos": 70 }
+      ]
+    },
+    {
+      "file": "src/util.ts",
+      "exports": [{ "name": "formatName", "line": 2, "col": 17, "pos": 24 }]
+    },
+    {
+      "file": "src/ghost.ts",
+      "exports": [{ "name": "ghostHelper", "line": 3, "col": 1, "pos": 40 }]
+    }
+  ]
+}

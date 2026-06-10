@@ -1,9 +1,8 @@
 import {
-  HARNESS_DIAGNOSTICS_SCHEMA_VERSION,
+  buildHarnessDiagnostics,
   type HarnessDiagnostics,
   harnessDiagnosticsSchema,
   type HarnessFinding,
-  summarizeHarnessFindings,
 } from "../../packages/shared/src/schemas/harness-diagnostics.js";
 import {
   MAX_LINES_METRIC_GUIDANCE,
@@ -237,19 +236,7 @@ export function buildEnvelope(
     ...regressions.map((regression) => buildFinding(regression, ruleDocsById, ratchetsById)),
     ...improvements.map(buildImprovementFinding),
   ];
-  findings.sort((left, right) => {
-    const controlCompare = left.control.localeCompare(right.control);
-    if (controlCompare !== 0) return controlCompare;
-    const pathCompare = (left.path ?? "").localeCompare(right.path ?? "");
-    if (pathCompare !== 0) return pathCompare;
-    return (left.line ?? 0) - (right.line ?? 0);
-  });
-  return {
-    version: HARNESS_DIAGNOSTICS_SCHEMA_VERSION,
-    tool: "lint:ratchet",
-    findings,
-    summary: summarizeHarnessFindings(findings),
-  };
+  return buildHarnessDiagnostics("lint:ratchet", findings);
 }
 
 export function validateEnvelope(envelope: HarnessDiagnostics): void {

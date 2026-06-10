@@ -34,6 +34,7 @@ import {
   type ColdspotSection,
   type ColdspotThresholds,
 } from "./coldspots-format.js";
+import { buildCommitIntentOverlay } from "./commit-intent.js";
 import { aggregateAuthors, recentSubjects, shellQuoteArg } from "./hotspots-actionability.js";
 import type { CollectedHistory, CommitRecord } from "./hotspots-history.js";
 
@@ -158,6 +159,7 @@ function buildRow(context: BuildRowContext): ColdspotRow | null {
 
   const touches = (record: CommitRecord): boolean =>
     record.files.some((file) => file.path === path);
+  const subjects = recentSubjects(context.history.records, touches);
   return {
     path,
     ageDays,
@@ -166,7 +168,8 @@ function buildRow(context: BuildRowContext): ColdspotRow | null {
     amplifiers,
     score: amplifiers.length * 100000 + ageDays, // amplifier count dominates; age breaks ties.
     authors: aggregateAuthors(context.history.records, touches),
-    recentSubjects: recentSubjects(context.history.records, touches),
+    recentSubjects: subjects,
+    commitIntent: buildCommitIntentOverlay(subjects),
     inspectCommand: `git log --oneline -- ${shellQuoteArg(path)}`,
     baseline: null,
   };

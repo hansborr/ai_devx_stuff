@@ -6,6 +6,7 @@ import { runChangedGhostFilesCheck } from "./ghost-files-changed.js";
 import { runCurrentGhostFilesCheck } from "./ghost-files-current.js";
 import { DEFAULT_DEPENDENTS_HINT } from "./ghost-files-findings.js";
 import { DEFAULT_GHOST_FILE_ENTRY_POINT_STEMS, type GhostFileTuning } from "./ghost-files-match.js";
+import { DEFAULT_GHOST_FILE_ROLE_MARKER_TOKENS } from "./ghost-files-role-family.js";
 import { DEFAULT_GHOST_FILE_WEAK_TOKENS, SOURCE_LIKE_EXTS } from "./ghost-files-tokens.js";
 import type { DirectoryListing as RepoDirectoryListing } from "./repo-io.js";
 import type { DetectorScope } from "./scope.js";
@@ -22,6 +23,10 @@ export {
   type GhostFileMatch,
   type GhostFileMatchKind,
 } from "./ghost-files-match.js";
+export {
+  DEFAULT_GHOST_FILE_ROLE_MARKER_TOKENS,
+  isRoleSplitFamilyPair,
+} from "./ghost-files-role-family.js";
 export {
   DEFAULT_GHOST_FILE_WEAK_TOKENS,
   isExcludedSibling,
@@ -40,6 +45,10 @@ export type RunGhostFilesCheckOptions = {
   readonly dependentsHint?: string;
   readonly weakTokens?: ReadonlySet<string>;
   readonly entryPointStems?: ReadonlySet<string>;
+  // Current-scope only: weak tokens whose difference marks an intentional role
+  // split (a `foo-types.ts` companion, parallel `duplicate-*` detectors) rather
+  // than a ghost. Ignored in changed scope.
+  readonly roleMarkerTokens?: ReadonlySet<string>;
   readonly listDirectory?: DirectoryListing;
   readonly inventoryByDir?: ReadonlyMap<string, readonly string[]>;
 };
@@ -50,14 +59,15 @@ export function runGhostFilesCheck(options: RunGhostFilesCheckOptions): DriftFin
   const dependentsHint = options.dependentsHint ?? DEFAULT_DEPENDENTS_HINT;
   const tuning = ghostFileTuning(options);
   if (options.detectorScope.scopeMode === "current") {
-    return runCurrentGhostFilesCheck(
-      options.inventoryByDir,
+    return runCurrentGhostFilesCheck({
+      inventoryByDir: options.inventoryByDir,
       excludeGlobs,
       sourceExtensions,
       tuning,
-      options.currentAllowedPairs ?? [],
+      allowedPairs: options.currentAllowedPairs ?? [],
       dependentsHint,
-    );
+      roleMarkerTokens: options.roleMarkerTokens ?? new Set(DEFAULT_GHOST_FILE_ROLE_MARKER_TOKENS),
+    });
   }
   if (options.listDirectory === undefined) {
     throw new Error("runGhostFilesCheck requires listDirectory for changed scope.");

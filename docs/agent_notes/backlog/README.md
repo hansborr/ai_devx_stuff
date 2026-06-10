@@ -111,10 +111,18 @@ Do **not** read this folder at session start. Promote an item back into
   `drift:ai --scope current` report: current ghost-file tuning plus duplicate
   refactor candidates for token mutations, cursor lists, test contexts, token
   forms, selectable cards, sheet rows, codemods, and homebrew fields.
+- `drift-ai-ghost-files-agent-noun-pairs.md` — parked detector-tuning follow-up
+  from the 2026-06-05 field-run calibration: reviewed current-scope
+  `ghost-files` false positive for intentional `evaluation`/`evaluator` role
+  siblings.
 - `drift-ai-next-items/00-index.md` — post-ship drift:ai task pack created after
   rechecking the backlog against the live implementation. Use this for remaining
   diagnostics/fusion work, small drift:ai hardening/check additions, and
   prototype-only clone/dead-code/ownership ideas.
+- `semgrep-drift-sensor-research.md` /
+  `semgrep-drift-ai-implementation-plan.md` — research and implementation plan
+  for adding Semgrep as an opt-in `drift:ai` prototype advisory, with explicit
+  rule-source licensing gates for registry, AGPL, and unknown-license packs.
 - `storybook-component-catalog.md` — parked plan for a Storybook (or lighter)
   component catalog over the 13 `packages/client/src/components/ui/` primitives,
   wired to the Tailwind v4 theme, plus a foundations page mirroring `DESIGN.md`.

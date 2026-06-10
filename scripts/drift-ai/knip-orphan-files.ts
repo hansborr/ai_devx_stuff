@@ -51,9 +51,9 @@ export const KNIP_CONFIG_CANDIDATES: readonly string[] = [
 export const ORPHAN_FILES_REPAIR_HINT =
   "if the file is dead code, remove it; if it is an entry point or used dynamically (CLI, config, plugin), add it to the target's knip entry/ignore config so the signal stays clean.";
 
-// Check-agnostic on purpose: shared by both knip pass-through checks (orphan-files
-// and unused-exports), so it must not name a single one of them in the diagnostic
-// the user reads when they asked for the other.
+// Check-agnostic on purpose: shared by knip pass-through checks, so it must not
+// name a single one of them in the diagnostic the user reads when they asked for
+// another.
 const NO_CONFIG_REASON =
   "no target-authored knip config found (searched knip.json, knip.config.ts, config/knip.config.ts, and package.json#knip). This is the expected state on a repo that does not use knip — the knip pass-through checks are Tier-1 and need the target's own knip config. Pass --knip-config <path> to point at one.";
 
@@ -221,8 +221,8 @@ function filterOrphansToScope(
 // A single diagnostic for an attempted-and-failed run (adapter contract §4): knip
 // ran (or could not be spawned) and broke. Deliberately one finding, not one per
 // root (the jscpd mistake). No provenance — a failure is not an authored verdict.
-// `check` is parameterized so both knip-backed checks (orphan-files,
-// unused-exports) emit the diagnostic under their own id; defaults to orphan-files.
+// `check` is parameterized so knip-backed checks emit the diagnostic under their
+// own id; defaults to orphan-files.
 export function buildKnipDiagnosticFinding(
   file: string,
   message: string,

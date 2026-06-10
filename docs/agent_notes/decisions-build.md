@@ -6,25 +6,27 @@ when to add, entry template) and the index of domain files.
 
 ---
 
-## Soft AI-hook nudges must not hard-deny in Claude
+## Soft AI-hook nudges stay advisory in Claude
 
 Status: Active
 Domain: build
 
 ### Context
-Claude Code can cascade-cancel sibling Bash calls in the same parallel batch
-when one PreToolUse hook returns a denied/tool-error result. The recursive
-`grep` policy is advisory guidance ("use rg") rather than a dangerous command
-block, but returning it as a hard block made unrelated parallel work vanish
-behind generic cancellation messages.
+The recursive `grep` policy is advisory guidance ("use rg") rather than a
+dangerous command block. Claude should receive that guidance without treating
+the command like a hard safety denial.
+
+Older Claude Code releases had a parallel sibling-cancellation bug that made
+this distinction more urgent. That upstream bug was fixed in Claude Code
+2.1.161, and the repo-specific cancellation addendum/hook has been removed.
 
 ### Decision
 Keep policy classification agent-neutral in `scripts/ai-hooks/policy.sh` via
 `ai_policy_is_soft_guidance`. Claude's Bash adapter routes soft guidance through
 `ai_claude_result_command`, replacing the original command with successful
 stdout guidance. Dangerous policies keep using the shared hard-block shape.
-Codex's adapter intentionally keeps recursive `grep` as a hard block because it
-does not reproduce Claude's sibling-cancellation behavior.
+Codex's adapter currently keeps recursive `grep` as a hard block; changing that
+is a separate policy decision.
 
 ### Consequences
 - Only commands that should be replaced, not merely warned about, belong in the
@@ -35,80 +37,12 @@ does not reproduce Claude's sibling-cancellation behavior.
 - Dangerous commands must never be converted to allow+rewrite, because a dropped
   rewrite would allow the original risky command to run.
 
-### Known harness limitation (residual; not fixable here)
-The grep rewrite is a targeted workaround, not a fix for the underlying cause.
-Sibling cancellation is a Claude Code main-loop bug (cf. anthropics/claude-code
-#22264): when any parallel Bash call resolves as denied/errored, still-in-flight
-siblings in the same batch get cancelled and returned to the model as a generic
-`Cancelled: parallel tool call Bash(...) errored` with no reason. Only an
-upstream Claude Code fix resolves this; the grep rewrite just removes the single
-highest-frequency trigger (recursive `grep`, constantly co-batched with reads).
-
-What remains live, verified 2026-05-30/05-31 in this repo (CLI 2.1.158):
-- **Our other hard-block denies can still cancel siblings.** A batch with
-  `docker ps` / `psql postgres` blocked alongside slower `sleep` calls cancelled
-  a sibling. We deliberately do NOT extend the exit-0 rewrite to these — see the
-  dangerous-command consequence above.
-- **Raw command errors trigger it too**, independent of our hooks. The trigger
-  is NOT an exit-code threshold: any errored (non-zero) sibling can cascade, and
-  whether it does is a **dispatch-timing race** over still-queued *later-listed*
-  siblings — not a function of the exit code. A near-instant bare failure
-  (`exit N`, no output) cancels siblings not yet started; a failure that takes a
-  few ms longer (`cat`/`grep` on a missing path, emitting stderr) lets the later
-  siblings dispatch first and complete. The first-listed slow sibling always
-  survives (already running when the error resolves). `exit 0` is never
-  "errored" so it cannot trigger the marker. (This corrects the earlier "exit
-  0/1 normal; non-1 cancels" framing — exit 1 and exit 2 both cascaded *and*
-  didn't across different commands.)
-- **The cascade can cross a turn boundary** — an errored call in one turn was
-  observed cancelling a call issued in the next turn.
-- **Symptom to recognize:** surviving real output vanishes behind generic
-  cancellation lines, which reads like a broken/tampered/hostile shell. It is
-  not. Re-run the cancelled calls in isolation before concluding the environment
-  is broken. To avoid it, don't co-batch a known-blocked or likely-failing
-  command with slower siblings whose output you need.
-
-### In-repo mitigation (shipped 2026-05-31; Claude-only)
-Two complementary, low-risk nudges re-inject one calm, consistent pointer at the
-moment of alarm. Both reuse the same wording (`AI_CLAUDE_CANCEL_INOCULATION` in
-`scripts/ai-hooks/claude-guidance.sh`, a Claude-only file never sourced by shared
-code or `.codex/`):
-- **Phase 1 (inoculate the block reason).** `no-direct-db.sh` appends the suffix
-  to every hard-block reason via `ai_claude_cancel_inoculation`. The block reason
-  is the one message guaranteed to reach the model, so even when a block cascades
-  the model is told to attribute the `Cancelled: …` results to the block and
-  verify state sequentially before continuing. Soft grep guidance keeps the
-  rewrite-to-success path and gets no suffix. The shared `ai_emit_block` shape
-  Codex depends on is untouched (a test asserts Codex output is unchanged).
-- **Phase 2E (PostToolBatch injector).** `.claude/hooks/parallel-cancel-note.sh`
-  fires on `PostToolBatch` (verified to deliver `additionalContext` in the SAME
-  turn, immediately after the batch results). It detects a real cancelled sibling
-  and injects the pointer once per batch (one event per batch → natural de-dup;
-  kill switch `.no-parallel-cancel-note`). Detection is keyed to the recorded
-  marker SHAPE — `tool_response` whose absolute start (`\A`) is
-  `<tool_use_error>Cancelled: parallel tool call … errored` — NOT the bare phrase.
-  This deliberately excludes the false-positive vectors that bit the first cut:
-  commands that merely PRINT the phrase (several repo docs quote it verbatim) and
-  our own block reasons (the inoculation suffix quotes the phrase, but the wrapper
-  is not adjacent to "Cancelled"). 2E covers cascades from ANY trigger, which is
-  why the Phase-1 secondary block sites (`bun-run-quiet.sh`, `git-commit-quiet.sh`)
-  were intentionally NOT wrapped — they are rarely co-batched and 2E already
-  covers them. Residual: a Bash command whose stdout BEGINS with the exact wrapped
-  marker (e.g. cat-ing a transcript that starts with a recorded cancellation)
-  would still inject — contrived and harmless.
-
-Phase 3 (Stop-hook transcript scan) was NOT built: Phase 0 proved `PostToolBatch`
-fires with full sibling visibility and same-turn `additionalContext`, so 2E is a
-strictly better at-the-moment fix than a next-turn Stop backstop.
-
 ### References
 - `.claude/hooks/no-direct-db.sh`
-- `.claude/hooks/parallel-cancel-note.sh`
-- `scripts/ai-hooks/claude-guidance.sh`
 - `.codex/hooks/pre-tool-use.sh`
+- `scripts/ai-hooks/common.sh`
 - `scripts/ai-hooks/policy.sh`
-- `scripts/ai-hooks/test.sh`, `scripts/ai-hooks/test-parallel-cancel.sh`
-- anthropics/claude-code#22264 (sibling parallel-call cancellation)
+- `scripts/ai-hooks/test.sh`
 
 ---
 

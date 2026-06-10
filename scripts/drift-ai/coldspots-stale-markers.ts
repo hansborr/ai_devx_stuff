@@ -59,16 +59,25 @@ type FileScan = {
   readonly all: readonly StaleMarker[];
 };
 
+// Why a marker-bearing file's blame was skipped, so the disclosure can name the cause
+// and the count splits stay separate. `dirty` = uncommitted changes shown by status;
+// `hidden-index` = an assume-unchanged/skip-worktree flag (or an unverifiable probe)
+// that lets the worktree diverge from HEAD without showing in status.
+type BlameSkipReason = "dirty" | "hidden-index";
+
 type BuiltRow = {
   readonly row: StaleMarkerRow;
-  readonly skippedDirtyBlame: boolean;
+  readonly blameSkip: BlameSkipReason | null;
 };
 
 export function reduceStaleMarkers(options: ReduceStaleMarkersOptions): StaleMarkerSection {
   const ageThresholdDays = options.ageThresholdDays ?? DEFAULT_STALE_MARKER_AGE_THRESHOLD_DAYS;
   const scans = scanFiles(options.files, options.readFile);
   const builtRows = scans.map((scan) => buildRow(scan, options));
-  const dirtyMarkerFiles = builtRows.filter((built) => built.skippedDirtyBlame).length;
+  const dirtyMarkerFiles = builtRows.filter((built) => built.blameSkip === "dirty").length;
+  const hiddenIndexMarkerFiles = builtRows.filter(
+    (built) => built.blameSkip === "hidden-index",
+  ).length;
   const qualified = builtRows
     .map((built) => built.row)
     .filter((row) => qualifies(row, ageThresholdDays, options.agesAvailable))
@@ -84,11 +93,11 @@ export function reduceStaleMarkers(options: ReduceStaleMarkersOptions): StaleMar
     agesAvailable: options.agesAvailable,
     referenceDate: new Date(options.nowMs).toISOString().slice(0, 10),
     filesScanned: options.files.length,
-    degradations: degradations(options.agesAvailable, dirtyMarkerFiles),
+    degradations: degradations(options.agesAvailable, dirtyMarkerFiles, hiddenIndexMarkerFiles),
     totalQualified: qualified.length,
     emptyReason:
       entries.length === 0
-        ? emptyReason(scans.length, options.agesAvailable, dirtyMarkerFiles)
+        ? emptyReason(scans.length, options.agesAvailable, dirtyMarkerFiles, hiddenIndexMarkerFiles)
         : null,
     entries,
   };
@@ -112,8 +121,10 @@ function scanFiles(
 }
 
 function buildRow(scan: FileScan, options: ReduceStaleMarkersOptions): BuiltRow {
-  const skippedDirtyBlame = options.agesAvailable && markerFileDirty(options.git, scan.path);
-  const fileAgesAvailable = options.agesAvailable && !skippedDirtyBlame;
+  // Only probe blame safety when ages are even available (a blobless clone skips blame
+  // wholesale upstream), so the extra git calls stay gated behind marker-bearing files.
+  const blameSkip = options.agesAvailable ? blameSkipReason(options.git, scan.path) : null;
+  const fileAgesAvailable = options.agesAvailable && blameSkip === null;
   const blame = fileAgesAvailable
     ? blameLineIntroductions({ git: options.git, repoRoot: options.repoRoot, path: scan.path })
     : new Map<number, LineIntroduction>();
@@ -130,8 +141,19 @@ function buildRow(scan: FileScan, options: ReduceStaleMarkersOptions): BuiltRow 
       score: ageDays ?? 0,
       baseline: null,
     },
-    skippedDirtyBlame,
+    blameSkip,
   };
+}
+
+// A marker-bearing file is unsafe to blame against HEAD when its worktree can diverge
+// from HEAD. Ordinary uncommitted changes show in `git status`; git hidden-index flags
+// (assume-unchanged/skip-worktree) suppress that very status signal, so they need a
+// separate probe. Either way blame line numbers may no longer match HEAD. The dirty
+// check runs first because it is the common case and lets us skip the second probe.
+function blameSkipReason(git: GitRunner, path: string): BlameSkipReason | null {
+  if (markerFileDirty(git, path)) return "dirty";
+  if (markerFileHiddenIndex(git, path)) return "hidden-index";
+  return null;
 }
 
 function markerFileDirty(git: GitRunner, path: string): boolean {
@@ -142,6 +164,27 @@ function markerFileDirty(git: GitRunner, path: string): boolean {
     // rather than risk attributing a shifted marker line to an unrelated commit.
     return true;
   }
+}
+
+// `git ls-files -v` prints a one-char tag before each path: `S` flags skip-worktree,
+// and a lowercase tag flags assume-unchanged (it lowercases whatever the base tag would
+// be, e.g. `h`, `s`). Both let the worktree drift from HEAD without `git status` noticing,
+// so the blamed line numbers can no longer be trusted to match the working-tree markers.
+function markerFileHiddenIndex(git: GitRunner, path: string): boolean {
+  try {
+    const output = git(["ls-files", "-v", "--", path]);
+    return output.split("\n").some(isHiddenIndexTag);
+  } catch {
+    // Same conservative posture as the dirty check: a failed probe cannot prove the
+    // worktree matches HEAD, so treat the file as unsafe to blame.
+    return true;
+  }
+}
+
+function isHiddenIndexTag(line: string): boolean {
+  if (line.length < 2 || line[1] !== " ") return false;
+  const tag = line[0] ?? "";
+  return tag === "S" || (tag >= "a" && tag <= "z");
 }
 
 // The oldest marker is the one with the earliest introduction date. When ages are
@@ -235,7 +278,11 @@ function compareRows(left: StaleMarkerRow, right: StaleMarkerRow): number {
   return left.path.localeCompare(right.path, "en");
 }
 
-function degradations(agesAvailable: boolean, dirtyMarkerFiles: number): string[] {
+function degradations(
+  agesAvailable: boolean,
+  dirtyMarkerFiles: number,
+  hiddenIndexMarkerFiles: number,
+): string[] {
   const notes: string[] = [];
   if (!agesAvailable) {
     notes.push(
@@ -243,26 +290,48 @@ function degradations(agesAvailable: boolean, dirtyMarkerFiles: number): string[
     );
   }
   if (dirtyMarkerFiles > 0) {
-    const fileLabel =
-      dirtyMarkerFiles === 1 ? "1 marker-bearing file" : `${dirtyMarkerFiles} marker-bearing files`;
     notes.push(
-      `marker ages unavailable for ${fileLabel} with uncommitted changes; skipped git blame to avoid matching working-tree marker lines to HEAD.`,
+      `marker ages unavailable for ${markerFileLabel(dirtyMarkerFiles)} with uncommitted changes; skipped git blame to avoid matching working-tree marker lines to HEAD.`,
+    );
+  }
+  if (hiddenIndexMarkerFiles > 0) {
+    notes.push(
+      `marker ages unavailable for ${markerFileLabel(hiddenIndexMarkerFiles)} with git assume-unchanged/skip-worktree flags; skipped git blame because the working tree can diverge from HEAD without showing in git status.`,
     );
   }
   return notes;
+}
+
+function markerFileLabel(count: number): string {
+  return count === 1 ? "1 marker-bearing file" : `${count} marker-bearing files`;
 }
 
 function emptyReason(
   filesWithMarkers: number,
   agesAvailable: boolean,
   dirtyMarkerFiles: number,
+  hiddenIndexMarkerFiles: number,
 ): string {
   if (filesWithMarkers === 0) return "no stale markers found in the scanned files.";
   if (!agesAvailable) return "no stale markers this scan.";
-  if (dirtyMarkerFiles > 0) {
-    const fileLabel =
-      dirtyMarkerFiles === 1 ? "1 marker-bearing file" : `${dirtyMarkerFiles} marker-bearing files`;
-    return `no stale markers this scan (no clean marker file has a marker older than the age threshold; ${fileLabel} with uncommitted changes skipped blame).`;
+  const skipped = blameSkipClause(dirtyMarkerFiles, hiddenIndexMarkerFiles);
+  if (skipped !== null) {
+    return `no stale markers this scan (no clean marker file has a marker older than the age threshold; ${skipped}).`;
   }
   return "no stale markers this scan (no file has a marker older than the age threshold).";
+}
+
+// Joins the per-reason "N marker-bearing file(s) ... skipped blame" clauses for the
+// empty-reason line, or null when nothing was skipped.
+function blameSkipClause(dirtyMarkerFiles: number, hiddenIndexMarkerFiles: number): string | null {
+  const clauses: string[] = [];
+  if (dirtyMarkerFiles > 0) {
+    clauses.push(`${markerFileLabel(dirtyMarkerFiles)} with uncommitted changes skipped blame`);
+  }
+  if (hiddenIndexMarkerFiles > 0) {
+    clauses.push(
+      `${markerFileLabel(hiddenIndexMarkerFiles)} with assume-unchanged/skip-worktree flags skipped blame`,
+    );
+  }
+  return clauses.length === 0 ? null : clauses.join("; ");
 }

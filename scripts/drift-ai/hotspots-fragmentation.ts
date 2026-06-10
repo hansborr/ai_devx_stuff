@@ -2,6 +2,7 @@
 // window. Commit authors and Co-authored-by trailers both count; trailers are
 // how agent hands surface in squash-heavy workflows.
 
+import { buildCommitIntentOverlay } from "./commit-intent.js";
 import { aggregateAuthors, recentSubjects, shellQuoteArg } from "./hotspots-actionability.js";
 import type { FragmentationHotspot, FragmentationSection } from "./hotspots-format.js";
 import type { CollectedHistory, CommitRecord } from "./hotspots-history.js";
@@ -111,10 +112,12 @@ function withContext(
 ): FragmentationHotspot {
   const touches = (record: CommitRecord): boolean =>
     record.files.some((file) => file.path === candidate.path);
+  const subjects = recentSubjects(records, touches);
   return {
     ...candidate,
     authors: aggregateAuthors(records, touches),
-    recentSubjects: recentSubjects(records, touches),
+    recentSubjects: subjects,
+    commitIntent: buildCommitIntentOverlay(subjects),
     inspectCommand: `git log --oneline -- ${shellQuoteArg(candidate.path)}`,
     baseline: null,
   };

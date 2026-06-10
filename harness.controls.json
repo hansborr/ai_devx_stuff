@@ -549,6 +549,16 @@
       "source": "scripts/migration-safety-scan.sh",
       "invocation": "bun run db:migration-safety"
     },
+    {
+      "id": "sensor/harness-audit",
+      "kind": "sensor",
+      "category": "maintainability",
+      "principle": "Read-only fusion of HarnessDiagnostics envelope files (lint:ratchet, drift:ai, logs:audit) into one report grouped by tool, with totals and per-control counts; an artifact generator for scheduled or manual review, not an edit-loop gate — findings never gate, only unreadable or malformed envelopes exit non-zero.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/harness-audit.ts",
+      "invocation": "bun run harness:audit"
+    },
 
     {
       "id": "verify-wrapper/verify",
@@ -763,6 +773,16 @@
       "invocation": "bun run drift:ai hotspots"
     },
     {
+      "id": "drift-scope/coldspots",
+      "kind": "drift-scope",
+      "category": "maintainability",
+      "principle": "Report advisory git-history coldspots across coldspot and stale-marker lenses; areas to inspect, not defects.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/drift-ai/coldspots.ts",
+      "invocation": "bun run drift:ai coldspots"
+    },
+    {
       "id": "drift-scope/harness-freshness",
       "kind": "drift-scope",
       "category": "maintainability",
@@ -771,6 +791,16 @@
       "repairKind": "manual",
       "source": "scripts/drift-ai/harness-freshness.ts",
       "invocation": "bun run drift:ai harness-freshness"
+    },
+    {
+      "id": "drift-scope/config",
+      "kind": "drift-scope",
+      "category": "maintainability",
+      "principle": "Inspect the effective drift:ai config for the target repo: config source, repo root, roots, source extensions, and the default/implemented check sets; read-only and never rewrites a config file.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/drift-ai/config-inspect-command.ts",
+      "invocation": "bun run drift:ai config"
     },
     {
       "id": "drift-scope/e2e",
@@ -875,6 +905,46 @@
       "invocation": "bun run lint:config-sensors"
     },
     {
+      "id": "check/drift-ai-commented-out-code",
+      "kind": "check",
+      "category": "maintainability",
+      "principle": "Opt-in drift:ai comment-block sensor for likely tombstoned commented-out code; report-only and gated by configured minimum block length.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/drift-ai/commented-out-code-check.ts",
+      "invocation": "bun run drift:ai --check commented-out-code"
+    },
+    {
+      "id": "check/drift-ai-module-doc-paths",
+      "kind": "check",
+      "category": "maintainability",
+      "principle": "Opt-in drift:ai path-freshness check for backtick file references in MODULE.md and *-MODULE.md docs; resolves references under configured roots.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/drift-ai/module-doc-paths-check.ts",
+      "invocation": "bun run drift:ai --check module-doc-paths"
+    },
+    {
+      "id": "check/drift-ai-orphan-files",
+      "kind": "check",
+      "category": "maintainability",
+      "principle": "Opt-in drift:ai knip adapter for never-imported files; findings use the target's knip config and carry target-config provenance.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/drift-ai/knip-orphan-files-check.ts",
+      "invocation": "bun run drift:ai --check orphan-files"
+    },
+    {
+      "id": "check/drift-ai-knip-duplicates",
+      "kind": "check",
+      "category": "maintainability",
+      "principle": "Opt-in drift:ai knip adapter for duplicate export aliases; findings use the target's knip config and carry target-config provenance.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/drift-ai/knip-duplicates-check.ts",
+      "invocation": "bun run drift:ai --check knip-duplicates"
+    },
+    {
       "id": "check/drift-ai-import-cycles",
       "kind": "check",
       "category": "architecture-fitness",
@@ -883,6 +953,16 @@
       "repairKind": "manual",
       "source": "scripts/drift-ai/import-cycles-check.ts",
       "invocation": "bun run drift:ai --check import-cycles"
+    },
+    {
+      "id": "check/drift-ai-layer-direction",
+      "kind": "check",
+      "category": "architecture-fitness",
+      "principle": "Opt-in drift:ai server layer-direction check for reverse imports across configured layers; findings carry drift-baseline provenance.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/drift-ai/layer-direction-check.ts",
+      "invocation": "bun run drift:ai --check layer-direction"
     },
     {
       "id": "check/drift-ai-near-duplicates",
@@ -895,14 +975,54 @@
       "invocation": "bun run drift:ai --check near-duplicates"
     },
     {
-      "id": "check/drift-ai-orphan-files",
+      "id": "check/drift-ai-duplicate-types",
       "kind": "check",
       "category": "maintainability",
-      "principle": "Opt-in drift:ai knip adapter for never-imported files; findings use the target's knip config and carry target-config provenance.",
+      "principle": "Opt-in drift:ai structural duplicate check for identical interface or object type property bags across files; findings carry drift-baseline provenance.",
       "pairedGuide": "none",
       "repairKind": "manual",
-      "source": "scripts/drift-ai/knip-orphan-files-check.ts",
-      "invocation": "bun run drift:ai --check orphan-files"
+      "source": "scripts/drift-ai/duplicate-types-check.ts",
+      "invocation": "bun run drift:ai --check duplicate-types"
+    },
+    {
+      "id": "check/drift-ai-duplicate-schemas",
+      "kind": "check",
+      "category": "maintainability",
+      "principle": "Opt-in drift:ai structural duplicate check for z.object schemas with matching key sets across files; findings carry drift-baseline provenance.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/drift-ai/duplicate-schemas-check.ts",
+      "invocation": "bun run drift:ai --check duplicate-schemas"
+    },
+    {
+      "id": "check/drift-ai-duplicate-literals",
+      "kind": "check",
+      "category": "maintainability",
+      "principle": "Opt-in drift:ai structural duplicate check for repeated string or numeric literals across multiple files; findings carry drift-baseline provenance.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/drift-ai/duplicate-literals-check.ts",
+      "invocation": "bun run drift:ai --check duplicate-literals"
+    },
+    {
+      "id": "check/drift-ai-duplicate-constants",
+      "kind": "check",
+      "category": "maintainability",
+      "principle": "Opt-in drift:ai structural duplicate check for module-level constants initialized to the same literal value across files; findings carry drift-baseline provenance.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/drift-ai/duplicate-constants-check.ts",
+      "invocation": "bun run drift:ai --check duplicate-constants"
+    },
+    {
+      "id": "check/drift-ai-unused-exports",
+      "kind": "check",
+      "category": "maintainability",
+      "principle": "Opt-in drift:ai knip adapter for unused exported symbols, types, enum members, and namespace members; findings use the target's knip config and carry target-config provenance.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/drift-ai/knip-unused-exports-check.ts",
+      "invocation": "bun run drift:ai --check unused-exports"
     },
 
     {

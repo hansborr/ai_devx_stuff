@@ -87,6 +87,14 @@ export function buildNearDuplicatePair(
   return canonicalPair(left, right, similarity);
 }
 
+export function compareNearDuplicateFunctions(
+  left: NearDuplicateFunction,
+  right: NearDuplicateFunction,
+): NearDuplicatePair | null {
+  if (rangesOverlapInSameFile(left, right)) return null;
+  return canonicalPair(left, right, compareFunctionFingerprints(left, right));
+}
+
 export function buildNearDuplicateFindings(
   pairs: readonly NearDuplicatePair[],
   detectorScope: DetectorScope,

@@ -32,7 +32,7 @@ export type ResolveJscpdBinOptions = {
   // Subprocess cwd / target repo being scanned; its node_modules is the
   // secondary lookup. Defaults to process.cwd().
   readonly analyzedRepoRoot?: string;
-  // Explicit --jscpd-bin path; the lowest-precedence escape hatch.
+  // Explicit --jscpd-bin path; authoritative when supplied.
   readonly override?: string;
   // Directory this module lives in; overridable for tests. Production callers
   // leave it defaulted so the tools checkout is found regardless of cwd.
@@ -41,11 +41,12 @@ export type ResolveJscpdBinOptions = {
   readonly fileExists?: (candidate: string) => boolean;
 };
 
-// Resolve the jscpd executable. Precedence (first existing wins):
-//   1. the tools checkout (this script's own node_modules) — the PRIMARY path,
-//      so a pnpm/npm/yarn or entirely uninstalled target need not own jscpd;
-//   2. the target repo's node_modules (an already-installed target still works);
-//   3. an explicit --jscpd-bin override (escape hatch for odd / hoisted layouts).
+// Resolve the jscpd executable. Precedence:
+//   1. an explicit --jscpd-bin override — authoritative when supplied (a missing
+//      override is not-found, never silently replaced by a checkout bin);
+//   2. the tools checkout (this script's own node_modules) — the default PRIMARY
+//      path, so a pnpm/npm/yarn or entirely uninstalled target need not own jscpd;
+//   3. the target repo's node_modules (an already-installed target still works).
 // The tools-checkout bin is found by walking up from this module's directory to
 // the nearest `node_modules/.bin/jscpd`, rather than `import.meta.resolve("jscpd")`:
 // resolve() yields the package *entry* (build/index.js), and deriving the

@@ -48,6 +48,43 @@ describe("parseSubcommandArgs", () => {
     expect(base.format).toBe("json");
   });
 
+  it("dispatches subcommand-specific path options through non-empty path validation", () => {
+    const roots: string[] = [];
+    const spec = {
+      usage: "USAGE-TEXT",
+      pathValueOptions: { "--root": (value: string) => roots.push(value) },
+    } as const;
+
+    parseSubcommandArgs(["--root", "src"], spec);
+
+    expect(roots).toEqual(["src"]);
+    expect(() => parseSubcommandArgs(["--root="], spec)).toThrow(/--root requires a path/u);
+  });
+
+  it("dispatches subcommand-specific valueless flag options without consuming a value", () => {
+    const hits: string[] = [];
+    const spec = {
+      usage: "USAGE-TEXT",
+      flagOptions: { "--allow-live-registry": () => hits.push("registry") },
+      valueOptions: { "--lens": (value: string) => hits.push(value) },
+    } as const;
+
+    const base = parseSubcommandArgs(["--allow-live-registry", "--lens", "churn"], spec);
+
+    expect(hits).toEqual(["registry", "churn"]);
+    expect(base.format).toBe("text");
+  });
+
+  it("rejects a value attached to a valueless flag option", () => {
+    const spec = {
+      usage: "USAGE-TEXT",
+      flagOptions: { "--allow-live-registry": () => undefined },
+    } as const;
+    expect(() => parseSubcommandArgs(["--allow-live-registry=yes"], spec)).toThrow(
+      "--allow-live-registry does not accept a value.",
+    );
+  });
+
   it("rejects an invalid --format value", () => {
     expect(() => parseSubcommandArgs(["--format", "xml"], SPEC)).toThrow(DriftAiError);
   });

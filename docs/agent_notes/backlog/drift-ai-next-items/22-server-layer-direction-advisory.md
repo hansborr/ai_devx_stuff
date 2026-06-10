@@ -1,6 +1,6 @@
 # 22 - server layer-direction advisory
 
-Status: Parked
+Status: Done
 Track: A
 Size: medium
 Depends on: none
@@ -56,3 +56,17 @@ real runs prove the rule is low-noise.
 - General dependency-cycle detection.
 - Enforcing facades.
 - Making architecture direction a CI gate.
+
+## Done notes
+
+- Added opt-in `layer-direction` check using the existing resolved TypeScript
+  module graph.
+- Implemented the first two server-layer rules:
+  `utils -> services` and `services -> routers`.
+- Findings include source file, resolved target file, source/target layer,
+  type-only evidence, repair hint, and `[drift-baseline]` provenance.
+- Added a narrow allowlist for the current legitimate test edge
+  `packages/server/src/utils/character-mapping.test.ts ->
+  packages/server/src/services/character-create.ts`.
+- Covered legal direction, relative imports, aliases, type-only imports,
+  changed-scope filtering, allowlist behavior, and plugin skip/provenance wiring.

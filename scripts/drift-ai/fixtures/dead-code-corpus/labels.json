@@ -1,0 +1,127 @@
+{
+  "version": 1,
+  "description": "Labeled dead-code false-positive trap corpus for drift:ai prototype reachability, coverage, sibling naming, and class-construction experiments. Labels use the `<corpus-relative-path>#<symbolName>` form and describe calibration ground truth, not findings. `true-trap` means a symbol is live through a pattern static unused-export checks often miss; `candidate` means the symbol is intentionally ambiguous and downstream rows must preserve that nuance; `known-unused` is a contrast case that is expected to be safe to call unused.",
+  "labels": [
+    {
+      "id": "barrel/encounter-format.ts#formatEncounterSummary",
+      "path": "barrel/encounter-format.ts",
+      "symbol": "formatEncounterSummary",
+      "kind": "true-trap",
+      "reason": "barrel-reexport-transitivity",
+      "evidence": [
+        "barrel/index.ts#formatEncounterSummary",
+        "barrel/public-api.ts#formatEncounterSummary",
+        "barrel/consumer.ts"
+      ],
+      "note": "The implementation is used only through a two-hop barrel chain."
+    },
+    {
+      "id": "barrel/index.ts#formatEncounterSummary",
+      "path": "barrel/index.ts",
+      "symbol": "formatEncounterSummary",
+      "kind": "true-trap",
+      "reason": "barrel-reexport-transitivity",
+      "evidence": ["barrel/public-api.ts#formatEncounterSummary", "barrel/consumer.ts"],
+      "note": "Intermediate re-export in the same transitive barrel chain."
+    },
+    {
+      "id": "barrel/public-api.ts#formatEncounterSummary",
+      "path": "barrel/public-api.ts",
+      "symbol": "formatEncounterSummary",
+      "kind": "true-trap",
+      "reason": "barrel-reexport-transitivity",
+      "evidence": ["barrel/consumer.ts"],
+      "note": "Public barrel endpoint imported by the consumer."
+    },
+    {
+      "id": "dynamic/lazy-feature.ts#buildLazyEncounter",
+      "path": "dynamic/lazy-feature.ts",
+      "symbol": "buildLazyEncounter",
+      "kind": "true-trap",
+      "reason": "dynamic-import-only",
+      "evidence": ["dynamic/route-loader.ts#import(\"./lazy-feature\")"],
+      "note": "The symbol is reached only after a dynamic import and namespace property lookup."
+    },
+    {
+      "id": "test-only/factory.ts#makeScenarioFixture",
+      "path": "test-only/factory.ts",
+      "symbol": "makeScenarioFixture",
+      "kind": "candidate",
+      "reason": "test-only-usage",
+      "evidence": ["test-only/factory.test.ts"],
+      "note": "Production reachability may be absent, but the symbol is still test-reachable."
+    },
+    {
+      "id": "framework/routes/campaign-route.tsx#default",
+      "path": "framework/routes/campaign-route.tsx",
+      "symbol": "default",
+      "kind": "true-trap",
+      "reason": "framework-entrypoint-convention",
+      "evidence": ["framework/route-registry.ts#import(\"./routes/campaign-route\")"],
+      "note": "Route component is loaded by convention from the route module."
+    },
+    {
+      "id": "framework/routes/campaign-route.tsx#loader",
+      "path": "framework/routes/campaign-route.tsx",
+      "symbol": "loader",
+      "kind": "true-trap",
+      "reason": "framework-entrypoint-convention",
+      "evidence": ["framework/route-registry.ts#import(\"./routes/campaign-route\")"],
+      "note": "Framework-style route loader is consumed by the router runtime, not a direct import."
+    },
+    {
+      "id": "framework/routes/campaign-route.tsx#handle",
+      "path": "framework/routes/campaign-route.tsx",
+      "symbol": "handle",
+      "kind": "true-trap",
+      "reason": "framework-entrypoint-convention",
+      "evidence": ["framework/route-registry.ts#import(\"./routes/campaign-route\")"],
+      "note": "Framework-style route metadata is read from the loaded route module by convention."
+    },
+    {
+      "id": "reflection/actions.ts#revealSecretDoor",
+      "path": "reflection/actions.ts",
+      "symbol": "revealSecretDoor",
+      "kind": "true-trap",
+      "reason": "reflection-string-keyed-access",
+      "evidence": ["reflection/dispatcher.ts#dispatchByStringKey"],
+      "note": "The dispatcher reads the export through an import namespace and string key."
+    },
+    {
+      "id": "reflection/actions.ts#stabilizeDyingAlly",
+      "path": "reflection/actions.ts",
+      "symbol": "stabilizeDyingAlly",
+      "kind": "true-trap",
+      "reason": "reflection-string-keyed-access",
+      "evidence": ["reflection/dispatcher.ts#reflectedActionNames"],
+      "note": "The dispatcher registers the export in a string-keyed action table."
+    },
+    {
+      "id": "tombstones/obsolete-rules.ts#abandonedMoraleRule",
+      "path": "tombstones/obsolete-rules.ts",
+      "symbol": "abandonedMoraleRule",
+      "kind": "known-unused",
+      "reason": "tombstoned-unused",
+      "evidence": [],
+      "note": "Contrast case: no import, dynamic registration, framework convention, or reflective access."
+    },
+    {
+      "id": "tombstones/obsolete-rules.ts#LegacyInitiativeAdapter",
+      "path": "tombstones/obsolete-rules.ts",
+      "symbol": "LegacyInitiativeAdapter",
+      "kind": "known-unused",
+      "reason": "tombstoned-unused",
+      "evidence": [],
+      "note": "Contrast class for never-instantiated class experiments."
+    },
+    {
+      "id": "tombstones/obsolete-rules.ts#staleEncounterFlag",
+      "path": "tombstones/obsolete-rules.ts",
+      "symbol": "staleEncounterFlag",
+      "kind": "known-unused",
+      "reason": "tombstoned-unused",
+      "evidence": [],
+      "note": "Contrast constant for unused-export experiments."
+    }
+  ]
+}

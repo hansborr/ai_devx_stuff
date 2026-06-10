@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "sources": [
+    {
+      "kind": "local",
+      "config": "/abs/path/to/tools-checkout/.tools/semgrep/rules/example-semgrep-rules/rules.yml",
+      "license": "MIT",
+      "sourceUrl": "https://github.com/<org>/<permissive-rules-repo>",
+      "commit": "<commit-sha-of-the-rules-checkout>",
+      "sha256": "<sha256-of-the-rule-config-file>"
+    },
+    {
+      "kind": "registry-pack",
+      "pack": "p/default",
+      "operatorAcceptedLicense": true
+    }
+  ]
+}

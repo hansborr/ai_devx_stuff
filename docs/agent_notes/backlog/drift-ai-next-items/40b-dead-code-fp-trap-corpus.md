@@ -1,6 +1,6 @@
 # 40b - dead-code FP-trap corpus
 
-Status: Parked
+Status: Done
 Track: P
 Size: small-medium
 Depends on: none
@@ -53,3 +53,37 @@ reachability, sibling implementation naming, or class instantiation evidence.
 - Building a portable unused-export engine.
 - Running coverage.
 - Treating this corpus as sufficient promotion evidence by itself.
+
+## Implementation notes (done 2026-06-04)
+
+What landed:
+
+- `scripts/drift-ai/fixtures/dead-code-corpus/` with small synthetic TS/TSX
+  fixtures for barrel re-export transitivity, dynamic-import-only usage,
+  test-only usage, framework route module conventions, reflection/string-keyed
+  access, and known unused tombstones for contrast.
+- `fixtures/dead-code-corpus/labels.json` labels relevant
+  `<corpus-relative-path>#<symbolName>` refs as `true-trap`, `candidate`, or
+  `known-unused`, with a `reason`, evidence paths, and notes. The labels are
+  calibration ground truth, not drift findings.
+- `scripts/drift-ai/dead-code-corpus.ts` is the public helper surface; split
+  helpers in `dead-code-corpus-types.ts`, `dead-code-corpus-labels.ts`, and
+  `dead-code-corpus-symbols.ts` load labels, parse exported fixture symbols with
+  the TypeScript parser, validate that labeled symbols resolve, and provide a
+  file/symbol lookup for downstream evaluators.
+- `scripts/drift-ai/dead-code-corpus.test.ts` covers label parsing failures,
+  exported-symbol extraction, shipped-label validation, and downstream lookup for
+  at least one dynamic-import trap and one barrel trap.
+- `scripts/drift-ai/README.md` documents the corpus as prototype evaluation
+  infrastructure, and `docs/agent_notes/backlog/lint-followups/lint-coverage-map.md`
+  accounts for the new helper and excluded fixture surfaces.
+
+Validation:
+
+- `FORCE_VERIFY=1 bun run test -- scripts/drift-ai/dead-code-corpus.test.ts`
+- `bun run lint:ratchet`
+
+Follow-up for 42b, 47a/47, and 48a/48: use
+`findDeadCodeCorpusLabel()` / `validateDeadCodeCorpusLabels()` to preserve the
+trap/candidate/known-unused labels when prototype rows are compared against this
+corpus.
