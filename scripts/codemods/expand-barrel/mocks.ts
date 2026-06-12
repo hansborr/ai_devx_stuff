@@ -1,6 +1,12 @@
 import path from "node:path";
 
-import { Node, SyntaxKind, type CallExpression, type SourceFile } from "ts-morph";
+import {
+  type CallExpression,
+  type ExpressionStatement,
+  Node,
+  type SourceFile,
+  SyntaxKind,
+} from "ts-morph";
 
 import { CODEMOD_NAME } from "./constants.js";
 import { specifierMatchesContext } from "./paths.js";
@@ -73,14 +79,14 @@ function missingMockSources(
     .filter((directSource) => !existingMockKeys.has(mockKey(info.framework, directSource)));
 }
 
-function standaloneMockStatement(call: Node) {
+function standaloneMockStatement(call: Node): ExpressionStatement | undefined {
   const statement = call.getFirstAncestorByKind(SyntaxKind.ExpressionStatement);
   if (!statement || statement.getExpression().getStart() !== call.getStart()) return undefined;
   return statement;
 }
 
 function appendDirectMocks(
-  statement: NonNullable<ReturnType<typeof standaloneMockStatement>>,
+  statement: ExpressionStatement,
   info: MockCallInfo,
   directSources: readonly string[],
   existingMockKeys: Set<string>,

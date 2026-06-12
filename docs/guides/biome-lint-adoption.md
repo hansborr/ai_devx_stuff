@@ -110,7 +110,7 @@ baseline strategy.
 The portable system has three layers:
 
 - Guidance and machine-readable diagnostics:
-  `scripts/lint-rule-docs.ts`, `scripts/generate-lint-guidance.ts`,
+  `scripts/lib/lint-rule-docs.ts`, `scripts/generate-lint-guidance.ts`,
   `docs/generated/local-lint-rules.md`, `scripts/lint-agent.ts`,
   `scripts/lint-agent-changed.sh`, and
   `packages/shared/src/schemas/harness-diagnostics.ts`.
@@ -118,14 +118,14 @@ The portable system has three layers:
   `scripts/ai-hooks/common.sh`, the thin wrappers under `.codex/hooks/` and
   `.claude/hooks/`, and the corresponding `.codex/hooks.json` /
   `.claude/settings.json` entries.
-- Ratchet runtime: `scripts/lint-ratchet-config.ts`,
-  `scripts/lint-ratchet/modes.ts`, `scripts/lint-ratchet-baseline-compare.ts`,
+- Ratchet runtime: `scripts/lint-ratchet/lint-ratchet-config.ts`,
+  `scripts/lint-ratchet/modes.ts`, `scripts/lint-ratchet/lint-ratchet-baseline-compare.ts`,
   `scripts/lint-ratchet/current-collector.ts`,
   `scripts/lint-ratchet/diagnostics.ts`, and
   `lint-ratchet.baseline.json`.
 
 Adopters should also review `package.json` scripts, `.husky/pre-commit`, CI
-workflow steps, and `scripts/path-policy.ts`, because changed-file selection
+workflow steps, and `scripts/path-policy/path-policy.ts`, because changed-file selection
 and full-scan triggers are part of the user experience.
 
 ## Recommended Shape
@@ -188,7 +188,7 @@ pipeline:
 - `eslint-rules/*` rules carry `meta.docs`.
 - `eslint-rules/message-guidance.test.js` enforces concise diagnostic message
   shapes.
-- `scripts/lint-rule-docs.ts` validates `description`, `principle`,
+- `scripts/lib/lint-rule-docs.ts` validates `description`, `principle`,
   `category`, `pairedGuide`, `repairKind`, and optional `repairCommand`.
 - `scripts/generate-lint-guidance.ts` writes
   `docs/generated/local-lint-rules.md`.
@@ -319,7 +319,7 @@ The ESLint-specific pieces that need an adapter are:
 
 - `scripts/lint-ratchet/eslint-runner.ts`
 - `scripts/lint-ratchet/eslint-config.ts`
-- the `source.kind` union in `scripts/lint-ratchet-config.ts`
+- the `source.kind` union in `scripts/lint-ratchet/lint-ratchet-config.ts`
 - rule-source hashing in `scripts/lint-ratchet/baseline-hash.ts`
 - package/local source identity in `scripts/lint-ratchet/rule-source.ts`
 - ESLint message filtering and metric extraction in

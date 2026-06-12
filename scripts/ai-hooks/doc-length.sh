@@ -9,6 +9,8 @@ REPO_ROOT=$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null || git re
 . "$SCRIPT_DIR/common.sh"
 # shellcheck source=/dev/null
 . "$REPO_ROOT/scripts/doc-length-policy.sh"
+# shellcheck source=/dev/null
+. "$SCRIPT_DIR/edited-paths.sh"
 
 ai_doc_length_rule() {
   musi_doc_length_set_rule "$1"
@@ -27,19 +29,36 @@ ai_doc_length_advisory() {
 }
 
 ai_doc_length_hook_main() {
-  local payload file surface advisory
+  local payload path abs surface advisory combined
+  local -A seen=()
 
   payload=$(ai_read_payload)
-  file=$(ai_payload_file_path "$payload")
-  [ -z "$file" ] && ai_emit_continue
+  path=""
+  combined=""
 
-  surface=$(ai_doc_length_rule_surface "$file" || true)
-  [ "$surface" = "edit" ] || ai_emit_continue
+  while IFS= read -r path; do
+    [ -n "$path" ] || continue
+    abs=$(ai_resolve_edited_payload_path "$payload" "$path" "$REPO_ROOT")
 
-  advisory=$(ai_doc_length_advisory "$file" || true)
-  if [ -n "$advisory" ]; then
-    ai_emit_additional_context "PostToolUse" "$advisory"
-  fi
+    if [ -n "${seen[$abs]+x}" ]; then
+      continue
+    fi
+    seen[$abs]=1
+
+    surface=$(ai_doc_length_rule_surface "$abs" || true)
+    [ "$surface" = "edit" ] || continue
+
+    advisory=$(ai_doc_length_advisory "$abs" || true)
+    if [ -n "$advisory" ]; then
+      if [ -n "$combined" ]; then
+        combined="${combined}"$'\n\n'"$advisory"
+      else
+        combined="$advisory"
+      fi
+    fi
+  done < <(ai_edited_payload_paths "$payload")
+
+  [ -n "$combined" ] && ai_emit_additional_context "PostToolUse" "$combined"
 
   ai_emit_continue
 }

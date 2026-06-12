@@ -11,7 +11,7 @@ import {
   RULE_DOC_CATEGORIES,
   type RuleDocCategory,
   type RuleDocsEntry,
-} from "./lint-rule-docs.js";
+} from "./lib/lint-rule-docs.js";
 
 const PROCESS_ARG_OFFSET = 2;
 

@@ -8,4 +8,5 @@ worktrees/
 .worktree-state/
 scripts/codemods/fixtures/
 scripts/drift-ai/fixtures/
-scripts/test-fixtures/lint-ratchet/
+scripts/fixtures/lint-ratchet/
+packages/server/src/generated/prisma/

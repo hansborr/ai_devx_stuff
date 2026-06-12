@@ -7,7 +7,7 @@ import vitestPlugin from "@vitest/eslint-plugin";
 import {
   eslintComments,
   eslintCommentsRules,
-  noMagicNumbersRule,
+  noMagicNumbersErrorRule,
   regexp,
   regexpRules,
 } from "./rule-groups.js";
@@ -30,7 +30,7 @@ export function createLocalRuleAuthoringConfigs(localPlugin) {
         "max-lines-per-function": ["error", { max: 200, skipBlankLines: true, skipComments: true }],
         "max-params": ["error", { max: 4 }],
         "no-nested-ternary": "error",
-        "no-magic-numbers": noMagicNumbersRule,
+        "no-magic-numbers": noMagicNumbersErrorRule,
 
         ...regexpRules,
 
@@ -52,40 +52,6 @@ export function createLocalRuleAuthoringConfigs(localPlugin) {
       },
     },
 
-    // Phase A.2 existing findings stay ratcheted until drained; keep the
-    // syntactic floor active everywhere else.
-    {
-      files: [
-        "eslint-rules/strict-trpc-input.js",
-        "eslint-rules/structured-logging.js",
-        "eslint-rules/type-assertion-boundary.js",
-      ],
-      rules: {
-        complexity: "off",
-      },
-    },
-
-    {
-      files: ["eslint-rules/type-assertion-boundary.js"],
-      rules: {
-        "no-magic-numbers": "off",
-      },
-    },
-
-    {
-      files: ["eslint-rules/no-barrel.js", "eslint-rules/structured-logging.js"],
-      rules: {
-        "regexp/no-unused-capturing-group": "off",
-      },
-    },
-
-    {
-      files: ["eslint-rules/no-llm-artifacts.js"],
-      rules: {
-        "regexp/no-useless-non-capturing-group": "off",
-      },
-    },
-
     {
       files: ["eslint-rules/*.js"],
       ignores: ["eslint-rules/*.test.js"],
@@ -102,22 +68,6 @@ export function createLocalRuleAuthoringConfigs(localPlugin) {
         "no-unused-vars": "error",
         "vitest/expect-expect": ["error", { assertFunctionNames: ["expect", "ruleTester.run"] }],
         "vitest/valid-expect": ["error", { maxArgs: 2 }],
-      },
-    },
-
-    // Phase B existing RuleTester harness findings stay ratcheted until drained;
-    // keep the vitest floor active everywhere else.
-    {
-      files: ["eslint-rules/message-guidance.test.js"],
-      rules: {
-        "vitest/no-conditional-expect": "off",
-      },
-    },
-
-    {
-      files: ["eslint-rules/test-file-location.test.js"],
-      rules: {
-        "vitest/no-commented-out-tests": "off",
       },
     },
   ];

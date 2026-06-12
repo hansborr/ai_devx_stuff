@@ -6,21 +6,27 @@
 //  - parity (rules): every local/* rule has a lint-rule manifest entry;
 //  - parity (scripts): every package.json script under the documented
 //    control-prefix conventions has a manifest entry (with an explicit
-//    EXEMPT_SCRIPTS escape for one-off operational utilities).
+//    EXEMPT_SCRIPTS escape for one-off operational utilities);
+//  - freshness: generated verify step data, AI hook wiring, and the generated
+//    harness-controls doc match harness.controls.json.
 //
 // Run via `bun run harness:check`. Exits non-zero on any failure with a
 // per-control diagnostic list so the harness gates surface drift loudly.
 
+import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import type { ControlFailures, RawControl } from "./harness-check-validation.js";
+import type {
+  ControlFailures,
+  ManifestCheckContext,
+  RawControl,
+} from "./harness/harness-check-validation.js";
 import {
   checkRatchetParity,
   checkRuleParity,
   checkScriptParity,
-  checkWrapperSlotParity,
   extractBunRunScript,
   formatFailures,
   isNonEmptyString,
@@ -30,8 +36,10 @@ import {
   validateNonLintEntry,
   validateRatchetEntry,
   validateSourceField,
-} from "./harness-check-validation.js";
-import { lintRatchets } from "./lint-ratchet-config.js";
+} from "./harness/harness-check-validation.js";
+import { lintRatchets } from "./lint-ratchet/lint-ratchet-config.js";
+
+const PROCESS_ARG_OFFSET = 2;
 
 const CONTROL_PREFIX_PATTERN =
   /^(sensor|verify|codemod|drift|logs|doctor|module|docs|db|worktree|harness|lint):/u;
@@ -57,6 +65,8 @@ const EXEMPT_SCRIPTS = new Set<string>([
   // entry; --check is the same generator behind a flag.
   "docs:lint-guidance:check",
   "docs:harness-controls:check",
+  "harness:wiring:check",
+  "verify:steps:check",
   // module-index --check variant — same generator, different mode.
   "module:index:check",
   // lint family: `lint:changed` is the changed-file variant of the
@@ -162,8 +172,137 @@ function loadManifest(): RawControl[] {
   return controls;
 }
 
+function checkGeneratedFreshness(
+  failures: Map<string, ControlFailures>,
+  outputId: string,
+  generatorPath: string,
+): void {
+  const result = spawnSync("bun", ["run", generatorPath, "--", "--check"], {
+    cwd: repoRoot,
+    encoding: "utf8",
+  });
+  if (result.error !== undefined) {
+    pushFailure(
+      failures,
+      outputId,
+      `failed to run ${generatorPath} --check: ${result.error.message}`,
+    );
+    return;
+  }
+  if (result.status === 0) return;
+
+  const output = [result.stdout.trim(), result.stderr.trim()].filter((text) => text.length > 0);
+  pushFailure(
+    failures,
+    outputId,
+    output.length > 0
+      ? output.join("\n")
+      : `${generatorPath} --check exited with status ${String(result.status)}`,
+  );
+}
+
+function checkGeneratedFreshnessOutputs(failures: Map<string, ControlFailures>): void {
+  checkGeneratedFreshness(
+    failures,
+    "scripts/verify/steps.generated.sh",
+    "scripts/harness/generate-verify-steps.ts",
+  );
+  checkGeneratedFreshness(
+    failures,
+    ".claude/settings.json + .codex/hooks.json",
+    "scripts/harness/generate-hook-wiring.ts",
+  );
+  checkGeneratedFreshness(
+    failures,
+    "docs/generated/harness-controls.md",
+    "scripts/harness/generate-harness-controls.ts",
+  );
+}
+
+function checkGeneratedHookWiringStructure(failures: Map<string, ControlFailures>): void {
+  const scriptPath = "scripts/ai-hooks/check-wiring.sh";
+  const result = spawnSync("bash", [scriptPath], {
+    cwd: repoRoot,
+    encoding: "utf8",
+  });
+  if (result.error !== undefined) {
+    pushFailure(
+      failures,
+      ".claude/settings.json + .codex/hooks.json",
+      `failed to run ${scriptPath}: ${result.error.message}`,
+    );
+    return;
+  }
+  if (result.status === 0) return;
+
+  const output = [result.stdout.trim(), result.stderr.trim()].filter((text) => text.length > 0);
+  pushFailure(
+    failures,
+    ".claude/settings.json + .codex/hooks.json",
+    output.length > 0
+      ? output.join("\n")
+      : `${scriptPath} exited with status ${String(result.status)}`,
+  );
+}
+
+interface DeclaredControlSets {
+  readonly scripts: Set<string>;
+  readonly rules: Set<string>;
+  readonly ratchets: Set<string>;
+}
+
+interface ManifestValidationState {
+  readonly context: ManifestCheckContext;
+  readonly ruleNames: ReadonlySet<string>;
+  readonly ratchetIds: ReadonlySet<string>;
+  readonly declared: DeclaredControlSets;
+}
+
+function recordInvocationScript(
+  raw: RawControl,
+  id: string,
+  declaredScripts: Set<string>,
+  context: ManifestCheckContext,
+): void {
+  if (!isNonEmptyString(raw.invocation)) return;
+  const scriptName = extractBunRunScript(raw.invocation);
+  if (scriptName === undefined) return;
+  if (!context.scripts.has(scriptName)) {
+    pushFailure(
+      context.failures,
+      id,
+      `invocation references unknown package.json script: ${scriptName}`,
+    );
+    return;
+  }
+  declaredScripts.add(scriptName);
+}
+
+function validateManifestControl(raw: RawControl, state: ManifestValidationState): void {
+  const { context, ruleNames, ratchetIds, declared } = state;
+  const shape = validateControlShape(raw, context.failures);
+  if (shape === undefined) return;
+  const { id, kind } = shape;
+  validateSourceField(context.repoRoot, id, raw.source, context.failures);
+
+  if (kind === "lint-rule") {
+    const lintEntry = validateLintRuleEntry(raw, id, ruleNames, context.failures);
+    if (lintEntry !== undefined) declared.rules.add(lintEntry.ruleName);
+    if (!isNonEmptyString(raw.invocation)) {
+      pushFailure(context.failures, id, "invocation must be a non-empty string");
+    }
+  } else if (kind === "ratchet") {
+    validateRatchetEntry(raw, id, ratchetIds, context);
+    if (ratchetIds.has(id)) declared.ratchets.add(id);
+  } else {
+    validateNonLintEntry(raw, id, context);
+  }
+
+  recordInvocationScript(raw, id, declared.scripts, context);
+}
+
 async function main(): Promise<void> {
-  const args = process.argv.slice(2).filter((arg) => arg !== "--");
+  const args = process.argv.slice(PROCESS_ARG_OFFSET).filter((arg) => arg !== "--");
   if (args.length > 0) {
     console.error(`harness:check: unknown argument(s): ${args.join(", ")}`);
     process.exitCode = 2;
@@ -172,52 +311,24 @@ async function main(): Promise<void> {
 
   const controls = loadManifest();
   const ruleNames = await loadLocalRuleNames();
-  const scripts = loadPackageScripts();
   const failures = new Map<string, ControlFailures>();
-  const declaredScripts = new Set<string>();
-  const declaredRules = new Set<string>();
-  const declaredRatchets = new Set<string>();
+  const context: ManifestCheckContext = { repoRoot, scripts: loadPackageScripts(), failures };
+  const declared: DeclaredControlSets = {
+    scripts: new Set<string>(),
+    rules: new Set<string>(),
+    ratchets: new Set<string>(),
+  };
   const ratchetIds = new Set<string>(lintRatchets.map((ratchet) => ratchet.id));
 
   for (const raw of controls) {
-    const shape = validateControlShape(raw, failures);
-    if (shape === undefined) continue;
-    const { id, kind } = shape;
-    validateSourceField(repoRoot, id, raw.source, failures);
-
-    if (kind === "lint-rule") {
-      const lintEntry = validateLintRuleEntry(raw, id, ruleNames, failures);
-      if (lintEntry !== undefined) declaredRules.add(lintEntry.ruleName);
-      if (!isNonEmptyString(raw.invocation)) {
-        pushFailure(failures, id, "invocation must be a non-empty string");
-      }
-    } else if (kind === "ratchet") {
-      validateRatchetEntry(repoRoot, raw, id, ratchetIds, scripts, failures);
-      if (ratchetIds.has(id)) declaredRatchets.add(id);
-    } else {
-      validateNonLintEntry(repoRoot, raw, id, scripts, failures);
-    }
-
-    if (isNonEmptyString(raw.invocation)) {
-      const scriptName = extractBunRunScript(raw.invocation);
-      if (scriptName !== undefined) {
-        if (!scripts.has(scriptName)) {
-          pushFailure(
-            failures,
-            id,
-            `invocation references unknown package.json script: ${scriptName}`,
-          );
-        } else {
-          declaredScripts.add(scriptName);
-        }
-      }
-    }
+    validateManifestControl(raw, { context, ruleNames, ratchetIds, declared });
   }
 
-  checkRuleParity(ruleNames, declaredRules, failures);
-  checkRatchetParity(ratchetIds, declaredRatchets, failures);
-  checkWrapperSlotParity(repoRoot, controls, scripts, declaredScripts, failures);
-  checkScriptParity(CONTROL_PREFIX_PATTERN, EXEMPT_SCRIPTS, scripts, declaredScripts, failures);
+  checkRuleParity(ruleNames, declared.rules, failures);
+  checkRatchetParity(ratchetIds, declared.ratchets, failures);
+  checkGeneratedFreshnessOutputs(failures);
+  checkGeneratedHookWiringStructure(failures);
+  checkScriptParity(CONTROL_PREFIX_PATTERN, EXEMPT_SCRIPTS, declared.scripts, context);
 
   if (failures.size > 0) {
     console.error(formatFailures(failures));
@@ -225,7 +336,7 @@ async function main(): Promise<void> {
     return;
   }
   console.log(
-    `harness:check OK — ${String(controls.length)} control(s) validated; ${String(declaredRules.size)} lint rule(s); ${String(declaredRatchets.size)} ratchet(s); ${String(declaredScripts.size)} package.json script(s) declared.`,
+    `harness:check OK — ${String(controls.length)} control(s) validated; ${String(declared.rules.size)} lint rule(s); ${String(declared.ratchets.size)} ratchet(s); ${String(declared.scripts.size)} package.json script(s) declared.`,
   );
 }
 

@@ -3,8 +3,8 @@
 set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-# shellcheck source=../test-git-env.sh
-. "$SCRIPT_DIR/../test-git-env.sh"
+# shellcheck source=../tests/lib/test-git-env.sh
+. "$SCRIPT_DIR/../tests/lib/test-git-env.sh"
 musi_clear_inherited_git_hook_env
 musi_exit_after_git_hook_env_assertion_if_requested
 REPO_ROOT=$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel)
@@ -31,10 +31,25 @@ AI_GIT_STATE_DIR="$AI_STATE_ROOT/git"
 mkdir -p "$AI_GIT_STATE_DIR" "$AI_PRECOMMIT_LOG_DIR"
 
 NO_DIRECT_DB="$REPO_ROOT/.claude/hooks/no-direct-db.sh"
+NO_DIRECT_DB_BODY="$REPO_ROOT/scripts/ai-hooks/no-direct-db.sh"
 CODEX_PRE="$REPO_ROOT/.codex/hooks/pre-tool-use.sh"
 
 # shellcheck source=test-support.sh
 . "$SCRIPT_DIR/test-support.sh"
+
+bash "$SCRIPT_DIR/check-wiring.sh" >/dev/null
+
+NESTED_REPO="$TMP_ROOT/nested-repo"
+mkdir -p "$NESTED_REPO"
+git -C "$NESTED_REPO" init -q
+if ! NESTED_SHIM_OUTPUT=$(
+  cd "$NESTED_REPO"
+  printf '{"tool_input":{"file_path":"notes.txt"}}' \
+    | CLAUDE_PROJECT_DIR="$REPO_ROOT" bash "$REPO_ROOT/.claude/hooks/doc-length.sh"
+); then
+  fail "Claude shim failed when launched from nested git repo cwd"
+fi
+assert_hook_continue_json "$NESTED_SHIM_OUTPUT"
 
 assert_policy_blocks() {
   local cmd="$1"
@@ -418,6 +433,10 @@ claude_policy_out() {
   printf '%s' "$(jq -n --arg c "$1" '{tool_input:{command:$c}}')" | bash "$NO_DIRECT_DB"
 }
 
+no_direct_db_body_out() {
+  printf '%s' "$(jq -n --arg c "$1" '{tool_input:{command:$c}}')" | bash "$NO_DIRECT_DB_BODY"
+}
+
 assert_claude_soft_grep_guidance() {
   local out rewritten stdout
 
@@ -475,6 +494,19 @@ assert_codex_hard_block_unchanged() {
   [ "$reason" = "$expected" ] || fail "Codex block reason must be unchanged for [$cmd]: $out"
 }
 
+assert_no_direct_db_body_self_contained() {
+  local out
+
+  out=$(no_direct_db_body_out "docker ps")
+  assert_hook_json "$out"
+  [ "$(jq -r '.decision' <<< "$out")" = "block" ] || fail "body should block docker ps: $out"
+  [ "$(jq -r '.reason' <<< "$out")" = "$AI_POLICY_DOCKER" ] || fail "body block reason mismatch: $out"
+
+  out=$(no_direct_db_body_out "rg needle")
+  assert_hook_continue_json "$out"
+}
+
+assert_no_direct_db_body_self_contained
 assert_claude_soft_grep_guidance
 assert_claude_hard_block "docker ps" "$AI_POLICY_DOCKER"
 assert_claude_hard_block "docker ps; grep -r TODO ." "$AI_POLICY_DOCKER"
@@ -544,6 +576,12 @@ if ai_doc_length_advisory_for_count "$SHORT_DOC" 1 >/dev/null; then
   fail "unexpected doc-length count advisory for short doc"
 fi
 
+# --- Codex apply_patch wiring -------------------------------------------------
+# Extracted to a focused script so this adapter family can also run on its own
+# (`bash scripts/ai-hooks/test-codex-wiring.sh`). Stdout is discarded so the
+# aggregate keeps its single "ai-hooks tests passed" success line; any failure
+# still exits non-zero and prints its FAIL reason on stderr.
+bash "$SCRIPT_DIR/test-codex-wiring.sh" >/dev/null
 # --- tidy-edited-file hook ---------------------------------------------------
 # Extracted to a focused script so this behavior family can also run on its own
 # (`bash scripts/ai-hooks/test-tidy.sh`). Stdout is discarded so the
@@ -576,6 +614,32 @@ OUTSIDE_HOOK_OUTPUT=$(
 )
 [ "$OUTSIDE_HOOK_OUTPUT" = '{"continue":true}' ] || fail "Claude prisma hook failed outside repo cwd"
 
+PRISMA_STATE_ROOT="$TMP_ROOT/prisma-state-root"
+PRISMA_STATE_DIR="$TMP_ROOT/prisma-state-dir"
+PRISMA_FAKE_BIN="$TMP_ROOT/prisma-fake-bin"
+mkdir -p "$PRISMA_STATE_DIR" "$PRISMA_FAKE_BIN"
+{
+  printf '#!/bin/bash\n'
+  printf 'printf "unexpected prisma generate invocation\\n" >&2\n'
+  printf 'exit 99\n'
+} > "$PRISMA_FAKE_BIN/bun"
+chmod +x "$PRISMA_FAKE_BIN/bun"
+{
+  printf 'LAST_TS=%s\n' "$(date +%s)"
+  printf 'LAST_HASH=%s\n' "$(sha256sum "$REPO_ROOT/packages/server/prisma/schema.prisma" | awk '{print $1}')"
+} > "$PRISMA_STATE_DIR/last"
+PRISMA_DEBOUNCE_OUTPUT=$(
+  jq -n --arg path "$REPO_ROOT/packages/server/prisma/schema.prisma" '{tool_input:{file_path:$path}}' \
+    | AI_STATE_ROOT="$PRISMA_STATE_ROOT" \
+      AI_PRISMA_STATE_DIR="$PRISMA_STATE_DIR" \
+      CLAUDE_PROJECT_DIR="$REPO_ROOT" \
+      PATH="$PRISMA_FAKE_BIN:$PATH" \
+      bash "$REPO_ROOT/.claude/hooks/prisma-generate.sh"
+)
+assert_hook_continue_json "$PRISMA_DEBOUNCE_OUTPUT"
+[ ! -e "$PRISMA_STATE_DIR/generate.log" ] \
+  || fail "debounced prisma hook should not write a generate log"
+
 assert_wrapped_bun "bun run lint"
 assert_wrapped_bun "bun run lint:changed"
 assert_wrapped_bun "bun run typecheck"
@@ -603,6 +667,21 @@ assert_unwrapped_bun "bun run verify:async:changed"
 assert_unwrapped_bun "bun run verify:async:slow"
 
 BUN_HOOK="$REPO_ROOT/.claude/hooks/bun-run-quiet.sh"
+BUN_HOOK_BODY="$REPO_ROOT/scripts/ai-hooks/bun-run-quiet.sh"
+BUN_BODY_BG_OUT=$(
+  cd /tmp
+  printf '{"tool_input":{"command":"bun run verify:changed","run_in_background":true}}' \
+    | bash "$BUN_HOOK_BODY"
+)
+assert_contains "$BUN_BODY_BG_OUT" '"decision": "block"'
+assert_contains "$BUN_BODY_BG_OUT" 'must run in the foreground'
+BUN_BODY_PASS_OUT=$(
+  cd /tmp
+  printf '{"tool_input":{"command":"bun run dev"}}' \
+    | bash "$BUN_HOOK_BODY"
+)
+[ "$BUN_BODY_PASS_OUT" = '{"continue":true}' ] || fail "bun body passthrough failed: $BUN_BODY_PASS_OUT"
+
 BUN_HOOK_LOCK="$TMP_ROOT/bun-hook-lock"
 (
   exec 8<>"$BUN_HOOK_LOCK"
@@ -796,6 +875,17 @@ assert_codex_git_commit_signal_guidance() {
   assert_not_contains "$reason" "Monitor"
 }
 
+assert_git_commit_quiet_body_non_commit_passthrough() {
+  local hook_out
+
+  hook_out=$(
+    printf '{"tool_input":{"command":"echo hi"}}' \
+      | bash "$REPO_ROOT/scripts/ai-hooks/git-commit-quiet.sh"
+  )
+
+  assert_hook_continue_json "$hook_out"
+}
+
 assert_claude_git_commit_timeout_guidance() {
   local marker="54321"
   local hook_out reason pid args
@@ -826,6 +916,7 @@ assert_commit_timeout_status_waits_for_landing_commit
 assert_commit_timeout_status_retries_when_still_running
 assert_codex_git_commit_unknown_guidance
 assert_codex_git_commit_signal_guidance
+assert_git_commit_quiet_body_non_commit_passthrough
 assert_claude_git_commit_timeout_guidance
 
 # --- stop-policy hook ---------------------------------------------------------
@@ -856,11 +947,11 @@ test:scripts: FAILED — passed: test-verify failed: test-verify-logs
 EOF
 SCRIPT_FAILURE_EXCERPT=$(ai_filtered_task_log_excerpt scripts "$SCRIPT_FAILURE_LOG" 30)
 assert_contains "$SCRIPT_FAILURE_EXCERPT" "scripts failed: test-verify-logs"
-assert_contains "$SCRIPT_FAILURE_EXCERPT" "command: bash scripts/test-verify-logs.sh"
+assert_contains "$SCRIPT_FAILURE_EXCERPT" "command: bash scripts/tests/test-verify-logs.sh"
 assert_contains "$SCRIPT_FAILURE_EXCERPT" "test:scripts: test-verify-logs FAILED"
 
 NON_SCRIPT_EXCERPT=$(ai_filtered_task_log_excerpt test "$SCRIPT_FAILURE_LOG" 30)
-if grep -qF "command: bash scripts/test-verify-logs.sh" <<< "$NON_SCRIPT_EXCERPT"; then
+if grep -qF "command: bash scripts/tests/test-verify-logs.sh" <<< "$NON_SCRIPT_EXCERPT"; then
   fail "non-scripts task excerpt should not include scripts command hint"
 fi
 
@@ -876,8 +967,8 @@ EOF
 MULTI_SCRIPT_EXCERPT=$(ai_filtered_task_log_excerpt scripts "$MULTI_SCRIPT_FAILURE_LOG" 30)
 assert_contains "$MULTI_SCRIPT_EXCERPT" "scripts failed: test-verify-logs"
 assert_contains "$MULTI_SCRIPT_EXCERPT" "scripts failed: test-other-thing"
-assert_contains "$MULTI_SCRIPT_EXCERPT" "command: bash scripts/test-verify-logs.sh"
-assert_contains "$MULTI_SCRIPT_EXCERPT" "command: bash scripts/test-other-thing.sh"
+assert_contains "$MULTI_SCRIPT_EXCERPT" "command: bash scripts/tests/test-verify-logs.sh"
+assert_contains "$MULTI_SCRIPT_EXCERPT" "command: bash scripts/tests/test-other-thing.sh"
 
 # ai_ratchet_failure_excerpt: render the state-aware report on a valid envelope,
 # and degrade to the raw log tail with a note when the envelope is absent (ran

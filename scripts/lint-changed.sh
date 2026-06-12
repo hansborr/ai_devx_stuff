@@ -5,12 +5,16 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=/dev/null
-. "$SCRIPT_DIR/verify-metadata.sh"
-# shellcheck source=scripts/parallel-runner.sh
-. "$SCRIPT_DIR/parallel-runner.sh"
+. "$SCRIPT_DIR/lib/verify-metadata.sh"
+# shellcheck source=scripts/lib/parallel-runner.sh
+. "$SCRIPT_DIR/lib/parallel-runner.sh"
+# shellcheck source=scripts/lib/changed-base.sh
+. "$SCRIPT_DIR/lib/changed-base.sh"
+# shellcheck source=scripts/lib/lint-dist-preflight.sh
+. "$SCRIPT_DIR/lib/lint-dist-preflight.sh"
 LINT_SHELL="$SCRIPT_DIR/lint-shell.sh"
 LINT_CONFIG_SENSORS="$SCRIPT_DIR/lint-config-sensors.sh"
-PATH_POLICY_QUERY="$SCRIPT_DIR/path-policy-query.ts"
+PATH_POLICY_QUERY="$SCRIPT_DIR/path-policy/path-policy-query.ts"
 
 BASE="${1:-main}"
 REPO_ROOT="$(git rev-parse --show-toplevel)"
@@ -25,18 +29,24 @@ path_policy_has_match() {
 }
 
 run_full_lint() {
+  musi_lint_dist_preflight "$REPO_ROOT"
+
   musi_parallel_init "musi-lint-changed"
   musi_parallel_install_traps
 
   musi_parallel_start "ShellCheck" "shell" bash "$LINT_SHELL"
   musi_parallel_start "config sensors" "config" bash "$LINT_CONFIG_SENSORS"
-  musi_parallel_start "ESLint" "eslint" eslint --cache --cache-location node_modules/.cache/eslint/ --max-warnings=0 .
+  musi_parallel_start "ESLint" "eslint" eslint --max-warnings=0 .
 
   musi_parallel_wait_all "lint:changed"
   exit "$MUSI_PARALLEL_EXIT"
 }
 
 run_changed_lint() {
+  if [ "${#FILES[@]}" -gt 0 ]; then
+    musi_lint_dist_preflight "$REPO_ROOT"
+  fi
+
   musi_parallel_init "musi-lint-changed"
   musi_parallel_install_traps
 
@@ -47,20 +57,20 @@ run_changed_lint() {
     echo "lint:changed: no staged/base changed lintable files vs $BASE — skipping lint."
   else
     echo "lint:changed: checking ${#FILES[@]} staged/base changed working-tree file(s) with eslint."
-    musi_parallel_start "ESLint" "eslint" eslint --cache --cache-location node_modules/.cache/eslint/ --max-warnings=0 --no-warn-ignored "${FILES[@]}"
+    musi_parallel_start "ESLint" "eslint" eslint --max-warnings=0 --no-warn-ignored "${FILES[@]}"
   fi
 
   musi_parallel_wait_all "lint:changed"
   exit "$MUSI_PARALLEL_EXIT"
 }
 
-# Resolve the base ref: prefer local, fall back to origin/<base>.
-if git rev-parse --verify "$BASE" >/dev/null 2>&1; then
-  :
-elif git rev-parse --verify "origin/$BASE" >/dev/null 2>&1; then
-  BASE="origin/$BASE"
+# Resolve the base ref and preflight the common ancestor the triple-dot
+# diff needs (see scripts/lib/changed-base.sh); on failure fall back to
+# the full scan.
+if musi_resolve_changed_base "$BASE"; then
+  BASE="$MUSI_CHANGED_BASE"
 else
-  echo "lint:changed: neither '$BASE' nor 'origin/$BASE' exists — checking full repo working tree with ShellCheck, config sensors, and eslint." >&2
+  echo "lint:changed: $MUSI_CHANGED_BASE_ERROR — checking full repo working tree with ShellCheck, config sensors, and eslint." >&2
   run_full_lint
 fi
 

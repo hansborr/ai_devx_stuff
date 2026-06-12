@@ -6,9 +6,9 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { parseArgs } from "./cli-args.js";
 import { DEFAULT_DRIFT_AI_CONFIG, parseDriftAiConfig } from "./config.js";
-import { extractConstantShapes } from "./duplicate-constants.js";
+import { type ConstantShapeExtra, extractConstantShapes } from "./duplicate-constants.js";
 import { duplicateConstantsCheck } from "./duplicate-constants-check.js";
-import { groupDuplicateShapes } from "./duplicate-shapes.js";
+import { groupDuplicateShapes, type ShapeEntry } from "./duplicate-shapes.js";
 import { buildSourceExtensions } from "./scope.js";
 
 const tempRoots: string[] = [];
@@ -30,7 +30,7 @@ function writeRepo(files: Record<string, string>): string {
   return root;
 }
 
-function shapesFrom(files: Record<string, string>) {
+function shapesFrom(files: Record<string, string>): ShapeEntry<ConstantShapeExtra>[] {
   return Object.entries(files).flatMap(([filePath, source]) =>
     extractConstantShapes(filePath, source, { minLength: 8, minNumberDigits: 3 }),
   );

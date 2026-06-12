@@ -19,13 +19,15 @@
 #
 # Debug: pass --print-files to print the file selection outcome (FULL_SCAN /
 # EMPTY / one file per line) instead of invoking lint:agent:local-rules.
-# Used by scripts/test-lint-agent-changed.sh.
+# Used by scripts/tests/test-lint-agent-changed.sh.
 set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CALLER_CWD="$PWD"
 cd "$(git rev-parse --show-toplevel)"
-PATH_POLICY_QUERY="$SCRIPT_DIR/path-policy-query.ts"
+# shellcheck source=scripts/lib/changed-base.sh
+. "$SCRIPT_DIR/lib/changed-base.sh"
+PATH_POLICY_QUERY="$SCRIPT_DIR/path-policy/path-policy-query.ts"
 COMMAND_LABEL="lint:agent:local-rules:changed"
 
 usage_error() {
@@ -123,34 +125,18 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
-# Resolve the base ref: prefer local, fall back to origin/<base>. If
-# neither exists (typical in a fresh CI clone with no main fetched), do
-# the conservative thing and run the full scan.
-if git rev-parse --verify "$BASE" >/dev/null 2>&1; then
-  :
-elif git rev-parse --verify "origin/$BASE" >/dev/null 2>&1; then
-  BASE="origin/$BASE"
+# Resolve the base ref and preflight the common ancestor the triple-dot
+# diff needs (see scripts/lib/changed-base.sh). Missing ref (typical in a
+# fresh CI clone with no main fetched) and missing merge base both take
+# the same conservative full scan.
+if musi_resolve_changed_base "$BASE"; then
+  BASE="$MUSI_CHANGED_BASE"
 else
   if [ "$PRINT_FILES" -eq 1 ]; then
     printf 'FULL_SCAN\n'
     exit 0
   fi
-  echo "$COMMAND_LABEL: neither '$BASE' nor 'origin/$BASE' exists — running full lint:agent:local-rules." >&2
-  exec bun "$SCRIPT_DIR/lint-agent.ts" "${LINT_AGENT_ARGS[@]}"
-fi
-
-# Even when both refs exist, `$BASE...HEAD` (triple-dot) requires a
-# common ancestor. Orphan branches and partially-fetched clones can have
-# both refs resolvable yet share no history; `git diff` would then fatal
-# inside the process substitution below, and `set -e` does NOT propagate
-# out of `<(...)`. Preflight here so the failure is loud and the fallback
-# is the same conservative full-scan the missing-ref branch uses.
-if ! git merge-base "$BASE" HEAD >/dev/null 2>&1; then
-  if [ "$PRINT_FILES" -eq 1 ]; then
-    printf 'FULL_SCAN\n'
-    exit 0
-  fi
-  echo "$COMMAND_LABEL: '$BASE' shares no history with HEAD — running full lint:agent:local-rules." >&2
+  echo "$COMMAND_LABEL: $MUSI_CHANGED_BASE_ERROR — running full lint:agent:local-rules." >&2
   exec bun "$SCRIPT_DIR/lint-agent.ts" "${LINT_AGENT_ARGS[@]}"
 fi
 

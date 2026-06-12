@@ -2,13 +2,13 @@
 // Report-only e2e selector drift sensor.
 //
 // Counts raw `.locator(` source-text usage under e2e/** and reports the
-// current legacy allowlist size for local/e2e-prefer-role-selectors.
+// current ratcheted debt-file count for local/e2e-prefer-role-selectors.
 
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { e2ePreferRoleSelectorAllowlist } from "../../eslint-config/shared-policy.js";
+import { e2ePreferRoleSelectorDebtFiles } from "../../eslint-config/shared-policy.js";
 
 export type LocatorUsageFile = {
   readonly path: string;
@@ -21,7 +21,7 @@ export type LocatorUsageReport = {
   readonly pattern: ".locator(";
   readonly totalLocatorCalls: number;
   readonly filesWithLocatorCalls: number;
-  readonly allowlistedFileCount: number;
+  readonly debtFileCount: number;
   readonly files: readonly LocatorUsageFile[];
 };
 
@@ -99,7 +99,7 @@ export function parseArgs(
 
 export function buildLocatorUsageReport(
   repoRoot: string,
-  allowlistedFileCount: number,
+  debtFileCount: number,
 ): LocatorUsageReport {
   const root = DEFAULT_ROOT;
   const files = discoverSourceFiles(path.join(repoRoot, root), root)
@@ -115,7 +115,7 @@ export function buildLocatorUsageReport(
     pattern: LOCATOR_PATTERN,
     totalLocatorCalls,
     filesWithLocatorCalls: files.length,
-    allowlistedFileCount,
+    debtFileCount,
     files,
   };
 }
@@ -155,7 +155,7 @@ export function formatText(report: LocatorUsageReport): string {
     `  root: ${report.root}/**`,
     `  raw .locator( calls: ${String(report.totalLocatorCalls)}`,
     `  files with raw .locator(: ${String(report.filesWithLocatorCalls)}`,
-    `  local/e2e-prefer-role-selectors allowlisted files: ${String(report.allowlistedFileCount)}`,
+    `  local/e2e-prefer-role-selectors ratcheted debt files: ${String(report.debtFileCount)}`,
   ];
   if (report.files.length === 0) {
     lines.push("OK: no raw .locator( calls found.");
@@ -176,8 +176,8 @@ export function runLocatorUsage(argv: readonly string[]): {
 } {
   try {
     const options = parseArgs(argv);
-    const allowlistedFileCount = loadAllowlistedFileCount();
-    const report = buildLocatorUsageReport(options.repoRoot, allowlistedFileCount);
+    const debtFileCount = loadDebtFileCount();
+    const report = buildLocatorUsageReport(options.repoRoot, debtFileCount);
     const stdout = options.format === "json" ? formatJson(report) : formatText(report);
     return { exitCode: 0, stdout };
   } catch (err) {
@@ -187,8 +187,8 @@ export function runLocatorUsage(argv: readonly string[]): {
   }
 }
 
-function loadAllowlistedFileCount(): number {
-  return e2ePreferRoleSelectorAllowlist.length;
+function loadDebtFileCount(): number {
+  return e2ePreferRoleSelectorDebtFiles.length;
 }
 
 function isDirectRun(): boolean {

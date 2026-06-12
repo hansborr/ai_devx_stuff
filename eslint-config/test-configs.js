@@ -4,8 +4,12 @@ import vitestPlugin from "@vitest/eslint-plugin";
 import playwright from "eslint-plugin-playwright";
 
 import {
-  e2ePreferRoleSelectorAllowlist,
+  codemodTestFiles,
+  e2eNoNthMethodsDebtFiles,
+  e2ePreferNativeLocatorDebtFiles,
+  e2ePreferRoleSelectorDebtFiles,
   nonE2eTestIgnores,
+  scriptTestAssertFunctionNames,
   unitTestFiles,
 } from "./shared-policy.js";
 
@@ -75,12 +79,9 @@ export function createTestAndE2eConfigs(repoRoot) {
           },
         ],
         "playwright/no-conditional-in-test": "error",
-        // Stage 4 adds the Musi-specific selector rule, so leave plugin selector rules quiet.
-        "playwright/no-raw-locators": "off",
-        "playwright/prefer-native-locators": "off",
+        "playwright/prefer-native-locators": "error",
         "local/e2e-prefer-role-selectors": "error",
-        // Existing page objects use first()/last() heavily; migrating selectors is Stage 4 scope.
-        "playwright/no-nth-methods": "off",
+        "playwright/no-nth-methods": "error",
       },
     },
 
@@ -92,10 +93,20 @@ export function createTestAndE2eConfigs(repoRoot) {
     },
 
     {
-      // Legacy allowlist for local/e2e-prefer-role-selectors - files migrate
-      // off this list opportunistically (Plan Step 3c).
-      files: e2ePreferRoleSelectorAllowlist,
+      // Existing selector debt is held by ratchet floors; clean e2e files keep
+      // the matching rule at error through the base e2e block above.
+      files: e2ePreferRoleSelectorDebtFiles,
       rules: { "local/e2e-prefer-role-selectors": "off" },
+    },
+
+    {
+      files: e2eNoNthMethodsDebtFiles,
+      rules: { "playwright/no-nth-methods": "off" },
+    },
+
+    {
+      files: e2ePreferNativeLocatorDebtFiles,
+      rules: { "playwright/prefer-native-locators": "off" },
     },
   ];
 }
@@ -130,15 +141,7 @@ export const unitTestConfigs = [
       "vitest/expect-expect": [
         "error",
         {
-          assertFunctionNames: [
-            "expect",
-            "assertNonPermissiveOutput",
-            "expectClean",
-            "expectHit",
-            "expectOneFulfilledOneConflict",
-            "expectParseFailure",
-            "expectParseSuccess",
-          ],
+          assertFunctionNames: scriptTestAssertFunctionNames,
         },
       ],
       "vitest/no-commented-out-tests": "error",
@@ -159,6 +162,18 @@ export const unitTestConfigs = [
       "vitest/valid-expect": ["error", { maxArgs: 2 }],
       "vitest/valid-expect-in-promise": "error",
       "vitest/valid-title": "error",
+    },
+  },
+
+  {
+    files: codemodTestFiles,
+    rules: {
+      "vitest/expect-expect": [
+        "error",
+        {
+          assertFunctionNames: [...scriptTestAssertFunctionNames, "runFixture"],
+        },
+      ],
     },
   },
 ];

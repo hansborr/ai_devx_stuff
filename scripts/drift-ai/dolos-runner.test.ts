@@ -9,6 +9,7 @@ import type { DolosReportFiles } from "./dolos-output.js";
 import {
   DEFAULT_DOLOS_TIMEOUT_MS,
   defaultDolosRunner,
+  type DolosRunnerInput,
   type DolosSpawn,
   type DolosSpawnResult,
 } from "./dolos-runner.js";
@@ -74,7 +75,7 @@ function successfulRun(): DolosSpawnResult {
   return { status: 0, stdout: "Completed\n", stderr: "", signal: null };
 }
 
-function runInput(repoRoot: string) {
+function runInput(repoRoot: string): DolosRunnerInput {
   return {
     repoRoot,
     roots: ["src"],

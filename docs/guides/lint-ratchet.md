@@ -20,20 +20,25 @@ runtime set first:
 
 - `scripts/lint-ratchet.ts`
 - `scripts/lint-ratchet/`
-- `scripts/lint-ratchet-baseline.ts`
-- `scripts/lint-ratchet-baseline-compare.ts`
-- `scripts/lint-ratchet-baseline-parse.ts`
-- `scripts/lint-ratchet-check-registry.ts`
-- `scripts/lint-ratchet-config.ts`
-- `scripts/lint-ratchet-metrics.ts`
-- `scripts/lint-ratchet-output.ts`
-- `scripts/lint-ratchet-report.ts`
-- `scripts/lint-ratchet-debt-log.ts`
-- `scripts/lint-ratchet-summary.ts`
-- `scripts/lint-ratchet-zero-baseline.ts`
-- `scripts/lint-rule-docs.ts`, or a same-export stub when you are not using
+- `scripts/lint-ratchet/lint-ratchet-baseline.ts`
+- `scripts/lint-ratchet/lint-ratchet-baseline-compare.ts`
+- `scripts/lint-ratchet/lint-ratchet-baseline-parse.ts`
+- `scripts/lint-ratchet/lint-ratchet-check-registry.ts`
+- `scripts/lint-ratchet/lint-ratchet-config.ts`
+- `scripts/lint-ratchet/lint-ratchet-metrics.ts`
+- `scripts/lint-ratchet/lint-ratchet-metrics-complexity.ts`
+- `scripts/lint-ratchet/lint-ratchet-metrics-format.ts`
+- `scripts/lint-ratchet/lint-ratchet-metrics-parse.ts`
+- `scripts/lint-ratchet/lint-ratchet-metrics-types.ts`
+- `scripts/lint-ratchet/lint-ratchet-metrics-validation.ts`
+- `scripts/lint-ratchet/lint-ratchet-output.ts`
+- `scripts/lint-ratchet/lint-ratchet-report.ts`
+- `scripts/lint-ratchet/lint-ratchet-debt-log.ts`
+- `scripts/lint-ratchet/lint-ratchet-summary.ts`
+- `scripts/lint-ratchet/lint-ratchet-zero-baseline.ts`
+- `scripts/lib/lint-rule-docs.ts`, or a same-export stub when you are not using
   local rules
-- `scripts/ratchet-manifest-message.ts`
+- `scripts/lint-ratchet/ratchet-manifest-message.ts`
 - `packages/shared/src/schemas/harness-diagnostics.ts`, or an equivalent local
   schema with the output, diagnostics, report, and test imports updated
 - `lint-ratchet.baseline.json`, initially `{ "version": 1, "tests": {} }`
@@ -102,42 +107,43 @@ Minimum runtime file set:
 - `scripts/lint-ratchet.ts` - CLI runner that loads the registry, hashes rule
   sources, writes generated ESLint configs, compares current findings to the
   baseline, and emits the diagnostics envelope.
-- `scripts/lint-ratchet-baseline.ts` - baseline model, config hashing,
+- `scripts/lint-ratchet/lint-ratchet-baseline.ts` - baseline model, config hashing,
   rule-source hashing helpers, strict parse/format validation, and update
   safety checks.
-- `scripts/lint-ratchet-baseline-compare.ts` - comparator that turns current
+- `scripts/lint-ratchet/lint-ratchet-baseline-compare.ts` - comparator that turns current
   findings into regressions or improvements against the committed baseline.
-- `scripts/lint-ratchet-baseline-parse.ts` - structural and strict parser for
+- `scripts/lint-ratchet/lint-ratchet-baseline-parse.ts` - structural and strict parser for
   `lint-ratchet.baseline.json`.
-- `scripts/lint-ratchet-check-registry.ts` - sibling helper that composes
+- `scripts/lint-ratchet/lint-ratchet-check-registry.ts` - sibling helper that composes
   existing registry, glob, and baseline-parse helpers into a fast preflight
   validator with no ESLint run; it labels failures by kind for
   adopter-friendly error messages.
-- `scripts/lint-ratchet-config.ts` - registry types, third-party plugin
+- `scripts/lint-ratchet/lint-ratchet-config.ts` - registry types, third-party plugin
   allowlist, and the `lintRatchets` entries an adopter edits.
-- `scripts/lint-ratchet-metrics.ts` - metric helpers for `message-count`,
+- `scripts/lint-ratchet/lint-ratchet-metrics.ts` plus its
+  `lint-ratchet-metrics-*` helpers - metric helpers for `message-count`,
   `effective-line-count`, and `complexity-severity`.
-- `scripts/lint-ratchet-output.ts` - harness diagnostics envelope output helper
+- `scripts/lint-ratchet/lint-ratchet-output.ts` - harness diagnostics envelope output helper
   that writes to stdout and, when `HARNESS_DIAGNOSTICS_OUTPUT` is set to a
   non-empty path, also to that file; without it, the runner fails to start.
-- `scripts/lint-ratchet-report.ts` - sibling helper that formats a captured
+- `scripts/lint-ratchet/lint-ratchet-report.ts` - sibling helper that formats a captured
   harness-diagnostics envelope as a GitHub-flavored markdown report; it owns
   the `LINT_RATCHET_REPORT_ARTIFACT_URL` env-var contract.
-- `scripts/lint-ratchet-debt-log.ts` - read-only renderer for the committed
+- `scripts/lint-ratchet/lint-ratchet-debt-log.ts` - read-only renderer for the committed
   `lint-ratchet.debt-log.jsonl` acceptance log; the runner imports it to dispatch
   `--debt-log`, and it pairs with the `scripts/lint-ratchet/debt-log-schema.ts`
   validator, `scripts/lint-ratchet/debt-log-write.ts` writer, and neutral
   `scripts/lint-ratchet/baseline-update-apply.ts` update applicator under the
   portable `scripts/lint-ratchet/` directory.
-- `scripts/lint-ratchet-summary.ts` - sibling helper that prints a per-ratchet
+- `scripts/lint-ratchet/lint-ratchet-summary.ts` - sibling helper that prints a per-ratchet
   baseline summary table without running ESLint.
-- `scripts/lint-ratchet-zero-baseline.ts` - sibling helper that audits
+- `scripts/lint-ratchet/lint-ratchet-zero-baseline.ts` - sibling helper that audits
   committed zero-baseline ratchets against normal ESLint's resolved config and
   prints a lifecycle report.
-- `scripts/lint-rule-docs.ts` - local-rule metadata loader used for `local/*`
+- `scripts/lib/lint-rule-docs.ts` - local-rule metadata loader used for `local/*`
   ratchets; replace it with a same-export stub if the project only ratchets
   core or third-party rules.
-- `scripts/ratchet-manifest-message.ts` - shared formatter for missing manifest
+- `scripts/lint-ratchet/ratchet-manifest-message.ts` - shared formatter for missing manifest
   ratchet diagnostics used by the registry preflight and harness validator.
 - `packages/shared/src/schemas/harness-diagnostics.ts` - Zod schema and summary
   helper for the runner's output envelope; copy it at this path or update the
@@ -179,12 +185,12 @@ Local-rule scaffold is only needed for `local/*` ratchets:
   The runner hashes this exact file for `ruleSourceHash`.
 - Each local rule's `meta.docs` must include `description`, `principle`,
   `category`, `pairedGuide`, and `repairKind`; `pairedGuide` should point at an
-  existing guide path unless the project replaces `scripts/lint-rule-docs.ts`
+  existing guide path unless the project replaces `scripts/lib/lint-rule-docs.ts`
   with a reduced policy stub.
 
 Projects that only ratchet core ESLint rules or third-party plugin rules can
 skip `eslint.config.js` local-plugin wiring and `eslint-rules/` files by using
-that reduced `scripts/lint-rule-docs.ts` stub.
+that reduced `scripts/lib/lint-rule-docs.ts` stub.
 
 Substitutable bits:
 
@@ -202,13 +208,13 @@ Substitutable bits:
   envelope, or replace it with a reduced schema and matching runner import.
 - Local-rule metadata: the `meta.docs` vocabulary is a project policy, not an
   ESLint requirement; keep it, simplify it, or stub it out with
-  `scripts/lint-rule-docs.ts`.
+  `scripts/lib/lint-rule-docs.ts`.
 - Local rules themselves: adopters do not need local rules to use the ratchet
   for core or third-party ESLint rules.
 - Report artifact env var: `LINT_RATCHET_REPORT_ARTIFACT_URL` is part of the
   portable surface. The runner's single source of truth is the exported
   `LINT_RATCHET_REPORT_ARTIFACT_URL_ENV` constant in
-  `scripts/lint-ratchet-report.ts`. If you rename it, update that constant and
+  `scripts/lint-ratchet/lint-ratchet-report.ts`. If you rename it, update that constant and
   every workflow `env:` key that still exports the old literal name; otherwise
   the runner silently omits the `Artifact:` line.
 - Registry preflight: default `lint:ratchet` starts by running the same
@@ -226,13 +232,13 @@ protects the files named by that one rule's `files` and `ignores`; it does not
 prove that every maintained file family has a lint owner. The map records that
 broader boundary in a committed Markdown table derived from `git ls-files`,
 normal ESLint reach, and the current ratchet registry. Musi's current map lives
-at `docs/agent_notes/backlog/lint-followups/lint-coverage-map.md`.
+at `docs/agent_notes/lint-coverage-map.md`.
 
 `bun run docs:lint-coverage-map:check` validates map drift rather than style:
 
 - Every path code span in the path column must match at least one tracked file.
 - Every `ratchet/<name>` in the ratchet column must exist in
-  `scripts/lint-ratchet-config.ts`.
+  `scripts/lint-ratchet/lint-ratchet-config.ts`.
 - Every status must be one of `linted`, `ratcheted`, `proposed`,
   `pending-leaf`, `excluded`, or `not-code`, combined with `+` when needed.
 - Every tracked maintained file must be accounted for by some row. The Musi
@@ -394,7 +400,7 @@ Avoid hand-written path filters on the ratchet workflow:
   `Minimum runtime file set` bullets earlier in this section; and per-project
   control inputs that change ratchet identity, including `eslint.config.js` and
   any included config files, the registry source file such as
-  `scripts/lint-ratchet-config.ts`, `eslint-rules/**` for local-rule projects,
+  `scripts/lint-ratchet/lint-ratchet-config.ts`, `eslint-rules/**` for local-rule projects,
   dependency manifests (`package.json` plus the lockfile), and parser project
   configs the runner consults such as `tsconfig.scripts.json` or equivalent
   project-service tsconfigs.
@@ -496,7 +502,7 @@ plugin allowlisting, complexity-severity vectors, and rule-source hashing.
   count, and total findings. Total findings sum the per-file `count` across
   files for every metric, so `complexity-severity` rows show the number of
   findings rather than a `maxComplexity` aggregate. Use it to spot which
-  ratchets carry the most debt without diffing the 1390-line baseline JSON by
+  ratchets carry the most debt without diffing the committed baseline JSON by
   hand.
 - `bun run lint:ratchet:zero-baseline` reads the committed baseline, finds
   ratchets with zero findings, expands their registry globs against
@@ -709,7 +715,7 @@ Use the registry's optional `zeroBaselineDisposition` field for these cases:
   zeroBaselineDisposition: {
     kind: "temporary-ratchet-only",
     reason: "normal ESLint still ignores this generated-adjacent tool family",
-    exitPath: "docs/agent_notes/backlog/lint-followups/example.md",
+    exitPath: "docs/agent_notes/backlog/lint-review-2026-06/example.md",
   },
 }
 ```
@@ -779,7 +785,9 @@ replace it before running the update.
 
 - `ratchet/local-type-assertion-boundary` tracks
   `local/type-assertion-boundary` by per-file message count across package,
-  script, and e2e TypeScript files.
+  e2e, and maintained script TypeScript files. Normal ESLint now enforces the
+  rule on e2e and maintained scripts; this ratchet keeps the package zero floor
+  and ignores the same script fixture/config paths as normal lint.
 - `ratchet/strict-boolean-expressions-shared` tracks
   `@typescript-eslint/strict-boolean-expressions` by per-file message count
   across `packages/shared/src` production TypeScript. Its initial 6-finding
@@ -818,6 +826,18 @@ leave an unchanged consumer file with a stale clean result. The tradeoff is that
 type-aware ratchets re-lint their full scope on every run, so cold and warm
 runtime are expected to be similar.
 
+Normal ESLint follows the same safety policy: `bun run lint`,
+`bun run lint:changed`, and `bun run lint:fix` deliberately do not pass
+`--cache`, because the normal flat config includes type-aware rules. Leaf 06
+measured the former cached full-lint path on 2026-06-12 at 60.6s after clearing
+`node_modules/.cache/eslint/` and 10.9s warm. The same run without ESLint's
+per-file cache took 56.8s, then 57.2s on a second pass. The project accepts the
+lost warm-cache speedup so local lint behaves like cold CI and like
+`type-aware-ts` ratchets. The stale-clean repro was an unchanged consumer
+switching exhaustively on an imported enum: after warming ESLint's cache, adding
+a new enum member let cached lint pass while uncached lint correctly reported
+`@typescript-eslint/switch-exhaustiveness-check`.
+
 `update` mode uses a structural parse that tolerates stale or missing hashes
 so it can re-baseline cleanly across registry edits, rule rewrites, and the
 first run after strict-improvement metadata is introduced. Generated baseline
@@ -848,7 +868,7 @@ The profile only changes parser configuration; the entry's `files` and
 `ignores` still control scope, including generated, dist, and fixture paths.
 
 Third-party plugins are not loaded by arbitrary module name. Add a package to
-`lintRatchetThirdPartyPluginAllowlist` in `scripts/lint-ratchet-config.ts`
+`lintRatchetThirdPartyPluginAllowlist` in `scripts/lint-ratchet/lint-ratchet-config.ts`
 before adding an entry that uses it. The allowlist binds an npm package name to
 the ESLint rule namespace it is allowed to provide. `pluginExport` defaults to
 `"default"` for the plugin module's default export; set
@@ -917,10 +937,13 @@ not yet inspect.
    existing ratchet/floor, proposed floor, intentional exclusion, or named
    blocker/follow-up; do not start baselining batches while any temporary
    `unknown` classification remains.
+   In Musi, maintained `scripts/**/*.ts` files are already normal-linted through
+   `tsconfig.scripts.json`; new script fixtures should join the targeted
+   fixture ignore list instead of reintroducing file-by-file script re-includes.
 2. Run a scoped inventory with the rule set you want to enforce. Keep the
    inventory narrow enough that the first baseline is reviewable by file family
    or tool surface.
-3. Add a ratchet entry in `scripts/lint-ratchet-config.ts` with explicit
+3. Add a ratchet entry in `scripts/lint-ratchet/lint-ratchet-config.ts` with explicit
    `files`, `ignores`, rule options, source, and parser profile. Prefer a
    family-level scope when the rule and parser needs are coherent; split by file
    or tool when the baseline would be too noisy. Avoid overlapping ratchets for
@@ -1005,21 +1028,21 @@ The minimum portable ratchet test set is the fixture-driven runtime behavior,
 the fixture-driven summary behavior, the copied-runtime smoke test, and the
 portable registry-validation failure cases. In this repository, those live in:
 
-- `scripts/lint-ratchet-baseline.test.ts`: portable. It exercises baseline
+- `scripts/lint-ratchet/lint-ratchet-baseline.test.ts`: portable. It exercises baseline
   building, strict and structural parsing, comparison, update decisions,
   diagnostics-envelope formatting, rule-source hashes, and registry validation
   with fixture ratchet configs and synthetic paths. The `packages/...` strings
   are baseline keys, not dependencies on Musi app files.
-- `scripts/lint-ratchet-summary.test.ts`: portable. It builds fixture
+- `scripts/lint-ratchet/lint-ratchet-summary.test.ts`: portable. It builds fixture
   baselines and registry entries to verify summary reduction and table
   formatting.
-- `scripts/lint-ratchet-output.test.ts`: portable. It copies the CLI runtime
+- `scripts/lint-ratchet/lint-ratchet-output.test.ts`: portable. It copies the CLI runtime
   files into a temporary fixture repository, writes a small core-rule registry,
   runs the CLI there, and verifies `HARNESS_DIAGNOSTICS_OUTPUT` behavior without
   Musi app state. Its `runtimeFiles` list intentionally omits the repository
   registry/config files that the fixture replaces; the full smoke copy list is
-  `PORTABLE_RUNTIME_FILES` in `scripts/test-lint-ratchet.sh`.
-- `scripts/lint-ratchet-check-registry.test.ts`: mixed. The portable cases are
+  `PORTABLE_RUNTIME_FILES` in `scripts/tests/test-lint-ratchet.sh`.
+- `scripts/lint-ratchet/lint-ratchet-check-registry.test.ts`: mixed. The portable cases are
   the synthetic failure-mode tests for empty globs, absolute paths, orphan
   baseline ids, zero-baseline metadata shape, deterministic failure ordering,
   and absent-baseline behavior. The `accepts the Musi registry fixture` case is
@@ -1027,7 +1050,7 @@ portable registry-validation failure cases. In this repository, those live in:
   third-party-plugin allowlist, local-rule docs, and tracked Git files.
 
 An adopter should copy the three fully portable files and either copy
-`scripts/lint-ratchet-check-registry.test.ts` with the Musi registry fixture
+`scripts/lint-ratchet/lint-ratchet-check-registry.test.ts` with the Musi registry fixture
 case replaced by an equivalent project-local registry smoke test, or keep only
 the portable synthetic cases from that file. Musi verifies the current split
 with `bun run test:scripts:changed`.

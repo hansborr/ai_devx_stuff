@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 
-import { ConfigError } from "../lint-ratchet-metrics.js";
+import { ConfigError } from "./lint-ratchet-metrics.js";
 import { repoRoot } from "./paths.js";
 
 export function trackedFilesFromGit(context: string): readonly string[] {

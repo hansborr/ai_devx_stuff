@@ -32,6 +32,7 @@ import {
   runDuplicatesCheck,
 } from "./duplicates-runner.js";
 import { resolveJscpdBin } from "./jscpd-bin.js";
+import { stringContaining } from "./matcher.test-helper.js";
 import type { DetectorScope } from "./scope.js";
 import { buildSourceExtensions, toChangedScopeFile, toCurrentScopeFile } from "./scope.js";
 
@@ -49,7 +50,7 @@ function makeClone(a: string, b: string, lines = 10): JscpdClone {
   };
 }
 
-function parsedReport(jsonText: string) {
+function parsedReport(jsonText: string): { readonly duplicates: readonly JscpdClone[] } {
   const result = parseDuplicatesReport(jsonText);
   if (!result.ok) throw new Error(`expected readable jscpd JSON: ${result.error}`);
   return result.report;
@@ -542,7 +543,7 @@ describe("runDuplicatesCheck", () => {
         check: "duplicates",
         file: "packages/server/src",
         message: "jscpd subprocess failed (boom)",
-        hint: expect.stringContaining("Re-run drift:ai locally"),
+        hint: stringContaining("Re-run drift:ai locally"),
       },
     ]);
   });
@@ -575,7 +576,7 @@ describe("runDuplicatesCheck", () => {
       {
         check: "duplicates",
         file: "packages/server/src",
-        message: expect.stringContaining("jscpd produced unreadable JSON"),
+        message: stringContaining("jscpd produced unreadable JSON"),
         hint: "report-only: re-run drift:ai locally and capture the jscpd output for inspection.",
       },
     ]);
@@ -675,13 +676,13 @@ describe("runDuplicatesCheck", () => {
         check: "duplicates",
         file: "packages/server/src",
         message: "jscpd subprocess failed (boom)",
-        hint: expect.stringContaining("Re-run drift:ai locally"),
+        hint: stringContaining("Re-run drift:ai locally"),
       },
       {
         check: "duplicates",
         file: "scripts",
         message: "jscpd subprocess failed (boom)",
-        hint: expect.stringContaining("Re-run drift:ai locally"),
+        hint: stringContaining("Re-run drift:ai locally"),
       },
     ]);
   });
@@ -696,7 +697,7 @@ describe("runDuplicatesCheck", () => {
       {
         check: "duplicates",
         file: "packages/server/src",
-        message: expect.stringContaining("jscpd produced unreadable JSON"),
+        message: stringContaining("jscpd produced unreadable JSON"),
         hint: "report-only: re-run drift:ai locally and capture the jscpd output for inspection.",
       },
     ]);

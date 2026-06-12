@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   type CheckOutcome,
+  type CheckPlugin,
   type CheckRunContext,
   type CheckRunInput,
   defineCheckPlugin,
@@ -37,7 +38,7 @@ function defineTestPlugin(
     preflight: (ctx: CheckRunContext<EmptyServices>, config: EmptyConfig) => string | undefined;
     run: (ctx: CheckRunContext<EmptyServices>, config: EmptyConfig) => CheckOutcome;
   }> = {},
-) {
+): CheckPlugin<EmptyConfig, EmptyServices, "comments"> {
   return defineCheckPlugin<EmptyConfig, EmptyServices, "comments">({
     id: "comments",
     usage: "comments",

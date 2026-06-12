@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { harnessDiagnosticsSchema } from "../packages/shared/src/schemas/harness-diagnostics.js";
 import {
@@ -52,6 +52,7 @@ import {
   type KnipRunner,
   memoizingDefaultKnipRunner,
 } from "./drift-ai/knip-runner.js";
+import { stringContaining } from "./drift-ai/matcher.test-helper.js";
 import {
   DEFAULT_NEAR_DUPLICATE_MIN_LINES,
   DEFAULT_NEAR_DUPLICATE_MIN_TOKENS,
@@ -61,7 +62,7 @@ import {
 } from "./drift-ai/near-duplicates.js";
 import { nearDuplicatesCheck } from "./drift-ai/near-duplicates-check.js";
 import type { SuppressionsGitRunner } from "./drift-ai/suppressions.js";
-import { HARNESS_DIAGNOSTICS_OUTPUT_ENV } from "./harness-diagnostics-output.js";
+import { HARNESS_DIAGNOSTICS_OUTPUT_ENV } from "./harness/harness-diagnostics-output.js";
 
 function emptyJscpdRunner(): JscpdRunner {
   return () => ({ ok: true, reportJson: '{"duplicates":[]}' });
@@ -745,7 +746,7 @@ describe("discoverChangedFiles", () => {
     expect(error).toBeInstanceOf(DriftAiError);
     expect(error).toHaveProperty(
       "message",
-      expect.stringContaining("changed scope needs full git history"),
+      stringContaining("changed scope needs full git history"),
     );
     expect(calls).toEqual(["rev-parse --is-shallow-repository"]);
   });
@@ -764,7 +765,7 @@ describe("discoverChangedFiles", () => {
     const error = captureThrown(() => discoverChangedFiles("main", git));
 
     expect(error).toBeInstanceOf(DriftAiError);
-    expect(error).toHaveProperty("message", expect.stringContaining("shallow/blobless clone"));
+    expect(error).toHaveProperty("message", stringContaining("shallow/blobless clone"));
   });
 
   it("converts missing-object diff failures into the shallow-clone error", () => {
@@ -967,7 +968,7 @@ describe("buildReport / formatText / formatJson", () => {
         check: "suppressions",
         file: "packages/server/src/foo.ts",
         message: "new @ts-ignore suppression at line 4 targets next-line (reason: present)",
-        hint: expect.stringContaining("prefer `@ts-expect-error`"),
+        hint: stringContaining("prefer `@ts-expect-error`"),
         details: {
           kind: "@ts-ignore",
           target: "next-line",
@@ -1001,14 +1002,14 @@ describe("buildReport / formatText / formatJson", () => {
     const duplicatesSkip = report.skippedChecks.find((skip) => skip.check === "duplicates");
     expect(duplicatesSkip?.reason).toContain("jscpd executable not found");
     expect(report.findings.filter((finding) => finding.check === "duplicates")).toEqual([]);
-    expect(messages).toEqual([expect.stringContaining("jscpd executable not found")]);
+    expect(messages).toEqual([stringContaining("jscpd executable not found")]);
   });
 
   it("does not resolve an unselected check's expensive service (lazy, plugin-owned)", () => {
     const scope: ChangedFile[] = [{ path: "packages/server/src/foo.ts", status: "modified" }];
     const detectorScope = changedDetectorScope(scope);
     let binProbes = 0;
-    const binExists = () => {
+    const binExists = (): boolean => {
       binProbes += 1;
       return false;
     };
@@ -1391,7 +1392,7 @@ describe("runDriftAi", () => {
       {
         check: "import-cycles",
         code: "no-target-config",
-        reason: expect.stringContaining("explicit --tsconfig missing-tsconfig.json"),
+        reason: stringContaining("explicit --tsconfig missing-tsconfig.json"),
       },
     ]);
     expect(result.stdout).toContain("missing-tsconfig.json");
@@ -1505,7 +1506,7 @@ describe("runDriftAi", () => {
         check: "duplicates",
         file: "src/a.ts:7-18",
         message: "duplicates src/b.ts:3-14 (12 lines)",
-        hint: expect.stringContaining("extract or reuse"),
+        hint: stringContaining("extract or reuse"),
       },
     ]);
   });
@@ -1611,7 +1612,7 @@ describe("runDriftAi", () => {
       {
         check: "ghost-files",
         file: "src/foo/bar-helper.ts",
-        message: expect.stringContaining("src/foo/bar-helper.ts ↔ src/foo/bar.ts"),
+        message: stringContaining("src/foo/bar-helper.ts ↔ src/foo/bar.ts"),
         hint: defaultCurrentPairHint("src/foo/bar-helper.ts", "src/foo/bar.ts"),
         relatedFiles: ["src/foo/bar-helper.ts", "src/foo/bar.ts"],
       },
@@ -2053,7 +2054,7 @@ describe("runDriftAi", () => {
         check: "duplicates",
         file: "packages/server/src/utils/character-auth.ts:40-68",
         message: "duplicates packages/server/src/utils/campaign-auth.ts:22-50 (29 lines)",
-        hint: expect.stringContaining("extract or reuse"),
+        hint: stringContaining("extract or reuse"),
       },
     ]);
     expect(result.stdout).toContain(
@@ -2076,8 +2077,8 @@ describe("runDriftAi", () => {
       {
         check: "duplicates",
         file: "packages/server/src",
-        message: expect.stringContaining("jscpd subprocess failed (binary missing)"),
-        hint: expect.stringContaining("Re-run drift:ai locally"),
+        message: stringContaining("jscpd subprocess failed (binary missing)"),
+        hint: stringContaining("Re-run drift:ai locally"),
       },
     ]);
   });
@@ -2158,7 +2159,7 @@ describe("runDriftAi", () => {
       {
         check: "ghost-files",
         file: `${dir}/character-auth-utils.ts`,
-        message: expect.stringContaining(`looks like a sibling of ${dir}/character-auth.ts`),
+        message: stringContaining(`looks like a sibling of ${dir}/character-auth.ts`),
         hint: defaultRepairHint(`${dir}/character-auth.ts`),
         relatedFiles: [`${dir}/character-auth-utils.ts`, `${dir}/character-auth.ts`].sort(),
       },
@@ -2211,10 +2212,10 @@ describe("runDriftAi", () => {
       {
         check: "comments",
         file: target,
-        message: expect.stringContaining(
+        message: stringContaining(
           "41% of non-blank lines are comments over 130 effective code lines",
         ),
-        hint: expect.stringContaining("keep comments that explain invariants"),
+        hint: stringContaining("keep comments that explain invariants"),
       },
     ]);
     expect(result.stdout).toContain(`WARN comments: ${target}`);
@@ -2237,10 +2238,10 @@ describe("runDriftAi", () => {
       {
         check: "comments",
         file: target,
-        message: expect.stringContaining(
+        message: stringContaining(
           "41% of non-blank lines are comments over 130 effective code lines",
         ),
-        hint: expect.stringContaining("keep comments that explain invariants"),
+        hint: stringContaining("keep comments that explain invariants"),
       },
     ]);
   });
@@ -2527,16 +2528,12 @@ describe("runDriftAi", () => {
 });
 
 describe("runDriftAi HARNESS_DIAGNOSTICS_OUTPUT sidecar", () => {
-  let savedOutputEnv: string | undefined;
-
   beforeEach(() => {
-    savedOutputEnv = process.env[HARNESS_DIAGNOSTICS_OUTPUT_ENV];
-    delete process.env[HARNESS_DIAGNOSTICS_OUTPUT_ENV];
+    vi.stubEnv(HARNESS_DIAGNOSTICS_OUTPUT_ENV, undefined);
   });
 
   afterEach(() => {
-    if (savedOutputEnv === undefined) delete process.env[HARNESS_DIAGNOSTICS_OUTPUT_ENV];
-    else process.env[HARNESS_DIAGNOSTICS_OUTPUT_ENV] = savedOutputEnv;
+    vi.unstubAllEnvs();
   });
 
   function sidecarDuplicateJscpd(): JscpdRunner {
@@ -2556,7 +2553,7 @@ describe("runDriftAi HARNESS_DIAGNOSTICS_OUTPUT sidecar", () => {
 
   it("writes a schema-valid sidecar and leaves native stdout unchanged", () => {
     const outputPath = path.join(makeTempDir(), "diag", "drift.json");
-    process.env[HARNESS_DIAGNOSTICS_OUTPUT_ENV] = outputPath;
+    vi.stubEnv(HARNESS_DIAGNOSTICS_OUTPUT_ENV, outputPath);
 
     const result = runDriftAi({
       argv: [],
@@ -2594,7 +2591,7 @@ describe("runDriftAi HARNESS_DIAGNOSTICS_OUTPUT sidecar", () => {
   it("treats an unwritable sidecar path as a tool error (exit 2)", () => {
     const dirAsOutput = path.join(makeTempDir(), "diag-dir");
     mkdirSync(dirAsOutput);
-    process.env[HARNESS_DIAGNOSTICS_OUTPUT_ENV] = dirAsOutput;
+    vi.stubEnv(HARNESS_DIAGNOSTICS_OUTPUT_ENV, dirAsOutput);
 
     const result = runDriftAi({
       argv: [],

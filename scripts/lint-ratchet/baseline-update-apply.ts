@@ -1,19 +1,19 @@
 import { appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 
 import {
-  type LintRatchetBaseline,
-  type LintRatchetUpdateDecision,
-  decideLintRatchetUpdate,
-  parseLintRatchetBaselineStructure,
-} from "../lint-ratchet-baseline.js";
-import type { LintRatchetConfig } from "../lint-ratchet-config.js";
-import { ConfigError } from "../lint-ratchet-metrics.js";
-import {
   appendValidatedDebtLogEntry,
   buildLintRatchetDebtLogEntry,
   type DebtLogAppendDeps,
 } from "./debt-log-write.js";
 import { WorseBaselineError } from "./errors.js";
+import {
+  decideLintRatchetUpdate,
+  type LintRatchetBaseline,
+  type LintRatchetUpdateDecision,
+  parseLintRatchetBaselineStructure,
+} from "./lint-ratchet-baseline.js";
+import type { LintRatchetConfig } from "./lint-ratchet-config.js";
+import { ConfigError } from "./lint-ratchet-metrics.js";
 import { BASELINE_FILENAME, baselinePath, DEBT_LOG_FILENAME, debtLogPath } from "./paths.js";
 
 // Filesystem seam for the update path. Narrowed to the exact call shapes used so

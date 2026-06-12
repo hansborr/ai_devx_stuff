@@ -1,13 +1,7 @@
 import path from "node:path";
 
-import {
-  CallExpression,
-  Node,
-  Project,
-  SourceFile,
-  SyntaxKind,
-  VariableDeclarationKind,
-} from "ts-morph";
+import type { CallExpression, Project, SourceFile } from "ts-morph";
+import { Node, SyntaxKind, VariableDeclarationKind } from "ts-morph";
 
 import { ensureNamedImport, sortImportBlocks } from "./lib/trpc-shared-schema.js";
 import {

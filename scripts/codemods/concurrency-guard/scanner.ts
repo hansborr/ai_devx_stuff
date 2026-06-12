@@ -1,6 +1,6 @@
 import path from "node:path";
 
-import { SyntaxKind, type Project, type SourceFile } from "ts-morph";
+import { type Project, type SourceFile, SyntaxKind } from "ts-morph";
 
 import { delegateCall } from "./ast.js";
 import { DIRECT_WRITE_SUGGESTIONS } from "./constants.js";

@@ -1,17 +1,19 @@
-import type {
-  LintRatchetBaseline,
-  LintRatchetCurrentById,
-  LintRatchetCurrentItem,
-  LintRatchetRuleSourceHashesById,
-} from "../lint-ratchet-baseline.js";
-import type { LintRatchetConfig } from "../lint-ratchet-config.js";
-import { type LintRatchetMetricItem, metricItemForFormat } from "../lint-ratchet-metrics.js";
 import { LINT_RATCHET_BASELINE_VERSION } from "./baseline-constants.js";
 import {
   computeLintRatchetConfigHash,
   normalizeRuleOptions,
   normalizeStringList,
 } from "./baseline-hash.js";
+import type {
+  LintRatchetBaseline,
+  LintRatchetCurrentById,
+  LintRatchetCurrentItem,
+  LintRatchetRuleSourceHashesById,
+} from "./lint-ratchet-baseline.js";
+import type { LintRatchetConfig } from "./lint-ratchet-config.js";
+import { type LintRatchetMetricItem, metricItemForFormat } from "./lint-ratchet-metrics.js";
+
+const JSON_INDENT_SPACES = 2;
 
 type LintRatchetBaselineItem = LintRatchetMetricItem;
 export type LintRatchetBaselineTest = NonNullable<LintRatchetBaseline["tests"][string]>;
@@ -108,5 +110,5 @@ function orderedBaselineForFormat(baseline: LintRatchetBaseline): LintRatchetBas
 }
 
 export function formatLintRatchetBaseline(baseline: LintRatchetBaseline): string {
-  return `${JSON.stringify(orderedBaselineForFormat(baseline), null, 2)}\n`;
+  return `${JSON.stringify(orderedBaselineForFormat(baseline), null, JSON_INDENT_SPACES)}\n`;
 }

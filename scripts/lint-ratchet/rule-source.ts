@@ -5,15 +5,15 @@ import { join } from "node:path";
 import {
   computeCoreLintRatchetRuleSourceHash,
   LINT_RATCHET_CONFIG_HASH_PREFIX,
-  ruleNamespace,
   type LintRatchetRuleSourceHashesById,
-} from "../lint-ratchet-baseline.js";
+  ruleNamespace,
+} from "./lint-ratchet-baseline.js";
 import {
   type LintRatchetConfig,
   lintRatchetThirdPartyPluginAllowlist,
   type LintRatchetThirdPartyPluginAllowlistEntry,
-} from "../lint-ratchet-config.js";
-import { ConfigError } from "../lint-ratchet-metrics.js";
+} from "./lint-ratchet-config.js";
+import { ConfigError } from "./lint-ratchet-metrics.js";
 import { repoRoot } from "./paths.js";
 import { assertNever, ratchetSource } from "./runtime-config.js";
 

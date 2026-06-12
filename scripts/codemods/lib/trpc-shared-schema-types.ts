@@ -1,6 +1,6 @@
 import path from "node:path";
 
-import { Project, type CallExpression, type Node, type VariableStatement } from "ts-morph";
+import { type CallExpression, type Node, Project, type VariableStatement } from "ts-morph";
 
 export const ROUTER_ROOT = path.join("packages", "server", "src", "routers");
 export const SHARED_SCHEMA_ROOT = path.join("packages", "shared", "src", "schemas");

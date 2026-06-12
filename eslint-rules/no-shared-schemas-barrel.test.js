@@ -18,13 +18,14 @@ import { describe, expect, it } from "vitest";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, "..");
+const eslint = new ESLint({
+  cwd: repoRoot,
+  overrideConfigFile: resolve(repoRoot, "eslint.config.js"),
+});
+const resolvedConfigTestTimeoutMs = 15_000;
 
 /** @returns {Promise<unknown>} */
 async function configFor(/** @type {string} */ filePath) {
-  const eslint = new ESLint({
-    cwd: repoRoot,
-    overrideConfigFile: resolve(repoRoot, "eslint.config.js"),
-  });
   return eslint.calculateConfigForFile(filePath);
 }
 
@@ -70,45 +71,57 @@ function patternsWithGroup(patterns, name) {
 }
 
 describe("schemas-barrel restriction", () => {
-  it("client files block the bare barrel alongside socket-client construction", async () => {
-    const cfg = /** @type {{ rules?: Record<string, unknown> }} */ (
-      await configFor(
-        resolve(repoRoot, "packages/client/src/components/campaign/chat/chat-message.tsx"),
-      )
-    );
-    const entry = cfg.rules?.["@typescript-eslint/no-restricted-imports"];
-    expect(entry, "rule must be configured").toBeDefined();
-    const patterns = patternsOf(entry);
-    expect(patternsMatchingBareBarrel(patterns).length).toBeGreaterThan(0);
-    expect(patternsWithGroup(patterns, "socket.io-client").length).toBeGreaterThan(0);
-  });
+  it(
+    "client files block the bare barrel alongside socket-client construction",
+    { timeout: resolvedConfigTestTimeoutMs },
+    async () => {
+      const cfg = /** @type {{ rules?: Record<string, unknown> }} */ (
+        await configFor(
+          resolve(repoRoot, "packages/client/src/components/campaign/chat/chat-message.tsx"),
+        )
+      );
+      const entry = cfg.rules?.["@typescript-eslint/no-restricted-imports"];
+      expect(entry, "rule must be configured").toBeDefined();
+      const patterns = patternsOf(entry);
+      expect(patternsMatchingBareBarrel(patterns).length).toBeGreaterThan(0);
+      expect(patternsWithGroup(patterns, "socket.io-client").length).toBeGreaterThan(0);
+    },
+  );
 
-  it("server files block the bare barrel alongside the RawTxClient restriction", async () => {
-    const cfg = /** @type {{ rules?: Record<string, unknown> }} */ (
-      await configFor(resolve(repoRoot, "packages/server/src/index.ts"))
-    );
-    const entry = cfg.rules?.["@typescript-eslint/no-restricted-imports"];
-    expect(entry, "rule must be configured").toBeDefined();
-    const patterns = patternsOf(entry);
-    expect(patternsMatchingBareBarrel(patterns).length).toBeGreaterThan(0);
-    // RawTxClient restriction must survive flat-config rule replacement.
-    const hasRawTx = patterns.some((p) => {
-      if (!p || typeof p !== "object") return false;
-      const names = /** @type {{ importNames?: unknown }} */ (p).importNames;
-      return Array.isArray(names) && names.includes("RawTxClient");
-    });
-    expect(hasRawTx).toBe(true);
-  });
+  it(
+    "server files block the bare barrel alongside the RawTxClient restriction",
+    { timeout: resolvedConfigTestTimeoutMs },
+    async () => {
+      const cfg = /** @type {{ rules?: Record<string, unknown> }} */ (
+        await configFor(resolve(repoRoot, "packages/server/src/index.ts"))
+      );
+      const entry = cfg.rules?.["@typescript-eslint/no-restricted-imports"];
+      expect(entry, "rule must be configured").toBeDefined();
+      const patterns = patternsOf(entry);
+      expect(patternsMatchingBareBarrel(patterns).length).toBeGreaterThan(0);
+      // RawTxClient restriction must survive flat-config rule replacement.
+      const hasRawTx = patterns.some((p) => {
+        if (!p || typeof p !== "object") return false;
+        const names = /** @type {{ importNames?: unknown }} */ (p).importNames;
+        return Array.isArray(names) && names.includes("RawTxClient");
+      });
+      expect(hasRawTx).toBe(true);
+    },
+  );
 
-  it("shared files block client/server and runtime-specific imports", async () => {
-    const cfg = /** @type {{ rules?: Record<string, unknown> }} */ (
-      await configFor(resolve(repoRoot, "packages/shared/src/rules/combat.ts"))
-    );
-    const entry = cfg.rules?.["@typescript-eslint/no-restricted-imports"];
-    expect(entry, "rule must be configured").toBeDefined();
-    const patterns = patternsOf(entry);
-    expect(patternsMatchingBareBarrel(patterns).length).toBeGreaterThan(0);
-    expect(patternsWithGroup(patterns, "@musi/server").length).toBeGreaterThan(0);
-    expect(patternsWithGroup(patterns, "react").length).toBeGreaterThan(0);
-  });
+  it(
+    "shared files block client/server and runtime-specific imports",
+    { timeout: resolvedConfigTestTimeoutMs },
+    async () => {
+      const cfg = /** @type {{ rules?: Record<string, unknown> }} */ (
+        await configFor(resolve(repoRoot, "packages/shared/src/rules/combat.ts"))
+      );
+      const entry = cfg.rules?.["@typescript-eslint/no-restricted-imports"];
+      expect(entry, "rule must be configured").toBeDefined();
+      const patterns = patternsOf(entry);
+      expect(patternsMatchingBareBarrel(patterns).length).toBeGreaterThan(0);
+      expect(patternsWithGroup(patterns, "@musi/server").length).toBeGreaterThan(0);
+      expect(patternsWithGroup(patterns, "react").length).toBeGreaterThan(0);
+    },
+  );
 });

@@ -1,0 +1,57 @@
+{
+  "controls": [
+    {
+      "id": "verify-wrapper/verify",
+      "slots": [
+        { "name": "lint", "script": "lint" },
+        {
+          "name": "ratchet",
+          "script": "lint:ratchet",
+          "env": { "HARNESS_DIAGNOSTICS_OUTPUT": "$LOG_DIR/ratchet-diagnostics.json" }
+        },
+        {
+          "name": "test",
+          "script": "test",
+          "args": ["--reporter=dot", "--reporter=json", "--outputFile.json=$TIMINGS_FILE"]
+        },
+        { "name": "scripts", "script": "test:scripts" }
+      ]
+    },
+    {
+      "id": "verify-wrapper/verify-changed",
+      "slots": [
+        {
+          "name": "coverage-map",
+          "script": "docs:lint-coverage-map:check",
+          "args": ["--", "--staged"]
+        },
+        {
+          "name": "scripts",
+          "script": "test:scripts:changed",
+          "dynamic": "staged-script-classifier"
+        }
+      ]
+    },
+    {
+      "id": "verify-wrapper/verify-parallel",
+      "slots": [{ "name": "scripts", "script": "test:scripts" }]
+    },
+    {
+      "id": "hook/pre-commit",
+      "slots": [
+        {
+          "name": "test",
+          "script": "test:changed",
+          "args": ["--reporter=dot"],
+          "dynamic": "precommit-test-timings"
+        },
+        {
+          "name": "scripts",
+          "script": "test:scripts:changed",
+          "dynamic": "staged-script-classifier",
+          "condition": "when staged hook/script/harness inputs require script smoke"
+        }
+      ]
+    }
+  ]
+}

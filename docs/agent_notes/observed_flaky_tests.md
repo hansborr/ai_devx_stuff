@@ -1,5 +1,29 @@
 # Observed Flaky Tests
 
+## 4. Client monster tab — `waitFor` search-results timeout under load
+
+### Problem
+`bun run test:changed` failed once during pre-commit on 2026-06-11:
+`monster-tab.test.tsx:77` timed out in `waitFor` waiting for "Goblin" /
+"Goblin Boss" search results after typing into the monster search input.
+
+### Observed Behavior
+- The pre-commit run was executing the full parallel step set; the suite
+  reported 8643 passing tests with only this one failure.
+- `bun run vitest run packages/client/src/components/campaign/npcs/monster-tab.test.tsx`
+  passed immediately afterward in isolation (1.8s).
+
+### Files
+- `packages/client/src/components/campaign/npcs/monster-tab.test.tsx`
+
+### Root Cause Hypothesis
+Default `waitFor` timeout expiring under parallel pre-commit load (debounced
+search + fake query round-trip), not a product or test-logic regression.
+
+### Priority
+Low unless it repeats. If seen again, raise the `waitFor` timeout for the
+search-result assertions or await the debounce explicitly.
+
 ## 3. Server encounter combat spell attack — high-bonus hit assertion
 
 Closed 2026-05-19 in `encounter-combat-spell.test.ts:143` by adding

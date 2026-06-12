@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildEnvBranchesAdvisory,
+  type EnvBranchesAdvisory,
+  type EnvBranchSection,
   formatEnvBranchesAdvisoryJson,
   formatEnvBranchesAdvisoryText,
 } from "./env-branches-advisory.js";
@@ -14,18 +16,25 @@ const MATRIX: EnvDefineMatrix = {
   defines: { __DEV__: { value: false, source: "define:vite" } },
 };
 
-function advisoryFor(sources: readonly { filePath: string; source: string }[], top?: number) {
+function advisoryFor(
+  sources: readonly { filePath: string; source: string }[],
+  top?: number,
+): EnvBranchesAdvisory {
   const inventory = analyzeEnvDefineSources(sources, MATRIX);
   return buildEnvBranchesAdvisory(inventory, MATRIX, top === undefined ? {} : { top });
 }
 
-function resolvedSection(advisory: ReturnType<typeof buildEnvBranchesAdvisory>) {
+function resolvedSection(
+  advisory: ReturnType<typeof buildEnvBranchesAdvisory>,
+): EnvBranchSection | undefined {
   return advisory.sections.find(
     (section) => section.candidateKind === "resolved env/define branch predictions",
   );
 }
 
-function unresolvedSection(advisory: ReturnType<typeof buildEnvBranchesAdvisory>) {
+function unresolvedSection(
+  advisory: ReturnType<typeof buildEnvBranchesAdvisory>,
+): EnvBranchSection | undefined {
   return advisory.sections.find(
     (section) => section.candidateKind === "unresolved env/define conditions",
   );

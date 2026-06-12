@@ -3,14 +3,14 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   HARNESS_DIAGNOSTICS_SCHEMA_VERSION,
   type HarnessDiagnostics,
   harnessDiagnosticsSchema,
 } from "../../packages/shared/src/schemas/harness-diagnostics.js";
-import { HARNESS_DIAGNOSTICS_OUTPUT_ENV } from "../harness-diagnostics-output.js";
+import { HARNESS_DIAGNOSTICS_OUTPUT_ENV } from "../harness/harness-diagnostics-output.js";
 import { ALL_CHECKS, DEFAULT_CHECKS } from "./check-metadata.js";
 import {
   controlForCheck,
@@ -226,16 +226,13 @@ describe("projectDriftDiagnostics", () => {
 
 describe("writeDriftDiagnosticsSidecar", () => {
   const tempRoots: string[] = [];
-  let savedOutputEnv: string | undefined;
 
   beforeEach(() => {
-    savedOutputEnv = process.env[HARNESS_DIAGNOSTICS_OUTPUT_ENV];
-    delete process.env[HARNESS_DIAGNOSTICS_OUTPUT_ENV];
+    vi.stubEnv(HARNESS_DIAGNOSTICS_OUTPUT_ENV, undefined);
   });
 
   afterEach(() => {
-    if (savedOutputEnv === undefined) delete process.env[HARNESS_DIAGNOSTICS_OUTPUT_ENV];
-    else process.env[HARNESS_DIAGNOSTICS_OUTPUT_ENV] = savedOutputEnv;
+    vi.unstubAllEnvs();
     while (tempRoots.length > 0) {
       const root = tempRoots.pop();
       if (root !== undefined) rmSync(root, { recursive: true, force: true });
@@ -256,7 +253,7 @@ describe("writeDriftDiagnosticsSidecar", () => {
 
   it("writes a valid empty envelope for a clean report", () => {
     const outputPath = join(makeTempRoot(), "diag.json");
-    process.env[HARNESS_DIAGNOSTICS_OUTPUT_ENV] = outputPath;
+    vi.stubEnv(HARNESS_DIAGNOSTICS_OUTPUT_ENV, outputPath);
 
     writeDriftDiagnosticsSidecar(makeReport({ enabledChecks: ["duplicates"] }));
 
@@ -271,7 +268,7 @@ describe("writeDriftDiagnosticsSidecar", () => {
 
   it("writes a schema-valid envelope when the env var names a path", () => {
     const outputPath = join(makeTempRoot(), "nested", "diag.json");
-    process.env[HARNESS_DIAGNOSTICS_OUTPUT_ENV] = outputPath;
+    vi.stubEnv(HARNESS_DIAGNOSTICS_OUTPUT_ENV, outputPath);
 
     writeDriftDiagnosticsSidecar(
       makeReport({ enabledChecks: ["duplicates"], findings: [finding()] }),
@@ -289,7 +286,7 @@ describe("writeDriftDiagnosticsSidecar", () => {
   it("raises a DriftAiError when the sidecar path cannot be written", () => {
     const dirAsOutput = join(makeTempRoot(), "diag-dir");
     mkdirSync(dirAsOutput);
-    process.env[HARNESS_DIAGNOSTICS_OUTPUT_ENV] = dirAsOutput;
+    vi.stubEnv(HARNESS_DIAGNOSTICS_OUTPUT_ENV, dirAsOutput);
 
     expect(() => {
       writeDriftDiagnosticsSidecar(makeReport());

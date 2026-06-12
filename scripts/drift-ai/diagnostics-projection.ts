@@ -14,7 +14,7 @@ import {
 import {
   harnessDiagnosticsOutputPath,
   writeHarnessDiagnosticsSidecar,
-} from "../harness-diagnostics-output.js";
+} from "../harness/harness-diagnostics-output.js";
 import { DEFAULT_CHECKS } from "./check-metadata.js";
 import { DriftAiError } from "./errors.js";
 import type { ScopeMode } from "./scope.js";

@@ -669,7 +669,7 @@ emits a `WARN: <file>:<line> — <rule>` per finding plus one-line risk guidance
 and the offending statement, for the four detection rules `DROP TABLE`,
 `DROP COLUMN`, `ALTER COLUMN ... TYPE`, and `ADD COLUMN ... NOT NULL` without
 a same-line `DEFAULT`. The scanner is warn-only (always exits 0); DX8.1b
-decides whether and how to gate. `scripts/test-migration-safety-scan.sh`
+decides whether and how to gate. `scripts/tests/test-migration-safety-scan.sh`
 covers each detection rule, the safe add-nullable + backfill + SET NOT NULL
 counter-pattern, sandbox aggregation, and the two intentional-risk
 precedents already in the migration history

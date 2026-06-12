@@ -26,11 +26,10 @@ logic guide landed (BatonLoop queue is complete).
   `module:index:check`, `db:migration-safety`, and script smoke tests.
 - Add reviewed behavior fixtures for Character Live-State and other high-risk
   workflows as they are scoped.
-- Evaluate the parked lint-hardening plan in
-  `lint-hardening/00-context-and-rollout.md` one leaf at a time. The first candidate
-  is adding a scoped Vitest ESLint plugin configuration for test-quality rules;
-  follow-ups include restricted primitive tripwires, stronger suppression
-  hygiene, assertion-quality helpers, warning cleanup, and rule metadata.
+- Evaluate lint follow-ups from `lint-review-2026-06/` one leaf at a time. The
+  rule/sensor follow-up leaf carries test-quality rules, restricted primitive
+  tripwires, suppression hygiene, assertion-quality helpers, warning cleanup,
+  and rule metadata candidates.
 - Add slow drift reports only after the fast harness stays mapped and stable:
   dead exports, import cycles, stale module docs, changed behavior without a
   nearby test, mutation testing for `packages/shared/src/rules/`, and

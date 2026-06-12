@@ -2,29 +2,30 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { SourceFile } from "ts-morph";
 
+import type { SourceFile } from "ts-morph";
+
+import type { ImportBinding, SharedSchemaCodemodCandidate } from "./lib/trpc-shared-schema.js";
 import {
-  SHARED_SCHEMA_PREFIX,
   appendSharedSchemaExports,
   CodemodError,
   collectAllowlistedRouterImports,
   collectTargetIdentifiers,
   createProject,
   discoverSharedSchemaCandidates,
+  ensureSharedSchemaImports,
   fail as failWithName,
   getSourceFileAtPath,
-  ensureSharedSchemaImports,
   normalizeRelativeRouterPath,
   referencedIdentifiers,
   reportSharedSchemaDiscovery,
   rewriteRouterSharedSchemaReferences,
+  SHARED_SCHEMA_PREFIX,
   targetPathFromSource,
   validateSharedSchemaCandidates,
   validateSharedSchemaSource,
   writeOrPreviewFiles,
 } from "./lib/trpc-shared-schema.js";
-import type { ImportBinding, SharedSchemaCodemodCandidate } from "./lib/trpc-shared-schema.js";
 import {
   assertConstSchemaIsOnlyOutputReference,
   collectOutputCandidates,
@@ -218,7 +219,9 @@ function runAll(root: string, dryRun: boolean): void {
   const unsupported = results.filter((result) => result.error);
   if (unsupported.length > 0) {
     reportSharedSchemaDiscovery(CODEMOD_NAME, "output", unsupported);
-    fail(`--all stopped because ${unsupported.length} router file(s) need manual output moves.`);
+    fail(
+      `--all stopped because ${String(unsupported.length)} router file(s) need manual output moves.`,
+    );
   }
 
   const candidates = results.filter((result) => result.candidateCount > 0);
@@ -237,7 +240,9 @@ function runAll(root: string, dryRun: boolean): void {
       root,
     );
   }
-  console.log(`${CODEMOD_NAME} codemod: --all processed ${candidates.length} router file(s).`);
+  console.log(
+    `${CODEMOD_NAME} codemod: --all processed ${String(candidates.length)} router file(s).`,
+  );
 }
 
 function runSingle(args: SingleCliArgs, root: string): void {

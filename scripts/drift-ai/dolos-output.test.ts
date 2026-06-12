@@ -9,6 +9,7 @@ import {
   parseDolosCsvReport,
   parseDolosVersionOutput,
 } from "./dolos-output.js";
+import type { DolosParseResult } from "./dolos-types.js";
 
 const FIXTURES_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures");
 
@@ -16,7 +17,7 @@ function readFixture(name: string): string {
   return readFileSync(path.join(FIXTURES_DIR, name), "utf8");
 }
 
-function parseFixtureReport() {
+function parseFixtureReport(): DolosParseResult {
   return parseDolosCsvReport({
     filesCsv: readFixture("dolos-report/files.csv"),
     metadataCsv: readFixture("dolos-report/metadata.csv"),

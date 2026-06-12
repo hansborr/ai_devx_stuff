@@ -1,4 +1,4 @@
-import { Node, SyntaxKind, type CallExpression, type ObjectLiteralExpression } from "ts-morph";
+import { type CallExpression, Node, type ObjectLiteralExpression, SyntaxKind } from "ts-morph";
 
 import { GATED_DELEGATES, GATED_MUTATORS } from "./constants.js";
 import type { DelegateCall } from "./types.js";

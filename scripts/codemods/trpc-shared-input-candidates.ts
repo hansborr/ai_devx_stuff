@@ -1,7 +1,8 @@
-import { CallExpression, Node, SourceFile, SyntaxKind, VariableStatement } from "ts-morph";
+import type { CallExpression, SourceFile, VariableStatement } from "ts-morph";
+import { Node, SyntaxKind } from "ts-morph";
 
+import type { SharedSchemaCodemodCandidate } from "./lib/trpc-shared-schema.js";
 import {
-  SHARED_SCHEMA_PREFIX,
   assertSafeSchemaIdentifier,
   collectSchemaCallCandidates,
   fail as failWithName,
@@ -10,8 +11,8 @@ import {
   procedureNameForSchemaCall,
   propertyCallMethod,
   propertyCallObject,
+  SHARED_SCHEMA_PREFIX,
 } from "./lib/trpc-shared-schema.js";
-import type { SharedSchemaCodemodCandidate } from "./lib/trpc-shared-schema.js";
 
 const CODEMOD_NAME = "trpc-shared-input";
 const INPUT_SCHEMA_SUFFIX = "InputSchema";

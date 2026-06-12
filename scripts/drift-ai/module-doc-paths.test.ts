@@ -5,7 +5,7 @@ import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 import type { DriftAiIgnoreConfig } from "./config.js";
-import { runModuleDocPathsCheck } from "./module-doc-paths.js";
+import { type ModuleDocPathsFinding, runModuleDocPathsCheck } from "./module-doc-paths.js";
 import { defaultListModuleDocs, isModuleDocPath } from "./module-doc-paths-io.js";
 
 const DEFAULT_ROOTS = ["packages/server/src", "packages/client/src"];
@@ -21,7 +21,7 @@ type RunFixture = {
   readonly repoRoot?: string;
 };
 
-function run(fixture: RunFixture) {
+function run(fixture: RunFixture): readonly ModuleDocPathsFinding[] {
   const existing = new Set(fixture.existing ?? []);
   const ignored = new Set(fixture.ignored ?? []);
   return runModuleDocPathsCheck({

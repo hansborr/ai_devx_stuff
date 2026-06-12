@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
-import { SyntaxKind, type SourceFile } from "ts-morph";
+import { type SourceFile, SyntaxKind } from "ts-morph";
 
 import { propertyCallMethod } from "./trpc-shared-schema-candidates.js";
 import { isReferenceIdentifier } from "./trpc-shared-schema-identifiers.js";
@@ -13,9 +13,9 @@ import {
   type WritePlan,
 } from "./trpc-shared-schema-types.js";
 
-export function appendSharedSchemaExports<TCandidate extends SharedSchemaCodemodCandidate>(
+export function appendSharedSchemaExports(
   targetFile: SourceFile,
-  candidates: TCandidate[],
+  candidates: SharedSchemaCodemodCandidate[],
   typeNameForSchema: (schemaName: string) => string,
 ): void {
   const statements = candidates.map((candidate) => {
@@ -57,16 +57,14 @@ function addMovedSchemaImport(
   );
 }
 
-export function rewriteRouterSharedSchemaReferences<
-  TCandidate extends SharedSchemaCodemodCandidate,
->({
+export function rewriteRouterSharedSchemaReferences({
   candidates,
   codemodName,
   removeLocalNames,
   routerFile,
   targetSource,
 }: {
-  candidates: TCandidate[];
+  candidates: SharedSchemaCodemodCandidate[];
   codemodName: string;
   removeLocalNames: Iterable<string>;
   routerFile: SourceFile;
@@ -147,7 +145,7 @@ export function writeOrPreviewFiles(
   if (dryRun) {
     for (const plan of sortedPlans) {
       console.log(
-        `${codemodName} codemod: dry-run would write ${path.relative(root, plan.path)} (${plan.text.length} bytes).`,
+        `${codemodName} codemod: dry-run would write ${path.relative(root, plan.path)} (${String(plan.text.length)} bytes).`,
       );
     }
     return;

@@ -1,4 +1,3 @@
-import type { LintRatchetRegression } from "../lint-ratchet-baseline.js";
 import {
   isRecord,
   parseOptionalNonNegativeInteger,
@@ -7,6 +6,7 @@ import {
   requireNonNegativeInteger,
   requireNormalizedPath,
 } from "./debt-log-parse-helpers.js";
+import type { LintRatchetRegression } from "./lint-ratchet-baseline.js";
 
 const REGRESSION_KEYS: ReadonlySet<string> = new Set([
   "testId",

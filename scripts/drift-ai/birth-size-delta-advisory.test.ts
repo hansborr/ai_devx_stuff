@@ -5,7 +5,10 @@ import {
   formatBirthSizeDeltaAdvisoryJson,
   formatBirthSizeDeltaAdvisoryText,
 } from "./birth-size-delta-advisory.js";
-import type { BuildBirthSizeDeltaAdvisoryInput } from "./birth-size-delta-types.js";
+import type {
+  BirthSizeDeltaAdvisory,
+  BuildBirthSizeDeltaAdvisoryInput,
+} from "./birth-size-delta-types.js";
 import type { BoundedFullHistory } from "./bounded-full-history.js";
 import { FULL_HISTORY_RENAME_CAVEAT } from "./bounded-full-history-disclosure.js";
 import type { BranchPointMeasurer } from "./branch-points.js";
@@ -309,7 +312,7 @@ describe("birth-size-delta branch-points overlay", () => {
     birthSource: string,
     currentSource: string,
     overrides: Partial<BuildBirthSizeDeltaAdvisoryInput> = {},
-  ) {
+  ): BirthSizeDeltaAdvisory {
     return buildBirthSizeDeltaAdvisory({
       history: history([rec({ hash: "birth", files: [change("src/f.ts", 5, 0)] })]),
       currentFiles: ["src/f.ts"],

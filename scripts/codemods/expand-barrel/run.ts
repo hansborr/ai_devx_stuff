@@ -3,6 +3,7 @@ import path from "node:path";
 
 import { Node, type Project, type SourceFile } from "ts-morph";
 
+import type { WritePlan } from "../lib/trpc-shared-schema.js";
 import {
   createProject,
   moduleSource,
@@ -10,13 +11,12 @@ import {
   writeOrPreviewFiles,
 } from "../lib/trpc-shared-schema.js";
 import { contextForKnown } from "./barrel-context.js";
-import { KNOWN_PACKAGE_BARRELS, CODEMOD_NAME } from "./constants.js";
+import { CODEMOD_NAME, KNOWN_PACKAGE_BARRELS } from "./constants.js";
 import { buildSymbolMap } from "./export-map.js";
 import { transformSourceFile } from "./import-replacement.js";
 import { mockCallInfo, staticString } from "./mocks.js";
 import { discoverPackageFiles, specifierMatchesKnownBarrel } from "./paths.js";
 import type { BarrelContext } from "./types.js";
-import type { WritePlan } from "../lib/trpc-shared-schema.js";
 
 export function runOne(context: BarrelContext, root: string, dryRun: boolean): void {
   const project = createProject();

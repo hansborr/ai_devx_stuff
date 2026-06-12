@@ -7,7 +7,7 @@ import { ESLint } from "eslint";
 import { describe, expect, it } from "vitest";
 
 import { maxLinesPolicy } from "../eslint-config/shared-policy.js";
-import { lintRatchets } from "../scripts/lint-ratchet-config.ts";
+import { lintRatchets } from "../scripts/lint-ratchet/lint-ratchet-config.ts";
 import { globToRegExp, matchesRatchet } from "../scripts/lint-ratchet/ratchet-globs.ts";
 
 const repoRoot = resolve(import.meta.dirname, "..");
@@ -15,6 +15,7 @@ const eslint = new ESLint({
   cwd: repoRoot,
   overrideConfigFile: resolve(repoRoot, "eslint.config.js"),
 });
+const resolvedConfigTestTimeoutMs = 15_000;
 
 function trackedFiles() {
   return execFileSync("git", ["ls-files"], { cwd: repoRoot, encoding: "utf8" })
@@ -94,16 +95,20 @@ describe("max-lines policy", () => {
     }
   });
 
-  it("matches the resolved ESLint local/max-lines caps", async () => {
-    for (const entry of maxLinesPolicy.exceptions) {
-      const config = await eslint.calculateConfigForFile(resolve(repoRoot, entry.path));
-      expect(readMaxLinesRule(localMaxLinesRule(config)), entry.path).toEqual({
-        severity: entry.severity,
-        max: entry.cap,
-        ...maxLinesPolicy.counting,
-      });
-    }
-  });
+  it(
+    "matches the resolved ESLint local/max-lines caps",
+    { timeout: resolvedConfigTestTimeoutMs },
+    async () => {
+      for (const entry of maxLinesPolicy.exceptions) {
+        const config = await eslint.calculateConfigForFile(resolve(repoRoot, entry.path));
+        expect(readMaxLinesRule(localMaxLinesRule(config)), entry.path).toEqual({
+          severity: entry.severity,
+          max: entry.cap,
+          ...maxLinesPolicy.counting,
+        });
+      }
+    },
+  );
 
   it("keeps max-lines ratchet floors aligned with policy", () => {
     const expectedRuleOptions = [

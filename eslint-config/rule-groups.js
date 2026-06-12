@@ -11,15 +11,15 @@ export const maxLinesRules = {
   "max-lines-per-function": ["error", { max: 200, skipBlankLines: true, skipComments: true }],
 };
 
-export const noMagicNumbersRule = [
-  "warn",
-  {
-    ignore: [0, 1, -1],
-    ignoreArrayIndexes: true,
-    ignoreDefaultValues: true,
-    enforceConst: true,
-  },
-];
+export const noMagicNumbersRuleOptions = {
+  ignore: [0, 1, -1],
+  ignoreArrayIndexes: true,
+  ignoreDefaultValues: true,
+  enforceConst: true,
+};
+
+export const noMagicNumbersRule = ["warn", noMagicNumbersRuleOptions];
+export const noMagicNumbersErrorRule = ["error", noMagicNumbersRuleOptions];
 
 export const maintainabilityRules = {
   complexity: ["error", { max: 10 }],

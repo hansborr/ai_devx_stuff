@@ -170,8 +170,12 @@ describe("code:intel CLI front door", () => {
       path.join(process.cwd(), "scripts/code-intel/cli-main.ts"),
       "utf8",
     );
+    const runtimeRunnerImportLines = entrypoint
+      .split("\n")
+      .filter((line) => line.includes('from "./code-intel/runner.js"'))
+      .filter((line) => !line.startsWith("import type ") && !line.startsWith("export type "));
 
-    expect(entrypoint).not.toContain('from "./code-intel/runner.js"');
+    expect(runtimeRunnerImportLines).toEqual([]);
     expect(cliMain).toContain('await import("./runner.js")');
 
     const help = spawnCodeIntel(["--help"]);

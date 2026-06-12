@@ -154,8 +154,9 @@ function errorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   if (typeof error === "string") return error;
   try {
-    const structured = JSON.stringify(error, null, 2);
-    return structured ?? String(error);
+    const structured: unknown = JSON.stringify(error, null, 2);
+    if (typeof structured === "string") return structured;
+    return String(error);
   } catch {
     return String(error);
   }
@@ -178,7 +179,9 @@ function runFixture(name: string): void {
   tempRoots.push(workRoot);
   copyDirectoryContents(path.join(caseRoot, "before"), workRoot);
 
-  const firstRun = withCapturedStdout(() => runExpandBarrelCodemod(metadata.args, workRoot));
+  const firstRun = withCapturedStdout(() => {
+    runExpandBarrelCodemod(metadata.args, workRoot);
+  });
   if (metadata.expectedError) {
     expect(firstRun.error).toBeDefined();
     expect(errorMessage(firstRun.error)).toContain(metadata.expectedError);
@@ -190,7 +193,9 @@ function runFixture(name: string): void {
 
   let output = firstRun.output;
   if (metadata.runTwice) {
-    const secondRun = withCapturedStdout(() => runExpandBarrelCodemod(metadata.args, workRoot));
+    const secondRun = withCapturedStdout(() => {
+      runExpandBarrelCodemod(metadata.args, workRoot);
+    });
     if (secondRun.error) throwCapturedError(secondRun.error);
     output = `${output}\n${secondRun.output}`;
   }

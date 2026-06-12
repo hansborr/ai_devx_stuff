@@ -8,8 +8,8 @@
 set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-# shellcheck source=../test-git-env.sh
-. "$SCRIPT_DIR/../test-git-env.sh"
+# shellcheck source=../tests/lib/test-git-env.sh
+. "$SCRIPT_DIR/../tests/lib/test-git-env.sh"
 musi_clear_inherited_git_hook_env
 musi_exit_after_git_hook_env_assertion_if_requested
 REPO_ROOT=$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel)

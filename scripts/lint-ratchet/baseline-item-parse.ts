@@ -1,4 +1,4 @@
-import { parseMetricFields, type LintRatchetMetricItem } from "../lint-ratchet-metrics.js";
+import { type LintRatchetMetricItem, parseMetricFields } from "./lint-ratchet-metrics.js";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);

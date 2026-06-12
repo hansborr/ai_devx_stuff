@@ -129,11 +129,11 @@ Action:
      declare the ESLint 10 peer (and run 'bun install').
   2. Run 'bun run audit:deps' to confirm no peer warnings remain.
   3. Delete scripts/check-eslint-react-peer-exception.sh,
-     scripts/test-check-eslint-react-peer-exception.sh, the
+     scripts/tests/test-check-eslint-react-peer-exception.sh, the
      check:eslint-react-peer-exception package script, the audit:deps wiring,
-     the smoke-test registrations (scripts/path-policy.ts,
-     scripts/path-policy-smoke-subjects.ts, scripts/path-policy-query.test.ts,
-     scripts/test-test-scripts.sh), and
+     the smoke-test registrations (scripts/path-policy/path-policy.ts,
+     scripts/path-policy/path-policy-smoke-subjects.ts, scripts/path-policy/path-policy-query.test.ts,
+     scripts/tests/test-test-scripts.sh), and
      docs/agent_notes/backlog/eslint-react-peer-exception-removal.md.
 EOF
 exit 1

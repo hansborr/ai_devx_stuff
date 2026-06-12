@@ -240,7 +240,9 @@ describe("buildSemgrepAdvisory", () => {
     expect(text).toContain(
       "#2 tmp.smoke-empty-catch scripts/drift-ai/git-changed-scope.ts -- 3 hits, lines 18-23, 29-34, 42-47",
     );
-    expect(text).toContain(`engine semgrep@1.165.0; scanned ${scanOutput.scannedCount} files`);
+    expect(text).toContain(
+      `engine semgrep@1.165.0; scanned ${String(scanOutput.scannedCount)} files`,
+    );
   });
 
   it("renders metadata facts and provenance without WARN/FIX language or snippets", () => {

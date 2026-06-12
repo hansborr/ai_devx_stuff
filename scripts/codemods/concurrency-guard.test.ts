@@ -167,8 +167,9 @@ function errorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   if (typeof error === "string") return error;
   try {
-    const structured = JSON.stringify(error, null, 2);
-    return structured ?? String(error);
+    const structured: unknown = JSON.stringify(error, null, 2);
+    if (typeof structured === "string") return structured;
+    return String(error);
   } catch {
     return String(error);
   }
@@ -186,7 +187,9 @@ function runFixture(name: string): void {
   tempRoots.push(workRoot);
   copyDirectoryContents(path.join(caseRoot, "before"), workRoot);
 
-  const firstRun = withCapturedStdout(() => runConcurrencyGuardCodemod(metadata.args, workRoot));
+  const firstRun = withCapturedStdout(() => {
+    runConcurrencyGuardCodemod(metadata.args, workRoot);
+  });
   if (metadata.expectFailure) {
     expect(firstRun.error).toBeInstanceOf(CodemodError);
     if (!(firstRun.error instanceof Error)) throw new Error("Expected codemod error.");

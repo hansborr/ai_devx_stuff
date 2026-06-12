@@ -1,7 +1,8 @@
 import { existsSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 
-import { Project, type SourceFile } from "ts-morph";
+import type { Project } from "ts-morph";
+import { type SourceFile } from "ts-morph";
 
 import {
   fail,

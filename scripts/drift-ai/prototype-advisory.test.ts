@@ -84,9 +84,12 @@ describe("brand firewall", () => {
   });
 
   it("JSON has no top-level `findings` key and keeps the advisory/prototype top level", () => {
-    const parsed: Record<string, unknown> = JSON.parse(
-      formatPrototypeAdvisoryJson(fixtureAdvisory()),
-    );
+    // type-assertion-boundary: test - JSON.parse returns the advisory JSON
+    // text; the top-level key shape is the contract under test.
+    const parsed = JSON.parse(formatPrototypeAdvisoryJson(fixtureAdvisory())) as Record<
+      string,
+      unknown
+    >;
     expect("findings" in parsed).toBe(false);
     expect(parsed.kind).toBe("advisory");
     expect(parsed.lane).toBe("prototype");

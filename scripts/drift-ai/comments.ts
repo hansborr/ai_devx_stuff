@@ -119,7 +119,7 @@ function isExcludedFromComments(filePath: string, excludePrefixes: readonly stri
   if (segments.includes("__tests__")) return true;
   if (segments.includes("fixtures") || segments.includes("__fixtures__")) return true;
   const base = segments[segments.length - 1] ?? "";
-  if (/\.(test|spec|fixture)\.[cm]?[jt]sx?$/u.test(base)) return true;
+  if (/\.(?:test|spec|fixture)\.[cm]?[jt]sx?$/u.test(base)) return true;
   return false;
 }
 

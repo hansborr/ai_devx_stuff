@@ -48,3 +48,6 @@ detail that cannot be recovered from code, tests, commits, `LOG.md`, or
 - `drift-ai-field-run-calibration.md` — repeatable `drift:ai` calibration
   record template plus the first focused Musi current-scope baseline and linked
   detector-tuning follow-up.
+- `scripts-and-hooks-reorg-2026-06.md` — completed scripts and AI-hooks reorg
+  plan, including the generated verify/hook wiring decisions and the stale-path
+  cleanup lesson from the mechanical move phase.

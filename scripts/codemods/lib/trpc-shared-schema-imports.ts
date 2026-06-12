@@ -1,10 +1,10 @@
-import { Node, Project, type ImportDeclaration, type SourceFile } from "ts-morph";
+import { type ImportDeclaration, Node, Project, type SourceFile } from "ts-morph";
 
 import { rewriteAllowedSharedImportSource } from "./trpc-shared-schema-paths.js";
 import {
-  SHARED_SCHEMA_PREFIX,
   type ImportBinding,
   type ImportSpecifierInfo,
+  SHARED_SCHEMA_PREFIX,
 } from "./trpc-shared-schema-types.js";
 
 export function moduleSource(importDeclaration: ImportDeclaration): string {

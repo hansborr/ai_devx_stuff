@@ -12,6 +12,7 @@ import {
   extractNearDuplicateFunctions,
   findNearDuplicatePairs,
   NEAR_DUPLICATE_TOOL,
+  type NearDuplicateFunction,
 } from "./near-duplicates.js";
 import { nearDuplicatesCheck } from "./near-duplicates-check.js";
 import {
@@ -112,7 +113,7 @@ export function makeShippingPayload(shipment: Order): Payload {
 }
 `;
 
-function functionsFrom(files: Record<string, string>) {
+function functionsFrom(files: Record<string, string>): NearDuplicateFunction[] {
   return Object.entries(files).flatMap(([filePath, source]) =>
     extractNearDuplicateFunctions(filePath, source),
   );

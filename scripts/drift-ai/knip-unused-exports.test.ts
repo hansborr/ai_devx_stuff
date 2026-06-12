@@ -202,7 +202,7 @@ describe("parseKnipUnusedExports", () => {
     const result = parseKnipUnusedExports(UNUSED_EXPORTS_FIXTURE);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    const byCategory = (category: UnusedExportSymbol["category"]) =>
+    const byCategory = (category: UnusedExportSymbol["category"]): UnusedExportSymbol[] =>
       result.symbols.filter((s) => s.category === category);
 
     const exportSym = byCategory("exports");
@@ -391,7 +391,9 @@ describe("buildUnusedExportFindings", () => {
 
     expect(findings).toHaveLength(3);
     for (const finding of findings) {
-      expect(finding.message).toContain(`exported symbol ${finding.details?.symbol} (src/a.ts)`);
+      expect(finding.message).toContain(
+        `exported symbol ${String(finding.details?.symbol)} (src/a.ts)`,
+      );
       expect(finding.message).not.toContain("src/a.ts:");
       expect(finding.details).toEqual({ category: "exports", symbol: finding.details?.symbol });
     }

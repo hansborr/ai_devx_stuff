@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 
 import type { GitRunner } from "./git-changed-scope.js";
 import {
+  type HarnessFreshnessFinding,
   type HarnessFreshnessPathKind,
   type PathExists,
   runHarnessFreshnessCheck,
@@ -22,7 +23,7 @@ function runFixture(options: {
   readonly guides: readonly string[];
   readonly existingPaths?: ReadonlyArray<`${HarnessFreshnessPathKind}:${string}`>;
   readonly ignoredPaths?: readonly string[];
-}) {
+}): HarnessFreshnessFinding[] {
   const ignoredPaths = new Set(options.ignoredPaths ?? []);
   return runHarnessFreshnessCheck({
     readFile: (filePath) => (filePath === "docs/ai-harness.md" ? options.harness : undefined),

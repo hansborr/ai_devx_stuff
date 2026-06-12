@@ -1,4 +1,4 @@
-import type { LintRatchetConfig } from "../lint-ratchet-config.js";
+import type { LintRatchetConfig } from "./lint-ratchet-config.js";
 import type { LintRatchetZeroBaselineDispositionKind } from "./zero-baseline-types.js";
 
 const ZERO_BASELINE_DISPOSITION_KINDS = new Set<LintRatchetZeroBaselineDispositionKind>([

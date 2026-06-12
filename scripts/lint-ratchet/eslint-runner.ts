@@ -2,15 +2,15 @@ import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
-import type { LintRatchetConfig } from "../lint-ratchet-config.js";
-import { ConfigError } from "../lint-ratchet-metrics.js";
 import {
-  cacheKeyHashFor,
   CACHE_HASH_PREFIX_LENGTH,
+  cacheKeyHashFor,
   eslintCachePathFor,
   usesEslintCache,
   writeEslintConfig,
 } from "./eslint-config.js";
+import type { LintRatchetConfig } from "./lint-ratchet-config.js";
+import { ConfigError } from "./lint-ratchet-metrics.js";
 import { repoRoot, safeRatchetId } from "./paths.js";
 
 export interface ESLintMessage {
@@ -59,6 +59,10 @@ function parseEslintOutput(stdout: string): readonly ESLintFileResult[] {
   return results;
 }
 
+function rejectWithError(rejectResults: (reason?: unknown) => void, error: unknown): void {
+  rejectResults(error instanceof Error ? error : new Error(String(error)));
+}
+
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -92,7 +96,7 @@ function sweepStaleCacheSiblings(ratchet: LintRatchetConfig, currentHash: string
   }
 }
 
-function spawnEslint(
+async function spawnEslint(
   ratchet: LintRatchetConfig,
   args: readonly string[],
 ): Promise<readonly ESLintFileResult[]> {
@@ -132,7 +136,7 @@ function spawnEslint(
       try {
         resolveResults(parseEslintOutput(stdout));
       } catch (error) {
-        rejectResults(error);
+        rejectWithError(rejectResults, error);
       }
     });
   });

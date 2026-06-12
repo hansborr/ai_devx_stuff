@@ -19,7 +19,7 @@ const FIXTURE_MAP = `# Fixture
 | \`config.json\` | 1 .json | yes | none | JSON | none | maybe-linted | — |
 `;
 
-const MAP_PATH = "docs/agent_notes/backlog/lint-followups/lint-coverage-map.md";
+const MAP_PATH = "docs/agent_notes/lint-coverage-map.md";
 const CLEAN_MAP = `# Fixture
 
 | Path / group | Files | Normal lint | Existing ratchet/floor | Parser/tool | Proposed rule/tool | Status | Blocker/follow-up |

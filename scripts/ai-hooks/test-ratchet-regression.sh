@@ -8,8 +8,8 @@
 set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-# shellcheck source=../test-git-env.sh
-. "$SCRIPT_DIR/../test-git-env.sh"
+# shellcheck source=../tests/lib/test-git-env.sh
+. "$SCRIPT_DIR/../tests/lib/test-git-env.sh"
 musi_clear_inherited_git_hook_env
 musi_exit_after_git_hook_env_assertion_if_requested
 REPO_ROOT=$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel)
@@ -27,7 +27,7 @@ AI_PRECOMMIT_LOG_DIR="$TMP_ROOT/pre-commit-logs"
 # The hook is exercised with a fake `bun` on PATH that emits canned discovery /
 # edit-check rows and logs every invocation. This isolates the hook's bash logic
 # (path extraction, caps, content cache, throttle-before-lint, advisory output)
-# from the real ratchet engine, which is covered by scripts/test-lint-ratchet.sh.
+# from the real ratchet engine, which is covered by scripts/tests/test-lint-ratchet.sh.
 RR_REPO="$TMP_ROOT/ratchet-regression-repo"
 RR_FAKE_BIN="$TMP_ROOT/ratchet-regression-bin"
 RR_BUN_LOG="$TMP_ROOT/ratchet-regression-bun.log"
@@ -41,7 +41,8 @@ cp "$REPO_ROOT/scripts/ai-hooks/common.sh" \
   "$REPO_ROOT/scripts/ai-hooks/throttle-state.sh" \
   "$REPO_ROOT/scripts/ai-hooks/ratchet-regression-check.sh" \
   "$RR_REPO/scripts/ai-hooks/"
-cp "$REPO_ROOT/scripts/verify-metadata.sh" "$RR_REPO/scripts/"
+mkdir -p "$RR_REPO/scripts/lib"
+cp "$REPO_ROOT/scripts/lib/verify-metadata.sh" "$RR_REPO/scripts/lib/"
 git -C "$RR_REPO" init -q
 
 cat > "$RR_FAKE_BIN/bun" <<'EOF'

@@ -66,8 +66,14 @@ export function groupNamespaceImport(
   groups.set(key, { kind: "namespace", source, declarationTypeOnly, local });
 }
 
+function importGroupKindRank(group: ImportGroup): string {
+  if (group.kind === "default") return "1";
+  if (group.kind === "named") return "2";
+  return "3";
+}
+
 export function importGroupSortKey(group: ImportGroup): string {
-  const kindRank = group.kind === "default" ? "1" : group.kind === "named" ? "2" : "3";
+  const kindRank = importGroupKindRank(group);
   const local = group.kind === "named" ? "" : group.local;
   return `${group.source}\0${kindRank}\0${local}`;
 }

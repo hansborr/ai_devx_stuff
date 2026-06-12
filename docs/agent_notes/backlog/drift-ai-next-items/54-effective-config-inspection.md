@@ -76,10 +76,11 @@ Shipped as a `drift:ai config` top-level subcommand, read-only.
   is concise (source, repo root, roots, source extensions, default/implemented
   checks); `--format json` carries the full effective config.
 - Registered in `runner.ts` `TOP_LEVEL_SUBCOMMANDS`, so the README subcommand
-  table, `harness.controls.json` (`drift-scope/config`, regenerated doc), and the
-  `cli-args` usage all gained the surface — guarded by the existing
-  readme-config-parity and harness-controls-parity tests. New files are accounted
-  for in `docs/agent_notes/backlog/lint-followups/lint-coverage-map.md`.
+  table, `harness.controls.json` (`drift-scope/config`, regenerated doc), and
+  the `cli-args` usage all gained the surface — guarded by the existing
+  readme-config-parity and harness-controls-parity tests. New files are
+  accounted for in
+  `docs/agent_notes/backlog/lint-review-2026-06/11-scripts-coverage-family-map.md`.
 - Tests: `scripts/drift-ai/config-inspect.test.ts` (model classification,
   text/JSON rendering, end-to-end default/auto-discovered/explicit/missing-config,
   `--help`, and `--output` writes-only-the-report).

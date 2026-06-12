@@ -6,6 +6,7 @@ import {
   classifyRuleLicense,
   createCliRuleSourceCollector,
   evaluateRuleSources,
+  type RuleSourceGateOptions,
   type SemgrepLocalRuleSource,
   type SemgrepRegistryRuleSource,
 } from "./semgrep-rule-sources.js";
@@ -195,7 +196,7 @@ describe("evaluateRuleSources registry gate", () => {
 });
 
 describe("evaluateRuleSources local-config existence gate", () => {
-  function withExistence(localConfigExists: (config: string) => boolean) {
+  function withExistence(localConfigExists: (config: string) => boolean): RuleSourceGateOptions {
     return { ...NO_OPT_INS, localConfigExists };
   }
 

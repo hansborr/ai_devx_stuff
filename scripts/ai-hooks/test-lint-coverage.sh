@@ -9,8 +9,8 @@
 set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-# shellcheck source=../test-git-env.sh
-. "$SCRIPT_DIR/../test-git-env.sh"
+# shellcheck source=../tests/lib/test-git-env.sh
+. "$SCRIPT_DIR/../tests/lib/test-git-env.sh"
 musi_clear_inherited_git_hook_env
 musi_exit_after_git_hook_env_assertion_if_requested
 REPO_ROOT=$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel)
@@ -65,7 +65,8 @@ cp "$REPO_ROOT/scripts/ai-hooks/common.sh" \
   "$REPO_ROOT/scripts/ai-hooks/lint-coverage-state.sh" \
   "$REPO_ROOT/scripts/ai-hooks/lint-coverage-check.sh" \
   "$LINT_COVERAGE_REPO_TMP/scripts/ai-hooks/"
-cp "$REPO_ROOT/scripts/verify-metadata.sh" "$LINT_COVERAGE_REPO_TMP/scripts/"
+mkdir -p "$LINT_COVERAGE_REPO_TMP/scripts/lib"
+cp "$REPO_ROOT/scripts/lib/verify-metadata.sh" "$LINT_COVERAGE_REPO_TMP/scripts/lib/"
 git -C "$LINT_COVERAGE_REPO_TMP" init -q
 HOOK_FIXTURE_REPO_ROOT="$LINT_COVERAGE_REPO_TMP"
 LINT_COVERAGE_PINNED_LOG="$TMP_ROOT/lint-coverage-pinned.log"
@@ -126,7 +127,7 @@ chmod +x "$LINT_COVERAGE_REPO_TMP/node_modules/.bin/eslint"
 #   bun <script> --edit-ratchet-coverage <relpath>...
 # against the fixture's single ratchet/fixture floor (files src/ratcheted/**/*.ts,
 # ignores src/ratcheted/**/*.test.ts, ruleId fixture/rule). The real baseline parse
-# and glob matcher are covered end-to-end by scripts/test-lint-ratchet.sh; this
+# and glob matcher are covered end-to-end by scripts/tests/test-lint-ratchet.sh; this
 # stub isolates the hook's bash logic (uncovered-branch wiring, row parsing,
 # tier bucketing, degrade-on-failure). LC_BUN_FAIL=1 forces a non-zero exit so the
 # hook's "engine failed -> fall back to the uncovered tier" path can be exercised.

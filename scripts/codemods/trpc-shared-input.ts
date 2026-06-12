@@ -2,12 +2,13 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { Project, SourceFile } from "ts-morph";
 
+import type { Project, SourceFile } from "ts-morph";
+
+import type { ImportBinding, SharedSchemaCodemodCandidate } from "./lib/trpc-shared-schema.js";
 import {
   appendSharedSchemaExports,
   CodemodError,
-  SHARED_SCHEMA_PREFIX,
   collectAllowlistedRouterImports,
   collectExportedTopLevelIdentifiers,
   collectTargetIdentifiers,
@@ -20,12 +21,12 @@ import {
   normalizeRelativeRouterPath,
   reportSharedSchemaDiscovery,
   rewriteRouterSharedSchemaReferences,
+  SHARED_SCHEMA_PREFIX,
   targetPathFromSource,
   validateSharedSchemaCandidates,
   validateSharedSchemaSource,
   writeOrPreviewFiles,
 } from "./lib/trpc-shared-schema.js";
-import type { ImportBinding, SharedSchemaCodemodCandidate } from "./lib/trpc-shared-schema.js";
 import {
   assertConstSchemaIsOnlyInputReference,
   collectInputCandidates,

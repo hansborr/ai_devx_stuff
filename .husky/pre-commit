@@ -26,6 +26,10 @@
 # The PreToolUse hook in .claude/settings.json blocks --no-verify / HUSKY=0
 # bypasses entirely; fix issues, do not skip.
 # ----------------------------------------------------------------------------
+if [ -z "${BASH_VERSION:-}" ]; then
+  exec bash "$0" "$@"
+fi
+
 set -u
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
@@ -38,11 +42,13 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 # shellcheck source=/dev/null
 . "$REPO_ROOT/scripts/ai-hooks/output-filter.sh"
 # shellcheck source=/dev/null
-. "$REPO_ROOT/scripts/verify-metadata.sh"
+. "$REPO_ROOT/scripts/lib/verify-metadata.sh"
 # shellcheck source=/dev/null
 . "$REPO_ROOT/scripts/process-tree.sh"
 # shellcheck source=/dev/null
-. "$REPO_ROOT/scripts/parallel-step.sh"
+. "$REPO_ROOT/scripts/lib/parallel-step.sh"
+# shellcheck source=/dev/null
+. "$REPO_ROOT/scripts/lib/lint-dist-preflight.sh"
 
 warn_if_staged_lockfile_needs_install() {
   if ! git diff --cached --name-only --diff-filter=ACMR \
@@ -96,9 +102,34 @@ warn_if_staged_hot_doc_too_long() {
   done
 }
 
+warn_if_generated_surface_stale() {
+  local label="$1" script="$2" output
+
+  if output="$(bun run "$script" 2>&1)"; then
+    return 0
+  fi
+
+  printf 'pre-commit: WARN: %s appears stale:\n%s\n' "$label" "$output" >&2
+}
+
+warn_if_generated_harness_surfaces_stale() {
+  local staged generated_pattern
+  staged="$(git diff --cached --name-only --diff-filter=ACMR)"
+  [ -n "$staged" ] || return 0
+
+  generated_pattern='^(harness\.controls\.json|scripts/harness/(generate-(hook-wiring|verify-steps)\.ts|hook-wiring-schema\.ts|verify-step-schema\.ts)|scripts/verify/steps\.generated\.sh|\.claude/settings\.json|\.codex/hooks\.json)$'
+  if ! printf '%s\n' "$staged" | grep -Eq "$generated_pattern"; then
+    return 0
+  fi
+
+  warn_if_generated_surface_stale "verify step metadata" "verify:steps:check"
+  warn_if_generated_surface_stale "AI hook wiring" "harness:wiring:check"
+}
+
 warn_if_staged_lockfile_needs_install
 warn_if_staged_schema_needs_generate
 warn_if_staged_hot_doc_too_long
+warn_if_generated_harness_surfaces_stale
 
 # --- 1. Skip when nothing source-relevant is staged ------------------------
 # Changed gates verify staged content. Reject source-relevant unstaged or
@@ -196,8 +227,13 @@ LOG_DIR="${MUSI_VERIFY_LOG_DIR:-/tmp/musi-pre-commit-logs}"
 HISTORY_DIR="${MUSI_VERIFY_HISTORY_DIR:-/tmp/musi-verify-history}"
 rm -rf "$LOG_DIR"
 mkdir -p "$LOG_DIR" "$LOG_DIR/meta"
+# shellcheck disable=SC2034 # Consumed by scripts/verify/steps.generated.sh.
 TIMINGS_FILE="$LOG_DIR/test-timings.json"
 META_DIR="$LOG_DIR/meta"
+# shellcheck source=/dev/null
+. "$REPO_ROOT/scripts/verify/steps.generated.sh"
+# shellcheck source=/dev/null
+. "$REPO_ROOT/scripts/verify/steps-lib.sh"
 
 # Wrapper-meta breadcrumbs read by ai_stop_verify_status to decide whether the
 # cached run-meta still describes the source/config state pre-commit checked.
@@ -207,40 +243,50 @@ META_FP=$(ai_precommit_fingerprint "$REPO_ROOT")
 START_TS=$(date +%s)
 START_TIME=$(date -Iseconds)
 
-musi_run_parallel_step parallel-precommit "" lint bun run lint:changed
-pid_lint=$STEP_PID
-musi_run_parallel_step parallel-precommit "" ratchet env "HARNESS_DIAGNOSTICS_OUTPUT=$LOG_DIR/ratchet-diagnostics.json" bun run lint:ratchet
-pid_ratchet=$STEP_PID
-musi_run_parallel_step parallel-precommit "" zero-baseline bun run lint:ratchet:zero-baseline
-pid_zero_baseline=$STEP_PID
-musi_run_parallel_step parallel-precommit "" coverage-map bun run docs:lint-coverage-map:check -- --staged
-pid_coverage_map=$STEP_PID
-musi_run_parallel_step parallel-precommit "" format-check bun run format:changed:check
-pid_format_check=$STEP_PID
-musi_run_parallel_step parallel-precommit "" typecheck bun run typecheck
-pid_tc=$STEP_PID
-if [ "${MUSI_CAPTURE_TEST_TIMINGS:-}" = "1" ]; then
-  musi_run_parallel_step parallel-precommit "" test bun run test:changed --reporter=dot --reporter=json --outputFile.json="$TIMINGS_FILE"
-else
-  musi_run_parallel_step parallel-precommit "" test bun run test:changed --reporter=dot
+PARALLEL_PIDS=()
+STEP_NAMES=()
+STEP_PIDS=()
+STEP_EXITS=()
+PENDING_LINT_CMD=()
+DEFER_LINT=0
+PENDING_LINT_INDEX=-1
+TYPECHECK_INDEX=-1
+
+if ! musi_lint_dist_outputs_present "$REPO_ROOT"; then
+  DEFER_LINT=1
 fi
-pid_test=$STEP_PID
-pid_scripts=""
-run_scripts=0
-_script_rc=0
-musi_classify_staged_script_input || _script_rc=$?
-if [ "$_script_rc" -eq 0 ]; then
-  musi_run_parallel_step parallel-precommit "" scripts env \
-    MUSI_SCRIPTS_CHANGED_FILES="$MUSI_STAGED_SCRIPT_ALL" \
-    MUSI_SCRIPTS_DELETED_FILES="$MUSI_STAGED_SCRIPT_DELETED" \
-    bun run test:scripts:changed
-  pid_scripts=$STEP_PID
-  run_scripts=1
-elif [ "$_script_rc" -eq 1 ]; then
-  musi_run_parallel_step parallel-precommit "" scripts bun run test:scripts:changed
-  pid_scripts=$STEP_PID
-  run_scripts=1
-fi
+
+for slot in "${MUSI_PRE_COMMIT_STEPS[@]}"; do
+  resolve_rc=0
+  musi_resolve_slot_cmd pre_commit "$slot" || resolve_rc=$?
+  if [ "$resolve_rc" -eq "$MUSI_VERIFY_SLOT_SKIP_RC" ]; then
+    continue
+  fi
+  if [ "$resolve_rc" -ne 0 ]; then
+    printf 'pre-commit: failed to resolve %s step (rc=%s)\n' \
+      "$slot" "$resolve_rc" > "$LOG_DIR/${slot}.log"
+    STEP_NAMES+=("$slot")
+    STEP_PIDS+=("")
+    STEP_EXITS+=("$resolve_rc")
+    break
+  fi
+  if [ "$DEFER_LINT" -eq 1 ] && [ "$slot" = lint ]; then
+    PENDING_LINT_INDEX="${#STEP_NAMES[@]}"
+    PENDING_LINT_CMD=("${MUSI_RESOLVED_SLOT_CMD[@]}")
+    STEP_NAMES+=("$slot")
+    STEP_PIDS+=("")
+    STEP_EXITS+=("")
+    continue
+  fi
+  musi_run_parallel_step parallel-precommit "" "$slot" "${MUSI_RESOLVED_SLOT_CMD[@]}"
+  STEP_NAMES+=("$slot")
+  STEP_PIDS+=("$STEP_PID")
+  STEP_EXITS+=("")
+  PARALLEL_PIDS+=("$STEP_PID")
+  if [ "$slot" = typecheck ]; then
+    TYPECHECK_INDEX=$(( ${#STEP_NAMES[@]} - 1 ))
+  fi
+done
 
 # Propagate INT/TERM to children. Split traps to emit conventional exit codes:
 #   INT  (Ctrl-C) → 130
@@ -253,7 +299,7 @@ report_timeout_budget() {
 }
 cleanup_parallel_children() {
   local pid
-  for pid in $pid_scripts $pid_lint $pid_ratchet $pid_zero_baseline $pid_coverage_map $pid_format_check $pid_tc $pid_test; do
+  for pid in "${PARALLEL_PIDS[@]}"; do
     [ -n "$pid" ] && musi_signal_process_tree "$pid" TERM
   done
   kill "$WD" 2>/dev/null
@@ -272,34 +318,50 @@ trap 'cleanup_parallel_children; write_signal_wrapper_meta 130; exit 130' INT
 trap 'cleanup_parallel_children; write_signal_wrapper_meta 124; report_timeout_budget; exit 124' TERM
 trap 'kill $WD 2>/dev/null' EXIT
 
-exit_lint=0; exit_tc=0; exit_test=0; exit_scripts=0
-wait "$pid_lint" || exit_lint=$?
-exit_ratchet=0
-wait "$pid_ratchet" || exit_ratchet=$?
-exit_zero_baseline=0
-wait "$pid_zero_baseline" || exit_zero_baseline=$?
-exit_coverage_map=0
-wait "$pid_coverage_map" || exit_coverage_map=$?
-exit_format_check=0
-wait "$pid_format_check" || exit_format_check=$?
-wait "$pid_tc"   || exit_tc=$?
-wait "$pid_test" || exit_test=$?
-if [ "$run_scripts" -eq 1 ]; then
-  wait "$pid_scripts" || exit_scripts=$?
+if [ "$PENDING_LINT_INDEX" -ge 0 ]; then
+  if [ "$TYPECHECK_INDEX" -ge 0 ] && [ -n "${STEP_PIDS[$TYPECHECK_INDEX]}" ]; then
+    pid="${STEP_PIDS[$TYPECHECK_INDEX]}"
+    if wait "$pid"; then
+      STEP_EXITS[$TYPECHECK_INDEX]=0
+    else
+      STEP_EXITS[$TYPECHECK_INDEX]=$?
+    fi
+    if [ "${STEP_EXITS[$TYPECHECK_INDEX]}" -eq 0 ]; then
+      musi_run_parallel_step parallel-precommit "" lint "${PENDING_LINT_CMD[@]}"
+      STEP_PIDS[$PENDING_LINT_INDEX]="$STEP_PID"
+      PARALLEL_PIDS+=("$STEP_PID")
+    else
+      printf 'pre-commit: skipped lint because typecheck failed before required dist outputs were available\n' \
+        > "$LOG_DIR/lint.log"
+      STEP_EXITS[$PENDING_LINT_INDEX]=1
+    fi
+  else
+    musi_run_parallel_step parallel-precommit "" lint "${PENDING_LINT_CMD[@]}"
+    STEP_PIDS[$PENDING_LINT_INDEX]="$STEP_PID"
+    PARALLEL_PIDS+=("$STEP_PID")
+  fi
 fi
+
+for index in "${!STEP_NAMES[@]}"; do
+  [ -n "${STEP_EXITS[$index]}" ] && continue
+  pid="${STEP_PIDS[$index]}"
+  [ -n "$pid" ] || continue
+  if wait "$pid"; then
+    STEP_EXITS[$index]=0
+  else
+    STEP_EXITS[$index]=$?
+  fi
+done
+PARALLEL_PIDS=()
 
 # --- 6. Aggregate results --------------------------------------------------
 passed=""; failed=""
-[ "$exit_lint" -eq 0 ] && passed="$passed lint" || failed="$failed lint"
-[ "$exit_ratchet" -eq 0 ] && passed="$passed ratchet" || failed="$failed ratchet"
-[ "$exit_zero_baseline" -eq 0 ] && passed="$passed zero-baseline" || failed="$failed zero-baseline"
-[ "$exit_coverage_map" -eq 0 ] && passed="$passed coverage-map" || failed="$failed coverage-map"
-[ "$exit_format_check" -eq 0 ] && passed="$passed format-check" || failed="$failed format-check"
-[ "$exit_tc"   -eq 0 ] && passed="$passed typecheck" || failed="$failed typecheck"
-[ "$exit_test" -eq 0 ] && passed="$passed test" || failed="$failed test"
-if [ "$run_scripts" -eq 1 ]; then
-  [ "$exit_scripts" -eq 0 ] && passed="$passed scripts" || failed="$failed scripts"
-fi
+for index in "${!STEP_NAMES[@]}"; do
+  task="${STEP_NAMES[$index]}"
+  exit_code="${STEP_EXITS[$index]}"
+  [ -n "$exit_code" ] || exit_code=1
+  [ "$exit_code" -eq 0 ] && passed="$passed $task" || failed="$failed $task"
+done
 
 ELAPSED=$(( $(date +%s) - START_TS ))
 END_TS=$(date +%s)

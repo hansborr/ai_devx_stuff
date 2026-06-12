@@ -20,10 +20,15 @@ import {
   type HarnessFindingSeverity,
   summarizeHarnessFindings,
 } from "../packages/shared/src/schemas/harness-diagnostics.js";
+import {
+  formatRuleDocsFailures,
+  loadLintRuleDocs,
+  type RuleDocsEntry,
+} from "./lib/lint-rule-docs.js";
 import { lintAgentHowToFixFor } from "./lint-agent-fix-text.js";
-import { formatRuleDocsFailures, loadLintRuleDocs, type RuleDocsEntry } from "./lint-rule-docs.js";
 
 const PROCESS_ARG_OFFSET = 2;
+const JSON_INDENT_SPACES = 2;
 const ESLINT_SEVERITY_ERROR = 2;
 const ESLINT_SEVERITY_WARN = 1;
 const LOCAL_RULE_PREFIX = "local/";
@@ -61,6 +66,30 @@ function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
+function parseOutputOption(
+  arg: string,
+  args: readonly string[],
+  index: number,
+): { readonly outputPath: string; readonly nextIndex: number } | undefined {
+  if (arg === "--output") {
+    const valueIndex = index + 1;
+    const value = args[valueIndex];
+    if (!value || value.startsWith("--")) {
+      throw new Error("--output requires a path argument");
+    }
+    return { outputPath: value, nextIndex: valueIndex + 1 };
+  }
+  if (!arg.startsWith("--output=")) return undefined;
+  const value = arg.slice("--output=".length);
+  if (value.length === 0) {
+    throw new Error("--output= requires a non-empty path");
+  }
+  if (value.startsWith("--")) {
+    throw new Error(`--output= requires a path argument, got: ${value}`);
+  }
+  return { outputPath: value, nextIndex: index + 1 };
+}
+
 function parseArgs(args: readonly string[]): ParsedArgs {
   const patterns: string[] = [];
   let outputPath: string | undefined;
@@ -71,25 +100,10 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       i += 1;
       continue;
     }
-    if (arg === "--output") {
-      const value = args[i + 1];
-      if (!value || value.startsWith("--")) {
-        throw new Error("--output requires a path argument");
-      }
-      outputPath = value;
-      i += 2;
-      continue;
-    }
-    if (arg.startsWith("--output=")) {
-      const value = arg.slice("--output=".length);
-      if (value.length === 0) {
-        throw new Error("--output= requires a non-empty path");
-      }
-      if (value.startsWith("--")) {
-        throw new Error(`--output= requires a path argument, got: ${value}`);
-      }
-      outputPath = value;
-      i += 1;
+    const output = parseOutputOption(arg, args, i);
+    if (output !== undefined) {
+      outputPath = output.outputPath;
+      i = output.nextIndex;
       continue;
     }
     if (arg.startsWith("--")) {
@@ -279,13 +293,13 @@ async function main(): Promise<void> {
 
   const parseResult = harnessDiagnosticsSchema.safeParse(envelope);
   if (!parseResult.success) {
-    const issues = JSON.stringify(parseResult.error.issues, null, 2);
+    const issues = JSON.stringify(parseResult.error.issues, null, JSON_INDENT_SPACES);
     throw new Error(
       `${DISPLAY_COMMAND} produced an envelope that failed schema validation:\n${issues}`,
     );
   }
 
-  const rendered = `${JSON.stringify(envelope, null, 2)}\n`;
+  const rendered = `${JSON.stringify(envelope, null, JSON_INDENT_SPACES)}\n`;
   if (args.outputPath !== undefined) {
     const outPath = isAbsolute(args.outputPath)
       ? args.outputPath

@@ -1,28 +1,14 @@
 import { existsSync, readFileSync } from "node:fs";
 
-import {
-  buildLintRatchetBaseline,
-  compareCurrentToBaseline,
-  formatLintRatchetBaseline,
-  parseLintRatchetBaseline,
-  type LintRatchetRuleSourceHashesById,
-  validateLintRatchetRegistry,
-} from "../lint-ratchet-baseline.js";
-import { lintRatchets, lintRatchetThirdPartyPluginAllowlist } from "../lint-ratchet-config.js";
-import { runLintRatchetDebtLogReport } from "../lint-ratchet-debt-log.js";
-import { ConfigError } from "../lint-ratchet-metrics.js";
-import { emitHarnessDiagnosticsEnvelope } from "../lint-ratchet-output.js";
-import {
-  LINT_RATCHET_REPORT_ARTIFACT_URL_ENV,
-  runLintRatchetReport,
-} from "../lint-ratchet-report.js";
-import { runLintRatchetSummary } from "../lint-ratchet-summary.js";
-import {
-  formatUndocumentedZeroBaselineFailure,
-  runLintRatchetZeroBaselineAuditResult,
-} from "../lint-ratchet-zero-baseline.js";
+import { applyLintRatchetUpdate } from "./baseline-update-apply.js";
 import type { ParsedArgs } from "./cli.js";
 import { collectCurrentById, totalCurrentCount } from "./current-collector.js";
+import {
+  assertCheckBaselineComparisonClean,
+  buildEnvelope,
+  loadRuleDocsById,
+  validateEnvelope,
+} from "./diagnostics.js";
 import {
   discoverEditCheckTargets,
   type EditCheckTarget,
@@ -34,16 +20,35 @@ import {
   formatEditCheckTarget,
   parseEditCheckTargetLine,
 } from "./edit-check-protocol.js";
-import { formatRatchetCoverageRow, ratchetCoverageForPaths } from "./ratchet-coverage.js";
-import { applyLintRatchetUpdate } from "./baseline-update-apply.js";
 import {
-  assertCheckBaselineComparisonClean,
-  buildEnvelope,
-  loadRuleDocsById,
-  validateEnvelope,
-} from "./diagnostics.js";
+  buildLintRatchetBaseline,
+  compareCurrentToBaseline,
+  formatLintRatchetBaseline,
+  type LintRatchetBaseline,
+  type LintRatchetRuleSourceHashesById,
+  parseLintRatchetBaseline,
+  validateLintRatchetRegistry,
+} from "./lint-ratchet-baseline.js";
+import { lintRatchets, lintRatchetThirdPartyPluginAllowlist } from "./lint-ratchet-config.js";
+import { runLintRatchetDebtLogReport } from "./lint-ratchet-debt-log.js";
+import { ConfigError } from "./lint-ratchet-metrics.js";
+import { emitHarnessDiagnosticsEnvelope } from "./lint-ratchet-output.js";
+import { runLintRatchetReport } from "./lint-ratchet-report.js";
+import { runLintRatchetSummary } from "./lint-ratchet-summary.js";
+import {
+  formatUndocumentedZeroBaselineFailure,
+  runLintRatchetZeroBaselineAuditResult,
+} from "./lint-ratchet-zero-baseline.js";
 import { BASELINE_FILENAME, baselinePath } from "./paths.js";
+import { formatRatchetCoverageRow, ratchetCoverageForPaths } from "./ratchet-coverage.js";
 import { buildRuleSourceHashesById } from "./rule-source.js";
+
+const DEFAULT_EDIT_CHECK_CONCURRENCY = 3;
+
+export interface LintRatchetRuntimeOptions {
+  readonly reportArtifactName?: string;
+  readonly editCheckConcurrency?: number;
+}
 
 function readBaseline(): string {
   if (!existsSync(baselinePath)) {
@@ -53,11 +58,11 @@ function readBaseline(): string {
 }
 
 async function runCheckRegistry(): Promise<void> {
-  await (await import("../lint-ratchet-check-registry.js")).runLintRatchetCheckRegistry();
+  await (await import("./lint-ratchet-check-registry.js")).runLintRatchetCheckRegistry();
 }
 
 async function assertRegistryPreflight(): Promise<void> {
-  await (await import("../lint-ratchet-check-registry.js")).assertLintRatchetRegistryClean();
+  await (await import("./lint-ratchet-check-registry.js")).assertLintRatchetRegistryClean();
 }
 
 function runSummary(): void {
@@ -76,8 +81,8 @@ async function runZeroBaseline(): Promise<void> {
   }
 }
 
-function runReport(): void {
-  const artifactName = process.env[LINT_RATCHET_REPORT_ARTIFACT_URL_ENV];
+function runReport(options: LintRatchetRuntimeOptions): void {
+  const artifactName = options.reportArtifactName;
   process.stdout.write(
     runLintRatchetReport(
       artifactName === undefined || artifactName.length === 0 ? {} : { artifactName },
@@ -89,7 +94,9 @@ function runDebtLogReport(): void {
   process.stdout.write(runLintRatchetDebtLogReport());
 }
 
-function parseCommittedBaseline(ruleSourceHashesById: LintRatchetRuleSourceHashesById) {
+function parseCommittedBaseline(
+  ruleSourceHashesById: LintRatchetRuleSourceHashesById,
+): LintRatchetBaseline {
   const parsed = parseLintRatchetBaseline(readBaseline(), lintRatchets, ruleSourceHashesById);
   if (parsed.baseline === undefined) throw new ConfigError(parsed.failures.join("\n"));
   return parsed.baseline;
@@ -178,10 +185,8 @@ function runEditRatchetCoverage(args: ParsedArgs): void {
   if (lines.length > 0) process.stdout.write(`${lines.join("\n")}\n`);
 }
 
-function editCheckConcurrency(): number {
-  const raw = process.env.AI_RATCHET_REGRESSION_CONCURRENCY;
-  const parsed = raw === undefined ? Number.NaN : Number.parseInt(raw, 10);
-  return Number.isInteger(parsed) && parsed >= 1 ? parsed : 3;
+function editCheckConcurrency(options: LintRatchetRuntimeOptions): number {
+  return options.editCheckConcurrency ?? DEFAULT_EDIT_CHECK_CONCURRENCY;
 }
 
 function parseTargetsFile(file: string): EditCheckTarget[] {
@@ -197,10 +202,10 @@ function parseTargetsFile(file: string): EditCheckTarget[] {
 // Two-step contract: --edit-check-targets lists candidate ratchets (no ESLint)
 // so the hook can throttle before linting; --edit-check then lints only the
 // surviving targets written to <file> and prints fresh regressions.
-async function runEditCheck(args: ParsedArgs): Promise<void> {
+async function runEditCheck(args: ParsedArgs, options: LintRatchetRuntimeOptions): Promise<void> {
   if (args.targetsFile === undefined || !existsSync(args.targetsFile)) return;
   const targets = parseTargetsFile(args.targetsFile);
-  const result = await runEditCheckRegressions(targets, editCheckConcurrency());
+  const result = await runEditCheckRegressions(targets, editCheckConcurrency(options));
   // `checked` rows let the hook distinguish a genuinely-linted-clean file from a
   // soft skip, so it only content-caches bytes ESLint actually inspected.
   const lines = [
@@ -213,9 +218,12 @@ async function runEditCheck(args: ParsedArgs): Promise<void> {
 // Modes that skip the registry preflight/validate gate entirely (pure reports
 // and the edit-time check). Returns true when it handled the mode so the caller
 // can return before the heavier validation path.
-async function runUnvalidatedMode(args: ParsedArgs): Promise<boolean> {
+async function runUnvalidatedMode(
+  args: ParsedArgs,
+  options: LintRatchetRuntimeOptions,
+): Promise<boolean> {
   if (args.mode === "report") {
-    runReport();
+    runReport(options);
     return true;
   }
   if (args.mode === "debt-log") {
@@ -227,7 +235,7 @@ async function runUnvalidatedMode(args: ParsedArgs): Promise<boolean> {
     return true;
   }
   if (args.mode === "edit-check") {
-    await runEditCheck(args);
+    await runEditCheck(args, options);
     return true;
   }
   if (args.mode === "edit-ratchet-coverage") {
@@ -261,8 +269,11 @@ async function runValidatedMode(args: ParsedArgs): Promise<void> {
   await runDefault();
 }
 
-export async function runLintRatchetCli(args: ParsedArgs): Promise<void> {
-  if (await runUnvalidatedMode(args)) return;
+export async function runLintRatchetCli(
+  args: ParsedArgs,
+  options: LintRatchetRuntimeOptions = {},
+): Promise<void> {
+  if (await runUnvalidatedMode(args, options)) return;
   if (args.mode === "default") {
     await assertRegistryPreflight();
   } else {

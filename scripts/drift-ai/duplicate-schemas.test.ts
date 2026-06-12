@@ -6,9 +6,9 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { parseArgs } from "./cli-args.js";
 import { DEFAULT_DRIFT_AI_CONFIG } from "./config.js";
-import { extractSchemaShapes } from "./duplicate-schemas.js";
+import { extractSchemaShapes, type SchemaShapeExtra } from "./duplicate-schemas.js";
 import { duplicateSchemasCheck } from "./duplicate-schemas-check.js";
-import { groupDuplicateShapes } from "./duplicate-shapes.js";
+import { groupDuplicateShapes, type ShapeEntry } from "./duplicate-shapes.js";
 import { buildSourceExtensions } from "./scope.js";
 
 const tempRoots: string[] = [];
@@ -30,7 +30,10 @@ function writeRepo(files: Record<string, string>): string {
   return root;
 }
 
-function shapesFrom(files: Record<string, string>, options: { readonly minKeys?: number } = {}) {
+function shapesFrom(
+  files: Record<string, string>,
+  options: { readonly minKeys?: number } = {},
+): ShapeEntry<SchemaShapeExtra>[] {
   const minKeys = options.minKeys ?? 3;
   return Object.entries(files).flatMap(([filePath, source]) =>
     extractSchemaShapes(filePath, source, { minKeys }),

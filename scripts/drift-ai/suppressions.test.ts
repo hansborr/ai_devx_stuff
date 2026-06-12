@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { ChangedFile } from "../drift-ai.js";
+import type { ChangedFile, DriftFinding } from "../drift-ai.js";
 import type { DetectorScope } from "./scope.js";
 import { toChangedScopeFile, toCurrentScopeFile } from "./scope.js";
 import { runSuppressionsCheck, type SuppressionsGitRunner } from "./suppressions.js";
@@ -40,7 +40,10 @@ function unifiedDiff(path: string, hunkLines: readonly string[], newStart = 12):
   ].join("\n");
 }
 
-function run(diffText: string, detectorScope: DetectorScope = changed([{ path: filePath }])) {
+function run(
+  diffText: string,
+  detectorScope: DetectorScope = changed([{ path: filePath }]),
+): DriftFinding[] {
   const git: SuppressionsGitRunner = () => diffText;
   return runSuppressionsCheck({
     detectorScope,

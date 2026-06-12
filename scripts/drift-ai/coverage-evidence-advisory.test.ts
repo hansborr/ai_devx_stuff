@@ -9,13 +9,16 @@ import {
   formatCoverageEvidenceAdvisoryJson,
   formatCoverageEvidenceAdvisoryText,
 } from "./coverage-evidence-advisory.js";
+import type { CoverageArtifactEvidence } from "./coverage-types.js";
 
 const FIXTURE_REPO = path.dirname(fileURLToPath(import.meta.url));
 const UNIT = "fixtures/coverage/unit.lcov.info";
 const E2E = "fixtures/coverage/e2e.lcov.info";
 const MALFORMED = "fixtures/coverage/malformed.lcov.info";
 
-function fixtureEvidence(artifacts: readonly { path: string; label: string }[]) {
+function fixtureEvidence(
+  artifacts: readonly { path: string; label: string }[],
+): CoverageArtifactEvidence[] {
   return readCoverageArtifacts({ repoRoot: FIXTURE_REPO, artifacts });
 }
 

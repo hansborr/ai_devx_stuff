@@ -1,12 +1,13 @@
 import path from "node:path";
 
 import {
-  Node,
-  SyntaxKind,
   type CallExpression,
+  Node,
   type PropertyAssignment,
   type SourceFile,
+  SyntaxKind,
   type VariableDeclaration,
+  VariableDeclarationKind,
   type VariableStatement,
 } from "ts-morph";
 
@@ -14,8 +15,8 @@ import { collectSharedSchemaValueImports } from "./trpc-shared-schema-imports.js
 import { discoverRouterFiles } from "./trpc-shared-schema-paths.js";
 import {
   CodemodError,
-  ROUTER_ROOT,
   createProject,
+  ROUTER_ROOT,
   type SharedSchemaCodemodCandidate,
   type SharedSchemaDiscoveryResult,
 } from "./trpc-shared-schema-types.js";
@@ -75,7 +76,7 @@ function getTopLevelConstSchemas(sourceFile: SourceFile): Map<string, VariableSt
     if (!Node.isVariableStatement(statement)) continue;
     const declarationKind = statement.getDeclarationKind();
     const variables = statement.getDeclarations();
-    if (declarationKind !== "const" || variables.length !== 1) continue;
+    if (declarationKind !== VariableDeclarationKind.Const || variables.length !== 1) continue;
     const variable = variables[0];
     if (!variable) continue;
     const nameNode = variable.getNameNode();
@@ -158,7 +159,7 @@ export function reportSharedSchemaDiscovery(
       continue;
     }
     console.log(
-      `${codemodName} codemod: check ${result.relativeRouterPath}: ${result.candidateCount} candidate(s).`,
+      `${codemodName} codemod: check ${result.relativeRouterPath}: ${String(result.candidateCount)} candidate(s).`,
     );
   }
 }

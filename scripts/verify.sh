@@ -54,11 +54,13 @@ cd "$REPO_ROOT" || exit 1
 # shellcheck source=/dev/null
 . "$REPO_ROOT/scripts/ai-hooks/cache.sh"
 # shellcheck source=/dev/null
-. "$REPO_ROOT/scripts/verify-metadata.sh"
+. "$REPO_ROOT/scripts/lib/verify-metadata.sh"
 # shellcheck source=/dev/null
 . "$REPO_ROOT/scripts/process-tree.sh"
 # shellcheck source=/dev/null
-. "$REPO_ROOT/scripts/parallel-step.sh"
+. "$REPO_ROOT/scripts/lib/parallel-step.sh"
+# shellcheck source=/dev/null
+. "$REPO_ROOT/scripts/lib/lint-dist-preflight.sh"
 
 LOCK="${MUSI_VERIFY_LOCK:-/tmp/musi-pre-commit.lock}"
 LOG_DIR="${MUSI_VERIFY_LOG_DIR:-/tmp/musi-pre-commit-logs}"
@@ -70,57 +72,35 @@ HISTORY_DIR="${MUSI_VERIFY_HISTORY_DIR:-/tmp/musi-verify-history}"
 # `testResults[].assertionResults[].duration` from it. The default
 # `bun run test` script is unchanged — only the wrapper-injected command
 # carries the json reporter.
+# shellcheck disable=SC2034 # Consumed by scripts/verify/steps.generated.sh.
 TIMINGS_FILE="$LOG_DIR/test-timings.json"
+# shellcheck source=/dev/null
+. "$REPO_ROOT/scripts/verify/steps.generated.sh"
+# shellcheck source=/dev/null
+. "$REPO_ROOT/scripts/verify/steps-lib.sh"
 META_DIR="$LOG_DIR/meta"
 INTERACTIVE_TIMEOUT="${MUSI_VERIFY_TIMEOUT:-${MUSI_INTERACTIVE_TIMEOUT:-240}}"
 WARN_AFTER="${MUSI_INTERACTIVE_WARN_AFTER:-210}"
 case "$MODE" in
   changed)
     MARKER="${MUSI_VERIFY_MARKER_CHANGED:-$(musi_standard_verify_changed_marker)}"
-    LINT_CMD=(bun run lint:changed)
-    RATCHET_CMD=(env "HARNESS_DIAGNOSTICS_OUTPUT=$LOG_DIR/ratchet-diagnostics.json" bun run lint:ratchet)
-    ZERO_BASELINE_CMD=(bun run lint:ratchet:zero-baseline)
-    COVERAGE_MAP_CMD=(bun run docs:lint-coverage-map:check -- --staged)
-    FORMAT_CHECK_CMD=(bun run format:changed:check)
-    TEST_CMD=(bun run test:changed --reporter=dot --reporter=json --outputFile.json="$TIMINGS_FILE")
-    SCRIPTS_CMD=(bun run test:scripts:changed)
+    VERIFY_CONSUMER=verify_changed
+    VERIFY_STEPS_ARRAY=MUSI_VERIFY_CHANGED_STEPS
     META_MODE=parallel-verify-changed
     ;;
   parallel)
     MARKER="${MUSI_VERIFY_MARKER_FULL:-$(musi_standard_verify_full_marker)}"
-    LINT_CMD=(bun run lint)
-    RATCHET_CMD=(env "HARNESS_DIAGNOSTICS_OUTPUT=$LOG_DIR/ratchet-diagnostics.json" bun run lint:ratchet)
-    ZERO_BASELINE_CMD=(bun run lint:ratchet:zero-baseline)
-    COVERAGE_MAP_CMD=(bun run docs:lint-coverage-map:check)
-    FORMAT_CHECK_CMD=(bun run format:check)
-    TEST_CMD=(bun run test --reporter=dot --reporter=json --outputFile.json="$TIMINGS_FILE")
-    SCRIPTS_CMD=(bun run test:scripts)
+    VERIFY_CONSUMER=verify_parallel
+    VERIFY_STEPS_ARRAY=MUSI_VERIFY_PARALLEL_STEPS
     META_MODE=parallel-verify
     ;;
   *)
     MARKER="${MUSI_VERIFY_MARKER_FULL:-$(musi_standard_verify_full_marker)}"
-    LINT_CMD=(bun run lint)
-    RATCHET_CMD=(env "HARNESS_DIAGNOSTICS_OUTPUT=$LOG_DIR/ratchet-diagnostics.json" bun run lint:ratchet)
-    ZERO_BASELINE_CMD=(bun run lint:ratchet:zero-baseline)
-    COVERAGE_MAP_CMD=(bun run docs:lint-coverage-map:check)
-    FORMAT_CHECK_CMD=(bun run format:check)
-    TEST_CMD=(bun run test --reporter=dot --reporter=json --outputFile.json="$TIMINGS_FILE")
-    SCRIPTS_CMD=(bun run test:scripts)
+    VERIFY_CONSUMER=verify
+    VERIFY_STEPS_ARRAY=MUSI_VERIFY_STEPS
     META_MODE=serial-verify
     ;;
 esac
-TYPECHECK_CMD=(bun run typecheck)
-
-if [ "$MODE" = changed ]; then
-  _script_rc=0
-  musi_classify_staged_script_input || _script_rc=$?
-  if [ "$_script_rc" -eq 0 ]; then
-    SCRIPTS_CMD=(env
-      MUSI_SCRIPTS_CHANGED_FILES="$MUSI_STAGED_SCRIPT_ALL"
-      MUSI_SCRIPTS_DELETED_FILES="$MUSI_STAGED_SCRIPT_DELETED"
-      bun run test:scripts:changed)
-  fi
-fi
 
 if [ "$MODE" = changed ]; then
   musi_changed_gate_fail_if_unstaged "$REPO_ROOT" "$LABEL" || exit 1
@@ -293,47 +273,109 @@ run_step() {
 
 STEP_PID=""
 run_steps_parallel() {
-  local pid_lint pid_ratchet pid_zero_baseline pid_coverage_map pid_format_check pid_tc pid_test pid_scripts
-  local exit_lint=0 exit_ratchet=0 exit_zero_baseline=0 exit_coverage_map=0 exit_format_check=0
-  local exit_tc=0 exit_test=0 exit_scripts=0
+  local -n steps_ref="$VERIFY_STEPS_ARRAY"
+  local -a step_names=() step_pids=() step_exits=()
+  local -a pending_lint_cmd=()
+  local slot resolve_rc index pid exit_code
+  local defer_lint=0 pending_lint_index=-1 typecheck_index=-1
 
-  musi_run_parallel_step "$META_MODE" "$LABEL" lint "${LINT_CMD[@]}"
-  pid_lint=$STEP_PID; PARALLEL_PIDS+=("$STEP_PID")
-  musi_run_parallel_step "$META_MODE" "$LABEL" ratchet "${RATCHET_CMD[@]}"
-  pid_ratchet=$STEP_PID; PARALLEL_PIDS+=("$STEP_PID")
-  musi_run_parallel_step "$META_MODE" "$LABEL" zero-baseline "${ZERO_BASELINE_CMD[@]}"
-  pid_zero_baseline=$STEP_PID; PARALLEL_PIDS+=("$STEP_PID")
-  musi_run_parallel_step "$META_MODE" "$LABEL" coverage-map "${COVERAGE_MAP_CMD[@]}"
-  pid_coverage_map=$STEP_PID; PARALLEL_PIDS+=("$STEP_PID")
-  musi_run_parallel_step "$META_MODE" "$LABEL" format-check "${FORMAT_CHECK_CMD[@]}"
-  pid_format_check=$STEP_PID; PARALLEL_PIDS+=("$STEP_PID")
-  musi_run_parallel_step "$META_MODE" "$LABEL" typecheck "${TYPECHECK_CMD[@]}"
-  pid_tc=$STEP_PID; PARALLEL_PIDS+=("$STEP_PID")
-  musi_run_parallel_step "$META_MODE" "$LABEL" test "${TEST_CMD[@]}"
-  pid_test=$STEP_PID; PARALLEL_PIDS+=("$STEP_PID")
-  musi_run_parallel_step "$META_MODE" "$LABEL" scripts "${SCRIPTS_CMD[@]}"
-  pid_scripts=$STEP_PID; PARALLEL_PIDS+=("$STEP_PID")
+  if ! musi_lint_dist_outputs_present "$REPO_ROOT"; then
+    defer_lint=1
+  fi
 
-  wait "$pid_lint" || exit_lint=$?
-  wait "$pid_ratchet" || exit_ratchet=$?
-  wait "$pid_zero_baseline" || exit_zero_baseline=$?
-  wait "$pid_coverage_map" || exit_coverage_map=$?
-  wait "$pid_format_check" || exit_format_check=$?
-  wait "$pid_tc" || exit_tc=$?
-  wait "$pid_test" || exit_test=$?
-  wait "$pid_scripts" || exit_scripts=$?
+  for slot in "${steps_ref[@]}"; do
+    resolve_rc=0
+    musi_resolve_slot_cmd "$VERIFY_CONSUMER" "$slot" || resolve_rc=$?
+    if [ "$resolve_rc" -eq "$MUSI_VERIFY_SLOT_SKIP_RC" ]; then
+      continue
+    fi
+    if [ "$resolve_rc" -ne 0 ]; then
+      printf '%s: failed to resolve %s step for %s (rc=%s)\n' \
+        "$LABEL" "$slot" "$VERIFY_CONSUMER" "$resolve_rc" > "$LOG_DIR/${slot}.log"
+      step_names+=("$slot")
+      step_pids+=("")
+      step_exits+=("$resolve_rc")
+      break
+    fi
+    if [ "$defer_lint" -eq 1 ] && [ "$slot" = lint ]; then
+      pending_lint_index="${#step_names[@]}"
+      pending_lint_cmd=("${MUSI_RESOLVED_SLOT_CMD[@]}")
+      step_names+=("$slot")
+      step_pids+=("")
+      step_exits+=("")
+      continue
+    fi
+    musi_run_parallel_step "$META_MODE" "$LABEL" "$slot" "${MUSI_RESOLVED_SLOT_CMD[@]}"
+    step_names+=("$slot")
+    step_pids+=("$STEP_PID")
+    step_exits+=("")
+    PARALLEL_PIDS+=("$STEP_PID")
+    if [ "$slot" = typecheck ]; then
+      typecheck_index=$(( ${#step_names[@]} - 1 ))
+    fi
+  done
+
+  if [ "$pending_lint_index" -ge 0 ]; then
+    if [ "$typecheck_index" -ge 0 ] && [ -n "${step_pids[$typecheck_index]}" ]; then
+      pid="${step_pids[$typecheck_index]}"
+      if wait "$pid"; then
+        step_exits[$typecheck_index]=0
+      else
+        step_exits[$typecheck_index]=$?
+      fi
+      if [ "${step_exits[$typecheck_index]}" -eq 0 ]; then
+        musi_run_parallel_step "$META_MODE" "$LABEL" lint "${pending_lint_cmd[@]}"
+        step_pids[$pending_lint_index]="$STEP_PID"
+        PARALLEL_PIDS+=("$STEP_PID")
+      else
+        printf '%s: skipped lint because typecheck failed before required dist outputs were available\n' \
+          "$LABEL" > "$LOG_DIR/lint.log"
+        step_exits[$pending_lint_index]=1
+      fi
+    else
+      musi_run_parallel_step "$META_MODE" "$LABEL" lint "${pending_lint_cmd[@]}"
+      step_pids[$pending_lint_index]="$STEP_PID"
+      PARALLEL_PIDS+=("$STEP_PID")
+    fi
+  fi
+
+  for index in "${!step_names[@]}"; do
+    [ -n "${step_exits[$index]}" ] && continue
+    pid="${step_pids[$index]}"
+    [ -n "$pid" ] || continue
+    if wait "$pid"; then
+      step_exits[$index]=0
+    else
+      step_exits[$index]=$?
+    fi
+  done
   PARALLEL_PIDS=()
 
-  [ "$exit_lint" -eq 0 ] && passed="$passed lint" || failed="$failed lint"
-  [ "$exit_ratchet" -eq 0 ] && passed="$passed ratchet" || failed="$failed ratchet"
-  [ "$exit_zero_baseline" -eq 0 ] && passed="$passed zero-baseline" || failed="$failed zero-baseline"
-  [ "$exit_coverage_map" -eq 0 ] && passed="$passed coverage-map" || failed="$failed coverage-map"
-  [ "$exit_format_check" -eq 0 ] && passed="$passed format-check" || failed="$failed format-check"
-  [ "$exit_tc" -eq 0 ] && passed="$passed typecheck" || failed="$failed typecheck"
-  [ "$exit_test" -eq 0 ] && passed="$passed test" || failed="$failed test"
-  [ "$exit_scripts" -eq 0 ] && passed="$passed scripts" || failed="$failed scripts"
+  for index in "${!step_names[@]}"; do
+    slot="${step_names[$index]}"
+    exit_code="${step_exits[$index]}"
+    [ -n "$exit_code" ] || exit_code=1
+    [ "$exit_code" -eq 0 ] && passed="$passed $slot" || failed="$failed $slot"
+  done
 
   [ -z "$failed" ]
+}
+
+run_resolved_step() {
+  local slot="$1" resolve_rc=0
+
+  musi_resolve_slot_cmd "$VERIFY_CONSUMER" "$slot" || resolve_rc=$?
+  if [ "$resolve_rc" -eq "$MUSI_VERIFY_SLOT_SKIP_RC" ]; then
+    return 0
+  fi
+  if [ "$resolve_rc" -ne 0 ]; then
+    printf '%s: failed to resolve %s step for %s (rc=%s)\n' \
+      "$LABEL" "$slot" "$VERIFY_CONSUMER" "$resolve_rc" > "$LOG_DIR/${slot}.log"
+    failed="$failed $slot"
+    return 1
+  fi
+
+  run_step "$slot" "${MUSI_RESOLVED_SLOT_CMD[@]}"
 }
 
 # Full manual verification remains sequential and stops at the first failure.
@@ -343,14 +385,11 @@ overall=0
 if [ "$MODE" = changed ] || [ "$MODE" = parallel ]; then
   run_steps_parallel || overall=1
 else
-  run_step lint "${LINT_CMD[@]}" || overall=1
-  [ "$overall" -eq 0 ] && { run_step ratchet "${RATCHET_CMD[@]}" || overall=1; }
-  [ "$overall" -eq 0 ] && { run_step zero-baseline "${ZERO_BASELINE_CMD[@]}" || overall=1; }
-  [ "$overall" -eq 0 ] && { run_step coverage-map "${COVERAGE_MAP_CMD[@]}" || overall=1; }
-  [ "$overall" -eq 0 ] && { run_step format-check "${FORMAT_CHECK_CMD[@]}" || overall=1; }
-  [ "$overall" -eq 0 ] && { run_step typecheck "${TYPECHECK_CMD[@]}" || overall=1; }
-  [ "$overall" -eq 0 ] && { run_step test "${TEST_CMD[@]}" || overall=1; }
-  [ "$overall" -eq 0 ] && { run_step scripts "${SCRIPTS_CMD[@]}" || overall=1; }
+  declare -n verify_steps_ref="$VERIFY_STEPS_ARRAY"
+  for step in "${verify_steps_ref[@]}"; do
+    [ "$overall" -eq 0 ] || break
+    run_resolved_step "$step" || overall=1
+  done
 fi
 
 ELAPSED=$(( $(date +%s) - START_TS ))

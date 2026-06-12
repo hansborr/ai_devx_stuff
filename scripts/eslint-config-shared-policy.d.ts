@@ -32,7 +32,11 @@ declare module "*eslint-config/shared-policy.js" {
   }
 
   export const maxLinesPolicy: MaxLinesPolicy;
-  export const e2ePreferRoleSelectorAllowlist: readonly string[];
+  export const e2eNoNthMethodsDebtFiles: readonly string[];
+  export const e2ePreferNativeLocatorDebtFiles: readonly string[];
+  export const e2ePreferRoleSelectorDebtFiles: readonly string[];
+  export const scriptFixtureIgnores: readonly string[];
+  export const scriptTestAssertFunctionNames: readonly string[];
 }
 
 declare module "*eslint-rules/max-lines.js" {

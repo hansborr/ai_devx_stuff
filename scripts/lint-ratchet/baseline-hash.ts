@@ -1,18 +1,19 @@
 import { createHash } from "node:crypto";
 
+import { LINT_RATCHET_CONFIG_HASH_PREFIX } from "./baseline-constants.js";
 import type {
   JsonObject,
   JsonValue,
   LintRatchetConfig,
   LintRatchetParserProfile,
   LintRatchetRuleSource,
-} from "../lint-ratchet-config.js";
-import { LINT_RATCHET_CONFIG_HASH_PREFIX } from "./baseline-constants.js";
+} from "./lint-ratchet-config.js";
 
 export { LINT_RATCHET_CONFIG_HASH_PREFIX } from "./baseline-constants.js";
 
 export const RULE_ID_PATTERN =
   /^(?:[a-z0-9][a-z0-9-]*(?:\/[a-z0-9][a-z0-9-]*)+|@[a-z0-9][a-z0-9-]*\/[a-z0-9][a-z0-9-]*(?:\/[a-z0-9][a-z0-9-]*)*)$/u;
+const SCOPED_RULE_NAMESPACE_PARTS = 3;
 
 export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -36,8 +37,12 @@ function isJsonObjectValue(value: JsonValue): value is JsonObject {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
+function isJsonArrayValue(value: JsonValue): value is readonly JsonValue[] {
+  return Array.isArray(value);
+}
+
 export function normalizeJsonValue(value: JsonValue): JsonValue {
-  if (Array.isArray(value)) return value.map((entry) => normalizeJsonValue(entry));
+  if (isJsonArrayValue(value)) return value.map((entry) => normalizeJsonValue(entry));
   if (!isJsonObjectValue(value)) return value;
   const normalized: Record<string, JsonValue> = {};
   for (const key of Object.keys(value).sort()) {
@@ -73,7 +78,7 @@ export function assertNever(value: never): never {
 export function ruleNamespace(ruleId: string): string | undefined {
   if (!RULE_ID_PATTERN.test(ruleId)) return undefined;
   const parts = ruleId.split("/");
-  if (parts.length >= 3 && parts[0]?.startsWith("@") === true) {
+  if (parts.length >= SCOPED_RULE_NAMESPACE_PARTS && parts[0]?.startsWith("@") === true) {
     const scope = parts[0];
     const packageName = parts[1];
     return packageName === undefined ? undefined : `${scope}/${packageName}`;

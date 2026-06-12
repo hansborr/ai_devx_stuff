@@ -1898,7 +1898,7 @@ main() {
   esac
 }
 
-# Skip main when sourced (e.g. by scripts/test-worktree-db.sh) so tests can
+# Skip main when sourced (e.g. by scripts/tests/test-worktree-db.sh) so tests can
 # exercise pure helpers without invoking a subcommand.
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
   main "$@"

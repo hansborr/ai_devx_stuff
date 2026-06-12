@@ -6,7 +6,7 @@ AI_HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=/dev/null
 . "$AI_HOOKS_DIR/output-filter.sh"
 # shellcheck source=/dev/null
-. "$AI_HOOKS_DIR/../verify-metadata.sh"
+. "$AI_HOOKS_DIR/../lib/verify-metadata.sh"
 
 AI_STATE_ROOT="${AI_STATE_ROOT:-/tmp/musi-ai-hooks}"
 AI_GIT_STATE_DIR="${AI_GIT_STATE_DIR:-$AI_STATE_ROOT/git}"

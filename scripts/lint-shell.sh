@@ -5,7 +5,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$REPO_ROOT"
-PATH_POLICY_QUERY="$SCRIPT_DIR/path-policy-query.ts"
+PATH_POLICY_QUERY="$SCRIPT_DIR/path-policy/path-policy-query.ts"
 
 MODE=full
 BASE=main
@@ -73,25 +73,18 @@ collect_full_files() {
   done < <(collect_repo_files | bun --config=/dev/null "$PATH_POLICY_QUERY" shell-surface)
 }
 
-resolve_base_ref() {
-  if git rev-parse --verify "$BASE" >/dev/null 2>&1; then
-    return 0
-  fi
-  if git rev-parse --verify "origin/$BASE" >/dev/null 2>&1; then
-    BASE="origin/$BASE"
-    return 0
-  fi
-  return 1
-}
-
 collect_changed_files() {
   # shellcheck source=/dev/null
-  . "$SCRIPT_DIR/verify-metadata.sh"
+  . "$SCRIPT_DIR/lib/verify-metadata.sh"
+  # shellcheck source=scripts/lib/changed-base.sh
+  . "$SCRIPT_DIR/lib/changed-base.sh"
 
   musi_changed_gate_fail_if_unstaged "$REPO_ROOT" "lint:shell:changed"
 
-  if ! resolve_base_ref; then
-    echo "lint:shell: neither '$BASE' nor 'origin/$BASE' exists — checking full maintained shell set."
+  if musi_resolve_changed_base "$BASE"; then
+    BASE="$MUSI_CHANGED_BASE"
+  else
+    echo "lint:shell: $MUSI_CHANGED_BASE_ERROR — checking full maintained shell set." >&2
     collect_full_files
     return 0
   fi

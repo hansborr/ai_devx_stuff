@@ -1,9 +1,9 @@
 import {
-  Node,
-  SyntaxKind,
   type ImportDeclaration,
   type ImportSpecifier,
+  Node,
   type SourceFile,
+  SyntaxKind,
 } from "ts-morph";
 
 import type { TargetIdentifiers } from "./trpc-shared-schema-types.js";

@@ -8,10 +8,13 @@
 import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
-import type { ParsedLogRecord } from "./logs-audit-checks.js";
-import { auditEventFields, auditRequestIds } from "./logs-audit-checks.js";
-import { writeLogsAuditDiagnosticsSidecar } from "./logs-audit-diagnostics.js";
-import { inspectRedaction, isJsonObject } from "./logs-audit-redaction.js";
+import type { ParsedLogRecord } from "./logs-audit/logs-audit-checks.js";
+import { auditEventFields, auditRequestIds } from "./logs-audit/logs-audit-checks.js";
+import { writeLogsAuditDiagnosticsSidecar } from "./logs-audit/logs-audit-diagnostics.js";
+import { inspectRedaction, isJsonObject } from "./logs-audit/logs-audit-redaction.js";
+
+const JSON_FORMAT_INDENT_SPACES = 2;
+const CLI_USER_ARGS_START_INDEX = 2;
 
 export type LogsAuditFormat = "text" | "json";
 
@@ -88,36 +91,54 @@ function readOptionValue(
   return { value: next, nextIndex: index + 1 };
 }
 
+type ParsedAuditArg =
+  | {
+      readonly kind: "file";
+      readonly value: string;
+      readonly nextIndex: number;
+    }
+  | {
+      readonly kind: "format";
+      readonly value: LogsAuditFormat;
+      readonly nextIndex: number;
+    };
+
+function parseFileArg(arg: string, argv: readonly string[], index: number): ParsedAuditArg {
+  const parsed = readOptionValue(arg, argv, index);
+  if (!parsed.value) throw new LogsAuditError("--file requires a path.");
+  return { kind: "file", value: parsed.value, nextIndex: parsed.nextIndex };
+}
+
+function parseFormatArg(arg: string, argv: readonly string[], index: number): ParsedAuditArg {
+  const parsed = readOptionValue(arg, argv, index);
+  if (parsed.value !== "text" && parsed.value !== "json") {
+    throw new LogsAuditError("--format requires text or json.");
+  }
+  return { kind: "format", value: parsed.value, nextIndex: parsed.nextIndex };
+}
+
+function parseAuditArg(
+  arg: string | undefined,
+  argv: readonly string[],
+  index: number,
+): ParsedAuditArg {
+  if (arg === undefined) throw new LogsAuditError("Empty arguments are not supported.");
+  if (arg === "--help" || arg === "-h") throw new LogsAuditHelp();
+  if (arg === "--file" || arg.startsWith("--file=")) return parseFileArg(arg, argv, index);
+  if (arg === "--format" || arg.startsWith("--format=")) return parseFormatArg(arg, argv, index);
+  if (arg.startsWith("--")) throw new LogsAuditError(`Unknown argument: ${arg}\n${usage()}`);
+  return { kind: "file", value: arg, nextIndex: index };
+}
+
 export function parseArgs(argv: readonly string[]): LogsAuditOptions {
   const files: string[] = [];
   let format: LogsAuditFormat = "text";
 
   for (let index = 0; index < argv.length; index += 1) {
-    const arg = argv[index];
-    if (arg === undefined) throw new LogsAuditError("Empty arguments are not supported.");
-    if (arg === "--help" || arg === "-h") {
-      throw new LogsAuditHelp();
-    }
-    if (arg === "--file" || arg.startsWith("--file=")) {
-      const parsed = readOptionValue(arg, argv, index);
-      if (!parsed.value) throw new LogsAuditError("--file requires a path.");
-      files.push(parsed.value);
-      index = parsed.nextIndex;
-      continue;
-    }
-    if (arg === "--format" || arg.startsWith("--format=")) {
-      const parsed = readOptionValue(arg, argv, index);
-      if (parsed.value !== "text" && parsed.value !== "json") {
-        throw new LogsAuditError("--format requires text or json.");
-      }
-      format = parsed.value;
-      index = parsed.nextIndex;
-      continue;
-    }
-    if (arg.startsWith("--")) {
-      throw new LogsAuditError(`Unknown argument: ${arg}\n${usage()}`);
-    }
-    files.push(arg);
+    const parsed = parseAuditArg(argv[index], argv, index);
+    if (parsed.kind === "file") files.push(parsed.value);
+    else format = parsed.value;
+    index = parsed.nextIndex;
   }
 
   if (files.length === 0) {
@@ -220,9 +241,11 @@ export function auditLogFiles(
 
 export function formatText(report: LogsAuditReport): string {
   const lines: string[] = [];
-  lines.push(`logs:audit: ${report.files.length} file(s) audited`);
+  lines.push(`logs:audit: ${String(report.files.length)} file(s) audited`);
   for (const file of report.files) {
-    lines.push(`  ${file.file}: ${file.records} record(s), ${file.rejectedLines} rejected line(s)`);
+    lines.push(
+      `  ${file.file}: ${String(file.records)} record(s), ${String(file.rejectedLines)} rejected line(s)`,
+    );
   }
   if (report.findings.length === 0) {
     lines.push(
@@ -231,7 +254,7 @@ export function formatText(report: LogsAuditReport): string {
     return lines.join("\n");
   }
   for (const finding of report.findings) {
-    const line = finding.line === undefined ? "" : `:${finding.line}`;
+    const line = finding.line === undefined ? "" : `:${String(finding.line)}`;
     const field = finding.field === undefined ? "" : ` ${finding.field}`;
     lines.push(`ERROR ${finding.check}: ${finding.file}${line}${field} - ${finding.message}`);
   }
@@ -239,7 +262,7 @@ export function formatText(report: LogsAuditReport): string {
 }
 
 export function formatJson(report: LogsAuditReport): string {
-  return JSON.stringify(report, null, 2);
+  return JSON.stringify(report, null, JSON_FORMAT_INDENT_SPACES);
 }
 
 export type RunLogsAuditOptions = {
@@ -287,7 +310,7 @@ function isCliEntrypoint(): boolean {
 }
 
 if (isCliEntrypoint()) {
-  const result = runLogsAudit({ argv: process.argv.slice(2) });
+  const result = runLogsAudit({ argv: process.argv.slice(CLI_USER_ARGS_START_INDEX) });
   if (result.stdout) console.log(result.stdout);
   if (result.exitCode !== 0) process.exitCode = result.exitCode;
 }

@@ -7,8 +7,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { CheckRunInput } from "./check-plugin.js";
 import { parseArgs } from "./cli-args.js";
 import { DEFAULT_DRIFT_AI_CONFIG } from "./config.js";
-import { groupDuplicateShapes } from "./duplicate-shapes.js";
-import { extractTypeShapes } from "./duplicate-types.js";
+import { groupDuplicateShapes, type ShapeEntry } from "./duplicate-shapes.js";
+import { extractTypeShapes, type TypeShapeExtra } from "./duplicate-types.js";
 import { duplicateTypesCheck } from "./duplicate-types-check.js";
 import type { DetectorScope } from "./scope.js";
 import { buildSourceExtensions, toChangedScopeFile } from "./scope.js";
@@ -33,7 +33,7 @@ function writeRepo(files: Record<string, string>): string {
   return root;
 }
 
-function shapesFrom(files: Record<string, string>) {
+function shapesFrom(files: Record<string, string>): ShapeEntry<TypeShapeExtra>[] {
   return Object.entries(files).flatMap(([filePath, source]) =>
     extractTypeShapes(filePath, source, { minProps: 3 }),
   );

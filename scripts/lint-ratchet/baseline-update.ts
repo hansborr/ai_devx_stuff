@@ -1,15 +1,15 @@
+import { currentByIdFromBaseline } from "./baseline-format.js";
 import type {
   LintRatchetBaseline,
   LintRatchetOrphanBaselineItem,
   LintRatchetOrphanRemoval,
   LintRatchetUpdateDecision,
-} from "../lint-ratchet-baseline.js";
-import { compareCurrentToBaseline as compareCurrentToBaselineImpl } from "../lint-ratchet-baseline-compare.js";
-import type { LintRatchetConfig } from "../lint-ratchet-config.js";
-import { currentByIdFromBaseline } from "./baseline-format.js";
+} from "./lint-ratchet-baseline.js";
+import { compareCurrentToBaseline as compareCurrentToBaselineImpl } from "./lint-ratchet-baseline-compare.js";
+import type { LintRatchetConfig } from "./lint-ratchet-config.js";
 import {
-  ratchetRegressionReasonFailure,
   RATCHET_REGRESSION_REASON_PLACEHOLDER,
+  ratchetRegressionReasonFailure,
 } from "./recovery-command.js";
 
 interface ZeroToNonzeroPath {

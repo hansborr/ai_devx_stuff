@@ -6,9 +6,9 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { parseArgs } from "./cli-args.js";
 import { DEFAULT_DRIFT_AI_CONFIG, parseDriftAiConfig } from "./config.js";
-import { extractLiteralShapes } from "./duplicate-literals.js";
+import { extractLiteralShapes, type LiteralShapeExtra } from "./duplicate-literals.js";
 import { duplicateLiteralsCheck } from "./duplicate-literals-check.js";
-import { groupDuplicateShapes } from "./duplicate-shapes.js";
+import { groupDuplicateShapes, type ShapeEntry } from "./duplicate-shapes.js";
 import { buildSourceExtensions } from "./scope.js";
 
 const tempRoots: string[] = [];
@@ -37,7 +37,10 @@ const OPTIONS = {
   minNumberDigits: 3,
 };
 
-function shapesFrom(files: Record<string, string>, options = OPTIONS) {
+function shapesFrom(
+  files: Record<string, string>,
+  options = OPTIONS,
+): ShapeEntry<LiteralShapeExtra>[] {
   return Object.entries(files).flatMap(([filePath, source]) =>
     extractLiteralShapes(filePath, source, options),
   );

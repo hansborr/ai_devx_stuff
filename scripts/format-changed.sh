@@ -4,7 +4,9 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PATH_POLICY_QUERY="$SCRIPT_DIR/path-policy-query.ts"
+# shellcheck source=scripts/lib/changed-base.sh
+. "$SCRIPT_DIR/lib/changed-base.sh"
+PATH_POLICY_QUERY="$SCRIPT_DIR/path-policy/path-policy-query.ts"
 
 command -v prettier >/dev/null 2>&1 || { echo "format:changed: prettier not found — run 'bun install' first." >&2; exit 1; }
 
@@ -39,13 +41,13 @@ if [ "$CHECK_MODE" -eq 1 ]; then
   FALLBACK_LABEL="format check"
 fi
 
-# Resolve the base ref: prefer local, fall back to origin/<base>.
-if git rev-parse --verify "$BASE" >/dev/null 2>&1; then
-  :
-elif git rev-parse --verify "origin/$BASE" >/dev/null 2>&1; then
-  BASE="origin/$BASE"
+# Resolve the base ref and preflight the common ancestor the triple-dot
+# diff needs (see scripts/lib/changed-base.sh); on failure fall back to
+# the full run.
+if musi_resolve_changed_base "$BASE"; then
+  BASE="$MUSI_CHANGED_BASE"
 else
-  echo "format:changed: neither '$BASE' nor 'origin/$BASE' exists — running full $FALLBACK_LABEL instead." >&2
+  echo "format:changed: $MUSI_CHANGED_BASE_ERROR — running full $FALLBACK_LABEL instead." >&2
   exec prettier "$PRETTIER_ACTION" --ignore-unknown .
 fi
 

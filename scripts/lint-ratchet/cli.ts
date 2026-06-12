@@ -1,6 +1,7 @@
 import { ratchetRegressionReasonFailure } from "./recovery-command.js";
 
 export const PROCESS_ARG_OFFSET = 2;
+const OPTION_VALUE_ARG_SPAN = 2;
 
 export interface ParsedArgs {
   readonly mode:
@@ -59,7 +60,7 @@ function consumeReasonArgument(
     throw new UsageError("--reason requires a non-empty argument");
   }
   state.reason = value;
-  return index + 2;
+  return index + OPTION_VALUE_ARG_SPAN;
 }
 
 // --edit-check-targets consumes the rest of argv as edited relpaths; the
@@ -98,7 +99,7 @@ function consumeTargetsFileArgument(
     throw new UsageError("--targets-file requires a non-empty argument");
   }
   state.targetsFile = value;
-  return index + 2;
+  return index + OPTION_VALUE_ARG_SPAN;
 }
 
 function unknownArgumentMessage(arg: string): string {

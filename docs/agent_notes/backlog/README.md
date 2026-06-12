@@ -85,28 +85,13 @@ Do **not** read this folder at session start. Promote an item back into
   `code:intel` latency justifies a daemon or cache.
 - `mutation-testing-stryker.md` — parked plan for adding StrykerJS mutation
   testing as a manual test-quality audit lane before any score gate.
-- `lint-hardening/` — parked lint-hardening leaf notes from a Rust/Clippy vs
-  Musi ESLint comparison. Promote one unresolved leaf at a time; fully landed
-  leaves have been removed. Context and rollout rationale is in
-  `lint-hardening/00-context-and-rollout.md`.
-- `lint-reference-readiness/00-index.md` — split task index for the
-  lint-system work needed before treating Musi's lint setup as reference
-  material for other projects. Promote one task file at a time. Done tasks
-  have been removed. The canonical adopter guide is
-  `docs/guides/lint-ratchet.md`.
-- `lint-system-improvements/00-index.md` — split task index migrated from the
-  2026-05-26 lint-system review synthesis preserved by commit `a0975f3a`. This
-  is a later lint-platform refinement queue covering CI/local parity, duplicate
-  gate wiring, generated policy ownership, hook/tool portability, severity
-  docs, and measured architecture spikes. Check overlap with
-  `lint-reference-readiness/` before promoting.
-- `lint-followups/00-index.md` — parked lint follow-up leaves after the
-  lint-hardening rollout. Resolved leaves have been removed.
-- `lint-ratchet-cached-baseline-context.md` — deferred no-ESLint edit-time
-  advisory ("this file carries N accepted ratchet floors as of baseline"), split
-  out of the per-file ratchet plan (`in_progress/per-file-ratchet-edit-feedback.md`)
-  so that plan ships only the fresh regression detector. Promote once the
-  detector lands and a high-debt rule is added.
+- `lint-review-2026-06/00-index.md` — verified task pack from the 2026-06-11
+  two-agent lint-setup review: changed-wrapper merge-base preflight, local
+  typecheck-before-lint ordering, zero-baseline promotion and scripts ignore
+  inversion, e2e selector debt ratchets,
+  import-cycle detection, type-aware ESLint cache policy, flat-config guard
+  tests, small registry/policy cleanups, and the consolidated carry-forwards
+  from the removed legacy lint backlog folders.
 - `drift-ai-current-findings.md` — 2026-05-10 triage of the first
   `drift:ai --scope current` report: current ghost-file tuning plus duplicate
   refactor candidates for token mutations, cursor lists, test contexts, token

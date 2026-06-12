@@ -4,8 +4,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=./verify-metadata.sh
-. "$SCRIPT_DIR/verify-metadata.sh"
+# shellcheck source=scripts/lib/verify-metadata.sh
+. "$SCRIPT_DIR/lib/verify-metadata.sh"
 
 HISTORY_DIR="${MUSI_VERIFY_HISTORY_DIR:-/tmp/musi-verify-history}"
 LIMIT=20

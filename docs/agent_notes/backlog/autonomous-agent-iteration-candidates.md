@@ -156,28 +156,23 @@ Verification:
 
 ### 4. Main lint-drain branch: codemod complexity and max-lines
 
-Status: ready, but should be promoted as a named branch and split by file.
+Status: superseded by
+`docs/agent_notes/backlog/lint-review-2026-06/03i-adopt-codemod-sources.md`
+on 2026-06-12. Codemod sources are now normal-linted; 03j owns codemod test
+adoption.
 
 Live state:
 
-- `ratchet/core-complexity-codemods`: 24 findings across 9 file entries.
-- `ratchet/local-max-lines-codemods`: 3 oversized files:
-  `scripts/codemods/concurrency-guard.ts`,
-  `scripts/codemods/expand-barrel.ts`, and
-  `scripts/codemods/lib/trpc-shared-schema.ts`.
+- No live codemod source complexity or max-lines ratchets remain. Normal
+  ESLint owns those floors for non-test, non-fixture codemod sources.
 
 Source notes:
 
-- `docs/agent_notes/backlog/lint-followups/36-codemod-concurrency-and-logging-lint-adoption.md`
-- `docs/agent_notes/backlog/lint-followups/37-codemod-barrel-and-trpc-lint-adoption.md`
+- `docs/agent_notes/backlog/lint-review-2026-06/03-zero-baseline-promotion-and-scripts-inversion.md`
+  (the deleted Leaf 11 family map was folded into its sub-leaves; codemods are
+  03i/03j)
 
-Suggested split:
-
-1. `scripts/codemods/lib/trpc-shared-schema.ts` plus
-   `scripts/codemods/trpc-shared-output.ts`.
-2. `scripts/codemods/expand-barrel.ts`.
-3. `scripts/codemods/concurrency-guard.ts`.
-4. Remaining structured-logging or tRPC input residuals.
+Suggested split: none; this candidate is closed.
 
 Verification:
 
@@ -191,16 +186,23 @@ Verification:
 
 ### 5. Runtime max-lines split
 
-Status: ready after or parallel to codemod drain if assigned to a separate
-agent/branch.
+Status: superseded by lint-review-2026-06 leaves 03d1 and 03d2. Remaining
+runtime max-lines cleanup lives in leaf 03g, not this standalone candidate.
 
 Live state:
 
-- `ratchet/local-max-lines-runtime`: `scripts/lint-ratchet.ts` and
-  `scripts/lint-ratchet-baseline.ts` remain oversized.
-- Runtime complexity ratchets are already drained to zero.
+- `scripts/lint-ratchet.ts` and `scripts/lint-ratchet/lint-ratchet-baseline.ts`
+  are under normal lint and no longer belong to
+  `ratchet/local-max-lines-runtime`.
+- `ratchet/local-max-lines-runtime` now covers only `scripts/harness-check.ts`,
+  `scripts/harness/harness-check-validation.ts`, and `scripts/lint-agent.ts`;
+  lint-review leaf 03g is the deletion point.
+- The lint-ratchet runtime complexity ratchet was retired after normal lint
+  adopted `scripts/lint-ratchet/**/*.ts`.
 
-Source: `docs/agent_notes/backlog/lint-followups/39-ratchet-runtime-script-lint-adoption.md`.
+Source: `docs/agent_notes/backlog/lint-review-2026-06/03-zero-baseline-promotion-and-scripts-inversion.md`
+(the deleted Leaf 11 family map was folded into its sub-leaves; the runtime
+family is 03d1/03d2).
 
 Verification:
 
@@ -271,7 +273,8 @@ dev-session capture/log paths exist.
 
 ### Client test-quality plugin follow-ups
 
-Source: `docs/agent_notes/backlog/lint-followups/10-test-quality-followups.md`.
+Source: `docs/agent_notes/backlog/lint-review-2026-06/watchlist.md` (Rule And
+Sensor Candidates section; formerly Leaf 10).
 
 The first `@vitest/eslint-plugin` slice already landed. Remaining work is
 client-scoped Testing Library and jest-dom inventory, plus any explicitly named
@@ -313,7 +316,8 @@ Human-promoted decisions:
    max-lines as separate branches.
 4. **Vitest inventory**: removed from the active batch after cleanup because
    the `@vitest/eslint-plugin` first slice already landed. Remaining
-   test-quality work stays parked in `lint-followups/10-test-quality-followups.md`.
+   test-quality work stays parked in
+   `lint-review-2026-06/watchlist.md` (formerly Leaf 10).
 5. **Drift-ai max-lines**: promoted. Same module-split pattern.
 6. **Already landed (do not re-promote)**: Leaf 4 (eslint-comments hygiene)
    landed 2026-05-16. Leaf 24 (.sort() comparator fixes) landed in

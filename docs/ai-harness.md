@@ -26,13 +26,27 @@ Only promote a sensor to a gate after it has low noise and clear repair text.
 
 ## Adapter Boundary
 
-Shared hook policy and reusable behavior belong in `scripts/ai-hooks/`.
-Keep `.claude/` and `.codex/` files as thin adapters for each harness's
-registration, payload parsing, and response shape.
+Shared hook policy and reusable behavior belong in `scripts/ai-hooks/`. The
+per-harness files under `.claude/hooks/` and `.codex/hooks/` are shims: resolve
+the repo root, translate only the harness-specific payload or response shape,
+then `exec` the shared body. Codex's `.codex/hooks/pre-tool-use.sh` and
+`.codex/hooks/post-tool-use.sh` are the deliberate exception for its Bash
+aggregator model; Claude uses direct Bash adapters for the same policy surfaces.
 
-When changing shared behavior, update the shared script first, then adjust both
-adapters only as needed. If behavior is intentionally harness-specific, document
-why in the adapter or this file.
+Hook registration is generated from `harness.controls.json`. The generator at
+`scripts/harness/generate-hook-wiring.ts` replaces the `hooks` key in
+`.claude/settings.json` and writes `.codex/hooks.json`; `bun run harness:check`
+runs the generator's `--check` mode. Deliberate harness gaps must be recorded in
+the manifest notes, which render into `docs/generated/harness-controls.md`, not
+explained only by leaving an adapter unwired.
+
+Implementation details for shim headers, shared bodies, `hookWiring`, verify
+slots, and porting assumptions live in `scripts/ai-hooks/README.md`.
+
+When changing shared behavior, update `scripts/ai-hooks/` first, then adjust
+the thin shims only when the harness payload shape requires it. If a hook body is
+intentionally harness-specific, keep that fact in `harness.controls.json` so the
+generated wiring and docs stay aligned.
 
 ## Guides
 
@@ -46,7 +60,7 @@ why in the adapter or this file.
 | `docs/CONCURRENCY.md` | Architecture fitness, behavior | Inferential | Race-sensitive writes bypassing locked mutation helpers | Area-specific | Restricted Prisma types, `local/concurrency-guard`, RawTxClient lint |
 | `MODULE.md` / `*-MODULE.md` files | Maintainability, architecture fitness | Inferential | Agents editing a module without its local interface, flows, and invariants | Area-specific | `module:index:check`, future doc-freshness sensor |
 | `docs/module-docs.md` | Maintainability | Inferential | Module notes drifting into inconsistent shape | When adding or refreshing module docs | `bun run module:index:check` |
-| `docs/guides/add-module-doc.md` | Maintainability | Inferential | Agents adding or refreshing module docs without the charter, `Concepts:` breadcrumb, index refresh, and verification recipe | When adding or refreshing module docs | `bun run module:index:check`, `scripts/test-generate-module-index.sh` |
+| `docs/guides/add-module-doc.md` | Maintainability | Inferential | Agents adding or refreshing module docs without the charter, `Concepts:` breadcrumb, index refresh, and verification recipe | When adding or refreshing module docs | `bun run module:index:check`, `scripts/tests/test-generate-module-index.sh` |
 | `docs/guides/coverage-cadence.md` | Maintainability, behavior | Inferential | Agents turning coverage into an edit-loop gate or missing the manual baseline cadence | Manual, weekly | `bun run test:coverage` |
 | `docs/guides/local-eslint-rules.md` | Maintainability | Inferential | Agents adding local ESLint diagnostics outside the repo's message guidance convention | When editing `eslint-rules/` | `eslint-rules/message-guidance.test.js` |
 | `docs/guides/lint-ratchet.md` and `docs/guides/lint-ratchet-adoption.md` | Maintainability | Inferential | Agents changing ratchets without preserving baseline lifecycle, registry checks, and adopter-facing assumptions | When editing ratchet config or docs | `bun run lint:ratchet`, `bun run lint:ratchet:zero-baseline` |

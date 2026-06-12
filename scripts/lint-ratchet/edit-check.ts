@@ -1,23 +1,23 @@
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 
+import { stableJson } from "./baseline-hash.js";
+import { validateBaselineTestForRatchet } from "./baseline-validation.js";
+import { collectCurrentForRatchet } from "./current-collector.js";
+import { usesEslintCache } from "./eslint-config.js";
 import {
   compareCurrentToBaseline,
   computeLintRatchetConfigHash,
   type LintRatchetBaseline,
   type LintRatchetCurrentItem,
   parseLintRatchetBaselineStructure,
-} from "../lint-ratchet-baseline.js";
+} from "./lint-ratchet-baseline.js";
 import {
-  lintRatchets,
   type JsonObject,
   type JsonValue,
   type LintRatchetConfig,
-} from "../lint-ratchet-config.js";
-import { collectCurrentForRatchet } from "./current-collector.js";
-import { validateBaselineTestForRatchet } from "./baseline-validation.js";
-import { stableJson } from "./baseline-hash.js";
-import { usesEslintCache } from "./eslint-config.js";
+  lintRatchets,
+} from "./lint-ratchet-config.js";
 import { baselinePath, relativePath } from "./paths.js";
 import { matchesRatchet } from "./ratchet-globs.js";
 import { buildRuleSourceHashesById } from "./rule-source.js";
@@ -249,7 +249,7 @@ async function runGroupsWithConcurrency(
       checked.push(...result.checked);
     }
   }
-  await Promise.all(Array.from({ length: limit }, () => worker()));
+  await Promise.all(Array.from({ length: limit }, async () => worker()));
   return { regressions, checked };
 }
 

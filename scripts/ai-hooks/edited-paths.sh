@@ -42,3 +42,23 @@ ai_edited_payload_paths() {
   file=$(ai_payload_file_path "$payload")
   [ -n "$file" ] && printf '%s\n' "$file"
 }
+
+ai_resolve_edited_payload_path() {
+  local payload="$1" path="$2" repo_root="$3"
+  local candidate
+
+  if [[ "$path" = /* ]]; then
+    printf '%s\n' "$path"
+    return 0
+  fi
+
+  if [ "$(ai_edited_payload_tool_name "$payload")" = "apply_patch" ]; then
+    candidate="$PWD/$path"
+    if [ -e "$candidate" ]; then
+      realpath "$candidate" 2>/dev/null || printf '%s\n' "$candidate"
+      return 0
+    fi
+  fi
+
+  printf '%s\n' "$repo_root/$path"
+}

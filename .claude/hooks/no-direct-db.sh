@@ -1,26 +1,8 @@
 #!/bin/bash
-# Hook: block hook bypasses and direct DB/infrastructure CLI commands.
+# Thin adapter — semantics documented in scripts/ai-hooks/no-direct-db.sh.
 
 set -u
 
-REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo "${CLAUDE_PROJECT_DIR:-/workspace}")
-HOOK_LIB="$REPO_ROOT/scripts/ai-hooks"
-# shellcheck source=/dev/null
-. "$HOOK_LIB/common.sh"
-# shellcheck source=/dev/null
-. "$HOOK_LIB/policy.sh"
-
-PAYLOAD=$(ai_read_payload)
-CMD=$(ai_payload_command "$PAYLOAD")
-[ -z "$CMD" ] && ai_emit_continue
-
-if REASON=$(ai_policy_violation_reason "$CMD"); then
-  if ai_policy_is_soft_guidance "$REASON"; then
-    # Soft nudges should return guidance without turning advisory policy into a
-    # hard block.
-    ai_claude_result_command "$REASON" /tmp/musi-policy-guidance
-  fi
-  ai_emit_block "$REASON"
-fi
-
-ai_emit_continue
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT=$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null || git rev-parse --show-toplevel 2>/dev/null || echo "${CLAUDE_PROJECT_DIR:-/workspace}")
+exec bash "$REPO_ROOT/scripts/ai-hooks/no-direct-db.sh"

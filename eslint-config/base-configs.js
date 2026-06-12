@@ -6,9 +6,9 @@ import tseslint from "typescript-eslint";
 
 import {
   codeFiles,
+  configFileReincludePatterns,
   eslintConfigJsFiles,
-  lintedScriptReincludePatterns,
-  rootConfigReincludePatterns,
+  scriptFixtureIgnores,
   typescriptFiles,
 } from "./shared-policy.js";
 
@@ -28,7 +28,7 @@ export function createBaseConfigs() {
         ".playwright-mcp/",
         "e2e-ux-screenshots/",
         "**/*.config.{js,mjs,ts}",
-        ...rootConfigReincludePatterns,
+        ...configFileReincludePatterns,
         "docs/",
         "**/generated/",
         "e2e-walkthrough/",
@@ -39,8 +39,12 @@ export function createBaseConfigs() {
         "playwright/.cache/",
         "test-results/",
         "tmp/",
-        "scripts/**/*",
-        ...lintedScriptReincludePatterns,
+        // Operator-managed external tool installs (e.g. the drift-ai Semgrep
+        // venv) live outside lint scope; flat config does not skip dot-dirs.
+        ".tools/",
+        // Script fixtures and generated snapshots are deliberately outside
+        // tsconfig.scripts.json and the knip project graph.
+        ...scriptFixtureIgnores,
         "worktrees/",
         "eslint-rules/*",
         "!eslint-rules/*.js",

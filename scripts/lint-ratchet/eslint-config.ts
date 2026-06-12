@@ -3,9 +3,9 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { computeLintRatchetConfigHash, ruleNamespace } from "../lint-ratchet-baseline.js";
-import type { LintRatchetConfig } from "../lint-ratchet-config.js";
-import { ConfigError } from "../lint-ratchet-metrics.js";
+import { computeLintRatchetConfigHash, ruleNamespace } from "./lint-ratchet-baseline.js";
+import type { LintRatchetConfig } from "./lint-ratchet-config.js";
+import { ConfigError } from "./lint-ratchet-metrics.js";
 import { repoRoot, safeRatchetId } from "./paths.js";
 import { localRuleName, localRulePath, thirdPartySupportFor } from "./rule-source.js";
 import { assertNever, ratchetParserProfile, ratchetSource } from "./runtime-config.js";

@@ -67,7 +67,7 @@ describe("locator usage report", () => {
 
     expect(report.totalLocatorCalls).toBe(3);
     expect(report.filesWithLocatorCalls).toBe(2);
-    expect(report.allowlistedFileCount).toBe(3);
+    expect(report.debtFileCount).toBe(3);
     expect(report.files).toEqual([
       { path: "e2e/a.spec.ts", count: 1 },
       { path: "e2e/page-objects/panel.po.ts", count: 2 },
@@ -92,10 +92,11 @@ describe("locator usage report", () => {
     const report = buildLocatorUsageReport(repoRoot, 1);
 
     expect(formatText(report)).toContain("raw .locator( calls: 1");
+    expect(formatText(report)).toContain("local/e2e-prefer-role-selectors ratcheted debt files: 1");
     expect(formatText(report)).toContain("    e2e/a.spec.ts: 1");
     expect(JSON.parse(formatJson(report))).toMatchObject({
       totalLocatorCalls: 1,
-      allowlistedFileCount: 1,
+      debtFileCount: 1,
     });
   });
 

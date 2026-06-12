@@ -2,8 +2,8 @@ import type {
   LintRatchetConfig,
   LintRatchetParserProfile,
   LintRatchetRuleSource,
-} from "../lint-ratchet-config.js";
-import { ConfigError } from "../lint-ratchet-metrics.js";
+} from "./lint-ratchet-config.js";
+import { ConfigError } from "./lint-ratchet-metrics.js";
 
 export function ratchetSource(ratchet: LintRatchetConfig): LintRatchetRuleSource {
   return ratchet.source ?? { kind: "local" };

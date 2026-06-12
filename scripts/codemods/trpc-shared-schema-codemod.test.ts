@@ -1,5 +1,12 @@
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
-import { cpSync } from "node:fs";
+import {
+  cpSync,
+  existsSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -7,10 +14,10 @@ import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { CodemodError } from "./lib/trpc-shared-schema.js";
-import { runTrpcSharedInputCodemod } from "./trpc-shared-input.js";
 import type { TrpcSharedInputCodemodArgs } from "./trpc-shared-input.js";
-import { runTrpcSharedOutputCodemod } from "./trpc-shared-output.js";
+import { runTrpcSharedInputCodemod } from "./trpc-shared-input.js";
 import type { TrpcSharedOutputCodemodArgs } from "./trpc-shared-output.js";
+import { runTrpcSharedOutputCodemod } from "./trpc-shared-output.js";
 
 type CodemodKind = "trpc-shared-input" | "trpc-shared-output";
 
@@ -178,8 +185,9 @@ function errorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   if (typeof error === "string") return error;
   try {
-    const structured = JSON.stringify(error, null, 2);
-    return structured ?? String(error);
+    const structured: unknown = JSON.stringify(error, null, 2);
+    if (typeof structured === "string") return structured;
+    return String(error);
   } catch {
     return String(error);
   }
@@ -215,7 +223,9 @@ function runFixture(kind: CodemodKind, name: string): void {
   tempRoots.push(workRoot);
   copyDirectoryContents(path.join(caseRoot, "before"), workRoot);
 
-  const firstRun = withCapturedStdout(() => runCodemod(kind, metadata.args, workRoot));
+  const firstRun = withCapturedStdout(() => {
+    runCodemod(kind, metadata.args, workRoot);
+  });
   if (metadata.expectFailure) {
     expect(firstRun.error).toBeInstanceOf(CodemodError);
     if (!(firstRun.error instanceof Error)) throw new Error("Expected codemod error.");
@@ -227,7 +237,9 @@ function runFixture(kind: CodemodKind, name: string): void {
   if (firstRun.error) throwCapturedError(firstRun.error);
 
   if (metadata.runTwice) {
-    const secondRun = withCapturedStdout(() => runCodemod(kind, metadata.args, workRoot));
+    const secondRun = withCapturedStdout(() => {
+      runCodemod(kind, metadata.args, workRoot);
+    });
     if (secondRun.error) throwCapturedError(secondRun.error);
     expectStdout(`${firstRun.output}\n${secondRun.output}`, metadata.expectedStdout);
   } else {

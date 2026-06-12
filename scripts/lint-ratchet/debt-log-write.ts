@@ -1,8 +1,8 @@
 import { appendFileSync, existsSync, readFileSync } from "node:fs";
 
-import type { LintRatchetUpdateDecision } from "../lint-ratchet-baseline.js";
-import { ConfigError } from "../lint-ratchet-metrics.js";
 import { type LintRatchetDebtLogEntry, parseLintRatchetDebtLogEntry } from "./debt-log-schema.js";
+import type { LintRatchetRegression, LintRatchetUpdateDecision } from "./lint-ratchet-baseline.js";
+import { ConfigError } from "./lint-ratchet-metrics.js";
 import { debtLogPath } from "./paths.js";
 
 // Filesystem seam for the append path. Narrowed to the exact call shapes used so
@@ -21,9 +21,29 @@ export const defaultDebtLogAppendDeps: DebtLogAppendDeps = {
   },
 };
 
+function debtLogRegressionFor(regression: LintRatchetRegression): LintRatchetRegression {
+  return {
+    testId: regression.testId,
+    ruleId: regression.ruleId,
+    path: regression.path,
+    baselineCount: regression.baselineCount,
+    currentCount: regression.currentCount,
+    reason: regression.reason,
+    ...(regression.baselineLines === undefined ? {} : { baselineLines: regression.baselineLines }),
+    ...(regression.currentLines === undefined ? {} : { currentLines: regression.currentLines }),
+    ...(regression.baselineComplexity === undefined
+      ? {}
+      : { baselineComplexity: regression.baselineComplexity }),
+    ...(regression.currentComplexity === undefined
+      ? {}
+      : { currentComplexity: regression.currentComplexity }),
+    ...(regression.line === undefined ? {} : { line: regression.line }),
+  };
+}
+
 // Pure mapping from an approved update decision to one debt-log line. The entry
-// reuses the decision's regression rows and orphan-removal snapshots verbatim so
-// the log records exactly what the gate approved.
+// strips current-run diagnostic text from regression rows while keeping the
+// accepted count/metric deltas and orphan-removal snapshots.
 export function buildLintRatchetDebtLogEntry(
   decision: LintRatchetUpdateDecision,
   acceptanceReason: string,
@@ -31,7 +51,7 @@ export function buildLintRatchetDebtLogEntry(
   return {
     version: "1",
     acceptanceReason,
-    regressions: decision.regressions,
+    regressions: decision.regressions.map(debtLogRegressionFor),
     orphansRemoved: decision.orphanRemovals,
   };
 }

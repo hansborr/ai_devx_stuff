@@ -1,9 +1,3 @@
-import type {
-  LintRatchetOrphanBaselineItem,
-  LintRatchetOrphanRemoval,
-} from "../lint-ratchet-baseline.js";
-import type { LintRatchetMetric } from "../lint-ratchet-config.js";
-import { validateMetricItem } from "../lint-ratchet-metrics.js";
 import { parseLintRatchetBaselineItem } from "./baseline-item-parse.js";
 import {
   isRecord,
@@ -11,6 +5,12 @@ import {
   rejectUnknownKeys,
   requireNonEmptyString,
 } from "./debt-log-parse-helpers.js";
+import type {
+  LintRatchetOrphanBaselineItem,
+  LintRatchetOrphanRemoval,
+} from "./lint-ratchet-baseline.js";
+import type { LintRatchetMetric } from "./lint-ratchet-config.js";
+import { validateMetricItem } from "./lint-ratchet-metrics.js";
 
 const ORPHAN_KEYS: ReadonlySet<string> = new Set(["testId", "ruleId", "metric", "baselineItems"]);
 const ORPHAN_ITEM_KEYS: ReadonlySet<string> = new Set([

@@ -10,6 +10,7 @@ import { DEFAULT_DRIFT_AI_CONFIG } from "./config.js";
 import { defaultModuleGraphRunner, type ModuleGraphRunner } from "./import-cycles-graph.js";
 import { buildLayerDirectionFindings, type LayerDirectionViolation } from "./layer-direction.js";
 import { layerDirectionCheck } from "./layer-direction-check.js";
+import { stringContaining } from "./matcher.test-helper.js";
 import { buildSourceExtensions, toChangedScopeFile } from "./scope.js";
 import type { ChangedFile } from "./types.js";
 
@@ -183,7 +184,7 @@ describe("layerDirectionCheck", () => {
       expect(outcome.findings[0]).toMatchObject({
         check: "layer-direction",
         file: ".",
-        message: expect.stringContaining("could not build the module graph"),
+        message: stringContaining("could not build the module graph"),
       });
     }
   });

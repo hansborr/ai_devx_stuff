@@ -5,6 +5,8 @@
 set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/lib/changed-base.sh
+. "$SCRIPT_DIR/lib/changed-base.sh"
 VITEST_RUNNER="$SCRIPT_DIR/vitest.sh"
 
 BASE="main"
@@ -13,12 +15,13 @@ if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then
   shift
 fi
 
-if git rev-parse --verify "$BASE" >/dev/null 2>&1; then
-  REF="$BASE"
-elif git rev-parse --verify "origin/$BASE" >/dev/null 2>&1; then
-  REF="origin/$BASE"
+# Resolve the base ref and preflight the common ancestor the triple-dot
+# diff needs (see scripts/lib/changed-base.sh); on failure fall back to
+# the full suite.
+if musi_resolve_changed_base "$BASE"; then
+  REF="$MUSI_CHANGED_BASE"
 else
-  echo "test:changed: neither '$BASE' nor 'origin/$BASE' exists — running full test suite." >&2
+  echo "test:changed: $MUSI_CHANGED_BASE_ERROR — running full test suite." >&2
   exec bash "$VITEST_RUNNER" run --passWithNoTests "$@"
 fi
 
@@ -72,6 +75,46 @@ has_vitest_relevant=0
 # how unchanged tests run, so the relevant suite must run in full.
 full_run=0
 
+package_json_requires_full_vitest() {
+  local ref="$1"
+
+  bun --config=/dev/null -e '
+import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+
+const ref = process.argv[1];
+const base = spawnSync("git", ["show", `${ref}:package.json`], { encoding: "utf8" });
+if (base.status !== 0) process.exit(0);
+
+function withoutRootScripts(text) {
+  const value = JSON.parse(text);
+  if (value === null || Array.isArray(value) || typeof value !== "object") process.exit(0);
+  delete value.scripts;
+  return normalize(value);
+}
+
+function normalize(value) {
+  if (Array.isArray(value)) return value.map(normalize);
+  if (value !== null && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, nested]) => [key, normalize(nested)]),
+    );
+  }
+  return value;
+}
+
+try {
+  const before = withoutRootScripts(base.stdout);
+  const after = withoutRootScripts(readFileSync("package.json", "utf8"));
+  process.exit(JSON.stringify(before) === JSON.stringify(after) ? 1 : 0);
+} catch {
+  process.exit(0);
+}
+' "$ref"
+}
+
 is_deleted_change() {
   local needle="$1" deleted
   for deleted in "${DELETED_FILES[@]}"; do
@@ -83,10 +126,33 @@ is_deleted_change() {
 for file in "${CHANGED_FILES[@]}"; do
   file_vitest_relevant=0
   case "$file" in
-    bun.lock|package.json|vitest.config.*|tsconfig*.json)
+    tsconfig.scripts.json)
+      has_scripts=1
+      has_vitest_relevant=1
+      file_vitest_relevant=1
+      full_run=1
+      ;;
+    eslint.config.*)
+      has_eslint_rules=1
+      has_scripts=1
+      has_vitest_relevant=1
+      file_vitest_relevant=1
+      full_run=1
+      ;;
+    bun.lock|vitest.config.*|tsconfig*.json)
       has_global=1
       has_vitest_relevant=1
       file_vitest_relevant=1
+      full_run=1
+      ;;
+    package.json)
+      has_vitest_relevant=1
+      file_vitest_relevant=1
+      if package_json_requires_full_vitest "$REF"; then
+        has_global=1
+      else
+        has_scripts=1
+      fi
       full_run=1
       ;;
     packages/shared/*)
@@ -109,7 +175,14 @@ for file in "${CHANGED_FILES[@]}"; do
       has_vitest_relevant=1
       file_vitest_relevant=1
       ;;
-    scripts/*.test.ts|scripts/codemods/*|scripts/code-intel*.ts|scripts/drift-ai.ts|scripts/drift-ai/*|scripts/drift/*|scripts/logs-audit.ts|scripts/logs-audit-*.ts|scripts/logs-audit/*|scripts/sensor-blob-size.ts|scripts/lint-coverage-map-check*.ts|scripts/lint-ratchet.ts|scripts/lint-ratchet-*.ts|scripts/lint-ratchet/*)
+    eslint-config/*)
+      has_eslint_rules=1
+      has_scripts=1
+      has_vitest_relevant=1
+      file_vitest_relevant=1
+      full_run=1
+      ;;
+    scripts/*.test.ts|scripts/codemods/*|scripts/code-intel*.ts|scripts/drift-ai.ts|scripts/drift-ai/*|scripts/drift/*|scripts/logs-audit.ts|scripts/logs-audit/*|scripts/sensor-blob-size.ts|scripts/lint-coverage-map-check*.ts|scripts/lint-ratchet.ts|scripts/lint-ratchet/*)
       has_scripts=1
       has_vitest_relevant=1
       file_vitest_relevant=1

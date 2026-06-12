@@ -30,64 +30,52 @@ export const rootConfigReincludePatterns = [
   ...rootAndPackageTsConfigFiles.map((file) => `!${file}`),
 ];
 
-export const lintedScriptFiles = [
-  "scripts/code-intel/**/*.ts",
-  "scripts/code-intel-server.ts",
-  "scripts/code-intel.test.ts",
-  "scripts/db-status.ts",
-  "scripts/drift/**/*.ts",
-  "scripts/drift-ai/**/*.ts",
-  "scripts/drift-ai.test.ts",
-  "scripts/drift-ai.ts",
-  "scripts/eslint-config-shared-policy.d.ts",
-  "scripts/generate-harness-controls.ts",
-  "scripts/generate-lint-guidance.ts",
-  "scripts/harness-check.ts",
-  "scripts/harness-emit-envelope.ts",
-  "scripts/harness-wrapper-slot*.ts",
-  "scripts/lint-agent.ts",
-  "scripts/lint-coverage-map-check-eslint-reach.ts",
-  "scripts/lint-coverage-map-check.test.ts",
-  "scripts/lint-coverage-map-check.ts",
-  "scripts/lint-ratchet*.ts",
-  "scripts/lint-rule-docs.ts",
-  "scripts/logs-audit.test.ts",
-  "scripts/logs-audit.ts",
-  "scripts/path-policy*.ts",
-  "scripts/sensor-blob-size.test.ts",
-  "scripts/sensor-blob-size.ts",
-];
-
-const globstarSegment = "/**/";
-
-/** @param {string} scriptFilePattern */
-function flatConfigDirectoryReincludePatterns(scriptFilePattern) {
-  const globstarIndex = scriptFilePattern.indexOf(globstarSegment);
-  if (globstarIndex === -1) return [];
-
-  // Global ignores prune ignored directories, so recursive script globs need
-  // both the root directory and any descendant directories re-opened.
-  const directoryPattern = scriptFilePattern.slice(0, globstarIndex);
-  return [`!${directoryPattern}/`, `!${directoryPattern}/**/*/`];
-}
-
-/** @param {readonly string[]} scriptFilePatterns */
-export function deriveLintedScriptReincludePatterns(scriptFilePatterns) {
-  return scriptFilePatterns.flatMap((scriptFilePattern) => [
-    ...flatConfigDirectoryReincludePatterns(scriptFilePattern),
-    `!${scriptFilePattern}`,
-  ]);
-}
-
-const nonScriptReincludePatterns = [
-  // This is a TS config file, not a linted runtime script. It is re-included
-  // from the scripts ignore so the config-file policy can lint it.
+export const configFileReincludePatterns = [
+  ...rootConfigReincludePatterns,
   "!scripts/vitest.config.ts",
 ];
 
-export const lintedScriptReincludePatterns = [
-  ...deriveLintedScriptReincludePatterns(lintedScriptFiles),
-  ...nonScriptReincludePatterns,
+export const scriptTypeScriptFiles = ["scripts/**/*.ts"];
+
+export const scriptFixtureIgnores = [
+  "scripts/codemods/fixtures/**",
+  "scripts/drift-ai/fixtures/**",
+  "scripts/fixtures/**",
+  "scripts/harness-audit/fixtures/**",
+  "scripts/logs-audit/fixtures/**",
+];
+
+export const scriptProjectIgnores = [...scriptFixtureIgnores, "scripts/vitest.config.ts"];
+
+export const codemodSourceFiles = [
+  "scripts/codemods/concurrency-guard.ts",
+  "scripts/codemods/concurrency-guard/**/*.ts",
+  "scripts/codemods/expand-barrel.ts",
+  "scripts/codemods/expand-barrel/**/*.ts",
+  "scripts/codemods/lib/**/*.ts",
+  "scripts/codemods/structured-logging-fix-transforms.ts",
+  "scripts/codemods/structured-logging-fix.ts",
+  "scripts/codemods/trpc-shared-input-candidates.ts",
+  "scripts/codemods/trpc-shared-input.ts",
+  "scripts/codemods/trpc-shared-output-candidates.ts",
+  "scripts/codemods/trpc-shared-output.ts",
+];
+
+export const codemodTestFiles = [
+  "scripts/codemods/concurrency-guard.test.ts",
+  "scripts/codemods/expand-barrel.test.ts",
+  "scripts/codemods/structured-logging-fix.test.ts",
+  "scripts/codemods/trpc-shared-schema-codemod.test.ts",
+];
+
+export const scriptTestAssertFunctionNames = [
+  "expect",
+  "assertNonPermissiveOutput",
+  "expectClean",
+  "expectHit",
+  "expectOneFulfilledOneConflict",
+  "expectParseFailure",
+  "expectParseSuccess",
 ];
 
 export const testAndHelperFiles = [
@@ -139,7 +127,7 @@ export const processEnvRestrictedSyntax = {
     "Avoid reading process.env outside config/env.ts. Use serverEnv from packages/server/src/config/env.ts (or add the key there). For child-process spawn `env:` pass-through and the db-status admin tool, add the file to the allowlist override below.",
 };
 
-export const e2ePreferRoleSelectorAllowlist = [
+export const e2ePreferRoleSelectorDebtFiles = [
   "e2e/helpers/auth.setup.ts",
   "e2e/homebrew-sharing.spec.ts",
   "e2e/navigation-errors.spec.ts",
@@ -161,6 +149,36 @@ export const e2ePreferRoleSelectorAllowlist = [
   "e2e/storage.setup.ts",
 ];
 
+export const e2eNoNthMethodsDebtFiles = [
+  "e2e/campaign-chat.spec.ts",
+  "e2e/homebrew-sharing.spec.ts",
+  "e2e/page-objects/campaign-detail.po.ts",
+  "e2e/page-objects/campaign-npcs.po.ts",
+  "e2e/page-objects/campaigns.po.ts",
+  "e2e/page-objects/character-sheet.po.ts",
+  "e2e/page-objects/character-wizard.po.ts",
+  "e2e/page-objects/dashboard.po.ts",
+  "e2e/page-objects/encounter.po.ts",
+  "e2e/page-objects/login.po.ts",
+  "e2e/page-objects/notification.po.ts",
+  "e2e/page-objects/register.po.ts",
+  "e2e/page-objects/spells-panel.po.ts",
+];
+
+export const e2ePreferNativeLocatorDebtFiles = [
+  "e2e/homebrew-sharing.spec.ts",
+  "e2e/navigation-errors.spec.ts",
+  "e2e/page-objects/campaign-chat.po.ts",
+  "e2e/page-objects/campaign-detail.po.ts",
+  "e2e/page-objects/character-sheet.po.ts",
+  "e2e/page-objects/character-wizard.po.ts",
+  "e2e/page-objects/encounter.po.ts",
+  "e2e/page-objects/join.po.ts",
+  "e2e/page-objects/login.po.ts",
+  "e2e/page-objects/register.po.ts",
+  "e2e/page-objects/spells-panel.po.ts",
+];
+
 const maxLinesCountingOptions = { skipBlankLines: true, skipComments: true };
 
 export const maxLinesPolicy = {
@@ -168,95 +186,7 @@ export const maxLinesPolicy = {
   ratchetFloor: { cap: 300 },
   exceptions: [
     {
-      path: "scripts/drift-ai.ts",
-      cap: 1110,
-      severity: "warn",
-      reason:
-        "Drift-AI entrypoint is still covered by the max-300 ratchet floor while its CLI orchestration is split.",
-      ratchetExcluded: false,
-    },
-    {
-      path: "scripts/drift-ai/config.ts",
-      cap: 470,
-      severity: "warn",
-      reason:
-        "Drift-AI config parsing stays capped while the max-300 ratchet floor prevents renewed growth.",
-      ratchetExcluded: false,
-    },
-    {
-      path: "scripts/drift-ai/duplicates.ts",
-      cap: 440,
-      severity: "warn",
-      reason:
-        "Drift-AI duplicate detection remains under a higher normal-lint cap while the ratchet floor tracks the split.",
-      ratchetExcluded: false,
-    },
-    {
-      path: "scripts/drift-ai/ghost-files.ts",
-      cap: 610,
-      severity: "warn",
-      reason:
-        "Drift-AI ghost-file analysis remains under a higher normal-lint cap while the ratchet floor tracks the split.",
-      ratchetExcluded: false,
-    },
-    {
-      path: "scripts/drift-ai/harness-freshness.ts",
-      cap: 340,
-      severity: "warn",
-      reason:
-        "Drift-AI harness freshness logic stays near the default cap while the ratchet floor prevents growth.",
-      ratchetExcluded: false,
-    },
-    {
-      path: "scripts/drift-ai/suppressions.ts",
-      cap: 470,
-      severity: "warn",
-      reason:
-        "Drift-AI suppression parsing remains under a higher normal-lint cap while the ratchet floor tracks the split.",
-      ratchetExcluded: false,
-    },
-    {
-      path: "scripts/generate-harness-controls.ts",
-      cap: 390,
-      severity: "warn",
-      reason:
-        "Harness-control generation is only partly re-included in normal lint, so the ratchet keeps the max-300 floor.",
-      ratchetExcluded: false,
-    },
-    {
-      path: "scripts/harness-check.ts",
-      cap: 450,
-      severity: "warn",
-      reason:
-        "Harness-check runtime orchestration keeps a higher normal-lint cap while the runtime ratchet holds the floor.",
-      ratchetExcluded: false,
-    },
-    {
-      path: "scripts/lint-ratchet-baseline.ts",
-      cap: 730,
-      severity: "warn",
-      reason:
-        "Lint-ratchet baseline handling keeps a higher normal-lint cap while the runtime ratchet holds the floor.",
-      ratchetExcluded: false,
-    },
-    {
-      path: "scripts/lint-ratchet.ts",
-      cap: 840,
-      severity: "warn",
-      reason:
-        "Lint-ratchet CLI orchestration keeps a higher normal-lint cap while the runtime ratchet holds the floor.",
-      ratchetExcluded: false,
-    },
-    {
-      path: "scripts/logs-audit.ts",
-      cap: 690,
-      severity: "warn",
-      reason:
-        "Logs-audit entrypoint is only partly re-included in normal lint, so the ratchet keeps the max-300 floor.",
-      ratchetExcluded: false,
-    },
-    {
-      path: "scripts/lint-ratchet-config.ts",
+      path: "scripts/lint-ratchet/lint-ratchet-config.ts",
       cap: 600,
       severity: "error",
       reason:
@@ -399,35 +329,11 @@ export const maxLinesPolicy = {
       ratchetExcluded: true,
     },
     {
-      path: "scripts/lint-coverage-map-check.ts",
-      cap: 360,
+      path: "scripts/path-policy/path-policy-smoke-subjects.ts",
+      cap: 400,
       severity: "warn",
       reason:
-        "Coverage-map checker still owns table parsing and ESLint reachability checks while a dedicated ratchet tracks the current over-300 split target.",
-      ratchetExcluded: false,
-    },
-    {
-      path: "scripts/lint-ratchet-baseline-parse.ts",
-      cap: 310,
-      severity: "warn",
-      reason:
-        "Baseline parsing is just over the normal cap after formatter expansion; the runtime ratchet tracks the current over-300 split target.",
-      ratchetExcluded: false,
-    },
-    {
-      path: "scripts/lint-ratchet-metrics.ts",
-      cap: 390,
-      severity: "warn",
-      reason:
-        "Ratchet metrics aggregation is still one parser/metric boundary while the runtime ratchet tracks the current over-300 split target.",
-      ratchetExcluded: false,
-    },
-    {
-      path: "scripts/path-policy-smoke-subjects.ts",
-      cap: 385,
-      severity: "warn",
-      reason:
-        "Smoke subject data is one flat lookup table keyed by test name and grows with smoke tests, not logic.",
+        "Smoke subject data is one flat lookup table keyed by test name plus directory-backed discovery, and grows with smoke tests, not logic.",
       ratchetExcluded: true,
     },
     {
@@ -455,104 +361,5 @@ export const maxLinesPolicy = {
       ratchetExcluded: true,
     },
   ],
-  ratchets: [
-    {
-      id: "ratchet/local-max-lines-code-intel",
-      files: ["scripts/code-intel.ts"],
-      ignores: [],
-      zeroBaselineDisposition: {
-        kind: "intentional-ratchet-only",
-        reason:
-          "normal ESLint intentionally does not re-include scripts/code-intel.ts; this ratchet keeps its max-300 effective-line floor while docs/agent_notes/backlog/lint-reference-readiness/24-eslint-max-lines-policy.md centralizes large-file policy metadata",
-      },
-    },
-    {
-      id: "ratchet/local-max-lines-codemods",
-      files: ["scripts/codemods/**/*.ts"],
-      ignores: [
-        "scripts/codemods/**/*-codemod.test.ts",
-        "scripts/codemods/**/*.test.ts",
-        "scripts/codemods/fixtures/**",
-      ],
-      zeroBaselineDisposition: {
-        kind: "intentional-ratchet-only",
-        reason:
-          "normal ESLint intentionally ignores codemod implementation files; this ratchet keeps the codemod max-300 effective-line floor while docs/agent_notes/backlog/lint-reference-readiness/24-eslint-max-lines-policy.md centralizes large-file policy metadata",
-      },
-    },
-    {
-      id: "ratchet/local-max-lines-drift-ai",
-      files: ["scripts/drift-ai.ts", "scripts/drift-ai/**/*.ts"],
-      ignores: [
-        "scripts/drift-ai.test.ts",
-        "scripts/drift-ai/**/*.test.ts",
-        "scripts/drift-ai/fixtures/**",
-      ],
-      zeroBaselineDisposition: {
-        kind: "narrow-floor",
-        reason:
-          "normal ESLint has mixed drift-ai script coverage and per-file warn caps above 300; this ratchet keeps one max-300 floor while docs/agent_notes/backlog/lint-reference-readiness/24-eslint-max-lines-policy.md centralizes large-file policy metadata",
-      },
-    },
-    {
-      id: "ratchet/local-max-lines-generate-harness-controls",
-      files: [
-        "scripts/generate-harness-controls-validation.ts",
-        "scripts/generate-harness-controls.ts",
-      ],
-      ignores: [],
-      zeroBaselineDisposition: {
-        kind: "narrow-floor",
-        reason:
-          "normal ESLint only re-includes part of this harness-control family and uses a higher warn cap for the main generator; this ratchet keeps the max-300 floor while docs/agent_notes/backlog/lint-reference-readiness/24-eslint-max-lines-policy.md centralizes large-file policy metadata",
-      },
-    },
-    {
-      id: "ratchet/local-max-lines-lint-coverage-map-check",
-      files: ["scripts/lint-coverage-map-check.ts"],
-      ignores: [],
-      zeroBaselineDisposition: {
-        kind: "narrow-floor",
-        reason:
-          "normal ESLint uses a higher warn cap for the coverage-map checker; this ratchet keeps the max-300 split target visible while coverage-map parsing is still consolidated",
-      },
-    },
-    {
-      id: "ratchet/local-max-lines-logs-audit",
-      files: ["scripts/logs-audit-*.ts", "scripts/logs-audit.ts"],
-      ignores: [],
-      zeroBaselineDisposition: {
-        kind: "narrow-floor",
-        reason:
-          "normal ESLint only re-includes part of the logs-audit script family and uses a higher warn cap for the entrypoint; this ratchet keeps the max-300 floor while docs/agent_notes/backlog/lint-reference-readiness/24-eslint-max-lines-policy.md centralizes large-file policy metadata",
-      },
-    },
-    {
-      id: "ratchet/local-max-lines-runtime",
-      files: [
-        "scripts/harness-check-validation.ts",
-        "scripts/harness-check.ts",
-        "scripts/harness-wrapper-slot-parity.ts",
-        "scripts/harness-wrapper-slot-parser.ts",
-        "scripts/lint-agent.ts",
-        "scripts/lint-ratchet-baseline-compare.ts",
-        "scripts/lint-ratchet-baseline-parse.ts",
-        "scripts/lint-ratchet-baseline.ts",
-        "scripts/lint-ratchet-check-registry.ts",
-        "scripts/lint-ratchet-metrics.ts",
-        "scripts/lint-ratchet-output.ts",
-        "scripts/lint-ratchet-report.ts",
-        "scripts/lint-ratchet-summary.ts",
-        "scripts/lint-ratchet.ts",
-        "scripts/lint-ratchet/**/*.ts",
-        "scripts/ratchet-manifest-message.ts",
-      ],
-      ignores: ["scripts/*.test.ts"],
-      zeroBaselineDisposition: {
-        kind: "narrow-floor",
-        reason:
-          "normal ESLint has mixed runtime helper coverage and per-file warn caps above 300; this ratchet keeps one max-300 floor while docs/agent_notes/backlog/lint-reference-readiness/24-eslint-max-lines-policy.md centralizes large-file policy metadata",
-      },
-    },
-  ],
+  ratchets: [],
 };

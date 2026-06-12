@@ -2,14 +2,23 @@
 import { pathToFileURL } from "node:url";
 
 import { runCodeIntelCli } from "./code-intel/cli-main.js";
+import type * as DefinitionQueryModule from "./code-intel/definition-query.js";
+import type * as ExportQueryModule from "./code-intel/export-query.js";
+import type * as FormatModule from "./code-intel/format.js";
+import type * as GraphQueriesModule from "./code-intel/graph-queries.js";
+import type * as ImportGraphModule from "./code-intel/import-graph.js";
+import type * as OverviewQueryModule from "./code-intel/overview-query.js";
+import type * as QueryExecutorModule from "./code-intel/query-executor.js";
+import type * as RunnerModule from "./code-intel/runner.js";
+import type * as WorkspaceResolverModule from "./code-intel/workspace-resolver.js";
 
 export { runCodeIntelCli } from "./code-intel/cli-main.js";
-export { CODE_INTEL_DAEMON_PROTOCOL_VERSION } from "./code-intel/daemon-protocol.js";
 export type {
   CodeIntelDaemonError,
   CodeIntelDaemonRequest,
   CodeIntelDaemonResponse,
 } from "./code-intel/daemon-protocol.js";
+export { CODE_INTEL_DAEMON_PROTOCOL_VERSION } from "./code-intel/daemon-protocol.js";
 export { CodeIntelError } from "./code-intel/errors.js";
 export type {
   CodeIntelQueryResult,
@@ -18,69 +27,61 @@ export type {
   OverviewResult,
 } from "./code-intel/types.js";
 
-type DefinitionQueryModule = typeof import("./code-intel/definition-query.js");
-type ExportQueryModule = typeof import("./code-intel/export-query.js");
-type FormatModule = typeof import("./code-intel/format.js");
-type GraphQueriesModule = typeof import("./code-intel/graph-queries.js");
-type ImportGraphModule = typeof import("./code-intel/import-graph.js");
-type OverviewQueryModule = typeof import("./code-intel/overview-query.js");
-type QueryExecutorModule = typeof import("./code-intel/query-executor.js");
-type RunnerModule = typeof import("./code-intel/runner.js");
-type WorkspaceResolverModule = typeof import("./code-intel/workspace-resolver.js");
-
-export type WorkspaceResolver = InstanceType<WorkspaceResolverModule["WorkspaceResolver"]>;
+export type WorkspaceResolver = InstanceType<typeof WorkspaceResolverModule.WorkspaceResolver>;
 
 type CodeIntelApiModules = {
-  definitionQuery: DefinitionQueryModule;
-  exportQuery: ExportQueryModule;
-  format: FormatModule;
-  graphQueries: GraphQueriesModule;
-  importGraph: ImportGraphModule;
-  overviewQuery: OverviewQueryModule;
-  queryExecutor: QueryExecutorModule;
-  runner: RunnerModule;
-  workspaceResolver: WorkspaceResolverModule;
+  definitionQuery: typeof DefinitionQueryModule;
+  exportQuery: typeof ExportQueryModule;
+  format: typeof FormatModule;
+  graphQueries: typeof GraphQueriesModule;
+  importGraph: typeof ImportGraphModule;
+  overviewQuery: typeof OverviewQueryModule;
+  queryExecutor: typeof QueryExecutorModule;
+  runner: typeof RunnerModule;
+  workspaceResolver: typeof WorkspaceResolverModule;
 };
 
 const isCli = isCliEntrypoint();
 const apiModules = isCli ? undefined : await loadCodeIntelApiModules();
 
-export let WorkspaceResolver: WorkspaceResolverModule["WorkspaceResolver"];
+export let WorkspaceResolver: typeof WorkspaceResolverModule.WorkspaceResolver;
 if (apiModules) {
   WorkspaceResolver = apiModules.workspaceResolver.WorkspaceResolver;
 }
 
-export const queryDefinition: DefinitionQueryModule["queryDefinition"] = (...args) =>
+export const queryDefinition: typeof DefinitionQueryModule.queryDefinition = (...args) =>
   requireCodeIntelApiModules().definitionQuery.queryDefinition(...args);
 
-export const queryDefinitionsByName: DefinitionQueryModule["queryDefinitionsByName"] = (...args) =>
-  requireCodeIntelApiModules().definitionQuery.queryDefinitionsByName(...args);
+export const queryDefinitionsByName: typeof DefinitionQueryModule.queryDefinitionsByName = (
+  ...args
+) => requireCodeIntelApiModules().definitionQuery.queryDefinitionsByName(...args);
 
-export const queryExports: ExportQueryModule["queryExports"] = (...args) =>
+export const queryExports: typeof ExportQueryModule.queryExports = (...args) =>
   requireCodeIntelApiModules().exportQuery.queryExports(...args);
 
-export const queryOverview: OverviewQueryModule["queryOverview"] = (...args) =>
+export const queryOverview: typeof OverviewQueryModule.queryOverview = (...args) =>
   requireCodeIntelApiModules().overviewQuery.queryOverview(...args);
 
-export const queryDependents: GraphQueriesModule["queryDependents"] = (...args) =>
+export const queryDependents: typeof GraphQueriesModule.queryDependents = (...args) =>
   requireCodeIntelApiModules().graphQueries.queryDependents(...args);
 
-export const queryTests: GraphQueriesModule["queryTests"] = (...args) =>
+export const queryTests: typeof GraphQueriesModule.queryTests = (...args) =>
   requireCodeIntelApiModules().graphQueries.queryTests(...args);
 
-export const formatCodeIntelQueryResult: FormatModule["formatCodeIntelQueryResult"] = (...args) =>
-  requireCodeIntelApiModules().format.formatCodeIntelQueryResult(...args);
+export const formatCodeIntelQueryResult: typeof FormatModule.formatCodeIntelQueryResult = (
+  ...args
+) => requireCodeIntelApiModules().format.formatCodeIntelQueryResult(...args);
 
-export const buildImportGraph: ImportGraphModule["buildImportGraph"] = (...args) =>
+export const buildImportGraph: typeof ImportGraphModule.buildImportGraph = (...args) =>
   requireCodeIntelApiModules().importGraph.buildImportGraph(...args);
 
-export const executeCodeIntelQuery: QueryExecutorModule["executeCodeIntelQuery"] = (...args) =>
+export const executeCodeIntelQuery: typeof QueryExecutorModule.executeCodeIntelQuery = (...args) =>
   requireCodeIntelApiModules().queryExecutor.executeCodeIntelQuery(...args);
 
-export const runCodeIntel: RunnerModule["runCodeIntel"] = (...args) =>
+export const runCodeIntel: typeof RunnerModule.runCodeIntel = (...args) =>
   requireCodeIntelApiModules().runner.runCodeIntel(...args);
 
-export const createWorkspaceResolver: WorkspaceResolverModule["createWorkspaceResolver"] = (
+export const createWorkspaceResolver: typeof WorkspaceResolverModule.createWorkspaceResolver = (
   ...args
 ) => requireCodeIntelApiModules().workspaceResolver.createWorkspaceResolver(...args);
 

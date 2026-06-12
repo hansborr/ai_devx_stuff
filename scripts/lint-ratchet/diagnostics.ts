@@ -1,25 +1,32 @@
 import {
+  MAX_LINES_METRIC_GUIDANCE,
+  MAX_LINES_SPLIT_GUIDANCE,
+} from "../../eslint-rules/max-lines.js";
+import {
   buildHarnessDiagnostics,
   type HarnessDiagnostics,
   harnessDiagnosticsSchema,
   type HarnessFinding,
 } from "../../packages/shared/src/schemas/harness-diagnostics.js";
 import {
-  MAX_LINES_METRIC_GUIDANCE,
-  MAX_LINES_SPLIT_GUIDANCE,
-} from "../../eslint-rules/max-lines.js";
+  formatRuleDocsFailures,
+  loadLintRuleDocs,
+  type RuleDocsEntry,
+} from "../lib/lint-rule-docs.js";
+import { WorseBaselineError } from "./errors.js";
 import type {
   LintRatchetComparison,
   LintRatchetImprovement,
   LintRatchetRegression,
-} from "../lint-ratchet-baseline.js";
-import type { LintRatchetConfig } from "../lint-ratchet-config.js";
-import { ConfigError } from "../lint-ratchet-metrics.js";
-import { formatRuleDocsFailures, loadLintRuleDocs, type RuleDocsEntry } from "../lint-rule-docs.js";
-import { WorseBaselineError } from "./errors.js";
+} from "./lint-ratchet-baseline.js";
+import type { LintRatchetConfig } from "./lint-ratchet-config.js";
+import { ConfigError } from "./lint-ratchet-metrics.js";
+import { localRuleMessageHowToFixFor } from "./local-rule-fix-text.js";
 import { BASELINE_FILENAME, repoRoot } from "./paths.js";
 import { RATCHET_REGRESSION_UPDATE_COMMAND } from "./recovery-command.js";
 import { assertNever, ratchetSource } from "./runtime-config.js";
+
+const JSON_INDENT_SPACES = 2;
 
 // ratchetFixText starts a standalone sentence ("Reduce …"); when it is appended
 // mid-sentence after "…, then " its leading capital reads wrong, so callers that
@@ -83,6 +90,12 @@ function improvementDetail(improvement: LintRatchetImprovement): string {
   return `${improvement.testId} ${improvement.path}: finding count decreased from ${String(improvement.baselineCount)} to ${String(improvement.currentCount)}`;
 }
 
+function baselineComparisonRecoverySuffix(comparison: LintRatchetComparison): string {
+  if (comparison.improvements.length === 0) return "run bun run lint:ratchet for details";
+  if (comparison.regressions.length === 0) return "run bun run lint:ratchet:update";
+  return "fix regressions, then run bun run lint:ratchet:update";
+}
+
 export function assertCheckBaselineComparisonClean(comparison: LintRatchetComparison): void {
   const regressionMessage =
     comparison.regressions.length === 0
@@ -93,12 +106,7 @@ export function assertCheckBaselineComparisonClean(comparison: LintRatchetCompar
       ? undefined
       : `current findings are better than ${BASELINE_FILENAME} for ${String(comparison.improvements.length)} path(s): ${comparison.improvements.map(improvementDetail).join("; ")}`;
   if (regressionMessage === undefined && improvementMessage === undefined) return;
-  const suffix =
-    improvementMessage === undefined
-      ? "run bun run lint:ratchet for details"
-      : comparison.regressions.length === 0
-        ? "run bun run lint:ratchet:update"
-        : "fix regressions, then run bun run lint:ratchet:update";
+  const suffix = baselineComparisonRecoverySuffix(comparison);
   const message = [regressionMessage, improvementMessage]
     .filter((entry): entry is string => entry !== undefined)
     .join("; ");
@@ -123,14 +131,28 @@ function howToFixFor(entry: RuleDocsEntry, regression: LintRatchetRegression): s
   if (entry.repairKind === "autofix") {
     return `Run \`bun run lint:fix\`, then ${appendedRatchetFix}`;
   }
+  if (entry.repairKind === "manual" && regression.firstMessage !== undefined) {
+    const messageFix = localRuleMessageHowToFixFor(entry, { message: regression.firstMessage });
+    return `${messageFix} Then ${appendedRatchetFix}`;
+  }
   return ratchetFix;
 }
 
-function structuredRatchetFields(delta: LintRatchetRegression | LintRatchetImprovement) {
+function messageIdPayload(
+  delta: LintRatchetRegression | LintRatchetImprovement,
+): Partial<Pick<HarnessFinding, "messageId">> {
+  if (!("firstMessageId" in delta)) return {};
+  return delta.firstMessageId === undefined ? {} : { messageId: delta.firstMessageId };
+}
+
+function structuredRatchetFields(
+  delta: LintRatchetRegression | LintRatchetImprovement,
+): Record<string, number | string> {
   return {
     reason: delta.reason,
     baselineCount: delta.baselineCount,
     currentCount: delta.currentCount,
+    ...messageIdPayload(delta),
     ...(delta.baselineLines === undefined ? {} : { baselineLines: delta.baselineLines }),
     ...(delta.currentLines === undefined ? {} : { currentLines: delta.currentLines }),
     ...(delta.baselineComplexity === undefined
@@ -243,7 +265,7 @@ export function validateEnvelope(envelope: HarnessDiagnostics): void {
   const result = harnessDiagnosticsSchema.safeParse(envelope);
   if (!result.success) {
     throw new ConfigError(
-      `lint:ratchet produced an envelope that failed schema validation:\n${JSON.stringify(result.error.issues, null, 2)}`,
+      `lint:ratchet produced an envelope that failed schema validation:\n${JSON.stringify(result.error.issues, null, JSON_INDENT_SPACES)}`,
     );
   }
 }

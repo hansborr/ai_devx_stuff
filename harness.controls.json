@@ -129,193 +129,13 @@
     },
 
     {
-      "id": "ratchet/core-complexity-codemods",
+      "id": "ratchet/local-e2e-prefer-role-selectors",
       "kind": "ratchet",
       "category": "maintainability",
-      "principle": "Prevent codemod complexity debt from growing while Leaves 36 and 37 drain the current core-rule findings.",
+      "principle": "Prevent raw e2e locator debt from growing in legacy selector files while role-first cleanup proceeds.",
       "pairedGuide": "docs/guides/lint-ratchet.md",
       "repairKind": "manual",
-      "source": "scripts/lint-ratchet-config.ts",
-      "invocation": "bun run lint:ratchet"
-    },
-    {
-      "id": "ratchet/core-complexity-drift-ai",
-      "kind": "ratchet",
-      "category": "maintainability",
-      "principle": "Prevent drift-ai complexity debt from returning; the former core-rule findings are drained to zero.",
-      "pairedGuide": "docs/guides/lint-ratchet.md",
-      "repairKind": "manual",
-      "source": "scripts/lint-ratchet-config.ts",
-      "invocation": "bun run lint:ratchet"
-    },
-    {
-      "id": "ratchet/core-complexity-eslint-rules",
-      "kind": "ratchet",
-      "category": "maintainability",
-      "principle": "Prevent eslint-rules complexity debt from growing while Phase A.3 and follow-up drains audit the remaining rule implementation lint floor.",
-      "pairedGuide": "docs/guides/lint-ratchet.md",
-      "repairKind": "manual",
-      "source": "scripts/lint-ratchet-config.ts",
-      "invocation": "bun run lint:ratchet"
-    },
-    {
-      "id": "ratchet/core-complexity-lint-ratchet-runtime",
-      "kind": "ratchet",
-      "category": "maintainability",
-      "principle": "Prevent lint-ratchet runtime complexity debt from growing while those runtime files remain excluded from normal lint.",
-      "pairedGuide": "docs/guides/lint-ratchet.md",
-      "repairKind": "manual",
-      "source": "scripts/lint-ratchet-config.ts",
-      "invocation": "bun run lint:ratchet"
-    },
-    {
-      "id": "ratchet/core-complexity-top-level-scripts",
-      "kind": "ratchet",
-      "category": "maintainability",
-      "principle": "Prevent top-level script complexity debt from growing while the Leaf 38 script files drain toward normal lint coverage.",
-      "pairedGuide": "docs/guides/lint-ratchet.md",
-      "repairKind": "manual",
-      "source": "scripts/lint-ratchet-config.ts",
-      "invocation": "bun run lint:ratchet"
-    },
-    {
-      "id": "ratchet/core-no-magic-numbers-eslint-rules",
-      "kind": "ratchet",
-      "category": "maintainability",
-      "principle": "Prevent eslint-rules magic-number debt from growing while Phase A.3 and follow-up drains audit the remaining rule implementation lint floor.",
-      "pairedGuide": "docs/guides/lint-ratchet.md",
-      "repairKind": "manual",
-      "source": "scripts/lint-ratchet-config.ts",
-      "invocation": "bun run lint:ratchet"
-    },
-    {
-      "id": "ratchet/core-no-magic-numbers-top-level-scripts",
-      "kind": "ratchet",
-      "category": "maintainability",
-      "principle": "Prevent top-level script magic-number debt from growing while the Leaf 38 script files drain toward normal lint coverage.",
-      "pairedGuide": "docs/guides/lint-ratchet.md",
-      "repairKind": "manual",
-      "source": "scripts/lint-ratchet-config.ts",
-      "invocation": "bun run lint:ratchet"
-    },
-    {
-      "id": "ratchet/core-preserve-caught-error-top-level-scripts",
-      "kind": "ratchet",
-      "category": "behavior",
-      "principle": "Prevent top-level script caught-error wrapping debt from growing while the Leaf 38 script files drain toward normal lint coverage.",
-      "pairedGuide": "docs/guides/lint-ratchet.md",
-      "repairKind": "manual",
-      "source": "scripts/lint-ratchet-config.ts",
-      "invocation": "bun run lint:ratchet"
-    },
-    {
-      "id": "ratchet/regexp-no-unused-capturing-group-eslint-rules",
-      "kind": "ratchet",
-      "category": "behavior",
-      "principle": "Prevent eslint-rules unused regex capturing-group debt from growing while Phase A.3 and follow-up drains audit the remaining rule implementation lint floor.",
-      "pairedGuide": "docs/guides/lint-ratchet.md",
-      "repairKind": "manual",
-      "source": "scripts/lint-ratchet-config.ts",
-      "invocation": "bun run lint:ratchet"
-    },
-    {
-      "id": "ratchet/regexp-no-useless-non-capturing-group-eslint-rules",
-      "kind": "ratchet",
-      "category": "behavior",
-      "principle": "Prevent eslint-rules useless regex non-capturing-group debt from growing while Phase A.3 and follow-up drains audit the remaining rule implementation lint floor.",
-      "pairedGuide": "docs/guides/lint-ratchet.md",
-      "repairKind": "manual",
-      "source": "scripts/lint-ratchet-config.ts",
-      "invocation": "bun run lint:ratchet"
-    },
-    {
-      "id": "ratchet/regexp-no-super-linear-backtracking-script-tests",
-      "kind": "ratchet",
-      "category": "behavior",
-      "principle": "Prevent script-test regex backtracking debt from growing while the Leaf 41g singleton test findings drain.",
-      "pairedGuide": "docs/guides/lint-ratchet.md",
-      "repairKind": "manual",
-      "source": "scripts/lint-ratchet-config.ts",
-      "invocation": "bun run lint:ratchet"
-    },
-    {
-      "id": "ratchet/regexp-no-unused-capturing-group-lint-coverage-map-check",
-      "kind": "ratchet",
-      "category": "behavior",
-      "principle": "Prevent unused capturing-group debt in the lint coverage-map checker from growing while the current regex is reviewed.",
-      "pairedGuide": "docs/guides/lint-ratchet.md",
-      "repairKind": "manual",
-      "source": "scripts/lint-ratchet-config.ts",
-      "invocation": "bun run lint:ratchet"
-    },
-    {
-      "id": "ratchet/local-max-lines-code-intel",
-      "kind": "ratchet",
-      "category": "maintainability",
-      "principle": "Prevent code-intel facade max-lines debt from growing while Leaf 31 drains the current script findings.",
-      "pairedGuide": "docs/guides/lint-ratchet.md",
-      "repairKind": "manual",
-      "source": "scripts/lint-ratchet-config.ts",
-      "invocation": "bun run lint:ratchet"
-    },
-    {
-      "id": "ratchet/local-max-lines-codemods",
-      "kind": "ratchet",
-      "category": "maintainability",
-      "principle": "Prevent codemod max-lines debt from growing while cleanup proceeds incrementally.",
-      "pairedGuide": "docs/guides/lint-ratchet.md",
-      "repairKind": "manual",
-      "source": "scripts/lint-ratchet-config.ts",
-      "invocation": "bun run lint:ratchet"
-    },
-    {
-      "id": "ratchet/local-max-lines-drift-ai",
-      "kind": "ratchet",
-      "category": "maintainability",
-      "principle": "Prevent drift-ai max-lines debt from growing while cleanup proceeds incrementally.",
-      "pairedGuide": "docs/guides/lint-ratchet.md",
-      "repairKind": "manual",
-      "source": "scripts/lint-ratchet-config.ts",
-      "invocation": "bun run lint:ratchet"
-    },
-    {
-      "id": "ratchet/local-max-lines-generate-harness-controls",
-      "kind": "ratchet",
-      "category": "maintainability",
-      "principle": "Prevent generate-harness-controls max-lines debt from growing while Leaf 30 drains the current script findings.",
-      "pairedGuide": "docs/guides/lint-ratchet.md",
-      "repairKind": "manual",
-      "source": "scripts/lint-ratchet-config.ts",
-      "invocation": "bun run lint:ratchet"
-    },
-    {
-      "id": "ratchet/local-max-lines-lint-coverage-map-check",
-      "kind": "ratchet",
-      "category": "maintainability",
-      "principle": "Prevent lint coverage-map checker max-lines debt from growing while coverage-map parsing remains consolidated.",
-      "pairedGuide": "docs/guides/lint-ratchet.md",
-      "repairKind": "manual",
-      "source": "scripts/lint-ratchet-config.ts",
-      "invocation": "bun run lint:ratchet"
-    },
-    {
-      "id": "ratchet/local-max-lines-logs-audit",
-      "kind": "ratchet",
-      "category": "maintainability",
-      "principle": "Prevent logs-audit max-lines debt from growing while Leaf 40 drains the current script findings.",
-      "pairedGuide": "docs/guides/lint-ratchet.md",
-      "repairKind": "manual",
-      "source": "scripts/lint-ratchet-config.ts",
-      "invocation": "bun run lint:ratchet"
-    },
-    {
-      "id": "ratchet/local-max-lines-runtime",
-      "kind": "ratchet",
-      "category": "maintainability",
-      "principle": "Prevent ratchet/harness runtime max-lines debt from growing while cleanup proceeds incrementally.",
-      "pairedGuide": "docs/guides/lint-ratchet.md",
-      "repairKind": "manual",
-      "source": "scripts/lint-ratchet-config.ts",
+      "source": "scripts/lint-ratchet/lint-ratchet-config.ts",
       "invocation": "bun run lint:ratchet"
     },
     {
@@ -325,7 +145,27 @@
       "principle": "Prevent the known type-assertion debt pool from growing while cleanup proceeds incrementally.",
       "pairedGuide": "docs/guides/lint-ratchet.md",
       "repairKind": "manual",
-      "source": "scripts/lint-ratchet-config.ts",
+      "source": "scripts/lint-ratchet/lint-ratchet-config.ts",
+      "invocation": "bun run lint:ratchet"
+    },
+    {
+      "id": "ratchet/playwright-no-nth-methods-e2e",
+      "kind": "ratchet",
+      "category": "maintainability",
+      "principle": "Prevent first(), last(), and nth() selector debt from growing in e2e tests while page-object selectors are cleaned up.",
+      "pairedGuide": "docs/guides/lint-ratchet.md",
+      "repairKind": "manual",
+      "source": "scripts/lint-ratchet/lint-ratchet-config.ts",
+      "invocation": "bun run lint:ratchet"
+    },
+    {
+      "id": "ratchet/playwright-prefer-native-locators-e2e",
+      "kind": "ratchet",
+      "category": "maintainability",
+      "principle": "Prevent CSS selector debt that has a native Playwright locator replacement from growing in e2e tests.",
+      "pairedGuide": "docs/guides/lint-ratchet.md",
+      "repairKind": "manual",
+      "source": "scripts/lint-ratchet/lint-ratchet-config.ts",
       "invocation": "bun run lint:ratchet"
     },
     {
@@ -335,107 +175,17 @@
       "principle": "Prevent strict-boolean-expressions debt from growing in packages/shared/src production code while cleanup proceeds incrementally.",
       "pairedGuide": "docs/guides/lint-ratchet.md",
       "repairKind": "manual",
-      "source": "scripts/lint-ratchet-config.ts",
-      "invocation": "bun run lint:ratchet"
-    },
-    {
-      "id": "ratchet/typescript-eslint-explicit-function-return-type-script-tests",
-      "kind": "ratchet",
-      "category": "maintainability",
-      "principle": "Prevent script-test explicit-return-type debt from growing while the newly linted singleton tests are split or annotated.",
-      "pairedGuide": "docs/guides/lint-ratchet.md",
-      "repairKind": "manual",
-      "source": "scripts/lint-ratchet-config.ts",
-      "invocation": "bun run lint:ratchet"
-    },
-    {
-      "id": "ratchet/typescript-eslint-no-misused-promises-codemod-tests",
-      "kind": "ratchet",
-      "category": "maintainability",
-      "principle": "Prevent promise-return misuse in codemod test-harness files while Leaf 35 drains the current bug-class debt.",
-      "pairedGuide": "docs/guides/lint-ratchet.md",
-      "repairKind": "manual",
-      "source": "scripts/lint-ratchet-config.ts",
-      "invocation": "bun run lint:ratchet"
-    },
-    {
-      "id": "ratchet/typescript-eslint-no-unsafe-argument-top-level-scripts",
-      "kind": "ratchet",
-      "category": "behavior",
-      "principle": "Prevent top-level script unsafe-argument debt from growing while the Leaf 38 script files drain toward normal lint coverage.",
-      "pairedGuide": "docs/guides/lint-ratchet.md",
-      "repairKind": "manual",
-      "source": "scripts/lint-ratchet-config.ts",
-      "invocation": "bun run lint:ratchet"
-    },
-    {
-      "id": "ratchet/typescript-eslint-no-unsafe-assignment-script-tests",
-      "kind": "ratchet",
-      "category": "behavior",
-      "principle": "Prevent unsafe-assignment debt in the code-intel script test from growing while the large test drains.",
-      "pairedGuide": "docs/guides/lint-ratchet.md",
-      "repairKind": "manual",
-      "source": "scripts/lint-ratchet-config.ts",
-      "invocation": "bun run lint:ratchet"
-    },
-    {
-      "id": "ratchet/typescript-eslint-only-throw-error-codemod-tests",
-      "kind": "ratchet",
-      "category": "maintainability",
-      "principle": "Prevent non-Error throws in codemod test-harness files while Leaf 35 drains the current bug-class debt.",
-      "pairedGuide": "docs/guides/lint-ratchet.md",
-      "repairKind": "manual",
-      "source": "scripts/lint-ratchet-config.ts",
-      "invocation": "bun run lint:ratchet"
-    },
-    {
-      "id": "ratchet/typescript-eslint-require-await-script-singletons",
-      "kind": "ratchet",
-      "category": "maintainability",
-      "principle": "Prevent require-await debt in the newly linted script singletons from growing while the current async test doubles and checker entrypoint drain.",
-      "pairedGuide": "docs/guides/lint-ratchet.md",
-      "repairKind": "manual",
-      "source": "scripts/lint-ratchet-config.ts",
-      "invocation": "bun run lint:ratchet"
-    },
-    {
-      "id": "ratchet/typescript-eslint-restrict-template-expressions-top-level-scripts",
-      "kind": "ratchet",
-      "category": "behavior",
-      "principle": "Prevent top-level script unsafe template-expression debt from growing while the Leaf 38 script files drain toward normal lint coverage.",
-      "pairedGuide": "docs/guides/lint-ratchet.md",
-      "repairKind": "manual",
-      "source": "scripts/lint-ratchet-config.ts",
-      "invocation": "bun run lint:ratchet"
-    },
-    {
-      "id": "ratchet/typescript-eslint-unbound-method-top-level-scripts",
-      "kind": "ratchet",
-      "category": "behavior",
-      "principle": "Prevent top-level script unbound-method debt from growing while the Leaf 38 script files drain toward normal lint coverage.",
-      "pairedGuide": "docs/guides/lint-ratchet.md",
-      "repairKind": "manual",
-      "source": "scripts/lint-ratchet-config.ts",
-      "invocation": "bun run lint:ratchet"
-    },
-    {
-      "id": "ratchet/vitest-expect-expect-codemod-tests",
-      "kind": "ratchet",
-      "category": "maintainability",
-      "principle": "Prevent codemod test-harness tests without recognized assertions from growing while Leaf 35 drains the current Vitest assertion debt.",
-      "pairedGuide": "docs/guides/lint-ratchet.md",
-      "repairKind": "manual",
-      "source": "scripts/lint-ratchet-config.ts",
+      "source": "scripts/lint-ratchet/lint-ratchet-config.ts",
       "invocation": "bun run lint:ratchet"
     },
     {
       "id": "ratchet/vitest-expect-expect-drift-ai-tests",
       "kind": "ratchet",
       "category": "maintainability",
-      "principle": "Prevent drift-ai test-harness tests without recognized assertions from growing while Leaves 33, 34, and 40 restore normal lint coverage.",
+      "principle": "Keep the drift-ai test expect-expect floor pinned to assertFunctionNames [\"expect\"] only, stricter than the resolved plugin defaults normal lint applies (keep verdict, lint-review-2026-06 leaf 03e).",
       "pairedGuide": "docs/guides/lint-ratchet.md",
       "repairKind": "manual",
-      "source": "scripts/lint-ratchet-config.ts",
+      "source": "scripts/lint-ratchet/lint-ratchet-config.ts",
       "invocation": "bun run lint:ratchet"
     },
     {
@@ -445,47 +195,17 @@
       "principle": "Prevent singleton script tests without recognized assertions from growing now that the final Leaf 41g test rows are linted.",
       "pairedGuide": "docs/guides/lint-ratchet.md",
       "repairKind": "manual",
-      "source": "scripts/lint-ratchet-config.ts",
-      "invocation": "bun run lint:ratchet"
-    },
-    {
-      "id": "ratchet/vitest-no-commented-out-tests-eslint-rules-tests",
-      "kind": "ratchet",
-      "category": "maintainability",
-      "principle": "Prevent commented-out Vitest tests in eslint-rules RuleTester files from growing while Phase A.3 and follow-up drains audit the remaining rule-test floor.",
-      "pairedGuide": "docs/guides/lint-ratchet.md",
-      "repairKind": "manual",
-      "source": "scripts/lint-ratchet-config.ts",
-      "invocation": "bun run lint:ratchet"
-    },
-    {
-      "id": "ratchet/vitest-no-conditional-expect-eslint-rules-tests",
-      "kind": "ratchet",
-      "category": "maintainability",
-      "principle": "Prevent conditional Vitest expect debt in eslint-rules RuleTester files from growing while Phase A.3 and follow-up drains audit the remaining rule-test floor.",
-      "pairedGuide": "docs/guides/lint-ratchet.md",
-      "repairKind": "manual",
-      "source": "scripts/lint-ratchet-config.ts",
-      "invocation": "bun run lint:ratchet"
-    },
-    {
-      "id": "ratchet/vitest-valid-expect-codemod-tests",
-      "kind": "ratchet",
-      "category": "maintainability",
-      "principle": "Prevent malformed Vitest expect calls in codemod test-harness files while Leaf 35 drains the current bug-class debt.",
-      "pairedGuide": "docs/guides/lint-ratchet.md",
-      "repairKind": "manual",
-      "source": "scripts/lint-ratchet-config.ts",
+      "source": "scripts/lint-ratchet/lint-ratchet-config.ts",
       "invocation": "bun run lint:ratchet"
     },
     {
       "id": "ratchet/vitest-valid-expect-drift-ai-tests",
       "kind": "ratchet",
       "category": "maintainability",
-      "principle": "Prevent malformed Vitest expect calls in drift-ai test-harness files while Leaves 33, 34, and 40 restore normal lint coverage.",
+      "principle": "Keep the drift-ai test valid-expect floor pinned to maxArgs 2, stricter than the resolved plugin defaults normal lint applies (keep verdict, lint-review-2026-06 leaf 03e).",
       "pairedGuide": "docs/guides/lint-ratchet.md",
       "repairKind": "manual",
-      "source": "scripts/lint-ratchet-config.ts",
+      "source": "scripts/lint-ratchet/lint-ratchet-config.ts",
       "invocation": "bun run lint:ratchet"
     },
     {
@@ -495,7 +215,7 @@
       "principle": "Prevent malformed Vitest expect calls in the newly linted singleton script tests while Leaf 41 drain work proceeds.",
       "pairedGuide": "docs/guides/lint-ratchet.md",
       "repairKind": "manual",
-      "source": "scripts/lint-ratchet-config.ts",
+      "source": "scripts/lint-ratchet/lint-ratchet-config.ts",
       "invocation": "bun run lint:ratchet"
     },
 
@@ -564,19 +284,27 @@
       "id": "verify-wrapper/verify",
       "kind": "verify-wrapper",
       "category": "maintainability",
-      "principle": "Run lint, lint:ratchet, the zero-baseline lifecycle check, coverage-map, format check, typecheck, test, and script smoke suites against the full tree with shared cache, lock, and log directory so a failing slot leaves the rest reusable.",
+      "principle": "Run lint, lint:ratchet, the zero-baseline lifecycle check, coverage-map, format check, typecheck, test, and script smoke suites against the full tree with shared cache, lock, and log directory so a failing slot leaves the rest reusable; lint preflights packages/{shared,server}/dist and runs typecheck automatically before ESLint when those ignored outputs are missing.",
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": "scripts/verify.sh",
       "invocation": "bun run verify",
       "slots": [
         { "name": "lint", "script": "lint" },
-        { "name": "ratchet", "script": "lint:ratchet" },
+        {
+          "name": "ratchet",
+          "script": "lint:ratchet",
+          "env": { "HARNESS_DIAGNOSTICS_OUTPUT": "$LOG_DIR/ratchet-diagnostics.json" }
+        },
         { "name": "zero-baseline", "script": "lint:ratchet:zero-baseline" },
         { "name": "coverage-map", "script": "docs:lint-coverage-map:check" },
         { "name": "format-check", "script": "format:check" },
         { "name": "typecheck", "script": "typecheck" },
-        { "name": "test", "script": "test" },
+        {
+          "name": "test",
+          "script": "test",
+          "args": ["--reporter=dot", "--reporter=json", "--outputFile.json=$TIMINGS_FILE"]
+        },
         { "name": "scripts", "script": "test:scripts" }
       ]
     },
@@ -584,39 +312,64 @@
       "id": "verify-wrapper/verify-changed",
       "kind": "verify-wrapper",
       "category": "maintainability",
-      "principle": "Run lint:changed, lint:ratchet, the zero-baseline lifecycle check, coverage-map, format:changed:check, typecheck, test:changed, and test:scripts:changed in parallel against the changed-file set; default edit-loop gate before commit.",
+      "principle": "Run lint:changed, lint:ratchet, the zero-baseline lifecycle check, coverage-map, format:changed:check, typecheck, test:changed, and test:scripts:changed in parallel against the changed-file set; default edit-loop gate before commit; when packages/{shared,server}/dist is missing, the wrapper defers lint until the existing typecheck slot has produced those ignored outputs.",
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": "scripts/verify.sh",
       "invocation": "bun run verify:changed",
       "slots": [
         { "name": "lint", "script": "lint:changed" },
-        { "name": "ratchet", "script": "lint:ratchet" },
+        {
+          "name": "ratchet",
+          "script": "lint:ratchet",
+          "env": { "HARNESS_DIAGNOSTICS_OUTPUT": "$LOG_DIR/ratchet-diagnostics.json" }
+        },
         { "name": "zero-baseline", "script": "lint:ratchet:zero-baseline" },
-        { "name": "coverage-map", "script": "docs:lint-coverage-map:check" },
+        {
+          "name": "coverage-map",
+          "script": "docs:lint-coverage-map:check",
+          "args": ["--", "--staged"]
+        },
         { "name": "format-check", "script": "format:changed:check" },
         { "name": "typecheck", "script": "typecheck" },
-        { "name": "test", "script": "test:changed" },
-        { "name": "scripts", "script": "test:scripts:changed" }
+        {
+          "name": "test",
+          "script": "test:changed",
+          "args": ["--reporter=dot", "--reporter=json", "--outputFile.json=$TIMINGS_FILE"]
+        },
+        {
+          "name": "scripts",
+          "script": "test:scripts:changed",
+          "condition": "when changed hook/script/harness inputs require script smoke",
+          "dynamic": "staged-script-classifier"
+        }
       ]
     },
     {
       "id": "verify-wrapper/verify-parallel",
       "kind": "verify-wrapper",
       "category": "maintainability",
-      "principle": "Run the full lint, ratchet, zero-baseline lifecycle check, coverage-map, format check, typecheck, test, and scripts suites in parallel; reduces full-verify wall time when the full script suite fits the selected timeout or cached state.",
+      "principle": "Run the full lint, ratchet, zero-baseline lifecycle check, coverage-map, format check, typecheck, test, and scripts suites in parallel; reduces full-verify wall time when the full script suite fits the selected timeout or cached state; when packages/{shared,server}/dist is missing, the wrapper defers lint until the existing typecheck slot has produced those ignored outputs.",
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": "scripts/verify.sh",
       "invocation": "bun run verify:parallel",
       "slots": [
         { "name": "lint", "script": "lint" },
-        { "name": "ratchet", "script": "lint:ratchet" },
+        {
+          "name": "ratchet",
+          "script": "lint:ratchet",
+          "env": { "HARNESS_DIAGNOSTICS_OUTPUT": "$LOG_DIR/ratchet-diagnostics.json" }
+        },
         { "name": "zero-baseline", "script": "lint:ratchet:zero-baseline" },
         { "name": "coverage-map", "script": "docs:lint-coverage-map:check" },
         { "name": "format-check", "script": "format:check" },
         { "name": "typecheck", "script": "typecheck" },
-        { "name": "test", "script": "test" },
+        {
+          "name": "test",
+          "script": "test",
+          "args": ["--reporter=dot", "--reporter=json", "--outputFile.json=$TIMINGS_FILE"]
+        },
         { "name": "scripts", "script": "test:scripts" }
       ]
     },
@@ -806,7 +559,7 @@
       "id": "drift-scope/e2e",
       "kind": "drift-scope",
       "category": "maintainability",
-      "principle": "Report Playwright locator-usage patterns across e2e tests; report-only signal for manual analysis ahead of the role-selector enforcement.",
+      "principle": "Report Playwright locator-usage patterns across e2e tests alongside the ratcheted raw-locator debt-file count.",
       "pairedGuide": "docs/guides/add-e2e-test.md",
       "repairKind": "manual",
       "source": "scripts/drift/locator-usage.ts",
@@ -820,7 +573,7 @@
       "principle": "Generate the agent-facing harness controls map from harness.controls.json (lint-rule entries re-projected from each rule's meta.docs); --check fails on drift between the manifest and the generated markdown.",
       "pairedGuide": "none",
       "repairKind": "autofix",
-      "source": "scripts/generate-harness-controls.ts",
+      "source": "scripts/harness/generate-harness-controls.ts",
       "invocation": "bun run docs:harness-controls"
     },
     {
@@ -855,6 +608,26 @@
       "invocation": "bun run lint:agent:local-rules"
     },
     {
+      "id": "check/harness-hook-wiring-generator",
+      "kind": "check",
+      "category": "maintainability",
+      "principle": "Generate Claude and Codex hook wiring from harness.controls.json; --check fails on drift between the manifest and checked-in adapter configs.",
+      "pairedGuide": "none",
+      "repairKind": "autofix",
+      "source": "scripts/harness/generate-hook-wiring.ts",
+      "invocation": "bun run harness:wiring"
+    },
+    {
+      "id": "check/verify-steps-generator",
+      "kind": "check",
+      "category": "maintainability",
+      "principle": "Generate verify wrapper slot arrays from harness.controls.json; --check fails on drift between the manifest and checked-in shell metadata.",
+      "pairedGuide": "none",
+      "repairKind": "autofix",
+      "source": "scripts/harness/generate-verify-steps.ts",
+      "invocation": "bun run verify:steps"
+    },
+    {
       "id": "check/lint-agent-local-rules-changed",
       "kind": "check",
       "category": "maintainability",
@@ -869,7 +642,7 @@
       "kind": "check",
       "category": "maintainability",
       "principle": "Detect drift between the Leaf 41 lint coverage map and tracked repository paths, cited ratchet IDs, and status vocabulary so the hand-maintained inventory stays load-bearing.",
-      "pairedGuide": "docs/agent_notes/backlog/lint-followups/lint-coverage-map.md",
+      "pairedGuide": "docs/agent_notes/lint-coverage-map.md",
       "repairKind": "manual",
       "source": "scripts/lint-coverage-map-check.ts",
       "invocation": "bun run docs:lint-coverage-map:check"
@@ -881,7 +654,7 @@
       "principle": "Fail when drained lint ratchets are not documented with a zero-baseline lifecycle disposition, while still reporting normal ESLint promotion status.",
       "pairedGuide": "docs/guides/lint-ratchet.md",
       "repairKind": "manual",
-      "source": "scripts/lint-ratchet-zero-baseline.ts",
+      "source": "scripts/lint-ratchet/lint-ratchet-zero-baseline.ts",
       "invocation": "bun run lint:ratchet:zero-baseline"
     },
     {
@@ -889,7 +662,7 @@
       "kind": "check",
       "category": "maintainability",
       "principle": "Run ShellCheck over maintained shell scripts and hooks so shell bug classes are covered by the normal lint floor.",
-      "pairedGuide": "docs/agent_notes/backlog/lint-followups/lint-coverage-map.md",
+      "pairedGuide": "docs/agent_notes/lint-coverage-map.md",
       "repairKind": "manual",
       "source": "scripts/lint-shell.sh",
       "invocation": "bun run lint:shell"
@@ -899,7 +672,7 @@
       "kind": "check",
       "category": "maintainability",
       "principle": "Run actionlint, yamllint, taplo, and hadolint over maintained workflow and config files so non-ESLint config surfaces stay covered by the normal lint floor.",
-      "pairedGuide": "docs/agent_notes/backlog/lint-followups/lint-coverage-map.md",
+      "pairedGuide": "docs/agent_notes/lint-coverage-map.md",
       "repairKind": "manual",
       "source": "scripts/lint-config-sensors.sh",
       "invocation": "bun run lint:config-sensors"
@@ -1136,22 +909,36 @@
       "id": "hook/pre-commit",
       "kind": "hook",
       "category": "maintainability",
-      "principle": "Run lint:changed, lint:ratchet, the zero-baseline lifecycle check, coverage-map, format:changed:check, typecheck, test:changed, and conditionally test:scripts:changed in parallel before allowing the commit; the verify wrapper's edit-loop entrypoint with a strict time budget.",
+      "principle": "Run lint:changed, lint:ratchet, the zero-baseline lifecycle check, coverage-map, format:changed:check, typecheck, test:changed, and conditionally test:scripts:changed in parallel before allowing the commit; when packages/{shared,server}/dist is missing, defer lint until the existing typecheck slot has produced those ignored outputs.",
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": ".husky/pre-commit",
       "invocation": "git commit",
       "slots": [
         { "name": "lint", "script": "lint:changed" },
-        { "name": "ratchet", "script": "lint:ratchet" },
+        {
+          "name": "ratchet",
+          "script": "lint:ratchet",
+          "env": { "HARNESS_DIAGNOSTICS_OUTPUT": "$LOG_DIR/ratchet-diagnostics.json" }
+        },
         { "name": "zero-baseline", "script": "lint:ratchet:zero-baseline" },
-        { "name": "coverage-map", "script": "docs:lint-coverage-map:check" },
+        {
+          "name": "coverage-map",
+          "script": "docs:lint-coverage-map:check",
+          "args": ["--", "--staged"]
+        },
         { "name": "format-check", "script": "format:changed:check" },
         { "name": "typecheck", "script": "typecheck" },
-        { "name": "test", "script": "test:changed" },
+        {
+          "name": "test",
+          "script": "test:changed",
+          "args": ["--reporter=dot"],
+          "dynamic": "precommit-test-timings"
+        },
         {
           "name": "scripts",
           "script": "test:scripts:changed",
+          "dynamic": "staged-script-classifier",
           "condition": "when staged hook/script/harness inputs require script smoke"
         }
       ]
@@ -1187,6 +974,102 @@
       "invocation": "git merge"
     },
     {
+      "id": "hook/ai-no-direct-db",
+      "kind": "hook",
+      "category": "behavior",
+      "principle": "Block Claude Bash calls that bypass the safety harness (no --no-verify, no force-push to main, no direct psql/redis-cli/docker against shared infra) so destructive ops stay opt-in; Codex gets the same policy surface through its Bash aggregator.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/ai-hooks/no-direct-db.sh",
+      "invocation": "Claude PreToolUse Bash hook",
+      "hookWiring": {
+        "event": "PreToolUse",
+        "order": 10,
+        "harnesses": {
+          "claude": {
+            "matcher": "Bash",
+            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/no-direct-db.sh"
+          }
+        },
+        "notes": {
+          "codex": "Codex deliberately uses .codex/hooks/pre-tool-use.sh as a Bash aggregator for the same policy surface."
+        }
+      }
+    },
+    {
+      "id": "hook/ai-codex-pre-tool-use",
+      "kind": "hook",
+      "category": "behavior",
+      "principle": "Aggregate Codex Bash PreToolUse policy, quiet-run cache checks, and commit state capture in the single Codex Bash hook surface.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": ".codex/hooks/pre-tool-use.sh",
+      "invocation": "Codex PreToolUse Bash hook",
+      "hookWiring": {
+        "event": "PreToolUse",
+        "order": 10,
+        "harnesses": {
+          "codex": {
+            "matcher": "Bash",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.codex/hooks/pre-tool-use.sh\"",
+            "statusMessage": "Running repository Bash hooks",
+            "timeout": 60
+          }
+        },
+        "notes": {
+          "claude": "Claude deliberately uses direct Bash PreToolUse adapters because it does not have Codex's Bash aggregator model."
+        }
+      }
+    },
+    {
+      "id": "hook/ai-git-commit-quiet",
+      "kind": "hook",
+      "category": "maintainability",
+      "principle": "Capture Claude git commit state and summarize pre-commit or commit output so the interactive transcript shows the actionable result without streaming the full hook log.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/ai-hooks/git-commit-quiet.sh",
+      "invocation": "Claude PreToolUse Bash hook",
+      "hookWiring": {
+        "event": "PreToolUse",
+        "order": 20,
+        "harnesses": {
+          "claude": {
+            "matcher": "Bash",
+            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/git-commit-quiet.sh",
+            "timeout": 600
+          }
+        },
+        "notes": {
+          "codex": "Codex deliberately handles commit state and summaries inside its PreToolUse/PostToolUse Bash aggregators."
+        }
+      }
+    },
+    {
+      "id": "hook/ai-bun-run-quiet",
+      "kind": "hook",
+      "category": "maintainability",
+      "principle": "Short-circuit repeated Claude `bun run` commands through the AI hook cache and summarize prior failures so routine verification stays readable.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/ai-hooks/bun-run-quiet.sh",
+      "invocation": "Claude PreToolUse Bash hook",
+      "hookWiring": {
+        "event": "PreToolUse",
+        "order": 30,
+        "harnesses": {
+          "claude": {
+            "matcher": "Bash",
+            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/bun-run-quiet.sh",
+            "timeout": 280
+          }
+        },
+        "notes": {
+          "codex": "Codex deliberately handles `bun run` cache and quieting inside .codex/hooks/pre-tool-use.sh."
+        }
+      }
+    },
+    {
       "id": "hook/ai-protected-files",
       "kind": "hook",
       "category": "maintainability",
@@ -1194,17 +1077,23 @@
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": "scripts/ai-hooks/protected-files.sh",
-      "invocation": "Claude PreToolUse / Codex pre-tool-use hook"
-    },
-    {
-      "id": "hook/ai-no-direct-db",
-      "kind": "hook",
-      "category": "behavior",
-      "principle": "Block AI Bash calls that bypass the safety harness (no --no-verify, no force-push to main, no direct psql/redis-cli/docker against shared infra) so destructive ops stay opt-in.",
-      "pairedGuide": "none",
-      "repairKind": "manual",
-      "source": "scripts/ai-hooks/policy.sh",
-      "invocation": "Claude PreToolUse / Codex pre-tool-use hook"
+      "invocation": "Claude PreToolUse / Codex PreToolUse hook",
+      "hookWiring": {
+        "event": "PreToolUse",
+        "order": 40,
+        "harnesses": {
+          "claude": {
+            "matcher": "Edit|Write",
+            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/protected-files.sh"
+          },
+          "codex": {
+            "matcher": "apply_patch",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.codex/hooks/protected-files.sh\"",
+            "statusMessage": "Checking protected-file edits",
+            "timeout": 15
+          }
+        }
+      }
     },
     {
       "id": "hook/ai-prisma-generate",
@@ -1214,7 +1103,24 @@
       "pairedGuide": "docs/guides/add-prisma-migration.md",
       "repairKind": "manual",
       "source": "scripts/ai-hooks/prisma-generate.sh",
-      "invocation": "Claude PostToolUse / Codex post-tool-use hook"
+      "invocation": "Claude PostToolUse / Codex PostToolUse hook",
+      "hookWiring": {
+        "event": "PostToolUse",
+        "order": 10,
+        "harnesses": {
+          "claude": {
+            "matcher": "Edit|Write",
+            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/prisma-generate.sh",
+            "timeout": 120
+          },
+          "codex": {
+            "matcher": "apply_patch",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.codex/hooks/prisma-generate.sh\"",
+            "statusMessage": "Regenerating Prisma client",
+            "timeout": 120
+          }
+        }
+      }
     },
     {
       "id": "hook/ai-doc-length",
@@ -1224,7 +1130,154 @@
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": "scripts/ai-hooks/doc-length.sh",
-      "invocation": "Claude PostToolUse / Husky pre-commit warning"
+      "invocation": "Claude PostToolUse / Codex PostToolUse hook / Husky pre-commit warning",
+      "hookWiring": {
+        "event": "PostToolUse",
+        "order": 20,
+        "harnesses": {
+          "claude": {
+            "matcher": "Edit|Write",
+            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/doc-length.sh"
+          },
+          "codex": {
+            "matcher": "apply_patch",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.codex/hooks/doc-length.sh\"",
+            "statusMessage": "Checking edited doc length",
+            "timeout": 15
+          }
+        }
+      }
+    },
+    {
+      "id": "hook/ai-tidy-edited-file",
+      "kind": "hook",
+      "category": "maintainability",
+      "principle": "Run the shared edited-file tidy hook after AI file edits so formatter-friendly files are normalized before follow-up checks inspect them.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/ai-hooks/tidy-edited-file.sh",
+      "invocation": "Claude PostToolUse / Codex PostToolUse hook",
+      "hookWiring": {
+        "event": "PostToolUse",
+        "order": 30,
+        "harnesses": {
+          "claude": {
+            "matcher": "Edit|Write",
+            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/tidy-edited-file.sh",
+            "timeout": 120
+          },
+          "codex": {
+            "matcher": "apply_patch",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.codex/hooks/tidy-edited-file.sh\"",
+            "statusMessage": "Tidying edited file",
+            "timeout": 120
+          }
+        }
+      }
+    },
+    {
+      "id": "hook/ai-lint-coverage-check",
+      "kind": "hook",
+      "category": "maintainability",
+      "principle": "After AI edits, advise when changed TypeScript surfaces lack an expected lint coverage-map row so new script and code surfaces do not silently escape lint policy.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/ai-hooks/lint-coverage-check.sh",
+      "invocation": "Claude PostToolUse / Codex PostToolUse hook",
+      "hookWiring": {
+        "event": "PostToolUse",
+        "order": 40,
+        "harnesses": {
+          "claude": {
+            "matcher": "Edit|Write",
+            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/lint-coverage-check.sh",
+            "timeout": 15
+          },
+          "codex": {
+            "matcher": "apply_patch",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.codex/hooks/lint-coverage-check.sh\"",
+            "statusMessage": "Checking ESLint coverage",
+            "timeout": 15
+          }
+        }
+      }
+    },
+    {
+      "id": "hook/ai-ratchet-regression-check",
+      "kind": "hook",
+      "category": "maintainability",
+      "principle": "After AI edits, run the targeted lint-ratchet advisory surface so fresh regressions are visible before the next verify or commit gate.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/ai-hooks/ratchet-regression-check.sh",
+      "invocation": "Claude PostToolUse / Codex PostToolUse hook",
+      "hookWiring": {
+        "event": "PostToolUse",
+        "order": 50,
+        "harnesses": {
+          "claude": {
+            "matcher": "Edit|Write",
+            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/ratchet-regression-check.sh",
+            "timeout": 60
+          },
+          "codex": {
+            "matcher": "apply_patch",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.codex/hooks/ratchet-regression-check.sh\"",
+            "statusMessage": "Checking lint-ratchet regressions",
+            "timeout": 60
+          }
+        }
+      }
+    },
+    {
+      "id": "hook/ai-codex-post-tool-use",
+      "kind": "hook",
+      "category": "maintainability",
+      "principle": "Aggregate Codex Bash PostToolUse commit-result summaries after persistence so commit success, hook failures, and uncertain commit states are surfaced concisely.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": ".codex/hooks/post-tool-use.sh",
+      "invocation": "Codex PostToolUse Bash hook",
+      "hookWiring": {
+        "event": "PostToolUse",
+        "order": 90,
+        "harnesses": {
+          "codex": {
+            "matcher": "Bash",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.codex/hooks/post-tool-use.sh\"",
+            "statusMessage": "Summarizing repository Bash output",
+            "timeout": 60
+          }
+        },
+        "notes": {
+          "claude": "Claude deliberately keeps commit output handling in its git-commit-quiet adapter instead of using a Bash PostToolUse aggregator."
+        }
+      }
+    },
+    {
+      "id": "hook/ai-stop-reminder",
+      "kind": "hook",
+      "category": "maintainability",
+      "principle": "Run the shared stop reminder at session stop so pending verification, stale generated files, or unresolved policy reminders are surfaced before handoff.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/ai-hooks/stop-reminder.sh",
+      "invocation": "Claude Stop / Codex Stop hook",
+      "hookWiring": {
+        "event": "Stop",
+        "order": 10,
+        "harnesses": {
+          "claude": {
+            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/stop-reminder.sh",
+            "timeout": 30
+          },
+          "codex": {
+            "command": "bash \"$(git rev-parse --show-toplevel)/.codex/hooks/stop-reminder.sh\"",
+            "statusMessage": "Checking repository stop conditions",
+            "timeout": 30
+          }
+        }
+      }
     }
   ]
 }

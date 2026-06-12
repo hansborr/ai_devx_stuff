@@ -6,6 +6,9 @@ export interface RatchetGlobScope {
   readonly ignores: readonly string[];
 }
 
+const GLOBSTAR_LENGTH = 2;
+const GLOBSTAR_SLASH_LENGTH = 3;
+
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
 }
@@ -29,12 +32,12 @@ export function globToRegExp(pattern: string): RegExp {
   while (index < pattern.length) {
     const char = pattern[index] ?? "";
     if (char === "*" && pattern[index + 1] === "*") {
-      if (pattern[index + 2] === "/") {
+      if (pattern[index + GLOBSTAR_LENGTH] === "/") {
         source += "(?:[^/]+/)*";
-        index += 3;
+        index += GLOBSTAR_SLASH_LENGTH;
       } else {
         source += ".*";
-        index += 2;
+        index += GLOBSTAR_LENGTH;
       }
     } else if (char === "*") {
       source += "[^/]*";

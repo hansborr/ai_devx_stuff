@@ -49,5 +49,5 @@ Useful checks:
 - `bun run module:index` regenerates `MODULE-INDEX.md` from `*MODULE.md`
   headings and `Concepts:` breadcrumbs.
 - `bun run module:index:check` fails when `MODULE-INDEX.md` is stale.
-- `scripts/test-generate-module-index.sh` covers index generation, concept
+- `scripts/tests/test-generate-module-index.sh` covers index generation, concept
   breadcrumb extraction, and drift reporting.

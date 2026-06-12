@@ -1,12 +1,12 @@
-import type { LintRatchetOrphanRemoval, LintRatchetRegression } from "../lint-ratchet-baseline.js";
-import { isRecord, parseArrayOf, rejectUnknownKeys } from "./debt-log-parse-helpers.js";
 import { parseDebtLogOrphanRemoval } from "./debt-log-orphan-schema.js";
+import { isRecord, parseArrayOf, rejectUnknownKeys } from "./debt-log-parse-helpers.js";
 import { parseDebtLogRegression } from "./debt-log-regression-schema.js";
+import type { LintRatchetOrphanRemoval, LintRatchetRegression } from "./lint-ratchet-baseline.js";
 import { isRatchetRegressionReasonPlaceholder } from "./recovery-command.js";
 
 // Hand-rolled (deliberately NOT zod) validator for one committed debt-log line.
 // This file is part of the portable lint-ratchet runtime: the import-boundary
-// smoke (scripts/test-lint-ratchet.sh) allows only eslint + sibling runtime
+// smoke (scripts/tests/test-lint-ratchet.sh) allows only eslint + sibling runtime
 // files, and zod resolves neither at the repo root nor in the smoke fixture.
 // The entry reuses LintRatchetRegression and LintRatchetOrphanRemoval so a future
 // shape change is a TypeScript compile error here and in the writer/renderer.

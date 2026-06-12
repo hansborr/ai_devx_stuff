@@ -35,7 +35,7 @@ ai_filtered_task_log_excerpt() {
     if [ -n "$smoke_names" ]; then
       printf '%s\n' "$smoke_names" | while IFS= read -r smoke; do
         printf 'scripts failed: %s\n' "$smoke"
-        printf 'command: bash scripts/%s.sh\n' "$smoke"
+        printf 'command: bash scripts/tests/%s.sh\n' "$smoke"
       done
       printf '\n'
     fi

@@ -21,9 +21,11 @@
 #   bash scripts/test-scripts.sh --changed # only smoke tests whose subjects
 #                                          # changed vs main
 #
-# Env (tests only):
+# Env:
 #   MUSI_SCRIPTS_CHANGED_FILES — newline-separated list of changed files,
-#                                supplied by tests in lieu of `git diff`.
+#                                injected by verify/pre-commit staged-script
+#                                classification or by tests in lieu of
+#                                `git diff`.
 #   MUSI_SCRIPTS_RUNNER        — command (single token) used to invoke each
 #                                smoke test; default `bash`. Tests use this
 #                                to stub execution without running the real
@@ -48,7 +50,9 @@ REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$REPO_ROOT" || exit 1
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PATH_POLICY_QUERY="${MUSI_PATH_POLICY_QUERY:-$SCRIPT_DIR/path-policy-query.ts}"
+# shellcheck source=scripts/lib/changed-base.sh
+. "$SCRIPT_DIR/lib/changed-base.sh"
+PATH_POLICY_QUERY="${MUSI_PATH_POLICY_QUERY:-$SCRIPT_DIR/path-policy/path-policy-query.ts}"
 PATH_POLICY_BUN="${MUSI_PATH_POLICY_BUN:-bun}"
 
 path_policy_query_lines() {
@@ -85,17 +89,49 @@ path_policy_args_have_match() {
   return 1
 }
 
-resolve_changed_ref() {
-  local base="main"
-  if git rev-parse --verify "$base" >/dev/null 2>&1; then
-    printf '%s\n' "$base"
-    return 0
-  fi
-  if git rev-parse --verify "origin/$base" >/dev/null 2>&1; then
-    printf '%s\n' "origin/$base"
-    return 0
-  fi
+path_policy_args_select_smokes() {
+  [ "$#" -gt 0 ] || return 0
+  printf '%s\0' "$@" | path_policy_query_lines script-smoke-tests
+}
+
+script_sensitive_deletion_without_smoke_owner() {
+  local deleted_path selected deletion_policy_rc
+
+  for deleted_path in "$@"; do
+    deletion_policy_rc=0
+    path_policy_args_have_match deletion-class:script-smoke-sensitive "$deleted_path" \
+      || deletion_policy_rc=$?
+    if [ "$deletion_policy_rc" -eq 1 ]; then
+      continue
+    fi
+    if [ "$deletion_policy_rc" -gt 1 ]; then
+      return "$deletion_policy_rc"
+    fi
+    selected="$(path_policy_args_select_smokes "$deleted_path")" || return 2
+    if [ -z "$selected" ]; then
+      printf '%s\n' "$deleted_path"
+      return 0
+    fi
+  done
+
   return 1
+}
+
+discover_smoke_tests() {
+  local script name
+
+  for script in "$SCRIPT_DIR"/tests/test-*.sh; do
+    [ -e "$script" ] || return 0
+    name="$(basename "$script" .sh)"
+    printf '%s\n' "$name"
+  done
+}
+
+# Resolution + merge-base preflight live in scripts/lib/changed-base.sh;
+# on failure MUSI_CHANGED_BASE_ERROR carries the reason for the caller.
+resolve_changed_ref() {
+  musi_resolve_changed_base main || return 1
+  printf '%s\n' "$MUSI_CHANGED_BASE"
 }
 
 read_changed_files() {
@@ -129,13 +165,13 @@ read_deleted_files() {
 
 select_smoke_tests() {
   if [ "$CHANGED" -eq 0 ]; then
-    path_policy_query_lines script-smoke-test-names < /dev/null
-    return $?
+    discover_smoke_tests
+    return 0
   fi
   if [ -z "${MUSI_SCRIPTS_CHANGED_FILES:-}" ] && ! resolve_changed_ref >/dev/null; then
-    printf "test:scripts: neither 'main' nor 'origin/main' exists — running full smoke suite.\n" >&2
-    path_policy_query_lines script-smoke-test-names < /dev/null
-    return $?
+    printf 'test:scripts: %s — running full smoke suite.\n' "$MUSI_CHANGED_BASE_ERROR" >&2
+    discover_smoke_tests
+    return 0
   fi
   local f deletion_match
   local -a changed=()
@@ -152,11 +188,11 @@ select_smoke_tests() {
     deleted+=("$f")
   done < <(read_deleted_files)
   deletion_match=0
-  path_policy_args_have_match deletion-class:script-smoke-sensitive "${deleted[@]}" || deletion_match=$?
+  script_sensitive_deletion_without_smoke_owner "${deleted[@]}" >/dev/null || deletion_match=$?
   if [ "$deletion_match" -eq 0 ]; then
-    printf "test:scripts: script deletion staged — running full smoke suite.\n" >&2
-    path_policy_query_lines script-smoke-test-names < /dev/null
-    return $?
+    printf "test:scripts: unmapped script deletion detected — running full smoke suite.\n" >&2
+    discover_smoke_tests
+    return 0
   fi
   if [ "$deletion_match" -gt 1 ]; then
     return "$deletion_match"
@@ -243,7 +279,7 @@ run_selected_sequential() {
   for name in "${SELECTED[@]}"; do
     printf 'test:scripts: running %s...\n' "$name"
     if env -u GIT_DIR -u GIT_INDEX_FILE -u GIT_WORK_TREE -u GIT_PREFIX -u GIT_COMMON_DIR \
-      "$RUNNER" "scripts/$name.sh"; then
+      "$RUNNER" "scripts/tests/$name.sh"; then
       passed="$passed $name"
       continue
     fi
@@ -284,7 +320,7 @@ musi_scripts_run_logged_child() {
 
   env -u GIT_DIR -u GIT_INDEX_FILE -u GIT_WORK_TREE -u GIT_PREFIX -u GIT_COMMON_DIR \
     --default-signal=INT --default-signal=TERM \
-    "$RUNNER" "scripts/$name.sh" >"$log_file" 2>&1 &
+    "$RUNNER" "scripts/tests/$name.sh" >"$log_file" 2>&1 &
   child_pid=$!
   wait "$child_pid" || exit_code=$?
 

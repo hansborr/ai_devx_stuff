@@ -10,6 +10,7 @@ import {
   DEFAULT_SEMGREP_TIMEOUT_MS,
   defaultSemgrepRunner,
   SEMGREP_TOOLS_CHECKOUT_BIN,
+  type SemgrepRunnerInput,
   type SemgrepSpawn,
   type SemgrepSpawnResult,
 } from "./semgrep-runner.js";
@@ -67,7 +68,7 @@ function successfulScan(): SemgrepSpawnResult {
 
 const EMPTY_IGNORE: DriftAiIgnoreConfig = { segments: [], prefixes: [], globs: [] };
 
-function runInput(repoRoot: string) {
+function runInput(repoRoot: string): SemgrepRunnerInput {
   return {
     repoRoot,
     roots: ["src"],

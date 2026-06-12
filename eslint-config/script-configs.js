@@ -2,67 +2,26 @@
 
 import {
   codeFiles,
+  codemodSourceFiles,
   eslintConfigJsFiles,
-  lintedScriptFiles,
   processEnvRestrictedSyntax,
   processExitRestrictedSyntax,
+  scriptProjectIgnores,
+  scriptTypeScriptFiles,
   testAndHelperFiles,
   tsConfigFiles,
 } from "./shared-policy.js";
 
 export const scriptDebtOverrideConfigs = [
-  // Leaf 41g existing singleton findings stay ratcheted until drained; keep
-  // these rules active everywhere else.
+  // Drift-AI family CLI policy (lint-review-2026-06 leaf 03e): a deliberate
+  // keep, not tracked debt. Drift-AI is a metrics/reporting CLI — numeric
+  // template interpolation, multi-input analysis functions, and scoring
+  // constants are its idiom, so the family keeps allowNumber, max-params 6,
+  // and no-magic-numbers off (verdict recorded in
+  // docs/agent_notes/backlog/lint-review-2026-06/evaluation-verdicts.md).
+  // Tests inherit the same options instead of a blanket test relax.
   {
-    files: ["scripts/code-intel.test.ts"],
-    rules: {
-      "@typescript-eslint/explicit-function-return-type": "off",
-      "@typescript-eslint/no-unsafe-assignment": "off",
-      "@typescript-eslint/require-await": "off",
-      "@typescript-eslint/restrict-template-expressions": "off",
-    },
-  },
-
-  {
-    files: ["scripts/lint-ratchet-baseline.test.ts"],
-    rules: {
-      "@typescript-eslint/explicit-function-return-type": "off",
-      "@typescript-eslint/no-dynamic-delete": "off",
-      "@typescript-eslint/no-unsafe-assignment": "off",
-      "@typescript-eslint/restrict-template-expressions": "off",
-      "max-params": "off",
-      "regexp/no-super-linear-backtracking": "off",
-    },
-  },
-
-  {
-    files: ["scripts/lint-coverage-map-check.ts"],
-    rules: {
-      complexity: "off",
-      "no-magic-numbers": "off",
-      "@typescript-eslint/require-await": "off",
-      "regexp/no-unused-capturing-group": "off",
-    },
-  },
-
-  // Newly un-ignored scripts: relax rules that produce legitimate
-  // patterns in CLI tools (numeric template interpolation, multi-param
-  // builder functions). Remaining findings are tracked by the ratchet
-  // system; per-file overrides below suppress duplicates.
-  {
-    files: [
-      "scripts/db-status.ts",
-      "scripts/drift-ai.ts",
-      "scripts/drift-ai/**/*.ts",
-      "scripts/generate-harness-controls.ts",
-      "scripts/harness-check.ts",
-      "scripts/harness-emit-envelope.ts",
-      "scripts/harness-wrapper-slot*.ts",
-      "scripts/lint-agent.ts",
-      "scripts/lint-ratchet*.ts",
-      "scripts/logs-audit.ts",
-      "scripts/sensor-blob-size.ts",
-    ],
+    files: ["scripts/drift-ai.ts", "scripts/drift-ai.test.ts", "scripts/drift-ai/**/*.ts"],
     rules: {
       "@typescript-eslint/restrict-template-expressions": [
         "error",
@@ -79,85 +38,50 @@ export const scriptDebtOverrideConfigs = [
       "no-magic-numbers": "off",
     },
   },
+
+  // Codemod source policy (lint-review-2026-06 leaf 03i): normal lint owns
+  // these files, while AST rewrite helpers keep a slightly wider arity and
+  // small arity/index literals. Complexity and max-lines remain error floors.
   {
-    files: [
-      "scripts/drift-ai.test.ts",
-      "scripts/drift-ai/**/*.test.ts",
-      "scripts/lint-ratchet-check-registry.test.ts",
-      "scripts/lint-ratchet-output.test.ts",
-      "scripts/lint-ratchet-report.test.ts",
-      "scripts/lint-ratchet-summary.test.ts",
-      "scripts/logs-audit.test.ts",
-      "scripts/sensor-blob-size.test.ts",
-    ],
+    files: codemodSourceFiles,
     rules: {
-      "@typescript-eslint/explicit-function-return-type": "off",
-      "@typescript-eslint/no-dynamic-delete": "off",
-      "@typescript-eslint/no-unsafe-assignment": "off",
-      "@typescript-eslint/restrict-template-expressions": "off",
-      "max-params": "off",
+      "max-params": ["error", { max: 8 }],
+      "no-magic-numbers": [
+        "error",
+        {
+          ignore: [0, 1, 2, 3, -1],
+          ignoreArrayIndexes: true,
+          ignoreDefaultValues: true,
+          enforceConst: true,
+        },
+      ],
     },
   },
 
-  // Ratcheted findings - the ratchet system enforces these rules
-  // independently, so suppress from the normal lint run.
+  // Drained top-level entrypoint singletons (lint-review-2026-06 leaf 03a):
+  // these files held the deleted top-level-scripts ratchets' stricter
+  // restrict-template-expressions floor (allowNumber: false, unlike the
+  // relaxed CLI block above and the typescript-eslint default), so normal
+  // lint pins it here instead of keeping a different-options ratchet.
   {
     files: [
-      "scripts/drift-ai.ts",
-      "scripts/generate-harness-controls.ts",
-      "scripts/harness-check.ts",
-      "scripts/lint-agent.ts",
-      "scripts/logs-audit.ts",
+      "scripts/db-status.ts",
+      "scripts/harness-emit-envelope.ts",
+      "scripts/sensor-blob-size.test.ts",
       "scripts/sensor-blob-size.ts",
     ],
-    rules: { complexity: "off" },
-  },
-  {
-    files: [
-      "scripts/drift-ai.ts",
-      "scripts/drift-ai/comments.ts",
-      "scripts/harness-check.ts",
-      "scripts/lint-ratchet-metrics.ts",
-      "scripts/lint-ratchet.ts",
-    ],
-    rules: { "regexp/no-unused-capturing-group": "off" },
-  },
-  {
-    files: [
-      "scripts/drift-ai/duplicates.ts",
-      "scripts/drift-ai/ghost-files.ts",
-      "scripts/lint-ratchet-baseline.ts",
-    ],
-    rules: { "@typescript-eslint/no-unnecessary-condition": "off" },
-  },
-  {
-    files: [
-      "scripts/harness-emit-envelope.ts",
-      "scripts/lint-ratchet-baseline-parse.ts",
-      "scripts/lint-ratchet-baseline.ts",
-    ],
-    rules: { "@typescript-eslint/no-unsafe-argument": "off" },
-  },
-  {
-    files: ["scripts/drift-ai.ts"],
     rules: {
-      "regexp/no-super-linear-backtracking": "off",
-      "@typescript-eslint/switch-exhaustiveness-check": "off",
-    },
-  },
-  {
-    files: ["scripts/harness-emit-envelope.ts"],
-    rules: {
-      "@typescript-eslint/unbound-method": "off",
-      "preserve-caught-error": "off",
-    },
-  },
-  {
-    files: ["scripts/lint-ratchet.ts"],
-    rules: {
-      "@typescript-eslint/explicit-function-return-type": "off",
-      "@typescript-eslint/prefer-promise-reject-errors": "off",
-      "no-nested-ternary": "off",
+      "@typescript-eslint/restrict-template-expressions": [
+        "error",
+        {
+          allowAny: false,
+          allowBoolean: false,
+          allowNever: false,
+          allowNullish: false,
+          allowNumber: false,
+          allowRegExp: false,
+        },
+      ],
     },
   },
 ];
@@ -183,7 +107,10 @@ export const processPrimitiveConfigs = [
       "scripts/code-intel/daemon-process.ts",
       "scripts/code-intel/daemon-server.ts",
       "scripts/code-intel/perf-check.ts",
-      "scripts/lint-ratchet-output.ts",
+      // Implements the HARNESS_DIAGNOSTICS_OUTPUT sidecar contract; reading
+      // that env var here IS the boundary every producer shares.
+      "scripts/harness/harness-diagnostics-output.ts",
+      "scripts/lint-ratchet/lint-ratchet-output.ts",
       "scripts/lint-ratchet.ts",
       "packages/server/src/config/env.ts",
       "packages/server/src/main.ts",
@@ -208,10 +135,11 @@ export const processPrimitiveConfigs = [
 
 export function createScriptProjectConfigs(repoRoot) {
   return [
-    // Linted scripts/ modules and selected entrypoints live outside package
-    // tsconfigs, so point ESLint at the scripts project.
+    // Maintained scripts/ TypeScript lives outside package tsconfigs, so point
+    // ESLint at the scripts project by default and exclude fixtures/config.
     {
-      files: lintedScriptFiles,
+      files: scriptTypeScriptFiles,
+      ignores: scriptProjectIgnores,
       languageOptions: {
         parserOptions: {
           projectService: false,
@@ -222,7 +150,8 @@ export function createScriptProjectConfigs(repoRoot) {
     },
 
     {
-      files: lintedScriptFiles,
+      files: scriptTypeScriptFiles,
+      ignores: scriptProjectIgnores,
       rules: {
         "local/type-assertion-boundary": "error",
       },

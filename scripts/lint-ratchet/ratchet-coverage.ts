@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 
-import { parseLintRatchetBaselineStructure } from "../lint-ratchet-baseline.js";
+import { parseLintRatchetBaselineStructure } from "./lint-ratchet-baseline.js";
 import { baselinePath, relativePath } from "./paths.js";
 import { matchesRatchet } from "./ratchet-globs.js";
 

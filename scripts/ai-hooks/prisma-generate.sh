@@ -7,20 +7,37 @@ HOOK_LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT=$(git -C "$HOOK_LIB" rev-parse --show-toplevel 2>/dev/null || git rev-parse --show-toplevel 2>/dev/null || echo "${CLAUDE_PROJECT_DIR:-/workspace}")
 # shellcheck source=/dev/null
 . "$HOOK_LIB/common.sh"
+# shellcheck source=/dev/null
+. "$HOOK_LIB/edited-paths.sh"
+# cache.sh owns the AI_STATE_ROOT default; source it instead of re-declaring
+# the literal here so the prisma state cannot drift to a different root.
+# shellcheck source=/dev/null
+. "$HOOK_LIB/cache.sh"
 
 PAYLOAD=$(ai_read_payload)
-FILE=$(ai_payload_file_path "$PAYLOAD")
+FILE=""
+RESOLVED_FILE=""
+SCHEMA_EDITED=0
 
-case "$FILE" in
-  */prisma/schema.prisma) ;;
-  *) ai_emit_continue ;;
-esac
+while IFS= read -r FILE; do
+  [ -n "$FILE" ] || continue
+  RESOLVED_FILE=$(ai_resolve_edited_payload_path "$PAYLOAD" "$FILE" "$REPO_ROOT")
+  case "$RESOLVED_FILE" in
+    */prisma/schema.prisma)
+      SCHEMA_EDITED=1
+      break
+      ;;
+  esac
+done < <(ai_edited_payload_paths "$PAYLOAD")
+
+[ "$SCHEMA_EDITED" -eq 1 ] || ai_emit_continue
 
 SCHEMA="$REPO_ROOT/packages/server/prisma/schema.prisma"
 [ -f "$SCHEMA" ] || ai_emit_continue
 
-MARKER=/tmp/musi-prisma-generate.last
-LOG=/tmp/musi-prisma-generate.log
+AI_PRISMA_STATE_DIR="${AI_PRISMA_STATE_DIR:-$AI_STATE_ROOT/prisma}"
+MARKER="${AI_PRISMA_MARKER:-$AI_PRISMA_STATE_DIR/last}"
+LOG="${AI_PRISMA_LOG:-$AI_PRISMA_STATE_DIR/generate.log}"
 CUR_HASH=$(sha256sum "$SCHEMA" | awk '{print $1}')
 
 is_debounced() {
@@ -41,7 +58,8 @@ if is_debounced; then
   ai_emit_continue
 fi
 
-LOCK=/tmp/musi-prisma-generate.lock
+LOCK="${AI_PRISMA_LOCK:-$AI_PRISMA_STATE_DIR/lock}"
+mkdir -p "$AI_PRISMA_STATE_DIR"
 exec 9<>"$LOCK"
 flock 9
 

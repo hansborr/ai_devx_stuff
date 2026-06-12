@@ -1,12 +1,3 @@
-import type {
-  LintRatchetBaseline,
-  LintRatchetRuleSourceHashesById,
-  ParsedLintRatchetBaseline,
-  StructuralLintRatchetBaseline,
-} from "../lint-ratchet-baseline.js";
-import { parseBaselineTest } from "../lint-ratchet-baseline-parse.js";
-import type { LintRatchetConfig } from "../lint-ratchet-config.js";
-import { validateMetricItem } from "../lint-ratchet-metrics.js";
 import { LINT_RATCHET_BASELINE_VERSION } from "./baseline-constants.js";
 import {
   baselineTestFromConfig,
@@ -14,6 +5,15 @@ import {
   type LintRatchetBaselineTest,
 } from "./baseline-format.js";
 import { isRecord, stableJson } from "./baseline-hash.js";
+import type {
+  LintRatchetBaseline,
+  LintRatchetRuleSourceHashesById,
+  ParsedLintRatchetBaseline,
+  StructuralLintRatchetBaseline,
+} from "./lint-ratchet-baseline.js";
+import { parseBaselineTest } from "./lint-ratchet-baseline-parse.js";
+import type { LintRatchetConfig } from "./lint-ratchet-config.js";
+import { validateMetricItem } from "./lint-ratchet-metrics.js";
 
 function validateBaselineTestMetadata(
   testId: string,
@@ -60,17 +60,25 @@ function validateBaselineMetricItems(
   }
 }
 
+interface BaselineTestValidationContext {
+  readonly testId: string;
+  readonly test: LintRatchetBaselineTest;
+  readonly ratchet: LintRatchetConfig;
+  readonly expectedRuleSourceHash: string;
+}
+
 function validateBaselineTestAgainstRatchet(
-  testId: string,
-  test: LintRatchetBaselineTest,
-  ratchet: LintRatchetConfig,
-  expectedRuleSourceHash: string,
+  context: BaselineTestValidationContext,
   failures: string[],
 ): void {
-  const expected = baselineTestFromConfig(ratchet, undefined, expectedRuleSourceHash);
-  validateBaselineTestMetadata(testId, test, expected, failures);
-  validateBaselineRuleSourceHash(testId, test, expected, failures);
-  validateBaselineMetricItems(testId, test, failures);
+  const expected = baselineTestFromConfig(
+    context.ratchet,
+    undefined,
+    context.expectedRuleSourceHash,
+  );
+  validateBaselineTestMetadata(context.testId, context.test, expected, failures);
+  validateBaselineRuleSourceHash(context.testId, context.test, expected, failures);
+  validateBaselineMetricItems(context.testId, context.test, failures);
 }
 
 export function validateBaselineTestForRatchet(
@@ -80,7 +88,7 @@ export function validateBaselineTestForRatchet(
   expectedRuleSourceHash: string,
 ): readonly string[] {
   const failures: string[] = [];
-  validateBaselineTestAgainstRatchet(testId, test, ratchet, expectedRuleSourceHash, failures);
+  validateBaselineTestAgainstRatchet({ testId, test, ratchet, expectedRuleSourceHash }, failures);
   return failures;
 }
 

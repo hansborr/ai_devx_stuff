@@ -25,7 +25,7 @@ baseline still includes only a selected subset in
 
 - `lint-ratchet.baseline.json`
 - `scripts/lint-ratchet-config.ts`
-- `docs/agent_notes/backlog/lint-followups/lint-coverage-map.md`
+- `docs/agent_notes/backlog/lint-review-2026-06/11-scripts-coverage-family-map.md`
 - `docs/generated/harness-controls.md`, only through the normal generator
 
 ## What to do

@@ -346,7 +346,7 @@ run_harness_check() {
   if (( JSON_MODE )); then
     local tmp finding_control output
     tmp="$(mktemp)"
-    if ! bun run harness:check >"$tmp" 2>&1; then
+    if ! (cd "$REPO_ROOT" && bun run harness:check) >"$tmp" 2>&1; then
       DOCTOR_HARNESS_CHECK_FAILED=1
       FAIL_COUNT=$((FAIL_COUNT + 1))
       finding_control="${control:-verify-wrapper/doctor}"

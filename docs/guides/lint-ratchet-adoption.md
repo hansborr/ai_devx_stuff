@@ -42,24 +42,24 @@ Runtime files (all paths relative to repo root):
 | --- | --- |
 | `scripts/lint-ratchet.ts` | CLI entry point and re-exports |
 | `scripts/lint-ratchet/` (entire directory) | Runner internals: ESLint config generation, collection, comparison, modes, CLI parsing, diagnostics, registry validation, baseline hashing, caching, glob helpers |
-| `scripts/lint-ratchet-baseline.ts` | Baseline model, hashing, strict parse/format, update safety |
-| `scripts/lint-ratchet-baseline-compare.ts` | Comparator: current findings vs committed baseline |
-| `scripts/lint-ratchet-baseline-parse.ts` | Structural and strict parser for the baseline JSON |
-| `scripts/lint-ratchet-check-registry.ts` | Fast preflight validator (no ESLint run) |
-| `scripts/lint-ratchet-config.ts` | Registry types, third-party plugin allowlist, and the `lintRatchets` array you edit |
-| `scripts/lint-ratchet-metrics.ts` | Metric helpers for `message-count`, `effective-line-count`, `complexity-severity` |
-| `scripts/lint-ratchet-output.ts` | Harness diagnostics envelope output to stdout and optional file |
-| `scripts/lint-ratchet-report.ts` | Markdown report formatter for CI step summaries and PR comments |
-| `scripts/lint-ratchet-debt-log.ts` | Read-only renderer for the committed `lint-ratchet.debt-log.jsonl` acceptance log (the runner imports it to dispatch `--debt-log`) |
-| `scripts/lint-ratchet-summary.ts` | Baseline summary table printer (no ESLint run) |
-| `scripts/lint-ratchet-zero-baseline.ts` | Zero-baseline lifecycle audit and gate |
-| `scripts/lint-rule-docs.ts` | Local-rule metadata loader; replace with a same-export stub if you only ratchet core or third-party rules |
+| `scripts/lint-ratchet/lint-ratchet-baseline.ts` | Baseline model, hashing, strict parse/format, update safety |
+| `scripts/lint-ratchet/lint-ratchet-baseline-compare.ts` | Comparator: current findings vs committed baseline |
+| `scripts/lint-ratchet/lint-ratchet-baseline-parse.ts` | Structural and strict parser for the baseline JSON |
+| `scripts/lint-ratchet/lint-ratchet-check-registry.ts` | Fast preflight validator (no ESLint run) |
+| `scripts/lint-ratchet/lint-ratchet-config.ts` | Registry types, third-party plugin allowlist, and the `lintRatchets` array you edit |
+| `scripts/lint-ratchet/lint-ratchet-metrics.ts` | Metric helpers for `message-count`, `effective-line-count`, `complexity-severity` |
+| `scripts/lint-ratchet/lint-ratchet-output.ts` | Harness diagnostics envelope output to stdout and optional file |
+| `scripts/lint-ratchet/lint-ratchet-report.ts` | Markdown report formatter for CI step summaries and PR comments |
+| `scripts/lint-ratchet/lint-ratchet-debt-log.ts` | Read-only renderer for the committed `lint-ratchet.debt-log.jsonl` acceptance log (the runner imports it to dispatch `--debt-log`) |
+| `scripts/lint-ratchet/lint-ratchet-summary.ts` | Baseline summary table printer (no ESLint run) |
+| `scripts/lint-ratchet/lint-ratchet-zero-baseline.ts` | Zero-baseline lifecycle audit and gate |
+| `scripts/lib/lint-rule-docs.ts` | Local-rule metadata loader; replace with a same-export stub if you only ratchet core or third-party rules |
 | `packages/shared/src/schemas/harness-diagnostics.ts` | Zod schema for the diagnostics envelope; copy at this path or move it and update the imports in the ratchet output, diagnostics, report, and copied tests |
 | `lint-ratchet.baseline.json` | Start with `{ "version": 1, "tests": {} }` |
 
 The full in-repo smoke copy list is the `PORTABLE_RUNTIME_FILES` array in
-`scripts/test-lint-ratchet.sh`. The narrower `runtimeFiles` array in
-`scripts/lint-ratchet-output.test.ts` drives a portable smoke that writes its own
+`scripts/tests/test-lint-ratchet.sh`. The narrower `runtimeFiles` array in
+`scripts/lint-ratchet/lint-ratchet-output.test.ts` drives a portable smoke that writes its own
 small fixture registry, so it intentionally omits the repository registry/config
 files while still exercising the copied CLI runtime.
 
@@ -91,7 +91,7 @@ script changes.
 ### What to change
 
 1. **Replace the registry.** Remove the Musi-specific imports from
-   `scripts/lint-ratchet-config.ts` (`maxLinesPolicy` and registry builders),
+   `scripts/lint-ratchet/lint-ratchet-config.ts` (`maxLinesPolicy` and registry builders),
    clear `lintRatchets`, keep the exported types, and add one entry:
 
    ```ts
@@ -115,11 +115,11 @@ script changes.
 2. **Clear the third-party allowlist** unless you are ratcheting third-party
    plugin rules from the start.
 
-3. **Delete or stub `scripts/lint-ratchet-registry-builders.ts`** after the
+3. **Delete or stub `scripts/lint-ratchet/lint-ratchet-registry-builders.ts`** after the
    registry no longer imports it. The builder functions are convenience
    abstractions over raw registry entries and are not required.
 
-4. **Stub `scripts/lint-rule-docs.ts` if you are not adopting local rules.** The
+4. **Stub `scripts/lib/lint-rule-docs.ts` if you are not adopting local rules.** The
    CLI modes still import the loader so `local/*` ratchets can be validated. A
    core-only or third-party-only setup can keep a same-export stub that returns
    no entries:
@@ -185,16 +185,16 @@ script changes.
 
 The minimum portable test set:
 
-- `scripts/lint-ratchet-baseline.test.ts` — baseline building, parsing,
+- `scripts/lint-ratchet/lint-ratchet-baseline.test.ts` — baseline building, parsing,
   comparison, update decisions, diagnostics formatting, hashing, and registry
   validation with fixture data.
-- `scripts/lint-ratchet-summary.test.ts` — summary reduction and table
+- `scripts/lint-ratchet/lint-ratchet-summary.test.ts` — summary reduction and table
   formatting with fixture baselines.
-- `scripts/lint-ratchet-output.test.ts` — copies runtime files into a temporary
+- `scripts/lint-ratchet/lint-ratchet-output.test.ts` — copies runtime files into a temporary
   repo, writes a small core-rule registry, runs the CLI, and verifies
   `HARNESS_DIAGNOSTICS_OUTPUT` behavior without project app state. Keep its
   `runtimeFiles` list synchronized with your actual runtime files.
-- `scripts/lint-ratchet-check-registry.test.ts` — the portable cases test
+- `scripts/lint-ratchet/lint-ratchet-check-registry.test.ts` — the portable cases test
   synthetic failure modes (empty globs, absolute paths, orphan baselines,
   deterministic ordering, absent-baseline). Replace the Musi-specific
   `accepts the Musi registry fixture` case with an equivalent smoke test for
@@ -229,7 +229,7 @@ reporting, and custom guidance pipeline on top of Tier 1.
 | --- | --- | --- |
 | Coverage map | `scripts/lint-coverage-map-check.ts`, `scripts/lint-coverage-map-check-eslint-reach.ts` | Proves every tracked maintained file is accounted for by a lint owner (normal lint, ratchet, exclusion, or named blocker). Catches stale map rows, unknown ratchet ids, and ESLint reach gaps. |
 | Agent envelope | `scripts/lint-agent.ts`, `scripts/lint-agent-changed.sh`, `packages/shared/src/schemas/harness-diagnostics.ts` | Emits structured `HarnessDiagnostics` JSON for `local/*` findings and parser errors, scoped to changed files. Agents and hooks consume this instead of raw ESLint output. |
-| Custom guidance | `scripts/lint-rule-docs.ts`, `scripts/generate-lint-guidance.ts`, `docs/generated/local-lint-rules.md` | Validates and publishes `meta.docs` metadata from local rules: description, principle, category, paired guide, repair kind. |
+| Custom guidance | `scripts/lib/lint-rule-docs.ts`, `scripts/generate-lint-guidance.ts`, `docs/generated/local-lint-rules.md` | Validates and publishes `meta.docs` metadata from local rules: description, principle, category, paired guide, repair kind. |
 | Post-edit hooks | `scripts/ai-hooks/tidy-edited-file.sh`, `scripts/ai-hooks/common.sh`, `.claude/hooks/`, `.codex/hooks/` | Runs Prettier + `eslint --fix` on files an agent just edited. Non-blocking, bounded, skips unsafe paths. |
 | CI report | `lint:ratchet:report` command, CI workflow steps | Renders the diagnostics envelope as a GitHub step summary and sticky PR comment with recovery instructions. |
 
@@ -262,7 +262,7 @@ These pieces are intentionally Musi-specific and should not be copied verbatim:
   (Musi's harness control inventory).
 - The Biome adoption guide (`biome-lint-adoption.md`) — reference material for
   a future Biome adapter, not a current adoption path.
-- Path-policy scripts (`scripts/path-policy.ts`) and ESLint config internals
+- Path-policy scripts (`scripts/path-policy/path-policy.ts`) and ESLint config internals
   (`eslint-config/`) — project-specific lint surface definitions.
 
 ## Decision guide

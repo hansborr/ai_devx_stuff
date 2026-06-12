@@ -1,11 +1,3 @@
-import type {
-  LintRatchetConfig,
-  LintRatchetMetric,
-  LintRatchetMode,
-  LintRatchetParserProfile,
-  LintRatchetRuleSource,
-  LintRatchetThirdPartyPluginAllowlistEntry,
-} from "../lint-ratchet-config.js";
 import {
   assertNever,
   duplicateScopeKey,
@@ -15,6 +7,14 @@ import {
   lintRatchetSource,
   ruleNamespace,
 } from "./baseline-hash.js";
+import type {
+  LintRatchetConfig,
+  LintRatchetMetric,
+  LintRatchetMode,
+  LintRatchetParserProfile,
+  LintRatchetRuleSource,
+  LintRatchetThirdPartyPluginAllowlistEntry,
+} from "./lint-ratchet-config.js";
 import { validateZeroBaselineDisposition } from "./zero-baseline-disposition.js";
 
 const IMPLEMENTED_MODES = new Set<LintRatchetMode>(["no-new"]);
@@ -44,6 +44,12 @@ interface ValidateRatchetEntryContext {
   readonly allowedThirdPartyPlugins: ReadonlySet<string>;
   readonly seenScopes: Map<string, string>;
 }
+
+interface ValidateRatchetSourceContext extends ValidateRatchetEntryContext {
+  readonly parserProfile: LintRatchetParserProfile;
+}
+
+type PathListDescriptor = readonly ["files" | "ignores", "file glob" | "ignore glob"];
 
 function isSortedUnique(values: readonly string[]): boolean {
   let previous: string | undefined;
@@ -80,7 +86,7 @@ function normalizeRegistryOptions(
 }
 
 function validateThirdPartyPluginAllowlistEntry(
-  entry: LintRatchetThirdPartyPluginAllowlistEntry,
+  entry: Readonly<{ pluginModule: string; ruleNamespace: string; pluginExport?: unknown }>,
   allowedThirdPartyPlugins: Set<string>,
   seenThirdPartyPlugins: Set<string>,
   failures: string[],
@@ -194,13 +200,12 @@ function validateThirdPartySource(
 function validateRatchetSource(
   ratchet: LintRatchetConfig,
   source: LintRatchetRuleSource,
-  parserProfile: LintRatchetParserProfile,
-  ctx: ValidateRatchetEntryContext,
+  ctx: ValidateRatchetSourceContext,
   failures: string[],
 ): void {
   switch (source.kind) {
     case "local":
-      validateLocalSource(ratchet, parserProfile, ctx.localRuleIds, failures);
+      validateLocalSource(ratchet, ctx.parserProfile, ctx.localRuleIds, failures);
       return;
     case "core":
       validateCoreSource(ratchet, failures);
@@ -215,13 +220,13 @@ function validateRatchetSource(
 
 function validateSortedPathList(
   ratchetId: string,
-  fieldName: "files" | "ignores",
-  itemLabel: "file glob" | "ignore glob",
   values: readonly string[],
+  [fieldName, itemLabel]: PathListDescriptor,
   failures: string[],
 ): void {
-  if (!isSortedUnique(values))
+  if (!isSortedUnique(values)) {
     failures.push(`${ratchetId}: ${fieldName} must be sorted and duplicate-free`);
+  }
   for (const value of values) {
     if (!hasNormalizedPath(value)) {
       failures.push(`${ratchetId}: ${itemLabel} must be normalized: ${value}`);
@@ -237,10 +242,10 @@ function validateRatchetEntry(
   const source = lintRatchetSource(ratchet);
   const parserProfile = lintRatchetParserProfile(ratchet);
   validateRatchetIdAndParserProfile(ratchet, parserProfile, failures);
-  validateRatchetSource(ratchet, source, parserProfile, ctx, failures);
+  validateRatchetSource(ratchet, source, { ...ctx, parserProfile }, failures);
   if (ratchet.files.length === 0) failures.push(`${ratchet.id}: files must be non-empty`);
-  validateSortedPathList(ratchet.id, "files", "file glob", ratchet.files, failures);
-  validateSortedPathList(ratchet.id, "ignores", "ignore glob", ratchet.ignores, failures);
+  validateSortedPathList(ratchet.id, ratchet.files, ["files", "file glob"], failures);
+  validateSortedPathList(ratchet.id, ratchet.ignores, ["ignores", "ignore glob"], failures);
   validateRatchetModeAndMetric(ratchet, source, failures);
   validateRatchetTargetAndOptions(ratchet, failures);
   validateZeroBaselineDisposition(ratchet, failures);

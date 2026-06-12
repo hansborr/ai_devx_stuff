@@ -35,7 +35,7 @@ block the lint system itself.
 4. Run the local rule authoring lint surface and update JSDoc comments only
    when the new rule behavior is clearly better.
 5. Avoid broad `require-jsdoc` or prose-quality expansion in this task. New
-   JSDoc policy belongs in separate lint-hardening work.
+   JSDoc policy belongs in separate lint-review work.
 
 ## Risk Areas
 

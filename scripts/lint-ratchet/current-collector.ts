@@ -1,25 +1,36 @@
+import type { ESLintFileResult, ESLintMessage } from "./eslint-runner.js";
+import { runEslint, runEslintForFiles } from "./eslint-runner.js";
 import type {
   LintRatchetCurrentById,
   LintRatchetCurrentItem,
   LintRatchetRuleSourceHashesById,
-} from "../lint-ratchet-baseline.js";
-import { lintRatchets, type LintRatchetConfig } from "../lint-ratchet-config.js";
+} from "./lint-ratchet-baseline.js";
+import { type LintRatchetConfig, lintRatchets } from "./lint-ratchet-config.js";
 import {
   ConfigError,
   type LintRatchetComplexityFunction,
   parseComplexitySeverityMessage,
-} from "../lint-ratchet-metrics.js";
-import type { ESLintFileResult, ESLintMessage } from "./eslint-runner.js";
-import { runEslint, runEslintForFiles } from "./eslint-runner.js";
+} from "./lint-ratchet-metrics.js";
 import { relativePath } from "./paths.js";
 
 const ESLINT_SEVERITY_ERROR = 2;
 const MAX_LINES_MESSAGE_PATTERN =
-  /This file has (?<lines>\d+) effective lines, above the (?<max>\d+) line limit/u;
+  /This file has (?<lines>\d+) effective lines, above the \d+ line limit/u;
 
 interface MetricFinding {
   readonly lines?: number;
   readonly complexity?: LintRatchetComplexityFunction;
+  readonly message?: string;
+  readonly messageId?: string;
+}
+
+interface CurrentItemParts {
+  readonly count: number;
+  readonly firstLine?: number;
+  readonly lines?: number;
+  readonly perFunction?: readonly LintRatchetComplexityFunction[];
+  readonly firstMessage?: string;
+  readonly firstMessageId?: string;
 }
 
 function minDefined(left: number | undefined, right: number | undefined): number | undefined {
@@ -28,17 +39,14 @@ function minDefined(left: number | undefined, right: number | undefined): number
   return Math.min(left, right);
 }
 
-function makeCurrentItem(
-  count: number,
-  firstLine: number | undefined,
-  lines: number | undefined,
-  perFunction: readonly LintRatchetComplexityFunction[] | undefined,
-): LintRatchetCurrentItem {
+function makeCurrentItem(parts: CurrentItemParts): LintRatchetCurrentItem {
   return {
-    count,
-    ...(firstLine === undefined ? {} : { firstLine }),
-    ...(lines === undefined ? {} : { lines }),
-    ...(perFunction === undefined ? {} : { perFunction }),
+    count: parts.count,
+    ...(parts.firstLine === undefined ? {} : { firstLine: parts.firstLine }),
+    ...(parts.lines === undefined ? {} : { lines: parts.lines }),
+    ...(parts.perFunction === undefined ? {} : { perFunction: parts.perFunction }),
+    ...(parts.firstMessage === undefined ? {} : { firstMessage: parts.firstMessage }),
+    ...(parts.firstMessageId === undefined ? {} : { firstMessageId: parts.firstMessageId }),
   };
 }
 
@@ -60,6 +68,16 @@ function mergePerFunction(
     : [...(previous?.perFunction ?? []), metric.complexity];
 }
 
+function mergeFirstMessageContext(
+  previous: LintRatchetCurrentItem | undefined,
+  metric: MetricFinding,
+): Pick<CurrentItemParts, "firstMessage" | "firstMessageId"> {
+  if (previous?.firstMessage !== undefined) {
+    return { firstMessage: previous.firstMessage, firstMessageId: previous.firstMessageId };
+  }
+  return { firstMessage: metric.message, firstMessageId: metric.messageId };
+}
+
 function addFinding(
   items: Map<string, LintRatchetCurrentItem>,
   path: string,
@@ -67,14 +85,17 @@ function addFinding(
   metric: MetricFinding,
 ): void {
   const previous = items.get(path);
+  const messageContext = mergeFirstMessageContext(previous, metric);
   items.set(
     path,
-    makeCurrentItem(
-      (previous?.count ?? 0) + 1,
-      minDefined(previous?.firstLine, line),
-      mergeLines(previous, metric),
-      mergePerFunction(previous, metric),
-    ),
+    makeCurrentItem({
+      count: (previous?.count ?? 0) + 1,
+      firstLine: minDefined(previous?.firstLine, line),
+      lines: mergeLines(previous, metric),
+      perFunction: mergePerFunction(previous, metric),
+      firstMessage: messageContext.firstMessage,
+      firstMessageId: messageContext.firstMessageId,
+    }),
   );
 }
 
@@ -101,17 +122,22 @@ function metricFindingFor(
   path: string,
   message: ESLintMessage,
 ): MetricFinding {
-  if (ratchet.metric === "effective-line-count") {
-    return { lines: effectiveLineCountFor(ratchet, path, message) };
+  switch (ratchet.metric) {
+    case "message-count":
+      return { message: message.message, messageId: message.messageId };
+    case "effective-line-count":
+      return { lines: effectiveLineCountFor(ratchet, path, message) };
+    case "complexity-severity":
+      if (ratchet.ruleId !== "complexity") {
+        throw new ConfigError(`ratchet ${ratchet.id}: complexity-severity requires complexity`);
+      }
+      return { complexity: parseComplexitySeverityMessage(ratchet.id, path, message) };
+    default:
+      return {};
   }
-  if (ratchet.metric !== "complexity-severity") return {};
-  if (ratchet.ruleId !== "complexity") {
-    throw new ConfigError(`ratchet ${ratchet.id}: complexity-severity requires complexity`);
-  }
-  return { complexity: parseComplexitySeverityMessage(ratchet.id, path, message) };
 }
 
-function itemsFromResults(
+export function itemsFromResults(
   ratchet: LintRatchetConfig,
   results: readonly ESLintFileResult[],
 ): Map<string, LintRatchetCurrentItem> {

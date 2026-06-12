@@ -3,7 +3,8 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { CallExpression, Node, SyntaxKind } from "ts-morph";
+import type { CallExpression } from "ts-morph";
+import { Node, SyntaxKind } from "ts-morph";
 
 import {
   createProject,

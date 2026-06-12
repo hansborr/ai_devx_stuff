@@ -11,7 +11,7 @@ A fresh minimal-TS regression detector wired into a PostToolUse advisory hook:
 "this edit currently introduces or worsens a ratcheted finding in this file."
 Type-aware ratchets are intentionally out of scope (verify/commit stays
 authoritative). The deferred cached-baseline-context signal stays parked in
-`backlog/lint-ratchet-cached-baseline-context.md`.
+`backlog/lint-review-2026-06/watchlist.md`.
 
 ## Phase 0 (gate) — re-confirmed PASS
 
@@ -109,4 +109,5 @@ throwaway script committed.
 
 - Phase 3 (type-aware ratchets at edit time) — only if the minimal-TS blind spot
   proves material.
-- Cached baseline context — `backlog/lint-ratchet-cached-baseline-context.md`.
+- Cached baseline context —
+  `backlog/lint-review-2026-06/watchlist.md`.
