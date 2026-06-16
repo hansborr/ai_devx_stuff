@@ -16,9 +16,12 @@
 #
 # Env:
 #   FORCE_VERIFY=1     bypass the last-verified short-circuit.
+#   MUSI_VERIFY_STATE_ROOT
+#                      base directory for worktree-scoped default state
+#                      (defaults to /tmp).
 #   MUSI_VERIFY_LOCK / MUSI_VERIFY_LOG_DIR / MUSI_VERIFY_MARKER_CHANGED /
 #   MUSI_VERIFY_MARKER_FULL
-#                      override paths for tests; do not use in production.
+#                      override derived paths for tests; avoid in production.
 #
 # Why mixed mode: the pre-commit hook and changed-mode verify are edit-loop
 # gates, so wall time matters most and each step logs separately. Full verify
@@ -62,9 +65,9 @@ cd "$REPO_ROOT" || exit 1
 # shellcheck source=/dev/null
 . "$REPO_ROOT/scripts/lib/lint-dist-preflight.sh"
 
-LOCK="${MUSI_VERIFY_LOCK:-/tmp/musi-pre-commit.lock}"
-LOG_DIR="${MUSI_VERIFY_LOG_DIR:-/tmp/musi-pre-commit-logs}"
-HISTORY_DIR="${MUSI_VERIFY_HISTORY_DIR:-/tmp/musi-verify-history}"
+LOCK="${MUSI_VERIFY_LOCK:-$(musi_standard_verify_lock "$REPO_ROOT")}"
+LOG_DIR="${MUSI_VERIFY_LOG_DIR:-$(musi_standard_verify_log_dir "$REPO_ROOT")}"
+HISTORY_DIR="${MUSI_VERIFY_HISTORY_DIR:-$(musi_standard_verify_history_dir "$REPO_ROOT")}"
 # DX7.0a Vitest timing capture: pair the dot reporter with Vitest's json
 # reporter so every wrapper-driven test run leaves a parseable timings file
 # alongside test.log. The file lives in $LOG_DIR so it shares the same
@@ -79,23 +82,23 @@ TIMINGS_FILE="$LOG_DIR/test-timings.json"
 # shellcheck source=/dev/null
 . "$REPO_ROOT/scripts/verify/steps-lib.sh"
 META_DIR="$LOG_DIR/meta"
-INTERACTIVE_TIMEOUT="${MUSI_VERIFY_TIMEOUT:-${MUSI_INTERACTIVE_TIMEOUT:-300}}"
-WARN_AFTER="${MUSI_INTERACTIVE_WARN_AFTER:-260}"
+INTERACTIVE_TIMEOUT="${MUSI_VERIFY_TIMEOUT:-${MUSI_INTERACTIVE_TIMEOUT:-1200}}"
+WARN_AFTER="${MUSI_INTERACTIVE_WARN_AFTER:-1080}"
 case "$MODE" in
   changed)
-    MARKER="${MUSI_VERIFY_MARKER_CHANGED:-$(musi_standard_verify_changed_marker)}"
+    MARKER="${MUSI_VERIFY_MARKER_CHANGED:-$(musi_standard_verify_changed_marker "$REPO_ROOT")}"
     VERIFY_CONSUMER=verify_changed
     VERIFY_STEPS_ARRAY=MUSI_VERIFY_CHANGED_STEPS
     META_MODE=parallel-verify-changed
     ;;
   parallel)
-    MARKER="${MUSI_VERIFY_MARKER_FULL:-$(musi_standard_verify_full_marker)}"
+    MARKER="${MUSI_VERIFY_MARKER_FULL:-$(musi_standard_verify_full_marker "$REPO_ROOT")}"
     VERIFY_CONSUMER=verify_parallel
     VERIFY_STEPS_ARRAY=MUSI_VERIFY_PARALLEL_STEPS
     META_MODE=parallel-verify
     ;;
   *)
-    MARKER="${MUSI_VERIFY_MARKER_FULL:-$(musi_standard_verify_full_marker)}"
+    MARKER="${MUSI_VERIFY_MARKER_FULL:-$(musi_standard_verify_full_marker "$REPO_ROOT")}"
     VERIFY_CONSUMER=verify
     VERIFY_STEPS_ARRAY=MUSI_VERIFY_STEPS
     META_MODE=serial-verify
@@ -116,6 +119,7 @@ if [ "${MUSI_VERIFY_LOCK_ALREADY_HELD:-}" = "1" ]; then
   EXEC_TIMEOUT="$INTERACTIVE_TIMEOUT"
 else
   LOCK_WAIT="$INTERACTIVE_TIMEOUT"
+  mkdir -p "$(dirname "$LOCK")"
   exec 9<>"$LOCK"
   LOCK_START=$(date +%s)
   if ! flock -w "$LOCK_WAIT" 9; then
@@ -168,8 +172,8 @@ fi
 
 # --- 3. Watchdog ------------------------------------------------------------
 # Mirrors pre-commit. Changed-mode verification runs its gate checks in
-# parallel so the default watchdog can stay inside the interactive 240s
-# budget. The wrapper cuts the run on overrun and prints log paths plus a
+# parallel while the default watchdog still bounds the full run. The wrapper
+# cuts the run on overrun and prints log paths plus a
 # `verify:logs budget` pointer. `MUSI_VERIFY_TIMEOUT` stays as a back-compat
 # override so existing tests / overrides keep working; new callers should
 # prefer `MUSI_INTERACTIVE_TIMEOUT` and `MUSI_INTERACTIVE_WARN_AFTER`.
@@ -379,8 +383,8 @@ run_resolved_step() {
 }
 
 # Full manual verification remains sequential and stops at the first failure.
-# Changed and parallel modes run in parallel to preserve the 240s interactive
-# budget while still writing the same per-step logs.
+# Changed and parallel modes run in parallel to preserve edit-loop feedback
+# while still writing the same per-step logs.
 overall=0
 if [ "$MODE" = changed ] || [ "$MODE" = parallel ]; then
   run_steps_parallel || overall=1

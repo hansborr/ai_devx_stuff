@@ -59,13 +59,21 @@ run_with_hadolint_test_lock() {
   ) 9>"$lock_file"
 }
 
-remove_hadolint_cache_unlocked() {
-  find "$REPO_ROOT/node_modules/hadolint/.cache/hadolint" -maxdepth 1 -type f \
-    -name 'hadolint-*' -delete 2>/dev/null || true
+make_hadolint_cache_non_executable_unlocked() {
+  local wrapper="$REPO_ROOT/node_modules/.bin/hadolint"
+  local cache_file
+
+  "$wrapper" --version >/dev/null 2>&1 || true
+  cache_file=$(
+    find "$REPO_ROOT/node_modules/hadolint/.cache/hadolint" -maxdepth 1 -type f \
+      -name 'hadolint-*' -print -quit 2>/dev/null || true
+  )
+  [ -n "$cache_file" ] || fail "hadolint cache file was not created"
+  chmod 0644 "$cache_file"
 }
 
-remove_hadolint_cache() {
-  run_with_hadolint_test_lock remove_hadolint_cache_unlocked
+make_hadolint_cache_non_executable() {
+  run_with_hadolint_test_lock make_hadolint_cache_non_executable_unlocked
 }
 
 SANDBOX="$(mktemp -d /tmp/musi-lint-config-sensors-test.XXXXXX)"
@@ -164,9 +172,9 @@ ok "lint-config-sensors.sh passes bash -n"
 ok "yamllint smoke test uses system PATH binary"
 
 repo="$(new_repo clean)"
-remove_hadolint_cache
-run_lint_config_sensors "$repo" >/dev/null || fail "clean config sensor set should pass with a fresh hadolint cache"
-ok "clean maintained config sensor set passes with a fresh hadolint cache"
+make_hadolint_cache_non_executable
+run_lint_config_sensors "$repo" >/dev/null || fail "clean config sensor set should repair a non-executable hadolint cache"
+ok "clean maintained config sensor set repairs a non-executable hadolint cache"
 
 repo="$(new_repo actionlint-violation)"
 cat > "$repo/.github/workflows/ci.yml" <<'YML'

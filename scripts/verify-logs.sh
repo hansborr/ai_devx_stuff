@@ -5,13 +5,11 @@
 # tail for each verification task without making contributors copy paths out
 # of AI summaries. Reads from two log sources:
 #
-#   - Pre-commit / verify wrapper logs (`/tmp/musi-pre-commit-logs/`) written
-#     by `.husky/pre-commit` and `scripts/verify.sh`. No per-task marker —
-#     the per-run `LAST_TS` lives in `/tmp/musi-{verify,verify-changed,
-#     pre-commit}-last`.
-#   - Bun-run-quiet hook logs (`/tmp/musi-bun-logs/`) with per-script
-#     `last.<script>` markers (LAST_TS / LAST_FP / LAST_EXIT) that record
-#     each run's exit code.
+#   - Pre-commit / verify wrapper logs written by `.husky/pre-commit` and
+#     `scripts/verify.sh`. No per-task marker — the per-run `LAST_TS` lives
+#     in the worktree-scoped verify/pre-commit marker.
+#   - Bun-run-quiet hook logs with per-script `last.<script>` markers
+#     (LAST_TS / LAST_FP / LAST_EXIT) that record each run's exit code.
 #
 # Whichever log is newer (by mtime) wins for "latest". The bun-logs marker
 # (when present) supplies the exit code.
@@ -24,20 +22,24 @@
 #   bun run verify:logs slow-tests       # top slow Vitest files and cases
 #
 # Env (tests only):
-#   MUSI_VERIFY_LOG_DIR / AI_BUN_LOG_DIR / MUSI_VERIFY_MARKER_FULL /
-#   MUSI_VERIFY_MARKER_CHANGED / MUSI_PRECOMMIT_MARKER
+#   MUSI_VERIFY_STATE_ROOT / MUSI_VERIFY_LOG_DIR / AI_BUN_LOG_DIR /
+#   MUSI_VERIFY_MARKER_FULL / MUSI_VERIFY_MARKER_CHANGED /
+#   MUSI_PRECOMMIT_MARKER
 
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null || git rev-parse --show-toplevel 2>/dev/null || printf '/workspace')"
 # shellcheck source=/dev/null
 . "$SCRIPT_DIR/ai-hooks/output-filter.sh"
+# shellcheck source=/dev/null
+. "$SCRIPT_DIR/lib/verify-metadata.sh"
 
-PRECOMMIT_LOG_DIR="${MUSI_VERIFY_LOG_DIR:-/tmp/musi-pre-commit-logs}"
-BUN_LOG_DIR="${AI_BUN_LOG_DIR:-/tmp/musi-bun-logs}"
-VERIFY_MARKER_FULL="${MUSI_VERIFY_MARKER_FULL:-/tmp/musi-verify-last}"
-VERIFY_MARKER_CHANGED="${MUSI_VERIFY_MARKER_CHANGED:-/tmp/musi-verify-changed-last}"
-PRECOMMIT_MARKER="${MUSI_PRECOMMIT_MARKER:-/tmp/musi-pre-commit-last}"
+PRECOMMIT_LOG_DIR="${MUSI_VERIFY_LOG_DIR:-$(musi_standard_verify_log_dir "$REPO_ROOT")}"
+BUN_LOG_DIR="${AI_BUN_LOG_DIR:-$(musi_standard_bun_log_dir "$REPO_ROOT")}"
+VERIFY_MARKER_FULL="${MUSI_VERIFY_MARKER_FULL:-$(musi_standard_verify_full_marker "$REPO_ROOT")}"
+VERIFY_MARKER_CHANGED="${MUSI_VERIFY_MARKER_CHANGED:-$(musi_standard_verify_changed_marker "$REPO_ROOT")}"
+PRECOMMIT_MARKER="${MUSI_PRECOMMIT_MARKER:-$(musi_standard_precommit_marker "$REPO_ROOT")}"
 
 TASKS=(lint typecheck test e2e)
 SLOW_TESTS_TASK=slow-tests
@@ -407,8 +409,8 @@ EOF
 }
 
 print_budget() {
-  local warn_after="${MUSI_INTERACTIVE_WARN_AFTER:-260}"
-  local hard_timeout="${MUSI_INTERACTIVE_TIMEOUT:-300}"
+  local warn_after="${MUSI_INTERACTIVE_WARN_AFTER:-1080}"
+  local hard_timeout="${MUSI_INTERACTIVE_TIMEOUT:-1200}"
 
   if [ ! -f "$RUN_META_FILE" ]; then
     printf 'budget: no verification metadata found.\n'

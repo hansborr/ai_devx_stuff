@@ -331,6 +331,39 @@ hadolint_command() {
   return 1
 }
 
+hadolint_command_unlocked() {
+  local wrapper="$1"
+  if [ -n "${MUSI_HADOLINT_BIN:-}" ]; then
+    printf '%s\n' "$MUSI_HADOLINT_BIN"
+    return 0
+  fi
+  if [ -x "$wrapper" ]; then
+    ensure_hadolint_wrapper_executable_unlocked "$wrapper"
+    printf '%s\n' "$wrapper"
+    return 0
+  fi
+  if command -v hadolint >/dev/null 2>&1; then
+    command -v hadolint
+    return 0
+  fi
+  return 1
+}
+
+run_hadolint_locked() {
+  local wrapper="$1"
+  shift
+  local bin
+  bin="$(hadolint_command_unlocked "$wrapper")" || {
+    cat >&2 <<'EOF'
+lint:config-sensors: hadolint is not available.
+lint:config-sensors: run `bun install` to install the pinned npm wrapper.
+EOF
+    return 1
+  }
+
+  "$bin" "$@"
+}
+
 run_actionlint() {
   [ "${#ACTIONLINT_FILES[@]}" -gt 0 ] || return 0
   local bin failed file
@@ -384,23 +417,16 @@ EOF
 
 run_hadolint() {
   [ "${#DOCKERFILES[@]}" -gt 0 ] || [ "${#REFERENCE_DOCKERFILES[@]}" -gt 0 ] || return 0
-  local bin wrapper="$REPO_ROOT/node_modules/.bin/hadolint"
-  bin="$(hadolint_command)" || {
-    cat >&2 <<'EOF'
-lint:config-sensors: hadolint is not available.
-lint:config-sensors: run `bun install` to install the pinned npm wrapper.
-EOF
-    return 1
-  }
+  local wrapper="$REPO_ROOT/node_modules/.bin/hadolint"
   # The devcontainer base is a local refreshed image tag, not a published
   # release stream. Keep DL3007 out of this repo's floor until that changes.
   if [ "${#DOCKERFILES[@]}" -gt 0 ]; then
     echo "lint:config-sensors: hadolint checking ${#DOCKERFILES[@]} maintained Dockerfile(s)."
-    run_with_hadolint_lock "$wrapper" "$bin" --ignore DL3007 "${DOCKERFILES[@]}"
+    run_with_hadolint_lock "$wrapper" run_hadolint_locked "$wrapper" --ignore DL3007 "${DOCKERFILES[@]}"
   fi
   if [ "${#REFERENCE_DOCKERFILES[@]}" -gt 0 ]; then
     echo "lint:config-sensors: hadolint checking ${#REFERENCE_DOCKERFILES[@]} local reference Dockerfile(s)."
-    run_with_hadolint_lock "$wrapper" "$bin" --ignore DL3008 --ignore DL3015 --ignore DL4006 "${REFERENCE_DOCKERFILES[@]}"
+    run_with_hadolint_lock "$wrapper" run_hadolint_locked "$wrapper" --ignore DL3008 --ignore DL3015 --ignore DL4006 "${REFERENCE_DOCKERFILES[@]}"
   fi
 }
 

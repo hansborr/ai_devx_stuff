@@ -24,6 +24,156 @@ ai_worktree_fingerprint() {
   } | sha256sum | awk '{print $1}'
 }
 
+musi_repo_root_for_state() {
+  local repo_root="${1:-}"
+
+  if [ -n "$repo_root" ]; then
+    printf '%s' "$repo_root"
+    return 0
+  fi
+
+  if [ -n "${REPO_ROOT:-}" ]; then
+    printf '%s' "$REPO_ROOT"
+    return 0
+  fi
+
+  git rev-parse --show-toplevel 2>/dev/null || printf '/workspace'
+}
+
+musi_worktree_identity_path() {
+  local repo_root resolved
+
+  repo_root=$(musi_repo_root_for_state "${1:-}")
+  if [ -d "$repo_root" ] && resolved=$(cd "$repo_root" && pwd -P); then
+    printf '%s' "$resolved"
+    return 0
+  fi
+
+  printf '%s' "$repo_root"
+}
+
+musi_worktree_key() {
+  local repo_root="${1:-}"
+
+  musi_worktree_identity_path "$repo_root" | sha256sum | awk '{print $1}'
+}
+
+musi_git_common_identity_path() {
+  local repo_root common_dir resolved
+
+  repo_root=$(musi_repo_root_for_state "${1:-}")
+  if common_dir=$(git -C "$repo_root" rev-parse --git-common-dir 2>/dev/null); then
+    case "$common_dir" in
+      /*) ;;
+      *) common_dir="$repo_root/$common_dir" ;;
+    esac
+    if [ -d "$common_dir" ] && resolved=$(cd "$common_dir" && pwd -P); then
+      printf '%s' "$resolved"
+      return 0
+    fi
+    printf '%s' "$common_dir"
+    return 0
+  fi
+
+  musi_worktree_identity_path "$repo_root"
+}
+
+musi_git_common_key() {
+  local repo_root="${1:-}"
+
+  musi_git_common_identity_path "$repo_root" | sha256sum | awk '{print $1}'
+}
+
+musi_standard_state_root() {
+  local state_root="${MUSI_VERIFY_STATE_ROOT:-/tmp}"
+
+  state_root="${state_root%/}"
+  [ -n "$state_root" ] || state_root="/"
+  printf '%s' "$state_root"
+}
+
+musi_standard_state_path() {
+  local name="$1"
+  local repo_root="${2:-}"
+  local state_root
+
+  state_root=$(musi_standard_state_root)
+  if [ "$state_root" = "/" ]; then
+    printf '/%s.%s' "$name" "$(musi_worktree_key "$repo_root")"
+    return 0
+  fi
+
+  printf '%s/%s.%s' \
+    "$state_root" \
+    "$name" \
+    "$(musi_worktree_key "$repo_root")"
+}
+
+musi_standard_common_state_path() {
+  local name="$1"
+  local repo_root="${2:-}"
+  local state_root
+
+  state_root=$(musi_standard_state_root)
+  if [ "$state_root" = "/" ]; then
+    printf '/%s.%s' "$name" "$(musi_git_common_key "$repo_root")"
+    return 0
+  fi
+
+  printf '%s/%s.%s' \
+    "$state_root" \
+    "$name" \
+    "$(musi_git_common_key "$repo_root")"
+}
+
+musi_standard_precommit_marker() {
+  local repo_root="${1:-}"
+
+  printf '%s' "${MUSI_STANDARD_PRECOMMIT_MARKER:-$(musi_standard_state_path musi-pre-commit-last "$repo_root")}"
+}
+
+musi_standard_verify_log_dir() {
+  local repo_root="${1:-}"
+
+  printf '%s' "${MUSI_STANDARD_VERIFY_LOG_DIR:-$(musi_standard_state_path musi-pre-commit-logs "$repo_root")}"
+}
+
+musi_standard_verify_history_dir() {
+  local repo_root="${1:-}"
+
+  printf '%s' "${MUSI_STANDARD_VERIFY_HISTORY_DIR:-$(musi_standard_state_path musi-verify-history "$repo_root")}"
+}
+
+musi_standard_verify_lock() {
+  local repo_root="${1:-}"
+
+  printf '%s' "${MUSI_STANDARD_VERIFY_LOCK:-$(musi_standard_state_path musi-pre-commit.lock "$repo_root")}"
+}
+
+musi_standard_bun_log_dir() {
+  local repo_root="${1:-}"
+
+  printf '%s' "${MUSI_STANDARD_BUN_LOG_DIR:-$(musi_standard_state_path musi-bun-logs "$repo_root")}"
+}
+
+musi_standard_bun_lock() {
+  local repo_root="${1:-}"
+
+  printf '%s' "${MUSI_STANDARD_BUN_LOCK:-$(musi_standard_state_path musi-bun.lock "$repo_root")}"
+}
+
+musi_standard_git_commit_lock() {
+  local repo_root="${1:-}"
+
+  printf '%s' "${MUSI_STANDARD_GIT_COMMIT_LOCK:-$(musi_standard_state_path musi-git-commit.lock "$repo_root")}"
+}
+
+musi_standard_commit_queue_lock() {
+  local repo_root="${1:-}"
+
+  printf '%s' "${MUSI_STANDARD_COMMIT_QUEUE_LOCK:-$(musi_standard_common_state_path musi-commit-queue.lock "$repo_root")}"
+}
+
 musi_path_policy_query_script() {
   if [ -n "${MUSI_PATH_POLICY_QUERY:-}" ]; then
     printf '%s\n' "$MUSI_PATH_POLICY_QUERY"
@@ -262,11 +412,15 @@ musi_write_success_marker() {
 }
 
 musi_standard_verify_changed_marker() {
-  printf '%s' "${MUSI_STANDARD_VERIFY_MARKER_CHANGED:-/tmp/musi-verify-changed-last}"
+  local repo_root="${1:-}"
+
+  printf '%s' "${MUSI_STANDARD_VERIFY_MARKER_CHANGED:-$(musi_standard_state_path musi-verify-changed-last "$repo_root")}"
 }
 
 musi_standard_verify_full_marker() {
-  printf '%s' "${MUSI_STANDARD_VERIFY_MARKER_FULL:-/tmp/musi-verify-last}"
+  local repo_root="${1:-}"
+
+  printf '%s' "${MUSI_STANDARD_VERIFY_MARKER_FULL:-$(musi_standard_state_path musi-verify-last "$repo_root")}"
 }
 
 musi_staged_has_script_relevant_deletion() {
@@ -317,7 +471,7 @@ musi_try_single_verify_marker_bridge() {
 
 musi_try_verify_marker_bridge() {
   local repo_root="$1"
-  local precommit_marker="${2:-${MUSI_PRECOMMIT_MARKER:-/tmp/musi-pre-commit-last}}"
+  local precommit_marker="${2:-${MUSI_PRECOMMIT_MARKER:-$(musi_standard_precommit_marker "$repo_root")}}"
   local freshness_seconds="${3:-120}"
   local current_head current_staged_hash current_worktree_hash changed_marker full_marker
 
@@ -326,8 +480,8 @@ musi_try_verify_marker_bridge() {
   current_head=$(git -C "$repo_root" rev-parse HEAD 2>/dev/null || echo none)
   current_staged_hash=$(ai_staged_fingerprint "$repo_root")
   current_worktree_hash=$(ai_worktree_fingerprint "$repo_root")
-  changed_marker="${MUSI_VERIFY_MARKER_CHANGED:-$(musi_standard_verify_changed_marker)}"
-  full_marker="${MUSI_VERIFY_MARKER_FULL:-$(musi_standard_verify_full_marker)}"
+  changed_marker="${MUSI_VERIFY_MARKER_CHANGED:-$(musi_standard_verify_changed_marker "$repo_root")}"
+  full_marker="${MUSI_VERIFY_MARKER_FULL:-$(musi_standard_verify_full_marker "$repo_root")}"
 
   musi_try_single_verify_marker_bridge "$repo_root" "$precommit_marker" "$changed_marker" \
     "verify:changed" "$freshness_seconds" "$current_head" "$current_staged_hash" \

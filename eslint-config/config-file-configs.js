@@ -1,6 +1,7 @@
 // @ts-check
 
 import json from "@eslint/json";
+import tseslint from "typescript-eslint";
 
 import { noMagicNumbersRule } from "./rule-groups.js";
 import { tsConfigFiles } from "./shared-policy.js";
@@ -40,6 +41,7 @@ export function createTsConfigFileConfigs(repoRoot) {
     // these files intentionally live outside package production tsconfig includes.
     {
       files: tsConfigFiles,
+      plugins: { "@typescript-eslint": tseslint.plugin },
       languageOptions: {
         parserOptions: {
           projectService: {

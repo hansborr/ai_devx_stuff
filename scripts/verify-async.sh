@@ -16,7 +16,7 @@ REPO_ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel)"
 . "$SCRIPT_DIR/process-tree.sh"
 
 STATE_ROOT="${MUSI_VERIFY_ASYNC_STATE_ROOT:-/tmp/musi-verify-async}"
-LOCK="${MUSI_VERIFY_LOCK:-/tmp/musi-pre-commit.lock}"
+LOCK="${MUSI_VERIFY_LOCK:-$(musi_standard_verify_lock "$REPO_ROOT")}"
 ASYNC_TIMEOUT="${MUSI_ASYNC_VERIFY_TIMEOUT:-1800}"
 RETENTION_SECONDS="${MUSI_VERIFY_ASYNC_RETENTION_SECONDS:-604800}"
 TAIL_LINES=200
@@ -338,10 +338,10 @@ run_child() {
     run_dir=$(dirname "$state")
     promote_async_marker \
       "$run_dir/markers/verify-changed-last" \
-      "$(musi_standard_verify_changed_marker)"
+      "$(musi_standard_verify_changed_marker "$REPO_ROOT")"
     promote_async_marker \
       "$run_dir/markers/verify-last" \
-      "$(musi_standard_verify_full_marker)"
+      "$(musi_standard_verify_full_marker "$REPO_ROOT")"
   }
 
   signal_payload() {
@@ -388,6 +388,7 @@ run_child() {
   printf 'verify:async: command=%s\n' "$command"
 
   local lock_start waited exec_timeout
+  mkdir -p "$(dirname "$lock")"
   exec 8<>"$lock"
   lock_start=$(date +%s)
   if ! flock -w "$timeout" 8; then

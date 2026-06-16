@@ -7,11 +7,13 @@
 #   hookSpecificOutput.updatedInput.
 # On failure: parses the Passed:/Failed: lines the pre-commit hook emits
 #   and returns only the tails of failed tasks. Full per-task logs live
-#   at /tmp/musi-pre-commit-logs/<task>.log.
+#   in the worktree-scoped pre-commit log directory.
 #
-# Single-writer invariant: mirrors .husky/pre-commit — a non-blocking
-# flock prevents two Claude sessions (or a racing retry) from commiting
-# concurrently. Contention yields a Monitor-wait incantation.
+# Single-writer invariant: a non-blocking worktree flock prevents two Claude
+# sessions (or a racing retry) from committing concurrently in the same
+# worktree. A second Git-common-dir queue lock serializes commits across sibling
+# worktrees for the full wrapped `git commit` process. Contention reports the
+# current lock holder.
 #
 # Per-invocation result file: mktemp avoids the /tmp/musi-commit-result
 # race when two commits land in parallel.
@@ -28,6 +30,8 @@ REPO_ROOT=$(git -C "$HOOK_LIB" rev-parse --show-toplevel 2>/dev/null || git rev-
 . "$HOOK_LIB/cache.sh"
 # shellcheck source=/dev/null
 . "$HOOK_LIB/commit-output.sh"
+# shellcheck source=/dev/null
+. "$REPO_ROOT/scripts/process-tree.sh"
 
 PAYLOAD=$(ai_read_payload)
 CMD=$(ai_payload_command "$PAYLOAD")
@@ -47,21 +51,54 @@ ai_is_git_commit_cmd "$CMD" || {
 ai_preflight_or_block "$CMD"
 
 # --- Single-writer lock ----------------------------------------------------
-LOCK="${AI_GIT_COMMIT_LOCK:-/tmp/musi-git-commit-lock}"
+LOCK="${AI_GIT_COMMIT_LOCK:-$(musi_standard_git_commit_lock "$REPO_ROOT")}"
+mkdir -p "$(dirname "$LOCK")"
 exec 9<>"$LOCK"
 if ! flock -n 9; then
   HOLDER=$(cat "$LOCK" 2>/dev/null || echo '<holder info unavailable>')
   REASON="Another git commit is in progress ($HOLDER).
 
-Do NOT retry — it will fail here again and waste tokens on repeated polling. To wait for the in-flight commit WITHOUT polling, launch this command in the background and attach Monitor:
-
-  flock $LOCK true && echo FREE
-
-When Monitor reports FREE, check git status before retrying — the previous commit may already have succeeded."
+Do NOT retry — it will fail here again and waste tokens on repeated polling.
+Wait for the in-flight commit to finish, then check git status before retrying — the previous commit may already have succeeded."
   jq -Rn --arg r "$REASON" '{decision:"block", reason:$r}'
   exit 0
 fi
 { printf 'PID=%s STARTED=%s\n' "$$" "$(date -Iseconds)"; } > "$LOCK"
+
+TOTAL_TIMEOUT="${AI_GIT_COMMIT_TIMEOUT:-${MUSI_VERIFY_TIMEOUT:-${MUSI_INTERACTIVE_TIMEOUT:-1200}}}"
+
+# --- Cross-worktree commit queue -------------------------------------------
+COMMIT_QUEUE_LOCK="${MUSI_COMMIT_QUEUE_LOCK:-$(musi_standard_commit_queue_lock "$REPO_ROOT")}"
+COMMIT_QUEUE_WAIT="${MUSI_COMMIT_QUEUE_TIMEOUT:-$TOTAL_TIMEOUT}"
+if [ "$COMMIT_QUEUE_WAIT" -gt "$TOTAL_TIMEOUT" ]; then
+  COMMIT_QUEUE_WAIT="$TOTAL_TIMEOUT"
+fi
+mkdir -p "$(dirname "$COMMIT_QUEUE_LOCK")"
+exec 8<>"$COMMIT_QUEUE_LOCK"
+QUEUE_START=$(date +%s)
+if ! flock -w "$COMMIT_QUEUE_WAIT" 8; then
+  HOLDER=$(cat "$COMMIT_QUEUE_LOCK" 2>/dev/null || echo '<holder info unavailable>')
+  REASON="Waited ${COMMIT_QUEUE_WAIT}s for the shared commit queue lock but another worktree is still committing ($HOLDER).
+
+Wait for the in-flight commit to finish, then check git status before retrying."
+  jq -Rn --arg r "$REASON" '{decision:"block", reason:$r}'
+  exit 0
+fi
+QUEUE_WAITED=$(( $(date +%s) - QUEUE_START ))
+[ "$QUEUE_WAITED" -gt 5 ] && printf 'git-commit-quiet: waited %ss for shared commit queue %s\n' "$QUEUE_WAITED" "$COMMIT_QUEUE_LOCK" >&2
+{
+  printf 'PID=%s WORKTREE=%s CMD=%s STARTED=%s\n' "$$" "$REPO_ROOT" "$CMD" "$(date -Iseconds)"
+} > "$COMMIT_QUEUE_LOCK"
+
+TIMEOUT=$(( TOTAL_TIMEOUT - QUEUE_WAITED ))
+if [ "$TIMEOUT" -le 0 ]; then
+  HOLDER=$(cat "$COMMIT_QUEUE_LOCK" 2>/dev/null || echo '<holder info unavailable>')
+  REASON="Waited ${QUEUE_WAITED}s for the shared commit queue, exhausting the ${TOTAL_TIMEOUT}s git commit budget before this commit could start ($HOLDER).
+
+Retry after the in-flight commit completes, or raise AI_GIT_COMMIT_TIMEOUT for this invocation if the wait was intentional."
+  jq -Rn --arg r "$REASON" '{decision:"block", reason:$r}'
+  exit 0
+fi
 
 OUTFILE=$(mktemp /tmp/musi-git-commit.XXXXXX)
 
@@ -79,15 +116,16 @@ HEAD_BEFORE=$(git rev-parse HEAD 2>/dev/null || echo none)
 # block trap delivery until they exit, defeating timeout handling).
 HOOK_PID=$$
 START=$(date +%s)
-bash -c "$CMD" > "$OUTFILE" 2>&1 9>&- &
+MUSI_COMMIT_QUEUE_LOCK_ALREADY_HELD=1 \
+  MUSI_COMMIT_QUEUE_LOCK="$COMMIT_QUEUE_LOCK" \
+  bash -c "$CMD" > "$OUTFILE" 2>&1 9>&- &
 CHILD=$!
 
-# Watchdog: 270s internal keeps us under the 300s cache-warm window. The
-# pre-commit hook's own 240s watchdog covers the common case; this catches
-# hangs in git itself or between the pre-commit exit and our wait.
-TIMEOUT="${AI_GIT_COMMIT_TIMEOUT:-270}"
+# Watchdog: match the 20-minute pre-commit budget. The Claude hook adapter has
+# a slightly larger generated timeout so this wrapper can emit JSON first.
 (
   exec 9<&-
+  exec 8<&-
   SLEEP_PID=""
   trap '[ -n "$SLEEP_PID" ] && kill "$SLEEP_PID" 2>/dev/null; exit 0' TERM INT
   sleep "$TIMEOUT" &
@@ -98,7 +136,8 @@ TIMEOUT="${AI_GIT_COMMIT_TIMEOUT:-270}"
 WD=$!
 
 on_sigterm() {
-  kill "$CHILD" "$WD" 2>/dev/null
+  musi_signal_process_tree "$CHILD" TERM
+  kill "$WD" 2>/dev/null
   wait "$CHILD" 2>/dev/null
   local el=$(( $(date +%s) - START ))
   local summary output
@@ -107,14 +146,15 @@ on_sigterm() {
     "git commit wrapper timed out at ${TIMEOUT}s (${el}s elapsed)." \
     "$HEAD_BEFORE" \
     "$output" \
-    "Claude Code may have backgrounded the original command. The wrapper stopped waiting before Claude's 600s hook timeout, but commit/pre-commit descendants may still finish.")
+    "The wrapper signalled the git commit process tree before returning.")
   jq -Rn --arg r "$summary" '{decision:"block", reason:$r}' \
     || printf '{"decision":"block","reason":"git commit status unknown after timeout (%ss). Check git status and git log before retrying."}\n' "$TIMEOUT"
   exit 0
 }
 
 on_sigint() {
-  kill "$CHILD" "$WD" 2>/dev/null
+  musi_signal_process_tree "$CHILD" TERM
+  kill "$WD" 2>/dev/null
   wait "$CHILD" 2>/dev/null
   local el=$(( $(date +%s) - START ))
   jq -Rn --arg r "git commit cancelled (${el}s elapsed). Full output: $OUTFILE" '{decision:"block", reason:$r}' \

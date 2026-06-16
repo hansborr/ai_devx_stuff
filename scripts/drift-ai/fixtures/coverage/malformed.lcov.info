@@ -1,0 +1,11 @@
+SF:src/ok.ts
+DA:1,5
+DA:notanumber,3
+FN:abc,brokenfn
+FNDA:2,ghost
+LF:1
+LH:1
+end_of_record
+DA:1,1
+SF:src/missingeor.ts
+DA:1,2

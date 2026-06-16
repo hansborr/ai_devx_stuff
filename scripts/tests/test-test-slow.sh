@@ -47,7 +47,46 @@ normalize_vitest_summary() {
 
 cd "$REPO_ROOT"
 
-# --- 0. Every package config carries the slow-tier exclude -----------------
+# --- 0. Every repo Vitest config sets the default timeout ------------------
+timeout_check_output="$(EXPECTED_TEST_TIMEOUT_MS=30000 bun --config=/dev/null --eval '
+const expected = Number(process.env.EXPECTED_TEST_TIMEOUT_MS);
+const configs = [
+  ["root workspace", "./vitest.config.ts"],
+  ["shared", "./packages/shared/vitest.config.ts"],
+  ["server", "./packages/server/vitest.config.ts"],
+  ["client", "./packages/client/vitest.config.ts"],
+  ["scripts", "./scripts/vitest.config.ts"],
+  ["eslint-rules", "./eslint-rules/vitest.config.ts"],
+];
+const failures = [];
+
+for (const [name, configPath] of configs) {
+  const module = await import(configPath);
+  const config = await module.default;
+  const actual = config?.test?.testTimeout;
+  if (actual !== expected) {
+    failures.push(`${name} (${configPath}) test.testTimeout = ${String(actual)}`);
+  }
+}
+
+const slowModule = await import("./vitest.slow.config.ts");
+const slowConfig = await slowModule.default;
+for (const project of slowConfig?.test?.projects ?? []) {
+  const name = project?.test?.name ?? "unnamed";
+  const actual = project?.test?.testTimeout;
+  if (actual !== expected) {
+    failures.push(`slow ${String(name)} project test.testTimeout = ${String(actual)}`);
+  }
+}
+
+if (failures.length > 0) {
+  throw new Error(`expected every Vitest config test.testTimeout to be ${String(expected)}ms:\n${failures.join("\n")}`);
+}
+' 2>&1)" \
+  || fail "repo Vitest configs should set 30000ms testTimeout: $timeout_check_output"
+ok "repo Vitest configs set a 30000ms per-test timeout"
+
+# --- 1. Every package config carries the slow-tier exclude -----------------
 # The shared package gets the runtime checks below via the sentinel. For
 # server and client we don't keep production sentinel fixtures, so a static
 # grep is the smoke against someone deleting the exclude line. test-scripts
@@ -62,7 +101,7 @@ for pkg in shared server client; do
 done
 ok "every package vitest.config.ts excludes **/*.slow.test.* alongside defaultExclude"
 
-# --- 1. Default config skips the slow sentinel -----------------------------
+# --- 2. Default config skips the slow sentinel -----------------------------
 default_list="$(MUSI_RUN_SLOW_TESTS='' "$VITEST_BIN" list --project=shared 2>&1)" \
   || fail "vitest list (default) should succeed: $default_list"
 
@@ -73,7 +112,7 @@ grep -qF 'src/test-tier-sentinel.test.ts' <<< "$default_list" \
   || fail "default vitest config should include regular sentinel: $default_list"
 ok "default vitest config excludes *.slow.test.* and keeps regular *.test.ts"
 
-# --- 2. Slow config includes only the slow sentinel ------------------------
+# --- 3. Slow config includes only the slow sentinel ------------------------
 slow_list="$(MUSI_RUN_SLOW_TESTS=1 "$VITEST_BIN" list \
   --config "$REPO_ROOT/vitest.slow.config.ts" --project=shared 2>&1)" \
   || fail "vitest list (slow) should succeed: $slow_list"
@@ -91,7 +130,7 @@ if grep -E 'src/.+\.test\.ts >' <<< "$slow_list" \
 fi
 ok "slow vitest config includes only *.slow.test.* files"
 
-# --- 3. test:slow wrapper sets MUSI_RUN_SLOW_TESTS=1 -----------------------
+# --- 4. test:slow wrapper sets MUSI_RUN_SLOW_TESTS=1 -----------------------
 # The slow sentinel test asserts MUSI_RUN_SLOW_TESTS=== "1" via expect(); a
 # successful run through the wrapper proves both the env wiring and that the
 # slow tier picked up the file.
@@ -105,7 +144,7 @@ if grep -qF 'Test Files' <<< "$normalized_wrapper_output"; then
 fi
 ok "test-slow.sh runs only the slow tier with MUSI_RUN_SLOW_TESTS=1"
 
-# --- 4. test-changed.sh emits a hint when *.slow.test.* changes ------------
+# --- 5. test-changed.sh emits a hint when *.slow.test.* changes ------------
 # Sandboxed mini-repo so we don't have to mutate the real worktree. The hint
 # is a stderr line so the rest of test:changed's output keeps its grep-able
 # shape; the smoke test asserts the hint is on stderr, not stdout.

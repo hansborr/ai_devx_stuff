@@ -49,7 +49,10 @@ done
 HERE="$(git rev-parse --show-toplevel)" || { echo "not inside a git repo" >&2; exit 1; }
 cd "$HERE"
 
-[ -d "$UPSTREAM/.git" ] || { echo "upstream '$UPSTREAM' is not a git repo" >&2; exit 1; }
+# Accept both a main repo (.git is a directory) and a linked worktree (.git is a
+# gitdir-pointer file), so --upstream= can target /workspace/worktrees/<name>.
+git -C "$UPSTREAM" rev-parse --is-inside-work-tree >/dev/null 2>&1 \
+  || { echo "upstream '$UPSTREAM' is not a git repo" >&2; exit 1; }
 
 mode=$([ "$APPLY" = 1 ] && echo "APPLY" || echo "DRY-RUN (no changes written; pass --apply to mirror)")
 echo "==> sync-from-upstream  [$mode]"

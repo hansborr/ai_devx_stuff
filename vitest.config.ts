@@ -1,7 +1,10 @@
 import { defineConfig } from "vitest/config";
 
+export const DEFAULT_VITEST_TEST_TIMEOUT_MS = 30_000;
+
 export default defineConfig({
   test: {
+    testTimeout: DEFAULT_VITEST_TEST_TIMEOUT_MS,
     projects: ["packages/shared", "packages/server", "packages/client", "eslint-rules", "scripts"],
     coverage: {
       provider: "v8",

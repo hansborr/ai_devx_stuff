@@ -1,0 +1,15 @@
+TN:
+SF:src/math.ts
+FN:1,add
+FN:5,subtract
+FNDA:1,add
+FNDA:2,subtract
+FNF:2
+FNH:2
+DA:1,1
+DA:2,1
+DA:5,2
+DA:6,2
+LF:4
+LH:4
+end_of_record

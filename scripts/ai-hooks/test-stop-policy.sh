@@ -406,6 +406,38 @@ if MUSI_VERIFY_LOG_DIR="$VERIFY_LOG_DIR" ai_stop_verify_status "$VERIFY_REPO" >/
   fail "missing wrapper should not emit status"
 fi
 
+# Same HEAD/content in a sibling worktree must not read this worktree's default
+# cached verify wrapper. The default log path is worktree-scoped, so only the
+# worktree that produced the failed metadata sees the stop reminder.
+VERIFY_SIBLING="$TMP_ROOT/verify-sibling"
+git -C "$VERIFY_REPO" worktree add -q -b feature/verify-sibling "$VERIFY_SIBLING" HEAD \
+  || fail "failed to create sibling verify worktree"
+VERIFY_DEFAULT_STATE_ROOT="$TMP_ROOT/verify-default-state"
+VERIFY_SIBLING_LOG_DIR=$(
+  MUSI_VERIFY_STATE_ROOT="$VERIFY_DEFAULT_STATE_ROOT" \
+    musi_standard_verify_log_dir "$VERIFY_SIBLING"
+)
+VERIFY_PRIMARY_LOG_DIR=$(
+  MUSI_VERIFY_STATE_ROOT="$VERIFY_DEFAULT_STATE_ROOT" \
+    musi_standard_verify_log_dir "$VERIFY_REPO"
+)
+[ "$VERIFY_PRIMARY_LOG_DIR" != "$VERIFY_SIBLING_LOG_DIR" ] \
+  || fail "same-HEAD worktrees should not share default verify log dirs"
+VERIFY_WRAPPER="$VERIFY_SIBLING_LOG_DIR/meta/wrapper.json"
+mkdir -p "$(dirname "$VERIFY_WRAPPER")"
+VERIFY_HEAD=$(git -C "$VERIFY_SIBLING" rev-parse HEAD)
+write_verify_wrapper parallel-precommit 1 "$(ai_precommit_fingerprint "$VERIFY_SIBLING")"
+if MUSI_VERIFY_STATE_ROOT="$VERIFY_DEFAULT_STATE_ROOT" ai_stop_verify_status "$VERIFY_REPO" >/dev/null; then
+  fail "primary worktree should not emit sibling cached verify status"
+fi
+VERIFY_MSG=$(
+  MUSI_VERIFY_STATE_ROOT="$VERIFY_DEFAULT_STATE_ROOT" \
+    ai_stop_verify_status "$VERIFY_SIBLING"
+) || fail "sibling worktree should emit its own cached verify status"
+assert_contains "$VERIFY_MSG" "cached pre-commit"
+VERIFY_HEAD=$(git -C "$VERIFY_REPO" rev-parse HEAD)
+VERIFY_WRAPPER="$VERIFY_META_DIR/wrapper.json"
+
 # Failing pre-commit run: emits up to MAX_NOTIFY, then suppresses.
 rm -f "$VERIFY_COUNTER"
 write_verify_wrapper parallel-precommit 1 "$VERIFY_PRECOMMIT_FP"

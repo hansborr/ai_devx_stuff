@@ -96,3 +96,4 @@ worktrees/
 .no-stop-uncommitted
 .no-stop-e2e
 .no-stop-async-verify
+.no-stop-verify-changed

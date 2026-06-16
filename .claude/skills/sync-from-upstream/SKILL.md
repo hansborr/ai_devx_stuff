@@ -69,7 +69,11 @@ and moves, e.g. `e2e/page-objects/vtt-drawer.ts` → `vtt-drawer.po.ts`).
 
    This mutates the working tree only. It does **not** stage or commit.
 
-   - Upstream path override: `--apply --upstream=/some/other/path`.
+   - Upstream path override: `--apply --upstream=/some/other/path`. This may be
+     a main repo or a **linked worktree** (e.g.
+     `--upstream=/workspace/worktrees/exploration`) — the sync mirrors whatever
+     branch that worktree currently has checked out, so confirm it's the branch
+     you want before applying.
 
 4. **Review** with `git status` and `git diff`. Restore anything a deletion took
    that you want to keep: `git checkout -- <path>`.

@@ -91,6 +91,44 @@ BUN_SHIM
   assert_contains "$record_out" "ARGS=run ${cmd#bun run }"
 }
 
+cache_defaults_for_repo() (
+  unset AI_STATE_ROOT AI_GIT_STATE_DIR AI_BUN_STATE_DIR AI_STOP_STATE_DIR
+  unset AI_THROTTLE_STATE_DIR AI_LINT_COVERAGE_STATE_DIR
+  unset AI_BUN_LOG_DIR AI_PRECOMMIT_LOG_DIR
+  REPO_ROOT="$1"
+  export MUSI_VERIFY_STATE_ROOT="$TMP_ROOT/default-state"
+  # shellcheck source=cache.sh
+  . "$SCRIPT_DIR/cache.sh"
+  printf 'AI_STATE_ROOT=%s\n' "$AI_STATE_ROOT"
+  printf 'AI_BUN_LOG_DIR=%s\n' "$AI_BUN_LOG_DIR"
+  printf 'AI_PRECOMMIT_LOG_DIR=%s\n' "$AI_PRECOMMIT_LOG_DIR"
+)
+
+assert_cache_defaults_are_worktree_scoped() {
+  local repo="$TMP_ROOT/cache-default-primary"
+  local sibling="$TMP_ROOT/cache-default-sibling"
+  local primary_defaults sibling_defaults primary_value sibling_value key
+
+  git init -q -b main "$repo"
+  git -C "$repo" config user.email hooks@example.test
+  git -C "$repo" config user.name "Hook Test"
+  printf 'base\n' > "$repo/file.txt"
+  git -C "$repo" add file.txt
+  git -C "$repo" commit -qm init
+  git -C "$repo" worktree add -q -b cache-default-sibling "$sibling" HEAD
+
+  primary_defaults=$(cache_defaults_for_repo "$repo")
+  sibling_defaults=$(cache_defaults_for_repo "$sibling")
+  for key in AI_STATE_ROOT AI_BUN_LOG_DIR AI_PRECOMMIT_LOG_DIR; do
+    primary_value=$(printf '%s\n' "$primary_defaults" | awk -F= -v key="$key" '$1 == key {print $2}')
+    sibling_value=$(printf '%s\n' "$sibling_defaults" | awk -F= -v key="$key" '$1 == key {print $2}')
+    [ -n "$primary_value" ] || fail "$key default missing for primary worktree"
+    [ -n "$sibling_value" ] || fail "$key default missing for sibling worktree"
+    [ "$primary_value" != "$sibling_value" ] \
+      || fail "$key default should differ for same-HEAD sibling worktrees: $primary_value"
+  done
+}
+
 assert_bun_cache_bypass_preserves_cached_marker() {
   local cmd="$1"
   local script_safe="$2"
@@ -296,6 +334,7 @@ ai_cache_init
 [ -d "$AI_BUN_LOG_DIR" ] || fail "missing bun log dir"
 [ -d "$AI_PRECOMMIT_LOG_DIR" ] || fail "missing pre-commit log dir"
 
+assert_cache_defaults_are_worktree_scoped
 assert_claude_cache_bypass_rewrites_to_repo_root "bun run verify:logs budget" "verify_logs"
 assert_claude_cache_bypass_rewrites_to_repo_root "bun run verify:async:status" "verify_async_status"
 assert_claude_cache_bypass_rewrites_to_repo_root "bun run code:intel -- exports packages/shared/src/constants.ts" "code_intel"

@@ -396,21 +396,6 @@ assert_policy_allows_each \
   "gh api -X GET search/issues -f q=repo:owner/repo" \
   "gh api graphql -f query='query { viewer { login } }'"
 
-assert_policy_blocks_each "$AI_POLICY_GREP" \
-  "grep -r TODO ." \
-  "grep -R TODO src/" \
-  "grep -rn TODO packages/" \
-  "grep -nrl TODO ." \
-  "grep --recursive TODO dir" \
-  "egrep -r TODO ." \
-  "fgrep -R TODO src/" \
-  "grep -n -r TODO ." \
-  "echo ok && grep -r TODO ." \
-  "true; grep -rn TODO src/" \
-  "bash -lc 'grep -r TODO .'" \
-  "sh -c \"grep -R TODO .\""
-ai_policy_is_soft_guidance "$AI_POLICY_GREP" \
-  || fail "grep policy should be soft guidance"
 for reason in "$AI_POLICY_DOCKER" "$AI_POLICY_GIT_REBASE" "$AI_POLICY_POSTGRES"; do
   if ai_policy_is_soft_guidance "$reason"; then
     fail "policy must stay a hard block: $reason"
@@ -425,6 +410,18 @@ assert_policy_allows_each \
   "rg --files" \
   "ripgrep needle" \
   "which grep" \
+  "grep -r TODO ." \
+  "grep -R TODO src/" \
+  "grep -rn TODO packages/" \
+  "grep -nrl TODO ." \
+  "grep --recursive TODO dir" \
+  "egrep -r TODO ." \
+  "fgrep -R TODO src/" \
+  "grep -n -r TODO ." \
+  "echo ok && grep -r TODO ." \
+  "true; grep -rn TODO src/" \
+  "bash -lc 'grep -r TODO .'" \
+  "sh -c \"grep -R TODO .\"" \
   "grep TODO packages/client/src/main.ts" \
   "egrep TODO packages/client/src/main.ts" \
   "grep -n TODO file.txt" \
@@ -448,22 +445,6 @@ no_direct_db_body_out() {
   printf '%s' "$(jq -n --arg c "$1" '{tool_input:{command:$c}}')" | bash "$NO_DIRECT_DB_BODY"
 }
 
-assert_claude_soft_grep_guidance() {
-  local out rewritten stdout
-
-  out=$(claude_policy_out "grep -r TODO .")
-  assert_hook_json "$out"
-  [ "$(jq -r '.hookSpecificOutput.permissionDecision' <<< "$out")" = "allow" ] \
-    || fail "Claude grep should rewrite to a successful command: $out"
-  [ "$(jq -r '.hookSpecificOutput.hookEventName' <<< "$out")" = "PreToolUse" ] \
-    || fail "Claude grep rewrite missing PreToolUse event: $out"
-  [ "$(jq -r '.decision // empty' <<< "$out")" = "" ] \
-    || fail "soft guidance must not emit a hard-block decision: $out"
-  rewritten=$(jq -r '.hookSpecificOutput.updatedInput.command' <<< "$out")
-  stdout=$(bash -c "$rewritten") || fail "rewritten guidance command failed: $rewritten"
-  [ "$stdout" = "$AI_POLICY_GREP" ] || fail "rewritten command stdout mismatch: [$stdout]"
-}
-
 assert_claude_hard_block() {
   local out reason
 
@@ -476,17 +457,17 @@ assert_claude_hard_block() {
     || fail "hard block must not rewrite [$1]: $out"
 }
 
-assert_codex_grep_still_blocks() {
+assert_codex_allows() {
+  local cmd="$1"
   local out
 
-  out=$(printf '%s' "$(jq -n '{tool_input:{command:"grep -r TODO ."}}')" \
+  out=$(printf '%s' "$(jq -n --arg c "$cmd" '{tool_input:{command:$c}}')" \
     | AI_STATE_ROOT="$AI_STATE_ROOT" \
       AI_BUN_LOG_DIR="$TMP_ROOT/codex-bun-logs" \
       AI_PRECOMMIT_LOG_DIR="$AI_PRECOMMIT_LOG_DIR" \
       bash "$CODEX_PRE")
   assert_hook_json "$out"
-  [ "$(jq -r '.decision' <<< "$out")" = "block" ] || fail "Codex grep must stay a hard block: $out"
-  [ "$(jq -r '.reason' <<< "$out")" = "$AI_POLICY_GREP" ] || fail "Codex grep reason mismatch: $out"
+  assert_hook_continue_json "$out"
 }
 
 assert_codex_hard_block_unchanged() {
@@ -518,13 +499,13 @@ assert_no_direct_db_body_self_contained() {
 }
 
 assert_no_direct_db_body_self_contained
-assert_claude_soft_grep_guidance
 assert_claude_hard_block "docker ps" "$AI_POLICY_DOCKER"
 assert_claude_hard_block "docker ps; grep -r TODO ." "$AI_POLICY_DOCKER"
 assert_claude_hard_block "git rebase main" "$AI_POLICY_GIT_REBASE"
 assert_hook_continue_json "$(claude_policy_out 'rg needle')"
+assert_hook_continue_json "$(claude_policy_out 'grep -r TODO .')"
 assert_hook_continue_json "$(claude_policy_out 'bun run test:changed')"
-assert_codex_grep_still_blocks
+assert_codex_allows "grep -r TODO ."
 assert_codex_hard_block_unchanged "docker ps" "$AI_POLICY_DOCKER"
 
 PROTECTED_MSG=$(ai_protected_file_advisory "$REPO_ROOT/packages/server/prisma/schema.prisma")
@@ -712,7 +693,76 @@ BUN_HOOK_OUT=$(
 wait "$BUN_HOOK_HOLDER" 2>/dev/null || true
 assert_contains "$BUN_HOOK_OUT" '"decision": "block"'
 assert_contains "$BUN_HOOK_OUT" 'Waited 1s'
-assert_contains "$BUN_HOOK_OUT" 'flock '"$BUN_HOOK_LOCK"' true && echo FREE'
+assert_contains "$BUN_HOOK_OUT" 'Wait for the in-flight run to finish before retrying this command'
+assert_not_contains "$BUN_HOOK_OUT" 'flock '"$BUN_HOOK_LOCK"' true && echo FREE'
+assert_not_contains "$BUN_HOOK_OUT" 'Monitor'
+
+BUN_DEFAULT_WAIT_OUT=$(
+  (
+    exec 8<>"$TMP_ROOT/bun-default-wait-lock"
+    flock -n 8 || exit 1
+    printf 'PID=fixture SCRIPT=lint STARTED=now\n' > "$TMP_ROOT/bun-default-wait-lock"
+    sleep 2
+  ) &
+  holder=$!
+  sleep 0.2
+  printf '{"tool_input":{"command":"bun run lint","run_in_background":false}}' \
+    | AI_BUN_LOCK="$TMP_ROOT/bun-default-wait-lock" \
+      MUSI_INTERACTIVE_TIMEOUT=1 \
+      bash "$BUN_HOOK"
+  wait "$holder" 2>/dev/null || true
+)
+assert_contains "$BUN_DEFAULT_WAIT_OUT" '"decision": "block"'
+assert_contains "$BUN_DEFAULT_WAIT_OUT" 'Waited 1s'
+
+assert_claude_bun_lock_wait_subtracts_watchdog_budget() {
+  local fake_bin="$TMP_ROOT/fake-bun-budget-bin"
+  local lock="$TMP_ROOT/bun-budget-lock"
+  local hook_out reason second
+
+  mkdir -p "$fake_bin"
+  cat > "$fake_bin/bun" <<'SH'
+#!/bin/bash
+if [ "$1" = "run" ] && [ "$2" = "lint" ]; then
+  sleep 5
+  exit 0
+fi
+printf 'unexpected fake bun argv: %s\n' "$*" >&2
+exit 64
+SH
+  chmod +x "$fake_bin/bun"
+
+  second=$(date +%s)
+  while [ "$(date +%s)" = "$second" ]; do
+    sleep 0.05
+  done
+  (
+    exec 8<>"$lock"
+    flock -n 8 || exit 1
+    printf 'PID=fixture SCRIPT=lint STARTED=now\n' > "$lock"
+    sleep 1.2
+  ) &
+  holder=$!
+  sleep 0.2
+
+  hook_out=$(
+    printf '{"tool_input":{"command":"bun run lint","run_in_background":false}}' \
+      | AI_BUN_LOCK="$lock" \
+        AI_BUN_LOCK_WAIT=3 \
+        AI_BUN_TIMEOUT=3 \
+        AI_BUN_LOG_DIR="$TMP_ROOT/bun-budget-logs" \
+        AI_BUN_TTL=0 \
+        PATH="$fake_bin:$PATH" \
+        bash "$BUN_HOOK"
+  )
+  wait "$holder" 2>/dev/null || true
+  reason=$(printf '%s' "$hook_out" | jq -r '.reason // empty')
+
+  [ "$(printf '%s' "$hook_out" | jq -r '.decision // empty')" = "block" ] \
+    || fail "Claude bun hook should block after lock wait consumes budget: $hook_out"
+  assert_contains "$reason" "lint killed by watchdog"
+  assert_not_contains "$reason" "at 3s"
+}
 
 assert_response_combined_exit \
   '{"tool_response":{"raw":"plain command output","exit_code":0}}' \
@@ -730,104 +780,6 @@ assert_response_combined_exit \
   '{"tool_response":{"raw":"completed text","status":"completed"}}' \
   "completed text" \
   ""
-
-init_commit_timeout_status_repo() {
-  local name="$1"
-  local repo="$TMP_ROOT/commit-timeout-status-$name"
-
-  mkdir -p "$repo"
-  git init -b main "$repo" >/dev/null 2>&1 || fail "failed to init commit status repo"
-  git -C "$repo" config user.email hooks@example.test
-  git -C "$repo" config user.name "Hook Test"
-  printf 'base\n' > "$repo/file.txt"
-  git -C "$repo" add file.txt
-  git -C "$repo" commit -qm "initial commit" || fail "failed to create initial commit status fixture"
-  printf '%s' "$repo"
-}
-
-assert_commit_timeout_status_no_running_commit() {
-  local repo lock head output rc
-
-  repo=$(init_commit_timeout_status_repo "not-running")
-  lock="$repo/precommit.lock"
-  head=$(git -C "$repo" rev-parse HEAD)
-  printf 'change\n' >> "$repo/file.txt"
-  git -C "$repo" add file.txt
-
-  if output=$(cd "$repo" && MUSI_COMMIT_STATUS_LOCK="$lock" bash "$REPO_ROOT/scripts/ai-hooks/commit-timeout-status.sh" "$head" 1); then
-    rc=0
-  else
-    rc=$?
-  fi
-
-  [ "$rc" -eq 1 ] || fail "commit status helper should exit 1 when no commit is running or landed: $output"
-  assert_contains "$output" "No commit has landed, and the pre-commit lock is not held."
-  assert_contains "$output" "Retry the original git commit command"
-}
-
-assert_commit_timeout_status_waits_for_landing_commit() {
-  local repo lock head output holder commit_pid
-
-  repo=$(init_commit_timeout_status_repo "landing")
-  lock="$repo/precommit.lock"
-  head=$(git -C "$repo" rev-parse HEAD)
-  printf 'change\n' >> "$repo/file.txt"
-  git -C "$repo" add file.txt
-
-  (
-    exec 8<>"$lock"
-    flock -n 8 || exit 1
-    printf 'PID=fixture STARTED=now\n' > "$lock"
-    sleep 1
-  ) &
-  holder=$!
-  sleep 0.1
-  (
-    sleep 0.2
-    git -C "$repo" commit -qm "delayed commit"
-  ) &
-  commit_pid=$!
-
-  output=$(cd "$repo" && MUSI_COMMIT_STATUS_LOCK="$lock" bash "$REPO_ROOT/scripts/ai-hooks/commit-timeout-status.sh" "$head" 5) \
-    || fail "commit status helper should report delayed commit success: $output"
-  wait "$holder" 2>/dev/null || true
-  wait "$commit_pid" 2>/dev/null || fail "delayed commit fixture failed"
-
-  assert_contains "$output" "A commit/pre-commit process still appears to be running"
-  assert_contains "$output" "Commit finished: HEAD moved"
-  assert_contains "$output" "delayed commit"
-}
-
-assert_commit_timeout_status_retries_when_still_running() {
-  local repo lock head output rc holder
-
-  repo=$(init_commit_timeout_status_repo "still-running")
-  lock="$repo/precommit.lock"
-  head=$(git -C "$repo" rev-parse HEAD)
-
-  (
-    exec 8<>"$lock"
-    flock -n 8 || exit 1
-    printf 'PID=fixture STARTED=now\n' > "$lock"
-    sleep 3
-  ) &
-  holder=$!
-  sleep 0.1
-
-  if output=$(cd "$repo" && MUSI_COMMIT_STATUS_LOCK="$lock" bash "$REPO_ROOT/scripts/ai-hooks/commit-timeout-status.sh" "$head" 1); then
-    rc=0
-  else
-    rc=$?
-  fi
-  kill "$holder" 2>/dev/null || true
-  wait "$holder" 2>/dev/null || true
-
-  [ "$rc" -eq 2 ] || fail "commit status helper should exit 2 when lock remains held: $output"
-  assert_contains "$output" "Commit still is not finished after waiting 1s"
-  assert_contains "$output" "Try this status command again"
-  assert_contains "$output" "commit-timeout-status.sh"
-  assert_contains "$output" "$head"
-}
 
 assert_codex_git_commit_unknown_guidance() {
   local tool_id="codex-git-unknown"
@@ -850,13 +802,11 @@ assert_codex_git_commit_unknown_guidance() {
   [ "$(printf '%s' "$codex_out" | jq -r '.decision // empty')" = "block" ] \
     || fail "Codex post hook should block unknown commit output with guidance: $codex_out"
   assert_contains "$reason" "Commit status unknown."
-  assert_contains "$reason" "may still be running and may still land the commit"
-  assert_contains "$reason" "Do not retry git commit immediately"
-  assert_contains "$reason" "Run this status command"
-  assert_contains "$reason" "commit-timeout-status.sh"
-  assert_contains "$reason" "240 seconds"
+  assert_contains "$reason" "Check git status --short and git log -1 --oneline before retrying"
   assert_contains "$reason" "$head"
+  assert_not_contains "$reason" "commit-timeout-status.sh"
   assert_not_contains "$reason" "Monitor"
+  assert_not_contains "$reason" "backgrounded"
   [ ! -f "$state_file" ] || fail "Codex git state file should be removed after post hook"
 }
 
@@ -882,11 +832,10 @@ assert_codex_git_commit_signal_guidance() {
     || fail "Codex post hook should block signal commit output with guidance: $codex_out"
   assert_contains "$reason" "Commit status unknown (exit 124)."
   assert_contains "$reason" "partial output"
-  assert_contains "$reason" "may still be running and may still land the commit"
-  assert_contains "$reason" "Do not retry git commit immediately"
-  assert_contains "$reason" "Run this status command"
-  assert_contains "$reason" "commit-timeout-status.sh"
+  assert_contains "$reason" "Check git status --short and git log -1 --oneline before retrying"
+  assert_not_contains "$reason" "commit-timeout-status.sh"
   assert_not_contains "$reason" "Monitor"
+  assert_not_contains "$reason" "backgrounded"
 }
 
 assert_git_commit_quiet_body_non_commit_passthrough() {
@@ -898,6 +847,77 @@ assert_git_commit_quiet_body_non_commit_passthrough() {
   )
 
   assert_hook_continue_json "$hook_out"
+}
+
+assert_git_commit_quiet_lock_contention_fail_fast() {
+  local lock="$TMP_ROOT/git-commit-quiet-held-lock"
+  local hook_out reason
+
+  (
+    exec 8<>"$lock"
+    flock -n 8 || exit 1
+    printf 'PID=fixture STARTED=now\n' > "$lock"
+    sleep 2
+  ) &
+  holder=$!
+  sleep 0.2
+
+  hook_out=$(
+    printf '{"tool_input":{"command":"git commit -m test"}}' \
+      | AI_GIT_COMMIT_LOCK="$lock" \
+        bash "$REPO_ROOT/scripts/ai-hooks/git-commit-quiet.sh"
+  )
+  wait "$holder" 2>/dev/null || true
+  reason=$(printf '%s' "$hook_out" | jq -r '.reason // empty')
+
+  [ "$(printf '%s' "$hook_out" | jq -r '.decision // empty')" = "block" ] \
+    || fail "git-commit-quiet should block when its worktree lock is held: $hook_out"
+  assert_contains "$reason" "Another git commit is in progress"
+  assert_contains "$reason" "PID=fixture"
+}
+
+assert_git_commit_quiet_shared_queue_blocks_other_worktrees() {
+  local queue_lock="$TMP_ROOT/git-commit-shared-queue-lock"
+  local first_lock="$TMP_ROOT/git-commit-worktree-a.lock"
+  local second_lock="$TMP_ROOT/git-commit-worktree-b.lock"
+  local first_out="$TMP_ROOT/git-commit-shared-first.out"
+  local second_out reason waited=0
+
+  (
+    jq -n --arg cmd "git commit --dry-run >/dev/null 2>&1; sleep 2" \
+      '{tool_input:{command:$cmd}}' \
+      | AI_GIT_COMMIT_LOCK="$first_lock" \
+        MUSI_COMMIT_QUEUE_LOCK="$queue_lock" \
+        AI_GIT_COMMIT_TIMEOUT=5 \
+        bash "$REPO_ROOT/scripts/ai-hooks/git-commit-quiet.sh" > "$first_out"
+  ) &
+  first_pid=$!
+
+  while [ "$waited" -lt 30 ]; do
+    if grep -qF "CMD=git commit --dry-run" "$queue_lock" 2>/dev/null; then
+      break
+    fi
+    sleep 0.1
+    waited=$((waited + 1))
+  done
+  grep -qF "CMD=git commit --dry-run" "$queue_lock" 2>/dev/null \
+    || fail "first git-commit-quiet invocation did not acquire shared queue"
+
+  second_out=$(
+    jq -n --arg cmd "git commit --dry-run" '{tool_input:{command:$cmd}}' \
+      | AI_GIT_COMMIT_LOCK="$second_lock" \
+        MUSI_COMMIT_QUEUE_LOCK="$queue_lock" \
+        MUSI_COMMIT_QUEUE_TIMEOUT=1 \
+        AI_GIT_COMMIT_TIMEOUT=5 \
+        bash "$REPO_ROOT/scripts/ai-hooks/git-commit-quiet.sh"
+  )
+  wait "$first_pid" 2>/dev/null || true
+  reason=$(printf '%s' "$second_out" | jq -r '.reason // empty')
+
+  [ "$(printf '%s' "$second_out" | jq -r '.decision // empty')" = "block" ] \
+    || fail "git-commit-quiet should block on shared queue held by another worktree: $second_out"
+  assert_contains "$reason" "shared commit queue lock"
+  assert_contains "$reason" "CMD=git commit --dry-run"
 }
 
 # G1 regression: the git-commit-quiet hook *executes* the command via `bash -c`,
@@ -991,23 +1011,72 @@ assert_claude_git_commit_timeout_guidance() {
   [ "$(printf '%s' "$hook_out" | jq -r '.decision // empty')" = "block" ] \
     || fail "Claude git commit hook should block timeout with valid JSON: $hook_out"
   assert_contains "$reason" "git commit wrapper timed out"
-  assert_contains "$reason" "may still be running and may still land the commit"
-  assert_contains "$reason" "Do not retry git commit immediately"
-  assert_contains "$reason" "Run this status command"
-  assert_contains "$reason" "commit-timeout-status.sh"
-  assert_contains "$reason" "240 seconds"
+  assert_contains "$reason" "Check git status --short and git log -1 --oneline before retrying"
+  assert_not_contains "$reason" "commit-timeout-status.sh"
   assert_not_contains "$reason" "Monitor"
+  assert_not_contains "$reason" "backgrounded"
 }
 
-assert_commit_timeout_status_no_running_commit
-assert_commit_timeout_status_waits_for_landing_commit
-assert_commit_timeout_status_retries_when_still_running
+assert_no_sleep_marker() {
+  local marker="$1"
+  local pid args found=0
+
+  while IFS= read -r pid; do
+    args=$(ps -o args= -p "$pid" 2>/dev/null || true)
+    if [ "$args" = "sleep $marker" ]; then
+      kill "$pid" 2>/dev/null || true
+      found=1
+    fi
+  done < <(pgrep -x sleep 2>/dev/null || true)
+
+  [ "$found" -eq 0 ] || fail "process tree cleanup left nested sleep $marker running"
+}
+
+assert_claude_bun_timeout_kills_process_tree() {
+  local fake_bin="$TMP_ROOT/fake-bun-bin"
+  local marker="65432"
+  local hook_out reason
+
+  mkdir -p "$fake_bin"
+  cat > "$fake_bin/bun" <<'SH'
+#!/bin/bash
+if [ "$1" = "run" ] && [ "$2" = "lint" ]; then
+  sleep "$AI_BUN_SLEEP_MARKER" &
+  wait "$!"
+  exit $?
+fi
+printf 'unexpected fake bun argv: %s\n' "$*" >&2
+exit 64
+SH
+  chmod +x "$fake_bin/bun"
+
+  hook_out=$(
+    printf '{"tool_input":{"command":"bun run lint","run_in_background":false}}' \
+      | AI_BUN_LOCK="$TMP_ROOT/bun-timeout-lock" \
+        AI_BUN_LOG_DIR="$TMP_ROOT/bun-timeout-logs" \
+        AI_BUN_TIMEOUT=1 \
+        AI_BUN_SLEEP_MARKER="$marker" \
+        PATH="$fake_bin:$PATH" \
+        bash "$REPO_ROOT/.claude/hooks/bun-run-quiet.sh"
+  )
+  reason=$(printf '%s' "$hook_out" | jq -r '.reason // empty')
+
+  [ "$(printf '%s' "$hook_out" | jq -r '.decision // empty')" = "block" ] \
+    || fail "Claude bun hook should block timeout with valid JSON: $hook_out"
+  assert_contains "$reason" "lint killed by watchdog"
+  assert_no_sleep_marker "$marker"
+}
+
 assert_codex_git_commit_unknown_guidance
 assert_codex_git_commit_signal_guidance
 assert_git_commit_quiet_body_non_commit_passthrough
+assert_git_commit_quiet_lock_contention_fail_fast
+assert_git_commit_quiet_shared_queue_blocks_other_worktrees
 assert_git_commit_quiet_amend_blocked_pre_execution
 assert_git_commit_quiet_normal_commit_allowed_by_guard
 assert_claude_git_commit_timeout_guidance
+assert_claude_bun_lock_wait_subtracts_watchdog_budget
+assert_claude_bun_timeout_kills_process_tree
 
 # --- stop-policy hook ---------------------------------------------------------
 # Extracted to a focused script so this behavior family can also run on its own

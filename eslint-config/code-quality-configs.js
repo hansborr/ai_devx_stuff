@@ -1,6 +1,7 @@
 // @ts-check
 
 import simpleImportSort from "eslint-plugin-simple-import-sort";
+import tseslint from "typescript-eslint";
 
 import {
   codeFiles,
@@ -38,6 +39,7 @@ export function createRepoCodeQualityConfigs(repoRoot, localPlugin) {
       files: codeFiles,
       ignores: ["eslint-rules/*.js", ...eslintConfigJsFiles],
       plugins: {
+        "@typescript-eslint": tseslint.plugin,
         "eslint-comments": eslintComments,
         "simple-import-sort": simpleImportSort,
         local: localPlugin,

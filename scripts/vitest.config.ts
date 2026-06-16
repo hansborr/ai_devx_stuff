@@ -1,10 +1,13 @@
 import { defaultExclude, defineProject } from "vitest/config";
 
+import { DEFAULT_VITEST_TEST_TIMEOUT_MS } from "../vitest.config.js";
+
 export default defineProject({
   cacheDir: "../node_modules/.cache/vitest-scripts",
   test: {
     name: "scripts",
     clearMocks: true,
+    testTimeout: DEFAULT_VITEST_TEST_TIMEOUT_MS,
     environment: "node",
     include: ["**/*.test.ts"],
     exclude: [

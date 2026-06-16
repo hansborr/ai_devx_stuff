@@ -1443,7 +1443,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 **Hook wiring:**
 
 - event: `PreToolUse`; canonical order: `30`
-- `claude` — `bash $CLAUDE_PROJECT_DIR/.claude/hooks/bun-run-quiet.sh` (matcher: `Bash`; timeout: `280s`)
+- `claude` — `bash $CLAUDE_PROJECT_DIR/.claude/hooks/bun-run-quiet.sh` (matcher: `Bash`; timeout: `1260s`)
 - `codex` — deliberately not wired: Codex deliberately handles `bun run` cache and quieting inside .codex/hooks/pre-tool-use.sh.
 
 **Paired guide:** none
@@ -1523,7 +1523,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 **Hook wiring:**
 
 - event: `PreToolUse`; canonical order: `20`
-- `claude` — `bash $CLAUDE_PROJECT_DIR/.claude/hooks/git-commit-quiet.sh` (matcher: `Bash`; timeout: `600s`)
+- `claude` — `bash $CLAUDE_PROJECT_DIR/.claude/hooks/git-commit-quiet.sh` (matcher: `Bash`; timeout: `1260s`)
 - `codex` — deliberately not wired: Codex deliberately handles commit state and summaries inside its PreToolUse/PostToolUse Bash aggregators.
 
 **Paired guide:** none

@@ -156,6 +156,22 @@ describe("path policy classification", () => {
     ).toEqual(["scripts/deleted.sh"]);
   });
 
+  it("routes Vitest timeout config changes to the slow-test smoke", () => {
+    const timeoutConfigPaths = [
+      "vitest.config.ts",
+      "vitest.slow.config.ts",
+      "packages/shared/vitest.config.ts",
+      "packages/server/vitest.config.ts",
+      "packages/client/vitest.config.ts",
+      "scripts/vitest.config.ts",
+      "eslint-rules/vitest.config.ts",
+    ];
+
+    for (const configPath of timeoutConfigPaths) {
+      expect(queryPathPolicy("script-smoke-tests", [configPath])).toContain("test-test-slow");
+    }
+  });
+
   it("classifies deletion-like paths by policy only and ignores unsupported paths", () => {
     expect(queryPathPolicy("shell-surface", ["scripts/deleted hook.sh"])).toEqual([
       "scripts/deleted hook.sh",

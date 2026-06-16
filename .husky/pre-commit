@@ -9,14 +9,12 @@
 #
 # Design:
 #   - `flock` keeps this to a single writer. Contention message embeds the
-#     exact Monitor-wait incantation so the contending Claude session
-#     doesn't fall into a log-polling loop.
+#     current lock holder so the contending session can wait without polling.
 #   - Last-verified marker (120s, keyed on HEAD + staged/relevant-input hash)
 #     short-circuits the "re-run just to double-check" reflex. After that
 #     misses, a fresh matching manual verify marker may bridge when its
 #     worktree fingerprint proves the same state was already checked.
-#   - 300s watchdog keeps the git-invoked gate inside the interactive command
-#     budget. On timeout
+#   - 1200s watchdog bounds the git-invoked gate. On timeout
 #     the gate fails closed and prints log paths plus a `verify:logs budget`
 #     pointer; no success marker is written.
 #   - Per-task logs at $LOG_DIR/<task>.log; Passed/Failed status lines let
@@ -148,8 +146,9 @@ if [ "$staged_source_rc" -ne 0 ]; then
   exit "$staged_source_rc"
 fi
 
-# --- 2. Non-blocking lock --------------------------------------------------
-LOCK="${MUSI_VERIFY_LOCK:-/tmp/musi-pre-commit.lock}"
+# --- 2. Non-blocking worktree lock -----------------------------------------
+LOCK="${MUSI_VERIFY_LOCK:-$(musi_standard_verify_lock "$REPO_ROOT")}"
+mkdir -p "$(dirname "$LOCK")"
 exec 9<>"$LOCK"
 if ! flock -n 9; then
   HOLDER=$(cat "$LOCK" 2>/dev/null || true)
@@ -160,14 +159,7 @@ ${HOLDER:-<holder info unavailable>}
 Another pre-commit is in progress. Do NOT re-run git commit — it will
 fail here again and waste tokens on repeated polling.
 
-To wait for the in-progress run WITHOUT polling, launch this command in
-the background and attach the Monitor tool to its output. It blocks
-until the lock releases, then prints exactly one line ("FREE"), which
-Monitor reports as a single notification:
-
-  flock /tmp/musi-pre-commit.lock true && echo FREE
-
-When Monitor tells you "FREE" appeared, retry git commit once. If the
+Wait for the in-progress run to finish before retrying git commit. If the
 original run failed, its summary is already in the earlier tool output.
 EOF
   exit 2
@@ -176,8 +168,57 @@ fi
 # Record holder info (readable by any contender via plain cat).
 { printf 'PID=%s STARTED=%s\n' "$$" "$(date -Iseconds)"; } > "$LOCK"
 
-# --- 3. Last-verified short-circuit ----------------------------------------
-MARKER="${MUSI_PRECOMMIT_MARKER:-/tmp/musi-pre-commit-last}"
+# Default to a 20-minute hard budget. `MUSI_VERIFY_TIMEOUT` stays as a
+# back-compat override; new callers should set `MUSI_INTERACTIVE_TIMEOUT` /
+# `MUSI_INTERACTIVE_WARN_AFTER`.
+TOTAL_TIMEOUT="${MUSI_VERIFY_TIMEOUT:-${MUSI_INTERACTIVE_TIMEOUT:-1200}}"
+WARN_AFTER="${MUSI_INTERACTIVE_WARN_AFTER:-1080}"
+
+# --- 3. Cross-worktree commit queue ----------------------------------------
+# Same-worktree contention fails fast above. Sibling worktrees sharing a Git
+# common dir queue here so pre-commit checks serialize across Claude, Codex,
+# and humans.
+COMMIT_QUEUE_LOCK="${MUSI_COMMIT_QUEUE_LOCK:-$(musi_standard_commit_queue_lock "$REPO_ROOT")}"
+QUEUE_WAITED=0
+if [ "${MUSI_COMMIT_QUEUE_LOCK_ALREADY_HELD:-}" != "1" ]; then
+  COMMIT_QUEUE_WAIT="${MUSI_COMMIT_QUEUE_TIMEOUT:-$TOTAL_TIMEOUT}"
+  if [ "$COMMIT_QUEUE_WAIT" -gt "$TOTAL_TIMEOUT" ]; then
+    COMMIT_QUEUE_WAIT="$TOTAL_TIMEOUT"
+  fi
+  mkdir -p "$(dirname "$COMMIT_QUEUE_LOCK")"
+  exec 8<>"$COMMIT_QUEUE_LOCK"
+  QUEUE_START=$(date +%s)
+  if ! flock -w "$COMMIT_QUEUE_WAIT" 8; then
+    QUEUE_HOLDER=$(cat "$COMMIT_QUEUE_LOCK" 2>/dev/null || true)
+    cat >&2 <<EOF
+=== COMMIT QUEUE BUSY ===
+Waited ${COMMIT_QUEUE_WAIT}s for the shared commit queue lock:
+$COMMIT_QUEUE_LOCK
+
+${QUEUE_HOLDER:-<holder info unavailable>}
+
+Another worktree is already running pre-commit for this repository. Wait for
+that commit to finish, inspect the holder if it appears stuck, then retry.
+EOF
+    exit 2
+  fi
+  QUEUE_WAITED=$(( $(date +%s) - QUEUE_START ))
+  [ "$QUEUE_WAITED" -gt 5 ] && printf 'pre-commit: waited %ss for shared commit queue %s\n' "$QUEUE_WAITED" "$COMMIT_QUEUE_LOCK" >&2
+  {
+    printf 'PID=%s WORKTREE=%s STARTED=%s\n' "$$" "$REPO_ROOT" "$(date -Iseconds)"
+  } > "$COMMIT_QUEUE_LOCK"
+fi
+
+TIMEOUT=$(( TOTAL_TIMEOUT - QUEUE_WAITED ))
+if [ "$TIMEOUT" -le 0 ]; then
+  printf '=== PRE-COMMIT TIMED OUT (%ss budget spent waiting for commit queue) ===\n' "$TOTAL_TIMEOUT" >&2
+  printf 'Timed out before checks could start.\n' >&2
+  printf 'inspect: bun run verify:logs budget\n' >&2
+  exit 124
+fi
+
+# --- 4. Last-verified short-circuit ----------------------------------------
+MARKER="${MUSI_PRECOMMIT_MARKER:-$(musi_standard_precommit_marker "$REPO_ROOT")}"
 if [ -f "$MARKER" ] && [ "${FORCE_VERIFY:-}" != "1" ]; then
   CUR_HEAD=$(git rev-parse HEAD 2>/dev/null || echo none)
   CUR_HASH=$(ai_precommit_fingerprint "$REPO_ROOT")
@@ -199,18 +240,14 @@ if musi_try_verify_marker_bridge "$REPO_ROOT" "$MARKER" 120; then
   exit 0
 fi
 
-# --- 4. Watchdog (_over_ Claude's session-cache budget) ---------------------
-# Keep the default under the interactive cache budget. `MUSI_VERIFY_TIMEOUT`
-# stays as a back-compat override; new callers should set
-# `MUSI_INTERACTIVE_TIMEOUT` / `MUSI_INTERACTIVE_WARN_AFTER`.
-TIMEOUT="${MUSI_VERIFY_TIMEOUT:-${MUSI_INTERACTIVE_TIMEOUT:-300}}"
-WARN_AFTER="${MUSI_INTERACTIVE_WARN_AFTER:-260}"
+# --- 5. Watchdog ------------------------------------------------------------
 HOOK_PID=$$
 (
   # Close FD 9 so our `sleep` child doesn't inherit the flock — otherwise
   # if we're killed before sleep finishes, sleep orphans to init still
   # holding the lock, blocking the next commit until TIMEOUT elapses.
   exec 9<&-
+  exec 8<&-
   SLEEP_PID=""
   trap '[ -n "$SLEEP_PID" ] && kill "$SLEEP_PID" 2>/dev/null; exit 0' TERM INT
   sleep "$TIMEOUT" &
@@ -222,9 +259,9 @@ HOOK_PID=$$
 ) &
 WD=$!
 
-# --- 5. Parallel tasks -----------------------------------------------------
-LOG_DIR="${MUSI_VERIFY_LOG_DIR:-/tmp/musi-pre-commit-logs}"
-HISTORY_DIR="${MUSI_VERIFY_HISTORY_DIR:-/tmp/musi-verify-history}"
+# --- 6. Parallel tasks -----------------------------------------------------
+LOG_DIR="${MUSI_VERIFY_LOG_DIR:-$(musi_standard_verify_log_dir "$REPO_ROOT")}"
+HISTORY_DIR="${MUSI_VERIFY_HISTORY_DIR:-$(musi_standard_verify_history_dir "$REPO_ROOT")}"
 rm -rf "$LOG_DIR"
 mkdir -p "$LOG_DIR" "$LOG_DIR/meta"
 # shellcheck disable=SC2034 # Consumed by scripts/verify/steps.generated.sh.
@@ -354,7 +391,7 @@ for index in "${!STEP_NAMES[@]}"; do
 done
 PARALLEL_PIDS=()
 
-# --- 6. Aggregate results --------------------------------------------------
+# --- 7. Aggregate results --------------------------------------------------
 passed=""; failed=""
 for index in "${!STEP_NAMES[@]}"; do
   task="${STEP_NAMES[$index]}"
@@ -402,7 +439,7 @@ musi_write_wrapper_meta "$META_DIR/wrapper.json" parallel-precommit \
 musi_combine_run_meta "$LOG_DIR" parallel-precommit "$META_DIR/wrapper.json"
 musi_persist_run_meta_history "$LOG_DIR" "$HISTORY_DIR"
 
-# --- 7. Success marker -----------------------------------------------------
+# --- 8. Success marker -----------------------------------------------------
 if ! musi_write_success_marker "$MARKER" \
     "$(git rev-parse HEAD 2>/dev/null || echo none)" \
     "$(ai_precommit_fingerprint "$REPO_ROOT")"; then

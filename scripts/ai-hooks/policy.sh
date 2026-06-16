@@ -17,16 +17,10 @@ AI_POLICY_GIT_BRANCH_FORCE_DELETE="Force-deleting branches, deleting tags, or fo
 AI_POLICY_GIT_CLEAN_FORCE="Git clean with force is not allowed from agents because it destroys untracked files. Remove specific generated files by name or ask the user to clean the tree."
 AI_POLICY_GH_REMOTE_MUTATION="GitHub remote mutations are not allowed from agents. Use read-only 'gh ... view/list/status' commands, or ask the user to perform the mutation."
 AI_POLICY_GH_AUTH="GitHub auth token output and auth reconfiguration are not allowed from agents. Use 'gh auth status' for read-only auth checks, or ask the user to manage authentication."
-AI_POLICY_GREP="grep can dump minified/build files. Use 'rg' instead: 'rg pattern path/', or 'find | rg -v node_modules', etc. For TypeScript symbol work, start with 'bun run code:intel -- def --name <symbol>' or use 'bun run code:intel -- {def|exports|dependents|refs|tests} ...'."
 AI_FLAKY_NOTE="Note: If this failure looks flaky (passes in isolation, fails under load), ensure you document it under docs/agent_notes/observed_flaky_tests.md if you are unable to resolve it right now."
 
 AI_WRAPPED_BUN_RE='^bun run (lint|lint:changed|lint:fix|typecheck|test|test:changed|test:server|test:client|test:client:isolated|test:client:split|test:shared|test:coverage|test:slow|e2e|format|format:check|format:changed|format:changed:check|build|code:intel|verify|verify:changed|verify:slow|verify:logs|verify:async:status|verify:async:tail|verify:async:stop)( --| [A-Za-z0-9._:/=-]+| --[A-Za-z0-9._=-]+)*$'
 AI_POLICY_CMD_START='(^[[:space:]]*|[;&|][[:space:]]*)'
-# Same as CMD_START but excludes `|` so a policy can opt to allow pipeline
-# filter use (e.g. `cmd | grep pattern`) while still blocking the command at
-# start-of-line or after `;` / `&&`. Also avoids false positives from `|`
-# inside quoted regex alternations like `rg "FOO|BAR" file`.
-AI_POLICY_CMD_START_NO_PIPE='(^[[:space:]]*|[;&][[:space:]]*)'
 AI_POLICY_CMD_END="($|[[:space:];|&'\"])"
 AI_POLICY_ENV_PREFIX='env[[:space:]]+([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]+[[:space:]]+)+'
 AI_POLICY_SHELL_PREFIX="(bash|sh)[[:space:]]+-[^[:space:]]*c[^[:space:]]*[[:space:]]+['\"]?"
@@ -244,22 +238,13 @@ ai_policy_violation_reason() {
     return 0
   fi
 
-  if ai_policy_has_command "$cmd" "(e?grep|fgrep)[[:space:]]([^;&|]*[[:space:]])?(-[a-zA-Z]*[rR][a-zA-Z]*|--recursive)$AI_POLICY_CMD_END" "$AI_POLICY_CMD_START_NO_PIPE"; then
-    printf '%s' "$AI_POLICY_GREP"
-    return 0
-  fi
-
   return 1
 }
 
 # Soft-guidance policies nudge toward a better command instead of forbidding an
-# action; the nudged command is one we do NOT want to run. Keep this list
-# agent-neutral — each adapter decides how or whether to act on it.
+# action. No soft guidance policies are currently active.
 ai_policy_is_soft_guidance() {
-  case "$1" in
-    "$AI_POLICY_GREP") return 0 ;;
-    *) return 1 ;;
-  esac
+  return 1
 }
 
 # Self-block guard for *executing* hooks. PreToolUse Bash hooks that run the
@@ -267,9 +252,7 @@ ai_policy_is_soft_guidance() {
 # the executing hook's side effect lands regardless of what no-direct-db.sh or the
 # harness deny globs decide in parallel (G1 — the amend rewrote HEAD even though
 # the agent saw a "blocked" message). Call this *before* the lock/exec so a
-# forbidden command is denied before any mutation. Hard policies emit a block and
-# exit (via ai_emit_block); soft nudges (e.g. grep guidance) are advisory and are
-# left for no-direct-db.sh to surface, so this guard does not block on them.
+# forbidden command is denied before any mutation.
 # Requires ai_emit_block from common.sh (executing hooks already source it).
 ai_preflight_or_block() {
   local cmd="$1"

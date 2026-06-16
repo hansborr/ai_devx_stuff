@@ -1093,7 +1093,7 @@
           "claude": {
             "matcher": "Bash",
             "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/git-commit-quiet.sh",
-            "timeout": 600
+            "timeout": 1260
           }
         },
         "notes": {
@@ -1117,7 +1117,7 @@
           "claude": {
             "matcher": "Bash",
             "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/bun-run-quiet.sh",
-            "timeout": 280
+            "timeout": 1260
           }
         },
         "notes": {

@@ -227,7 +227,7 @@ ai_stop_e2e_status() {
   if [ -n "$marker" ] && ai_read_bun_marker "$marker"; then
     now=$(date +%s)
     age=$((now - AI_MARKER_LAST_TS))
-    if [ "$age" -lt "${AI_BUN_TTL:-1800}" ] && [ "$AI_MARKER_LAST_FP" = "$fp" ]; then
+    if [ "$age" -lt "${AI_BUN_TTL:-3600}" ] && [ "$AI_MARKER_LAST_FP" = "$fp" ]; then
       exit_code=$AI_MARKER_LAST_EXIT
     fi
   fi
@@ -586,7 +586,7 @@ ai_stop_verify_status() {
   ai_stop_verify_disabled "$repo_root" && return 1
   git -C "$repo_root" rev-parse --is-inside-work-tree >/dev/null 2>&1 || return 1
 
-  log_dir="${MUSI_VERIFY_LOG_DIR:-/tmp/musi-pre-commit-logs}"
+  log_dir="${MUSI_VERIFY_LOG_DIR:-$(musi_standard_verify_log_dir "$repo_root")}"
   wrapper="$log_dir/meta/wrapper.json"
   [ -f "$wrapper" ] || return 1
 

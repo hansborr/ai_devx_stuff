@@ -8,15 +8,17 @@ AI_HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=/dev/null
 . "$AI_HOOKS_DIR/../lib/verify-metadata.sh"
 
-AI_STATE_ROOT="${AI_STATE_ROOT:-/tmp/musi-ai-hooks}"
+AI_CACHE_REPO_ROOT="${REPO_ROOT:-$(git -C "$AI_HOOKS_DIR" rev-parse --show-toplevel 2>/dev/null || git rev-parse --show-toplevel 2>/dev/null || printf '/workspace')}"
+AI_WORKTREE_STATE_KEY="${MUSI_WORKTREE_STATE_KEY:-$(musi_worktree_key "$AI_CACHE_REPO_ROOT")}"
+AI_STATE_ROOT="${AI_STATE_ROOT:-/tmp/musi-ai-hooks.$AI_WORKTREE_STATE_KEY}"
 AI_GIT_STATE_DIR="${AI_GIT_STATE_DIR:-$AI_STATE_ROOT/git}"
 AI_BUN_STATE_DIR="${AI_BUN_STATE_DIR:-$AI_STATE_ROOT/bun}"
 AI_STOP_STATE_DIR="${AI_STOP_STATE_DIR:-$AI_STATE_ROOT/stop}"
 AI_THROTTLE_STATE_DIR="${AI_THROTTLE_STATE_DIR:-${AI_LINT_COVERAGE_STATE_DIR:-$AI_STATE_ROOT/throttle}}"
 AI_LINT_COVERAGE_STATE_DIR="${AI_LINT_COVERAGE_STATE_DIR:-$AI_THROTTLE_STATE_DIR}"
-AI_BUN_LOG_DIR="${AI_BUN_LOG_DIR:-/tmp/musi-bun-logs}"
-AI_BUN_TTL="${AI_BUN_TTL:-1800}"
-AI_PRECOMMIT_LOG_DIR="${AI_PRECOMMIT_LOG_DIR:-/tmp/musi-pre-commit-logs}"
+AI_BUN_LOG_DIR="${AI_BUN_LOG_DIR:-$(musi_standard_bun_log_dir "$AI_CACHE_REPO_ROOT")}"
+AI_BUN_TTL="${AI_BUN_TTL:-3600}"
+AI_PRECOMMIT_LOG_DIR="${AI_PRECOMMIT_LOG_DIR:-$(musi_standard_verify_log_dir "$AI_CACHE_REPO_ROOT")}"
 
 ai_cache_init() {
   mkdir -p "$AI_GIT_STATE_DIR" "$AI_BUN_STATE_DIR" "$AI_STOP_STATE_DIR" "$AI_THROTTLE_STATE_DIR" "$AI_BUN_LOG_DIR" "$AI_PRECOMMIT_LOG_DIR"

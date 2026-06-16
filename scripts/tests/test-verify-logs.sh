@@ -25,11 +25,11 @@ PRECOMMIT_MARKER="$SANDBOX/precommit-marker"
 mkdir -p "$PRECOMMIT_LOG_DIR" "$BUN_LOG_DIR"
 
 run_logs() {
-  # The budget view reports ${MUSI_INTERACTIVE_TIMEOUT:-300}; neutralize that var
+  # The budget view reports ${MUSI_INTERACTIVE_TIMEOUT:-1200}; neutralize that var
   # (and its MUSI_VERIFY_TIMEOUT back-compat alias) so the default-budget assertion
   # is hermetic. Otherwise any ambient override leaks in — e.g. verify:async sets
   # MUSI_INTERACTIVE_TIMEOUT to its exec timeout, which would make this test report
-  # that value instead of the 300s default it is asserting.
+  # that value instead of the default it is asserting.
   env -u MUSI_INTERACTIVE_TIMEOUT -u MUSI_VERIFY_TIMEOUT \
     MUSI_VERIFY_LOG_DIR="$PRECOMMIT_LOG_DIR" \
     AI_BUN_LOG_DIR="$BUN_LOG_DIR" \
@@ -409,8 +409,8 @@ cat > "$PRECOMMIT_LOG_DIR/run-meta.json" <<'JSON'
     "name": "wrapper",
     "mode": "parallel-precommit",
     "start_time": "2026-05-03T00:00:00+00:00",
-    "end_time": "2026-05-03T00:04:25+00:00",
-    "elapsed_seconds": 265,
+    "end_time": "2026-05-03T00:18:20+00:00",
+    "elapsed_seconds": 1100,
     "exit_code": 0,
     "command": ".husky/pre-commit"
   },
@@ -438,13 +438,13 @@ cat > "$PRECOMMIT_LOG_DIR/run-meta.json" <<'JSON'
 JSON
 output=$(run_logs budget)
 grep -qF '== budget ==' <<< "$output" || fail "budget view missed heading"
-# Default budget is warn=260s / hard=300s (raised from 210/240 for the contended
-# changed surface, T1). The reporter's defaults must track verify.sh / pre-commit.
-grep -qF 'budget: warn=260s hard=300s' <<< "$output" \
-  || fail "budget view should report the default warn=260s hard=300s budget"
+# Default budget is warn=1080s / hard=1200s. The reporter's defaults must track
+# verify.sh / pre-commit.
+grep -qF 'budget: warn=1080s hard=1200s' <<< "$output" \
+  || fail "budget view should report the default warn=1080s hard=1200s budget"
 grep -qF 'state=WARN-BUDGET-EXCEEDED' <<< "$output" \
-  || fail "budget view should warn when wrapper exceeds the 260s soft budget"
-grep -qE 'wrapper: 265s mode=parallel-precommit exit=0' <<< "$output" \
+  || fail "budget view should warn when wrapper exceeds the 1080s soft budget"
+grep -qE 'wrapper: 1100s mode=parallel-precommit exit=0' <<< "$output" \
   || fail "budget view missed wrapper timing"
 grep -qE 'parallel-precommit +test +200s +0 +bun run test:changed' <<< "$output" \
   || fail "budget view missed per-step timing"

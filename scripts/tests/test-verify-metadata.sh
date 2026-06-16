@@ -243,6 +243,51 @@ new_repo() {
   printf '%s\n' "$repo"
 }
 
+# --- standard state paths are scoped per worktree -----------------------------
+repo="$(new_repo state-path-primary)"
+sibling="$SANDBOX/state-path-sibling"
+git -C "$repo" worktree add -q -b state-path-sibling "$sibling" HEAD
+for helper in \
+  musi_standard_precommit_marker \
+  musi_standard_verify_changed_marker \
+  musi_standard_verify_full_marker \
+  musi_standard_verify_log_dir \
+  musi_standard_verify_history_dir \
+  musi_standard_verify_lock \
+  musi_standard_bun_log_dir \
+  musi_standard_bun_lock \
+  musi_standard_git_commit_lock
+do
+  primary_path=$(MUSI_VERIFY_STATE_ROOT="$SANDBOX/default-state" "$helper" "$repo")
+  sibling_path=$(MUSI_VERIFY_STATE_ROOT="$SANDBOX/default-state" "$helper" "$sibling")
+  [ -n "$primary_path" ] || fail "$helper returned an empty path for primary worktree"
+  [ -n "$sibling_path" ] || fail "$helper returned an empty path for sibling worktree"
+  [ "$primary_path" != "$sibling_path" ] \
+    || fail "$helper should differ for same-HEAD sibling worktrees: $primary_path"
+done
+ok "standard verification state paths are worktree-scoped"
+
+# --- commit queue state path is scoped per Git common dir ---------------------
+primary_queue=$(MUSI_VERIFY_STATE_ROOT="$SANDBOX/default-state" musi_standard_commit_queue_lock "$repo")
+sibling_queue=$(MUSI_VERIFY_STATE_ROOT="$SANDBOX/default-state" musi_standard_commit_queue_lock "$sibling")
+[ -n "$primary_queue" ] || fail "musi_standard_commit_queue_lock returned an empty path for primary worktree"
+[ "$primary_queue" = "$sibling_queue" ] \
+  || fail "commit queue lock should match for sibling worktrees: $primary_queue != $sibling_queue"
+case "$primary_queue" in
+  "$SANDBOX/default-state"/musi-commit-queue.lock.*) ;;
+  *) fail "commit queue lock should honor MUSI_VERIFY_STATE_ROOT: $primary_queue" ;;
+esac
+
+unrelated_repo="$(new_repo state-path-unrelated)"
+unrelated_queue=$(MUSI_VERIFY_STATE_ROOT="$SANDBOX/default-state" musi_standard_commit_queue_lock "$unrelated_repo")
+[ "$primary_queue" != "$unrelated_queue" ] \
+  || fail "commit queue lock should differ for unrelated repositories: $primary_queue"
+
+override_queue=$(MUSI_STANDARD_COMMIT_QUEUE_LOCK="$SANDBOX/override/commit-queue.lock" musi_standard_commit_queue_lock "$repo")
+[ "$override_queue" = "$SANDBOX/override/commit-queue.lock" ] \
+  || fail "commit queue lock should honor MUSI_STANDARD_COMMIT_QUEUE_LOCK: $override_queue"
+ok "commit queue state path is Git-common-dir scoped"
+
 # --- ai_staged_fingerprint changes when staged content changes ----------------
 repo="$(new_repo staged-fp-change)"
 fp1=$(ai_staged_fingerprint "$repo")

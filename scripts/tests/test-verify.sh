@@ -135,6 +135,13 @@ run_verify() {
     bash "$VERIFY" "$@"
 }
 
+run_verify_state_root() {
+  STUB_LOG="$STUB_LOG_FILE" \
+  PATH="$SANDBOX/bin:$PATH" \
+  MUSI_VERIFY_STATE_ROOT="$1" \
+    bash "$VERIFY" "${@:2}"
+}
+
 write_required_dist_outputs() {
   mkdir -p \
     packages/shared/dist/dice \
@@ -228,6 +235,15 @@ ok "verify --changed writes changed parallel run metadata"
 history_match="$(find "$HISTORY_DIR" -maxdepth 1 -type f -name '*-parallel-verify-changed-0.json' -print -quit)"
 [ -n "$history_match" ] || fail "verify --changed did not persist successful run metadata history"
 ok "verify --changed persists successful run metadata history"
+
+# A fresh worktree-scoped state root must not fail before verification starts.
+FRESH_STATE_ROOT="$SANDBOX/fresh-state-root"
+rm -rf "$FRESH_STATE_ROOT"
+: > "$STUB_LOG_FILE"
+run_verify_state_root "$FRESH_STATE_ROOT" --changed >/dev/null \
+  || fail "verify --changed should create lock/log/marker parents under MUSI_VERIFY_STATE_ROOT"
+[ -d "$FRESH_STATE_ROOT" ] || fail "verify --changed did not create MUSI_VERIFY_STATE_ROOT"
+ok "verify --changed creates fresh MUSI_VERIFY_STATE_ROOT parents"
 
 # When ignored package dist outputs are missing, changed-mode keeps the other
 # parallel slots running but defers lint until the existing typecheck slot has

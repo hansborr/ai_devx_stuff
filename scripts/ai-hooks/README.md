@@ -44,6 +44,24 @@ gaps are allowed only when they are deliberate and documented in
 `harness.controls.json` with `hookWiring.notes.<harness>`, so the generated
 controls doc explains why an adapter is absent.
 
+## Locking
+
+The Claude `bun-run-quiet` wrapper keeps a worktree-scoped lock because it
+protects shared Bun result markers and log files. Its default lock wait uses the
+same interactive budget as verification (`MUSI_VERIFY_TIMEOUT`,
+`MUSI_INTERACTIVE_TIMEOUT`, then `1200` seconds), and time spent waiting is
+subtracted from the post-lock watchdog. `AI_BUN_LOCK_WAIT` and `AI_BUN_TIMEOUT`
+remain overrides; the lock wait is capped to the total hook budget so one
+wrapper invocation does not consume multiple interactive windows.
+
+Commit queueing has two layers. `.husky/pre-commit` fail-fasts on the
+worktree-scoped verify lock, then waits on a Git-common-dir commit queue lock so
+sibling worktrees sharing the same repository serialize pre-commit checks across
+Claude, Codex, and human commits. Claude's executing `git-commit-quiet` wrapper
+also takes that Git-common-dir queue around the full child `git commit`, while
+keeping its worktree-scoped lock nonblocking for same-worktree duplicate
+commits.
+
 ## `hookWiring`
 
 `harness.controls.json` is the source for `.claude/settings.json` hooks and

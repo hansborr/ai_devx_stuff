@@ -354,6 +354,211 @@ ok "pre-commit treats corrupt success marker as a cache miss"
 )
 ok "pre-commit prints format hint on format-check failure"
 
+lock_repo="$TMP_ROOT/precommit-lock-repo"
+copy_precommit_fixture "$lock_repo"
+(
+  cd "$lock_repo"
+  git init -q
+  git config user.name "Test User"
+  git config user.email "test@example.invalid"
+  git add .husky scripts bin
+  git commit -q -m init
+  mkdir -p packages
+  printf 'source\n' > packages/example.ts
+  git add packages/example.ts
+
+  stub_log="$lock_repo/bun-lock.log"
+  verify_lock="$lock_repo/precommit-held.lock"
+  : > "$stub_log"
+  (
+    exec 8<>"$verify_lock"
+    flock -n 8 || exit 1
+    printf 'PID=fixture STARTED=now\n' > "$verify_lock"
+    sleep 2
+  ) &
+  holder=$!
+  sleep 0.2
+
+  set +e
+  output="$(
+    PATH="$lock_repo/bin:$PATH" \
+    STUB_LOG="$stub_log" \
+    MUSI_VERIFY_LOCK="$verify_lock" \
+    MUSI_COMMIT_QUEUE_LOCK="$lock_repo/queue-unused.lock" \
+      sh .husky/pre-commit 2>&1
+  )"
+  exit_code=$?
+  set -e
+  wait "$holder" 2>/dev/null || true
+
+  [ "$exit_code" -eq 2 ] || fail "same-worktree pre-commit contention should exit 2, got $exit_code: $output"
+  grep -qF "PRE-COMMIT ALREADY RUNNING" <<< "$output" \
+    || fail "same-worktree contention missing fail-fast heading: $output"
+  grep -qF "PID=fixture" <<< "$output" \
+    || fail "same-worktree contention missing holder details: $output"
+  [ ! -s "$stub_log" ] || fail "same-worktree contention should fail before invoking bun"
+)
+ok "pre-commit same-worktree contention still fails fast"
+
+queue_repo="$TMP_ROOT/precommit-queue-repo"
+copy_precommit_fixture "$queue_repo"
+cat > "$queue_repo/bin/bun" <<'STUB'
+#!/usr/bin/env sh
+if [ -e "/proc/$$/fd/8" ]; then
+  printf 'FD8_OPEN stub bun %s\n' "$*" >> "$STUB_LOG"
+  exit 70
+fi
+printf 'stub bun %s\n' "$*" >> "$STUB_LOG"
+exit 0
+STUB
+chmod +x "$queue_repo/bin/bun"
+(
+  cd "$queue_repo"
+  git init -q
+  git config user.name "Test User"
+  git config user.email "test@example.invalid"
+  git add .husky scripts bin
+  git commit -q -m init
+  mkdir -p packages
+  printf 'source\n' > packages/example.ts
+  git add packages/example.ts
+
+  stub_log="$queue_repo/bun-queue-success.log"
+  queue_lock="$queue_repo/shared-commit-queue.lock"
+  : > "$stub_log"
+  (
+    exec 8<>"$queue_lock"
+    flock -n 8 || exit 1
+    printf 'PID=queue-fixture WORKTREE=other STARTED=now\n' > "$queue_lock"
+    sleep 1
+  ) &
+  holder=$!
+  sleep 0.2
+
+  output="$(
+    PATH="$queue_repo/bin:$PATH" \
+    STUB_LOG="$stub_log" \
+    MUSI_VERIFY_LOCK="$queue_repo/precommit-queue-success.lock" \
+    MUSI_COMMIT_QUEUE_LOCK="$queue_lock" \
+    MUSI_PRECOMMIT_MARKER="$queue_repo/precommit-queue-success-marker" \
+    MUSI_VERIFY_LOG_DIR="$queue_repo/precommit-queue-success-logs" \
+      sh .husky/pre-commit 2>&1
+  )" || fail "pre-commit should wait for shared commit queue then succeed: $output"
+  wait "$holder" 2>/dev/null || true
+
+  grep -qF "pre-commit: OK" <<< "$output" \
+    || fail "queued pre-commit missing OK output: $output"
+  grep -qF "stub bun run lint:changed" "$stub_log" \
+    || fail "queued pre-commit did not run checks after queue released"
+  ! grep -qF "FD8_OPEN" "$stub_log" \
+    || fail "pre-commit leaked shared queue fd into bun child: $(cat "$stub_log")"
+)
+ok "pre-commit waits for shared commit queue and then runs"
+
+queue_inherited_repo="$TMP_ROOT/precommit-queue-inherited-repo"
+copy_precommit_fixture "$queue_inherited_repo"
+cat > "$queue_inherited_repo/bin/bun" <<'STUB'
+#!/usr/bin/env sh
+if [ -e "/proc/$$/fd/8" ]; then
+  printf 'FD8_OPEN stub bun %s\n' "$*" >> "$STUB_LOG"
+  exit 70
+fi
+if [ "${MUSI_COMMIT_QUEUE_LOCK_ALREADY_HELD:-}" = "1" ]; then
+  printf 'QUEUE_ENV_OPEN stub bun %s\n' "$*" >> "$STUB_LOG"
+  exit 71
+fi
+printf 'stub bun %s\n' "$*" >> "$STUB_LOG"
+exit 0
+STUB
+chmod +x "$queue_inherited_repo/bin/bun"
+(
+  cd "$queue_inherited_repo"
+  git init -q
+  git config user.name "Test User"
+  git config user.email "test@example.invalid"
+  git add .husky scripts bin
+  git commit -q -m init
+  mkdir -p packages
+  printf 'source\n' > packages/example.ts
+  git add packages/example.ts
+
+  stub_log="$queue_inherited_repo/bun-queue-inherited.log"
+  queue_lock="$queue_inherited_repo/shared-commit-queue-inherited.lock"
+  : > "$stub_log"
+  exec 8<>"$queue_lock"
+  flock -n 8 || fail "failed to acquire inherited queue lock fixture"
+  printf 'PID=queue-parent WORKTREE=wrapper STARTED=now\n' > "$queue_lock"
+
+  output="$(
+    PATH="$queue_inherited_repo/bin:$PATH" \
+    STUB_LOG="$stub_log" \
+    MUSI_VERIFY_LOCK="$queue_inherited_repo/precommit-queue-inherited.lock" \
+    MUSI_COMMIT_QUEUE_LOCK="$queue_lock" \
+    MUSI_COMMIT_QUEUE_LOCK_ALREADY_HELD=1 \
+    MUSI_COMMIT_QUEUE_TIMEOUT=1 \
+    MUSI_PRECOMMIT_MARKER="$queue_inherited_repo/precommit-queue-inherited-marker" \
+    MUSI_VERIFY_LOG_DIR="$queue_inherited_repo/precommit-queue-inherited-logs" \
+      sh .husky/pre-commit 2>&1
+  )" || fail "pre-commit should run when parent wrapper already holds queue: $output"
+
+  grep -qF "pre-commit: OK" <<< "$output" \
+    || fail "inherited-queue pre-commit missing OK output: $output"
+  grep -qF "stub bun run lint:changed" "$stub_log" \
+    || fail "inherited-queue pre-commit did not run checks"
+  ! grep -qF "FD8_OPEN" "$stub_log" \
+    || fail "inherited-queue pre-commit leaked queue fd into bun child: $(cat "$stub_log")"
+  ! grep -qF "QUEUE_ENV_OPEN" "$stub_log" \
+    || fail "inherited-queue pre-commit leaked queue env into bun child: $(cat "$stub_log")"
+)
+ok "pre-commit honors inherited commit queue without leaking it to steps"
+
+queue_timeout_repo="$TMP_ROOT/precommit-queue-timeout-repo"
+copy_precommit_fixture "$queue_timeout_repo"
+(
+  cd "$queue_timeout_repo"
+  git init -q
+  git config user.name "Test User"
+  git config user.email "test@example.invalid"
+  git add .husky scripts bin
+  git commit -q -m init
+  mkdir -p packages
+  printf 'source\n' > packages/example.ts
+  git add packages/example.ts
+
+  stub_log="$queue_timeout_repo/bun-queue-timeout.log"
+  queue_lock="$queue_timeout_repo/shared-commit-queue-timeout.lock"
+  : > "$stub_log"
+  (
+    exec 8<>"$queue_lock"
+    flock -n 8 || exit 1
+    printf 'PID=queue-timeout-fixture WORKTREE=other STARTED=now\n' > "$queue_lock"
+    sleep 3
+  ) &
+  holder=$!
+  sleep 0.2
+
+  set +e
+  output="$(
+    PATH="$queue_timeout_repo/bin:$PATH" \
+    STUB_LOG="$stub_log" \
+    MUSI_VERIFY_LOCK="$queue_timeout_repo/precommit-queue-timeout.lock" \
+    MUSI_COMMIT_QUEUE_LOCK="$queue_lock" \
+    MUSI_COMMIT_QUEUE_TIMEOUT=1 \
+      sh .husky/pre-commit 2>&1
+  )"
+  exit_code=$?
+  set -e
+  wait "$holder" 2>/dev/null || true
+
+  [ "$exit_code" -eq 2 ] || fail "commit queue timeout should exit 2, got $exit_code: $output"
+  grep -qF "COMMIT QUEUE BUSY" <<< "$output" \
+    || fail "commit queue timeout missing heading: $output"
+  grep -qF "PID=queue-timeout-fixture" <<< "$output" \
+    || fail "commit queue timeout missing holder details: $output"
+  [ ! -s "$stub_log" ] || fail "commit queue timeout should fail before invoking bun"
+)
+ok "pre-commit reports shared commit queue timeout with holder details"
+
 gate_repo="$TMP_ROOT/gate-repo"
 mkdir -p "$gate_repo/scripts/ai-hooks" "$gate_repo/scripts/lib" "$gate_repo/.husky" "$gate_repo/node_modules/.bin" "$gate_repo/bin" "$gate_repo/eslint-rules"
 cp "$SCRIPT_DIR/../dependency-freshness.sh" "$gate_repo/scripts/dependency-freshness.sh"
