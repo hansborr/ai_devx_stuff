@@ -1,0 +1,8 @@
+interface:
+  display_name: "Sync from upstream"
+  short_description: "Re-mirror this clone from the upstream Musi repo at /workspace"
+  default_prompt: >-
+    Use $sync-from-upstream to re-mirror this stripped-down clone from the
+    upstream Musi repo. Run `bash scripts/sync-from-upstream.sh` to preview,
+    `--apply` to write, then hand the user a commit message (this clone's
+    commit-msg hook can't run).
