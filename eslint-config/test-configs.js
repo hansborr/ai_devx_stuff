@@ -1,13 +1,11 @@
 // @ts-check
 
+import testingLibraryPlugin from "eslint-plugin-testing-library";
 import vitestPlugin from "@vitest/eslint-plugin";
 import playwright from "eslint-plugin-playwright";
 
 import {
   codemodTestFiles,
-  e2eNoNthMethodsDebtFiles,
-  e2ePreferNativeLocatorDebtFiles,
-  e2ePreferRoleSelectorDebtFiles,
   nonE2eTestIgnores,
   scriptTestAssertFunctionNames,
   unitTestFiles,
@@ -72,6 +70,7 @@ export function createTestAndE2eConfigs(repoRoot) {
           {
             assertFunctionPatterns: [
               "^expect",
+              "^addSpell$",
               "^castSingleTargetSpell$",
               "^performShortRest$",
               "^prepareSpell$",
@@ -91,23 +90,6 @@ export function createTestAndE2eConfigs(repoRoot) {
         "local/type-assertion-boundary": "error",
       },
     },
-
-    {
-      // Existing selector debt is held by ratchet floors; clean e2e files keep
-      // the matching rule at error through the base e2e block above.
-      files: e2ePreferRoleSelectorDebtFiles,
-      rules: { "local/e2e-prefer-role-selectors": "off" },
-    },
-
-    {
-      files: e2eNoNthMethodsDebtFiles,
-      rules: { "playwright/no-nth-methods": "off" },
-    },
-
-    {
-      files: e2ePreferNativeLocatorDebtFiles,
-      rules: { "playwright/prefer-native-locators": "off" },
-    },
   ];
 }
 
@@ -118,6 +100,11 @@ export const unitTestConfigs = [
       "max-lines": "off",
       "local/max-lines": "off",
       "max-lines-per-function": "off",
+      // Off (not a raised cap) to match the sibling size rules above: tests
+      // legitimately fan out optional-chains and dispatch in assertion-heavy
+      // callbacks/fakes, and there is no complexity ratchet underneath (every
+      // ratchet is message-count), so nothing is undercut. agent-friction E1.
+      complexity: "off",
       "no-magic-numbers": "off",
       "@typescript-eslint/no-non-null-assertion": "off",
       "@typescript-eslint/no-unsafe-return": "off",
@@ -130,6 +117,17 @@ export const unitTestConfigs = [
     ignores: nonE2eTestIgnores,
     rules: {
       "local/test-file-location": "error",
+    },
+  },
+
+  // Locks in the client test-isolation fast lane: a byte-identical per-file
+  // vi.mock of a module setup.ts already centralises is pure redundancy that
+  // silently re-pins the file to the slow isolated lane. The split runner is
+  // self-healing without this, so the rule's value is signal, not correctness.
+  {
+    files: ["packages/client/src/**/*.test.{ts,tsx}", "packages/client/src/**/*.spec.ts"],
+    rules: {
+      "local/no-redundant-central-mock": "error",
     },
   },
 
@@ -174,6 +172,32 @@ export const unitTestConfigs = [
           assertFunctionNames: [...scriptTestAssertFunctionNames, "runFixture"],
         },
       ],
+    },
+  },
+
+  // testing-library recommended-for-React rules, scoped to client component
+  // tests (leaf 06 evaluation). jest-dom is intentionally not adopted: its
+  // latest release (5.5.0) predates ESLint 10 and crashes on the removed
+  // context.getSourceCode API in 7 of 11 rules. See the Leaf 06 verdict in
+  // docs/agent_notes/backlog/lint-followups-2026-06/evaluation-verdicts.md.
+  {
+    files: ["packages/client/src/**/*.test.tsx"],
+    plugins: { "testing-library": testingLibraryPlugin },
+    rules: {
+      ...testingLibraryPlugin.configs["flat/react"].rules,
+      // Recommended ships no-debugging-utils at "warn"; promote it so the
+      // adopted floor is uniformly error (matches --max-warnings=0 anyway).
+      "testing-library/no-debugging-utils": "error",
+      // Implementation-detail debt deferred to lint:ratchet message-count
+      // floors (ratchet/testing-library-*), promote-to-normal-lint after the
+      // drain follow-up. Off here so normal lint stays green on existing debt.
+      "testing-library/no-node-access": "off",
+      "testing-library/no-container": "off",
+      "testing-library/prefer-screen-queries": "off",
+      // Rejected: pure render-result naming style that clashes with the
+      // established varied local naming (handlers/props/result, 46 findings);
+      // none of the bug classes this evaluation targeted.
+      "testing-library/render-result-naming-convention": "off",
     },
   },
 ];

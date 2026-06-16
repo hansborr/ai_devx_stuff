@@ -32,17 +32,12 @@ import { scriptKindFor } from "./ts-source-util.js";
 
 export {
   CLASS_CONSTRUCTION_STANDING_CAVEAT,
-  CLASS_RISKY_CONTEXTS,
   type ClassCaveatLabeler,
   type ClassConstructionEvidence,
   type ClassConstructionInventory,
   type ClassConstructionOptions,
   type ClassConstructionRecord,
   type ClassConstructionSourceInput,
-  type ClassDeclarationInfo,
-  type ClassReferenceBucket,
-  type ClassReferenceEvent,
-  type ClassRiskyContext,
   riskyContextCaveat,
 } from "./class-construction-types.js";
 

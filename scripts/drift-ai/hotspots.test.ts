@@ -5,35 +5,29 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import type { GitRunner } from "./git-changed-scope.js";
+import {
+  commitBlock as buildCommitBlock,
+  joinGitLogBlocks as gitLog,
+} from "./git-log-fixture.test-helper.js";
 import { runHotspots } from "./hotspots.js";
 import type { CouplingSection, HotspotsAdvisory } from "./hotspots-format.js";
 
-// Control bytes git expands the %x.. escapes into, written as JS escapes so this
-// source stays plain text (never embed raw NUL bytes in a .ts file).
-const NUL = "\u0000";
-const US = "\u001f";
+const FIXED_DATE = "2026-05-29T00:00:00-07:00";
 
-function metaLine(hash: string, author = "Ada"): string {
-  return (
-    NUL +
-    [
-      hash,
-      author,
-      `${author.toLowerCase()}@example.com`,
-      "2026-05-29T00:00:00-07:00",
-      "2026-05-29T00:00:00-07:00",
-      `subject ${hash}`,
-      "",
-    ].join(US)
-  );
-}
-
+// Hotspots fixtures derive the author email and subject from the hash/author at
+// a fixed timestamp, so wrap the shared git-log builder to keep that shape.
 function commitBlock(hash: string, rows: readonly string[], author = "Ada"): string {
-  return [metaLine(hash, author), "", ...rows].join("\n");
-}
-
-function gitLog(blocks: readonly string[]): string {
-  return blocks.join("\n");
+  return buildCommitBlock(
+    {
+      hash,
+      authorName: author,
+      authorEmail: `${author.toLowerCase()}@example.com`,
+      authorDate: FIXED_DATE,
+      committerDate: FIXED_DATE,
+      subject: `subject ${hash}`,
+    },
+    rows,
+  );
 }
 
 // git fake answering both repo-root resolution and the windowed `git log` walk.

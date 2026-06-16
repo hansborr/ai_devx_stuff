@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
-import { dirname, relative, resolve } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { dirname, isAbsolute, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import type { LintCoverageMapCheckOptions } from "./lint-coverage-map-check-types.js";
@@ -24,6 +24,11 @@ function loadStagedMapText(cwd: string, mapPath: string): string {
   }).trim();
   const gitPath = relative(topLevel, mapPath).replaceAll("\\", "/");
   return execFileSync("git", ["show", `:${gitPath}`], { cwd: topLevel, encoding: "utf8" });
+}
+
+export function createWorktreeExists(cwd: string): (relativePath: string) => boolean {
+  return (relativePath) =>
+    existsSync(isAbsolute(relativePath) ? relativePath : resolve(cwd, relativePath));
 }
 
 export function loadMapText(options: LintCoverageMapCheckOptions, cwd: string): string {

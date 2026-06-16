@@ -3,6 +3,11 @@ import { existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
 import {
+  type ESLintFileResult,
+  type ESLintMessage,
+  parseEslintOutput,
+} from "../lib/eslint-json.js";
+import {
   CACHE_HASH_PREFIX_LENGTH,
   cacheKeyHashFor,
   eslintCachePathFor,
@@ -13,51 +18,7 @@ import type { LintRatchetConfig } from "./lint-ratchet-config.js";
 import { ConfigError } from "./lint-ratchet-metrics.js";
 import { repoRoot, safeRatchetId } from "./paths.js";
 
-export interface ESLintMessage {
-  readonly ruleId: string | null;
-  readonly severity: number;
-  readonly message: string;
-  readonly line?: number;
-  readonly messageId?: string;
-  readonly fatal?: boolean;
-}
-
-export interface ESLintFileResult {
-  readonly filePath: string;
-  readonly messages: readonly ESLintMessage[];
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function isEslintMessage(value: unknown): value is ESLintMessage {
-  if (!isRecord(value)) return false;
-  if (typeof value.message !== "string") return false;
-  if (typeof value.severity !== "number") return false;
-  const ruleId = value.ruleId;
-  return ruleId === null || typeof ruleId === "string";
-}
-
-function parseEslintOutput(stdout: string): readonly ESLintFileResult[] {
-  if (stdout.trim().length === 0) return [];
-  const parsed: unknown = JSON.parse(stdout);
-  if (!Array.isArray(parsed)) {
-    throw new ConfigError("ESLint --format=json output is not an array");
-  }
-  const results: ESLintFileResult[] = [];
-  for (const entry of parsed) {
-    if (!isRecord(entry)) continue;
-    if (typeof entry.filePath !== "string") continue;
-    if (!Array.isArray(entry.messages)) continue;
-    const messages: ESLintMessage[] = [];
-    for (const raw of entry.messages) {
-      if (isEslintMessage(raw)) messages.push(raw);
-    }
-    results.push({ filePath: entry.filePath, messages });
-  }
-  return results;
-}
+export type { ESLintFileResult, ESLintMessage };
 
 function rejectWithError(rejectResults: (reason?: unknown) => void, error: unknown): void {
   rejectResults(error instanceof Error ? error : new Error(String(error)));
@@ -134,7 +95,7 @@ async function spawnEslint(
         return;
       }
       try {
-        resolveResults(parseEslintOutput(stdout));
+        resolveResults(parseEslintOutput(stdout, (message) => new ConfigError(message)));
       } catch (error) {
         rejectWithError(rejectResults, error);
       }

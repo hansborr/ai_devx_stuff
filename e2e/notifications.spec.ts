@@ -90,7 +90,7 @@ test.describe("Notifications", () => {
   });
 
   test("clicking a notification marks it as read", async () => {
-    await dmNotifs.clickFirstNotification();
+    await dmNotifs.clickNotification("New member joined");
     // Wait for mark-read response
     await dmPage.waitForResponse((r) => r.url().includes("notification.markRead"));
     await dmNotifs.expectNoUnreadDots();

@@ -5,6 +5,17 @@ set -eu
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT"
 
+# Resolve the TypeScript compiler explicitly so `bash scripts/typecheck.sh`
+# works without Bun's PATH injection (mirrors scripts/vitest.sh). Falls back to
+# bare `tsc` so environments that already have it on PATH do not regress.
+if [ -n "${MUSI_TSC_BIN:-}" ]; then
+  TSC=("$MUSI_TSC_BIN")
+elif [ -x "$REPO_ROOT/node_modules/.bin/tsc" ]; then
+  TSC=("$REPO_ROOT/node_modules/.bin/tsc")
+else
+  TSC=(tsc)
+fi
+
 TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/musi-typecheck.XXXXXX")"
 RUN_PID=""
 build_pid=""
@@ -96,9 +107,9 @@ trap cleanup_tmp EXIT
 trap on_sigint INT
 trap on_sigterm TERM
 
-start_typecheck "tsc -b" "packages" tsc -b
+start_typecheck "tsc -b" "packages" "${TSC[@]}" -b
 build_pid="$RUN_PID"
-start_typecheck "tsc -p tsconfig.scripts.json" "scripts" tsc -p tsconfig.scripts.json
+start_typecheck "tsc -p tsconfig.scripts.json" "scripts" "${TSC[@]}" -p tsconfig.scripts.json
 scripts_pid="$RUN_PID"
 
 build_exit=0

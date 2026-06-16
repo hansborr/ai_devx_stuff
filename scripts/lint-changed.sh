@@ -1,6 +1,8 @@
 #!/bin/bash
 # Run ESLint only on files changed vs the base branch plus staged changes.
-# Exits 0 with a no-op message when no lintable files changed.
+# Exits 0 with a no-op message when no lintable files changed. The runtime
+# import-cycle floor (drift:ai import-cycles) always runs whole-tree: a cycle
+# is a global property, and the ~1.2s detector is parallel-masked.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -14,7 +16,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCRIPT_DIR/lib/lint-dist-preflight.sh"
 LINT_SHELL="$SCRIPT_DIR/lint-shell.sh"
 LINT_CONFIG_SENSORS="$SCRIPT_DIR/lint-config-sensors.sh"
+LINT_IMPORT_CYCLES="$SCRIPT_DIR/lint-import-cycles.sh"
 PATH_POLICY_QUERY="$SCRIPT_DIR/path-policy/path-policy-query.ts"
+
+start_import_cycles_lane() {
+  musi_parallel_start "import cycles" "import-cycles" bash "$LINT_IMPORT_CYCLES"
+}
 
 BASE="${1:-main}"
 REPO_ROOT="$(git rev-parse --show-toplevel)"
@@ -36,6 +43,7 @@ run_full_lint() {
 
   musi_parallel_start "ShellCheck" "shell" bash "$LINT_SHELL"
   musi_parallel_start "config sensors" "config" bash "$LINT_CONFIG_SENSORS"
+  start_import_cycles_lane
   musi_parallel_start "ESLint" "eslint" eslint --max-warnings=0 .
 
   musi_parallel_wait_all "lint:changed"
@@ -52,6 +60,7 @@ run_changed_lint() {
 
   musi_parallel_start "ShellCheck" "shell" bash "$LINT_SHELL" --changed "$BASE"
   musi_parallel_start "config sensors" "config" bash "$LINT_CONFIG_SENSORS" --changed "$BASE"
+  start_import_cycles_lane
 
   if [ "${#FILES[@]}" -eq 0 ]; then
     echo "lint:changed: no staged/base changed lintable files vs $BASE — skipping lint."
@@ -70,7 +79,7 @@ run_changed_lint() {
 if musi_resolve_changed_base "$BASE"; then
   BASE="$MUSI_CHANGED_BASE"
 else
-  echo "lint:changed: $MUSI_CHANGED_BASE_ERROR — checking full repo working tree with ShellCheck, config sensors, and eslint." >&2
+  echo "lint:changed: $MUSI_CHANGED_BASE_ERROR — checking full repo working tree with ShellCheck, config sensors, import cycles, and eslint." >&2
   run_full_lint
 fi
 
@@ -103,7 +112,7 @@ while IFS= read -r -d '' f; do
 done < <(printf '%s\0' "${CHANGED_FILES[@]}" | bun --config=/dev/null "$PATH_POLICY_QUERY" lintable:eslint-changed)
 
 if [ "$FULL_LINT" -eq 1 ]; then
-  echo "lint:changed: lint-affecting staged/base config changed — checking full repo working tree with ShellCheck, config sensors, and eslint."
+  echo "lint:changed: lint-affecting staged/base config changed — checking full repo working tree with ShellCheck, config sensors, import cycles, and eslint."
   run_full_lint
 fi
 

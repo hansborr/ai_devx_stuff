@@ -46,12 +46,14 @@ Use `exec` for implementation, investigation, and prompted review.
   < /tmp/codex-task-prompt.txt > /tmp/codex-task.log 2>&1
 ```
 
-Prompt briefly. Include only:
+Prompt lean. Codex reads the same repo docs, plan files, and AGENTS.md that Claude can — cite the relevant sections by path and heading instead of restating them. Include only:
 
 - Exact task or symptom.
-- Relevant paths, errors, or commits.
-- Constraints.
+- Pointers to relevant docs, paths, errors, or commits.
+- The few constraints that genuinely matter.
 - Done criteria.
+
+Do not dictate code structure, naming, or approach; over-specifying micromanages Codex into a worse solution. Grant latitude: committing and editing docs are allowed when they are part of the task. Reserve prompt detail for genuinely non-obvious gotchas not already written down.
 
 For review-only prompts, use this wording:
 

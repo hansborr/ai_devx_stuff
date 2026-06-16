@@ -24,6 +24,7 @@ REPO_ROOT="$(pwd)"
 PORTABLE_RUNTIME_FILES=(
   eslint-rules/max-lines.js
   scripts/lint-ratchet.ts
+  scripts/lib/eslint-json.ts
   scripts/lib/lint-rule-docs.ts
   scripts/lint-ratchet/ratchet-manifest-message.ts
 )
@@ -581,6 +582,7 @@ interface LintRatchetConfigBase {
   readonly target: number;
   readonly metric: LintRatchetMetric;
   readonly repairKind: LintRatchetRepairKind;
+  readonly principle: string;
   readonly zeroBaselineDisposition?: LintRatchetZeroBaselineDisposition;
 }
 
@@ -619,6 +621,7 @@ export const lintRatchets = [
     target: 0,
     metric: "message-count",
     repairKind: "manual",
+    principle: "Synthetic fixture ratchet principle.",
   },
 ] as const satisfies readonly LintRatchetConfig[];
 TS
@@ -681,6 +684,7 @@ interface LintRatchetConfigBase {
   readonly target: number;
   readonly metric: LintRatchetMetric;
   readonly repairKind: LintRatchetRepairKind;
+  readonly principle: string;
   readonly zeroBaselineDisposition?: LintRatchetZeroBaselineDisposition;
 }
 
@@ -720,6 +724,7 @@ export const lintRatchets = [
     target: 0,
     metric: "$metric",
     repairKind: "manual",
+    principle: "Synthetic fixture ratchet principle.",
   },
 ] as const satisfies readonly LintRatchetConfig[];
 TS
@@ -773,6 +778,7 @@ interface LintRatchetConfigBase {
   readonly target: number;
   readonly metric: LintRatchetMetric;
   readonly repairKind: LintRatchetRepairKind;
+  readonly principle: string;
   readonly zeroBaselineDisposition?: LintRatchetZeroBaselineDisposition;
 }
 
@@ -806,6 +812,7 @@ export const lintRatchets = [
     target: 0,
     metric: "effective-line-count",
     repairKind: "manual",
+    principle: "Synthetic fixture ratchet principle.",
   },
 ] as const satisfies readonly LintRatchetConfig[];
 TS
@@ -860,6 +867,7 @@ interface LintRatchetConfigBase {
   readonly target: number;
   readonly metric: LintRatchetMetric;
   readonly repairKind: LintRatchetRepairKind;
+  readonly principle: string;
   readonly zeroBaselineDisposition?: LintRatchetZeroBaselineDisposition;
 }
 
@@ -893,6 +901,7 @@ export const lintRatchets = [
     target: 0,
     metric: "message-count",
     repairKind: "manual",
+    principle: "Synthetic fixture ratchet principle.",
     zeroBaselineDisposition: {
       kind: "temporary-ratchet-only",
       reason: "fixture keeps this clean ratchet outside normal lint to exercise checked zero-baseline success",

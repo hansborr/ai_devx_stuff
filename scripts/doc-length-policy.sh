@@ -1,6 +1,15 @@
 #!/bin/sh
 # Shared hot-doc length policy. Keep this file POSIX-safe: Husky runs hooks
 # through `sh`, while AI hook adapters may source it from Bash.
+#
+# ADVISORY ONLY — this never blocks a commit. The edit-time and pre-commit
+# surfaces emit a "doc-length advisory (not a blocker)" warning and nothing
+# more. It also applies ONLY to the specific files matched in
+# musi_doc_length_set_rule below (AGENTS.md, CLAUDE.md, DECISIONS.md,
+# decisions-*.md, agent_notes/README.md, finished_work/README.md,
+# in_progress/*.md). There is NO blanket budget on docs/agent_notes/ or any
+# directory — unmatched files have no rule. Prefer split-not-trim for the
+# covered files; do not trim content just to fit a budget.
 
 musi_doc_length_set_rule() {
   case "$1" in

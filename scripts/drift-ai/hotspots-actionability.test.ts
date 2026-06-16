@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   aggregateAuthors,
+  buildPathRowActionability,
+  buildRowActionability,
   pairKey,
   recentSubjects,
   shellQuoteArg,
@@ -31,7 +33,41 @@ function rec(over: Partial<CommitRecord>): CommitRecord {
   };
 }
 
+function file(path: string): CommitRecord["files"][number] {
+  return { path, added: 1, deleted: 0, binary: false };
+}
+
 const always = (): boolean => true;
+
+describe("buildRowActionability", () => {
+  it("derives authors/recent/intent from the touched records and carries the given inspect command", () => {
+    const records = [
+      rec({ subject: "fix flaky test", authorName: "Ada", files: [file("a.ts")] }),
+      rec({ subject: "noise", authorName: "Bo", files: [file("other.ts")] }),
+    ];
+    const context = buildRowActionability(records, {
+      touches: (record) => record.files.some((file) => file.path === "a.ts"),
+      inspectCommand: "git log --oneline -G'pat' -- a.ts",
+    });
+    expect(context.authors).toEqual([{ name: "Ada", commits: 1 }]);
+    expect(context.recentSubjects).toEqual(["fix flaky test"]);
+    expect(context.commitIntent.map((overlay) => overlay.category)).toEqual(["fix"]);
+    expect(context.inspectCommand).toBe("git log --oneline -G'pat' -- a.ts");
+    expect(context.baseline).toBeNull();
+  });
+});
+
+describe("buildPathRowActionability", () => {
+  it("matches any record touching the path and builds the plain git-log inspect command", () => {
+    const records = [rec({ subject: "touch", authorName: "Ada", files: [file("src/x y.ts")] })];
+    const context = buildPathRowActionability(records, "src/x y.ts");
+    expect(context.authors).toEqual([{ name: "Ada", commits: 1 }]);
+    expect(context.recentSubjects).toEqual(["touch"]);
+    // shellQuoteArg single-quotes the space-bearing path so the command is copy-paste safe.
+    expect(context.inspectCommand).toBe("git log --oneline -- 'src/x y.ts'");
+    expect(context.baseline).toBeNull();
+  });
+});
 
 describe("aggregateAuthors", () => {
   it("counts the committer and each co-author, most-active first, with email stripped", () => {

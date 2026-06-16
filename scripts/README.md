@@ -103,6 +103,14 @@ Current generated surfaces:
 generated files are stale. Do not hand-edit generated regions as a substitute
 for changing the manifest or generator.
 
+Run gate scripts (`bun run harness:check`, `verify:*`, `doctor`) from the
+worktree root. `bun run <name>` resolves the script against the nearest
+package.json walking up, so from a `@musi/*` package subdir (e.g.
+`packages/client/src`) the bare name errors `Script not found "harness:check"`.
+Programmatic callers (such as `doctor.sh`) invoke the validator by its absolute
+module path so nested-cwd launches resolve; from a shell, `cd` to the root first
+or invoke `bun run scripts/harness-check.ts` directly.
+
 ## Adding Or Moving A Script
 
 Use this checklist when changing the scripts tree:

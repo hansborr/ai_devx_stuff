@@ -139,7 +139,9 @@ LOG_DIR="$AI_BUN_LOG_DIR"
 mkdir -p "$LOG_DIR"
 SCRIPT_SAFE=$(ai_safe_script_name "$SCRIPT")
 LOG="$LOG_DIR/$SCRIPT_SAFE.log"
-MARKER="$LOG_DIR/last.$SCRIPT_SAFE"
+# Marker is keyed on the EXACT argv tail, not just the script name (H1/H2), so a
+# broader or corrected command can't replay a narrower/older run's cached state.
+MARKER="$LOG_DIR/$(ai_bun_marker_name "$CMD")"
 
 cd "$REPO_ROOT" || exit 1
 

@@ -24,6 +24,8 @@
 
 // The advisory `lane` discriminant value. Stable so a fusion/diagnostics consumer can
 // route prototype advisories without string-matching the subcommand name.
+import { plural } from "./advisory-format-helpers.js";
+
 export const PROTOTYPE_ADVISORY_LANE = "prototype";
 
 // The mandatory candidate banner. Deliberately stronger than the hotspots/coldspots
@@ -180,4 +182,31 @@ export function prototypeTruncationNote(shown: number, totalCandidates: number):
   if (totalCandidates <= shown) return null;
   const more = totalCandidates - shown;
   return `showing ${shown} of ${totalCandidates} candidates (${more} more; raise --top to see them)`;
+}
+
+// Shared per-section display-cap builder. Several prototype lenses split their rows into
+// sections and cap each section's shown rows at `--top`; this counts the sections that
+// were truncated (`totalCandidates > entries.length`) and discloses the row cap the same
+// way across surfaces, so a partial per-section run never reads as exhaustive and the
+// truncation-disclosure wording lives in one place. The cap is HIT (the run is PARTIAL)
+// when any section was truncated. Reads only the `PrototypeSection` fields it needs, so a
+// lens passes its own section type (which extends `PrototypeSection`) directly.
+export function rowsPerSectionCap(
+  top: number,
+  sections: readonly PrototypeSection<unknown>[],
+  opts: { readonly label: string; readonly noun: string; readonly rowNoun?: string },
+): PrototypeCap {
+  const hitCount = sections.filter(
+    (section) => section.totalCandidates > section.entries.length,
+  ).length;
+  const rowNoun = opts.rowNoun ?? "candidate rows";
+  return {
+    label: opts.label,
+    limit: top,
+    hit: hitCount > 0,
+    detail:
+      hitCount > 0
+        ? `${hitCount} ${plural(opts.noun, hitCount)} had more than ${top} ${rowNoun}`
+        : null,
+  };
 }

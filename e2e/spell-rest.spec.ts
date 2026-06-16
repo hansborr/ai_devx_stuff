@@ -59,22 +59,20 @@ test.describe("Spell management & rest mechanics", () => {
   });
 
   test("add a cantrip via add-spell dialog", async () => {
-    const spellName = await sheet.spells.addSpellByLevel("Cantrips");
-    expect(spellName).toBeTruthy();
+    await sheet.spells.addSpell("Cantrips", "Acid Splash");
   });
 
   test("add a level 1 spell", async () => {
-    const spellName = await sheet.spells.addSpellByLevel("1st Level");
-    expect(spellName).toBeTruthy();
+    await sheet.spells.addSpell("1st Level", "Magic Missile");
   });
 
   test("prepare a level 1 spell", async () => {
-    await sheet.spells.prepareSpell(1);
+    await sheet.spells.prepareSpell(1, "Magic Missile");
   });
 
   test("cast a level 1 spell and spell slot decrements", async () => {
     const [beforeAvailable] = await sheet.spells.getSpellSlotCount(1);
-    await sheet.spells.castSpell(1);
+    await sheet.spells.castSpell(1, "Magic Missile");
     await sheet.spells.expectSpellSlotDecremented(1, beforeAvailable);
   });
 

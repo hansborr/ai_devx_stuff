@@ -1,14 +1,12 @@
 import type { CheckConfigMetadata } from "./check-plugin.js";
 import type { DriftAiDuplicateSchemasConfig } from "./config.js";
-import { normalizeGlob } from "./config-paths.js";
 import {
   assertConfigObject,
   assertKnownKeys,
-  parsePositiveInt,
-  readStringArray,
+  readExcludeGlobsOrDefault,
+  readPositiveIntOrDefault,
 } from "./config-readers.js";
 import { DEFAULT_DUPLICATE_SCHEMAS_MIN_KEYS } from "./duplicate-shapes-config-values.js";
-import { uniqSorted } from "./path-util.js";
 
 const DEFAULT_DUPLICATE_SCHEMAS_CONFIG: DriftAiDuplicateSchemasConfig = {
   minKeys: DEFAULT_DUPLICATE_SCHEMAS_MIN_KEYS,
@@ -33,15 +31,16 @@ function parseDuplicateSchemasConfig(raw: unknown, keyPath: string): DriftAiDupl
   const record = assertConfigObject(raw, keyPath);
   assertKnownKeys(record, ["minKeys", "excludeGlobs"], keyPath);
   return {
-    minKeys:
-      record["minKeys"] === undefined
-        ? DEFAULT_DUPLICATE_SCHEMAS_CONFIG.minKeys
-        : parsePositiveInt(record["minKeys"], `${keyPath}.minKeys`),
-    excludeGlobs:
-      record["excludeGlobs"] === undefined
-        ? DEFAULT_DUPLICATE_SCHEMAS_CONFIG.excludeGlobs
-        : uniqSorted(
-            readStringArray(record["excludeGlobs"], `${keyPath}.excludeGlobs`).map(normalizeGlob),
-          ),
+    minKeys: readPositiveIntOrDefault(
+      record,
+      "minKeys",
+      DEFAULT_DUPLICATE_SCHEMAS_CONFIG.minKeys,
+      keyPath,
+    ),
+    excludeGlobs: readExcludeGlobsOrDefault(
+      record,
+      DEFAULT_DUPLICATE_SCHEMAS_CONFIG.excludeGlobs,
+      keyPath,
+    ),
   };
 }

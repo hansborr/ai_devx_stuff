@@ -17,10 +17,16 @@ export class CampaignsPO {
   }
 
   async createCampaign(name: string, description?: string): Promise<void> {
-    await this.page.getByRole("button", { name: "Create Campaign" }).first().click();
-    await this.page.locator("#campaign-name").fill(name);
+    // The empty state renders a second, identically named Create Campaign
+    // button, so scope to the always-present page-header actions.
+    await this.page
+      .getByTestId("campaigns-page-actions")
+      .getByRole("button", { name: "Create Campaign" })
+      .click();
+    const dialog = this.page.getByRole("dialog", { name: "Create Campaign" });
+    await dialog.getByLabel("Name", { exact: true }).fill(name);
     if (description) {
-      await this.page.locator("#campaign-description").fill(description);
+      await dialog.getByLabel("Description").fill(description);
     }
     const [resp] = await Promise.all([
       this.page.waitForResponse((r) => r.url().includes("campaign.create")),
@@ -31,7 +37,8 @@ export class CampaignsPO {
 
   async joinCampaign(code: string): Promise<void> {
     await this.page.getByRole("button", { name: "Join Campaign" }).click();
-    await this.page.locator("#invite-code").fill(code);
+    const dialog = this.page.getByRole("dialog", { name: "Join Campaign" });
+    await dialog.getByLabel("Invite Code").fill(code);
     const [resp] = await Promise.all([
       this.page.waitForResponse((r) => r.url().includes("invite.join")),
       this.page.getByRole("button", { name: "Join" }).click(),
@@ -40,7 +47,7 @@ export class CampaignsPO {
   }
 
   getCampaignCard(name: string): Locator {
-    return this.page.locator("a[href*='/campaigns/']").filter({ hasText: name });
+    return this.page.getByRole("link").filter({ hasText: name });
   }
 
   async clickCampaign(name: string): Promise<void> {

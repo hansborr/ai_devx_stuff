@@ -80,6 +80,26 @@ describe("type-assertion-boundary", () => {
           filename: nonTestFilename,
         },
         {
+          // A contiguous two-line `//` block whose marker is on the FIRST line:
+          // the run directly above the statement is treated as one logical block.
+          code: [
+            "// type-assertion-boundary: framework - fastify request body",
+            "// validated by the zod handler schema for this route",
+            "const body = req.body as LoginInput;",
+          ].join("\n"),
+          filename: nonTestFilename,
+        },
+        {
+          // Three-line `//` block, marker on the first line, reason on the last.
+          code: [
+            "// type-assertion-boundary: interop - upstream package omits a",
+            "// stable runtime field that we know is always present on this",
+            "// branch of the response union",
+            "const event = value as LibraryEvent;",
+          ].join("\n"),
+          filename: nonTestFilename,
+        },
+        {
           code: [
             "// type-assertion-boundary: prisma - include shape is fixed by local query helper",
             "const campaign = result as CampaignWithCharacters;",

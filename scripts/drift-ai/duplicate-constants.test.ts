@@ -169,6 +169,7 @@ describe("duplicateConstantsCheck", () => {
         repoRoot,
         overrides: {},
         cli: parseArgs(["--scope", "current", "--check", "duplicate-constants"]),
+        warnStderr: () => undefined,
       },
     });
     expect(outcome.status).toBe("ran");

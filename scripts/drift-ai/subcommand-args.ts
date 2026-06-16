@@ -138,6 +138,25 @@ function dispatchSubcommandArg(
   throw new DriftAiError(`Unknown argument: ${arg}\n${spec.usage}`);
 }
 
+// Read and JSON-parse a `--baseline <prev.json>` file for a subcommand's delta
+// tagging. Shared by hotspots and coldspots — both consume an untrusted prior
+// advisory, so the read/parse flow and its two distinct DriftAiError messages
+// (unreadable vs. invalid JSON) live here once. Returns `unknown`: the caller
+// narrows the parsed shape downstream.
+export function loadBaseline(path: string, read: (path: string) => string): unknown {
+  let raw: string;
+  try {
+    raw = read(path);
+  } catch {
+    throw new DriftAiError(`--baseline file does not exist or is unreadable: ${path}`);
+  }
+  try {
+    return JSON.parse(raw);
+  } catch {
+    throw new DriftAiError(`--baseline file is not valid JSON: ${path}`);
+  }
+}
+
 // Write a subcommand's rendered output: to a file (returning a pointer message)
 // when `--output` is set, else return the rendering itself for stdout.
 export function writeSubcommandOutput(

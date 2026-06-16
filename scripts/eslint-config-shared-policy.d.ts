@@ -1,11 +1,13 @@
 declare module "*eslint-config/shared-policy.js" {
   type MaxLinesPolicySeverity = "error" | "warn";
+  type MaxLinesPolicyLifecycle = "temporary" | "permanent" | "candidate-for-split";
 
   interface MaxLinesPolicyException {
     readonly path: string;
     readonly cap: number;
     readonly severity: MaxLinesPolicySeverity;
     readonly reason: string;
+    readonly lifecycle: MaxLinesPolicyLifecycle;
     readonly ratchetExcluded: boolean;
   }
 
@@ -32,11 +34,10 @@ declare module "*eslint-config/shared-policy.js" {
   }
 
   export const maxLinesPolicy: MaxLinesPolicy;
-  export const e2eNoNthMethodsDebtFiles: readonly string[];
-  export const e2ePreferNativeLocatorDebtFiles: readonly string[];
-  export const e2ePreferRoleSelectorDebtFiles: readonly string[];
   export const scriptFixtureIgnores: readonly string[];
   export const scriptTestAssertFunctionNames: readonly string[];
+  export const clientSourceFiles: readonly string[];
+  export const clientTestAndHelperSourceFiles: readonly string[];
 }
 
 declare module "*eslint-rules/max-lines.js" {

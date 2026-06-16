@@ -32,6 +32,8 @@ function groupByDirectory(files: readonly string[]): string[] {
   return lines;
 }
 
+const MAP_DOC_PATH = "docs/agent_notes/lint-coverage-map.md";
+
 export function formatFindings(findings: readonly CheckFinding[]): string {
   const lines = ["lint-coverage-map-check found drift:"];
   const stale = findings.filter((finding) => finding.kind === "stale-path");
@@ -54,6 +56,11 @@ export function formatFindings(findings: readonly CheckFinding[]): string {
   if (unaccounted.length > 0) {
     lines.push("", "Unaccounted tracked files:");
     lines.push(...groupByDirectory(unaccounted.map((finding) => finding.value)));
+    lines.push(
+      `Add each to ${MAP_DOC_PATH}. The first rooted full path in a \`Path / group\` cell`,
+      "sets the base dir for subsequent bare filenames in that cell. Run",
+      "`bun run scripts/lint-coverage-map-check.ts --suggest` for ready-to-paste rows.",
+    );
   }
   if (eslintReachMissing.length > 0) {
     lines.push("", "ESLint reach gaps:");
@@ -63,9 +70,26 @@ export function formatFindings(findings: readonly CheckFinding[]): string {
   return `${lines.join("\n")}\n`;
 }
 
+const GLOB_META_PATTERN = /[*?{}[\]]/u;
+
+function stalePathHint(
+  pattern: PathPattern,
+  trackedFiles: readonly string[],
+  worktreeExists: (relativePath: string) => boolean,
+): string {
+  // A concrete (non-glob) path that exists in the worktree but matched no
+  // tracked file is almost always an un-`git add`-ed new file, not a typo.
+  if (GLOB_META_PATTERN.test(pattern.pattern)) return "";
+  const tracked = new Set(trackedFiles);
+  if (tracked.has(pattern.pattern)) return "";
+  if (!worktreeExists(pattern.pattern)) return "";
+  return "; did you forget to `git add` it?";
+}
+
 export function collectStalePathFindings(
   pathPatterns: readonly PathPattern[],
   trackedFiles: readonly string[],
+  worktreeExists: (relativePath: string) => boolean,
 ): CheckFinding[] {
   return pathPatterns
     .filter((p) => !trackedFiles.some(p.matcher))
@@ -73,7 +97,7 @@ export function collectStalePathFindings(
       (p): CheckFinding => ({
         kind: "stale-path",
         line: p.line,
-        value: `\`${p.source}\` (${p.pattern}) matched 0 tracked files`,
+        value: `\`${p.source}\` (${p.pattern}) matched 0 tracked files${stalePathHint(p, trackedFiles, worktreeExists)}`,
       }),
     );
 }

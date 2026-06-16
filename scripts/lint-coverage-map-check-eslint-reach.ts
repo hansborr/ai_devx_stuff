@@ -30,7 +30,7 @@ interface CollectEslintReachFindingsOptions<Row extends EslintReachRow> {
   readonly trackedFiles: readonly string[];
 }
 
-function createEslintReachChecker(cwd: string): EslintReachChecker {
+export function createEslintReachChecker(cwd: string): EslintReachChecker {
   const eslint = new ESLint({ cwd });
   const cache = new Map<string, Promise<boolean>>();
   return async (file) => {

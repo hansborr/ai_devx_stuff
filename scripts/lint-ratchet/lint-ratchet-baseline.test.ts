@@ -45,6 +45,7 @@ const baseRatchet: LintRatchetConfig = {
   target: 0,
   metric: "message-count",
   repairKind: "manual",
+  principle: "Fixture base ratchet principle.",
 };
 
 const thirdPartyRatchet: LintRatchetConfig = {
@@ -62,6 +63,7 @@ const thirdPartyRatchet: LintRatchetConfig = {
   target: 0,
   metric: "message-count",
   repairKind: "manual",
+  principle: "Fixture third-party ratchet principle.",
 };
 
 const coreRatchet: LintRatchetConfig = {
@@ -76,6 +78,7 @@ const coreRatchet: LintRatchetConfig = {
   target: 0,
   metric: "message-count",
   repairKind: "manual",
+  principle: "Fixture core ratchet principle.",
 };
 
 const maxLinesRatchet = {
@@ -88,6 +91,7 @@ const maxLinesRatchet = {
   target: 0,
   metric: "effective-line-count",
   repairKind: "manual",
+  principle: "Fixture max-lines ratchet principle.",
 } as unknown as LintRatchetConfig;
 
 const complexityRatchet: LintRatchetConfig = {
@@ -102,6 +106,7 @@ const complexityRatchet: LintRatchetConfig = {
   target: 0,
   metric: "complexity-severity",
   repairKind: "manual",
+  principle: "Fixture complexity ratchet principle.",
 };
 
 const FIXTURE_RULE_SOURCE_HASH = `${LINT_RATCHET_CONFIG_HASH_PREFIX}${"a".repeat(64)}`;
@@ -1927,6 +1932,92 @@ describe("lint ratchet update mode with stale committed baseline", () => {
   });
 });
 
+describe("lint ratchet retire-ratchet path", () => {
+  // A retired ratchet is an orphan whose committed floor is at zero: the rule
+  // was promoted into normal lint and the floor is being dropped. Retiring it
+  // is a strict improvement, not accepted debt, so it must not be forced through
+  // --allow-worse + the debt log — but only once promotion is machine-proven.
+  function zeroOrphanBaseline(): LintRatchetBaseline {
+    const stale = formatLintRatchetBaseline(oneTestBaseline([])).replace(
+      baseRatchet.id,
+      "ratchet/old-promoted-rule",
+    );
+    const structural = parseLintRatchetBaselineStructure(stale);
+    expect(structural.baseline).toBeDefined();
+    return structural.baseline ?? oneTestBaseline([]);
+  }
+
+  it("retires a zero-finding orphan without --allow-worse when promotion is proven", () => {
+    const committed = zeroOrphanBaseline();
+    const generated = oneTestBaseline([]);
+
+    const decision = decideLintRatchetUpdate(committed, generated, [baseRatchet], {
+      allowWorse: false,
+      retire: { id: "ratchet/old-promoted-rule", normalErrorProven: true },
+    });
+
+    expect(decision.allowed).toBe(true);
+    expect(decision.retiredRatchetId).toBe("ratchet/old-promoted-rule");
+    // The proven retirement is not accounted as dropped debt.
+    expect(decision.orphanRemovals).toEqual([]);
+    expect(decision.failures).toEqual([]);
+  });
+
+  it("refuses to retire when normal lint does not error on the orphan scope", () => {
+    const committed = zeroOrphanBaseline();
+    const generated = oneTestBaseline([]);
+
+    const decision = decideLintRatchetUpdate(committed, generated, [baseRatchet], {
+      allowWorse: false,
+      retire: { id: "ratchet/old-promoted-rule", normalErrorProven: false },
+    });
+
+    expect(decision.allowed).toBe(false);
+    expect(decision.retiredRatchetId).toBeUndefined();
+    const failure = decision.failures.find((f) => f.includes("ratchet/old-promoted-rule"));
+    expect(failure).toBeDefined();
+    expect(failure).toContain("normal lint");
+    expect(failure).toContain("--allow-worse");
+    // The unproven orphan is still tracked as a removal so --allow-worse can log it.
+    expect(decision.orphanRemovals).toHaveLength(1);
+  });
+
+  it("refuses to retire a nonzero-finding orphan even with proof", () => {
+    const stale = formatLintRatchetBaseline(
+      oneTestBaseline([["packages/server/src/a.ts", 1]]),
+    ).replace(baseRatchet.id, "ratchet/old-promoted-rule");
+    const structural = parseLintRatchetBaselineStructure(stale);
+    expect(structural.baseline).toBeDefined();
+    const committed = structural.baseline ?? oneTestBaseline([]);
+    const generated = oneTestBaseline([]);
+
+    const decision = decideLintRatchetUpdate(committed, generated, [baseRatchet], {
+      allowWorse: false,
+      retire: { id: "ratchet/old-promoted-rule", normalErrorProven: true },
+    });
+
+    expect(decision.allowed).toBe(false);
+    expect(decision.retiredRatchetId).toBeUndefined();
+    const failure = decision.failures.find((f) => f.includes("ratchet/old-promoted-rule"));
+    expect(failure).toBeDefined();
+    expect(failure).toContain("finding");
+  });
+
+  it("refuses to retire an id that is not an orphan baseline entry", () => {
+    const committed = oneTestBaseline([]);
+    const generated = oneTestBaseline([]);
+
+    const decision = decideLintRatchetUpdate(committed, generated, [baseRatchet], {
+      allowWorse: false,
+      retire: { id: "ratchet/not-in-baseline", normalErrorProven: true },
+    });
+
+    expect(decision.allowed).toBe(false);
+    expect(decision.retiredRatchetId).toBeUndefined();
+    expect(decision.failures.some((f) => f.includes("ratchet/not-in-baseline"))).toBe(true);
+  });
+});
+
 describe("lint ratchet rule source hash binding", () => {
   it("rejects a baseline whose ruleSourceHash does not match the current rule source", () => {
     const baseline = oneTestBaseline([["packages/server/src/a.ts", 1]]);
@@ -2013,6 +2104,16 @@ describe("lint ratchet registry validation", () => {
         parserProfile: "minimal-ts",
       }),
     ).toBe(computeLintRatchetConfigHash(baseRatchet));
+  });
+
+  it("rejects a registry entry whose dedicated principle is empty", () => {
+    const blankPrincipleRatchet: LintRatchetConfig = { ...baseRatchet, principle: "   " };
+    expect(
+      validateLintRatchetRegistry(
+        [blankPrincipleRatchet],
+        new Set(["local/type-assertion-boundary"]),
+      ).join("\n"),
+    ).toContain(`${baseRatchet.id}: principle must be a non-empty string`);
   });
 
   it("validates third-party sources against the allowlist and hashes parser identity", () => {

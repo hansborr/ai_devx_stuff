@@ -567,12 +567,12 @@ grep -qF 'bun run lint:ratchet' "$STUB_LOG_FILE" \
   || fail "verify (full) should invoke bun run lint:ratchet"
 ok "verify (full) runs lint ratchet"
 
-grep -qF 'bun run docs:lint-coverage-map:check' "$STUB_LOG_FILE" \
-  || fail "verify (full) should invoke bun run docs:lint-coverage-map:check"
+grep -qF 'bun run docs:lint-coverage-map:audit' "$STUB_LOG_FILE" \
+  || fail "verify (full) should invoke bun run docs:lint-coverage-map:audit (ESLint-reach enforced)"
 if grep -qF 'bun run docs:lint-coverage-map:check -- --staged' "$STUB_LOG_FILE"; then
   fail "verify (full) must not invoke the staged lint coverage map check"
 fi
-ok "verify (full) runs lint coverage map check"
+ok "verify (full) runs lint coverage map audit"
 
 grep -qF 'bun run format:check' "$STUB_LOG_FILE" \
   || fail "verify (full) should invoke bun run format:check"

@@ -376,6 +376,7 @@ function makeCtx(overrides: CtxOverrides = {}): CheckRunInput {
           })),
       },
       cli: parseArgs(["--scope", "current", "--check", "near-duplicates"]),
+      warnStderr: () => undefined,
     },
   };
 }

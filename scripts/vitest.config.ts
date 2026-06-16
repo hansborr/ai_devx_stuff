@@ -4,10 +4,12 @@ export default defineProject({
   cacheDir: "../node_modules/.cache/vitest-scripts",
   test: {
     name: "scripts",
+    clearMocks: true,
     environment: "node",
     include: ["**/*.test.ts"],
     exclude: [
       ...defaultExclude,
+      "**/worktrees/**",
       "codemods/fixtures/**",
       "drift-ai/fixtures/**",
       "logs-audit/fixtures/**",
@@ -24,6 +26,7 @@ export default defineProject({
       ],
       exclude: [
         "**/*.test.ts",
+        "**/worktrees/**",
         "codemods/fixtures/**",
         "drift-ai/fixtures/**",
         "logs-audit/fixtures/**",

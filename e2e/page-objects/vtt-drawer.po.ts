@@ -20,14 +20,17 @@ interface Cell {
 export class VttDrawerPO {
   readonly drawer: Locator;
   readonly mapCanvas: Locator;
+  /** Konva marks its canvas container with role="presentation". */
+  private readonly konvaContent: Locator;
 
   constructor(private readonly page: Page) {
     this.drawer = page.getByTestId("vtt-drawer");
     this.mapCanvas = page.getByTestId("combat-map-canvas");
+    this.konvaContent = this.mapCanvas.getByRole("presentation");
   }
 
   async waitForMap(): Promise<void> {
-    await expect(this.mapCanvas.locator(".konvajs-content")).toBeVisible({
+    await expect(this.konvaContent).toBeVisible({
       timeout: TIMEOUT_MEDIUM,
     });
   }
@@ -37,7 +40,11 @@ export class VttDrawerPO {
     await this.expectCharacterDrawer();
   }
 
-  async openMySheetFromDropdown(tokenId: string): Promise<void> {
+  /**
+   * Pick a token from the open-sheet dropdown by its accessible name: the
+   * character name, with the token label in parentheses when they differ.
+   */
+  async openMySheetFromDropdown(optionName: string): Promise<void> {
     const trigger = this.page.getByTestId("vtt-action-bar-open-sheet");
     await expect(trigger).toHaveAttribute("aria-haspopup", "menu", {
       timeout: TIMEOUT_SHORT,
@@ -50,9 +57,7 @@ export class VttDrawerPO {
     await expect
       .poll(async () => options.count(), { timeout: TIMEOUT_SHORT })
       .toBeGreaterThanOrEqual(MIN_TOKEN_OPTIONS_IN_DROPDOWN);
-    const option = this.page.locator(
-      `[data-testid="vtt-action-bar-token-option"][data-token-id="${tokenId}"]`,
-    );
+    const option = this.page.getByRole("menuitem", { name: optionName, exact: true });
     await expect(option).toBeVisible({ timeout: TIMEOUT_SHORT });
     await option.click();
     await this.expectCharacterDrawer();
@@ -195,6 +200,6 @@ export class VttDrawerPO {
       x: (cell.x + CELL_CENTER_OFFSET) * CELL_SIZE_PX,
       y: (cell.y + CELL_CENTER_OFFSET) * CELL_SIZE_PX,
     };
-    await this.mapCanvas.locator(".konvajs-content").click({ button, position });
+    await this.konvaContent.click({ button, position });
   }
 }

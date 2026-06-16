@@ -6,12 +6,7 @@
  * letting server-only router files define private output shapes.
  */
 
-const SHARED_SCHEMA_PREFIX = "@musi/shared/schemas/";
-
-/** @param {string} source */
-function isSharedSchemaSource(source) {
-  return source.startsWith(SHARED_SCHEMA_PREFIX);
-}
+import { createSharedSchemaImportCollector } from "./trpc-shared-schema-import-collector.js";
 
 /**
  * @param {import('estree').Node | import('estree').SpreadElement | undefined} node
@@ -44,20 +39,10 @@ export default {
   },
 
   create(context) {
-    /** @type {Set<string>} */
-    const sharedSchemaImports = new Set();
+    const { sharedSchemaImports, ImportDeclaration } = createSharedSchemaImportCollector();
 
     return {
-      ImportDeclaration(node) {
-        if (typeof node.source.value !== "string") return;
-        if (!isSharedSchemaSource(node.source.value)) return;
-
-        for (const specifier of node.specifiers) {
-          if (specifier.type === "ImportSpecifier") {
-            sharedSchemaImports.add(specifier.local.name);
-          }
-        }
-      },
+      ImportDeclaration,
 
       CallExpression(node) {
         if (node.callee.type !== "MemberExpression") return;

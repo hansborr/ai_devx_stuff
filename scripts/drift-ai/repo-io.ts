@@ -11,10 +11,6 @@ export function compareStrings(left: string, right: string): number {
   return left.localeCompare(right, "en");
 }
 
-export function safeRepoPath(repoRoot: string, repoRelativePath: string): string | undefined {
-  return safeRepoPathFromRoot(path.resolve(repoRoot), repoRelativePath);
-}
-
 export function defaultFileReader(repoRoot: string): RepoFileReader {
   const root = path.resolve(repoRoot);
   return (filePath) => {

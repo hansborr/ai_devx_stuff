@@ -19,8 +19,9 @@ logs/
 ralph-logs/
 tmp/
 
-# Devcontainer sentinel
+# Devcontainer sentinels
 .setup-complete
+.setup-failed
 
 # OS
 .DS_Store

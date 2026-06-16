@@ -16,6 +16,34 @@ REPO_ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null || {
 # shellcheck source=/dev/null
 . "$SCRIPT_DIR/ai-hooks/output-filter.sh"
 
+# Fail fast on a stale/unbuilt @musi/shared dist or generated Prisma client
+# before Vitest imports them — otherwise the staleness surfaces as dozens of
+# phantom "<X> is not a function" failures. The check is gated on real
+# mtime-staleness, so the already-built common path adds no measurable time.
+# The preflight libs are sourced defensively so a tree that predates them (or a
+# sandbox fixture that copies only this wrapper) still runs Vitest normally.
+if [ -f "$SCRIPT_DIR/prisma-client-freshness.sh" ] \
+  && [ -f "$SCRIPT_DIR/lib/test-dist-preflight.sh" ]; then
+  # shellcheck source=/dev/null
+  . "$SCRIPT_DIR/prisma-client-freshness.sh"
+  # shellcheck source=/dev/null
+  . "$SCRIPT_DIR/lib/test-dist-preflight.sh"
+
+  # Both checks are gated on the --project filters in our own argv: the
+  # @musi/shared dist check only when the run includes a project that imports the
+  # built dist (client or server), and the generated-Prisma-client check only
+  # when it includes the server project. When no --project is present, scope is
+  # inferred from any positional file paths (e.g. `bun run test -- <file>`), so a
+  # focused test:scripts/test:shared/test:eslint-rules run — by --project OR by
+  # path — is not aborted by a stale dep it never imports.
+  PREFLIGHT_INCLUDES_SERVER="$(musi_test_dist_run_includes_server "$@")"
+  PREFLIGHT_INCLUDES_SHARED_CONSUMER="$(musi_test_dist_run_includes_shared_consumer "$@")"
+  if ! musi_test_dist_preflight \
+    "$REPO_ROOT" "$PREFLIGHT_INCLUDES_SERVER" "$PREFLIGHT_INCLUDES_SHARED_CONSUMER"; then
+    exit 1
+  fi
+fi
+
 ai_vitest_should_compact_success() {
   [ "${MUSI_VITEST_COMPACT_SUCCESS:-1}" != "0" ] || return 1
   [ "${MUSI_VITEST_VERBOSE_SUCCESS:-}" != "1" ] || return 1

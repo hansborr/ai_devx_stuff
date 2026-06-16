@@ -347,6 +347,7 @@ describe("commentedOutCodeCheck plugin", () => {
         repoRoot,
         overrides: {},
         cli: parseArgs(["--scope", "current", "--check", "commented-out-code"]),
+        warnStderr: () => undefined,
       },
     });
     expect(outcome.status).toBe("ran");

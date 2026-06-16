@@ -47,9 +47,12 @@ function usage(): string {
     "  bun run drift:ai --knip-config <path>",
     "  bun run drift:ai --tsconfig <path>",
     "  bun run drift:ai --fail-on-findings",
+    "  bun run drift:ai --scope current --check import-cycles --fail-on-runtime-cycles",
     "",
     "Report-only. Changed scope is the default; current scope audits the working tree.",
     "--fail-on-findings opts into exit 1 when findings exist; the default stays exit 0.",
+    "--fail-on-runtime-cycles gates on runtime import cycles only (requires --check",
+    "import-cycles or all); type-only cycles stay report-only evidence.",
   ].join("\n");
 }
 
@@ -70,6 +73,7 @@ type ParsedCliOptions = {
   allRequested: boolean;
   includeScope: boolean;
   failOnFindings: boolean;
+  failOnRuntimeCycles: boolean;
 };
 
 function initialParsedOptions(): ParsedCliOptions {
@@ -83,6 +87,7 @@ function initialParsedOptions(): ParsedCliOptions {
     allRequested: false,
     includeScope: false,
     failOnFindings: false,
+    failOnRuntimeCycles: false,
   };
 }
 
@@ -177,9 +182,10 @@ function parseToolPathOption(
   return option.nextIndex;
 }
 
-// Valueless boolean flags (present = true): --include-scope, --fail-on-findings.
-// One parser keyed by option name keeps them DRY alongside the declarative
-// OPTION_PARSERS table, mirroring parseToolPathOption for the single-value paths.
+// Valueless boolean flags (present = true): --include-scope, --fail-on-findings,
+// --fail-on-runtime-cycles. One parser keyed by option name keeps them DRY
+// alongside the declarative OPTION_PARSERS table, mirroring parseToolPathOption
+// for the single-value paths.
 function parseBooleanFlag(
   arg: string,
   _argv: readonly string[],
@@ -189,7 +195,11 @@ function parseBooleanFlag(
   const name = optionName(arg);
   if (arg !== name) throw new DriftAiError(`${name} does not accept a value.`);
   if (name === "--include-scope") parsed.includeScope = true;
-  else parsed.failOnFindings = true;
+  else if (name === "--fail-on-findings") parsed.failOnFindings = true;
+  else if (name === "--fail-on-runtime-cycles") parsed.failOnRuntimeCycles = true;
+  // An unhandled name falls through to parseArgs' unknown-argument error rather
+  // than silently arming the wrong flag if a future boolean flag forgets a branch.
+  else return undefined;
   return index;
 }
 
@@ -235,6 +245,7 @@ const OPTION_PARSERS: Readonly<Record<string, OptionParser>> = {
   "--tsconfig": parseToolPathOption,
   "--include-scope": parseBooleanFlag,
   "--fail-on-findings": parseBooleanFlag,
+  "--fail-on-runtime-cycles": parseBooleanFlag,
 };
 
 function parseKnownOption(
@@ -264,6 +275,18 @@ function validateChunkOptions(parsed: ParsedCliOptions): void {
   }
 }
 
+// The runtime-cycle gate is meaningless when the run never dispatches the
+// import-cycles check (it is opt-in, so a bare run excludes it); reject that
+// instead of letting a misconfigured gate pass green forever.
+function validateRuntimeCycleGate(parsed: ParsedCliOptions): void {
+  if (!parsed.failOnRuntimeCycles) return;
+  if (!resolveChecks(parsed).includes("import-cycles")) {
+    throw new DriftAiError(
+      "--fail-on-runtime-cycles requires --check import-cycles (or --check all).",
+    );
+  }
+}
+
 function resolveChecks(parsed: ParsedCliOptions): DriftCheckId[] {
   if (parsed.allRequested) return [...ALL_CHECKS];
   if (parsed.requested.length === 0) return [...DEFAULT_CHECKS];
@@ -288,6 +311,7 @@ function cliOptionsFromParsed(parsed: ParsedCliOptions): CliOptions {
     ...(parsed.tsconfig === undefined ? {} : { tsconfig: parsed.tsconfig }),
     includeScope: parsed.includeScope,
     failOnFindings: parsed.failOnFindings,
+    failOnRuntimeCycles: parsed.failOnRuntimeCycles,
   };
 }
 
@@ -307,5 +331,6 @@ export function parseArgs(argv: readonly string[]): CliOptions {
 
   validateScopeOptions(parsed);
   validateChunkOptions(parsed);
+  validateRuntimeCycleGate(parsed);
   return cliOptionsFromParsed(parsed);
 }

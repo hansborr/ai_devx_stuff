@@ -4,6 +4,7 @@ Use this path when adding or changing Playwright specs under `e2e/`.
 
 1. Add or extend the page object for the surface in `e2e/page-objects/`.
    Keep route mechanics, setup navigation, and repeated assertions there.
+   Name the file `<surface>.po.ts` and export a `<Surface>PO` class.
 2. Put the spec beside the rest of the browser suite as
    `e2e/<surface>.spec.ts`. Prefer extending an existing focused spec when the
    behavior belongs to an existing flow.

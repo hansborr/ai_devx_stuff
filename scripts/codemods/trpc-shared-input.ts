@@ -29,11 +29,11 @@ import {
 } from "./lib/trpc-shared-schema.js";
 import {
   assertConstSchemaIsOnlyInputReference,
+  CODEMOD_NAME,
   collectInputCandidates,
   inputTypeNameForSchema,
 } from "./trpc-shared-input-candidates.js";
 
-const CODEMOD_NAME = "trpc-shared-input";
 const SHARED_INPUT_PREFIX = SHARED_SCHEMA_PREFIX;
 
 type Candidate = SharedSchemaCodemodCandidate;

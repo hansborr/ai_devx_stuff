@@ -1,17 +1,12 @@
-import { formatCommitIntentOverlay } from "./commit-intent.js";
+import { appendRowContext } from "./format-row-context.js";
 import type {
   ChurnHotspot,
   ChurnSection,
-  CouplingHotspot,
   CouplingSection,
-  FragmentationHotspot,
   FragmentationSection,
-  HotspotAuthor,
   HotspotBaselineDelta,
   HotspotSection,
-  SuppressionChurnHotspot,
   SuppressionChurnSection,
-  ThrashHotspot,
   ThrashSection,
 } from "./hotspots-format.js";
 import type { ChurnMetric } from "./hotspots-history.js";
@@ -147,31 +142,6 @@ function appendThrashSection(lines: string[], section: ThrashSection): void {
     }
     appendRowContext(lines, entry);
   }
-}
-
-function appendRowContext(
-  lines: string[],
-  entry:
-    | ChurnHotspot
-    | CouplingHotspot
-    | FragmentationHotspot
-    | SuppressionChurnHotspot
-    | ThrashHotspot,
-): void {
-  if (entry.authors.length > 0) {
-    lines.push(`        authors: ${entry.authors.map(formatAuthor).join(", ")}`);
-  }
-  if (entry.recentSubjects.length > 0) {
-    lines.push(`        recent: ${entry.recentSubjects.map((s) => `"${s}"`).join("; ")}`);
-  }
-  if (entry.commitIntent.length > 0) {
-    lines.push(`        intent: ${formatCommitIntentOverlay(entry.commitIntent)}`);
-  }
-  lines.push(`        inspect: ${entry.inspectCommand}`);
-}
-
-function formatAuthor(author: HotspotAuthor): string {
-  return `${author.name}×${author.commits}`;
 }
 
 function formatScore(score: number): string {

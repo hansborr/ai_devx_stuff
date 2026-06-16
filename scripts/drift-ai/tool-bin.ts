@@ -14,9 +14,15 @@ export type ToolBinConfig = {
 };
 
 export type ResolveToolBinOptions = {
+  // Subprocess cwd / target repo being scanned; its node_modules is the
+  // secondary lookup. Defaults to process.cwd().
   readonly analyzedRepoRoot?: string;
+  // Explicit --<tool>-bin path; authoritative when supplied.
   readonly override?: string;
+  // Directory this module lives in; overridable for tests. Production callers
+  // leave it defaulted so the tools checkout is found regardless of cwd.
   readonly moduleDir?: string;
+  // Injected existence check (the fs seam) so resolution is testable with a fake.
   readonly fileExists?: (candidate: string) => boolean;
 };
 

@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   resolveToolBin,
+  type ResolveToolBinOptions,
   type ToolBinConfig,
   type ToolBinResolution,
   type ToolBinSource,
@@ -28,18 +29,7 @@ export type JscpdBinSource = ToolBinSource;
 
 export type JscpdBinResolution = ToolBinResolution;
 
-export type ResolveJscpdBinOptions = {
-  // Subprocess cwd / target repo being scanned; its node_modules is the
-  // secondary lookup. Defaults to process.cwd().
-  readonly analyzedRepoRoot?: string;
-  // Explicit --jscpd-bin path; authoritative when supplied.
-  readonly override?: string;
-  // Directory this module lives in; overridable for tests. Production callers
-  // leave it defaulted so the tools checkout is found regardless of cwd.
-  readonly moduleDir?: string;
-  // Injected existence check (the fs seam) so resolution is testable with a fake.
-  readonly fileExists?: (candidate: string) => boolean;
-};
+export type ResolveJscpdBinOptions = ResolveToolBinOptions;
 
 // Resolve the jscpd executable. Precedence:
 //   1. an explicit --jscpd-bin override — authoritative when supplied (a missing

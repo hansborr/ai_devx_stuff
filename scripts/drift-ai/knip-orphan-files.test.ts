@@ -74,6 +74,7 @@ function makeInput(overrides: CtxOverrides = {}): CheckRunInput {
           ? []
           : ["--knip-config", overrides.knipConfigOverride]),
       ]),
+      warnStderr: () => undefined,
     },
   };
 }

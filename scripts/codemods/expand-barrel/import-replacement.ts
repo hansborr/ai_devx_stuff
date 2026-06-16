@@ -192,7 +192,7 @@ function createReplacementState(): ImportReplacementState {
   };
 }
 
-export function replacementForImport(
+function replacementForImport(
   context: BarrelContext,
   symbolMap: ExportMap,
   sourceFile: SourceFile,

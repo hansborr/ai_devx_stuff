@@ -1,8 +1,8 @@
 # Architecture Plan
 
 Stable architecture and the reasoning behind it. For current execution status
-use `docs/agent_notes/STATUS.md`, `docs/agent_notes/NEXT.md`, and the active
-roadmap in `docs/roadmap/developer-experience.md`.
+use the active roadmap in `docs/roadmap/developer-experience.md` for scope and
+`docs/agent_notes/LOG.md` for curated recent history.
 
 ## Stack
 
@@ -53,6 +53,14 @@ boundaries:
 - **Combat / VTT** — `Encounter`, `EncounterParticipant`, `CombatLog`,
   `Map`, `MapToken`, `MapLayer`.
 
+### Terminology
+
+- **VTT** = Virtual Tabletop = the client-side view over the `Encounter` /
+  `Map` / `Token` data model above. The abbreviation is client-only (it does
+  not appear under `packages/server/src`); the persistence side is named after
+  those models. See
+  [`packages/client/src/components/vtt/MODULE.md`](../packages/client/src/components/vtt/MODULE.md).
+
 ## Level-Up Choice Tracking
 
 `CharacterLevelChoice` records the player-facing choices made at a level
@@ -77,7 +85,9 @@ reviewed and rolled back without full character snapshot versioning.
 7. **Homebrew is first-class** — it reuses shared schemas and plugs into the
    same read surfaces as SRD data.
 8. **VTT is layered on top of the core app** — it consumes campaign, combat,
-   and character state instead of redefining them.
+   and character state instead of redefining them. See the Terminology entry
+   above and
+   [`packages/client/src/components/vtt/MODULE.md`](../packages/client/src/components/vtt/MODULE.md).
 9. **TanStack Router owns route and search-param state** — navigable UI state
    belongs in the URL.
 10. **shadcn/ui is the UI base layer** — Radix primitives plus owned source
@@ -91,6 +101,8 @@ reviewed and rolled back without full character snapshot versioning.
 14. **Seed from structured SRD exports, not PDF parsing** — keep import flows
     deterministic and reviewable. See `docs/srd-data-sources.md`.
 15. **Konva is the current VTT renderer** — the map/token data model stays
-    renderer-agnostic so the canvas implementation can change later.
+    renderer-agnostic so the canvas implementation can change later. For the
+    VTT term and shell, see
+    [`packages/client/src/components/vtt/MODULE.md`](../packages/client/src/components/vtt/MODULE.md).
 16. **Zustand is only for ephemeral client state** — TanStack Query owns
     server state, and URL-addressable state stays in TanStack Router.

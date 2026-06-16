@@ -24,7 +24,6 @@ import {
   type FileAggregate,
   lastRepoCommitMsByAuthor,
   median,
-  newestTimestamp,
 } from "./coldspots-aggregate.js";
 import { type AmplifierThresholds, fireAmplifiers } from "./coldspots-amplifiers.js";
 import {
@@ -36,7 +35,7 @@ import {
 } from "./coldspots-format.js";
 import { buildCommitIntentOverlay } from "./commit-intent.js";
 import { aggregateAuthors, recentSubjects, shellQuoteArg } from "./hotspots-actionability.js";
-import type { CollectedHistory, CommitRecord } from "./hotspots-history.js";
+import { type CollectedHistory, type CommitRecord, newestTimestamp } from "./hotspots-history.js";
 
 // --- thresholds (named, overridable) ----------------------------------------
 

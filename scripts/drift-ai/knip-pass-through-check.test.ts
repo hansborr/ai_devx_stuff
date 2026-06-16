@@ -45,6 +45,7 @@ function makeInput(check: (typeof KNIP_CHECKS)[number]["id"], knip: KnipRunner):
         pathExists: pathExistsFor(INSTALLED_WITH_ROOT_CONFIG),
       },
       cli: parseArgs(["--scope", "current", "--check", check]),
+      warnStderr: () => undefined,
     },
   };
 }

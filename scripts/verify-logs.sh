@@ -101,15 +101,31 @@ newest_log() {
   printf '%s\n' "$newest"
 }
 
-# bun-run-quiet writes per-script markers next to the log. Pre-commit logs
-# don't have a per-task marker (the wrapper records LAST_TS for the whole
-# run, not each step), so this returns empty for those.
+# bun-run-quiet writes per-script markers next to the log. Markers are
+# argv-scoped (`last.<base>.<argv_fp>`) so a broader/corrected command cannot
+# replay a narrower run's cached state (H1/H2); a single per-script log is still
+# shared, so a log can map to several argv markers. Report the NEWEST marker for
+# this script (the run whose output the shared log most likely holds). A legacy
+# bare `last.<base>` marker is honored too for resilience across the rename.
+# Pre-commit logs don't have a per-task marker (the wrapper records LAST_TS for
+# the whole run, not each step), so this returns empty for those.
 marker_for_log() {
-  local log="$1" base
+  local log="$1" base newest="" newest_mtime=0 mtime path
   case "$log" in
     "$BUN_LOG_DIR"/*)
       base=$(basename "$log" .log)
-      printf '%s\n' "$BUN_LOG_DIR/last.$base"
+      while IFS= read -r path; do
+        [ -f "$path" ] || continue
+        mtime=$(stat -c %Y "$path" 2>/dev/null || echo 0)
+        if [ "$mtime" -gt "$newest_mtime" ]; then
+          newest_mtime=$mtime
+          newest=$path
+        fi
+      done < <(
+        find "$BUN_LOG_DIR" -maxdepth 1 -type f \
+          \( -name "last.$base" -o -name "last.$base.*" \) 2>/dev/null
+      )
+      [ -n "$newest" ] && printf '%s\n' "$newest"
       ;;
   esac
 }
@@ -391,8 +407,8 @@ EOF
 }
 
 print_budget() {
-  local warn_after="${MUSI_INTERACTIVE_WARN_AFTER:-210}"
-  local hard_timeout="${MUSI_INTERACTIVE_TIMEOUT:-240}"
+  local warn_after="${MUSI_INTERACTIVE_WARN_AFTER:-260}"
+  local hard_timeout="${MUSI_INTERACTIVE_TIMEOUT:-300}"
 
   if [ ! -f "$RUN_META_FILE" ]; then
     printf 'budget: no verification metadata found.\n'

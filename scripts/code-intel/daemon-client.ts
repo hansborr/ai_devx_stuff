@@ -8,6 +8,7 @@ import {
   CODE_INTEL_DAEMON_PROTOCOL_VERSION,
   type CodeIntelDaemonRequest,
   type CodeIntelDaemonResponse,
+  DAEMON_FALLBACK_ERROR_NAME,
 } from "./daemon-protocol.js";
 import {
   type DaemonStateOptions,
@@ -21,8 +22,6 @@ import type { CodeIntelQueryResult, ExecutableCliCommand } from "./types.js";
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 5000;
 const REFS_REQUEST_TIMEOUT_MS = 30000;
-
-export const DAEMON_FALLBACK_ERROR_NAME = "CodeIntelDaemonFallback";
 
 export type DaemonClientOptions = {
   isAlive?: (pid: number) => boolean;

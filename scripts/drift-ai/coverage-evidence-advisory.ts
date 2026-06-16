@@ -12,8 +12,8 @@ import {
   formatPrototypeAdvisoryJson,
   formatPrototypeHeader,
   type PrototypeAdvisory,
-  type PrototypeCap,
   type PrototypeSection,
+  rowsPerSectionCap,
 } from "./prototype-advisory.js";
 
 export const COVERAGE_EVIDENCE_SUBCOMMAND = "coverage-evidence";
@@ -86,7 +86,13 @@ export function buildCoverageEvidenceAdvisory(
         detail: `${artifacts.length} configured ${plural("artifact", artifacts.length)}`,
       },
     ],
-    caps: [rowCap(top, sections)],
+    caps: [
+      rowsPerSectionCap(top, sections, {
+        label: "rows per artifact",
+        noun: "artifact",
+        rowNoun: "parsed rows",
+      }),
+    ],
     degradations: artifacts.flatMap(degradationNotes),
     sections,
   });
@@ -115,7 +121,13 @@ function noArtifactsAdvisory(top: number): CoverageEvidenceAdvisory {
         detail: "0 configured artifacts; add coverage.artifacts to drift-ai config",
       },
     ],
-    caps: [rowCap(top, [])],
+    caps: [
+      rowsPerSectionCap(top, [], {
+        label: "rows per artifact",
+        noun: "artifact",
+        rowNoun: "parsed rows",
+      }),
+    ],
     sections: [
       {
         candidateKind: "coverage artifact evidence",
@@ -228,21 +240,6 @@ function summaryForArtifact(artifact: CoverageArtifactEvidence): CoverageEvidenc
       linesHit: 0,
     },
   );
-}
-
-function rowCap(top: number, sections: readonly CoverageEvidenceSection[]): PrototypeCap {
-  const hitCount = sections.filter(
-    (section) => section.totalCandidates > section.entries.length,
-  ).length;
-  return {
-    label: "rows per artifact",
-    limit: top,
-    hit: hitCount > 0,
-    detail:
-      hitCount > 0
-        ? `${hitCount} ${plural("artifact", hitCount)} had more than ${top} parsed rows`
-        : null,
-  };
 }
 
 function degradationNotes(artifact: CoverageArtifactEvidence): string[] {

@@ -1,41 +1,39 @@
 import { describe, expect, it } from "vitest";
 
 import type { GitRunner } from "./git-changed-scope.js";
+import {
+  commitBlock as buildCommitBlock,
+  joinGitLogBlocks as gitLog,
+} from "./git-log-fixture.test-helper.js";
 import type { CommitRecord } from "./hotspots-history.js";
 import {
   collectSuppressionChurnRecords,
   reduceSuppressionChurn,
 } from "./hotspots-suppression-churn.js";
 
-const NUL = "\u0000";
-const US = "\u001f";
+const FIXED_DATE = "2026-05-29T00:00:00-07:00";
 
-function metaLine(hash: string, author = "Ada", subject = `subject ${hash}`): string {
-  return (
-    NUL +
-    [
-      hash,
-      author,
-      `${author.toLowerCase()}@example.com`,
-      "2026-05-29T00:00:00-07:00",
-      "2026-05-29T00:00:00-07:00",
-      subject,
-      "",
-    ].join(US)
-  );
-}
-
+// Suppression-churn fixtures derive the author email and default the subject
+// from the hash at a fixed timestamp, so wrap the shared git-log builder to keep
+// that positional shape.
 function commitBlock(
   hash: string,
   rows: readonly string[],
   author?: string,
   subject?: string,
 ): string {
-  return [metaLine(hash, author, subject), "", ...rows].join("\n");
-}
-
-function gitLog(blocks: readonly string[]): string {
-  return blocks.join("\n");
+  const authorName = author ?? "Ada";
+  return buildCommitBlock(
+    {
+      hash,
+      authorName,
+      authorEmail: `${authorName.toLowerCase()}@example.com`,
+      authorDate: FIXED_DATE,
+      committerDate: FIXED_DATE,
+      subject: subject ?? `subject ${hash}`,
+    },
+    rows,
+  );
 }
 
 function gitFake(output: string, recorded: string[][]): GitRunner {

@@ -11,21 +11,21 @@ export type CliArgs =
   | { readonly mode: "all"; readonly dryRun: boolean }
   | { readonly mode: "single"; readonly context: BarrelContext; readonly dryRun: boolean };
 
-export type NewImportGroup = {
+type NewImportGroup = {
   readonly kind: "named";
   readonly source: string;
   readonly declarationTypeOnly: boolean;
   readonly specifiers: ImportSpecifierInfo[];
 };
 
-export type DefaultImportGroup = {
+type DefaultImportGroup = {
   readonly kind: "default";
   readonly source: string;
   readonly declarationTypeOnly: boolean;
   readonly local: string;
 };
 
-export type NamespaceImportGroup = {
+type NamespaceImportGroup = {
   readonly kind: "namespace";
   readonly source: string;
   readonly declarationTypeOnly: boolean;
@@ -34,23 +34,23 @@ export type NamespaceImportGroup = {
 
 export type ImportGroup = NewImportGroup | DefaultImportGroup | NamespaceImportGroup;
 
-export type NamedExportBinding = {
+type NamedExportBinding = {
   readonly kind: "named";
   readonly importedName: string;
   readonly sourcePath: string;
 };
 
-export type DefaultExportBinding = {
+type DefaultExportBinding = {
   readonly kind: "default";
   readonly sourcePath: string;
 };
 
-export type NamespaceExportBinding = {
+type NamespaceExportBinding = {
   readonly kind: "namespace";
   readonly sourcePath: string;
 };
 
-export type BarrelLocalExportBinding = {
+type BarrelLocalExportBinding = {
   readonly kind: "barrel-local";
   readonly exportedName: string;
 };

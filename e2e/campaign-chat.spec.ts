@@ -1,6 +1,5 @@
-import { expect, test } from "./fixtures.js";
+import { test } from "./fixtures.js";
 import { type DmPlayerCampaign, setupDmAndPlayer } from "./helpers/campaign-setup.js";
-import { TIMEOUT_SHORT } from "./helpers/timeouts.js";
 
 test.describe("Campaign chat", () => {
   test.describe.configure({ mode: "serial" });
@@ -9,6 +8,7 @@ test.describe("Campaign chat", () => {
   let dmDisplayName: string;
   let playerDisplayName: string;
   let dmMessage: string;
+  let playerReply: string;
 
   test.beforeAll(async ({ browser }) => {
     ctx = await setupDmAndPlayer(browser, {
@@ -40,20 +40,16 @@ test.describe("Campaign chat", () => {
   });
 
   test("Player sends reply and DM sees it", async () => {
-    const reply = `Reply from Player ${String(Date.now())}`;
-    await ctx.playerDetail.chat.sendMessage(reply);
-    await ctx.playerDetail.chat.expectMessage(reply);
+    playerReply = `Reply from Player ${String(Date.now())}`;
+    await ctx.playerDetail.chat.sendMessage(playerReply);
+    await ctx.playerDetail.chat.expectMessage(playerReply);
 
-    await ctx.dmDetail.chat.expectMessage(reply);
+    await ctx.dmDetail.chat.expectMessage(playerReply);
   });
 
   test("messages show author name", async () => {
-    await expect(ctx.dmDetail.chat.chatMessages.getByText(dmDisplayName).first()).toBeVisible({
-      timeout: TIMEOUT_SHORT,
-    });
-    await expect(ctx.dmDetail.chat.chatMessages.getByText(playerDisplayName).first()).toBeVisible({
-      timeout: TIMEOUT_SHORT,
-    });
+    await ctx.dmDetail.chat.expectMessageAuthor(dmMessage, dmDisplayName);
+    await ctx.dmDetail.chat.expectMessageAuthor(playerReply, playerDisplayName);
   });
 
   test("empty input disables send button", async () => {

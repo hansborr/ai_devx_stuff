@@ -89,7 +89,7 @@ There is now a `toast.error` in both combat mutation handlers:
 - `encounter-detail-view.tsx:116` — `toast.error("Failed to resolve attack")`.
 - `encounter-detail-view.tsx:128` — `toast.error("Failed to cast spell")`.
 
-The audit's *primary* complaint — that 403s landed silently — is no longer accurate; a generic toast does fire. **However**, the audit's stricter ask remains unfulfilled: there is no branching on `error.data.code`, the dialog does not auto-close on `FORBIDDEN` / `PRECONDITION_FAILED`, the toast doesn't echo the server reason, and no inline banner exists for `BAD_REQUEST`. Live 403 reproduction not exercised (would need an out-of-turn cast); the static code is unambiguous.
+The audit's *primary* complaint — that 403s landed silently — is no longer accurate; a generic toast does fire. **However**, the audit's stricter ask remains unfulfilled: there is no branching on `error.data.code`, the dialog does not auto-close on `FORBIDDEN` / `CONFLICT` (the codes the combat mutations actually emit — out-of-turn / wrong-actor rejections surface as `FORBIDDEN`, lost optimistic-lock races as `CONFLICT` per `docs/CONCURRENCY.md`; the server never emits `PRECONDITION_FAILED`), the toast doesn't echo the server reason, and no inline banner exists for `BAD_REQUEST` (invalid-input rejections). Live 403 reproduction not exercised (would need an out-of-turn cast); the static code is unambiguous.
 
 ### #10 — Silent successes (Settings save, Create Campaign nav, Assign Character, auto-link toast) — **Partially fixed**
 

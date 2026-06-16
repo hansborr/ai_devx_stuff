@@ -31,10 +31,14 @@ For the module-doc contract, see [docs/module-docs.md](docs/module-docs.md).
 - [spell - homebrew entity module](packages/client/src/components/homebrew/spell/MODULE.md) - `packages/client/src/components/homebrew/spell/`
 - [subclass - homebrew entity module](packages/client/src/components/homebrew/subclass/MODULE.md) - `packages/client/src/components/homebrew/subclass/`
 - [vtt drawer module](packages/client/src/components/vtt/drawer/MODULE.md) - `packages/client/src/components/vtt/drawer/`
+- [vtt module](packages/client/src/components/vtt/MODULE.md) - `packages/client/src/components/vtt/` - Concepts: VTT, virtual tabletop, vtt surface, encounter, map, token, tabletop shell
 - [canvas-input module](packages/client/src/hooks/canvas-input/MODULE.md) - `packages/client/src/hooks/canvas-input/` - Concepts: canvas input, pointer capture, map tools, drawing, fog, measurement, templates
 - [character-sheet module](packages/client/src/hooks/character-sheet/MODULE.md) - `packages/client/src/hooks/character-sheet/` - Concepts: character sheet, optimistic cache, HP adjustment, death saves, character socket invalidation
 - [client hooks module](packages/client/src/hooks/MODULE.md) - `packages/client/src/hooks/` - Concepts: socket context, realtime invalidation, campaign presence, notifications, query invalidation
 - [vtt-drawer module](packages/client/src/hooks/vtt-drawer/MODULE.md) - `packages/client/src/hooks/vtt-drawer/` - Concepts: VTT drawer hooks, quick actions, target pick, spell placement, combat mutations
+- [client stores module](packages/client/src/stores/MODULE.md) - `packages/client/src/stores/` - Concepts: zustand stores, ephemeral client state, vtt store reset, map canvas tool state, drawer state, combat dialog state
+- [routers module](packages/server/src/routers/routers-MODULE.md) - `packages/server/src/routers/routers-MODULE.md` - Concepts: tRPC routers, app-router, router surface map, procedure partition, where does procedure X live
+- [server routes module](packages/server/src/routes/MODULE.md) - `packages/server/src/routes/` - Concepts: REST routes, multipart upload, map image upload, non-tRPC error convention, HTTP status mapping
 - [character-live-state module](packages/server/src/services/character-live-state/MODULE.md) - `packages/server/src/services/character-live-state/` - Concepts: character stats, HP, conditions, spell slots, sorcery points, feature uses, rest commands
 - [combat-actions module](packages/server/src/services/combat-actions/MODULE.md) - `packages/server/src/services/combat-actions/` - Concepts: attacks, initiative rolls, turn advancement, turn locks, combat logs, concentration checks
 - [encounter-combat module](packages/server/src/services/encounter-combat/MODULE.md) - `packages/server/src/services/encounter-combat/` - Concepts: encounter combat mutations, combat fan-out, roll initiative, advance turn, combat log query
@@ -42,3 +46,5 @@ For the module-doc contract, see [docs/module-docs.md](docs/module-docs.md).
 - [rest-service module](packages/server/src/services/rest-MODULE.md) - `packages/server/src/services/rest-MODULE.md` - Concepts: short rest, long rest, hit dice, death saves, exhaustion, spell slot reset
 - [spell-casting module](packages/server/src/services/spell-casting/MODULE.md) - `packages/server/src/services/spell-casting/` - Concepts: spell casting, spell slots, concentration, combat spells, ritual casting, metamagic
 - [server socket module](packages/server/src/socket/MODULE.md) - `packages/server/src/socket/` - Concepts: Socket.io, campaign rooms, presence, heartbeats, socket broadcasts, broadcast registry
+- [area-template module](packages/shared/src/map/area-template-MODULE.md) - `packages/shared/src/map/area-template-MODULE.md` - Concepts: AoE geometry, grid-cell projection, coordinate convention, angle snapping, Chebyshev distance
+- [shared schemas module](packages/shared/src/schemas/MODULE.md) - `packages/shared/src/schemas/` - Concepts: zod schemas, contract layer, tRPC inputs, entity schemas, SRD reference, derived types

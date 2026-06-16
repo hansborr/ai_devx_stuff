@@ -46,6 +46,7 @@ import {
   type DirectoryListing,
   GHOST_FILES_REPAIR_HINT_PREFIX,
 } from "./drift-ai/ghost-files.js";
+import type { ModuleGraphRunner } from "./drift-ai/import-cycles-graph.js";
 import {
   clearKnipRunCache,
   KNIP_FILE_SYMBOL_INCLUDE_CATEGORIES,
@@ -122,6 +123,7 @@ function makeCheckRunContext(
       repoRoot,
       overrides: { ...DEFAULT_OVERRIDES, ...overrides.overrides },
       cli: overrides.cli ?? parseArgs([]),
+      warnStderr: overrides.warnStderr ?? (() => undefined),
     },
   };
 }
@@ -330,6 +332,7 @@ describe("parseArgs", () => {
     expect(options.chunkSize).toBeUndefined();
     expect(options.includeScope).toBe(false);
     expect(options.failOnFindings).toBe(false);
+    expect(options.failOnRuntimeCycles).toBe(false);
   });
 
   it("includes suppressions in ALL_CHECKS and accepts --check suppressions", () => {
@@ -389,6 +392,26 @@ describe("parseArgs", () => {
     expect(parseArgs(["--fail-on-findings"]).failOnFindings).toBe(true);
     expect(() => parseArgs(["--fail-on-findings=true"])).toThrow(
       /--fail-on-findings does not accept a value/u,
+    );
+  });
+
+  it("parses --fail-on-runtime-cycles when import-cycles is selected", () => {
+    const options = parseArgs(["--check", "import-cycles", "--fail-on-runtime-cycles"]);
+    expect(options.failOnRuntimeCycles).toBe(true);
+    expect(parseArgs(["--check", "all", "--fail-on-runtime-cycles"]).failOnRuntimeCycles).toBe(
+      true,
+    );
+    expect(() => parseArgs(["--check", "import-cycles", "--fail-on-runtime-cycles=true"])).toThrow(
+      /--fail-on-runtime-cycles does not accept a value/u,
+    );
+  });
+
+  it("rejects --fail-on-runtime-cycles when import-cycles is not selected", () => {
+    expect(() => parseArgs(["--fail-on-runtime-cycles"])).toThrow(
+      /--fail-on-runtime-cycles requires --check import-cycles/u,
+    );
+    expect(() => parseArgs(["--check", "duplicates", "--fail-on-runtime-cycles"])).toThrow(
+      /--fail-on-runtime-cycles requires --check import-cycles/u,
     );
   });
 
@@ -2524,6 +2547,139 @@ describe("runDriftAi", () => {
     });
     expect(result.exitCode).toBe(2);
     expect(result.stdout).toContain("Unknown check: made-up");
+  });
+});
+
+describe("runDriftAi --fail-on-runtime-cycles gate", () => {
+  function twoFileCycleGraph(typeOnly: boolean): ModuleGraphRunner {
+    return () => ({
+      ok: true,
+      graph: {
+        edges: new Map([
+          ["src/a.ts", [{ to: "src/b.ts", typeOnly }]],
+          ["src/b.ts", [{ to: "src/a.ts", typeOnly }]],
+        ]),
+        candidateCount: 2,
+        unresolvedCount: 0,
+        fileCount: 2,
+        tsconfigCount: 1,
+      },
+    });
+  }
+
+  function acyclicGraph(): ModuleGraphRunner {
+    return () => ({
+      ok: true,
+      graph: {
+        edges: new Map([
+          ["src/a.ts", [{ to: "src/b.ts", typeOnly: false }]],
+          ["src/b.ts", []],
+        ]),
+        candidateCount: 1,
+        unresolvedCount: 0,
+        fileCount: 2,
+        tsconfigCount: 1,
+      },
+    });
+  }
+
+  function runGate(moduleGraph: ModuleGraphRunner): {
+    readonly result: ReturnType<typeof runDriftAi>;
+    readonly stderr: readonly string[];
+  } {
+    const repoRoot = makeTempDir();
+    const files = ["src/a.ts", "src/b.ts"];
+    const stderr: string[] = [];
+    const result = runDriftAi({
+      argv: ["--scope", "current", "--check", "import-cycles", "--fail-on-runtime-cycles"],
+      git: makeCurrentGit(repoRoot),
+      gitBuffer: () => nulDelimited(files),
+      stat: statForCurrentFiles(repoRoot, files),
+      pathExists: () => true,
+      moduleGraph,
+      warnStderr: (message) => stderr.push(message),
+    });
+    return { result, stderr };
+  }
+
+  it("exits 1 on a runtime cycle and surfaces the repair hint", () => {
+    const { result, stderr } = runGate(twoFileCycleGraph(false));
+    expect(result.exitCode).toBe(1);
+    expect(result.report?.findings).toHaveLength(1);
+    expect(result.report?.findings[0]?.details?.["typeOnly"]).toBe(false);
+    expect(result.stdout).toContain("WARN import-cycles:");
+    expect(result.stdout).toContain("FIX: break the cycle");
+    expect(stderr.join("\n")).toContain("--fail-on-runtime-cycles: runtime import cycles");
+  });
+
+  it("exits 0 when only type-only cycles exist; they stay reported as evidence", () => {
+    const { result, stderr } = runGate(twoFileCycleGraph(true));
+    expect(result.exitCode).toBe(0);
+    expect(result.report?.findings).toHaveLength(1);
+    expect(result.report?.findings[0]?.details?.["typeOnly"]).toBe(true);
+    expect(stderr).toEqual([]);
+  });
+
+  it("exits 0 on an acyclic graph", () => {
+    const { result, stderr } = runGate(acyclicGraph());
+    expect(result.exitCode).toBe(0);
+    expect(result.report?.findings).toEqual([]);
+    expect(stderr).toEqual([]);
+  });
+
+  it("gates on the runtime cycle even when type-only cycles are also present", () => {
+    const { result } = runGate(() => ({
+      ok: true,
+      graph: {
+        edges: new Map([
+          ["src/a.ts", [{ to: "src/b.ts", typeOnly: false }]],
+          ["src/b.ts", [{ to: "src/a.ts", typeOnly: false }]],
+          ["src/c.ts", [{ to: "src/d.ts", typeOnly: true }]],
+          ["src/d.ts", [{ to: "src/c.ts", typeOnly: true }]],
+        ]),
+        candidateCount: 4,
+        unresolvedCount: 0,
+        fileCount: 4,
+        tsconfigCount: 1,
+      },
+    }));
+    expect(result.exitCode).toBe(1);
+    expect(result.report?.findings).toHaveLength(2);
+    const byTypeOnly = result.report?.findings.map((finding) => finding.details?.["typeOnly"]);
+    expect(byTypeOnly).toContain(false);
+    expect(byTypeOnly).toContain(true);
+  });
+
+  it("exits 1 when the module graph cannot be built (the diagnostic finding trips the gate)", () => {
+    const { result } = runGate(() => ({ ok: false, error: "ts-morph exploded" }));
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toContain("could not build the module graph");
+  });
+
+  it("exits 1 when import-cycles skips — the gate fails closed instead of certifying zero", () => {
+    const { result, stderr } = runGate(() => ({
+      ok: false,
+      reason: "no tsconfig found to resolve the module graph",
+      code: "no-target-config",
+    }));
+    expect(result.exitCode).toBe(1);
+    expect(result.report?.skippedChecks.map((skip) => skip.check)).toContain("import-cycles");
+    expect(stderr.join("\n")).toContain("failed closed: the import-cycles check skipped");
+  });
+
+  it("does not gate without the flag: the same runtime cycle stays report-only", () => {
+    const repoRoot = makeTempDir();
+    const files = ["src/a.ts", "src/b.ts"];
+    const result = runDriftAi({
+      argv: ["--scope", "current", "--check", "import-cycles"],
+      git: makeCurrentGit(repoRoot),
+      gitBuffer: () => nulDelimited(files),
+      stat: statForCurrentFiles(repoRoot, files),
+      pathExists: () => true,
+      moduleGraph: twoFileCycleGraph(false),
+    });
+    expect(result.exitCode).toBe(0);
+    expect(result.report?.findings).toHaveLength(1);
   });
 });
 

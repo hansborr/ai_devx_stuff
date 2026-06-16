@@ -149,7 +149,18 @@ assert_policy_blocks_each "$AI_POLICY_GIT_AMEND" \
   "git commit --amend -m fix" \
   "echo ok && git commit --amend" \
   "bash -lc 'git commit --amend'" \
-  "env FOO=bar git commit --amend"
+  "env FOO=bar git commit --amend" \
+  "git -c commit.gpgsign=false commit --amend" \
+  "git -c user.name=ci -c user.email=ci@x commit --amend -m fix" \
+  "echo ok && git -c core.editor=true commit --amend" \
+  "bash -lc 'git -c commit.gpgsign=false commit --amend'"
+# `git commit -c <commit>` reuses a commit's message for a NEW commit — it is not
+# an amend and must stay allowed (the widened amend regex must not false-match it).
+assert_policy_allows_each \
+  "git commit -c HEAD~1" \
+  "git commit -c abc123 -m override" \
+  "git -c commit.gpgsign=false commit -m normal" \
+  "git -c user.name=ci commit -c HEAD~1"
 
 assert_policy_blocks_each "$AI_POLICY_GIT_REBASE" \
   "git rebase main" \
@@ -644,6 +655,9 @@ assert_wrapped_bun "bun run lint"
 assert_wrapped_bun "bun run lint:changed"
 assert_wrapped_bun "bun run typecheck"
 assert_wrapped_bun "bun run test:changed"
+assert_wrapped_bun "bun run test:client"
+assert_wrapped_bun "bun run test:client:split"
+assert_wrapped_bun "bun run test:client:isolated"
 assert_wrapped_bun "bun run test:slow"
 assert_wrapped_bun "bun run e2e"
 assert_wrapped_bun "bun run format:check"
@@ -886,6 +900,80 @@ assert_git_commit_quiet_body_non_commit_passthrough() {
   assert_hook_continue_json "$hook_out"
 }
 
+# G1 regression: the git-commit-quiet hook *executes* the command via `bash -c`,
+# so it must self-block a forbidden `git commit --amend` BEFORE running it.
+# Otherwise the amend rewrites HEAD even though the agent is told it was blocked.
+assert_git_commit_quiet_amend_blocked_pre_execution() {
+  local ws_head_before hook_out reason ws_head_after lock
+
+  # This hook hardcodes its own REPO_ROOT to the workspace (it `cd`s there before
+  # `bash -c "$CMD"`), so an UN-guarded `git commit --amend` would rewrite the
+  # WORKSPACE HEAD. The self-block must fire before that cd/exec. Asserting the
+  # workspace HEAD is unchanged is the decisive proof: it is exactly the ref the
+  # original bug rewrote. (Safe to assert now that the guard is in place.)
+  ws_head_before=$(git -C "$REPO_ROOT" rev-parse HEAD)
+  lock="$TMP_ROOT/git-commit-quiet-amend-lock"
+
+  hook_out=$(
+    printf '{"tool_input":{"command":"git commit --amend --no-edit"}}' \
+      | AI_GIT_COMMIT_LOCK="$lock" \
+        bash "$REPO_ROOT/scripts/ai-hooks/git-commit-quiet.sh"
+  )
+  ws_head_after=$(git -C "$REPO_ROOT" rev-parse HEAD)
+  reason=$(printf '%s' "$hook_out" | jq -r '.reason // empty')
+
+  [ "$(printf '%s' "$hook_out" | jq -r '.decision // empty')" = "block" ] \
+    || fail "git-commit-quiet should block --amend before executing it: $hook_out"
+  [ "$ws_head_after" = "$ws_head_before" ] \
+    || fail "git-commit-quiet executed the --amend (workspace HEAD moved $ws_head_before -> $ws_head_after) despite blocking"
+  # The block must NOT have taken the lock (it returns before the lock/exec).
+  [ ! -s "$lock" ] \
+    || fail "git-commit-quiet acquired the commit lock before self-blocking --amend"
+  assert_contains "$reason" "amend"
+  assert_contains "$reason" "did NOT run"
+}
+
+# The amend self-guard must NOT block legitimate `git commit` forms — overshoot
+# here breaks every normal commit (this very workflow commits with `git commit
+# -F` afterward). ai_preflight_or_block exits via ai_emit_block only on a hard
+# policy violation, so a clean run prints nothing and returns 0. Each call runs
+# in a subshell because ai_emit_block calls `exit`.
+assert_preflight_allows() {
+  local cmd="$1"
+  local out
+
+  out=$(ai_preflight_or_block "$cmd") \
+    || fail "ai_preflight_or_block exited non-zero for allowed command [$cmd]"
+  [ -z "$out" ] \
+    || fail "ai_preflight_or_block unexpectedly blocked allowed command [$cmd]: $out"
+}
+
+assert_preflight_blocks() {
+  local cmd="$1"
+  local expected="$2"
+  local out reason
+
+  out=$(ai_preflight_or_block "$cmd")
+  reason=$(printf '%s' "$out" | jq -r '.reason // empty' 2>/dev/null || true)
+  [ "$(printf '%s' "$out" | jq -r '.decision // empty' 2>/dev/null)" = "block" ] \
+    || fail "ai_preflight_or_block should block [$cmd], got: $out"
+  [ "$reason" = "$expected" ] \
+    || fail "ai_preflight_or_block reason mismatch for [$cmd]: $reason"
+}
+
+assert_git_commit_quiet_normal_commit_allowed_by_guard() {
+  # Normal commits (and config-prefixed normal commits, and message-reuse `-c`)
+  # must sail past the self-guard. The wrapper itself then runs them; the guard's
+  # only job is not to false-block.
+  assert_preflight_allows "git commit -m 'normal commit message'"
+  assert_preflight_allows "git commit -F /tmp/commit-msg.txt"
+  assert_preflight_allows "git commit -c HEAD~1"
+  assert_preflight_allows "git -c commit.gpgsign=false commit -m normal"
+  # Hard policy violations the executing hook could otherwise run are blocked
+  # before exec — the adjacent-`git commit` amend form this hook actually runs.
+  assert_preflight_blocks "git commit --amend --no-edit" "$AI_POLICY_GIT_AMEND"
+}
+
 assert_claude_git_commit_timeout_guidance() {
   local marker="54321"
   local hook_out reason pid args
@@ -917,6 +1005,8 @@ assert_commit_timeout_status_retries_when_still_running
 assert_codex_git_commit_unknown_guidance
 assert_codex_git_commit_signal_guidance
 assert_git_commit_quiet_body_non_commit_passthrough
+assert_git_commit_quiet_amend_blocked_pre_execution
+assert_git_commit_quiet_normal_commit_allowed_by_guard
 assert_claude_git_commit_timeout_guidance
 
 # --- stop-policy hook ---------------------------------------------------------

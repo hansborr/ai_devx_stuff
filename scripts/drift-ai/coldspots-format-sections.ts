@@ -10,8 +10,8 @@ import type {
   StaleMarkerRow,
   StaleMarkerSection,
 } from "./coldspots-format.js";
-import { formatCommitIntentOverlay } from "./commit-intent.js";
-import type { HotspotAuthor, HotspotBaselineDelta } from "./hotspots-format.js";
+import { appendRowContext } from "./format-row-context.js";
+import type { HotspotBaselineDelta } from "./hotspots-format.js";
 
 // Dispatch by `lens`, mirroring how `hotspots-format-sections.ts` fans out. A new
 // lens adds its own branch + append helper here.
@@ -123,23 +123,6 @@ function formatColdspotHead(entry: ColdspotRow): string {
   return `${entry.path}  —  age ${entry.ageDays}d, ${entry.revisions} revision${
     entry.revisions === 1 ? "" : "s"
   }, ${entry.churnLines} churn lines  [${kinds}]${tag}`;
-}
-
-function appendRowContext(lines: string[], entry: ColdspotRow): void {
-  if (entry.authors.length > 0) {
-    lines.push(`        authors: ${entry.authors.map(formatAuthor).join(", ")}`);
-  }
-  if (entry.recentSubjects.length > 0) {
-    lines.push(`        recent: ${entry.recentSubjects.map((s) => `"${s}"`).join("; ")}`);
-  }
-  if (entry.commitIntent.length > 0) {
-    lines.push(`        intent: ${formatCommitIntentOverlay(entry.commitIntent)}`);
-  }
-  lines.push(`        inspect: ${entry.inspectCommand}`);
-}
-
-function formatAuthor(author: HotspotAuthor): string {
-  return `${author.name}×${author.commits}`;
 }
 
 function formatBaselineTag(delta: HotspotBaselineDelta | null): string {

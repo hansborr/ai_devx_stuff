@@ -10,8 +10,8 @@ export class LoginPO {
   }
 
   async login(email: string, password: string): Promise<void> {
-    await this.page.locator("#email").fill(email);
-    await this.page.locator("#password").fill(password);
+    await this.page.getByLabel("Email").fill(email);
+    await this.page.getByLabel("Password").fill(password);
     await this.page.getByRole("button", { name: "Log in" }).click();
   }
 
@@ -24,6 +24,8 @@ export class LoginPO {
   }
 
   async expectError(text: string | RegExp): Promise<void> {
-    await expect(this.page.locator('[role="alert"]').first()).toContainText(text);
+    // Field and server errors both render role="alert"; filter by content
+    // instead of position so multiple alerts cannot shadow the expected one.
+    await expect(this.page.getByRole("alert").filter({ hasText: text })).toBeVisible();
   }
 }

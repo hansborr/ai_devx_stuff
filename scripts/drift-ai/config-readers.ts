@@ -1,7 +1,9 @@
-import type { GhostFileAllowedPair } from "./config.js";
-import { normalizePairPath } from "./config-paths.js";
+import type { CheckConfigMetadata } from "./check-plugin.js";
+import type { DriftAiChecksConfig, GhostFileAllowedPair } from "./config.js";
+import { normalizeGlob, normalizePairPath } from "./config-paths.js";
 import { DriftAiError } from "./errors.js";
 import { uniqSorted } from "./path-util.js";
+import type { DriftCheckId } from "./types.js";
 
 export type UnknownRecord = Record<string, unknown>;
 
@@ -84,6 +86,67 @@ export function parseEmptyCheckConfig(raw: unknown, keyPath: string): Record<str
   const record = assertConfigObject(raw, keyPath);
   assertKnownKeys(record, [], keyPath);
   return {};
+}
+
+// The check ids whose `checks` config slot is the empty `Record<string, never>`
+// (adapters that take no options). Derived from `DriftAiChecksConfig` so it stays
+// in sync automatically: adding an empty-config check to the config type makes it a
+// valid `makeEmptyCheckConfig` id, and a non-empty-config id is a compile error
+// (the indexed access below would not be assignable to `Record<string, never>`).
+export type EmptyConfigCheckId = {
+  [K in DriftCheckId]: DriftAiChecksConfig[K] extends Record<string, never>
+    ? Record<string, never> extends DriftAiChecksConfig[K]
+      ? K
+      : never
+    : never;
+}[DriftCheckId];
+
+// Factory for the no-options check-config metadata literal. Collapses the repeated
+// `Record<string,never>` ceremony (empty default, `parseEmptyCheckConfig`, an
+// id-keyed `selectConfig`) to a single call. `runByDefault` is only emitted when
+// passed, preserving the "treated as true when omitted" default for opt-in-by-
+// default checks (e.g. suppressions). Lives next to `parseEmptyCheckConfig` so the
+// metadata-registry import boundary (check-metadata.test.ts) stays intact —
+// `CheckConfigMetadata` is a type-only import.
+export function makeEmptyCheckConfig<Id extends EmptyConfigCheckId>(
+  id: Id,
+  options?: { usage?: string; runByDefault?: boolean },
+): CheckConfigMetadata<Record<string, never>, Id> {
+  return {
+    id,
+    usage: options?.usage ?? id,
+    defaultConfig: {},
+    parseConfig: parseEmptyCheckConfig,
+    selectConfig: (config) => config.checks[id],
+    ...(options?.runByDefault === undefined ? {} : { runByDefault: options.runByDefault }),
+  };
+}
+
+// Positive-int field with a default when the key is absent. Shared by the
+// `duplicate-schemas`/`duplicate-types` parse bodies (fields `minKeys`/`minProps`).
+export function readPositiveIntOrDefault(
+  record: UnknownRecord,
+  field: string,
+  fallback: number,
+  keyPath: string,
+): number {
+  return record[field] === undefined
+    ? fallback
+    : parsePositiveInt(record[field], `${keyPath}.${field}`);
+}
+
+// `excludeGlobs` array with a default when absent: normalized and deduped/sorted,
+// mirroring the identical block both duplicate-shape parsers carried.
+export function readExcludeGlobsOrDefault(
+  record: UnknownRecord,
+  fallback: readonly string[],
+  keyPath: string,
+): readonly string[] {
+  return record["excludeGlobs"] === undefined
+    ? fallback
+    : uniqSorted(
+        readStringArray(record["excludeGlobs"], `${keyPath}.excludeGlobs`).map(normalizeGlob),
+      );
 }
 
 function readAllowedPair(raw: unknown, keyPath: string): GhostFileAllowedPair {

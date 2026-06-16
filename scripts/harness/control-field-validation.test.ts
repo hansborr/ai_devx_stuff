@@ -8,8 +8,10 @@ import type { RawControl as GenerateRawControl } from "./generate-harness-contro
 import { resolveControl } from "./generate-harness-controls-validation.js";
 import {
   type ControlFailures,
+  type ManifestCheckContext,
   type RawControl as CheckRawControl,
   validateNonLintEntry,
+  validateRatchetEntry,
   validateSourceField,
 } from "./harness-check-validation.js";
 
@@ -63,7 +65,7 @@ function checkControl(overrides: Partial<CheckRawControl> = {}): CheckRawControl
 }
 
 function generateFailureMessages(control: GenerateRawControl, repoRoot: string): readonly string[] {
-  const result = resolveControl(control, new Map(), repoRoot);
+  const result = resolveControl(control, new Map(), repoRoot, new Map());
   return "failures" in result ? result.failures : [];
 }
 
@@ -114,7 +116,12 @@ describe("shared harness control field rules", () => {
   it('accepts pairedGuide: "none" in both validation callers', () => {
     const repoRoot = makeRepoRoot();
     writeRepoFile(repoRoot, "scripts/source.ts");
-    const result = resolveControl(generateControl({ pairedGuide: "none" }), new Map(), repoRoot);
+    const result = resolveControl(
+      generateControl({ pairedGuide: "none" }),
+      new Map(),
+      repoRoot,
+      new Map(),
+    );
 
     expect("failures" in result).toBe(false);
     expect(result).toMatchObject({ pairedGuide: "none" });
@@ -160,5 +167,120 @@ describe("shared harness control field rules", () => {
         failures,
       });
     }, "repairCommand must be a non-empty string when repairKind is codemod");
+  });
+});
+
+function ratchetControl(overrides: Partial<GenerateRawControl> = {}): GenerateRawControl {
+  const base = {
+    id: "ratchet/fixture",
+    kind: "ratchet",
+    category: "maintainability",
+    pairedGuide: "none",
+    repairKind: "manual",
+    source: "scripts/source.ts",
+    invocation: "bun run lint:ratchet",
+  } satisfies GenerateRawControl;
+  return { ...base, ...overrides };
+}
+
+function ratchetCheckControl(overrides: Partial<CheckRawControl> = {}): CheckRawControl {
+  const base = {
+    id: "ratchet/fixture",
+    kind: "ratchet",
+    category: "maintainability",
+    pairedGuide: "none",
+    repairKind: "manual",
+    source: "scripts/source.ts",
+    invocation: "bun run lint:ratchet",
+  } satisfies CheckRawControl;
+  return { ...base, ...overrides };
+}
+
+function makeManifestContext(repoRoot: string): {
+  context: ManifestCheckContext;
+  failures: Map<string, ControlFailures>;
+} {
+  const failures = new Map<string, ControlFailures>();
+  return { context: { repoRoot, scripts: new Map(), failures }, failures };
+}
+
+describe("ratchet principle derivation", () => {
+  it("projects principle from the registry, not the manifest", () => {
+    const repoRoot = makeRepoRoot();
+    writeRepoFile(repoRoot, "scripts/source.ts");
+    const ratchetPrinciples = new Map([["ratchet/fixture", "Registry-derived principle."]]);
+
+    const result = resolveControl(ratchetControl(), new Map(), repoRoot, ratchetPrinciples);
+
+    expect("failures" in result).toBe(false);
+    expect(result).toMatchObject({
+      id: "ratchet/fixture",
+      principle: "Registry-derived principle.",
+    });
+  });
+
+  it("rejects a hand-written ratchet principle in the manifest", () => {
+    const repoRoot = makeRepoRoot();
+    writeRepoFile(repoRoot, "scripts/source.ts");
+    const ratchetPrinciples = new Map([["ratchet/fixture", "Registry-derived principle."]]);
+
+    const result = resolveControl(
+      ratchetControl({ principle: "Hand-written principle." }),
+      new Map(),
+      repoRoot,
+      ratchetPrinciples,
+    );
+
+    expect("failures" in result).toBe(true);
+    const failures = "failures" in result ? result.failures : [];
+    expect(failures).toContain(
+      "ratchet entries must not restate principle; it is re-projected from the lint-ratchet registry",
+    );
+  });
+
+  it("fails when the registry has no principle for the ratchet id", () => {
+    const repoRoot = makeRepoRoot();
+    writeRepoFile(repoRoot, "scripts/source.ts");
+
+    const result = resolveControl(ratchetControl(), new Map(), repoRoot, new Map());
+
+    expect("failures" in result).toBe(true);
+    const failures = "failures" in result ? result.failures : [];
+    expect(failures).toContain(
+      "ratchet/fixture has no principle in scripts/lint-ratchet/lint-ratchet-config.ts",
+    );
+  });
+
+  it("rejects a hand-written ratchet principle in harness:check too", () => {
+    const repoRoot = makeRepoRoot();
+    writeRepoFile(repoRoot, "scripts/source.ts");
+    const { context, failures } = makeManifestContext(repoRoot);
+
+    validateRatchetEntry(
+      ratchetCheckControl({ principle: "Hand-written principle." }),
+      "ratchet/fixture",
+      new Set(["ratchet/fixture"]),
+      context,
+    );
+
+    const messages = failures.get("ratchet/fixture")?.failures ?? [];
+    expect(messages).toContain(
+      "ratchet entries must not restate principle; it is re-projected from the lint-ratchet registry",
+    );
+  });
+
+  it("accepts a ratchet entry that omits principle in harness:check", () => {
+    const repoRoot = makeRepoRoot();
+    writeRepoFile(repoRoot, "scripts/source.ts");
+    const { context, failures } = makeManifestContext(repoRoot);
+
+    validateRatchetEntry(
+      ratchetCheckControl(),
+      "ratchet/fixture",
+      new Set(["ratchet/fixture"]),
+      context,
+    );
+
+    expect(failures.get("ratchet/fixture")?.failures ?? []).toEqual([]);
   });
 });

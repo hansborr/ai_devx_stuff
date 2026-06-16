@@ -48,6 +48,7 @@ copy_validator() {
   cp scripts/harness/generate-hook-wiring.ts "$fixture_dir/scripts/harness/generate-hook-wiring.ts"
   cp scripts/harness/generate-verify-steps.ts "$fixture_dir/scripts/harness/generate-verify-steps.ts"
   cp scripts/lib/lint-rule-docs.ts "$fixture_dir/scripts/lib/lint-rule-docs.ts"
+  cp scripts/lib/doc-generator.ts "$fixture_dir/scripts/lib/doc-generator.ts"
   cp scripts/harness/hook-wiring-schema.ts "$fixture_dir/scripts/harness/hook-wiring-schema.ts"
   cp scripts/harness/verify-step-schema.ts "$fixture_dir/scripts/harness/verify-step-schema.ts"
   cp scripts/lint-ratchet/lint-ratchet-config.ts "$fixture_dir/scripts/lint-ratchet/lint-ratchet-config.ts"
@@ -672,7 +673,7 @@ mutate_stale_harness_docs() {
 
 run_failure_checks() {
   run_failure_case "orphan-rule" "is not declared in the manifest" mutate_orphan_rule
-  run_failure_case "undeclared-script" "not declared in the manifest and not exempt" mutate_undeclared_script
+  run_failure_case "undeclared-script" "not declared in harness.controls.json and not exempt" mutate_undeclared_script
   run_failure_case "undeclared-db-script" "db:undeclared" mutate_undeclared_db_script
   run_failure_case "non-object-manifest-entry" "is not an object" mutate_non_object_manifest_entry
   run_failure_case "missing-source" "source does not resolve" mutate_missing_source

@@ -1,7 +1,8 @@
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
+import { runDocGenerator } from "../lib/doc-generator.js";
 import {
   isNonEmptyString,
   isObject,
@@ -9,7 +10,6 @@ import {
   type VerifyStepSlot,
 } from "./verify-step-schema.js";
 
-const PROCESS_ARG_OFFSET = 2;
 const VAR_REF_PATTERN = /\$(?:([A-Za-z_]\w*)|\{([A-Za-z_]\w*)\})/gu;
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -266,41 +266,14 @@ function readPackageScripts(): ReadonlySet<string> {
   return new Set(Object.keys(pkg.scripts));
 }
 
-function readCurrentOutput(): string {
-  try {
-    return readFileSync(outputPath, "utf8");
-  } catch {
-    return "";
-  }
-}
-
-function parseArgs(args: readonly string[]): { readonly checkMode: boolean } {
-  const unknownArgs = args.filter((arg) => arg !== "--" && arg !== "--check");
-  if (unknownArgs.length > 0) {
-    throw new Error(`Unknown argument(s): ${unknownArgs.join(", ")}`);
-  }
-  return { checkMode: args.includes("--check") };
-}
-
 function main(): void {
-  const { checkMode } = parseArgs(process.argv.slice(PROCESS_ARG_OFFSET));
-  const rendered = renderVerifyStepsShellFromManifest(readManifest(), readPackageScripts());
-
-  if (checkMode) {
-    if (readCurrentOutput() !== rendered) {
-      console.error(
-        `${outputPath} is out of date. Run \`bun run verify:steps\` and commit the result.`,
-      );
-      process.exitCode = 1;
-      return;
-    }
-    console.log(`${outputPath} is up to date.`);
-    return;
-  }
-
-  mkdirSync(dirname(outputPath), { recursive: true });
-  writeFileSync(outputPath, rendered);
-  console.log(`Wrote ${outputPath}.`);
+  runDocGenerator({
+    outputPath,
+    refreshCommand: "verify:steps",
+    render: () => ({
+      rendered: renderVerifyStepsShellFromManifest(readManifest(), readPackageScripts()),
+    }),
+  });
 }
 
 if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {

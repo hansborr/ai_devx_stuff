@@ -137,6 +137,22 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Repair:** manual
 
+### `lint/local/no-redundant-central-mock`
+
+**Rule:** `local/no-redundant-central-mock`
+
+**Principle:** A byte-identical per-file vi.mock of a centrally-mocked module is dead weight and, under isolate:false, silently demotes the file to the slow isolated test lane with no other signal.
+
+**Category:** maintainability
+
+**Source:** `eslint-rules/no-redundant-central-mock.js`
+
+**Invocation:** `bun run lint`
+
+**Paired guide:** none
+
+**Repair:** autofix
+
 ### `lint/local/no-swallowed-errors`
 
 **Rule:** `local/no-swallowed-errors`
@@ -299,20 +315,6 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ## Ratchets
 
-### `ratchet/local-e2e-prefer-role-selectors`
-
-**Principle:** Prevent raw e2e locator debt from growing in legacy selector files while role-first cleanup proceeds.
-
-**Category:** maintainability
-
-**Source:** `scripts/lint-ratchet/lint-ratchet-config.ts`
-
-**Invocation:** `bun run lint:ratchet`
-
-**Paired guide:** [docs/guides/lint-ratchet.md](../guides/lint-ratchet.md)
-
-**Repair:** manual
-
 ### `ratchet/local-type-assertion-boundary`
 
 **Principle:** Prevent the known type-assertion debt pool from growing while cleanup proceeds incrementally.
@@ -327,9 +329,9 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Repair:** manual
 
-### `ratchet/playwright-no-nth-methods-e2e`
+### `ratchet/react-hooks-set-state-in-effect-client`
 
-**Principle:** Prevent first(), last(), and nth() selector debt from growing in e2e tests while page-object selectors are cleaned up.
+**Principle:** Freeze the accepted set-state-in-effect floor so finding #25 fails at commit time while cleanup proceeds opportunistically.
 
 **Category:** maintainability
 
@@ -341,9 +343,9 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Repair:** manual
 
-### `ratchet/playwright-prefer-native-locators-e2e`
+### `ratchet/strict-boolean-expressions-server-encounter-combat`
 
-**Principle:** Prevent CSS selector debt that has a native Playwright locator replacement from growing in e2e tests.
+**Principle:** Hold a strict-boolean-expressions zero floor over the packages/server/src/services/encounter-combat slice while package-wide server cleanup proceeds incrementally.
 
 **Category:** maintainability
 
@@ -358,6 +360,48 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 ### `ratchet/strict-boolean-expressions-shared`
 
 **Principle:** Prevent strict-boolean-expressions debt from growing in packages/shared/src production code while cleanup proceeds incrementally.
+
+**Category:** maintainability
+
+**Source:** `scripts/lint-ratchet/lint-ratchet-config.ts`
+
+**Invocation:** `bun run lint:ratchet`
+
+**Paired guide:** [docs/guides/lint-ratchet.md](../guides/lint-ratchet.md)
+
+**Repair:** manual
+
+### `ratchet/testing-library-no-container-client-tests`
+
+**Principle:** Prevent render-result container querying (testing-library/no-container) in client component tests from growing past the leaf 06 inventory while the debt drains toward normal-lint promotion.
+
+**Category:** maintainability
+
+**Source:** `scripts/lint-ratchet/lint-ratchet-config.ts`
+
+**Invocation:** `bun run lint:ratchet`
+
+**Paired guide:** [docs/guides/lint-ratchet.md](../guides/lint-ratchet.md)
+
+**Repair:** manual
+
+### `ratchet/testing-library-no-node-access-client-tests`
+
+**Principle:** Prevent direct DOM-node access (testing-library/no-node-access) in client component tests from growing past the leaf 06 inventory while the debt drains toward normal-lint promotion.
+
+**Category:** maintainability
+
+**Source:** `scripts/lint-ratchet/lint-ratchet-config.ts`
+
+**Invocation:** `bun run lint:ratchet`
+
+**Paired guide:** [docs/guides/lint-ratchet.md](../guides/lint-ratchet.md)
+
+**Repair:** manual
+
+### `ratchet/testing-library-prefer-screen-queries-client-tests`
+
+**Principle:** Prevent destructured render() queries (testing-library/prefer-screen-queries) in client component tests from growing past the leaf 06 inventory while the debt drains toward normal-lint promotion.
 
 **Category:** maintainability
 
@@ -515,7 +559,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `verify-wrapper/doctor`
 
-**Principle:** Aggregated read-only diagnostic: composes worktree:status, db:status, env-file sanity, port binding, dependency freshness, yamllint and ShellCheck system-tool availability, suppression registers, migration safety, drift:ai harness-freshness, knip, and blob-size; report-only — exits non-zero only on FAIL counts.
+**Principle:** Aggregated read-only diagnostic: composes worktree:status, db:status, env-file sanity, port binding, dependency freshness, yamllint and ShellCheck system-tool availability, the lint host-tool inventory, suppression registers, migration safety, drift:ai harness-freshness, knip, and blob-size; report-only — exits non-zero only on FAIL counts.
 
 **Category:** maintainability
 
@@ -542,7 +586,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 - `lint` — `lint`
 - `ratchet` — `lint:ratchet` — env: `HARNESS_DIAGNOSTICS_OUTPUT=$LOG_DIR/ratchet-diagnostics.json`
 - `zero-baseline` — `lint:ratchet:zero-baseline`
-- `coverage-map` — `docs:lint-coverage-map:check`
+- `coverage-map` — `docs:lint-coverage-map:audit`
 - `format-check` — `format:check`
 - `typecheck` — `typecheck`
 - `test` — `test` — args: `--reporter=dot --reporter=json --outputFile.json=$TIMINGS_FILE`
@@ -634,7 +678,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 - `lint` — `lint`
 - `ratchet` — `lint:ratchet` — env: `HARNESS_DIAGNOSTICS_OUTPUT=$LOG_DIR/ratchet-diagnostics.json`
 - `zero-baseline` — `lint:ratchet:zero-baseline`
-- `coverage-map` — `docs:lint-coverage-map:check`
+- `coverage-map` — `docs:lint-coverage-map:audit`
 - `format-check` — `format:check`
 - `typecheck` — `typecheck`
 - `test` — `test` — args: `--reporter=dot --reporter=json --outputFile.json=$TIMINGS_FILE`
@@ -702,6 +746,20 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Repair:** manual
 
+### `doctor-check/lint-tools`
+
+**Principle:** Report presence, resolved path, installed version, and known-good version for the host tools the lint surface invokes (eslint, prettier, taplo, node-actionlint, hadolint, bun), reading each known-good version from its single source; report-first, never installs.
+
+**Category:** maintainability
+
+**Source:** `scripts/doctor.sh`
+
+**Invocation:** `bun run doctor`
+
+**Paired guide:** none
+
+**Repair:** manual
+
 ### `doctor-check/port-binding`
 
 **Principle:** Report whether the worktree's server and client ports are bound; a bound port is almost always the contributor's own dev server, but the report disambiguates so a stuck process is visible.
@@ -709,6 +767,34 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 **Category:** maintainability
 
 **Source:** `scripts/doctor.sh`
+
+**Invocation:** `bun run doctor`
+
+**Paired guide:** none
+
+**Repair:** manual
+
+### `doctor-check/prisma-client-freshness`
+
+**Principle:** Compare schema.prisma against the generated Prisma client mtime so a stale or ungenerated client — typically after a branch switch or fresh clone — is flagged before it surfaces as confusing import-time test failures.
+
+**Category:** maintainability
+
+**Source:** `scripts/prisma-client-freshness.sh`
+
+**Invocation:** `bun run doctor`
+
+**Paired guide:** none
+
+**Repair:** manual
+
+### `doctor-check/shared-dist-freshness`
+
+**Principle:** Compare packages/shared/src mtimes against the compiled @musi/shared dist that tests import through the package exports map, so a missing or stale dist — typically after a branch switch or fresh clone — is flagged before it surfaces as dozens of phantom '<X> is not a function' test failures.
+
+**Category:** maintainability
+
+**Source:** `scripts/lib/test-dist-preflight.sh`
 
 **Invocation:** `bun run doctor`
 
@@ -818,7 +904,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `drift-scope/e2e`
 
-**Principle:** Report Playwright locator-usage patterns across e2e tests alongside the ratcheted raw-locator debt-file count.
+**Principle:** Report Playwright locator-usage patterns across e2e tests so raw-locator regressions stay visible after the selector ratchets retired.
 
 **Category:** maintainability
 
@@ -1099,6 +1185,20 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 **Paired guide:** none
 
 **Repair:** autofix
+
+### `check/import-cycles-floor`
+
+**Principle:** Always-run lint lane holding runtime import cycles at zero via drift:ai import-cycles with --fail-on-runtime-cycles; type-only cycles stay report-only evidence and a skipped check fails closed.
+
+**Category:** architecture-fitness
+
+**Source:** `scripts/lint-import-cycles.sh`
+
+**Invocation:** `bun run lint:import-cycles`
+
+**Paired guide:** none
+
+**Repair:** manual
 
 ### `check/lint-agent-local-rules`
 

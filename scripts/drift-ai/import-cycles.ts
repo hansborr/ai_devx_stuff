@@ -223,7 +223,7 @@ export function buildGraphErrorFinding(error: string): DriftFinding {
     check: "import-cycles",
     file: ".",
     message: `import-cycles could not build the module graph (${error})`,
-    hint: "report-only: re-run locally to inspect the failure; import-cycles is otherwise not reported for this run.",
+    hint: "re-run locally to inspect the failure; cycles were not checked this run, so under --fail-on-runtime-cycles this diagnostic fails the gate.",
   };
 }
 

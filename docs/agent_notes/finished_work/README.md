@@ -51,3 +51,6 @@ detail that cannot be recovered from code, tests, commits, `LOG.md`, or
 - `scripts-and-hooks-reorg-2026-06.md` — completed scripts and AI-hooks reorg
   plan, including the generated verify/hook wiring decisions and the stale-path
   cleanup lesson from the mechanical move phase.
+- `lint-review-2026-06.md` — closed 23-leaf lint-setup review pack: scripts
+  coverage inversion, 37-to-9 ratchet drain, e2e selector floors, cache
+  removal, merge-base preflights, and the import-cycle verdict.

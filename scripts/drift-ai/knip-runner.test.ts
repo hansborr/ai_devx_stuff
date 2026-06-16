@@ -114,6 +114,90 @@ describe("defaultKnipRunner", () => {
     expect(observedKillSignal).toBe("SIGKILL");
   });
 
+  it("bounds the default knip timeout so a hang is distinguishable from a slow run", () => {
+    // J1: the 10-min budget made silence indistinguishable from a hang; cap it at
+    // a few minutes so a stuck self-scan surfaces a timeout notice promptly.
+    expect(DEFAULT_KNIP_TIMEOUT_MS).toBe(180 * 1000);
+  });
+
+  it("emits a stderr start banner naming the budget BEFORE spawning knip", () => {
+    const events: string[] = [];
+    const spawn: KnipSpawn = () => {
+      events.push("spawn");
+      return {
+        error: undefined,
+        status: 0,
+        stdout: '{"issues":[]}',
+        stderr: "",
+        signal: null,
+      };
+    };
+
+    const runner = defaultKnipRunner({
+      analyzedRepoRoot: "/repo/target",
+      knipBin: "/bin/knip",
+      spawn,
+      timeoutMs: 180 * 1000,
+      warn: (message) => events.push(`warn:${message}`),
+    });
+
+    expect(runner({ configPath: null })).toMatchObject({ ok: true });
+    // Banner first, then the spawn — it must be observable before the blocking call.
+    expect(events).toEqual(["warn:drift:ai: running knip self-scan (budget 180s)…", "spawn"]);
+  });
+
+  it("explains a timed-out knip self-scan on stderr instead of staying silent", () => {
+    const warnings: string[] = [];
+    const timeoutError = Object.assign(new Error("spawnSync timed out"), {
+      code: "ETIMEDOUT",
+    });
+    const spawn: KnipSpawn = () => ({
+      error: timeoutError,
+      status: null,
+      stdout: "",
+      stderr: "",
+      signal: "SIGTERM",
+    });
+
+    const runner = defaultKnipRunner({
+      analyzedRepoRoot: "/repo/target",
+      knipBin: "/bin/knip",
+      spawn,
+      timeoutMs: 180 * 1000,
+      warn: (message) => warnings.push(message),
+    });
+
+    expect(runner({ configPath: null })).toEqual({
+      ok: false,
+      reason: "timeout",
+      error: "timeout of 180000ms",
+    });
+    // Start banner plus an explicit timeout notice — never silence on a skip.
+    expect(warnings).toEqual([
+      "drift:ai: running knip self-scan (budget 180s)…",
+      "drift:ai: knip self-scan timed out after 180s; skipping knip-backed checks for this run.",
+    ]);
+  });
+
+  it("stays silent when no warn seam is injected so the stdout/JSON contract is untouched", () => {
+    const spawn: KnipSpawn = () => ({
+      error: undefined,
+      status: 0,
+      stdout: '{"issues":[]}',
+      stderr: "",
+      signal: null,
+    });
+
+    const runner = defaultKnipRunner({
+      analyzedRepoRoot: "/repo/target",
+      knipBin: "/bin/knip",
+      spawn,
+    });
+
+    // No warn callback supplied: must not throw and must still return the report.
+    expect(runner({ configPath: null })).toMatchObject({ ok: true });
+  });
+
   it("returns a dedicated timeout result when spawnSync times out", () => {
     const timeoutError = Object.assign(new Error("spawnSync timed out"), {
       code: "ETIMEDOUT",

@@ -7,6 +7,7 @@
 //
 // Evidence, not verdicts (01 §3): this surfaces inputs, never a recommendation.
 
+import { buildCommitIntentOverlay } from "./commit-intent.js";
 import type {
   HotspotAuthor,
   HotspotBaselineDelta,
@@ -18,6 +19,44 @@ import type { CommitRecord } from "./hotspots-history.js";
 
 const DEFAULT_AUTHOR_LIMIT = 4;
 const DEFAULT_SUBJECT_LIMIT = 3;
+
+// Build the shared per-row actionability columns (authors / recent subjects /
+// commit-intent overlay / inspect command, with `baseline` left null until
+// `--baseline` tagging runs) for one hotspot or coldspot row. Every lens reduces
+// to: pick the records that `touches`, derive the same overlay, attach a copy-paste
+// `inspectCommand`. Only those two inputs differ per lens — churn/fragmentation/
+// thrash/coldspot match a single path; suppression-churn adds a `-G'<pattern>'`
+// to the command; coupling matches a path PAIR. Parameterizing both keeps this the
+// single source of the overlay so a fix here reaches all of them at once.
+export function buildRowActionability(
+  records: readonly CommitRecord[],
+  options: {
+    readonly touches: (record: CommitRecord) => boolean;
+    readonly inspectCommand: string;
+  },
+): HotspotRowContext {
+  const subjects = recentSubjects(records, options.touches);
+  return {
+    authors: aggregateAuthors(records, options.touches),
+    recentSubjects: subjects,
+    commitIntent: buildCommitIntentOverlay(subjects),
+    inspectCommand: options.inspectCommand,
+    baseline: null,
+  };
+}
+
+// The common case: a row keyed on a single `path`. `touches` matches any record
+// changing that path and the inspect command is the plain `git log --oneline` for
+// it. churn/fragmentation/thrash/coldspot all reduce to exactly this.
+export function buildPathRowActionability(
+  records: readonly CommitRecord[],
+  path: string,
+): HotspotRowContext {
+  return buildRowActionability(records, {
+    touches: (record) => record.files.some((file) => file.path === path),
+    inspectCommand: `git log --oneline -- ${shellQuoteArg(path)}`,
+  });
+}
 
 // Top authors + co-author/trailer hands across the records matching `touches`,
 // most-active first. The committing author counts once per commit; each

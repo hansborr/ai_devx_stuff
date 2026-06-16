@@ -1,52 +1,22 @@
 import { describe, expect, it } from "vitest";
 
 import type { GitRunner } from "./git-changed-scope.js";
-import { collectHistory, GIT_LOG_FORMAT, parseGitLog } from "./hotspots-history.js";
+import {
+  commitBlock,
+  type GitLogEntry,
+  joinGitLogBlocks as gitLog,
+} from "./git-log-fixture.test-helper.js";
+import {
+  collectHistory,
+  type CommitRecord,
+  GIT_LOG_FORMAT,
+  newestTimestamp,
+  parseGitLog,
+  type TouchDateAccumulator,
+  updateTouchDates,
+} from "./hotspots-history.js";
 
-// Control bytes git expands the %x.. escapes into, written as JS escapes so this
-// source stays plain text (never embed raw NUL bytes in a .ts file).
-const NUL = "\u0000";
-const US = "\u001f"; // unit separator (field)
-const GS = "\u001d"; // group separator (co-authors)
-
-type MetaFields = {
-  readonly hash: string;
-  readonly authorName: string;
-  readonly authorEmail: string;
-  readonly authorDate: string;
-  readonly committerDate: string;
-  readonly subject: string;
-  readonly coAuthors?: readonly string[];
-};
-
-function metaLine(fields: MetaFields): string {
-  const coField = (fields.coAuthors ?? []).join(GS);
-  return (
-    NUL +
-    [
-      fields.hash,
-      fields.authorName,
-      fields.authorEmail,
-      fields.authorDate,
-      fields.committerDate,
-      fields.subject,
-      coField,
-    ].join(US)
-  );
-}
-
-// One commit block as git emits it: NUL-prefixed metadata line, a blank line,
-// then numstat rows. Blocks are joined with "\n" (no blank between the last row
-// of a commit and the next commit's metadata line — matching real output).
-function commitBlock(fields: MetaFields, rows: readonly string[]): string {
-  return [metaLine(fields), "", ...rows].join("\n");
-}
-
-function gitLog(blocks: readonly string[]): string {
-  return blocks.join("\n");
-}
-
-const BASE_META: MetaFields = {
+const BASE_META: GitLogEntry = {
   hash: "abc123",
   authorName: "Ada",
   authorEmail: "ada@example.com",
@@ -341,5 +311,51 @@ describe("collectHistory on a blobless partial clone", () => {
     expect(result.metric).toBe("revisions");
     expect(result.metricAutoSwitched).toBe(false);
     expect(result.squashReason).toContain("squash-merge");
+  });
+});
+
+function touchRec(authorDate: string): CommitRecord {
+  return {
+    hash: "h",
+    authorName: "Ada",
+    authorEmail: "ada@example.com",
+    authorDate,
+    committerDate: authorDate,
+    subject: "s",
+    coAuthors: [],
+    files: [],
+  };
+}
+
+describe("updateTouchDates", () => {
+  it("folds finite author timestamps into the newest/oldest bounds, in place", () => {
+    const accumulator: TouchDateAccumulator = { newestTouchMs: null, oldestTouchMs: null };
+    updateTouchDates(accumulator, touchRec("2026-05-10T00:00:00Z"));
+    updateTouchDates(accumulator, touchRec("2026-05-20T00:00:00Z"));
+    updateTouchDates(accumulator, touchRec("2026-05-01T00:00:00Z"));
+    expect(accumulator.newestTouchMs).toBe(Date.parse("2026-05-20T00:00:00Z"));
+    expect(accumulator.oldestTouchMs).toBe(Date.parse("2026-05-01T00:00:00Z"));
+  });
+
+  it("skips a non-finite authorDate so it never poisons the bounds", () => {
+    const accumulator: TouchDateAccumulator = { newestTouchMs: null, oldestTouchMs: null };
+    updateTouchDates(accumulator, touchRec("not-a-date"));
+    expect(accumulator.newestTouchMs).toBeNull();
+    expect(accumulator.oldestTouchMs).toBeNull();
+  });
+});
+
+describe("newestTimestamp", () => {
+  it("returns the newest finite author timestamp across the records", () => {
+    const records = [
+      touchRec("2026-05-10T00:00:00Z"),
+      touchRec("bad"),
+      touchRec("2026-05-25T00:00:00Z"),
+    ];
+    expect(newestTimestamp(records)).toBe(Date.parse("2026-05-25T00:00:00Z"));
+  });
+
+  it("returns null when no record carries a finite date", () => {
+    expect(newestTimestamp([touchRec("bad"), touchRec("also-bad")])).toBeNull();
   });
 });

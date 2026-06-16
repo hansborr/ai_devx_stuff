@@ -26,7 +26,7 @@ MUSI_VERIFY_SLOT_CMD_VAR['verify:ratchet']='MUSI_VERIFY_RATCHET_CMD'
 MUSI_VERIFY_ZERO_BASELINE_CMD=('bun' 'run' 'lint:ratchet:zero-baseline')
 MUSI_VERIFY_SLOT_CMD_VAR['verify:zero-baseline']='MUSI_VERIFY_ZERO_BASELINE_CMD'
 
-MUSI_VERIFY_COVERAGE_MAP_CMD=('bun' 'run' 'docs:lint-coverage-map:check')
+MUSI_VERIFY_COVERAGE_MAP_CMD=('bun' 'run' 'docs:lint-coverage-map:audit')
 MUSI_VERIFY_SLOT_CMD_VAR['verify:coverage-map']='MUSI_VERIFY_COVERAGE_MAP_CMD'
 
 MUSI_VERIFY_FORMAT_CHECK_CMD=('bun' 'run' 'format:check')
@@ -75,7 +75,7 @@ MUSI_VERIFY_SLOT_CMD_VAR['verify_parallel:ratchet']='MUSI_VERIFY_PARALLEL_RATCHE
 MUSI_VERIFY_PARALLEL_ZERO_BASELINE_CMD=('bun' 'run' 'lint:ratchet:zero-baseline')
 MUSI_VERIFY_SLOT_CMD_VAR['verify_parallel:zero-baseline']='MUSI_VERIFY_PARALLEL_ZERO_BASELINE_CMD'
 
-MUSI_VERIFY_PARALLEL_COVERAGE_MAP_CMD=('bun' 'run' 'docs:lint-coverage-map:check')
+MUSI_VERIFY_PARALLEL_COVERAGE_MAP_CMD=('bun' 'run' 'docs:lint-coverage-map:audit')
 MUSI_VERIFY_SLOT_CMD_VAR['verify_parallel:coverage-map']='MUSI_VERIFY_PARALLEL_COVERAGE_MAP_CMD'
 
 MUSI_VERIFY_PARALLEL_FORMAT_CHECK_CMD=('bun' 'run' 'format:check')

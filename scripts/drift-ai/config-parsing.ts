@@ -18,7 +18,7 @@ import {
 import { parseCoverageConfig } from "./coverage-config.js";
 import { parseEnvDefineConfig } from "./env-define-matrix-config.js";
 export { DEFAULT_DRIFT_AI_CONFIG, makeDefaultDriftAiConfig } from "./config-defaults.js";
-export { collapseRepoPath, normalizeRepoPath, pathEscapesRepo } from "./config-paths.js";
+export { collapseRepoPath, pathEscapesRepo } from "./config-paths.js";
 import { DriftAiError } from "./errors.js";
 import { uniqSorted } from "./path-util.js";
 

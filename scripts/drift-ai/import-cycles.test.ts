@@ -468,6 +468,7 @@ function makeInput(overrides: CtxOverrides = {}): CheckRunInput {
         "import-cycles",
         ...(overrides.tsconfigOverride == null ? [] : ["--tsconfig", overrides.tsconfigOverride]),
       ]),
+      warnStderr: () => undefined,
     },
   };
 }

@@ -170,6 +170,12 @@ export type CliOptions = {
   // the report-only contract (exit 0 regardless of findings) is preserved unless
   // a caller explicitly asks to gate on findings.
   readonly failOnFindings: boolean;
+  // Opt-in runtime import-cycle floor (requires import-cycles among the selected
+  // checks): exit 1 when any import-cycles finding is not labeled type-only, or
+  // when the import-cycles check skipped — the gate fails closed rather than
+  // certifying zero runtime cycles it never measured. Type-only SCCs stay
+  // report-only evidence and never trip it.
+  readonly failOnRuntimeCycles: boolean;
 };
 
 export const DEFAULT_BASE = "main";

@@ -3,6 +3,11 @@
 Use this path when adding or changing a query or mutation in
 `packages/server/src/routers/`.
 
+To find which router a new procedure belongs in — how the router surface is
+partitioned and which file owns which mount key — see
+`packages/server/src/routers/routers-MODULE.md`. This guide covers the
+authoring *mechanics*; that doc is the *map*.
+
 1. Put the wire contract in `packages/shared/src/schemas/`. Inputs live in a
    `*-inputs.ts` file and must be strict shared schemas. Outputs should be
    named result/detail/summary schemas that describe the response returned to
@@ -29,6 +34,25 @@ Use this path when adding or changing a query or mutation in
 10. Add or update tests at the contract surface: shared schema tests for tricky
     validation, server router/service tests for auth and behavior, and client
     tests when cache or UI behavior changes.
+
+## Fetching one entity by id
+
+When a router exposes a "fetch one entity by id" query, name it bare `get`
+(invoked as `trpc.<entity>.get`). This is the repo standard — `character`,
+`encounter`, `map`, `campaign`, `monster`, and `magicItem` all use it — so the
+procedure name is predictable from the entity without opening the router. Do
+not introduce `getById`, `getOne`, or other spellings for this operation.
+
+Exemptions (sanctioned multi-noun routers): a router that legitimately fetches
+*different shapes or resources* keeps its descriptive names rather than
+collapsing them into a single `get`. Specifically:
+
+- `homebrew.getCollection` / `homebrew.getEntry` — two distinct fetch shapes.
+- `srd.getSpecies` / `srd.getClass` / `srd.getSpell` — per-resource SRD lookups
+  (built from the `srdGetByIdProcedure` factory, but exposed under domain
+  nouns).
+
+These are deliberate exceptions, not drift; do not rename them to `get`.
 
 Useful checks:
 

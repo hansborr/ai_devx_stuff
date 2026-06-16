@@ -25,6 +25,7 @@ import {
 } from "./import-cycles-tsconfig.js";
 import { toPosix } from "./path-util.js";
 import { walkAbsoluteSourceFiles } from "./source-walk.js";
+import { tsSysModuleResolutionHost } from "./ts-source-util.js";
 import type { SkipReasonCode } from "./types.js";
 
 // A directed edge in the module graph. `typeOnly` is true only when EVERY import
@@ -67,13 +68,6 @@ export type ModuleGraphRunnerInput = {
 
 export type ModuleGraphRunner = (input: ModuleGraphRunnerInput) => ModuleGraphResult;
 
-// Placeholder used when import-cycles is not selected (so we never walk the tree
-// or load tsconfigs on an unrelated run). The check is excluded from the enabled
-// set in that case, so this is never actually invoked; it fails loudly if it is.
-export function unresolvedModuleGraphRunner(error: string): ModuleGraphRunner {
-  return () => ({ ok: false, error });
-}
-
 export function defaultModuleGraphRunner(): ModuleGraphRunner {
   return (input) => {
     try {
@@ -110,7 +104,7 @@ function buildGraph(input: ModuleGraphRunnerInput): ModuleGraphResult {
   const state: GraphBuildState = {
     repoRoot,
     fileSet: new Set(files.map((abs) => toPosix(path.relative(repoRoot, abs)))),
-    host: moduleResolutionHost(repoRoot),
+    host: tsSysModuleResolutionHost(repoRoot),
     cache: ts.createModuleResolutionCache(repoRoot, (value) => value),
     tsconfigs: new Map(),
     tsconfigForDir: new Map(),
@@ -325,17 +319,4 @@ function nearestTsconfig(
   }
   cache.set(startDir, found);
   return found;
-}
-
-// realpath is intentionally omitted: it only canonicalizes symlinks, which for our
-// graph would only matter inside node_modules (skipped). Source-tree resolution
-// stays consistent because we always relativize against the same repoRoot.
-function moduleResolutionHost(repoRoot: string): ts.ModuleResolutionHost {
-  return {
-    fileExists: (file) => ts.sys.fileExists(file),
-    readFile: (file) => ts.sys.readFile(file),
-    directoryExists: (dir) => ts.sys.directoryExists(dir),
-    getCurrentDirectory: () => repoRoot,
-    getDirectories: (dir) => ts.sys.getDirectories(dir),
-  };
 }

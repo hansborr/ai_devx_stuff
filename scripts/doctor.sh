@@ -47,6 +47,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # shellcheck source=/dev/null
 . "$SCRIPT_DIR/dependency-freshness.sh"
+# shellcheck source=/dev/null
+. "$SCRIPT_DIR/prisma-client-freshness.sh"
+# shellcheck source=/dev/null
+. "$SCRIPT_DIR/lib/test-dist-preflight.sh"
 
 PASS_COUNT=0
 WARN_COUNT=0
@@ -141,6 +145,23 @@ note_fail() {
     emit_finding "$CURRENT_CONTROL" block "${CURRENT_CONTROL##*/}-fail-$FAIL_COUNT" \
       "$*" "${CURRENT_HINT:-See doctor output for context.}"
   fi
+}
+
+# Maps a `status<TAB>message` freshness result (the shared contract of the
+# musi_*_freshness helpers) to the matching note_* call: fresh -> pass,
+# missing -> fail, stale/warn -> warn, anything else -> warn as an unknown
+# state. $1 is the raw result; $2 is a short noun for the unknown-state
+# diagnostic (e.g. "dependency", "shared dist", "Prisma client").
+note_freshness_result() {
+  local result="$1" noun="$2" status message
+  status="${result%%$'\t'*}"
+  message="${result#*$'\t'}"
+  case "$status" in
+    fresh) note_pass "$message" ;;
+    missing) note_fail "$message" ;;
+    stale | warn) note_warn "$message" ;;
+    *) note_warn "unknown $noun freshness state: $message" ;;
+  esac
 }
 
 # Emit one harness-diagnostics finding per WARN/FAIL/BLOCK line in $tmp,
@@ -341,12 +362,21 @@ run_migration_safety() {
 # registered wrapper control so consumers see the blocking signal in the
 # envelope, while the captured harness output still explains the underlying
 # manifest drift.
+#
+# Invoke the validator by its absolute module path (anchored at $SCRIPT_DIR)
+# rather than `bun run harness:check`: `bun run <name>` resolves the script
+# against the nearest package.json walking up, so a nested-cwd launch (e.g. from
+# a `@musi/*` package subdir like packages/client/src) errors `Script not found
+# "harness:check"`. The module-path form resolves from any cwd; the script body
+# self-locates the repo root once started. Mirrors the $SCRIPT_DIR-anchored
+# emitter call below.
+HARNESS_CHECK_MODULE="$SCRIPT_DIR/harness-check.ts"
 run_harness_check() {
   local title="$1" hint="$2" control="$3"
   if (( JSON_MODE )); then
     local tmp finding_control output
     tmp="$(mktemp)"
-    if ! (cd "$REPO_ROOT" && bun run harness:check) >"$tmp" 2>&1; then
+    if ! bun run "$HARNESS_CHECK_MODULE" >"$tmp" 2>&1; then
       DOCTOR_HARNESS_CHECK_FAILED=1
       FAIL_COUNT=$((FAIL_COUNT + 1))
       finding_control="${control:-verify-wrapper/doctor}"
@@ -361,7 +391,7 @@ run_harness_check() {
     rm -f "$tmp"
     return
   fi
-  run_subcommand "$title" "$hint" "$control" bun run harness:check
+  run_subcommand "$title" "$hint" "$control" bun run "$HARNESS_CHECK_MODULE"
 }
 
 # --- Aggregated existing diagnostics (DX1.1, DX1.2) ---------------------------
@@ -536,17 +566,35 @@ check_dependency_freshness() {
   CURRENT_HINT="Run 'bun install' to refresh node_modules so it matches bun.lock."
   prose_print ""
   prose_print "=== dependency freshness ==="
-  local result status message
-  result="$(musi_dependency_freshness "$REPO_ROOT")"
-  status="${result%%$'\t'*}"
-  message="${result#*$'\t'}"
+  note_freshness_result "$(musi_dependency_freshness "$REPO_ROOT")" "dependency"
+  CURRENT_CONTROL=""
+  CURRENT_HINT=""
+}
 
-  case "$status" in
-    fresh) note_pass "$message" ;;
-    missing) note_fail "$message" ;;
-    stale|warn) note_warn "$message" ;;
-    *) note_warn "unknown dependency freshness state: $message" ;;
-  esac
+check_shared_dist_freshness() {
+  # Skip entirely on a tree with no @musi/shared workspace (sandbox/fixture
+  # repos) so a non-monorepo never reports a phantom build failure.
+  [ -d "$REPO_ROOT/packages/shared/src" ] || return 0
+  CURRENT_CONTROL="doctor-check/shared-dist-freshness"
+  CURRENT_HINT="Run 'bun run --filter @musi/shared build' so the dist tests import matches packages/shared/src."
+  prose_print ""
+  prose_print "=== @musi/shared dist freshness ==="
+  # The skip-guard above already returned for a tree with no @musi/shared
+  # workspace — the only state musi_shared_dist_freshness reports as `n/a` — so
+  # `n/a` is unreachable here and note_freshness_result never sees it.
+  note_freshness_result "$(musi_shared_dist_freshness "$REPO_ROOT")" "shared dist"
+  CURRENT_CONTROL=""
+  CURRENT_HINT=""
+}
+
+check_prisma_client_freshness() {
+  # Skip entirely on a tree with no Prisma schema (sandbox/fixture repos).
+  [ -f "$REPO_ROOT/packages/server/prisma/schema.prisma" ] || return 0
+  CURRENT_CONTROL="doctor-check/prisma-client-freshness"
+  CURRENT_HINT="Run 'bun run --filter @musi/server prisma:generate' so the generated client matches schema.prisma."
+  prose_print ""
+  prose_print "=== Prisma client freshness ==="
+  note_freshness_result "$(musi_prisma_client_freshness "$REPO_ROOT")" "Prisma client"
   CURRENT_CONTROL=""
   CURRENT_HINT=""
 }
@@ -595,11 +643,134 @@ check_shellcheck_system_tool() {
   CURRENT_HINT=""
 }
 
+# --- lint host-tool inventory -------------------------------------------------
+# Report presence, resolved path, installed version, and known-good version for
+# the host/system tools the lint surface invokes that the yamllint/shellcheck
+# checks above do not already cover. Report-first: doctor never installs.
+# Binary resolution mirrors scripts/lint-config-sensors.sh so the inventory matches
+# what the lint lane would actually run, including the MUSI_TAPLO_BIN /
+# MUSI_ACTIONLINT_BIN / MUSI_HADOLINT_BIN overrides (see resolve_lint_bin).
+# Known-good versions are single-sourced (read here, never re-pinned):
+#   - npm-managed tools (eslint, prettier, taplo, node-actionlint): package.json
+#   - hadolint's binary pin: scripts/lint-config-sensors.sh (HADOLINT_VERSION)
+#   - Bun: package.json's packageManager field
+# For npm-managed tools the reported "installed" version is the installed npm
+# package version (node_modules/<pkg>/package.json), which shares a namespace
+# with the package.json pin so the comparison is meaningful; some wrappers
+# (node-actionlint) expose no usable --version and others (taplo) version the
+# bundled binary independently of the npm package. hadolint and bun are genuine
+# binaries whose --version is authoritative.
+pkg_dep_version() {
+  # Print the package.json pin (known-good) for dependency $1, or empty on error.
+  bun -e 'const p=require(process.argv[1]);const n=process.argv[2];const d=p.dependencies||{};const v=p.devDependencies||{};process.stdout.write(String(d[n]||v[n]||""))' \
+    "$REPO_ROOT/package.json" "$1" 2>/dev/null || true
+}
+
+installed_pkg_version() {
+  # Print the installed version of npm package $1, or empty on error.
+  bun -e 'process.stdout.write(String(require(process.argv[1]).version||""))' \
+    "$REPO_ROOT/node_modules/$1/package.json" 2>/dev/null || true
+}
+
+resolve_lint_bin() {
+  # Resolve a tool the way the lint scripts do (scripts/lint-config-sensors.sh's
+  # command_from_env_or_path): an explicit MUSI_*_BIN override wins verbatim — like
+  # the lint lane, doctor does not stat the override, so an override the lane would
+  # use is reported even if the path is bogus — then node_modules/.bin, then PATH.
+  # Pass the override env-var name as $2 for the tools that support one (taplo,
+  # node-actionlint, hadolint); omit it for tools the lint scripts resolve without
+  # an override (eslint, prettier, bun). Print the resolved path, or nothing when
+  # unresolved.
+  local bin_name="$1" override_var="${2:-}"
+  if [[ -n "$override_var" && -n "${!override_var:-}" ]]; then
+    printf '%s\n' "${!override_var}"
+    return 0
+  fi
+  if [[ -x "$REPO_ROOT/node_modules/.bin/$bin_name" ]]; then
+    printf '%s\n' "$REPO_ROOT/node_modules/.bin/$bin_name"
+  elif command -v "$bin_name" >/dev/null 2>&1; then
+    command -v "$bin_name"
+  fi
+}
+
+# A missing tool is a warn, not a fail, so doctor stays report-first and
+# exit-0-friendly like the yamllint/shellcheck checks; the requirement text says
+# whether the lint surface hard-requires the tool (always, or only when matching
+# files exist — the config sensors short-circuit per file type).
+warn_missing_lint_tool() {
+  note_warn "$1 not found in node_modules/.bin or on PATH - run 'bun install' to provision it ($2$3)"
+}
+
+# report_npm_lint_tool <label> <bin-basename> <pkg-name> <requirement> [override-env-name]
+report_npm_lint_tool() {
+  local label="$1" bin_name="$2" pkg="$3" requirement="$4" override_var="${5:-}"
+  local bin known_good installed kg=""
+  known_good="$(pkg_dep_version "$pkg")"
+  [[ -n "$known_good" ]] && kg=", known-good $known_good"
+  bin="$(resolve_lint_bin "$bin_name" "$override_var")"
+  if [[ -z "$bin" ]]; then
+    warn_missing_lint_tool "$label" "$requirement" "$kg"
+    return 0
+  fi
+  installed="$(installed_pkg_version "$pkg")"
+  if [[ -n "$installed" ]]; then
+    note_pass "$label available at $bin (installed $installed$kg; $requirement)"
+  else
+    note_pass "$label available at $bin (installed version unknown$kg; $requirement)"
+  fi
+}
+
+# report_binary_lint_tool <label> <bin-basename> <known-good> <requirement> [override-env-name]
+report_binary_lint_tool() {
+  local label="$1" bin_name="$2" known_good="$3" requirement="$4" override_var="${5:-}"
+  local bin version kg=""
+  [[ -n "$known_good" ]] && kg=", known-good $known_good"
+  bin="$(resolve_lint_bin "$bin_name" "$override_var")"
+  if [[ -z "$bin" ]]; then
+    warn_missing_lint_tool "$label" "$requirement" "$kg"
+    return 0
+  fi
+  version="$("$bin" --version 2>/dev/null | head -n1 || true)"
+  if [[ -n "$version" ]]; then
+    note_pass "$label available at $bin ($version$kg; $requirement)"
+  else
+    note_pass "$label available at $bin (version unknown$kg; $requirement)"
+  fi
+}
+
+check_lint_tools() {
+  CURRENT_CONTROL="doctor-check/lint-tools"
+  CURRENT_HINT="Run 'bun install' to provision the npm-managed lint tools; doctor reports versions but never installs."
+  prose_print ""
+  prose_print "=== lint tools ==="
+  local hadolint_kg bun_kg
+  hadolint_kg="$(grep -E '^HADOLINT_VERSION=' "$SCRIPT_DIR/lint-config-sensors.sh" 2>/dev/null | head -n1 | cut -d= -f2 || true)"
+  bun_kg="$(bun -e 'const p=require(process.argv[1]);process.stdout.write(String(p.packageManager||""))' "$REPO_ROOT/package.json" 2>/dev/null || true)"
+  bun_kg="${bun_kg#bun@}"
+  # The override env-var args (taplo, node-actionlint, hadolint) mirror the
+  # MUSI_*_BIN precedence in scripts/lint-config-sensors.sh; eslint, prettier, and
+  # bun have no override there, so they pass none here.
+  report_npm_lint_tool "eslint" "eslint" "eslint" "required: core ESLint lane"
+  report_npm_lint_tool "prettier" "prettier" "prettier" "required: format:check lane"
+  report_npm_lint_tool "taplo" "taplo" "@taplo/cli" "required when TOML files are present" \
+    "MUSI_TAPLO_BIN"
+  report_npm_lint_tool "node-actionlint" "node-actionlint" "@tktco/node-actionlint" \
+    "required when workflow YAML is present" "MUSI_ACTIONLINT_BIN"
+  report_binary_lint_tool "hadolint" "hadolint" "$hadolint_kg" "required when Dockerfiles are present" \
+    "MUSI_HADOLINT_BIN"
+  report_binary_lint_tool "bun" "bun" "$bun_kg" "required: runtime and package manager"
+  CURRENT_CONTROL=""
+  CURRENT_HINT=""
+}
+
 check_env_files
 check_port_binding
 check_dependency_freshness
+check_shared_dist_freshness
+check_prisma_client_freshness
 check_yamllint_system_tool
 check_shellcheck_system_tool
+check_lint_tools
 
 run_subcommand "eslint-disable register" \
   "add '-- reason', prefer eslint-disable-next-line, or add a targeted broad-disable allowlist entry when the suppression is intentionally scoped" \

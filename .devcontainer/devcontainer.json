@@ -47,7 +47,7 @@
     "8003": { "label": "Prisma Studio" },
     "8004": { "label": "Redis" }
   },
-  "postCreateCommand": "bun install 2>/dev/null; bun run --filter @musi/server prisma:generate 2>/dev/null; bun run --filter @musi/server db:migrate:deploy 2>/dev/null; bunx playwright install chromium 2>/dev/null; echo 'postCreateCommand complete (some steps may have been skipped if packages are not yet scaffolded)'; touch /workspace/.setup-complete",
+  "postCreateCommand": "bash /workspace/.devcontainer/post-create.sh",
   "postStartCommand": "(cd /workspace && bun run worktree:gc >/tmp/musi_logs/worktree-gc.log 2>&1 &); sudo /usr/local/bin/init-firewall.sh",
   "waitFor": "postStartCommand"
 }

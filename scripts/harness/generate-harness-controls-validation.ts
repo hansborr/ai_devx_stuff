@@ -12,6 +12,8 @@ import {
   isRepairKind,
   KINDS,
   lintRuleRestatementFailures,
+  missingRatchetPrincipleMessage,
+  ratchetPrincipleRestatementFailures,
   REPAIR_KINDS,
   type RepairKind,
   validatePairedGuidePath,
@@ -67,14 +69,21 @@ function resolveLintRuleControl(
   };
 }
 
-function pushNonLintFieldFailures(raw: RawControl, repoRoot: string, failures: string[]): void {
+function pushNonLintFieldFailures(
+  raw: RawControl,
+  repoRoot: string,
+  failures: string[],
+  options: { readonly principleFromRegistry?: boolean } = {},
+): void {
   if (raw.ruleName !== undefined) {
     failures.push("ruleName is only allowed on lint-rule entries");
   }
   if (!isControlCategory(raw.category)) {
     failures.push(`category must be one of: ${CONTROL_CATEGORIES.join(", ")}`);
   }
-  if (!isNonEmptyString(raw.principle)) {
+  if (options.principleFromRegistry === true) {
+    failures.push(...ratchetPrincipleRestatementFailures(raw));
+  } else if (!isNonEmptyString(raw.principle)) {
     failures.push("principle must be a non-empty string");
   }
   failures.push(...validatePairedGuidePath(repoRoot, raw.pairedGuide));
@@ -111,13 +120,23 @@ function resolveOptionalHookWiring(
   }
 }
 
+interface NonLintResolveContext {
+  readonly repoRoot: string;
+  // When set, the principle is re-projected from the lint-ratchet registry
+  // rather than read from the manifest (ratchet entries only).
+  readonly derivedPrinciple?: string;
+}
+
 function resolveNonLintControl(
   raw: RawControl,
   kind: ControlKind,
-  repoRoot: string,
+  context: NonLintResolveContext,
   failures: string[],
 ): ResolvedControl | undefined {
-  pushNonLintFieldFailures(raw, repoRoot, failures);
+  const { repoRoot, derivedPrinciple } = context;
+  pushNonLintFieldFailures(raw, repoRoot, failures, {
+    principleFromRegistry: derivedPrinciple !== undefined,
+  });
   const slots = parseVerifyStepSlots(raw.slots, failures);
   const hookWiring = resolveOptionalHookWiring(raw, kind, failures);
   if (failures.length > 0) return undefined;
@@ -133,7 +152,9 @@ function resolveNonLintControl(
     id: raw.id,
     kind,
     category: raw.category as ControlCategory,
-    principle: raw.principle as string,
+    // For ratchets the principle is re-projected from the registry
+    // (derivedPrinciple); other non-lint kinds carry it in the manifest.
+    principle: derivedPrinciple ?? (raw.principle as string),
     pairedGuide: raw.pairedGuide as string,
     repairKind: raw.repairKind as RepairKind,
     ...(raw.repairCommand !== undefined ? { repairCommand: raw.repairCommand } : {}),
@@ -144,20 +165,39 @@ function resolveNonLintControl(
   };
 }
 
+function resolveRatchetControl(
+  raw: RawControl,
+  repoRoot: string,
+  ratchetPrinciples: ReadonlyMap<string, string>,
+  failures: string[],
+): ResolvedControl | undefined {
+  const derivedPrinciple = ratchetPrinciples.get(raw.id);
+  if (derivedPrinciple === undefined) {
+    failures.push(missingRatchetPrincipleMessage(raw.id));
+    return undefined;
+  }
+  return resolveNonLintControl(raw, "ratchet", { repoRoot, derivedPrinciple }, failures);
+}
+
 export function resolveControl(
   raw: RawControl,
   ruleDocs: ReadonlyMap<string, RuleDocs>,
   repoRoot: string,
+  ratchetPrinciples: ReadonlyMap<string, string>,
 ): ResolvedControl | ControlValidationFailure {
   const failures: string[] = [];
   if (!isControlKind(raw.kind)) {
     failures.push(`kind must be one of: ${KINDS.join(", ")}`);
     return { id: raw.id, failures };
   }
-  const resolved =
-    raw.kind === "lint-rule"
-      ? resolveLintRuleControl(raw, ruleDocs, repoRoot, failures)
-      : resolveNonLintControl(raw, raw.kind, repoRoot, failures);
+  let resolved: ResolvedControl | undefined;
+  if (raw.kind === "lint-rule") {
+    resolved = resolveLintRuleControl(raw, ruleDocs, repoRoot, failures);
+  } else if (raw.kind === "ratchet") {
+    resolved = resolveRatchetControl(raw, repoRoot, ratchetPrinciples, failures);
+  } else {
+    resolved = resolveNonLintControl(raw, raw.kind, { repoRoot }, failures);
+  }
   if (resolved === undefined) {
     return { id: raw.id, failures };
   }

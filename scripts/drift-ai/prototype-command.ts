@@ -64,6 +64,7 @@ export function currentPrototypeCliOptions(parsed: PrototypeCurrentRunArgs): Cli
     ...(parsed.base.configPath === null ? {} : { configPath: parsed.base.configPath }),
     includeScope: false,
     failOnFindings: false,
+    failOnRuntimeCycles: false,
   };
 }
 

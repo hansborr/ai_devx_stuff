@@ -1,27 +1,28 @@
 #!/usr/bin/env bun
 // Report-only e2e selector drift sensor.
 //
-// Counts raw `.locator(` source-text usage under e2e/** and reports the
-// current ratcheted debt-file count for local/e2e-prefer-role-selectors.
+// Counts raw `.locator(` source-text usage under e2e/**. Schema 1 also
+// reported the local/e2e-prefer-role-selectors debt-file count; that field
+// retired with the selector ratchets (lint-followups-2026-06 leaf 03g).
 
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-
-import { e2ePreferRoleSelectorDebtFiles } from "../../eslint-config/shared-policy.js";
 
 export type LocatorUsageFile = {
   readonly path: string;
   readonly count: number;
 };
 
+// Schema 2: debtFileCount retired with the selector ratchets (leaf 03g).
+const REPORT_SCHEMA_VERSION = 2;
+
 export type LocatorUsageReport = {
-  readonly schemaVersion: 1;
+  readonly schemaVersion: typeof REPORT_SCHEMA_VERSION;
   readonly root: string;
   readonly pattern: ".locator(";
   readonly totalLocatorCalls: number;
   readonly filesWithLocatorCalls: number;
-  readonly debtFileCount: number;
   readonly files: readonly LocatorUsageFile[];
 };
 
@@ -97,10 +98,7 @@ export function parseArgs(
   return { format, repoRoot };
 }
 
-export function buildLocatorUsageReport(
-  repoRoot: string,
-  debtFileCount: number,
-): LocatorUsageReport {
+export function buildLocatorUsageReport(repoRoot: string): LocatorUsageReport {
   const root = DEFAULT_ROOT;
   const files = discoverSourceFiles(path.join(repoRoot, root), root)
     .map((filePath) => ({
@@ -110,12 +108,11 @@ export function buildLocatorUsageReport(
     .filter((file) => file.count > 0);
   const totalLocatorCalls = files.reduce((total, file) => total + file.count, 0);
   return {
-    schemaVersion: 1,
+    schemaVersion: REPORT_SCHEMA_VERSION,
     root,
     pattern: LOCATOR_PATTERN,
     totalLocatorCalls,
     filesWithLocatorCalls: files.length,
-    debtFileCount,
     files,
   };
 }
@@ -155,7 +152,6 @@ export function formatText(report: LocatorUsageReport): string {
     `  root: ${report.root}/**`,
     `  raw .locator( calls: ${String(report.totalLocatorCalls)}`,
     `  files with raw .locator(: ${String(report.filesWithLocatorCalls)}`,
-    `  local/e2e-prefer-role-selectors ratcheted debt files: ${String(report.debtFileCount)}`,
   ];
   if (report.files.length === 0) {
     lines.push("OK: no raw .locator( calls found.");
@@ -176,8 +172,7 @@ export function runLocatorUsage(argv: readonly string[]): {
 } {
   try {
     const options = parseArgs(argv);
-    const debtFileCount = loadDebtFileCount();
-    const report = buildLocatorUsageReport(options.repoRoot, debtFileCount);
+    const report = buildLocatorUsageReport(options.repoRoot);
     const stdout = options.format === "json" ? formatJson(report) : formatText(report);
     return { exitCode: 0, stdout };
   } catch (err) {
@@ -185,10 +180,6 @@ export function runLocatorUsage(argv: readonly string[]): {
     if (err instanceof LocatorUsageError) return { exitCode: 2, stdout: err.message };
     throw err;
   }
-}
-
-function loadDebtFileCount(): number {
-  return e2ePreferRoleSelectorDebtFiles.length;
 }
 
 function isDirectRun(): boolean {

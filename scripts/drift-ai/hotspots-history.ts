@@ -82,6 +82,39 @@ export type CommitRecord = {
   readonly files: readonly CommitFileChange[]; // already filtered through isIgnoredPath
 };
 
+// First-seen / last-touched accumulator over the windowed walk. Structural so
+// every lens aggregate (`FileAggregate`, `ThrashAggregate`, …) satisfies it
+// without importing a concrete lens type into this shared collector module.
+export type TouchDateAccumulator = {
+  newestTouchMs: number | null;
+  oldestTouchMs: number | null;
+};
+
+// Fold one record's author timestamp into an aggregate's first-seen / last-touched
+// bounds. Non-finite dates (a malformed `authorDate`) are skipped so they never
+// poison the min/max. Mutates in place — both coldspot and thrash aggregation walk
+// records once and update the same accumulator per file.
+export function updateTouchDates(aggregate: TouchDateAccumulator, record: CommitRecord): void {
+  const timestamp = Date.parse(record.authorDate);
+  if (!Number.isFinite(timestamp)) return;
+  aggregate.newestTouchMs =
+    aggregate.newestTouchMs === null ? timestamp : Math.max(aggregate.newestTouchMs, timestamp);
+  aggregate.oldestTouchMs =
+    aggregate.oldestTouchMs === null ? timestamp : Math.min(aggregate.oldestTouchMs, timestamp);
+}
+
+// Newest author timestamp across the walk (the reference "now" both the coldspot
+// and thrash lenses age against), or null when no record carries a finite date.
+export function newestTimestamp(records: readonly CommitRecord[]): number | null {
+  let newest: number | null = null;
+  for (const record of records) {
+    const timestamp = Date.parse(record.authorDate);
+    if (!Number.isFinite(timestamp)) continue;
+    newest = newest === null ? timestamp : Math.max(newest, timestamp);
+  }
+  return newest;
+}
+
 export type CollectHistoryOptions = {
   readonly git: GitRunner;
   readonly windowDays?: number;

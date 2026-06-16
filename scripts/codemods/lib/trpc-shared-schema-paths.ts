@@ -1,4 +1,3 @@
-import { existsSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 
 import type { Project } from "ts-morph";
@@ -10,6 +9,7 @@ import {
   SHARED_SCHEMA_PREFIX,
   SHARED_SCHEMA_ROOT,
 } from "./trpc-shared-schema-types.js";
+import { walkTsFiles } from "./walk-ts-files.js";
 
 export function normalizeRelativeRouterPath(
   codemodName: string,
@@ -29,25 +29,10 @@ export function normalizeRelativeRouterPath(
 }
 
 export function discoverRouterFiles(root: string): string[] {
-  const routerRoot = path.join(root, ROUTER_ROOT);
-  if (!existsSync(routerRoot)) return [];
-
-  const files: string[] = [];
-  const visit = (directory: string): void => {
-    for (const entry of readdirSync(directory, { withFileTypes: true })) {
-      const currentPath = path.join(directory, entry.name);
-      if (entry.isDirectory()) {
-        visit(currentPath);
-        continue;
-      }
-      if (!statSync(currentPath).isFile()) continue;
-      if (!currentPath.endsWith(".ts") || /\.test\.tsx?$/.test(currentPath)) continue;
-      files.push(path.relative(root, currentPath));
-    }
-  };
-
-  visit(routerRoot);
-  return files.sort((left, right) => left.localeCompare(right, "en"));
+  return walkTsFiles([path.join(root, ROUTER_ROOT)], {
+    include: (currentPath) => currentPath.endsWith(".ts") && !/\.test\.tsx?$/.test(currentPath),
+    relativeTo: root,
+  });
 }
 
 export function validateSharedSchemaSource(codemodName: string, source: string): void {

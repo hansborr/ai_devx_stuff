@@ -28,22 +28,7 @@ export {
   formatBirthSizeDeltaAdvisoryJson,
   formatBirthSizeDeltaAdvisoryText,
 } from "./birth-size-delta-format.js";
-export type {
-  BirthBlobReadCaps,
-  BirthBlobReader,
-  BirthBlobReadResult,
-  BirthBlobRequest,
-  BirthSizeDeltaAdvisory,
-  BirthSizeDeltaBirth,
-  BirthSizeDeltaBirthBurst,
-  BirthSizeDeltaBlobState,
-  BirthSizeDeltaChurn,
-  BirthSizeDeltaMetric,
-  BirthSizeDeltaRow,
-  BirthSizeDeltaSection,
-  BuildBirthSizeDeltaAdvisoryInput,
-  CurrentBlobReader,
-} from "./birth-size-delta-types.js";
+export type { BirthBlobReader } from "./birth-size-delta-types.js";
 export {
   BIRTH_SIZE_DELTA_SUBCOMMAND,
   DEFAULT_BIRTH_SIZE_DELTA_BLOB_TIMEOUT_MS,

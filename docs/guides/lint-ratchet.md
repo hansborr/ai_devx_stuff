@@ -234,7 +234,9 @@ broader boundary in a committed Markdown table derived from `git ls-files`,
 normal ESLint reach, and the current ratchet registry. Musi's current map lives
 at `docs/agent_notes/lint-coverage-map.md`.
 
-`bun run docs:lint-coverage-map:check` validates map drift rather than style:
+`bun run docs:lint-coverage-map:check` validates map drift rather than style
+(it mirrors the committing gate's behaviour — no ESLint-reach probe; see the
+`:audit` split below):
 
 - Every path code span in the path column must match at least one tracked file.
 - Every `ratchet/<name>` in the ratchet column must exist in
@@ -259,8 +261,11 @@ every rule setting or replace targeted rule tests.
 Staged and full modes have different jobs:
 
 - Full mode reads the worktree map and should run with `--check-eslint-reach`
-  in CI or full verification. In Musi, the package script bakes that flag into
-  `docs:lint-coverage-map:check`.
+  in CI or full verification. In Musi, the dedicated `docs:lint-coverage-map:audit`
+  package script bakes that flag in, and full `verify`/`verify:parallel` run the
+  `:audit` form. The plain `docs:lint-coverage-map:check` script matches the
+  committing gate (no reach probe) so a standalone pre-flight no longer reports
+  reach gaps the `--staged` gate never trips.
 - Staged mode reads the index copy of the map with `git show :<map-path>`, so
   pre-commit validates the map that will actually be committed. It deliberately
   skips ESLint reach, even when the package script also supplies
@@ -277,9 +282,10 @@ Adopters should copy the pattern, not the Musi paths verbatim:
   `scripts/lint-coverage-map-check-eslint-reach.ts`, then update the map path,
   root path prefixes, tracked extensions, generated-directory exclusions, and
   ratchet-registry import for the adopting repository.
-- Expose one full command that includes `--check-eslint-reach`, and wire that
-  command into CI or full verification. Wire the pre-commit slot to the same
-  package script plus `--staged`.
+- Expose one full command that includes `--check-eslint-reach` (Musi's
+  `:audit`), and wire that command into CI or full verification. Wire the
+  pre-commit slot to the gate-default `:check` script plus `--staged` so the
+  standalone pre-flight agrees with what pre-commit actually enforces.
 - If the project lints non-ESLint surfaces such as shell, YAML, TOML, Prisma,
   SQL, or Markdown with other tools, keep those rows in the map but treat
   tool-specific reach checks as separate sensors or future extensions.
@@ -544,15 +550,23 @@ plugin allowlisting, complexity-severity vectors, and rule-source hashing.
   before rewriting the baseline and treats the same line already present at the
   debt-log tail as a retry, so stage and commit `lint-ratchet.debt-log.jsonl`
   alongside `lint-ratchet.baseline.json` — a human commits the paired diff.
+  Retiring a *zero-finding* ratchet whose rule was promoted into normal lint is a
+  strict improvement, not accepted debt, so it must not go through `--allow-worse`.
+  Use `bun run lint:ratchet:update -- --retire-ratchet <id>` instead (see the
+  [Zero-Baseline Lifecycle](#zero-baseline-lifecycle)): it drops the orphaned floor
+  without a debt-log entry, but only after proving normal lint now errors on the
+  retired scope — a zero baseline alone never proves the guard was replaced. The
+  flag is mutually exclusive with `--allow-worse`.
 - `bun run lint:ratchet:debt-log` renders the committed debt log as
   GitHub-flavored markdown (sticky-comment marker `<!-- lint-ratchet-debt-log -->`,
   one section per acceptance, oldest first). It is read-only and never fails: on a
   clean tree with no recorded acceptances it prints an empty report and exits 0.
   Only *worse* acceptances are logged — the `--allow-worse` regression set plus
   orphan (renamed/removed registry id) removals with the committed baseline
-  snapshot that is being dropped; routine tightening updates and improvement locks
-  write nothing, and a first-ever baseline (initial adoption) logs nothing because
-  there is no committed baseline to compare against. Each line deliberately omits
+  snapshot that is being dropped; routine tightening updates, improvement locks,
+  and proven `--retire-ratchet` retirements write nothing, and a first-ever
+  baseline (initial adoption) logs nothing because there is no committed baseline
+  to compare against. Each line deliberately omits
   timestamp, branch, parent commit, committer, and baseline hashes: PR reviewers
   derive those from the commit, blame, and the `lint-ratchet.baseline.json` diff,
   so the log stays a minimal, human-reviewable record of *why* debt was accepted.
@@ -678,10 +692,21 @@ Default to promotion:
    ratchet.
 3. If normal ESLint already reports the same rule/options as `error` on the
    same effective file set, remove the ratchet entry and run
-   `bun run lint:ratchet:update`.
+   `bun run lint:ratchet:update -- --retire-ratchet <id>`. This is a clean
+   retirement, not accepted debt: the updater drops the now-orphaned zero-finding
+   floor without `--allow-worse` and without a `lint-ratchet.debt-log.jsonl`
+   entry, and prints `Retired ratchet <id> ... No debt logged.`. A zero baseline
+   alone is not enough — the updater first re-runs the normal-lint coverage probe
+   and only retires when normal lint still errors on the retired scope. If that
+   proof fails (the rule was dropped without a replacement, or only some files
+   are covered), the command refuses and tells you to accept the removal as debt
+   with `--allow-worse --reason "<...>"` instead. Retirement and `--allow-worse`
+   are mutually exclusive: one promotes a proven guard, the other logs accepted
+   debt.
 4. If normal ESLint is `off`, `warn`, ignored, mixed, or uses different options,
    promote the matching rule/options to normal ESLint at `error` before removing
-   the ratchet.
+   the ratchet. Until promotion is proven, `--retire-ratchet` refuses and the
+   removal must go through `--allow-worse --reason "<...>"`.
 
 Normal-lint `warn` is not fully promoted. `bun run lint` and
 `bun run lint:changed` use `--max-warnings=0`, but the post-edit tidy hook runs
@@ -715,7 +740,7 @@ Use the registry's optional `zeroBaselineDisposition` field for these cases:
   zeroBaselineDisposition: {
     kind: "temporary-ratchet-only",
     reason: "normal ESLint still ignores this generated-adjacent tool family",
-    exitPath: "docs/agent_notes/backlog/lint-review-2026-06/example.md",
+    exitPath: "docs/agent_notes/backlog/example-pack/example.md",
   },
 }
 ```

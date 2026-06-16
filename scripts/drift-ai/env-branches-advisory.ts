@@ -27,9 +27,9 @@ import {
   formatPrototypeAdvisoryJson,
   formatPrototypeHeader,
   type PrototypeAdvisory,
-  type PrototypeCap,
   type PrototypePrerequisite,
   type PrototypeSection,
+  rowsPerSectionCap,
 } from "./prototype-advisory.js";
 
 export const ENV_BRANCHES_SUBCOMMAND = "env-branches";
@@ -121,7 +121,7 @@ export function buildEnvBranchesAdvisory(
   return buildPrototypeAdvisory({
     subcommand: ENV_BRANCHES_SUBCOMMAND,
     prerequisites: [matrixPrerequisite(matrix)],
-    caps: [rowCap(top, sections)],
+    caps: [rowsPerSectionCap(top, sections, { label: "rows per section", noun: "section" })],
     sections,
   });
 }
@@ -149,7 +149,7 @@ function noMatrixAdvisory(top: number): EnvBranchesAdvisory {
         detail: "no env/define assumptions configured; add envDefine.* to drift-ai config",
       },
     ],
-    caps: [rowCap(top, [])],
+    caps: [rowsPerSectionCap(top, [], { label: "rows per section", noun: "section" })],
     sections: [
       emptySection(RESOLVED_CANDIDATE_KIND, "no env/define matrix configured."),
       emptySection(UNRESOLVED_CANDIDATE_KIND, "no env/define matrix configured."),
@@ -225,21 +225,6 @@ function matrixPrerequisite(matrix: EnvDefineMatrix): PrototypePrerequisite {
     detail: `${assumptions} configured ${plural("assumption", assumptions)} across ${
       tables.length
     } ${plural("table", tables.length)}`,
-  };
-}
-
-function rowCap(top: number, sections: readonly EnvBranchSection[]): PrototypeCap {
-  const hitCount = sections.filter(
-    (advisorySection) => advisorySection.totalCandidates > advisorySection.entries.length,
-  ).length;
-  return {
-    label: "rows per section",
-    limit: top,
-    hit: hitCount > 0,
-    detail:
-      hitCount > 0
-        ? `${hitCount} ${plural("section", hitCount)} had more than ${top} candidate rows`
-        : null,
   };
 }
 

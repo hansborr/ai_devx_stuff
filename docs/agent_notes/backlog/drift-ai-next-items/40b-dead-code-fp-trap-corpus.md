@@ -75,9 +75,8 @@ What landed:
   exported-symbol extraction, shipped-label validation, and downstream lookup for
   at least one dynamic-import trap and one barrel trap.
 - `scripts/drift-ai/README.md` documents the corpus as prototype evaluation
-  infrastructure, and
-  `docs/agent_notes/backlog/lint-review-2026-06/11-scripts-coverage-family-map.md`
-  accounts for the helper and excluded fixture surfaces.
+  infrastructure, and `docs/agent_notes/lint-coverage-map.md` accounts for
+  the helper and excluded fixture surfaces.
 
 Validation:
 

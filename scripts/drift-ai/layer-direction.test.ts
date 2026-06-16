@@ -82,6 +82,7 @@ function makeInput(options: { readonly moduleGraph: ModuleGraphRunner }): CheckR
       repoRoot: "/repo/target",
       overrides: { moduleGraph: options.moduleGraph, pathExists: () => true },
       cli: parseArgs(["--scope", "current", "--check", "layer-direction"]),
+      warnStderr: () => undefined,
     },
   };
 }

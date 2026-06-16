@@ -29,6 +29,7 @@ const ratchet: LintRatchetConfig = {
   target: 0,
   metric: "message-count",
   repairKind: "manual",
+  principle: "Fixture debt-log ratchet principle.",
 };
 
 const ruleSourceHashes = new Map([[ratchet.id, `sha256:${"a".repeat(64)}`]]);
@@ -426,5 +427,64 @@ describe("applyLintRatchetUpdate", () => {
     expect(logged).toBe(false);
     expect(rec.appended).toEqual([]);
     expect(rec.written).toEqual([rendered]);
+  });
+
+  it("retires a proven zero-finding orphan with no --allow-worse and no debt log", () => {
+    // Committed has an orphaned zero-finding id; generated (from the registry)
+    // drops it, so the write removes the floor. With proven promotion, retire
+    // must skip --allow-worse and the debt log entirely.
+    const committedText = formatLintRatchetBaseline(baselineWith({})).replace(
+      ratchet.id,
+      "ratchet/old-promoted",
+    );
+    const generated = baselineWith({});
+    const rendered = formatLintRatchetBaseline(generated);
+    const rec = recorder(committedText);
+
+    const logged = applyLintRatchetUpdate({
+      generated,
+      rendered,
+      registry: [ratchet],
+      options: {
+        allowWorse: false,
+        retire: { id: "ratchet/old-promoted", normalErrorProven: true },
+      },
+      currentFindingCount: 0,
+      deps: rec.deps,
+    });
+
+    expect(logged).toBe(false);
+    expect(rec.calls).toEqual(["write:baseline"]);
+    expect(rec.appended).toEqual([]);
+    expect(rec.written).toEqual([rendered]);
+    expect(errorLines.join("\n")).toContain("Retired ratchet ratchet/old-promoted");
+    expect(errorLines.join("\n")).not.toContain("debt-log");
+  });
+
+  it("refuses to retire an orphan when promotion is not proven", () => {
+    const committedText = formatLintRatchetBaseline(baselineWith({})).replace(
+      ratchet.id,
+      "ratchet/old-promoted",
+    );
+    const generated = baselineWith({});
+    const rendered = formatLintRatchetBaseline(generated);
+    const rec = recorder(committedText);
+
+    expect(() =>
+      applyLintRatchetUpdate({
+        generated,
+        rendered,
+        registry: [ratchet],
+        options: {
+          allowWorse: false,
+          retire: { id: "ratchet/old-promoted", normalErrorProven: false },
+        },
+        currentFindingCount: 0,
+        deps: rec.deps,
+      }),
+    ).toThrow(WorseBaselineError);
+
+    expect(rec.appended).toEqual([]);
+    expect(rec.written).toEqual([]);
   });
 });

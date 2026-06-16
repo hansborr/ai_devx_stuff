@@ -8,12 +8,14 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/lib/changed-base.sh
 . "$SCRIPT_DIR/lib/changed-base.sh"
 VITEST_RUNNER="$SCRIPT_DIR/vitest.sh"
+CLIENT_TEST_RUNNER="$SCRIPT_DIR/client-test-isolation-runner.ts"
 
 BASE="main"
 if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then
   BASE="$1"
   shift
 fi
+USER_ARGS=("$@")
 
 # Resolve the base ref and preflight the common ancestor the triple-dot
 # diff needs (see scripts/lib/changed-base.sh); on failure fall back to
@@ -25,17 +27,44 @@ else
   exec bash "$VITEST_RUNNER" run --passWithNoTests "$@"
 fi
 
+read_diff_names() {
+  local target_name="$1"
+  local diff_filter="$2"
+  local diff_range="$3"
+  local tmp
+
+  tmp="$(mktemp "${TMPDIR:-/tmp}/musi-test-changed-diff.XXXXXX")" || return 2
+  if ! git diff --name-only --diff-filter="$diff_filter" "$diff_range" >"$tmp"; then
+    rm -f "$tmp"
+    return 1
+  fi
+  mapfile -t "$target_name" <"$tmp"
+  rm -f "$tmp"
+}
+
 # Classification scans the same diff Vitest's `--changed` would; the working-tree
 # additions cover staged/uncommitted edits that --changed does not see in
 # pre-commit-only contexts. The classifier decides whether to skip Vitest
 # entirely, which `--project` filters to pass, and whether to drop `--changed`
 # so config/dependency edits run the relevant suite in full instead of
 # selecting nothing.
-mapfile -t CHANGED_FILES < <(git diff --name-only --diff-filter=ACMRD "$REF"...HEAD)
-mapfile -t DELETED_FILES < <(git diff --name-only --diff-filter=D "$REF"...HEAD)
+if ! read_diff_names CHANGED_FILES ACMRD "$REF...HEAD"; then
+  echo "test:changed: failed to diff changed files vs $REF." >&2
+  exit 1
+fi
+if ! read_diff_names DELETED_FILES D "$REF...HEAD"; then
+  echo "test:changed: failed to diff deleted files vs $REF." >&2
+  exit 1
+fi
 if git rev-parse --verify HEAD >/dev/null 2>&1; then
-  mapfile -t WORKTREE_FILES < <(git diff --name-only --diff-filter=ACMRD HEAD)
-  mapfile -t WORKTREE_DELETED_FILES < <(git diff --name-only --diff-filter=D HEAD)
+  if ! read_diff_names WORKTREE_FILES ACMRD HEAD; then
+    echo "test:changed: failed to diff changed files vs HEAD." >&2
+    exit 1
+  fi
+  if ! read_diff_names WORKTREE_DELETED_FILES D HEAD; then
+    echo "test:changed: failed to diff deleted files vs HEAD." >&2
+    exit 1
+  fi
   CHANGED_FILES+=("${WORKTREE_FILES[@]}")
   DELETED_FILES+=("${WORKTREE_DELETED_FILES[@]}")
 fi
@@ -182,7 +211,7 @@ for file in "${CHANGED_FILES[@]}"; do
       file_vitest_relevant=1
       full_run=1
       ;;
-    scripts/*.test.ts|scripts/codemods/*|scripts/code-intel*.ts|scripts/drift-ai.ts|scripts/drift-ai/*|scripts/drift/*|scripts/logs-audit.ts|scripts/logs-audit/*|scripts/sensor-blob-size.ts|scripts/lint-coverage-map-check*.ts|scripts/lint-ratchet.ts|scripts/lint-ratchet/*)
+    scripts/*.test.ts|scripts/client-test-isolation-*.ts|scripts/codemods/*|scripts/code-intel*.ts|scripts/drift-ai.ts|scripts/drift-ai/*|scripts/drift/*|scripts/logs-audit.ts|scripts/logs-audit/*|scripts/sensor-blob-size.ts|scripts/lint-coverage-map-check*.ts|scripts/lint-ratchet.ts|scripts/lint-ratchet/*)
       has_scripts=1
       has_vitest_relevant=1
       file_vitest_relevant=1
@@ -214,16 +243,91 @@ if [ "$has_vitest_relevant" -eq 0 ]; then
   exit 0
 fi
 
-PROJECT_ARGS=()
-if [ "$has_global" -eq 0 ] && [ "$has_shared" -eq 0 ]; then
-  [ "$has_server" -eq 1 ] && PROJECT_ARGS+=("--project=server")
-  [ "$has_client" -eq 1 ] && PROJECT_ARGS+=("--project=client")
-  [ "$has_eslint_rules" -eq 1 ] && PROJECT_ARGS+=("--project=eslint-rules")
-  [ "$has_scripts" -eq 1 ] && PROJECT_ARGS+=("--project=scripts")
+client_split_supports_user_args() {
+  local arg
+  for arg in ${USER_ARGS[@]+"${USER_ARGS[@]}"}; do
+    case "$arg" in
+      --coverage|--coverage=*|--coverage.*|--project|--project=*|--outputFile|--outputFile=*|--outputFile.*)
+        return 1
+        ;;
+    esac
+  done
+  return 0
+}
+
+run_and_remember_failure() {
+  local exit_code_ref="$1"
+  shift
+  local status=0
+
+  "$@" || status=$?
+  if [ "$status" -ne 0 ] && [ "${!exit_code_ref}" -eq 0 ]; then
+    printf -v "$exit_code_ref" '%s' "$status"
+  fi
+}
+
+VITEST_PROJECT_ARGS=()
+RUN_CLIENT_SPLIT=0
+if client_split_supports_user_args; then
+  if [ "$has_global" -eq 1 ] || [ "$has_shared" -eq 1 ]; then
+    RUN_CLIENT_SPLIT=1
+    # All non-client projects in one run (the `!client` filter mirrors test-all.sh
+    # and keeps any project added to vitest.config.ts covered without re-listing
+    # the set); the client project runs through the split runner below.
+    VITEST_PROJECT_ARGS=("--project=!client")
+  else
+    [ "$has_server" -eq 1 ] && VITEST_PROJECT_ARGS+=("--project=server")
+    [ "$has_client" -eq 1 ] && RUN_CLIENT_SPLIT=1
+    [ "$has_eslint_rules" -eq 1 ] && VITEST_PROJECT_ARGS+=("--project=eslint-rules")
+    [ "$has_scripts" -eq 1 ] && VITEST_PROJECT_ARGS+=("--project=scripts")
+  fi
+else
+  if [ "$has_global" -eq 0 ] && [ "$has_shared" -eq 0 ]; then
+    [ "$has_server" -eq 1 ] && VITEST_PROJECT_ARGS+=("--project=server")
+    [ "$has_client" -eq 1 ] && VITEST_PROJECT_ARGS+=("--project=client")
+    [ "$has_eslint_rules" -eq 1 ] && VITEST_PROJECT_ARGS+=("--project=eslint-rules")
+    [ "$has_scripts" -eq 1 ] && VITEST_PROJECT_ARGS+=("--project=scripts")
+  fi
 fi
 
-if [ "$full_run" -eq 1 ]; then
-  exec bash "$VITEST_RUNNER" run --passWithNoTests ${PROJECT_ARGS[@]+"${PROJECT_ARGS[@]}"} "$@"
+SELECTION_ARGS=()
+if [ "$full_run" -eq 0 ]; then
+  SELECTION_ARGS=("--changed" "$REF")
 fi
 
-exec bash "$VITEST_RUNNER" run --passWithNoTests ${PROJECT_ARGS[@]+"${PROJECT_ARGS[@]}"} "$@" --changed "$REF"
+EXIT_CODE=0
+RUN_VITEST=1
+if [ "$RUN_CLIENT_SPLIT" -eq 1 ] && [ "${#VITEST_PROJECT_ARGS[@]}" -eq 0 ]; then
+  RUN_VITEST=0
+fi
+
+if [ "$RUN_VITEST" -eq 1 ]; then
+  run_and_remember_failure EXIT_CODE \
+    bash "$VITEST_RUNNER" run --passWithNoTests \
+    ${VITEST_PROJECT_ARGS[@]+"${VITEST_PROJECT_ARGS[@]}"} \
+    ${USER_ARGS[@]+"${USER_ARGS[@]}"} \
+    ${SELECTION_ARGS[@]+"${SELECTION_ARGS[@]}"}
+fi
+
+# test:changed runs as one of several parallel pre-commit gates, so the client
+# split — especially the CPU-dense no-isolate fast lane — must not grab Vitest's
+# default nproc-1 worker fan-out as if it owned the machine. Bound it via
+# VITEST_MAX_WORKERS (read natively by Vitest, vitest/dist .../coverage.*.js) on
+# this changed-run path only; standalone `test:client` / `test:client:split`
+# bypass this script and keep the full fan-out for speed. Override the bound with
+# MUSI_CLIENT_FAST_LANE_MAX_WORKERS, or set it empty to opt out entirely.
+CLIENT_SPLIT_MAX_WORKERS="${MUSI_CLIENT_FAST_LANE_MAX_WORKERS-4}"
+CLIENT_SPLIT_WORKER_ENV=()
+if [ -n "$CLIENT_SPLIT_MAX_WORKERS" ]; then
+  CLIENT_SPLIT_WORKER_ENV=(env "VITEST_MAX_WORKERS=$CLIENT_SPLIT_MAX_WORKERS")
+fi
+
+if [ "$RUN_CLIENT_SPLIT" -eq 1 ]; then
+  run_and_remember_failure EXIT_CODE \
+    ${CLIENT_SPLIT_WORKER_ENV[@]+"${CLIENT_SPLIT_WORKER_ENV[@]}"} \
+    bun "$CLIENT_TEST_RUNNER" \
+    ${USER_ARGS[@]+"${USER_ARGS[@]}"} \
+    ${SELECTION_ARGS[@]+"${SELECTION_ARGS[@]}"}
+fi
+
+exit "$EXIT_CODE"

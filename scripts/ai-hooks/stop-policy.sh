@@ -207,8 +207,9 @@ ai_stop_e2e_write_counter() {
 }
 
 # Returns 0 with a message on stdout when the agent should be nudged about
-# failing e2e, 1 otherwise. Reads only the same `last.e2e` marker
-# bun-run-quiet writes; Stop hooks must not launch multi-minute verification.
+# failing e2e, 1 otherwise. Reads only the `last.e2e*` markers bun-run-quiet
+# writes (argv-scoped, H1/H2: the newest e2e run on this worktree, whatever its
+# argv); Stop hooks must not launch multi-minute verification.
 ai_stop_e2e_status() {
   local repo_root="$1"
   local marker counter fp branch
@@ -218,12 +219,12 @@ ai_stop_e2e_status() {
   git -C "$repo_root" rev-parse --is-inside-work-tree >/dev/null 2>&1 || return 1
 
   log="$AI_BUN_LOG_DIR/e2e.log"
-  marker="$AI_BUN_LOG_DIR/last.e2e"
+  marker=$(ai_newest_bun_marker_for_base "$AI_BUN_LOG_DIR" e2e || true)
   counter=$(ai_stop_e2e_counter_path "$repo_root")
   fp=$(ai_worktree_fingerprint "$repo_root")
   branch=$(ai_stop_current_branch "$repo_root")
 
-  if ai_read_bun_marker "$marker"; then
+  if [ -n "$marker" ] && ai_read_bun_marker "$marker"; then
     now=$(date +%s)
     age=$((now - AI_MARKER_LAST_TS))
     if [ "$age" -lt "${AI_BUN_TTL:-1800}" ] && [ "$AI_MARKER_LAST_FP" = "$fp" ]; then

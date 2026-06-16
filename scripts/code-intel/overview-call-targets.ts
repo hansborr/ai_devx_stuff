@@ -1,5 +1,7 @@
-import type { CallExpression, Expression, Node, Project } from "ts-morph";
+import type { CallExpression, Node, Project } from "ts-morph";
 import { Node as MorphNode, SyntaxKind } from "ts-morph";
+
+import { unwrapExpression } from "./declaration-utils.js";
 
 type SourceFile = ReturnType<Project["getSourceFileOrThrow"]>;
 
@@ -176,19 +178,6 @@ function isBroadcastImport(source: string, name: string): boolean {
 
 function isBroadcastHelperName(name: string): boolean {
   return name.startsWith("broadcast") || name.startsWith("emit") || name.endsWith("Broadcast");
-}
-
-function unwrapExpression(expression: Expression): Expression {
-  let current = expression;
-  while (
-    MorphNode.isAsExpression(current) ||
-    MorphNode.isNonNullExpression(current) ||
-    MorphNode.isParenthesizedExpression(current) ||
-    MorphNode.isSatisfiesExpression(current)
-  ) {
-    current = current.getExpression();
-  }
-  return current;
 }
 
 function sortedUnique(values: string[]): string[] {

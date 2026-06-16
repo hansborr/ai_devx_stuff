@@ -77,6 +77,11 @@ export const clientRuntimeBoundaryConfigs = [
     files: ["packages/client/**/*.{ts,tsx}"],
     rules: {
       ...reactHooks.configs.flat["recommended-latest"].rules,
+      // Owned by ratchet/react-hooks-set-state-in-effect-client (no-new floor
+      // over the ~24 accepted findings). Kept off in normal lint to avoid
+      // double-reporting; see docs/guides/lint-ratchet.md and the
+      // set-state-in-effect verdict in
+      // docs/agent_notes/backlog/lint-followups-2026-06/evaluation-verdicts.md.
       "react-hooks/set-state-in-effect": "off",
       "no-magic-numbers": "off",
       "@typescript-eslint/explicit-function-return-type": "off",

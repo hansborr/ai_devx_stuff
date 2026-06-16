@@ -1,6 +1,6 @@
 import type { BoundedHistoryDisclosure } from "./advisory-format-helpers.js";
 import type { BoundedFullHistory } from "./bounded-full-history.js";
-import type { BranchPointMeasurer } from "./branch-points.js";
+import type { BranchPointFunction, BranchPointMeasurer } from "./branch-points.js";
 import type { PrototypeAdvisory, PrototypeSection } from "./prototype-advisory.js";
 
 export const BIRTH_SIZE_DELTA_SUBCOMMAND = "birth-size-delta";
@@ -56,12 +56,6 @@ export type BirthSizeDeltaChurn = {
   readonly linesChanged: number | null;
 };
 
-export type BirthSizeDeltaComplexityFunction = {
-  readonly name: string;
-  readonly line: number;
-  readonly branchPoints: number;
-};
-
 // Branch-points overlay for one row. `branchPoints` carries the then-vs-now totals and
 // delta; `birthParsed`/`currentParsed` disclose whether each blob was available AND
 // parsed, so an unparsed or missing blob reads as a degradation rather than a zero count.
@@ -70,7 +64,7 @@ export type BirthSizeDeltaComplexity = {
   readonly branchPoints: BirthSizeDeltaMetric;
   readonly birthParsed: boolean;
   readonly currentParsed: boolean;
-  readonly topFunctions: readonly BirthSizeDeltaComplexityFunction[];
+  readonly topFunctions: readonly BranchPointFunction[];
 };
 
 export type BirthSizeDeltaRow = {

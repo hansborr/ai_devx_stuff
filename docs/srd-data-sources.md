@@ -16,20 +16,41 @@ International (CC-BY-4.0). Any derivative work must include this attribution:
 ## Repo Inputs
 
 - `docs/SRD_CC_v5.2.1.pdf` — official rules reference.
-- `docs/refs/5e-database/src/2024/` and `docs/refs/dndsrd5.2_markdown/src/` —
-  optional local checkouts of the upstream sources below. Not committed; the
-  seed scripts read from these paths only when an operator has cloned the
-  upstream repos into `docs/refs/` for a reseed run.
+- `packages/server/src/seed/data/reference/` — **committed** SRD reference JSON
+  (`5e-SRD-*.json`) read by the seed at runtime. These ship with the repo so
+  `bun run --filter @musi/server db:seed` works on a fresh clone with no network
+  and no provisioning step. Provenance (upstream repo + pinned revision +
+  per-file checksums) and CC-BY-4.0 attribution live alongside the data in
+  `packages/server/src/seed/data/reference/PROVENANCE.json` and `NOTICE.md`.
+- `packages/server/src/seed/data/` — other committed seed inputs (spells,
+  monsters, magic items, rules glossary) generated from the markdown source.
 - `packages/server/src/seed/` — canonical seed scripts and generated seed data
   checked into this repo.
+- `docs/refs/5e-database/src/2024/` and `docs/refs/dndsrd5.2_markdown/src/` —
+  **optional** local checkouts of the upstream sources below, used **only** when
+  reseeding/regenerating the committed data above. Not committed (gitignored);
+  no first-run path depends on them.
 
 ## External Sources
 
-- 5e-bits `5e-database`: structured JSON source used for many 2024 SRD tables.
+- 5e-bits `5e-database` (MIT tooling, CC-BY-4.0 `src/2024` content): structured
+  JSON source for the reference tables. The currently-vendored revision is pinned
+  in `packages/server/src/seed/data/reference/PROVENANCE.json` (at time of
+  writing: commit `c40ab45c3648030f54234083ec599c6969934358`, release 4.5.0).
 - `springbov/dndsrd5.2_markdown`: markdown conversion useful when regenerating
   class, subclass, monster, magic-item, and glossary seed data.
 - EN World editable SRD 5.2.1: human-readable fallback when the PDF is awkward.
 
-Do not rely on this file for current upstream release numbers. If reseeding
-from an external source, pin the exact upstream revision in the seed change or
-PR description so future agents can reproduce it.
+## Reseeding from upstream
+
+The reference JSON is committed, so routine `db:seed` needs none of the above.
+To refresh it from a newer upstream release:
+
+1. Clone `5e-bits/5e-database` into `docs/refs/` (gitignored) and check out the
+   target revision.
+2. Copy the `5e-SRD-*.json` files the seed reads from `src/2024/` into
+   `packages/server/src/seed/data/reference/` **verbatim** (do not reformat).
+3. Update `PROVENANCE.json` (pinned commit, release, and per-file `sha256`).
+
+Always pin the exact upstream revision in the provenance manifest and the PR
+description so future agents can reproduce it.

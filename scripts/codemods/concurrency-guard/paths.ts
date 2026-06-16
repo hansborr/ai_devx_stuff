@@ -1,6 +1,6 @@
-import { existsSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 
+import { walkTsFiles } from "../lib/walk-ts-files.js";
 import { PRISMA_TYPES_RELATIVE, SERVER_SRC_ROOT, UTILS_ROOT } from "./constants.js";
 
 function isGeneratedPath(relativePath: string): boolean {
@@ -20,23 +20,10 @@ export function isExcludedPath(relativePath: string): boolean {
 }
 
 export function discoverFiles(root: string): string[] {
-  const files: string[] = [];
-  const visit = (directory: string): void => {
-    if (!existsSync(directory)) return;
-    for (const entry of readdirSync(directory, { withFileTypes: true })) {
-      const currentPath = path.join(directory, entry.name);
-      if (entry.isDirectory()) {
-        visit(currentPath);
-        continue;
-      }
-      if (!statSync(currentPath).isFile() || !currentPath.endsWith(".ts")) continue;
-      const relative = path.relative(root, currentPath);
-      if (isExcludedPath(relative)) continue;
-      files.push(relative);
-    }
-  };
-  visit(path.join(root, SERVER_SRC_ROOT));
-  return files.sort((left, right) => left.localeCompare(right, "en"));
+  return walkTsFiles([path.join(root, SERVER_SRC_ROOT)], {
+    include: (currentPath) => currentPath.endsWith(".ts"),
+    relativeTo: root,
+  }).filter((relative) => !isExcludedPath(relative));
 }
 
 export function isMutationHelperPath(relativePath: string): boolean {

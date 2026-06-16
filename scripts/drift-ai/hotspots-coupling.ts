@@ -13,13 +13,7 @@
 // work the same on any repo and never name a file "ignorable"; the locale clique
 // is *controlled* (capped), still visible, not filtered away.
 
-import { buildCommitIntentOverlay } from "./commit-intent.js";
-import {
-  aggregateAuthors,
-  pairKey,
-  recentSubjects,
-  shellQuoteArg,
-} from "./hotspots-actionability.js";
+import { buildRowActionability, pairKey, shellQuoteArg } from "./hotspots-actionability.js";
 import type { CouplingHotspot, CouplingSection } from "./hotspots-format.js";
 import type { CollectedHistory, CommitRecord } from "./hotspots-history.js";
 
@@ -179,13 +173,11 @@ function withContext(
     if (paths.size < 2 || paths.size > sweepCap) return false;
     return paths.has(candidate.a) && paths.has(candidate.b);
   };
-  const subjects = recentSubjects(records, touchesBoth);
   return {
     ...candidate,
-    authors: aggregateAuthors(records, touchesBoth),
-    recentSubjects: subjects,
-    commitIntent: buildCommitIntentOverlay(subjects),
-    inspectCommand: `git log --oneline -- ${shellQuoteArg(candidate.a)} ${shellQuoteArg(candidate.b)}`,
-    baseline: null,
+    ...buildRowActionability(records, {
+      touches: touchesBoth,
+      inspectCommand: `git log --oneline -- ${shellQuoteArg(candidate.a)} ${shellQuoteArg(candidate.b)}`,
+    }),
   };
 }

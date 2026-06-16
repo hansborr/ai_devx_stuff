@@ -123,3 +123,23 @@ export function lintRuleRestatementFailures(
       : [`lint-rule entries must not restate ${field}; it is re-projected from meta.docs`],
   );
 }
+
+// Module path of the ratchet registry that owns the dedicated `principle` field.
+// Used in both diagnostics below so the agent is pointed at the single source.
+export const LINT_RATCHET_CONFIG_PATH = "scripts/lint-ratchet/lint-ratchet-config.ts";
+
+export const RATCHET_PRINCIPLE_RESTATEMENT_MESSAGE =
+  "ratchet entries must not restate principle; it is re-projected from the lint-ratchet registry";
+
+// Ratchet `principle` is re-projected from the registry (parallel to how
+// lint-rule fields flow from meta.docs), so a hand-written value in the manifest
+// is rejected.
+export function ratchetPrincipleRestatementFailures(raw: {
+  readonly principle?: unknown;
+}): string[] {
+  return raw.principle === undefined ? [] : [RATCHET_PRINCIPLE_RESTATEMENT_MESSAGE];
+}
+
+export function missingRatchetPrincipleMessage(id: string): string {
+  return `${id} has no principle in ${LINT_RATCHET_CONFIG_PATH}`;
+}

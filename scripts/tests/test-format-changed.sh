@@ -14,6 +14,7 @@ PATH_POLICY_QUERY="$SCRIPT_DIR/../path-policy/path-policy-query.ts"
 PATH_POLICY_QUERY_CORE="$SCRIPT_DIR/../path-policy/path-policy-query-core.ts"
 PATH_POLICY="$SCRIPT_DIR/../path-policy/path-policy.ts"
 PATH_POLICY_SMOKE_SUBJECTS="$SCRIPT_DIR/../path-policy/path-policy-smoke-subjects.ts"
+PATH_POLICY_SMOKE_SUBJECTS_DATA="$SCRIPT_DIR/../path-policy/path-policy-smoke-subjects-data.ts"
 
 PASS=0
 fail() { printf 'FAIL: %s\n' "$1" >&2; exit 1; }
@@ -47,6 +48,8 @@ new_repo() {
   cp "$PATH_POLICY_QUERY_CORE" "$repo/scripts/path-policy/path-policy-query-core.ts"
   cp "$PATH_POLICY" "$repo/scripts/path-policy/path-policy.ts"
   cp "$PATH_POLICY_SMOKE_SUBJECTS" "$repo/scripts/path-policy/path-policy-smoke-subjects.ts"
+  cp "$PATH_POLICY_SMOKE_SUBJECTS_DATA" \
+    "$repo/scripts/path-policy/path-policy-smoke-subjects-data.ts"
   printf 'const base = true;\n' > "$repo/packages/server/src/app.ts"
   git -C "$repo" config user.email test@example.com
   git -C "$repo" config user.name Test

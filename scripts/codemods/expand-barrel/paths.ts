@@ -1,18 +1,19 @@
-import { existsSync, readdirSync, statSync } from "node:fs";
+import { existsSync } from "node:fs";
 import path from "node:path";
 
 import type { SourceFile } from "ts-morph";
 
+import { walkTsFiles } from "../lib/walk-ts-files.js";
 import { contextForKnown } from "./barrel-context.js";
 import { KNOWN_PACKAGE_BARRELS, PACKAGES_ROOT, SHARED_SRC_ROOT } from "./constants.js";
 import { fail } from "./errors.js";
 import type { BarrelContext } from "./types.js";
 
-export function toPosix(filePath: string): string {
+function toPosix(filePath: string): string {
   return filePath.split(path.sep).join(path.posix.sep);
 }
 
-export function replaceTsExtensionWithJs(filePath: string): string {
+function replaceTsExtensionWithJs(filePath: string): string {
   return filePath.replace(/\.tsx?$/u, ".js");
 }
 
@@ -31,7 +32,7 @@ function sourcePathCandidates(resolvedModulePath: string): string[] {
   ];
 }
 
-export function resolveRelativeModulePath(fromFile: string, specifier: string): string | undefined {
+function resolveRelativeModulePath(fromFile: string, specifier: string): string | undefined {
   const resolvedModulePath = path.resolve(path.dirname(fromFile), specifier);
   return sourcePathCandidates(resolvedModulePath).find((candidate) => existsSync(candidate));
 }
@@ -47,27 +48,11 @@ export function resolveExportModulePath(sourceFile: SourceFile, specifier: strin
 }
 
 export function discoverPackageFiles(root: string): string[] {
-  const packageRoot = path.join(root, PACKAGES_ROOT);
-  if (!existsSync(packageRoot)) return [];
-  const files: string[] = [];
   const skippedDirectories = new Set(["dist", "generated", "node_modules"]);
-
-  const visit = (directory: string): void => {
-    for (const entry of readdirSync(directory, { withFileTypes: true })) {
-      const currentPath = path.join(directory, entry.name);
-      if (entry.isDirectory()) {
-        if (!skippedDirectories.has(entry.name)) visit(currentPath);
-        continue;
-      }
-      if (!statSync(currentPath).isFile()) continue;
-      if (currentPath.endsWith(".d.ts")) continue;
-      if (!/\.tsx?$/u.test(currentPath)) continue;
-      files.push(currentPath);
-    }
-  };
-
-  visit(packageRoot);
-  return files.sort((left, right) => left.localeCompare(right, "en"));
+  return walkTsFiles([path.join(root, PACKAGES_ROOT)], {
+    include: (currentPath) => /\.tsx?$/u.test(currentPath) && !currentPath.endsWith(".d.ts"),
+    skipDir: (name) => skippedDirectories.has(name),
+  });
 }
 
 export function specifierMatchesContext(

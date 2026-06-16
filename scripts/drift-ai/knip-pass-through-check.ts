@@ -108,6 +108,9 @@ function resolveKnipRunner(env: CheckServiceEnv): KnipRunner {
       analyzedRepoRoot: env.repoRoot,
       includeCategories: resolveKnipIncludeCategories(env.cli.checks),
       knipBin: resolution.binPath,
+      // Heartbeat (J1): route the runner's start/timeout banners to stderr so the
+      // blocking self-scan is observably alive and a timeout-skip is explained.
+      warn: env.warnStderr,
     });
   }
   return unresolvedKnipRunner(`searched ${resolution.searched.join(", ")}`);

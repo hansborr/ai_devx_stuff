@@ -17,8 +17,9 @@ export const scriptDebtOverrideConfigs = [
   // keep, not tracked debt. Drift-AI is a metrics/reporting CLI — numeric
   // template interpolation, multi-input analysis functions, and scoring
   // constants are its idiom, so the family keeps allowNumber, max-params 6,
-  // and no-magic-numbers off (verdict recorded in
-  // docs/agent_notes/backlog/lint-review-2026-06/evaluation-verdicts.md).
+  // and no-magic-numbers off (verdict recorded in the lint-review-2026-06
+  // register, now in git history; summary in
+  // docs/agent_notes/finished_work/lint-review-2026-06.md).
   // Tests inherit the same options instead of a blanket test relax.
   {
     files: ["scripts/drift-ai.ts", "scripts/drift-ai.test.ts", "scripts/drift-ai/**/*.ts"],

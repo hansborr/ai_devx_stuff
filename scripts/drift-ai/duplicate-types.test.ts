@@ -165,6 +165,7 @@ function makeCtx(repoRoot: string, overrides: CtxOverrides = {}): CheckRunInput 
       repoRoot,
       overrides: {},
       cli: parseArgs(["--scope", "current", "--check", "duplicate-types"]),
+      warnStderr: () => undefined,
     },
   };
 }

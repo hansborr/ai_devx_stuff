@@ -10,6 +10,7 @@ import {
   type PrototypeAdvisory,
   type PrototypeSection,
   prototypeTruncationNote,
+  rowsPerSectionCap,
 } from "./prototype-advisory.js";
 
 // A representative future prototype lens (stand-in for tasks 41-48): one candidate kind
@@ -205,5 +206,61 @@ describe("prototypeTruncationNote", () => {
     expect(prototypeTruncationNote(2, 5)).toBe(
       "showing 2 of 5 candidates (3 more; raise --top to see them)",
     );
+  });
+});
+
+describe("rowsPerSectionCap", () => {
+  // A section truncates when its gate count exceeds the shown subset; `entries` length
+  // is the only thing the builder reads off each row, so the row payload is irrelevant.
+  function section(totalCandidates: number, shown: number): PrototypeSection<FakeRow> {
+    return {
+      candidateKind: "fake",
+      totalCandidates,
+      emptyReason: null,
+      entries: Array.from({ length: shown }, (_unused, index) => ({
+        path: `src/${index}.ts`,
+        score: index,
+      })),
+    };
+  }
+
+  it("reports no hit (within limit, no detail) when no section was truncated", () => {
+    const cap = rowsPerSectionCap(20, [section(2, 2), section(0, 0)], {
+      label: "rows per section",
+      noun: "section",
+    });
+    expect(cap).toEqual({ label: "rows per section", limit: 20, hit: false, detail: null });
+  });
+
+  it("uses the singular noun and default row noun when exactly one section truncated", () => {
+    const cap = rowsPerSectionCap(2, [section(3, 2), section(1, 1)], {
+      label: "rows per section",
+      noun: "section",
+    });
+    expect(cap.hit).toBe(true);
+    expect(cap.detail).toBe("1 section had more than 2 candidate rows");
+  });
+
+  it("pluralizes the noun when several sections truncated", () => {
+    const cap = rowsPerSectionCap(2, [section(5, 2), section(4, 2), section(2, 2)], {
+      label: "rows per section",
+      noun: "section",
+    });
+    expect(cap.hit).toBe(true);
+    expect(cap.detail).toBe("2 sections had more than 2 candidate rows");
+  });
+
+  it("honors the rowNoun override (coverage-evidence parsed rows)", () => {
+    const cap = rowsPerSectionCap(20, [section(30, 20)], {
+      label: "rows per artifact",
+      noun: "artifact",
+      rowNoun: "parsed rows",
+    });
+    expect(cap).toEqual({
+      label: "rows per artifact",
+      limit: 20,
+      hit: true,
+      detail: "1 artifact had more than 20 parsed rows",
+    });
   });
 });

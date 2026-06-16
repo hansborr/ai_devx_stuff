@@ -1,11 +1,7 @@
+import { isJsonValue, isRecord, normalizeJsonValue } from "./baseline-hash.js";
 import { parseLintRatchetBaselineItem } from "./baseline-item-parse.js";
 import type { LintRatchetBaseline } from "./lint-ratchet-baseline.js";
-import type {
-  JsonObject,
-  JsonValue,
-  LintRatchetMetric,
-  LintRatchetMode,
-} from "./lint-ratchet-config.js";
+import type { JsonValue, LintRatchetMetric, LintRatchetMode } from "./lint-ratchet-config.js";
 
 const LINT_RATCHET_CONFIG_HASH_PREFIX = "sha256:" as const;
 const RATCHET_ID_PATTERN = /^ratchet\/[a-z0-9]+(?:-[a-z0-9]+)*$/u;
@@ -14,42 +10,6 @@ const BASELINE_RULE_ID_PATTERN =
 
 type LintRatchetBaselineTest = NonNullable<LintRatchetBaseline["tests"][string]>;
 type LintRatchetBaselineItem = NonNullable<LintRatchetBaselineTest["items"][string]>;
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function isJsonValue(value: unknown): value is JsonValue {
-  if (
-    value === null ||
-    typeof value === "string" ||
-    typeof value === "number" ||
-    typeof value === "boolean"
-  ) {
-    return typeof value !== "number" || Number.isFinite(value);
-  }
-  if (Array.isArray(value)) return value.every((entry) => isJsonValue(entry));
-  if (!isRecord(value)) return false;
-  return Object.values(value).every((entry) => isJsonValue(entry));
-}
-
-function isJsonObjectValue(value: JsonValue): value is JsonObject {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
-}
-
-function isJsonArrayValue(value: JsonValue): value is readonly JsonValue[] {
-  return Array.isArray(value);
-}
-
-function normalizeJsonValue(value: JsonValue): JsonValue {
-  if (isJsonArrayValue(value)) return value.map((entry) => normalizeJsonValue(entry));
-  if (!isJsonObjectValue(value)) return value;
-  const normalized: Record<string, JsonValue> = {};
-  for (const key of Object.keys(value).sort()) {
-    normalized[key] = normalizeJsonValue(value[key] ?? null);
-  }
-  return normalized;
-}
 
 function parseStringArray(
   value: unknown,

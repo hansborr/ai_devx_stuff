@@ -14,7 +14,7 @@ export class JoinPO {
   }
 
   async expectError(text: string | RegExp): Promise<void> {
-    await expect(this.page.locator('[role="alert"]')).toContainText(text, {
+    await expect(this.page.getByRole("alert")).toContainText(text, {
       timeout: TIMEOUT_MEDIUM,
     });
   }

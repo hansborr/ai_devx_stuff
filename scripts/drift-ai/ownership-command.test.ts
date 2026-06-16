@@ -4,41 +4,9 @@ import path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { commitBlock } from "./git-log-fixture.test-helper.js";
 import { GIT_LOG_FORMAT } from "./hotspots-history.js";
 import { runDriftAi } from "./runner.js";
-
-const NUL = "\u0000";
-const US = "\u001f";
-const GS = "\u001d";
-
-type MetaFields = {
-  readonly hash: string;
-  readonly authorName: string;
-  readonly authorEmail: string;
-  readonly authorDate: string;
-  readonly committerDate?: string;
-  readonly subject: string;
-  readonly coAuthors?: readonly string[];
-};
-
-function metaLine(fields: MetaFields): string {
-  return (
-    NUL +
-    [
-      fields.hash,
-      fields.authorName,
-      fields.authorEmail,
-      fields.authorDate,
-      fields.committerDate ?? fields.authorDate,
-      fields.subject,
-      (fields.coAuthors ?? []).join(GS),
-    ].join(US)
-  );
-}
-
-function commitBlock(fields: MetaFields, rows: readonly string[]): string {
-  return [metaLine(fields), "", ...rows].join("\n");
-}
 
 describe("ownership subcommand", () => {
   it("runs bounded full history and emits prototype advisory JSON", () => {

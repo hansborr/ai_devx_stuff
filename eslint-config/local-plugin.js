@@ -8,6 +8,7 @@ import noBarrel from "../eslint-rules/no-barrel.js";
 import noBroadcastInTransaction from "../eslint-rules/no-broadcast-in-transaction.js";
 import noExplicitAny from "../eslint-rules/no-explicit-any.js";
 import noLlmArtifacts from "../eslint-rules/no-llm-artifacts.js";
+import noRedundantCentralMock from "../eslint-rules/no-redundant-central-mock.js";
 import noSwallowedErrors from "../eslint-rules/no-swallowed-errors.js";
 import socketRegistryBroadcasts from "../eslint-rules/socket-registry-broadcasts.js";
 import strictSharedSchemas from "../eslint-rules/strict-shared-schemas.js";
@@ -27,6 +28,7 @@ export const localPlugin = {
     "no-barrel": noBarrel,
     "no-explicit-any": noExplicitAny,
     "no-llm-artifacts": noLlmArtifacts,
+    "no-redundant-central-mock": noRedundantCentralMock,
     "no-swallowed-errors": noSwallowedErrors,
     "type-assertion-boundary": typeAssertionBoundary,
     "e2e-prefer-role-selectors": e2ePreferRoleSelectors,

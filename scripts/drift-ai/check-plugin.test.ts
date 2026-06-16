@@ -28,6 +28,7 @@ function makeCtx(): CheckRunInput {
       repoRoot: "/repo/target",
       overrides: {},
       cli: parseArgs(["--scope", "current"]),
+      warnStderr: () => undefined,
     },
   };
 }

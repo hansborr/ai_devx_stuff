@@ -138,6 +138,44 @@ assert_status "$repo" stale
 musi_dependency_message "$repo" | grep -qF "bun.lock newer" || fail "stale lockfile message"
 ok "lockfile newer than install marker reports stale state"
 
+# --- content-digest marker path (mtime-race-immune) -------------------------
+# These cases need a digest tool; skip cleanly when none is available so the
+# suite still passes on a host without sha256sum/shasum.
+if [[ -n "$(musi_dependency_digest "$repo/bun.lock")" ]]; then
+  # bun.lock mtime is still NEWER than .bin from the case above — the exact
+  # state that tripped the phantom 'stale'. A matching digest marker must
+  # override the mtime comparison and report fresh.
+  musi_dependency_write_marker "$repo"
+  [[ -f "$repo/node_modules/.musi-install-digest" ]] \
+    || fail "write_marker did not create digest marker"
+  assert_status "$repo" fresh
+  ok "matching digest marker reports fresh despite newer lockfile mtime"
+
+  # Mutating bun.lock content (a real dependency change) must flip to stale
+  # even though the marker exists.
+  printf 'lock changed\n' > "$repo/bun.lock"
+  assert_status "$repo" stale
+  musi_dependency_message "$repo" | grep -qF "changed since last install" \
+    || fail "digest-mismatch stale message"
+  ok "digest marker mismatch reports stale after lockfile content change"
+
+  # Re-recording the marker after the change clears the stale signal.
+  musi_dependency_write_marker "$repo"
+  assert_status "$repo" fresh
+  ok "rewriting digest marker after change reports fresh again"
+
+  # A missing .bin still short-circuits to stale before the digest path,
+  # even with a marker present.
+  rm -rf "$repo/node_modules/.bin"
+  assert_status "$repo" stale
+  musi_dependency_message "$repo" | grep -qF "node_modules/.bin missing" \
+    || fail "missing .bin should win over digest path"
+  ok "missing .bin reports stale even when a digest marker exists"
+  mkdir -p "$repo/node_modules/.bin"
+else
+  printf 'ok - digest tool unavailable; skipping content-digest cases\n'
+fi
+
 hook_repo="$TMP_ROOT/hook-repo"
 mkdir -p "$hook_repo/scripts/ai-hooks" "$hook_repo/scripts/lib" "$hook_repo/.husky" "$hook_repo/node_modules/.bin"
 cp "$SCRIPT_DIR/../dependency-freshness.sh" "$hook_repo/scripts/dependency-freshness.sh"

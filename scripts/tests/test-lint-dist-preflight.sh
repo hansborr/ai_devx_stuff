@@ -13,6 +13,7 @@ PATH_POLICY_QUERY="$SCRIPT_DIR/../path-policy/path-policy-query.ts"
 PATH_POLICY_QUERY_CORE="$SCRIPT_DIR/../path-policy/path-policy-query-core.ts"
 PATH_POLICY="$SCRIPT_DIR/../path-policy/path-policy.ts"
 PATH_POLICY_SMOKE_SUBJECTS="$SCRIPT_DIR/../path-policy/path-policy-smoke-subjects.ts"
+PATH_POLICY_SMOKE_SUBJECTS_DATA="$SCRIPT_DIR/../path-policy/path-policy-smoke-subjects-data.ts"
 
 PASS=0
 fail() { printf 'FAIL: %s\n' "$1" >&2; exit 1; }
@@ -168,7 +169,12 @@ STUB
 #!/usr/bin/env bash
 exit 0
 STUB
-  chmod +x "$repo/scripts/lint-shell.sh" "$repo/scripts/lint-config-sensors.sh"
+  cat > "$repo/scripts/lint-import-cycles.sh" <<'STUB'
+#!/usr/bin/env bash
+exit 0
+STUB
+  chmod +x "$repo/scripts/lint-shell.sh" "$repo/scripts/lint-config-sensors.sh" \
+    "$repo/scripts/lint-import-cycles.sh"
 }
 
 copy_path_policy() {
@@ -178,6 +184,8 @@ copy_path_policy() {
   cp "$PATH_POLICY_QUERY_CORE" "$repo/scripts/path-policy/path-policy-query-core.ts"
   cp "$PATH_POLICY" "$repo/scripts/path-policy/path-policy.ts"
   cp "$PATH_POLICY_SMOKE_SUBJECTS" "$repo/scripts/path-policy/path-policy-smoke-subjects.ts"
+  cp "$PATH_POLICY_SMOKE_SUBJECTS_DATA" \
+    "$repo/scripts/path-policy/path-policy-smoke-subjects-data.ts"
 }
 
 copy_lint_changed_dependencies() {

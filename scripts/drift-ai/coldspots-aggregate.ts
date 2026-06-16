@@ -1,10 +1,10 @@
 // Per-file aggregation + shared date/number math for the coldspot lens. Split out
 // of `coldspots-coldspot.ts` so the reducer (gate + assembly) and the amplifiers
 // each stay focused. The walk is the SAME windowed history hotspots collects; this
-// only reduces it. The first-seen/last-touched pattern is copied from
-// `hotspots-thrash.ts` (updateTouchDates / oldest / newest).
+// only reduces it. The first-seen/last-touched fold is the shared
+// `updateTouchDates` from `hotspots-history.ts` (also used by the thrash lens).
 
-import type { CommitRecord } from "./hotspots-history.js";
+import { type CommitRecord, updateTouchDates } from "./hotspots-history.js";
 
 export const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -57,16 +57,6 @@ function newAggregate(): FileAggregate {
     birthLinesAdded: 0,
     birthMs: null,
   };
-}
-
-// First-seen / last-touched, copied from the thrash pattern (hotspots-thrash.ts).
-function updateTouchDates(aggregate: FileAggregate, record: CommitRecord): void {
-  const timestamp = Date.parse(record.authorDate);
-  if (!Number.isFinite(timestamp)) return;
-  aggregate.newestTouchMs =
-    aggregate.newestTouchMs === null ? timestamp : Math.max(aggregate.newestTouchMs, timestamp);
-  aggregate.oldestTouchMs =
-    aggregate.oldestTouchMs === null ? timestamp : Math.min(aggregate.oldestTouchMs, timestamp);
 }
 
 // Track the EARLIEST in-window commit for this file (the birth). `git log` is
@@ -123,16 +113,6 @@ export function lastRepoCommitMsByAuthor(records: readonly CommitRecord[]): Map<
 export function ageDaysOf(referenceMs: number | null, newestTouchMs: number | null): number | null {
   if (referenceMs === null || newestTouchMs === null) return null;
   return Math.max(0, Math.floor((referenceMs - newestTouchMs) / DAY_MS));
-}
-
-export function newestTimestamp(records: readonly CommitRecord[]): number | null {
-  let newest: number | null = null;
-  for (const record of records) {
-    const timestamp = Date.parse(record.authorDate);
-    if (!Number.isFinite(timestamp)) continue;
-    newest = newest === null ? timestamp : Math.max(newest, timestamp);
-  }
-  return newest;
 }
 
 export function median(values: readonly number[]): number {

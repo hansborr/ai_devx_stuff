@@ -1,5 +1,49 @@
 # Observed Flaky Tests
 
+## 5. Server high-iteration concurrency suites — 5s test timeout under parallel load
+
+### Problem
+`bun run test:changed` (verify:changed and pre-commit) failed twice on
+2026-06-13 while landing ux-audit P0-3, with the same four tests each
+hitting their per-test timeout:
+- `routers/sorcery-point.test.ts:321` — 100-iteration cross-router
+  `spellSlot.use ∥ convertSlotToPoints` race (5s timeout).
+- `routers/rest-long.test.ts:407` — 30-iteration concurrent level-up race
+  (5s timeout).
+- `routers/encounter-combat-concurrency.test.ts:527` — DM clear-condition
+  racing `advanceTurn` (5s timeout).
+- `eslint-rules/max-lines-policy.test.js` — resolved-cap snapshot (15s
+  timeout). On one run `lint:config-sensors`' actionlint also timed out
+  (10s) on `ci.yml`.
+
+### Observed Behavior
+- Both failing runs were the full parallel step set (test wall ~235-270s,
+  "import" phase 334-404s), with 4003 passing and only these timing out.
+- Each of the four files passed immediately in isolation:
+  `bun run test -- packages/server/src/routers/sorcery-point.test.ts
+  packages/server/src/routers/rest-long.test.ts` → 27 passed;
+  `... encounter-combat-concurrency.test.ts` → 55 passed (with the P0-3
+  files); `bun run test -- eslint-rules/max-lines-policy.test.js` → 4
+  passed. The P0-3 change touches no concurrency machinery for these
+  tables (it only adds an append-only CombatLog write on the HP path).
+
+### Files
+- `packages/server/src/routers/sorcery-point.test.ts`
+- `packages/server/src/routers/rest-long.test.ts`
+- `packages/server/src/routers/encounter-combat-concurrency.test.ts`
+- `eslint-rules/max-lines-policy.test.js`
+
+### Root Cause Hypothesis
+The hardcoded 5s/15s per-test timeouts expire when these 30-100-iteration
+Promise.all races (and the cap snapshot) are starved of CPU/DB connections
+during the parallel pre-commit run, not a product or test-logic regression.
+
+### Priority
+Low unless it repeats. If seen again, raise the per-test timeout on the
+high-iteration race cases (they sequentially issue N HTTP+DB round trips),
+or lower their iteration counts; consider bumping the actionlint
+config-sensor timeout above 10s.
+
 ## 4. Client monster tab — `waitFor` search-results timeout under load
 
 ### Problem

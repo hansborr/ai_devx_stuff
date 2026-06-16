@@ -1,12 +1,11 @@
 import { existsSync, readFileSync, realpathSync } from "node:fs";
 import path from "node:path";
 
+import { DaemonRequestTimeoutError, defaultDaemonTransport } from "./daemon-client.js";
 import {
+  CODE_INTEL_DAEMON_PROTOCOL_VERSION,
   DAEMON_FALLBACK_ERROR_NAME,
-  DaemonRequestTimeoutError,
-  defaultDaemonTransport,
-} from "./daemon-client.js";
-import { CODE_INTEL_DAEMON_PROTOCOL_VERSION } from "./daemon-protocol.js";
+} from "./daemon-protocol.js";
 import type { DaemonMetadata, DaemonStatePaths } from "./daemon-state.js";
 import { isRecord } from "./json-utils.js";
 

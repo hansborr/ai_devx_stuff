@@ -35,6 +35,6 @@ Sizing guidance for `batonloop.toml`:
   pass on the changed files (the verification step that gates the stop
   check).
 - `prompt_files`: a sprint-specific prompt that tells the agent to read
-  `docs/agent_notes/STATUS.md`, `docs/agent_notes/NEXT.md`, and
-  `docs/roadmap/developer-experience.md`, then act on the first item under
-  `## Ready now`.
+  `docs/roadmap/developer-experience.md` (and `docs/agent_notes/LOG.md` for
+  status context), then act on the first unchecked `- [ ]` sub-bullet in the
+  sprint roadmap.

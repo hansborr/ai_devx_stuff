@@ -34,3 +34,5 @@ Use the shared auth helpers rather than open-coding permission checks:
 - Only the campaign DM can link or unlink a collection to a campaign.
 
 When adding a new surface, preserve these same visibility semantics and error-code choices unless the procedure has an explicit reason to differ.
+
+Client-side session/token handling (in-memory access token, the two refresh paths, and the login/logout reset surface): see `docs/guides/client-auth-session.md`.

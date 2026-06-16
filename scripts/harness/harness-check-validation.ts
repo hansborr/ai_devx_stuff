@@ -8,6 +8,7 @@ import {
   isRepairKind,
   KINDS,
   lintRuleRestatementFailures,
+  ratchetPrincipleRestatementFailures,
   REPAIR_KINDS,
   type RepairKind,
   validatePairedGuidePath,
@@ -159,6 +160,7 @@ export function validateNonLintEntry(
   raw: RawControl,
   id: string,
   context: ManifestCheckContext,
+  options: { readonly principleFromRegistry?: boolean } = {},
 ): void {
   const { repoRoot, failures } = context;
   if (raw.ruleName !== undefined) {
@@ -167,7 +169,11 @@ export function validateNonLintEntry(
   if (!isControlCategory(raw.category)) {
     pushFailure(failures, id, `category must be one of: ${CONTROL_CATEGORIES.join(", ")}`);
   }
-  if (!isNonEmptyString(raw.principle)) {
+  if (options.principleFromRegistry === true) {
+    for (const message of ratchetPrincipleRestatementFailures(raw)) {
+      pushFailure(failures, id, message);
+    }
+  } else if (!isNonEmptyString(raw.principle)) {
     pushFailure(failures, id, "principle must be a non-empty string");
   }
   for (const message of validatePairedGuidePath(repoRoot, raw.pairedGuide)) {
@@ -189,7 +195,9 @@ export function validateRatchetEntry(
   ratchetIds: ReadonlySet<string>,
   context: ManifestCheckContext,
 ): void {
-  validateNonLintEntry(raw, id, context);
+  // Ratchet `principle` is re-projected from the lint-ratchet registry, so the
+  // manifest must not restate it (parallel to lint-rule restatement).
+  validateNonLintEntry(raw, id, context, { principleFromRegistry: true });
   if (!ratchetIds.has(id)) {
     pushFailure(
       context.failures,
@@ -212,7 +220,12 @@ export function checkScriptParity(
     pushFailure(
       context.failures,
       "(parity)",
-      `package.json script "${name}" is not declared in the manifest and not exempt`,
+      `package.json script "${name}" matches the control-prefix convention but is ` +
+        `not declared in harness.controls.json and not exempt. Fix one of:\n` +
+        `      1. Add a control entry (with "invocation": "bun run ${name}") to ` +
+        `harness.controls.json, then run \`bun run docs:harness-controls\`.\n` +
+        `      2. If it is an operational utility (not an enforcement gate), add "${name}" ` +
+        `to EXEMPT_SCRIPTS in scripts/harness-check.ts (with a justifying comment).`,
     );
   }
 }

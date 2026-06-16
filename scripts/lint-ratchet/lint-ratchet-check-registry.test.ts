@@ -41,6 +41,7 @@ const matchingRatchet: LintRatchetConfig = {
   target: 0,
   metric: "message-count",
   repairKind: "manual",
+  principle: "Fixture ratchet principle.",
 };
 
 const emptyRatchet: LintRatchetConfig = {

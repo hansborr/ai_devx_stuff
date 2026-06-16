@@ -5,6 +5,8 @@
   "permissions": {
     "deny": [
       "Bash(git commit *--amend*)",
+      "Bash(git commit --amend*)",
+      "Bash(git -c * commit *--amend*)",
       "Bash(git push *--force*)",
       "Bash(git push *--mirror*)",
       "Bash(git push *--delete*)",
@@ -162,6 +164,6 @@
     "playwright@claude-plugins-official": false,
     "prisma@claude-plugins-official": false,
     "frontend-design@claude-plugins-official": false,
-    "typescript-lsp@claude-plugins-official": true
+    "typescript-lsp@claude-plugins-official": false
   }
 }

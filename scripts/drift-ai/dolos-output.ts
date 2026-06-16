@@ -22,6 +22,7 @@ import {
   type ParseDolosReportOptions,
 } from "./dolos-types.js";
 import { toPosix } from "./path-util.js";
+import { parseToolVersionOutput } from "./tool-version.js";
 import { sourceLineCount } from "./ts-source-util.js";
 
 export type DolosCloneCorpusEvaluation = LabeledPairScore & {
@@ -32,13 +33,7 @@ export type DolosCloneCorpusEvaluation = LabeledPairScore & {
 export type { DolosCandidatePair, DolosReportFiles } from "./dolos-types.js";
 
 export function parseDolosVersionOutput(output: string): string | undefined {
-  for (const line of output.split(/\r?\n/u)) {
-    const trimmed = line.trim();
-    if (trimmed.length === 0) continue;
-    const version = versionFromLine(trimmed);
-    if (version !== undefined) return version;
-  }
-  return undefined;
+  return parseToolVersionOutput(output, "dolos");
 }
 
 export function parseDolosCsvReport(
@@ -79,15 +74,6 @@ export function evaluateDolosCloneCorpusCandidates(
       known,
     ),
   };
-}
-
-function versionFromLine(line: string): string | undefined {
-  if (/\bdolos\b/iu.test(line)) {
-    const dolosVersion = /(\d+\.\d+\.\d+(?:[-+.][\w.-]+)?)/u.exec(line);
-    if (dolosVersion?.[1] !== undefined) return dolosVersion[1];
-  }
-  const trimmedMatch = /^v?(\d+\.\d+\.\d+(?:[-+.][\w.-]+)?)$/u.exec(line);
-  return trimmedMatch?.[1];
 }
 
 type DolosParseContext = {

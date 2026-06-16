@@ -1,0 +1,36 @@
+# 22. Live socket-event cache-invalidation tests (campaign + encounter) assert only the COUNT, not which query keys were invalidated
+
+Status: Proposed — read-only finding from the test-suite audit; NOT implemented. Re-verify file:line before acting.
+Lens: defect-catching · Area: client · Severity: low · Size: S · Confidence: high
+Theme: invalidation-key-discrimination · Source: Musi test-suite audit 2026-06-13 (multi-agent, adversarially verified)
+
+## Problem
+The `realtime-invalidation` hooks (`packages/client/src/hooks/realtime-invalidation.ts`) exist for one reason: when a socket event arrives, invalidate the *correct* TanStack Query keys so stale cache refetches. The whole value of these tests is verifying that the right keys — and only the right keys — get invalidated when a given event fires.
+
+The character-sheet sibling does this correctly: after firing the handler it asserts both the count (`toHaveBeenCalledTimes(4)`) *and* the exact proc names via `arrayContaining(["character.get", "inventory.list", "characterSpell.list"])`. But the campaign and encounter siblings, on their **primary live-event path**, assert only `toHaveBeenCalledTimes(N)` — the intended keys are written only in a code comment directly above the assertion. A regression that swaps one query key for a wrong or typo'd one while keeping the call count unchanged (e.g. invalidating `campaign.get` twice and dropping `campaign.list`, or pointing the encounter handler at the wrong detail proc) ships green on the live-event branch and silently leaves stale data on screen.
+
+The gap is specifically the live-event branch. The same two files already verify keys on the *reconnection* path — the stronger assertion shape exists in-repo, in these exact files — so this is not a "we never thought to check keys" gap; it is a count-only smoke check sitting one helper away from a real contract. The source confirms the asymmetry: in `realtime-invalidation.ts` the campaign live handler (`:68`) and the reconnect handler (`:83`) both delegate to the same `invalidateCampaign` helper (`:58-63`), so the reconnect test already key-verifies the campaign live path indirectly; but the encounter live handler (`:96-98`) is a *separate* code path from the encounter reconnect handler (`:104-118`), so the encounter live keys are genuinely unverified anywhere.
+
+## Evidence
+- `packages/client/src/hooks/realtime-invalidation-campaign.test.ts:113` — live `campaign:updated` test: after `handler({ campaignId: "campaign-1" })` (`:109`) the only assertion is `expect(invalidateSpy).toHaveBeenCalledTimes(4)`; the four keys (`campaign.get`, `campaign.list`, `homebrew.listCampaignCollections`, `homebrew.listCampaignEntries`) are named only in the comment at `:111-112`.
+- `packages/client/src/hooks/realtime-invalidation-encounter.test.ts:112` — live `encounter:updated` test: after `handler({ encounterId: "enc-1", campaignId: "campaign-1" })` (`:109`) the only assertion is `expect(invalidateSpy).toHaveBeenCalledTimes(3)`; the keys (`encounter.get`, `encounter.list`, `encounterCombat.listCombatLogs`) are named only in the comment at `:111`.
+- `packages/client/src/hooks/realtime-invalidation-campaign.test.ts:159-166` — the reconnection test already maps `invalidateSpy.mock.calls` to `queryKey` and asserts all four key names via `keys.some((k) => k.includes(...))`, proving the stronger pattern is already present in the same file.
+- `packages/client/src/hooks/realtime-invalidation-character-sheet.test.ts:117-124` — the good model: collects `queryKey[1]` from each call and asserts via `expect(invalidatedNames).toEqual(expect.arrayContaining(["character.get", "inventory.list", "characterSpell.list"]))`, alongside the count.
+- `packages/client/src/hooks/realtime-invalidation.ts:96-98` — the encounter live handler invalidates detail/list/combat-logs directly; this path is distinct from the reconnect handler at `:104-118`, so the encounter live keys are not key-verified by any existing test.
+
+## Proposed direction
+On the two live-event tests, keep the count assertion and additionally map `invalidateSpy.mock.calls` to their `queryKey` names and assert the exact expected set via `arrayContaining` — promoting the comment to an executable contract:
+
+- Campaign live test (`...campaign.test.ts:113`): after `toHaveBeenCalledTimes(4)`, assert the set contains `campaign.get`, `campaign.list`, `homebrew.listCampaignCollections`, `homebrew.listCampaignEntries`. Note the campaign live path's 4 keys are 4 *distinct* procs (a 1:1 count-to-name mapping), unlike the character-sheet model whose count-4 includes `inventory.list` twice (infinite + normal `queryFilter`, only 3 distinct names) — so when reusing the character-sheet `arrayContaining` shape, assert 4 distinct names for campaign and do **not** copy the character-sheet count≠distinct-names mismatch.
+- Encounter live test (`...encounter.test.ts:112`): after `toHaveBeenCalledTimes(3)`, assert the set contains `encounter.get`, `encounter.list`, `encounterCombat.listCombatLogs`.
+
+Reuse the exact `queryKey`-mapping helper already in the reconnection tests in the same files (`...campaign.test.ts:160-166` `keys.some(...)`, or the character-sheet `arrayContaining` form) so the assertion shape is consistent across the three siblings.
+
+Estimated impact: turns a count-only smoke check into a real freshness contract on the live-event path — a wrong-key regression on a socket event now fails instead of silently leaving stale data on screen, and the magic counts become self-documenting. The delta is modest: keys come from `trpc.*.queryFilter()` (so a typo to a nonexistent proc already throws), and for campaign the live and reconnect paths share the `invalidateCampaign` helper the reconnect test already key-verifies. The new coverage therefore mainly hardens the **encounter live path** (the one genuinely-distinct unverified handler) and documents both counts. No runtime/speed cost — same single synchronous handler invocation, two extra cheap assertions.
+
+## Scope / caveats
+Touch only the two `realtime-invalidation-*.test.ts` files (campaign and encounter); no source change, no new test cases, no flakiness — only added assertions inside the existing live-event `it()` blocks. Keep the existing `toHaveBeenCalledTimes(N)` checks. Reuse the `queryKey`-mapping helper already present in the reconnection tests so the shape matches.
+
+Do NOT mischaracterize the reconnection tests as gaps — they already verify keys (`...encounter.test.ts:207-253` asserts `encounter.list` at `:243` and `encounterCombat.listCombatLogs` at `:252`; `...campaign.test.ts:159-166` asserts all four campaign keys). The gap is the live-event branch only.
+
+This finding merges two pass-1 observations (the generic "tests assert opaque `toHaveBeenCalledTimes(N)` magic counts instead of which keys" and the specific campaign/encounter live-event variant); they are the same wrong-key-set defect class on the same two files. It is distinct from the visibility-toggle finding (which is about a mutation payload, not invalidation keys) and orthogonal to the already-filed drift-ai findings about `invalidateCampaign`/`invalidateEncounter` helper duplication — this is a test-assertion hardening, not a source-dedup, change. Low risk: pure additive assertions on a deterministic synchronous code path.

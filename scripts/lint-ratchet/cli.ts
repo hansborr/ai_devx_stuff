@@ -18,6 +18,7 @@ export interface ParsedArgs {
     | "edit-ratchet-coverage";
   readonly allowWorse: boolean;
   readonly reason?: string;
+  readonly retireRatchetId?: string;
   readonly editCheckTargets?: readonly string[];
   readonly targetsFile?: string;
   readonly editRatchetCoveragePaths?: readonly string[];
@@ -27,6 +28,7 @@ interface ParsedArgsState {
   mode: ParsedArgs["mode"];
   allowWorse: boolean;
   reason?: string;
+  retireRatchetId?: string;
   editCheckTargets?: readonly string[];
   targetsFile?: string;
   editRatchetCoveragePaths?: readonly string[];
@@ -102,11 +104,34 @@ function consumeTargetsFileArgument(
   return index + OPTION_VALUE_ARG_SPAN;
 }
 
+function consumeRetireRatchetArgument(
+  state: ParsedArgsState,
+  args: readonly string[],
+  index: number,
+): number {
+  const value = args[index + 1];
+  if (value === undefined || value.startsWith("--")) {
+    throw new UsageError("--retire-ratchet requires a ratchet id argument");
+  }
+  state.retireRatchetId = value;
+  return index + OPTION_VALUE_ARG_SPAN;
+}
+
 function unknownArgumentMessage(arg: string): string {
   return arg.startsWith("--input")
     ? "--input is not supported; use bun run lint:ratchet:report < diagnostics.json"
     : `Unknown argument: ${arg}`;
 }
+
+type ArgConsumer = (state: ParsedArgsState, args: readonly string[], index: number) => number;
+
+const valueArgConsumers = new Map<string, ArgConsumer>([
+  ["--reason", consumeReasonArgument],
+  ["--edit-check-targets", consumeEditCheckTargets],
+  ["--edit-ratchet-coverage", consumeEditRatchetCoverage],
+  ["--targets-file", consumeTargetsFileArgument],
+  ["--retire-ratchet", consumeRetireRatchetArgument],
+]);
 
 function consumeParsedArg(state: ParsedArgsState, args: readonly string[], index: number): number {
   const arg = args[index] ?? "";
@@ -115,25 +140,16 @@ function consumeParsedArg(state: ParsedArgsState, args: readonly string[], index
     setMode(state, mode);
     return index + 1;
   }
-  switch (arg) {
-    case "--":
-      return index + 1;
-    case "--allow-worse":
-      state.allowWorse = true;
-      return index + 1;
-    case "--reason":
-      return consumeReasonArgument(state, args, index);
-    case "--edit-check-targets":
-      return consumeEditCheckTargets(state, args, index);
-    case "--edit-ratchet-coverage":
-      return consumeEditRatchetCoverage(state, args, index);
-    case "--targets-file":
-      return consumeTargetsFileArgument(state, args, index);
-    default:
-      if (!arg.startsWith("--reason=")) throw new UsageError(unknownArgumentMessage(arg));
-      state.reason = arg.slice("--reason=".length);
-      return index + 1;
+  const consumer = valueArgConsumers.get(arg);
+  if (consumer !== undefined) return consumer(state, args, index);
+  if (arg === "--") return index + 1;
+  if (arg === "--allow-worse") {
+    state.allowWorse = true;
+    return index + 1;
   }
+  if (!arg.startsWith("--reason=")) throw new UsageError(unknownArgumentMessage(arg));
+  state.reason = arg.slice("--reason=".length);
+  return index + 1;
 }
 
 function parseArgFlags(args: readonly string[]): ParsedArgsState {
@@ -173,13 +189,22 @@ function assertEditRatchetCoverageArgs(state: ParsedArgsState): void {
   }
 }
 
-function assertUpdateArgs(state: ParsedArgsState): void {
-  const { mode, allowWorse, reason } = state;
-  if (allowWorse && mode !== "update") {
-    throw new UsageError("--allow-worse is only valid with --update");
+function assertUpdateOnlyFlag(present: boolean, mode: ParsedArgs["mode"], flag: string): void {
+  if (present && mode !== "update") {
+    throw new UsageError(`${flag} is only valid with --update`);
   }
-  if (reason !== undefined && mode !== "update") {
-    throw new UsageError("--reason is only valid with --update");
+}
+
+function assertUpdateArgs(state: ParsedArgsState): void {
+  const { mode, allowWorse, reason, retireRatchetId } = state;
+  assertUpdateOnlyFlag(allowWorse, mode, "--allow-worse");
+  assertUpdateOnlyFlag(reason !== undefined, mode, "--reason");
+  assertUpdateOnlyFlag(retireRatchetId !== undefined, mode, "--retire-ratchet");
+  // Retirement (proven promotion) and --allow-worse (accepted debt) are opposite
+  // dispositions of a removed ratchet; forcing the operator to pick one keeps a
+  // proven retirement from also writing a debt-log acceptance.
+  if (retireRatchetId !== undefined && allowWorse) {
+    throw new UsageError("--retire-ratchet and --allow-worse are mutually exclusive");
   }
   if (allowWorse) {
     const failure = ratchetRegressionReasonFailure(reason);
@@ -192,6 +217,7 @@ function buildParsedArgs(state: ParsedArgsState): ParsedArgs {
     mode: state.mode,
     allowWorse: state.allowWorse,
     ...(state.reason === undefined ? {} : { reason: state.reason }),
+    ...(state.retireRatchetId === undefined ? {} : { retireRatchetId: state.retireRatchetId }),
     ...(state.editCheckTargets === undefined ? {} : { editCheckTargets: state.editCheckTargets }),
     ...(state.targetsFile === undefined ? {} : { targetsFile: state.targetsFile }),
     ...(state.editRatchetCoveragePaths === undefined
@@ -210,9 +236,10 @@ export function parseArgs(args: readonly string[]): ParsedArgs {
 
 export function usage(): string {
   return [
-    "usage: bun scripts/lint-ratchet.ts [--update [--allow-worse --reason <why>] | --check-baseline | --check-registry | --summary | --zero-baseline | --report | --debt-log | --edit-check-targets <relpath>... | --edit-check --targets-file <file> | --edit-ratchet-coverage <relpath>...]",
+    "usage: bun scripts/lint-ratchet.ts [--update [--allow-worse --reason <why> | --retire-ratchet <id>] | --check-baseline | --check-registry | --summary | --zero-baseline | --report | --debt-log | --edit-check-targets <relpath>... | --edit-check --targets-file <file> | --edit-ratchet-coverage <relpath>...]",
     "",
     "Default mode emits a harness-diagnostics envelope and fails on ratchet regressions or uncommitted improvements.",
+    "--retire-ratchet <id> drops a zero-finding orphan baseline floor without --allow-worse or a debt-log entry, but only when normal lint now errors on the retired scope (proven promotion).",
     "--summary prints committed baseline totals without running ESLint; --zero-baseline audits drained ratchets against normal ESLint; --report formats a diagnostics envelope from stdin; --debt-log renders the committed --allow-worse acceptance log.",
     "--edit-check-targets lists matching minimal-TS ratchets for edited paths (no ESLint); --edit-check lints the targets in <file> and prints only fresh ratchet regressions, for the edit-time advisory hook.",
     "--edit-ratchet-coverage prints, per edited path, the committed-baseline ratchet rule ids tracking it (no ESLint), for the lint-coverage advisory hook.",

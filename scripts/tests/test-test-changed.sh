@@ -21,6 +21,7 @@ SANDBOX="$(mktemp -d /tmp/musi-test-changed-test.XXXXXX)"
 trap 'rm -rf "$SANDBOX"' EXIT
 
 mkdir -p "$SANDBOX/bin"
+REAL_BUN="$(command -v bun)"
 cat > "$SANDBOX/bin/vitest" <<'STUB'
 #!/usr/bin/env bash
 printf 'stub vitest %s\n' "$*" >> "${STUB_LOG:-/dev/null}"
@@ -38,6 +39,23 @@ fi
 exit "${STUB_VITEST_EXIT:-0}"
 STUB
 chmod +x "$SANDBOX/bin/vitest"
+cat > "$SANDBOX/bin/bun" <<STUB
+#!/usr/bin/env bash
+case "\${1:-}" in
+  */scripts/client-test-isolation-runner.ts|scripts/client-test-isolation-runner.ts)
+    shift
+    printf 'stub client-test-isolation-runner %s\n' "\$*" >> "\${STUB_LOG:-/dev/null}"
+    # Record the inherited worker cap on its own line so the arg assertions above
+    # stay exact-match while a separate assertion can check the bound.
+    if [ -n "\${VITEST_MAX_WORKERS:-}" ]; then
+      printf 'client-runner-env VITEST_MAX_WORKERS=%s\n' "\$VITEST_MAX_WORKERS" >> "\${STUB_LOG:-/dev/null}"
+    fi
+    exit "\${STUB_CLIENT_RUNNER_EXIT:-0}"
+    ;;
+esac
+exec "$REAL_BUN" "\$@"
+STUB
+chmod +x "$SANDBOX/bin/bun"
 
 new_repo() {
   local name="$1"
@@ -90,6 +108,88 @@ grep -qF 'stub vitest run --passWithNoTests --project=server --changed main' "$r
   || fail "server change should run server project with --changed: $(cat "$repo/bun.log")"
 ok "server-only changes run server changed tests"
 
+repo="$(new_repo client-change)"
+printf 'changed\n' > "$repo/packages/client/src/base.ts"
+: > "$repo/bun.log"
+run_test_changed "$repo" >/dev/null || fail "client change should run"
+grep -qF 'stub client-test-isolation-runner --changed main' "$repo/bun.log" \
+  || fail "client change should run split client changed tests: $(cat "$repo/bun.log")"
+if grep -qF 'stub vitest' "$repo/bun.log"; then
+  fail "client-only changes should not invoke direct Vitest: $(cat "$repo/bun.log")"
+fi
+ok "client-only changes run split client changed tests"
+
+# test:changed runs as one of several parallel pre-commit gates, so the client
+# split must bound its Vitest worker fan-out instead of grabbing nproc-1 forks.
+repo="$(new_repo client-change-worker-cap)"
+printf 'changed\n' > "$repo/packages/client/src/base.ts"
+: > "$repo/bun.log"
+run_test_changed "$repo" >/dev/null || fail "client change should run"
+grep -qF 'client-runner-env VITEST_MAX_WORKERS=4' "$repo/bun.log" \
+  || fail "client split should run with a bounded VITEST_MAX_WORKERS under test:changed: $(cat "$repo/bun.log")"
+ok "client split bounds Vitest workers under test:changed"
+
+repo="$(new_repo client-change-worker-cap-override)"
+printf 'changed\n' > "$repo/packages/client/src/base.ts"
+: > "$repo/bun.log"
+(
+  cd "$repo"
+  STUB_LOG="$repo/bun.log" MUSI_CLIENT_FAST_LANE_MAX_WORKERS=2 PATH="$SANDBOX/bin:$PATH" \
+    bash scripts/test-changed.sh
+) >/dev/null || fail "client change with worker override should run"
+grep -qF 'client-runner-env VITEST_MAX_WORKERS=2' "$repo/bun.log" \
+  || fail "MUSI_CLIENT_FAST_LANE_MAX_WORKERS should override the worker cap: $(cat "$repo/bun.log")"
+ok "MUSI_CLIENT_FAST_LANE_MAX_WORKERS overrides the client worker cap"
+
+repo="$(new_repo client-change-worker-cap-optout)"
+printf 'changed\n' > "$repo/packages/client/src/base.ts"
+: > "$repo/bun.log"
+(
+  cd "$repo"
+  STUB_LOG="$repo/bun.log" MUSI_CLIENT_FAST_LANE_MAX_WORKERS='' PATH="$SANDBOX/bin:$PATH" \
+    bash scripts/test-changed.sh
+) >/dev/null || fail "client change with worker opt-out should run"
+grep -qF 'stub client-test-isolation-runner' "$repo/bun.log" \
+  || fail "opt-out should still run the client split: $(cat "$repo/bun.log")"
+if grep -qF 'client-runner-env' "$repo/bun.log"; then
+  fail "empty MUSI_CLIENT_FAST_LANE_MAX_WORKERS should leave the client lanes uncapped: $(cat "$repo/bun.log")"
+fi
+ok "empty MUSI_CLIENT_FAST_LANE_MAX_WORKERS opts out of the client worker cap"
+
+repo="$(new_repo client-coverage-change)"
+printf 'changed\n' > "$repo/packages/client/src/base.ts"
+: > "$repo/bun.log"
+run_test_changed "$repo" --coverage >/dev/null || fail "client coverage change should run"
+grep -qF 'stub vitest run --passWithNoTests --project=client --coverage --changed main' "$repo/bun.log" \
+  || fail "client coverage should stay on direct Vitest: $(cat "$repo/bun.log")"
+if grep -qF 'stub client-test-isolation-runner' "$repo/bun.log"; then
+  fail "client coverage should not invoke split runner: $(cat "$repo/bun.log")"
+fi
+ok "client coverage args stay on direct Vitest"
+
+repo="$(new_repo client-output-file-change)"
+printf 'changed\n' > "$repo/packages/client/src/base.ts"
+: > "$repo/bun.log"
+run_test_changed "$repo" --reporter=json --outputFile.json=/tmp/client.json >/dev/null \
+  || fail "client output-file change should run"
+grep -qF 'stub vitest run --passWithNoTests --project=client --reporter=json --outputFile.json=/tmp/client.json --changed main' "$repo/bun.log" \
+  || fail "client output-file reporter should stay on direct Vitest: $(cat "$repo/bun.log")"
+if grep -qF 'stub client-test-isolation-runner' "$repo/bun.log"; then
+  fail "client output-file reporter should not invoke split runner: $(cat "$repo/bun.log")"
+fi
+ok "client output-file reporters stay on direct Vitest"
+
+repo="$(new_repo client-server-change)"
+printf 'changed\n' > "$repo/packages/client/src/base.ts"
+printf 'changed\n' > "$repo/packages/server/src/base.ts"
+: > "$repo/bun.log"
+run_test_changed "$repo" >/dev/null || fail "client and server changes should run"
+grep -qF 'stub vitest run --passWithNoTests --project=server --changed main' "$repo/bun.log" \
+  || fail "client and server changes should run server changed tests: $(cat "$repo/bun.log")"
+grep -qF 'stub client-test-isolation-runner --changed main' "$repo/bun.log" \
+  || fail "client and server changes should run split client changed tests: $(cat "$repo/bun.log")"
+ok "client and server changes split client from direct Vitest"
+
 repo="$(new_repo staged-source-deletion)"
 git -C "$repo" rm -q packages/server/src/base.ts
 : > "$repo/bun.log"
@@ -125,6 +225,18 @@ if grep -q -- '--changed' "$repo/bun.log"; then
   fail "code-intel script changes should run scripts project in full: $(cat "$repo/bun.log")"
 fi
 ok "code-intel script changes run scripts project tests"
+
+repo="$(new_repo script-client-test-isolation-change)"
+printf 'changed\n' > "$repo/scripts/client-test-isolation-runner.ts"
+git -C "$repo" add scripts/client-test-isolation-runner.ts
+: > "$repo/bun.log"
+run_test_changed "$repo" >/dev/null || fail "client test isolation script change should run"
+grep -qF 'stub vitest run --passWithNoTests --project=scripts' "$repo/bun.log" \
+  || fail "client test isolation script change should run scripts project: $(cat "$repo/bun.log")"
+if grep -q -- '--changed' "$repo/bun.log"; then
+  fail "client test isolation script changes should run scripts project in full: $(cat "$repo/bun.log")"
+fi
+ok "client test isolation script changes run scripts project tests"
 
 repo="$(new_repo script-drift-ai-change)"
 printf 'changed\n' > "$repo/scripts/drift-ai.ts"
@@ -267,12 +379,14 @@ repo="$(new_repo package-dependency-change)"
 printf '{"scripts":{"test":"vitest"},"devDependencies":{"vitest":"2.0.0"}}\n' > "$repo/package.json"
 : > "$repo/bun.log"
 run_test_changed "$repo" >/dev/null || fail "package dependency change should run"
-grep -qF 'stub vitest run --passWithNoTests' "$repo/bun.log" \
-  || fail "package dependency change should run Vitest: $(cat "$repo/bun.log")"
-if grep -q -- '--project=' "$repo/bun.log"; then
-  fail "package dependency changes should run all projects: $(cat "$repo/bun.log")"
+grep -qF 'stub vitest run --passWithNoTests --project=!client' "$repo/bun.log" \
+  || fail "package dependency change should run non-client projects: $(cat "$repo/bun.log")"
+grep -qF 'stub client-test-isolation-runner' "$repo/bun.log" \
+  || fail "package dependency change should run split client tests: $(cat "$repo/bun.log")"
+if grep -q -- '--changed' "$repo/bun.log"; then
+  fail "package dependency changes should run affected projects in full: $(cat "$repo/bun.log")"
 fi
-ok "package dependency changes run all project tests"
+ok "package dependency changes run all project tests with split client"
 
 repo="$(new_repo tsconfig-scripts-change)"
 printf '{"extends":"./tsconfig.base.json","include":["scripts/**/*.ts"],"compilerOptions":{"noEmit":true}}\n' > "$repo/tsconfig.scripts.json"
@@ -289,12 +403,11 @@ repo="$(new_repo tsconfig-base-change)"
 printf '{"compilerOptions":{"strict":false}}\n' > "$repo/tsconfig.base.json"
 : > "$repo/bun.log"
 run_test_changed "$repo" >/dev/null || fail "base tsconfig change should run"
-grep -qF 'stub vitest run --passWithNoTests' "$repo/bun.log" \
-  || fail "base tsconfig change should run Vitest: $(cat "$repo/bun.log")"
-if grep -q -- '--project=' "$repo/bun.log"; then
-  fail "base tsconfig changes should run all projects: $(cat "$repo/bun.log")"
-fi
-ok "base tsconfig changes still run all project tests"
+grep -qF 'stub vitest run --passWithNoTests --project=!client' "$repo/bun.log" \
+  || fail "base tsconfig change should run non-client projects: $(cat "$repo/bun.log")"
+grep -qF 'stub client-test-isolation-runner' "$repo/bun.log" \
+  || fail "base tsconfig change should run split client tests: $(cat "$repo/bun.log")"
+ok "base tsconfig changes still run all project tests with split client"
 
 repo="$(new_repo eslint-config-change)"
 mkdir -p "$repo/eslint-config"
@@ -338,12 +451,14 @@ printf '{}\n' > "$repo/package.json"
 git -C "$repo" add package.json
 : > "$repo/bun.log"
 run_test_changed "$repo" >/dev/null || fail "global config change should run"
-grep -qF 'stub vitest run --passWithNoTests' "$repo/bun.log" \
-  || fail "global config should run Vitest: $(cat "$repo/bun.log")"
+grep -qF 'stub vitest run --passWithNoTests --project=!client' "$repo/bun.log" \
+  || fail "global config should run non-client projects: $(cat "$repo/bun.log")"
+grep -qF 'stub client-test-isolation-runner' "$repo/bun.log" \
+  || fail "global config should run split client tests: $(cat "$repo/bun.log")"
 if grep -q -- '--changed' "$repo/bun.log"; then
   fail "global config should force a full run without --changed: $(cat "$repo/bun.log")"
 fi
-ok "global config changes force full Vitest run"
+ok "global config changes force full run with split client"
 
 repo="$SANDBOX/no-main"
 mkdir -p "$repo/scripts/ai-hooks" "$repo/scripts/lib"

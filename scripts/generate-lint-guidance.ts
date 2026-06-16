@@ -1,10 +1,10 @@
 // Walks the project ESLint config, validates rule guidance metadata under the
 // local/* namespace, and emits an agent-facing markdown doc.
 
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { runDocGeneratorAsync } from "./lib/doc-generator.js";
 import {
   formatRuleDocsFailures,
   loadLintRuleDocs,
@@ -12,8 +12,6 @@ import {
   type RuleDocCategory,
   type RuleDocsEntry,
 } from "./lib/lint-rule-docs.js";
-
-const PROCESS_ARG_OFFSET = 2;
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const outputPath = join(repoRoot, "docs/generated/local-lint-rules.md");
@@ -28,14 +26,6 @@ const CATEGORY_HEADINGS: Record<RuleDocCategory, string> = {
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
-}
-
-function readCurrentOutput(): string {
-  try {
-    return readFileSync(outputPath, "utf8");
-  } catch {
-    return "";
-  }
 }
 
 async function collectRules(): Promise<RuleEntry[] | undefined> {
@@ -105,36 +95,15 @@ function renderMarkdown(entries: readonly RuleEntry[]): string {
   return `${lines.join("\n")}\n`;
 }
 
-function parseArgs(args: readonly string[]): { readonly checkMode: boolean } {
-  const unknownArgs = args.filter((arg) => arg !== "--" && arg !== "--check");
-  if (unknownArgs.length > 0) {
-    throw new Error(`Unknown argument(s): ${unknownArgs.join(", ")}`);
-  }
-  return { checkMode: args.includes("--check") };
-}
-
-async function main(): Promise<void> {
-  const { checkMode } = parseArgs(process.argv.slice(PROCESS_ARG_OFFSET));
-  const entries = await collectRules();
-  if (entries === undefined) return;
-  const rendered = renderMarkdown(entries);
-
-  if (checkMode) {
-    const current = readCurrentOutput();
-    if (current !== rendered) {
-      console.error(
-        `${outputPath} is out of date. Run \`bun run docs:lint-guidance\` and commit the result.`,
-      );
-      process.exitCode = 1;
-      return;
-    }
-    console.log(`${outputPath} is up to date.`);
-    return;
-  }
-
-  mkdirSync(dirname(outputPath), { recursive: true });
-  writeFileSync(outputPath, rendered);
-  console.log(`Wrote ${outputPath} (${String(entries.length)} rule(s) with metadata).`);
-}
-
-await main();
+await runDocGeneratorAsync({
+  outputPath,
+  refreshCommand: "docs:lint-guidance",
+  render: async () => {
+    const entries = await collectRules();
+    if (entries === undefined) return undefined;
+    return {
+      rendered: renderMarkdown(entries),
+      wroteSuffix: ` (${String(entries.length)} rule(s) with metadata)`,
+    };
+  },
+});

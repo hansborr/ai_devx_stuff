@@ -3,6 +3,7 @@ import path from "node:path";
 import { ts } from "ts-morph";
 
 import { toPosix } from "./path-util.js";
+import { tsSysReadFile } from "./ts-source-util.js";
 
 const MAX_DIAGNOSTICS = 3;
 const TS_CANNOT_READ_FILE = 5083;
@@ -26,7 +27,7 @@ export function loadTsconfig(
   const cached = cache.get(tsconfigPath);
   if (cached !== undefined) return cached;
 
-  const read = ts.readConfigFile(tsconfigPath, (file) => ts.sys.readFile(file));
+  const read = ts.readConfigFile(tsconfigPath, tsSysReadFile);
   if (read.error !== undefined) {
     return cacheTsconfig(cache, tsconfigPath, {
       kind: read.error.code === TS_CANNOT_READ_FILE ? "missing" : "invalid",

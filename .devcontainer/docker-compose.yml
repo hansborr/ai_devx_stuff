@@ -9,8 +9,10 @@ services:
     volumes:
       - ../:/workspace:z
       - claude-config:/home/node/.claude:U
+      - codex-config:/home/node/.codex:U
       - shell-history:/commandhistory:U
       - playwright-cache:/home/node/.cache/ms-playwright:U
+      - persist:/home/node/persist:U
       - ${HOME}/.gitconfig:/home/node/.gitconfig:ro,z
       - /tmp/${PROJECT_NAME}:/tmp:z
     ports:
@@ -69,5 +71,8 @@ volumes:
   postgres-data:
   redis-data:
   claude-config:
+  codex-config:
   shell-history:
   playwright-cache:
+  persist:
+    external: true

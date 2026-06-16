@@ -87,7 +87,7 @@ function zeroBaselineRatchets(
   });
 }
 
-function matchingTrackedFiles(
+export function matchingTrackedFiles(
   ratchet: LintRatchetConfig,
   trackedFiles: readonly string[],
 ): readonly string[] {
@@ -140,7 +140,7 @@ function ruleConfigValue(config: unknown, ruleId: string): unknown {
   return rules[ruleId];
 }
 
-function aggregateNormalLintStatus(
+export function aggregateNormalLintStatus(
   fileStatuses: readonly NormalLintFileStatus[],
 ): NormalLintFloorStatus {
   if (fileStatuses.length === 0) return "empty-scope";

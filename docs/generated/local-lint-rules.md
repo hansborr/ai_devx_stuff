@@ -56,6 +56,18 @@ This table is generated from `meta.docs` on each rule and grouped into maintaina
 
 **Repair:** manual
 
+### `local/no-redundant-central-mock`
+
+**Description:** Disallow per-file vi.mock factories that duplicate the central mock registered in setup.ts
+
+**Principle:** A byte-identical per-file vi.mock of a centrally-mocked module is dead weight and, under isolate:false, silently demotes the file to the slow isolated test lane with no other signal.
+
+**Category:** maintainability
+
+**Paired guide:** none
+
+**Repair:** autofix
+
 ### `local/structured-logging`
 
 **Description:** Pino logger messages must be static; pass dynamic values via the metadata object

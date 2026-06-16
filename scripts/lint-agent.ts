@@ -20,6 +20,7 @@ import {
   type HarnessFindingSeverity,
   summarizeHarnessFindings,
 } from "../packages/shared/src/schemas/harness-diagnostics.js";
+import { type ESLintMessage, parseEslintOutput } from "./lib/eslint-json.js";
 import {
   formatRuleDocsFailures,
   loadLintRuleDocs,
@@ -40,30 +41,9 @@ const DISPLAY_COMMAND = "lint:agent:local-rules";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
-interface ESLintMessage {
-  readonly ruleId: string | null;
-  readonly severity: number;
-  readonly message: string;
-  readonly messageId?: string;
-  readonly line?: number;
-  readonly column?: number;
-  readonly fatal?: boolean;
-  readonly fix?: unknown;
-  readonly suggestions?: readonly unknown[];
-}
-
-interface ESLintFileResult {
-  readonly filePath: string;
-  readonly messages: readonly ESLintMessage[];
-}
-
 interface ParsedArgs {
   readonly patterns: readonly string[];
   readonly outputPath: string | undefined;
-}
-
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }
 
 function parseOutputOption(
@@ -178,33 +158,6 @@ function buildFinding(
       ? { ...withMessageId, repairCommand: entry.repairCommand }
       : withMessageId;
   return withRepair;
-}
-
-function isEslintMessage(value: unknown): value is ESLintMessage {
-  if (!isObject(value)) return false;
-  if (typeof value.severity !== "number") return false;
-  if (typeof value.message !== "string") return false;
-  return true;
-}
-
-function parseEslintOutput(stdout: string): readonly ESLintFileResult[] {
-  if (stdout.trim().length === 0) return [];
-  const parsed: unknown = JSON.parse(stdout);
-  if (!Array.isArray(parsed)) {
-    throw new Error("ESLint --format=json output is not an array");
-  }
-  const results: ESLintFileResult[] = [];
-  for (const entry of parsed) {
-    if (!isObject(entry)) continue;
-    if (typeof entry.filePath !== "string") continue;
-    if (!Array.isArray(entry.messages)) continue;
-    const messages: ESLintMessage[] = [];
-    for (const raw of entry.messages) {
-      if (isEslintMessage(raw)) messages.push(raw);
-    }
-    results.push({ filePath: entry.filePath, messages });
-  }
-  return results;
 }
 
 async function runEslint(patterns: readonly string[]): Promise<string> {

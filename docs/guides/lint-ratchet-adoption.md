@@ -256,8 +256,8 @@ These pieces are intentionally Musi-specific and should not be copied verbatim:
 
 - The `lintRatchets` array contents (40+ entries with Musi paths, dispositions,
   and builder-function indirection).
-- The `maxLinesPolicy` import and `localMaxLinesRatchet` builder (tied to
-  Musi's `local/max-lines` rule and shared config policy).
+- The `local/max-lines` ratchet wiring and its `maxLinesPolicy` shared-config
+  dependency (tied to Musi's `local/max-lines` rule and shared config policy).
 - The `harness.controls.json` manifest and `missing-harness-ratchet` check
   (Musi's harness control inventory).
 - The Biome adoption guide (`biome-lint-adoption.md`) — reference material for

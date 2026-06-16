@@ -1,7 +1,13 @@
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
 import { describe, expect, it } from "vitest";
 
 import { PATH_POLICY, type PathPolicySelector } from "./path-policy.js";
 import { SCRIPT_SMOKE_TEST_NAMES } from "./path-policy-smoke-subjects.js";
+
+const thisDir = dirname(fileURLToPath(import.meta.url));
 
 const matchSegmentGlob = (value: string, pattern: string): boolean => {
   const escaped = pattern
@@ -141,5 +147,30 @@ describe("PATH_POLICY known path surfaces", () => {
     expect(
       matchesAny("scripts/lint-changed.sh", PATH_POLICY.deletionClasses.scriptSmokeSensitive),
     ).toBe(true);
+  });
+});
+
+describe("smoke-subject data module", () => {
+  it("stays side-effect-free (no node:fs / node:path imports)", () => {
+    const dataSource = readFileSync(resolve(thisDir, "path-policy-smoke-subjects-data.ts"), "utf8");
+
+    expect(dataSource).not.toMatch(/from\s+"node:fs"/u);
+    expect(dataSource).not.toMatch(/from\s+"node:path"/u);
+  });
+
+  it("is tracked by every smoke subject that tracks the discovery module", () => {
+    const discoveryModule = "scripts/path-policy/path-policy-smoke-subjects.ts";
+    const dataModule = "scripts/path-policy/path-policy-smoke-subjects-data.ts";
+    const subjectEntries: ReadonlyArray<readonly [string, readonly string[]]> = Object.entries(
+      PATH_POLICY.scriptSmoke.subjects,
+    );
+    const tracksDiscovery = subjectEntries.filter(([, subjects]) =>
+      subjects.includes(discoveryModule),
+    );
+
+    expect(tracksDiscovery.length).toBeGreaterThan(0);
+    for (const [name, subjects] of tracksDiscovery) {
+      expect(subjects, `${name} must also track the split data module`).toContain(dataModule);
+    }
   });
 });

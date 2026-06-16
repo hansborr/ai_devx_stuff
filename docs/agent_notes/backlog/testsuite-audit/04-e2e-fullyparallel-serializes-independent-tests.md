@@ -1,0 +1,38 @@
+# 4. e2e `fullyParallel:false` serializes ~20 fixture-isolated `userPage` tests within their files, and a redundant `describe.serial` compounds it
+
+Status: Proposed — read-only finding from the test-suite audit; NOT implemented. Re-verify file:line before acting.
+Lens: speed · Area: e2e · Severity: med · Size: S-M · Confidence: high
+Theme: e2e-scheduling · Source: Musi test-suite audit 2026-06-13 (multi-agent, adversarially verified)
+
+## Problem
+`playwright.config.ts` sets `fullyParallel: false` (line 27) with `workers: 4` (line 30). Under this combination Playwright spreads *files* across the 4 workers, but runs the *tests within a single file* one at a time — even when those tests share no mutable state. The global flag is not freely flippable: 12 specs declare `test.describe.configure({ mode: "serial" })` (plus 2 more using the `describe.serial` shorthand) and several of them mutate the data of the single globally-seeded user, so flipping `fullyParallel` to `true` wholesale would let those stateful specs race. The cost being paid here is narrower and avoidable: four specs consist of genuinely independent, fixture-isolated `userPage` tests with no `beforeAll` and no shared mutable state, yet they still execute serially within their own file.
+
+The `userPage` fixture makes each of these tests fully self-contained: per test it does `browser.newContext()`, a full UI `loginViaUi`, then `context.close()` on teardown (`e2e/fixtures.ts:34-42`). There is no `storageState` reuse, so two `userPage` tests never touch the same browser context or in-page session — they only share the one seeded user on the server. Because the server uses a per-token session model (a new `session` row per login, logout/refresh scoped to a single `tokenHash`/session id), concurrent same-user contexts do not interfere. So serializing these tests within their file buys no isolation — it only adds wall time, and the cost compounds because every one of them pays its own full UI login.
+
+One spec makes it worse with a belt-and-suspenders directive: `e2e/auth-refresh.spec.ts:5` wraps all five `userPage` tests in `test.describe.serial(...)`, which forces sequential execution on top of the global `fullyParallel:false`. That serial block protects nothing given the per-token session model — even its `logout` test (which calls `clickLogout`) deletes only its own token's session row (`routers/auth.ts:256` `deleteMany({ where: { tokenHash } })`), so it cannot evict a sibling test's session.
+
+## Evidence
+- `playwright.config.ts:27` — `fullyParallel: false`; `playwright.config.ts:30` — `workers: 4`. Files fan across 4 workers, but tests within a file run serially.
+- `e2e/fixtures.ts:34-42` — `userPage` does `browser.newContext()` (l36) + full UI `loginViaUi` (l39) + `context.close()` (l41) per test; no `storageState` reuse, so each `userPage` test is context-isolated AND pays its own UI login.
+- `e2e/auth-refresh.spec.ts:5` — `test.describe.serial("Authentication token refresh flow", ...)` wraps all 5 `userPage` tests (l6, l14, l30, l40, l50). Redundancy confirmed by the per-token session model: login creates a fresh session (`routers/auth.ts:86` `session.create`), refresh rotates only its own session (`routers/auth.ts:224` `session.delete({ where: { id: session.id } })`), logout removes only its own token's session (`routers/auth.ts:256` `deleteMany({ where: { tokenHash } })`).
+- `e2e/navigation-errors.spec.ts:7-56` — non-serial `describe`; 7 tests, 5 use `userPage` (l8, l15, l22, l41, l48), 2 use the plain `page` fixture (l27, l34). The 2 plain-`page` tests are also independent and safe to parallelize, so a per-file `mode:"parallel"` directive covers all 7 of its tests.
+- `e2e/character-create.spec.ts:17-101` — non-serial `describe`; 4 `userPage` tests (l18, l30, l42, l73), each names its character with `uniqueName(...)` so they cannot collide.
+- `e2e/wizard-validation.spec.ts:7` — file-level `describe` holds 6 independent `userPage` tests (l8, l19, l33, l54, l82, l117) that run serially because of `fullyParallel:false`, NOT because of the separate `test.describe.serial("Character creation with feat backgrounds", ...)` block at `wizard-validation.spec.ts:155` (which holds only the 2 char-creating tests at l156/l174).
+- Aggregate: ~20 fixture-isolated tests across these 4 of 19 e2e specs are serialized within their files for no isolation benefit. The only same-user change-password path (`routers/auth.ts:297` `deleteMany({ where: { userId } })`) is hit by NONE of the four specs (no `changePassword` call in any of them; the lone session mutation among them is `auth-refresh`'s own-token logout).
+
+## Proposed direction
+Two coverage-neutral, scheduling-only changes — no test bodies or assertions touched:
+
+1. Drop the redundant `test.describe.serial` wrapper on `e2e/auth-refresh.spec.ts:5` (make it a plain `test.describe`). The per-token session model means none of its 5 tests can disturb another's session, so serial ordering protects nothing.
+2. For the four genuinely independent, fixture-isolated specs — `wizard-validation` (its top-level `describe` only; leave the `feat backgrounds` serial block at l155 alone), `navigation-errors`, `auth-refresh`, and `character-create` — opt each top-level `describe` into per-file parallelism via `test.describe.configure({ mode: "parallel" })` so their tests fan across the 4 workers instead of running one-at-a-time.
+
+Leave the genuinely stateful serial specs untouched (`encounter-combat`, `campaign-collab`, `dice-roller`, and the 9 other `describe.configure({ mode: "serial" })` specs), and do NOT flip the global `fullyParallel` flag — those specs mutate the shared seeded user and need their serial ordering.
+
+Estimated impact: parallelizing ~20 independent tests across 4 workers (instead of serial-within-file) cuts their wall-clock contribution by up to ~4x for those four specs. Scope is bounded to 4 of 19 specs. This is the smaller of the two e2e levers — it compounds with, and is dwarfed by, the `storageState`/login-reuse improvement (see the e2e storage-state finding), which removes the per-test full UI login that this change would otherwise multiply by 4 concurrent logins.
+
+## Scope / caveats
+Touch only the four named specs' `describe`-config and the one redundant `auth-refresh` serial directive. Do NOT enable parallel mode on any `describe.configure({ mode: "serial" })` spec, nor on the `wizard-validation` `feat backgrounds` serial block. This is a scheduling/serial-directive change only — same tests, same assertions, coverage preserved exactly.
+
+Risk is concurrency load, not correctness: parallelizing means up to 4 concurrent UI logins as the single shared seeded user. That is safe under the per-token session model, but it is a nonzero load consideration, so verify on CI for flakiness under concurrency before widening. The change-password path (`routers/auth.ts:297`, `deleteMany({ where: { userId } })`) WOULD be unsafe to run concurrently for the same user — confirmed that none of these four specs exercise it, so this change is safe; re-confirm that invariant if the set is ever widened.
+
+This finding merges the duplicate "`fullyParallel:false` serializes ~24 fully-independent `userPage` tests" observation (same root cause, count reconciled to ~20 after re-verification at HEAD). It pairs with — and is the junior partner to — the e2e `storageState` login-reuse finding: per-worker or per-spec seeded users are the prerequisite for ever flipping the global `fullyParallel` flag, which this finding deliberately does NOT attempt.

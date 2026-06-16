@@ -4,6 +4,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
   symlinkSync,
@@ -25,60 +26,37 @@ const OUTPUT_BUFFER_BYTES = 10_000_000;
 const OUTPUT_ENV = "HARNESS_DIAGNOSTICS_OUTPUT";
 const tempRoots: string[] = [];
 
-const runtimeFiles = [
+// Cross-directory runtime files the fixture must copy alongside the
+// scripts/lint-ratchet/*.ts modules. This mirrors the small explicit list in
+// the shell smoke (PORTABLE_RUNTIME_FILES in scripts/tests/test-lint-ratchet.sh)
+// so the two copy sets keep the same shape. The scripts/lint-ratchet/*.ts
+// modules are derived below rather than hand-listed, so a newly added runtime
+// module is picked up automatically (an omitted module made the copied fixture
+// CLI throw "Cannot find module"; over-copy is harmless for a copy-and-run
+// fixture, under-copy is what breaks).
+const CROSS_DIR_RUNTIME_FILES = [
   "eslint-rules/max-lines.js",
   "scripts/lint-ratchet.ts",
-  "scripts/lint-ratchet/baseline-constants.ts",
-  "scripts/lint-ratchet/baseline-format.ts",
-  "scripts/lint-ratchet/baseline-hash.ts",
-  "scripts/lint-ratchet/baseline-item-parse.ts",
-  "scripts/lint-ratchet/baseline-update.ts",
-  "scripts/lint-ratchet/baseline-update-apply.ts",
-  "scripts/lint-ratchet/baseline-validation.ts",
-  "scripts/lint-ratchet/cli.ts",
-  "scripts/lint-ratchet/current-collector.ts",
-  "scripts/lint-ratchet/debt-log-orphan-schema.ts",
-  "scripts/lint-ratchet/debt-log-parse-helpers.ts",
-  "scripts/lint-ratchet/debt-log-regression-schema.ts",
-  "scripts/lint-ratchet/debt-log-schema.ts",
-  "scripts/lint-ratchet/debt-log-write.ts",
-  "scripts/lint-ratchet/diagnostics.ts",
-  "scripts/lint-ratchet/edit-check.ts",
-  "scripts/lint-ratchet/edit-check-protocol.ts",
-  "scripts/lint-ratchet/errors.ts",
-  "scripts/lint-ratchet/eslint-config.ts",
-  "scripts/lint-ratchet/eslint-runner.ts",
-  "scripts/lint-ratchet/git-tracked-files.ts",
-  "scripts/lint-ratchet/modes.ts",
-  "scripts/lint-ratchet/paths.ts",
-  "scripts/lint-ratchet/ratchet-coverage.ts",
-  "scripts/lint-ratchet/ratchet-globs.ts",
-  "scripts/lint-ratchet/recovery-command.ts",
-  "scripts/lint-ratchet/registry-validation.ts",
-  "scripts/lint-ratchet/rule-source.ts",
-  "scripts/lint-ratchet/runtime-config.ts",
-  "scripts/lint-ratchet/zero-baseline-disposition.ts",
-  "scripts/lint-ratchet/zero-baseline-types.ts",
-  "scripts/lint-ratchet/lint-ratchet-baseline-compare.ts",
-  "scripts/lint-ratchet/lint-ratchet-baseline-parse.ts",
-  "scripts/lint-ratchet/lint-ratchet-baseline.ts",
-  "scripts/lint-ratchet/lint-ratchet-check-registry.ts",
-  "scripts/lint-ratchet/lint-ratchet-debt-log.ts",
-  "scripts/lint-ratchet/lint-ratchet-metrics-complexity.ts",
-  "scripts/lint-ratchet/lint-ratchet-metrics-format.ts",
-  "scripts/lint-ratchet/lint-ratchet-metrics-parse.ts",
-  "scripts/lint-ratchet/lint-ratchet-metrics.ts",
-  "scripts/lint-ratchet/lint-ratchet-metrics-types.ts",
-  "scripts/lint-ratchet/lint-ratchet-metrics-validation.ts",
-  "scripts/lint-ratchet/lint-ratchet-output.ts",
-  "scripts/lint-ratchet/lint-ratchet-report.ts",
-  "scripts/lint-ratchet/lint-ratchet-summary.ts",
-  "scripts/lint-ratchet/lint-ratchet-zero-baseline.ts",
-  "scripts/lint-ratchet/local-rule-fix-text.ts",
+  "scripts/lib/eslint-json.ts",
   "scripts/lib/lint-rule-docs.ts",
-  "scripts/lint-ratchet/ratchet-manifest-message.ts",
   "packages/shared/src/schemas/harness-diagnostics.ts",
 ] as const;
+
+// lint-ratchet-config.ts is intentionally excluded: the fixture writes its own
+// minimal config via writeFixtureRatchetConfig instead of copying the real
+// registry. Vitest files are runtime-irrelevant.
+function deriveLintRatchetRuntimeModules(): string[] {
+  const dir = "scripts/lint-ratchet";
+  return readdirSync(join(repoRoot, dir))
+    .filter(
+      (name) =>
+        name.endsWith(".ts") && !name.endsWith(".test.ts") && name !== "lint-ratchet-config.ts",
+    )
+    .map((name) => `${dir}/${name}`)
+    .sort();
+}
+
+const runtimeFiles = [...CROSS_DIR_RUNTIME_FILES, ...deriveLintRatchetRuntimeModules()];
 
 interface RunResult {
   readonly status: number | null;
@@ -152,6 +130,7 @@ function writeFixtureRatchetConfig(fixtureRoot: string): void {
       "  readonly target: number;",
       "  readonly metric: LintRatchetMetric;",
       "  readonly repairKind: LintRatchetRepairKind;",
+      "  readonly principle: string;",
       "  readonly zeroBaselineDisposition?: LintRatchetZeroBaselineDisposition;",
       "}",
       "",
@@ -190,6 +169,7 @@ function writeFixtureRatchetConfig(fixtureRoot: string): void {
       "    target: 0,",
       '    metric: "message-count",',
       '    repairKind: "manual",',
+      '    principle: "Fixture no-debugger principle.",',
       "  },",
       "] as const satisfies readonly LintRatchetConfig[];",
       "",
@@ -281,6 +261,36 @@ afterEach(() => {
     const tempRoot = tempRoots.pop();
     if (tempRoot !== undefined) rmSync(tempRoot, { recursive: true, force: true });
   }
+});
+
+describe("fixture runtime file derivation", () => {
+  it("copies every scripts/lint-ratchet runtime module without hand-maintaining the list", () => {
+    const ratchetModules = readdirSync(join(repoRoot, "scripts/lint-ratchet"))
+      .filter((name) => name.endsWith(".ts") && !name.endsWith(".test.ts"))
+      .map((name) => `scripts/lint-ratchet/${name}`);
+
+    for (const module of ratchetModules) {
+      if (module === "scripts/lint-ratchet/lint-ratchet-config.ts") {
+        // The fixture writes its own minimal config; it must not be copied.
+        expect(runtimeFiles).not.toContain(module);
+      } else {
+        expect(runtimeFiles, `runtime module ${module} must be copied into the fixture`).toContain(
+          module,
+        );
+      }
+    }
+  });
+
+  it("excludes vitest files from the copied runtime set", () => {
+    expect(runtimeFiles.some((file) => file.endsWith(".test.ts"))).toBe(false);
+  });
+
+  it("keeps the cross-directory runtime dependencies explicit", () => {
+    for (const crossDirFile of CROSS_DIR_RUNTIME_FILES) {
+      expect(runtimeFiles, `cross-dir runtime file ${crossDirFile}`).toContain(crossDirFile);
+      expect(existsSync(join(repoRoot, crossDirFile)), `${crossDirFile} exists`).toBe(true);
+    }
+  });
 });
 
 describe("lint ratchet diagnostics output file", () => {

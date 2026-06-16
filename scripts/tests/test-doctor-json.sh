@@ -39,6 +39,21 @@ REAL_BUN="$(command -v bun)"
 FAST_ROOT="$(mktemp -d)"
 FAST_FAKE_BIN="$(mktemp -d)"
 
+# Provide stub eslint/prettier/taplo/node-actionlint/hadolint in $1 so
+# check_lint_tools resolves them and emits no findings in the fixture. Each
+# stub prints its own name as a version and exits 0.
+make_fake_lint_tools() {
+  local dir="$1" name
+  for name in eslint prettier taplo node-actionlint hadolint; do
+    cat >"$dir/$name" <<'SH'
+#!/usr/bin/env bash
+echo "$(basename "$0") 0.0.0-fake"
+exit 0
+SH
+    chmod +x "$dir/$name"
+  done
+}
+
 setup_fast_doctor_fixture() {
   git -C "$FAST_ROOT" init -q
   mkdir -p \
@@ -104,6 +119,16 @@ if [ "${1:-}" = "run" ]; then
       exit 0
       ;;
     harness:check)
+      # Model real `bun run <name>`: the script name is resolved against the
+      # nearest package.json walking up from cwd. The fast fixture has no
+      # package.json declaring harness:check, so the bare name never resolves —
+      # exactly the U1 "Script not found" failure. doctor must invoke the
+      # absolute module path (harness-check.ts) instead, which lands in the
+      # *harness-check.ts) branch below.
+      printf 'error: Script not found "harness:check"\n' >&2
+      exit 1
+      ;;
+    *harness-check.ts)
       if [ -n "${DOCTOR_JSON_EXPECT_HARNESS_CWD:-}" ] \
         && [ "$(pwd -P)" != "$DOCTOR_JSON_EXPECT_HARNESS_CWD" ]; then
         printf 'harness:check ran from %s, expected %s\n' \
@@ -128,6 +153,8 @@ SH
 exit 1
 SH
   chmod +x "$FAST_FAKE_BIN/ss"
+
+  make_fake_lint_tools "$FAST_FAKE_BIN"
 }
 
 run_fast_doctor() {
@@ -242,15 +269,21 @@ jq -e '
   || fail "one or more findings has empty why/howToFix or invalid enum"
 ok "every finding has non-empty why/howToFix and valid enums"
 
-# JSON mode must run harness:check from the repository root even when doctor is
-# invoked from a subdirectory inside a package workspace.
+# U1: JSON mode must run harness:check successfully even when doctor is invoked
+# from a nested subdirectory inside a package workspace. doctor invokes the
+# validator by its absolute module path (harness-check.ts), which resolves from
+# any cwd — `bun run harness:check` would error `Script not found` because the
+# bare name resolves against the nearest package.json walking up. The fake bun
+# shim models that bare-name failure, so a regression to the script-name form
+# surfaces a blocking `harness-check-failed` finding and fails the assertion
+# below.
 SUBDIR_JSON="$(mktemp)"
 SUBDIR_ERR="$(mktemp)"
 SUBDIR_EXIT=0
 mkdir -p "$FAST_ROOT/packages/client/src"
 (
   cd "$FAST_ROOT/packages/client/src"
-  DOCTOR_JSON_EXPECT_HARNESS_CWD="$FAST_ROOT" REAL_BUN="$REAL_BUN" PATH="$FAST_FAKE_BIN:$PATH" \
+  REAL_BUN="$REAL_BUN" PATH="$FAST_FAKE_BIN:$PATH" \
     bash "$SCRIPT" --json >"$SUBDIR_JSON" 2>"$SUBDIR_ERR"
 ) || SUBDIR_EXIT=$?
 if [ "$SUBDIR_EXIT" -ne 0 ] && [ "$SUBDIR_EXIT" -ne 1 ]; then
@@ -262,8 +295,8 @@ jq -e '
   .findings
   | all(.messageId != "harness-check-failed")
 ' "$SUBDIR_JSON" >/dev/null \
-  || { cat "$SUBDIR_JSON" >&2; cat "$SUBDIR_ERR" >&2; fail "subdirectory doctor --json ran harness:check outside repo root"; }
-ok "subdirectory doctor --json runs harness:check from repo root"
+  || { cat "$SUBDIR_JSON" >&2; cat "$SUBDIR_ERR" >&2; fail "subdirectory doctor --json failed harness:check (U1: bare script name not found from subdir)"; }
+ok "subdirectory doctor --json runs harness:check from a nested subdir"
 
 # --- default mode is unchanged ---------------------------------------------
 # Run default mode and assert the prose stream still contains a `PASS=` /
@@ -279,6 +312,39 @@ grep -qE '^PASS=[0-9]+  WARN=[0-9]+  FAIL=[0-9]+$' "$DEFAULT_OUT" \
 grep -qF '=== summary ===' "$DEFAULT_OUT" \
   || fail "default-mode '=== summary ===' header missing"
 ok "default-mode summary section is unchanged"
+
+# The lint host-tool inventory section must render in default mode.
+grep -qF '=== lint tools ===' "$DEFAULT_OUT" \
+  || { head -c 2000 "$DEFAULT_OUT" >&2; fail "default-mode '=== lint tools ===' section missing"; }
+ok "default-mode lint-tools section is present"
+
+# U1: default (non-JSON) mode must run harness:check successfully from a nested
+# package subdir. This is the human/programmatic path (`run_subcommand … bun run
+# harness:check`); with the bare script name it would print `Script not found`
+# and the parity step would be counted as a FAIL. The module-path invocation
+# resolves from any cwd. The fake bun shim models the bare-name failure so a
+# regression to the script-name form is caught here.
+SUBDIR_DEFAULT_OUT="$(mktemp)"
+SUBDIR_DEFAULT_EXIT=0
+(
+  cd "$FAST_ROOT/packages/client/src"
+  REAL_BUN="$REAL_BUN" PATH="$FAST_FAKE_BIN:$PATH" \
+    bash "$SCRIPT" >"$SUBDIR_DEFAULT_OUT" 2>&1
+) || SUBDIR_DEFAULT_EXIT=$?
+if [ "$SUBDIR_DEFAULT_EXIT" -ne 0 ] && [ "$SUBDIR_DEFAULT_EXIT" -ne 1 ]; then
+  fail "subdirectory default-mode doctor exit code must be 0 or 1, got $SUBDIR_DEFAULT_EXIT"
+fi
+grep -qF '=== harness manifest parity ===' "$SUBDIR_DEFAULT_OUT" \
+  || { head -c 2000 "$SUBDIR_DEFAULT_OUT" >&2; fail "subdirectory default-mode harness parity section missing"; }
+if grep -qF 'Script not found' "$SUBDIR_DEFAULT_OUT"; then
+  head -c 2000 "$SUBDIR_DEFAULT_OUT" >&2
+  fail "subdirectory default-mode doctor failed harness:check (U1: bare script name not found from subdir)"
+fi
+if grep -qE '^FAIL: harness manifest parity' "$SUBDIR_DEFAULT_OUT"; then
+  head -c 2000 "$SUBDIR_DEFAULT_OUT" >&2
+  fail "subdirectory default-mode doctor reported harness parity as FAILED (U1 regression)"
+fi
+ok "default-mode doctor runs harness:check from a nested subdir"
 
 # Default mode must NOT emit JSON to stdout.
 if jq -e . <"$DEFAULT_OUT" >/dev/null 2>&1; then
@@ -359,6 +425,11 @@ if [ "${1:-}" = "run" ]; then
       exit 0
       ;;
     harness:check)
+      # Bare-name form is cwd-fragile (U1); doctor invokes the module path.
+      printf 'error: Script not found "harness:check"\n' >&2
+      exit 1
+      ;;
+    *harness-check.ts)
       exit 0
       ;;
   esac
@@ -371,6 +442,7 @@ cat >"$BLOCK_FAKE_BIN/ss" <<'SH'
 exit 1
 SH
 chmod +x "$BLOCK_FAKE_BIN/ss"
+make_fake_lint_tools "$BLOCK_FAKE_BIN"
 
 BLOCK_EXIT=0
 (
@@ -418,6 +490,77 @@ jq -e '
 ' "$HARNESS_FAIL_JSON" >/dev/null \
   || { cat "$HARNESS_FAIL_JSON" >&2; cat "$HARNESS_FAIL_ERR" >&2; fail "harness:check failure missing blocking doctor finding"; }
 ok "harness:check failure emits a blocking doctor finding in --json mode"
+
+# --- lint-tools missing-tool scenario ---------------------------------------
+# Strip node_modules/.bin from PATH and omit the npm-tool stubs so the
+# npm-managed lint tools are unresolvable. node-actionlint is npm-only, so it is
+# guaranteed missing; assert doctor flips its row to a warn finding under
+# doctor-check/lint-tools without crashing.
+LINT_MISSING_BIN="$(mktemp -d)"
+cp "$FAST_FAKE_BIN/bun" "$LINT_MISSING_BIN/bun"
+cp "$FAST_FAKE_BIN/ss" "$LINT_MISSING_BIN/ss"
+LINT_MISSING_CLEAN_PATH="$(printf '%s' "$PATH" | tr ':' '\n' | grep -v 'node_modules/.bin' | paste -sd: -)"
+LINT_MISSING_JSON="$(mktemp)"
+LINT_MISSING_ERR="$(mktemp)"
+LINT_MISSING_EXIT=0
+(
+  cd "$FAST_ROOT"
+  REAL_BUN="$REAL_BUN" PATH="$LINT_MISSING_BIN:$LINT_MISSING_CLEAN_PATH" \
+    bash "$SCRIPT" --json >"$LINT_MISSING_JSON" 2>"$LINT_MISSING_ERR"
+) || LINT_MISSING_EXIT=$?
+{ [ "$LINT_MISSING_EXIT" -eq 0 ] || [ "$LINT_MISSING_EXIT" -eq 1 ]; } \
+  || fail "lint-tools missing-tool doctor --json exit must be 0 or 1, got $LINT_MISSING_EXIT"
+jq -e . <"$LINT_MISSING_JSON" >/dev/null \
+  || { cat "$LINT_MISSING_JSON" >&2; cat "$LINT_MISSING_ERR" >&2; fail "missing-tool doctor --json did not parse"; }
+jq -e '
+  .findings
+  | any(
+      .control == "doctor-check/lint-tools"
+      and .severity == "warn"
+      and (.why | contains("node-actionlint"))
+    )
+' "$LINT_MISSING_JSON" >/dev/null \
+  || { cat "$LINT_MISSING_JSON" >&2; cat "$LINT_MISSING_ERR" >&2; fail "missing node-actionlint should warn under doctor-check/lint-tools"; }
+ok "missing lint tool emits a warn finding under doctor-check/lint-tools"
+rm -rf "$LINT_MISSING_BIN"
+rm -f "$LINT_MISSING_JSON" "$LINT_MISSING_ERR"
+
+# --- lint-tools honors MUSI_*_BIN overrides (parity with lint-config-sensors) -
+# lint-config-sensors.sh resolves MUSI_ACTIONLINT_BIN / MUSI_TAPLO_BIN /
+# MUSI_HADOLINT_BIN ahead of node_modules/.bin and PATH (command_from_env_or_path),
+# so the doctor inventory must mirror that or it falsely warns "missing" for a tool
+# the lint lane will happily use. Strip node_modules/.bin and the npm-tool stubs so
+# node-actionlint is otherwise unresolvable, point the override at a stub, and assert
+# doctor reports the override path instead of warning.
+LINT_OVERRIDE_BIN="$(mktemp -d)"
+cp "$FAST_FAKE_BIN/bun" "$LINT_OVERRIDE_BIN/bun"
+cp "$FAST_FAKE_BIN/ss" "$LINT_OVERRIDE_BIN/ss"
+LINT_OVERRIDE_ACTIONLINT="$LINT_OVERRIDE_BIN/override-node-actionlint"
+cat >"$LINT_OVERRIDE_ACTIONLINT" <<'SH'
+#!/usr/bin/env bash
+exit 0
+SH
+chmod +x "$LINT_OVERRIDE_ACTIONLINT"
+LINT_OVERRIDE_CLEAN_PATH="$(printf '%s' "$PATH" | tr ':' '\n' | grep -v 'node_modules/.bin' | paste -sd: -)"
+LINT_OVERRIDE_OUT="$(mktemp)"
+LINT_OVERRIDE_EXIT=0
+(
+  cd "$FAST_ROOT"
+  REAL_BUN="$REAL_BUN" MUSI_ACTIONLINT_BIN="$LINT_OVERRIDE_ACTIONLINT" \
+    PATH="$LINT_OVERRIDE_BIN:$LINT_OVERRIDE_CLEAN_PATH" \
+    bash "$SCRIPT" >"$LINT_OVERRIDE_OUT" 2>&1
+) || LINT_OVERRIDE_EXIT=$?
+{ [ "$LINT_OVERRIDE_EXIT" -eq 0 ] || [ "$LINT_OVERRIDE_EXIT" -eq 1 ]; } \
+  || fail "lint-tools override doctor exit must be 0 or 1, got $LINT_OVERRIDE_EXIT"
+grep -qF "$LINT_OVERRIDE_ACTIONLINT" "$LINT_OVERRIDE_OUT" \
+  || { head -c 2000 "$LINT_OVERRIDE_OUT" >&2; fail "doctor must resolve node-actionlint via the MUSI_ACTIONLINT_BIN override"; }
+if grep -q 'node-actionlint not found' "$LINT_OVERRIDE_OUT"; then
+  head -c 2000 "$LINT_OVERRIDE_OUT" >&2
+  fail "override-resolved node-actionlint must not warn missing"
+fi
+ok "lint-tools inventory honors MUSI_ACTIONLINT_BIN override"
+rm -rf "$LINT_OVERRIDE_BIN"
+rm -f "$LINT_OVERRIDE_OUT"
 
 # --- cleanup ----------------------------------------------------------------
 rm -f "$DOCTOR_JSON" "$DOCTOR_STDERR" "$REGISTERED_CONTROLS" "$EMITTED_CONTROLS" "$SUBDIR_JSON" "$SUBDIR_ERR" "$DEFAULT_OUT" "$EMPTY_ENV" "$BLOCK_JSON" "$BLOCK_ERR" "$HARNESS_FAIL_JSON" "$HARNESS_FAIL_ERR" /tmp/doctor-help.out /tmp/doctor-bad.out

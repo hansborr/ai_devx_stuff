@@ -89,11 +89,23 @@ export interface LintRatchetOrphanRemoval {
   readonly baselineItems: readonly LintRatchetOrphanBaselineItem[];
 }
 
+// Proof the caller supplies so the retire path can skip --allow-worse + the
+// debt log: the retired ratchet must still error under normal lint on its
+// recorded scope. A zero baseline alone never proves the guard was replaced.
+export interface LintRatchetRetireRequest {
+  readonly id: string;
+  readonly normalErrorProven: boolean;
+}
+
 export interface LintRatchetUpdateDecision extends LintRatchetComparison {
   readonly allowed: boolean;
   readonly failures: readonly string[];
   readonly warnings: readonly string[];
   readonly orphanRemovals: readonly LintRatchetOrphanRemoval[];
+  // Set only when --retire-ratchet retired a zero-finding orphan whose
+  // promotion to normal lint was proven; such a retirement is a strict
+  // improvement, never accepted debt, so it is excluded from orphanRemovals.
+  readonly retiredRatchetId?: string;
 }
 
 export interface ParsedLintRatchetBaseline {

@@ -53,6 +53,33 @@ ai_read_bun_marker() {
   [ "$AI_MARKER_LAST_EXIT" -lt 128 ] || return 1
 }
 
+# Markers are argv-scoped (`last.<base>.<argv_fp>`, H1/H2), so a single script
+# can have several markers from different argv. Print the path of the newest
+# marker matching `<base>` (any argv), honoring a legacy bare `last.<base>` for
+# resilience across the rename. Used by readers that report per-script state
+# (verify:logs, the Stop e2e reminder) and don't know the originating argv.
+# Prints nothing and returns 1 when no matching marker exists.
+ai_newest_bun_marker_for_base() {
+  local log_dir="$1"
+  local base="$2"
+  local newest="" newest_mtime=0 mtime path
+
+  while IFS= read -r path; do
+    [ -f "$path" ] || continue
+    mtime=$(stat -c %Y "$path" 2>/dev/null || echo 0)
+    if [ "$mtime" -gt "$newest_mtime" ]; then
+      newest_mtime=$mtime
+      newest=$path
+    fi
+  done < <(
+    find "$log_dir" -maxdepth 1 -type f \
+      \( -name "last.$base" -o -name "last.$base.*" \) 2>/dev/null
+  )
+
+  [ -n "$newest" ] || return 1
+  printf '%s\n' "$newest"
+}
+
 ai_write_bun_marker() {
   local marker="$1"
   local fp="$2"

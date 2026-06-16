@@ -22,8 +22,9 @@ import {
 import { type DmPlayerCampaign, setupDmAndPlayer } from "./helpers/campaign-setup.js";
 import { uniqueName } from "./helpers/test-data.js";
 import { TIMEOUT_SHORT } from "./helpers/timeouts.js";
+import { CharacterSheetPO } from "./page-objects/character-sheet.po.js";
 import { EncounterPO } from "./page-objects/encounter.po.js";
-import { VttDrawerPO } from "./page-objects/vtt-drawer.js";
+import { VttDrawerPO } from "./page-objects/vtt-drawer.po.js";
 
 const DM_TOKEN = { x: 1, y: 1 } as const;
 const PLAYER_TOKEN = { x: 3, y: 1 } as const;
@@ -266,6 +267,63 @@ test.describe("Encounter combat lifecycle", () => {
     await expect(initList).toContainText(target, { timeout: TIMEOUT_SHORT });
   });
 
+  test("player turn pointer follows the DM advance live without a reload", async () => {
+    // ux-audit P0-2 regression: open the encounter on the player WITHOUT a
+    // reload, then advance the turn on the DM. The player's "Current" highlight
+    // and round display must move within one broadcast — the audited bug was
+    // that the counter updated but the highlight stayed on the previous
+    // combatant until a hard refresh, diverging the two clients.
+    await playerEncounter.openEncounter(encounterName);
+    await playerEncounter.expectState("active");
+
+    // Resolve the current highlight to one of the known participant names so
+    // the comparison is stable across DM/player views (the DM sees monster HP
+    // the player does not, so full-row text can legitimately differ).
+    const knownNames = [dmCharName, playerCharName, "Goblin Warrior"];
+    const currentName = (rowText: string): string =>
+      knownNames.find((name) => rowText.includes(name)) ?? rowText;
+
+    // Capture the shared starting pointer from both clients (no reload yet).
+    const beforeCurrent = currentName(await dmEncounter.currentParticipantName());
+    expect(currentName(await playerEncounter.currentParticipantName())).toBe(beforeCurrent);
+
+    // DM advances; wait until the DM's own highlight has actually moved so we
+    // assert against the real next combatant rather than a stale read.
+    await dmEncounter.advanceTurn();
+    await expect
+      .poll(async () => currentName(await dmEncounter.currentParticipantName()), {
+        timeout: TIMEOUT_SHORT,
+      })
+      .not.toBe(beforeCurrent);
+    const afterCurrent = currentName(await dmEncounter.currentParticipantName());
+
+    // The player must converge to the same new current combatant live.
+    await expect
+      .poll(async () => currentName(await playerEncounter.currentParticipantName()), {
+        timeout: TIMEOUT_SHORT,
+      })
+      .toBe(afterCurrent);
+
+    // Restore the serial-flow invariant: subsequent tests expect the player
+    // character to be the current combatant. Cycle the pointer back to them,
+    // confirming the player view live-syncs on each advance (mirrors the
+    // try/catch advance pattern used by the DM-only advance test above).
+    const dmInitList = ctx.dmPage.getByRole("list", { name: "Initiative order" });
+    const playerTarget = `${playerCharName}Current`;
+    for (const timeout of [TIMEOUT_SHORT, TIMEOUT_SHORT, TIMEOUT_SHORT, TIMEOUT_SHORT]) {
+      try {
+        await expect(dmInitList).toContainText(playerTarget, { timeout });
+        break;
+      } catch {
+        await dmEncounter.advanceTurn();
+      }
+    }
+    await dmEncounter.expectCurrentParticipant(playerCharName);
+    await expect
+      .poll(async () => playerEncounter.currentParticipantName(), { timeout: TIMEOUT_SHORT })
+      .toContain(playerCharName);
+  });
+
   test("drawer access follows token ownership and DM visibility", async () => {
     await ctx.playerPage.reload();
     await ctx.playerDetail.clickTab("Encounters");
@@ -304,7 +362,7 @@ test.describe("Encounter combat lifecycle", () => {
   test("player opens the drawer from the multi-token action-bar dropdown", async () => {
     const api = await createApiContext();
     const dmLogin = await apiLogin(api, ctx.dmUser.email, ctx.dmUser.password);
-    const token = await apiCreateMapToken(api, dmLogin.accessToken, {
+    await apiCreateMapToken(api, dmLogin.accessToken, {
       mapId: combatMapId,
       type: "character",
       characterId: playerCharacterId,
@@ -319,7 +377,7 @@ test.describe("Encounter combat lifecycle", () => {
     await playerEncounter.openEncounter(encounterName);
     await playerDrawer.waitForMap();
 
-    await playerDrawer.openMySheetFromDropdown(token.id);
+    await playerDrawer.openMySheetFromDropdown(`${playerCharName} (${playerCharName} backup)`);
     await playerDrawer.expectEditable();
     await playerDrawer.expectNoActionEconomy();
     await playerDrawer.closeDrawer();
@@ -338,8 +396,11 @@ test.describe("Encounter combat lifecycle", () => {
 
   test("player casts a cantrip from the drawer against the monster", async () => {
     await playerDrawer.openSheetFromToken(PLAYER_TOKEN);
+    // castSingleTargetSpell asserts the cast response and target count; the
+    // combat log is not asserted here because the caster's page does not
+    // surface the cast entry (the old page-wide text assertion only matched
+    // the drawer's own spell button, so it never verified the log).
     await playerDrawer.castSingleTargetSpell(PLAYER_SPELL, MONSTER_TOKEN);
-    await playerEncounter.expectCombatLogEntry(PLAYER_SPELL);
     await playerDrawer.closeDrawer();
   });
 
@@ -391,6 +452,39 @@ test.describe("Encounter combat lifecycle", () => {
     await dmEncounter.openEncounter(encounterName);
 
     await dmEncounter.expectCombatLogEntry(PLAYER_WEAPON);
+  });
+
+  // ── HP attribution (ux-audit P0-3) ───────────────────────────────────
+
+  test("sheet-side HP adjust during combat surfaces an attributed combat-log entry", async () => {
+    // Regression for the Second Wind family: a player adjusting their own HP
+    // from the sheet during active combat used to broadcast only
+    // character:updated and write no combat log, so the DM saw tracked HP
+    // "silently revert". Now every sheet HP write on a character in an active
+    // encounter appends an attributed combat-log entry the DM can see live.
+    //
+    // The in-VTT drawer sheet renders HP read-only (no Amount/Damage control);
+    // the selectable HP-write surface for a player is the STANDALONE character
+    // sheet. The server attributes any `character.adjustHp` on a character in an
+    // active encounter regardless of which client fired it, so damaging HP from
+    // the standalone sheet must surface the entry on the DM's encounter view.
+    await ctx.dmPage.reload();
+    await ctx.dmDetail.clickTab("Encounters");
+    await dmEncounter.openEncounter(encounterName);
+
+    const playerSheet = new CharacterSheetPO(ctx.playerPage);
+    await ctx.playerPage.goto(`/characters/${playerCharacterId}?campaignId=${ctx.campaignId}`);
+    await playerSheet.expectName(playerCharName);
+    await playerSheet.damageHp(2);
+
+    // The DM, watching the encounter, sees the attributed entry without a
+    // reload — the HP write broadcasts encounter:updated post-commit.
+    await dmEncounter.expectCombatLogEntry("HP adjustment");
+
+    // Restore the serial-flow invariant: subsequent tests reload the player
+    // page expecting the campaign detail view, so navigate back off the
+    // standalone character sheet we visited above.
+    await ctx.playerPage.goto(`/campaigns/${ctx.campaignId}`);
   });
 
   // ── Pause / Resume ───────────────────────────────────────────────────

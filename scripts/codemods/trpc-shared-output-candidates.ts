@@ -15,7 +15,7 @@ import {
   SHARED_SCHEMA_PREFIX,
 } from "./lib/trpc-shared-schema.js";
 
-const CODEMOD_NAME = "trpc-shared-output";
+export const CODEMOD_NAME = "trpc-shared-output";
 const OUTPUT_SCHEMA_SUFFIX = "OutputSchema";
 
 type Candidate = SharedSchemaCodemodCandidate;

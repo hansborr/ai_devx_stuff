@@ -13,6 +13,7 @@ import noBarrelRule from "./no-barrel.js";
 import noBroadcastInTransactionRule from "./no-broadcast-in-transaction.js";
 import noExplicitAnyRule from "./no-explicit-any.js";
 import noLlmArtifactsRule from "./no-llm-artifacts.js";
+import noRedundantCentralMockRule from "./no-redundant-central-mock.js";
 import noSwallowedErrorsRule from "./no-swallowed-errors.js";
 import socketRegistryBroadcastsRule from "./socket-registry-broadcasts.js";
 import strictSharedSchemasRule from "./strict-shared-schemas.js";
@@ -46,6 +47,7 @@ const ALL_LOCAL_RULES = [
   { id: "no-broadcast-in-transaction", rule: noBroadcastInTransactionRule },
   { id: "no-explicit-any", rule: noExplicitAnyRule },
   { id: "no-llm-artifacts", rule: noLlmArtifactsRule },
+  { id: "no-redundant-central-mock", rule: noRedundantCentralMockRule },
   { id: "no-swallowed-errors", rule: noSwallowedErrorsRule },
   { id: "socket-registry-broadcasts", rule: socketRegistryBroadcastsRule },
   { id: "strict-shared-schemas", rule: strictSharedSchemasRule },

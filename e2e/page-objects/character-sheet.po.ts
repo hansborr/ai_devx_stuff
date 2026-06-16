@@ -1,4 +1,4 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 
 import { TIMEOUT_MEDIUM, TIMEOUT_SHORT } from "../helpers/timeouts.js";
 import { SpellsPanelPO } from "./spells-panel.po.js";
@@ -8,26 +8,31 @@ export class CharacterSheetPO {
 
   // ── Named locators ──────────────────────────────────────────────────
 
-  readonly hpAdjuster = this.page.locator('[data-testid="hp-adjuster"]');
-  readonly hpInput = this.hpAdjuster.locator('input[type="number"]');
-  readonly hpDisplay = this.hpAdjuster.locator(".font-mono").first();
+  readonly sheetHeader = this.page.getByRole("region", { name: "Character summary" });
+  readonly hpAdjuster = this.page.getByTestId("hp-adjuster");
+  readonly hpInput = this.hpAdjuster.getByLabel("Amount");
+  readonly hpBar = this.hpAdjuster.getByRole("progressbar", { name: "Hit points" });
   readonly damageButton = this.page.getByRole("button", { name: "Damage" });
   readonly healButton = this.hpAdjuster.getByRole("button", { name: "Heal" });
   readonly tempHpButton = this.page.getByRole("button", { name: "Temp HP" });
-  readonly deathSaves = this.page.locator('[data-testid="death-saves-interactive"]');
-  readonly levelUpButton = this.page.locator('[data-testid="level-up-button"]');
-  readonly levelDisplay = this.page.locator('[data-testid="sheet-level"]');
+  readonly deathSaves = this.page.getByTestId("death-saves-interactive");
+  readonly levelUpButton = this.page.getByRole("button", { name: "Level Up", exact: true });
+  readonly levelDisplay = this.page.getByTestId("sheet-level");
   readonly levelUpAverageButton = this.page.getByRole("button", { name: /average/i });
   readonly levelUpConfirmButton = this.page.getByRole("button", { name: /level up to/i });
-  readonly inspirationToggle = this.page.locator('[data-testid="stat-inspiration-toggle"]');
-  readonly inventoryPanel = this.page.locator('[data-testid="inventory-panel"]');
+  readonly inspirationToggle = this.page.getByRole("button", { name: "Toggle inspiration" });
+  readonly inventoryPanel = this.page.getByTestId("inventory-panel");
+  readonly addItemDialog = this.page.getByRole("dialog", { name: "Add Item" });
+  readonly editItemDialog = this.page.getByRole("dialog", { name: "Edit Item" });
   readonly backToDashboardLink = this.page.getByRole("link", { name: /dashboard/i });
   readonly spells = new SpellsPanelPO(this.page);
 
   // ── Assertions ──────────────────────────────────────────────────────
 
   async expectName(name: string): Promise<void> {
-    await expect(this.page.getByText(name).first()).toBeVisible({ timeout: TIMEOUT_MEDIUM });
+    await expect(this.page.getByRole("heading", { name, level: 1 })).toBeVisible({
+      timeout: TIMEOUT_MEDIUM,
+    });
   }
 
   async expectLevel(level: number): Promise<void> {
@@ -43,8 +48,8 @@ export class CharacterSheetPO {
   }
 
   async getCurrentHp(): Promise<number> {
-    const text = await this.hpDisplay.textContent();
-    return Number(text);
+    const value = await this.hpBar.getAttribute("aria-valuenow");
+    return Number(value);
   }
 
   async expectTempHp(amount: number): Promise<void> {
@@ -54,26 +59,38 @@ export class CharacterSheetPO {
   }
 
   async expectSpeciesBadge(species: string): Promise<void> {
-    await expect(this.page.getByText(species, { exact: true }).first()).toBeVisible({
+    await expect(this.sheetHeader.getByText(species, { exact: true })).toBeVisible({
       timeout: TIMEOUT_MEDIUM,
     });
   }
 
+  /**
+   * Saving-throw row for a full ability name, e.g. "Strength". The sheet
+   * mounts the desktop and mobile layouts together, so each row exists twice
+   * in the DOM; the visible filter picks the copy the active layout shows.
+   */
+  private saveRow(ability: string): Locator {
+    return this.page.getByTestId(/^save-/).filter({ hasText: ability, visible: true });
+  }
+
   async expectSavingThrowProficient(ability: string): Promise<void> {
-    const row = this.page.locator(`[data-testid^="save-"]`).filter({ hasText: ability }).first();
-    await expect(row.locator('[aria-label="Proficient"]')).toBeVisible({ timeout: TIMEOUT_MEDIUM });
+    await expect(this.saveRow(ability).getByLabel("Proficient", { exact: true })).toBeVisible({
+      timeout: TIMEOUT_MEDIUM,
+    });
   }
 
   async expectSavingThrowNotProficient(ability: string): Promise<void> {
-    const row = this.page.locator(`[data-testid^="save-"]`).filter({ hasText: ability }).first();
-    await expect(row.locator('[aria-label="Not proficient"]')).toBeVisible({
+    await expect(this.saveRow(ability).getByLabel("Not proficient", { exact: true })).toBeVisible({
       timeout: TIMEOUT_SHORT,
     });
   }
 
   async expectSkillProficient(skill: string): Promise<void> {
-    const row = this.page.locator(`[data-testid^="skill-"]`).filter({ hasText: skill }).first();
-    await expect(row.locator('[aria-label="Proficient"]')).toBeVisible({ timeout: TIMEOUT_SHORT });
+    // Same dual desktop/mobile mount as saveRow; keep only the visible row.
+    const row = this.page.getByTestId(`skill-${skill}`).filter({ visible: true });
+    await expect(row.getByLabel("Proficient", { exact: true })).toBeVisible({
+      timeout: TIMEOUT_SHORT,
+    });
   }
 
   async expectFeatureVisible(feature: string): Promise<void> {
@@ -85,9 +102,9 @@ export class CharacterSheetPO {
   }
 
   async expectInspirationActive(): Promise<void> {
-    await expect(this.inspirationToggle.and(this.page.locator('[data-active="true"]'))).toBeVisible(
-      { timeout: TIMEOUT_SHORT },
-    );
+    await expect(
+      this.page.getByRole("button", { name: "Toggle inspiration", pressed: true }),
+    ).toBeVisible({ timeout: TIMEOUT_SHORT });
   }
 
   async expectErrorMessage(text: string | RegExp): Promise<void> {
@@ -177,14 +194,14 @@ export class CharacterSheetPO {
     weight?: string;
     description?: string;
   }): Promise<void> {
-    await this.page.locator("#item-name").fill(opts.name);
+    await this.addItemDialog.getByLabel("Name", { exact: true }).fill(opts.name);
     if (opts.type) {
-      await this.page.locator("#item-type").click();
+      await this.addItemDialog.getByRole("combobox", { name: "Type" }).click();
       await this.page.getByRole("option", { name: opts.type, exact: true }).click();
     }
-    if (opts.quantity) await this.page.locator("#item-quantity").fill(opts.quantity);
-    if (opts.weight) await this.page.locator("#item-weight").fill(opts.weight);
-    if (opts.description) await this.page.locator("#item-description").fill(opts.description);
+    if (opts.quantity) await this.addItemDialog.getByLabel("Quantity").fill(opts.quantity);
+    if (opts.weight) await this.addItemDialog.getByLabel("Weight (lb)").fill(opts.weight);
+    if (opts.description) await this.addItemDialog.getByLabel("Description").fill(opts.description);
   }
 
   async submitAddItem(): Promise<void> {
@@ -225,7 +242,7 @@ export class CharacterSheetPO {
   }
 
   async fillEditForm(opts: { name?: string }): Promise<void> {
-    if (opts.name) await this.page.locator("#edit-item-name").fill(opts.name);
+    if (opts.name) await this.editItemDialog.getByLabel("Name", { exact: true }).fill(opts.name);
   }
 
   async submitEditItem(): Promise<void> {
@@ -238,13 +255,11 @@ export class CharacterSheetPO {
 
   async deleteItem(name: string): Promise<void> {
     await this.expandItem(name);
-    const itemRow = this.inventoryPanel.locator("div.rounded").filter({
-      has: this.page.getByLabel(`Toggle details for ${name}`),
-    });
-    await itemRow.getByRole("button", { name: "Delete" }).click();
+    const details = this.page.getByRole("region", { name: `${name} details`, exact: true });
+    await details.getByRole("button", { name: "Delete" }).click();
     const [resp] = await Promise.all([
       this.page.waitForResponse((r) => r.url().includes("inventory.delete")),
-      itemRow.getByRole("button", { name: "Yes" }).click(),
+      details.getByRole("button", { name: "Yes" }).click(),
     ]);
     expect(resp.ok()).toBe(true);
   }

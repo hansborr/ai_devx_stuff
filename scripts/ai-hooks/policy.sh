@@ -7,7 +7,7 @@ AI_POLICY_POSTGRES="Do not use PostgreSQL CLI tools directly. You are in a conta
 AI_POLICY_REDIS="Do not use redis-cli directly. You are in a container - Redis is managed by the app. If you need to inspect Redis state, read the app code or use 'bun run' scripts."
 AI_POLICY_DOCKER="Do not run docker or docker-compose commands. You are in a container - PostgreSQL and Redis are already running and managed by the dev container. Use Prisma CLI for database operations."
 AI_POLICY_CHANGEME="Wrong database credentials. 'ThisIsNotTheRealDatabasePassword' is not the password for this environment. Read .devcontainer/.env for the correct credentials."
-AI_POLICY_GIT_AMEND="Git commit amend is not allowed from agents because it rewrites local history. Add a follow-up commit instead, or ask the user to amend manually."
+AI_POLICY_GIT_AMEND="Git commit amend is not allowed from agents because it rewrites local history. The amend did NOT run — HEAD and your staged changes are untouched. Stage your changes and create a NEW follow-up commit instead. If the previous commit genuinely must be amended, ask the user to do it manually."
 AI_POLICY_GIT_REBASE="Git rebase is not allowed from agents because it rewrites local history. Use merge or add follow-up commits; if a rebase is required, ask the user to run it."
 AI_POLICY_GIT_RESET="Dangerous git reset modes are not allowed from agents. Use path-scoped 'git restore --staged <path>' or ask the user to run the reset."
 AI_POLICY_GIT_HISTORY_REWRITE="Git history rewrite and direct ref manipulation are not allowed from agents. Add a follow-up commit or ask the user to run the rewrite."
@@ -20,7 +20,7 @@ AI_POLICY_GH_AUTH="GitHub auth token output and auth reconfiguration are not all
 AI_POLICY_GREP="grep can dump minified/build files. Use 'rg' instead: 'rg pattern path/', or 'find | rg -v node_modules', etc. For TypeScript symbol work, start with 'bun run code:intel -- def --name <symbol>' or use 'bun run code:intel -- {def|exports|dependents|refs|tests} ...'."
 AI_FLAKY_NOTE="Note: If this failure looks flaky (passes in isolation, fails under load), ensure you document it under docs/agent_notes/observed_flaky_tests.md if you are unable to resolve it right now."
 
-AI_WRAPPED_BUN_RE='^bun run (lint|lint:changed|lint:fix|typecheck|test|test:changed|test:server|test:client|test:shared|test:coverage|test:slow|e2e|format|format:check|format:changed|format:changed:check|build|code:intel|verify|verify:changed|verify:slow|verify:logs|verify:async:status|verify:async:tail|verify:async:stop)( --| [A-Za-z0-9._:/=-]+| --[A-Za-z0-9._=-]+)*$'
+AI_WRAPPED_BUN_RE='^bun run (lint|lint:changed|lint:fix|typecheck|test|test:changed|test:server|test:client|test:client:isolated|test:client:split|test:shared|test:coverage|test:slow|e2e|format|format:check|format:changed|format:changed:check|build|code:intel|verify|verify:changed|verify:slow|verify:logs|verify:async:status|verify:async:tail|verify:async:stop)( --| [A-Za-z0-9._:/=-]+| --[A-Za-z0-9._=-]+)*$'
 AI_POLICY_CMD_START='(^[[:space:]]*|[;&|][[:space:]]*)'
 # Same as CMD_START but excludes `|` so a policy can opt to allow pipeline
 # filter use (e.g. `cmd | grep pattern`) while still blocking the command at
@@ -154,7 +154,12 @@ ai_policy_violation_reason() {
     return 0
   fi
 
-  if ai_policy_has_command "$cmd" "git[[:space:]]+commit[^;&|]*[[:space:]]--amend$AI_POLICY_CMD_END"; then
+  # Match `git commit … --amend` AND the `git -c <cfg> … commit … --amend` form
+  # (config flags between `git` and `commit`). The optional `([^;&|]*[[:space:]])?`
+  # segment swallows any `-c key=val` config args before `commit`. `--amend` must
+  # still appear, so `git commit -c <commit>` (reuse-message, not an amend) is not
+  # matched — it has no `--amend`.
+  if ai_policy_has_command "$cmd" "git[[:space:]]+([^;&|]*[[:space:]])?commit[^;&|]*[[:space:]]--amend$AI_POLICY_CMD_END"; then
     printf '%s' "$AI_POLICY_GIT_AMEND"
     return 0
   fi
@@ -257,6 +262,26 @@ ai_policy_is_soft_guidance() {
   esac
 }
 
+# Self-block guard for *executing* hooks. PreToolUse Bash hooks that run the
+# command themselves (`bash -c "$CMD"`) must never run a policy-violating command:
+# the executing hook's side effect lands regardless of what no-direct-db.sh or the
+# harness deny globs decide in parallel (G1 — the amend rewrote HEAD even though
+# the agent saw a "blocked" message). Call this *before* the lock/exec so a
+# forbidden command is denied before any mutation. Hard policies emit a block and
+# exit (via ai_emit_block); soft nudges (e.g. grep guidance) are advisory and are
+# left for no-direct-db.sh to surface, so this guard does not block on them.
+# Requires ai_emit_block from common.sh (executing hooks already source it).
+ai_preflight_or_block() {
+  local cmd="$1"
+  local reason
+
+  if reason=$(ai_policy_violation_reason "$cmd"); then
+    ai_policy_is_soft_guidance "$reason" && return 0
+    ai_emit_block "$reason"
+  fi
+  return 0
+}
+
 ai_is_git_commit_cmd() {
   [[ "$1" =~ (^|[[:space:];|&])git[[:space:]]+commit($|[[:space:]]) ]]
 }
@@ -309,6 +334,72 @@ ai_bun_cmd_bypasses_lock() {
 ai_safe_script_name() {
   local script="$1"
   printf '%s' "${script//:/_}"
+}
+
+# Fingerprint of the argv tail after `bun run <script>`, used to scope the cache
+# marker to the EXACT command (H1/H2). Without this the marker keys only on the
+# script name, so `bun run test -- a` and `bun run test -- a b` share a marker
+# and a broader (or corrected) command replays a narrower run's cached pass/fail
+# on an unchanged worktree.
+#
+# Normalization rules (correctness over dedup cleverness — see backlog H1):
+#   - Whitespace runs collapse to single spaces (tabs/newlines too).
+#   - Options keep their exact order; option order is semantically meaningful
+#     (`--bail --reporter=x` != `--reporter=x --bail`), so we never sort them.
+#   - ONLY the file operands AFTER a `--` separator are sorted, because a `--`
+#     tail is a safely-parsed file list where order does not change which tests
+#     run. The `--` separator itself is preserved so a tail differs from a
+#     same-token option run.
+# The wrapped-bun whitelist restricts argv to `[A-Za-z0-9._:/=-]` tokens and
+# `--`, so plain whitespace word-splitting here is safe (no quotes/globs).
+ai_bun_argv_fingerprint() {
+  local cmd="$1"
+  local -a tokens=()
+  local -a pre=()
+  local -a post=()
+  local tail seen_sep=0 tok normalized
+
+  # Drop `bun run <script>`; keep the rest as the argv tail.
+  read -r -a tokens <<< "$cmd"
+  tail="${tokens[*]:3}"
+
+  seen_sep=0
+  for tok in $tail; do
+    if [ "$seen_sep" -eq 0 ] && [ "$tok" = "--" ]; then
+      seen_sep=1
+      continue
+    fi
+    if [ "$seen_sep" -eq 1 ]; then
+      post+=("$tok")
+    else
+      pre+=("$tok")
+    fi
+  done
+
+  normalized="${pre[*]}"
+  if [ "$seen_sep" -eq 1 ]; then
+    # Sort only the post-`--` file operands; re-attach behind the separator.
+    local sorted
+    sorted=$(printf '%s\n' "${post[@]}" | LC_ALL=C sort | tr '\n' ' ')
+    sorted="${sorted% }"
+    normalized="${normalized:+$normalized }-- $sorted"
+  fi
+
+  printf '%s' "$normalized" | sha256sum | cut -c1-16
+}
+
+# Marker filename for a wrapped bun command: `last.<script_safe>.<argv_fp>`.
+# Baking the argv fingerprint into the filename (rather than an in-marker field)
+# keeps the schema simple and avoids cross-argv collisions. All three call sites
+# — Claude bun-run-quiet.sh and the Codex pre/post hooks — derive the marker
+# through this helper so they stay in lockstep.
+ai_bun_marker_name() {
+  local cmd="$1"
+  local script script_safe argv_fp
+  script=$(ai_bun_script_from_cmd "$cmd")
+  script_safe=$(ai_safe_script_name "$script")
+  argv_fp=$(ai_bun_argv_fingerprint "$cmd")
+  printf 'last.%s.%s' "$script_safe" "$argv_fp"
 }
 
 ai_append_flaky_note() {

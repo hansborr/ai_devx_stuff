@@ -7,6 +7,31 @@ Newest on top.
 
 ---
 
+## 2026-06-12 - Lint-review pack close-out and coverage-hook throttle
+
+Closed out `backlog/lint-review-2026-06/`: all 23 ordered leaves Done and
+merged via `feat/lint-improvements` (1eb011d4). Headlines: `scripts/**` is
+now linted by default (coverage inversion), the ratchet registry drained
+from 37 to 9 entries, e2e selector debt became three ratchet floors, the
+local type-aware ESLint cache was removed after a reproduced stale-clean,
+every changed wrapper preflights `git merge-base`, and the import-cycle
+sensor was adopted report-only. Durable summary in
+`finished_work/lint-review-2026-06.md`; the folder is deleted and its
+leaves and verdicts live in git history. Successor queue:
+`backlog/lint-followups-2026-06/`.
+
+Also folded in: the lint-coverage PostToolUse hook throttle landed earlier
+in 006564e6 — per-session/per-tier advisory throttling
+(`AI_LINT_COVERAGE_TTL` default 1800, `AI_LINT_COVERAGE_MAX_DETECTIONS`
+default 10), map-pointing wording, and fail-toward-emitting on state IO
+errors. The stale `in_progress/lint-coverage-hook-throttle.md` note is
+deleted.
+
+Validation: `rg "lint-review-2026-06"` reference sweep,
+`bash scripts/doc-length-policy.sh` via hooks, `bun run verify:changed`.
+
+---
+
 ## 2026-06-10 - Claude cancellation workaround removal
 
 Removed the repo-specific Claude Code sibling-cancellation workaround after the

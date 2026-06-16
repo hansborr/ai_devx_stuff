@@ -9,13 +9,13 @@ import { describe, expect, it } from "vitest";
 import { maxLinesPolicy } from "../eslint-config/shared-policy.js";
 import { lintRatchets } from "../scripts/lint-ratchet/lint-ratchet-config.ts";
 import { globToRegExp, matchesRatchet } from "../scripts/lint-ratchet/ratchet-globs.ts";
+import { resolvedConfigTestTimeoutMs } from "./eslint-config-resolution-timeout.js";
 
 const repoRoot = resolve(import.meta.dirname, "..");
 const eslint = new ESLint({
   cwd: repoRoot,
   overrideConfigFile: resolve(repoRoot, "eslint.config.js"),
 });
-const resolvedConfigTestTimeoutMs = 15_000;
 
 function trackedFiles() {
   return execFileSync("git", ["ls-files"], { cwd: repoRoot, encoding: "utf8" })
@@ -86,12 +86,17 @@ function maxLinesRatchets() {
 }
 
 describe("max-lines policy", () => {
-  it("does not contain stale exception paths or missing reasons", () => {
+  it("does not contain stale exception paths, missing reasons, or invalid lifecycle labels", () => {
     const files = trackedFiles();
+    const validLifecycles = new Set(["temporary", "permanent", "candidate-for-split"]);
 
     for (const entry of maxLinesPolicy.exceptions) {
       expect(entry.reason.trim(), `${entry.path} must explain its exception`).not.toBe("");
       expect(policyPathExists(entry.path, files), `${entry.path} must exist`).toBe(true);
+      expect(
+        validLifecycles.has(entry.lifecycle),
+        `${entry.path} must carry a valid lifecycle label (temporary | permanent | candidate-for-split)`,
+      ).toBe(true);
     }
   });
 

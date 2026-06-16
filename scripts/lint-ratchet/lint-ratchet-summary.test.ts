@@ -30,6 +30,7 @@ const messageRatchet: LintRatchetConfig = {
   target: 0,
   metric: "message-count",
   repairKind: "manual",
+  principle: "Fixture message ratchet principle.",
 };
 
 const maxLinesRatchet: LintRatchetConfig = {
@@ -42,6 +43,7 @@ const maxLinesRatchet: LintRatchetConfig = {
   target: 0,
   metric: "effective-line-count",
   repairKind: "manual",
+  principle: "Fixture max-lines ratchet principle.",
 };
 
 const complexityRatchet: LintRatchetConfig = {
@@ -56,6 +58,7 @@ const complexityRatchet: LintRatchetConfig = {
   target: 0,
   metric: "complexity-severity",
   repairKind: "manual",
+  principle: "Fixture complexity ratchet principle.",
 };
 
 const ruleSourceHashes: LintRatchetRuleSourceHashesById = new Map([

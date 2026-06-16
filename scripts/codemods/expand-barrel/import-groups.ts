@@ -4,10 +4,7 @@ import type { ImportSpecifierInfo } from "../lib/trpc-shared-schema.js";
 import { fail } from "./errors.js";
 import type { ImportGroup } from "./types.js";
 
-export function importSpecifierText(
-  specifier: ImportSpecifierInfo,
-  declarationTypeOnly: boolean,
-): string {
+function importSpecifierText(specifier: ImportSpecifierInfo, declarationTypeOnly: boolean): string {
   const typePrefix = !declarationTypeOnly && specifier.isTypeOnly ? "type " : "";
   if (specifier.imported === specifier.local) return `${typePrefix}${specifier.local}`;
   return `${typePrefix}${specifier.imported} as ${specifier.local}`;

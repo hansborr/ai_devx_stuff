@@ -4,15 +4,8 @@ import path from "node:path";
 import { makeDefaultDriftAiConfig, parseDriftAiConfig } from "./config-parsing.js";
 import type { EnvDefineMatrix } from "./env-define-types.js";
 export {
-  globsForIgnoredPaths,
-  matchesAnyGlob,
-  pathHasAnyPrefix,
-  pathHasAnySegment,
-} from "./config-match.js";
-export {
   collapseRepoPath,
   DEFAULT_DRIFT_AI_CONFIG,
-  normalizeRepoPath,
   parseDriftAiConfig,
   pathEscapesRepo,
 } from "./config-parsing.js";

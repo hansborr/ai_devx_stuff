@@ -11,6 +11,9 @@ and `commented-out-code` (tombstoned code blocks) — the implemented-checks tab
 below is the authoritative list. Findings are evidence for a human by default:
 normal reports exit `0`, usage/config errors exit `2`, and `--fail-on-findings`
 is the explicit opt-in gate that exits `1` when findings exist.
+`--fail-on-runtime-cycles` is a narrower opt-in gate for the runtime
+import-cycle floor: it exits `1` only on import-cycles findings that are not
+labeled type-only (see the `import-cycles` section).
 
 ## Quickstart: scan an external repo
 
@@ -124,19 +127,20 @@ bun <tools-checkout>/scripts/drift-ai.ts --scope current --root src
 
 Primary flags:
 
-| Flag                  | Use                                                                                                         |
-| --------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `--scope changed`     | Default. Diff against `--base main` (or `origin/main`) plus untracked files.                                |
-| `--scope current`     | Audit the current working tree inventory. Use this for imported/polluted repos or whole-repo sweeps.        |
-| `--check <id>`        | Run one or more checks. Repeat the flag for multiple checks.                                                |
-| `--check all`         | Run every implemented check, including the slower opt-in adapters.                                          |
-| `--root <path>`       | Limit `current` scope to one or more roots; repeatable. Rejected in `changed` scope.                        |
-| `--config <path>`     | Load a specific config. Without it, `drift-ai.config.json` at the target repo root auto-loads when present. |
-| `--format text\|json` | Select human-readable or machine-readable output.                                                           |
-| `--include-scope`     | With JSON, include the full considered-file scope; otherwise JSON keeps only `scopeCount`.                  |
-| `--output <path>`     | Write the primary report to a file.                                                                         |
-| `--chunk-dir <path>`  | Also write AI-handoff chunks plus `manifest.json`; `--chunk-size` defaults to 75.                           |
-| `--fail-on-findings`  | Keep report rendering, but return exit `1` when findings exist.                                             |
+| Flag                       | Use                                                                                                                                                                                                                     |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--scope changed`          | Default. Diff against `--base main` (or `origin/main`) plus untracked files.                                                                                                                                            |
+| `--scope current`          | Audit the current working tree inventory. Use this for imported/polluted repos or whole-repo sweeps.                                                                                                                    |
+| `--check <id>`             | Run one or more checks. Repeat the flag for multiple checks.                                                                                                                                                            |
+| `--check all`              | Run every implemented check, including the slower opt-in adapters.                                                                                                                                                      |
+| `--root <path>`            | Limit `current` scope to one or more roots; repeatable. Rejected in `changed` scope.                                                                                                                                    |
+| `--config <path>`          | Load a specific config. Without it, `drift-ai.config.json` at the target repo root auto-loads when present.                                                                                                             |
+| `--format text\|json`      | Select human-readable or machine-readable output.                                                                                                                                                                       |
+| `--include-scope`          | With JSON, include the full considered-file scope; otherwise JSON keeps only `scopeCount`.                                                                                                                              |
+| `--output <path>`          | Write the primary report to a file.                                                                                                                                                                                     |
+| `--chunk-dir <path>`       | Also write AI-handoff chunks plus `manifest.json`; `--chunk-size` defaults to 75.                                                                                                                                       |
+| `--fail-on-findings`       | Keep report rendering, but return exit `1` when findings exist.                                                                                                                                                         |
+| `--fail-on-runtime-cycles` | Gate on runtime import cycles only (requires `--check import-cycles` or `all`): exit `1` on any import-cycles finding not labeled type-only, or when the check skips (fails closed). Type-only cycles stay report-only. |
 
 Implemented checks:
 
@@ -447,6 +451,22 @@ target installed, alias/relative imports resolve offline, so an uninstalled targ
 with tsconfig path aliases is still reported on (validated against OpenClaw). In
 `changed` scope only cycles touching a changed file are reported; in `current`
 scope every cycle in the graph is surfaced.
+
+**Gating on runtime cycles.** `--fail-on-runtime-cycles` turns the check into a
+floor for CI/lint composites (Musi wires it into `scripts/lint.sh` and
+`scripts/lint-changed.sh` as the "import cycles" lane): the run exits `1` when
+any import-cycles finding is **not** labeled type-only — genuine runtime cycles
+and the could-not-build-graph diagnostic both count — and also when the check
+**skips**, because a gate that never inspected the graph must fail closed
+rather than certify zero runtime cycles. Type-only cycles keep rendering as
+report-only evidence and never trip the gate. The gate applies to whatever the
+run reports, so pair it with `--scope current` for a whole-graph floor (as
+Musi's lint lanes do); in `changed` scope only cycles touching a changed file
+are reported, so the gate narrows with them. The flag requires
+`--check import-cycles` (or `--check all`); without that the run is rejected as
+a usage error rather than silently gating nothing. A red gate explains itself
+on stderr (runtime cycles found vs failed closed on a skip) in addition to the
+findings' FIX hints.
 
 ### The `layer-direction` check (ts-morph)
 
@@ -817,8 +837,8 @@ How it differs from `--format json`:
   CLI/tool error (exit `2`), never a drift finding: the run then reports that
   tool error (so a stdout-bound report is replaced by the error message, while
   any `--output` / `--chunk-dir` files written before the failure survive). The
-  report-only exit contract (`0`, or `1` only under `--fail-on-findings`) is
-  otherwise preserved.
+  report-only exit contract (`0`, or `1` only under `--fail-on-findings` /
+  `--fail-on-runtime-cycles`) is otherwise preserved.
 
 ## Updating
 

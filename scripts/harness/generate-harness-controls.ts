@@ -3,11 +3,13 @@
 // repairKind / repairCommand from the rule's own meta.docs so there is one
 // source of truth.
 
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
+import { runDocGeneratorAsync } from "../lib/doc-generator.js";
 import { loadLintRuleDocs, type RuleDocs } from "../lib/lint-rule-docs.js";
+import { lintRatchets } from "../lint-ratchet/lint-ratchet-config.js";
 import {
   type ControlCategory,
   type ControlKind,
@@ -20,8 +22,6 @@ import {
   resolveControl,
 } from "./generate-harness-controls-validation.js";
 import { formatHookWiring, type HookWiring } from "./hook-wiring-schema.js";
-
-const PROCESS_ARG_OFFSET = 2;
 
 const KIND_HEADINGS: Record<ControlKind, string> = {
   "lint-rule": "Lint rules",
@@ -127,14 +127,6 @@ function readManifest(): RawControl[] {
   return controls;
 }
 
-function readCurrentOutput(): string {
-  try {
-    return readFileSync(outputPath, "utf8");
-  } catch {
-    return "";
-  }
-}
-
 async function collectControls(): Promise<ResolvedControl[] | undefined> {
   const { entries: ruleDocEntries, failures: ruleDocFailures } = await loadLintRuleDocs(repoRoot);
   if (ruleDocFailures.length > 0) {
@@ -144,11 +136,16 @@ async function collectControls(): Promise<ResolvedControl[] | undefined> {
     throw new Error(`Failed to load local rule meta.docs:\n${detail}`);
   }
   const ruleDocs = new Map<string, RuleDocs>(ruleDocEntries.map((entry) => [entry.id, entry]));
+  // Ratchet principles are re-projected from the registry (single source of
+  // truth), mirroring how lint-rule principles flow from each rule's meta.docs.
+  const ratchetPrinciples = new Map<string, string>(
+    lintRatchets.map((ratchet) => [ratchet.id, ratchet.principle]),
+  );
   const rawControls = readManifest();
   const entries: ResolvedControl[] = [];
   const failures: ControlValidationFailure[] = [];
   for (const raw of rawControls) {
-    const result = resolveControl(raw, ruleDocs, repoRoot);
+    const result = resolveControl(raw, ruleDocs, repoRoot, ratchetPrinciples);
     if ("failures" in result) {
       failures.push(result);
     } else {
@@ -257,36 +254,19 @@ function renderMarkdown(entries: readonly ResolvedControl[]): string {
   return `${lines.join("\n")}\n`;
 }
 
-function parseArgs(args: readonly string[]): { readonly checkMode: boolean } {
-  const unknownArgs = args.filter((arg) => arg !== "--" && arg !== "--check");
-  if (unknownArgs.length > 0) {
-    throw new Error(`Unknown argument(s): ${unknownArgs.join(", ")}`);
-  }
-  return { checkMode: args.includes("--check") };
-}
-
 async function main(): Promise<void> {
-  const { checkMode } = parseArgs(process.argv.slice(PROCESS_ARG_OFFSET));
-  const entries = await collectControls();
-  if (entries === undefined) return;
-  const rendered = renderMarkdown(entries);
-
-  if (checkMode) {
-    const current = readCurrentOutput();
-    if (current !== rendered) {
-      console.error(
-        `${outputPath} is out of date. Run \`bun run docs:harness-controls\` and commit the result.`,
-      );
-      process.exitCode = 1;
-      return;
-    }
-    console.log(`${outputPath} is up to date.`);
-    return;
-  }
-
-  mkdirSync(dirname(outputPath), { recursive: true });
-  writeFileSync(outputPath, rendered);
-  console.log(`Wrote ${outputPath} (${String(entries.length)} control(s)).`);
+  await runDocGeneratorAsync({
+    outputPath,
+    refreshCommand: "docs:harness-controls",
+    render: async () => {
+      const entries = await collectControls();
+      if (entries === undefined) return undefined;
+      return {
+        rendered: renderMarkdown(entries),
+        wroteSuffix: ` (${String(entries.length)} control(s))`,
+      };
+    },
+  });
 }
 
 if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {

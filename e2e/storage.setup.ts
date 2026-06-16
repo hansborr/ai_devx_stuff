@@ -14,9 +14,9 @@ setup("register shared test user", async ({ page }) => {
   const user = makeUser("shared");
 
   await page.goto("/register");
-  await page.locator("#email").fill(user.email);
-  await page.locator("#password").fill(user.password);
-  await page.locator("#displayName").fill(user.displayName);
+  await page.getByLabel("Email").fill(user.email);
+  await page.getByLabel("Password").fill(user.password);
+  await page.getByLabel("Display Name").fill(user.displayName);
   const [resp] = await Promise.all([
     page.waitForResponse(
       (r) => r.url().includes("auth.register") && r.request().method() === "POST",

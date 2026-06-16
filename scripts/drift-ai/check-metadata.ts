@@ -45,8 +45,6 @@ export const CHECK_METADATA = [
   unusedExportsCheckConfig,
 ] as const;
 
-export type DriftAiCheckMetadata = (typeof CHECK_METADATA)[number];
-
 export const ALL_CHECKS: readonly DriftCheckId[] = CHECK_METADATA.map((meta) => meta.id);
 
 // The checks a no-`--check` run enables. Excludes opt-in checks (runByDefault:

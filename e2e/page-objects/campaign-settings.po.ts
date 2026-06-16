@@ -6,11 +6,15 @@ export class CampaignSettingsPO {
   constructor(private readonly page: Page) {}
 
   // ── Locators ───────────────────────────────────────────────────────
-  readonly settingsNameInput = this.page.locator("#settings-name");
+  // Scoped to the active tab panel: the settings form is the only "Name"
+  // field mounted while the Settings tab is selected.
+  readonly settingsNameInput = this.page.getByRole("tabpanel").getByLabel("Name", { exact: true });
   readonly saveChangesButton = this.page.getByRole("button", { name: "Save Changes" });
   readonly deleteCampaignButton = this.page.getByRole("button", { name: "Delete Campaign" });
   readonly deleteDialog = this.page.getByRole("dialog");
-  readonly confirmDeleteInput = this.deleteDialog.locator("#confirm-delete-name");
+  // The confirm field's label embeds the campaign name, so match the only
+  // textbox inside the delete dialog instead.
+  readonly confirmDeleteInput = this.deleteDialog.getByRole("textbox");
   readonly deleteConfirmButton = this.deleteDialog.getByRole("button", { name: "Delete Campaign" });
 
   // ── Actions ────────────────────────────────────────────────────────

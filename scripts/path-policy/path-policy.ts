@@ -1,4 +1,7 @@
-import { SCRIPT_SMOKE_SUBJECTS, type ScriptSmokeSubjects } from "./path-policy-smoke-subjects.js";
+import {
+  SCRIPT_SMOKE_SUBJECTS,
+  type ScriptSmokeSubjects,
+} from "./path-policy-smoke-subjects-data.js";
 
 export type PathPolicySelector =
   | {

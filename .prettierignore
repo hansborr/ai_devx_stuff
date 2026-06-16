@@ -10,3 +10,14 @@ scripts/codemods/fixtures/
 scripts/drift-ai/fixtures/
 scripts/fixtures/lint-ratchet/
 packages/server/src/generated/prisma/
+
+# Vendored, verbatim SRD reference JSON (upstream 5e-bits/5e-database src/2024).
+# Must stay byte-for-byte with the pinned upstream for provenance/checksum
+# integrity, so prettier must not reformat it. See
+# packages/server/src/seed/data/reference/NOTICE.md.
+packages/server/src/seed/data/reference/5e-SRD-*.json
+
+# Markdown is intentionally not auto-formatted. prettier reflowing prose (line
+# wrapping, list markers, em-dashes) was low-value edit-time noise; `docs/` was
+# already ignored above. See docs/agent_notes/backlog/agent-friction-2026-06 (C1).
+*.md

@@ -71,6 +71,7 @@ function makeInput(overrides: CtxOverrides = {}): CheckRunInput {
         pathExists: overrides.pathExists ?? (() => false),
       },
       cli: parseArgs(["--scope", "current", "--check", "knip-duplicates"]),
+      warnStderr: () => undefined,
     },
   };
 }

@@ -1,16 +1,14 @@
 #!/usr/bin/env bun
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-
-import type { CallExpression } from "ts-morph";
-import { Node, SyntaxKind } from "ts-morph";
 
 import {
   createProject,
   fail as failWithName,
   writeOrPreviewFiles,
 } from "./lib/trpc-shared-schema.js";
+import { walkTsFiles } from "./lib/walk-ts-files.js";
 import { transformFile, type UnsupportedConsole } from "./structured-logging-fix-transforms.js";
 
 const CODEMOD_NAME = "structured-logging-fix";
@@ -19,7 +17,6 @@ const SERVER_PRISMA_ROOT = path.join("packages", "server", "prisma");
 const SERVER_SCRIPTS_ROOT = path.join("packages", "server", "scripts");
 const SCRIPT_LOGGER_RELATIVE = path.join(SERVER_SRC_ROOT, "utils", "script-logger.ts");
 const MAIN_RELATIVE = path.join(SERVER_SRC_ROOT, "main.ts");
-const CONSOLE_LEVELS = new Set(["log", "info", "warn", "error", "debug", "trace"]);
 
 type CliArgs =
   | { mode: "single"; file: string; dryRun: boolean }
@@ -148,23 +145,13 @@ function isExcludedPath(relativePath: string): boolean {
 }
 
 function discoverFiles(root: string): string[] {
-  const files: string[] = [];
-  const visit = (directory: string): void => {
-    if (!existsSync(directory)) return;
-    for (const entry of readdirSync(directory, { withFileTypes: true })) {
-      const currentPath = path.join(directory, entry.name);
-      if (entry.isDirectory()) {
-        visit(currentPath);
-        continue;
-      }
-      if (!statSync(currentPath).isFile() || !currentPath.endsWith(".ts")) continue;
-      const relative = path.relative(root, currentPath);
-      if (isExcludedPath(relative)) continue;
-      files.push(relative);
-    }
-  };
-  visit(path.join(root, SERVER_SRC_ROOT));
-  visit(path.join(root, SERVER_SCRIPTS_ROOT));
+  const files = walkTsFiles(
+    [path.join(root, SERVER_SRC_ROOT), path.join(root, SERVER_SCRIPTS_ROOT)],
+    {
+      include: (currentPath) => currentPath.endsWith(".ts"),
+      relativeTo: root,
+    },
+  ).filter((relative) => !isExcludedPath(relative));
   if (existsSync(path.join(root, SERVER_PRISMA_ROOT))) {
     for (const entry of readdirSync(path.join(root, SERVER_PRISMA_ROOT), { withFileTypes: true })) {
       if (!entry.isFile() || !/^seed.*\.ts$/u.test(entry.name)) continue;
@@ -172,68 +159,6 @@ function discoverFiles(root: string): string[] {
     }
   }
   return files.sort((left, right) => left.localeCompare(right, "en"));
-}
-
-export function consoleLevel(call: CallExpression): string | undefined {
-  const expression = call.getExpression();
-  if (Node.isPropertyAccessExpression(expression)) {
-    if (expression.getExpression().getText() !== "console") return undefined;
-    const level = expression.getName();
-    return CONSOLE_LEVELS.has(level) ? level : undefined;
-  }
-  if (Node.isElementAccessExpression(expression)) {
-    if (expression.getExpression().getText() !== "console") return undefined;
-    const level = staticString(expression.getArgumentExpression());
-    return level && CONSOLE_LEVELS.has(level) ? level : undefined;
-  }
-  return undefined;
-}
-
-export function staticString(node: Node | undefined): string | undefined {
-  if (!node) return undefined;
-  if (Node.isStringLiteral(node) || Node.isNoSubstitutionTemplateLiteral(node)) {
-    return node.getLiteralText();
-  }
-  return undefined;
-}
-
-export function isStringConcat(node: Node): boolean {
-  if (
-    !Node.isBinaryExpression(node) ||
-    node.getOperatorToken().getKind() !== SyntaxKind.PlusToken
-  ) {
-    return false;
-  }
-  const left = node.getLeft();
-  const right = node.getRight();
-  return (
-    staticString(left) !== undefined ||
-    staticString(right) !== undefined ||
-    Node.isTemplateExpression(left) ||
-    Node.isTemplateExpression(right) ||
-    isStringConcat(left) ||
-    isStringConcat(right)
-  );
-}
-
-export function templateExpressionReason(args: Node[]): string | undefined {
-  if (args.some(Node.isTemplateExpression)) return "template expressions need manual fields";
-  if (args.some(isStringConcat)) return "string concatenation needs manual fields";
-  return undefined;
-}
-
-export function objectLiteralHasProperty(node: Node, propertyName: string): boolean {
-  if (!Node.isObjectLiteralExpression(node)) return false;
-  return node.getProperties().some((property) => {
-    if (!Node.isPropertyAssignment(property) && !Node.isShorthandPropertyAssignment(property)) {
-      return false;
-    }
-    return property.getName() === propertyName;
-  });
-}
-
-export function quoted(value: string): string {
-  return JSON.stringify(value);
 }
 
 function hasDirectConsole(relativePath: string, root: string): boolean {

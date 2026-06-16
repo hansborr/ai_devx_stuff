@@ -86,4 +86,17 @@ describe("shared lint policy", () => {
       getAssertFunctionNamesFromRule(codemodTestConfig.rules?.["vitest/expect-expect"]),
     ).toEqual([...scriptTestAssertFunctionNames, "runFixture"]);
   });
+
+  it("scopes redundant central mock checks to client unit tests", () => {
+    const redundantCentralMockConfig = unitTestConfigs.find(
+      (config) => config.rules?.["local/no-redundant-central-mock"] !== undefined,
+    );
+    if (redundantCentralMockConfig === undefined)
+      throw new Error("expected redundant central mock config");
+
+    expect(redundantCentralMockConfig.files).toEqual([
+      "packages/client/src/**/*.test.{ts,tsx}",
+      "packages/client/src/**/*.spec.ts",
+    ]);
+  });
 });

@@ -1,7 +1,8 @@
 # Developer Experience Sprint 2 Roadmap
 
-Active DX5-DX8 developer-experience work. Use `docs/agent_notes/NEXT.md` as
-the active queue; promote one leaf at a time from this file.
+Active DX5-DX8 developer-experience work. This file is the active queue: work
+one leaf at a time, ticking the `- [ ]` sub-bullets the BatonLoop stop-check
+keys on (see `docs/roadmap/README.md`).
 
 ## Phase DX5: Server Refactors
 

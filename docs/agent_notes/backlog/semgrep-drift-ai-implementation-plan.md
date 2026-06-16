@@ -4,7 +4,12 @@ Status: all slices done (engine installed, real output captured; rule-source
 manifest, license gate, and args landed; runner and JSON parser landed;
 advisory builder and formatter landed; command registered with docs and
 parity updates; first calibration recorded — 0 TP across a 5-repo corpus,
-recommendation keep opt-in and pursue the first-party pack)
+recommendation keep opt-in and pursue the first-party pack). The successor
+first-party `ai-footguns` pack was evaluated in lint-followups-2026-06 Leaf 10
+and DEFERRED (0 rules): every evidenced footgun class is already enforced at
+ESLint `error` and Musi is TS-only, so semgrep's value (specificity + multi-
+language) does not apply here; the opt-in lane stays as-is, not retired. See
+that leaf's verdict in `backlog/lint-followups-2026-06/evaluation-verdicts.md`.
 Date: 2026-06-05
 Revised: 2026-06-05 after cross-review against the parked portable-AI-repo-scan
 and security-sensor-evaluation notes; same day, added slice 0 results, then
@@ -615,6 +620,15 @@ As run, results in the calibration note's
   AI-codegen-footgun hypothesis more directly than generic security packs.
   Slice 5 confirmed this is the successor leaf: the generic MIT pack produced
   0 true positives in 3,651 findings, dominated by capability-flagging rules.
+  - EVALUATED AND DEFERRED (lint-followups-2026-06 Leaf 10, 2026-06-12): 0
+    rules landed. The empty-`catch`, artifact-residue, and dropped-async
+    classes are already enforced at ESLint `error` (a semgrep rule would be
+    redundant and coarser); the Go-`err` and multi-language classes do not
+    apply (Musi is TS-only, 0 Go files); conflict-marker/stubbed-success/
+    hardcoded-secret classes lacked a citable in-repo incident. Not a lane
+    retirement — the opt-in lane stays. Revisit when a named footgun appears
+    in a class ESLint cannot express, or Musi gains a non-TS surface. Full
+    verdict: `backlog/lint-followups-2026-06/evaluation-verdicts.md`.
 - A lighter prepared-run path for `semgrep-candidates`: the command reuses
   `prepareCurrentRun` for config loading and root validation, but that helper
   also builds the full current-file inventory (`git ls-files` + per-file

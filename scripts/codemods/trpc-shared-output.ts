@@ -28,12 +28,11 @@ import {
 } from "./lib/trpc-shared-schema.js";
 import {
   assertConstSchemaIsOnlyOutputReference,
+  CODEMOD_NAME,
   collectOutputCandidates,
   isSelfImport,
   outputTypeNameForSchema,
 } from "./trpc-shared-output-candidates.js";
-
-const CODEMOD_NAME = "trpc-shared-output";
 
 type Candidate = SharedSchemaCodemodCandidate;
 

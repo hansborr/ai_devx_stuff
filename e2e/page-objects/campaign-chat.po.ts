@@ -6,12 +6,12 @@ export class CampaignChatPO {
   constructor(private readonly page: Page) {}
 
   // ── Locators ───────────────────────────────────────────────────────
-  readonly chatMessages = this.page.locator('[data-testid="chat-messages"]');
+  readonly chatMessages = this.page.getByTestId("chat-messages");
   readonly chatInput = this.page.getByLabel("Chat message");
   readonly sendButton = this.page.getByLabel("Send message");
   readonly diceInput = this.page.getByLabel("Dice notation");
   readonly rollButton = this.page.getByLabel("Roll dice");
-  readonly quickDiceGroup = this.page.locator('[role="group"][aria-label="Quick dice buttons"]');
+  readonly quickDiceGroup = this.page.getByRole("group", { name: "Quick dice buttons" });
 
   // ── Chat ───────────────────────────────────────────────────────────
 
@@ -26,6 +26,16 @@ export class CampaignChatPO {
 
   async expectMessage(text: string, timeout = TIMEOUT_LONG): Promise<void> {
     await expect(this.chatMessages.getByText(text)).toBeVisible({ timeout });
+  }
+
+  /**
+   * Assert the message whose content includes `text` shows `author` as its
+   * author line. Scoping to the message item keeps the check unambiguous
+   * when the same display name appears elsewhere in the transcript.
+   */
+  async expectMessageAuthor(text: string, author: string): Promise<void> {
+    const message = this.chatMessages.getByTestId(/^chat-message-/).filter({ hasText: text });
+    await expect(message.getByText(author)).toBeVisible({ timeout: TIMEOUT_SHORT });
   }
 
   async expectChatEmpty(): Promise<void> {
@@ -71,8 +81,8 @@ export class CampaignChatPO {
   }
 
   async expectDiceRollInChat(notation: string): Promise<void> {
-    await expect(
-      this.chatMessages.locator('[role="group"]').filter({ hasText: notation }),
-    ).toBeVisible({ timeout: TIMEOUT_MEDIUM });
+    await expect(this.chatMessages.getByRole("group").filter({ hasText: notation })).toBeVisible({
+      timeout: TIMEOUT_MEDIUM,
+    });
   }
 }

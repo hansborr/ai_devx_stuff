@@ -276,6 +276,7 @@ describe("duplicateLiteralsCheck", () => {
         repoRoot,
         overrides: {},
         cli: parseArgs(["--scope", "current", "--check", "duplicate-literals"]),
+        warnStderr: () => undefined,
       },
     });
     expect(outcome.status).toBe("ran");

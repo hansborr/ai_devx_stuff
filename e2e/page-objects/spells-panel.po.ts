@@ -2,23 +2,28 @@ import { expect, type Locator, type Page } from "@playwright/test";
 
 import { TIMEOUT_MEDIUM, TIMEOUT_SHORT } from "../helpers/timeouts.js";
 
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 export class SpellsPanelPO {
   constructor(private readonly page: Page) {}
 
   // ── Locators ───────────────────────────────────────────────────────
 
-  readonly spellsPanel = this.page.locator('[data-testid="spells-panel"]');
-  readonly spellAbility = this.page.locator('[data-testid="spell-ability"]');
-  readonly spellSaveDc = this.page.locator('[data-testid="spell-save-dc"]');
-  readonly addSpellButton = this.page.locator('[data-testid="add-spell-btn"]');
+  readonly spellsPanel = this.page.getByTestId("spells-panel");
+  readonly spellAbility = this.page.getByTestId("spell-ability");
+  readonly spellSaveDc = this.page.getByTestId("spell-save-dc");
+  readonly addSpellButton = this.page.getByTestId("add-spell-btn");
+  readonly addSpellDialog = this.page.getByRole("dialog", { name: "Add Spell" });
   readonly addSpellHeading = this.page.getByRole("heading", { name: "Add Spell" });
-  readonly spellLevelFilter = this.page.locator("#spell-level-filter");
-  readonly castConfirmButton = this.page.locator('[data-testid="cast-confirm"]');
-  readonly shortRestButton = this.page.locator('[data-testid="short-rest-btn"]');
-  readonly longRestButton = this.page.locator('[data-testid="long-rest-btn"]');
-  readonly restConfirmButton = this.page.locator('[data-testid="rest-confirm"]');
-  readonly shortRestResult = this.page.locator('[data-testid="short-rest-result"]');
-  readonly longRestResult = this.page.locator('[data-testid="long-rest-result"]');
+  readonly spellLevelFilter = this.addSpellDialog.getByRole("combobox", { name: "Level" });
+  readonly castConfirmButton = this.page.getByTestId("cast-confirm");
+  readonly shortRestButton = this.page.getByTestId("short-rest-btn");
+  readonly longRestButton = this.page.getByTestId("long-rest-btn");
+  readonly restConfirmButton = this.page.getByTestId("rest-confirm");
+  readonly shortRestResult = this.page.getByTestId("short-rest-result");
+  readonly longRestResult = this.page.getByTestId("long-rest-result");
   readonly shortRestHeading = this.page.getByRole("heading", { name: "Short Rest" });
   readonly longRestHeading = this.page.getByRole("heading", { name: "Long Rest" });
   readonly doneButton = this.page.getByRole("button", { name: "Done" });
@@ -26,58 +31,55 @@ export class SpellsPanelPO {
   // ── Parameterized locators ─────────────────────────────────────────
 
   spellLevelGroup(level: number): Locator {
-    return this.page.locator(`[data-testid="spell-level-group-${String(level)}"]`);
+    return this.page.getByTestId(`spell-level-group-${String(level)}`);
   }
 
   spellSlotPips(level: number): Locator {
-    return this.page.locator(`[data-testid="spell-slot-pips-${String(level)}"]`);
+    return this.page.getByTestId(`spell-slot-pips-${String(level)}`);
   }
 
   // ── Methods (multi-step orchestration) ─────────────────────────────
 
   /**
-   * Open the add-spell dialog, filter by level, add the first available spell.
-   * Closes the dialog and returns the spell name (or null if none found).
+   * Open the add-spell dialog, filter by level, and add the named spell.
+   * Closes the dialog and waits for the spell to appear in the panel.
    */
-  async addSpellByLevel(level: string): Promise<string | null> {
+  async addSpell(level: string, spellName: string): Promise<void> {
     await this.addSpellButton.click();
     await expect(this.addSpellHeading).toBeVisible({ timeout: TIMEOUT_SHORT });
 
     await this.spellLevelFilter.click();
     await this.page.getByRole("option", { name: level }).click();
 
-    const firstAddBtn = this.page.locator('button[data-testid^="add-srd-spell-"]').first();
-    await expect(firstAddBtn).toBeVisible({ timeout: TIMEOUT_MEDIUM });
-
-    const spellName = await firstAddBtn
-      .locator("..")
-      .locator(".text-sm.font-medium")
-      .first()
-      .textContent();
+    const addButton = this.addSpellDialog.getByRole("button", {
+      name: `Add ${spellName}`,
+      exact: true,
+    });
+    await expect(addButton).toBeVisible({ timeout: TIMEOUT_MEDIUM });
 
     const [resp] = await Promise.all([
       this.page.waitForResponse((r) => r.url().includes("characterSpell.add")),
-      firstAddBtn.click(),
+      addButton.click(),
     ]);
     expect(resp.ok()).toBe(true);
 
     await this.page.keyboard.press("Escape");
 
-    if (spellName) {
-      await expect(this.spellsPanel.getByText(spellName)).toBeVisible({
-        timeout: TIMEOUT_SHORT,
-      });
-    }
-
-    return spellName;
+    await expect(this.spellsPanel.getByText(spellName, { exact: true })).toBeVisible({
+      timeout: TIMEOUT_SHORT,
+    });
   }
 
-  /** Toggle the prepare checkbox on the first spell in a level group. */
-  async prepareSpell(level: number): Promise<void> {
+  /** Ensure the named spell's prepare checkbox in a level group is checked. */
+  async prepareSpell(level: number, spellName: string): Promise<void> {
     const group = this.spellLevelGroup(level);
     await expect(group).toBeVisible({ timeout: TIMEOUT_SHORT });
 
-    const checkbox = group.locator('input[type="checkbox"]').first();
+    // Accessible name is "Prepare <spell>" or "Unprepare <spell>"; anchored
+    // so one spell name containing another cannot collide.
+    const checkbox = group.getByRole("checkbox", {
+      name: new RegExp(`^(Prepare|Unprepare) ${escapeRegExp(spellName)}$`),
+    });
     const wasChecked = await checkbox.isChecked();
 
     if (!wasChecked) {
@@ -91,10 +93,14 @@ export class SpellsPanelPO {
     await expect(checkbox).toBeChecked({ timeout: TIMEOUT_SHORT });
   }
 
-  /** Click Cast on the first prepared spell in a level group and confirm. */
-  async castSpell(level: number): Promise<void> {
-    const group = this.spellLevelGroup(level);
-    const castBtn = group.locator('button[data-testid^="cast-"]').first();
+  /** Click Cast on the named prepared spell in a level group and confirm. */
+  async castSpell(level: number, spellName: string): Promise<void> {
+    // Identify the row by its exact spell-name button so one spell name
+    // containing another cannot collide.
+    const row = this.spellLevelGroup(level)
+      .getByTestId(/^spell-row-/)
+      .filter({ has: this.page.getByRole("button", { name: spellName, exact: true }) });
+    const castBtn = row.getByRole("button", { name: "Cast", exact: true });
     await expect(castBtn).toBeVisible({ timeout: TIMEOUT_SHORT });
     await castBtn.click();
 
@@ -111,8 +117,7 @@ export class SpellsPanelPO {
   async getSpellSlotCount(level: number): Promise<[number, number]> {
     const pips = this.spellSlotPips(level);
     await expect(pips).toBeVisible({ timeout: TIMEOUT_MEDIUM });
-    const text =
-      (await pips.locator(".text-xs.text-muted-foreground").last().textContent()) ?? "0/0";
+    const text = (await pips.getByText(/^\d+\/\d+$/).textContent()) ?? "0/0";
     const [avail = 0, total = 0] = text.split("/").map(Number);
     return [avail, total];
   }

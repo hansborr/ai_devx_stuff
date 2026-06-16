@@ -6,13 +6,9 @@
  * letting server-only router files define private input shapes.
  */
 
-const SHARED_SCHEMA_PREFIX = "@musi/shared/schemas/";
-const ALLOWED_WRAPPERS = new Set(["describe", "optional"]);
+import { createSharedSchemaImportCollector } from "./trpc-shared-schema-import-collector.js";
 
-/** @param {string} source */
-function isSharedSchemaSource(source) {
-  return source.startsWith(SHARED_SCHEMA_PREFIX);
-}
+const ALLOWED_WRAPPERS = new Set(["describe", "optional"]);
 
 /**
  * Unwrap harmless Zod metadata/presence wrappers such as:
@@ -58,20 +54,10 @@ export default {
   },
 
   create(context) {
-    /** @type {Set<string>} */
-    const sharedSchemaImports = new Set();
+    const { sharedSchemaImports, ImportDeclaration } = createSharedSchemaImportCollector();
 
     return {
-      ImportDeclaration(node) {
-        if (typeof node.source.value !== "string") return;
-        if (!isSharedSchemaSource(node.source.value)) return;
-
-        for (const specifier of node.specifiers) {
-          if (specifier.type === "ImportSpecifier") {
-            sharedSchemaImports.add(specifier.local.name);
-          }
-        }
-      },
+      ImportDeclaration,
 
       CallExpression(node) {
         if (node.callee.type !== "MemberExpression") return;

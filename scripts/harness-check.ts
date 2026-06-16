@@ -67,6 +67,11 @@ const EXEMPT_SCRIPTS = new Set<string>([
   "docs:harness-controls:check",
   "harness:wiring:check",
   "verify:steps:check",
+  // coverage-map :audit variant — the same checker behind --check-eslint-reach.
+  // `docs:lint-coverage-map:check` is the manifest control (the committing gate
+  // runs it with --staged); :audit adds the advisory ESLint-reach probe that
+  // full `verify`/`verify:parallel` run but pre-commit deliberately skips.
+  "docs:lint-coverage-map:audit",
   // module-index --check variant — same generator, different mode.
   "module:index:check",
   // lint family: `lint:changed` is the changed-file variant of the

@@ -15,6 +15,7 @@ Musi is a D&D 5.5E virtual tabletop and campaign management system.
 - `bun run --filter @musi/server db:migrate` / `prisma:generate` — schema change path; follow `docs/guides/add-prisma-migration.md`. `db:push` is local-only, never committed schema work.
 - `bun run --filter @musi/server db:{push,seed,reset,studio}` — local DB utilities; package filter required.
 - `bun run code:intel -- {def|exports|dependents|refs|tests} ...` — cross-file TypeScript symbol/import queries; resolves package exports, re-exports, and the client `@/*` alias. See `docs/guides/code-intel.md`.
+- `bun run test:scripts:file -- <file>` (scripts project) or `bun run test -- <file>` (any project) — focused single-file test runs. Not `test:scripts -- <file>` (that is the shell smoke wrapper and rejects file args) and not `--filter @musi/scripts` (`scripts` is not a workspace package).
 
 ## Working Model
 
@@ -31,6 +32,7 @@ Musi is a D&D 5.5E virtual tabletop and campaign management system.
 - Use tRPC error codes consistently.
 - Prisma schema changes require a migration.
 - Read `docs/CONCURRENCY.md` before expanding race-sensitive mutation helper surfaces.
+- Before adding a client `useEffect`, read `docs/guides/client-effects.md`; effects are for external-system sync only (derived state, event logic, and tRPC/TanStack Query fetching are not effects).
 
 ## Workflow
 

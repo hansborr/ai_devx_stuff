@@ -53,6 +53,7 @@ export const codemodSourceFiles = [
   "scripts/codemods/expand-barrel.ts",
   "scripts/codemods/expand-barrel/**/*.ts",
   "scripts/codemods/lib/**/*.ts",
+  "scripts/codemods/structured-logging-fix-ast.ts",
   "scripts/codemods/structured-logging-fix-transforms.ts",
   "scripts/codemods/structured-logging-fix.ts",
   "scripts/codemods/trpc-shared-input-candidates.ts",
@@ -127,58 +128,6 @@ export const processEnvRestrictedSyntax = {
     "Avoid reading process.env outside config/env.ts. Use serverEnv from packages/server/src/config/env.ts (or add the key there). For child-process spawn `env:` pass-through and the db-status admin tool, add the file to the allowlist override below.",
 };
 
-export const e2ePreferRoleSelectorDebtFiles = [
-  "e2e/helpers/auth.setup.ts",
-  "e2e/homebrew-sharing.spec.ts",
-  "e2e/navigation-errors.spec.ts",
-  "e2e/page-objects/campaign-chat.po.ts",
-  "e2e/page-objects/campaign-detail.po.ts",
-  "e2e/page-objects/campaign-notes.po.ts",
-  "e2e/page-objects/campaign-npcs.po.ts",
-  "e2e/page-objects/campaign-settings.po.ts",
-  "e2e/page-objects/campaigns.po.ts",
-  "e2e/page-objects/character-sheet.po.ts",
-  "e2e/page-objects/character-wizard.po.ts",
-  "e2e/page-objects/encounter.po.ts",
-  "e2e/page-objects/join.po.ts",
-  "e2e/page-objects/login.po.ts",
-  "e2e/page-objects/notification.po.ts",
-  "e2e/page-objects/register.po.ts",
-  "e2e/page-objects/spells-panel.po.ts",
-  "e2e/page-objects/vtt-drawer.ts",
-  "e2e/storage.setup.ts",
-];
-
-export const e2eNoNthMethodsDebtFiles = [
-  "e2e/campaign-chat.spec.ts",
-  "e2e/homebrew-sharing.spec.ts",
-  "e2e/page-objects/campaign-detail.po.ts",
-  "e2e/page-objects/campaign-npcs.po.ts",
-  "e2e/page-objects/campaigns.po.ts",
-  "e2e/page-objects/character-sheet.po.ts",
-  "e2e/page-objects/character-wizard.po.ts",
-  "e2e/page-objects/dashboard.po.ts",
-  "e2e/page-objects/encounter.po.ts",
-  "e2e/page-objects/login.po.ts",
-  "e2e/page-objects/notification.po.ts",
-  "e2e/page-objects/register.po.ts",
-  "e2e/page-objects/spells-panel.po.ts",
-];
-
-export const e2ePreferNativeLocatorDebtFiles = [
-  "e2e/homebrew-sharing.spec.ts",
-  "e2e/navigation-errors.spec.ts",
-  "e2e/page-objects/campaign-chat.po.ts",
-  "e2e/page-objects/campaign-detail.po.ts",
-  "e2e/page-objects/character-sheet.po.ts",
-  "e2e/page-objects/character-wizard.po.ts",
-  "e2e/page-objects/encounter.po.ts",
-  "e2e/page-objects/join.po.ts",
-  "e2e/page-objects/login.po.ts",
-  "e2e/page-objects/register.po.ts",
-  "e2e/page-objects/spells-panel.po.ts",
-];
-
 const maxLinesCountingOptions = { skipBlankLines: true, skipComments: true };
 
 export const maxLinesPolicy = {
@@ -191,6 +140,7 @@ export const maxLinesPolicy = {
       severity: "error",
       reason:
         "The ratchet registry grows as new ratchets land; the floor protects against accidental drift, not registry growth.",
+      lifecycle: "permanent",
       ratchetExcluded: true,
     },
     {
@@ -199,6 +149,7 @@ export const maxLinesPolicy = {
       severity: "error",
       reason:
         "Rules-domain calculator has several tightly-coupled D&D damage branches pending a future rules refactor.",
+      lifecycle: "candidate-for-split",
       ratchetExcluded: true,
     },
     {
@@ -207,6 +158,7 @@ export const maxLinesPolicy = {
       severity: "warn",
       reason:
         "Encounter routing is still the main orchestration surface for combat and map workflows until split behind services.",
+      lifecycle: "candidate-for-split",
       ratchetExcluded: true,
     },
     {
@@ -215,22 +167,25 @@ export const maxLinesPolicy = {
       severity: "warn",
       reason:
         "Homebrew routing carries several entry-type workflows while shared entry helpers are factored out.",
+      lifecycle: "candidate-for-split",
       ratchetExcluded: true,
     },
     {
       path: "packages/server/src/routers/srd.ts",
-      cap: 490,
+      cap: 495,
       severity: "warn",
       reason:
-        "SRD routing is mostly read-side mapping and import/export glue, capped so routine endpoint edits stay bounded.",
+        "SRD routing is mostly read-side mapping and import/export glue, capped so routine endpoint edits stay bounded; +1 for the narrowDamageTypeName import wiring the tightened subspecies damageType enum at the Prisma read seam, +4 for the normalizeWeaponDataDamageType import and equipment weaponData read-seam canonicalization (legacy title-case damageType).",
+      lifecycle: "permanent",
       ratchetExcluded: true,
     },
     {
       path: "packages/server/src/services/rest-service.ts",
-      cap: 340,
+      cap: 365,
       severity: "warn",
       reason:
-        "Rest behavior has tightly related state transitions and persistence checks pending a future service split.",
+        "Rest behavior has tightly related state transitions and persistence checks pending a future service split; the ux-audit P0-3 encounter HP-attribution wiring (short + long rest) adds the in-tx capture and post-commit broadcast inline until that split lands.",
+      lifecycle: "candidate-for-split",
       ratchetExcluded: true,
     },
     {
@@ -239,6 +194,7 @@ export const maxLinesPolicy = {
       severity: "warn",
       reason:
         "The homebrew entry dialog owns shared editor chrome for several entry kinds while repeated form sections settle.",
+      lifecycle: "candidate-for-split",
       ratchetExcluded: true,
     },
     {
@@ -247,6 +203,7 @@ export const maxLinesPolicy = {
       severity: "warn",
       reason:
         "Magic item form fields are a dense schema-aligned surface pending obvious field-group extraction.",
+      lifecycle: "candidate-for-split",
       ratchetExcluded: true,
     },
     {
@@ -255,6 +212,7 @@ export const maxLinesPolicy = {
       severity: "warn",
       reason:
         "Monster form fields mirror a large SRD/homebrew shape while the grouped form remains intact.",
+      lifecycle: "permanent",
       ratchetExcluded: true,
     },
     {
@@ -263,6 +221,7 @@ export const maxLinesPolicy = {
       severity: "warn",
       reason:
         "Monster form data centralizes defaults and parse/serialize helpers without absorbing UI logic.",
+      lifecycle: "permanent",
       ratchetExcluded: true,
     },
     {
@@ -271,6 +230,7 @@ export const maxLinesPolicy = {
       severity: "warn",
       reason:
         "The stats-tab roll panel is one compact VTT surface, with further roll modes expected to extract components.",
+      lifecycle: "candidate-for-split",
       ratchetExcluded: true,
     },
     {
@@ -279,6 +239,7 @@ export const maxLinesPolicy = {
       severity: "warn",
       reason:
         "Add-participant combines search, selection, and encounter mutation glue until workflow growth justifies a split.",
+      lifecycle: "candidate-for-split",
       ratchetExcluded: true,
     },
     {
@@ -287,6 +248,7 @@ export const maxLinesPolicy = {
       severity: "warn",
       reason:
         "Encounter detail coordinates combat, map, and participant panels while capped before more orchestration accumulates.",
+      lifecycle: "candidate-for-split",
       ratchetExcluded: true,
     },
     {
@@ -295,6 +257,7 @@ export const maxLinesPolicy = {
       severity: "warn",
       reason:
         "Notes panel owns the note list, editor state, and campaign mutations until list/editor concerns split clearly.",
+      lifecycle: "candidate-for-split",
       ratchetExcluded: true,
     },
     {
@@ -302,6 +265,7 @@ export const maxLinesPolicy = {
       cap: 370,
       severity: "warn",
       reason: "Monster tab is the NPC-side view over monster reference data and related actions.",
+      lifecycle: "permanent",
       ratchetExcluded: true,
     },
     {
@@ -310,6 +274,7 @@ export const maxLinesPolicy = {
       severity: "warn",
       reason:
         "NPC panel coordinates list and selected-detail state while future workflows split list helpers out.",
+      lifecycle: "candidate-for-split",
       ratchetExcluded: true,
     },
     {
@@ -318,6 +283,7 @@ export const maxLinesPolicy = {
       severity: "warn",
       reason:
         "Settings is a page-level account/preferences surface capped until another settings area is added.",
+      lifecycle: "candidate-for-split",
       ratchetExcluded: true,
     },
     {
@@ -326,14 +292,16 @@ export const maxLinesPolicy = {
       severity: "warn",
       reason:
         "Encounter fixtures keep related test data in one canonical scenario module for client tests.",
+      lifecycle: "permanent",
       ratchetExcluded: true,
     },
     {
-      path: "scripts/path-policy/path-policy-smoke-subjects.ts",
-      cap: 400,
-      severity: "warn",
+      path: "scripts/path-policy/path-policy-smoke-subjects-data.ts",
+      cap: 500,
+      severity: "error",
       reason:
-        "Smoke subject data is one flat lookup table keyed by test name plus directory-backed discovery, and grows with smoke tests, not logic.",
+        "Side-effect-free smoke-subject lookup table keyed by test name; it grows with smoke tests, not logic, and the fs-backed discovery lives in the sibling module under the floor.",
+      lifecycle: "permanent",
       ratchetExcluded: true,
     },
     {
@@ -342,6 +310,7 @@ export const maxLinesPolicy = {
       severity: "warn",
       reason:
         "SRD fixtures are cross-cutting reference data for client tests until another fixture family appears.",
+      lifecycle: "permanent",
       ratchetExcluded: true,
     },
     {
@@ -350,6 +319,7 @@ export const maxLinesPolicy = {
       severity: "error",
       reason:
         "The tRPC mock is the shared client test harness for provider setup and mock procedure plumbing.",
+      lifecycle: "permanent",
       ratchetExcluded: true,
     },
     {
@@ -358,6 +328,7 @@ export const maxLinesPolicy = {
       severity: "warn",
       reason:
         "Map canvas state is centralized around one store boundary while future map workflows move to helper slices.",
+      lifecycle: "candidate-for-split",
       ratchetExcluded: true,
     },
   ],

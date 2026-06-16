@@ -38,6 +38,14 @@ ai_is_git_commit_cmd "$CMD" || {
   exit 0
 }
 
+# Self-block forbidden commits BEFORE running them. This hook executes the
+# command itself (bash -c "$CMD" below), so a `git commit --amend` would rewrite
+# HEAD here even though no-direct-db.sh / the deny glob report it as "blocked"
+# (G1). The gate above only matches an adjacent `git commit`, so the `git -c …
+# commit --amend` form never reaches this hook — it is closed at the policy
+# layer (widened regex) before the harness dispatches it. ai_emit_block exits.
+ai_preflight_or_block "$CMD"
+
 # --- Single-writer lock ----------------------------------------------------
 LOCK="${AI_GIT_COMMIT_LOCK:-/tmp/musi-git-commit-lock}"
 exec 9<>"$LOCK"

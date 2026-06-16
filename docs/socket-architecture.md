@@ -19,7 +19,7 @@ Use socket-only flows only for ephemeral concerns such as join/leave, ping, and 
 
 ## Authentication
 
-- The client sends the access token in `socket.handshake.auth.token`.
+- The client sends the access token in `socket.handshake.auth.token`. For where that token comes from and how it is refreshed on the client, see `docs/guides/client-auth-session.md`.
 - `socketAuthMiddleware` reuses `verifyAccessToken()`.
 - On success, `socket.data.user` is populated with `{ id, email, displayName }`.
 - On failure, the connection is rejected and the client sees `connect_error`.

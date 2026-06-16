@@ -39,6 +39,7 @@ const promotedRatchet: LintRatchetConfig = {
   target: 0,
   metric: "message-count",
   repairKind: "manual",
+  principle: "Fixture promoted ratchet principle.",
 };
 
 const documentedRatchet: LintRatchetConfig = {
@@ -47,7 +48,7 @@ const documentedRatchet: LintRatchetConfig = {
   zeroBaselineDisposition: {
     kind: "temporary-ratchet-only",
     reason: "normal lint still excludes this script family",
-    exitPath: "docs/agent_notes/backlog/lint-review-2026-06/fixture.md",
+    exitPath: "docs/agent_notes/backlog/example-pack/fixture.md",
   },
 };
 
@@ -165,7 +166,7 @@ describe("lint ratchet zero-baseline audit", () => {
       "ratchet/fixture-missing",
     ]);
     expect(formatZeroBaselineAudit(rows)).toContain(
-      "docs/agent_notes/backlog/lint-review-2026-06/fixture.md",
+      "docs/agent_notes/backlog/example-pack/fixture.md",
     );
     expect(formatZeroBaselineAudit(rows)).toContain("Promote to normal lint");
   });

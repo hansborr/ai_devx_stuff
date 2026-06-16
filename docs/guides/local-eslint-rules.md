@@ -121,6 +121,75 @@ A rule whose messageIds are not covered by the guidance test will not fail CI
 today, but adding new untracked rule messages should be a reviewer flag. Bring
 them into the convention test with the rule change.
 
+## Probing A Single Rule Under The Flat Config
+
+Sometimes you want to run one `local/*` rule against an ad-hoc file or a paste-in
+snippet without the rest of the flat config firing. The obvious
+`eslint --rule '{"local/...": "error"}' file.ts` does not work: a CLI-supplied
+rule cannot resolve the `local` plugin, because the local plugin is registered
+inside a file-scoped flat config object
+(`createRepoCodeQualityConfigs` in `eslint-config/code-quality-configs.js`), not
+globally. `--rule` only sets options on an already-registered rule.
+
+The blessed recipe is a tiny inline flat config that registers the plugin and
+enables the one rule, run with `--no-config-lookup` so the repo config is
+ignored. Write it at the repo root (so `node_modules` resolves), point the
+import at the rule under test, then run ESLint with the `--config` pointed at it:
+
+```js
+// eslint.probe.mjs  (repo root; delete when done — do not commit)
+import tseslint from "typescript-eslint";
+import rule from "./eslint-rules/type-assertion-boundary.js";
+
+export default [
+  {
+    files: ["**/*.ts", "**/*.tsx"],
+    plugins: { local: { rules: { "type-assertion-boundary": rule } } },
+    languageOptions: {
+      parser: tseslint.parser,
+      parserOptions: { ecmaVersion: "latest", sourceType: "module" },
+    },
+    rules: { "local/type-assertion-boundary": "error" },
+  },
+];
+```
+
+```sh
+# Only this rule runs; exit 1 means it fired, exit 0 means clean.
+node_modules/.bin/eslint --no-config-lookup --config eslint.probe.mjs subject.ts
+```
+
+Notes:
+
+- Register the plugin under `plugins: { local: { ... } }` and enable the rule via
+  `rules`. Do not try to pass the rule through `--rule`; the plugin registration
+  is what `--rule` cannot supply.
+- For a type-aware rule, mirror the project-service knobs from `eslint.config.js`
+  (`projectService: true`, `tsconfigRootDir`) in the probe's `languageOptions`
+  instead of the minimal parser above.
+- To see which config object in the *real* flat config owns a rule (severity and
+  options as actually resolved), use
+  `node_modules/.bin/eslint --print-config <file>` and read the merged `rules`.
+
+This is deliberately a documented recipe, not a script: probing a single rule
+this way is rare (see
+[`docs/agent_notes/backlog/agent-friction-2026-06/04-lint-rule-ergonomics.md`](../agent_notes/backlog/agent-friction-2026-06/04-lint-rule-ergonomics.md)
+W1). If you find yourself writing this inline config repeatedly, promote it to a
+small `scripts/lib/lint-rule-probe.*` that takes the rule id and file.
+
+## Satisfying Core `complexity` In Production Dispatch
+
+The core `complexity` rule (`error`, max 10 in `eslint-config/rule-groups.js`)
+is intentionally `off` for unit tests (assertion-heavy callbacks and fakes fan
+out optional-chains and dispatch without being a maintainability signal) but
+stays enforced in production. When a central switch/dispatch in production code
+grows past the threshold, prefer the blessed table-dispatch idiom over carving
+logic into helpers purely to lower the count: a `satisfies Record<Id, Handler>`
+lookup table plus a `ReadonlyMap.get()` early-return. See
+`scripts/drift-ai/prototype-subcommands.ts` for the reference shape. This keeps
+related branches in one readable table instead of scattering them to dodge the
+metric.
+
 When a new local rule becomes a normal-lint or ratchet responsibility, treat it
 as a coverage change too. Update the affected file-family rows in the lint
 coverage map and run the

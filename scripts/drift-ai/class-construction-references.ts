@@ -8,6 +8,7 @@
 import { ts } from "ts-morph";
 
 import { type ClassReferenceBucket, type ClassReferenceEvent } from "./class-construction-types.js";
+import { hasAncestor } from "./ts-source-util.js";
 
 export function collectClassReferenceEvents(
   sourceFile: ts.SourceFile,
@@ -156,14 +157,10 @@ function isJsxTagName(node: ts.Identifier): boolean {
 }
 
 function isInsideDecorator(node: ts.Identifier): boolean {
-  // `Node.parent` is typed non-nullable, so stop at the SourceFile root rather
-  // than walking to `undefined`.
-  let cursor: ts.Node = node.parent;
-  while (!ts.isSourceFile(cursor)) {
-    if (ts.isDecorator(cursor)) return true;
-    cursor = cursor.parent;
-  }
-  return false;
+  // Shared ancestor walk that stops at the SourceFile root (see findAncestor):
+  // `Node.parent` is typed non-nullable, so a `!== undefined` walk would be
+  // flagged by `no-unnecessary-condition`.
+  return hasAncestor(node, ts.isDecorator);
 }
 
 // `typeof Foo` reads `Foo` as a value, so a TypeQuery parent is intentionally a

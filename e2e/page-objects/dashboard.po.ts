@@ -44,7 +44,7 @@ export class DashboardPO {
   }
 
   async clickCharacterCard(name: string): Promise<void> {
-    await this.getCharacterCard(name).first().click();
+    await this.getCharacterCard(name).click();
     await expect(this.page).toHaveURL(/\/characters\//, { timeout: TIMEOUT_MEDIUM });
   }
 

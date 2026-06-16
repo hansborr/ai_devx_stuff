@@ -63,11 +63,10 @@ describe("locator usage report", () => {
     );
     writeRepoFile(repoRoot, "e2e/page-objects/empty.po.ts", "page.getByRole('link');\n");
 
-    const report = buildLocatorUsageReport(repoRoot, 3);
+    const report = buildLocatorUsageReport(repoRoot);
 
     expect(report.totalLocatorCalls).toBe(3);
     expect(report.filesWithLocatorCalls).toBe(2);
-    expect(report.debtFileCount).toBe(3);
     expect(report.files).toEqual([
       { path: "e2e/a.spec.ts", count: 1 },
       { path: "e2e/page-objects/panel.po.ts", count: 2 },
@@ -89,14 +88,14 @@ describe("locator usage report", () => {
   it("formats text and json summaries", () => {
     const repoRoot = makeTempRepo();
     writeRepoFile(repoRoot, "e2e/a.spec.ts", "page.locator('a');\n");
-    const report = buildLocatorUsageReport(repoRoot, 1);
+    const report = buildLocatorUsageReport(repoRoot);
 
     expect(formatText(report)).toContain("raw .locator( calls: 1");
-    expect(formatText(report)).toContain("local/e2e-prefer-role-selectors ratcheted debt files: 1");
+    expect(formatText(report)).not.toContain("ratcheted debt files");
     expect(formatText(report)).toContain("    e2e/a.spec.ts: 1");
     expect(JSON.parse(formatJson(report))).toMatchObject({
+      schemaVersion: 2,
       totalLocatorCalls: 1,
-      debtFileCount: 1,
     });
   });
 

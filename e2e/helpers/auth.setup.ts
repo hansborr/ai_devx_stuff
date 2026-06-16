@@ -6,8 +6,8 @@ import { TIMEOUT_MEDIUM } from "./timeouts.js";
 /** Log in an existing user via the browser UI. Page ends up on `/dashboard`. */
 export async function loginViaUi(page: Page, email: string, password: string): Promise<void> {
   await page.goto("/login");
-  await page.locator("#email").fill(email);
-  await page.locator("#password").fill(password);
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password").fill(password);
   const [resp] = await Promise.all([
     page.waitForResponse((r) => r.url().includes("auth.login") && r.request().method() === "POST"),
     page.getByRole("button", { name: "Log in" }).click(),
@@ -25,9 +25,9 @@ export async function registerAndLogin(page: Page, prefix: string): Promise<Test
 
   // Register
   await page.goto("/register");
-  await page.locator("#email").fill(user.email);
-  await page.locator("#password").fill(user.password);
-  await page.locator("#displayName").fill(user.displayName);
+  await page.getByLabel("Email").fill(user.email);
+  await page.getByLabel("Password").fill(user.password);
+  await page.getByLabel("Display Name").fill(user.displayName);
   const [resp] = await Promise.all([
     page.waitForResponse(
       (r) => r.url().includes("auth.register") && r.request().method() === "POST",

@@ -89,9 +89,9 @@ non-racing metadata (`initiative`, `sortOrder`, action flags, `name`,
 Its `BlindParticipantFields` input type is a narrow `Pick<...>` that
 **excludes** `currentHp`, `tempHp`, `version`, `conditions`, and
 identity fields. The narrowing is load-bearing: `conditions` is
-read-modify-write in `turn-service.ts` (the C2 fix), and widening
-`BlindParticipantFields` would silently reintroduce the `advanceTurn`
-conditions race.
+read-modify-write in `services/combat-actions/turn-transaction.ts` (the
+C2 fix), and widening `BlindParticipantFields` would silently reintroduce
+the `advanceTurn` conditions race.
 
 **Action-economy flags are intentionally last-writer-wins.**
 `actionUsed`, `bonusActionUsed`, and `reactionUsed` are blind-written
@@ -320,10 +320,17 @@ on a **whitelist** of non-racing fields:
   increment `version`, so toggle clicks can't invalidate concurrent
   CAS-protected operations.
 
-Any field NOT in `NON_RACING_FIELDS` (defined in `encounter.ts`)
-requires `expectedVersion` — the server throws `BAD_REQUEST` if it's
-missing. Future schema additions default to CAS-protected unless
-explicitly added to the whitelist.
+Field classification lives in the `PARTICIPANT_FIELD_KIND` map in
+`routers/encounter.ts`, declared `as const satisfies
+Record<keyof UpdateParticipantInput, "racing" | "non-racing">`. The
+`satisfies` clause makes the map **exhaustive**: every field on the
+update input must carry a `"racing"` / `"non-racing"` entry or the build
+fails. `assertVersionForRacingFields` then throws `BAD_REQUEST` when any
+`"racing"` field (`currentHp`, `tempHp`, `conditions`, death saves) is
+written without `expectedVersion`. So new schema fields do *not* silently
+default to CAS-protected — they fail to compile until explicitly
+classified, which is the stronger, fail-closed guarantee: you cannot add
+a participant field without consciously deciding whether it races.
 
 The client sends `expectedVersion` for HP, conditions, and death-save
 payloads, and omits it for action toggles and visibility toggles.

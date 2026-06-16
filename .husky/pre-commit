@@ -15,7 +15,7 @@
 #     short-circuits the "re-run just to double-check" reflex. After that
 #     misses, a fresh matching manual verify marker may bridge when its
 #     worktree fingerprint proves the same state was already checked.
-#   - 240s watchdog keeps the git-invoked gate inside the interactive command
+#   - 300s watchdog keeps the git-invoked gate inside the interactive command
 #     budget. On timeout
 #     the gate fails closed and prints log paths plus a `verify:logs budget`
 #     pointer; no success marker is written.
@@ -203,8 +203,8 @@ fi
 # Keep the default under the interactive cache budget. `MUSI_VERIFY_TIMEOUT`
 # stays as a back-compat override; new callers should set
 # `MUSI_INTERACTIVE_TIMEOUT` / `MUSI_INTERACTIVE_WARN_AFTER`.
-TIMEOUT="${MUSI_VERIFY_TIMEOUT:-${MUSI_INTERACTIVE_TIMEOUT:-240}}"
-WARN_AFTER="${MUSI_INTERACTIVE_WARN_AFTER:-210}"
+TIMEOUT="${MUSI_VERIFY_TIMEOUT:-${MUSI_INTERACTIVE_TIMEOUT:-300}}"
+WARN_AFTER="${MUSI_INTERACTIVE_WARN_AFTER:-260}"
 HOOK_PID=$$
 (
   # Close FD 9 so our `sleep` child doesn't inherit the flock — otherwise

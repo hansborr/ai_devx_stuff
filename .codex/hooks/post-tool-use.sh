@@ -93,7 +93,9 @@ if ai_is_wrapped_bun_cmd "$MATCH_CMD"; then
     LOG=$(ai_read_state_value "$STATE_FILE" LOG 2>/dev/null || true)
   fi
   [ -z "$LOG" ] && LOG="$AI_BUN_LOG_DIR/$SCRIPT_SAFE.log"
-  MARKER="$AI_BUN_LOG_DIR/last.$SCRIPT_SAFE"
+  # Argv-scoped marker (H1/H2): must match the pre-hook's derivation so a run's
+  # marker is read and written under the same exact-argv key.
+  MARKER="$AI_BUN_LOG_DIR/$(ai_bun_marker_name "$MATCH_CMD")"
   [ -n "$STATE_FILE" ] && rm -f "$STATE_FILE"
 
   if ! ai_is_integer "${EXIT_CODE:-}"; then

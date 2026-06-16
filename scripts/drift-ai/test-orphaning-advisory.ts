@@ -9,10 +9,9 @@
 import {
   boundedHistoryAdvisoryFields,
   boundedHistoryDisclosure,
-  plural,
   positiveInt,
 } from "./advisory-format-helpers.js";
-import { buildPrototypeAdvisory, type PrototypeCap } from "./prototype-advisory.js";
+import { buildPrototypeAdvisory, rowsPerSectionCap } from "./prototype-advisory.js";
 import {
   buildTestOrphaningRows,
   type UnrankedTestOrphaningRow,
@@ -82,7 +81,10 @@ export function buildTestOrphaningAdvisory(
   const advisory = buildPrototypeAdvisory({
     subcommand: TEST_ORPHANING_SUBCOMMAND,
     prerequisites: historyFields.prerequisites,
-    caps: [...historyFields.caps, rowsPerSectionCap(top, sections)],
+    caps: [
+      ...historyFields.caps,
+      rowsPerSectionCap(top, sections, { label: "rows per section", noun: "section" }),
+    ],
     degradations: historyFields.degradations,
     sections,
   });
@@ -130,19 +132,4 @@ function compareStale(left: UnrankedTestOrphaningRow, right: UnrankedTestOrphani
     right.sourceChurn - left.sourceChurn ||
     left.path.localeCompare(right.path, "en")
   );
-}
-
-function rowsPerSectionCap(top: number, sections: readonly TestOrphaningSection[]): PrototypeCap {
-  const hitCount = sections.filter(
-    (current) => current.totalCandidates > current.entries.length,
-  ).length;
-  return {
-    label: "rows per section",
-    limit: top,
-    hit: hitCount > 0,
-    detail:
-      hitCount > 0
-        ? `${hitCount} ${plural("section", hitCount)} had more than ${top} candidate rows`
-        : null,
-  };
 }

@@ -21,7 +21,7 @@ test.describe("Navigation and error handling", () => {
 
   test("visiting /join/BADCODE shows error", async ({ userPage: { page } }) => {
     await page.goto("/join/BADCODE123");
-    await expect(page.locator('[role="alert"]')).toBeVisible({ timeout: TIMEOUT_MEDIUM });
+    await expect(page.getByRole("alert")).toBeVisible({ timeout: TIMEOUT_MEDIUM });
   });
 
   test("registration validates required fields", async ({ page }) => {

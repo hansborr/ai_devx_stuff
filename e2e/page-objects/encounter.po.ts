@@ -23,9 +23,9 @@ export class EncounterPO {
 
   async openEncounter(name: string): Promise<void> {
     await this.page.getByText(name, { exact: true }).click();
-    await expect(
-      this.page.getByRole("heading", { name, level: 3 }).or(this.page.getByText(name).first()),
-    ).toBeVisible({ timeout: TIMEOUT_SHORT });
+    await expect(this.page.getByRole("heading", { name, level: 3 })).toBeVisible({
+      timeout: TIMEOUT_SHORT,
+    });
   }
 
   async expectEncounterVisible(name: string): Promise<void> {
@@ -49,9 +49,7 @@ export class EncounterPO {
       await charsTab.click();
     }
     // Scope to the character's row via data-testid, then click its Add button
-    const row = dialog
-      .locator('[data-testid^="participant-row-"]')
-      .filter({ hasText: characterName });
+    const row = dialog.getByTestId(/^participant-row-/).filter({ hasText: characterName });
     await expect(row).toBeVisible({ timeout: TIMEOUT_MEDIUM });
     const addButton = row.getByRole("button", { name: "Add", exact: true });
     const [resp] = await Promise.all([
@@ -69,7 +67,7 @@ export class EncounterPO {
     await dialog.getByRole("textbox", { name: "Search monsters..." }).fill(searchTerm);
     // Scope to the exact monster's row — hasText is substring so "Goblin Warrior"
     // would also match "Hobgoblin Warrior". Use has: with exact name match instead.
-    const row = dialog.locator('[data-testid="monster-row"]').filter({
+    const row = dialog.getByTestId("monster-row").filter({
       has: this.page.getByRole("button", { name: searchTerm, exact: true }),
     });
     await expect(row).toBeVisible({ timeout: TIMEOUT_SHORT });
@@ -145,7 +143,9 @@ export class EncounterPO {
   // ── State assertions ────────────────────────────────────────────────
 
   async expectState(state: "setup" | "active" | "paused" | "resolved"): Promise<void> {
-    await expect(this.page.getByText(state, { exact: true }).first()).toBeVisible({
+    // The detail card badge renders the raw lowercase state; the list cards
+    // render capitalized labels, so the exact match is unique.
+    await expect(this.page.getByText(state, { exact: true })).toBeVisible({
       timeout: TIMEOUT_SHORT,
     });
   }
@@ -168,126 +168,20 @@ export class EncounterPO {
     await expect(initList).toContainText(`${name}Current`, { timeout: TIMEOUT_SHORT });
   }
 
-  async expectParticipantHp(_name: string, current: number, max: number): Promise<void> {
-    await expect(this.page.getByText(`${String(current)}/${String(max)}`).first()).toBeVisible({
-      timeout: TIMEOUT_SHORT,
-    });
-  }
-
-  // ── Attack dialog ───────────────────────────────────────────────────
-
-  async openAttack(participantName: string): Promise<void> {
-    await this.page
-      .getByRole("button", { name: `Attack with ${participantName}` })
-      .first()
-      .click();
-    await expect(this.page.getByRole("dialog", { name: /Attack/ })).toBeVisible({
-      timeout: TIMEOUT_SHORT,
-    });
-  }
-
-  async performAttack(opts: {
-    targetName: string;
-    attackName: string;
-    attackBonus: number;
-    damageDice?: string;
-  }): Promise<void> {
-    const dialog = this.page.getByRole("dialog", { name: /Attack/ });
-    // Select target
-    await dialog.getByRole("button", { name: new RegExp(opts.targetName) }).click();
-    // Fill form
-    await dialog.getByRole("textbox", { name: "Attack Name" }).fill(opts.attackName);
-    await dialog.getByRole("spinbutton", { name: "Attack Bonus" }).fill(String(opts.attackBonus));
-    if (opts.damageDice) {
-      await dialog.getByRole("textbox", { name: "Damage Dice" }).fill(opts.damageDice);
-    }
-    // Submit
-    const [resp] = await Promise.all([
-      this.page.waitForResponse((r) => r.url().includes("encounterCombat.attemptAttack")),
-      dialog.getByRole("button", { name: "Roll Attack" }).click(),
-    ]);
-    expect(resp.ok()).toBe(true);
-  }
-
-  async expectAttackResult(): Promise<void> {
-    const dialog = this.page.getByRole("dialog", { name: /Attack/ });
-    // Result shows either HIT, MISS, CRITICAL HIT, or CRITICAL MISS
-    await expect(dialog.getByText("HIT").or(dialog.getByText("MISS"))).toBeVisible({
-      timeout: TIMEOUT_SHORT,
-    });
-  }
-
-  async closeDialog(): Promise<void> {
-    await this.page.getByRole("button", { name: "Close" }).click();
-  }
-
-  // ── Spell cast dialog ───────────────────────────────────────────────
-
-  async openSpell(participantName: string): Promise<void> {
-    await this.page
-      .getByRole("button", { name: `Cast spell with ${participantName}` })
-      .first()
-      .click();
-    await expect(this.page.getByRole("dialog", { name: /Cast Spell/ })).toBeVisible({
-      timeout: TIMEOUT_SHORT,
-    });
-  }
-
-  async performSpellAttack(opts: {
-    targetName: string;
-    spellName: string;
-    attackBonus: number;
-    damageDice?: string;
-    damageType?: string;
-  }): Promise<void> {
-    const dialog = this.page.getByRole("dialog", { name: /Cast Spell/ });
-    // Select target
-    await dialog.getByRole("button", { name: new RegExp(opts.targetName) }).click();
-    // Ensure Spell Attack mode is selected (default)
-    await dialog.getByRole("button", { name: "Spell Attack" }).click();
-    // Fill form
-    await dialog.getByLabel("Spell Name").fill(opts.spellName);
-    await dialog.getByLabel("Attack Bonus").fill(String(opts.attackBonus));
-    if (opts.damageDice) {
-      await dialog.getByLabel("Damage Dice").fill(opts.damageDice);
-    }
-    if (opts.damageType) {
-      await dialog.getByLabel("Damage Type").fill(opts.damageType);
-    }
-    // Submit
-    const [resp] = await Promise.all([
-      this.page.waitForResponse((r) => r.url().includes("encounterCombat.castCombatSpell")),
-      dialog.getByRole("button", { name: "Cast Spell" }).click(),
-    ]);
-    expect(resp.ok()).toBe(true);
-  }
-
-  async expectSpellResult(): Promise<void> {
-    const dialog = this.page.getByRole("dialog", { name: /Cast Spell/ });
-    await expect(dialog.getByText("HIT").or(dialog.getByText("MISS"))).toBeVisible({
-      timeout: TIMEOUT_SHORT,
-    });
-  }
-
-  // ── HP adjustment dialog ────────────────────────────────────────────
-
-  async adjustHp(
-    participantName: string,
-    mode: "Damage" | "Heal" | "Temp HP",
-    amount: number,
-  ): Promise<void> {
-    await this.page.getByRole("button", { name: `Adjust HP for ${participantName}` }).click();
-    await expect(this.page.getByRole("dialog", { name: /HP/ })).toBeVisible({
-      timeout: TIMEOUT_SHORT,
-    });
-    const dialog = this.page.getByRole("dialog", { name: /HP/ });
-    await dialog.getByRole("button", { name: mode }).click();
-    await dialog.getByRole("spinbutton", { name: "Amount" }).fill(String(amount));
-    const [resp] = await Promise.all([
-      this.page.waitForResponse((r) => r.url().includes("encounter.updateParticipant")),
-      dialog.getByRole("button", { name: "Apply" }).click(),
-    ]);
-    expect(resp.ok()).toBe(true);
+  /**
+   * Reads the name of the participant currently highlighted as "Current" in the
+   * initiative list. Used by the live-sync assertion to compare the DM and
+   * player views without a manual refresh.
+   */
+  async currentParticipantName(): Promise<string> {
+    // Exactly one initiative row carries the "Current" badge at a time, so the
+    // filtered locator resolves to a single element.
+    const currentRow = this.page
+      .getByRole("list", { name: "Initiative order" })
+      .getByRole("listitem")
+      .filter({ has: this.page.getByText("Current", { exact: true }) });
+    await expect(currentRow).toBeVisible({ timeout: TIMEOUT_SHORT });
+    return (await currentRow.textContent()) ?? "";
   }
 
   // ── End encounter / XP ──────────────────────────────────────────────
@@ -305,7 +199,13 @@ export class EncounterPO {
   // ── Combat log ──────────────────────────────────────────────────────
 
   async expectCombatLogEntry(text: string): Promise<void> {
-    await expect(this.page.getByText(text).first()).toBeVisible({ timeout: TIMEOUT_SHORT });
+    // Identical entries can repeat, so assert on the log container's text
+    // rather than a single entry element. Test id instead of role: the
+    // modal VTT drawer aria-hides the panel, which removes it from role
+    // lookups while it stays visually on screen.
+    await expect(this.page.getByTestId("combat-log")).toContainText(text, {
+      timeout: TIMEOUT_SHORT,
+    });
   }
 
   // ── Player-specific assertions ──────────────────────────────────────
@@ -315,17 +215,5 @@ export class EncounterPO {
     await expect(this.page.getByRole("button", { name: "Pause" })).toBeHidden();
     await expect(this.page.getByRole("button", { name: "End Encounter" })).toBeHidden();
     await expect(this.page.getByRole("button", { name: "New Encounter" })).toBeHidden();
-  }
-
-  async expectAttackButton(participantName: string): Promise<void> {
-    await expect(
-      this.page.getByRole("button", { name: `Attack with ${participantName}` }).first(),
-    ).toBeVisible({ timeout: TIMEOUT_SHORT });
-  }
-
-  async expectSpellButton(participantName: string): Promise<void> {
-    await expect(
-      this.page.getByRole("button", { name: `Cast spell with ${participantName}` }).first(),
-    ).toBeVisible({ timeout: TIMEOUT_SHORT });
   }
 }

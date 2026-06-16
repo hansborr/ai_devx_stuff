@@ -45,7 +45,9 @@ if ai_is_wrapped_bun_cmd "$MATCH_CMD"; then
   SCRIPT=$(ai_bun_script_from_cmd "$MATCH_CMD")
   SCRIPT_SAFE=$(ai_safe_script_name "$SCRIPT")
   LOG="$AI_BUN_LOG_DIR/$SCRIPT_SAFE.log"
-  MARKER="$AI_BUN_LOG_DIR/last.$SCRIPT_SAFE"
+  # Argv-scoped marker (H1/H2): keyed on the exact argv tail so a broader or
+  # corrected command does not replay a narrower/older run's cached state.
+  MARKER="$AI_BUN_LOG_DIR/$(ai_bun_marker_name "$MATCH_CMD")"
   CUR_FP=$(ai_worktree_fingerprint "$REPO_ROOT")
 
   if ai_read_bun_marker "$MARKER" && [ -z "$FORCE_VERIFY_REQ" ] && [ "${FORCE_VERIFY:-}" != "1" ]; then

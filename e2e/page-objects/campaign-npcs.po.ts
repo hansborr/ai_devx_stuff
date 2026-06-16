@@ -12,12 +12,13 @@ export class CampaignNpcsPO {
 
   async createNpc(name: string, description?: string, opts?: { visible?: boolean }): Promise<void> {
     await this.newNpcButton.click();
-    await this.page.locator("#npc-name").fill(name);
+    const dialog = this.page.getByRole("dialog", { name: "New NPC" });
+    await dialog.getByLabel("Name", { exact: true }).fill(name);
     if (description) {
-      await this.page.locator("#npc-description").fill(description);
+      await dialog.getByLabel("Description").fill(description);
     }
     if (opts?.visible) {
-      await this.page.locator("#npc-visible").check();
+      await dialog.getByLabel("Visible to players").check();
     }
     const [resp] = await Promise.all([
       this.page.waitForResponse((r) => r.url().includes("npc.create")),
@@ -28,7 +29,10 @@ export class CampaignNpcsPO {
 
   async editNpc(name: string, newName: string): Promise<void> {
     await this.page.getByLabel(`Edit ${name}`).click();
-    await this.page.locator("#npc-name").fill(newName);
+    await this.page
+      .getByRole("dialog", { name: "Edit NPC" })
+      .getByLabel("Name", { exact: true })
+      .fill(newName);
     const [resp] = await Promise.all([
       this.page.waitForResponse((r) => r.url().includes("npc.update")),
       this.page.getByRole("button", { name: "Update" }).click(),
@@ -65,7 +69,8 @@ export class CampaignNpcsPO {
   }
 
   async expectNpcsEmpty(): Promise<void> {
-    await expect(this.page.getByText(/no npcs/i).first()).toBeVisible({ timeout: TIMEOUT_SHORT });
+    // NpcEmptyState renders exactly one of its three "No NPCs..." variants.
+    await expect(this.page.getByText(/no npcs/i)).toBeVisible({ timeout: TIMEOUT_SHORT });
   }
 
   async expectCreateNpcHidden(): Promise<void> {

@@ -79,8 +79,7 @@ Shipped as a `drift:ai config` top-level subcommand, read-only.
   table, `harness.controls.json` (`drift-scope/config`, regenerated doc), and
   the `cli-args` usage all gained the surface — guarded by the existing
   readme-config-parity and harness-controls-parity tests. New files are
-  accounted for in
-  `docs/agent_notes/backlog/lint-review-2026-06/11-scripts-coverage-family-map.md`.
+  accounted for in `docs/agent_notes/lint-coverage-map.md`.
 - Tests: `scripts/drift-ai/config-inspect.test.ts` (model classification,
   text/JSON rendering, end-to-end default/auto-discovered/explicit/missing-config,
   `--help`, and `--output` writes-only-the-report).

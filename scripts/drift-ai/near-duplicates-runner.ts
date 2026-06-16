@@ -92,13 +92,6 @@ export function defaultNearDuplicateRunner(
       : runTsMorph(input);
 }
 
-export function unresolvedNearDuplicateRunner(
-  error: string,
-  reason: "tool-unavailable" | "run-failed" = "run-failed",
-): NearDuplicateRunner {
-  return () => ({ ok: false, reason, error });
-}
-
 // The single source-file inventory both engines analyze. Sharing this walk keeps
 // similarity-ts and ts-morph from silently scanning different file sets: the
 // drift ignore config, excludeGlobs, sourceExtensions, and .d.ts exclusion are

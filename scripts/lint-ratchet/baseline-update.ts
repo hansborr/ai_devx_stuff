@@ -1,8 +1,10 @@
 import { currentByIdFromBaseline } from "./baseline-format.js";
 import type {
   LintRatchetBaseline,
+  LintRatchetComparison,
   LintRatchetOrphanBaselineItem,
   LintRatchetOrphanRemoval,
+  LintRatchetRetireRequest,
   LintRatchetUpdateDecision,
 } from "./lint-ratchet-baseline.js";
 import { compareCurrentToBaseline as compareCurrentToBaselineImpl } from "./lint-ratchet-baseline-compare.js";
@@ -99,41 +101,147 @@ function formatOrphanFailure(
   );
 }
 
+function orphanFindingTotal(orphan: LintRatchetOrphanRemoval): number {
+  return orphan.baselineItems.reduce((total, item) => total + item.count, 0);
+}
+
+interface RetireResolution {
+  // The id retired without --allow-worse / debt log, set only when promotion was
+  // proven for a zero-finding orphan.
+  readonly retiredRatchetId?: string;
+  // The retire-specific failure, if the request could not be honored.
+  readonly failure?: string;
+}
+
+// Resolve an explicit --retire-ratchet request against the orphaned baseline
+// entries. A zero baseline alone is not proof the guard was replaced, so the
+// caller must prove normal lint now errors on the retired scope; otherwise this
+// falls back to the --allow-worse + debt-log path.
+function resolveRetire(
+  retire: LintRatchetRetireRequest,
+  orphanRemovals: readonly LintRatchetOrphanRemoval[],
+): RetireResolution {
+  const orphan = orphanRemovals.find((removal) => removal.testId === retire.id);
+  if (orphan === undefined) {
+    return {
+      failure:
+        `--retire-ratchet ${retire.id} requires ${retire.id} to be an orphaned committed ` +
+        "baseline entry (an id removed from the registry); no such entry was found",
+    };
+  }
+  if (orphanFindingTotal(orphan) > 0) {
+    return {
+      failure:
+        `--retire-ratchet ${retire.id} only retires a zero-finding orphan; ${retire.id} still ` +
+        `carries ${String(orphanFindingTotal(orphan))} finding(s) — drain or accept them with ` +
+        `--allow-worse --reason "${RATCHET_REGRESSION_REASON_PLACEHOLDER}" instead`,
+    };
+  }
+  if (!retire.normalErrorProven) {
+    return {
+      failure:
+        `--retire-ratchet ${retire.id} requires proof the rule was promoted: normal lint must ` +
+        `error on the retired scope. It does not, so the guard may have been dropped without a ` +
+        `replacement — accept the removal with --allow-worse --reason "${RATCHET_REGRESSION_REASON_PLACEHOLDER}" instead`,
+    };
+  }
+  return { retiredRatchetId: retire.id };
+}
+
+interface DecideUpdateOptions {
+  readonly allowWorse: boolean;
+  readonly reason?: string;
+  readonly retire?: LintRatchetRetireRequest;
+}
+
+interface UpdateGateResult {
+  readonly failures: readonly string[];
+  readonly orphanRemovals: readonly LintRatchetOrphanRemoval[];
+  readonly retiredRatchetId?: string;
+}
+
+function regressionFailure(
+  comparison: LintRatchetComparison,
+  options: DecideUpdateOptions,
+): string | undefined {
+  if (options.allowWorse || comparison.regressions.length === 0) return undefined;
+  return (
+    `generated baseline is worse for ${String(comparison.regressions.length)} path(s); ` +
+    `pass --allow-worse --reason "${RATCHET_REGRESSION_REASON_PLACEHOLDER}" to accept intentional new debt`
+  );
+}
+
+function reasonFailure(options: DecideUpdateOptions): string | undefined {
+  if (!options.allowWorse) return undefined;
+  return ratchetRegressionReasonFailure(options.reason?.trim() ?? "");
+}
+
+// Drop a proven retirement from the orphan set: a retired zero-finding,
+// promotion-proven ratchet is a strict improvement, not dropped debt, so it
+// must not reach the --allow-worse + debt-log gate.
+function accountableOrphans(
+  allOrphanRemovals: readonly LintRatchetOrphanRemoval[],
+  retiredRatchetId: string | undefined,
+): readonly LintRatchetOrphanRemoval[] {
+  if (retiredRatchetId === undefined) return allOrphanRemovals;
+  return allOrphanRemovals.filter((removal) => removal.testId !== retiredRatchetId);
+}
+
+// Collect every blocking failure for an update and the orphan set that remains
+// accountable as dropped debt (a proven retirement is removed from that set).
+function collectUpdateGate(
+  committed: LintRatchetBaseline,
+  ratchets: readonly LintRatchetConfig[],
+  comparison: LintRatchetComparison,
+  options: DecideUpdateOptions,
+): UpdateGateResult {
+  const allOrphanRemovals = collectOrphanRemovals(committed, ratchets);
+  const retire =
+    options.retire === undefined ? undefined : resolveRetire(options.retire, allOrphanRemovals);
+  const orphanRemovals = accountableOrphans(allOrphanRemovals, retire?.retiredRatchetId);
+
+  const failures = [
+    regressionFailure(comparison, options),
+    retire?.failure,
+    options.allowWorse ? undefined : formatOrphanFailure(orphanRemovals),
+    reasonFailure(options),
+  ].filter((failure): failure is string => failure !== undefined);
+
+  return {
+    failures,
+    orphanRemovals,
+    ...(retire?.retiredRatchetId === undefined
+      ? {}
+      : { retiredRatchetId: retire.retiredRatchetId }),
+  };
+}
+
 export function decideLintRatchetUpdate(
   committed: LintRatchetBaseline,
   generated: LintRatchetBaseline,
   ratchets: readonly LintRatchetConfig[],
-  options: { readonly allowWorse: boolean; readonly reason?: string },
+  options: DecideUpdateOptions,
 ): LintRatchetUpdateDecision {
   const comparison = compareCurrentToBaselineImpl(
     committed,
     ratchets,
     currentByIdFromBaseline(generated),
   );
-  const failures: string[] = [];
-  const warnings: string[] = [];
-  const reason = options.reason?.trim() ?? "";
-  if (comparison.regressions.length > 0 && !options.allowWorse) {
-    failures.push(
-      `generated baseline is worse for ${String(comparison.regressions.length)} path(s); ` +
-        `pass --allow-worse --reason "${RATCHET_REGRESSION_REASON_PLACEHOLDER}" to accept intentional new debt`,
-    );
-  }
+  const gate = collectUpdateGate(committed, ratchets, comparison, options);
 
-  const orphanRemovals = collectOrphanRemovals(committed, ratchets);
-  const orphanFailure = formatOrphanFailure(orphanRemovals);
-  if (orphanFailure !== undefined && !options.allowWorse) {
-    failures.push(orphanFailure);
-  }
-  if (options.allowWorse) {
-    const reasonFailure = ratchetRegressionReasonFailure(reason);
-    if (reasonFailure !== undefined) failures.push(reasonFailure);
-  }
+  const warnings = formatZeroToNonzeroWarnings(
+    detectZeroToNonzeroTransitions(committed, generated),
+  );
 
-  const zeroToNonzero = detectZeroToNonzeroTransitions(committed, generated);
-  if (zeroToNonzero.length > 0) {
-    warnings.push(...formatZeroToNonzeroWarnings(zeroToNonzero));
-  }
-
-  return { ...comparison, allowed: failures.length === 0, failures, warnings, orphanRemovals };
+  const allowed = gate.failures.length === 0;
+  return {
+    ...comparison,
+    allowed,
+    failures: gate.failures,
+    warnings,
+    orphanRemovals: gate.orphanRemovals,
+    ...(allowed && gate.retiredRatchetId !== undefined
+      ? { retiredRatchetId: gate.retiredRatchetId }
+      : {}),
+  };
 }

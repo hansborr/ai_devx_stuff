@@ -78,7 +78,7 @@ preferred execution queue for the overlapping leaves:
 - `ai-harness-followups.md` slow drift reports, stable JSON diagnostics,
   behavior confidence notes, and `logs:audit` activation notes.
 - `autonomous-agent-iteration-candidates.md` logs-audit latest candidate.
-- `lint-review-2026-06/` is the canonical lint platform queue; task 50 only
+- `lint-followups-2026-06/` is the canonical lint platform queue; task 50 only
   covers the narrow exemption-audit slice from the harness review.
 
 ## Promotion Rules

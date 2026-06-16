@@ -1,0 +1,48 @@
+# 30. 60 client tests hand-roll a QueryClient + provider wrapper instead of the shared render-helper, with config drift
+
+Status: Proposed — read-only finding from the test-suite audit; NOT implemented. Re-verify file:line before acting.
+Lens: maintainability · Area: client · Severity: med · Size: M-L · Confidence: high
+Theme: render-harness-duplication · Source: Musi test-suite audit 2026-06-13 (multi-agent, adversarially verified)
+
+## Problem
+`packages/client/src/test/render-helper.tsx` already exports the canonical client test harness: `renderWithProviders()` (full `QueryClientProvider` + `TRPCProvider`) and `createQueryWrapper()` (`QueryClientProvider`-only, for `renderHook`), both built on a private `createTestQueryClient()` that disables retries (`queries.retry: false`, `mutations.retry: false`) and zeroes `gcTime`. Yet 60 client test files build their own `new QueryClient({...})` + `<QueryClientProvider>` wrapper inline, and the two populations are exactly disjoint: 0 of the 60 hand-rollers import `render-helper`, while 41 other test files do. One canonical entry point, ~60 reinventions of it.
+
+The inline copies have drifted into several distinct config shapes — they do not agree on what a "test QueryClient" is. 59 of 60 set `retry: false` somewhere, but the rest of the shape varies: 38 carry the full `{ queries.retry:false, mutations.retry:false }` form, others set only `queries.retry:false`, one file (`cache-helpers.test.ts`) has no retry suppression at all while `create-campaign-dialog.test.tsx` has bare `new QueryClient()` smoke instances alongside a configured client, and 8 add `staleTime: Number.POSITIVE_INFINITY`. A new dev reading these cannot tell whether the differences are load-bearing (they usually are not, but in one cluster they are), so they copy whichever wrapper is nearest and propagate the drift.
+
+The duplication clusters densely in three subtrees, each reinventing the harness — and in one case more than the harness:
+- **campaign** (`src/components/campaign/**` + the two `src/pages/campaign*-page.test.tsx`): 25 files (23 under `components/campaign/**` + 2 `campaign*-page` pages), each with a local `renderPage()`/`function wrapper` re-creating the client.
+- **sheet** (`src/components/sheet/**`): 14 files with a hand-rolled client, 15 repeating the verbatim 4-line `vi.mock('@/lib/trpc.js')` → `createMockTRPCModule()` block, 11 with an identical hand-rolled `function wrapper`.
+- **vtt drawer tabs** (`src/components/vtt/drawer/**`): 10 files. These go furthest — they reinvent not just the QueryClient but an identical `makeQueryClient(options)` + `setQueryData(trpc.characterSpell.list…/inventory.list…)` seeding block whose non-obvious `staleTime: Number.POSITIVE_INFINITY` is load-bearing: it stops the mock-trpc default query fns from background-refetching default fixtures and clobbering the `setQueryData` overrides mid-interaction.
+
+## Evidence
+- `packages/client/src/test/render-helper.tsx:7-63` — `createTestQueryClient()` (lines 7-19: `queries.retry:false`, `gcTime:0`, `mutations.retry:false`); exported `createQueryWrapper()` (lines 41-50, `QueryClientProvider`-only) and `renderWithProviders()` (lines 56-63, full providers). This is the harness the 60 files bypass.
+- rg verified at current HEAD: 60 client test files contain `new QueryClient(`; 41 client test files import `render-helper`; the intersection of the two sets is exactly 0 (fully disjoint). Config drift across the 60: 59 set `retry: false`, 38 use the `{ queries + mutations retry:false }` shape, 8 add `staleTime: Number.POSITIVE_INFINITY`, 1 file (`cache-helpers.test.ts`) has no retry suppression at all.
+- `packages/client/src/pages/campaigns-page.test.tsx:33-42` — local `renderPage()` re-creates `new QueryClient({ defaultOptions: { queries: { retry: false } } })` + `QueryClientProvider`, equivalent to `createQueryWrapper()`.
+- `packages/client/src/components/vtt/drawer/tabs/stats-tab.test.tsx:37-60` — `makeQueryClient()`/`renderTab()` variant adding `staleTime: Number.POSITIVE_INFINITY` (line 40) plus `characterSpell.list` `setQueryData` seeding (lines 46-49). The `staleTime` is load-bearing per the inline rationale at `packages/client/src/components/vtt/drawer/tabs/actions-tab.test.tsx:90-91` ("prevents the mock's background refetch … from clobbering our setQueryData overrides"); spells-tab/actions-tab/cast variants repeat the block.
+- `packages/client/src/components/sheet/ability-score-card.test.tsx:10-21` — verbatim `vi.mock('@/lib/trpc.js')` → `createMockTRPCModule()` block (lines 10-13) + hand-rolled `function wrapper` with `new QueryClient({ defaultOptions: { queries: { retry: false } } })` (lines 18-21). rg: 15 sheet files repeat the mock block, 11 the `function wrapper`.
+- Scope counts (rg, current HEAD): campaign 25 files (23 under `src/components/campaign/**` + 2 `src/pages/campaign*-page.test.tsx`), sheet 14 hand-rolled clients / 15 mock blocks / 11 wrappers, vtt/drawer 10 — all subsets of the 60.
+
+## Proposed direction
+Migrate the inline wrappers to `renderWithProviders()` / `createQueryWrapper()` from `@/test/render-helper`. Do this per-test (not a blind `sed`): instantiate the helper inside each render call so each test still gets a fresh client. The inline wrappers create a fresh client per render; `createQueryWrapper()` captures one client in a closure, so keep per-test invocation to preserve test isolation.
+
+Where a test genuinely needs a non-default option (the vtt `staleTime:Infinity` seeding, the queries-only members-panel client), pass an explicit option to `renderWithProviders` (it already accepts an injected `queryClient` via `RenderWithProvidersOptions`) so the deviation is visible and intentional rather than silent drift.
+
+For the vtt drawer cluster specifically, also add a shared `renderDrawerTab(ui, { character, spells, inventory, isReadOnly })` (or a `seedQueryData` helper) that owns the `characterSpell.list` / `inventory.list` `setQueryData` seeding and centralizes the `staleTime:Infinity` rationale in one place; migrate the ~5 tab tests plus the cast-rail/confirm-cast-strip variants to it. Preserve every existing seeded-state / `isReadOnly` / props case verbatim — only the provider wiring and seeding scaffold change, so coverage is identical.
+
+Verify a couple of migrations per cluster render identically: the tests already `vi.mock('@/lib/trpc.js')`, so the real `TRPCProvider` that `render-helper` imports resolves through the mock passthrough.
+
+Estimated impact: removes ~60 divergent harness copies (plus the ~11 sheet `function wrapper` and ~5 vtt seeding blocks) in favor of one canonical render entry point. This is a maintainability/onboarding win, not a runtime one — a new dev learns one harness instead of reverse-engineering each file's QueryClient config, and a provider- or query-key change becomes a small set of edits instead of dozens. No meaningful wall-clock test-time change is expected (retries are already disabled in the common case).
+
+## Scope / caveats
+Large but low-risk: it is pure harness construction with retries already off in the common case. Sequence by subtree (vtt drawer → sheet → campaign → pages) so each migration is independently committable and reviewable. Package-flow order (shared → server → client) is not engaged — this is client-test-only.
+
+Hidden risks to respect:
+1. **Per-test client creation must be preserved** — a module-scope single `createQueryWrapper()` would share cache across `it()` blocks and could leak state.
+2. **`staleTime: Number.POSITIVE_INFINITY` in the vtt cluster is load-bearing** (see `actions-tab.test.tsx:90-91`); do not drop it when centralizing.
+3. **Only `cache-helpers.test.ts` has no retry suppression at all** (`create-campaign-dialog.test.tsx` has bare `new QueryClient()` smoke instances but also a configured retry:false client) — moving the bare instances to the helper adds `retry:false`; confirm none rely on retry behavior (they are smoke renders, so this should be safe).
+4. **`packages/client/src/components/campaign/members/members-panel.test.tsx`** (lines 13-18) also `vi.mock`s `@tanstack/react-router` with a component-specific `Link` mock the shared helper does NOT provide — retain it; only swap the QueryClient wiring.
+5. **Distinguish migration targets by test type.** Several `renderHook` tests use their own inline `useTRPC: () =>` mocks and are NOT migratable to `renderWithProviders` — leave them (they can at most adopt `createQueryWrapper()`): `packages/client/src/components/campaign/tokens/map-token-mutations.test.tsx` (the `vi.mock` starts at line 28), plus the three merge-added `*-mutations` files in the same onTRPCError-catalog family — `components/campaign/combat/combat-map-mutations.test.tsx`, `components/campaign/maps/map-detail-mutations.test.tsx`, and `hooks/use-map-layer-mutations.test.tsx`. By contrast, `renderHook` hand-rollers that mock through `createMockTRPCModule()` passthrough (e.g. `use-character-personality.test.ts`, `use-srd-lookups.test.ts`) CAN move to `createQueryWrapper()`.
+
+Merge note: this finding folds together four separately-surfaced reports — the 36+ generic hand-rollers, the 21+ campaign tests, the 11-16 sheet trpc-mock/wrapper copies, and the vtt drawer-tab seeding harnesses — into one render-harness-duplication finding because they all bypass the same existing helper.
+
+Boundary vs. adjacent findings: this is distinct from the already-filed drift-ai server-helper-duplication findings (#24/#26/#27) and the helper-dir orientation doc (codebase-audit #22). Here the canonical helper **exists** in the client tree and is bypassed; this is not a "missing helper" or "server-side dup" case.

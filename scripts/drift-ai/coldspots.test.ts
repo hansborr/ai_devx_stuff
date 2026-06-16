@@ -7,12 +7,12 @@ import { describe, expect, it } from "vitest";
 import { runColdspots } from "./coldspots.js";
 import type { ColdspotsAdvisory, ColdspotSection, StaleMarkerSection } from "./coldspots-format.js";
 import type { GitRunner } from "./git-changed-scope.js";
+import {
+  commitBlock as buildCommitBlock,
+  joinGitLogBlocks as gitLog,
+} from "./git-log-fixture.test-helper.js";
 import { runDriftAi } from "./runner.js";
 
-// Control bytes git expands the %x.. escapes into, written as JS escapes so this
-// source stays plain text (never embed raw NUL bytes in a .ts file).
-const NUL = "\u0000";
-const US = "\u001f";
 const DAY_MS = 24 * 60 * 60 * 1000;
 const NOW_MS = Date.parse("2026-05-29T00:00:00-07:00");
 
@@ -20,31 +20,27 @@ function isoDaysAgo(days: number): string {
   return new Date(NOW_MS - days * DAY_MS).toISOString();
 }
 
-function metaLine(hash: string, author: string, isoDate: string): string {
-  return (
-    NUL +
-    [
-      hash,
-      author,
-      `${author.toLowerCase()}@example.com`,
-      isoDate,
-      isoDate,
-      `subject ${hash}`,
-      "",
-    ].join(US)
-  );
-}
-
+// Coldspots fixtures derive author email and subject from the hash/author, so
+// wrap the shared git-log builder to keep that positional shape (author date ==
+// committer date == the isoDaysAgo timestamp).
 function commitBlock(
   hash: string,
   rows: readonly string[],
   opts: { author?: string; days?: number } = {},
 ): string {
-  return [metaLine(hash, opts.author ?? "Ada", isoDaysAgo(opts.days ?? 1)), "", ...rows].join("\n");
-}
-
-function gitLog(blocks: readonly string[]): string {
-  return blocks.join("\n");
+  const author = opts.author ?? "Ada";
+  const isoDate = isoDaysAgo(opts.days ?? 1);
+  return buildCommitBlock(
+    {
+      hash,
+      authorName: author,
+      authorEmail: `${author.toLowerCase()}@example.com`,
+      authorDate: isoDate,
+      committerDate: isoDate,
+      subject: `subject ${hash}`,
+    },
+    rows,
+  );
 }
 
 function coldspotsGit(logByWindow: Readonly<Record<number, string>>): GitRunner {

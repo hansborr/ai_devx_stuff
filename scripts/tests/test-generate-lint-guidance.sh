@@ -27,6 +27,7 @@ copy_generator() {
   mkdir -p "$fixture_dir/scripts" "$fixture_dir/scripts/lib"
   cp scripts/generate-lint-guidance.ts "$fixture_dir/scripts/generate-lint-guidance.ts"
   cp scripts/lib/lint-rule-docs.ts "$fixture_dir/scripts/lib/lint-rule-docs.ts"
+  cp scripts/lib/doc-generator.ts "$fixture_dir/scripts/lib/doc-generator.ts"
 }
 
 write_valid_fixture() {

@@ -6,11 +6,25 @@ import { CampaignNotesPO } from "./campaign-notes.po.js";
 import { CampaignNpcsPO } from "./campaign-npcs.po.js";
 import { CampaignSettingsPO } from "./campaign-settings.po.js";
 
+interface TrpcResultEnvelope {
+  result?: { data?: { code?: unknown } };
+}
+
+/** Pull the invite code out of an invite.create tRPC response body. */
+function extractInviteCode(body: unknown): string | null {
+  const first: unknown = Array.isArray(body) ? body[0] : body;
+  if (typeof first !== "object" || first === null) return null;
+  // type-assertion-boundary: json - tRPC response envelope; the code field is narrowed below.
+  const code = (first as TrpcResultEnvelope).result?.data?.code;
+  return typeof code === "string" ? code : null;
+}
+
 export class CampaignDetailPO {
   readonly chat: CampaignChatPO;
   readonly notes: CampaignNotesPO;
   readonly npcs: CampaignNpcsPO;
   readonly settings: CampaignSettingsPO;
+  private lastInviteCode: string | null = null;
 
   constructor(private readonly page: Page) {
     this.chat = new CampaignChatPO(page);
@@ -20,10 +34,9 @@ export class CampaignDetailPO {
   }
 
   // ── Named locators ─────────────────────────────────────────────────
-  readonly membersList = this.page.locator('[aria-label="Campaign members"]');
+  readonly membersList = this.page.getByRole("list", { name: "Campaign members" });
   readonly createInviteButton = this.page.getByRole("button", { name: "Create Invite" });
-  readonly inviteCodeDisplay = this.page.locator("code.font-mono").first();
-  readonly assignCharacterSelect = this.page.locator('[aria-label="Assign character"]');
+  readonly assignCharacterSelect = this.page.getByLabel("Assign character");
 
   // ── Header ──────────────────────────────────────────────────────────
 
@@ -72,7 +85,9 @@ export class CampaignDetailPO {
   // ── Members tab ─────────────────────────────────────────────────────
 
   async expectMemberVisible(displayName: string): Promise<void> {
-    await expect(this.membersList.locator("li", { hasText: displayName })).toBeVisible({
+    await expect(
+      this.membersList.getByRole("listitem").filter({ hasText: displayName }),
+    ).toBeVisible({
       timeout: TIMEOUT_MEDIUM,
     });
   }
@@ -83,7 +98,9 @@ export class CampaignDetailPO {
 
   async assignCharacter(characterName: string): Promise<void> {
     await expect(this.assignCharacterSelect).toBeVisible({ timeout: TIMEOUT_MEDIUM });
-    const option = this.assignCharacterSelect.locator("option", { hasText: characterName });
+    const option = this.assignCharacterSelect
+      .getByRole("option")
+      .filter({ hasText: characterName });
     const value = await option.getAttribute("value");
     const [resp] = await Promise.all([
       this.page.waitForResponse((r) => r.url().includes("campaign.assignCharacter")),
@@ -105,11 +122,22 @@ export class CampaignDetailPO {
       this.createInviteButton.click(),
     ]);
     expect(resp.ok()).toBe(true);
+    this.lastInviteCode = extractInviteCode(await resp.json());
   }
 
+  /**
+   * Return the code captured from the last createInvite call, after
+   * confirming it is shown in the invite panel. Replaces the old
+   * positional read of the first <code> element, which silently depended
+   * on the server's newest-first invite ordering.
+   */
   async getInviteCode(): Promise<string> {
-    await expect(this.inviteCodeDisplay).toBeVisible({ timeout: TIMEOUT_SHORT });
-    return (await this.inviteCodeDisplay.textContent()) ?? "";
+    const code = this.lastInviteCode;
+    if (code === null) throw new Error("getInviteCode requires a prior createInvite call");
+    await expect(this.page.getByText(code, { exact: true })).toBeVisible({
+      timeout: TIMEOUT_SHORT,
+    });
+    return code;
   }
 
   async revokeInvite(code: string): Promise<void> {
@@ -121,7 +149,7 @@ export class CampaignDetailPO {
   }
 
   async expectInviteGone(code: string): Promise<void> {
-    await expect(this.page.locator("code.font-mono").filter({ hasText: code })).not.toBeVisible({
+    await expect(this.page.getByText(code, { exact: true })).not.toBeVisible({
       timeout: TIMEOUT_SHORT,
     });
   }

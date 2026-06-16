@@ -95,6 +95,7 @@ function resolveRunContext(
       env: {
         repoRoot: prepared.repoRoot,
         overrides: options,
+        warnStderr,
       },
     },
     warnStderr,
@@ -155,10 +156,42 @@ export function runDriftAi(options: RunOptions): RunResult {
   } catch (err) {
     return toExitResult(err);
   }
-  // Report-only by default (exit 0). --fail-on-findings opts into exit 1 when the
-  // run produced findings; usage/config errors already returned exit 2 above.
-  const exitCode = parsed.failOnFindings && report.findings.length > 0 ? 1 : 0;
-  return { exitCode, stdout, report };
+  return { exitCode: resolveExitCode(parsed, report, resolved.warnStderr), stdout, report };
+}
+
+// Report-only by default (exit 0). --fail-on-findings opts into exit 1 when the
+// run produced findings, --fail-on-runtime-cycles into exit 1 for the runtime
+// import-cycle floor; usage/config errors return exit 2 before this runs. The
+// gate's why-red line goes to stderr so JSON/--output consumers of stdout stay
+// unaffected.
+function resolveExitCode(
+  parsed: CliOptions,
+  report: DriftReport,
+  warnStderr: (message: string) => void,
+): number {
+  const findingsGateFails = parsed.failOnFindings && report.findings.length > 0;
+  const cycleGateFailure = runtimeCycleGateFailure(parsed, report);
+  if (cycleGateFailure !== null) warnStderr(cycleGateFailure);
+  return findingsGateFails || cycleGateFailure !== null ? 1 : 0;
+}
+
+// The runtime import-cycle floor: under --fail-on-runtime-cycles a run fails on
+// any import-cycles finding not explicitly labeled type-only (genuine runtime
+// cycles and the could-not-build-graph diagnostic both count), and also when the
+// import-cycles check skipped — a gate that never inspected the graph must fail
+// closed rather than certify zero runtime cycles. Type-only SCCs
+// (details.typeOnly: true) stay report-only evidence. Returns the stderr line
+// explaining the red gate, or null when the gate passes or is not armed.
+function runtimeCycleGateFailure(parsed: CliOptions, report: DriftReport): string | null {
+  if (!parsed.failOnRuntimeCycles) return null;
+  if (report.skippedChecks.some((skip) => skip.check === "import-cycles")) {
+    return "drift:ai: --fail-on-runtime-cycles failed closed: the import-cycles check skipped, so zero runtime cycles could not be certified; see the skip reason in the report.";
+  }
+  const gating = report.findings.some(
+    (finding) => finding.check === "import-cycles" && finding.details?.["typeOnly"] !== true,
+  );
+  if (!gating) return null;
+  return "drift:ai: --fail-on-runtime-cycles: runtime import cycles (or a module-graph diagnostic) failed the gate; see the import-cycles findings and FIX hints in the report.";
 }
 
 type TopLevelSubcommandHandler = (options: RunOptions) => RunResult;

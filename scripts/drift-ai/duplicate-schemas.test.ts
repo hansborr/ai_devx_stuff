@@ -305,6 +305,7 @@ describe("duplicateSchemasCheck", () => {
         repoRoot,
         overrides: {},
         cli: parseArgs(["--scope", "current", "--check", "duplicate-schemas"]),
+        warnStderr: () => undefined,
       },
     });
     expect(outcome.status).toBe("ran");

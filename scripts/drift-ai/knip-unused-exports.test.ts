@@ -105,6 +105,7 @@ function makeInput(
           ? []
           : ["--knip-config", overrides.knipConfigOverride]),
       ]),
+      warnStderr: () => undefined,
     },
   };
 }
@@ -159,6 +160,7 @@ function makeDefaultKnipInput(fixture: FakeTargetKnip, argv: readonly string[]):
         pathExists: pathExistsFor(INSTALLED_WITH_ROOT_CONFIG),
       },
       cli: parseArgs(["--scope", "current", ...argv]),
+      warnStderr: () => undefined,
     },
   };
 }

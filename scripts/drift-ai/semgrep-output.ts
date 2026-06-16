@@ -13,25 +13,10 @@ import type {
   SemgrepScanError,
   SemgrepScanParse,
 } from "./semgrep-types.js";
+import { parseToolVersionOutput } from "./tool-version.js";
 
 export function parseSemgrepVersionOutput(output: string): string | undefined {
-  for (const line of output.split(/\r?\n/u)) {
-    const trimmed = line.trim();
-    if (trimmed.length === 0) continue;
-    const version = versionFromLine(trimmed);
-    if (version !== undefined) return version;
-  }
-  return undefined;
-}
-
-function versionFromLine(line: string): string | undefined {
-  if (/\bsemgrep\b/iu.test(line)) {
-    const labeled = /(\d+\.\d+\.\d+(?:[-+.][\w.-]+)?)/u.exec(line);
-    if (labeled?.[1] !== undefined) return labeled[1];
-  }
-  // `semgrep --version` prints the bare version on its own line.
-  const bare = /^v?(\d+\.\d+\.\d+(?:[-+.][\w.-]+)?)$/u.exec(line);
-  return bare?.[1];
+  return parseToolVersionOutput(output, "semgrep");
 }
 
 export function parseSemgrepScanOutput(jsonText: string): SemgrepScanParse {

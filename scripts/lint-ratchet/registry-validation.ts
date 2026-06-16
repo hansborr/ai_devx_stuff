@@ -248,6 +248,9 @@ function validateRatchetEntry(
   validateSortedPathList(ratchet.id, ratchet.ignores, ["ignores", "ignore glob"], failures);
   validateRatchetModeAndMetric(ratchet, source, failures);
   validateRatchetTargetAndOptions(ratchet, failures);
+  if (ratchet.principle.trim().length === 0) {
+    failures.push(`${ratchet.id}: principle must be a non-empty string`);
+  }
   validateZeroBaselineDisposition(ratchet, failures);
   validateRatchetScope(ratchet, ctx, failures);
 }

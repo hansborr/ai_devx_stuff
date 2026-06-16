@@ -4,13 +4,9 @@ import path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { commitBlock as buildCommitBlock } from "./git-log-fixture.test-helper.js";
 import { GIT_LOG_FORMAT } from "./hotspots-history.js";
 import { runDriftAi } from "./runner.js";
-
-// Control bytes git expands into GIT_LOG_FORMAT output, built via fromCharCode so
-// this fixture file stays plain text: NUL commit boundary, unit-separator fields.
-const NUL = String.fromCharCode(0);
-const US = String.fromCharCode(0x1f);
 
 type MetaFields = {
   readonly hash: string;
@@ -18,23 +14,19 @@ type MetaFields = {
   readonly subject: string;
 };
 
-function metaLine(fields: MetaFields): string {
-  return (
-    NUL +
-    [
-      fields.hash,
-      "Ada",
-      "ada@example.com",
-      fields.authorDate,
-      fields.authorDate,
-      fields.subject,
-      "",
-    ].join(US)
-  );
-}
-
+// These cases only vary hash/date/subject, so wrap the shared git-log builder
+// with the fixed author identity this file uses (committer date == author date).
 function commitBlock(fields: MetaFields, rows: readonly string[]): string {
-  return [metaLine(fields), "", ...rows].join("\n");
+  return buildCommitBlock(
+    {
+      hash: fields.hash,
+      authorName: "Ada",
+      authorEmail: "ada@example.com",
+      authorDate: fields.authorDate,
+      subject: fields.subject,
+    },
+    rows,
+  );
 }
 
 describe("test-orphaning subcommand", () => {

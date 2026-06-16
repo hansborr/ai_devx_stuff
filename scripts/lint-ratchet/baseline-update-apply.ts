@@ -9,6 +9,7 @@ import { WorseBaselineError } from "./errors.js";
 import {
   decideLintRatchetUpdate,
   type LintRatchetBaseline,
+  type LintRatchetRetireRequest,
   type LintRatchetUpdateDecision,
   parseLintRatchetBaselineStructure,
 } from "./lint-ratchet-baseline.js";
@@ -36,6 +37,7 @@ export const defaultRunUpdateDeps: RunUpdateDeps = {
 export interface ApplyLintRatchetUpdateOptions {
   readonly allowWorse: boolean;
   readonly reason?: string;
+  readonly retire?: LintRatchetRetireRequest;
 }
 
 export interface ApplyLintRatchetUpdateParams {
@@ -111,5 +113,10 @@ export function applyLintRatchetUpdate(params: ApplyLintRatchetUpdateParams): bo
     `lint:ratchet:update OK — wrote ${BASELINE_FILENAME} with ${String(params.currentFindingCount)} current finding(s).` +
       (recordedDebt ? ` Recorded the debt acceptance in ${DEBT_LOG_FILENAME}.` : ""),
   );
+  if (decision?.retiredRatchetId !== undefined) {
+    console.error(
+      `Retired ratchet ${decision.retiredRatchetId} (was at zero findings); coverage promoted. No debt logged.`,
+    );
+  }
   return recordedDebt;
 }

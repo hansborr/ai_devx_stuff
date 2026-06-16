@@ -174,9 +174,12 @@ Two distinct mechanisms, both plausible, neither measured:
   - Leaf 15 (2026-05-19): 24 findings = 11 dialog-reset /
     6 props-to-local-state / 5 external-system-sync / 0 derived-state /
     0 cleanup-reset / 2 other. **Zero actual bugs.** Defer verdict for
-    *error promotion* recorded in
-    `docs/agent_notes/backlog/lint-hardening/evaluation-verdicts.md`; leaf at
-    `docs/agent_notes/backlog/lint-followups/15-react-deferred-rules.md`.
+    *error promotion* recorded in the lint-hardening pack's
+    `evaluation-verdicts.md`, with the Leaf 15 follow-up at
+    `lint-followups/15-react-deferred-rules.md`; both were consolidated out of
+    the backlog in `31b43881 docs(lint): consolidate lint review backlog` and
+    now live in git history. The active register is
+    `docs/agent_notes/backlog/lint-followups-2026-06/evaluation-verdicts.md`.
 - Fetch-in-effect and derived-state-in-effect — the two most bug-dense AI
   pattern classes — have **no local foothold**: TanStack Query + tRPC owns
   fetching (all 8 `@tanstack/query` lint rules are strictly gated; one is

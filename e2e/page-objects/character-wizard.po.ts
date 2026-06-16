@@ -3,6 +3,20 @@ import { expect, type Page } from "@playwright/test";
 import { ABILITY_SCORES } from "../helpers/test-data.js";
 import { TIMEOUT_MEDIUM, TIMEOUT_SHORT } from "../helpers/timeouts.js";
 
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Accessible name matcher for a spell/cantrip selection button. Concentration
+ * spells render a trailing " C" badge inside the button (e.g. "Dancing Lights
+ * C"), so an exact match fails. Anchor to the spell name and allow the optional
+ * badge while still rejecting prefix collisions like "Light" vs "Lightning".
+ */
+function spellButtonName(name: string): RegExp {
+  return new RegExp(`^${escapeRegExp(name)}( C)?$`);
+}
+
 export interface BoostOptions {
   mode?: "+2/+1" | "+1/+1/+1";
   plus2?: string;
@@ -20,6 +34,10 @@ export interface CharacterBuildOptions {
   skills: string[];
   equipmentOption?: "A" | "B";
   name: string;
+  /** Cantrip names to choose on the Spells step (caster classes only). */
+  cantrips?: string[];
+  /** Level-1 spell names to choose on the Spells step (caster classes only). */
+  spells?: string[];
 }
 
 export class CharacterWizardPO {
@@ -27,22 +45,21 @@ export class CharacterWizardPO {
 
   readonly continueButton = this.page.getByRole("button", { name: "Continue" });
   readonly manualEntryButton = this.page.getByRole("button", { name: "Manual Entry" });
-  readonly boostPlus2 = this.page.locator("#boost-plus-2");
-  readonly boostPlus1 = this.page.locator("#boost-plus-1");
-  readonly boostFirst = this.page.locator("#boost-first");
-  readonly boostSecond = this.page.locator("#boost-second");
-  readonly boostThird = this.page.locator("#boost-third");
+  readonly boostPlus2 = this.page.getByRole("combobox", { name: "+2 Ability" });
+  readonly boostPlus1 = this.page.getByRole("combobox", { name: "+1 Ability" });
+  readonly boostFirst = this.page.getByRole("combobox", { name: "First +1" });
+  readonly boostSecond = this.page.getByRole("combobox", { name: "Second +1" });
+  readonly boostThird = this.page.getByRole("combobox", { name: "Third +1" });
   readonly boostModeTriple = this.page.getByText("+1 / +1 / +1");
-  readonly charNameInput = this.page.locator("#char-name");
+  readonly charNameInput = this.page.getByLabel("Name *");
   readonly equipmentOptionA = this.page.getByText("Equipment Pack");
   readonly createCharacterButton = this.page.getByRole("button", { name: "Create Character" });
 
   /** Click a wizard card (species/class/background) by its heading text. */
   async clickCard(name: string): Promise<void> {
     const card = this.page
-      .locator('[role="button"][aria-pressed]')
-      .filter({ has: this.page.getByRole("heading", { name, exact: true }) })
-      .first();
+      .getByRole("button")
+      .filter({ has: this.page.getByRole("heading", { name, exact: true }) });
     await expect(card).toBeVisible({ timeout: TIMEOUT_MEDIUM });
     await card.click();
     await expect(card).toHaveAttribute("aria-pressed", "true");
@@ -59,8 +76,7 @@ export class CharacterWizardPO {
     await expect(this.page.getByText("Set Ability Scores")).toBeVisible();
     await this.manualEntryButton.click();
     for (const { name, value } of ABILITY_SCORES) {
-      const card = this.page.locator(".bg-surface").filter({ hasText: name });
-      await card.locator('input[type="number"]').fill(value);
+      await this.page.getByLabel(`${name} score`).fill(value);
     }
   }
 
@@ -114,6 +130,31 @@ export class CharacterWizardPO {
     await this.page.getByText(label).click();
   }
 
+  /** Select cantrips and level-1 spells on the Spells step (caster classes only). */
+  async selectSpells(cantrips: string[], spells: string[]): Promise<void> {
+    await expect(this.page.getByRole("heading", { name: "Choose Your Spells" })).toBeVisible({
+      timeout: TIMEOUT_MEDIUM,
+    });
+    const cantripGroup = this.page.getByRole("group", { name: "Cantrips" });
+    for (const name of cantrips) {
+      await cantripGroup.getByRole("button", { name: spellButtonName(name) }).click();
+    }
+    const spellGroup = this.page.getByRole("group", { name: "Level 1 spells" });
+    for (const name of spells) {
+      await spellGroup.getByRole("button", { name: spellButtonName(name) }).click();
+    }
+  }
+
+  /** Submit on the review step and wait for the resulting sheet to load. */
+  async submitCreateToSheet(): Promise<void> {
+    const [resp] = await Promise.all([
+      this.page.waitForResponse((r) => r.url().includes("character.create")),
+      this.createCharacterButton.click(),
+    ]);
+    expect(resp.ok()).toBe(true);
+    await expect(this.page).toHaveURL(/\/characters\//, { timeout: TIMEOUT_MEDIUM });
+  }
+
   /** Submit on the review step and wait for API success. */
   async submitCreate(): Promise<void> {
     const [resp] = await Promise.all([
@@ -134,8 +175,8 @@ export class CharacterWizardPO {
     });
   }
 
-  /** Run the full wizard flow with the given options. */
-  async createCharacter(opts: CharacterBuildOptions): Promise<void> {
+  /** Walk every wizard step up to (and including) the Review step. */
+  private async fillWizardThroughReview(opts: CharacterBuildOptions): Promise<void> {
     // Step 0: Species
     await this.clickCard(opts.species);
     await this.clickContinue();
@@ -155,13 +196,29 @@ export class CharacterWizardPO {
     // Step 5: Equipment (Option A is selected by default)
     await this.selectEquipmentOption("A");
     await this.clickContinue();
-    // Step 6: Personality
+    // Step 6: Spells (caster classes only — non-casters skip this step)
+    if (opts.cantrips || opts.spells) {
+      await this.selectSpells(opts.cantrips ?? [], opts.spells ?? []);
+      await this.clickContinue();
+    }
+    // Step 7: Personality
     await expect(this.page.getByText("Personality & Details")).toBeVisible();
     await this.setCharacterName(opts.name);
     await this.clickContinue();
-    // Step 7: Review & Create
+    // Step 8: Review & Create
     await expect(this.page.getByText("Review & Create")).toBeVisible();
+  }
+
+  /** Run the full wizard flow with the given options, returning to dashboard. */
+  async createCharacter(opts: CharacterBuildOptions): Promise<void> {
+    await this.fillWizardThroughReview(opts);
     await this.submitCreate();
+  }
+
+  /** Run the full wizard flow and stay on the resulting character sheet. */
+  async createCharacterToSheet(opts: CharacterBuildOptions): Promise<void> {
+    await this.fillWizardThroughReview(opts);
+    await this.submitCreateToSheet();
   }
 
   /**

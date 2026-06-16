@@ -24,7 +24,7 @@ inventory pass, not a mass lint adoption.
 - `eslint-rules/`
 - `docs/guides/local-eslint-rules.md`
 - `docs/guides/lint-ratchet.md`
-- `docs/agent_notes/backlog/lint-review-2026-06/`
+- `docs/agent_notes/backlog/lint-followups-2026-06/`
 
 ## What to do
 

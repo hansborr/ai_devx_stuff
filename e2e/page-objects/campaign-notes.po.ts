@@ -12,13 +12,14 @@ export class CampaignNotesPO {
 
   async createNote(title: string, content: string, visibility?: string): Promise<void> {
     await this.newNoteButton.click();
-    await expect(
-      this.page.getByRole("dialog").getByRole("heading", { name: "New Note" }),
-    ).toBeVisible({ timeout: TIMEOUT_MEDIUM });
-    await this.page.locator("#note-title").fill(title);
-    await this.page.locator("#note-content").fill(content);
+    const dialog = this.page.getByRole("dialog", { name: "New Note" });
+    await expect(dialog.getByRole("heading", { name: "New Note" })).toBeVisible({
+      timeout: TIMEOUT_MEDIUM,
+    });
+    await dialog.getByLabel("Title").fill(title);
+    await dialog.getByLabel("Content").fill(content);
     if (visibility) {
-      const visibilitySelect = this.page.locator("#note-visibility");
+      const visibilitySelect = dialog.getByRole("combobox", { name: "Visibility" });
       await expect(visibilitySelect).toBeEnabled({ timeout: TIMEOUT_MEDIUM });
       await visibilitySelect.click();
       await this.page
@@ -34,7 +35,7 @@ export class CampaignNotesPO {
 
   async editNote(title: string, newTitle: string): Promise<void> {
     await this.page.getByLabel(`Edit ${title}`).click();
-    await this.page.locator("#note-title").fill(newTitle);
+    await this.page.getByRole("dialog", { name: "Edit Note" }).getByLabel("Title").fill(newTitle);
     const [resp] = await Promise.all([
       this.page.waitForResponse((r) => r.url().includes("note.update")),
       this.page.getByRole("button", { name: "Update" }).click(),

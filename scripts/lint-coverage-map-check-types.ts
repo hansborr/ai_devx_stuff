@@ -41,4 +41,16 @@ export interface LintCoverageMapCheckOptions {
   readonly ratchetIds?: ReadonlySet<string>;
   readonly checkEslintReach?: boolean;
   readonly eslintReachChecker?: EslintReachChecker;
+  /**
+   * When set, append ready-to-paste coverage-map rows for every unaccounted file
+   * to stderr (scaffold for A1/A6). Does not change exit codes.
+   */
+  readonly suggest?: boolean;
+  /**
+   * Predicate: does this map-relative path exist in the worktree (regardless of
+   * tracking)? Used to turn the opaque "matched 0 tracked files" finding into an
+   * actionable "did you forget to `git add` it?" hint. Injectable for tests;
+   * defaults to a real `fs.existsSync` rooted at `cwd`.
+   */
+  readonly worktreeExists?: (relativePath: string) => boolean;
 }

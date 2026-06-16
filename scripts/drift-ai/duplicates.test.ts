@@ -84,6 +84,7 @@ function makeDuplicatesPluginInput(options: {
         ...(options.binExists === undefined ? {} : { binExists: options.binExists }),
       },
       cli: parseArgs(["--scope", "current", "--check", "duplicates", ...(options.argv ?? [])]),
+      warnStderr: options.warnStderr ?? (() => undefined),
     },
   };
 }

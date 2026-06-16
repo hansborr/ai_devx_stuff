@@ -133,13 +133,76 @@ assert_bun_cache_bypass_preserves_cached_marker() {
   done
 }
 
+# H1 end-to-end: a narrow `bun run test -- fileA` cached OK on an unchanged
+# worktree must NOT cause a broader `bun run test -- fileA fileB` to replay the
+# narrow run's "cached OK". The broader command has to actually run. Drives the
+# real Claude bun-run-quiet.sh hook with a recording `bun` shim so we can prove
+# the wider command executed rather than short-circuiting on the marker.
+assert_bun_widened_command_busts_cache() {
+  local shim_dir="$TMP_ROOT/bun-widen-shim"
+  local run_log="$TMP_ROOT/bun-widen-runs.log"
+  local narrow="bun run test -- packages/a.test.ts"
+  local wide="bun run test -- packages/a.test.ts packages/b.test.ts"
+  local out runs
+
+  mkdir -p "$shim_dir"
+  # Record each real `bun run ...` invocation, then succeed silently so the hook
+  # writes a success marker and replays "cached OK" on a true cache hit.
+  cat > "$shim_dir/bun" <<BUN_SHIM
+#!/bin/bash
+printf '%s\n' "\$*" >> "$run_log"
+exit 0
+BUN_SHIM
+  chmod +x "$shim_dir/bun"
+  : > "$run_log"
+
+  # 1) Narrow run: executes (1 recorded invocation).
+  out=$(
+    printf '{"tool_input":{"command":"%s","run_in_background":false}}' "$narrow" \
+      | PATH="$shim_dir:$PATH" AI_BUN_LOG_DIR="$AI_BUN_LOG_DIR" bash "$BUN_HOOK"
+  )
+  runs=$(wc -l < "$run_log")
+  [ "$runs" -eq 1 ] || fail "narrow command should run once, recorded $runs: $out"
+
+  # 2) Re-run the SAME narrow command: true cache hit, replays cached OK, no new
+  #    invocation (same argv + unchanged worktree). On a hit the hook returns an
+  #    updatedInput command that `cat`s the cached message; run it to read it.
+  out=$(
+    printf '{"tool_input":{"command":"%s","run_in_background":false}}' "$narrow" \
+      | PATH="$shim_dir:$PATH" AI_BUN_LOG_DIR="$AI_BUN_LOG_DIR" bash "$BUN_HOOK"
+  )
+  local replay
+  replay=$(printf '%s' "$out" | jq -r '.hookSpecificOutput.updatedInput.command // empty')
+  [ -n "$replay" ] || fail "identical narrow re-run did not return a cached replay command: $out"
+  assert_contains "$(bash -c "$replay")" "cached OK"
+  runs=$(wc -l < "$run_log")
+  [ "$runs" -eq 1 ] || fail "identical narrow re-run should hit cache, recorded $runs runs: $out"
+
+  # 3) Widened command on the SAME unchanged worktree: must NOT replay the narrow
+  #    cache — it has to run (2nd recorded invocation), covering the broader set.
+  out=$(
+    printf '{"tool_input":{"command":"%s","run_in_background":false}}' "$wide" \
+      | PATH="$shim_dir:$PATH" AI_BUN_LOG_DIR="$AI_BUN_LOG_DIR" bash "$BUN_HOOK"
+  )
+  replay=$(printf '%s' "$out" | jq -r '.hookSpecificOutput.updatedInput.command // empty')
+  if [ -n "$replay" ] && grep -qF "cached OK" <<< "$(bash -c "$replay")"; then
+    fail "widened command wrongly replayed the narrow run's cached OK: $out"
+  fi
+  runs=$(wc -l < "$run_log")
+  [ "$runs" -eq 2 ] || fail "widened command should execute fresh, recorded $runs runs: $out"
+
+  rm -f "$AI_BUN_LOG_DIR"/last.test.* "$AI_BUN_LOG_DIR/test.log"
+}
+
 assert_codex_bun_post_success_is_non_blocking() {
   local tool_id="codex-success-test-shared"
   local cmd="bun run test:shared -- packages/shared/src/test-tier-sentinel.test.ts"
   local script="test:shared"
   local script_safe="test_shared"
   local log="$AI_BUN_LOG_DIR/$script_safe.log"
-  local marker="$AI_BUN_LOG_DIR/last.$script_safe"
+  # Marker is argv-scoped (H1/H2): derive it the same way the hook does.
+  local marker
+  marker="$AI_BUN_LOG_DIR/$(ai_bun_marker_name "$cmd")"
   local state_file="$AI_BUN_STATE_DIR/$tool_id"
   local fp payload codex_out context
 
@@ -177,7 +240,9 @@ assert_codex_bun_post_failure_keeps_bounded_block() {
   local script="test:shared"
   local script_safe="test_shared"
   local log="$AI_BUN_LOG_DIR/$script_safe.log"
-  local marker="$AI_BUN_LOG_DIR/last.$script_safe"
+  # Marker is argv-scoped (H1/H2): derive it the same way the hook does.
+  local marker
+  marker="$AI_BUN_LOG_DIR/$(ai_bun_marker_name "$cmd")"
   local state_file="$AI_BUN_STATE_DIR/$tool_id"
   local fp raw payload codex_out reason
 
@@ -239,6 +304,7 @@ assert_bun_cache_bypass_preserves_cached_marker "bun run verify:async:stop" "ver
 assert_bun_cache_bypass_preserves_cached_marker "bun run code:intel -- exports packages/shared/src/constants.ts" "code_intel"
 assert_codex_bun_post_success_is_non_blocking
 assert_codex_bun_post_failure_keeps_bounded_block
+assert_bun_widened_command_busts_cache
 
 MARKER="$AI_BUN_LOG_DIR/last.test_changed"
 VALID_FP="$(printf 'a%.0s' {1..64})"
@@ -288,6 +354,83 @@ ai_read_bun_marker "$MARKER" || fail "failed to read marker after corrupt-marker
 
 FP=$(ai_worktree_fingerprint "$REPO_ROOT")
 [[ "$FP" =~ ^[0-9a-f]{64}$ ]] || fail "fingerprint format mismatch"
+
+# --- argv-scoped marker keys (H1/H2) -----------------------------------------
+# The cache marker must key on the EXACT argv tail, not just the script name, so
+# a broader or corrected command on an unchanged worktree can never replay a
+# narrower/older run's cached pass or block. Only post-`--` file operands are
+# order-insensitive (reordering the file list is the same run); options and
+# option order are load-bearing.
+assert_argv_fp_equal() {
+  local label="$1" a="$2" b="$3" fa fb
+  fa=$(ai_bun_argv_fingerprint "$a")
+  fb=$(ai_bun_argv_fingerprint "$b")
+  [ -n "$fa" ] || fail "argv fingerprint empty for [$a]"
+  [ "$fa" = "$fb" ] || fail "$label: expected same argv fingerprint for [$a] and [$b] ($fa != $fb)"
+}
+
+assert_argv_fp_distinct() {
+  local label="$1" a="$2" b="$3" fa fb
+  fa=$(ai_bun_argv_fingerprint "$a")
+  fb=$(ai_bun_argv_fingerprint "$b")
+  [ "$fa" != "$fb" ] || fail "$label: expected distinct argv fingerprints for [$a] and [$b] (both $fa)"
+}
+
+# Fingerprint shape: a short hex token suitable for a marker filename suffix.
+ARGV_FP_BARE=$(ai_bun_argv_fingerprint "bun run test")
+[[ "$ARGV_FP_BARE" =~ ^[0-9a-f]+$ ]] || fail "argv fingerprint not hex for bare command: [$ARGV_FP_BARE]"
+
+# (a) Widening scope busts the cache: a superset of files is a DIFFERENT key.
+assert_argv_fp_distinct "widen file set" \
+  "bun run test -- packages/a.test.ts" \
+  "bun run test -- packages/a.test.ts packages/b.test.ts"
+assert_argv_fp_distinct "narrow vs bare" \
+  "bun run test" \
+  "bun run test -- packages/a.test.ts"
+
+# (b) Reordering ONLY the post-`--` file operands is a cache HIT (same key).
+assert_argv_fp_equal "reorder post-dashdash files" \
+  "bun run test -- packages/a.test.ts packages/b.test.ts" \
+  "bun run test -- packages/b.test.ts packages/a.test.ts"
+assert_argv_fp_equal "whitespace normalization" \
+  "bun run test -- packages/a.test.ts packages/b.test.ts" \
+  "bun run test --   packages/b.test.ts    packages/a.test.ts"
+
+# (c) Different options / option ORDER are DISTINCT keys (no aliasing).
+assert_argv_fp_distinct "different option" \
+  "bun run test:changed --reporter=dot" \
+  "bun run test:changed --reporter=verbose"
+assert_argv_fp_distinct "option order is load-bearing" \
+  "bun run test --reporter=dot --bail" \
+  "bun run test --bail --reporter=dot"
+# Options before `--` are NOT sorted: only the file operands after `--` are.
+assert_argv_fp_distinct "pre-dashdash order load-bearing even with same files" \
+  "bun run test --bail --reporter=dot -- a.test.ts b.test.ts" \
+  "bun run test --reporter=dot --bail -- a.test.ts b.test.ts"
+assert_argv_fp_equal "pre-dashdash fixed, post-dashdash reordered" \
+  "bun run test --reporter=dot -- a.test.ts b.test.ts" \
+  "bun run test --reporter=dot -- b.test.ts a.test.ts"
+
+# Marker-name helper bakes the argv fingerprint into the filename so the three
+# call sites (Claude bun-run-quiet, Codex pre/post) stay in lockstep and never
+# collide across argv.
+NARROW_MARKER=$(ai_bun_marker_name "bun run test -- a.test.ts")
+WIDE_MARKER=$(ai_bun_marker_name "bun run test -- a.test.ts b.test.ts")
+BARE_MARKER=$(ai_bun_marker_name "bun run test")
+case "$NARROW_MARKER" in
+  last.test.*) ;;
+  *) fail "marker name should be last.<script_safe>.<argv_fp>: [$NARROW_MARKER]" ;;
+esac
+[ "$NARROW_MARKER" != "$WIDE_MARKER" ] \
+  || fail "narrow and wide commands must not share a marker name: [$NARROW_MARKER]"
+[ "$NARROW_MARKER" != "$BARE_MARKER" ] \
+  || fail "narrow and bare commands must not share a marker name: [$NARROW_MARKER]"
+# Colon-bearing script names stay filesystem-safe in the marker name.
+COLON_MARKER=$(ai_bun_marker_name "bun run test:changed")
+case "$COLON_MARKER" in
+  last.test_changed.*) ;;
+  *) fail "colon script names must be sanitized in marker name: [$COLON_MARKER]" ;;
+esac
 
 FINISHED_SUMMARY=$(ai_bun_failure_summary "test:changed" "$AI_BUN_LOG_DIR/test_changed.log" "" "3" "passed")
 if grep -qF "$AI_FLAKY_NOTE" <<< "$FINISHED_SUMMARY"; then

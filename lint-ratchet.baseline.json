@@ -1,78 +1,6 @@
 {
   "version": 1,
   "tests": {
-    "ratchet/local-e2e-prefer-role-selectors": {
-      "ruleId": "local/e2e-prefer-role-selectors",
-      "mode": "no-new",
-      "target": 0,
-      "metric": "message-count",
-      "files": [
-        "e2e/**/*.ts"
-      ],
-      "ignores": [],
-      "ruleOptions": [],
-      "configHash": "sha256:3d572574a4a027fd0f8abbf3f65e2ec97f2f0d21a64dd9a7e7857992ead90511",
-      "ruleSourceHash": "sha256:a46d1a971cf38d7c428609e0aa30674669f368b0f0668030309ac8eac95a2e72",
-      "items": {
-        "e2e/helpers/auth.setup.ts": {
-          "count": 5
-        },
-        "e2e/homebrew-sharing.spec.ts": {
-          "count": 4
-        },
-        "e2e/navigation-errors.spec.ts": {
-          "count": 1
-        },
-        "e2e/page-objects/campaign-chat.po.ts": {
-          "count": 3
-        },
-        "e2e/page-objects/campaign-detail.po.ts": {
-          "count": 6
-        },
-        "e2e/page-objects/campaign-notes.po.ts": {
-          "count": 4
-        },
-        "e2e/page-objects/campaign-npcs.po.ts": {
-          "count": 4
-        },
-        "e2e/page-objects/campaign-settings.po.ts": {
-          "count": 2
-        },
-        "e2e/page-objects/campaigns.po.ts": {
-          "count": 4
-        },
-        "e2e/page-objects/character-sheet.po.ts": {
-          "count": 22
-        },
-        "e2e/page-objects/character-wizard.po.ts": {
-          "count": 9
-        },
-        "e2e/page-objects/encounter.po.ts": {
-          "count": 2
-        },
-        "e2e/page-objects/join.po.ts": {
-          "count": 1
-        },
-        "e2e/page-objects/login.po.ts": {
-          "count": 3
-        },
-        "e2e/page-objects/notification.po.ts": {
-          "count": 1
-        },
-        "e2e/page-objects/register.po.ts": {
-          "count": 4
-        },
-        "e2e/page-objects/spells-panel.po.ts": {
-          "count": 19
-        },
-        "e2e/page-objects/vtt-drawer.ts": {
-          "count": 3
-        },
-        "e2e/storage.setup.ts": {
-          "count": 3
-        }
-      }
-    },
     "ratchet/local-type-assertion-boundary": {
       "ruleId": "local/type-assertion-boundary",
       "mode": "no-new",
@@ -95,110 +23,125 @@
       ],
       "ruleOptions": [],
       "configHash": "sha256:faa030224018118d15ceacc6ef878b27a84a2788c8e61e8def638c6d8062426f",
-      "ruleSourceHash": "sha256:b8dad9dd286c1d8613bcd0918ea7b77f08b16c4edac05f2c42e71e12bbc091e3",
+      "ruleSourceHash": "sha256:6e1058020d8d72113a079f347e4d84aceece96ddb763e34d3891407d91f31a7c",
       "items": {}
     },
-    "ratchet/playwright-no-nth-methods-e2e": {
-      "ruleId": "playwright/no-nth-methods",
+    "ratchet/react-hooks-set-state-in-effect-client": {
+      "ruleId": "react-hooks/set-state-in-effect",
       "mode": "no-new",
       "target": 0,
       "metric": "message-count",
       "files": [
-        "e2e/**/*.ts"
+        "packages/client/src/**/*.{ts,tsx}"
       ],
-      "ignores": [],
+      "ignores": [
+        "packages/client/src/**/*.{test,spec}.{ts,tsx}",
+        "packages/client/src/**/*.test-helper.{ts,tsx}",
+        "packages/client/src/test/**/*.{ts,tsx}"
+      ],
       "ruleOptions": [],
-      "configHash": "sha256:3b1532c235b4531ff8bac75273a47fa2b54437bc1c6cddd127c42b96b2c75924",
-      "ruleSourceHash": "sha256:6364a4a235afc334ef42c0855b79d2022fe7ba839aeb48ab6c08f65929a50d23",
+      "configHash": "sha256:9e9130d518f1b82d6426e8a9e088994dac5f7f536c292030290e2612f432af41",
+      "ruleSourceHash": "sha256:9ab9d544d9d38eb2bf0d64f8e54177cda509d157afb017422518a40b161b6d06",
       "items": {
-        "e2e/campaign-chat.spec.ts": {
+        "packages/client/src/components/campaign/combat/combat-map-bridges.ts": {
+          "count": 1
+        },
+        "packages/client/src/components/campaign/maps/create-map-dialog.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/campaign/maps/edit-map-dialog.tsx": {
           "count": 2
         },
-        "e2e/homebrew-sharing.spec.ts": {
-          "count": 7
-        },
-        "e2e/page-objects/campaign-detail.po.ts": {
+        "packages/client/src/components/campaign/members/join-campaign-dialog.tsx": {
           "count": 1
         },
-        "e2e/page-objects/campaign-npcs.po.ts": {
+        "packages/client/src/components/campaign/notes/note-editor.tsx": {
           "count": 1
         },
-        "e2e/page-objects/campaigns.po.ts": {
+        "packages/client/src/components/campaign/npcs/npc-editor.tsx": {
           "count": 1
         },
-        "e2e/page-objects/character-sheet.po.ts": {
-          "count": 6
-        },
-        "e2e/page-objects/character-wizard.po.ts": {
+        "packages/client/src/components/campaign/settings/create-campaign-dialog.tsx": {
           "count": 1
         },
-        "e2e/page-objects/dashboard.po.ts": {
+        "packages/client/src/components/campaign/tokens/add-token-dialog.tsx": {
           "count": 1
         },
-        "e2e/page-objects/encounter.po.ts": {
-          "count": 8
-        },
-        "e2e/page-objects/login.po.ts": {
+        "packages/client/src/components/campaign/tokens/edit-token-dialog.tsx": {
           "count": 1
         },
-        "e2e/page-objects/notification.po.ts": {
-          "count": 3
-        },
-        "e2e/page-objects/register.po.ts": {
+        "packages/client/src/components/homebrew/collections/collection-dialog.tsx": {
           "count": 1
         },
-        "e2e/page-objects/spells-panel.po.ts": {
-          "count": 5
+        "packages/client/src/components/homebrew/collections/delete-collection-dialog.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/homebrew/entries/delete-entry-dialog.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/homebrew/entries/entry-dialog.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/sheet/cast-spell-dialog.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/sheet/dm-editable-score.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/sheet/edit-item-dialog.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/sheet/level-up-state.ts": {
+          "count": 1
+        },
+        "packages/client/src/components/sheet/rest-dialog.tsx": {
+          "count": 1
+        },
+        "packages/client/src/hooks/socket-context.tsx": {
+          "count": 1
+        },
+        "packages/client/src/hooks/use-background-image.ts": {
+          "count": 1
+        },
+        "packages/client/src/hooks/use-campaign-presence.ts": {
+          "count": 1
+        },
+        "packages/client/src/hooks/use-debounced-cursor-list.ts": {
+          "count": 1
         }
       }
     },
-    "ratchet/playwright-prefer-native-locators-e2e": {
-      "ruleId": "playwright/prefer-native-locators",
+    "ratchet/strict-boolean-expressions-server-encounter-combat": {
+      "ruleId": "@typescript-eslint/strict-boolean-expressions",
       "mode": "no-new",
       "target": 0,
       "metric": "message-count",
       "files": [
-        "e2e/**/*.ts"
+        "packages/server/src/services/encounter-combat/**/*.{ts,tsx}"
       ],
-      "ignores": [],
-      "ruleOptions": [],
-      "configHash": "sha256:d2ad52297414acabd630077c2769ee635bbc18516dd926678d982d9eb513314c",
-      "ruleSourceHash": "sha256:6364a4a235afc334ef42c0855b79d2022fe7ba839aeb48ab6c08f65929a50d23",
-      "items": {
-        "e2e/homebrew-sharing.spec.ts": {
-          "count": 4
-        },
-        "e2e/navigation-errors.spec.ts": {
-          "count": 1
-        },
-        "e2e/page-objects/campaign-chat.po.ts": {
-          "count": 3
-        },
-        "e2e/page-objects/campaign-detail.po.ts": {
-          "count": 2
-        },
-        "e2e/page-objects/character-sheet.po.ts": {
-          "count": 9
-        },
-        "e2e/page-objects/character-wizard.po.ts": {
-          "count": 1
-        },
-        "e2e/page-objects/encounter.po.ts": {
-          "count": 1
-        },
-        "e2e/page-objects/join.po.ts": {
-          "count": 1
-        },
-        "e2e/page-objects/login.po.ts": {
-          "count": 1
-        },
-        "e2e/page-objects/register.po.ts": {
-          "count": 1
-        },
-        "e2e/page-objects/spells-panel.po.ts": {
-          "count": 10
+      "ignores": [
+        "**/dist/**",
+        "**/generated/**",
+        "**/node_modules/**",
+        "packages/server/src/**/*-test-helper.{ts,tsx}",
+        "packages/server/src/**/*.{test,spec}.{ts,tsx}",
+        "packages/server/src/test/**/*.{ts,tsx}"
+      ],
+      "ruleOptions": [
+        {
+          "allowAny": false,
+          "allowNullableBoolean": false,
+          "allowNullableEnum": false,
+          "allowNullableNumber": false,
+          "allowNullableObject": true,
+          "allowNullableString": false,
+          "allowNumber": false,
+          "allowString": false
         }
-      }
+      ],
+      "configHash": "sha256:89b55bb599079910441bc954d2282b5ae5399b1b5b1f4949e34adb94377792c7",
+      "ruleSourceHash": "sha256:b59cb4594a258f43ffa276e84e5c1e16ed5c1152003e1755851a1ccfc1ded457",
+      "items": {}
     },
     "ratchet/strict-boolean-expressions-shared": {
       "ruleId": "@typescript-eslint/strict-boolean-expressions",
@@ -231,6 +174,225 @@
       "configHash": "sha256:2b79e77804a4842916434288e178f430bc4f877725a0b1a5b9cca0050f75d5b8",
       "ruleSourceHash": "sha256:b59cb4594a258f43ffa276e84e5c1e16ed5c1152003e1755851a1ccfc1ded457",
       "items": {}
+    },
+    "ratchet/testing-library-no-container-client-tests": {
+      "ruleId": "testing-library/no-container",
+      "mode": "no-new",
+      "target": 0,
+      "metric": "message-count",
+      "files": [
+        "packages/client/src/**/*.test.tsx"
+      ],
+      "ignores": [
+        "**/dist/**",
+        "**/generated/**",
+        "**/node_modules/**"
+      ],
+      "ruleOptions": [],
+      "configHash": "sha256:b7449bbc2a0f30dca79a13cdc0b7172f8a03da07ff1824bfabe1fa09600edb02",
+      "ruleSourceHash": "sha256:b7bfe351dbf81f24efc3eaebdb3d6a8ee934b9364f15c6629f79cc7013384297",
+      "items": {
+        "packages/client/src/components/campaign/combat/combat-death-saves.test.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/campaign/combat/combat-map-panel.test.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/campaign/combat/participant-stats.test.tsx": {
+          "count": 4
+        },
+        "packages/client/src/components/campaign/maps/edit-map-dialog.test.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/campaign/maps/template-overlay.test.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/common/loading-spinner.test.tsx": {
+          "count": 3
+        },
+        "packages/client/src/components/common/paginated-result-list.test.tsx": {
+          "count": 2
+        },
+        "packages/client/src/components/homebrew/shared/form-field-error.test.tsx": {
+          "count": 2
+        },
+        "packages/client/src/components/homebrew/shared/homebrew-core-fields.test.tsx": {
+          "count": 2
+        },
+        "packages/client/src/components/homebrew/shared/homebrew-text-field.test.tsx": {
+          "count": 2
+        },
+        "packages/client/src/components/homebrew/shared/homebrew-textarea-field.test.tsx": {
+          "count": 2
+        },
+        "packages/client/src/components/notifications/notification-bell.test.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/notifications/notification-item.test.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/notifications/notification-popover.test.tsx": {
+          "count": 1
+        },
+        "packages/client/src/pages/character-sheet-page.test.tsx": {
+          "count": 1
+        }
+      }
+    },
+    "ratchet/testing-library-no-node-access-client-tests": {
+      "ruleId": "testing-library/no-node-access",
+      "mode": "no-new",
+      "target": 0,
+      "metric": "message-count",
+      "files": [
+        "packages/client/src/**/*.test.tsx"
+      ],
+      "ignores": [
+        "**/dist/**",
+        "**/generated/**",
+        "**/node_modules/**"
+      ],
+      "ruleOptions": [],
+      "configHash": "sha256:2ce4f4c0479f20ea8731c151a67b0f490ce644821d42995a52319a381e115bf2",
+      "ruleSourceHash": "sha256:b7bfe351dbf81f24efc3eaebdb3d6a8ee934b9364f15c6629f79cc7013384297",
+      "items": {
+        "packages/client/src/components/campaign/combat/combat-death-saves.test.tsx": {
+          "count": 2
+        },
+        "packages/client/src/components/campaign/combat/initiative-tracker-actions.test.tsx": {
+          "count": 2
+        },
+        "packages/client/src/components/campaign/combat/initiative-tracker-initiative-edit.test.tsx": {
+          "count": 2
+        },
+        "packages/client/src/components/campaign/combat/initiative-tracker.test.tsx": {
+          "count": 3
+        },
+        "packages/client/src/components/campaign/combat/participant-stats.test.tsx": {
+          "count": 8
+        },
+        "packages/client/src/components/campaign/homebrew-link/campaign-homebrew-section.test.tsx": {
+          "count": 2
+        },
+        "packages/client/src/components/campaign/maps/edit-map-dialog.test.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/campaign/maps/fog-overlay.test.tsx": {
+          "count": 2
+        },
+        "packages/client/src/components/campaign/maps/map-toolbar.test.tsx": {
+          "count": 4
+        },
+        "packages/client/src/components/campaign/maps/template-overlay.test.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/campaign/npcs/monster-tab.test.tsx": {
+          "count": 4
+        },
+        "packages/client/src/components/campaign/tokens/token-sidebar.test.tsx": {
+          "count": 2
+        },
+        "packages/client/src/components/character-create/steps/background-step.test.tsx": {
+          "count": 10
+        },
+        "packages/client/src/components/character-create/steps/class-step.test.tsx": {
+          "count": 10
+        },
+        "packages/client/src/components/character-create/steps/equipment-step.test.tsx": {
+          "count": 2
+        },
+        "packages/client/src/components/character-create/steps/species-step.test.tsx": {
+          "count": 19
+        },
+        "packages/client/src/components/common/connection-status.test.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/common/loading-spinner.test.tsx": {
+          "count": 5
+        },
+        "packages/client/src/components/common/paginated-result-list.test.tsx": {
+          "count": 2
+        },
+        "packages/client/src/components/compendium/magic-item-list.test.tsx": {
+          "count": 6
+        },
+        "packages/client/src/components/homebrew/entries/entry-dialog.test.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/homebrew/shared/form-field-error.test.tsx": {
+          "count": 2
+        },
+        "packages/client/src/components/homebrew/shared/homebrew-core-fields.test.tsx": {
+          "count": 2
+        },
+        "packages/client/src/components/homebrew/shared/homebrew-text-field.test.tsx": {
+          "count": 2
+        },
+        "packages/client/src/components/homebrew/shared/homebrew-textarea-field.test.tsx": {
+          "count": 2
+        },
+        "packages/client/src/components/notifications/notification-bell.test.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/notifications/notification-item.test.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/notifications/notification-popover.test.tsx": {
+          "count": 2
+        },
+        "packages/client/src/components/sheet/ability-scores.test.tsx": {
+          "count": 2
+        },
+        "packages/client/src/components/sheet/character-sheet.test.tsx": {
+          "count": 2
+        },
+        "packages/client/src/components/sheet/concentration-indicator.test.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/sheet/saving-throws.test.tsx": {
+          "count": 3
+        },
+        "packages/client/src/components/sheet/skills-list.test.tsx": {
+          "count": 2
+        },
+        "packages/client/src/components/sheet/spell-row.test.tsx": {
+          "count": 2
+        },
+        "packages/client/src/components/sheet/spell-slot-pips.test.tsx": {
+          "count": 2
+        },
+        "packages/client/src/components/vtt/drawer/tabs/stats-tab.test.tsx": {
+          "count": 2
+        },
+        "packages/client/src/pages/character-sheet-page.test.tsx": {
+          "count": 1
+        }
+      }
+    },
+    "ratchet/testing-library-prefer-screen-queries-client-tests": {
+      "ruleId": "testing-library/prefer-screen-queries",
+      "mode": "no-new",
+      "target": 0,
+      "metric": "message-count",
+      "files": [
+        "packages/client/src/**/*.test.tsx"
+      ],
+      "ignores": [
+        "**/dist/**",
+        "**/generated/**",
+        "**/node_modules/**"
+      ],
+      "ruleOptions": [],
+      "configHash": "sha256:30155914359197559ea962e1989f92d96ecfd17da2ce97c1b0469df194c9f305",
+      "ruleSourceHash": "sha256:b7bfe351dbf81f24efc3eaebdb3d6a8ee934b9364f15c6629f79cc7013384297",
+      "items": {
+        "packages/client/src/components/campaign/maps/fog-overlay.test.tsx": {
+          "count": 5
+        },
+        "packages/client/src/components/common/toast-provider.test.tsx": {
+          "count": 1
+        }
+      }
     },
     "ratchet/vitest-expect-expect-drift-ai-tests": {
       "ruleId": "vitest/expect-expect",

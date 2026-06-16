@@ -12,6 +12,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   resolveToolBin,
+  type ResolveToolBinOptions,
   type ToolBinConfig,
   type ToolBinResolution,
   type ToolBinSource,
@@ -34,9 +35,11 @@ const KNIP_TOOL_BIN: ToolBinConfig = {
 // so a real report is never truncated into an unreadable-JSON diagnostic.
 const KNIP_MAX_BUFFER = 64 * 1024 * 1024;
 
-// Long enough for large monorepos, but still bounded so a hung knip cannot block
-// an entire drift:ai report indefinitely.
-export const DEFAULT_KNIP_TIMEOUT_MS = 10 * 60 * 1000;
+// Bounded so a hung knip cannot block an entire drift:ai report — and kept to a
+// few minutes (not 10) so silence stays SHORT: a stuck self-scan surfaces a
+// timeout notice promptly instead of being indistinguishable from a slow run
+// (J1). Large monorepos that legitimately need longer can raise it via timeoutMs.
+export const DEFAULT_KNIP_TIMEOUT_MS = 180 * 1000;
 
 // Narrowed subprocess seam: tests only need the fields defaultKnipRunner reads,
 // while node's real spawnSync remains directly assignable.
@@ -88,6 +91,13 @@ export type DefaultKnipRunnerOptions = {
   readonly includeCategories?: KnipIncludeCategories;
   // Injectable subprocess seam for focused runner tests.
   readonly spawn?: KnipSpawn;
+  // Heartbeat seam (J1): the knip self-scan runs via a BLOCKING spawnSync, so the
+  // parent thread emits no output while it runs and a hang is indistinguishable
+  // from a slow run. The runner writes a start banner here immediately before the
+  // spawn and an explanation if it times out, so the phase is observably alive and
+  // a skip is never silent. Routed to stderr in production (warnStderr); omitting
+  // it stays silent (default no-op) so the stdout/JSON report contract is untouched.
+  readonly warn?: (message: string) => void;
 };
 
 export const KNIP_FILE_INCLUDE_CATEGORIES = "files" as const;
@@ -138,15 +148,24 @@ export function resolveKnipIncludeCategories(
   return INCLUDE_CATEGORIES_BY_SELECTION[key] ?? KNIP_INCLUDE_CATEGORIES;
 }
 
+// A no-op heartbeat sink: the default when no warn seam is injected, so the
+// runner stays silent (untouched stdout/JSON contract) unless wired to stderr.
+const SILENT_WARN: (message: string) => void = () => {};
+
 export function defaultKnipRunner(options: DefaultKnipRunnerOptions): KnipRunner {
   const analyzedRepoRoot = options.analyzedRepoRoot ?? process.cwd();
   const bin = options.knipBin;
   const timeoutMs = options.timeoutMs ?? DEFAULT_KNIP_TIMEOUT_MS;
   const includeCategories = options.includeCategories ?? KNIP_INCLUDE_CATEGORIES;
   const spawn = options.spawn ?? spawnSync;
+  const warn = options.warn ?? SILENT_WARN;
+  const budgetSeconds = Math.round(timeoutMs / 1000);
   return ({ configPath }) => {
     const args = ["--reporter", "json", "--include", includeCategories, "--no-progress"];
     if (configPath !== null) args.push("--config", configPath);
+    // Heartbeat (J1): announce the blocking self-scan BEFORE the spawn so the phase
+    // is observably alive and the wait is bounded/explained, not silent for minutes.
+    warn(`drift:ai: running knip self-scan (budget ${budgetSeconds}s)…`);
     const result = spawn(bin, args, {
       cwd: analyzedRepoRoot,
       encoding: "utf8",
@@ -157,6 +176,10 @@ export function defaultKnipRunner(options: DefaultKnipRunnerOptions): KnipRunner
     });
     if (result.error) {
       if (isTimeoutResult(result)) {
+        // Explain the skip on stderr — a timed-out knip phase must not be silent.
+        warn(
+          `drift:ai: knip self-scan timed out after ${budgetSeconds}s; skipping knip-backed checks for this run.`,
+        );
         return {
           ok: false,
           reason: "timeout",
@@ -268,12 +291,7 @@ export type KnipBinSource = ToolBinSource;
 
 export type KnipBinResolution = ToolBinResolution;
 
-export type ResolveKnipBinOptions = {
-  readonly analyzedRepoRoot?: string;
-  readonly override?: string;
-  readonly moduleDir?: string;
-  readonly fileExists?: (candidate: string) => boolean;
-};
+export type ResolveKnipBinOptions = ResolveToolBinOptions;
 
 // Resolve the knip executable. Precedence mirrors resolveJscpdBin: an explicit
 // override is authoritative when supplied; otherwise the tools checkout (this

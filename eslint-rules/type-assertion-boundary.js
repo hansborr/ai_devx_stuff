@@ -121,6 +121,43 @@ function isSameToken(left, right) {
 }
 
 /**
+ * Collects the comment block directly above a statement. A multi-line JSDoc
+ * block is a single token and already matches as one comment. A run of `//` Line
+ * comments is several tokens, so a marker on the first line of a two-line `//`
+ * block would otherwise end two lines above the statement and be dropped. This
+ * walks the contiguous run of Line comments immediately above the statement and
+ * returns it as one logical block, so the marker is accepted on any line of the
+ * run (mirroring how a JSDoc block tolerates the marker on any of its lines).
+ *
+ * @param {import('estree').Node} statement
+ * @param {import('eslint').SourceCode} sourceCode
+ * @returns {import('eslint').AST.Token[]}
+ */
+function leadingBoundaryCommentBlock(statement, sourceCode) {
+  const leadingComments = sourceCode.getCommentsBefore(statement);
+  const lineAboveStatement = statement.loc.start.line - 1;
+  const lineWithBlankBetween = statement.loc.start.line - LINE_OFFSET_WITH_BLANK;
+  const hasBlankLineAboveStatement = sourceCode.lines[lineAboveStatement - 1]?.trim() === "";
+
+  const anchorIndex = leadingComments.findLastIndex(
+    (comment) =>
+      comment.loc.end.line === lineAboveStatement ||
+      (comment.loc.end.line === lineWithBlankBetween && hasBlankLineAboveStatement),
+  );
+  if (anchorIndex === -1) return [];
+
+  const block = [leadingComments[anchorIndex]];
+  for (let index = anchorIndex - 1; index >= 0; index -= 1) {
+    const previous = leadingComments[index];
+    const current = block[0];
+    if (previous.type !== "Line" || current.type !== "Line") break;
+    if (previous.loc.end.line !== current.loc.start.line - 1) break;
+    block.unshift(previous);
+  }
+  return block;
+}
+
+/**
  * @param {import('estree').Node} node
  * @param {import('eslint').SourceCode} sourceCode
  * @param {import('eslint').AST.Token[]} allComments
@@ -138,17 +175,7 @@ function nearbyBoundaryComments(node, sourceCode, allComments) {
   );
 
   const statement = findContainingStatement(node);
-  const lineAboveStatement = statement.loc.start.line - 1;
-  const lineWithBlankBetween = statement.loc.start.line - LINE_OFFSET_WITH_BLANK;
-  const hasBlankLineAboveStatement =
-    sourceCode.lines[statement.loc.start.line - LINE_OFFSET_WITH_BLANK]?.trim() === "";
-  const statementLeadingComments = sourceCode
-    .getCommentsBefore(statement)
-    .filter(
-      (comment) =>
-        comment.loc.end.line === lineAboveStatement ||
-        (comment.loc.end.line === lineWithBlankBetween && hasBlankLineAboveStatement),
-    );
+  const statementLeadingComments = leadingBoundaryCommentBlock(statement, sourceCode);
 
   const jsxTrailingComments = [];
   if (jsxContainer) {
@@ -180,11 +207,11 @@ export default {
     },
     messages: {
       missingBoundary:
-        "Why: `as Foo` casts hide type bugs by silently overriding the checker. How to fix: Either rewrite to use a typed source (Zod parse, Prisma include shape, framework handler types), or — if this is a real boundary — add a comment `// type-assertion-boundary: <category> - <reason>` on the same line or directly above this statement. Allowed categories: framework, json, prisma, test, interop.",
+        "Why: `as Foo` casts hide type bugs by silently overriding the checker. How to fix: rewrite to a typed source (Zod parse, Prisma include, framework handler types), or add `// type-assertion-boundary: <category> - <reason>` for a real boundary. Place it on the same line after the cast, or in the comment block directly above the statement: one JSDoc block, or a contiguous run of `//` lines with no gap. The marker may sit on any line of that block. Categories: framework, json, prisma, test, interop.",
       invalidCategory:
-        "Why: The `type-assertion-boundary` comment is present but the category is not one of: framework, json, prisma, test, interop. How to fix: Update the comment to use an allowed category, or rewrite to avoid the cast.",
+        "Why: A `type-assertion-boundary` marker is in the comment block above (or beside) this cast but its category is not one of: framework, json, prisma, test, interop. How to fix: Update the marker to use an allowed category, or rewrite to avoid the cast.",
       emptyReason:
-        "Why: The `type-assertion-boundary` comment is present but no reason follows the `-`. How to fix: Add a specific reason explaining why this cast is the narrowest fix at this boundary.",
+        "Why: A `type-assertion-boundary` marker is in the comment block above (or beside) this cast but no reason follows the `-`. How to fix: Add a specific reason explaining why this cast is the narrowest fix at this boundary.",
     },
     schema: [],
   },

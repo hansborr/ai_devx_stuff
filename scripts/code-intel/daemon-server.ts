@@ -7,6 +7,7 @@ import {
   type CodeIntelDaemonError,
   type CodeIntelDaemonRequest,
   type CodeIntelDaemonResponse,
+  DAEMON_FALLBACK_ERROR_NAME,
 } from "./daemon-protocol.js";
 import { executeDaemonQuery } from "./daemon-query.js";
 import {
@@ -22,7 +23,6 @@ import { GraphCache } from "./graph-cache.js";
 import { isRecord } from "./json-utils.js";
 import { ProjectCache } from "./project-cache.js";
 
-const DAEMON_FALLBACK_ERROR_NAME = "CodeIntelDaemonFallback";
 const FALLBACK_RESPONSE_ID = "unknown";
 
 export type RunDaemonOptions = {

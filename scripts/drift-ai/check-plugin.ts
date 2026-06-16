@@ -43,6 +43,11 @@ export type CheckServiceEnv = {
   readonly overrides: CheckOverrides;
   readonly cli: CliOptions;
   readonly reportCache?: Map<string, unknown>;
+  // Stderr sink for service-resolution-time heartbeats (J1): a service that wraps
+  // a BLOCKING subprocess (knip self-scan) writes a start/timeout banner here so a
+  // long or stuck phase is observably alive rather than silent. Mirrors the run
+  // state's warnStderr; stderr-only, so the stdout/JSON report contract is untouched.
+  readonly warnStderr: (message: string) => void;
 };
 
 // Common run state shared by every check, independent of any adapter. Kept central

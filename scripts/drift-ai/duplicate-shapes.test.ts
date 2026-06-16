@@ -318,6 +318,7 @@ describe("runDuplicateShapeCheck shared parsed source cache", () => {
       overrides: {},
       cli: parseArgs(["--scope", "current", "--check", "duplicate-types"]),
       reportCache,
+      warnStderr: () => undefined,
     };
 
     expect(resolveDuplicateShapeServices(env).parsedSourceCache).toBe(

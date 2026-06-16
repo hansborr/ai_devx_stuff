@@ -1,6 +1,7 @@
 import type { CallExpression, Expression, Node, ObjectLiteralExpression, Project } from "ts-morph";
 import { Node as MorphNode } from "ts-morph";
 
+import { unwrapExpression } from "./declaration-utils.js";
 import { CodeIntelError } from "./errors.js";
 import {
   collectOverviewCallContext,
@@ -204,17 +205,4 @@ function localInitializers(
 
 function isProcedureKind(method: string): method is OverviewProcedureKind {
   return PROCEDURE_KINDS.has(method);
-}
-
-function unwrapExpression(expression: Expression): Expression {
-  let current = expression;
-  while (
-    MorphNode.isAsExpression(current) ||
-    MorphNode.isNonNullExpression(current) ||
-    MorphNode.isParenthesizedExpression(current) ||
-    MorphNode.isSatisfiesExpression(current)
-  ) {
-    current = current.getExpression();
-  }
-  return current;
 }

@@ -25,8 +25,8 @@ export class NotificationPO {
     expect(resp.ok()).toBe(true);
   }
 
-  async clickFirstNotification(): Promise<void> {
-    await this.notificationList.locator("button").first().click();
+  async clickNotification(title: string): Promise<void> {
+    await this.notificationList.getByRole("button", { name: title }).click();
   }
 
   // ── Assertions ─────────────────────────────────────────────────────
@@ -44,7 +44,7 @@ export class NotificationPO {
   }
 
   async expectPopoverOpen(): Promise<void> {
-    await expect(this.page.getByText("Notifications").first()).toBeVisible();
+    await expect(this.page.getByRole("heading", { name: "Notifications" })).toBeVisible();
   }
 
   async expectNotificationVisible(text: string): Promise<void> {
@@ -62,10 +62,15 @@ export class NotificationPO {
   }
 
   async expectUnreadDot(): Promise<void> {
-    await expect(this.page.getByLabel("Unread").first()).toBeVisible({ timeout: TIMEOUT_SHORT });
+    // exact: true keeps the bell ("Notifications (N unread)") out of the match.
+    await expect(this.page.getByLabel("Unread", { exact: true })).toBeVisible({
+      timeout: TIMEOUT_SHORT,
+    });
   }
 
   async expectNoUnreadDots(): Promise<void> {
-    await expect(this.page.getByLabel("Unread")).not.toBeVisible({ timeout: TIMEOUT_SHORT });
+    await expect(this.page.getByLabel("Unread", { exact: true })).not.toBeVisible({
+      timeout: TIMEOUT_SHORT,
+    });
   }
 }

@@ -25,11 +25,17 @@ PRECOMMIT_MARKER="$SANDBOX/precommit-marker"
 mkdir -p "$PRECOMMIT_LOG_DIR" "$BUN_LOG_DIR"
 
 run_logs() {
-  MUSI_VERIFY_LOG_DIR="$PRECOMMIT_LOG_DIR" \
-  AI_BUN_LOG_DIR="$BUN_LOG_DIR" \
-  MUSI_VERIFY_MARKER_FULL="$VERIFY_MARKER_FULL" \
-  MUSI_VERIFY_MARKER_CHANGED="$VERIFY_MARKER_CHANGED" \
-  MUSI_PRECOMMIT_MARKER="$PRECOMMIT_MARKER" \
+  # The budget view reports ${MUSI_INTERACTIVE_TIMEOUT:-300}; neutralize that var
+  # (and its MUSI_VERIFY_TIMEOUT back-compat alias) so the default-budget assertion
+  # is hermetic. Otherwise any ambient override leaks in — e.g. verify:async sets
+  # MUSI_INTERACTIVE_TIMEOUT to its exec timeout, which would make this test report
+  # that value instead of the 300s default it is asserting.
+  env -u MUSI_INTERACTIVE_TIMEOUT -u MUSI_VERIFY_TIMEOUT \
+    MUSI_VERIFY_LOG_DIR="$PRECOMMIT_LOG_DIR" \
+    AI_BUN_LOG_DIR="$BUN_LOG_DIR" \
+    MUSI_VERIFY_MARKER_FULL="$VERIFY_MARKER_FULL" \
+    MUSI_VERIFY_MARKER_CHANGED="$VERIFY_MARKER_CHANGED" \
+    MUSI_PRECOMMIT_MARKER="$PRECOMMIT_MARKER" \
     bash "$SCRIPT" "$@"
 }
 
@@ -227,6 +233,27 @@ grep -qF 'newer bun lint output' <<< "$output" \
   || fail "focused tail missed bun-logs content"
 ok "focused view reports bun marker state and tail"
 
+# --- argv-scoped markers (H1/H2) are discovered, newest wins ----------------
+# bun-run-quiet now keys markers on the exact argv tail (`last.<base>.<fp>`),
+# so the viewer must discover them from the shared `<base>.log` even though the
+# marker filename no longer equals `last.<base>`. The newest matching argv
+# marker should drive the reported state.
+rm -f "$BUN_LOG_DIR"/last.lint_changed*
+write_marker "$BUN_LOG_DIR/last.lint_changed.deadbeefdeadbeef" 1 30
+output=$(run_logs)
+grep -qE 'lint +FAIL +1' <<< "$output" \
+  || fail "viewer should report state from an argv-scoped marker (last.<base>.<fp>)"
+ok "argv-scoped marker drives reported state"
+
+sleep 1
+write_marker "$BUN_LOG_DIR/last.lint_changed.cafef00dcafef00d" 0 0
+output=$(run_logs)
+grep -qE 'lint +OK +0' <<< "$output" \
+  || fail "viewer should report the NEWEST argv-scoped marker, not an older one"
+ok "newest argv-scoped marker wins among several"
+rm -f "$BUN_LOG_DIR"/last.lint_changed*
+write_marker "$BUN_LOG_DIR/last.lint_changed" 1 5
+
 printf 'before warning\n(node:123) DeprecationWarning: Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0. Use async/await or an external async flow control mechanism instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\nafter warning\n' > "$BUN_LOG_DIR/lint_changed.log"
 output=$(run_logs lint)
 grep -qF 'before warning' <<< "$output" || fail "filtered focused view dropped useful line before warning"
@@ -382,8 +409,8 @@ cat > "$PRECOMMIT_LOG_DIR/run-meta.json" <<'JSON'
     "name": "wrapper",
     "mode": "parallel-precommit",
     "start_time": "2026-05-03T00:00:00+00:00",
-    "end_time": "2026-05-03T00:03:35+00:00",
-    "elapsed_seconds": 215,
+    "end_time": "2026-05-03T00:04:25+00:00",
+    "elapsed_seconds": 265,
     "exit_code": 0,
     "command": ".husky/pre-commit"
   },
@@ -411,9 +438,13 @@ cat > "$PRECOMMIT_LOG_DIR/run-meta.json" <<'JSON'
 JSON
 output=$(run_logs budget)
 grep -qF '== budget ==' <<< "$output" || fail "budget view missed heading"
+# Default budget is warn=260s / hard=300s (raised from 210/240 for the contended
+# changed surface, T1). The reporter's defaults must track verify.sh / pre-commit.
+grep -qF 'budget: warn=260s hard=300s' <<< "$output" \
+  || fail "budget view should report the default warn=260s hard=300s budget"
 grep -qF 'state=WARN-BUDGET-EXCEEDED' <<< "$output" \
-  || fail "budget view should warn when wrapper exceeds 210s"
-grep -qE 'wrapper: 215s mode=parallel-precommit exit=0' <<< "$output" \
+  || fail "budget view should warn when wrapper exceeds the 260s soft budget"
+grep -qE 'wrapper: 265s mode=parallel-precommit exit=0' <<< "$output" \
   || fail "budget view missed wrapper timing"
 grep -qE 'parallel-precommit +test +200s +0 +bun run test:changed' <<< "$output" \
   || fail "budget view missed per-step timing"

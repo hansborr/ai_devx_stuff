@@ -2,48 +2,14 @@ import { describe, expect, it } from "vitest";
 
 import { collectBoundedFullHistory } from "./bounded-full-history.js";
 import type { GitRunner } from "./git-changed-scope.js";
+import {
+  commitBlock,
+  type GitLogEntry,
+  joinGitLogBlocks as gitLog,
+} from "./git-log-fixture.test-helper.js";
 import { GIT_LOG_FORMAT } from "./hotspots-history.js";
 
-// Control bytes git expands the %x.. escapes into, written as JS escapes so this
-// source stays plain text (never embed raw NUL bytes in a .ts file).
-const NUL = "\u0000";
-const US = "\u001f";
-const GS = "\u001d";
-
-type MetaFields = {
-  readonly hash: string;
-  readonly authorName: string;
-  readonly authorEmail: string;
-  readonly authorDate: string;
-  readonly committerDate: string;
-  readonly subject: string;
-  readonly coAuthors?: readonly string[];
-};
-
-function metaLine(fields: MetaFields): string {
-  return (
-    NUL +
-    [
-      fields.hash,
-      fields.authorName,
-      fields.authorEmail,
-      fields.authorDate,
-      fields.committerDate,
-      fields.subject,
-      (fields.coAuthors ?? []).join(GS),
-    ].join(US)
-  );
-}
-
-function commitBlock(fields: MetaFields, rows: readonly string[]): string {
-  return [metaLine(fields), "", ...rows].join("\n");
-}
-
-function gitLog(blocks: readonly string[]): string {
-  return blocks.join("\n");
-}
-
-const BASE_META: MetaFields = {
+const BASE_META: GitLogEntry = {
   hash: "abc123",
   authorName: "Ada",
   authorEmail: "ada@example.com",

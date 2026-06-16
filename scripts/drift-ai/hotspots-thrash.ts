@@ -2,10 +2,14 @@
 // section with overlay columns (young-in-window, fix/revert tie-breaker, and
 // test-vs-source churn ratio), not separate verdicts.
 
-import { buildCommitIntentOverlay } from "./commit-intent.js";
-import { aggregateAuthors, recentSubjects, shellQuoteArg } from "./hotspots-actionability.js";
+import { buildPathRowActionability } from "./hotspots-actionability.js";
 import type { ThrashHotspot, ThrashSection } from "./hotspots-format.js";
-import type { CollectedHistory, CommitRecord } from "./hotspots-history.js";
+import {
+  type CollectedHistory,
+  type CommitRecord,
+  newestTimestamp,
+  updateTouchDates,
+} from "./hotspots-history.js";
 
 export const DEFAULT_THRASH_MIN_REVISIONS = 3;
 export const DEFAULT_THRASH_MAX_NET_LINES_PER_REVISION = 5;
@@ -119,25 +123,6 @@ function aggregateThrash(records: readonly CommitRecord[]): Map<string, ThrashAg
   return byPath;
 }
 
-function updateTouchDates(aggregate: ThrashAggregate, record: CommitRecord): void {
-  const timestamp = Date.parse(record.authorDate);
-  if (!Number.isFinite(timestamp)) return;
-  aggregate.newestTouchMs =
-    aggregate.newestTouchMs === null ? timestamp : Math.max(aggregate.newestTouchMs, timestamp);
-  aggregate.oldestTouchMs =
-    aggregate.oldestTouchMs === null ? timestamp : Math.min(aggregate.oldestTouchMs, timestamp);
-}
-
-function newestTimestamp(records: readonly CommitRecord[]): number | null {
-  let newest: number | null = null;
-  for (const record of records) {
-    const timestamp = Date.parse(record.authorDate);
-    if (!Number.isFinite(timestamp)) continue;
-    newest = newest === null ? timestamp : Math.max(newest, timestamp);
-  }
-  return newest;
-}
-
 function isFixOrRevert(subject: string): boolean {
   return /\b(?:revert|fix|hotfix)\b/iu.test(subject);
 }
@@ -201,15 +186,5 @@ function compareCandidates(left: ThrashCandidate, right: ThrashCandidate): numbe
 }
 
 function withContext(candidate: ThrashCandidate, records: readonly CommitRecord[]): ThrashHotspot {
-  const touches = (record: CommitRecord): boolean =>
-    record.files.some((file) => file.path === candidate.path);
-  const subjects = recentSubjects(records, touches);
-  return {
-    ...candidate,
-    authors: aggregateAuthors(records, touches),
-    recentSubjects: subjects,
-    commitIntent: buildCommitIntentOverlay(subjects),
-    inspectCommand: `git log --oneline -- ${shellQuoteArg(candidate.path)}`,
-    baseline: null,
-  };
+  return { ...candidate, ...buildPathRowActionability(records, candidate.path) };
 }

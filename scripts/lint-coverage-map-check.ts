@@ -1,25 +1,36 @@
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { collectEslintReachFindings } from "./lint-coverage-map-check-eslint-reach.js";
+import {
+  collectEslintReachFindings,
+  createEslintReachChecker,
+} from "./lint-coverage-map-check-eslint-reach.js";
 import {
   collectRowFindings,
   collectStalePathFindings,
   collectUnaccountedFileFindings,
   formatFindings,
 } from "./lint-coverage-map-check-findings.js";
-import { loadMapText, loadTrackedFiles, repoRoot } from "./lint-coverage-map-check-io.js";
+import {
+  createWorktreeExists,
+  loadMapText,
+  loadTrackedFiles,
+  repoRoot,
+} from "./lint-coverage-map-check-io.js";
 import {
   extractPathPatterns,
   parseRows,
   trackedFileIsInScope,
 } from "./lint-coverage-map-check-patterns.js";
+import { buildSuggestions } from "./lint-coverage-map-check-suggest.js";
 import type {
   CheckFinding,
   LintCoverageMapCheckOptions,
   LintCoverageMapCheckResult,
+  PathPattern,
 } from "./lint-coverage-map-check-types.js";
 import { lintRatchets } from "./lint-ratchet/lint-ratchet-config.js";
+import { matchesRatchet } from "./lint-ratchet/ratchet-globs.js";
 
 export type { LintCoverageMapCheckOptions, LintCoverageMapCheckResult };
 
@@ -32,10 +43,11 @@ export async function runLintCoverageMapCheck(
   const mapText = loadMapText(options, cwd);
   const trackedFiles = [...(options.trackedFiles ?? loadTrackedFiles(cwd))].sort();
   const ratchetIds = options.ratchetIds ?? new Set(lintRatchets.map((ratchet) => ratchet.id));
+  const worktreeExists = options.worktreeExists ?? createWorktreeExists(cwd);
   const rows = parseRows(mapText);
   const pathPatterns = rows.flatMap(extractPathPatterns);
   const findings: CheckFinding[] = [
-    ...collectStalePathFindings(pathPatterns, trackedFiles),
+    ...collectStalePathFindings(pathPatterns, trackedFiles, worktreeExists),
     ...collectRowFindings(rows, ratchetIds),
     ...collectUnaccountedFileFindings(trackedFiles, pathPatterns, trackedFileIsInScope),
     ...(await collectEslintReachFindings({
@@ -51,7 +63,13 @@ export async function runLintCoverageMapCheck(
   ];
 
   if (findings.length > 0) {
-    return { exitCode: 1, stdout: "", stderr: formatFindings(findings), findings };
+    const suggestions =
+      options.suggest === true
+        ? await buildSuggestionLines(findings, pathPatterns, cwd, options.eslintReachChecker)
+        : [];
+    const stderr =
+      formatFindings(findings) + (suggestions.length > 0 ? suggestions.join("\n") : "");
+    return { exitCode: 1, stdout: "", stderr, findings };
   }
   return {
     exitCode: 0,
@@ -61,13 +79,39 @@ export async function runLintCoverageMapCheck(
   };
 }
 
+async function buildSuggestionLines(
+  findings: readonly CheckFinding[],
+  pathPatterns: readonly PathPattern[],
+  cwd: string,
+  eslintReachChecker: LintCoverageMapCheckOptions["eslintReachChecker"],
+): Promise<string[]> {
+  const unaccountedFiles = findings
+    .filter((finding) => finding.kind === "unaccounted-file")
+    .map((finding) => finding.value);
+  if (unaccountedFiles.length === 0) return [];
+  const isEslintReachable = eslintReachChecker ?? createEslintReachChecker(cwd);
+  return await buildSuggestions({
+    unaccountedFiles,
+    pathPatterns,
+    isEslintReachable,
+    isRatchetCovered: (file) => lintRatchets.some((ratchet) => matchesRatchet(ratchet, file)),
+  });
+}
+
 function parseCliArgs(args: readonly string[]): LintCoverageMapCheckOptions | undefined {
+  const allowed = new Set(["--staged", "--check-eslint-reach", "--suggest"]);
   const flags = args.filter((arg) => arg !== "--");
-  if (flags.every((arg) => arg === "--staged" || arg === "--check-eslint-reach")) {
+  if (flags.every((arg) => allowed.has(arg))) {
     const staged = flags.includes("--staged");
-    return { staged, checkEslintReach: flags.includes("--check-eslint-reach") && !staged };
+    return {
+      staged,
+      checkEslintReach: flags.includes("--check-eslint-reach") && !staged,
+      suggest: flags.includes("--suggest"),
+    };
   }
-  process.stderr.write("usage: lint-coverage-map-check.ts [--check-eslint-reach] [--staged]\n");
+  process.stderr.write(
+    "usage: lint-coverage-map-check.ts [--check-eslint-reach] [--staged] [--suggest]\n",
+  );
   return undefined;
 }
 

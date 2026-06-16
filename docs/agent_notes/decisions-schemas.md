@@ -66,3 +66,38 @@ no `CharacterStats` row, store HP/AC inline on the participant.
 ### References
 - `docs/architecture-plan.md`
 - `AGENTS.md` working model
+
+---
+
+## Creation spell choices: optional input, rules-validated counts
+
+Status: Active
+Domain: schemas
+
+### Context
+The creation wizard had no spell step, so casters finished unable to cast
+(ux-audit P0-1). Adding spells to the create flow meant extending the
+create-character wire contract without breaking the non-caster path.
+
+### Decision
+`createCharacterInputSchema` carries an optional strict
+`spells: [{ spellId, source }]` array (`source` defaults to `"class"`).
+The shared rules module owns the per-class level-1 counts via
+`getLevel1SpellSelection(classId, casterType)`. The server
+(`character-create-spells.ts`) validates caster-only, level 0/1, class
+availability, count limits, and duplicates; a non-caster submitting spells is
+a contract violation -> `BAD_REQUEST`. Chosen spells persist `prepared: true`
+in the same create transaction.
+
+### Consequences
+- The `spells` field is optional on the wire: the non-caster flow omits it and
+  is unchanged; the wizard enforces exact counts client-side before submit.
+- Class-specific level-1 cantrip/spell counts live in one rules table, shared
+  by the wizard step, the Review summary, and server validation.
+- Cantrips and level-1 picks are prepared at creation so a new caster can cast
+  immediately.
+
+### References
+- `packages/shared/src/schemas/character-inputs.ts`
+- `packages/shared/src/rules/spellcasting.ts` (`getLevel1SpellSelection`)
+- `packages/server/src/services/character-create-spells.ts`

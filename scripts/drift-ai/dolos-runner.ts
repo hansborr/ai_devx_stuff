@@ -34,15 +34,12 @@ export const DEFAULT_DOLOS_TIMEOUT_MS = 10 * 60 * 1000;
 const TIMEOUT_KILL_SIGNAL = "SIGKILL";
 export type {
   DefaultDolosRunnerOptions,
-  DolosCommandSource,
   DolosRunner,
   DolosRunnerCaps,
   DolosRunnerInput,
   DolosRunnerResult,
-  DolosRunnerTruncation,
   DolosSpawn,
   DolosSpawnResult,
-  DolosToolInfo,
 } from "./dolos-runner-types.js";
 
 export function defaultDolosRunner(options: DefaultDolosRunnerOptions = {}): DolosRunner {

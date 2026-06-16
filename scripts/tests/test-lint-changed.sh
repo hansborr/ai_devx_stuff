@@ -20,6 +20,7 @@ PATH_POLICY_QUERY="$SCRIPT_DIR/../path-policy/path-policy-query.ts"
 PATH_POLICY_QUERY_CORE="$SCRIPT_DIR/../path-policy/path-policy-query-core.ts"
 PATH_POLICY="$SCRIPT_DIR/../path-policy/path-policy.ts"
 PATH_POLICY_SMOKE_SUBJECTS="$SCRIPT_DIR/../path-policy/path-policy-smoke-subjects.ts"
+PATH_POLICY_SMOKE_SUBJECTS_DATA="$SCRIPT_DIR/../path-policy/path-policy-smoke-subjects-data.ts"
 
 PASS=0
 fail() { printf 'FAIL: %s\n' "$1" >&2; exit 1; }
@@ -82,6 +83,8 @@ new_repo() {
   cp "$PATH_POLICY_QUERY_CORE" "$repo/scripts/path-policy/path-policy-query-core.ts"
   cp "$PATH_POLICY" "$repo/scripts/path-policy/path-policy.ts"
   cp "$PATH_POLICY_SMOKE_SUBJECTS" "$repo/scripts/path-policy/path-policy-smoke-subjects.ts"
+  cp "$PATH_POLICY_SMOKE_SUBJECTS_DATA" \
+    "$repo/scripts/path-policy/path-policy-smoke-subjects-data.ts"
   cat > "$repo/scripts/lint-config-sensors.sh" <<'STUB'
 #!/usr/bin/env bash
 {
@@ -92,6 +95,17 @@ new_repo() {
   printf '\n'
 } >> "${CONFIG_SENSOR_LOG:-/dev/null}"
 exit "${STUB_CONFIG_SENSOR_EXIT:-0}"
+STUB
+  cat > "$repo/scripts/lint-import-cycles.sh" <<'STUB'
+#!/usr/bin/env bash
+{
+  printf 'stub import cycles'
+  for arg in "$@"; do
+    printf ' <%s>' "$arg"
+  done
+  printf '\n'
+} >> "${IMPORT_CYCLES_LOG:-/dev/null}"
+exit "${STUB_IMPORT_CYCLES_EXIT:-0}"
 STUB
   printf 'export default [];\n' > "$repo/eslint.config.js"
   printf 'name: CI\non: push\njobs: {}\n' > "$repo/.github/workflows/ci.yml"
@@ -148,8 +162,10 @@ run_lint_changed() {
     STUB_LOG="$repo/eslint.log" PATH="$SANDBOX/bin:$PATH" \
       SHELLCHECK_LOG="$repo/shellcheck.log" \
       CONFIG_SENSOR_LOG="$repo/config-sensors.log" \
+      IMPORT_CYCLES_LOG="$repo/import-cycles.log" \
       STUB_SHELLCHECK_EXIT="${STUB_SHELLCHECK_EXIT:-0}" \
       STUB_CONFIG_SENSOR_EXIT="${STUB_CONFIG_SENSOR_EXIT:-0}" \
+      STUB_IMPORT_CYCLES_EXIT="${STUB_IMPORT_CYCLES_EXIT:-0}" \
       bash scripts/lint-changed.sh "$@"
   )
 }
@@ -191,11 +207,14 @@ ok "lint-config-sensors.sh passes bash -n"
 
 repo="$(new_repo clean)"
 : > "$repo/eslint.log"
+: > "$repo/import-cycles.log"
 output="$(run_lint_changed "$repo")" || fail "clean repo should not fail: $output"
 grep -qF 'no staged/base changed lintable files vs main' <<< "$output" \
   || fail "clean repo should announce no changed lintable files: $output"
 [ ! -s "$repo/eslint.log" ] || fail "clean repo should not invoke eslint: $(cat "$repo/eslint.log")"
-ok "clean repo skips eslint"
+[ -s "$repo/import-cycles.log" ] \
+  || fail "clean repo should still run the always-on import-cycles floor"
+ok "clean repo skips eslint but runs the import-cycles floor"
 
 repo="$(new_repo staged-source-change)"
 printf 'changed\n' > "$repo/packages/server/src/app.ts"
@@ -293,6 +312,18 @@ grep -qF 'lint:changed: ShellCheck failed with exit 1' <<< "$output" \
 [ ! -s "$repo/eslint.log" ] \
   || fail "shell-only ShellCheck failure should not invoke eslint: $(cat "$repo/eslint.log")"
 ok "ShellCheck failures fail lint:changed without eslint files"
+
+repo="$(new_repo import-cycles-failure)"
+: > "$repo/eslint.log"
+: > "$repo/import-cycles.log"
+set +e
+output="$(STUB_IMPORT_CYCLES_EXIT=1 run_lint_changed "$repo" 2>&1)"
+exit_code=$?
+set -e
+[ "$exit_code" -ne 0 ] || fail "import-cycles failure should fail lint:changed"
+grep -qF 'lint:changed: import cycles failed with exit 1' <<< "$output" \
+  || fail "import-cycles failure should be aggregated by lint:changed: $output"
+ok "runtime import-cycle floor failures fail lint:changed"
 
 repo="$(new_repo staged-shell-and-source-failures)"
 cat > "$repo/scripts/bad-hook.sh" <<'SH'
@@ -465,6 +496,8 @@ cp "$PATH_POLICY_QUERY" "$repo/scripts/path-policy/path-policy-query.ts"
 cp "$PATH_POLICY_QUERY_CORE" "$repo/scripts/path-policy/path-policy-query-core.ts"
 cp "$PATH_POLICY" "$repo/scripts/path-policy/path-policy.ts"
 cp "$PATH_POLICY_SMOKE_SUBJECTS" "$repo/scripts/path-policy/path-policy-smoke-subjects.ts"
+cp "$PATH_POLICY_SMOKE_SUBJECTS_DATA" \
+  "$repo/scripts/path-policy/path-policy-smoke-subjects-data.ts"
 cat > "$repo/scripts/lint-config-sensors.sh" <<'STUB'
 #!/usr/bin/env bash
 {
@@ -476,6 +509,17 @@ cat > "$repo/scripts/lint-config-sensors.sh" <<'STUB'
 } >> "${CONFIG_SENSOR_LOG:-/dev/null}"
 exit "${STUB_CONFIG_SENSOR_EXIT:-0}"
 STUB
+cat > "$repo/scripts/lint-import-cycles.sh" <<'STUB'
+#!/usr/bin/env bash
+{
+  printf 'stub import cycles'
+  for arg in "$@"; do
+    printf ' <%s>' "$arg"
+  done
+  printf '\n'
+} >> "${IMPORT_CYCLES_LOG:-/dev/null}"
+exit "${STUB_IMPORT_CYCLES_EXIT:-0}"
+STUB
 touch "$repo/packages/shared/dist/constants.d.ts"
 touch "$repo/packages/shared/dist/dice/dice-roller.d.ts"
 touch "$repo/packages/shared/dist/map/drawing.d.ts"
@@ -483,7 +527,7 @@ touch "$repo/packages/shared/dist/rules/attack-damage.d.ts"
 touch "$repo/packages/shared/dist/schemas/auth.d.ts"
 touch "$repo/packages/shared/dist/test/parse-helpers.d.ts"
 touch "$repo/packages/server/dist/routers/app-router.d.ts"
-git -C "$repo" add scripts/lint-changed.sh scripts/lint-shell.sh scripts/lib/parallel-runner.sh scripts/lint-config-sensors.sh scripts/lib/verify-metadata.sh scripts/lib/changed-base.sh scripts/lib/lint-dist-preflight.sh scripts/path-policy/path-policy-query.ts scripts/path-policy/path-policy-query-core.ts scripts/path-policy/path-policy.ts scripts/path-policy/path-policy-smoke-subjects.ts packages/shared/dist/constants.d.ts packages/shared/dist/dice/dice-roller.d.ts packages/shared/dist/map/drawing.d.ts packages/shared/dist/rules/attack-damage.d.ts packages/shared/dist/schemas/auth.d.ts packages/shared/dist/test/parse-helpers.d.ts packages/server/dist/routers/app-router.d.ts
+git -C "$repo" add scripts/lint-changed.sh scripts/lint-shell.sh scripts/lib/parallel-runner.sh scripts/lint-config-sensors.sh scripts/lint-import-cycles.sh scripts/lib/verify-metadata.sh scripts/lib/changed-base.sh scripts/lib/lint-dist-preflight.sh scripts/path-policy/path-policy-query.ts scripts/path-policy/path-policy-query-core.ts scripts/path-policy/path-policy.ts scripts/path-policy/path-policy-smoke-subjects.ts scripts/path-policy/path-policy-smoke-subjects-data.ts packages/shared/dist/constants.d.ts packages/shared/dist/dice/dice-roller.d.ts packages/shared/dist/map/drawing.d.ts packages/shared/dist/rules/attack-damage.d.ts packages/shared/dist/schemas/auth.d.ts packages/shared/dist/test/parse-helpers.d.ts packages/server/dist/routers/app-router.d.ts
 : > "$repo/eslint.log"
 output="$(run_lint_changed "$repo" 2>&1)" || fail "missing base should fall back to full lint: $output"
 grep -qF "neither 'main' nor 'origin/main' exists" <<< "$output" \

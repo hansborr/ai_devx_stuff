@@ -1,6 +1,9 @@
 import { existsSync, readFileSync } from "node:fs";
 
-import { applyLintRatchetUpdate } from "./baseline-update-apply.js";
+import {
+  applyLintRatchetUpdate,
+  type ApplyLintRatchetUpdateOptions,
+} from "./baseline-update-apply.js";
 import type { ParsedArgs } from "./cli.js";
 import { collectCurrentById, totalCurrentCount } from "./current-collector.js";
 import {
@@ -41,6 +44,7 @@ import {
 } from "./lint-ratchet-zero-baseline.js";
 import { BASELINE_FILENAME, baselinePath } from "./paths.js";
 import { formatRatchetCoverageRow, ratchetCoverageForPaths } from "./ratchet-coverage.js";
+import { resolveRetireRequest } from "./retire-update.js";
 import { buildRuleSourceHashesById } from "./rule-source.js";
 
 const DEFAULT_EDIT_CHECK_CONCURRENCY = 3;
@@ -138,6 +142,18 @@ async function runDefault(): Promise<void> {
   if (changedCount > 0) process.exitCode = 1;
 }
 
+async function updateOptions(args: ParsedArgs): Promise<ApplyLintRatchetUpdateOptions> {
+  const retire =
+    args.retireRatchetId === undefined
+      ? undefined
+      : await resolveRetireRequest(args.retireRatchetId, lintRatchets);
+  return {
+    allowWorse: args.allowWorse,
+    ...(args.reason === undefined ? {} : { reason: args.reason }),
+    ...(retire === undefined ? {} : { retire }),
+  };
+}
+
 async function runUpdate(args: ParsedArgs): Promise<void> {
   const ruleSourceHashesById = buildRuleSourceHashesById(lintRatchets);
   const currentById = await collectCurrentById(ruleSourceHashesById);
@@ -154,7 +170,7 @@ async function runUpdate(args: ParsedArgs): Promise<void> {
     generated,
     rendered,
     registry: lintRatchets,
-    options: args,
+    options: await updateOptions(args),
     currentFindingCount: totalCurrentCount(currentById),
   });
 }

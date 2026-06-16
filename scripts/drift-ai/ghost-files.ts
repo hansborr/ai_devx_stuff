@@ -17,12 +17,7 @@ export {
   GHOST_FILES_DIRECTORY_PAIR_THRESHOLD,
 } from "./ghost-files-constants.js";
 export { DEFAULT_DEPENDENTS_HINT, GHOST_FILES_REPAIR_HINT_PREFIX } from "./ghost-files-findings.js";
-export {
-  DEFAULT_GHOST_FILE_ENTRY_POINT_STEMS,
-  findGhostMatches,
-  type GhostFileMatch,
-  type GhostFileMatchKind,
-} from "./ghost-files-match.js";
+export { DEFAULT_GHOST_FILE_ENTRY_POINT_STEMS, findGhostMatches } from "./ghost-files-match.js";
 export {
   DEFAULT_GHOST_FILE_ROLE_MARKER_TOKENS,
   isRoleSplitFamilyPair,

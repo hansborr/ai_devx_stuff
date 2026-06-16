@@ -156,10 +156,10 @@ Verification:
 
 ### 4. Main lint-drain branch: codemod complexity and max-lines
 
-Status: superseded by
-`docs/agent_notes/backlog/lint-review-2026-06/03i-adopt-codemod-sources.md`
-on 2026-06-12. Codemod sources are now normal-linted; 03j owns codemod test
-adoption.
+Status: superseded by lint-review-2026-06 leaf 03i (codemod source
+adoption) on 2026-06-12; that pack is archived — see
+`../finished_work/lint-review-2026-06.md`. Codemod sources are now
+normal-linted; 03j owned codemod test adoption.
 
 Live state:
 
@@ -168,8 +168,8 @@ Live state:
 
 Source notes:
 
-- `docs/agent_notes/backlog/lint-review-2026-06/03-zero-baseline-promotion-and-scripts-inversion.md`
-  (the deleted Leaf 11 family map was folded into its sub-leaves; codemods are
+- lint-review-2026-06 umbrella leaf 03, now in git history (the deleted
+  Leaf 11 family map was folded into its sub-leaves; codemods are
   03i/03j)
 
 Suggested split: none; this candidate is closed.
@@ -200,8 +200,8 @@ Live state:
 - The lint-ratchet runtime complexity ratchet was retired after normal lint
   adopted `scripts/lint-ratchet/**/*.ts`.
 
-Source: `docs/agent_notes/backlog/lint-review-2026-06/03-zero-baseline-promotion-and-scripts-inversion.md`
-(the deleted Leaf 11 family map was folded into its sub-leaves; the runtime
+Source: lint-review-2026-06 umbrella leaf 03, now in git history (the
+deleted Leaf 11 family map was folded into its sub-leaves; the runtime
 family is 03d1/03d2).
 
 Verification:
@@ -273,8 +273,10 @@ dev-session capture/log paths exist.
 
 ### Client test-quality plugin follow-ups
 
-Source: `docs/agent_notes/backlog/lint-review-2026-06/watchlist.md` (Rule And
-Sensor Candidates section; formerly Leaf 10).
+Source: promoted to
+`docs/agent_notes/backlog/lint-followups-2026-06/06-client-test-quality-plugins.md`
+(formerly the lint-review watchlist entry / Leaf 10) — work it there, not
+from this candidate.
 
 The first `@vitest/eslint-plugin` slice already landed. Remaining work is
 client-scoped Testing Library and jest-dom inventory, plus any explicitly named
@@ -316,8 +318,8 @@ Human-promoted decisions:
    max-lines as separate branches.
 4. **Vitest inventory**: removed from the active batch after cleanup because
    the `@vitest/eslint-plugin` first slice already landed. Remaining
-   test-quality work stays parked in
-   `lint-review-2026-06/watchlist.md` (formerly Leaf 10).
+   test-quality work is now `lint-followups-2026-06/` leaf 06 (formerly
+   the lint-review watchlist entry / Leaf 10).
 5. **Drift-ai max-lines**: promoted. Same module-split pattern.
 6. **Already landed (do not re-promote)**: Leaf 4 (eslint-comments hygiene)
    landed 2026-05-16. Leaf 24 (.sort() comparator fixes) landed in

@@ -10,7 +10,7 @@ import {
   quoted,
   staticString,
   templateExpressionReason,
-} from "./structured-logging-fix.js";
+} from "./structured-logging-fix-ast.js";
 
 const SERVER_SRC_ROOT = path.join("packages", "server", "src");
 const SCRIPT_LOGGER_RELATIVE = path.join(SERVER_SRC_ROOT, "utils", "script-logger.ts");

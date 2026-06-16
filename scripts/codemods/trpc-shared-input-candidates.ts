@@ -14,7 +14,7 @@ import {
   SHARED_SCHEMA_PREFIX,
 } from "./lib/trpc-shared-schema.js";
 
-const CODEMOD_NAME = "trpc-shared-input";
+export const CODEMOD_NAME = "trpc-shared-input";
 const INPUT_SCHEMA_SUFFIX = "InputSchema";
 const STRUCTURAL_METHODS = new Set(["extend", "merge", "and", "or"]);
 

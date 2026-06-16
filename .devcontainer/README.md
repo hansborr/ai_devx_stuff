@@ -4,29 +4,29 @@ This devcontainer is built for **Podman** on a Linux host with SELinux. Most of 
 non-obvious configuration exists to work around differences between Podman and Docker.
 This document explains each decision so the patterns can be reused in other projects.
 
-> **Heads up — `localhost/claude-devcontainer:latest` base image.** `Dockerfile`
-> starts from a base image you build locally. It is derived from Anthropic's
-> public Claude Code devcontainer
-> ([anthropics/claude-code/.devcontainer](https://github.com/anthropics/claude-code/tree/main/.devcontainer))
-> with additional customizations layered in via
-> [hansborr/devcontainer-base](https://github.com/hansborr/devcontainer-base) —
-> see that repo for the build steps. The wiring under `.devcontainer/` here
-> (Podman flags, named volumes, persistence patterns) is independent of the
-> base image and portable to any TypeScript/Bun-friendly base.
-
 ## Quick start
 
 ```bash
 # First time only — copy and edit environment variables
 cp .devcontainer/.env.example .devcontainer/.env
-# Edit .devcontainer/.env — set PROJECT_NAME, POSTGRES_PASSWORD at minimum
+# Edit .devcontainer/.env — set PROJECT_NAME and POSTGRES_PASSWORD.
+# The shipped JWT_SECRET is a known dev-only placeholder: it boots unedited in
+# development but is rejected in production, so replace it with a real secret
+# (openssl rand -base64 48) before any non-local use.
 
 # Open in VS Code — it will prompt to reopen in container
 code .
 ```
 
-`postCreateCommand` installs dependencies and runs database migrations automatically,
-so the environment should be fully ready once the container starts.
+`postCreateCommand` runs [`post-create.sh`](post-create.sh), which provisions the
+workspace end-to-end: installs dependencies, builds `@musi/shared`, generates the
+Prisma client, (re)creates the `musi_test` / `musi_test_e2e` databases, applies
+migrations, and seeds SRD reference data. It does **not** silence steps — output is
+tee'd to `/tmp/musi_logs/post-create.log`, and the `.setup-complete` marker (which
+gates dev-server startup) is written only when every critical step succeeds. On a
+critical failure it writes `.setup-failed` and exits non-zero instead of reporting a
+half-provisioned container as ready. Run `bun run doctor` to confirm the environment
+is green.
 
 ---
 
@@ -184,9 +184,11 @@ application at runtime.
 "waitFor": "postStartCommand"
 ```
 
-- **`postCreateCommand`** runs once when the container is first created. Used for
-  installing dependencies and running database migrations — things that are durable
-  and only need to happen once.
+- **`postCreateCommand`** runs once when the container is first created. It invokes
+  [`post-create.sh`](post-create.sh) to install dependencies, build `@musi/shared`,
+  generate the Prisma client, provision + migrate + seed the databases — things that
+  are durable and only need to happen once. Failures are surfaced (logged and
+  non-zero exit), not swallowed.
 
 - **`postStartCommand`** runs every time the container starts (including after a
   host reboot). Used for the firewall init script, because iptables rules are
@@ -233,8 +235,13 @@ Run the full environment check from the workspace root:
 bun run doctor
 ```
 
-The doctor output reports the lint tool surface, including the system binary paths
-and versions for `shellcheck` and `yamllint`.
+The doctor output reports the full lint tool surface: the system binary paths and
+versions for `shellcheck` and `yamllint`, plus a `=== lint tools ===` section that
+reports the resolved path, installed version, and known-good version for `eslint`,
+`prettier`, `taplo`, `node-actionlint`, `hadolint`, and `bun`. Each known-good
+version is read from its single source (package.json for the npm-managed tools,
+`scripts/lint-config-sensors.sh` for the hadolint binary pin, and the
+`packageManager` field for Bun); doctor reports versions but never installs.
 
 ---
 

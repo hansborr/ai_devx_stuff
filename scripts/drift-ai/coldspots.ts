@@ -42,7 +42,11 @@ import { defaultFileReader, type RepoFileReader } from "./repo-io.js";
 import { defaultReportWriter, type ReportWriter } from "./report-output.js";
 import { buildSourceExtensions } from "./scope.js";
 import { walkSourceFiles } from "./source-walk.js";
-import { type SubcommandBaseOptions, writeSubcommandOutput } from "./subcommand-args.js";
+import {
+  loadBaseline,
+  type SubcommandBaseOptions,
+  writeSubcommandOutput,
+} from "./subcommand-args.js";
 
 const BANNER = "Areas to check, not defects. drift:ai makes no claim these are problems.";
 
@@ -193,20 +197,6 @@ function prepareInputs(
       return { ok: false, result: { exitCode: 2, stdout: err.message } };
     }
     throw err;
-  }
-}
-
-function loadBaseline(path: string, read: (path: string) => string): unknown {
-  let raw: string;
-  try {
-    raw = read(path);
-  } catch {
-    throw new DriftAiError(`--baseline file does not exist or is unreadable: ${path}`);
-  }
-  try {
-    return JSON.parse(raw);
-  } catch {
-    throw new DriftAiError(`--baseline file is not valid JSON: ${path}`);
   }
 }
 

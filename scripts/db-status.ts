@@ -31,43 +31,86 @@ function clientPort(corsOrigin: string | undefined): string | undefined {
   }
 }
 
-type ResolvedE2eDatabase = {
+type ResolvedDatabase = {
   source: string;
   url: string | undefined;
 };
 
-function derivedE2eUrl(databaseUrl: string | undefined): string | undefined {
+function derivedUrl(databaseUrl: string | undefined, name: string): string | undefined {
   if (!databaseUrl) return undefined;
   try {
     const u = new URL(databaseUrl);
-    u.pathname = "/musi_test_e2e";
+    u.pathname = `/${name}`;
     return u.toString();
   } catch {
-    return databaseUrl.replace(/\/[^/]+$/, "/musi_test_e2e");
+    return databaseUrl.replace(/\/[^/]+$/, `/${name}`);
   }
+}
+
+// Mirror the vitest/Playwright harness (packages/server/src/test/test-database-url.ts):
+// TEST_DATABASE_URL takes precedence, otherwise it derives the base test DB from
+// DATABASE_URL by swapping the database name to `musi_test`. db-status.ts must
+// resolve the same way, or the presence check below reports the test DB present
+// while the database the harness will actually use is missing.
+function resolveTestDatabase(test: string | undefined, dev: string | undefined): ResolvedDatabase {
+  if (test) return { source: "TEST_DATABASE_URL", url: test };
+  return { source: "DATABASE_URL-derived fallback", url: derivedUrl(dev, "musi_test") };
 }
 
 function resolveE2eDatabase(
   e2e: string | undefined,
   test: string | undefined,
   dev: string | undefined,
-): ResolvedE2eDatabase {
+): ResolvedDatabase {
   if (e2e) return { source: "E2E_DATABASE_URL", url: e2e };
   if (test) return { source: "TEST_DATABASE_URL fallback", url: test };
-  return { source: "DATABASE_URL-derived fallback", url: derivedE2eUrl(dev) };
+  return { source: "DATABASE_URL-derived fallback", url: derivedUrl(dev, "musi_test_e2e") };
+}
+
+// Verify the test/e2e databases the vitest/Playwright harnesses assume exist.
+// pg_database is a cluster-wide catalog visible from the dev-DB connection we
+// already hold, so a single read confirms presence without a postgres-client
+// CLI. On a fresh volume the initdb hook has been seen to leave these absent;
+// .devcontainer/post-create.sh provisions them.
+async function reportTestDatabasesPresent(
+  test: string | undefined,
+  e2eUrl: string | undefined,
+): Promise<void> {
+  const expected = [...new Set([dbName(test), dbName(e2eUrl)])].filter(
+    (name) => !name.startsWith("<"),
+  );
+  if (expected.length === 0) return;
+  try {
+    const rows = await prisma.$queryRaw<{ datname: string }[]>`SELECT datname FROM pg_database`;
+    const present = new Set(rows.map((r) => r.datname));
+    const missing = expected.filter((name) => !present.has(name));
+    if (missing.length === 0) {
+      console.log(`OK  : test/e2e databases present (${expected.join(", ")})`);
+    } else {
+      console.warn(
+        `WARN: missing test database(s): ${missing.join(", ")} — provision with .devcontainer/post-create.sh`,
+      );
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.warn("WARN: could not enumerate databases —", message);
+  }
 }
 
 async function main(): Promise<void> {
   const dev = process.env["DATABASE_URL"];
-  const test = process.env["TEST_DATABASE_URL"];
-  const e2e = resolveE2eDatabase(process.env["E2E_DATABASE_URL"], test, dev);
+  const rawTest = process.env["TEST_DATABASE_URL"];
+  const test = resolveTestDatabase(rawTest, dev);
+  // e2e falls back to the raw TEST_DATABASE_URL (not the derived test URL),
+  // matching the harness's E2E_DATABASE_URL ?? TEST_DATABASE_URL precedence.
+  const e2e = resolveE2eDatabase(process.env["E2E_DATABASE_URL"], rawTest, dev);
   const redis = process.env["REDIS_URL"];
   const serverPort = process.env["SERVER_PORT"];
   const viteDevPort = process.env["VITE_DEV_PORT"];
   const corsOrigin = process.env["CORS_ORIGIN"];
 
   console.log(`INFO: dev DB:    ${dbName(dev)} (${maskUrl(dev)})`);
-  console.log(`INFO: test DB:   ${dbName(test)} (${maskUrl(test)})`);
+  console.log(`INFO: test DB:   ${dbName(test.url)} (${maskUrl(test.url)}, ${test.source})`);
   console.log(`INFO: e2e DB:    ${dbName(e2e.url)} (${maskUrl(e2e.url)}, ${e2e.source})`);
   if (e2e.source === "TEST_DATABASE_URL fallback") {
     console.warn(
@@ -86,6 +129,8 @@ async function main(): Promise<void> {
     console.error("FAIL: cannot connect —", message);
     process.exit(1);
   }
+
+  await reportTestDatabasesPresent(test.url, e2e.url);
 
   const speciesCount = await prisma.species.count().catch(() => -1);
   if (speciesCount > 0) {

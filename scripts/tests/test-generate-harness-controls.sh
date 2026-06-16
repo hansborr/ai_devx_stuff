@@ -24,13 +24,22 @@ trap cleanup EXIT
 
 copy_generator() {
   local fixture_dir=$1
-  mkdir -p "$fixture_dir/scripts/harness" "$fixture_dir/scripts/lib"
+  mkdir -p "$fixture_dir/scripts/harness" "$fixture_dir/scripts/lib" "$fixture_dir/scripts/lint-ratchet"
   cp scripts/harness/control-field-validation.ts "$fixture_dir/scripts/harness/control-field-validation.ts"
   cp scripts/harness/generate-harness-controls.ts "$fixture_dir/scripts/harness/generate-harness-controls.ts"
   cp scripts/harness/generate-harness-controls-validation.ts "$fixture_dir/scripts/harness/generate-harness-controls-validation.ts"
   cp scripts/harness/hook-wiring-schema.ts "$fixture_dir/scripts/harness/hook-wiring-schema.ts"
   cp scripts/lib/lint-rule-docs.ts "$fixture_dir/scripts/lib/lint-rule-docs.ts"
+  cp scripts/lib/doc-generator.ts "$fixture_dir/scripts/lib/doc-generator.ts"
   cp scripts/harness/verify-step-schema.ts "$fixture_dir/scripts/harness/verify-step-schema.ts"
+  # Minimal ratchet registry stub: the generator re-projects ratchet principles
+  # from lintRatchets (id -> principle), so the fixture supplies its own backing
+  # entry for ratchet/fixture instead of copying the real registry chain.
+  cat >"$fixture_dir/scripts/lint-ratchet/lint-ratchet-config.ts" <<'TS'
+export const lintRatchets = [
+  { id: "ratchet/fixture", principle: "Ratchet fixture principle." },
+] as const;
+TS
 }
 
 # Writes a minimal eslint.config.js + local-plugin.js with one rule whose
@@ -114,7 +123,6 @@ write_valid_manifest() {
       "id": "ratchet/fixture",
       "kind": "ratchet",
       "category": "maintainability",
-      "principle": "Ratchet fixture principle.",
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": "scripts/ratchet-fixture.ts",

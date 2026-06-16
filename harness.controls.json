@@ -58,6 +58,13 @@
       "invocation": "bun run lint"
     },
     {
+      "id": "lint/local/no-redundant-central-mock",
+      "kind": "lint-rule",
+      "ruleName": "local/no-redundant-central-mock",
+      "source": "eslint-rules/no-redundant-central-mock.js",
+      "invocation": "bun run lint"
+    },
+    {
       "id": "lint/local/no-swallowed-errors",
       "kind": "lint-rule",
       "ruleName": "local/no-swallowed-errors",
@@ -129,40 +136,27 @@
     },
 
     {
-      "id": "ratchet/local-e2e-prefer-role-selectors",
-      "kind": "ratchet",
-      "category": "maintainability",
-      "principle": "Prevent raw e2e locator debt from growing in legacy selector files while role-first cleanup proceeds.",
-      "pairedGuide": "docs/guides/lint-ratchet.md",
-      "repairKind": "manual",
-      "source": "scripts/lint-ratchet/lint-ratchet-config.ts",
-      "invocation": "bun run lint:ratchet"
-    },
-    {
       "id": "ratchet/local-type-assertion-boundary",
       "kind": "ratchet",
       "category": "maintainability",
-      "principle": "Prevent the known type-assertion debt pool from growing while cleanup proceeds incrementally.",
       "pairedGuide": "docs/guides/lint-ratchet.md",
       "repairKind": "manual",
       "source": "scripts/lint-ratchet/lint-ratchet-config.ts",
       "invocation": "bun run lint:ratchet"
     },
     {
-      "id": "ratchet/playwright-no-nth-methods-e2e",
+      "id": "ratchet/react-hooks-set-state-in-effect-client",
       "kind": "ratchet",
       "category": "maintainability",
-      "principle": "Prevent first(), last(), and nth() selector debt from growing in e2e tests while page-object selectors are cleaned up.",
       "pairedGuide": "docs/guides/lint-ratchet.md",
       "repairKind": "manual",
       "source": "scripts/lint-ratchet/lint-ratchet-config.ts",
       "invocation": "bun run lint:ratchet"
     },
     {
-      "id": "ratchet/playwright-prefer-native-locators-e2e",
+      "id": "ratchet/strict-boolean-expressions-server-encounter-combat",
       "kind": "ratchet",
       "category": "maintainability",
-      "principle": "Prevent CSS selector debt that has a native Playwright locator replacement from growing in e2e tests.",
       "pairedGuide": "docs/guides/lint-ratchet.md",
       "repairKind": "manual",
       "source": "scripts/lint-ratchet/lint-ratchet-config.ts",
@@ -172,7 +166,33 @@
       "id": "ratchet/strict-boolean-expressions-shared",
       "kind": "ratchet",
       "category": "maintainability",
-      "principle": "Prevent strict-boolean-expressions debt from growing in packages/shared/src production code while cleanup proceeds incrementally.",
+      "pairedGuide": "docs/guides/lint-ratchet.md",
+      "repairKind": "manual",
+      "source": "scripts/lint-ratchet/lint-ratchet-config.ts",
+      "invocation": "bun run lint:ratchet"
+    },
+    {
+      "id": "ratchet/testing-library-no-container-client-tests",
+      "kind": "ratchet",
+      "category": "maintainability",
+      "pairedGuide": "docs/guides/lint-ratchet.md",
+      "repairKind": "manual",
+      "source": "scripts/lint-ratchet/lint-ratchet-config.ts",
+      "invocation": "bun run lint:ratchet"
+    },
+    {
+      "id": "ratchet/testing-library-no-node-access-client-tests",
+      "kind": "ratchet",
+      "category": "maintainability",
+      "pairedGuide": "docs/guides/lint-ratchet.md",
+      "repairKind": "manual",
+      "source": "scripts/lint-ratchet/lint-ratchet-config.ts",
+      "invocation": "bun run lint:ratchet"
+    },
+    {
+      "id": "ratchet/testing-library-prefer-screen-queries-client-tests",
+      "kind": "ratchet",
+      "category": "maintainability",
       "pairedGuide": "docs/guides/lint-ratchet.md",
       "repairKind": "manual",
       "source": "scripts/lint-ratchet/lint-ratchet-config.ts",
@@ -182,7 +202,6 @@
       "id": "ratchet/vitest-expect-expect-drift-ai-tests",
       "kind": "ratchet",
       "category": "maintainability",
-      "principle": "Keep the drift-ai test expect-expect floor pinned to assertFunctionNames [\"expect\"] only, stricter than the resolved plugin defaults normal lint applies (keep verdict, lint-review-2026-06 leaf 03e).",
       "pairedGuide": "docs/guides/lint-ratchet.md",
       "repairKind": "manual",
       "source": "scripts/lint-ratchet/lint-ratchet-config.ts",
@@ -192,7 +211,6 @@
       "id": "ratchet/vitest-expect-expect-script-tests",
       "kind": "ratchet",
       "category": "maintainability",
-      "principle": "Prevent singleton script tests without recognized assertions from growing now that the final Leaf 41g test rows are linted.",
       "pairedGuide": "docs/guides/lint-ratchet.md",
       "repairKind": "manual",
       "source": "scripts/lint-ratchet/lint-ratchet-config.ts",
@@ -202,7 +220,6 @@
       "id": "ratchet/vitest-valid-expect-drift-ai-tests",
       "kind": "ratchet",
       "category": "maintainability",
-      "principle": "Keep the drift-ai test valid-expect floor pinned to maxArgs 2, stricter than the resolved plugin defaults normal lint applies (keep verdict, lint-review-2026-06 leaf 03e).",
       "pairedGuide": "docs/guides/lint-ratchet.md",
       "repairKind": "manual",
       "source": "scripts/lint-ratchet/lint-ratchet-config.ts",
@@ -212,7 +229,6 @@
       "id": "ratchet/vitest-valid-expect-script-tests",
       "kind": "ratchet",
       "category": "maintainability",
-      "principle": "Prevent malformed Vitest expect calls in the newly linted singleton script tests while Leaf 41 drain work proceeds.",
       "pairedGuide": "docs/guides/lint-ratchet.md",
       "repairKind": "manual",
       "source": "scripts/lint-ratchet/lint-ratchet-config.ts",
@@ -297,7 +313,7 @@
           "env": { "HARNESS_DIAGNOSTICS_OUTPUT": "$LOG_DIR/ratchet-diagnostics.json" }
         },
         { "name": "zero-baseline", "script": "lint:ratchet:zero-baseline" },
-        { "name": "coverage-map", "script": "docs:lint-coverage-map:check" },
+        { "name": "coverage-map", "script": "docs:lint-coverage-map:audit" },
         { "name": "format-check", "script": "format:check" },
         { "name": "typecheck", "script": "typecheck" },
         {
@@ -362,7 +378,7 @@
           "env": { "HARNESS_DIAGNOSTICS_OUTPUT": "$LOG_DIR/ratchet-diagnostics.json" }
         },
         { "name": "zero-baseline", "script": "lint:ratchet:zero-baseline" },
-        { "name": "coverage-map", "script": "docs:lint-coverage-map:check" },
+        { "name": "coverage-map", "script": "docs:lint-coverage-map:audit" },
         { "name": "format-check", "script": "format:check" },
         { "name": "typecheck", "script": "typecheck" },
         {
@@ -417,7 +433,7 @@
       "id": "verify-wrapper/doctor",
       "kind": "verify-wrapper",
       "category": "maintainability",
-      "principle": "Aggregated read-only diagnostic: composes worktree:status, db:status, env-file sanity, port binding, dependency freshness, yamllint and ShellCheck system-tool availability, suppression registers, migration safety, drift:ai harness-freshness, knip, and blob-size; report-only — exits non-zero only on FAIL counts.",
+      "principle": "Aggregated read-only diagnostic: composes worktree:status, db:status, env-file sanity, port binding, dependency freshness, yamllint and ShellCheck system-tool availability, the lint host-tool inventory, suppression registers, migration safety, drift:ai harness-freshness, knip, and blob-size; report-only — exits non-zero only on FAIL counts.",
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": "scripts/doctor.sh",
@@ -455,6 +471,26 @@
       "invocation": "bun run doctor"
     },
     {
+      "id": "doctor-check/shared-dist-freshness",
+      "kind": "doctor-check",
+      "category": "maintainability",
+      "principle": "Compare packages/shared/src mtimes against the compiled @musi/shared dist that tests import through the package exports map, so a missing or stale dist — typically after a branch switch or fresh clone — is flagged before it surfaces as dozens of phantom '<X> is not a function' test failures.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/lib/test-dist-preflight.sh",
+      "invocation": "bun run doctor"
+    },
+    {
+      "id": "doctor-check/prisma-client-freshness",
+      "kind": "doctor-check",
+      "category": "maintainability",
+      "principle": "Compare schema.prisma against the generated Prisma client mtime so a stale or ungenerated client — typically after a branch switch or fresh clone — is flagged before it surfaces as confusing import-time test failures.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/prisma-client-freshness.sh",
+      "invocation": "bun run doctor"
+    },
+    {
       "id": "doctor-check/yamllint-system-tool",
       "kind": "doctor-check",
       "category": "maintainability",
@@ -469,6 +505,16 @@
       "kind": "doctor-check",
       "category": "maintainability",
       "principle": "Report whether ShellCheck is available from the system PATH; shell lint requires the apt-provided shellcheck package rather than the npm wrapper.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/doctor.sh",
+      "invocation": "bun run doctor"
+    },
+    {
+      "id": "doctor-check/lint-tools",
+      "kind": "doctor-check",
+      "category": "maintainability",
+      "principle": "Report presence, resolved path, installed version, and known-good version for the host tools the lint surface invokes (eslint, prettier, taplo, node-actionlint, hadolint, bun), reading each known-good version from its single source; report-first, never installs.",
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": "scripts/doctor.sh",
@@ -559,7 +605,7 @@
       "id": "drift-scope/e2e",
       "kind": "drift-scope",
       "category": "maintainability",
-      "principle": "Report Playwright locator-usage patterns across e2e tests alongside the ratcheted raw-locator debt-file count.",
+      "principle": "Report Playwright locator-usage patterns across e2e tests so raw-locator regressions stay visible after the selector ratchets retired.",
       "pairedGuide": "docs/guides/add-e2e-test.md",
       "repairKind": "manual",
       "source": "scripts/drift/locator-usage.ts",
@@ -676,6 +722,16 @@
       "repairKind": "manual",
       "source": "scripts/lint-config-sensors.sh",
       "invocation": "bun run lint:config-sensors"
+    },
+    {
+      "id": "check/import-cycles-floor",
+      "kind": "check",
+      "category": "architecture-fitness",
+      "principle": "Always-run lint lane holding runtime import cycles at zero via drift:ai import-cycles with --fail-on-runtime-cycles; type-only cycles stay report-only evidence and a skipped check fails closed.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/lint-import-cycles.sh",
+      "invocation": "bun run lint:import-cycles"
     },
     {
       "id": "check/drift-ai-commented-out-code",
