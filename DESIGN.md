@@ -2,8 +2,8 @@
 version: alpha
 name: Musi
 description: >-
-  Dark-fantasy design system for Musi, a D&D 5.5E virtual tabletop and campaign
-  manager — deep charcoal surfaces, warm parchment text, a single gold accent,
+  Dark-fantasy design system for Musi, a virtual tabletop and campaign manager
+  for fifth edition (5.5E) — deep charcoal surfaces, warm parchment text, a single gold accent,
   and an engraved Cinzel display face. Dark theme only.
 colors:
   # Backgrounds & surfaces
@@ -168,10 +168,13 @@ components:
 
 # Musi — Design System
 
-A dark‑fantasy design system for **Musi**, a D&D 5.5E virtual tabletop and campaign manager.
-The aesthetic is a candle‑lit gaming table: deep charcoal surfaces, warm **parchment** text, a
-single **gold** accent, and an engraved **Cinzel** display face for titles. Body copy is clean and
-modern (Inter); dice math and code use JetBrains Mono.
+A dark‑fantasy design system for **Musi**, a virtual tabletop and campaign manager for fifth
+edition (5.5E). The aesthetic is a candle‑lit gaming table: deep charcoal surfaces, warm
+**parchment** text, a single **gold** accent, and an engraved **Cinzel** display face for titles.
+Body copy is clean and modern (Inter); dice math and code use JetBrains Mono.
+
+> _Musi is an independent project and is not affiliated with, endorsed, or sponsored by Wizards of
+> the Coast. See the [README](README.md#license--attribution) for full license and trademark notices._
 
 > **Source of truth:** `packages/client/src/app.css` (Tailwind v4 `@theme`) and the primitives in
 > `packages/client/src/components/ui/`. The front‑matter tokens above mirror that theme; the `colors`
@@ -183,7 +186,7 @@ modern (Inter); dice math and code use JetBrains Mono.
 ## Overview
 
 - **Mood:** dark fantasy, tabletop, focused. Low‑light "screen in a dim room" feel.
-- **Audience:** D&D 5.5E players and DMs running live sessions and managing campaigns.
+- **Audience:** fifth edition (5.5E) players and DMs running live sessions and managing campaigns.
 - **Wordmark:** "Musi" in Cinzel, bold, tight tracking, rendered in the gold primary
   (`font-serif text-3xl font-bold tracking-tight text-primary`).
 - **Accent discipline:** exactly one accent (gold). Everything else is neutral charcoal or

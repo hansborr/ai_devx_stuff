@@ -1,6 +1,7 @@
 ## Project
 
-Musi is a D&D 5.5E virtual tabletop and campaign management system.
+Musi is a 5E-compatible virtual tabletop and campaign management system built
+on the SRD 5.2.1 ruleset.
 
 - Monorepo: `packages/{shared,server,client}`
 - Stack: TypeScript, Bun, Fastify, tRPC, Prisma/PostgreSQL, React, TanStack Query/Router, Tailwind v4, Socket.io

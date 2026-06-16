@@ -47,6 +47,7 @@
     "test:scripts:changed": "bash scripts/test-scripts.sh --changed",
     "test:scripts:file": "bash scripts/vitest.sh run --passWithNoTests --project=scripts",
     "audit:deps": "bun audit --audit-level=high && bash scripts/check-fast-uri-override.sh && bash scripts/check-eslint-react-peer-exception.sh",
+    "audit:licenses": "bun scripts/audit-dependency-licenses.ts",
     "check:fast-uri-override": "bash scripts/check-fast-uri-override.sh",
     "check:eslint-react-peer-exception": "bash scripts/check-eslint-react-peer-exception.sh",
     "lint": "bash scripts/lint.sh",

@@ -9,3 +9,10 @@ docs/agent_notes/LOG.md merge=union
 # driver keeps "ours" (still valid JSON), prints the regeneration recipe, and
 # still declares a conflict; see "Merge Conflicts" in docs/guides/lint-ratchet.md.
 /lint-ratchet.baseline.json merge=lint-ratchet-baseline
+
+# Public source archives should not include local agent harness state or process
+# notes. These remain tracked in git because scripts and harness docs reference
+# them directly.
+/.codex/** export-ignore
+/.claude/** export-ignore
+/docs/agent_notes/** export-ignore

@@ -774,8 +774,8 @@ ensure_per_worktree_dbs() {
     done
   fi
 
-  # Migrations can be caught up safely on warm DBs. SRD seed changes cannot be
-  # made exact in place because upserts do not delete removed reference rows.
+  # Migrations can be caught up safely on warm DBs. SRD seed changes are not
+  # guaranteed exact in place because most seed paths preserve removed rows.
   # Keep the seed fingerprint stale so status/doctor can point at
   # worktree:refresh-data and the destructive exact-parity option.
   local recorded_fp recorded_seed_fp
@@ -787,7 +787,7 @@ ensure_per_worktree_dbs() {
     recorded_fp="$current_fp"
   else
     recorded_fp="${stored_fp:-seed-drift}"
-    log "SRD seed drift remains for $slug; run 'bun run worktree:refresh-data' to re-apply the seed in place (upsert-only — preserves dev rows but will not delete reference rows removed from the seed source), or pass --destructive to reclone dev/test/e2e from the template and clear exact drift"
+    log "SRD seed drift remains for $slug; run 'bun run worktree:refresh-data' to re-apply the seed in place (preserves dev rows and removes explicitly deprecated reference rows), or pass --destructive to reclone dev/test/e2e from the template and clear exact drift"
   fi
   store_worktree_fingerprints "$slug" "$recorded_fp" "$current_migration_fp" "$recorded_seed_fp"
 }
@@ -1051,7 +1051,7 @@ cmd_refresh_data() {
       reclone_worktree_db "$target" "$template_db"
     done
   else
-    log "preserve refresh: re-applying migrations + SRD seed in place on dev/test/e2e (removed seed rows are preserved; pass --destructive to reclone and clear exact drift)"
+    log "preserve refresh: re-applying migrations + SRD seed in place on dev/test/e2e (preserves dev rows and removes explicitly deprecated reference rows; pass --destructive to reclone and clear exact drift)"
     for target in "$db" "$testdb" "$e2edb"; do
       db_exists "$target" \
         || die "$target does not exist; run 'bun run worktree:init' first, or pass --destructive to recreate from template"
@@ -1176,7 +1176,7 @@ cmd_status() {
       if (( ${#drift_reasons[@]} > 0 )); then
         printf 'drift: %s\n' "$(IFS=,; printf '%s' "${drift_reasons[*]}")"
         if (( seed_drift )); then
-          printf "WARN: SRD seed drift detected — run 'bun run worktree:refresh-data' to re-apply the seed in place (upsert-only — preserves dev rows but will not delete reference rows removed from the seed source), or 'bun run worktree:refresh-data --destructive' to reclone dev/test/e2e from the template and clear exact drift\n"
+          printf "WARN: SRD seed drift detected — run 'bun run worktree:refresh-data' to re-apply the seed in place (preserves dev rows and removes explicitly deprecated reference rows), or 'bun run worktree:refresh-data --destructive' to reclone dev/test/e2e from the template and clear exact drift\n"
         elif (( seed_metadata_missing )); then
           printf "WARN: SRD seed fingerprint metadata missing — run 'bun run worktree:init' to backfill metadata; if seed drift remains afterwards, run 'bun run worktree:refresh-data'\n"
         fi

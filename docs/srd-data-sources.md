@@ -24,6 +24,11 @@ International (CC-BY-4.0). Any derivative work must include this attribution:
   `packages/server/src/seed/data/reference/PROVENANCE.json` and `NOTICE.md`.
 - `packages/server/src/seed/data/` — other committed seed inputs (spells,
   monsters, magic items, rules glossary) generated from the markdown source.
+  Their CC-BY-4.0 attribution, modification notice, pinned upstream revision, and
+  per-file checksums live alongside the data in
+  `packages/server/src/seed/data/NOTICE.md` and `PROVENANCE.json`
+  (distinct from the `reference/` manifests above). The checksums are enforced by
+  `packages/server/src/seed/seed-derived-provenance.test.ts`.
 - `packages/server/src/seed/` — canonical seed scripts and generated seed data
   checked into this repo.
 - `docs/refs/5e-database/src/2024/` and `docs/refs/dndsrd5.2_markdown/src/` —
@@ -37,8 +42,14 @@ International (CC-BY-4.0). Any derivative work must include this attribution:
   JSON source for the reference tables. The currently-vendored revision is pinned
   in `packages/server/src/seed/data/reference/PROVENANCE.json` (at time of
   writing: commit `c40ab45c3648030f54234083ec599c6969934358`, release 4.5.0).
-- `springbov/dndsrd5.2_markdown`: markdown conversion useful when regenerating
-  class, subclass, monster, magic-item, and glossary seed data.
+- `springbov/dndsrd5.2_markdown` (CC-BY-4.0): markdown conversion of the SRD
+  used when regenerating class, subclass, monster, magic-item, and glossary seed
+  data. The vendored derived data is pinned to commit
+  `6a3547c1d625fb125fbbcb8ded563f5beff197a8` in
+  `packages/server/src/seed/data/PROVENANCE.json`. Note: the upstream README
+  states its monster *formatting* was adapted from `mshea/lazy_gm_tools` (a
+  multi-source repo); Musi's imported monster roster was checked to be SRD 5.2.1
+  creatures only.
 - EN World editable SRD 5.2.1: human-readable fallback when the PDF is awkward.
 
 ## Reseeding from upstream
