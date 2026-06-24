@@ -33,6 +33,7 @@ Mirror = every upstream-tracked path **except the preserve set**:
 | `packages/**` | Gutted stubs (`export type AppRouter = unknown`) keep the symbol surface for scripts/eslint/code-intel without pulling in ~1300 app-code files. Upstream tracks 1298 paths here; we keep 18. |
 | `README.md` | This repo's "AI/Human DX, copied from a real project" doc — 0 lines shared with upstream's Musi README. |
 | the `sync-from-upstream` skill | The shared script `scripts/sync-from-upstream.sh` plus the `.claude/` and `.codex/` skill wrappers. None exist upstream, so the delete pass must not remove them (matched as a bare `sync-from-upstream` substring). |
+| `.claude/statusline.sh` | The shared Claude Code status line. Force-tracked with `git add -f` (`.gitignore` only allowlists `.claude/` settings/hooks/skills); upstream keeps its copy only in gitignored `tmp/`, so it never appears in `ls-files` and the delete pass would otherwise orphan ours. |
 
 Everything else is a **full mirror**: files in both get overwritten (`update`),
 upstream-only files get copied in (`add`), and here-only files that upstream no

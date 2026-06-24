@@ -30,7 +30,12 @@ set -uo pipefail
 #                        .claude/ and .codex/ skill wrappers. None exist upstream,
 #                        so the delete pass must not remove them. Matched as a bare
 #                        substring so every location is covered.
-PRESERVE_REGEX='^(packages/|README\.md$)|sync-from-upstream'
+#   .claude/statusline.sh  the shared Claude Code status line (force-tracked with
+#                        `git add -f`, since .gitignore only allowlists .claude/
+#                        settings/hooks/skills). Upstream keeps its own copy only in
+#                        gitignored tmp/, so it never appears in `ls-files` and the
+#                        delete pass would otherwise orphan ours.
+PRESERVE_REGEX='^(packages/|README\.md$)|sync-from-upstream|^\.claude/statusline\.sh$'
 
 # ---- args ------------------------------------------------------------------
 UPSTREAM="/workspace"
@@ -77,7 +82,7 @@ done < "$tmp/both"
 n_add=$(wc -l < "$tmp/adds"); n_del=$(wc -l < "$tmp/dels"); n_upd=$(wc -l < "$tmp/updates")
 
 echo "    update: $n_upd    add: $n_add    delete: $n_del"
-echo "    preserved (untouched): packages/**, README.md, the sync-from-upstream skill"
+echo "    preserved (untouched): packages/**, README.md, the sync-from-upstream skill, .claude/statusline.sh"
 echo
 
 if [ "$n_del" -gt 0 ]; then
