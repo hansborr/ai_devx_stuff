@@ -1,5 +1,6 @@
 {
   "args": ["packages/server/src/seed/seed-idempotent.ts"],
-  "expectedStdout": ["no supported console rewrites found"],
-  "runTwice": true
+  "expectedStdout": [],
+  "runTwice": true,
+  "expectedSecondStdout": ["no supported console rewrites found"]
 }

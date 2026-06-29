@@ -10,8 +10,9 @@ for the engine and coverage-hook branch logic).
 A fresh minimal-TS regression detector wired into a PostToolUse advisory hook:
 "this edit currently introduces or worsens a ratcheted finding in this file."
 Type-aware ratchets are intentionally out of scope (verify/commit stays
-authoritative). The deferred cached-baseline-context signal stays parked in
-`backlog/lint-followups-2026-06/watchlist.md`.
+authoritative). The deferred cached-baseline-context signal is tracked by the
+closed lint-followups summary; the old watchlist details live only in git
+history before `finished_work/lint-followups-2026-06.md`.
 
 ## Phase 0 (gate) — re-confirmed PASS
 
@@ -109,5 +110,6 @@ throwaway script committed.
 
 - Phase 3 (type-aware ratchets at edit time) — only if the minimal-TS blind spot
   proves material.
-- Cached baseline context —
-  `backlog/lint-followups-2026-06/watchlist.md`.
+- Cached baseline context — see
+  `finished_work/lint-followups-2026-06.md`; the old watchlist details live only
+  in git history.

@@ -9,7 +9,9 @@ first-party `ai-footguns` pack was evaluated in lint-followups-2026-06 Leaf 10
 and DEFERRED (0 rules): every evidenced footgun class is already enforced at
 ESLint `error` and Musi is TS-only, so semgrep's value (specificity + multi-
 language) does not apply here; the opt-in lane stays as-is, not retired. See
-that leaf's verdict in `backlog/lint-followups-2026-06/evaluation-verdicts.md`.
+the lint-followups summary in
+`docs/agent_notes/finished_work/lint-followups-2026-06.md`; that leaf's
+original verdict now lives only in git history.
 Date: 2026-06-05
 Revised: 2026-06-05 after cross-review against the parked portable-AI-repo-scan
 and security-sensor-evaluation notes; same day, added slice 0 results, then
@@ -627,8 +629,9 @@ As run, results in the calibration note's
     apply (Musi is TS-only, 0 Go files); conflict-marker/stubbed-success/
     hardcoded-secret classes lacked a citable in-repo incident. Not a lane
     retirement — the opt-in lane stays. Revisit when a named footgun appears
-    in a class ESLint cannot express, or Musi gains a non-TS surface. Full
-    verdict: `backlog/lint-followups-2026-06/evaluation-verdicts.md`.
+    in a class ESLint cannot express, or Musi gains a non-TS surface. Summary:
+    `docs/agent_notes/finished_work/lint-followups-2026-06.md`; the original
+    verdict lives only in git history.
 - A lighter prepared-run path for `semgrep-candidates`: the command reuses
   `prepareCurrentRun` for config loading and root validation, but that helper
   also builds the full current-file inventory (`git ls-files` + per-file

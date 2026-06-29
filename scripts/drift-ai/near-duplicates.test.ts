@@ -1,14 +1,12 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
+import { describe, expect, it } from "vitest";
 
-import { afterEach, describe, expect, it } from "vitest";
-
+import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
 import type { CheckRunInput } from "./check-plugin.js";
 import { parseArgs } from "./cli-args.js";
 import { DEFAULT_DRIFT_AI_CONFIG } from "./config.js";
 import {
   buildNearDuplicateFindings,
+  compareNearDuplicateFunctions,
   extractNearDuplicateFunctions,
   findNearDuplicatePairs,
   NEAR_DUPLICATE_TOOL,
@@ -30,24 +28,10 @@ const PROVENANCE: FindingProvenance = {
   tool: NEAR_DUPLICATE_TOOL,
 };
 
-const tempRoots: string[] = [];
-afterEach(() => {
-  while (tempRoots.length > 0) {
-    const root = tempRoots.pop();
-    if (root !== undefined) rmSync(root, { recursive: true, force: true });
-  }
-});
+const tmpRepo = registerTempRootCleanup();
 
-function writeRepo(files: Record<string, string>): string {
-  const root = mkdtempSync(path.join(tmpdir(), "drift-near-dupes-"));
-  tempRoots.push(root);
-  for (const [rel, source] of Object.entries(files)) {
-    const abs = path.join(root, rel);
-    mkdirSync(path.dirname(abs), { recursive: true });
-    writeFileSync(abs, source);
-  }
-  return root;
-}
+const writeRepo = (files: Record<string, string>): string =>
+  tmpRepo.writeRepo(files, "drift-near-dupes-");
 
 function changedScope(files: readonly ChangedFile[]): DetectorScope {
   return { scopeMode: "changed", files: files.map(toChangedScopeFile) };
@@ -119,7 +103,120 @@ function functionsFrom(files: Record<string, string>): NearDuplicateFunction[] {
   );
 }
 
+// Hand-built fingerprints give precise control over filePath/startLine/endLine
+// so we can exercise the same-file range-overlap guard. Identical features and
+// statementFeatures make every pair a perfect (similarity 1.0) match and share
+// one statement bucket, so only the overlap guard can suppress a pair.
+const SHARED_FEATURES = ["call:reduce", "if", "return", "binary:+"] as const;
+function nearDuplicateFunction(
+  overrides: Partial<NearDuplicateFunction> & {
+    readonly filePath: string;
+    readonly name: string;
+    readonly startLine: number;
+    readonly endLine: number;
+  },
+): NearDuplicateFunction {
+  return {
+    lineCount: 20,
+    tokenCount: 50,
+    features: [...SHARED_FEATURES],
+    statementFeatures: [...SHARED_FEATURES],
+    ...overrides,
+  };
+}
+
+describe("compareNearDuplicateFunctions", () => {
+  it("returns null for an enclosing/overlapping same-file pair instead of pairing a function with itself", () => {
+    const outer = nearDuplicateFunction({
+      filePath: "src/dup.ts",
+      name: "outer",
+      startLine: 1,
+      endLine: 30,
+    });
+    const inner = nearDuplicateFunction({
+      filePath: "src/dup.ts",
+      name: "inner",
+      startLine: 5,
+      endLine: 12,
+    });
+    expect(compareNearDuplicateFunctions(outer, inner)).toBeNull();
+  });
+
+  it("returns a canonical pair for identical functions living in distinct files", () => {
+    const left = nearDuplicateFunction({
+      filePath: "src/a.ts",
+      name: "alpha",
+      startLine: 1,
+      endLine: 30,
+    });
+    const right = nearDuplicateFunction({
+      filePath: "src/b.ts",
+      name: "beta",
+      startLine: 1,
+      endLine: 30,
+    });
+    const pair = compareNearDuplicateFunctions(left, right);
+    expect(pair).not.toBeNull();
+    expect(pair?.similarity).toBe(1);
+    expect(pair?.left.filePath).toBe("src/a.ts");
+    expect(pair?.right.filePath).toBe("src/b.ts");
+  });
+
+  it("still pairs same-file functions whose ranges are disjoint", () => {
+    const first = nearDuplicateFunction({
+      filePath: "src/same.ts",
+      name: "first",
+      startLine: 1,
+      endLine: 12,
+    });
+    const second = nearDuplicateFunction({
+      filePath: "src/same.ts",
+      name: "second",
+      startLine: 20,
+      endLine: 40,
+    });
+    const pair = compareNearDuplicateFunctions(first, second);
+    expect(pair).not.toBeNull();
+    expect(pair?.left.startLine).toBe(1);
+    expect(pair?.right.startLine).toBe(20);
+  });
+});
+
 describe("findNearDuplicatePairs", () => {
+  it("excludes an overlapping same-file pair while still pairing the disjoint cross-file clone", () => {
+    const outer = nearDuplicateFunction({
+      filePath: "src/dup.ts",
+      name: "outer",
+      startLine: 1,
+      endLine: 30,
+    });
+    const inner = nearDuplicateFunction({
+      filePath: "src/dup.ts",
+      name: "inner",
+      startLine: 5,
+      endLine: 12,
+    });
+    const other = nearDuplicateFunction({
+      filePath: "src/other.ts",
+      name: "other",
+      startLine: 1,
+      endLine: 30,
+    });
+    const pairs = findNearDuplicatePairs([outer, inner, other]);
+    // outer<->inner overlap in src/dup.ts and must be suppressed; the two
+    // cross-file matches (outer<->other, inner<->other) survive.
+    expect(pairs).toHaveLength(2);
+    for (const pair of pairs) {
+      expect(pair.left.filePath === "src/dup.ts" && pair.right.filePath === "src/dup.ts").toBe(
+        false,
+      );
+    }
+    const otherSides = pairs.map((pair) =>
+      pair.left.filePath === "src/other.ts" ? pair.right.name : pair.left.name,
+    );
+    expect([...otherSides].sort()).toEqual(["inner", "outer"]);
+  });
+
   it("flags renamed-variable function clones that token-based duplication can miss", () => {
     const functions = functionsFrom({ "src/totals.ts": RENAMED_VARIABLES });
     const pairs = findNearDuplicatePairs(functions);

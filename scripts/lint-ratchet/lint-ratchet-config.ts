@@ -102,16 +102,35 @@ const testingLibraryRatchetIgnores = [
   "**/generated/**",
   "**/node_modules/**",
 ] as const;
-const testingLibraryDrainExitPath = "docs/agent_notes/backlog/lint-followups-2026-06/watchlist.md";
+const testingLibraryDrainExitPath = "docs/agent_notes/finished_work/lint-followups-2026-06.md";
 
 const driftAiVitestTestFiles = [
   "scripts/drift-ai.test.ts",
   "scripts/drift-ai/**/*.test.ts",
 ] as const;
 const driftAiVitestTestIgnores = ["scripts/drift-ai/fixtures/**"] as const;
+const designTokenLintExitPath =
+  "docs/agent_notes/backlog/harness-research-followups-2026-06/02-design-token-lint.md";
 
 // prettier-ignore
 export const lintRatchets = [
+  {
+    id: "ratchet/local-no-arbitrary-tailwind-value-client",
+    ruleId: "local/no-arbitrary-tailwind-value",
+    files: clientSourceFiles,
+    ignores: clientTestAndHelperSourceFiles,
+    ruleOptions: [],
+    mode: "no-new",
+    target: 0,
+    metric: "message-count",
+    repairKind: "manual",
+    principle: "Freeze the accepted client arbitrary Tailwind bracket-value inventory so new one-off class values fail while the design-token cleanup drains incrementally.",
+    zeroBaselineDisposition: {
+      kind: "promote-to-normal-lint",
+      reason: "client class strings should use DESIGN.md and packages/client/src/app.css @theme tokens; once the existing arbitrary-value inventory drains, normal lint should enforce the rule directly",
+      exitPath: designTokenLintExitPath,
+    },
+  },
   localTypeAssertionBoundaryRatchet({
     id: "ratchet/local-type-assertion-boundary",
     files: [

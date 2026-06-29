@@ -5,6 +5,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import type { GitRunner } from "./git-changed-scope.js";
+import { currentRepoGit } from "./git-runner.test-helper.js";
 import {
   type HarnessFreshnessFinding,
   type HarnessFreshnessPathKind,
@@ -187,10 +188,7 @@ describe("runHarnessFreshnessCheck", () => {
 // makes the check deterministic: a missing harness file yields one finding.
 function gitAtEmptyRepo(): GitRunner {
   const repoRoot = mkdtempSync(path.join(tmpdir(), "drift-harness-"));
-  return (args) => {
-    if (args.join(" ") === "rev-parse --show-toplevel") return `${repoRoot}\n`;
-    throw new Error(`unexpected git invocation: git ${args.join(" ")}`);
-  };
+  return currentRepoGit(repoRoot);
 }
 
 describe("harness-freshness subcommand", () => {

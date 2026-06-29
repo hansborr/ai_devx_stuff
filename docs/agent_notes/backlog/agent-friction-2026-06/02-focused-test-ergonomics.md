@@ -18,7 +18,7 @@ Environment facts confirmed:
 
 ## B2 — Test discovery sweeps duplicate tests under `worktrees/`
 
-**Status: not addressed — reproduced live.**
+**Status: DONE (4f945455) — `**/worktrees/**` added to scripts/vitest.config.ts and all package + eslint-rules vitest configs.**
 
 **Evidence.** `scripts/vitest.config.ts:9-13` `exclude` is
 `[...defaultExclude, "codemods/fixtures/**", "drift-ai/fixtures/**",
@@ -70,7 +70,7 @@ very low (subtractive on an already-ignored duplicate tree).
 
 ## B1 — No discoverable, ergonomic focused script-test command
 
-**Status: not addressed — root cause is real and live.**
+**Status: DONE (7ae9d520) — package.json adds `test:scripts:file`.**
 
 **Evidence.** `package.json:44` `"test:scripts": "bash scripts/test-scripts.sh"`
 is the shell smoke wrapper, not vitest; its `case "${1:-}"`

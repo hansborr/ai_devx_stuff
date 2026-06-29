@@ -1,29 +1,14 @@
 // @ts-check
-import { RuleTester } from "eslint";
-import tseslint from "typescript-eslint";
 import { describe, expect, it } from "vitest";
 
+import { jsxRuleTester, makeRuleTester } from "./rule-tester.js";
 import rule from "./type-assertion-boundary.js";
 
 const nonTestFilename = "packages/server/src/services/foo.ts";
 
-const ruleTester = new RuleTester({
-  languageOptions: {
-    parser: tseslint.parser,
-    parserOptions: { ecmaVersion: 2022, sourceType: "module" },
-  },
-});
+const ruleTester = makeRuleTester();
 
-const jsxTester = new RuleTester({
-  languageOptions: {
-    parser: tseslint.parser,
-    parserOptions: {
-      ecmaVersion: 2022,
-      sourceType: "module",
-      jsx: true,
-    },
-  },
-});
+const jsxTester = jsxRuleTester;
 const jsxFilename = "packages/client/src/components/Foo.tsx";
 
 describe("type-assertion-boundary", () => {

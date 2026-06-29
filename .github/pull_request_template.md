@@ -1,3 +1,7 @@
+## Intent / Comprehension
+
+- I can explain why this change is needed and how the main code path works:
+
 ## Summary
 
 -

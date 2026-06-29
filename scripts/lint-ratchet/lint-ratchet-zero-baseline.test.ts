@@ -1,16 +1,13 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
+import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
+import { currentById, FIXTURE_HASH } from "./lint-ratchet.test-helper.js";
 import {
   buildLintRatchetBaseline,
   formatLintRatchetBaseline,
-  LINT_RATCHET_CONFIG_HASH_PREFIX,
   type LintRatchetBaseline,
-  type LintRatchetCurrentById,
-  type LintRatchetCurrentItem,
   type LintRatchetRuleSourceHashesById,
 } from "./lint-ratchet-baseline.js";
 import type { LintRatchetConfig } from "./lint-ratchet-config.js";
@@ -24,8 +21,7 @@ import {
   type ZeroBaselineAuditRow,
 } from "./lint-ratchet-zero-baseline.js";
 
-const FIXTURE_HASH = `${LINT_RATCHET_CONFIG_HASH_PREFIX}${"a".repeat(64)}`;
-const tempRoots: string[] = [];
+const tmpRepo = registerTempRootCleanup();
 
 const promotedRatchet: LintRatchetConfig = {
   id: "ratchet/fixture-promoted",
@@ -63,14 +59,6 @@ const ruleSourceHashes: LintRatchetRuleSourceHashesById = new Map([
   [debtRatchet.id, FIXTURE_HASH],
 ]);
 
-function currentById(
-  entries: readonly [string, readonly [string, LintRatchetCurrentItem][]][],
-): LintRatchetCurrentById {
-  const current = new Map<string, ReadonlyMap<string, LintRatchetCurrentItem>>();
-  for (const [ratchetId, items] of entries) current.set(ratchetId, new Map(items));
-  return current;
-}
-
 function baseline(): LintRatchetBaseline {
   return buildLintRatchetBaseline(
     [promotedRatchet, documentedRatchet, debtRatchet],
@@ -88,19 +76,13 @@ function zeroBaseline(ratchet: LintRatchetConfig): LintRatchetBaseline {
 }
 
 function writeBaselineFixture(text: string): string {
-  const tempRoot = mkdtempSync(join(tmpdir(), "lint-ratchet-zero-baseline-"));
-  tempRoots.push(tempRoot);
+  const tempRoot = tmpRepo.writeRepo(
+    { "lint-ratchet.baseline.json": text },
+    "lint-ratchet-zero-baseline-",
+  );
   const baselinePath = join(tempRoot, "lint-ratchet.baseline.json");
-  writeFileSync(baselinePath, text);
   return baselinePath;
 }
-
-afterEach(() => {
-  while (tempRoots.length > 0) {
-    const tempRoot = tempRoots.pop();
-    if (tempRoot !== undefined) rmSync(tempRoot, { recursive: true, force: true });
-  }
-});
 
 describe("lint ratchet zero-baseline audit", () => {
   it("audits only committed zero-baseline ratchets and aggregates normal lint status", async () => {
@@ -218,8 +200,7 @@ describe("lint ratchet zero-baseline audit", () => {
   });
 
   it("reports a missing committed baseline as a config error", async () => {
-    const tempRoot = mkdtempSync(join(tmpdir(), "lint-ratchet-zero-baseline-missing-"));
-    tempRoots.push(tempRoot);
+    const tempRoot = tmpRepo.makeTempRepo("lint-ratchet-zero-baseline-missing-");
 
     await expect(
       runLintRatchetZeroBaselineAudit({

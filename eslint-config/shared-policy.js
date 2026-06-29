@@ -3,7 +3,12 @@
 export const codeFiles = ["**/*.{js,cjs,mjs,ts,tsx,mts,cts}"];
 export const typescriptFiles = ["**/*.{ts,tsx,mts,cts}"];
 
-export const rootJsConfigFiles = ["eslint.config.js", "commitlint.config.js", "stryker.config.mjs"];
+export const rootJsConfigFiles = [
+  "eslint.config.js",
+  "commitlint.config.js",
+  "stryker.config.mjs",
+  "stryker.config.server.mjs",
+];
 export const eslintConfigSupportFiles = ["eslint-config/*.js"];
 export const eslintConfigJsFiles = [...rootJsConfigFiles, ...eslintConfigSupportFiles];
 
@@ -16,6 +21,7 @@ export const rootAndPackageTsConfigFiles = [
   "packages/client/vitest.config.ts",
   "packages/server/prisma.config.ts",
   "packages/server/vitest.config.ts",
+  "packages/server/vitest.mutation.config.ts",
   "packages/shared/vitest.config.ts",
 ];
 

@@ -1,10 +1,10 @@
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
+import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
 import type { DriftAiIgnoreConfig } from "./config.js";
 import {
   DEFAULT_SEMGREP_TIMEOUT_MS,
@@ -17,13 +17,7 @@ import {
 
 const FIXTURE_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures", "semgrep");
 
-const tempRoots: string[] = [];
-afterEach(() => {
-  while (tempRoots.length > 0) {
-    const root = tempRoots.pop();
-    if (root !== undefined) rmSync(root, { recursive: true, force: true });
-  }
-});
+const tmpRepo = registerTempRootCleanup();
 
 type SpawnCall = {
   readonly command: string;
@@ -32,16 +26,8 @@ type SpawnCall = {
   readonly timeout: number | undefined;
 };
 
-function writeRepo(files: Record<string, string>): string {
-  const root = mkdtempSync(path.join(tmpdir(), "drift-semgrep-"));
-  tempRoots.push(root);
-  for (const [rel, source] of Object.entries(files)) {
-    const abs = path.join(root, rel);
-    mkdirSync(path.dirname(abs), { recursive: true });
-    writeFileSync(abs, source);
-  }
-  return root;
-}
+const writeRepo = (files: Record<string, string>): string =>
+  tmpRepo.writeRepo(files, "drift-semgrep-");
 
 function fixtureScanJson(name = "scan-output.logged-out.json"): string {
   return readFileSync(path.join(FIXTURE_DIR, name), "utf8");

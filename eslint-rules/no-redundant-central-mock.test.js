@@ -3,21 +3,16 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { RuleTester } from "eslint";
 import tseslint from "typescript-eslint";
 import { describe, expect, it } from "vitest";
 
+import { makeRuleTester } from "./rule-tester.js";
 import rule, {
   CANONICAL_FACTORY_SOURCES,
   normalizeFactorySource,
 } from "./no-redundant-central-mock.js";
 
-const ruleTester = new RuleTester({
-  languageOptions: {
-    parser: tseslint.parser,
-    parserOptions: { ecmaVersion: 2022, sourceType: "module" },
-  },
-});
+const ruleTester = makeRuleTester();
 
 const TOAST_FACTORY = CANONICAL_FACTORY_SOURCES["react-hot-toast"];
 const ROUTER_FACTORY = CANONICAL_FACTORY_SOURCES["@tanstack/react-router"];

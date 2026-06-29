@@ -1,6 +1,6 @@
 # 43. README Quickstart understates the Bun minimum (>= 1.2.0) below the engines-enforced >= 1.3.0 floor
 
-Status: Proposed — codebase maintainability/onboarding audit 2026-06-13. Not yet started.
+Status: Done — 2026-06-20. Updated the `README.md` Prerequisites Bun floor from `>= 1.2.0` to `>= 1.3.0` (matching `package.json` `engines.bun`) and named the pinned `bun@1.3.11` toolchain / CI parity. Doc-only; no `engines`/`packageManager` change, no new test.
 Theme: onboarding setup drift · Area: docs · Severity: low · Size: XS
 
 Source: codebase maintainability/onboarding audit 2026-06-13 (lens: onboarding-setup); evidence independently re-verified (post-review addition, 2026-06-13). · Confidence: high

@@ -1,13 +1,15 @@
-import { mkdirSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { writeFileSync } from "node:fs";
 import path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
 import { ALL_CHECKS, DEFAULT_CHECKS } from "./check-metadata.js";
 import { makeDefaultDriftAiConfig } from "./config-defaults.js";
 import { buildConfigInspection, formatConfigInspectionText } from "./config-inspect.js";
 import { runDriftAi } from "./runner.js";
+
+const tmpRepo = registerTempRootCleanup();
 
 describe("buildConfigInspection", () => {
   it("classifies an explicit config path as explicit, even at the auto filename", () => {
@@ -191,9 +193,7 @@ describe("config subcommand", () => {
 });
 
 function makeRepoDir(): string {
-  const dir = path.join(tmpdir(), `drift-config-inspect-${process.pid}-${Date.now()}`);
-  mkdirSync(dir, { recursive: true });
-  return dir;
+  return tmpRepo.makeTempRepo("drift-config-inspect-");
 }
 
 function gitRoot(repoRoot: string): (args: readonly string[]) => string {

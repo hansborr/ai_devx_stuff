@@ -1,16 +1,10 @@
 // @ts-check
-import { RuleTester } from "eslint";
-import tseslint from "typescript-eslint";
 import { describe, it } from "vitest";
 
+import { makeRuleTester } from "./rule-tester.js";
 import rule from "./no-broadcast-in-transaction.js";
 
-const ruleTester = new RuleTester({
-  languageOptions: {
-    parser: tseslint.parser,
-    parserOptions: { ecmaVersion: 2022, sourceType: "module" },
-  },
-});
+const ruleTester = makeRuleTester();
 
 describe("no-broadcast-in-transaction", () => {
   it("blocks socket broadcasts inside Prisma transaction callbacks", () => {
@@ -42,7 +36,7 @@ describe("no-broadcast-in-transaction", () => {
             "  broadcastEncounterUpdate(io, campaignId, encounterId, logger);",
             "});",
           ].join("\n"),
-          errors: [{ message: /docs\/guides\/add-socket-broadcast\.md/u }],
+          errors: [{ messageId: "noBroadcastInTransaction" }],
         },
         {
           code: [

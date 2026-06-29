@@ -54,3 +54,18 @@ detail that cannot be recovered from code, tests, commits, `LOG.md`, or
 - `lint-review-2026-06.md` — closed 23-leaf lint-setup review pack: scripts
   coverage inversion, 37-to-9 ratchet drain, e2e selector floors, cache
   removal, merge-base preflights, and the import-cycle verdict.
+- `lint-followups-2026-06.md` — closed 16-leaf successor to the lint-review
+  pack: e2e selector debt drain (172 findings/21 files) with the selector
+  ratchets retired, runtime import-cycle gate, and ESLint plugin evaluations.
+- `drift-ai-findings.md` — closed `drift:ai --scope current` triage: 30
+  implemented quality fixes (dedup/dead-code/doc-drift) plus 1 won't-fix false
+  positive, across tooling and product code.
+- `drift-ai-next-items.md` — closed post-ship `drift:ai` task pack: 43 leaves
+  across diagnostics fusion/projection, prototype advisory lenses
+  (clone/commented-code/layer-direction), and governance/config inspection.
+- `testsuite-audit.md` — 2026-06-21 reconciliation of the 55-finding test-suite
+  audit: 43 closed, 12 still open (listed in `../backlog/testsuite-audit/`).
+- `mutation-coverage-2026-06.md` — 95-finding StrykerJS pack: 94 landed via
+  merged `feat/mutation-expand-shared-server`; residual #75 queued for Codex.
+- `ux-audit-2026-06-p0.md` — three 2026-06-06 live-play P0 blockers shipped;
+  only the manual dev-DB fixture reseed deferred.

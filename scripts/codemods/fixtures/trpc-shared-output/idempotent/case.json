@@ -1,0 +1,12 @@
+{
+  "args": [
+    "packages/server/src/routers/thing.ts"
+  ],
+  "runTwice": true,
+  "expectedStdout": [
+    "trpc-shared-output codemod: moved createOutputSchema; touched packages/server/src/routers/thing.ts and packages/shared/src/schemas/thing.ts."
+  ],
+  "expectedSecondStdout": [
+    "trpc-shared-output codemod: no router-local output schemas found in packages/server/src/routers/thing.ts."
+  ]
+}

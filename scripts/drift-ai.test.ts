@@ -46,6 +46,10 @@ import {
   type DirectoryListing,
   GHOST_FILES_REPAIR_HINT_PREFIX,
 } from "./drift-ai/ghost-files.js";
+import {
+  currentRepoGit as makeCurrentGit,
+  makeStubGit,
+} from "./drift-ai/git-runner.test-helper.js";
 import type { ModuleGraphRunner } from "./drift-ai/import-cycles-graph.js";
 import {
   clearKnipRunCache,
@@ -144,14 +148,6 @@ function makeTempDir(): string {
   return root;
 }
 
-function makeStubGit(responses: Record<string, string>): GitRunner {
-  return (args) => {
-    const key = args.join(" ");
-    if (key in responses) return responses[key] ?? "";
-    throw new Error(`unexpected git invocation: git ${key}`);
-  };
-}
-
 function captureThrown(callback: () => void): unknown {
   try {
     callback();
@@ -247,10 +243,6 @@ function parseCapturedKnipArgs(line: string): readonly string[] {
     throw new Error(`invalid captured knip args: ${line}`);
   }
   return parsed;
-}
-
-function makeCurrentGit(repoRoot: string): GitRunner {
-  return makeStubGit({ "rev-parse --show-toplevel": `${repoRoot}\n` });
 }
 
 function statForCurrentFiles(repoRoot: string, filePaths: readonly string[]): StatRunner {

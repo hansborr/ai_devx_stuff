@@ -17,7 +17,7 @@ work-arounds. Suggested PR grouping: **A** = E1+R1 (rule fixes), **B** = E2+E3
 
 ## E1 — `complexity` over-counts optional-chains & dispatch in tests/fakes
 
-**Status: not addressed.** Enforced only by core `complexity: ["error", {max: 10}]`
+**Status: DONE (643537b1).** Enforced only by core `complexity: ["error", {max: 10}]`
 (`eslint-config/rule-groups.js:25`) via `maintainabilityRules` →
 `createRepoCodeQualityConfigs` (`eslint-config/code-quality-configs.js:54-55`).
 The unit-test override (`eslint-config/test-configs.js:96-108`) already disables
@@ -49,7 +49,7 @@ to the test override, which does not help assertion-heavy test callbacks).
 
 ## F1 — Registry/data files keep crossing the `local/max-lines` floor
 
-**Status: partial (band-aided).** Floor is `local/max-lines` `max: 300`
+**Status: DONE (a7abb730).** Floor is `local/max-lines` `max: 300`
 (`eslint-config/rule-groups.js:8-12`), counting effective lines
 (`eslint-rules/max-lines.js:83-105`). Per-file caps come from
 `maxLinesPolicy.exceptions` (`eslint-config/shared-policy.js:133-336`).
@@ -93,7 +93,7 @@ knip happy).
 
 ## R1 — `type-assertion-boundary` rejects a 2-line `//` marker; message omits the rule
 
-**Status: not addressed.** Rule: `eslint-rules/type-assertion-boundary.js`.
+**Status: DONE (a7abb730).** Rule: `eslint-rules/type-assertion-boundary.js`.
 `nearbyBoundaryComments` (lines 128-167) keeps only comments whose
 `loc.end.line` is the line directly above (or with one blank line between). A
 multi-line `/** */` JSDoc is one token and works (test at
@@ -123,7 +123,7 @@ comments.
 
 ## E2 — `no-unnecessary-condition` vs `ts.Node.parent`; E3 — `unbound-method` vs `ts.sys`
 
-**Status: not addressed; both idioms already rediscovered in-tree.**
+**Status: DONE (a7abb730); both idioms had already been rediscovered in-tree.**
 - E2: `ts.Node.parent` is typed non-nullable, so `cursor !== undefined` walks are
   flagged. Already worked around once at
   `scripts/drift-ai/class-construction-references.ts:158-167`
@@ -154,7 +154,8 @@ PR; there's a `*.test.ts` sibling pattern (`source-walk.test.ts`,
 
 ## W1 — No blessed way to probe a plugin rule under flat config
 
-**Status: not addressed.** `eslint --rule '{"local/…"}'` fails because
+**Status: DONE (a7abb730) — landed as the documented recipe in
+`docs/guides/local-eslint-rules.md`.** `eslint --rule '{"local/…"}'` fails because
 CLI-supplied plugin rules don't resolve `plugins` declared in file-scoped flat
 config objects (the local plugin is registered inside
 `createRepoCodeQualityConfigs`, `code-quality-configs.js:40-42`).
@@ -184,7 +185,7 @@ script on first sign of fiddliness or repeat use.
 
 ## Q1 — Hand-maintained `runtimeFiles` copy list in the lint-ratchet vitest fixture
 
-**Status: partial — the masking is real.** Two parallel lists:
+**Status: DONE (a7abb730).** Two parallel lists:
 - Shell smoke `scripts/tests/test-lint-ratchet.sh:24-35`: a few explicit
   cross-dir files **plus a glob** `for runtime_file in scripts/lint-ratchet/*.ts`
   → auto-picks up new modules (which is why it stayed green and masked the
@@ -212,7 +213,7 @@ dependency set — keep explicit unless it grows.)
 
 ## L1 — Control-byte git-log fixtures re-derived (and corruptible) across 9 files
 
-**Status: not addressed — heavily duplicated.** No shared builder exists.
+**Status: DONE (a7abb730).** No shared builder previously existed.
 `scripts/drift-ai/hotspots-history.test.ts:8-47` is the most complete reference
 (separator constants + `metaLine`/`commitBlock`/`gitLog` builders); at least
 8 other drift-ai test files re-derive the constants with **inconsistent

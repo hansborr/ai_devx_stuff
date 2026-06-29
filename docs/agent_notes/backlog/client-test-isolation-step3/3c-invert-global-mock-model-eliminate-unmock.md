@@ -1,6 +1,6 @@
 # 3c. Invert the global-mock model and dissolve the child-component-mock web → eliminate the 25 `vi.unmock` files (the isolated-lane floor)
 
-Status: Proposed — follow-up to test-suite-audit #01; NOT implemented. **The most invasive item; read "Why prior agents stopped short" before scoping.** Re-verify file:line and re-run the classifier before acting.
+Status: Track A Done / Track B deferred (do-not-schedule). Track A landed via merge 700cf17b (commit d498492d) — the 3 single-pin real-tests are in the fast lane. Track B (the ~20-file child-component-mock web, the current 20 isolated files) is intentionally NOT scheduled; pursue only if full-suite/CI wall time becomes a concrete bottleneck. Re-verify file:line + re-run the classifier first.
 Lens: speed · Area: client / test-infra + component-test design · Severity: low (ROI) / high (risk) · Size: **L–XL** · Confidence: med
 Theme: client-isolation-step3 · Source: client-test-isolation split-runner follow-up 2026-06-15
 

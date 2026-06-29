@@ -1,6 +1,6 @@
 # 20 - Diagnostics schema tool extension
 
-Status: Parked
+Status: Superseded -> drift-ai-next-items 10 (diagnostics tool ids, Done)
 Track: Dg (diagnostics)
 Size: small
 Depends on: 13

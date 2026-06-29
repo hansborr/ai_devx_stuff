@@ -39,5 +39,6 @@ Notes:
 
 Deliberately left for later (not this issue): the deferred "cached baseline
 floor context" signal
-(`docs/agent_notes/backlog/lint-followups-2026-06/watchlist.md`)
+(`docs/agent_notes/finished_work/lint-followups-2026-06.md`; old watchlist
+details live only in git history)
 and batching the hook's per-uncovered-file `bun` spawns into one call.

@@ -21,8 +21,8 @@ interface ProductionCollectionState {
 }
 
 const PROJECT_ROOT = resolve(import.meta.dirname, "..");
-const STRONG_COPYLEFT_RE = /\b(?:AGPL|GPL|SSPL)\b/i;
-const REVIEW_COPYLEFT_RE = /\b(?:LGPL|MPL|EPL|CDDL|CPL|OSL|RPL)\b/i;
+export const STRONG_COPYLEFT_RE = /\b(?:AGPL|GPL|SSPL)\b/i;
+export const REVIEW_COPYLEFT_RE = /\b(?:LGPL|MPL|EPL|CDDL|CPL|OSL|RPL)\b/i;
 const ALL_MODE = process.argv.includes("--all");
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -44,7 +44,7 @@ function stringRecord(value: unknown): Record<string, string> {
   return result;
 }
 
-function licenseValue(value: unknown): string | null {
+export function licenseValue(value: unknown): string | null {
   if (typeof value === "string") return value;
   if (Array.isArray(value)) {
     const values = value.map(licenseValue).filter((entry): entry is string => entry !== null);
@@ -331,24 +331,28 @@ function printPackageList(title: string, packages: PackageInfo[]): void {
   }
 }
 
-const packages = ALL_MODE ? collectInstalledPackages() : collectProductionPackages();
-const strongCopyleft = packages.filter((pkg) => STRONG_COPYLEFT_RE.test(pkg.license));
-const reviewCopyleft = packages.filter((pkg) => REVIEW_COPYLEFT_RE.test(pkg.license));
-const unknown = packages.filter((pkg) => pkg.license === "UNKNOWN" || pkg.license === "UNLICENSED");
+if (import.meta.main) {
+  const packages = ALL_MODE ? collectInstalledPackages() : collectProductionPackages();
+  const strongCopyleft = packages.filter((pkg) => STRONG_COPYLEFT_RE.test(pkg.license));
+  const reviewCopyleft = packages.filter((pkg) => REVIEW_COPYLEFT_RE.test(pkg.license));
+  const unknown = packages.filter(
+    (pkg) => pkg.license === "UNKNOWN" || pkg.license === "UNLICENSED",
+  );
 
-console.log("Dependency license audit");
-console.log(`Mode: ${ALL_MODE ? "all installed packages" : "production dependency closure"}`);
-console.log(`Packages audited: ${String(packages.length)}`);
-console.log("");
-console.log("License summary:");
-for (const [license, count] of summarizeLicenses(packages)) {
-  console.log(`- ${license}: ${String(count)}`);
-}
-console.log("");
-printPackageList("Strong copyleft licenses", strongCopyleft);
-printPackageList("Copyleft-review licenses", reviewCopyleft);
-printPackageList("Unknown or unlicensed package metadata", unknown);
+  console.log("Dependency license audit");
+  console.log(`Mode: ${ALL_MODE ? "all installed packages" : "production dependency closure"}`);
+  console.log(`Packages audited: ${String(packages.length)}`);
+  console.log("");
+  console.log("License summary:");
+  for (const [license, count] of summarizeLicenses(packages)) {
+    console.log(`- ${license}: ${String(count)}`);
+  }
+  console.log("");
+  printPackageList("Strong copyleft licenses", strongCopyleft);
+  printPackageList("Copyleft-review licenses", reviewCopyleft);
+  printPackageList("Unknown or unlicensed package metadata", unknown);
 
-if (strongCopyleft.length > 0 || reviewCopyleft.length > 0) {
-  process.exitCode = 1;
+  if (strongCopyleft.length > 0 || reviewCopyleft.length > 0) {
+    process.exitCode = 1;
+  }
 }

@@ -13,7 +13,15 @@ export default {
     dir: "packages/shared",
     related: true,
   },
-  mutate: ["packages/shared/src/rules/**/*.ts", "!**/*.test.ts", "!**/*.slow.test.ts"],
+  // Broadened from the rules-only pilot to all of shared's pure logic
+  // (dice, map, schemas, rules). Still zero I/O, so no DB isolation concerns.
+  mutate: [
+    "packages/shared/src/**/*.ts",
+    "!**/*.test.ts",
+    "!**/*.slow.test.ts",
+    // Test-only scaffolding under src/test/ has no behavior worth mutating.
+    "!packages/shared/src/test/**",
+  ],
   reporters: ["clear-text", "progress", "html", "json"],
   htmlReporter: {
     fileName: "reports/mutation/index.html",

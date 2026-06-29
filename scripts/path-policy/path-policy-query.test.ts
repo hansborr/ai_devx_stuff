@@ -101,6 +101,39 @@ describe("path policy classification", () => {
     ).toEqual(["docs/refs/5e-database/Dockerfile"]);
   });
 
+  it("requires both prefix AND extension for the shell-surface prefix-extension selector", () => {
+    // The only maintained prefix-extension selector is { prefix: "scripts/", extension: ".sh" }.
+    // A path that satisfies exactly one clause must NOT be a shell surface: this pins the
+    // `startsWith(prefix) && endsWith(extension)` conjunction against `||` / always-true mutants.
+    const prefixOnly = "scripts/path-policy/path-policy-query-core.ts"; // under scripts/, but .ts
+    const extensionOnly = "docs/refs/example.sh"; // ends with .sh, but not under scripts/
+    const bothClauses = "scripts/lint-changed.sh"; // satisfies prefix AND extension
+
+    expect(queryPathPolicy("shell-surface", [prefixOnly, extensionOnly, bothClauses])).toEqual([
+      bothClauses,
+    ]);
+
+    // Each near-miss is individually excluded (prefix-only and extension-only both fail the &&).
+    expect(queryPathPolicy("shell-surface", [prefixOnly])).toEqual([]);
+    expect(queryPathPolicy("shell-surface", [extensionOnly])).toEqual([]);
+  });
+
+  it("excludes shell surfaces under maintained excluded directories despite a selector match", () => {
+    // `scripts/node_modules/helper.sh` matches the prefix-extension selector (scripts/ + .sh) but
+    // sits under the excluded directory name `node_modules`. Pinning its exclusion kills the
+    // `!hasExcludedDirectoryName(...)` conjunct being weakened to `true`/`||` in matchesShellSurface.
+    const excludedByDirectory = "scripts/node_modules/helper.sh";
+    const maintained = "scripts/lint-changed.sh";
+
+    expect(queryPathPolicy("shell-surface", [excludedByDirectory])).toEqual([]);
+    expect(queryPathPolicy("shell-surface", [excludedByDirectory, maintained])).toEqual([
+      maintained,
+    ]);
+    // worktrees and .playwright-cli are the other excluded directory names on the same surface.
+    expect(queryPathPolicy("shell-surface", ["scripts/worktrees/helper.sh"])).toEqual([]);
+    expect(queryPathPolicy("shell-surface", ["scripts/.playwright-cli/helper.sh"])).toEqual([]);
+  });
+
   it("exposes full-scan trigger classes independently", () => {
     const paths = [
       ".yamllint.yml",
@@ -234,6 +267,7 @@ describe("path-policy-query CLI", () => {
       "test-format-changed",
       "test-lint-changed",
       "test-lint-dist-preflight",
+      "test-lint-fix-dist-preflight",
       "test-test-dist-preflight",
       "test-lint-shell",
       "test-lint-config-sensors",

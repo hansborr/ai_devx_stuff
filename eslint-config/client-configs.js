@@ -5,7 +5,11 @@ import jsxA11y from "eslint-plugin-jsx-a11y";
 import pluginReact from "eslint-plugin-react";
 import reactHooks from "eslint-plugin-react-hooks";
 
-import { clientSourceFiles, sharedSchemasBarrelRestrictedImportPattern } from "./shared-policy.js";
+import {
+  clientSourceFiles,
+  clientTestAndHelperSourceFiles,
+  sharedSchemasBarrelRestrictedImportPattern,
+} from "./shared-policy.js";
 
 export const clientFrameworkConfigs = [
   {
@@ -80,11 +84,22 @@ export const clientRuntimeBoundaryConfigs = [
       // Owned by ratchet/react-hooks-set-state-in-effect-client (no-new floor
       // over the ~24 accepted findings). Kept off in normal lint to avoid
       // double-reporting; see docs/guides/lint-ratchet.md and the
-      // set-state-in-effect verdict in
-      // docs/agent_notes/backlog/lint-followups-2026-06/evaluation-verdicts.md.
+      // lint-followups summary at
+      // docs/agent_notes/finished_work/lint-followups-2026-06.md. The original
+      // set-state-in-effect verdict register now lives only in git history.
       "react-hooks/set-state-in-effect": "off",
       "no-magic-numbers": "off",
       "@typescript-eslint/explicit-function-return-type": "off",
+    },
+  },
+
+  {
+    files: clientSourceFiles,
+    ignores: clientTestAndHelperSourceFiles,
+    rules: {
+      // Owned by ratchet/local-no-arbitrary-tailwind-value-client until the
+      // current arbitrary-value inventory drains to zero and promotes.
+      "local/no-arbitrary-tailwind-value": "off",
     },
   },
 

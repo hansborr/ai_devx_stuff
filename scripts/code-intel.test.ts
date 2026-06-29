@@ -36,6 +36,7 @@ import {
   queryTests,
   runCodeIntel,
 } from "./code-intel.js";
+import { parseLocation, parseProjectFilter } from "./code-intel/cli-values.js";
 import { DaemonRequestTimeoutError, requestDaemonQuery } from "./code-intel/daemon-client.js";
 import type { DaemonSpawner } from "./code-intel/daemon-process.js";
 import { runDaemon, type RunningDaemon } from "./code-intel/daemon-server.js";
@@ -47,6 +48,10 @@ import {
   resolveDaemonStatePaths,
   writeDaemonMetadata,
 } from "./code-intel/daemon-state.js";
+import {
+  queryDefinitionNearMatches,
+  queryDefinitionsByName,
+} from "./code-intel/definition-query.js";
 import { computeWorkspaceManifest, GraphCache, graphCacheTest } from "./code-intel/graph-cache.js";
 import { ProjectCache } from "./code-intel/project-cache.js";
 import { runServerCliCommand } from "./code-intel/server-cli.js";
@@ -1120,6 +1125,129 @@ describe("code intel queries", () => {
       runCodeIntel(["dependents", "packages/server/src/services/live"], context),
     ).toThrow(/TypeScript source file/u);
   });
+
+  it("prefers exported definitions over same-named non-exported top-level decls", () => {
+    const project = createFixtureProject();
+    addSource(project, "packages/shared/src/a.ts", "export const widget = 1;\n");
+    addSource(project, "scripts/b.ts", "const widget = 2;\n");
+    const resolver = createFixtureResolver(project);
+
+    // queryDefinitionsByName must return ONLY the exported decl (L47 precedence):
+    // the non-exported `scripts/b.ts` top-level `widget` is dropped entirely.
+    const byName = queryDefinitionsByName(resolver, project.getSourceFiles(), "widget");
+    expect(byName).toEqual([
+      {
+        kind: "definition",
+        name: "widget",
+        file: "packages/shared/src/a.ts",
+        line: 1,
+        col: 14,
+        exportKind: "value export",
+      },
+    ]);
+    expect(byName.some((result) => result.file === "scripts/b.ts")).toBe(false);
+
+    const output = runCodeIntel(["def", "--name", "widget"], {
+      graphProject: project,
+      repoRoot,
+      resolver,
+    });
+    expect(output).toContain("packages/shared/src/a.ts:1:14 value export");
+    expect(output).not.toContain("scripts/b.ts");
+    expect(output).not.toContain("value local");
+  });
+
+  it("falls back to non-exported top-level decls when no export matches the name", () => {
+    const project = createFixtureProject();
+    addSource(project, "scripts/b.ts", "const helperLocal = 2;\n");
+    const resolver = createFixtureResolver(project);
+
+    // With zero exported matches the L47 guard is false, so the top-level
+    // (non-exported) decl must still be returned rather than an empty list.
+    const byName = queryDefinitionsByName(resolver, project.getSourceFiles(), "helperLocal");
+    expect(byName).toEqual([
+      {
+        kind: "definition",
+        name: "helperLocal",
+        file: "scripts/b.ts",
+        line: 1,
+        col: 7,
+        exportKind: "value local",
+      },
+    ]);
+  });
+
+  it("excludes the exact prefix and prefers exported near matches", () => {
+    const project = createFixtureProject();
+    addSource(
+      project,
+      "packages/client/src/hooks/use-character.ts",
+      [
+        "export const useCharacter = 0;",
+        "export const useCharacterMatch01 = 1;",
+        "export const useCharacterMatch02 = 2;",
+        "",
+      ].join("\n"),
+    );
+    const resolver = createFixtureResolver(project);
+
+    // The exact name still resolves as a definition.
+    expect(queryDefinitionsByName(resolver, project.getSourceFiles(), "useCharacter")).toEqual([
+      {
+        kind: "definition",
+        name: "useCharacter",
+        file: "packages/client/src/hooks/use-character.ts",
+        line: 1,
+        col: 14,
+        exportKind: "value export",
+      },
+    ]);
+
+    // Near matches (L62) must EXCLUDE the exact prefix `useCharacter` itself and
+    // list only the strict prefix-followed-by-more candidates.
+    const near = queryDefinitionNearMatches(resolver, project.getSourceFiles(), "useCharacter");
+    expect(near.total).toBe(2);
+    expect(near.results.map((match) => match.name)).toEqual([
+      "useCharacterMatch01",
+      "useCharacterMatch02",
+    ]);
+    expect(near.results.some((match) => match.name === "useCharacter")).toBe(false);
+  });
+
+  it("prefers exported near matches over same-prefixed non-exported ones", () => {
+    const project = createFixtureProject();
+    addSource(project, "packages/shared/src/a.ts", "export const gadgetA = 1;\n");
+    addSource(project, "scripts/b.ts", "const gadgetB = 2;\n");
+    const resolver = createFixtureResolver(project);
+
+    // L65 precedence: an exported near match shadows the non-exported one, so
+    // only `gadgetA` (the export) is listed and `gadgetB` (value local) is dropped.
+    const nearWithExport = queryDefinitionNearMatches(resolver, project.getSourceFiles(), "gadget");
+    expect(nearWithExport.total).toBe(1);
+    expect(nearWithExport.results).toEqual([
+      {
+        name: "gadgetA",
+        file: "packages/shared/src/a.ts",
+        line: 1,
+        col: 14,
+        exportKind: "value export",
+      },
+    ]);
+
+    // With no exported candidate the L65 guard is false and the top-level
+    // (non-exported) near matches are returned instead of an empty list.
+    const topOnlyProject = createFixtureProject();
+    addSource(topOnlyProject, "scripts/c.ts", "const fooBar = 1;\nconst fooBaz = 2;\n");
+    const topOnlyResolver = createFixtureResolver(topOnlyProject);
+    const nearTopOnly = queryDefinitionNearMatches(
+      topOnlyResolver,
+      topOnlyProject.getSourceFiles(),
+      "foo",
+    );
+    expect(nearTopOnly.total).toBe(2);
+    expect(nearTopOnly.results.map((match) => match.name)).toEqual(["fooBar", "fooBaz"]);
+    expect(nearTopOnly.results.every((match) => match.exportKind === "value local")).toBe(true);
+  });
 });
 
 describe("code:intel:server lifecycle", () => {
@@ -1712,6 +1840,7 @@ describe("code:intel daemon query route", () => {
     const outcome = await requestDaemonQuery(command, {
       repoRoot,
       state: { rootDir: stateRoot },
+      timeoutMs: 15_000,
     });
     const daemonResult = expectDaemonResult(outcome);
     expect(formatCodeIntelQueryResult(daemonResult, "text")).toBe(
@@ -2191,5 +2320,82 @@ describe("code:intel daemon query route", () => {
     } finally {
       await daemon.shutdown();
     }
+  });
+});
+
+describe("parseLocation", () => {
+  it("returns the parsed file, line, and column for a valid location", () => {
+    expect(parseLocation("f.ts:2:3")).toEqual({ file: "f.ts", line: 2, col: 3 });
+  });
+
+  it("preserves earlier colons in the file segment", () => {
+    // Only the LAST two colons delimit line/col, so a colon inside the file stays.
+    expect(parseLocation("a:b.ts:4:5")).toEqual({ file: "a:b.ts", line: 4, col: 5 });
+  });
+
+  it.each([
+    ["empty file", ":2:3"],
+    ["non-integer line", "f.ts:x:3"],
+    ["non-integer column", "f.ts:2:y"],
+    ["zero line", "f.ts:0:3"],
+    ["zero column", "f.ts:2:0"],
+    ["negative line", "f.ts:-1:3"],
+    ["negative column", "f.ts:2:-1"],
+  ])("rejects the %s boundary case", (_label, raw) => {
+    // Each clause of the L42 guard must hold: bad file/line/col reaches the
+    // <file>:<positive-line>:<positive-col> error, not the earlier colon-count one.
+    expect(() => parseLocation(raw)).toThrow(/<positive-line>:<positive-col>/u);
+    expect(() => parseLocation(raw)).toThrow(CodeIntelError);
+  });
+
+  it("uses the provided label in the boundary error", () => {
+    expect(() => parseLocation("f.ts:0:3", "Definition")).toThrow(
+      /Definition location must be <file>:<positive-line>:<positive-col>/u,
+    );
+  });
+});
+
+describe("parseProjectFilter", () => {
+  it.each(["shared", "server", "client"] as const)("round-trips the %s filter", (value) => {
+    expect(parseProjectFilter(value)).toBe(value);
+  });
+
+  it("rejects an unknown project filter", () => {
+    expect(() => parseProjectFilter("bogus")).toThrow(CodeIntelError);
+    expect(() => parseProjectFilter("bogus")).toThrow(/shared, server, or client/u);
+  });
+});
+
+describe("CLI arg-shape guards", () => {
+  function guardContext(): {
+    graphProject: Project;
+    repoRoot: string;
+    resolver: WorkspaceResolver;
+  } {
+    const project = createFixtureProject();
+    addSource(project, "packages/shared/src/rules/math.ts", "export const sum = () => 1;\n");
+    const resolver = createFixtureResolver(project);
+    return { graphProject: project, repoRoot, resolver };
+  }
+
+  it("rejects supplying both --name and a positional location to def", () => {
+    const context = guardContext();
+    expect(() =>
+      runCodeIntel(["def", "--name", "sum", "packages/shared/src/rules/math.ts:1:1"], context),
+    ).toThrow(/Use either def <file>:<line>:<col> or def --name <symbol>/u);
+    expect(() =>
+      runCodeIntel(["def", "--name", "sum", "packages/shared/src/rules/math.ts:1:1"], context),
+    ).toThrow(CodeIntelError);
+  });
+
+  it("rejects refs with zero or multiple positional locations", () => {
+    const context = guardContext();
+    expect(() => runCodeIntel(["refs"], context)).toThrow(
+      /Usage: bun run code:intel -- refs <file>:<line>:<col>/u,
+    );
+    expect(() => runCodeIntel(["refs", "a.ts:1:1", "b.ts:1:1"], context)).toThrow(
+      /Usage: bun run code:intel -- refs <file>:<line>:<col>/u,
+    );
+    expect(() => runCodeIntel(["refs"], context)).toThrow(CodeIntelError);
   });
 });

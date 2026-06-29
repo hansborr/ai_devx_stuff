@@ -1,35 +1,20 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
+import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
 import type { StatRunner } from "./current-inventory.js";
 import type { GitRunner } from "./git-changed-scope.js";
+import { currentRepoGit as makeCurrentGit } from "./git-runner.test-helper.js";
 import { runSemgrepCandidates } from "./semgrep-candidates-command.js";
 import type { SemgrepRunner, SemgrepRunnerInput, SemgrepRunnerResult } from "./semgrep-runner.js";
 import type { SemgrepScanOutput } from "./semgrep-types.js";
 
-const tempRoots: string[] = [];
-
-afterEach(() => {
-  while (tempRoots.length > 0) {
-    const root = tempRoots.pop();
-    if (root !== undefined) rmSync(root, { recursive: true, force: true });
-  }
-});
+const tmpRepo = registerTempRootCleanup();
 
 function makeTempDir(): string {
-  const root = mkdtempSync(path.join(tmpdir(), "drift-ai-semgrep-command-"));
-  tempRoots.push(root);
-  return root;
-}
-
-function makeCurrentGit(repoRoot: string): GitRunner {
-  return (args) => {
-    if (args.join(" ") === "rev-parse --show-toplevel") return `${repoRoot}\n`;
-    throw new Error(`unexpected git invocation: git ${args.join(" ")}`);
-  };
+  return tmpRepo.makeTempRepo("drift-ai-semgrep-command-");
 }
 
 function nulDelimited(paths: readonly string[]): Buffer {

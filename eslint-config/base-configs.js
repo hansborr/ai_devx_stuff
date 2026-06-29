@@ -39,7 +39,12 @@ export function createBaseConfigs() {
         "playwright-report/",
         "reports/drift-ai/",
         "reports/mutation/",
+        "reports/mutation-analysis/",
         "reports/slow-drift/",
+        // Stryker's in-place backups and crashed-run sandboxes hold full copies
+        // of tracked sources (including re-included *.config.* files); keep them
+        // out of lint so a mutation run never breaks lint:changed.
+        ".stryker-tmp/",
         "playwright/.cache/",
         "test-results/",
         "tmp/",

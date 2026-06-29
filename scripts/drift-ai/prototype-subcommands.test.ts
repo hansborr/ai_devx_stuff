@@ -1,41 +1,20 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
+import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
 import type { StatRunner } from "./current-inventory.js";
 import type { DolosRunner, DolosRunnerInput } from "./dolos-runner.js";
-import type { GitRunner } from "./git-changed-scope.js";
+import { currentRepoGit as makeCurrentGit } from "./git-runner.test-helper.js";
 import { NEAR_DUPLICATE_TOOL, type NearDuplicateFunction } from "./near-duplicates.js";
 import { type PrototypeSubcommandResult, runPrototypeSubcommand } from "./prototype-subcommands.js";
 import type { SemgrepRunner, SemgrepRunnerInput } from "./semgrep-runner.js";
 
-const tempRoots: string[] = [];
-
-afterEach(() => {
-  while (tempRoots.length > 0) {
-    const root = tempRoots.pop();
-    if (root !== undefined) rmSync(root, { recursive: true, force: true });
-  }
-});
+const tmpRepo = registerTempRootCleanup();
 
 function makeTempDir(): string {
-  const root = mkdtempSync(path.join(tmpdir(), "drift-ai-prototype-subcommands-"));
-  tempRoots.push(root);
-  return root;
-}
-
-function makeStubGit(responses: Record<string, string>): GitRunner {
-  return (args) => {
-    const key = args.join(" ");
-    if (key in responses) return responses[key] ?? "";
-    throw new Error(`unexpected git invocation: git ${key}`);
-  };
-}
-
-function makeCurrentGit(repoRoot: string): GitRunner {
-  return makeStubGit({ "rev-parse --show-toplevel": `${repoRoot}\n` });
+  return tmpRepo.makeTempRepo("drift-ai-prototype-subcommands-");
 }
 
 function nulDelimited(paths: readonly string[]): Buffer {

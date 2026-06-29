@@ -1,6 +1,6 @@
 # 21 - drift:ai diagnostics projection
 
-Status: Parked
+Status: Superseded -> drift-ai-next-items 11 (drift:ai diagnostics projection, Done)
 Track: Dg (diagnostics)
 Size: medium
 Depends on: 20

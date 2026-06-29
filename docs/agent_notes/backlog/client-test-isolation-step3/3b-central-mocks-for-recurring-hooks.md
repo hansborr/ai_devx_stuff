@@ -1,6 +1,6 @@
 # 3b. Centralize the recurring side-effect hooks (`query-invalidation`, `realtime-invalidation`, `use-*` action hooks) → move bucket-B consumer files to the fast lane
 
-Status: Proposed — follow-up to test-suite-audit #01; NOT implemented. Re-verify file:line and re-run the classifier before acting.
+Status: Done — landed via merge 700cf17b (commits 80155580, b1219db6, 50a134bd, aa07a6a8, 8972c9ca). default-real model shipped (mock-default-real.ts importActual passthrough); bucket-B consumers moved to fast lane.
 Lens: speed · Area: client / test-infra · Severity: low-med · Size: M–L (6 of 7 module groups need the default-real model, not a simple global fake) · Confidence: med
 Theme: client-isolation-step3 · Source: client-test-isolation split-runner follow-up 2026-06-15
 

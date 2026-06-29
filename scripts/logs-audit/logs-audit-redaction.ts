@@ -63,7 +63,7 @@ function normalizedKey(key: string): string {
 
 function normalizedFieldPath(field: string): string {
   return field
-    .replace(/\[\d+\]/gu, "[]")
+    .replace(/\[\d+\]/gu, "")
     .split(".")
     .map(normalizedKey)
     .join(".");

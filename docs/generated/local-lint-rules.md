@@ -32,6 +32,18 @@ This table is generated from `meta.docs` on each rule and grouped into maintaina
 
 **Repair:** manual
 
+### `local/no-arbitrary-tailwind-value`
+
+**Description:** Disallow arbitrary Tailwind bracket values in client class strings
+
+**Principle:** Client styling should reuse DESIGN.md and packages/client/src/app.css @theme tokens instead of introducing one-off Tailwind bracket values.
+
+**Category:** maintainability
+
+**Paired guide:** [DESIGN.md](../../DESIGN.md)
+
+**Repair:** manual
+
 ### `local/no-explicit-any`
 
 **Description:** Disallow explicit any with repair guidance

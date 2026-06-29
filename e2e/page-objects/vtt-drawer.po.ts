@@ -2,6 +2,7 @@ import { expect, type Locator, type Page } from "@playwright/test";
 
 import { TIMEOUT_MEDIUM, TIMEOUT_SHORT } from "../helpers/timeouts.js";
 
+// Mirrors client DEFAULT_CELL_SIZE_PX in packages/client/src/stores/map-canvas-store.ts; keep in lockstep if that default changes.
 const CELL_SIZE_PX = 40;
 const MIN_TOKEN_OPTIONS_IN_DROPDOWN = 2;
 const CELL_CENTER_OFFSET = 0.5;

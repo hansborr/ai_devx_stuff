@@ -1,6 +1,6 @@
 # 11 - Module-doc path accuracy sensor
 
-Status: Parked
+Status: Superseded -> drift-ai-next-items 20 (module-doc path freshness check, Done)
 Track: Dg (diagnostics)
 Size: small-medium
 Depends on: 10

@@ -1,0 +1,10 @@
+{
+  "args": ["--package", "@musi/shared/dice"],
+  "runTwice": true,
+  "expectedStdout": [
+    "expand-barrel codemod: expanded 1 file(s) for packages/shared/src/dice/index.ts."
+  ],
+  "expectedSecondStdout": [
+    "expand-barrel codemod: no expandable imports found for packages/shared/src/dice/index.ts."
+  ]
+}

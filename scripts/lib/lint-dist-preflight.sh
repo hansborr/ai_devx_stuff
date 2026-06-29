@@ -44,6 +44,38 @@ musi_lint_dist_print_missing() {
   done
 }
 
+musi_lint_dist_print_missing_outputs_detail() {
+  {
+    printf 'lint: ESLint projectService resolves workspace package exports from packages/{shared,server}/dist.\n'
+    printf 'lint: missing required output(s):\n'
+    musi_lint_dist_print_missing
+  } >&2
+}
+
+musi_lint_dist_print_preflight_diagnostic() {
+  printf 'lint: TypeScript build output is missing; running `bun run typecheck` before ESLint.\n' >&2
+  musi_lint_dist_print_missing_outputs_detail
+}
+
+musi_lint_dist_print_require_outputs_diagnostic() {
+  printf 'lint: TypeScript build output is missing.\n' >&2
+  musi_lint_dist_print_missing_outputs_detail
+}
+
+musi_lint_dist_require_outputs() {
+  local repo_root consumer
+  repo_root="$(musi_lint_dist_repo_root "${1:-}")"
+  consumer="${2:-lint}"
+
+  if musi_lint_dist_outputs_present "$repo_root"; then
+    return 0
+  fi
+
+  musi_lint_dist_print_require_outputs_diagnostic
+  printf 'lint: run `bun run typecheck` before %s.\n' "$consumer" >&2
+  return 1
+}
+
 musi_lint_dist_preflight() {
   local repo_root typecheck_rc
   repo_root="$(musi_lint_dist_repo_root "${1:-}")"
@@ -52,12 +84,7 @@ musi_lint_dist_preflight() {
     return 0
   fi
 
-  {
-    printf 'lint: TypeScript build output is missing; running `bun run typecheck` before ESLint.\n'
-    printf 'lint: ESLint projectService resolves workspace package exports from packages/{shared,server}/dist.\n'
-    printf 'lint: missing required output(s):\n'
-    musi_lint_dist_print_missing
-  } >&2
+  musi_lint_dist_print_preflight_diagnostic
 
   typecheck_rc=0
   ( cd "$repo_root" && bun run typecheck ) || typecheck_rc=$?

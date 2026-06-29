@@ -45,6 +45,30 @@ describe("parseEslintOutput", () => {
     ]);
   });
 
+  it("skips null and primitive top-level entries via the isRecord guard", () => {
+    const stdout = JSON.stringify([
+      null,
+      "x",
+      42,
+      { filePath: "/repo/a.ts", messages: [validMessage] },
+    ]);
+    expect(parseEslintOutput(stdout)).toEqual([
+      { filePath: "/repo/a.ts", messages: [validMessage] },
+    ]);
+  });
+
+  it("drops null, primitive, and array messages via the isRecord guard", () => {
+    const stdout = JSON.stringify([
+      {
+        filePath: "/repo/a.ts",
+        messages: [null, "x", 7, [validMessage], validMessage],
+      },
+    ]);
+    expect(parseEslintOutput(stdout)).toEqual([
+      { filePath: "/repo/a.ts", messages: [validMessage] },
+    ]);
+  });
+
   it("skips file entries whose messages field is not an array", () => {
     const stdout = JSON.stringify([{ filePath: "/repo/a.ts", messages: "oops" }]);
     expect(parseEslintOutput(stdout)).toEqual([]);

@@ -1,8 +1,8 @@
 # Client test isolation — Step 3 (widen the no-isolate fast lane)
 
-Follow-up program to test-suite-audit finding [`01-client-isolate-true-costs-most-of-client-walltime…`](../testsuite-audit/01-client-isolate-true-costs-most-of-client-walltime-gated-on-hygiene.md) and its mock-hygiene sibling [`16-vitest-clearmocks-unset…`](../testsuite-audit/16-vitest-clearmocks-unset-mock-isolation-hand-managed.md).
+Follow-up program to test-suite-audit finding 01 (client isolate costs; closed 2026-06-21, see [`finished_work/testsuite-audit.md`](../../finished_work/testsuite-audit.md)) and its still-open mock-hygiene sibling [`16-vitest-clearmocks-unset…`](../testsuite-audit/16-vitest-clearmocks-unset-mock-isolation-hand-managed.md).
 
-> Status: **Proposed.** These three items are written for a reviewing agent to flesh into actionable implementation plans. They are NOT scoped commits yet. Re-verify every `file:line` and re-run the classifier before acting — the lane counts move with every mock change.
+> Status: **Landed (3a, 3b, 3c-Track-A) — only 3c-Track-B deferred.** Implemented and merged via 700cf17b (branch feat/client-test-isolation, 2026-06-16). Split runner, classifier, central default-real mocks, the per-test tRPC override API, and the no-redundant-central-mock lint guard all shipped. Live classifier on HEAD: 249 no-isolate / 20 isolated / 269 total (was 190/76/266 at the 2026-06-15 baseline below). The 20 remaining isolated files are exactly the 3c-Track-B child-component-mock web, explicitly do-not-schedule unless CI wall time becomes a measured blocker. Re-run `bun scripts/client-test-isolation-classifier.ts --json` to re-derive.
 
 ## What already landed (the baseline these build on)
 

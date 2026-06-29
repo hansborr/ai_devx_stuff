@@ -6,7 +6,7 @@
 
 ## J1 — `drift:ai --check all` knip self-scan is silent for up to 10 min
 
-**Status: not addressed.** knip runs via **synchronous** `spawnSync`
+**Status: DONE (a7abb730).** knip runs via **synchronous** `spawnSync`
 (`scripts/drift-ai/knip-runner.ts:150-157`, `stdio: ["ignore","pipe","pipe"]`,
 `--no-progress` at :148), so it emits nothing while running and the parent thread
 is blocked — no heartbeat is even possible in this shape. Default timeout is
@@ -40,7 +40,7 @@ contract).
 
 ## M1 — `harness:check` "unaccounted script" error names the problem, not the remedy
 
-**Status: partial.** The check fails loudly in aggregate but unhelpfully.
+**Status: DONE (a7abb730).** The check fails loudly in aggregate but unhelpfully.
 `scripts/harness/harness-check-validation.ts:212-216` (`checkScriptParity`) emits
 `package.json script "<name>" is not declared in the manifest and not exempt`,
 bucketed under id `"(parity)"`. The control-prefix regex is
@@ -73,7 +73,7 @@ substring, e.g. `harness-controls-parity.test.ts`).
 
 ## M2 — Ratchet `principle` strings drift from the registry; no `kind` for aggregators
 
-**Status: not addressed.** Ratchet controls carry hand-written `principle`
+**Status: DONE (a7abb730).** Ratchet controls carry hand-written `principle`
 strings in `harness.controls.json` decoupled from the registry's
 `zeroBaselineDisposition.reason` (compare `harness.controls.json:145` vs
 `scripts/lint-ratchet/lint-ratchet-config.ts:153-155`). The generator re-projects
@@ -123,7 +123,7 @@ freshness check `harness-check.ts:215-219` stays green) / low (kind).
 
 ## N1 — Retiring a zero-finding ratchet is forced through `--allow-worse` + a debt-log "acceptance"
 
-**Status: not addressed.** A ratchet removed from the registry leaves a committed
+**Status: DONE (b1d9ecdb) — dedicated `--retire-ratchet` path landed.** A ratchet removed from the registry leaves a committed
 baseline entry captured by `collectOrphanRemovals`
 (`scripts/lint-ratchet/baseline-update.ts:69-87`) **purely by id match — it does
 not check whether the orphan was at zero findings**. Without `--allow-worse` the
@@ -213,7 +213,7 @@ budget value is the tunable root cause.
 
 ## U1 — `bun run harness:check` from a nested package subdir fails (minor)
 
-**Status: partial.** `doctor.sh` always `(cd "$REPO_ROOT" && …)`
+**Status: DONE (a7abb730).** `doctor.sh` always `(cd "$REPO_ROOT" && …)`
 (`scripts/doctor.sh:349`), which is why `scripts/` did not reproduce but a deep
 dir like `packages/client/src` does. `harness:check` is a relative script
 (`package.json:87`); `bun run <name>` resolves the name against the nearest

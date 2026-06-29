@@ -20,6 +20,7 @@
         ["packages/client/src/pages/join-page.tsx", "packages/client/src/pages/login-page.tsx"],
         ["packages/client/src/routes/join-route.ts", "packages/client/src/routes/login-route.ts"],
         ["packages/client/src/test/mock-trpc-helpers.ts", "packages/client/src/test/mock-trpc.tsx"],
+        ["scripts/drift-ai/env-define-evaluation.ts", "scripts/drift-ai/env-define-evaluator.ts"],
         ["scripts/drift-ai/config-match.ts", "scripts/drift-ai/config-paths.ts"],
         [
           "packages/server/src/services/character-create-helpers.ts",

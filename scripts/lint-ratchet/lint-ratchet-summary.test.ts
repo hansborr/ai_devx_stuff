@@ -1,11 +1,9 @@
 import { describe, expect, it } from "vitest";
 
+import { currentById, FIXTURE_HASH } from "./lint-ratchet.test-helper.js";
 import {
   buildLintRatchetBaseline,
-  LINT_RATCHET_CONFIG_HASH_PREFIX,
   type LintRatchetBaseline,
-  type LintRatchetCurrentById,
-  type LintRatchetCurrentItem,
   type LintRatchetRuleSourceHashesById,
 } from "./lint-ratchet-baseline.js";
 import type { LintRatchetConfig } from "./lint-ratchet-config.js";
@@ -15,8 +13,6 @@ import {
   type LintRatchetSummaryRow,
   summarizeLintRatchetBaseline,
 } from "./lint-ratchet-summary.js";
-
-const FIXTURE_HASH = `${LINT_RATCHET_CONFIG_HASH_PREFIX}${"a".repeat(64)}`;
 
 const messageRatchet: LintRatchetConfig = {
   id: "ratchet/fixture-message",
@@ -66,16 +62,6 @@ const ruleSourceHashes: LintRatchetRuleSourceHashesById = new Map([
   [maxLinesRatchet.id, FIXTURE_HASH],
   [complexityRatchet.id, FIXTURE_HASH],
 ]);
-
-function currentById(
-  entries: readonly [string, readonly [string, LintRatchetCurrentItem][]][],
-): LintRatchetCurrentById {
-  const current = new Map<string, ReadonlyMap<string, LintRatchetCurrentItem>>();
-  for (const [ratchetId, items] of entries) {
-    current.set(ratchetId, new Map(items));
-  }
-  return current;
-}
 
 function complexityFunction(
   line: number,

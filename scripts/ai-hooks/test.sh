@@ -256,6 +256,56 @@ assert_policy_allows_in_dir "$FEATURE_BRANCH_REPO" "git push origin HEAD"
 assert_policy_allows_in_dir "$FEATURE_BRANCH_REPO" "git push --set-upstream origin feat/foo"
 assert_policy_allows_in_dir "$FEATURE_BRANCH_REPO" "git push origin feat/foo"
 
+# Committing on the protected branch is blocked; feature branches are untouched.
+assert_policy_blocks_in_dir "$MAIN_BRANCH_REPO" "git commit" "$AI_POLICY_GIT_COMMIT_ON_MAIN"
+assert_policy_blocks_in_dir "$MAIN_BRANCH_REPO" "git commit -m 'add feature'" "$AI_POLICY_GIT_COMMIT_ON_MAIN"
+assert_policy_blocks_in_dir "$MAIN_BRANCH_REPO" "git commit -F /tmp/commit-msg.txt" "$AI_POLICY_GIT_COMMIT_ON_MAIN"
+assert_policy_blocks_in_dir "$MAIN_BRANCH_REPO" "git -c commit.gpgsign=false commit -m normal" "$AI_POLICY_GIT_COMMIT_ON_MAIN"
+assert_policy_blocks_in_dir "$MAIN_BRANCH_REPO" "echo ok && git commit -m wip" "$AI_POLICY_GIT_COMMIT_ON_MAIN"
+# A dry-run creates nothing, so it stays allowed even on the protected branch.
+assert_policy_allows_in_dir "$MAIN_BRANCH_REPO" "git commit --dry-run"
+assert_policy_allows_in_dir "$MAIN_BRANCH_REPO" "git commit --dry-run -m x"
+# The dry-run carve-out is scoped to the commit's own segment: a real commit
+# must not be exempted by a `--dry-run` belonging to a later command, and a
+# dry-run preceding a real commit must not exempt the real one.
+assert_policy_blocks_in_dir "$MAIN_BRANCH_REPO" "git commit -m real && echo --dry-run" "$AI_POLICY_GIT_COMMIT_ON_MAIN"
+assert_policy_blocks_in_dir "$MAIN_BRANCH_REPO" "git commit -m real; echo --dry-run" "$AI_POLICY_GIT_COMMIT_ON_MAIN"
+assert_policy_blocks_in_dir "$MAIN_BRANCH_REPO" "git commit --dry-run && git commit -m real" "$AI_POLICY_GIT_COMMIT_ON_MAIN"
+# A more specific violation still wins: amend reports the history-rewrite block.
+assert_policy_blocks_in_dir "$MAIN_BRANCH_REPO" "git commit --amend --no-edit" "$AI_POLICY_GIT_AMEND"
+# No overshoot onto read-only verbs or commit-* plumbing that merely name
+# "commit": only genuine global options may precede the commit verb, and
+# subcommands (grep/show/log/diff/help/branch) are bare words, never dash-led.
+assert_policy_allows_in_dir "$MAIN_BRANCH_REPO" "git log --oneline"
+assert_policy_allows_in_dir "$MAIN_BRANCH_REPO" "git show commit-tree"
+assert_policy_allows_in_dir "$MAIN_BRANCH_REPO" "git commit-tree"
+assert_policy_allows_in_dir "$MAIN_BRANCH_REPO" "git grep commit"
+assert_policy_allows_in_dir "$MAIN_BRANCH_REPO" "git show commit"
+assert_policy_allows_in_dir "$MAIN_BRANCH_REPO" "git log --grep commit"
+assert_policy_allows_in_dir "$MAIN_BRANCH_REPO" "git diff --name-only commit"
+assert_policy_allows_in_dir "$MAIN_BRANCH_REPO" "git help commit"
+# A global option before the verb (e.g. --no-pager) is still a real commit.
+assert_policy_blocks_in_dir "$MAIN_BRANCH_REPO" "git --no-pager commit -m x" "$AI_POLICY_GIT_COMMIT_ON_MAIN"
+assert_policy_allows_in_dir "$FEATURE_BRANCH_REPO" "git commit"
+assert_policy_allows_in_dir "$FEATURE_BRANCH_REPO" "git commit -m 'add feature'"
+assert_policy_allows_in_dir "$FEATURE_BRANCH_REPO" "git -c commit.gpgsign=false commit -m normal"
+
+# Protected-branch predicate (shared by the commit/push matchers and the
+# git-level pre-commit guard).
+ai_branch_is_protected main || fail "main must be protected"
+ai_branch_is_protected master || fail "master must be protected"
+ai_branch_is_protected feat/policy && fail "feature branch must not be protected"
+ai_branch_is_protected "" && fail "detached/empty HEAD must not be treated as protected"
+
+# ai_guard_commit_branch_or_die resolves the branch from the cwd repo, so the
+# .husky/pre-commit hook catches commits the PreToolUse string matcher cannot
+# (the `git -C <path>` / `cd <path> && git commit` forms): git runs the hook in
+# the target repo regardless of how the command navigated there.
+( cd "$MAIN_BRANCH_REPO" && ai_guard_commit_branch_or_die ) 2>/dev/null \
+  && fail "pre-commit guard must block a commit on the protected branch"
+( cd "$FEATURE_BRANCH_REPO" && ai_guard_commit_branch_or_die ) 2>/dev/null \
+  || fail "pre-commit guard must allow a commit on a feature branch"
+
 assert_policy_blocks_each "$AI_POLICY_GIT_BRANCH_FORCE_DELETE" \
   "git branch -D feat/foo" \
   "git branch -df feat/foo" \
@@ -508,11 +558,140 @@ assert_hook_continue_json "$(claude_policy_out 'bun run test:changed')"
 assert_codex_allows "grep -r TODO ."
 assert_codex_hard_block_unchanged "docker ps" "$AI_POLICY_DOCKER"
 
-PROTECTED_MSG=$(ai_protected_file_advisory "$REPO_ROOT/packages/server/prisma/schema.prisma")
-assert_contains "$PROTECTED_MSG" "Create a migration"
+assert_protected_file_entry() {
+  local path="$1"
+  local expected_key="$2"
+  local expected_text="$3"
+  local advisory key
+
+  key=$(ai_protected_file_advisory_key "$path") \
+    || fail "expected protected-file advisory key for $path"
+  [ "$key" = "$expected_key" ] \
+    || fail "protected-file advisory key mismatch for $path: expected $expected_key, got $key"
+  advisory=$(ai_protected_file_advisory "$path") \
+    || fail "expected protected-file advisory text for $path"
+  assert_contains "$advisory" "$expected_text"
+}
+
+assert_protected_file_entry \
+  "$REPO_ROOT/packages/server/prisma/schema.prisma" \
+  "prisma-schema" \
+  "Create a migration"
+assert_protected_file_entry \
+  "$REPO_ROOT/packages/server/src/routers/campaign.ts" \
+  "guide-trpc-router" \
+  "docs/guides/add-trpc-procedure.md"
+assert_protected_file_entry \
+  "$REPO_ROOT/packages/server/src/socket/map-broadcast.ts" \
+  "guide-socket" \
+  "docs/guides/add-socket-broadcast.md"
+assert_protected_file_entry \
+  "$REPO_ROOT/packages/shared/src/rules/character-rules.ts" \
+  "guide-rules" \
+  "docs/guides/change-rules-logic.md"
+assert_protected_file_entry \
+  "$REPO_ROOT/e2e/character-sheet.spec.ts" \
+  "guide-e2e" \
+  "docs/guides/add-e2e-test.md"
+assert_protected_file_entry \
+  "$REPO_ROOT/lint-ratchet.baseline.json" \
+  "tamper-lint-ratchet-baseline" \
+  "Tamper advisory"
+assert_protected_file_entry \
+  "$REPO_ROOT/eslint.config.js" \
+  "tamper-eslint-config" \
+  "Tamper advisory"
+assert_protected_file_entry \
+  "$REPO_ROOT/scripts/eslint-disable-register.sh" \
+  "tamper-suppression-register" \
+  "Tamper advisory"
+assert_protected_file_entry \
+  "$REPO_ROOT/scripts/suppression-register.sh" \
+  "tamper-suppression-register" \
+  "Tamper advisory"
+assert_protected_file_entry \
+  "$REPO_ROOT/.husky/pre-commit" \
+  "git-hook" \
+  "Editing a git hook"
+assert_protected_file_entry \
+  "$REPO_ROOT/packages/server/src/utils/campaign-mutations.ts" \
+  "concurrency-mutation-boundary" \
+  "docs/CONCURRENCY.md"
+assert_protected_file_entry \
+  "$REPO_ROOT/packages/shared/src/schemas/auth.ts" \
+  "shared-schema" \
+  "Shared schemas"
 if ai_protected_file_advisory "$REPO_ROOT/packages/server/src/main.ts" >/dev/null; then
   fail "unexpected protected-file advisory for unprotected file"
 fi
+
+protected_files_out_for_path() {
+  local path="$1"
+  local session="$2"
+  local state_root="$3"
+  local ttl="${4:-0}"
+  local now="${5:-100000}"
+
+  jq -n --arg path "$path" --arg session "$session" '{session_id:$session,tool_input:{file_path:$path}}' \
+    | AI_STATE_ROOT="$state_root" \
+      AI_PROTECTED_FILES_THROTTLE_TTL="$ttl" \
+      AI_FAKE_NOW="$now" \
+      CLAUDE_PROJECT_DIR="$REPO_ROOT" \
+      bash "$REPO_ROOT/.claude/hooks/protected-files.sh"
+}
+
+assert_protected_files_advisory() {
+  local path="$1"
+  local expected="$2"
+  local output context
+
+  output=$(protected_files_out_for_path "$path" "protected-files-$path" "$TMP_ROOT/protected-files-advisory-state")
+  assert_hook_json "$output"
+  [ "$(jq -r '.hookSpecificOutput.hookEventName // empty' <<< "$output")" = "PreToolUse" ] \
+    || fail "protected-files hook should emit PreToolUse context for $path: $output"
+  [ "$(jq -r '.decision // empty' <<< "$output")" = "" ] \
+    || fail "protected-files advisory must not hard-block $path: $output"
+  context=$(jq -r '.hookSpecificOutput.additionalContext // empty' <<< "$output")
+  assert_contains "$context" "$expected"
+}
+
+assert_protected_files_advisory \
+  "$REPO_ROOT/packages/server/src/routers/campaign.ts" \
+  "docs/guides/add-trpc-procedure.md"
+assert_protected_files_advisory \
+  "$REPO_ROOT/packages/server/src/socket/map-broadcast.ts" \
+  "docs/guides/add-socket-broadcast.md"
+assert_protected_files_advisory \
+  "$REPO_ROOT/packages/shared/src/rules/character-rules.ts" \
+  "docs/guides/change-rules-logic.md"
+assert_protected_files_advisory \
+  "$REPO_ROOT/e2e/character-sheet.spec.ts" \
+  "docs/guides/add-e2e-test.md"
+assert_protected_files_advisory \
+  "$REPO_ROOT/lint-ratchet.baseline.json" \
+  "Tamper advisory"
+assert_protected_files_advisory \
+  "$REPO_ROOT/eslint.config.js" \
+  "Tamper advisory"
+assert_protected_files_advisory \
+  "$REPO_ROOT/scripts/eslint-disable-register.sh" \
+  "Tamper advisory"
+assert_protected_files_advisory \
+  "$REPO_ROOT/scripts/suppression-register.sh" \
+  "Tamper advisory"
+
+PROTECTED_THROTTLE_STATE="$TMP_ROOT/protected-files-throttle-state"
+PROTECTED_THROTTLE_PATH="$REPO_ROOT/packages/server/src/routers/character.ts"
+PROTECTED_THROTTLE_OUT=$(
+  protected_files_out_for_path "$PROTECTED_THROTTLE_PATH" "protected-files-throttle" "$PROTECTED_THROTTLE_STATE" 1800 200000
+)
+assert_hook_json "$PROTECTED_THROTTLE_OUT"
+assert_contains "$(jq -r '.hookSpecificOutput.additionalContext // empty' <<< "$PROTECTED_THROTTLE_OUT")" \
+  "docs/guides/add-trpc-procedure.md"
+PROTECTED_THROTTLE_OUT=$(
+  protected_files_out_for_path "$PROTECTED_THROTTLE_PATH" "protected-files-throttle" "$PROTECTED_THROTTLE_STATE" 1800 200000
+)
+assert_hook_continue_json "$PROTECTED_THROTTLE_OUT"
 
 AGENTS_DOC="$TMP_ROOT/AGENTS.md"
 for _ in $(seq 1 251); do
@@ -1000,7 +1179,10 @@ assert_claude_git_commit_timeout_guidance() {
 
   hook_out=$(
     printf '{"tool_input":{"command":"git commit --dry-run >/dev/null 2>&1; sleep %s; echo done >/dev/null"}}' "$marker" \
-      | AI_GIT_COMMIT_LOCK="$TMP_ROOT/git-commit-lock" AI_GIT_COMMIT_TIMEOUT=1 bash "$REPO_ROOT/.claude/hooks/git-commit-quiet.sh"
+      | AI_GIT_COMMIT_LOCK="$TMP_ROOT/git-commit-lock" \
+        MUSI_COMMIT_QUEUE_LOCK="$TMP_ROOT/git-commit-timeout-queue-lock" \
+        AI_GIT_COMMIT_TIMEOUT=1 \
+        bash "$REPO_ROOT/.claude/hooks/git-commit-quiet.sh"
   )
   while IFS= read -r pid; do
     args=$(ps -o args= -p "$pid" 2>/dev/null || true)

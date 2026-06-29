@@ -261,6 +261,41 @@ describe("verify step generator", () => {
     );
   });
 
+  it("emits sorted runtime guards extracting both $VAR and ${VAR} reference forms", () => {
+    const manifest = {
+      controls: [
+        {
+          id: "verify-wrapper/verify",
+          slots: [
+            {
+              name: "lint",
+              script: "lint",
+              env: { ZVAR: "${ZULU}" },
+              args: ["$ALPHA", "prefix-${BRACED_VAR}-suffix"],
+            },
+          ],
+        },
+        { id: "verify-wrapper/verify-changed", slots: [] },
+        { id: "verify-wrapper/verify-parallel", slots: [] },
+        { id: "hook/pre-commit", slots: [] },
+      ],
+    };
+
+    const rendered = renderVerifyStepsShellFromManifest(manifest);
+
+    // The braced ${BRACED_VAR} reference reaches the guard scanner via the
+    // regex's second capture group; without that branch no guard is emitted.
+    expect(rendered).toContain(
+      ': "${BRACED_VAR:?scripts/verify/steps.generated.sh requires BRACED_VAR}"',
+    );
+
+    // ZULU is sourced from env (scanned first) and ALPHA from args (scanned
+    // later); the localeCompare sort must still emit them in alphabetical
+    // order, so the guard sequence is deterministic regardless of declaration.
+    const guardVariables = [...rendered.matchAll(/^: "\$\{(\w+):\?/gmu)].map((match) => match[1]);
+    expect(guardVariables).toStrictEqual(["ALPHA", "BRACED_VAR", "ZULU"]);
+  });
+
   it("resolves the pre-commit test timing toggle from generated metadata", () => {
     const output = runBash(`
 set -u

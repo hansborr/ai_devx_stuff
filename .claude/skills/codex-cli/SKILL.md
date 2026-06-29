@@ -1,6 +1,11 @@
 ---
 name: codex-cli
-description: Correctly run OpenAI Codex from Claude Code for implementation, investigation, or review without hanging, detaching, duplicating runs, or sharing a dirty worktree.
+description: >-
+  Run OpenAI Codex from Claude Code for delegated implementation,
+  investigation, and review work without hanging, detaching, duplicating runs,
+  or sharing a dirty worktree. Use when Claude Code needs to dispatch Codex for
+  a separate implementation task, second-opinion review, focused investigation,
+  or unprompted diff review while preserving workspace ownership.
 ---
 
 # codex CLI

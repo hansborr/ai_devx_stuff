@@ -1,10 +1,7 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
-
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import type { ChangedFile } from "../drift-ai.js";
+import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
 import { parseArgs } from "./cli-args.js";
 import {
   COMMENTED_OUT_CODE_HINT,
@@ -16,6 +13,8 @@ import { commentedOutCodeCheck } from "./commented-out-code-check.js";
 import { DEFAULT_DRIFT_AI_CONFIG, parseDriftAiConfig } from "./config.js";
 import { buildSourceExtensions, type DetectorScope } from "./scope.js";
 import { toChangedScopeFile, toCurrentScopeFile } from "./scope.js";
+
+const tmpRepo = registerTempRootCleanup();
 
 function makeReader(files: Record<string, string>): FileReader {
   return (filePath) => files[filePath];
@@ -305,25 +304,8 @@ describe("commented-out-code config", () => {
 });
 
 describe("commentedOutCodeCheck plugin", () => {
-  const tempRoots: string[] = [];
-
-  afterEach(() => {
-    while (tempRoots.length > 0) {
-      const root = tempRoots.pop();
-      if (root) rmSync(root, { recursive: true, force: true });
-    }
-  });
-
-  function writeRepo(files: Record<string, string>): string {
-    const root = mkdtempSync(path.join(tmpdir(), "drift-ai-commented-out-"));
-    tempRoots.push(root);
-    for (const [relativePath, contents] of Object.entries(files)) {
-      const absolute = path.join(root, relativePath);
-      mkdirSync(path.dirname(absolute), { recursive: true });
-      writeFileSync(absolute, contents);
-    }
-    return root;
-  }
+  const writeRepo = (files: Record<string, string>): string =>
+    tmpRepo.writeRepo(files, "drift-ai-commented-out-");
 
   it("reports a commented-out block from real current-scope files", () => {
     const repoRoot = writeRepo({

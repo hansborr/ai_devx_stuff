@@ -1,11 +1,13 @@
 import { mkdirSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
 import path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
 import { runPrototypeSubcommand } from "./prototype-subcommands.js";
 import { runDriftAi } from "./runner.js";
+
+const tmpRepo = registerTempRootCleanup();
 
 function nulDelimited(paths: readonly string[]): Buffer {
   return Buffer.from(`${paths.join("\0")}\0`, "utf8");
@@ -118,7 +120,7 @@ function writeFixtureRepo(
   readonly dir: string;
   readonly configPath: string;
 } {
-  const dir = path.join(tmpdir(), `drift-class-construction-${process.pid}-${Date.now()}`);
+  const dir = tmpRepo.makeTempRepo("drift-class-construction-");
   mkdirSync(path.join(dir, "src"), { recursive: true });
   for (const [filePath, source] of Object.entries(files)) {
     const absolutePath = path.join(dir, filePath);

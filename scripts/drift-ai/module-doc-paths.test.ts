@@ -1,9 +1,6 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
+import { describe, expect, it } from "vitest";
 
-import { afterEach, describe, expect, it } from "vitest";
-
+import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
 import type { DriftAiIgnoreConfig } from "./config.js";
 import { type ModuleDocPathsFinding, runModuleDocPathsCheck } from "./module-doc-paths.js";
 import { defaultListModuleDocs, isModuleDocPath } from "./module-doc-paths-io.js";
@@ -214,11 +211,12 @@ describe("runModuleDocPathsCheck", () => {
 
   it("emits findings sorted by doc path and resolves the default ignore probe via git", () => {
     // No injected isIgnored: exercises the real git check-ignore default against the
-    // live repo root. The fabricated paths are not gitignored, so the stale refs
-    // are emitted; ordering follows the sorted doc list.
+    // fixture repo. The fabricated paths are not gitignored, so the stale refs are
+    // emitted; ordering follows the sorted doc list.
+    const repoRoot = makeGitRepo();
     const findings = run({
       realIgnore: true,
-      repoRoot: process.cwd(),
+      repoRoot,
       roots: ["packages/server/src"],
       docs: {
         "packages/server/src/b/MODULE.md": "uses `helpers/zz-missing-b.ts`.",
@@ -244,24 +242,13 @@ describe("isModuleDocPath", () => {
 });
 
 const EMPTY_IGNORE: DriftAiIgnoreConfig = { segments: ["node_modules"], prefixes: [], globs: [] };
-const tempRoots: string[] = [];
+const tmpRepo = registerTempRootCleanup();
 
-afterEach(() => {
-  while (tempRoots.length > 0) {
-    const root = tempRoots.pop();
-    if (root !== undefined) rmSync(root, { recursive: true, force: true });
-  }
-});
+const writeRepo = (files: Record<string, string>): string =>
+  tmpRepo.writeRepo(files, "drift-module-doc-paths-");
 
-function writeRepo(files: Record<string, string>): string {
-  const root = mkdtempSync(path.join(tmpdir(), "drift-module-doc-paths-"));
-  tempRoots.push(root);
-  for (const [rel, source] of Object.entries(files)) {
-    const abs = path.join(root, rel);
-    mkdirSync(path.dirname(abs), { recursive: true });
-    writeFileSync(abs, source);
-  }
-  return root;
+function makeGitRepo(): string {
+  return tmpRepo.makeTmpGitRepo("drift-module-doc-paths-git-");
 }
 
 describe("defaultListModuleDocs", () => {

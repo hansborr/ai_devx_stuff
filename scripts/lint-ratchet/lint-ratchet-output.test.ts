@@ -3,28 +3,26 @@ import {
   cpSync,
   existsSync,
   mkdirSync,
-  mkdtempSync,
   readdirSync,
   readFileSync,
-  rmSync,
   symlinkSync,
   writeFileSync,
 } from "node:fs";
-import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import {
   type HarnessDiagnostics,
   harnessDiagnosticsSchema,
 } from "../../packages/shared/src/schemas/harness-diagnostics.js";
+import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const OUTPUT_BUFFER_BYTES = 10_000_000;
 const OUTPUT_ENV = "HARNESS_DIAGNOSTICS_OUTPUT";
-const tempRoots: string[] = [];
+const perTestTmpRepo = registerTempRootCleanup();
 
 // Cross-directory runtime files the fixture must copy alongside the
 // scripts/lint-ratchet/*.ts modules. This mirrors the small explicit list in
@@ -195,9 +193,8 @@ function initializeFixtureGitIndex(fixtureRoot: string): void {
   execFileSync("git", ["add", "-A"], { cwd: fixtureRoot });
 }
 
-function makeFixture(): string {
-  const fixtureRoot = mkdtempSync(join(tmpdir(), "lint-ratchet-output-"));
-  tempRoots.push(fixtureRoot);
+function makeFixture(tmpRepo = perTestTmpRepo): string {
+  const fixtureRoot = tmpRepo.makeTempRepo("lint-ratchet-output-");
   for (const runtimeFile of runtimeFiles) {
     copyRuntimeFile(fixtureRoot, runtimeFile);
   }
@@ -256,13 +253,6 @@ function parseEnvelope(stdout: string): HarnessDiagnostics {
   return result.data;
 }
 
-afterEach(() => {
-  while (tempRoots.length > 0) {
-    const tempRoot = tempRoots.pop();
-    if (tempRoot !== undefined) rmSync(tempRoot, { recursive: true, force: true });
-  }
-});
-
 describe("fixture runtime file derivation", () => {
   it("copies every scripts/lint-ratchet runtime module without hand-maintaining the list", () => {
     const ratchetModules = readdirSync(join(repoRoot, "scripts/lint-ratchet"))
@@ -294,15 +284,29 @@ describe("fixture runtime file derivation", () => {
 });
 
 describe("lint ratchet diagnostics output file", () => {
+  // The four read-only output cases below build a byte-identical clean+seeded
+  // fixture and differ only by the env/args they pass and the output file they
+  // read, so they share ONE fixture built once in beforeAll. Each test reads or
+  // writes a UNIQUE output filename so the negative-existence assertions stay
+  // meaningful (no test can observe another's leftover file). The mutating
+  // writeDebugSource case keeps its own throwaway fixture (tracked by the
+  // module-level temp handle) so its debugger; mutation never corrupts the
+  // shared clean seed.
+  const sharedTmpRepo = registerTempRootCleanup(afterAll);
+  let sharedFixtureRoot: string;
+
+  beforeAll(() => {
+    sharedFixtureRoot = makeFixture(sharedTmpRepo);
+    seedCleanBaseline(sharedFixtureRoot);
+  });
+
   it(
     "writes the same default-mode envelope to HARNESS_DIAGNOSTICS_OUTPUT",
     { timeout: 15_000 },
     () => {
-      const fixtureRoot = makeFixture();
-      seedCleanBaseline(fixtureRoot);
-      const outputPath = join(fixtureRoot, "diagnostics.json");
+      const outputPath = join(sharedFixtureRoot, "diagnostics.json");
 
-      const result = runLintRatchet(fixtureRoot, [], { [OUTPUT_ENV]: outputPath });
+      const result = runLintRatchet(sharedFixtureRoot, [], { [OUTPUT_ENV]: outputPath });
 
       expect(result.status, result.stderr).toBe(0);
       expect(readFileSync(outputPath, "utf8")).toBe(result.stdout);
@@ -314,11 +318,9 @@ describe("lint ratchet diagnostics output file", () => {
     "leaves default-mode behavior unchanged when the env var is unset",
     { timeout: 15_000 },
     () => {
-      const fixtureRoot = makeFixture();
-      seedCleanBaseline(fixtureRoot);
-      const outputPath = join(fixtureRoot, "diagnostics.json");
+      const outputPath = join(sharedFixtureRoot, "unset-diagnostics.json");
 
-      const result = runLintRatchet(fixtureRoot);
+      const result = runLintRatchet(sharedFixtureRoot);
 
       expect(result.status, result.stderr).toBe(0);
       expect(existsSync(outputPath)).toBe(false);
@@ -327,11 +329,9 @@ describe("lint ratchet diagnostics output file", () => {
   );
 
   it("treats an empty HARNESS_DIAGNOSTICS_OUTPUT value as unset", { timeout: 15_000 }, () => {
-    const fixtureRoot = makeFixture();
-    seedCleanBaseline(fixtureRoot);
-    const outputPath = join(fixtureRoot, "empty-output.json");
+    const outputPath = join(sharedFixtureRoot, "empty-output.json");
 
-    const result = runLintRatchet(fixtureRoot, [], { [OUTPUT_ENV]: "" });
+    const result = runLintRatchet(sharedFixtureRoot, [], { [OUTPUT_ENV]: "" });
 
     expect(result.status, result.stderr).toBe(0);
     expect(existsSync(outputPath)).toBe(false);
@@ -354,11 +354,9 @@ describe("lint ratchet diagnostics output file", () => {
   });
 
   it("creates the output file parent directory when missing", { timeout: 15_000 }, () => {
-    const fixtureRoot = makeFixture();
-    seedCleanBaseline(fixtureRoot);
-    const outputPath = join(fixtureRoot, "new", "nested", "diagnostics.json");
+    const outputPath = join(sharedFixtureRoot, "new", "nested", "diagnostics.json");
 
-    const result = runLintRatchet(fixtureRoot, [], { [OUTPUT_ENV]: outputPath });
+    const result = runLintRatchet(sharedFixtureRoot, [], { [OUTPUT_ENV]: outputPath });
 
     expect(result.status, result.stderr).toBe(0);
     expect(readFileSync(outputPath, "utf8")).toBe(result.stdout);

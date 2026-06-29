@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { blameLineIntroductions } from "./coldspots-blame.js";
 import type { GitRunner } from "./git-changed-scope.js";
+import { unexpectedGitInvocationError } from "./git-runner.test-helper.js";
 
 // A minimal --line-porcelain blame: a full header block for the first line of each
 // commit, then a short header (sha + line numbers) reusing the cached metadata for
@@ -35,7 +36,7 @@ function gitWith(output: string, recorder?: string[][]): GitRunner {
   return (args) => {
     recorder?.push([...args]);
     if (args[0] === "blame") return output;
-    throw new Error(`unexpected git invocation: git ${args.join(" ")}`);
+    throw unexpectedGitInvocationError(args);
   };
 }
 

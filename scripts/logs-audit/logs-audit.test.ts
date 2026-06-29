@@ -1,4 +1,12 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  utimesSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -12,6 +20,7 @@ import {
 import { HARNESS_DIAGNOSTICS_OUTPUT_ENV } from "../harness/harness-diagnostics-output.js";
 import {
   auditJsonlText,
+  findLatestCompatibleLogFiles,
   formatJson,
   formatText,
   type LogsAuditReport,
@@ -24,6 +33,7 @@ import {
   projectLogsAuditDiagnostics,
   writeLogsAuditDiagnosticsSidecar,
 } from "./logs-audit-diagnostics.js";
+import { isJsonObject } from "./logs-audit-redaction.js";
 
 const fixtureDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures");
 
@@ -123,15 +133,78 @@ describe("auditJsonlText", () => {
     expect(formatText(report)).not.toContain("secret");
   });
 
+  it("reports every sensitive key variant with exact redaction diagnostics", () => {
+    const report = auditJsonlText(
+      "sensitive-keys.jsonl",
+      JSON.stringify({
+        body: { nested: "body-secret" },
+        cookies: "cookie-jar-secret",
+        input: "input-secret",
+        password: "password-secret",
+        raw_body: "raw-body-secret",
+        refresh_token: "refresh-token-secret",
+      }),
+    );
+
+    expect(report.findings).toEqual([
+      {
+        check: "redaction",
+        file: "sensitive-keys.jsonl",
+        line: 1,
+        field: "body",
+        message: "sensitive field 'body' is not redacted",
+      },
+      {
+        check: "redaction",
+        file: "sensitive-keys.jsonl",
+        line: 1,
+        field: "cookies",
+        message: "sensitive field 'cookies' is not redacted",
+      },
+      {
+        check: "redaction",
+        file: "sensitive-keys.jsonl",
+        line: 1,
+        field: "input",
+        message: "sensitive field 'input' is not redacted",
+      },
+      {
+        check: "redaction",
+        file: "sensitive-keys.jsonl",
+        line: 1,
+        field: "password",
+        message: "sensitive field 'password' is not redacted",
+      },
+      {
+        check: "redaction",
+        file: "sensitive-keys.jsonl",
+        line: 1,
+        field: "raw_body",
+        message: "sensitive field 'raw_body' is not redacted",
+      },
+      {
+        check: "redaction",
+        file: "sensitive-keys.jsonl",
+        line: 1,
+        field: "refresh_token",
+        message: "sensitive field 'refresh_token' is not redacted",
+      },
+    ]);
+    expect(JSON.stringify(report)).not.toContain("secret");
+  });
+
   it("reports chat and whisper content paths without flagging ordinary messages", () => {
     const report = auditJsonlText(
       "chat.jsonl",
       JSON.stringify({
-        message: "ordinary log message",
+        logMessage: "ordinary log message",
         chat: {
           content: "chat-secret",
           message: { content: "message-secret" },
           whisper: { content: "nested-whisper-secret" },
+        },
+        message: {
+          content: "top-level-message-secret",
         },
         messageEnvelope: { content: "not covered by the server redaction contract" },
         payload: {
@@ -149,6 +222,7 @@ describe("auditJsonlText", () => {
       "chat.content",
       "chat.message.content",
       "chat.whisper.content",
+      "message.content",
       "payload.content",
       "payload.message.content",
       "whisper.content",
@@ -157,12 +231,111 @@ describe("auditJsonlText", () => {
     expect(JSON.stringify(report)).not.toContain("secret");
   });
 
-  it("allows null and recognized redaction sentinels in sensitive fields and URLs", () => {
+  it("reports array-indexed chat and whisper content paths", () => {
+    const report = auditJsonlText(
+      "array-chat.jsonl",
+      JSON.stringify({
+        chat: {
+          message: [{ content: "array-chat-message-secret" }],
+          whisper: [{ content: "array-chat-whisper-secret" }],
+        },
+        payload: {
+          message: [{ content: "array-payload-message-secret" }],
+        },
+        whisper: [{ message: "array-whisper-message-secret" }],
+      }),
+    );
+
+    expect(report.findings.map((finding) => finding.field)).toEqual([
+      "chat.message[0].content",
+      "chat.whisper[0].content",
+      "payload.message[0].content",
+      "whisper[0].message",
+    ]);
+    expect(JSON.stringify(report)).not.toContain("secret");
+  });
+
+  it("reports URL query parameters with exact fields and messages", () => {
+    const report = auditJsonlText(
+      "url-query.jsonl",
+      JSON.stringify({
+        req: {
+          request_url:
+            "/trpc/auth.refresh?traceId=trace-1&accessToken=access-secret&authorization=auth-secret&cookie=cookie-secret&refresh_token=refresh-secret",
+        },
+      }),
+    );
+
+    expect(report.findings).toEqual([
+      {
+        check: "redaction",
+        file: "url-query.jsonl",
+        line: 1,
+        field: "req.request_url?accessToken",
+        message: "sensitive query parameter 'accessToken' is not redacted",
+      },
+      {
+        check: "redaction",
+        file: "url-query.jsonl",
+        line: 1,
+        field: "req.request_url?authorization",
+        message: "sensitive query parameter 'authorization' is not redacted",
+      },
+      {
+        check: "redaction",
+        file: "url-query.jsonl",
+        line: 1,
+        field: "req.request_url?cookie",
+        message: "sensitive query parameter 'cookie' is not redacted",
+      },
+      {
+        check: "redaction",
+        file: "url-query.jsonl",
+        line: 1,
+        field: "req.request_url?refresh_token",
+        message: "sensitive query parameter 'refresh_token' is not redacted",
+      },
+    ]);
+    expect(JSON.stringify(report)).not.toContain("secret");
+  });
+
+  it("recurses through arrays while preserving indexed field paths", () => {
+    const report = auditJsonlText(
+      "array-redaction.jsonl",
+      JSON.stringify({
+        events: [
+          { token: "array-token-secret" },
+          { nested: { authorization: "array-auth-secret" } },
+        ],
+      }),
+    );
+
+    expect(report.findings).toEqual([
+      {
+        check: "redaction",
+        file: "array-redaction.jsonl",
+        line: 1,
+        field: "events[0].token",
+        message: "sensitive field 'events[0].token' is not redacted",
+      },
+      {
+        check: "redaction",
+        file: "array-redaction.jsonl",
+        line: 1,
+        field: "events[1].nested.authorization",
+        message: "sensitive field 'events[1].nested.authorization' is not redacted",
+      },
+    ]);
+  });
+
+  it("allows null, case-insensitive sentinels, and trimmed redaction sentinels", () => {
     const report = auditJsonlText(
       "redacted.jsonl",
       JSON.stringify({
         accessToken: "[redacted]",
         cookie: "redacted",
+        password: "  ReDaCtEd  ",
+        rawBody: "***",
         refreshToken: null,
         req: {
           headers: { authorization: "<redacted>" },
@@ -171,6 +344,13 @@ describe("auditJsonlText", () => {
       }),
     );
     expect(report.findings).toEqual([]);
+  });
+
+  it("distinguishes JSON objects from arrays, null, and primitives", () => {
+    expect(isJsonObject({ ok: true })).toBe(true);
+    expect(isJsonObject([])).toBe(false);
+    expect(isJsonObject(null)).toBe(false);
+    expect(isJsonObject("plain")).toBe(false);
   });
 
   it("reports missing request ids and unstable business event fields", () => {
@@ -245,6 +425,515 @@ describe("auditJsonlText", () => {
       },
     ]);
   });
+
+  it("reports request-id diagnostics with exact fields and matching semantics", () => {
+    const report = auditJsonlText(
+      "request-ids.jsonl",
+      [
+        JSON.stringify({ level: 30, requestId: "request-match", request: { method: "GET" } }),
+        JSON.stringify({
+          level: 30,
+          event: "character.update",
+          outcome: "success",
+          actor: { userId: "user-1" },
+          reqId: "request-match",
+        }),
+        JSON.stringify({ level: 30, req: { id: "nested-req", method: "GET" } }),
+        JSON.stringify({
+          level: 30,
+          event: "character.update",
+          outcome: "success",
+          actor: { userId: "user-1" },
+          reqId: "nested-req",
+        }),
+        JSON.stringify({ level: 30, request: { id: "nested-request", method: "GET" } }),
+        JSON.stringify({
+          level: 30,
+          event: "character.update",
+          outcome: "success",
+          actor: { userId: "user-1" },
+          requestId: "nested-request",
+        }),
+        JSON.stringify({
+          level: 30,
+          event: "character.update",
+          outcome: "success",
+          actor: { userId: "user-1" },
+          reqId: "",
+        }),
+        JSON.stringify({
+          level: 30,
+          event: "character.update",
+          outcome: "success",
+          actor: { userId: "user-1" },
+          requestId: 42,
+        }),
+        JSON.stringify({
+          level: 30,
+          event: "character.update",
+          outcome: "success",
+          actor: { userId: "user-1" },
+          req: { id: 42 },
+        }),
+        JSON.stringify({
+          level: 30,
+          event: "character.update",
+          outcome: "success",
+          actor: { userId: "user-1" },
+          request: { id: 42 },
+        }),
+        JSON.stringify({
+          level: 30,
+          event: "character.update",
+          outcome: "success",
+          actor: { userId: "user-1" },
+          reqId: "request-match",
+          requestId: "other-request",
+        }),
+        JSON.stringify({ level: 30, event: "script.logs-audit", outcome: "success" }),
+        JSON.stringify({ level: 30, event: "logs-audit.script.", outcome: "success" }),
+        JSON.stringify({ level: 30, reqId: "ordinary-only" }),
+        JSON.stringify({ level: 30, reqId: "real-request", req: { method: "GET" } }),
+        JSON.stringify({
+          level: 30,
+          event: "character.update",
+          outcome: "success",
+          actor: { userId: "user-1" },
+          reqId: "ordinary-only",
+        }),
+        JSON.stringify({ level: 30, req: { method: "GET" } }),
+        JSON.stringify({
+          level: 30,
+          event: "character.update",
+          outcome: "success",
+          actor: { userId: "user-1" },
+          reqId: "unmatched-but-no-request-log",
+        }),
+        JSON.stringify({
+          level: 30,
+          event: "character.update",
+          outcome: "success",
+          actor: { userId: "user-1" },
+          reqId: "self-only-business-id",
+        }),
+        JSON.stringify({
+          level: 30,
+          event: "character.update",
+          outcome: "success",
+          actor: { userId: "user-1" },
+          reqId: "business-envelope-id",
+          req: { method: "POST" },
+        }),
+      ].join("\n"),
+    );
+
+    const reportWithUnidentifiedRequestLog = auditJsonlText(
+      "unidentified-request-log.jsonl",
+      [
+        JSON.stringify({ level: 30, req: { method: "GET" } }),
+        JSON.stringify({
+          level: 30,
+          event: "character.update",
+          outcome: "success",
+          actor: { userId: "user-1" },
+          reqId: "business-without-identifiable-request-log",
+        }),
+      ].join("\n"),
+    );
+
+    expect(report.findings.filter((finding) => finding.check === "request-id")).toEqual([
+      {
+        check: "request-id",
+        file: "request-ids.jsonl",
+        line: 7,
+        field: "reqId",
+        message: "request id must be a string",
+      },
+      {
+        check: "request-id",
+        file: "request-ids.jsonl",
+        line: 8,
+        field: "requestId",
+        message: "request id must be a string",
+      },
+      {
+        check: "request-id",
+        file: "request-ids.jsonl",
+        line: 9,
+        field: "req.id",
+        message: "request id must be a string",
+      },
+      {
+        check: "request-id",
+        file: "request-ids.jsonl",
+        line: 10,
+        field: "request.id",
+        message: "request id must be a string",
+      },
+      {
+        check: "request-id",
+        file: "request-ids.jsonl",
+        line: 11,
+        field: "requestId",
+        message: "request id fields disagree",
+      },
+      {
+        check: "request-id",
+        file: "request-ids.jsonl",
+        line: 7,
+        field: "requestId",
+        message: "business event log is missing a request id",
+      },
+      {
+        check: "request-id",
+        file: "request-ids.jsonl",
+        line: 8,
+        field: "requestId",
+        message: "business event log is missing a request id",
+      },
+      {
+        check: "request-id",
+        file: "request-ids.jsonl",
+        line: 9,
+        field: "requestId",
+        message: "business event log is missing a request id",
+      },
+      {
+        check: "request-id",
+        file: "request-ids.jsonl",
+        line: 10,
+        field: "requestId",
+        message: "business event log is missing a request id",
+      },
+      {
+        check: "request-id",
+        file: "request-ids.jsonl",
+        line: 11,
+        field: "requestId",
+        message: "business event log is missing a request id",
+      },
+      {
+        check: "request-id",
+        file: "request-ids.jsonl",
+        line: 13,
+        field: "requestId",
+        message: "business event log is missing a request id",
+      },
+      {
+        check: "request-id",
+        file: "request-ids.jsonl",
+        line: 16,
+        field: "requestId",
+        message: "business event request id has no matching request log",
+      },
+      {
+        check: "request-id",
+        file: "request-ids.jsonl",
+        line: 18,
+        field: "requestId",
+        message: "business event request id has no matching request log",
+      },
+      {
+        check: "request-id",
+        file: "request-ids.jsonl",
+        line: 19,
+        field: "requestId",
+        message: "business event request id has no matching request log",
+      },
+      {
+        check: "request-id",
+        file: "request-ids.jsonl",
+        line: 20,
+        field: "requestId",
+        message: "business event request id has no matching request log",
+      },
+    ]);
+    expect(
+      reportWithUnidentifiedRequestLog.findings.filter((finding) => finding.check === "request-id"),
+    ).toEqual([]);
+  });
+
+  it("reports each business event field convention with exact diagnostics", () => {
+    const stableEightyCharacterEvent = `character.${"a".repeat(70)}`;
+    const report = auditJsonlText(
+      "event-fields.jsonl",
+      [
+        JSON.stringify({ level: 30, event: 7 }),
+        JSON.stringify({ level: 30, event: "" }),
+        JSON.stringify({ level: 30, event: "1character.update", outcome: "success" }),
+        JSON.stringify({ level: 30, event: "character.update!", outcome: "success" }),
+        JSON.stringify({ level: 30, event: `character.${"a".repeat(71)}`, outcome: "success" }),
+        JSON.stringify({ level: 30, event: stableEightyCharacterEvent, outcome: "success" }),
+        JSON.stringify({ level: 30, event: "character.update", outcome: "" }),
+        JSON.stringify({ level: 30, event: "character.update" }),
+        JSON.stringify({ level: 30, event: "character.update", outcome: "failure" }),
+        JSON.stringify({
+          level: 30,
+          event: "character.update",
+          outcome: "failure",
+          reason: "",
+        }),
+        JSON.stringify({
+          level: 30,
+          event: "character.update",
+          outcome: "failure",
+          reason: "validation failed",
+        }),
+        JSON.stringify({
+          level: 30,
+          event: "character.update",
+          outcome: "failure",
+          reason: "validation.failed",
+        }),
+        JSON.stringify({ level: 30, event: "character.update", outcome: "maybe" }),
+        JSON.stringify({
+          level: 30,
+          event: "character.update",
+          outcome: "success",
+          actor: "user-1",
+        }),
+        JSON.stringify({
+          level: 30,
+          event: "character.update",
+          outcome: "success",
+          actor: {},
+        }),
+        JSON.stringify({
+          level: 30,
+          event: "character.update",
+          outcome: "success",
+          actor: { userId: "" },
+        }),
+        JSON.stringify({ level: 30, event: "authz.campaign.member", outcome: "allow" }),
+        JSON.stringify({
+          level: 30,
+          event: "authz.campaign.member",
+          outcome: "blocked",
+          actor: { userId: "user-1" },
+        }),
+        JSON.stringify({
+          level: 30,
+          event: "authz.campaign.member",
+          outcome: "deny",
+          actor: { userId: "user-1" },
+        }),
+        JSON.stringify({
+          level: 30,
+          event: "authz.campaign.member",
+          outcome: "deny",
+          actor: { userId: "user-1" },
+          reason: "not.owner",
+        }),
+        JSON.stringify({ level: 30, event: "socket.broadcast", outcome: "queued" }),
+        JSON.stringify({ level: 30, event: "socket.broadcast", outcome: "success" }),
+        JSON.stringify({
+          level: 30,
+          event: "socket.broadcast",
+          outcome: "success",
+          socketEvent: "",
+        }),
+        JSON.stringify({
+          level: 30,
+          event: "socket.broadcast",
+          outcome: "success",
+          socketEvent: "Campaign Updated",
+        }),
+        JSON.stringify({
+          level: 30,
+          event: "socket.broadcast",
+          outcome: "skipped",
+          socketEvent: "campaign.updated",
+        }),
+        JSON.stringify({
+          level: 30,
+          event: "socket.broadcast",
+          outcome: "skipped",
+          socketEvent: "campaign.updated",
+          reason: "no.listeners",
+        }),
+        JSON.stringify({ level: 30, event: "script.logs-audit", outcome: "whatever" }),
+        JSON.stringify({ level: 30, event: "logs-audit.script.", outcome: "whatever" }),
+      ].join("\n"),
+    );
+
+    expect(report.findings.filter((finding) => finding.check === "event-fields")).toEqual([
+      {
+        check: "event-fields",
+        file: "event-fields.jsonl",
+        line: 1,
+        field: "event",
+        message: "event must be a string",
+      },
+      {
+        check: "event-fields",
+        file: "event-fields.jsonl",
+        line: 2,
+        field: "event",
+        message: "event must be a string",
+      },
+      {
+        check: "event-fields",
+        file: "event-fields.jsonl",
+        line: 3,
+        field: "event",
+        message: "event must be a stable low-cardinality code",
+      },
+      {
+        check: "event-fields",
+        file: "event-fields.jsonl",
+        line: 4,
+        field: "event",
+        message: "event must be a stable low-cardinality code",
+      },
+      {
+        check: "event-fields",
+        file: "event-fields.jsonl",
+        line: 5,
+        field: "event",
+        message: "event must be a stable low-cardinality code",
+      },
+      {
+        check: "event-fields",
+        file: "event-fields.jsonl",
+        line: 7,
+        field: "outcome",
+        message: "outcome is required for business events",
+      },
+      {
+        check: "event-fields",
+        file: "event-fields.jsonl",
+        line: 8,
+        field: "outcome",
+        message: "outcome is required for business events",
+      },
+      {
+        check: "event-fields",
+        file: "event-fields.jsonl",
+        line: 9,
+        field: "reason",
+        message: "reason is required for failure outcomes",
+      },
+      {
+        check: "event-fields",
+        file: "event-fields.jsonl",
+        line: 10,
+        field: "reason",
+        message: "reason must be a string",
+      },
+      {
+        check: "event-fields",
+        file: "event-fields.jsonl",
+        line: 11,
+        field: "reason",
+        message: "reason must be a stable low-cardinality code",
+      },
+      {
+        check: "event-fields",
+        file: "event-fields.jsonl",
+        line: 13,
+        field: "outcome",
+        message: "mutation outcome must be success or failure",
+      },
+      {
+        check: "event-fields",
+        file: "event-fields.jsonl",
+        line: 14,
+        field: "actor",
+        message: "actor is required with userId",
+      },
+      {
+        check: "event-fields",
+        file: "event-fields.jsonl",
+        line: 15,
+        field: "actor.userId",
+        message: "actor.userId must be a string",
+      },
+      {
+        check: "event-fields",
+        file: "event-fields.jsonl",
+        line: 16,
+        field: "actor.userId",
+        message: "actor.userId must be a string",
+      },
+      {
+        check: "event-fields",
+        file: "event-fields.jsonl",
+        line: 17,
+        field: "actor",
+        message: "actor is required with userId",
+      },
+      {
+        check: "event-fields",
+        file: "event-fields.jsonl",
+        line: 18,
+        field: "outcome",
+        message: "authz outcome must be allow or deny",
+      },
+      {
+        check: "event-fields",
+        file: "event-fields.jsonl",
+        line: 19,
+        field: "reason",
+        message: "reason is required for deny outcomes",
+      },
+      {
+        check: "event-fields",
+        file: "event-fields.jsonl",
+        line: 21,
+        field: "outcome",
+        message: "socket.broadcast outcome must be success or skipped",
+      },
+      {
+        check: "event-fields",
+        file: "event-fields.jsonl",
+        line: 21,
+        field: "socketEvent",
+        message: "socketEvent is required for socket.broadcast",
+      },
+      {
+        check: "event-fields",
+        file: "event-fields.jsonl",
+        line: 22,
+        field: "socketEvent",
+        message: "socketEvent is required for socket.broadcast",
+      },
+      {
+        check: "event-fields",
+        file: "event-fields.jsonl",
+        line: 23,
+        field: "socketEvent",
+        message: "socketEvent is required for socket.broadcast",
+      },
+      {
+        check: "event-fields",
+        file: "event-fields.jsonl",
+        line: 24,
+        field: "socketEvent",
+        message: "socketEvent must be a stable low-cardinality code",
+      },
+      {
+        check: "event-fields",
+        file: "event-fields.jsonl",
+        line: 25,
+        field: "reason",
+        message: "reason is required for skipped outcomes",
+      },
+      {
+        check: "event-fields",
+        file: "event-fields.jsonl",
+        line: 28,
+        field: "event",
+        message: "event must be a stable low-cardinality code",
+      },
+      {
+        check: "event-fields",
+        file: "event-fields.jsonl",
+        line: 28,
+        field: "outcome",
+        message: "mutation outcome must be success or failure",
+      },
+    ]);
+  });
 });
 
 describe("runLogsAudit", () => {
@@ -284,6 +973,133 @@ describe("runLogsAudit", () => {
     const help = runLogsAudit({ argv: ["--help"] });
     expect(help.exitCode).toBe(0);
     expect(help.stdout).toContain("Usage:");
+  });
+});
+
+describe("runLogsAudit --latest", () => {
+  const tempRoots: string[] = [];
+
+  afterEach(() => {
+    while (tempRoots.length > 0) {
+      const root = tempRoots.pop();
+      if (root !== undefined) rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  function makeTempRoot(): string {
+    const root = mkdtempSync(path.join(tmpdir(), "logs-audit-latest-"));
+    tempRoots.push(root);
+    return root;
+  }
+
+  function writeLog(root: string, relativePath: string, contents: string, mtime: Date): string {
+    const filePath = path.join(root, relativePath);
+    mkdirSync(path.dirname(filePath), { recursive: true });
+    writeFileSync(filePath, contents, "utf8");
+    utimesSync(filePath, mtime, mtime);
+    return filePath;
+  }
+
+  it("selects the newest compatible verify or hook JSONL log", () => {
+    const root = makeTempRoot();
+    const verifyLogs = path.join(root, "verify");
+    const hookLogs = path.join(root, "hook");
+    const older = writeLog(
+      verifyLogs,
+      "server.jsonl",
+      '{"message":"older"}\n',
+      new Date("2026-01-01T00:00:00.000Z"),
+    );
+    const newer = writeLog(
+      hookLogs,
+      "server.jsonl",
+      '{"message":"newer"}\n',
+      new Date("2026-01-02T00:00:00.000Z"),
+    );
+    writeLog(hookLogs, "test.log", "plain task output\n", new Date("2026-01-03T00:00:00.000Z"));
+
+    expect(findLatestCompatibleLogFiles([verifyLogs, hookLogs])).toEqual([newer]);
+
+    const result = runLogsAudit({
+      argv: ["--latest"],
+      latestLogRoots: [verifyLogs, hookLogs],
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain(`${newer}: 1 record(s), 0 rejected line(s)`);
+    expect(result.stdout).not.toContain(older);
+  });
+
+  it("selects a single deterministic newest log when roots tie on mtime", () => {
+    const root = makeTempRoot();
+    const verifyLogs = path.join(root, "verify");
+    const hookLogs = path.join(root, "hook");
+    const tie = new Date("2026-01-01T00:00:00.000Z");
+    const verifyLog = writeLog(verifyLogs, "server.jsonl", '{"message":"verify"}\n', tie);
+    const hookLog = writeLog(hookLogs, "server.jsonl", '{"message":"hook"}\n', tie);
+
+    const selected = findLatestCompatibleLogFiles([verifyLogs, hookLogs]);
+
+    expect(selected).toHaveLength(1);
+    expect(selected).toEqual([[verifyLog, hookLog].sort((l, r) => l.localeCompare(r))[0]]);
+  });
+
+  it("deduplicates latest roots that resolve to the same directory", () => {
+    const root = makeTempRoot();
+    const latest = writeLog(
+      root,
+      "server.jsonl",
+      '{"message":"latest"}\n',
+      new Date("2026-01-01T00:00:00.000Z"),
+    );
+
+    expect(findLatestCompatibleLogFiles([root, `${root}${path.sep}`])).toEqual([latest]);
+  });
+
+  it("no-ops with a bounded hint when no compatible logs exist", () => {
+    const root = makeTempRoot();
+    const verifyLogs = path.join(root, "verify");
+    const hookLogs = path.join(root, "hook");
+    writeLog(verifyLogs, "lint.log", "plain lint output\n", new Date("2026-01-01T00:00:00.000Z"));
+
+    const result = runLogsAudit({
+      argv: ["--latest"],
+      latestLogRoots: [verifyLogs, hookLogs],
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toMatchInlineSnapshot(
+      `"logs:audit --latest: no compatible JSONL logs found in verify/hook log dirs; run \`bun run verify:changed\` to populate logs before retrying."`,
+    );
+    expect(result.report).toBeUndefined();
+  });
+
+  it("keeps malformed explicitly selected logs as hard failures", () => {
+    const result = runLogsAudit({
+      argv: ["server.jsonl"],
+      readFile: () => "not-json\n",
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toContain("ERROR jsonl: server.jsonl:1 - line is not valid JSON");
+  });
+
+  it("fails when the newest compatible latest log is malformed", () => {
+    const root = makeTempRoot();
+    const latest = writeLog(
+      root,
+      "server.jsonl",
+      "not-json\n",
+      new Date("2026-01-01T00:00:00.000Z"),
+    );
+
+    const result = runLogsAudit({
+      argv: ["--latest"],
+      latestLogRoots: [root],
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toContain(`ERROR jsonl: ${latest}:1 - line is not valid JSON`);
   });
 });
 
@@ -347,6 +1163,10 @@ describe("projectLogsAuditDiagnostics", () => {
     expect(entry?.line).toBeUndefined();
     expect(entry?.reason).toBeUndefined();
     expect(entry === undefined ? {} : entry).not.toHaveProperty("reason");
+    // The projection contract is that the `line` key is absent, not
+    // present-and-undefined: `entry?.line` being undefined is satisfied by both
+    // shapes, so guard the key's absence explicitly the same way `reason` is.
+    expect(entry === undefined ? {} : entry).not.toHaveProperty("line");
     expect(harnessDiagnosticsSchema.safeParse(envelope).success).toBe(true);
   });
 

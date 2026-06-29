@@ -192,6 +192,14 @@ export const SCRIPT_SMOKE_SUBJECTS = {
     "packages/shared/package.json",
     "packages/server/package.json",
   ],
+  "test-lint-fix-dist-preflight": [
+    "package.json",
+    "scripts/lint-fix.sh",
+    "scripts/lib/lint-dist-preflight.sh",
+    "scripts/tests/test-lint-fix-dist-preflight.sh",
+    "packages/shared/package.json",
+    "packages/server/package.json",
+  ],
   "test-test-dist-preflight": [
     "scripts/lib/test-dist-preflight.sh",
     "scripts/prisma-client-freshness.sh",
@@ -320,6 +328,7 @@ export const SCRIPT_SMOKE_SUBJECTS = {
   ],
   "test-lint-agent": [
     "scripts/lint-agent.ts",
+    "scripts/lint-agent-envelope.ts",
     "scripts/lib/lint-rule-docs.ts",
     "scripts/tests/test-lint-agent.sh",
     "packages/shared/src/schemas/harness-diagnostics.ts",
@@ -328,6 +337,7 @@ export const SCRIPT_SMOKE_SUBJECTS = {
   "test-lint-agent-changed": [
     "scripts/lint-agent-changed.sh",
     "scripts/lint-agent.ts",
+    "scripts/lint-agent-envelope.ts",
     "scripts/lib/changed-base.sh",
     "scripts/harness-emit-envelope.ts",
     ...PATH_POLICY_QUERY_SUBJECTS,

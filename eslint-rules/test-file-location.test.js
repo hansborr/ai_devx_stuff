@@ -1,16 +1,10 @@
 // @ts-check
-import { RuleTester } from "eslint";
-import tseslint from "typescript-eslint";
 import { describe, it } from "vitest";
 
+import { makeRuleTester } from "./rule-tester.js";
 import rule from "./test-file-location.js";
 
-const ruleTester = new RuleTester({
-  languageOptions: {
-    parser: tseslint.parser,
-    parserOptions: { ecmaVersion: 2022, sourceType: "module" },
-  },
-});
+const ruleTester = makeRuleTester();
 
 describe("test-file-location", () => {
   it("runs", () => {
@@ -52,19 +46,19 @@ describe("test-file-location", () => {
         {
           filename: "packages/server/src/.test.ts",
           code: "it('works', () => {});",
-          errors: [{ message: /Rename to `<feature>\.test\.ts`/u }],
+          errors: [{ messageId: "wrongNaming" }],
         },
         // .spec.ts also needs a feature prefix when it is a non-e2e test file.
         {
           filename: "scripts/code-intel/.spec.ts",
           code: "it('works', () => {});",
-          errors: [{ message: /Rename to `<feature>\.test\.ts`/u }],
+          errors: [{ messageId: "wrongNaming" }],
         },
         // .test.ts with only setup/teardown hooks — must flag missingTests.
         {
           filename: "packages/server/src/setup.test.ts",
           code: "beforeEach(() => {}); afterEach(() => {});",
-          errors: [{ message: /helpers belong outside the test-file naming/u }],
+          errors: [{ messageId: "missingTests" }],
         },
         // .spec.ts with only setup/teardown hooks — must flag missingTests.
         {

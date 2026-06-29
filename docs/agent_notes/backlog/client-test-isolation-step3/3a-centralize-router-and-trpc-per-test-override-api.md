@@ -1,6 +1,6 @@
 # 3a. Centralize `@tanstack/react-router` and add a per-test tRPC override API → move ~30 files to the fast lane
 
-Status: Proposed — follow-up to test-suite-audit #01; NOT implemented. Re-verify file:line and re-run the classifier before acting.
+Status: Done — landed via merge 700cf17b (commits fae4fb7f, 99a8f9dc; lint guard 9a661a72). Central router mock + tRPC override API shipped; bucket-A files moved to the fast lane.
 Lens: speed · Area: client / test-infra · Severity: med · Size: M · Confidence: high
 Theme: client-isolation-step3 · Source: client-test-isolation split-runner follow-up 2026-06-15
 

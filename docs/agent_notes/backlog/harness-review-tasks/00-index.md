@@ -13,13 +13,13 @@ Always read [`01-shared-context.md`](./01-shared-context.md) first. For code
 tasks, also skim [`02-live-seams.md`](./02-live-seams.md), then read only the
 single task file you are implementing.
 
-> **Precedence (2026-06-02):** [`../drift-ai-next-items/`](../drift-ai-next-items/00-index.md)
-> is now the active queue for the diagnostics spine, the module-doc path sensor,
-> and the layer-direction sensor, re-derived against live `main` code. The rows
-> below stay as rationale but are marked **Superseded**; implement that work from
-> next-items instead (this pack -> next-items): 11 -> 20, 20 -> 10, 21 -> 11,
-> 22 -> 12, 23 -> 13, 24 -> 14, 40 -> 22. Tasks 25, 53, and all docs/feedforward
-> and governance rows remain owned here.
+> **Precedence (2026-06-02; superseding pack completed & archived 2026-06-20):**
+> the diagnostics spine, the module-doc path sensor, and the layer-direction
+> sensor were re-derived against live `main` and implemented in the now-archived
+> [`drift-ai-next-items` pack](../../finished_work/drift-ai-next-items.md). The rows
+> below stay as rationale but are **Superseded** (Done); the this-pack -> next-items
+> mapping was 11 -> 20, 20 -> 10, 21 -> 11, 22 -> 12, 23 -> 13, 24 -> 14, 40 -> 22.
+> Tasks 25, 53, and all docs/feedforward and governance rows remain owned here.
 
 ## Task List
 
@@ -78,8 +78,9 @@ preferred execution queue for the overlapping leaves:
 - `ai-harness-followups.md` slow drift reports, stable JSON diagnostics,
   behavior confidence notes, and `logs:audit` activation notes.
 - `autonomous-agent-iteration-candidates.md` logs-audit latest candidate.
-- `lint-followups-2026-06/` is the canonical lint platform queue; task 50 only
-  covers the narrow exemption-audit slice from the harness review.
+- `docs/agent_notes/finished_work/lint-followups-2026-06.md` summarizes the
+  closed lint platform queue; task 50 only covers the narrow exemption-audit
+  slice from the harness review.
 
 ## Promotion Rules
 

@@ -1,6 +1,6 @@
 # 24 - Basic scheduled slow-drift lane
 
-Status: Parked
+Status: Superseded -> drift-ai-next-items 14 (scheduled slow-drift lane, Done)
 Track: Dg (diagnostics)
 Size: medium
 Depends on: 11, 23, 53

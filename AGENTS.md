@@ -17,6 +17,7 @@ on the SRD 5.2.1 ruleset.
 - `bun run --filter @musi/server db:{push,seed,reset,studio}` — local DB utilities; package filter required.
 - `bun run code:intel -- {def|exports|dependents|refs|tests} ...` — cross-file TypeScript symbol/import queries; resolves package exports, re-exports, and the client `@/*` alias. See `docs/guides/code-intel.md`.
 - `bun run test:scripts:file -- <file>` (scripts project) or `bun run test -- <file>` (any project) — focused single-file test runs. Not `test:scripts -- <file>` (that is the shell smoke wrapper and rejects file args) and not `--filter @musi/scripts` (`scripts` is not a workspace package).
+- Secondary git worktrees: `bun run dev` auto-runs `worktree:init` to provision per-worktree DBs, ports, Redis, and env files. See `docs/guides/per-worktree-dev.md`.
 
 ## Working Model
 
@@ -29,7 +30,7 @@ on the SRD 5.2.1 ruleset.
 
 ## Code Standards
 
-- Avoid type assertions. Use them only at framework, JSON, Prisma, and test boundaries, or for `as const`; leave a short reason when the boundary is not obvious.
+- Avoid type assertions. `as const` is always allowed; every other cast outside `*.test`/`*.spec`/`*.test-helper` files needs a parseable marker `// type-assertion-boundary: <category> - <reason>` where `<category>` is one of the five enforced by `local/type-assertion-boundary`: `framework`, `json`, `prisma`, `test`, `interop` (`interop` = a runtime invariant TS can't express, e.g. widening `Object.entries`/`Object.keys` results or narrowing a runtime predicate). Place the marker on the same line after the cast, or anywhere in the JSDoc/`//` comment block directly above the statement. A prose reason without the marker, or any other category, fails lint. See [`docs/guides/local-eslint-rules.md`](docs/guides/local-eslint-rules.md#type-assertion-boundary-marker).
 - Use tRPC error codes consistently.
 - Prisma schema changes require a migration.
 - Read `docs/CONCURRENCY.md` before expanding race-sensitive mutation helper surfaces.
@@ -40,3 +41,4 @@ on the SRD 5.2.1 ruleset.
 - Use TDD.
 - Use `feat/...` or `fix/...` branches and conventional commits. The local Husky `commit-msg` hook enforces: `<type>(<scope>): <subject>` with subject ≥ 20 chars, plus a non-empty body ≥ 40 chars.
 - Commit your work, which runs tests for you automatically.
+- Fast-commit mode (opt-in, off by default): `touch "$(git rev-parse --git-common-dir)/musi-fast-commit"` makes pre-commit skip only the slow `test`+`scripts` slots (lint, ratchet, typecheck, and format still run every commit) for cheap multi-commit feature branches; `rm` the marker to disable. Land such a branch with `bash scripts/land.sh`, which runs the full sequential `verify` (always every slot) and then `git merge --no-ff` into the protected branch.

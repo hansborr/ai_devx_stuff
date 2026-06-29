@@ -230,8 +230,11 @@ not regress below the agreed baseline".
 - [x] Run `bun run test:mutation` and record runtime plus report location.
 - [x] Add a short docs entry describing when to run mutation testing and how to
   triage survivors.
-- [ ] Decide whether server mutation tests stay serial or get
-  `STRYKER_MUTATOR_WORKER`-aware DB isolation.
+- [x] Decide whether server mutation tests stay serial or get
+  `STRYKER_MUTATOR_WORKER`-aware DB isolation. Decided 2026-06-17: stay serial
+  (`concurrency: 1`). One mutant under test at a time keeps Vitest's own
+  `VITEST_POOL_ID` worker DBs collision-free without touching the shared
+  isolation helper. Revisit only if server runtime becomes the bottleneck.
 - [x] Re-run `bun run verify:changed` after config/package changes.
 
 ## Phase 1 Attempt Notes
@@ -258,6 +261,29 @@ total / 70.88% covered. Counts: 628 killed, 258 survived, 8 no coverage, 0
 timeouts, 544 compile errors. Reports:
 `reports/mutation/index.html`, `reports/mutation/mutation.json`, and
 `reports/mutation/stryker-incremental.json`.
+
+## Scope Expansion (2026-06-17)
+
+Broadened past the original rules-only pilot:
+
+- **Shared**: `test:mutation` now mutates all of `packages/shared/src/**`
+  (dice, map, schemas, rules), not just `rules/**`. Still pure logic, no DB.
+- **Server (Phase 3 landed)**: added `stryker.config.server.mjs` +
+  `test:server:mutation`, scoped to `packages/server/src/services/**`. Runs
+  serial + `inPlace` with a dedicated `packages/server/vitest.mutation.config.ts`
+  (Stryker resolves Vitest's root to the repo root, breaking the base config's
+  relative `globalSetup`/`setupFiles`; the wrapper pins `root` and uses absolute
+  setup paths). The dry run is scoped to service tests so env-fragile app/router
+  tests (e.g. `app.test.ts`'s `CORS_ORIGIN` assertion, which a provisioned
+  worktree overrides) can't abort it.
+- `.stryker-tmp/` is now ESLint-ignored so in-place backups / crashed-run
+  sandboxes never break `lint:changed`.
+
+Baselines for the expanded scopes are being captured via an overnight run
+(`reports/mutation-overnight/`); triage of survivors stays a separate effort
+from this setup work, per the Phase 2 rule.
+
+Phase 4 (client) remains unstarted and lower priority.
 
 ## Open Questions
 

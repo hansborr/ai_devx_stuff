@@ -23,6 +23,13 @@
       "invocation": "bun run lint"
     },
     {
+      "id": "lint/local/no-arbitrary-tailwind-value",
+      "kind": "lint-rule",
+      "ruleName": "local/no-arbitrary-tailwind-value",
+      "source": "eslint-rules/no-arbitrary-tailwind-value.js",
+      "invocation": "bun run lint"
+    },
+    {
       "id": "lint/local/no-async-array-callbacks",
       "kind": "lint-rule",
       "ruleName": "local/no-async-array-callbacks",
@@ -135,6 +142,15 @@
       "invocation": "bun run lint"
     },
 
+    {
+      "id": "ratchet/local-no-arbitrary-tailwind-value-client",
+      "kind": "ratchet",
+      "category": "maintainability",
+      "pairedGuide": "docs/guides/lint-ratchet.md",
+      "repairKind": "manual",
+      "source": "scripts/lint-ratchet/lint-ratchet-config.ts",
+      "invocation": "bun run lint:ratchet"
+    },
     {
       "id": "ratchet/local-type-assertion-boundary",
       "kind": "ratchet",

@@ -1,6 +1,6 @@
 # 40 - Layer-direction report-only sensor
 
-Status: Parked
+Status: Superseded -> drift-ai-next-items 22 (server layer-direction advisory, Done)
 Track: A (architecture sensors)
 Size: medium
 Depends on: none

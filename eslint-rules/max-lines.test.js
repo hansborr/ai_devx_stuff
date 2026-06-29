@@ -1,14 +1,10 @@
 // @ts-check
-import { RuleTester } from "eslint";
 import { describe, it } from "vitest";
 
+import { makeParserlessRuleTester } from "./rule-tester.js";
 import rule from "./max-lines.js";
 
-const ruleTester = new RuleTester({
-  languageOptions: {
-    parserOptions: { ecmaVersion: 2022, sourceType: "module" },
-  },
-});
+const ruleTester = makeParserlessRuleTester();
 
 describe("max-lines", () => {
   it("counts effective lines and reports repair guidance", () => {

@@ -1,9 +1,9 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
+import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
 import type { LintRatchetDebtLogEntry } from "./debt-log-schema.js";
 import {
   formatLintRatchetDebtLogReport,
@@ -11,22 +11,16 @@ import {
   runLintRatchetDebtLogReport,
 } from "./lint-ratchet-debt-log.js";
 
-const tempRoots: string[] = [];
+const tmpRepo = registerTempRootCleanup();
 
 function tempDebtLog(contents: string): string {
-  const tempRoot = mkdtempSync(join(tmpdir(), "lint-ratchet-debt-log-"));
-  tempRoots.push(tempRoot);
+  const tempRoot = tmpRepo.writeRepo(
+    { "lint-ratchet.debt-log.jsonl": contents },
+    "lint-ratchet-debt-log-",
+  );
   const path = join(tempRoot, "lint-ratchet.debt-log.jsonl");
-  writeFileSync(path, contents);
   return path;
 }
-
-afterEach(() => {
-  while (tempRoots.length > 0) {
-    const tempRoot = tempRoots.pop();
-    if (tempRoot !== undefined) rmSync(tempRoot, { recursive: true, force: true });
-  }
-});
 
 function entryWithReason(acceptanceReason: string): LintRatchetDebtLogEntry {
   return {

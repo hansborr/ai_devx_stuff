@@ -1,21 +1,13 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
+import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
 import type { DriftAiIgnoreConfig } from "./config.js";
 import { buildSourceExtensions } from "./scope.js";
 import { type SourceWalkInput, walkAbsoluteSourceFiles, walkSourceFiles } from "./source-walk.js";
 
-const tempRoots: string[] = [];
-
-afterEach(() => {
-  while (tempRoots.length > 0) {
-    const root = tempRoots.pop();
-    if (root !== undefined) rmSync(root, { recursive: true, force: true });
-  }
-});
+const tmpRepo = registerTempRootCleanup();
 
 const EMPTY_IGNORE: DriftAiIgnoreConfig = {
   segments: [],
@@ -23,16 +15,8 @@ const EMPTY_IGNORE: DriftAiIgnoreConfig = {
   globs: [],
 };
 
-function writeRepo(files: Record<string, string>): string {
-  const root = mkdtempSync(path.join(tmpdir(), "drift-source-walk-"));
-  tempRoots.push(root);
-  for (const [rel, source] of Object.entries(files)) {
-    const abs = path.join(root, rel);
-    mkdirSync(path.dirname(abs), { recursive: true });
-    writeFileSync(abs, source);
-  }
-  return root;
-}
+const writeRepo = (files: Record<string, string>): string =>
+  tmpRepo.writeRepo(files, "drift-source-walk-");
 
 function sourceWalkInput(
   repoRoot: string,

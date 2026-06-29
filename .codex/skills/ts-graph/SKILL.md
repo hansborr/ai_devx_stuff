@@ -1,11 +1,13 @@
 ---
 name: ts-graph
 description: >-
-  Use for cross-file TypeScript graph questions: where a symbol is defined,
+  Resolve cross-file TypeScript symbol, import, export, dependent, reference,
+  and covering-test relationships with `bun run code:intel` across
+  packages/shared, packages/server, packages/client, and scripts. Use when
+  Codex needs exact TypeScript graph answers such as where a symbol is defined,
   what a file exports, who imports a file, where a symbol is referenced, or
-  which tests likely cover a file. Runs `bun run code:intel` across
-  packages/shared, packages/server, packages/client, and scripts. Do not use
-  for in-file lookups, free-text searches, or verification gates.
+  which tests likely cover a file; do not use for in-file lookups, free-text
+  searches, or verification gates.
 ---
 
 # TS Graph

@@ -1,6 +1,226 @@
 {
   "version": 1,
   "tests": {
+    "ratchet/local-no-arbitrary-tailwind-value-client": {
+      "ruleId": "local/no-arbitrary-tailwind-value",
+      "mode": "no-new",
+      "target": 0,
+      "metric": "message-count",
+      "files": [
+        "packages/client/src/**/*.{ts,tsx}"
+      ],
+      "ignores": [
+        "packages/client/src/**/*.{test,spec}.{ts,tsx}",
+        "packages/client/src/**/*.test-helper.{ts,tsx}",
+        "packages/client/src/test/**/*.{ts,tsx}"
+      ],
+      "ruleOptions": [],
+      "configHash": "sha256:a080cb3615a49086c94d1d4265d485d9a9e48406a2b3bdb379cc564c4a84ff88",
+      "ruleSourceHash": "sha256:78b4a3d27816070395bf4edb03a7dcdc0c276784088eaa3bcbacf345f2ae81dd",
+      "items": {
+        "packages/client/src/components/campaign/chat/chat-panel.tsx": {
+          "count": 2
+        },
+        "packages/client/src/components/campaign/combat/action-economy-indicators.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/campaign/combat/combat-log-panel.tsx": {
+          "count": 4
+        },
+        "packages/client/src/components/campaign/combat/condition-toggle-popover.tsx": {
+          "count": 2
+        },
+        "packages/client/src/components/campaign/encounters/add-participant-dialog.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/campaign/maps/map-image-field.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/campaign/maps/map-toolbar-drawing-tools.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/campaign/maps/map-toolbar-view-controls.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/campaign/maps/template-toolbar.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/campaign/members/character-assignment.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/campaign/members/presence-indicator.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/campaign/npcs/monster-detail-dialog.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/campaign/settings/campaign-card.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/campaign/settings/campaign-overview.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/campaign/tokens/token-context-menu.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/character-card.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/character-create/steps/proficiencies-step.tsx": {
+          "count": 2
+        },
+        "packages/client/src/components/character-create/steps/spell-selection-step.tsx": {
+          "count": 2
+        },
+        "packages/client/src/components/character-create/wizard-stepper.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/compendium/magic-item-detail-dialog.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/homebrew/class/class-form-fields.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/homebrew/collections/import-collection-dialog.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/homebrew/entries/entry-dialog.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/notifications/notification-bell.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/notifications/notification-item.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/notifications/notification-popover.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/sheet/add-spell-dialog.tsx": {
+          "count": 4
+        },
+        "packages/client/src/components/sheet/equipment-summary.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/sheet/inventory-item-row.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/sheet/personality-panel.tsx": {
+          "count": 2
+        },
+        "packages/client/src/components/sheet/roll-context-menu.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/sheet/spell-detail-dialog.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/sheet/spell-row.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/sheet/weapon-mastery-dialog.tsx": {
+          "count": 2
+        },
+        "packages/client/src/components/ui/button.tsx": {
+          "count": 3
+        },
+        "packages/client/src/components/ui/card.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/ui/dialog.tsx": {
+          "count": 4
+        },
+        "packages/client/src/components/ui/input.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/ui/popover.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/ui/scroll-area.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/ui/select.tsx": {
+          "count": 6
+        },
+        "packages/client/src/components/ui/sheet.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/ui/tabs.tsx": {
+          "count": 2
+        },
+        "packages/client/src/components/ui/textarea.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/vtt/drawer/cast-rail-concentration.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/vtt/drawer/cast-rail-header.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/vtt/drawer/cast-rail-meta.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/vtt/drawer/cast-rail-slot-picker.tsx": {
+          "count": 3
+        },
+        "packages/client/src/components/vtt/drawer/cast-rail.tsx": {
+          "count": 2
+        },
+        "packages/client/src/components/vtt/drawer/monster-hp-control-strip.tsx": {
+          "count": 2
+        },
+        "packages/client/src/components/vtt/drawer/monster-stat-block-abilities.tsx": {
+          "count": 2
+        },
+        "packages/client/src/components/vtt/drawer/monster-stat-block-actions.tsx": {
+          "count": 4
+        },
+        "packages/client/src/components/vtt/drawer/monster-stat-block-header.tsx": {
+          "count": 2
+        },
+        "packages/client/src/components/vtt/drawer/monster-stat-block-profile.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/vtt/drawer/tabs/actions-tab-economy.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/vtt/drawer/tabs/actions-tab-features.tsx": {
+          "count": 3
+        },
+        "packages/client/src/components/vtt/drawer/tabs/actions-tab-spells.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/vtt/drawer/tabs/actions-tab-weapons.tsx": {
+          "count": 2
+        },
+        "packages/client/src/components/vtt/drawer/tabs/features-tab.tsx": {
+          "count": 5
+        },
+        "packages/client/src/components/vtt/drawer/tabs/inventory-tab.tsx": {
+          "count": 3
+        },
+        "packages/client/src/components/vtt/drawer/tabs/spells-tab.tsx": {
+          "count": 5
+        },
+        "packages/client/src/components/vtt/drawer/tabs/stats-tab-rolls.tsx": {
+          "count": 3
+        },
+        "packages/client/src/components/vtt/drawer/tabs/stats-tab-summary.tsx": {
+          "count": 1
+        },
+        "packages/client/src/components/vtt/in-vtt-drawer.tsx": {
+          "count": 7
+        },
+        "packages/client/src/pages/character-create-page.tsx": {
+          "count": 1
+        },
+        "packages/client/src/pages/login-page.tsx": {
+          "count": 1
+        },
+        "packages/client/src/pages/register-page.tsx": {
+          "count": 1
+        }
+      }
+    },
     "ratchet/local-type-assertion-boundary": {
       "ruleId": "local/type-assertion-boundary",
       "mode": "no-new",
@@ -211,7 +431,7 @@
           "count": 3
         },
         "packages/client/src/components/common/paginated-result-list.test.tsx": {
-          "count": 2
+          "count": 1
         },
         "packages/client/src/components/homebrew/shared/form-field-error.test.tsx": {
           "count": 2
@@ -232,9 +452,6 @@
           "count": 1
         },
         "packages/client/src/components/notifications/notification-popover.test.tsx": {
-          "count": 1
-        },
-        "packages/client/src/pages/character-sheet-page.test.tsx": {
           "count": 1
         }
       }
@@ -259,9 +476,6 @@
         "packages/client/src/components/campaign/combat/combat-death-saves.test.tsx": {
           "count": 2
         },
-        "packages/client/src/components/campaign/combat/initiative-tracker-actions.test.tsx": {
-          "count": 2
-        },
         "packages/client/src/components/campaign/combat/initiative-tracker-initiative-edit.test.tsx": {
           "count": 2
         },
@@ -270,9 +484,6 @@
         },
         "packages/client/src/components/campaign/combat/participant-stats.test.tsx": {
           "count": 8
-        },
-        "packages/client/src/components/campaign/homebrew-link/campaign-homebrew-section.test.tsx": {
-          "count": 2
         },
         "packages/client/src/components/campaign/maps/edit-map-dialog.test.tsx": {
           "count": 1
@@ -311,7 +522,7 @@
           "count": 5
         },
         "packages/client/src/components/common/paginated-result-list.test.tsx": {
-          "count": 2
+          "count": 1
         },
         "packages/client/src/components/compendium/magic-item-list.test.tsx": {
           "count": 6
@@ -363,9 +574,6 @@
         },
         "packages/client/src/components/vtt/drawer/tabs/stats-tab.test.tsx": {
           "count": 2
-        },
-        "packages/client/src/pages/character-sheet-page.test.tsx": {
-          "count": 1
         }
       }
     },

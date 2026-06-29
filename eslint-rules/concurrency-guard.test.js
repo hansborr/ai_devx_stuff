@@ -1,16 +1,10 @@
 // @ts-check
-import { RuleTester } from "eslint";
-import tseslint from "typescript-eslint";
 import { describe, it } from "vitest";
 
+import { makeRuleTester } from "./rule-tester.js";
 import rule from "./concurrency-guard.js";
 
-const ruleTester = new RuleTester({
-  languageOptions: {
-    parser: tseslint.parser,
-    parserOptions: { ecmaVersion: 2022, sourceType: "module" },
-  },
-});
+const ruleTester = makeRuleTester();
 
 describe("concurrency-guard", () => {
   it("blocks direct writes to gated Prisma delegates outside mutation helpers", () => {
@@ -41,17 +35,64 @@ describe("concurrency-guard", () => {
         {
           filename: "packages/server/src/routers/character.ts",
           code: "await ctx.prisma.characterStats.update({ where: { characterId }, data });",
-          errors: [{ message: /codemod:concurrency-guard -- <file>.*docs\/CONCURRENCY\.md/u }],
+          errors: [
+            {
+              messageId: "noDirectWrite",
+              data: {
+                delegate: "characterStats",
+                method: "update",
+                suggestion:
+                  "Use updateCharacterStatsLocked/updateCharacterStatsLockedWithExpectedVersion from utils/character-stats-mutations.ts.",
+              },
+            },
+          ],
+        },
+        {
+          filename: "packages/server/src/routers/encounter.ts",
+          code: "await ctx.prisma.encounterParticipant.update({ where: { id }, data });",
+          errors: [
+            {
+              messageId: "noDirectWrite",
+              data: {
+                delegate: "encounterParticipant",
+                method: "update",
+                suggestion:
+                  "Use updateParticipantStatsLocked/updateParticipantStatsLockedWithExpectedVersion, or blindUpdateParticipant for documented metadata.",
+              },
+            },
+          ],
         },
         {
           filename: "packages/server/src/services/rest-service.ts",
           code: "await tx.encounter.updateMany({ where: { id }, data });",
-          errors: [{ messageId: "noDirectWrite" }],
+          // Pin the map-selected {{suggestion}} so a mis-edited
+          // DIRECT_WRITE_SUGGESTIONS["encounter"] entry fails this case.
+          errors: [
+            {
+              messageId: "noDirectWrite",
+              data: {
+                delegate: "encounter",
+                method: "updateMany",
+                suggestion:
+                  "Use the encounter-state helpers in utils/encounter-state-mutations.ts.",
+              },
+            },
+          ],
         },
         {
           filename: "packages/server/src/routers/spell-slot.ts",
           code: 'await raw["characterSpellSlot"].upsert({ where, create, update });',
-          errors: [{ messageId: "noDirectWrite" }],
+          errors: [
+            {
+              messageId: "noDirectWrite",
+              data: {
+                delegate: "characterSpellSlot",
+                method: "upsert",
+                suggestion:
+                  "Use consumeSpellSlot/recoverSpellSlot or the documented spell-slot sync helpers.",
+              },
+            },
+          ],
         },
         {
           filename: "packages/server/src/services/level-up/core.ts",
@@ -59,7 +100,17 @@ describe("concurrency-guard", () => {
             "const { characterClass } = tx;",
             "await characterClass.update({ where: { id }, data });",
           ].join("\n"),
-          errors: [{ messageId: "noDirectWrite" }],
+          errors: [
+            {
+              messageId: "noDirectWrite",
+              data: {
+                delegate: "characterClass",
+                method: "update",
+                suggestion:
+                  "Use spendHitDice/advanceClassLevel/setSubclass or the documented rest helpers.",
+              },
+            },
+          ],
         },
       ],
     });

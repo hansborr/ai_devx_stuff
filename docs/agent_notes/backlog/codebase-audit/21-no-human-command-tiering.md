@@ -1,6 +1,6 @@
 # 21. No human command-tiering: README documents 8 of 94 root scripts, doctor diagnostic and single-test commands are invisible
 
-Status: Proposed — codebase maintainability/onboarding audit 2026-06-13. Not yet started.
+Status: Done — 2026-06-20. Restructured the `README.md` Scripts section into an Everyday table (incl. a new `doctor` row) plus a single-test sub-table (`test -- <file>` vs `test:scripts:file -- <file>`, with the `test:scripts -- <file>` / `--filter @musi/scripts` traps called out inline) and a "Specialist / CI tooling — run `bun run` to list all 94" pointer; added a `bun run doctor` one-liner after the Quickstart. Doc-only; no `package.json`/script changes, no generated regions touched.
 Theme: command discoverability · Area: docs · Severity: low · Size: S
 
 Source: codebase maintainability/onboarding audit 2026-06-13 (lens: tooling-newcomer-clarity); evidence independently re-verified. · Confidence: high

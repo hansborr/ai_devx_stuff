@@ -1,16 +1,10 @@
 // @ts-check
-import { RuleTester } from "eslint";
-import tseslint from "typescript-eslint";
 import { describe, it } from "vitest";
 
+import { makeRuleTester } from "./rule-tester.js";
 import rule from "./no-barrel.js";
 
-const ruleTester = new RuleTester({
-  languageOptions: {
-    parser: tseslint.parser,
-    parserOptions: { ecmaVersion: 2022, sourceType: "module" },
-  },
-});
+const ruleTester = makeRuleTester();
 
 describe("no-barrel", () => {
   it("flags index files that re-export from sibling modules", () => {

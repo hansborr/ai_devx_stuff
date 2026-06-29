@@ -43,7 +43,7 @@ Do **not** read this folder at session start. Promote an item back into
   this folder for the reviewed diagnostics, loop, docs/feedforward, architecture
   sensor, and governance work; older AI-harness notes remain rationale.
 - `harness-presentation-2026-06/00-README.md` — 2026-06-13 research pack +
-  deliverables for a ~20-slide talk on harness/context/agentic engineering
+  deliverables for a 23-slide talk on harness/context/agentic engineering
   (Musi as case study): research report, slide-deck text, an 8-item improvement
   list, and the adversarial-review record. Built by a multi-agent workflow with
   every load-bearing repo number re-verified live. Improvement items 4–6 (M2
@@ -51,7 +51,9 @@ Do **not** read this folder at session start. Promote an item back into
   rehydration) are the promote-able follow-ups; items 1–3 are talk-prep.
 - `autonomous-agent-iteration-candidates.md` — 2026-05-25 gathered queue of
   ready autonomous AI-harness and lint-drain leaves, including the proposed
-  post-edit tidy hook and stale/blocked notes to avoid.
+  post-edit tidy hook and stale/blocked notes to avoid. _(Done 2026-06-21:
+  5/6 landed; only the open-ended #2 verify/commit-latency measurement campaign
+  remains, which is not a discrete leaf.)_
 - `dependency-age-gated-followups.md` — rerun the package age-gate queue after
   fresh same-major tags clear the seven-day policy; keep separate from major
   migrations.
@@ -89,39 +91,28 @@ Do **not** read this folder at session start. Promote an item back into
   targeted debug polish.
 - `code-intel-daemon-options.md` — parked comparison of TypeScript
   language-service, `tsserver`, LSP, MCP, and file-index adapters if
-  `code:intel` latency justifies a daemon or cache.
+  `code:intel` latency justifies a daemon or cache. _(Superseded 2026-06-21:
+  the repo-owned TS-language-service daemon shipped — `scripts/code-intel/daemon-*.ts`.
+  Retained only as the design-rationale record cited from `finished_work/`.)_
 - `mutation-testing-stryker.md` — parked plan for adding StrykerJS mutation
   testing as a manual test-quality audit lane before any score gate.
-- `lint-followups-2026-06/00-index.md` — successor task pack created at the
-  close-out of the completed `lint-review-2026-06` pack (archived 2026-06-12;
-  summary in `../finished_work/lint-review-2026-06.md`, leaves and verdicts
-  in git history): pack archive and branch/worktree housekeeping, the
-  e2e selector debt drain (172 findings across 21 files, per-file plan), the
-  runtime import-cycle fix and gate decision, and the four watchlist entries
-  promoted at the 2026-06-12 re-triage (client test-quality plugins, server
-  strict-boolean slice, max-lines policy single-sourcing, lint tool doctor
-  parity) plus the first-party semgrep ai-footguns bootstrap.
-- `ux-audit-2026-06-p0/00-index.md` — task pack for the three P0 blockers
-  from the 2026-06-06 live-play audit (wizard spell selection, turn-pointer
-  live sync, attributed HP mutations) plus the terminal dev-DB fixture
-  cleanup; P1/P2/P3 items stay in the audit doc behind the pack's promotion
-  protocol.
+  _(Implemented; retained as the baseline record other docs cite — `stryker.config*.mjs`.)_
 - `drift-ai-current-findings.md` — 2026-05-10 triage of the first
   `drift:ai --scope current` report: current ghost-file tuning plus duplicate
   refactor candidates for token mutations, cursor lists, test contexts, token
   forms, selectable cards, sheet rows, codemods, and homebrew fields.
+  _(Done 2026-06-21 except #8 — codemod-engine `parseArgs` dedup across
+  `scripts/codemods/trpc-shared-input.ts`/`-output.ts`.)_
 - `drift-ai-ghost-files-agent-noun-pairs.md` — parked detector-tuning follow-up
   from the 2026-06-05 field-run calibration: reviewed current-scope
   `ghost-files` false positive for intentional `evaluation`/`evaluator` role
   siblings.
-- `drift-ai-next-items/00-index.md` — post-ship drift:ai task pack created after
-  rechecking the backlog against the live implementation. Use this for remaining
-  diagnostics/fusion work, small drift:ai hardening/check additions, and
-  prototype-only clone/dead-code/ownership ideas.
 - `semgrep-drift-sensor-research.md` /
   `semgrep-drift-ai-implementation-plan.md` — research and implementation plan
   for adding Semgrep as an opt-in `drift:ai` prototype advisory, with explicit
   rule-source licensing gates for registry, AGPL, and unknown-license packs.
+  _(Implementation-plan slices all landed; the research note + plan are retained
+  as the cited record. The first-party ai-footguns rule pack stays deferred.)_
 - `useeffect-ai-agents-research.md` /
   `useeffect-guardrails-implementation-plan.md` — research on AI-agent
   `useEffect` misuse patterns (verified React-team guidance vs anecdote-tier
@@ -136,12 +127,11 @@ Do **not** read this folder at session start. Promote an item back into
   component surface or team size justifies the tooling. Companion deferred work:
   a WCAG contrast audit and `prefers-reduced-motion` handling.
 - `codebase-audit/00-report.md` — 2026-06-13 read-only maintainability/onboarding
-  audit (re-reviewed by Claude + Codex before commit): 43 independently-promotable
-  leaves spanning first-run setup blockers/drift, missing orientation docs for
-  high-fan-out dirs, doc/code drift, server-layering, shared-contract consistency,
-  cross-layer naming, and complexity hotspots. Proposals only — re-verify
-  `file:line` and pull one leaf at a time. Excludes the dup/dead-code lane
-  (`drift-ai-findings/`) and already-tracked packs.
+  audit; mostly implemented (updated 2026-06-20): 38/43 leaves Done & landed,
+  3 partial (#08/#09/#24 server-layering), 2 open Proposals (#05, #20). Re-verify
+  `file:line` and pull one open leaf at a time. Excludes the dup/dead-code lane
+  (now
+  `../finished_work/drift-ai-findings.md`) and already-tracked packs.
 - `harness-strictness-comprehension-2026-06/00-index.md` — two proposal-only
   harness follow-ups from the 2026-06 research notes: ratchet the remaining
   TypeScript strictness flags (`exactOptionalPropertyTypes`,
@@ -159,7 +149,6 @@ Do **not** read this folder at session start. Promote an item back into
   scanning (gitleaks/trufflehog), a PR diff-size warning, and a guardrail-config
   change tripwire (the last two shaped by this being a single-author repo).
   Index lists what is already covered elsewhere so nothing is double-proposed.
-
 ## Promotion rules
 
 1. Promote only work that is ready now.

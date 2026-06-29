@@ -4,6 +4,7 @@ import concurrencyGuard from "../eslint-rules/concurrency-guard.js";
 import e2ePreferRoleSelectors from "../eslint-rules/e2e-prefer-role-selectors.js";
 import maxLines from "../eslint-rules/max-lines.js";
 import noAsyncArrayCallbacks from "../eslint-rules/no-async-array-callbacks.js";
+import noArbitraryTailwindValue from "../eslint-rules/no-arbitrary-tailwind-value.js";
 import noBarrel from "../eslint-rules/no-barrel.js";
 import noBroadcastInTransaction from "../eslint-rules/no-broadcast-in-transaction.js";
 import noExplicitAny from "../eslint-rules/no-explicit-any.js";
@@ -25,6 +26,7 @@ export const localPlugin = {
     "concurrency-guard": concurrencyGuard,
     "max-lines": maxLines,
     "no-async-array-callbacks": noAsyncArrayCallbacks,
+    "no-arbitrary-tailwind-value": noArbitraryTailwindValue,
     "no-barrel": noBarrel,
     "no-explicit-any": noExplicitAny,
     "no-llm-artifacts": noLlmArtifacts,

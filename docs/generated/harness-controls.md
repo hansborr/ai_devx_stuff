@@ -57,6 +57,22 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Repair:** manual
 
+### `lint/local/no-arbitrary-tailwind-value`
+
+**Rule:** `local/no-arbitrary-tailwind-value`
+
+**Principle:** Client styling should reuse DESIGN.md and packages/client/src/app.css @theme tokens instead of introducing one-off Tailwind bracket values.
+
+**Category:** maintainability
+
+**Source:** `eslint-rules/no-arbitrary-tailwind-value.js`
+
+**Invocation:** `bun run lint`
+
+**Paired guide:** [DESIGN.md](../../DESIGN.md)
+
+**Repair:** manual
+
 ### `lint/local/no-async-array-callbacks`
 
 **Rule:** `local/no-async-array-callbacks`
@@ -314,6 +330,20 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 **Repair:** manual
 
 ## Ratchets
+
+### `ratchet/local-no-arbitrary-tailwind-value-client`
+
+**Principle:** Freeze the accepted client arbitrary Tailwind bracket-value inventory so new one-off class values fail while the design-token cleanup drains incrementally.
+
+**Category:** maintainability
+
+**Source:** `scripts/lint-ratchet/lint-ratchet-config.ts`
+
+**Invocation:** `bun run lint:ratchet`
+
+**Paired guide:** [docs/guides/lint-ratchet.md](../guides/lint-ratchet.md)
+
+**Repair:** manual
 
 ### `ratchet/local-type-assertion-boundary`
 

@@ -1,6 +1,6 @@
 # 3. README Quickstart sets a phantom JWT_REFRESH_SECRET no code reads and .env.example omits
 
-Status: Proposed — codebase maintainability/onboarding audit 2026-06-13. Not yet started.
+Status: Done — 2026-06-20. Dropped `JWT_REFRESH_SECRET` from the `README.md` Quickstart "at minimum set" line and added a one-line note that refresh tokens are HMAC-derived from `JWT_SECRET` (no separate refresh secret), so the phantom is not re-introduced. Doc-only; the optional scripts-project guard test was not added (line edit resolves the finding).
 Theme: onboarding setup drift · Area: docs · Severity: low · Size: XS
 
 Source: codebase maintainability/onboarding audit 2026-06-13 (lens: onboarding-setup); evidence independently re-verified. · Confidence: high

@@ -1,170 +1,61 @@
-import {
-  cpSync,
-  existsSync,
-  mkdtempSync,
-  readdirSync,
-  readFileSync,
-  rmSync,
-  statSync,
-} from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
+import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
 import { runExpandBarrelCodemod } from "./expand-barrel.js";
+import {
+  copyDirectoryContents,
+  enumerateFixtures,
+  errorMessage,
+  expectDirectoriesToMatch,
+  expectRunTwiceStdout,
+  expectStdout,
+  optionalBoolean,
+  optionalString,
+  optionalStringArray,
+  optionalStringArrayProperty,
+  parseCaseJson,
+  requiredStringArray,
+  throwCapturedError,
+  withCapturedStdout,
+} from "./lib/fixture-runner.test-helper.js";
 
 type FixtureMetadata = {
   args: string[];
   expectedError?: string;
   expectedStdout: string[];
   runTwice: boolean;
+  expectedSecondStdout: string[] | undefined;
 };
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const fixtureRoot = path.join(here, "fixtures", "expand-barrel");
-const tempRoots: string[] = [];
-
-afterEach(() => {
-  while (tempRoots.length > 0) {
-    const root = tempRoots.pop();
-    if (root) rmSync(root, { recursive: true, force: true });
-  }
-});
-
-function unknownProperty(value: unknown, key: string): unknown {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    throw new Error("Fixture metadata must be a JSON object.");
-  }
-  return Object.getOwnPropertyDescriptor(value, key)?.value;
-}
-
-function optionalBoolean(value: unknown, key: string): boolean {
-  const property = unknownProperty(value, key);
-  if (property === undefined) return false;
-  if (typeof property !== "boolean") throw new Error(`${key} must be a boolean.`);
-  return property;
-}
-
-function requiredStringArray(value: unknown, key: string): string[] {
-  const property = unknownProperty(value, key);
-  if (!Array.isArray(property)) throw new Error(`${key} must be a string array.`);
-  const strings: string[] = [];
-  for (const item of property) {
-    if (typeof item !== "string") throw new Error(`${key} must contain only strings.`);
-    strings.push(item);
-  }
-  return strings;
-}
-
-function optionalStringArray(value: unknown, key: string): string[] {
-  const property = unknownProperty(value, key);
-  if (property === undefined) return [];
-  if (!Array.isArray(property)) throw new Error(`${key} must be a string array.`);
-  const strings: string[] = [];
-  for (const item of property) {
-    if (typeof item !== "string") throw new Error(`${key} must contain only strings.`);
-    strings.push(item);
-  }
-  return strings;
-}
-
-function optionalString(value: unknown, key: string): string | undefined {
-  const property = unknownProperty(value, key);
-  if (property === undefined) return undefined;
-  if (typeof property !== "string") throw new Error(`${key} must be a string.`);
-  return property;
-}
+const tmpRepo = registerTempRootCleanup();
 
 function readMetadata(caseRoot: string): FixtureMetadata {
-  const parsed: unknown = JSON.parse(readFileSync(path.join(caseRoot, "case.json"), "utf8"));
+  const parsed = parseCaseJson(caseRoot);
+  const runTwice = optionalBoolean(parsed, "runTwice");
+  const expectedSecondStdout = optionalStringArrayProperty(parsed, "expectedSecondStdout");
+  if (runTwice && expectedSecondStdout === undefined) {
+    throw new Error("expectedSecondStdout must be set when runTwice is true.");
+  }
+  if (!runTwice && expectedSecondStdout !== undefined) {
+    throw new Error("expectedSecondStdout is only valid when runTwice is true.");
+  }
   return {
     args: requiredStringArray(parsed, "args"),
     expectedError: optionalString(parsed, "expectedError"),
     expectedStdout: optionalStringArray(parsed, "expectedStdout"),
-    runTwice: optionalBoolean(parsed, "runTwice"),
+    runTwice,
+    expectedSecondStdout,
   };
 }
 
 function fixtureNames(): string[] {
-  return readdirSync(fixtureRoot, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => entry.name)
-    .sort((left, right) => left.localeCompare(right, "en"));
-}
-
-function copyDirectoryContents(source: string, target: string): void {
-  for (const entry of readdirSync(source, { withFileTypes: true })) {
-    cpSync(path.join(source, entry.name), path.join(target, entry.name), { recursive: true });
-  }
-}
-
-function relativeFiles(root: string): string[] {
-  if (!existsSync(root)) return [];
-  const files: string[] = [];
-  const visit = (directory: string): void => {
-    for (const entry of readdirSync(directory, { withFileTypes: true })) {
-      const currentPath = path.join(directory, entry.name);
-      if (entry.isDirectory()) {
-        visit(currentPath);
-        continue;
-      }
-      if (!statSync(currentPath).isFile()) continue;
-      files.push(path.relative(root, currentPath));
-    }
-  };
-  visit(root);
-  return files.sort((left, right) => left.localeCompare(right, "en"));
-}
-
-function expectDirectoriesToMatch(actualRoot: string, expectedRoot: string): void {
-  const actualFiles = relativeFiles(actualRoot);
-  const expectedFiles = relativeFiles(expectedRoot);
-  expect(actualFiles).toEqual(expectedFiles);
-  for (const file of expectedFiles) {
-    expect(readFileSync(path.join(actualRoot, file), "utf8")).toBe(
-      readFileSync(path.join(expectedRoot, file), "utf8"),
-    );
-  }
-}
-
-function withCapturedStdout(run: () => void): { output: string; error: unknown } {
-  const originalLog = console.log;
-  const lines: string[] = [];
-  let error: unknown;
-  console.log = (...values: unknown[]): void => {
-    lines.push(values.map(String).join(" "));
-  };
-  try {
-    run();
-  } catch (caught) {
-    error = caught;
-  } finally {
-    console.log = originalLog;
-  }
-  return { output: lines.join("\n"), error };
-}
-
-function expectStdout(output: string, expectedSnippets: string[]): void {
-  for (const snippet of expectedSnippets) expect(output).toContain(snippet);
-}
-
-function errorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  if (typeof error === "string") return error;
-  try {
-    const structured: unknown = JSON.stringify(error, null, 2);
-    if (typeof structured === "string") return structured;
-    return String(error);
-  } catch {
-    return String(error);
-  }
-}
-
-function throwCapturedError(error: unknown): never {
-  if (error instanceof Error) throw error;
-  throw new Error(errorMessage(error));
+  return enumerateFixtures(fixtureRoot);
 }
 
 function expectedRoot(caseRoot: string): string {
@@ -175,8 +66,7 @@ function expectedRoot(caseRoot: string): string {
 function runFixture(name: string): void {
   const caseRoot = path.join(fixtureRoot, name);
   const metadata = readMetadata(caseRoot);
-  const workRoot = mkdtempSync(path.join(tmpdir(), `musi-expand-barrel-${name}-`));
-  tempRoots.push(workRoot);
+  const workRoot = tmpRepo.makeTempRepo(`musi-expand-barrel-${name}-`);
   copyDirectoryContents(path.join(caseRoot, "before"), workRoot);
 
   const firstRun = withCapturedStdout(() => {
@@ -191,15 +81,24 @@ function runFixture(name: string): void {
   }
   if (firstRun.error) throwCapturedError(firstRun.error);
 
-  let output = firstRun.output;
   if (metadata.runTwice) {
+    const expectedSecondStdout = metadata.expectedSecondStdout;
+    if (expectedSecondStdout === undefined) {
+      throw new Error("expectedSecondStdout must be set when runTwice is true.");
+    }
     const secondRun = withCapturedStdout(() => {
       runExpandBarrelCodemod(metadata.args, workRoot);
     });
     if (secondRun.error) throwCapturedError(secondRun.error);
-    output = `${output}\n${secondRun.output}`;
+    expectRunTwiceStdout(
+      firstRun.output,
+      secondRun.output,
+      metadata.expectedStdout,
+      expectedSecondStdout,
+    );
+  } else {
+    expectStdout(firstRun.output, metadata.expectedStdout);
   }
-  expectStdout(output, metadata.expectedStdout);
   expectDirectoriesToMatch(workRoot, expectedRoot(caseRoot));
 }
 

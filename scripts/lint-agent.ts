@@ -9,156 +9,21 @@
 // they have no structured metadata to surface.
 
 import { spawn } from "node:child_process";
-import { dirname, isAbsolute, relative, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { dirname, isAbsolute, resolve } from "node:path";
 
+import { harnessDiagnosticsSchema } from "../packages/shared/src/schemas/harness-diagnostics.js";
+import { parseEslintOutput } from "./lib/eslint-json.js";
+import { formatRuleDocsFailures, loadLintRuleDocs } from "./lib/lint-rule-docs.js";
 import {
-  HARNESS_DIAGNOSTICS_SCHEMA_VERSION,
-  type HarnessDiagnostics,
-  harnessDiagnosticsSchema,
-  type HarnessFinding,
-  type HarnessFindingSeverity,
-  summarizeHarnessFindings,
-} from "../packages/shared/src/schemas/harness-diagnostics.js";
-import { type ESLintMessage, parseEslintOutput } from "./lib/eslint-json.js";
-import {
-  formatRuleDocsFailures,
-  loadLintRuleDocs,
-  type RuleDocsEntry,
-} from "./lib/lint-rule-docs.js";
-import { lintAgentHowToFixFor } from "./lint-agent-fix-text.js";
+  buildLintAgentEnvelope,
+  type LintAgentEnvelopeResult,
+  lintAgentRepoRoot,
+  parseArgs,
+} from "./lint-agent-envelope.js";
 
 const PROCESS_ARG_OFFSET = 2;
 const JSON_INDENT_SPACES = 2;
-const ESLINT_SEVERITY_ERROR = 2;
-const ESLINT_SEVERITY_WARN = 1;
-const LOCAL_RULE_PREFIX = "local/";
-const LINT_CONTROL_PREFIX = "lint/";
-const PARSER_ERROR_CONTROL = "lint/parser-error";
-// The schema tool id is stable; the preferred package script name is more explicit.
-const ENVELOPE_TOOL = "lint:agent";
 const DISPLAY_COMMAND = "lint:agent:local-rules";
-
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-
-interface ParsedArgs {
-  readonly patterns: readonly string[];
-  readonly outputPath: string | undefined;
-}
-
-function parseOutputOption(
-  arg: string,
-  args: readonly string[],
-  index: number,
-): { readonly outputPath: string; readonly nextIndex: number } | undefined {
-  if (arg === "--output") {
-    const valueIndex = index + 1;
-    const value = args[valueIndex];
-    if (!value || value.startsWith("--")) {
-      throw new Error("--output requires a path argument");
-    }
-    return { outputPath: value, nextIndex: valueIndex + 1 };
-  }
-  if (!arg.startsWith("--output=")) return undefined;
-  const value = arg.slice("--output=".length);
-  if (value.length === 0) {
-    throw new Error("--output= requires a non-empty path");
-  }
-  if (value.startsWith("--")) {
-    throw new Error(`--output= requires a path argument, got: ${value}`);
-  }
-  return { outputPath: value, nextIndex: index + 1 };
-}
-
-function parseArgs(args: readonly string[]): ParsedArgs {
-  const patterns: string[] = [];
-  let outputPath: string | undefined;
-  let i = 0;
-  while (i < args.length) {
-    const arg = args[i] ?? "";
-    if (arg === "--") {
-      i += 1;
-      continue;
-    }
-    const output = parseOutputOption(arg, args, i);
-    if (output !== undefined) {
-      outputPath = output.outputPath;
-      i = output.nextIndex;
-      continue;
-    }
-    if (arg.startsWith("--")) {
-      throw new Error(`Unknown argument: ${arg}`);
-    }
-    patterns.push(arg);
-    i += 1;
-  }
-  return { patterns, outputPath };
-}
-
-function severityFromEslint(severity: number): HarnessFindingSeverity {
-  if (severity === ESLINT_SEVERITY_ERROR) return "block";
-  if (severity === ESLINT_SEVERITY_WARN) return "warn";
-  return "info";
-}
-
-function relativePath(filePath: string): string {
-  if (!isAbsolute(filePath)) return filePath;
-  const rel = relative(repoRoot, filePath);
-  return rel === "" ? filePath : rel;
-}
-
-function buildParserErrorFinding(message: ESLintMessage, filePath: string): HarnessFinding {
-  const path = relativePath(filePath);
-  const base = {
-    control: PARSER_ERROR_CONTROL,
-    severity: "block",
-    path,
-    why: "ESLint could not parse this file, so no other rule could run against it.",
-    howToFix: `Fix the syntax error reported by ESLint: ${message.message}`,
-    repairKind: "manual",
-  } as const;
-  return message.line !== undefined ? { ...base, line: message.line } : base;
-}
-
-function buildFinding(
-  message: ESLintMessage,
-  filePath: string,
-  ruleDocs: ReadonlyMap<string, RuleDocsEntry>,
-): HarnessFinding | undefined {
-  const ruleId = message.ruleId;
-  if (ruleId === null) {
-    if (message.fatal === true || message.severity === ESLINT_SEVERITY_ERROR) {
-      return buildParserErrorFinding(message, filePath);
-    }
-    return undefined;
-  }
-  if (!ruleId.startsWith(LOCAL_RULE_PREFIX)) return undefined;
-  const entry = ruleDocs.get(ruleId);
-  if (entry === undefined) return undefined;
-
-  const control = `${LINT_CONTROL_PREFIX}${ruleId}`;
-  const path = relativePath(filePath);
-  const base = {
-    control,
-    severity: severityFromEslint(message.severity),
-    path,
-    ruleId,
-    why: entry.principle,
-    howToFix: lintAgentHowToFixFor(entry, message),
-    repairKind: entry.repairKind,
-  } as const;
-
-  const withLocation = message.line !== undefined ? { ...base, line: message.line } : base;
-  const withMessageId =
-    message.messageId !== undefined
-      ? { ...withLocation, messageId: message.messageId }
-      : withLocation;
-  const withRepair =
-    entry.repairKind === "codemod" && entry.repairCommand !== undefined
-      ? { ...withMessageId, repairCommand: entry.repairCommand }
-      : withMessageId;
-  return withRepair;
-}
 
 async function runEslint(patterns: readonly string[]): Promise<string> {
   const args = [
@@ -171,8 +36,8 @@ async function runEslint(patterns: readonly string[]): Promise<string> {
   ];
 
   return new Promise((resolveOutput, rejectOutput) => {
-    const child = spawn(resolve(repoRoot, "node_modules/.bin/eslint"), args, {
-      cwd: repoRoot,
+    const child = spawn(resolve(lintAgentRepoRoot, "node_modules/.bin/eslint"), args, {
+      cwd: lintAgentRepoRoot,
       stdio: ["ignore", "pipe", "pipe"],
     });
     let stdout = "";
@@ -196,48 +61,16 @@ async function runEslint(patterns: readonly string[]): Promise<string> {
   });
 }
 
-async function buildEnvelope(patterns: readonly string[]): Promise<{
-  readonly envelope: HarnessDiagnostics;
-  readonly skippedNonLocal: number;
-}> {
-  const { entries, failures } = await loadLintRuleDocs(repoRoot);
+async function buildEnvelope(patterns: readonly string[]): Promise<LintAgentEnvelopeResult> {
+  const { entries, failures } = await loadLintRuleDocs(lintAgentRepoRoot);
   if (failures.length > 0) {
     throw new Error(formatRuleDocsFailures(failures));
   }
-  const ruleDocs = new Map<string, RuleDocsEntry>(entries.map((entry) => [entry.id, entry]));
+  const ruleDocs = new Map(entries.map((entry) => [entry.id, entry]));
 
   const stdout = await runEslint(patterns);
   const eslintResults = parseEslintOutput(stdout);
-
-  const findings: HarnessFinding[] = [];
-  let skippedNonLocal = 0;
-  for (const file of eslintResults) {
-    for (const message of file.messages) {
-      const finding = buildFinding(message, file.filePath, ruleDocs);
-      if (finding === undefined) {
-        if (message.ruleId !== null && !message.ruleId.startsWith(LOCAL_RULE_PREFIX)) {
-          skippedNonLocal += 1;
-        }
-        continue;
-      }
-      findings.push(finding);
-    }
-  }
-  findings.sort((a, b) => {
-    const controlCompare = a.control.localeCompare(b.control);
-    if (controlCompare !== 0) return controlCompare;
-    const pathCompare = (a.path ?? "").localeCompare(b.path ?? "");
-    if (pathCompare !== 0) return pathCompare;
-    return (a.line ?? 0) - (b.line ?? 0);
-  });
-
-  const envelope: HarnessDiagnostics = {
-    version: HARNESS_DIAGNOSTICS_SCHEMA_VERSION,
-    tool: ENVELOPE_TOOL,
-    findings,
-    summary: summarizeHarnessFindings(findings),
-  };
-  return { envelope, skippedNonLocal };
+  return buildLintAgentEnvelope(eslintResults, ruleDocs);
 }
 
 async function main(): Promise<void> {

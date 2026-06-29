@@ -1,5 +1,76 @@
 # Observed Flaky Tests
 
+## 7. Server SRD getAll — subclass count drift in broad changed-test run
+
+### Problem
+`bun run test:changed --reporter=dot` failed on 2026-06-22 while landing an
+ESLint-rule-only change. The broad server Vitest batch reported:
+- `packages/server/src/routers/srd.test.ts:428` expected `subclasses` to have
+  length 12, but the `srd.getAll` response had length 13.
+
+### Observed Behavior
+- The same broad run had 419 passing test files and only this server assertion
+  failure before the client split lanes both passed.
+- The focused SRD router suite passed immediately afterward:
+  `bun run test -- packages/server/src/routers/srd.test.ts` -> 20 passed.
+- The changed source did not touch server code, seed data, Prisma, or SRD
+  router behavior.
+
+### Files
+- `packages/server/src/routers/srd.test.ts`
+
+### Root Cause Hypothesis
+Likely shared-state contamination in the broad server test process: another
+test appears able to leave one extra subclass row visible to the SRD lookup
+bundle. The focused file starts from the expected seed state and returns 12.
+
+### Priority
+Low unless it repeats. If seen again, inspect server test database isolation
+around SRD subclass seed/homebrew writes and prefer filtering canonical SRD
+rows in this count assertion if the endpoint intentionally returns mixed data.
+
+## 6. Changed-test pre-commit load — ESLint config and client no-isolate timeouts
+
+### Problem
+`git commit` pre-commit failed on 2026-06-20 while landing a scripts-only
+Vitest mock-cleanup change. The broad `test:changed` run reported:
+- `eslint-rules/eslint-config-plugin-declarations.test.js:52` timed out in
+  the representative-file ESLint smoke.
+- `packages/client/src/lib/trpc.test.ts:10` timed out in `beforeAll` while
+  importing the real tRPC module.
+- `packages/client/src/pages/character-sheet/sheet-dialogs.test.tsx:51`
+  failed to find "Level Up" in the no-isolate client batch.
+
+### Observed Behavior
+- The focused changed file test passed:
+  `bun run test:scripts:file -- scripts/lint-ratchet/edit-check.test.ts` ->
+  15 passed.
+- The ESLint config smoke passed immediately in isolation:
+  `bun run test -- eslint-rules/eslint-config-plugin-declarations.test.js` ->
+  2 passed.
+- The two client files passed immediately in isolation:
+  `bun run test -- packages/client/src/lib/trpc.test.ts packages/client/src/pages/character-sheet/sheet-dialogs.test.tsx`
+  -> 10 passed.
+- A retry with `NODE_OPTIONS=--max-old-space-size=8192` made the earlier
+  `lint:changed` OOM disappear, but the broad `test:changed` client lane still
+  failed under load.
+
+### Files
+- `eslint-rules/eslint-config-plugin-declarations.test.js`
+- `packages/client/src/lib/trpc.test.ts`
+- `packages/client/src/pages/character-sheet/sheet-dialogs.test.tsx`
+
+### Root Cause Hypothesis
+The failures are load-sensitive pre-commit symptoms. The ESLint config smoke
+already documents that its 30s timeout is a hang guard and can trip under CPU
+oversubscription. The client failures occurred only in the large no-isolate
+changed-test batch and passed standalone without code changes.
+
+### Priority
+Low unless it repeats. If it does, consider raising the ESLint config smoke
+timeout again and either isolating or hardening the two client files against
+shared no-isolate batch state.
+
 ## 5. Server high-iteration concurrency suites — 5s test timeout under parallel load
 
 ### Problem

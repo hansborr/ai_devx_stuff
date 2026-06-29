@@ -491,6 +491,89 @@ describe("lint ratchet comparison", () => {
     });
   });
 
+  it("counts only this ratchet's ruleId, excluding foreign-rule messages", () => {
+    // One matching message plus one from a DIFFERENT rule on the same path.
+    // The foreign-rule message must be filtered out, so count is 1 — killing
+    // the `message.ruleId !== ratchet.ruleId` -> `false` mutant (finding 80),
+    // which would count the foreign rule and report 2.
+    const path = "packages/server/src/app.ts";
+    const items = itemsFromResults(baseRatchet, [
+      {
+        filePath: path,
+        messages: [
+          {
+            ruleId: baseRatchet.ruleId,
+            severity: 2,
+            line: 7,
+            message: "Why: matching finding. How to fix: Keep the boundary.",
+          },
+          {
+            ruleId: "local/some-other-rule",
+            severity: 2,
+            line: 9,
+            message: "Why: a different rule entirely. How to fix: ignored here.",
+          },
+        ],
+      },
+    ]);
+
+    expect(items.get(path)).toEqual({
+      count: 1,
+      firstLine: 7,
+      firstMessage: "Why: matching finding. How to fix: Keep the boundary.",
+    });
+  });
+
+  it("throws ConfigError on a fatal null-ruleId parse failure", () => {
+    // ruleId: null + fatal: true is an ESLint parse failure and must throw so
+    // the ratchet fails loudly rather than silently recording zero findings.
+    // Kills the `message.ruleId === null &&` -> `false` mutant (finding 80).
+    const path = "packages/server/src/broken.ts";
+    expect(() =>
+      itemsFromResults(baseRatchet, [
+        {
+          filePath: path,
+          messages: [
+            { ruleId: null, severity: 2, fatal: true, message: "Parsing error: Unexpected token" },
+          ],
+        },
+      ]),
+    ).toThrow(/ESLint could not parse/);
+  });
+
+  it("throws ConfigError on a null-ruleId error-severity message", () => {
+    // The `&&`'s second clause: ruleId: null with error severity (2) and no
+    // explicit fatal flag still signals an unparseable file. Pins the
+    // `severity === ESLINT_SEVERITY_ERROR` branch of the fatal-parse guard.
+    const path = "packages/server/src/broken.ts";
+    expect(() =>
+      itemsFromResults(baseRatchet, [
+        {
+          filePath: path,
+          messages: [{ ruleId: null, severity: 2, message: "Parsing error: Unexpected token" }],
+        },
+      ]),
+    ).toThrow(/ESLint could not parse/);
+  });
+
+  it("skips a null-ruleId warning without throwing or recording a finding", () => {
+    // ruleId: null with WARNING severity (1) and fatal: false is not a parse
+    // failure: it must not throw, and — being a foreign (null) ruleId — it is
+    // skipped, so no entry is added. Pins the second clause of the `&&` guard
+    // as a guard, not an unconditional throw.
+    const path = "packages/server/src/warned.ts";
+    const items = itemsFromResults(baseRatchet, [
+      {
+        filePath: path,
+        messages: [
+          { ruleId: null, severity: 1, fatal: false, message: "A non-fatal processor warning" },
+        ],
+      },
+    ]);
+
+    expect(items.has(path)).toBe(false);
+  });
+
   it("passes equal, lower, and removed path counts while reporting improvements", () => {
     const baseline = oneTestBaseline([
       ["packages/client/src/a.ts", 2],

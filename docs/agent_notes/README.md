@@ -36,6 +36,45 @@ Create one when the task has any of these properties:
 
 Do **not** create one for straightforward work where the commit message and roadmap checkbox tell the whole story.
 
+## Thin Plan Template
+
+For non-trivial cross-package work or work with ambiguous acceptance, copy this
+whole block into `in_progress/<task>.md` before implementation. Skip it for
+trivial docs edits, single-file fixes, or a fully specified existing leaf.
+
+```markdown
+# <Task> — Thin Plan
+
+Status: In progress
+Date: YYYY-MM-DD
+
+## Scope & Non-goals
+
+- In scope:
+- Non-goals:
+
+## Acceptance Checks
+
+- User-visible outcome:
+- Edge cases:
+
+## Contract Impact
+
+- Shared:
+- Server:
+- Client:
+
+## Discovery Commands
+
+- `rg "<term>"`
+- `bun run code:intel -- <def|refs|dependents|tests> <target>`
+
+## Verification Plan
+
+- Focused:
+- Changed:
+```
+
 ## What To Put In A Task Note
 
 Focus on **decisions, gotchas, and handoff state**. Do not restate the roadmap, write a file-by-file changelog, or duplicate commit history.

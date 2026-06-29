@@ -39,6 +39,8 @@ Thumbs.db
 .claude/*
 !.claude/settings.json
 !.claude/hooks/
+!.claude/output-styles/
+!.claude/output-styles/**
 !.claude/skills/
 .claude/skills/*
 !.claude/skills/ts-graph/
@@ -68,6 +70,10 @@ packages/server/prisma/*.db-journal
 # Test artifacts
 coverage/
 reports/mutation/
+reports/mutation-scripts/
+reports/mutation-server/
+reports/mutation-overnight/
+reports/mutation-analysis/
 reports/drift-ai/
 reports/slow-drift/
 .musi-ai-hooks-tidy-test.*/

@@ -20,6 +20,10 @@
 #   - Per-task logs at $LOG_DIR/<task>.log; Passed/Failed status lines let
 #     .claude/hooks/git-commit-quiet.sh surface only the failing tails.
 #
+# Protected branch: step 0 refuses direct commits on main/master (work lands
+# there via merge, not direct commits). This is cwd-correct, so it also blocks
+# the `git -C`/`cd` forms the PreToolUse matcher cannot see.
+#
 # Bypass: set FORCE_VERIFY=1 to skip all last-verified short-circuits.
 # The PreToolUse hook in .claude/settings.json blocks --no-verify / HUSKY=0
 # bypasses entirely; fix issues, do not skip.
@@ -31,6 +35,25 @@ fi
 set -u
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
+
+# --- 0. Protected-branch guard ---------------------------------------------
+# Refuse direct commits on the protected branch (main/master) before any other
+# work; integrate via merge instead (git merge --no-ff skips this hook). git
+# runs the hook inside the committing repo, so the check is cwd-correct and also
+# catches the `git -C <path>` / `cd <path> && git commit` forms the PreToolUse
+# string matcher cannot resolve.
+#
+# Soft source on purpose: policy.sh is always present in a real checkout, but
+# the minimal pre-commit fixtures under scripts/tests/ copy only the pipeline
+# libs they exercise and legitimately omit it — they don't test this guard,
+# which has direct coverage via ai_guard_commit_branch_or_die in
+# scripts/ai-hooks/test.sh.
+if [ -f "$REPO_ROOT/scripts/ai-hooks/policy.sh" ]; then
+  # shellcheck source=/dev/null
+  . "$REPO_ROOT/scripts/ai-hooks/policy.sh"
+  ai_guard_commit_branch_or_die || exit 1
+fi
+
 # shellcheck source=/dev/null
 . "$REPO_ROOT/scripts/dependency-freshness.sh"
 # shellcheck source=/dev/null

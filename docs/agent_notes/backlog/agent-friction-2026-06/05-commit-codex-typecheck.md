@@ -4,16 +4,17 @@
 
 | ID | Issue | Status | Effort | Risk |
 |----|-------|--------|--------|------|
-| G1 | amend guard fires after the amend already ran | not addressed (real bug) | M | med |
-| K1 | `tsc not on PATH` in `typecheck.sh` | not addressed | S | low |
-| I1 | codex `&` + `run_in_background` double-background | already addressed (polish only) | S | low |
-| I2 | codex review refuses to read files | already addressed (polish only) | S | low |
+| G1 | amend guard fires after the amend already ran | DONE | M | med |
+| K1 | `tsc not on PATH` in `typecheck.sh` | DONE | S | low |
+| I1 | codex `&` + `run_in_background` double-background | already addressed pre-pack (polish only) | S | low |
+| I2 | codex review refuses to read files | already addressed pre-pack (polish only) | S | low |
 
 ---
 
 ## G1 — `git commit --amend` guard fires *after* the amend already executed
 
-**Status: not addressed — real worktree-mutation bug.**
+**Status: DONE — `git-commit-quiet.sh` now calls `ai_preflight_or_block`, the
+amend regex was widened, and the deny globs were added.**
 
 **Decision (2026-06-12) — fix first, on severity grounds.** Priority is driven by
 *severity* (a silent local-history rewrite behind a "blocked" message), not
@@ -120,7 +121,8 @@ non-amend form against the widened regex).
 
 ## K1 — `tsc: command not found` in `scripts/typecheck.sh`
 
-**Status: not addressed.**
+**Status: DONE — `typecheck.sh` resolves the binary via
+`MUSI_TSC_BIN` → `node_modules/.bin/tsc` → bare `tsc`.**
 
 `scripts/typecheck.sh:99` runs bare `tsc -b`; `:101` runs bare
 `tsc -p tsconfig.scripts.json`; the exec is `"$@"` at `:82`. No PATH handling, no
@@ -162,7 +164,8 @@ documented-workaround the brief says to avoid, and diverges from the established
 
 ## I1 / I2 — codex footguns (already fixed; optional polish)
 
-**Status: already addressed** — these logged pains predate the current skill.
+**Status: already addressed pre-pack; optional polish open.** These logged pains
+predate the current skill.
 - I1: `.claude/skills/codex-cli/SKILL.md:38` and `:90` already warn "Do not
   combine `run_in_background=true` with a trailing shell `&`."
 - I2: `SKILL.md:58-65` already blesses the review phrasing ("Do not run the test

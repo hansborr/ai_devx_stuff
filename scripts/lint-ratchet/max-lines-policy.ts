@@ -68,7 +68,7 @@ function readRatchetPolicy(raw: unknown, index: number): MaxLinesRatchetPolicy {
   };
 }
 
-function readMaxLinesPolicy(raw: unknown): MaxLinesPolicy {
+export function readMaxLinesPolicy(raw: unknown): MaxLinesPolicy {
   if (!isObject(raw)) throw new Error("maxLinesPolicy must be an object");
   const { counting, ratchetFloor, ratchets } = raw;
   if (!isObject(counting)) throw new Error("maxLinesPolicy.counting must be an object");

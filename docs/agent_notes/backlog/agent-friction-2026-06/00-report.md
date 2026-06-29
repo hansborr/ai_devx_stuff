@@ -1,8 +1,11 @@
 # Agent-Friction Backlog — analysis & proposed fixes (2026-06-12)
 
-> **Status: proposals only. Nothing in this folder has been implemented.** Each
-> implementation-plan document describes changes for you to review and approve;
-> no code, config, or docs outside this folder were modified to produce it.
+> **Status: PARTIALLY IMPLEMENTED (verified at HEAD 2026-06-20).** ~23/29 leaves landed
+> on main (Tier-1 B1/B2/K1/E1; coverage A1/A6,A2,A3,M1; G1,H1/H2; R1/Q1/E2/E3/W1/L1; F1;
+> J1/N1/M2/T1/U1). RESIDUAL OPEN: A4 (status-consistency check), A5 (ratchet membership
+> validation), A-arch (inverted EXEMPT-allowlist redesign — deliberately separate future
+> leaf), D1/D2/D3 (edit-time tidy-hook deferral). I1/I2 core were already addressed pre-pack;
+> only optional polish remains.
 
 ## Where this came from
 

@@ -104,6 +104,21 @@ musi_resolve_staged_script_cmd() {
   esac
 }
 
+# Returns 0 when fast-commit mode is on, i.e. the slow pre-commit test slots
+# should be skipped. MUSI_FAST_COMMIT_MARKER overrides the path (tests); the
+# default marker lives in the Git common dir so it is never tracked and never
+# trips the changed gate. Resolved relative to the current directory, which is
+# the repo root whenever git invokes the pre-commit hook.
+musi_fast_commit_enabled() {
+  local marker="${MUSI_FAST_COMMIT_MARKER:-}"
+  if [ -z "$marker" ]; then
+    local common_dir
+    common_dir="$(git rev-parse --git-common-dir 2>/dev/null)" || return 1
+    marker="$common_dir/musi-fast-commit"
+  fi
+  [ -f "$marker" ]
+}
+
 musi_resolve_slot_cmd() {
   if [ "$#" -ne 2 ]; then
     printf 'usage: musi_resolve_slot_cmd <consumer> <slot>\n' >&2
@@ -113,6 +128,20 @@ musi_resolve_slot_cmd() {
   local consumer="$1" slot="$2" key dynamic
 
   key="$consumer:$slot"
+
+  # Opt-in fast-commit mode: skip only the two slow test slots, and only for
+  # the pre-commit consumer. Manual `verify` / `verify:changed` (the merge gate)
+  # always run them so their success markers stay trustworthy.
+  if [ "$consumer" = "pre_commit" ] && musi_fast_commit_enabled; then
+    case "$slot" in
+      test | scripts)
+        printf 'verify steps: fast-commit mode — skipping %s slot (remove the musi-fast-commit marker in the Git common dir to disable)\n' "$slot" >&2
+        MUSI_RESOLVED_SLOT_CMD=()
+        return "$MUSI_VERIFY_SLOT_SKIP_RC"
+        ;;
+    esac
+  fi
+
   dynamic="${MUSI_VERIFY_SLOT_DYNAMIC[$key]:-}"
   case "$dynamic" in
     "")

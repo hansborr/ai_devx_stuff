@@ -4,6 +4,9 @@
   ],
   "runTwice": true,
   "expectedStdout": [
-    "no router-local"
+    "trpc-shared-input codemod: moved createInputSchema; touched packages/server/src/routers/thing.ts and packages/shared/src/schemas/thing-inputs.ts."
+  ],
+  "expectedSecondStdout": [
+    "trpc-shared-input codemod: no router-local input schemas found in packages/server/src/routers/thing.ts."
   ]
 }

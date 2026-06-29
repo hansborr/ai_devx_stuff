@@ -1,8 +1,10 @@
-import { type Browser, type BrowserContext, type Page } from "@playwright/test";
+import { type Browser, type BrowserContext, expect, type Page } from "@playwright/test";
 
 import { CampaignDetailPO } from "../page-objects/campaign-detail.po.js";
 import {
   apiCreateCampaign,
+  apiCreateCharacter,
+  type ApiCreateCharacterOptions,
   apiCreateInvite,
   apiJoinCampaign,
   apiLogin,
@@ -11,6 +13,7 @@ import {
 } from "./api.js";
 import { loginViaUi } from "./auth.setup.js";
 import { makeUser, type TestUser, uniqueName } from "./test-data.js";
+import { TIMEOUT_MEDIUM } from "./timeouts.js";
 
 export interface DmPlayerCampaign {
   dmContext: BrowserContext;
@@ -25,6 +28,50 @@ export interface DmPlayerCampaign {
   campaignId: string;
   inviteCode: string;
   teardown(): Promise<void>;
+}
+
+export interface UserWithCharacter {
+  context: BrowserContext;
+  page: Page;
+  user: TestUser;
+  charName: string;
+}
+
+function defaultCharacterName(prefix: string): string {
+  const capitalizedPrefix = `${prefix.charAt(0).toUpperCase()}${prefix.slice(1)}`;
+  return uniqueName(`${capitalizedPrefix}Hero`);
+}
+
+/**
+ * Set up one user with a character created via the API.
+ * Uses the browser only for login and SPA navigation to the sheet.
+ * Caller is responsible for closing `context` in afterAll.
+ */
+export async function setupUserWithCharacter(
+  browser: Browser,
+  opts: { prefix: string; character?: ApiCreateCharacterOptions },
+): Promise<UserWithCharacter> {
+  const user = makeUser(opts.prefix);
+  const charName = opts.character?.name ?? defaultCharacterName(opts.prefix);
+  const character = opts.character ?? { name: charName };
+
+  // --- API setup (fast) ---
+  const apiCtx = await createApiContext();
+  await apiRegister(apiCtx, user.email, user.password, user.displayName);
+  const auth = await apiLogin(apiCtx, user.email, user.password);
+  await apiCreateCharacter(apiCtx, auth.accessToken, character);
+  await apiCtx.dispose();
+
+  // --- Browser login (required for session cookies) ---
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  await loginViaUi(page, user.email, user.password);
+
+  // Navigate via SPA link (avoids full-page reload batch query limit)
+  await page.getByRole("link", { name: charName }).click();
+  await expect(page).toHaveURL(/\/characters\//, { timeout: TIMEOUT_MEDIUM });
+
+  return { context, page, user, charName };
 }
 
 /**

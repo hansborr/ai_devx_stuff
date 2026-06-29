@@ -138,7 +138,7 @@ generated wiring and docs stay aligned.
 | Worktree drift/status checks | Architecture fitness | Computational | Secondary worktree DB, port, Redis, and SRD seed drift | `bun run worktree:status`, `doctor` | `bun run worktree:*` scripts |
 | `local/socket-registry-broadcasts` | Architecture fitness, behavior | Computational | Registry-owned events emitted directly outside `broadcast-registry.ts` | `bun run lint`, `bun run lint:changed` | `docs/guides/add-socket-broadcast.md` |
 | `local/no-broadcast-in-transaction` | Architecture fitness, behavior | Computational | Socket broadcast helpers called inside Prisma `$transaction` callbacks instead of after commit | `bun run lint`, `bun run lint:changed` | `docs/guides/add-socket-broadcast.md` |
-| Mutation testing | Behavior | Computational | Tests that execute rules code without proving meaningful behavior | Manual: `bun run test:mutation` | `docs/agent_notes/backlog/mutation-testing-stryker.md` |
+| Mutation testing | Behavior | Computational | Tests that execute code without proving meaningful behavior, across shared logic, scripts, and server services | Manual: `bun run test:mutation`, `test:scripts:mutation`, `test:server:mutation` | `docs/agent_notes/backlog/mutation-testing-stryker.md` |
 | `drift:ai harness-freshness` | Maintainability | Computational | `docs/ai-harness.md` guide inventory drift: unreferenced `docs/guides/*.md`, missing referenced guides, and stale backtick repo paths | `bun run drift:ai harness-freshness`, via `doctor` | This map |
 | `drift:ai module-doc-paths` | Maintainability | Computational | Stale backtick file references in `MODULE.md` / `*-MODULE.md` notes (path existence only; multi-base resolution, precision over recall); opt-in, report-only | Manual: `bun run drift:ai --check module-doc-paths` (or `--check all`) | `scripts/drift-ai/README.md`, `MODULE.md` files |
 | `drift:ai` default report | Maintainability, architecture fitness | Computational | AI-specific drift on changed files: copy/paste duplicates, suspicious sibling modules, over-narrated comments, and newly added suppression comments; repo-specific roots and exclusions live in `drift-ai.config.json` | Manual, report-only by default: `bun run drift:ai` (filter with `--check`; pass `--config <path>` to test another config) | `scripts/drift-ai/README.md`, `drift-ai.config.json` |
@@ -178,6 +178,8 @@ all`. `logs:audit` joins the same fusion path when the driver receives
 newline-separated runtime JSONL paths through `MUSI_SLOW_DRIFT_LOG_FILES`; the
 scheduled CI job skips it by default because that job does not collect runtime
 server logs.
+Automation should use `bun run logs:audit --latest` only after its no-log path
+has been proven quiet in that environment.
 
 Findings are report-only. Producer exit `1` still produces artifacts and
 continues to fusion; unreadable envelopes, missing sidecars, and setup/tool
@@ -185,10 +187,27 @@ errors remain infrastructure failures.
 
 ## Mutation Testing
 
-Run `bun run test:mutation` manually when changing shared rules logic or when
-auditing assertion strength. It is intentionally outside `verify`,
-`verify:changed`, and pre-commit because Stryker is a slower quality audit, not
-an edit-loop gate.
+Run `bun run test:mutation` manually when changing shared pure logic,
+`bun run test:scripts:mutation` when auditing script assertion strength, or
+`bun run test:server:mutation` when auditing server service logic. These
+commands are intentionally outside `verify`, `verify:changed`, and pre-commit
+because Stryker is a slower quality audit, not an edit-loop gate.
+
+Scopes:
+
+- `test:mutation` (`stryker.config.mjs`) mutates all of
+  `packages/shared/src/**` — dice, map, schemas, and rules. Pure logic, no DB.
+- `test:scripts:mutation` (`scripts/stryker-scripts.ts`) mutates `scripts/**`
+  (codemods excluded, see below).
+- `test:server:mutation` (`stryker.config.server.mjs`) mutates
+  `packages/server/src/services/**`. It runs serially (`concurrency: 1`) and
+  `inPlace`, uses `packages/server/vitest.mutation.config.ts`, and scopes the
+  dry run to service tests. Serial keeps one mutant under test at a time, which
+  avoids the `VITEST_POOL_ID`-only test-DB isolation collisions parallel
+  Stryker workers would hit. Provision the worktree first
+  (`bun run worktree:init`) so the per-worktree test DB exists. Service mutants
+  reachable only via router/integration tests show as `NoCoverage` — honest
+  signal that the service lacks direct unit coverage.
 
 Reports (gitignored, regenerated per run):
 
@@ -196,6 +215,22 @@ Reports (gitignored, regenerated per run):
 - `reports/mutation/mutation.json` — machine-readable report.
 - `reports/mutation/stryker-incremental.json` — incremental cache; safe to
   delete to force a clean run.
+- `reports/mutation-scripts/` — same report shape for
+  `bun run test:scripts:mutation`.
+- `reports/mutation-server/` — same report shape for
+  `bun run test:server:mutation`.
+
+The scripts mutation command currently excludes `scripts/codemods/**`. That
+subsystem's `trpc-shared-input` fixture test compares exact transformed output,
+and that comparison fails under Stryker's instrumentation, so the dry run fails
+before mutation testing can start. The failure is not isolated to the
+`trpc-shared-*` sources (excluding them does not fix it), so re-inclusion needs
+that test made instrumentation-robust rather than a glob tweak; keep codemods
+covered by their fixture tests until then.
+
+`scripts/lint-ratchet/**` is included: its dry run passes (203 related tests)
+and mutation testing runs cleanly against it, so it carries no Stryker-specific
+incompatibility.
 
 Report statuses:
 

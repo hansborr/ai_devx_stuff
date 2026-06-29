@@ -1,6 +1,6 @@
 # 23 - harness:audit fusion consumer
 
-Status: Parked
+Status: Superseded -> drift-ai-next-items 13 (harness:audit fusion consumer, Done)
 Track: Dg (diagnostics)
 Size: medium
 Depends on: 11, 20, 21, 22, 53

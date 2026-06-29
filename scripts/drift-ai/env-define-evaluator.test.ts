@@ -136,6 +136,22 @@ describe("analyzeEnvDefineSource", () => {
     ]);
   });
 
+  it("predicts a conjunction of two known-true operands as truthy", () => {
+    const inventory = analyzeEnvDefineSource(
+      "src/both-true.ts",
+      [
+        'if (process.env.NODE_ENV === "production" && process.env.ENABLE_CHAT === "1") enableBoth();',
+        'if (process.env.NODE_ENV === "production" && Bun.env.MISSING) enableMaybe();',
+      ].join("\n"),
+      MATRIX,
+    );
+
+    expect(inventory.conditions.map((condition) => condition.predictedBranch)).toEqual([
+      "truthy",
+      "unknown",
+    ]);
+  });
+
   it("evaluates null literals and loose equality coercion deterministically", () => {
     const inventory = analyzeEnvDefineSource(
       "src/coercion.ts",

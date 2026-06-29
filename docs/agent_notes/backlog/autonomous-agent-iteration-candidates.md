@@ -273,10 +273,10 @@ dev-session capture/log paths exist.
 
 ### Client test-quality plugin follow-ups
 
-Source: promoted to
-`docs/agent_notes/backlog/lint-followups-2026-06/06-client-test-quality-plugins.md`
-(formerly the lint-review watchlist entry / Leaf 10) — work it there, not
-from this candidate.
+Source: archived in
+`docs/agent_notes/finished_work/lint-followups-2026-06.md` (Leaf 06; formerly
+the lint-review watchlist entry / Leaf 10). The original leaf and verdict
+register now live only in git history.
 
 The first `@vitest/eslint-plugin` slice already landed. Remaining work is
 client-scoped Testing Library and jest-dom inventory, plus any explicitly named
@@ -318,8 +318,10 @@ Human-promoted decisions:
    max-lines as separate branches.
 4. **Vitest inventory**: removed from the active batch after cleanup because
    the `@vitest/eslint-plugin` first slice already landed. Remaining
-   test-quality work is now `lint-followups-2026-06/` leaf 06 (formerly
-   the lint-review watchlist entry / Leaf 10).
+   test-quality context is in
+   `docs/agent_notes/finished_work/lint-followups-2026-06.md` Leaf 06
+   (formerly the lint-review watchlist entry / Leaf 10); old leaf details live
+   only in git history.
 5. **Drift-ai max-lines**: promoted. Same module-split pattern.
 6. **Already landed (do not re-promote)**: Leaf 4 (eslint-comments hygiene)
    landed 2026-05-16. Leaf 24 (.sort() comparator fixes) landed in

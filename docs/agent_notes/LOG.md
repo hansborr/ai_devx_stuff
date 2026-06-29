@@ -7,6 +7,35 @@ Newest on top.
 
 ---
 
+## 2026-06-21 - Backlog reconciliation + Codex drain queue
+
+Re-verified every backlog pack against `main` (multi-agent reconciliation,
+127 leaves classified done/stale/ready/partial) and built a curated
+Codex-delegated task set at `in_progress/codex-drain-queue-2026-06-21.md`
+(24 ready, Codex-suitable tasks across 3 tiers; plus a deferred/supervised
+list). Headlines: `testsuite-audit/` was **43/55 already done** (closed leaves
+removed; 12 remain), the 95-finding `mutation-coverage-2026-06/` pack landed
+**94/95** (merged `feat/mutation-expand-shared-server`; residual #75 queued),
+and all three `ux-audit-2026-06-p0/` live-play P0 blockers shipped (only a
+manual dev-DB reseed deferred).
+
+Archived (folders/files removed; recoverable from git history): the
+`mutation-coverage-2026-06/` and `ux-audit-2026-06-p0/` packs, 43 closed
+`testsuite-audit/` leaves, and the resolved `devcontainer-fresh-setup-hardening.md`
+note. Durable summaries: `finished_work/{testsuite-audit,mutation-coverage-2026-06,ux-audit-2026-06-p0}.md`.
+Notes other docs cite as baselines were left in place but annotated done in
+`backlog/README.md` (`mutation-testing-stryker`, `semgrep-…-implementation-plan`,
+`code-intel-daemon-options`, `autonomous-agent-iteration-candidates`,
+`drift-ai-current-findings`). `client-test-isolation-step3/` stays parked
+(live 3c-Track-B deferral + the abandoned-`isolate:false` rationale).
+
+Superseded branch note: `chore/backlog-reconciliation` (c7a78ca9, unmerged) is
+redundant — the lint/drift packs it archived were already archived on `main`.
+
+Validation: docs-only; `git diff --check`, reference sweep for removed paths.
+
+---
+
 ## 2026-06-12 - Lint-review pack close-out and coverage-hook throttle
 
 Closed out `backlog/lint-review-2026-06/`: all 23 ordered leaves Done and
@@ -17,8 +46,8 @@ local type-aware ESLint cache was removed after a reproduced stale-clean,
 every changed wrapper preflights `git merge-base`, and the import-cycle
 sensor was adopted report-only. Durable summary in
 `finished_work/lint-review-2026-06.md`; the folder is deleted and its
-leaves and verdicts live in git history. Successor queue:
-`backlog/lint-followups-2026-06/`.
+leaves and verdicts live in git history. Successor queue later closed with
+durable summary in `finished_work/lint-followups-2026-06.md`.
 
 Also folded in: the lint-coverage PostToolUse hook throttle landed earlier
 in 006564e6 — per-session/per-tier advisory throttling

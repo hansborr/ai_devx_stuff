@@ -24,6 +24,7 @@ build_fixture() {
   mkdir -p "$fixture_dir/scripts/lint-ratchet"
   mkdir -p "$fixture_dir/packages/shared/src/schemas"
   cp scripts/lint-agent.ts "$fixture_dir/scripts/lint-agent.ts"
+  cp scripts/lint-agent-envelope.ts "$fixture_dir/scripts/lint-agent-envelope.ts"
   cp scripts/lint-agent-fix-text.ts "$fixture_dir/scripts/lint-agent-fix-text.ts"
   cp scripts/lib/eslint-json.ts "$fixture_dir/scripts/lib/eslint-json.ts"
   cp scripts/lib/lint-rule-docs.ts "$fixture_dir/scripts/lib/lint-rule-docs.ts"

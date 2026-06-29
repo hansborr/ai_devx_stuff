@@ -3,8 +3,9 @@
 Status: proposed, no implementation yet
 Date: 2026-06-05 (mechanics reconciled to the current repo layout 2026-06-12)
 Research: `docs/agent_notes/backlog/useeffect-ai-agents-research.md`
-Related: `docs/agent_notes/backlog/lint-followups-2026-06/evaluation-verdicts.md`
-(active verdict register), `docs/guides/lint-ratchet.md`. The standing
+Related: `docs/agent_notes/finished_work/lint-followups-2026-06.md`
+(archive summary; original verdict register in git history),
+`docs/guides/lint-ratchet.md`. The standing
 `set-state-in-effect` defer verdicts (Leaf 14, 2026-05-16; Leaf 15,
 2026-05-19) and the Leaf 15 follow-up doc lived in the now-removed
 `lint-hardening/` and `lint-followups/` backlog folders, consolidated out in
@@ -124,12 +125,12 @@ already linted area"):
    `eslint-config/client-configs.js` (the ratchet is the owner; avoid double
    reporting). That `"off"` line carries no comment today; add one pointing at
    the ratchet id so the next reader knows the floor moved to the ratchet.
-8. Append a verdict row to
-   `docs/agent_notes/backlog/lint-followups-2026-06/evaluation-verdicts.md`:
-   defer-for-error stands, ratchet-tier adopted, with the baseline count. The
-   Leaf 15 follow-up doc (`lint-followups/15-react-deferred-rules.md`) was
-   archived in `31b43881`, so the active register is now the only home for the
-   new verdict — there is no separate leaf doc to update.
+8. Record the verdict in the promoted work note and link
+   `docs/agent_notes/finished_work/lint-followups-2026-06.md`: defer-for-error
+   stands, ratchet-tier adopted, with the baseline count. The old
+   `evaluation-verdicts.md` register and the Leaf 15 follow-up doc
+   (`lint-followups/15-react-deferred-rules.md`) now live only in git history;
+   do not append to the deleted backlog file.
 
 Drain path: opportunistic. When a dialog/state refactor lands, the touched
 findings drain and `lint:ratchet:update` tightens the floor monotonically.
@@ -171,10 +172,10 @@ Gated sequence; stop at any gate and record a verdict:
    Recommendation 1, one entry per adopted rule). The current ratchet registry
    has exactly one `ruleId` per entry and cannot ratchet an ESLint preset as a
    single registry item.
-5. Append per-rule rows to
-   `docs/agent_notes/backlog/lint-followups-2026-06/evaluation-verdicts.md`
-   either way — adopted, deferred, or rejected — so the plugin is not blindly
-   re-tried.
+5. Record per-rule adopted/deferred/rejected verdicts in the promoted work note
+   and link `docs/agent_notes/finished_work/lint-followups-2026-06.md`; the old
+   verdict register now lives only in git history, so do not append to the
+   deleted backlog file.
 
 Severity policy note: the repo treats normal-lint `warn` as not fully
 promoted (`docs/guides/lint-ratchet.md`, Zero-Baseline Lifecycle), so the

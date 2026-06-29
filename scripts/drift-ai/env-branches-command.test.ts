@@ -1,10 +1,12 @@
 import { mkdirSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
 import path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
 import { runDriftAi } from "./runner.js";
+
+const tmpRepo = registerTempRootCleanup();
 
 const SOURCE = [
   'if (process.env.NODE_ENV === "production") bootProd();',
@@ -64,7 +66,7 @@ describe("env-branches subcommand", () => {
 });
 
 function writeFixtureRepo(config: unknown): { dir: string; configPath: string } {
-  const dir = path.join(tmpdir(), `drift-env-branches-${process.pid}-${Date.now()}`);
+  const dir = tmpRepo.makeTempRepo("drift-env-branches-");
   mkdirSync(path.join(dir, "src"), { recursive: true });
   writeFileSync(path.join(dir, "src", "app.ts"), SOURCE, "utf8");
   const configPath = path.join(dir, "drift-ai.config.json");

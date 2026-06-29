@@ -42,7 +42,9 @@
     "test:client:split": "bun scripts/client-test-isolation-runner.ts",
     "test:shared": "bash scripts/vitest.sh run --passWithNoTests --project=shared",
     "test:slow": "bash scripts/test-slow.sh",
-    "test:mutation": "stryker run",
+    "test:mutation": "bash -c 'trap \"rm -f stryker-setup-*.js\" EXIT INT TERM; stryker run \"$@\"' --",
+    "test:scripts:mutation": "bash -c 'trap \"rm -f stryker-setup-*.js\" EXIT INT TERM; stryker run scripts/stryker-scripts.ts \"$@\"' --",
+    "test:server:mutation": "bash -c 'trap \"rm -f stryker-setup-*.js\" EXIT INT TERM; stryker run stryker.config.server.mjs \"$@\"' --",
     "test:scripts": "bash scripts/test-scripts.sh",
     "test:scripts:changed": "bash scripts/test-scripts.sh --changed",
     "test:scripts:file": "bash scripts/vitest.sh run --passWithNoTests --project=scripts",
@@ -51,7 +53,7 @@
     "check:fast-uri-override": "bash scripts/check-fast-uri-override.sh",
     "check:eslint-react-peer-exception": "bash scripts/check-eslint-react-peer-exception.sh",
     "lint": "bash scripts/lint.sh",
-    "lint:fix": "eslint . --fix",
+    "lint:fix": "bash scripts/lint-fix.sh",
     "lint:changed": "bash scripts/lint-changed.sh",
     "lint:shell": "bash scripts/lint-shell.sh",
     "lint:config-sensors": "bash scripts/lint-config-sensors.sh",
@@ -115,6 +117,7 @@
     "postinstall": "sh scripts/write-install-digest.sh"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.11.3",
     "@commitlint/cli": "21.0.1",
     "@commitlint/config-conventional": "21.0.1",
     "@commitlint/types": "21.0.1",

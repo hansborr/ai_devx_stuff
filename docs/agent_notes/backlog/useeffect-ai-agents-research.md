@@ -178,8 +178,9 @@ Two distinct mechanisms, both plausible, neither measured:
     `evaluation-verdicts.md`, with the Leaf 15 follow-up at
     `lint-followups/15-react-deferred-rules.md`; both were consolidated out of
     the backlog in `31b43881 docs(lint): consolidate lint review backlog` and
-    now live in git history. The active register is
-    `docs/agent_notes/backlog/lint-followups-2026-06/evaluation-verdicts.md`.
+    now live in git history. The closed lint-followups summary is
+    `docs/agent_notes/finished_work/lint-followups-2026-06.md`; the original
+    active register now lives only in git history.
 - Fetch-in-effect and derived-state-in-effect — the two most bug-dense AI
   pattern classes — have **no local foothold**: TanStack Query + tRPC owns
   fetching (all 8 `@tanstack/query` lint rules are strictly gated; one is

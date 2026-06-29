@@ -1,16 +1,10 @@
 // @ts-check
-import { RuleTester } from "eslint";
-import tseslint from "typescript-eslint";
 import { describe, it } from "vitest";
 
+import { makeRuleTester } from "./rule-tester.js";
 import rule from "./strict-trpc-input.js";
 
-const ruleTester = new RuleTester({
-  languageOptions: {
-    parser: tseslint.parser,
-    parserOptions: { ecmaVersion: 2022, sourceType: "module" },
-  },
-});
+const ruleTester = makeRuleTester();
 
 describe("strict-trpc-input", () => {
   it("runs", () => {
@@ -40,7 +34,7 @@ describe("strict-trpc-input", () => {
         // Bare z.object.
         {
           code: "p.input(z.object({ id: z.string() }))",
-          errors: [{ message: /docs\/guides\/add-trpc-procedure\.md/u }],
+          errors: [{ messageId: "needsStrict" }],
         },
         // Chained but no mode call.
         {

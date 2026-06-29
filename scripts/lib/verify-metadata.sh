@@ -298,6 +298,13 @@ ai_precommit_fingerprint() {
 
   {
     git -C "$repo_root" rev-parse HEAD 2>/dev/null || echo none
+    # Fast-commit mode skips slow pre-commit test slots; fold its presence in so
+    # a partial (fast) success marker cannot short-circuit a later full
+    # pre-commit at the same HEAD/diff. Absent ⇒ byte-identical to the legacy
+    # fingerprint. The marker lives in the Git common dir (worktree-shared).
+    if [ -f "$(musi_git_common_identity_path "$repo_root")/musi-fast-commit" ]; then
+      printf 'fast-commit=1\n'
+    fi
     git -C "$repo_root" diff --cached --binary --diff-filter=ACMRD
     (
       cd "$repo_root" || exit 1

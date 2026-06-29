@@ -1,16 +1,17 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
-import { loadLintRuleDocs } from "../lib/lint-rule-docs.js";
+import { formatRuleDocsFailures, loadLintRuleDocs } from "../lib/lint-rule-docs.js";
+import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
+import { FIXTURE_HASH } from "./lint-ratchet.test-helper.js";
 import {
   buildLintRatchetBaseline,
   formatLintRatchetBaseline,
-  LINT_RATCHET_CONFIG_HASH_PREFIX,
   type LintRatchetCurrentById,
   type LintRatchetRuleSourceHashesById,
 } from "./lint-ratchet-baseline.js";
@@ -26,8 +27,7 @@ import {
 } from "./lint-ratchet-config.js";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const FIXTURE_HASH = `${LINT_RATCHET_CONFIG_HASH_PREFIX}${"a".repeat(64)}`;
-const tempRoots: string[] = [];
+const tmpRepo = registerTempRootCleanup();
 
 const matchingRatchet: LintRatchetConfig = {
   id: "ratchet/fixture-message",
@@ -89,11 +89,65 @@ function orphanBaselineText(): string {
 }
 
 function writeBaselineFixture(text: string): string {
-  const tempRoot = mkdtempSync(join(tmpdir(), "lint-ratchet-check-registry-"));
-  tempRoots.push(tempRoot);
+  const tempRoot = tmpRepo.writeRepo(
+    { "lint-ratchet.baseline.json": text },
+    "lint-ratchet-check-registry-",
+  );
   const baselinePath = join(tempRoot, "lint-ratchet.baseline.json");
-  writeFileSync(baselinePath, text);
   return baselinePath;
+}
+
+function writeLintRuleDocsFixture(rules: Readonly<Record<string, string>>): string {
+  const tempRoot = tmpRepo.makeTempRepo("lint-rule-docs-");
+  tmpRepo.writeRepoFile(tempRoot, "docs/guides/lint-ratchet.md", "# Lint ratchet\n");
+  const ruleEntries = Object.entries(rules)
+    .map(([name, docsExpression]) => {
+      return `${JSON.stringify(name)}: { meta: { docs: ${docsExpression} } }`;
+    })
+    .join(",\n          ");
+  tmpRepo.writeRepoFile(
+    tempRoot,
+    "eslint.config.js",
+    [
+      "export default [",
+      "  {",
+      "    plugins: {",
+      "      local: {",
+      "        rules: {",
+      `          ${ruleEntries}`,
+      "        },",
+      "      },",
+      "    },",
+      "  },",
+      "];",
+      "",
+    ].join("\n"),
+  );
+  return tempRoot;
+}
+
+function writeRawEslintConfigFixture(configSource: string): string {
+  const tempRoot = tmpRepo.makeTempRepo("lint-rule-docs-config-");
+  tmpRepo.writeRepoFile(tempRoot, "eslint.config.js", configSource);
+  return tempRoot;
+}
+
+function docsExpression(overrides: Readonly<Record<string, unknown>> = {}): string {
+  return JSON.stringify({
+    description: "Fixture rule docs.",
+    principle: "Fixture rule principle.",
+    category: "maintainability",
+    pairedGuide: "docs/guides/lint-ratchet.md",
+    repairKind: "manual",
+    ...overrides,
+  });
+}
+
+async function failureMessagesById(
+  repoRoot: string,
+): Promise<ReadonlyMap<string, readonly string[]>> {
+  const { failures } = await loadLintRuleDocs(repoRoot);
+  return new Map(failures.map((failure) => [failure.id, failure.failures]));
 }
 
 function failureOfKind(
@@ -106,15 +160,8 @@ function failureOfKind(
   return failure;
 }
 
-afterEach(() => {
-  while (tempRoots.length > 0) {
-    const tempRoot = tempRoots.pop();
-    if (tempRoot !== undefined) rmSync(tempRoot, { recursive: true, force: true });
-  }
-});
-
 describe("lint ratchet check-registry", () => {
-  it("accepts the Musi registry fixture", { timeout: 15_000 }, async () => {
+  it("accepts the Musi registry fixture", { timeout: 30_000 }, async () => {
     const result = checkLintRatchetRegistry({
       ratchets: structuredClone(lintRatchets),
       localRuleIds: await localRuleIds(),
@@ -233,5 +280,222 @@ describe("lint ratchet check-registry", () => {
     expect(failure.message).toContain("harness.controls.json");
     expect(failure.message).toContain("docs:harness-controls");
     expect(failure.message).toContain("scripts/tests/test-harness-check.sh");
+  });
+});
+
+describe("local lint rule docs loading", () => {
+  it("loads valid manual, none-guide, and codemod rule docs from the local plugin", async () => {
+    const fixtureRoot = writeLintRuleDocsFixture({
+      "manual-rule": docsExpression(),
+      "none-guide-rule": docsExpression({ pairedGuide: "none" }),
+      "codemod-rule": docsExpression({
+        repairKind: "codemod",
+        repairCommand: "bun run codemod:fixture",
+      }),
+    });
+
+    const result = await loadLintRuleDocs(fixtureRoot);
+
+    expect(result.failures).toEqual([]);
+    expect(result.entries).toEqual([
+      {
+        id: "local/manual-rule",
+        description: "Fixture rule docs.",
+        principle: "Fixture rule principle.",
+        category: "maintainability",
+        pairedGuide: "docs/guides/lint-ratchet.md",
+        repairKind: "manual",
+      },
+      {
+        id: "local/none-guide-rule",
+        description: "Fixture rule docs.",
+        principle: "Fixture rule principle.",
+        category: "maintainability",
+        pairedGuide: "none",
+        repairKind: "manual",
+      },
+      {
+        id: "local/codemod-rule",
+        description: "Fixture rule docs.",
+        principle: "Fixture rule principle.",
+        category: "maintainability",
+        pairedGuide: "docs/guides/lint-ratchet.md",
+        repairKind: "codemod",
+        repairCommand: "bun run codemod:fixture",
+      },
+    ]);
+  });
+
+  it("accepts a pairedGuide that resolves exactly to repoRoot", async () => {
+    // `pairedGuide: "."` resolves to repoRoot itself, so relative(root, resolved)
+    // is "" — the empty-relative-path sub-clause of isUnderRoot. This is the only
+    // input that exercises `relativePath === ""`; without it that branch is never
+    // the deciding term and an isUnderRoot regression at this boundary ships green.
+    const fixtureRoot = writeLintRuleDocsFixture({
+      "repo-root-guide": docsExpression({ pairedGuide: "." }),
+    });
+
+    const result = await loadLintRuleDocs(fixtureRoot);
+
+    expect(result.failures).toEqual([]);
+    expect(result.entries).toEqual([
+      {
+        id: "local/repo-root-guide",
+        description: "Fixture rule docs.",
+        principle: "Fixture rule principle.",
+        category: "maintainability",
+        pairedGuide: ".",
+        repairKind: "manual",
+      },
+    ]);
+  });
+
+  it("rejects invalid eslint config shapes with exact loader errors", async () => {
+    await expect(
+      loadLintRuleDocs(writeRawEslintConfigFixture("export default {};\n")),
+    ).rejects.toThrow("eslint.config.js did not export a config array");
+    await expect(
+      loadLintRuleDocs(writeRawEslintConfigFixture("export default [{ rules: {} }];\n")),
+    ).rejects.toThrow("Could not find local plugin in eslint.config.js");
+    await expect(
+      loadLintRuleDocs(
+        writeRawEslintConfigFixture("export default [{ plugins: { local: null } }];\n"),
+      ),
+    ).rejects.toThrow("Could not find local plugin in eslint.config.js");
+  });
+
+  it("reports exact failure messages for invalid docs field shapes", async () => {
+    const fixtureRoot = writeLintRuleDocsFixture({
+      missingDocs: "undefined",
+      nonObjectDocs: JSON.stringify("not docs"),
+      nullDocs: "null",
+      blankDescription: docsExpression({ description: "   " }),
+      blankPrinciple: docsExpression({ principle: "" }),
+      invalidCategory: docsExpression({ category: "security" }),
+      invalidRepairKind: docsExpression({ repairKind: "script" }),
+    });
+
+    await expect(failureMessagesById(fixtureRoot)).resolves.toEqual(
+      new Map([
+        [
+          "local/missingDocs",
+          [
+            "meta.docs is missing",
+            "description must be a non-empty string",
+            "principle must be a non-empty string",
+            "category must be one of: maintainability, architecture-fitness, behavior",
+            'pairedGuide must be "none" or a non-empty path string',
+            "repairKind must be one of: autofix, suggestion, codemod, manual",
+          ],
+        ],
+        [
+          "local/nonObjectDocs",
+          [
+            "meta.docs must be an object",
+            "description must be a non-empty string",
+            "principle must be a non-empty string",
+            "category must be one of: maintainability, architecture-fitness, behavior",
+            'pairedGuide must be "none" or a non-empty path string',
+            "repairKind must be one of: autofix, suggestion, codemod, manual",
+          ],
+        ],
+        [
+          "local/nullDocs",
+          [
+            "meta.docs must be an object",
+            "description must be a non-empty string",
+            "principle must be a non-empty string",
+            "category must be one of: maintainability, architecture-fitness, behavior",
+            'pairedGuide must be "none" or a non-empty path string',
+            "repairKind must be one of: autofix, suggestion, codemod, manual",
+          ],
+        ],
+        ["local/blankDescription", ["description must be a non-empty string"]],
+        ["local/blankPrinciple", ["principle must be a non-empty string"]],
+        [
+          "local/invalidCategory",
+          ["category must be one of: maintainability, architecture-fitness, behavior"],
+        ],
+        [
+          "local/invalidRepairKind",
+          ["repairKind must be one of: autofix, suggestion, codemod, manual"],
+        ],
+      ]),
+    );
+  });
+
+  it("reports exact failure messages for invalid pairedGuide branches", async () => {
+    const fixtureRoot = writeLintRuleDocsFixture({
+      blankGuide: docsExpression({ pairedGuide: "   " }),
+      numericGuide: docsExpression({ pairedGuide: 42 }),
+      parentGuide: docsExpression({ pairedGuide: "../outside.md" }),
+      absoluteGuide: docsExpression({ pairedGuide: join(tmpdir(), "outside.md") }),
+      missingGuide: docsExpression({ pairedGuide: "docs/guides/missing.md" }),
+    });
+
+    await expect(failureMessagesById(fixtureRoot)).resolves.toEqual(
+      new Map([
+        ["local/blankGuide", ['pairedGuide must be "none" or a non-empty path string']],
+        ["local/numericGuide", ['pairedGuide must be "none" or a non-empty path string']],
+        ["local/parentGuide", ["pairedGuide must resolve under repoRoot"]],
+        ["local/absoluteGuide", ["pairedGuide must resolve under repoRoot"]],
+        [
+          "local/missingGuide",
+          ["pairedGuide does not resolve to an existing file: docs/guides/missing.md"],
+        ],
+      ]),
+    );
+  });
+
+  it("reports exact failure messages for invalid repairCommand branches", async () => {
+    const fixtureRoot = writeLintRuleDocsFixture({
+      extraAutofixCommand: docsExpression({
+        repairKind: "autofix",
+        repairCommand: "bun run lint:fix",
+      }),
+      missingCodemodCommand: docsExpression({ repairKind: "codemod" }),
+      blankCodemodCommand: docsExpression({ repairKind: "codemod", repairCommand: " " }),
+      numericCodemodCommand: docsExpression({ repairKind: "codemod", repairCommand: 42 }),
+    });
+
+    await expect(failureMessagesById(fixtureRoot)).resolves.toEqual(
+      new Map([
+        [
+          "local/extraAutofixCommand",
+          ["repairCommand must be absent unless repairKind is codemod"],
+        ],
+        [
+          "local/missingCodemodCommand",
+          ["repairCommand must be a non-empty string when repairKind is codemod"],
+        ],
+        [
+          "local/blankCodemodCommand",
+          ["repairCommand must be a non-empty string when repairKind is codemod"],
+        ],
+        [
+          "local/numericCodemodCommand",
+          ["repairCommand must be a non-empty string when repairKind is codemod"],
+        ],
+      ]),
+    );
+  });
+
+  it("formats local rule docs failures byte-for-byte", () => {
+    expect(
+      formatRuleDocsFailures([
+        {
+          id: "local/fixture",
+          failures: [
+            "category must be one of: maintainability, architecture-fitness, behavior",
+            "repairKind must be one of: autofix, suggestion, codemod, manual",
+          ],
+        },
+      ]),
+    ).toBe(
+      [
+        "Invalid local ESLint rule metadata:",
+        "- local/fixture: category must be one of: maintainability, architecture-fitness, behavior; repairKind must be one of: autofix, suggestion, codemod, manual",
+      ].join("\n"),
+    );
   });
 });

@@ -1,13 +1,14 @@
-import { mkdirSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
+import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
 import { runDriftAi } from "./runner.js";
 
 const FIXTURE_REPO = path.dirname(fileURLToPath(import.meta.url));
+const tmpRepo = registerTempRootCleanup();
 
 describe("coverage-unused-exports subcommand", () => {
   it("correlates a supplied knip report against configured coverage artifacts", () => {
@@ -66,8 +67,7 @@ describe("coverage-unused-exports subcommand", () => {
 });
 
 function writeConfig(value: unknown): string {
-  const dir = path.join(tmpdir(), `drift-coverage-unused-${process.pid}-${Date.now()}`);
-  mkdirSync(dir, { recursive: true });
+  const dir = tmpRepo.makeTempRepo("drift-coverage-unused-");
   const configPath = path.join(dir, "drift-ai.config.json");
   writeFileSync(configPath, JSON.stringify(value), "utf8");
   return configPath;

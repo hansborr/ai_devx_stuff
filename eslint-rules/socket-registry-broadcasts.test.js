@@ -3,22 +3,16 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { RuleTester } from "eslint";
 import ts from "typescript";
-import tseslint from "typescript-eslint";
 import { describe, expect, it } from "vitest";
 
+import { makeRuleTester } from "./rule-tester.js";
 import rule, { REGISTRY_OWNED_EVENT_HELPERS } from "./socket-registry-broadcasts.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(here, "..");
 
-const ruleTester = new RuleTester({
-  languageOptions: {
-    parser: tseslint.parser,
-    parserOptions: { ecmaVersion: 2022, sourceType: "module" },
-  },
-});
+const ruleTester = makeRuleTester();
 
 function propertyNameText(name) {
   if (ts.isStringLiteral(name) || ts.isIdentifier(name) || ts.isNumericLiteral(name)) {
@@ -94,25 +88,98 @@ describe("socket-registry-broadcasts", () => {
         },
       ],
       invalid: [
+        // Each invalid case pins the map-selected {{helper}} so a mis-edited
+        // REGISTRY_OWNED_EVENT_HELPERS pair (event -> wrong helper) fails here.
+        {
+          filename: "packages/server/src/routers/campaign.ts",
+          code: 'io.to(room).emit("campaign:updated", payload);',
+          errors: [
+            {
+              messageId: "noDirectEmit",
+              data: {
+                eventName: "campaign:updated",
+                helper: "broadcastCampaignUpdate(...)",
+              },
+            },
+          ],
+        },
         {
           filename: "packages/server/src/routers/encounter.ts",
           code: 'io.to(room).emit("encounter:updated", payload);',
-          errors: [{ messageId: "noDirectEmit" }],
+          errors: [
+            {
+              messageId: "noDirectEmit",
+              data: {
+                eventName: "encounter:updated",
+                helper: "broadcastEncounterUpdate(...)",
+              },
+            },
+          ],
         },
         {
           filename: "packages/server/src/utils/character-campaign.ts",
           code: 'socket.emit("character:updated", payload);',
-          errors: [{ messageId: "noDirectEmit" }],
+          errors: [
+            {
+              messageId: "noDirectEmit",
+              data: {
+                eventName: "character:updated",
+                helper: "broadcastCharacterUpdate(...)",
+              },
+            },
+          ],
+        },
+        {
+          filename: "packages/server/src/routers/chat.ts",
+          code: 'socket.emit("chat:newMessage", payload);',
+          errors: [
+            {
+              messageId: "noDirectEmit",
+              data: {
+                eventName: "chat:newMessage",
+                helper: "broadcastChatMessage(...)",
+              },
+            },
+          ],
         },
         {
           filename: "packages/server/src/routers/map-token.ts",
           code: 'io.to(room)["emit"]("map:tokenUpdated", payload);',
-          errors: [{ messageId: "noDirectEmit" }],
+          errors: [
+            {
+              messageId: "noDirectEmit",
+              data: {
+                eventName: "map:tokenUpdated",
+                helper: "broadcastMapTokenUpdate(...)",
+              },
+            },
+          ],
+        },
+        {
+          filename: "packages/server/src/routers/map-layer.ts",
+          code: 'io.to(room).emit("map:layerUpdated", payload);',
+          errors: [
+            {
+              messageId: "noDirectEmit",
+              data: {
+                eventName: "map:layerUpdated",
+                helper: "broadcastMapLayerUpdate(...)",
+              },
+            },
+          ],
         },
         {
           filename: "packages/server/src/services/notification-service.ts",
           code: 'socket.emit("notification:new", payload);',
-          errors: [{ messageId: "noDirectEmit" }],
+          errors: [
+            {
+              messageId: "noDirectEmit",
+              data: {
+                eventName: "notification:new",
+                helper: 'broadcastToUsers(..., "notification:new", ...)',
+              },
+            },
+          ],
         },
       ],
     });

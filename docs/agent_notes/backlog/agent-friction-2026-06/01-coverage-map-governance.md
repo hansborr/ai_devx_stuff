@@ -26,7 +26,8 @@ and `--staged` forces `checkEslintReach=false`
 
 ## A1 + A6 — Every new file is flagged late; the error names neither the file nor the row format; no scaffold
 
-**Status: not addressed** (only directory-grouping of the error exists).
+**Status: DONE (a7abb730) — `--suggest` mode added in
+`lint-coverage-map-check-suggest.ts` plus a `git add` hint in `findings.ts`.**
 
 **Evidence.** `collectUnaccountedFileFindings`
 (`scripts/lint-coverage-map-check-findings.ts:95-104`) flags every tracked file
@@ -84,7 +85,8 @@ extend `scripts/ai-hooks/test-lint-coverage.sh` for the new hook tier.
 
 ## A2 — `--staged` reads the map from the index but the file list from `git ls-files` → "matched 0 tracked files"
 
-**Status: not addressed.**
+**Status: DONE (a7abb730) — `--suggest` mode added in
+`lint-coverage-map-check-suggest.ts` plus a `git add` hint in `findings.ts`.**
 
 **Evidence.** In `--staged` mode `loadMapText` reads the map from the staged index
 (`git show :path`, `scripts/lint-coverage-map-check-io.ts:20-27`), but
@@ -122,10 +124,10 @@ touches gate semantics — covered by the staged test at
 
 ## A3 — Standalone `docs:lint-coverage-map:check` reports reach gaps the real gate never trips
 
-**Status: structural divergence is real and not addressed; the *specific* file
-in the log (`scripts/harness-audit.test.ts`) is stale — it moved to
-`scripts/harness/harness-audit.test.ts` and now resolves an ESLint config, so
-that exact gap no longer reproduces.**
+**Status: DONE (a7abb730) — `package.json` now carries the `:check`/`:audit`
+split. The *specific* file in the log (`scripts/harness-audit.test.ts`) was stale
+— it moved to `scripts/harness/harness-audit.test.ts` and now resolves an ESLint
+config, so that exact gap no longer reproduces.**
 
 **Evidence.** `docs:lint-coverage-map:check` runs **non-staged +
 `--check-eslint-reach`** (`package.json:81`); the committing gate runs

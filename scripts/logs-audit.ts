@@ -11,16 +11,23 @@ import { pathToFileURL } from "node:url";
 import type { ParsedLogRecord } from "./logs-audit/logs-audit-checks.js";
 import { auditEventFields, auditRequestIds } from "./logs-audit/logs-audit-checks.js";
 import { writeLogsAuditDiagnosticsSidecar } from "./logs-audit/logs-audit-diagnostics.js";
+import { formatJson, formatText } from "./logs-audit/logs-audit-format.js";
+import { findLatestCompatibleLogFiles } from "./logs-audit/logs-audit-latest.js";
 import { inspectRedaction, isJsonObject } from "./logs-audit/logs-audit-redaction.js";
 
-const JSON_FORMAT_INDENT_SPACES = 2;
 const CLI_USER_ARGS_START_INDEX = 2;
+const LATEST_NO_COMPATIBLE_LOGS_HINT =
+  "logs:audit --latest: no compatible JSONL logs found in verify/hook log dirs; run `bun run verify:changed` to populate logs before retrying.";
+
+export { formatJson, formatText };
+export { findLatestCompatibleLogFiles };
 
 export type LogsAuditFormat = "text" | "json";
 
 export type LogsAuditOptions = {
   readonly files: readonly string[];
   readonly format: LogsAuditFormat;
+  readonly latest?: true;
 };
 
 export type LogsAuditFindingCheck = "input" | "jsonl" | "redaction" | "request-id" | "event-fields";
@@ -67,8 +74,10 @@ function usage(): string {
     "  bun run logs:audit --file <server.jsonl> [--file <more.jsonl>]",
     "  bun run logs:audit <server.jsonl> [more.jsonl...]",
     "  bun run logs:audit --format <text|json> --file <server.jsonl>",
+    "  bun run logs:audit --latest [--format <text|json>]",
     "",
-    "Read-only. Exits 1 when the audited logs contain findings.",
+    "Read-only. Exits 1 when the audited logs contain findings; --latest exits",
+    "0 with a hint when no compatible verify/hook JSONL logs exist.",
     "Set HARNESS_DIAGNOSTICS_OUTPUT=<path> to also write a HarnessDiagnostics",
     "sidecar (opt-in; native stdout and exit code stay unchanged).",
   ].join("\n");
@@ -101,6 +110,10 @@ type ParsedAuditArg =
       readonly kind: "format";
       readonly value: LogsAuditFormat;
       readonly nextIndex: number;
+    }
+  | {
+      readonly kind: "latest";
+      readonly nextIndex: number;
     };
 
 function parseFileArg(arg: string, argv: readonly string[], index: number): ParsedAuditArg {
@@ -124,6 +137,7 @@ function parseAuditArg(
 ): ParsedAuditArg {
   if (arg === undefined) throw new LogsAuditError("Empty arguments are not supported.");
   if (arg === "--help" || arg === "-h") throw new LogsAuditHelp();
+  if (arg === "--latest") return { kind: "latest", nextIndex: index };
   if (arg === "--file" || arg.startsWith("--file=")) return parseFileArg(arg, argv, index);
   if (arg === "--format" || arg.startsWith("--format=")) return parseFormatArg(arg, argv, index);
   if (arg.startsWith("--")) throw new LogsAuditError(`Unknown argument: ${arg}\n${usage()}`);
@@ -133,12 +147,21 @@ function parseAuditArg(
 export function parseArgs(argv: readonly string[]): LogsAuditOptions {
   const files: string[] = [];
   let format: LogsAuditFormat = "text";
+  let latest = false;
 
   for (let index = 0; index < argv.length; index += 1) {
     const parsed = parseAuditArg(argv[index], argv, index);
     if (parsed.kind === "file") files.push(parsed.value);
-    else format = parsed.value;
+    else if (parsed.kind === "format") format = parsed.value;
+    else latest = true;
     index = parsed.nextIndex;
+  }
+
+  if (latest) {
+    if (files.length > 0) {
+      throw new LogsAuditError("--latest cannot be combined with explicit log files.");
+    }
+    return { files: [], format, latest: true };
   }
 
   if (files.length === 0) {
@@ -239,35 +262,10 @@ export function auditLogFiles(
   };
 }
 
-export function formatText(report: LogsAuditReport): string {
-  const lines: string[] = [];
-  lines.push(`logs:audit: ${String(report.files.length)} file(s) audited`);
-  for (const file of report.files) {
-    lines.push(
-      `  ${file.file}: ${String(file.records)} record(s), ${String(file.rejectedLines)} rejected line(s)`,
-    );
-  }
-  if (report.findings.length === 0) {
-    lines.push(
-      "OK: JSONL parsed and sensitive fields are redacted; request ids correlate and event fields are stable.",
-    );
-    return lines.join("\n");
-  }
-  for (const finding of report.findings) {
-    const line = finding.line === undefined ? "" : `:${String(finding.line)}`;
-    const field = finding.field === undefined ? "" : ` ${finding.field}`;
-    lines.push(`ERROR ${finding.check}: ${finding.file}${line}${field} - ${finding.message}`);
-  }
-  return lines.join("\n");
-}
-
-export function formatJson(report: LogsAuditReport): string {
-  return JSON.stringify(report, null, JSON_FORMAT_INDENT_SPACES);
-}
-
 export type RunLogsAuditOptions = {
   readonly argv: readonly string[];
   readonly readFile?: LogFileReader;
+  readonly latestLogRoots?: readonly string[];
 };
 
 export type RunLogsAuditResult = {
@@ -276,18 +274,53 @@ export type RunLogsAuditResult = {
   readonly report?: LogsAuditReport;
 };
 
-export function runLogsAudit(options: RunLogsAuditOptions): RunLogsAuditResult {
-  let parsed: LogsAuditOptions;
+type ParsedRunArgs =
+  | {
+      readonly kind: "parsed";
+      readonly options: LogsAuditOptions;
+    }
+  | {
+      readonly kind: "result";
+      readonly result: RunLogsAuditResult;
+    };
+
+function parseRunArgs(argv: readonly string[]): ParsedRunArgs {
   try {
-    parsed = parseArgs(options.argv);
+    return { kind: "parsed", options: parseArgs(argv) };
   } catch (err) {
-    if (err instanceof LogsAuditHelp) return { exitCode: 0, stdout: err.message };
-    if (err instanceof LogsAuditError) return { exitCode: 2, stdout: err.message };
+    if (err instanceof LogsAuditHelp) {
+      return { kind: "result", result: { exitCode: 0, stdout: err.message } };
+    }
+    if (err instanceof LogsAuditError) {
+      return { kind: "result", result: { exitCode: 2, stdout: err.message } };
+    }
     throw err;
   }
+}
 
-  const report = auditLogFiles(parsed.files, options.readFile);
-  const stdout = parsed.format === "json" ? formatJson(report) : formatText(report);
+function resolveRunFiles(
+  parsed: LogsAuditOptions,
+  latestLogRoots: readonly string[] | undefined,
+): readonly string[] | undefined {
+  if (!parsed.latest) return parsed.files;
+  const files =
+    latestLogRoots === undefined
+      ? findLatestCompatibleLogFiles()
+      : findLatestCompatibleLogFiles(latestLogRoots);
+  return files.length === 0 ? undefined : files;
+}
+
+export function runLogsAudit(options: RunLogsAuditOptions): RunLogsAuditResult {
+  const parsed = parseRunArgs(options.argv);
+  if (parsed.kind === "result") return parsed.result;
+
+  const files = resolveRunFiles(parsed.options, options.latestLogRoots);
+  if (files === undefined) {
+    return { exitCode: 0, stdout: LATEST_NO_COMPATIBLE_LOGS_HINT };
+  }
+
+  const report = auditLogFiles(files, options.readFile);
+  const stdout = parsed.options.format === "json" ? formatJson(report) : formatText(report);
   // Opt-in HarnessDiagnostics sidecar: native stdout above is untouched, and a
   // run without HARNESS_DIAGNOSTICS_OUTPUT set never reaches the projection. A
   // bad output path or failed write is a CLI/tool error (exit 2), not a log

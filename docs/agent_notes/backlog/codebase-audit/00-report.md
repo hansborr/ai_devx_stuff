@@ -1,13 +1,14 @@
 # Codebase Maintainability & Onboarding Audit — 2026-06-13
 
-> **Status: direction-setting, not implementation. No code in this pack has been
-> implemented.** Every leaf below is a read-only finding with `file:line` evidence.
-> As of 2026-06-13, 10 leaves (#1, #11, #13, #14, #23, #24, #25, #32, #35, #40)
-> carry a locked **Decision** block recording the settled approach for the next
-> implementing agent; the remaining leaves stay open proposals. See *Decisions
-> locked (2026-06-13)* below.
+> **Status: largely implemented (updated 2026-06-20). 38 of 43 leaves are Done and
+> landed; 3 (#08/#09/#24) are partially implemented; 2 docs leaves (#05, #20) remain
+> open Proposals.** Per-leaf `Status:` lines are authoritative — re-verify before
+> promoting. The original 10 locked Decision blocks (#1, #11, #13, #14, #23, #24, #25,
+> #32, #35, #40) have mostly been acted on; the remaining README/AGENTS/test-helper doc
+> leaves (#03, #04, #15, #21, #22, #43) landed in the 2026-06-20 docs lane.
 
-- **Status:** 10 leaves Decided (direction locked 2026-06-13); remainder Proposed (awaiting promotion)
+- **Status:** 38/43 leaves Done & landed; 3 partial (#08/#09/#24); 2 open Proposals
+  (#05, #20).
 - **Created:** 2026-06-13
 - **Source:** Multi-agent maintainability/onboarding survey of Musi at HEAD on `docs/codebase-audit`
 - **Scope:** Maintainability, code quality, and first-time-onboarding ease across `packages/{shared,server,client}`, `docs/`, and the human-facing setup path. Read-only. Excludes the in-repo agent-harness tooling lanes already owned elsewhere (see *Out of scope*).
@@ -226,10 +227,11 @@ being filed.
 
 ## Prioritized tasks
 
-Status is **Proposed** for every leaf. Re-verify `file:line` evidence before
-implementing — this table is a snapshot. Sizes are XS–L; severity is the audit
-agent's onboarding/maintainability impact rating, not a production-incident
-severity.
+Most leaves are now **Done & landed** (see the per-leaf `Status:` lines, which are
+authoritative); only #05 and #20 remain open Proposals and #08/#09/#24 are partial.
+Re-verify `file:line` evidence before implementing — this table is a snapshot. Sizes
+are XS–L; severity is the audit agent's onboarding/maintainability impact rating, not
+a production-incident severity.
 
 | # | Task | Track | Size | Severity | Depends on | Status |
 |---|------|-------|------|----------|-----------|--------|
@@ -297,14 +299,14 @@ duplication/dead-code or already-tracked angle was dropped.
   primitives — owned by
   `docs/agent_notes/backlog/storybook-component-catalog.md`.
 - **Lint-debt drain & ratchet governance** (max-lines policy, lint follow-ups) —
-  owned by `docs/agent_notes/backlog/lint-followups-2026-06/`, the lint-ratchet,
-  and the `eslint-max-lines-policy` work.
+  owned by `docs/agent_notes/finished_work/lint-followups-2026-06.md`, the
+  lint-ratchet, and the `eslint-max-lines-policy` work.
 - **Dependency upgrades** — TypeScript 6, `@types/node` 25, `@fastify/multipart`
   10, `eslint-plugin-jsdoc`, the `eslint-plugin-react` peer exception, and the
   `fast-uri` override removal — each owned by its respective backlog note.
 - **Production / infra hardening and UX/product audits** — owned by
   `production-readiness.md`, `polish-and-mobile.md`, `ux_ui_audit/`, and
-  `ux-audit-2026-06-p0/`.
+  `ux-audit-2026-06-p0/` (closed 2026-06-21 → `finished_work/ux-audit-2026-06-p0.md`).
 - **Test-tier & mutation-testing plans** — owned by
   `mutation-testing-stryker.md` and `slow-test-tier-candidates.md`.
 

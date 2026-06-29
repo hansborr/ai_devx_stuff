@@ -623,7 +623,7 @@ for every place drift:ai currently relies on cwd:
 The `cd <target-repo>` form satisfies all six by construction because cwd is
 already the target. A `--repo` wrapper stays deferred; if target-selection work is
 revived it is tracked in the
-[drift:ai backlog](../../docs/agent_notes/backlog/drift-ai-next-items/00-index.md).
+[drift:ai backlog archive](../../docs/agent_notes/finished_work/drift-ai-next-items.md).
 
 ## Target assumptions
 
@@ -855,7 +855,8 @@ brought fully in line with it:
   reasons are tracked in the backlog; the current default surface stays limited
   to checks that can run usefully across arbitrary TypeScript repos.
 
-For maintainers, the full backlog and the contract's rationale live in
-[`docs/agent_notes/backlog/drift-ai-next-items/`](../../docs/agent_notes/backlog/drift-ai-next-items/00-index.md)
-(start with
-[`01-shared-context.md`](../../docs/agent_notes/backlog/drift-ai-next-items/01-shared-context.md)).
+For maintainers, the drift:ai task pack is complete; its archive summary and the
+contract's rationale live in
+[`docs/agent_notes/finished_work/drift-ai-next-items.md`](../../docs/agent_notes/finished_work/drift-ai-next-items.md)
+(the individual leaves, including `01-shared-context.md`, are in git history before
+the pack folder was removed).

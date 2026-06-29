@@ -181,6 +181,23 @@ describe("buildAuditReport", () => {
     // findings (warn) and skipped checks (info) are distinguished within the tool
     expect(drift?.warning).toBe(2);
     expect(drift?.info).toBe(1);
+    // Totals fold info into the sum: blocking 0 + warning 2 + info 1 = 3. This
+    // pins the `+ counts.info` term in totalOf; a `- counts.info` mutant yields 1.
+    expect(drift?.blocking).toBe(0);
+    expect(drift?.total).toBe(3);
+    expect(report.totals.total).toBe(3);
+    // The shared control collects the warn (findings) and info (skipped) rows,
+    // so its per-control total must also count the info row: 1 warning + 1 info.
+    const sharedControl = drift?.controls.find(
+      (control) => control.control === "drift-scope/current",
+    );
+    expect(sharedControl).toEqual({
+      control: "drift-scope/current",
+      blocking: 0,
+      warning: 1,
+      info: 1,
+      total: 2,
+    });
   });
 
   it("treats a clean envelope as zero findings, not a missing tool", () => {
@@ -222,6 +239,33 @@ describe("formatText", () => {
     expect(text).toContain("Unreadable or malformed envelopes (1):");
     expect(text).toContain(MALFORMED_NOT_JSON);
     expect(text).toContain("not valid JSON");
+  });
+
+  // Exact, whole-line pins on the per-control `severityMix` segments. Loose
+  // toContain checks tolerate a dropped or spuriously-added sibling segment, so
+  // these find the rendered line and assert its full content, closing the
+  // `> 0` inclusion boundaries on each severity (lines 163-165 of the report).
+  function controlLine(text: string, control: string): string | undefined {
+    return text
+      .split("\n")
+      .map((line) => line.trim())
+      .find((line) => line.startsWith(`${control}:`));
+  }
+
+  it("renders an info-only control as exactly its info segment (no zero blocking/warning)", () => {
+    // drift-ai-skipped's lone control has blocking 0, warning 0, info 1.
+    const line = controlLine(textFor([DRIFT_AI_SKIPPED]), "drift-scope/current");
+    // info > 0 false-flip drops the segment; blocking/warning > 0 true-flips add
+    // a spurious "0 blocking"/"0 warning" prefix — an exact match kills all three.
+    expect(line).toBe("drift-scope/current: 1 info");
+  });
+
+  it("renders a blocking-only control as exactly its blocking segment (no zero info appended)", () => {
+    // lint-ratchet-findings' complexity control has blocking 1, warning 0, info 0.
+    const line = controlLine(textFor([LINT_RATCHET_FINDINGS]), "lint/local/complexity");
+    // An `info >= 0` mutant would append a spurious "0 info"; a blocking > 0
+    // false-flip would empty the segment — the exact line pins both out.
+    expect(line).toBe("lint/local/complexity: 1 blocking");
   });
 });
 

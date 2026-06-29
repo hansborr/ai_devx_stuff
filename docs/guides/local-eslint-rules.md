@@ -63,9 +63,10 @@ Every local rule needs a `meta.docs` object. The guidance generator,
 - `repairCommand`: required only when `repairKind` is `codemod`; absent for all
   other repair kinds.
 
-`eslint-rules/message-guidance.test.js` is the local registration point for
-this contract. Add a new rule to `ALL_LOCAL_RULES` there, then add each
-`messageId` to the guidance-shape or policy-shape expectations below.
+`eslint-config/local-plugin.js` is the local registration point for this
+contract. The message-guidance suite derives `ALL_LOCAL_RULES` from
+`localPlugin.rules`, then checks each registered rule's `messageId` against the
+guidance-shape or policy-shape expectations below.
 
 ## Message Guidance
 
@@ -110,16 +111,15 @@ Examples: `no-barrel/noBarrel`,
 When you add a rule under `eslint-rules/`:
 
 1. Decide whether the diagnostic is guidance or policy.
-2. Import the rule in `eslint-rules/message-guidance.test.js` and add it to
-   `ALL_LOCAL_RULES`.
-3. Add the rule's `messageId` to the guidance-shape expectation, or to the
-   policy-shape exemption set when the terse policy shape is intentional.
+2. Import and register the rule in `eslint-config/local-plugin.js`.
+3. Use the guidance message shape, or add the rule's terse policy `messageId`
+   to the policy-shape exemption set when that shape is intentional.
 4. Run `bun run vitest run --project=eslint-rules` and adjust until green.
 5. Run `bun run docs:lint-guidance` if the generated local rule catalog changes.
 
-A rule whose messageIds are not covered by the guidance test will not fail CI
-today, but adding new untracked rule messages should be a reviewer flag. Bring
-them into the convention test with the rule change.
+A rule file that is not registered in `localPlugin.rules` fails the registry
+completeness test and will not run in lint. Register new rules with their
+implementation change so the convention tests cover their messages immediately.
 
 ## Probing A Single Rule Under The Flat Config
 
@@ -176,6 +176,50 @@ this way is rare (see
 [`docs/agent_notes/backlog/agent-friction-2026-06/04-lint-rule-ergonomics.md`](../agent_notes/backlog/agent-friction-2026-06/04-lint-rule-ergonomics.md)
 W1). If you find yourself writing this inline config repeatedly, promote it to a
 small `scripts/lib/lint-rule-probe.*` that takes the rule id and file.
+
+## Type-assertion boundary marker
+
+`local/type-assertion-boundary` (`eslint-rules/type-assertion-boundary.js`) does
+not accept a free-prose reason for a TypeScript cast. Outside test files
+(`*.test`, `*.spec`, `*.test-helper`), every non-`as const` assertion needs a
+machine-parseable marker:
+
+```ts
+const value = raw as Foo; // type-assertion-boundary: <category> - <reason>
+```
+
+The marker may sit on the same line after the cast, or on any line of the comment
+block directly above the statement (one JSDoc `/** … */` block, or a contiguous
+run of `//` lines with no gap). `as const` is always allowed and needs no marker.
+
+`<category>` must be exactly one of the five values in `ALLOWED_CATEGORIES`
+(`eslint-rules/type-assertion-boundary.js`); any other category fails with
+`invalidCategory`, and a marker with no reason after the `-` fails with
+`emptyReason`:
+
+| Category    | Use when the cast crosses…                                                    |
+| ----------- | ---------------------------------------------------------------------------- |
+| `framework` | A framework/library type seam ESLint can't see through (handler/plugin types) |
+| `json`      | A `JSON.parse` / serialized-payload boundary with no static shape             |
+| `prisma`    | A Prisma client/result shape the generated types don't narrow                 |
+| `test`      | A test-only boundary in a non-test file (fixtures, mocks wired into prod-ish code) |
+| `interop`   | A runtime invariant TypeScript can't express (see example below)             |
+
+`interop` is for cases where the value is provably correct at runtime but the type
+system can't follow it — e.g. `Object.entries`/`Object.keys` always typing keys as
+`string`, or narrowing a value through a runtime predicate that isn't a TS type
+guard. Worked example (`packages/server/src/services/level-up/asi.ts`):
+
+```ts
+for (const [key, delta] of Object.entries(abilityDeltas)) {
+  // type-assertion-boundary: interop - keys come from validateAsiChoice via Object.entries (which always types keys as `string`); the runtime invariant isn't expressible to TS. The `as number` narrows the indexed-access union, which would otherwise include non-ability fields the key set never reaches.
+  const current = freshStats[key as keyof CharacterStats] as number;
+}
+```
+
+Prefer rewriting to a typed source (Zod parse, Prisma `include`, framework handler
+types) over adding a marker; the marker is for real boundaries, not a way to silence
+the checker.
 
 ## Satisfying Core `complexity` In Production Dispatch
 

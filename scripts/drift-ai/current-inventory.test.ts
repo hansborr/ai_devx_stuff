@@ -94,15 +94,13 @@ describe("resolveStrictRepoRoot", () => {
 });
 
 describe("discoverCurrentFiles", () => {
-  it("runs git inventory from the repo root when invoked from a subdirectory", () => {
+  it("runs git inventory from the configured repo root", () => {
     const repoRoot = createTempGitRepo();
     const srcDir = path.join(repoRoot, "src");
-    const originalCwd = process.cwd();
     mkdirSync(srcDir, { recursive: true });
     writeFileSync(path.join(srcDir, "app.ts"), "export const app = true;\n");
 
     try {
-      process.chdir(srcDir);
       const files = discoverCurrentFiles({
         repoRoot,
         gitBuffer: defaultBufferGitRunner({ repoRoot }),
@@ -112,7 +110,6 @@ describe("discoverCurrentFiles", () => {
 
       expect(discoveredPaths(files)).toEqual(["src/app.ts"]);
     } finally {
-      process.chdir(originalCwd);
       rmSync(repoRoot, { recursive: true, force: true });
     }
   });

@@ -1,6 +1,6 @@
 # 15. AGENTS.md type-assertion guidance omits the lint-enforced marker syntax and the heavily-used interop category
 
-Status: Proposed — codebase maintainability/onboarding audit 2026-06-13. Not yet started.
+Status: Done — 2026-06-20. Rewrote the `AGENTS.md` Code-Standards type-assertion bullet to name all five enforced categories (incl. `interop`) and show the exact `// type-assertion-boundary: <category> - <reason>` marker + placement rules, replacing the misleading "leave a short reason" prose and linking to the paired guide. Added a "Type-assertion boundary marker" subsection to `docs/guides/local-eslint-rules.md` (marker format, placement, a five-category use-when table, and the worked `interop` example from `asi.ts`), sourced from `eslint-rules/type-assertion-boundary.js` (`ALLOWED_CATEGORIES`). Doc-only; the optional generator-surfacing guard was not added (out of scope).
 Theme: type-assertion boundary docs · Area: docs · Severity: medium · Size: S
 
 Source: codebase maintainability/onboarding audit 2026-06-13 (lens: type-safety-boundaries); evidence independently re-verified. · Confidence: high

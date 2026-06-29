@@ -11,11 +11,17 @@ import {
   formatJson,
   formatText,
   parseArgs,
+  runLocatorUsage,
 } from "./locator-usage.js";
 
 const tempRoots: string[] = [];
+let originalCwd: string | undefined;
 
 afterEach(() => {
+  if (originalCwd !== undefined) {
+    process.chdir(originalCwd);
+    originalCwd = undefined;
+  }
   while (tempRoots.length > 0) {
     const root = tempRoots.pop();
     if (root) rmSync(root, { recursive: true, force: true });
@@ -49,6 +55,15 @@ describe("parseArgs", () => {
     expect(() => parseArgs(["--format", "yaml"], "/repo")).toThrow(
       /--format requires text or json/u,
     );
+  });
+
+  it("throws help on --help and -h", () => {
+    expect(() => parseArgs(["--help"], "/repo")).toThrow(/bun run drift:e2e/u);
+    expect(() => parseArgs(["-h"], "/repo")).toThrow(/bun run drift:e2e/u);
+  });
+
+  it("throws when --format has no following value", () => {
+    expect(() => parseArgs(["--format"], "/repo")).toThrow(/--format requires a value/u);
   });
 });
 
@@ -99,7 +114,69 @@ describe("locator usage report", () => {
     });
   });
 
+  it("formats an empty report with the OK success line and no by-file section", () => {
+    const repoRoot = makeTempRepo();
+    writeRepoFile(repoRoot, "e2e/a.spec.ts", "page.getByRole('button');\n");
+    const report = buildLocatorUsageReport(repoRoot);
+
+    expect(report.files).toEqual([]);
+    const text = formatText(report);
+    expect(text).toContain("OK: no raw .locator( calls found.");
+    expect(text).not.toContain("  by file:");
+  });
+
   it("counts non-overlapping source-text occurrences", () => {
     expect(countOccurrences(".locator(.locator(", ".locator(")).toBe(2);
+  });
+});
+
+describe("runLocatorUsage", () => {
+  function chdirToTempRepo(): string {
+    const repoRoot = makeTempRepo();
+    if (originalCwd === undefined) originalCwd = process.cwd();
+    process.chdir(repoRoot);
+    return repoRoot;
+  }
+
+  it("emits the text report and exit code 0 by default", () => {
+    chdirToTempRepo();
+    writeRepoFile(process.cwd(), "e2e/a.spec.ts", "page.locator('a');\n");
+
+    const result = runLocatorUsage([]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("raw .locator( calls: 1");
+    expect(() => JSON.parse(result.stdout)).toThrow();
+  });
+
+  it("emits the JSON report when --format json is given", () => {
+    chdirToTempRepo();
+    writeRepoFile(process.cwd(), "e2e/a.spec.ts", "page.locator('a');\n");
+
+    const result = runLocatorUsage(["--format", "json"]);
+
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      schemaVersion: 2,
+      totalLocatorCalls: 1,
+    });
+  });
+
+  it("maps a usage error to exit code 2", () => {
+    chdirToTempRepo();
+
+    const result = runLocatorUsage(["--format", "xml"]);
+
+    expect(result.exitCode).toBe(2);
+    expect(result.stdout).toContain("--format requires text or json");
+  });
+
+  it("maps --help to exit code 0 with usage text", () => {
+    chdirToTempRepo();
+
+    const result = runLocatorUsage(["--help"]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("bun run drift:e2e");
   });
 });

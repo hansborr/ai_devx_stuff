@@ -13,6 +13,7 @@ AI_POLICY_GIT_RESET="Dangerous git reset modes are not allowed from agents. Use 
 AI_POLICY_GIT_HISTORY_REWRITE="Git history rewrite and direct ref manipulation are not allowed from agents. Add a follow-up commit or ask the user to run the rewrite."
 AI_POLICY_GIT_FORCE_PUSH="Git force-push and remote branch deletion are not allowed from agents. Push normal feature-branch updates only, or ask the user to perform the remote mutation."
 AI_POLICY_GIT_PUSH_MAIN="Pushing to main or master is not allowed from agents. Push a feature branch or ask the user to push the protected branch."
+AI_POLICY_GIT_COMMIT_ON_MAIN="Committing on main or master is not allowed from agents. Create a feature branch ('git switch -c feat/...') and commit there; reviewers merge to the protected branch."
 AI_POLICY_GIT_BRANCH_FORCE_DELETE="Force-deleting branches, deleting tags, or force-removing worktrees is not allowed from agents. Use non-force cleanup such as 'git branch -d' or 'bun run worktree:drop', or ask the user to perform the deletion."
 AI_POLICY_GIT_CLEAN_FORCE="Git clean with force is not allowed from agents because it destroys untracked files. Remove specific generated files by name or ask the user to clean the tree."
 AI_POLICY_GH_REMOTE_MUTATION="GitHub remote mutations are not allowed from agents. Use read-only 'gh ... view/list/status' commands, or ask the user to perform the mutation."
@@ -24,6 +25,13 @@ AI_POLICY_CMD_START='(^[[:space:]]*|[;&|][[:space:]]*)'
 AI_POLICY_CMD_END="($|[[:space:];|&'\"])"
 AI_POLICY_ENV_PREFIX='env[[:space:]]+([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]+[[:space:]]+)+'
 AI_POLICY_SHELL_PREFIX="(bash|sh)[[:space:]]+-[^[:space:]]*c[^[:space:]]*[[:space:]]+['\"]?"
+# Global git options that may legitimately sit between `git` and the `commit`
+# verb: a value-taking option with its argument (`-c key=val`, `-C path`,
+# `--git-dir path`, …) or any other single dash-led flag. Restricting the
+# pre-verb tokens to these keeps read-only subcommands that merely *name* commit
+# (`git grep commit`, `git log --grep commit`, `git show commit`) from being
+# mistaken for a real commit; subcommands are bare words, never dash-led.
+AI_POLICY_GIT_PRECOMMIT_OPTS='((-[cC]|--(git-dir|work-tree|namespace|exec-path|config-env|super-prefix))[[:space:]]+[^[:space:];&|]+[[:space:]]+|--[A-Za-z][^[:space:];&|]*[[:space:]]+|-[A-Za-z][^[:space:];&|]*[[:space:]]+)*'
 
 ai_policy_command_re() {
   local command_re="$1"
@@ -47,8 +55,46 @@ ai_current_branch() {
   git symbolic-ref --quiet --short HEAD 2>/dev/null || true
 }
 
+# True when direct commits/pushes to BRANCH are disallowed (the protected
+# integration branch). Reviewers land work here via merge, not direct commits.
+ai_branch_is_protected() {
+  case "$1" in
+    main|master) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# Hard guard for git-level hooks (.husky/pre-commit): refuse a direct commit on
+# the protected branch and point at the merge-based integration path. Because
+# git runs the hook inside the target repo, this is cwd-correct and also covers
+# the `git -C <path>` / `cd <path> && git commit` forms that the PreToolUse
+# string matcher (ai_policy_has_git_commit_on_main) cannot resolve. Prints to
+# stderr and returns 1 when blocked, 0 otherwise; the caller decides to exit.
+ai_guard_commit_branch_or_die() {
+  local branch
+  branch=$(ai_current_branch)
+  ai_branch_is_protected "$branch" || return 0
+  cat >&2 <<EOF
+=== COMMIT BLOCKED: protected branch '$branch' ===
+Direct commits on '$branch' are not allowed. Land work on a feature branch:
+  git switch -c feat/your-change && git commit ...
+then integrate with a merge (git merge --no-ff), which skips this hook. A
+genuine one-off exception needs --no-verify, which skips ALL pre-commit checks.
+EOF
+  return 1
+}
+
 ai_policy_strip_allowed_rebase_controls() {
   sed -E 's/git[[:space:]]+rebase[[:space:]]+--(continue|abort|skip|quit)//g' <<< "$1"
+}
+
+# Remove `git [opts] commit ... --dry-run ...` invocations so the live-commit
+# matcher cannot be exempted by a `--dry-run` token that belongs to a *different*
+# command later on the same line. The pattern is bounded by [^;&|], so it only
+# ever strips within a single command segment (a genuine dry-run commit), never
+# across a `;`/`&&`/`||`/pipe. Mirrors ai_policy_strip_allowed_rebase_controls.
+ai_policy_strip_dry_run_commits() {
+  sed -E "s/git[[:space:]]+${AI_POLICY_GIT_PRECOMMIT_OPTS}commit[^;&|]*--dry-run[^;&|]*//g" <<< "$1"
 }
 
 ai_policy_has_dangerous_git_reset() {
@@ -75,22 +121,38 @@ ai_policy_has_git_push_to_main() {
   ai_policy_has_command "$cmd" "git[[:space:]]+push[^;&|]*[[:space:]]--(all|branches)$AI_POLICY_CMD_END" && return 0
 
   branch=$(ai_current_branch)
-  case "$branch" in
-    main|master)
-      push_command_end="($|[;|&'\"])"
-      push_flags_re="([[:space:]]+(-[A-Za-z][A-Za-z0-9-]*|--[A-Za-z0-9-]+(=[^[:space:]]+)?))*"
-      push_redirect_tail="[[:space:]]*[0-9]*(>&|<&|[<>])[^[:space:];|&'\"]*"
-      push_remote_re="([[:space:]]+[A-Za-z0-9._/-]+)?"
-      ai_policy_has_command "$cmd" "git[[:space:]]+push${push_flags_re}${push_remote_re}[[:space:]]*$push_command_end" && return 0
-      ai_policy_has_command "$cmd" "git[[:space:]]+push${push_flags_re}${push_remote_re}${push_redirect_tail}" && return 0
-      ai_policy_has_command "$cmd" "git[[:space:]]+push${push_flags_re}${push_remote_re}[[:space:]]+HEAD[[:space:]]*$push_command_end" && return 0
-      ai_policy_has_command "$cmd" "git[[:space:]]+push${push_flags_re}${push_remote_re}[[:space:]]+HEAD${push_redirect_tail}" && return 0
-      return 1
-      ;;
-    *)
-      return 1
-      ;;
-  esac
+  ai_branch_is_protected "$branch" || return 1
+
+  push_command_end="($|[;|&'\"])"
+  push_flags_re="([[:space:]]+(-[A-Za-z][A-Za-z0-9-]*|--[A-Za-z0-9-]+(=[^[:space:]]+)?))*"
+  push_redirect_tail="[[:space:]]*[0-9]*(>&|<&|[<>])[^[:space:];|&'\"]*"
+  push_remote_re="([[:space:]]+[A-Za-z0-9._/-]+)?"
+  ai_policy_has_command "$cmd" "git[[:space:]]+push${push_flags_re}${push_remote_re}[[:space:]]*$push_command_end" && return 0
+  ai_policy_has_command "$cmd" "git[[:space:]]+push${push_flags_re}${push_remote_re}${push_redirect_tail}" && return 0
+  ai_policy_has_command "$cmd" "git[[:space:]]+push${push_flags_re}${push_remote_re}[[:space:]]+HEAD[[:space:]]*$push_command_end" && return 0
+  ai_policy_has_command "$cmd" "git[[:space:]]+push${push_flags_re}${push_remote_re}[[:space:]]+HEAD${push_redirect_tail}" && return 0
+  return 1
+}
+
+ai_policy_has_git_commit_on_main() {
+  local cmd="$1"
+  local branch scrubbed
+
+  # Drop dry-run commits first: a `git ... commit ... --dry-run` validates
+  # without creating a commit, so it is never blocked. Stripping it (segment-
+  # bounded) before the live-commit test closes the bypass where a real commit
+  # rides on a later, unrelated `--dry-run`, e.g. `git commit -m x && echo --dry-run`.
+  scrubbed=$(ai_policy_strip_dry_run_commits "$cmd")
+
+  # Match a real `git commit`, including the `git -c <cfg> ... commit` form.
+  # Only genuine global options may precede the verb (see
+  # AI_POLICY_GIT_PRECOMMIT_OPTS), so read-only subcommands that merely name
+  # `commit` are not caught, and `commit-tree`/`commit-graph` plumbing and a
+  # bare `... commit-ish` arg are excluded because CMD_END requires a separator.
+  ai_policy_has_command "$scrubbed" "git[[:space:]]+${AI_POLICY_GIT_PRECOMMIT_OPTS}commit$AI_POLICY_CMD_END" || return 1
+
+  branch=$(ai_current_branch)
+  ai_branch_is_protected "$branch"
 }
 
 ai_policy_has_gh_api_explicit_get() {
@@ -235,6 +297,14 @@ ai_policy_violation_reason() {
     || ai_policy_has_command "$cmd" "gh[[:space:]]+config[[:space:]]+set$AI_POLICY_CMD_END" \
     || ai_policy_has_command "$cmd" "gh[[:space:]]+extension[[:space:]]+(install|remove|upgrade)$AI_POLICY_CMD_END"; then
     printf '%s' "$AI_POLICY_GH_REMOTE_MUTATION"
+    return 0
+  fi
+
+  # Checked last so command-specific violations (amend, bypass, …) win first:
+  # a plain `git commit` is otherwise allowed, and we only block it on the
+  # protected branch where work must land on a feature branch instead.
+  if ai_policy_has_git_commit_on_main "$cmd"; then
+    printf '%s' "$AI_POLICY_GIT_COMMIT_ON_MAIN"
     return 0
   fi
 

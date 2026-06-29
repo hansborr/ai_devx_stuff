@@ -1,11 +1,13 @@
-import { readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PATH_POLICY, type PathPolicySelector } from "./path-policy.js";
 import { SCRIPT_SMOKE_TEST_NAMES } from "./path-policy-smoke-subjects.js";
+import { SCRIPT_SMOKE_SUBJECTS } from "./path-policy-smoke-subjects-data.js";
 
 const thisDir = dirname(fileURLToPath(import.meta.url));
 
@@ -172,5 +174,146 @@ describe("smoke-subject data module", () => {
     for (const [name, subjects] of tracksDiscovery) {
       expect(subjects, `${name} must also track the split data module`).toContain(dataModule);
     }
+  });
+});
+
+// Finding 76 (mutation-coverage 2026-06): the live equality assertion at
+// "keeps script-smoke names aligned with subject entries" only holds in the
+// collapsed steady state where the discovered file set EXACTLY equals the
+// subject set, which masks the real merge/dedup/ordering/fallback logic in
+// discoverScriptSmokeTestNames(). discoverScriptSmokeTestNames is module-private
+// and runs once at import against join(process.cwd(), "scripts", "tests"), so we
+// drive it against a controlled fixture by chdir-ing into a temp root and
+// re-importing the module with vi.resetModules(). No production change.
+describe("discoverScriptSmokeTestNames merge/dedup/ordering/fallback", () => {
+  const originalCwd = process.cwd();
+  let fixtureRoot: string;
+
+  const curatedNames = Object.keys(SCRIPT_SMOKE_SUBJECTS);
+
+  const writeTest = (testsDir: string, name: string): void => {
+    writeFileSync(join(testsDir, name), "");
+  };
+
+  // Re-run module-private discovery against the current cwd by busting the
+  // module cache and re-importing; SCRIPT_SMOKE_TEST_NAMES is recomputed at
+  // import time from the live cwd's scripts/tests directory.
+  const rediscover = async (): Promise<readonly string[]> => {
+    vi.resetModules();
+    const mod = await import("./path-policy-smoke-subjects.js");
+    return mod.SCRIPT_SMOKE_TEST_NAMES;
+  };
+
+  beforeEach(() => {
+    fixtureRoot = mkdtempSync(join(tmpdir(), "smoke-discovery-"));
+  });
+
+  afterEach(() => {
+    process.chdir(originalCwd);
+    vi.resetModules();
+    rmSync(fixtureRoot, { recursive: true, force: true });
+  });
+
+  it("keeps curated subject order, drops curated names whose .sh is missing on disk, and appends disk-only names alphabetically after the curated ones", async () => {
+    const testsDir = join(fixtureRoot, "scripts", "tests");
+    mkdirSync(testsDir, { recursive: true });
+
+    // Two curated tests present on disk (in subject order), the third omitted so
+    // the `ordered` filter must drop it. Mutating the filter to `subjectNames`
+    // would wrongly keep the omitted curated name.
+    expect(curatedNames.length).toBeGreaterThanOrEqual(3);
+    const keptFirst = curatedNames[0] as string;
+    const keptSecond = curatedNames[1] as string;
+    const omittedThird = curatedNames[2] as string;
+    writeTest(testsDir, `${keptFirst}.sh`);
+    writeTest(testsDir, `${keptSecond}.sh`);
+
+    // Disk-only names written in reverse-alpha creation order; both must land in
+    // `extra` AFTER the curated names and in alphabetical order. (On this
+    // platform readdirSync already returns ASCII-sorted entries, so the explicit
+    // `.sort()` is a no-op here and that single mutant stays locally equivalent;
+    // the assertions below still pin the curated-before-extra split and the
+    // alphabetical contract.)
+    writeTest(testsDir, "test-zeta-extra.sh");
+    writeTest(testsDir, "test-alpha-extra.sh");
+
+    process.chdir(fixtureRoot);
+    const result = await rediscover();
+
+    // Curated-then-extra split, curated kept in subject order, extra sorted.
+    expect(result).toEqual([keptFirst, keptSecond, "test-alpha-extra", "test-zeta-extra"]);
+    // The curated name with no on-disk .sh is dropped (kills `ordered` -> subjectNames).
+    expect(result).not.toContain(omittedThird);
+    // Disk-only names are present (kills `extra` -> [] and the neutered predicate).
+    expect(result).toContain("test-alpha-extra");
+    expect(result).toContain("test-zeta-extra");
+    // Alphabetical order of disk-only names despite reverse write order (kills dropped .sort()).
+    expect(result.indexOf("test-alpha-extra")).toBeLessThan(result.indexOf("test-zeta-extra"));
+    // Curated names precede every disk-only name (kills concat-order / spread mutants).
+    expect(result.indexOf(keptFirst)).toBeLessThan(result.indexOf("test-alpha-extra"));
+    expect(result.indexOf(keptSecond)).toBeLessThan(result.indexOf("test-alpha-extra"));
+    // No duplicates: a curated-and-on-disk name must not also appear in `extra`.
+    expect(new Set(result).size).toBe(result.length);
+  });
+
+  it("ignores directory entries that do not match /^test-.+\\.sh$/u, pinning both the start and end anchors", async () => {
+    const testsDir = join(fixtureRoot, "scripts", "tests");
+    mkdirSync(testsDir, { recursive: true });
+
+    // One real disk-only match so the discovered set is non-empty.
+    writeTest(testsDir, "test-real-extra.sh");
+
+    // Start-anchor probe: dropping `^` would let "xtest-pin.sh" match on the
+    // embedded "test-pin.sh" substring (then sliced to "xtest-pin").
+    writeTest(testsDir, "xtest-pin.sh");
+    // End-anchor probe: dropping `$` would let "test-pin.shx" match; because the
+    // map slices off the LAST three chars ("shx"), the artifact is "test-pin.".
+    writeTest(testsDir, "test-pin.shx");
+    // Other non-matching shapes that must always be excluded.
+    writeTest(testsDir, "helper.sh");
+    writeTest(testsDir, "test-.sh"); // empty middle: `.+` requires >=1 char between "test-" and ".sh"
+    mkdirSync(join(testsDir, "lib"));
+
+    process.chdir(fixtureRoot);
+    const result = await rediscover();
+
+    expect(result).toContain("test-real-extra");
+    // Start anchor: nothing derived from "xtest-pin.sh" (kills the dropped `^`).
+    expect(result).not.toContain("xtest-pin");
+    expect(result.some((name) => name.startsWith("xtest"))).toBe(false);
+    // End anchor: nothing derived from "test-pin.shx" (kills the dropped `$`).
+    // The slice strips the last 3 chars, so a leaked entry would surface as "test-pin.".
+    expect(result).not.toContain("test-pin.");
+    expect(result.some((name) => name.endsWith("."))).toBe(false);
+    // Non-matching helper, empty-middle, and the lib directory are excluded.
+    expect(result).not.toContain("helper");
+    expect(result).not.toContain("test-");
+    expect(result).not.toContain("lib");
+  });
+
+  it("falls back to the raw curated subject names, in subject order, when scripts/tests is absent", async () => {
+    // No scripts/tests directory under fixtureRoot, so existsSync(testsDir) is false.
+    process.chdir(fixtureRoot);
+
+    const result = await rediscover();
+
+    // The fallback returns the curated names unchanged and in declaration order.
+    expect(result).toEqual(curatedNames);
+  });
+
+  it("does NOT fall back when scripts/tests exists, so the readdir-driven merge governs the result", async () => {
+    const testsDir = join(fixtureRoot, "scripts", "tests");
+    mkdirSync(testsDir, { recursive: true });
+    // Exactly one disk-only test and none of the curated tests on disk: the
+    // existsSync branch must be taken (merge path), dropping every curated name
+    // and surfacing only the disk-only test. A flipped existsSync branch would
+    // instead return the full curated list here.
+    writeTest(testsDir, "test-only-on-disk.sh");
+
+    process.chdir(fixtureRoot);
+    const result = await rediscover();
+
+    expect(result).toEqual(["test-only-on-disk"]);
+    expect(result).not.toEqual(curatedNames);
   });
 });

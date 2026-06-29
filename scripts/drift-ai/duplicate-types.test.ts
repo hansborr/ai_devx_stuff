@@ -1,9 +1,6 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
+import { describe, expect, it } from "vitest";
 
-import { afterEach, describe, expect, it } from "vitest";
-
+import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
 import type { CheckRunInput } from "./check-plugin.js";
 import { parseArgs } from "./cli-args.js";
 import { DEFAULT_DRIFT_AI_CONFIG } from "./config.js";
@@ -14,24 +11,10 @@ import type { DetectorScope } from "./scope.js";
 import { buildSourceExtensions, toChangedScopeFile } from "./scope.js";
 import type { ChangedFile } from "./types.js";
 
-const tempRoots: string[] = [];
-afterEach(() => {
-  while (tempRoots.length > 0) {
-    const root = tempRoots.pop();
-    if (root !== undefined) rmSync(root, { recursive: true, force: true });
-  }
-});
+const tmpRepo = registerTempRootCleanup();
 
-function writeRepo(files: Record<string, string>): string {
-  const root = mkdtempSync(path.join(tmpdir(), "drift-dup-types-"));
-  tempRoots.push(root);
-  for (const [rel, source] of Object.entries(files)) {
-    const abs = path.join(root, rel);
-    mkdirSync(path.dirname(abs), { recursive: true });
-    writeFileSync(abs, source);
-  }
-  return root;
-}
+const writeRepo = (files: Record<string, string>): string =>
+  tmpRepo.writeRepo(files, "drift-dup-types-");
 
 function shapesFrom(files: Record<string, string>): ShapeEntry<TypeShapeExtra>[] {
   return Object.entries(files).flatMap(([filePath, source]) =>

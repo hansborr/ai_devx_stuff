@@ -5,25 +5,7 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
-import concurrencyGuardRule from "./concurrency-guard.js";
-import e2ePreferRoleSelectorsRule from "./e2e-prefer-role-selectors.js";
-import maxLinesRule from "./max-lines.js";
-import noAsyncArrayCallbacksRule from "./no-async-array-callbacks.js";
-import noBarrelRule from "./no-barrel.js";
-import noBroadcastInTransactionRule from "./no-broadcast-in-transaction.js";
-import noExplicitAnyRule from "./no-explicit-any.js";
-import noLlmArtifactsRule from "./no-llm-artifacts.js";
-import noRedundantCentralMockRule from "./no-redundant-central-mock.js";
-import noSwallowedErrorsRule from "./no-swallowed-errors.js";
-import socketRegistryBroadcastsRule from "./socket-registry-broadcasts.js";
-import strictSharedSchemasRule from "./strict-shared-schemas.js";
-import strictTrpcInputRule from "./strict-trpc-input.js";
-import structuredLoggingRule from "./structured-logging.js";
-import testFileLocationRule from "./test-file-location.js";
-import typeAssertionBoundaryRule from "./type-assertion-boundary.js";
-import trpcRequireOutputSchemaRule from "./trpc-require-output-schema.js";
-import trpcSharedInputSchemaRule from "./trpc-shared-input-schema.js";
-import trpcSharedOutputSchemaRule from "./trpc-shared-output-schema.js";
+import { ALL_LOCAL_RULES } from "./all-local-rules.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const MAX_MULTI_STEP_MESSAGE_LENGTH = 520;
@@ -37,28 +19,6 @@ const ACTION_WORD_PATTERN =
 // keep in sync with scripts/generate-lint-guidance.ts
 const ACCEPTED_CATEGORIES = new Set(["maintainability", "architecture-fitness", "behavior"]);
 const ACCEPTED_REPAIR_KINDS = new Set(["autofix", "suggestion", "codemod", "manual"]);
-
-const ALL_LOCAL_RULES = [
-  { id: "concurrency-guard", rule: concurrencyGuardRule },
-  { id: "e2e-prefer-role-selectors", rule: e2ePreferRoleSelectorsRule },
-  { id: "max-lines", rule: maxLinesRule },
-  { id: "no-async-array-callbacks", rule: noAsyncArrayCallbacksRule },
-  { id: "no-barrel", rule: noBarrelRule },
-  { id: "no-broadcast-in-transaction", rule: noBroadcastInTransactionRule },
-  { id: "no-explicit-any", rule: noExplicitAnyRule },
-  { id: "no-llm-artifacts", rule: noLlmArtifactsRule },
-  { id: "no-redundant-central-mock", rule: noRedundantCentralMockRule },
-  { id: "no-swallowed-errors", rule: noSwallowedErrorsRule },
-  { id: "socket-registry-broadcasts", rule: socketRegistryBroadcastsRule },
-  { id: "strict-shared-schemas", rule: strictSharedSchemasRule },
-  { id: "strict-trpc-input", rule: strictTrpcInputRule },
-  { id: "structured-logging", rule: structuredLoggingRule },
-  { id: "test-file-location", rule: testFileLocationRule },
-  { id: "type-assertion-boundary", rule: typeAssertionBoundaryRule },
-  { id: "trpc-require-output-schema", rule: trpcRequireOutputSchemaRule },
-  { id: "trpc-shared-input-schema", rule: trpcSharedInputSchemaRule },
-  { id: "trpc-shared-output-schema", rule: trpcSharedOutputSchemaRule },
-];
 
 // Diagnostics where a single-clause policy reminder is the right shape; padding
 // to Why/How would dilute the signal. Group by why-it-stays-terse, not by rule.

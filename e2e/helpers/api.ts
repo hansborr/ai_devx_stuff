@@ -118,22 +118,24 @@ export async function apiLogin(
 }
 
 /** Create a minimal character via the API. Returns the character ID. */
+export interface ApiCreateCharacterOptions {
+  name: string;
+  speciesId?: string;
+  subspeciesId?: string;
+  classId?: string;
+  backgroundId?: string;
+  strength?: number;
+  dexterity?: number;
+  constitution?: number;
+  intelligence?: number;
+  wisdom?: number;
+  charisma?: number;
+}
+
 export async function apiCreateCharacter(
   ctx: APIRequestContext,
   token: string,
-  opts: {
-    name: string;
-    speciesId?: string;
-    subspeciesId?: string;
-    classId?: string;
-    backgroundId?: string;
-    strength?: number;
-    dexterity?: number;
-    constitution?: number;
-    intelligence?: number;
-    wisdom?: number;
-    charisma?: number;
-  },
+  opts: ApiCreateCharacterOptions,
 ): Promise<{ id: string }> {
   const { name, subspeciesId, ...overrides } = opts;
   const input = { name, ...DEFAULT_CHARACTER_INPUT, ...overrides };

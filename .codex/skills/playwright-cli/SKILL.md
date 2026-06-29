@@ -1,6 +1,11 @@
 ---
 name: playwright-cli
-description: Automate browser interactions, test web pages and work with Playwright tests.
+description: >-
+  Automate browser interactions, inspect rendered pages, capture
+  snapshots/screenshots, and run or debug Playwright tests with playwright-cli.
+  Use when Codex needs to drive a browser, verify web UI behavior, inspect page
+  state, manage browser storage/session state, debug Playwright tests, record
+  traces/videos, or generate Playwright test flows.
 allowed-tools: Bash(playwright-cli:*) Bash(npx:*) Bash(npm:*)
 ---
 

@@ -1,6 +1,6 @@
 # 22. No index/README for server and client test/ helper directories, leaving overlapping encounter fixture builders undiscoverable
 
-Status: Proposed — codebase maintainability/onboarding audit 2026-06-13. Not yet started.
+Status: Done — 2026-06-20. Added `packages/server/src/test/MODULE.md` and `packages/client/src/test/MODULE.md` per the `docs/module-docs.md` charter: each maps its helper files one-line, and the server doc carries the "Encounter builders — use when" table (createEncounter / createEncounterWithMonsters / createActiveEncounter / buildActiveBattle / buildActiveBattleWithLog — state, participants, return type, when-to-use) plus the encounter-test-helper vs encounter-combat-test-helper split rule; the client doc groups render/fixtures/mocks and cross-links the encounter fixtures to the server table. Ran `bun run module:index`; `MODULE-INDEX.md` now lists both. Docs-only; no helper code changed, no builders merged.
 Theme: test-helper discoverability · Area: server · Severity: low · Size: S
 
 Source: codebase maintainability/onboarding audit 2026-06-13 (lens: testing-ergonomics); evidence independently re-verified. · Confidence: high

@@ -178,8 +178,9 @@ export const unitTestConfigs = [
   // testing-library recommended-for-React rules, scoped to client component
   // tests (leaf 06 evaluation). jest-dom is intentionally not adopted: its
   // latest release (5.5.0) predates ESLint 10 and crashes on the removed
-  // context.getSourceCode API in 7 of 11 rules. See the Leaf 06 verdict in
-  // docs/agent_notes/backlog/lint-followups-2026-06/evaluation-verdicts.md.
+  // context.getSourceCode API in 7 of 11 rules. See the lint-followups summary
+  // at docs/agent_notes/finished_work/lint-followups-2026-06.md; the original
+  // Leaf 06 verdict register now lives only in git history.
   {
     files: ["packages/client/src/**/*.test.tsx"],
     plugins: { "testing-library": testingLibraryPlugin },

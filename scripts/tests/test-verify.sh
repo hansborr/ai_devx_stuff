@@ -206,6 +206,46 @@ if run_verify --bogus >/dev/null 2>&1; then
 fi
 ok "verify.sh rejects unknown flags"
 
+# --- fast-commit toggle: pre-commit skips only the slow test slots ----------
+# When the fast-commit marker is present the pre_commit consumer skips the two
+# slow test slots (test, scripts) with MUSI_VERIFY_SLOT_SKIP_RC; static slots
+# (typecheck) and every other consumer (verify_changed) resolve normally. With
+# the marker absent, pre_commit test resolves exactly as before.
+(
+  LOG_DIR="$SANDBOX/fast-commit-steps-logs"
+  # shellcheck disable=SC2034  # consumed by the sourced steps.generated.sh guard
+  TIMINGS_FILE="$LOG_DIR/timings.json"
+  mkdir -p "$LOG_DIR"
+  # shellcheck source=../verify/steps.generated.sh
+  . "$SCRIPT_DIR/../verify/steps.generated.sh"
+  # shellcheck source=../verify/steps-lib.sh
+  . "$SCRIPT_DIR/../verify/steps-lib.sh"
+
+  present_marker="$SANDBOX/fast-commit-on"
+  : > "$present_marker"
+  absent_marker="$SANDBOX/fast-commit-off"
+  rm -f "$absent_marker"
+
+  resolve_rc() {
+    local rc=0
+    ( export MUSI_FAST_COMMIT_MARKER="$1"; musi_resolve_slot_cmd "$2" "$3" ) \
+      >/dev/null 2>&1 || rc=$?
+    printf '%s' "$rc"
+  }
+
+  [ "$(resolve_rc "$present_marker" pre_commit test)" = "100" ] \
+    || fail "fast-commit marker should skip the pre_commit test slot"
+  [ "$(resolve_rc "$present_marker" pre_commit scripts)" = "100" ] \
+    || fail "fast-commit marker should skip the pre_commit scripts slot"
+  [ "$(resolve_rc "$present_marker" pre_commit typecheck)" = "0" ] \
+    || fail "fast-commit marker must not skip the pre_commit typecheck slot"
+  [ "$(resolve_rc "$present_marker" verify_changed test)" = "0" ] \
+    || fail "fast-commit marker must not affect the verify_changed consumer"
+  [ "$(resolve_rc "$absent_marker" pre_commit test)" = "0" ] \
+    || fail "absent fast-commit marker should resolve the pre_commit test slot normally"
+) || exit 1
+ok "fast-commit marker skips only the slow pre-commit test slots"
+
 # --- happy path: changed mode writes a marker -----------------------------
 : > "$STUB_LOG_FILE"
 rm -f "$MARKER_CHANGED"

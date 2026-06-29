@@ -1,26 +1,16 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { runBlobSizeCli } from "./sensor-blob-size.js";
+import { registerTempRootCleanup } from "./test-support/tmp-repo.test-helper.js";
 
-const tempRoots: string[] = [];
-
-afterEach(() => {
-  while (tempRoots.length > 0) {
-    const root = tempRoots.pop();
-    if (root) rmSync(root, { recursive: true, force: true });
-  }
-});
+const tmpRepo = registerTempRootCleanup();
 
 function makeRepo(): string {
-  const root = mkdtempSync(path.join(tmpdir(), "sensor-blob-size-"));
-  tempRoots.push(root);
-  execFileSync("git", ["init", "-q"], { cwd: root });
-  return root;
+  return tmpRepo.makeTmpGitRepo("sensor-blob-size-");
 }
 
 function git(root: string, args: readonly string[]): void {

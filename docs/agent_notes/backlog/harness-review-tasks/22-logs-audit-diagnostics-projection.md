@@ -1,6 +1,6 @@
 # 22 - logs:audit diagnostics projection
 
-Status: Parked
+Status: Superseded -> drift-ai-next-items 12 (logs:audit diagnostics projection, Done)
 Track: Dg (diagnostics)
 Size: medium
 Depends on: 13, 20

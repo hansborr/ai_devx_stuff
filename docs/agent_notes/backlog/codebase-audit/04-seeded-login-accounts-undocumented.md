@@ -1,6 +1,6 @@
 # 4. Seeded dev login accounts (dm@example.com / player1 / player2, password `password123`) are absent from the onboarding path
 
-Status: Proposed — codebase maintainability/onboarding audit 2026-06-13. Not yet started.
+Status: Done — 2026-06-20. Added a "Log in with a seeded account" step (step 6) to the `README.md` Quickstart with a 3-row table (email · display name · role) mirroring `seed-users.ts`, the shared `password123` flagged as dev-seed-only, and a pointer to re-run `db:seed`/`db:reset`. Doc-only; no seed/code change, no new test.
 Theme: onboarding dead-end · Area: docs · Severity: low · Size: XS
 
 Source: codebase maintainability/onboarding audit 2026-06-13 (lens: onboarding-setup); evidence independently re-verified. · Confidence: high

@@ -34,7 +34,10 @@ PROTECTED_CODEX_PATCH=$(printf '%s\n' \
   '*** End Patch')
 PROTECTED_CODEX_OUTPUT=$(
   jq -n --arg command "$PROTECTED_CODEX_PATCH" '{tool_name:"apply_patch",tool_input:{command:$command}}' \
-    | CLAUDE_PROJECT_DIR="$REPO_ROOT" bash "$REPO_ROOT/.codex/hooks/protected-files.sh"
+    | AI_STATE_ROOT="$TMP_ROOT/protected-codex-state" \
+      AI_PROTECTED_FILES_THROTTLE_TTL=0 \
+      CLAUDE_PROJECT_DIR="$REPO_ROOT" \
+      bash "$REPO_ROOT/.codex/hooks/protected-files.sh"
 )
 assert_hook_json "$PROTECTED_CODEX_OUTPUT"
 [ "$(jq -r '.hookSpecificOutput.hookEventName // empty' <<< "$PROTECTED_CODEX_OUTPUT")" = "PreToolUse" ] \
@@ -52,7 +55,10 @@ PROTECTED_CODEX_NEGATIVE_PATCH=$(printf '%s\n' \
   '*** End Patch')
 PROTECTED_CODEX_NEGATIVE_OUTPUT=$(
   jq -n --arg command "$PROTECTED_CODEX_NEGATIVE_PATCH" '{tool_name:"apply_patch",tool_input:{command:$command}}' \
-    | CLAUDE_PROJECT_DIR="$REPO_ROOT" bash "$REPO_ROOT/.codex/hooks/protected-files.sh"
+    | AI_STATE_ROOT="$TMP_ROOT/protected-codex-state" \
+      AI_PROTECTED_FILES_THROTTLE_TTL=0 \
+      CLAUDE_PROJECT_DIR="$REPO_ROOT" \
+      bash "$REPO_ROOT/.codex/hooks/protected-files.sh"
 )
 assert_hook_continue_json "$PROTECTED_CODEX_NEGATIVE_OUTPUT"
 
@@ -70,7 +76,10 @@ PROTECTED_SUBDIR_PATCH=$(printf '%s\n' \
 PROTECTED_SUBDIR_OUTPUT=$(
   cd "$PROTECTED_SUBDIR_PACKAGE" || exit 1
   jq -n --arg command "$PROTECTED_SUBDIR_PATCH" '{tool_name:"apply_patch",tool_input:{command:$command}}' \
-    | CLAUDE_PROJECT_DIR="$REPO_ROOT" bash "$REPO_ROOT/.codex/hooks/protected-files.sh"
+    | AI_STATE_ROOT="$TMP_ROOT/protected-codex-state" \
+      AI_PROTECTED_FILES_THROTTLE_TTL=0 \
+      CLAUDE_PROJECT_DIR="$REPO_ROOT" \
+      bash "$REPO_ROOT/.codex/hooks/protected-files.sh"
 )
 assert_hook_json "$PROTECTED_SUBDIR_OUTPUT"
 PROTECTED_SUBDIR_CONTEXT=$(jq -r '.hookSpecificOutput.additionalContext // empty' <<< "$PROTECTED_SUBDIR_OUTPUT")

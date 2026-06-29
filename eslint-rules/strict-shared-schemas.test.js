@@ -1,16 +1,10 @@
 // @ts-check
-import { RuleTester } from "eslint";
-import tseslint from "typescript-eslint";
 import { describe, it } from "vitest";
 
+import { makeRuleTester } from "./rule-tester.js";
 import rule from "./strict-shared-schemas.js";
 
-const ruleTester = new RuleTester({
-  languageOptions: {
-    parser: tseslint.parser,
-    parserOptions: { ecmaVersion: 2022, sourceType: "module" },
-  },
-});
+const ruleTester = makeRuleTester();
 
 describe("strict-shared-schemas", () => {
   it("runs", () => {
@@ -45,7 +39,7 @@ describe("strict-shared-schemas", () => {
         // Bare z.object — must flag and autofix to .strict().
         {
           code: "export const FooInputSchema = z.object({ id: z.string() });",
-          errors: [{ message: /docs\/guides\/add-trpc-procedure\.md/u }],
+          errors: [{ messageId: "needsExplicit" }],
           output: "export const FooInputSchema = z.object({ id: z.string() }).strict();",
         },
         // .strict() then .strip() — strip wins, must flag.

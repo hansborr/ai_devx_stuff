@@ -44,7 +44,7 @@ are available in git history before the folder was removed.
 - Leaves, the decision table, and the verdict register: git history before
   the folder removal (this summary's landing commit is the deletion
   point).
-- Successor queue: `../backlog/lint-followups-2026-06/` — e2e selector
+- Successor pack summary: `lint-followups-2026-06.md` — e2e selector
   drain, runtime import-cycle fix and gate decision, and the watchlist
   entries promoted at the 2026-06-12 re-triage. The carried-forward
-  watchlist and a fresh verdict register live there.
+  watchlist and verdict register now live only in git history.

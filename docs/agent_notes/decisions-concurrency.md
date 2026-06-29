@@ -143,5 +143,5 @@ fresh-stats mutator and returned row). Because it only *reads*
 - `packages/server/src/utils/encounter-hp-log.ts`
 - `packages/server/src/services/character-live-state/encounter-attribution.ts`
 - `packages/server/src/services/rest-encounter-attribution.ts`
-- `docs/agent_notes/backlog/ux-audit-2026-06-p0/03-hp-mutation-attribution.md`
+- `docs/agent_notes/finished_work/ux-audit-2026-06-p0.md` (HP-attribution P0 shipped; pack closed 2026-06-21)
 - `docs/CONCURRENCY.md` — §Scope (append-only non-candidates), Pattern A.

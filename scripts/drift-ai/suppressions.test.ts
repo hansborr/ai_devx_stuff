@@ -367,6 +367,83 @@ describe("runSuppressionsCheck", () => {
     expect(findings).toEqual([]);
   });
 
+  it("advances the reported line across context hunk lines before an added suppression", () => {
+    const findings = run(
+      unifiedDiff(filePath, [
+        " const kept = 1;",
+        " const alsoKept = 2;",
+        "+// @ts-expect-error -- reason after two context lines",
+      ]),
+    );
+
+    expect(findings).toEqual([
+      {
+        check: "suppressions",
+        file: filePath,
+        message: "new @ts-expect-error suppression at line 14 targets next-line (reason: present)",
+        hint: TS_EXPECT_ERROR_SUPPRESSION_HINT,
+        details: {
+          kind: "@ts-expect-error",
+          target: "next-line",
+          line: 14,
+          reasonPresent: true,
+          text: "// @ts-expect-error -- reason after two context lines",
+        },
+      },
+    ]);
+  });
+
+  it("does not advance the reported line for a deleted hunk line before an added suppression", () => {
+    const findings = run(
+      unifiedDiff(filePath, [
+        "-const removed = 9;",
+        "+// @ts-expect-error -- reason after a deleted line",
+      ]),
+    );
+
+    expect(findings).toEqual([
+      {
+        check: "suppressions",
+        file: filePath,
+        message: "new @ts-expect-error suppression at line 12 targets next-line (reason: present)",
+        hint: TS_EXPECT_ERROR_SUPPRESSION_HINT,
+        details: {
+          kind: "@ts-expect-error",
+          target: "next-line",
+          line: 12,
+          reasonPresent: true,
+          text: "// @ts-expect-error -- reason after a deleted line",
+        },
+      },
+    ]);
+  });
+
+  it("advances only for context and added lines when a hunk mixes deleted, context, and added", () => {
+    const findings = run(
+      unifiedDiff(filePath, [
+        "-const removed = 9;",
+        " const kept = 1;",
+        "+// @ts-expect-error -- reason after deleted then context",
+      ]),
+    );
+
+    expect(findings).toEqual([
+      {
+        check: "suppressions",
+        file: filePath,
+        message: "new @ts-expect-error suppression at line 13 targets next-line (reason: present)",
+        hint: TS_EXPECT_ERROR_SUPPRESSION_HINT,
+        details: {
+          kind: "@ts-expect-error",
+          target: "next-line",
+          line: 13,
+          reasonPresent: true,
+          text: "// @ts-expect-error -- reason after deleted then context",
+        },
+      },
+    ]);
+  });
+
   it("skips current scope without invoking git", () => {
     let gitCalls = 0;
     const git: SuppressionsGitRunner = () => {

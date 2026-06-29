@@ -74,7 +74,7 @@ chmod +x "$SANDBOX/bin/nproc"
 
 STUB_LOG_FILE="$SANDBOX/runner.log"
 : > "$STUB_LOG_FILE"
-ALL_SMOKE_TESTS=$'runner ran test-ai-hooks\nrunner ran test-check-eslint-react-peer-exception\nrunner ran test-check-fast-uri-override\nrunner ran test-code-intel\nrunner ran test-codemod-concurrency-guard\nrunner ran test-codemod-expand-barrel\nrunner ran test-codemod-structured-logging-fix\nrunner ran test-codemod-trpc-shared-input\nrunner ran test-codemod-trpc-shared-output\nrunner ran test-dependency-freshness\nrunner ran test-doctor-json\nrunner ran test-eslint-disable-register\nrunner ran test-format-changed\nrunner ran test-generate-harness-controls\nrunner ran test-generate-lint-guidance\nrunner ran test-generate-module-index\nrunner ran test-harness-check\nrunner ran test-harness-emit-envelope\nrunner ran test-lint-agent-changed\nrunner ran test-lint-agent\nrunner ran test-lint-changed\nrunner ran test-lint-config-sensors\nrunner ran test-lint-dist-preflight\nrunner ran test-lint-ratchet\nrunner ran test-lint-shell\nrunner ran test-migration-safety-scan\nrunner ran test-parallel-runner\nrunner ran test-post-create\nrunner ran test-slow-drift-audit\nrunner ran test-suppression-register\nrunner ran test-test-all\nrunner ran test-test-changed\nrunner ran test-test-client\nrunner ran test-test-dist-preflight\nrunner ran test-test-scripts\nrunner ran test-test-slow\nrunner ran test-verify-async\nrunner ran test-verify-history\nrunner ran test-verify-logs\nrunner ran test-verify-metadata\nrunner ran test-verify\nrunner ran test-worktree-db'
+ALL_SMOKE_TESTS=$'runner ran test-ai-hooks\nrunner ran test-check-eslint-react-peer-exception\nrunner ran test-check-fast-uri-override\nrunner ran test-code-intel\nrunner ran test-codemod-concurrency-guard\nrunner ran test-codemod-expand-barrel\nrunner ran test-codemod-structured-logging-fix\nrunner ran test-codemod-trpc-shared-input\nrunner ran test-codemod-trpc-shared-output\nrunner ran test-dependency-freshness\nrunner ran test-doctor-json\nrunner ran test-eslint-disable-register\nrunner ran test-format-changed\nrunner ran test-generate-harness-controls\nrunner ran test-generate-lint-guidance\nrunner ran test-generate-module-index\nrunner ran test-harness-check\nrunner ran test-harness-emit-envelope\nrunner ran test-lint-agent-changed\nrunner ran test-lint-agent\nrunner ran test-lint-changed\nrunner ran test-lint-config-sensors\nrunner ran test-lint-dist-preflight\nrunner ran test-lint-fix-dist-preflight\nrunner ran test-lint-ratchet\nrunner ran test-lint-shell\nrunner ran test-migration-safety-scan\nrunner ran test-parallel-runner\nrunner ran test-post-create\nrunner ran test-slow-drift-audit\nrunner ran test-suppression-register\nrunner ran test-test-all\nrunner ran test-test-changed\nrunner ran test-test-client\nrunner ran test-test-dist-preflight\nrunner ran test-test-scripts\nrunner ran test-test-slow\nrunner ran test-verify-async\nrunner ran test-verify-history\nrunner ran test-verify-logs\nrunner ran test-verify-metadata\nrunner ran test-verify\nrunner ran test-worktree-db'
 
 run_runner() {
   STUB_LOG="$STUB_LOG_FILE" \
@@ -342,7 +342,7 @@ ok "--changed selects output codemod smoke on output codemod change"
 
 : > "$STUB_LOG_FILE"
 MUSI_SCRIPTS_CHANGED_FILES="package.json" run_runner --changed >/dev/null
-expected=$'runner ran test-verify-history\nrunner ran test-codemod-structured-logging-fix\nrunner ran test-codemod-trpc-shared-input\nrunner ran test-codemod-trpc-shared-output\nrunner ran test-codemod-expand-barrel\nrunner ran test-codemod-concurrency-guard\nrunner ran test-code-intel\nrunner ran test-lint-shell\nrunner ran test-lint-config-sensors\nrunner ran test-generate-lint-guidance\nrunner ran test-generate-harness-controls\nrunner ran test-harness-check\nrunner ran test-lint-agent\nrunner ran test-lint-agent-changed\nrunner ran test-lint-ratchet'
+expected=$'runner ran test-verify-history\nrunner ran test-codemod-structured-logging-fix\nrunner ran test-codemod-trpc-shared-input\nrunner ran test-codemod-trpc-shared-output\nrunner ran test-codemod-expand-barrel\nrunner ran test-codemod-concurrency-guard\nrunner ran test-code-intel\nrunner ran test-lint-fix-dist-preflight\nrunner ran test-lint-shell\nrunner ran test-lint-config-sensors\nrunner ran test-generate-lint-guidance\nrunner ran test-generate-harness-controls\nrunner ran test-harness-check\nrunner ran test-lint-agent\nrunner ran test-lint-agent-changed\nrunner ran test-lint-ratchet'
 [ "$(cat "$STUB_LOG_FILE")" = "$expected" ] \
   || fail "package.json change should select codemod smokes: $(cat "$STUB_LOG_FILE")"
 ok "--changed selects package-script smokes on package script change"
@@ -394,7 +394,7 @@ ok "--changed selects test-code-intel on code-intel internal change"
 
 : > "$STUB_LOG_FILE"
 MUSI_SCRIPTS_CHANGED_FILES="packages/shared/package.json" run_runner --changed >/dev/null
-expected=$'runner ran test-code-intel\nrunner ran test-lint-dist-preflight\nrunner ran test-test-dist-preflight'
+expected=$'runner ran test-code-intel\nrunner ran test-lint-dist-preflight\nrunner ran test-lint-fix-dist-preflight\nrunner ran test-test-dist-preflight'
 [ "$(cat "$STUB_LOG_FILE")" = "$expected" ] \
   || fail "package export change should select package-export smokes: $(cat "$STUB_LOG_FILE")"
 ok "--changed selects package-export smokes on package export change"
@@ -482,6 +482,12 @@ MUSI_SCRIPTS_CHANGED_FILES="scripts/lint-changed.sh" run_runner --changed >/dev/
 [ "$(cat "$STUB_LOG_FILE")" = $'runner ran test-lint-changed\nrunner ran test-lint-dist-preflight\nrunner ran test-lint-config-sensors' ] \
   || fail "lint-changed.sh change should select lint-changed smoke: $(cat "$STUB_LOG_FILE")"
 ok "--changed selects test-lint-changed on lint wrapper change"
+
+: > "$STUB_LOG_FILE"
+MUSI_SCRIPTS_CHANGED_FILES="scripts/lint-fix.sh" run_runner --changed >/dev/null
+[ "$(cat "$STUB_LOG_FILE")" = "runner ran test-lint-fix-dist-preflight" ] \
+  || fail "lint-fix.sh change should select lint-fix preflight smoke: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects test-lint-fix-dist-preflight on lint-fix wrapper change"
 
 : > "$STUB_LOG_FILE"
 MUSI_SCRIPTS_CHANGED_FILES="scripts/lint-config-sensors.sh" run_runner --changed >/dev/null
@@ -723,6 +729,13 @@ expected=$'runner ran test-lint-agent\nrunner ran test-lint-agent-changed'
 [ "$(cat "$STUB_LOG_FILE")" = "$expected" ] \
   || fail "lint-agent change should select lint-agent and lint-agent-changed smokes: $(cat "$STUB_LOG_FILE")"
 ok "--changed selects test-lint-agent + test-lint-agent-changed on lint-agent script change"
+
+: > "$STUB_LOG_FILE"
+MUSI_SCRIPTS_CHANGED_FILES="scripts/lint-agent-envelope.ts" run_runner --changed >/dev/null
+expected=$'runner ran test-lint-agent\nrunner ran test-lint-agent-changed'
+[ "$(cat "$STUB_LOG_FILE")" = "$expected" ] \
+  || fail "lint-agent envelope change should select lint-agent and lint-agent-changed smokes: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects test-lint-agent + test-lint-agent-changed on lint-agent envelope change"
 
 : > "$STUB_LOG_FILE"
 MUSI_SCRIPTS_CHANGED_FILES="scripts/lint-agent-changed.sh" run_runner --changed >/dev/null

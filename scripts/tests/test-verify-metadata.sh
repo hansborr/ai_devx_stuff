@@ -362,6 +362,24 @@ fp2=$(ai_precommit_fingerprint "$repo")
   || fail "precommit fingerprint should ignore irrelevant untracked paths (notes.txt)"
 ok "ai_precommit_fingerprint ignores irrelevant untracked paths"
 
+# --- ai_precommit_fingerprint diverges only when fast-commit marker present ---
+# The fast-commit toggle skips slow pre-commit test slots. Folding its presence
+# into the fingerprint stops a partial (fast) run's success marker from
+# short-circuiting a later full pre-commit at the same HEAD/diff. The marker
+# lives in the Git common dir so it is byte-identical to today when absent.
+repo="$(new_repo precommit-fast-commit-toggle)"
+fast_marker="$(musi_git_common_identity_path "$repo")/musi-fast-commit"
+fp_off=$(ai_precommit_fingerprint "$repo")
+: > "$fast_marker"
+fp_on=$(ai_precommit_fingerprint "$repo")
+[ "$fp_off" != "$fp_on" ] \
+  || fail "precommit fingerprint should change when the fast-commit marker is present"
+rm -f "$fast_marker"
+fp_off_again=$(ai_precommit_fingerprint "$repo")
+[ "$fp_off" = "$fp_off_again" ] \
+  || fail "precommit fingerprint should match the legacy value once the marker is removed"
+ok "ai_precommit_fingerprint diverges only when fast-commit marker is present"
+
 # =============================================================================
 # musi_changed_gate_fail_if_unstaged
 # =============================================================================

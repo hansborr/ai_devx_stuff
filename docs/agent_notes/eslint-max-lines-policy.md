@@ -49,8 +49,9 @@ The reference-readiness goals are now met by the single-source policy object:
   invalid lifecycle labels, ESLint-cap drift, and ratchet-exclusion drift.
 
 Out of scope (still gated): building reporting/dashboards on top of the
-lifecycle labels — deferred per the `lint-followups-2026-06` watchlist until
-this single-source landing settled.
+lifecycle labels — deferred per the lint-followups summary
+(`docs/agent_notes/finished_work/lint-followups-2026-06.md`; old watchlist in
+git history) until this single-source landing settled.
 
 ## Verification
 
