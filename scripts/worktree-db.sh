@@ -133,6 +133,13 @@ current_root() {
     || die "not inside a git repository"
 }
 
+install_lint_ratchet_merge_driver() {
+  local wt_root="$1"
+  local installer="$wt_root/scripts/git/install-lint-ratchet-merge-driver.sh"
+  [ -f "$installer" ] || return 0
+  bash "$installer" || log "WARN: lint-ratchet merge-driver installer exited non-zero"
+}
+
 is_primary_worktree() {
   local common dir
   common="$(git rev-parse --git-common-dir)"
@@ -848,6 +855,8 @@ cmd_init() {
   slug="$(compute_slug)"
   hash="$(slug_hash_int "$slug")"
   wt_root="$(current_root)"
+
+  install_lint_ratchet_merge_driver "$wt_root"
 
   log "slug: $slug"
 

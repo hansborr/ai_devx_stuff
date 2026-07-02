@@ -2,6 +2,13 @@
 
 Capture browser automation sessions as video for debugging, documentation, or verification. Produces WebM (VP8/VP9 codec).
 
+## Contents
+
+- [Basic Recording](#basic-recording)
+- [Best Practices](#best-practices)
+- [Tracing vs Video](#tracing-vs-video)
+- [Limitations](#limitations)
+
 ## Basic Recording
 
 ```bash

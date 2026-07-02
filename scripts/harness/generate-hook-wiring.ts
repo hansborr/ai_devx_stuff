@@ -1,4 +1,4 @@
-import { readFileSync, renameSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -34,10 +34,32 @@ interface GeneratedGroup {
 
 type GeneratedHooks = Partial<Record<HookEvent, GeneratedGroup[]>>;
 
+// Copilot repo hook config (.github/hooks/*.json): flat per-event command
+// arrays with camelCase event names, `bash` command strings, and `timeoutSec`.
+// The `Stop` manifest event maps to Copilot's `agentStop`.
+type CopilotEventName = "preToolUse" | "postToolUse" | "agentStop";
+
+interface GeneratedCopilotCommand {
+  readonly type: "command";
+  readonly matcher?: string;
+  readonly bash: string;
+  readonly timeoutSec?: number;
+}
+
+type GeneratedCopilotHooks = Partial<Record<CopilotEventName, GeneratedCopilotCommand[]>>;
+
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const manifestPath = join(repoRoot, "harness.controls.json");
 const claudeSettingsPath = join(repoRoot, ".claude/settings.json");
 const codexHooksPath = join(repoRoot, ".codex/hooks.json");
+const copilotHooksPath = join(repoRoot, ".github/hooks/copilot.json");
+
+function copilotEventNameFor(event: HookEvent): CopilotEventName | undefined {
+  if (event === "PreToolUse") return "preToolUse";
+  if (event === "PostToolUse") return "postToolUse";
+  if (event === "Stop") return "agentStop";
+  return undefined;
+}
 
 function parseHookWiring(control: Record<string, unknown>): OrderedHookWiring | undefined {
   const rawWiring = control.hookWiring;
@@ -76,6 +98,27 @@ function toGeneratedCommand(hook: HookHarnessCommand): GeneratedCommand {
     ...(hook.statusMessage !== undefined ? { statusMessage: hook.statusMessage } : {}),
     ...(hook.timeout !== undefined ? { timeout: hook.timeout } : {}),
   };
+}
+
+function renderCopilotHooks(hooks: readonly OrderedHookWiring[]): GeneratedCopilotHooks {
+  const output: GeneratedCopilotHooks = {};
+  for (const event of HOOK_EVENTS) {
+    const copilotEventName = copilotEventNameFor(event);
+    if (copilotEventName === undefined) continue;
+    const commands: GeneratedCopilotCommand[] = [];
+    for (const wiring of hooks.filter((entry) => entry.event === event)) {
+      const hook = wiring.harnesses.copilot;
+      if (hook === undefined) continue;
+      commands.push({
+        type: "command",
+        ...(hook.matcher !== undefined ? { matcher: hook.matcher } : {}),
+        bash: hook.command,
+        ...(hook.timeout !== undefined ? { timeoutSec: hook.timeout } : {}),
+      });
+    }
+    if (commands.length > 0) output[copilotEventName] = commands;
+  }
+  return output;
 }
 
 function renderHooksForHarness(
@@ -208,14 +251,29 @@ export function replaceClaudeHooksInSettings(settingsText: string, hooks: Genera
 export function renderHookWiringOutputsFromManifest(
   manifest: unknown,
   claudeSettingsText: string,
-): { readonly claudeSettingsJson: string; readonly codexHooksJson: string } {
+): {
+  readonly claudeSettingsJson: string;
+  readonly codexHooksJson: string;
+  readonly copilotHooksJson: string;
+} {
   const hooks = collectHookWiring(manifest);
   const claudeHooks = renderHooksForHarness(hooks, "claude");
   const codexHooks = renderHooksForHarness(hooks, "codex");
+  const copilotHooks = renderCopilotHooks(hooks);
   return {
     claudeSettingsJson: replaceClaudeHooksInSettings(claudeSettingsText, claudeHooks),
     codexHooksJson: `${JSON.stringify({ hooks: codexHooks }, null, JSON_INDENT)}\n`,
+    copilotHooksJson: `${JSON.stringify({ version: 1, hooks: copilotHooks }, null, JSON_INDENT)}\n`,
   };
+}
+
+function readFileOrEmpty(path: string): string {
+  try {
+    return readFileSync(path, "utf8");
+  } catch {
+    // Missing file is "out of date", not a crash.
+    return "";
+  }
 }
 
 function writeFileAtomic(path: string, contents: string): void {
@@ -238,15 +296,10 @@ function main(): void {
     claudeSettingsText,
   );
   if (checkMode) {
-    let currentCodex = "";
-    try {
-      currentCodex = readFileSync(codexHooksPath, "utf8");
-    } catch {
-      // Missing file is "out of date", not a crash.
-    }
     const stale = [
       ...(claudeSettingsText === outputs.claudeSettingsJson ? [] : [claudeSettingsPath]),
-      ...(currentCodex === outputs.codexHooksJson ? [] : [codexHooksPath]),
+      ...(readFileOrEmpty(codexHooksPath) === outputs.codexHooksJson ? [] : [codexHooksPath]),
+      ...(readFileOrEmpty(copilotHooksPath) === outputs.copilotHooksJson ? [] : [copilotHooksPath]),
     ];
     if (stale.length === 0) {
       console.log("Generated hook wiring is up to date.");
@@ -258,7 +311,9 @@ function main(): void {
   }
   writeFileAtomic(claudeSettingsPath, outputs.claudeSettingsJson);
   writeFileAtomic(codexHooksPath, outputs.codexHooksJson);
-  console.log(`Wrote ${claudeSettingsPath} hooks and ${codexHooksPath}.`);
+  mkdirSync(dirname(copilotHooksPath), { recursive: true });
+  writeFileAtomic(copilotHooksPath, outputs.copilotHooksJson);
+  console.log(`Wrote ${claudeSettingsPath} hooks, ${codexHooksPath}, and ${copilotHooksPath}.`);
 }
 
 if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {

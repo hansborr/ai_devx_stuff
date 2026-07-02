@@ -9,10 +9,10 @@
 : "${TIMINGS_FILE:?scripts/verify/steps.generated.sh requires TIMINGS_FILE}"
 
 declare -ga MUSI_VERIFY_CONSUMERS=('verify' 'verify_changed' 'verify_parallel' 'pre_commit')
-declare -ga MUSI_VERIFY_STEPS=('lint' 'ratchet' 'zero-baseline' 'coverage-map' 'format-check' 'typecheck' 'test' 'scripts')
-declare -ga MUSI_VERIFY_CHANGED_STEPS=('lint' 'ratchet' 'zero-baseline' 'coverage-map' 'format-check' 'typecheck' 'test' 'scripts')
-declare -ga MUSI_VERIFY_PARALLEL_STEPS=('lint' 'ratchet' 'zero-baseline' 'coverage-map' 'format-check' 'typecheck' 'test' 'scripts')
-declare -ga MUSI_PRE_COMMIT_STEPS=('lint' 'ratchet' 'zero-baseline' 'coverage-map' 'format-check' 'typecheck' 'test' 'scripts')
+declare -ga MUSI_VERIFY_STEPS=('lint' 'ratchet' 'zero-baseline' 'knip-unused-exports' 'coverage-map' 'format-check' 'typecheck' 'test' 'scripts')
+declare -ga MUSI_VERIFY_CHANGED_STEPS=('lint' 'ratchet' 'zero-baseline' 'knip-unused-exports' 'coverage-map' 'format-check' 'typecheck' 'test' 'scripts')
+declare -ga MUSI_VERIFY_PARALLEL_STEPS=('lint' 'ratchet' 'zero-baseline' 'knip-unused-exports' 'coverage-map' 'format-check' 'typecheck' 'test' 'scripts')
+declare -ga MUSI_PRE_COMMIT_STEPS=('lint' 'ratchet' 'zero-baseline' 'knip-unused-exports' 'coverage-map' 'format-check' 'typecheck' 'test' 'scripts')
 
 declare -gA MUSI_VERIFY_SLOT_CMD_VAR=()
 declare -gA MUSI_VERIFY_SLOT_DYNAMIC=()
@@ -25,6 +25,9 @@ MUSI_VERIFY_SLOT_CMD_VAR['verify:ratchet']='MUSI_VERIFY_RATCHET_CMD'
 
 MUSI_VERIFY_ZERO_BASELINE_CMD=('bun' 'run' 'lint:ratchet:zero-baseline')
 MUSI_VERIFY_SLOT_CMD_VAR['verify:zero-baseline']='MUSI_VERIFY_ZERO_BASELINE_CMD'
+
+MUSI_VERIFY_KNIP_UNUSED_EXPORTS_CMD=('bun' 'run' 'sensor:knip-unused-exports')
+MUSI_VERIFY_SLOT_CMD_VAR['verify:knip-unused-exports']='MUSI_VERIFY_KNIP_UNUSED_EXPORTS_CMD'
 
 MUSI_VERIFY_COVERAGE_MAP_CMD=('bun' 'run' 'docs:lint-coverage-map:audit')
 MUSI_VERIFY_SLOT_CMD_VAR['verify:coverage-map']='MUSI_VERIFY_COVERAGE_MAP_CMD'
@@ -49,6 +52,9 @@ MUSI_VERIFY_SLOT_CMD_VAR['verify_changed:ratchet']='MUSI_VERIFY_CHANGED_RATCHET_
 
 MUSI_VERIFY_CHANGED_ZERO_BASELINE_CMD=('bun' 'run' 'lint:ratchet:zero-baseline')
 MUSI_VERIFY_SLOT_CMD_VAR['verify_changed:zero-baseline']='MUSI_VERIFY_CHANGED_ZERO_BASELINE_CMD'
+
+MUSI_VERIFY_CHANGED_KNIP_UNUSED_EXPORTS_CMD=('bun' 'run' 'sensor:knip-unused-exports')
+MUSI_VERIFY_SLOT_CMD_VAR['verify_changed:knip-unused-exports']='MUSI_VERIFY_CHANGED_KNIP_UNUSED_EXPORTS_CMD'
 
 MUSI_VERIFY_CHANGED_COVERAGE_MAP_CMD=('bun' 'run' 'docs:lint-coverage-map:check' '--' '--staged')
 MUSI_VERIFY_SLOT_CMD_VAR['verify_changed:coverage-map']='MUSI_VERIFY_CHANGED_COVERAGE_MAP_CMD'
@@ -75,6 +81,9 @@ MUSI_VERIFY_SLOT_CMD_VAR['verify_parallel:ratchet']='MUSI_VERIFY_PARALLEL_RATCHE
 MUSI_VERIFY_PARALLEL_ZERO_BASELINE_CMD=('bun' 'run' 'lint:ratchet:zero-baseline')
 MUSI_VERIFY_SLOT_CMD_VAR['verify_parallel:zero-baseline']='MUSI_VERIFY_PARALLEL_ZERO_BASELINE_CMD'
 
+MUSI_VERIFY_PARALLEL_KNIP_UNUSED_EXPORTS_CMD=('bun' 'run' 'sensor:knip-unused-exports')
+MUSI_VERIFY_SLOT_CMD_VAR['verify_parallel:knip-unused-exports']='MUSI_VERIFY_PARALLEL_KNIP_UNUSED_EXPORTS_CMD'
+
 MUSI_VERIFY_PARALLEL_COVERAGE_MAP_CMD=('bun' 'run' 'docs:lint-coverage-map:audit')
 MUSI_VERIFY_SLOT_CMD_VAR['verify_parallel:coverage-map']='MUSI_VERIFY_PARALLEL_COVERAGE_MAP_CMD'
 
@@ -98,6 +107,9 @@ MUSI_VERIFY_SLOT_CMD_VAR['pre_commit:ratchet']='MUSI_PRE_COMMIT_RATCHET_CMD'
 
 MUSI_PRE_COMMIT_ZERO_BASELINE_CMD=('bun' 'run' 'lint:ratchet:zero-baseline')
 MUSI_VERIFY_SLOT_CMD_VAR['pre_commit:zero-baseline']='MUSI_PRE_COMMIT_ZERO_BASELINE_CMD'
+
+MUSI_PRE_COMMIT_KNIP_UNUSED_EXPORTS_CMD=('bun' 'run' 'sensor:knip-unused-exports')
+MUSI_VERIFY_SLOT_CMD_VAR['pre_commit:knip-unused-exports']='MUSI_PRE_COMMIT_KNIP_UNUSED_EXPORTS_CMD'
 
 MUSI_PRE_COMMIT_COVERAGE_MAP_CMD=('bun' 'run' 'docs:lint-coverage-map:check' '--' '--staged')
 MUSI_VERIFY_SLOT_CMD_VAR['pre_commit:coverage-map']='MUSI_PRE_COMMIT_COVERAGE_MAP_CMD'

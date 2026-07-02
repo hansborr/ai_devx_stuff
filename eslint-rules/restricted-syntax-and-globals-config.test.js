@@ -79,6 +79,68 @@ function bansProcessEnvRead(selector) {
   return selector.includes("[object.name='process']") && selector.includes("[property.name='env']");
 }
 
+/** @param {string} selector */
+function bansRawPrismaSql(selector) {
+  return selector.includes("queryRaw") && selector.includes("executeRaw");
+}
+
+/** @param {string} selector */
+function bansQueryKeyArrayProperty(selector) {
+  return (
+    selector.includes("Property") &&
+    selector.includes("queryKey") &&
+    selector.includes("ArrayExpression")
+  );
+}
+
+/** @param {string} selector */
+function bansQueryClientArrayKeyArgument(selector) {
+  return selector.includes("setQueryData") && selector.includes("getQueryData");
+}
+
+/** @param {string} selector */
+function bansImportMetaEnvRead(selector) {
+  return selector.includes("object.meta.name='import'") && selector.includes("property.name='env'");
+}
+
+/** @param {string} selector */
+function bansSharedSchemaZAny(selector) {
+  return (
+    selector.includes("callee.object.name='z'") && selector.includes("callee.property.name='any'")
+  );
+}
+
+/** @param {string} selector */
+function bansPermissiveTrpcOutput(selector) {
+  return (
+    selector.includes("callee.property.name='output'") && selector.includes("any|unknown|void")
+  );
+}
+
+/** @param {string} file */
+function expectedNoRestrictedSyntaxSelectorCount(file) {
+  if (file === "packages/server/src/routers/character.ts") return 4;
+  if (file.startsWith("packages/server/src/")) return 3;
+  if (file.startsWith("packages/shared/src/schemas/")) return 3;
+  if (file === "packages/client/src/lib/api-base.ts") return 4;
+  if (file.startsWith("packages/client/src/")) return 5;
+  return 2;
+}
+
+async function lintTextFor(/** @type {string} */ relPath, /** @type {string} */ code) {
+  return eslint.lintText(code, { filePath: resolve(repoRoot, relPath) });
+}
+
+/**
+ * @param {Awaited<ReturnType<typeof lintTextFor>>} results
+ * @returns {import('eslint').Linter.LintMessage[]}
+ */
+function restrictedSyntaxMessages(results) {
+  return results.flatMap((result) =>
+    result.messages.filter((message) => message.ruleId === "no-restricted-syntax"),
+  );
+}
+
 // Resolved no-restricted-globals options are names or { name } objects;
 // normalize to the global names.
 /** @param {{ rules?: Record<string, unknown> }} config @returns {string[]} */
@@ -99,7 +161,10 @@ describe("process-primitive restrictions (no-restricted-syntax)", () => {
     async () => {
       for (const file of [
         "packages/server/src/services/auth-service.ts",
+        "packages/server/src/routers/character.ts",
+        "packages/shared/src/schemas/character.ts",
         "packages/client/src/components/campaign/chat/chat-message.tsx",
+        "packages/client/src/lib/api-base.ts",
         "scripts/drift-ai.ts",
       ]) {
         const config = await configFor(file);
@@ -107,20 +172,22 @@ describe("process-primitive restrictions (no-restricted-syntax)", () => {
         const selectors = restrictedSelectorsOf(config);
         expect(selectors.some(bansProcessExitCall), `${file} must ban process.exit`).toBe(true);
         expect(selectors.some(bansProcessEnvRead), `${file} must ban process.env`).toBe(true);
-        // Exactly these two: the named-file off-switch is only safe while the
-        // process bans are the rule's only selectors (see the ordering note in
-        // eslint-config/script-configs.js). A third selector landing here means
-        // that assumption broke — rework the off-switch before widening this.
-        expect(selectors, `${file} selector count`).toHaveLength(2);
+        // Exactly these process selectors, plus the deliberate server-only raw
+        // SQL/output selectors, shared-schema selector, and client-only
+        // query-key/import-meta selectors. A new selector landing here means a
+        // flat-config replacement may have changed which off-switch is safe.
+        expect(selectors, `${file} selector count`).toHaveLength(
+          expectedNoRestrictedSyntaxSelectorCount(file),
+        );
       }
     },
   );
 
   it(
-    "named bootstrap/entrypoint boundary files turn the rule off",
+    "named script bootstrap/entrypoint boundary files turn the rule off",
     { timeout: resolvedConfigTestTimeoutMs },
     async () => {
-      for (const file of ["packages/server/src/main.ts", "scripts/lint-ratchet.ts"]) {
+      for (const file of ["scripts/lint-ratchet.ts"]) {
         const config = await configFor(file);
         expect(severityOf(config, "no-restricted-syntax"), file).toBe(0);
       }
@@ -137,6 +204,224 @@ describe("process-primitive restrictions (no-restricted-syntax)", () => {
       expect(selectors.some(bansProcessExitCall)).toBe(true);
       expect(selectors.some(bansProcessEnvRead)).toBe(false);
       expect(selectors).toHaveLength(1);
+    },
+  );
+});
+
+describe("raw Prisma SQL restriction (no-restricted-syntax)", () => {
+  it(
+    "server source files fence raw SQL to sanctioned modules without dropping process bans",
+    { timeout: resolvedConfigTestTimeoutMs },
+    async () => {
+      const config = await configFor("packages/server/src/routers/inventory.ts");
+      expect(severityOf(config, "no-restricted-syntax")).toBe(2);
+      const selectors = restrictedSelectorsOf(config);
+      expect(selectors.some(bansProcessExitCall), "process.exit ban must remain").toBe(true);
+      expect(selectors.some(bansProcessEnvRead), "process.env ban must remain").toBe(true);
+      expect(selectors.some(bansRawPrismaSql), "raw SQL ban must resolve").toBe(true);
+    },
+  );
+
+  it(
+    "server process-primitive boundary files still keep the raw SQL selector",
+    { timeout: resolvedConfigTestTimeoutMs },
+    async () => {
+      for (const file of ["packages/server/src/config/env.ts", "packages/server/src/main.ts"]) {
+        const config = await configFor(file);
+        expect(severityOf(config, "no-restricted-syntax"), file).toBe(2);
+        const selectors = restrictedSelectorsOf(config);
+        expect(selectors.some(bansRawPrismaSql), `${file} must ban raw SQL`).toBe(true);
+        expect(selectors.some(bansProcessExitCall), `${file} must not ban process.exit`).toBe(
+          false,
+        );
+        expect(selectors.some(bansProcessEnvRead), `${file} must not ban process.env`).toBe(false);
+      }
+    },
+  );
+
+  it(
+    "mutation helpers remain raw SQL fenced even though RawTxClient imports are exempt there",
+    { timeout: resolvedConfigTestTimeoutMs },
+    async () => {
+      const config = await configFor("packages/server/src/utils/character-class-mutations.ts");
+      expect(restrictedSelectorsOf(config).some(bansRawPrismaSql)).toBe(true);
+    },
+  );
+
+  it(
+    "sanctioned raw SQL modules and tests keep the raw SQL selector off",
+    { timeout: resolvedConfigTestTimeoutMs },
+    async () => {
+      for (const file of [
+        "packages/server/src/services/inventory-service.ts",
+        "packages/server/src/test/prepare-test-db.ts",
+        "packages/server/src/routers/character-level-up.test.ts",
+      ]) {
+        const config = await configFor(file);
+        expect(restrictedSelectorsOf(config).some(bansRawPrismaSql), file).toBe(false);
+      }
+    },
+  );
+});
+
+describe("schema permissiveness restrictions (no-restricted-syntax)", () => {
+  it(
+    "shared production schemas ban z.any without dropping process bans",
+    { timeout: resolvedConfigTestTimeoutMs },
+    async () => {
+      const config = await configFor("packages/shared/src/schemas/character.ts");
+      expect(severityOf(config, "no-restricted-syntax")).toBe(2);
+      const selectors = restrictedSelectorsOf(config);
+      expect(selectors.some(bansProcessExitCall), "process.exit ban must remain").toBe(true);
+      expect(selectors.some(bansProcessEnvRead), "process.env ban must remain").toBe(true);
+      expect(selectors.some(bansSharedSchemaZAny), "z.any ban must resolve").toBe(true);
+    },
+  );
+
+  it(
+    "router source bans shallow permissive output schemas without dropping raw SQL and process bans",
+    { timeout: resolvedConfigTestTimeoutMs },
+    async () => {
+      const config = await configFor("packages/server/src/routers/character.ts");
+      expect(severityOf(config, "no-restricted-syntax")).toBe(2);
+      const selectors = restrictedSelectorsOf(config);
+      expect(selectors.some(bansProcessExitCall), "process.exit ban must remain").toBe(true);
+      expect(selectors.some(bansProcessEnvRead), "process.env ban must remain").toBe(true);
+      expect(selectors.some(bansRawPrismaSql), "raw SQL ban must remain").toBe(true);
+      expect(selectors.some(bansPermissiveTrpcOutput), "permissive output ban must resolve").toBe(
+        true,
+      );
+    },
+  );
+});
+
+describe("client query-key restrictions (no-restricted-syntax)", () => {
+  it(
+    "client production source bans hand-built query key arrays without dropping process bans",
+    { timeout: resolvedConfigTestTimeoutMs },
+    async () => {
+      const config = await configFor("packages/client/src/hooks/use-notifications.ts");
+      expect(severityOf(config, "no-restricted-syntax")).toBe(2);
+      const selectors = restrictedSelectorsOf(config);
+      expect(selectors.some(bansProcessExitCall), "process.exit ban must remain").toBe(true);
+      expect(selectors.some(bansProcessEnvRead), "process.env ban must remain").toBe(true);
+      expect(
+        selectors.some(bansQueryKeyArrayProperty),
+        "queryKey array property ban must resolve",
+      ).toBe(true);
+      expect(
+        selectors.some(bansQueryClientArrayKeyArgument),
+        "query client array key argument ban must resolve",
+      ).toBe(true);
+      expect(selectors.some(bansImportMetaEnvRead), "import.meta.env ban must resolve").toBe(true);
+    },
+  );
+
+  it(
+    "reports raw query-key arrays through TS wrappers and string-literal properties",
+    { timeout: resolvedConfigTestTimeoutMs },
+    async () => {
+      const cases = [
+        {
+          name: "as const property",
+          code: [
+            'const campaignId = "campaign-id";',
+            'export const options = { queryKey: ["campaign", campaignId] as const };',
+          ].join("\n"),
+        },
+        {
+          name: "satisfies property",
+          code: 'export const options = { queryKey: ["campaign"] satisfies readonly string[] };',
+        },
+        {
+          name: "string-literal property",
+          code: 'export const options = { "queryKey": ["campaign"] };',
+        },
+        {
+          name: "as const setQueryData argument",
+          code: [
+            "const queryClient = { setQueryData: (..._args: unknown[]) => undefined };",
+            'queryClient.setQueryData(["campaign"] as const, () => undefined);',
+          ].join("\n"),
+        },
+        {
+          name: "string-literal setQueryData method",
+          code: [
+            'const queryClient = { "setQueryData": (..._args: unknown[]) => undefined };',
+            'queryClient["setQueryData"](["campaign"], () => undefined);',
+          ].join("\n"),
+        },
+        {
+          name: "satisfies getQueryData argument",
+          code: [
+            "const queryClient = { getQueryData: (_key: readonly string[]) => undefined };",
+            'queryClient.getQueryData(["campaign"] satisfies readonly string[]);',
+          ].join("\n"),
+        },
+      ];
+
+      for (const probe of cases) {
+        const messages = restrictedSyntaxMessages(
+          await lintTextFor("packages/client/src/hooks/use-notifications.ts", probe.code),
+        );
+        expect(messages, probe.name).toHaveLength(1);
+      }
+    },
+  );
+
+  it(
+    "client test mocks keep hand-built test query keys available",
+    { timeout: resolvedConfigTestTimeoutMs },
+    async () => {
+      const config = await configFor("packages/client/src/test/mock-trpc.tsx");
+      const selectors = restrictedSelectorsOf(config);
+      expect(selectors.some(bansProcessExitCall), "test process.exit ban must remain").toBe(true);
+      expect(selectors.some(bansQueryKeyArrayProperty)).toBe(false);
+      expect(selectors.some(bansQueryClientArrayKeyArgument)).toBe(false);
+    },
+  );
+});
+
+describe("client import.meta.env restrictions (no-restricted-syntax)", () => {
+  it(
+    "keeps import.meta.env reads fenced to the API base config module",
+    { timeout: resolvedConfigTestTimeoutMs },
+    async () => {
+      const regularConfig = await configFor("packages/client/src/hooks/use-notifications.ts");
+      expect(restrictedSelectorsOf(regularConfig).some(bansImportMetaEnvRead)).toBe(true);
+
+      const boundaryConfig = await configFor("packages/client/src/lib/api-base.ts");
+      const boundarySelectors = restrictedSelectorsOf(boundaryConfig);
+      expect(boundarySelectors.some(bansProcessExitCall), "process.exit ban must remain").toBe(
+        true,
+      );
+      expect(boundarySelectors.some(bansProcessEnvRead), "process.env ban must remain").toBe(true);
+      expect(
+        boundarySelectors.some(bansQueryKeyArrayProperty),
+        "queryKey property ban must remain",
+      ).toBe(true);
+      expect(
+        boundarySelectors.some(bansQueryClientArrayKeyArgument),
+        "query client key argument ban must remain",
+      ).toBe(true);
+      expect(boundarySelectors.some(bansImportMetaEnvRead)).toBe(false);
+    },
+  );
+
+  it(
+    "still bans hand-built query keys inside the import.meta.env boundary module",
+    { timeout: resolvedConfigTestTimeoutMs },
+    async () => {
+      const messages = restrictedSyntaxMessages(
+        await lintTextFor(
+          "packages/client/src/lib/api-base.ts",
+          [
+            "export const apiUrl = import.meta.env.VITE_API_URL;",
+            'export const options = { "queryKey": ["campaign"] };',
+          ].join("\n"),
+        ),
+      );
+      expect(messages).toHaveLength(1);
     },
   );
 });

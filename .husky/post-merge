@@ -1,3 +1,5 @@
 #!/usr/bin/env bash
+bash "$(dirname "$0")/../scripts/git/install-lint-ratchet-merge-driver.sh"
+bash "$(dirname "$0")/../scripts/git/lint-ratchet-post-merge-baseline-truth-up.sh"
 . "$(dirname "$0")/../scripts/worktree-drift-hook.sh"
 musi_worktree_drift_hook "post-merge" "$@"

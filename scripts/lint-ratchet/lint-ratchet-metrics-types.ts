@@ -11,6 +11,7 @@ export interface LintRatchetMetricItem {
   readonly lines?: number;
   readonly maxComplexity?: number;
   readonly perFunction?: readonly LintRatchetComplexityFunction[];
+  readonly messagesFingerprint?: string;
 }
 
 export interface LintRatchetComplexityMessage {

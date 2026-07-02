@@ -74,7 +74,7 @@ chmod +x "$SANDBOX/bin/nproc"
 
 STUB_LOG_FILE="$SANDBOX/runner.log"
 : > "$STUB_LOG_FILE"
-ALL_SMOKE_TESTS=$'runner ran test-ai-hooks\nrunner ran test-check-eslint-react-peer-exception\nrunner ran test-check-fast-uri-override\nrunner ran test-code-intel\nrunner ran test-codemod-concurrency-guard\nrunner ran test-codemod-expand-barrel\nrunner ran test-codemod-structured-logging-fix\nrunner ran test-codemod-trpc-shared-input\nrunner ran test-codemod-trpc-shared-output\nrunner ran test-dependency-freshness\nrunner ran test-doctor-json\nrunner ran test-eslint-disable-register\nrunner ran test-format-changed\nrunner ran test-generate-harness-controls\nrunner ran test-generate-lint-guidance\nrunner ran test-generate-module-index\nrunner ran test-harness-check\nrunner ran test-harness-emit-envelope\nrunner ran test-lint-agent-changed\nrunner ran test-lint-agent\nrunner ran test-lint-changed\nrunner ran test-lint-config-sensors\nrunner ran test-lint-dist-preflight\nrunner ran test-lint-fix-dist-preflight\nrunner ran test-lint-ratchet\nrunner ran test-lint-shell\nrunner ran test-migration-safety-scan\nrunner ran test-parallel-runner\nrunner ran test-post-create\nrunner ran test-slow-drift-audit\nrunner ran test-suppression-register\nrunner ran test-test-all\nrunner ran test-test-changed\nrunner ran test-test-client\nrunner ran test-test-dist-preflight\nrunner ran test-test-scripts\nrunner ran test-test-slow\nrunner ran test-verify-async\nrunner ran test-verify-history\nrunner ran test-verify-logs\nrunner ran test-verify-metadata\nrunner ran test-verify\nrunner ran test-worktree-db'
+ALL_SMOKE_TESTS=$'runner ran test-ai-hooks\nrunner ran test-check-eslint-react-peer-exception\nrunner ran test-check-fast-uri-override\nrunner ran test-code-intel\nrunner ran test-codemod-concurrency-guard\nrunner ran test-codemod-expand-barrel\nrunner ran test-codemod-structured-logging-fix\nrunner ran test-codemod-trpc-shared-input\nrunner ran test-codemod-trpc-shared-output\nrunner ran test-dependency-freshness\nrunner ran test-doctor-json\nrunner ran test-eslint-disable-register\nrunner ran test-format-changed\nrunner ran test-generate-harness-controls\nrunner ran test-generate-lint-guidance\nrunner ran test-generate-module-index\nrunner ran test-harness-check\nrunner ran test-harness-emit-envelope\nrunner ran test-lint-agent-changed\nrunner ran test-lint-agent\nrunner ran test-lint-changed\nrunner ran test-lint-config-sensors\nrunner ran test-lint-dist-preflight\nrunner ran test-lint-fix-dist-preflight\nrunner ran test-lint-ratchet\nrunner ran test-lint-shell\nrunner ran test-migration-safety-scan\nrunner ran test-parallel-runner\nrunner ran test-post-create\nrunner ran test-pre-push\nrunner ran test-skill-dispatch-wrappers\nrunner ran test-slow-drift-audit\nrunner ran test-suppression-register\nrunner ran test-test-all\nrunner ran test-test-changed\nrunner ran test-test-client\nrunner ran test-test-dist-preflight\nrunner ran test-test-scripts\nrunner ran test-test-slow\nrunner ran test-verify-async\nrunner ran test-verify-history\nrunner ran test-verify-logs\nrunner ran test-verify-metadata\nrunner ran test-verify\nrunner ran test-worktree-db'
 
 run_runner() {
   STUB_LOG="$STUB_LOG_FILE" \
@@ -307,6 +307,19 @@ expected=$'runner ran test-verify-history\nrunner ran test-dependency-freshness'
   || fail "pre-commit change should select hook smokes: $(cat "$STUB_LOG_FILE")"
 ok "--changed selects hook smokes on pre-commit change"
 
+# --- --changed selects pre-push smoke on pre-push hook changes -----------
+: > "$STUB_LOG_FILE"
+MUSI_SCRIPTS_CHANGED_FILES=".husky/pre-push" run_runner --changed >/dev/null
+[ "$(cat "$STUB_LOG_FILE")" = "runner ran test-pre-push" ] \
+  || fail "pre-push change should select pre-push smoke: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects test-pre-push on pre-push hook change"
+
+: > "$STUB_LOG_FILE"
+MUSI_SCRIPTS_CHANGED_FILES=".husky/post-commit" run_runner --changed >/dev/null
+[ "$(cat "$STUB_LOG_FILE")" = "runner ran test-pre-push" ] \
+  || fail "post-commit change should select pre-push smoke: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects test-pre-push on post-commit hook change"
+
 # --- --changed selects eslint-disable diagnostics smoke ------------------
 : > "$STUB_LOG_FILE"
 MUSI_SCRIPTS_CHANGED_FILES="scripts/eslint-disable-register.sh" run_runner --changed >/dev/null
@@ -408,7 +421,7 @@ ok "--changed selects test-format-changed on format wrapper change"
 
 : > "$STUB_LOG_FILE"
 MUSI_SCRIPTS_CHANGED_FILES="scripts/path-policy/path-policy-query.ts" run_runner --changed >/dev/null
-expected=$'runner ran test-verify\nrunner ran test-verify-history\nrunner ran test-format-changed\nrunner ran test-lint-changed\nrunner ran test-lint-shell\nrunner ran test-lint-config-sensors\nrunner ran test-lint-agent-changed\nrunner ran test-verify-metadata\nrunner ran test-test-scripts'
+expected=$'runner ran test-verify\nrunner ran test-verify-history\nrunner ran test-pre-push\nrunner ran test-format-changed\nrunner ran test-lint-changed\nrunner ran test-lint-shell\nrunner ran test-lint-config-sensors\nrunner ran test-lint-agent-changed\nrunner ran test-verify-metadata\nrunner ran test-test-scripts'
 [ "$(cat "$STUB_LOG_FILE")" = "$expected" ] \
   || fail "path-policy query change should select all dependent smokes: $(cat "$STUB_LOG_FILE")"
 ok "--changed selects all path-policy query dependent smokes"
@@ -434,7 +447,7 @@ ok "--changed selects smoke-subject data module dependent smokes"
 
 : > "$STUB_LOG_FILE"
 MUSI_SCRIPTS_CHANGED_FILES="scripts/tests/lib/test-git-env.sh" run_runner --changed >/dev/null
-expected=$'runner ran test-verify\nrunner ran test-verify-history\nrunner ran test-dependency-freshness\nrunner ran test-ai-hooks\nrunner ran test-eslint-disable-register\nrunner ran test-suppression-register\nrunner ran test-format-changed\nrunner ran test-lint-changed\nrunner ran test-lint-shell\nrunner ran test-lint-config-sensors\nrunner ran test-test-all\nrunner ran test-test-client\nrunner ran test-test-changed\nrunner ran test-test-slow\nrunner ran test-generate-module-index\nrunner ran test-lint-agent-changed\nrunner ran test-lint-ratchet\nrunner ran test-migration-safety-scan\nrunner ran test-doctor-json\nrunner ran test-verify-metadata\nrunner ran test-test-scripts'
+expected=$'runner ran test-verify\nrunner ran test-verify-history\nrunner ran test-dependency-freshness\nrunner ran test-pre-push\nrunner ran test-ai-hooks\nrunner ran test-eslint-disable-register\nrunner ran test-suppression-register\nrunner ran test-format-changed\nrunner ran test-lint-changed\nrunner ran test-lint-shell\nrunner ran test-lint-config-sensors\nrunner ran test-test-all\nrunner ran test-test-client\nrunner ran test-test-changed\nrunner ran test-test-slow\nrunner ran test-generate-module-index\nrunner ran test-lint-agent-changed\nrunner ran test-lint-ratchet\nrunner ran test-migration-safety-scan\nrunner ran test-doctor-json\nrunner ran test-verify-metadata\nrunner ran test-test-scripts'
 [ "$(cat "$STUB_LOG_FILE")" = "$expected" ] \
   || fail "test-git-env helper change should select fixture git smokes: $(cat "$STUB_LOG_FILE")"
 ok "--changed selects fixture git smokes on test-git-env helper change"
@@ -444,6 +457,7 @@ direct_fixture_git_smokes=(
   "test-verify.sh"
   "test-verify-history.sh"
   "test-dependency-freshness.sh"
+  "test-pre-push.sh"
   "../ai-hooks/test.sh"
   "test-eslint-disable-register.sh"
   "test-suppression-register.sh"
@@ -537,7 +551,7 @@ ok "--changed selects verify smokes on parallel step helper change"
 
 : > "$STUB_LOG_FILE"
 MUSI_SCRIPTS_CHANGED_FILES="scripts/lib/verify-metadata.sh" run_runner --changed >/dev/null
-expected=$'runner ran test-verify\nrunner ran test-verify-async\nrunner ran test-verify-history\nrunner ran test-dependency-freshness\nrunner ran test-ai-hooks\nrunner ran test-lint-changed\nrunner ran test-lint-config-sensors\nrunner ran test-verify-metadata'
+expected=$'runner ran test-verify\nrunner ran test-verify-async\nrunner ran test-verify-history\nrunner ran test-dependency-freshness\nrunner ran test-pre-push\nrunner ran test-ai-hooks\nrunner ran test-lint-changed\nrunner ran test-lint-config-sensors\nrunner ran test-verify-metadata'
 [ "$(cat "$STUB_LOG_FILE")" = "$expected" ] \
   || fail "verify-metadata.sh change should select dependent and dedicated smokes: $(cat "$STUB_LOG_FILE")"
 ok "--changed selects dependent and dedicated smokes on verify metadata change"
@@ -780,6 +794,24 @@ MUSI_SCRIPTS_CHANGED_FILES="scripts/git/lint-ratchet-baseline-merge-driver.sh" r
 [ "$(cat "$STUB_LOG_FILE")" = "runner ran test-lint-ratchet" ] \
   || fail "lint-ratchet merge driver change should select its smoke: $(cat "$STUB_LOG_FILE")"
 ok "--changed selects test-lint-ratchet on lint-ratchet merge driver change"
+
+: > "$STUB_LOG_FILE"
+MUSI_SCRIPTS_CHANGED_FILES="scripts/git/check-lint-ratchet-merge-driver.sh" run_runner --changed >/dev/null
+[ "$(cat "$STUB_LOG_FILE")" = "runner ran test-lint-ratchet" ] \
+  || fail "lint-ratchet merge-driver health check change should select its smoke: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects test-lint-ratchet on lint-ratchet merge-driver health check change"
+
+: > "$STUB_LOG_FILE"
+MUSI_SCRIPTS_CHANGED_FILES="scripts/git/lint-ratchet-merge-driver-lib.sh" run_runner --changed >/dev/null
+[ "$(cat "$STUB_LOG_FILE")" = "runner ran test-lint-ratchet" ] \
+  || fail "lint-ratchet merge-driver lib change should select its smoke: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects test-lint-ratchet on lint-ratchet merge-driver lib change"
+
+: > "$STUB_LOG_FILE"
+MUSI_SCRIPTS_CHANGED_FILES="scripts/git/lint-ratchet-post-merge-baseline-truth-up.sh" run_runner --changed >/dev/null
+[ "$(cat "$STUB_LOG_FILE")" = "runner ran test-lint-ratchet" ] \
+  || fail "lint-ratchet post-merge truth-up change should select its smoke: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects test-lint-ratchet on lint-ratchet post-merge truth-up change"
 
 : > "$STUB_LOG_FILE"
 MUSI_SCRIPTS_CHANGED_FILES="scripts/tests/lib/test-lint-ratchet-edit-check-fixtures.sh" run_runner --changed >/dev/null

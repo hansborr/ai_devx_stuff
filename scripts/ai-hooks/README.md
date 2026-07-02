@@ -1,15 +1,15 @@
 # AI Hook Adapters
 
-This directory owns the shared hook bodies used by the Claude and Codex
-adapters. The architecture-level inventory is in `docs/ai-harness.md`; this file
-is the implementation and manifest authoring reference.
+This directory owns the shared hook bodies used by the Claude, Codex, and
+Copilot adapters. The architecture-level inventory is in `docs/ai-harness.md`;
+this file is the implementation and manifest authoring reference.
 
 ## Shim Contract
 
-Files under `.claude/hooks/` and `.codex/hooks/` are thin adapters. A shim may
-resolve the repo root, translate harness-specific payload details, and `exec`
-one shared body from `scripts/ai-hooks/`. Keep behavior in the body unless the
-harness shape forces the adapter to differ.
+Files under `.claude/hooks/`, `.codex/hooks/`, and `.copilot/hooks/` are thin
+adapters. A shim may resolve the repo root, translate harness-specific payload
+details, and `exec` one shared body from `scripts/ai-hooks/`. Keep behavior in
+the body unless the harness shape forces the adapter to differ.
 
 Canonical Claude shim header:
 
@@ -24,10 +24,25 @@ REPO_ROOT=$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null || git re
 exec bash "$REPO_ROOT/scripts/ai-hooks/<body>.sh"
 ```
 
-Codex shims use the same header but fall back to `/workspace`. The two Codex
-Bash aggregators, `.codex/hooks/pre-tool-use.sh` and
-`.codex/hooks/post-tool-use.sh`, are deliberately not pure exec shims because
-Codex groups several Bash policies behind one hook entry.
+Codex shims use the same header but fall back to `/workspace`. The Bash-surface
+aggregates (`bash-pre-tool-use.sh` and `bash-post-tool-use.sh` in this
+directory) group command policy, commit state, and `bun run` cache behavior
+behind one hook entry per event; `.codex/hooks/pre-tool-use.sh` and
+`.codex/hooks/post-tool-use.sh` exec them directly.
+
+Copilot shims are translation adapters rather than pure exec shims: Copilot
+delivers camelCase payloads (`toolName`, `toolArgs` as a JSON string, no
+per-call tool id), and expects event-specific response JSON
+(`permissionDecision` on preToolUse, `additionalContext`/`modifiedResult` on
+postToolUse, `{decision, reason}` on agentStop). `copilot-adapter.sh` owns that
+translation: `ai_copilot_dispatch <mode> <surface> <body>` filters by toolName
+after native matcher selection, normalizes the payload — synthesizing a
+`tool_use_id` from the session id plus toolArgs so pre/post state correlates —
+runs the shared body, and translates its response. The extra toolName filter is
+defense in depth against config drift. Copilot preToolUse command hooks are
+fail-closed on crashes, so dispatch always exits 0 and unparseable payloads
+translate to "no opinion". Copilot only loads repo hooks from folders the user
+has trusted in `~/.copilot/config.json`.
 
 ## Shared Bodies
 
@@ -64,24 +79,29 @@ commits.
 
 ## `hookWiring`
 
-`harness.controls.json` is the source for `.claude/settings.json` hooks and
-`.codex/hooks.json`. `scripts/harness/hook-wiring-schema.ts` is authoritative for the
-schema.
+`harness.controls.json` is the source for `.claude/settings.json` hooks,
+`.codex/hooks.json`, and `.github/hooks/copilot.json`.
+`scripts/harness/hook-wiring-schema.ts` is authoritative for the schema.
 
 `event` is the harness event name. Supported values are `PreToolUse`,
-`PostToolUse`, and `Stop`.
+`PostToolUse`, and `Stop`. For Copilot the generator renders them as
+`preToolUse`, `postToolUse`, and `agentStop`.
 
 `matcher` is the harness matcher for a command group. It is required for
-`PreToolUse` and `PostToolUse`; `Stop` hooks omit it.
+`PreToolUse` and `PostToolUse` on Claude, Codex, and Copilot; `Stop` hooks omit
+it. Copilot CLI 1.0.68 has been live-tested honoring native matchers, and
+`.copilot/hooks/` adapters still filter by toolName as defense in depth.
 
 `timeout` is an optional positive integer in seconds. Use it when the harness
-needs a bounded runtime for slower hooks such as Prisma generation.
+needs a bounded runtime for slower hooks such as Prisma generation. Copilot
+renders it as `timeoutSec`.
 
 `order` is a positive integer used by the generator to sort hooks within an
 event. Lower order runs first; ties sort by control id.
 
-`harnesses` contains the concrete `claude` and/or `codex` command entries. A
-Codex command must include `statusMessage`; Claude commands may omit it.
+`harnesses` contains the concrete `claude`, `codex`, and/or `copilot` command
+entries. A Codex command must include `statusMessage`; Claude commands may omit
+it, and Copilot commands must omit it.
 
 `notes.<harness>` explains a deliberate missing harness target. Every hook must
 either wire each known harness or explain the omission.
@@ -120,7 +140,9 @@ another repo:
 - The hardcoded verify `CONSUMERS` table in `generate-verify-steps.ts`; adding a
   consumer also means manifest and wrapper changes.
 - The wrapped-script whitelist in `policy.sh`.
-- The protected-files advisory table in `protected-files.sh`.
+- The protected-files advisory/deny table in `protected-files.sh`. The
+  repo-root `.allow-protected-edits` marker is repo-wide; create it only for
+  deliberate protected-file maintenance and remove it after use.
 - The `MUSI_*` and `AI_*` environment variable prefixes used by wrappers,
   caches, hooks, and tests.
 
@@ -129,12 +151,12 @@ another repo:
 Some harness assumptions are structural rather than manifest-level knobs:
 
 - The manifest path is fixed at repo-root `harness.controls.json`.
-- Hook wiring outputs are fixed at `.claude/settings.json` and
-  `.codex/hooks.json`.
+- Hook wiring outputs are fixed at `.claude/settings.json`,
+  `.codex/hooks.json`, and `.github/hooks/copilot.json`.
 - Verify step generation assumes `scripts/verify/steps.generated.sh` and the
   `scripts/verify/` wrapper layout.
 - Hook bodies and smoke tests assume Bash; several hooks and checks also assume
   `jq`.
 - Generated verify steps assume `bun run`.
-- Shared hooks assume repo-relative `.claude/hooks/`, `.codex/hooks/`, and
-  `scripts/ai-hooks/` adapter/body layout.
+- Shared hooks assume repo-relative `.claude/hooks/`, `.codex/hooks/`,
+  `.copilot/hooks/`, and `scripts/ai-hooks/` adapter/body layout.

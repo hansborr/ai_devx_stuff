@@ -20,15 +20,25 @@ import { repoRoot, safeRatchetId } from "./paths.js";
 
 export type { ESLintFileResult, ESLintMessage };
 
+const MAX_ESLINT_POSITIONAL_FILES = 500;
+
 function rejectWithError(rejectResults: (reason?: unknown) => void, error: unknown): void {
   rejectResults(error instanceof Error ? error : new Error(String(error)));
+}
+
+function fileChunks(files: readonly string[]): readonly (readonly string[])[] {
+  const chunks: string[][] = [];
+  for (let index = 0; index < files.length; index += MAX_ESLINT_POSITIONAL_FILES) {
+    chunks.push(files.slice(index, index + MAX_ESLINT_POSITIONAL_FILES));
+  }
+  return chunks;
 }
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function sweepStaleCacheSiblings(ratchet: LintRatchetConfig, currentHash: string): void {
+function sweepStaleCacheEntries(ratchet: LintRatchetConfig, currentHash: string): void {
   const id = safeRatchetId(ratchet.id);
   const liveCachePrefix = `${id}-${currentHash}`;
   const liveConfigName = `${liveCachePrefix}.mjs`;
@@ -55,6 +65,10 @@ function sweepStaleCacheSiblings(ratchet: LintRatchetConfig, currentHash: string
       rmSync(join(dir, entry), { recursive: true, force: true });
     }
   }
+}
+
+export function sweepStaleCacheSiblings(ratchet: LintRatchetConfig, ruleSourceHash: string): void {
+  sweepStaleCacheEntries(ratchet, cacheKeyHashFor(ratchet, ruleSourceHash));
 }
 
 async function spawnEslint(
@@ -113,6 +127,7 @@ export async function runEslintForFiles(
   ruleSourceHash: string,
   files: readonly string[],
 ): Promise<readonly ESLintFileResult[]> {
+  if (files.length === 0) return [];
   const configPath = writeEslintConfig(ratchet, ruleSourceHash);
   const cacheArgs: string[] = [];
   if (usesEslintCache(ratchet)) {
@@ -120,21 +135,17 @@ export async function runEslintForFiles(
     mkdirSync(dirname(cachePath), { recursive: true });
     cacheArgs.push("--cache", "--cache-location", cachePath);
   }
-  const args = [
-    "--format=json",
-    "--no-error-on-unmatched-pattern",
-    ...cacheArgs,
-    "--config",
-    configPath,
-    ...files,
-  ];
-  return spawnEslint(ratchet, args);
-}
-
-export async function runEslint(
-  ratchet: LintRatchetConfig,
-  ruleSourceHash: string,
-): Promise<readonly ESLintFileResult[]> {
-  sweepStaleCacheSiblings(ratchet, cacheKeyHashFor(ratchet, ruleSourceHash));
-  return runEslintForFiles(ratchet, ruleSourceHash, ratchet.files);
+  const results: ESLintFileResult[] = [];
+  for (const chunk of fileChunks(files)) {
+    const args = [
+      "--format=json",
+      "--no-error-on-unmatched-pattern",
+      ...cacheArgs,
+      "--config",
+      configPath,
+      ...chunk,
+    ];
+    results.push(...(await spawnEslint(ratchet, args)));
+  }
+  return results;
 }

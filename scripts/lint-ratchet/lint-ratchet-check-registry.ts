@@ -16,10 +16,13 @@ import {
 } from "./lint-ratchet-config.js";
 import { ConfigError } from "./lint-ratchet-metrics.js";
 import { BASELINE_FILENAME, baselinePath, repoRoot } from "./paths.js";
-import { matchesRatchet } from "./ratchet-globs.js";
+import { matchingTrackedFiles } from "./ratchet-globs.js";
 import { formatMissingRatchetManifestMessage } from "./ratchet-manifest-message.js";
 
 const WINDOWS_ABSOLUTE_PATH_PATTERN = /^[A-Z]:[\\/]/iu;
+const UPDATE_PREFLIGHT_IGNORED_FAILURE_KINDS: ReadonlySet<RegistryCheckFailureKind> = new Set([
+  "orphan-baseline",
+]);
 
 export type RegistryCheckFailureKind =
   | "registry-shape"
@@ -39,6 +42,10 @@ export interface RegistryCheckFailure {
 export interface RegistryCheckResult {
   readonly ok: boolean;
   readonly failures: readonly RegistryCheckFailure[];
+}
+
+export interface RegistryPreflightOptions {
+  readonly ignoredFailureKinds?: ReadonlySet<RegistryCheckFailureKind>;
 }
 
 export interface CheckLintRatchetRegistryOptions {
@@ -112,7 +119,7 @@ function emptyGlobFailures(
   const failures: RegistryCheckFailure[] = [];
   for (const ratchet of ratchets) {
     if (ratchet.allowEmpty === true) continue;
-    if (trackedFiles.some((trackedFile) => matchesRatchet(ratchet, trackedFile))) continue;
+    if (matchingTrackedFiles(ratchet, trackedFiles).length > 0) continue;
     failures.push({
       kind: "empty-glob",
       message: `${ratchet.id}: files globs match zero tracked files after ignores`,
@@ -203,9 +210,21 @@ function formatRegistryCheckFailures(
   ].join("\n");
 }
 
-async function checkCurrentLintRatchetRegistry(): Promise<RegistryCheckResult> {
+function applyPreflightOptions(
+  result: RegistryCheckResult,
+  options: RegistryPreflightOptions,
+): RegistryCheckResult {
+  const ignoredFailureKinds = options.ignoredFailureKinds;
+  if (ignoredFailureKinds === undefined || ignoredFailureKinds.size === 0) return result;
+  const failures = result.failures.filter((failure) => !ignoredFailureKinds.has(failure.kind));
+  return { ok: failures.length === 0, failures };
+}
+
+async function checkCurrentLintRatchetRegistry(
+  options: RegistryPreflightOptions = {},
+): Promise<RegistryCheckResult> {
   const ruleDocsById = await loadRuleDocsById();
-  return checkLintRatchetRegistry({
+  const result = checkLintRatchetRegistry({
     ratchets: lintRatchets,
     localRuleIds: new Set(ruleDocsById.keys()),
     thirdPartyPlugins: lintRatchetThirdPartyPluginAllowlist,
@@ -214,14 +233,23 @@ async function checkCurrentLintRatchetRegistry(): Promise<RegistryCheckResult> {
     baselineLabel: BASELINE_FILENAME,
     harnessManifestRatchetIds: harnessManifestRatchetIdsIfPresent(),
   });
+  return applyPreflightOptions(result, options);
 }
 
-export async function assertLintRatchetRegistryClean(): Promise<void> {
-  const result = await checkCurrentLintRatchetRegistry();
+export async function assertLintRatchetRegistryClean(
+  options: RegistryPreflightOptions = {},
+): Promise<void> {
+  const result = await checkCurrentLintRatchetRegistry(options);
   if (result.ok) return;
   throw new ConfigError(
     formatRegistryCheckFailures("lint:ratchet registry preflight", result.failures),
   );
+}
+
+export async function assertLintRatchetUpdateRegistryClean(): Promise<void> {
+  await assertLintRatchetRegistryClean({
+    ignoredFailureKinds: UPDATE_PREFLIGHT_IGNORED_FAILURE_KINDS,
+  });
 }
 
 export async function runLintRatchetCheckRegistry(): Promise<void> {

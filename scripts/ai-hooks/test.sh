@@ -20,6 +20,8 @@ REPO_ROOT=$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel)
 # shellcheck source=/dev/null
 . "$SCRIPT_DIR/output-filter.sh"
 # shellcheck source=/dev/null
+. "$SCRIPT_DIR/failure-guidance.sh"
+# shellcheck source=/dev/null
 . "$SCRIPT_DIR/commit-output.sh"
 
 TMP_ROOT=$(mktemp -d /tmp/musi-ai-hooks-test.XXXXXX)
@@ -66,6 +68,17 @@ assert_policy_allows() {
   if ai_policy_violation_reason "$cmd" >/dev/null; then
     fail "policy unexpectedly blocked [$cmd]"
   fi
+}
+
+assert_policy_advisory_contains() {
+  local cmd="$1"
+  local expected="$2"
+  local advisory
+
+  assert_policy_allows "$cmd"
+  advisory=$(ai_policy_advisory_context "$cmd" || true)
+  [ -n "$advisory" ] || fail "policy should advise for [$cmd]"
+  assert_contains "$advisory" "$expected"
 }
 
 assert_policy_blocks_in_dir() {
@@ -137,7 +150,42 @@ assert_response_combined_exit() {
 
 assert_policy_blocks "git commit -m test --no-verify" "$AI_POLICY_HOOK_BYPASS"
 assert_policy_blocks "HUSKY=0 git commit -m test" "$AI_POLICY_HOOK_BYPASS"
+assert_policy_blocks "export HUSKY=0 && git commit -m test" "$AI_POLICY_HOOK_BYPASS"
+assert_policy_blocks "export HUSKY=0; git commit -m test" "$AI_POLICY_HOOK_BYPASS"
 assert_policy_blocks "git commit -nm test" "$AI_POLICY_HOOK_BYPASS"
+assert_policy_blocks "echo ok && git commit --no-verify" "$AI_POLICY_HOOK_BYPASS"
+assert_policy_blocks "git -c core.editor=true commit -n" "$AI_POLICY_HOOK_BYPASS"
+assert_policy_blocks "git push --no-verify" "$AI_POLICY_HOOK_BYPASS"
+assert_policy_blocks "git push origin HEAD --no-verify" "$AI_POLICY_HOOK_BYPASS"
+assert_policy_blocks "echo ok && git push --no-verify" "$AI_POLICY_HOOK_BYPASS"
+assert_policy_blocks "env HUSKY=0 git commit -m test" "$AI_POLICY_HOOK_BYPASS"
+assert_policy_blocks "env -i HUSKY=0 PATH=/usr/bin git commit -m test" "$AI_POLICY_HOOK_BYPASS"
+assert_policy_blocks "env -u GIT_DIR HUSKY=0 git commit -m test" "$AI_POLICY_HOOK_BYPASS"
+assert_policy_blocks "env --split-string=FOO=bar HUSKY=0 git commit -m test" "$AI_POLICY_HOOK_BYPASS"
+assert_policy_blocks "env -S 'HUSKY=0 git commit -m test'" "$AI_POLICY_HOOK_BYPASS"
+assert_policy_blocks "bash -lc 'git commit --no-verify'" "$AI_POLICY_HOOK_BYPASS"
+assert_policy_blocks "bash -lc 'git push --no-verify'" "$AI_POLICY_HOOK_BYPASS"
+assert_policy_blocks "bash -lc 'env HUSKY=0 git commit -m test'" "$AI_POLICY_HOOK_BYPASS"
+assert_policy_allows_each \
+  "rg HUSKY=0 scripts/" \
+  "rg \"export HUSKY=0\" scripts/" \
+  "rg -- --no-verify" \
+  "rg \"--no-verify\" .husky/" \
+  "rg \"git commit\" -n scripts/" \
+  "git log --grep=--no-verify"
+assert_policy_advisory_contains "touch .allow-protected-edits" "repo-wide"
+assert_policy_advisory_contains "bash -lc 'touch .allow-protected-edits'" "remove it immediately"
+assert_policy_advisory_contains ": > .allow-protected-edits" "protected-file maintenance"
+ALLOW_MARKER_POLICY_OUT=$(
+  jq -n --arg cmd "touch .allow-protected-edits" '{tool_input:{command:$cmd}}' \
+    | CLAUDE_PROJECT_DIR="$REPO_ROOT" bash "$REPO_ROOT/scripts/ai-hooks/bash-pre-tool-use.sh"
+)
+assert_hook_json "$ALLOW_MARKER_POLICY_OUT"
+[ "$(jq -r '.hookSpecificOutput.hookEventName // empty' <<< "$ALLOW_MARKER_POLICY_OUT")" = "PreToolUse" ] \
+  || fail "marker creation should emit PreToolUse advisory context: $ALLOW_MARKER_POLICY_OUT"
+ALLOW_MARKER_POLICY_CONTEXT=$(jq -r '.hookSpecificOutput.additionalContext // empty' <<< "$ALLOW_MARKER_POLICY_OUT")
+assert_contains "$ALLOW_MARKER_POLICY_CONTEXT" ".allow-protected-edits"
+assert_contains "$ALLOW_MARKER_POLICY_CONTEXT" "repo-wide"
 assert_policy_blocks "psql postgres" "$AI_POLICY_POSTGRES"
 assert_policy_blocks "redis-cli ping" "$AI_POLICY_REDIS"
 assert_policy_blocks "docker ps" "$AI_POLICY_DOCKER"
@@ -253,6 +301,8 @@ assert_policy_allows_in_dir "$MAIN_BRANCH_REPO" "git push origin feat/foo 2>&1"
 assert_policy_allows_in_dir "$MAIN_BRANCH_REPO" "git push origin feat/foo>/tmp/push.out"
 assert_policy_allows_in_dir "$FEATURE_BRANCH_REPO" "git push"
 assert_policy_allows_in_dir "$FEATURE_BRANCH_REPO" "git push origin HEAD"
+assert_policy_allows_in_dir "$FEATURE_BRANCH_REPO" "git push -n origin HEAD"
+assert_policy_allows_in_dir "$FEATURE_BRANCH_REPO" "git push --dry-run origin HEAD"
 assert_policy_allows_in_dir "$FEATURE_BRANCH_REPO" "git push --set-upstream origin feat/foo"
 assert_policy_allows_in_dir "$FEATURE_BRANCH_REPO" "git push origin feat/foo"
 
@@ -573,6 +623,21 @@ assert_protected_file_entry() {
   assert_contains "$advisory" "$expected_text"
 }
 
+assert_protected_file_deny_entry() {
+  local path="$1"
+  local expected_key="$2"
+  local expected_text="$3"
+  local deny key
+
+  key=$(ai_protected_file_deny_key "$path") \
+    || fail "expected protected-file deny key for $path"
+  [ "$key" = "$expected_key" ] \
+    || fail "protected-file deny key mismatch for $path: expected $expected_key, got $key"
+  deny=$(ai_protected_file_deny "$path") \
+    || fail "expected protected-file deny text for $path"
+  assert_contains "$deny" "$expected_text"
+}
+
 assert_protected_file_entry \
   "$REPO_ROOT/packages/server/prisma/schema.prisma" \
   "prisma-schema" \
@@ -593,22 +658,38 @@ assert_protected_file_entry \
   "$REPO_ROOT/e2e/character-sheet.spec.ts" \
   "guide-e2e" \
   "docs/guides/add-e2e-test.md"
-assert_protected_file_entry \
+assert_protected_file_deny_entry \
   "$REPO_ROOT/lint-ratchet.baseline.json" \
   "tamper-lint-ratchet-baseline" \
-  "Tamper advisory"
+  "bun run lint:ratchet:update"
 assert_protected_file_entry \
   "$REPO_ROOT/eslint.config.js" \
   "tamper-eslint-config" \
   "Tamper advisory"
-assert_protected_file_entry \
+assert_protected_file_deny_entry \
   "$REPO_ROOT/scripts/eslint-disable-register.sh" \
   "tamper-suppression-register" \
-  "Tamper advisory"
-assert_protected_file_entry \
+  "register smoke tests"
+assert_protected_file_deny_entry \
   "$REPO_ROOT/scripts/suppression-register.sh" \
   "tamper-suppression-register" \
-  "Tamper advisory"
+  "register smoke tests"
+assert_protected_file_deny_entry \
+  "$REPO_ROOT/docs/generated/harness-controls.md" \
+  "generated-harness-controls" \
+  "bun run docs:harness-controls"
+assert_protected_file_deny_entry \
+  "$REPO_ROOT/scripts/verify/steps.generated.sh" \
+  "generated-verify-steps" \
+  "bun run verify:steps"
+assert_protected_file_deny_entry \
+  "$REPO_ROOT/bun.lock" \
+  "lockfile" \
+  "bun install"
+assert_protected_file_deny_entry \
+  "$REPO_ROOT/.husky/_/husky.sh" \
+  "husky-internals" \
+  "bun install"
 assert_protected_file_entry \
   "$REPO_ROOT/.husky/pre-commit" \
   "git-hook" \
@@ -624,6 +705,9 @@ assert_protected_file_entry \
 if ai_protected_file_advisory "$REPO_ROOT/packages/server/src/main.ts" >/dev/null; then
   fail "unexpected protected-file advisory for unprotected file"
 fi
+if ai_protected_file_deny "$REPO_ROOT/packages/server/src/main.ts" >/dev/null; then
+  fail "unexpected protected-file deny for unprotected file"
+fi
 
 protected_files_out_for_path() {
   local path="$1"
@@ -638,6 +722,26 @@ protected_files_out_for_path() {
       AI_FAKE_NOW="$now" \
       CLAUDE_PROJECT_DIR="$REPO_ROOT" \
       bash "$REPO_ROOT/.claude/hooks/protected-files.sh"
+}
+
+protected_files_out_for_apply_patch_in_dir() {
+  local cwd="$1"
+  local patch="$2"
+  local session="$3"
+  local state_root="$4"
+  local ttl="${5:-0}"
+  local now="${6:-100000}"
+
+  (
+    cd "$cwd"
+    jq -n --arg command "$patch" --arg session "$session" \
+      '{session_id:$session,tool_name:"apply_patch",tool_input:{command:$command}}' \
+      | AI_STATE_ROOT="$state_root" \
+        AI_PROTECTED_FILES_THROTTLE_TTL="$ttl" \
+        AI_FAKE_NOW="$now" \
+        CLAUDE_PROJECT_DIR="$REPO_ROOT" \
+        bash "$REPO_ROOT/.codex/hooks/protected-files.sh"
+  )
 }
 
 assert_protected_files_advisory() {
@@ -668,17 +772,54 @@ assert_protected_files_advisory \
   "$REPO_ROOT/e2e/character-sheet.spec.ts" \
   "docs/guides/add-e2e-test.md"
 assert_protected_files_advisory \
-  "$REPO_ROOT/lint-ratchet.baseline.json" \
-  "Tamper advisory"
-assert_protected_files_advisory \
   "$REPO_ROOT/eslint.config.js" \
   "Tamper advisory"
-assert_protected_files_advisory \
+
+assert_protected_files_deny() {
+  local path="$1"
+  local expected="$2"
+  local output reason
+
+  output=$(protected_files_out_for_path "$path" "protected-files-deny-$path" "$TMP_ROOT/protected-files-deny-state")
+  assert_hook_json "$output"
+  [ "$(jq -r '.decision // empty' <<< "$output")" = "deny" ] \
+    || fail "protected-files hook should deny $path: $output"
+  reason=$(jq -r '.reason // empty' <<< "$output")
+  assert_contains "$reason" "$expected"
+}
+
+assert_protected_files_deny \
+  "$REPO_ROOT/lint-ratchet.baseline.json" \
+  "bun run lint:ratchet:update"
+assert_protected_files_deny \
   "$REPO_ROOT/scripts/eslint-disable-register.sh" \
-  "Tamper advisory"
-assert_protected_files_advisory \
-  "$REPO_ROOT/scripts/suppression-register.sh" \
-  "Tamper advisory"
+  "register smoke tests"
+assert_protected_files_deny \
+  "$REPO_ROOT/docs/generated/local-lint-rules.md" \
+  "bun run docs:lint-guidance"
+assert_protected_files_deny \
+  "$REPO_ROOT/scripts/verify/steps.generated.sh" \
+  "bun run verify:steps"
+assert_protected_files_deny \
+  "$REPO_ROOT/bun.lock" \
+  "bun install"
+assert_protected_files_deny \
+  "$REPO_ROOT/.husky/_/pre-commit" \
+  "bun install"
+
+PROTECTED_ADD_FILE_PATCH=$'*** Begin Patch\n*** Add File: new-protected-hook-test.md\n+generated by test\n*** End Patch'
+PROTECTED_NEW_FILE_OUT=$(
+  protected_files_out_for_apply_patch_in_dir \
+    "$REPO_ROOT/docs/generated" \
+    "$PROTECTED_ADD_FILE_PATCH" \
+    "protected-files-new-generated-file" \
+    "$TMP_ROOT/protected-files-new-generated-state"
+)
+assert_hook_json "$PROTECTED_NEW_FILE_OUT"
+[ "$(jq -r '.decision // empty' <<< "$PROTECTED_NEW_FILE_OUT")" = "deny" ] \
+  || fail "protected-files hook should deny new apply_patch files under protected cwd: $PROTECTED_NEW_FILE_OUT"
+assert_contains "$(jq -r '.reason // empty' <<< "$PROTECTED_NEW_FILE_OUT")" \
+  "Protected generated file"
 
 PROTECTED_THROTTLE_STATE="$TMP_ROOT/protected-files-throttle-state"
 PROTECTED_THROTTLE_PATH="$REPO_ROOT/packages/server/src/routers/character.ts"
@@ -692,6 +833,28 @@ PROTECTED_THROTTLE_OUT=$(
   protected_files_out_for_path "$PROTECTED_THROTTLE_PATH" "protected-files-throttle" "$PROTECTED_THROTTLE_STATE" 1800 200000
 )
 assert_hook_continue_json "$PROTECTED_THROTTLE_OUT"
+
+PROTECTED_DENY_THROTTLE_OUT=$(
+  protected_files_out_for_path "$REPO_ROOT/bun.lock" "protected-files-deny-throttle" "$PROTECTED_THROTTLE_STATE" 1800 200000
+)
+assert_hook_json "$PROTECTED_DENY_THROTTLE_OUT"
+[ "$(jq -r '.decision // empty' <<< "$PROTECTED_DENY_THROTTLE_OUT")" = "deny" ] \
+  || fail "protected-files deny tier should not be throttled: $PROTECTED_DENY_THROTTLE_OUT"
+
+PROTECTED_ALLOW_MARKER="$REPO_ROOT/.allow-protected-edits"
+touch "$PROTECTED_ALLOW_MARKER"
+PROTECTED_MARKER_OUT=$(
+  protected_files_out_for_path "$REPO_ROOT/bun.lock" "protected-files-marker" "$TMP_ROOT/protected-files-marker-state"
+)
+rm -f "$PROTECTED_ALLOW_MARKER"
+assert_hook_json "$PROTECTED_MARKER_OUT"
+[ "$(jq -r '.decision // empty' <<< "$PROTECTED_MARKER_OUT")" = "" ] \
+  || fail "protected-files marker should downgrade deny to advisory: $PROTECTED_MARKER_OUT"
+PROTECTED_MARKER_CONTEXT=$(jq -r '.hookSpecificOutput.additionalContext // empty' <<< "$PROTECTED_MARKER_OUT")
+assert_contains "$PROTECTED_MARKER_CONTEXT" ".allow-protected-edits"
+assert_contains "$PROTECTED_MARKER_CONTEXT" "Repo-wide"
+assert_contains "$PROTECTED_MARKER_CONTEXT" "would have been denied for $REPO_ROOT/bun.lock"
+assert_contains "$PROTECTED_MARKER_CONTEXT" "Remove the marker"
 
 AGENTS_DOC="$TMP_ROOT/AGENTS.md"
 for _ in $(seq 1 251); do
@@ -753,6 +916,12 @@ fi
 # aggregate keeps its single "ai-hooks tests passed" success line; any failure
 # still exits non-zero and prints its FAIL reason on stderr.
 bash "$SCRIPT_DIR/test-codex-wiring.sh" >/dev/null
+# --- Copilot payload wiring ---------------------------------------------------
+# Extracted to a focused script so this adapter family can also run on its own
+# (`bash scripts/ai-hooks/test-copilot-wiring.sh`). Stdout is discarded so the
+# aggregate keeps its single "ai-hooks tests passed" success line; any failure
+# still exits non-zero and prints its FAIL reason on stderr.
+bash "$SCRIPT_DIR/test-copilot-wiring.sh" >/dev/null
 # --- tidy-edited-file hook ---------------------------------------------------
 # Extracted to a focused script so this behavior family can also run on its own
 # (`bash scripts/ai-hooks/test-tidy.sh`). Stdout is discarded so the
@@ -777,6 +946,12 @@ bash "$SCRIPT_DIR/test-ratchet-regression.sh" >/dev/null
 # keeps its single "ai-hooks tests passed" success line; any failure still exits
 # non-zero and prints its FAIL reason on stderr.
 bash "$SCRIPT_DIR/test-cache.sh" >/dev/null
+# --- session-state hook -------------------------------------------------------
+# Extracted to a focused script so this behavior family can also run on its own
+# (`bash scripts/ai-hooks/test-session-state.sh`). Stdout is discarded so the
+# aggregate keeps its single "ai-hooks tests passed" success line; any failure
+# still exits non-zero and prints its FAIL reason on stderr.
+bash "$SCRIPT_DIR/test-session-state.sh" >/dev/null
 
 OUTSIDE_HOOK_OUTPUT=$(
   cd /tmp
@@ -1266,6 +1441,118 @@ assert_claude_bun_timeout_kills_process_tree
 # aggregate keeps its single "ai-hooks tests passed" success line; any failure
 # still exits non-zero and prints its FAIL reason on stderr.
 bash "$SCRIPT_DIR/test-stop-policy.sh" >/dev/null
+
+# --- failure-guidance hook ----------------------------------------------------
+failure_guidance_error_payload() {
+  local command="$1"
+  local error_text="$2"
+
+  jq -n --arg command "$command" --arg error "$error_text" '{
+    hook_event_name: "PostToolUseFailure",
+    tool_name: "Bash",
+    tool_input: { command: $command },
+    tool_use_id: "toolu_failure_fixture",
+    error: $error
+  }'
+}
+
+failure_guidance_stderr_payload() {
+  local command="$1"
+  local error_text="$2"
+  local stderr_text="$3"
+
+  jq -n --arg command "$command" --arg error "$error_text" --arg stderr "$stderr_text" '{
+    hook_event_name: "PostToolUseFailure",
+    tool_name: "Bash",
+    tool_input: { command: $command },
+    tool_use_id: "toolu_failure_fixture",
+    error: $error,
+    tool_response: {
+      exit_code: 1,
+      stdout: "",
+      stderr: $stderr
+    }
+  }'
+}
+
+failure_guidance_response_string_payload() {
+  local command="$1"
+  local error_text="$2"
+  local response_text="$3"
+
+  jq -n --arg command "$command" --arg error "$error_text" --arg response "$response_text" '{
+    hook_event_name: "PostToolUseFailure",
+    tool_name: "Bash",
+    tool_input: { command: $command },
+    tool_use_id: "toolu_failure_fixture",
+    error: $error,
+    tool_response: $response
+  }'
+}
+
+failure_guidance_context() {
+  jq -r '.hookSpecificOutput.additionalContext // empty' <<< "$1"
+}
+
+assert_failure_guidance_payload_contains() {
+  local payload="$1"
+  local expected="$2"
+  local output context
+
+  output=$(printf '%s' "$payload" | "$REPO_ROOT/scripts/ai-hooks/failure-guidance.sh")
+  assert_hook_json "$output"
+  [ "$(jq -r '.hookSpecificOutput.hookEventName // empty' <<< "$output")" = "PostToolUseFailure" ] \
+    || fail "failure-guidance should emit PostToolUseFailure context: $output"
+  context=$(failure_guidance_context "$output")
+  assert_contains "$context" "$expected"
+}
+
+assert_failure_guidance_payload_silent() {
+  local payload="$1"
+  local output
+
+  output=$(printf '%s' "$payload" | "$REPO_ROOT/scripts/ai-hooks/failure-guidance.sh")
+  [ -z "$output" ] || fail "failure-guidance should stay silent for unrelated failure: $output"
+}
+
+TERSE_FAILURE='Command exited with non-zero status code 1'
+OOM_FAILURE=$'FATAL ERROR: Ineffective mark-compacts near heap limit Allocation failed - JavaScript heap out of memory\nESLint crashed while scanning the project'
+assert_failure_guidance_payload_silent \
+  "$(failure_guidance_error_payload "bun run lint" "$TERSE_FAILURE")"
+assert_failure_guidance_payload_contains \
+  "$(failure_guidance_stderr_payload "bun run lint" "$TERSE_FAILURE" "$OOM_FAILURE")" \
+  "NODE_OPTIONS=--max-old-space-size=6144"
+assert_failure_guidance_payload_silent \
+  "$(failure_guidance_error_payload "node scripts/unrelated.js" "FATAL ERROR: unrelated process failed")"
+
+FLAKY_FAILURE=$'packages/server/src/routers/srd.test.ts:428\nexpected subclasses to have length 12'
+assert_failure_guidance_payload_contains \
+  "$(failure_guidance_stderr_payload "bun run test:changed --reporter=dot" "$TERSE_FAILURE" "$FLAKY_FAILURE")" \
+  "docs/agent_notes/observed_flaky_tests.md"
+assert_failure_guidance_payload_silent \
+  "$(failure_guidance_stderr_payload "bun run test -- packages/server/src/routers/new-feature.test.ts" "$TERSE_FAILURE" "packages/server/src/routers/new-feature.test.ts failed deterministically")"
+
+LOCK_FAILURE='Waited 1s for another `bun run` invocation to finish but it is still running (PID=123 CMD=bun run verify).'
+assert_failure_guidance_payload_contains \
+  "$(failure_guidance_response_string_payload "bun run verify" "$TERSE_FAILURE" "$LOCK_FAILURE")" \
+  "verify:async:status"
+assert_failure_guidance_payload_silent \
+  "$(failure_guidance_stderr_payload "bun run verify" "$TERSE_FAILURE" "verify failed because typecheck found a real error")"
+
+CLAUDE_FAILURE_GUIDANCE_OUTPUT=$(printf '%s' "$(failure_guidance_stderr_payload "bun run lint" "$TERSE_FAILURE" "$OOM_FAILURE")" \
+  | CLAUDE_PROJECT_DIR="$REPO_ROOT" bash "$REPO_ROOT/.claude/hooks/failure-guidance.sh")
+assert_hook_json "$CLAUDE_FAILURE_GUIDANCE_OUTPUT"
+assert_contains "$(failure_guidance_context "$CLAUDE_FAILURE_GUIDANCE_OUTPUT")" \
+  "NODE_OPTIONS=--max-old-space-size=6144"
+
+MULTI_GUIDANCE_OUTPUT=$(printf '%s' "$(failure_guidance_stderr_payload "bun run lint" "$TERSE_FAILURE" "$OOM_FAILURE"$'\n'"$LOCK_FAILURE")" \
+  | "$REPO_ROOT/scripts/ai-hooks/failure-guidance.sh")
+assert_hook_json "$MULTI_GUIDANCE_OUTPUT"
+MULTI_GUIDANCE_CONTEXT=$(failure_guidance_context "$MULTI_GUIDANCE_OUTPUT")
+assert_contains "$MULTI_GUIDANCE_CONTEXT" "NODE_OPTIONS=--max-old-space-size=6144"
+assert_contains "$MULTI_GUIDANCE_CONTEXT" "verify:async:status"
+[ "$(printf '%s\n' "$MULTI_GUIDANCE_CONTEXT" | wc -l)" -eq 2 ] \
+  || fail "failure-guidance should emit one line per matched pattern: $MULTI_GUIDANCE_CONTEXT"
 
 NOISY_TEST_OUTPUT=$'useful failure line\n(node:123) DeprecationWarning: Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0. Use async/await or an external async flow control mechanism instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\nreal assertion line'
 FILTERED_TEST_OUTPUT=$(printf '%s\n' "$NOISY_TEST_OUTPUT" | ai_filter_known_output_noise)

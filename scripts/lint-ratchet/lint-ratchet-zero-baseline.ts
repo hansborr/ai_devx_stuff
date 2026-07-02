@@ -12,7 +12,8 @@ import {
 import { type JsonValue, type LintRatchetConfig } from "./lint-ratchet-config.js";
 import { ConfigError } from "./lint-ratchet-metrics.js";
 import { BASELINE_FILENAME, repoRoot } from "./paths.js";
-import { matchesRatchet } from "./ratchet-globs.js";
+import { matchingTrackedFiles } from "./ratchet-globs.js";
+export { matchingTrackedFiles } from "./ratchet-globs.js";
 
 const ESLINT_ERROR_SEVERITY = 2;
 import { buildRuleSourceHashesById } from "./rule-source.js";
@@ -85,13 +86,6 @@ function zeroBaselineRatchets(
     const test = baseline.tests[ratchet.id];
     return test !== undefined && totalBaselineFindings(test) === 0;
   });
-}
-
-export function matchingTrackedFiles(
-  ratchet: LintRatchetConfig,
-  trackedFiles: readonly string[],
-): readonly string[] {
-  return trackedFiles.filter((trackedFile) => matchesRatchet(ratchet, trackedFile));
 }
 
 function parseSeverity(value: unknown): ParsedNormalRuleConfig["severity"] {

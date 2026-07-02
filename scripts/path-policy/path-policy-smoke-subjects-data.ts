@@ -83,6 +83,14 @@ export const SCRIPT_SMOKE_SUBJECTS = {
     "scripts/tests/lib/test-git-env.sh",
     "scripts/tests/test-dependency-freshness.sh",
   ],
+  "test-pre-push": [
+    ".husky/pre-push",
+    ".husky/post-commit",
+    "scripts/lib/verify-metadata.sh",
+    ...PATH_POLICY_QUERY_SUBJECTS,
+    "scripts/tests/lib/test-git-env.sh",
+    "scripts/tests/test-pre-push.sh",
+  ],
   "test-ai-hooks": [
     "scripts/tests/test-ai-hooks.sh",
     "scripts/harness/generate-hook-wiring.ts",
@@ -93,8 +101,10 @@ export const SCRIPT_SMOKE_SUBJECTS = {
     "scripts/tests/lib/test-git-env.sh",
     ".claude/hooks/",
     ".codex/hooks/",
+    ".copilot/hooks/",
     ".claude/settings.json",
     ".codex/hooks.json",
+    ".github/hooks/copilot.json",
   ],
   "test-eslint-disable-register": [
     "scripts/eslint-disable-register.sh",
@@ -323,6 +333,7 @@ export const SCRIPT_SMOKE_SUBJECTS = {
     "scripts/tests/test-harness-check.sh",
     ".claude/settings.json",
     ".codex/hooks.json",
+    ".github/hooks/copilot.json",
     "harness.controls.json",
     ...ESLINT_SURFACE_SUBJECTS,
   ],
@@ -378,7 +389,10 @@ export const SCRIPT_SMOKE_SUBJECTS = {
     "scripts/lint-ratchet/lint-ratchet-zero-baseline.ts",
     "scripts/lint-ratchet/lint-ratchet-zero-baseline.test.ts",
     "scripts/fixtures/lint-ratchet/",
+    "scripts/git/check-lint-ratchet-merge-driver.sh",
     "scripts/git/install-lint-ratchet-merge-driver.sh",
+    "scripts/git/lint-ratchet-merge-driver-lib.sh",
+    "scripts/git/lint-ratchet-post-merge-baseline-truth-up.sh",
     "scripts/git/lint-ratchet-baseline-merge-driver.sh",
     "scripts/lib/lint-rule-docs.ts",
     "scripts/lint-ratchet/ratchet-manifest-message.ts",
@@ -432,5 +446,12 @@ export const SCRIPT_SMOKE_SUBJECTS = {
   "test-check-eslint-react-peer-exception": [
     "scripts/check-eslint-react-peer-exception.sh",
     "scripts/tests/test-check-eslint-react-peer-exception.sh",
+  ],
+  "test-skill-dispatch-wrappers": [
+    ".claude/skills/codex-cli/scripts/codex-run.sh",
+    ".claude/skills/copilot-cli/scripts/copilot-run.sh",
+    ".claude/skills/copilot-cli/SKILL.md",
+    ".codex/skills/copilot-cli/SKILL.md",
+    "scripts/tests/test-skill-dispatch-wrappers.sh",
   ],
 } as const satisfies ScriptSmokeSubjects;

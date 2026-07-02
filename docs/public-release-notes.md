@@ -9,12 +9,20 @@ Decision: keep `.codex/`, `.claude/`, and `docs/agent_notes/` tracked in git for
 now. They are part of the repository's development harness: scripts, generated
 harness docs, path policies, and tests reference those paths directly.
 
-They are not needed in generated source archives, so `.gitattributes` marks them
-`export-ignore`:
+Generated source archives should include the copyable harness config that the
+public harness docs reference, while still excluding private process notes by
+default. `.gitattributes` marks those trees `export-ignore`, then carves back the
+public subset:
 
-- `.codex/`
-- `.claude/`
-- `docs/agent_notes/`
+- `.codex/config.toml`, `.codex/hooks.json`, `.codex/hooks/`, and
+  `.codex/skills/`
+- `.claude/settings.json`, `.claude/hooks/`, `.claude/output-styles/`, and
+  `.claude/skills/`
+- `docs/agent_notes/lint-coverage-map.md`
+
+The rest of `docs/agent_notes/` remains export-ignored because it contains
+process notes such as recent-history logs, active backlog packs, and decision
+handoff material. Use a full git clone when those notes are part of the review.
 
 On 2026-06-16, a keyword scan over those tracked files found example/test
 passwords, token placeholders, and documentation mentions, but no real secret

@@ -27,7 +27,7 @@
       "kind": "lint-rule",
       "ruleName": "local/no-arbitrary-tailwind-value",
       "source": "eslint-rules/no-arbitrary-tailwind-value.js",
-      "invocation": "bun run lint"
+      "invocation": "bun run lint:ratchet"
     },
     {
       "id": "lint/local/no-async-array-callbacks",
@@ -65,6 +65,20 @@
       "invocation": "bun run lint"
     },
     {
+      "id": "lint/local/no-outer-client-in-transaction",
+      "kind": "lint-rule",
+      "ruleName": "local/no-outer-client-in-transaction",
+      "source": "eslint-rules/no-outer-client-in-transaction.js",
+      "invocation": "bun run lint"
+    },
+    {
+      "id": "lint/local/no-plain-error-in-trpc",
+      "kind": "lint-rule",
+      "ruleName": "local/no-plain-error-in-trpc",
+      "source": "eslint-rules/no-plain-error-in-trpc.js",
+      "invocation": "bun run lint:ratchet"
+    },
+    {
       "id": "lint/local/no-redundant-central-mock",
       "kind": "lint-rule",
       "ruleName": "local/no-redundant-central-mock",
@@ -76,6 +90,13 @@
       "kind": "lint-rule",
       "ruleName": "local/no-swallowed-errors",
       "source": "eslint-rules/no-swallowed-errors.js",
+      "invocation": "bun run lint"
+    },
+    {
+      "id": "lint/local/socket-listener-cleanup",
+      "kind": "lint-rule",
+      "ruleName": "local/socket-listener-cleanup",
+      "source": "eslint-rules/socket-listener-cleanup.js",
       "invocation": "bun run lint"
     },
     {
@@ -141,7 +162,6 @@
       "source": "eslint-rules/type-assertion-boundary.js",
       "invocation": "bun run lint"
     },
-
     {
       "id": "ratchet/local-no-arbitrary-tailwind-value-client",
       "kind": "ratchet",
@@ -152,7 +172,25 @@
       "invocation": "bun run lint:ratchet"
     },
     {
+      "id": "ratchet/local-no-plain-error-in-trpc-server",
+      "kind": "ratchet",
+      "category": "behavior",
+      "pairedGuide": "docs/guides/lint-ratchet.md",
+      "repairKind": "manual",
+      "source": "scripts/lint-ratchet/lint-ratchet-config.ts",
+      "invocation": "bun run lint:ratchet"
+    },
+    {
       "id": "ratchet/local-type-assertion-boundary",
+      "kind": "ratchet",
+      "category": "maintainability",
+      "pairedGuide": "docs/guides/lint-ratchet.md",
+      "repairKind": "manual",
+      "source": "scripts/lint-ratchet/lint-ratchet-config.ts",
+      "invocation": "bun run lint:ratchet"
+    },
+    {
+      "id": "ratchet/no-real-time-in-package-tests",
       "kind": "ratchet",
       "category": "maintainability",
       "pairedGuide": "docs/guides/lint-ratchet.md",
@@ -170,7 +208,34 @@
       "invocation": "bun run lint:ratchet"
     },
     {
+      "id": "ratchet/react-jsx-no-constructed-context-values-client",
+      "kind": "ratchet",
+      "category": "maintainability",
+      "pairedGuide": "docs/guides/lint-ratchet.md",
+      "repairKind": "manual",
+      "source": "scripts/lint-ratchet/lint-ratchet-config.ts",
+      "invocation": "bun run lint:ratchet"
+    },
+    {
+      "id": "ratchet/react-refresh-only-export-components-client",
+      "kind": "ratchet",
+      "category": "maintainability",
+      "pairedGuide": "docs/guides/lint-ratchet.md",
+      "repairKind": "manual",
+      "source": "scripts/lint-ratchet/lint-ratchet-config.ts",
+      "invocation": "bun run lint:ratchet"
+    },
+    {
       "id": "ratchet/strict-boolean-expressions-server-encounter-combat",
+      "kind": "ratchet",
+      "category": "maintainability",
+      "pairedGuide": "docs/guides/lint-ratchet.md",
+      "repairKind": "manual",
+      "source": "scripts/lint-ratchet/lint-ratchet-config.ts",
+      "invocation": "bun run lint:ratchet"
+    },
+    {
+      "id": "ratchet/strict-boolean-expressions-server-services",
       "kind": "ratchet",
       "category": "maintainability",
       "pairedGuide": "docs/guides/lint-ratchet.md",
@@ -250,7 +315,6 @@
       "source": "scripts/lint-ratchet/lint-ratchet-config.ts",
       "invocation": "bun run lint:ratchet"
     },
-
     {
       "id": "sensor/blob-size",
       "kind": "sensor",
@@ -270,6 +334,16 @@
       "repairKind": "manual",
       "source": "knip.config.ts",
       "invocation": "bun run sensor:knip"
+    },
+    {
+      "id": "sensor/knip-unused-exports",
+      "kind": "sensor",
+      "category": "maintainability",
+      "principle": "Prevent knip-reported unused exported symbols from growing above the committed baseline while raw knip dependency/file and duplication reports remain advisory.",
+      "pairedGuide": "docs/ai-harness.md",
+      "repairKind": "manual",
+      "source": "scripts/sensor-knip-unused-exports.ts",
+      "invocation": "bun run sensor:knip-unused-exports"
     },
     {
       "id": "sensor/worktree-status",
@@ -311,59 +385,100 @@
       "source": "scripts/harness-audit.ts",
       "invocation": "bun run harness:audit"
     },
-
     {
       "id": "verify-wrapper/verify",
       "kind": "verify-wrapper",
       "category": "maintainability",
-      "principle": "Run lint, lint:ratchet, the zero-baseline lifecycle check, coverage-map, format check, typecheck, test, and script smoke suites against the full tree with shared cache, lock, and log directory so a failing slot leaves the rest reusable; lint preflights packages/{shared,server}/dist and runs typecheck automatically before ESLint when those ignored outputs are missing.",
+      "principle": "Run lint, lint:ratchet, the zero-baseline lifecycle check, the knip unused-export floor, coverage-map, format check, typecheck, test, and script smoke suites against the full tree with shared cache, lock, and log directory so a failing slot leaves the rest reusable; lint preflights packages/{shared,server}/dist and runs typecheck automatically before ESLint when those ignored outputs are missing.",
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": "scripts/verify.sh",
       "invocation": "bun run verify",
       "slots": [
-        { "name": "lint", "script": "lint" },
+        {
+          "name": "lint",
+          "script": "lint"
+        },
         {
           "name": "ratchet",
           "script": "lint:ratchet",
-          "env": { "HARNESS_DIAGNOSTICS_OUTPUT": "$LOG_DIR/ratchet-diagnostics.json" }
+          "env": {
+            "HARNESS_DIAGNOSTICS_OUTPUT": "$LOG_DIR/ratchet-diagnostics.json"
+          }
         },
-        { "name": "zero-baseline", "script": "lint:ratchet:zero-baseline" },
-        { "name": "coverage-map", "script": "docs:lint-coverage-map:audit" },
-        { "name": "format-check", "script": "format:check" },
-        { "name": "typecheck", "script": "typecheck" },
+        {
+          "name": "zero-baseline",
+          "script": "lint:ratchet:zero-baseline"
+        },
+        {
+          "name": "knip-unused-exports",
+          "script": "sensor:knip-unused-exports"
+        },
+        {
+          "name": "coverage-map",
+          "script": "docs:lint-coverage-map:audit"
+        },
+        {
+          "name": "format-check",
+          "script": "format:check"
+        },
+        {
+          "name": "typecheck",
+          "script": "typecheck"
+        },
         {
           "name": "test",
           "script": "test",
           "args": ["--reporter=dot", "--reporter=json", "--outputFile.json=$TIMINGS_FILE"]
         },
-        { "name": "scripts", "script": "test:scripts" }
+        {
+          "name": "scripts",
+          "script": "test:scripts"
+        }
       ]
     },
     {
       "id": "verify-wrapper/verify-changed",
       "kind": "verify-wrapper",
       "category": "maintainability",
-      "principle": "Run lint:changed, lint:ratchet, the zero-baseline lifecycle check, coverage-map, format:changed:check, typecheck, test:changed, and test:scripts:changed in parallel against the changed-file set; default edit-loop gate before commit; when packages/{shared,server}/dist is missing, the wrapper defers lint until the existing typecheck slot has produced those ignored outputs.",
+      "principle": "Run lint:changed, lint:ratchet, the zero-baseline lifecycle check, the knip unused-export floor, coverage-map, format:changed:check, typecheck, test:changed, and test:scripts:changed in parallel against the changed-file set; default edit-loop gate before commit; when packages/{shared,server}/dist is missing, the wrapper defers lint until the existing typecheck slot has produced those ignored outputs.",
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": "scripts/verify.sh",
       "invocation": "bun run verify:changed",
       "slots": [
-        { "name": "lint", "script": "lint:changed" },
+        {
+          "name": "lint",
+          "script": "lint:changed"
+        },
         {
           "name": "ratchet",
           "script": "lint:ratchet",
-          "env": { "HARNESS_DIAGNOSTICS_OUTPUT": "$LOG_DIR/ratchet-diagnostics.json" }
+          "env": {
+            "HARNESS_DIAGNOSTICS_OUTPUT": "$LOG_DIR/ratchet-diagnostics.json"
+          }
         },
-        { "name": "zero-baseline", "script": "lint:ratchet:zero-baseline" },
+        {
+          "name": "zero-baseline",
+          "script": "lint:ratchet:zero-baseline"
+        },
+        {
+          "name": "knip-unused-exports",
+          "script": "sensor:knip-unused-exports"
+        },
         {
           "name": "coverage-map",
           "script": "docs:lint-coverage-map:check",
           "args": ["--", "--staged"]
         },
-        { "name": "format-check", "script": "format:changed:check" },
-        { "name": "typecheck", "script": "typecheck" },
+        {
+          "name": "format-check",
+          "script": "format:changed:check"
+        },
+        {
+          "name": "typecheck",
+          "script": "typecheck"
+        },
         {
           "name": "test",
           "script": "test:changed",
@@ -381,28 +496,52 @@
       "id": "verify-wrapper/verify-parallel",
       "kind": "verify-wrapper",
       "category": "maintainability",
-      "principle": "Run the full lint, ratchet, zero-baseline lifecycle check, coverage-map, format check, typecheck, test, and scripts suites in parallel; reduces full-verify wall time when the full script suite fits the selected timeout or cached state; when packages/{shared,server}/dist is missing, the wrapper defers lint until the existing typecheck slot has produced those ignored outputs.",
+      "principle": "Run the full lint, ratchet, zero-baseline lifecycle check, knip unused-export floor, coverage-map, format check, typecheck, test, and scripts suites in parallel; reduces full-verify wall time when the full script suite fits the selected timeout or cached state; when packages/{shared,server}/dist is missing, the wrapper defers lint until the existing typecheck slot has produced those ignored outputs.",
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": "scripts/verify.sh",
       "invocation": "bun run verify:parallel",
       "slots": [
-        { "name": "lint", "script": "lint" },
+        {
+          "name": "lint",
+          "script": "lint"
+        },
         {
           "name": "ratchet",
           "script": "lint:ratchet",
-          "env": { "HARNESS_DIAGNOSTICS_OUTPUT": "$LOG_DIR/ratchet-diagnostics.json" }
+          "env": {
+            "HARNESS_DIAGNOSTICS_OUTPUT": "$LOG_DIR/ratchet-diagnostics.json"
+          }
         },
-        { "name": "zero-baseline", "script": "lint:ratchet:zero-baseline" },
-        { "name": "coverage-map", "script": "docs:lint-coverage-map:audit" },
-        { "name": "format-check", "script": "format:check" },
-        { "name": "typecheck", "script": "typecheck" },
+        {
+          "name": "zero-baseline",
+          "script": "lint:ratchet:zero-baseline"
+        },
+        {
+          "name": "knip-unused-exports",
+          "script": "sensor:knip-unused-exports"
+        },
+        {
+          "name": "coverage-map",
+          "script": "docs:lint-coverage-map:audit"
+        },
+        {
+          "name": "format-check",
+          "script": "format:check"
+        },
+        {
+          "name": "typecheck",
+          "script": "typecheck"
+        },
         {
           "name": "test",
           "script": "test",
           "args": ["--reporter=dot", "--reporter=json", "--outputFile.json=$TIMINGS_FILE"]
         },
-        { "name": "scripts", "script": "test:scripts" }
+        {
+          "name": "scripts",
+          "script": "test:scripts"
+        }
       ]
     },
     {
@@ -449,13 +588,12 @@
       "id": "verify-wrapper/doctor",
       "kind": "verify-wrapper",
       "category": "maintainability",
-      "principle": "Aggregated read-only diagnostic: composes worktree:status, db:status, env-file sanity, port binding, dependency freshness, yamllint and ShellCheck system-tool availability, the lint host-tool inventory, suppression registers, migration safety, drift:ai harness-freshness, knip, and blob-size; report-only — exits non-zero only on FAIL counts.",
+      "principle": "Aggregated read-only diagnostic: composes worktree:status, db:status, env-file sanity, port binding, dependency freshness, yamllint and ShellCheck system-tool availability, the lint host-tool inventory, lint-ratchet merge-driver health, suppression registers, migration safety, drift:ai harness-freshness, knip, and blob-size; report-only — exits non-zero only on FAIL counts.",
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": "scripts/doctor.sh",
       "invocation": "bun run doctor"
     },
-
     {
       "id": "doctor-check/env-files",
       "kind": "doctor-check",
@@ -537,6 +675,16 @@
       "invocation": "bun run doctor"
     },
     {
+      "id": "doctor-check/lint-ratchet-merge-driver",
+      "kind": "doctor-check",
+      "category": "maintainability",
+      "principle": "Verify the clone-local lint-ratchet baseline merge driver config, installed driver copy, and info-attributes mirror are present and current so baseline merges do not silently fall back to textual JSON conflict markers.",
+      "pairedGuide": "docs/guides/lint-ratchet.md",
+      "repairKind": "manual",
+      "source": "scripts/git/check-lint-ratchet-merge-driver.sh",
+      "invocation": "bun run lint:ratchet:merge-driver:check"
+    },
+    {
       "id": "doctor-check/eslint-disable-register",
       "kind": "doctor-check",
       "category": "maintainability",
@@ -556,7 +704,6 @@
       "source": "scripts/suppression-register.sh",
       "invocation": "bun run doctor"
     },
-
     {
       "id": "drift-scope/changed",
       "kind": "drift-scope",
@@ -627,7 +774,6 @@
       "source": "scripts/drift/locator-usage.ts",
       "invocation": "bun run drift:e2e"
     },
-
     {
       "id": "doc-generator/harness-controls",
       "kind": "doc-generator",
@@ -658,15 +804,24 @@
       "source": "scripts/generate-module-index.sh",
       "invocation": "bun run module:index"
     },
-
     {
       "id": "check/lint-agent-local-rules",
       "kind": "check",
       "category": "maintainability",
-      "principle": "Emit a schema-validated harness diagnostics envelope for `local/*` ESLint findings and parser errors; this is a local-rule view, not full lint parity.",
+      "principle": "Emit a schema-validated harness diagnostics envelope for `local/*` ESLint findings, parser errors, and info disclosures for skipped non-local ESLint findings; this is a local-rule view, not full lint parity.",
       "pairedGuide": "docs/guides/local-eslint-rules.md",
       "repairKind": "manual",
       "source": "scripts/lint-agent.ts",
+      "invocation": "bun run lint:agent:local-rules"
+    },
+    {
+      "id": "lint/skipped-non-local",
+      "kind": "check",
+      "category": "maintainability",
+      "principle": "Represent non-local ESLint findings omitted from the local-rule diagnostics projection as info-severity envelope entries so consumers can see that the artifact is intentionally partial.",
+      "pairedGuide": "docs/guides/local-eslint-rules.md",
+      "repairKind": "manual",
+      "source": "scripts/lint-agent-envelope.ts",
       "invocation": "bun run lint:agent:local-rules"
     },
     {
@@ -718,6 +873,16 @@
       "repairKind": "manual",
       "source": "scripts/lint-ratchet/lint-ratchet-zero-baseline.ts",
       "invocation": "bun run lint:ratchet:zero-baseline"
+    },
+    {
+      "id": "check/lint-ratchet-debt-accounting",
+      "kind": "check",
+      "category": "maintainability",
+      "principle": "Fail when a changed lint-ratchet baseline increases recorded debt unless the same range is recorded in the debt log, so hand-edited baselines cannot hide regressions.",
+      "pairedGuide": "docs/guides/lint-ratchet.md",
+      "repairKind": "manual",
+      "source": "scripts/lint-ratchet/baseline-debt-accounting-git.ts",
+      "invocation": "bun run lint:ratchet:check-debt-accounting"
     },
     {
       "id": "check/shellcheck",
@@ -869,7 +1034,6 @@
       "source": "scripts/drift-ai/knip-unused-exports-check.ts",
       "invocation": "bun run drift:ai --check unused-exports"
     },
-
     {
       "id": "logs-audit/event-fields",
       "kind": "logs-audit",
@@ -920,7 +1084,6 @@
       "source": "scripts/logs-audit.ts",
       "invocation": "bun run logs:audit"
     },
-
     {
       "id": "codemod/concurrency-guard",
       "kind": "codemod",
@@ -976,31 +1139,48 @@
       "source": "scripts/codemods/trpc-shared-output.ts",
       "invocation": "bun run codemod:trpc-shared-output"
     },
-
     {
       "id": "hook/pre-commit",
       "kind": "hook",
       "category": "maintainability",
-      "principle": "Run lint:changed, lint:ratchet, the zero-baseline lifecycle check, coverage-map, format:changed:check, typecheck, test:changed, and conditionally test:scripts:changed in parallel before allowing the commit; when packages/{shared,server}/dist is missing, defer lint until the existing typecheck slot has produced those ignored outputs.",
+      "principle": "Run lint:changed, lint:ratchet, the zero-baseline lifecycle check, the knip unused-export floor, coverage-map, format:changed:check, typecheck, test:changed, and conditionally test:scripts:changed in parallel before allowing the commit; when packages/{shared,server}/dist is missing, defer lint until the existing typecheck slot has produced those ignored outputs.",
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": ".husky/pre-commit",
       "invocation": "git commit",
       "slots": [
-        { "name": "lint", "script": "lint:changed" },
+        {
+          "name": "lint",
+          "script": "lint:changed"
+        },
         {
           "name": "ratchet",
           "script": "lint:ratchet",
-          "env": { "HARNESS_DIAGNOSTICS_OUTPUT": "$LOG_DIR/ratchet-diagnostics.json" }
+          "env": {
+            "HARNESS_DIAGNOSTICS_OUTPUT": "$LOG_DIR/ratchet-diagnostics.json"
+          }
         },
-        { "name": "zero-baseline", "script": "lint:ratchet:zero-baseline" },
+        {
+          "name": "zero-baseline",
+          "script": "lint:ratchet:zero-baseline"
+        },
+        {
+          "name": "knip-unused-exports",
+          "script": "sensor:knip-unused-exports"
+        },
         {
           "name": "coverage-map",
           "script": "docs:lint-coverage-map:check",
           "args": ["--", "--staged"]
         },
-        { "name": "format-check", "script": "format:changed:check" },
-        { "name": "typecheck", "script": "typecheck" },
+        {
+          "name": "format-check",
+          "script": "format:changed:check"
+        },
+        {
+          "name": "typecheck",
+          "script": "typecheck"
+        },
         {
           "name": "test",
           "script": "test:changed",
@@ -1014,6 +1194,26 @@
           "condition": "when staged hook/script/harness inputs require script smoke"
         }
       ]
+    },
+    {
+      "id": "hook/pre-push",
+      "kind": "hook",
+      "category": "maintainability",
+      "principle": "When pushed commits were created under fast-commit mode, require fresh full-verify metadata matching the pushed HEAD before allowing git push, so cheap local commits still have a local full-verify backstop before publication.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": ".husky/pre-push",
+      "invocation": "git push"
+    },
+    {
+      "id": "hook/post-commit",
+      "kind": "hook",
+      "category": "maintainability",
+      "principle": "Finalize fast-commit provenance after Git creates a commit SHA, allowing pre-push to identify commits made while fast-commit mode skipped slow pre-commit slots.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": ".husky/post-commit",
+      "invocation": "git commit"
     },
     {
       "id": "hook/commit-msg",
@@ -1064,7 +1264,8 @@
           }
         },
         "notes": {
-          "codex": "Codex deliberately uses .codex/hooks/pre-tool-use.sh as a Bash aggregator for the same policy surface."
+          "codex": "Codex deliberately uses .codex/hooks/pre-tool-use.sh as a Bash aggregator for the same policy surface.",
+          "copilot": "Copilot deliberately gets the same policy surface through .copilot/hooks/pre-tool-use.sh, its Bash aggregator."
         }
       }
     },
@@ -1075,7 +1276,7 @@
       "principle": "Aggregate Codex Bash PreToolUse policy, quiet-run cache checks, and commit state capture in the single Codex Bash hook surface.",
       "pairedGuide": "none",
       "repairKind": "manual",
-      "source": ".codex/hooks/pre-tool-use.sh",
+      "source": "scripts/ai-hooks/bash-pre-tool-use.sh",
       "invocation": "Codex PreToolUse Bash hook",
       "hookWiring": {
         "event": "PreToolUse",
@@ -1089,7 +1290,33 @@
           }
         },
         "notes": {
-          "claude": "Claude deliberately uses direct Bash PreToolUse adapters because it does not have Codex's Bash aggregator model."
+          "claude": "Claude deliberately uses direct Bash PreToolUse adapters because it does not have Codex's Bash aggregator model.",
+          "copilot": "Copilot runs the same shared Bash aggregate body through hook/ai-copilot-pre-tool-use."
+        }
+      }
+    },
+    {
+      "id": "hook/ai-copilot-pre-tool-use",
+      "kind": "hook",
+      "category": "behavior",
+      "principle": "Aggregate Copilot Bash preToolUse policy, quiet-run cache checks, and commit state capture in the single Copilot Bash hook surface; the adapter normalizes Copilot payloads before the shared aggregate body runs.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": ".copilot/hooks/pre-tool-use.sh",
+      "invocation": "Copilot preToolUse hook",
+      "hookWiring": {
+        "event": "PreToolUse",
+        "order": 10,
+        "harnesses": {
+          "copilot": {
+            "matcher": "bash|powershell",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.copilot/hooks/pre-tool-use.sh\"",
+            "timeout": 60
+          }
+        },
+        "notes": {
+          "claude": "Claude deliberately uses direct Bash PreToolUse adapters because it does not have Copilot's aggregator model.",
+          "codex": "Codex runs the same shared Bash aggregate body through hook/ai-codex-pre-tool-use."
         }
       }
     },
@@ -1113,7 +1340,8 @@
           }
         },
         "notes": {
-          "codex": "Codex deliberately handles commit state and summaries inside its PreToolUse/PostToolUse Bash aggregators."
+          "codex": "Codex deliberately handles commit state and summaries inside its PreToolUse/PostToolUse Bash aggregators.",
+          "copilot": "Copilot deliberately handles commit state and summaries inside its PreToolUse/PostToolUse Bash aggregators, mirroring Codex."
         }
       }
     },
@@ -1137,7 +1365,8 @@
           }
         },
         "notes": {
-          "codex": "Codex deliberately handles `bun run` cache and quieting inside .codex/hooks/pre-tool-use.sh."
+          "codex": "Codex deliberately handles `bun run` cache and quieting inside .codex/hooks/pre-tool-use.sh.",
+          "copilot": "Copilot deliberately handles `bun run` cache checks and output quieting inside its Bash aggregators, mirroring Codex."
         }
       }
     },
@@ -1145,13 +1374,14 @@
       "id": "hook/ai-protected-files",
       "kind": "hook",
       "category": "maintainability",
-      "principle": "Block AI edits to protected files (CLAUDE.md, AGENTS.md, .husky/*, .claude/settings.json, etc.) so policy-bearing surfaces only change through deliberate human review.",
+      "principle": "Advise on guide-worthy AI edits and deny hand edits to generated, lockfile, ratchet-baseline, suppression-register, and Husky-internal surfaces unless the repo-wide .allow-protected-edits marker loudly downgrades the denial for deliberate maintenance.",
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": "scripts/ai-hooks/protected-files.sh",
-      "invocation": "Claude PreToolUse / Codex PreToolUse hook",
+      "invocation": "Claude PreToolUse / Codex PreToolUse / Copilot preToolUse hook",
       "hookWiring": {
         "event": "PreToolUse",
+        "outputs": ["additionalContext", "decisionBlock"],
         "order": 40,
         "harnesses": {
           "claude": {
@@ -1162,6 +1392,11 @@
             "matcher": "apply_patch",
             "command": "bash \"$(git rev-parse --show-toplevel)/.codex/hooks/protected-files.sh\"",
             "statusMessage": "Checking protected-file edits",
+            "timeout": 15
+          },
+          "copilot": {
+            "matcher": "create|edit",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.copilot/hooks/protected-files.sh\"",
             "timeout": 15
           }
         }
@@ -1175,7 +1410,7 @@
       "pairedGuide": "docs/guides/add-prisma-migration.md",
       "repairKind": "manual",
       "source": "scripts/ai-hooks/prisma-generate.sh",
-      "invocation": "Claude PostToolUse / Codex PostToolUse hook",
+      "invocation": "Claude PostToolUse / Codex PostToolUse / Copilot postToolUse hook",
       "hookWiring": {
         "event": "PostToolUse",
         "order": 10,
@@ -1190,6 +1425,11 @@
             "command": "bash \"$(git rev-parse --show-toplevel)/.codex/hooks/prisma-generate.sh\"",
             "statusMessage": "Regenerating Prisma client",
             "timeout": 120
+          },
+          "copilot": {
+            "matcher": "create|edit",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.copilot/hooks/prisma-generate.sh\"",
+            "timeout": 120
           }
         }
       }
@@ -1202,7 +1442,7 @@
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": "scripts/ai-hooks/doc-length.sh",
-      "invocation": "Claude PostToolUse / Codex PostToolUse hook / Husky pre-commit warning",
+      "invocation": "Claude PostToolUse / Codex PostToolUse / Copilot postToolUse hook",
       "hookWiring": {
         "event": "PostToolUse",
         "order": 20,
@@ -1216,6 +1456,11 @@
             "command": "bash \"$(git rev-parse --show-toplevel)/.codex/hooks/doc-length.sh\"",
             "statusMessage": "Checking edited doc length",
             "timeout": 15
+          },
+          "copilot": {
+            "matcher": "create|edit",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.copilot/hooks/doc-length.sh\"",
+            "timeout": 15
           }
         }
       }
@@ -1224,11 +1469,11 @@
       "id": "hook/ai-tidy-edited-file",
       "kind": "hook",
       "category": "maintainability",
-      "principle": "Run the shared edited-file tidy hook after AI file edits so formatter-friendly files are normalized before follow-up checks inspect them.",
+      "principle": "Run the shared edited-file tidy hook after AI file edits so formatter-friendly files are normalized immediately; warn-level lint leftovers are deferred to the Stop hook.",
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": "scripts/ai-hooks/tidy-edited-file.sh",
-      "invocation": "Claude PostToolUse / Codex PostToolUse hook",
+      "invocation": "Claude PostToolUse / Codex PostToolUse / Copilot postToolUse hook",
       "hookWiring": {
         "event": "PostToolUse",
         "order": 30,
@@ -1243,6 +1488,11 @@
             "command": "bash \"$(git rev-parse --show-toplevel)/.codex/hooks/tidy-edited-file.sh\"",
             "statusMessage": "Tidying edited file",
             "timeout": 120
+          },
+          "copilot": {
+            "matcher": "create|edit",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.copilot/hooks/tidy-edited-file.sh\"",
+            "timeout": 120
           }
         }
       }
@@ -1255,7 +1505,7 @@
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": "scripts/ai-hooks/lint-coverage-check.sh",
-      "invocation": "Claude PostToolUse / Codex PostToolUse hook",
+      "invocation": "Claude PostToolUse / Codex PostToolUse / Copilot postToolUse hook",
       "hookWiring": {
         "event": "PostToolUse",
         "order": 40,
@@ -1270,6 +1520,11 @@
             "command": "bash \"$(git rev-parse --show-toplevel)/.codex/hooks/lint-coverage-check.sh\"",
             "statusMessage": "Checking ESLint coverage",
             "timeout": 15
+          },
+          "copilot": {
+            "matcher": "create|edit",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.copilot/hooks/lint-coverage-check.sh\"",
+            "timeout": 15
           }
         }
       }
@@ -1282,7 +1537,7 @@
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": "scripts/ai-hooks/ratchet-regression-check.sh",
-      "invocation": "Claude PostToolUse / Codex PostToolUse hook",
+      "invocation": "Claude PostToolUse / Codex PostToolUse / Copilot postToolUse hook",
       "hookWiring": {
         "event": "PostToolUse",
         "order": 50,
@@ -1297,6 +1552,11 @@
             "command": "bash \"$(git rev-parse --show-toplevel)/.codex/hooks/ratchet-regression-check.sh\"",
             "statusMessage": "Checking lint-ratchet regressions",
             "timeout": 60
+          },
+          "copilot": {
+            "matcher": "create|edit",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.copilot/hooks/ratchet-regression-check.sh\"",
+            "timeout": 60
           }
         }
       }
@@ -1308,7 +1568,7 @@
       "principle": "Aggregate Codex Bash PostToolUse commit-result summaries after persistence so commit success, hook failures, and uncertain commit states are surfaced concisely.",
       "pairedGuide": "none",
       "repairKind": "manual",
-      "source": ".codex/hooks/post-tool-use.sh",
+      "source": "scripts/ai-hooks/bash-post-tool-use.sh",
       "invocation": "Codex PostToolUse Bash hook",
       "hookWiring": {
         "event": "PostToolUse",
@@ -1322,7 +1582,110 @@
           }
         },
         "notes": {
-          "claude": "Claude deliberately keeps commit output handling in its git-commit-quiet adapter instead of using a Bash PostToolUse aggregator."
+          "claude": "Claude deliberately keeps commit output handling in its git-commit-quiet adapter instead of using a Bash PostToolUse aggregator.",
+          "copilot": "Copilot runs the same shared Bash aggregate body through hook/ai-copilot-post-tool-use."
+        }
+      }
+    },
+    {
+      "id": "hook/ai-copilot-post-tool-use",
+      "kind": "hook",
+      "category": "behavior",
+      "principle": "Summarize Copilot Bash tool output after commits and wrapped bun runs in the single Copilot Bash hook surface; the adapter normalizes Copilot payloads before the shared aggregate body runs.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": ".copilot/hooks/post-tool-use.sh",
+      "invocation": "Copilot postToolUse hook",
+      "hookWiring": {
+        "event": "PostToolUse",
+        "order": 90,
+        "harnesses": {
+          "copilot": {
+            "matcher": "bash|powershell",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.copilot/hooks/post-tool-use.sh\"",
+            "timeout": 60
+          }
+        },
+        "notes": {
+          "claude": "Claude deliberately keeps commit output handling in its git-commit-quiet adapter instead of using a Bash PostToolUse aggregator.",
+          "codex": "Codex runs the same shared Bash aggregate body through hook/ai-codex-post-tool-use."
+        }
+      }
+    },
+    {
+      "id": "hook/ai-failure-guidance",
+      "kind": "hook",
+      "category": "maintainability",
+      "principle": "After a Claude Bash failure, inject bounded guidance for documented high-frequency failures: ESLint heap OOMs, observed flaky tests, and verification lock contention.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/ai-hooks/failure-guidance.sh",
+      "invocation": "Claude PostToolUseFailure Bash hook",
+      "hookWiring": {
+        "event": "PostToolUseFailure",
+        "order": 10,
+        "outputs": ["additionalContext"],
+        "harnesses": {
+          "claude": {
+            "matcher": "Bash",
+            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/failure-guidance.sh",
+            "timeout": 15
+          }
+        },
+        "notes": {
+          "codex": "Codex has no PostToolUseFailure hook event.",
+          "copilot": "Copilot has no PostToolUseFailure hook event."
+        }
+      }
+    },
+    {
+      "id": "hook/ai-session-state",
+      "kind": "hook",
+      "category": "maintainability",
+      "principle": "After context compaction, re-inject a bounded repository state snapshot so branch, dirty-tree, fast-commit, kill-switch, and cached verification state survive in the fresh context window.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/ai-hooks/session-state.sh",
+      "invocation": "Claude SessionStart compact hook",
+      "hookWiring": {
+        "event": "SessionStart",
+        "order": 10,
+        "outputs": ["additionalContext"],
+        "harnesses": {
+          "claude": {
+            "matcher": "compact",
+            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/session-state.sh",
+            "timeout": 15
+          }
+        },
+        "notes": {
+          "codex": "Codex compact hooks do not support additionalContext re-injection; omitted until a Codex-valid context-injection contract exists.",
+          "copilot": "Copilot has no SessionStart hook event."
+        }
+      }
+    },
+    {
+      "id": "hook/ai-subagent-stop-reminder",
+      "kind": "hook",
+      "category": "maintainability",
+      "principle": "Run a scoped-down stop policy at subagent completion so delegated work sees dirty-tree and cached verification nudges without consuming the main session's stop reminder state.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/ai-hooks/subagent-stop-reminder.sh",
+      "invocation": "Claude SubagentStop hook",
+      "hookWiring": {
+        "event": "SubagentStop",
+        "order": 10,
+        "outputs": ["additionalContext"],
+        "harnesses": {
+          "claude": {
+            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/subagent-stop-reminder.sh",
+            "timeout": 30
+          }
+        },
+        "notes": {
+          "codex": "Codex SubagentStop does not support additionalContext re-injection; omitted until a Codex-valid advisory contract exists.",
+          "copilot": "Copilot has no SubagentStop hook event."
         }
       }
     },
@@ -1330,11 +1693,11 @@
       "id": "hook/ai-stop-reminder",
       "kind": "hook",
       "category": "maintainability",
-      "principle": "Run the shared stop reminder at session stop so pending verification, stale generated files, or unresolved policy reminders are surfaced before handoff.",
+      "principle": "Run the shared stop reminder at session stop so pending verification, stale generated files, changed-file lint warnings, or unresolved policy reminders are surfaced before handoff; a per-worktree musi-stop-hard marker makes dirty-tree and cached-verify failures persistently blocking.",
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": "scripts/ai-hooks/stop-reminder.sh",
-      "invocation": "Claude Stop / Codex Stop hook",
+      "invocation": "Claude Stop / Codex Stop / Copilot agentStop hook",
       "hookWiring": {
         "event": "Stop",
         "order": 10,
@@ -1346,6 +1709,10 @@
           "codex": {
             "command": "bash \"$(git rev-parse --show-toplevel)/.codex/hooks/stop-reminder.sh\"",
             "statusMessage": "Checking repository stop conditions",
+            "timeout": 30
+          },
+          "copilot": {
+            "command": "bash \"$(git rev-parse --show-toplevel)/.copilot/hooks/stop-reminder.sh\"",
             "timeout": 30
           }
         }

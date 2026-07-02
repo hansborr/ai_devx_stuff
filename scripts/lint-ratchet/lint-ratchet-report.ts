@@ -7,6 +7,7 @@ import {
   type HarnessFindingSeverity,
 } from "../../packages/shared/src/schemas/harness-diagnostics.js";
 import { ConfigError } from "./lint-ratchet-metrics.js";
+import { escapeMarkdownText, markdownCode } from "./markdown-escape.js";
 import { RATCHET_UPDATE_COMMAND, REGRESSION_RECOVERY_FOOTER } from "./recovery-command.js";
 
 const DEFAULT_MAX_FINDINGS_PER_CONTROL = 10;
@@ -103,9 +104,9 @@ function isImprovement(finding: HarnessFinding): boolean {
 
 function findingLocation(finding: HarnessFinding): string | undefined {
   if (finding.path === undefined) return undefined;
-  return finding.line === undefined
-    ? `\`${finding.path}\``
-    : `\`${finding.path}:${String(finding.line)}\``;
+  const path =
+    finding.line === undefined ? finding.path : `${finding.path}:${String(finding.line)}`;
+  return markdownCode(path);
 }
 
 function findingPrefix(finding: HarnessFinding): string {
@@ -116,14 +117,16 @@ function findingPrefix(finding: HarnessFinding): string {
 
 function formatFindingBullet(finding: HarnessFinding): string {
   const prefix = findingPrefix(finding);
-  const details = `(why: ${finding.why}; fix: ${finding.howToFix})`;
+  const details = `(why: ${escapeMarkdownText(finding.why)}; fix: ${escapeMarkdownText(finding.howToFix)})`;
   return prefix.length === 0 ? `- ${details}` : `- ${prefix} ${details}`;
 }
 
 function recoveryLineFor(group: readonly HarnessFinding[]): string | undefined {
   const improvement = group.find(isImprovement);
   if (improvement === undefined) return undefined;
-  if (improvement.howToFix.includes(RATCHET_UPDATE_COMMAND)) return improvement.howToFix;
+  if (improvement.howToFix.includes(RATCHET_UPDATE_COMMAND)) {
+    return escapeMarkdownText(improvement.howToFix);
+  }
   return `Run \`${RATCHET_UPDATE_COMMAND}\` to lock in the improvement.`;
 }
 
@@ -138,7 +141,7 @@ function formatControlSection(
   limit: number,
 ): readonly string[] {
   const lines = [
-    `#### \`${control}\` (${String(findings.length)} ${pluralize(findings.length, "finding")}, ${severityMix(findings)})`,
+    `#### ${markdownCode(control)} (${String(findings.length)} ${pluralize(findings.length, "finding")}, ${severityMix(findings)})`,
   ];
   for (const finding of findings.slice(0, limit)) {
     lines.push(formatFindingBullet(finding));
@@ -152,8 +155,13 @@ function formatControlSection(
 
 function footerRecoveryLine(findings: readonly HarnessFinding[]): string {
   if (findings.length === 0) return "Recovery: nothing to do.";
-  const hasRegression = findings.some((finding) => !isImprovement(finding));
+  const hasRegression = findings.some(
+    (finding) => finding.severity === "block" && !isImprovement(finding),
+  );
   if (hasRegression) return REGRESSION_RECOVERY_FOOTER;
+  if (findings.every((finding) => finding.severity !== "block")) {
+    return "Recovery: review informational findings.";
+  }
   return `Recovery: \`${RATCHET_UPDATE_COMMAND}\``;
 }
 
@@ -162,7 +170,9 @@ function footerLines(
   options: FormatHarnessDiagnosticsReportOptions | undefined,
 ): readonly string[] {
   return [
-    ...(options?.artifactName === undefined ? [] : [`Artifact: ${options.artifactName}`]),
+    ...(options?.artifactName === undefined
+      ? []
+      : [`Artifact: ${escapeMarkdownText(options.artifactName)}`]),
     footerRecoveryLine(envelope.findings),
   ];
 }

@@ -60,7 +60,7 @@ setup_fast_doctor_fixture() {
     "$FAST_ROOT/.devcontainer" \
     "$FAST_ROOT/node_modules/.bin" \
     "$FAST_ROOT/packages/client" \
-    "$FAST_ROOT/scripts"
+    "$FAST_ROOT/scripts/git"
   printf 'JWT_SECRET=synthetic-doctor-json-secret\n' >"$FAST_ROOT/.devcontainer/.env"
   cat >"$FAST_ROOT/.env" <<'EOF'
 DATABASE_URL=postgresql://musi:musi@localhost:5432/musi_synthetic
@@ -81,6 +81,13 @@ printf 'PASS: synthetic clean check\n'
 SH
     chmod +x "$FAST_ROOT/scripts/$fake_script"
   done
+
+  cat >"$FAST_ROOT/scripts/git/check-lint-ratchet-merge-driver.sh" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'PASS: synthetic lint-ratchet merge-driver health\n'
+SH
+  chmod +x "$FAST_ROOT/scripts/git/check-lint-ratchet-merge-driver.sh"
 
   cat >"$FAST_ROOT/scripts/eslint-disable-register.sh" <<'SH'
 #!/usr/bin/env bash
@@ -318,6 +325,10 @@ grep -qF '=== lint tools ===' "$DEFAULT_OUT" \
   || { head -c 2000 "$DEFAULT_OUT" >&2; fail "default-mode '=== lint tools ===' section missing"; }
 ok "default-mode lint-tools section is present"
 
+grep -qF '=== lint-ratchet merge-driver health ===' "$DEFAULT_OUT" \
+  || { head -c 2000 "$DEFAULT_OUT" >&2; fail "default-mode lint-ratchet merge-driver health section missing"; }
+ok "default-mode lint-ratchet merge-driver health section is present"
+
 # U1: default (non-JSON) mode must run harness:check successfully from a nested
 # package subdir. This is the human/programmatic path (`run_subcommand … bun run
 # harness:check`); with the bare script name it would print `Script not found`
@@ -382,7 +393,7 @@ BLOCK_JSON="$(mktemp)"
 BLOCK_ERR="$(mktemp)"
 BLOCK_FAKE_BIN="$(mktemp -d)"
 git -C "$BLOCK_ROOT" init -q
-mkdir -p "$BLOCK_ROOT/.devcontainer" "$BLOCK_ROOT/node_modules/.bin" "$BLOCK_ROOT/scripts"
+mkdir -p "$BLOCK_ROOT/.devcontainer" "$BLOCK_ROOT/node_modules/.bin" "$BLOCK_ROOT/scripts/git"
 printf 'JWT_SECRET=synthetic-doctor-json-secret\n' >"$BLOCK_ROOT/.devcontainer/.env"
 touch "$BLOCK_ROOT/bun.lock"
 touch "$BLOCK_ROOT/node_modules/.bin"
@@ -395,6 +406,13 @@ printf 'PASS: synthetic clean check\n'
 SH
   chmod +x "$BLOCK_ROOT/scripts/$fake_script"
 done
+
+cat >"$BLOCK_ROOT/scripts/git/check-lint-ratchet-merge-driver.sh" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'PASS: synthetic lint-ratchet merge-driver health\n'
+SH
+chmod +x "$BLOCK_ROOT/scripts/git/check-lint-ratchet-merge-driver.sh"
 
 cat >"$BLOCK_ROOT/scripts/migration-safety-scan.sh" <<'SH'
 #!/usr/bin/env bash

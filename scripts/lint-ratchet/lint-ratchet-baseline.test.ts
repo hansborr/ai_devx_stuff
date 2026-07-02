@@ -4,7 +4,11 @@ import { describe, expect, it } from "vitest";
 
 import { harnessDiagnosticsSchema } from "../../packages/shared/src/schemas/harness-diagnostics.js";
 import type { RuleDocsEntry } from "../lib/lint-rule-docs.js";
-import { assertCheckBaselineComparisonClean, buildEnvelope } from "../lint-ratchet.js";
+import {
+  assertCheckBaselineComparisonClean,
+  buildEnvelope,
+  buildEnvelopeFromComparison,
+} from "../lint-ratchet.js";
 import { itemsFromResults } from "./current-collector.js";
 import {
   buildLintRatchetBaseline,
@@ -109,12 +113,34 @@ const complexityRatchet: LintRatchetConfig = {
   principle: "Fixture complexity ratchet principle.",
 };
 
+const reportOnlyRatchet: LintRatchetConfig = {
+  ...baseRatchet,
+  id: "ratchet/report-only-fixture",
+  mode: "report-only",
+  principle: "Fixture report-only ratchet principle.",
+};
+
 const FIXTURE_RULE_SOURCE_HASH = `${LINT_RATCHET_CONFIG_HASH_PREFIX}${"a".repeat(64)}`;
 const fixtureRuleSourceHashes: LintRatchetRuleSourceHashesById = new Map([
   [baseRatchet.id, FIXTURE_RULE_SOURCE_HASH],
   [complexityRatchet.id, FIXTURE_RULE_SOURCE_HASH],
   [maxLinesRatchet.id, FIXTURE_RULE_SOURCE_HASH],
+  [reportOnlyRatchet.id, FIXTURE_RULE_SOURCE_HASH],
 ]);
+
+function expectedMessageFingerprint(identities: readonly string[]): string {
+  const hash = createHash("sha256")
+    .update(JSON.stringify([...identities].sort()))
+    .digest("hex");
+  return `${LINT_RATCHET_CONFIG_HASH_PREFIX}${hash}`;
+}
+
+function expectedMessageIdentity(message: string, messageId?: string): string {
+  return JSON.stringify({
+    messageId: messageId ?? null,
+    message,
+  });
+}
 
 type ComplexityVector = readonly LintRatchetComplexityFunction[];
 type CurrentPathEntry = readonly [
@@ -123,6 +149,7 @@ type CurrentPathEntry = readonly [
   number?,
   number?,
   ComplexityVector?,
+  string?,
   string?,
   string?,
 ];
@@ -141,6 +168,7 @@ function current(
         readonly perFunction?: readonly LintRatchetComplexityFunction[];
         readonly firstMessage?: string;
         readonly firstMessageId?: string;
+        readonly messagesFingerprint?: string;
       }
     >
   >();
@@ -154,6 +182,7 @@ function current(
         readonly perFunction?: readonly LintRatchetComplexityFunction[];
         readonly firstMessage?: string;
         readonly firstMessageId?: string;
+        readonly messagesFingerprint?: string;
       }
     >();
     for (const [
@@ -164,6 +193,7 @@ function current(
       perFunction,
       firstMessage,
       firstMessageId,
+      messagesFingerprint,
     ] of paths) {
       items.set(path, {
         count,
@@ -172,6 +202,7 @@ function current(
         ...(perFunction === undefined ? {} : { perFunction }),
         ...(firstMessage === undefined ? {} : { firstMessage }),
         ...(firstMessageId === undefined ? {} : { firstMessageId }),
+        ...(messagesFingerprint === undefined ? {} : { messagesFingerprint }),
       });
     }
     byId.set(testId, items);
@@ -488,6 +519,88 @@ describe("lint ratchet comparison", () => {
       count: 2,
       firstLine: 12,
       firstMessage: "Why: first finding. How to fix: Keep the first guidance.",
+      messagesFingerprint: expectedMessageFingerprint([
+        expectedMessageIdentity("Why: first finding. How to fix: Keep the first guidance."),
+        expectedMessageIdentity(
+          "Why: second finding. How to fix: Do not mix message ids.",
+          "secondMessage",
+        ),
+      ]),
+    });
+  });
+
+  it("fingerprints sorted message identities without line-number churn", () => {
+    const path = "packages/server/src/app.ts";
+    const items = itemsFromResults(baseRatchet, [
+      {
+        filePath: path,
+        messages: [
+          {
+            ruleId: baseRatchet.ruleId,
+            severity: 2,
+            line: 40,
+            message: "Why: message-only finding. How to fix: Keep the message.",
+          },
+          {
+            ruleId: baseRatchet.ruleId,
+            severity: 2,
+            line: 10,
+            message: "Why: identified finding. How to fix: Keep the id.",
+            messageId: "identifiedFinding",
+          },
+        ],
+      },
+    ]);
+
+    expect(items.get(path)).toMatchObject({
+      count: 2,
+      firstLine: 10,
+      messagesFingerprint: expectedMessageFingerprint([
+        expectedMessageIdentity("Why: message-only finding. How to fix: Keep the message."),
+        expectedMessageIdentity(
+          "Why: identified finding. How to fix: Keep the id.",
+          "identifiedFinding",
+        ),
+      ]),
+    });
+  });
+
+  it("fingerprints message text when a rule reuses one static messageId", () => {
+    const path = "packages/server/src/router.ts";
+    const items = itemsFromResults(baseRatchet, [
+      {
+        filePath: path,
+        messages: [
+          {
+            ruleId: baseRatchet.ruleId,
+            severity: 2,
+            line: 10,
+            message: "Why: first branch. How to fix: Do the first repair.",
+            messageId: "staticMessage",
+          },
+          {
+            ruleId: baseRatchet.ruleId,
+            severity: 2,
+            line: 20,
+            message: "Why: second branch. How to fix: Do the second repair.",
+            messageId: "staticMessage",
+          },
+        ],
+      },
+    ]);
+
+    expect(items.get(path)).toMatchObject({
+      count: 2,
+      messagesFingerprint: expectedMessageFingerprint([
+        expectedMessageIdentity(
+          "Why: first branch. How to fix: Do the first repair.",
+          "staticMessage",
+        ),
+        expectedMessageIdentity(
+          "Why: second branch. How to fix: Do the second repair.",
+          "staticMessage",
+        ),
+      ]),
     });
   });
 
@@ -521,6 +634,9 @@ describe("lint ratchet comparison", () => {
       count: 1,
       firstLine: 7,
       firstMessage: "Why: matching finding. How to fix: Keep the boundary.",
+      messagesFingerprint: expectedMessageFingerprint([
+        expectedMessageIdentity("Why: matching finding. How to fix: Keep the boundary."),
+      ]),
     });
   });
 
@@ -613,6 +729,92 @@ describe("lint ratchet comparison", () => {
         reason: "removed-path",
       },
     ]);
+  });
+
+  it("reports equal-count message fingerprint swaps as informational", () => {
+    const path = "packages/client/src/a.ts";
+    const baseline = buildLintRatchetBaseline(
+      [baseRatchet],
+      current([
+        [
+          baseRatchet.id,
+          [
+            [
+              path,
+              2,
+              7,
+              undefined,
+              undefined,
+              undefined,
+              undefined,
+              expectedMessageFingerprint(["first", "second"]),
+            ],
+          ],
+        ],
+      ]),
+      fixtureRuleSourceHashes,
+    );
+    const comparison = compareCurrentToBaseline(
+      baseline,
+      [baseRatchet],
+      current([
+        [
+          baseRatchet.id,
+          [
+            [
+              path,
+              2,
+              11,
+              undefined,
+              undefined,
+              undefined,
+              undefined,
+              expectedMessageFingerprint(["first", "replacement"]),
+            ],
+          ],
+        ],
+      ]),
+    );
+
+    expect(comparison.regressions).toEqual([]);
+    expect(comparison.improvements).toEqual([]);
+    expect(comparison.infos).toEqual([
+      {
+        testId: baseRatchet.id,
+        ruleId: baseRatchet.ruleId,
+        path,
+        baselineCount: 2,
+        currentCount: 2,
+        reason: "equal-count-message-swap",
+      },
+    ]);
+  });
+
+  it("does not report equal-count swaps before a baseline has a message fingerprint", () => {
+    const path = "packages/client/src/a.ts";
+    const comparison = compareCurrentToBaseline(
+      oneTestBaseline([[path, 2]]),
+      [baseRatchet],
+      current([
+        [
+          baseRatchet.id,
+          [
+            [
+              path,
+              2,
+              11,
+              undefined,
+              undefined,
+              undefined,
+              undefined,
+              expectedMessageFingerprint(["replacement"]),
+            ],
+          ],
+        ],
+      ]),
+    );
+
+    expect(comparison.infos).toEqual([]);
   });
 
   it("flags effective line growth when diagnostic count is unchanged", () => {
@@ -1385,6 +1587,87 @@ describe("lint ratchet diagnostics envelope", () => {
     });
     expect(harnessDiagnosticsSchema.safeParse(envelope).success).toBe(true);
   });
+
+  it("emits report-only current totals as info findings without blocking", () => {
+    const envelope = buildEnvelopeFromComparison({
+      regressions: [],
+      improvements: [],
+      ruleDocsById: new Map(),
+      ratchets: [reportOnlyRatchet],
+      reportOnlySummaries: [
+        {
+          testId: reportOnlyRatchet.id,
+          ruleId: reportOnlyRatchet.ruleId,
+          fileCount: 2,
+          currentCount: 5,
+        },
+      ],
+    });
+
+    expect(envelope.findings).toEqual([
+      {
+        control: reportOnlyRatchet.id,
+        severity: "info",
+        ruleId: reportOnlyRatchet.ruleId,
+        reason: "report-only",
+        currentCount: 5,
+        why: `${reportOnlyRatchet.id} is report-only: 5 current finding(s) across 2 file(s) for ${reportOnlyRatchet.ruleId}.`,
+        howToFix:
+          "Review this inventory before promoting the ratchet to no-new mode; report-only findings do not update the committed baseline or fail the gate.",
+        repairKind: "manual",
+      },
+    ]);
+    expect(envelope.summary).toEqual({
+      blocking: 0,
+      warning: 0,
+      info: 1,
+      byControl: { [reportOnlyRatchet.id]: 1 },
+    });
+    expect(harnessDiagnosticsSchema.safeParse(envelope).success).toBe(true);
+  });
+
+  it("emits equal-count message swaps as info findings without blocking", () => {
+    const path = "packages/server/src/app.ts";
+    const envelope = buildEnvelopeFromComparison({
+      regressions: [],
+      improvements: [],
+      infos: [
+        {
+          testId: baseRatchet.id,
+          ruleId: baseRatchet.ruleId,
+          path,
+          baselineCount: 2,
+          currentCount: 2,
+          reason: "equal-count-message-swap",
+        },
+      ],
+      ruleDocsById: new Map(),
+      ratchets: [baseRatchet],
+    });
+
+    expect(envelope.findings).toEqual([
+      {
+        control: baseRatchet.id,
+        severity: "info",
+        path,
+        ruleId: baseRatchet.ruleId,
+        reason: "equal-count-message-swap",
+        baselineCount: 2,
+        currentCount: 2,
+        why: `${baseRatchet.id} has a different message fingerprint at the same count for ${baseRatchet.ruleId}.`,
+        howToFix:
+          "Review the equal-count finding swap; if it is intentional, run `bun run lint:ratchet:update` to refresh the message fingerprint.",
+        repairKind: "manual",
+      },
+    ]);
+    expect(envelope.summary).toEqual({
+      blocking: 0,
+      warning: 0,
+      info: 1,
+      byControl: { [baseRatchet.id]: 1 },
+    });
+    expect(harnessDiagnosticsSchema.safeParse(envelope).success).toBe(true);
+  });
 });
 
 describe("lint ratchet baseline parsing", () => {
@@ -1403,6 +1686,7 @@ describe("lint ratchet baseline parsing", () => {
               undefined,
               "Why: Type assertion escaped the boundary. How to fix: Keep it near JSON parsing.",
               "unexpectedAssertion",
+              expectedMessageFingerprint(["unexpectedAssertion"]),
             ],
           ],
         ],
@@ -1414,6 +1698,9 @@ describe("lint ratchet baseline parsing", () => {
 
     expect(rendered).not.toContain("Type assertion escaped");
     expect(rendered).not.toContain("unexpectedAssertion");
+    expect(rendered).toContain(
+      `"messagesFingerprint": "${expectedMessageFingerprint(["unexpectedAssertion"])}"`,
+    );
     expect(
       parseLintRatchetBaseline(rendered, [baseRatchet], fixtureRuleSourceHashes).baseline,
     ).toEqual(baseline);
@@ -1424,6 +1711,28 @@ describe("lint ratchet baseline parsing", () => {
     const rendered = formatLintRatchetBaseline(baseline);
     const parsed = parseLintRatchetBaseline(rendered, [baseRatchet], fixtureRuleSourceHashes);
 
+    expect(parsed.failures).toEqual([]);
+    expect(parsed.baseline).toEqual(baseline);
+  });
+
+  it("omits report-only ratchets from generated baselines and does not require them in strict parse", () => {
+    const baseline = buildLintRatchetBaseline(
+      [baseRatchet, reportOnlyRatchet],
+      current([
+        [baseRatchet.id, [["packages/shared/src/schema.ts", 1]]],
+        [reportOnlyRatchet.id, [["packages/server/src/report.ts", 4]]],
+      ]),
+      fixtureRuleSourceHashes,
+    );
+    const rendered = formatLintRatchetBaseline(baseline);
+    const parsed = parseLintRatchetBaseline(
+      rendered,
+      [baseRatchet, reportOnlyRatchet],
+      fixtureRuleSourceHashes,
+    );
+
+    expect(Object.keys(baseline.tests)).toEqual([baseRatchet.id]);
+    expect(rendered).not.toContain(reportOnlyRatchet.id);
     expect(parsed.failures).toEqual([]);
     expect(parsed.baseline).toEqual(baseline);
   });
@@ -1471,6 +1780,47 @@ describe("lint ratchet baseline parsing", () => {
       parseLintRatchetBaseline(countOnly, [maxLinesRatchet], fixtureRuleSourceHashes).failures,
     ).toContain(`${maxLinesRatchet.id}.items.${path}.lines is required for effective-line-count`);
     expect(parseLintRatchetBaselineStructure(countOnly).failures).toEqual([]);
+  });
+
+  it("validates message fingerprints only on message-count items", () => {
+    const messagePath = "packages/server/src/app.ts";
+    const fingerprint = expectedMessageFingerprint([
+      expectedMessageIdentity(
+        "Why: Type assertion escaped the boundary. How to fix: Keep the assertion near JSON parsing.",
+        "unexpectedAssertion",
+      ),
+    ]);
+    const messageBaseline = buildLintRatchetBaseline(
+      [baseRatchet],
+      current([
+        [
+          baseRatchet.id,
+          [[messagePath, 1, 7, undefined, undefined, undefined, undefined, fingerprint]],
+        ],
+      ]),
+      fixtureRuleSourceHashes,
+    );
+    const renderedMessageBaseline = formatLintRatchetBaseline(messageBaseline);
+    expect(
+      parseLintRatchetBaseline(renderedMessageBaseline, [baseRatchet], fixtureRuleSourceHashes)
+        .failures,
+    ).toEqual([]);
+
+    const invalidFingerprint = renderedMessageBaseline.replace(fingerprint, "sha256:not-a-hash");
+    expect(
+      parseLintRatchetBaseline(invalidFingerprint, [baseRatchet], fixtureRuleSourceHashes).failures,
+    ).toContain(`${baseRatchet.id}.items.${messagePath}.messagesFingerprint must be a sha256 hash`);
+
+    const linePath = "packages/server/src/large.ts";
+    const lineBaseline = formatLintRatchetBaseline(maxLinesBaseline(linePath, 320)).replace(
+      /"count": 1,/u,
+      `"count": 1,\n          "messagesFingerprint": "${fingerprint}",`,
+    );
+    expect(
+      parseLintRatchetBaseline(lineBaseline, [maxLinesRatchet], fixtureRuleSourceHashes).failures,
+    ).toContain(
+      `${maxLinesRatchet.id}.items.${linePath}.messagesFingerprint is only valid for message-count`,
+    );
   });
 
   it("requires complexity-severity items to carry maxComplexity and perFunction in strict parse", () => {
@@ -2349,7 +2699,7 @@ describe("lint ratchet registry validation", () => {
           id: "ratchet/z",
           ruleId: "local/unknown",
           files: ["z.ts", "a.ts"],
-          mode: "report-only",
+          mode: "ratchet-down",
         },
         { ...baseRatchet, id: "ratchet/b" },
         { ...baseRatchet, id: "ratchet/a" },
@@ -2365,7 +2715,9 @@ describe("lint ratchet registry validation", () => {
     expect(failures).toContain("ratchet ids must be sorted and unique");
     expect(failures).toContain("ratchet/z: ruleId local/unknown is not registered");
     expect(failures).toContain("ratchet/z: files must be sorted and duplicate-free");
-    expect(failures).toContain("ratchet/z: mode report-only is reserved but not implemented");
+    expect(failures).toContain(
+      "ratchet/z: mode ratchet-down is not implemented (implemented: no-new, report-only)",
+    );
     expect(failures).toContain("ratchet/a: duplicates ratchet scope already used by ratchet/b");
     expect(failures).toContain("ratchet/other: metric line-count is not implemented");
   });

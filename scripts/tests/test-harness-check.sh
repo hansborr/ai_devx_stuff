@@ -41,6 +41,7 @@ copy_validator() {
   cp scripts/harness-check.ts "$fixture_dir/scripts/harness-check.ts"
   cp scripts/ai-hooks/check-wiring.sh "$fixture_dir/scripts/ai-hooks/check-wiring.sh"
   cp scripts/harness/harness-check-validation.ts "$fixture_dir/scripts/harness/harness-check-validation.ts"
+  cp scripts/harness/local-rule-config.ts "$fixture_dir/scripts/harness/local-rule-config.ts"
   cp scripts/harness/control-field-validation.ts "$fixture_dir/scripts/harness/control-field-validation.ts"
   cp scripts/harness/generate-harness-controls.ts "$fixture_dir/scripts/harness/generate-harness-controls.ts"
   cp scripts/harness/generate-harness-controls-validation.ts \
@@ -89,7 +90,7 @@ JS
   cat >"$fixture_dir/eslint.config.js" <<'JS'
 import local from "./local-plugin.js";
 
-export default [{ plugins: { local } }];
+export default [{ plugins: { local }, rules: { "local/fixture-rule": "error" } }];
 JS
 }
 
@@ -147,7 +148,7 @@ SH
 
 write_generated_hook_files() {
   local fixture_dir=$1
-  mkdir -p "$fixture_dir/.claude" "$fixture_dir/.codex"
+  mkdir -p "$fixture_dir/.claude" "$fixture_dir/.codex" "$fixture_dir/.github/hooks"
   cat >"$fixture_dir/.claude/settings.json" <<'JSON'
 {
   "env": {
@@ -160,6 +161,12 @@ write_generated_hook_files() {
 JSON
   cat >"$fixture_dir/.codex/hooks.json" <<'JSON'
 {
+  "hooks": {}
+}
+JSON
+  cat >"$fixture_dir/.github/hooks/copilot.json" <<'JSON'
+{
+  "version": 1,
   "hooks": {}
 }
 JSON
@@ -445,6 +452,15 @@ mutate_unknown_invocation() {
     }'
 }
 
+mutate_lint_invocation_rule_disabled() {
+  local fixture_dir=$1
+  cat >"$fixture_dir/eslint.config.js" <<'JS'
+import local from "./local-plugin.js";
+
+export default [{ plugins: { local } }];
+JS
+}
+
 mutate_codemod_unknown_repair_command() {
   local fixture_dir=$1
   write_valid_manifest "$fixture_dir" ',
@@ -629,6 +645,11 @@ mutate_stale_hook_wiring() {
   printf '\n' >> "$fixture_dir/.codex/hooks.json"
 }
 
+mutate_stale_copilot_hook_wiring() {
+  local fixture_dir=$1
+  printf '\n' >> "$fixture_dir/.github/hooks/copilot.json"
+}
+
 mutate_missing_hook_body() {
   local fixture_dir=$1
   mkdir -p "$fixture_dir/.codex/hooks"
@@ -658,7 +679,8 @@ SH
           }
         },
         "notes": {
-          "claude": "Fixture only."
+          "claude": "Fixture only.",
+          "copilot": "Fixture only."
         }
       }
     }'
@@ -679,6 +701,7 @@ run_failure_checks() {
   run_failure_case "missing-source" "source does not resolve" mutate_missing_source
   run_failure_case "unknown-rule-name" "not registered in the local ESLint plugin" mutate_unknown_rule_name
   run_failure_case "unknown-invocation" "invocation references unknown package.json script" mutate_unknown_invocation
+  run_failure_case "lint-invocation-rule-disabled" "claims normal ESLint coverage" mutate_lint_invocation_rule_disabled
   run_failure_case "unknown-repair-command" "repairCommand references unknown package.json script" mutate_codemod_unknown_repair_command
   run_failure_case "repair-command-bad-prefix" 'repairCommand must start with "bun run "' mutate_repair_command_bad_prefix
   run_failure_case "lint-restates-field" "must not restate category" mutate_lint_restates_field
@@ -686,6 +709,7 @@ run_failure_checks() {
   run_failure_case "missing-ratchet-control" "Next steps:" mutate_missing_ratchet_control
   run_failure_case "stale-verify-steps" "steps.generated.sh is out of date" mutate_stale_verify_steps
   run_failure_case "stale-hook-wiring" "hooks.json" mutate_stale_hook_wiring
+  run_failure_case "stale-copilot-hook-wiring" "copilot.json" mutate_stale_copilot_hook_wiring
   run_failure_case "missing-hook-body" "execs a missing body" mutate_missing_hook_body
   run_failure_case "stale-harness-docs" "harness-controls.md is out of date" mutate_stale_harness_docs
 }
@@ -698,8 +722,51 @@ run_real_tree_check() {
   fi
 }
 
+write_public_archive_listing() {
+  git archive --worktree-attributes HEAD | tar -t >"$TMP_ROOT/public-archive.lst"
+}
+
+assert_archive_includes() {
+  local path=$1
+  if [ ! -e "$path" ]; then
+    echo "FAIL: archive visibility path does not exist: $path"
+    exit 1
+  fi
+  if ! grep -Fxq "$path" "$TMP_ROOT/public-archive.lst"; then
+    echo "FAIL: public archive should include $path, but it is absent"
+    exit 1
+  fi
+}
+
+assert_archive_excludes() {
+  local path=$1
+  if [ ! -e "$path" ]; then
+    echo "FAIL: archive privacy path does not exist: $path"
+    exit 1
+  fi
+  if grep -Fxq "$path" "$TMP_ROOT/public-archive.lst"; then
+    echo "FAIL: public archive should exclude $path, but it is present"
+    exit 1
+  fi
+}
+
+run_public_archive_boundary_check() {
+  write_public_archive_listing
+  assert_archive_includes ".claude/hooks/no-direct-db.sh"
+  assert_archive_includes ".claude/settings.json"
+  assert_archive_includes ".claude/output-styles/cadence.md"
+  assert_archive_includes ".claude/skills/playwright-cli/SKILL.md"
+  assert_archive_includes ".codex/hooks/pre-tool-use.sh"
+  assert_archive_includes ".codex/hooks.json"
+  assert_archive_includes ".codex/config.toml"
+  assert_archive_includes ".codex/skills/ts-graph/SKILL.md"
+  assert_archive_includes "docs/agent_notes/lint-coverage-map.md"
+  assert_archive_excludes "docs/agent_notes/LOG.md"
+}
+
 run_pass_case
 run_failure_checks
 run_real_tree_check
+run_public_archive_boundary_check
 
 echo "PASS: harness-check smoke"

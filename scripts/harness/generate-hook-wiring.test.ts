@@ -22,7 +22,7 @@ const BASE_SETTINGS = `{
 `;
 
 describe("hook wiring generator", () => {
-  it("renders Claude and Codex hook wiring from manifest order metadata", () => {
+  it("renders Claude, Codex, and Copilot hook wiring from manifest order metadata", () => {
     const manifest = {
       controls: [
         {
@@ -39,7 +39,10 @@ describe("hook wiring generator", () => {
                 timeout: 60,
               },
             },
-            notes: { claude: "Claude has no Codex Bash aggregation hook." },
+            notes: {
+              claude: "Claude has no Codex Bash aggregation hook.",
+              copilot: "Copilot has its own Bash aggregation hook.",
+            },
           },
         },
         {
@@ -58,6 +61,12 @@ describe("hook wiring generator", () => {
                 matcher: "apply_patch",
                 command: 'bash "$(git rev-parse --show-toplevel)/.codex/hooks/prisma-generate.sh"',
                 statusMessage: "Regenerating Prisma client",
+                timeout: 120,
+              },
+              copilot: {
+                matcher: "create|edit",
+                command:
+                  'bash "$(git rev-parse --show-toplevel)/.copilot/hooks/prisma-generate.sh"',
                 timeout: 120,
               },
             },
@@ -80,6 +89,10 @@ describe("hook wiring generator", () => {
                 statusMessage: "Checking edited doc length",
                 timeout: 15,
               },
+              copilot: {
+                matcher: "create|edit",
+                command: 'bash "$(git rev-parse --show-toplevel)/.copilot/hooks/doc-length.sh"',
+              },
             },
           },
         },
@@ -99,6 +112,10 @@ describe("hook wiring generator", () => {
                 statusMessage: "Checking repository stop conditions",
                 timeout: 30,
               },
+              copilot: {
+                command: 'bash "$(git rev-parse --show-toplevel)/.copilot/hooks/stop-reminder.sh"',
+                timeout: 30,
+              },
             },
           },
         },
@@ -108,6 +125,7 @@ describe("hook wiring generator", () => {
     const outputs = renderHookWiringOutputsFromManifest(manifest, BASE_SETTINGS);
     const claudeSettings: unknown = JSON.parse(outputs.claudeSettingsJson);
     const codexHooks: unknown = JSON.parse(outputs.codexHooksJson);
+    const copilotHooks: unknown = JSON.parse(outputs.copilotHooksJson);
 
     expect(claudeSettings).toMatchObject({
       env: { KEEP: "yes" },
@@ -189,6 +207,456 @@ describe("hook wiring generator", () => {
         ],
       },
     });
+    expect(copilotHooks).toEqual({
+      version: 1,
+      hooks: {
+        postToolUse: [
+          {
+            type: "command",
+            matcher: "create|edit",
+            bash: 'bash "$(git rev-parse --show-toplevel)/.copilot/hooks/prisma-generate.sh"',
+            timeoutSec: 120,
+          },
+          {
+            type: "command",
+            matcher: "create|edit",
+            bash: 'bash "$(git rev-parse --show-toplevel)/.copilot/hooks/doc-length.sh"',
+          },
+        ],
+        agentStop: [
+          {
+            type: "command",
+            bash: 'bash "$(git rev-parse --show-toplevel)/.copilot/hooks/stop-reminder.sh"',
+            timeoutSec: 30,
+          },
+        ],
+      },
+    });
+  });
+
+  it("rejects status messages on Copilot hook commands", () => {
+    const manifest = {
+      controls: [
+        {
+          id: "hook/copilot-status",
+          kind: "hook",
+          hookWiring: {
+            event: "PreToolUse",
+            order: 10,
+            harnesses: {
+              copilot: {
+                matcher: "bash",
+                command: 'bash "$(git rev-parse --show-toplevel)/.copilot/hooks/pre-tool-use.sh"',
+                statusMessage: "Checking Copilot Bash input",
+              },
+            },
+            notes: {
+              claude: "Fixture only.",
+              codex: "Fixture only.",
+            },
+          },
+        },
+      ],
+    };
+
+    expect(() => renderHookWiringOutputsFromManifest(manifest, BASE_SETTINGS)).toThrow(
+      "statusMessage is invalid",
+    );
+  });
+
+  it("requires matchers on Copilot tool-use hook commands", () => {
+    const manifest = {
+      controls: [
+        {
+          id: "hook/copilot-no-matcher",
+          kind: "hook",
+          hookWiring: {
+            event: "PreToolUse",
+            order: 10,
+            harnesses: {
+              copilot: {
+                command: 'bash "$(git rev-parse --show-toplevel)/.copilot/hooks/pre-tool-use.sh"',
+              },
+            },
+            notes: {
+              claude: "Fixture only.",
+              codex: "Fixture only.",
+            },
+          },
+        },
+      ],
+    };
+
+    expect(() => renderHookWiringOutputsFromManifest(manifest, BASE_SETTINGS)).toThrow(
+      "matcher is required for PreToolUse",
+    );
+  });
+
+  it("renders lifecycle events with event-specific matcher policy", () => {
+    const manifest = {
+      controls: [
+        {
+          id: "hook/post-compact",
+          kind: "hook",
+          hookWiring: {
+            event: "PostCompact",
+            order: 10,
+            harnesses: {
+              claude: {
+                command: "bash $CLAUDE_PROJECT_DIR/.claude/hooks/session-state.sh",
+                timeout: 15,
+              },
+              codex: {
+                command: 'bash "$(git rev-parse --show-toplevel)/.codex/hooks/session-state.sh"',
+                statusMessage: "Refreshing repository session state",
+                timeout: 15,
+              },
+            },
+            notes: {
+              copilot: "Copilot has no PostCompact hook event.",
+            },
+          },
+        },
+        {
+          id: "hook/subagent-stop",
+          kind: "hook",
+          hookWiring: {
+            event: "SubagentStop",
+            order: 10,
+            harnesses: {
+              claude: {
+                matcher: "Explore|Plan",
+                command: "bash $CLAUDE_PROJECT_DIR/.claude/hooks/subagent-stop-reminder.sh",
+                timeout: 30,
+              },
+              codex: {
+                matcher: "Explore|Plan",
+                command:
+                  'bash "$(git rev-parse --show-toplevel)/.codex/hooks/subagent-stop-reminder.sh"',
+                statusMessage: "Checking subagent stop conditions",
+                timeout: 30,
+              },
+            },
+            notes: {
+              copilot: "Copilot has no SubagentStop hook event.",
+            },
+          },
+        },
+        {
+          id: "hook/failure-guidance",
+          kind: "hook",
+          hookWiring: {
+            event: "PostToolUseFailure",
+            order: 10,
+            harnesses: {
+              claude: {
+                matcher: "Bash",
+                command: "bash $CLAUDE_PROJECT_DIR/.claude/hooks/failure-guidance.sh",
+              },
+            },
+            notes: {
+              codex: "Codex does not support PostToolUseFailure hooks.",
+              copilot: "Copilot has no PostToolUseFailure hook event.",
+            },
+          },
+        },
+        {
+          id: "hook/user-prompt-submit",
+          kind: "hook",
+          hookWiring: {
+            event: "UserPromptSubmit",
+            order: 10,
+            harnesses: {
+              claude: {
+                command: "bash $CLAUDE_PROJECT_DIR/.claude/hooks/prompt-context.sh",
+              },
+              codex: {
+                command: 'bash "$(git rev-parse --show-toplevel)/.codex/hooks/prompt-context.sh"',
+                statusMessage: "Checking submitted prompt",
+              },
+            },
+            notes: {
+              copilot: "Copilot has no UserPromptSubmit hook event.",
+            },
+          },
+        },
+      ],
+    };
+
+    const outputs = renderHookWiringOutputsFromManifest(manifest, BASE_SETTINGS);
+    const claudeSettings: unknown = JSON.parse(outputs.claudeSettingsJson);
+    const codexHooks: unknown = JSON.parse(outputs.codexHooksJson);
+    const copilotHooks: unknown = JSON.parse(outputs.copilotHooksJson);
+
+    expect(claudeSettings).toMatchObject({
+      hooks: {
+        UserPromptSubmit: [
+          {
+            hooks: [
+              {
+                type: "command",
+                command: "bash $CLAUDE_PROJECT_DIR/.claude/hooks/prompt-context.sh",
+              },
+            ],
+          },
+        ],
+        PostToolUseFailure: [
+          {
+            matcher: "Bash",
+            hooks: [
+              {
+                type: "command",
+                command: "bash $CLAUDE_PROJECT_DIR/.claude/hooks/failure-guidance.sh",
+              },
+            ],
+          },
+        ],
+        SubagentStop: [
+          {
+            matcher: "Explore|Plan",
+            hooks: [
+              {
+                type: "command",
+                command: "bash $CLAUDE_PROJECT_DIR/.claude/hooks/subagent-stop-reminder.sh",
+                timeout: 30,
+              },
+            ],
+          },
+        ],
+        PostCompact: [
+          {
+            hooks: [
+              {
+                type: "command",
+                command: "bash $CLAUDE_PROJECT_DIR/.claude/hooks/session-state.sh",
+                timeout: 15,
+              },
+            ],
+          },
+        ],
+      },
+    });
+    expect(codexHooks).toEqual({
+      hooks: {
+        UserPromptSubmit: [
+          {
+            hooks: [
+              {
+                type: "command",
+                command: 'bash "$(git rev-parse --show-toplevel)/.codex/hooks/prompt-context.sh"',
+                statusMessage: "Checking submitted prompt",
+              },
+            ],
+          },
+        ],
+        SubagentStop: [
+          {
+            matcher: "Explore|Plan",
+            hooks: [
+              {
+                type: "command",
+                command:
+                  'bash "$(git rev-parse --show-toplevel)/.codex/hooks/subagent-stop-reminder.sh"',
+                statusMessage: "Checking subagent stop conditions",
+                timeout: 30,
+              },
+            ],
+          },
+        ],
+        PostCompact: [
+          {
+            hooks: [
+              {
+                type: "command",
+                command: 'bash "$(git rev-parse --show-toplevel)/.codex/hooks/session-state.sh"',
+                statusMessage: "Refreshing repository session state",
+                timeout: 15,
+              },
+            ],
+          },
+        ],
+      },
+    });
+    expect(copilotHooks).toEqual({
+      version: 1,
+      hooks: {},
+    });
+  });
+
+  it("rejects matchers on events that do not support them", () => {
+    const manifest = {
+      controls: [
+        {
+          id: "hook/prompt-matcher",
+          kind: "hook",
+          hookWiring: {
+            event: "UserPromptSubmit",
+            order: 10,
+            harnesses: {
+              claude: {
+                matcher: "Bash",
+                command: "bash $CLAUDE_PROJECT_DIR/.claude/hooks/prompt-context.sh",
+              },
+            },
+            notes: {
+              codex: "Fixture only.",
+              copilot: "Fixture only.",
+            },
+          },
+        },
+      ],
+    };
+
+    expect(() => renderHookWiringOutputsFromManifest(manifest, BASE_SETTINGS)).toThrow(
+      "matcher is not supported for UserPromptSubmit",
+    );
+  });
+
+  it("rejects Codex wiring for unsupported hook events", () => {
+    const manifest = {
+      controls: [
+        {
+          id: "hook/codex-failure-guidance",
+          kind: "hook",
+          hookWiring: {
+            event: "PostToolUseFailure",
+            order: 10,
+            harnesses: {
+              codex: {
+                matcher: "Bash",
+                command: 'bash "$(git rev-parse --show-toplevel)/.codex/hooks/failure-guidance.sh"',
+                statusMessage: "Explaining failed Bash output",
+              },
+            },
+            notes: {
+              claude: "Fixture only.",
+              copilot: "Fixture only.",
+            },
+          },
+        },
+      ],
+    };
+
+    expect(() => renderHookWiringOutputsFromManifest(manifest, BASE_SETTINGS)).toThrow(
+      "codex does not support PostToolUseFailure",
+    );
+  });
+
+  it("rejects Claude additionalContext output on events that cannot inject it", () => {
+    const manifest = {
+      controls: [
+        {
+          id: "hook/post-compact-context",
+          kind: "hook",
+          hookWiring: {
+            event: "PostCompact",
+            order: 10,
+            outputs: ["additionalContext"],
+            harnesses: {
+              claude: {
+                command: "bash $CLAUDE_PROJECT_DIR/.claude/hooks/session-state.sh",
+              },
+            },
+            notes: {
+              codex: "Fixture only.",
+              copilot: "Fixture only.",
+            },
+          },
+        },
+      ],
+    };
+
+    expect(() => renderHookWiringOutputsFromManifest(manifest, BASE_SETTINGS)).toThrow(
+      "claude PostCompact does not support additionalContext output",
+    );
+  });
+
+  it("rejects Codex additionalContext output on SubagentStop", () => {
+    const manifest = {
+      controls: [
+        {
+          id: "hook/codex-subagent-context",
+          kind: "hook",
+          hookWiring: {
+            event: "SubagentStop",
+            order: 10,
+            outputs: ["additionalContext"],
+            harnesses: {
+              codex: {
+                command:
+                  'bash "$(git rev-parse --show-toplevel)/.codex/hooks/subagent-stop-reminder.sh"',
+                statusMessage: "Checking subagent stop conditions",
+              },
+            },
+            notes: {
+              claude: "Fixture only.",
+              copilot: "Fixture only.",
+            },
+          },
+        },
+      ],
+    };
+
+    expect(() => renderHookWiringOutputsFromManifest(manifest, BASE_SETTINGS)).toThrow(
+      "codex SubagentStop does not support additionalContext output",
+    );
+  });
+
+  it("accepts Copilot PreToolUse decisionBlock output", () => {
+    const manifest = {
+      controls: [
+        {
+          id: "hook/copilot-pre-deny",
+          kind: "hook",
+          hookWiring: {
+            event: "PreToolUse",
+            order: 10,
+            outputs: ["decisionBlock"],
+            harnesses: {
+              copilot: {
+                matcher: "edit",
+                command:
+                  'bash "$(git rev-parse --show-toplevel)/.copilot/hooks/protected-files.sh"',
+              },
+            },
+            notes: {
+              claude: "Fixture only.",
+              codex: "Fixture only.",
+            },
+          },
+        },
+      ],
+    };
+
+    expect(() => renderHookWiringOutputsFromManifest(manifest, BASE_SETTINGS)).not.toThrow();
+  });
+
+  it("requires a deliberate note for an omitted Copilot target", () => {
+    const manifest = {
+      controls: [
+        {
+          id: "hook/no-copilot",
+          kind: "hook",
+          hookWiring: {
+            event: "Stop",
+            order: 10,
+            harnesses: {
+              claude: {
+                command: "bash $CLAUDE_PROJECT_DIR/.claude/hooks/stop-reminder.sh",
+              },
+              codex: {
+                command: 'bash "$(git rev-parse --show-toplevel)/.codex/hooks/stop-reminder.sh"',
+                statusMessage: "Checking repository stop conditions",
+              },
+            },
+          },
+        },
+      ],
+    };
+
+    expect(() => renderHookWiringOutputsFromManifest(manifest, BASE_SETTINGS)).toThrow(
+      "hook/no-copilot omits copilot wiring without a notes.copilot explanation",
+    );
   });
 
   it("replaces only the Claude hooks key", () => {
@@ -299,6 +767,9 @@ describe("hook wiring generator", () => {
         codex: {
           command: 'bash "$(git rev-parse --show-toplevel)/.codex/hooks/stop-reminder.sh"',
           statusMessage: "Checking repository stop conditions",
+        },
+        copilot: {
+          command: 'bash "$(git rev-parse --show-toplevel)/.copilot/hooks/stop-reminder.sh"',
         },
       },
     };

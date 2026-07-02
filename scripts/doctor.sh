@@ -772,6 +772,11 @@ check_yamllint_system_tool
 check_shellcheck_system_tool
 check_lint_tools
 
+run_subcommand "lint-ratchet merge-driver health" \
+  "run 'bun run lint:ratchet:install-merge-driver' to refresh local Git merge-driver config, installed driver copy, and info attributes" \
+  "doctor-check/lint-ratchet-merge-driver" \
+  bash "$REPO_ROOT/scripts/git/check-lint-ratchet-merge-driver.sh"
+
 run_subcommand "eslint-disable register" \
   "add '-- reason', prefer eslint-disable-next-line, or add a targeted broad-disable allowlist entry when the suppression is intentionally scoped" \
   "doctor-check/eslint-disable-register" \

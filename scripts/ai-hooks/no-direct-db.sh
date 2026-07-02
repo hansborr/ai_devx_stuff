@@ -22,4 +22,8 @@ if REASON=$(ai_policy_violation_reason "$CMD"); then
   ai_emit_block "$REASON"
 fi
 
+if ADVISORY=$(ai_policy_advisory_context "$CMD"); then
+  ai_emit_additional_context "PreToolUse" "$ADVISORY"
+fi
+
 ai_emit_continue

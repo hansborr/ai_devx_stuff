@@ -9,9 +9,11 @@ import {
 import type { LintRatchetConfig } from "./lint-ratchet-config.js";
 import type { LintRatchetComplexityFunction } from "./lint-ratchet-metrics.js";
 import {
+  formatLintRatchetDirectorySummary,
   formatLintRatchetSummary,
   type LintRatchetSummaryRow,
   summarizeLintRatchetBaseline,
+  summarizeLintRatchetBaselineByDirectory,
 } from "./lint-ratchet-summary.js";
 
 const messageRatchet: LintRatchetConfig = {
@@ -146,6 +148,77 @@ describe("lint ratchet summary", () => {
     expect(formatLintRatchetSummary(summarizeLintRatchetBaseline(emptyBaseline, []))).toBe(
       "ratchet  rule  metric  files  findings\n(no ratchets)\n",
     );
+  });
+
+  it("groups findings by directory at the requested depth", () => {
+    const baseline = buildLintRatchetBaseline(
+      [messageRatchet],
+      currentById([
+        [
+          messageRatchet.id,
+          [
+            ["packages/app/src/a.ts", { count: 2 }],
+            ["packages/app/src/b.ts", { count: 3 }],
+            ["packages/server/src/c.ts", { count: 4 }],
+          ],
+        ],
+      ]),
+      ruleSourceHashes,
+    );
+
+    expect(summarizeLintRatchetBaselineByDirectory(baseline, [messageRatchet], 3)).toEqual([
+      {
+        id: messageRatchet.id,
+        ruleId: messageRatchet.ruleId,
+        metric: messageRatchet.metric,
+        directory: "packages/app/src",
+        fileCount: 2,
+        totalFindings: 5,
+      },
+      {
+        id: messageRatchet.id,
+        ruleId: messageRatchet.ruleId,
+        metric: messageRatchet.metric,
+        directory: "packages/server/src",
+        fileCount: 1,
+        totalFindings: 4,
+      },
+    ]);
+  });
+
+  it("formats directory grouping rows with the directory column", () => {
+    const formatted = formatLintRatchetDirectorySummary([
+      {
+        id: "ratchet/a",
+        ruleId: "rule-a",
+        metric: "message-count",
+        directory: "packages/app/src",
+        fileCount: 2,
+        totalFindings: 10,
+      },
+    ]);
+
+    expect(formatted).toBe(
+      "ratchet    rule    metric         directory         files  findings\n" +
+        "ratchet/a  rule-a  message-count  packages/app/src      2        10\n",
+    );
+  });
+
+  it("escapes markdown-sensitive directory grouping cells before rendering", () => {
+    const formatted = formatLintRatchetDirectorySummary([
+      {
+        id: "ratchet/path_cell",
+        ruleId: "rule|a",
+        metric: "message-count",
+        directory: "packages/app_|src",
+        fileCount: 1,
+        totalFindings: 2,
+      },
+    ]);
+
+    expect(formatted).toContain("ratchet/path\\_cell");
+    expect(formatted).toContain("rule\\|a");
+    expect(formatted).toContain("packages/app\\_\\|src");
   });
 
   it("sums complexity-severity counts without summing max complexity", () => {

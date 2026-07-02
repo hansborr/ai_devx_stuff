@@ -10,9 +10,25 @@ docs/agent_notes/LOG.md merge=union
 # still declares a conflict; see "Merge Conflicts" in docs/guides/lint-ratchet.md.
 /lint-ratchet.baseline.json merge=lint-ratchet-baseline
 
-# Public source archives should not include local agent harness state or process
-# notes. These remain tracked in git because scripts and harness docs reference
-# them directly.
+# Public source archives should include copyable harness config referenced by
+# harness.controls.json and docs/generated/harness-controls.md. Local harness
+# state and process notes stay private by default unless explicitly carved back.
 /.codex/** export-ignore
 /.claude/** export-ignore
 /docs/agent_notes/** export-ignore
+/.codex -export-ignore
+/.codex/config.toml -export-ignore
+/.codex/hooks.json -export-ignore
+/.codex/hooks -export-ignore
+/.codex/hooks/** -export-ignore
+/.codex/skills -export-ignore
+/.codex/skills/** -export-ignore
+/.claude -export-ignore
+/.claude/settings.json -export-ignore
+/.claude/hooks -export-ignore
+/.claude/hooks/** -export-ignore
+/.claude/output-styles -export-ignore
+/.claude/output-styles/** -export-ignore
+/.claude/skills -export-ignore
+/.claude/skills/** -export-ignore
+/docs/agent_notes/lint-coverage-map.md -export-ignore

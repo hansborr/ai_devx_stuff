@@ -18,6 +18,7 @@ AI_POLICY_GIT_BRANCH_FORCE_DELETE="Force-deleting branches, deleting tags, or fo
 AI_POLICY_GIT_CLEAN_FORCE="Git clean with force is not allowed from agents because it destroys untracked files. Remove specific generated files by name or ask the user to clean the tree."
 AI_POLICY_GH_REMOTE_MUTATION="GitHub remote mutations are not allowed from agents. Use read-only 'gh ... view/list/status' commands, or ask the user to perform the mutation."
 AI_POLICY_GH_AUTH="GitHub auth token output and auth reconfiguration are not allowed from agents. Use 'gh auth status' for read-only auth checks, or ask the user to manage authentication."
+AI_POLICY_ALLOW_PROTECTED_EDITS_ADVISORY="Protected edit override marker .allow-protected-edits is repo-wide. Use it only for deliberate protected-file maintenance, and remove it immediately after that work is done."
 AI_FLAKY_NOTE="Note: If this failure looks flaky (passes in isolation, fails under load), ensure you document it under docs/agent_notes/observed_flaky_tests.md if you are unable to resolve it right now."
 
 AI_WRAPPED_BUN_RE='^bun run (lint|lint:changed|lint:fix|typecheck|test|test:changed|test:server|test:client|test:client:isolated|test:client:split|test:shared|test:coverage|test:slow|e2e|format|format:check|format:changed|format:changed:check|build|code:intel|verify|verify:changed|verify:slow|verify:logs|verify:async:status|verify:async:tail|verify:async:stop)( --| [A-Za-z0-9._:/=-]+| --[A-Za-z0-9._=-]+)*$'
@@ -155,6 +156,67 @@ ai_policy_has_git_commit_on_main() {
   ai_branch_is_protected "$branch"
 }
 
+ai_policy_has_husky_zero_prefix() {
+  local cmd="$1"
+  local env_assignment
+  local env_option
+  local env_option_value
+  local git_commit_re
+  local husky_prefix
+  local split_string_husky_prefix
+
+  env_assignment='[A-Za-z_][A-Za-z0-9_]*=[^[:space:];&|]+'
+  env_option_value='[^[:space:];&|]+'
+  env_option="(-i|--ignore-environment|--null|--debug|--list-signal-handling|(-u|--unset|-C|--chdir|--argv0|-S|--split-string)[[:space:]]+${env_option_value}|--(unset|chdir|argv0|split-string)=${env_option_value}|--(block-signal|default-signal|ignore-signal)(=${env_option_value})?)"
+  git_commit_re="git[[:space:]]+${AI_POLICY_GIT_PRECOMMIT_OPTS}commit$AI_POLICY_CMD_END"
+  husky_prefix="((${env_assignment}[[:space:]]+)*HUSKY=0[[:space:]]+|env[[:space:]]+(${env_option}[[:space:]]+|${env_assignment}[[:space:]]+)*HUSKY=0[[:space:]]+)"
+  split_string_husky_prefix="env[[:space:]]+(${env_option}[[:space:]]+)*(-S|--split-string)(=|[[:space:]]+)['\"]?HUSKY=0[[:space:]]+"
+  ai_policy_has_command "$cmd" "(${husky_prefix}|${split_string_husky_prefix})[^;&|]*${git_commit_re}" && return 0
+  ai_policy_has_command "$cmd" "export([^;&|]*[[:space:]])?HUSKY=0($|[[:space:];&|])" \
+    && ai_policy_has_command "$cmd" "$git_commit_re"
+}
+
+ai_policy_has_git_commit_hook_bypass_flag() {
+  local cmd="$1"
+  local git_commit_re
+
+  git_commit_re="git[[:space:]]+${AI_POLICY_GIT_PRECOMMIT_OPTS}commit"
+  ai_policy_has_command "$cmd" "${git_commit_re}[^;&|]*[[:space:]]--no-verify$AI_POLICY_CMD_END" && return 0
+  ai_policy_has_command "$cmd" "${git_commit_re}[^;&|]*[[:space:]]-[A-Za-z]*n[A-Za-z]*$AI_POLICY_CMD_END" && return 0
+  return 1
+}
+
+ai_policy_has_git_push_hook_bypass_flag() {
+  local cmd="$1"
+  local git_push_re
+
+  git_push_re="git[[:space:]]+${AI_POLICY_GIT_PRECOMMIT_OPTS}push"
+  ai_policy_has_command "$cmd" "${git_push_re}[^;&|]*[[:space:]]--no-verify$AI_POLICY_CMD_END"
+}
+
+ai_policy_touches_allow_protected_edits_marker() {
+  local cmd="$1"
+  local marker_re='[^;&|]*\.allow-protected-edits'
+
+  ai_policy_has_command "$cmd" "touch${marker_re}$AI_POLICY_CMD_END" && return 0
+  ai_policy_has_command "$cmd" "(:|true|printf|echo|cat)${marker_re}(>|>>)[^;&|]*$AI_POLICY_CMD_END" && return 0
+  ai_policy_has_command "$cmd" "(:|true|printf|echo|cat)[^;&|]*(>|>>)[^;&|]*\.allow-protected-edits$AI_POLICY_CMD_END" && return 0
+  ai_policy_has_command "$cmd" "tee([[:space:]]+-[A-Za-z]+)*${marker_re}$AI_POLICY_CMD_END" && return 0
+  ai_policy_has_command "$cmd" "(install|cp|mv)${marker_re}$AI_POLICY_CMD_END" && return 0
+  return 1
+}
+
+ai_policy_advisory_context() {
+  local cmd="$1"
+
+  if ai_policy_touches_allow_protected_edits_marker "$cmd"; then
+    printf '%s' "$AI_POLICY_ALLOW_PROTECTED_EDITS_ADVISORY"
+    return 0
+  fi
+
+  return 1
+}
+
 ai_policy_has_gh_api_explicit_get() {
   ai_policy_has_command "$1" "gh[[:space:]]+api[^;&|]*[[:space:]]((--method(=|[[:space:]]+)|-X[[:space:]]*)[Gg][Ee][Tt])$AI_POLICY_CMD_END"
 }
@@ -185,7 +247,9 @@ ai_policy_violation_reason() {
   local cmd="$1"
   local rebase_residue
 
-  if grep -qE -- '(^|[[:space:]])HUSKY=0([[:space:]]|$)|--no-verify|\bgit[[:space:]]+commit\b.*(^|[[:space:]])-[A-Za-z]*n[A-Za-z]*([[:space:]]|$)' <<< "$cmd"; then
+  if ai_policy_has_husky_zero_prefix "$cmd" \
+    || ai_policy_has_git_commit_hook_bypass_flag "$cmd" \
+    || ai_policy_has_git_push_hook_bypass_flag "$cmd"; then
     printf '%s' "$AI_POLICY_HOOK_BYPASS"
     return 0
   fi

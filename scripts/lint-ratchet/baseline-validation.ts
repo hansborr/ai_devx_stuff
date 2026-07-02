@@ -14,6 +14,7 @@ import type {
 import { parseBaselineTest } from "./lint-ratchet-baseline-parse.js";
 import type { LintRatchetConfig } from "./lint-ratchet-config.js";
 import { validateMetricItem } from "./lint-ratchet-metrics.js";
+import { isReportOnlyRatchet } from "./runtime-config.js";
 
 function validateBaselineTestMetadata(
   testId: string,
@@ -105,6 +106,10 @@ function validateBaselineAgainstRegistry(
       failures.push(`${testId}: baseline has no matching ratchet registry entry`);
       continue;
     }
+    if (isReportOnlyRatchet(ratchet)) {
+      failures.push(`${testId}: report-only ratchets must not have committed baseline entries`);
+      continue;
+    }
     const test = baseline.tests[testId];
     if (test === undefined) continue;
     failures.push(
@@ -117,6 +122,7 @@ function validateBaselineAgainstRegistry(
     );
   }
   for (const ratchet of ratchets) {
+    if (isReportOnlyRatchet(ratchet)) continue;
     if (baseline.tests[ratchet.id] === undefined) {
       failures.push(`${ratchet.id}: baseline is missing registry ratchet`);
     }

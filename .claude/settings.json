@@ -90,6 +90,18 @@
     ]
   },
   "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/session-state.sh",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": "Bash",
@@ -147,6 +159,29 @@
             "type": "command",
             "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/ratchet-regression-check.sh",
             "timeout": 60
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/failure-guidance.sh",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/subagent-stop-reminder.sh",
+            "timeout": 30
           }
         ]
       }

@@ -1,0 +1,64 @@
+{
+  "version": 1,
+  "hooks": {
+    "preToolUse": [
+      {
+        "type": "command",
+        "matcher": "bash|powershell",
+        "bash": "bash \"$(git rev-parse --show-toplevel)/.copilot/hooks/pre-tool-use.sh\"",
+        "timeoutSec": 60
+      },
+      {
+        "type": "command",
+        "matcher": "create|edit",
+        "bash": "bash \"$(git rev-parse --show-toplevel)/.copilot/hooks/protected-files.sh\"",
+        "timeoutSec": 15
+      }
+    ],
+    "postToolUse": [
+      {
+        "type": "command",
+        "matcher": "create|edit",
+        "bash": "bash \"$(git rev-parse --show-toplevel)/.copilot/hooks/prisma-generate.sh\"",
+        "timeoutSec": 120
+      },
+      {
+        "type": "command",
+        "matcher": "create|edit",
+        "bash": "bash \"$(git rev-parse --show-toplevel)/.copilot/hooks/doc-length.sh\"",
+        "timeoutSec": 15
+      },
+      {
+        "type": "command",
+        "matcher": "create|edit",
+        "bash": "bash \"$(git rev-parse --show-toplevel)/.copilot/hooks/tidy-edited-file.sh\"",
+        "timeoutSec": 120
+      },
+      {
+        "type": "command",
+        "matcher": "create|edit",
+        "bash": "bash \"$(git rev-parse --show-toplevel)/.copilot/hooks/lint-coverage-check.sh\"",
+        "timeoutSec": 15
+      },
+      {
+        "type": "command",
+        "matcher": "create|edit",
+        "bash": "bash \"$(git rev-parse --show-toplevel)/.copilot/hooks/ratchet-regression-check.sh\"",
+        "timeoutSec": 60
+      },
+      {
+        "type": "command",
+        "matcher": "bash|powershell",
+        "bash": "bash \"$(git rev-parse --show-toplevel)/.copilot/hooks/post-tool-use.sh\"",
+        "timeoutSec": 60
+      }
+    ],
+    "agentStop": [
+      {
+        "type": "command",
+        "bash": "bash \"$(git rev-parse --show-toplevel)/.copilot/hooks/stop-reminder.sh\"",
+        "timeoutSec": 30
+      }
+    ]
+  }
+}

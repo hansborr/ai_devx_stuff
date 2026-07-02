@@ -19,6 +19,7 @@ const ORPHAN_ITEM_KEYS: ReadonlySet<string> = new Set([
   "lines",
   "maxComplexity",
   "perFunction",
+  "messagesFingerprint",
 ]);
 const PER_FUNCTION_KEYS: ReadonlySet<string> = new Set(["line", "label", "complexity"]);
 

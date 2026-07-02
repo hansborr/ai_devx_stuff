@@ -288,8 +288,33 @@ describe("trackedFileIsInScope", () => {
     expect(trackedFileIsInScope("README.md")).toBe(true);
     expect(trackedFileIsInScope("config.yaml")).toBe(true);
     expect(trackedFileIsInScope("config.yml")).toBe(true);
-    // Not in TRACKED_EXTENSION_PATTERN (kills the L147 extension gate).
+    expect(trackedFileIsInScope("packages/client/src/app.css")).toBe(true);
+    expect(trackedFileIsInScope("packages/client/index.html")).toBe(true);
+    expect(trackedFileIsInScope("lint-ratchet.debt-log.jsonl")).toBe(true);
+    expect(trackedFileIsInScope("scripts/drift-ai/fixtures/dolos-report/files.csv")).toBe(true);
+    expect(trackedFileIsInScope("scripts/harness-audit/fixtures/malformed-not-json.txt")).toBe(
+      true,
+    );
+    expect(trackedFileIsInScope("docs/SRD_CC_v5.2.1.pdf")).toBe(true);
     expect(trackedFileIsInScope("logo.png")).toBe(false);
-    expect(trackedFileIsInScope("notes.txt")).toBe(false);
+  });
+
+  it("includes path-scoped metadata and extensionless files already claimed by the map", () => {
+    expect(trackedFileIsInScope(".env.example")).toBe(true);
+    expect(trackedFileIsInScope(".devcontainer/.env.example")).toBe(true);
+    expect(trackedFileIsInScope(".gitignore")).toBe(true);
+    expect(trackedFileIsInScope("packages/server/.gitignore")).toBe(true);
+    expect(trackedFileIsInScope(".gitattributes")).toBe(true);
+    expect(trackedFileIsInScope(".prettierrc")).toBe(true);
+    expect(trackedFileIsInScope(".prettierignore")).toBe(true);
+    expect(trackedFileIsInScope(".worktreeinclude")).toBe(true);
+    expect(trackedFileIsInScope(".blob-size-allowlist")).toBe(true);
+    expect(trackedFileIsInScope("packages/server/prisma/migrations/.safety-acknowledged")).toBe(
+      true,
+    );
+    expect(trackedFileIsInScope(".husky/pre-push")).toBe(true);
+    expect(trackedFileIsInScope("LICENSE")).toBe(true);
+    expect(trackedFileIsInScope("docs/bugs")).toBe(true);
+    expect(trackedFileIsInScope("scripts/generated-hook")).toBe(false);
   });
 });

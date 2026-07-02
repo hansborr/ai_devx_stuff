@@ -139,6 +139,18 @@ Do **not** read this folder at session start. Promote an item back into
   `noFallthroughCasesInSwitch`) with measured adoption, and add a short
   intent/comprehension prompt to the PR template while preserving
   `verify:changed`.
+- `harness-review-2026-07/00-index.md` — 36-leaf task pack from the
+  2026-07-01 AI-harness review (multi-agent + Codex second opinion + web
+  research; every count re-verified against HEAD). Five tracks: ratchet
+  merge-conflict lane (semantic min-merge driver, driver health check,
+  post-merge truth-up — motivated by real multi-contributor field pain),
+  ratchet platform (hand-edit integrity gate, collection parallelism,
+  report-only mode, trend reporting), new lint rules (transaction-client,
+  raw-SQL fence + live escapee, tRPC error codes, query keys, socket
+  cleanup, effect-boundary marker), hooks (lifecycle-event schema support,
+  policy.sh false-positive fix, protected-files deny tier, pre-push
+  backstop), and public-reference fitness (export-ignore, portable-core
+  extraction). Rejected verdicts recorded in `01-sources-and-verdicts.md`.
 - `harness-research-followups-2026-06/00-index.md` — second round of
   proposal-only follow-ups from the harness research, after cross-checking each
   recommendation against what the repo already enforces. Four **ready** leaves:

@@ -67,7 +67,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Source:** `eslint-rules/no-arbitrary-tailwind-value.js`
 
-**Invocation:** `bun run lint`
+**Invocation:** `bun run lint:ratchet`
 
 **Paired guide:** [DESIGN.md](../../DESIGN.md)
 
@@ -153,6 +153,38 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Repair:** manual
 
+### `lint/local/no-outer-client-in-transaction`
+
+**Rule:** `local/no-outer-client-in-transaction`
+
+**Principle:** Interactive Prisma transaction callbacks must use their callback transaction client so every persistence call shares one atomic transaction.
+
+**Category:** behavior
+
+**Source:** `eslint-rules/no-outer-client-in-transaction.js`
+
+**Invocation:** `bun run lint`
+
+**Paired guide:** [docs/CONCURRENCY.md](../CONCURRENCY.md)
+
+**Repair:** manual
+
+### `lint/local/no-plain-error-in-trpc`
+
+**Rule:** `local/no-plain-error-in-trpc`
+
+**Principle:** tRPC routers and services must throw coded TRPCErrors so clients receive intentional error semantics instead of opaque INTERNAL_SERVER_ERROR responses.
+
+**Category:** behavior
+
+**Source:** `eslint-rules/no-plain-error-in-trpc.js`
+
+**Invocation:** `bun run lint:ratchet`
+
+**Paired guide:** [docs/authorization.md](../authorization.md)
+
+**Repair:** manual
+
 ### `lint/local/no-redundant-central-mock`
 
 **Rule:** `local/no-redundant-central-mock`
@@ -182,6 +214,22 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 **Invocation:** `bun run lint`
 
 **Paired guide:** [docs/guides/local-eslint-rules.md](../guides/local-eslint-rules.md)
+
+**Repair:** manual
+
+### `lint/local/socket-listener-cleanup`
+
+**Rule:** `local/socket-listener-cleanup`
+
+**Principle:** Client socket listeners must unregister the same event and handler from effect cleanup so remounts do not duplicate cache writes or notifications.
+
+**Category:** behavior
+
+**Source:** `eslint-rules/socket-listener-cleanup.js`
+
+**Invocation:** `bun run lint`
+
+**Paired guide:** [docs/guides/add-client-feature-module-cache-socket.md](../guides/add-client-feature-module-cache-socket.md)
 
 **Repair:** manual
 
@@ -345,9 +393,37 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Repair:** manual
 
+### `ratchet/local-no-plain-error-in-trpc-server`
+
+**Principle:** Prevent direct plain Error throws from growing in tRPC routers and server services while the documented upload-service REST boundary is handled deliberately.
+
+**Category:** behavior
+
+**Source:** `scripts/lint-ratchet/lint-ratchet-config.ts`
+
+**Invocation:** `bun run lint:ratchet`
+
+**Paired guide:** [docs/guides/lint-ratchet.md](../guides/lint-ratchet.md)
+
+**Repair:** manual
+
 ### `ratchet/local-type-assertion-boundary`
 
 **Principle:** Prevent the known type-assertion debt pool from growing while cleanup proceeds incrementally.
+
+**Category:** maintainability
+
+**Source:** `scripts/lint-ratchet/lint-ratchet-config.ts`
+
+**Invocation:** `bun run lint:ratchet`
+
+**Paired guide:** [docs/guides/lint-ratchet.md](../guides/lint-ratchet.md)
+
+**Repair:** manual
+
+### `ratchet/no-real-time-in-package-tests`
+
+**Principle:** Freeze real-clock usage in package tests so new Date.now() and no-arg new Date() calls cannot grow while existing tests migrate to fake timers or injected clocks.
 
 **Category:** maintainability
 
@@ -373,9 +449,51 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Repair:** manual
 
+### `ratchet/react-jsx-no-constructed-context-values-client`
+
+**Principle:** Prevent constructed React context Provider values from growing while the current AuthProvider value object is memoized in a focused cleanup.
+
+**Category:** maintainability
+
+**Source:** `scripts/lint-ratchet/lint-ratchet-config.ts`
+
+**Invocation:** `bun run lint:ratchet`
+
+**Paired guide:** [docs/guides/lint-ratchet.md](../guides/lint-ratchet.md)
+
+**Repair:** manual
+
+### `ratchet/react-refresh-only-export-components-client`
+
+**Principle:** Prevent Fast Refresh unsafe mixed exports in client TSX modules from growing while shared constants and helpers move out of component files.
+
+**Category:** maintainability
+
+**Source:** `scripts/lint-ratchet/lint-ratchet-config.ts`
+
+**Invocation:** `bun run lint:ratchet`
+
+**Paired guide:** [docs/guides/lint-ratchet.md](../guides/lint-ratchet.md)
+
+**Repair:** manual
+
 ### `ratchet/strict-boolean-expressions-server-encounter-combat`
 
 **Principle:** Hold a strict-boolean-expressions zero floor over the packages/server/src/services/encounter-combat slice while package-wide server cleanup proceeds incrementally.
+
+**Category:** maintainability
+
+**Source:** `scripts/lint-ratchet/lint-ratchet-config.ts`
+
+**Invocation:** `bun run lint:ratchet`
+
+**Paired guide:** [docs/guides/lint-ratchet.md](../guides/lint-ratchet.md)
+
+**Repair:** manual
+
+### `ratchet/strict-boolean-expressions-server-services`
+
+**Principle:** Extend strict-boolean-expressions coverage across server services while excluding the existing encounter-combat slice that already owns its zero floor.
 
 **Category:** maintainability
 
@@ -571,6 +689,20 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Repair:** manual
 
+### `sensor/knip-unused-exports`
+
+**Principle:** Prevent knip-reported unused exported symbols from growing above the committed baseline while raw knip dependency/file and duplication reports remain advisory.
+
+**Category:** maintainability
+
+**Source:** `scripts/sensor-knip-unused-exports.ts`
+
+**Invocation:** `bun run sensor:knip-unused-exports`
+
+**Paired guide:** [docs/ai-harness.md](../ai-harness.md)
+
+**Repair:** manual
+
 ### `sensor/worktree-status`
 
 **Principle:** Report per-worktree database, port, Redis, and SRD seed drift so secondary worktrees stay reproducible and isolated.
@@ -589,7 +721,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `verify-wrapper/doctor`
 
-**Principle:** Aggregated read-only diagnostic: composes worktree:status, db:status, env-file sanity, port binding, dependency freshness, yamllint and ShellCheck system-tool availability, the lint host-tool inventory, suppression registers, migration safety, drift:ai harness-freshness, knip, and blob-size; report-only — exits non-zero only on FAIL counts.
+**Principle:** Aggregated read-only diagnostic: composes worktree:status, db:status, env-file sanity, port binding, dependency freshness, yamllint and ShellCheck system-tool availability, the lint host-tool inventory, lint-ratchet merge-driver health, suppression registers, migration safety, drift:ai harness-freshness, knip, and blob-size; report-only — exits non-zero only on FAIL counts.
 
 **Category:** maintainability
 
@@ -603,7 +735,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `verify-wrapper/verify`
 
-**Principle:** Run lint, lint:ratchet, the zero-baseline lifecycle check, coverage-map, format check, typecheck, test, and script smoke suites against the full tree with shared cache, lock, and log directory so a failing slot leaves the rest reusable; lint preflights packages/{shared,server}/dist and runs typecheck automatically before ESLint when those ignored outputs are missing.
+**Principle:** Run lint, lint:ratchet, the zero-baseline lifecycle check, the knip unused-export floor, coverage-map, format check, typecheck, test, and script smoke suites against the full tree with shared cache, lock, and log directory so a failing slot leaves the rest reusable; lint preflights packages/{shared,server}/dist and runs typecheck automatically before ESLint when those ignored outputs are missing.
 
 **Category:** maintainability
 
@@ -616,6 +748,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 - `lint` — `lint`
 - `ratchet` — `lint:ratchet` — env: `HARNESS_DIAGNOSTICS_OUTPUT=$LOG_DIR/ratchet-diagnostics.json`
 - `zero-baseline` — `lint:ratchet:zero-baseline`
+- `knip-unused-exports` — `sensor:knip-unused-exports`
 - `coverage-map` — `docs:lint-coverage-map:audit`
 - `format-check` — `format:check`
 - `typecheck` — `typecheck`
@@ -642,7 +775,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `verify-wrapper/verify-changed`
 
-**Principle:** Run lint:changed, lint:ratchet, the zero-baseline lifecycle check, coverage-map, format:changed:check, typecheck, test:changed, and test:scripts:changed in parallel against the changed-file set; default edit-loop gate before commit; when packages/{shared,server}/dist is missing, the wrapper defers lint until the existing typecheck slot has produced those ignored outputs.
+**Principle:** Run lint:changed, lint:ratchet, the zero-baseline lifecycle check, the knip unused-export floor, coverage-map, format:changed:check, typecheck, test:changed, and test:scripts:changed in parallel against the changed-file set; default edit-loop gate before commit; when packages/{shared,server}/dist is missing, the wrapper defers lint until the existing typecheck slot has produced those ignored outputs.
 
 **Category:** maintainability
 
@@ -655,6 +788,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 - `lint` — `lint:changed`
 - `ratchet` — `lint:ratchet` — env: `HARNESS_DIAGNOSTICS_OUTPUT=$LOG_DIR/ratchet-diagnostics.json`
 - `zero-baseline` — `lint:ratchet:zero-baseline`
+- `knip-unused-exports` — `sensor:knip-unused-exports`
 - `coverage-map` — `docs:lint-coverage-map:check` — args: `-- --staged`
 - `format-check` — `format:changed:check`
 - `typecheck` — `typecheck`
@@ -695,7 +829,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `verify-wrapper/verify-parallel`
 
-**Principle:** Run the full lint, ratchet, zero-baseline lifecycle check, coverage-map, format check, typecheck, test, and scripts suites in parallel; reduces full-verify wall time when the full script suite fits the selected timeout or cached state; when packages/{shared,server}/dist is missing, the wrapper defers lint until the existing typecheck slot has produced those ignored outputs.
+**Principle:** Run the full lint, ratchet, zero-baseline lifecycle check, knip unused-export floor, coverage-map, format check, typecheck, test, and scripts suites in parallel; reduces full-verify wall time when the full script suite fits the selected timeout or cached state; when packages/{shared,server}/dist is missing, the wrapper defers lint until the existing typecheck slot has produced those ignored outputs.
 
 **Category:** maintainability
 
@@ -708,6 +842,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 - `lint` — `lint`
 - `ratchet` — `lint:ratchet` — env: `HARNESS_DIAGNOSTICS_OUTPUT=$LOG_DIR/ratchet-diagnostics.json`
 - `zero-baseline` — `lint:ratchet:zero-baseline`
+- `knip-unused-exports` — `sensor:knip-unused-exports`
 - `coverage-map` — `docs:lint-coverage-map:audit`
 - `format-check` — `format:check`
 - `typecheck` — `typecheck`
@@ -773,6 +908,20 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 **Invocation:** `bun run doctor`
 
 **Paired guide:** none
+
+**Repair:** manual
+
+### `doctor-check/lint-ratchet-merge-driver`
+
+**Principle:** Verify the clone-local lint-ratchet baseline merge driver config, installed driver copy, and info-attributes mirror are present and current so baseline merges do not silently fall back to textual JSON conflict markers.
+
+**Category:** maintainability
+
+**Source:** `scripts/git/check-lint-ratchet-merge-driver.sh`
+
+**Invocation:** `bun run lint:ratchet:merge-driver:check`
+
+**Paired guide:** [docs/guides/lint-ratchet.md](../guides/lint-ratchet.md)
 
 **Repair:** manual
 
@@ -1232,7 +1381,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `check/lint-agent-local-rules`
 
-**Principle:** Emit a schema-validated harness diagnostics envelope for `local/*` ESLint findings and parser errors; this is a local-rule view, not full lint parity.
+**Principle:** Emit a schema-validated harness diagnostics envelope for `local/*` ESLint findings, parser errors, and info disclosures for skipped non-local ESLint findings; this is a local-rule view, not full lint parity.
 
 **Category:** maintainability
 
@@ -1269,6 +1418,20 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 **Invocation:** `bun run docs:lint-coverage-map:check`
 
 **Paired guide:** [docs/agent_notes/lint-coverage-map.md](../agent_notes/lint-coverage-map.md)
+
+**Repair:** manual
+
+### `check/lint-ratchet-debt-accounting`
+
+**Principle:** Fail when a changed lint-ratchet baseline increases recorded debt unless the same range is recorded in the debt log, so hand-edited baselines cannot hide regressions.
+
+**Category:** maintainability
+
+**Source:** `scripts/lint-ratchet/baseline-debt-accounting-git.ts`
+
+**Invocation:** `bun run lint:ratchet:check-debt-accounting`
+
+**Paired guide:** [docs/guides/lint-ratchet.md](../guides/lint-ratchet.md)
 
 **Repair:** manual
 
@@ -1313,6 +1476,20 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 **Paired guide:** none
 
 **Repair:** autofix
+
+### `lint/skipped-non-local`
+
+**Principle:** Represent non-local ESLint findings omitted from the local-rule diagnostics projection as info-severity envelope entries so consumers can see that the artifact is intentionally partial.
+
+**Category:** maintainability
+
+**Source:** `scripts/lint-agent-envelope.ts`
+
+**Invocation:** `bun run lint:agent:local-rules`
+
+**Paired guide:** [docs/guides/local-eslint-rules.md](../guides/local-eslint-rules.md)
+
+**Repair:** manual
 
 ## Logs audit
 
@@ -1475,6 +1652,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 - event: `PreToolUse`; canonical order: `30`
 - `claude` — `bash $CLAUDE_PROJECT_DIR/.claude/hooks/bun-run-quiet.sh` (matcher: `Bash`; timeout: `1260s`)
 - `codex` — deliberately not wired: Codex deliberately handles `bun run` cache and quieting inside .codex/hooks/pre-tool-use.sh.
+- `copilot` — deliberately not wired: Copilot deliberately handles `bun run` cache checks and output quieting inside its Bash aggregators, mirroring Codex.
 
 **Paired guide:** none
 
@@ -1486,7 +1664,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Category:** maintainability
 
-**Source:** `.codex/hooks/post-tool-use.sh`
+**Source:** `scripts/ai-hooks/bash-post-tool-use.sh`
 
 **Invocation:** `Codex PostToolUse Bash hook`
 
@@ -1495,6 +1673,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 - event: `PostToolUse`; canonical order: `90`
 - `claude` — deliberately not wired: Claude deliberately keeps commit output handling in its git-commit-quiet adapter instead of using a Bash PostToolUse aggregator.
 - `codex` — `bash "$(git rev-parse --show-toplevel)/.codex/hooks/post-tool-use.sh"` (matcher: `Bash`; timeout: `60s`; status: `Summarizing repository Bash output`)
+- `copilot` — deliberately not wired: Copilot runs the same shared Bash aggregate body through hook/ai-copilot-post-tool-use.
 
 **Paired guide:** none
 
@@ -1506,7 +1685,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Category:** behavior
 
-**Source:** `.codex/hooks/pre-tool-use.sh`
+**Source:** `scripts/ai-hooks/bash-pre-tool-use.sh`
 
 **Invocation:** `Codex PreToolUse Bash hook`
 
@@ -1515,6 +1694,49 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 - event: `PreToolUse`; canonical order: `10`
 - `claude` — deliberately not wired: Claude deliberately uses direct Bash PreToolUse adapters because it does not have Codex's Bash aggregator model.
 - `codex` — `bash "$(git rev-parse --show-toplevel)/.codex/hooks/pre-tool-use.sh"` (matcher: `Bash`; timeout: `60s`; status: `Running repository Bash hooks`)
+- `copilot` — deliberately not wired: Copilot runs the same shared Bash aggregate body through hook/ai-copilot-pre-tool-use.
+
+**Paired guide:** none
+
+**Repair:** manual
+
+### `hook/ai-copilot-post-tool-use`
+
+**Principle:** Summarize Copilot Bash tool output after commits and wrapped bun runs in the single Copilot Bash hook surface; the adapter normalizes Copilot payloads before the shared aggregate body runs.
+
+**Category:** behavior
+
+**Source:** `.copilot/hooks/post-tool-use.sh`
+
+**Invocation:** `Copilot postToolUse hook`
+
+**Hook wiring:**
+
+- event: `PostToolUse`; canonical order: `90`
+- `claude` — deliberately not wired: Claude deliberately keeps commit output handling in its git-commit-quiet adapter instead of using a Bash PostToolUse aggregator.
+- `codex` — deliberately not wired: Codex runs the same shared Bash aggregate body through hook/ai-codex-post-tool-use.
+- `copilot` — `bash "$(git rev-parse --show-toplevel)/.copilot/hooks/post-tool-use.sh"` (matcher: `bash|powershell`; timeout: `60s`)
+
+**Paired guide:** none
+
+**Repair:** manual
+
+### `hook/ai-copilot-pre-tool-use`
+
+**Principle:** Aggregate Copilot Bash preToolUse policy, quiet-run cache checks, and commit state capture in the single Copilot Bash hook surface; the adapter normalizes Copilot payloads before the shared aggregate body runs.
+
+**Category:** behavior
+
+**Source:** `.copilot/hooks/pre-tool-use.sh`
+
+**Invocation:** `Copilot preToolUse hook`
+
+**Hook wiring:**
+
+- event: `PreToolUse`; canonical order: `10`
+- `claude` — deliberately not wired: Claude deliberately uses direct Bash PreToolUse adapters because it does not have Copilot's aggregator model.
+- `codex` — deliberately not wired: Codex runs the same shared Bash aggregate body through hook/ai-codex-pre-tool-use.
+- `copilot` — `bash "$(git rev-parse --show-toplevel)/.copilot/hooks/pre-tool-use.sh"` (matcher: `bash|powershell`; timeout: `60s`)
 
 **Paired guide:** none
 
@@ -1528,13 +1750,36 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Source:** `scripts/ai-hooks/doc-length.sh`
 
-**Invocation:** `Claude PostToolUse / Codex PostToolUse hook / Husky pre-commit warning`
+**Invocation:** `Claude PostToolUse / Codex PostToolUse / Copilot postToolUse hook`
 
 **Hook wiring:**
 
 - event: `PostToolUse`; canonical order: `20`
 - `claude` — `bash $CLAUDE_PROJECT_DIR/.claude/hooks/doc-length.sh` (matcher: `Edit|Write`)
 - `codex` — `bash "$(git rev-parse --show-toplevel)/.codex/hooks/doc-length.sh"` (matcher: `apply_patch`; timeout: `15s`; status: `Checking edited doc length`)
+- `copilot` — `bash "$(git rev-parse --show-toplevel)/.copilot/hooks/doc-length.sh"` (matcher: `create|edit`; timeout: `15s`)
+
+**Paired guide:** none
+
+**Repair:** manual
+
+### `hook/ai-failure-guidance`
+
+**Principle:** After a Claude Bash failure, inject bounded guidance for documented high-frequency failures: ESLint heap OOMs, observed flaky tests, and verification lock contention.
+
+**Category:** maintainability
+
+**Source:** `scripts/ai-hooks/failure-guidance.sh`
+
+**Invocation:** `Claude PostToolUseFailure Bash hook`
+
+**Hook wiring:**
+
+- event: `PostToolUseFailure`; canonical order: `10`
+- outputs: `additionalContext`
+- `claude` — `bash $CLAUDE_PROJECT_DIR/.claude/hooks/failure-guidance.sh` (matcher: `Bash`; timeout: `15s`)
+- `codex` — deliberately not wired: Codex has no PostToolUseFailure hook event.
+- `copilot` — deliberately not wired: Copilot has no PostToolUseFailure hook event.
 
 **Paired guide:** none
 
@@ -1555,6 +1800,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 - event: `PreToolUse`; canonical order: `20`
 - `claude` — `bash $CLAUDE_PROJECT_DIR/.claude/hooks/git-commit-quiet.sh` (matcher: `Bash`; timeout: `1260s`)
 - `codex` — deliberately not wired: Codex deliberately handles commit state and summaries inside its PreToolUse/PostToolUse Bash aggregators.
+- `copilot` — deliberately not wired: Copilot deliberately handles commit state and summaries inside its PreToolUse/PostToolUse Bash aggregators, mirroring Codex.
 
 **Paired guide:** none
 
@@ -1568,13 +1814,14 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Source:** `scripts/ai-hooks/lint-coverage-check.sh`
 
-**Invocation:** `Claude PostToolUse / Codex PostToolUse hook`
+**Invocation:** `Claude PostToolUse / Codex PostToolUse / Copilot postToolUse hook`
 
 **Hook wiring:**
 
 - event: `PostToolUse`; canonical order: `40`
 - `claude` — `bash $CLAUDE_PROJECT_DIR/.claude/hooks/lint-coverage-check.sh` (matcher: `Edit|Write`; timeout: `15s`)
 - `codex` — `bash "$(git rev-parse --show-toplevel)/.codex/hooks/lint-coverage-check.sh"` (matcher: `apply_patch`; timeout: `15s`; status: `Checking ESLint coverage`)
+- `copilot` — `bash "$(git rev-parse --show-toplevel)/.copilot/hooks/lint-coverage-check.sh"` (matcher: `create|edit`; timeout: `15s`)
 
 **Paired guide:** none
 
@@ -1595,6 +1842,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 - event: `PreToolUse`; canonical order: `10`
 - `claude` — `bash $CLAUDE_PROJECT_DIR/.claude/hooks/no-direct-db.sh` (matcher: `Bash`)
 - `codex` — deliberately not wired: Codex deliberately uses .codex/hooks/pre-tool-use.sh as a Bash aggregator for the same policy surface.
+- `copilot` — deliberately not wired: Copilot deliberately gets the same policy surface through .copilot/hooks/pre-tool-use.sh, its Bash aggregator.
 
 **Paired guide:** none
 
@@ -1608,13 +1856,14 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Source:** `scripts/ai-hooks/prisma-generate.sh`
 
-**Invocation:** `Claude PostToolUse / Codex PostToolUse hook`
+**Invocation:** `Claude PostToolUse / Codex PostToolUse / Copilot postToolUse hook`
 
 **Hook wiring:**
 
 - event: `PostToolUse`; canonical order: `10`
 - `claude` — `bash $CLAUDE_PROJECT_DIR/.claude/hooks/prisma-generate.sh` (matcher: `Edit|Write`; timeout: `120s`)
 - `codex` — `bash "$(git rev-parse --show-toplevel)/.codex/hooks/prisma-generate.sh"` (matcher: `apply_patch`; timeout: `120s`; status: `Regenerating Prisma client`)
+- `copilot` — `bash "$(git rev-parse --show-toplevel)/.copilot/hooks/prisma-generate.sh"` (matcher: `create|edit`; timeout: `120s`)
 
 **Paired guide:** [docs/guides/add-prisma-migration.md](../guides/add-prisma-migration.md)
 
@@ -1622,19 +1871,21 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `hook/ai-protected-files`
 
-**Principle:** Block AI edits to protected files (CLAUDE.md, AGENTS.md, .husky/*, .claude/settings.json, etc.) so policy-bearing surfaces only change through deliberate human review.
+**Principle:** Advise on guide-worthy AI edits and deny hand edits to generated, lockfile, ratchet-baseline, suppression-register, and Husky-internal surfaces unless the repo-wide .allow-protected-edits marker loudly downgrades the denial for deliberate maintenance.
 
 **Category:** maintainability
 
 **Source:** `scripts/ai-hooks/protected-files.sh`
 
-**Invocation:** `Claude PreToolUse / Codex PreToolUse hook`
+**Invocation:** `Claude PreToolUse / Codex PreToolUse / Copilot preToolUse hook`
 
 **Hook wiring:**
 
 - event: `PreToolUse`; canonical order: `40`
+- outputs: `additionalContext`, `decisionBlock`
 - `claude` — `bash $CLAUDE_PROJECT_DIR/.claude/hooks/protected-files.sh` (matcher: `Edit|Write`)
 - `codex` — `bash "$(git rev-parse --show-toplevel)/.codex/hooks/protected-files.sh"` (matcher: `apply_patch`; timeout: `15s`; status: `Checking protected-file edits`)
+- `copilot` — `bash "$(git rev-parse --show-toplevel)/.copilot/hooks/protected-files.sh"` (matcher: `create|edit`; timeout: `15s`)
 
 **Paired guide:** none
 
@@ -1648,13 +1899,36 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Source:** `scripts/ai-hooks/ratchet-regression-check.sh`
 
-**Invocation:** `Claude PostToolUse / Codex PostToolUse hook`
+**Invocation:** `Claude PostToolUse / Codex PostToolUse / Copilot postToolUse hook`
 
 **Hook wiring:**
 
 - event: `PostToolUse`; canonical order: `50`
 - `claude` — `bash $CLAUDE_PROJECT_DIR/.claude/hooks/ratchet-regression-check.sh` (matcher: `Edit|Write`; timeout: `60s`)
 - `codex` — `bash "$(git rev-parse --show-toplevel)/.codex/hooks/ratchet-regression-check.sh"` (matcher: `apply_patch`; timeout: `60s`; status: `Checking lint-ratchet regressions`)
+- `copilot` — `bash "$(git rev-parse --show-toplevel)/.copilot/hooks/ratchet-regression-check.sh"` (matcher: `create|edit`; timeout: `60s`)
+
+**Paired guide:** none
+
+**Repair:** manual
+
+### `hook/ai-session-state`
+
+**Principle:** After context compaction, re-inject a bounded repository state snapshot so branch, dirty-tree, fast-commit, kill-switch, and cached verification state survive in the fresh context window.
+
+**Category:** maintainability
+
+**Source:** `scripts/ai-hooks/session-state.sh`
+
+**Invocation:** `Claude SessionStart compact hook`
+
+**Hook wiring:**
+
+- event: `SessionStart`; canonical order: `10`
+- outputs: `additionalContext`
+- `claude` — `bash $CLAUDE_PROJECT_DIR/.claude/hooks/session-state.sh` (matcher: `compact`; timeout: `15s`)
+- `codex` — deliberately not wired: Codex compact hooks do not support additionalContext re-injection; omitted until a Codex-valid context-injection contract exists.
+- `copilot` — deliberately not wired: Copilot has no SessionStart hook event.
 
 **Paired guide:** none
 
@@ -1662,19 +1936,42 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `hook/ai-stop-reminder`
 
-**Principle:** Run the shared stop reminder at session stop so pending verification, stale generated files, or unresolved policy reminders are surfaced before handoff.
+**Principle:** Run the shared stop reminder at session stop so pending verification, stale generated files, changed-file lint warnings, or unresolved policy reminders are surfaced before handoff; a per-worktree musi-stop-hard marker makes dirty-tree and cached-verify failures persistently blocking.
 
 **Category:** maintainability
 
 **Source:** `scripts/ai-hooks/stop-reminder.sh`
 
-**Invocation:** `Claude Stop / Codex Stop hook`
+**Invocation:** `Claude Stop / Codex Stop / Copilot agentStop hook`
 
 **Hook wiring:**
 
 - event: `Stop`; canonical order: `10`
 - `claude` — `bash $CLAUDE_PROJECT_DIR/.claude/hooks/stop-reminder.sh` (timeout: `30s`)
 - `codex` — `bash "$(git rev-parse --show-toplevel)/.codex/hooks/stop-reminder.sh"` (timeout: `30s`; status: `Checking repository stop conditions`)
+- `copilot` — `bash "$(git rev-parse --show-toplevel)/.copilot/hooks/stop-reminder.sh"` (timeout: `30s`)
+
+**Paired guide:** none
+
+**Repair:** manual
+
+### `hook/ai-subagent-stop-reminder`
+
+**Principle:** Run a scoped-down stop policy at subagent completion so delegated work sees dirty-tree and cached verification nudges without consuming the main session's stop reminder state.
+
+**Category:** maintainability
+
+**Source:** `scripts/ai-hooks/subagent-stop-reminder.sh`
+
+**Invocation:** `Claude SubagentStop hook`
+
+**Hook wiring:**
+
+- event: `SubagentStop`; canonical order: `10`
+- outputs: `additionalContext`
+- `claude` — `bash $CLAUDE_PROJECT_DIR/.claude/hooks/subagent-stop-reminder.sh` (timeout: `30s`)
+- `codex` — deliberately not wired: Codex SubagentStop does not support additionalContext re-injection; omitted until a Codex-valid advisory contract exists.
+- `copilot` — deliberately not wired: Copilot has no SubagentStop hook event.
 
 **Paired guide:** none
 
@@ -1682,19 +1979,20 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `hook/ai-tidy-edited-file`
 
-**Principle:** Run the shared edited-file tidy hook after AI file edits so formatter-friendly files are normalized before follow-up checks inspect them.
+**Principle:** Run the shared edited-file tidy hook after AI file edits so formatter-friendly files are normalized immediately; warn-level lint leftovers are deferred to the Stop hook.
 
 **Category:** maintainability
 
 **Source:** `scripts/ai-hooks/tidy-edited-file.sh`
 
-**Invocation:** `Claude PostToolUse / Codex PostToolUse hook`
+**Invocation:** `Claude PostToolUse / Codex PostToolUse / Copilot postToolUse hook`
 
 **Hook wiring:**
 
 - event: `PostToolUse`; canonical order: `30`
 - `claude` — `bash $CLAUDE_PROJECT_DIR/.claude/hooks/tidy-edited-file.sh` (matcher: `Edit|Write`; timeout: `120s`)
 - `codex` — `bash "$(git rev-parse --show-toplevel)/.codex/hooks/tidy-edited-file.sh"` (matcher: `apply_patch`; timeout: `120s`; status: `Tidying edited file`)
+- `copilot` — `bash "$(git rev-parse --show-toplevel)/.copilot/hooks/tidy-edited-file.sh"` (matcher: `create|edit`; timeout: `120s`)
 
 **Paired guide:** none
 
@@ -1728,6 +2026,20 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Repair:** manual
 
+### `hook/post-commit`
+
+**Principle:** Finalize fast-commit provenance after Git creates a commit SHA, allowing pre-push to identify commits made while fast-commit mode skipped slow pre-commit slots.
+
+**Category:** maintainability
+
+**Source:** `.husky/post-commit`
+
+**Invocation:** `git commit`
+
+**Paired guide:** none
+
+**Repair:** manual
+
 ### `hook/post-merge`
 
 **Principle:** Refresh worktree state after a merge so dependency, Prisma client, and module-index drift caused by the merge is visible before the next edit.
@@ -1744,7 +2056,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `hook/pre-commit`
 
-**Principle:** Run lint:changed, lint:ratchet, the zero-baseline lifecycle check, coverage-map, format:changed:check, typecheck, test:changed, and conditionally test:scripts:changed in parallel before allowing the commit; when packages/{shared,server}/dist is missing, defer lint until the existing typecheck slot has produced those ignored outputs.
+**Principle:** Run lint:changed, lint:ratchet, the zero-baseline lifecycle check, the knip unused-export floor, coverage-map, format:changed:check, typecheck, test:changed, and conditionally test:scripts:changed in parallel before allowing the commit; when packages/{shared,server}/dist is missing, defer lint until the existing typecheck slot has produced those ignored outputs.
 
 **Category:** maintainability
 
@@ -1757,11 +2069,26 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 - `lint` — `lint:changed`
 - `ratchet` — `lint:ratchet` — env: `HARNESS_DIAGNOSTICS_OUTPUT=$LOG_DIR/ratchet-diagnostics.json`
 - `zero-baseline` — `lint:ratchet:zero-baseline`
+- `knip-unused-exports` — `sensor:knip-unused-exports`
 - `coverage-map` — `docs:lint-coverage-map:check` — args: `-- --staged`
 - `format-check` — `format:changed:check`
 - `typecheck` — `typecheck`
 - `test` — `test:changed` — args: `--reporter=dot`; dynamic: `precommit-test-timings`
 - `scripts` — `test:scripts:changed` (when staged hook/script/harness inputs require script smoke) — dynamic: `staged-script-classifier`
+
+**Paired guide:** none
+
+**Repair:** manual
+
+### `hook/pre-push`
+
+**Principle:** When pushed commits were created under fast-commit mode, require fresh full-verify metadata matching the pushed HEAD before allowing git push, so cheap local commits still have a local full-verify backstop before publication.
+
+**Category:** maintainability
+
+**Source:** `.husky/pre-push`
+
+**Invocation:** `git push`
 
 **Paired guide:** none
 

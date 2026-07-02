@@ -69,10 +69,9 @@ if [ "${TIDY_PINNED_ESLINT_FAIL:-0}" = "1" ]; then
   exit 8
 fi
 
-# The tidy hook runs a second, non-mutating `eslint -f json` pass after a clean
-# `--fix` run to surface residual warn-level violations. Detect that pass by the
-# `-f` flag and emit a json report: one severity-1 message when
-# TIDY_PINNED_ESLINT_WARNINGS=1, otherwise a clean (zero-warning) report.
+# Stop-time lint-warning coverage owns residual warn-level violations. If the
+# tidy hook accidentally runs a second, non-mutating `eslint -f json` pass, this
+# stub still emits a warning fixture so the tests catch the mid-edit regression.
 eslint_json_mode=0
 for arg in "$@"; do
   case "$arg" in
@@ -126,7 +125,7 @@ TIDY_CONTEXT=$(tidy_context "$TIDY_OUTPUT")
 [ "$TIDY_CONTEXT" = "tidy-edited-file: $TIDY_TS_REL tidied" ] \
   || fail "Claude .ts tidy should report changed file, got: $TIDY_CONTEXT"
 assert_not_contains "$TIDY_CONTEXT" "OK"
-TIDY_EXPECTED_LOG=$(printf 'prettier\t--write\t--ignore-unknown\t%s\neslint\t--fix\t--no-warn-ignored\t%s\neslint\t-f\tjson\t--no-warn-ignored\t%s' "$TIDY_TS" "$TIDY_TS" "$TIDY_TS")
+TIDY_EXPECTED_LOG=$(printf 'prettier\t--write\t--ignore-unknown\t%s\neslint\t--fix\t--no-warn-ignored\t%s' "$TIDY_TS" "$TIDY_TS")
 [ "$(cat "$TIDY_PINNED_LOG")" = "$TIDY_EXPECTED_LOG" ] \
   || fail "Claude .ts tidy command log mismatch: $(cat "$TIDY_PINNED_LOG")"
 [ "$(cat "$TIDY_TS")" = 'const value = { answer: 1 };' ] \
@@ -139,7 +138,7 @@ printf 'const clean = { answer: 1 };\n' > "$TIDY_CLEAN_TS"
 TIDY_OUTPUT=$(run_tidy_hook "$(tidy_payload_for_file "$TIDY_CLEAN_TS_REL")") \
   || fail "tidy hook should not fail for already-tidy .ts payload"
 assert_hook_continue_json "$TIDY_OUTPUT"
-TIDY_EXPECTED_LOG=$(printf 'prettier\t--write\t--ignore-unknown\t%s\neslint\t--fix\t--no-warn-ignored\t%s\neslint\t-f\tjson\t--no-warn-ignored\t%s' "$TIDY_CLEAN_TS" "$TIDY_CLEAN_TS" "$TIDY_CLEAN_TS")
+TIDY_EXPECTED_LOG=$(printf 'prettier\t--write\t--ignore-unknown\t%s\neslint\t--fix\t--no-warn-ignored\t%s' "$TIDY_CLEAN_TS" "$TIDY_CLEAN_TS")
 [ "$(cat "$TIDY_PINNED_LOG")" = "$TIDY_EXPECTED_LOG" ] \
   || fail "already-tidy .ts command log mismatch: $(cat "$TIDY_PINNED_LOG")"
 
@@ -228,7 +227,7 @@ assert_not_contains "$TIDY_CONTEXT" "OK"
 assert_not_contains "$TIDY_CONTEXT" "$TIDY_CODEX_DELETED_REL skipped (missing/deleted file)"
 assert_not_contains "$TIDY_CONTEXT" "$TIDY_CODEX_OLD_REL skipped (missing/deleted file)"
 assert_not_contains "$TIDY_CONTEXT" "node_modules/ignored.ts"
-TIDY_EXPECTED_LOG=$(printf 'prettier\t--write\t--ignore-unknown\t%s\neslint\t--fix\t--no-warn-ignored\t%s\neslint\t-f\tjson\t--no-warn-ignored\t%s\nprettier\t--write\t--ignore-unknown\t%s\nprettier\t--write\t--ignore-unknown\t%s\neslint\t--fix\t--no-warn-ignored\t%s\neslint\t-f\tjson\t--no-warn-ignored\t%s' "$TIDY_CODEX_TS" "$TIDY_CODEX_TS" "$TIDY_CODEX_TS" "$TIDY_CODEX_MD" "$TIDY_CODEX_MOVED" "$TIDY_CODEX_MOVED" "$TIDY_CODEX_MOVED")
+TIDY_EXPECTED_LOG=$(printf 'prettier\t--write\t--ignore-unknown\t%s\neslint\t--fix\t--no-warn-ignored\t%s\nprettier\t--write\t--ignore-unknown\t%s\nprettier\t--write\t--ignore-unknown\t%s\neslint\t--fix\t--no-warn-ignored\t%s' "$TIDY_CODEX_TS" "$TIDY_CODEX_TS" "$TIDY_CODEX_MD" "$TIDY_CODEX_MOVED" "$TIDY_CODEX_MOVED")
 [ "$(cat "$TIDY_PINNED_LOG")" = "$TIDY_EXPECTED_LOG" ] \
   || fail "Codex apply_patch tidy command log mismatch: $(cat "$TIDY_PINNED_LOG")"
 
@@ -297,23 +296,18 @@ assert_hook_json "$TIDY_OUTPUT"
 assert_contains "$(tidy_context "$TIDY_OUTPUT")" "SKIP_TIDY_HOOK=1"
 [ ! -s "$TIDY_PINNED_LOG" ] || fail "SKIP_TIDY_HOOK=1 should not invoke pinned tools"
 
-# Residual warn-level eslint violations are surfaced (non-blocking) after a
-# clean --fix pass, naming the rule and location so the agent does not discover
-# them only at a gate.
+# Residual warn-level eslint violations are deferred to Stop instead of being
+# surfaced after every edit.
 TIDY_WARN_TS="$TIDY_REPO_TMP/src/has-warning.ts"
 TIDY_WARN_TS_REL=$(tidy_relative_path "$TIDY_WARN_TS")
 printf 'console.log("hi");\n' > "$TIDY_WARN_TS"
 : > "$TIDY_PINNED_LOG"
 TIDY_OUTPUT=$(TIDY_PINNED_ESLINT_WARNINGS=1 run_tidy_hook "$(tidy_payload_for_file "$TIDY_WARN_TS_REL")") \
   || fail "tidy hook should not fail when surfacing eslint warnings"
-assert_hook_json "$TIDY_OUTPUT"
-TIDY_CONTEXT=$(tidy_context "$TIDY_OUTPUT")
-assert_contains "$TIDY_CONTEXT" "$TIDY_WARN_TS_REL has 1 eslint warning(s)"
-assert_contains "$TIDY_CONTEXT" 'these block `bun run lint`'
-assert_contains "$TIDY_CONTEXT" "no-console at 3:5"
-assert_contains "$(cat "$TIDY_PINNED_LOG")" $'eslint\t-f\tjson\t--no-warn-ignored'
+assert_hook_continue_json "$TIDY_OUTPUT"
+assert_not_contains "$(cat "$TIDY_PINNED_LOG")" $'eslint\t-f\tjson\t--no-warn-ignored'
 
-# No residual warnings -> no advisory line (the json pass still runs).
+# No residual warnings -> no advisory line and no json pass.
 TIDY_NOWARN_TS="$TIDY_REPO_TMP/src/no-warning.ts"
 TIDY_NOWARN_TS_REL=$(tidy_relative_path "$TIDY_NOWARN_TS")
 printf 'const ok = 1;\n' > "$TIDY_NOWARN_TS"
@@ -322,6 +316,6 @@ TIDY_OUTPUT=$(run_tidy_hook "$(tidy_payload_for_file "$TIDY_NOWARN_TS_REL")") \
   || fail "tidy hook should not fail for a warning-free file"
 assert_hook_continue_json "$TIDY_OUTPUT"
 assert_not_contains "$(tidy_context "$TIDY_OUTPUT")" "eslint warning(s)"
-assert_contains "$(cat "$TIDY_PINNED_LOG")" $'eslint\t-f\tjson\t--no-warn-ignored'
+assert_not_contains "$(cat "$TIDY_PINNED_LOG")" $'eslint\t-f\tjson\t--no-warn-ignored'
 
 printf 'ai-hooks tidy tests passed\n'

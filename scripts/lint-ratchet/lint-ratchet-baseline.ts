@@ -70,9 +70,19 @@ export interface LintRatchetImprovement {
   readonly reason: "removed-path" | "lower-count" | "lower-lines" | "lower-complexity";
 }
 
+export interface LintRatchetInfo {
+  readonly testId: string;
+  readonly ruleId: string;
+  readonly path: string;
+  readonly baselineCount: number;
+  readonly currentCount: number;
+  readonly reason: "equal-count-message-swap";
+}
+
 export interface LintRatchetComparison {
   readonly regressions: readonly LintRatchetRegression[];
   readonly improvements: readonly LintRatchetImprovement[];
+  readonly infos?: readonly LintRatchetInfo[];
 }
 
 // A committed baseline path snapshot carried when an orphaned (renamed/removed)

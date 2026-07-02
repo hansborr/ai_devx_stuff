@@ -5,8 +5,8 @@
 // Local rule metadata is re-projected from each rule's meta.docs (PR 1
 // contract) so the envelope is self-contained: each finding carries its
 // manifest control id, severity, repair kind, and (for codemod rules)
-// repair command. Non-local findings are counted on stderr and skipped —
-// they have no structured metadata to surface.
+// repair command. Non-local findings are counted on stderr and also emitted
+// as info-severity completeness disclosures under lint/skipped-non-local.
 
 import { spawn } from "node:child_process";
 import { dirname, isAbsolute, resolve } from "node:path";

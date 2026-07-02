@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Git merge driver for lint-ratchet.baseline.json.
 #
-# The baseline is generated from the full source tree, so this driver refuses a
-# textual merge. It leaves Git's current-branch temp file untouched, which keeps
-# the working-tree JSON parseable, prints the recovery recipe, and exits nonzero
-# so Git still records the path as conflicted.
+# The semantic merge lives in the worktree so stale installed driver copies do
+# not silently freeze TypeScript logic. If that path is unavailable or cannot
+# resolve the three-way merge, this shell shim falls back to the manual recovery
+# recipe and exits nonzero so Git still records the path as conflicted.
 set -euo pipefail
 
 if [ "$#" -ne 5 ]; then
@@ -15,12 +15,39 @@ EOF
   exit 2
 fi
 
+base_file=$1
 current_file=$2
+other_file=$3
 path=$5
 
 if [ ! -f "$current_file" ]; then
   printf 'lint-ratchet baseline merge driver: current temp file missing: %s\n' "$current_file" >&2
   exit 2
+fi
+
+absolute_path() {
+  case "$1" in
+    /*) printf '%s\n' "$1" ;;
+    *) printf '%s/%s\n' "$PWD" "$1" ;;
+  esac
+}
+
+base_file_abs=$(absolute_path "$base_file")
+current_file_abs=$(absolute_path "$current_file")
+other_file_abs=$(absolute_path "$other_file")
+
+repo_root=$(git rev-parse --show-toplevel 2>/dev/null || true)
+semantic_driver="scripts/lint-ratchet/baseline-merge-cli.ts"
+if [ -n "$repo_root" ] && [ -f "$repo_root/$semantic_driver" ] && command -v bun >/dev/null 2>&1; then
+  if (
+    cd "$repo_root"
+    bun run "$semantic_driver" "$base_file_abs" "$current_file_abs" "$other_file_abs" "$path"
+  ); then
+    exit 0
+  fi
+  printf '\nlint-ratchet baseline semantic merge fell back to manual resolution.\n\n' >&2
+else
+  printf 'lint-ratchet baseline semantic merge unavailable; using manual resolution.\n\n' >&2
 fi
 
 cat >&2 <<EOF

@@ -228,6 +228,30 @@ This table is generated from `meta.docs` on each rule and grouped into maintaina
 
 **Repair:** manual
 
+### `local/no-outer-client-in-transaction`
+
+**Description:** Disallow outer Prisma client calls inside interactive transactions
+
+**Principle:** Interactive Prisma transaction callbacks must use their callback transaction client so every persistence call shares one atomic transaction.
+
+**Category:** behavior
+
+**Paired guide:** [docs/CONCURRENCY.md](../CONCURRENCY.md)
+
+**Repair:** manual
+
+### `local/no-plain-error-in-trpc`
+
+**Description:** Disallow direct plain Error throws in tRPC-adjacent server surfaces
+
+**Principle:** tRPC routers and services must throw coded TRPCErrors so clients receive intentional error semantics instead of opaque INTERNAL_SERVER_ERROR responses.
+
+**Category:** behavior
+
+**Paired guide:** [docs/authorization.md](../authorization.md)
+
+**Repair:** manual
+
 ### `local/no-swallowed-errors`
 
 **Description:** Disallow catch blocks that only log to console and continue
@@ -237,6 +261,18 @@ This table is generated from `meta.docs` on each rule and grouped into maintaina
 **Category:** behavior
 
 **Paired guide:** [docs/guides/local-eslint-rules.md](../guides/local-eslint-rules.md)
+
+**Repair:** manual
+
+### `local/socket-listener-cleanup`
+
+**Description:** Require socket.on listeners to be cleaned up from React effects
+
+**Principle:** Client socket listeners must unregister the same event and handler from effect cleanup so remounts do not duplicate cache writes or notifications.
+
+**Category:** behavior
+
+**Paired guide:** [docs/guides/add-client-feature-module-cache-socket.md](../guides/add-client-feature-module-cache-socket.md)
 
 **Repair:** manual
 

@@ -50,8 +50,12 @@ Runtime files (all paths relative to repo root):
 | `scripts/lint-ratchet/lint-ratchet-metrics.ts` | Metric helpers for `message-count`, `effective-line-count`, `complexity-severity` |
 | `scripts/lint-ratchet/lint-ratchet-output.ts` | Harness diagnostics envelope output to stdout and optional file |
 | `scripts/lint-ratchet/lint-ratchet-report.ts` | Markdown report formatter for CI step summaries and PR comments |
+| `scripts/lint-ratchet/markdown-escape.ts` | Shared GFM escaping for report and debt-log output |
+| `scripts/lint-ratchet/propose.ts` | Dry-run helper for candidate core/local ratchets |
+| `scripts/lint-ratchet/report-only-diagnostics.ts` | Report-only current totals as info diagnostics |
 | `scripts/lint-ratchet/lint-ratchet-debt-log.ts` | Read-only renderer for the committed `lint-ratchet.debt-log.jsonl` acceptance log (the runner imports it to dispatch `--debt-log`) |
 | `scripts/lint-ratchet/lint-ratchet-summary.ts` | Baseline summary table printer (no ESLint run) |
+| `scripts/lint-ratchet/lint-ratchet-trend.ts` | Baseline history trend table printer (no ESLint run) |
 | `scripts/lint-ratchet/lint-ratchet-zero-baseline.ts` | Zero-baseline lifecycle audit and gate |
 | `scripts/lib/lint-rule-docs.ts` | Local-rule metadata loader; replace with a same-export stub if you only ratchet core or third-party rules |
 | `packages/shared/src/schemas/harness-diagnostics.ts` | Zod schema for the diagnostics envelope; copy at this path or move it and update the imports in the ratchet output, diagnostics, report, and copied tests |
@@ -68,10 +72,11 @@ files while still exercising the copied CLI runtime.
 The copied runner is portable, but not package-manager neutral internals. It
 currently assumes:
 
-- a Git repository, because registry preflight, zero-baseline checks, and the
-  coverage-map companion use `git ls-files`;
-- intended ratchet files are tracked before you rely on empty-glob or lifecycle
-  checks;
+- a Git repository, because registry preflight, collection, zero-baseline
+  checks, and the coverage-map companion use `git ls-files`;
+- intended ratchet files are tracked before you rely on empty-glob, collection,
+  or lifecycle checks; untracked matching files are not counted by the ratchet
+  gate;
 - a classic `node_modules` layout, because ESLint is spawned from
   `node_modules/.bin/eslint`, plugin and ESLint versions are read from
   `node_modules/<package>/package.json`, and generated configs/caches live under
@@ -80,7 +85,7 @@ currently assumes:
   one extra rule enabled. Rules that need project `settings`, globals,
   processors, import resolvers, or custom TypeScript project setup need
   `scripts/lint-ratchet/eslint-config.ts` changes;
-- simple relative glob patterns shared by ESLint and the registry preflight
+- simple relative glob patterns shared by collection and the registry preflight
   matcher. If you need advanced minimatch features, extend
   `scripts/lint-ratchet/ratchet-globs.ts`.
 
@@ -111,6 +116,15 @@ script changes.
      },
    ] as const satisfies readonly LintRatchetConfig[];
    ```
+
+   Use `mode: "no-new"` when the entry should write a committed floor and fail
+   on unacknowledged drift. Use `mode: "report-only"` for a candidate rule that
+   should be collected and emitted as info diagnostics without creating a
+   baseline entry or failing the gate. `mode: "ratchet-down"` is reserved and is
+   still rejected by registry validation. Before committing a new entry, you can
+   run `bun run lint:ratchet -- --propose <ruleId> <glob...>` for a core or
+   `local/<rule-name>` rule to print current counts and the would-be baseline
+   without editing the registry or committed baseline.
 
 2. **Clear the third-party allowlist** unless you are ratcheting third-party
    plugin rules from the start.
@@ -152,9 +166,10 @@ script changes.
 
 5. **Update the `harness-diagnostics.ts` import path** if you move the schema
    file. The current runtime imports it from `lint-ratchet-output.ts`,
-   `lint-ratchet/diagnostics.ts`, `lint-ratchet-report.ts`, and the portable
-   tests. If you do not need the structured envelope at all, replace the schema
-   and summary helper with a project-local equivalent before dropping Zod.
+   `lint-ratchet/diagnostics.ts`, `lint-ratchet/report-only-diagnostics.ts`,
+   `lint-ratchet-report.ts`, and the portable tests. If you do not need the
+   structured envelope at all, replace the schema and summary helper with a
+   project-local equivalent before dropping Zod.
 
 6. **Add package scripts:**
 
@@ -164,6 +179,7 @@ script changes.
      "lint:ratchet:check-registry": "bun scripts/lint-ratchet.ts --check-registry",
      "lint:ratchet:report": "bun scripts/lint-ratchet.ts --report",
      "lint:ratchet:summary": "bun scripts/lint-ratchet.ts --summary",
+     "lint:ratchet:trend": "bun scripts/lint-ratchet.ts --trend",
      "lint:ratchet:update": "bun scripts/lint-ratchet.ts --update",
      "lint:ratchet:zero-baseline": "bun scripts/lint-ratchet.ts --zero-baseline"
    }

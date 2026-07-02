@@ -24,6 +24,14 @@ ai_protected_files_throttle_max_detections() {
   if ai_is_integer "$value" && [ "$value" -ge 1 ]; then printf '%s' "$value"; else printf '10'; fi
 }
 
+ai_protected_files_allow_marker_path() {
+  printf '%s/.allow-protected-edits' "$REPO_ROOT"
+}
+
+ai_protected_files_allow_marker_enabled() {
+  [ -f "$(ai_protected_files_allow_marker_path)" ]
+}
+
 ai_protected_file_advisory_entry() {
   local file="$1"
   local advisory key
@@ -49,17 +57,12 @@ ai_protected_file_advisory_entry() {
       key="guide-e2e"
       advisory="Editing Playwright e2e coverage. See docs/guides/add-e2e-test.md before adding or changing e2e flows."
       ;;
-    */lint-ratchet.baseline.json)
-      key="tamper-lint-ratchet-baseline"
-      advisory="Tamper advisory: editing the lint-ratchet baseline should reflect intentional debt movement, not bypass a regression. Run 'bun run lint:ratchet:check-baseline' afterward."
-      ;;
     */eslint.config.js)
       key="tamper-eslint-config"
       advisory="Editing the shared ESLint config. Tamper advisory: do not weaken lint coverage or rules to make a change pass; run 'bun run lint' afterward to check for new violations across the codebase."
       ;;
-    */scripts/eslint-disable-register.sh|*/scripts/suppression-register.sh)
-      key="tamper-suppression-register"
-      advisory="Tamper advisory: editing suppression registers changes the allowed suppression surface. Keep allowlists narrow, reasoned, and covered by the register smoke tests."
+    */.husky/_/*)
+      return 1
       ;;
     */.husky/*)
       key="git-hook"
@@ -81,6 +84,51 @@ ai_protected_file_advisory_entry() {
   printf '%s\t%s' "$key" "$advisory"
 }
 
+ai_protected_file_deny_entry() {
+  local file="$1"
+  local deny key
+
+  case "$file" in
+    */lint-ratchet.baseline.json)
+      key="tamper-lint-ratchet-baseline"
+      deny="Protected file: do not hand-edit lint-ratchet.baseline.json. For an intentional floor move, run 'bun run lint:ratchet:update' and then 'bun run lint:ratchet:check-baseline'."
+      ;;
+    */scripts/eslint-disable-register.sh|*/scripts/suppression-register.sh)
+      key="tamper-suppression-register"
+      deny="Protected file: suppression registers define the allowed suppression surface. Keep changes deliberate and run the register smoke tests after editing."
+      ;;
+    */docs/generated/harness-controls.md)
+      key="generated-harness-controls"
+      deny="Protected generated file: regenerate docs/generated/harness-controls.md with 'bun run docs:harness-controls' instead of editing it by hand."
+      ;;
+    */docs/generated/local-lint-rules.md)
+      key="generated-lint-guidance"
+      deny="Protected generated file: regenerate docs/generated/local-lint-rules.md with 'bun run docs:lint-guidance' instead of editing it by hand."
+      ;;
+    */docs/generated/*)
+      key="generated-docs"
+      deny="Protected generated file: regenerate the matching docs/generated artifact instead of editing it by hand."
+      ;;
+    */scripts/verify/steps.generated.sh)
+      key="generated-verify-steps"
+      deny="Protected generated file: regenerate scripts/verify/steps.generated.sh with 'bun run verify:steps' instead of editing it by hand."
+      ;;
+    */bun.lock)
+      key="lockfile"
+      deny="Protected lockfile: update bun.lock through 'bun install' instead of editing it by hand."
+      ;;
+    */.husky/_/*)
+      key="husky-internals"
+      deny="Protected Husky internals: do not edit .husky/_ by hand. Edit repo-owned hooks in .husky/ when needed, or refresh Husky internals with 'bun install'."
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+
+  printf '%s\t%s' "$key" "$deny"
+}
+
 ai_protected_file_advisory_key() {
   local file="$1"
   local entry
@@ -94,6 +142,22 @@ ai_protected_file_advisory() {
   local entry
 
   entry=$(ai_protected_file_advisory_entry "$file") || return 1
+  printf "%s" "${entry#*$'\t'}"
+}
+
+ai_protected_file_deny_key() {
+  local file="$1"
+  local entry
+
+  entry=$(ai_protected_file_deny_entry "$file") || return 1
+  printf "%s" "${entry%%$'\t'*}"
+}
+
+ai_protected_file_deny() {
+  local file="$1"
+  local entry
+
+  entry=$(ai_protected_file_deny_entry "$file") || return 1
   printf "%s" "${entry#*$'\t'}"
 }
 
@@ -111,12 +175,14 @@ ai_protected_file_advisory_should_emit() {
 }
 
 ai_protected_files_hook_main() {
-  local payload path abs advisory advisory_key combined entry
+  local payload path abs advisory advisory_key combined deny denied marker entry
   local -A seen=()
 
   payload=$(ai_read_payload)
   path=""
   combined=""
+  denied=""
+  marker=$(ai_protected_files_allow_marker_path)
 
   while IFS= read -r path; do
     [ -n "$path" ] || continue
@@ -126,6 +192,25 @@ ai_protected_files_hook_main() {
       continue
     fi
     seen[$abs]=1
+
+    if entry=$(ai_protected_file_deny_entry "$abs"); then
+      deny="${entry#*$'\t'}"
+      if ai_protected_files_allow_marker_enabled; then
+        advisory="Repo-wide protected edit override marker is active: $marker. Without that marker, this edit would have been denied for $abs. Remove the marker after this deliberate maintenance. $deny"
+        if [ -n "$combined" ]; then
+          combined="${combined}"$'\n'"protected-files: $advisory"
+        else
+          combined="protected-files: $advisory"
+        fi
+      else
+        if [ -n "$denied" ]; then
+          denied="${denied}"$'\n'"protected-files: $deny"
+        else
+          denied="protected-files: $deny"
+        fi
+      fi
+      continue
+    fi
 
     if entry=$(ai_protected_file_advisory_entry "$abs"); then
       advisory_key="${entry%%$'\t'*}"
@@ -143,6 +228,7 @@ ai_protected_files_hook_main() {
     fi
   done < <(ai_edited_payload_paths "$payload")
 
+  [ -n "$denied" ] && ai_emit_deny "$denied"
   [ -n "$combined" ] && ai_emit_additional_context "PreToolUse" "$combined"
 
   ai_emit_continue

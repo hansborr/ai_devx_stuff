@@ -85,6 +85,8 @@ export interface LintRatchetThirdPartyPluginAllowlistEntry {
 export const lintRatchetThirdPartyPluginAllowlist: readonly LintRatchetThirdPartyPluginAllowlistEntry[] = [
   { pluginModule: "typescript-eslint", ruleNamespace: "@typescript-eslint", pluginExport: "plugin" },
   { pluginModule: "@vitest/eslint-plugin", ruleNamespace: "vitest", pluginExport: "default" },
+  { pluginModule: "eslint-plugin-react", ruleNamespace: "react", pluginExport: "default" },
+  { pluginModule: "eslint-plugin-react-refresh", ruleNamespace: "react-refresh", pluginExport: "default" },
   { pluginModule: "eslint-plugin-react-hooks", ruleNamespace: "react-hooks", pluginExport: "default" },
   { pluginModule: "eslint-plugin-playwright", ruleNamespace: "playwright", pluginExport: "default" },
   { pluginModule: "eslint-plugin-regexp", ruleNamespace: "regexp", pluginExport: "default" },
@@ -103,6 +105,21 @@ const testingLibraryRatchetIgnores = [
   "**/node_modules/**",
 ] as const;
 const testingLibraryDrainExitPath = "docs/agent_notes/finished_work/lint-followups-2026-06.md";
+const harnessReview202607Leaf37 =
+  "docs/agent_notes/backlog/harness-review-2026-07/37-cheap-plugin-and-config-rule-adds.md";
+const noRealTimeInPackageTestsRestrictedSyntax = [
+  {
+    selector:
+      "CallExpression[callee.object.name='Date'][callee.property.name='now'][arguments.length=0]",
+    message:
+      "Avoid Date.now() in tests. Use vi.useFakeTimers()/vi.setSystemTime() or inject a clock so test time is deterministic.",
+  },
+  {
+    selector: "NewExpression[callee.name='Date'][arguments.length=0]",
+    message:
+      "Avoid no-arg new Date() in tests. Use vi.useFakeTimers()/vi.setSystemTime() or pass an explicit timestamp so test time is deterministic.",
+  },
+] as const;
 
 const driftAiVitestTestFiles = [
   "scripts/drift-ai.test.ts",
@@ -131,6 +148,33 @@ export const lintRatchets = [
       exitPath: designTokenLintExitPath,
     },
   },
+  {
+    id: "ratchet/local-no-plain-error-in-trpc-server",
+    ruleId: "local/no-plain-error-in-trpc",
+    files: [
+      "packages/server/src/routers/**/*.{ts,tsx}",
+      "packages/server/src/services/**/*.{ts,tsx}",
+    ],
+    ignores: [
+      "**/dist/**",
+      "**/generated/**",
+      "**/node_modules/**",
+      "packages/server/src/**/*-test-helper.{ts,tsx}",
+      "packages/server/src/**/*.{test,spec}.{ts,tsx}",
+      "packages/server/src/test/**/*.{ts,tsx}",
+    ],
+    ruleOptions: [],
+    mode: "no-new",
+    target: 0,
+    metric: "message-count",
+    repairKind: "manual",
+    principle: "Prevent direct plain Error throws from growing in tRPC routers and server services while the documented upload-service REST boundary is handled deliberately.",
+    zeroBaselineDisposition: {
+      kind: "promote-to-normal-lint",
+      reason: "tRPC routers and services should use coded TRPCErrors; once the current upload-service plain Error boundary is narrowed or translated, normal server lint should enforce the rule directly",
+      exitPath: "docs/agent_notes/backlog/harness-review-2026-07/32-trpc-error-code-discipline-rule.md",
+    },
+  },
   localTypeAssertionBoundaryRatchet({
     id: "ratchet/local-type-assertion-boundary",
     files: [
@@ -151,6 +195,29 @@ export const lintRatchets = [
     },
   }),
   {
+    id: "ratchet/no-real-time-in-package-tests",
+    ruleId: "no-restricted-syntax",
+    source: { kind: "core" },
+    parserProfile: "minimal-ts",
+    files: ["packages/**/*.{test,spec}.{ts,tsx}"],
+    ignores: [
+      "**/dist/**",
+      "**/generated/**",
+      "**/node_modules/**",
+    ],
+    ruleOptions: noRealTimeInPackageTestsRestrictedSyntax,
+    mode: "no-new",
+    target: 0,
+    metric: "message-count",
+    repairKind: "manual",
+    principle: "Freeze real-clock usage in package tests so new Date.now() and no-arg new Date() calls cannot grow while existing tests migrate to fake timers or injected clocks.",
+    zeroBaselineDisposition: {
+      kind: "promote-to-normal-lint",
+      reason: "package tests should use deterministic clocks; once the current real-time inventory drains, normal test lint should enforce the Date.now()/no-arg new Date() ban directly",
+      exitPath: harnessReview202607Leaf37,
+    },
+  },
+  {
     id: "ratchet/react-hooks-set-state-in-effect-client",
     ruleId: "react-hooks/set-state-in-effect",
     source: { kind: "third-party", pluginModule: "eslint-plugin-react-hooks" },
@@ -163,6 +230,48 @@ export const lintRatchets = [
     metric: "message-count",
     repairKind: "manual",
     principle: "Freeze the accepted set-state-in-effect floor so finding #25 fails at commit time while cleanup proceeds opportunistically.",
+  },
+  {
+    id: "ratchet/react-jsx-no-constructed-context-values-client",
+    ruleId: "react/jsx-no-constructed-context-values",
+    source: { kind: "third-party", pluginModule: "eslint-plugin-react" },
+    parserProfile: "minimal-ts",
+    files: ["packages/client/src/**/*.tsx"],
+    ignores: clientTestAndHelperSourceFiles,
+    ruleOptions: [],
+    mode: "no-new",
+    target: 0,
+    metric: "message-count",
+    repairKind: "manual",
+    principle: "Prevent constructed React context Provider values from growing while the current AuthProvider value object is memoized in a focused cleanup.",
+    zeroBaselineDisposition: {
+      kind: "promote-to-normal-lint",
+      reason: "React context Provider values should be stable; once the single current finding drains, normal client React lint should enforce constructed context values directly",
+      exitPath: harnessReview202607Leaf37,
+    },
+  },
+  {
+    id: "ratchet/react-refresh-only-export-components-client",
+    ruleId: "react-refresh/only-export-components",
+    source: { kind: "third-party", pluginModule: "eslint-plugin-react-refresh" },
+    parserProfile: "minimal-ts",
+    files: ["packages/client/src/**/*.tsx"],
+    ignores: clientTestAndHelperSourceFiles,
+    ruleOptions: [
+      {
+        allowConstantExport: true,
+      },
+    ],
+    mode: "no-new",
+    target: 0,
+    metric: "message-count",
+    repairKind: "manual",
+    principle: "Prevent Fast Refresh unsafe mixed exports in client TSX modules from growing while shared constants and helpers move out of component files.",
+    zeroBaselineDisposition: {
+      kind: "promote-to-normal-lint",
+      reason: "client TSX modules should export components only for reliable Fast Refresh; once the mixed-export inventory drains, normal client React lint should enforce the rule directly",
+      exitPath: harnessReview202607Leaf37,
+    },
   },
   {
     id: "ratchet/strict-boolean-expressions-server-encounter-combat",
@@ -198,6 +307,43 @@ export const lintRatchets = [
     zeroBaselineDisposition: {
       kind: "intentional-ratchet-only",
       reason: "normal ESLint deliberately keeps @typescript-eslint/strict-boolean-expressions off; this ratchet extends the zero floor to the server encounter-combat slice without forcing a package-wide rollout",
+    },
+  },
+  {
+    id: "ratchet/strict-boolean-expressions-server-services",
+    ruleId: "@typescript-eslint/strict-boolean-expressions",
+    source: { kind: "third-party", pluginModule: "typescript-eslint" },
+    parserProfile: "type-aware-ts",
+    files: ["packages/server/src/services/**/*.{ts,tsx}"],
+    ignores: [
+      "**/dist/**",
+      "**/generated/**",
+      "**/node_modules/**",
+      "packages/server/src/**/*-test-helper.{ts,tsx}",
+      "packages/server/src/**/*.{test,spec}.{ts,tsx}",
+      "packages/server/src/services/encounter-combat/**",
+      "packages/server/src/test/**/*.{ts,tsx}",
+    ],
+    ruleOptions: [
+      {
+        allowAny: false,
+        allowNullableBoolean: false,
+        allowNullableEnum: false,
+        allowNullableNumber: false,
+        allowNullableObject: true,
+        allowNullableString: false,
+        allowNumber: false,
+        allowString: false,
+      },
+    ],
+    mode: "no-new",
+    target: 0,
+    metric: "message-count",
+    repairKind: "manual",
+    principle: "Extend strict-boolean-expressions coverage across server services while excluding the existing encounter-combat slice that already owns its zero floor.",
+    zeroBaselineDisposition: {
+      kind: "intentional-ratchet-only",
+      reason: "normal ESLint deliberately keeps @typescript-eslint/strict-boolean-expressions off; this services ratchet is the next staged slice before evaluating routers",
     },
   },
   {

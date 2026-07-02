@@ -19,205 +19,299 @@
       "ruleSourceHash": "sha256:78b4a3d27816070395bf4edb03a7dcdc0c276784088eaa3bcbacf345f2ae81dd",
       "items": {
         "packages/client/src/components/campaign/chat/chat-panel.tsx": {
-          "count": 2
+          "count": 2,
+          "messagesFingerprint": "sha256:12765c950271862a5734a49544645d2249915faf865c9c67e821e2517b1daf6b"
         },
         "packages/client/src/components/campaign/combat/action-economy-indicators.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:b9f01130fa6473e6df15be0bc85fb9e6731707e047ed140235e64759d7ba1aab"
         },
         "packages/client/src/components/campaign/combat/combat-log-panel.tsx": {
-          "count": 4
+          "count": 4,
+          "messagesFingerprint": "sha256:f0330e451c87904db3acbecce38a032845aa18c8d7ae3e97426f55bfae53cffc"
         },
         "packages/client/src/components/campaign/combat/condition-toggle-popover.tsx": {
-          "count": 2
+          "count": 2,
+          "messagesFingerprint": "sha256:890a0381c61c9f46e4444d170f70606bb5adbada318b10a5ae492a71c193957f"
         },
         "packages/client/src/components/campaign/encounters/add-participant-dialog.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:4c8ae9271c9f13a54c45a9741cb89e932387de2347ab13cd438371292c40abe9"
         },
         "packages/client/src/components/campaign/maps/map-image-field.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:f28f32c0b56570410cad611a9ac65f8ea5fe6bbb82d56510bbfd98e1fee1234d"
         },
         "packages/client/src/components/campaign/maps/map-toolbar-drawing-tools.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:b9f01130fa6473e6df15be0bc85fb9e6731707e047ed140235e64759d7ba1aab"
         },
         "packages/client/src/components/campaign/maps/map-toolbar-view-controls.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:e7239c258f2aa656c31251682e0227fffe4c63582f69d72cfef94a42bdbb2791"
         },
         "packages/client/src/components/campaign/maps/template-toolbar.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:b9f01130fa6473e6df15be0bc85fb9e6731707e047ed140235e64759d7ba1aab"
         },
         "packages/client/src/components/campaign/members/character-assignment.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:4c8ae9271c9f13a54c45a9741cb89e932387de2347ab13cd438371292c40abe9"
         },
         "packages/client/src/components/campaign/members/presence-indicator.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:2e1d7303dee719545f8792e199dd095d0fcdc915021288cc330ea771ca69ade0"
         },
         "packages/client/src/components/campaign/npcs/monster-detail-dialog.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:a465f0282edf9fa0950ddccd804844e14a9515c0f47b92723041d5233d558250"
         },
         "packages/client/src/components/campaign/settings/campaign-card.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:4c8ae9271c9f13a54c45a9741cb89e932387de2347ab13cd438371292c40abe9"
         },
         "packages/client/src/components/campaign/settings/campaign-overview.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:b9f01130fa6473e6df15be0bc85fb9e6731707e047ed140235e64759d7ba1aab"
         },
         "packages/client/src/components/campaign/tokens/token-context-menu.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:20c759d8dec9e50d18535bcfd64f58dfc140e10be1d527fbdd95b134e783501f"
         },
         "packages/client/src/components/character-card.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:4c8ae9271c9f13a54c45a9741cb89e932387de2347ab13cd438371292c40abe9"
         },
         "packages/client/src/components/character-create/steps/proficiencies-step.tsx": {
-          "count": 2
+          "count": 2,
+          "messagesFingerprint": "sha256:4359cd67210f0a16fde6ab76ed376fce818cd0e24163a5b9223d3dfb659f0ef1"
         },
         "packages/client/src/components/character-create/steps/spell-selection-step.tsx": {
-          "count": 2
+          "count": 2,
+          "messagesFingerprint": "sha256:75bc4d725c30b2797b812762962ac03203db9495f11182263adf2146bf9bff36"
         },
         "packages/client/src/components/character-create/wizard-stepper.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:4c8ae9271c9f13a54c45a9741cb89e932387de2347ab13cd438371292c40abe9"
         },
         "packages/client/src/components/compendium/magic-item-detail-dialog.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:a465f0282edf9fa0950ddccd804844e14a9515c0f47b92723041d5233d558250"
         },
         "packages/client/src/components/homebrew/class/class-form-fields.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:1190b1e113a23e8b85f6ef53b6df3d73305110a6161f270b9d8eac8eafe57230"
         },
         "packages/client/src/components/homebrew/collections/import-collection-dialog.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:43f9ff9edfd22ddfb19426c27da66bfc5c1bcbf2d5a2c446614a112490c8a46c"
         },
         "packages/client/src/components/homebrew/entries/entry-dialog.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:a465f0282edf9fa0950ddccd804844e14a9515c0f47b92723041d5233d558250"
         },
         "packages/client/src/components/notifications/notification-bell.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:b9f01130fa6473e6df15be0bc85fb9e6731707e047ed140235e64759d7ba1aab"
         },
         "packages/client/src/components/notifications/notification-item.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:4c8ae9271c9f13a54c45a9741cb89e932387de2347ab13cd438371292c40abe9"
         },
         "packages/client/src/components/notifications/notification-popover.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:3941fd462d40e91183f9c4bb5b8379d5b229df7bf41b060c55486a663e5a6df8"
         },
         "packages/client/src/components/sheet/add-spell-dialog.tsx": {
-          "count": 4
+          "count": 4,
+          "messagesFingerprint": "sha256:c22e476a36005192d3770eefe41201610846f3dd895003f324b58a85acef7983"
         },
         "packages/client/src/components/sheet/equipment-summary.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:b9f01130fa6473e6df15be0bc85fb9e6731707e047ed140235e64759d7ba1aab"
         },
         "packages/client/src/components/sheet/inventory-item-row.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:63c8af2ecdb2234d8f628c833736aa67f611d700c92276574b88a1c66ef9f35e"
         },
         "packages/client/src/components/sheet/personality-panel.tsx": {
-          "count": 2
+          "count": 2,
+          "messagesFingerprint": "sha256:eed396b7b912f933e3280d3ddb7111e602605753b87eb2109b8ebb62a3356ef2"
         },
         "packages/client/src/components/sheet/roll-context-menu.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:4d17381bb12096c747a21bf630cc75bef34888c6360d12afbdfe328a251bcc43"
         },
         "packages/client/src/components/sheet/spell-detail-dialog.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:7e2e3ca2c18088941f301b854747eec7aa5538c108c64350af71e4476b3a8ad5"
         },
         "packages/client/src/components/sheet/spell-row.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:b9f01130fa6473e6df15be0bc85fb9e6731707e047ed140235e64759d7ba1aab"
         },
         "packages/client/src/components/sheet/weapon-mastery-dialog.tsx": {
-          "count": 2
+          "count": 2,
+          "messagesFingerprint": "sha256:e803ff0e9c0827d833677d71472bc3619aadeccd07412cd1bfde7fd9af37ad45"
         },
         "packages/client/src/components/ui/button.tsx": {
-          "count": 3
+          "count": 3,
+          "messagesFingerprint": "sha256:1ba662bbd33cdd1e84c11a2ffbc3f6f9f65a0ef3bf7346b7977b3666bcdefaf6"
         },
         "packages/client/src/components/ui/card.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:4c8ae9271c9f13a54c45a9741cb89e932387de2347ab13cd438371292c40abe9"
         },
         "packages/client/src/components/ui/dialog.tsx": {
-          "count": 4
+          "count": 4,
+          "messagesFingerprint": "sha256:477de0bfde0f1a39cc7f3a9f98a7a3fa6c346657b8d97fce5fc77acc103b519b"
         },
         "packages/client/src/components/ui/input.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:4c8ae9271c9f13a54c45a9741cb89e932387de2347ab13cd438371292c40abe9"
         },
         "packages/client/src/components/ui/popover.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:4c8ae9271c9f13a54c45a9741cb89e932387de2347ab13cd438371292c40abe9"
         },
         "packages/client/src/components/ui/scroll-area.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:1093d1fe74d688ddcd6a778ce6cbf1784ccb4eb0786b09c49e30c83f82dc29f1"
         },
         "packages/client/src/components/ui/select.tsx": {
-          "count": 6
+          "count": 6,
+          "messagesFingerprint": "sha256:d1f0abfd55847c95829349812dc8fca57b6e1278f5960f9bff9e6ebfde8f45db"
         },
         "packages/client/src/components/ui/sheet.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:4c8ae9271c9f13a54c45a9741cb89e932387de2347ab13cd438371292c40abe9"
         },
         "packages/client/src/components/ui/tabs.tsx": {
-          "count": 2
+          "count": 2,
+          "messagesFingerprint": "sha256:4359cd67210f0a16fde6ab76ed376fce818cd0e24163a5b9223d3dfb659f0ef1"
         },
         "packages/client/src/components/ui/textarea.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:4c8ae9271c9f13a54c45a9741cb89e932387de2347ab13cd438371292c40abe9"
         },
         "packages/client/src/components/vtt/drawer/cast-rail-concentration.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:fe3bed5d84414f6864af9ae3707727640da7b6403fd62626475c67606d351a52"
         },
         "packages/client/src/components/vtt/drawer/cast-rail-header.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:b9f01130fa6473e6df15be0bc85fb9e6731707e047ed140235e64759d7ba1aab"
         },
         "packages/client/src/components/vtt/drawer/cast-rail-meta.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:b9f01130fa6473e6df15be0bc85fb9e6731707e047ed140235e64759d7ba1aab"
         },
         "packages/client/src/components/vtt/drawer/cast-rail-slot-picker.tsx": {
-          "count": 3
+          "count": 3,
+          "messagesFingerprint": "sha256:ff63cdf305556685c204346ab891943b47576ba63abfc15ac420446452c09808"
         },
         "packages/client/src/components/vtt/drawer/cast-rail.tsx": {
-          "count": 2
+          "count": 2,
+          "messagesFingerprint": "sha256:51518035e0169d62a50901db1aaaa7abdb86bf6a01d76c09eed815f2eff9b82f"
         },
         "packages/client/src/components/vtt/drawer/monster-hp-control-strip.tsx": {
-          "count": 2
+          "count": 2,
+          "messagesFingerprint": "sha256:890a0381c61c9f46e4444d170f70606bb5adbada318b10a5ae492a71c193957f"
         },
         "packages/client/src/components/vtt/drawer/monster-stat-block-abilities.tsx": {
-          "count": 2
+          "count": 2,
+          "messagesFingerprint": "sha256:890a0381c61c9f46e4444d170f70606bb5adbada318b10a5ae492a71c193957f"
         },
         "packages/client/src/components/vtt/drawer/monster-stat-block-actions.tsx": {
-          "count": 4
+          "count": 4,
+          "messagesFingerprint": "sha256:7fc0b7e9b05a5e42bd5c9f76afc7f24832c19124dd607321fb4beca6c41f7bbd"
         },
         "packages/client/src/components/vtt/drawer/monster-stat-block-header.tsx": {
-          "count": 2
+          "count": 2,
+          "messagesFingerprint": "sha256:0319664207fcbe215422bba897ac4ebe9cc3de9ab7d7acf8dfd224a1000caed8"
         },
         "packages/client/src/components/vtt/drawer/monster-stat-block-profile.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:b9f01130fa6473e6df15be0bc85fb9e6731707e047ed140235e64759d7ba1aab"
         },
         "packages/client/src/components/vtt/drawer/tabs/actions-tab-economy.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:b9f01130fa6473e6df15be0bc85fb9e6731707e047ed140235e64759d7ba1aab"
         },
         "packages/client/src/components/vtt/drawer/tabs/actions-tab-features.tsx": {
-          "count": 3
+          "count": 3,
+          "messagesFingerprint": "sha256:635e2d68d8f69f18b0f4d443ebf2b8512d1eb3416ff8b989e428742db5c71592"
         },
         "packages/client/src/components/vtt/drawer/tabs/actions-tab-spells.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:b9f01130fa6473e6df15be0bc85fb9e6731707e047ed140235e64759d7ba1aab"
         },
         "packages/client/src/components/vtt/drawer/tabs/actions-tab-weapons.tsx": {
-          "count": 2
+          "count": 2,
+          "messagesFingerprint": "sha256:0319664207fcbe215422bba897ac4ebe9cc3de9ab7d7acf8dfd224a1000caed8"
         },
         "packages/client/src/components/vtt/drawer/tabs/features-tab.tsx": {
-          "count": 5
+          "count": 5,
+          "messagesFingerprint": "sha256:5b8771a2fc99372f50152ed2e173e19f25a519004367dfe342716f3f8f051740"
         },
         "packages/client/src/components/vtt/drawer/tabs/inventory-tab.tsx": {
-          "count": 3
+          "count": 3,
+          "messagesFingerprint": "sha256:635e2d68d8f69f18b0f4d443ebf2b8512d1eb3416ff8b989e428742db5c71592"
         },
         "packages/client/src/components/vtt/drawer/tabs/spells-tab.tsx": {
-          "count": 5
+          "count": 5,
+          "messagesFingerprint": "sha256:46ebb976232d18a3be26116154270773688b43c5fc9a7d3e9df9ba53702a0555"
         },
         "packages/client/src/components/vtt/drawer/tabs/stats-tab-rolls.tsx": {
-          "count": 3
+          "count": 3,
+          "messagesFingerprint": "sha256:635e2d68d8f69f18b0f4d443ebf2b8512d1eb3416ff8b989e428742db5c71592"
         },
         "packages/client/src/components/vtt/drawer/tabs/stats-tab-summary.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:b9f01130fa6473e6df15be0bc85fb9e6731707e047ed140235e64759d7ba1aab"
         },
         "packages/client/src/components/vtt/in-vtt-drawer.tsx": {
-          "count": 7
+          "count": 7,
+          "messagesFingerprint": "sha256:3f13cb68e11b1eccc2930bc624ba79d731956407c2a6eca816bb7c81ba4eb2ac"
         },
         "packages/client/src/pages/character-create-page.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:932e97f22b6d8c10a0246077b3eaba55d8f5598324af806188f82096d13fb2ca"
         },
         "packages/client/src/pages/login-page.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:2701d741535af67481e92c6b977d7f1999533c5f858c13ace2e36aa54f99f9cb"
         },
         "packages/client/src/pages/register-page.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:2701d741535af67481e92c6b977d7f1999533c5f858c13ace2e36aa54f99f9cb"
+        }
+      }
+    },
+    "ratchet/local-no-plain-error-in-trpc-server": {
+      "ruleId": "local/no-plain-error-in-trpc",
+      "mode": "no-new",
+      "target": 0,
+      "metric": "message-count",
+      "files": [
+        "packages/server/src/routers/**/*.{ts,tsx}",
+        "packages/server/src/services/**/*.{ts,tsx}"
+      ],
+      "ignores": [
+        "**/dist/**",
+        "**/generated/**",
+        "**/node_modules/**",
+        "packages/server/src/**/*-test-helper.{ts,tsx}",
+        "packages/server/src/**/*.{test,spec}.{ts,tsx}",
+        "packages/server/src/test/**/*.{ts,tsx}"
+      ],
+      "ruleOptions": [],
+      "configHash": "sha256:ba835c4570d9cd8750d6fa1940cfe05e28c88e2d66f3e3ad561758da1e40b3b5",
+      "ruleSourceHash": "sha256:cdc83a20f5dc88184c140e32ffe0eb3638fc3130836d08545c50a8c835091386",
+      "items": {
+        "packages/server/src/services/upload-service.ts": {
+          "count": 5,
+          "messagesFingerprint": "sha256:207dc76859accf852ddc6b49a8a200de451b49816cec2dad4f12d6aa30d1fcf5"
         }
       }
     },
@@ -246,6 +340,122 @@
       "ruleSourceHash": "sha256:6e1058020d8d72113a079f347e4d84aceece96ddb763e34d3891407d91f31a7c",
       "items": {}
     },
+    "ratchet/no-real-time-in-package-tests": {
+      "ruleId": "no-restricted-syntax",
+      "mode": "no-new",
+      "target": 0,
+      "metric": "message-count",
+      "files": [
+        "packages/**/*.{test,spec}.{ts,tsx}"
+      ],
+      "ignores": [
+        "**/dist/**",
+        "**/generated/**",
+        "**/node_modules/**"
+      ],
+      "ruleOptions": [
+        {
+          "message": "Avoid Date.now() in tests. Use vi.useFakeTimers()/vi.setSystemTime() or inject a clock so test time is deterministic.",
+          "selector": "CallExpression[callee.object.name='Date'][callee.property.name='now'][arguments.length=0]"
+        },
+        {
+          "message": "Avoid no-arg new Date() in tests. Use vi.useFakeTimers()/vi.setSystemTime() or pass an explicit timestamp so test time is deterministic.",
+          "selector": "NewExpression[callee.name='Date'][arguments.length=0]"
+        }
+      ],
+      "configHash": "sha256:4d15d954de6c09a1b4edda848779ca547373862751cb34db4a652e7df3daf160",
+      "ruleSourceHash": "sha256:4d0282d7e6f2c1a87255f9939a4d0e4e9939c9158287e70874c34b0b2b163368",
+      "items": {
+        "packages/client/src/components/notifications/notification-item.test.tsx": {
+          "count": 4,
+          "messagesFingerprint": "sha256:c01b2885f8a88596f968f5f2adf100a546f82b7e6edadc776c2debbc56c190d3"
+        },
+        "packages/client/src/components/notifications/notification-popover.test.tsx": {
+          "count": 2,
+          "messagesFingerprint": "sha256:2bbb041033fb00ed1218063be89f35b5cdbfa77e6eda4f31ae49f096aa3e2626"
+        },
+        "packages/client/src/components/vtt/drawer/cast-rail.test.tsx": {
+          "count": 6,
+          "messagesFingerprint": "sha256:4a322dfee221c8e9913710739546a4cfcd4675ca5c218b45c10c9bac0c4c3b4b"
+        },
+        "packages/client/src/components/vtt/drawer/confirm-cast-strip.test.tsx": {
+          "count": 4,
+          "messagesFingerprint": "sha256:ac85c7a0ce2e5011314cd5f27e75fe4d1beee8163fb953d37bc5b9324fbd2f6f"
+        },
+        "packages/client/src/hooks/use-weapon-roll.test.ts": {
+          "count": 1,
+          "messagesFingerprint": "sha256:414678d013c764e509d05da78d4eb29da2b4e547e390b08b9d61fb503c39038a"
+        },
+        "packages/client/src/hooks/vtt-drawer/use-cast-placement.test.ts": {
+          "count": 4,
+          "messagesFingerprint": "sha256:ac85c7a0ce2e5011314cd5f27e75fe4d1beee8163fb953d37bc5b9324fbd2f6f"
+        },
+        "packages/server/src/routers/character-level-up.test.ts": {
+          "count": 2,
+          "messagesFingerprint": "sha256:610e6d8ad6574fac75af67b0e9b52c4be5a91cb2bed60a86de9a8195e0fa64e5"
+        },
+        "packages/server/src/routers/homebrew-import.test.ts": {
+          "count": 1,
+          "messagesFingerprint": "sha256:414678d013c764e509d05da78d4eb29da2b4e547e390b08b9d61fb503c39038a"
+        },
+        "packages/server/src/routers/invite-manage.test.ts": {
+          "count": 1,
+          "messagesFingerprint": "sha256:a614311401ef32e60f14370f72b33541804866ee227ad8bb591086ea1c2b05a8"
+        },
+        "packages/server/src/routers/invite.test.ts": {
+          "count": 1,
+          "messagesFingerprint": "sha256:a614311401ef32e60f14370f72b33541804866ee227ad8bb591086ea1c2b05a8"
+        },
+        "packages/server/src/routes/upload-routes.test.ts": {
+          "count": 1,
+          "messagesFingerprint": "sha256:a614311401ef32e60f14370f72b33541804866ee227ad8bb591086ea1c2b05a8"
+        },
+        "packages/server/src/services/rest-service.test.ts": {
+          "count": 1,
+          "messagesFingerprint": "sha256:414678d013c764e509d05da78d4eb29da2b4e547e390b08b9d61fb503c39038a"
+        },
+        "packages/server/src/socket/broadcast-registry.test.ts": {
+          "count": 4,
+          "messagesFingerprint": "sha256:ac85c7a0ce2e5011314cd5f27e75fe4d1beee8163fb953d37bc5b9324fbd2f6f"
+        },
+        "packages/server/src/socket/chat-broadcast.test.ts": {
+          "count": 1,
+          "messagesFingerprint": "sha256:414678d013c764e509d05da78d4eb29da2b4e547e390b08b9d61fb503c39038a"
+        },
+        "packages/server/src/test/clean-db.test.ts": {
+          "count": 2,
+          "messagesFingerprint": "sha256:610e6d8ad6574fac75af67b0e9b52c4be5a91cb2bed60a86de9a8195e0fa64e5"
+        },
+        "packages/server/src/utils/homebrew-helpers.test.ts": {
+          "count": 1,
+          "messagesFingerprint": "sha256:414678d013c764e509d05da78d4eb29da2b4e547e390b08b9d61fb503c39038a"
+        },
+        "packages/server/src/utils/session-cleanup.test.ts": {
+          "count": 4,
+          "messagesFingerprint": "sha256:074fde433c66fe2bfd8af54f3240b598d0f0789c0bb43175d2d80dca92cb88db"
+        },
+        "packages/server/src/utils/spell-mapping.test.ts": {
+          "count": 4,
+          "messagesFingerprint": "sha256:ac85c7a0ce2e5011314cd5f27e75fe4d1beee8163fb953d37bc5b9324fbd2f6f"
+        },
+        "packages/shared/src/schemas/campaign.test.ts": {
+          "count": 8,
+          "messagesFingerprint": "sha256:b5eae2e4c54626982529ff8fe311ed717104e8e5d566136d7d238ade26ed7142"
+        },
+        "packages/shared/src/schemas/combat-action.test.ts": {
+          "count": 2,
+          "messagesFingerprint": "sha256:2bbb041033fb00ed1218063be89f35b5cdbfa77e6eda4f31ae49f096aa3e2626"
+        },
+        "packages/shared/src/schemas/encounter.test.ts": {
+          "count": 3,
+          "messagesFingerprint": "sha256:150d4a9870ad8a87d06a1d81e4b5ca4bb492498588a432f7b5c910614a98cfc9"
+        },
+        "packages/shared/src/schemas/inventory.test.ts": {
+          "count": 2,
+          "messagesFingerprint": "sha256:2bbb041033fb00ed1218063be89f35b5cdbfa77e6eda4f31ae49f096aa3e2626"
+        }
+      }
+    },
     "ratchet/react-hooks-set-state-in-effect-client": {
       "ruleId": "react-hooks/set-state-in-effect",
       "mode": "no-new",
@@ -264,70 +474,242 @@
       "ruleSourceHash": "sha256:9ab9d544d9d38eb2bf0d64f8e54177cda509d157afb017422518a40b161b6d06",
       "items": {
         "packages/client/src/components/campaign/combat/combat-map-bridges.ts": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:e1ec296ec685a05e7a8c706b69c8a671273326e9945113734680ddc5ffb19ea4"
         },
         "packages/client/src/components/campaign/maps/create-map-dialog.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:c5c0a43b78f6ca91a05f7cd1ded19e0fcc43136baa6e9fbaa769ddb2bedb9906"
         },
         "packages/client/src/components/campaign/maps/edit-map-dialog.tsx": {
-          "count": 2
+          "count": 2,
+          "messagesFingerprint": "sha256:9d1510c8661c7ca2f762bd0ca25eec6ab43066fc60d3a6134051ef67d8c35ecd"
         },
         "packages/client/src/components/campaign/members/join-campaign-dialog.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:765dbebe42448bb8f31c39e0c491896d5104c42129894e7c10909b1f63635db5"
         },
         "packages/client/src/components/campaign/notes/note-editor.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:9c0a202d9a38406d27f541a10d9d19f6dbd8a4c1aceff32432a7c3257213d714"
         },
         "packages/client/src/components/campaign/npcs/npc-editor.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:74196bdda8b963ae72e66eeea2a39505a4f1ae88321e0baefb7a45324ec32b18"
         },
         "packages/client/src/components/campaign/settings/create-campaign-dialog.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:56f4d591e3e5c7ce02b724ff6222793f6a69a0f19e2dffa77b94d58f89feb61c"
         },
         "packages/client/src/components/campaign/tokens/add-token-dialog.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:68ba974138e75bf081a4a9dde83c5b6499ddaab0f37e95ed558423d5d136bb94"
         },
         "packages/client/src/components/campaign/tokens/edit-token-dialog.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:1597cde5ae3a42cd752e7862918dc1a4cf819340d714991c74523997c6df69e4"
         },
         "packages/client/src/components/homebrew/collections/collection-dialog.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:6c1270de01a22896da431de40faaafbc698d18233a9a8155e5ca4035527c905f"
         },
         "packages/client/src/components/homebrew/collections/delete-collection-dialog.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:791f18b7d3f01d6cc84b45ededd958db497a0a8ef6a820c7f14f2e1db7b2c6e3"
         },
         "packages/client/src/components/homebrew/entries/delete-entry-dialog.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:45afbe3c5890fb95e94f6573571a39e6ad2b3155cf60d875a964bfdcab587641"
         },
         "packages/client/src/components/homebrew/entries/entry-dialog.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:0c98a4f731cc864cb96e97fb90e9cb24fc5a1300a4b15b3c03b386ae381bf4ca"
         },
         "packages/client/src/components/sheet/cast-spell-dialog.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:1254ee78ad64c0e76093d91725bda675743c4d740f402c241eb7e8c5f2983767"
         },
         "packages/client/src/components/sheet/dm-editable-score.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:724e6c733b9ce6a28efc34908f137b88cb487304a0244b9d516d08164988ab4d"
         },
         "packages/client/src/components/sheet/edit-item-dialog.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:39abfa0c22d9a17e820f58048818ce2af6dc903873cb355722157c2ad0e3c4c5"
         },
         "packages/client/src/components/sheet/level-up-state.ts": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:38a1b8d16f5ef6e575156a9b5f677435c9046c069a88b557fd182c2e5655c827"
         },
         "packages/client/src/components/sheet/rest-dialog.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:796580b17974e4a4bb901b0c98f5759f5c5ba81e6a6f05f84d31367655a99e57"
         },
         "packages/client/src/hooks/socket-context.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:b98ba3067d3efae1616d8a46f3be6e1f7339ec5b52b2159977d53b86139fe367"
         },
         "packages/client/src/hooks/use-background-image.ts": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:0e356cf843b583bc0bb05b17707f05a4ec31e4d9da72b8fc193da28d58293518"
         },
         "packages/client/src/hooks/use-campaign-presence.ts": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:5774bb2debd4a112f69787fb67eb1a8f45293e1d0deccc563038fc439f3f482a"
         },
         "packages/client/src/hooks/use-debounced-cursor-list.ts": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:64d6dacde6565fbce5b52d67a83cebba6634893d7312ac564738a5fe41e8d408"
+        }
+      }
+    },
+    "ratchet/react-jsx-no-constructed-context-values-client": {
+      "ruleId": "react/jsx-no-constructed-context-values",
+      "mode": "no-new",
+      "target": 0,
+      "metric": "message-count",
+      "files": [
+        "packages/client/src/**/*.tsx"
+      ],
+      "ignores": [
+        "packages/client/src/**/*.{test,spec}.{ts,tsx}",
+        "packages/client/src/**/*.test-helper.{ts,tsx}",
+        "packages/client/src/test/**/*.{ts,tsx}"
+      ],
+      "ruleOptions": [],
+      "configHash": "sha256:502af5a96af4157c93f011237771567b680e98946ae6d2e8649cf41ea181da0e",
+      "ruleSourceHash": "sha256:2c94f4f5f486e9082e84e3cce9a32ab77ae883540f218a1d8ced982c02686346",
+      "items": {
+        "packages/client/src/hooks/auth-context.tsx": {
+          "count": 1,
+          "messagesFingerprint": "sha256:209fdfedbf4843816f3d988a767bae8612a96ed9d6b0e49eed09e1ae3e3b1473"
+        }
+      }
+    },
+    "ratchet/react-refresh-only-export-components-client": {
+      "ruleId": "react-refresh/only-export-components",
+      "mode": "no-new",
+      "target": 0,
+      "metric": "message-count",
+      "files": [
+        "packages/client/src/**/*.tsx"
+      ],
+      "ignores": [
+        "packages/client/src/**/*.{test,spec}.{ts,tsx}",
+        "packages/client/src/**/*.test-helper.{ts,tsx}",
+        "packages/client/src/test/**/*.{ts,tsx}"
+      ],
+      "ruleOptions": [
+        {
+          "allowConstantExport": true
+        }
+      ],
+      "configHash": "sha256:4aff81b9db4c87207df81e5cb99d0821d8e6c3cd2f554629c16f287ee7aad0b0",
+      "ruleSourceHash": "sha256:56c8b4c8056c716787eeec9533d303cb431ce228d3d77ac2610b4aba3410d97d",
+      "items": {
+        "packages/client/src/components/campaign/encounters/encounter-participants.tsx": {
+          "count": 1,
+          "messagesFingerprint": "sha256:8c4c6316f0587ddbcb4a33f5eaea914a85972ee19948575c6c3ddb66977a8bd9"
+        },
+        "packages/client/src/components/campaign/maps/fog-overlay.tsx": {
+          "count": 1,
+          "messagesFingerprint": "sha256:8c4c6316f0587ddbcb4a33f5eaea914a85972ee19948575c6c3ddb66977a8bd9"
+        },
+        "packages/client/src/components/campaign/tokens/token-context-menu.tsx": {
+          "count": 1,
+          "messagesFingerprint": "sha256:8c4c6316f0587ddbcb4a33f5eaea914a85972ee19948575c6c3ddb66977a8bd9"
+        },
+        "packages/client/src/components/campaign/tokens/token-form-fields.tsx": {
+          "count": 4,
+          "messagesFingerprint": "sha256:c0c3523d5b3d134529dabfc268d304a01e27a1e7e77b1be4f5a6364cf7ba393d"
+        },
+        "packages/client/src/components/character-create/steps/ability-score-card.tsx": {
+          "count": 8,
+          "messagesFingerprint": "sha256:d9c69889104b3e58631ff57b6e4182ac2b36bae95d67d24c6fd44e9c7d619bca"
+        },
+        "packages/client/src/components/character-create/steps/spells-review-card.tsx": {
+          "count": 1,
+          "messagesFingerprint": "sha256:8c4c6316f0587ddbcb4a33f5eaea914a85972ee19948575c6c3ddb66977a8bd9"
+        },
+        "packages/client/src/components/character-create/wizard-context.tsx": {
+          "count": 6,
+          "messagesFingerprint": "sha256:64ba911ec119eadfcd7c22756bda4e940e1515f7fb13c8ee1f77106499b9cf14"
+        },
+        "packages/client/src/components/common/filter-select.tsx": {
+          "count": 2,
+          "messagesFingerprint": "sha256:6c674b426ad5947129d8a4fed4b9f73f60fe78f295b2fd92c72dd758d6f6afd1"
+        },
+        "packages/client/src/components/homebrew/background/background-form-fields.tsx": {
+          "count": 2,
+          "messagesFingerprint": "sha256:6c674b426ad5947129d8a4fed4b9f73f60fe78f295b2fd92c72dd758d6f6afd1"
+        },
+        "packages/client/src/components/homebrew/class/class-form-fields.tsx": {
+          "count": 2,
+          "messagesFingerprint": "sha256:6c674b426ad5947129d8a4fed4b9f73f60fe78f295b2fd92c72dd758d6f6afd1"
+        },
+        "packages/client/src/components/homebrew/feat/feat-form-fields.tsx": {
+          "count": 2,
+          "messagesFingerprint": "sha256:6c674b426ad5947129d8a4fed4b9f73f60fe78f295b2fd92c72dd758d6f6afd1"
+        },
+        "packages/client/src/components/homebrew/item/item-form-fields.tsx": {
+          "count": 2,
+          "messagesFingerprint": "sha256:6c674b426ad5947129d8a4fed4b9f73f60fe78f295b2fd92c72dd758d6f6afd1"
+        },
+        "packages/client/src/components/homebrew/magic-item/magic-item-form-fields.tsx": {
+          "count": 2,
+          "messagesFingerprint": "sha256:6c674b426ad5947129d8a4fed4b9f73f60fe78f295b2fd92c72dd758d6f6afd1"
+        },
+        "packages/client/src/components/homebrew/monster/monster-ability-scores.tsx": {
+          "count": 1,
+          "messagesFingerprint": "sha256:8c4c6316f0587ddbcb4a33f5eaea914a85972ee19948575c6c3ddb66977a8bd9"
+        },
+        "packages/client/src/components/homebrew/monster/monster-form-fields.tsx": {
+          "count": 2,
+          "messagesFingerprint": "sha256:6c674b426ad5947129d8a4fed4b9f73f60fe78f295b2fd92c72dd758d6f6afd1"
+        },
+        "packages/client/src/components/homebrew/spell/spell-form-fields.tsx": {
+          "count": 2,
+          "messagesFingerprint": "sha256:6c674b426ad5947129d8a4fed4b9f73f60fe78f295b2fd92c72dd758d6f6afd1"
+        },
+        "packages/client/src/components/homebrew/subclass/subclass-form-fields.tsx": {
+          "count": 2,
+          "messagesFingerprint": "sha256:6c674b426ad5947129d8a4fed4b9f73f60fe78f295b2fd92c72dd758d6f6afd1"
+        },
+        "packages/client/src/components/sheet/homebrew-item-tab.tsx": {
+          "count": 1,
+          "messagesFingerprint": "sha256:8c4c6316f0587ddbcb4a33f5eaea914a85972ee19948575c6c3ddb66977a8bd9"
+        },
+        "packages/client/src/components/sheet/level-up-helpers.tsx": {
+          "count": 2,
+          "messagesFingerprint": "sha256:6c674b426ad5947129d8a4fed4b9f73f60fe78f295b2fd92c72dd758d6f6afd1"
+        },
+        "packages/client/src/components/sheet/spell-filter-bar.tsx": {
+          "count": 4,
+          "messagesFingerprint": "sha256:c0c3523d5b3d134529dabfc268d304a01e27a1e7e77b1be4f5a6364cf7ba393d"
+        },
+        "packages/client/src/components/sheet/spells-panel.tsx": {
+          "count": 1,
+          "messagesFingerprint": "sha256:8c4c6316f0587ddbcb4a33f5eaea914a85972ee19948575c6c3ddb66977a8bd9"
+        },
+        "packages/client/src/components/ui/badge.tsx": {
+          "count": 1,
+          "messagesFingerprint": "sha256:8c4c6316f0587ddbcb4a33f5eaea914a85972ee19948575c6c3ddb66977a8bd9"
+        },
+        "packages/client/src/components/ui/button.tsx": {
+          "count": 1,
+          "messagesFingerprint": "sha256:8c4c6316f0587ddbcb4a33f5eaea914a85972ee19948575c6c3ddb66977a8bd9"
+        },
+        "packages/client/src/components/vtt/drawer/cast-rail-concentration.tsx": {
+          "count": 1,
+          "messagesFingerprint": "sha256:8c4c6316f0587ddbcb4a33f5eaea914a85972ee19948575c6c3ddb66977a8bd9"
+        },
+        "packages/client/src/hooks/auth-context.tsx": {
+          "count": 1,
+          "messagesFingerprint": "sha256:149c5f25c9c0aaa2a0e35df95096e698d05353350408f474fe4266824ae4c056"
+        },
+        "packages/client/src/hooks/socket-context.tsx": {
+          "count": 1,
+          "messagesFingerprint": "sha256:149c5f25c9c0aaa2a0e35df95096e698d05353350408f474fe4266824ae4c056"
         }
       }
     },
@@ -362,6 +744,120 @@
       "configHash": "sha256:89b55bb599079910441bc954d2282b5ae5399b1b5b1f4949e34adb94377792c7",
       "ruleSourceHash": "sha256:b59cb4594a258f43ffa276e84e5c1e16ed5c1152003e1755851a1ccfc1ded457",
       "items": {}
+    },
+    "ratchet/strict-boolean-expressions-server-services": {
+      "ruleId": "@typescript-eslint/strict-boolean-expressions",
+      "mode": "no-new",
+      "target": 0,
+      "metric": "message-count",
+      "files": [
+        "packages/server/src/services/**/*.{ts,tsx}"
+      ],
+      "ignores": [
+        "**/dist/**",
+        "**/generated/**",
+        "**/node_modules/**",
+        "packages/server/src/**/*-test-helper.{ts,tsx}",
+        "packages/server/src/**/*.{test,spec}.{ts,tsx}",
+        "packages/server/src/services/encounter-combat/**",
+        "packages/server/src/test/**/*.{ts,tsx}"
+      ],
+      "ruleOptions": [
+        {
+          "allowAny": false,
+          "allowNullableBoolean": false,
+          "allowNullableEnum": false,
+          "allowNullableNumber": false,
+          "allowNullableObject": true,
+          "allowNullableString": false,
+          "allowNumber": false,
+          "allowString": false
+        }
+      ],
+      "configHash": "sha256:6d80cde728e28e1b873147fd9b53ed648390323e03c2454fdb20400f15c7eae7",
+      "ruleSourceHash": "sha256:b59cb4594a258f43ffa276e84e5c1e16ed5c1152003e1755851a1ccfc1ded457",
+      "items": {
+        "packages/server/src/services/character-create-helpers.ts": {
+          "count": 5,
+          "messagesFingerprint": "sha256:8fd047382eaacdb43b04cf54420a4b4f375bbd4c6c1eb4b735b2720781dc8d3f"
+        },
+        "packages/server/src/services/character-create-spells.ts": {
+          "count": 1,
+          "messagesFingerprint": "sha256:38cbfdd582ad3b7917d5dab995474c0850a9bc888fe6c78c97e68ef0a541336d"
+        },
+        "packages/server/src/services/character-create.ts": {
+          "count": 6,
+          "messagesFingerprint": "sha256:f195fbe6bbc8b8cd2c5079ee798ee1d39e21003fdadd3140e12f209bf43561d4"
+        },
+        "packages/server/src/services/character-live-state/feature.ts": {
+          "count": 2,
+          "messagesFingerprint": "sha256:e63b68e30b3d31bf23cef7152521bcd7aae4c7af548cf990cb6ee25830ab7577"
+        },
+        "packages/server/src/services/character-live-state/rest.ts": {
+          "count": 2,
+          "messagesFingerprint": "sha256:e63b68e30b3d31bf23cef7152521bcd7aae4c7af548cf990cb6ee25830ab7577"
+        },
+        "packages/server/src/services/combat-actions/apply-damage.ts": {
+          "count": 1,
+          "messagesFingerprint": "sha256:38cbfdd582ad3b7917d5dab995474c0850a9bc888fe6c78c97e68ef0a541336d"
+        },
+        "packages/server/src/services/combat-actions/attack-transaction.ts": {
+          "count": 1,
+          "messagesFingerprint": "sha256:38cbfdd582ad3b7917d5dab995474c0850a9bc888fe6c78c97e68ef0a541336d"
+        },
+        "packages/server/src/services/combat-actions/combat-actions.ts": {
+          "count": 2,
+          "messagesFingerprint": "sha256:e63b68e30b3d31bf23cef7152521bcd7aae4c7af548cf990cb6ee25830ab7577"
+        },
+        "packages/server/src/services/combat-actions/resolve-attack.ts": {
+          "count": 1,
+          "messagesFingerprint": "sha256:38cbfdd582ad3b7917d5dab995474c0850a9bc888fe6c78c97e68ef0a541336d"
+        },
+        "packages/server/src/services/homebrew-import-service.ts": {
+          "count": 2,
+          "messagesFingerprint": "sha256:e4a63c0bb8885e139c693c32e7af8177b8e142d563b6b35d50fc986e4faddb0d"
+        },
+        "packages/server/src/services/inventory-service.ts": {
+          "count": 3,
+          "messagesFingerprint": "sha256:daa724641d63b3f1fad012a60f671559fe1fdf6599530b28e65ccc8bebdf46e9"
+        },
+        "packages/server/src/services/level-up/asi.ts": {
+          "count": 1,
+          "messagesFingerprint": "sha256:21c9b98a1cc8be58db349858784d875e003891961c37ae6c7da895eed5367f6c"
+        },
+        "packages/server/src/services/level-up/core.ts": {
+          "count": 4,
+          "messagesFingerprint": "sha256:21c62edd9226ab5f9bf0e237b7961c31dab1196aafb118dd2b5286bc2961cf6a"
+        },
+        "packages/server/src/services/level-up/subclass.ts": {
+          "count": 3,
+          "messagesFingerprint": "sha256:daa724641d63b3f1fad012a60f671559fe1fdf6599530b28e65ccc8bebdf46e9"
+        },
+        "packages/server/src/services/rest-service.ts": {
+          "count": 4,
+          "messagesFingerprint": "sha256:21c62edd9226ab5f9bf0e237b7961c31dab1196aafb118dd2b5286bc2961cf6a"
+        },
+        "packages/server/src/services/spell-casting/apply-damage.ts": {
+          "count": 1,
+          "messagesFingerprint": "sha256:38cbfdd582ad3b7917d5dab995474c0850a9bc888fe6c78c97e68ef0a541336d"
+        },
+        "packages/server/src/services/spell-casting/combat-transaction.ts": {
+          "count": 2,
+          "messagesFingerprint": "sha256:e63b68e30b3d31bf23cef7152521bcd7aae4c7af548cf990cb6ee25830ab7577"
+        },
+        "packages/server/src/services/spell-casting/resolve-spell.ts": {
+          "count": 1,
+          "messagesFingerprint": "sha256:880802ee96d014eb728dc9114ab65bea869e77d720b51c947bd8d223d3111aa0"
+        },
+        "packages/server/src/services/spell-casting/spell-casting.ts": {
+          "count": 3,
+          "messagesFingerprint": "sha256:daa724641d63b3f1fad012a60f671559fe1fdf6599530b28e65ccc8bebdf46e9"
+        },
+        "packages/server/src/services/starting-equipment-service.ts": {
+          "count": 3,
+          "messagesFingerprint": "sha256:856767e6def95e2e33315b059c9778835b19a198fc4e1d8ea528b650d3661c85"
+        }
+      }
     },
     "ratchet/strict-boolean-expressions-shared": {
       "ruleId": "@typescript-eslint/strict-boolean-expressions",
@@ -413,46 +909,60 @@
       "ruleSourceHash": "sha256:b7bfe351dbf81f24efc3eaebdb3d6a8ee934b9364f15c6629f79cc7013384297",
       "items": {
         "packages/client/src/components/campaign/combat/combat-death-saves.test.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:a3051121d2d6d7936dc30ca9c31926c46ff0c145f6e54809630629fcce4f6b59"
         },
         "packages/client/src/components/campaign/combat/combat-map-panel.test.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:a3051121d2d6d7936dc30ca9c31926c46ff0c145f6e54809630629fcce4f6b59"
         },
         "packages/client/src/components/campaign/combat/participant-stats.test.tsx": {
-          "count": 4
+          "count": 4,
+          "messagesFingerprint": "sha256:32034919603d42185623fb20b2706e57e62d4b16701fe529db113b6924284376"
         },
         "packages/client/src/components/campaign/maps/edit-map-dialog.test.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:a3051121d2d6d7936dc30ca9c31926c46ff0c145f6e54809630629fcce4f6b59"
         },
         "packages/client/src/components/campaign/maps/template-overlay.test.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:a3051121d2d6d7936dc30ca9c31926c46ff0c145f6e54809630629fcce4f6b59"
         },
         "packages/client/src/components/common/loading-spinner.test.tsx": {
-          "count": 3
+          "count": 3,
+          "messagesFingerprint": "sha256:94f64ed5364f584775e97155a86981acf2a2b05a988d9788aaf6abdca47e9429"
         },
         "packages/client/src/components/common/paginated-result-list.test.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:a3051121d2d6d7936dc30ca9c31926c46ff0c145f6e54809630629fcce4f6b59"
         },
         "packages/client/src/components/homebrew/shared/form-field-error.test.tsx": {
-          "count": 2
+          "count": 2,
+          "messagesFingerprint": "sha256:8341b0aca2adeb86d661cab7152cdb4b7e447da52c440431780c2f4702cba76a"
         },
         "packages/client/src/components/homebrew/shared/homebrew-core-fields.test.tsx": {
-          "count": 2
+          "count": 2,
+          "messagesFingerprint": "sha256:8341b0aca2adeb86d661cab7152cdb4b7e447da52c440431780c2f4702cba76a"
         },
         "packages/client/src/components/homebrew/shared/homebrew-text-field.test.tsx": {
-          "count": 2
+          "count": 2,
+          "messagesFingerprint": "sha256:8341b0aca2adeb86d661cab7152cdb4b7e447da52c440431780c2f4702cba76a"
         },
         "packages/client/src/components/homebrew/shared/homebrew-textarea-field.test.tsx": {
-          "count": 2
+          "count": 2,
+          "messagesFingerprint": "sha256:8341b0aca2adeb86d661cab7152cdb4b7e447da52c440431780c2f4702cba76a"
         },
         "packages/client/src/components/notifications/notification-bell.test.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:a3051121d2d6d7936dc30ca9c31926c46ff0c145f6e54809630629fcce4f6b59"
         },
         "packages/client/src/components/notifications/notification-item.test.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:a3051121d2d6d7936dc30ca9c31926c46ff0c145f6e54809630629fcce4f6b59"
         },
         "packages/client/src/components/notifications/notification-popover.test.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:a3051121d2d6d7936dc30ca9c31926c46ff0c145f6e54809630629fcce4f6b59"
         }
       }
     },
@@ -474,106 +984,140 @@
       "ruleSourceHash": "sha256:b7bfe351dbf81f24efc3eaebdb3d6a8ee934b9364f15c6629f79cc7013384297",
       "items": {
         "packages/client/src/components/campaign/combat/combat-death-saves.test.tsx": {
-          "count": 2
+          "count": 2,
+          "messagesFingerprint": "sha256:958b0962274ef74fd632399b1679fe9c3d2397fa582bbc7582ab7cb1745314cf"
         },
         "packages/client/src/components/campaign/combat/initiative-tracker-initiative-edit.test.tsx": {
-          "count": 2
+          "count": 2,
+          "messagesFingerprint": "sha256:958b0962274ef74fd632399b1679fe9c3d2397fa582bbc7582ab7cb1745314cf"
         },
         "packages/client/src/components/campaign/combat/initiative-tracker.test.tsx": {
-          "count": 3
+          "count": 3,
+          "messagesFingerprint": "sha256:0cb19fc87d7d6114a50cb1b452a1290502e52851efbc2b43cf1b9f9eac6f73a8"
         },
         "packages/client/src/components/campaign/combat/participant-stats.test.tsx": {
-          "count": 8
+          "count": 8,
+          "messagesFingerprint": "sha256:58cb45a7c98760b37ca72f9b393f0439094044867ba48f17d4ec9658fd4fa445"
         },
         "packages/client/src/components/campaign/maps/edit-map-dialog.test.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:fd5244828892d8bf0349cb7ae18c8be94f0fec8ad4a3e639bf717044bd44e513"
         },
         "packages/client/src/components/campaign/maps/fog-overlay.test.tsx": {
-          "count": 2
+          "count": 2,
+          "messagesFingerprint": "sha256:958b0962274ef74fd632399b1679fe9c3d2397fa582bbc7582ab7cb1745314cf"
         },
         "packages/client/src/components/campaign/maps/map-toolbar.test.tsx": {
-          "count": 4
+          "count": 4,
+          "messagesFingerprint": "sha256:3960d000205934c8834dc17f9787d80e1be192be2e185ffe7746a5b04cd0fda7"
         },
         "packages/client/src/components/campaign/maps/template-overlay.test.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:fd5244828892d8bf0349cb7ae18c8be94f0fec8ad4a3e639bf717044bd44e513"
         },
         "packages/client/src/components/campaign/npcs/monster-tab.test.tsx": {
-          "count": 4
+          "count": 4,
+          "messagesFingerprint": "sha256:3960d000205934c8834dc17f9787d80e1be192be2e185ffe7746a5b04cd0fda7"
         },
         "packages/client/src/components/campaign/tokens/token-sidebar.test.tsx": {
-          "count": 2
+          "count": 2,
+          "messagesFingerprint": "sha256:958b0962274ef74fd632399b1679fe9c3d2397fa582bbc7582ab7cb1745314cf"
         },
         "packages/client/src/components/character-create/steps/background-step.test.tsx": {
-          "count": 10
+          "count": 10,
+          "messagesFingerprint": "sha256:e044ba30eddea06f0a9472c17b1031ad4b14c2627c88ad352990de85a8197f94"
         },
         "packages/client/src/components/character-create/steps/class-step.test.tsx": {
-          "count": 10
+          "count": 10,
+          "messagesFingerprint": "sha256:e044ba30eddea06f0a9472c17b1031ad4b14c2627c88ad352990de85a8197f94"
         },
         "packages/client/src/components/character-create/steps/equipment-step.test.tsx": {
-          "count": 2
+          "count": 2,
+          "messagesFingerprint": "sha256:958b0962274ef74fd632399b1679fe9c3d2397fa582bbc7582ab7cb1745314cf"
         },
         "packages/client/src/components/character-create/steps/species-step.test.tsx": {
-          "count": 19
+          "count": 19,
+          "messagesFingerprint": "sha256:1dda5574754ce98443f554489b17b7ed0dbc79553d3fc319ae899007f2b4560f"
         },
         "packages/client/src/components/common/connection-status.test.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:fd5244828892d8bf0349cb7ae18c8be94f0fec8ad4a3e639bf717044bd44e513"
         },
         "packages/client/src/components/common/loading-spinner.test.tsx": {
-          "count": 5
+          "count": 5,
+          "messagesFingerprint": "sha256:f0e0b67f2941800878e227662d9b3d27123b10f0855fdd06920bf3729ee8e278"
         },
         "packages/client/src/components/common/paginated-result-list.test.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:fd5244828892d8bf0349cb7ae18c8be94f0fec8ad4a3e639bf717044bd44e513"
         },
         "packages/client/src/components/compendium/magic-item-list.test.tsx": {
-          "count": 6
+          "count": 6,
+          "messagesFingerprint": "sha256:6651ab9679d12c5e8627eb2d104394ec678ee46ddab2fd01f508bc6ce1761e95"
         },
         "packages/client/src/components/homebrew/entries/entry-dialog.test.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:fd5244828892d8bf0349cb7ae18c8be94f0fec8ad4a3e639bf717044bd44e513"
         },
         "packages/client/src/components/homebrew/shared/form-field-error.test.tsx": {
-          "count": 2
+          "count": 2,
+          "messagesFingerprint": "sha256:958b0962274ef74fd632399b1679fe9c3d2397fa582bbc7582ab7cb1745314cf"
         },
         "packages/client/src/components/homebrew/shared/homebrew-core-fields.test.tsx": {
-          "count": 2
+          "count": 2,
+          "messagesFingerprint": "sha256:958b0962274ef74fd632399b1679fe9c3d2397fa582bbc7582ab7cb1745314cf"
         },
         "packages/client/src/components/homebrew/shared/homebrew-text-field.test.tsx": {
-          "count": 2
+          "count": 2,
+          "messagesFingerprint": "sha256:958b0962274ef74fd632399b1679fe9c3d2397fa582bbc7582ab7cb1745314cf"
         },
         "packages/client/src/components/homebrew/shared/homebrew-textarea-field.test.tsx": {
-          "count": 2
+          "count": 2,
+          "messagesFingerprint": "sha256:958b0962274ef74fd632399b1679fe9c3d2397fa582bbc7582ab7cb1745314cf"
         },
         "packages/client/src/components/notifications/notification-bell.test.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:fd5244828892d8bf0349cb7ae18c8be94f0fec8ad4a3e639bf717044bd44e513"
         },
         "packages/client/src/components/notifications/notification-item.test.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:fd5244828892d8bf0349cb7ae18c8be94f0fec8ad4a3e639bf717044bd44e513"
         },
         "packages/client/src/components/notifications/notification-popover.test.tsx": {
-          "count": 2
+          "count": 2,
+          "messagesFingerprint": "sha256:958b0962274ef74fd632399b1679fe9c3d2397fa582bbc7582ab7cb1745314cf"
         },
         "packages/client/src/components/sheet/ability-scores.test.tsx": {
-          "count": 2
+          "count": 2,
+          "messagesFingerprint": "sha256:958b0962274ef74fd632399b1679fe9c3d2397fa582bbc7582ab7cb1745314cf"
         },
         "packages/client/src/components/sheet/character-sheet.test.tsx": {
-          "count": 2
+          "count": 2,
+          "messagesFingerprint": "sha256:958b0962274ef74fd632399b1679fe9c3d2397fa582bbc7582ab7cb1745314cf"
         },
         "packages/client/src/components/sheet/concentration-indicator.test.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:fd5244828892d8bf0349cb7ae18c8be94f0fec8ad4a3e639bf717044bd44e513"
         },
         "packages/client/src/components/sheet/saving-throws.test.tsx": {
-          "count": 3
+          "count": 3,
+          "messagesFingerprint": "sha256:0cb19fc87d7d6114a50cb1b452a1290502e52851efbc2b43cf1b9f9eac6f73a8"
         },
         "packages/client/src/components/sheet/skills-list.test.tsx": {
-          "count": 2
+          "count": 2,
+          "messagesFingerprint": "sha256:958b0962274ef74fd632399b1679fe9c3d2397fa582bbc7582ab7cb1745314cf"
         },
         "packages/client/src/components/sheet/spell-row.test.tsx": {
-          "count": 2
+          "count": 2,
+          "messagesFingerprint": "sha256:958b0962274ef74fd632399b1679fe9c3d2397fa582bbc7582ab7cb1745314cf"
         },
         "packages/client/src/components/sheet/spell-slot-pips.test.tsx": {
-          "count": 2
+          "count": 2,
+          "messagesFingerprint": "sha256:958b0962274ef74fd632399b1679fe9c3d2397fa582bbc7582ab7cb1745314cf"
         },
         "packages/client/src/components/vtt/drawer/tabs/stats-tab.test.tsx": {
-          "count": 2
+          "count": 2,
+          "messagesFingerprint": "sha256:958b0962274ef74fd632399b1679fe9c3d2397fa582bbc7582ab7cb1745314cf"
         }
       }
     },
@@ -595,10 +1139,12 @@
       "ruleSourceHash": "sha256:b7bfe351dbf81f24efc3eaebdb3d6a8ee934b9364f15c6629f79cc7013384297",
       "items": {
         "packages/client/src/components/campaign/maps/fog-overlay.test.tsx": {
-          "count": 5
+          "count": 5,
+          "messagesFingerprint": "sha256:742375b58c1b82418def7b2b01d9e418a68991a0e27a0d4528fdd8eb67b475df"
         },
         "packages/client/src/components/common/toast-provider.test.tsx": {
-          "count": 1
+          "count": 1,
+          "messagesFingerprint": "sha256:fe1ed1303fce89a56e5cbb6d3695afc5ed8a7b13c73b2f13d163ec048c196697"
         }
       }
     },

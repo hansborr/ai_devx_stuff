@@ -20,11 +20,18 @@ const FIXTURE_MAP = `# Fixture
 `;
 
 const MAP_PATH = "docs/agent_notes/lint-coverage-map.md";
+const SAFETY_ACKNOWLEDGED_PATH = "packages/server/prisma/migrations/.safety-acknowledged";
 const CLEAN_MAP = `# Fixture
 
 | Path / group | Files | Normal lint | Existing ratchet/floor | Parser/tool | Proposed rule/tool | Status | Blocker/follow-up |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | \`src/**/*.ts\` | 1 .ts | yes | none | ESLint | none | linted | — |
+| \`${MAP_PATH}\` | 1 .md | no | none | Markdown | none | not-code | — |
+`;
+const METADATA_ONLY_MAP = `# Fixture
+
+| Path / group | Files | Normal lint | Existing ratchet/floor | Parser/tool | Proposed rule/tool | Status | Blocker/follow-up |
+| --- | --- | --- | --- | --- | --- | --- | --- |
 | \`${MAP_PATH}\` | 1 .md | no | none | Markdown | none | not-code | — |
 `;
 const STAGED_DRIFTY_MAP = CLEAN_MAP.replace("`src/**/*.ts`", "`missing/**/*.ts`");
@@ -98,6 +105,22 @@ describe("runLintCoverageMapCheck", () => {
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain("docs/agent_notes/lint-coverage-map.md");
     expect(result.stderr.toLowerCase()).toContain("base dir");
+  });
+
+  it("reports migration safety metadata when its claimed map row is removed", async () => {
+    const result = await runLintCoverageMapCheck({
+      mapText: METADATA_ONLY_MAP,
+      trackedFiles: [MAP_PATH, SAFETY_ACKNOWLEDGED_PATH],
+      ratchetIds: new Set(),
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.findings).toContainEqual({
+      kind: "unaccounted-file",
+      value: SAFETY_ACKNOWLEDGED_PATH,
+    });
+    expect(result.stderr).toContain("- packages/server/prisma/migrations:");
+    expect(result.stderr).toContain(SAFETY_ACKNOWLEDGED_PATH);
   });
 
   it("emits ready-to-paste suggestions for unaccounted files under --suggest", async () => {

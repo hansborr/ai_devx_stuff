@@ -3,6 +3,8 @@ import type {
   LintRatchetMetricItem,
 } from "./lint-ratchet-metrics-types.js";
 
+const SHA256_HASH_PATTERN = /^sha256:[a-f0-9]{64}$/u;
+
 interface ParsedComplexityFunctionFields {
   readonly line?: number;
   readonly label?: string;
@@ -15,6 +17,21 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isNonNegativeInteger(value: unknown): value is number {
   return typeof value === "number" && Number.isInteger(value) && value >= 0;
+}
+
+function isSha256Hash(value: unknown): value is string {
+  return typeof value === "string" && SHA256_HASH_PATTERN.test(value);
+}
+
+function parseMessagesFingerprint(
+  value: unknown,
+  path: string,
+  failures: string[],
+): string | undefined {
+  if (value === undefined) return undefined;
+  if (isSha256Hash(value)) return value;
+  failures.push(`${path}.messagesFingerprint must be a sha256 hash`);
+  return undefined;
 }
 
 function parseComplexityFunctionLine(
@@ -117,6 +134,7 @@ export function parseMetricFields(
     failures.push(`${path}.maxComplexity must be a non-negative integer`);
     return undefined;
   }
+  const messagesFingerprint = parseMessagesFingerprint(rawItem.messagesFingerprint, path, failures);
   const perFunction =
     rawItem.perFunction === undefined
       ? undefined
@@ -125,5 +143,6 @@ export function parseMetricFields(
     ...(lines === undefined ? {} : { lines }),
     ...(maxComplexity === undefined ? {} : { maxComplexity }),
     ...(perFunction === undefined ? {} : { perFunction }),
+    ...(messagesFingerprint === undefined ? {} : { messagesFingerprint }),
   };
 }

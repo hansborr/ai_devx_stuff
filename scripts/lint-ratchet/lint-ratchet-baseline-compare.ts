@@ -3,10 +3,13 @@ import type {
   LintRatchetComparison,
   LintRatchetCurrentById,
   LintRatchetCurrentItem,
+  LintRatchetInfo,
   LintRatchetRegression,
 } from "./lint-ratchet-baseline.js";
 import type { LintRatchetConfig } from "./lint-ratchet-config.js";
 import { complexityDelta, type LintRatchetComplexityFunction } from "./lint-ratchet-metrics.js";
+import { equalCountMessageSwapInfo } from "./message-swap-info.js";
+import { collectRemovedPathImprovements } from "./removed-path-improvements.js";
 
 type LintRatchetBaselineTest = NonNullable<LintRatchetBaseline["tests"][string]>;
 type LintRatchetBaselineItem = NonNullable<LintRatchetBaselineTest["items"][string]>;
@@ -25,6 +28,7 @@ interface CurrentItemComparisonContext {
 interface ComparisonDeltas {
   readonly regressions: LintRatchetRegression[];
   readonly improvements: LintRatchetImprovement[];
+  readonly infos: LintRatchetInfo[];
 }
 
 function linePayload(line: number | undefined): Partial<Pick<LintRatchetRegression, "line">> {
@@ -204,6 +208,16 @@ function lowerComplexityImprovement(
 interface ComparedCurrentItem {
   readonly regression?: LintRatchetRegression;
   readonly improvement?: LintRatchetImprovement;
+  readonly info?: LintRatchetInfo;
+}
+
+function compareNonCountDeltas(context: CurrentItemComparisonContext): ComparedCurrentItem {
+  const lineImprovement = lowerLinesImprovement(context);
+  if (lineImprovement !== undefined) return { improvement: lineImprovement };
+  const complexityImprovement = lowerComplexityImprovement(context);
+  if (complexityImprovement !== undefined) return { improvement: complexityImprovement };
+  const info = equalCountMessageSwapInfo(context);
+  return info === undefined ? {} : { info };
 }
 
 function compareCurrentItemToBaseline(
@@ -232,10 +246,7 @@ function compareCurrentItemToBaseline(
   if (countRegression !== undefined) return { regression: countRegression };
   const countImprovement = countDecreaseImprovement(ratchet, path, current, baselineCount);
   if (countImprovement !== undefined) return { improvement: countImprovement };
-  const lineImprovement = lowerLinesImprovement(context);
-  if (lineImprovement !== undefined) return { improvement: lineImprovement };
-  const complexityImprovement = lowerComplexityImprovement(context);
-  return complexityImprovement === undefined ? {} : { improvement: complexityImprovement };
+  return compareNonCountDeltas(context);
 }
 
 function compareCurrentItemsToBaseline(
@@ -248,26 +259,7 @@ function compareCurrentItemsToBaseline(
     const compared = compareCurrentItemToBaseline(ratchet, test, path, current);
     if (compared.regression !== undefined) deltas.regressions.push(compared.regression);
     if (compared.improvement !== undefined) deltas.improvements.push(compared.improvement);
-  }
-}
-
-function collectRemovedPathImprovements(
-  ratchet: LintRatchetConfig,
-  test: LintRatchetBaselineTest,
-  currentItems: ReadonlyMap<string, LintRatchetCurrentItem>,
-  improvements: LintRatchetImprovement[],
-): void {
-  for (const [path, item] of Object.entries(test.items)) {
-    if (!currentItems.has(path)) {
-      improvements.push({
-        testId: ratchet.id,
-        ruleId: ratchet.ruleId,
-        path,
-        baselineCount: item.count,
-        currentCount: 0,
-        reason: "removed-path",
-      });
-    }
+    if (compared.info !== undefined) deltas.infos.push(compared.info);
   }
 }
 
@@ -287,14 +279,20 @@ export function compareCurrentToBaseline(
 ): LintRatchetComparison {
   const regressions: LintRatchetRegression[] = [];
   const improvements: LintRatchetImprovement[] = [];
+  const infos: LintRatchetInfo[] = [];
   for (const ratchet of ratchets) {
     const test = baseline.tests[ratchet.id];
     if (test === undefined) continue;
     const currentItems = currentById.get(ratchet.id) ?? new Map<string, LintRatchetCurrentItem>();
-    compareCurrentItemsToBaseline(ratchet, test, currentItems, { regressions, improvements });
+    compareCurrentItemsToBaseline(ratchet, test, currentItems, {
+      regressions,
+      improvements,
+      infos,
+    });
     collectRemovedPathImprovements(ratchet, test, currentItems, improvements);
   }
   regressions.sort(compareByTestIdThenPath);
   improvements.sort(compareByTestIdThenPath);
-  return { regressions, improvements };
+  infos.sort(compareByTestIdThenPath);
+  return { regressions, improvements, infos };
 }

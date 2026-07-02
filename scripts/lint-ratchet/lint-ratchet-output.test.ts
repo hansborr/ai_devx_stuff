@@ -64,6 +64,12 @@ interface RunResult {
 
 type EnvOverrides = Readonly<Record<string, string | undefined>>;
 
+interface FixtureRatchetConfigOptions {
+  readonly ratchetId?: string;
+  readonly files?: readonly string[];
+  readonly ignores?: readonly string[];
+}
+
 function copyRuntimeFile(fixtureRoot: string, relativePath: string): void {
   const target = join(fixtureRoot, relativePath);
   mkdirSync(dirname(target), { recursive: true });
@@ -86,7 +92,13 @@ function writeFixtureEslintConfig(fixtureRoot: string): void {
   );
 }
 
-function writeFixtureRatchetConfig(fixtureRoot: string): void {
+function writeFixtureRatchetConfig(
+  fixtureRoot: string,
+  options: FixtureRatchetConfigOptions = {},
+): void {
+  const ratchetId = options.ratchetId ?? "ratchet/fixture-no-debugger";
+  const files = options.files ?? ["packages/app/src/**/*.ts"];
+  const ignores = options.ignores ?? ["**/dist/**", "**/generated/**", "**/node_modules/**"];
   writeFileSync(
     join(fixtureRoot, "scripts/lint-ratchet/lint-ratchet-config.ts"),
     [
@@ -156,12 +168,12 @@ function writeFixtureRatchetConfig(fixtureRoot: string): void {
       "",
       "export const lintRatchets = [",
       "  {",
-      '    id: "ratchet/fixture-no-debugger",',
+      `    id: ${JSON.stringify(ratchetId)},`,
       '    ruleId: "no-debugger",',
       '    source: { kind: "core" },',
       '    parserProfile: "minimal-ts",',
-      '    files: ["packages/app/src/**/*.ts"],',
-      '    ignores: ["**/dist/**", "**/generated/**", "**/node_modules/**"],',
+      `    files: ${JSON.stringify(files)},`,
+      `    ignores: ${JSON.stringify(ignores)},`,
       "    ruleOptions: [],",
       '    mode: "no-new",',
       "    target: 0,",
@@ -188,19 +200,32 @@ function writeDebugSource(fixtureRoot: string): void {
   );
 }
 
+function writeDebugSourceAt(fixtureRoot: string, relativePath: string): void {
+  const sourcePath = join(fixtureRoot, relativePath);
+  mkdirSync(dirname(sourcePath), { recursive: true });
+  writeFileSync(sourcePath, "debugger;\nexport const value = 1;\n");
+}
+
 function initializeFixtureGitIndex(fixtureRoot: string): void {
   execFileSync("git", ["init", "-q"], { cwd: fixtureRoot });
   execFileSync("git", ["add", "-A"], { cwd: fixtureRoot });
 }
 
-function makeFixture(tmpRepo = perTestTmpRepo): string {
+function stageFixtureFiles(fixtureRoot: string): void {
+  execFileSync("git", ["add", "-A"], { cwd: fixtureRoot });
+}
+
+function makeFixture(
+  tmpRepo = perTestTmpRepo,
+  configOptions: FixtureRatchetConfigOptions = {},
+): string {
   const fixtureRoot = tmpRepo.makeTempRepo("lint-ratchet-output-");
   for (const runtimeFile of runtimeFiles) {
     copyRuntimeFile(fixtureRoot, runtimeFile);
   }
   writeFixturePackage(fixtureRoot);
   writeFixtureEslintConfig(fixtureRoot);
-  writeFixtureRatchetConfig(fixtureRoot);
+  writeFixtureRatchetConfig(fixtureRoot, configOptions);
   writeCleanSource(fixtureRoot);
   symlinkSync(join(repoRoot, "node_modules"), join(fixtureRoot, "node_modules"), "dir");
   symlinkSync(
@@ -243,6 +268,28 @@ function runLintRatchet(
 function seedCleanBaseline(fixtureRoot: string): void {
   const result = runLintRatchet(fixtureRoot, ["--update"]);
   expect(result.status, result.stderr).toBe(0);
+}
+
+function replaceFixtureRuleSourceHash(fixtureRoot: string): void {
+  const baselineFile = join(fixtureRoot, "lint-ratchet.baseline.json");
+  const original = readFileSync(baselineFile, "utf8");
+  const drifted = original.replace(
+    /"ruleSourceHash": "sha256:[a-f0-9]+"/u,
+    `"ruleSourceHash": "sha256:${"b".repeat(64)}"`,
+  );
+  expect(drifted).not.toBe(original);
+  writeFileSync(baselineFile, drifted);
+}
+
+function replaceFixtureMessageFingerprint(fixtureRoot: string): void {
+  const baselineFile = join(fixtureRoot, "lint-ratchet.baseline.json");
+  const original = readFileSync(baselineFile, "utf8");
+  const drifted = original.replace(
+    /"messagesFingerprint": "sha256:[a-f0-9]+"/u,
+    `"messagesFingerprint": "sha256:${"a".repeat(64)}"`,
+  );
+  expect(drifted).not.toBe(original);
+  writeFileSync(baselineFile, drifted);
 }
 
 function parseEnvelope(stdout: string): HarnessDiagnostics {
@@ -361,4 +408,200 @@ describe("lint ratchet diagnostics output file", () => {
     expect(result.status, result.stderr).toBe(0);
     expect(readFileSync(outputPath, "utf8")).toBe(result.stdout);
   });
+});
+
+describe("lint ratchet propose mode", () => {
+  it(
+    "prints a would-be baseline without writing the committed baseline",
+    { timeout: 15_000 },
+    () => {
+      const fixtureRoot = makeFixture();
+      writeDebugSource(fixtureRoot);
+      writeDebugSourceAt(fixtureRoot, "packages/app/src/untracked.ts");
+
+      const result = runLintRatchet(fixtureRoot, [
+        "--propose",
+        "no-debugger",
+        "packages/app/src/**/*.ts",
+      ]);
+
+      expect(result.status, result.stderr).toBe(0);
+      expect(result.stderr).toContain("lint:ratchet:propose no-debugger OK");
+      expect(result.stdout).toContain("file globs: packages/app/src/**/*.ts");
+      expect(result.stdout).toContain(
+        "ignore globs: **/dist/**, **/generated/**, **/node_modules/**",
+      );
+      expect(result.stdout).toContain("metric: message-count");
+      expect(result.stdout).toContain("rule options: []");
+      expect(result.stdout).toContain("files with findings: 1");
+      expect(result.stdout).toContain("total findings: 1");
+      expect(result.stdout).toContain("top files:");
+      expect(result.stdout).toContain("packages/app/src/example.ts: 1");
+      expect(result.stdout).not.toContain("packages/app/src/untracked.ts");
+      expect(result.stdout).toContain('"ratchet/propose"');
+      expect(result.stdout).toContain('"ruleId": "no-debugger"');
+      expect(result.stdout).toContain("ratchet/propose id, configHash, and ruleSourceHash");
+      expect(existsSync(join(fixtureRoot, "lint-ratchet.baseline.json"))).toBe(false);
+    },
+  );
+
+  it("applies propose ignore flags before collecting tracked files", { timeout: 15_000 }, () => {
+    const fixtureRoot = makeFixture();
+    writeDebugSource(fixtureRoot);
+
+    const result = runLintRatchet(fixtureRoot, [
+      "--propose",
+      "no-debugger",
+      "packages/app/src/**/*.ts",
+      "--ignore",
+      "packages/app/src/example.ts",
+    ]);
+
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain("ignore globs:");
+    expect(result.stdout).toContain("packages/app/src/example.ts");
+    expect(result.stdout).toContain("files with findings: 0");
+    expect(result.stdout).toContain("total findings: 0");
+  });
+});
+
+describe("lint ratchet rule-source drift output", () => {
+  it(
+    "classifies stale rule identity when current findings still match",
+    { timeout: 15_000 },
+    () => {
+      const fixtureRoot = makeFixture();
+      seedCleanBaseline(fixtureRoot);
+      replaceFixtureRuleSourceHash(fixtureRoot);
+
+      const result = runLintRatchet(fixtureRoot);
+
+      expect(result.status, result.stderr).toBe(1);
+      const envelope = parseEnvelope(result.stdout);
+      expect(envelope.summary.blocking).toBe(0);
+      expect(result.stderr).toContain("rule source identity drift only");
+      expect(result.stderr).toContain("current findings match");
+      expect(result.stderr).toContain("bun run lint:ratchet:update");
+    },
+  );
+
+  it(
+    "surfaces informational equal-count swaps while classifying stale rule identity",
+    { timeout: 15_000 },
+    () => {
+      const fixtureRoot = makeFixture();
+      writeDebugSource(fixtureRoot);
+      seedCleanBaseline(fixtureRoot);
+      replaceFixtureRuleSourceHash(fixtureRoot);
+      replaceFixtureMessageFingerprint(fixtureRoot);
+
+      const result = runLintRatchet(fixtureRoot);
+
+      expect(result.status, result.stderr).toBe(1);
+      const envelope = parseEnvelope(result.stdout);
+      expect(envelope.summary).toMatchObject({ blocking: 0, info: 1 });
+      expect(envelope.findings[0]?.reason).toBe("equal-count-message-swap");
+      expect(result.stderr).toContain("informational finding changes");
+      expect(result.stderr).not.toContain("current findings match");
+      expect(result.stderr).toContain("bun run lint:ratchet:update");
+    },
+  );
+
+  it(
+    "keeps reporting finding changes when stale rule identity changes results",
+    { timeout: 15_000 },
+    () => {
+      const fixtureRoot = makeFixture();
+      seedCleanBaseline(fixtureRoot);
+      replaceFixtureRuleSourceHash(fixtureRoot);
+      writeDebugSource(fixtureRoot);
+
+      const result = runLintRatchet(fixtureRoot);
+
+      expect(result.status, result.stderr).toBe(1);
+      const envelope = parseEnvelope(result.stdout);
+      expect(envelope.summary.blocking).toBe(1);
+      expect(result.stderr).toContain("rule source identity drift changed current findings");
+      expect(result.stderr).toContain("bun run lint:ratchet:update");
+    },
+  );
+});
+
+describe("lint ratchet update preflight", () => {
+  it("rejects empty ratchet globs before writing the baseline", { timeout: 15_000 }, () => {
+    const fixtureRoot = makeFixture(perTestTmpRepo, {
+      files: ["packages/app/src/missing/**/*.ts"],
+    });
+
+    const result = runLintRatchet(fixtureRoot, ["--update"]);
+
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("empty-glob");
+    expect(result.stderr).toContain("ratchet/fixture-no-debugger");
+    expect(existsSync(join(fixtureRoot, "lint-ratchet.baseline.json"))).toBe(false);
+  });
+
+  it(
+    "lets update account for orphaned baselines with an explicit worse-baseline reason",
+    {
+      timeout: 15_000,
+    },
+    () => {
+      const fixtureRoot = makeFixture(perTestTmpRepo, {
+        ratchetId: "ratchet/fixture-old-no-debugger",
+      });
+      seedCleanBaseline(fixtureRoot);
+      writeFixtureRatchetConfig(fixtureRoot, { ratchetId: "ratchet/fixture-no-debugger" });
+
+      const result = runLintRatchet(fixtureRoot, [
+        "--update",
+        "--allow-worse",
+        "--reason",
+        "Accept the fixture orphan so update can prove it owns baseline removals.",
+      ]);
+
+      expect(result.status, result.stderr).toBe(0);
+      expect(result.stderr).toContain("lint:ratchet:update OK");
+      expect(result.stderr).toContain("Recorded the debt acceptance");
+      expect(readFileSync(join(fixtureRoot, "lint-ratchet.baseline.json"), "utf8")).toContain(
+        '"ratchet/fixture-no-debugger"',
+      );
+    },
+  );
+});
+
+describe("lint ratchet tracked-file collection", () => {
+  it("ignores untracked files that match the ratchet glob", { timeout: 15_000 }, () => {
+    const fixtureRoot = makeFixture();
+    seedCleanBaseline(fixtureRoot);
+    writeDebugSourceAt(fixtureRoot, "packages/app/src/untracked-debug.ts");
+
+    const result = runLintRatchet(fixtureRoot);
+
+    expect(result.status, result.stderr).toBe(0);
+    expect(parseEnvelope(result.stdout).summary.blocking).toBe(0);
+  });
+
+  it(
+    "keeps explicitly ignored tracked files out of ratchet collection",
+    { timeout: 15_000 },
+    () => {
+      const fixtureRoot = makeFixture(perTestTmpRepo, {
+        ignores: [
+          "**/dist/**",
+          "**/generated/**",
+          "**/node_modules/**",
+          "packages/app/src/ignored.ts",
+        ],
+      });
+      writeDebugSourceAt(fixtureRoot, "packages/app/src/ignored.ts");
+      stageFixtureFiles(fixtureRoot);
+      seedCleanBaseline(fixtureRoot);
+
+      const result = runLintRatchet(fixtureRoot);
+
+      expect(result.status, result.stderr).toBe(0);
+      expect(parseEnvelope(result.stdout).summary.blocking).toBe(0);
+    },
+  );
 });

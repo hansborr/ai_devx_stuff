@@ -54,10 +54,8 @@ ai_resolve_edited_payload_path() {
 
   if [ "$(ai_edited_payload_tool_name "$payload")" = "apply_patch" ]; then
     candidate="$PWD/$path"
-    if [ -e "$candidate" ]; then
-      realpath "$candidate" 2>/dev/null || printf '%s\n' "$candidate"
-      return 0
-    fi
+    realpath -m "$candidate" 2>/dev/null || printf '%s\n' "$candidate"
+    return 0
   fi
 
   printf '%s\n' "$repo_root/$path"

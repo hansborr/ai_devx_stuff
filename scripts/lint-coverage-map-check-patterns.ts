@@ -8,7 +8,21 @@ const GLOB_META_PATTERN = /[*?{]/u;
 const DUPLICATE_EXTENSION_PATTERN = /\.([A-Za-z0-9]+)\.\1$/u;
 const GENERATED_DIR_PATTERN =
   /(?:^|\/)(?:node_modules|dist|build|coverage|\.next|\.bun|\.turbo|\.cache|tmp|temp)(?:\/|$)/u;
-const TRACKED_EXTENSION_PATTERN = /\.(?:ts|tsx|js|mjs|cjs|json|ya?ml|toml|sh|md|prisma|sql)$/u;
+const TRACKED_EXTENSION_PATTERN =
+  /\.(?:ts|tsx|js|mjs|cjs|json|jsonl|ya?ml|toml|sh|md|prisma|sql|css|html|csv|txt|pdf)$/u;
+const TRACKED_BASENAMES = new Set([
+  ".blob-size-allowlist",
+  ".env.example",
+  ".gitattributes",
+  ".gitignore",
+  ".prettierignore",
+  ".prettierrc",
+  ".safety-acknowledged",
+  ".worktreeinclude",
+  "LICENSE",
+  "bun.lock",
+]);
+const TRACKED_EXACT_PATHS = new Set(["docs/bugs"]);
 const ROOT_PATH_PREFIXES = new Set(["packages", "scripts", "docs", "e2e", "eslint-rules"]);
 const GLOBSTAR_WIDTH = 2;
 const GLOBSTAR_WITH_SLASH_WIDTH = 3;
@@ -144,5 +158,10 @@ function createMatcher(pattern: string): (file: string) => boolean {
 export function trackedFileIsInScope(file: string): boolean {
   if (GENERATED_DIR_PATTERN.test(file)) return false;
   if (file === "Dockerfile" || file.endsWith("/Dockerfile")) return true;
+  if (file.startsWith(".husky/") && !file.startsWith(".husky/_/")) return true;
+  if (TRACKED_EXACT_PATHS.has(file)) return true;
+  const slashIndex = file.lastIndexOf("/");
+  const basename = slashIndex < 0 ? file : file.slice(slashIndex + 1);
+  if (TRACKED_BASENAMES.has(basename)) return true;
   return TRACKED_EXTENSION_PATTERN.test(file);
 }

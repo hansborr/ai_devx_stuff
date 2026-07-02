@@ -13,6 +13,7 @@ import {
   RATCHET_REGRESSION_REASON_PLACEHOLDER,
   ratchetRegressionReasonFailure,
 } from "./recovery-command.js";
+import { baselineRatchets } from "./runtime-config.js";
 
 interface ZeroToNonzeroPath {
   readonly path: string;
@@ -72,7 +73,7 @@ export function collectOrphanRemovals(
   committed: LintRatchetBaseline,
   ratchets: readonly LintRatchetConfig[],
 ): readonly LintRatchetOrphanRemoval[] {
-  const registryIds = new Set(ratchets.map((ratchet) => ratchet.id));
+  const registryIds = new Set(baselineRatchets(ratchets).map((ratchet) => ratchet.id));
   const removals: LintRatchetOrphanRemoval[] = [];
   for (const testId of Object.keys(committed.tests).sort()) {
     if (registryIds.has(testId)) continue;

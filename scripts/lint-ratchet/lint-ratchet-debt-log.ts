@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 
 import { type LintRatchetDebtLogEntry, parseLintRatchetDebtLogEntry } from "./debt-log-schema.js";
 import { ConfigError } from "./lint-ratchet-metrics.js";
+import { escapeMarkdownTableCell } from "./markdown-escape.js";
 import { DEBT_LOG_FILENAME, debtLogPath } from "./paths.js";
 
 // Read-only markdown renderer for the committed debt log, mirroring
@@ -20,25 +21,12 @@ interface RunLintRatchetDebtLogReportOptions {
   readonly debtLogPath?: string;
 }
 
-// Every cell is repo-derived (paths, rule ids, function labels, the free-text
-// reason) and may contain |, <, >, backticks, or newlines, so escape them all —
-// not just the reason — to keep the markdown table well-formed and HTML-safe.
-function escapeCell(value: string): string {
-  return value
-    .replaceAll("\\", "\\\\")
-    .replaceAll("|", "\\|")
-    .replaceAll("`", "\\`")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll(/[\r\n]+/gu, " ");
-}
-
 function capText(value: string, max: number): string {
   return value.length <= max ? value : `${value.slice(0, max - 1)}…`;
 }
 
 function cell(value: string, max = MAX_FREE_TEXT_LENGTH): string {
-  return escapeCell(capText(value, max));
+  return escapeMarkdownTableCell(capText(value, max));
 }
 
 function regressionDelta(regression: DebtLogRegression): string {

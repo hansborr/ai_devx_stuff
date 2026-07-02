@@ -258,7 +258,7 @@ describe("parser error findings", () => {
 });
 
 describe("buildLintAgentEnvelope", () => {
-  it("sorts findings by control, path, then line and counts skipped non-local findings", () => {
+  it("sorts findings by control, path, then line and emits skipped non-local findings", () => {
     const ruleDocs = new Map([
       ["local/a-rule", docsEntry({ id: "local/a-rule", principle: "Keep a-rule actionable." })],
       ["local/z-rule", docsEntry({ id: "local/z-rule", principle: "Keep z-rule actionable." })],
@@ -288,20 +288,63 @@ describe("buildLintAgentEnvelope", () => {
 
     expect(result.skippedNonLocal).toBe(1);
     expect(
-      result.envelope.findings.map(({ control, path, line }) => ({ control, path, line })),
+      result.envelope.findings.map(({ control, path, line, ruleId, severity }) => ({
+        control,
+        path,
+        line,
+        ruleId,
+        severity,
+      })),
     ).toEqual([
-      { control: "lint/local/a-rule", path: "scripts/a.ts", line: 4 },
-      { control: "lint/local/z-rule", path: "scripts/a.ts", line: 2 },
-      { control: "lint/local/z-rule", path: "scripts/a.ts", line: 10 },
-      { control: "lint/local/z-rule", path: "scripts/b.ts", line: 1 },
+      {
+        control: "lint/local/a-rule",
+        path: "scripts/a.ts",
+        line: 4,
+        ruleId: "local/a-rule",
+        severity: "warn",
+      },
+      {
+        control: "lint/local/z-rule",
+        path: "scripts/a.ts",
+        line: 2,
+        ruleId: "local/z-rule",
+        severity: "block",
+      },
+      {
+        control: "lint/local/z-rule",
+        path: "scripts/a.ts",
+        line: 10,
+        ruleId: "local/z-rule",
+        severity: "block",
+      },
+      {
+        control: "lint/local/z-rule",
+        path: "scripts/b.ts",
+        line: 1,
+        ruleId: "local/z-rule",
+        severity: "block",
+      },
+      {
+        control: "lint/skipped-non-local",
+        path: "scripts/b.ts",
+        line: 3,
+        ruleId: "no-console",
+        severity: "info",
+      },
     ]);
+    expect(result.envelope.findings.at(-1)).toMatchObject({
+      why: "Non-local ESLint rule; no structured local-rule metadata is available.",
+      howToFix: "Run `bun run lint` for the full ESLint report and fix this finding there.",
+      repairKind: "manual",
+    });
     expect(result.envelope.summary).toEqual({
       blocking: 3,
       warning: 1,
-      info: 0,
+      info: 1,
       byControl: {
         "lint/local/a-rule": 1,
         "lint/local/z-rule": 3,
+        "lint/skipped-non-local": 1,
       },
     });
     expect(harnessDiagnosticsSchema.safeParse(result.envelope).success).toBe(true);

@@ -12,7 +12,7 @@ on the SRD 5.2.1 ruleset.
 
 `bun run` lists every script. Non-obvious ones:
 
-- `bun run verify:changed` — default verification (lint:changed, typecheck, test:changed, test:scripts:changed). Stage intended source-relevant changes first; changed verification intentionally aborts on unstaged or untracked source-relevant work.
+- `bun run verify:changed` — default manual verification when you need a pre-commit check (lint:changed, typecheck, test:changed, test:scripts:changed). Stage intended source-relevant changes first; changed verification intentionally aborts on unstaged or untracked source-relevant work.
 - `bun run --filter @musi/server db:migrate` / `prisma:generate` — schema change path; follow `docs/guides/add-prisma-migration.md`. `db:push` is local-only, never committed schema work.
 - `bun run --filter @musi/server db:{push,seed,reset,studio}` — local DB utilities; package filter required.
 - `bun run code:intel -- {def|exports|dependents|refs|tests} ...` — cross-file TypeScript symbol/import queries; resolves package exports, re-exports, and the client `@/*` alias. See `docs/guides/code-intel.md`.
@@ -39,6 +39,8 @@ on the SRD 5.2.1 ruleset.
 ## Workflow
 
 - Use TDD.
-- Use `feat/...` or `fix/...` branches and conventional commits. The local Husky `commit-msg` hook enforces: `<type>(<scope>): <subject>` with subject ≥ 20 chars, plus a non-empty body ≥ 40 chars.
-- Commit your work, which runs tests for you automatically.
+- Use `feat/...` or `fix/...` branches and conventional commits; if you start from `main`, branch before the first commit. The local Husky `commit-msg` hook enforces: `<type>(<scope>): <subject>` with subject ≥ 20 chars, plus a non-empty body ≥ 40 chars.
+- Commit completed work without asking first. Commit incrementally by logical unit; do not defer a large mixed change to the end.
+- Treat the commit gate as the normal verification step. While building, run focused tests for the files you change; run `verify:changed` directly only when you are not committing or when troubleshooting a gate failure.
+- Ask before push, PR creation, or branch integration. Integrate finished branches with a merge commit (`git merge --no-ff`) unless the user explicitly asks for a fast-forward.
 - Fast-commit mode (opt-in, off by default): `touch "$(git rev-parse --git-common-dir)/musi-fast-commit"` makes pre-commit skip only the slow `test`+`scripts` slots (lint, ratchet, typecheck, and format still run every commit) for cheap multi-commit feature branches; `rm` the marker to disable. Land such a branch with `bash scripts/land.sh`, which runs the full sequential `verify` (always every slot) and then `git merge --no-ff` into the protected branch.

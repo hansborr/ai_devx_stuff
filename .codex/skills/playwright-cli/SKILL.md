@@ -3,10 +3,10 @@ name: playwright-cli
 description: >-
   Automate browser interactions, inspect rendered pages, capture
   snapshots/screenshots, and run or debug Playwright tests with playwright-cli.
-  Use when Codex needs to drive a browser, verify web UI behavior, inspect page
-  state, manage browser storage/session state, debug Playwright tests, record
-  traces/videos, or generate Playwright test flows.
-allowed-tools: Bash(playwright-cli:*) Bash(npx:*) Bash(npm:*)
+  Use when driving a browser, verifying web UI behavior, inspecting page
+  state, managing browser storage/session state, debugging Playwright tests,
+  recording traces/videos, or generating Playwright test flows.
+allowed-tools: Bash(playwright-cli:*), Bash(npx:*), Bash(npm:*)
 ---
 
 # Browser Automation with playwright-cli
@@ -111,44 +111,11 @@ playwright-cli tab-select 0
 
 ### Storage
 
-```bash
-playwright-cli state-save
-playwright-cli state-save auth.json
-playwright-cli state-load auth.json
-
-# Cookies
-playwright-cli cookie-list
-playwright-cli cookie-list --domain=example.com
-playwright-cli cookie-get session_id
-playwright-cli cookie-set session_id abc123
-playwright-cli cookie-set session_id abc123 --domain=example.com --httpOnly --secure
-playwright-cli cookie-delete session_id
-playwright-cli cookie-clear
-
-# LocalStorage
-playwright-cli localstorage-list
-playwright-cli localstorage-get theme
-playwright-cli localstorage-set theme dark
-playwright-cli localstorage-delete theme
-playwright-cli localstorage-clear
-
-# SessionStorage
-playwright-cli sessionstorage-list
-playwright-cli sessionstorage-get step
-playwright-cli sessionstorage-set step 3
-playwright-cli sessionstorage-delete step
-playwright-cli sessionstorage-clear
-```
+For cookies, localStorage/sessionStorage, and saved browser state, read [references/storage-state.md](references/storage-state.md).
 
 ### Network
 
-```bash
-playwright-cli route "**/*.jpg" --status=404
-playwright-cli route "https://api.example.com/**" --body='{"mock": true}'
-playwright-cli route-list
-playwright-cli unroute "**/*.jpg"
-playwright-cli unroute
-```
+For request mocking and route management, read [references/request-mocking.md](references/request-mocking.md).
 
 ### DevTools
 
@@ -158,15 +125,11 @@ playwright-cli console warning
 playwright-cli network
 playwright-cli run-code "async page => await page.context().grantPermissions(['geolocation'])"
 playwright-cli run-code --filename=script.js
-playwright-cli tracing-start
-playwright-cli tracing-stop
-playwright-cli video-start video.webm
-playwright-cli video-chapter "Chapter Title" --description="Details" --duration=2000
-playwright-cli video-stop
 ```
 
-## Open parameters
+For trace replay, read [references/tracing.md](references/tracing.md); for video capture, read [references/video-recording.md](references/video-recording.md).
 
+## Open parameters
 ```bash
 # Use specific browser when creating session
 playwright-cli open --browser=chrome
@@ -247,21 +210,7 @@ playwright-cli click "getByTestId('submit-button')"
 
 ## Browser Sessions
 
-```bash
-# create new browser session named "mysession" with persistent profile
-playwright-cli -s=mysession open example.com --persistent
-# same with manually specified profile directory (use when requested explicitly)
-playwright-cli -s=mysession open example.com --profile=/path/to/profile
-playwright-cli -s=mysession click e6
-playwright-cli -s=mysession close  # stop a named browser
-playwright-cli -s=mysession delete-data  # delete user data for persistent session
-
-playwright-cli list
-# Close all browsers
-playwright-cli close-all
-# Forcefully kill all browser processes
-playwright-cli kill-all
-```
+For named sessions, persistent profiles, cleanup, and concurrent browser workflows, read [references/session-management.md](references/session-management.md).
 
 ## Installation
 
@@ -274,7 +223,7 @@ npx --no-install playwright-cli --version
 When local version is available, use `npx playwright-cli` in all commands. Otherwise, install `playwright-cli` as a global command:
 
 ```bash
-npm install -g @playwright/cli@latest
+npm install -g @playwright/cli@0.1.14
 ```
 
 ## Example: Form submission
@@ -290,46 +239,20 @@ playwright-cli snapshot
 playwright-cli close
 ```
 
-## Example: Multi-tab workflow
-
-```bash
-playwright-cli open https://example.com
-playwright-cli tab-new https://example.com/other
-playwright-cli tab-list
-playwright-cli tab-select 0
-playwright-cli snapshot
-playwright-cli close
-```
-
-## Example: Debugging with DevTools
-
-```bash
-playwright-cli open https://example.com
-playwright-cli click e4
-playwright-cli fill e7 "test"
-playwright-cli console
-playwright-cli network
-playwright-cli close
-```
-
-```bash
-playwright-cli open https://example.com
-playwright-cli tracing-start
-playwright-cli click e4
-playwright-cli fill e7 "test"
-playwright-cli tracing-stop
-playwright-cli close
-```
-
 ## Specific tasks
 
-- **Musi: inspect an authenticated route** [references/musi-auth.md](references/musi-auth.md)
-- **Running and Debugging Playwright tests** [references/playwright-tests.md](references/playwright-tests.md)
-- **Request mocking** [references/request-mocking.md](references/request-mocking.md)
-- **Running Playwright code** [references/running-code.md](references/running-code.md)
-- **Browser session management** [references/session-management.md](references/session-management.md)
-- **Storage state (cookies, localStorage)** [references/storage-state.md](references/storage-state.md)
-- **Test generation** [references/test-generation.md](references/test-generation.md)
-- **Tracing** [references/tracing.md](references/tracing.md)
-- **Video recording** [references/video-recording.md](references/video-recording.md)
-- **Inspecting element attributes** [references/element-attributes.md](references/element-attributes.md)
+### Musi-specific
+
+- Before driving any authenticated Musi route, read [references/musi-auth.md](references/musi-auth.md).
+
+### Generic workflows
+
+- If running or debugging Playwright tests, read [references/playwright-tests.md](references/playwright-tests.md).
+- If mocking network requests or changing route behavior, read [references/request-mocking.md](references/request-mocking.md).
+- If built-in commands cannot express the browser operation, read [references/running-code.md](references/running-code.md).
+- If managing multiple sessions, persistent profiles, or browser cleanup, read [references/session-management.md](references/session-management.md).
+- If login state or browser storage must survive across sessions, read [references/storage-state.md](references/storage-state.md).
+- If generating a Playwright test from a browser flow, read [references/test-generation.md](references/test-generation.md).
+- If a test fails and you need step-by-step replay, read [references/tracing.md](references/tracing.md).
+- If recording a browser flow for review or verification, read [references/video-recording.md](references/video-recording.md).
+- If inspecting ids, classes, data attributes, or other hidden element attributes, read [references/element-attributes.md](references/element-attributes.md).

@@ -57,3 +57,17 @@ be more explicit about contracts, invariants, and broadcasts.
 Run `bun run module:index` after adding, moving, renaming, or deleting a
 `*MODULE.md` orientation file. The generated root `MODULE-INDEX.md` is the
 quick cold-start map; the local module doc remains the source of truth.
+
+## Agent Standards Mapping
+
+`MODULE.md` and `<name>-MODULE.md` are this repo's nested-`AGENTS.md`
+equivalent: local orientation contracts that agents must read before editing a
+feature, service, hook, socket, or other subtle surface. The root `AGENTS.md`
+names that convention directly, and `MODULE-INDEX.md` keeps the inventory
+browsable without adding generated instruction stubs throughout the tree.
+
+Adopters whose agents rely only on native nested-`AGENTS.md` discovery can emit
+short generated `AGENTS.md` files that point to the local `MODULE.md` source of
+truth. Musi does not generate those stubs today because the active repo
+workflow already loads the root `AGENTS.md` instruction and no `.claude/` or
+`.codex/` config depends on native nested-`AGENTS.md` discovery.

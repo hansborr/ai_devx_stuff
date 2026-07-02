@@ -410,7 +410,7 @@ exit_code=$?
 set -e
 [ "$exit_code" -ne 0 ] || fail "verify --changed did not propagate failure"
 grep -qF 'Failed: typecheck' <<< "$output" || fail "summary missed Failed: typecheck"
-grep -qF 'Passed: lint ratchet zero-baseline coverage-map format-check test scripts' <<< "$output" \
+grep -qF 'Passed: lint ratchet zero-baseline knip-unused-exports coverage-map format-check test scripts' <<< "$output" \
   || fail "summary missed other passed parallel tasks"
 grep -qF 'verify:changed FAILED' <<< "$output" || fail "summary missed banner"
 [ -f "$MARKER_CHANGED" ] && fail "marker should not be written on failure"
@@ -698,7 +698,7 @@ exit_code=$?
 set -e
 [ "$exit_code" -ne 0 ] || fail "verify --parallel did not propagate failure"
 grep -qF 'Failed: typecheck' <<< "$output" || fail "parallel summary missed Failed: typecheck"
-grep -qF 'Passed: lint ratchet zero-baseline coverage-map format-check test scripts' <<< "$output" \
+grep -qF 'Passed: lint ratchet zero-baseline knip-unused-exports coverage-map format-check test scripts' <<< "$output" \
   || fail "parallel summary missed other passed tasks"
 grep -q 'bun run test ' "$STUB_LOG_FILE" \
   || fail "parallel verify should still run test after typecheck failure"

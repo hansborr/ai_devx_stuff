@@ -16,7 +16,7 @@
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 
 import type {
   ControlFailures,
@@ -37,6 +37,7 @@ import {
   validateRatchetEntry,
   validateSourceField,
 } from "./harness/harness-check-validation.js";
+import { loadLocalRuleConfig } from "./harness/local-rule-config.js";
 import { lintRatchets } from "./lint-ratchet/lint-ratchet-config.js";
 
 const PROCESS_ARG_OFFSET = 2;
@@ -86,6 +87,7 @@ const EXEMPT_SCRIPTS = new Set<string>([
   "lint:ratchet:report",
   "lint:ratchet:debt-log",
   "lint:ratchet:summary",
+  "lint:ratchet:trend",
   "lint:ratchet:install-merge-driver",
   // worktree provisioning utilities — dev ergonomics, not enforcement
   // gates. `worktree:status` is the read-only sensor and IS in the
@@ -100,50 +102,13 @@ const EXEMPT_SCRIPTS = new Set<string>([
   "harness:check",
 ]);
 
-interface LocalPlugin {
-  readonly rules: Record<string, { readonly meta?: { readonly docs?: unknown } }>;
-}
-
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const manifestPath = join(repoRoot, "harness.controls.json");
 const packageJsonPath = join(repoRoot, "package.json");
+const eslintConfigPath = join(repoRoot, "eslint.config.js");
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
-}
-
-function hasLocalRules(value: unknown): value is LocalPlugin {
-  if (!isObject(value)) return false;
-  return isObject(value.rules);
-}
-
-function blockLocalPlugin(block: unknown): LocalPlugin | undefined {
-  if (!isObject(block)) return undefined;
-  const plugins = block.plugins;
-  if (!isObject(plugins)) return undefined;
-  const local = plugins.local;
-  return hasLocalRules(local) ? local : undefined;
-}
-
-function findLocalPlugin(config: readonly unknown[]): LocalPlugin | undefined {
-  for (const block of config) {
-    const localPlugin = blockLocalPlugin(block);
-    if (localPlugin !== undefined) return localPlugin;
-  }
-  return undefined;
-}
-
-async function loadLocalRuleNames(): Promise<Set<string>> {
-  const configPath = join(repoRoot, "eslint.config.js");
-  const configModule: unknown = await import(pathToFileURL(configPath).href);
-  if (!isObject(configModule) || !Array.isArray(configModule.default)) {
-    throw new Error("eslint.config.js did not export a config array");
-  }
-  const localPlugin = findLocalPlugin(configModule.default);
-  if (localPlugin === undefined) {
-    throw new Error("Could not find local plugin in eslint.config.js");
-  }
-  return new Set(Object.keys(localPlugin.rules).map((id) => `local/${id}`));
 }
 
 function loadPackageScripts(): Map<string, string> {
@@ -214,7 +179,7 @@ function checkGeneratedFreshnessOutputs(failures: Map<string, ControlFailures>):
   );
   checkGeneratedFreshness(
     failures,
-    ".claude/settings.json + .codex/hooks.json",
+    ".claude/settings.json + .codex/hooks.json + .github/hooks/copilot.json",
     "scripts/harness/generate-hook-wiring.ts",
   );
   checkGeneratedFreshness(
@@ -233,7 +198,7 @@ function checkGeneratedHookWiringStructure(failures: Map<string, ControlFailures
   if (result.error !== undefined) {
     pushFailure(
       failures,
-      ".claude/settings.json + .codex/hooks.json",
+      ".claude/settings.json + .codex/hooks.json + .github/hooks/copilot.json",
       `failed to run ${scriptPath}: ${result.error.message}`,
     );
     return;
@@ -243,7 +208,7 @@ function checkGeneratedHookWiringStructure(failures: Map<string, ControlFailures
   const output = [result.stdout.trim(), result.stderr.trim()].filter((text) => text.length > 0);
   pushFailure(
     failures,
-    ".claude/settings.json + .codex/hooks.json",
+    ".claude/settings.json + .codex/hooks.json + .github/hooks/copilot.json",
     output.length > 0
       ? output.join("\n")
       : `${scriptPath} exited with status ${String(result.status)}`,
@@ -259,8 +224,17 @@ interface DeclaredControlSets {
 interface ManifestValidationState {
   readonly context: ManifestCheckContext;
   readonly ruleNames: ReadonlySet<string>;
+  readonly enabledLintRuleNames: ReadonlySet<string>;
   readonly ratchetIds: ReadonlySet<string>;
   readonly declared: DeclaredControlSets;
+}
+
+interface LintRuleInvocationValidation {
+  readonly raw: RawControl;
+  readonly id: string;
+  readonly ruleName: string;
+  readonly enabledLintRuleNames: ReadonlySet<string>;
+  readonly context: ManifestCheckContext;
 }
 
 function recordInvocationScript(
@@ -283,8 +257,21 @@ function recordInvocationScript(
   declaredScripts.add(scriptName);
 }
 
+function validateLintRuleInvocation(options: LintRuleInvocationValidation): void {
+  const { raw, id, ruleName, enabledLintRuleNames, context } = options;
+  if (!isNonEmptyString(raw.invocation)) return;
+  const scriptName = extractBunRunScript(raw.invocation);
+  if (scriptName !== "lint" && scriptName !== "lint:changed") return;
+  if (enabledLintRuleNames.has(ruleName)) return;
+  pushFailure(
+    context.failures,
+    id,
+    `invocation ${raw.invocation} claims normal ESLint coverage, but ${ruleName} is not enabled in eslint.config.js; use bun run lint:ratchet or enable the rule in flat config`,
+  );
+}
+
 function validateManifestControl(raw: RawControl, state: ManifestValidationState): void {
-  const { context, ruleNames, ratchetIds, declared } = state;
+  const { context, ruleNames, enabledLintRuleNames, ratchetIds, declared } = state;
   const shape = validateControlShape(raw, context.failures);
   if (shape === undefined) return;
   const { id, kind } = shape;
@@ -292,7 +279,16 @@ function validateManifestControl(raw: RawControl, state: ManifestValidationState
 
   if (kind === "lint-rule") {
     const lintEntry = validateLintRuleEntry(raw, id, ruleNames, context.failures);
-    if (lintEntry !== undefined) declared.rules.add(lintEntry.ruleName);
+    if (lintEntry !== undefined) {
+      declared.rules.add(lintEntry.ruleName);
+      validateLintRuleInvocation({
+        raw,
+        id,
+        ruleName: lintEntry.ruleName,
+        enabledLintRuleNames,
+        context,
+      });
+    }
     if (!isNonEmptyString(raw.invocation)) {
       pushFailure(context.failures, id, "invocation must be a non-empty string");
     }
@@ -315,7 +311,7 @@ async function main(): Promise<void> {
   }
 
   const controls = loadManifest();
-  const ruleNames = await loadLocalRuleNames();
+  const localRuleConfig = await loadLocalRuleConfig(eslintConfigPath);
   const failures = new Map<string, ControlFailures>();
   const context: ManifestCheckContext = { repoRoot, scripts: loadPackageScripts(), failures };
   const declared: DeclaredControlSets = {
@@ -326,10 +322,16 @@ async function main(): Promise<void> {
   const ratchetIds = new Set<string>(lintRatchets.map((ratchet) => ratchet.id));
 
   for (const raw of controls) {
-    validateManifestControl(raw, { context, ruleNames, ratchetIds, declared });
+    validateManifestControl(raw, {
+      context,
+      ruleNames: localRuleConfig.registeredRuleNames,
+      enabledLintRuleNames: localRuleConfig.enabledRuleNames,
+      ratchetIds,
+      declared,
+    });
   }
 
-  checkRuleParity(ruleNames, declared.rules, failures);
+  checkRuleParity(localRuleConfig.registeredRuleNames, declared.rules, failures);
   checkRatchetParity(ratchetIds, declared.ratchets, failures);
   checkGeneratedFreshnessOutputs(failures);
   checkGeneratedHookWiringStructure(failures);

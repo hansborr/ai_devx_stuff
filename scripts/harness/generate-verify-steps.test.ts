@@ -12,10 +12,18 @@ function readFixture(name: string): string {
   return readFileSync(join(fixtureRoot, name), "utf8");
 }
 
+// Point the fast-commit marker at a path that never exists so a developer's
+// opt-in marker in the real Git common dir cannot leak into these tests.
+const HERMETIC_ENV = {
+  ...process.env,
+  MUSI_FAST_COMMIT_MARKER: "/nonexistent/musi-fast-commit",
+};
+
 function runBash(script: string): string {
   const result = spawnSync("bash", ["-c", script], {
     cwd: process.cwd(),
     encoding: "utf8",
+    env: HERMETIC_ENV,
   });
   if (result.error !== undefined) throw result.error;
   expect(result.stderr).toBe("");
@@ -31,6 +39,7 @@ function runBashResult(script: string): {
   const result = spawnSync("bash", ["-c", script], {
     cwd: process.cwd(),
     encoding: "utf8",
+    env: HERMETIC_ENV,
   });
   if (result.error !== undefined) throw result.error;
   return { status: result.status, stdout: result.stdout, stderr: result.stderr };

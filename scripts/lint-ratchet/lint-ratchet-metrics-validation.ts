@@ -12,6 +12,8 @@ function validateEffectiveLineCountItem(
     failures.push(`${path}.maxComplexity is only valid for complexity-severity`);
   if (item.perFunction !== undefined)
     failures.push(`${path}.perFunction is only valid for complexity-severity`);
+  if (item.messagesFingerprint !== undefined)
+    failures.push(`${path}.messagesFingerprint is only valid for message-count`);
 }
 
 function validateComplexitySeverityItem(
@@ -25,6 +27,8 @@ function validateComplexitySeverityItem(
     failures.push(`${path}.perFunction is required for complexity-severity`);
   if (item.lines !== undefined)
     failures.push(`${path}.lines is only valid for effective-line-count`);
+  if (item.messagesFingerprint !== undefined)
+    failures.push(`${path}.messagesFingerprint is only valid for message-count`);
   if (item.perFunction !== undefined && item.perFunction.length !== item.count)
     failures.push(`${path}.perFunction length must equal count`);
   const maxComplexity = maxComplexityFor(item.perFunction);

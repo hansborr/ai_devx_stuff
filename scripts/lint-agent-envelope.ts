@@ -17,6 +17,7 @@ const ESLINT_SEVERITY_WARN = 1;
 const LOCAL_RULE_PREFIX = "local/";
 const LINT_CONTROL_PREFIX = "lint/";
 const PARSER_ERROR_CONTROL = "lint/parser-error";
+const SKIPPED_NON_LOCAL_CONTROL = "lint/skipped-non-local";
 // The schema tool id is stable; the preferred package script name is more explicit.
 const ENVELOPE_TOOL = "lint:agent";
 
@@ -146,6 +147,28 @@ export function buildFinding(
   return withRepair;
 }
 
+function buildSkippedNonLocalFinding(
+  message: ESLintMessage,
+  filePath: string,
+): HarnessFinding | undefined {
+  const ruleId = message.ruleId;
+  if (ruleId === null || ruleId.startsWith(LOCAL_RULE_PREFIX)) return undefined;
+  const path = relativePath(filePath);
+  const base = {
+    control: SKIPPED_NON_LOCAL_CONTROL,
+    severity: "info",
+    path,
+    ruleId,
+    why: "Non-local ESLint rule; no structured local-rule metadata is available.",
+    howToFix: "Run `bun run lint` for the full ESLint report and fix this finding there.",
+    repairKind: "manual",
+  } as const;
+  const withLocation = message.line !== undefined ? { ...base, line: message.line } : base;
+  return message.messageId !== undefined
+    ? { ...withLocation, messageId: message.messageId }
+    : withLocation;
+}
+
 export function compareLintAgentFindings(a: HarnessFinding, b: HarnessFinding): number {
   const controlCompare = a.control.localeCompare(b.control);
   if (controlCompare !== 0) return controlCompare;
@@ -164,8 +187,10 @@ export function buildLintAgentEnvelope(
     for (const message of file.messages) {
       const finding = buildFinding(message, file.filePath, ruleDocs);
       if (finding === undefined) {
-        if (message.ruleId !== null && !message.ruleId.startsWith(LOCAL_RULE_PREFIX)) {
+        const skippedFinding = buildSkippedNonLocalFinding(message, file.filePath);
+        if (skippedFinding !== undefined) {
           skippedNonLocal += 1;
+          findings.push(skippedFinding);
         }
         continue;
       }

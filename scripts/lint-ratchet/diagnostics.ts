@@ -14,9 +14,11 @@ import {
   type RuleDocsEntry,
 } from "../lib/lint-rule-docs.js";
 import { WorseBaselineError } from "./errors.js";
+import { buildInfoFinding } from "./info-diagnostics.js";
 import type {
   LintRatchetComparison,
   LintRatchetImprovement,
+  LintRatchetInfo,
   LintRatchetRegression,
 } from "./lint-ratchet-baseline.js";
 import type { LintRatchetConfig } from "./lint-ratchet-config.js";
@@ -24,6 +26,10 @@ import { ConfigError } from "./lint-ratchet-metrics.js";
 import { localRuleMessageHowToFixFor } from "./local-rule-fix-text.js";
 import { BASELINE_FILENAME, repoRoot } from "./paths.js";
 import { RATCHET_REGRESSION_UPDATE_COMMAND } from "./recovery-command.js";
+import {
+  buildReportOnlyFinding,
+  type LintRatchetReportOnlySummary,
+} from "./report-only-diagnostics.js";
 import { assertNever, ratchetSource } from "./runtime-config.js";
 
 const JSON_INDENT_SPACES = 2;
@@ -247,18 +253,41 @@ function buildImprovementFinding(improvement: LintRatchetImprovement): HarnessFi
   };
 }
 
+interface BuildEnvelopeOptions {
+  readonly regressions: readonly LintRatchetRegression[];
+  readonly improvements: readonly LintRatchetImprovement[];
+  readonly infos?: readonly LintRatchetInfo[];
+  readonly ruleDocsById: ReadonlyMap<string, RuleDocsEntry>;
+  readonly ratchets: readonly LintRatchetConfig[];
+  readonly reportOnlySummaries?: readonly LintRatchetReportOnlySummary[];
+}
+
+export function buildEnvelopeFromComparison(options: BuildEnvelopeOptions): HarnessDiagnostics {
+  const {
+    regressions,
+    improvements,
+    infos = [],
+    ruleDocsById,
+    ratchets,
+    reportOnlySummaries = [],
+  } = options;
+  const ratchetsById = new Map(ratchets.map((ratchet) => [ratchet.id, ratchet]));
+  const findings = [
+    ...regressions.map((regression) => buildFinding(regression, ruleDocsById, ratchetsById)),
+    ...improvements.map(buildImprovementFinding),
+    ...infos.map(buildInfoFinding),
+    ...reportOnlySummaries.map(buildReportOnlyFinding),
+  ];
+  return buildHarnessDiagnostics("lint:ratchet", findings);
+}
+
 export function buildEnvelope(
   regressions: readonly LintRatchetRegression[],
   improvements: readonly LintRatchetImprovement[],
   ruleDocsById: ReadonlyMap<string, RuleDocsEntry>,
   ratchets: readonly LintRatchetConfig[],
 ): HarnessDiagnostics {
-  const ratchetsById = new Map(ratchets.map((ratchet) => [ratchet.id, ratchet]));
-  const findings = [
-    ...regressions.map((regression) => buildFinding(regression, ruleDocsById, ratchetsById)),
-    ...improvements.map(buildImprovementFinding),
-  ];
-  return buildHarnessDiagnostics("lint:ratchet", findings);
+  return buildEnvelopeFromComparison({ regressions, improvements, ruleDocsById, ratchets });
 }
 
 export function validateEnvelope(envelope: HarnessDiagnostics): void {

@@ -33,8 +33,12 @@ runtime set first:
 - `scripts/lint-ratchet/lint-ratchet-metrics-validation.ts`
 - `scripts/lint-ratchet/lint-ratchet-output.ts`
 - `scripts/lint-ratchet/lint-ratchet-report.ts`
+- `scripts/lint-ratchet/markdown-escape.ts`
+- `scripts/lint-ratchet/propose.ts`
+- `scripts/lint-ratchet/report-only-diagnostics.ts`
 - `scripts/lint-ratchet/lint-ratchet-debt-log.ts`
 - `scripts/lint-ratchet/lint-ratchet-summary.ts`
+- `scripts/lint-ratchet/lint-ratchet-trend.ts`
 - `scripts/lint-ratchet/lint-ratchet-zero-baseline.ts`
 - `scripts/lib/lint-rule-docs.ts`, or a same-export stub when you are not using
   local rules
@@ -129,6 +133,15 @@ Minimum runtime file set:
 - `scripts/lint-ratchet/lint-ratchet-report.ts` - sibling helper that formats a captured
   harness-diagnostics envelope as a GitHub-flavored markdown report; it owns
   the `LINT_RATCHET_REPORT_ARTIFACT_URL` env-var contract.
+- `scripts/lint-ratchet/markdown-escape.ts` - shared GFM text/table-cell escaping
+  used by the report and debt-log renderers so rule messages, paths, and
+  operator-provided text do not break sticky PR comments.
+- `scripts/lint-ratchet/propose.ts` - sibling helper for
+  `--propose <ruleId> <glob...>` dry runs; it builds a synthetic single-rule
+  ratchet, runs ESLint once, and prints a would-be baseline without writing the
+  registry or committed baseline.
+- `scripts/lint-ratchet/report-only-diagnostics.ts` - sibling helper that turns report-only
+  ratchet current totals into non-blocking info diagnostics.
 - `scripts/lint-ratchet/lint-ratchet-debt-log.ts` - read-only renderer for the committed
   `lint-ratchet.debt-log.jsonl` acceptance log; the runner imports it to dispatch
   `--debt-log`, and it pairs with the `scripts/lint-ratchet/debt-log-schema.ts`
@@ -137,6 +150,9 @@ Minimum runtime file set:
   portable `scripts/lint-ratchet/` directory.
 - `scripts/lint-ratchet/lint-ratchet-summary.ts` - sibling helper that prints a per-ratchet
   baseline summary table without running ESLint.
+- `scripts/lint-ratchet/lint-ratchet-trend.ts` - sibling helper that walks
+  `lint-ratchet.baseline.json` git history and prints first/current/min/max
+  baseline totals without running ESLint.
 - `scripts/lint-ratchet/lint-ratchet-zero-baseline.ts` - sibling helper that audits
   committed zero-baseline ratchets against normal ESLint's resolved config and
   prints a lifecycle report.
@@ -162,9 +178,12 @@ under `node_modules/.cache/eslint-ratchet/`. Package-manager script aliases can
 change freely, but Yarn PnP, global tool installs, and custom cache roots need
 runtime changes.
 
-Registry preflight and lifecycle checks are Git-tracked-file based. They call
-`git ls-files`, so new source files must be tracked before empty-glob,
-coverage-map, and zero-baseline checks can prove anything about them.
+Registry preflight, collection, and lifecycle checks are Git-tracked-file based.
+They call `git ls-files`, then expand each ratchet with the shared
+`ratchet-globs.ts` matcher before invoking ESLint with explicit paths. New
+source files must be tracked before empty-glob, collection, coverage-map, and
+zero-baseline checks can prove anything about them; untracked matching files are
+not counted by the ratchet gate.
 
 The ratchet runner writes isolated ESLint configs for each registry entry. It
 does not reuse the project's full flat config and toggle one rule. Rules that
@@ -217,13 +236,15 @@ Substitutable bits:
   `scripts/lint-ratchet/lint-ratchet-report.ts`. If you rename it, update that constant and
   every workflow `env:` key that still exports the old literal name; otherwise
   the runner silently omits the `Artifact:` line.
-- Registry preflight: default `lint:ratchet` starts by running the same
-  registry preflight as `lint:ratchet:check-registry`, including
-  `registry-shape`, `empty-glob`, `absolute-path`, and `orphan-baseline`
-  failures. Keep `lint:ratchet:check-registry` as a fast standalone
-  setup/debug command when you want those labels without a full ESLint
-  collection; CI does not need a separate visible step if `lint:ratchet` is
-  already a gate.
+- Registry preflight: default `lint:ratchet`, `lint:ratchet:update`, and
+  `lint:ratchet:check-baseline` start by running the same registry preflight as
+  `lint:ratchet:check-registry`, including `registry-shape`, `empty-glob`,
+  `absolute-path`, and harness-manifest failures. `lint:ratchet:update` skips
+  only `orphan-baseline` preflight failures, because its update gate owns
+  explicit orphan removal through `--allow-worse` or `--retire-ratchet`. Keep
+  `lint:ratchet:check-registry` as a fast standalone setup/debug command when
+  you want those labels without a full ESLint collection; CI does not need a
+  separate visible step if `lint:ratchet` is already a gate.
 
 ### Coverage Map Gate
 
@@ -480,7 +501,23 @@ plugin allowlisting, complexity-severity vectors, and rule-source hashing.
   baseline in either direction: regressions above the floor, or improvements
   below the floor because the current findings are lower than the baseline.
   Improvements enter the envelope as blocking harness findings with the
-  recovery command in `howToFix`.
+  recovery command in `howToFix`. Registry entries with `mode: "report-only"`
+  are collected during this run but never fail the gate: they emit one
+  `info`-severity finding with the current total and are excluded from the
+  committed baseline. `mode: "ratchet-down"` remains reserved.
+- `bun run lint:ratchet -- --propose <ruleId> <glob...>` is a dry run for a
+  candidate core ESLint rule or `local/<rule-name>` rule. It builds an ad-hoc
+  single-entry ratchet in memory, filters the provided globs through the same
+  Git-tracked-file matcher used by update/check mode, and prints the file
+  count, total findings, top offending files, and would-be baseline JSON. Use
+  repeatable `--ignore <glob>`, `--metric <message-count|effective-line-count|complexity-severity>`,
+  and `--rule-options '<json-array>'` after the file globs to mirror the real
+  registry entry before promoting it. The preview never edits
+  `lint-ratchet-config.ts` or `lint-ratchet.baseline.json`; the printed
+  `ratchet/propose` id plus `configHash` and `ruleSourceHash` are synthetic
+  preview fields, so copy only the rule config fields into the registry and run
+  `bun run lint:ratchet:update` for the real baseline. Third-party rules are
+  intentionally deferred to a future `--plugin` option.
 - `bun run lint:ratchet:check-registry` validates the ratchet registry, the
   `files`/`ignores` globs, and the committed baseline ids without running
   ESLint. In Musi, it also reads `harness.controls.json` when present and
@@ -490,17 +527,27 @@ plugin allowlisting, complexity-severity vectors, and rule-source hashing.
   baseline. On failure it prints adopter-friendly `<kind>: <message>` lines and
   exits non-zero, where `<kind>` includes `registry-shape`, `empty-glob`,
   `absolute-path`, `orphan-baseline`, and `missing-harness-ratchet`. Default
-  `lint:ratchet` invokes the same preflight before collection; keep this
-  standalone command for setup/debug runs where you want the registry check
-  without the ESLint pass. When `lint-ratchet.baseline.json` does not yet exist,
-  the orphan-baseline check is a no-op, so the command remains useful before
-  the first baseline is generated.
+  `lint:ratchet`, `lint:ratchet:update`, and `lint:ratchet:check-baseline`
+  invoke the same preflight before collection; update mode filters only
+  `orphan-baseline` so the worse-baseline gate can account for intentional
+  renames/removals. Keep this standalone command for setup/debug runs where you
+  want the registry check without the ESLint pass. When
+  `lint-ratchet.baseline.json` does not yet exist, the orphan-baseline check is
+  a no-op, so the command remains useful before the first baseline is generated.
 - `bun run lint:ratchet:check-baseline` validates that
   `lint-ratchet.baseline.json` is deterministic, still matches the ratchet
   registry, and enforces the same strict gate in both directions. It exits
   non-zero on regressions or improvements and names the affected paths. CI does
   not need this after `lint:ratchet`, because it repeats the same current
   collection and baseline comparison without the diagnostics envelope.
+- `bun run lint:ratchet:check-debt-accounting` compares the current committed
+  baseline to the merge-base version from `origin/main` (falling back to the
+  first parent when needed). Any per-path baseline increase with the same
+  ratchet `configHash` must have a same-range `lint-ratchet.debt-log.jsonl`
+  regression entry for the same `(testId, path)`. This catches hand-edited
+  baseline floors that would otherwise bypass `--allow-worse --reason`; initial
+  ratchet adoption and config-scope changes are exempt because their floors are
+  not comparable to the base snapshot.
 - `bun run lint:ratchet:summary` reads the committed
   `lint-ratchet.baseline.json` and prints a per-ratchet table without running
   ESLint. It is informational only: it never fails on findings and never
@@ -509,7 +556,16 @@ plugin allowlisting, complexity-severity vectors, and rule-source hashing.
   files for every metric, so `complexity-severity` rows show the number of
   findings rather than a `maxComplexity` aggregate. Use it to spot which
   ratchets carry the most debt without diffing the committed baseline JSON by
-  hand.
+  hand. Add `--by-directory [depth]` to group each ratchet's remaining findings
+  by repo-relative directory prefix; the default depth is `3` (for example
+  `packages/client/src`), and rows sort largest-first within each ratchet.
+- `bun run lint:ratchet:trend` walks `git log` for
+  `lint-ratchet.baseline.json`, structurally parses each historical baseline,
+  and prints first/current/min/max finding totals per ratchet. It is
+  informational only and never runs ESLint. Use `--since <date>` or `--max <n>`
+  to narrow the history window. Historical baseline blobs that cannot be parsed
+  are skipped with a warning instead of failing the command; ratchet id renames
+  appear as one series ending and another starting.
 - `bun run lint:ratchet:zero-baseline` reads the committed baseline, finds
   ratchets with zero findings, expands their registry globs against
   `git ls-files`, and compares the same rule/options against normal ESLint's
@@ -535,9 +591,14 @@ plugin allowlisting, complexity-severity vectors, and rule-source hashing.
   uploaded diagnostics artifact.
 - `bun run lint:ratchet:update` is the recovery for an improvement failure: it
   rewrites the baseline from the current tree to the tighter counts and metrics.
-  No `--allow-worse` flag is needed because lowering the baseline is not
-  worsening it. If a rename or intentional policy change makes the generated
-  baseline worse, use:
+  It runs registry preflight before rewriting and fails on broken/empty globs,
+  absolute paths, or missing harness controls; only orphan-baseline preflight
+  failures are deferred to update's own accounting path. No `--allow-worse` flag
+  is needed because lowering the baseline is not worsening it. Report-only
+  ratchets are intentionally omitted from generated baselines; promote them to
+  `mode: "no-new"` before running update when the current inventory should
+  become a committed floor. If a rename or intentional policy change makes the
+  generated baseline worse, use:
 
   ```sh
   bun run lint:ratchet:update -- --allow-worse \
@@ -591,18 +652,27 @@ Both committed ratchet files declare explicit merge semantics in
   appended entries is arbitrary; nothing reads the log positionally.
 - `/lint-ratchet.baseline.json merge=lint-ratchet-baseline` — the baseline is
   derived from the source tree, so no textual merge of two baselines is ever
-  correct. The custom driver prints the resolution recipe, keeps the 'ours'
-  side in the working tree (still valid JSON, never conflict markers), and
-  declares a conflict whenever both sides touched it.
+  correct. The custom driver first attempts a three-way semantic merge. It
+  keeps one-sided ratchet entry changes from either side, and when both sides
+  changed the same ratchet entry with matching metadata it takes the lower
+  per-path floor while treating a missing path as fully drained. If that
+  semantic merge cannot resolve safely, the driver falls back to the manual
+  resolution recipe, keeps the 'ours' side in the working tree (still valid
+  JSON, never conflict markers), and declares a conflict.
 
 Both patterns are anchored to the repo root so a same-named fixture committed
 under a test directory never picks up these merge semantics. The driver fires
-for every operation that uses the merge machinery, not just `git merge`:
-during `git merge` and `git cherry-pick` the kept 'ours' side is the current
-branch, but during `git rebase` the sides are swapped — the kept version is
-the upstream base, not the branch being rebased.
+for every operation that uses the merge machinery, not just `git merge`. The
+semantic merge rules are symmetric in the two sides, so rebase side-swapping
+does not matter when the driver resolves automatically. The side-swap warning
+still matters on fallback: during `git merge` and `git cherry-pick` the kept
+'ours' side is the current branch, but during `git rebase` the sides are
+swapped — the kept version is the upstream base, not the branch being rebased.
 
-Every developer and agent clone must install the local driver config once:
+The repo installs the local driver config automatically from `prepare`, the
+checkout/merge hooks, and `worktree:init`. Run the installer manually as the
+recovery path if a clone predates that automation, package scripts were skipped,
+or a health check reports stale local merge-driver state:
 
 ```sh
 bun run lint:ratchet:install-merge-driver
@@ -617,16 +687,31 @@ transition window. The installed command resolves the Git common directory at
 merge time, so linked worktrees do not keep pointing at whichever checkout ran
 the installer.
 
-Installation is intentionally manual rather than chained from `prepare` or
-`worktree:new`: package lifecycle scripts and worktree provisioning should not
-silently mutate a developer's local Git config. Rerun the installer after
-pulling changes to the ratchet merge attributes or driver scripts; local
-`.git/info/attributes` entries override in-tree `.gitattributes` until they are
-refreshed.
+Automatic installation follows the existing Husky `prepare` precedent for
+local Git config writes: it is idempotent, silent when the installed driver,
+config entries, and info-attributes block are already current, and degrades to a
+warning rather than breaking dependency install. The checkout and merge hooks
+rerun the same cheap check so pulling driver or attribute changes refreshes
+local state before the next merge operation.
 
-To resolve a baseline conflict, never hand-edit the file. The kept version is
-only a placeholder; the real resolution is regeneration against the merged
-tree. The driver prints this same recipe when the conflict is created:
+After a completed merge touches `lint-ratchet.baseline.json`, the post-merge
+hook runs a cheap baseline truth-up and escalates to
+`bun run lint:ratchet:check-baseline` only when needed or when
+`MUSI_RATCHET_POSTMERGE=full` is set. If that local advisory is skipped or
+misses a bad merge result, CI remains the blocking backstop: pull requests and
+pushes to `main` run `bun run lint:ratchet` and
+`bun run lint:ratchet:zero-baseline`.
+
+When the semantic merge succeeds, Git uses the merged baseline and continues.
+The post-merge truth-up is the local backstop for the strict-min case where the
+merged source tree is actually worse than the lower floor the driver preserved;
+run `bun run lint:ratchet:update` and amend the merge if the hook reports a
+stale or invalid baseline.
+
+When the driver falls back and creates a baseline conflict, never hand-edit the
+file. The kept version is only a placeholder; the real resolution is
+regeneration against the merged tree. The driver prints this same recipe when
+the conflict is created:
 
 1. Resolve every other conflict in the merge first; leave the baseline as git
    left it (the kept 'ours' version).
@@ -665,11 +750,11 @@ the 'ours' baseline placeholder
 (`git checkout --ours -- lint-ratchet.baseline.json`), then continue the recipe
 above.
 
-Keeping only the 'ours' side discards the other side's floors before
-regeneration, so the update command compares only against the kept side. That is
-why the both-sides baseline diff check above is part of the required conflict
-recipe: when both sides locked improvements, reviewers need to confirm the
-merged code preserved them or that any loss was intentional.
+On fallback, keeping only the 'ours' side discards the other side's floors
+before regeneration, so the update command compares only against the kept side.
+That is why the both-sides baseline diff check above is part of the required
+conflict recipe: when both sides locked improvements, reviewers need to confirm
+the merged code preserved them or that any loss was intentional.
 
 Merge attributes are read from the tree that is checked out, not from the
 branch being merged in, so branches created before the `.gitattributes`
@@ -770,9 +855,14 @@ that metric to the committed item for exact agreement: higher values are
 regressions, lower values are improvements, and either direction must be handled
 through the commands above.
 
-- `message-count` stores per-file `{ "count": N }`; the diagnostic count is
-  the compared value. This remains the default for bug-class and finding-class
-  rules where each new violation is already a separate ESLint diagnostic.
+- `message-count` stores per-file `{ "count": N }` plus an optional
+  `messagesFingerprint` on newly generated baselines. The diagnostic count is
+  the gating compared value. The fingerprint is the SHA-256 of the sorted
+  `messageId`-or-message list for that file, excluding line numbers; when the
+  count is unchanged but the fingerprint differs, `lint:ratchet` emits an
+  informational finding instead of failing. Message text can change across rule
+  or plugin upgrades, and that is intentionally visible as finding-set churn to
+  review before refreshing the baseline.
 - `effective-line-count` is reserved for `local/max-lines`. It stores
   `{ "count": 1, "lines": N }` for each over-limit file. The count comparison
   catches added or removed over-limit files, while `lines` catches an
@@ -844,12 +934,23 @@ plugin version, or ESLint package version invalidate cached findings
 automatically. Metric-only changes update the baseline identity but intentionally
 do not churn generated ESLint config bytes or cache paths.
 
+Default mode has one extra diagnostic path for stale `ruleSourceHash` entries:
+when stale rule-source identity is the only strict-parse failure, it still
+collects current findings against the structurally valid committed baseline.
+The gate remains non-zero until `bun run lint:ratchet:update` refreshes the
+hash, but the message distinguishes identity-only drift from upgrades that also
+changed the finding set.
+
 ESLint's per-file cache is only used for `minimal-ts` ratchets. `type-aware-ts`
 ratchets intentionally omit `--cache` because ESLint's cache key follows direct
 source bytes, not imported type dependencies; a schema type edit can otherwise
 leave an unchanged consumer file with a stale clean result. The tradeoff is that
 type-aware ratchets re-lint their full scope on every run, so cold and warm
 runtime are expected to be similar.
+
+Full collection runs isolated ratchet ESLint invocations through a bounded pool
+with default concurrency 3. Set `AI_RATCHET_COLLECT_CONCURRENCY` to an integer
+`>= 1` when a local or CI runner needs a different memory/runtime tradeoff.
 
 Normal ESLint follows the same safety policy: `bun run lint`,
 `bun run lint:changed`, and `bun run lint:fix` deliberately do not pass

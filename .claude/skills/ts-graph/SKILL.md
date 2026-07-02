@@ -4,11 +4,11 @@ description: >-
   Resolve cross-file TypeScript symbol, import, export, dependent, reference,
   and covering-test relationships with `bun run code:intel` across
   packages/shared, packages/server, packages/client, and scripts. Use when
-  Codex needs exact TypeScript graph answers such as where a symbol is defined,
+  exact TypeScript graph answers are needed, such as where a symbol is defined,
   what a file exports, who imports a file, where a symbol is referenced, or
   which tests likely cover a file; do not use for in-file lookups, free-text
   searches, or verification gates.
-allowed-tools: Bash(bun run code:intel --*) Bash(bun run code:intel:*)
+allowed-tools: Bash(bun run code:intel --*), Bash(bun run code:intel:*)
 ---
 
 # TS Graph
@@ -33,4 +33,4 @@ Key reminders:
 - `tests` returns candidates, not proof.
 - Use `--format json` when machine-readable output helps.
 
-Full CLI reference: [`docs/guides/code-intel.md`](../../../docs/guides/code-intel.md).
+Read [`docs/guides/code-intel.md`](../../../docs/guides/code-intel.md) before using flags not shown above, or when a query returns empty or ambiguous results.

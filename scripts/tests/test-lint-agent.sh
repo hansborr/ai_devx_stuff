@@ -5,7 +5,8 @@
 # - happy path emits a schema-valid envelope on a clean tree (zero findings, exit 0);
 # - a known local-rule violation produces a finding with the expected control,
 #   severity, repair kind, and how-to-fix, and the run exits 1;
-# - non-local findings are skipped and counted in the stderr summary.
+# - non-local findings are surfaced as info disclosures and counted in the
+#   stderr summary.
 set -euo pipefail
 
 cd "$(dirname "$0")/../.."
@@ -270,8 +271,12 @@ echo "$VIO_JSON" | bun -e '
   const env = JSON.parse(fs.readFileSync(0, "utf8"));
   if (env.version !== "1") { console.error("bad version"); process.exit(1); }
   if (env.tool !== "lint:agent") { console.error("bad tool"); process.exit(1); }
-  if (!Array.isArray(env.findings) || env.findings.length !== 6) {
-    console.error("expected 6 local findings, got", env.findings?.length); process.exit(1);
+  if (!Array.isArray(env.findings) || env.findings.length !== 7) {
+    console.error("expected 7 findings, got", env.findings?.length); process.exit(1);
+  }
+  const localFindings = env.findings.filter((f) => f.control.startsWith("lint/local/"));
+  if (localFindings.length !== 6) {
+    console.error("expected 6 local findings, got", localFindings.length); process.exit(1);
   }
   const byControl = Object.fromEntries(env.findings.map((f) => [f.control, f]));
   const manual = byControl["lint/local/always-flag-manual"];
@@ -318,9 +323,23 @@ echo "$VIO_JSON" | bun -e '
     console.error("suggestion fallback leaked invisible repair text:", suggestionFallback.howToFix); process.exit(1);
   }
 
+  const skippedNonLocal = byControl["lint/skipped-non-local"];
+  if (!skippedNonLocal) { console.error("missing skipped non-local finding"); process.exit(1); }
+  if (skippedNonLocal.severity !== "info") { console.error("skipped non-local severity wrong"); process.exit(1); }
+  if (skippedNonLocal.ruleId !== "no-var") { console.error("skipped non-local ruleId wrong:", skippedNonLocal.ruleId); process.exit(1); }
+  if (skippedNonLocal.path !== "src/buggy.js") { console.error("skipped non-local path wrong:", skippedNonLocal.path); process.exit(1); }
+  if (skippedNonLocal.line !== 1) { console.error("skipped non-local line wrong:", skippedNonLocal.line); process.exit(1); }
+  if (skippedNonLocal.repairKind !== "manual") { console.error("skipped non-local repairKind wrong"); process.exit(1); }
+  if (skippedNonLocal.why !== "Non-local ESLint rule; no structured local-rule metadata is available.") {
+    console.error("skipped non-local why wrong:", skippedNonLocal.why); process.exit(1);
+  }
+  if (skippedNonLocal.howToFix !== "Run `bun run lint` for the full ESLint report and fix this finding there.") {
+    console.error("skipped non-local howToFix wrong:", skippedNonLocal.howToFix); process.exit(1);
+  }
+
   if (env.summary.blocking !== 5) { console.error("blocking count wrong:", env.summary.blocking); process.exit(1); }
   if (env.summary.warning !== 1) { console.error("warning count wrong:", env.summary.warning); process.exit(1); }
-  if (env.summary.info !== 0) { console.error("info count wrong"); process.exit(1); }
+  if (env.summary.info !== 1) { console.error("info count wrong:", env.summary.info); process.exit(1); }
   const byControlCounts = env.summary.byControl;
   if (byControlCounts["lint/local/always-flag-manual"] !== 1) { console.error("byControl manual wrong"); process.exit(1); }
   if (byControlCounts["lint/local/always-flag-manual-how"] !== 1) { console.error("byControl manual-how wrong"); process.exit(1); }
@@ -328,6 +347,7 @@ echo "$VIO_JSON" | bun -e '
   if (byControlCounts["lint/local/always-flag-autofix"] !== 1) { console.error("byControl autofix wrong"); process.exit(1); }
   if (byControlCounts["lint/local/always-flag-suggestion"] !== 1) { console.error("byControl suggestion wrong"); process.exit(1); }
   if (byControlCounts["lint/local/always-flag-suggestion-fallback"] !== 1) { console.error("byControl suggestion fallback wrong"); process.exit(1); }
+  if (byControlCounts["lint/skipped-non-local"] !== 1) { console.error("byControl skipped non-local wrong"); process.exit(1); }
 '
 
 if ! grep -q "skipped 1 non-local finding" "$TMP_ROOT/violations.err"; then

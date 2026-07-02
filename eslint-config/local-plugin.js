@@ -9,8 +9,11 @@ import noBarrel from "../eslint-rules/no-barrel.js";
 import noBroadcastInTransaction from "../eslint-rules/no-broadcast-in-transaction.js";
 import noExplicitAny from "../eslint-rules/no-explicit-any.js";
 import noLlmArtifacts from "../eslint-rules/no-llm-artifacts.js";
+import noOuterClientInTransaction from "../eslint-rules/no-outer-client-in-transaction.js";
+import noPlainErrorInTrpc from "../eslint-rules/no-plain-error-in-trpc.js";
 import noRedundantCentralMock from "../eslint-rules/no-redundant-central-mock.js";
 import noSwallowedErrors from "../eslint-rules/no-swallowed-errors.js";
+import socketListenerCleanup from "../eslint-rules/socket-listener-cleanup.js";
 import socketRegistryBroadcasts from "../eslint-rules/socket-registry-broadcasts.js";
 import strictSharedSchemas from "../eslint-rules/strict-shared-schemas.js";
 import strictTrpcInput from "../eslint-rules/strict-trpc-input.js";
@@ -30,8 +33,11 @@ export const localPlugin = {
     "no-barrel": noBarrel,
     "no-explicit-any": noExplicitAny,
     "no-llm-artifacts": noLlmArtifacts,
+    "no-outer-client-in-transaction": noOuterClientInTransaction,
+    "no-plain-error-in-trpc": noPlainErrorInTrpc,
     "no-redundant-central-mock": noRedundantCentralMock,
     "no-swallowed-errors": noSwallowedErrors,
+    "socket-listener-cleanup": socketListenerCleanup,
     "type-assertion-boundary": typeAssertionBoundary,
     "e2e-prefer-role-selectors": e2ePreferRoleSelectors,
     "no-broadcast-in-transaction": noBroadcastInTransaction,

@@ -1,3 +1,4 @@
 #!/usr/bin/env bash
+bash "$(dirname "$0")/../scripts/git/install-lint-ratchet-merge-driver.sh"
 . "$(dirname "$0")/../scripts/worktree-drift-hook.sh"
 musi_worktree_drift_hook "post-checkout" "$@"

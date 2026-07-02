@@ -13,6 +13,10 @@ AI_STOP_ASYNC_STATE_ROOT="${MUSI_VERIFY_ASYNC_STATE_ROOT:-/tmp/musi-verify-async
 AI_STOP_VERIFY_KILL_SWITCH=".no-stop-verify-changed"
 AI_STOP_VERIFY_LEGACY_KILL_SWITCH=".no-stop-verify"
 AI_STOP_VERIFY_MAX_NOTIFY="${AI_STOP_VERIFY_MAX_NOTIFY:-2}"
+AI_STOP_LINT_WARNINGS_KILL_SWITCH=".no-stop-lint-warnings"
+AI_TIDY_STOP_WARNING_FILE_CAP="${AI_TIDY_STOP_WARNING_FILE_CAP:-10}"
+AI_TIDY_STOP_WARNING_RULE_CAP="${AI_TIDY_STOP_WARNING_RULE_CAP:-${AI_TIDY_WARNING_RULE_CAP:-5}}"
+AI_STOP_HARD_MARKER_NAME="musi-stop-hard"
 
 ai_stop_repo_key() {
   local repo_root="$1"
@@ -20,10 +24,23 @@ ai_stop_repo_key() {
   printf '%s' "$repo_root" | sha256sum | awk '{print $1}'
 }
 
+ai_stop_scoped_repo_key() {
+  local repo_root="$1"
+  local scope="${2:-}"
+
+  if [ -z "$scope" ]; then
+    ai_stop_repo_key "$repo_root"
+    return 0
+  fi
+
+  printf 'repo=%s\nscope=%s' "$repo_root" "$scope" | sha256sum | awk '{print $1}'
+}
+
 ai_stop_marker_path() {
   local repo_root="$1"
+  local scope="${2:-}"
 
-  printf '%s/last.%s' "$AI_STOP_STATE_DIR" "$(ai_stop_repo_key "$repo_root")"
+  printf '%s/last.%s' "$AI_STOP_STATE_DIR" "$(ai_stop_scoped_repo_key "$repo_root" "$scope")"
 }
 
 ai_stop_has_uncommitted_changes() {
@@ -90,6 +107,42 @@ ai_stop_current_branch() {
   printf '%s' "$branch"
 }
 
+ai_stop_hard_marker_path() {
+  local repo_root="$1"
+  local git_dir
+
+  git_dir=$(git -C "$repo_root" rev-parse --git-dir 2>/dev/null) || return 1
+  case "$git_dir" in
+    /*) ;;
+    *) git_dir="$repo_root/$git_dir" ;;
+  esac
+
+  printf '%s/%s' "$git_dir" "$AI_STOP_HARD_MARKER_NAME"
+}
+
+ai_stop_hard_enabled() {
+  local repo_root="$1"
+  local marker
+
+  marker=$(ai_stop_hard_marker_path "$repo_root") || return 1
+  [ -f "$marker" ]
+}
+
+ai_stop_hard_mode_trailer() {
+  local repo_root="$1"
+  local marker
+
+  marker=$(ai_stop_hard_marker_path "$repo_root") || marker="$AI_STOP_HARD_MARKER_NAME"
+  printf 'hard-stop mode is on (marker: %s). Fix this condition, create the matching .no-stop-* kill switch, or remove the marker to return Stop reminders to advisory mode.' "$marker"
+}
+
+ai_stop_append_hard_mode_trailer() {
+  local repo_root="$1"
+  local message="$2"
+
+  printf '%s\n\n%s' "$message" "$(ai_stop_hard_mode_trailer "$repo_root")"
+}
+
 ai_stop_dirty_message() {
   local branch="$1"
   local repo_root="$2"
@@ -116,11 +169,12 @@ ai_stop_commit_reminder_disabled() {
 
 ai_stop_commit_reminder() {
   local repo_root="$1"
+  local scope="${2:-}"
   local marker fp branch
 
   git -C "$repo_root" rev-parse --is-inside-work-tree >/dev/null 2>&1 || return 1
 
-  marker=$(ai_stop_marker_path "$repo_root")
+  marker=$(ai_stop_marker_path "$repo_root" "$scope")
   if ai_stop_commit_reminder_disabled "$repo_root"; then
     rm -f "$marker"
     return 1
@@ -141,6 +195,28 @@ ai_stop_commit_reminder() {
 
   ai_stop_write_marker "$marker" "$fp" "$branch" || true
   ai_stop_dirty_message "$branch" "$repo_root"
+}
+
+ai_stop_commit_hard_reminder() {
+  local repo_root="$1"
+  local branch message marker
+
+  git -C "$repo_root" rev-parse --is-inside-work-tree >/dev/null 2>&1 || return 1
+
+  marker=$(ai_stop_marker_path "$repo_root")
+  if ai_stop_commit_reminder_disabled "$repo_root"; then
+    rm -f "$marker"
+    return 1
+  fi
+
+  if ! ai_stop_has_uncommitted_changes "$repo_root"; then
+    rm -f "$marker"
+    return 1
+  fi
+
+  branch=$(ai_stop_current_branch "$repo_root")
+  message=$(ai_stop_dirty_message "$branch" "$repo_root")
+  ai_stop_append_hard_mode_trailer "$repo_root" "$message"
 }
 
 ai_stop_e2e_disabled() {
@@ -443,7 +519,8 @@ ai_stop_verify_disabled() {
 
 ai_stop_verify_counter_path() {
   local repo_root="$1"
-  printf '%s/verify.%s' "$AI_STOP_STATE_DIR" "$(ai_stop_repo_key "$repo_root")"
+  local scope="${2:-}"
+  printf '%s/verify.%s' "$AI_STOP_STATE_DIR" "$(ai_stop_scoped_repo_key "$repo_root" "$scope")"
 }
 
 ai_stop_verify_read_counter() {
@@ -580,8 +657,11 @@ ai_stop_verify_failing_gates() {
 # whose fingerprint no longer matches is treated as stale and skipped silently.
 ai_stop_verify_status() {
   local repo_root="$1"
+  local scope="${2:-}"
+  local repeat_mode="${3:-soft}"
   local log_dir wrapper fp recorded_fp head mode exit_code counter count
   local source_label current_head failing_gates first_line
+  local suffix
 
   ai_stop_verify_disabled "$repo_root" && return 1
   git -C "$repo_root" rev-parse --is-inside-work-tree >/dev/null 2>&1 || return 1
@@ -610,7 +690,7 @@ ai_stop_verify_status() {
     serial-verify-changed|parallel-verify-changed) fp=$(ai_staged_fingerprint "$repo_root") ;;
     *) return 1 ;;
   esac
-  counter=$(ai_stop_verify_counter_path "$repo_root")
+  counter=$(ai_stop_verify_counter_path "$repo_root" "$scope")
 
   if [ "$recorded_fp" != "$fp" ]; then
     return 1
@@ -621,18 +701,22 @@ ai_stop_verify_status() {
     return 1
   fi
 
-  count=1
-  if ai_stop_verify_read_counter "$counter" \
-    && [ "$AI_STOP_VERIFY_COUNTER_MODE" = "$mode" ] \
-    && [ "$AI_STOP_VERIFY_COUNTER_FP" = "$fp" ] \
-    && [ "$AI_STOP_VERIFY_COUNTER_EXIT" = "$exit_code" ]; then
-    if [ "$AI_STOP_VERIFY_COUNTER_COUNT" -ge "$AI_STOP_VERIFY_MAX_NOTIFY" ]; then
-      return 1
+  if [ "$repeat_mode" = "hard" ]; then
+    count=0
+  else
+    count=1
+    if ai_stop_verify_read_counter "$counter" \
+      && [ "$AI_STOP_VERIFY_COUNTER_MODE" = "$mode" ] \
+      && [ "$AI_STOP_VERIFY_COUNTER_FP" = "$fp" ] \
+      && [ "$AI_STOP_VERIFY_COUNTER_EXIT" = "$exit_code" ]; then
+      if [ "$AI_STOP_VERIFY_COUNTER_COUNT" -ge "$AI_STOP_VERIFY_MAX_NOTIFY" ]; then
+        return 1
+      fi
+      count=$((AI_STOP_VERIFY_COUNTER_COUNT + 1))
     fi
-    count=$((AI_STOP_VERIFY_COUNTER_COUNT + 1))
-  fi
 
-  ai_stop_verify_write_counter "$counter" "$mode" "$fp" "$exit_code" "$count" || true
+    ai_stop_verify_write_counter "$counter" "$mode" "$fp" "$exit_code" "$count" || true
+  fi
 
   case "$mode" in
     parallel-precommit) source_label="cached pre-commit" ;;
@@ -647,16 +731,235 @@ ai_stop_verify_status() {
     first_line="$source_label run is failing (exit $exit_code at $head). Inspect: bun run verify:logs"
   fi
 
-  printf '%s\n\n%s' \
-    "$first_line" \
-    "If you intentionally need to leave this verification red, stop again; this reminder will not repeat more than $AI_STOP_VERIFY_MAX_NOTIFY times for the same change set. Disable entirely with: touch $repo_root/$AI_STOP_VERIFY_KILL_SWITCH"
+  if [ "$repeat_mode" = "hard" ]; then
+    suffix=$(ai_stop_hard_mode_trailer "$repo_root")
+  else
+    suffix="If you intentionally need to leave this verification red, stop again; this reminder will not repeat more than $AI_STOP_VERIFY_MAX_NOTIFY times for the same change set. Disable entirely with: touch $repo_root/$AI_STOP_VERIFY_KILL_SWITCH"
+  fi
+
+  printf '%s\n\n%s' "$first_line" "$suffix"
+}
+
+ai_stop_subagent_scope_key() {
+  local payload="$1"
+  local session_id agent_id agent_type
+
+  session_id=$(ai_payload_session_id "$payload")
+  agent_id=$(printf '%s' "$payload" | jq -r '.agent_id // .agentId // empty' 2>/dev/null || true)
+  agent_type=$(printf '%s' "$payload" | jq -r '.agent_type // .agentType // empty' 2>/dev/null || true)
+
+  if [ -n "$session_id" ] && [ -n "$agent_id" ]; then
+    printf 'session:%s:agent:%s' "$session_id" "$agent_id"
+    return 0
+  fi
+  if [ -n "$agent_id" ]; then
+    printf 'agent:%s' "$agent_id"
+    return 0
+  fi
+  if [ -n "$session_id" ] && [ -n "$agent_type" ]; then
+    printf 'session:%s:agent-type:%s' "$session_id" "$agent_type"
+  fi
+}
+
+ai_stop_append_message() {
+  local current="$1"
+  local next_message="$2"
+
+  if [ -n "$current" ]; then
+    printf '%s\n\n%s' "$current" "$next_message"
+  else
+    printf '%s' "$next_message"
+  fi
+}
+
+ai_stop_positive_int_or_default() {
+  local value="$1"
+  local default="$2"
+
+  if ai_is_integer "$value" && [ "$value" -ge 1 ]; then
+    printf '%s' "$value"
+  else
+    printf '%s' "$default"
+  fi
+}
+
+ai_stop_lint_warnings_file_cap() {
+  ai_stop_positive_int_or_default "$AI_TIDY_STOP_WARNING_FILE_CAP" 10
+}
+
+ai_stop_lint_warnings_rule_cap() {
+  ai_stop_positive_int_or_default "$AI_TIDY_STOP_WARNING_RULE_CAP" 5
+}
+
+ai_stop_lint_warnings_disabled() {
+  local repo_root="$1"
+
+  [ -f "$repo_root/$AI_STOP_LINT_WARNINGS_KILL_SWITCH" ]
+}
+
+ai_stop_lint_warning_eslint_supported() {
+  local path="$1"
+
+  case "${path,,}" in
+    *.js|*.jsx|*.mjs|*.cjs|*.ts|*.tsx|*.mts|*.cts|*.json|*.jsonc|*.json5)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+ai_stop_lint_warning_changed_paths() {
+  local repo_root="$1"
+  local path
+
+  {
+    git -C "$repo_root" diff -z --name-only --diff-filter=ACMR HEAD 2>/dev/null || true
+    git -C "$repo_root" diff -z --cached --name-only --diff-filter=ACMR 2>/dev/null || true
+    git -C "$repo_root" ls-files -z --others --exclude-standard 2>/dev/null || true
+  } | sort -zu | while IFS= read -r -d '' path; do
+    [ -n "$path" ] || continue
+    [ -f "$repo_root/$path" ] || continue
+    ai_stop_lint_warning_eslint_supported "$path" || continue
+    printf '%s\0' "$path"
+  done
+}
+
+ai_stop_lint_warning_branch() {
+  local repo_root="$1"
+
+  git -C "$repo_root" symbolic-ref --quiet --short HEAD 2>/dev/null \
+    || git -C "$repo_root" rev-parse --short HEAD 2>/dev/null \
+    || printf 'unknown'
+}
+
+ai_stop_lint_warning_rule_summary() {
+  local json="$1"
+  local cap="$2"
+
+  printf '%s' "$json" | jq -r --argjson cap "$cap" '
+    [.[].messages[] | select(.severity == 1) | (.ruleId // "(unknown rule)")]
+    | sort
+    | group_by(.)
+    | map({rule: .[0], count: length})
+    | sort_by(.rule)
+    | sort_by(-.count)
+    | .[0:$cap]
+    | map("\(.rule): \(.count)")
+    | join(", ")
+  ' 2>/dev/null || true
+}
+
+ai_stop_lint_warning_path_summary() {
+  local -n paths_ref="$1"
+  local out="" path
+
+  for path in "${paths_ref[@]}"; do
+    if [ -n "$out" ]; then
+      out="$out, $path"
+    else
+      out="$path"
+    fi
+  done
+  printf '%s' "$out"
+}
+
+ai_stop_lint_warnings_reminder() {
+  local repo_root="$1"
+  local marker fp branch file_cap rule_cap skipped json warning_count rules paths_text
+  local -a paths=()
+  local -a capped_paths=()
+
+  ai_stop_lint_warnings_disabled "$repo_root" && return 1
+  git -C "$repo_root" rev-parse --is-inside-work-tree >/dev/null 2>&1 || return 1
+
+  fp=$(ai_worktree_fingerprint "$repo_root")
+  branch=$(ai_stop_lint_warning_branch "$repo_root")
+  marker=$(ai_stop_marker_path "$repo_root" "lint-warnings")
+  if ai_stop_read_marker "$marker" \
+     && [ "$AI_STOP_MARKER_FP" = "$fp" ] \
+     && [ "$AI_STOP_MARKER_BRANCH" = "$branch" ]; then
+    return 1
+  fi
+
+  while IFS= read -r -d '' path; do
+    paths+=("$path")
+  done < <(ai_stop_lint_warning_changed_paths "$repo_root")
+
+  if [ "${#paths[@]}" -eq 0 ]; then
+    rm -f "$marker"
+    return 1
+  fi
+
+  file_cap=$(ai_stop_lint_warnings_file_cap)
+  rule_cap=$(ai_stop_lint_warnings_rule_cap)
+  for path in "${paths[@]}"; do
+    [ "${#capped_paths[@]}" -lt "$file_cap" ] || break
+    capped_paths+=("$path")
+  done
+  skipped=$((${#paths[@]} - ${#capped_paths[@]}))
+
+  json=$(cd "$repo_root" && node_modules/.bin/eslint -f json --no-warn-ignored "${capped_paths[@]}" 2>/dev/null) || return 1
+  [ -n "$json" ] || return 1
+  warning_count=$(printf '%s' "$json" | jq '[.[].warningCount] | add // 0' 2>/dev/null) || return 1
+  case "$warning_count" in
+    ''|*[!0-9]*) return 1 ;;
+  esac
+
+  if [ "$warning_count" -le 0 ]; then
+    rm -f "$marker"
+    return 1
+  fi
+
+  ai_stop_write_marker "$marker" "$fp" "$branch" || true
+  rules=$(ai_stop_lint_warning_rule_summary "$json" "$rule_cap")
+  paths_text=$(ai_stop_lint_warning_path_summary capped_paths)
+
+  printf 'tidy-edited-file: changed files have %s eslint warning(s) that block `bun run lint`: %s\n' \
+    "$warning_count" "$rules"
+  printf 'Changed files scanned: %s\n' "$paths_text"
+  if [ "$skipped" -gt 0 ]; then
+    printf '%s changed eslint-supported file(s) not scanned due to Stop hook cap %s.\n' \
+      "$skipped" "$file_cap"
+  fi
+  printf 'Run `bun run lint` for the full lint output.'
+}
+
+ai_stop_policy_messages_subagent() {
+  local repo_root="$1"
+  local payload="$2"
+  local scope messages="" next_message
+
+  scope=$(ai_stop_subagent_scope_key "$payload")
+
+  if next_message=$(ai_stop_commit_reminder "$repo_root" "$scope"); then
+    messages=$(ai_stop_append_message "$messages" "$next_message")
+  fi
+
+  if next_message=$(ai_stop_verify_status "$repo_root" "$scope"); then
+    messages=$(ai_stop_append_message "$messages" "$next_message")
+  fi
+
+  [ -n "$messages" ] || return 1
+  printf '%s' "$messages"
 }
 
 ai_stop_policy_messages() {
   local repo_root="$1"
   local messages="" next_message
+  local hard_stop=0
 
-  if next_message=$(ai_stop_commit_reminder "$repo_root"); then
+  if ai_stop_hard_enabled "$repo_root"; then
+    hard_stop=1
+  fi
+
+  if [ "$hard_stop" -eq 1 ]; then
+    next_message=$(ai_stop_commit_hard_reminder "$repo_root") || next_message=""
+  else
+    next_message=$(ai_stop_commit_reminder "$repo_root") || next_message=""
+  fi
+  if [ -n "$next_message" ]; then
     messages="$next_message"
   fi
 
@@ -680,7 +983,22 @@ $next_message"
     fi
   fi
 
-  if next_message=$(ai_stop_verify_status "$repo_root"); then
+  if [ "$hard_stop" -eq 1 ]; then
+    next_message=$(ai_stop_verify_status "$repo_root" "" hard) || next_message=""
+  else
+    next_message=$(ai_stop_verify_status "$repo_root") || next_message=""
+  fi
+  if [ -n "$next_message" ]; then
+    if [ -n "$messages" ]; then
+      messages="$messages
+
+$next_message"
+    else
+      messages="$next_message"
+    fi
+  fi
+
+  if next_message=$(ai_stop_lint_warnings_reminder "$repo_root"); then
     if [ -n "$messages" ]; then
       messages="$messages
 

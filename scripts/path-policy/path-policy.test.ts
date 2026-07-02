@@ -83,6 +83,8 @@ describe("PATH_POLICY known path surfaces", () => {
 
     expect(matchesAny(".codex/hooks.json", selectors)).toBe(true);
     expect(matchesAny(".codex/hooks/custom.json", selectors)).toBe(true);
+    expect(matchesAny(".github/hooks/copilot.json", selectors)).toBe(true);
+    expect(matchesAny(".copilot/hooks/pre-tool-use.sh", selectors)).toBe(true);
     expect(matchesAny(".playwright/cli.config.json", selectors)).toBe(true);
     expect(matchesAny("packages/server/src/index.ts", selectors)).toBe(true);
     expect(matchesAny("eslint-config/shared-policy.js", selectors)).toBe(true);
@@ -105,9 +107,18 @@ describe("PATH_POLICY known path surfaces", () => {
       true,
     );
     expect(matchesAny(".husky/pre-commit", PATH_POLICY.shellSurfaces.maintained)).toBe(true);
+    expect(matchesAny(".copilot/hooks/pre-tool-use.sh", PATH_POLICY.shellSurfaces.maintained)).toBe(
+      true,
+    );
     expect(matchesAny(".codex/hooks/pre-tool-use.sh", PATH_POLICY.shellSurfaces.maintained)).toBe(
       true,
     );
+    expect(
+      matchesAny(
+        ".claude/skills/codex-cli/scripts/codex-run.sh",
+        PATH_POLICY.shellSurfaces.maintained,
+      ),
+    ).toBe(true);
     expect(matchesAny(".devcontainer/setup.sh", PATH_POLICY.shellSurfaces.maintained)).toBe(true);
 
     expect(matchesAny(".github/workflows/ci.yml", PATH_POLICY.configSurfaces.workflowYaml)).toBe(

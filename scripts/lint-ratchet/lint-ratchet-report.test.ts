@@ -90,6 +90,39 @@ describe("lint ratchet report", () => {
     expect(report).toContain(REGRESSION_RECOVERY_FOOTER);
   });
 
+  it("escapes markdown-sensitive finding text, paths, and artifact names", () => {
+    const report = formatHarnessDiagnosticsReport(
+      envelope([
+        {
+          ...baseFinding,
+          control: "ratchet/x`tick`|<control>",
+          path: "packages/<dir>/a|`b`.ts",
+          line: 7,
+          why: "why | <tag> and `tick` [link](https://example.test) ![img](x) *bold* _em_\nnext",
+          howToFix:
+            "fix | <tag> and `tick` [link](https://example.test) ![img](x) *bold* _em_\nnext",
+          reason: "increased-count",
+          baselineCount: 1,
+          currentCount: 2,
+        },
+      ]),
+      { artifactName: "artifact | <url> [report](https://example.test)" },
+    );
+
+    expect(report).not.toContain("<tag>");
+    expect(report).toContain("#### `` ratchet/x`tick`|<control> ``");
+    expect(report).toContain("`` packages/<dir>/a|`b`.ts:7 ``");
+    expect(report).toContain(
+      "why: why | &lt;tag&gt; and \\`tick\\` \\[link\\]\\(https://example.test\\) \\!\\[img\\]\\(x\\) \\*bold\\* \\_em\\_ next",
+    );
+    expect(report).toContain(
+      "fix: fix | &lt;tag&gt; and \\`tick\\` \\[link\\]\\(https://example.test\\) \\!\\[img\\]\\(x\\) \\*bold\\* \\_em\\_ next",
+    );
+    expect(report).toContain(
+      "Artifact: artifact | &lt;url&gt; \\[report\\]\\(https://example.test\\)",
+    );
+  });
+
   it("formats an improvement with the exact recovery command line", () => {
     const report = formatHarnessDiagnosticsReport(
       envelope([
@@ -107,9 +140,33 @@ describe("lint ratchet report", () => {
 
     expect(report).toContain("3 → 1");
     expect(report).toContain(
-      "Run `bun run lint:ratchet:update` to lower the committed baseline and lock in this improvement.",
+      "Run \\`bun run lint:ratchet:update\\` to lower the committed baseline and lock in this improvement.",
     );
     expect(report).toContain("Recovery: `bun run lint:ratchet:update`");
+  });
+
+  it("formats an info-only equal-count swap without regression recovery", () => {
+    const report = formatHarnessDiagnosticsReport(
+      envelope([
+        {
+          ...baseFinding,
+          severity: "info",
+          path: "packages/server/src/app.ts",
+          reason: "equal-count-message-swap",
+          baselineCount: 2,
+          currentCount: 2,
+          why: "Message-count fingerprint changed at the same count.",
+          howToFix:
+            "Review the equal-count finding swap; if it is intentional, run `bun run lint:ratchet:update`.",
+        },
+      ]),
+    );
+
+    expect(report).toContain("| 1 | 0 | 0 | 1 |");
+    expect(report).toContain("2 → 2");
+    expect(report).toContain("1 info");
+    expect(report).not.toContain(REGRESSION_RECOVERY_FOOTER);
+    expect(report).toContain("Recovery: review informational findings.");
   });
 
   it("treats lower count with increased-complexity reason as a regression", () => {

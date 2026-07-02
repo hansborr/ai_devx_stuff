@@ -27,18 +27,24 @@ Only promote a sensor to a gate after it has low noise and clear repair text.
 ## Adapter Boundary
 
 Shared hook policy and reusable behavior belong in `scripts/ai-hooks/`. The
-per-harness files under `.claude/hooks/` and `.codex/hooks/` are shims: resolve
-the repo root, translate only the harness-specific payload or response shape,
-then `exec` the shared body. Codex's `.codex/hooks/pre-tool-use.sh` and
-`.codex/hooks/post-tool-use.sh` are the deliberate exception for its Bash
-aggregator model; Claude uses direct Bash adapters for the same policy surfaces.
+per-harness files under `.claude/hooks/`, `.codex/hooks/`, and
+`.copilot/hooks/` are shims: resolve the repo root, translate only the
+harness-specific payload or response shape, then run the shared body. The
+Bash-surface aggregates (`scripts/ai-hooks/bash-pre-tool-use.sh` and
+`bash-post-tool-use.sh`) group several Bash policies behind one hook entry for
+Codex and Copilot; Claude uses direct Bash adapters for the same policy
+surfaces. Copilot shims translate through
+`scripts/ai-hooks/copilot-adapter.sh` because Copilot's payloads, response
+schema, and native matcher behavior differ, with adapter-side toolName filters
+kept as defense in depth.
 
 Hook registration is generated from `harness.controls.json`. The generator at
 `scripts/harness/generate-hook-wiring.ts` replaces the `hooks` key in
-`.claude/settings.json` and writes `.codex/hooks.json`; `bun run harness:check`
-runs the generator's `--check` mode. Deliberate harness gaps must be recorded in
-the manifest notes, which render into `docs/generated/harness-controls.md`, not
-explained only by leaving an adapter unwired.
+`.claude/settings.json` and writes `.codex/hooks.json` and
+`.github/hooks/copilot.json`; `bun run harness:check` runs the generator's
+`--check` mode. Deliberate harness gaps must be recorded in the manifest notes,
+which render into `docs/generated/harness-controls.md`, not explained only by
+leaving an adapter unwired.
 
 Implementation details for shim headers, shared bodies, `hookWiring`, verify
 slots, and porting assumptions live in `scripts/ai-hooks/README.md`.
@@ -48,7 +54,112 @@ the thin shims only when the harness payload shape requires it. If a hook body i
 intentionally harness-specific, keep that fact in `harness.controls.json` so the
 generated wiring and docs stay aligned.
 
+## Public Archive Boundary
+
+Public source archives include the copyable harness config that
+`harness.controls.json` and `docs/generated/harness-controls.md` reference:
+`.claude/settings.json`, `.claude/hooks/`, `.claude/output-styles/`,
+`.claude/skills/`, `.codex/config.toml`, `.codex/hooks.json`,
+`.codex/hooks/`, and `.codex/skills/`. They also include
+`docs/agent_notes/lint-coverage-map.md`, because generated harness controls use
+it as a paired guide.
+
+Other `docs/agent_notes/**` files remain process notes and are export-ignored.
+Use a full git clone, not a generated source archive, when you need backlog
+packs, recent-history notes, or decision logs.
+
+## Portable Core And Adapters
+
+This map describes the current copy boundary. It is not a package boundary yet:
+the files below still live in Musi's repo, and later behavior-preserving splits
+are deferred until an external adopter needs them.
+
+**Portable core** is the harness machinery that should carry to another
+TypeScript repo with limited policy edits:
+
+- The diagnostics envelope and fusion path:
+  `packages/shared/src/schemas/harness-diagnostics.ts`,
+  `scripts/harness/harness-diagnostics-output.ts`,
+  `scripts/harness-audit.ts`, and
+  `scripts/harness/harness-audit-report.ts`.
+- The lint-ratchet engine under `scripts/lint-ratchet/` plus the
+  `scripts/lint-ratchet.ts` entrypoint. The current registry still contains
+  Musi-specific rules; use `docs/guides/lint-ratchet-adoption.md` for the
+  adopter copy recipe and replacement points.
+- The hook and control wiring machinery:
+  `scripts/harness/generate-hook-wiring.ts`,
+  `scripts/harness/hook-wiring-schema.ts`,
+  `scripts/harness/generate-harness-controls.ts`,
+  `scripts/harness/generate-verify-steps.ts`, and
+  `scripts/harness/verify-step-schema.ts`.
+- Reusable shell helpers for hook state, caching, bounded output, and wiring
+  checks: `scripts/ai-hooks/cache.sh`,
+  `scripts/ai-hooks/throttle-state.sh`,
+  `scripts/ai-hooks/output-filter.sh`,
+  `scripts/ai-hooks/check-wiring.sh`, and the shared sourcing helper
+  `scripts/ai-hooks/common.sh`.
+
+**Musi adapters** are this repo's instantiation of that machinery. Treat these
+as examples to replace, not portable policy:
+
+- Concrete ratchet registry entries and path globs in
+  `scripts/lint-ratchet/lint-ratchet-config.ts`,
+  `scripts/lint-ratchet/max-lines-policy.ts`, and
+  `eslint-config/shared-policy.js`.
+- The concrete controls manifest in `harness.controls.json` and its generated
+  output in `docs/generated/harness-controls.md`.
+- Repo-specific hook policy files such as `scripts/ai-hooks/policy.sh`,
+  `scripts/ai-hooks/protected-files.sh`, `scripts/ai-hooks/no-direct-db.sh`,
+  `scripts/ai-hooks/prisma-generate.sh`,
+  `scripts/ai-hooks/bun-run-quiet.sh`,
+  `scripts/ai-hooks/session-state.sh`, and
+  `scripts/ai-hooks/stop-policy.sh`.
+- Harness shims and registrations under `.claude/`, `.codex/`, `.copilot/`,
+  and `.github/hooks/copilot.json`.
+
+**App code** is not part of the copyable harness. Musi's packages, Prisma
+schema, SRD data, campaign/VTT domain code, module docs, and product tests are
+evidence for how the harness is used, but adopters should not copy them to get
+the harness running.
+
+Minimal starter:
+
+1. Copy the diagnostics envelope schema plus
+   `scripts/harness/harness-diagnostics-output.ts`,
+   `scripts/harness-audit.ts`, and
+   `scripts/harness/harness-audit-report.ts`.
+2. Add one producer that writes `HARNESS_DIAGNOSTICS_OUTPUT`, either by
+   adopting `lint:ratchet` or by wrapping an existing check.
+3. Add a `harness:audit` package script that runs
+   `bun scripts/harness-audit.ts` over one or more envelope files.
+
+Advanced controls starter:
+
+1. Copy `harness.controls.json` as a template, then delete Musi controls before
+   filling in the target repo's policy.
+2. Copy the hook wiring and generated-doc scripts listed in portable core.
+3. Copy only the harness shims the target tools need, then replace local hook
+   policy with the target repo's branch, database, command, and protected-path
+   rules.
+
+Public source archives are enough for the `.claude/`, `.codex/`,
+`scripts/ai-hooks/`, `scripts/harness/`, `scripts/lint-ratchet/`, diagnostics
+schema, and manifest paths named above. They are not enough for backlog notes;
+use a full clone for `docs/agent_notes/backlog/**`.
+
 ## Guides
+
+Always-loaded workflow rules belong in `AGENTS.md`. Output styles can shape
+tone and verbosity, but they must not be the only home for policy that every
+agent or contributor needs every session.
+
+Musi's `MODULE.md` / `*-MODULE.md` convention is the repo-local equivalent of
+nested `AGENTS.md` orientation files. Root `AGENTS.md` instructs agents to read
+the nearest module doc before scoped edits, and `MODULE-INDEX.md` provides the
+generated map. Projects copying this harness for agents that only use native
+nested-`AGENTS.md` discovery should generate tiny `AGENTS.md` pointers to the
+module docs; Musi leaves those stubs out until an active agent in this repo
+needs them.
 
 | Guide | Category | Mode | Prevents | Timing | Paired sensor |
 |---|---|---|---|---|---|
@@ -125,7 +236,8 @@ generated wiring and docs stay aligned.
 | `verify` / `verify:changed` wrapper | Maintainability, architecture fitness, behavior | Computational | Lint, typecheck, and test failures with shared cache/lock/logs | `bun run verify:changed` | `AGENTS.md` |
 | `verify:logs` | Maintainability | Computational | Hidden or stale verification failures in cached logs | `bun run verify:logs` | Stop-policy prompts |
 | `doctor` | Architecture fitness, maintainability | Computational | Worktree, DB, env, port, dependency, lint-suppression, and migration-safety drift | `bun run doctor` | `bun run worktree:*` scripts, `docs/guides/add-prisma-migration.md` |
-| knip unused-code sensor | Maintainability | Computational | Workspace-unused files, exports, types, and dependencies | `bun run sensor:knip`, `bun run doctor` | `knip.config.ts` |
+| knip unused-code advisory sensor | Maintainability | Computational | Workspace-unused files, exports, types, and dependencies; broad report remains advisory | `bun run sensor:knip`, `bun run doctor` | `knip.config.ts` |
+| knip unused-export floor | Maintainability | Computational | Growth in knip-reported unused exported symbols above the committed baseline; intentionally fail-closed in verify/pre-commit, measured about 1.5s on 2026-07-02, and runs without knip `--cache` so each gate reads the current graph directly | `bun run sensor:knip-unused-exports`, `verify`, pre-commit | `knip.config.ts`, `sensor-knip-unused-exports.baseline.json` |
 | staged blob-size sensor | Maintainability | Computational | Staged files over 500 KiB / 5 MiB thresholds unless allowlisted with a reason | `bun run sensor:blob-size`, via `doctor` | `.blob-size-allowlist` |
 | `db:status` | Architecture fitness | Computational | Migration, Prisma client, and DB connectivity drift | `bun run db:status`, via `doctor` | `docs/guides/add-prisma-migration.md` |
 | `db:migration-safety` | Architecture fitness, behavior | Computational | Destructive or risky Prisma migrations lacking acknowledgement | `bun run db:migration-safety`, via `doctor` | `docs/guides/add-prisma-migration.md` |

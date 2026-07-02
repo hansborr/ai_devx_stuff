@@ -311,6 +311,15 @@ export const maxLinesPolicy = {
       ratchetExcluded: true,
     },
     {
+      path: "scripts/harness/hook-wiring-schema.ts",
+      cap: 370,
+      severity: "error",
+      reason:
+        "Hook wiring schema centralizes platform event, matcher, and output-capability contracts while the generator still consumes one schema module.",
+      lifecycle: "candidate-for-split",
+      ratchetExcluded: true,
+    },
+    {
       path: "packages/client/src/test/fixtures-srd.ts",
       cap: 380,
       severity: "warn",

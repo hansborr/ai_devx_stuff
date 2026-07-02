@@ -17,6 +17,9 @@ export function metricItemForFormat(
   metric: LintRatchetMetric,
   item: LintRatchetMetricItem,
 ): LintRatchetMetricItem {
+  if (metric === "message-count" && item.messagesFingerprint !== undefined) {
+    return { count: item.count, messagesFingerprint: item.messagesFingerprint };
+  }
   if (metric === "effective-line-count" && item.lines !== undefined)
     return { count: item.count, lines: item.lines };
   if (metric === "complexity-severity") {

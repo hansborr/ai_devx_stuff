@@ -17,7 +17,7 @@ import type {
 } from "./lint-ratchet-config.js";
 import { validateZeroBaselineDisposition } from "./zero-baseline-disposition.js";
 
-const IMPLEMENTED_MODES = new Set<LintRatchetMode>(["no-new"]);
+const IMPLEMENTED_MODES = new Set<LintRatchetMode>(["no-new", "report-only"]);
 const IMPLEMENTED_METRICS = new Set<LintRatchetMetric>([
   "complexity-severity",
   "effective-line-count",
@@ -261,7 +261,9 @@ function validateRatchetModeAndMetric(
   failures: string[],
 ): void {
   if (!IMPLEMENTED_MODES.has(ratchet.mode)) {
-    failures.push(`${ratchet.id}: mode ${ratchet.mode} is reserved but not implemented`);
+    failures.push(
+      `${ratchet.id}: mode ${ratchet.mode} is not implemented (implemented: ${[...IMPLEMENTED_MODES].join(", ")})`,
+    );
   }
   if (!IMPLEMENTED_METRICS.has(ratchet.metric)) {
     failures.push(`${ratchet.id}: metric ${ratchet.metric} is not implemented`);

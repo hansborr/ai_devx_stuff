@@ -1,5 +1,9 @@
+import { createHash } from "node:crypto";
+
+import { collectRatchets } from "./current-collection-scheduler.js";
 import type { ESLintFileResult, ESLintMessage } from "./eslint-runner.js";
-import { runEslint, runEslintForFiles } from "./eslint-runner.js";
+import { runEslintForFiles } from "./eslint-runner.js";
+import { trackedFilesFromGit } from "./git-tracked-files.js";
 import type {
   LintRatchetCurrentById,
   LintRatchetCurrentItem,
@@ -14,6 +18,7 @@ import {
 import { relativePath } from "./paths.js";
 
 const ESLINT_SEVERITY_ERROR = 2;
+export const DEFAULT_COLLECT_CONCURRENCY = 3;
 const MAX_LINES_MESSAGE_PATTERN =
   /This file has (?<lines>\d+) effective lines, above the \d+ line limit/u;
 
@@ -31,6 +36,7 @@ interface CurrentItemParts {
   readonly perFunction?: readonly LintRatchetComplexityFunction[];
   readonly firstMessage?: string;
   readonly firstMessageId?: string;
+  readonly messagesFingerprint?: string;
 }
 
 function minDefined(left: number | undefined, right: number | undefined): number | undefined {
@@ -47,7 +53,17 @@ function makeCurrentItem(parts: CurrentItemParts): LintRatchetCurrentItem {
     ...(parts.perFunction === undefined ? {} : { perFunction: parts.perFunction }),
     ...(parts.firstMessage === undefined ? {} : { firstMessage: parts.firstMessage }),
     ...(parts.firstMessageId === undefined ? {} : { firstMessageId: parts.firstMessageId }),
+    ...(parts.messagesFingerprint === undefined
+      ? {}
+      : { messagesFingerprint: parts.messagesFingerprint }),
   };
+}
+
+function messageFingerprintFor(identities: readonly string[]): string {
+  const hash = createHash("sha256")
+    .update(JSON.stringify([...identities].sort()))
+    .digest("hex");
+  return `sha256:${hash}`;
 }
 
 function mergeLines(
@@ -137,11 +153,45 @@ function metricFindingFor(
   }
 }
 
+function messageIdentity(metric: MetricFinding): string | undefined {
+  if (metric.message === undefined && metric.messageId === undefined) return undefined;
+  return JSON.stringify({
+    messageId: metric.messageId ?? null,
+    message: metric.message ?? "",
+  });
+}
+
+function recordMessageIdentity(
+  ratchet: LintRatchetConfig,
+  identitiesByPath: Map<string, string[]>,
+  path: string,
+  metric: MetricFinding,
+): void {
+  if (ratchet.metric !== "message-count") return;
+  const identity = messageIdentity(metric);
+  if (identity === undefined) return;
+  const identities = identitiesByPath.get(path) ?? [];
+  identities.push(identity);
+  identitiesByPath.set(path, identities);
+}
+
+function addMessageFingerprints(
+  items: Map<string, LintRatchetCurrentItem>,
+  identitiesByPath: ReadonlyMap<string, readonly string[]>,
+): void {
+  for (const [path, identities] of identitiesByPath.entries()) {
+    const item = items.get(path);
+    if (item === undefined || identities.length === 0) continue;
+    items.set(path, { ...item, messagesFingerprint: messageFingerprintFor(identities) });
+  }
+}
+
 export function itemsFromResults(
   ratchet: LintRatchetConfig,
   results: readonly ESLintFileResult[],
 ): Map<string, LintRatchetCurrentItem> {
   const items = new Map<string, LintRatchetCurrentItem>();
+  const messageIdentitiesByPath = new Map<string, string[]>();
   for (const result of results) {
     const path = relativePath(result.filePath);
     for (const message of result.messages) {
@@ -152,25 +202,27 @@ export function itemsFromResults(
         throw new ConfigError(`ESLint could not parse ${path}: ${message.message}`);
       }
       if (message.ruleId !== ratchet.ruleId) continue;
-      addFinding(items, path, message.line, metricFindingFor(ratchet, path, message));
+      const metric = metricFindingFor(ratchet, path, message);
+      addFinding(items, path, message.line, metric);
+      recordMessageIdentity(ratchet, messageIdentitiesByPath, path, metric);
     }
   }
+  addMessageFingerprints(items, messageIdentitiesByPath);
   return items;
 }
 
 export async function collectCurrentById(
   ruleSourceHashesById: LintRatchetRuleSourceHashesById,
+  concurrency = DEFAULT_COLLECT_CONCURRENCY,
+  trackedFiles: readonly string[] = trackedFilesFromGit("collecting lint ratchet files"),
 ): Promise<LintRatchetCurrentById> {
+  const limit = Math.max(1, Math.min(concurrency, lintRatchets.length));
+  const results = await collectRatchets(ruleSourceHashesById, limit, trackedFiles);
+
   const currentById = new Map<string, ReadonlyMap<string, LintRatchetCurrentItem>>();
-  for (const ratchet of lintRatchets) {
-    const ruleSourceHash = ruleSourceHashesById.get(ratchet.id);
-    if (ruleSourceHash === undefined) {
-      throw new ConfigError(`lint:ratchet: missing rule source hash for ${ratchet.id}`);
-    }
-    currentById.set(
-      ratchet.id,
-      itemsFromResults(ratchet, await runEslint(ratchet, ruleSourceHash)),
-    );
+  for (const result of results) {
+    if (result === undefined) continue;
+    currentById.set(result.id, itemsFromResults(result.ratchet, result.results));
   }
   return currentById;
 }

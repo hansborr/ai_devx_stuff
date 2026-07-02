@@ -255,6 +255,7 @@ describe("path-policy-query CLI", () => {
       "test-verify-history",
       "test-worktree-db",
       "test-dependency-freshness",
+      "test-pre-push",
       "test-ai-hooks",
       "test-eslint-disable-register",
       "test-suppression-register",
@@ -292,6 +293,7 @@ describe("path-policy-query CLI", () => {
       "test-test-scripts",
       "test-check-fast-uri-override",
       "test-check-eslint-react-peer-exception",
+      "test-skill-dispatch-wrappers",
     ]);
   });
 

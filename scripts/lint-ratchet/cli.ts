@@ -1,46 +1,24 @@
+import { buildParsedArgs } from "./cli-build.js";
+import type { ParsedArgs, ParsedArgsState } from "./cli-types.js";
+import { parseProposeCliOptions, ProposeArgsUsageError } from "./propose-cli-options.js";
 import { ratchetRegressionReasonFailure } from "./recovery-command.js";
+
+export type { ParsedArgs } from "./cli-types.js";
 
 export const PROCESS_ARG_OFFSET = 2;
 const OPTION_VALUE_ARG_SPAN = 2;
-
-export interface ParsedArgs {
-  readonly mode:
-    | "default"
-    | "update"
-    | "check-baseline"
-    | "check-registry"
-    | "summary"
-    | "zero-baseline"
-    | "report"
-    | "debt-log"
-    | "edit-check-targets"
-    | "edit-check"
-    | "edit-ratchet-coverage";
-  readonly allowWorse: boolean;
-  readonly reason?: string;
-  readonly retireRatchetId?: string;
-  readonly editCheckTargets?: readonly string[];
-  readonly targetsFile?: string;
-  readonly editRatchetCoveragePaths?: readonly string[];
-}
-
-interface ParsedArgsState {
-  mode: ParsedArgs["mode"];
-  allowWorse: boolean;
-  reason?: string;
-  retireRatchetId?: string;
-  editCheckTargets?: readonly string[];
-  targetsFile?: string;
-  editRatchetCoveragePaths?: readonly string[];
-}
+const DEFAULT_SUMMARY_DIRECTORY_DEPTH = 3;
+const DECIMAL_RADIX = 10;
 
 export class UsageError extends Error {}
 
 const parsedArgModes = new Map<string, Exclude<ParsedArgs["mode"], "default">>([
   ["--update", "update"],
   ["--check-baseline", "check-baseline"],
+  ["--check-debt-accounting", "check-debt-accounting"],
   ["--check-registry", "check-registry"],
   ["--summary", "summary"],
+  ["--trend", "trend"],
   ["--zero-baseline", "zero-baseline"],
   ["--report", "report"],
   ["--debt-log", "debt-log"],
@@ -52,16 +30,18 @@ function setMode(state: ParsedArgsState, mode: Exclude<ParsedArgs["mode"], "defa
   state.mode = mode;
 }
 
+function requiredArgument(args: readonly string[], index: number, message: string): string {
+  const value = args[index + 1];
+  if (value === undefined || value.startsWith("--")) throw new UsageError(message);
+  return value;
+}
+
 function consumeReasonArgument(
   state: ParsedArgsState,
   args: readonly string[],
   index: number,
 ): number {
-  const value = args[index + 1];
-  if (value === undefined || value.startsWith("--")) {
-    throw new UsageError("--reason requires a non-empty argument");
-  }
-  state.reason = value;
+  state.reason = requiredArgument(args, index, "--reason requires a non-empty argument");
   return index + OPTION_VALUE_ARG_SPAN;
 }
 
@@ -96,11 +76,7 @@ function consumeTargetsFileArgument(
   args: readonly string[],
   index: number,
 ): number {
-  const value = args[index + 1];
-  if (value === undefined || value.startsWith("--")) {
-    throw new UsageError("--targets-file requires a non-empty argument");
-  }
-  state.targetsFile = value;
+  state.targetsFile = requiredArgument(args, index, "--targets-file requires a non-empty argument");
   return index + OPTION_VALUE_ARG_SPAN;
 }
 
@@ -109,11 +85,79 @@ function consumeRetireRatchetArgument(
   args: readonly string[],
   index: number,
 ): number {
+  state.retireRatchetId = requiredArgument(
+    args,
+    index,
+    "--retire-ratchet requires a ratchet id argument",
+  );
+  return index + OPTION_VALUE_ARG_SPAN;
+}
+
+function consumeProposeArgument(
+  state: ParsedArgsState,
+  args: readonly string[],
+  index: number,
+): number {
+  setMode(state, "propose");
+  let parsed: ReturnType<typeof parseProposeCliOptions>;
+  try {
+    parsed = parseProposeCliOptions(args.slice(index + 1));
+  } catch (error) {
+    if (error instanceof ProposeArgsUsageError) throw new UsageError(error.message);
+    throw error;
+  }
+  state.proposeRuleId = parsed.ruleId;
+  state.proposeFiles = parsed.files;
+  if (parsed.ignores !== undefined) state.proposeIgnores = parsed.ignores;
+  if (parsed.metric !== undefined) state.proposeMetric = parsed.metric;
+  if (parsed.ruleOptionsJson !== undefined) state.proposeRuleOptionsJson = parsed.ruleOptionsJson;
+  return args.length;
+}
+
+function parsePositiveInteger(value: string, message: string): number {
+  const depth = Number.parseInt(value, DECIMAL_RADIX);
+  if (!Number.isInteger(depth) || depth < 1 || String(depth) !== value) {
+    throw new UsageError(message);
+  }
+  return depth;
+}
+
+function parseDirectoryDepth(value: string): number {
+  return parsePositiveInteger(value, "--by-directory depth must be a positive integer");
+}
+
+function consumeByDirectoryArgument(
+  state: ParsedArgsState,
+  args: readonly string[],
+  index: number,
+): number {
   const value = args[index + 1];
   if (value === undefined || value.startsWith("--")) {
-    throw new UsageError("--retire-ratchet requires a ratchet id argument");
+    state.summaryByDirectoryDepth = DEFAULT_SUMMARY_DIRECTORY_DEPTH;
+    return index + 1;
   }
-  state.retireRatchetId = value;
+  state.summaryByDirectoryDepth = parseDirectoryDepth(value);
+  return index + OPTION_VALUE_ARG_SPAN;
+}
+
+function consumeSinceArgument(
+  state: ParsedArgsState,
+  args: readonly string[],
+  index: number,
+): number {
+  state.trendSince = requiredArgument(args, index, "--since requires a non-empty argument");
+  return index + OPTION_VALUE_ARG_SPAN;
+}
+
+function consumeTrendMaxArgument(
+  state: ParsedArgsState,
+  args: readonly string[],
+  index: number,
+): number {
+  state.trendMax = parsePositiveInteger(
+    requiredArgument(args, index, "--max requires a positive integer"),
+    "--max requires a positive integer",
+  );
   return index + OPTION_VALUE_ARG_SPAN;
 }
 
@@ -131,6 +175,10 @@ const valueArgConsumers = new Map<string, ArgConsumer>([
   ["--edit-ratchet-coverage", consumeEditRatchetCoverage],
   ["--targets-file", consumeTargetsFileArgument],
   ["--retire-ratchet", consumeRetireRatchetArgument],
+  ["--propose", consumeProposeArgument],
+  ["--by-directory", consumeByDirectoryArgument],
+  ["--since", consumeSinceArgument],
+  ["--max", consumeTrendMaxArgument],
 ]);
 
 function consumeParsedArg(state: ParsedArgsState, args: readonly string[], index: number): number {
@@ -212,23 +260,41 @@ function assertUpdateArgs(state: ParsedArgsState): void {
   }
 }
 
-function buildParsedArgs(state: ParsedArgsState): ParsedArgs {
-  return {
-    mode: state.mode,
-    allowWorse: state.allowWorse,
-    ...(state.reason === undefined ? {} : { reason: state.reason }),
-    ...(state.retireRatchetId === undefined ? {} : { retireRatchetId: state.retireRatchetId }),
-    ...(state.editCheckTargets === undefined ? {} : { editCheckTargets: state.editCheckTargets }),
-    ...(state.targetsFile === undefined ? {} : { targetsFile: state.targetsFile }),
-    ...(state.editRatchetCoveragePaths === undefined
-      ? {}
-      : { editRatchetCoveragePaths: state.editRatchetCoveragePaths }),
-  };
+function assertProposeArgs(state: ParsedArgsState): void {
+  if (state.mode === "propose") {
+    if (
+      state.proposeRuleId === undefined ||
+      state.proposeFiles === undefined ||
+      state.proposeFiles.length === 0
+    ) {
+      throw new UsageError("--propose requires <ruleId> <glob...>");
+    }
+  } else if (state.proposeRuleId !== undefined || state.proposeFiles !== undefined) {
+    throw new UsageError("--propose is only valid in propose mode");
+  }
+}
+
+function assertSummaryArgs(state: ParsedArgsState): void {
+  if (state.summaryByDirectoryDepth !== undefined && state.mode !== "summary") {
+    throw new UsageError("--by-directory is only valid with --summary");
+  }
+}
+
+function assertTrendArgs(state: ParsedArgsState): void {
+  if (state.trendSince !== undefined && state.mode !== "trend") {
+    throw new UsageError("--since is only valid with --trend");
+  }
+  if (state.trendMax !== undefined && state.mode !== "trend") {
+    throw new UsageError("--max is only valid with --trend");
+  }
 }
 
 export function parseArgs(args: readonly string[]): ParsedArgs {
   const state = parseArgFlags(args);
   assertUpdateArgs(state);
+  assertProposeArgs(state);
+  assertSummaryArgs(state);
+  assertTrendArgs(state);
   assertEditCheckArgs(state);
   assertEditRatchetCoverageArgs(state);
   return buildParsedArgs(state);
@@ -236,11 +302,12 @@ export function parseArgs(args: readonly string[]): ParsedArgs {
 
 export function usage(): string {
   return [
-    "usage: bun scripts/lint-ratchet.ts [--update [--allow-worse --reason <why> | --retire-ratchet <id>] | --check-baseline | --check-registry | --summary | --zero-baseline | --report | --debt-log | --edit-check-targets <relpath>... | --edit-check --targets-file <file> | --edit-ratchet-coverage <relpath>...]",
+    "usage: bun scripts/lint-ratchet.ts [--update [--allow-worse --reason <why> | --retire-ratchet <id>] | --check-baseline | --check-debt-accounting | --check-registry | --summary [--by-directory [depth]] | --trend [--since <date>] [--max <n>] | --zero-baseline | --report | --debt-log | --propose <ruleId> <glob...> | --edit-check-targets <relpath>... | --edit-check --targets-file <file> | --edit-ratchet-coverage <relpath>...]",
     "",
     "Default mode emits a harness-diagnostics envelope and fails on ratchet regressions or uncommitted improvements.",
     "--retire-ratchet <id> drops a zero-finding orphan baseline floor without --allow-worse or a debt-log entry, but only when normal lint now errors on the retired scope (proven promotion).",
-    "--summary prints committed baseline totals without running ESLint; --zero-baseline audits drained ratchets against normal ESLint; --report formats a diagnostics envelope from stdin; --debt-log renders the committed --allow-worse acceptance log.",
+    "--summary prints committed baseline totals without running ESLint; add --by-directory [depth] to group remaining findings by directory. --trend reads committed baseline history and prints first/current/min/max totals; --zero-baseline audits drained ratchets against normal ESLint; --check-debt-accounting compares baseline increases to same-range debt-log entries; --report formats a diagnostics envelope from stdin; --debt-log renders the committed --allow-worse acceptance log.",
+    "--propose <ruleId> <glob...> runs one core or local rule as a dry run and prints the would-be ratchet baseline without touching the registry or committed baseline.",
     "--edit-check-targets lists matching minimal-TS ratchets for edited paths (no ESLint); --edit-check lints the targets in <file> and prints only fresh ratchet regressions, for the edit-time advisory hook.",
     "--edit-ratchet-coverage prints, per edited path, the committed-baseline ratchet rule ids tracking it (no ESLint), for the lint-coverage advisory hook.",
   ].join("\n");

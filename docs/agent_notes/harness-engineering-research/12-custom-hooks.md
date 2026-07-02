@@ -79,7 +79,7 @@ Two placements:
 # Codex Stop hook (command handler). Guard against the loop.
 import json, subprocess, sys
 payload = json.load(sys.stdin)
-if payload.get("stop_hook_active"):     # the ONLY built-in loop guard — must check it
+if payload.get("stop_hook_active"):     # required loop guard — must check it
     sys.exit(0)
 r = subprocess.run(["sh","-c","npx tsc --noEmit && npx vitest related $(git diff --name-only) --run"],
                    capture_output=True, text=True)
@@ -89,7 +89,12 @@ if r.returncode != 0:
 sys.exit(0)
 ```
 
-> **Stop-hook loop guard — read carefully.** The only documented built-in protection is the **`stop_hook_active` flag**, which your script must check and early-exit on. An automatic override after a fixed number of consecutive blocks has been **proposed in discussion (numbers like ~5–10 floated) but is _not_ shipped/documented behavior** — do not rely on a "Claude overrides after N blocks" cap. An always-block Stop hook that ignores `stop_hook_active` will loop until the session limit.
+> **Stop-hook loop guard — read carefully.** Hook scripts must check
+> **`stop_hook_active`** and early-exit when it is true. Claude Code's current
+> hooks guide also documents an 8-consecutive-block Stop override after no
+> progress, but that is a safety cap, not a control-flow strategy. An
+> always-block Stop hook that ignores `stop_hook_active` can still burn through
+> the cap and end the turn with the gate red.
 
 Why in-loop: a type/test error caught here costs one cheap retry; caught in CI it costs CI minutes plus a human round-trip. `tsc --noEmit` is the canonical TS gate across every 2026 source (see [Static Analysis & CI/CD Gates](04-static-analysis-and-ci-cd-gates.md)).
 
@@ -188,7 +193,9 @@ Beyond command hooks, Claude Code supports **`type:"prompt"`** hooks (a single f
 - **Per-edit hooks: changed-file scope only.** `jest --findRelatedTests` / `vitest related` — never the full suite.
 - **Formatters fail-soft (`exit 0`); gates fail-hard (`exit 2`).** A Prettier crash must never deadlock the agent; a type error must.
 - **Start with 1–2 hooks** (format + one gate), then expand. A 10-hook gauntlet built up front just makes a slow agent.
-- **Stop hooks: early-exit on `stop_hook_active`.** (The only built-in loop guard — see §2.)
+- **Stop hooks: early-exit on `stop_hook_active`.** Claude Code also documents
+  an 8-block safety cap, but hooks should pass through active continuations
+  rather than rely on the cap. See §2.
 - **Prefer exec form (`"args": [...]`)** over a shell string to avoid quoting bugs; watch for shell-profile `echo` statements corrupting JSON stdout (guard them behind an interactive-shell check).
 - **Audit hook config every 3–6 months** as part of harness maintenance — prune what no longer earns its latency. (confidence: **medium** — sound practice, partially documented vs. strict cross-source consensus)
 
@@ -209,9 +216,9 @@ Beyond command hooks, Claude Code supports **`type:"prompt"`** hooks (a single f
 
 ## Freshness (2026)
 
-- **Current:** Claude Code ~30+ events + `if` field (v2.1.85+) + `prompt`/`agent` handler types; `PostToolUse` format-on-save and `tsc --noEmit` gate patterns; `PreToolUse` firing before permission checks (unbypassable); Cursor v1.7 hook event names; TDD Guard (third-party marketplace, native Vitest/Jest/Storybook reporters); Vitest 4.1 AI-agent reporter; Factory.ai "linters as law"; Husky + lint-staged / `pre-commit` staged gates.
-- **Stale / corrected:** the "8-block Stop cap" (**never shipped** — only `stop_hook_active` is real); "Codex hooks are Claude-Code-_compatible_" (**separate implementation**); "~25 events" (**now ~31**); "TDD Guard on the official marketplace" (**its own `nizos/tdd-guard` marketplace**); Codex `notify` "warns" on project-local config (it **silently ignores** `notify`/`provider`/`telemetry`; the documented *warning* is for mixing `hooks.json` + inline hooks in one layer).
-- **Watch:** Codex's hooks system is youngest and changing fastest (the `PreToolUse`/structured-patch gap, possible `prompt`/`agent` handler support); a Stop-hook iteration cap is proposed and may ship. Re-check quarterly.
+- **Current:** Claude Code ~30+ events + `if` field (v2.1.85+) + `prompt`/`agent` handler types; `PostToolUse` format-on-save and `tsc --noEmit` gate patterns; `PreToolUse` firing before permission checks (unbypassable); Stop hooks requiring `stop_hook_active` pass-through and documenting an 8-consecutive-block safety override (verified 2026-07-02); Cursor v1.7 hook event names; TDD Guard (third-party marketplace, native Vitest/Jest/Storybook reporters); Vitest 4.1 AI-agent reporter; Factory.ai "linters as law"; Husky + lint-staged / `pre-commit` staged gates.
+- **Stale / corrected:** "Codex hooks are Claude-Code-_compatible_" (**separate implementation**); "~25 events" (**now ~31**); "TDD Guard on the official marketplace" (**its own `nizos/tdd-guard` marketplace**); Codex `notify` "warns" on project-local config (it **silently ignores** `notify`/`provider`/`telemetry`; the documented *warning* is for mixing `hooks.json` + inline hooks in one layer).
+- **Watch:** Codex's hooks system is youngest and changing fastest (the `PreToolUse`/structured-patch gap, possible `prompt`/`agent` handler support). Re-check quarterly.
 
 ## Sources
 

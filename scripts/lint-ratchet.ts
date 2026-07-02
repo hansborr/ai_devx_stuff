@@ -7,29 +7,44 @@ import { ConfigError } from "./lint-ratchet/lint-ratchet-metrics.js";
 import { LINT_RATCHET_REPORT_ARTIFACT_URL_ENV } from "./lint-ratchet/lint-ratchet-report.js";
 import { type LintRatchetRuntimeOptions, runLintRatchetCli } from "./lint-ratchet/modes.js";
 
-export { assertCheckBaselineComparisonClean, buildEnvelope } from "./lint-ratchet/diagnostics.js";
+export {
+  assertCheckBaselineComparisonClean,
+  buildEnvelope,
+  buildEnvelopeFromComparison,
+} from "./lint-ratchet/diagnostics.js";
 
 const DECIMAL_RADIX = 10;
 const MIN_EDIT_CHECK_CONCURRENCY = 1;
+const MIN_COLLECT_CONCURRENCY = 1;
 
 function nonEmptyEnvValue(name: string): string | undefined {
   const value = process.env[name];
   return value === undefined || value.length === 0 ? undefined : value;
 }
 
-function editCheckConcurrencyFromEnv(): number | undefined {
-  const raw = process.env.AI_RATCHET_REGRESSION_CONCURRENCY;
+function concurrencyFromEnv(name: string, minimum: number): number | undefined {
+  const raw = process.env[name];
   if (raw === undefined) return undefined;
   const parsed = Number.parseInt(raw, DECIMAL_RADIX);
-  return Number.isInteger(parsed) && parsed >= MIN_EDIT_CHECK_CONCURRENCY ? parsed : undefined;
+  return Number.isInteger(parsed) && parsed >= minimum ? parsed : undefined;
+}
+
+function editCheckConcurrencyFromEnv(): number | undefined {
+  return concurrencyFromEnv("AI_RATCHET_REGRESSION_CONCURRENCY", MIN_EDIT_CHECK_CONCURRENCY);
+}
+
+function collectConcurrencyFromEnv(): number | undefined {
+  return concurrencyFromEnv("AI_RATCHET_COLLECT_CONCURRENCY", MIN_COLLECT_CONCURRENCY);
 }
 
 function runtimeOptionsFromEnv(): LintRatchetRuntimeOptions {
   const reportArtifactName = nonEmptyEnvValue(LINT_RATCHET_REPORT_ARTIFACT_URL_ENV);
   const editCheckConcurrency = editCheckConcurrencyFromEnv();
+  const collectConcurrency = collectConcurrencyFromEnv();
   return {
     ...(reportArtifactName === undefined ? {} : { reportArtifactName }),
     ...(editCheckConcurrency === undefined ? {} : { editCheckConcurrency }),
+    ...(collectConcurrency === undefined ? {} : { collectConcurrency }),
   };
 }
 

@@ -12,6 +12,7 @@ import type {
 } from "./lint-ratchet-baseline.js";
 import type { LintRatchetConfig } from "./lint-ratchet-config.js";
 import { type LintRatchetMetricItem, metricItemForFormat } from "./lint-ratchet-metrics.js";
+import { isReportOnlyRatchet } from "./runtime-config.js";
 
 const JSON_INDENT_SPACES = 2;
 
@@ -69,6 +70,7 @@ export function buildLintRatchetBaseline(
 ): LintRatchetBaseline {
   const tests: Record<string, LintRatchetBaselineTest> = {};
   for (const ratchet of ratchets) {
+    if (isReportOnlyRatchet(ratchet)) continue;
     tests[ratchet.id] = baselineTestFromConfig(
       ratchet,
       currentById.get(ratchet.id),

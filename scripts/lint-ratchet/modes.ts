@@ -1,17 +1,18 @@
 import { existsSync, readFileSync } from "node:fs";
 
+import { runBaselineDebtAccountingCheck } from "./baseline-debt-accounting-git.js";
 import {
   applyLintRatchetUpdate,
   type ApplyLintRatchetUpdateOptions,
 } from "./baseline-update-apply.js";
 import type { ParsedArgs } from "./cli.js";
-import { collectCurrentById, totalCurrentCount } from "./current-collector.js";
 import {
-  assertCheckBaselineComparisonClean,
-  buildEnvelope,
-  loadRuleDocsById,
-  validateEnvelope,
-} from "./diagnostics.js";
+  collectCurrentById,
+  DEFAULT_COLLECT_CONCURRENCY,
+  totalCurrentCount,
+} from "./current-collector.js";
+import { runDefault } from "./default-mode.js";
+import { assertCheckBaselineComparisonClean, loadRuleDocsById } from "./diagnostics.js";
 import {
   discoverEditCheckTargets,
   type EditCheckTarget,
@@ -35,23 +36,25 @@ import {
 import { lintRatchets, lintRatchetThirdPartyPluginAllowlist } from "./lint-ratchet-config.js";
 import { runLintRatchetDebtLogReport } from "./lint-ratchet-debt-log.js";
 import { ConfigError } from "./lint-ratchet-metrics.js";
-import { emitHarnessDiagnosticsEnvelope } from "./lint-ratchet-output.js";
 import { runLintRatchetReport } from "./lint-ratchet-report.js";
-import { runLintRatchetSummary } from "./lint-ratchet-summary.js";
+import { runLintRatchetSummaryCli } from "./lint-ratchet-summary.js";
 import {
   formatUndocumentedZeroBaselineFailure,
   runLintRatchetZeroBaselineAuditResult,
 } from "./lint-ratchet-zero-baseline.js";
 import { BASELINE_FILENAME, baselinePath } from "./paths.js";
+import { runLintRatchetProposeCli } from "./propose.js";
 import { formatRatchetCoverageRow, ratchetCoverageForPaths } from "./ratchet-coverage.js";
 import { resolveRetireRequest } from "./retire-update.js";
 import { buildRuleSourceHashesById } from "./rule-source.js";
+import { baselineRatchets } from "./runtime-config.js";
 
 const DEFAULT_EDIT_CHECK_CONCURRENCY = 3;
 
 export interface LintRatchetRuntimeOptions {
   readonly reportArtifactName?: string;
   readonly editCheckConcurrency?: number;
+  readonly collectConcurrency?: number;
 }
 
 function readBaseline(): string {
@@ -67,10 +70,6 @@ async function runCheckRegistry(): Promise<void> {
 
 async function assertRegistryPreflight(): Promise<void> {
   await (await import("./lint-ratchet-check-registry.js")).assertLintRatchetRegistryClean();
-}
-
-function runSummary(): void {
-  process.stdout.write(runLintRatchetSummary({ baselinePath, registry: lintRatchets }));
 }
 
 async function runZeroBaseline(): Promise<void> {
@@ -117,29 +116,8 @@ async function validateRegistry(): Promise<void> {
   }
 }
 
-async function runDefault(): Promise<void> {
-  const ruleDocsById = await loadRuleDocsById();
-  const ruleSourceHashesById = buildRuleSourceHashesById(lintRatchets);
-  const baseline = parseCommittedBaseline(ruleSourceHashesById);
-  const currentById = await collectCurrentById(ruleSourceHashesById);
-  const comparison = compareCurrentToBaseline(baseline, lintRatchets, currentById);
-  const envelope = buildEnvelope(
-    comparison.regressions,
-    comparison.improvements,
-    ruleDocsById,
-    lintRatchets,
-  );
-  validateEnvelope(envelope);
-  emitHarnessDiagnosticsEnvelope(envelope);
-  const changedCount = comparison.regressions.length + comparison.improvements.length;
-  const label = changedCount > 0 ? "FAIL" : "OK";
-  console.error(
-    `lint:ratchet ${label} — ${String(totalCurrentCount(currentById))} current finding(s); ` +
-      `${String(comparison.regressions.length)} regression(s); ${String(comparison.improvements.length)} improvement(s); ` +
-      `blocking=${String(envelope.summary.blocking)} ` +
-      `warning=${String(envelope.summary.warning)} info=${String(envelope.summary.info)}`,
-  );
-  if (changedCount > 0) process.exitCode = 1;
+function collectConcurrency(options: LintRatchetRuntimeOptions): number {
+  return options.collectConcurrency ?? DEFAULT_COLLECT_CONCURRENCY;
 }
 
 async function updateOptions(args: ParsedArgs): Promise<ApplyLintRatchetUpdateOptions> {
@@ -154,10 +132,11 @@ async function updateOptions(args: ParsedArgs): Promise<ApplyLintRatchetUpdateOp
   };
 }
 
-async function runUpdate(args: ParsedArgs): Promise<void> {
+async function runUpdate(args: ParsedArgs, options: LintRatchetRuntimeOptions): Promise<void> {
   const ruleSourceHashesById = buildRuleSourceHashesById(lintRatchets);
-  const currentById = await collectCurrentById(ruleSourceHashesById);
-  const generated = buildLintRatchetBaseline(lintRatchets, currentById, ruleSourceHashesById);
+  const currentById = await collectCurrentById(ruleSourceHashesById, collectConcurrency(options));
+  const enforcedRatchets = baselineRatchets(lintRatchets);
+  const generated = buildLintRatchetBaseline(enforcedRatchets, currentById, ruleSourceHashesById);
   const rendered = formatLintRatchetBaseline(generated);
   const parsedGenerated = parseLintRatchetBaseline(rendered, lintRatchets, ruleSourceHashesById);
   if (parsedGenerated.baseline === undefined) {
@@ -169,17 +148,18 @@ async function runUpdate(args: ParsedArgs): Promise<void> {
   applyLintRatchetUpdate({
     generated,
     rendered,
-    registry: lintRatchets,
+    registry: enforcedRatchets,
     options: await updateOptions(args),
     currentFindingCount: totalCurrentCount(currentById),
   });
 }
 
-async function runCheckBaseline(): Promise<void> {
+async function runCheckBaseline(options: LintRatchetRuntimeOptions): Promise<void> {
   const ruleSourceHashesById = buildRuleSourceHashesById(lintRatchets);
+  const enforcedRatchets = baselineRatchets(lintRatchets);
   const baseline = parseCommittedBaseline(ruleSourceHashesById);
-  const currentById = await collectCurrentById(ruleSourceHashesById);
-  const comparison = compareCurrentToBaseline(baseline, lintRatchets, currentById);
+  const currentById = await collectCurrentById(ruleSourceHashesById, collectConcurrency(options));
+  const comparison = compareCurrentToBaseline(baseline, enforcedRatchets, currentById);
   assertCheckBaselineComparisonClean(comparison);
   console.error(
     `lint:ratchet:check-baseline OK — ${String(totalCurrentCount(currentById))} current finding(s).`,
@@ -199,6 +179,18 @@ function runEditRatchetCoverage(args: ParsedArgs): void {
   const rows = ratchetCoverageForPaths(args.editRatchetCoveragePaths ?? []);
   const lines = rows.map(formatRatchetCoverageRow);
   if (lines.length > 0) process.stdout.write(`${lines.join("\n")}\n`);
+}
+
+async function runPropose(args: ParsedArgs): Promise<void> {
+  await runLintRatchetProposeCli({
+    ruleId: args.proposeRuleId,
+    files: args.proposeFiles,
+    ...(args.proposeIgnores === undefined ? {} : { ignores: args.proposeIgnores }),
+    ...(args.proposeMetric === undefined ? {} : { metric: args.proposeMetric }),
+    ...(args.proposeRuleOptionsJson === undefined
+      ? {}
+      : { ruleOptionsJson: args.proposeRuleOptionsJson }),
+  });
 }
 
 function editCheckConcurrency(options: LintRatchetRuntimeOptions): number {
@@ -246,6 +238,17 @@ async function runUnvalidatedMode(
     runDebtLogReport();
     return true;
   }
+  if (args.mode === "trend") {
+    (await import("./lint-ratchet-trend.js")).runLintRatchetTrendCli(
+      args.trendSince,
+      args.trendMax,
+    );
+    return true;
+  }
+  if (args.mode === "propose") {
+    await runPropose(args);
+    return true;
+  }
   if (args.mode === "edit-check-targets") {
     runEditCheckTargets(args);
     return true;
@@ -265,9 +268,12 @@ async function runUnvalidatedMode(
   return false;
 }
 
-async function runValidatedMode(args: ParsedArgs): Promise<void> {
+async function runValidatedMode(
+  args: ParsedArgs,
+  options: LintRatchetRuntimeOptions,
+): Promise<void> {
   if (args.mode === "summary") {
-    runSummary();
+    runLintRatchetSummaryCli(baselinePath, lintRatchets, args.summaryByDirectoryDepth);
     return;
   }
   if (args.mode === "zero-baseline") {
@@ -275,14 +281,18 @@ async function runValidatedMode(args: ParsedArgs): Promise<void> {
     return;
   }
   if (args.mode === "update") {
-    await runUpdate(args);
+    await runUpdate(args, options);
     return;
   }
   if (args.mode === "check-baseline") {
-    await runCheckBaseline();
+    await runCheckBaseline(options);
     return;
   }
-  await runDefault();
+  if (args.mode === "check-debt-accounting") {
+    runBaselineDebtAccountingCheck();
+    return;
+  }
+  await runDefault(options);
 }
 
 export async function runLintRatchetCli(
@@ -290,10 +300,12 @@ export async function runLintRatchetCli(
   options: LintRatchetRuntimeOptions = {},
 ): Promise<void> {
   if (await runUnvalidatedMode(args, options)) return;
-  if (args.mode === "default") {
+  if (args.mode === "default" || args.mode === "check-baseline") {
     await assertRegistryPreflight();
+  } else if (args.mode === "update") {
+    await (await import("./lint-ratchet-check-registry.js")).assertLintRatchetUpdateRegistryClean();
   } else {
     await validateRegistry();
   }
-  await runValidatedMode(args);
+  await runValidatedMode(args, options);
 }

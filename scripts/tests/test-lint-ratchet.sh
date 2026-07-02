@@ -13,6 +13,8 @@ musi_clear_inherited_git_hook_env
 musi_exit_after_git_hook_env_assertion_if_requested
 
 REPO_ROOT="$(pwd)"
+MERGE_DRIVER_CONFIG_HASH="sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+MERGE_DRIVER_SOURCE_HASH="sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 
 # Single source of truth for the portable lint-ratchet runtime file set.
 # Both the import-boundary check (assert_portable_runtime_import_boundary) and
@@ -306,10 +308,14 @@ assert_local_identity_regression() {
 
 assert_lint_ratchet_merge_driver() {
   local repo="$TMP_ROOT/merge-driver"
-  local attr_output driver_command git_common_dir installed_driver status unmerged_count
+  local fake_bun_dir semantic_base semantic_current semantic_err semantic_other
+  local attr_output driver_command git_common_dir installed_driver installed_hash source_hash
+  local status unmerged_count
 
   mkdir -p "$repo/scripts/git"
+  cp scripts/git/check-lint-ratchet-merge-driver.sh "$repo/scripts/git/"
   cp scripts/git/install-lint-ratchet-merge-driver.sh "$repo/scripts/git/"
+  cp scripts/git/lint-ratchet-merge-driver-lib.sh "$repo/scripts/git/"
   cp scripts/git/lint-ratchet-baseline-merge-driver.sh "$repo/scripts/git/"
   git -C "$TMP_ROOT" init -q -b main "$repo"
   git -C "$repo" config user.email test@example.com
@@ -369,6 +375,69 @@ EOF
     || fail "merge-driver install should mirror anchored baseline driver attribute"
   grep -qF "lint-ratchet.baseline.json -merge" "$repo/.git/info/attributes" \
     && fail "merge-driver install should remove stale baseline -merge attributes"
+
+  (
+    cd "$repo/nested/invoke"
+    bash ../../scripts/git/check-lint-ratchet-merge-driver.sh
+  ) >"$TMP_ROOT/merge-driver-check-current.out"
+  grep -qF "PASS: lint-ratchet merge driver is installed and current" \
+    "$TMP_ROOT/merge-driver-check-current.out" \
+    || fail "merge-driver health check should pass when current: $(cat "$TMP_ROOT/merge-driver-check-current.out")"
+
+  (
+    cd "$repo/nested/invoke"
+    bash ../../scripts/git/install-lint-ratchet-merge-driver.sh
+  ) >"$TMP_ROOT/merge-driver-install-noop.out"
+  [ ! -s "$TMP_ROOT/merge-driver-install-noop.out" ] \
+    || fail "merge-driver install should be silent when already current: $(cat "$TMP_ROOT/merge-driver-install-noop.out")"
+
+  printf 'stale installed driver\n' >"$installed_driver"
+  (
+    cd "$repo/nested/invoke"
+    bash ../../scripts/git/check-lint-ratchet-merge-driver.sh
+  ) >"$TMP_ROOT/merge-driver-check-stale.out"
+  [ "$(cat "$TMP_ROOT/merge-driver-check-stale.out")" = "WARN: lint-ratchet merge driver is missing or stale - run bun run lint:ratchet:install-merge-driver" ] \
+    || fail "merge-driver health check should print one actionable stale line: $(cat "$TMP_ROOT/merge-driver-check-stale.out")"
+
+  (
+    cd "$repo/nested/invoke"
+    bash ../../scripts/git/install-lint-ratchet-merge-driver.sh
+  ) >"$TMP_ROOT/merge-driver-install-refresh.out"
+  installed_hash="$(sha256sum "$installed_driver" | awk '{print $1}')"
+  source_hash="$(sha256sum "$repo/scripts/git/lint-ratchet-baseline-merge-driver.sh" | awk '{print $1}')"
+  [ "$installed_hash" = "$source_hash" ] \
+    || fail "merge-driver install should refresh a stale installed copy by content hash"
+
+  mkdir -p "$repo/scripts/lint-ratchet"
+  : >"$repo/scripts/lint-ratchet/baseline-merge-cli.ts"
+  fake_bun_dir="$TMP_ROOT/merge-driver-fake-bun"
+  mkdir -p "$fake_bun_dir"
+  cat >"$fake_bun_dir/bun" <<'EOF'
+#!/usr/bin/env bash
+if [ "$1" != "run" ] || [ "$2" != "scripts/lint-ratchet/baseline-merge-cli.ts" ]; then
+  echo "unexpected bun invocation: $*" >&2
+  exit 64
+fi
+printf '{"semantic":true}\n' >"$4"
+EOF
+  chmod +x "$fake_bun_dir/bun"
+  semantic_base="$TMP_ROOT/merge-driver-base.json"
+  semantic_current="$TMP_ROOT/merge-driver-current.json"
+  semantic_other="$TMP_ROOT/merge-driver-other.json"
+  semantic_err="$TMP_ROOT/merge-driver-semantic.err"
+  printf '{"base":true}\n' >"$semantic_base"
+  printf '{"current":true}\n' >"$semantic_current"
+  printf '{"other":true}\n' >"$semantic_other"
+  (
+    cd "$repo"
+    PATH="$fake_bun_dir:$PATH" bash "$installed_driver" \
+      "$semantic_base" "$semantic_current" "$semantic_other" "%L" "lint-ratchet.baseline.json"
+  ) 2>"$semantic_err" \
+    || fail "merge-driver should exit 0 when semantic merge succeeds: $(cat "$semantic_err")"
+  [ "$(cat "$semantic_current")" = '{"semantic":true}' ] \
+    || fail "merge-driver should let semantic merge rewrite the current file: $(cat "$semantic_current")"
+  [ ! -s "$semantic_err" ] \
+    || fail "semantic merge success should not print fallback guidance: $(cat "$semantic_err")"
 
   rm -rf "$repo/scripts"
 
@@ -433,6 +502,421 @@ JSON
     const { readFileSync } = require("fs");
     JSON.parse(readFileSync(process.env.BASELINE, "utf8"));
   ' || fail "merge-driver should leave parseable JSON"
+}
+
+copy_lint_ratchet_merge_runtime() {
+  local repo=$1
+  local runtime_file
+  mkdir -p "$repo/scripts/git" "$repo/scripts/lint-ratchet"
+  cp scripts/git/check-lint-ratchet-merge-driver.sh "$repo/scripts/git/"
+  cp scripts/git/install-lint-ratchet-merge-driver.sh "$repo/scripts/git/"
+  cp scripts/git/lint-ratchet-merge-driver-lib.sh "$repo/scripts/git/"
+  cp scripts/git/lint-ratchet-baseline-merge-driver.sh "$repo/scripts/git/"
+  for runtime_file in scripts/lint-ratchet/*.ts; do
+    case "$runtime_file" in
+      *.test.ts) continue ;;
+    esac
+    cp "$runtime_file" "$repo/scripts/lint-ratchet/"
+  done
+}
+
+write_merge_driver_semantic_baseline() {
+  local file=$1
+  local one_count=$2
+  local two_count=$3
+  local one_config_hash=${4-$MERGE_DRIVER_CONFIG_HASH}
+  local two_config_hash=${5-$MERGE_DRIVER_CONFIG_HASH}
+
+  cat >"$file" <<JSON
+{
+  "version": 1,
+  "tests": {
+    "ratchet/fixture-one": {
+      "ruleId": "local/example-one",
+      "mode": "no-new",
+      "target": 0,
+      "metric": "message-count",
+      "files": ["packages/**/*.ts"],
+      "ignores": [],
+      "ruleOptions": [],
+      "configHash": "$one_config_hash",
+      "ruleSourceHash": "$MERGE_DRIVER_SOURCE_HASH",
+      "items": {
+        "packages/server/src/one.ts": {
+          "count": $one_count
+        }
+      }
+    },
+    "ratchet/fixture-two": {
+      "ruleId": "local/example-two",
+      "mode": "no-new",
+      "target": 0,
+      "metric": "message-count",
+      "files": ["packages/**/*.ts"],
+      "ignores": [],
+      "ruleOptions": [],
+      "configHash": "$two_config_hash",
+      "ruleSourceHash": "$MERGE_DRIVER_SOURCE_HASH",
+      "items": {
+        "packages/client/src/two.ts": {
+          "count": $two_count
+        }
+      }
+    }
+  }
+}
+JSON
+}
+
+assert_lint_ratchet_merge_driver_real_semantic_merge() {
+  local repo="$TMP_ROOT/merge-driver-real-semantic"
+  local base_file current_file fallback_err fallback_status git_common_dir installed_driver
+  local other_file status unmerged_count
+
+  copy_lint_ratchet_merge_runtime "$repo"
+  git -C "$TMP_ROOT" init -q -b main "$repo"
+  git -C "$repo" config user.email test@example.com
+  git -C "$repo" config user.name Test
+  (cd "$repo" && bash scripts/git/install-lint-ratchet-merge-driver.sh) >/dev/null \
+    || fail "real semantic merge-driver install failed"
+  git_common_dir=$(cd "$repo" && git rev-parse --git-common-dir)
+  case "$git_common_dir" in
+    /*) installed_driver="$git_common_dir/musi/lint-ratchet-baseline-merge-driver.sh" ;;
+    *) installed_driver="$repo/$git_common_dir/musi/lint-ratchet-baseline-merge-driver.sh" ;;
+  esac
+
+  base_file="$TMP_ROOT/merge-driver-fallback-base.json"
+  current_file="$TMP_ROOT/merge-driver-fallback-current.json"
+  other_file="$TMP_ROOT/merge-driver-fallback-other.json"
+  fallback_err="$TMP_ROOT/merge-driver-fallback.err"
+  write_merge_driver_semantic_baseline "$base_file" 5 6
+  write_merge_driver_semantic_baseline "$current_file" 3 6
+  write_merge_driver_semantic_baseline \
+    "$other_file" 4 6 "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+  set +e
+  (
+    cd "$repo"
+    bash "$installed_driver" \
+      "$base_file" "$current_file" "$other_file" "%L" "lint-ratchet.baseline.json"
+  ) 2>"$fallback_err"
+  fallback_status=$?
+  set -e
+  [ "$fallback_status" -ne 0 ] \
+    || fail "metadata-drift semantic merge should fall back with nonzero status"
+  grep -qF "semantic merge could not resolve lint-ratchet.baseline.json" "$fallback_err" \
+    || fail "driver should show real CLI refusal before fallback: $(cat "$fallback_err")"
+  grep -qF "semantic merge fell back to manual resolution" "$fallback_err" \
+    || fail "driver should cover the CLI-exit-1 fallback branch: $(cat "$fallback_err")"
+  grep -qF "lint-ratchet baseline conflict" "$fallback_err" \
+    || fail "driver fallback should print manual conflict guidance: $(cat "$fallback_err")"
+  BASELINE="$current_file" bun -e '
+    const { readFileSync } = require("fs");
+    const parsed = JSON.parse(readFileSync(process.env.BASELINE, "utf8"));
+    const item = parsed.tests["ratchet/fixture-one"].items["packages/server/src/one.ts"];
+    if (item.count !== 3) throw new Error(`current side was rewritten to ${item.count}`);
+  ' || fail "fallback should leave the current temp file untouched"
+
+  cat >"$repo/.gitattributes" <<'EOF'
+/lint-ratchet.baseline.json merge=lint-ratchet-baseline
+EOF
+  write_merge_driver_semantic_baseline "$repo/lint-ratchet.baseline.json" 5 6
+  git -C "$repo" add .gitattributes lint-ratchet.baseline.json
+  git -C "$repo" commit -qm base
+
+  git -C "$repo" checkout -q -b side
+  write_merge_driver_semantic_baseline "$repo/lint-ratchet.baseline.json" 5 3
+  git -C "$repo" commit -qam side
+
+  git -C "$repo" checkout -q main
+  write_merge_driver_semantic_baseline "$repo/lint-ratchet.baseline.json" 2 6
+  git -C "$repo" commit -qam main
+
+  set +e
+  git -C "$repo" merge --no-commit side >"$TMP_ROOT/merge-driver-real.out" \
+    2>"$TMP_ROOT/merge-driver-real.err"
+  status=$?
+  set -e
+  [ "$status" -eq 0 ] \
+    || fail "real semantic baseline git merge should succeed: $(cat "$TMP_ROOT/merge-driver-real.err")"
+  grep -qF "fell back to manual resolution" "$TMP_ROOT/merge-driver-real.err" \
+    && fail "real semantic baseline git merge should not use fallback: $(cat "$TMP_ROOT/merge-driver-real.err")"
+  unmerged_count=$(git -C "$repo" ls-files -u -- lint-ratchet.baseline.json | wc -l | tr -d ' ')
+  [ "$unmerged_count" = "0" ] \
+    || fail "real semantic baseline git merge should leave no unmerged stages"
+  BASELINE="$repo/lint-ratchet.baseline.json" bun -e '
+    const { readFileSync } = require("fs");
+    const parsed = JSON.parse(readFileSync(process.env.BASELINE, "utf8"));
+    const one = parsed.tests["ratchet/fixture-one"].items["packages/server/src/one.ts"].count;
+    const two = parsed.tests["ratchet/fixture-two"].items["packages/client/src/two.ts"].count;
+    if (one !== 2 || two !== 3) throw new Error(`merged counts were ${one}/${two}`);
+  ' || fail "real semantic baseline git merge should keep minimum floors"
+}
+
+assert_lint_ratchet_merge_driver_hash_tool_guard() {
+  local repo="$TMP_ROOT/merge-driver-hash-guard"
+  local restricted_bin="$TMP_ROOT/merge-driver-hash-guard-bin"
+  local tool output installed_driver git_common_dir status sha256sum_bin
+
+  mkdir -p "$repo/scripts/git" "$restricted_bin"
+  cp scripts/git/check-lint-ratchet-merge-driver.sh "$repo/scripts/git/"
+  cp scripts/git/install-lint-ratchet-merge-driver.sh "$repo/scripts/git/"
+  cp scripts/git/lint-ratchet-merge-driver-lib.sh "$repo/scripts/git/"
+  cp scripts/git/lint-ratchet-baseline-merge-driver.sh "$repo/scripts/git/"
+  git -C "$TMP_ROOT" init -q -b main "$repo"
+  git -C "$repo" config user.email test@example.com
+  git -C "$repo" config user.name Test
+
+  # A PATH with every tool the driver scripts need except sha256sum/shasum,
+  # so the smoke can simulate a host with no hash tool at all.
+  for tool in bash git awk mktemp cat rm mkdir cp chmod mv dirname; do
+    ln -s "$(command -v "$tool")" "$restricted_bin/$tool"
+  done
+
+  (cd "$repo" && bash scripts/git/install-lint-ratchet-merge-driver.sh) \
+    >/dev/null || fail "hash-guard install failed"
+
+  git_common_dir=$(cd "$repo" && git rev-parse --git-common-dir)
+  case "$git_common_dir" in
+    /*) installed_driver="$git_common_dir/musi/lint-ratchet-baseline-merge-driver.sh" ;;
+    *) installed_driver="$repo/$git_common_dir/musi/lint-ratchet-baseline-merge-driver.sh" ;;
+  esac
+
+  # Fail closed: with no hash tool the check must never report PASS, even
+  # though the installed state is actually current.
+  set +e
+  output=$(cd "$repo" && PATH="$restricted_bin" \
+    bash scripts/git/check-lint-ratchet-merge-driver.sh 2>/dev/null)
+  status=$?
+  set -e
+  [ "$status" -eq 0 ] \
+    || fail "hash-tool-less check must stay advisory (exit 0), got $status: $output"
+  [ "$output" = "WARN: lint-ratchet merge driver is missing or stale - run bun run lint:ratchet:install-merge-driver" ] \
+    || fail "hash-tool-less check must fail closed with the WARN line: $output"
+
+  # Fail closed: with no hash tool the installer must refresh a stale
+  # installed driver copy instead of treating any two files as matching.
+  printf 'stale installed driver\n' >"$installed_driver"
+  (cd "$repo" && PATH="$restricted_bin" \
+    bash scripts/git/install-lint-ratchet-merge-driver.sh) >/dev/null 2>&1 \
+    || fail "hash-tool-less install should still exit 0"
+  cmp -s "$repo/scripts/git/lint-ratchet-baseline-merge-driver.sh" "$installed_driver" \
+    || fail "hash-tool-less install must refresh a stale installed driver copy"
+
+  # shasum fallback: with shasum but no sha256sum on PATH (stock macOS), the
+  # check must hash-compare via `shasum -a 256` and report PASS when current.
+  sha256sum_bin=$(command -v sha256sum) \
+    || fail "hash-guard smoke needs sha256sum on the host PATH"
+  cat >"$restricted_bin/shasum" <<EOF
+#!/usr/bin/env bash
+[ "\$1" = "-a" ] && [ "\$2" = "256" ] \
+  || { echo "unexpected shasum args: \$*" >&2; exit 64; }
+shift 2
+exec "$sha256sum_bin" "\$@"
+EOF
+  chmod +x "$restricted_bin/shasum"
+  output=$(cd "$repo" && PATH="$restricted_bin" \
+    bash scripts/git/check-lint-ratchet-merge-driver.sh) \
+    || fail "shasum-only check should exit 0"
+  [ "$output" = "PASS: lint-ratchet merge driver is installed and current" ] \
+    || fail "shasum-only check should PASS on current state: $output"
+}
+
+assert_lint_ratchet_merge_driver_write_guard() {
+  local repo="$TMP_ROOT/merge-driver-write-guard"
+  local poison_bin="$TMP_ROOT/merge-driver-write-guard-bin"
+  local awk_bin output status leftovers
+
+  mkdir -p "$repo/scripts/git" "$poison_bin"
+  cp scripts/git/check-lint-ratchet-merge-driver.sh "$repo/scripts/git/"
+  cp scripts/git/install-lint-ratchet-merge-driver.sh "$repo/scripts/git/"
+  cp scripts/git/lint-ratchet-merge-driver-lib.sh "$repo/scripts/git/"
+  cp scripts/git/lint-ratchet-baseline-merge-driver.sh "$repo/scripts/git/"
+  git -C "$TMP_ROOT" init -q -b main "$repo"
+  git -C "$repo" config user.email test@example.com
+  git -C "$repo" config user.name Test
+
+  mkdir -p "$repo/.git/info"
+  printf 'unrelated/path merge=union\n' >"$repo/.git/info/attributes"
+
+  # Poison only the attributes-normalization awk call (the one invoked with
+  # -v begin=...); the hash-extraction awk ('{print $1}') keeps working, so
+  # the installer reaches the hash-guarded mv with a truncated temp file
+  # unless the rewrite is guarded.
+  awk_bin=$(command -v awk) \
+    || fail "write-guard smoke needs awk on the host PATH"
+  cat >"$poison_bin/awk" <<EOF
+#!/usr/bin/env bash
+if [ "\$1" = "-v" ]; then
+  echo "simulated awk write failure" >&2
+  exit 1
+fi
+exec "$awk_bin" "\$@"
+EOF
+  chmod +x "$poison_bin/awk"
+
+  set +e
+  output=$(cd "$repo" && PATH="$poison_bin:$PATH" \
+    bash scripts/git/install-lint-ratchet-merge-driver.sh 2>&1)
+  status=$?
+  set -e
+  [ "$status" -eq 0 ] \
+    || fail "installer must stay advisory when the attributes rewrite fails, got $status: $output"
+  grep -qF "lint-ratchet merge driver install: WARN:" <<<"$output" \
+    || fail "installer should warn when the attributes rewrite fails: $output"
+  [ "$(cat "$repo/.git/info/attributes")" = "unrelated/path merge=union" ] \
+    || fail "failed attributes rewrite must leave existing attributes untouched: $(cat "$repo/.git/info/attributes")"
+  leftovers=$(find "$repo/.git/info" -name 'attributes.*' -print)
+  [ -z "$leftovers" ] \
+    || fail "failed attributes rewrite should clean up its temp file: $leftovers"
+}
+
+assert_lint_ratchet_merge_driver_auto_install_wiring() {
+  bun -e '
+    const { readFileSync } = require("fs");
+    const packageJson = JSON.parse(readFileSync("package.json", "utf8"));
+    const prepare = packageJson.scripts?.prepare;
+    if (prepare !== "husky && bun run lint:ratchet:install-merge-driver") {
+      throw new Error(`prepare does not chain merge-driver install after husky: ${prepare}`);
+    }
+    const check = packageJson.scripts?.["lint:ratchet:merge-driver:check"];
+    if (check !== "bash scripts/git/check-lint-ratchet-merge-driver.sh") {
+      throw new Error(`merge-driver health check script is not registered: ${check}`);
+    }
+  ' || fail "package prepare should chain the merge-driver installer after husky"
+
+  grep -qF 'scripts/git/install-lint-ratchet-merge-driver.sh' .husky/post-checkout \
+    || fail "post-checkout should refresh the lint-ratchet merge driver"
+  grep -qF 'scripts/git/install-lint-ratchet-merge-driver.sh' .husky/post-merge \
+    || fail "post-merge should refresh the lint-ratchet merge driver"
+  grep -qF 'install_lint_ratchet_merge_driver "$wt_root"' scripts/worktree-db.sh \
+    || fail "worktree:init should install the lint-ratchet merge driver for new worktrees"
+}
+
+assert_lint_ratchet_post_merge_truth_up() {
+  local repo="$TMP_ROOT/post-merge-truth-up"
+  local fake_bin="$TMP_ROOT/post-merge-fake-bin"
+  local nobun_bin="$TMP_ROOT/post-merge-nobun-bin"
+  local hook_log="$TMP_ROOT/post-merge-bun.log"
+  local output status tool
+
+  mkdir -p "$repo/scripts/git" "$fake_bin"
+  cp scripts/git/lint-ratchet-post-merge-baseline-truth-up.sh "$repo/scripts/git/"
+  git -C "$TMP_ROOT" init -q -b main "$repo"
+  git -C "$repo" config user.email test@example.com
+  git -C "$repo" config user.name Test
+  printf '{}\n' >"$repo/lint-ratchet.baseline.json"
+  git -C "$repo" add lint-ratchet.baseline.json
+  git -C "$repo" commit -qm base
+
+  cat >"$fake_bin/bun" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$*" >>"${POST_MERGE_BUN_LOG:?}"
+if [ "$*" = "run scripts/lint-ratchet/post-merge-baseline-preflight.ts" ]; then
+  exit "${POST_MERGE_PREFLIGHT_RC:-0}"
+fi
+if [ "$*" = "run lint:ratchet:check-baseline" ]; then
+  exit "${POST_MERGE_FULL_RC:-0}"
+fi
+printf 'unexpected bun invocation: %s\n' "$*" >&2
+exit 99
+SH
+  chmod +x "$fake_bin/bun"
+
+  : >"$hook_log"
+  (cd "$repo" && PATH="$fake_bin:$PATH" POST_MERGE_BUN_LOG="$hook_log" \
+    bash scripts/git/lint-ratchet-post-merge-baseline-truth-up.sh) \
+    || fail "post-merge truth-up should exit 0 without ORIG_HEAD"
+  [ ! -s "$hook_log" ] \
+    || fail "post-merge truth-up should skip when ORIG_HEAD is absent: $(cat "$hook_log")"
+
+  git -C "$repo" update-ref ORIG_HEAD HEAD
+  printf 'not baseline\n' >"$repo/README.md"
+  git -C "$repo" add README.md
+  git -C "$repo" commit -qm readme
+  : >"$hook_log"
+  (cd "$repo" && PATH="$fake_bin:$PATH" POST_MERGE_BUN_LOG="$hook_log" \
+    bash scripts/git/lint-ratchet-post-merge-baseline-truth-up.sh) \
+    || fail "post-merge truth-up should exit 0 for unrelated merges"
+  [ ! -s "$hook_log" ] \
+    || fail "post-merge truth-up should skip when baseline was not touched: $(cat "$hook_log")"
+
+  git -C "$repo" update-ref ORIG_HEAD HEAD
+  printf '{"version":1,"tests":{}}\n' >"$repo/lint-ratchet.baseline.json"
+  git -C "$repo" commit -qam baseline
+  : >"$hook_log"
+  output=$(cd "$repo" && PATH="$fake_bin:$PATH" POST_MERGE_BUN_LOG="$hook_log" \
+    bash scripts/git/lint-ratchet-post-merge-baseline-truth-up.sh 2>&1) \
+    || fail "post-merge truth-up should exit 0 when cheap preflight passes"
+  [ "$output" = "" ] \
+    || fail "post-merge truth-up should stay quiet when cheap preflight passes: $output"
+  [ "$(cat "$hook_log")" = "run scripts/lint-ratchet/post-merge-baseline-preflight.ts" ] \
+    || fail "post-merge truth-up should run only cheap preflight on clean baseline: $(cat "$hook_log")"
+
+  : >"$hook_log"
+  output=$(cd "$repo" && PATH="$fake_bin:$PATH" POST_MERGE_BUN_LOG="$hook_log" \
+    MUSI_RATCHET_POSTMERGE=full \
+    bash scripts/git/lint-ratchet-post-merge-baseline-truth-up.sh 2>&1) \
+    || fail "post-merge truth-up should exit 0 when opt-in full check passes"
+  [ "$output" = "" ] \
+    || fail "post-merge truth-up should stay quiet when opt-in full check passes: $output"
+  [ "$(cat "$hook_log")" = $'run scripts/lint-ratchet/post-merge-baseline-preflight.ts\nrun lint:ratchet:check-baseline' ] \
+    || fail "MUSI_RATCHET_POSTMERGE=full should run cheap and full checks: $(cat "$hook_log")"
+
+  : >"$hook_log"
+  set +e
+  output=$(cd "$repo" && PATH="$fake_bin:$PATH" POST_MERGE_BUN_LOG="$hook_log" \
+    POST_MERGE_PREFLIGHT_RC=1 POST_MERGE_FULL_RC=1 \
+    bash scripts/git/lint-ratchet-post-merge-baseline-truth-up.sh 2>&1)
+  status=$?
+  set -e
+  [ "$status" -eq 0 ] \
+    || fail "post-merge truth-up must stay advisory, got exit $status: $output"
+  [ "$output" = "post-merge: merge produced a stale ratchet baseline - run: bun run lint:ratchet:update, review the diff against both parents, then git commit --amend" ] \
+    || fail "post-merge truth-up should print exactly one stale-baseline instruction: $output"
+  [ "$(cat "$hook_log")" = $'run scripts/lint-ratchet/post-merge-baseline-preflight.ts\nrun lint:ratchet:check-baseline' ] \
+    || fail "cheap failure should escalate to full check: $(cat "$hook_log")"
+
+  # Environment guard: a host without bun on PATH (GUI git clients, broken
+  # shells) must stay silent instead of printing the stale-baseline advisory.
+  mkdir -p "$nobun_bin"
+  for tool in bash git grep; do
+    ln -s "$(command -v "$tool")" "$nobun_bin/$tool"
+  done
+  set +e
+  output=$(cd "$repo" && PATH="$nobun_bin" \
+    bash scripts/git/lint-ratchet-post-merge-baseline-truth-up.sh 2>&1)
+  status=$?
+  set -e
+  [ "$status" -eq 0 ] \
+    || fail "post-merge truth-up must exit 0 without bun on PATH, got $status: $output"
+  [ "$output" = "" ] \
+    || fail "post-merge truth-up must not claim staleness without bun on PATH: $output"
+
+  # exit 127 from the cheap preflight means the environment cannot run it
+  # (missing deps or script), not that the baseline is stale: stay quiet and
+  # skip the full-check escalation.
+  : >"$hook_log"
+  output=$(cd "$repo" && PATH="$fake_bin:$PATH" POST_MERGE_BUN_LOG="$hook_log" \
+    POST_MERGE_PREFLIGHT_RC=127 \
+    bash scripts/git/lint-ratchet-post-merge-baseline-truth-up.sh 2>&1) \
+    || fail "post-merge truth-up should exit 0 when preflight exits 127"
+  [ "$output" = "" ] \
+    || fail "preflight exit 127 must not print the stale advisory: $output"
+  [ "$(cat "$hook_log")" = "run scripts/lint-ratchet/post-merge-baseline-preflight.ts" ] \
+    || fail "preflight exit 127 should not escalate to the full check: $(cat "$hook_log")"
+
+  # exit 127 from the escalated full check is likewise an environment
+  # failure, not staleness.
+  : >"$hook_log"
+  output=$(cd "$repo" && PATH="$fake_bin:$PATH" POST_MERGE_BUN_LOG="$hook_log" \
+    POST_MERGE_PREFLIGHT_RC=1 POST_MERGE_FULL_RC=127 \
+    bash scripts/git/lint-ratchet-post-merge-baseline-truth-up.sh 2>&1) \
+    || fail "post-merge truth-up should exit 0 when full check exits 127"
+  [ "$output" = "" ] \
+    || fail "full-check exit 127 must not print the stale advisory: $output"
+  [ "$(cat "$hook_log")" = $'run scripts/lint-ratchet/post-merge-baseline-preflight.ts\nrun lint:ratchet:check-baseline' ] \
+    || fail "full-check exit 127 should still have escalated from the failing preflight: $(cat "$hook_log")"
 }
 
 use_fixture_node_modules_with_fake_plugin() {
@@ -1011,6 +1495,7 @@ TS
 
 run_fixture_update() {
   local fixture_dir=$1
+  ensure_fixture_git_index "$fixture_dir"
   if (cd "$fixture_dir" && bun run scripts/lint-ratchet.ts --update \
       >"$TMP_ROOT/update.out" 2>"$TMP_ROOT/update.err"); then
     ensure_fixture_git_index "$fixture_dir"
@@ -1071,6 +1556,11 @@ grep -qF "lint:ratchet:check-registry OK" "$TMP_ROOT/real-registry.err" \
 assert_portable_runtime_import_boundary
 assert_local_identity_regression
 assert_lint_ratchet_merge_driver
+assert_lint_ratchet_merge_driver_real_semantic_merge
+assert_lint_ratchet_merge_driver_hash_tool_guard
+assert_lint_ratchet_merge_driver_write_guard
+assert_lint_ratchet_merge_driver_auto_install_wiring
+assert_lint_ratchet_post_merge_truth_up
 
 # --- Usage errors return exit 2 (CLI contract for harness wrappers) ----------
 # Each assertion runs against the real tree; usage errors throw before ESLint
@@ -1092,7 +1582,20 @@ EMPTY_GLOB_DIR="$TMP_ROOT/empty-glob"
 build_fixture "$EMPTY_GLOB_DIR"
 write_type_assertion_config "$EMPTY_GLOB_DIR" "packages/app/src/missing/**/*.ts"
 write_clean_source "$EMPTY_GLOB_DIR"
-run_fixture_update "$EMPTY_GLOB_DIR" || fail "empty-glob update failed: $(cat "$TMP_ROOT/update.err")"
+ensure_fixture_git_index "$EMPTY_GLOB_DIR"
+set +e
+(cd "$EMPTY_GLOB_DIR" && bun run scripts/lint-ratchet.ts --update \
+  >"$TMP_ROOT/empty-glob-update.out" 2>"$TMP_ROOT/empty-glob-update.err")
+status=$?
+set -e
+[ "$status" -eq 2 ] \
+  || fail "empty-glob update should exit 2, got $status: $(cat "$TMP_ROOT/empty-glob-update.err")"
+grep -qF "empty-glob: ratchet/local-type-assertion-boundary" \
+  "$TMP_ROOT/empty-glob-update.err" \
+  || fail "empty-glob update failure should name the ratchet: $(cat "$TMP_ROOT/empty-glob-update.err")"
+grep -qF "files globs match zero tracked files after ignores" \
+  "$TMP_ROOT/empty-glob-update.err" \
+  || fail "empty-glob update failure should explain the missing tracked match: $(cat "$TMP_ROOT/empty-glob-update.err")"
 set +e
 (cd "$EMPTY_GLOB_DIR" && bun run scripts/lint-ratchet.ts \
   >"$TMP_ROOT/empty-glob.out" 2>"$TMP_ROOT/empty-glob.err")
@@ -1466,6 +1969,7 @@ UNSUPPORTED_PLUGIN_DIR="$TMP_ROOT/unsupported-plugin"
 build_fixture "$UNSUPPORTED_PLUGIN_DIR"
 write_clean_source "$UNSUPPORTED_PLUGIN_DIR"
 write_third_party_config "$UNSUPPORTED_PLUGIN_DIR" "always-report" "minimal-ts" "not-allowlisted"
+ensure_fixture_git_index "$UNSUPPORTED_PLUGIN_DIR"
 set +e
 (cd "$UNSUPPORTED_PLUGIN_DIR" && bun run scripts/lint-ratchet.ts --update \
   >"$TMP_ROOT/unsupported-plugin.out" 2>"$TMP_ROOT/unsupported-plugin.err")
@@ -1482,6 +1986,7 @@ build_fixture "$MALFORMED_RULE_ID_DIR"
 write_clean_source "$MALFORMED_RULE_ID_DIR"
 write_third_party_config "$MALFORMED_RULE_ID_DIR" "unused" "minimal-ts" \
   "allowlisted" "@badly"
+ensure_fixture_git_index "$MALFORMED_RULE_ID_DIR"
 set +e
 (cd "$MALFORMED_RULE_ID_DIR" && bun run scripts/lint-ratchet.ts --update \
   >"$TMP_ROOT/malformed-rule-id.out" 2>"$TMP_ROOT/malformed-rule-id.err")
@@ -1499,6 +2004,7 @@ MALFORMED_CORE_RULE_ID_DIR="$TMP_ROOT/malformed-core-rule-id"
 build_fixture "$MALFORMED_CORE_RULE_ID_DIR"
 write_clean_source "$MALFORMED_CORE_RULE_ID_DIR"
 write_core_config "$MALFORMED_CORE_RULE_ID_DIR" "foo/bar"
+ensure_fixture_git_index "$MALFORMED_CORE_RULE_ID_DIR"
 set +e
 (cd "$MALFORMED_CORE_RULE_ID_DIR" && bun run scripts/lint-ratchet.ts --update \
   >"$TMP_ROOT/malformed-core-rule-id.out" 2>"$TMP_ROOT/malformed-core-rule-id.err")

@@ -12,6 +12,28 @@ Related: `docs/agent_notes/finished_work/lint-followups-2026-06.md`
 `31b43881 docs(lint): consolidate lint review backlog`; read them from git
 history.
 
+## 2026-07-02 positioning update
+
+Recommendation 1 is now live as
+`ratchet/react-hooks-set-state-in-effect-client`; it freezes the
+set-state-in-effect anti-pattern floor but does not classify every legitimate
+effect boundary. The proposed `local/effect-boundary-marker` rule from
+`docs/agent_notes/backlog/harness-review-2026-07/36-effect-boundary-marker-rule.md`
+would complement Recommendation 1 by forcing a parseable category and reason on
+new or touched effects that Recommendation 1 cannot see.
+
+If adopted, the marker rule should substitute for Recommendation 2's
+third-party plugin trial by default, not stack beside it immediately. The
+marker uses an in-house mechanism already proven by `local/type-assertion-boundary`;
+Recommendation 2 remains uncalibrated and deferred for owner judgment.
+
+Rollout must be ratchet-based: the existing effect inventory becomes baseline
+debt, and new/edited effects need markers, avoiding the non-goal of forcing an
+annotate-every-effect-at-once cleanup. Implementation remains held for the repo
+owner because the value premise that every effect should carry an explicit
+marker is the policy judgment this research lane reserved rather than a settled
+mechanical follow-up.
+
 ## Goal
 
 Contain the AI-agent `useEffect` leak-in dynamic — new unnecessary effects
