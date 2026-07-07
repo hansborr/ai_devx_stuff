@@ -1,4 +1,16 @@
 #!/usr/bin/env bash
+# smoke-order: 070
+# smoke-subjects: scripts/dependency-freshness.sh
+# smoke-subjects: scripts/prisma-client-freshness.sh
+# smoke-subjects: scripts/doc-length-policy.sh
+# smoke-subjects: scripts/lib/verify-metadata.sh
+# smoke-subjects: scripts/process-tree.sh
+# smoke-subjects: scripts/ai-hooks/output-filter.sh
+# smoke-subjects: scripts/verify/steps.generated.sh
+# smoke-subjects: scripts/verify/steps-lib.sh
+# smoke-subjects: .husky/pre-commit
+# smoke-subjects: scripts/tests/lib/test-git-env.sh
+# smoke-subjects: scripts/tests/test-dependency-freshness.sh
 # Pure-shell tests for dependency freshness diagnostics.
 
 set -euo pipefail
@@ -63,6 +75,7 @@ copy_precommit_fixture() {
   cp "$SCRIPT_DIR/../prisma-client-freshness.sh" "$target/scripts/prisma-client-freshness.sh"
   cp "$SCRIPT_DIR/../doc-length-policy.sh" "$target/scripts/doc-length-policy.sh"
   cp "$SCRIPT_DIR/../lib/verify-metadata.sh" "$target/scripts/lib/verify-metadata.sh"
+  cp "$SCRIPT_DIR/../lib/gate-env.sh" "$target/scripts/lib/gate-env.sh"
   cp "$SCRIPT_DIR/../process-tree.sh" "$target/scripts/process-tree.sh"
   cp "$SCRIPT_DIR/../lib/parallel-step.sh" "$target/scripts/lib/parallel-step.sh"
   cp "$SCRIPT_DIR/../lib/lint-dist-preflight.sh" "$target/scripts/lib/lint-dist-preflight.sh"
@@ -72,6 +85,7 @@ copy_precommit_fixture() {
   cat > "$target/bin/bun" <<'STUB'
 #!/usr/bin/env sh
 printf 'stub bun %s\n' "$*" >> "$STUB_LOG"
+[ -z "${STUB_NODE_OPTIONS_LOG:-}" ] || printf '%s\n' "${NODE_OPTIONS:-}" >> "$STUB_NODE_OPTIONS_LOG"
 exit 0
 STUB
   chmod +x "$target/bin/bun"
@@ -182,6 +196,7 @@ cp "$SCRIPT_DIR/../dependency-freshness.sh" "$hook_repo/scripts/dependency-fresh
 cp "$SCRIPT_DIR/../prisma-client-freshness.sh" "$hook_repo/scripts/prisma-client-freshness.sh"
 cp "$SCRIPT_DIR/../doc-length-policy.sh" "$hook_repo/scripts/doc-length-policy.sh"
 cp "$SCRIPT_DIR/../lib/verify-metadata.sh" "$hook_repo/scripts/lib/verify-metadata.sh"
+cp "$SCRIPT_DIR/../lib/gate-env.sh" "$hook_repo/scripts/lib/gate-env.sh"
 cp "$SCRIPT_DIR/../process-tree.sh" "$hook_repo/scripts/process-tree.sh"
 cp "$SCRIPT_DIR/../lib/parallel-step.sh" "$hook_repo/scripts/lib/parallel-step.sh"
 cp "$SCRIPT_DIR/../lib/lint-dist-preflight.sh" "$hook_repo/scripts/lib/lint-dist-preflight.sh"
@@ -241,6 +256,7 @@ ok "pre-commit warns non-blockingly for commit-surface doc length"
 cat > bin/bun <<'STUB'
 #!/usr/bin/env sh
 printf 'stub bun %s\n' "$*" >> "$STUB_LOG"
+[ -z "${STUB_NODE_OPTIONS_LOG:-}" ] || printf '%s\n' "${NODE_OPTIONS:-}" >> "$STUB_NODE_OPTIONS_LOG"
 if [ "${2:-}" = "lint:changed" ] && [ -n "${STUB_SLEEP_LINT_CHANGED:-}" ]; then
   sleep "$STUB_SLEEP_LINT_CHANGED"
 fi
@@ -258,16 +274,19 @@ STUB
   marker="$hook_repo/precommit-marker"
   log_dir="$hook_repo/precommit-logs"
   stub_log="$hook_repo/bun.log"
+  node_options_log="$hook_repo/node-options.log"
   cat > "$marker" <<'BAD_MARKER'
 LAST_TS=abc
 LAST_HEAD=whatever
 LAST_HASH=whatever
 BAD_MARKER
   : > "$stub_log"
+  : > "$node_options_log"
 
   output="$(
     PATH="$hook_repo/bin:$PATH" \
     STUB_LOG="$stub_log" \
+    STUB_NODE_OPTIONS_LOG="$node_options_log" \
     MUSI_PRECOMMIT_MARKER="$marker" \
     MUSI_VERIFY_LOCK="$hook_repo/precommit-lock" \
     MUSI_VERIFY_LOG_DIR="$log_dir" \
@@ -276,6 +295,16 @@ BAD_MARKER
 
   grep -qF "pre-commit: OK" <<< "$output" || fail "pre-commit missing OK output: $output"
   grep -qF "stub bun run lint:changed" "$stub_log" || fail "corrupt marker did not rerun lint"
+  typecheck_line="$(grep -nFx 'stub bun run typecheck' "$stub_log" | head -n1 | cut -d: -f1)"
+  lint_line="$(grep -nFx 'stub bun run lint:changed' "$stub_log" | head -n1 | cut -d: -f1)"
+  ratchet_line="$(grep -nFx 'stub bun run lint:ratchet' "$stub_log" | head -n1 | cut -d: -f1)"
+  [ -n "$typecheck_line" ] || fail "missing-dist pre-commit should run typecheck"
+  [ -n "$lint_line" ] || fail "missing-dist pre-commit should run lint:changed"
+  [ -n "$ratchet_line" ] || fail "missing-dist pre-commit should run lint:ratchet"
+  [ "$typecheck_line" -lt "$lint_line" ] \
+    || fail "missing-dist pre-commit should run typecheck before lint: $(cat "$stub_log")"
+  [ "$typecheck_line" -lt "$ratchet_line" ] \
+    || fail "missing-dist pre-commit should run typecheck before ratchet: $(cat "$stub_log")"
   grep -qF "stub bun run docs:lint-coverage-map:check -- --staged" "$stub_log" || fail "corrupt marker did not run staged coverage-map check"
   grep -qF "stub bun run format:changed:check" "$stub_log" || fail "corrupt marker did not run changed format check"
   grep -qF "stub bun run typecheck" "$stub_log" || fail "corrupt marker did not rerun typecheck"
@@ -285,6 +314,8 @@ BAD_MARKER
   fi
   grep -qF "stub bun run test:scripts:changed" "$stub_log" \
     || fail "pre-commit should always invoke test:scripts:changed (runner no-ops when no subjects match)"
+  grep -q -- "--max-old-space-size=" "$node_options_log" \
+    || fail "pre-commit did not pass managed NODE_OPTIONS to bun slots: $(cat "$node_options_log")"
   [ -f "$log_dir/run-meta.json" ] || fail "pre-commit did not write run-meta.json"
   grep -q '"mode":"parallel-precommit"' "$log_dir/run-meta.json" \
     || fail "pre-commit metadata should record parallel-precommit mode"
@@ -565,6 +596,7 @@ cp "$SCRIPT_DIR/../dependency-freshness.sh" "$gate_repo/scripts/dependency-fresh
 cp "$SCRIPT_DIR/../prisma-client-freshness.sh" "$gate_repo/scripts/prisma-client-freshness.sh"
 cp "$SCRIPT_DIR/../doc-length-policy.sh" "$gate_repo/scripts/doc-length-policy.sh"
 cp "$SCRIPT_DIR/../lib/verify-metadata.sh" "$gate_repo/scripts/lib/verify-metadata.sh"
+cp "$SCRIPT_DIR/../lib/gate-env.sh" "$gate_repo/scripts/lib/gate-env.sh"
 cp "$SCRIPT_DIR/../process-tree.sh" "$gate_repo/scripts/process-tree.sh"
 cp "$SCRIPT_DIR/../lib/parallel-step.sh" "$gate_repo/scripts/lib/parallel-step.sh"
 cp "$SCRIPT_DIR/../lib/lint-dist-preflight.sh" "$gate_repo/scripts/lib/lint-dist-preflight.sh"
@@ -603,6 +635,8 @@ chmod +x "$gate_repo/bin/bun"
 
   grep -qF "stub bun run lint:changed" "$stub_log" \
     || fail "eslint-rules staged change did not run lint"
+  grep -qF "stub bun run docs:lint-guidance:check" "$stub_log" \
+    || fail "eslint-rules staged change did not run lint guidance freshness advisory"
   grep -qF "stub bun run test:changed --reporter=dot" "$stub_log" \
     || fail "eslint-rules staged change did not run test:changed"
   grep -qF "pre-commit: OK" <<< "$output" \
@@ -616,6 +650,7 @@ cp "$SCRIPT_DIR/../dependency-freshness.sh" "$manifest_repo/scripts/dependency-f
 cp "$SCRIPT_DIR/../prisma-client-freshness.sh" "$manifest_repo/scripts/prisma-client-freshness.sh"
 cp "$SCRIPT_DIR/../doc-length-policy.sh" "$manifest_repo/scripts/doc-length-policy.sh"
 cp "$SCRIPT_DIR/../lib/verify-metadata.sh" "$manifest_repo/scripts/lib/verify-metadata.sh"
+cp "$SCRIPT_DIR/../lib/gate-env.sh" "$manifest_repo/scripts/lib/gate-env.sh"
 cp "$SCRIPT_DIR/../process-tree.sh" "$manifest_repo/scripts/process-tree.sh"
 cp "$SCRIPT_DIR/../lib/parallel-step.sh" "$manifest_repo/scripts/lib/parallel-step.sh"
 cp "$SCRIPT_DIR/../lib/lint-dist-preflight.sh" "$manifest_repo/scripts/lib/lint-dist-preflight.sh"
@@ -657,6 +692,17 @@ chmod +x "$manifest_repo/bin/bun"
   fi
   grep -qF "stub bun run lint:changed" "$stub_log" \
     || fail "manifest staged change did not run lint"
+  grep -qF "stub bun run verify:steps:check" "$stub_log" \
+    || fail "manifest staged change did not run verify steps freshness advisory"
+  grep -qF "stub bun run harness:wiring:check" "$stub_log" \
+    || fail "manifest staged change did not run hook wiring freshness advisory"
+  grep -qF "stub bun run docs:harness-controls:check" "$stub_log" \
+    || fail "manifest staged change did not run harness controls freshness advisory"
+  grep -qF "stub bun run harness:config-surfaces:check" "$stub_log" \
+    || fail "manifest staged change did not run config-surface tsconfig freshness advisory"
+  if grep -qF "stub bun run docs:lint-guidance:check" "$stub_log"; then
+    fail "manifest staged change should not run lint guidance freshness advisory"
+  fi
   grep -qF "stub bun run lint:ratchet" "$stub_log" \
     || fail "manifest staged change did not run lint:ratchet"
   grep -qF "stub bun run test:changed --reporter=dot" "$stub_log" \
@@ -667,6 +713,41 @@ chmod +x "$manifest_repo/bin/bun"
     || fail "pre-commit with manifest edit missing OK output: $output"
 )
 ok "pre-commit runs lint+ratchet+scripts smokes for staged harness.controls.json"
+
+config_surface_repo="$TMP_ROOT/precommit-config-surface"
+copy_precommit_fixture "$config_surface_repo"
+(
+  cd "$config_surface_repo"
+  git init -q
+  git config user.name "Test User"
+  git config user.email "test@example.invalid"
+  git add .husky scripts bin
+  git commit -q -m init
+  printf '{"include":[]}\n' > tsconfig.configs.json
+  git add tsconfig.configs.json
+
+  marker="$config_surface_repo/precommit-marker-config-surface"
+  log_dir="$config_surface_repo/precommit-logs-config-surface"
+  stub_log="$config_surface_repo/bun-config-surface.log"
+  : > "$stub_log"
+
+  output="$(
+    PATH="$config_surface_repo/bin:$PATH" \
+    STUB_LOG="$stub_log" \
+    MUSI_PRECOMMIT_MARKER="$marker" \
+    MUSI_VERIFY_LOCK="$config_surface_repo/precommit-lock-config-surface" \
+    MUSI_VERIFY_LOG_DIR="$log_dir" \
+      sh .husky/pre-commit 2>&1
+  )" || fail "pre-commit should run checks for staged tsconfig.configs.json: $output"
+
+  grep -qF "stub bun run harness:config-surfaces:check" "$stub_log" \
+    || fail "tsconfig.configs.json staged change did not run config-surface freshness advisory"
+  grep -qF "stub bun run test:scripts:changed" "$stub_log" \
+    || fail "tsconfig.configs.json staged change did not run script smokes"
+  grep -qF "pre-commit: OK" <<< "$output" \
+    || fail "pre-commit with tsconfig.configs.json edit missing OK output: $output"
+)
+ok "pre-commit runs config-surface freshness advisory for staged tsconfig.configs.json"
 
 source_relevant_json_paths=(
   ".claude/settings.json"
@@ -765,6 +846,7 @@ cp "$SCRIPT_DIR/../dependency-freshness.sh" "$cache_repo/scripts/dependency-fres
 cp "$SCRIPT_DIR/../prisma-client-freshness.sh" "$cache_repo/scripts/prisma-client-freshness.sh"
 cp "$SCRIPT_DIR/../doc-length-policy.sh" "$cache_repo/scripts/doc-length-policy.sh"
 cp "$SCRIPT_DIR/../lib/verify-metadata.sh" "$cache_repo/scripts/lib/verify-metadata.sh"
+cp "$SCRIPT_DIR/../lib/gate-env.sh" "$cache_repo/scripts/lib/gate-env.sh"
 cp "$SCRIPT_DIR/../process-tree.sh" "$cache_repo/scripts/process-tree.sh"
 cp "$SCRIPT_DIR/../lib/parallel-step.sh" "$cache_repo/scripts/lib/parallel-step.sh"
 cp "$SCRIPT_DIR/../lib/lint-dist-preflight.sh" "$cache_repo/scripts/lib/lint-dist-preflight.sh"
@@ -1158,6 +1240,7 @@ cp "$SCRIPT_DIR/../dependency-freshness.sh" "$hook_only_repo/scripts/dependency-
 cp "$SCRIPT_DIR/../prisma-client-freshness.sh" "$hook_only_repo/scripts/prisma-client-freshness.sh"
 cp "$SCRIPT_DIR/../doc-length-policy.sh" "$hook_only_repo/scripts/doc-length-policy.sh"
 cp "$SCRIPT_DIR/../lib/verify-metadata.sh" "$hook_only_repo/scripts/lib/verify-metadata.sh"
+cp "$SCRIPT_DIR/../lib/gate-env.sh" "$hook_only_repo/scripts/lib/gate-env.sh"
 cp "$SCRIPT_DIR/../process-tree.sh" "$hook_only_repo/scripts/process-tree.sh"
 cp "$SCRIPT_DIR/../lib/parallel-step.sh" "$hook_only_repo/scripts/lib/parallel-step.sh"
 cp "$SCRIPT_DIR/../lib/lint-dist-preflight.sh" "$hook_only_repo/scripts/lib/lint-dist-preflight.sh"
@@ -1271,6 +1354,83 @@ copy_precommit_fixture "$codex_hooks_repo"
     || fail "pre-commit with .codex/hooks.json missing OK output: $output"
 )
 ok "pre-commit runs test:scripts:changed for staged .codex/hooks.json"
+
+# --- pre-commit with staged .github/hooks/copilot.json checks hook wiring ---
+copilot_hooks_repo="$TMP_ROOT/copilot-hooks-repo"
+copy_precommit_fixture "$copilot_hooks_repo"
+(
+  cd "$copilot_hooks_repo"
+  git init -q
+  git config user.name "Test User"
+  git config user.email "test@example.invalid"
+  mkdir -p .github/hooks
+  printf '{"hooks":[]}\n' > .github/hooks/copilot.json
+  git add scripts bin .husky .github/hooks/copilot.json
+  git commit -q -m init
+  printf '{"hooks":[{"type":"pre-tool-use"}]}\n' > .github/hooks/copilot.json
+  git add .github/hooks/copilot.json
+
+  marker="$copilot_hooks_repo/precommit-marker"
+  log_dir="$copilot_hooks_repo/precommit-logs"
+  stub_log="$copilot_hooks_repo/bun.log"
+  : > "$stub_log"
+
+  output="$(
+    PATH="$copilot_hooks_repo/bin:$PATH" \
+    STUB_LOG="$stub_log" \
+    MUSI_PRECOMMIT_MARKER="$marker" \
+    MUSI_VERIFY_LOCK="$copilot_hooks_repo/precommit-lock" \
+    MUSI_VERIFY_LOG_DIR="$log_dir" \
+      sh .husky/pre-commit 2>&1
+  )" || fail "pre-commit should run for staged .github/hooks/copilot.json: $output"
+
+  grep -qF "stub bun run harness:wiring:check" "$stub_log" \
+    || fail "staged .github/hooks/copilot.json did not run hook wiring freshness advisory"
+  grep -qF "stub bun run test:scripts:changed" "$stub_log" \
+    || fail "staged .github/hooks/copilot.json did not run test:scripts:changed"
+  grep -qF "pre-commit: OK" <<< "$output" \
+    || fail "pre-commit with .github/hooks/copilot.json missing OK output: $output"
+)
+ok "pre-commit checks hook wiring freshness for staged .github/hooks/copilot.json"
+
+# --- pre-commit with staged docs/generated/harness-controls.md checks docs ---
+harness_controls_doc_repo="$TMP_ROOT/harness-controls-doc-repo"
+copy_precommit_fixture "$harness_controls_doc_repo"
+(
+  cd "$harness_controls_doc_repo"
+  git init -q
+  git config user.name "Test User"
+  git config user.email "test@example.invalid"
+  mkdir -p docs/generated
+  printf 'old\n' > docs/generated/harness-controls.md
+  git add scripts bin .husky docs/generated/harness-controls.md
+  git commit -q -m init
+  printf 'new\n' > docs/generated/harness-controls.md
+  git add docs/generated/harness-controls.md
+
+  marker="$harness_controls_doc_repo/precommit-marker"
+  log_dir="$harness_controls_doc_repo/precommit-logs"
+  stub_log="$harness_controls_doc_repo/bun.log"
+  : > "$stub_log"
+
+  output="$(
+    PATH="$harness_controls_doc_repo/bin:$PATH" \
+    STUB_LOG="$stub_log" \
+    MUSI_PRECOMMIT_MARKER="$marker" \
+    MUSI_VERIFY_LOCK="$harness_controls_doc_repo/precommit-lock" \
+    MUSI_VERIFY_LOG_DIR="$log_dir" \
+      sh .husky/pre-commit 2>&1
+  )" || fail "pre-commit should stay advisory for staged docs/generated/harness-controls.md: $output"
+
+  grep -qF "stub bun run docs:harness-controls:check" "$stub_log" \
+    || fail "staged docs/generated/harness-controls.md did not run harness controls freshness advisory"
+  if grep -qF "stub bun run docs:lint-guidance:check" "$stub_log"; then
+    fail "staged docs/generated/harness-controls.md should not run lint guidance freshness advisory"
+  fi
+  grep -qF "pre-commit: no source changes staged" <<< "$output" \
+    || fail "generated harness controls doc should remain source-irrelevant after advisory: $output"
+)
+ok "pre-commit checks harness controls freshness for staged generated doc"
 
 # --- pre-commit with non-script deletion passes staged files through --------
 non_script_del_repo="$TMP_ROOT/non-script-del-repo"

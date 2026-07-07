@@ -1,0 +1,1233 @@
+{
+  "stats": {
+    "units": 38,
+    "totalTriaged": 279,
+    "confirmed": 118,
+    "discardedNoise": 161,
+    "cappedUnits": [
+      "chunk:012:duplicate-literals",
+      "chunk:016:duplicate-literals",
+      "chunk:019:duplicate-literals",
+      "chunk:022:duplicate-literals",
+      "chunk:025:duplicate-literals",
+      "chunk:026:duplicate-literals",
+      "chunk:034:unused-exports"
+    ],
+    "bySeverity": {
+      "high": 2,
+      "medium": 31,
+      "low": 85
+    }
+  },
+  "confirmed": [
+    {
+      "ref": "packages/client/src/components/campaign/npcs/monster-tab.tsx:193-287 / packages/client/src/components/compendium/magic-item-list.tsx:111-192",
+      "title": "Compendium list-tab pattern (filter state, buildListInput, debounced cursor list, tRPC query, PaginatedResultList wiring) duplicated verbatim between MonsterTab and MagicItemList",
+      "verdict": "real",
+      "severity": "low",
+      "category": "duplication",
+      "rationale": "Both files independently define an identically-named `buildListInput` helper and near-identical component bodies: same `useState(DEFAULT_FILTERS)`/`detailXId` state, same `filterKey = JSON.stringify({...})` pattern, same `useDebouncedCursorList` + `trpc.*.list.queryOptions` + `PaginatedResultList` wiring (82 near-identical lines per the drift report). Confirmed only these two files use `useDebouncedCursorList` (grep), so this is a genuine 2-way duplication of a 'paginated/filterable compendium list' pattern rather than an established convention repeated N times. Worth extracting into a shared hook (e.g. `useCompendiumListTab`) if a third compendium type (spells, items, etc.) is added, but with only 2 call sites today the maintenance risk is real but modest \u2014 flagging as a refactor candidate, not urgent.",
+      "unit": "duplicates",
+      "kind": "chunk"
+    },
+    {
+      "ref": "packages/client/src/components/homebrew/monster/monster-form-fields.tsx:436-474",
+      "title": "Four near-identical `<MonsterActionList label=... actions={form.X} onChange=... fieldErrors={fieldErrors} />` blocks (Traits/Actions/Bonus Actions/Reactions) flagged as internal near-duplicate",
+      "verdict": "investigate",
+      "severity": "low",
+      "category": "maintainability",
+      "rationale": "Lines 442-473 (and the LegendarySection equivalent at 410-417) are 4 copies of the same JSX shape differing only in the label string and the form field name (traits/actions/bonusActions/reactions), which is what the tool's self-similarity match at 435-474 is picking up. This is genuine repetition and could be collapsed into a `[{label, key}].map(...)` loop, but it's plain, readable, low-risk JSX boilerplate common in form components \u2014 not a behavioral drift risk, so it's a nice-to-have simplification rather than something to prioritize.",
+      "unit": "duplicates",
+      "kind": "chunk"
+    },
+    {
+      "ref": "scripts/drift-ai/knip-runner.ts:103-148",
+      "title": "drift-ai's own knip --include category selection breaks vitest-plugin entry resolution, producing systematic false-positive orphan-file reports",
+      "verdict": "real",
+      "severity": "high",
+      "category": "bug",
+      "rationale": "Reproduced directly: `knip --reporter json --include files --no-progress` (the exact flags knip-runner.ts builds via KNIP_FILE_INCLUDE_CATEGORIES='files' for the orphan-files check) reports all 10 files in this chunk as unused. Re-running with `--include files,unlisted` or `--include files,dependencies` drops the list to 3, matching a bare `bun run knip` (knip's own full-category default). The 7 that vanish are demonstrably not orphaned: packages/client/src/test/setup.ts and packages/server/src/test/setup.ts are wired as vitest `setupFiles` in packages/client/vitest.config.ts and packages/server/vitest.config.ts, packages/server/src/test/global-setup.ts is wired as `globalSetup`, and setup.ts:11 statically imports mock-map-token-mutations.ts plus dynamically `import()`s mock-react-konva.tsx, mock-roll-toast.ts, and mock-scroll-area.tsx from inside `vi.mock(...)` factories (setup.ts lines 56, 60, 74, 115). Knip's vitest plugin only registers setupFiles/globalSetup as entry points when 'unlisted' or 'dependencies' is part of the requested --include set, so every drift-ai check sharing this knip spawn (orphan-files, unused-exports, knip-duplicates, all built from the same KNIP_*_INCLUDE_CATEGORIES constants) inherits this false-positive class wherever a file is reachable only via a vitest-plugin-driven entry.",
+      "unit": "orphan-files",
+      "kind": "chunk",
+      "verifyNote": "Fully reproduced. Ran the exact flags knip-runner.ts builds for orphan-files-only selection (`knip --reporter json --include files --no-progress`) against the live repo: 10 files reported as orphaned, including packages/client/src/test/setup.ts, packages/server/src/test/setup.ts, packages/server/src/test/global-setup.ts, and 4 mock-*.ts/tsx files. Verified these ARE wired: packages/client/vitest.config.ts:20 and packages/server/vitest.config.ts:21 set setupFiles: ['src/test/setup.ts'], and packages/server/vitest.config.ts:22 sets globalSetup; setup.ts statically imports mock-map-token-mutations.ts (line 11) and dynamically imports mock-react-konva/mock-roll-toast/mock-scroll-area inside vi.mock() factories (lines 56/60/74). Re-running with --include files,unlisted or files,dependencies drops the list to 3 genuine orphans, matching a bare `bun run knip`. Critically, also tested the actual production scenario this audit used ('every check enabled', which resolveKnipIncludeCategories maps to key '111' -> KNIP_INCLUDE_CATEGORIES = files,exports,types,enumMembers,namespaceMembers,duplicates) and the false positive PERSISTS (still 10 files, same 7 false positives) because KNIP_INCLUDE_CATEGORIES never includes 'unlisted' or 'dependencies' under any of drift-ai's 7 category-selection keys (checked INCLUDE_CATEGORIES_BY_SELECTION in knip-runner.ts:128-136 and the fallback default) -- so this bug affects 100% of drift-ai knip-backed check combinations, not just a narrow edge case. Confirmed the target's own root knip.config.ts has no exemption for this (ignoreIssues entries there cover exports/types categories on specific globs, nothing for the files/orphan category or these test-infra paths). Confirmed knip-orphan-files.ts is a pure Tier-1 pass-through adapter with no additional filtering that would catch this. Since resolveKnipIncludeCategories/memoizingDefaultKnipRunner share one spawn and cache key across whatever knip-backed checks are selected, unused-exports and knip-duplicates checks inherit the same distorted report. This is a systematic, unmitigated, high-confidence false-positive generator in the repo's own dogfooded tooling (scripts/drift-ai), which per project weighting guidance should be treated as high priority."
+    },
+    {
+      "ref": "knip.config.ts:47",
+      "title": "Root entry globs don't cover scripts/lint-ratchet/*.ts or scripts/path-policy/*.ts, so two live CLI scripts false-positive as orphan files",
+      "verdict": "real",
+      "severity": "low",
+      "category": "maintainability",
+      "rationale": "scripts/lint-ratchet/post-merge-baseline-preflight.ts is invoked via `bun run scripts/lint-ratchet/post-merge-baseline-preflight.ts` from scripts/git/lint-ratchet-post-merge-baseline-truth-up.sh:61 (asserted by scripts/tests/test-lint-ratchet.sh, e.g. line 1033); scripts/path-policy/path-policy-query.ts is invoked as `bun --config=/dev/null \"$PATH_POLICY_QUERY\"` from scripts/lint-changed.sh:22/37 and roughly a dozen other scripts/*.sh and scripts/tests/test-*.sh files. Neither is reachable via a static import, and the root entry list (knip.config.ts workspaces['.'].entry) only globs top-level `scripts/*.ts`, not nested subdirectories, so both fall through the entry net despite being live CLI entry points invoked from hooks/CI.",
+      "unit": "orphan-files",
+      "kind": "chunk"
+    },
+    {
+      "ref": "packages/client/src/test/mock-zustand-stores.ts:1",
+      "title": "mock-zustand-stores.ts is genuinely dead: built to de-duplicate store mocking across two tests, but neither test imports it",
+      "verdict": "real",
+      "severity": "low",
+      "category": "dead-code",
+      "rationale": "The file's own doc comment (lines 1-16) says combat-map-panel.test.tsx and map-detail-view.test.tsx should import buildVttDrawerStoreMock/buildMapCanvasStoreMock from inside a vi.mock factory, but grep across packages/client/src finds zero references to mock-zustand-stores or those function names outside the file itself. Both named tests instead spy directly on the real stores (map-detail-view.test.tsx:56-59, combat-map-panel.test.tsx:46-51 via vi.spyOn on useMapCanvasStore/useVttDrawerStore), meaning this is a true orphan even after correcting for the knip-runner category bug above -- safe to delete, or wire into the two tests it was written for to realize the de-duplication it documents.",
+      "unit": "orphan-files",
+      "kind": "chunk"
+    },
+    {
+      "ref": "scripts/drift-ai/check-metadata.ts (+35 files, cycleSize 36)",
+      "title": "largest type-only cycle in the report: drift-ai's own check-config registry (36 files)",
+      "verdict": "investigate",
+      "severity": "low",
+      "category": "architecture",
+      "rationale": "Verified the wiring: config.ts (runtime) imports config-parsing.ts, which (runtime) imports CHECK_METADATA from check-metadata.ts, which in turn `import type`s DriftAiChecksConfig back from config.ts \u2014 closing a 36-file type-only cycle across nearly every *-check-config.ts module. Confirmed non-runtime (config.ts's and config-parsing.ts's cross-imports are value imports; only the edge back to config.ts from check-metadata.ts is `import type`). Not a bug, but per this repo's own tooling-weighs-higher guidance it's worth a maintainer's look: the drift-ai tool that itself reports import-cycles has the largest cycle in the entire scan in its own config registry, meaning any future edit to a shared check-config type risks touching 36 files' worth of type surface. A shared check-metadata-types.ts leaf (as the tool's own hint suggests) would de-tangle it cheaply.",
+      "unit": "import-cycles",
+      "kind": "chunk"
+    },
+    {
+      "ref": "scripts/lint-ratchet/baseline-format.ts (+6 files, cycleSize 8)",
+      "title": "type-only cycle: lint-ratchet baseline module cluster (8 files)",
+      "verdict": "investigate",
+      "severity": "low",
+      "category": "architecture",
+      "rationale": "Verified baseline-format.ts imports a runtime helper from lint-ratchet-metrics.js and a type from lint-ratchet-config.js while lint-ratchet-baseline.ts pulls a type from baseline-constants.js and a runtime function from lint-ratchet-baseline-compare.js \u2014 a moderately large (8-file) type-only cluster in the repo's own ratchet tooling. Not a runtime bug, but per the tooling-weighs-higher guidance worth a quick look since lint-ratchet is a gating mechanism; a shared baseline-types.ts leaf would remove the cycle cheaply if a maintainer wants tidier module boundaries.",
+      "unit": "import-cycles",
+      "kind": "chunk"
+    },
+    {
+      "ref": "scripts/logs-audit.ts (+6 files, cycleSize 7)",
+      "title": "type-only cycle: logs-audit.ts <-> logs-audit/* module cluster (7 files)",
+      "verdict": "investigate",
+      "severity": "low",
+      "category": "architecture",
+      "rationale": "Verified: logs-audit.ts imports `type ParsedLogRecord` from logs-audit-checks.js alongside runtime imports (auditEventFields, formatJson, inspectRedaction, etc.) from the same directory's siblings, closing a 7-file type-only loop. Non-runtime, but logs-audit is a security/redaction-adjacent tool (inspectRedaction, request-id auditing) so worth a maintainer glance even though it's low severity architecture evidence rather than a defect.",
+      "unit": "import-cycles",
+      "kind": "chunk"
+    },
+    {
+      "ref": "packages/server/src/utils/__type-tests__/assert-turn-opts-dedup.ts:9",
+      "title": "Type-only utils->services edge not registered in layer-direction allowlist",
+      "verdict": "real",
+      "severity": "low",
+      "category": "architecture",
+      "rationale": "The file is a deliberate positive type test (see its header comment) pinning structural equality between utils/encounter-state-mutations.ts and services/combat-actions/types.ts via type-only imports (details.typeOnly=true, no runtime edge). scripts/drift-ai/layer-direction.ts already has an ALLOWED_LAYER_DIRECTION_EDGES allowlist for exactly this pattern (one existing entry: utils/character-mapping.test.ts -> services/character-create.ts), but this new edge was never added to it, so the opt-in (runByDefault:false) layer-direction check correctly flags an unacknowledged rule violation. Fix is mechanical: add this edge to ALLOWED_LAYER_DIRECTION_EDGES, matching existing precedent, rather than restructure the type-test.",
+      "unit": "layer-direction",
+      "kind": "chunk"
+    },
+    {
+      "ref": "packages/client/src/components/campaign/encounters/encounters-panel.tsx:55-86 & packages/client/src/components/campaign/maps/maps-panel.tsx:54-83 (+ encounter-detail-view.tsx:58-80 / map-detail-view.tsx:24-46)",
+      "title": "Encounters and Maps panels duplicate list/error-state logic verbatim",
+      "verdict": "real",
+      "severity": "medium",
+      "category": "duplication",
+      "rationale": "Read both files: EncountersList/MapsList are line-for-line identical (same loading skeleton divs, same empty-state paragraph pattern, same map-to-card wrapper), and EncounterErrorState/MapErrorState (100% similarity per report) follow the same pattern. Unlike the homebrew-tab pair, there is no shared component underneath these two -- a generic EntityList/ErrorState component parameterized by items/loading/empty-text/card-renderer would remove this real, growing duplication in product code.",
+      "unit": "near-duplicates",
+      "kind": "chunk"
+    },
+    {
+      "ref": "packages/client/src/components/sheet/inventory-panel.tsx:43-51 & packages/client/src/components/vtt/drawer/tabs/inventory-tab.tsx:95-105",
+      "title": "groupByType is a byte-identical pure function duplicated in two files",
+      "verdict": "real",
+      "severity": "medium",
+      "category": "duplication",
+      "rationale": "Both functions are identical (Map-based grouping by itemType, same field access order); only the parameter's readonly modifier differs. A pure, side-effect-free utility with no domain-specific logic -- trivial and safe to hoist into a shared inventory-utils module.",
+      "unit": "near-duplicates",
+      "kind": "chunk",
+      "verifyNote": "Read both functions directly: they are byte-identical (Map-based grouping by itemType, identical loop body, identical get-push-set sequence) except one param is `InventoryItem[]` and the other `readonly InventoryItem[]`. Pure, side-effect-free, zero domain coupling -- trivial and low-risk to hoist to a shared inventory-utils module. Confirmed as reported."
+    },
+    {
+      "ref": "packages/client/src/components/vtt/drawer/monster-stat-block-header.tsx:105-115 & packages/client/src/components/vtt/drawer/tabs/stats-tab-summary.tsx:53-63",
+      "title": "formatSpeed logic duplicated verbatim across monster and character stat-block views",
+      "verdict": "real",
+      "severity": "medium",
+      "category": "duplication",
+      "rationale": "Identical algorithm and identical NON_WALK_MODES table in both files (only variable name value/distance and the parameter type MonsterSpeed vs Speed differ); a shared formatSpeed(speed) in a common formatting module would remove drift risk if speed-mode text changes in only one place later.",
+      "unit": "near-duplicates",
+      "kind": "chunk",
+      "verifyNote": "Read both functions directly: algorithm and the NON_WALK_MODES lookup table are identical (same four modes, same labels, same walk/hover special-casing); only local variable name (value vs distance) and the input type (MonsterSpeed vs Speed) differ. Genuine drift risk if speed-mode text or ordering changes in only one place. Confirmed as reported."
+    },
+    {
+      "ref": "scripts/codemods/trpc-shared-input.ts (+ -candidates.ts) & scripts/codemods/trpc-shared-output.ts (+ -candidates.ts); eslint-rules/trpc-shared-input-schema.js & eslint-rules/trpc-shared-output-schema.js",
+      "title": "Input/output codemod and eslint-rule scripts triple-duplicate parsing and validation logic",
+      "verdict": "real",
+      "severity": "medium",
+      "category": "duplication",
+      "rationale": "Confirmed 3 separate mirrored pairs in scripts/** and eslint-rules/**: singleModeArgs (15 lines, identical except usage strings), assertConstSchemaIsOnlyInputReference/OutputReference (14 lines, identical except .input()/.output() call-arg check), and the eslint CallExpression visitors (13 lines, identical shape, only property name input/output differs). Per this repo's weighting, tooling/dogfood duplication like this (three parallel file-pairs, ~40+ duplicated lines) is a stronger candidate for a shared parameterized core (mode: input|output) than equivalent product-code findings -- a change to one half's validation logic is easy to forget to port to its twin.",
+      "unit": "near-duplicates",
+      "kind": "chunk",
+      "verifyNote": "Partially refuted on scope/framing but the core claim holds. Confirmed real duplication in the codemod .ts files: assertConstSchemaIsOnlyInputReference/OutputReference (trpc-shared-*-candidates.ts) are 14-line near-identical twins differing only in .input()/.output() checks and error text -- a good extraction candidate. However, singleModeArgs is NOT a two-way duplicate as implied: grep shows the same pattern in 4 files across scripts/codemods (trpc-shared-input.ts, trpc-shared-output.ts, structured-logging-fix.ts, concurrency-guard/cli.ts), so the 'triple-duplicate' framing undercounts the real scope (broader repo-wide CLI-parsing pattern, arguably a stronger case for a shared codemod-CLI helper, not a weaker one). The eslint-rules claim is the weakest part: the two rule files already delegate their substantive shared-import-tracking logic to a common `createSharedSchemaImportCollector` (imported by both), and the two per-rule check functions they do NOT share -- getSharedInputRootName (11-line recursive wrapper-unwrapping for .optional()/.describe() chains) vs getDirectIdentifierName (4-line direct-identifier-only check) -- are semantically different, not copy-pasted. What's actually duplicated there is a ~5-line generic CallExpression-dispatch template (check callee/property/name, call the differently-named validator, report), which is thin. Net: real, worth a shared core per the repo's tooling-weighting, but severity should reflect that the .ts-file duplication is the substantive part and the eslint-rules duplication is largely boilerplate scaffolding rather than logic at risk of drifting."
+    },
+    {
+      "ref": "packages/client/src/test/mock-trpc-magic-item.ts:71-82 & packages/client/src/test/mock-trpc-monster.ts:75-86",
+      "title": "Mock tRPC list pagination logic duplicated across entity mock helpers",
+      "verdict": "real",
+      "severity": "low",
+      "category": "duplication",
+      "rationale": "queryFn bodies are identical (cursor lookup, slice, hasMore, nextCursor construction) apart from the query key literal. Low risk since it's test-only, but if more mock-trpc-*.ts files follow this template, extracting a shared applyPagination(list, input) helper would avoid triple-maintaining pagination edge cases in fixtures.",
+      "unit": "near-duplicates",
+      "kind": "chunk"
+    },
+    {
+      "ref": "packages/client/src/components/homebrew/entries/entry-dialog.tsx:81-111 & packages/client/src/components/sheet/add-item-dialog.tsx:24-54",
+      "title": "EntryTypeSelector and ItemTypeSelect are near-identical enum Select wrappers",
+      "verdict": "real",
+      "severity": "low",
+      "category": "duplication",
+      "rationale": "Both wrap Radix Select with the exact same structure and even reuse the identical type-assertion-boundary comment wording (only the enum type name and options array differ). A small, low-risk win to factor into a generic EnumSelect component, but not urgent since each is small (~30 lines) and independently readable.",
+      "unit": "near-duplicates",
+      "kind": "chunk"
+    },
+    {
+      "ref": "scripts/drift-ai/coldspots-args.ts:154-161 & scripts/drift-ai/hotspots-args.ts:95-102",
+      "title": "parseWindowDays regex-parsing helper duplicated verbatim between coldspots/hotspots arg parsers",
+      "verdict": "real",
+      "severity": "low",
+      "category": "duplication",
+      "rationale": "Function bodies are identical (same regex /^(\\d+)d?$/u, same NaN/integer/positive validation); only the example days in the error message differ (180/180d vs 14/14d). Small (8 lines) but a clean literal duplicate in the repo's own tooling -- worth moving to a shared drift-ai args-helpers module given the project's stated preference for weighting scripts/** duplication above product code.",
+      "unit": "near-duplicates",
+      "kind": "chunk"
+    },
+    {
+      "ref": "packages/server/src/services/character-live-state/rest.ts:13-53 & feature.ts:102-134 (+ spell-slot.ts, stats-conditions.ts, sorcery-point.ts)",
+      "title": "Top-level command auth+wrap boilerplate repeats across character-live-state command files, but is a documented convention",
+      "verdict": "investigate",
+      "severity": "low",
+      "category": "architecture",
+      "rationale": "packages/server/src/services/character-live-state/MODULE.md:54-56 explicitly documents that top-level commands (ctx, input) own their own auth (assertLiveStateAccess) and post-commit broadcast (finishTopLevelCommand) -- this is an intentional, module-documented convention repeated in at least 5 files, not an accidental clone. A shared runTopLevelCommand wrapper could still reduce the ~8-line preamble, but this is a design choice already recorded, so it's lower priority than genuinely undocumented duplication.",
+      "unit": "near-duplicates",
+      "kind": "chunk"
+    },
+    {
+      "ref": "packages/client/src/pages/collection-detail-page.tsx:63-79, homebrew-page.tsx:26-55, campaigns-page.tsx:25-36",
+      "title": "EmptyState/ErrorState Card components are copy-pasted per page with only copy differing",
+      "verdict": "real",
+      "severity": "low",
+      "category": "duplication",
+      "rationale": "All three pages define their own EmptyState (Card + icon + heading + button) and ErrorState (Card + message + retry button) with identical JSX shape; only the message strings, icon, and button label differ. Straightforward to parameterize into one shared component (title/description/icon/actionLabel props), but low risk since each copy is small and page-scoped.",
+      "unit": "near-duplicates",
+      "kind": "chunk"
+    },
+    {
+      "ref": "scripts/drift-ai/semgrep-rule-manifest.ts:95-109,158-172",
+      "title": "readManifestLocalRuleConfig/readManifestRegistryPack same-file duplication is already documented as intentional",
+      "verdict": "investigate",
+      "severity": "low",
+      "category": "duplication",
+      "rationale": "The two functions share the identical try/catch DriftAiError-rewrapping shape, but the code at line 156-157 already has a comment ('Same wrapping as readManifestLocalRuleConfig...') acknowledging the duplication and why it's kept inline. A tiny wrapManifestError(fn, keyPath, manifestPath) higher-order helper could still collapse this, but it's low urgency given the duplication is self-aware and only ~15 lines.",
+      "unit": "near-duplicates",
+      "kind": "chunk"
+    },
+    {
+      "ref": "scripts/harness-emit-envelope.ts:35-57",
+      "title": "requireToolValue/requireOutputValue same-file near-duplicate validators",
+      "verdict": "investigate",
+      "severity": "low",
+      "category": "duplication",
+      "rationale": "Both functions validate a CLI flag value (non-empty, not another flag) with only the noun ('tool id' vs 'path argument') and flag names differing. A generic requireFlagValue(raw, source, noun) would remove ~10 duplicated lines in this small tooling file; easy, low-risk cleanup.",
+      "unit": "near-duplicates",
+      "kind": "chunk"
+    },
+    {
+      "ref": "packages/server/src/seed/seed-srd-spells.ts:20-36",
+      "title": "SpellJson re-declares parse-spell-block.ts's exported ParsedSpell verbatim (17 fields)",
+      "verdict": "real",
+      "severity": "high",
+      "category": "duplication",
+      "rationale": "seed-srd-spells.ts defines a private 17-field `SpellJson` interface that is a field-for-field, order-for-order copy of the already-exported `ParsedSpell` in spell-parser/parse-spell-block.ts, with zero import between the files (grep confirms). These two types describe the same JSON data-pipeline contract (parser output -> vendored JSON -> seed reader); a schema change on one side silently desyncs the other. High propCount (17) rules out coincidence.",
+      "unit": "duplicate-types",
+      "kind": "chunk",
+      "verifyNote": "Verified: seed-srd-spells.ts's private SpellJson (17 fields) is field-for-field identical, same order, to ParsedSpell exported from spell-parser/parse-spell-block.ts, with no import between them (confirmed via grep). Traced the actual pipeline: generate-srd-spells.ts imports ParsedSpell, parses markdown into `spells: ParsedSpell[]`, and JSON.stringifies that array directly to data/5e-srd-spells-5.2.json -- which seed-srd-spells.ts then reads back typed as SpellJson[] via a JSON type-assertion-boundary. So SpellJson is genuinely the implicit re-declared contract for a file literally produced by serializing ParsedSpell. A field added/renamed on ParsedSpell would silently desync from SpellJson with no compiler error. Real, high severity justified."
+    },
+    {
+      "ref": "packages/server/src/seed/rules-glossary-parser/parse-glossary-entry.ts:1-6",
+      "title": "GlossaryItem in seed-srd-reference-tables.ts duplicates exported ParsedGlossaryEntry",
+      "verdict": "real",
+      "severity": "medium",
+      "category": "duplication",
+      "rationale": "Same pipeline pattern as the spell case: `ParsedGlossaryEntry` (index/name/category/description) is exported from the parser, but seed-srd-reference-tables.ts re-declares an unimported local `GlossaryItem` with the identical 4 fields to type the same vendored JSON. Should import the parser's type instead.",
+      "unit": "duplicate-types",
+      "kind": "chunk",
+      "verifyNote": "Verified: ParsedGlossaryEntry (index/name/category/description) in parse-glossary-entry.ts and the local GlossaryItem in seed-srd-reference-tables.ts (lines 144-149) are byte-identical, unimported. Same generator/seed pipeline shape as the spell case (generate-srd-rules-glossary.ts imports ParsedGlossaryEntry). Real, medium is appropriate (smaller/simpler shape than the 17-field spell case)."
+    },
+    {
+      "ref": "packages/server/src/services/character-live-state/types.ts:4-9",
+      "title": "CharacterLiveStateContext / CombatActionContext / InventoryServiceContext are byte-identical narrow request contexts",
+      "verdict": "real",
+      "severity": "medium",
+      "category": "duplication",
+      "rationale": "All three interfaces are exactly {prisma: DbClient; user: {id: string}; req: {server: unknown}; logger?: RequestLogger} across character-live-state/types.ts, encounter-combat/types.ts, and inventory-service.ts. inventory-service.ts's own comment explains the narrowing rationale but doesn't note the other two copies -- a real 3-way drift risk for a widely-used server contract; worth one shared `NarrowServiceContext` type.",
+      "unit": "duplicate-types",
+      "kind": "chunk",
+      "verifyNote": "Verified all three: CharacterLiveStateContext (types.ts:4-9), CombatActionContext (encounter-combat/types.ts:4-9), and InventoryServiceContext (inventory-service.ts:57-62) are exactly {prisma: DbClient; user: {readonly id: string}; req: {readonly server: unknown}; logger?: RequestLogger}, field order varies slightly but shape is identical. inventory-service.ts has a doc comment explaining the narrowing rationale but no cross-reference to the other two. Genuine 3-way drift risk on a widely-used narrow request-context contract; confirmed as described."
+    },
+    {
+      "ref": "scripts/drift-ai/config-inspect-command.ts:25-29",
+      "title": "Command RunOptions shape ({argv, git?, writer?}) copy-pasted across 15 drift-ai command files",
+      "verdict": "real",
+      "severity": "low",
+      "category": "duplication",
+      "rationale": "grep confirms 15 files under scripts/drift-ai (config-inspect, coverage-evidence, coverage-unused-correlation, clone-candidates, ownership, test-orphaning, hotspots, coldspots, etc.) each re-declare their own `XxxRunOptions = { readonly argv; readonly git?; readonly writer? }`. This is the tool's own command scaffolding (dogfood, weighted high) and a prime candidate for one shared base type in subcommand-args.ts, which already centralizes related helpers.",
+      "unit": "duplicate-types",
+      "kind": "chunk",
+      "verifyNote": "The cited file's 3-field shape ({argv, git?, writer?}) is real, but the broader claim of '15 files... copy-pasted' the identical shape is overstated. Checked all 16 RunOptions declarations under scripts/drift-ai: only config-inspect, coverage-evidence, and coverage-unused-correlation match the bare 3-field shape verbatim. The other ~13 (clone-candidates, birth-size-delta, class-construction, env-branches, dolos-candidates, semgrep-candidates, test-orphaning, ownership, hotspots, coldspots, runner, prepare-run, prototype-command) each declare materially larger/different option bags with command-specific injected seams (gitBuffer, stat, rootExists, boundedGit, readFile, readBaseline, dolos, semgrep, etc.) -- these are not verbatim duplicates, they share only a conceptual {argv, git?} prefix. A shared base type for that common prefix is a reasonable but much smaller refactor than implied; downgrading to low since the 'copy-pasted across 15 files' framing doesn't hold up field-by-field."
+    },
+    {
+      "ref": "scripts/client-test-isolation-classifier-types.ts:63-67",
+      "title": "CLI result shape {exitCode, stdout, stderr} duplicated across 7 script files",
+      "verdict": "real",
+      "severity": "low",
+      "category": "duplication",
+      "rationale": "grep across scripts/**/*.ts finds 7 files independently declaring the identical exitCode/stdout/stderr result shape (ClientTestIsolationClassifierCliResult, LintProbeRuleCliResult, PathPolicyQueryCliResult, and others). A shared `CliResult` type in a common scripts utility would remove this recurring pattern; low runtime risk but real dogfood-tooling duplication at scale.",
+      "unit": "duplicate-types",
+      "kind": "chunk",
+      "verifyNote": "Checked all scripts/**/*.ts files with an exitCode/stdout(/stderr) result shape. Only 3 files have the exact bare {exitCode, stdout, stderr} triple with nothing else: ClientTestIsolationClassifierCliResult, LintProbeRuleCliResult, PathPolicyQueryCliResult -- not 7 as claimed. Other candidates (harness-audit, logs-audit, sensor-knip-unused-exports, lint-coverage-map-check, sensor-blob-size, drift-ai's various RunResult types, code-intel/server-cli.ts) each carry an extra distinguishing payload field (report?, snapshot?, findings, or a differently-named output field) or omit stderr, so they aren't true duplicates of this shape. Real but smaller-scale duplication than described; downgraded to low."
+    },
+    {
+      "ref": "scripts/lint-ratchet/baseline-update-apply.ts:37-41",
+      "title": "ApplyLintRatchetUpdateOptions duplicates DecideUpdateOptions in the same feature",
+      "verdict": "real",
+      "severity": "medium",
+      "category": "duplication",
+      "rationale": "Both are exactly {allowWorse: boolean; reason?: string; retire?: LintRatchetRetireRequest}. baseline-update.ts's local `DecideUpdateOptions` does not import the sibling file's exported `ApplyLintRatchetUpdateOptions`, despite the decide->apply pipeline being one feature (lint-ratchet, dogfood). Real, easy consolidation.",
+      "unit": "duplicate-types",
+      "kind": "chunk",
+      "verifyNote": "Verified byte-identical fields (allowWorse, reason?, retire?) in ApplyLintRatchetUpdateOptions (baseline-update-apply.ts:37-41) and DecideUpdateOptions (baseline-update.ts:156-160), no import between files. Traced the call site: gateCommittedBaseline in baseline-update-apply.ts passes params.options (typed ApplyLintRatchetUpdateOptions) directly as the 4th positional argument to decideLintRatchetUpdate, whose parameter is typed DecideUpdateOptions -- i.e. the exact same runtime object is threaded through two independently-declared types that only work today because they happen to be structurally identical. Genuine risk, confirmed as described."
+    },
+    {
+      "ref": "scripts/drift-ai/clone-candidates-command.ts:69-74",
+      "title": "ResolvedCloneCandidateConfig duplicates near-duplicates.ts's ResolvedCompareConfig",
+      "verdict": "real",
+      "severity": "medium",
+      "category": "duplication",
+      "rationale": "Both are exactly {minLines, minTokens, similarityThreshold, tokenBandRatio} -- the tool's own clone-detection tuning parameters, redefined independently in two related drift-ai modules. Since this configures the tool's core clone/near-duplicate scoring (dogfood, weighted high), independent drift between the two would produce inconsistent similarity thresholds across commands.",
+      "unit": "duplicate-types",
+      "kind": "chunk",
+      "verifyNote": "Verified ResolvedCloneCandidateConfig (clone-candidates-command.ts:69-74) and ResolvedCompareConfig (near-duplicates.ts:118-123) are byte-identical (minLines, minTokens, similarityThreshold, tokenBandRatio). Confirmed clone-candidates-command.ts is not an unrelated tool -- it imports NEAR_DUPLICATE_TOOL and the runner from near-duplicates.js/near-duplicates-runner.js and reads its config from the same prepared.config.checks['near-duplicates'] source. So both types resolve defaults for literally the same near-duplicate check via two separate code paths with no shared type. Confirmed as described."
+    },
+    {
+      "ref": "packages/server/src/seed/generate-class-features.ts:21-25",
+      "title": "ClassCfg type and its CLASSES array are duplicated verbatim in two seed generator scripts",
+      "verdict": "real",
+      "severity": "medium",
+      "category": "duplication",
+      "rationale": "generate-class-features.ts and generate-subclasses.ts declare an identical `ClassCfg {file,name,id}` and (confirmed via diff) an identical CLASSES array of SRD class file mappings. One-off codegen scripts so risk is low-frequency, but a class rename/add applied to only one file silently desyncs the other; belongs in one shared seed/data module.",
+      "unit": "duplicate-types",
+      "kind": "chunk",
+      "verifyNote": "Verified: ClassCfg {file,name,id} is identical in both files, and `diff` of the full CLASSES array block (12 entries in each) between generate-class-features.ts and generate-subclasses.ts returns zero differences -- truly byte-identical, not just similar. One-off codegen scripts as the finding notes, so low execution frequency, but a real silent-desync risk on class add/rename. Confirmed as described."
+    },
+    {
+      "ref": "packages/client/src/components/sheet/hp-adjuster.tsx:6-10",
+      "title": "AdjustHpInput duplicates sheet-props.ts's exported AdjustHpPayload, including the literal-union mode field",
+      "verdict": "real",
+      "severity": "medium",
+      "category": "duplication",
+      "rationale": "hp-adjuster.tsx declares an unimported local `AdjustHpInput` with the exact same fields as `AdjustHpPayload` (characterId, mode: \"damage\"|\"heal\"|\"temp\", amount) exported from sheet-props.ts for the same mutation payload. Matching literal-union enum makes this a strong duplicate signal per the calibration guidance, not a coincidence.",
+      "unit": "duplicate-types",
+      "kind": "chunk",
+      "verifyNote": "Verified AdjustHpInput (hp-adjuster.tsx:6-10) and AdjustHpPayload (sheet-props.ts:11-15) are identical including the mode literal union, unimported. Traced the actual data flow: desktop-sheet-layout.tsx forwards its onAdjustHp prop (typed via SheetProps -> AdjustHpPayload) straight into HpAdjuster's onAdjustHp prop (typed via the local AdjustHpInput) -- the same callback is threaded through two independently-declared identical types. Confirmed as described."
+    },
+    {
+      "ref": "packages/client/src/components/vtt/drawer/tabs/actions-tab-spells.tsx:57-63",
+      "title": "Two private components both named SpellLevelBlock with identical props, in two sibling tab files",
+      "verdict": "real",
+      "severity": "medium",
+      "category": "duplication",
+      "rationale": "actions-tab-spells.tsx and spells-tab.tsx each declare a local (non-exported) `function SpellLevelBlock` with an identically-named, identically-shaped 5-field props interface. Same component name, same props, two separate implementations -- worth checking whether they've already diverged in rendering behavior, and factoring into one shared component if not.",
+      "unit": "duplicate-types",
+      "kind": "chunk",
+      "verifyNote": "Verified the SpellLevelBlockProps interfaces in both files are field-for-field identical (level, spells, slot, concentrationSpellId, disabled). However, read both component bodies: they have already diverged in rendering -- spells-tab.tsx renders full SpellRow items, shows an explicit 'No spells at this level' empty state with its own test id, and computes a hasSlot=slot.total>0 guard; actions-tab-spells.tsx renders CompactSpellRow items, has no empty-state message, and gates on `slot` truthiness directly. So the props-type duplication is real and worth fixing (shared props type import at minimum), but the finding's implicit suggestion that these might still be consolidatable into one shared component is weaker than it looks -- the two already serve visibly different UI contexts (compact drawer vs full tab) with genuinely different render logic, not just copy-paste twins. Confirmed the type duplication, medium severity kept but with this caveat."
+    },
+    {
+      "ref": "packages/client/src/components/campaign/maps/map-toolbar-view-controls.tsx:8-15",
+      "title": "MapToolbarViewControls in the parent toolbar re-declares child component's ViewControlSectionProps",
+      "verdict": "real",
+      "severity": "low",
+      "category": "duplication",
+      "rationale": "map-toolbar.tsx defines `MapToolbarViewControls` with the same 6 fields (gridVisible, scalePercent, 4 callbacks) as the imported `ViewControlSection` component's own `ViewControlSectionProps`, apparently just to type the props being forwarded. Should import and reuse the child's exported prop type instead of re-declaring it.",
+      "unit": "duplicate-types",
+      "kind": "chunk"
+    },
+    {
+      "ref": "packages/client/src/components/campaign/combat/combat-map-content.tsx:40-44",
+      "title": "ContextMenuState duplicated identically in combat-map-content.tsx and map-detail-content.tsx",
+      "verdict": "real",
+      "severity": "low",
+      "category": "duplication",
+      "rationale": "Both declare `interface ContextMenuState { token: MapToken; x: number; y: number }` verbatim. Low risk (simple local UI state) but a real, easy extraction into a shared map-UI types file.",
+      "unit": "duplicate-types",
+      "kind": "chunk"
+    },
+    {
+      "ref": "packages/server/src/services/character-live-state/encounter-attribution.test.ts:9-13",
+      "title": "IoMock socket-mock type duplicated across two service test files",
+      "verdict": "real",
+      "severity": "low",
+      "category": "duplication",
+      "rationale": "encounter-attribution.test.ts and broadcast-helpers.test.ts both declare an identical `IoMock {io, emit, to}` plus (visible in context) a `makeIo()` factory -- copy-pasted Socket.io test-double boilerplate that belongs in a shared test helper.",
+      "unit": "duplicate-types",
+      "kind": "chunk"
+    },
+    {
+      "ref": "scripts/drift-ai/birth-size-delta-command.test.ts:11-15",
+      "title": "MetaFields type and its wrapping commitBlock() helper copy-pasted verbatim, including the explanatory comment",
+      "verdict": "real",
+      "severity": "low",
+      "category": "duplication",
+      "rationale": "birth-size-delta-command.test.ts and test-orphaning-command.test.ts contain identical `MetaFields` type, identical wrapper comment text, and identical `commitBlock()` function around the shared git-log-fixture.test-helper.ts. This is exact-copy test scaffolding (dogfood) that should live in the shared helper file itself rather than being re-pasted per test file.",
+      "unit": "duplicate-types",
+      "kind": "chunk"
+    },
+    {
+      "ref": "scripts/drift-ai/knip-orphan-files.test.ts:35-42",
+      "title": "CtxOverrides type and knipReporting() helper duplicated across knip-orphan-files.test.ts and knip-unused-exports.test.ts",
+      "verdict": "real",
+      "severity": "low",
+      "category": "duplication",
+      "rationale": "Both files declare an identical 6-field `CtxOverrides` and an identical `knipReporting()` factory testing the shared knip command infrastructure -- another dogfood test-scaffolding copy that should be centralized.",
+      "unit": "duplicate-types",
+      "kind": "chunk"
+    },
+    {
+      "ref": "scripts/codemods/structured-logging-fix.test.ts:25-30",
+      "title": "FixtureMetadataBase duplicated across two codemod test files",
+      "verdict": "real",
+      "severity": "low",
+      "category": "duplication",
+      "rationale": "structured-logging-fix.test.ts and trpc-shared-schema-codemod.test.ts both declare an identical 4-field `FixtureMetadataBase` fixture-harness type -- likely a shared codemod-test-fixture pattern worth factoring given how many codemods this repo has.",
+      "unit": "duplicate-types",
+      "kind": "chunk"
+    },
+    {
+      "ref": "scripts/drift-ai/dolos-runner.test.ts:17-22",
+      "title": "SpawnCall capture type duplicated across dolos-runner.test.ts and semgrep-runner.test.ts",
+      "verdict": "real",
+      "severity": "low",
+      "category": "duplication",
+      "rationale": "Both declare an identical 4-field `SpawnCall {command, args, cwd, timeout}` used to capture child_process.spawn calls in tests of two sibling drift-ai runner modules -- shared test-helper candidate.",
+      "unit": "duplicate-types",
+      "kind": "chunk"
+    },
+    {
+      "ref": "packages/client/src/components/sheet/saving-throws.tsx:13-18",
+      "title": "SavingThrowsProps and SkillsListProps are identical including the onRoll callback signature",
+      "verdict": "investigate",
+      "severity": "low",
+      "category": "duplication",
+      "rationale": "Both are {stats, proficiencies, level, onRoll?: (notation, label) => void}, in sibling sheet components that both use RollableModifierRow. Matching function signature strengthens the case over pure coincidence, but risk is low since both are simple, stable display props.",
+      "unit": "duplicate-types",
+      "kind": "chunk"
+    },
+    {
+      "ref": "packages/client/src/components/campaign/encounters/encounters-panel.tsx:18-22",
+      "title": "EncountersPanelProps and MapsPanelProps share {campaignId, isDm, userCharacterIds}",
+      "verdict": "investigate",
+      "severity": "low",
+      "category": "duplication",
+      "rationale": "Plausible real duplication (sibling campaign-feature panels sharing a common context props shape) but low value to fix: unlikely to drift independently since both are driven by the same parent campaign page.",
+      "unit": "duplicate-types",
+      "kind": "chunk"
+    },
+    {
+      "ref": "packages/client/src/components/campaign/maps/fog-overlay.tsx:38-43",
+      "title": "RegionRect and TokenIntegerValues both model {x,y,width,height}",
+      "verdict": "investigate",
+      "severity": "low",
+      "category": "duplication",
+      "rationale": "Same numeric rect shape in two different map/token geometry contexts. Generic and stable enough that consolidation is optional, but a shared `Rect` type would remove the duplication if one already exists in packages/shared.",
+      "unit": "duplicate-types",
+      "kind": "chunk"
+    },
+    {
+      "ref": "scripts/drift-ai/ownership-command.ts:26-31",
+      "title": "OwnershipRunOptions / TestOrphaningRunOptions -- instance of the broader 15-file RunOptions duplication",
+      "verdict": "real",
+      "severity": "low",
+      "category": "duplication",
+      "rationale": "Same {argv, git?, writer?} pattern already covered by the systemic finding at config-inspect-command.ts; listed separately only because drift-ai grouped it as its own pair, but the fix (shared base RunOptions type) is the same one that addresses all 15 occurrences.",
+      "unit": "duplicate-types",
+      "kind": "chunk"
+    },
+    {
+      "ref": "packages/shared/src/schemas/srd-reference.ts:7-11 (groupHash 549v2q)",
+      "title": "Six SRD reference-entry schemas share an identical {id,name,description} shape with no common base",
+      "verdict": "real",
+      "severity": "low",
+      "category": "maintainability",
+      "rationale": "conditionSchema, damageTypeSchema, srdWeaponPropertySchema, srdWeaponMasterySchema, magicSchoolSchema (all srd-reference.ts:7-85) and traitSchema (srd.ts:74-78) are byte-identical z.object({id: z.string(), name: z.string(), description: z.string()}) declarations. This is the contract package (shared/src/schemas), consumed by both server and client, so it's exactly where a named base schema (e.g. srdReferenceEntrySchema) pays off: rulesGlossaryEntrySchema in the same file already shows the extend-a-base pattern (adds `category`), and srdProficiencySchema shows a genuinely different shape that shouldn't be folded in. Six independent literal declarations of the same 3-field shape is real avoidable duplication in the schema layer itself, even though each currently validates correctly; a shared base would make future field additions (e.g. a shared `source` or `page` ref) consistent across all six instead of requiring six edits.",
+      "unit": "duplicate-schemas",
+      "kind": "chunk"
+    },
+    {
+      "ref": "eslint-rules/concurrency-guard.js:15-33 vs scripts/codemods/concurrency-guard/constants.ts:14-113",
+      "title": "Gated Prisma delegate list + suggestion messages hand-duplicated between the eslint rule and its codemod, with no drift guard",
+      "verdict": "real",
+      "severity": "medium",
+      "category": "duplication",
+      "rationale": "concurrency-guard.js's GATED_DELEGATES Set (characterStats, encounterParticipant, encounter, characterSpellSlot, characterClass), GATED_MUTATORS Set (update/updateMany/updateManyAndReturn/upsert), and DIRECT_WRITE_SUGGESTIONS Map are re-declared verbatim (same 5 keys, near-identical prose) in scripts/codemods/concurrency-guard/constants.ts, which itself documents that it 'mirrors the restricted update/upsert surface in packages/server/src/utils/prisma-types.ts' -- a third, TS-type-level copy of the same list (prisma-types.ts:103,134). Unlike eslint-rules/no-redundant-central-mock.js's CANONICAL_FACTORY_SOURCES (which has an explicit comment 'the sibling test's drift guard fails if these and setup.ts ever diverge' and a real test enforcing it), grep found no test anywhere that cross-checks concurrency-guard.js against constants.ts or against prisma-types.ts. Adding a new gated delegate to prisma-types.ts silently leaves the lint rule and/or codemod unaware. Tooling/dogfood location (eslint-rules + scripts) per audit weighting.",
+      "unit": "duplicate-literals",
+      "kind": "chunk",
+      "verifyNote": "Verified by reading both files directly. GATED_DELEGATES (5-entry Set: characterStats, encounterParticipant, encounter, characterSpellSlot, characterClass) and GATED_MUTATORS (update/updateMany/updateManyAndReturn/upsert) are byte-identical literal re-declarations across eslint-rules/concurrency-guard.js:14-22 and scripts/codemods/concurrency-guard/constants.ts:14-24. DIRECT_WRITE_SUGGESTIONS is duplicated with the same 5 keys and near-identical prose (constants.ts version has added doc anchors, eslint version doesn't) at concurrency-guard.js:24-42 vs constants.ts:118-139. Confirmed via grep that scanner.ts imports DIRECT_WRITE_SUGGESTIONS from constants.ts rather than deriving it from packages/server/src/utils/prisma-types.ts at runtime -- so this is genuinely hand-maintained, not a false positive from dynamic derivation. grep across eslint-rules/*.test.js and scripts/codemods/concurrency-guard.test.ts found no test asserting equality/drift between the two GATED_DELEGATES/GATED_MUTATORS declarations, and none cross-checking against prisma-types.ts's own delegate union (prisma-types.ts:103, 134-135, which itself lists the same 5 delegates independently as a third copy). This is a real, unguarded triplication: adding a 6th gated delegate to prisma-types.ts would silently leave both the lint rule and the codemod unaware, with no CI signal. Tooling/dogfood location per audit weighting -- appropriately weighted at medium; not high because the blast radius is a missed lint/codemod update rather than a runtime correctness bug, and the existing docs/CONCURRENCY.md + code comments at least point maintainers at the relationship even without an automated guard."
+    },
+    {
+      "ref": "eslint-rules/no-outer-client-in-transaction.js:59 and eslint-rules/no-broadcast-in-transaction.js:39 (\"$transaction\", row 45)",
+      "title": "Two transaction-guard rules each hardcode the '$transaction' method-name check",
+      "verdict": "investigate",
+      "severity": "low",
+      "category": "duplication",
+      "rationale": "Both rule files independently implement `propertyName(callee.property) === \"$transaction\"`. Low-value on its own (single well-known Prisma API name), but if a shared AST-helper module for transaction-detection already exists elsewhere in eslint-rules it would be worth consolidating; not worth a standalone constant otherwise.",
+      "unit": "duplicate-literals",
+      "kind": "chunk"
+    },
+    {
+      "ref": "eslint-rules/trpc-shared-schema-import-collector.js:14 / scripts/codemods/lib/trpc-shared-schema-types.ts:7",
+      "title": "SHARED_SCHEMA_PREFIX (\"@musi/shared/schemas/\") independently defined in two tooling subsystems",
+      "verdict": "real",
+      "severity": "low",
+      "category": "duplication",
+      "rationale": "Both files declare their own `export const SHARED_SCHEMA_PREFIX = \"@musi/shared/schemas/\"` rather than importing one shared constant. The eslint-rules file's own doc comment (\"only this collector is shared so a prefix change can't silently apply to one twin only\") shows the authors already understand the drift risk within eslint-rules/, but that discipline wasn't extended to scripts/codemods/lib/trpc-shared-schema-types.ts, which independently re-hardcodes the same alias prefix used to detect the shared-schema wire contract. A future @musi/shared alias rename would need to be caught in both places by hand.",
+      "unit": "duplicate-literals",
+      "kind": "chunk"
+    },
+    {
+      "ref": "scripts/codemods/trpc-shared-input.ts:158 / scripts/codemods/trpc-shared-input-candidates.ts:18 / eslint-rules/strict-shared-schemas.js:160",
+      "title": "\"InputSchema\" naming-convention suffix hardcoded independently in 3 tooling files",
+      "verdict": "real",
+      "severity": "low",
+      "category": "duplication",
+      "rationale": "trpc-shared-input-candidates.ts hoists its own local INPUT_SCHEMA_SUFFIX = \"InputSchema\" constant but doesn't export it; the sibling codemod file trpc-shared-input.ts and the unrelated eslint-rules/strict-shared-schemas.js each independently spell out `.endsWith(\"InputSchema\")` as a raw literal. All three encode the same trpc naming convention that decides whether a schema is treated as the shared wire-contract type; renaming the convention requires updating three places with no compiler check tying them together.",
+      "unit": "duplicate-literals",
+      "kind": "chunk"
+    },
+    {
+      "ref": "eslint-rules/vitest.config.ts:14 (\"eslint-rules\") - scripts/drift-ai/duplicates.test.ts, lint-coverage-map-check-patterns.ts, lint-ratchet/rule-source.ts",
+      "title": "Literal directory name \"eslint-rules\" repeated across a handful of tooling files",
+      "verdict": "investigate",
+      "severity": "low",
+      "category": "duplication",
+      "rationale": "A plain directory-name string reused in a small number of scripts/** tooling files for different purposes (test data, lint-ratchet config source, rule-source path resolution). Low risk since a directory rename would break many other things simultaneously and surface immediately via failing tests, but a maintainer touching path-policy tooling should confirm there isn't already a single path-policy constant these should import instead of re-typing the literal.",
+      "unit": "duplicate-literals",
+      "kind": "chunk"
+    },
+    {
+      "ref": "\"campaign\" (packages/server/src/routers/homebrew.ts:175 vs packages/shared/src/schemas/homebrew.ts:58)",
+      "title": "Router hardcodes the homebrewVisibilitySchema enum value \"campaign\" instead of importing it",
+      "verdict": "investigate",
+      "severity": "low",
+      "category": "maintainability",
+      "rationale": "homebrew.ts builds `where: Record<string, unknown> = { OR: [..., { visibility: \"campaign\", ... }] }` \u2014 an untyped Record, so the literal \"campaign\" is not checked against homebrewVisibilitySchema = z.enum([\"private\",\"campaign\",\"public\"]) in packages/shared/src/schemas/homebrew.ts:58. If the enum value were renamed, this Prisma filter would silently stop matching with no compile error. Most of the other 12 occurrences in this literal group are incidental uses of the plain word \"campaign\" (fixture names, unrelated variables) and are noise; only this router/schema pair is worth a look.",
+      "unit": "duplicate-literals",
+      "kind": "chunk"
+    },
+    {
+      "ref": "\"template-\" prefix \u2014 packages/client/src/components/campaign/maps/map-canvas-overlays.tsx:150-151, template-toolbar.tsx:39, hooks/canvas-input/tool-handlers.ts:96,98",
+      "title": "The \"template-\" ID prefix/strip convention is duplicated verbatim in three files",
+      "verdict": "investigate",
+      "severity": "low",
+      "category": "duplication",
+      "rationale": "`activeTool.startsWith(\"template-\")` and `activeTool.slice(\"template-\".length)` (or equivalent) appear identically in map-canvas-overlays.tsx, template-toolbar.tsx, and tool-handlers.ts's extractShape(). A shared helper (e.g. `stripTemplatePrefix(tool)` in map-canvas-store.ts, which already exports MapTool) would remove the triplicated string manipulation and the accompanying `as TemplateShape` interop cast in tool-handlers.ts.",
+      "unit": "duplicate-literals",
+      "kind": "chunk"
+    },
+    {
+      "ref": "\"draw-freehand\"/\"draw-line\"/\"draw-rect\"/\"draw-circle\"/\"draw-eraser\"/\"fog-reveal\"/\"fog-hide\"/\"place-token\"/\"target-pick\"/\"template-cone\"/\"template-cube\"/\"template-sphere\"/\"template-line\"/\"template-emanation\" (map-canvas-store.ts:17-34 MapTool union and its many consumers)",
+      "title": "Canvas tool-id literals: mostly already centralized via the exported MapTool type, except tool-handlers.ts which re-declares them as bare strings",
+      "verdict": "investigate",
+      "severity": "low",
+      "category": "maintainability",
+      "rationale": "map-canvas-store.ts exports `MapTool`/`SelectableMapTool` (line 620) and most consumers (map-toolbar*.tsx, template-toolbar.tsx) import that type, so comparisons like `s.activeTool !== \"draw-eraser\"` in map-canvas.tsx are type-checked against the union \u2014 a rename would be a compile error, so this is not the unguarded magic-string risk the raw duplicate count suggests. The one real gap is packages/client/src/hooks/canvas-input/tool-handlers.ts, which types `tools: ReadonlySet<string>`, `SHAPE_BUILDERS: Record<string, ...>`, and handler params as bare `string` instead of importing `MapTool` \u2014 so a rename of any of these literals in the store would silently break dispatch in this file with no compiler error. Fix is narrow: import MapTool/SelectableMapTool into tool-handlers.ts and type the Sets/Records/params against it (or a Record<MapTool, ...> for exhaustiveness checking).",
+      "unit": "duplicate-literals",
+      "kind": "chunk"
+    },
+    {
+      "ref": "\"All numeric fields are required\" \u2014 packages/client/src/components/campaign/maps/create-map-dialog.tsx:85, packages/client/src/components/campaign/tokens/add-token-dialog.tsx:193",
+      "title": "Same validation-error copy duplicated verbatim in two dialog components",
+      "verdict": "investigate",
+      "severity": "low",
+      "category": "duplication",
+      "rationale": "create-map-dialog.tsx:85 (`toast.error(\"All numeric fields are required\")`) and add-token-dialog.tsx:193 (`return \"All numeric fields are required\"`) hardcode the identical user-facing string independently; a wording change would need to be applied in two places. Minor \u2014 a shared validation-messages constant would remove the drift risk, but low blast radius.",
+      "unit": "duplicate-literals",
+      "kind": "chunk"
+    },
+    {
+      "ref": "packages/client/src/components/campaign/npcs/monster-detail-dialog.tsx:174-186",
+      "title": "Monster stat-block section labels hardcoded independently in view, edit-form, and drawer components",
+      "verdict": "real",
+      "severity": "low",
+      "category": "duplication",
+      "rationale": "\"Damage Resistances\", \"Damage Immunities\", \"Condition Immunities\", \"Bonus Actions\", and \"Reactions\" are each hardcoded verbatim in monster-detail-dialog.tsx (read view), monster-defenses-fields.tsx/monster-form-fields.tsx (homebrew edit form, e.g. `{ key: \"damageResistances\", label: \"Damage Resistances\", ... }`), and monster-stat-block-drawer.tsx (VTT drawer) -- three independently maintained copies of the same monster-stat-block vocabulary. Verified by reading both files: the label strings match exactly across the display and editing paths with no shared source. A rename in one place (e.g. spec wording tweak) silently desyncs the others. Low severity since it's copy-only, but a small `MONSTER_SECTION_LABELS` constant in packages/shared or a client UI-copy module would remove the risk cheaply.",
+      "unit": "duplicate-literals",
+      "kind": "chunk"
+    },
+    {
+      "ref": "packages/client/src/components/character-create/steps/ability-boost-section.tsx:154 (mb-3 font-serif text-lg font-semibold, 14 files); ability-scores-step.tsx:116-117 (mb-2 font-serif text-2xl font-bold / mb-6 text-sm text-muted-foreground, 9 files each)",
+      "title": "Section-heading Tailwind class combos copy-pasted across every character-create step and several sheet panels",
+      "verdict": "investigate",
+      "severity": "low",
+      "category": "maintainability",
+      "rationale": "The exact class strings `mb-3 font-serif text-lg font-semibold`, `mb-2 font-serif text-2xl font-bold`, and `mb-6 text-sm text-muted-foreground` recur verbatim in 9-14 distinct files (background-step.tsx, class-step.tsx, equipment-step.tsx, personality-step.tsx, proficiencies-step.tsx, review-step.tsx, species-step.tsx, spell-selection-step.tsx, plus several sheet/*.tsx panels). This is purely cosmetic (a typo just fails to style, no functional break) so I would not block on it, but the breadth across the character-create wizard specifically suggests a missing shared `<StepHeading>`/`<SectionHeading>` primitive rather than 9-14 independent authors coincidentally choosing the same 4-6 utility classes. Worth a follow-up extraction if that area is touched again; not worth a dedicated task on its own.",
+      "unit": "duplicate-literals",
+      "kind": "chunk"
+    },
+    {
+      "ref": "\"class-wizard\" / \"class-cleric\" (SRD class-id literals; 127 occ/45 files and 38 occ/14 files)",
+      "title": "SRD class-id strings hardcoded independently across production rule files, seed scripts, and tests with no shared constant",
+      "verdict": "investigate",
+      "severity": "low",
+      "category": "maintainability",
+      "rationale": "Confirmed non-test usage in packages/shared/src/rules/spellcasting.ts:180,186,352,358 and multiclass-rules.ts:32,47 (object keys in lookup Records), plus packages/server/src/seed/{seed-srd-classes.ts,class-features/*.ts,generate-class-features.ts,generate-subclasses.ts,seed-srd-subclass-data.ts,subclass-features/*.ts}. packages/shared/src/schemas/srd.ts:155 types classId as a bare z.string() with no enum/const list, so a rename of a seeded class id in one seed file would silently desync the rule lookup maps (they'd just miss an entry, no compile error). Scale (127 occurrences across 45 files for class-wizard alone) makes this worth a shared srd-ids module, though it's inherent to the content-driven (DB-seeded) design so risk is bounded and existing integration tests likely catch gross breakage.",
+      "unit": "duplicate-literals",
+      "kind": "chunk"
+    },
+    {
+      "ref": "packages/server/src/seed/spell-parser/extract-spell-metadata.ts:15-28 (groups: bludgeoning/piercing/slashing/lightning/necrotic)",
+      "title": "Canonical DAMAGE_TYPES array literal re-forked verbatim in server seed parser and client form data instead of importing from shared",
+      "verdict": "real",
+      "severity": "medium",
+      "category": "duplication",
+      "rationale": "packages/shared/src/rules/damage-types.ts defines the canonical `export const DAMAGE_TYPES = [\"acid\",\"bludgeoning\",...,\"thunder\"] as const` (13 SRD damage types, exported with a schema and type-guard). packages/server/src/seed/spell-parser/extract-spell-metadata.ts:15-28 defines its own local `const DAMAGE_TYPES = [...]` with the identical 13 values in the identical order, used to build a regex pattern for heuristic text extraction. packages/client/src/components/homebrew/item/item-form-data.ts:56-68 defines a third copy of the same 13-value array (same order), in a file that already imports `EquipmentCategory` from `@musi/shared/schemas/srd.js` for a different type -- so importing the shared list here is clearly the established pattern, just not followed for this constant. If a damage type is ever added/renamed in the shared canonical list (a realistic SRD-content change), the server's spell-metadata heuristic regex and the client's form dropdown silently fall out of sync with no compile error, since both are untyped local string arrays rather than derived from `DamageTypeName`.",
+      "unit": "duplicate-literals",
+      "kind": "chunk",
+      "verifyNote": "Verified by direct file read. packages/shared/src/rules/damage-types.ts:9-22 defines the canonical 13-value DAMAGE_TYPES array (acid..thunder) plus DamageTypeName type, damageTypeNameSchema, and normalizeDamageTypeName. extract-spell-metadata.ts:15-29 re-forks the identical 13 values in identical order as a bare local const, used only to build a regex alternation for heuristic text extraction (no type derivation). packages/client/src/components/homebrew/item/item-form-data.ts:54-67 re-forks the same 13 values a second time, used to drive a form dropdown (item-weapon-fields.tsx), and that same file already imports `EquipmentCategory` from `@musi/shared/schemas/srd.js`, so importing shared here is the file's own established pattern, just unapplied to this constant. Precedent for the fix is already in the server package itself: packages/server/src/utils/srd-narrowing.ts:1-2 imports `DamageTypeName`/`normalizeDamageTypeName` directly from `@musi/shared/rules/damage-types.js`, and packages/server/package.json already lists `@musi/shared` as a workspace dependency, so there is no dependency-wiring barrier to importing DAMAGE_TYPES in extract-spell-metadata.ts instead of hand-copying it. Confirmed as a real, low-risk-but-real drift hazard: if shared's list changes, both forks silently desync with no compile error since both are untyped string-literal arrays rather than derived from `DamageTypeName`. Severity medium is appropriate (not high) because current values are frozen SRD content and the failure mode is silent staleness, not a crash."
+    },
+    {
+      "ref": "packages/client/src/components/homebrew/class/class-form-fields.tsx:183 (group h-4 w-4 rounded border-input, 10 files/15 occurrences)",
+      "title": "Checkbox input styling class string copy-pasted across 10 homebrew form components with no shared Checkbox primitive",
+      "verdict": "real",
+      "severity": "low",
+      "category": "duplication",
+      "rationale": "Verified the literal className=\"h-4 w-4 rounded border-input\" is pasted verbatim onto raw <input type=\"checkbox\"> elements in class-form-fields.tsx:183, item-armor-fields.tsx:39,51, capped-checkbox-group.tsx:62, and 6 other homebrew form-field files (feat, item-weapon, magic-item x2, monster-form x2, monster-spellcasting, species, spell x3). This is exactly the kind of structural markup duplication a shared <Checkbox> component would eliminate; low severity since it behaves identically today, but a future design-system tweak (e.g. focus ring, dark-mode border color) would require editing 10+ call sites by hand.",
+      "unit": "duplicate-literals",
+      "kind": "chunk"
+    },
+    {
+      "ref": "class-rogue (78 occ/20 files); sibling groups class-barbarian (47/16), class-monk (40/12), class-bard (36/13)",
+      "title": "Core class-id slugs are raw string literals in shared rule files, unlike the one class that already has a named constant",
+      "verdict": "investigate",
+      "severity": "low",
+      "category": "maintainability",
+      "rationale": "packages/shared/src/rules/multiclass-rules.ts:30 and packages/shared/src/rules/weapon-mastery.ts:90-95 key lookup tables directly on literal strings like \"class-barbarian\"/\"class-rogue\"/\"class-monk\"/\"class-bard\" that must stay in sync with packages/server/src/seed/seed-srd-classes.ts and per-class seed files. packages/shared/src/rules/sorcery-points.ts:10 already exports `SORCERER_CLASS_ID = \"class-sorcerer\"` as a named constant for the same purpose, showing the team knows this pattern is worth naming - it just wasn't applied to the other core classes. Since classId is a free-form string (not a closed zod enum, to allow homebrew classes), a typo/rename in seed data would silently break the rule-file lookups with no compile error. Low urgency (stable, well-tested content) but a real gap in an established convention.",
+      "unit": "duplicate-literals",
+      "kind": "chunk"
+    },
+    {
+      "ref": "rounded-lg border border-border bg-surface p-4 (17 occ / 15 files)",
+      "title": "Identical card/panel wrapper className duplicated verbatim across 15 sheet components with no shared component or constant",
+      "verdict": "real",
+      "severity": "low",
+      "category": "maintainability",
+      "rationale": "Confirmed literal copy in packages/client/src/components/sheet/combat-stats.tsx:139,153, currency-panel.tsx:24, features-panel.tsx:32, and 12 more sheet panels (conditions-bar, death-saves, equipment-summary, hp-adjuster, inventory-panel, personality-panel, proficiencies-panel, saving-throws, skills-list, sorcery-points-panel, spells-panel x2). No shared Panel/Card wrapper component exists in packages/client/src/components/ui for this pattern. A future design tweak (radius, border color, padding) requires touching 15 files by hand; a small SheetPanel component or a PANEL_CLASS constant would remove the risk of partial updates leaving panels visually inconsistent.",
+      "unit": "duplicate-literals",
+      "kind": "chunk"
+    },
+    {
+      "ref": "text-xs font-bold text-amber-500 (3/3), bg-muted text-muted-foreground (3/3), border-border bg-elevated text-muted-foreground hover:bg-accent/50 (3/3), bg-success (3/3), text-amber-500 (5/4), mb-2 text-xs font-semibold uppercase text-muted-foreground (6/4)",
+      "title": "Small Tailwind className fragments duplicated 3-6x across a handful of sheet components",
+      "verdict": "investigate",
+      "severity": "low",
+      "category": "duplication",
+      "rationale": "Same shape as the panel-wrapper finding above but smaller blast radius (3-4 files each) - e.g. concentration-indicator.tsx:21 and spell-row.tsx:124 share the amber-concentration badge style, death-saves.tsx:49/hp-adjuster.tsx:29 share bg-success. Worth a look if a designer touches these badges/pills, but low value individually given the small file counts; better handled together with the panel-wrapper finding in a single design-token pass than fixed in isolation.",
+      "unit": "duplicate-literals",
+      "kind": "chunk"
+    },
+    {
+      "ref": "packages/server/src/utils/campaign-auth.ts:58,91",
+      "title": "\"Not a member of this campaign\" error string duplicated across 4 auth surfaces, no shared constant",
+      "verdict": "real",
+      "severity": "low",
+      "category": "maintainability",
+      "rationale": "Verified the raw string literal `\"Not a member of this campaign\"` is independently hardcoded in packages/server/src/utils/campaign-auth.ts (2x, both TRPCError FORBIDDEN messages), packages/server/src/utils/encounter-combat-auth.ts:144, packages/server/src/utils/note-auth.ts:58, and packages/server/src/socket/campaign-room-handler.ts:90 (a socket ack `error` field, different code path from the TRPCError ones). Unlike the tRPC `NOT_FOUND`/`FORBIDDEN` codes (which are enum literals from @trpc/server and type-checked), this is a bespoke user-facing message with no compile-time link between the 4 sites -- a copy wording fix in one auth helper would silently leave the others stale/inconsistent. Low severity because impact is cosmetic (message text only, not auth logic), but it is exactly the kind of same-semantic-value-repeated-across-independent-modules case the audit calls out as worth a named constant (e.g. exported from campaign-auth.ts or a shared auth-messages module).",
+      "unit": "duplicate-literals",
+      "kind": "chunk"
+    },
+    {
+      "ref": "packages/client/src/components/vtt/drawer/cast-rail-slot-picker.tsx:28 (and 8 related files)",
+      "title": "Near-identical `font-mono text-[10px] ...` Tailwind class strings copy-pasted across ~9 stat-block/tab components",
+      "verdict": "real",
+      "severity": "low",
+      "category": "duplication",
+      "rationale": "Confirmed via grep: 26 occurrences of `font-mono text-[10px]` variants (uppercase / text-muted-foreground / both combined) spread across monster-stat-block-*.tsx, tabs/actions-tab-*.tsx, tabs/features-tab.tsx, tabs/stats-tab-*.tsx, cast-rail-*.tsx, with zero shared constant or component (grep for a MONO_LABEL/statLabelClass helper found nothing). This is presentational copy rather than a behavior-critical magic value, so it's lower priority than the calibration's target cases (route/event names, error codes, thresholds), but it is genuine byte-for-byte/near-duplicate drift risk: a future design tweak (e.g. tracking, color) would need to be applied at ~9 call sites by hand with no single source of truth.",
+      "unit": "duplicate-literals",
+      "kind": "chunk"
+    },
+    {
+      "ref": "packages/server/src/routers/campaign.ts:155,164 + packages/server/src/utils/campaign-auth.ts:56,89 + packages/server/src/utils/encounter-combat-auth.ts:142 + packages/server/src/utils/note-auth.ts:56 (groupHash hfcgj8, value \"Campaign not found\")",
+      "title": "TRPCError NOT_FOUND message \"Campaign not found\" hand-typed 6 times across 5 product auth/router files",
+      "verdict": "real",
+      "severity": "medium",
+      "category": "maintainability",
+      "rationale": "Verified in source: campaign.ts, campaign-auth.ts (twice, in the same file), encounter-combat-auth.ts, and note-auth.ts all independently write `throw new TRPCError({ code: \"NOT_FOUND\", message: \"Campaign not found\" })`. This is product auth code, not test fixtures, and campaign-auth.test.ts asserts on this exact string, so the literal is load-bearing. AGENTS.md calls out preserving intentional NOT_FOUND semantics in the auth layer; a shared constant/helper (e.g. in campaign-auth.ts, already the auth source of truth) would prevent one call site drifting out of sync with the others and with the test assertions.",
+      "unit": "duplicate-literals",
+      "kind": "chunk",
+      "verifyNote": "Verified all 6 sites byte-for-byte via grep+read: campaign.ts:155/164 (same procedure, two sequential checks), campaign-auth.ts:56/89 (assertCampaignMember/assertCampaignDm), encounter-combat-auth.ts:142, note-auth.ts:56 \u2014 all product auth code, all throw TRPCError NOT_FOUND with the identical hand-typed string for the same semantic condition (campaign doesn't exist, distinguished from FORBIDDEN for 'exists but not a member'). Strengthening evidence beyond the original pass: encounter-combat-auth.ts and note-auth.ts already import `fetchCampaignMembership` from campaign-auth.ts, so the shared-import path for a consolidated helper/constant already exists \u2014 extracting e.g. a `throwCampaignAuthOutcome(campaignExists)` helper next to `fetchCampaignMembership` would be a low-risk refactor with no new coupling. The message is load-bearing: campaign-auth.test.ts asserts the literal string at two call sites (lines 64, 95), though encounter-combat-auth.test.ts and note-auth.test.ts only assert the NOT_FOUND code, not the message text (minor nuance, doesn't change verdict). Keeping medium severity: real drift risk but a straightforward, well-scoped fix, not a functional bug."
+    },
+    {
+      "ref": "packages/server/src/routers/encounter-map.ts:31 + packages/server/src/routers/encounter.ts:234,264 + packages/server/src/services/encounter-combat/participant-action.ts:266 (groupHash 1vznmox, value \"Participant not found\")",
+      "title": "TRPCError NOT_FOUND message \"Participant not found\" duplicated across 3 product files",
+      "verdict": "real",
+      "severity": "low",
+      "category": "maintainability",
+      "rationale": "Confirmed via grep: encounter-map.ts, encounter.ts (twice), and participant-action.ts each hardcode the identical NOT_FOUND message string. Same class of issue as the \"Campaign not found\" group but fewer sites; worth folding into the same auth/error-message cleanup rather than a standalone task.",
+      "unit": "duplicate-literals",
+      "kind": "chunk"
+    },
+    {
+      "ref": "packages/server/src/services/character-live-state/stats-conditions.ts:184,202 and :228,239 (groupHash 18nblqt \"Condition already applied\", groupHash 1hfxm9p \"Condition not found on character\")",
+      "title": "Two error-message literals are each duplicated twice within the same file (stats-conditions.ts) with no local constant",
+      "verdict": "real",
+      "severity": "low",
+      "category": "maintainability",
+      "rationale": "Both literals repeat at two call sites inside the single file packages/server/src/services/character-live-state/stats-conditions.ts. Trivial, single-file fix (hoist to a local const) but flagged because it's the same drift pattern as the two findings above, just contained to one file so lower priority.",
+      "unit": "duplicate-literals",
+      "kind": "chunk"
+    },
+    {
+      "ref": "packages/server/src/test/*-helper.ts (e.g. character-fixtures.ts:25, encounter-test-helper.ts:75,104, spell-test-helper.ts:77,87) vs. dozens of *.test.ts files, e.g. groupHash ymdb76 \"/trpc/character.levelUp\" (36 occurrences/4 files), 1hquqm7 \"/trpc/encounter.transitionState\" (41/14)",
+      "title": "tRPC route-path strings are hardcoded in dozens of test files even though matching test helpers already centralize the same route",
+      "verdict": "investigate",
+      "severity": "low",
+      "category": "maintainability",
+      "rationale": "The bulk of this chunk (majority of the 76 groups) is tRPC call URLs like \"/trpc/character.levelUp\" repeated 15-45 times each. Test helpers (packages/server/src/test/*-helper.ts) already define several of these routes once, but the great majority of occurrences are individual test files re-typing the same literal `app.inject({ url: \"/trpc/...\" })` string rather than importing a shared route builder. Not urgent (a renamed procedure fails these tests loudly at runtime, it is not silent), but it is real, widespread, uncentralized duplication in the test suite that a shared route-constant/helper module would meaningfully reduce; the literal grouping here is accurate, not noise from unrelated strings colliding.",
+      "unit": "duplicate-literals",
+      "kind": "chunk"
+    },
+    {
+      "ref": "packages/server/src/seed/generate-class-features.ts:218,252,258 (script.warning/script.progress, 9 and 31 occurrences across 8 and 17 files)",
+      "title": "script.progress / script.warning structured-log event tags duplicated with zero compile-time protection",
+      "verdict": "real",
+      "severity": "medium",
+      "category": "duplication",
+      "rationale": "Verified packages/server/src/utils/script-logger.ts:1 defines `ScriptLogFields = Record<string, unknown>` -- fully untyped, so every call site re-typing the literal 'script.progress'/'script.warning' string (17 seed/glossary files, plus scripts/codemods/structured-logging-fix-transforms.ts:52 which matches on this exact string) gets no tsc protection against a typo. Contrast with the sibling 'socket.broadcast' tag below, which IS protected by a literal-typed interface -- this one is not, and is exactly the 'event name repeated across files, independent drift breaks behavior' signal the calibration calls out.",
+      "unit": "duplicate-literals",
+      "kind": "chunk",
+      "verifyNote": "Verified script-logger.ts:1 (`ScriptLogFields = Record<string, unknown>`) and writeScriptLog (:82-92) do nothing to generate or validate the `event` field -- they just pass through whatever field.event the caller supplied, defaulting to 'script.log' only when it's absent/non-string. So every one of the ~17 seed files (grep confirms 31 call sites) hand-writes the literal 'script.progress'/'script.warning' with zero shared constant, unlike the sibling socket.broadcast tag (request-logger.ts:95, typed as a literal in BroadcastLogPayload) which is emitted from exactly one centralized call site (broadcast-registry.ts:212) via logBroadcast. Notably scripts/codemods/structured-logging-fix-transforms.ts:50-52 independently re-derives the same two strings from a `level` value for codegen purposes -- a third, disconnected copy of this tag vocabulary with no shared source of truth between runtime code and the codemod that rewrites it."
+    },
+    {
+      "ref": "packages/server/src/routers/encounter.ts:87 (Encounter not found, 5 production files); packages/server/src/routers/homebrew-campaign.ts:46 (Collection not found, homebrew.ts x3 + homebrew-helpers.ts x3); packages/server/src/services/level-up/asi.ts:25 (Character has no stats, 3 files); packages/server/src/services/combat-actions/combat-actions.ts:49 (It is not this participant's turn, 3 files)",
+      "title": "TRPCError message text duplicated verbatim across independent production files, no shared error-message constants",
+      "verdict": "real",
+      "severity": "medium",
+      "category": "duplication",
+      "rationale": "Verified with grep: `throw new TRPCError({ code: \"NOT_FOUND\", message: \"Encounter not found\" })` appears identically in encounter.ts:87, combat-log.ts:82, encounter-combat-auth.ts:119, encounter-helpers.ts:31, encounter-state-mutations.ts:282 -- 5 separate production modules, no shared constant. Same shape for 'Collection not found' (homebrew-campaign.ts + homebrew.ts x3 + homebrew-helpers.ts x3), 'Character has no stats' (asi.ts/core.ts/rest-service.ts), and 'It is not this participant's turn' (combat-actions.ts/spell-casting.ts/encounter-state-mutations.ts). One instance of the drift risk is already visible: packages/client/src/components/vtt/drawer/monster-stat-block-drawer.tsx:39 independently hardcodes 'Encounter not found.' (with a trailing period) as UI copy, separate from the server string.",
+      "unit": "duplicate-literals",
+      "kind": "chunk",
+      "verifyNote": "Grep confirms all four literal groups verbatim in the cited files (encounter.ts:87, combat-log.ts:82, encounter-combat-auth.ts:119, encounter-helpers.ts:31, encounter-state-mutations.ts:282 for 'Encounter not found'; homebrew.ts:160/276/370 + homebrew-helpers.ts:105/136/146 for 'Collection not found'; asi.ts:25/core.ts:37/rest-service.ts:93 for 'Character has no stats'; combat-actions.ts:49/spell-casting.ts:31/encounter-state-mutations.ts:256 for the turn message), with no shared constants module anywhere in packages/server/src or packages/shared/src (confirmed no ERROR_MESSAGES-style file exists). One caveat on the rationale: the cited client 'drift' example (monster-stat-block-drawer.tsx:39, 'Encounter not found.') is independently-authored UI copy for an EmptyState, not a read of err.message -- there's no evidence of functional string-matching coupling between client and server, so that's coincidental text similarity rather than a demonstrated behavioral-drift instance. The core duplication and lack of any shared constant is nonetheless real and worth a lightweight follow-up (extract per-domain message constants), even though the practical blast radius is more maintainability than an active bug."
+    },
+    {
+      "ref": "packages/server/src/utils/homebrew-helpers.ts:176 and :191",
+      "title": "'Homebrew entry not available for this campaign' duplicated twice within the same file",
+      "verdict": "real",
+      "severity": "low",
+      "category": "duplication",
+      "rationale": "Confirmed via Read: two separate `throw new TRPCError({ code: \"NOT_FOUND\", message: \"Homebrew entry not available for this campaign\" })` blocks at lines 172-177 and 187-192 of the same file -- not even a trivial in-file local const was used before the string also gets asserted against in 3 test files, let alone hoisted.",
+      "unit": "duplicate-literals",
+      "kind": "chunk"
+    },
+    {
+      "ref": "packages/server/src/services/upload-service.ts:33-40 vs packages/shared/src/schemas/map.ts:35",
+      "title": "Allowed image MIME types re-listed in a switch instead of deriving from the shared ALLOWED_IMAGE_MIME_TYPES constant",
+      "verdict": "real",
+      "severity": "low",
+      "category": "maintainability",
+      "rationale": "map.ts:35 defines `ALLOWED_IMAGE_MIME_TYPES = [\"image/jpeg\",\"image/png\",\"image/webp\"] as const`, correctly imported and used by upload-service.ts's `isAllowedMime` guard (line 45-46). But `mimeToExtension` (lines 32-40, same file) independently re-lists the identical 3 literals in a parallel switch with a `default: throw`. Adding a 4th type to the shared allowlist would pass validation but throw 'Unsupported MIME type' in mimeToExtension -- a latent, self-contained drift risk between the two functions in the same file.",
+      "unit": "duplicate-literals",
+      "kind": "chunk"
+    },
+    {
+      "ref": "packages/server/src/socket/broadcast-registry.ts:212 (socket.broadcast, 37 occ/11 files); packages/server/src/utils/character-campaign.ts:59 (no_socket_server, 8 occ/6 files)",
+      "title": "socket.broadcast event tag is compiler-protected (low risk); the sibling no_socket_server reason code is not",
+      "verdict": "investigate",
+      "severity": "low",
+      "category": "duplication",
+      "rationale": "Verified request-logger.ts:95 types `event: \"socket.broadcast\"` as an exact literal in the exported `BroadcastLogPayload` interface, and broadcast-registry.ts/character-campaign.ts's call-site objects are checked against that type -- a typo would fail to compile, so this duplication is real but functionally safe (DRY-only). However the neighboring `reason?: string` field (same interface) is loosely typed, so the 'no_socket_server' convention used at broadcast-registry.ts:216 and character-campaign.ts is NOT type-checked the same way -- a typo there would silently create a new, unmatched reason code. Worth a literal union for `reason` even though the `event` field doesn't need one.",
+      "unit": "duplicate-literals",
+      "kind": "chunk"
+    },
+    {
+      "ref": "scripts/code-intel/cli-options.ts:46 (value: \"Empty arguments are not supported.\", 11 files/11 occurrences)",
+      "title": "Same CLI arg-validation error string and loop-guard logic copy-pasted across 11 separate tool entry points",
+      "verdict": "real",
+      "severity": "medium",
+      "category": "duplication",
+      "rationale": "Verified the identical `for (...) { const arg = argv[index]; if (arg === undefined) throw new <ToolError>(\"Empty arguments are not supported.\")}` pattern independently re-implemented, byte-for-byte message, in scripts/code-intel/cli-options.ts, scripts/codemods/concurrency-guard/cli.ts:17, scripts/codemods/expand-barrel/args.ts:33, scripts/codemods/structured-logging-fix.ts:56, scripts/codemods/trpc-shared-input.ts:81, scripts/codemods/trpc-shared-output.ts:87, scripts/drift-ai/cli-args.ts:323, scripts/drift-ai/subcommand-args.ts:96, scripts/drift/locator-usage.ts:72, scripts/harness-audit.ts:128, scripts/logs-audit.ts:133 \u2014 each with its own bespoke Error subclass wrapping the same string. This is the repo's own tooling (weighted above product code) reimplementing a trivial arg-guard 11 times instead of sharing scripts/code-intel/cli-options.ts's `requireArg`; a wording change requires 11 lockstep edits and any missed one silently diverges error text.",
+      "unit": "duplicate-literals",
+      "kind": "chunk"
+    },
+    {
+      "ref": "scripts/code-intel/cli-args.ts:91 (value: \"--format\", 29 files/84 occurrences)",
+      "title": "The `--format` CLI flag is matched with bespoke logic in at least 5 independent script arg parsers",
+      "verdict": "real",
+      "severity": "low",
+      "category": "duplication",
+      "rationale": "Confirmed 5 different matching styles for the same flag: `arg === \"--format\"` (code-intel/cli-args.ts:91), `arg === \"--format\" || arg.startsWith(\"--format=\")` (logs-audit.ts:137, drift/locator-usage.ts:74), `matchesOption(arg, \"--format\")` (harness-audit.ts:130), and `optionName(arg) === \"--format\"` / object-keyed dispatch (drift-ai/cli-args.ts:138,239). Most of the 84 occurrences are test assertions (expected), but the 5 production re-implementations mean the flag's parsing contract (accepts `--format=x`? case-sensitive? etc.) isn't centralized in the repo's own CLI tooling and can drift subtly between tools.",
+      "unit": "duplicate-literals",
+      "kind": "chunk"
+    },
+    {
+      "ref": "packages/shared/src/rules/weapon-mastery.ts:29 and packages/shared/src/rules/srd-weapons.ts:76 (values: \"Light Hammer\", \"Warhammer\", \"War Pick\", \"Hand Crossbow\", \"Heavy Crossbow\", \"Light Crossbow\")",
+      "title": "Two independent SRD weapon lookup tables are keyed by plain `string`, not a shared weapon-name type",
+      "verdict": "real",
+      "severity": "medium",
+      "category": "architecture",
+      "rationale": "Verified `SRD_WEAPONS: Record<string, WeaponData>` (srd-weapons.ts:39) and `WEAPON_MASTERY_MAP: Record<string, WeaponMasteryProperty | null>` (weapon-mastery.ts:23) both use bare `string` keys \u2014 neither derives its key type from the other or from a shared `WeaponName` union. A rename or typo of a weapon name in either file compiles cleanly but silently orphans that weapon's mastery entry (or leaves a dangling mastery entry for a name that no longer exists in SRD_WEAPONS), with no type error to catch it. This is exactly the 'same semantic constant repeated where independent drift breaks behavior' pattern the audit calls out, in packages/shared (the contract).",
+      "unit": "duplicate-literals",
+      "kind": "chunk"
+    },
+    {
+      "ref": "packages/server/src/utils/campaign-auth.ts:49,62,82,96,106 (values: \"authz.campaign.member\", \"authz.campaign.dm\", \"not_member\", \"campaign_not_found\", \"encounter_not_found\")",
+      "title": "Structured-log event names and deny-reason codes are hand-duplicated across three parallel auth helper files with no shared constant/enum",
+      "verdict": "real",
+      "severity": "medium",
+      "category": "maintainability",
+      "rationale": "Verified campaign-auth.ts, encounter-combat-auth.ts, and note-auth.ts each independently inline the same reason strings (`\"not_member\"`, `\"campaign_not_found\"`) and each defines its own event-name literal (`authz.campaign.member`, `authz.encounter.combatant`, `authz.note.mutation`) with no shared schema/enum (grepped packages/shared/src/schemas for these values \u2014 none define them). scripts/logs-audit tests also assert against these exact strings. Because these are freeform strings (not a zod enum or literal-union type), TypeScript won't catch a typo introduced in any one of the three near-identical files, and logs-audit's matching would silently stop recognizing the mismatched entry.",
+      "unit": "duplicate-literals",
+      "kind": "chunk"
+    },
+    {
+      "ref": "scripts/db-status.ts:57 (value: \"musi_test\", 3 files/6 occurrences)",
+      "title": "Test database name is redefined in scripts/db-status.ts instead of importing the canonical constant",
+      "verdict": "real",
+      "severity": "medium",
+      "category": "duplication",
+      "rationale": "packages/server/src/test/test-database-url.ts:5 defines `const DEFAULT_TEST_DATABASE_NAME = \"musi_test\"`; scripts/db-status.ts:57 hardcodes the same literal in `derivedUrl(dev, \"musi_test\")`, with a comment at db-status.ts:50-53 that explicitly says 'db-status.ts must resolve the same way, or the presence check below reports the test DB present while the database the harness will actually use is missing' \u2014 the code itself flags the coupling risk it is not enforcing. A rename of the default test DB name would require remembering to update this second, unrelated file.",
+      "unit": "duplicate-literals",
+      "kind": "chunk"
+    },
+    {
+      "ref": "packages/shared/src/schemas/encounter-inputs.ts:120,137, packages/shared/src/schemas/homebrew.ts:183, packages/shared/src/schemas/monster.ts:162 (value: \"Invalid challenge rating\")",
+      "title": "Zod validation message duplicated verbatim across 4 sites in the shared schema contract",
+      "verdict": "real",
+      "severity": "low",
+      "category": "maintainability",
+      "rationale": "Verified all 4 non-test sites use the identical literal `message: \"Invalid challenge rating\"` for CR refinement checks in packages/shared/src (the contract layer). No shared constant exists; a future wording change (e.g., for i18n or clarity) requires finding and editing all 4 independently.",
+      "unit": "duplicate-literals",
+      "kind": "chunk"
+    },
+    {
+      "ref": "packages/server/src/socket/campaign-room-handler.ts:62,111,136,166 and packages/shared/src/schemas/socket-events.ts:148-149 (values: \"campaign:playerJoined\", \"campaign:playerLeft\")",
+      "title": "Socket event name strings repeated at each emit call instead of referencing the schema's typed keys",
+      "verdict": "investigate",
+      "severity": "low",
+      "category": "duplication",
+      "rationale": "Verified the event names are defined as keys in a typed event map in socket-events.ts and repeated as literal string arguments to `.emit(...)` at 3 call sites in campaign-room-handler.ts plus tests. Because `.emit` is presumably typed against that event map, a typo would likely fail to compile, which caps the real risk \u2014 flagging as worth a named-constant hoist for readability rather than a correctness bug.",
+      "unit": "duplicate-literals",
+      "kind": "chunk"
+    },
+    {
+      "ref": "scripts/lint-ratchet/lint-ratchet-config.ts:103-105,159-160,177-179,237-239,273-275,310-312",
+      "title": "Ignore-glob triple [dist/generated/node_modules] copy-pasted 6x in one file; one copy already missing generated/**",
+      "verdict": "real",
+      "severity": "low",
+      "category": "maintainability",
+      "rationale": "The `[\"**/dist/**\", \"**/generated/**\", \"**/node_modules/**\"]` ignore array is hand-repeated 5-6 times inside lint-ratchet-config.ts (the strict-boolean-expressions and no-real-time ratchets, plus the top-level testingLibraryRatchetIgnores). The `ratchet/local-type-assertion-boundary` ratchet (lines 151-169) is the odd one out: its ignores list only has `[\"**/dist/**\", \"**/node_modules/**\", ...scriptFixtureIgnores, \"scripts/vitest.config.ts\"]`, silently missing `**/generated/**` that all four sibling ratchets carry. Verified this hasn't caused a live false positive today only because the actual generated file in scope (packages/server/src/generated/prisma/*.ts) happens to use only `as const` (exempt) and `import/export * as` syntax rather than real type-assertion casts, and the current lint-ratchet.baseline.json entry for this rule has empty items. But the asymmetry is exactly the kind of independent-drift the duplicate-literals check is meant to catch: any future Prisma/codegen change that emits a real `as Foo` cast in that directory would be scanned by this one ratchet and not the others, with no shared constant keeping the five/six copies in sync. Worth hoisting to one named `commonRatchetIgnores` constant (there's already a `scriptFixtureIgnores` precedent) and adding the missing entry.",
+      "unit": "duplicate-literals",
+      "kind": "chunk"
+    },
+    {
+      "ref": "scripts/codemods/concurrency-guard.test.ts:42-53, scripts/codemods/structured-logging-fix.test.ts:46-67, scripts/codemods/trpc-shared-schema-codemod.test.ts:51-79 (variant: scripts/codemods/expand-barrel.test.ts:38-51)",
+      "title": "Fixture-metadata validation (expectFailure/expectedError/expectedStdout + error strings) copy-pasted across 3-4 codemod test suites instead of living in the shared fixture-runner helper",
+      "verdict": "real",
+      "severity": "low",
+      "category": "duplication",
+      "rationale": "All four codemod test files already import a shared `./lib/fixture-runner.test-helper.js`, but each still defines its own `readMetadata()` that hand-parses `expectFailure`/`expectedError`/`expectedStdout` (or `runTwice`/`expectedSecondStdout` in expand-barrel.test.ts) and throws byte-identical validation messages, e.g. `\"expectedError must be set when expectFailure is true.\"` and `\"expectedError is only valid when expectFailure is true.\"` appear verbatim in concurrency-guard.test.ts:49/52, structured-logging-fix.test.ts:64/67, and trpc-shared-schema-codemod.test.ts:69/79. Since this is tooling test code with a shared helper module already in place, this generic boolean-gates-a-required-field validation belongs in fixture-runner.test-helper.js once, not copy-pasted per codemod; keeping 3-4 independent copies risks them drifting further (expand-barrel's runTwice variant already shows a slightly different field name for the same shape).",
+      "unit": "duplicate-literals",
+      "kind": "chunk"
+    },
+    {
+      "ref": "scripts/drift-ai/hotspots-history.ts:340-346",
+      "title": "Load-bearing git-log flag sequence hand-duplicated across 3 independent files",
+      "verdict": "real",
+      "severity": "medium",
+      "category": "duplication",
+      "rationale": "hotspots-history.ts builds [\"log\",\"--no-merges\",\"--no-renames\",\"--date=iso-strict\", numstat?\"--numstat\":\"--name-only\"] with an explicit comment (lines 22-27) warning '--no-renames is LOAD-BEARING ... do not remove --no-renames'. bounded-full-history.ts:228-233 builds the near-identical array independently, and hotspots-suppression-churn.ts:37-40 builds a third variant (missing the numstat/name-only branch). No shared builder/constant exists, so the documented load-bearing behavior can silently drift if one site is patched and the others aren't.",
+      "unit": "duplicate-literals",
+      "kind": "chunk",
+      "verifyNote": "Confirmed, and actually worse than the write-up implies: this is not just a theoretical duplication risk, the drift has already happened. hotspots-history.ts:342-343 and bounded-full-history.ts:228 both carry ['--no-merges','--no-renames'], with hotspots-history.ts:22-27 carrying an explicit comment that --no-renames is LOAD-BEARING because parseNameOnlyRow (line 173-175) takes the raw line verbatim as the path with zero arrow-form (a => b) handling. hotspots-suppression-churn.ts:36-41 independently builds a third git-log invocation that also uses --name-only (feeding the same unguarded parseNameOnlyRow) but omits --no-renames entirely. Whether this is live-exploitable depends on the runner's diff.renames git config (off by default, but not universally so), so I can't confirm it's corrupting output today, but the documented invariant is already violated at one of three call sites with no shared builder to catch it. Real, medium severity as scored; a quick extraction (e.g. a GIT_LOG_BASE_ARGS constant) is well justified given the explicit load-bearing warning."
+    },
+    {
+      "ref": "scripts/drift-ai/birth-size-delta-args.ts:61-80",
+      "title": "Identical --max-commits/--max-files/--max-output-bytes/--timeout-ms arg quad reimplemented per subcommand",
+      "verdict": "real",
+      "severity": "low",
+      "category": "duplication",
+      "rationale": "birth-size-delta-args.ts, ownership-args.ts:54-64 and test-orphaning-args.ts:68-78 each independently switch on the same 4 flag-name string literals and pass the identical literal again to readPositiveInt as the error label, and dolos-candidates-args.ts:66-70 repeats --max-files/--threshold likewise. A shared 'defineBoundedIntFlag' helper or constant table would remove the copy-paste risk of the switch key and its error-label string silently diverging.",
+      "unit": "duplicate-literals",
+      "kind": "chunk",
+      "verifyNote": "Duplication is real and verified: birth-size-delta-args.ts:61-80, ownership-args.ts:54-64, and test-orphaning-args.ts:68-78 each independently repeat the identical 4-flag block (--max-commits/--max-files/--max-output-bytes/--timeout-ms, each calling readPositiveInt(value, '<same-flag-literal>')). dolos-candidates-args.ts only overlaps on --max-files/--top, not the full quad, so that part of the rationale overstates the match. I checked all four files' readPositiveInt call sites for label/key mismatches (a concrete sign the copy-paste has already silently diverged) and found none -- every flag key and error label agree everywhere. This is boilerplate over a shared parseSubcommandArgs/valueOptions mechanism (subcommand-args.ts already documents a deliberate, tracked future unification -- 'a future declarative per-option table (task 50 Low-1) could unify this with cli-args ... kept separate for now'), each closure is a single self-contained line, and there is existing test coverage per args file. Legitimate DRY/extract-a-helper opportunity but low-risk (no correctness exposure, no observed divergence, already on the team's backlog radar) rather than medium-severity duplication."
+    },
+    {
+      "ref": "scripts/drift-ai/dolos-runner-types.ts:62",
+      "title": "Identical 'reason' union type hand-duplicated in two runner-types files",
+      "verdict": "investigate",
+      "severity": "low",
+      "category": "duplication",
+      "rationale": "dolos-runner-types.ts:62 and scripts/drift-ai/semgrep-runner-types.ts:60 both declare `readonly reason: \"run-failed\" | \"timeout\" | \"tool-unavailable\"` verbatim with no shared type; import-cycles.ts and near-duplicates-config-values.ts already extract named constants for a sibling literal (\"ts-morph\"), showing the pattern is known but inconsistently applied. Low risk since it's type-checked, but a shared ToolRunFailureReason type would remove real duplication of a 3-member union across two adapters.",
+      "unit": "duplicate-literals",
+      "kind": "chunk"
+    },
+    {
+      "ref": "scripts/lint-agent-envelope.ts:49",
+      "title": "--output= flag-prefix parsing reimplemented per script outside drift-ai's own arg-readers util",
+      "verdict": "investigate",
+      "severity": "low",
+      "category": "duplication",
+      "rationale": "lint-agent-envelope.ts:49-50 and harness-emit-envelope.ts:47-81 each hand-roll their own '--output='.startsWith/slice parsing, while scripts/drift-ai/arg-readers.test.ts shows drift-ai already has a shared arg-reader utility that these two non-drift-ai scripts don't reuse. Minor; the string itself is too short/generic to be a magic-value risk, but signals a missing shared scripts/-level CLI arg helper.",
+      "unit": "duplicate-literals",
+      "kind": "chunk"
+    },
+    {
+      "ref": "scripts/drift-ai/coldspots.ts:51 + scripts/drift-ai/hotspots.ts:53",
+      "title": "Identical BANNER disclaimer string copy-pasted across two check implementations",
+      "verdict": "real",
+      "severity": "low",
+      "category": "duplication",
+      "rationale": "Both files independently declare `const BANNER = \"Areas to check, not defects. drift:ai makes no claim these are problems.\";` verbatim (verified by grep). Neither imports from the other or a shared module, so the two disclaimers can drift out of sync if one is edited. Cheap fix: hoist to a shared constant since coldspots and hotspots are sibling checks with parallel structure.",
+      "unit": "duplicate-literals",
+      "kind": "chunk"
+    },
+    {
+      "ref": "scripts/drift-ai/coverage-evidence-advisory.ts:84,119 + scripts/drift-ai/coverage-unused-correlation-advisory.ts:102",
+      "title": "\"coverage artifacts\" advisory label duplicated across two formatter modules",
+      "verdict": "real",
+      "severity": "low",
+      "category": "duplication",
+      "rationale": "The `name: \"coverage artifacts\"` label appears independently in coverage-evidence-advisory.ts (twice) and coverage-unused-correlation-advisory.ts (once), verified via grep. Cosmetic/low-impact but genuinely un-centralized -- same category as the BANNER finding above; worth folding into the same cleanup if one is done.",
+      "unit": "duplicate-literals",
+      "kind": "chunk"
+    },
+    {
+      "ref": "harness.controls.json",
+      "title": "Harness manifest filename/path string is independently re-declared in 8+ production scripts",
+      "verdict": "real",
+      "severity": "medium",
+      "category": "maintainability",
+      "rationale": "Confirmed by grep: `join(repoRoot, \"harness.controls.json\")` (or equivalent) is hand-typed independently in scripts/harness-check.ts:115, scripts/harness/generate-harness-controls.ts:94, scripts/harness/generate-hook-wiring.ts:52, scripts/harness/generate-verify-steps.ts:16, scripts/lint-ratchet/lint-ratchet-check-registry.ts:61, and referenced as a literal path-policy entry in scripts/path-policy/path-policy.ts:105 and scripts/path-policy/path-policy-smoke-subjects-data.ts (x3). A companion validation message, \"harness.controls.json must declare a controls array\", is copy-pasted verbatim across scripts/harness-check.ts:141, scripts/lint-ratchet/lint-ratchet-check-registry.ts:183, scripts/harness/generate-verify-steps.ts:76, and scripts/harness/generate-hook-wiring.ts:73. This is exactly the pattern the calibration calls out (a shared config filename repeated across independent tooling modules where drift would break behavior) rather than the usual test-fixture noise, and it sits in scripts/** (tooling), which this audit weighs above product code. A single exported constant/helper (e.g. `HARNESS_MANIFEST_FILENAME` plus a shared `loadHarnessManifest()`) in one of the existing harness modules would remove the 5-way manual-sync risk if the manifest is ever renamed or moved.",
+      "unit": "duplicate-literals",
+      "kind": "chunk",
+      "verifyNote": "All citations verified exactly. `join(repoRoot, \"harness.controls.json\")` is independently hand-typed at scripts/harness-check.ts:115, scripts/harness/generate-harness-controls.ts:94, scripts/harness/generate-hook-wiring.ts:52, scripts/harness/generate-verify-steps.ts:16, and scripts/lint-ratchet/lint-ratchet-check-registry.ts:61, plus literal references in scripts/path-policy/path-policy.ts:105 and scripts/path-policy/path-policy-smoke-subjects-data.ts:323,351,449. The companion message \"harness.controls.json must declare a controls array\" is copy-pasted verbatim in harness-check.ts:141, generate-hook-wiring.ts:73, generate-verify-steps.ts:76, and lint-ratchet-check-registry.ts:183 (generate-harness-controls.ts:108 has the same message via a slightly different check). Notably this repo already has precedent for extracting shared harness helpers (scripts/harness/control-field-validation.ts, verify-step-schema.ts, hook-wiring-schema.ts) and generate-hook-wiring.ts already imports a shared `isObject` from control-field-validation.ts, while harness-check.ts and generate-harness-controls.ts each redefine their own local `isObject` \u2014 confirming the manifest-loading boilerplate (path join + shape guard + error message) was never centralized despite the codebase's own established pattern for doing exactly that. This is genuine tooling-layer duplication (not test-fixture noise) and, per the audit's weighting, sits in scripts/** which counts above equivalent product-code findings. Kept at medium rather than high since nothing is currently broken and a rename would still require touching path-policy files/docs regardless of this fix \u2014 the win is duplication/drift-risk reduction, not a live bug."
+    },
+    {
+      "ref": "scripts/lib/lint-rule-docs.ts:115,146,151 vs scripts/harness/control-field-validation.ts:92,105,109 vs scripts/harness/generate-harness-controls-validation.ts:53,87,101 vs scripts/harness/harness-check-validation.ts:177,188",
+      "title": "Harness-controls field-validation rules (repairCommand/pairedGuide/principle/invocation) reimplemented independently in 4 files with identical error strings",
+      "verdict": "real",
+      "severity": "medium",
+      "category": "duplication",
+      "rationale": "Verified: scripts/harness/control-field-validation.ts exports validatePairedGuidePath/validateRepairCommandPresence with the exact messages 'pairedGuide must be \"none\" or a non-empty path string', 'repairCommand must be absent unless repairKind is codemod', 'repairCommand must be a non-empty string when repairKind is codemod'. scripts/lib/lint-rule-docs.ts reimplements the identical checks and strings locally (validatePairedGuide/validateRepairCommand) instead of importing the shared functions. Separately, 'principle must be a non-empty string' and 'invocation must be a non-empty string' are hardcoded independently in both generate-harness-controls-validation.ts and harness-check-validation.ts/harness-check.ts. This is tooling code (scripts/**) implementing the same validation contract three/four times; a rule change (e.g. new repairKind) can silently update only some copies, letting the doc-generator and the controls-checker disagree.",
+      "unit": "duplicate-literals",
+      "kind": "chunk"
+    },
+    {
+      "ref": "scripts/harness-check.ts:118,192-212 vs scripts/harness/generate-verify-steps.ts:17 vs scripts/harness/generate-harness-controls.ts:95 vs scripts/harness/generate-config-surfaces.ts:8",
+      "title": "harness-check.ts (the harness-drift validator) independently hardcodes the generated-artifact output paths owned by each generator script",
+      "verdict": "real",
+      "severity": "medium",
+      "category": "duplication",
+      "rationale": "Verified: each generator defines its own output path once (generate-verify-steps.ts: outputPath = 'scripts/verify/steps.generated.sh'; generate-harness-controls.ts: 'docs/generated/harness-controls.md'; generate-config-surfaces.ts: 'tsconfig.configs.json'), but scripts/harness-check.ts (lines 118, 192, 197, 212, 254, 262-263) re-hardcodes the same literal path strings for its own validation logic instead of importing the generators' path constants. Because harness-check.ts exists specifically to catch harness-surface drift, a rename of any generator's output path would go unnoticed by harness-check.ts until it starts failing/passing for the wrong reasons -- an ironic self-referential gap in the repo's own drift-detection tooling.",
+      "unit": "duplicate-literals",
+      "kind": "chunk"
+    },
+    {
+      "ref": "scripts/path-policy/path-policy.ts:104,106-110 vs scripts/lint-ratchet/paths.ts:7 and scripts/sensor-blob-size.ts:19 and scripts/harness/generate-hook-wiring.ts:53-55 and scripts/lint-coverage-map-check-io.ts:10",
+      "title": "path-policy.ts hand-copies canonical repo paths that already exist as named exported constants elsewhere, instead of importing them",
+      "verdict": "real",
+      "severity": "medium",
+      "category": "duplication",
+      "rationale": "Verified concretely for 'lint-ratchet.debt-log.jsonl': scripts/lint-ratchet/paths.ts:7 already exports DEBT_LOG_FILENAME with that exact value, yet path-policy.ts:104 duplicates the raw string. Same pattern for '.blob-size-allowlist' (owned by sensor-blob-size.ts's exported DEFAULT_ALLOWLIST_PATH, re-hardcoded in lint-coverage-map-check-patterns.ts:14), the three hook-config paths ('.claude/settings.json', '.codex/hooks.json', '.github/hooks/copilot.json', owned by generate-hook-wiring.ts:53-55, re-hardcoded in path-policy.ts:107-110 and duplicated again in path-policy-smoke-subjects-data.ts at two separate locations), and 'docs/agent_notes/lint-coverage-map.md' (owned by lint-coverage-map-check-io.ts:10). Since path-policy governs which paths are treated as source-relevant for verify:changed gating, an un-synced rename in the owning module would silently desync the gate from actual generated-artifact locations.",
+      "unit": "duplicate-literals",
+      "kind": "chunk"
+    },
+    {
+      "ref": "scripts/drift-ai/semgrep-candidates-args.ts:79-90 vs scripts/drift-ai/subcommand-args.ts:68-81 vs scripts/drift-ai/semgrep-rule-sources.ts (comments/messages)",
+      "title": "CLI flag name literals (--registry-pack, --allow-live-registry, --allow-rule-license, --include-rule-messages, --rule-source-manifest, --no-error-on-unmatched-pattern) repeated between parser dispatch keys, help text, and error messages",
+      "verdict": "investigate",
+      "severity": "low",
+      "category": "duplication",
+      "rationale": "Confirmed each flag name is both a literal dispatch-map key in semgrep-candidates-args.ts and repeated in help/usage strings and in semgrep-rule-sources.ts error messages/comments referencing the same flag by name. This is a common, largely benign CLI-parsing idiom (flag literal necessarily appears at the parse site and in user-facing text) confined to one small, cohesive subsystem, so the drift risk is mild; a shared FLAG_NAME constants object would reduce risk cheaply but this is not urgent.",
+      "unit": "duplicate-literals",
+      "kind": "chunk"
+    },
+    {
+      "ref": "scripts/path-policy/path-policy.ts:103 (value: \"lint-ratchet.baseline.json\")",
+      "title": "path-policy.ts and path-policy-smoke-subjects-data.ts hardcode a filename that already has a named constant",
+      "verdict": "real",
+      "severity": "low",
+      "category": "maintainability",
+      "rationale": "scripts/lint-ratchet/paths.ts:4 already exports `export const BASELINE_FILENAME = \"lint-ratchet.baseline.json\";` for exactly this value, but scripts/path-policy/path-policy.ts:103 and scripts/path-policy/path-policy-smoke-subjects-data.ts:428 restate the raw string instead of importing it. If the baseline filename is ever renamed, these two path-policy entries (which gate what counts as 'source relevant' for verify triggering) would silently go stale. Low severity because path-policy.ts is a big literal data table by design (adjacent lines list dozens of other exact filenames), so this is a minor consistency nit rather than a structural risk, but it is a real, cheap fix (import BASELINE_FILENAME) in dogfood tooling.",
+      "unit": "duplicate-literals",
+      "kind": "chunk"
+    },
+    {
+      "ref": "scripts/lint-ratchet/baseline-debt-accounting.ts:74, lint-ratchet-debt-log.ts:116, lint-ratchet-report.ts:203 (value: \"unknown JSON parse error\")",
+      "title": "Identical fallback error-message literal repeated verbatim in three catch blocks",
+      "verdict": "investigate",
+      "severity": "low",
+      "category": "duplication",
+      "rationale": "All three sites use the same `error instanceof Error ? error.message : \"unknown JSON parse error\"` fallback pattern verbatim. Low risk (it's a fallback string, not a control-flow key), but a trivial hoist to a shared helper/constant would remove genuine copy-paste and is cheap since it's dogfood tooling code.",
+      "unit": "duplicate-literals",
+      "kind": "chunk"
+    },
+    {
+      "ref": "scripts/path-policy/path-policy.ts:86,141,206,220 (literal \"eslint-config/\", 12 occurrences / 3 files)",
+      "title": "eslint-config/ prefix hand-typed 4x within path-policy.ts itself",
+      "verdict": "investigate",
+      "severity": "low",
+      "category": "duplication",
+      "rationale": "Within path-policy.ts the literal is hand-authored 4 separate times (ESLINT_FULL_SCAN_TRIGGERS prefix selector at :86, sourceRelevant.selectors prefix at :141, directoryPrefixSubjects.sourceRelevant at :206, directoryPrefixSubjects.scriptSmoke at :220) -- a genuine same-file DRY gap, not cross-package noise, so it fits the tooling-weighted-higher guidance. But each occurrence is a deliberately different policy dimension (not copy-paste error), and path-policy.test.ts (lines 57, 90, 156) asserts each of these entries directly, so a typo/drift would be caught immediately by tests. A small `const ESLINT_CONFIG_PREFIX = \"eslint-config/\" as const` hoist would be a nice-to-have, not a live defect. Remaining occurrences (path-policy-smoke-subjects-data.ts, path-policy.test.ts) are auto-generated fixture data / literal test assertions verifying that exact config value, which is expected and not duplication risk.",
+      "unit": "duplicate-literals",
+      "kind": "chunk"
+    },
+    {
+      "ref": "packages/shared/src/schemas/npc-inputs.ts:4",
+      "category": "bug",
+      "verdict": "investigate",
+      "severity": "medium",
+      "title": "MAX_DESCRIPTION_LENGTH inconsistent across shared schema files with no documented rationale",
+      "rationale": "MAX_DESCRIPTION_LENGTH is independently redefined in packages/shared/src/schemas/campaign-inputs.ts:9 (5000), encounter-inputs.ts:12 (5000), npc-inputs.ts:4 (10_000), and inventory-inputs.ts:5 (10_000), plus HOMEBREW_MAX_DESCRIPTION_LENGTH=5000 in homebrew.ts:37 \u2014 same field concept, same constant name, two different caps, no comment anywhere explaining why NPCs/items get double the description length of campaigns/encounters. Reads like accidental drift from copy-pasting one schema file as a template for another rather than an intentional business rule, in the shared contract package that packages/server and packages/client both depend on for validation.",
+      "unit": "duplicate-constants",
+      "kind": "chunk",
+      "verifyNote": "Verified: npc-inputs.ts:4 and inventory-inputs.ts:5 both locally define MAX_DESCRIPTION_LENGTH=10_000 while campaign-inputs.ts:9 and encounter-inputs.ts:12 locally define MAX_DESCRIPTION_LENGTH=5000 (which matches constants.ts's existing MAX_TEXT_LENGTH=5000, though neither file imports it), plus homebrew.ts:37 has its own HOMEBREW_MAX_DESCRIPTION_LENGTH=5000. No comment in any of the four files or in git log -p history explains the 5000-vs-10000 split; each is a bare module-private const with zero cross-reference. Genuine unexplained drift in the shared Zod contract package, though 'medium' is fair rather than higher since each file's validation still works standalone and nothing is functionally broken (a NPC/item description just permissively caps 2x the campaign/encounter fields)."
+    },
+    {
+      "ref": "packages/shared/src/schemas/monster-inputs.ts:11",
+      "category": "duplication",
+      "verdict": "real",
+      "severity": "medium",
+      "title": "MAX_PAGE_SIZE / MAX_SEARCH_LENGTH (=100) re-declared locally in ~6 shared schema files instead of one shared constant",
+      "rationale": "packages/shared/src/schemas/{chat-inputs,homebrew-inputs,monster-inputs,magic-item-inputs,inventory-inputs}.ts each locally define their own MAX_PAGE_SIZE=100 and/or MAX_SEARCH_LENGTH=100 (note-inputs.ts even sets MAX_SEARCH_LENGTH=200, a silent divergence). packages/shared/src/constants.ts already exists as the intended home for cross-cutting numeric limits (MAX_HP, MAX_QUANTITY, MAX_ID_LENGTH, RATE_LIMIT_MAX, etc. all live there) but pagination/search caps were never centralized there, so 5+ files each own a private copy of the same rule.",
+      "unit": "duplicate-constants",
+      "kind": "chunk",
+      "verifyNote": "Verified: MAX_PAGE_SIZE=100 is locally redeclared in chat-inputs.ts:11, magic-item-inputs.ts:11, inventory-inputs.ts:10, monster-inputs.ts:12, note-inputs.ts:14, while notification-inputs.ts:11 sets MAX_PAGE_SIZE=50 (silent divergence) and note-inputs.ts:12 sets MAX_SEARCH_LENGTH=200 vs 100 everywhere else (homebrew-inputs, spell.ts, magic-item-inputs, monster-inputs). constants.ts already centralizes comparable cross-cutting limits (MAX_ID_LENGTH, MAX_NAME_LENGTH, MAX_TEXT_LENGTH) but never got a MAX_PAGE_SIZE/MAX_SEARCH_LENGTH entry, so 6+ files each own a private copy that has already begun to drift in value. Confirmed real duplication in the shared contract package."
+    },
+    {
+      "ref": "eslint-rules/trpc-require-output-schema.js:16",
+      "category": "duplication",
+      "verdict": "real",
+      "severity": "low",
+      "title": "PAIRED_GUIDE doc path hardcoded independently in three eslint rule files",
+      "rationale": "trpc-require-output-schema.js:16, trpc-shared-input-schema.js:12, and trpc-shared-output-schema.js:11 each declare `const PAIRED_GUIDE = \"docs/guides/add-trpc-procedure.md\"` and interpolate it into their lint messages. If that guide is ever renamed/moved, three separate lint rules silently start pointing agents/devs at a dead path with no compiler check to catch it \u2014 tooling-layer duplication the repo's own weighting calls out as higher priority than product code.",
+      "unit": "duplicate-constants",
+      "kind": "chunk"
+    },
+    {
+      "ref": "eslint-rules/trpc-shared-schema-import-collector.js:14",
+      "category": "duplication",
+      "verdict": "real",
+      "severity": "low",
+      "title": "SHARED_SCHEMA_PREFIX (\"@musi/shared/schemas/\") duplicated between an eslint rule and a codemod",
+      "rationale": "eslint-rules/trpc-shared-schema-import-collector.js:14 and scripts/codemods/lib/trpc-shared-schema-types.ts:7 both hardcode the same import-path prefix independently. Different toolchains (ESLint plugin vs. bun codemod) make a single import awkward, but both encode the same package-layout assumption; if the shared-schemas path prefix ever changes, both need manual, uncoordinated updates.",
+      "unit": "duplicate-constants",
+      "kind": "chunk"
+    },
+    {
+      "ref": "scripts/harness/harness-diagnostics-output.ts:19",
+      "category": "duplication",
+      "verdict": "real",
+      "severity": "medium",
+      "title": "HARNESS_DIAGNOSTICS_OUTPUT_ENV literal and its getter logic duplicated verbatim between two writer modules",
+      "rationale": "scripts/harness/harness-diagnostics-output.ts:19 and scripts/lint-ratchet/lint-ratchet-output.ts:6 both declare `export const HARNESS_DIAGNOSTICS_OUTPUT_ENV = \"HARNESS_DIAGNOSTICS_OUTPUT\"` and each reimplements an identical `harnessDiagnosticsOutputPath()` helper reading `process.env[HARNESS_DIAGNOSTICS_OUTPUT_ENV]`. The comment in harness-diagnostics-output.ts explicitly documents that lint-ratchet 'reads the same variable' \u2014 the coupling is intentional, but the env-var name and the read/guard logic are copy-pasted rather than imported from one place, so a rename in one file silently breaks the shared-env-var contract with the other.",
+      "unit": "duplicate-constants",
+      "kind": "chunk",
+      "verifyNote": "Verified both files declare `export const HARNESS_DIAGNOSTICS_OUTPUT_ENV = \"HARNESS_DIAGNOSTICS_OUTPUT\"` and reimplement an identical harnessDiagnosticsOutputPath() guard (scripts/harness/harness-diagnostics-output.ts:19-33 vs scripts/lint-ratchet/lint-ratchet-output.ts:6-16). Stronger than the original rationale: sibling consumers scripts/drift-ai/diagnostics-projection.ts and scripts/logs-audit/logs-audit-diagnostics.ts already import HARNESS_DIAGNOSTICS_OUTPUT_ENV/harnessDiagnosticsOutputPath from harness-diagnostics-output.ts rather than redefining them, proving that module is the intended canonical home and that lint-ratchet-output.ts (which has no circular-dependency obstacle \u2014 harness-diagnostics-output.ts imports nothing from lint-ratchet) simply failed to do the same. Per repo weighting, this is a scripts/** tooling/dogfood finding and should rank above the two packages/shared findings despite equal nominal severity."
+    },
+    {
+      "ref": "scripts/drift-ai/coldspots.ts:51",
+      "category": "duplication",
+      "verdict": "real",
+      "severity": "low",
+      "title": "Identical disclaimer BANNER string duplicated between coldspots.ts and hotspots.ts",
+      "rationale": "Both scripts/drift-ai/coldspots.ts:51 and scripts/drift-ai/hotspots.ts:53 declare the exact same string \"Areas to check, not defects. drift:ai makes no claim these are problems.\" as a private BANNER constant embedded in each command's output envelope. A future wording/scope tweak to one sibling command's disclaimer is easy to make in only one file, leaving the tool's own two closely-related commands with inconsistent user-facing disclaimers.",
+      "unit": "duplicate-constants",
+      "kind": "chunk"
+    },
+    {
+      "ref": "packages/client/src/components/sheet/asi-step.tsx:13",
+      "category": "duplication",
+      "verdict": "real",
+      "severity": "low",
+      "title": "SELECTED/UNSELECTED Tailwind class strings copy-pasted across three level-up step components",
+      "rationale": "asi-step.tsx:13-14, level-up-helpers.tsx:27-28, and subclass-step.tsx:15-16 all declare identical (or near-identical, subclass-step.tsx appends `cursor-pointer`) SELECTED/UNSELECTED class-name constants for the same 'selectable option card' visual pattern in the same feature (character level-up flow). A shared style change requires editing three files in lockstep with nothing enforcing that.",
+      "unit": "duplicate-constants",
+      "kind": "chunk"
+    },
+    {
+      "ref": "packages/server/src/routers/cast-spell-concentration.test.ts:16",
+      "category": "duplication",
+      "verdict": "investigate",
+      "severity": "low",
+      "title": "HTTP status literal constants (200/400/401/403/404/409) redeclared locally across ~18 server router test files and one product file",
+      "rationale": "packages/server/src/routers/*.test.ts (cast-spell, cast-spell-concentration, map, map-token, map-token-move, map-layer, rest, rest-long, sorcery-point, spell-slot, invite-concurrency, dice) and packages/server/src/routes/upload-routes.{ts,test.ts} each independently declare `const HTTP_OK = 200`, `HTTP_BAD_REQUEST = 400`, etc. Values are fixed HTTP semantics so drift risk per-constant is low, but the sheer count (~40 declarations across ~18 files, including one production route file) suggests a shared http-status.ts constants module would meaningfully cut boilerplate; flagging as investigate since a prior author may have deliberately kept these test files self-contained.",
+      "unit": "duplicate-constants",
+      "kind": "chunk"
+    },
+    {
+      "ref": "packages/server/src/test/worker-test-database.ts:24,107 and packages/server/src/utils/__type-tests__/assert-turn-opts-dedup.ts:24",
+      "title": "knip config gap: server vitest setupFiles/globalSetup not recognized as entries; __type-tests__ ignoreIssues misses 'types'",
+      "verdict": "real",
+      "severity": "low",
+      "category": "maintainability",
+      "rationale": "prepareLockedWorkerTestDatabase is imported and called in packages/server/src/test/setup.ts:8/30, and dropStaleWorkerTestDatabases in global-setup.ts:13/19 (both wired via vitest.config.ts's setupFiles/globalSetup) -- clearly not dead. Reproduced live with `node_modules/.bin/knip --workspace packages/server` (outside the drift-ai wrapper): it independently reports the same two functions plus TurnOptsDedupAssertions as unused, confirming this is a real knip config gap, not a drift-ai artifact. TurnOptsDedupAssertions is a deliberate compile-only type assertion in __type-tests__/ -- knip.config.ts already has an ignoreIssues entry for that path but it only lists [\"exports\"], not [\"types\"], so type-only exports in that directory still leak through. Fix: add \"types\" to the __type-tests__ ignoreIssues category, and investigate why the packages/server workspace's `vitest: true` plugin isn't treating setupFiles/globalSetup as entry points.",
+      "unit": "unused-exports",
+      "kind": "chunk",
+      "verifyNote": "The finding is a compound claim and only half of it survives. Re-ran `knip --workspace packages/server` (both with existing cache and after `rm -rf node_modules/.cache/knip`) directly against the repo's actual root knip.config.ts: the ONLY issue reported is `TurnOptsDedupAssertions` (types) in assert-turn-opts-dedup.ts:24. prepareLockedWorkerTestDatabase and dropStaleWorkerTestDatabases in worker-test-database.ts are NOT flagged as unused -- knip's `vitest: true` plugin for the packages/server workspace correctly picks up packages/server/vitest.config.ts's setupFiles/globalSetup (verified they exist and wire setup.ts -> prepareLockedWorkerTestDatabase, global-setup.ts -> dropStaleWorkerTestDatabases) and treats them as entry points. So the headline claim -- 'server vitest setupFiles/globalSetup not recognized as entries' -- is REFUTED; I could not reproduce it via a clean knip run. What IS real and reproducible: the __type-tests__ ignoreIssues entry in knip.config.ts lists only `[\"exports\"]` for `packages/server/src/utils/__type-tests__/**`, not `[\"types\"]`, so the deliberate compile-only `TurnOptsDedupAssertions` type export (confirmed at line 24, a legitimate type-level-only assertion per its own doc comment) still surfaces as an unused-types finding. That's a genuine one-line config gap (add \"types\" to that ignoreIssues array) but it's much narrower than described -- a single intentionally-exported type in one file, not a systemic setupFiles/globalSetup detection problem. Downgrading from medium to low: the fix is trivial and the alarming half of the rationale (which drove the medium severity and the 'investigate why vitest plugin isn't treating setupFiles/globalSetup as entry points' action item) does not hold up under direct reproduction."
+    },
+    {
+      "ref": "packages/client/src/test/mock-trpc-control.ts:55",
+      "title": "setMockTRPCModule escape hatch has zero call sites anywhere in the repo",
+      "verdict": "real",
+      "severity": "low",
+      "category": "dead-code",
+      "rationale": "Unlike its siblings (resetMockTRPC, sharedMockTRPCHolder, buildLazyMockTRPCModule) which are all wired into setup.ts, `setMockTRPCModule` is referenced nowhere except its own definition and a doc-comment mention ('{@link setMockTRPCOptions} (or {@link setMockTRPCModule})') in the same file's JSDoc. It is genuinely unused, not a vi.mock-indirection false positive. Safe to delete or, if kept intentionally as a documented escape hatch for future bespoke test mocks, worth a knip ignore annotation explaining that.",
+      "unit": "unused-exports",
+      "kind": "chunk"
+    },
+    {
+      "ref": "scripts/client-test-isolation-classifier.ts:18-30",
+      "title": "Dead type re-export barrel plus two internally-only-used declarations in classifier-types.ts",
+      "verdict": "real",
+      "severity": "low",
+      "category": "maintainability",
+      "rationale": "classifier.ts re-exports 7 types from client-test-isolation-classifier-types.ts as a barrel, but grep shows no consumer ever imports any of them through classifier.ts -- classifier.test.ts and the runner only import the value functions (classifyClientTestFileSource, classifyClientTestIsolation, runClientTestIsolationClassifierCli). Additionally MODULE_REGISTRY_MUTATION_METHOD_NAMES and ClientTestIsolationMode (the original definitions in -types.ts) are used only inside their own file. This is a real, if trivial, dead-surface cleanup opportunity in the repo's own test-isolation tooling: drop the unused re-export block and un-export the two internally-only symbols.",
+      "unit": "unused-exports",
+      "kind": "chunk"
+    },
+    {
+      "ref": "packages/client/src/components/character-create/wizard-context.tsx:22",
+      "title": "isStepApplicable barrel re-export is unused (underlying function is used, just not through this path)",
+      "verdict": "real",
+      "severity": "low",
+      "category": "dead-code",
+      "rationale": "wizard-context.tsx re-exports isStepApplicable from wizard-state.js, but wizard-state.test.ts and wizard-state.ts import it directly from wizard-state.js, never through the wizard-context.tsx barrel. Real but cosmetic -- one dead re-export line, not a behavioral issue.",
+      "unit": "unused-exports",
+      "kind": "chunk"
+    },
+    {
+      "ref": "scripts/drift-ai/check-metadata.ts:59",
+      "title": "IMPLEMENTED_CHECKS is genuinely dead, re-exported through the drift-ai.ts entry point with zero real consumers",
+      "verdict": "real",
+      "severity": "low",
+      "category": "dead-code",
+      "rationale": "Verified via grep: only defined at check-metadata.ts:59, re-exported unchanged by scripts/drift-ai.ts:9, and the only other hit is a code comment in drift-ai.test.ts (not a usage). knip.config.ts sets includeEntryExports:true so entry re-exports are correctly checked here. Safe, mechanical removal in the repo's own tooling (weighted above product code per audit instructions).",
+      "unit": "unused-exports",
+      "kind": "chunk"
+    },
+    {
+      "ref": "scripts/drift-ai/duplicate-literals.ts:19-24 (+ duplicate-types.ts:19, duplicate-schemas.ts:29, duplicate-constants.ts:19-24)",
+      "title": "Systemic dead barrel re-export: the four duplicate-*.ts sibling files re-export DEFAULT_* constants from duplicate-shapes-config-values.ts that nothing imports through that path",
+      "verdict": "real",
+      "severity": "low",
+      "category": "dead-code",
+      "rationale": "Verified duplicate-literals-check-config.ts imports DEFAULT_DUPLICATE_LITERALS_* directly from ./duplicate-shapes-config-values.js, not via the re-export barrel in duplicate-literals.ts (grep confirms no import of those names via `./duplicate-literals.js`). Same shape repeats in duplicate-types.ts:19 and duplicate-schemas.ts:29 (single-line re-exports) and duplicate-constants.ts:19-24. Low risk but a real, mechanically-removable dead re-export pattern repeated 4x in the repo's own dogfood tooling.",
+      "unit": "unused-exports",
+      "kind": "chunk"
+    },
+    {
+      "ref": "scripts/drift-ai/*-advisory.ts, coldspots-coldspot.ts, check-plugin.ts, coverage-*.ts, dolos-*.ts, env-branches-advisory.ts (majority of this chunk's ~60 remaining rows)",
+      "title": "Dominant pattern is habitually-exported symbols used only within their own defining file, not knip config drift or real dead code",
+      "verdict": "investigate",
+      "severity": "low",
+      "category": "maintainability",
+      "rationale": "Spot-checked CheckRunState (check-plugin.ts), ClassConstructionAdvisoryRow/Section (class-construction-advisory.ts), DEFAULT_COLDSPOT_* (coldspots-coldspot.ts), and CoverageEvidence* types: each is referenced only inside its own module (e.g. DEFAULT_COLDSPOT_AGE_THRESHOLD_DAYS used solely at coldspots-coldspot.ts:179) with zero cross-file imports anywhere in scripts/drift-ai. This isn't functional dead code (the values/types are live) but an unnecessary `export` on internal-only declarations, repeated dozens of times. Unlike packages/shared/schemas or ui components, knip.config.ts has no ignoreIssues entry for this drift-ai convention, so every advisory-builder file throws the same noise. Worth a repo-owner decision: either drop the stray export keywords (cheap, none are cross-file-used) or add a scripts/drift-ai/** ignore rule if these are meant as documented per-check public shapes; as-is it inflates this audit's unused-exports count without indicating real risk.",
+      "unit": "unused-exports",
+      "kind": "chunk"
+    },
+    {
+      "ref": "scripts/drift-ai/coldspots-aggregate.ts:9 vs coldspots-amplifiers.ts:23, coldspots-stale-markers.ts:40, ownership-analysis.ts:22, hotspots-thrash.ts:18",
+      "title": "DAY_MS is exported once (unused) while four other drift-ai files each hand-redefine an identical unexported `const DAY_MS = 24 * 60 * 60 * 1000` instead of importing it",
+      "verdict": "investigate",
+      "severity": "low",
+      "category": "duplication",
+      "rationale": "grep shows the exact same literal expression duplicated as a private const in 4 files plus 2 test files, while coldspots-aggregate.ts:9 exports the same constant to nowhere. Not flagged by this unused-exports check as duplication (that's duplicate-constants' job), but it's a concrete example of the drift this audit is meant to catch: a shared constant exists and drifted into copies instead of being consolidated. Tooling code, so weighted above product-code duplication per audit instructions; worth a follow-up to point the four sites at the existing export (or move DAY_MS to a shared date-math util) instead of leaving it an unused export.",
+      "unit": "unused-exports",
+      "kind": "chunk"
+    },
+    {
+      "ref": "scripts/drift-ai/*.ts (35 files, ~65 rows)",
+      "title": "Widespread unnecessary `export` on drift-ai-internal constants/types used only within their own file",
+      "verdict": "real",
+      "severity": "low",
+      "category": "maintainability",
+      "rationale": "Sampled ~15 of the ~65 flagged symbols across scripts/drift-ai/hotspots-*.ts, import-cycles.ts, knip-*.ts, layer-direction.ts, sibling-naming.ts, semgrep-*.ts, ownership-*.ts, env-define-evaluator.ts and confirmed each is exercised only inside its own defining file (e.g. hotspots-history.ts:52-53 DEFAULT_MAX_WINDOW_DAYS/DEFAULT_MIN_COMMITS read at line 236-237 in the same file; import-cycles.ts:34 IMPORT_CYCLES_TOOL used at line 67 same file; layer-direction.ts:27 LAYER_DIRECTION_PROVENANCE used at line 98 same file; hotspots-suppression-churn.ts:11 SUPPRESSION_CHURN_PATTERN used repeatedly in the same file). None have details.deprecated=true, but the pattern is real and confirmed, not a knip false positive from dynamic access. Since this repo IS its own tooling testbed and drift-ai is the tool that reports this exact class of finding on others, having ~65 unnecessarily-exported symbols in its own source across 35 files is a legitimate dogfood-weighted cleanup: dropping the stray `export` keyword shrinks drift-ai's own public surface and removes noise from future unused-exports runs. Low severity because it is purely a surface-area/hygiene issue with zero runtime risk (values are already consumed locally).",
+      "unit": "unused-exports",
+      "kind": "chunk"
+    },
+    {
+      "ref": "scripts/drift-ai/env-define-evaluator.ts:6-18",
+      "title": "Re-export barrel for 6 EnvDefine* types has no consumers via this path",
+      "verdict": "real",
+      "severity": "low",
+      "category": "dead-code",
+      "rationale": "env-define-evaluator.ts re-exports EnvDefineAssumedValue, EnvDefineAssumption, EnvDefineBranchPrediction, EnvDefineConditionReadEvidence, EnvDefineRange, EnvDefineReadKind from ./env-define-types.js (lines 6-18), but grep across scripts/ shows every actual consumer (env-define-reads.ts, env-define-evaluation.ts, env-branches-advisory.ts, env-define-matrix-config.ts) imports these types directly from env-define-types.ts, bypassing the barrel entirely \u2014 confirming knip's 6 rows are correct and this re-export block is dead weight that can be deleted without touching any import site.",
+      "unit": "unused-exports",
+      "kind": "chunk"
+    },
+    {
+      "ref": "scripts/lint-ratchet/max-lines-policy.ts:89",
+      "title": "Max-lines ratchet validator (readMaxLinesPolicy/maxLinesPolicy) is wired to nothing in production",
+      "verdict": "real",
+      "severity": "medium",
+      "category": "dead-code",
+      "rationale": "grep shows scripts/lint-ratchet/max-lines-policy.ts is imported only by its own max-lines-policy.test.ts; the live eslint config (eslint-config/code-quality-configs.js:9,20-24) consumes `maxLinesPolicy` straight from eslint-config/shared-policy.js, unvalidated, bypassing this module entirely. The validator's `ratchets`/`zeroBaselineDisposition` schema matches a field that exists in shared-policy.js only as an always-empty `ratchets: []` (shared-policy.js:359) \u2014 this looks like scaffolding for a max-lines ratchet mechanism that was never connected to the lint-ratchet registry/pipeline. As tooling/dogfood code this deserves attention: either wire the validated `maxLinesPolicy` into whatever is supposed to consume `ratchets`, or delete the orphaned validation path.",
+      "unit": "unused-exports",
+      "kind": "chunk",
+      "verifyNote": "Confirmed. readMaxLinesPolicy/maxLinesPolicy (scripts/lint-ratchet/max-lines-policy.ts) is imported only by its own test file. The live consumer, eslint-config/code-quality-configs.js:9,20-24, imports maxLinesPolicy straight from eslint-config/shared-policy.js and reads `.exceptions` (an array of {path,cap,severity,reason,lifecycle,ratchetExcluded} entries, shared-policy.js:133-358) -- a field this validator never even inspects. The validator instead type-checks a `ratchets` field (shared-policy.js:359) that is hardcoded to an empty array, so readMaxLinesPolicy's ratchet-shape validation (id/files/ignores/zeroBaselineDisposition) trivially succeeds over zero elements every time the module loads, and the actually-consumed `.exceptions` data is completely unvalidated in production. This is dead validation scaffolding for a mechanism (`ratchets`) that was never wired to anything; either wire it up or delete it."
+    },
+    {
+      "ref": "scripts/harness/harness-diagnostics-output.ts:19 & scripts/lint-ratchet/lint-ratchet-output.ts:6",
+      "title": "HARNESS_DIAGNOSTICS_OUTPUT_ENV constant independently duplicated, not shared",
+      "verdict": "real",
+      "severity": "medium",
+      "category": "duplication",
+      "rationale": "Both files independently declare `export const HARNESS_DIAGNOSTICS_OUTPUT_ENV = \"HARNESS_DIAGNOSTICS_OUTPUT\";` and each only uses its own local copy (harness-diagnostics-output.ts:31, lint-ratchet-output.ts:14). Knip flags the lint-ratchet copy as an unused export because nothing imports it \u2014 the real problem is it should never have been declared twice: the harness-diagnostics writer and the lint-ratchet writer share the same env-var contract but have no single source of truth, so a rename in one file silently breaks the other producer's output-path wiring.",
+      "unit": "unused-exports",
+      "kind": "chunk",
+      "verifyNote": "Confirmed. Both files independently declare an identical `HARNESS_DIAGNOSTICS_OUTPUT_ENV = \"HARNESS_DIAGNOSTICS_OUTPUT\"` constant and each re-implements its own local copy of harnessDiagnosticsOutputPath()/envelope-rendering logic rather than sharing one module. Both are live (imported by scripts/drift-ai/diagnostics-projection.ts, scripts/logs-audit/logs-audit-diagnostics.ts, scripts/lint-ratchet/default-mode.ts, scripts/path-policy/path-policy-smoke-subjects-data.ts, scripts/tests/test-lint-ratchet.sh), so knip's 'unused export' flag on the lint-ratchet copy is really surfacing a genuine no-single-source-of-truth duplication: a rename of the env var name in one file would not propagate to the other producer."
+    },
+    {
+      "ref": "scripts/drift-ai/ts-source-util.ts:36",
+      "title": "tsSysFileExists is genuinely dead; its own sibling factory reimplements the call inline instead of using it",
+      "verdict": "real",
+      "severity": "low",
+      "category": "dead-code",
+      "rationale": "tsSysFileExists (line 36) has zero callers anywhere in the repo, including within its own file: tsSysModuleResolutionHost (line 46) does `fileExists: (file) => ts.sys.fileExists(file)` inline rather than delegating to tsSysFileExists, defeating the stated purpose in the comment above it (\"these arrow-bound wrappers... keep callers from re-deriving the wrapper at each TS-compiler I/O seam\"). Its sibling tsSysReadFile is genuinely used externally (scripts/drift-ai/import-cycles-tsconfig.ts:6), which shows the intended pattern \u2014 tsSysFileExists was simply never wired to a caller.",
+      "unit": "unused-exports",
+      "kind": "chunk"
+    },
+    {
+      "ref": "scripts/harness/hook-wiring-schema.ts:1-2,38",
+      "title": "HOOK_HARNESSES/HOOK_OUTPUT_CAPABILITIES/HookOutputCapability are exported but only ever used inside their own file",
+      "verdict": "investigate",
+      "severity": "low",
+      "category": "maintainability",
+      "rationale": "All usages of these three symbols (lines 36-401) are internal to hook-wiring-schema.ts; the file's real external surface (consumed by generate-harness-controls.ts, generate-harness-controls-validation.ts, generate-hook-wiring.ts) is resolveHookWiring/formatHookWiring/HookWiring. Dropping the unnecessary `export` on these three would silence the knip signal with no behavior change \u2014 trivial but genuinely actionable, unlike the barrel-pattern rows above.",
+      "unit": "unused-exports",
+      "kind": "chunk"
+    },
+    {
+      "ref": ".claude/skills/agent-cli/scripts/agent-run.sh; scripts/tests/test-skill-dispatch-wrappers.sh; harness.controls.json; .claude+.codex SKILL.md; scripts/ai-hooks/test.sh; scripts/ai-hooks/policy.sh",
+      "title": "Agent-cli dispatch harness is the dominant, still-unstable hotspot of the window",
+      "verdict": "investigate",
+      "severity": "medium",
+      "category": "maintainability",
+      "rationale": "These are the top 8 churn entries (42, 41, 39, 29, 28, 27, 20, 15 revisions in just 14 days) and they are one coupled subsystem (agent-run.sh dispatch wrapper + its test harness + its SKILL.md docs + the hook policy that gates it). recentSubjects for all of them are almost entirely 'fix(agent-cli)'/'fix(hooks)' commits, not features, meaning the subsystem is still being hardened rather than stabilized. Confirmed by history: `.codex/skills/agent-cli/scripts/agent-run.sh` was carried in the thrash lens with 11 revisions netting 0 lines and fixRevertCommits=11 (100% fix/revert) and has since been deleted entirely via 'fix(agent-cli): remove codex wrapper mirror' (verified: file no longer exists on disk, `git log --diff-filter=D` confirms). Per the audit's own weighting rule, tooling/dogfood churn like this outranks equivalent product-code churn -- a maintainer should decide whether to keep iterating live on agent-run.sh (1312 lines, still 41 revisions deep) or pause for a consolidation pass, since the .codex-mirror deletion shows exactly that kind of consolidation is already underway.",
+      "unit": "hotspots",
+      "kind": "advisory",
+      "verifyNote": "Core numeric claims verified exactly against reports/drift-ai/broad-2026-07-06/hotspots.json: churn scores 42/41/39/29/28/27/20/15 match the report's top entries precisely (git log --all --since is required to reproduce them; plain git log on the current branch undercounts). The .codex mirror deletion is real and independently confirmed: `.codex/skills/agent-cli/scripts/agent-run.sh` no longer exists on disk, and `git log --all --diff-filter=D` shows exactly one commit, c0b278ce5 'fix(agent-cli): remove codex wrapper mirror', consistent with the thrash-lens entry (revisions=11, netLines=0, fixRevertCommits=11). Live `.claude/skills/agent-cli/scripts/agent-run.sh` is confirmed at 1312 lines with its 8 most recent commits split roughly 5 fix / 3 feat -- still active fix-heavy churn, not resolved.\n\nTwo overstatements worth trimming before handing to a maintainer: (1) 'one coupled subsystem' is not fully backed by the coupling lens -- only sub-pairs actually co-change at meaningful rates (agent-run.sh <-> test-skill-dispatch-wrappers.sh, coChanges=11; .claude SKILL.md <-> .codex SKILL.md, coChanges=27). harness.controls.json and scripts/ai-hooks/{test,policy}.sh do not appear coupled to the agent-run.sh core anywhere in the top-20 coupling entries -- their inclusion in 'one coupled subsystem' is inference (all gate/test the same feature area), not measured co-change evidence. (2) 'recentSubjects for all of them are almost entirely fix commits' holds for the two dominant hotspots and the ai-hooks files (80-93% fix over the window) but not for harness.controls.json (21 fix / 15 feat / 3 chore, ~55% fix) or either SKILL.md (13 fix / 8-9 docs / 7 feat, ~45% fix) -- those two are a genuine mix of feature growth and docs upkeep, not pure hardening. The actionable core (agent-run.sh + its test wrapper remain the dominant, still-fix-heavy hotspot of the window, and a consolidation pause is a reasonable next step) survives; the 'whole coupled subsystem' framing should be narrowed to the two files that actually co-churn together."
+    },
+    {
+      "ref": ".github/workflows/ci.yml",
+      "title": "CI workflow shows real thrash signature (80% fix/revert, net negative lines)",
+      "verdict": "investigate",
+      "severity": "low",
+      "category": "maintainability",
+      "rationale": "Thrash lens: 10 revisions/14 days, netLines=-18, fixRevertCommits=8/10 (80%). `git log` confirms a run of consecutive 'fix(ci): ...' commits (rely on harness guidance check / avoid full parallel gate / consume generated gate manifest / share ci gate heap env / run suppression gate in ci / share gate heap policy). The throughline (moving logic out of the YAML into the generated harness manifest) looks like a deliberate consolidation rather than random flapping, so this is lower severity than the agent-cli finding, but worth a maintainer confirming CI is now settled post-consolidation rather than still oscillating.",
+      "unit": "hotspots",
+      "kind": "advisory"
+    },
+    {
+      "ref": "scripts/drift-ai/coldspots-coldspot.ts (candidate-set construction, no existence filter); example row packages/server/src/seed/class-features-b.ts",
+      "title": "Coldspot lens surfaces a file that no longer exists in the working tree",
+      "verdict": "real",
+      "severity": "low",
+      "category": "maintainability",
+      "rationale": "The coldspots.json entry for packages/server/src/seed/class-features-b.ts (score 200093, revisions 2, churnLines 578) points at a path that does not exist at HEAD: `git cat-file -e HEAD:packages/server/src/seed/class-features-b.ts` fails, and `git log` shows it was created in ef84c68c2 and deleted in a later ancestor commit 6584fc07b ('import SRD class features levels 1-20 and equipment', which folds it into packages/server/src/seed/class-features/). Grepping scripts/drift-ai/coldspots-aggregate.ts and coldspots-coldspot.ts turns up no existence check anywhere in the candidate-building path -- the candidate set is built purely from git-log-touched paths in the window. scripts/drift-ai/coldspots-format.ts documents this as intentional ('windowed-history evidence, not current-inventory evidence'), so it is not a crash bug, but it means an 'areas to check' advisory can send a reviewer at code that no longer exists -- the one failure mode this lens exists to avoid. Since this repo IS drift-ai's own testbed (scripts/**), this is worth tightening (filter to living files, or explicitly tag deleted-since-touch rows). Scope observed: 1 of 20 rows in this batch (5%).",
+      "unit": "coldspots",
+      "kind": "advisory"
+    }
+  ]
+}

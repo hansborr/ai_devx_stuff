@@ -7,6 +7,8 @@ import {
 import { isRecord, stableJson } from "./baseline-hash.js";
 import type {
   LintRatchetBaseline,
+  LintRatchetBaselineValidationFailure,
+  LintRatchetBaselineValidationFailureCode,
   LintRatchetRuleSourceHashesById,
   ParsedLintRatchetBaseline,
   StructuralLintRatchetBaseline,
@@ -20,32 +22,39 @@ function validateBaselineTestMetadata(
   testId: string,
   test: LintRatchetBaselineTest,
   expected: LintRatchetBaselineTest,
-  failures: string[],
+  failures: LintRatchetBaselineValidationFailure[],
 ): void {
-  if (test.ruleId !== expected.ruleId) failures.push(`${testId}.ruleId is stale`);
-  if (test.mode !== expected.mode) failures.push(`${testId}.mode is stale`);
-  if (test.target !== expected.target) failures.push(`${testId}.target is stale`);
-  if (test.metric !== expected.metric) failures.push(`${testId}.metric is stale`);
+  if (test.ruleId !== expected.ruleId)
+    pushFailure(failures, "rule-id-mismatch", `${testId}.ruleId is stale`);
+  if (test.mode !== expected.mode)
+    pushFailure(failures, "mode-mismatch", `${testId}.mode is stale`);
+  if (test.target !== expected.target)
+    pushFailure(failures, "target-mismatch", `${testId}.target is stale`);
+  if (test.metric !== expected.metric)
+    pushFailure(failures, "metric-mismatch", `${testId}.metric is stale`);
   if (stableJson(test.files) !== stableJson(expected.files))
-    failures.push(`${testId}.files is stale`);
+    pushFailure(failures, "files-mismatch", `${testId}.files is stale`);
   if (stableJson(test.ignores) !== stableJson(expected.ignores))
-    failures.push(`${testId}.ignores is stale`);
+    pushFailure(failures, "ignores-mismatch", `${testId}.ignores is stale`);
   if (stableJson(test.ruleOptions) !== stableJson(expected.ruleOptions)) {
-    failures.push(`${testId}.ruleOptions is stale`);
+    pushFailure(failures, "rule-options-mismatch", `${testId}.ruleOptions is stale`);
   }
-  if (test.configHash !== expected.configHash) failures.push(`${testId}.configHash is stale`);
+  if (test.configHash !== expected.configHash)
+    pushFailure(failures, "config-hash-mismatch", `${testId}.configHash is stale`);
 }
 
 function validateBaselineRuleSourceHash(
   testId: string,
   test: LintRatchetBaselineTest,
   expected: LintRatchetBaselineTest,
-  failures: string[],
+  failures: LintRatchetBaselineValidationFailure[],
 ): void {
   if (test.ruleSourceHash === "") {
-    failures.push(`${testId}.ruleSourceHash is required`);
+    pushFailure(failures, "rule-source-hash-required", `${testId}.ruleSourceHash is required`);
   } else if (test.ruleSourceHash !== expected.ruleSourceHash) {
-    failures.push(
+    pushFailure(
+      failures,
+      "rule-source-drift",
       `${testId}.ruleSourceHash is stale (run "bun run lint:ratchet:update" to regenerate)`,
     );
   }
@@ -54,10 +63,14 @@ function validateBaselineRuleSourceHash(
 function validateBaselineMetricItems(
   testId: string,
   test: LintRatchetBaselineTest,
-  failures: string[],
+  failures: LintRatchetBaselineValidationFailure[],
 ): void {
   for (const [itemPath, item] of Object.entries(test.items)) {
-    validateMetricItem(`${testId}.items.${itemPath}`, test.metric, item, failures);
+    const metricFailures: string[] = [];
+    validateMetricItem(`${testId}.items.${itemPath}`, test.metric, item, metricFailures);
+    for (const failure of metricFailures) {
+      pushFailure(failures, "metric-item-invalid", failure);
+    }
   }
 }
 
@@ -70,7 +83,7 @@ interface BaselineTestValidationContext {
 
 function validateBaselineTestAgainstRatchet(
   context: BaselineTestValidationContext,
-  failures: string[],
+  failures: LintRatchetBaselineValidationFailure[],
 ): void {
   const expected = baselineTestFromConfig(
     context.ratchet,
@@ -88,43 +101,76 @@ export function validateBaselineTestForRatchet(
   ratchet: LintRatchetConfig,
   expectedRuleSourceHash: string,
 ): readonly string[] {
-  const failures: string[] = [];
+  const failures: LintRatchetBaselineValidationFailure[] = [];
   validateBaselineTestAgainstRatchet({ testId, test, ratchet, expectedRuleSourceHash }, failures);
-  return failures;
+  return failures.map((failure) => failure.message);
+}
+
+function pushFailure(
+  failures: LintRatchetBaselineValidationFailure[],
+  code: LintRatchetBaselineValidationFailureCode,
+  message: string,
+): void {
+  failures.push({ code, message });
+}
+
+function messagesFromFailures(
+  failures: readonly LintRatchetBaselineValidationFailure[],
+): readonly string[] {
+  return failures.map((failure) => failure.message);
+}
+
+function structuralValidationFailures(
+  failures: readonly string[],
+): readonly LintRatchetBaselineValidationFailure[] {
+  return failures.map((message) => ({ code: "structure", message }));
 }
 
 function validateBaselineAgainstRegistry(
   baseline: LintRatchetBaseline,
   ratchets: readonly LintRatchetConfig[],
   ruleSourceHashesById: LintRatchetRuleSourceHashesById,
-  failures: string[],
+  failures: LintRatchetBaselineValidationFailure[],
 ): void {
   const registryById = new Map(ratchets.map((ratchet) => [ratchet.id, ratchet]));
   for (const testId of Object.keys(baseline.tests)) {
     const ratchet = registryById.get(testId);
     if (ratchet === undefined) {
-      failures.push(`${testId}: baseline has no matching ratchet registry entry`);
+      pushFailure(
+        failures,
+        "orphan-ratchet",
+        `${testId}: baseline has no matching ratchet registry entry`,
+      );
       continue;
     }
     if (isReportOnlyRatchet(ratchet)) {
-      failures.push(`${testId}: report-only ratchets must not have committed baseline entries`);
+      pushFailure(
+        failures,
+        "report-only-baseline",
+        `${testId}: report-only ratchets must not have committed baseline entries`,
+      );
       continue;
     }
     const test = baseline.tests[testId];
     if (test === undefined) continue;
-    failures.push(
-      ...validateBaselineTestForRatchet(
+    validateBaselineTestAgainstRatchet(
+      {
         testId,
         test,
         ratchet,
-        ruleSourceHashesById.get(testId) ?? "",
-      ),
+        expectedRuleSourceHash: ruleSourceHashesById.get(testId) ?? "",
+      },
+      failures,
     );
   }
   for (const ratchet of ratchets) {
     if (isReportOnlyRatchet(ratchet)) continue;
     if (baseline.tests[ratchet.id] === undefined) {
-      failures.push(`${ratchet.id}: baseline is missing registry ratchet`);
+      pushFailure(
+        failures,
+        "missing-ratchet",
+        `${ratchet.id}: baseline is missing registry ratchet`,
+      );
     }
   }
 }
@@ -165,11 +211,28 @@ export function parseLintRatchetBaseline(
   ruleSourceHashesById: LintRatchetRuleSourceHashesById,
 ): ParsedLintRatchetBaseline {
   const structural = parseLintRatchetBaselineStructure(text);
-  if (structural.baseline === undefined) return { failures: structural.failures };
-  const failures: string[] = [...structural.failures];
-  validateBaselineAgainstRegistry(structural.baseline, ratchets, ruleSourceHashesById, failures);
-  if (failures.length === 0 && formatLintRatchetBaseline(structural.baseline) !== text) {
-    failures.push("baseline JSON is not deterministic; run bun run lint:ratchet:update");
+  if (structural.baseline === undefined) {
+    const validationFailures = structuralValidationFailures(structural.failures);
+    return { failures: structural.failures, validationFailures };
   }
-  return failures.length > 0 ? { failures } : { baseline: structural.baseline, failures: [] };
+  const validationFailures: LintRatchetBaselineValidationFailure[] = [
+    ...structuralValidationFailures(structural.failures),
+  ];
+  validateBaselineAgainstRegistry(
+    structural.baseline,
+    ratchets,
+    ruleSourceHashesById,
+    validationFailures,
+  );
+  if (validationFailures.length === 0 && formatLintRatchetBaseline(structural.baseline) !== text) {
+    pushFailure(
+      validationFailures,
+      "nondeterministic-json",
+      "baseline JSON is not deterministic; run bun run lint:ratchet:update",
+    );
+  }
+  const failures = messagesFromFailures(validationFailures);
+  return failures.length > 0
+    ? { failures, validationFailures }
+    : { baseline: structural.baseline, failures: [], validationFailures: [] };
 }

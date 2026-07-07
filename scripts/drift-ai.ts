@@ -6,7 +6,7 @@ import { pathToFileURL } from "node:url";
 
 import { runDriftAi } from "./drift-ai/runner.js";
 
-export { ALL_CHECKS, DEFAULT_CHECKS, IMPLEMENTED_CHECKS } from "./drift-ai/check-metadata.js";
+export { ALL_CHECKS, DEFAULT_CHECKS } from "./drift-ai/check-metadata.js";
 export { CHECK_PLUGINS } from "./drift-ai/check-registry.js";
 export { buildChunkManifest, groupFindingsForChunks } from "./drift-ai/chunks.js";
 export { parseArgs } from "./drift-ai/cli-args.js";

@@ -1,5 +1,5 @@
 // @ts-check
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { makeRuleTester } from "./rule-tester.js";
 import rule from "./concurrency-guard.js";
@@ -7,12 +7,23 @@ import rule from "./concurrency-guard.js";
 const ruleTester = makeRuleTester();
 
 describe("concurrency-guard", () => {
+  it("does not point the diagnostic at the broad concurrency guide", () => {
+    expect(rule.meta.messages.noDirectWrite).not.toContain("docs/CONCURRENCY.md");
+  });
+
   it("blocks direct writes to gated Prisma delegates outside mutation helpers", () => {
     ruleTester.run("concurrency-guard", rule, {
       valid: [
         {
           filename: "packages/server/src/routers/auth.ts",
           code: "await ctx.prisma.user.update({ where: { id }, data });",
+        },
+        {
+          filename: "packages/server/src/routers/auth.ts",
+          code: [
+            "const users = ctx.prisma.user;",
+            "await users.update({ where: { id }, data });",
+          ].join("\n"),
         },
         {
           filename: "packages/server/src/routers/encounter.ts",
@@ -29,6 +40,15 @@ describe("concurrency-guard", () => {
         {
           filename: "packages/server/src/utils/__type-tests__/character-stats-restrictions.ts",
           code: "await tx.characterStats.update({ where: { characterId }, data });",
+        },
+        {
+          filename: "packages/server/src/routers/character.ts",
+          code: [
+            "await ctx.prisma.$transaction(async (tx) => {",
+            "  const stats = tx.characterStats;",
+            "  await stats.findUnique({ where: { characterId } });",
+            "});",
+          ].join("\n"),
         },
       ],
       invalid: [
@@ -108,6 +128,42 @@ describe("concurrency-guard", () => {
                 method: "update",
                 suggestion:
                   "Use spendHitDice/advanceClassLevel/setSubclass or the documented rest helpers.",
+              },
+            },
+          ],
+        },
+        {
+          filename: "packages/server/src/routers/character.ts",
+          code: [
+            "const stats = ctx.prisma.characterStats;",
+            "await stats.update({ where: { characterId }, data });",
+          ].join("\n"),
+          errors: [
+            {
+              messageId: "noDirectWrite",
+              data: {
+                delegate: "characterStats",
+                method: "update",
+                suggestion:
+                  "Use updateCharacterStatsLocked/updateCharacterStatsLockedWithExpectedVersion from utils/character-stats-mutations.ts.",
+              },
+            },
+          ],
+        },
+        {
+          filename: "packages/server/src/routers/character.ts",
+          code: [
+            "const { characterStats: stats } = ctx.prisma;",
+            "await stats.updateMany({ where: { characterId }, data });",
+          ].join("\n"),
+          errors: [
+            {
+              messageId: "noDirectWrite",
+              data: {
+                delegate: "characterStats",
+                method: "updateMany",
+                suggestion:
+                  "Use updateCharacterStatsLocked/updateCharacterStatsLockedWithExpectedVersion from utils/character-stats-mutations.ts.",
               },
             },
           ],

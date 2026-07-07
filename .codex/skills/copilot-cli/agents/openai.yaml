@@ -1,7 +1,0 @@
-interface:
-  display_name: "Copilot CLI"
-  short_description: "Consult off-family models (Gemini, Fable) via GitHub Copilot CLI"
-  default_prompt: >-
-    Use $copilot-cli to get a read-only second opinion from a model outside
-    your own lineup (e.g. gemini-3.5-flash or claude-fable-5), or to dispatch
-    Copilot for delegated work with a specific model.

@@ -9,8 +9,8 @@ import { WorseBaselineError } from "./errors.js";
 import {
   decideLintRatchetUpdate,
   type LintRatchetBaseline,
-  type LintRatchetRetireRequest,
   type LintRatchetUpdateDecision,
+  type LintRatchetUpdateOptions,
   parseLintRatchetBaselineStructure,
 } from "./lint-ratchet-baseline.js";
 import type { LintRatchetConfig } from "./lint-ratchet-config.js";
@@ -34,11 +34,7 @@ export const defaultRunUpdateDeps: RunUpdateDeps = {
   },
 };
 
-export interface ApplyLintRatchetUpdateOptions {
-  readonly allowWorse: boolean;
-  readonly reason?: string;
-  readonly retire?: LintRatchetRetireRequest;
-}
+export type ApplyLintRatchetUpdateOptions = LintRatchetUpdateOptions;
 
 export interface ApplyLintRatchetUpdateParams {
   readonly generated: LintRatchetBaseline;

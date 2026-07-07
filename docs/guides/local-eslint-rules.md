@@ -106,6 +106,20 @@ Constraints:
 Examples: `no-barrel/noBarrel`,
 `no-llm-artifacts/leftoverEditNote`.
 
+### Self-Contained Long Diagnostics
+
+Some guidance-shape messages intentionally keep detailed repair policy in plain
+lint output. Keep these exact tokens in both the message and this guide;
+`eslint-rules/message-guidance.test.js` guards the overlap so the duplicated
+prose cannot drift silently:
+
+- `max-lines/exceed`: `maxLinesPolicy.exceptions`; "Do not compress lines or inline useful helpers just to satisfy the metric".
+- `no-explicit-any/noAny`: `unknown`, shared type, local type, and
+  `// eslint-disable-next-line local/no-explicit-any -- <why this boundary is intentionally untyped>`.
+- `type-assertion-boundary/missingBoundary`:
+  `// type-assertion-boundary: <category> - <reason>` with categories
+  `framework`, `json`, `prisma`, `test`, `interop`.
+
 ### Adding A New Rule
 
 When you add a rule under `eslint-rules/`:
@@ -114,8 +128,13 @@ When you add a rule under `eslint-rules/`:
 2. Import and register the rule in `eslint-config/local-plugin.js`.
 3. Use the guidance message shape, or add the rule's terse policy `messageId`
    to the policy-shape exemption set when that shape is intentional.
-4. Run `bun run vitest run --project=eslint-rules` and adjust until green.
-5. Run `bun run docs:lint-guidance` if the generated local rule catalog changes.
+4. If the rule declares a `pairedGuide` (not `none`), inline a pointer to that
+   guide in its message, or add the rule to the paired-guide exemption set in
+   `eslint-rules/message-guidance.test.js` with a reason. The parity test
+   enforces that every paired-guide rule either points at its guide or is
+   exempted on purpose.
+5. Run `bun run test:eslint-rules` and adjust until green.
+6. Run `bun run docs:lint-guidance` if the generated local rule catalog changes.
 
 A rule file that is not registered in `localPlugin.rules` fails the registry
 completeness test and will not run in lint. Register new rules with their
@@ -123,59 +142,45 @@ implementation change so the convention tests cover their messages immediately.
 
 ## Probing A Single Rule Under The Flat Config
 
-Sometimes you want to run one `local/*` rule against an ad-hoc file or a paste-in
-snippet without the rest of the flat config firing. The obvious
-`eslint --rule '{"local/...": "error"}' file.ts` does not work: a CLI-supplied
-rule cannot resolve the `local` plugin, because the local plugin is registered
-inside a file-scoped flat config object
-(`createRepoCodeQualityConfigs` in `eslint-config/code-quality-configs.js`), not
-globally. `--rule` only sets options on an already-registered rule.
-
-The blessed recipe is a tiny inline flat config that registers the plugin and
-enables the one rule, run with `--no-config-lookup` so the repo config is
-ignored. Write it at the repo root (so `node_modules` resolves), point the
-import at the rule under test, then run ESLint with the `--config` pointed at it:
-
-```js
-// eslint.probe.mjs  (repo root; delete when done — do not commit)
-import tseslint from "typescript-eslint";
-import rule from "./eslint-rules/type-assertion-boundary.js";
-
-export default [
-  {
-    files: ["**/*.ts", "**/*.tsx"],
-    plugins: { local: { rules: { "type-assertion-boundary": rule } } },
-    languageOptions: {
-      parser: tseslint.parser,
-      parserOptions: { ecmaVersion: "latest", sourceType: "module" },
-    },
-    rules: { "local/type-assertion-boundary": "error" },
-  },
-];
-```
+Sometimes you want to run one `local/*` rule against an ad-hoc file or a
+paste-in snippet without the rest of the flat config firing. Use the probe
+command:
 
 ```sh
-# Only this rule runs; exit 1 means it fired, exit 0 means clean.
-node_modules/.bin/eslint --no-config-lookup --config eslint.probe.mjs subject.ts
+bun run lint:probe-rule -- local/type-assertion-boundary subject.ts
+printf 'const value: any = 1;\n' |
+  bun run lint:probe-rule -- --stdin --filename scripts/probe.ts local/no-explicit-any
 ```
+
+Only the named rule runs; exit 1 means it fired, exit 0 means clean. The command
+uses the lint-ratchet generated-config writer, so the `local` plugin is
+registered without creating a repo-root scratch file.
+
+The obvious `eslint --rule '{"local/...": "error"}' file.ts` does not work: a
+CLI-supplied rule cannot resolve the `local` plugin, because the local plugin is
+registered inside a file-scoped flat config object
+(`createRepoCodeQualityConfigs` in `eslint-config/code-quality-configs.js`), not
+globally. `--rule` only sets options on an already-registered rule.
 
 Notes:
 
 - Register the plugin under `plugins: { local: { ... } }` and enable the rule via
-  `rules`. Do not try to pass the rule through `--rule`; the plugin registration
-  is what `--rule` cannot supply.
-- For a type-aware rule, mirror the project-service knobs from `eslint.config.js`
-  (`projectService: true`, `tsconfigRootDir`) in the probe's `languageOptions`
-  instead of the minimal parser above.
+  `rules`. The probe command does this through the ratchet config writer. Do not
+  try to pass the rule through `--rule`; the plugin registration is what
+  `--rule` cannot supply.
+- For a type-aware rule, mirror the relevant project-service knobs from the
+  owning `eslint-config/` module in the probe's `languageOptions` instead of
+  the minimal parser above. Production code uses
+  `eslint-config/code-quality-configs.js`; scripts, config files, and e2e tests
+  use `eslint-config/script-configs.js`,
+  `eslint-config/config-file-configs.js`, and `eslint-config/test-configs.js`.
 - To see which config object in the *real* flat config owns a rule (severity and
   options as actually resolved), use
   `node_modules/.bin/eslint --print-config <file>` and read the merged `rules`.
 
-This is deliberately a documented recipe, not a script: probing a single rule
-this way is rare (see
-[`docs/agent_notes/backlog/agent-friction-2026-06/04-lint-rule-ergonomics.md`](../agent_notes/backlog/agent-friction-2026-06/04-lint-rule-ergonomics.md)
-W1). If you find yourself writing this inline config repeatedly, promote it to a
-small `scripts/lib/lint-rule-probe.*` that takes the rule id and file.
+If the probe command is not enough for an unusual parser experiment, use
+`bun run lint:probe-rule -- --help` as the contract for the script path and keep
+any temporary config untracked.
 
 ## Type-assertion boundary marker
 

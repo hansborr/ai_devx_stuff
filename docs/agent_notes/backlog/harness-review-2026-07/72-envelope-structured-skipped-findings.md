@@ -1,11 +1,13 @@
 # 72. `lint:agent:local-rules` drops skipped non-local findings to a stderr count instead of putting them in the diagnostics envelope
 
-Status: Proposed — from the 2026-07-01 AI-harness review; NOT implemented. Re-verify file:line before acting.
+Status: Done — implemented in 3f8cf2ab (2026-07-02); envelope emits structured lint/skipped-non-local findings.
 Lens: reference-fitness · Area: diagnostics · Severity: med · Size: S-M · Confidence: high
 Theme: complete-envelope-contract · Source: Musi AI-harness review 2026-07-01 (multi-agent + Codex second opinion + web research)
 
-## Problem
+## Historical Problem
 The machine-readable diagnostics contract is the harness's flagship idea: producers emit one validated `HarnessDiagnostics` JSON envelope, and consumers (`harness:audit`, future dashboards) never parse prose. `bun run lint:agent:local-rules` honors this for `local/*` rules and parser errors, but any non-local ESLint finding on the same files is *dropped from the envelope entirely* — it survives only as an aggregate count in a human-oriented stderr note ("skipped N non-local finding(s) — see `bun run lint` for the full view"). An envelope consumer therefore sees an incomplete picture with no structured signal that anything was omitted: no count, no per-rule identity, nothing. For a reference repo demonstrating a diagnostics contract, the envelope should carry its own completeness disclosure as structured entries (e.g. severity `info`, a dedicated "skipped-non-local" control) so one artifact tells the whole story.
+
+Resolved by 3f8cf2ab: skipped non-local lint findings now emit structured `lint/skipped-non-local` diagnostics.
 
 ## Evidence
 - `/workspace/scripts/lint-agent-envelope.ts:157-184` — `buildLintAgentEnvelope` counts skipped non-local messages into a bare `skippedNonLocal` number (lines 162-173) and returns it *beside* the envelope, not in it.

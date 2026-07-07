@@ -11,6 +11,7 @@ import { dirnameOf, type FileAggregate, round2 } from "./coldspots-aggregate.js"
 import type { ColdspotAmplifier } from "./coldspots-format.js";
 import { aggregateAuthors } from "./hotspots-actionability.js";
 import type { CollectedHistory, CommitRecord } from "./hotspots-history.js";
+import { DAY_MS } from "./time-constants.js";
 
 export type AmplifierThresholds = {
   readonly neighborhoodChurnRatio: number;
@@ -19,8 +20,6 @@ export type AmplifierThresholds = {
   readonly goneSilentDays: number;
   readonly largeFileChurnLines: number;
 };
-
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 export type AmplifierContext = {
   readonly path: string;

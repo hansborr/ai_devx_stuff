@@ -209,13 +209,13 @@ function readAllowlist(cwd: string, allowlistPath: string): ParsedAllowlist {
     if (trimmed.length === 0 || trimmed.startsWith("#")) continue;
     const hashIndex = trimmed.indexOf("#");
     if (hashIndex < 0) {
-      findings.push(allowlistFinding(allowlistPath, index + 1));
+      findings.push(allowlistFinding(allowlistPath, index + 1, line));
       continue;
     }
     const filePath = trimmed.slice(0, hashIndex).trim();
     const reason = trimmed.slice(hashIndex + 1).trim();
     if (filePath.length === 0 || reason.length === 0) {
-      findings.push(allowlistFinding(allowlistPath, index + 1));
+      findings.push(allowlistFinding(allowlistPath, index + 1, line));
       continue;
     }
     paths.add(normalizeRepoPath(filePath));
@@ -223,11 +223,15 @@ function readAllowlist(cwd: string, allowlistPath: string): ParsedAllowlist {
   return { paths, findings };
 }
 
-function allowlistFinding(allowlistPath: string, line: number): BlobSizeAllowlistFinding {
+function allowlistFinding(
+  allowlistPath: string,
+  line: number,
+  rawLine: string,
+): BlobSizeAllowlistFinding {
   return {
     severity: "warn",
     file: `${allowlistPath}:${String(line)}`,
-    message: "allowlist entry must be '<relative-path> # reason'",
+    message: `allowlist entry must be '<relative-path> # reason'; got '${rawLine}'`,
   };
 }
 

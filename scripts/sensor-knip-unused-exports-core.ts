@@ -23,7 +23,6 @@ import {
 
 export {
   formatKnipUnusedExportsBaseline,
-  type KnipUnusedExportsCategoryCounts,
   type KnipUnusedExportsSnapshot,
 } from "./sensor-knip-unused-exports-baseline.js";
 
@@ -74,7 +73,7 @@ function usage(): string {
     "  bun scripts/sensor-knip-unused-exports.ts --update",
     "  bun scripts/sensor-knip-unused-exports.ts --baseline=<path>",
     "",
-    "Fails when knip's unused exported symbol count grows above the committed baseline.",
+    "Fails when knip's unused exported symbol count differs from the committed baseline.",
   ].join("\n");
 }
 

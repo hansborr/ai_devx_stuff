@@ -1,5 +1,7 @@
 import { LINT_RATCHET_BASELINE_VERSION } from "./baseline-constants.js";
 import { formatLintRatchetBaseline, type LintRatchetBaselineTest } from "./baseline-format.js";
+import { mergeMessageCountSameCountItem } from "./baseline-merge-message-count.js";
+import { sameCanonicalValue } from "./baseline-merge-values.js";
 import { parseLintRatchetBaselineStructure } from "./baseline-validation.js";
 import type { LintRatchetBaseline } from "./lint-ratchet-baseline.js";
 import type { LintRatchetMetric } from "./lint-ratchet-config.js";
@@ -15,17 +17,24 @@ export interface MergeLintRatchetBaselinesOptions {
 export interface MergeLintRatchetBaselinesResult {
   readonly mergedText?: string;
   readonly failures: readonly string[];
+  readonly postMergeTruthUpRequired: boolean;
+}
+
+interface PostMergeTruthUpState {
+  required: boolean;
 }
 
 interface MergeItemContext {
   readonly testId: string;
   readonly metric: LintRatchetMetric;
   readonly failures: string[];
+  readonly postMergeTruthUp: PostMergeTruthUpState;
 }
 
 interface MergeTestContext {
   readonly testId: string;
   readonly failures: string[];
+  readonly postMergeTruthUp: PostMergeTruthUpState;
 }
 
 interface MergeTestVersions {
@@ -37,26 +46,6 @@ interface MergeTestVersions {
 interface TestDecision {
   readonly resolved: boolean;
   readonly test: LintRatchetBaselineTest | undefined;
-}
-
-function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function canonicalValue(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map((entry) => canonicalValue(entry));
-  if (!isRecord(value)) return value;
-  const normalized: Record<string, unknown> = {};
-  for (const key of Object.keys(value).sort()) normalized[key] = canonicalValue(value[key]);
-  return normalized;
-}
-
-function canonicalJson(value: unknown): string {
-  return JSON.stringify(canonicalValue(value));
-}
-
-function sameValue(left: unknown, right: unknown): boolean {
-  return canonicalJson(left) === canonicalJson(right);
 }
 
 function baselineTestMetadata(test: LintRatchetBaselineTest): Readonly<Record<string, unknown>> {
@@ -77,7 +66,7 @@ function sameBaselineTestMetadata(
   left: LintRatchetBaselineTest,
   right: LintRatchetBaselineTest,
 ): boolean {
-  return sameValue(baselineTestMetadata(left), baselineTestMetadata(right));
+  return sameCanonicalValue(baselineTestMetadata(left), baselineTestMetadata(right));
 }
 
 function lowerCountItem(
@@ -90,15 +79,16 @@ function lowerCountItem(
 }
 
 function mergeEffectiveLineCountItem(
+  context: MergeItemContext,
   path: string,
   left: LintRatchetMetricItem,
   right: LintRatchetMetricItem,
-  failures: string[],
 ): LintRatchetMetricItem | undefined {
   if (left.lines === undefined || right.lines === undefined) {
-    failures.push(`${path}: effective-line-count items need lines on both sides`);
+    context.failures.push(`${path}: effective-line-count items need lines on both sides`);
     return undefined;
   }
+  if (left.lines !== right.lines) context.postMergeTruthUp.required = true;
   return { count: left.count, lines: Math.min(left.lines, right.lines) };
 }
 
@@ -113,7 +103,7 @@ function mergeComplexitySeverityItem(
 
   const formattedLeft = metricItemForFormat("complexity-severity", left);
   const formattedRight = metricItemForFormat("complexity-severity", right);
-  if (sameValue(formattedLeft, formattedRight)) return formattedLeft;
+  if (sameCanonicalValue(formattedLeft, formattedRight)) return formattedLeft;
 
   failures.push(`${path}: equal-count complexity-severity payloads differ`);
   return undefined;
@@ -126,12 +116,14 @@ function mergeSameCountItem(
   right: LintRatchetMetricItem,
 ): LintRatchetMetricItem | undefined {
   if (context.metric === "effective-line-count") {
-    return mergeEffectiveLineCountItem(path, left, right, context.failures);
+    return mergeEffectiveLineCountItem(context, path, left, right);
   }
   if (context.metric === "complexity-severity") {
     return mergeComplexitySeverityItem(path, left, right, context.failures);
   }
-  return { count: left.count };
+  const result = mergeMessageCountSameCountItem(left, right);
+  if (result.postMergeTruthUpRequired) context.postMergeTruthUp.required = true;
+  return result.item;
 }
 
 function mergeMetricItem(
@@ -141,7 +133,10 @@ function mergeMetricItem(
   right: LintRatchetMetricItem,
 ): LintRatchetMetricItem | undefined {
   const lower = lowerCountItem(left, right);
-  if (lower !== undefined) return lower;
+  if (lower !== undefined) {
+    context.postMergeTruthUp.required = true;
+    return lower;
+  }
   return mergeSameCountItem(context, path, left, right);
 }
 
@@ -163,7 +158,10 @@ function mergeItems(
   for (const path of sortedUnionKeys(currentItems, otherItems)) {
     const currentItem = currentItems[path];
     const otherItem = otherItems[path];
-    if (currentItem === undefined || otherItem === undefined) continue;
+    if (currentItem === undefined || otherItem === undefined) {
+      context.postMergeTruthUp.required = true;
+      continue;
+    }
     const mergedItem = mergeMetricItem(
       context,
       `${context.testId}.items.${path}`,
@@ -176,20 +174,28 @@ function mergeItems(
 }
 
 function mergeChangedTests(
-  testId: string,
+  context: MergeTestContext,
   current: LintRatchetBaselineTest,
   other: LintRatchetBaselineTest,
-  failures: string[],
 ): LintRatchetBaselineTest | undefined {
   if (!sameBaselineTestMetadata(current, other)) {
-    failures.push(
-      `${testId}: ratchet metadata differs between sides; regenerate the baseline after resolving other conflicts`,
+    context.failures.push(
+      `${context.testId}: ratchet metadata differs between sides; regenerate the baseline after resolving other conflicts`,
     );
     return undefined;
   }
   return {
     ...current,
-    items: mergeItems({ testId, metric: current.metric, failures }, current.items, other.items),
+    items: mergeItems(
+      {
+        testId: context.testId,
+        metric: current.metric,
+        failures: context.failures,
+        postMergeTruthUp: context.postMergeTruthUp,
+      },
+      current.items,
+      other.items,
+    ),
   };
 }
 
@@ -216,15 +222,15 @@ function chooseAgainstBase(
   other: LintRatchetBaselineTest | undefined,
 ): TestDecision {
   if (base === undefined) return chooseWithoutBase(current, other);
-  if (current !== undefined && sameValue(current, base)) return resolvedTest(other);
-  if (other !== undefined && sameValue(other, base)) return resolvedTest(current);
+  if (current !== undefined && sameCanonicalValue(current, base)) return resolvedTest(other);
+  if (other !== undefined && sameCanonicalValue(other, base)) return resolvedTest(current);
   return unresolvedTest();
 }
 
 function chooseSimpleTestMerge(versions: MergeTestVersions): TestDecision {
   const { base, current, other } = versions;
   if (current === undefined && other === undefined) return resolvedTest(undefined);
-  if (current !== undefined && other !== undefined && sameValue(current, other))
+  if (current !== undefined && other !== undefined && sameCanonicalValue(current, other))
     return resolvedTest(current);
   return chooseAgainstBase(base, current, other);
 }
@@ -243,7 +249,7 @@ function mergeTest(
     return undefined;
   }
 
-  return mergeChangedTests(context.testId, versions.current, versions.other, context.failures);
+  return mergeChangedTests(context, versions.current, versions.other);
 }
 
 function validateMergedBaseline(baseline: LintRatchetBaseline): readonly string[] {
@@ -292,14 +298,15 @@ export function mergeLintRatchetBaselines(
   const current = parseBaseline("current", options.currentText, parseFailures);
   const other = parseBaseline("other", options.otherText, parseFailures);
   if (base === undefined || current === undefined || other === undefined) {
-    return { failures: parseFailures };
+    return { failures: parseFailures, postMergeTruthUpRequired: false };
   }
 
   const failures: string[] = [];
+  const postMergeTruthUp: PostMergeTruthUpState = { required: false };
   const tests: Record<string, LintRatchetBaselineTest> = {};
   for (const testId of sortedBaselineTestIds(base, current, other)) {
     const mergedTest = mergeTest(
-      { testId, failures },
+      { testId, failures, postMergeTruthUp },
       {
         base: base.tests[testId],
         current: current.tests[testId],
@@ -311,6 +318,10 @@ export function mergeLintRatchetBaselines(
 
   const mergedBaseline: LintRatchetBaseline = { version: current.version, tests };
   failures.push(...validateMergedBaseline(mergedBaseline));
-  if (failures.length > 0) return { failures };
-  return { mergedText: formatLintRatchetBaseline(mergedBaseline), failures: [] };
+  if (failures.length > 0) return { failures, postMergeTruthUpRequired: false };
+  return {
+    mergedText: formatLintRatchetBaseline(mergedBaseline),
+    failures: [],
+    postMergeTruthUpRequired: postMergeTruthUp.required,
+  };
 }

@@ -153,7 +153,7 @@ print_summary() {
   printf 'slug: %s\n' "$slug"
   printf 'server_port: %s (http://localhost:%s)\n' "$server_port" "$server_port"
   printf 'client_port: %s (http://localhost:%s)\n' "$client_port" "$client_port"
-  printf 'redis_db: /%s (redis://redis:6379/%s)\n' "$redis_db" "$redis_db"
+  printf 'redis_db: /%s (%s)\n' "$redis_db" "$(worktree_redis_url "$redis_db")"
   printf 'db: %s\n' "$db"
   printf 'test_db: %s\n' "$testdb"
   printf 'e2e_db: %s\n' "$e2edb"

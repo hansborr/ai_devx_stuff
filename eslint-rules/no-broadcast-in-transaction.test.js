@@ -27,6 +27,45 @@ describe("no-broadcast-in-transaction", () => {
         {
           code: "await ctx.prisma.$transaction(async () => sendEmail(user));",
         },
+        {
+          code: [
+            "await ctx.prisma.$transaction(async (tx) => {",
+            "  await tx.encounter.update({ where: { id }, data });",
+            "});",
+            'io.to(room).emit("encounter:updated", payload);',
+          ].join("\n"),
+        },
+        {
+          code: [
+            "await ctx.prisma.$transaction(async () => {",
+            "  domainEvents.emit(eventName, payload);",
+            "});",
+          ].join("\n"),
+        },
+        {
+          code: [
+            "await ctx.prisma.$transaction(async () => {",
+            "  eventBus.except(room).emit(eventName, payload);",
+            "});",
+          ].join("\n"),
+        },
+        {
+          code: [
+            "await ctx.prisma.$transaction(async () => {",
+            "  eventBus.broadcast.emit(eventName, payload);",
+            "  eventBus.local.emit(eventName, payload);",
+            "  eventBus.timeout(5000).emit(eventName, payload);",
+            "  eventBus.compress(true).emit(eventName, payload);",
+            "});",
+          ].join("\n"),
+        },
+        {
+          code: [
+            "socketServer.on('connection', () => {",
+            '  io.to(room).emit("encounter:updated", payload);',
+            "});",
+          ].join("\n"),
+        },
       ],
       invalid: [
         {
@@ -57,6 +96,78 @@ describe("no-broadcast-in-transaction", () => {
             { messageId: "noBroadcastInTransaction" },
             { messageId: "noBroadcastInTransaction" },
           ],
+        },
+        {
+          code: [
+            "await ctx.prisma.$transaction(async () => {",
+            '  io.to(room).emit("encounter:updated", payload);',
+            "});",
+          ].join("\n"),
+          errors: [{ messageId: "noBroadcastInTransaction" }],
+        },
+        {
+          code: [
+            "await ctx.prisma.$transaction(async () => {",
+            '  io.in(room).volatile.emit("encounter:updated", payload);',
+            "});",
+          ].join("\n"),
+          errors: [{ messageId: "noBroadcastInTransaction" }],
+        },
+        {
+          code: [
+            "await ctx.prisma.$transaction(async () => {",
+            '  getSocketIO(server).to(room).emit("encounter:updated", payload);',
+            "});",
+          ].join("\n"),
+          errors: [{ messageId: "noBroadcastInTransaction" }],
+        },
+        {
+          code: [
+            "await ctx.prisma.$transaction(async () => {",
+            '  ctx.req.server.io.to(room).emit("encounter:updated", payload);',
+            "});",
+          ].join("\n"),
+          errors: [{ messageId: "noBroadcastInTransaction" }],
+        },
+        {
+          code: [
+            "await ctx.prisma.$transaction(async () => {",
+            '  io.to(room).except(excludedRoom).emit("encounter:updated", payload);',
+            "});",
+          ].join("\n"),
+          errors: [{ messageId: "noBroadcastInTransaction" }],
+        },
+        {
+          code: [
+            "await ctx.prisma.$transaction(async () => {",
+            '  socket.broadcast.emit("encounter:updated", payload);',
+            "});",
+          ].join("\n"),
+          errors: [{ messageId: "noBroadcastInTransaction" }],
+        },
+        {
+          code: [
+            "await ctx.prisma.$transaction(async () => {",
+            '  io.timeout(5000).emit("encounter:updated", payload);',
+            "});",
+          ].join("\n"),
+          errors: [{ messageId: "noBroadcastInTransaction" }],
+        },
+        {
+          code: [
+            "await ctx.prisma.$transaction(async () => {",
+            '  io.local.emit("encounter:updated", payload);',
+            "});",
+          ].join("\n"),
+          errors: [{ messageId: "noBroadcastInTransaction" }],
+        },
+        {
+          code: [
+            "await ctx.prisma.$transaction(async () => {",
+            '  io.compress(true).emit("encounter:updated", payload);',
+            "});",
+          ].join("\n"),
+          errors: [{ messageId: "noBroadcastInTransaction" }],
         },
       ],
     });

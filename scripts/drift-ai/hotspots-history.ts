@@ -7,27 +7,16 @@ import { execFileSync } from "node:child_process";
 
 import { DEFAULT_DRIFT_AI_CONFIG, type DriftAiIgnoreConfig } from "./config.js";
 import { type GitRunner, isIgnoredPath } from "./git-changed-scope.js";
+import { buildGitLogWalkArgs } from "./hotspots-git-log.js";
 
-// --- git-log format ---------------------------------------------------------
-//
-// These are git format ESCAPES (literal `%x..` text passed to `--format`); git
-// expands them to control bytes in its OUTPUT. They must NOT be raw control
-// bytes here — a raw NUL inside an argv string would truncate the argument in
-// execFile. The parser below works on the expanded OUTPUT bytes (OUT_* below).
-const FMT_RECORD = "%x00"; // NUL — commit-boundary marker (cannot occur in a path)
-const FMT_FIELD = "%x1f"; // unit separator — between metadata fields
-const FMT_COAUTHOR = "%x1d"; // group separator — joins multiple Co-authored-by values
+// The emit-format and shared argv builder live in the leaf `hotspots-git-log.ts`
+// (it imports nothing from drift-ai, so every lens can share it without a cycle).
+// Re-exported here because consumers historically import GIT_LOG_FORMAT from this
+// module; this file owns the OUTPUT-side parser below.
+export { GIT_LOG_FORMAT } from "./hotspots-git-log.js";
 
-// `git log` emits, per commit: the metadata line (NUL-prefixed), a blank line,
-// then `added \t deleted \t path` numstat rows. --no-merges keeps merge commits
-// from double-counting every churn signal. --no-renames is LOAD-BEARING FOR
-// PARSER CORRECTNESS: with rename detection on, git emits arrow-form paths
-// (`a/{old => new}/f.ts`, `{old => new}`) in the path column that corrupt the
-// tab-split below. A future "follow renames across history" feature needs a real
-// arrow-form parser, NOT a flag flip — do not remove --no-renames to get it.
-export const GIT_LOG_FORMAT = `${FMT_RECORD}%H${FMT_FIELD}%an${FMT_FIELD}%ae${FMT_FIELD}%ad${FMT_FIELD}%cd${FMT_FIELD}%s${FMT_FIELD}%(trailers:key=Co-authored-by,valueonly,separator=${FMT_COAUTHOR})`;
-
-// Expanded OUTPUT bytes the escapes above produce — used to PARSE git's output.
+// Expanded OUTPUT bytes git produces from the format ESCAPES in
+// `hotspots-git-log.ts` — used to PARSE git's output below.
 const OUT_RECORD = "\u0000"; // NUL
 const OUT_FIELD = "\u001f"; // unit separator
 const OUT_COAUTHOR = "\u001d"; // group separator
@@ -337,15 +326,7 @@ function walkWindow(
   windowDays: number,
   numstat: boolean,
 ): WindowWalk {
-  const output = options.git([
-    "log",
-    "--no-merges",
-    "--no-renames",
-    `--since=${windowDays}.days.ago`,
-    "--date=iso-strict",
-    numstat ? "--numstat" : "--name-only",
-    `--format=${GIT_LOG_FORMAT}`,
-  ]);
+  const output = options.git(buildGitLogWalkArgs({ windowDays, numstat }));
   const parsed = parseGitLog(output, { numstat });
   const ignore = options.ignore ?? DEFAULT_DRIFT_AI_CONFIG.ignore;
   const records = filterGitLogRecords(parsed, ignore);

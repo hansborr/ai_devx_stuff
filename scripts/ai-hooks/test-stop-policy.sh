@@ -64,6 +64,50 @@ assert_stop_status_reporters_have_loop_protection() {
 
 ai_cache_init
 
+assert_system_message_only() {
+  local output="$1"
+  local keys
+
+  assert_hook_json "$output"
+  keys=$(jq -r 'keys | join(",")' <<< "$output")
+  [ "$keys" = "systemMessage" ] \
+    || fail "stop wrapper should emit systemMessage-only JSON, got keys: $keys; output: $output"
+  [ -n "$(jq -r '.systemMessage // empty' <<< "$output")" ] \
+    || fail "stop wrapper systemMessage should not be empty: $output"
+}
+
+assert_stop_readonly_git_uses_optional_locks() {
+  local repo_root="$1"
+  local shim_dir="$TMP_ROOT/stop-readonly-git-shim"
+  local log="$TMP_ROOT/stop-readonly-git.log"
+  local real_git guard_log
+
+  real_git=$(command -v git)
+  make_git_optional_locks_guard_shim "$shim_dir"
+  : > "$log"
+  printf 'optional-locks\n' > "$repo_root/optional-locks.ts"
+
+  (
+    export PATH="$shim_dir:$PATH"
+    export AI_TEST_REAL_GIT="$real_git"
+    export AI_TEST_GIT_OPTIONAL_LOCKS_LOG="$log"
+
+    ai_stop_has_uncommitted_changes "$repo_root" >/dev/null
+    ai_stop_commit_reminder "$repo_root" optional-locks >/dev/null
+    ai_stop_current_branch "$repo_root" >/dev/null
+    ai_stop_lint_warning_branch "$repo_root" >/dev/null
+    ai_stop_lint_warning_changed_paths "$repo_root" >/dev/null
+  ) || fail "stop-policy read-only git calls should run with GIT_OPTIONAL_LOCKS=0"
+
+  guard_log=$(cat "$log")
+  assert_not_contains "$guard_log" "MISSING"
+  assert_contains "$guard_log" $'OK\t-C '"$repo_root"$' status --porcelain'
+  assert_contains "$guard_log" $'OK\t-C '"$repo_root"$' diff HEAD'
+  assert_contains "$guard_log" $'OK\t-C '"$repo_root"$' diff -z --name-only'
+  assert_contains "$guard_log" $'OK\t-C '"$repo_root"$' diff -z --cached'
+  rm -f "$repo_root/optional-locks.ts"
+}
+
 # Enforce that every Stop status reporter has loop protection before it can notify.
 assert_stop_status_reporters_have_loop_protection
 
@@ -74,6 +118,8 @@ git -C "$STOP_REPO" config user.name "Hook Test"
 printf 'base\n' > "$STOP_REPO/file.txt"
 git -C "$STOP_REPO" add file.txt
 git -C "$STOP_REPO" commit -m "base" >/dev/null 2>&1 || fail "failed to commit stop hook fixture"
+
+assert_stop_readonly_git_uses_optional_locks "$STOP_REPO"
 
 if ai_stop_commit_reminder "$STOP_REPO" >/dev/null; then
   fail "clean repo should not emit stop reminder"
@@ -150,117 +196,30 @@ assert_contains "$STOP_MSG" "uncommitted changes on branch 'feature/dirty'"
 [ ! -f "$STOP_MARKER" ] || fail "failed marker write should not leave a marker behind"
 git -C "$STOP_REPO" checkout -- file.txt >/dev/null 2>&1 || fail "failed to clean stop fixture"
 
-printf 'hard-stop dirty\n' >> "$STOP_REPO/file.txt"
-STOP_MSG=$(ai_stop_commit_reminder "$STOP_REPO") \
-  || fail "dirty repo should emit before hard-stop marker test"
-if ai_stop_commit_reminder "$STOP_REPO" >/dev/null; then
-  fail "soft dirty reminder should still suppress repeated unchanged stops"
+# --- fresh state root: marker writer must create its own directory ------------
+# When the Stop state dir does not yet exist, the marker writer must mkdir -p
+# so dedup persists instead of degrading to repeated warnings on every stop.
+FRESH_STATE_REPO="$TMP_ROOT/fresh-state-repo"
+git init -b feature/fresh "$FRESH_STATE_REPO" >/dev/null 2>&1 \
+  || fail "failed to init fresh-state fixture"
+git -C "$FRESH_STATE_REPO" config user.email hooks@example.test
+git -C "$FRESH_STATE_REPO" config user.name "Hook Test"
+printf 'base\n' > "$FRESH_STATE_REPO/file.txt"
+git -C "$FRESH_STATE_REPO" add file.txt
+git -C "$FRESH_STATE_REPO" commit -m base >/dev/null 2>&1 \
+  || fail "failed to commit fresh-state fixture"
+printf 'dirty\n' >> "$FRESH_STATE_REPO/file.txt"
+FRESH_STOP_STATE_DIR="$TMP_ROOT/fresh-stop-state/missing/deeper"
+rm -rf "$TMP_ROOT/fresh-stop-state"
+[ ! -d "$FRESH_STOP_STATE_DIR" ] || fail "fresh state dir precondition failed"
+FRESH_MSG=$(AI_STOP_STATE_DIR="$FRESH_STOP_STATE_DIR" ai_stop_commit_reminder "$FRESH_STATE_REPO") \
+  || fail "dirty repo should emit reminder on a fresh state root"
+assert_contains "$FRESH_MSG" "uncommitted changes on branch 'feature/fresh'"
+[ -d "$FRESH_STOP_STATE_DIR" ] \
+  || fail "marker writer should have created the missing Stop state dir"
+if AI_STOP_STATE_DIR="$FRESH_STOP_STATE_DIR" ai_stop_commit_reminder "$FRESH_STATE_REPO" >/dev/null; then
+  fail "second stop on a fresh state root should be deduped by the persisted marker"
 fi
-STOP_HARD_MARKER=$(ai_stop_hard_marker_path "$STOP_REPO")
-touch "$STOP_HARD_MARKER"
-STOP_MSG=$(ai_stop_policy_messages "$STOP_REPO") \
-  || fail "hard-stop dirty repo should keep blocking after soft reminder suppression"
-assert_contains "$STOP_MSG" "uncommitted changes on branch 'feature/dirty'"
-assert_contains "$STOP_MSG" "hard-stop mode is on"
-assert_contains "$STOP_MSG" "$STOP_HARD_MARKER"
-STOP_MSG=$(ai_stop_policy_messages "$STOP_REPO") \
-  || fail "hard-stop dirty repo should repeat for unchanged dirty state"
-assert_contains "$STOP_MSG" "hard-stop mode is on"
-touch "$STOP_REPO/$AI_STOP_COMMIT_KILL_SWITCH"
-if ai_stop_policy_messages "$STOP_REPO" >/dev/null; then
-  fail "commit kill switch should suppress hard-stop dirty reminder"
-fi
-rm -f "$STOP_REPO/$AI_STOP_COMMIT_KILL_SWITCH" "$STOP_HARD_MARKER"
-git -C "$STOP_REPO" checkout -- file.txt >/dev/null 2>&1 || fail "failed to clean hard-stop fixture"
-
-# --- ai_stop_policy_messages_subagent -----------------------------------------
-SUBAGENT_REPO="$TMP_ROOT/subagent-repo"
-git init -b feature/subagent "$SUBAGENT_REPO" >/dev/null 2>&1 \
-  || fail "failed to init subagent fixture"
-git -C "$SUBAGENT_REPO" config user.email hooks@example.test
-git -C "$SUBAGENT_REPO" config user.name "Hook Test"
-printf 'base\n' > "$SUBAGENT_REPO/file.txt"
-git -C "$SUBAGENT_REPO" add file.txt
-git -C "$SUBAGENT_REPO" commit -m base >/dev/null 2>&1 \
-  || fail "failed to commit subagent fixture"
-
-SUBAGENT_PAYLOAD_A='{"session_id":"session-1","agent_id":"agent-a","agent_type":"Explore","stop_hook_active":false}'
-SUBAGENT_PAYLOAD_B='{"session_id":"session-1","agent_id":"agent-b","agent_type":"Explore","stop_hook_active":false}'
-SUBAGENT_PAYLOAD_C='{"session_id":"session-1","agent_id":"agent-c","agent_type":"Explore","stop_hook_active":false}'
-printf 'dirty\n' >> "$SUBAGENT_REPO/file.txt"
-SUBAGENT_E2E_MARKER="$AI_BUN_LOG_DIR/last.e2e.subagent"
-ai_write_bun_marker "$SUBAGENT_E2E_MARKER" "$(ai_worktree_fingerprint "$SUBAGENT_REPO")" 1
-
-SUBAGENT_MSG=$(ai_stop_policy_messages_subagent "$SUBAGENT_REPO" "$SUBAGENT_PAYLOAD_A") \
-  || fail "dirty subagent repo should emit subagent stop reminder"
-assert_contains "$SUBAGENT_MSG" "uncommitted changes on branch 'feature/subagent'"
-assert_not_contains "$SUBAGENT_MSG" "e2e tests are failing"
-if ai_stop_policy_messages_subagent "$SUBAGENT_REPO" "$SUBAGENT_PAYLOAD_A" >/dev/null; then
-  fail "same subagent dirty fingerprint should not emit twice"
-fi
-SUBAGENT_MSG=$(ai_stop_policy_messages_subagent "$SUBAGENT_REPO" "$SUBAGENT_PAYLOAD_B") \
-  || fail "different subagent should get its own dirty reminder"
-assert_contains "$SUBAGENT_MSG" "uncommitted changes on branch 'feature/subagent'"
-STOP_MSG=$(ai_stop_policy_messages "$SUBAGENT_REPO") \
-  || fail "subagent reminder should not consume the main stop reminder"
-assert_contains "$STOP_MSG" "uncommitted changes on branch 'feature/subagent'"
-
-git -C "$SUBAGENT_REPO" add file.txt
-git -C "$SUBAGENT_REPO" commit -m dirty >/dev/null 2>&1 \
-  || fail "failed to clean subagent dirty fixture"
-
-SUBAGENT_VERIFY_LOG_DIR="$TMP_ROOT/subagent-verify-logs"
-SUBAGENT_VERIFY_META_DIR="$SUBAGENT_VERIFY_LOG_DIR/meta"
-SUBAGENT_VERIFY_WRAPPER="$SUBAGENT_VERIFY_META_DIR/wrapper.json"
-mkdir -p "$SUBAGENT_VERIFY_META_DIR"
-SUBAGENT_VERIFY_HEAD=$(git -C "$SUBAGENT_REPO" rev-parse HEAD)
-SUBAGENT_VERIFY_FP=$(ai_worktree_fingerprint "$SUBAGENT_REPO")
-printf '{"name":"wrapper","mode":"serial-verify","exit_code":1,"head":"%s","fingerprint":"%s"}\n' \
-  "$SUBAGENT_VERIFY_HEAD" "$SUBAGENT_VERIFY_FP" > "$SUBAGENT_VERIFY_WRAPPER"
-printf '{"name":"typecheck","exit_code":1}\n' > "$SUBAGENT_VERIFY_META_DIR/typecheck.json"
-
-SUBAGENT_MSG=$(
-  MUSI_VERIFY_LOG_DIR="$SUBAGENT_VERIFY_LOG_DIR" \
-    ai_stop_policy_messages_subagent "$SUBAGENT_REPO" "$SUBAGENT_PAYLOAD_A"
-) || fail "failing cached verify should emit to subagent"
-assert_contains "$SUBAGENT_MSG" "cached verify"
-assert_contains "$SUBAGENT_MSG" "failing gate(s): typecheck"
-SUBAGENT_MSG=$(
-  MUSI_VERIFY_LOG_DIR="$SUBAGENT_VERIFY_LOG_DIR" \
-    ai_stop_policy_messages_subagent "$SUBAGENT_REPO" "$SUBAGENT_PAYLOAD_A"
-) || fail "second cached verify notice should still emit to same subagent"
-if MUSI_VERIFY_LOG_DIR="$SUBAGENT_VERIFY_LOG_DIR" \
-    ai_stop_policy_messages_subagent "$SUBAGENT_REPO" "$SUBAGENT_PAYLOAD_A" >/dev/null; then
-  fail "subagent cached verify should suppress after max notices for same subagent"
-fi
-SUBAGENT_MSG=$(
-  MUSI_VERIFY_LOG_DIR="$SUBAGENT_VERIFY_LOG_DIR" \
-    ai_stop_policy_messages_subagent "$SUBAGENT_REPO" "$SUBAGENT_PAYLOAD_B"
-) || fail "different subagent should get independent cached verify notice"
-assert_contains "$SUBAGENT_MSG" "cached verify"
-VERIFY_MSG=$(
-  MUSI_VERIFY_LOG_DIR="$SUBAGENT_VERIFY_LOG_DIR" \
-    ai_stop_verify_status "$SUBAGENT_REPO"
-) || fail "subagent cached verify notices should not consume main stop verify counter"
-assert_contains "$VERIFY_MSG" "cached verify"
-
-SUBAGENT_WRAPPER="$REPO_ROOT/scripts/ai-hooks/subagent-stop-reminder.sh"
-SUBAGENT_ACTIVE_OUT=$(
-  cd "$SUBAGENT_REPO"
-  printf '%s' '{"session_id":"session-1","agent_id":"agent-c","agent_type":"Explore","stop_hook_active":true}' \
-    | MUSI_VERIFY_LOG_DIR="$SUBAGENT_VERIFY_LOG_DIR" bash "$SUBAGENT_WRAPPER"
-)
-[ -z "$SUBAGENT_ACTIVE_OUT" ] || fail "active SubagentStop loop should emit nothing"
-SUBAGENT_WRAPPER_OUT=$(
-  cd "$SUBAGENT_REPO"
-  printf '%s' "$SUBAGENT_PAYLOAD_C" \
-    | MUSI_VERIFY_LOG_DIR="$SUBAGENT_VERIFY_LOG_DIR" bash "$SUBAGENT_WRAPPER"
-)
-assert_hook_json "$SUBAGENT_WRAPPER_OUT"
-[ "$(jq -r '.hookSpecificOutput.hookEventName // empty' <<< "$SUBAGENT_WRAPPER_OUT")" = "SubagentStop" ] \
-  || fail "subagent wrapper should emit SubagentStop additional context: $SUBAGENT_WRAPPER_OUT"
-SUBAGENT_WRAPPER_CONTEXT=$(jq -r '.hookSpecificOutput.additionalContext // empty' <<< "$SUBAGENT_WRAPPER_OUT")
-assert_contains "$SUBAGENT_WRAPPER_CONTEXT" "cached verify"
 
 WRAPPER="$REPO_ROOT/scripts/ai-hooks/stop-reminder.sh"
 WRAPPER_ERR="$TMP_ROOT/wrapper.err"
@@ -284,21 +243,24 @@ printf 'wrapper-dirty\n' >> "$STOP_REPO/file.txt"
 WRAPPER_EXIT=0
 WRAPPER_OUT=$(cd "$STOP_REPO" && AI_STATE_ROOT="$WRAPPER_STATE" bash "$WRAPPER" 2>"$WRAPPER_ERR") \
   || WRAPPER_EXIT=$?
-[ "$WRAPPER_EXIT" -eq 2 ] || fail "wrapper on dirty repo should exit 2 (got $WRAPPER_EXIT)"
-[ -z "$WRAPPER_OUT" ] || fail "wrapper on dirty repo should produce no stdout"
-assert_contains "$(cat "$WRAPPER_ERR")" "uncommitted changes on branch 'feature/dirty'"
-assert_contains "$(cat "$WRAPPER_ERR")" "until the change set or branch changes"
-touch "$(ai_stop_hard_marker_path "$STOP_REPO")"
+[ "$WRAPPER_EXIT" -eq 0 ] || fail "wrapper on dirty repo should exit 0 (got $WRAPPER_EXIT)"
+assert_system_message_only "$WRAPPER_OUT"
+[ ! -s "$WRAPPER_ERR" ] || fail "wrapper on dirty repo should produce no stderr"
+WRAPPER_MESSAGE=$(jq -r '.systemMessage' <<< "$WRAPPER_OUT")
+assert_contains "$WRAPPER_MESSAGE" "uncommitted changes on branch 'feature/dirty'"
+assert_contains "$WRAPPER_MESSAGE" "touch $STOP_REPO/$AI_STOP_COMMIT_KILL_SWITCH"
+assert_not_contains "$WRAPPER_MESSAGE" "stop again"
+
+printf 'wrapper-active-payload\n' >> "$STOP_REPO/file.txt"
 WRAPPER_ACTIVE_EXIT=0
 WRAPPER_ACTIVE_OUT=$(
   cd "$STOP_REPO"
   printf '%s' '{"stop_hook_active":true}' | AI_STATE_ROOT="$WRAPPER_STATE" bash "$WRAPPER" 2>"$WRAPPER_ERR"
 ) || WRAPPER_ACTIVE_EXIT=$?
 [ "$WRAPPER_ACTIVE_EXIT" -eq 0 ] \
-  || fail "wrapper should pass through active Stop continuation (got $WRAPPER_ACTIVE_EXIT)"
-[ -z "$WRAPPER_ACTIVE_OUT" ] || fail "active Stop continuation should produce no stdout"
-[ ! -s "$WRAPPER_ERR" ] || fail "active Stop continuation should produce no stderr"
-rm -f "$(ai_stop_hard_marker_path "$STOP_REPO")"
+  || fail "active Stop payload should not block user-only delivery (got $WRAPPER_ACTIVE_EXIT)"
+assert_system_message_only "$WRAPPER_ACTIVE_OUT"
+[ ! -s "$WRAPPER_ERR" ] || fail "active Stop payload should produce no stderr"
 git -C "$STOP_REPO" checkout -- file.txt >/dev/null 2>&1 || fail "failed to reclean stop fixture"
 rm -f "$STOP_REPO/$AI_STOP_E2E_KILL_SWITCH"
 
@@ -583,25 +545,6 @@ ai_stop_verify_read_counter "$VERIFY_COUNTER" \
 if MUSI_VERIFY_LOG_DIR="$VERIFY_LOG_DIR" ai_stop_verify_status "$VERIFY_REPO" >/dev/null; then
   fail "failing verify should suppress after $AI_STOP_VERIFY_MAX_NOTIFY notices"
 fi
-VERIFY_HARD_MARKER=$(ai_stop_hard_marker_path "$VERIFY_REPO")
-touch "$VERIFY_HARD_MARKER"
-VERIFY_MSG=$(
-  MUSI_VERIFY_LOG_DIR="$VERIFY_LOG_DIR" \
-    ai_stop_policy_messages "$VERIFY_REPO"
-) || fail "hard-stop cached verify should emit after soft counter suppression"
-assert_contains "$VERIFY_MSG" "cached pre-commit"
-assert_contains "$VERIFY_MSG" "hard-stop mode is on"
-assert_contains "$VERIFY_MSG" "$VERIFY_HARD_MARKER"
-VERIFY_MSG=$(
-  MUSI_VERIFY_LOG_DIR="$VERIFY_LOG_DIR" \
-    ai_stop_policy_messages "$VERIFY_REPO"
-) || fail "hard-stop cached verify should repeat for unchanged failed metadata"
-assert_contains "$VERIFY_MSG" "cached pre-commit"
-touch "$VERIFY_REPO/$AI_STOP_VERIFY_KILL_SWITCH"
-if MUSI_VERIFY_LOG_DIR="$VERIFY_LOG_DIR" ai_stop_verify_status "$VERIFY_REPO" "" hard >/dev/null; then
-  fail "verify kill switch should suppress hard-stop cached verify"
-fi
-rm -f "$VERIFY_REPO/$AI_STOP_VERIFY_KILL_SWITCH" "$VERIFY_HARD_MARKER"
 
 # Passing wrapper: emits nothing and clears any stale counter.
 write_verify_wrapper parallel-precommit 0 "$VERIFY_PRECOMMIT_FP"
@@ -848,5 +791,40 @@ STOP_LINT_MSG=$(
 assert_contains "$STOP_LINT_MSG" "1 changed eslint-supported file(s) not scanned"
 [ "$(grep -c '^src/' "$STOP_LINT_LOG")" = "1" ] \
   || fail "capped stop lint warning run should scan exactly one changed path: $(cat "$STOP_LINT_LOG")"
+
+# --- ai_stop_lint_warnings_reminder internal timeout -------------------------
+# The live eslint scan is the only Stop subcheck that spawns real work, sharing
+# a single 30s Stop budget with the other checks. A slow/hung eslint must be
+# bounded so it cannot time out the whole Stop policy: on overrun it emits
+# nothing, returns quickly, and leaves no dedup marker (so the check retries on
+# the next stop instead of recording a false clean state).
+STOP_LINT_TIMEOUT_REPO="$TMP_ROOT/stop-lint-timeout-repo"
+git init -b feature/lint-timeout "$STOP_LINT_TIMEOUT_REPO" >/dev/null 2>&1 \
+  || fail "failed to init stop lint timeout fixture"
+git -C "$STOP_LINT_TIMEOUT_REPO" config user.email hooks@example.test
+git -C "$STOP_LINT_TIMEOUT_REPO" config user.name "Hook Test"
+mkdir -p "$STOP_LINT_TIMEOUT_REPO/src" "$STOP_LINT_TIMEOUT_REPO/node_modules/.bin"
+printf 'const a = 1;\n' > "$STOP_LINT_TIMEOUT_REPO/src/slow.ts"
+git -C "$STOP_LINT_TIMEOUT_REPO" add src/slow.ts
+git -C "$STOP_LINT_TIMEOUT_REPO" commit -m base >/dev/null 2>&1 \
+  || fail "failed to commit stop lint timeout fixture"
+cat > "$STOP_LINT_TIMEOUT_REPO/node_modules/.bin/eslint" <<'EOF'
+#!/bin/bash
+sleep 5
+printf '%s\n' '[{"filePath":"stub","errorCount":0,"warningCount":3,"messages":[{"ruleId":"no-console","severity":1}]}]'
+EOF
+chmod +x "$STOP_LINT_TIMEOUT_REPO/node_modules/.bin/eslint"
+printf 'console.log("slow");\n' > "$STOP_LINT_TIMEOUT_REPO/src/slow.ts"
+STOP_LINT_TIMEOUT_START=$(date +%s)
+if AI_STOP_LINT_WARNINGS_TIMEOUT_SECONDS=1 \
+    ai_stop_lint_warnings_reminder "$STOP_LINT_TIMEOUT_REPO" >/dev/null; then
+  fail "eslint overrun should not emit a lint warning reminder"
+fi
+STOP_LINT_TIMEOUT_ELAPSED=$(( $(date +%s) - STOP_LINT_TIMEOUT_START ))
+[ "$STOP_LINT_TIMEOUT_ELAPSED" -lt 5 ] \
+  || fail "eslint overrun should be bounded under the stub's 5s sleep (took ${STOP_LINT_TIMEOUT_ELAPSED}s)"
+STOP_LINT_TIMEOUT_MARKER=$(ai_stop_marker_path "$STOP_LINT_TIMEOUT_REPO" "lint-warnings")
+[ ! -f "$STOP_LINT_TIMEOUT_MARKER" ] \
+  || fail "eslint overrun must not write a dedup marker so the check retries next stop"
 
 printf 'ai-hooks stop-policy tests passed\n'

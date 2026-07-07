@@ -23,6 +23,8 @@ interface ProductionCollectionState {
 const PROJECT_ROOT = resolve(import.meta.dirname, "..");
 export const STRONG_COPYLEFT_RE = /\b(?:AGPL|GPL|SSPL)\b/i;
 export const REVIEW_COPYLEFT_RE = /\b(?:LGPL|MPL|EPL|CDDL|CPL|OSL|RPL)\b/i;
+export const LICENSE_AUDIT_REMEDY =
+  "Remedy: replace the dependency, or record an owner-reviewed license decision in a dated docs/agent_notes/ note with package, version, license, and rationale.";
 const ALL_MODE = process.argv.includes("--all");
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -351,6 +353,11 @@ if (import.meta.main) {
   printPackageList("Strong copyleft licenses", strongCopyleft);
   printPackageList("Copyleft-review licenses", reviewCopyleft);
   printPackageList("Unknown or unlicensed package metadata", unknown);
+
+  if (strongCopyleft.length > 0 || reviewCopyleft.length > 0 || unknown.length > 0) {
+    console.log("");
+    console.log(LICENSE_AUDIT_REMEDY);
+  }
 
   if (strongCopyleft.length > 0 || reviewCopyleft.length > 0) {
     process.exitCode = 1;

@@ -57,6 +57,9 @@ detail that cannot be recovered from code, tests, commits, `LOG.md`, or
 - `lint-followups-2026-06.md` — closed 16-leaf successor to the lint-review
   pack: e2e selector debt drain (172 findings/21 files) with the selector
   ratchets retired, runtime import-cycle gate, and ESLint plugin evaluations.
+- `dependency-refresh-2026-05.md` — completed safe same-major dependency
+  refresh: package/lockfile updates, Prisma regenerate, `fast-uri` override,
+  full verification record, and split-out major/fresh-tag follow-ups.
 - `drift-ai-findings.md` — closed `drift:ai --scope current` triage: 30
   implemented quality fixes (dedup/dead-code/doc-drift) plus 1 won't-fix false
   positive, across tooling and product code.

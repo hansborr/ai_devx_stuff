@@ -1,4 +1,18 @@
 #!/usr/bin/env bash
+# smoke-order: 340
+# smoke-subjects: scripts/lint-agent-changed.sh
+# smoke-subjects: scripts/lint-agent.ts
+# smoke-subjects: scripts/lint-agent-envelope.ts
+# smoke-subjects: scripts/lib/changed-base.sh
+# smoke-subjects: scripts/harness-emit-envelope.ts
+# smoke-subjects: scripts/path-policy/path-policy-query.ts
+# smoke-subjects: scripts/path-policy/path-policy-query-core.ts
+# smoke-subjects: scripts/path-policy/path-policy.ts
+# smoke-subjects: scripts/tests/lib/test-git-env.sh
+# smoke-subjects: scripts/tests/test-lint-agent-changed.sh
+# smoke-subjects: packages/shared/src/schemas/harness-diagnostics.ts
+# smoke-subjects: package.json
+# smoke-subjects: eslint-config/
 # Smoke test for scripts/lint-agent-changed.sh.
 #
 # The wrapper's job is file selection (committed + staged + unstaged diff

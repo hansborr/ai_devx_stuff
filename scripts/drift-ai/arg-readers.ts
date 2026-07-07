@@ -1,3 +1,4 @@
+import { readRequiredOptionValue } from "../cli-option-values.js";
 import { DriftAiError } from "./errors.js";
 
 export type ArgValue = {
@@ -18,13 +19,13 @@ export function readValue(
   index: number,
   usage: string,
 ): ArgValue {
-  const equalsIndex = arg.indexOf("=");
-  if (equalsIndex >= 0) return { value: arg.slice(equalsIndex + 1), nextIndex: index };
-  const next = argv[index + 1];
-  if (next === undefined) {
-    throw new DriftAiError(`${optionName(arg)} requires a value.\n${usage}`);
-  }
-  return { value: next, nextIndex: index + 1 };
+  return readRequiredOptionValue({
+    arg,
+    argv,
+    index,
+    usage,
+    createError: (message) => new DriftAiError(message),
+  });
 }
 
 export function readFormat(value: string): OutputFormat {

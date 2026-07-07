@@ -10,20 +10,12 @@ HOOK_LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=/dev/null
 . "$HOOK_LIB/stop-policy.sh"
 
-if [ -p /dev/stdin ]; then
-  payload=$(ai_read_payload)
-  if printf '%s' "$payload" | jq -e '.stop_hook_active == true' >/dev/null 2>&1; then
-    exit 0
-  fi
-fi
-
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo "${CLAUDE_PROJECT_DIR:-/workspace}")
 
 ai_cache_init
 
 if REASON=$(ai_stop_policy_messages "$REPO_ROOT"); then
-  printf '%s\n' "$REASON" >&2
-  exit 2
+  jq -Rn --arg m "$REASON" '{systemMessage:$m}'
 fi
 
 exit 0

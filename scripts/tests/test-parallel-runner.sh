@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# smoke-order: 400
+# smoke-subjects: scripts/lib/parallel-runner.sh
+# smoke-subjects: scripts/tests/test-parallel-runner.sh
 # test-parallel-runner.sh — pure-shell smoke tests for scripts/lib/parallel-runner.sh.
 #
 # Sources the utility directly in temp sandboxes and exercises init/cleanup,

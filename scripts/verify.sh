@@ -55,6 +55,9 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT" || exit 1
 
 # shellcheck source=/dev/null
+. "$REPO_ROOT/scripts/lib/gate-env.sh"
+
+# shellcheck source=/dev/null
 . "$REPO_ROOT/scripts/ai-hooks/cache.sh"
 # shellcheck source=/dev/null
 . "$REPO_ROOT/scripts/lib/verify-metadata.sh"
@@ -275,85 +278,13 @@ run_step() {
   return 1
 }
 
-STEP_PID=""
 run_steps_parallel() {
-  local -n steps_ref="$VERIFY_STEPS_ARRAY"
+  # shellcheck disable=SC2034 # step_pids is passed by name to musi_run_parallel_verify_steps.
   local -a step_names=() step_pids=() step_exits=()
-  local -a pending_lint_cmd=()
-  local slot resolve_rc index pid exit_code
-  local defer_lint=0 pending_lint_index=-1 typecheck_index=-1
+  local slot index exit_code
 
-  if ! musi_lint_dist_outputs_present "$REPO_ROOT"; then
-    defer_lint=1
-  fi
-
-  for slot in "${steps_ref[@]}"; do
-    resolve_rc=0
-    musi_resolve_slot_cmd "$VERIFY_CONSUMER" "$slot" || resolve_rc=$?
-    if [ "$resolve_rc" -eq "$MUSI_VERIFY_SLOT_SKIP_RC" ]; then
-      continue
-    fi
-    if [ "$resolve_rc" -ne 0 ]; then
-      printf '%s: failed to resolve %s step for %s (rc=%s)\n' \
-        "$LABEL" "$slot" "$VERIFY_CONSUMER" "$resolve_rc" > "$LOG_DIR/${slot}.log"
-      step_names+=("$slot")
-      step_pids+=("")
-      step_exits+=("$resolve_rc")
-      break
-    fi
-    if [ "$defer_lint" -eq 1 ] && [ "$slot" = lint ]; then
-      pending_lint_index="${#step_names[@]}"
-      pending_lint_cmd=("${MUSI_RESOLVED_SLOT_CMD[@]}")
-      step_names+=("$slot")
-      step_pids+=("")
-      step_exits+=("")
-      continue
-    fi
-    musi_run_parallel_step "$META_MODE" "$LABEL" "$slot" "${MUSI_RESOLVED_SLOT_CMD[@]}"
-    step_names+=("$slot")
-    step_pids+=("$STEP_PID")
-    step_exits+=("")
-    PARALLEL_PIDS+=("$STEP_PID")
-    if [ "$slot" = typecheck ]; then
-      typecheck_index=$(( ${#step_names[@]} - 1 ))
-    fi
-  done
-
-  if [ "$pending_lint_index" -ge 0 ]; then
-    if [ "$typecheck_index" -ge 0 ] && [ -n "${step_pids[$typecheck_index]}" ]; then
-      pid="${step_pids[$typecheck_index]}"
-      if wait "$pid"; then
-        step_exits[$typecheck_index]=0
-      else
-        step_exits[$typecheck_index]=$?
-      fi
-      if [ "${step_exits[$typecheck_index]}" -eq 0 ]; then
-        musi_run_parallel_step "$META_MODE" "$LABEL" lint "${pending_lint_cmd[@]}"
-        step_pids[$pending_lint_index]="$STEP_PID"
-        PARALLEL_PIDS+=("$STEP_PID")
-      else
-        printf '%s: skipped lint because typecheck failed before required dist outputs were available\n' \
-          "$LABEL" > "$LOG_DIR/lint.log"
-        step_exits[$pending_lint_index]=1
-      fi
-    else
-      musi_run_parallel_step "$META_MODE" "$LABEL" lint "${pending_lint_cmd[@]}"
-      step_pids[$pending_lint_index]="$STEP_PID"
-      PARALLEL_PIDS+=("$STEP_PID")
-    fi
-  fi
-
-  for index in "${!step_names[@]}"; do
-    [ -n "${step_exits[$index]}" ] && continue
-    pid="${step_pids[$index]}"
-    [ -n "$pid" ] || continue
-    if wait "$pid"; then
-      step_exits[$index]=0
-    else
-      step_exits[$index]=$?
-    fi
-  done
-  PARALLEL_PIDS=()
+  musi_run_parallel_verify_steps "$VERIFY_CONSUMER" "$VERIFY_STEPS_ARRAY" "$META_MODE" \
+    "$LABEL" "$REPO_ROOT" step_names step_pids step_exits PARALLEL_PIDS
 
   for index in "${!step_names[@]}"; do
     slot="${step_names[$index]}"

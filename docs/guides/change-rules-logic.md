@@ -45,7 +45,7 @@ shared surface.
 
 Useful checks:
 
-- `bun run vitest run packages/shared/src/rules/<rule>.test.ts`
+- `bun run test -- packages/shared/src/rules/<rule>.test.ts`
 - `bun run test:shared`
 - `bun run test:mutation`
 - `bun run verify:changed`

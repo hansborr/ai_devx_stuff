@@ -6,8 +6,9 @@ docs/agent_notes/LOG.md merge=union
 # under test directories never pick up these merge semantics.
 /lint-ratchet.debt-log.jsonl merge=union
 # Derived from the source tree, so no textual merge is ever correct. The custom
-# driver keeps "ours" (still valid JSON), prints the regeneration recipe, and
-# still declares a conflict; see "Merge Conflicts" in docs/guides/lint-ratchet.md.
+# driver first attempts the semantic three-way baseline merge. If that cannot
+# resolve safely, it keeps "ours" as valid JSON, prints the manual recovery
+# recipe, and declares a conflict; see "Merge Conflicts" in docs/guides/lint-ratchet.md.
 /lint-ratchet.baseline.json merge=lint-ratchet-baseline
 
 # Public source archives should include copyable harness config referenced by

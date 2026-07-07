@@ -43,6 +43,8 @@ export default {
   extends: ["@commitlint/config-conventional"],
   plugins: [bodyShapeRules],
   rules: {
+    "scope-empty": [2, "never"],
+    "scope-case": [2, "always", "kebab-case"],
     "subject-min-length": [2, "always", 20],
     "subject-max-length": [2, "always", 100],
     "body-leading-blank": [2, "always"],

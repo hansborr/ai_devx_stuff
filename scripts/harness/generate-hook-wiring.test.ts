@@ -1,8 +1,13 @@
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import {
   renderHookWiringOutputsFromManifest,
   replaceClaudeHooksInSettings,
+  writeHookWiringOutputs,
 } from "./generate-hook-wiring.js";
 
 const BASE_SETTINGS = `{
@@ -22,6 +27,26 @@ const BASE_SETTINGS = `{
 `;
 
 describe("hook wiring generator", () => {
+  it("writes every output into a bare repo root with no pre-created directories", () => {
+    const tempRoot = mkdtempSync(join(tmpdir(), "musi-hook-wiring-"));
+    try {
+      const outputs = renderHookWiringOutputsFromManifest({ controls: [] }, BASE_SETTINGS);
+      const paths = {
+        claudeSettingsPath: join(tempRoot, ".claude/settings.json"),
+        codexHooksPath: join(tempRoot, ".codex/hooks.json"),
+        copilotHooksPath: join(tempRoot, ".github/hooks/copilot.json"),
+      };
+
+      writeHookWiringOutputs(outputs, paths);
+
+      expect(readFileSync(paths.claudeSettingsPath, "utf8")).toBe(outputs.claudeSettingsJson);
+      expect(readFileSync(paths.codexHooksPath, "utf8")).toBe(outputs.codexHooksJson);
+      expect(readFileSync(paths.copilotHooksPath, "utf8")).toBe(outputs.copilotHooksJson);
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
   it("renders Claude, Codex, and Copilot hook wiring from manifest order metadata", () => {
     const manifest = {
       controls: [
@@ -102,20 +127,16 @@ describe("hook wiring generator", () => {
           hookWiring: {
             event: "Stop",
             order: 10,
+            outputs: ["systemMessage"],
             harnesses: {
               claude: {
                 command: "bash $CLAUDE_PROJECT_DIR/.claude/hooks/stop-reminder.sh",
                 timeout: 30,
               },
-              codex: {
-                command: 'bash "$(git rev-parse --show-toplevel)/.codex/hooks/stop-reminder.sh"',
-                statusMessage: "Checking repository stop conditions",
-                timeout: 30,
-              },
-              copilot: {
-                command: 'bash "$(git rev-parse --show-toplevel)/.copilot/hooks/stop-reminder.sh"',
-                timeout: 30,
-              },
+            },
+            notes: {
+              codex: "Codex Stop has no verified user-only output channel.",
+              copilot: "Copilot agentStop has no verified user-only output channel.",
             },
           },
         },
@@ -193,18 +214,6 @@ describe("hook wiring generator", () => {
             ],
           },
         ],
-        Stop: [
-          {
-            hooks: [
-              {
-                type: "command",
-                command: 'bash "$(git rev-parse --show-toplevel)/.codex/hooks/stop-reminder.sh"',
-                statusMessage: "Checking repository stop conditions",
-                timeout: 30,
-              },
-            ],
-          },
-        ],
       },
     });
     expect(copilotHooks).toEqual({
@@ -221,13 +230,6 @@ describe("hook wiring generator", () => {
             type: "command",
             matcher: "create|edit",
             bash: 'bash "$(git rev-parse --show-toplevel)/.copilot/hooks/doc-length.sh"',
-          },
-        ],
-        agentStop: [
-          {
-            type: "command",
-            bash: 'bash "$(git rev-parse --show-toplevel)/.copilot/hooks/stop-reminder.sh"',
-            timeoutSec: 30,
           },
         ],
       },
@@ -318,27 +320,26 @@ describe("hook wiring generator", () => {
           },
         },
         {
-          id: "hook/subagent-stop",
+          id: "hook/subagent-start",
           kind: "hook",
           hookWiring: {
-            event: "SubagentStop",
+            event: "SubagentStart",
             order: 10,
             harnesses: {
               claude: {
                 matcher: "Explore|Plan",
-                command: "bash $CLAUDE_PROJECT_DIR/.claude/hooks/subagent-stop-reminder.sh",
+                command: "bash $CLAUDE_PROJECT_DIR/.claude/hooks/subagent-start.sh",
                 timeout: 30,
               },
               codex: {
                 matcher: "Explore|Plan",
-                command:
-                  'bash "$(git rev-parse --show-toplevel)/.codex/hooks/subagent-stop-reminder.sh"',
-                statusMessage: "Checking subagent stop conditions",
+                command: 'bash "$(git rev-parse --show-toplevel)/.codex/hooks/subagent-start.sh"',
+                statusMessage: "Checking subagent start conditions",
                 timeout: 30,
               },
             },
             notes: {
-              copilot: "Copilot has no SubagentStop hook event.",
+              copilot: "Copilot has no SubagentStart hook event.",
             },
           },
         },
@@ -411,13 +412,13 @@ describe("hook wiring generator", () => {
             ],
           },
         ],
-        SubagentStop: [
+        SubagentStart: [
           {
             matcher: "Explore|Plan",
             hooks: [
               {
                 type: "command",
-                command: "bash $CLAUDE_PROJECT_DIR/.claude/hooks/subagent-stop-reminder.sh",
+                command: "bash $CLAUDE_PROJECT_DIR/.claude/hooks/subagent-start.sh",
                 timeout: 30,
               },
             ],
@@ -449,15 +450,14 @@ describe("hook wiring generator", () => {
             ],
           },
         ],
-        SubagentStop: [
+        SubagentStart: [
           {
             matcher: "Explore|Plan",
             hooks: [
               {
                 type: "command",
-                command:
-                  'bash "$(git rev-parse --show-toplevel)/.codex/hooks/subagent-stop-reminder.sh"',
-                statusMessage: "Checking subagent stop conditions",
+                command: 'bash "$(git rev-parse --show-toplevel)/.codex/hooks/subagent-start.sh"',
+                statusMessage: "Checking subagent start conditions",
                 timeout: 30,
               },
             ],
@@ -583,8 +583,7 @@ describe("hook wiring generator", () => {
             outputs: ["additionalContext"],
             harnesses: {
               codex: {
-                command:
-                  'bash "$(git rev-parse --show-toplevel)/.codex/hooks/subagent-stop-reminder.sh"',
+                command: 'bash "$(git rev-parse --show-toplevel)/.codex/hooks/subagent-context.sh"',
                 statusMessage: "Checking subagent stop conditions",
               },
             },
@@ -599,6 +598,63 @@ describe("hook wiring generator", () => {
 
     expect(() => renderHookWiringOutputsFromManifest(manifest, BASE_SETTINGS)).toThrow(
       "codex SubagentStop does not support additionalContext output",
+    );
+  });
+
+  it("accepts Claude Stop systemMessage output", () => {
+    const manifest = {
+      controls: [
+        {
+          id: "hook/claude-stop-user-warning",
+          kind: "hook",
+          hookWiring: {
+            event: "Stop",
+            order: 10,
+            outputs: ["systemMessage"],
+            harnesses: {
+              claude: {
+                command: "bash $CLAUDE_PROJECT_DIR/.claude/hooks/stop-reminder.sh",
+              },
+            },
+            notes: {
+              codex: "Fixture only.",
+              copilot: "Fixture only.",
+            },
+          },
+        },
+      ],
+    };
+
+    expect(() => renderHookWiringOutputsFromManifest(manifest, BASE_SETTINGS)).not.toThrow();
+  });
+
+  it("rejects Codex Stop systemMessage output", () => {
+    const manifest = {
+      controls: [
+        {
+          id: "hook/codex-stop-user-warning",
+          kind: "hook",
+          hookWiring: {
+            event: "Stop",
+            order: 10,
+            outputs: ["systemMessage"],
+            harnesses: {
+              codex: {
+                command: 'bash "$(git rev-parse --show-toplevel)/.codex/hooks/stop-reminder.sh"',
+                statusMessage: "Checking repository stop conditions",
+              },
+            },
+            notes: {
+              claude: "Fixture only.",
+              copilot: "Fixture only.",
+            },
+          },
+        },
+      ],
+    };
+
+    expect(() => renderHookWiringOutputsFromManifest(manifest, BASE_SETTINGS)).toThrow(
+      "codex Stop does not support systemMessage output",
     );
   });
 
@@ -760,17 +816,15 @@ describe("hook wiring generator", () => {
     const stopWiring = {
       event: "Stop",
       order: 10,
+      outputs: ["systemMessage"],
       harnesses: {
         claude: {
           command: "bash $CLAUDE_PROJECT_DIR/.claude/hooks/stop-reminder.sh",
         },
-        codex: {
-          command: 'bash "$(git rev-parse --show-toplevel)/.codex/hooks/stop-reminder.sh"',
-          statusMessage: "Checking repository stop conditions",
-        },
-        copilot: {
-          command: 'bash "$(git rev-parse --show-toplevel)/.copilot/hooks/stop-reminder.sh"',
-        },
+      },
+      notes: {
+        codex: "Fixture only.",
+        copilot: "Fixture only.",
       },
     };
     const manifest = {

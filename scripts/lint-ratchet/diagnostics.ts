@@ -4,6 +4,7 @@ import {
 } from "../../eslint-rules/max-lines.js";
 import {
   buildHarnessDiagnostics,
+  type HarnessDiagnosticNote,
   type HarnessDiagnostics,
   harnessDiagnosticsSchema,
   type HarnessFinding,
@@ -33,6 +34,12 @@ import {
 import { assertNever, ratchetSource } from "./runtime-config.js";
 
 const JSON_INDENT_SPACES = 2;
+const REGRESSION_RECOVERY_NOTE: HarnessDiagnosticNote = {
+  kind: "recovery-command",
+  message:
+    "If a ratchet regression is intentional, accept it with this full update command before committing.",
+  command: RATCHET_REGRESSION_UPDATE_COMMAND,
+};
 
 // ratchetFixText starts a standalone sentence ("Reduce …"); when it is appended
 // mid-sentence after "…, then " its leading capital reads wrong, so callers that
@@ -49,8 +56,7 @@ function ratchetFixText(regression: LintRatchetRegression): string {
         : `back to the committed baseline (${String(regression.baselineLines)})`;
     return (
       `${MAX_LINES_SPLIT_GUIDANCE} and brings this file's ${regression.ruleId} effective line count ${target}. ` +
-      `${MAX_LINES_METRIC_GUIDANCE} If a split would make the code worse, run ` +
-      `\`${RATCHET_REGRESSION_UPDATE_COMMAND}\` before committing your work.`
+      `${MAX_LINES_METRIC_GUIDANCE} If a split would make the code worse, see the run summary recovery command before committing your work.`
     );
   }
   if (regression.currentComplexity !== undefined) {
@@ -61,14 +67,12 @@ function ratchetFixText(regression: LintRatchetRegression): string {
     return (
       `Split complex logic into focused functions, modules, helpers, or types when that makes the code clearer and brings ` +
       `this file's complexity ${target}. Do not code-golf by flattening branches, hiding conditionals, or inlining helpers ` +
-      `just to satisfy the metric. If a refactor would make the code worse, run ` +
-      `\`${RATCHET_REGRESSION_UPDATE_COMMAND}\` before committing your work.`
+      `just to satisfy the metric. If a refactor would make the code worse, see the run summary recovery command before committing your work.`
     );
   }
   return (
     `Reduce this file's ${regression.ruleId} finding count from ${String(regression.currentCount)} ` +
-    `back to the committed baseline (${String(regression.baselineCount)}), or run ` +
-    `\`${RATCHET_REGRESSION_UPDATE_COMMAND}\` before committing your work.`
+    `back to the committed baseline (${String(regression.baselineCount)}), or see the run summary recovery command if the new debt is intentional.`
   );
 }
 
@@ -182,6 +186,7 @@ function buildLocalFinding(
     severity: "block",
     path: regression.path,
     ruleId: regression.ruleId,
+    kind: "regression",
     ...structuredRatchetFields(regression),
     why: `Ratchet regression: ${entry.principle}`,
     howToFix: howToFixFor(entry, regression),
@@ -207,6 +212,7 @@ function buildGenericFinding(
     severity: "block",
     path: regression.path,
     ruleId: regression.ruleId,
+    kind: "regression",
     ...structuredRatchetFields(regression),
     why:
       reason === undefined
@@ -245,6 +251,7 @@ function buildImprovementFinding(improvement: LintRatchetImprovement): HarnessFi
     severity: "block",
     path: improvement.path,
     ruleId: improvement.ruleId,
+    kind: "improvement",
     ...structuredRatchetFields(improvement),
     why: `Current tree is better than the committed baseline for ${improvement.ruleId}; lock it in.`,
     howToFix:
@@ -278,7 +285,8 @@ export function buildEnvelopeFromComparison(options: BuildEnvelopeOptions): Harn
     ...infos.map(buildInfoFinding),
     ...reportOnlySummaries.map(buildReportOnlyFinding),
   ];
-  return buildHarnessDiagnostics("lint:ratchet", findings);
+  const notes = regressions.length === 0 ? undefined : [REGRESSION_RECOVERY_NOTE];
+  return buildHarnessDiagnostics("lint:ratchet", findings, { notes });
 }
 
 export function buildEnvelope(

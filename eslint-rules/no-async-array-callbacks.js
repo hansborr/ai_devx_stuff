@@ -6,6 +6,8 @@
  * or treat a Promise object as truthy, which makes async work silently wrong.
  */
 
+import { resolveDeclaredVariable, resolveIdentifierBinding } from "./binding-resolution.js";
+
 const ARRAY_METHODS = new Set([
   "every",
   "filter",
@@ -74,14 +76,17 @@ function isImmediatePromiseCombinatorArg(node) {
   );
 }
 
-/** @param {import('estree').CallExpression} node */
-function constAssignmentName(node) {
+/**
+ * @param {import('estree').CallExpression} node
+ * @param {import('eslint').SourceCode} sourceCode
+ */
+function constAssignedVariable(node, sourceCode) {
   const declarator = parentOf(node);
   if (declarator?.type !== "VariableDeclarator") return undefined;
   if (declarator.id.type !== "Identifier") return undefined;
   const declaration = parentOf(declarator);
   if (declaration?.type !== "VariableDeclaration" || declaration.kind !== "const") return undefined;
-  return declarator.id.name;
+  return resolveDeclaredVariable(sourceCode.getScope(declarator.id), declarator.id);
 }
 
 /** @type {import('eslint').Rule.RuleModule} */
@@ -110,9 +115,10 @@ export default {
   },
 
   create(context) {
-    /** @type {Array<{ name: string; node: import('estree').CallExpression }>} */
+    /** @type {Array<{ variable: import('eslint').Scope.Variable; node: import('estree').CallExpression }>} */
     const pendingMapCalls = [];
-    const consumedNames = new Set();
+    /** @type {Set<import('eslint').Scope.Variable>} */
+    const consumedVariables = new Set();
 
     /**
      * @param {import('estree').CallExpression} node
@@ -140,7 +146,10 @@ export default {
       CallExpression(node) {
         if (isPromiseCombinatorCall(node)) {
           const firstArg = node.arguments[0];
-          if (firstArg?.type === "Identifier") consumedNames.add(firstArg.name);
+          if (firstArg?.type === "Identifier") {
+            const variable = resolveIdentifierBinding(context.sourceCode, firstArg);
+            if (variable !== undefined) consumedVariables.add(variable);
+          }
         }
 
         const method = arrayMethodName(node);
@@ -149,9 +158,9 @@ export default {
 
         if (method === "map") {
           if (isImmediatePromiseCombinatorArg(node)) return;
-          const name = constAssignmentName(node);
-          if (name) {
-            pendingMapCalls.push({ name, node });
+          const variable = constAssignedVariable(node, context.sourceCode);
+          if (variable !== undefined) {
+            pendingMapCalls.push({ variable, node });
             return;
           }
         }
@@ -161,7 +170,7 @@ export default {
 
       "Program:exit"() {
         for (const pending of pendingMapCalls) {
-          if (consumedNames.has(pending.name)) continue;
+          if (consumedVariables.has(pending.variable)) continue;
           context.report({ node: pending.node.callee, messageId: "asyncMap" });
         }
       },

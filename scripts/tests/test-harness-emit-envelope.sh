@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# smoke-order: 350
+# smoke-subjects: scripts/harness-emit-envelope.ts
+# smoke-subjects: scripts/tests/test-harness-emit-envelope.sh
+# smoke-subjects: packages/shared/src/schemas/harness-diagnostics.ts
 # test-harness-emit-envelope.sh - contract smoke for the shared envelope emitter.
 #
 # The emitter reads newline-delimited findings from stdin and writes a validated

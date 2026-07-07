@@ -1,4 +1,11 @@
 #!/bin/bash
+# smoke-order: 140
+# smoke-subjects: scripts/codemods/trpc-shared-output-candidates.ts
+# smoke-subjects: scripts/codemods/trpc-shared-output.ts
+# smoke-subjects: scripts/codemods/lib/
+# smoke-subjects: scripts/tests/test-codemod-trpc-shared-output.sh
+# smoke-subjects: package.json
+# smoke-subjects: tsconfig.scripts.json
 # Thin CLI smoke test for scripts/codemods/trpc-shared-output.ts.
 
 set -u

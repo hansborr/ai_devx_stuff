@@ -1,40 +1,39 @@
 # Roadmap
 
-The active developer-experience sprint is:
+No active roadmap sprint is currently declared.
 
-- `developer-experience.md`
-
-That file is the canonical sprint scope for BatonLoop and agent promotion. It
-contains the active DX5-DX8 work. Parked agent-driven workstreams that aren't
-part of the active sprint live in `docs/agent_notes/backlog/`.
+`developer-experience.md` is the closed DX5-DX8 scope archive. Current
+agent-driven work lives in `docs/agent_notes/in_progress/`; parked workstreams
+live in `docs/agent_notes/backlog/`; curated recent history lives in
+`docs/agent_notes/LOG.md`.
 
 ## BatonLoop configuration
 
-BatonLoop should stop on repository state, not an agent-created marker. Use
-this check shape:
+BatonLoop should stop on repository state, not an agent-created marker. When a
+future sprint roadmap is promoted, use this check shape with that roadmap file:
 
 ```bash
-! grep -nE '^- \[ \] ' docs/roadmap/developer-experience.md \
+! grep -nE '^- \[ \] ' docs/roadmap/<active-sprint>.md \
   && bun run verify:changed
 ```
 
 The check returns success only when no unchecked sub-bullets remain in the
-sprint roadmap and verification passes. `verify:changed` runs `lint:changed`,
-`typecheck`, and `test:changed` sequentially with shared lock/log/cache
-conventions; pass `FORCE_VERIFY=1` to bypass the short-circuit. Agents must
-tick every `- [ ]` under a leaf's `###` heading when they complete it;
-otherwise the loop runs forever.
+sprint roadmap and verification passes. `verify:changed` runs the generated
+changed-mode slot set (`MUSI_VERIFY_CHANGED_STEPS` in
+`scripts/verify/steps.generated.sh`) in parallel through `scripts/verify.sh`;
+pass `FORCE_VERIFY=1` to bypass the short-circuit. Agents must tick every
+`- [ ]` under a leaf's `###` heading when they complete it; otherwise the loop
+runs forever.
 
-Sizing guidance for `batonloop.toml`:
+Historical sizing guidance for the closed DX5-DX8 sprint:
 
 - `iterations`: at least 30. The sprint contains 19 leaves and each iteration
   completes one leaf plus promotes the next, so a 15-iteration default will
   not finish the sprint in a single run. Use BatonLoop's `--resume` if a run
   is interrupted before the stop check passes.
-- `iteration_timeout`: high enough for a full sequential `verify:changed`
-  pass on the changed files (the verification step that gates the stop
-  check).
+- `iteration_timeout`: high enough for a parallel `verify:changed` pass on the
+  changed files (the verification step that gates the stop check).
 - `prompt_files`: a sprint-specific prompt that tells the agent to read
-  `docs/roadmap/developer-experience.md` (and `docs/agent_notes/LOG.md` for
+  the active sprint roadmap (and `docs/agent_notes/LOG.md` for
   status context), then act on the first unchecked `- [ ]` sub-bullet in the
   sprint roadmap.

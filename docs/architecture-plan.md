@@ -1,8 +1,9 @@
 # Architecture Plan
 
-Stable architecture and the reasoning behind it. For current execution status
-use the active roadmap in `docs/roadmap/developer-experience.md` for scope and
-`docs/agent_notes/LOG.md` for curated recent history.
+Stable architecture and the reasoning behind it. For current execution status,
+use `docs/agent_notes/in_progress/` for active scope,
+`docs/agent_notes/backlog/` for parked scope, and `docs/agent_notes/LOG.md` for
+curated recent history.
 
 ## Stack
 

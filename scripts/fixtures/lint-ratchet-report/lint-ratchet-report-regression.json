@@ -8,6 +8,7 @@
       "path": "packages/server/src/services/example.ts",
       "line": 42,
       "ruleId": "complexity",
+      "kind": "regression",
       "reason": "increased-complexity",
       "baselineCount": 3,
       "currentCount": 1,

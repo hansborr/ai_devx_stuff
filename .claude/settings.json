@@ -92,7 +92,7 @@
   "hooks": {
     "SessionStart": [
       {
-        "matcher": "compact",
+        "matcher": "startup|resume|compact",
         "hooks": [
           {
             "type": "command",
@@ -171,17 +171,6 @@
             "type": "command",
             "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/failure-guidance.sh",
             "timeout": 15
-          }
-        ]
-      }
-    ],
-    "SubagentStop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/subagent-stop-reminder.sh",
-            "timeout": 30
           }
         ]
       }

@@ -8,7 +8,7 @@
 /** @param {import('estree').Node | null | undefined} node */
 function isPlainErrorConstructor(node) {
   return (
-    node?.type === "NewExpression" &&
+    (node?.type === "NewExpression" || node?.type === "CallExpression") &&
     node.callee.type === "Identifier" &&
     node.callee.name === "Error"
   );

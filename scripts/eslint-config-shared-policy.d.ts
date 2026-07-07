@@ -1,4 +1,11 @@
 declare module "*eslint-config/shared-policy.js" {
+  interface ConfigSurfaceEntry {
+    readonly path: string;
+    readonly language: "js" | "mjs" | "ts";
+    readonly group: "root-js" | "root-package-ts" | "script-ts" | "eslint-rules-ts";
+    readonly coverageStatus: "linted";
+  }
+
   type MaxLinesPolicySeverity = "error" | "warn";
   type MaxLinesPolicyLifecycle = "temporary" | "permanent" | "candidate-for-split";
 
@@ -34,10 +41,33 @@ declare module "*eslint-config/shared-policy.js" {
   }
 
   export const maxLinesPolicy: MaxLinesPolicy;
+  export const configSurfaceEntries: readonly ConfigSurfaceEntry[];
+  export const rootJsConfigFiles: readonly string[];
+  export const rootAndPackageTsConfigFiles: readonly string[];
+  export const tsConfigFiles: readonly string[];
+  export const eslintRulesConfigReincludePatterns: readonly string[];
   export const scriptFixtureIgnores: readonly string[];
   export const scriptTestAssertFunctionNames: readonly string[];
   export const clientSourceFiles: readonly string[];
   export const clientTestAndHelperSourceFiles: readonly string[];
+}
+
+declare module "*eslint-config/config-surfaces.js" {
+  export interface ConfigSurfaceEntry {
+    readonly path: string;
+    readonly language: "js" | "mjs" | "ts";
+    readonly group: "root-js" | "root-package-ts" | "script-ts" | "eslint-rules-ts";
+    readonly coverageStatus: "linted";
+  }
+
+  export const configSurfaceManifestPath: string;
+  export const configSurfaceEntries: readonly ConfigSurfaceEntry[];
+  export const rootJsConfigFiles: readonly string[];
+  export const rootAndPackageTsConfigFiles: readonly string[];
+  export const tsConfigFiles: readonly string[];
+  export const extraConfigFileReincludePatterns: readonly string[];
+  export const eslintRulesConfigReincludePatterns: readonly string[];
+  export const scriptProjectConfigIgnores: readonly string[];
 }
 
 declare module "*eslint-rules/max-lines.js" {

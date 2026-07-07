@@ -15,19 +15,6 @@ import type {
 } from "./client-test-isolation-classifier-types.js";
 
 export { classifyClientTestFileSource } from "./client-test-isolation-classifier-source.js";
-export type {
-  ClassifyClientTestFileSourceOptions,
-  ClassifyClientTestIsolationOptions,
-  ClientTestFileClassification,
-  ClientTestIsolationClassification,
-  ClientTestIsolationClassifierCliResult,
-  ClientTestIsolationMode,
-  ClientTestIsolationReason,
-  ClientTestIsolationTotals,
-  IsolatedClientTestFileClassification,
-  ModuleRegistryMutationMethod,
-  RunClientTestIsolationClassifierCliOptions,
-} from "./client-test-isolation-classifier-types.js";
 
 const JSON_INDENT_SPACES = 2;
 const PROCESS_ARGV_USER_ARGS_START = 2;

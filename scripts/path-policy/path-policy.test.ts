@@ -115,7 +115,7 @@ describe("PATH_POLICY known path surfaces", () => {
     );
     expect(
       matchesAny(
-        ".claude/skills/codex-cli/scripts/codex-run.sh",
+        ".claude/skills/agent-cli/scripts/agent-run.sh",
         PATH_POLICY.shellSurfaces.maintained,
       ),
     ).toBe(true);
@@ -147,6 +147,7 @@ describe("PATH_POLICY known path surfaces", () => {
     expect(PATH_POLICY.scriptSmoke.subjects["test-format-changed"]).toContain(
       "scripts/path-policy/path-policy-smoke-subjects.ts",
     );
+    expect(PATH_POLICY.scriptSmoke.subjects["test-typecheck"]).toContain("scripts/typecheck.sh");
     expect(PATH_POLICY.scriptSmoke.subjects["test-lint-agent-changed"]).toContain(
       "scripts/lint-agent-changed.sh",
     );

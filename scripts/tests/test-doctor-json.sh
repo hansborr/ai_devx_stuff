@@ -1,4 +1,12 @@
 #!/usr/bin/env bash
+# smoke-order: 390
+# smoke-subjects: scripts/doctor.sh
+# smoke-subjects: scripts/dependency-freshness.sh
+# smoke-subjects: scripts/harness-emit-envelope.ts
+# smoke-subjects: scripts/tests/lib/test-git-env.sh
+# smoke-subjects: scripts/tests/test-doctor-json.sh
+# smoke-subjects: harness.controls.json
+# smoke-subjects: packages/shared/src/schemas/harness-diagnostics.ts
 # test-doctor-json.sh — contract smoke tests for `bash scripts/doctor.sh --json`.
 #
 # Doctor's per-sensor output depends on the runtime environment (DB state, env

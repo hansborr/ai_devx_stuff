@@ -46,6 +46,33 @@ function runBashResult(script: string): {
 }
 
 describe("verify step generator", () => {
+  it("keeps the CI core gate routed through generated verify metadata", () => {
+    const ciWorkflow = readFileSync(".github/workflows/ci.yml", "utf8");
+
+    expect(ciWorkflow).toContain("bun run verify");
+    expect(ciWorkflow).not.toContain("bun run verify:parallel");
+    expect(ciWorkflow).toContain("MUSI_VERIFY_LOG_DIR: .musi-ci-verify-logs");
+    expect(ciWorkflow).toContain(".musi-ci-verify-logs/ratchet-diagnostics.json");
+    expect(ciWorkflow).toMatch(/^\s*run: bun run harness:check$/mu);
+    expect(ciWorkflow).not.toMatch(/^\s*run: bun run docs:lint-guidance:check$/mu);
+
+    for (const script of [
+      "format:check",
+      "typecheck",
+      "lint",
+      "lint:suppressions",
+      "lint:ratchet",
+      "lint:ratchet:check-debt-accounting",
+      "lint:ratchet:zero-baseline",
+      "sensor:knip-unused-exports",
+      "docs:lint-coverage-map:audit",
+      "test:scripts",
+      "test",
+    ]) {
+      expect(ciWorkflow).not.toMatch(new RegExp(`^\\s*run: bun run ${script}$`, "mu"));
+    }
+  });
+
   it("renders command arrays and dynamic metadata from the manifest slots", () => {
     const manifest: unknown = JSON.parse(readFixture("manifest.json"));
     const expected = readFixture("expected.sh");
@@ -66,6 +93,60 @@ describe("verify step generator", () => {
 
     expect(() => renderVerifyStepsShellFromManifest(manifest)).toThrow(
       "duplicate control id: verify-wrapper/verify",
+    );
+  });
+
+  it("rejects full verify slot sets that do not cover pre-commit marker bridges", () => {
+    const manifest = {
+      controls: [
+        { id: "verify-wrapper/verify", slots: [{ name: "lint", script: "lint" }] },
+        {
+          id: "verify-wrapper/verify-changed",
+          slots: [
+            { name: "lint", script: "lint:changed" },
+            { name: "typecheck", script: "typecheck" },
+          ],
+        },
+        { id: "verify-wrapper/verify-parallel", slots: [] },
+        {
+          id: "hook/pre-commit",
+          slots: [
+            { name: "lint", script: "lint:changed" },
+            { name: "typecheck", script: "typecheck" },
+          ],
+        },
+      ],
+    };
+
+    expect(() => renderVerifyStepsShellFromManifest(manifest)).toThrow(
+      "verify-wrapper/verify slots must include every hook/pre-commit slot because pre-commit accepts fresh verify success markers; missing: typecheck",
+    );
+  });
+
+  it("rejects changed verify slot sets that do not cover pre-commit marker bridges", () => {
+    const manifest = {
+      controls: [
+        {
+          id: "verify-wrapper/verify",
+          slots: [
+            { name: "lint", script: "lint" },
+            { name: "typecheck", script: "typecheck" },
+          ],
+        },
+        { id: "verify-wrapper/verify-changed", slots: [{ name: "lint", script: "lint:changed" }] },
+        { id: "verify-wrapper/verify-parallel", slots: [] },
+        {
+          id: "hook/pre-commit",
+          slots: [
+            { name: "lint", script: "lint:changed" },
+            { name: "typecheck", script: "typecheck" },
+          ],
+        },
+      ],
+    };
+
+    expect(() => renderVerifyStepsShellFromManifest(manifest)).toThrow(
+      "verify-wrapper/verify-changed slots must include every hook/pre-commit slot because pre-commit accepts fresh verify:changed success markers; missing: typecheck",
     );
   });
 
@@ -323,8 +404,41 @@ printf '%s\\n' "\${MUSI_RESOLVED_SLOT_CMD[*]}"
     );
   });
 
+  it("points runtime resolver invariants at verify-step regeneration", () => {
+    const unknownSlot = runBashResult(`
+set -u
+LOG_DIR=/tmp/musi-verify-steps-test
+TIMINGS_FILE="$LOG_DIR/test-timings.json"
+. scripts/fixtures/generate-verify-steps/expected.sh
+. scripts/verify/steps-lib.sh
+musi_resolve_slot_cmd verify nope
+`);
+
+    expect(unknownSlot.status).toBe(2);
+    expect(unknownSlot.stderr).toContain("verify steps: unknown slot nope for consumer verify");
+    expect(unknownSlot.stderr).toContain("bun run verify:steps:check");
+    expect(unknownSlot.stderr).toContain("scripts/harness/generate-verify-steps.ts");
+
+    const missingArray = runBashResult(`
+set -u
+LOG_DIR=/tmp/musi-verify-steps-test
+TIMINGS_FILE="$LOG_DIR/test-timings.json"
+. scripts/fixtures/generate-verify-steps/expected.sh
+. scripts/verify/steps-lib.sh
+unset MUSI_VERIFY_LINT_CMD
+musi_resolve_slot_cmd verify lint
+`);
+
+    expect(missingArray.status).toBe(2);
+    expect(missingArray.stderr).toContain(
+      "verify steps: generated command array is missing: MUSI_VERIFY_LINT_CMD",
+    );
+    expect(missingArray.stderr).toContain("bun run verify:steps:check");
+    expect(missingArray.stderr).toContain("scripts/harness/generate-verify-steps.ts");
+  });
+
   it("preserves staged-script classifier rc 2 asymmetry by consumer", () => {
-    const output = runBash(`
+    const result = runBashResult(`
 set -u
 LOG_DIR=/tmp/musi-verify-steps-test
 TIMINGS_FILE="$LOG_DIR/test-timings.json"
@@ -338,7 +452,11 @@ IFS='|'
 printf 'changed:%s\\n' "\${MUSI_RESOLVED_SLOT_CMD[*]}"
 `);
 
-    expect(output).toBe("pre:100:0\nchanged:bun|run|test:scripts:changed\n");
+    expect(result.status).toBe(0);
+    expect(result.stdout).toBe("pre:100:0\nchanged:bun|run|test:scripts:changed\n");
+    expect(result.stderr).toContain(
+      "verify steps: SKIP scripts (classifier uncertain — CI runs the full suite)",
+    );
   });
 
   it("does not let unexpected staged-script classifier rc values impersonate skip", () => {

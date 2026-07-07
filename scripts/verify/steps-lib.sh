@@ -32,6 +32,10 @@ if [ "$musi_verify_has_pre_commit_consumer" -ne 1 ]; then
 fi
 unset musi_verify_consumer musi_verify_has_pre_commit_consumer
 
+musi_verify_steps_print_regen_guidance() {
+  printf '%s\n' 'verify steps: run `bun run verify:steps:check` (and `bun run harness:wiring:check` for hook wiring); regenerate with `bun run verify:steps`, fallback direct script: scripts/harness/generate-verify-steps.ts' >&2
+}
+
 musi_resolve_base_slot_cmd() {
   local consumer="$1" slot="$2" key cmd_var
 
@@ -39,10 +43,12 @@ musi_resolve_base_slot_cmd() {
   cmd_var="${MUSI_VERIFY_SLOT_CMD_VAR[$key]:-}"
   if [ -z "$cmd_var" ]; then
     printf 'verify steps: unknown slot %s for consumer %s\n' "$slot" "$consumer" >&2
+    musi_verify_steps_print_regen_guidance
     return 2
   fi
   if ! declare -p "$cmd_var" >/dev/null 2>&1; then
     printf 'verify steps: generated command array is missing: %s\n' "$cmd_var" >&2
+    musi_verify_steps_print_regen_guidance
     return 2
   fi
 
@@ -90,6 +96,7 @@ musi_resolve_staged_script_cmd() {
       ;;
     2)
       if [ "$consumer" = "pre_commit" ]; then
+        printf 'verify steps: SKIP scripts (classifier uncertain — CI runs the full suite)\n' >&2
         MUSI_RESOLVED_SLOT_CMD=()
         return "$MUSI_VERIFY_SLOT_SKIP_RC"
       fi
@@ -143,6 +150,8 @@ musi_resolve_slot_cmd() {
   fi
 
   dynamic="${MUSI_VERIFY_SLOT_DYNAMIC[$key]:-}"
+  # Keep these literal arms in sync with VERIFY_STEP_DYNAMIC_RESOLVERS in
+  # scripts/harness/verify-step-schema.ts; harness:check enforces the binding.
   case "$dynamic" in
     "")
       musi_resolve_base_slot_cmd "$consumer" "$slot"
@@ -158,4 +167,165 @@ musi_resolve_slot_cmd() {
       return 2
       ;;
   esac
+}
+
+musi_parallel_display_label() {
+  local label="$1"
+  if [ -n "$label" ]; then
+    printf '%s\n' "$label"
+  else
+    printf '%s\n' "pre-commit"
+  fi
+}
+
+musi_defer_dist_slot() {
+  local slot="$1"
+  case "$slot" in
+    lint | ratchet) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+musi_record_pending_dist_failure() {
+  local slot="$1" index="$2" message="$3" step_exits_name="$4"
+  local -n step_exits_ref="$step_exits_name"
+
+  printf '%s\n' "$message" > "$LOG_DIR/${slot}.log"
+  step_exits_ref[$index]=1
+}
+
+musi_run_parallel_verify_steps() {
+  if [ "$#" -ne 9 ]; then
+    printf 'usage: musi_run_parallel_verify_steps <consumer> <steps-array> <meta-mode> <label> <repo-root> <step-names-array> <step-pids-array> <step-exits-array> <parallel-pids-array>\n' >&2
+    return 2
+  fi
+
+  local consumer="$1" steps_array_name="$2" meta_mode="$3" label="$4" repo_root="$5"
+  local step_names_name="$6" step_pids_name="$7" step_exits_name="$8" parallel_pids_name="$9"
+  local -n steps_ref="$steps_array_name"
+  local -n step_names_ref="$step_names_name"
+  local -n step_pids_ref="$step_pids_name"
+  # shellcheck disable=SC2178 # Nameref target is the caller's step exits array.
+  local -n step_exits_ref="$step_exits_name"
+  local -n parallel_pids_ref="$parallel_pids_name"
+  local -a pending_lint_cmd=() pending_ratchet_cmd=()
+  local slot resolve_rc index pid display_label
+  local defer_dist_slots=0 pending_lint_index=-1 pending_ratchet_index=-1 pending_dist_count=0
+  local typecheck_index=-1 dist_ready
+
+  display_label="$(musi_parallel_display_label "$label")"
+  if ! musi_lint_dist_outputs_present "$repo_root"; then
+    defer_dist_slots=1
+  fi
+
+  for slot in "${steps_ref[@]}"; do
+    resolve_rc=0
+    musi_resolve_slot_cmd "$consumer" "$slot" || resolve_rc=$?
+    if [ "$resolve_rc" -eq "$MUSI_VERIFY_SLOT_SKIP_RC" ]; then
+      continue
+    fi
+    if [ "$resolve_rc" -ne 0 ]; then
+      if [ -n "$label" ]; then
+        printf '%s: failed to resolve %s step for %s (rc=%s)\n' \
+          "$label" "$slot" "$consumer" "$resolve_rc" > "$LOG_DIR/${slot}.log"
+      else
+        printf 'pre-commit: failed to resolve %s step (rc=%s)\n' \
+          "$slot" "$resolve_rc" > "$LOG_DIR/${slot}.log"
+      fi
+      step_names_ref+=("$slot")
+      step_pids_ref+=("")
+      step_exits_ref+=("$resolve_rc")
+      break
+    fi
+    if [ "$defer_dist_slots" -eq 1 ] && musi_defer_dist_slot "$slot"; then
+      case "$slot" in
+        lint)
+          pending_lint_index="${#step_names_ref[@]}"
+          pending_lint_cmd=("${MUSI_RESOLVED_SLOT_CMD[@]}")
+          ;;
+        ratchet)
+          pending_ratchet_index="${#step_names_ref[@]}"
+          pending_ratchet_cmd=("${MUSI_RESOLVED_SLOT_CMD[@]}")
+          ;;
+      esac
+      pending_dist_count=$((pending_dist_count + 1))
+      step_names_ref+=("$slot")
+      step_pids_ref+=("")
+      step_exits_ref+=("")
+      continue
+    fi
+    musi_run_parallel_step "$meta_mode" "$label" "$slot" "${MUSI_RESOLVED_SLOT_CMD[@]}"
+    step_names_ref+=("$slot")
+    step_pids_ref+=("$STEP_PID")
+    step_exits_ref+=("")
+    parallel_pids_ref+=("$STEP_PID")
+    if [ "$slot" = typecheck ]; then
+      typecheck_index=$(( ${#step_names_ref[@]} - 1 ))
+    fi
+  done
+
+  if [ "$pending_dist_count" -gt 0 ]; then
+    dist_ready=1
+    if [ "$typecheck_index" -lt 0 ] || [ -z "${step_pids_ref[$typecheck_index]}" ]; then
+      if [ "$pending_lint_index" -ge 0 ]; then
+        musi_record_pending_dist_failure lint "$pending_lint_index" \
+          "$display_label: cannot run lint because required dist outputs are missing and $consumer has no typecheck slot to produce them" \
+          "$step_exits_name"
+      fi
+      if [ "$pending_ratchet_index" -ge 0 ]; then
+        musi_record_pending_dist_failure ratchet "$pending_ratchet_index" \
+          "$display_label: cannot run ratchet because required dist outputs are missing and $consumer has no typecheck slot to produce them" \
+          "$step_exits_name"
+      fi
+      dist_ready=0
+    elif [ "$typecheck_index" -ge 0 ] && [ -n "${step_pids_ref[$typecheck_index]}" ]; then
+      pid="${step_pids_ref[$typecheck_index]}"
+      if [ -z "${step_exits_ref[$typecheck_index]}" ]; then
+        if wait "$pid"; then
+          step_exits_ref[$typecheck_index]=0
+        else
+          step_exits_ref[$typecheck_index]=$?
+        fi
+      fi
+      if [ "${step_exits_ref[$typecheck_index]}" -ne 0 ]; then
+        dist_ready=0
+      fi
+    fi
+
+    if [ "$dist_ready" -eq 1 ]; then
+      if [ "$pending_lint_index" -ge 0 ]; then
+        musi_run_parallel_step "$meta_mode" "$label" lint "${pending_lint_cmd[@]}"
+        step_pids_ref[$pending_lint_index]="$STEP_PID"
+        parallel_pids_ref+=("$STEP_PID")
+      fi
+      if [ "$pending_ratchet_index" -ge 0 ]; then
+        musi_run_parallel_step "$meta_mode" "$label" ratchet "${pending_ratchet_cmd[@]}"
+        step_pids_ref[$pending_ratchet_index]="$STEP_PID"
+        parallel_pids_ref+=("$STEP_PID")
+      fi
+    elif [ "$typecheck_index" -ge 0 ] && [ -n "${step_pids_ref[$typecheck_index]}" ]; then
+      if [ "$pending_lint_index" -ge 0 ]; then
+        musi_record_pending_dist_failure lint "$pending_lint_index" \
+          "$display_label: skipped lint because typecheck failed before required dist outputs were available" \
+          "$step_exits_name"
+      fi
+      if [ "$pending_ratchet_index" -ge 0 ]; then
+        musi_record_pending_dist_failure ratchet "$pending_ratchet_index" \
+          "$display_label: skipped ratchet because typecheck failed before required dist outputs were available" \
+          "$step_exits_name"
+      fi
+    fi
+  fi
+
+  for index in "${!step_names_ref[@]}"; do
+    [ -n "${step_exits_ref[$index]}" ] && continue
+    pid="${step_pids_ref[$index]}"
+    [ -n "$pid" ] || continue
+    if wait "$pid"; then
+      step_exits_ref[$index]=0
+    else
+      step_exits_ref[$index]=$?
+    fi
+  done
+  parallel_pids_ref=()
 }

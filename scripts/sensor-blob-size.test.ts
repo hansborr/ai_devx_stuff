@@ -175,11 +175,11 @@ describe("runBlobSizeCli", () => {
       {
         severity: "warn",
         file: ".blob-size-allowlist:1",
-        message: "allowlist entry must be '<relative-path> # reason'",
+        message: "allowlist entry must be '<relative-path> # reason'; got 'docs/reference.pdf'",
       },
     ]);
     expect(result.stdout).toContain(
-      "WARN: .blob-size-allowlist:1: allowlist entry must be '<relative-path> # reason'",
+      "WARN: .blob-size-allowlist:1: allowlist entry must be '<relative-path> # reason'; got 'docs/reference.pdf'",
     );
   });
 });

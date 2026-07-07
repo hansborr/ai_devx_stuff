@@ -247,26 +247,4 @@ POST_PLAIN_OUTPUT=$(
 )
 assert_no_output "$POST_PLAIN_OUTPUT" "copilot post hook on unwrapped command"
 
-# --- stop-reminder Copilot wiring ----------------------------------------------
-STOP_BLOCK_BODY="$TMP_ROOT/stop-block-body.sh"
-printf '#!/bin/bash\nprintf "stop reason from body\\n" >&2\nexit 2\n' > "$STOP_BLOCK_BODY"
-STOP_BLOCK_OUTPUT=$(
-  printf '{"sessionId":"copilot-wiring-session","stopReason":"end_turn"}' \
-    | AI_COPILOT_STOP_BODY="$STOP_BLOCK_BODY" \
-      bash "$REPO_ROOT/.copilot/hooks/stop-reminder.sh"
-)
-assert_hook_json "$STOP_BLOCK_OUTPUT"
-[ "$(jq -r '.decision // empty' <<< "$STOP_BLOCK_OUTPUT")" = "block" ] \
-  || fail "copilot stop hook should translate exit 2 into a block decision: $STOP_BLOCK_OUTPUT"
-assert_contains "$(jq -r '.reason // empty' <<< "$STOP_BLOCK_OUTPUT")" "stop reason from body"
-
-STOP_OK_BODY="$TMP_ROOT/stop-ok-body.sh"
-printf '#!/bin/bash\nexit 0\n' > "$STOP_OK_BODY"
-STOP_OK_OUTPUT=$(
-  printf '{"sessionId":"copilot-wiring-session","stopReason":"end_turn"}' \
-    | AI_COPILOT_STOP_BODY="$STOP_OK_BODY" \
-      bash "$REPO_ROOT/.copilot/hooks/stop-reminder.sh"
-)
-assert_no_output "$STOP_OK_OUTPUT" "copilot stop hook when the body allows the stop"
-
 printf 'copilot wiring ai-hooks tests passed\n'

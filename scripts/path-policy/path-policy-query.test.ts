@@ -7,6 +7,7 @@ import {
   parsePathPolicyInput,
   queryPathPolicy,
 } from "./path-policy-query-core.js";
+import { SCRIPT_SMOKE_TEST_NAMES } from "./path-policy-smoke-subjects.js";
 
 function runPathPolicyQuery(query: string, paths: readonly string[]): SpawnSyncReturns<string> {
   const result = spawnSync("bun", ["scripts/path-policy/path-policy-query.ts", query], {
@@ -187,6 +188,9 @@ describe("path policy classification", () => {
     expect(
       queryPathPolicy("deletion-class:script-smoke-sensitive", ["scripts/deleted.sh"]),
     ).toEqual(["scripts/deleted.sh"]);
+    expect(queryPathPolicy("script-smoke-tests", ["scripts/typecheck.sh"])).toEqual([
+      "test-typecheck",
+    ]);
   });
 
   it("routes Vitest timeout config changes to the slow-test smoke", () => {
@@ -203,6 +207,12 @@ describe("path policy classification", () => {
     for (const configPath of timeoutConfigPaths) {
       expect(queryPathPolicy("script-smoke-tests", [configPath])).toContain("test-test-slow");
     }
+  });
+
+  it("routes new smoke-test file changes to the smoke metadata freshness smoke", () => {
+    expect(queryPathPolicy("script-smoke-tests", ["scripts/tests/test-new-smoke.sh"])).toEqual([
+      "test-harness-check",
+    ]);
   });
 
   it("classifies deletion-like paths by policy only and ignores unsupported paths", () => {
@@ -248,53 +258,7 @@ describe("path-policy-query CLI", () => {
     const result = runPathPolicyQuery("script-smoke-test-names", []);
 
     expect(result.status).toBe(0);
-    expect(parsePathPolicyInput(result.stdout)).toEqual([
-      "test-verify",
-      "test-verify-async",
-      "test-verify-logs",
-      "test-verify-history",
-      "test-worktree-db",
-      "test-dependency-freshness",
-      "test-pre-push",
-      "test-ai-hooks",
-      "test-eslint-disable-register",
-      "test-suppression-register",
-      "test-codemod-structured-logging-fix",
-      "test-codemod-trpc-shared-input",
-      "test-codemod-trpc-shared-output",
-      "test-codemod-expand-barrel",
-      "test-codemod-concurrency-guard",
-      "test-code-intel",
-      "test-format-changed",
-      "test-lint-changed",
-      "test-lint-dist-preflight",
-      "test-lint-fix-dist-preflight",
-      "test-test-dist-preflight",
-      "test-lint-shell",
-      "test-lint-config-sensors",
-      "test-test-all",
-      "test-test-client",
-      "test-test-changed",
-      "test-test-slow",
-      "test-generate-module-index",
-      "test-generate-lint-guidance",
-      "test-generate-harness-controls",
-      "test-harness-check",
-      "test-lint-agent",
-      "test-lint-agent-changed",
-      "test-harness-emit-envelope",
-      "test-slow-drift-audit",
-      "test-lint-ratchet",
-      "test-migration-safety-scan",
-      "test-doctor-json",
-      "test-parallel-runner",
-      "test-post-create",
-      "test-verify-metadata",
-      "test-test-scripts",
-      "test-check-fast-uri-override",
-      "test-check-eslint-react-peer-exception",
-      "test-skill-dispatch-wrappers",
-    ]);
+    expect(parsePathPolicyInput(result.stdout)).toEqual(SCRIPT_SMOKE_TEST_NAMES);
   });
 
   it("reports unsupported query names without stdout", () => {

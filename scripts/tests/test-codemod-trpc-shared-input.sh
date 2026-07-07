@@ -1,4 +1,11 @@
 #!/bin/bash
+# smoke-order: 130
+# smoke-subjects: scripts/codemods/trpc-shared-input-candidates.ts
+# smoke-subjects: scripts/codemods/trpc-shared-input.ts
+# smoke-subjects: scripts/codemods/lib/
+# smoke-subjects: scripts/tests/test-codemod-trpc-shared-input.sh
+# smoke-subjects: package.json
+# smoke-subjects: tsconfig.scripts.json
 # Thin CLI smoke test for scripts/codemods/trpc-shared-input.ts.
 
 set -u

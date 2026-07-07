@@ -208,6 +208,8 @@ LINT_COVERAGE_CONTEXT=$(lint_coverage_context "$LINT_COVERAGE_OUTPUT")
 assert_contains "$LINT_COVERAGE_CONTEXT" "NOT covered by ESLint at all"
 assert_contains "$LINT_COVERAGE_CONTEXT" "  - $LINT_COVERAGE_UNCOVERED_JSONC_REL"
 assert_contains "$LINT_COVERAGE_CONTEXT" "lint-coverage-map.md"
+assert_contains "$LINT_COVERAGE_CONTEXT" "bun run docs:lint-coverage-map:suggest"
+assert_contains "$LINT_COVERAGE_CONTEXT" $'\nbun run docs:lint-coverage-map:suggest\n'
 LINT_COVERAGE_EXPECTED_LOG=$(printf 'eslint\t--print-config\t%s' "$LINT_COVERAGE_UNCOVERED_JSONC")
 [ "$(cat "$LINT_COVERAGE_PINNED_LOG")" = "$LINT_COVERAGE_EXPECTED_LOG" ] \
   || fail "Claude lint coverage JSONC command log mismatch: $(cat "$LINT_COVERAGE_PINNED_LOG")"
@@ -223,6 +225,9 @@ LINT_COVERAGE_CONTEXT=$(lint_coverage_context "$LINT_COVERAGE_OUTPUT")
 assert_contains "$LINT_COVERAGE_CONTEXT" "covered only by lint:ratchet"
 assert_contains "$LINT_COVERAGE_CONTEXT" "  - $LINT_COVERAGE_RATCHETED_TS_REL (fixture/rule)"
 assert_contains "$LINT_COVERAGE_CONTEXT" "accepted floor, not an error"
+assert_contains "$LINT_COVERAGE_CONTEXT" "For the full ratchet picture: bun run lint:ratchet"
+assert_contains "$LINT_COVERAGE_CONTEXT" "For structured local/* guidance only: bun run lint:agent:local-rules:changed"
+assert_not_contains "$LINT_COVERAGE_CONTEXT" "For structured per-rule fix guidance"
 assert_not_contains "$LINT_COVERAGE_CONTEXT" "NOT covered by ESLint at all"
 LINT_COVERAGE_EXPECTED_LOG=$(printf 'eslint\t--print-config\t%s' "$LINT_COVERAGE_RATCHETED_TS")
 [ "$(cat "$LINT_COVERAGE_PINNED_LOG")" = "$LINT_COVERAGE_EXPECTED_LOG" ] \

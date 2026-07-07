@@ -1,5 +1,6 @@
 import type {
   LintRatchetBaseline,
+  LintRatchetBaselineValidationFailure,
   LintRatchetRuleSourceHashesById,
 } from "./lint-ratchet-baseline.js";
 import {
@@ -9,20 +10,16 @@ import {
 import type { LintRatchetConfig } from "./lint-ratchet-config.js";
 import { BASELINE_FILENAME } from "./paths.js";
 
-const RULE_SOURCE_STALE_FAILURE_PATTERN =
-  /^ratchet\/[a-z0-9]+(?:-[a-z0-9]+)*\.ruleSourceHash is stale \(run "bun run lint:ratchet:update" to regenerate\)$/u;
-
 export interface ParsedBaselineWithRuleSourceDrift {
   readonly baseline?: LintRatchetBaseline;
   readonly failures: readonly string[];
   readonly ruleSourceIdentityDrift: boolean;
 }
 
-function isOnlyRuleSourceStaleFailure(failures: readonly string[]): boolean {
-  return (
-    failures.length > 0 &&
-    failures.every((failure) => RULE_SOURCE_STALE_FAILURE_PATTERN.test(failure))
-  );
+function isOnlyRuleSourceStaleFailure(
+  failures: readonly LintRatchetBaselineValidationFailure[],
+): boolean {
+  return failures.length > 0 && failures.every((failure) => failure.code === "rule-source-drift");
 }
 
 export function parseBaselineWithRuleSourceDrift(
@@ -34,7 +31,7 @@ export function parseBaselineWithRuleSourceDrift(
   if (strict.baseline !== undefined) {
     return { baseline: strict.baseline, failures: [], ruleSourceIdentityDrift: false };
   }
-  if (!isOnlyRuleSourceStaleFailure(strict.failures)) {
+  if (!isOnlyRuleSourceStaleFailure(strict.validationFailures)) {
     return { failures: strict.failures, ruleSourceIdentityDrift: false };
   }
 

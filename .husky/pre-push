@@ -12,6 +12,9 @@ set -u
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 
 # shellcheck source=/dev/null
+. "$REPO_ROOT/scripts/lib/gate-env.sh"
+
+# shellcheck source=/dev/null
 . "$REPO_ROOT/scripts/lib/verify-metadata.sh"
 
 ZERO_SHA="0000000000000000000000000000000000000000"
@@ -25,12 +28,19 @@ musi_pre_push_fast_log() {
 }
 
 musi_pre_push_freshness_seconds() {
-  local value="${MUSI_PRE_PUSH_VERIFY_FRESHNESS_SECONDS:-120}"
+  # HEAD plus ai_worktree_fingerprint pins tracked files, tracked diffs, and
+  # untracked visible files. This window only bounds drift the fingerprint cannot
+  # see: ignored build/dependency artifacts, local DB state, and tool/env
+  # versions. Full verify commonly takes several minutes, so one hour avoids
+  # forcing redundant verifies immediately after a clean run while still limiting
+  # unseen local-state drift. The env override may tighten or loosen that bound.
+  local default=3600
+  local value="${MUSI_PRE_PUSH_VERIFY_FRESHNESS_SECONDS:-$default}"
 
   if [[ "$value" =~ ^[1-9][0-9]*$ ]]; then
     printf '%s' "$value"
   else
-    printf '120'
+    printf '%s' "$default"
   fi
 }
 
@@ -127,7 +137,7 @@ pre-push: $detail
 
 Run one of the sanctioned full-verification paths, then retry the push:
   bash scripts/land.sh
-  NODE_OPTIONS="--max-old-space-size=6144" bun run verify
+  bun run verify
 
 Bypass caveat: git push --no-verify skips this local hook. Repository AI policy
 blocks agent-issued push bypass attempts, but a human bypass still skips this

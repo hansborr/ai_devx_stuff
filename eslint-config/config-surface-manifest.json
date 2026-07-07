@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 1,
+  "surfaces": [
+    {
+      "path": "eslint.config.js",
+      "language": "js",
+      "group": "root-js",
+      "coverageStatus": "linted"
+    },
+    {
+      "path": "commitlint.config.js",
+      "language": "js",
+      "group": "root-js",
+      "coverageStatus": "linted"
+    },
+    {
+      "path": "stryker.config.mjs",
+      "language": "mjs",
+      "group": "root-js",
+      "coverageStatus": "linted"
+    },
+    {
+      "path": "stryker.config.server.mjs",
+      "language": "mjs",
+      "group": "root-js",
+      "coverageStatus": "linted"
+    },
+    {
+      "path": "knip.config.ts",
+      "language": "ts",
+      "group": "root-package-ts",
+      "coverageStatus": "linted"
+    },
+    {
+      "path": "playwright.config.ts",
+      "language": "ts",
+      "group": "root-package-ts",
+      "coverageStatus": "linted"
+    },
+    {
+      "path": "vitest.config.ts",
+      "language": "ts",
+      "group": "root-package-ts",
+      "coverageStatus": "linted"
+    },
+    {
+      "path": "vitest.slow.config.ts",
+      "language": "ts",
+      "group": "root-package-ts",
+      "coverageStatus": "linted"
+    },
+    {
+      "path": "packages/client/vite.config.ts",
+      "language": "ts",
+      "group": "root-package-ts",
+      "coverageStatus": "linted"
+    },
+    {
+      "path": "packages/client/vitest.config.ts",
+      "language": "ts",
+      "group": "root-package-ts",
+      "coverageStatus": "linted"
+    },
+    {
+      "path": "packages/server/prisma.config.ts",
+      "language": "ts",
+      "group": "root-package-ts",
+      "coverageStatus": "linted"
+    },
+    {
+      "path": "packages/server/vitest.config.ts",
+      "language": "ts",
+      "group": "root-package-ts",
+      "coverageStatus": "linted"
+    },
+    {
+      "path": "packages/server/vitest.mutation.config.ts",
+      "language": "ts",
+      "group": "root-package-ts",
+      "coverageStatus": "linted"
+    },
+    {
+      "path": "packages/shared/vitest.config.ts",
+      "language": "ts",
+      "group": "root-package-ts",
+      "coverageStatus": "linted"
+    },
+    {
+      "path": "scripts/vitest.config.ts",
+      "language": "ts",
+      "group": "script-ts",
+      "coverageStatus": "linted"
+    },
+    {
+      "path": "eslint-rules/vitest.config.ts",
+      "language": "ts",
+      "group": "eslint-rules-ts",
+      "coverageStatus": "linted"
+    }
+  ]
+}

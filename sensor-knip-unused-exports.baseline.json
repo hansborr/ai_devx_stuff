@@ -2,11 +2,11 @@
   "version": 1,
   "tool": "knip",
   "metric": "unused-export-symbols",
-  "includeCategories": "exports,types,enumMembers,namespaceMembers",
-  "count": 282,
+  "includeCategories": "exports,types,enumMembers,namespaceMembers,unlisted,dependencies",
+  "count": 190,
   "categories": {
-    "exports": 148,
-    "types": 134,
+    "exports": 75,
+    "types": 115,
     "enumMembers": 0,
     "namespaceMembers": 0
   }

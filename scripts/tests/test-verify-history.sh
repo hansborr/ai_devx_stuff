@@ -1,4 +1,18 @@
 #!/usr/bin/env bash
+# smoke-order: 040
+# smoke-subjects: scripts/verify-history.sh
+# smoke-subjects: scripts/tests/test-verify-history.sh
+# smoke-subjects: scripts/lib/verify-metadata.sh
+# smoke-subjects: scripts/path-policy/path-policy-query.ts
+# smoke-subjects: scripts/path-policy/path-policy-query-core.ts
+# smoke-subjects: scripts/path-policy/path-policy.ts
+# smoke-subjects: scripts/path-policy/path-policy-smoke-subjects.ts
+# smoke-subjects: scripts/path-policy/path-policy-smoke-subjects-data.ts
+# smoke-subjects: scripts/tests/lib/test-git-env.sh
+# smoke-subjects: scripts/verify/steps.generated.sh
+# smoke-subjects: scripts/verify/steps-lib.sh
+# smoke-subjects: .husky/pre-commit
+# smoke-subjects: package.json
 # Pure-shell smoke tests for verify/pre-commit run-meta history persistence.
 
 set -euo pipefail

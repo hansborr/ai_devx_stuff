@@ -1,11 +1,14 @@
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { configSurfaceEntries as defaultConfigSurfaceEntries } from "../eslint-config/config-surfaces.js";
 import {
   collectEslintReachFindings,
   createEslintReachChecker,
 } from "./lint-coverage-map-check-eslint-reach.js";
 import {
+  collectConfigSurfaceCoverageFindings,
+  collectConflictingCoverageFindings,
   collectRowFindings,
   collectStalePathFindings,
   collectUnaccountedFileFindings,
@@ -35,6 +38,21 @@ import { matchesRatchet } from "./lint-ratchet/ratchet-globs.js";
 export type { LintCoverageMapCheckOptions, LintCoverageMapCheckResult };
 
 const PROCESS_ARGV_USER_ARGS_START = 2;
+const manifestConfigSurfaceEntries =
+  defaultConfigSurfaceEntries as LintCoverageMapCheckOptions["configSurfaceEntries"]; // type-assertion-boundary: interop - JS config-surface loader validates manifest entries before export.
+const EMPTY_CONFIG_SURFACE_ENTRIES: NonNullable<
+  LintCoverageMapCheckOptions["configSurfaceEntries"]
+> = [];
+
+function configSurfaceEntriesForOptions(
+  options: LintCoverageMapCheckOptions,
+): NonNullable<LintCoverageMapCheckOptions["configSurfaceEntries"]> {
+  if (options.configSurfaceEntries !== undefined) return options.configSurfaceEntries;
+  if (options.cwd === undefined && options.mapText === undefined && options.mapPath === undefined) {
+    return manifestConfigSurfaceEntries ?? EMPTY_CONFIG_SURFACE_ENTRIES;
+  }
+  return EMPTY_CONFIG_SURFACE_ENTRIES;
+}
 
 export async function runLintCoverageMapCheck(
   options: LintCoverageMapCheckOptions = {},
@@ -46,9 +64,23 @@ export async function runLintCoverageMapCheck(
   const worktreeExists = options.worktreeExists ?? createWorktreeExists(cwd);
   const rows = parseRows(mapText);
   const pathPatterns = rows.flatMap(extractPathPatterns);
+  const configSurfaceEntries = configSurfaceEntriesForOptions(options);
   const findings: CheckFinding[] = [
     ...collectStalePathFindings(pathPatterns, trackedFiles, worktreeExists),
     ...collectRowFindings(rows, ratchetIds),
+    ...collectConflictingCoverageFindings(
+      trackedFiles,
+      rows,
+      extractPathPatterns,
+      trackedFileIsInScope,
+    ),
+    ...collectConfigSurfaceCoverageFindings({
+      configSurfaceEntries,
+      extractPathPatterns,
+      rows,
+      trackedFileIsInScope,
+      trackedFiles,
+    }),
     ...collectUnaccountedFileFindings(trackedFiles, pathPatterns, trackedFileIsInScope),
     ...(await collectEslintReachFindings({
       checkEslintReach: options.checkEslintReach,

@@ -10,12 +10,11 @@ import {
   newestTimestamp,
   updateTouchDates,
 } from "./hotspots-history.js";
+import { DAY_MS } from "./time-constants.js";
 
 export const DEFAULT_THRASH_MIN_REVISIONS = 3;
 export const DEFAULT_THRASH_MAX_NET_LINES_PER_REVISION = 5;
 export const DEFAULT_THRASH_YOUNG_DAYS = 7;
-
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 export type ReduceThrashOptions = {
   readonly top: number;

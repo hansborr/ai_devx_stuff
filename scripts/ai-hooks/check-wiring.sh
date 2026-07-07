@@ -36,15 +36,13 @@ assert_shim_exec_targets() {
 }
 
 # Copilot shims run bodies through the copilot-adapter translation instead of
-# exec, so the shim→body edge is either the `ai_copilot_dispatch ... "$HOOK_LIB/<body>.sh"`
-# body argument or the stop-reminder shim's `$REPO_ROOT/scripts/ai-hooks/<body>.sh`
-# fallback. Sourced helper references are not body edges.
+# exec, so the shim→body edge is the `ai_copilot_dispatch ... "$HOOK_LIB/<body>.sh"`
+# body argument. Sourced helper references are not body edges.
 copilot_shim_body_refs() {
   local shim="$1"
 
   sed -nE \
     -e 's/.*ai_copilot_dispatch[[:space:]][^#]*"\$HOOK_LIB\/([A-Za-z0-9._-]+\.sh)".*/$HOOK_LIB\/\1/p' \
-    -e 's/.*AI_COPILOT_STOP_BODY:-\$REPO_ROOT\/(scripts\/ai-hooks\/[A-Za-z0-9._-]+\.sh).*/$REPO_ROOT\/\1/p' \
     "$shim"
 }
 
@@ -134,14 +132,6 @@ printf '#!/bin/bash\n. "$HOOK_LIB/common.sh"\n. "$HOOK_LIB/copilot-adapter.sh"\n
   > "$SHIM_FIXTURE_DIR/copilot-source-only.sh"
 if (assert_copilot_shim_body_targets "$SHIM_FIXTURE_DIR/copilot-source-only.sh") 2>/dev/null; then
   fail "copilot shim body assertion should reject helper-only source references"
-fi
-printf '#!/bin/bash\nSTOP_BODY="${AI_COPILOT_STOP_BODY:-$REPO_ROOT/scripts/ai-hooks/check-wiring.sh}"\n' \
-  > "$SHIM_FIXTURE_DIR/copilot-stop-present-body.sh"
-assert_copilot_shim_body_targets "$SHIM_FIXTURE_DIR/copilot-stop-present-body.sh"
-printf '#!/bin/bash\nSTOP_BODY="${AI_COPILOT_STOP_BODY:-$REPO_ROOT/scripts/ai-hooks/no-such-body.sh}"\n' \
-  > "$SHIM_FIXTURE_DIR/copilot-stop-missing-body.sh"
-if (assert_copilot_shim_body_targets "$SHIM_FIXTURE_DIR/copilot-stop-missing-body.sh") 2>/dev/null; then
-  fail "copilot stop body assertion should reject a missing body"
 fi
 printf '#!/bin/bash\nexit 0\n' > "$SHIM_FIXTURE_DIR/copilot-no-body.sh"
 if (assert_copilot_shim_body_targets "$SHIM_FIXTURE_DIR/copilot-no-body.sh") 2>/dev/null; then

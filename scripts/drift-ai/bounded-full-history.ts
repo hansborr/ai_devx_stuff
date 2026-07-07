@@ -13,10 +13,10 @@ import {
 import { outputCapErrorMessage, timeoutErrorMessage } from "./command-error-classification.js";
 import { DEFAULT_DRIFT_AI_CONFIG, type DriftAiIgnoreConfig } from "./config.js";
 import type { GitRunner } from "./git-changed-scope.js";
+import { buildGitLogWalkArgs } from "./hotspots-git-log.js";
 import {
   type CommitRecord,
   filterGitLogRecords,
-  GIT_LOG_FORMAT,
   isPartialClone,
   parseGitLog,
 } from "./hotspots-history.js";
@@ -24,9 +24,9 @@ import type { PrototypeCap } from "./prototype-advisory.js";
 
 const FULL_HISTORY_MAX_BUFFER_BYTES = 512 * 1024 * 1024;
 
-export const DEFAULT_FULL_HISTORY_MAX_COMMITS = 5_000;
-export const DEFAULT_FULL_HISTORY_MAX_FILES = 20_000;
-export const DEFAULT_FULL_HISTORY_TIMEOUT_MS = 30_000;
+const DEFAULT_FULL_HISTORY_MAX_COMMITS = 5_000;
+const DEFAULT_FULL_HISTORY_MAX_FILES = 20_000;
+const DEFAULT_FULL_HISTORY_TIMEOUT_MS = 30_000;
 
 export type BoundedHistoryGitRunner = (
   args: readonly string[],
@@ -71,7 +71,7 @@ export type BoundedHistoryRequestedCaps = {
   readonly timeoutMs: number;
 };
 
-export type BoundedHistoryScannedRange = {
+type BoundedHistoryScannedRange = {
   readonly since: string | null;
   readonly newestCommitHash: string | null;
   readonly newestCommitDate: string | null;
@@ -225,15 +225,11 @@ function buildFullHistoryArgs(
   caps: BoundedHistoryRequestedCaps,
   numstat: boolean,
 ): readonly string[] {
-  const args = ["log", "--no-merges", "--no-renames"];
-  if (caps.since !== null) args.push(`--since=${caps.since}`);
-  args.push(
-    `--max-count=${caps.maxCommits + 1}`,
-    "--date=iso-strict",
-    numstat ? "--numstat" : "--name-only",
-    `--format=${GIT_LOG_FORMAT}`,
-  );
-  return args;
+  return buildGitLogWalkArgs({
+    since: caps.since,
+    maxCount: caps.maxCommits + 1,
+    numstat,
+  });
 }
 
 type CountCapResult = {

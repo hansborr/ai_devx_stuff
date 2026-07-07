@@ -3,7 +3,7 @@ import path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import type { KnipRunner } from "./drift-ai/knip-runner.js";
+import { KNIP_SYMBOL_INCLUDE_CATEGORIES, type KnipRunner } from "./drift-ai/knip-runner.js";
 import {
   formatKnipUnusedExportsBaseline,
   type KnipUnusedExportsSnapshot,
@@ -63,7 +63,7 @@ function baselineRecord(): BaselineJsonRecord {
     version: 1,
     tool: "knip",
     metric: "unused-export-symbols",
-    includeCategories: "exports,types,enumMembers,namespaceMembers",
+    includeCategories: KNIP_SYMBOL_INCLUDE_CATEGORIES,
     count: 1,
     categories: {
       exports: 1,
@@ -96,7 +96,7 @@ describe("runKnipUnusedExportsCli", () => {
     });
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain("OK: knip unused-export symbols 2 <= baseline 2");
+    expect(result.stdout).toContain("OK: knip unused-export symbols match baseline 2");
   });
 
   it("fails when the current unused-export count grows above the baseline", () => {
@@ -120,7 +120,7 @@ describe("runKnipUnusedExportsCli", () => {
     expect(result.stdout).toContain("exports: baseline 1, current 2 (+1)");
   });
 
-  it("passes and recommends lowering the baseline when the current count improves", () => {
+  it("fails and requires lowering the baseline when the current count improves", () => {
     const root = tmpRepo.writeRepo({
       "sensor-knip-unused-exports.baseline.json": baselineText({
         exports: 3,
@@ -136,11 +136,12 @@ describe("runKnipUnusedExportsCli", () => {
       runner: knipReporting(unusedExportReport({ exports: 1 })),
     });
 
-    expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain("OK: knip unused-export symbols 1 <= baseline 3");
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toContain("FAIL: knip unused-export symbols decreased by 2");
     expect(result.stdout).toContain(
-      "INFO: count decreased by 2; run bun scripts/sensor-knip-unused-exports.ts --update to lower the baseline.",
+      "Current tree is better than the baseline; run bun scripts/sensor-knip-unused-exports.ts --update to lock it in by lowering the committed baseline.",
     );
+    expect(result.stdout).toContain("exports: baseline 3, current 1 (-2)");
   });
 
   it("writes a deterministic baseline in update mode", () => {
@@ -203,8 +204,7 @@ describe("runKnipUnusedExportsCli", () => {
     {
       name: "wrong includeCategories",
       baseline: baselineJson({ includeCategories: "exports,types" }),
-      expected:
-        "ERROR: baseline includeCategories must be 'exports,types,enumMembers,namespaceMembers'",
+      expected: `ERROR: baseline includeCategories must be '${KNIP_SYMBOL_INCLUDE_CATEGORIES}'`,
     },
     {
       name: "category total mismatch",

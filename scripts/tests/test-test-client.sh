@@ -1,4 +1,11 @@
 #!/usr/bin/env bash
+# smoke-order: 260
+# smoke-subjects: scripts/test-client.sh
+# smoke-subjects: scripts/vitest.sh
+# smoke-subjects: scripts/client-test-isolation-runner.ts
+# smoke-subjects: scripts/ai-hooks/output-filter.sh
+# smoke-subjects: scripts/tests/lib/test-git-env.sh
+# smoke-subjects: scripts/tests/test-test-client.sh
 # Pure-shell smoke tests for scripts/test-client.sh orchestration behavior.
 
 set -euo pipefail

@@ -189,12 +189,12 @@ export const unitTestConfigs = [
       // Recommended ships no-debugging-utils at "warn"; promote it so the
       // adopted floor is uniformly error (matches --max-warnings=0 anyway).
       "testing-library/no-debugging-utils": "error",
-      // Implementation-detail debt deferred to lint:ratchet message-count
-      // floors (ratchet/testing-library-*), promote-to-normal-lint after the
-      // drain follow-up. Off here so normal lint stays green on existing debt.
+      // Remaining implementation-detail debt deferred to lint:ratchet
+      // message-count floors; keep those rules off here so normal lint stays
+      // green on existing debt.
       "testing-library/no-node-access": "off",
       "testing-library/no-container": "off",
-      "testing-library/prefer-screen-queries": "off",
+      "testing-library/prefer-screen-queries": "error",
       // Rejected: pure render-result naming style that clashes with the
       // established varied local naming (handlers/props/result, 46 findings);
       // none of the bug classes this evaluation targeted.

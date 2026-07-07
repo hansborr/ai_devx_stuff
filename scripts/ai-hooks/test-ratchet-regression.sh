@@ -166,6 +166,9 @@ assert_hook_json "$RR_OUT"
 RR_CTX=$(rr_context "$RR_OUT")
 assert_contains "$RR_CTX" "lint-ratchet (WARNING)"
 assert_contains "$RR_CTX" "src/foo.ts:1 (local/type-assertion-boundary — new-path)"
+assert_contains "$RR_CTX" "Full ratchet picture: bun run lint:ratchet"
+assert_contains "$RR_CTX" "Structured local/* guidance only: bun run lint:agent:local-rules:changed"
+assert_not_contains "$RR_CTX" "For structured per-rule fix guidance"
 assert_contains "$RR_CTX" "Type-aware ratchets are not checked"
 RR_DISCOVERY=$(grep -F -- '--edit-check-targets' "$RR_BUN_LOG" || true)
 assert_contains "$RR_DISCOVERY" $'\tsrc/foo.ts'
@@ -381,6 +384,7 @@ RR_OUT=$(RR_BUN_MULTI_TARGETS=4 RR_BUN_NO_REGRESSION=1 AI_RATCHET_REGRESSION_TTL
 RR_CTX=$(rr_context "$RR_OUT")
 assert_contains "$RR_CTX" "lint-ratchet (note)"
 assert_contains "$RR_CTX" "+1 more matching target(s) not checked this edit"
+assert_not_contains "$RR_CTX" "For structured per-rule fix guidance"
 assert_not_contains "$RR_CTX" "introduced or worsened"
 : > "$RR_BUN_LOG"
 RR_OUT=$(RR_BUN_MULTI_TARGETS=4 RR_BUN_NO_REGRESSION=1 AI_RATCHET_REGRESSION_TTL=1800 \

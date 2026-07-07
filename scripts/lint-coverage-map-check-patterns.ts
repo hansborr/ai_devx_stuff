@@ -22,7 +22,6 @@ const TRACKED_BASENAMES = new Set([
   "LICENSE",
   "bun.lock",
 ]);
-const TRACKED_EXACT_PATHS = new Set(["docs/bugs"]);
 const ROOT_PATH_PREFIXES = new Set(["packages", "scripts", "docs", "e2e", "eslint-rules"]);
 const GLOBSTAR_WIDTH = 2;
 const GLOBSTAR_WITH_SLASH_WIDTH = 3;
@@ -159,7 +158,6 @@ export function trackedFileIsInScope(file: string): boolean {
   if (GENERATED_DIR_PATTERN.test(file)) return false;
   if (file === "Dockerfile" || file.endsWith("/Dockerfile")) return true;
   if (file.startsWith(".husky/") && !file.startsWith(".husky/_/")) return true;
-  if (TRACKED_EXACT_PATHS.has(file)) return true;
   const slashIndex = file.lastIndexOf("/");
   const basename = slashIndex < 0 ? file : file.slice(slashIndex + 1);
   if (TRACKED_BASENAMES.has(basename)) return true;

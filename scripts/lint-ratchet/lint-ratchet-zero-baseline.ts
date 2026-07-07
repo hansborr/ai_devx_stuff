@@ -50,6 +50,11 @@ export type NormalLintStatusForFile = (
   path: string,
 ) => Promise<NormalLintFileStatus>;
 
+export interface NormalLintConfigResolver {
+  isPathIgnored(path: string): Promise<boolean>;
+  calculateConfigForFile(path: string): Promise<unknown>;
+}
+
 export interface LintRatchetZeroBaselineAuditResult {
   readonly report: string;
   readonly rows: readonly ZeroBaselineAuditRow[];
@@ -222,7 +227,7 @@ export function formatUndocumentedZeroBaselineFailure(
   const ratchetLabel = count === 1 ? "ratchet" : "ratchets";
   const verb = count === 1 ? "lacks" : "lack";
   return [
-    `lint:ratchet:zero-baseline FAIL - ${String(count)} zero-baseline ${ratchetLabel} ${verb} zeroBaselineDisposition.`,
+    `lint:ratchet:zero-baseline FAIL — ${String(count)} zero-baseline ${ratchetLabel} ${verb} zeroBaselineDisposition.`,
     "Undocumented ratchets:",
     ...rows.map((row) => `- ${row.id}`),
   ].join("\n");
@@ -258,14 +263,33 @@ export function formatZeroBaselineAudit(rows: readonly ZeroBaselineAuditRow[]): 
   return `${lines.join("\n")}\n`;
 }
 
-export async function normalLintStatusForFile(
-  eslint: ESLint,
-  ratchet: LintRatchetConfig,
-  path: string,
-): Promise<NormalLintFileStatus> {
-  if (await eslint.isPathIgnored(path)) return "ignored";
-  const config: unknown = await eslint.calculateConfigForFile(path);
-  return statusForNormalRuleConfig(ratchet, ruleConfigValue(config, ratchet.ruleId));
+export function createNormalLintStatusForFile(
+  eslint: NormalLintConfigResolver,
+): NormalLintStatusForFile {
+  const ignoredByPath = new Map<string, Promise<boolean>>();
+  const configByPath = new Map<string, Promise<unknown>>();
+
+  async function isPathIgnored(path: string): Promise<boolean> {
+    const cached = ignoredByPath.get(path);
+    if (cached !== undefined) return cached;
+    const resolved = eslint.isPathIgnored(path);
+    ignoredByPath.set(path, resolved);
+    return resolved;
+  }
+
+  async function configForFile(path: string): Promise<unknown> {
+    const cached = configByPath.get(path);
+    if (cached !== undefined) return cached;
+    const resolved = eslint.calculateConfigForFile(path);
+    configByPath.set(path, resolved);
+    return resolved;
+  }
+
+  return async (ratchet, path) => {
+    if (await isPathIgnored(path)) return "ignored";
+    const config = await configForFile(path);
+    return statusForNormalRuleConfig(ratchet, ruleConfigValue(config, ratchet.ruleId));
+  };
 }
 
 function readBaselineText(baselinePath: string): string {
@@ -292,12 +316,12 @@ export async function runLintRatchetZeroBaselineAuditResult(
     throw new ConfigError(parsed.failures.join("\n"));
   }
   const eslint = new ESLint({ cwd: repoRoot });
+  const statusForFile = createNormalLintStatusForFile(eslint);
   const rows = await auditZeroBaselineRatchets({
     baseline: parsed.baseline,
     registry: options.registry,
     trackedFiles: trackedFilesFromGit("auditing zero-baseline lint ratchets"),
-    normalLintStatusForFile: async (ratchet, path) =>
-      normalLintStatusForFile(eslint, ratchet, path),
+    normalLintStatusForFile: statusForFile,
   });
   return {
     report: formatZeroBaselineAudit(rows),

@@ -1228,6 +1228,7 @@ describe("lint ratchet diagnostics envelope", () => {
         severity: "block",
         path,
         ruleId: complexityRatchet.ruleId,
+        kind: "improvement",
         baselineCount: 1,
         currentCount: 1,
         baselineComplexity: 12,
@@ -1291,6 +1292,7 @@ describe("lint ratchet diagnostics envelope", () => {
         severity: "block",
         path: "packages/server/src/a-count.ts",
         ruleId: maxLinesRatchet.ruleId,
+        kind: "improvement",
         baselineCount: 2,
         currentCount: 1,
         reason: "lower-count",
@@ -1304,6 +1306,7 @@ describe("lint ratchet diagnostics envelope", () => {
         severity: "block",
         path: "packages/server/src/b-lines.ts",
         ruleId: maxLinesRatchet.ruleId,
+        kind: "improvement",
         baselineCount: 1,
         currentCount: 1,
         baselineLines: 320,
@@ -1319,6 +1322,7 @@ describe("lint ratchet diagnostics envelope", () => {
         severity: "block",
         path: "packages/server/src/c-removed.ts",
         ruleId: maxLinesRatchet.ruleId,
+        kind: "improvement",
         baselineCount: 1,
         currentCount: 0,
         reason: "removed-path",
@@ -1358,9 +1362,11 @@ describe("lint ratchet diagnostics envelope", () => {
     );
 
     expect(harnessDiagnosticsSchema.safeParse(envelope).success).toBe(true);
-    expect(envelope.findings.map((finding) => [finding.control, finding.reason])).toEqual([
-      [complexityRatchet.id, "lower-count"],
-      [coreRatchet.id, "increased-count"],
+    expect(
+      envelope.findings.map((finding) => [finding.control, finding.reason, finding.kind]),
+    ).toEqual([
+      [complexityRatchet.id, "lower-count", "improvement"],
+      [coreRatchet.id, "increased-count", "regression"],
     ]);
     expect(envelope.summary).toEqual({
       blocking: 2,
@@ -1373,7 +1379,7 @@ describe("lint ratchet diagnostics envelope", () => {
     });
   });
 
-  it("recommends the allow-worse update form for third-party regressions", () => {
+  it("keeps the full allow-worse update form out of per-finding regression guidance", () => {
     const envelope = buildEnvelope(
       [
         {
@@ -1391,8 +1397,8 @@ describe("lint ratchet diagnostics envelope", () => {
     );
 
     const howToFix = envelope.findings[0]?.howToFix ?? "";
-    expect(howToFix).toContain(" -- ");
-    expect(howToFix).toContain(
+    expect(howToFix).toContain("see the run summary recovery command");
+    expect(howToFix).not.toContain(
       'bun run lint:ratchet:update -- --allow-worse --reason "<why accepting this baseline increase is better than forcing a low-quality fix now>"',
     );
     expect(howToFix).not.toContain("run `bun run lint:ratchet:update`");
@@ -1543,7 +1549,7 @@ describe("lint ratchet diagnostics envelope", () => {
 
     const howToFix = envelope.findings[0]?.howToFix ?? "";
     expect(howToFix).toBe(
-      'Reduce this file\'s local/type-assertion-boundary finding count from 2 back to the committed baseline (1), or run `bun run lint:ratchet:update -- --allow-worse --reason "<why accepting this baseline increase is better than forcing a low-quality fix now>"` before committing your work.',
+      "Reduce this file's local/type-assertion-boundary finding count from 2 back to the committed baseline (1), or see the run summary recovery command if the new debt is intentional.",
     );
     expect(howToFix).not.toContain("See docs/guides/type-assertions.md.");
   });
@@ -1609,6 +1615,7 @@ describe("lint ratchet diagnostics envelope", () => {
         control: reportOnlyRatchet.id,
         severity: "info",
         ruleId: reportOnlyRatchet.ruleId,
+        kind: "report-only",
         reason: "report-only",
         currentCount: 5,
         why: `${reportOnlyRatchet.id} is report-only: 5 current finding(s) across 2 file(s) for ${reportOnlyRatchet.ruleId}.`,
@@ -1651,6 +1658,7 @@ describe("lint ratchet diagnostics envelope", () => {
         severity: "info",
         path,
         ruleId: baseRatchet.ruleId,
+        kind: "info",
         reason: "equal-count-message-swap",
         baselineCount: 2,
         currentCount: 2,
@@ -2463,6 +2471,11 @@ describe("lint ratchet rule source hash binding", () => {
     expect(parsed.failures).toContain(
       'ratchet/local-type-assertion-boundary.ruleSourceHash is stale (run "bun run lint:ratchet:update" to regenerate)',
     );
+    expect(parsed.validationFailures).toContainEqual({
+      code: "rule-source-drift",
+      message:
+        'ratchet/local-type-assertion-boundary.ruleSourceHash is stale (run "bun run lint:ratchet:update" to regenerate)',
+    });
   });
 
   it("requires ruleSourceHash to be present in the committed baseline", () => {
@@ -2480,6 +2493,35 @@ describe("lint ratchet rule source hash binding", () => {
     expect(parsed.failures).toContain(
       "ratchet/local-type-assertion-boundary.ruleSourceHash is required",
     );
+    expect(parsed.validationFailures).toContainEqual({
+      code: "rule-source-hash-required",
+      message: "ratchet/local-type-assertion-boundary.ruleSourceHash is required",
+    });
+  });
+
+  it("emits one structured validation code for every strict validation failure", () => {
+    const baseline = oneTestBaseline([["packages/server/src/a.ts", -1]]);
+    const baselineTest = baseline.tests[baseRatchet.id];
+    if (baselineTest === undefined) throw new Error("missing base ratchet fixture");
+    const rendered = formatLintRatchetBaseline({
+      ...baseline,
+      tests: {
+        [baseRatchet.id]: {
+          ...baselineTest,
+          configHash: `${LINT_RATCHET_CONFIG_HASH_PREFIX}${"c".repeat(64)}`,
+          ruleSourceHash: `${LINT_RATCHET_CONFIG_HASH_PREFIX}${"d".repeat(64)}`,
+        },
+        "ratchet/orphan": {
+          ...baselineTest,
+          ruleId: "local/orphan",
+        },
+      },
+    });
+    const parsed = parseLintRatchetBaseline(rendered, [baseRatchet], fixtureRuleSourceHashes);
+
+    expect(parsed.baseline).toBeUndefined();
+    expect(parsed.validationFailures.map((failure) => failure.message)).toEqual(parsed.failures);
+    expect(parsed.validationFailures.every((failure) => failure.code.length > 0)).toBe(true);
   });
 
   it("emits ruleSourceHash deterministically and round-trips it", () => {

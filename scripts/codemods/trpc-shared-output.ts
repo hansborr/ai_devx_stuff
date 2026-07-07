@@ -5,6 +5,7 @@ import { pathToFileURL } from "node:url";
 
 import type { SourceFile } from "ts-morph";
 
+import { requireArg } from "../cli-option-values.js";
 import type { ImportBinding, SharedSchemaCodemodCandidate } from "./lib/trpc-shared-schema.js";
 import {
   appendSharedSchemaExports,
@@ -83,8 +84,7 @@ function targetValue(args: string[], index: number): string {
 }
 
 function readFlagArg(args: string[], index: number, parsed: ParsedCliFlags): number {
-  const arg = args[index];
-  if (!arg) fail("Empty arguments are not supported.");
+  const arg = requireArg(args[index], fail);
   if (arg === "--all") {
     parsed.all = true;
     return index;

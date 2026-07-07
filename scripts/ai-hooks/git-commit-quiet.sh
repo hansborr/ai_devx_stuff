@@ -65,7 +65,14 @@ Wait for the in-flight commit to finish, then check git status before retrying â
 fi
 { printf 'PID=%s STARTED=%s\n' "$$" "$(date -Iseconds)"; } > "$LOCK"
 
-TOTAL_TIMEOUT="${AI_GIT_COMMIT_TIMEOUT:-${MUSI_VERIFY_TIMEOUT:-${MUSI_INTERACTIVE_TIMEOUT:-1200}}}"
+# Must match hook/ai-git-commit-quiet's generated timeout in harness.controls.json.
+GIT_COMMIT_QUIET_HOOK_TIMEOUT=1260
+GIT_COMMIT_QUIET_TIMEOUT_MARGIN=60
+TOTAL_TIMEOUT=$(ai_clamp_timeout_below_harness \
+  "git-commit-quiet" \
+  "${AI_GIT_COMMIT_TIMEOUT:-${MUSI_VERIFY_TIMEOUT:-${MUSI_INTERACTIVE_TIMEOUT:-1200}}}" \
+  "$GIT_COMMIT_QUIET_HOOK_TIMEOUT" \
+  "$GIT_COMMIT_QUIET_TIMEOUT_MARGIN")
 
 # --- Cross-worktree commit queue -------------------------------------------
 COMMIT_QUEUE_LOCK="${MUSI_COMMIT_QUEUE_LOCK:-$(musi_standard_commit_queue_lock "$REPO_ROOT")}"
@@ -174,7 +181,7 @@ HEAD_AFTER=$(git rev-parse HEAD 2>/dev/null || echo none)
 if [ "$EXIT_CODE" -eq 0 ] && [ "$HEAD_AFTER" != "$HEAD_BEFORE" ]; then
   MSG=$(ai_commit_success_summary "$REPO_ROOT" "$HEAD_BEFORE" "$HEAD_AFTER")
   # Per-invocation result file â€” no shared-state race if flock ever fails open.
-  ai_claude_result_command "$MSG" /tmp/musi-commit-result
+  ai_claude_result_command "$MSG" "$AI_RESULT_COMMAND_TMP_PREFIX"
 fi
 
 # --- Failure path ---

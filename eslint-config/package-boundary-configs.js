@@ -9,24 +9,30 @@ import {
 } from "./shared-policy.js";
 
 const rawPrismaSqlRestrictedSyntax = {
-  selector:
+  selector: [
     "MemberExpression[property.name=/^\\$(queryRaw|queryRawUnsafe|executeRaw|executeRawUnsafe)$/]",
+    "MemberExpression[computed=true][property.value=/^\\$(queryRaw|queryRawUnsafe|executeRaw|executeRawUnsafe)$/]",
+    "MemberExpression[computed=true][property.type='TemplateLiteral'][property.expressions.length=0][property.quasis.0.value.cooked=/^\\$(queryRaw|queryRawUnsafe|executeRaw|executeRawUnsafe)$/]",
+  ].join(", "),
   message:
     "Raw Prisma SQL is restricted to sanctioned server boundaries. Move it to a reviewed service/helper and see docs/CONCURRENCY.md.",
 };
 
 const sharedSchemaZAnyRestrictedSyntax = {
-  selector: "CallExpression[callee.object.name='z'][callee.property.name='any']",
+  selector:
+    "CallExpression[callee.object.name='z'][callee.property.name='any'], CallExpression[callee.object.name='z'][callee.computed=true][callee.property.value='any']",
   message:
     "Use z.unknown() for genuinely dynamic shared payloads instead of z.any(); see docs/guides/add-trpc-procedure.md.",
 };
 
 const permissiveTrpcOutputRestrictedSyntax = {
   selector:
-    "CallExpression[callee.property.name='output'] > CallExpression.arguments:first-child[callee.object.name='z'][callee.property.name=/^(any|unknown|void)$/]",
+    "CallExpression[callee.property.name='output'] > CallExpression.arguments:first-child[callee.object.name='z'][callee.property.name=/^(any|unknown|void)$/], CallExpression[callee.property.name='output'] > CallExpression.arguments:first-child[callee.object.name='z'][callee.computed=true][callee.property.value=/^(any|unknown|void)$/]",
   message:
     "Use a named shared output schema instead of z.any(), top-level z.unknown(), or z.void(); see docs/guides/add-trpc-procedure.md.",
 };
+
+const uploadServiceRestBoundaryFile = "packages/server/src/services/upload-service.ts";
 
 export const packagePolicyConfigs = [
   {
@@ -78,6 +84,20 @@ export const packagePolicyConfigs = [
     rules: {
       "local/trpc-shared-input-schema": "error",
       "local/trpc-shared-output-schema": "error",
+    },
+  },
+
+  {
+    files: ["packages/server/src/routers/**/*.ts", "packages/server/src/services/**/*.ts"],
+    ignores: [
+      ...serverTestAndHelperSourceFiles,
+      "packages/server/src/**/*-test-helper.{ts,tsx}",
+      // Documented REST-boundary exception: routes/MODULE.md maps these
+      // upload validation Errors to HTTP 400 outside tRPC.
+      uploadServiceRestBoundaryFile,
+    ],
+    rules: {
+      "local/no-plain-error-in-trpc": "error",
     },
   },
 

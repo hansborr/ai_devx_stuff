@@ -14,11 +14,18 @@ export interface PathPattern {
   readonly matcher: (file: string) => boolean;
 }
 
+export interface ConfigSurfaceCoverageEntry {
+  readonly path: string;
+  readonly coverageStatus: string;
+}
+
 export interface CheckFinding {
   readonly kind:
     | "stale-path"
     | "unknown-ratchet"
     | "invalid-status"
+    | "conflicting-coverage"
+    | "config-surface-coverage-mismatch"
     | "unaccounted-file"
     | "eslint-reach-missing";
   readonly line?: number;
@@ -41,6 +48,7 @@ export interface LintCoverageMapCheckOptions {
   readonly ratchetIds?: ReadonlySet<string>;
   readonly checkEslintReach?: boolean;
   readonly eslintReachChecker?: EslintReachChecker;
+  readonly configSurfaceEntries?: readonly ConfigSurfaceCoverageEntry[];
   /**
    * When set, append ready-to-paste coverage-map rows for every unaccounted file
    * to stderr (scaffold for A1/A6). Does not change exit codes.

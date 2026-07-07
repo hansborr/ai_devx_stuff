@@ -1,12 +1,30 @@
 // @ts-check
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { makeRuleTester } from "./rule-tester.js";
-import rule from "./no-llm-artifacts.js";
+import rule, { TODO_REFERENCE_PATTERN } from "./no-llm-artifacts.js";
 
 const ruleTester = makeRuleTester();
 
 describe("no-llm-artifacts", () => {
+  it("keeps TODO reference guidance aligned with the accepted reference forms", () => {
+    const message = rule.meta.messages.todoNeedsReference;
+    const acceptedForms = [
+      ["issue/PR id", "TODO(issue #123): split this after the endpoint lands"],
+      ["issue/PR id", "TODO: PR #456 removes this compatibility shim"],
+      ["URL", "TODO: https://example.test/tasks/123"],
+      ["docs/roadmap|agent_notes path", "TODO: docs/roadmap/developer-experience.md"],
+      ["docs/roadmap|agent_notes path", "TODO: docs/agent_notes/in_progress/example.md"],
+      ["roadmap", "TODO: check the roadmap before deleting this"],
+      ["agent note", "TODO: see the agent note for context"],
+    ];
+
+    for (const [messageToken, acceptedExample] of acceptedForms) {
+      expect(message).toContain(messageToken);
+      expect(TODO_REFERENCE_PATTERN.test(acceptedExample), messageToken).toBe(true);
+    }
+  });
+
   it("reports leftover editing notes, bare TODO comments, and incomplete throws", () => {
     ruleTester.run("no-llm-artifacts", rule, {
       valid: [

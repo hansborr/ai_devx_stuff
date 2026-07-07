@@ -1,9 +1,17 @@
 #!/usr/bin/env bash
+# smoke-order: 200
+# smoke-subjects: scripts/lint.sh
+# smoke-subjects: scripts/lint-changed.sh
+# smoke-subjects: scripts/lib/lint-dist-preflight.sh
+# smoke-subjects: scripts/tests/test-lint-dist-preflight.sh
+# smoke-subjects: packages/shared/package.json
+# smoke-subjects: packages/server/package.json
 # Smoke test for the lint TypeScript-build prerequisite preflight.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HELPER="$SCRIPT_DIR/../lib/lint-dist-preflight.sh"
+ESLINT_MAIN_CACHE="$SCRIPT_DIR/../lib/eslint-main-cache.sh"
 LINT_WRAPPER="$SCRIPT_DIR/../lint.sh"
 LINT_CHANGED_WRAPPER="$SCRIPT_DIR/../lint-changed.sh"
 PARALLEL_RUNNER="$SCRIPT_DIR/../lib/parallel-runner.sh"
@@ -14,6 +22,8 @@ PATH_POLICY_QUERY_CORE="$SCRIPT_DIR/../path-policy/path-policy-query-core.ts"
 PATH_POLICY="$SCRIPT_DIR/../path-policy/path-policy.ts"
 PATH_POLICY_SMOKE_SUBJECTS="$SCRIPT_DIR/../path-policy/path-policy-smoke-subjects.ts"
 PATH_POLICY_SMOKE_SUBJECTS_DATA="$SCRIPT_DIR/../path-policy/path-policy-smoke-subjects-data.ts"
+HARNESS_PATHS="$SCRIPT_DIR/../harness/harness-paths.ts"
+LINT_RATCHET_PATHS="$SCRIPT_DIR/../lint-ratchet/paths.ts"
 
 PASS=0
 fail() { printf 'FAIL: %s\n' "$1" >&2; exit 1; }
@@ -21,6 +31,9 @@ ok()   { PASS=$((PASS + 1)); printf 'ok %d - %s\n' "$PASS" "$1"; }
 
 bash -n "$HELPER" || fail "lint-dist-preflight.sh fails bash -n"
 ok "lint-dist-preflight.sh passes bash -n"
+
+bash -n "$ESLINT_MAIN_CACHE" || fail "eslint-main-cache.sh fails bash -n"
+ok "eslint-main-cache.sh passes bash -n"
 
 bash -n "$LINT_WRAPPER" || fail "lint.sh fails bash -n"
 ok "lint.sh passes bash -n"
@@ -103,6 +116,26 @@ expect_preflight_typecheck_failure() {
     || fail "$label should run typecheck once: $(cat "$log")"
 }
 
+expect_preflight_unrepaired_typecheck() {
+  local label="$1" repo="$2" missing="$3"
+  local rc log="$ROOT/$label.typecheck.log"
+  : > "$log"
+  set +e
+  REAL_BUN="$(command -v bun)" STUB_TYPECHECK_MODE=noop TYPECHECK_LOG="$log" PATH="$ROOT/bin:$PATH" \
+    musi_lint_dist_preflight "$repo" >"$ROOT/$label.out" 2>"$ROOT/$label.err"
+  rc=$?
+  set -e
+  [ "$rc" -ne 0 ] || fail "$label expected preflight failure"
+  grep -qF 'lint: `bun run typecheck` completed, but required build output is still missing.' "$ROOT/$label.err" \
+    || fail "$label missing post-typecheck failure diagnostic"
+  grep -qF "$missing" "$ROOT/$label.err" \
+    || fail "$label missing path detail"
+  grep -qF 'compare each missing path with the owning package tsconfig `outDir`, `declaration`, `composite`, and project references' "$ROOT/$label.err" \
+    || fail "$label missing tsconfig remedy"
+  [ "$(cat "$log")" = "stub bun run typecheck" ] \
+    || fail "$label should run typecheck once: $(cat "$log")"
+}
+
 install_bun_stub() {
   local bin_dir="$1"
   mkdir -p "$bin_dir"
@@ -179,13 +212,15 @@ STUB
 
 copy_path_policy() {
   local repo="$1"
-  mkdir -p "$repo/scripts/path-policy"
+  mkdir -p "$repo/scripts/path-policy" "$repo/scripts/harness" "$repo/scripts/lint-ratchet"
   cp "$PATH_POLICY_QUERY" "$repo/scripts/path-policy/path-policy-query.ts"
   cp "$PATH_POLICY_QUERY_CORE" "$repo/scripts/path-policy/path-policy-query-core.ts"
   cp "$PATH_POLICY" "$repo/scripts/path-policy/path-policy.ts"
   cp "$PATH_POLICY_SMOKE_SUBJECTS" "$repo/scripts/path-policy/path-policy-smoke-subjects.ts"
   cp "$PATH_POLICY_SMOKE_SUBJECTS_DATA" \
     "$repo/scripts/path-policy/path-policy-smoke-subjects-data.ts"
+  cp "$HARNESS_PATHS" "$repo/scripts/harness/harness-paths.ts"
+  cp "$LINT_RATCHET_PATHS" "$repo/scripts/lint-ratchet/paths.ts"
 }
 
 copy_lint_changed_dependencies() {
@@ -193,6 +228,7 @@ copy_lint_changed_dependencies() {
   mkdir -p "$repo/scripts/lib"
   cp "$LINT_CHANGED_WRAPPER" "$repo/scripts/lint-changed.sh"
   cp "$HELPER" "$repo/scripts/lib/lint-dist-preflight.sh"
+  cp "$ESLINT_MAIN_CACHE" "$repo/scripts/lib/eslint-main-cache.sh"
   cp "$PARALLEL_RUNNER" "$repo/scripts/lib/parallel-runner.sh"
   cp "$VERIFY_METADATA" "$repo/scripts/lib/verify-metadata.sh"
   cp "$CHANGED_BASE" "$repo/scripts/lib/changed-base.sh"
@@ -277,12 +313,19 @@ rm "$REPO_TYPECHECK_FAIL/packages/shared/dist/constants.d.ts"
 expect_preflight_typecheck_failure "typecheck-fail" "$REPO_TYPECHECK_FAIL" "packages/shared/dist/constants.d.ts"
 ok "typecheck failure keeps lint blocked"
 
+REPO_TYPECHECK_NO_OUTPUT="$ROOT/typecheck-no-output"
+make_repo "$REPO_TYPECHECK_NO_OUTPUT"
+rm "$REPO_TYPECHECK_NO_OUTPUT/packages/shared/dist/constants.d.ts"
+expect_preflight_unrepaired_typecheck "typecheck-no-output" "$REPO_TYPECHECK_NO_OUTPUT" "packages/shared/dist/constants.d.ts"
+ok "successful typecheck without dist output names the tsconfig remedy"
+
 install_eslint_stub "$ROOT/bin"
 
 REPO_LINT_WRAPPER="$ROOT/lint-wrapper"
 mkdir -p "$REPO_LINT_WRAPPER/scripts/lib"
 cp "$LINT_WRAPPER" "$REPO_LINT_WRAPPER/scripts/lint.sh"
 cp "$HELPER" "$REPO_LINT_WRAPPER/scripts/lib/lint-dist-preflight.sh"
+cp "$ESLINT_MAIN_CACHE" "$REPO_LINT_WRAPPER/scripts/lib/eslint-main-cache.sh"
 cp "$PARALLEL_RUNNER" "$REPO_LINT_WRAPPER/scripts/lib/parallel-runner.sh"
 install_lint_support_stubs "$REPO_LINT_WRAPPER"
 expect_wrapper_repair_then_eslint "lint-wrapper" "$REPO_LINT_WRAPPER" bash scripts/lint.sh
@@ -292,6 +335,7 @@ REPO_LINT_WRAPPER_FAIL="$ROOT/lint-wrapper-fail"
 mkdir -p "$REPO_LINT_WRAPPER_FAIL/scripts/lib"
 cp "$LINT_WRAPPER" "$REPO_LINT_WRAPPER_FAIL/scripts/lint.sh"
 cp "$HELPER" "$REPO_LINT_WRAPPER_FAIL/scripts/lib/lint-dist-preflight.sh"
+cp "$ESLINT_MAIN_CACHE" "$REPO_LINT_WRAPPER_FAIL/scripts/lib/eslint-main-cache.sh"
 cp "$PARALLEL_RUNNER" "$REPO_LINT_WRAPPER_FAIL/scripts/lib/parallel-runner.sh"
 install_lint_support_stubs "$REPO_LINT_WRAPPER_FAIL"
 expect_wrapper_typecheck_failure "lint-wrapper-fail" "$REPO_LINT_WRAPPER_FAIL" bash scripts/lint.sh

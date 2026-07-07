@@ -15,6 +15,7 @@ import { lintRatchets } from "./lint-ratchet-config.js";
 import { ConfigError } from "./lint-ratchet-metrics.js";
 import { emitHarnessDiagnosticsEnvelope } from "./lint-ratchet-output.js";
 import { BASELINE_FILENAME, baselinePath } from "./paths.js";
+import { REGRESSION_RECOVERY_FOOTER } from "./recovery-command.js";
 import { buildReportOnlySummaries } from "./report-only-diagnostics.js";
 import { buildRuleSourceHashesById } from "./rule-source.js";
 import {
@@ -82,11 +83,13 @@ export async function runDefault(options: LintRatchetDefaultModeOptions): Promis
   const hasRuleSourceIdentityDrift = parsedBaseline.ruleSourceIdentityDrift;
   const label = changedCount > 0 || hasRuleSourceIdentityDrift ? "FAIL" : "OK";
   console.error(
-    `lint:ratchet ${label} - ${String(totalCurrentCount(currentById))} current finding(s); ` +
+    `lint:ratchet ${label} — ${String(totalCurrentCount(currentById))} current finding(s); ` +
       `${String(comparison.regressions.length)} regression(s); ${String(comparison.improvements.length)} improvement(s); ` +
-      `blocking=${String(envelope.summary.blocking)} ` +
-      `warning=${String(envelope.summary.warning)} info=${String(envelope.summary.info)}`,
+      `blocking=${String(envelope.summary.blocking)} info=${String(envelope.summary.info)}`,
   );
+  if (comparison.regressions.length > 0) {
+    console.error(REGRESSION_RECOVERY_FOOTER);
+  }
   if (hasRuleSourceIdentityDrift) {
     console.error(formatRuleSourceDriftClassification(changedCount, infoCount));
     process.exitCode = 1;

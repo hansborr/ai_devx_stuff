@@ -42,7 +42,9 @@ decision, not the lock.
    disjointness and update the writer list in `docs/CONCURRENCY.md`.
 9. Do not import `RawTxClient` outside `packages/server/src/utils/*-mutations.ts`.
    `packages/server/src/utils/prisma-types.ts:13` documents the escape hatch,
-   and `eslint.config.js:252` enforces it with `RawTxClient` restricted import.
+   and the restricted-import rule in
+   `eslint-config/package-boundary-configs.js` enforces the `RawTxClient`
+   boundary.
 10. Do not call `.update`, `.updateMany`, or `.upsert` directly on gated
     delegates from business code. `packages/server/src/utils/prisma-types.ts:9`
     documents the restriction, and the delegate shims at

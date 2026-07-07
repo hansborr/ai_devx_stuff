@@ -20,8 +20,56 @@ AI_BUN_LOG_DIR="${AI_BUN_LOG_DIR:-$(musi_standard_bun_log_dir "$AI_CACHE_REPO_RO
 AI_BUN_TTL="${AI_BUN_TTL:-3600}"
 AI_PRECOMMIT_LOG_DIR="${AI_PRECOMMIT_LOG_DIR:-$(musi_standard_verify_log_dir "$AI_CACHE_REPO_ROOT")}"
 
+# Slow /tmp-litter GC. Two state families have no other reaper: abandoned
+# ai_claude_result_command temp files (self-clean only runs when the rewritten
+# tool command executes) and Stop-policy throttle markers under the
+# per-worktree state roots (bun markers carry AI_BUN_TTL; stop markers do not,
+# so a dropped worktree orphans them for the container's lifetime). The sweep
+# is generous (days) and throttled so it costs almost nothing per hook.
+AI_STATE_SWEEP_TTL_DAYS="${AI_STATE_SWEEP_TTL_DAYS:-7}"
+AI_STATE_SWEEP_INTERVAL="${AI_STATE_SWEEP_INTERVAL:-3600}"
+
 ai_cache_init() {
   mkdir -p "$AI_GIT_STATE_DIR" "$AI_BUN_STATE_DIR" "$AI_STOP_STATE_DIR" "$AI_THROTTLE_STATE_DIR" "$AI_BUN_LOG_DIR" "$AI_PRECOMMIT_LOG_DIR"
+  ai_cache_sweep_stale
+}
+
+# Reap the two leak families above. Best-effort and non-fatal: every step is
+# guarded so a sweep failure never breaks the hook that called ai_cache_init.
+# Throttled to at most once per AI_STATE_SWEEP_INTERVAL seconds via a stamp in
+# the current worktree's state root.
+ai_cache_sweep_stale() {
+  local stamp="$AI_STATE_ROOT/.last-sweep"
+  local now last dir
+  local prefix prefix_dir prefix_base stop_glob
+
+  now=$(date +%s)
+  if [ -f "$stamp" ]; then
+    last=$(cat "$stamp" 2>/dev/null || printf '0')
+    case "$last" in ''|*[!0-9]*) last=0 ;; esac
+    [ "$((now - last))" -ge "$AI_STATE_SWEEP_INTERVAL" ] || return 0
+  fi
+  printf '%s' "$now" > "$stamp" 2>/dev/null || true
+
+  # Every ai_claude_result_command prefix family leaks the same way (self-clean
+  # only runs when the rewritten command executes): git-commit-quiet uses the
+  # commit-result default, bun-run-quiet uses /tmp/musi-bun-result, and
+  # no-direct-db uses /tmp/musi-policy-guidance. Sweep them all. Tests override
+  # the list via AI_RESULT_COMMAND_TMP_PREFIXES to stay hermetic.
+  local result_prefixes
+  result_prefixes="${AI_RESULT_COMMAND_TMP_PREFIXES:-${AI_RESULT_COMMAND_TMP_PREFIX:-/tmp/musi-commit-result} /tmp/musi-bun-result /tmp/musi-policy-guidance}"
+  for prefix in $result_prefixes; do
+    prefix_dir=$(dirname "$prefix")
+    prefix_base=$(basename "$prefix")
+    find "$prefix_dir" -maxdepth 1 -type f -name "$prefix_base.*" \
+      -mtime +"$AI_STATE_SWEEP_TTL_DAYS" -delete 2>/dev/null || true
+  done
+
+  stop_glob="${AI_STATE_SWEEP_STOP_GLOB:-/tmp/musi-ai-hooks.*/stop}"
+  for dir in $stop_glob; do
+    [ -d "$dir" ] || continue
+    find "$dir" -type f -mtime +"$AI_STATE_SWEEP_TTL_DAYS" -delete 2>/dev/null || true
+  done
 }
 
 ai_read_bun_marker() {

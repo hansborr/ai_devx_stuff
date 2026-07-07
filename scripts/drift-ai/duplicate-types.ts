@@ -16,8 +16,6 @@ import { ts } from "ts-morph";
 import type { ShapeEntry } from "./duplicate-shapes.js";
 import { scriptKindFor } from "./ts-source-util.js";
 
-export { DEFAULT_DUPLICATE_TYPES_MIN_PROPS } from "./duplicate-shapes-config-values.js";
-
 export type ExtractTypeShapesOptions = { readonly minProps: number };
 export type TypeShapeExtra = {
   readonly name: string;

@@ -1,4 +1,6 @@
 export const VERIFY_STEP_DYNAMIC_RESOLVERS = [
+  // Keep these ids bound to literal case arms in scripts/verify/steps-lib.sh;
+  // harness:check fails when an enum member has no shell resolver arm.
   "precommit-test-timings",
   "staged-script-classifier",
 ] as const;

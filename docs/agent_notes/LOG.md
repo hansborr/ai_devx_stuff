@@ -922,7 +922,7 @@ cache/socket guide added.
 - Structured logging codemod and `local/structured-logging` enforcement
 - tRPC shared schema codemod review closed
 
-## 2026-04-28 — DX Sprint Completion
+## 2026-04-28 — DX5-DX8 Sprint Closed
 
 Closed DX5-DX8 sprint: socket broadcast registry (DX5.3), client component
 splits (DX6), fixture builder inventory (DX7.0c), spell-casting test split

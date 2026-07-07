@@ -3,6 +3,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
+import { requireArg } from "../cli-option-values.js";
 import {
   createProject,
   fail as failWithName,
@@ -53,7 +54,7 @@ function initialParsedFlags(): ParsedCliFlags {
 }
 
 function readCliArg(parsed: ParsedCliFlags, arg: string): void {
-  if (!arg) fail("Empty arguments are not supported.");
+  requireArg(arg, fail);
   if (arg === "--dry-run") {
     parsed.dryRun = true;
     return;

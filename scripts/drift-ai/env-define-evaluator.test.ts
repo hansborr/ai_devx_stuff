@@ -1,10 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  analyzeEnvDefineSource,
-  analyzeEnvDefineSources,
-  type EnvDefineMatrix,
-} from "./env-define-evaluator.js";
+import { analyzeEnvDefineSource, analyzeEnvDefineSources } from "./env-define-evaluator.js";
+import type { EnvDefineMatrix } from "./env-define-types.js";
 
 const MATRIX: EnvDefineMatrix = {
   env: {

@@ -11,7 +11,6 @@ services:
       - claude-config:/home/node/.claude:U
       - codex-config:/home/node/.codex:U
       - shell-history:/commandhistory:U
-      - playwright-cache:/home/node/.cache/ms-playwright:U
       - persist:/home/node/persist:U
       - ${HOME}/.gitconfig:/home/node/.gitconfig:ro,z
       - /tmp/${PROJECT_NAME}:/tmp:z
@@ -73,6 +72,5 @@ volumes:
   claude-config:
   codex-config:
   shell-history:
-  playwright-cache:
   persist:
     external: true

@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
 
+import { harnessManifestPath as resolveHarnessManifestPath } from "../harness/harness-paths.js";
 import { formatRuleDocsFailures, loadLintRuleDocs } from "../lib/lint-rule-docs.js";
 import { trackedFilesFromGit } from "./git-tracked-files.js";
 import {
@@ -58,7 +58,7 @@ export interface CheckLintRatchetRegistryOptions {
   readonly harnessManifestRatchetIds?: ReadonlySet<string>;
 }
 
-const harnessManifestPath = join(repoRoot, "harness.controls.json");
+const harnessManifestPath = resolveHarnessManifestPath(repoRoot);
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;

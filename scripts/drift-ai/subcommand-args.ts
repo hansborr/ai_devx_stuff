@@ -8,6 +8,7 @@
 // table (task 50 Low-1) could unify this with cli-args, but they are kept separate
 // for now so the main command's flag surface stays stable.
 
+import { requireArgAllowingEmpty as requireArg } from "../cli-option-values.js";
 import type { OutputFormat } from "./arg-readers.js";
 import { optionName, readFormat, readPath, readValue } from "./arg-readers.js";
 import { DriftAiHelp } from "./cli-args.js";
@@ -92,8 +93,9 @@ export function parseSubcommandArgs(
 ): SubcommandBaseOptions {
   const base: MutableBase = { format: "text", outputPath: null, configPath: null };
   for (let index = 0; index < argv.length; index += 1) {
-    const arg = argv[index];
-    if (arg === undefined) throw new DriftAiError("Empty arguments are not supported.");
+    const arg = requireArg(argv[index], (message) => {
+      throw new DriftAiError(message);
+    });
     if (arg === "--help" || arg === "-h") throw new DriftAiHelp(spec.usage);
     index = dispatchSubcommandArg(arg, argv, index, spec, base);
   }

@@ -149,6 +149,8 @@ describe("buildLayerDirectionFindings", () => {
     const findings = violationsForRepo({
       "packages/server/src/utils/character-mapping.test.ts": `import { buildCreateData } from "../services/character-create.js";\nexport const use = buildCreateData;\n`,
       "packages/server/src/services/character-create.ts": `export const buildCreateData = 1;\n`,
+      "packages/server/src/utils/__type-tests__/assert-turn-opts-dedup.ts": `import type { AssertTurnOpts } from "../../services/combat-actions/types.js";\nexport type Use = AssertTurnOpts;\n`,
+      "packages/server/src/services/combat-actions/types.ts": `export type AssertTurnOpts = { id: string };\n`,
     });
 
     expect(findings).toEqual([]);

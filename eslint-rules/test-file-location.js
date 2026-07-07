@@ -34,7 +34,7 @@ export default {
       wrongNaming:
         "Test file basename is missing a name prefix. Rename to `<feature>.test.ts`, `.test.tsx`, or `.spec.ts` so the file colocates with the code it covers.",
       missingTests:
-        "Add a `describe`, `it`, or `test` block, or rename the file; helpers belong outside the test-file naming convention.",
+        "Add a `describe`, `it`, or `test` block. If this file is a test helper, rename it to drop the .test/.spec suffix so it stops matching the test-file convention.",
     },
     schema: [],
   },

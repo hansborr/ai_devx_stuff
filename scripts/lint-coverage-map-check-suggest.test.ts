@@ -66,6 +66,9 @@ describe("buildSuggestions", () => {
     // Not linted, not ratcheted => the agent must classify; default to a
     // not-code/excluded placeholder rather than asserting linted.
     expect(joined).not.toContain("| linted |");
+    expect(joined).toContain(
+      "choose `excluded` for intentional non-lint code, `not-code` for docs/generated/binary/vendor, or `proposed` when a lint/ratchet floor should be added",
+    );
   });
 });
 
@@ -299,7 +302,7 @@ describe("trackedFileIsInScope", () => {
     expect(trackedFileIsInScope("logo.png")).toBe(false);
   });
 
-  it("includes path-scoped metadata and extensionless files already claimed by the map", () => {
+  it("includes path-scoped metadata and known extensionless files", () => {
     expect(trackedFileIsInScope(".env.example")).toBe(true);
     expect(trackedFileIsInScope(".devcontainer/.env.example")).toBe(true);
     expect(trackedFileIsInScope(".gitignore")).toBe(true);
@@ -314,7 +317,6 @@ describe("trackedFileIsInScope", () => {
     );
     expect(trackedFileIsInScope(".husky/pre-push")).toBe(true);
     expect(trackedFileIsInScope("LICENSE")).toBe(true);
-    expect(trackedFileIsInScope("docs/bugs")).toBe(true);
     expect(trackedFileIsInScope("scripts/generated-hook")).toBe(false);
   });
 });

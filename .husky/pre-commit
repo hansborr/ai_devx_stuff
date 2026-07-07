@@ -36,6 +36,9 @@ set -u
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 
+# shellcheck source=/dev/null
+. "$REPO_ROOT/scripts/lib/gate-env.sh"
+
 # --- 0. Protected-branch guard ---------------------------------------------
 # Refuse direct commits on the protected branch (main/master) before any other
 # work; integrate via merge instead (git merge --no-ff skips this hook). git
@@ -174,24 +177,30 @@ warn_if_generated_surface_stale() {
   printf 'pre-commit: WARN: %s appears stale:\n%s\n' "$label" "$output" >&2
 }
 
-warn_if_generated_harness_surfaces_stale() {
-  local staged generated_pattern
+warn_if_generated_surfaces_stale() {
+  local staged generated_pattern lint_guidance_pattern
   staged="$(git diff --cached --name-only --diff-filter=ACMR)"
   [ -n "$staged" ] || return 0
 
-  generated_pattern='^(harness\.controls\.json|scripts/harness/(generate-(hook-wiring|verify-steps)\.ts|hook-wiring-schema\.ts|verify-step-schema\.ts)|scripts/verify/steps\.generated\.sh|\.claude/settings\.json|\.codex/hooks\.json)$'
-  if ! printf '%s\n' "$staged" | grep -Eq "$generated_pattern"; then
-    return 0
+  generated_pattern='^(harness\.controls\.json|tsconfig\.configs\.json|eslint-config/(config-surface-manifest\.json|config-surfaces\.js)|scripts/harness/(generate-(hook-wiring|verify-steps|harness-controls|config-surfaces)\.ts|hook-wiring-schema\.ts|verify-step-schema\.ts)|scripts/verify/steps\.generated\.sh|docs/generated/harness-controls\.md|\.claude/settings\.json|\.codex/hooks\.json|\.github/hooks/copilot\.json)$'
+  lint_guidance_pattern='^(eslint-rules/.*|eslint-config/local-plugin\.js|scripts/generate-lint-guidance\.ts|scripts/lib/lint-rule-docs\.ts|docs/generated/local-lint-rules\.md)$'
+
+  if printf '%s\n' "$staged" | grep -Eq "$generated_pattern"; then
+    warn_if_generated_surface_stale "verify step metadata" "verify:steps:check"
+    warn_if_generated_surface_stale "AI hook wiring" "harness:wiring:check"
+    warn_if_generated_surface_stale "harness controls docs" "docs:harness-controls:check"
+    warn_if_generated_surface_stale "config surface tsconfig" "harness:config-surfaces:check"
   fi
 
-  warn_if_generated_surface_stale "verify step metadata" "verify:steps:check"
-  warn_if_generated_surface_stale "AI hook wiring" "harness:wiring:check"
+  if printf '%s\n' "$staged" | grep -Eq "$lint_guidance_pattern"; then
+    warn_if_generated_surface_stale "lint guidance" "docs:lint-guidance:check"
+  fi
 }
 
 warn_if_staged_lockfile_needs_install
 warn_if_staged_schema_needs_generate
 warn_if_staged_hot_doc_too_long
-warn_if_generated_harness_surfaces_stale
+warn_if_generated_surfaces_stale
 
 musi_precommit_prepare_fast_provenance
 
@@ -348,48 +357,9 @@ START_TIME=$(date -Iseconds)
 
 PARALLEL_PIDS=()
 STEP_NAMES=()
+# shellcheck disable=SC2034 # Passed by name to musi_run_parallel_verify_steps.
 STEP_PIDS=()
 STEP_EXITS=()
-PENDING_LINT_CMD=()
-DEFER_LINT=0
-PENDING_LINT_INDEX=-1
-TYPECHECK_INDEX=-1
-
-if ! musi_lint_dist_outputs_present "$REPO_ROOT"; then
-  DEFER_LINT=1
-fi
-
-for slot in "${MUSI_PRE_COMMIT_STEPS[@]}"; do
-  resolve_rc=0
-  musi_resolve_slot_cmd pre_commit "$slot" || resolve_rc=$?
-  if [ "$resolve_rc" -eq "$MUSI_VERIFY_SLOT_SKIP_RC" ]; then
-    continue
-  fi
-  if [ "$resolve_rc" -ne 0 ]; then
-    printf 'pre-commit: failed to resolve %s step (rc=%s)\n' \
-      "$slot" "$resolve_rc" > "$LOG_DIR/${slot}.log"
-    STEP_NAMES+=("$slot")
-    STEP_PIDS+=("")
-    STEP_EXITS+=("$resolve_rc")
-    break
-  fi
-  if [ "$DEFER_LINT" -eq 1 ] && [ "$slot" = lint ]; then
-    PENDING_LINT_INDEX="${#STEP_NAMES[@]}"
-    PENDING_LINT_CMD=("${MUSI_RESOLVED_SLOT_CMD[@]}")
-    STEP_NAMES+=("$slot")
-    STEP_PIDS+=("")
-    STEP_EXITS+=("")
-    continue
-  fi
-  musi_run_parallel_step parallel-precommit "" "$slot" "${MUSI_RESOLVED_SLOT_CMD[@]}"
-  STEP_NAMES+=("$slot")
-  STEP_PIDS+=("$STEP_PID")
-  STEP_EXITS+=("")
-  PARALLEL_PIDS+=("$STEP_PID")
-  if [ "$slot" = typecheck ]; then
-    TYPECHECK_INDEX=$(( ${#STEP_NAMES[@]} - 1 ))
-  fi
-done
 
 # Propagate INT/TERM to children. Split traps to emit conventional exit codes:
 #   INT  (Ctrl-C) → 130
@@ -421,41 +391,8 @@ trap 'cleanup_parallel_children; write_signal_wrapper_meta 130; exit 130' INT
 trap 'cleanup_parallel_children; write_signal_wrapper_meta 124; report_timeout_budget; exit 124' TERM
 trap 'exit_code=$?; musi_precommit_fast_provenance_on_exit "$exit_code"; kill $WD 2>/dev/null' EXIT
 
-if [ "$PENDING_LINT_INDEX" -ge 0 ]; then
-  if [ "$TYPECHECK_INDEX" -ge 0 ] && [ -n "${STEP_PIDS[$TYPECHECK_INDEX]}" ]; then
-    pid="${STEP_PIDS[$TYPECHECK_INDEX]}"
-    if wait "$pid"; then
-      STEP_EXITS[$TYPECHECK_INDEX]=0
-    else
-      STEP_EXITS[$TYPECHECK_INDEX]=$?
-    fi
-    if [ "${STEP_EXITS[$TYPECHECK_INDEX]}" -eq 0 ]; then
-      musi_run_parallel_step parallel-precommit "" lint "${PENDING_LINT_CMD[@]}"
-      STEP_PIDS[$PENDING_LINT_INDEX]="$STEP_PID"
-      PARALLEL_PIDS+=("$STEP_PID")
-    else
-      printf 'pre-commit: skipped lint because typecheck failed before required dist outputs were available\n' \
-        > "$LOG_DIR/lint.log"
-      STEP_EXITS[$PENDING_LINT_INDEX]=1
-    fi
-  else
-    musi_run_parallel_step parallel-precommit "" lint "${PENDING_LINT_CMD[@]}"
-    STEP_PIDS[$PENDING_LINT_INDEX]="$STEP_PID"
-    PARALLEL_PIDS+=("$STEP_PID")
-  fi
-fi
-
-for index in "${!STEP_NAMES[@]}"; do
-  [ -n "${STEP_EXITS[$index]}" ] && continue
-  pid="${STEP_PIDS[$index]}"
-  [ -n "$pid" ] || continue
-  if wait "$pid"; then
-    STEP_EXITS[$index]=0
-  else
-    STEP_EXITS[$index]=$?
-  fi
-done
-PARALLEL_PIDS=()
+musi_run_parallel_verify_steps pre_commit MUSI_PRE_COMMIT_STEPS parallel-precommit "" \
+  "$REPO_ROOT" STEP_NAMES STEP_PIDS STEP_EXITS PARALLEL_PIDS
 
 # --- 7. Aggregate results --------------------------------------------------
 passed=""; failed=""

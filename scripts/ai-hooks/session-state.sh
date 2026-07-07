@@ -11,6 +11,7 @@ HOOK_LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HOOK_LIB/stop-policy.sh"
 
 AI_SESSION_STATE_EDIT_KILL_SWITCH=".no-edit-lint"
+AI_SESSION_STATE_PROTECTED_EDITS_MARKER=".allow-protected-edits"
 AI_SESSION_STATE_MAX_LINES=20
 
 ai_session_state_add_line() {
@@ -21,7 +22,7 @@ ai_session_state_dirty_summary() {
   local repo_root="$1"
   local status
 
-  status=$(git -C "$repo_root" status --porcelain --untracked-files=normal 2>/dev/null || true)
+  status=$(ai_stop_git_readonly -C "$repo_root" status --porcelain --untracked-files=normal 2>/dev/null || true)
   if [ -z "$status" ]; then
     printf 'clean'
     return 0
@@ -47,7 +48,7 @@ ai_session_state_fast_commit_status() {
   local repo_root="$1"
   local common_dir
 
-  common_dir=$(git -C "$repo_root" rev-parse --git-common-dir 2>/dev/null || true)
+  common_dir=$(ai_stop_git_readonly -C "$repo_root" rev-parse --git-common-dir 2>/dev/null || true)
   [ -n "$common_dir" ] || { printf 'inactive'; return 0; }
   case "$common_dir" in
     /*) ;;
@@ -71,6 +72,7 @@ ai_session_state_active_kill_switches() {
     "$AI_STOP_ASYNC_KILL_SWITCH" \
     "$AI_STOP_VERIFY_KILL_SWITCH" \
     "$AI_STOP_VERIFY_LEGACY_KILL_SWITCH" \
+    "$AI_STOP_LINT_WARNINGS_KILL_SWITCH" \
     "$AI_SESSION_STATE_EDIT_KILL_SWITCH"; do
     [ -f "$repo_root/$switch" ] || continue
     switches+=("$switch")
@@ -79,6 +81,15 @@ ai_session_state_active_kill_switches() {
   [ "${#switches[@]}" -gt 0 ] || return 1
   printf '%s\n' "${switches[@]}" | sort \
     | awk 'NR > 1 { printf ", " } { printf "%s", $0 }'
+}
+
+ai_session_state_active_safety_overrides() {
+  local repo_root="$1"
+  local marker
+
+  marker="$AI_SESSION_STATE_PROTECTED_EDITS_MARKER"
+  [ -f "$repo_root/$marker" ] || return 1
+  printf '%s' "$marker"
 }
 
 ai_session_state_cached_verify_failure() {
@@ -141,18 +152,32 @@ ai_session_state_async_status() {
   fi
 }
 
+ai_session_state_header() {
+  local source="$1"
+
+  case "$source" in
+    compact) printf 'Harness state after compaction:' ;;
+    resume) printf 'Harness state on session resume:' ;;
+    *) printf 'Harness state at session start:' ;;
+  esac
+}
+
 ai_session_state_emit() {
   local repo_root="$1"
   local event_name="$2"
-  local branch dirty fast_commit kill_switches verify_failure async_status
+  local source="${3:-}"
+  local branch dirty fast_commit kill_switches safety_overrides verify_failure async_status
   local interesting=0 message
 
-  git -C "$repo_root" rev-parse --is-inside-work-tree >/dev/null 2>&1 || return 0
+  ai_stop_git_readonly -C "$repo_root" rev-parse --is-inside-work-tree >/dev/null 2>&1 || return 0
 
   branch=$(ai_stop_current_branch "$repo_root")
   dirty=$(ai_session_state_dirty_summary "$repo_root")
   fast_commit=$(ai_session_state_fast_commit_status "$repo_root")
   if kill_switches=$(ai_session_state_active_kill_switches "$repo_root"); then
+    interesting=1
+  fi
+  if safety_overrides=$(ai_session_state_active_safety_overrides "$repo_root"); then
     interesting=1
   fi
   if verify_failure=$(ai_session_state_cached_verify_failure "$repo_root"); then
@@ -168,11 +193,12 @@ ai_session_state_emit() {
   [ "$interesting" -eq 1 ] || return 0
 
   AI_SESSION_STATE_LINES=()
-  ai_session_state_add_line "Harness state after compaction:"
+  ai_session_state_add_line "$(ai_session_state_header "$source")"
   ai_session_state_add_line "- branch: $branch"
   ai_session_state_add_line "- worktree: $dirty"
   ai_session_state_add_line "- fast-commit: $fast_commit"
   [ -z "${kill_switches:-}" ] || ai_session_state_add_line "- active kill switches: $kill_switches"
+  [ -z "${safety_overrides:-}" ] || ai_session_state_add_line "- active safety overrides: $safety_overrides"
   [ -z "${verify_failure:-}" ] || ai_session_state_add_line "- $verify_failure"
   [ -z "${async_status:-}" ] || ai_session_state_add_line "- $async_status"
 
@@ -184,7 +210,8 @@ ai_session_state_emit() {
 payload=$(ai_read_payload)
 event_name=$(printf '%s' "$payload" | jq -r '.hook_event_name // "SessionStart"' 2>/dev/null || true)
 [ -n "$event_name" ] || event_name="SessionStart"
-REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo "${CLAUDE_PROJECT_DIR:-/workspace}")
+source=$(printf '%s' "$payload" | jq -r '.source // empty' 2>/dev/null || true)
+REPO_ROOT=$(ai_stop_git_readonly rev-parse --show-toplevel 2>/dev/null || echo "${CLAUDE_PROJECT_DIR:-/workspace}")
 
-ai_session_state_emit "$REPO_ROOT" "$event_name"
+ai_session_state_emit "$REPO_ROOT" "$event_name" "$source"
 exit 0

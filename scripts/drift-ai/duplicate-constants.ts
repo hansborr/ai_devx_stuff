@@ -16,12 +16,6 @@ import type { ShapeEntry } from "./duplicate-shapes.js";
 import { hasMinNumericLiteralDigits } from "./numeric-literal-text.js";
 import { scriptKindFor } from "./ts-source-util.js";
 
-export {
-  DEFAULT_DUPLICATE_CONSTANTS_MIN_DISTINCT_FILES,
-  DEFAULT_DUPLICATE_CONSTANTS_MIN_LENGTH,
-  DEFAULT_DUPLICATE_CONSTANTS_MIN_NUMBER_DIGITS,
-} from "./duplicate-shapes-config-values.js";
-
 export type ExtractConstantShapesOptions = {
   readonly minLength: number;
   readonly minNumberDigits: number;

@@ -1,4 +1,17 @@
 #!/usr/bin/env bash
+# smoke-order: 230
+# smoke-subjects: scripts/lint-shell.sh
+# smoke-subjects: scripts/lib/parallel-runner.sh
+# smoke-subjects: scripts/lib/changed-base.sh
+# smoke-subjects: scripts/path-policy/path-policy-query.ts
+# smoke-subjects: scripts/path-policy/path-policy-query-core.ts
+# smoke-subjects: scripts/path-policy/path-policy.ts
+# smoke-subjects: scripts/harness/harness-paths.ts
+# smoke-subjects: scripts/lint-ratchet/paths.ts
+# smoke-subjects: scripts/tests/lib/test-git-env.sh
+# smoke-subjects: scripts/tests/test-lint-shell.sh
+# smoke-subjects: package.json
+# smoke-subjects: bun.lock
 # Pure-shell smoke tests for scripts/lint-shell.sh and its changed-lint wiring.
 
 set -euo pipefail
@@ -15,11 +28,14 @@ PARALLEL_RUNNER="$SCRIPT_DIR/../lib/parallel-runner.sh"
 VERIFY_METADATA="$SCRIPT_DIR/../lib/verify-metadata.sh"
 CHANGED_BASE="$SCRIPT_DIR/../lib/changed-base.sh"
 LINT_DIST_PREFLIGHT="$SCRIPT_DIR/../lib/lint-dist-preflight.sh"
+ESLINT_MAIN_CACHE="$SCRIPT_DIR/../lib/eslint-main-cache.sh"
 PATH_POLICY_QUERY="$SCRIPT_DIR/../path-policy/path-policy-query.ts"
 PATH_POLICY_QUERY_CORE="$SCRIPT_DIR/../path-policy/path-policy-query-core.ts"
 PATH_POLICY="$SCRIPT_DIR/../path-policy/path-policy.ts"
 PATH_POLICY_SMOKE_SUBJECTS="$SCRIPT_DIR/../path-policy/path-policy-smoke-subjects.ts"
 PATH_POLICY_SMOKE_SUBJECTS_DATA="$SCRIPT_DIR/../path-policy/path-policy-smoke-subjects-data.ts"
+HARNESS_PATHS="$SCRIPT_DIR/../harness/harness-paths.ts"
+LINT_RATCHET_PATHS="$SCRIPT_DIR/../lint-ratchet/paths.ts"
 
 PASS=0
 fail() { printf 'FAIL: %s\n' "$1" >&2; exit 1; }
@@ -28,7 +44,7 @@ ok() { PASS=$((PASS + 1)); printf 'ok %d - %s\n' "$PASS" "$1"; }
 if command -v shellcheck >/dev/null 2>&1; then
   SHELLCHECK_BIN="$(command -v shellcheck)"
 else
-  fail "shellcheck unavailable; install with apt install shellcheck"
+  fail "shellcheck unavailable; install shellcheck with your system package manager (dnf/apt/brew)"
 fi
 
 SANDBOX="$(mktemp -d /tmp/musi-lint-shell-test.XXXXXX)"
@@ -37,7 +53,8 @@ trap 'rm -rf "$SANDBOX"' EXIT
 new_repo() {
   local name="$1"
   local repo="$SANDBOX/$name"
-  mkdir -p "$repo/scripts" "$repo/scripts/lib" "$repo/scripts/path-policy" "$repo/.husky"
+  mkdir -p "$repo/scripts" "$repo/scripts/lib" "$repo/scripts/path-policy" \
+    "$repo/scripts/harness" "$repo/scripts/lint-ratchet" "$repo/.husky"
   git -C "$SANDBOX" init -q -b main "$repo"
   cp "$LINT_SHELL" "$repo/scripts/lint-shell.sh"
   cp "$LINT_CHANGED" "$repo/scripts/lint-changed.sh"
@@ -45,12 +62,15 @@ new_repo() {
   cp "$VERIFY_METADATA" "$repo/scripts/lib/verify-metadata.sh"
   cp "$CHANGED_BASE" "$repo/scripts/lib/changed-base.sh"
   cp "$LINT_DIST_PREFLIGHT" "$repo/scripts/lib/lint-dist-preflight.sh"
+  cp "$ESLINT_MAIN_CACHE" "$repo/scripts/lib/eslint-main-cache.sh"
   cp "$PATH_POLICY_QUERY" "$repo/scripts/path-policy/path-policy-query.ts"
   cp "$PATH_POLICY_QUERY_CORE" "$repo/scripts/path-policy/path-policy-query-core.ts"
   cp "$PATH_POLICY" "$repo/scripts/path-policy/path-policy.ts"
   cp "$PATH_POLICY_SMOKE_SUBJECTS" "$repo/scripts/path-policy/path-policy-smoke-subjects.ts"
   cp "$PATH_POLICY_SMOKE_SUBJECTS_DATA" \
     "$repo/scripts/path-policy/path-policy-smoke-subjects-data.ts"
+  cp "$HARNESS_PATHS" "$repo/scripts/harness/harness-paths.ts"
+  cp "$LINT_RATCHET_PATHS" "$repo/scripts/lint-ratchet/paths.ts"
   cat > "$repo/scripts/lint-config-sensors.sh" <<'SH'
 #!/usr/bin/env bash
 exit 0
@@ -124,6 +144,35 @@ grep -qF 'SC2164' <<< "$output" \
 grep -qF 'scripts/bad.sh' <<< "$output" \
   || fail "full ShellCheck output should name fixture script: $output"
 ok "full ShellCheck fails on known violation"
+
+repo="$(new_repo info-violation)"
+cat > "$repo/scripts/info-bad.sh" <<'SH'
+#!/usr/bin/env bash
+prefix="$1"
+path="$2"
+printf '%s\n' "${path#$prefix/}"
+SH
+set +e
+output="$(run_lint_shell "$repo" 2>&1)"
+exit_code=$?
+set -e
+[ "$exit_code" -ne 0 ] || fail "full ShellCheck should fail on info-severity SC2295 violation"
+grep -qF 'SC2295' <<< "$output" \
+  || fail "full ShellCheck output should report SC2295: $output"
+ok "full ShellCheck fails on info-severity SC2295 violation"
+
+repo="$(new_repo info-excluded)"
+cat > "$repo/scripts/info-noisy.sh" <<'SH'
+#!/usr/bin/env bash
+cleanup() { rm -f /tmp/musi-lint-shell-fixture; }
+trap cleanup EXIT
+printf '%s\n' 'literal $dollar text'
+exit 0
+printf '%s\n' "unreachable"
+SH
+run_lint_shell "$repo" >/dev/null \
+  || fail "excluded info codes (SC2317, SC2016) should not fail ShellCheck"
+ok "excluded info codes still pass ShellCheck"
 
 repo="$(new_repo changed-violation)"
 cat > "$repo/scripts/bad.sh" <<'SH'

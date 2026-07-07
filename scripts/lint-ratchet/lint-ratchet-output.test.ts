@@ -18,6 +18,7 @@ import {
   harnessDiagnosticsSchema,
 } from "../../packages/shared/src/schemas/harness-diagnostics.js";
 import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
+import { REGRESSION_RECOVERY_FOOTER } from "./recovery-command.js";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const OUTPUT_BUFFER_BYTES = 10_000_000;
@@ -37,6 +38,8 @@ const CROSS_DIR_RUNTIME_FILES = [
   "scripts/lint-ratchet.ts",
   "scripts/lib/eslint-json.ts",
   "scripts/lib/lint-rule-docs.ts",
+  "scripts/harness/harness-paths.ts",
+  "scripts/harness/harness-diagnostics-output.ts",
   "packages/shared/src/schemas/harness-diagnostics.ts",
 ] as const;
 
@@ -197,6 +200,18 @@ function writeDebugSource(fixtureRoot: string): void {
   writeFileSync(
     join(fixtureRoot, "packages/app/src/example.ts"),
     "debugger;\nexport const value = 1;\n",
+  );
+}
+
+function writeInlineDisabledDebugSource(fixtureRoot: string): void {
+  writeFileSync(
+    join(fixtureRoot, "packages/app/src/example.ts"),
+    [
+      "// eslint-disable-next-line no-debugger -- fixture proves ratchet collection ignores inline disables",
+      "debugger;",
+      "export const value = 1;",
+      "",
+    ].join("\n"),
   );
 }
 
@@ -398,6 +413,9 @@ describe("lint ratchet diagnostics output file", () => {
     const envelope = parseEnvelope(result.stdout);
     expect(envelope.summary.blocking).toBe(1);
     expect(envelope.findings[0]?.ruleId).toBe("no-debugger");
+    expect(result.stderr).toContain("blocking=1 info=0");
+    expect(result.stderr).not.toContain("warning=");
+    expect(result.stderr).toContain(REGRESSION_RECOVERY_FOOTER);
   });
 
   it("creates the output file parent directory when missing", { timeout: 15_000 }, () => {
@@ -408,6 +426,33 @@ describe("lint ratchet diagnostics output file", () => {
     expect(result.status, result.stderr).toBe(0);
     expect(readFileSync(outputPath, "utf8")).toBe(result.stdout);
   });
+});
+
+describe("lint ratchet inline suppression collection", () => {
+  it(
+    "counts a ratcheted violation even when the source has an inline disable",
+    { timeout: 15_000 },
+    () => {
+      const fixtureRoot = makeFixture();
+      writeInlineDisabledDebugSource(fixtureRoot);
+
+      const result = runLintRatchet(fixtureRoot, ["--update"]);
+
+      expect(result.status, result.stderr).toBe(0);
+      const baseline = JSON.parse(
+        readFileSync(join(fixtureRoot, "lint-ratchet.baseline.json"), "utf8"),
+      ) as {
+        readonly tests: {
+          readonly [testId: string]: {
+            readonly items: { readonly [path: string]: { readonly count: number } };
+          };
+        };
+      };
+      expect(
+        baseline.tests["ratchet/fixture-no-debugger"]?.items["packages/app/src/example.ts"]?.count,
+      ).toBe(1);
+    },
+  );
 });
 
 describe("lint ratchet propose mode", () => {

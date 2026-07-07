@@ -265,7 +265,7 @@ a high-risk workflow with existing server/service tests to extend.
 
 ### Worktree-local observability
 
-Source: `docs/agent_notes/in_progress/worktree-local-observability.md`.
+Source: `docs/agent_notes/backlog/worktree-local-observability.md`.
 
 Recommended next leaf if promoted: `logs:audit:latest` or a narrow doctor
 integration for the newest known local server log. Defer `observe:logs` until

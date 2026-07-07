@@ -31,13 +31,12 @@ import {
 } from "./coldspots-markers.js";
 import type { GitRunner } from "./git-changed-scope.js";
 import { shellQuoteArg } from "./hotspots-actionability.js";
+import { DAY_MS } from "./time-constants.js";
 
 // Empirical anchor (Morlion): the median such marker lives ~246 days, and ~62% of
 // live ones are over a year old. 180d is a conservative "aged enough to be worth a
 // look" floor below that median.
 export const DEFAULT_STALE_MARKER_AGE_THRESHOLD_DAYS = 180;
-
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 export type ReduceStaleMarkersOptions = {
   readonly files: readonly string[]; // repo-relative candidate paths (already scope/ignore-filtered)

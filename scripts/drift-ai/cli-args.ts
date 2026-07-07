@@ -1,3 +1,4 @@
+import { requireArgAllowingEmpty as requireArg } from "../cli-option-values.js";
 import { optionName, readFormat, readPath, readValue } from "./arg-readers.js";
 import { ALL_CHECKS, CHECK_USAGE, DEFAULT_CHECKS } from "./check-metadata.js";
 import { DriftAiError } from "./errors.js";
@@ -319,8 +320,9 @@ export function parseArgs(argv: readonly string[]): CliOptions {
   const parsed = initialParsedOptions();
 
   for (let index = 0; index < argv.length; index += 1) {
-    const arg = argv[index];
-    if (arg === undefined) throw new DriftAiError("Empty arguments are not supported.");
+    const arg = requireArg(argv[index], (message) => {
+      throw new DriftAiError(message);
+    });
     if (arg === "--help" || arg === "-h") {
       throw new DriftAiHelp();
     }

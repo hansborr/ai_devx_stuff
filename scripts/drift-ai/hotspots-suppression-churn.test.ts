@@ -61,6 +61,11 @@ describe("collectSuppressionChurnRecords", () => {
     expect(recorded[0]).toContain("eslint-disable|@ts-");
     expect(recorded[0]).toContain("--name-only");
     expect(recorded[0]).not.toContain("--numstat");
+    // --no-renames is load-bearing for parser correctness (arrow-form paths
+    // corrupt the tab-split parser this walk feeds); it must be present here just
+    // as in the numstat history walk, not dropped by a hand-rolled arg list.
+    expect(recorded[0]).toContain("--no-renames");
+    expect(recorded[0]).toContain("--no-merges");
     expect(records).toHaveLength(2);
     expect(records[0]?.files.map((file) => file.path)).toEqual(["src/a.ts"]);
   });

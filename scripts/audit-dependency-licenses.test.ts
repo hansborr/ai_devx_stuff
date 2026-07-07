@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  LICENSE_AUDIT_REMEDY,
   licenseValue,
   REVIEW_COPYLEFT_RE,
   STRONG_COPYLEFT_RE,
@@ -34,5 +35,13 @@ describe("licenseValue", () => {
     expect(licenseValue([{ type: "MIT" }, "Apache-2.0", { type: "BSD-3-Clause" }])).toBe(
       "MIT OR Apache-2.0 OR BSD-3-Clause",
     );
+  });
+});
+
+describe("LICENSE_AUDIT_REMEDY", () => {
+  it("points agents at the review decision record instead of an allowlist", () => {
+    expect(LICENSE_AUDIT_REMEDY).toContain("docs/agent_notes/");
+    expect(LICENSE_AUDIT_REMEDY).toContain("package, version, license, and rationale");
+    expect(LICENSE_AUDIT_REMEDY).not.toContain("allowlist");
   });
 });

@@ -71,18 +71,6 @@
           }
         ]
       }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"$(git rev-parse --show-toplevel)/.codex/hooks/stop-reminder.sh\"",
-            "statusMessage": "Checking repository stop conditions",
-            "timeout": 30
-          }
-        ]
-      }
     ]
   }
 }

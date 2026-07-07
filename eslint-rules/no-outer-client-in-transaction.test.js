@@ -59,6 +59,29 @@ describe("no-outer-client-in-transaction", () => {
             "await prisma.character.findUnique({ where: { id } });",
           ].join("\n"),
         },
+        {
+          code: [
+            "await prisma.$transaction(async (prisma) => {",
+            "  await write(prisma);",
+            "});",
+          ].join("\n"),
+        },
+        {
+          code: [
+            "await prisma.$transaction(async (tx) => {",
+            "  await write({ prisma: tx });",
+            "  await write(...[tx]);",
+            "});",
+          ].join("\n"),
+        },
+        {
+          code: [
+            "await prisma.$transaction(async (tx) => {",
+            "  const db = tx;",
+            "  await write(db);",
+            "});",
+          ].join("\n"),
+        },
       ],
       invalid: [
         {
@@ -108,6 +131,59 @@ describe("no-outer-client-in-transaction", () => {
             "    await ctx.prisma.character.update({ where: { id }, data });",
             "  }",
             "  await writeOutsideTx();",
+            "});",
+          ].join("\n"),
+          errors: [{ messageId: "outerClientInTransaction" }],
+        },
+        {
+          code: [
+            "await prisma.$transaction(async (tx) => {",
+            "  async function write(prisma) {",
+            "    await prisma.character.update({ where: { id }, data });",
+            "  }",
+            "  await write(prisma);",
+            "});",
+          ].join("\n"),
+          errors: [{ messageId: "outerClientInTransaction" }],
+        },
+        {
+          code: [
+            "await ctx.prisma.$transaction(async (tx) => {",
+            "  await write(ctx.prisma);",
+            "});",
+          ].join("\n"),
+          errors: [{ messageId: "outerClientInTransaction" }],
+        },
+        {
+          code: [
+            "await prisma.$transaction(async (tx) => {",
+            "  await write({ prisma });",
+            "});",
+          ].join("\n"),
+          errors: [{ messageId: "outerClientInTransaction" }],
+        },
+        {
+          code: [
+            "await prisma.$transaction(async (tx) => {",
+            "  await write(...[prisma]);",
+            "});",
+          ].join("\n"),
+          errors: [{ messageId: "outerClientInTransaction" }],
+        },
+        {
+          code: [
+            "const db = prisma;",
+            "await prisma.$transaction(async (tx) => {",
+            "  await write(db);",
+            "});",
+          ].join("\n"),
+          errors: [{ messageId: "outerClientInTransaction" }],
+        },
+        {
+          code: [
+            "await prisma.$transaction(async (tx) => {",
+            "  const db = prisma;",
+            "  await write(db);",
             "});",
           ].join("\n"),
           errors: [{ messageId: "outerClientInTransaction" }],

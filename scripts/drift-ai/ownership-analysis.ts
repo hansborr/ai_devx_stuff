@@ -18,8 +18,7 @@ import type {
   OwnershipChangeSplit,
   OwnershipIdentity,
 } from "./ownership-types.js";
-
-const DAY_MS = 24 * 60 * 60 * 1000;
+import { DAY_MS } from "./time-constants.js";
 
 export function buildOwnershipRows(input: {
   readonly records: readonly CommitRecord[];

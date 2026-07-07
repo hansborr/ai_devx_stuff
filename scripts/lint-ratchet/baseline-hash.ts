@@ -11,7 +11,7 @@ import type {
 
 export { LINT_RATCHET_CONFIG_HASH_PREFIX } from "./baseline-constants.js";
 
-export const RULE_ID_PATTERN =
+const RULE_ID_PATTERN =
   /^(?:[a-z0-9][a-z0-9-]*(?:\/[a-z0-9][a-z0-9-]*)+|@[a-z0-9][a-z0-9-]*\/[a-z0-9][a-z0-9-]*(?:\/[a-z0-9][a-z0-9-]*)*)$/u;
 const SCOPED_RULE_NAMESPACE_PARTS = 3;
 

@@ -1,4 +1,10 @@
 #!/usr/bin/env bash
+# smoke-order: 290
+# smoke-subjects: scripts/generate-module-index.sh
+# smoke-subjects: scripts/tests/lib/test-git-env.sh
+# smoke-subjects: scripts/tests/test-generate-module-index.sh
+# smoke-subjects: scripts/harness-emit-envelope.ts
+# smoke-subjects: packages/shared/src/schemas/harness-diagnostics.ts
 # Pure-shell tests for MODULE-INDEX.md generation and drift checks.
 
 set -euo pipefail
@@ -10,6 +16,8 @@ musi_clear_inherited_git_hook_env
 musi_exit_after_git_hook_env_assertion_if_requested
 GENERATOR="$SCRIPT_DIR/../generate-module-index.sh"
 REPO_ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel)"
+REAL_MV="$(command -v mv)"
+export REAL_MV
 
 PASS=0
 fail() { printf 'FAIL: %s\n' "$1" >&2; exit 1; }
@@ -17,6 +25,26 @@ ok() { PASS=$((PASS + 1)); printf 'ok %d - %s\n' "$PASS" "$1"; }
 
 SANDBOX="$(mktemp -d /tmp/musi-module-index-test.XXXXXX)"
 trap 'rm -rf "$SANDBOX"' EXIT
+
+stub_bin="$SANDBOX/bin"
+mkdir -p "$stub_bin"
+cat > "$stub_bin/mv" <<'STUB'
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ "$#" -eq 2 ] && [ "$2" = "MODULE-INDEX.md" ]; then
+  src_dir="$(cd "$(dirname "$1")" && pwd -P)"
+  dst_dir="$(cd "$(dirname "$2")" && pwd -P)"
+  if [ "$src_dir" != "$dst_dir" ]; then
+    printf 'cross-directory MODULE-INDEX.md mv: %s -> %s\n' "$1" "$2" >&2
+    exit 23
+  fi
+fi
+
+exec "$REAL_MV" "$@"
+STUB
+chmod +x "$stub_bin/mv"
+PATH="$stub_bin:$PATH"
 
 repo="$SANDBOX/repo"
 mkdir -p "$repo/scripts" "$repo/packages/example" "$repo/packages/later" "$repo/packages/shared/src/schemas"
@@ -27,6 +55,12 @@ cp "$REPO_ROOT/packages/shared/src/schemas/harness-diagnostics.ts" \
   "$repo/packages/shared/src/schemas/harness-diagnostics.ts"
 ln -s "$REPO_ROOT/node_modules" "$repo/node_modules"
 ln -s "$REPO_ROOT/packages/shared/node_modules" "$repo/packages/shared/node_modules"
+
+assert_no_module_index_temp() {
+  local temp_file
+  temp_file="$(find "$repo" -maxdepth 1 -name '.MODULE-INDEX.md.tmp.*' -print -quit)"
+  [ -z "$temp_file" ] || fail "module index temp file remains: $temp_file"
+}
 
 cat > "$repo/packages/example/MODULE.md" <<'DOC'
 # Example Module
@@ -55,6 +89,7 @@ grep -qF '[Later Concepts Module](packages/later/MODULE.md) - `packages/later/`'
 if grep -qF 'should not index' "$repo/MODULE-INDEX.md"; then
   fail "generated index should ignore non-header concept lines"
 fi
+assert_no_module_index_temp
 ok "write mode generates MODULE-INDEX.md with concept breadcrumbs"
 
 (
@@ -99,6 +134,7 @@ rg -qF 'Concepts: initiative, campaign rooms, socket broadcasts' <<< "$output" \
   || fail "metadata drift should show the changed Concepts breadcrumb in the diff: $output"
 rg -qF '[Example Module](packages/example/MODULE.md)' "$repo/MODULE-INDEX.md" \
   || fail "--check should not overwrite the stale index after module-doc metadata changes"
+assert_no_module_index_temp
 ok "check mode fails when indexed module-doc metadata changes"
 
 JSON_OUT="$SANDBOX/module-index-stale.json"
@@ -131,12 +167,14 @@ ASSERT_FILE="$JSON_OUT" bun -e '
     throw new Error(`expected one non-blocking finding in summary: ${JSON.stringify(env.summary)}`);
   }
 ' || fail "--json stale envelope shape is wrong"
+assert_no_module_index_temp
 ok "json mode emits a non-blocking finding when index is out of date"
 
 (
   cd "$repo"
   bash scripts/generate-module-index.sh
 )
+assert_no_module_index_temp
 
 printf '\nmanual drift\n' >> "$repo/MODULE-INDEX.md"
 set +e
@@ -151,6 +189,7 @@ grep -qF 'MODULE-INDEX.md is out of date' <<< "$output" \
   || fail "drift failure should explain how to regenerate: $output"
 grep -qF 'manual drift' "$repo/MODULE-INDEX.md" \
   || fail "--check should not overwrite the existing index"
+assert_no_module_index_temp
 ok "check mode fails on drift without rewriting"
 
 if (

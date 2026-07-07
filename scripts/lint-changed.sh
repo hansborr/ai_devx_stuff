@@ -14,6 +14,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCRIPT_DIR/lib/changed-base.sh"
 # shellcheck source=scripts/lib/lint-dist-preflight.sh
 . "$SCRIPT_DIR/lib/lint-dist-preflight.sh"
+# shellcheck source=scripts/lib/eslint-main-cache.sh
+. "$SCRIPT_DIR/lib/eslint-main-cache.sh"
 LINT_SHELL="$SCRIPT_DIR/lint-shell.sh"
 LINT_CONFIG_SENSORS="$SCRIPT_DIR/lint-config-sensors.sh"
 LINT_IMPORT_CYCLES="$SCRIPT_DIR/lint-import-cycles.sh"
@@ -37,6 +39,7 @@ path_policy_has_match() {
 
 run_full_lint() {
   musi_lint_dist_preflight "$REPO_ROOT"
+  musi_eslint_main_cache_args "$REPO_ROOT"
 
   musi_parallel_init "musi-lint-changed"
   musi_parallel_install_traps
@@ -44,7 +47,8 @@ run_full_lint() {
   musi_parallel_start "ShellCheck" "shell" bash "$LINT_SHELL"
   musi_parallel_start "config sensors" "config" bash "$LINT_CONFIG_SENSORS"
   start_import_cycles_lane
-  musi_parallel_start "ESLint" "eslint" eslint --max-warnings=0 .
+  musi_parallel_start "ESLint" "eslint" eslint --max-warnings=0 \
+    "${MUSI_ESLINT_MAIN_CACHE_ARGS[@]}" .
 
   musi_parallel_wait_all "lint:changed"
   exit "$MUSI_PARALLEL_EXIT"
@@ -53,6 +57,7 @@ run_full_lint() {
 run_changed_lint() {
   if [ "${#FILES[@]}" -gt 0 ]; then
     musi_lint_dist_preflight "$REPO_ROOT"
+    musi_eslint_main_cache_args "$REPO_ROOT"
   fi
 
   musi_parallel_init "musi-lint-changed"
@@ -66,7 +71,8 @@ run_changed_lint() {
     echo "lint:changed: no staged/base changed lintable files vs $BASE — skipping lint."
   else
     echo "lint:changed: checking ${#FILES[@]} staged/base changed working-tree file(s) with eslint."
-    musi_parallel_start "ESLint" "eslint" eslint --max-warnings=0 --no-warn-ignored "${FILES[@]}"
+    musi_parallel_start "ESLint" "eslint" eslint --max-warnings=0 --no-warn-ignored \
+      "${MUSI_ESLINT_MAIN_CACHE_ARGS[@]}" "${FILES[@]}"
   fi
 
   musi_parallel_wait_all "lint:changed"

@@ -1,6 +1,6 @@
 # 39. Promote the knip dead-export surface from weekly advisory to a counted local floor (or record an advisory-only verdict)
 
-Status: Proposed — from the 2026-07-01 AI-harness review; NOT implemented. Re-verify file:line before acting.
+Status: Done 2026-07-02 — knip unused-export counted floor shipped (`4cae49bc`, CI `a074fff6`; `sensor:knip-unused-exports` baseline sensor in all verify/pre-commit slots); jscpd deliberately left advisory, recorded in the `sensor/knip-unused-exports` control principle in `harness.controls.json`. Header was stale "Proposed" boilerplate until 2026-07-07; the pack index already said Done.
 Lens: lint-rules · Area: lint-infra · Severity: low-med · Size: S-M · Confidence: med
 Theme: dead-code-floors · Source: Musi AI-harness review 2026-07-01 (multi-agent + Codex second opinion + web research)
 

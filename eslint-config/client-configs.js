@@ -100,6 +100,7 @@ export const clientFrameworkConfigs = [
     settings: { react: { version: "19.2" } },
     rules: {
       "react/jsx-key": "error",
+      "react/jsx-no-constructed-context-values": "error",
       "react/no-unstable-nested-components": "error",
       "react/self-closing-comp": "error",
       "react/no-array-index-key": "error",

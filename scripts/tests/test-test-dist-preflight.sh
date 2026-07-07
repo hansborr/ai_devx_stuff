@@ -1,4 +1,12 @@
 #!/usr/bin/env bash
+# smoke-order: 220
+# smoke-subjects: scripts/lib/test-dist-preflight.sh
+# smoke-subjects: scripts/prisma-client-freshness.sh
+# smoke-subjects: scripts/vitest.sh
+# smoke-subjects: scripts/ai-hooks/output-filter.sh
+# smoke-subjects: scripts/tests/test-test-dist-preflight.sh
+# smoke-subjects: packages/shared/package.json
+# smoke-subjects: packages/server/package.json
 # Smoke test for the TEST-path stale-dist / prisma-client staleness preflight.
 #
 # Proves the mtime-based fail-fast guard: a fresh tree passes silently, a

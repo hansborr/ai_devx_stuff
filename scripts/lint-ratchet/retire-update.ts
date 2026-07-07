@@ -9,7 +9,7 @@ import {
 } from "./lint-ratchet-baseline.js";
 import type { LintRatchetConfig } from "./lint-ratchet-config.js";
 import { ConfigError } from "./lint-ratchet-metrics.js";
-import { normalLintStatusForFile } from "./lint-ratchet-zero-baseline.js";
+import { createNormalLintStatusForFile } from "./lint-ratchet-zero-baseline.js";
 import { BASELINE_FILENAME, baselinePath, repoRoot } from "./paths.js";
 import {
   type OrphanRetireScope,
@@ -48,10 +48,11 @@ export async function resolveRetireRequest(
   const scope = orphanScope(retireRatchetId, registry);
   if (scope === undefined) return { id: retireRatchetId, normalErrorProven: false };
   const eslint = new ESLint({ cwd: repoRoot });
+  const statusForFile = createNormalLintStatusForFile(eslint);
   const proof = await proveOrphanPromotedToNormalError(
     scope,
     trackedFilesFromGit("proving lint-ratchet retirement promotion"),
-    async (ratchet, path) => normalLintStatusForFile(eslint, ratchet, path),
+    statusForFile,
   );
   return { id: retireRatchetId, normalErrorProven: proof.normalError };
 }

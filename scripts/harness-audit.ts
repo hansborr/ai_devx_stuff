@@ -23,6 +23,10 @@ import { pathToFileURL } from "node:url";
 
 import { harnessDiagnosticsSchema } from "../packages/shared/src/schemas/harness-diagnostics.js";
 import {
+  readRequiredOptionValue,
+  requireArgAllowingEmpty as requireArg,
+} from "./cli-option-values.js";
+import {
   buildAuditReport,
   type EnvelopeFailure,
   formatJson,
@@ -117,38 +121,36 @@ function parseFormatValue(value: string): HarnessAuditFormat {
   return value;
 }
 
-function readOptionValue(
-  arg: string,
-  argv: readonly string[],
-  index: number,
-): { readonly value: string; readonly nextIndex: number } {
-  const equalsIndex = arg.indexOf("=");
-  if (equalsIndex >= 0) {
-    return { value: arg.slice(equalsIndex + 1), nextIndex: index };
-  }
-  const next = argv[index + 1];
-  if (next === undefined) throw new HarnessAuditError(`${arg} requires a value.\n${usage()}`);
-  return { value: next, nextIndex: index + 1 };
-}
-
 export function parseArgs(argv: readonly string[]): HarnessAuditOptions {
   const inputs: string[] = [];
   let format: HarnessAuditFormat = "text";
   let output: string | undefined;
 
   for (let index = 0; index < argv.length; index += 1) {
-    const arg = argv[index];
-    if (arg === undefined) throw new HarnessAuditError("Empty arguments are not supported.");
+    const arg = requireArg(argv[index], (message) => {
+      throw new HarnessAuditError(message);
+    });
     if (isHelpFlag(arg)) throw new HarnessAuditHelp();
     if (matchesOption(arg, "--format")) {
-      const parsed = readOptionValue(arg, argv, index);
+      const parsed = readRequiredOptionValue({
+        arg,
+        argv,
+        index,
+        usage: usage(),
+        createError: (message) => new HarnessAuditError(message),
+      });
       format = parseFormatValue(parsed.value);
       index = parsed.nextIndex;
       continue;
     }
     if (matchesOption(arg, "--output")) {
-      const parsed = readOptionValue(arg, argv, index);
-      if (!parsed.value) throw new HarnessAuditError("--output requires a path.");
+      const parsed = readRequiredOptionValue({
+        arg,
+        argv,
+        index,
+        usage: usage(),
+        createError: (message) => new HarnessAuditError(message),
+      });
       output = parsed.value;
       index = parsed.nextIndex;
       continue;

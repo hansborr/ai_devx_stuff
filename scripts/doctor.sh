@@ -623,12 +623,12 @@ check_yamllint_system_tool() {
 
 check_shellcheck_system_tool() {
   CURRENT_CONTROL="doctor-check/shellcheck-system-tool"
-  CURRENT_HINT="Install shellcheck with 'apt install shellcheck'."
+  CURRENT_HINT="Install shellcheck with your system package manager (dnf/apt/brew); see https://github.com/koalaman/shellcheck#installing."
   prose_print ""
   prose_print "=== shellcheck system tool ==="
   local bin version
   if ! command -v shellcheck >/dev/null 2>&1; then
-    note_warn "shellcheck not found on PATH - install with 'apt install shellcheck'"
+    note_warn "shellcheck not found on PATH - install with your system package manager (dnf/apt/brew); see https://github.com/koalaman/shellcheck#installing"
     CURRENT_CONTROL=""; CURRENT_HINT=""
     return 0
   fi

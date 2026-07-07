@@ -13,7 +13,7 @@ import {
 import type { BufferGitRunner, StatRunner } from "./current-inventory.js";
 import type { GitRunner } from "./git-changed-scope.js";
 import type { MinHashConfig } from "./minhash-lsh.js";
-import { NEAR_DUPLICATE_TOOL } from "./near-duplicates.js";
+import { NEAR_DUPLICATE_TOOL, type ResolvedCompareConfig } from "./near-duplicates.js";
 import { nearDuplicateExcludeGlobs } from "./near-duplicates-check-config.js";
 import { defaultNearDuplicateRunner, type NearDuplicateRunner } from "./near-duplicates-runner.js";
 import { prepareCurrentRun } from "./prepare-run.js";
@@ -66,17 +66,10 @@ function runParsedCloneCandidates(
   );
 }
 
-type ResolvedCloneCandidateConfig = {
-  readonly minLines: number;
-  readonly minTokens: number;
-  readonly similarityThreshold: number;
-  readonly tokenBandRatio: number;
-};
-
 function resolveCloneCandidateConfig(
   parsed: ParsedCloneCandidatesArgs,
   nearConfig: ReturnType<typeof prepareCurrentRun>["config"]["checks"]["near-duplicates"],
-): ResolvedCloneCandidateConfig {
+): ResolvedCompareConfig {
   return {
     minLines: parsed.minLines ?? nearConfig.minLines,
     minTokens: parsed.minTokens ?? nearConfig.minTokens,
@@ -88,7 +81,7 @@ function resolveCloneCandidateConfig(
 function runFunctionInventory(
   options: CloneCandidatesRunOptions,
   prepared: ReturnType<typeof prepareCurrentRun>,
-  config: ResolvedCloneCandidateConfig,
+  config: ResolvedCompareConfig,
 ): ReturnType<NearDuplicateRunner> {
   const nearConfig = prepared.config.checks["near-duplicates"];
   const runner = options.nearDuplicates ?? defaultNearDuplicateRunner();
@@ -108,7 +101,7 @@ function runFunctionInventory(
 function advisoryForResult(
   result: ReturnType<NearDuplicateRunner>,
   parsed: ParsedCloneCandidatesArgs,
-  config: ResolvedCloneCandidateConfig,
+  config: ResolvedCompareConfig,
   checksConfig: ReturnType<typeof prepareCurrentRun>["config"]["checks"],
 ): CloneCandidateAdvisory {
   if (!result.ok) return unavailableAdvisory(result.error);

@@ -115,7 +115,7 @@ export function buildNearDuplicateDiagnosticFinding(message: string): DriftFindi
   };
 }
 
-type ResolvedCompareConfig = {
+export type ResolvedCompareConfig = {
   readonly minLines: number;
   readonly minTokens: number;
   readonly similarityThreshold: number;

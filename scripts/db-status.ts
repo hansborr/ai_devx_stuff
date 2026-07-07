@@ -1,5 +1,6 @@
 /* Quick DB diagnostics. Run via: bun run db:status */
 import { prisma } from "../packages/server/src/prisma/client.js";
+import { DEFAULT_TEST_DATABASE_NAME } from "../packages/server/src/test/test-database-url.js";
 
 function maskUrl(raw: string | undefined): string {
   if (!raw) return "<unset>";
@@ -54,7 +55,10 @@ function derivedUrl(databaseUrl: string | undefined, name: string): string | und
 // while the database the harness will actually use is missing.
 function resolveTestDatabase(test: string | undefined, dev: string | undefined): ResolvedDatabase {
   if (test) return { source: "TEST_DATABASE_URL", url: test };
-  return { source: "DATABASE_URL-derived fallback", url: derivedUrl(dev, "musi_test") };
+  return {
+    source: "DATABASE_URL-derived fallback",
+    url: derivedUrl(dev, DEFAULT_TEST_DATABASE_NAME),
+  };
 }
 
 function resolveE2eDatabase(
@@ -64,7 +68,10 @@ function resolveE2eDatabase(
 ): ResolvedDatabase {
   if (e2e) return { source: "E2E_DATABASE_URL", url: e2e };
   if (test) return { source: "TEST_DATABASE_URL fallback", url: test };
-  return { source: "DATABASE_URL-derived fallback", url: derivedUrl(dev, "musi_test_e2e") };
+  return {
+    source: "DATABASE_URL-derived fallback",
+    url: derivedUrl(dev, `${DEFAULT_TEST_DATABASE_NAME}_e2e`),
+  };
 }
 
 // Verify the test/e2e databases the vitest/Playwright harnesses assume exist.

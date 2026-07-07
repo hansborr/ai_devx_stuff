@@ -115,12 +115,7 @@ ai_lint_coverage_bullets() {
 }
 
 ai_lint_coverage_throttle_note() {
-  local ttl max minutes
-  ttl=$(ai_lint_coverage_ttl)
-  max=$(ai_lint_coverage_max_detections)
-  minutes=$(( ttl / 60 ))
-  printf "This reminder is throttled per session: it won't repeat until about %s min pass, %s more matching edit batches are detected, or a new top-level session starts." \
-    "$minutes" "$max"
+  printf "(throttled; won't repeat soon)"
 }
 
 # Compose the full tier message: header, bounded path list, generic map-pointing
@@ -133,10 +128,12 @@ ai_lint_coverage_compose() {
   bullets=$(ai_lint_coverage_bullets "$tier" "$@")
   if [ "$tier" = ratchet ]; then
     header="lint-coverage (info): file(s) you just edited are covered only by lint:ratchet (single-rule floors), not full ESLint:"
-    body="That's an accepted floor, not an error. If you added a new lint surface (a new directory or file group), add a row in docs/agent_notes/lint-coverage-map.md. The per-file counts there are descriptive, but new surfaces/globs should get a row."
+    body="That's an accepted floor, not an error. For the full ratchet picture: bun run lint:ratchet. For structured local/* guidance only: bun run lint:agent:local-rules:changed. If you added a new lint surface (a new directory or file group), add a row in docs/agent_notes/lint-coverage-map.md. The per-file counts there are descriptive, but new surfaces/globs should get a row."
   else
     header="lint-coverage (WARNING): file(s) you just edited are NOT covered by ESLint at all:"
-    body="If it should be linted, add it to eslint.config.js and the relevant tsconfig. Either way, account for it in docs/agent_notes/lint-coverage-map.md; verify:changed / pre-commit will block on source-relevant files matching no coverage-map row."
+    body="If it should be linted, add it to eslint.config.js and the relevant tsconfig. Either way, account for it in docs/agent_notes/lint-coverage-map.md; run this for a ready-to-paste coverage-map row:
+bun run docs:lint-coverage-map:suggest
+verify:changed / pre-commit will block on source-relevant files matching no coverage-map row."
   fi
 
   printf '%s\n%s\n%s\n\n%s' "$header" "$bullets" "$body" "$(ai_lint_coverage_throttle_note)"

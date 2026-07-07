@@ -1,8 +1,9 @@
-# Developer Experience Sprint 2 Roadmap
+# Developer Experience Sprint 2 Roadmap (Closed)
 
-Active DX5-DX8 developer-experience work. This file is the active queue: work
-one leaf at a time, ticking the `- [ ]` sub-bullets the BatonLoop stop-check
-keys on (see `docs/roadmap/README.md`).
+Status: Closed. The DX5-DX8 sprint completed on 2026-04-28; this file is a
+historical scope archive, not the active queue. For current work, use
+`docs/agent_notes/in_progress/`, `docs/agent_notes/backlog/`, and the curated
+recent history in `docs/agent_notes/LOG.md`.
 
 ## Phase DX5: Server Refactors
 

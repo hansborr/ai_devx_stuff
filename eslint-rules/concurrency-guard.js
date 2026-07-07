@@ -9,6 +9,8 @@
  * create/delete paths and non-gated tables stay out of scope.
  */
 
+import { resolveDeclaredVariable, resolveIdentifierBinding } from "./binding-resolution.js";
+
 const GATED_DELEGATES = new Set([
   "characterStats",
   "encounterParticipant",
@@ -69,30 +71,80 @@ function unwrapChain(node) {
   return node.type === "ChainExpression" ? node.expression : node;
 }
 
-/** @param {import('estree').Node} node */
-function delegateName(node) {
+/**
+ * @param {import('estree').Node} node
+ * @returns {string | undefined}
+ */
+function gatedDelegatePropertyName(node) {
   const unwrapped = unwrapChain(node);
-  if (unwrapped.type === "Identifier") {
-    return GATED_DELEGATES.has(unwrapped.name) ? unwrapped.name : undefined;
-  }
   if (unwrapped.type !== "MemberExpression") return undefined;
 
   const name = staticPropertyName(unwrapped.property);
   return name && GATED_DELEGATES.has(name) ? name : undefined;
 }
 
-/** @param {import('estree').CallExpression} node */
-function directGatedWrite(node) {
+/**
+ * @param {import('estree').Node} node
+ * @param {import('eslint').SourceCode} sourceCode
+ * @param {WeakMap<import('eslint').Scope.Variable, string>} delegateAliases
+ */
+function delegateName(node, sourceCode, delegateAliases) {
+  const unwrapped = unwrapChain(node);
+  if (unwrapped.type === "Identifier") {
+    if (GATED_DELEGATES.has(unwrapped.name)) return unwrapped.name;
+    const variable = resolveIdentifierBinding(sourceCode, unwrapped);
+    return variable === undefined ? undefined : delegateAliases.get(variable);
+  }
+  return gatedDelegatePropertyName(unwrapped);
+}
+
+/**
+ * @param {import('estree').CallExpression} node
+ * @param {import('eslint').SourceCode} sourceCode
+ * @param {WeakMap<import('eslint').Scope.Variable, string>} delegateAliases
+ */
+function directGatedWrite(node, sourceCode, delegateAliases) {
   const callee = unwrapChain(node.callee);
   if (callee.type !== "MemberExpression") return undefined;
 
   const method = staticPropertyName(callee.property);
   if (!method || !GATED_MUTATORS.has(method)) return undefined;
 
-  const delegate = delegateName(callee.object);
+  const delegate = delegateName(callee.object, sourceCode, delegateAliases);
   if (!delegate) return undefined;
 
   return { delegate, method };
+}
+
+/** @param {import('estree').Pattern} pattern */
+function identifierFromPattern(pattern) {
+  if (pattern.type === "Identifier") return pattern;
+  if (pattern.type === "AssignmentPattern" && pattern.left.type === "Identifier") {
+    return pattern.left;
+  }
+  return undefined;
+}
+
+/** @param {import('estree').VariableDeclarator} declarator */
+function isConstDeclarator(declarator) {
+  const declaration = /** @type {import('estree').Node & { kind?: string } | undefined} */ (
+    declarator.parent
+  );
+  return declaration?.type === "VariableDeclaration" && declaration.kind === "const";
+}
+
+/**
+ * @param {import('estree').ObjectPattern} pattern
+ * @param {(identifier: import('estree').Identifier, delegate: string) => void} recordAlias
+ */
+function recordDestructuredDelegateAliases(pattern, recordAlias) {
+  for (const property of pattern.properties) {
+    if (property.type !== "Property" || property.computed) continue;
+    const delegate = staticPropertyName(property.key);
+    if (!delegate || !GATED_DELEGATES.has(delegate)) continue;
+    const identifier = identifierFromPattern(property.value);
+    if (identifier !== undefined) recordAlias(identifier, delegate);
+  }
 }
 
 /** @type {import('eslint').Rule.RuleModule} */
@@ -110,7 +162,7 @@ export default {
     },
     messages: {
       noDirectWrite:
-        "Why: Direct {{delegate}}.{{method}} bypasses the documented concurrency helper boundary. How to fix: {{suggestion}} Try `bun run codemod:concurrency-guard -- <file>` first (name-based only; aliases and destructured delegates still need a manual fix). See docs/CONCURRENCY.md.",
+        "Why: Direct {{delegate}}.{{method}} bypasses the documented concurrency helper boundary. How to fix: {{suggestion}} Try `bun run codemod:concurrency-guard -- <file>` first. See docs/guides/add-race-sensitive-mutation.md.",
     },
     schema: [],
   },
@@ -120,9 +172,34 @@ export default {
       return {};
     }
 
+    /** @type {WeakMap<import('eslint').Scope.Variable, string>} */
+    const delegateAliases = new WeakMap();
+
+    /**
+     * @param {import('estree').Identifier} identifier
+     * @param {string} delegate
+     */
+    function recordDelegateAlias(identifier, delegate) {
+      const variable = resolveDeclaredVariable(context.sourceCode.getScope(identifier), identifier);
+      if (variable !== undefined) delegateAliases.set(variable, delegate);
+    }
+
     return {
+      VariableDeclarator(node) {
+        if (!isConstDeclarator(node)) return;
+
+        const directDelegate = node.init ? gatedDelegatePropertyName(node.init) : undefined;
+        if (node.id.type === "Identifier" && directDelegate !== undefined) {
+          recordDelegateAlias(node.id, directDelegate);
+          return;
+        }
+
+        if (node.id.type !== "ObjectPattern") return;
+        recordDestructuredDelegateAliases(node.id, recordDelegateAlias);
+      },
+
       CallExpression(node) {
-        const target = directGatedWrite(node);
+        const target = directGatedWrite(node, context.sourceCode, delegateAliases);
         if (!target) return;
 
         context.report({

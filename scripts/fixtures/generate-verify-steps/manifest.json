@@ -26,6 +26,11 @@
           "args": ["--", "--staged"]
         },
         {
+          "name": "test",
+          "script": "test:changed",
+          "args": ["--reporter=dot", "--reporter=json", "--outputFile.json=$TIMINGS_FILE"]
+        },
+        {
           "name": "scripts",
           "script": "test:scripts:changed",
           "dynamic": "staged-script-classifier"

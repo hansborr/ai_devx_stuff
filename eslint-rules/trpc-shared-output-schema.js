@@ -8,6 +8,8 @@
 
 import { createSharedSchemaImportCollector } from "./trpc-shared-schema-import-collector.js";
 
+const PAIRED_GUIDE = "docs/guides/add-trpc-procedure.md";
+
 /**
  * @param {import('estree').Node | import('estree').SpreadElement | undefined} node
  * @returns {string | undefined}
@@ -27,13 +29,14 @@ export default {
       principle:
         "Router output schemas are the client/server contract and must live in shared packages instead of server-only router files.",
       category: "architecture-fitness",
-      pairedGuide: "docs/guides/add-trpc-procedure.md",
+      pairedGuide: PAIRED_GUIDE,
       repairKind: "codemod",
       repairCommand: "bun run codemod:trpc-shared-output",
     },
     messages: {
       needsSharedOutput:
-        "Why: Router output schemas are the client/server contract and must live in shared. How to fix: Move this output shape to packages/shared/src/schemas/<domain>.ts (run: `bun run codemod:trpc-shared-output -- <file>`). Move complex or wrapped output shapes manually.",
+        "Why: Router output schemas are the client/server contract and must live in shared. How to fix: Move this output shape to packages/shared/src/schemas/<domain>.ts (run: `bun run codemod:trpc-shared-output -- <file>`). Move complex or wrapped output shapes manually. " +
+        `See ${PAIRED_GUIDE}.`,
     },
     schema: [],
   },

@@ -1,4 +1,10 @@
 #!/usr/bin/env bash
+# smoke-order: 060
+# smoke-subjects: scripts/worktree-db.sh
+# smoke-subjects: scripts/worktree-new.sh
+# smoke-subjects: scripts/worktree-drift-hook.sh
+# smoke-subjects: scripts/dev.sh
+# smoke-subjects: scripts/tests/test-worktree-db.sh
 # test-worktree-db.sh — pure-shell smoke tests for worktree-db helpers.
 #
 # Sources scripts/worktree-db.sh (main is guarded so sourcing is safe) and
@@ -74,6 +80,118 @@ if dbset_contains "$existing_dbs" "musi_template_zzz"; then fail "dbset_contains
 [[ "$(dbset_label "$existing_dbs" "missing_db")" == "no" ]] || fail "dbset_label no"
 [[ "$(dbset_label "" "musi_template_aaa")" == "no" ]] || fail "dbset_label empty set"
 ok "dbset_contains/dbset_label classify presence"
+
+redis_url_prefix="redis://"
+redis_url_host="redis:6379"
+[[ "$(worktree_redis_url 7)" == "${redis_url_prefix}${redis_url_host}/7" ]] \
+  || fail "worktree_redis_url should format the shared Redis URL"
+ok "worktree_redis_url formats the shared Redis URL"
+
+env_success_dir="$(mktemp -d)"
+(
+  admin_url() { printf 'postgresql://musi:pass@db:5432/postgres'; }
+  git() {
+    if [[ "$1" == "rev-parse" && "$2" == "--show-toplevel" ]]; then
+      printf '%s\n' "$env_success_dir"
+      return 0
+    fi
+    command git "$@"
+  }
+  mv() {
+    local src_dir dst_dir
+    src_dir="${1%/*}"
+    dst_dir="${2%/*}"
+    [[ "$src_dir" == "$dst_dir" ]] || fail "write_worktree_env used cross-dir mv: $1 -> $2"
+    command mv "$@"
+  }
+
+  mkdir -p "$env_success_dir/packages/client"
+  printf 'KEEP_ROOT=1\nDATABASE_URL=old\n' > "$env_success_dir/.env"
+  printf 'KEEP_CLIENT=1\nVITE_DEV_PORT=old\n' > "$env_success_dir/packages/client/.env"
+
+  write_worktree_env "env_slug" 3101 5173 7 >/dev/null 2>&1
+
+  [[ -f "$env_success_dir/.env" ]] || fail "root .env was not written"
+  [[ -f "$env_success_dir/packages/client/.env" ]] || fail "client .env was not written"
+  grep -q '^KEEP_ROOT=1$' "$env_success_dir/.env" || fail "root .env did not preserve unmanaged key"
+  grep -q '^DATABASE_URL=postgresql://musi:pass@db:5432/musi_wt_env_slug$' "$env_success_dir/.env" \
+    || fail "root .env missing managed DATABASE_URL"
+  grep -q '^KEEP_CLIENT=1$' "$env_success_dir/packages/client/.env" \
+    || fail "client .env did not preserve unmanaged key"
+  grep -q '^VITE_DEV_PORT=5173$' "$env_success_dir/packages/client/.env" \
+    || fail "client .env missing managed VITE_DEV_PORT"
+)
+[[ -z "$(find "$env_success_dir" -name '.env.tmp.*' -print -quit)" ]] \
+  || fail "write_worktree_env left a temp file after success"
+rm -rf "$env_success_dir"
+ok "write_worktree_env writes both env files with same-directory renames"
+
+env_failure_dir="$(mktemp -d)"
+(
+  admin_url() { printf 'postgresql://musi:pass@db:5432/postgres'; }
+  git() {
+    if [[ "$1" == "rev-parse" && "$2" == "--show-toplevel" ]]; then
+      printf '%s\n' "$env_failure_dir"
+      return 0
+    fi
+    command git "$@"
+  }
+  mv() {
+    local src_dir dst_dir
+    src_dir="${1%/*}"
+    dst_dir="${2%/*}"
+    [[ "$src_dir" == "$dst_dir" ]] || fail "write_worktree_env used cross-dir mv: $1 -> $2"
+    if [[ "$2" == "$env_failure_dir/packages/client/.env" ]]; then
+      return 23
+    fi
+    command mv "$@"
+  }
+
+  mkdir -p "$env_failure_dir/packages/client"
+  set +e
+  write_worktree_env "env_slug" 3101 5173 7 >/dev/null 2>&1
+  env_failure_rc=$?
+  set -e
+  [[ "$env_failure_rc" -ne 0 ]] || fail "write_worktree_env should fail when client mv fails"
+)
+[[ -z "$(find "$env_failure_dir" -name '.env.tmp.*' -print -quit)" ]] \
+  || fail "write_worktree_env left a temp file after client write failure"
+rm -rf "$env_failure_dir"
+ok "write_worktree_env cleans temp files after failed rename"
+
+env_signal_dir="$(mktemp -d)"
+set +e
+(
+  admin_url() { printf 'postgresql://musi:pass@db:5432/postgres'; }
+  git() {
+    if [[ "$1" == "rev-parse" && "$2" == "--show-toplevel" ]]; then
+      printf '%s\n' "$env_signal_dir"
+      return 0
+    fi
+    command git "$@"
+  }
+  mv() {
+    local src_dir dst_dir
+    src_dir="${1%/*}"
+    dst_dir="${2%/*}"
+    [[ "$src_dir" == "$dst_dir" ]] || fail "write_worktree_env used cross-dir mv: $1 -> $2"
+    if [[ "$2" == "$env_signal_dir/packages/client/.env" ]]; then
+      kill -TERM "$BASHPID"
+      sleep 1
+    fi
+    command mv "$@"
+  }
+
+  mkdir -p "$env_signal_dir/packages/client"
+  write_worktree_env "env_slug" 3101 5173 7 >/dev/null 2>&1
+)
+env_signal_rc=$?
+set -e
+[[ "$env_signal_rc" -ne 0 ]] || fail "write_worktree_env should stop when interrupted"
+[[ -z "$(find "$env_signal_dir" -name '.env.tmp.*' -print -quit)" ]] \
+  || fail "write_worktree_env left a temp file after signal interruption"
+rm -rf "$env_signal_dir"
+ok "write_worktree_env cleans temp files after signal interruption"
 
 dbset_has_worktree_slug $'musi_wt_foo_abc123_w2' "foo_abc123" \
   || fail "compact worker DB should keep slug state alive"

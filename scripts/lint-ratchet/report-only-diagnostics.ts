@@ -36,6 +36,7 @@ export function buildReportOnlyFinding(summary: LintRatchetReportOnlySummary): H
     control: summary.testId,
     severity: "info",
     ruleId: summary.ruleId,
+    kind: "report-only",
     reason: "report-only",
     currentCount: summary.currentCount,
     why:

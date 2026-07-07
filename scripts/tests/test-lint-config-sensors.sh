@@ -1,4 +1,26 @@
 #!/usr/bin/env bash
+# smoke-order: 240
+# smoke-subjects: scripts/lint-config-sensors.sh
+# smoke-subjects: scripts/tests/test-lint-config-sensors.sh
+# smoke-subjects: scripts/lint-changed.sh
+# smoke-subjects: scripts/lib/verify-metadata.sh
+# smoke-subjects: scripts/lib/changed-base.sh
+# smoke-subjects: scripts/path-policy/path-policy-query.ts
+# smoke-subjects: scripts/path-policy/path-policy-query-core.ts
+# smoke-subjects: scripts/path-policy/path-policy.ts
+# smoke-subjects: scripts/harness/harness-paths.ts
+# smoke-subjects: scripts/lint-ratchet/paths.ts
+# smoke-subjects: scripts/tests/lib/test-git-env.sh
+# smoke-subjects: .yamllint.yml
+# smoke-subjects: package.json
+# smoke-subjects: bun.lock
+# smoke-subjects: .github/workflows/
+# smoke-subjects: docker-compose.yml
+# smoke-subjects: .devcontainer/docker-compose.yml
+# smoke-subjects: .devcontainer/Dockerfile
+# smoke-subjects: .codex/config.toml
+# smoke-subjects: .codex/skills/
+# smoke-subjects: bunfig.toml
 # Smoke tests for scripts/lint-config-sensors.sh.
 
 set -euo pipefail
@@ -18,6 +40,8 @@ PATH_POLICY_QUERY_CORE="$SCRIPT_DIR/../path-policy/path-policy-query-core.ts"
 PATH_POLICY="$SCRIPT_DIR/../path-policy/path-policy.ts"
 PATH_POLICY_SMOKE_SUBJECTS="$SCRIPT_DIR/../path-policy/path-policy-smoke-subjects.ts"
 PATH_POLICY_SMOKE_SUBJECTS_DATA="$SCRIPT_DIR/../path-policy/path-policy-smoke-subjects-data.ts"
+HARNESS_PATHS="$SCRIPT_DIR/../harness/harness-paths.ts"
+LINT_RATCHET_PATHS="$SCRIPT_DIR/../lint-ratchet/paths.ts"
 
 PASS=0
 fail() { printf 'FAIL: %s\n' "$1" >&2; exit 1; }
@@ -87,7 +111,8 @@ YAMLLINT_BIN="$(require_path_bin yamllint "yamllint unavailable; install with ap
 new_repo() {
   local name="$1"
   local repo="$SANDBOX/$name"
-  mkdir -p "$repo/scripts" "$repo/scripts/lib" "$repo/scripts/path-policy" "$repo/.github/workflows" "$repo/.devcontainer" \
+  mkdir -p "$repo/scripts" "$repo/scripts/lib" "$repo/scripts/path-policy" \
+    "$repo/scripts/harness" "$repo/scripts/lint-ratchet" "$repo/.github/workflows" "$repo/.devcontainer" \
     "$repo/.codex/skills/example/agents"
   git -C "$SANDBOX" init -q -b main "$repo"
   cp "$LINT_CONFIG_SENSORS" "$repo/scripts/lint-config-sensors.sh"
@@ -99,6 +124,8 @@ new_repo() {
   cp "$PATH_POLICY_SMOKE_SUBJECTS" "$repo/scripts/path-policy/path-policy-smoke-subjects.ts"
   cp "$PATH_POLICY_SMOKE_SUBJECTS_DATA" \
     "$repo/scripts/path-policy/path-policy-smoke-subjects-data.ts"
+  cp "$HARNESS_PATHS" "$repo/scripts/harness/harness-paths.ts"
+  cp "$LINT_RATCHET_PATHS" "$repo/scripts/lint-ratchet/paths.ts"
   cp "$YAMLLINT_CONFIG" "$repo/.yamllint.yml"
   cat > "$repo/.github/workflows/ci.yml" <<'YML'
 name: CI
@@ -252,6 +279,31 @@ set -e
 [ "$exit_code" -ne 0 ] || fail "hadolint fixture should fail"
 grep -qF 'DL3008' <<< "$output" || fail "hadolint output should report DL3008: $output"
 ok "hadolint fails on unpinned apt package"
+
+repo="$(new_repo combined-config-violations)"
+cat > "$repo/.codex/skills/example/agents/openai.yaml" <<'YML'
+interface:
+  display_name: "Example"
+  short_description: "Example agent manifest"
+  default_prompt: "This prompt is deliberately long enough to exceed the configured one hundred and twenty character yamllint line length ceiling for the smoke test."
+YML
+printf '[install\n' > "$repo/bunfig.toml"
+cat > "$repo/.devcontainer/Dockerfile" <<'DOCKER'
+FROM ubuntu:24.04
+RUN apt-get update && apt-get install -y curl
+DOCKER
+set +e
+output="$(run_lint_config_sensors "$repo" 2>&1)"
+exit_code=$?
+set -e
+[ "$exit_code" -ne 0 ] || fail "combined config sensor fixture should fail"
+grep -qF 'line too long' <<< "$output" \
+  || fail "combined output should include yamllint failure: $output"
+grep -Eq 'invalid|expected|error' <<< "$output" \
+  || fail "combined output should include taplo failure: $output"
+grep -qF 'DL3008' <<< "$output" \
+  || fail "combined output should include hadolint failure: $output"
+ok "config sensors accumulate YAML, TOML, and Dockerfile failures"
 
 repo="$(new_repo changed-toml-violation)"
 printf '[install\n' > "$repo/bunfig.toml"

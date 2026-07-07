@@ -1,5 +1,5 @@
 {
-  "$comment": "Authoritative inventory of Musi harness controls. Re-generate the agent-facing markdown with `bun run docs:harness-controls`; validate against reality with `bun run harness:check`. For `kind: lint-rule` entries, the per-rule `category`, `principle`, `pairedGuide`, `repairKind`, and `repairCommand` are re-projected by the generator from the rule's own `meta.docs` (PR 1 contract) — keep them out of the manifest so there is one source of truth.",
+  "$comment": "Authoritative inventory of Musi harness controls. Re-generate the agent-facing markdown with `bun run docs:harness-controls`; validate against reality with `bun run harness:check`. For `kind: lint-rule` entries, the per-rule `category`, `principle`, `pairedGuide`, `repairKind`, and `repairCommand` are re-projected by the generator from the rule's own `meta.docs` (PR 1 contract) — keep them out of the manifest so there is one source of truth. In verify slots, `condition` is documentation-only; executable branching belongs in `dynamic` ids with matching scripts/verify/steps-lib.sh resolver arms.",
   "controls": [
     {
       "id": "lint/local/concurrency-guard",
@@ -172,15 +172,6 @@
       "invocation": "bun run lint:ratchet"
     },
     {
-      "id": "ratchet/local-no-plain-error-in-trpc-server",
-      "kind": "ratchet",
-      "category": "behavior",
-      "pairedGuide": "docs/guides/lint-ratchet.md",
-      "repairKind": "manual",
-      "source": "scripts/lint-ratchet/lint-ratchet-config.ts",
-      "invocation": "bun run lint:ratchet"
-    },
-    {
       "id": "ratchet/local-type-assertion-boundary",
       "kind": "ratchet",
       "category": "maintainability",
@@ -200,15 +191,6 @@
     },
     {
       "id": "ratchet/react-hooks-set-state-in-effect-client",
-      "kind": "ratchet",
-      "category": "maintainability",
-      "pairedGuide": "docs/guides/lint-ratchet.md",
-      "repairKind": "manual",
-      "source": "scripts/lint-ratchet/lint-ratchet-config.ts",
-      "invocation": "bun run lint:ratchet"
-    },
-    {
-      "id": "ratchet/react-jsx-no-constructed-context-values-client",
       "kind": "ratchet",
       "category": "maintainability",
       "pairedGuide": "docs/guides/lint-ratchet.md",
@@ -263,15 +245,6 @@
     },
     {
       "id": "ratchet/testing-library-no-node-access-client-tests",
-      "kind": "ratchet",
-      "category": "maintainability",
-      "pairedGuide": "docs/guides/lint-ratchet.md",
-      "repairKind": "manual",
-      "source": "scripts/lint-ratchet/lint-ratchet-config.ts",
-      "invocation": "bun run lint:ratchet"
-    },
-    {
-      "id": "ratchet/testing-library-prefer-screen-queries-client-tests",
       "kind": "ratchet",
       "category": "maintainability",
       "pairedGuide": "docs/guides/lint-ratchet.md",
@@ -339,7 +312,7 @@
       "id": "sensor/knip-unused-exports",
       "kind": "sensor",
       "category": "maintainability",
-      "principle": "Prevent knip-reported unused exported symbols from growing above the committed baseline while raw knip dependency/file and duplication reports remain advisory.",
+      "principle": "Prevent knip-reported unused exported symbol counts from diverging from the committed baseline while raw knip dependency/file and duplication reports remain advisory.",
       "pairedGuide": "docs/ai-harness.md",
       "repairKind": "manual",
       "source": "scripts/sensor-knip-unused-exports.ts",
@@ -389,7 +362,7 @@
       "id": "verify-wrapper/verify",
       "kind": "verify-wrapper",
       "category": "maintainability",
-      "principle": "Run lint, lint:ratchet, the zero-baseline lifecycle check, the knip unused-export floor, coverage-map, format check, typecheck, test, and script smoke suites against the full tree with shared cache, lock, and log directory so a failing slot leaves the rest reusable; lint preflights packages/{shared,server}/dist and runs typecheck automatically before ESLint when those ignored outputs are missing.",
+      "principle": "Run lint, suppression policy registers, lint:ratchet, the zero-baseline lifecycle check, the debt-accounting integrity gate, the knip unused-export floor, coverage-map, format check, typecheck, test, and script smoke suites against the full tree with shared cache, lock, and log directory so a failing slot leaves the rest reusable; lint preflights packages/{shared,server}/dist and runs typecheck automatically before ESLint when those ignored outputs are missing.",
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": "scripts/verify.sh",
@@ -398,6 +371,10 @@
         {
           "name": "lint",
           "script": "lint"
+        },
+        {
+          "name": "suppressions",
+          "script": "lint:suppressions"
         },
         {
           "name": "ratchet",
@@ -409,6 +386,10 @@
         {
           "name": "zero-baseline",
           "script": "lint:ratchet:zero-baseline"
+        },
+        {
+          "name": "debt-accounting",
+          "script": "lint:ratchet:check-debt-accounting"
         },
         {
           "name": "knip-unused-exports",
@@ -441,7 +422,7 @@
       "id": "verify-wrapper/verify-changed",
       "kind": "verify-wrapper",
       "category": "maintainability",
-      "principle": "Run lint:changed, lint:ratchet, the zero-baseline lifecycle check, the knip unused-export floor, coverage-map, format:changed:check, typecheck, test:changed, and test:scripts:changed in parallel against the changed-file set; default edit-loop gate before commit; when packages/{shared,server}/dist is missing, the wrapper defers lint until the existing typecheck slot has produced those ignored outputs.",
+      "principle": "Run lint:changed, suppression policy registers, lint:ratchet, the zero-baseline lifecycle check, the debt-accounting integrity gate, the knip unused-export floor, coverage-map, format:changed:check, typecheck, test:changed, and test:scripts:changed in parallel against the changed-file set; default edit-loop gate before commit; when packages/{shared,server}/dist is missing, the wrapper defers lint and ratchet until the existing typecheck slot has produced those ignored outputs.",
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": "scripts/verify.sh",
@@ -450,6 +431,10 @@
         {
           "name": "lint",
           "script": "lint:changed"
+        },
+        {
+          "name": "suppressions",
+          "script": "lint:suppressions"
         },
         {
           "name": "ratchet",
@@ -461,6 +446,10 @@
         {
           "name": "zero-baseline",
           "script": "lint:ratchet:zero-baseline"
+        },
+        {
+          "name": "debt-accounting",
+          "script": "lint:ratchet:check-debt-accounting"
         },
         {
           "name": "knip-unused-exports",
@@ -496,7 +485,7 @@
       "id": "verify-wrapper/verify-parallel",
       "kind": "verify-wrapper",
       "category": "maintainability",
-      "principle": "Run the full lint, ratchet, zero-baseline lifecycle check, knip unused-export floor, coverage-map, format check, typecheck, test, and scripts suites in parallel; reduces full-verify wall time when the full script suite fits the selected timeout or cached state; when packages/{shared,server}/dist is missing, the wrapper defers lint until the existing typecheck slot has produced those ignored outputs.",
+      "principle": "Run the full lint, suppression policy registers, ratchet, zero-baseline lifecycle check, debt-accounting integrity gate, knip unused-export floor, coverage-map, format check, typecheck, test, and scripts suites in parallel; reduces full-verify wall time when the full script suite fits the selected timeout or cached state; when packages/{shared,server}/dist is missing, the wrapper defers lint and ratchet until the existing typecheck slot has produced those ignored outputs.",
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": "scripts/verify.sh",
@@ -505,6 +494,10 @@
         {
           "name": "lint",
           "script": "lint"
+        },
+        {
+          "name": "suppressions",
+          "script": "lint:suppressions"
         },
         {
           "name": "ratchet",
@@ -516,6 +509,10 @@
         {
           "name": "zero-baseline",
           "script": "lint:ratchet:zero-baseline"
+        },
+        {
+          "name": "debt-accounting",
+          "script": "lint:ratchet:check-debt-accounting"
         },
         {
           "name": "knip-unused-exports",
@@ -658,7 +655,7 @@
       "id": "doctor-check/shellcheck-system-tool",
       "kind": "doctor-check",
       "category": "maintainability",
-      "principle": "Report whether ShellCheck is available from the system PATH; shell lint requires the apt-provided shellcheck package rather than the npm wrapper.",
+      "principle": "Report whether ShellCheck is available from the system PATH; shell lint requires a system-installed shellcheck (dnf/apt/brew) rather than the npm wrapper.",
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": "scripts/doctor.sh",
@@ -688,7 +685,7 @@
       "id": "doctor-check/eslint-disable-register",
       "kind": "doctor-check",
       "category": "maintainability",
-      "principle": "Scan for new eslint-disable comments missing a `-- reason` text or for broad disables outside the file/rule allowlist; suppressions must be self-documenting.",
+      "principle": "Scan for new eslint-disable comments missing a `-- reason` text or for broad disables outside the file/rule allowlist; suppressions must be self-documenting and the check is part of the commit gate.",
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": "scripts/eslint-disable-register.sh",
@@ -698,11 +695,21 @@
       "id": "doctor-check/suppression-register",
       "kind": "doctor-check",
       "category": "maintainability",
-      "principle": "Scan for current-state TypeScript and Stryker suppressions missing `-- reason`, deprecated `@ts-ignore`, `@ts-nocheck` outside the allowlist, or broad Stryker disables; report-only baseline.",
+      "principle": "Scan for current-state TypeScript and Stryker suppressions missing `-- reason`, deprecated `@ts-ignore`, `@ts-nocheck` outside the allowlist, or broad Stryker disables; suppression policy violations fail the commit gate.",
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": "scripts/suppression-register.sh",
       "invocation": "bun run doctor"
+    },
+    {
+      "id": "check/lint-suppressions",
+      "kind": "check",
+      "category": "maintainability",
+      "principle": "Run the ESLint-disable and TypeScript/Stryker suppression registers as one commit-gate slot so suppression policy drift is caught by verify, verify:changed, verify:parallel, and pre-commit.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/lint-suppressions.sh",
+      "invocation": "bun run lint:suppressions"
     },
     {
       "id": "drift-scope/changed",
@@ -808,11 +815,21 @@
       "id": "check/lint-agent-local-rules",
       "kind": "check",
       "category": "maintainability",
-      "principle": "Emit a schema-validated harness diagnostics envelope for `local/*` ESLint findings, parser errors, and info disclosures for skipped non-local ESLint findings; this is a local-rule view, not full lint parity.",
+      "principle": "Emit a schema-validated harness diagnostics envelope for `local/*` ESLint findings, parser errors, and info disclosures for skipped non-local ESLint findings; this is a local-rule view, not full lint parity, and is intentionally not a verify/pre-commit gate slot (see docs/guides/local-eslint-rules.md#severity-semantics).",
       "pairedGuide": "docs/guides/local-eslint-rules.md",
       "repairKind": "manual",
       "source": "scripts/lint-agent.ts",
       "invocation": "bun run lint:agent:local-rules"
+    },
+    {
+      "id": "check/lint-probe-rule",
+      "kind": "check",
+      "category": "maintainability",
+      "principle": "Probe exactly one `local/*` ESLint rule through the lint-ratchet generated-config path without creating a repo-root scratch flat config.",
+      "pairedGuide": "docs/guides/local-eslint-rules.md",
+      "repairKind": "manual",
+      "source": "scripts/lint-probe-rule.ts",
+      "invocation": "bun run lint:probe-rule"
     },
     {
       "id": "lint/skipped-non-local",
@@ -845,10 +862,20 @@
       "invocation": "bun run verify:steps"
     },
     {
+      "id": "check/config-surface-generator",
+      "kind": "check",
+      "category": "maintainability",
+      "principle": "Generate tsconfig.configs.json from eslint-config/config-surface-manifest.json; --check fails on drift between the manifest and the checked-in TypeScript config-surface project.",
+      "pairedGuide": "docs/agent_notes/lint-coverage-map.md",
+      "repairKind": "autofix",
+      "source": "scripts/harness/generate-config-surfaces.ts",
+      "invocation": "bun run harness:config-surfaces"
+    },
+    {
       "id": "check/lint-agent-local-rules-changed",
       "kind": "check",
       "category": "maintainability",
-      "principle": "Scope the local-rule diagnostics envelope to changed JS/TS-like files while preserving the `local/*` and parser-error contract; this is not `lint:changed` parity.",
+      "principle": "Scope the local-rule diagnostics envelope to changed JS/TS-like files while preserving the `local/*` and parser-error contract; this is not `lint:changed` parity and is intentionally not a verify/pre-commit gate slot (see docs/guides/local-eslint-rules.md#severity-semantics).",
       "pairedGuide": "docs/guides/local-eslint-rules.md",
       "repairKind": "manual",
       "source": "scripts/lint-agent-changed.sh",
@@ -913,6 +940,16 @@
       "repairKind": "manual",
       "source": "scripts/lint-import-cycles.sh",
       "invocation": "bun run lint:import-cycles"
+    },
+    {
+      "id": "check/restricted-disable-rules-generator",
+      "kind": "check",
+      "category": "maintainability",
+      "principle": "Generate the normal-lint no-restricted-disable ratchet rule-id list from the lint-ratchet registry so inline-disable fences track ratchet adoption without a hand-maintained list.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/harness/generate-restricted-disable-rules.ts",
+      "invocation": "bun run lint:restricted-disable-rules"
     },
     {
       "id": "check/drift-ai-commented-out-code",
@@ -1143,7 +1180,7 @@
       "id": "hook/pre-commit",
       "kind": "hook",
       "category": "maintainability",
-      "principle": "Run lint:changed, lint:ratchet, the zero-baseline lifecycle check, the knip unused-export floor, coverage-map, format:changed:check, typecheck, test:changed, and conditionally test:scripts:changed in parallel before allowing the commit; when packages/{shared,server}/dist is missing, defer lint until the existing typecheck slot has produced those ignored outputs.",
+      "principle": "Run lint:changed, suppression policy registers, lint:ratchet, the zero-baseline lifecycle check, the debt-accounting integrity gate, the knip unused-export floor, coverage-map, format:changed:check, typecheck, test:changed, and conditionally test:scripts:changed in parallel before allowing the commit; when packages/{shared,server}/dist is missing, defer lint and ratchet until the existing typecheck slot has produced those ignored outputs.",
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": ".husky/pre-commit",
@@ -1152,6 +1189,10 @@
         {
           "name": "lint",
           "script": "lint:changed"
+        },
+        {
+          "name": "suppressions",
+          "script": "lint:suppressions"
         },
         {
           "name": "ratchet",
@@ -1163,6 +1204,10 @@
         {
           "name": "zero-baseline",
           "script": "lint:ratchet:zero-baseline"
+        },
+        {
+          "name": "debt-accounting",
+          "script": "lint:ratchet:check-debt-accounting"
         },
         {
           "name": "knip-unused-exports",
@@ -1642,18 +1687,18 @@
       "id": "hook/ai-session-state",
       "kind": "hook",
       "category": "maintainability",
-      "principle": "After context compaction, re-inject a bounded repository state snapshot so branch, dirty-tree, fast-commit, kill-switch, and cached verification state survive in the fresh context window.",
+      "principle": "At session start (startup/resume) and after context compaction, re-inject a bounded repository state snapshot so branch, dirty-tree, fast-commit, kill-switch, and cached verification state are surfaced in the fresh context window.",
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": "scripts/ai-hooks/session-state.sh",
-      "invocation": "Claude SessionStart compact hook",
+      "invocation": "Claude SessionStart startup/resume/compact hook",
       "hookWiring": {
         "event": "SessionStart",
         "order": 10,
         "outputs": ["additionalContext"],
         "harnesses": {
           "claude": {
-            "matcher": "compact",
+            "matcher": "startup|resume|compact",
             "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/session-state.sh",
             "timeout": 15
           }
@@ -1665,56 +1710,27 @@
       }
     },
     {
-      "id": "hook/ai-subagent-stop-reminder",
-      "kind": "hook",
-      "category": "maintainability",
-      "principle": "Run a scoped-down stop policy at subagent completion so delegated work sees dirty-tree and cached verification nudges without consuming the main session's stop reminder state.",
-      "pairedGuide": "none",
-      "repairKind": "manual",
-      "source": "scripts/ai-hooks/subagent-stop-reminder.sh",
-      "invocation": "Claude SubagentStop hook",
-      "hookWiring": {
-        "event": "SubagentStop",
-        "order": 10,
-        "outputs": ["additionalContext"],
-        "harnesses": {
-          "claude": {
-            "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/subagent-stop-reminder.sh",
-            "timeout": 30
-          }
-        },
-        "notes": {
-          "codex": "Codex SubagentStop does not support additionalContext re-injection; omitted until a Codex-valid advisory contract exists.",
-          "copilot": "Copilot has no SubagentStop hook event."
-        }
-      }
-    },
-    {
       "id": "hook/ai-stop-reminder",
       "kind": "hook",
       "category": "maintainability",
-      "principle": "Run the shared stop reminder at session stop so pending verification, stale generated files, changed-file lint warnings, or unresolved policy reminders are surfaced before handoff; a per-worktree musi-stop-hard marker makes dirty-tree and cached-verify failures persistently blocking.",
+      "principle": "Run the shared Claude Stop reminder at session stop so pending verification, stale generated files, changed-file lint warnings, or unresolved policy reminders are surfaced to the user without blocking or waking an agent.",
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": "scripts/ai-hooks/stop-reminder.sh",
-      "invocation": "Claude Stop / Codex Stop / Copilot agentStop hook",
+      "invocation": "Claude Stop hook",
       "hookWiring": {
         "event": "Stop",
         "order": 10,
+        "outputs": ["systemMessage"],
         "harnesses": {
           "claude": {
             "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/stop-reminder.sh",
             "timeout": 30
-          },
-          "codex": {
-            "command": "bash \"$(git rev-parse --show-toplevel)/.codex/hooks/stop-reminder.sh\"",
-            "statusMessage": "Checking repository stop conditions",
-            "timeout": 30
-          },
-          "copilot": {
-            "command": "bash \"$(git rev-parse --show-toplevel)/.copilot/hooks/stop-reminder.sh\"",
-            "timeout": 30
           }
+        },
+        "notes": {
+          "codex": "Codex Stop has no verified user-only output channel; stop wiring is omitted rather than using an agent-facing block decision.",
+          "copilot": "Copilot agentStop has no verified user-only output channel; stop wiring is omitted rather than translating warnings into block decisions."
         }
       }
     }

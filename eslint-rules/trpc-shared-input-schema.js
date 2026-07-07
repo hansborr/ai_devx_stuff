@@ -9,6 +9,7 @@
 import { createSharedSchemaImportCollector } from "./trpc-shared-schema-import-collector.js";
 
 const ALLOWED_WRAPPERS = new Set(["describe", "optional"]);
+const PAIRED_GUIDE = "docs/guides/add-trpc-procedure.md";
 
 /**
  * Unwrap harmless Zod metadata/presence wrappers such as:
@@ -42,13 +43,14 @@ export default {
       principle:
         "Router input schemas are the client/server contract and must live in shared packages instead of server-only router files.",
       category: "architecture-fitness",
-      pairedGuide: "docs/guides/add-trpc-procedure.md",
+      pairedGuide: PAIRED_GUIDE,
       repairKind: "codemod",
       repairCommand: "bun run codemod:trpc-shared-input",
     },
     messages: {
       needsSharedInput:
-        "Why: Router input schemas are the client/server contract and must live in shared. How to fix: Move this input shape to packages/shared/src/schemas/<domain>-inputs.ts (run: `bun run codemod:trpc-shared-input -- <file>`). Move complex .extend/.merge/.and/.or shapes manually.",
+        "Why: Router input schemas are the client/server contract and must live in shared. How to fix: Move this input shape to packages/shared/src/schemas/<domain>-inputs.ts (run: `bun run codemod:trpc-shared-input -- <file>`). Move complex .extend/.merge/.and/.or shapes manually. " +
+        `See ${PAIRED_GUIDE}.`,
     },
     schema: [],
   },

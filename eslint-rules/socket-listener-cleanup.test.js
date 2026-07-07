@@ -87,6 +87,14 @@ describe("socket-listener-cleanup", () => {
           ].join("\n"),
         },
         {
+          code: [
+            "useEffect(() => {",
+            "  socket.on(SOCKET_EVENTS.updated, handleUpdated);",
+            "  return () => socket.off(SOCKET_EVENTS.updated, handleUpdated);",
+            "}, [socket]);",
+          ].join("\n"),
+        },
+        {
           code: "emitter.on('campaign:updated', handleUpdated);",
         },
         {
@@ -138,6 +146,33 @@ describe("socket-listener-cleanup", () => {
             "  socket.on('campaign:updated', () => refresh());",
             "  return () => socket.off('campaign:updated', handleUpdated);",
             "}, [socket]);",
+          ].join("\n"),
+          errors: [{ messageId: "missingCleanup" }],
+        },
+        {
+          code: [
+            "useEffect(() => {",
+            "  socket.on(SOCKET_EVENTS.updated, handleUpdated);",
+            "}, [socket]);",
+          ].join("\n"),
+          errors: [{ messageId: "missingCleanup" }],
+        },
+        {
+          code: [
+            "useEffect(() => {",
+            "  socket.on(nextEvent(), handleUpdated);",
+            "  return () => socket.off(nextEvent(), handleUpdated);",
+            "}, [socket]);",
+          ].join("\n"),
+          errors: [{ messageId: "missingCleanup" }],
+        },
+        {
+          code: [
+            "const updatedEvent = SOCKET_EVENTS.updated;",
+            "useEffect(() => {",
+            "  socket.on(SOCKET_EVENTS.updated, handleUpdated);",
+            "  return () => socket.off(updatedEvent, handleUpdated);",
+            "}, [socket, updatedEvent]);",
           ].join("\n"),
           errors: [{ messageId: "missingCleanup" }],
         },

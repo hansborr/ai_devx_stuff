@@ -3,7 +3,20 @@
 import eslintComments from "@eslint-community/eslint-plugin-eslint-comments";
 import regexp from "eslint-plugin-regexp";
 
+import { ratchetRestrictedDisableRuleIds } from "./ratchet-restricted-disable-rules.generated.js";
+
 export { eslintComments, regexp };
+
+const hardRestrictedDisableRuleIds = [
+  "local/concurrency-guard",
+  "local/no-broadcast-in-transaction",
+  "local/no-outer-client-in-transaction",
+  "no-restricted-syntax",
+];
+
+export const restrictedDisableRuleIds = [
+  ...new Set([...hardRestrictedDisableRuleIds, ...ratchetRestrictedDisableRuleIds]),
+].sort((left, right) => left.localeCompare(right));
 
 export const maxLinesRules = {
   "max-lines": "off",
@@ -49,6 +62,7 @@ export const eslintCommentsRules = {
   "eslint-comments/require-description": ["error", { ignore: [] }],
   "eslint-comments/no-aggregating-enable": "error",
   "eslint-comments/no-duplicate-disable": "error",
+  "eslint-comments/no-restricted-disable": ["error", ...restrictedDisableRuleIds],
   "eslint-comments/no-unlimited-disable": "error",
   "eslint-comments/no-unused-disable": "error",
 };

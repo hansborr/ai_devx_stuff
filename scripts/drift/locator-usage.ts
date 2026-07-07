@@ -9,6 +9,11 @@ import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
+import {
+  readRequiredOptionValue,
+  requireArgAllowingEmpty as requireArg,
+} from "../cli-option-values.js";
+
 export type LocatorUsageFile = {
   readonly path: string;
   readonly count: number;
@@ -60,32 +65,24 @@ function usage(): string {
   ].join("\n");
 }
 
-function readOptionValue(
-  arg: string,
-  argv: readonly string[],
-  index: number,
-): {
-  value: string;
-  nextIndex: number;
-} {
-  const equalsIndex = arg.indexOf("=");
-  if (equalsIndex >= 0) return { value: arg.slice(equalsIndex + 1), nextIndex: index };
-  const next = argv[index + 1];
-  if (next === undefined) throw new LocatorUsageError(`${arg} requires a value.\n${usage()}`);
-  return { value: next, nextIndex: index + 1 };
-}
-
 export function parseArgs(
   argv: readonly string[],
   repoRoot = process.cwd(),
 ): LocatorUsageCliOptions {
   let format: "text" | "json" = "text";
   for (let index = 0; index < argv.length; index += 1) {
-    const arg = argv[index];
-    if (arg === undefined) throw new LocatorUsageError("Empty arguments are not supported.");
+    const arg = requireArg(argv[index], (message) => {
+      throw new LocatorUsageError(message);
+    });
     if (arg === "--help" || arg === "-h") throw new LocatorUsageHelp();
     if (arg === "--format" || arg.startsWith("--format=")) {
-      const parsed = readOptionValue(arg, argv, index);
+      const parsed = readRequiredOptionValue({
+        arg,
+        argv,
+        index,
+        usage: usage(),
+        createError: (message) => new LocatorUsageError(message),
+      });
       if (parsed.value !== "text" && parsed.value !== "json") {
         throw new LocatorUsageError("--format requires text or json.");
       }

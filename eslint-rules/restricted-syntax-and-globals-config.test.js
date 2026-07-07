@@ -11,14 +11,9 @@
 // - browser globals in packages/shared break its runtime-neutral contract;
 // - raw fetch in client/server source bypasses the tRPC boundary.
 //
-// The named-file off-switch for the process-primitive bans additionally
-// assumes those bans are the *only* `no-restricted-syntax` selectors that
-// resolve for regular source files (documented at the off-switch block in
-// eslint-config/script-configs.js); the exact-count assertions below turn a
-// violation of that ordering assumption into a named test failure. One
-// limit: only selectors that survive resolution are visible here, so a new
-// `no-restricted-syntax` block placed *before* the process-primitive block
-// is silently clobbered for code files rather than caught.
+// The selector-composition matrix below asserts named selector families per
+// representative resolved config. That catches both before- and after-order
+// flat-config replacements that would otherwise silently drop a restriction.
 //
 // Like no-shared-schemas-barrel.test.js, we exercise the real repo
 // `eslint.config.js` via `calculateConfigForFile` so we verify the wiring
@@ -117,16 +112,6 @@ function bansPermissiveTrpcOutput(selector) {
   );
 }
 
-/** @param {string} file */
-function expectedNoRestrictedSyntaxSelectorCount(file) {
-  if (file === "packages/server/src/routers/character.ts") return 4;
-  if (file.startsWith("packages/server/src/")) return 3;
-  if (file.startsWith("packages/shared/src/schemas/")) return 3;
-  if (file === "packages/client/src/lib/api-base.ts") return 4;
-  if (file.startsWith("packages/client/src/")) return 5;
-  return 2;
-}
-
 async function lintTextFor(/** @type {string} */ relPath, /** @type {string} */ code) {
   return eslint.lintText(code, { filePath: resolve(repoRoot, relPath) });
 }
@@ -154,9 +139,86 @@ function restrictedGlobalsOf(config) {
   });
 }
 
+const restrictedSyntaxSelectorCompositionCases = [
+  {
+    file: "packages/server/src/services/auth-service.ts",
+    selectors: [
+      { id: "process.exit", matches: bansProcessExitCall },
+      { id: "process.env", matches: bansProcessEnvRead },
+      { id: "raw-prisma-sql", matches: bansRawPrismaSql },
+    ],
+  },
+  {
+    file: "packages/server/src/routers/character.ts",
+    selectors: [
+      { id: "process.exit", matches: bansProcessExitCall },
+      { id: "process.env", matches: bansProcessEnvRead },
+      { id: "raw-prisma-sql", matches: bansRawPrismaSql },
+      { id: "permissive-trpc-output", matches: bansPermissiveTrpcOutput },
+    ],
+  },
+  {
+    file: "packages/shared/src/schemas/character.ts",
+    selectors: [
+      { id: "process.exit", matches: bansProcessExitCall },
+      { id: "process.env", matches: bansProcessEnvRead },
+      { id: "shared-schema-z-any", matches: bansSharedSchemaZAny },
+    ],
+  },
+  {
+    file: "packages/client/src/hooks/use-notifications.ts",
+    selectors: [
+      { id: "process.exit", matches: bansProcessExitCall },
+      { id: "process.env", matches: bansProcessEnvRead },
+      { id: "query-key-array-property", matches: bansQueryKeyArrayProperty },
+      { id: "query-client-array-key-argument", matches: bansQueryClientArrayKeyArgument },
+      { id: "import-meta-env", matches: bansImportMetaEnvRead },
+    ],
+  },
+  {
+    file: "packages/client/src/lib/api-base.ts",
+    selectors: [
+      { id: "process.exit", matches: bansProcessExitCall },
+      { id: "process.env", matches: bansProcessEnvRead },
+      { id: "query-key-array-property", matches: bansQueryKeyArrayProperty },
+      { id: "query-client-array-key-argument", matches: bansQueryClientArrayKeyArgument },
+    ],
+  },
+  {
+    file: "scripts/drift-ai.ts",
+    selectors: [
+      { id: "process.exit", matches: bansProcessExitCall },
+      { id: "process.env", matches: bansProcessEnvRead },
+    ],
+  },
+];
+
+describe("resolved no-restricted-syntax selector composition", () => {
+  it(
+    "keeps every expected selector family present for representative files",
+    { timeout: resolvedConfigTestTimeoutMs },
+    async () => {
+      for (const {
+        file,
+        selectors: expectedSelectors,
+      } of restrictedSyntaxSelectorCompositionCases) {
+        const config = await configFor(file);
+        expect(severityOf(config, "no-restricted-syntax"), file).toBe(2);
+        const resolvedSelectors = restrictedSelectorsOf(config);
+        for (const { id, matches } of expectedSelectors) {
+          expect(
+            resolvedSelectors.some(matches),
+            `${file} must include no-restricted-syntax selector ${id}`,
+          ).toBe(true);
+        }
+      }
+    },
+  );
+});
+
 describe("process-primitive restrictions (no-restricted-syntax)", () => {
   it(
-    "regular source files ban process.exit and process.env, and nothing else",
+    "regular source files ban process.exit and process.env",
     { timeout: resolvedConfigTestTimeoutMs },
     async () => {
       for (const file of [
@@ -172,13 +234,6 @@ describe("process-primitive restrictions (no-restricted-syntax)", () => {
         const selectors = restrictedSelectorsOf(config);
         expect(selectors.some(bansProcessExitCall), `${file} must ban process.exit`).toBe(true);
         expect(selectors.some(bansProcessEnvRead), `${file} must ban process.env`).toBe(true);
-        // Exactly these process selectors, plus the deliberate server-only raw
-        // SQL/output selectors, shared-schema selector, and client-only
-        // query-key/import-meta selectors. A new selector landing here means a
-        // flat-config replacement may have changed which off-switch is safe.
-        expect(selectors, `${file} selector count`).toHaveLength(
-          expectedNoRestrictedSyntaxSelectorCount(file),
-        );
       }
     },
   );
@@ -249,6 +304,33 @@ describe("raw Prisma SQL restriction (no-restricted-syntax)", () => {
   );
 
   it(
+    "reports computed static raw SQL calls in fenced server source",
+    { timeout: resolvedConfigTestTimeoutMs },
+    async () => {
+      const cases = [
+        {
+          name: "string-literal property",
+          code: 'await prisma["$queryRaw"]`SELECT 1`;',
+        },
+        {
+          name: "no-substitution template property",
+          code: "await prisma[`$queryRaw`]`SELECT 1`;",
+        },
+      ];
+
+      for (const probe of cases) {
+        const messages = restrictedSyntaxMessages(
+          await lintTextFor(
+            "packages/server/src/routers/inventory.ts",
+            ["const prisma = { $queryRaw: () => undefined };", probe.code].join("\n"),
+          ),
+        );
+        expect(messages, probe.name).toHaveLength(1);
+      }
+    },
+  );
+
+  it(
     "sanctioned raw SQL modules and tests keep the raw SQL selector off",
     { timeout: resolvedConfigTestTimeoutMs },
     async () => {
@@ -279,6 +361,18 @@ describe("schema permissiveness restrictions (no-restricted-syntax)", () => {
   );
 
   it(
+    "shared production schemas ban computed z.any calls",
+    { timeout: resolvedConfigTestTimeoutMs },
+    async () => {
+      const results = await lintTextFor(
+        "packages/shared/src/schemas/character.ts",
+        'import { z } from "zod";\nexport const looseSchema = z["any"]();',
+      );
+      expect(restrictedSyntaxMessages(results)).toHaveLength(1);
+    },
+  );
+
+  it(
     "router source bans shallow permissive output schemas without dropping raw SQL and process bans",
     { timeout: resolvedConfigTestTimeoutMs },
     async () => {
@@ -291,6 +385,21 @@ describe("schema permissiveness restrictions (no-restricted-syntax)", () => {
       expect(selectors.some(bansPermissiveTrpcOutput), "permissive output ban must resolve").toBe(
         true,
       );
+    },
+  );
+
+  it(
+    "router source bans computed shallow permissive output schemas",
+    { timeout: resolvedConfigTestTimeoutMs },
+    async () => {
+      const results = await lintTextFor(
+        "packages/server/src/routers/character.ts",
+        [
+          'import { z } from "zod";',
+          "protectedProcedure.output(z['unknown']()).query(() => undefined);",
+        ].join("\n"),
+      );
+      expect(restrictedSyntaxMessages(results)).toHaveLength(1);
     },
   );
 });

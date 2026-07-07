@@ -127,15 +127,34 @@ const matchesSmokeSubject = (path: string, subject: string): boolean => {
   return subject.endsWith("/") && comparablePath.startsWith(subject);
 };
 
+const smokeTestFilePathPattern = /^scripts\/tests\/test-[^/]+\.sh$/u;
+const smokeMetadataFreshnessTestName = "test-harness-check";
+
+const matchesSmokeTestFile = (path: string): boolean =>
+  smokeTestFilePathPattern.test(normalizeComparablePath(path));
+
 const scriptSmokeSubjects: Readonly<Record<string, readonly string[]>> =
   PATH_POLICY.scriptSmoke.subjects;
 
-const smokeTestsForPaths = (paths: readonly string[]): string[] =>
-  SCRIPT_SMOKE_TEST_NAMES.filter((name) => {
+const smokeTestsForPaths = (paths: readonly string[]): string[] => {
+  const selectedTests = new Set<string>();
+  for (const name of SCRIPT_SMOKE_TEST_NAMES) {
     const subjects = scriptSmokeSubjects[name];
-    if (subjects === undefined) return false;
-    return paths.some((path) => subjects.some((subject) => matchesSmokeSubject(path, subject)));
-  });
+    if (subjects === undefined) continue;
+    if (paths.some((path) => subjects.some((subject) => matchesSmokeSubject(path, subject)))) {
+      selectedTests.add(name);
+    }
+  }
+
+  if (
+    paths.some(matchesSmokeTestFile) &&
+    SCRIPT_SMOKE_TEST_NAMES.includes(smokeMetadataFreshnessTestName)
+  ) {
+    selectedTests.add(smokeMetadataFreshnessTestName);
+  }
+
+  return SCRIPT_SMOKE_TEST_NAMES.filter((name) => selectedTests.has(name));
+};
 
 const matchesScriptSmokeSensitiveDeletion = (path: string): boolean =>
   matchesAnySelector(path, PATH_POLICY.deletionClasses.scriptSmokeSensitive);

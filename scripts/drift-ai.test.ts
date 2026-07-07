@@ -309,6 +309,15 @@ function writtenText(writes: readonly CapturedWrite[], target: string): string {
   return write.contents;
 }
 
+function thrownMessage(run: () => unknown): string {
+  try {
+    run();
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
+  }
+  throw new Error("expected function to throw");
+}
+
 describe("parseArgs", () => {
   it("defaults to base main, default checks, text format", () => {
     const options = parseArgs([]);
@@ -441,7 +450,7 @@ describe("parseArgs", () => {
     );
     expect(parseArgs(["--jscpd-bin=/abs/jscpd"]).jscpdBin).toBe("/abs/jscpd");
     expect(parseArgs([]).jscpdBin).toBeUndefined();
-    expect(() => parseArgs(["--jscpd-bin="])).toThrow(/--jscpd-bin requires a path/u);
+    expect(() => parseArgs(["--jscpd-bin="])).toThrow(/--jscpd-bin requires a value/u);
   });
 
   it("rejects invalid flag combinations for the first slice", () => {
@@ -455,6 +464,11 @@ describe("parseArgs", () => {
 
   it("rejects unknown arguments", () => {
     expect(() => parseArgs(["--nope"])).toThrow(/Unknown argument: --nope/u);
+  });
+
+  it("preserves empty string argv entries as unknown arguments", () => {
+    const unknownMessage = thrownMessage(() => parseArgs(["--nope"]));
+    expect(thrownMessage(() => parseArgs([""]))).toBe(unknownMessage.replace("--nope", ""));
   });
 });
 

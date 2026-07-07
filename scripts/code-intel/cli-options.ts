@@ -1,3 +1,4 @@
+import { readRequiredOptionValue, requireArg as sharedRequireArg } from "../cli-option-values.js";
 import { CodeIntelError } from "./errors.js";
 
 export type ParsedOption = {
@@ -28,10 +29,13 @@ export function readOptionValue(
   index: number,
   message: string,
 ): OptionValue {
-  if (option.value !== undefined) return { nextIndex: index, value: option.value };
-  const value = args[index + 1];
-  if (!value) throw new CodeIntelError(message);
-  return { nextIndex: index + 1, value };
+  return readRequiredOptionValue({
+    arg: option.raw,
+    argv: args,
+    index,
+    message,
+    createError: (errorMessage) => new CodeIntelError(errorMessage),
+  });
 }
 
 export function ensureFlagHasNoValue(option: ParsedOption): void {
@@ -39,8 +43,9 @@ export function ensureFlagHasNoValue(option: ParsedOption): void {
 }
 
 export function requireArg(arg: string | undefined): string {
-  if (!arg) throw new CodeIntelError("Empty arguments are not supported.");
-  return arg;
+  return sharedRequireArg(arg, (message) => {
+    throw new CodeIntelError(message);
+  });
 }
 
 export function unknownArgument(arg: string): CodeIntelError {

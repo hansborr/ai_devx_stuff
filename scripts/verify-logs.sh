@@ -224,6 +224,48 @@ latest_wrapper_ts() {
   [ "$max" -gt 0 ] && printf '%s' "$max"
 }
 
+verify_log_running_window_seconds() {
+  local value="${MUSI_VERIFY_LOG_RUNNING_WINDOW_SECONDS:-120}"
+
+  if [[ "$value" =~ ^[0-9]+$ ]]; then
+    printf '%s' "$value"
+  else
+    printf '120'
+  fi
+}
+
+any_unreadable_wrapper_marker_exists() {
+  local marker
+  for marker in "$VERIFY_MARKER_FULL" "$VERIFY_MARKER_CHANGED" "$PRECOMMIT_MARKER"; do
+    [ -f "$marker" ] || continue
+    if ! read_wrapper_marker_ts "$marker" >/dev/null; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+unconfirmed_summary_state() {
+  local age="$1" marker="$2" window
+
+  if [ -n "$marker" ]; then
+    printf 'STALE'
+    return
+  fi
+
+  if any_unreadable_wrapper_marker_exists; then
+    printf 'STALE'
+    return
+  fi
+
+  window=$(verify_log_running_window_seconds)
+  if [ "$age" -lt "$window" ]; then
+    printf 'RUN?'
+  else
+    printf 'STALE'
+  fi
+}
+
 print_summary() {
   printf '%-10s %-6s %-6s %-7s %-17s %s\n' TASK STATE EXIT AGE SOURCE LOG
   local wrapper_ts; wrapper_ts=$(latest_wrapper_ts)
@@ -251,6 +293,8 @@ print_summary() {
         # pre-commit's success marker is the only way the file gets written).
         state="OK*"
         exit_str="0"
+      else
+        state=$(unconfirmed_summary_state "$age" "$marker")
       fi
 
       printf '%-10s %-6s %-6s %-7s %-17s %s (%d lines)\n' \
@@ -260,10 +304,11 @@ print_summary() {
     fi
   done
 
-  printf '\nLegend: OK*/STATE=- mean the log itself has no per-task exit code.\n'
+  printf '\nLegend: OK*/RUN?/STALE mean the log itself has no per-task exit code.\n'
   printf '  OK*  = pre-commit/verify run succeeded; this log is from that run.\n'
-  printf '  -    = no per-task marker AND no fresh wrapper marker; could be a\n'
-  printf '         failed run, an in-flight one, or a stale log.\n'
+  printf '  RUN? = no marker confirms the row yet; a recent log may still be in-flight.\n'
+  printf '  STALE= no readable marker confirms this log; re-run verification before trusting it.\n'
+  printf '  -    = no log exists for this task.\n'
   printf '\nWrapper markers (no per-task exit; LAST_TS/LAST_HEAD/LAST_HASH):\n'
   # Same strict validation as `latest_wrapper_ts` so a marker rejected for OK*
   # derivation in the rows above is shown as `(corrupt)` here, not as fresh.

@@ -30,7 +30,10 @@
 set -u
 
 HOOK_LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT=$(git -C "$HOOK_LIB" rev-parse --show-toplevel 2>/dev/null || git rev-parse --show-toplevel 2>/dev/null || echo "${CLAUDE_PROJECT_DIR:-/workspace}")
+HOOK_REPO_ROOT=$(git -C "$HOOK_LIB" rev-parse --show-toplevel 2>/dev/null || git rev-parse --show-toplevel 2>/dev/null || echo "${CLAUDE_PROJECT_DIR:-/workspace}")
+# Tests can point the wrapped command/cache target at a fixture repo; hook code
+# and helper libraries still load from this checkout.
+REPO_ROOT="${AI_BUN_REPO_ROOT:-$HOOK_REPO_ROOT}"
 # shellcheck source=/dev/null
 . "$HOOK_LIB/common.sh"
 # shellcheck source=/dev/null
@@ -38,7 +41,7 @@ REPO_ROOT=$(git -C "$HOOK_LIB" rev-parse --show-toplevel 2>/dev/null || git rev-
 # shellcheck source=/dev/null
 . "$HOOK_LIB/cache.sh"
 # shellcheck source=/dev/null
-. "$REPO_ROOT/scripts/process-tree.sh"
+. "$HOOK_REPO_ROOT/scripts/process-tree.sh"
 
 # Read the hook payload once — stdin is consumed on first read, and we need
 # both .tool_input.command and .tool_input.run_in_background.
@@ -91,12 +94,82 @@ if ai_bun_cmd_bypasses_lock "$CMD"; then
   ai_claude_updated_command "$ROOT_CMD"
 fi
 
+BUN_ACTIVE_PROCESS_STATE="${AI_BUN_ACTIVE_PROCESS_STATE:-$AI_BUN_STATE_DIR/active-process}"
+
+ai_bun_wrapper_process_is_running() {
+  local pid="$1"
+  local args
+
+  musi_process_is_running "$pid" || return 1
+  args=$(ps -o args= -p "$pid" 2>/dev/null || true)
+  case "$args" in
+    *bun-run-quiet.sh*) return 0 ;;
+  esac
+  return 1
+}
+
+ai_bun_block_if_orphaned_child_active() {
+  local wrapper_pid child_pid pgid script started cmd process_ref=""
+
+  [ -f "$BUN_ACTIVE_PROCESS_STATE" ] || return 0
+
+  wrapper_pid=$(ai_read_state_value "$BUN_ACTIVE_PROCESS_STATE" WRAPPER_PID || true)
+  child_pid=$(ai_read_state_value "$BUN_ACTIVE_PROCESS_STATE" CHILD_PID || true)
+  pgid=$(ai_read_state_value "$BUN_ACTIVE_PROCESS_STATE" CHILD_PGID || true)
+  script=$(ai_read_state_value "$BUN_ACTIVE_PROCESS_STATE" SCRIPT || true)
+  started=$(ai_read_state_value "$BUN_ACTIVE_PROCESS_STATE" STARTED || true)
+  cmd=$(ai_read_state_value "$BUN_ACTIVE_PROCESS_STATE" CMD || true)
+
+  if [ -n "$pgid" ] && musi_process_group_is_running "$pgid"; then
+    process_ref="PGID=$pgid"
+  elif [ -n "$child_pid" ] && musi_process_is_running "$child_pid"; then
+    process_ref="PID=$child_pid"
+  else
+    rm -f "$BUN_ACTIVE_PROCESS_STATE"
+    return 0
+  fi
+
+  if ai_bun_wrapper_process_is_running "$wrapper_pid"; then
+    return 0
+  fi
+
+  REASON="Previous bun-run-quiet.sh wrapper died while \`bun run ${script:-unknown}\` was still running ($process_ref, child PID=${child_pid:-unknown}, started=${started:-unknown}).
+
+The worktree lock is free because the wrapper process exited, but the recorded child process is still active; starting another verification run in this worktree could race the orphan.
+
+Wait for the recorded process to finish, or inspect and terminate it before retrying.
+
+Command: ${cmd:-unknown}"
+  jq -Rn --arg r "$REASON" '{decision:"block", reason:$r}'
+  exit 0
+}
+
+ai_bun_write_active_process_state() {
+  mkdir -p "$(dirname "$BUN_ACTIVE_PROCESS_STATE")"
+  {
+    printf 'WRAPPER_PID=%s\n' "$$"
+    printf 'CHILD_PID=%s\n' "$CHILD"
+    [ -n "${CHILD_PGID:-}" ] && printf 'CHILD_PGID=%s\n' "$CHILD_PGID"
+    printf 'SCRIPT=%s\n' "$SCRIPT"
+    printf 'CMD=%s\n' "$CMD"
+    printf 'STARTED=%s\n' "$(date -Iseconds)"
+  } > "$BUN_ACTIVE_PROCESS_STATE"
+}
+
 # --- Single-writer lock ----------------------------------------------------
 # Use the same default interactive budget as verify/pre-commit. Explicit
 # AI_BUN_LOCK_WAIT and AI_BUN_TIMEOUT overrides remain honored for tests and
 # one-off diagnostics.
+ai_bun_block_if_orphaned_child_active
 LOCK="${AI_BUN_LOCK:-$(musi_standard_bun_lock "$REPO_ROOT")}"
-TOTAL_TIMEOUT="${AI_BUN_TIMEOUT:-${MUSI_VERIFY_TIMEOUT:-${MUSI_INTERACTIVE_TIMEOUT:-1200}}}"
+# Must match hook/ai-bun-run-quiet's generated timeout in harness.controls.json.
+BUN_RUN_QUIET_HOOK_TIMEOUT=1260
+BUN_RUN_QUIET_TIMEOUT_MARGIN=60
+TOTAL_TIMEOUT=$(ai_clamp_timeout_below_harness \
+  "bun-run-quiet" \
+  "${AI_BUN_TIMEOUT:-${MUSI_VERIFY_TIMEOUT:-${MUSI_INTERACTIVE_TIMEOUT:-1200}}}" \
+  "$BUN_RUN_QUIET_HOOK_TIMEOUT" \
+  "$BUN_RUN_QUIET_TIMEOUT_MARGIN")
 LOCK_WAIT="${AI_BUN_LOCK_WAIT:-$TOTAL_TIMEOUT}"
 if [ "$LOCK_WAIT" -gt "$TOTAL_TIMEOUT" ]; then
   LOCK_WAIT="$TOTAL_TIMEOUT"
@@ -203,9 +276,28 @@ WD=$!
 
 START=$(date +%s)
 # Close FD 9 in the child so forked test workers don't hold the lock past
-# our exit. Run async so the TERM trap can reach both child and watchdog.
-bash -c "$CMD" > "$LOG" 2>&1 9>&- &
-CHILD=$!
+# our exit. The active-process state below guards the SIGKILL window where the
+# wrapper cannot run traps but the fd-9-free child group may continue.
+if command -v setsid >/dev/null 2>&1; then
+  setsid bash -c "$CMD" > "$LOG" 2>&1 9>&- &
+  CHILD=$!
+  CHILD_PGID="$CHILD"
+else
+  bash -c "$CMD" > "$LOG" 2>&1 9>&- &
+  CHILD=$!
+  CHILD_PGID=""
+fi
+ai_bun_write_active_process_state
+
+ai_bun_signal_child() {
+  local signal="${1:-TERM}"
+
+  if [ -n "${CHILD_PGID:-}" ] && musi_process_group_is_running "$CHILD_PGID"; then
+    musi_signal_process_group "$CHILD_PGID" "$signal"
+    return 0
+  fi
+  musi_signal_process_tree "$CHILD" "$signal"
+}
 
 # INT (user cancel) and TERM (watchdog / external kill): emit a block JSON
 # and exit 0, NOT exit 130/124. If the hook exits non-zero without a
@@ -214,7 +306,7 @@ CHILD=$!
 # streaming the very verbose output the hook exists to suppress. A proper
 # block keeps the tool call blocked with a readable explanation.
 on_sigterm() {
-  musi_signal_process_tree "$CHILD" TERM
+  ai_bun_signal_child TERM
   kill "$WD" 2>/dev/null
   wait "$CHILD" 2>/dev/null
   local el=$(( $(date +%s) - START ))
@@ -228,7 +320,7 @@ $(tail -n 40 "$LOG" 2>/dev/null)"
 }
 
 on_sigint() {
-  musi_signal_process_tree "$CHILD" TERM
+  ai_bun_signal_child TERM
   kill "$WD" 2>/dev/null
   wait "$CHILD" 2>/dev/null
   local el=$(( $(date +%s) - START ))
@@ -238,7 +330,11 @@ on_sigint() {
 
 trap on_sigint INT
 trap on_sigterm TERM
-trap 'kill "$WD" 2>/dev/null' EXIT
+ai_bun_cleanup() {
+  kill "$WD" 2>/dev/null
+  rm -f "$BUN_ACTIVE_PROCESS_STATE"
+}
+trap ai_bun_cleanup EXIT
 
 wait "$CHILD"
 EXIT=$?

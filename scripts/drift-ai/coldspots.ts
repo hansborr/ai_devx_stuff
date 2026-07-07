@@ -12,6 +12,7 @@
 
 import { readFileSync } from "node:fs";
 
+import { DRIFT_AI_ADVISORY_BANNER } from "./advisory-common.js";
 import { DriftAiHelp } from "./cli-args.js";
 import {
   COLDSPOT_LENS_SELECTIONS,
@@ -47,8 +48,6 @@ import {
   type SubcommandBaseOptions,
   writeSubcommandOutput,
 } from "./subcommand-args.js";
-
-const BANNER = "Areas to check, not defects. drift:ai makes no claim these are problems.";
 
 export type ColdspotsRunOptions = {
   readonly argv: readonly string[]; // argv sliced past the "coldspots" token
@@ -226,7 +225,7 @@ function buildAdvisory(context: SectionContext, baseline: unknown): ColdspotsAdv
     kind: "advisory",
     lens: parsed.lens,
     note: null,
-    banner: BANNER,
+    banner: DRIFT_AI_ADVISORY_BANNER,
     window: {
       requestedDays: history.requestedWindowDays,
       effectiveDays: history.effectiveWindowDays,

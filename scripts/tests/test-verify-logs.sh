@@ -1,4 +1,11 @@
 #!/usr/bin/env bash
+# smoke-order: 030
+# smoke-subjects: scripts/verify-logs.sh
+# smoke-subjects: scripts/tests/test-verify-logs.sh
+# smoke-subjects: scripts/ai-hooks/cache.sh
+# smoke-subjects: scripts/ai-hooks/output-filter.sh
+# smoke-subjects: scripts/harness-emit-envelope.ts
+# smoke-subjects: packages/shared/src/schemas/harness-diagnostics.ts
 # test-verify-logs.sh — pure-shell smoke tests for scripts/verify-logs.sh.
 #
 # Stages fake logs and bun-run-quiet markers in a sandbox, then checks the
@@ -39,6 +46,16 @@ run_logs() {
     bash "$SCRIPT" "$@"
 }
 
+touch_timestamp() {
+  local file="$1" ts="$2"
+  touch -d "@$ts" "$file"
+}
+
+touch_ago() {
+  local file="$1" age_secs="$2"
+  touch_timestamp "$file" "$(( $(date +%s) - age_secs ))"
+}
+
 write_marker() {
   local file="$1" exit_code="$2" age_secs="$3"
   local fp; fp="$(printf 'a%.0s' {1..64})"
@@ -48,6 +65,7 @@ write_marker() {
     printf 'LAST_FP=%s\n' "$fp"
     printf 'LAST_EXIT=%s\n' "$exit_code"
   } > "$file"
+  touch_timestamp "$file" "$ts"
 }
 
 # --- syntax / argument parsing --------------------------------------------
@@ -114,14 +132,29 @@ rm -f "$PRECOMMIT_LOG_DIR/test.log"
 
 # --- pre-commit log only (no per-task marker, no wrapper marker) --------
 printf 'lint output line 1\nlint output line 2\n' > "$PRECOMMIT_LOG_DIR/lint.log"
+touch_ago "$PRECOMMIT_LOG_DIR/lint.log" 30
 output=$(run_logs)
 grep -qE 'lint .*verify/precommit .*lint\.log' <<< "$output" \
   || fail "summary did not list pre-commit lint log"
 grep -q "EXIT" <<< "$output" || fail "summary missing header"
-# Pre-commit log without a fresh wrapper marker: STATE column is "-".
-grep -qE 'lint +- +\?' <<< "$output" \
-  || fail "pre-commit log row should show STATE=- and EXIT=? without a wrapper marker"
+grep -qF '  -    = no log exists for this task.' <<< "$output" \
+  || fail "summary legend should explain no-log rows"
+# Pre-commit log without any wrapper marker: STATE column shows that the run
+# may still be in-flight, rather than a catch-all "-".
+grep -qE 'lint +RUN\? +\?' <<< "$output" \
+  || fail "pre-commit log row should show STATE=RUN? and EXIT=? without a wrapper marker"
 ok "summary shows pre-commit log without per-task or wrapper marker"
+
+output=$(MUSI_VERIFY_LOG_RUNNING_WINDOW_SECONDS=not-a-number run_logs)
+grep -qE 'lint +RUN\? +\?' <<< "$output" \
+  || fail "non-numeric running window should fall back to the default RUN? window"
+ok "non-numeric running window falls back to default"
+
+touch_ago "$PRECOMMIT_LOG_DIR/lint.log" 180
+output=$(MUSI_VERIFY_LOG_RUNNING_WINDOW_SECONDS=60 run_logs)
+grep -qE 'lint +STALE +\?' <<< "$output" \
+  || fail "old pre-commit log without marker should show STATE=STALE"
+ok "old unmarked pre-commit log is stale beyond running window"
 
 # A wrapper marker written at-or-after the log mtime promotes the row to OK*.
 write_wrapper_marker() {
@@ -132,8 +165,8 @@ write_wrapper_marker() {
     printf 'LAST_HEAD=%s\n' "deadbeef"
     printf 'LAST_HASH=%s\n' "$(printf 'a%.0s' {1..64})"
   } > "$file"
+  touch_timestamp "$file" "$ts"
 }
-sleep 1
 write_wrapper_marker "$VERIFY_MARKER_CHANGED" 0
 output=$(run_logs)
 grep -qE 'lint +OK\* +0' <<< "$output" \
@@ -141,11 +174,19 @@ grep -qE 'lint +OK\* +0' <<< "$output" \
 grep -qF 'OK*' <<< "$output" || fail "summary should include OK* legend marker"
 ok "summary derives OK* for pre-commit log when wrapper marker is fresher"
 
-# An older wrapper marker (predates the log) does not promote the row.
+# An older wrapper marker (predates the log) does not promote the row, but a
+# recent log can still be in-flight.
+touch_ago "$PRECOMMIT_LOG_DIR/lint.log" 30
 write_wrapper_marker "$VERIFY_MARKER_CHANGED" 7200
 output=$(run_logs)
-grep -qE 'lint +- +\?' <<< "$output" \
-  || fail "stale wrapper marker should leave STATE=- (log is from a later, possibly failed run)"
+grep -qE 'lint +RUN\? +\?' <<< "$output" \
+  || fail "old wrapper marker should not force a fresh unconfirmed log to STALE"
+ok "older wrapper marker preserves RUN? for fresh unconfirmed logs"
+
+touch_ago "$PRECOMMIT_LOG_DIR/lint.log" 180
+output=$(run_logs)
+grep -qE 'lint +STALE +\?' <<< "$output" \
+  || fail "stale wrapper marker should leave STATE=STALE (log is from a later, possibly failed run)"
 ok "stale wrapper marker does not falsely promote a pre-commit row"
 
 # A wrapper marker with an unknown key is rejected by validation.
@@ -156,7 +197,7 @@ ok "stale wrapper marker does not falsely promote a pre-commit row"
   printf 'BOGUS_KEY=oops\n'
 } > "$VERIFY_MARKER_CHANGED"
 output=$(run_logs)
-grep -qE 'lint +- +\?' <<< "$output" \
+grep -qE 'lint +STALE +\?' <<< "$output" \
   || fail "wrapper marker with unknown key should be ignored"
 ok "wrapper marker validation rejects unknown keys"
 rm -f "$VERIFY_MARKER_CHANGED"
@@ -167,7 +208,7 @@ rm -f "$VERIFY_MARKER_CHANGED"
   printf 'LAST_HASH=%s\n' "$(printf 'a%.0s' {1..64})"
 } > "$VERIFY_MARKER_CHANGED"
 output=$(run_logs)
-grep -qE 'lint +- +\?' <<< "$output" \
+grep -qE 'lint +STALE +\?' <<< "$output" \
   || fail "wrapper marker missing LAST_HEAD should be ignored"
 grep -q 'verify --changed.*(corrupt)' <<< "$output" \
   || fail "wrapper marker missing LAST_HEAD should be shown as corrupt"
@@ -178,7 +219,7 @@ ok "wrapper marker validation requires LAST_HEAD"
   printf 'LAST_HEAD=deadbeef\n'
 } > "$VERIFY_MARKER_CHANGED"
 output=$(run_logs)
-grep -qE 'lint +- +\?' <<< "$output" \
+grep -qE 'lint +STALE +\?' <<< "$output" \
   || fail "wrapper marker missing LAST_HASH should be ignored"
 grep -q 'verify --changed.*(corrupt)' <<< "$output" \
   || fail "wrapper marker missing LAST_HASH should be shown as corrupt"
@@ -190,7 +231,7 @@ ok "wrapper marker validation requires LAST_HASH"
   printf 'LAST_HASH=not-a-hash\n'
 } > "$VERIFY_MARKER_CHANGED"
 output=$(run_logs)
-grep -qE 'lint +- +\?' <<< "$output" \
+grep -qE 'lint +STALE +\?' <<< "$output" \
   || fail "wrapper marker with malformed LAST_HASH should be ignored"
 grep -q 'verify --changed.*(corrupt)' <<< "$output" \
   || fail "wrapper marker with malformed LAST_HASH should be shown as corrupt"
@@ -207,7 +248,7 @@ grep -qF 'lint output line 2' <<< "$output" \
 ok "focused view shows pre-commit log with aggregate-marker note"
 
 # --- bun-logs file with marker takes over when newer -------------------
-sleep 1
+touch_ago "$PRECOMMIT_LOG_DIR/lint.log" 60
 printf 'newer bun lint output\n' > "$BUN_LOG_DIR/lint_changed.log"
 write_marker "$BUN_LOG_DIR/last.lint_changed" 0 5
 output=$(run_logs)
@@ -245,7 +286,6 @@ grep -qE 'lint +FAIL +1' <<< "$output" \
   || fail "viewer should report state from an argv-scoped marker (last.<base>.<fp>)"
 ok "argv-scoped marker drives reported state"
 
-sleep 1
 write_marker "$BUN_LOG_DIR/last.lint_changed.cafef00dcafef00d" 0 0
 output=$(run_logs)
 grep -qE 'lint +OK +0' <<< "$output" \
@@ -273,8 +313,8 @@ ok "--full keeps raw logs unchanged"
 # --- corrupt marker is treated as missing -----------------------------
 printf 'LAST_TS=not-a-number\n' > "$BUN_LOG_DIR/last.lint_changed"
 output=$(run_logs)
-grep -qE 'lint +- +\?' <<< "$output" \
-  || fail "corrupt marker should yield STATE=-/EXIT=?"
+grep -qE 'lint +STALE +\?' <<< "$output" \
+  || fail "corrupt marker should yield STATE=STALE/EXIT=?"
 ok "corrupt marker degrades gracefully"
 
 # Validation parity with ai_read_bun_marker (scripts/ai-hooks/cache.sh):
@@ -287,7 +327,7 @@ now_ts=$(date +%s)
 # Missing LAST_FP.
 { printf 'LAST_TS=%s\n' "$now_ts"; printf 'LAST_EXIT=0\n'; } > "$BUN_LOG_DIR/last.lint_changed"
 output=$(run_logs)
-grep -qE 'lint +- +\?' <<< "$output" \
+grep -qE 'lint +STALE +\?' <<< "$output" \
   || fail "marker missing LAST_FP should be treated as missing"
 ok "marker missing LAST_FP is rejected"
 
@@ -298,7 +338,7 @@ ok "marker missing LAST_FP is rejected"
   printf 'LAST_EXIT=0\n'
 } > "$BUN_LOG_DIR/last.lint_changed"
 output=$(run_logs)
-grep -qE 'lint +- +\?' <<< "$output" \
+grep -qE 'lint +STALE +\?' <<< "$output" \
   || fail "marker with malformed LAST_FP should be treated as missing"
 ok "marker with malformed LAST_FP is rejected"
 
@@ -309,7 +349,7 @@ ok "marker with malformed LAST_FP is rejected"
   printf 'LAST_EXIT=200\n'
 } > "$BUN_LOG_DIR/last.lint_changed"
 output=$(run_logs)
-grep -qE 'lint +- +\?' <<< "$output" \
+grep -qE 'lint +STALE +\?' <<< "$output" \
   || fail "marker with LAST_EXIT >= 128 should be treated as missing"
 ok "marker with out-of-range LAST_EXIT is rejected"
 
@@ -321,7 +361,7 @@ ok "marker with out-of-range LAST_EXIT is rejected"
   printf 'BOGUS=oops\n'
 } > "$BUN_LOG_DIR/last.lint_changed"
 output=$(run_logs)
-grep -qE 'lint +- +\?' <<< "$output" \
+grep -qE 'lint +STALE +\?' <<< "$output" \
   || fail "marker with unknown key should be treated as missing"
 ok "marker with unknown key is rejected"
 
@@ -465,8 +505,8 @@ ok "slow-tests view handles corrupt timing sidecar"
 # --- wrapper marker block reports each marker -------------------------
 write_wrapper_marker "$VERIFY_MARKER_CHANGED" 30
 output=$(run_logs)
-grep -qE 'verify --changed +[0-9]+s ago' <<< "$output" \
-  || fail "summary should show fresh verify --changed wrapper marker age"
+grep -qE 'verify --changed +[^[:space:]]+ ago' <<< "$output" \
+  || fail "summary should show readable verify --changed wrapper marker age"
 grep -qF "$VERIFY_MARKER_CHANGED" <<< "$output" \
   || fail "summary should print wrapper marker path"
 grep -q 'verify (full).*(none)' <<< "$output" \
@@ -567,7 +607,6 @@ ok "--json emits no findings when all tasks are OK"
 # State-unknown (pre-commit log without per-task marker and no fresh
 # wrapper marker) → info finding.
 rm -f "$BUN_LOG_DIR/last.lint_changed" "$BUN_LOG_DIR/lint_changed.log"
-sleep 1
 printf 'lint\n' > "$PRECOMMIT_LOG_DIR/lint.log"
 JSON_OUT="$SANDBOX/json-unknown.json"
 run_logs --json > "$JSON_OUT" || fail "--json must exit 0 on state-unknown"

@@ -2,7 +2,7 @@
 name: ts-graph
 description: >-
   Resolve cross-file TypeScript symbol, import, export, dependent, reference,
-  and covering-test relationships with `bun run code:intel` across
+  covering-test, and router-overview questions with `bun run code:intel` across
   packages/shared, packages/server, packages/client, and scripts. Use when
   exact TypeScript graph answers are needed, such as where a symbol is defined,
   what a file exports, who imports a file, where a symbol is referenced, or
@@ -19,6 +19,7 @@ need symbol/import resolution across `packages/*` and `scripts`.
 Use it when you need:
 
 - `def`: find definitions by exact symbol name or file position.
+- `overview`: summarize tRPC router procedures in a file.
 - `refs`: find symbol-level usages from a definition location.
 - `dependents`: find reverse file imports.
 - `exports`: list a file's exported symbols.

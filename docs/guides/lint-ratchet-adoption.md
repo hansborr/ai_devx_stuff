@@ -1,8 +1,8 @@
 # Lint Ratchet Adoption
 
 This guide is for projects outside this repository that want to copy and adapt
-the lint ratchet. It presents two adoption tiers, lists exactly what to copy for
-each, and names the ongoing ownership cost.
+the lint ratchet. It presents two adoption tiers, explains the runtime copy
+model for each, and names the ongoing ownership cost.
 
 For the full reference — commands, metrics, baseline identity, parser profiles,
 zero-baseline lifecycle, CI parity, and coverage map — see
@@ -41,31 +41,20 @@ Runtime files (all paths relative to repo root):
 | File | Role |
 | --- | --- |
 | `scripts/lint-ratchet.ts` | CLI entry point and re-exports |
-| `scripts/lint-ratchet/` (entire directory) | Runner internals: ESLint config generation, collection, comparison, modes, CLI parsing, diagnostics, registry validation, baseline hashing, caching, glob helpers |
-| `scripts/lint-ratchet/lint-ratchet-baseline.ts` | Baseline model, hashing, strict parse/format, update safety |
-| `scripts/lint-ratchet/lint-ratchet-baseline-compare.ts` | Comparator: current findings vs committed baseline |
-| `scripts/lint-ratchet/lint-ratchet-baseline-parse.ts` | Structural and strict parser for the baseline JSON |
-| `scripts/lint-ratchet/lint-ratchet-check-registry.ts` | Fast preflight validator (no ESLint run) |
 | `scripts/lint-ratchet/lint-ratchet-config.ts` | Registry types, third-party plugin allowlist, and the `lintRatchets` array you edit |
-| `scripts/lint-ratchet/lint-ratchet-metrics.ts` | Metric helpers for `message-count`, `effective-line-count`, `complexity-severity` |
-| `scripts/lint-ratchet/lint-ratchet-output.ts` | Harness diagnostics envelope output to stdout and optional file |
-| `scripts/lint-ratchet/lint-ratchet-report.ts` | Markdown report formatter for CI step summaries and PR comments |
-| `scripts/lint-ratchet/markdown-escape.ts` | Shared GFM escaping for report and debt-log output |
-| `scripts/lint-ratchet/propose.ts` | Dry-run helper for candidate core/local ratchets |
-| `scripts/lint-ratchet/report-only-diagnostics.ts` | Report-only current totals as info diagnostics |
-| `scripts/lint-ratchet/lint-ratchet-debt-log.ts` | Read-only renderer for the committed `lint-ratchet.debt-log.jsonl` acceptance log (the runner imports it to dispatch `--debt-log`) |
-| `scripts/lint-ratchet/lint-ratchet-summary.ts` | Baseline summary table printer (no ESLint run) |
-| `scripts/lint-ratchet/lint-ratchet-trend.ts` | Baseline history trend table printer (no ESLint run) |
-| `scripts/lint-ratchet/lint-ratchet-zero-baseline.ts` | Zero-baseline lifecycle audit and gate |
-| `scripts/lib/lint-rule-docs.ts` | Local-rule metadata loader; replace with a same-export stub if you only ratchet core or third-party rules |
+| Every other non-test `scripts/lint-ratchet/*.ts` runtime module | Runner internals: ESLint config generation, collection, comparison, modes, CLI parsing, diagnostics, registry validation, baseline hashing, caching, glob helpers |
+| Non-`scripts/lint-ratchet/*.ts` entries named by `PORTABLE_RUNTIME_FILES` in `scripts/tests/test-lint-ratchet.sh` | Runtime dependencies outside the ratchet module directory, including local-rule metadata helpers, ESLint JSON helpers, and rule support files |
 | `packages/shared/src/schemas/harness-diagnostics.ts` | Zod schema for the diagnostics envelope; copy at this path or move it and update the imports in the ratchet output, diagnostics, report, and copied tests |
 | `lint-ratchet.baseline.json` | Start with `{ "version": 1, "tests": {} }` |
 
-The full in-repo smoke copy list is the `PORTABLE_RUNTIME_FILES` array in
-`scripts/tests/test-lint-ratchet.sh`. The narrower `runtimeFiles` array in
-`scripts/lint-ratchet/lint-ratchet-output.test.ts` drives a portable smoke that writes its own
-small fixture registry, so it intentionally omits the repository registry/config
-files while still exercising the copied CLI runtime.
+Do not maintain a second hand-written inventory of `scripts/lint-ratchet/*.ts`
+modules. The authoritative in-repo smoke copy list is `PORTABLE_RUNTIME_FILES`
+in `scripts/tests/test-lint-ratchet.sh`; it keeps fixed cross-directory paths
+explicit and expands the runtime directory dynamically while excluding Vitest
+files. The portable output test uses `CROSS_DIR_RUNTIME_FILES` plus
+`deriveLintRatchetRuntimeModules()` in
+`scripts/lint-ratchet/lint-ratchet-output.test.ts`, so fixture-only registry
+replacement stays explicit while directory modules are still derived.
 
 ### Runtime assumptions
 
@@ -209,7 +198,9 @@ The minimum portable test set:
 - `scripts/lint-ratchet/lint-ratchet-output.test.ts` — copies runtime files into a temporary
   repo, writes a small core-rule registry, runs the CLI, and verifies
   `HARNESS_DIAGNOSTICS_OUTPUT` behavior without project app state. Keep its
-  `runtimeFiles` list synchronized with your actual runtime files.
+  explicit `CROSS_DIR_RUNTIME_FILES` set synchronized with runtime dependencies
+  outside `scripts/lint-ratchet/`; the directory modules are derived by
+  `deriveLintRatchetRuntimeModules()`.
 - `scripts/lint-ratchet/lint-ratchet-check-registry.test.ts` — the portable cases test
   synthetic failure modes (empty globs, absolute paths, orphan baselines,
   deterministic ordering, absent-baseline). Replace the Musi-specific
@@ -231,8 +222,10 @@ The minimum portable test set:
 - **Dependency updates.** ESLint, typescript-eslint, and any allowlisted plugin
   upgrades change `ruleSourceHash` in the baseline. The gate fails until you
   re-baseline, so upgrades are explicit.
-- **Portable test upkeep.** Keep the `runtimeFiles` list in the output test
-  synchronized with the actual file set.
+- **Portable test upkeep.** Keep the output test's explicit
+  `CROSS_DIR_RUNTIME_FILES` set synchronized with runtime dependencies outside
+  `scripts/lint-ratchet/`; the `scripts/lint-ratchet/*.ts` runtime modules are
+  derived dynamically.
 
 ## Tier 2 — Full platform
 

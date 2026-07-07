@@ -1,4 +1,21 @@
 #!/usr/bin/env bash
+# smoke-order: 310
+# smoke-subjects: scripts/harness/control-field-validation.ts
+# smoke-subjects: scripts/harness/generate-harness-controls.ts
+# smoke-subjects: scripts/harness/generate-harness-controls-validation.ts
+# smoke-subjects: scripts/harness/harness-paths.ts
+# smoke-subjects: scripts/harness/hook-wiring-schema.ts
+# smoke-subjects: scripts/harness/verify-step-schema.ts
+# smoke-subjects: scripts/lib/lint-rule-docs.ts
+# smoke-subjects: scripts/tests/test-generate-harness-controls.sh
+# smoke-subjects: scripts/fixtures/generate-harness-controls/
+# smoke-subjects: harness.controls.json
+# smoke-subjects: docs/generated/harness-controls.md
+# smoke-subjects: eslint.config.js
+# smoke-subjects: eslint-config/
+# smoke-subjects: eslint-rules/
+# smoke-subjects: package.json
+# smoke-subjects: tsconfig.scripts.json
 # Smoke test for scripts/harness/generate-harness-controls.ts.
 #
 # Contract:
@@ -28,6 +45,7 @@ copy_generator() {
   cp scripts/harness/control-field-validation.ts "$fixture_dir/scripts/harness/control-field-validation.ts"
   cp scripts/harness/generate-harness-controls.ts "$fixture_dir/scripts/harness/generate-harness-controls.ts"
   cp scripts/harness/generate-harness-controls-validation.ts "$fixture_dir/scripts/harness/generate-harness-controls-validation.ts"
+  cp scripts/harness/harness-paths.ts "$fixture_dir/scripts/harness/harness-paths.ts"
   cp scripts/harness/hook-wiring-schema.ts "$fixture_dir/scripts/harness/hook-wiring-schema.ts"
   cp scripts/lib/lint-rule-docs.ts "$fixture_dir/scripts/lib/lint-rule-docs.ts"
   cp scripts/lib/doc-generator.ts "$fixture_dir/scripts/lib/doc-generator.ts"

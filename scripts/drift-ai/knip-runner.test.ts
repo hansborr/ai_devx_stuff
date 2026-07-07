@@ -12,6 +12,7 @@ import {
   KNIP_INCLUDE_CATEGORIES,
   KNIP_SYMBOL_DUPLICATES_INCLUDE_CATEGORIES,
   KNIP_SYMBOL_INCLUDE_CATEGORIES,
+  type KnipIncludeCategories,
   type KnipRunner,
   type KnipSpawn,
   memoizingDefaultKnipRunner,
@@ -222,6 +223,47 @@ describe("defaultKnipRunner", () => {
       reason: "timeout",
       error: "timeout of 1234ms",
     });
+  });
+});
+
+describe("entry-graph include categories", () => {
+  // Regression guard for the include-category bug: knip's vitest plugin only
+  // registers a config's setupFiles/globalSetup (and other config-referenced
+  // modules) as entry points when the run resolves the dependency graph, which
+  // knip does only when `unlisted`/`dependencies` are among the requested
+  // categories. If any selection drops them, every knip-backed check
+  // false-positives those live test-infrastructure files as orphans/unused.
+  const allSelections: readonly KnipIncludeCategories[] = [
+    KNIP_FILE_INCLUDE_CATEGORIES,
+    KNIP_SYMBOL_INCLUDE_CATEGORIES,
+    KNIP_DUPLICATES_INCLUDE_CATEGORIES,
+    KNIP_FILE_SYMBOL_INCLUDE_CATEGORIES,
+    KNIP_FILE_DUPLICATES_INCLUDE_CATEGORIES,
+    KNIP_SYMBOL_DUPLICATES_INCLUDE_CATEGORIES,
+    KNIP_INCLUDE_CATEGORIES,
+  ];
+
+  it.each(allSelections)(
+    "every include-category selection requests unlisted+dependencies (%s)",
+    (selection) => {
+      const categories = selection.split(",");
+      expect(categories).toContain("unlisted");
+      expect(categories).toContain("dependencies");
+    },
+  );
+
+  it.each([
+    { argv: ["--check", "orphan-files"] },
+    { argv: ["--check", "unused-exports"] },
+    { argv: ["--check", "knip-duplicates"] },
+    { argv: ["--check", "orphan-files", "--check", "unused-exports"] },
+    { argv: ["--check", "orphan-files", "--check", "knip-duplicates"] },
+    { argv: ["--check", "unused-exports", "--check", "knip-duplicates"] },
+    { argv: ["--check", "all"] },
+    { argv: ["--check", "duplicate-literals"] },
+  ])("resolveKnipIncludeCategories keeps entry-graph categories for $argv", ({ argv }) => {
+    const categories = resolveKnipIncludeCategories(parseArgs(argv).checks).split(",");
+    expect(categories).toEqual(expect.arrayContaining(["unlisted", "dependencies"]));
   });
 });
 

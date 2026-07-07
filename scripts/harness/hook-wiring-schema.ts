@@ -1,5 +1,5 @@
-export const HOOK_HARNESSES = ["claude", "codex", "copilot"] as const;
-export const HOOK_OUTPUT_CAPABILITIES = ["additionalContext", "decisionBlock"] as const;
+const HOOK_HARNESSES = ["claude", "codex", "copilot"] as const;
+const HOOK_OUTPUT_CAPABILITIES = ["additionalContext", "decisionBlock", "systemMessage"] as const;
 export const HOOK_EVENTS = [
   "SessionStart",
   "Setup",
@@ -35,7 +35,7 @@ export const HOOK_EVENTS = [
 
 export type HookHarness = (typeof HOOK_HARNESSES)[number];
 export type HookEvent = (typeof HOOK_EVENTS)[number];
-export type HookOutputCapability = (typeof HOOK_OUTPUT_CAPABILITIES)[number];
+type HookOutputCapability = (typeof HOOK_OUTPUT_CAPABILITIES)[number];
 
 type MatcherPolicy = "required" | "optional" | "unsupported";
 
@@ -103,22 +103,19 @@ const HARNESS_SUPPORTED_EVENTS = {
 
 const HOOK_OUTPUT_SUPPORT = {
   claude: {
-    additionalContext: [
-      "SessionStart",
-      "PreToolUse",
-      "PostToolUse",
-      "PostToolUseFailure",
-      "SubagentStop",
-    ],
-    decisionBlock: ["PreToolUse", "Stop", "SubagentStop"],
+    additionalContext: ["SessionStart", "PreToolUse", "PostToolUse", "PostToolUseFailure"],
+    decisionBlock: ["PreToolUse"],
+    systemMessage: ["Stop"],
   },
   codex: {
     additionalContext: ["PreToolUse", "PostToolUse"],
-    decisionBlock: ["PreToolUse", "PostToolUse", "SubagentStop", "Stop"],
+    decisionBlock: ["PreToolUse", "PostToolUse"],
+    systemMessage: [],
   },
   copilot: {
-    additionalContext: ["PreToolUse", "PostToolUse", "Stop"],
-    decisionBlock: ["PreToolUse", "Stop"],
+    additionalContext: ["PreToolUse", "PostToolUse"],
+    decisionBlock: ["PreToolUse"],
+    systemMessage: [],
   },
 } as const satisfies Record<HookHarness, Record<HookOutputCapability, readonly HookEvent[]>>;
 

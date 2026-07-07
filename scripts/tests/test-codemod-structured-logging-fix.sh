@@ -1,4 +1,12 @@
 #!/bin/bash
+# smoke-order: 120
+# smoke-subjects: scripts/codemods/structured-logging-fix-ast.ts
+# smoke-subjects: scripts/codemods/structured-logging-fix-transforms.ts
+# smoke-subjects: scripts/codemods/structured-logging-fix.ts
+# smoke-subjects: scripts/codemods/lib/
+# smoke-subjects: scripts/tests/test-codemod-structured-logging-fix.sh
+# smoke-subjects: package.json
+# smoke-subjects: tsconfig.scripts.json
 # Thin CLI smoke test for scripts/codemods/structured-logging-fix.ts.
 
 set -u

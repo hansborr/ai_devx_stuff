@@ -11,6 +11,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel)"
 
 # shellcheck source=/dev/null
+. "$SCRIPT_DIR/lib/gate-env.sh"
+
+# shellcheck source=/dev/null
 . "$SCRIPT_DIR/ai-hooks/cache.sh"
 # shellcheck source=/dev/null
 . "$SCRIPT_DIR/process-tree.sh"

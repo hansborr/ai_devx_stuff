@@ -49,9 +49,22 @@ describe("parseArgs", () => {
     });
   });
 
+  it("preserves empty string argv entries as positional log files", () => {
+    expect(parseArgs([""])).toEqual({
+      files: [""],
+      format: "text",
+    });
+  });
+
   it("rejects missing files, missing option values, and unknown flags", () => {
     expect(() => parseArgs([])).toThrow(/requires at least one log file/u);
     expect(() => parseArgs(["--file"])).toThrow(/--file requires a value/u);
+    expect(() => parseArgs(["--file", "--latest"])).toThrow(/--file requires a value/u);
+    expect(() => parseArgs(["--file=--latest"])).toThrow(/--file requires a value/u);
+    expect(() => parseArgs(["--file="])).toThrow(/--file requires a value/u);
+    expect(() => parseArgs(["--format", "--latest"])).toThrow(/--format requires a value/u);
+    expect(() => parseArgs(["--format=--latest"])).toThrow(/--format requires a value/u);
+    expect(() => parseArgs(["--format="])).toThrow(/--format requires a value/u);
     expect(() => parseArgs(["--format", "yaml"])).toThrow(/--format requires text or json/u);
     expect(() => parseArgs(["--unknown"])).toThrow(/Unknown argument/u);
   });
@@ -130,7 +143,36 @@ describe("auditJsonlText", () => {
       "req.url?password",
     ]);
     expect(JSON.stringify(report)).not.toContain("secret");
-    expect(formatText(report)).not.toContain("secret");
+    const text = formatText(report);
+    expect(text).not.toContain("secret");
+    expect(text).toContain("redactUrlForLogs");
+    expect(text).toContain("LOGGER_REDACT_PATHS in packages/server/src/app.ts");
+    // Remedy is tailored per finding type: object fields point at
+    // LOGGER_REDACT_PATHS, URL query params at redactUrlForLogs.
+    const lineFor = (field: string): string =>
+      text.split("\n").find((line) => line.includes(` ${field} `)) ?? "";
+    const objectFieldLine = lineFor("req.headers.cookie");
+    expect(objectFieldLine).toContain("LOGGER_REDACT_PATHS");
+    expect(objectFieldLine).not.toContain("redactUrlForLogs");
+    const urlParamLine = lineFor("req.url?token");
+    expect(urlParamLine).toContain("redactUrlForLogs");
+    expect(urlParamLine).not.toContain("LOGGER_REDACT_PATHS");
+  });
+
+  it("routes the redaction remedy by finding type, not the field string", () => {
+    // An object key containing '?' must still get the LOGGER_REDACT_PATHS
+    // remedy. The earlier field.includes("?") discriminator would misroute this
+    // to the URL remedy, so this fixture guards the message-shape routing.
+    const report = auditJsonlText(
+      "weird-key.jsonl",
+      JSON.stringify({ "a?b": { token: "object-secret" } }),
+    );
+
+    expect(report.findings.map((finding) => finding.field)).toEqual(["a?b.token"]);
+    const text = formatText(report);
+    const line = text.split("\n").find((entry) => entry.includes(" a?b.token ")) ?? "";
+    expect(line).toContain("LOGGER_REDACT_PATHS");
+    expect(line).not.toContain("redactUrlForLogs");
   });
 
   it("reports every sensitive key variant with exact redaction diagnostics", () => {

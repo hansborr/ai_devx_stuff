@@ -5,8 +5,7 @@
 // `updateTouchDates` from `hotspots-history.ts` (also used by the thrash lens).
 
 import { type CommitRecord, updateTouchDates } from "./hotspots-history.js";
-
-export const DAY_MS = 24 * 60 * 60 * 1000;
+import { DAY_MS } from "./time-constants.js";
 
 // Per-file aggregate over the windowed walk. `oldestTouchMs`/`newestTouchMs` follow
 // the thrash first-seen/last-touched pattern. `churnLines` is the size proxy.

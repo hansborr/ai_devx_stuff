@@ -10,7 +10,7 @@
 
 declare -ga MUSI_VERIFY_CONSUMERS=('verify' 'verify_changed' 'verify_parallel' 'pre_commit')
 declare -ga MUSI_VERIFY_STEPS=('lint' 'ratchet' 'test' 'scripts')
-declare -ga MUSI_VERIFY_CHANGED_STEPS=('coverage-map' 'scripts')
+declare -ga MUSI_VERIFY_CHANGED_STEPS=('coverage-map' 'test' 'scripts')
 declare -ga MUSI_VERIFY_PARALLEL_STEPS=('scripts')
 declare -ga MUSI_PRE_COMMIT_STEPS=('test' 'scripts')
 
@@ -31,6 +31,9 @@ MUSI_VERIFY_SLOT_CMD_VAR['verify:scripts']='MUSI_VERIFY_SCRIPTS_CMD'
 
 MUSI_VERIFY_CHANGED_COVERAGE_MAP_CMD=('bun' 'run' 'docs:lint-coverage-map:check' '--' '--staged')
 MUSI_VERIFY_SLOT_CMD_VAR['verify_changed:coverage-map']='MUSI_VERIFY_CHANGED_COVERAGE_MAP_CMD'
+
+MUSI_VERIFY_CHANGED_TEST_CMD=('bun' 'run' 'test:changed' '--reporter=dot' '--reporter=json' "--outputFile.json=$TIMINGS_FILE")
+MUSI_VERIFY_SLOT_CMD_VAR['verify_changed:test']='MUSI_VERIFY_CHANGED_TEST_CMD'
 
 MUSI_VERIFY_CHANGED_SCRIPTS_CMD=('bun' 'run' 'test:scripts:changed')
 MUSI_VERIFY_SLOT_CMD_VAR['verify_changed:scripts']='MUSI_VERIFY_CHANGED_SCRIPTS_CMD'

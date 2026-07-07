@@ -133,7 +133,7 @@ fi
 SHELLCHECK_BIN="$(shellcheck_command)" || {
   cat >&2 <<'EOF'
 lint:shell: shellcheck is not available.
-lint:shell: install the system package with `apt install shellcheck`, then rerun this command.
+lint:shell: install shellcheck with your system package manager (dnf/apt/brew); see https://github.com/koalaman/shellcheck#installing, then rerun this command.
 EOF
   exit 1
 }
@@ -144,4 +144,11 @@ else
   echo "lint:shell: checking ${#FILES[@]} maintained shell file(s) with ShellCheck."
 fi
 
-exec "$SHELLCHECK_BIN" --external-sources --severity=warning "${FILES[@]}"
+# Info floor so pattern-safety checks like SC2295 gate; these info codes are
+# excluded as reviewed noise on this codebase: SC1091 (un-followable dynamic
+# sources), SC2015 (intentional a && b || c), SC2016 (literal $ in single
+# quotes), SC2030/SC2031 (subshell-scoped variables), SC2317 (trap/indirectly
+# invoked functions read as unreachable).
+SHELLCHECK_INFO_EXCLUDES="SC1091,SC2015,SC2016,SC2030,SC2031,SC2317"
+exec "$SHELLCHECK_BIN" --external-sources --severity=info \
+  --exclude="$SHELLCHECK_INFO_EXCLUDES" "${FILES[@]}"

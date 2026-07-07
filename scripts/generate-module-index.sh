@@ -19,7 +19,7 @@ for arg in "$@"; do
   esac
 done
 
-tmp_file="$(mktemp)"
+tmp_file="$(mktemp "$repo_root/.MODULE-INDEX.md.tmp.XXXXXX")"
 trap 'rm -f "$tmp_file"' EXIT
 
 {

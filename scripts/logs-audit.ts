@@ -8,6 +8,10 @@
 import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
+import {
+  readRequiredOptionValue,
+  requireArgAllowingEmpty as requireArg,
+} from "./cli-option-values.js";
 import type { ParsedLogRecord } from "./logs-audit/logs-audit-checks.js";
 import { auditEventFields, auditRequestIds } from "./logs-audit/logs-audit-checks.js";
 import { writeLogsAuditDiagnosticsSidecar } from "./logs-audit/logs-audit-diagnostics.js";
@@ -83,23 +87,6 @@ function usage(): string {
   ].join("\n");
 }
 
-function readOptionValue(
-  arg: string,
-  argv: readonly string[],
-  index: number,
-): {
-  readonly value: string;
-  readonly nextIndex: number;
-} {
-  const equalsIndex = arg.indexOf("=");
-  if (equalsIndex >= 0) {
-    return { value: arg.slice(equalsIndex + 1), nextIndex: index };
-  }
-  const next = argv[index + 1];
-  if (next === undefined) throw new LogsAuditError(`${arg} requires a value.\n${usage()}`);
-  return { value: next, nextIndex: index + 1 };
-}
-
 type ParsedAuditArg =
   | {
       readonly kind: "file";
@@ -117,25 +104,31 @@ type ParsedAuditArg =
     };
 
 function parseFileArg(arg: string, argv: readonly string[], index: number): ParsedAuditArg {
-  const parsed = readOptionValue(arg, argv, index);
-  if (!parsed.value) throw new LogsAuditError("--file requires a path.");
+  const parsed = readRequiredOptionValue({
+    arg,
+    argv,
+    index,
+    usage: usage(),
+    createError: (message) => new LogsAuditError(message),
+  });
   return { kind: "file", value: parsed.value, nextIndex: parsed.nextIndex };
 }
 
 function parseFormatArg(arg: string, argv: readonly string[], index: number): ParsedAuditArg {
-  const parsed = readOptionValue(arg, argv, index);
+  const parsed = readRequiredOptionValue({
+    arg,
+    argv,
+    index,
+    usage: usage(),
+    createError: (message) => new LogsAuditError(message),
+  });
   if (parsed.value !== "text" && parsed.value !== "json") {
     throw new LogsAuditError("--format requires text or json.");
   }
   return { kind: "format", value: parsed.value, nextIndex: parsed.nextIndex };
 }
 
-function parseAuditArg(
-  arg: string | undefined,
-  argv: readonly string[],
-  index: number,
-): ParsedAuditArg {
-  if (arg === undefined) throw new LogsAuditError("Empty arguments are not supported.");
+function parseAuditArg(arg: string, argv: readonly string[], index: number): ParsedAuditArg {
   if (arg === "--help" || arg === "-h") throw new LogsAuditHelp();
   if (arg === "--latest") return { kind: "latest", nextIndex: index };
   if (arg === "--file" || arg.startsWith("--file=")) return parseFileArg(arg, argv, index);
@@ -150,7 +143,10 @@ export function parseArgs(argv: readonly string[]): LogsAuditOptions {
   let latest = false;
 
   for (let index = 0; index < argv.length; index += 1) {
-    const parsed = parseAuditArg(argv[index], argv, index);
+    const arg = requireArg(argv[index], (message) => {
+      throw new LogsAuditError(message);
+    });
+    const parsed = parseAuditArg(arg, argv, index);
     if (parsed.kind === "file") files.push(parsed.value);
     else if (parsed.kind === "format") format = parsed.value;
     else latest = true;

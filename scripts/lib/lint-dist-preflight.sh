@@ -62,6 +62,10 @@ musi_lint_dist_print_require_outputs_diagnostic() {
   musi_lint_dist_print_missing_outputs_detail
 }
 
+musi_lint_dist_print_post_typecheck_remedy() {
+  printf 'lint: compare each missing path with the owning package tsconfig `outDir`, `declaration`, `composite`, and project references; update the tsconfig or this preflight list if build outputs moved.\n' >&2
+}
+
 musi_lint_dist_require_outputs() {
   local repo_root consumer
   repo_root="$(musi_lint_dist_repo_root "${1:-}")"
@@ -71,6 +75,9 @@ musi_lint_dist_require_outputs() {
     return 0
   fi
 
+  # Reporting-only path for lint:fix: ESLint --fix mutates files, so keep it
+  # from silently running a build first while the parity decision remains parked
+  # in docs/agent_notes/backlog/lint-fix-dist-preflight-parity.md.
   musi_lint_dist_print_require_outputs_diagnostic
   printf 'lint: run `bun run typecheck` before %s.\n' "$consumer" >&2
   return 1
@@ -102,5 +109,6 @@ musi_lint_dist_preflight() {
     printf 'lint: missing required output(s):\n'
     musi_lint_dist_print_missing
   } >&2
+  musi_lint_dist_print_post_typecheck_remedy
   return 1
 }

@@ -145,6 +145,44 @@ describe("lint ratchet report", () => {
     expect(report).toContain("Recovery: `bun run lint:ratchet:update`");
   });
 
+  it("uses explicit improvement kind before legacy reason matching", () => {
+    const report = formatHarnessDiagnosticsReport(
+      envelope([
+        {
+          ...baseFinding,
+          kind: "improvement",
+          why: "Current tree is better than the committed baseline.",
+          howToFix:
+            "Run `bun run lint:ratchet:update` to lower the committed baseline and lock in this improvement.",
+          reason: "future-improvement-reason",
+          baselineCount: 3,
+          currentCount: 1,
+        },
+      ]),
+    );
+
+    expect(report).toContain("3 → 1");
+    expect(report).toContain("Recovery: `bun run lint:ratchet:update`");
+    expect(report).not.toContain(REGRESSION_RECOVERY_FOOTER);
+  });
+
+  it("treats an explicit regression kind as a regression even with a legacy improvement reason", () => {
+    const report = formatHarnessDiagnosticsReport(
+      envelope([
+        {
+          ...baseFinding,
+          kind: "regression",
+          reason: "lower-count",
+          baselineCount: 3,
+          currentCount: 1,
+        },
+      ]),
+    );
+
+    expect(report).toContain(REGRESSION_RECOVERY_FOOTER);
+    expect(report).not.toContain(IMPROVEMENT_RECOVERY_LINE);
+  });
+
   it("formats an info-only equal-count swap without regression recovery", () => {
     const report = formatHarnessDiagnosticsReport(
       envelope([

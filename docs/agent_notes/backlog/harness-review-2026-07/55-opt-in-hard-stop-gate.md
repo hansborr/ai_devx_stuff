@@ -1,6 +1,9 @@
 # 55. Every Stop condition self-suppresses after one or two nudges; add an opt-in hard-stop mode that keeps blocking while the health gate is red
 
-Status: Done — opt-in hard-stop mode implemented 2026-07-02.
+Status: Done — opt-in hard-stop mode implemented 2026-07-02. **Superseded by
+`arch-review-2026-07/19-stop-hooks-never-notify-agents.md`** (owner ruling
+2026-07-07: no stop hook may block or notify an agent) — hard-stop mode was
+removed; this leaf stays as the design record.
 Lens: hooks · Area: hooks-stop · Severity: med · Size: M · Confidence: med
 Theme: stop-gate-enforcement · Source: Musi AI-harness review 2026-07-01 (multi-agent + Codex second opinion + web research)
 

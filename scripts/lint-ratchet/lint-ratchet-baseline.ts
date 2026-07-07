@@ -107,6 +107,14 @@ export interface LintRatchetRetireRequest {
   readonly normalErrorProven: boolean;
 }
 
+// Update-time policy shared by the decide gate and the apply orchestration:
+// accept a worse baseline (with reason) or retire a proven zero-finding ratchet.
+export interface LintRatchetUpdateOptions {
+  readonly allowWorse: boolean;
+  readonly reason?: string;
+  readonly retire?: LintRatchetRetireRequest;
+}
+
 export interface LintRatchetUpdateDecision extends LintRatchetComparison {
   readonly allowed: boolean;
   readonly failures: readonly string[];
@@ -118,9 +126,33 @@ export interface LintRatchetUpdateDecision extends LintRatchetComparison {
   readonly retiredRatchetId?: string;
 }
 
+export type LintRatchetBaselineValidationFailureCode =
+  | "config-hash-mismatch"
+  | "files-mismatch"
+  | "ignores-mismatch"
+  | "metric-item-invalid"
+  | "metric-mismatch"
+  | "missing-ratchet"
+  | "mode-mismatch"
+  | "nondeterministic-json"
+  | "orphan-ratchet"
+  | "report-only-baseline"
+  | "rule-id-mismatch"
+  | "rule-options-mismatch"
+  | "rule-source-drift"
+  | "rule-source-hash-required"
+  | "structure"
+  | "target-mismatch";
+
+export interface LintRatchetBaselineValidationFailure {
+  readonly code: LintRatchetBaselineValidationFailureCode;
+  readonly message: string;
+}
+
 export interface ParsedLintRatchetBaseline {
   readonly baseline?: LintRatchetBaseline;
   readonly failures: readonly string[];
+  readonly validationFailures: readonly LintRatchetBaselineValidationFailure[];
 }
 
 export interface StructuralLintRatchetBaseline {
@@ -137,7 +169,6 @@ export {
   computeCoreLintRatchetRuleSourceHash,
   computeLintRatchetConfigHash,
   LINT_RATCHET_CONFIG_HASH_PREFIX,
-  RULE_ID_PATTERN,
   ruleNamespace,
 } from "./baseline-hash.js";
 export {

@@ -6,18 +6,20 @@ on the SRD 5.2.1 ruleset.
 - Monorepo: `packages/{shared,server,client}`
 - Stack: TypeScript, Bun, Fastify, tRPC, Prisma/PostgreSQL, React, TanStack Query/Router, Tailwind v4, Socket.io
 - Key docs: `docs/architecture-plan.md`, `docs/authorization.md`, `docs/socket-architecture.md`, `docs/CONCURRENCY.md`
-- Task guides: see `docs/guides/` before tRPC, Prisma, socket, race-sensitive, client cache/socket, e2e, rules changes, or ratcheted-lint changes.
+- Task guides: see `docs/guides/` before tRPC, Prisma, socket, race-sensitive, client cache/socket, e2e, rules changes, or ratcheted-lint changes (`docs/guides/lint-ratchet.md`).
 
 ## Commands
 
 `bun run` lists every script. Non-obvious ones:
 
-- `bun run verify:changed` — default manual verification when you need a pre-commit check (lint:changed, typecheck, test:changed, test:scripts:changed). Stage intended source-relevant changes first; changed verification intentionally aborts on unstaged or untracked source-relevant work.
+- `bun run verify:changed` — default manual verification when you need a pre-commit check. Runs the generated changed-mode slot set (`MUSI_VERIFY_CHANGED_STEPS` in `scripts/verify/steps.generated.sh`) in parallel via `scripts/verify.sh`. Stage intended source-relevant changes first; changed verification intentionally aborts on unstaged or untracked source-relevant work.
 - `bun run --filter @musi/server db:migrate` / `prisma:generate` — schema change path; follow `docs/guides/add-prisma-migration.md`. `db:push` is local-only, never committed schema work.
 - `bun run --filter @musi/server db:{push,seed,reset,studio}` — local DB utilities; package filter required.
-- `bun run code:intel -- {def|exports|dependents|refs|tests} ...` — cross-file TypeScript symbol/import queries; resolves package exports, re-exports, and the client `@/*` alias. See `docs/guides/code-intel.md`.
+- `bun run code:intel -- {def|exports|overview|dependents|refs|tests} ...` — cross-file TypeScript symbol/import queries and router overviews; resolves package exports, re-exports, and the client `@/*` alias. See `docs/guides/code-intel.md`.
 - `bun run test:scripts:file -- <file>` (scripts project) or `bun run test -- <file>` (any project) — focused single-file test runs. Not `test:scripts -- <file>` (that is the shell smoke wrapper and rejects file args) and not `--filter @musi/scripts` (`scripts` is not a workspace package).
 - Secondary git worktrees: `bun run dev` auto-runs `worktree:init` to provision per-worktree DBs, ports, Redis, and env files. See `docs/guides/per-worktree-dev.md`.
+- `bun run doctor` — read-only environment-sanity escape hatch: env-file, port, dependency-freshness, and lint-suppression-drift checks with exact follow-up commands. Run it when something feels off locally.
+- `bun run harness:check` — validates `harness.controls.json` against the live tree (hook wiring, generated verify data, lint guidance); run after touching hook, settings, manifest, or generated harness surfaces. Related: `harness:audit`, `docs:harness-controls:check`.
 
 ## Working Model
 
@@ -26,7 +28,7 @@ on the SRD 5.2.1 ruleset.
 - tRPC owns queries and mutations. Socket.io manages room membership, presence, and broadcasts after persistence.
 - For auth changes, read `docs/authorization.md`; use the campaign and character auth helpers and preserve intentional `NOT_FOUND` mismatch semantics.
 - Use existing test helpers and e2e page objects; place focused unit/integration tests beside the code they cover.
-- Read the nearest `MODULE.md` or `*-MODULE.md` before editing feature, service, hook, or socket areas that have one.
+- Read the nearest `MODULE.md` or `*-MODULE.md` before editing feature, service, hook, or socket areas that have one; follow `docs/guides/add-module-doc.md` to create or refresh one.
 
 ## Code Standards
 
@@ -43,4 +45,4 @@ on the SRD 5.2.1 ruleset.
 - Commit completed work without asking first. Commit incrementally by logical unit; do not defer a large mixed change to the end.
 - Treat the commit gate as the normal verification step. While building, run focused tests for the files you change; run `verify:changed` directly only when you are not committing or when troubleshooting a gate failure.
 - Ask before push, PR creation, or branch integration. Integrate finished branches with a merge commit (`git merge --no-ff`) unless the user explicitly asks for a fast-forward.
-- Fast-commit mode (opt-in, off by default): `touch "$(git rev-parse --git-common-dir)/musi-fast-commit"` makes pre-commit skip only the slow `test`+`scripts` slots (lint, ratchet, typecheck, and format still run every commit) for cheap multi-commit feature branches; `rm` the marker to disable. Land such a branch with `bash scripts/land.sh`, which runs the full sequential `verify` (always every slot) and then `git merge --no-ff` into the protected branch.
+- Fast-commit mode (opt-in, off by default): `touch "$(git rev-parse --git-common-dir)/musi-fast-commit"` makes pre-commit skip only the slow `test`+`scripts` slots (lint, ratchet, typecheck, and format still run every commit) for cheap multi-commit feature branches; `rm` the marker to disable. Land such a branch with `bash scripts/land.sh`, which runs the full sequential `verify` (always every slot) and then `git merge --no-ff` into the protected branch. The marker lives in the shared git dir, so it applies to every worktree of the repo. Before fanning multi-lane work out from a fast-commit base, run `bun run verify` once on the base first: fast-commit lets the base itself carry deferred test debt, and a pre-dispatch baseline keeps land-time failures attributable to the lanes rather than to the base.

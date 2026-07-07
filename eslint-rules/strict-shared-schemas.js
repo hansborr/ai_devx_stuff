@@ -16,6 +16,33 @@
  * multiple places) use `// eslint-disable-next-line local/strict-shared-schemas`.
  */
 
+const UNKNOWN_KEY_MODES = new Set(["strict", "passthrough", "strip", "catchall"]);
+
+/** @param {import('estree').Node} node */
+function parentOf(node) {
+  return /** @type {import('estree').Node & { parent?: import('estree').Node }} */ (node).parent;
+}
+
+/** @param {import('estree').PrivateIdentifier | import('estree').Expression} property */
+function staticPropertyName(property) {
+  if (property.type === "Identifier") return property.name;
+  if (property.type === "Literal" && typeof property.value === "string") return property.value;
+  return undefined;
+}
+
+/**
+ * @param {import('estree').CallExpression} node
+ * @param {string} name
+ */
+function isZCall(node, name) {
+  return (
+    node.callee.type === "MemberExpression" &&
+    node.callee.object.type === "Identifier" &&
+    node.callee.object.name === "z" &&
+    staticPropertyName(node.callee.property) === name
+  );
+}
+
 /**
  * Walk down to the inner-most call in a method chain and return it if it is
  * `z.object(...)`. Used by the autofix to know where to insert `.strict()`.
@@ -29,14 +56,7 @@ function findZObjectCall(arg) {
     if (cur.callee.object.type !== "CallExpression") break;
     cur = cur.callee.object;
   }
-  if (
-    cur.type === "CallExpression" &&
-    cur.callee.type === "MemberExpression" &&
-    cur.callee.object.type === "Identifier" &&
-    cur.callee.object.name === "z" &&
-    cur.callee.property.type === "Identifier" &&
-    cur.callee.property.name === "object"
-  ) {
+  if (cur.type === "CallExpression" && isZCall(cur, "object")) {
     return cur;
   }
   return null;
@@ -54,12 +74,9 @@ function analyzeChain(arg) {
   let outermostMode = null;
   let cur = arg;
   while (cur.type === "CallExpression" && cur.callee.type === "MemberExpression") {
-    if (cur.callee.property.type === "Identifier") {
-      const name = cur.callee.property.name;
-      if (
-        outermostMode === null &&
-        (name === "strict" || name === "passthrough" || name === "strip" || name === "catchall")
-      ) {
+    const name = staticPropertyName(cur.callee.property);
+    if (name !== undefined) {
+      if (outermostMode === null && UNKNOWN_KEY_MODES.has(name)) {
         outermostMode = name;
       }
     }
@@ -67,18 +84,46 @@ function analyzeChain(arg) {
     cur = cur.callee.object;
   }
   /** @param {string} name */
-  const rootIsZCall = (name) =>
-    cur.type === "CallExpression" &&
-    cur.callee.type === "MemberExpression" &&
-    cur.callee.object.type === "Identifier" &&
-    cur.callee.object.name === "z" &&
-    cur.callee.property.type === "Identifier" &&
-    cur.callee.property.name === name;
+  const rootIsZCall = (name) => cur.type === "CallExpression" && isZCall(cur, name);
   return {
     rootIsZObject: rootIsZCall("object"),
     rootIsStrictObject: rootIsZCall("strictObject"),
     outermostMode,
   };
+}
+
+/** @param {import('estree').VariableDeclarator} declarator */
+function isModuleScopeConstDeclarator(declarator) {
+  const declaration = parentOf(declarator);
+  if (declaration?.type !== "VariableDeclaration" || declaration.kind !== "const") return false;
+  const declarationParent = parentOf(declaration);
+  if (declarationParent?.type === "Program") return true;
+  return (
+    declarationParent?.type === "ExportNamedDeclaration" &&
+    parentOf(declarationParent)?.type === "Program"
+  );
+}
+
+/**
+ * @param {import('estree').ImportDeclaration} node
+ * @returns {import('estree').Identifier[]}
+ */
+function zodAliasSpecifiers(node) {
+  if (node.source.value !== "zod") return [];
+  const aliases = [];
+  for (const specifier of node.specifiers) {
+    if (
+      specifier.type === "ImportDefaultSpecifier" ||
+      specifier.type === "ImportNamespaceSpecifier"
+    ) {
+      aliases.push(specifier.local);
+      continue;
+    }
+    if (specifier.type !== "ImportSpecifier") continue;
+    if (specifier.imported.type !== "Identifier" || specifier.imported.name !== "z") continue;
+    if (specifier.local.name !== "z") aliases.push(specifier.local);
+  }
+  return aliases;
 }
 
 /** @type {import('eslint').Rule.RuleModule} */
@@ -98,6 +143,8 @@ export default {
     messages: {
       needsExplicit:
         "Why: Exported `*InputSchema` z.objects without an explicit unknown-key mode silently accept extra keys across the client/server contract. How to fix: Add `.strict()`, or `.passthrough()` only for intentional extra keys. See docs/guides/add-trpc-procedure.md.",
+      zodAlias:
+        'Why: Aliasing Zod\'s runtime import disables sibling shared-schema rules that match the literal `z` identifier, so the file can silently skip schema/input coverage. How to fix: Use `import { z } from "zod"` without aliasing.',
     },
     schema: [],
   },
@@ -132,12 +179,15 @@ export default {
     }
 
     return {
-      ExportNamedDeclaration(node) {
-        if (!node.declaration) return;
-        if (node.declaration.type !== "VariableDeclaration") return;
-        for (const declarator of node.declaration.declarations) {
-          checkDeclarator(declarator);
+      ImportDeclaration(node) {
+        for (const alias of zodAliasSpecifiers(node)) {
+          context.report({ node: alias, messageId: "zodAlias" });
         }
+      },
+
+      VariableDeclarator(node) {
+        if (!isModuleScopeConstDeclarator(node)) return;
+        checkDeclarator(node);
       },
     };
   },

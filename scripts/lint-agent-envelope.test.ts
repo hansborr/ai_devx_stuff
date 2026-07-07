@@ -210,7 +210,8 @@ describe("parser error findings", () => {
       path: "packages/shared/src/broken.ts",
       line: 4,
       why: "ESLint could not parse this file, so no other rule could run against it.",
-      howToFix: "Fix the syntax error reported by ESLint: Parsing error: unexpected token",
+      howToFix:
+        "Fix the syntax error reported by ESLint: Parsing error: unexpected token. If this file should not be parsed as TypeScript, check `node_modules/.bin/eslint --print-config packages/shared/src/broken.ts`.",
       repairKind: "manual",
     });
 
@@ -228,7 +229,8 @@ describe("parser error findings", () => {
       severity: "block",
       path: "broken.ts",
       why: "ESLint could not parse this file, so no other rule could run against it.",
-      howToFix: "Fix the syntax error reported by ESLint: Parsing error: no line",
+      howToFix:
+        "Fix the syntax error reported by ESLint: Parsing error: no line. If this file should not be parsed as TypeScript, check `node_modules/.bin/eslint --print-config broken.ts`.",
       repairKind: "manual",
     });
 

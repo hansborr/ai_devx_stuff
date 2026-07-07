@@ -1,4 +1,34 @@
 #!/usr/bin/env bash
+# smoke-order: 320
+# smoke-subjects: scripts/harness-check.ts
+# smoke-subjects: scripts/harness/control-field-validation.ts
+# smoke-subjects: scripts/harness/harness-check-validation.ts
+# smoke-subjects: scripts/harness/hook-timeout-constants.ts
+# smoke-subjects: scripts/harness/harness-paths.ts
+# smoke-subjects: scripts/harness/generate-hook-wiring.ts
+# smoke-subjects: scripts/harness/generate-verify-steps.ts
+# smoke-subjects: scripts/harness/generate-config-surfaces.ts
+# smoke-subjects: scripts/harness/hook-wiring-schema.ts
+# smoke-subjects: scripts/path-policy/generate-smoke-subjects.ts
+# smoke-subjects: scripts/path-policy/smoke-subject-headers.ts
+# smoke-subjects: scripts/ai-hooks/check-wiring.sh
+# smoke-subjects: scripts/ai-hooks/bun-run-quiet.sh
+# smoke-subjects: scripts/ai-hooks/git-commit-quiet.sh
+# smoke-subjects: scripts/verify/steps.generated.sh
+# smoke-subjects: scripts/verify/steps-lib.sh
+# smoke-subjects: scripts/harness/verify-step-schema.ts
+# smoke-subjects: scripts/lint-ratchet/ratchet-manifest-message.ts
+# smoke-subjects: scripts/tests/test-harness-check.sh
+# smoke-subjects: tsconfig.configs.json
+# smoke-subjects: .claude/settings.json
+# smoke-subjects: .codex/hooks.json
+# smoke-subjects: .github/hooks/copilot.json
+# smoke-subjects: harness.controls.json
+# smoke-subjects: eslint.config.js
+# smoke-subjects: eslint-config/
+# smoke-subjects: eslint-rules/
+# smoke-subjects: package.json
+# smoke-subjects: tsconfig.scripts.json
 # Smoke test for scripts/harness-check.ts.
 #
 # Contract:
@@ -7,8 +37,9 @@
 #   a package.json control-prefix script is undeclared, when a manifest entry
 #   points at a missing source / unknown rule / unknown script, and when
 #   shape rules are violated;
-# - generated verify step, hook-wiring, and harness-controls doc freshness
-#   fail when their checked-in outputs are stale.
+# - generated smoke-subjects, verify step, hook-wiring, local lint guidance,
+#   harness-controls doc, and restricted disable rule-list freshness fail when
+#   their checked-in outputs are stale.
 set -euo pipefail
 
 cd "$(dirname "$0")/../.."
@@ -32,31 +63,51 @@ copy_validator() {
   local fixture_dir=$1
   mkdir -p \
     "$fixture_dir/eslint-config" \
+    "$fixture_dir/.claude/hooks" \
     "$fixture_dir/scripts/ai-hooks" \
     "$fixture_dir/scripts/harness" \
     "$fixture_dir/scripts/lib" \
     "$fixture_dir/scripts/lint-ratchet" \
+    "$fixture_dir/scripts/path-policy" \
     "$fixture_dir/scripts/verify"
   cp eslint-config/shared-policy.js "$fixture_dir/eslint-config/shared-policy.js"
+  cp eslint-config/config-surfaces.js "$fixture_dir/eslint-config/config-surfaces.js"
+  cp eslint-config/config-surface-manifest.json "$fixture_dir/eslint-config/config-surface-manifest.json"
   cp scripts/harness-check.ts "$fixture_dir/scripts/harness-check.ts"
   cp scripts/ai-hooks/check-wiring.sh "$fixture_dir/scripts/ai-hooks/check-wiring.sh"
+  cp scripts/ai-hooks/bun-run-quiet.sh "$fixture_dir/scripts/ai-hooks/bun-run-quiet.sh"
+  cp scripts/ai-hooks/git-commit-quiet.sh "$fixture_dir/scripts/ai-hooks/git-commit-quiet.sh"
+  cp .claude/hooks/bun-run-quiet.sh "$fixture_dir/.claude/hooks/bun-run-quiet.sh"
+  cp .claude/hooks/git-commit-quiet.sh "$fixture_dir/.claude/hooks/git-commit-quiet.sh"
   cp scripts/harness/harness-check-validation.ts "$fixture_dir/scripts/harness/harness-check-validation.ts"
+  cp scripts/harness/hook-timeout-constants.ts "$fixture_dir/scripts/harness/hook-timeout-constants.ts"
+  cp scripts/harness/harness-paths.ts "$fixture_dir/scripts/harness/harness-paths.ts"
   cp scripts/harness/local-rule-config.ts "$fixture_dir/scripts/harness/local-rule-config.ts"
   cp scripts/harness/control-field-validation.ts "$fixture_dir/scripts/harness/control-field-validation.ts"
   cp scripts/harness/generate-harness-controls.ts "$fixture_dir/scripts/harness/generate-harness-controls.ts"
+  cp scripts/harness/generate-restricted-disable-rules.ts \
+    "$fixture_dir/scripts/harness/generate-restricted-disable-rules.ts"
   cp scripts/harness/generate-harness-controls-validation.ts \
     "$fixture_dir/scripts/harness/generate-harness-controls-validation.ts"
   cp scripts/harness/generate-hook-wiring.ts "$fixture_dir/scripts/harness/generate-hook-wiring.ts"
   cp scripts/harness/generate-verify-steps.ts "$fixture_dir/scripts/harness/generate-verify-steps.ts"
+  cp scripts/generate-lint-guidance.ts "$fixture_dir/scripts/generate-lint-guidance.ts"
+  cp scripts/harness/generate-config-surfaces.ts \
+    "$fixture_dir/scripts/harness/generate-config-surfaces.ts"
   cp scripts/lib/lint-rule-docs.ts "$fixture_dir/scripts/lib/lint-rule-docs.ts"
   cp scripts/lib/doc-generator.ts "$fixture_dir/scripts/lib/doc-generator.ts"
   cp scripts/harness/hook-wiring-schema.ts "$fixture_dir/scripts/harness/hook-wiring-schema.ts"
   cp scripts/harness/verify-step-schema.ts "$fixture_dir/scripts/harness/verify-step-schema.ts"
+  cp scripts/path-policy/generate-smoke-subjects.ts \
+    "$fixture_dir/scripts/path-policy/generate-smoke-subjects.ts"
+  cp scripts/path-policy/smoke-subject-headers.ts \
+    "$fixture_dir/scripts/path-policy/smoke-subject-headers.ts"
   cp scripts/lint-ratchet/lint-ratchet-config.ts "$fixture_dir/scripts/lint-ratchet/lint-ratchet-config.ts"
   cp scripts/lint-ratchet/max-lines-policy.ts "$fixture_dir/scripts/lint-ratchet/max-lines-policy.ts"
   cp scripts/lint-ratchet/lint-ratchet-registry-builders.ts \
     "$fixture_dir/scripts/lint-ratchet/lint-ratchet-registry-builders.ts"
   cp scripts/lint-ratchet/ratchet-manifest-message.ts "$fixture_dir/scripts/lint-ratchet/ratchet-manifest-message.ts"
+  cp scripts/verify/steps-lib.sh "$fixture_dir/scripts/verify/steps-lib.sh"
 }
 
 write_eslint_plugin() {
@@ -113,6 +164,7 @@ write_package_json() {
   "scripts": {
     "lint": "eslint .",
     "lint:changed": "eslint . --changed",
+    "lint:restricted-disable-rules": "bun run scripts/harness/generate-restricted-disable-rules.ts",
     "lint:ratchet": "bun scripts/lint-ratchet.ts",
     "lint:ratchet:zero-baseline": "bun scripts/lint-ratchet.ts --zero-baseline",
     "typecheck": "tsc --noEmit",
@@ -120,7 +172,11 @@ write_package_json() {
     "test:changed": "vitest related",
     "test:scripts": "bash scripts/test-scripts.sh",
     "test:scripts:changed": "bash scripts/test-scripts.sh --changed",
+    "test:scripts:subjects": "bun run scripts/path-policy/generate-smoke-subjects.ts",
+    "test:scripts:subjects:check": "bun run scripts/path-policy/generate-smoke-subjects.ts -- --check",
     "docs:lint-coverage-map:check": "bun scripts/lint-coverage-map-check.ts -- --check-eslint-reach",
+    "harness:config-surfaces": "bun run scripts/harness/generate-config-surfaces.ts",
+    "harness:config-surfaces:check": "bun run scripts/harness/generate-config-surfaces.ts -- --check",
     "format:check": "prettier --check .",
     "format:changed:check": "bash scripts/format-changed.sh --check",
     "verify": "bash scripts/verify.sh",
@@ -228,6 +284,26 @@ $FIXTURE_RATCHET_ENTRIES,
       "invocation": "bun run lint:ratchet:zero-baseline"
     },
     {
+      "id": "check/restricted-disable-rules-generator",
+      "kind": "check",
+      "category": "maintainability",
+      "principle": "Restricted-disable generator fixture principle.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/harness/generate-restricted-disable-rules.ts",
+      "invocation": "bun run lint:restricted-disable-rules"
+    },
+    {
+      "id": "check/config-surface-generator",
+      "kind": "check",
+      "category": "maintainability",
+      "principle": "Config surface generator fixture principle.",
+      "pairedGuide": "none",
+      "repairKind": "autofix",
+      "source": "scripts/harness/generate-config-surfaces.ts",
+      "invocation": "bun run harness:config-surfaces"
+    },
+    {
       "id": "verify-wrapper/verify",
       "kind": "verify-wrapper",
       "category": "maintainability",
@@ -288,6 +364,56 @@ $FIXTURE_RATCHET_ENTRIES,
       ]
     },
     {
+      "id": "hook/ai-git-commit-quiet",
+      "kind": "hook",
+      "category": "maintainability",
+      "principle": "Git commit quiet fixture principle.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/ai-hooks/git-commit-quiet.sh",
+      "invocation": "Claude PreToolUse Bash hook",
+      "hookWiring": {
+        "event": "PreToolUse",
+        "order": 20,
+        "harnesses": {
+          "claude": {
+            "matcher": "Bash",
+            "command": "bash \$CLAUDE_PROJECT_DIR/.claude/hooks/git-commit-quiet.sh",
+            "timeout": 1260
+          }
+        },
+        "notes": {
+          "codex": "Fixture only.",
+          "copilot": "Fixture only."
+        }
+      }
+    },
+    {
+      "id": "hook/ai-bun-run-quiet",
+      "kind": "hook",
+      "category": "maintainability",
+      "principle": "Bun run quiet fixture principle.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/ai-hooks/bun-run-quiet.sh",
+      "invocation": "Claude PreToolUse Bash hook",
+      "hookWiring": {
+        "event": "PreToolUse",
+        "order": 30,
+        "harnesses": {
+          "claude": {
+            "matcher": "Bash",
+            "command": "bash \$CLAUDE_PROJECT_DIR/.claude/hooks/bun-run-quiet.sh",
+            "timeout": 1260
+          }
+        },
+        "notes": {
+          "codex": "Fixture only.",
+          "copilot": "Fixture only."
+        }
+      }
+    },
+    {
       "id": "hook/pre-commit",
       "kind": "hook",
       "category": "maintainability",
@@ -325,9 +451,13 @@ write_valid_fixture() {
   write_generated_hook_files "$fixture_dir"
   write_package_json "$fixture_dir"
   write_valid_manifest "$fixture_dir"
+  (cd "$fixture_dir" && bun run scripts/path-policy/generate-smoke-subjects.ts >/dev/null)
   (cd "$fixture_dir" && bun run scripts/harness/generate-verify-steps.ts >/dev/null)
+  (cd "$fixture_dir" && bun run scripts/harness/generate-config-surfaces.ts >/dev/null)
   (cd "$fixture_dir" && bun run scripts/harness/generate-hook-wiring.ts >/dev/null)
+  (cd "$fixture_dir" && bun run scripts/generate-lint-guidance.ts >/dev/null)
   (cd "$fixture_dir" && bun run scripts/harness/generate-harness-controls.ts >/dev/null)
+  (cd "$fixture_dir" && bun run scripts/harness/generate-restricted-disable-rules.ts >/dev/null)
 }
 
 run_pass_case() {
@@ -640,6 +770,19 @@ mutate_stale_verify_steps() {
   printf '# stale\n' >> "$fixture_dir/scripts/verify/steps.generated.sh"
 }
 
+mutate_missing_dynamic_resolver_binding() {
+  local fixture_dir=$1
+  local steps_lib="$fixture_dir/scripts/verify/steps-lib.sh"
+
+  grep -v '^[[:space:]]*staged-script-classifier)' "$steps_lib" > "$steps_lib.tmp"
+  mv "$steps_lib.tmp" "$steps_lib"
+}
+
+mutate_stale_config_surfaces() {
+  local fixture_dir=$1
+  printf '\n' >> "$fixture_dir/tsconfig.configs.json"
+}
+
 mutate_stale_hook_wiring() {
   local fixture_dir=$1
   printf '\n' >> "$fixture_dir/.codex/hooks.json"
@@ -688,9 +831,35 @@ SH
   (cd "$fixture_dir" && bun run scripts/harness/generate-harness-controls.ts >/dev/null)
 }
 
+mutate_bun_quiet_timeout_drift() {
+  local fixture_dir=$1
+  local script="$fixture_dir/scripts/ai-hooks/bun-run-quiet.sh"
+
+  sed 's/^BUN_RUN_QUIET_HOOK_TIMEOUT=1260$/BUN_RUN_QUIET_HOOK_TIMEOUT=1300/' "$script" > "$script.tmp"
+  mv "$script.tmp" "$script"
+}
+
+mutate_git_commit_quiet_timeout_drift() {
+  local fixture_dir=$1
+  local script="$fixture_dir/scripts/ai-hooks/git-commit-quiet.sh"
+
+  sed 's/^GIT_COMMIT_QUIET_HOOK_TIMEOUT=1260$/GIT_COMMIT_QUIET_HOOK_TIMEOUT=1300/' "$script" > "$script.tmp"
+  mv "$script.tmp" "$script"
+}
+
 mutate_stale_harness_docs() {
   local fixture_dir=$1
   printf 'stale\n' >> "$fixture_dir/docs/generated/harness-controls.md"
+}
+
+mutate_stale_lint_guidance() {
+  local fixture_dir=$1
+  printf 'stale\n' >> "$fixture_dir/docs/generated/local-lint-rules.md"
+}
+
+mutate_stale_restricted_disable_rules() {
+  local fixture_dir=$1
+  printf '// stale\n' >> "$fixture_dir/eslint-config/ratchet-restricted-disable-rules.generated.js"
 }
 
 run_failure_checks() {
@@ -708,10 +877,16 @@ run_failure_checks() {
   run_failure_case "paired-guide-missing" "pairedGuide does not resolve" mutate_paired_guide_missing
   run_failure_case "missing-ratchet-control" "Next steps:" mutate_missing_ratchet_control
   run_failure_case "stale-verify-steps" "steps.generated.sh is out of date" mutate_stale_verify_steps
+  run_failure_case "missing-dynamic-resolver-binding" "dynamic resolver staged-script-classifier" mutate_missing_dynamic_resolver_binding
+  run_failure_case "stale-config-surfaces" "tsconfig.configs.json is out of date" mutate_stale_config_surfaces
   run_failure_case "stale-hook-wiring" "hooks.json" mutate_stale_hook_wiring
   run_failure_case "stale-copilot-hook-wiring" "copilot.json" mutate_stale_copilot_hook_wiring
   run_failure_case "missing-hook-body" "execs a missing body" mutate_missing_hook_body
+  run_failure_case "bun-quiet-timeout-drift" "BUN_RUN_QUIET_HOOK_TIMEOUT" mutate_bun_quiet_timeout_drift
+  run_failure_case "git-commit-quiet-timeout-drift" "GIT_COMMIT_QUIET_HOOK_TIMEOUT" mutate_git_commit_quiet_timeout_drift
+  run_failure_case "stale-lint-guidance" "local-lint-rules.md is out of date" mutate_stale_lint_guidance
   run_failure_case "stale-harness-docs" "harness-controls.md is out of date" mutate_stale_harness_docs
+  run_failure_case "stale-restricted-disable-rules" "ratchet-restricted-disable-rules.generated.js is out of date" mutate_stale_restricted_disable_rules
 }
 
 run_real_tree_check() {

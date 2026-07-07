@@ -1,4 +1,15 @@
 #!/usr/bin/env bash
+# smoke-order: 300
+# smoke-subjects: scripts/generate-lint-guidance.ts
+# smoke-subjects: scripts/lib/lint-rule-docs.ts
+# smoke-subjects: scripts/tests/test-generate-lint-guidance.sh
+# smoke-subjects: scripts/fixtures/generate-lint-guidance/
+# smoke-subjects: docs/generated/local-lint-rules.md
+# smoke-subjects: eslint.config.js
+# smoke-subjects: eslint-config/
+# smoke-subjects: eslint-rules/
+# smoke-subjects: package.json
+# smoke-subjects: tsconfig.scripts.json
 # Smoke test for scripts/generate-lint-guidance.ts.
 #
 # Contract:

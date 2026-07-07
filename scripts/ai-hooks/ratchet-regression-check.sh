@@ -152,7 +152,8 @@ ai_ratchet_regression_resolve_paths() {
 # Compose the advisory from confirmed regression bullets and any dropped-target
 # note. With bullets it is a regression WARNING; with none but dropped targets it
 # is a quieter partial-check note that must NOT imply a regression was found. Body
-# names the authoritative gate and the kill-switch.
+# names the authoritative gate and kill-switch; the bullets tier prints the
+# fix-guidance envelope command.
 ai_ratchet_regression_compose() {
   local dropped="$1"
   shift
@@ -167,6 +168,9 @@ ai_ratchet_regression_compose() {
   if [ "$dropped" -gt 0 ]; then
     note="  (+$dropped more matching target(s) not checked this edit; run bun run lint:ratchet for the full picture.)"
     printf '%s\n' "$note"
+  fi
+  if [ "$#" -gt 0 ]; then
+    printf '%s\n' "Full ratchet picture: bun run lint:ratchet. Structured local/* guidance only: bun run lint:agent:local-rules:changed"
   fi
   printf '%s' "$body"
 }

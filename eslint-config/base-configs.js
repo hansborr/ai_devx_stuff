@@ -8,6 +8,7 @@ import {
   codeFiles,
   configFileReincludePatterns,
   eslintConfigJsFiles,
+  eslintRulesConfigReincludePatterns,
   scriptFixtureIgnores,
   typescriptFiles,
 } from "./shared-policy.js";
@@ -57,7 +58,7 @@ export function createBaseConfigs() {
         "worktrees/",
         "eslint-rules/*",
         "!eslint-rules/*.js",
-        "!eslint-rules/vitest.config.ts",
+        ...eslintRulesConfigReincludePatterns,
       ],
     },
 

@@ -6,19 +6,28 @@ import { formatLintRatchetBaseline } from "./baseline-format.js";
 import { mergeLintRatchetBaselines } from "./baseline-merge.js";
 import type { LintRatchetBaseline } from "./lint-ratchet-baseline.js";
 import type { LintRatchetComplexityFunction } from "./lint-ratchet-metrics.js";
+import type { LintRatchetMetricItem } from "./lint-ratchet-metrics-types.js";
 
 const CONFIG_HASH = `sha256:${"a".repeat(64)}`;
 const RULE_SOURCE_HASH = `sha256:${"b".repeat(64)}`;
+const MESSAGE_FINGERPRINT_A = `sha256:${"c".repeat(64)}`;
+const MESSAGE_FINGERPRINT_B = `sha256:${"d".repeat(64)}`;
+
+type MessageItemFixture = number | LintRatchetMetricItem;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function messageBaseline(
-  tests: Readonly<Record<string, Readonly<Record<string, number>>>>,
+  tests: Readonly<Record<string, Readonly<Record<string, MessageItemFixture>>>>,
 ): LintRatchetBaseline {
   const baselineTests: Record<string, LintRatchetBaselineTest> = {};
   for (const [testId, items] of Object.entries(tests)) {
+    const baselineItems: Record<string, LintRatchetMetricItem> = {};
+    for (const [path, item] of Object.entries(items)) {
+      baselineItems[path] = typeof item === "number" ? { count: item } : item;
+    }
     baselineTests[testId] = {
       ruleId: "local/example-rule",
       mode: "no-new",
@@ -29,7 +38,7 @@ function messageBaseline(
       ruleOptions: [],
       configHash: CONFIG_HASH,
       ruleSourceHash: RULE_SOURCE_HASH,
-      items: Object.fromEntries(Object.entries(items).map(([path, count]) => [path, { count }])),
+      items: baselineItems,
     };
   }
   return { version: LINT_RATCHET_BASELINE_VERSION, tests: baselineTests };
@@ -176,10 +185,135 @@ describe("lint ratchet baseline semantic merge", () => {
     const result = mergeResult(base, current, other);
 
     expect(result.failures).toEqual([]);
+    expect(result.postMergeTruthUpRequired).toBe(true);
     expect(result.mergedText).toBe(
       formatLintRatchetBaseline(
         messageBaseline({
           "ratchet/fixture-one": { "packages/server/src/shared.ts": 4 },
+        }),
+      ),
+    );
+  });
+
+  it("does not request post-merge truth-up for independent one-sided ratchet changes", () => {
+    const base = messageBaseline({
+      "ratchet/fixture-one": { "packages/server/src/one.ts": 4 },
+      "ratchet/fixture-two": { "packages/client/src/two.tsx": 6 },
+    });
+    const current = messageBaseline({
+      "ratchet/fixture-one": { "packages/server/src/one.ts": 2 },
+      "ratchet/fixture-two": { "packages/client/src/two.tsx": 6 },
+    });
+    const other = messageBaseline({
+      "ratchet/fixture-one": { "packages/server/src/one.ts": 4 },
+      "ratchet/fixture-two": { "packages/client/src/two.tsx": 3 },
+    });
+
+    const result = mergeResult(base, current, other);
+
+    expect(result.failures).toEqual([]);
+    expect(result.postMergeTruthUpRequired).toBe(false);
+  });
+
+  it("preserves equal-count message fingerprints when both sides agree", () => {
+    const base = messageBaseline({
+      "ratchet/fixture-one": {
+        "packages/server/src/lower.ts": 5,
+        "packages/server/src/shared.ts": { count: 3, messagesFingerprint: MESSAGE_FINGERPRINT_A },
+      },
+    });
+    const current = messageBaseline({
+      "ratchet/fixture-one": {
+        "packages/server/src/lower.ts": 2,
+        "packages/server/src/shared.ts": { count: 2, messagesFingerprint: MESSAGE_FINGERPRINT_B },
+      },
+    });
+    const other = messageBaseline({
+      "ratchet/fixture-one": {
+        "packages/server/src/lower.ts": 3,
+        "packages/server/src/shared.ts": { count: 2, messagesFingerprint: MESSAGE_FINGERPRINT_B },
+      },
+    });
+
+    const result = mergeResult(base, current, other);
+
+    expect(result.failures).toEqual([]);
+    expect(result.mergedText).toBe(
+      formatLintRatchetBaseline(
+        messageBaseline({
+          "ratchet/fixture-one": {
+            "packages/server/src/lower.ts": 2,
+            "packages/server/src/shared.ts": {
+              count: 2,
+              messagesFingerprint: MESSAGE_FINGERPRINT_B,
+            },
+          },
+        }),
+      ),
+    );
+  });
+
+  it("keeps a deterministic message fingerprint and requests truth-up when equal counts differ", () => {
+    const base = messageBaseline({
+      "ratchet/fixture-one": {
+        "packages/server/src/shared.ts": { count: 3, messagesFingerprint: MESSAGE_FINGERPRINT_A },
+      },
+    });
+    const current = messageBaseline({
+      "ratchet/fixture-one": {
+        "packages/server/src/shared.ts": { count: 2, messagesFingerprint: MESSAGE_FINGERPRINT_B },
+      },
+    });
+    const other = messageBaseline({
+      "ratchet/fixture-one": {
+        "packages/server/src/shared.ts": { count: 2, messagesFingerprint: MESSAGE_FINGERPRINT_A },
+      },
+    });
+
+    const result = mergeResult(base, current, other);
+
+    expect(result.failures).toEqual([]);
+    expect(result.postMergeTruthUpRequired).toBe(true);
+    expect(result.mergedText).toBe(
+      formatLintRatchetBaseline(
+        messageBaseline({
+          "ratchet/fixture-one": {
+            "packages/server/src/shared.ts": {
+              count: 2,
+              messagesFingerprint: MESSAGE_FINGERPRINT_A,
+            },
+          },
+        }),
+      ),
+    );
+  });
+
+  it("preserves a one-sided message fingerprint and requests truth-up", () => {
+    const base = messageBaseline({
+      "ratchet/fixture-one": { "packages/server/src/shared.ts": 3 },
+    });
+    const current = messageBaseline({
+      "ratchet/fixture-one": {
+        "packages/server/src/shared.ts": { count: 2, messagesFingerprint: MESSAGE_FINGERPRINT_A },
+      },
+    });
+    const other = messageBaseline({
+      "ratchet/fixture-one": { "packages/server/src/shared.ts": 2 },
+    });
+
+    const result = mergeResult(base, current, other);
+
+    expect(result.failures).toEqual([]);
+    expect(result.postMergeTruthUpRequired).toBe(true);
+    expect(result.mergedText).toBe(
+      formatLintRatchetBaseline(
+        messageBaseline({
+          "ratchet/fixture-one": {
+            "packages/server/src/shared.ts": {
+              count: 2,
+              messagesFingerprint: MESSAGE_FINGERPRINT_A,
+            },
+          },
         }),
       ),
     );

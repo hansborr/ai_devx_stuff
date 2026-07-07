@@ -103,11 +103,13 @@ describe("collectCurrentById", () => {
       "packages/server/src/services/upload-service.test.ts",
     ]);
 
-    const trpcCall = eslintRunnerMock.runEslintForFiles.mock.calls.find((call) => {
+    const strictBooleanCall = eslintRunnerMock.runEslintForFiles.mock.calls.find((call) => {
       const ratchet = call[0] as LintRatchetConfig;
-      return ratchet.id === "ratchet/local-no-plain-error-in-trpc-server";
+      return ratchet.id === "ratchet/strict-boolean-expressions-server-services";
     });
-    expect(trpcCall?.[2]).toStrictEqual(["packages/server/src/services/upload-service.ts"]);
+    expect(strictBooleanCall?.[2]).toStrictEqual([
+      "packages/server/src/services/upload-service.ts",
+    ]);
     expect(eslintRunnerMock.sweepStaleCacheSiblings).toHaveBeenCalled();
   });
 });

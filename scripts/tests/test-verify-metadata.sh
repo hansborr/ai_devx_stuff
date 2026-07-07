@@ -1,4 +1,11 @@
 #!/usr/bin/env bash
+# smoke-order: 420
+# smoke-subjects: scripts/lib/verify-metadata.sh
+# smoke-subjects: scripts/path-policy/path-policy-query.ts
+# smoke-subjects: scripts/path-policy/path-policy-query-core.ts
+# smoke-subjects: scripts/path-policy/path-policy.ts
+# smoke-subjects: scripts/tests/lib/test-git-env.sh
+# smoke-subjects: scripts/tests/test-verify-metadata.sh
 # test-verify-metadata.sh — pure-shell smoke tests for scripts/lib/verify-metadata.sh.
 #
 # Exercises the pure helper functions (marker read/write/match, fingerprinting,
@@ -225,6 +232,146 @@ line_count=$(wc -l < "$MARKER_WRITE" | tr -d ' ')
 musi_read_success_marker "$MARKER_WRITE" \
   || fail "written marker should pass musi_read_success_marker validation"
 ok "musi_write_success_marker writes atomically shaped marker content"
+
+# =============================================================================
+# musi_restamp_verify_marker
+# =============================================================================
+
+MERGE_HASH="$(printf 'merge' | sha256sum | awk '{print $1}')"
+
+# --- re-stamps a FRESH matching-fingerprint marker onto the merge HEAD --------
+mkdir -p "$SANDBOX/restamp"
+RESTAMP_MARKER="$SANDBOX/restamp/marker"
+now=$(date +%s)
+fresh=$((now - 5))
+cat > "$RESTAMP_MARKER" <<EOF
+LAST_TS=$fresh
+LAST_HEAD=branch-tip
+LAST_HASH=$VALID_HASH
+EOF
+musi_restamp_verify_marker "$RESTAMP_MARKER" "$VALID_HASH" "merge-head" "$MERGE_HASH" \
+  "branch-tip" 120 \
+  || fail "musi_restamp_verify_marker refused a fresh matching-fingerprint re-stamp"
+musi_read_success_marker "$RESTAMP_MARKER" || fail "re-stamped marker is unreadable"
+[ "$MUSI_MARKER_LAST_HEAD" = "merge-head" ] \
+  || fail "re-stamp did not update LAST_HEAD: $MUSI_MARKER_LAST_HEAD"
+[ "$MUSI_MARKER_LAST_HASH" = "$MERGE_HASH" ] \
+  || fail "re-stamp did not update LAST_HASH: $MUSI_MARKER_LAST_HASH"
+[ "$MUSI_MARKER_LAST_TS" -ge "$fresh" ] || fail "re-stamp did not refresh LAST_TS"
+# The re-stamped marker must satisfy the pre-push marker check for the merge HEAD.
+musi_success_marker_matches "$RESTAMP_MARKER" "merge-head" "$MERGE_HASH" 120 \
+  || fail "re-stamped marker should satisfy musi_success_marker_matches for the merge HEAD"
+ok "musi_restamp_verify_marker re-stamps a fresh matching-fingerprint marker onto the merge HEAD"
+
+# --- refuses (and leaves untouched) a STALE marker aged beyond freshness ------
+# Same HEAD + hash, but written outside the freshness window: an aged pass must
+# be refused, not resurrected with a fresh timestamp.
+RESTAMP_STALE="$SANDBOX/restamp/stale"
+now=$(date +%s)
+stale=$((now - 500))
+cat > "$RESTAMP_STALE" <<EOF
+LAST_TS=$stale
+LAST_HEAD=branch-tip
+LAST_HASH=$VALID_HASH
+EOF
+if musi_restamp_verify_marker "$RESTAMP_STALE" "$VALID_HASH" "merge-head" "$MERGE_HASH" \
+     "branch-tip" 120 2>/dev/null; then
+  fail "should refuse re-stamp when the source marker is stale beyond freshness"
+fi
+musi_read_success_marker "$RESTAMP_STALE" || fail "refused stale marker became unreadable"
+[ "$MUSI_MARKER_LAST_HEAD" = "branch-tip" ] \
+  || fail "refused re-stamp must leave LAST_HEAD untouched: $MUSI_MARKER_LAST_HEAD"
+[ "$MUSI_MARKER_LAST_TS" = "$stale" ] \
+  || fail "refused re-stamp must leave stale LAST_TS untouched: $MUSI_MARKER_LAST_TS"
+ok "musi_restamp_verify_marker refuses a stale source marker and leaves it untouched"
+
+# --- refuses when the verified HEAD does not match the marker -----------------
+RESTAMP_HEAD="$SANDBOX/restamp/head"
+now=$(date +%s)
+fresh=$((now - 5))
+cat > "$RESTAMP_HEAD" <<EOF
+LAST_TS=$fresh
+LAST_HEAD=branch-tip
+LAST_HASH=$VALID_HASH
+EOF
+if musi_restamp_verify_marker "$RESTAMP_HEAD" "$VALID_HASH" "merge-head" "$MERGE_HASH" \
+     "other-head" 120 2>/dev/null; then
+  fail "should refuse re-stamp when the verified HEAD differs from the marker"
+fi
+musi_read_success_marker "$RESTAMP_HEAD" || fail "refused head-mismatch marker became unreadable"
+[ "$MUSI_MARKER_LAST_HEAD" = "branch-tip" ] \
+  || fail "head-mismatch refusal must leave LAST_HEAD untouched: $MUSI_MARKER_LAST_HEAD"
+ok "musi_restamp_verify_marker refuses when the verified HEAD does not match the marker"
+
+# --- refuses when the recorded fingerprint does not match ---------------------
+RESTAMP_REFUSE="$SANDBOX/restamp/refuse"
+now=$(date +%s)
+fresh=$((now - 5))
+cat > "$RESTAMP_REFUSE" <<EOF
+LAST_TS=$fresh
+LAST_HEAD=branch-tip
+LAST_HASH=$VALID_HASH
+EOF
+if musi_restamp_verify_marker "$RESTAMP_REFUSE" "$ZERO_HASH" "merge-head" "$MERGE_HASH" \
+     "branch-tip" 120 2>/dev/null; then
+  fail "should refuse re-stamp when recorded fingerprint differs from expected"
+fi
+musi_read_success_marker "$RESTAMP_REFUSE" || fail "refused marker became unreadable"
+[ "$MUSI_MARKER_LAST_HEAD" = "branch-tip" ] \
+  || fail "refused re-stamp must leave LAST_HEAD untouched: $MUSI_MARKER_LAST_HEAD"
+[ "$MUSI_MARKER_LAST_HASH" = "$VALID_HASH" ] \
+  || fail "refused re-stamp must leave LAST_HASH untouched: $MUSI_MARKER_LAST_HASH"
+ok "musi_restamp_verify_marker refuses a non-matching fingerprint and leaves the marker untouched"
+
+# --- refuses when there is no prior full-verify marker ------------------------
+if musi_restamp_verify_marker "$SANDBOX/restamp/none" "$VALID_HASH" "merge-head" "$MERGE_HASH" \
+     "branch-tip" 120 2>/dev/null; then
+  fail "should refuse re-stamp when no prior marker exists"
+fi
+ok "musi_restamp_verify_marker refuses when there is no prior full-verify marker"
+
+# =============================================================================
+# musi_restamp_verify_wrapper
+# =============================================================================
+
+mkdir -p "$SANDBOX/wrapper"
+WRAP="$SANDBOX/wrapper/wrapper.json"
+now=$(date +%s)
+start_iso=$(date -d "@$((now - 300))" -Iseconds)
+end_iso=$(date -d "@$((now - 60))" -Iseconds)
+
+# --- re-stamps head/fingerprint of a passing wrapper, keeping exit_code 0 -----
+musi_write_wrapper_meta "$WRAP" serial-verify "$((now - 300))" "$start_iso" \
+  "$((now - 60))" "$end_iso" 0 "bun run verify" "branch-tip" "$VALID_HASH"
+musi_restamp_verify_wrapper "$WRAP" "merge-head" "$MERGE_HASH" \
+  || fail "musi_restamp_verify_wrapper refused a passing wrapper"
+wrap_json="$(sed -n '1p' "$WRAP")"
+[ "$(musi_run_meta_json_string_field "$wrap_json" head)" = "merge-head" ] \
+  || fail "wrapper re-stamp did not update head"
+[ "$(musi_run_meta_json_string_field "$wrap_json" fingerprint)" = "$MERGE_HASH" ] \
+  || fail "wrapper re-stamp did not update fingerprint"
+[ "$(musi_run_meta_json_int_field "$wrap_json" exit_code)" = "0" ] \
+  || fail "wrapper re-stamp must keep exit_code 0"
+[ "$(musi_run_meta_json_string_field "$wrap_json" mode)" = "serial-verify" ] \
+  || fail "wrapper re-stamp must preserve mode"
+ok "musi_restamp_verify_wrapper re-stamps head/fingerprint and keeps a passing verdict"
+
+# --- refuses to re-stamp a non-passing wrapper --------------------------------
+musi_write_wrapper_meta "$WRAP" serial-verify "$((now - 300))" "$start_iso" \
+  "$((now - 60))" "$end_iso" 1 "bun run verify" "branch-tip" "$VALID_HASH"
+if musi_restamp_verify_wrapper "$WRAP" "merge-head" "$MERGE_HASH" 2>/dev/null; then
+  fail "should refuse to re-stamp a non-passing (exit_code != 0) wrapper"
+fi
+wrap_json="$(sed -n '1p' "$WRAP")"
+[ "$(musi_run_meta_json_string_field "$wrap_json" head)" = "branch-tip" ] \
+  || fail "refused wrapper re-stamp must leave head untouched"
+ok "musi_restamp_verify_wrapper refuses a non-passing wrapper and leaves it untouched"
+
+# --- refuses when there is no wrapper file ------------------------------------
+if musi_restamp_verify_wrapper "$SANDBOX/wrapper/absent.json" "merge-head" "$MERGE_HASH" 2>/dev/null; then
+  fail "should refuse to re-stamp a missing wrapper file"
+fi
+ok "musi_restamp_verify_wrapper refuses when the wrapper file is missing"
 
 # =============================================================================
 # Fingerprinting — git fixture repos

@@ -26,8 +26,6 @@ import { ts } from "ts-morph";
 import type { ShapeEntry } from "./duplicate-shapes.js";
 import { scriptKindFor } from "./ts-source-util.js";
 
-export { DEFAULT_DUPLICATE_SCHEMAS_MIN_KEYS } from "./duplicate-shapes-config-values.js";
-
 export type ExtractSchemaShapesOptions = { readonly minKeys: number };
 export type SchemaShapeExtra = {
   readonly keyCount: number;

@@ -1,35 +1,26 @@
 // @ts-check
 
+import {
+  configSurfaceEntries,
+  eslintRulesConfigReincludePatterns,
+  extraConfigFileReincludePatterns,
+  rootAndPackageTsConfigFiles,
+  rootJsConfigFiles,
+  scriptProjectConfigIgnores,
+  tsConfigFiles,
+} from "./config-surfaces.js";
+
 export const codeFiles = ["**/*.{js,cjs,mjs,ts,tsx,mts,cts}"];
 export const typescriptFiles = ["**/*.{ts,tsx,mts,cts}"];
 
-export const rootJsConfigFiles = [
-  "eslint.config.js",
-  "commitlint.config.js",
-  "stryker.config.mjs",
-  "stryker.config.server.mjs",
-];
+export { configSurfaceEntries };
+export { eslintRulesConfigReincludePatterns };
+export { rootAndPackageTsConfigFiles };
+export { rootJsConfigFiles };
+export { tsConfigFiles };
+
 export const eslintConfigSupportFiles = ["eslint-config/*.js"];
 export const eslintConfigJsFiles = [...rootJsConfigFiles, ...eslintConfigSupportFiles];
-
-export const rootAndPackageTsConfigFiles = [
-  "knip.config.ts",
-  "playwright.config.ts",
-  "vitest.config.ts",
-  "vitest.slow.config.ts",
-  "packages/client/vite.config.ts",
-  "packages/client/vitest.config.ts",
-  "packages/server/prisma.config.ts",
-  "packages/server/vitest.config.ts",
-  "packages/server/vitest.mutation.config.ts",
-  "packages/shared/vitest.config.ts",
-];
-
-export const tsConfigFiles = [
-  ...rootAndPackageTsConfigFiles,
-  "scripts/vitest.config.ts",
-  "eslint-rules/vitest.config.ts",
-];
 
 export const rootConfigReincludePatterns = [
   ...rootJsConfigFiles.map((file) => `!${file}`),
@@ -38,7 +29,7 @@ export const rootConfigReincludePatterns = [
 
 export const configFileReincludePatterns = [
   ...rootConfigReincludePatterns,
-  "!scripts/vitest.config.ts",
+  ...extraConfigFileReincludePatterns,
 ];
 
 export const scriptTypeScriptFiles = ["scripts/**/*.ts"];
@@ -51,7 +42,7 @@ export const scriptFixtureIgnores = [
   "scripts/logs-audit/fixtures/**",
 ];
 
-export const scriptProjectIgnores = [...scriptFixtureIgnores, "scripts/vitest.config.ts"];
+export const scriptProjectIgnores = [...scriptFixtureIgnores, ...scriptProjectConfigIgnores];
 
 export const codemodSourceFiles = [
   "scripts/codemods/concurrency-guard.ts",
@@ -147,6 +138,24 @@ export const maxLinesPolicy = {
       reason:
         "The ratchet registry grows as new ratchets land; the floor protects against accidental drift, not registry growth.",
       lifecycle: "permanent",
+      ratchetExcluded: true,
+    },
+    {
+      path: "scripts/harness-check.ts",
+      cap: 330,
+      severity: "error",
+      reason:
+        "Single validator entrypoint covering every harness surface (lint rules, ratchets, hook wiring, verify steps, lint guidance, restricted-disable rules, config surfaces, smoke subjects); the 2026-07 lint deep-dive extended several of these families at once.",
+      lifecycle: "candidate-for-split",
+      ratchetExcluded: true,
+    },
+    {
+      path: "scripts/audit-dependency-licenses.ts",
+      cap: 310,
+      severity: "error",
+      reason:
+        "Dependency license audit remains one CLI while the pointer-only review remedy is added; split collection and reporting once more license policy behavior lands.",
+      lifecycle: "candidate-for-split",
       ratchetExcluded: true,
     },
     {
@@ -303,10 +312,10 @@ export const maxLinesPolicy = {
     },
     {
       path: "scripts/path-policy/path-policy-smoke-subjects-data.ts",
-      cap: 500,
+      cap: 535,
       severity: "error",
       reason:
-        "Side-effect-free smoke-subject lookup table keyed by test name; it grows with smoke tests, not logic, and the fs-backed discovery lives in the sibling module under the floor.",
+        "Generated side-effect-free smoke-subject lookup table keyed by test name; it grows with smoke tests, not logic, and the fs-backed discovery lives in the sibling module under the floor.",
       lifecycle: "permanent",
       ratchetExcluded: true,
     },

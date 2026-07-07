@@ -62,6 +62,16 @@ assert_policy_blocks() {
   [ "$reason" = "$expected" ] || fail "policy reason mismatch for [$cmd]"
 }
 
+assert_policy_blocks_contains() {
+  local cmd="$1"
+  local expected="$2"
+  local reason
+
+  reason=$(ai_policy_violation_reason "$cmd" || true)
+  [ -n "$reason" ] || fail "policy should block [$cmd]"
+  assert_contains "$reason" "$expected"
+}
+
 assert_policy_allows() {
   local cmd="$1"
 
@@ -79,6 +89,32 @@ assert_policy_advisory_contains() {
   advisory=$(ai_policy_advisory_context "$cmd" || true)
   [ -n "$advisory" ] || fail "policy should advise for [$cmd]"
   assert_contains "$advisory" "$expected"
+}
+
+policy_only_probe() {
+  local cmd="$1"
+  local marker_state="$2"
+  local out_file="$3"
+  local err_file="$4"
+  local marker="$REPO_ROOT/.allow-protected-edits"
+
+  rm -f "$marker"
+  if [ "$marker_state" = "marker-active" ]; then
+    touch "$marker"
+  fi
+
+  bash -c '
+    set -u
+    script_dir=$1
+    cmd=$2
+    . "$script_dir/common.sh"
+    . "$script_dir/policy.sh"
+    reason=$(ai_policy_violation_reason "$cmd" || true)
+    advisory=$(ai_policy_advisory_context "$cmd" || true)
+    printf "reason=%s\n" "$reason"
+    printf "advisory=%s\n" "$advisory"
+  ' bash "$SCRIPT_DIR" "$cmd" >"$out_file" 2>"$err_file"
+  rm -f "$marker"
 }
 
 assert_policy_blocks_in_dir() {
@@ -130,6 +166,89 @@ assert_unwrapped_bun() {
   if ai_is_wrapped_bun_cmd "$cmd"; then
     fail "expected unwrapped bun command [$cmd]"
   fi
+}
+
+AI_BUN_CLASSIFIED_BYPASS_SCRIPTS='
+clean
+code:intel:perf
+code:intel:server
+codemod:concurrency-guard
+codemod:expand-barrel
+codemod:structured-logging-fix
+codemod:trpc-shared-input
+codemod:trpc-shared-output
+db:status
+dev
+docs:harness-controls
+docs:lint-guidance
+doctor
+e2e:debug
+e2e:ui
+harness:wiring
+lint:ratchet:update
+lint:ratchet:zero-baseline
+module:index
+postinstall
+prepare
+test:mutation
+test:scripts:mutation
+test:server:mutation
+test:watch
+typecheck:watch
+verify:async
+verify:async:changed
+verify:async:slow
+verify:steps
+worktree:drop
+worktree:gc
+worktree:init
+worktree:new
+worktree:refresh-data
+worktree:status
+worktree:template-refresh
+'
+
+script_list_contains() {
+  local needle="$1" list="$2" script
+
+  while IFS= read -r script; do
+    [ -n "$script" ] || continue
+    [ "$script" = "$needle" ] && return 0
+  done <<< "$list"
+
+  return 1
+}
+
+assert_bun_package_scripts_are_classified() {
+  local package_scripts missing="" stale_wrapped="" stale_bypass="" script
+
+  package_scripts=$(bun -e 'const pkg = require("./package.json"); console.log(Object.keys(pkg.scripts).join("\n"));')
+
+  while IFS= read -r script; do
+    [ -n "$script" ] || continue
+    if ! script_list_contains "$script" "$AI_WRAPPED_BUN_SCRIPTS" \
+      && ! script_list_contains "$script" "$AI_BUN_CLASSIFIED_BYPASS_SCRIPTS"; then
+      missing="${missing}${missing:+, }$script"
+    fi
+  done <<< "$package_scripts"
+
+  while IFS= read -r script; do
+    [ -n "$script" ] || continue
+    if ! script_list_contains "$script" "$package_scripts"; then
+      stale_wrapped="${stale_wrapped}${stale_wrapped:+, }$script"
+    fi
+  done <<< "$AI_WRAPPED_BUN_SCRIPTS"
+
+  while IFS= read -r script; do
+    [ -n "$script" ] || continue
+    if ! script_list_contains "$script" "$package_scripts"; then
+      stale_bypass="${stale_bypass}${stale_bypass:+, }$script"
+    fi
+  done <<< "$AI_BUN_CLASSIFIED_BYPASS_SCRIPTS"
+
+  [ -z "$missing" ] || fail "package.json scripts missing bun-run-quiet classification: $missing"
+  [ -z "$stale_wrapped" ] || fail "wrapped bun script list has stale entries: $stale_wrapped"
+  [ -z "$stale_bypass" ] || fail "bun-run-quiet bypass list has stale entries: $stale_bypass"
 }
 
 assert_response_combined_exit() {
@@ -186,10 +305,37 @@ assert_hook_json "$ALLOW_MARKER_POLICY_OUT"
 ALLOW_MARKER_POLICY_CONTEXT=$(jq -r '.hookSpecificOutput.additionalContext // empty' <<< "$ALLOW_MARKER_POLICY_OUT")
 assert_contains "$ALLOW_MARKER_POLICY_CONTEXT" ".allow-protected-edits"
 assert_contains "$ALLOW_MARKER_POLICY_CONTEXT" "repo-wide"
-assert_policy_blocks "psql postgres" "$AI_POLICY_POSTGRES"
-assert_policy_blocks "redis-cli ping" "$AI_POLICY_REDIS"
-assert_policy_blocks "docker ps" "$AI_POLICY_DOCKER"
-assert_policy_blocks " docker ps" "$AI_POLICY_DOCKER"
+assert_policy_blocks_each "$AI_POLICY_POSTGRES" \
+  "psql postgres" \
+  "psql -c 'select 1'" \
+  "env PGX=1 psql postgres" \
+  "bash -lc 'psql postgres'" \
+  "timeout 30 psql postgres" \
+  "timeout -s KILL 30 psql postgres" \
+  "command psql -c 'select 1'" \
+  "nice psql postgres"
+assert_policy_blocks_each "$AI_POLICY_REDIS" \
+  "redis-cli ping" \
+  "env REDIS_URL=redis://localhost redis-cli ping" \
+  "bash -lc 'redis-cli ping'" \
+  "timeout 30 redis-cli ping" \
+  "command redis-cli ping"
+assert_policy_blocks_each "$AI_POLICY_DOCKER" \
+  "docker ps" \
+  " docker ps" \
+  "docker-compose ps" \
+  "env FOO=bar docker ps" \
+  "bash -c \"docker compose down\"" \
+  "timeout 30 docker ps" \
+  "command docker ps"
+assert_policy_allows_each \
+  "grep -n \"psql\" scripts/" \
+  "echo \"don't use psql\"" \
+  "echo redis-cli" \
+  "rg \"docker compose\" docs/" \
+  "git grep pg_dump" \
+  "printf '%s\n' docker" \
+  "command git status"
 assert_policy_blocks "echo ThisIsNotTheRealDatabasePassword" "$AI_POLICY_CHANGEME"
 
 assert_policy_blocks_each "$AI_POLICY_GIT_AMEND" \
@@ -202,13 +348,15 @@ assert_policy_blocks_each "$AI_POLICY_GIT_AMEND" \
   "git -c user.name=ci -c user.email=ci@x commit --amend -m fix" \
   "echo ok && git -c core.editor=true commit --amend" \
   "bash -lc 'git -c commit.gpgsign=false commit --amend'"
-# `git commit -c <commit>` reuses a commit's message for a NEW commit — it is not
-# an amend and must stay allowed (the widened amend regex must not false-match it).
-assert_policy_allows_each \
-  "git commit -c HEAD~1" \
-  "git commit -c abc123 -m override" \
-  "git -c commit.gpgsign=false commit -m normal" \
-  "git -c user.name=ci commit -c HEAD~1"
+assert_policy_blocks_each "$AI_POLICY_GIT_AMEND" \
+  'X=$(git commit --amend)' \
+  'X=`git commit --amend`'
+# The complementary "the widened amend regex must not false-match
+# `git commit -c <commit>` (reuse-message, not amend)" allow-cases are
+# branch-sensitive: a plain commit is blocked on a protected branch, so a bare
+# `assert_policy_allows` here fails whenever the harness itself runs on
+# main/master (e.g. `bun run verify` on the integration branch). They run in
+# FEATURE_BRANCH_REPO alongside the other feature-branch commit allows below.
 
 assert_policy_blocks_each "$AI_POLICY_GIT_REBASE" \
   "git rebase main" \
@@ -228,6 +376,8 @@ assert_policy_allows_each \
 
 assert_policy_blocks_each "$AI_POLICY_GIT_RESET" \
   "git reset --hard HEAD" \
+  "git -C . reset --hard HEAD" \
+  "git -c color.ui=false reset --hard HEAD" \
   "git reset --soft HEAD~1" \
   "git reset --merge ORIG_HEAD" \
   "git reset --keep HEAD" \
@@ -239,6 +389,11 @@ assert_policy_blocks_each "$AI_POLICY_GIT_RESET" \
   "bash -lc 'git reset --hard HEAD'" \
   "env FOO=bar git reset --soft HEAD" \
   "git reset --mixed HEAD~1 -- packages/client/src/foo.ts"
+assert_policy_blocks_each "$AI_POLICY_GIT_RESET" \
+  "if true; then git reset --hard; fi" \
+  "if false; then :; else git reset --hard; fi" \
+  "if false; then :; elif git reset --hard; then :; fi" \
+  "{ git reset --hard; }"
 assert_policy_allows_each \
   "git reset" \
   "git reset HEAD -- packages/client/src/foo.ts" \
@@ -246,6 +401,39 @@ assert_policy_allows_each \
   "git reset --mixed HEAD -- packages/client/src/foo.ts" \
   "git reset -- packages/client/src/foo.ts" \
   "git restore --staged packages/client/src/foo.ts"
+
+assert_policy_blocks_each "$AI_POLICY_GIT_WORKTREE_LOSS" \
+  "git checkout -f main" \
+  "git checkout --force main" \
+  "git checkout main -f" \
+  "git switch -f main" \
+  "git switch --force main" \
+  "git checkout -- packages/client/src/foo.ts" \
+  "git checkout HEAD -- packages/client/src/foo.ts" \
+  "git checkout ." \
+  "git checkout -- ." \
+  "git restore --worktree packages/client/src/foo.ts" \
+  "git restore -W packages/client/src/foo.ts" \
+  "git restore ." \
+  "git restore -- ." \
+  "git restore ./packages/client/src/foo.ts" \
+  "git stash drop" \
+  "git stash drop stash@{0}" \
+  "git stash clear" \
+  "git -C . restore --worktree package.json" \
+  "bash -lc 'git stash clear'" \
+  "env FOO=bar git checkout -- package.json"
+assert_policy_allows_each \
+  "git checkout main" \
+  "git checkout -b feat/foo" \
+  "git switch main" \
+  "git switch -c feat/foo" \
+  "git restore --staged packages/client/src/foo.ts" \
+  "git restore --source=HEAD --staged packages/client/src/foo.ts" \
+  "git stash list" \
+  "git stash show stash@{0}" \
+  "rg \"git checkout --\" docs/" \
+  "echo \"git restore .\""
 
 assert_policy_blocks_each "$AI_POLICY_GIT_HISTORY_REWRITE" \
   "git filter-branch --tree-filter true" \
@@ -260,6 +448,8 @@ assert_policy_blocks_each "$AI_POLICY_GIT_HISTORY_REWRITE" \
 assert_policy_blocks_each "$AI_POLICY_GIT_FORCE_PUSH" \
   " git push --force" \
   "git push --force" \
+  "git -C . push --force" \
+  "git -c protocol.version=2 push --force" \
   "git push -f origin feat/foo" \
   "git push --force-with-lease origin feat/foo" \
   "git push --force-with-lease=refs/heads/feat/foo origin feat/foo" \
@@ -271,6 +461,9 @@ assert_policy_blocks_each "$AI_POLICY_GIT_FORCE_PUSH" \
   "echo ok && git push --force" \
   "bash -lc 'git push --force'" \
   "env FOO=bar git push --force"
+assert_policy_blocks_each "$AI_POLICY_GIT_FORCE_PUSH" \
+  "for x in 1; do git push --force; done" \
+  "! git push --force"
 assert_policy_blocks_each "$AI_POLICY_GIT_PUSH_MAIN" \
   " git push origin main" \
   "git push origin main" \
@@ -312,6 +505,9 @@ assert_policy_blocks_in_dir "$MAIN_BRANCH_REPO" "git commit -m 'add feature'" "$
 assert_policy_blocks_in_dir "$MAIN_BRANCH_REPO" "git commit -F /tmp/commit-msg.txt" "$AI_POLICY_GIT_COMMIT_ON_MAIN"
 assert_policy_blocks_in_dir "$MAIN_BRANCH_REPO" "git -c commit.gpgsign=false commit -m normal" "$AI_POLICY_GIT_COMMIT_ON_MAIN"
 assert_policy_blocks_in_dir "$MAIN_BRANCH_REPO" "echo ok && git commit -m wip" "$AI_POLICY_GIT_COMMIT_ON_MAIN"
+# The `-c <commit>` reuse-message form is a real commit too, so on the protected
+# branch it is blocked by commit-on-main (never mis-attributed to the amend rule).
+assert_policy_blocks_in_dir "$MAIN_BRANCH_REPO" "git commit -c HEAD~1" "$AI_POLICY_GIT_COMMIT_ON_MAIN"
 # A dry-run creates nothing, so it stays allowed even on the protected branch.
 assert_policy_allows_in_dir "$MAIN_BRANCH_REPO" "git commit --dry-run"
 assert_policy_allows_in_dir "$MAIN_BRANCH_REPO" "git commit --dry-run -m x"
@@ -339,6 +535,21 @@ assert_policy_blocks_in_dir "$MAIN_BRANCH_REPO" "git --no-pager commit -m x" "$A
 assert_policy_allows_in_dir "$FEATURE_BRANCH_REPO" "git commit"
 assert_policy_allows_in_dir "$FEATURE_BRANCH_REPO" "git commit -m 'add feature'"
 assert_policy_allows_in_dir "$FEATURE_BRANCH_REPO" "git -c commit.gpgsign=false commit -m normal"
+# `git commit -c <commit>` reuses a commit's message for a NEW commit — it is
+# not an amend — so the widened amend regex must not false-match it. These run
+# on a feature branch because a plain commit is otherwise blocked on main.
+assert_policy_allows_in_dir "$FEATURE_BRANCH_REPO" "git commit -c HEAD~1"
+assert_policy_allows_in_dir "$FEATURE_BRANCH_REPO" "git commit -c abc123 -m override"
+assert_policy_allows_in_dir "$FEATURE_BRANCH_REPO" "git -c user.name=ci commit -c HEAD~1"
+assert_policy_allows_each \
+  "printf '%s\n' 'X=\$(git commit --amend)'" \
+  "printf '%s\n' 'X=\`git commit --amend\`'" \
+  'echo "then git reset --hard"' \
+  'echo "do git push --force"' \
+  'echo "else git reset --hard"' \
+  'echo "elif git reset --hard"' \
+  'echo "{ git reset --hard"' \
+  'echo "! git push --force"'
 
 # Protected-branch predicate (shared by the commit/push matchers and the
 # git-level pre-commit guard).
@@ -358,6 +569,8 @@ ai_branch_is_protected "" && fail "detached/empty HEAD must not be treated as pr
 
 assert_policy_blocks_each "$AI_POLICY_GIT_BRANCH_FORCE_DELETE" \
   "git branch -D feat/foo" \
+  "git -C . branch -D feat/foo" \
+  "git -c color.ui=false branch -D feat/foo" \
   "git branch -df feat/foo" \
   "git branch -fd feat/foo" \
   "git branch -d -f feat/foo" \
@@ -374,6 +587,8 @@ assert_policy_blocks_each "$AI_POLICY_GIT_BRANCH_FORCE_DELETE" \
   "env FOO=bar git worktree remove --force ../feature"
 assert_policy_blocks_each "$AI_POLICY_GIT_CLEAN_FORCE" \
   "git clean -f" \
+  "git -C . clean -fd" \
+  "git -c clean.requireForce=false clean -fd" \
   "git clean -fd" \
   "git clean -fdx ." \
   "git clean --force" \
@@ -383,6 +598,36 @@ assert_policy_blocks_each "$AI_POLICY_GIT_CLEAN_FORCE" \
 assert_policy_allows_each \
   "git branch -d feat/foo" \
   "git clean -n"
+
+assert_policy_blocks_contains "printf '%s\n' x > bun.lock" "Protected lockfile"
+assert_policy_blocks_contains "printf '%s\n' x >> scripts/verify/steps.generated.sh" "Protected generated file"
+assert_policy_blocks_contains "echo x>bun.lock" "Protected lockfile"
+assert_policy_blocks_contains "echo x>>bun.lock" "Protected lockfile"
+assert_policy_blocks_contains "cat evil>bun.lock" "Protected lockfile"
+assert_policy_blocks_contains "echo x >|bun.lock" "Protected lockfile"
+assert_policy_blocks_contains "echo hi && echo x>bun.lock" "Protected lockfile"
+assert_policy_blocks_contains "echo x&>bun.lock" "Protected lockfile"
+assert_policy_blocks_contains "sed -i 's/a/b/' lint-ratchet.baseline.json" "lint-ratchet.baseline.json"
+assert_policy_blocks_contains "printf '%s\n' x | tee docs/generated/harness-controls.md" "Protected generated file"
+assert_policy_blocks_contains "cp package.json docs/generated/local-lint-rules.md" "Protected generated file"
+assert_policy_blocks_contains "install package.json .husky/_/pre-commit" "Protected Husky internals"
+assert_policy_blocks_contains "mv package.json scripts/suppression-register.sh" "suppression registers"
+assert_policy_blocks_contains "mv bun.lock /tmp/bun.lock.moved" "Protected lockfile"
+assert_policy_allows_each \
+  "cat bun.lock" \
+  "cp bun.lock /tmp/bun.lock.copy" \
+  "sed -n '1p' scripts/verify/steps.generated.sh" \
+  "rg 'harness' docs/generated/harness-controls.md" \
+  "printf '%s\n' x > packages/server/src/main.ts" \
+  "sed -i 's/a/b/' packages/server/src/main.ts" \
+  "printf '%s\n' x | tee notes.txt" \
+  "cp package.json /tmp/package.copy" \
+  "install package.json /tmp/package.copy" \
+  "mv package.json /tmp/package.copy" \
+  "mv /tmp/scratch.txt /tmp/other" \
+  "echo 'x>bun.lock'" \
+  "printf '%s\n' 'x>>bun.lock'" \
+  "grep 'x>|bun.lock' notes.txt"
 
 assert_policy_blocks_each "$AI_POLICY_GH_AUTH" \
   " gh auth token" \
@@ -504,6 +749,8 @@ done
 assert_policy_allows_each \
   "echo ok" \
   "git status --short" \
+  "git -C /tmp/some/path status --short" \
+  "git -c color.ui=false status --short" \
   "git grep needle" \
   "git -C /tmp/some/path grep needle" \
   "rg needle" \
@@ -841,12 +1088,35 @@ assert_hook_json "$PROTECTED_DENY_THROTTLE_OUT"
 [ "$(jq -r '.decision // empty' <<< "$PROTECTED_DENY_THROTTLE_OUT")" = "deny" ] \
   || fail "protected-files deny tier should not be throttled: $PROTECTED_DENY_THROTTLE_OUT"
 
+POLICY_ONLY_OUT="$TMP_ROOT/policy-only-protected-files.out"
+POLICY_ONLY_ERR="$TMP_ROOT/policy-only-protected-files.err"
+policy_only_probe "printf '%s\n' x > lint-ratchet.baseline.json" "marker-absent" "$POLICY_ONLY_OUT" "$POLICY_ONLY_ERR"
+POLICY_ONLY_TEXT=$(<"$POLICY_ONLY_OUT")
+POLICY_ONLY_STDERR=$(<"$POLICY_ONLY_ERR")
+assert_not_contains "$POLICY_ONLY_STDERR" "command not found"
+assert_contains "$POLICY_ONLY_TEXT" "reason=protected-files: Protected file"
+assert_contains "$POLICY_ONLY_TEXT" "advisory="
+
+policy_only_probe "printf '%s\n' x > lint-ratchet.baseline.json" "marker-active" "$POLICY_ONLY_OUT" "$POLICY_ONLY_ERR"
+POLICY_ONLY_TEXT=$(<"$POLICY_ONLY_OUT")
+POLICY_ONLY_STDERR=$(<"$POLICY_ONLY_ERR")
+assert_not_contains "$POLICY_ONLY_STDERR" "command not found"
+assert_contains "$POLICY_ONLY_TEXT" "reason="
+assert_contains "$POLICY_ONLY_TEXT" "advisory=protected-files: Repo-wide"
+assert_contains "$POLICY_ONLY_TEXT" "would have been denied for $REPO_ROOT/lint-ratchet.baseline.json"
+
 PROTECTED_ALLOW_MARKER="$REPO_ROOT/.allow-protected-edits"
 touch "$PROTECTED_ALLOW_MARKER"
+PROTECTED_BASH_MARKER_REASON=$(ai_policy_violation_reason "printf '%s\n' x > bun.lock" || true)
+PROTECTED_BASH_MARKER_CONTEXT=$(ai_policy_advisory_context "printf '%s\n' x > bun.lock" || true)
 PROTECTED_MARKER_OUT=$(
   protected_files_out_for_path "$REPO_ROOT/bun.lock" "protected-files-marker" "$TMP_ROOT/protected-files-marker-state"
 )
 rm -f "$PROTECTED_ALLOW_MARKER"
+[ -z "$PROTECTED_BASH_MARKER_REASON" ] \
+  || fail "protected-files Bash marker should downgrade deny to advisory: $PROTECTED_BASH_MARKER_REASON"
+assert_contains "$PROTECTED_BASH_MARKER_CONTEXT" ".allow-protected-edits"
+assert_contains "$PROTECTED_BASH_MARKER_CONTEXT" "would have been denied for $REPO_ROOT/bun.lock"
 assert_hook_json "$PROTECTED_MARKER_OUT"
 [ "$(jq -r '.decision // empty' <<< "$PROTECTED_MARKER_OUT")" = "" ] \
   || fail "protected-files marker should downgrade deny to advisory: $PROTECTED_MARKER_OUT"
@@ -986,23 +1256,103 @@ assert_hook_continue_json "$PRISMA_DEBOUNCE_OUTPUT"
 [ ! -e "$PRISMA_STATE_DIR/generate.log" ] \
   || fail "debounced prisma hook should not write a generate log"
 
+PRISMA_LOCK_FAIL_BIN="$TMP_ROOT/prisma-lock-fail-bin"
+PRISMA_LOCK_FAIL_SENTINEL="$TMP_ROOT/prisma-lock-fail-invoked"
+mkdir -p "$PRISMA_LOCK_FAIL_BIN"
+{
+  printf '#!/bin/bash\n'
+  printf 'touch "$PRISMA_LOCK_FAIL_SENTINEL"\n'
+  printf 'printf "unexpected prisma generate invocation\\n" >&2\n'
+  printf 'exit 99\n'
+} > "$PRISMA_LOCK_FAIL_BIN/bun"
+chmod +x "$PRISMA_LOCK_FAIL_BIN/bun"
+
+PRISMA_LOCK_MKDIR_PARENT="$TMP_ROOT/prisma-lock-mkdir-parent"
+printf 'not a directory\n' > "$PRISMA_LOCK_MKDIR_PARENT"
+PRISMA_LOCK_MKDIR_OUTPUT=$(
+  jq -n --arg path "$REPO_ROOT/packages/server/prisma/schema.prisma" '{tool_input:{file_path:$path}}' \
+    | AI_PRISMA_STATE_DIR="$PRISMA_LOCK_MKDIR_PARENT/state" \
+      PRISMA_LOCK_FAIL_SENTINEL="$PRISMA_LOCK_FAIL_SENTINEL" \
+      CLAUDE_PROJECT_DIR="$REPO_ROOT" \
+      PATH="$PRISMA_LOCK_FAIL_BIN:$PATH" \
+      bash "$REPO_ROOT/.claude/hooks/prisma-generate.sh"
+)
+assert_hook_json "$PRISMA_LOCK_MKDIR_OUTPUT"
+[ "$(jq -r '.decision // empty' <<< "$PRISMA_LOCK_MKDIR_OUTPUT")" = "block" ] \
+  || fail "prisma hook should block when state directory mkdir fails: $PRISMA_LOCK_MKDIR_OUTPUT"
+assert_contains "$(jq -r '.reason // empty' <<< "$PRISMA_LOCK_MKDIR_OUTPUT")" \
+  "could not prepare state directory for lock"
+assert_contains "$(jq -r '.reason // empty' <<< "$PRISMA_LOCK_MKDIR_OUTPUT")" \
+  "State directory: $PRISMA_LOCK_MKDIR_PARENT/state"
+[ ! -e "$PRISMA_LOCK_FAIL_SENTINEL" ] \
+  || fail "prisma hook should not run generate when state directory mkdir fails"
+
+PRISMA_LOCK_OPEN_OUTPUT=$(
+  jq -n --arg path "$REPO_ROOT/packages/server/prisma/schema.prisma" '{tool_input:{file_path:$path}}' \
+    | AI_PRISMA_STATE_DIR="$TMP_ROOT/prisma-lock-open-state" \
+      AI_PRISMA_LOCK="$TMP_ROOT/prisma-lock-missing-parent/lock" \
+      PRISMA_LOCK_FAIL_SENTINEL="$PRISMA_LOCK_FAIL_SENTINEL" \
+      CLAUDE_PROJECT_DIR="$REPO_ROOT" \
+      PATH="$PRISMA_LOCK_FAIL_BIN:$PATH" \
+      bash "$REPO_ROOT/.claude/hooks/prisma-generate.sh"
+)
+assert_hook_json "$PRISMA_LOCK_OPEN_OUTPUT"
+[ "$(jq -r '.decision // empty' <<< "$PRISMA_LOCK_OPEN_OUTPUT")" = "block" ] \
+  || fail "prisma hook should block when lock open fails: $PRISMA_LOCK_OPEN_OUTPUT"
+assert_contains "$(jq -r '.reason // empty' <<< "$PRISMA_LOCK_OPEN_OUTPUT")" "could not open lock"
+[ ! -e "$PRISMA_LOCK_FAIL_SENTINEL" ] \
+  || fail "prisma hook should not run generate when lock open fails"
+
+rm -f "$PRISMA_LOCK_FAIL_SENTINEL"
+{
+  printf '#!/bin/bash\n'
+  printf 'exit 73\n'
+} > "$PRISMA_LOCK_FAIL_BIN/flock"
+chmod +x "$PRISMA_LOCK_FAIL_BIN/flock"
+PRISMA_LOCK_FLOCK_OUTPUT=$(
+  jq -n --arg path "$REPO_ROOT/packages/server/prisma/schema.prisma" '{tool_input:{file_path:$path}}' \
+    | AI_PRISMA_STATE_DIR="$TMP_ROOT/prisma-lock-flock-state" \
+      AI_PRISMA_LOCK="$TMP_ROOT/prisma-lock-flock-state/lock" \
+      PRISMA_LOCK_FAIL_SENTINEL="$PRISMA_LOCK_FAIL_SENTINEL" \
+      CLAUDE_PROJECT_DIR="$REPO_ROOT" \
+      PATH="$PRISMA_LOCK_FAIL_BIN:$PATH" \
+      bash "$REPO_ROOT/.claude/hooks/prisma-generate.sh"
+)
+assert_hook_json "$PRISMA_LOCK_FLOCK_OUTPUT"
+[ "$(jq -r '.decision // empty' <<< "$PRISMA_LOCK_FLOCK_OUTPUT")" = "block" ] \
+  || fail "prisma hook should block when flock fails: $PRISMA_LOCK_FLOCK_OUTPUT"
+assert_contains "$(jq -r '.reason // empty' <<< "$PRISMA_LOCK_FLOCK_OUTPUT")" "could not acquire lock"
+[ ! -e "$PRISMA_LOCK_FAIL_SENTINEL" ] \
+  || fail "prisma hook should not run generate when flock fails"
+
+assert_bun_package_scripts_are_classified
+
 assert_wrapped_bun "bun run lint"
 assert_wrapped_bun "bun run lint:changed"
+assert_wrapped_bun "bun run lint:shell"
+assert_wrapped_bun "bun run lint:ratchet:check-baseline"
 assert_wrapped_bun "bun run typecheck"
 assert_wrapped_bun "bun run test:changed"
 assert_wrapped_bun "bun run test:client"
 assert_wrapped_bun "bun run test:client:split"
 assert_wrapped_bun "bun run test:client:isolated"
+assert_wrapped_bun "bun run test:eslint-rules -- eslint-rules/no-barrel.test.js"
+assert_wrapped_bun "bun run test:scripts:file -- scripts/logs-audit/logs-audit.test.ts"
 assert_wrapped_bun "bun run test:slow"
 assert_wrapped_bun "bun run e2e"
 assert_wrapped_bun "bun run format:check"
 assert_wrapped_bun "bun run format:changed:check"
 assert_wrapped_bun "bun run build --silent"
 assert_wrapped_bun "bun run code:intel -- exports packages/shared/src/constants.ts"
+assert_wrapped_bun "bun run drift:ai --scope current --check all"
+assert_wrapped_bun "bun run logs:audit --file reports/server.jsonl"
+assert_wrapped_bun "bun run harness:audit --format json reports/envelope.json"
 assert_wrapped_bun "bun run verify"
 assert_wrapped_bun "bun run verify:changed"
 assert_wrapped_bun "bun run verify:slow"
+assert_wrapped_bun "bun run verify:parallel"
 assert_wrapped_bun "bun run verify:logs budget"
+assert_wrapped_bun "bun run verify:steps:check"
 assert_wrapped_bun "bun run verify:async:status"
 assert_wrapped_bun "bun run verify:async:tail"
 assert_wrapped_bun "bun run verify:async:stop"
@@ -1010,6 +1360,9 @@ assert_wrapped_bun "bun run verify:async:stop"
 assert_unwrapped_bun "bun run dev"
 assert_unwrapped_bun "bun run db:status"
 assert_unwrapped_bun "bun run test:watch"
+assert_unwrapped_bun "bun run test:mutation"
+assert_unwrapped_bun "bun run docs:harness-controls"
+assert_unwrapped_bun "bun run verify:steps"
 assert_unwrapped_bun "bun run test:changed && echo next"
 assert_unwrapped_bun "bun run verify:async"
 assert_unwrapped_bun "bun run verify:async:changed"
@@ -1118,6 +1471,37 @@ SH
   assert_not_contains "$reason" "at 3s"
 }
 
+assert_claude_bun_timeout_clamps_to_hook_margin() {
+  local lock="$TMP_ROOT/bun-timeout-clamp-lock"
+  local hook_out="$TMP_ROOT/bun-timeout-clamp.out"
+  local hook_err="$TMP_ROOT/bun-timeout-clamp.err"
+  local reason
+
+  (
+    exec 8<>"$lock"
+    flock -n 8 || exit 1
+    printf 'PID=fixture SCRIPT=lint STARTED=now\n' > "$lock"
+    sleep 2
+  ) &
+  holder=$!
+  sleep 0.2
+
+  printf '{"tool_input":{"command":"bun run lint","run_in_background":false}}' \
+    | AI_BUN_LOCK="$lock" \
+      AI_BUN_LOCK_WAIT=1 \
+      AI_BUN_TIMEOUT=1300 \
+      bash "$BUN_HOOK" > "$hook_out" 2> "$hook_err" \
+    || fail "Claude bun hook timeout clamp fixture failed"
+  wait "$holder" 2>/dev/null || true
+  reason=$(jq -r '.reason // empty' "$hook_out")
+
+  [ "$(jq -r '.decision // empty' "$hook_out")" = "block" ] \
+    || fail "Claude bun hook should block on held lock with clamp active: $(cat "$hook_out")"
+  assert_contains "$reason" "Waited 1s"
+  assert_contains "$(cat "$hook_err")" "bun-run-quiet: clamped timeout from 1300s to 1200s"
+  assert_contains "$(cat "$hook_err")" "generated hook timeout 1260s"
+}
+
 assert_response_combined_exit \
   '{"tool_response":{"raw":"plain command output","exit_code":0}}' \
   "plain command output" \
@@ -1134,6 +1518,38 @@ assert_response_combined_exit \
   '{"tool_response":{"raw":"completed text","status":"completed"}}' \
   "completed text" \
   ""
+
+assert_commit_success_summary_fast_commit_notice() {
+  local repo="$TMP_ROOT/fast-commit-summary-repo"
+  local before after summary common_dir override_marker
+
+  git init -q "$repo"
+  git -C "$repo" config user.email test@example.invalid
+  git -C "$repo" config user.name Test
+  printf 'one\n' > "$repo/file.txt"
+  git -C "$repo" add file.txt
+  git -C "$repo" commit -qm "test: initial fixture"
+  before=$(git -C "$repo" rev-parse HEAD)
+  printf 'two\n' >> "$repo/file.txt"
+  git -C "$repo" add file.txt
+  git -C "$repo" commit -qm "test: update fixture"
+  after=$(git -C "$repo" rev-parse HEAD)
+
+  summary=$(ai_commit_success_summary "$repo" "$before" "$after")
+  assert_not_contains "$summary" "fast-commit: test+scripts slots skipped"
+
+  common_dir=$(musi_git_common_identity_path "$repo")
+  : > "$common_dir/musi-fast-commit"
+  summary=$(ai_commit_success_summary "$repo" "$before" "$after")
+  assert_contains "$summary" "fast-commit: test+scripts slots skipped"
+  assert_contains "$summary" "bash scripts/land.sh"
+
+  rm -f "$common_dir/musi-fast-commit"
+  override_marker="$TMP_ROOT/fast-commit-summary-override"
+  : > "$override_marker"
+  summary=$(MUSI_FAST_COMMIT_MARKER="$override_marker" ai_commit_success_summary "$repo" "$before" "$after")
+  assert_contains "$summary" "fast-commit: test+scripts slots skipped"
+}
 
 assert_codex_git_commit_unknown_guidance() {
   local tool_id="codex-git-unknown"
@@ -1217,6 +1633,11 @@ assert_git_commit_quiet_lock_contention_fail_fast() {
   sleep 0.2
 
   hook_out=$(
+    # git-commit-quiet.sh runs the commit-policy preflight in the ambient cwd, so
+    # a plain `git commit` is (correctly) blocked on main/master before the lock
+    # check under test. Invoke from a feature-branch repo to reach the lock path
+    # regardless of the branch the harness itself runs on.
+    cd "$FEATURE_BRANCH_REPO" || exit 1
     printf '{"tool_input":{"command":"git commit -m test"}}' \
       | AI_GIT_COMMIT_LOCK="$lock" \
         bash "$REPO_ROOT/scripts/ai-hooks/git-commit-quiet.sh"
@@ -1272,6 +1693,41 @@ assert_git_commit_quiet_shared_queue_blocks_other_worktrees() {
     || fail "git-commit-quiet should block on shared queue held by another worktree: $second_out"
   assert_contains "$reason" "shared commit queue lock"
   assert_contains "$reason" "CMD=git commit --dry-run"
+}
+
+assert_git_commit_quiet_timeout_clamps_to_hook_margin() {
+  local queue_lock="$TMP_ROOT/git-commit-timeout-clamp-queue.lock"
+  local worktree_lock="$TMP_ROOT/git-commit-timeout-clamp-worktree.lock"
+  local hook_out="$TMP_ROOT/git-commit-timeout-clamp.out"
+  local hook_err="$TMP_ROOT/git-commit-timeout-clamp.err"
+  local reason
+
+  (
+    exec 8<>"$queue_lock"
+    flock -n 8 || exit 1
+    printf 'PID=fixture WORKTREE=%s CMD=git commit --dry-run STARTED=now\n' "$FEATURE_BRANCH_REPO" > "$queue_lock"
+    sleep 2
+  ) &
+  holder=$!
+  sleep 0.2
+
+  (
+    cd "$FEATURE_BRANCH_REPO" || exit 1
+    printf '{"tool_input":{"command":"git commit --dry-run"}}' \
+      | AI_GIT_COMMIT_LOCK="$worktree_lock" \
+        MUSI_COMMIT_QUEUE_LOCK="$queue_lock" \
+        MUSI_COMMIT_QUEUE_TIMEOUT=1 \
+        AI_GIT_COMMIT_TIMEOUT=1300 \
+        bash "$REPO_ROOT/scripts/ai-hooks/git-commit-quiet.sh" > "$hook_out" 2> "$hook_err"
+  ) || fail "git-commit-quiet timeout clamp fixture failed"
+  wait "$holder" 2>/dev/null || true
+  reason=$(jq -r '.reason // empty' "$hook_out")
+
+  [ "$(jq -r '.decision // empty' "$hook_out")" = "block" ] \
+    || fail "git-commit-quiet should block on held queue with clamp active: $(cat "$hook_out")"
+  assert_contains "$reason" "shared commit queue lock"
+  assert_contains "$(cat "$hook_err")" "git-commit-quiet: clamped timeout from 1300s to 1200s"
+  assert_contains "$(cat "$hook_err")" "generated hook timeout 1260s"
 }
 
 # G1 regression: the git-commit-quiet hook *executes* the command via `bash -c`,
@@ -1339,10 +1795,17 @@ assert_git_commit_quiet_normal_commit_allowed_by_guard() {
   # Normal commits (and config-prefixed normal commits, and message-reuse `-c`)
   # must sail past the self-guard. The wrapper itself then runs them; the guard's
   # only job is not to false-block.
+  #
+  # ai_preflight_or_block consults the ambient branch, and a plain commit is
+  # (correctly) blocked on main/master — so isolate the branch-independent guard
+  # under test in a feature-branch repo. Otherwise this fails whenever the
+  # harness itself runs on the protected branch (e.g. `bun run verify` on main).
+  cd "$FEATURE_BRANCH_REPO" || fail "could not cd to feature-branch repo"
   assert_preflight_allows "git commit -m 'normal commit message'"
   assert_preflight_allows "git commit -F /tmp/commit-msg.txt"
   assert_preflight_allows "git commit -c HEAD~1"
   assert_preflight_allows "git -c commit.gpgsign=false commit -m normal"
+  cd "$REPO_ROOT" || fail "could not cd back to repo root"
   # Hard policy violations the executing hook could otherwise run are blocked
   # before exec — the adjacent-`git commit` amend form this hook actually runs.
   assert_preflight_blocks "git commit --amend --no-edit" "$AI_POLICY_GIT_AMEND"
@@ -1424,16 +1887,152 @@ SH
   assert_no_sleep_marker "$marker"
 }
 
+assert_claude_bun_clean_run_clears_orphan_state() {
+  local fake_bin="$TMP_ROOT/fake-bun-clean-state-bin"
+  local state_dir="$TMP_ROOT/bun-clean-state"
+  local log_dir="$TMP_ROOT/bun-clean-logs"
+  local lock="$TMP_ROOT/bun-clean-lock"
+  local state_file="$state_dir/active-process"
+  local first_out second_out reason
+
+  mkdir -p "$fake_bin" "$state_dir" "$log_dir"
+  cat > "$fake_bin/bun" <<'SH'
+#!/bin/bash
+if [ "$1" = "run" ] && [ "$2" = "lint" ]; then
+  exit 0
+fi
+printf 'unexpected fake bun argv: %s\n' "$*" >&2
+exit 64
+SH
+  chmod +x "$fake_bin/bun"
+
+  first_out=$(
+    printf '{"tool_input":{"command":"bun run lint","run_in_background":false}}' \
+      | AI_BUN_LOCK="$lock" \
+        AI_BUN_LOG_DIR="$log_dir" \
+        AI_BUN_STATE_DIR="$state_dir" \
+        AI_BUN_TIMEOUT=4 \
+        AI_BUN_TTL=0 \
+        PATH="$fake_bin:$PATH" \
+        bash "$BUN_HOOK"
+  )
+  assert_hook_json "$first_out"
+  [ "$(printf '%s' "$first_out" | jq -r '.decision // empty')" != "block" ] \
+    || fail "clean bun run should not block: $first_out"
+  [ ! -e "$state_file" ] || fail "clean bun run left active process state: $(cat "$state_file")"
+
+  second_out=$(
+    printf '{"tool_input":{"command":"bun run lint","run_in_background":false}}' \
+      | AI_BUN_LOCK="$lock" \
+        AI_BUN_LOG_DIR="$log_dir" \
+        AI_BUN_STATE_DIR="$state_dir" \
+        AI_BUN_TIMEOUT=4 \
+        AI_BUN_TTL=0 \
+        PATH="$fake_bin:$PATH" \
+        bash "$BUN_HOOK"
+  )
+  assert_hook_json "$second_out"
+  reason=$(printf '%s' "$second_out" | jq -r '.reason // empty')
+  assert_not_contains "$reason" "Previous bun-run-quiet.sh wrapper died"
+  [ ! -e "$state_file" ] || fail "second clean bun run left active process state: $(cat "$state_file")"
+}
+
+assert_claude_bun_sigkilled_wrapper_blocks_orphan_rerun() {
+  local fake_bin="$TMP_ROOT/fake-bun-orphan-bin"
+  local state_dir="$TMP_ROOT/bun-orphan-state"
+  local log_dir="$TMP_ROOT/bun-orphan-logs"
+  local lock="$TMP_ROOT/bun-orphan-lock"
+  local started="$TMP_ROOT/bun-orphan-started"
+  local first_out="$TMP_ROOT/bun-orphan-first.out"
+  local first_err="$TMP_ROOT/bun-orphan-first.err"
+  local state_file="$state_dir/active-process"
+  local child_pid pgid reason second_out watchdog_pid="" pid
+
+  mkdir -p "$fake_bin" "$state_dir" "$log_dir"
+  cat > "$fake_bin/bun" <<'SH'
+#!/bin/bash
+if [ "$1" = "run" ] && [ "$2" = "lint" ]; then
+  printf 'started\n' > "$AI_BUN_FAKE_STARTED"
+  sleep "$AI_BUN_ORPHAN_SLEEP"
+  exit 0
+fi
+printf 'unexpected fake bun argv: %s\n' "$*" >&2
+exit 64
+SH
+  chmod +x "$fake_bin/bun"
+
+  printf '{"tool_input":{"command":"bun run lint","run_in_background":false}}' \
+    | AI_BUN_LOCK="$lock" \
+      AI_BUN_LOG_DIR="$log_dir" \
+      AI_BUN_STATE_DIR="$state_dir" \
+      AI_BUN_TIMEOUT=4 \
+      AI_BUN_TTL=0 \
+      AI_BUN_FAKE_STARTED="$started" \
+      AI_BUN_ORPHAN_SLEEP=30 \
+      PATH="$fake_bin:$PATH" \
+      bash "$BUN_HOOK" > "$first_out" 2> "$first_err" &
+  wrapper_pid=$!
+
+  for _ in $(seq 1 50); do
+    [ -s "$state_file" ] && [ -f "$started" ] && break
+    sleep 0.1
+  done
+  [ -s "$state_file" ] || {
+    kill "$wrapper_pid" 2>/dev/null || true
+    fail "bun wrapper did not record active child state before SIGKILL"
+  }
+  child_pid=$(ai_read_state_value "$state_file" CHILD_PID || true)
+  pgid=$(ai_read_state_value "$state_file" CHILD_PGID || true)
+  [ -n "$child_pid" ] || fail "active child state missing CHILD_PID: $(cat "$state_file")"
+  [ -n "$pgid" ] || fail "active child state missing CHILD_PGID: $(cat "$state_file")"
+
+  while IFS= read -r pid; do
+    [ -n "$pid" ] || continue
+    [ "$pid" = "$child_pid" ] || watchdog_pid="$pid"
+  done < <(pgrep -P "$wrapper_pid" 2>/dev/null || true)
+  [ -n "$watchdog_pid" ] && kill -TERM "$watchdog_pid" 2>/dev/null || true
+  kill -KILL "$wrapper_pid" 2>/dev/null || true
+  wait "$wrapper_pid" 2>/dev/null || true
+
+  second_out=$(
+    printf '{"tool_input":{"command":"bun run lint","run_in_background":false}}' \
+      | AI_BUN_LOCK="$lock" \
+        AI_BUN_LOG_DIR="$log_dir" \
+        AI_BUN_STATE_DIR="$state_dir" \
+        AI_BUN_TIMEOUT=4 \
+        AI_BUN_TTL=0 \
+        PATH="$fake_bin:$PATH" \
+        bash "$BUN_HOOK"
+  )
+  reason=$(printf '%s' "$second_out" | jq -r '.reason // empty')
+
+  kill -TERM -- "-$pgid" 2>/dev/null || true
+  sleep 0.2
+  kill -KILL -- "-$pgid" 2>/dev/null || true
+  rm -f "$state_file"
+
+  [ "$(printf '%s' "$second_out" | jq -r '.decision // empty')" = "block" ] \
+    || fail "bun wrapper should block while a SIGKILL-orphaned child group is active: $second_out"
+  assert_contains "$reason" "Previous bun-run-quiet.sh wrapper died"
+  assert_contains "$reason" "PGID=$pgid"
+  assert_contains "$reason" "starting another verification run in this worktree could race the orphan"
+}
+
+assert_commit_success_summary_fast_commit_notice
 assert_codex_git_commit_unknown_guidance
 assert_codex_git_commit_signal_guidance
 assert_git_commit_quiet_body_non_commit_passthrough
 assert_git_commit_quiet_lock_contention_fail_fast
 assert_git_commit_quiet_shared_queue_blocks_other_worktrees
+assert_git_commit_quiet_timeout_clamps_to_hook_margin
 assert_git_commit_quiet_amend_blocked_pre_execution
 assert_git_commit_quiet_normal_commit_allowed_by_guard
 assert_claude_git_commit_timeout_guidance
 assert_claude_bun_lock_wait_subtracts_watchdog_budget
+assert_claude_bun_timeout_clamps_to_hook_margin
 assert_claude_bun_timeout_kills_process_tree
+assert_claude_bun_clean_run_clears_orphan_state
+assert_claude_bun_sigkilled_wrapper_blocks_orphan_rerun
 
 # --- stop-policy hook ---------------------------------------------------------
 # Extracted to a focused script so this behavior family can also run on its own
@@ -1521,7 +2120,7 @@ assert_failure_guidance_payload_silent \
   "$(failure_guidance_error_payload "bun run lint" "$TERSE_FAILURE")"
 assert_failure_guidance_payload_contains \
   "$(failure_guidance_stderr_payload "bun run lint" "$TERSE_FAILURE" "$OOM_FAILURE")" \
-  "NODE_OPTIONS=--max-old-space-size=6144"
+  "scripts/lib/gate-env.sh"
 assert_failure_guidance_payload_silent \
   "$(failure_guidance_error_payload "node scripts/unrelated.js" "FATAL ERROR: unrelated process failed")"
 
@@ -1543,16 +2142,22 @@ CLAUDE_FAILURE_GUIDANCE_OUTPUT=$(printf '%s' "$(failure_guidance_stderr_payload 
   | CLAUDE_PROJECT_DIR="$REPO_ROOT" bash "$REPO_ROOT/.claude/hooks/failure-guidance.sh")
 assert_hook_json "$CLAUDE_FAILURE_GUIDANCE_OUTPUT"
 assert_contains "$(failure_guidance_context "$CLAUDE_FAILURE_GUIDANCE_OUTPUT")" \
-  "NODE_OPTIONS=--max-old-space-size=6144"
+  "scripts/lib/gate-env.sh"
 
 MULTI_GUIDANCE_OUTPUT=$(printf '%s' "$(failure_guidance_stderr_payload "bun run lint" "$TERSE_FAILURE" "$OOM_FAILURE"$'\n'"$LOCK_FAILURE")" \
   | "$REPO_ROOT/scripts/ai-hooks/failure-guidance.sh")
 assert_hook_json "$MULTI_GUIDANCE_OUTPUT"
 MULTI_GUIDANCE_CONTEXT=$(failure_guidance_context "$MULTI_GUIDANCE_OUTPUT")
-assert_contains "$MULTI_GUIDANCE_CONTEXT" "NODE_OPTIONS=--max-old-space-size=6144"
+assert_contains "$MULTI_GUIDANCE_CONTEXT" "scripts/lib/gate-env.sh"
 assert_contains "$MULTI_GUIDANCE_CONTEXT" "verify:async:status"
 [ "$(printf '%s\n' "$MULTI_GUIDANCE_CONTEXT" | wc -l)" -eq 2 ] \
   || fail "failure-guidance should emit one line per matched pattern: $MULTI_GUIDANCE_CONTEXT"
+
+TRUNCATED_FAILURE_GUIDANCE=$(ai_failure_limit_guidance_lines $'one\ntwo\nthree\nfour\nfive\nsix\nseven' 5)
+assert_contains "$TRUNCATED_FAILURE_GUIDANCE" "+2 more"
+if grep -qF "six" <<< "$TRUNCATED_FAILURE_GUIDANCE"; then
+  fail "failure-guidance truncation should hide clipped lines: $TRUNCATED_FAILURE_GUIDANCE"
+fi
 
 NOISY_TEST_OUTPUT=$'useful failure line\n(node:123) DeprecationWarning: Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0. Use async/await or an external async flow control mechanism instead.\n(Use `node --trace-deprecation ...` to show where the warning was created)\nreal assertion line'
 FILTERED_TEST_OUTPUT=$(printf '%s\n' "$NOISY_TEST_OUTPUT" | ai_filter_known_output_noise)
@@ -1640,7 +2245,7 @@ cat > "$RATCHET_PRECOMMIT_LOG_DIR/ratchet.log" <<'EOF'
 {
   "raw": "json tail should not be the preferred commit summary"
 }
-lint:ratchet FAIL — 1 current finding(s); 1 regression(s); 0 improvement(s); blocking=1 warning=0 info=0
+lint:ratchet FAIL — 1 current finding(s); 1 regression(s); 0 improvement(s); blocking=1 info=0
 EOF
 RATCHET_PRECOMMIT_SUMMARY=$(
   ai_precommit_failure_summary \

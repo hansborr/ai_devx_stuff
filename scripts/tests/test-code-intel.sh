@@ -1,4 +1,16 @@
 #!/usr/bin/env bash
+# smoke-order: 170
+# smoke-subjects: scripts/code-intel.ts
+# smoke-subjects: scripts/code-intel-server.ts
+# smoke-subjects: scripts/code-intel/
+# smoke-subjects: scripts/code-intel.test.ts
+# smoke-subjects: scripts/tests/test-code-intel.sh
+# smoke-subjects: scripts/vitest.config.ts
+# smoke-subjects: package.json
+# smoke-subjects: tsconfig.scripts.json
+# smoke-subjects: packages/shared/package.json
+# smoke-subjects: packages/server/package.json
+# smoke-subjects: packages/client/tsconfig.json
 # Smoke tests for the one-shot code:intel CLI and the code:intel:server
 # lifecycle CLI.
 

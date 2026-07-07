@@ -2,6 +2,9 @@
 
 ## 7. Server SRD getAll — subclass count drift in broad changed-test run
 
+Closed 2026-07-03 by `packages/server/src/services/level-up/level-up-subclass.test.ts`,
+which now deletes its seeded `subclass-test-spellblade` row in `afterEach`.
+
 ### Problem
 `bun run test:changed --reporter=dot` failed on 2026-06-22 while landing an
 ESLint-rule-only change. The broad server Vitest batch reported:
@@ -18,16 +21,20 @@ ESLint-rule-only change. The broad server Vitest batch reported:
 
 ### Files
 - `packages/server/src/routers/srd.test.ts`
+- `packages/server/src/services/level-up/level-up-subclass.test.ts`
 
-### Root Cause Hypothesis
-Likely shared-state contamination in the broad server test process: another
-test appears able to leave one extra subclass row visible to the SRD lookup
-bundle. The focused file starts from the expected seed state and returns 12.
+### Root Cause
+`level-up-subclass.test.ts` seeded an SRD-reference `Subclass` row for a
+spell-slot case. `cleanDb()` intentionally does not wipe canonical SRD
+reference tables, so that extra row could leak into later test files running on
+the same worker database; `srd.getAll` then returned 13 subclasses instead of
+the seeded 12.
 
-### Priority
-Low unless it repeats. If seen again, inspect server test database isolation
-around SRD subclass seed/homebrew writes and prefer filtering canonical SRD
-rows in this count assertion if the endpoint intentionally returns mixed data.
+### Resolution
+The level-up subclass suite now removes `subclass-test-spellblade` in
+`afterEach`, with an inline comment noting that `srd.getAll` locks the seeded
+subclass count. If this resurfaces, first check for other tests inserting into
+SRD reference tables without matching cleanup.
 
 ## 6. Changed-test pre-commit load — ESLint config and client no-isolate timeouts
 
@@ -122,11 +129,20 @@ config-sensor timeout above 10s.
 `monster-tab.test.tsx:77` timed out in `waitFor` waiting for "Goblin" /
 "Goblin Boss" search results after typing into the monster search input.
 
+**Recurred 2026-07-07** during a full sequential `bun run verify` (test
+slot): `MonsterTab filters results by search text` failed with "Unable to
+find an element with the text: Goblin" — the sole failure among 10017
+passing tests (709/710 files).
+
 ### Observed Behavior
 - The pre-commit run was executing the full parallel step set; the suite
   reported 8643 passing tests with only this one failure.
 - `bun run vitest run packages/client/src/components/campaign/npcs/monster-tab.test.tsx`
   passed immediately afterward in isolation (1.8s).
+- 2026-07-07 recurrence: passed 4/4 consecutive isolated runs immediately
+  afterward; the tree under verify contained only scripts/, docs/, and
+  shell-hook changes (no `packages/` diff), ruling out a product
+  regression.
 
 ### Files
 - `packages/client/src/components/campaign/npcs/monster-tab.test.tsx`
@@ -136,8 +152,10 @@ Default `waitFor` timeout expiring under parallel pre-commit load (debounced
 search + fake query round-trip), not a product or test-logic regression.
 
 ### Priority
-Low unless it repeats. If seen again, raise the `waitFor` timeout for the
-search-result assertions or await the debounce explicitly.
+Has now repeated (2026-06-11, 2026-07-07) — actionable per the original
+guidance: raise the `waitFor`/`findBy` timeout on the search-result
+assertions or await the debounce explicitly, next time this file (or a
+flake-hardening pass) is picked up.
 
 ## 3. Server encounter combat spell attack — high-bonus hit assertion
 
@@ -178,6 +196,10 @@ not the close call.
 
 ## 2. Script smoke `test-verify-logs` — wrapper marker age assertion
 
+Closed 2026-07-03 by pinning marker file mtimes in the smoke fixture and
+asserting wrapper-marker label/path semantics instead of seconds-formatted age
+text.
+
 ### Problem
 `bun run test:scripts:changed` failed once during pre-commit on 2026-05-03:
 `FAIL: summary should show fresh verify --changed wrapper marker age`.
@@ -189,7 +211,7 @@ not the close call.
 - A retry of the same commit passed.
 
 ### Files
-- `scripts/test-verify-logs.sh`
+- `scripts/tests/test-verify-logs.sh`
 - `scripts/verify-logs.sh`
 
 ### Root Cause Hypothesis
@@ -197,6 +219,8 @@ Likely a timing-sensitive assertion around wrapper marker freshness in the
 script smoke sandbox. The test expects a fresh marker age string; under the
 pre-commit run timing, the marker may have aged across a display threshold.
 
-### Priority
-Low unless it repeats. If seen again, make the assertion compare state/path
-semantics instead of an exact freshness string.
+### Resolution
+`scripts/tests/test-verify-logs.sh` now writes explicit mtimes for marker
+fixtures with `touch -d`, removes the real sleeps that used to establish
+ordering, and checks that the wrapper-marker block names the expected marker
+rather than depending on a seconds-only age rendering.

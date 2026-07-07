@@ -18,8 +18,11 @@ fi
 
 TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/musi-typecheck.XXXXXX")"
 RUN_PID=""
+RUN_LOG=""
 build_pid=""
 scripts_pid=""
+build_log=""
+scripts_log=""
 reader_pids=()
 
 cleanup_tmp() {
@@ -68,10 +71,14 @@ on_sigterm() {
 
 prefix_stream() {
   local label="$1"
+  local log_file="$2"
   local line
+  local formatted
 
   while IFS= read -r line || [ -n "$line" ]; do
-    printf '[%s] %s\n' "$label" "$line"
+    formatted="[$label] $line"
+    printf '%s\n' "$formatted"
+    printf '%s\n' "$formatted" >> "$log_file"
   done
 }
 
@@ -80,18 +87,70 @@ start_typecheck() {
   local key="$2"
   local stdout_fifo="$TMP_DIR/$key.stdout"
   local stderr_fifo="$TMP_DIR/$key.stderr"
+  local log_file="$TMP_DIR/$key.log"
 
   shift 2
   mkfifo "$stdout_fifo" "$stderr_fifo"
+  : > "$log_file"
 
-  prefix_stream "$label" < "$stdout_fifo" &
+  prefix_stream "$label" "$log_file" < "$stdout_fifo" &
   reader_pids+=("$!")
-  prefix_stream "$label" < "$stderr_fifo" >&2 &
+  prefix_stream "$label" "$log_file" < "$stderr_fifo" >&2 &
   reader_pids+=("$!")
 
   printf '=== %s ===\n' "$label"
   "$@" > "$stdout_fifo" 2> "$stderr_fifo" &
   RUN_PID=$!
+  RUN_LOG="$log_file"
+}
+
+print_indented_file() {
+  sed 's/^/  /' "$1" >&2
+}
+
+print_excerpt_file() {
+  local file="$1"
+  local total="$2"
+  local head_count=15
+  local tail_count=15
+  local omitted
+
+  if [ "$total" -le $((head_count + tail_count)) ]; then
+    print_indented_file "$file"
+    return 0
+  fi
+
+  head -n "$head_count" "$file" | sed 's/^/  /' >&2
+  omitted=$((total - head_count - tail_count))
+  printf '  ... %s middle line(s) omitted ...\n' "$omitted" >&2
+  tail -n "$tail_count" "$file" | sed 's/^/  /' >&2
+}
+
+print_failure_summary() {
+  local label="$1"
+  local exit_code="$2"
+  local log_file="$3"
+  local diagnostics_file="$TMP_DIR/${label//[^A-Za-z0-9]/_}.diagnostics"
+  local excerpt_file="$log_file"
+  local excerpt_kind="log"
+  local error_count=0
+  local line_count
+
+  printf 'typecheck: %s failed with exit %s\n' "$label" "$exit_code" >&2
+  grep -E '(^|[[:space:]])error TS[0-9]+:' "$log_file" > "$diagnostics_file" || true
+  error_count="$(wc -l < "$diagnostics_file" | tr -d '[:space:]')"
+  printf 'typecheck: %s diagnostics: %s TypeScript error line(s)\n' \
+    "$label" "$error_count" >&2
+
+  if [ "$error_count" -gt 0 ]; then
+    excerpt_file="$diagnostics_file"
+    excerpt_kind="diagnostic"
+  fi
+  line_count="$(wc -l < "$excerpt_file" | tr -d '[:space:]')"
+  [ "$line_count" -gt 0 ] || return 0
+  printf 'typecheck: %s %s excerpt (%s line(s)):\n' \
+    "$label" "$excerpt_kind" "$line_count" >&2
+  print_excerpt_file "$excerpt_file" "$line_count"
 }
 
 wait_readers() {
@@ -109,8 +168,10 @@ trap on_sigterm TERM
 
 start_typecheck "tsc -b" "packages" "${TSC[@]}" -b
 build_pid="$RUN_PID"
+build_log="$RUN_LOG"
 start_typecheck "tsc -p tsconfig.scripts.json" "scripts" "${TSC[@]}" -p tsconfig.scripts.json
 scripts_pid="$RUN_PID"
+scripts_log="$RUN_LOG"
 
 build_exit=0
 scripts_exit=0
@@ -124,10 +185,10 @@ if [ "$build_exit" -eq 0 ] && [ "$scripts_exit" -eq 0 ]; then
 fi
 
 if [ "$build_exit" -ne 0 ]; then
-  printf 'typecheck: tsc -b failed with exit %s\n' "$build_exit" >&2
+  print_failure_summary "tsc -b" "$build_exit" "$build_log"
 fi
 if [ "$scripts_exit" -ne 0 ]; then
-  printf 'typecheck: tsc -p tsconfig.scripts.json failed with exit %s\n' "$scripts_exit" >&2
+  print_failure_summary "tsc -p tsconfig.scripts.json" "$scripts_exit" "$scripts_log"
 fi
 
 final_exit=1

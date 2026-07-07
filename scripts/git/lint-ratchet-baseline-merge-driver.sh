@@ -37,11 +37,27 @@ current_file_abs=$(absolute_path "$current_file")
 other_file_abs=$(absolute_path "$other_file")
 
 repo_root=$(git rev-parse --show-toplevel 2>/dev/null || true)
+truth_up_marker=""
+merge_head_sha=""
+git_dir=$(git rev-parse --git-dir 2>/dev/null || true)
+if [ -n "$repo_root" ] &&
+  [ -n "$git_dir" ] &&
+  merge_head_sha=$(git rev-parse --verify 'MERGE_HEAD^{commit}' 2>/dev/null); then
+  case "$git_dir" in
+    /*) git_dir_abs=$git_dir ;;
+    *) git_dir_abs="$repo_root/$git_dir" ;;
+  esac
+  truth_up_marker="$git_dir_abs/musi/lint-ratchet-baseline-postmerge-truth-up-required"
+  mkdir -p "$(dirname "$truth_up_marker")" || truth_up_marker=""
+fi
+
 semantic_driver="scripts/lint-ratchet/baseline-merge-cli.ts"
 if [ -n "$repo_root" ] && [ -f "$repo_root/$semantic_driver" ] && command -v bun >/dev/null 2>&1; then
   if (
     cd "$repo_root"
-    bun run "$semantic_driver" "$base_file_abs" "$current_file_abs" "$other_file_abs" "$path"
+    bun run "$semantic_driver" \
+      "$base_file_abs" "$current_file_abs" "$other_file_abs" "$path" "$truth_up_marker" \
+      "$merge_head_sha"
   ); then
     exit 0
   fi
@@ -50,6 +66,7 @@ else
   printf 'lint-ratchet baseline semantic merge unavailable; using manual resolution.\n\n' >&2
 fi
 
+# BEGIN lint-ratchet-baseline-conflict-recipe
 cat >&2 <<EOF
 lint-ratchet baseline conflict: $path is generated, so do not hand-merge it.
 Git kept the 'ours' side in the working tree so the JSON stays parseable.
@@ -77,5 +94,6 @@ If update asks for --allow-worse, the merged code regressed past the kept floor.
 Fix the findings, or accept the debt with:
   bun run lint:ratchet:update -- --allow-worse --reason "<why accepting this baseline increase is better than forcing a low-quality fix now>"
 EOF
+# END lint-ratchet-baseline-conflict-recipe
 
 exit 1

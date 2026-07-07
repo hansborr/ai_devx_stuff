@@ -1,4 +1,11 @@
 #!/usr/bin/env bash
+# smoke-order: 270
+# smoke-subjects: scripts/test-changed.sh
+# smoke-subjects: scripts/vitest.sh
+# smoke-subjects: scripts/lib/changed-base.sh
+# smoke-subjects: scripts/ai-hooks/output-filter.sh
+# smoke-subjects: scripts/tests/lib/test-git-env.sh
+# smoke-subjects: scripts/tests/test-test-changed.sh
 # Pure-shell smoke tests for scripts/test-changed.sh selection behavior.
 
 set -euo pipefail
@@ -288,6 +295,19 @@ if grep -q -- '--changed' "$repo/bun.log"; then
   fail "drift:e2e script changes should run scripts project in full: $(cat "$repo/bun.log")"
 fi
 ok "drift:e2e script changes run scripts project tests"
+
+repo="$(new_repo script-harness-change)"
+mkdir -p "$repo/scripts/harness"
+printf 'changed\n' > "$repo/scripts/harness/generate-config-surfaces.ts"
+git -C "$repo" add scripts/harness/generate-config-surfaces.ts
+: > "$repo/bun.log"
+run_test_changed "$repo" >/dev/null || fail "harness script change should run"
+grep -qF 'stub vitest run --passWithNoTests --project=scripts' "$repo/bun.log" \
+  || fail "harness script change should run scripts project: $(cat "$repo/bun.log")"
+if grep -q -- '--changed' "$repo/bun.log"; then
+  fail "harness script changes should run scripts project in full: $(cat "$repo/bun.log")"
+fi
+ok "harness script changes run scripts project tests"
 
 repo="$(new_repo script-logs-audit-change)"
 printf 'changed\n' > "$repo/scripts/logs-audit.ts"

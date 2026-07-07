@@ -7,6 +7,15 @@ import { parseSubcommandArgs, writeSubcommandOutput } from "./subcommand-args.js
 const SPEC = { usage: "USAGE-TEXT" } as const;
 const CONFIG_SPEC = { usage: "USAGE-TEXT", acceptsConfig: true } as const;
 
+function thrownMessage(run: () => unknown): string {
+  try {
+    run();
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
+  }
+  throw new Error("expected function to throw");
+}
+
 describe("parseSubcommandArgs", () => {
   it("defaults to text format with no output or config path", () => {
     expect(parseSubcommandArgs([], SPEC)).toEqual({
@@ -58,7 +67,7 @@ describe("parseSubcommandArgs", () => {
     parseSubcommandArgs(["--root", "src"], spec);
 
     expect(roots).toEqual(["src"]);
-    expect(() => parseSubcommandArgs(["--root="], spec)).toThrow(/--root requires a path/u);
+    expect(() => parseSubcommandArgs(["--root="], spec)).toThrow(/--root requires a value/u);
   });
 
   it("dispatches subcommand-specific valueless flag options without consuming a value", () => {
@@ -89,12 +98,42 @@ describe("parseSubcommandArgs", () => {
     expect(() => parseSubcommandArgs(["--format", "xml"], SPEC)).toThrow(DriftAiError);
   });
 
+  it("rejects option-looking values for value options", () => {
+    expect(() => parseSubcommandArgs(["--format", "--output", "out.json"], SPEC)).toThrow(
+      /--format requires a value/u,
+    );
+    expect(() => parseSubcommandArgs(["--output", "--format", "json"], SPEC)).toThrow(
+      /--output requires a value/u,
+    );
+    expect(() => parseSubcommandArgs(["--config", "--format", "json"], CONFIG_SPEC)).toThrow(
+      /--config requires a value/u,
+    );
+
+    const spec = {
+      usage: "USAGE-TEXT",
+      pathValueOptions: { "--root": () => undefined },
+      valueOptions: { "--lens": () => undefined },
+    } as const;
+    expect(() => parseSubcommandArgs(["--root", "--format"], spec)).toThrow(
+      /--root requires a value/u,
+    );
+    expect(() => parseSubcommandArgs(["--lens", "--output"], spec)).toThrow(
+      /--lens requires a value/u,
+    );
+  });
+
   it("errors on a missing value, appending the usage text", () => {
     expect(() => parseSubcommandArgs(["--output"], SPEC)).toThrow(/USAGE-TEXT/u);
   });
 
   it("errors on an unknown argument", () => {
     expect(() => parseSubcommandArgs(["--nope"], SPEC)).toThrow(/Unknown argument: --nope/u);
+  });
+
+  it("preserves empty string argv entries as unknown arguments", () => {
+    expect(thrownMessage(() => parseSubcommandArgs([""], SPEC))).toBe(
+      "Unknown argument: \nUSAGE-TEXT",
+    );
   });
 
   it("throws DriftAiHelp carrying the subcommand usage on --help", () => {

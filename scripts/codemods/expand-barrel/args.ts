@@ -1,3 +1,4 @@
+import { requireArg } from "../../cli-option-values.js";
 import { contextForBarrel, contextForPackage } from "./barrel-context.js";
 import { fail, usage } from "./errors.js";
 import type { CliArgs } from "./types.js";
@@ -29,8 +30,7 @@ function nextValue(argv: readonly string[], index: number, flag: string): string
 }
 
 function scanArgToken(argv: readonly string[], index: number, tokens: ParsedArgTokens): ScanResult {
-  const arg = argv[index];
-  if (!arg) fail("Empty arguments are not supported.");
+  const arg = requireArg(argv[index], fail);
 
   switch (arg) {
     case "--dry-run":

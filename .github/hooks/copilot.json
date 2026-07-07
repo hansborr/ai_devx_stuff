@@ -52,13 +52,6 @@
         "bash": "bash \"$(git rev-parse --show-toplevel)/.copilot/hooks/post-tool-use.sh\"",
         "timeoutSec": 60
       }
-    ],
-    "agentStop": [
-      {
-        "type": "command",
-        "bash": "bash \"$(git rev-parse --show-toplevel)/.copilot/hooks/stop-reminder.sh\"",
-        "timeoutSec": 30
-      }
     ]
   }
 }

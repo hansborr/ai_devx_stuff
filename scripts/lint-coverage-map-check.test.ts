@@ -68,6 +68,27 @@ const ESLINT_REACH_STATUS_MAP = `# Fixture
 | \`tools/multipart/*.ts\` | 1 | yes | none | ESLint | none | linted + ratcheted | — |
 | \`tools/ratchetonly/*.ts\` | 1 | no | none | ESLint | none | ratcheted | — |
 `;
+const CONFLICTING_COVERAGE_MAP = `# Fixture
+
+| Path / group | Files | Normal lint | Existing ratchet/floor | Parser/tool | Proposed rule/tool | Status | Blocker/follow-up |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| \`tools/conflict/*.ts\` | 1 | no | none | — | none | excluded | — |
+| \`tools/conflict/example.ts\` | 1 | yes | none | ESLint | none | linted | — |
+| \`tools/compatible/*.ts\` | 1 | yes | \`ratchet/known\` | ESLint | none | linted + ratcheted | — |
+| \`tools/compatible/example.ts\` | 1 | yes | none | ESLint | none | linted | — |
+`;
+const CONFIG_SURFACE_MISMATCH_MAP = `# Fixture
+
+| Path / group | Files | Normal lint | Existing ratchet/floor | Parser/tool | Proposed rule/tool | Status | Blocker/follow-up |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| \`tools/config/example.config.ts\` | 1 | no | none | — | none | excluded | — |
+`;
+const CONFIG_SURFACE_OMITTED_FROM_MANIFEST_MAP = `# Fixture
+
+| Path / group | Files | Normal lint | Existing ratchet/floor | Parser/tool | Proposed rule/tool | Status | Blocker/follow-up |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| \`tools/config/example.config.ts\` | 1 | yes | none | ESLint | none | linted | — |
+`;
 
 function git(cwd: string, args: readonly string[]): void {
   execFileSync("git", args, { cwd, stdio: "ignore" });
@@ -95,6 +116,71 @@ describe("runLintCoverageMapCheck", () => {
     expect(result.stderr).toContain("extra/missing.ts");
   });
 
+  it("reports tracked files claimed by incompatible coverage statuses", async () => {
+    const result = await runLintCoverageMapCheck({
+      mapText: CONFLICTING_COVERAGE_MAP,
+      trackedFiles: ["tools/conflict/example.ts", "tools/compatible/example.ts"],
+      ratchetIds: new Set(["ratchet/known"]),
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.findings).toEqual([
+      {
+        kind: "conflicting-coverage",
+        value:
+          "`tools/conflict/example.ts` matched incompatible statuses: line 5 `excluded`; line 6 `linted`",
+      },
+    ]);
+    expect(result.stderr).toContain("Conflicting coverage rows:");
+    expect(result.stderr).toContain("tools/conflict/example.ts");
+    expect(result.stderr).toContain("line 5 `excluded`; line 6 `linted`");
+    expect(result.stderr).not.toContain("tools/compatible/example.ts");
+  });
+
+  it("reports manifest-listed config surfaces whose coverage-map status drifted", async () => {
+    const result = await runLintCoverageMapCheck({
+      mapText: CONFIG_SURFACE_MISMATCH_MAP,
+      trackedFiles: ["tools/config/example.config.ts"],
+      ratchetIds: new Set(),
+      configSurfaceEntries: [
+        {
+          path: "tools/config/example.config.ts",
+          coverageStatus: "linted",
+        },
+      ],
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.findings).toEqual([
+      {
+        kind: "config-surface-coverage-mismatch",
+        value:
+          "`tools/config/example.config.ts` expected coverage status `linted` from config-surface manifest; matched statuses: line 5 `excluded`",
+      },
+    ]);
+    expect(result.stderr).toContain("Config surface coverage mismatches:");
+    expect(result.stderr).toContain("tools/config/example.config.ts");
+  });
+
+  it("reports linted config-surface files that are missing from the manifest", async () => {
+    const result = await runLintCoverageMapCheck({
+      mapText: CONFIG_SURFACE_OMITTED_FROM_MANIFEST_MAP,
+      trackedFiles: ["tools/config/example.config.ts"],
+      ratchetIds: new Set(),
+      configSurfaceEntries: [],
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.findings).toEqual([
+      {
+        kind: "config-surface-coverage-mismatch",
+        value:
+          "`tools/config/example.config.ts` is linted as a config surface in the coverage map but is missing from config-surface manifest; matched statuses: line 5 `linted`",
+      },
+    ]);
+    expect(result.stderr).toContain("Config surface coverage mismatches:");
+  });
+
   it("names the map path and the base-dir convention in the unaccounted section", async () => {
     const result = await runLintCoverageMapCheck({
       mapText: FIXTURE_MAP,
@@ -105,6 +191,8 @@ describe("runLintCoverageMapCheck", () => {
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain("docs/agent_notes/lint-coverage-map.md");
     expect(result.stderr.toLowerCase()).toContain("base dir");
+    expect(result.stderr).toContain("`bun run docs:lint-coverage-map:suggest`");
+    expect(result.stderr).not.toContain("scripts/lint-coverage-map-check.ts --suggest");
   });
 
   it("reports migration safety metadata when its claimed map row is removed", async () => {

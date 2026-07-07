@@ -1,4 +1,9 @@
-import type { CheckFinding, PathPattern, TableRow } from "./lint-coverage-map-check-types.js";
+import type {
+  CheckFinding,
+  ConfigSurfaceCoverageEntry,
+  PathPattern,
+  TableRow,
+} from "./lint-coverage-map-check-types.js";
 
 const RATCHET_ID_PATTERN = /ratchet\/[a-z0-9-]+/gu;
 const VALID_STATUS_PARTS = new Set([
@@ -10,9 +15,22 @@ const VALID_STATUS_PARTS = new Set([
   "not-code",
 ]);
 
-function isValidStatus(status: string): boolean {
+const COMPATIBLE_STATUS_PARTS = new Map<string, ReadonlySet<string>>([
+  ["linted", new Set(["linted", "ratcheted", "proposed", "pending-leaf"])],
+  ["ratcheted", new Set(["linted", "ratcheted", "proposed", "pending-leaf"])],
+  ["proposed", new Set(["linted", "ratcheted", "proposed", "pending-leaf"])],
+  ["pending-leaf", new Set(["linted", "ratcheted", "proposed", "pending-leaf"])],
+  ["excluded", new Set(["excluded", "not-code"])],
+  ["not-code", new Set(["excluded", "not-code"])],
+]);
+
+function validStatusParts(status: string): string[] {
   const parts = status.split("+").map((part) => part.trim());
-  return parts.length > 0 && parts.every((part) => VALID_STATUS_PARTS.has(part));
+  return parts.length > 0 && parts.every((part) => VALID_STATUS_PARTS.has(part)) ? parts : [];
+}
+
+function isValidStatus(status: string): boolean {
+  return validStatusParts(status).length > 0;
 }
 
 function groupByDirectory(files: readonly string[]): string[] {
@@ -34,39 +52,56 @@ function groupByDirectory(files: readonly string[]): string[] {
 
 const MAP_DOC_PATH = "docs/agent_notes/lint-coverage-map.md";
 
-export function formatFindings(findings: readonly CheckFinding[]): string {
-  const lines = ["lint-coverage-map-check found drift:"];
-  const stale = findings.filter((finding) => finding.kind === "stale-path");
-  const unknown = findings.filter((finding) => finding.kind === "unknown-ratchet");
-  const invalid = findings.filter((finding) => finding.kind === "invalid-status");
-  const unaccounted = findings.filter((finding) => finding.kind === "unaccounted-file");
-  const eslintReachMissing = findings.filter((finding) => finding.kind === "eslint-reach-missing");
-  if (stale.length > 0) {
-    lines.push("", "Stale path/group patterns:");
-    for (const finding of stale) lines.push(`- line ${String(finding.line)}: ${finding.value}`);
-  }
-  if (unknown.length > 0) {
-    lines.push("", "Unknown ratchet IDs:");
-    for (const finding of unknown) lines.push(`- line ${String(finding.line)}: ${finding.value}`);
-  }
-  if (invalid.length > 0) {
-    lines.push("", "Invalid status values:");
-    for (const finding of invalid) lines.push(`- line ${String(finding.line)}: ${finding.value}`);
-  }
+function appendLineFindingsSection(
+  lines: string[],
+  title: string,
+  findings: readonly CheckFinding[],
+): void {
+  if (findings.length === 0) return;
+  lines.push("", title);
+  for (const finding of findings) lines.push(`- line ${String(finding.line)}: ${finding.value}`);
+}
+
+function appendValueFindingsSection(
+  lines: string[],
+  title: string,
+  findings: readonly CheckFinding[],
+): void {
+  if (findings.length === 0) return;
+  lines.push("", title);
+  for (const finding of findings) lines.push(`- ${finding.value}`);
+}
+
+function appendUnaccountedSection(lines: string[], unaccounted: readonly CheckFinding[]): void {
   if (unaccounted.length > 0) {
     lines.push("", "Unaccounted tracked files:");
     lines.push(...groupByDirectory(unaccounted.map((finding) => finding.value)));
     lines.push(
       `Add each to ${MAP_DOC_PATH}. The first rooted full path in a \`Path / group\` cell`,
       "sets the base dir for subsequent bare filenames in that cell. Run",
-      "`bun run scripts/lint-coverage-map-check.ts --suggest` for ready-to-paste rows.",
+      "`bun run docs:lint-coverage-map:suggest` for ready-to-paste rows.",
     );
   }
-  if (eslintReachMissing.length > 0) {
-    lines.push("", "ESLint reach gaps:");
-    for (const finding of eslintReachMissing)
-      lines.push(`- line ${String(finding.line)}: ${finding.value}`);
-  }
+}
+
+export function formatFindings(findings: readonly CheckFinding[]): string {
+  const lines = ["lint-coverage-map-check found drift:"];
+  const stale = findings.filter((finding) => finding.kind === "stale-path");
+  const unknown = findings.filter((finding) => finding.kind === "unknown-ratchet");
+  const invalid = findings.filter((finding) => finding.kind === "invalid-status");
+  const conflicts = findings.filter((finding) => finding.kind === "conflicting-coverage");
+  const configSurfaceMismatches = findings.filter(
+    (finding) => finding.kind === "config-surface-coverage-mismatch",
+  );
+  const unaccounted = findings.filter((finding) => finding.kind === "unaccounted-file");
+  const eslintReachMissing = findings.filter((finding) => finding.kind === "eslint-reach-missing");
+  appendLineFindingsSection(lines, "Stale path/group patterns:", stale);
+  appendLineFindingsSection(lines, "Unknown ratchet IDs:", unknown);
+  appendLineFindingsSection(lines, "Invalid status values:", invalid);
+  appendValueFindingsSection(lines, "Conflicting coverage rows:", conflicts);
+  appendValueFindingsSection(lines, "Config surface coverage mismatches:", configSurfaceMismatches);
+  appendUnaccountedSection(lines, unaccounted);
+  appendLineFindingsSection(lines, "ESLint reach gaps:", eslintReachMissing);
   return `${lines.join("\n")}\n`;
 }
 
@@ -114,6 +149,150 @@ export function collectRowFindings(
       ? []
       : [{ kind: "invalid-status" as const, line: row.line, value: row.status }]),
   ]);
+}
+
+interface CoverageRowMatch {
+  readonly line: number;
+  readonly status: string;
+  readonly statusParts: readonly string[];
+}
+
+const MIN_CONFLICTING_COVERAGE_ROWS = 2;
+const CONFIG_SURFACE_COVERAGE_STATUS = "linted";
+const CONFIG_SURFACE_FILE_PATTERN = /(?:^|\/)[^/]+\.config\.[^/]+$/u;
+const CONFIG_SURFACE_FILE_EXTENSIONS = new Set(["js", "mjs", "ts"]);
+
+interface ConfigSurfaceCoverageFindingOptions {
+  readonly configSurfaceEntries: readonly ConfigSurfaceCoverageEntry[];
+  readonly trackedFiles: readonly string[];
+  readonly rows: readonly TableRow[];
+  readonly extractPathPatterns: (row: TableRow) => readonly PathPattern[];
+  readonly trackedFileIsInScope: (file: string) => boolean;
+}
+
+interface RowWithPatterns {
+  readonly row: TableRow;
+  readonly patterns: readonly PathPattern[];
+}
+
+function matchedCoverageRows(
+  file: string,
+  rowsWithPatterns: readonly RowWithPatterns[],
+): CoverageRowMatch[] {
+  return rowsWithPatterns
+    .filter(({ patterns }) => patterns.some((pattern) => pattern.matcher(file)))
+    .map(
+      ({ row }): CoverageRowMatch => ({
+        line: row.line,
+        status: row.status,
+        statusParts: validStatusParts(row.status),
+      }),
+    )
+    .filter((match) => match.statusParts.length > 0);
+}
+
+function statusesAreCompatible(
+  leftParts: readonly string[],
+  rightParts: readonly string[],
+): boolean {
+  return leftParts.every((left) => {
+    const compatible = COMPATIBLE_STATUS_PARTS.get(left);
+    return compatible !== undefined && rightParts.every((right) => compatible.has(right));
+  });
+}
+
+function hasConflictingStatus(matches: readonly CoverageRowMatch[]): boolean {
+  return matches.some((left, leftIndex) =>
+    matches
+      .slice(leftIndex + 1)
+      .some((right) => !statusesAreCompatible(left.statusParts, right.statusParts)),
+  );
+}
+
+function formatCoverageMatches(matches: readonly CoverageRowMatch[]): string {
+  return matches.map((match) => `line ${String(match.line)} \`${match.status}\``).join("; ");
+}
+
+export function collectConflictingCoverageFindings(
+  trackedFiles: readonly string[],
+  rows: readonly TableRow[],
+  extractPathPatterns: (row: TableRow) => readonly PathPattern[],
+  trackedFileIsInScope: (file: string) => boolean,
+): CheckFinding[] {
+  const rowsWithPatterns = rows.map((row) => ({ row, patterns: extractPathPatterns(row) }));
+  return trackedFiles.filter(trackedFileIsInScope).flatMap((file): CheckFinding[] => {
+    const matches = matchedCoverageRows(file, rowsWithPatterns);
+
+    if (matches.length < MIN_CONFLICTING_COVERAGE_ROWS || !hasConflictingStatus(matches)) return [];
+    return [
+      {
+        kind: "conflicting-coverage",
+        value: `\`${file}\` matched incompatible statuses: ${formatCoverageMatches(matches)}`,
+      },
+    ];
+  });
+}
+
+function formatConfigSurfaceCoverageValue(
+  entry: ConfigSurfaceCoverageEntry,
+  matches: readonly CoverageRowMatch[],
+): string {
+  const matchedStatuses = matches.length === 0 ? "none" : formatCoverageMatches(matches);
+  return `\`${entry.path}\` expected coverage status \`${entry.coverageStatus}\` from config-surface manifest; matched statuses: ${matchedStatuses}`;
+}
+
+function formatUnmanifestedConfigSurfaceCoverageValue(
+  path: string,
+  matches: readonly CoverageRowMatch[],
+): string {
+  return `\`${path}\` is linted as a config surface in the coverage map but is missing from config-surface manifest; matched statuses: ${formatCoverageMatches(matches)}`;
+}
+
+function isConfigSurfaceFilePath(path: string): boolean {
+  if (!CONFIG_SURFACE_FILE_PATTERN.test(path)) return false;
+  const extensionIndex = path.lastIndexOf(".");
+  if (extensionIndex < 0) return false;
+  return CONFIG_SURFACE_FILE_EXTENSIONS.has(path.slice(extensionIndex + 1));
+}
+
+export function collectConfigSurfaceCoverageFindings(
+  options: ConfigSurfaceCoverageFindingOptions,
+): CheckFinding[] {
+  const { configSurfaceEntries, extractPathPatterns, rows, trackedFileIsInScope, trackedFiles } =
+    options;
+  const rowsWithPatterns = rows.map((row) => ({ row, patterns: extractPathPatterns(row) }));
+  const manifestPaths = new Set(configSurfaceEntries.map((entry) => entry.path));
+  const manifestFindings = configSurfaceEntries.flatMap((entry): CheckFinding[] => {
+    const matches = matchedCoverageRows(entry.path, rowsWithPatterns);
+    const hasExpectedStatus = matches.some((match) =>
+      match.statusParts.includes(entry.coverageStatus),
+    );
+    if (hasExpectedStatus) return [];
+    return [
+      {
+        kind: "config-surface-coverage-mismatch",
+        value: formatConfigSurfaceCoverageValue(entry, matches),
+      },
+    ];
+  });
+  const unmanifestedFindings = trackedFiles
+    .filter(trackedFileIsInScope)
+    .filter(isConfigSurfaceFilePath)
+    .filter((file) => !manifestPaths.has(file))
+    .flatMap((file): CheckFinding[] => {
+      const matches = matchedCoverageRows(file, rowsWithPatterns).filter((match) =>
+        match.statusParts.includes(CONFIG_SURFACE_COVERAGE_STATUS),
+      );
+      if (matches.length === 0) return [];
+      return [
+        {
+          kind: "config-surface-coverage-mismatch",
+          value: formatUnmanifestedConfigSurfaceCoverageValue(file, matches),
+        },
+      ];
+    });
+
+  return [...manifestFindings, ...unmanifestedFindings];
 }
 
 export function collectUnaccountedFileFindings(

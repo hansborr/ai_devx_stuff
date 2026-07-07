@@ -101,7 +101,7 @@ export function buildParserErrorFinding(message: ESLintMessage, filePath: string
     severity: "block",
     path,
     why: "ESLint could not parse this file, so no other rule could run against it.",
-    howToFix: `Fix the syntax error reported by ESLint: ${message.message}`,
+    howToFix: `Fix the syntax error reported by ESLint: ${message.message}. If this file should not be parsed as TypeScript, check \`node_modules/.bin/eslint --print-config ${path}\`.`,
     repairKind: "manual",
   } as const;
   return message.line !== undefined ? { ...base, line: message.line } : base;

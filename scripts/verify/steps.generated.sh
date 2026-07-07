@@ -9,10 +9,10 @@
 : "${TIMINGS_FILE:?scripts/verify/steps.generated.sh requires TIMINGS_FILE}"
 
 declare -ga MUSI_VERIFY_CONSUMERS=('verify' 'verify_changed' 'verify_parallel' 'pre_commit')
-declare -ga MUSI_VERIFY_STEPS=('lint' 'ratchet' 'zero-baseline' 'knip-unused-exports' 'coverage-map' 'format-check' 'typecheck' 'test' 'scripts')
-declare -ga MUSI_VERIFY_CHANGED_STEPS=('lint' 'ratchet' 'zero-baseline' 'knip-unused-exports' 'coverage-map' 'format-check' 'typecheck' 'test' 'scripts')
-declare -ga MUSI_VERIFY_PARALLEL_STEPS=('lint' 'ratchet' 'zero-baseline' 'knip-unused-exports' 'coverage-map' 'format-check' 'typecheck' 'test' 'scripts')
-declare -ga MUSI_PRE_COMMIT_STEPS=('lint' 'ratchet' 'zero-baseline' 'knip-unused-exports' 'coverage-map' 'format-check' 'typecheck' 'test' 'scripts')
+declare -ga MUSI_VERIFY_STEPS=('lint' 'suppressions' 'ratchet' 'zero-baseline' 'debt-accounting' 'knip-unused-exports' 'coverage-map' 'format-check' 'typecheck' 'test' 'scripts')
+declare -ga MUSI_VERIFY_CHANGED_STEPS=('lint' 'suppressions' 'ratchet' 'zero-baseline' 'debt-accounting' 'knip-unused-exports' 'coverage-map' 'format-check' 'typecheck' 'test' 'scripts')
+declare -ga MUSI_VERIFY_PARALLEL_STEPS=('lint' 'suppressions' 'ratchet' 'zero-baseline' 'debt-accounting' 'knip-unused-exports' 'coverage-map' 'format-check' 'typecheck' 'test' 'scripts')
+declare -ga MUSI_PRE_COMMIT_STEPS=('lint' 'suppressions' 'ratchet' 'zero-baseline' 'debt-accounting' 'knip-unused-exports' 'coverage-map' 'format-check' 'typecheck' 'test' 'scripts')
 
 declare -gA MUSI_VERIFY_SLOT_CMD_VAR=()
 declare -gA MUSI_VERIFY_SLOT_DYNAMIC=()
@@ -20,11 +20,17 @@ declare -gA MUSI_VERIFY_SLOT_DYNAMIC=()
 MUSI_VERIFY_LINT_CMD=('bun' 'run' 'lint')
 MUSI_VERIFY_SLOT_CMD_VAR['verify:lint']='MUSI_VERIFY_LINT_CMD'
 
+MUSI_VERIFY_SUPPRESSIONS_CMD=('bun' 'run' 'lint:suppressions')
+MUSI_VERIFY_SLOT_CMD_VAR['verify:suppressions']='MUSI_VERIFY_SUPPRESSIONS_CMD'
+
 MUSI_VERIFY_RATCHET_CMD=('env' "HARNESS_DIAGNOSTICS_OUTPUT=$LOG_DIR/ratchet-diagnostics.json" 'bun' 'run' 'lint:ratchet')
 MUSI_VERIFY_SLOT_CMD_VAR['verify:ratchet']='MUSI_VERIFY_RATCHET_CMD'
 
 MUSI_VERIFY_ZERO_BASELINE_CMD=('bun' 'run' 'lint:ratchet:zero-baseline')
 MUSI_VERIFY_SLOT_CMD_VAR['verify:zero-baseline']='MUSI_VERIFY_ZERO_BASELINE_CMD'
+
+MUSI_VERIFY_DEBT_ACCOUNTING_CMD=('bun' 'run' 'lint:ratchet:check-debt-accounting')
+MUSI_VERIFY_SLOT_CMD_VAR['verify:debt-accounting']='MUSI_VERIFY_DEBT_ACCOUNTING_CMD'
 
 MUSI_VERIFY_KNIP_UNUSED_EXPORTS_CMD=('bun' 'run' 'sensor:knip-unused-exports')
 MUSI_VERIFY_SLOT_CMD_VAR['verify:knip-unused-exports']='MUSI_VERIFY_KNIP_UNUSED_EXPORTS_CMD'
@@ -47,11 +53,17 @@ MUSI_VERIFY_SLOT_CMD_VAR['verify:scripts']='MUSI_VERIFY_SCRIPTS_CMD'
 MUSI_VERIFY_CHANGED_LINT_CMD=('bun' 'run' 'lint:changed')
 MUSI_VERIFY_SLOT_CMD_VAR['verify_changed:lint']='MUSI_VERIFY_CHANGED_LINT_CMD'
 
+MUSI_VERIFY_CHANGED_SUPPRESSIONS_CMD=('bun' 'run' 'lint:suppressions')
+MUSI_VERIFY_SLOT_CMD_VAR['verify_changed:suppressions']='MUSI_VERIFY_CHANGED_SUPPRESSIONS_CMD'
+
 MUSI_VERIFY_CHANGED_RATCHET_CMD=('env' "HARNESS_DIAGNOSTICS_OUTPUT=$LOG_DIR/ratchet-diagnostics.json" 'bun' 'run' 'lint:ratchet')
 MUSI_VERIFY_SLOT_CMD_VAR['verify_changed:ratchet']='MUSI_VERIFY_CHANGED_RATCHET_CMD'
 
 MUSI_VERIFY_CHANGED_ZERO_BASELINE_CMD=('bun' 'run' 'lint:ratchet:zero-baseline')
 MUSI_VERIFY_SLOT_CMD_VAR['verify_changed:zero-baseline']='MUSI_VERIFY_CHANGED_ZERO_BASELINE_CMD'
+
+MUSI_VERIFY_CHANGED_DEBT_ACCOUNTING_CMD=('bun' 'run' 'lint:ratchet:check-debt-accounting')
+MUSI_VERIFY_SLOT_CMD_VAR['verify_changed:debt-accounting']='MUSI_VERIFY_CHANGED_DEBT_ACCOUNTING_CMD'
 
 MUSI_VERIFY_CHANGED_KNIP_UNUSED_EXPORTS_CMD=('bun' 'run' 'sensor:knip-unused-exports')
 MUSI_VERIFY_SLOT_CMD_VAR['verify_changed:knip-unused-exports']='MUSI_VERIFY_CHANGED_KNIP_UNUSED_EXPORTS_CMD'
@@ -75,11 +87,17 @@ MUSI_VERIFY_SLOT_DYNAMIC['verify_changed:scripts']='staged-script-classifier'
 MUSI_VERIFY_PARALLEL_LINT_CMD=('bun' 'run' 'lint')
 MUSI_VERIFY_SLOT_CMD_VAR['verify_parallel:lint']='MUSI_VERIFY_PARALLEL_LINT_CMD'
 
+MUSI_VERIFY_PARALLEL_SUPPRESSIONS_CMD=('bun' 'run' 'lint:suppressions')
+MUSI_VERIFY_SLOT_CMD_VAR['verify_parallel:suppressions']='MUSI_VERIFY_PARALLEL_SUPPRESSIONS_CMD'
+
 MUSI_VERIFY_PARALLEL_RATCHET_CMD=('env' "HARNESS_DIAGNOSTICS_OUTPUT=$LOG_DIR/ratchet-diagnostics.json" 'bun' 'run' 'lint:ratchet')
 MUSI_VERIFY_SLOT_CMD_VAR['verify_parallel:ratchet']='MUSI_VERIFY_PARALLEL_RATCHET_CMD'
 
 MUSI_VERIFY_PARALLEL_ZERO_BASELINE_CMD=('bun' 'run' 'lint:ratchet:zero-baseline')
 MUSI_VERIFY_SLOT_CMD_VAR['verify_parallel:zero-baseline']='MUSI_VERIFY_PARALLEL_ZERO_BASELINE_CMD'
+
+MUSI_VERIFY_PARALLEL_DEBT_ACCOUNTING_CMD=('bun' 'run' 'lint:ratchet:check-debt-accounting')
+MUSI_VERIFY_SLOT_CMD_VAR['verify_parallel:debt-accounting']='MUSI_VERIFY_PARALLEL_DEBT_ACCOUNTING_CMD'
 
 MUSI_VERIFY_PARALLEL_KNIP_UNUSED_EXPORTS_CMD=('bun' 'run' 'sensor:knip-unused-exports')
 MUSI_VERIFY_SLOT_CMD_VAR['verify_parallel:knip-unused-exports']='MUSI_VERIFY_PARALLEL_KNIP_UNUSED_EXPORTS_CMD'
@@ -102,11 +120,17 @@ MUSI_VERIFY_SLOT_CMD_VAR['verify_parallel:scripts']='MUSI_VERIFY_PARALLEL_SCRIPT
 MUSI_PRE_COMMIT_LINT_CMD=('bun' 'run' 'lint:changed')
 MUSI_VERIFY_SLOT_CMD_VAR['pre_commit:lint']='MUSI_PRE_COMMIT_LINT_CMD'
 
+MUSI_PRE_COMMIT_SUPPRESSIONS_CMD=('bun' 'run' 'lint:suppressions')
+MUSI_VERIFY_SLOT_CMD_VAR['pre_commit:suppressions']='MUSI_PRE_COMMIT_SUPPRESSIONS_CMD'
+
 MUSI_PRE_COMMIT_RATCHET_CMD=('env' "HARNESS_DIAGNOSTICS_OUTPUT=$LOG_DIR/ratchet-diagnostics.json" 'bun' 'run' 'lint:ratchet')
 MUSI_VERIFY_SLOT_CMD_VAR['pre_commit:ratchet']='MUSI_PRE_COMMIT_RATCHET_CMD'
 
 MUSI_PRE_COMMIT_ZERO_BASELINE_CMD=('bun' 'run' 'lint:ratchet:zero-baseline')
 MUSI_VERIFY_SLOT_CMD_VAR['pre_commit:zero-baseline']='MUSI_PRE_COMMIT_ZERO_BASELINE_CMD'
+
+MUSI_PRE_COMMIT_DEBT_ACCOUNTING_CMD=('bun' 'run' 'lint:ratchet:check-debt-accounting')
+MUSI_VERIFY_SLOT_CMD_VAR['pre_commit:debt-accounting']='MUSI_PRE_COMMIT_DEBT_ACCOUNTING_CMD'
 
 MUSI_PRE_COMMIT_KNIP_UNUSED_EXPORTS_CMD=('bun' 'run' 'sensor:knip-unused-exports')
 MUSI_VERIFY_SLOT_CMD_VAR['pre_commit:knip-unused-exports']='MUSI_PRE_COMMIT_KNIP_UNUSED_EXPORTS_CMD'

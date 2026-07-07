@@ -5,6 +5,21 @@
 AI_HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=/dev/null
 . "$AI_HOOKS_DIR/output-filter.sh"
+# shellcheck source=/dev/null
+. "$AI_HOOKS_DIR/../lib/verify-metadata.sh"
+
+ai_fast_commit_summary_suffix() {
+  local repo_root="$1"
+  local marker="${MUSI_FAST_COMMIT_MARKER:-}"
+
+  if [ -z "$marker" ]; then
+    marker="$(musi_git_common_identity_path "$repo_root")/musi-fast-commit"
+  fi
+
+  if [ -f "$marker" ]; then
+    printf '\n(fast-commit: test+scripts slots skipped; land via bash scripts/land.sh)'
+  fi
+}
 
 ai_commit_success_summary() {
   local repo_root="$1"
@@ -26,6 +41,7 @@ ai_commit_success_summary() {
   else
     printf 'Commit succeeded: %s %s' "$hash" "$subject"
   fi
+  ai_fast_commit_summary_suffix "$repo_root"
 }
 
 ai_precommit_failed_tasks() {

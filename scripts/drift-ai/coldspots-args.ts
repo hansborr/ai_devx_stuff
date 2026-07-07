@@ -4,6 +4,7 @@
 // coldspot lens's threshold overrides. Reuses the shared subcommand arg base
 // (`parseSubcommandArgs`/`SubcommandBaseOptions`).
 
+import { parseWindowDays } from "./advisory-common.js";
 import { readPositiveInt } from "./arg-readers.js";
 import type { ColdspotLens } from "./coldspots-format.js";
 import { DriftAiError } from "./errors.js";
@@ -107,7 +108,7 @@ export function parseColdspotsArgs(argv: readonly string[]): ParsedColdspotsArgs
         lens = parseLens(value);
       },
       "--window": (value) => {
-        windowDays = parseWindowDays(value);
+        windowDays = parseWindowDays(value, DEFAULT_COLDSPOT_WINDOW_DAYS);
       },
       "--top": (value) => {
         top = readPositiveInt(value, "--top");
@@ -149,13 +150,4 @@ function parseLens(value: string): ColdspotLens {
   const lens = COLDSPOT_LENS_VALUES.get(value);
   if (lens !== undefined) return lens;
   throw new DriftAiError(`--lens requires one of coldspot|stale-markers|all (got '${value}').`);
-}
-
-function parseWindowDays(value: string): number {
-  const match = /^(\d+)d?$/u.exec(value.trim());
-  const days = match === null ? Number.NaN : Number(match[1]);
-  if (!Number.isInteger(days) || days <= 0) {
-    throw new DriftAiError("--window requires a positive number of days, e.g. 180 or 180d.");
-  }
-  return days;
 }

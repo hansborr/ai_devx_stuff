@@ -1,4 +1,18 @@
 #!/usr/bin/env bash
+# smoke-order: 180
+# smoke-subjects: .prettierignore
+# smoke-subjects: .prettierrc
+# smoke-subjects: scripts/format-changed.sh
+# smoke-subjects: scripts/lib/changed-base.sh
+# smoke-subjects: scripts/path-policy/path-policy-query.ts
+# smoke-subjects: scripts/path-policy/path-policy-query-core.ts
+# smoke-subjects: scripts/path-policy/path-policy.ts
+# smoke-subjects: scripts/path-policy/path-policy-smoke-subjects.ts
+# smoke-subjects: scripts/path-policy/path-policy-smoke-subjects-data.ts
+# smoke-subjects: scripts/harness/harness-paths.ts
+# smoke-subjects: scripts/lint-ratchet/paths.ts
+# smoke-subjects: scripts/tests/lib/test-git-env.sh
+# smoke-subjects: scripts/tests/test-format-changed.sh
 # Pure-shell smoke tests for scripts/format-changed.sh selection behavior.
 
 set -euo pipefail
@@ -15,6 +29,8 @@ PATH_POLICY_QUERY_CORE="$SCRIPT_DIR/../path-policy/path-policy-query-core.ts"
 PATH_POLICY="$SCRIPT_DIR/../path-policy/path-policy.ts"
 PATH_POLICY_SMOKE_SUBJECTS="$SCRIPT_DIR/../path-policy/path-policy-smoke-subjects.ts"
 PATH_POLICY_SMOKE_SUBJECTS_DATA="$SCRIPT_DIR/../path-policy/path-policy-smoke-subjects-data.ts"
+HARNESS_PATHS="$SCRIPT_DIR/../harness/harness-paths.ts"
+LINT_RATCHET_PATHS="$SCRIPT_DIR/../lint-ratchet/paths.ts"
 
 PASS=0
 fail() { printf 'FAIL: %s\n' "$1" >&2; exit 1; }
@@ -40,7 +56,8 @@ chmod +x "$SANDBOX/bin/prettier"
 new_repo() {
   local name="$1"
   local repo="$SANDBOX/$name"
-  mkdir -p "$repo/scripts" "$repo/scripts/lib" "$repo/scripts/path-policy" "$repo/packages/server/src"
+  mkdir -p "$repo/scripts" "$repo/scripts/lib" "$repo/scripts/path-policy" \
+    "$repo/scripts/harness" "$repo/scripts/lint-ratchet" "$repo/packages/server/src"
   git -C "$SANDBOX" init -q -b main "$repo"
   cp "$FORMAT_CHANGED" "$repo/scripts/format-changed.sh"
   cp "$CHANGED_BASE" "$repo/scripts/lib/changed-base.sh"
@@ -50,6 +67,8 @@ new_repo() {
   cp "$PATH_POLICY_SMOKE_SUBJECTS" "$repo/scripts/path-policy/path-policy-smoke-subjects.ts"
   cp "$PATH_POLICY_SMOKE_SUBJECTS_DATA" \
     "$repo/scripts/path-policy/path-policy-smoke-subjects-data.ts"
+  cp "$HARNESS_PATHS" "$repo/scripts/harness/harness-paths.ts"
+  cp "$LINT_RATCHET_PATHS" "$repo/scripts/lint-ratchet/paths.ts"
   printf 'const base = true;\n' > "$repo/packages/server/src/app.ts"
   git -C "$repo" config user.email test@example.com
   git -C "$repo" config user.name Test

@@ -100,21 +100,42 @@ export type DefaultKnipRunnerOptions = {
   readonly warn?: (message: string) => void;
 };
 
-export const KNIP_FILE_INCLUDE_CATEGORIES = "files" as const;
-export const KNIP_SYMBOL_INCLUDE_CATEGORIES = "exports,types,enumMembers,namespaceMembers" as const;
-export const KNIP_DUPLICATES_INCLUDE_CATEGORIES = "duplicates" as const;
+// The three toggleable knip checks map to these pure category atoms; each is
+// composed — together with the always-on entry-resolution baseline below — into
+// the per-selection include set actually passed to knip.
+const FILE_CATEGORY = "files";
+const SYMBOL_CATEGORIES = "exports,types,enumMembers,namespaceMembers";
+const DUPLICATES_CATEGORY = "duplicates";
+
+// Always-on correctness baseline, appended to EVERY selection independent of which
+// of the three checks is active. knip's vitest plugin only registers a config's
+// setupFiles/globalSetup (and other config-referenced modules) as entry points when
+// the run resolves the dependency graph, which knip does only when `unlisted` or
+// `dependencies` are among the requested categories. Omit them and every knip-backed
+// check (orphan-files, unused-exports, knip-duplicates) false-positives those live
+// test-infrastructure files as orphans/unused exports. The orphan-files and
+// unused-exports parsers read only their own category rows, so requesting these
+// never pollutes a check's output — it only fixes entry resolution.
+const ENTRY_RESOLUTION_CATEGORIES = "unlisted,dependencies";
+
+export const KNIP_FILE_INCLUDE_CATEGORIES =
+  `${FILE_CATEGORY},${ENTRY_RESOLUTION_CATEGORIES}` as const;
+export const KNIP_SYMBOL_INCLUDE_CATEGORIES =
+  `${SYMBOL_CATEGORIES},${ENTRY_RESOLUTION_CATEGORIES}` as const;
+export const KNIP_DUPLICATES_INCLUDE_CATEGORIES =
+  `${DUPLICATES_CATEGORY},${ENTRY_RESOLUTION_CATEGORIES}` as const;
 export const KNIP_FILE_SYMBOL_INCLUDE_CATEGORIES =
-  `${KNIP_FILE_INCLUDE_CATEGORIES},${KNIP_SYMBOL_INCLUDE_CATEGORIES}` as const;
+  `${FILE_CATEGORY},${SYMBOL_CATEGORIES},${ENTRY_RESOLUTION_CATEGORIES}` as const;
 export const KNIP_FILE_DUPLICATES_INCLUDE_CATEGORIES =
-  `${KNIP_FILE_INCLUDE_CATEGORIES},${KNIP_DUPLICATES_INCLUDE_CATEGORIES}` as const;
+  `${FILE_CATEGORY},${DUPLICATES_CATEGORY},${ENTRY_RESOLUTION_CATEGORIES}` as const;
 export const KNIP_SYMBOL_DUPLICATES_INCLUDE_CATEGORIES =
-  `${KNIP_SYMBOL_INCLUDE_CATEGORIES},${KNIP_DUPLICATES_INCLUDE_CATEGORIES}` as const;
+  `${SYMBOL_CATEGORIES},${DUPLICATES_CATEGORY},${ENTRY_RESOLUTION_CATEGORIES}` as const;
 // The full superset of knip issue categories drift:ai's whole-project knip
 // checks can consume from a SINGLE report. Requesting the selected superset in
 // one spawn lets the memo below feed every selected knip-backed check from the
 // same JSON.
 export const KNIP_INCLUDE_CATEGORIES =
-  `${KNIP_FILE_INCLUDE_CATEGORIES},${KNIP_SYMBOL_INCLUDE_CATEGORIES},${KNIP_DUPLICATES_INCLUDE_CATEGORIES}` as const;
+  `${FILE_CATEGORY},${SYMBOL_CATEGORIES},${DUPLICATES_CATEGORY},${ENTRY_RESOLUTION_CATEGORIES}` as const;
 
 export type KnipIncludeCategories =
   | typeof KNIP_FILE_INCLUDE_CATEGORIES

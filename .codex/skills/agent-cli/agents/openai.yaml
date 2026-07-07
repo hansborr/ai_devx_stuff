@@ -1,0 +1,9 @@
+interface:
+  display_name: "Agent CLI"
+  short_description: "Dispatch or consult claude/codex/copilot via one wrapper"
+  default_prompt: >-
+    Use $agent-cli to get a second opinion from another model (e.g. consult
+    claude -m fable for a frontier take, or consult copilot -m
+    gemini-3.5-flash for an off-family one) or to delegate work to another
+    agent. Dispatch only through .claude/skills/agent-cli/scripts/agent-run.sh
+    — never the bare CLIs.

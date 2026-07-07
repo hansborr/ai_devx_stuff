@@ -40,3 +40,22 @@ assert_hook_continue_json() {
   jq -e '.continue == true and length == 1' >/dev/null <<< "$output" \
     || fail "expected continue hook JSON, got: $output"
 }
+
+make_git_optional_locks_guard_shim() {
+  local shim_dir="$1"
+
+  mkdir -p "$shim_dir"
+  cat > "$shim_dir/git" <<'GIT_OPTIONAL_LOCKS_SHIM'
+#!/bin/bash
+set -euo pipefail
+
+state=OK
+if [ "${GIT_OPTIONAL_LOCKS-}" != "0" ]; then
+  state=MISSING
+fi
+printf '%s\t%s\n' "$state" "$*" >> "$AI_TEST_GIT_OPTIONAL_LOCKS_LOG"
+[ "$state" = "OK" ] || exit 42
+exec "$AI_TEST_REAL_GIT" "$@"
+GIT_OPTIONAL_LOCKS_SHIM
+  chmod +x "$shim_dir/git"
+}

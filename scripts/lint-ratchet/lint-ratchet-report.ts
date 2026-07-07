@@ -99,6 +99,7 @@ function findingDelta(finding: HarnessFinding): string | undefined {
 }
 
 function isImprovement(finding: HarnessFinding): boolean {
+  if (finding.kind !== undefined) return finding.kind === "improvement";
   return finding.reason !== undefined && IMPROVEMENT_REASONS.has(finding.reason);
 }
 

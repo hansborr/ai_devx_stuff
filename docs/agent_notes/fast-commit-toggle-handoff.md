@@ -158,6 +158,7 @@ set -euo pipefail
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT"
+. "$REPO_ROOT/scripts/lib/gate-env.sh"
 
 branch="$(git symbolic-ref --short HEAD)"
 case "$branch" in
@@ -168,7 +169,7 @@ if ! git diff --quiet || ! git diff --cached --quiet; then
 fi
 
 echo "land: running full verify on $branch …"
-NODE_OPTIONS="--max-old-space-size=6144" bun run verify   # full = always runs test + scripts
+bun run verify   # full = always runs test + scripts; gate-env manages NODE_OPTIONS
 
 echo "land: verify passed — merging $branch into main (--no-ff, skips pre-commit by design)"
 git switch main
@@ -224,8 +225,8 @@ changed-gate/fixtures fail: `scripts/path-policy/path-policy-smoke-subjects-data
    - shellcheck on the new/edited `.sh`.
    - path-policy classification of `scripts/land.sh`.
 4. Commit on the feature branch. This commit touches hook-adjacent libs, so the
-   pre-commit full path may be heavy/flaky (known: full eslint OOMs at 4GB →
-   `NODE_OPTIONS=--max-old-space-size=6144`; eslint-config-plugin /
+   pre-commit full path may be heavy/flaky (known: full eslint OOMs at 4GB are
+   handled by `scripts/lib/gate-env.sh`; eslint-config-plugin /
    test-dependency-freshness can flake). If it flakes, land via a fresh
    sequential `verify` marker bridge (the project's standard trick).
 5. **Land via `git merge --no-ff feat/fast-commit-toggle` into main** — the merge

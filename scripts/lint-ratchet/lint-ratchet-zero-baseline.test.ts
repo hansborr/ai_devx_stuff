@@ -13,6 +13,7 @@ import {
 import type { LintRatchetConfig } from "./lint-ratchet-config.js";
 import {
   auditZeroBaselineRatchets,
+  createNormalLintStatusForFile,
   formatUndocumentedZeroBaselineFailure,
   formatZeroBaselineAudit,
   type NormalLintFileStatus,
@@ -116,6 +117,39 @@ describe("lint ratchet zero-baseline audit", () => {
     ]);
   });
 
+  it("memoizes normal ESLint config resolution per path across overlapping ratchets", async () => {
+    const ignoredCalls: string[] = [];
+    const configCalls: string[] = [];
+    const eslint = {
+      isPathIgnored(path: string): Promise<boolean> {
+        ignoredCalls.push(path);
+        return Promise.resolve(path.endsWith("ignored.ts"));
+      },
+      calculateConfigForFile(path: string): Promise<unknown> {
+        configCalls.push(path);
+        return Promise.resolve({
+          rules: {
+            "no-alert": "error",
+            "no-console": "off",
+          },
+        });
+      },
+    };
+    const statusForFile = createNormalLintStatusForFile(eslint);
+    const samePath = "packages/app/src/a.ts";
+    const ignoredPath = "packages/app/src/ignored.ts";
+
+    await expect(statusForFile(promotedRatchet, samePath)).resolves.toBe("error");
+    await expect(
+      statusForFile({ ...documentedRatchet, ruleId: "no-console" }, samePath),
+    ).resolves.toBe("off");
+    await expect(statusForFile(promotedRatchet, ignoredPath)).resolves.toBe("ignored");
+    await expect(statusForFile(documentedRatchet, ignoredPath)).resolves.toBe("ignored");
+
+    expect(ignoredCalls).toEqual([samePath, ignoredPath]);
+    expect(configCalls).toEqual([samePath]);
+  });
+
   it("formats lifecycle counts and next actions", () => {
     const rows: readonly ZeroBaselineAuditRow[] = [
       {
@@ -171,7 +205,7 @@ describe("lint ratchet zero-baseline audit", () => {
 
     expect(formatUndocumentedZeroBaselineFailure(rows)).toBe(
       [
-        "lint:ratchet:zero-baseline FAIL - 2 zero-baseline ratchets lack zeroBaselineDisposition.",
+        "lint:ratchet:zero-baseline FAIL — 2 zero-baseline ratchets lack zeroBaselineDisposition.",
         "Undocumented ratchets:",
         "- ratchet/fixture-promoted",
         "- ratchet/fixture-missing",

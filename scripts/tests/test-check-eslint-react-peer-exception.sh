@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# smoke-order: 450
+# smoke-subjects: scripts/check-eslint-react-peer-exception.sh
+# smoke-subjects: scripts/tests/test-check-eslint-react-peer-exception.sh
 # Pure-shell tests for the ESLint 10 React-plugin peer-exception watchdog.
 #
 # The watchdog reads each plugin's installed package.json only (no network), so

@@ -1,5 +1,5 @@
 // Single source of truth for the lint:ratchet baseline-update recovery commands
-// surfaced in diagnostics findings, the report footer, and CI. The bare form is
+// surfaced in run summaries, the report footer, and CI. The bare form is
 // correct only when there is no regression to accept; once a regression is
 // present the updater refuses unless `--allow-worse --reason` is supplied (see
 // decideLintRatchetUpdate in baseline-update.ts).

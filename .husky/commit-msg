@@ -1,2 +1,23 @@
 #!/usr/bin/env bash
-exec node_modules/.bin/commitlint --edit "$1"
+set -eu
+
+COMMIT_MSG_FILE="${1:?commit-msg hook requires the commit message file path}"
+
+if node_modules/.bin/commitlint --edit "$COMMIT_MSG_FILE"; then
+  exit 0
+fi
+
+# Keep these thresholds in sync with commitlint.config.js.
+cat >&2 <<'EOF'
+
+commit-msg: required shape:
+  <type>(<scope>): <subject >=20 chars>
+  <blank line>
+  <body >=40 chars>
+example:
+  fix(ratchet): resolve alias before name heuristic
+
+  Explain why the change is needed in at least forty characters.
+EOF
+
+exit 1

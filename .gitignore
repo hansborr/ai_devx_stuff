@@ -46,10 +46,8 @@ Thumbs.db
 !.claude/skills/ts-graph/
 !.claude/skills/playwright-cli/
 !.claude/skills/playwright-cli/**
-!.claude/skills/codex-cli/
-!.claude/skills/codex-cli/**
-!.claude/skills/copilot-cli/
-!.claude/skills/copilot-cli/**
+!.claude/skills/agent-cli/
+!.claude/skills/agent-cli/**
 
 # Codex — track shared skills opted in below; keep personal repo-local skills
 # out of git.
@@ -58,8 +56,8 @@ Thumbs.db
 !.codex/skills/ts-graph/**
 !.codex/skills/playwright-cli/
 !.codex/skills/playwright-cli/**
-!.codex/skills/copilot-cli/
-!.codex/skills/copilot-cli/**
+!.codex/skills/agent-cli/
+!.codex/skills/agent-cli/**
 
 # SRD reference repos (local only, not committed)
 docs/refs/
@@ -73,13 +71,7 @@ packages/server/prisma/*.db-journal
 
 # Test artifacts
 coverage/
-reports/mutation/
-reports/mutation-scripts/
-reports/mutation-server/
-reports/mutation-overnight/
-reports/mutation-analysis/
-reports/drift-ai/
-reports/slow-drift/
+reports/
 .musi-ai-hooks-tidy-test.*/
 .stryker-tmp/
 test-results/

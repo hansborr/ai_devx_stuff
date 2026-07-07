@@ -10,15 +10,19 @@
 # `ai_worktree_fingerprint` is defined here for the same reason; cache.sh
 # sources this file and re-exports it for ai-hooks callers.
 
+musi_git_readonly() {
+  GIT_OPTIONAL_LOCKS=0 git "$@"
+}
+
 ai_worktree_fingerprint() {
   local repo_root="$1"
 
   {
-    git -C "$repo_root" rev-parse HEAD 2>/dev/null || echo none
-    git -C "$repo_root" diff HEAD 2>/dev/null
+    musi_git_readonly -C "$repo_root" rev-parse HEAD 2>/dev/null || echo none
+    musi_git_readonly -C "$repo_root" diff HEAD 2>/dev/null
     (
       cd "$repo_root" || exit 1
-      git ls-files --others --exclude-standard -z 2>/dev/null \
+      musi_git_readonly ls-files --others --exclude-standard -z 2>/dev/null \
         | xargs -0 -r sha256sum 2>/dev/null
     )
   } | sha256sum | awk '{print $1}'
@@ -418,6 +422,46 @@ musi_write_success_marker() {
   return 1
 }
 
+# Re-stamp a passing full-verify success marker onto a new HEAD whose tree is
+# byte-identical to the already-verified tree (e.g. a `--no-ff` merge commit that
+# records new parents but no new tree content). This lets `land.sh` publish a
+# merge commit on the strength of the verify that just passed on the merged
+# branch tip, instead of forcing a redundant full re-verify.
+#
+# SAFETY: this only rewrites the HEAD/hash the pre-push gate reads — it must
+# never move a pass onto a tree that verify did not cover. The caller is
+# responsible for confirming tree equality (the merge tree == the verified tree)
+# BEFORE calling; here we additionally refuse unless the source marker is a
+# genuinely fresh, matching pass for the verified HEAD — same HEAD, same
+# fingerprint, and written within the freshness window. An aged marker (even one
+# whose tree still matches) is refused rather than resurrected: re-stamping an
+# expired pass would defeat the freshness contract the pre-push gate relies on.
+#
+# Args: <marker> <expected_verified_hash> <new_head> <new_hash> <verified_head> \
+#       [freshness_seconds]
+#   expected_verified_hash - the fingerprint the caller independently recomputed
+#     for the verified tree; must equal the marker's recorded LAST_HASH.
+#   new_head / new_hash    - the HEAD and worktree fingerprint to stamp (the
+#     merge commit and its own fingerprint).
+#   verified_head          - the HEAD the source pass verified; must equal the
+#     marker's recorded LAST_HEAD.
+#   freshness_seconds      - max marker age accepted (default 120, the standard
+#     success-marker freshness).
+# Returns: 0 re-stamped; nonzero refused (missing, stale, or non-matching
+#   source marker — no write performed).
+musi_restamp_verify_marker() {
+  local marker="$1"
+  local expected_verified_hash="$2"
+  local new_head="$3"
+  local new_hash="$4"
+  local verified_head="$5"
+  local freshness_seconds="${6:-120}"
+
+  musi_success_marker_matches "$marker" "$verified_head" "$expected_verified_hash" \
+    "$freshness_seconds" || return 1
+  musi_write_success_marker "$marker" "$new_head" "$new_hash"
+}
+
 musi_standard_verify_changed_marker() {
   local repo_root="${1:-}"
 
@@ -708,6 +752,50 @@ musi_write_wrapper_meta() {
     printf '"command":"%s"' "$(musi_meta_json_escape "$command")"
     printf '}\n'
   } > "$file"
+}
+
+# Re-stamp a passing verify wrapper.json (the pre-push evidence fallback that
+# `.husky/pre-push` reads at `<verify-log-dir>/meta/wrapper.json`) onto a new
+# HEAD/fingerprint, so no artifact still points at the pre-merge HEAD after a
+# re-stamped land. Preserves mode/start_time/command and refreshes end_time to
+# now. Refuses unless the existing wrapper records a passing (exit 0)
+# serial/parallel verify — it never fabricates a fresh pass from nothing.
+#
+# Args: <wrapper_json> <new_head> <new_fingerprint>
+# Returns: 0 re-stamped; 1 missing or non-passing wrapper.
+musi_restamp_verify_wrapper() {
+  local wrapper="$1"
+  local new_head="$2"
+  local new_fingerprint="$3"
+  local json mode exit_code start_time command now_epoch now_iso start_epoch
+
+  [ -f "$wrapper" ] || return 1
+  json=$(sed -n '1p' "$wrapper" 2>/dev/null) || return 1
+  [ -n "$json" ] || return 1
+
+  mode=$(musi_run_meta_json_string_field "$json" mode)
+  case "$mode" in
+    serial-verify | parallel-verify) ;;
+    *) return 1 ;;
+  esac
+
+  exit_code=$(musi_run_meta_json_int_field "$json" exit_code)
+  [ "$exit_code" = "0" ] || return 1
+
+  start_time=$(musi_run_meta_json_string_field "$json" start_time)
+  command=$(musi_run_meta_json_string_field "$json" command)
+
+  now_epoch=$(date +%s)
+  now_iso=$(date -Iseconds)
+  if ! start_epoch=$(date -d "$start_time" +%s 2>/dev/null); then
+    start_epoch=$now_epoch
+  fi
+  case "$start_epoch" in
+    '' | *[!0-9]*) start_epoch=$now_epoch ;;
+  esac
+
+  musi_write_wrapper_meta "$wrapper" "$mode" "$start_epoch" "$start_time" \
+    "$now_epoch" "$now_iso" 0 "$command" "$new_head" "$new_fingerprint"
 }
 
 musi_combine_run_meta() {

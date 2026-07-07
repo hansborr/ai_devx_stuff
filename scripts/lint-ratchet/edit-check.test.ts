@@ -8,6 +8,8 @@ vi.mock("./current-collector.js", () => ({
   collectCurrentForRatchet: vi.fn(() => Promise.resolve(new Map())),
 }));
 
+import type * as NodeFsModule from "node:fs";
+
 import type * as BaselineValidationModule from "./baseline-validation.js";
 import { collectCurrentForRatchet } from "./current-collector.js";
 import {
@@ -15,6 +17,7 @@ import {
   type EditCheckTarget,
   runEditCheckRegressions,
 } from "./edit-check.js";
+import { baselinePath } from "./paths.js";
 
 // A minimal-TS (cache-using) ratchet that is present in the committed baseline,
 // so a hand-built target with the matching ruleId passes the drift guard.
@@ -235,13 +238,24 @@ describe("runEditCheckRegressions baseline-availability guards", () => {
 
   it("soft-skips without reading or linting when the baseline file is absent", async () => {
     vi.resetModules();
-    const readFileSync = vi.fn(() => "");
-    vi.doMock("node:fs", () => ({
-      // existsSync(baselinePath) === false -> the missing-baseline early return
-      // fires before readFileSync is ever consulted.
-      existsSync: vi.fn(() => false),
-      readFileSync,
-    }));
+    const readBaseline = vi.fn(() => "");
+    vi.doMock("node:fs", async (importOriginal) => {
+      const actual = await importOriginal<typeof NodeFsModule>();
+      return {
+        ...actual,
+        // Only the ratchet baseline is intercepted: existsSync(baselinePath)
+        // === false -> the missing-baseline early return fires before the
+        // baseline is ever read. Every other path (e.g. the config-surface
+        // manifest loaded while the fresh module graph re-evaluates
+        // shared-policy) must keep hitting the real filesystem.
+        existsSync: vi.fn((...args: Parameters<typeof actual.existsSync>) =>
+          args[0] === baselinePath ? false : actual.existsSync(...args),
+        ),
+        readFileSync: vi.fn((...args: Parameters<typeof actual.readFileSync>) =>
+          args[0] === baselinePath ? readBaseline() : actual.readFileSync(...args),
+        ),
+      };
+    });
     const editCheck = await import("./edit-check.js");
     const collector = await import("./current-collector.js");
 
@@ -249,18 +263,28 @@ describe("runEditCheckRegressions baseline-availability guards", () => {
     // Absent baseline -> soft skip: empty regressions, nothing checked, and the
     // baseline is never even read (the guard short-circuits the file read).
     expect(result).toStrictEqual({ regressions: [], checked: [] });
-    expect(readFileSync).not.toHaveBeenCalled();
+    expect(readBaseline).not.toHaveBeenCalled();
     expect(collector.collectCurrentForRatchet).not.toHaveBeenCalled();
   });
 
   it("soft-skips a present-but-structurally-invalid baseline rather than linting against it", async () => {
     vi.resetModules();
-    vi.doMock("node:fs", () => ({
-      existsSync: vi.fn(() => true),
-      // A JSON object missing the `tests` map parses but yields
-      // structural.baseline === undefined, driving the invalid-baseline guard.
-      readFileSync: vi.fn(() => '{"version":1}\n'),
-    }));
+    vi.doMock("node:fs", async (importOriginal) => {
+      const actual = await importOriginal<typeof NodeFsModule>();
+      return {
+        ...actual,
+        existsSync: vi.fn((...args: Parameters<typeof actual.existsSync>) =>
+          args[0] === baselinePath ? true : actual.existsSync(...args),
+        ),
+        // A JSON object missing the `tests` map parses but yields
+        // structural.baseline === undefined, driving the invalid-baseline
+        // guard. Only the baseline path is intercepted, so unrelated
+        // module-load reads (e.g. the config-surface manifest) stay real.
+        readFileSync: vi.fn((...args: Parameters<typeof actual.readFileSync>) =>
+          args[0] === baselinePath ? '{"version":1}\n' : actual.readFileSync(...args),
+        ),
+      };
+    });
     const editCheck = await import("./edit-check.js");
     const collector = await import("./current-collector.js");
 

@@ -22,7 +22,6 @@ export type {
   OwnershipChangeSplit,
   OwnershipContributor,
   OwnershipIdentity,
-  OwnershipSection,
 } from "./ownership-types.js";
 export {
   DEFAULT_AGENT_IDENTITY_PATTERNS,

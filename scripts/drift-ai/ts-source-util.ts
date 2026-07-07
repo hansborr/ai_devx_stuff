@@ -33,10 +33,6 @@ export function tsSysReadFile(filePath: string): string | undefined {
   return ts.sys.readFile(filePath);
 }
 
-export function tsSysFileExists(filePath: string): boolean {
-  return ts.sys.fileExists(filePath);
-}
-
 // A `ts.ModuleResolutionHost` whose filesystem methods delegate to `ts.sys` with
 // `this` bound, and whose current directory is the repo root. `realpath` is
 // intentionally omitted: it only canonicalizes symlinks, which for source-tree

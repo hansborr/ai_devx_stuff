@@ -42,6 +42,16 @@ Do **not** read this folder at session start. Promote an item back into
   harness review and selected backlog overlaps. Promote one leaf at a time from
   this folder for the reviewed diagnostics, loop, docs/feedforward, architecture
   sensor, and governance work; older AI-harness notes remain rationale.
+- `ci-local-gate-parity-guard.md` — systemic follow-up to keep local and CI
+  gate lists structurally aligned via `harness:check` or generation from
+  `harness.controls.json`, beyond one-off wiring fixes.
+- `scripts-flat-family-reorg.md` — decide whether the flat
+  `lint-coverage-map-check*`, `client-test-isolation*`, and
+  `sensor-knip-unused-exports*` script families should move under directories
+  or become sanctioned top-level exceptions.
+- `worktree-local-observability.md` — parked local dev-session observability
+  plan; the fixture-backed `logs:audit` quality checks landed, while capture
+  directories and a log inspector remain unpromoted.
 - `harness-presentation-2026-06/00-README.md` — 2026-06-13 research pack +
   deliverables for a 23-slide talk on harness/context/agentic engineering
   (Musi as case study): research report, slide-deck text, an 8-item improvement
@@ -82,6 +92,10 @@ Do **not** read this folder at session start. Promote an item back into
   move into the slow tier (and the `test-lint-ratchet.sh` smoke, which needs
   new slow-smoke plumbing). Behavior change, so deferred; promote only if more
   per-commit time still needs trimming. Includes a coverage-threshold caveat.
+- `character-sheet-load-error-after-return.md` — parked reproduction target
+  migrated from the stale scratch bug file; current `character.get` and sheet
+  invalidation coverage does not prove the old generic load-error report is
+  fixed.
 - `concurrency-guard-followups.md` — optional hardening after the
   concurrency-guard codemod and ESLint rule landed: shared contract extraction,
   helper-internal lint, advisory lock-order output, and stronger provenance
@@ -120,6 +134,13 @@ Do **not** read this folder at session start. Promote an item back into
   for the deferred `react-hooks/set-state-in-effect`, a gated
   `eslint-plugin-react-you-might-not-need-an-effect` trial, agent-facing
   effect guidance, and an explicit hard-ban rejection.
+- `dialog-reset-on-open-convention.md` — parked convention decision for dialog
+  local-state resets on open; choosing key-remounts or a tiny helper would
+  drain much of the frozen `set-state-in-effect` debt and close the `prevOpen`
+  escape hatch.
+- `join-page-auto-join-ux-decision.md` — parked product/UX decision for invite
+  links: keep auto-join but move it out of a component effect, or require an
+  explicit "Join campaign" confirmation before mutating.
 - `storybook-component-catalog.md` — parked plan for a Storybook (or lighter)
   component catalog over the 13 `packages/client/src/components/ui/` primitives,
   wired to the Tailwind v4 theme, plus a foundations page mirroring `DESIGN.md`.
@@ -139,6 +160,31 @@ Do **not** read this folder at session start. Promote an item back into
   `noFallthroughCasesInSwitch`) with measured adoption, and add a short
   intent/comprehension prompt to the PR template while preserving
   `verify:changed`.
+- `lint-messaging-2026-07/00-index.md` — 21-leaf task pack from the
+  2026-07-05 lint-messaging review (5 parallel Sonnet surface agents +
+  Fable synthesis; highest-impact claims spot-verified, rest
+  report-sourced). Four tracks: truthfulness (fast-commit success summary
+  silent about skipped slots, suppression-register soft pass,
+  concurrency-guard doc contradiction), discoverability (envelope↔hook
+  bridge, inline doc-pointer parity + contract-test guard, coverage-map
+  `--suggest` alias), audit-lane actionability (`audit:licenses` remedy,
+  logs-audit/blob-size/knip remedy batch), and consistency/noise polish
+  (ratchet `--allow-worse` dedupe, merge-recipe single-sourcing,
+  improvement `kind` field, typecheck/commit-msg summaries).
+- `lint-deep-dive-2026-07/00-index.md` — 32-leaf task pack from the
+  2026-07-04 lint deep-dive (3 parallel Codex xhigh lanes + Claude
+  verification agents; every claim verified against HEAD). Seven tracks:
+  ratchet correctness (post-merge truth-up staleness, transitive rule-source
+  hashing, merge fingerprint drop, debt accounting into the commit gate),
+  performance (shared heap policy, ESLint caching, collection dedupe),
+  local-rule correctness (raw-SQL computed-property bypass, one confirmed
+  false positive in socket-listener-cleanup, binding-resolution gaps across
+  four rules), config architecture (additive restricted-syntax composition,
+  config-surface manifest, smoke-subject single-sourcing), gate wiring
+  (suppression registers into the gate — owner priority, CI manifest
+  generation), inventory floors (coverage-map conflict detection, knip
+  identity baseline), and docs/portability (guide accuracy sweep, portable
+  engine context milestone 2).
 - `harness-review-2026-07/00-index.md` — 36-leaf task pack from the
   2026-07-01 AI-harness review (multi-agent + Codex second opinion + web
   research; every count re-verified against HEAD). Five tracks: ratchet
@@ -151,6 +197,29 @@ Do **not** read this folder at session start. Promote an item back into
   policy.sh false-positive fix, protected-files deny tier, pre-push
   backstop), and public-reference fitness (export-ignore, portable-core
   extraction). Rejected verdicts recorded in `01-sources-and-verdicts.md`.
+- `explore-fixes-2026-07/00-index.md` — 17-leaf task pack from the 2026-07-03
+  exploration pass (Codex investigation + three independent sweeps + Codex
+  adversarial triage; every citation re-verified at HEAD). Dominant theme is
+  dogfood-tooling correctness: CLI option-value parsing footguns
+  (logs/harness audit, drift-ai/code-intel), an unsafe slow-drift `rm -rf`,
+  the silent `.allow-protected-edits` override, stale-artifact metadata,
+  bun-run-quiet allowlist drift, a typecheck.sh test gap — plus two
+  whole-ratchet clears, a ratchet-debt disposition decision, two client
+  dedups, one test de-flake, and one stale flaky-doc closure. Kill list and
+  ratchet-debt snapshot in its `01-sources-and-verdicts.md`.
+- `explore-fixes-2026-07b/00-index.md` — 12-leaf task pack from the second
+  2026-07-03 exploration pass (Codex investigation + three independent
+  Claude sweeps + Codex adversarial triage + orchestrator spot-checks),
+  run after the first pack landed and aimed at angles it did not cover.
+  Two themes: tooling atomic/ordering hazards (CI running the weaker
+  coverage-map checker vs the documented audit form, cross-filesystem
+  `.env` and MODULE-INDEX writes, unenforced commit scope, unmodeled
+  client→server tsconfig edge) and client cache-layer correctness
+  (optimistic updates that never cancel in-flight queries, a missed
+  `character.list` invalidation, an incomplete slot-conversion patch, a
+  missing roster broadcast) — plus guide drift from the ESLint-config
+  split and the lint-ratchet portable-set extraction. Kill list and the
+  pass's verified-clean record in its `01-sources-and-verdicts.md`.
 - `harness-research-followups-2026-06/00-index.md` — second round of
   proposal-only follow-ups from the harness research, after cross-checking each
   recommendation against what the repo already enforces. Four **ready** leaves:
@@ -161,6 +230,14 @@ Do **not** read this folder at session start. Promote an item back into
   scanning (gitleaks/trufflehog), a PR diff-size warning, and a guardrail-config
   change tripwire (the last two shaped by this being a single-author repo).
   Index lists what is already covered elsewhere so nothing is double-proposed.
+- `arch-review-2026-07/00-report.md` — 2026-07-06 whole-repo architectural
+  review (five parallel survey agents + synthesis; harness-focused per owner).
+  Verdict: product code clean; harness refactors ranked in three tiers —
+  single verify engine, finish single-sourcing of tripwire-guarded bindings,
+  agent-run backend adapter table, unified baseline framework, then
+  substrate-ruling/shared-lib/classification decisions, then a cheap-cleanup
+  drain list. Cross-referenced against the existing packs it amends.
+
 ## Promotion rules
 
 1. Promote only work that is ready now.

@@ -41,6 +41,15 @@ function writeRepoFile(repoRoot: string, relativePath: string, contents: string)
   writeFileSync(absolutePath, contents);
 }
 
+function thrownMessage(run: () => unknown): string {
+  try {
+    run();
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
+  }
+  throw new Error("expected function to throw");
+}
+
 describe("parseArgs", () => {
   it("defaults to text output", () => {
     expect(parseArgs([], "/repo")).toEqual({ format: "text", repoRoot: "/repo" });
@@ -64,6 +73,18 @@ describe("parseArgs", () => {
 
   it("throws when --format has no following value", () => {
     expect(() => parseArgs(["--format"], "/repo")).toThrow(/--format requires a value/u);
+  });
+
+  it("throws when --format receives another option as its value", () => {
+    expect(() => parseArgs(["--format", "--help"], "/repo")).toThrow(/--format requires a value/u);
+    expect(() => parseArgs(["--format=--help"], "/repo")).toThrow(/--format requires a value/u);
+  });
+
+  it("preserves empty string argv entries as unknown arguments", () => {
+    const unknownMessage = thrownMessage(() => parseArgs(["--nope"], "/repo"));
+    expect(thrownMessage(() => parseArgs([""], "/repo"))).toBe(
+      unknownMessage.replace("--nope", ""),
+    );
   });
 });
 

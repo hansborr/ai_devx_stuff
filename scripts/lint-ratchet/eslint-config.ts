@@ -12,6 +12,10 @@ import { assertNever, ratchetParserProfile, ratchetSource } from "./runtime-conf
 
 export const CACHE_HASH_PREFIX_LENGTH = 12;
 
+interface WriteEslintConfigOptions {
+  readonly configDirectory?: string;
+}
+
 export function cacheKeyHashFor(ratchet: LintRatchetConfig, ruleSourceHash: string): string {
   const eslintConfigRatchet = { ...ratchet, metric: "message-count" } satisfies LintRatchetConfig;
   const combined = createHash("sha256")
@@ -22,10 +26,17 @@ export function cacheKeyHashFor(ratchet: LintRatchetConfig, ruleSourceHash: stri
   return combined.slice(0, CACHE_HASH_PREFIX_LENGTH);
 }
 
-function eslintConfigPathFor(ratchet: LintRatchetConfig, ruleSourceHash: string): string {
+function defaultEslintConfigDirectory(): string {
+  return join(repoRoot, "node_modules/.cache/eslint-ratchet/configs");
+}
+
+function eslintConfigPathFor(
+  ratchet: LintRatchetConfig,
+  ruleSourceHash: string,
+  options: WriteEslintConfigOptions,
+): string {
   return join(
-    repoRoot,
-    "node_modules/.cache/eslint-ratchet/configs",
+    options.configDirectory ?? defaultEslintConfigDirectory(),
     `${safeRatchetId(ratchet.id)}-${cacheKeyHashFor(ratchet, ruleSourceHash)}.mjs`,
   );
 }
@@ -43,6 +54,8 @@ export function usesEslintCache(ratchet: LintRatchetConfig): boolean {
   return ratchetParserProfile(ratchet) === "minimal-ts";
 }
 
+const noInlineConfigEntry = "  { linterOptions: { noInlineConfig: true } },";
+
 function writeLocalEslintConfig(ratchet: LintRatchetConfig, configPath: string): void {
   const rulePath = pathToFileURL(localRulePath(ratchet)).href;
   const ruleName = localRuleName(ratchet.ruleId);
@@ -51,6 +64,7 @@ function writeLocalEslintConfig(ratchet: LintRatchetConfig, configPath: string):
     `import ratchetedRule from ${JSON.stringify(rulePath)};`,
     "",
     "export default [",
+    noInlineConfigEntry,
     `  { ignores: ${JSON.stringify(ratchet.ignores)} },`,
     "  {",
     `    files: ${JSON.stringify(ratchet.files)},`,
@@ -129,6 +143,7 @@ function writeThirdPartyEslintConfig(ratchet: LintRatchetConfig, configPath: str
     ...thirdPartyPluginImportLines(source.pluginModule, support.pluginExport ?? "default"),
     "",
     "export default [",
+    noInlineConfigEntry,
     `  { ignores: ${JSON.stringify(ratchet.ignores)} },`,
     "  {",
     `    files: ${JSON.stringify(ratchet.files)},`,
@@ -154,6 +169,7 @@ function writeCoreEslintConfig(ratchet: LintRatchetConfig, configPath: string): 
     'import tseslint from "typescript-eslint";',
     "",
     "export default [",
+    noInlineConfigEntry,
     `  { ignores: ${JSON.stringify(ratchet.ignores)} },`,
     "  {",
     `    files: ${JSON.stringify(ratchet.files)},`,
@@ -169,8 +185,12 @@ function writeCoreEslintConfig(ratchet: LintRatchetConfig, configPath: string): 
   writeFileSync(configPath, rendered);
 }
 
-export function writeEslintConfig(ratchet: LintRatchetConfig, ruleSourceHash: string): string {
-  const configPath = eslintConfigPathFor(ratchet, ruleSourceHash);
+export function writeEslintConfig(
+  ratchet: LintRatchetConfig,
+  ruleSourceHash: string,
+  options: WriteEslintConfigOptions = {},
+): string {
+  const configPath = eslintConfigPathFor(ratchet, ruleSourceHash, options);
   mkdirSync(dirname(configPath), { recursive: true });
   const source = ratchetSource(ratchet);
   switch (source.kind) {

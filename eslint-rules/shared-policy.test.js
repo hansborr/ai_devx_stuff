@@ -2,13 +2,18 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  configSurfaceEntries,
   codemodTestFiles,
   configFileReincludePatterns,
+  eslintRulesConfigReincludePatterns,
+  rootAndPackageTsConfigFiles,
   rootConfigReincludePatterns,
+  rootJsConfigFiles,
   scriptFixtureIgnores,
   scriptProjectIgnores,
   scriptTestAssertFunctionNames,
   scriptTypeScriptFiles,
+  tsConfigFiles,
 } from "../eslint-config/shared-policy.js";
 import { unitTestConfigs } from "../eslint-config/test-configs.js";
 import { lintRatchets } from "../scripts/lint-ratchet/lint-ratchet-config.ts";
@@ -38,6 +43,36 @@ function getAssertFunctionNamesFromRatchetOptions(ruleOptions) {
 }
 
 describe("shared lint policy", () => {
+  it("derives maintained config file lists from the config surface manifest", () => {
+    expect(rootJsConfigFiles).toEqual([
+      "eslint.config.js",
+      "commitlint.config.js",
+      "stryker.config.mjs",
+      "stryker.config.server.mjs",
+    ]);
+    expect(rootAndPackageTsConfigFiles).toEqual([
+      "knip.config.ts",
+      "playwright.config.ts",
+      "vitest.config.ts",
+      "vitest.slow.config.ts",
+      "packages/client/vite.config.ts",
+      "packages/client/vitest.config.ts",
+      "packages/server/prisma.config.ts",
+      "packages/server/vitest.config.ts",
+      "packages/server/vitest.mutation.config.ts",
+      "packages/shared/vitest.config.ts",
+    ]);
+    expect(tsConfigFiles).toEqual([
+      ...rootAndPackageTsConfigFiles,
+      "scripts/vitest.config.ts",
+      "eslint-rules/vitest.config.ts",
+    ]);
+    expect(configSurfaceEntries.map((entry) => entry.path)).toEqual([
+      ...rootJsConfigFiles,
+      ...tsConfigFiles,
+    ]);
+  });
+
   it("lints script TypeScript by default through the scripts project", () => {
     expect(scriptTypeScriptFiles).toEqual(["scripts/**/*.ts"]);
   });
@@ -53,11 +88,12 @@ describe("shared lint policy", () => {
     expect(scriptProjectIgnores).toEqual([...scriptFixtureIgnores, "scripts/vitest.config.ts"]);
   });
 
-  it("reincludes scripts/vitest.config.ts only for the config-file policy", () => {
+  it("reincludes non-root config files at their matching ignore boundary", () => {
     expect(configFileReincludePatterns).toEqual([
       ...rootConfigReincludePatterns,
       "!scripts/vitest.config.ts",
     ]);
+    expect(eslintRulesConfigReincludePatterns).toEqual(["!eslint-rules/vitest.config.ts"]);
     expect(scriptProjectIgnores).toContain("scripts/vitest.config.ts");
   });
 

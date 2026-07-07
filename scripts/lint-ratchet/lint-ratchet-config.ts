@@ -99,11 +99,9 @@ export const lintRatchetThirdPartyPluginAllowlist: readonly LintRatchetThirdPart
 // component tests; these three carry existing debt, so they are held as
 // message-count floors here and turned off in normal lint until drained.
 const testingLibraryClientTestFiles = ["packages/client/src/**/*.test.tsx"] as const;
-const testingLibraryRatchetIgnores = [
-  "**/dist/**",
-  "**/generated/**",
-  "**/node_modules/**",
-] as const;
+// Shared ignore floor for ratchets that only need to skip build output; reused
+// by every entry whose ignores are exactly the dist/generated/node_modules set.
+const commonRatchetIgnores = ["**/dist/**", "**/generated/**", "**/node_modules/**"] as const;
 const testingLibraryDrainExitPath = "docs/agent_notes/finished_work/lint-followups-2026-06.md";
 const harnessReview202607Leaf37 =
   "docs/agent_notes/backlog/harness-review-2026-07/37-cheap-plugin-and-config-rule-adds.md";
@@ -148,33 +146,6 @@ export const lintRatchets = [
       exitPath: designTokenLintExitPath,
     },
   },
-  {
-    id: "ratchet/local-no-plain-error-in-trpc-server",
-    ruleId: "local/no-plain-error-in-trpc",
-    files: [
-      "packages/server/src/routers/**/*.{ts,tsx}",
-      "packages/server/src/services/**/*.{ts,tsx}",
-    ],
-    ignores: [
-      "**/dist/**",
-      "**/generated/**",
-      "**/node_modules/**",
-      "packages/server/src/**/*-test-helper.{ts,tsx}",
-      "packages/server/src/**/*.{test,spec}.{ts,tsx}",
-      "packages/server/src/test/**/*.{ts,tsx}",
-    ],
-    ruleOptions: [],
-    mode: "no-new",
-    target: 0,
-    metric: "message-count",
-    repairKind: "manual",
-    principle: "Prevent direct plain Error throws from growing in tRPC routers and server services while the documented upload-service REST boundary is handled deliberately.",
-    zeroBaselineDisposition: {
-      kind: "promote-to-normal-lint",
-      reason: "tRPC routers and services should use coded TRPCErrors; once the current upload-service plain Error boundary is narrowed or translated, normal server lint should enforce the rule directly",
-      exitPath: "docs/agent_notes/backlog/harness-review-2026-07/32-trpc-error-code-discipline-rule.md",
-    },
-  },
   localTypeAssertionBoundaryRatchet({
     id: "ratchet/local-type-assertion-boundary",
     files: [
@@ -200,11 +171,7 @@ export const lintRatchets = [
     source: { kind: "core" },
     parserProfile: "minimal-ts",
     files: ["packages/**/*.{test,spec}.{ts,tsx}"],
-    ignores: [
-      "**/dist/**",
-      "**/generated/**",
-      "**/node_modules/**",
-    ],
+    ignores: commonRatchetIgnores,
     ruleOptions: noRealTimeInPackageTestsRestrictedSyntax,
     mode: "no-new",
     target: 0,
@@ -230,25 +197,6 @@ export const lintRatchets = [
     metric: "message-count",
     repairKind: "manual",
     principle: "Freeze the accepted set-state-in-effect floor so finding #25 fails at commit time while cleanup proceeds opportunistically.",
-  },
-  {
-    id: "ratchet/react-jsx-no-constructed-context-values-client",
-    ruleId: "react/jsx-no-constructed-context-values",
-    source: { kind: "third-party", pluginModule: "eslint-plugin-react" },
-    parserProfile: "minimal-ts",
-    files: ["packages/client/src/**/*.tsx"],
-    ignores: clientTestAndHelperSourceFiles,
-    ruleOptions: [],
-    mode: "no-new",
-    target: 0,
-    metric: "message-count",
-    repairKind: "manual",
-    principle: "Prevent constructed React context Provider values from growing while the current AuthProvider value object is memoized in a focused cleanup.",
-    zeroBaselineDisposition: {
-      kind: "promote-to-normal-lint",
-      reason: "React context Provider values should be stable; once the single current finding drains, normal client React lint should enforce constructed context values directly",
-      exitPath: harnessReview202607Leaf37,
-    },
   },
   {
     id: "ratchet/react-refresh-only-export-components-client",
@@ -280,9 +228,7 @@ export const lintRatchets = [
     parserProfile: "type-aware-ts",
     files: ["packages/server/src/services/encounter-combat/**/*.{ts,tsx}"],
     ignores: [
-      "**/dist/**",
-      "**/generated/**",
-      "**/node_modules/**",
+      ...commonRatchetIgnores,
       "packages/server/src/**/*-test-helper.{ts,tsx}",
       "packages/server/src/**/*.{test,spec}.{ts,tsx}",
       "packages/server/src/test/**/*.{ts,tsx}",
@@ -316,9 +262,7 @@ export const lintRatchets = [
     parserProfile: "type-aware-ts",
     files: ["packages/server/src/services/**/*.{ts,tsx}"],
     ignores: [
-      "**/dist/**",
-      "**/generated/**",
-      "**/node_modules/**",
+      ...commonRatchetIgnores,
       "packages/server/src/**/*-test-helper.{ts,tsx}",
       "packages/server/src/**/*.{test,spec}.{ts,tsx}",
       "packages/server/src/services/encounter-combat/**",
@@ -353,9 +297,7 @@ export const lintRatchets = [
     parserProfile: "type-aware-ts",
     files: ["packages/shared/src/**/*.{ts,tsx}"],
     ignores: [
-      "**/dist/**",
-      "**/generated/**",
-      "**/node_modules/**",
+      ...commonRatchetIgnores,
       "packages/shared/src/**/*.{test,spec}.{ts,tsx}",
       "packages/shared/src/**/*.test-helper.{ts,tsx}",
       "packages/shared/src/test/**/*.{ts,tsx}",
@@ -388,7 +330,7 @@ export const lintRatchets = [
     source: { kind: "third-party", pluginModule: "eslint-plugin-testing-library" },
     parserProfile: "minimal-ts",
     files: testingLibraryClientTestFiles,
-    ignores: testingLibraryRatchetIgnores,
+    ignores: commonRatchetIgnores,
     ruleOptions: [],
     mode: "no-new",
     target: 0,
@@ -407,7 +349,7 @@ export const lintRatchets = [
     source: { kind: "third-party", pluginModule: "eslint-plugin-testing-library" },
     parserProfile: "minimal-ts",
     files: testingLibraryClientTestFiles,
-    ignores: testingLibraryRatchetIgnores,
+    ignores: commonRatchetIgnores,
     ruleOptions: [],
     mode: "no-new",
     target: 0,
@@ -417,25 +359,6 @@ export const lintRatchets = [
     zeroBaselineDisposition: {
       kind: "promote-to-normal-lint",
       reason: "direct DOM-node access in client component tests bypasses Testing Library queries; floored at the leaf 06 inventory and promoted to normal-lint error once the debt drains to zero",
-      exitPath: testingLibraryDrainExitPath,
-    },
-  },
-  {
-    id: "ratchet/testing-library-prefer-screen-queries-client-tests",
-    ruleId: "testing-library/prefer-screen-queries",
-    source: { kind: "third-party", pluginModule: "eslint-plugin-testing-library" },
-    parserProfile: "minimal-ts",
-    files: testingLibraryClientTestFiles,
-    ignores: testingLibraryRatchetIgnores,
-    ruleOptions: [],
-    mode: "no-new",
-    target: 0,
-    metric: "message-count",
-    repairKind: "manual",
-    principle: "Prevent destructured render() queries (testing-library/prefer-screen-queries) in client component tests from growing past the leaf 06 inventory while the debt drains toward normal-lint promotion.",
-    zeroBaselineDisposition: {
-      kind: "promote-to-normal-lint",
-      reason: "queries destructured from render() instead of screen in client component tests; floored at the leaf 06 inventory and promoted to normal-lint error once the debt drains to zero",
       exitPath: testingLibraryDrainExitPath,
     },
   },

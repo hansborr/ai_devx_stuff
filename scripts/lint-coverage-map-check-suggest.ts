@@ -86,6 +86,7 @@ export async function buildSuggestions(options: BuildSuggestionsOptions): Promis
     "Suggested coverage-map edits (paste into docs/agent_notes/lint-coverage-map.md):",
     "First rooted full path in a `Path / group` cell sets the base dir; later bare",
     "filenames in the same cell resolve against it.",
+    "For `<excluded|not-code|proposed>`, choose `excluded` for intentional non-lint code, `not-code` for docs/generated/binary/vendor, or `proposed` when a lint/ratchet floor should be added.",
   ];
   let headerEmitted = false;
   for (const file of unaccountedFiles) {

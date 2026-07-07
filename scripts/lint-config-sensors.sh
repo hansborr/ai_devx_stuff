@@ -396,12 +396,14 @@ EOF
     return 1
   }
   echo "lint:config-sensors: yamllint checking ${#YAML_FILES[@]} YAML file(s)."
-  "$bin" -c "$REPO_ROOT/.yamllint.yml" --strict -f parsable "${YAML_FILES[@]}"
+  if ! "$bin" -c "$REPO_ROOT/.yamllint.yml" --strict -f parsable "${YAML_FILES[@]}"; then
+    return 1
+  fi
 }
 
 run_taplo() {
   [ "${#TOML_FILES[@]}" -gt 0 ] || return 0
-  local bin
+  local bin failed=0
   bin="$(taplo_command)" || {
     cat >&2 <<'EOF'
 lint:config-sensors: taplo is not available.
@@ -410,24 +412,34 @@ EOF
     return 1
   }
   echo "lint:config-sensors: taplo format-checking ${#TOML_FILES[@]} TOML file(s)."
-  "$bin" fmt --check "${TOML_FILES[@]}"
+  if ! "$bin" fmt --check "${TOML_FILES[@]}"; then
+    failed=1
+  fi
   echo "lint:config-sensors: taplo linting ${#TOML_FILES[@]} TOML file(s)."
-  "$bin" lint "${TOML_FILES[@]}"
+  if ! "$bin" lint "${TOML_FILES[@]}"; then
+    failed=1
+  fi
+  return "$failed"
 }
 
 run_hadolint() {
   [ "${#DOCKERFILES[@]}" -gt 0 ] || [ "${#REFERENCE_DOCKERFILES[@]}" -gt 0 ] || return 0
-  local wrapper="$REPO_ROOT/node_modules/.bin/hadolint"
+  local wrapper="$REPO_ROOT/node_modules/.bin/hadolint" failed=0
   # The devcontainer base is a local refreshed image tag, not a published
   # release stream. Keep DL3007 out of this repo's floor until that changes.
   if [ "${#DOCKERFILES[@]}" -gt 0 ]; then
     echo "lint:config-sensors: hadolint checking ${#DOCKERFILES[@]} maintained Dockerfile(s)."
-    run_with_hadolint_lock "$wrapper" run_hadolint_locked "$wrapper" --ignore DL3007 "${DOCKERFILES[@]}"
+    if ! run_with_hadolint_lock "$wrapper" run_hadolint_locked "$wrapper" --ignore DL3007 "${DOCKERFILES[@]}"; then
+      failed=1
+    fi
   fi
   if [ "${#REFERENCE_DOCKERFILES[@]}" -gt 0 ]; then
     echo "lint:config-sensors: hadolint checking ${#REFERENCE_DOCKERFILES[@]} local reference Dockerfile(s)."
-    run_with_hadolint_lock "$wrapper" run_hadolint_locked "$wrapper" --ignore DL3008 --ignore DL3015 --ignore DL4006 "${REFERENCE_DOCKERFILES[@]}"
+    if ! run_with_hadolint_lock "$wrapper" run_hadolint_locked "$wrapper" --ignore DL3008 --ignore DL3015 --ignore DL4006 "${REFERENCE_DOCKERFILES[@]}"; then
+      failed=1
+    fi
   fi
+  return "$failed"
 }
 
 if [ "$MODE" = changed ]; then
@@ -449,7 +461,9 @@ if [ "${#ACTIONLINT_FILES[@]}" -eq 0 ] \
   exit 0
 fi
 
-run_actionlint
-run_yamllint
-run_taplo
-run_hadolint
+failed=0
+run_actionlint || failed=1
+run_yamllint || failed=1
+run_taplo || failed=1
+run_hadolint || failed=1
+exit "$failed"

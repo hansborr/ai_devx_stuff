@@ -23,12 +23,16 @@ describe("no-plain-error-in-trpc", () => {
           code: 'return new Error("not thrown");',
         },
         {
-          code: 'throw Error("legacy function-call form is out of scope for v1");',
+          code: 'throw errorFor("not the built-in Error constructor");',
         },
       ],
       invalid: [
         {
           code: 'throw new Error("Map not found");',
+          errors: [{ messageId: "plainError" }],
+        },
+        {
+          code: 'throw Error("Map not found");',
           errors: [{ messageId: "plainError" }],
         },
       ],

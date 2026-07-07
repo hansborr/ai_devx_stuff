@@ -11,6 +11,7 @@
 
 import { readFileSync } from "node:fs";
 
+import { DRIFT_AI_ADVISORY_BANNER } from "./advisory-common.js";
 import { DriftAiHelp } from "./cli-args.js";
 import { loadDriftAiConfig, type LoadedDriftAiConfig } from "./config.js";
 import { DriftAiError } from "./errors.js";
@@ -50,7 +51,6 @@ import {
   writeSubcommandOutput,
 } from "./subcommand-args.js";
 
-const BANNER = "Areas to check, not defects. drift:ai makes no claim these are problems.";
 const COMPLEXITY_NOTE =
   "not measured; complexity is covered by lint-baseline adapters, not hotspots";
 
@@ -176,7 +176,7 @@ function buildAdvisory(
     kind: "advisory",
     lens: parsed.lens,
     note: mergeNotes(tagged.note),
-    banner: BANNER,
+    banner: DRIFT_AI_ADVISORY_BANNER,
     window: {
       requestedDays: history.requestedWindowDays,
       effectiveDays: history.effectiveWindowDays,

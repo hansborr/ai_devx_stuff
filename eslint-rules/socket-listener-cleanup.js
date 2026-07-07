@@ -52,11 +52,15 @@ function stringLiteralValue(node) {
 /**
  * @param {import('estree').Node | import('estree').SpreadElement | undefined} node
  * @param {(name: string) => string | undefined} resolveConstString
+ * @param {import('eslint').SourceCode} sourceCode
  */
-function eventName(node, resolveConstString) {
+function eventName(node, resolveConstString, sourceCode) {
   const literal = stringLiteralValue(node);
   if (literal) return literal;
-  return node?.type === "Identifier" ? resolveConstString(node.name) : undefined;
+  if (!node || node.type === "SpreadElement") return undefined;
+  if (node.type === "Identifier") return resolveConstString(node.name);
+  if (node.type === "MemberExpression") return sourceCode.getText(unwrapChain(node));
+  return undefined;
 }
 
 /**
@@ -129,7 +133,7 @@ function socketListenerCall(node, sourceCode, resolveConstString) {
     return { method, objectName, key: undefined };
   }
 
-  const event = eventName(node.arguments[0], resolveConstString);
+  const event = eventName(node.arguments[0], resolveConstString, sourceCode);
   const handler = handlerName(node.arguments[1], sourceCode);
   return {
     method,

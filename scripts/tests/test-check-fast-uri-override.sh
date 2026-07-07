@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# smoke-order: 440
+# smoke-subjects: scripts/check-fast-uri-override.sh
+# smoke-subjects: scripts/tests/test-check-fast-uri-override.sh
 # Pure-shell tests for the fast-uri override watchdog.
 #
 # The watchdog reads package.json + bun.lock only (no network), so these tests

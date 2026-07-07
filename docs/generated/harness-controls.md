@@ -393,20 +393,6 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Repair:** manual
 
-### `ratchet/local-no-plain-error-in-trpc-server`
-
-**Principle:** Prevent direct plain Error throws from growing in tRPC routers and server services while the documented upload-service REST boundary is handled deliberately.
-
-**Category:** behavior
-
-**Source:** `scripts/lint-ratchet/lint-ratchet-config.ts`
-
-**Invocation:** `bun run lint:ratchet`
-
-**Paired guide:** [docs/guides/lint-ratchet.md](../guides/lint-ratchet.md)
-
-**Repair:** manual
-
 ### `ratchet/local-type-assertion-boundary`
 
 **Principle:** Prevent the known type-assertion debt pool from growing while cleanup proceeds incrementally.
@@ -438,20 +424,6 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 ### `ratchet/react-hooks-set-state-in-effect-client`
 
 **Principle:** Freeze the accepted set-state-in-effect floor so finding #25 fails at commit time while cleanup proceeds opportunistically.
-
-**Category:** maintainability
-
-**Source:** `scripts/lint-ratchet/lint-ratchet-config.ts`
-
-**Invocation:** `bun run lint:ratchet`
-
-**Paired guide:** [docs/guides/lint-ratchet.md](../guides/lint-ratchet.md)
-
-**Repair:** manual
-
-### `ratchet/react-jsx-no-constructed-context-values-client`
-
-**Principle:** Prevent constructed React context Provider values from growing while the current AuthProvider value object is memoized in a focused cleanup.
 
 **Category:** maintainability
 
@@ -536,20 +508,6 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 ### `ratchet/testing-library-no-node-access-client-tests`
 
 **Principle:** Prevent direct DOM-node access (testing-library/no-node-access) in client component tests from growing past the leaf 06 inventory while the debt drains toward normal-lint promotion.
-
-**Category:** maintainability
-
-**Source:** `scripts/lint-ratchet/lint-ratchet-config.ts`
-
-**Invocation:** `bun run lint:ratchet`
-
-**Paired guide:** [docs/guides/lint-ratchet.md](../guides/lint-ratchet.md)
-
-**Repair:** manual
-
-### `ratchet/testing-library-prefer-screen-queries-client-tests`
-
-**Principle:** Prevent destructured render() queries (testing-library/prefer-screen-queries) in client component tests from growing past the leaf 06 inventory while the debt drains toward normal-lint promotion.
 
 **Category:** maintainability
 
@@ -691,7 +649,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `sensor/knip-unused-exports`
 
-**Principle:** Prevent knip-reported unused exported symbols from growing above the committed baseline while raw knip dependency/file and duplication reports remain advisory.
+**Principle:** Prevent knip-reported unused exported symbol counts from diverging from the committed baseline while raw knip dependency/file and duplication reports remain advisory.
 
 **Category:** maintainability
 
@@ -735,7 +693,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `verify-wrapper/verify`
 
-**Principle:** Run lint, lint:ratchet, the zero-baseline lifecycle check, the knip unused-export floor, coverage-map, format check, typecheck, test, and script smoke suites against the full tree with shared cache, lock, and log directory so a failing slot leaves the rest reusable; lint preflights packages/{shared,server}/dist and runs typecheck automatically before ESLint when those ignored outputs are missing.
+**Principle:** Run lint, suppression policy registers, lint:ratchet, the zero-baseline lifecycle check, the debt-accounting integrity gate, the knip unused-export floor, coverage-map, format check, typecheck, test, and script smoke suites against the full tree with shared cache, lock, and log directory so a failing slot leaves the rest reusable; lint preflights packages/{shared,server}/dist and runs typecheck automatically before ESLint when those ignored outputs are missing.
 
 **Category:** maintainability
 
@@ -746,8 +704,10 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 **Slots:**
 
 - `lint` — `lint`
+- `suppressions` — `lint:suppressions`
 - `ratchet` — `lint:ratchet` — env: `HARNESS_DIAGNOSTICS_OUTPUT=$LOG_DIR/ratchet-diagnostics.json`
 - `zero-baseline` — `lint:ratchet:zero-baseline`
+- `debt-accounting` — `lint:ratchet:check-debt-accounting`
 - `knip-unused-exports` — `sensor:knip-unused-exports`
 - `coverage-map` — `docs:lint-coverage-map:audit`
 - `format-check` — `format:check`
@@ -775,7 +735,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `verify-wrapper/verify-changed`
 
-**Principle:** Run lint:changed, lint:ratchet, the zero-baseline lifecycle check, the knip unused-export floor, coverage-map, format:changed:check, typecheck, test:changed, and test:scripts:changed in parallel against the changed-file set; default edit-loop gate before commit; when packages/{shared,server}/dist is missing, the wrapper defers lint until the existing typecheck slot has produced those ignored outputs.
+**Principle:** Run lint:changed, suppression policy registers, lint:ratchet, the zero-baseline lifecycle check, the debt-accounting integrity gate, the knip unused-export floor, coverage-map, format:changed:check, typecheck, test:changed, and test:scripts:changed in parallel against the changed-file set; default edit-loop gate before commit; when packages/{shared,server}/dist is missing, the wrapper defers lint and ratchet until the existing typecheck slot has produced those ignored outputs.
 
 **Category:** maintainability
 
@@ -786,8 +746,10 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 **Slots:**
 
 - `lint` — `lint:changed`
+- `suppressions` — `lint:suppressions`
 - `ratchet` — `lint:ratchet` — env: `HARNESS_DIAGNOSTICS_OUTPUT=$LOG_DIR/ratchet-diagnostics.json`
 - `zero-baseline` — `lint:ratchet:zero-baseline`
+- `debt-accounting` — `lint:ratchet:check-debt-accounting`
 - `knip-unused-exports` — `sensor:knip-unused-exports`
 - `coverage-map` — `docs:lint-coverage-map:check` — args: `-- --staged`
 - `format-check` — `format:changed:check`
@@ -829,7 +791,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `verify-wrapper/verify-parallel`
 
-**Principle:** Run the full lint, ratchet, zero-baseline lifecycle check, knip unused-export floor, coverage-map, format check, typecheck, test, and scripts suites in parallel; reduces full-verify wall time when the full script suite fits the selected timeout or cached state; when packages/{shared,server}/dist is missing, the wrapper defers lint until the existing typecheck slot has produced those ignored outputs.
+**Principle:** Run the full lint, suppression policy registers, ratchet, zero-baseline lifecycle check, debt-accounting integrity gate, knip unused-export floor, coverage-map, format check, typecheck, test, and scripts suites in parallel; reduces full-verify wall time when the full script suite fits the selected timeout or cached state; when packages/{shared,server}/dist is missing, the wrapper defers lint and ratchet until the existing typecheck slot has produced those ignored outputs.
 
 **Category:** maintainability
 
@@ -840,8 +802,10 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 **Slots:**
 
 - `lint` — `lint`
+- `suppressions` — `lint:suppressions`
 - `ratchet` — `lint:ratchet` — env: `HARNESS_DIAGNOSTICS_OUTPUT=$LOG_DIR/ratchet-diagnostics.json`
 - `zero-baseline` — `lint:ratchet:zero-baseline`
+- `debt-accounting` — `lint:ratchet:check-debt-accounting`
 - `knip-unused-exports` — `sensor:knip-unused-exports`
 - `coverage-map` — `docs:lint-coverage-map:audit`
 - `format-check` — `format:check`
@@ -899,7 +863,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `doctor-check/eslint-disable-register`
 
-**Principle:** Scan for new eslint-disable comments missing a `-- reason` text or for broad disables outside the file/rule allowlist; suppressions must be self-documenting.
+**Principle:** Scan for new eslint-disable comments missing a `-- reason` text or for broad disables outside the file/rule allowlist; suppressions must be self-documenting and the check is part of the commit gate.
 
 **Category:** maintainability
 
@@ -983,7 +947,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `doctor-check/shellcheck-system-tool`
 
-**Principle:** Report whether ShellCheck is available from the system PATH; shell lint requires the apt-provided shellcheck package rather than the npm wrapper.
+**Principle:** Report whether ShellCheck is available from the system PATH; shell lint requires a system-installed shellcheck (dnf/apt/brew) rather than the npm wrapper.
 
 **Category:** maintainability
 
@@ -997,7 +961,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `doctor-check/suppression-register`
 
-**Principle:** Scan for current-state TypeScript and Stryker suppressions missing `-- reason`, deprecated `@ts-ignore`, `@ts-nocheck` outside the allowlist, or broad Stryker disables; report-only baseline.
+**Principle:** Scan for current-state TypeScript and Stryker suppressions missing `-- reason`, deprecated `@ts-ignore`, `@ts-nocheck` outside the allowlist, or broad Stryker disables; suppression policy violations fail the commit gate.
 
 **Category:** maintainability
 
@@ -1182,6 +1146,20 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 **Paired guide:** [docs/agent_notes/lint-coverage-map.md](../agent_notes/lint-coverage-map.md)
 
 **Repair:** manual
+
+### `check/config-surface-generator`
+
+**Principle:** Generate tsconfig.configs.json from eslint-config/config-surface-manifest.json; --check fails on drift between the manifest and the checked-in TypeScript config-surface project.
+
+**Category:** maintainability
+
+**Source:** `scripts/harness/generate-config-surfaces.ts`
+
+**Invocation:** `bun run harness:config-surfaces`
+
+**Paired guide:** [docs/agent_notes/lint-coverage-map.md](../agent_notes/lint-coverage-map.md)
+
+**Repair:** autofix
 
 ### `check/drift-ai-commented-out-code`
 
@@ -1381,7 +1359,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `check/lint-agent-local-rules`
 
-**Principle:** Emit a schema-validated harness diagnostics envelope for `local/*` ESLint findings, parser errors, and info disclosures for skipped non-local ESLint findings; this is a local-rule view, not full lint parity.
+**Principle:** Emit a schema-validated harness diagnostics envelope for `local/*` ESLint findings, parser errors, and info disclosures for skipped non-local ESLint findings; this is a local-rule view, not full lint parity, and is intentionally not a verify/pre-commit gate slot (see docs/guides/local-eslint-rules.md#severity-semantics).
 
 **Category:** maintainability
 
@@ -1395,7 +1373,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `check/lint-agent-local-rules-changed`
 
-**Principle:** Scope the local-rule diagnostics envelope to changed JS/TS-like files while preserving the `local/*` and parser-error contract; this is not `lint:changed` parity.
+**Principle:** Scope the local-rule diagnostics envelope to changed JS/TS-like files while preserving the `local/*` and parser-error contract; this is not `lint:changed` parity and is intentionally not a verify/pre-commit gate slot (see docs/guides/local-eslint-rules.md#severity-semantics).
 
 **Category:** maintainability
 
@@ -1418,6 +1396,20 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 **Invocation:** `bun run docs:lint-coverage-map:check`
 
 **Paired guide:** [docs/agent_notes/lint-coverage-map.md](../agent_notes/lint-coverage-map.md)
+
+**Repair:** manual
+
+### `check/lint-probe-rule`
+
+**Principle:** Probe exactly one `local/*` ESLint rule through the lint-ratchet generated-config path without creating a repo-root scratch flat config.
+
+**Category:** maintainability
+
+**Source:** `scripts/lint-probe-rule.ts`
+
+**Invocation:** `bun run lint:probe-rule`
+
+**Paired guide:** [docs/guides/local-eslint-rules.md](../guides/local-eslint-rules.md)
 
 **Repair:** manual
 
@@ -1446,6 +1438,34 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 **Invocation:** `bun run lint:ratchet:zero-baseline`
 
 **Paired guide:** [docs/guides/lint-ratchet.md](../guides/lint-ratchet.md)
+
+**Repair:** manual
+
+### `check/lint-suppressions`
+
+**Principle:** Run the ESLint-disable and TypeScript/Stryker suppression registers as one commit-gate slot so suppression policy drift is caught by verify, verify:changed, verify:parallel, and pre-commit.
+
+**Category:** maintainability
+
+**Source:** `scripts/lint-suppressions.sh`
+
+**Invocation:** `bun run lint:suppressions`
+
+**Paired guide:** none
+
+**Repair:** manual
+
+### `check/restricted-disable-rules-generator`
+
+**Principle:** Generate the normal-lint no-restricted-disable ratchet rule-id list from the lint-ratchet registry so inline-disable fences track ratchet adoption without a hand-maintained list.
+
+**Category:** maintainability
+
+**Source:** `scripts/harness/generate-restricted-disable-rules.ts`
+
+**Invocation:** `bun run lint:restricted-disable-rules`
+
+**Paired guide:** none
 
 **Repair:** manual
 
@@ -1914,19 +1934,19 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `hook/ai-session-state`
 
-**Principle:** After context compaction, re-inject a bounded repository state snapshot so branch, dirty-tree, fast-commit, kill-switch, and cached verification state survive in the fresh context window.
+**Principle:** At session start (startup/resume) and after context compaction, re-inject a bounded repository state snapshot so branch, dirty-tree, fast-commit, kill-switch, and cached verification state are surfaced in the fresh context window.
 
 **Category:** maintainability
 
 **Source:** `scripts/ai-hooks/session-state.sh`
 
-**Invocation:** `Claude SessionStart compact hook`
+**Invocation:** `Claude SessionStart startup/resume/compact hook`
 
 **Hook wiring:**
 
 - event: `SessionStart`; canonical order: `10`
 - outputs: `additionalContext`
-- `claude` — `bash $CLAUDE_PROJECT_DIR/.claude/hooks/session-state.sh` (matcher: `compact`; timeout: `15s`)
+- `claude` — `bash $CLAUDE_PROJECT_DIR/.claude/hooks/session-state.sh` (matcher: `startup|resume|compact`; timeout: `15s`)
 - `codex` — deliberately not wired: Codex compact hooks do not support additionalContext re-injection; omitted until a Codex-valid context-injection contract exists.
 - `copilot` — deliberately not wired: Copilot has no SessionStart hook event.
 
@@ -1936,42 +1956,21 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `hook/ai-stop-reminder`
 
-**Principle:** Run the shared stop reminder at session stop so pending verification, stale generated files, changed-file lint warnings, or unresolved policy reminders are surfaced before handoff; a per-worktree musi-stop-hard marker makes dirty-tree and cached-verify failures persistently blocking.
+**Principle:** Run the shared Claude Stop reminder at session stop so pending verification, stale generated files, changed-file lint warnings, or unresolved policy reminders are surfaced to the user without blocking or waking an agent.
 
 **Category:** maintainability
 
 **Source:** `scripts/ai-hooks/stop-reminder.sh`
 
-**Invocation:** `Claude Stop / Codex Stop / Copilot agentStop hook`
+**Invocation:** `Claude Stop hook`
 
 **Hook wiring:**
 
 - event: `Stop`; canonical order: `10`
+- outputs: `systemMessage`
 - `claude` — `bash $CLAUDE_PROJECT_DIR/.claude/hooks/stop-reminder.sh` (timeout: `30s`)
-- `codex` — `bash "$(git rev-parse --show-toplevel)/.codex/hooks/stop-reminder.sh"` (timeout: `30s`; status: `Checking repository stop conditions`)
-- `copilot` — `bash "$(git rev-parse --show-toplevel)/.copilot/hooks/stop-reminder.sh"` (timeout: `30s`)
-
-**Paired guide:** none
-
-**Repair:** manual
-
-### `hook/ai-subagent-stop-reminder`
-
-**Principle:** Run a scoped-down stop policy at subagent completion so delegated work sees dirty-tree and cached verification nudges without consuming the main session's stop reminder state.
-
-**Category:** maintainability
-
-**Source:** `scripts/ai-hooks/subagent-stop-reminder.sh`
-
-**Invocation:** `Claude SubagentStop hook`
-
-**Hook wiring:**
-
-- event: `SubagentStop`; canonical order: `10`
-- outputs: `additionalContext`
-- `claude` — `bash $CLAUDE_PROJECT_DIR/.claude/hooks/subagent-stop-reminder.sh` (timeout: `30s`)
-- `codex` — deliberately not wired: Codex SubagentStop does not support additionalContext re-injection; omitted until a Codex-valid advisory contract exists.
-- `copilot` — deliberately not wired: Copilot has no SubagentStop hook event.
+- `codex` — deliberately not wired: Codex Stop has no verified user-only output channel; stop wiring is omitted rather than using an agent-facing block decision.
+- `copilot` — deliberately not wired: Copilot agentStop has no verified user-only output channel; stop wiring is omitted rather than translating warnings into block decisions.
 
 **Paired guide:** none
 
@@ -2056,7 +2055,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `hook/pre-commit`
 
-**Principle:** Run lint:changed, lint:ratchet, the zero-baseline lifecycle check, the knip unused-export floor, coverage-map, format:changed:check, typecheck, test:changed, and conditionally test:scripts:changed in parallel before allowing the commit; when packages/{shared,server}/dist is missing, defer lint until the existing typecheck slot has produced those ignored outputs.
+**Principle:** Run lint:changed, suppression policy registers, lint:ratchet, the zero-baseline lifecycle check, the debt-accounting integrity gate, the knip unused-export floor, coverage-map, format:changed:check, typecheck, test:changed, and conditionally test:scripts:changed in parallel before allowing the commit; when packages/{shared,server}/dist is missing, defer lint and ratchet until the existing typecheck slot has produced those ignored outputs.
 
 **Category:** maintainability
 
@@ -2067,8 +2066,10 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 **Slots:**
 
 - `lint` — `lint:changed`
+- `suppressions` — `lint:suppressions`
 - `ratchet` — `lint:ratchet` — env: `HARNESS_DIAGNOSTICS_OUTPUT=$LOG_DIR/ratchet-diagnostics.json`
 - `zero-baseline` — `lint:ratchet:zero-baseline`
+- `debt-accounting` — `lint:ratchet:check-debt-accounting`
 - `knip-unused-exports` — `sensor:knip-unused-exports`
 - `coverage-map` — `docs:lint-coverage-map:check` — args: `-- --staged`
 - `format-check` — `format:changed:check`

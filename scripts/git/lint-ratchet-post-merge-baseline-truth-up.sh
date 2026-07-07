@@ -7,11 +7,41 @@ STALE_BASELINE_INSTRUCTION="post-merge: merge produced a stale ratchet baseline 
 repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
 cd "$repo_root" || exit 0
 
+truth_up_marker=""
+git_dir=$(git rev-parse --git-dir 2>/dev/null || true)
+if [ -n "$git_dir" ]; then
+  case "$git_dir" in
+    /*) git_dir_abs=$git_dir ;;
+    *) git_dir_abs="$repo_root/$git_dir" ;;
+  esac
+  truth_up_marker="$git_dir_abs/musi/lint-ratchet-baseline-postmerge-truth-up-required"
+fi
+
 git rev-parse --verify 'ORIG_HEAD^{commit}' >/dev/null 2>&1 || exit 0
+
+truth_up_marker_present=0
+if [ -n "$truth_up_marker" ] && [ -f "$truth_up_marker" ]; then
+  truth_up_marker_present=1
+  marker_merge_head=$(sed -n 's/^merge-head=//p' "$truth_up_marker" 2>/dev/null | head -n 1)
+  rm -f "$truth_up_marker"
+  if [ -n "$marker_merge_head" ]; then
+    # A stamped marker belongs to the merge whose MERGE_HEAD it recorded. If
+    # that merge was aborted, the leftover marker must not force a full
+    # baseline check on the next unrelated merge; honor it only when this
+    # merge commit's second parent matches the stamp. Unstamped markers keep
+    # the previous always-honor behavior (safe direction: over-check).
+    merged_parent=$(git rev-parse --verify --quiet 'HEAD^2' 2>/dev/null || true)
+    if [ "$merged_parent" != "$marker_merge_head" ]; then
+      truth_up_marker_present=0
+    fi
+  fi
+fi
 
 if ! git diff --name-only ORIG_HEAD HEAD -- lint-ratchet.baseline.json \
     | grep -qx 'lint-ratchet.baseline.json'; then
-  exit 0
+  if [ "$truth_up_marker_present" -eq 0 ]; then
+    exit 0
+  fi
 fi
 
 # Without bun (GUI git clients, minimal shells) staleness cannot be
@@ -21,6 +51,9 @@ command -v bun >/dev/null 2>&1 || exit 0
 
 run_full_check=0
 if [ "${MUSI_RATCHET_POSTMERGE:-}" = "full" ]; then
+  run_full_check=1
+fi
+if [ "$truth_up_marker_present" -eq 1 ]; then
   run_full_check=1
 fi
 

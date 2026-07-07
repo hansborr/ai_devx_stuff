@@ -64,38 +64,24 @@ jobs:
       - name: Install system lint tools
         run: sudo apt-get update && sudo apt-get install -y shellcheck yamllint
 
-      - name: Check formatting
-        run: bun run format:check
+      - name: Configure gate heap
+        run: |
+          . scripts/lib/gate-env.sh
+          printf 'NODE_OPTIONS=%s\n' "$NODE_OPTIONS" >> "$GITHUB_ENV"
 
-      # Typecheck before lint: `tsc -b` builds referenced-project dists
-      # (packages/{shared,server}/dist) that ESLint's projectService needs
-      # to resolve cross-package type imports like `@musi/server/router-type`.
-      # Without this, every client file that reaches into tRPC types lints
-      # as a sea of "unsafe any" errors on a fresh checkout.
-      - name: Typecheck
-        run: bun run typecheck
-
-      - name: Lint
-        run: bun run lint
-
-      - name: Lint ratchet
+      # The core gate consumes scripts/verify/steps.generated.sh, generated from
+      # harness.controls.json. CI-only report, docs, and artifact steps stay
+      # hand-written around that generated core.
+      - name: Verify generated gate manifest
         env:
-          HARNESS_DIAGNOSTICS_OUTPUT: lint-ratchet-diagnostics.json
-        run: bun run lint:ratchet
-
-      - name: Lint ratchet debt accounting
-        run: bun run lint:ratchet:check-debt-accounting
-
-      - name: Lint ratchet zero-baseline lifecycle
-        run: bun run lint:ratchet:zero-baseline
-
-      - name: Check lint coverage map
-        run: bun run docs:lint-coverage-map:check
+          FORCE_VERIFY: "1"
+          MUSI_VERIFY_LOG_DIR: .musi-ci-verify-logs
+        run: bun run verify
 
       - name: Lint ratchet step summary
         if: always()
         run: |
-          diagnostics="lint-ratchet-diagnostics.json"
+          diagnostics=".musi-ci-verify-logs/ratchet-diagnostics.json"
           report_path="lint-ratchet-report.md"
           artifact_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts"
 
@@ -176,23 +162,14 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: lint-ratchet-diagnostics
-          path: lint-ratchet-diagnostics.json
+          path: .musi-ci-verify-logs/ratchet-diagnostics.json
           retention-days: 7
-
-      - name: Check generated lint guidance is up to date
-        run: bun run docs:lint-guidance:check
 
       - name: Check harness manifest parity with rules and scripts
         run: bun run harness:check
 
-      - name: Script smoke tests
-        run: bun run test:scripts
-
       - name: Check module index
         run: bun run module:index:check
-
-      - name: Test
-        run: bun run test
 
       - name: Build
         run: bun run build

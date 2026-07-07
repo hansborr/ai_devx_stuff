@@ -1,4 +1,11 @@
 #!/usr/bin/env bash
+# smoke-order: 210
+# smoke-subjects: package.json
+# smoke-subjects: scripts/lint-fix.sh
+# smoke-subjects: scripts/lib/lint-dist-preflight.sh
+# smoke-subjects: scripts/tests/test-lint-fix-dist-preflight.sh
+# smoke-subjects: packages/shared/package.json
+# smoke-subjects: packages/server/package.json
 # Smoke test for the lint:fix TypeScript-build prerequisite preflight.
 set -euo pipefail
 

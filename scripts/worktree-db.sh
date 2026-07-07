@@ -322,6 +322,11 @@ allocate_redis_db_excluding() {
   die "no free Redis DB in [$REDIS_DB_MIN, $REDIS_DB_MAX]; stop or drop an existing secondary worktree"
 }
 
+worktree_redis_url() {
+  local redis_db="$1"
+  printf 'redis://redis:6379/%s' "$redis_db"
+}
+
 # ============================================================================
 # Template fingerprint
 # ============================================================================
@@ -813,9 +818,43 @@ write_worktree_env() {
 
   # Preserve non-managed keys in existing .env; replace managed ones.
   local root_env="$wt_root/.env"
-  local tmp
-  tmp="$(mktemp)"
-  {
+  local root_tmp="" client_tmp=""
+  local previous_int_trap previous_term_trap
+  previous_int_trap="$(trap -p INT || true)"
+  previous_term_trap="$(trap -p TERM || true)"
+
+  cleanup_worktree_env_temps() {
+    rm -f "${root_tmp:-}" "${client_tmp:-}"
+  }
+
+  restore_worktree_env_signal_traps() {
+    if [[ -n "$previous_int_trap" ]]; then
+      eval "$previous_int_trap"
+    else
+      trap - INT
+    fi
+    if [[ -n "$previous_term_trap" ]]; then
+      eval "$previous_term_trap"
+    else
+      trap - TERM
+    fi
+  }
+
+  interrupt_worktree_env_write() {
+    local exit_code="$1"
+    cleanup_worktree_env_temps
+    restore_worktree_env_signal_traps
+    exit "$exit_code"
+  }
+
+  trap 'interrupt_worktree_env_write 130' INT
+  trap 'interrupt_worktree_env_write 143' TERM
+
+  if ! root_tmp="$(mktemp "$wt_root/.env.tmp.XXXXXX")"; then
+    restore_worktree_env_signal_traps
+    return 1
+  fi
+  if ! {
     if [[ -f "$root_env" ]]; then
       grep -vE '^(DATABASE_URL|TEST_DATABASE_URL|E2E_DATABASE_URL|SERVER_PORT|REDIS_URL|CORS_ORIGIN|VITE_API_URL|VITE_DEV_PORT)=' "$root_env" || true
     fi
@@ -823,24 +862,49 @@ write_worktree_env() {
     printf 'TEST_DATABASE_URL=%s/%s\n'  "$base_url" "$testdb"
     printf 'E2E_DATABASE_URL=%s/%s\n'   "$base_url" "$e2edb"
     printf 'SERVER_PORT=%d\n'           "$server_port"
-    printf 'REDIS_URL=redis://redis:6379/%d\n' "$redis_db"
+    printf 'REDIS_URL=%s\n' "$(worktree_redis_url "$redis_db")"
     printf 'CORS_ORIGIN=http://localhost:%d\n' "$client_port"
-  } > "$tmp"
-  mv "$tmp" "$root_env"
+  } > "$root_tmp"; then
+    cleanup_worktree_env_temps
+    restore_worktree_env_signal_traps
+    return 1
+  fi
+  if ! mv "$root_tmp" "$root_env"; then
+    cleanup_worktree_env_temps
+    restore_worktree_env_signal_traps
+    return 1
+  fi
+  root_tmp=""
   log "wrote $root_env"
 
   local client_env_dir="$wt_root/packages/client"
-  mkdir -p "$client_env_dir"
+  if ! mkdir -p "$client_env_dir"; then
+    restore_worktree_env_signal_traps
+    return 1
+  fi
   local client_env="$client_env_dir/.env"
-  tmp="$(mktemp)"
-  {
+  if ! client_tmp="$(mktemp "$client_env_dir/.env.tmp.XXXXXX")"; then
+    restore_worktree_env_signal_traps
+    return 1
+  fi
+  if ! {
     if [[ -f "$client_env" ]]; then
       grep -vE '^(VITE_DEV_PORT|VITE_API_URL)=' "$client_env" || true
     fi
     printf 'VITE_DEV_PORT=%d\n'  "$client_port"
     printf 'VITE_API_URL=http://localhost:%d\n' "$server_port"
-  } > "$tmp"
-  mv "$tmp" "$client_env"
+  } > "$client_tmp"; then
+    cleanup_worktree_env_temps
+    restore_worktree_env_signal_traps
+    return 1
+  fi
+  if ! mv "$client_tmp" "$client_env"; then
+    cleanup_worktree_env_temps
+    restore_worktree_env_signal_traps
+    return 1
+  fi
+  client_tmp=""
+  restore_worktree_env_signal_traps
   log "wrote $client_env"
 }
 

@@ -30,6 +30,7 @@ export interface RawControl {
   readonly source?: unknown;
   readonly invocation?: unknown;
   readonly slots?: unknown;
+  readonly hookWiring?: unknown;
 }
 
 export interface ControlFailures {

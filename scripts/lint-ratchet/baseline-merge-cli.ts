@@ -8,7 +8,7 @@ const usageErrorExitCode = 2;
 const nodeArgvUserArgumentOffset = 2;
 
 function usage(): string {
-  return "usage: bun scripts/lint-ratchet/baseline-merge-cli.ts <base> <current> <other> [path]";
+  return "usage: bun scripts/lint-ratchet/baseline-merge-cli.ts <base> <current> <other> [path] [truth-up-marker] [merge-head]";
 }
 
 async function writeFileAtomically(path: string, content: string): Promise<void> {
@@ -24,8 +24,27 @@ async function writeFileAtomically(path: string, content: string): Promise<void>
   }
 }
 
+async function writePostMergeTruthUpMarker(
+  markerPath: string | undefined,
+  mergeHeadSha: string | undefined,
+  postMergeTruthUpRequired: boolean,
+): Promise<void> {
+  if (!postMergeTruthUpRequired || markerPath === undefined || markerPath.length === 0) return;
+  // The merge-head stamp lets the post-merge consumer match the marker to the
+  // merge that wrote it (HEAD^2 of the completed merge commit); a marker left
+  // behind by an aborted merge then no longer forces a full baseline check on
+  // the next unrelated merge.
+  const mergeHeadLine =
+    mergeHeadSha === undefined || mergeHeadSha.length === 0 ? "" : `merge-head=${mergeHeadSha}\n`;
+  await writeFileAtomically(
+    markerPath,
+    `lint-ratchet baseline semantic merge requires post-merge truth-up\n${mergeHeadLine}`,
+  );
+}
+
 export async function runBaselineMergeCli(argv: readonly string[]): Promise<number> {
-  const [basePath, currentPath, otherPath, path, unexpected] = argv;
+  const [basePath, currentPath, otherPath, path, truthUpMarkerPath, mergeHeadSha, unexpected] =
+    argv;
   if (
     basePath === undefined ||
     currentPath === undefined ||
@@ -49,6 +68,11 @@ export async function runBaselineMergeCli(argv: readonly string[]): Promise<numb
     return 1;
   }
 
+  await writePostMergeTruthUpMarker(
+    truthUpMarkerPath,
+    mergeHeadSha,
+    result.postMergeTruthUpRequired,
+  );
   await writeFileAtomically(currentPath, result.mergedText);
   return 0;
 }

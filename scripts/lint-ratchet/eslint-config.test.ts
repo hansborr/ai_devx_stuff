@@ -1,6 +1,13 @@
+import { readFileSync } from "node:fs";
+
 import { describe, expect, it } from "vitest";
 
-import { CACHE_HASH_PREFIX_LENGTH, cacheKeyHashFor, usesEslintCache } from "./eslint-config.js";
+import {
+  CACHE_HASH_PREFIX_LENGTH,
+  cacheKeyHashFor,
+  usesEslintCache,
+  writeEslintConfig,
+} from "./eslint-config.js";
 import type { LintRatchetConfig } from "./lint-ratchet-config.js";
 
 const minimalRatchet = {
@@ -22,6 +29,14 @@ const typeAwareRatchet = {
   ruleId: "@typescript-eslint/strict-boolean-expressions",
   source: { kind: "third-party", pluginModule: "typescript-eslint" },
   parserProfile: "type-aware-ts",
+} satisfies LintRatchetConfig;
+
+const coreRatchet = {
+  ...minimalRatchet,
+  id: "ratchet/cache-key-core-test",
+  ruleId: "no-debugger",
+  source: { kind: "core" },
+  parserProfile: "minimal-ts",
 } satisfies LintRatchetConfig;
 
 describe("cacheKeyHashFor", () => {
@@ -55,5 +70,16 @@ describe("usesEslintCache", () => {
   it("returns true only for minimal-ts parser profiles", () => {
     expect(usesEslintCache(minimalRatchet)).toBe(true);
     expect(usesEslintCache(typeAwareRatchet)).toBe(false);
+  });
+});
+
+describe("writeEslintConfig", () => {
+  it("disables inline config comments for local, third-party, and core ratchets", () => {
+    for (const ratchet of [minimalRatchet, typeAwareRatchet, coreRatchet]) {
+      const configPath = writeEslintConfig(ratchet, "sha256:rule-source-a");
+      const rendered = readFileSync(configPath, "utf8");
+
+      expect(rendered).toContain("  { linterOptions: { noInlineConfig: true } },\n");
+    }
   });
 });

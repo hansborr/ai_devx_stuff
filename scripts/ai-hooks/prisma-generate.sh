@@ -59,9 +59,27 @@ if is_debounced; then
 fi
 
 LOCK="${AI_PRISMA_LOCK:-$AI_PRISMA_STATE_DIR/lock}"
-mkdir -p "$AI_PRISMA_STATE_DIR"
-exec 9<>"$LOCK"
-flock 9
+
+prisma_lock_failure() {
+  local action="$1"
+  local detail="$2"
+
+  REASON="prisma generate skipped after schema edit because the hook could not $action lock $LOCK.
+
+$detail
+
+Fix the lock path or filesystem support before continuing; running prisma generate without mutual exclusion can race the shared marker and log files."
+  ai_emit_block "$REASON"
+}
+
+mkdir -p "$AI_PRISMA_STATE_DIR" \
+  || prisma_lock_failure "prepare state directory for" "State directory: $AI_PRISMA_STATE_DIR"
+if ! { exec 9<>"$LOCK"; } 2>/dev/null; then
+  prisma_lock_failure "open" "The lock file could not be opened for read/write."
+fi
+if ! flock 9 2>/dev/null; then
+  prisma_lock_failure "acquire" "The flock command failed for the opened lock file."
+fi
 
 if is_debounced; then
   ai_emit_continue

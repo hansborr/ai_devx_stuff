@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# smoke-order: 100
+# smoke-subjects: scripts/eslint-disable-register.sh
+# smoke-subjects: scripts/tests/lib/test-git-env.sh
+# smoke-subjects: scripts/tests/test-eslint-disable-register.sh
 # Pure-shell tests for eslint-disable register diagnostics.
 
 set -euo pipefail
@@ -72,6 +76,21 @@ if contains "$RUN_OUTPUT" 'FAIL:'; then
 fi
 ok "counts inline and broad suppressions separately"
 
+repo="$(new_repo allowlisted-deprecated-test)"
+mkdir -p "$repo/packages/server/src/utils"
+cat > "$repo/packages/server/src/utils/prisma-types.test.ts" <<'EOF'
+/* eslint-disable @typescript-eslint/no-deprecated -- compile-time deprecated-never contract */
+export const ok = true;
+EOF
+git -C "$repo" add packages/server/src/utils/prisma-types.test.ts
+run_report "$repo"
+[ "$RUN_STATUS" -eq 0 ] || fail "allowlisted deprecated test suppression should pass: $RUN_OUTPUT"
+contains "$RUN_OUTPUT" 'PASS: eslint-disable register total=1 inline=0 broad=1' \
+  || fail "allowlisted deprecated test count was wrong: $RUN_OUTPUT"
+contains "$RUN_OUTPUT" 'broad suppressions are allowlisted total=1' \
+  || fail "deprecated test broad suppression should be allowlisted: $RUN_OUTPUT"
+ok "allows the compile-time deprecation test broad suppression"
+
 repo="$(new_repo missing)"
 mkdir -p "$repo/src" "$repo/docs" "$repo/eslint-rules" "$repo/packages/shared/src/rules"
 cat > "$repo/packages/shared/src/rules/xp.ts" <<'EOF'
@@ -134,5 +153,26 @@ contains "$RUN_OUTPUT" 'PASS: eslint-disable register total=1 inline=1 broad=0' 
 contains "$RUN_OUTPUT" 'FAIL: eslint-disable register missing reasons total=1 inline=1 broad=0' \
   || fail "untracked missing reason was not flagged: $RUN_OUTPUT"
 ok "counts untracked non-ignored lintable files"
+
+repo="$(new_repo string-literal)"
+mkdir -p "$repo/src"
+cat > "$repo/src/app.ts" <<'EOF'
+const line = "escaped \" // eslint-disable-next-line no-console";
+const block = "escaped \" /* eslint-disable no-console */";
+EOF
+git -C "$repo" add src/app.ts
+run_report "$repo"
+[ "$RUN_STATUS" -eq 0 ] || fail "string-literal fixture should pass: $RUN_OUTPUT"
+contains "$RUN_OUTPUT" 'PASS: eslint-disable register total=0 inline=0 broad=0' \
+  || fail "string-literal fixture should not be counted: $RUN_OUTPUT"
+ok "ignores string-literal eslint-disable fixtures"
+
+not_repo="$TMP_ROOT/not-git"
+mkdir -p "$not_repo"
+run_report "$not_repo"
+[ "$RUN_STATUS" -eq 2 ] || fail "outside git repo should fail as unchecked: $RUN_OUTPUT"
+contains "$RUN_OUTPUT" "FAIL: eslint-disable register cannot check: $not_repo is not a git repository" \
+  || fail "outside git repo failure was wrong: $RUN_OUTPUT"
+ok "fails outside a git repo"
 
 printf 'eslint-disable register tests passed\n'

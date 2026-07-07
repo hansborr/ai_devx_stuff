@@ -56,6 +56,10 @@ const ALLOWED_LAYER_DIRECTION_EDGES: ReadonlySet<string> = new Set([
     "packages/server/src/utils/character-mapping.test.ts",
     "packages/server/src/services/character-create.ts",
   ),
+  edgeKey(
+    "packages/server/src/utils/__type-tests__/assert-turn-opts-dedup.ts",
+    "packages/server/src/services/combat-actions/types.ts",
+  ),
 ]);
 
 export function buildLayerDirectionFindings(

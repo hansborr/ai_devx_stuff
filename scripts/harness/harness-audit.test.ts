@@ -69,10 +69,28 @@ describe("parseArgs", () => {
     });
   });
 
+  it("preserves empty string argv entries as positional envelope files", () => {
+    expect(parseArgs([""])).toEqual({
+      inputs: [""],
+      format: "text",
+      output: undefined,
+    });
+  });
+
   it("rejects missing inputs, bad format, missing values, and unknown flags", () => {
     expect(() => parseArgs([])).toThrow(/requires at least one envelope file/u);
     expect(() => parseArgs(["--format", "yaml"])).toThrow(/--format requires text or json/u);
+    expect(() => parseArgs(["--format", "--output", "out.txt"])).toThrow(
+      /--format requires a value/u,
+    );
+    expect(() => parseArgs(["--format=--output", "out.txt"])).toThrow(/--format requires a value/u);
+    expect(() => parseArgs(["--format="])).toThrow(/--format requires a value/u);
     expect(() => parseArgs(["--output"])).toThrow(/--output requires a value/u);
+    expect(() => parseArgs(["--output", "--format", "json"])).toThrow(/--output requires a value/u);
+    expect(() => parseArgs(["--output=--format", "input.json"])).toThrow(
+      /--output requires a value/u,
+    );
+    expect(() => parseArgs(["--output="])).toThrow(/--output requires a value/u);
     expect(() => parseArgs(["--unknown", "x.json"])).toThrow(/Unknown argument/u);
   });
 });

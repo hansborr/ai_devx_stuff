@@ -1,4 +1,15 @@
 #!/usr/bin/env bash
+# smoke-order: 330
+# smoke-subjects: scripts/lint-agent.ts
+# smoke-subjects: scripts/lint-agent-envelope.ts
+# smoke-subjects: scripts/lib/lint-rule-docs.ts
+# smoke-subjects: scripts/tests/test-lint-agent.sh
+# smoke-subjects: packages/shared/src/schemas/harness-diagnostics.ts
+# smoke-subjects: eslint.config.js
+# smoke-subjects: eslint-config/
+# smoke-subjects: eslint-rules/
+# smoke-subjects: package.json
+# smoke-subjects: tsconfig.scripts.json
 # Smoke test for scripts/lint-agent.ts.
 #
 # Contract:

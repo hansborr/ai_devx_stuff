@@ -63,6 +63,42 @@ describe("no-async-array-callbacks", () => {
           ].join("\n"),
           errors: [{ messageId: "asyncMap" }],
         },
+        {
+          code: [
+            "async function load(files) {",
+            "  const tasks = files.map(async (file) => read(file));",
+            "  return tasks;",
+            "}",
+            "async function consume(tasks) {",
+            "  await Promise.all(tasks);",
+            "}",
+          ].join("\n"),
+          errors: [{ messageId: "asyncMap" }],
+        },
+        {
+          code: [
+            "async function load(files) {",
+            "  const tasks = files.map(async (file) => read(file));",
+            "  {",
+            "    const tasks = otherFiles.map((file) => file.path);",
+            "    await Promise.all(tasks);",
+            "  }",
+            "}",
+          ].join("\n"),
+          errors: [{ messageId: "asyncMap" }],
+        },
+        {
+          code: [
+            "async function load(files) {",
+            "  const tasks = files.map(async (file) => read(file));",
+            "  return tasks;",
+            "}",
+            "async function consume(tasks) {",
+            "  await Promise.race(tasks);",
+            "}",
+          ].join("\n"),
+          errors: [{ messageId: "asyncMap" }],
+        },
       ],
     });
   });

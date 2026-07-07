@@ -37,7 +37,6 @@ export type {
   TestOrphaningAdvisory,
   TestOrphaningRow,
   TestOrphaningSection,
-  TestRelation,
 } from "./test-orphaning-types.js";
 export {
   DEFAULT_MIN_SOURCE_COMMITS,

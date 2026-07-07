@@ -56,8 +56,6 @@ export const DEFAULT_CHECKS: readonly DriftCheckId[] = CHECK_METADATA.filter(
 
 export const CHECK_USAGE = `${ALL_CHECKS.join("|")}|all`;
 
-export const IMPLEMENTED_CHECKS: ReadonlySet<DriftCheckId> = new Set(ALL_CHECKS);
-
 export function buildDefaultChecksConfig(): DriftAiChecksConfig {
   const entries = CHECK_METADATA.map((meta) => [meta.id, structuredClone(meta.defaultConfig)]);
   // type-assertion-boundary: interop - CHECK_METADATA preserves id/config correlation; Object.fromEntries widens computed keys.

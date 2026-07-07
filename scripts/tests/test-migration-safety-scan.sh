@@ -1,4 +1,10 @@
 #!/usr/bin/env bash
+# smoke-order: 380
+# smoke-subjects: scripts/migration-safety-scan.sh
+# smoke-subjects: scripts/tests/lib/test-git-env.sh
+# smoke-subjects: scripts/tests/test-migration-safety-scan.sh
+# smoke-subjects: scripts/harness-emit-envelope.ts
+# smoke-subjects: packages/shared/src/schemas/harness-diagnostics.ts
 # test-migration-safety-scan.sh — pure-shell smoke tests for
 # scripts/migration-safety-scan.sh.
 #

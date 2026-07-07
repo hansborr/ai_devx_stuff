@@ -1,0 +1,40 @@
+# Promotion map — arch-review 2026-07 candidates → leaves
+
+Status: Task index (promotion executed 2026-07-07; all rows re-verified
+against main later the same day — merge states, fold destinations, and leaf
+statuses below are current as of that check)
+Source: [`00-report.md`](./00-report.md) ranked candidates, promoted after a
+delegability review (Claude orchestrator + Codex + Gemini consults,
+2026-07-07). The report stays as source material; where a leaf and the report
+disagree, trust the leaf — two report claims were corrected during promotion
+(see the report's Corrections section).
+
+Every candidate is either a leaf in this folder or folded into the pack that
+already owned the seam. Nothing should be dispatched from `00-report.md`
+directly.
+
+| Candidate | Destination | Status / notes |
+|---|---|---|
+| A1 single verify engine | [`10-single-verify-engine.md`](./10-single-verify-engine.md) | Pending |
+| A2 — pre-commit freshness from manifest (T2) | folded → [`../ci-local-gate-parity-guard.md`](../ci-local-gate-parity-guard.md) | Folded 2026-07-07 — note the destination pack is Parked, so this ships only if/when that pack is picked up |
+| A2 — resolver dispatch + hook timeout constants (T3) | [`11-generated-resolver-and-timeout-constants.md`](./11-generated-resolver-and-timeout-constants.md) | Pending |
+| A2 — agent-run trailer/exit-code table (T4) | folded → [`../agent-cli-consolidation-pass/10-trailer-contract-artifact.md`](../agent-cli-consolidation-pass/10-trailer-contract-artifact.md) | Folded 2026-07-07 |
+| A3 backend adapter table | folded → [`../agent-cli-consolidation-pass/13-backend-adapter-table.md`](../agent-cli-consolidation-pass/13-backend-adapter-table.md) | Folded 2026-07-07 |
+| A4 baseline framework | [`12-baseline-framework-and-max-lines.md`](./12-baseline-framework-and-max-lines.md) | Pending — **corrected**: per-rule split dropped (harness-review 13 won't-do); knip identity coordinates with lint-deep-dive 61 |
+| B1 substrate ruling (bash vs TS) | [`13-substrate-ruling-bash-vs-ts.md`](./13-substrate-ruling-bash-vs-ts.md) | Pending (owner-decision leaf) |
+| B2 shared TS substrate | [`14-shared-ts-substrate-first-adopters.md`](./14-shared-ts-substrate-first-adopters.md) | Pending — first-adopter slices, not a 19-caller migration |
+| B3 path-policy as single classifier | [`15-path-policy-single-classifier.md`](./15-path-policy-single-classifier.md) | Pending — lint-deep-dive integration now in main; reconcile scope with its leaves 41/42 first |
+| B4 agent_notes light tooling | [`16-agent-notes-backlog-lint.md`](./16-agent-notes-backlog-lint.md) | Pending |
+| T3 — `.no-stop-verify` / `MUSI_VERIFY_TIMEOUT` / db-status duplicate | [`17-verify-legacy-retirements.md`](./17-verify-legacy-retirements.md) | Pending |
+| T3 — code-intel test layout | [`18-code-intel-test-layout.md`](./18-code-intel-test-layout.md) | Pending |
+| T3 — agent-cli items (mirror mechanics, `--opt=value`, MultiEdit, version pins) | folded → agent-cli pack leaves [13](../agent-cli-consolidation-pass/13-backend-adapter-table.md) / [20](../agent-cli-consolidation-pass/20-skill-docs-portability-audit.md) / [21](../agent-cli-consolidation-pass/21-per-agent-skill-caveats.md) | Folded 2026-07-07; mirror question owner-reopened → leaf 21 |
+| T3 — hollow `scripts/harness-audit/` dir | folded → [`../scripts-flat-family-reorg.md`](../scripts-flat-family-reorg.md) | Folded 2026-07-07 — destination pack is Parked (same caveat as the T2 fold above) |
+| T7 — knip/jscpd wiring | already ticketed: `../harness-review-2026-07/39-wire-or-drop-knip-jscpd.md` (Done) | No new leaf; report seconds it. Shipped 2026-07-02 on main (knip counted floor `4cae49bc`; jscpd deliberately advisory) — the leaf's own header was stale "Proposed" until corrected 2026-07-07 |
+| T7 — harness:audit consumer story | already tracked: `../harness-review-tasks/` items 20–25 | No new leaf. State as of 2026-07-07: items 20–24 Superseded → drift-ai-next-items 10–14 (all Done); item 25 Parked |
+| Headline — `homebrew.ts` inline CRUD + missing test; `map-canvas-store.ts` size | **not promoted** — both explicitly optional; product packages need no structural work. Revisit only on demand | Closed as non-work; the "missing test" half was **disproven 2026-07-07** (all 12 procedures covered by five aspect test files — see report Corrections) |
+
+Added during owner review (not report candidates):
+
+| Item | Destination | Status / notes |
+|---|---|---|
+| Stop hooks must never notify or wake an agent (owner ruling 2026-07-07, scope expanded same day from "remove the uncommitted-changes reminder") | [`19-stop-hooks-never-notify-agents.md`](./19-stop-hooks-never-notify-agents.md) | **Done** — implemented 2026-07-07 on `fix/stop-hooks-user-only` (code `c73b5070` + docs `3fdf1594`, reviewed — no P0/P1), merged to main same day (`39b6abc2`) |

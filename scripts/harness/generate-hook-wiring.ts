@@ -3,6 +3,13 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import {
+  CLAUDE_SETTINGS_PATH,
+  CODEX_HOOKS_PATH,
+  COPILOT_HOOKS_PATH,
+  HARNESS_MANIFEST_FILENAME,
+  readHarnessManifest,
+} from "./harness-paths.js";
+import {
   HOOK_EVENTS,
   type HookEvent,
   type HookHarness as Harness,
@@ -49,10 +56,9 @@ interface GeneratedCopilotCommand {
 type GeneratedCopilotHooks = Partial<Record<CopilotEventName, GeneratedCopilotCommand[]>>;
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
-const manifestPath = join(repoRoot, "harness.controls.json");
-const claudeSettingsPath = join(repoRoot, ".claude/settings.json");
-const codexHooksPath = join(repoRoot, ".codex/hooks.json");
-const copilotHooksPath = join(repoRoot, ".github/hooks/copilot.json");
+const claudeSettingsPath = join(repoRoot, CLAUDE_SETTINGS_PATH);
+const codexHooksPath = join(repoRoot, CODEX_HOOKS_PATH);
+const copilotHooksPath = join(repoRoot, COPILOT_HOOKS_PATH);
 
 function copilotEventNameFor(event: HookEvent): CopilotEventName | undefined {
   if (event === "PreToolUse") return "preToolUse";
@@ -70,7 +76,7 @@ function parseHookWiring(control: Record<string, unknown>): OrderedHookWiring | 
 
 function collectHookWiring(manifest: unknown): OrderedHookWiring[] {
   if (!isObject(manifest) || !Array.isArray(manifest.controls)) {
-    throw new Error("harness.controls.json must declare a controls array");
+    throw new Error(`${HARNESS_MANIFEST_FILENAME} must declare a controls array`);
   }
   const hooks: OrderedHookWiring[] = [];
   const seenIds = new Set<string>();
@@ -278,8 +284,18 @@ function readFileOrEmpty(path: string): string {
 
 function writeFileAtomic(path: string, contents: string): void {
   const tempPath = `${path}.${String(process.pid)}.tmp`;
+  mkdirSync(dirname(path), { recursive: true });
   writeFileSync(tempPath, contents);
   renameSync(tempPath, path);
+}
+
+export function writeHookWiringOutputs(
+  outputs: ReturnType<typeof renderHookWiringOutputsFromManifest>,
+  paths = { claudeSettingsPath, codexHooksPath, copilotHooksPath },
+): void {
+  writeFileAtomic(paths.claudeSettingsPath, outputs.claudeSettingsJson);
+  writeFileAtomic(paths.codexHooksPath, outputs.codexHooksJson);
+  writeFileAtomic(paths.copilotHooksPath, outputs.copilotHooksJson);
 }
 
 function parseArgs(args: readonly string[]): { readonly checkMode: boolean } {
@@ -292,7 +308,7 @@ function main(): void {
   const { checkMode } = parseArgs(process.argv.slice(PROCESS_ARG_OFFSET));
   const claudeSettingsText = readFileSync(claudeSettingsPath, "utf8");
   const outputs = renderHookWiringOutputsFromManifest(
-    JSON.parse(readFileSync(manifestPath, "utf8")),
+    readHarnessManifest(repoRoot),
     claudeSettingsText,
   );
   if (checkMode) {
@@ -309,10 +325,7 @@ function main(): void {
     process.exitCode = 1;
     return;
   }
-  writeFileAtomic(claudeSettingsPath, outputs.claudeSettingsJson);
-  writeFileAtomic(codexHooksPath, outputs.codexHooksJson);
-  mkdirSync(dirname(copilotHooksPath), { recursive: true });
-  writeFileAtomic(copilotHooksPath, outputs.copilotHooksJson);
+  writeHookWiringOutputs(outputs);
   console.log(`Wrote ${claudeSettingsPath} hooks, ${codexHooksPath}, and ${copilotHooksPath}.`);
 }
 

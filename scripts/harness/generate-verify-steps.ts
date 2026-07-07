@@ -4,6 +4,11 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { runDocGenerator } from "../lib/doc-generator.js";
 import {
+  GENERATED_VERIFY_STEPS_PATH,
+  HARNESS_MANIFEST_FILENAME,
+  readHarnessManifest,
+} from "./harness-paths.js";
+import {
   isNonEmptyString,
   isObject,
   parseVerifyStepSlots,
@@ -13,8 +18,7 @@ import {
 const VAR_REF_PATTERN = /\$(?:([A-Za-z_]\w*)|\{([A-Za-z_]\w*)\})/gu;
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
-const manifestPath = join(repoRoot, "harness.controls.json");
-const outputPath = join(repoRoot, "scripts/verify/steps.generated.sh");
+const outputPath = join(repoRoot, GENERATED_VERIFY_STEPS_PATH);
 
 const CONSUMERS = [
   {
@@ -45,6 +49,12 @@ const CONSUMERS = [
 
 type ConsumerSpec = (typeof CONSUMERS)[number];
 
+const PRE_COMMIT_CONSUMER_ID = "hook/pre-commit";
+const MARKER_BRIDGE_SUPERSET_CONSUMERS = [
+  { id: "verify-wrapper/verify", markerLabel: "verify" },
+  { id: "verify-wrapper/verify-changed", markerLabel: "verify:changed" },
+] as const;
+
 interface Consumer {
   readonly spec: ConsumerSpec;
   readonly slots: readonly VerifyStepSlot[];
@@ -67,7 +77,7 @@ function parseConsumerSlots(
 
 function collectConsumers(manifest: unknown): readonly Consumer[] {
   if (!isObject(manifest) || !Array.isArray(manifest.controls)) {
-    throw new Error("harness.controls.json must declare a controls array");
+    throw new Error(`${HARNESS_MANIFEST_FILENAME} must declare a controls array`);
   }
   const byId = new Map<string, Record<string, unknown>>();
   for (const [index, control] of manifest.controls.entries()) {
@@ -89,6 +99,34 @@ function collectConsumers(manifest: unknown): readonly Consumer[] {
     }
     return { spec, slots: parseConsumerSlots(control, spec) };
   });
+}
+
+function findConsumer(consumers: readonly Consumer[], id: string): Consumer {
+  const consumer = consumers.find((candidate) => candidate.spec.id === id);
+  if (consumer === undefined) {
+    throw new Error(`internal verify-step generator error: missing consumer ${id}`);
+  }
+  return consumer;
+}
+
+function assertSlotSuperset(superset: Consumer, subset: Consumer, markerLabel: string): void {
+  const supersetNames = new Set(superset.slots.map((slot) => slot.name));
+  const missing = subset.slots
+    .map((slot) => slot.name)
+    .filter((slotName) => !supersetNames.has(slotName));
+
+  if (missing.length === 0) return;
+
+  throw new Error(
+    `${superset.spec.id} slots must include every ${subset.spec.id} slot because pre-commit accepts fresh ${markerLabel} success markers; missing: ${missing.join(", ")}`,
+  );
+}
+
+function assertMarkerBridgeSupersets(consumers: readonly Consumer[]): void {
+  const preCommit = findConsumer(consumers, PRE_COMMIT_CONSUMER_ID);
+  for (const { id, markerLabel } of MARKER_BRIDGE_SUPERSET_CONSUMERS) {
+    assertSlotSuperset(findConsumer(consumers, id), preCommit, markerLabel);
+  }
 }
 
 function shellSingleQuote(value: string): string {
@@ -244,6 +282,7 @@ export function renderVerifyStepsShellFromManifest(
   knownScripts?: ReadonlySet<string>,
 ): string {
   const consumers = collectConsumers(manifest);
+  assertMarkerBridgeSupersets(consumers);
   if (knownScripts !== undefined) assertKnownScripts(consumers, knownScripts);
   const lines = [
     ...renderHeader(consumers),
@@ -255,7 +294,7 @@ export function renderVerifyStepsShellFromManifest(
 }
 
 function readManifest(): unknown {
-  return JSON.parse(readFileSync(manifestPath, "utf8"));
+  return readHarnessManifest(repoRoot);
 }
 
 function readPackageScripts(): ReadonlySet<string> {

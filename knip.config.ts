@@ -3,8 +3,8 @@ import type { KnipConfig } from "knip";
 const config = {
   includeEntryExports: true,
   ignoreDependencies: [
-    // Invoked by .husky/commit-msg via `bunx commitlint`, not as an
-    // ES module import. Knip can't track bunx-style invocations.
+    // Invoked by .husky/commit-msg via node_modules/.bin/commitlint, not as an
+    // ES module import. Knip can't track hook bin invocations.
     "@commitlint/cli",
     // Used by generated Prisma client files under packages/server/src/generated/prisma,
     // which are gitignored and outside knip's project graph.
@@ -35,9 +35,10 @@ const config = {
     "packages/server/src/test/fixtures.ts": ["exports"],
     // E2E API/data helpers are intentionally exported for Playwright specs.
     "e2e/helpers/**": ["exports", "types"],
-    // Compile-only negative type tests deliberately export `_tx*` markers
-    // for static analysis but are never imported at runtime.
-    "packages/server/src/utils/__type-tests__/**": ["exports"],
+    // Compile-only negative type tests deliberately export `_tx*` markers and
+    // declare local helper types for static analysis but are never imported at
+    // runtime, so both their exports and types are intentional.
+    "packages/server/src/utils/__type-tests__/**": ["exports", "types"],
   },
   workspaces: {
     ".": {
@@ -46,6 +47,11 @@ const config = {
         "e2e/**/*.ts",
         "scripts/*.sh",
         "scripts/*.ts",
+        // CLI entry points that live one directory down (e.g.
+        // post-merge-baseline-preflight.ts, path-policy-query.ts); without these
+        // globs they false-positive as orphan files.
+        "scripts/lint-ratchet/*.ts",
+        "scripts/path-policy/*.ts",
         "scripts/ai-hooks/*.sh",
         "scripts/codemods/*.ts",
         ".github/workflows/*.{yml,yaml}",

@@ -1,4 +1,12 @@
 #!/bin/bash
+# smoke-order: 150
+# smoke-subjects: scripts/codemods/expand-barrel.ts
+# smoke-subjects: scripts/codemods/expand-barrel/
+# smoke-subjects: scripts/codemods/lib/
+# smoke-subjects: scripts/codemods/fixtures/expand-barrel/
+# smoke-subjects: scripts/tests/test-codemod-expand-barrel.sh
+# smoke-subjects: package.json
+# smoke-subjects: tsconfig.scripts.json
 # Thin CLI smoke test for scripts/codemods/expand-barrel.ts.
 
 set -u

@@ -26,7 +26,7 @@ function isBroadcastRegistryFile(filename) {
 }
 
 /** @param {import('estree').MemberExpression} callee */
-function isEmitMember(callee) {
+export function isEmitMember(callee) {
   if (callee.computed) {
     return callee.property.type === "Literal" && callee.property.value === "emit";
   }
@@ -56,7 +56,7 @@ export default {
     },
     messages: {
       noDirectEmit:
-        'Why: Emitting "{{eventName}}" directly bypasses payload validation and broadcast logging in broadcast-registry.ts. How to fix: Use {{helper}} so the event stays validated and logged. See docs/guides/add-socket-broadcast.md.',
+        "Why: Emitting `{{eventName}}` directly bypasses payload validation and broadcast logging in broadcast-registry.ts. How to fix: Use {{helper}} so the event stays validated and logged. See docs/guides/add-socket-broadcast.md.",
     },
     schema: [],
   },

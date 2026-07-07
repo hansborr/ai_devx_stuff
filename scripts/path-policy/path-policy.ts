@@ -1,4 +1,11 @@
 import {
+  CLAUDE_SETTINGS_PATH,
+  CODEX_HOOKS_PATH,
+  COPILOT_HOOKS_PATH,
+  HARNESS_MANIFEST_FILENAME,
+} from "../harness/harness-paths.js";
+import { BASELINE_FILENAME, DEBT_LOG_FILENAME } from "../lint-ratchet/paths.js";
+import {
   SCRIPT_SMOKE_SUBJECTS,
   type ScriptSmokeSubjects,
 } from "./path-policy-smoke-subjects-data.js";
@@ -100,14 +107,14 @@ export const PATH_POLICY = {
       { kind: "exact", path: ".prettierrc" },
       { kind: "exact", path: "drift-ai.config.example.json" },
       { kind: "exact", path: "drift-ai.config.json" },
-      { kind: "exact", path: "lint-ratchet.baseline.json" },
-      { kind: "exact", path: "lint-ratchet.debt-log.jsonl" },
-      { kind: "exact", path: "harness.controls.json" },
+      { kind: "exact", path: BASELINE_FILENAME },
+      { kind: "exact", path: DEBT_LOG_FILENAME },
+      { kind: "exact", path: HARNESS_MANIFEST_FILENAME },
       { kind: "exact", path: "docs/agent_notes/lint-coverage-map.md" },
-      { kind: "exact", path: ".claude/settings.json" },
-      { kind: "exact", path: ".codex/hooks.json" },
+      { kind: "exact", path: CLAUDE_SETTINGS_PATH },
+      { kind: "exact", path: CODEX_HOOKS_PATH },
       { kind: "exact", path: ".codex/config.toml" },
-      { kind: "exact", path: ".github/hooks/copilot.json" },
+      { kind: "exact", path: COPILOT_HOOKS_PATH },
       { kind: "exact", path: ".devcontainer/devcontainer.json" },
       { kind: "exact", path: ".devcontainer/Dockerfile" },
       { kind: "exact", path: ".devcontainer/docker-compose.yml" },

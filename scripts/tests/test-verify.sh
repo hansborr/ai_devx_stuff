@@ -1,4 +1,18 @@
 #!/usr/bin/env bash
+# smoke-order: 010
+# smoke-subjects: scripts/verify.sh
+# smoke-subjects: scripts/verify/steps.generated.sh
+# smoke-subjects: scripts/verify/steps-lib.sh
+# smoke-subjects: scripts/lib/verify-metadata.sh
+# smoke-subjects: scripts/path-policy/path-policy-query.ts
+# smoke-subjects: scripts/path-policy/path-policy-query-core.ts
+# smoke-subjects: scripts/path-policy/path-policy.ts
+# smoke-subjects: scripts/process-tree.sh
+# smoke-subjects: scripts/lib/parallel-step.sh
+# smoke-subjects: scripts/tests/lib/test-git-env.sh
+# smoke-subjects: scripts/tests/test-verify.sh
+# smoke-subjects: scripts/ai-hooks/cache.sh
+# smoke-subjects: scripts/ai-hooks/output-filter.sh
 # test-verify.sh — pure-shell smoke tests for scripts/verify.sh.
 #
 # Stubs `bun` so the script never actually runs lint/typecheck/test. Verifies
@@ -40,7 +54,8 @@ if [ "${MUSI_TEST_VERIFY_IN_FIXTURE:-}" != "1" ]; then
   cp "$SCRIPT_DIR/test-verify.sh" "$FIXTURE_ROOT/scripts/tests/test-verify.sh"
   cp "$SCRIPT_DIR/lib/test-git-env.sh" "$FIXTURE_ROOT/scripts/tests/lib/"
   cp "$SCRIPT_DIR/../lib/verify-metadata.sh" "$SCRIPT_DIR/../lib/parallel-step.sh" \
-    "$SCRIPT_DIR/../lib/lint-dist-preflight.sh" "$FIXTURE_ROOT/scripts/lib/"
+    "$SCRIPT_DIR/../lib/lint-dist-preflight.sh" "$SCRIPT_DIR/../lib/gate-env.sh" \
+    "$FIXTURE_ROOT/scripts/lib/"
   cp "$SCRIPT_DIR/../ai-hooks/cache.sh" "$SCRIPT_DIR/../ai-hooks/output-filter.sh" \
     "$FIXTURE_ROOT/scripts/ai-hooks/"
   cp "$SCRIPT_DIR/../verify/steps.generated.sh" "$SCRIPT_DIR/../verify/steps-lib.sh" \
@@ -169,6 +184,32 @@ remove_required_dist_outputs() {
 bash -n "$VERIFY" || fail "verify.sh fails bash -n"
 ok "verify.sh passes bash -n"
 
+(
+  unset NODE_OPTIONS MUSI_GATE_NODE_OLD_SPACE_MB
+  # shellcheck source=../lib/gate-env.sh
+  . "$SCRIPT_DIR/../lib/gate-env.sh"
+  [ "$NODE_OPTIONS" = "--max-old-space-size=$MUSI_GATE_DEFAULT_NODE_OLD_SPACE_MB" ] \
+    || fail "gate-env should apply the default old-space size: $NODE_OPTIONS"
+)
+
+(
+  export NODE_OPTIONS="--trace-warnings --max-old-space-size=8192"
+  # shellcheck source=../lib/gate-env.sh
+  . "$SCRIPT_DIR/../lib/gate-env.sh"
+  [ "$NODE_OPTIONS" = "--trace-warnings --max-old-space-size=8192" ] \
+    || fail "gate-env should preserve caller-provided old-space size: $NODE_OPTIONS"
+)
+
+(
+  export NODE_OPTIONS="--trace-warnings"
+  export MUSI_GATE_NODE_OLD_SPACE_MB=2048
+  # shellcheck source=../lib/gate-env.sh
+  . "$SCRIPT_DIR/../lib/gate-env.sh"
+  [ "$NODE_OPTIONS" = "--trace-warnings --max-old-space-size=2048" ] \
+    || fail "gate-env should honor the shared override size: $NODE_OPTIONS"
+)
+ok "gate-env applies managed NODE_OPTIONS defaults"
+
 PARALLEL_STEP_LOG_DIR="$SANDBOX/parallel-step-logs"
 mkdir -p "$PARALLEL_STEP_LOG_DIR/meta"
 set +e
@@ -286,19 +327,66 @@ run_verify_state_root "$FRESH_STATE_ROOT" --changed >/dev/null \
 ok "verify --changed creates fresh MUSI_VERIFY_STATE_ROOT parents"
 
 # When ignored package dist outputs are missing, changed-mode keeps the other
-# parallel slots running but defers lint until the existing typecheck slot has
-# produced the package declarations ESLint resolves.
+# parallel slots running but defers lint and ratchet until the existing
+# typecheck slot has produced the package declarations ESLint resolves.
 remove_required_dist_outputs
 : > "$STUB_LOG_FILE"
 FORCE_VERIFY=1 run_verify --changed >/dev/null || fail "verify --changed should pass when dist outputs are missing"
 typecheck_line="$(grep -nFx 'stub bun run typecheck' "$STUB_LOG_FILE" | head -n1 | cut -d: -f1)"
 lint_line="$(grep -nFx 'stub bun run lint:changed' "$STUB_LOG_FILE" | head -n1 | cut -d: -f1)"
+ratchet_line="$(grep -nFx 'stub bun run lint:ratchet' "$STUB_LOG_FILE" | head -n1 | cut -d: -f1)"
 [ -n "$typecheck_line" ] || fail "missing-dist verify should run typecheck"
 [ -n "$lint_line" ] || fail "missing-dist verify should run lint:changed"
+[ -n "$ratchet_line" ] || fail "missing-dist verify should run lint:ratchet"
 [ "$typecheck_line" -lt "$lint_line" ] \
   || fail "missing-dist verify should run typecheck before lint: $(cat "$STUB_LOG_FILE")"
+[ "$typecheck_line" -lt "$ratchet_line" ] \
+  || fail "missing-dist verify should run typecheck before ratchet: $(cat "$STUB_LOG_FILE")"
 write_required_dist_outputs
-ok "verify --changed defers lint until typecheck when dist outputs are missing"
+ok "verify --changed defers lint and ratchet until typecheck when dist outputs are missing"
+
+(
+  LOG_DIR="$SANDBOX/missing-typecheck-dispatch-logs"
+  META_DIR="$LOG_DIR/meta"
+  # shellcheck disable=SC2034  # consumed by the sourced steps.generated.sh guard
+  TIMINGS_FILE="$LOG_DIR/timings.json"
+  mkdir -p "$META_DIR"
+  # shellcheck source=../lib/lint-dist-preflight.sh
+  . "$SCRIPT_DIR/../lib/lint-dist-preflight.sh"
+  # shellcheck source=../verify/steps.generated.sh
+  . "$SCRIPT_DIR/../verify/steps.generated.sh"
+  # shellcheck source=../verify/steps-lib.sh
+  . "$SCRIPT_DIR/../verify/steps-lib.sh"
+
+  # shellcheck disable=SC2034 # Passed by name to musi_run_parallel_verify_steps.
+  declare -ga MUSI_NO_TYPECHECK_STEPS=(lint ratchet)
+  # shellcheck disable=SC2034 # Resolved by name through MUSI_VERIFY_SLOT_CMD_VAR.
+  MUSI_NO_TYPECHECK_LINT_CMD=(bun run lint:changed)
+  # shellcheck disable=SC2034 # Resolved by name through MUSI_VERIFY_SLOT_CMD_VAR.
+  MUSI_NO_TYPECHECK_RATCHET_CMD=(bun run lint:ratchet)
+  MUSI_VERIFY_SLOT_CMD_VAR['test_no_typecheck:lint']='MUSI_NO_TYPECHECK_LINT_CMD'
+  # shellcheck disable=SC2034 # Read by musi_resolve_slot_cmd after sourcing steps-lib.
+  MUSI_VERIFY_SLOT_CMD_VAR['test_no_typecheck:ratchet']='MUSI_NO_TYPECHECK_RATCHET_CMD'
+  # shellcheck disable=SC2034 # Passed by name to musi_run_parallel_verify_steps.
+  step_names=()
+  # shellcheck disable=SC2034 # Passed by name to musi_run_parallel_verify_steps.
+  step_pids=()
+  step_exits=()
+  # shellcheck disable=SC2034 # Passed by name to musi_run_parallel_verify_steps.
+  parallel_pids=()
+
+  remove_required_dist_outputs
+  musi_run_parallel_verify_steps test_no_typecheck MUSI_NO_TYPECHECK_STEPS parallel-test \
+    verify:test "$PWD" step_names step_pids step_exits parallel_pids
+  [ "${step_exits[0]}" = 1 ] || fail "lint should fail without a typecheck defer target"
+  [ "${step_exits[1]}" = 1 ] || fail "ratchet should fail without a typecheck defer target"
+  grep -qF "verify:test: cannot run lint because required dist outputs are missing and test_no_typecheck has no typecheck slot to produce them" "$LOG_DIR/lint.log" \
+    || fail "lint missing no-typecheck assertion: $(cat "$LOG_DIR/lint.log")"
+  grep -qF "verify:test: cannot run ratchet because required dist outputs are missing and test_no_typecheck has no typecheck slot to produce them" "$LOG_DIR/ratchet.log" \
+    || fail "ratchet missing no-typecheck assertion: $(cat "$LOG_DIR/ratchet.log")"
+  write_required_dist_outputs
+) || exit 1
+ok "parallel dispatch fails loudly when dist-deferred slots have no typecheck slot"
 
 # --- MR1: changed mode runs script smoke tests after Vitest --------------
 # verify --changed must invoke `bun run test:scripts:changed` so script-only
@@ -410,7 +498,7 @@ exit_code=$?
 set -e
 [ "$exit_code" -ne 0 ] || fail "verify --changed did not propagate failure"
 grep -qF 'Failed: typecheck' <<< "$output" || fail "summary missed Failed: typecheck"
-grep -qF 'Passed: lint ratchet zero-baseline knip-unused-exports coverage-map format-check test scripts' <<< "$output" \
+grep -qF 'Passed: lint suppressions ratchet zero-baseline debt-accounting knip-unused-exports coverage-map format-check test scripts' <<< "$output" \
   || fail "summary missed other passed parallel tasks"
 grep -qF 'verify:changed FAILED' <<< "$output" || fail "summary missed banner"
 [ -f "$MARKER_CHANGED" ] && fail "marker should not be written on failure"
@@ -468,7 +556,8 @@ exit_code=$?
 set -e
 [ "$exit_code" -ne 0 ] || fail "verify --changed did not propagate coverage-map failure"
 grep -qF 'Failed: coverage-map' <<< "$output" || fail "summary missed Failed: coverage-map"
-grep -qF 'Passed: lint ratchet' <<< "$output" || fail "summary missed Passed: lint ratchet"
+grep -qF 'Passed: lint suppressions ratchet' <<< "$output" \
+  || fail "summary missed Passed: lint suppressions ratchet"
 grep -q 'bun run typecheck' "$STUB_LOG_FILE" \
   || fail "parallel changed verify should still start typecheck after coverage-map failure"
 grep -q 'bun run test:changed' "$STUB_LOG_FILE" \
@@ -684,6 +773,23 @@ if grep -q 'bun run test:scripts:changed' "$STUB_LOG_FILE"; then
 fi
 ok "verify --parallel runs full script smoke suite"
 
+remove_required_dist_outputs
+: > "$STUB_LOG_FILE"
+rm -f "$MARKER_FULL"
+FORCE_VERIFY=1 run_verify --parallel >/dev/null || fail "verify --parallel should pass when dist outputs are missing"
+typecheck_line="$(grep -nFx 'stub bun run typecheck' "$STUB_LOG_FILE" | head -n1 | cut -d: -f1)"
+lint_line="$(grep -nFx 'stub bun run lint' "$STUB_LOG_FILE" | head -n1 | cut -d: -f1)"
+ratchet_line="$(grep -nFx 'stub bun run lint:ratchet' "$STUB_LOG_FILE" | head -n1 | cut -d: -f1)"
+[ -n "$typecheck_line" ] || fail "missing-dist parallel verify should run typecheck"
+[ -n "$lint_line" ] || fail "missing-dist parallel verify should run lint"
+[ -n "$ratchet_line" ] || fail "missing-dist parallel verify should run lint:ratchet"
+[ "$typecheck_line" -lt "$lint_line" ] \
+  || fail "missing-dist parallel verify should run typecheck before lint: $(cat "$STUB_LOG_FILE")"
+[ "$typecheck_line" -lt "$ratchet_line" ] \
+  || fail "missing-dist parallel verify should run typecheck before ratchet: $(cat "$STUB_LOG_FILE")"
+write_required_dist_outputs
+ok "verify --parallel defers lint and ratchet until typecheck when dist outputs are missing"
+
 [ -f "$LOG_DIR/run-meta.json" ] || fail "verify --parallel did not write run-meta.json"
 grep -q '"mode":"parallel-verify"' "$LOG_DIR/run-meta.json" \
   || fail "verify --parallel metadata should record parallel-verify mode"
@@ -698,7 +804,7 @@ exit_code=$?
 set -e
 [ "$exit_code" -ne 0 ] || fail "verify --parallel did not propagate failure"
 grep -qF 'Failed: typecheck' <<< "$output" || fail "parallel summary missed Failed: typecheck"
-grep -qF 'Passed: lint ratchet zero-baseline knip-unused-exports coverage-map format-check test scripts' <<< "$output" \
+grep -qF 'Passed: lint suppressions ratchet zero-baseline debt-accounting knip-unused-exports coverage-map format-check test scripts' <<< "$output" \
   || fail "parallel summary missed other passed tasks"
 grep -q 'bun run test ' "$STUB_LOG_FILE" \
   || fail "parallel verify should still run test after typecheck failure"

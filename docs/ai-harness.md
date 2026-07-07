@@ -164,7 +164,7 @@ needs them.
 | Guide | Category | Mode | Prevents | Timing | Paired sensor |
 |---|---|---|---|---|---|
 | `AGENTS.md` | Maintainability, architecture fitness, behavior | Inferential | Agents missing global repo rules, workflow, and domain constraints | Session start | `verify:changed`, pre-commit, `doctor` |
-| `docs/agent_notes/README.md`, `docs/agent_notes/LOG.md`, and `docs/agent_notes/backlog/README.md` | Maintainability | Inferential | Agents treating pruned notes as active work or preserving excessive history | On demand | Stop-hook dirty-work reminder |
+| `docs/agent_notes/README.md`, `docs/agent_notes/LOG.md`, and `docs/agent_notes/backlog/README.md` | Maintainability | Inferential | Agents treating pruned notes as active work or preserving excessive history | On demand | Stop-hook dirty-work user warning |
 | `docs/architecture-plan.md` | Architecture fitness | Inferential | Cross-package and stack-level changes drifting from planned architecture | Manual, area-specific | Typecheck, tests, future graph checks |
 | `docs/authorization.md` | Architecture fitness, behavior | Inferential | Auth mismatch semantics, especially intentional `NOT_FOUND`, being reimplemented incorrectly | Area-specific | Auth/router tests |
 | `docs/socket-architecture.md` | Architecture fitness, behavior | Inferential | Socket.io being used for writes, unregistered broadcast behavior, or broadcasts before commit | Area-specific | Broadcast registry tests, `local/socket-registry-broadcasts`, `local/no-broadcast-in-transaction` |
@@ -230,14 +230,14 @@ needs them.
 | Vitest test-structure lint (`vitest/no-focused-tests`, `vitest/no-disabled-tests`, `vitest/no-identical-title`, `vitest/no-commented-out-tests`, `vitest/valid-describe-callback`, `vitest/valid-title`) | Maintainability, behavior | Computational | Focused, disabled, duplicate, commented-out, malformed, or ambiguously named Vitest tests in non-e2e unit/integration files | `bun run lint`, `bun run lint:changed` | Rule diagnostic |
 | Vitest assertion/import lint (`vitest/expect-expect`, `vitest/valid-expect`, `vitest/valid-expect-in-promise`, `vitest/no-standalone-expect`, `vitest/no-unneeded-async-expect-function`, `vitest/no-import-node-test`, `vitest/no-mocks-import`, `vitest/no-interpolation-in-snapshots`, `vitest/require-local-test-context-for-concurrent-snapshots`, `vitest/prefer-called-exactly-once-with`, `vitest/prefer-comparison-matcher`, `vitest/prefer-equality-matcher`, `vitest/prefer-to-contain`) | Behavior, maintainability | Computational | Vitest tests with missing or invalid assertions, unsafe standalone/async expect usage, wrong test imports, mock/snapshot footguns, weak single-call assertions, and zero-baseline matcher drift | `bun run lint`, `bun run lint:changed` | Rule diagnostic and local test helpers |
 | Vitest unit/integration tests | Behavior | Computational | Regressions covered by server, client, shared, and script tests | `bun run test`, `bun run test:changed`, `bun run verify:changed`; focused single file: `bun run test -- <file>` (any project) or `bun run test:scripts:file -- <file>` (scripts project) | Area docs and test helpers |
-| Playwright e2e | Behavior | Computational | Browser workflow regressions | `bun run e2e`, Stop hook when cached/failing | `playwright-cli` skill |
+| Playwright e2e | Behavior | Computational | Browser workflow regressions | `bun run e2e`; Stop-hook user warning on cached/failing e2e | `playwright-cli` skill |
 | `local/e2e-prefer-role-selectors` | Behavior | Computational | New raw CSS locator use in e2e files when a role, label, text, or test-id selector should be used instead | `bun run lint:changed` | `docs/guides/add-e2e-test.md` |
 | `eslint-plugin-playwright` rules | Behavior | Computational | Missing Playwright awaits, focused or skipped tests, discouraged waits, and other e2e hygiene drift | `bun run lint:changed` | `docs/guides/add-e2e-test.md` |
 | `verify` / `verify:changed` wrapper | Maintainability, architecture fitness, behavior | Computational | Lint, typecheck, and test failures with shared cache/lock/logs | `bun run verify:changed` | `AGENTS.md` |
-| `verify:logs` | Maintainability | Computational | Hidden or stale verification failures in cached logs | `bun run verify:logs` | Stop-policy prompts |
+| `verify:logs` | Maintainability | Computational | Hidden or stale verification failures in cached logs | `bun run verify:logs` | Stop-policy user warnings |
 | `doctor` | Architecture fitness, maintainability | Computational | Worktree, DB, env, port, dependency, lint-suppression, and migration-safety drift | `bun run doctor` | `bun run worktree:*` scripts, `docs/guides/add-prisma-migration.md` |
 | knip unused-code advisory sensor | Maintainability | Computational | Workspace-unused files, exports, types, and dependencies; broad report remains advisory | `bun run sensor:knip`, `bun run doctor` | `knip.config.ts` |
-| knip unused-export floor | Maintainability | Computational | Growth in knip-reported unused exported symbols above the committed baseline; intentionally fail-closed in verify/pre-commit, measured about 1.5s on 2026-07-02, and runs without knip `--cache` so each gate reads the current graph directly | `bun run sensor:knip-unused-exports`, `verify`, pre-commit | `knip.config.ts`, `sensor-knip-unused-exports.baseline.json` |
+| knip unused-export floor | Maintainability | Computational | Drift in knip-reported unused exported symbol count above or below the committed baseline; intentionally fail-closed in verify/pre-commit, measured about 1.5s on 2026-07-02, and runs without knip `--cache` so each gate reads the current graph directly | `bun run sensor:knip-unused-exports`, `verify`, pre-commit | `knip.config.ts`, `sensor-knip-unused-exports.baseline.json` |
 | staged blob-size sensor | Maintainability | Computational | Staged files over 500 KiB / 5 MiB thresholds unless allowlisted with a reason | `bun run sensor:blob-size`, via `doctor` | `.blob-size-allowlist` |
 | `db:status` | Architecture fitness | Computational | Migration, Prisma client, and DB connectivity drift | `bun run db:status`, via `doctor` | `docs/guides/add-prisma-migration.md` |
 | `db:migration-safety` | Architecture fitness, behavior | Computational | Destructive or risky Prisma migrations lacking acknowledgement | `bun run db:migration-safety`, via `doctor` | `docs/guides/add-prisma-migration.md` |
@@ -245,7 +245,7 @@ needs them.
 | `eslint-disable-register` | Maintainability | Computational | New suppressions without `-- reason` text or broad disables outside the file/rule allowlist | Via `doctor`, script smoke tests | Register diagnostic |
 | `suppression-register` | Maintainability | Computational | Current-state TypeScript and Stryker suppressions missing `-- reason`, deprecated `@ts-ignore`, `@ts-nocheck` outside allowlist, or broad Stryker disables; report-only in Leaf 16 v1 | Manual: `bash scripts/suppression-register.sh /workspace`, script smoke tests | Leaf 16 suppression baseline |
 | AI hook adapters | Maintainability, architecture fitness | Computational | Protected-file edits, doc bloat, stale Prisma client risk, noisy command output, uncommitted stop state | Claude/Codex hooks | Adapter Boundary section above |
-| Stop-hook cached-verify replay | Maintainability, architecture fitness, behavior | Computational | Agents stopping with the most recent `verify:changed` / pre-commit run still red, when its wrapper meta still matches the worktree | Stop hook (reads `$LOG_DIR/meta/wrapper.json`) | `verify` / `verify:changed` wrapper |
+| Stop-hook cached-verify replay | Maintainability, architecture fitness, behavior | Computational | A stop while the most recent `verify:changed` / pre-commit run is still red, when its wrapper meta still matches the worktree, surfaced to the user | Stop hook, user warning (reads `$LOG_DIR/meta/wrapper.json`) | `verify` / `verify:changed` wrapper |
 | Script smoke tests | Maintainability | Computational | Hook, verify, worktree, module-index, migration-safety, and script wrapper regressions | `bun run test:scripts`, `bun run verify` | `scripts/` comments and shell tests |
 | Worktree drift/status checks | Architecture fitness | Computational | Secondary worktree DB, port, Redis, and SRD seed drift | `bun run worktree:status`, `doctor` | `bun run worktree:*` scripts |
 | `local/socket-registry-broadcasts` | Architecture fitness, behavior | Computational | Registry-owned events emitted directly outside `broadcast-registry.ts` | `bun run lint`, `bun run lint:changed` | `docs/guides/add-socket-broadcast.md` |
@@ -282,6 +282,13 @@ prototype-lane `drift:ai` advisory subcommands until a lens is promoted.
 - producer envelopes to `reports/slow-drift/envelopes/`;
 - producer stdout/stderr captures to `reports/slow-drift/producers/`;
 - fused `harness:audit` text and JSON reports to `reports/slow-drift/fused/`.
+
+These `reports/` artifacts are gitignored local outputs and may be stale after
+the worktree moves. Slow-drift text artifacts include a metadata header
+(`generated-at`, HEAD, command, Bun version, and a staleness warning); JSON
+artifacts keep parseable JSON and carry the same header in adjacent `.meta.txt`
+sidecars. Rerun `bash scripts/slow-drift-audit.sh` or use the latest uploaded
+CI artifact before treating local reports as current.
 
 GitHub uploads those paths as `slow-drift-producer-envelopes`,
 `slow-drift-producer-output`, and `slow-drift-fused-reports`. The default

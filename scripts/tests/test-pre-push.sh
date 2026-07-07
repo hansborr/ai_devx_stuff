@@ -1,4 +1,14 @@
 #!/usr/bin/env bash
+# smoke-order: 080
+# smoke-subjects: .husky/pre-push
+# smoke-subjects: .husky/post-commit
+# smoke-subjects: scripts/land.sh
+# smoke-subjects: scripts/lib/verify-metadata.sh
+# smoke-subjects: scripts/path-policy/path-policy-query.ts
+# smoke-subjects: scripts/path-policy/path-policy-query-core.ts
+# smoke-subjects: scripts/path-policy/path-policy.ts
+# smoke-subjects: scripts/tests/lib/test-git-env.sh
+# smoke-subjects: scripts/tests/test-pre-push.sh
 
 set -euo pipefail
 
@@ -17,7 +27,7 @@ trap 'rm -rf "$TMP_ROOT"' EXIT
 
 export MUSI_PATH_POLICY_QUERY="$REPO_ROOT/scripts/path-policy/path-policy-query.ts"
 export MUSI_PATH_POLICY_BUN="${MUSI_PATH_POLICY_BUN:-bun}"
-export MUSI_PRE_PUSH_VERIFY_FRESHNESS_SECONDS=120
+unset MUSI_PRE_PUSH_VERIFY_FRESHNESS_SECONDS
 
 PASS=0
 
@@ -39,7 +49,9 @@ new_repo() {
   git -C "$repo" init -q
   git -C "$repo" config user.email "test@example.com"
   git -C "$repo" config user.name "Test User"
+  cp "$REPO_ROOT/scripts/land.sh" "$repo/scripts/land.sh"
   cp "$REPO_ROOT/scripts/lib/verify-metadata.sh" "$repo/scripts/lib/verify-metadata.sh"
+  cp "$REPO_ROOT/scripts/lib/gate-env.sh" "$repo/scripts/lib/gate-env.sh"
   cp "$REPO_ROOT/.husky/pre-push" "$repo/.husky/pre-push"
   cp "$REPO_ROOT/.husky/post-commit" "$repo/.husky/post-commit"
   chmod +x "$repo/.husky/pre-push"
@@ -48,6 +60,32 @@ new_repo() {
   git -C "$repo" add .
   git -C "$repo" commit -qm "initial fixture"
   printf '%s\n' "$repo"
+}
+
+write_bun_stub() {
+  local stub_dir="$1"
+
+  mkdir -p "$stub_dir"
+  cat > "$stub_dir/bun" <<'STUB'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "${MUSI_LAND_BUN_LOG:?}"
+if [ "$1" = "run" ] && [ "${2:-}" = "harness:check" ]; then
+  status="${MUSI_LAND_HARNESS_CHECK_STATUS:-23}"
+  if [ "$status" -ne 0 ]; then
+    printf 'stub harness:check failure\n' >&2
+  fi
+  exit "$status"
+fi
+if [ "$1" = "run" ] && [ "${2:-}" = "verify" ]; then
+  status="${MUSI_LAND_VERIFY_STATUS:-99}"
+  if [ "$status" -ne 0 ]; then
+    printf 'stub verify exit %s\n' "$status" >&2
+  fi
+  exit "$status"
+fi
+exit 0
+STUB
+  chmod +x "$stub_dir/bun"
 }
 
 state_root_for() {
@@ -109,6 +147,21 @@ run_pre_push() {
   )
 }
 
+run_pre_push_with_freshness() {
+  local repo="$1"
+  local input="$2"
+  local freshness_seconds="$3"
+  local state_root
+
+  state_root=$(state_root_for "$repo")
+  (
+    cd "$repo"
+    MUSI_VERIFY_STATE_ROOT="$state_root" \
+      MUSI_PRE_PUSH_VERIFY_FRESHNESS_SECONDS="$freshness_seconds" \
+      bash .husky/pre-push <<< "$input"
+  )
+}
+
 worktree_hash() {
   local repo="$1"
 
@@ -117,14 +170,21 @@ worktree_hash() {
 
 write_full_verify_marker() {
   local repo="$1"
-  local state_root marker head fp
+  local age_seconds="${2:-0}"
+  local state_root marker head fp ts
 
   state_root=$(state_root_for "$repo")
   marker=$(MUSI_VERIFY_STATE_ROOT="$state_root" musi_standard_verify_full_marker "$repo")
   head=$(git -C "$repo" rev-parse HEAD)
   fp=$(worktree_hash "$repo")
-  MUSI_VERIFY_STATE_ROOT="$state_root" musi_write_success_marker "$marker" "$head" "$fp" \
-    || fail "failed to write full verify marker"
+  ts=$(($(date +%s) - age_seconds))
+  [ "$ts" -gt 0 ] || fail "failed to calculate full verify marker timestamp"
+  mkdir -p "$(dirname "$marker")"
+  {
+    printf 'LAST_TS=%s\n' "$ts"
+    printf 'LAST_HEAD=%s\n' "$head"
+    printf 'LAST_HASH=%s\n' "$fp"
+  } > "$marker" || fail "failed to write full verify marker"
 }
 
 write_full_verify_wrapper() {
@@ -180,8 +240,8 @@ set -e
 [ "$exit_code" -ne 0 ] || fail "pre-push should fail without full verify evidence"
 grep -qF "bash scripts/land.sh" <<< "$output" \
   || fail "failure output should name land.sh: $output"
-grep -qF 'NODE_OPTIONS="--max-old-space-size=6144" bun run verify' <<< "$output" \
-  || fail "failure output should name full verify command: $output"
+grep -qF '  bun run verify' <<< "$output" \
+  || fail "failure output should name managed full verify command: $output"
 grep -qF -- "--no-verify" <<< "$output" \
   || fail "failure output should mention the bypass caveat: $output"
 grep -qF "fast-commit provenance" <<< "$output" \
@@ -205,6 +265,48 @@ run_pre_push "$repo" "$(push_line_for_head "$repo")" >/dev/null \
 [ ! -s "$(fast_commit_log "$repo")" ] \
   || fail "matching full verify marker should clear covered fast-commit log entries"
 ok "accepts a matching full verify success marker"
+
+repo=$(new_repo fast-marker-default-window)
+mark_fast_commit "$repo"
+record_fast_commit "$repo"
+write_full_verify_marker "$repo" 1800
+run_pre_push "$repo" "$(push_line_for_head "$repo")" >/dev/null \
+  || fail "pre-push should accept evidence inside the default one-hour freshness window"
+ok "accepts matching full verify evidence inside the default one-hour freshness window"
+
+repo=$(new_repo fast-marker-stale-default-window)
+mark_fast_commit "$repo"
+record_fast_commit "$repo"
+write_full_verify_marker "$repo" 3601
+if run_pre_push "$repo" "$(push_line_for_head "$repo")" >/dev/null 2>&1; then
+  fail "pre-push should reject evidence older than the default one-hour freshness window"
+fi
+ok "rejects full verify evidence older than the default freshness window"
+
+repo=$(new_repo fast-marker-override-large-window)
+mark_fast_commit "$repo"
+record_fast_commit "$repo"
+write_full_verify_marker "$repo" 1800
+run_pre_push_with_freshness "$repo" "$(push_line_for_head "$repo")" 7200 >/dev/null \
+  || fail "pre-push should accept would-be-stale evidence with a larger env override"
+ok "honors larger freshness env override"
+
+repo=$(new_repo fast-marker-override-tiny-window)
+mark_fast_commit "$repo"
+record_fast_commit "$repo"
+write_full_verify_marker "$repo" 2
+if run_pre_push_with_freshness "$repo" "$(push_line_for_head "$repo")" 1 >/dev/null 2>&1; then
+  fail "pre-push should reject otherwise fresh evidence with a tiny env override"
+fi
+ok "honors tiny freshness env override"
+
+repo=$(new_repo fast-marker-invalid-window)
+mark_fast_commit "$repo"
+record_fast_commit "$repo"
+write_full_verify_marker "$repo" 1800
+run_pre_push_with_freshness "$repo" "$(push_line_for_head "$repo")" not-a-number >/dev/null \
+  || fail "pre-push should fall back to the default one-hour window for invalid overrides"
+ok "falls back to default freshness for invalid env override"
 
 repo=$(new_repo fast-marker-wrapper)
 mark_fast_commit "$repo"
@@ -245,6 +347,56 @@ if run_pre_push "$repo" \
   fail "pre-push should reject non-HEAD refs when only HEAD evidence is available"
 fi
 ok "rejects non-HEAD refs under fast-commit mode"
+
+repo=$(new_repo land-harness-check-fails)
+git -C "$repo" switch -q -c feature
+printf 'feature\n' > "$repo/feature.txt"
+git -C "$repo" add feature.txt
+git -C "$repo" commit -qm "test: feature fixture"
+stub_dir="$TMP_ROOT/land-stub-bin"
+stub_log="$TMP_ROOT/land-bun.log"
+write_bun_stub "$stub_dir"
+set +e
+output=$(
+  cd "$repo" \
+    && PATH="$stub_dir:$PATH" MUSI_LAND_BUN_LOG="$stub_log" bash scripts/land.sh 2>&1
+)
+exit_code=$?
+set -e
+[ "$exit_code" -ne 0 ] || fail "land.sh should fail when harness:check fails"
+grep -qF "land: running harness freshness gate on feature" <<< "$output" \
+  || fail "land.sh should announce harness freshness gate before failing: $output"
+[ "$(cat "$stub_log")" = "run harness:check" ] \
+  || fail "land.sh should stop before verify when harness:check fails: $(cat "$stub_log")"
+ok "land.sh gates harness freshness before full verify"
+
+repo=$(new_repo land-harness-check-passes)
+git -C "$repo" switch -q -c feature
+printf 'feature\n' > "$repo/feature.txt"
+git -C "$repo" add feature.txt
+git -C "$repo" commit -qm "test: feature fixture"
+stub_dir="$TMP_ROOT/land-pass-stub-bin"
+stub_log="$TMP_ROOT/land-pass-bun.log"
+write_bun_stub "$stub_dir"
+set +e
+output=$(
+  cd "$repo" \
+    && PATH="$stub_dir:$PATH" \
+      MUSI_LAND_BUN_LOG="$stub_log" \
+      MUSI_LAND_HARNESS_CHECK_STATUS=0 \
+      MUSI_LAND_VERIFY_STATUS=42 \
+      bash scripts/land.sh 2>&1
+)
+exit_code=$?
+set -e
+[ "$exit_code" -eq 42 ] || fail "land.sh should propagate verify failure after harness:check passes: $output"
+grep -qF "land: running harness freshness gate on feature" <<< "$output" \
+  || fail "land.sh should announce harness freshness gate before verify: $output"
+grep -qF "land: running full verify on feature" <<< "$output" \
+  || fail "land.sh should proceed to full verify after harness:check passes: $output"
+[ "$(cat "$stub_log")" = $'run harness:check\nrun verify' ] \
+  || fail "land.sh should run harness:check then verify when harness is fresh: $(cat "$stub_log")"
+ok "land.sh proceeds to verify after harness freshness passes"
 
 repo=$(new_repo fast-post-commit-finalizes)
 : > "$(fast_commit_pending "$repo")"

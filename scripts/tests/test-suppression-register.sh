@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# smoke-order: 110
+# smoke-subjects: scripts/suppression-register.sh
+# smoke-subjects: scripts/tests/lib/test-git-env.sh
+# smoke-subjects: scripts/tests/test-suppression-register.sh
 # Pure-shell tests for TypeScript and Stryker suppression register diagnostics.
 
 set -euo pipefail
@@ -93,6 +97,8 @@ contains "$RUN_OUTPUT" 'PASS: suppression register total=1 ts-expect-error=1 ts-
   || fail "bare ts-expect-error count was wrong: $RUN_OUTPUT"
 contains "$RUN_OUTPUT" "FAIL: suppression register reasons missing '-- ' separator total=1" \
   || fail "bare ts-expect-error should fail for missing reason: $RUN_OUTPUT"
+contains "$RUN_OUTPUT" "add ' -- <reason>' after the directive" \
+  || fail "bare ts-expect-error should explain the missing reason repair: $RUN_OUTPUT"
 contains "$RUN_OUTPUT" 'src/app.ts:1 [ts-expect-error]' \
   || fail "bare ts-expect-error site not listed: $RUN_OUTPUT"
 ok "hard-gates bare ts-expect-error as missing reason"
@@ -180,9 +186,9 @@ ok "detects block-comment ts-expect-error"
 not_repo="$TMP_ROOT/not-git"
 mkdir -p "$not_repo"
 run_report "$not_repo"
-[ "$RUN_STATUS" -eq 0 ] || fail "outside git repo should exit zero: $RUN_OUTPUT"
-contains "$RUN_OUTPUT" "WARN: suppression register unavailable — $not_repo is not a git repository" \
-  || fail "outside git repo warning was wrong: $RUN_OUTPUT"
-ok "warns and exits zero outside a git repo"
+[ "$RUN_STATUS" -eq 2 ] || fail "outside git repo should fail as unchecked: $RUN_OUTPUT"
+contains "$RUN_OUTPUT" "FAIL: suppression register cannot check: $not_repo is not a git repository" \
+  || fail "outside git repo failure was wrong: $RUN_OUTPUT"
+ok "fails outside a git repo"
 
 printf 'suppression register tests passed (%d)\n' "$PASS"

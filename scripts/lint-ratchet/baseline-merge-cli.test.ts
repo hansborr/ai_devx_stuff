@@ -47,7 +47,7 @@ describe("lint ratchet baseline merge CLI", () => {
     await expect(runBaselineMergeCli([])).resolves.toBe(2);
 
     expect(error).toHaveBeenCalledWith(
-      "usage: bun scripts/lint-ratchet/baseline-merge-cli.ts <base> <current> <other> [path]",
+      "usage: bun scripts/lint-ratchet/baseline-merge-cli.ts <base> <current> <other> [path] [truth-up-marker] [merge-head]",
     );
   });
 
@@ -57,20 +57,76 @@ describe("lint ratchet baseline merge CLI", () => {
       const basePath = join(dir, "base.json");
       const currentPath = join(dir, "current.json");
       const otherPath = join(dir, "other.json");
+      const markerPath = join(dir, "truth-up-required");
       await writeBaseline(basePath, baseline(5));
       await writeBaseline(currentPath, baseline(3));
       await writeBaseline(otherPath, baseline(4));
 
       await expect(
-        runBaselineMergeCli([basePath, currentPath, otherPath, "lint-ratchet.baseline.json"]),
+        runBaselineMergeCli([
+          basePath,
+          currentPath,
+          otherPath,
+          "lint-ratchet.baseline.json",
+          markerPath,
+        ]),
       ).resolves.toBe(0);
 
       await expect(readFile(currentPath, "utf8")).resolves.toBe(
         formatLintRatchetBaseline(baseline(3)),
       );
+      await expect(readFile(markerPath, "utf8")).resolves.toBe(
+        "lint-ratchet baseline semantic merge requires post-merge truth-up\n",
+      );
     } finally {
       await rm(dir, { force: true, recursive: true });
     }
+  });
+
+  it("stamps the truth-up marker with the merge head so an aborted merge cannot leak it", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "baseline-merge-cli-"));
+    try {
+      const basePath = join(dir, "base.json");
+      const currentPath = join(dir, "current.json");
+      const otherPath = join(dir, "other.json");
+      const markerPath = join(dir, "truth-up-required");
+      const mergeHeadSha = "d".repeat(40);
+      await writeBaseline(basePath, baseline(5));
+      await writeBaseline(currentPath, baseline(3));
+      await writeBaseline(otherPath, baseline(4));
+
+      await expect(
+        runBaselineMergeCli([
+          basePath,
+          currentPath,
+          otherPath,
+          "lint-ratchet.baseline.json",
+          markerPath,
+          mergeHeadSha,
+        ]),
+      ).resolves.toBe(0);
+
+      // The stamp lets the post-merge consumer match the marker to the merge
+      // that wrote it (HEAD^2) and ignore markers left by an aborted merge.
+      await expect(readFile(markerPath, "utf8")).resolves.toBe(
+        "lint-ratchet baseline semantic merge requires post-merge truth-up\n" +
+          `merge-head=${mergeHeadSha}\n`,
+      );
+    } finally {
+      await rm(dir, { force: true, recursive: true });
+    }
+  });
+
+  it("rejects a seventh positional argument as a usage error", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    await expect(
+      runBaselineMergeCli(["base", "current", "other", "path", "marker", "sha", "extra"]),
+    ).resolves.toBe(2);
+
+    expect(error).toHaveBeenCalledWith(
+      "usage: bun scripts/lint-ratchet/baseline-merge-cli.ts <base> <current> <other> [path] [truth-up-marker] [merge-head]",
+    );
   });
 
   it("returns 1 without rewriting the current file when semantic merge refuses", async () => {

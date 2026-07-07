@@ -34,7 +34,7 @@ Copilot shims are translation adapters rather than pure exec shims: Copilot
 delivers camelCase payloads (`toolName`, `toolArgs` as a JSON string, no
 per-call tool id), and expects event-specific response JSON
 (`permissionDecision` on preToolUse, `additionalContext`/`modifiedResult` on
-postToolUse, `{decision, reason}` on agentStop). `copilot-adapter.sh` owns that
+postToolUse). `copilot-adapter.sh` owns that
 translation: `ai_copilot_dispatch <mode> <surface> <body>` filters by toolName
 after native matcher selection, normalizes the payload — synthesizing a
 `tool_use_id` from the session id plus toolArgs so pre/post state correlates —
@@ -83,9 +83,13 @@ commits.
 `.codex/hooks.json`, and `.github/hooks/copilot.json`.
 `scripts/harness/hook-wiring-schema.ts` is authoritative for the schema.
 
-`event` is the harness event name. Supported values are `PreToolUse`,
-`PostToolUse`, and `Stop`. For Copilot the generator renders them as
-`preToolUse`, `postToolUse`, and `agentStop`.
+`event` is the harness event name; `scripts/harness/hook-wiring-schema.ts`
+holds the full supported enum. The events this repo wires today are
+`SessionStart`, `PreToolUse`, `PostToolUse`, `PostToolUseFailure`, and `Stop`.
+For Copilot the generator renders `PreToolUse`/`PostToolUse` as
+`preToolUse`/`postToolUse`. No stop hook targets Codex or Copilot, so `Stop` is
+wired for Claude only (as a user-visible `systemMessage`) and no `agentStop`
+entry is generated.
 
 `matcher` is the harness matcher for a command group. It is required for
 `PreToolUse` and `PostToolUse` on Claude, Codex, and Copilot; `Stop` hooks omit

@@ -6,7 +6,8 @@ import { DEFAULT_DRIFT_AI_CONFIG, type DriftAiIgnoreConfig } from "./config.js";
 import { type GitRunner, isIgnoredPath } from "./git-changed-scope.js";
 import { buildRowActionability, shellQuoteArg } from "./hotspots-actionability.js";
 import type { SuppressionChurnHotspot, SuppressionChurnSection } from "./hotspots-format.js";
-import { type CommitRecord, GIT_LOG_FORMAT, parseGitLog } from "./hotspots-history.js";
+import { buildGitLogWalkArgs } from "./hotspots-git-log.js";
+import { type CommitRecord, parseGitLog } from "./hotspots-history.js";
 
 export const SUPPRESSION_CHURN_PATTERN = "eslint-disable|@ts-";
 export const DEFAULT_SUPPRESSION_CHURN_MIN_CHANGES = 2;
@@ -32,16 +33,16 @@ type SuppressionCandidate = {
 export function collectSuppressionChurnRecords(
   options: CollectSuppressionChurnOptions,
 ): CommitRecord[] {
-  const output = options.git([
-    "log",
-    "--no-merges",
-    `--since=${options.windowDays}.days.ago`,
-    "--date=iso-strict",
-    "--name-only",
-    `--format=${GIT_LOG_FORMAT}`,
-    "-G",
-    SUPPRESSION_CHURN_PATTERN,
-  ]);
+  // Shares the identical base args (incl. --no-renames) with the numstat history
+  // walk via buildGitLogWalkArgs; only the --name-only mode and the -G pickaxe
+  // that narrows to suppression-changing patches differ.
+  const output = options.git(
+    buildGitLogWalkArgs({
+      windowDays: options.windowDays,
+      numstat: false,
+      pickaxe: SUPPRESSION_CHURN_PATTERN,
+    }),
+  );
   const ignore = options.ignore ?? DEFAULT_DRIFT_AI_CONFIG.ignore;
   return parseGitLog(output, { numstat: false }).map((record) => filterRecordFiles(record, ignore));
 }

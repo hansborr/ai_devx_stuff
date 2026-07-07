@@ -6,6 +6,7 @@ import type {
   LintRatchetOrphanRemoval,
   LintRatchetRetireRequest,
   LintRatchetUpdateDecision,
+  LintRatchetUpdateOptions,
 } from "./lint-ratchet-baseline.js";
 import { compareCurrentToBaseline as compareCurrentToBaselineImpl } from "./lint-ratchet-baseline-compare.js";
 import type { LintRatchetConfig } from "./lint-ratchet-config.js";
@@ -65,6 +66,10 @@ function orphanBaselineItems(
     .sort((left, right) => left.path.localeCompare(right.path));
 }
 
+function allowWorseReasonSuffix(leadIn: string): string {
+  return `${leadIn} --allow-worse --reason "${RATCHET_REGRESSION_REASON_PLACEHOLDER}"`;
+}
+
 // Snapshot every committed baseline entry whose id no longer matches the
 // registry (a rename or removal). Always computed so an accepted --allow-worse
 // run can record the exact debt being dropped; the caller decides whether the
@@ -97,7 +102,7 @@ function formatOrphanFailure(
   return (
     `committed baseline carries ${String(orphanIds.length)} entr${orphanIds.length === 1 ? "y" : "ies"} ` +
     `with no matching registry id (${orphanIds.join(", ")}); ` +
-    `this looks like a rename or removal — pass --allow-worse --reason "${RATCHET_REGRESSION_REASON_PLACEHOLDER}" ` +
+    `this looks like a rename or removal — ${allowWorseReasonSuffix("pass")} ` +
     "so count protection is not bypassed silently"
   );
 }
@@ -134,8 +139,8 @@ function resolveRetire(
     return {
       failure:
         `--retire-ratchet ${retire.id} only retires a zero-finding orphan; ${retire.id} still ` +
-        `carries ${String(orphanFindingTotal(orphan))} finding(s) — drain or accept them with ` +
-        `--allow-worse --reason "${RATCHET_REGRESSION_REASON_PLACEHOLDER}" instead`,
+        `carries ${String(orphanFindingTotal(orphan))} finding(s) — drain or ` +
+        `${allowWorseReasonSuffix("accept them with")} instead`,
     };
   }
   if (!retire.normalErrorProven) {
@@ -143,16 +148,10 @@ function resolveRetire(
       failure:
         `--retire-ratchet ${retire.id} requires proof the rule was promoted: normal lint must ` +
         `error on the retired scope. It does not, so the guard may have been dropped without a ` +
-        `replacement — accept the removal with --allow-worse --reason "${RATCHET_REGRESSION_REASON_PLACEHOLDER}" instead`,
+        `replacement — ${allowWorseReasonSuffix("accept the removal with")} instead`,
     };
   }
   return { retiredRatchetId: retire.id };
-}
-
-interface DecideUpdateOptions {
-  readonly allowWorse: boolean;
-  readonly reason?: string;
-  readonly retire?: LintRatchetRetireRequest;
 }
 
 interface UpdateGateResult {
@@ -163,16 +162,16 @@ interface UpdateGateResult {
 
 function regressionFailure(
   comparison: LintRatchetComparison,
-  options: DecideUpdateOptions,
+  options: LintRatchetUpdateOptions,
 ): string | undefined {
   if (options.allowWorse || comparison.regressions.length === 0) return undefined;
   return (
     `generated baseline is worse for ${String(comparison.regressions.length)} path(s); ` +
-    `pass --allow-worse --reason "${RATCHET_REGRESSION_REASON_PLACEHOLDER}" to accept intentional new debt`
+    `${allowWorseReasonSuffix("pass")} to accept intentional new debt`
   );
 }
 
-function reasonFailure(options: DecideUpdateOptions): string | undefined {
+function reasonFailure(options: LintRatchetUpdateOptions): string | undefined {
   if (!options.allowWorse) return undefined;
   return ratchetRegressionReasonFailure(options.reason?.trim() ?? "");
 }
@@ -194,7 +193,7 @@ function collectUpdateGate(
   committed: LintRatchetBaseline,
   ratchets: readonly LintRatchetConfig[],
   comparison: LintRatchetComparison,
-  options: DecideUpdateOptions,
+  options: LintRatchetUpdateOptions,
 ): UpdateGateResult {
   const allOrphanRemovals = collectOrphanRemovals(committed, ratchets);
   const retire =
@@ -221,7 +220,7 @@ export function decideLintRatchetUpdate(
   committed: LintRatchetBaseline,
   generated: LintRatchetBaseline,
   ratchets: readonly LintRatchetConfig[],
-  options: DecideUpdateOptions,
+  options: LintRatchetUpdateOptions,
 ): LintRatchetUpdateDecision {
   const comparison = compareCurrentToBaselineImpl(
     committed,

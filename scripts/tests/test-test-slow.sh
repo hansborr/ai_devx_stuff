@@ -1,4 +1,21 @@
 #!/usr/bin/env bash
+# smoke-order: 280
+# smoke-subjects: scripts/test-slow.sh
+# smoke-subjects: scripts/test-changed.sh
+# smoke-subjects: scripts/vitest.sh
+# smoke-subjects: scripts/lib/changed-base.sh
+# smoke-subjects: scripts/ai-hooks/output-filter.sh
+# smoke-subjects: scripts/tests/lib/test-git-env.sh
+# smoke-subjects: vitest.config.ts
+# smoke-subjects: vitest.slow.config.ts
+# smoke-subjects: packages/shared/vitest.config.ts
+# smoke-subjects: packages/server/vitest.config.ts
+# smoke-subjects: packages/client/vitest.config.ts
+# smoke-subjects: scripts/vitest.config.ts
+# smoke-subjects: eslint-rules/vitest.config.ts
+# smoke-subjects: packages/shared/src/test-tier-sentinel.test.ts
+# smoke-subjects: packages/shared/src/test-tier-sentinel.slow.test.ts
+# smoke-subjects: scripts/tests/test-test-slow.sh
 # Pure-shell smoke tests for the slow-test tier wiring.
 #
 # Verifies three contracts that slice 2 of the cache-budget plan introduces:

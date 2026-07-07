@@ -1,4 +1,11 @@
 #!/usr/bin/env bash
+# smoke-order: 020
+# smoke-subjects: scripts/verify-async.sh
+# smoke-subjects: scripts/tests/test-verify-async.sh
+# smoke-subjects: scripts/process-tree.sh
+# smoke-subjects: scripts/verify.sh
+# smoke-subjects: scripts/lib/verify-metadata.sh
+# smoke-subjects: scripts/ai-hooks/cache.sh
 # test-verify-async.sh — pure-shell smoke tests for scripts/verify-async.sh.
 #
 # Uses a fake short command through --command so the async lifecycle can be

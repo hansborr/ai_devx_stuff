@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# smoke-order: 410
+# smoke-subjects: .devcontainer/post-create.sh
+# smoke-subjects: scripts/tests/test-post-create.sh
 # Smoke tests for .devcontainer/post-create.sh — the devcontainer setup
 # orchestrator.
 #

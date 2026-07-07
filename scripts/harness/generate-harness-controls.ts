@@ -21,6 +21,11 @@ import {
   formatValidationFailures,
   resolveControl,
 } from "./generate-harness-controls-validation.js";
+import {
+  GENERATED_HARNESS_CONTROLS_DOC_PATH,
+  HARNESS_MANIFEST_FILENAME,
+  harnessManifestPath,
+} from "./harness-paths.js";
 import { formatHookWiring, type HookWiring } from "./hook-wiring-schema.js";
 
 const KIND_HEADINGS: Record<ControlKind, string> = {
@@ -91,8 +96,8 @@ export interface ControlValidationFailure {
 }
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
-const manifestPath = join(repoRoot, "harness.controls.json");
-const outputPath = join(repoRoot, "docs/generated/harness-controls.md");
+const manifestPath = harnessManifestPath(repoRoot);
+const outputPath = join(repoRoot, GENERATED_HARNESS_CONTROLS_DOC_PATH);
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -102,10 +107,10 @@ function readManifest(): RawControl[] {
   const text = readFileSync(manifestPath, "utf8");
   const parsed: unknown = JSON.parse(text);
   if (!isObject(parsed)) {
-    throw new Error("harness.controls.json must be an object");
+    throw new Error(`${HARNESS_MANIFEST_FILENAME} must be an object`);
   }
   if (!Array.isArray(parsed.controls)) {
-    throw new Error("harness.controls.json must declare a controls array");
+    throw new Error(`${HARNESS_MANIFEST_FILENAME} must declare a controls array`);
   }
   const controls: RawControl[] = [];
   const seenIds = new Set<string>();

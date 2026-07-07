@@ -15,7 +15,7 @@ describe("prototype root-taking args", () => {
   for (const [subcommand, parse] of rootTakingParsers) {
     it(`rejects empty --root= for ${subcommand}`, () => {
       expect(() => parse(["--root="])).toThrow(DriftAiError);
-      expect(() => parse(["--root="])).toThrow(/--root requires a path/u);
+      expect(() => parse(["--root="])).toThrow(/--root requires a value/u);
     });
   }
 });

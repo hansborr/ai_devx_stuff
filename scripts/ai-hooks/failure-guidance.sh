@@ -121,6 +121,21 @@ ai_failure_is_test_like() {
     <<< "$combined"
 }
 
+ai_failure_limit_guidance_lines() {
+  local text="$1"
+  local max_lines="${2:-5}"
+  local line_count extra
+
+  line_count=$(printf '%s\n' "$text" | wc -l)
+  if [ "$line_count" -le "$max_lines" ]; then
+    printf '%s' "$text"
+    return 0
+  fi
+
+  extra=$(( line_count - max_lines ))
+  printf '%s\n+%s more' "$(printf '%s\n' "$text" | head -n "$max_lines")" "$extra"
+}
+
 ai_failure_guidance_for_payload() {
   local repo_root="$1"
   local payload="$2"
@@ -131,7 +146,7 @@ ai_failure_guidance_for_payload() {
   combined="${command}"$'\n'"${text}"
 
   if ai_failure_is_eslint_oom "$command" "$text"; then
-    guidance="${guidance}failure-guidance: Known: full-scan ESLint OOMs at the default heap. Retry with NODE_OPTIONS=--max-old-space-size=6144 (see scripts/land.sh:41)."$'\n'
+    guidance="${guidance}failure-guidance: Known: full-scan ESLint OOMs at the default heap. Gate wrappers source scripts/lib/gate-env.sh; retry via bun run verify or git commit so NODE_OPTIONS is managed there."$'\n'
   fi
 
   if ai_failure_is_test_like "$command" "$text" \
@@ -144,7 +159,7 @@ ai_failure_guidance_for_payload() {
   fi
 
   [ -n "$guidance" ] || return 1
-  ai_limit_lines "${guidance%$'\n'}" 5
+  ai_failure_limit_guidance_lines "${guidance%$'\n'}" 5
 }
 
 ai_failure_guidance_main() {

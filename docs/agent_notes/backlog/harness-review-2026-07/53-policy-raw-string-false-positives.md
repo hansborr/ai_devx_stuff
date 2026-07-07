@@ -1,6 +1,6 @@
 # 53. The bypass-guard in policy.sh matches raw command text, so read-only searches for forbidden literals are denied as hook bypasses
 
-Status: Proposed — from the 2026-07-01 AI-harness review; NOT implemented. Re-verify file:line before acting.
+Status: Done — implemented; see 00-index.md row 53. Retained as a design record.
 Lens: hooks · Area: hooks-policy · Severity: high · Size: M · Confidence: high
 Theme: command-policy-precision · Source: Musi AI-harness review 2026-07-01 (multi-agent + Codex second opinion + web research)
 

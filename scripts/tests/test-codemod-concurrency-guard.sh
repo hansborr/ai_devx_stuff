@@ -1,4 +1,12 @@
 #!/bin/bash
+# smoke-order: 160
+# smoke-subjects: scripts/codemods/concurrency-guard.ts
+# smoke-subjects: scripts/codemods/concurrency-guard/
+# smoke-subjects: scripts/codemods/lib/
+# smoke-subjects: scripts/codemods/fixtures/concurrency-guard/
+# smoke-subjects: scripts/tests/test-codemod-concurrency-guard.sh
+# smoke-subjects: package.json
+# smoke-subjects: tsconfig.scripts.json
 # Thin CLI smoke test for scripts/codemods/concurrency-guard.ts.
 
 set -u

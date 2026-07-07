@@ -77,18 +77,48 @@ ai_claude_updated_command() {
   exit 0
 }
 
+# Default prefix for ai_claude_result_command temps (git-commit-quiet). mktemp
+# appends `.XXXXXX`; the rewritten tool command self-cleans on success, and
+# ai_cache_sweep_stale (via ai_cache_init) reaps any abandoned when the tool
+# call is denied or never runs. Other callers pass their own prefixes
+# (/tmp/musi-bun-result, /tmp/musi-policy-guidance); the sweep covers all three.
+AI_RESULT_COMMAND_TMP_PREFIX="${AI_RESULT_COMMAND_TMP_PREFIX:-/tmp/musi-commit-result}"
+
 ai_claude_result_command() {
   local message="$1"
-  local prefix="$2"
-  local result_file
+  local prefix="${2:-$AI_RESULT_COMMAND_TMP_PREFIX}"
+  local result_file quoted
 
   result_file=$(mktemp "$prefix.XXXXXX")
   printf '%s\n' "$message" > "$result_file"
-  ai_claude_updated_command "cat $result_file; rm -f $result_file"
+  # Real shell escaping (printf %q), not bare double quotes: the rewritten
+  # command is re-parsed by the shell when the tool runs, and double quotes
+  # still expand $()/backticks and let an embedded " break out. Today's prefixes
+  # are metachar-free, so this is defense-in-depth against a future caller.
+  printf -v quoted '%q' "$result_file"
+  ai_claude_updated_command "cat $quoted; rm -f $quoted"
 }
 
 ai_is_integer() {
   [[ "${1:-}" =~ ^-?[0-9]+$ ]]
+}
+
+ai_clamp_timeout_below_harness() {
+  local label="$1"
+  local requested="$2"
+  local hook_timeout="$3"
+  local margin="$4"
+  local max_timeout
+
+  max_timeout=$((hook_timeout - margin))
+  if ai_is_integer "$requested" && [ "$requested" -gt "$max_timeout" ]; then
+    printf '%s: clamped timeout from %ss to %ss to stay %ss below generated hook timeout %ss\n' \
+      "$label" "$requested" "$max_timeout" "$margin" "$hook_timeout" >&2
+    printf '%s\n' "$max_timeout"
+    return 0
+  fi
+
+  printf '%s\n' "$requested"
 }
 
 ai_read_state_value() {

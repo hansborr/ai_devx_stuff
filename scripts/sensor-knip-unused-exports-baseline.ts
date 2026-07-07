@@ -75,15 +75,22 @@ export function compareKnipUnusedExportsSnapshots(
       ].join("\n"),
     };
   }
+  if (current.count < baseline.count) {
+    const delta = baseline.count - current.count;
+    return {
+      exitCode: 1,
+      stdout: [
+        ...header,
+        `FAIL: knip unused-export symbols decreased by ${String(delta)}`,
+        "Current tree is better than the baseline; run bun scripts/sensor-knip-unused-exports.ts --update to lock it in by lowering the committed baseline.",
+        ...formatCategoryDeltas(baseline.categories, current.categories),
+      ].join("\n"),
+    };
+  }
   const lines = [
     ...header,
-    `OK: knip unused-export symbols ${String(current.count)} <= baseline ${String(baseline.count)}`,
+    `OK: knip unused-export symbols match baseline ${String(baseline.count)}`,
   ];
-  if (current.count < baseline.count) {
-    lines.push(
-      `INFO: count decreased by ${String(baseline.count - current.count)}; run bun scripts/sensor-knip-unused-exports.ts --update to lower the baseline.`,
-    );
-  }
   return { exitCode: 0, stdout: lines.join("\n") };
 }
 

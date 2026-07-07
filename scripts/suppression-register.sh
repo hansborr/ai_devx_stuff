@@ -11,14 +11,14 @@ set -uo pipefail
 REPO_ROOT="${1:-}"
 if [[ -z "$REPO_ROOT" ]]; then
   REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || {
-    printf 'WARN: suppression register unavailable — not inside a git repository\n' >&2
-    exit 0
+    printf 'FAIL: suppression register cannot check: not inside a git repository\n' >&2
+    exit 2
   }
 fi
 
 if ! git -C "$REPO_ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  printf 'WARN: suppression register unavailable — %s is not a git repository\n' "$REPO_ROOT" >&2
-  exit 0
+  printf 'FAIL: suppression register cannot check: %s is not a git repository\n' "$REPO_ROOT" >&2
+  exit 2
 fi
 
 PATTERN_TS='(^|[[:space:]])(//|/\*)[[:space:]]*@ts-(expect-error|ignore|nocheck)($|[[:space:]])'
@@ -251,8 +251,8 @@ printf 'PASS: suppression register total=%d ts-expect-error=%d ts-ignore=%d ts-n
   "$total" "$ts_expect_error" "$ts_ignore" "$ts_nocheck" "$stryker"
 
 if (( missing_total > 0 )); then
-  printf 'FAIL: suppression register reasons missing %s separator total=%d — replace %s or %s with %s before the reason text\n' \
-    "'-- '" "$missing_total" "' — '" "': '" "' -- '"
+  printf 'FAIL: suppression register reasons missing %s separator total=%d — add %s after the directive\n' \
+    "'-- '" "$missing_total" "' -- <reason>'"
   for entry in "${missing_entries[@]}"; do
     printf '  - %s\n' "$entry"
   done

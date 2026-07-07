@@ -1,4 +1,46 @@
 #!/usr/bin/env bash
+# smoke-order: 370
+# smoke-subjects: scripts/lint-ratchet.ts
+# smoke-subjects: scripts/lint-ratchet/
+# smoke-subjects: scripts/lint-ratchet/lint-ratchet-debt-log.test.ts
+# smoke-subjects: scripts/lint-ratchet/lint-ratchet-debt-log-schema.test.ts
+# smoke-subjects: scripts/lint-ratchet/lint-ratchet-debt-log-write.test.ts
+# smoke-subjects: scripts/lint-ratchet/lint-ratchet-baseline-compare.ts
+# smoke-subjects: scripts/lint-ratchet/lint-ratchet-baseline-parse.ts
+# smoke-subjects: scripts/lint-ratchet/lint-ratchet-baseline.ts
+# smoke-subjects: scripts/lint-ratchet/lint-ratchet-baseline.test.ts
+# smoke-subjects: scripts/lint-ratchet/lint-ratchet-check-registry.ts
+# smoke-subjects: scripts/lint-ratchet/lint-ratchet-check-registry.test.ts
+# smoke-subjects: scripts/lint-ratchet/lint-ratchet-output.ts
+# smoke-subjects: scripts/lint-ratchet/lint-ratchet-output.test.ts
+# smoke-subjects: scripts/lint-ratchet/lint-ratchet-registry-builders.ts
+# smoke-subjects: scripts/lint-ratchet/lint-ratchet-report.ts
+# smoke-subjects: scripts/lint-ratchet/lint-ratchet-report.test.ts
+# smoke-subjects: scripts/lint-ratchet/lint-ratchet-summary.ts
+# smoke-subjects: scripts/lint-ratchet/lint-ratchet-summary.test.ts
+# smoke-subjects: scripts/lint-ratchet/lint-ratchet-zero-baseline.ts
+# smoke-subjects: scripts/lint-ratchet/lint-ratchet-zero-baseline.test.ts
+# smoke-subjects: scripts/fixtures/lint-ratchet/
+# smoke-subjects: scripts/git/check-lint-ratchet-merge-driver.sh
+# smoke-subjects: scripts/git/install-lint-ratchet-merge-driver.sh
+# smoke-subjects: scripts/git/knip-unused-exports-post-merge-baseline-truth-up.sh
+# smoke-subjects: scripts/git/lint-ratchet-merge-driver-lib.sh
+# smoke-subjects: scripts/git/lint-ratchet-post-merge-baseline-truth-up.sh
+# smoke-subjects: scripts/git/lint-ratchet-baseline-merge-driver.sh
+# smoke-subjects: scripts/lib/lint-rule-docs.ts
+# smoke-subjects: scripts/harness/harness-paths.ts
+# smoke-subjects: scripts/lint-ratchet/ratchet-manifest-message.ts
+# smoke-subjects: scripts/tests/lib/test-git-env.sh
+# smoke-subjects: scripts/tests/lib/test-lint-ratchet-edit-check-fixtures.sh
+# smoke-subjects: scripts/tests/test-lint-ratchet.sh
+# smoke-subjects: docs/guides/lint-ratchet.md
+# smoke-subjects: lint-ratchet.baseline.json
+# smoke-subjects: packages/shared/src/schemas/harness-diagnostics.ts
+# smoke-subjects: eslint.config.js
+# smoke-subjects: eslint-config/
+# smoke-subjects: eslint-rules/
+# smoke-subjects: package.json
+# smoke-subjects: tsconfig.scripts.json
 # Smoke test for scripts/lint-ratchet.ts.
 #
 # Covers the committed registry/baseline shape plus fixture regressions, update
@@ -28,6 +70,8 @@ PORTABLE_RUNTIME_FILES=(
   scripts/lint-ratchet.ts
   scripts/lib/eslint-json.ts
   scripts/lib/lint-rule-docs.ts
+  scripts/harness/harness-paths.ts
+  scripts/harness/harness-diagnostics-output.ts
   scripts/lint-ratchet/ratchet-manifest-message.ts
 )
 for runtime_file in scripts/lint-ratchet/*.ts; do
@@ -79,6 +123,23 @@ assert_envelope() {
       throw new Error(`blocking expected ${expectedBlocking}, got ${env.summary.blocking}`);
     }
   ' || fail "invalid lint-ratchet envelope: $file"
+}
+
+assert_regression_recovery_note() {
+  local file=$1
+  ASSERT_FILE="$file" bun -e '
+    const fs = require("fs");
+    const env = JSON.parse(fs.readFileSync(process.env.ASSERT_FILE, "utf8"));
+    const note = (env.notes ?? []).find((entry) => entry.kind === "recovery-command");
+    const command = "bun run lint:ratchet:update -- --allow-worse --reason \"<why accepting this baseline increase is better than forcing a low-quality fix now>\"";
+    if (!note) throw new Error("missing recovery-command note");
+    if (note.command !== command) {
+      throw new Error(`bad recovery command: ${note.command}`);
+    }
+    if (!note.message.includes("intentional")) {
+      throw new Error(`recovery note should explain intentional debt: ${note.message}`);
+    }
+  ' || fail "lint-ratchet envelope missing recovery command note: $file"
 }
 
 assert_portable_runtime_import_boundary() {
@@ -309,6 +370,8 @@ assert_local_identity_regression() {
 assert_lint_ratchet_merge_driver() {
   local repo="$TMP_ROOT/merge-driver"
   local fake_bun_dir semantic_base semantic_current semantic_err semantic_other
+  local linked_common_dir linked_current linked_git_dir linked_marker linked_merge_head_file
+  local linked_repo merge_head_arg_log merge_head_file semantic_marker shared_marker
   local attr_output driver_command git_common_dir installed_driver installed_hash source_hash
   local status unmerged_count
 
@@ -320,6 +383,7 @@ assert_lint_ratchet_merge_driver() {
   git -C "$TMP_ROOT" init -q -b main "$repo"
   git -C "$repo" config user.email test@example.com
   git -C "$repo" config user.name Test
+  git -C "$repo" commit --allow-empty -qm seed
 
   mkdir -p "$repo/.git/info"
   cat >"$repo/.git/info/attributes" <<'EOF'
@@ -419,18 +483,30 @@ if [ "$1" != "run" ] || [ "$2" != "scripts/lint-ratchet/baseline-merge-cli.ts" ]
   exit 64
 fi
 printf '{"semantic":true}\n' >"$4"
+if [ -n "${7:-}" ]; then
+  printf 'truth-up required\n' >"$7"
+fi
+printf '%s\n' "${8:-}" >"${MERGE_DRIVER_MERGE_HEAD_ARG_LOG:?}"
 EOF
   chmod +x "$fake_bun_dir/bun"
   semantic_base="$TMP_ROOT/merge-driver-base.json"
   semantic_current="$TMP_ROOT/merge-driver-current.json"
   semantic_other="$TMP_ROOT/merge-driver-other.json"
   semantic_err="$TMP_ROOT/merge-driver-semantic.err"
+  merge_head_file=$(cd "$repo" && git rev-parse --git-path MERGE_HEAD)
+  case "$merge_head_file" in
+    /*) ;;
+    *) merge_head_file="$repo/$merge_head_file" ;;
+  esac
+  merge_head_arg_log="$TMP_ROOT/merge-driver-merge-head.arg"
   printf '{"base":true}\n' >"$semantic_base"
   printf '{"current":true}\n' >"$semantic_current"
   printf '{"other":true}\n' >"$semantic_other"
+  git -C "$repo" rev-parse HEAD >"$merge_head_file"
   (
     cd "$repo"
-    PATH="$fake_bun_dir:$PATH" bash "$installed_driver" \
+    PATH="$fake_bun_dir:$PATH" MERGE_DRIVER_MERGE_HEAD_ARG_LOG="$merge_head_arg_log" \
+      bash "$installed_driver" \
       "$semantic_base" "$semantic_current" "$semantic_other" "%L" "lint-ratchet.baseline.json"
   ) 2>"$semantic_err" \
     || fail "merge-driver should exit 0 when semantic merge succeeds: $(cat "$semantic_err")"
@@ -438,6 +514,67 @@ EOF
     || fail "merge-driver should let semantic merge rewrite the current file: $(cat "$semantic_current")"
   [ ! -s "$semantic_err" ] \
     || fail "semantic merge success should not print fallback guidance: $(cat "$semantic_err")"
+  semantic_marker="$repo/.git/musi/lint-ratchet-baseline-postmerge-truth-up-required"
+  [ "$(cat "$semantic_marker")" = "truth-up required" ] \
+    || fail "semantic merge success should write the worktree-local truth-up marker"
+  [ "$(cat "$merge_head_arg_log")" = "$(git -C "$repo" rev-parse HEAD)" ] \
+    || fail "merge-driver should pass the MERGE_HEAD sha to the semantic driver: $(cat "$merge_head_arg_log")"
+
+  rm -f "$merge_head_file" "$semantic_marker"
+  printf '{"current":true}\n' >"$semantic_current"
+  (
+    cd "$repo"
+    PATH="$fake_bun_dir:$PATH" MERGE_DRIVER_MERGE_HEAD_ARG_LOG="$merge_head_arg_log" \
+      bash "$installed_driver" \
+      "$semantic_base" "$semantic_current" "$semantic_other" "%L" "lint-ratchet.baseline.json"
+  ) 2>"$semantic_err" \
+    || fail "non-merge semantic driver invocation should still succeed: $(cat "$semantic_err")"
+  [ "$(cat "$semantic_current")" = '{"semantic":true}' ] \
+    || fail "non-merge semantic driver invocation should rewrite current file: $(cat "$semantic_current")"
+  [ ! -e "$semantic_marker" ] \
+    || fail "non-merge semantic driver invocation should not leave a stale truth-up marker"
+  [ "$(cat "$merge_head_arg_log")" = "" ] \
+    || fail "non-merge semantic driver invocation should pass an empty merge-head: $(cat "$merge_head_arg_log")"
+
+  linked_repo="$TMP_ROOT/merge-driver-linked-worktree"
+  git -C "$repo" worktree add -q "$linked_repo" HEAD
+  mkdir -p "$linked_repo/scripts/lint-ratchet"
+  : >"$linked_repo/scripts/lint-ratchet/baseline-merge-cli.ts"
+  linked_git_dir=$(cd "$linked_repo" && git rev-parse --git-dir)
+  case "$linked_git_dir" in
+    /*) ;;
+    *) linked_git_dir="$linked_repo/$linked_git_dir" ;;
+  esac
+  linked_common_dir=$(cd "$linked_repo" && git rev-parse --git-common-dir)
+  case "$linked_common_dir" in
+    /*) ;;
+    *) linked_common_dir="$linked_repo/$linked_common_dir" ;;
+  esac
+  linked_marker="$linked_git_dir/musi/lint-ratchet-baseline-postmerge-truth-up-required"
+  shared_marker="$linked_common_dir/musi/lint-ratchet-baseline-postmerge-truth-up-required"
+  [ "$linked_marker" != "$shared_marker" ] \
+    || fail "linked worktree fixture should have distinct git-dir and common-dir marker paths"
+  rm -f "$linked_marker" "$shared_marker"
+  linked_merge_head_file=$(cd "$linked_repo" && git rev-parse --git-path MERGE_HEAD)
+  case "$linked_merge_head_file" in
+    /*) ;;
+    *) linked_merge_head_file="$linked_repo/$linked_merge_head_file" ;;
+  esac
+  git -C "$linked_repo" rev-parse HEAD >"$linked_merge_head_file"
+  linked_current="$TMP_ROOT/merge-driver-linked-current.json"
+  printf '{"current":true}\n' >"$linked_current"
+  (
+    cd "$linked_repo"
+    PATH="$fake_bun_dir:$PATH" MERGE_DRIVER_MERGE_HEAD_ARG_LOG="$merge_head_arg_log" \
+      bash "$installed_driver" \
+      "$semantic_base" "$linked_current" "$semantic_other" "%L" "lint-ratchet.baseline.json"
+  ) 2>"$semantic_err" \
+    || fail "linked worktree semantic driver invocation should succeed: $(cat "$semantic_err")"
+  [ "$(cat "$linked_marker")" = "truth-up required" ] \
+    || fail "linked worktree semantic merge should write the worktree-local truth-up marker"
+  [ ! -e "$shared_marker" ] \
+    || fail "linked worktree semantic merge should not write a shared common-dir truth-up marker"
+  rm -f "$linked_merge_head_file" "$linked_marker" "$shared_marker"
 
   rm -rf "$repo/scripts"
 
@@ -504,14 +641,64 @@ JSON
   ' || fail "merge-driver should leave parseable JSON"
 }
 
+assert_lint_ratchet_merge_recipe_docs_match_driver() {
+  bun -e '
+    const { readFileSync } = require("fs");
+
+    function extract(pattern, text, label) {
+      const match = text.match(pattern);
+      if (match === null || match[1] === undefined) {
+        throw new Error(`missing ${label} recipe block`);
+      }
+      return match[1];
+    }
+
+    function normalize(text) {
+      return text
+        .replace(/\r\n/g, "\n")
+        .replace(/\$path/g, "lint-ratchet.baseline.json")
+        .trim();
+    }
+
+    const driver = readFileSync("scripts/git/lint-ratchet-baseline-merge-driver.sh", "utf8");
+    const guide = readFileSync("docs/guides/lint-ratchet.md", "utf8");
+    // This parity guard assumes the driver heredoc remains unquoted and $path is
+    // the only runtime expansion. A future expansion would make this compare
+    // source text instead of the shell-rendered output.
+    const driverRecipe = normalize(
+      extract(
+        /# BEGIN lint-ratchet-baseline-conflict-recipe\ncat >&2 <<EOF\n([\s\S]*?)\nEOF\n# END lint-ratchet-baseline-conflict-recipe/u,
+        driver,
+        "driver",
+      ),
+    );
+    const guideRecipe = normalize(
+      extract(
+        /<!-- lint-ratchet-baseline-conflict-recipe:start -->\n```text\n([\s\S]*?)\n```\n<!-- lint-ratchet-baseline-conflict-recipe:end -->/u,
+        guide,
+        "guide",
+      ),
+    );
+
+    if (driverRecipe !== guideRecipe) {
+      console.error("--- driver ---");
+      console.error(driverRecipe);
+      console.error("--- guide ---");
+      console.error(guideRecipe);
+      throw new Error("lint-ratchet merge-conflict recipe drifted between driver and guide");
+    }
+  ' || fail "merge-driver conflict recipe docs drifted"
+}
+
 copy_lint_ratchet_merge_runtime() {
   local repo=$1
   local runtime_file
-  mkdir -p "$repo/scripts/git" "$repo/scripts/lint-ratchet"
+  mkdir -p "$repo/scripts/git" "$repo/scripts/lint-ratchet" "$repo/scripts/harness"
   cp scripts/git/check-lint-ratchet-merge-driver.sh "$repo/scripts/git/"
   cp scripts/git/install-lint-ratchet-merge-driver.sh "$repo/scripts/git/"
   cp scripts/git/lint-ratchet-merge-driver-lib.sh "$repo/scripts/git/"
   cp scripts/git/lint-ratchet-baseline-merge-driver.sh "$repo/scripts/git/"
+  cp scripts/harness/harness-paths.ts "$repo/scripts/harness/harness-paths.ts"
   for runtime_file in scripts/lint-ratchet/*.ts; do
     case "$runtime_file" in
       *.test.ts) continue ;;
@@ -570,19 +757,30 @@ JSON
 
 assert_lint_ratchet_merge_driver_real_semantic_merge() {
   local repo="$TMP_ROOT/merge-driver-real-semantic"
-  local base_file current_file fallback_err fallback_status git_common_dir installed_driver
-  local other_file status unmerged_count
+  local base_file current_file fallback_err fallback_status git_common_dir git_dir installed_driver
+  local marker_file merge_head_file other_file status unmerged_count
 
   copy_lint_ratchet_merge_runtime "$repo"
   git -C "$TMP_ROOT" init -q -b main "$repo"
   git -C "$repo" config user.email test@example.com
   git -C "$repo" config user.name Test
+  git -C "$repo" commit --allow-empty -qm seed
   (cd "$repo" && bash scripts/git/install-lint-ratchet-merge-driver.sh) >/dev/null \
     || fail "real semantic merge-driver install failed"
   git_common_dir=$(cd "$repo" && git rev-parse --git-common-dir)
   case "$git_common_dir" in
     /*) installed_driver="$git_common_dir/musi/lint-ratchet-baseline-merge-driver.sh" ;;
     *) installed_driver="$repo/$git_common_dir/musi/lint-ratchet-baseline-merge-driver.sh" ;;
+  esac
+  git_dir=$(cd "$repo" && git rev-parse --git-dir)
+  case "$git_dir" in
+    /*) marker_file="$git_dir/musi/lint-ratchet-baseline-postmerge-truth-up-required" ;;
+    *) marker_file="$repo/$git_dir/musi/lint-ratchet-baseline-postmerge-truth-up-required" ;;
+  esac
+  merge_head_file=$(cd "$repo" && git rev-parse --git-path MERGE_HEAD)
+  case "$merge_head_file" in
+    /*) ;;
+    *) merge_head_file="$repo/$merge_head_file" ;;
   esac
 
   base_file="$TMP_ROOT/merge-driver-fallback-base.json"
@@ -609,12 +807,35 @@ assert_lint_ratchet_merge_driver_real_semantic_merge() {
     || fail "driver should cover the CLI-exit-1 fallback branch: $(cat "$fallback_err")"
   grep -qF "lint-ratchet baseline conflict" "$fallback_err" \
     || fail "driver fallback should print manual conflict guidance: $(cat "$fallback_err")"
+  [ ! -e "$marker_file" ] \
+    || fail "semantic fallback should not leave a truth-up marker"
   BASELINE="$current_file" bun -e '
     const { readFileSync } = require("fs");
     const parsed = JSON.parse(readFileSync(process.env.BASELINE, "utf8"));
     const item = parsed.tests["ratchet/fixture-one"].items["packages/server/src/one.ts"];
     if (item.count !== 3) throw new Error(`current side was rewritten to ${item.count}`);
   ' || fail "fallback should leave the current temp file untouched"
+
+  rm -f "$marker_file"
+  write_merge_driver_semantic_baseline "$base_file" 5 6
+  write_merge_driver_semantic_baseline "$current_file" 3 6
+  write_merge_driver_semantic_baseline "$other_file" 4 6
+  git -C "$repo" rev-parse HEAD >"$merge_head_file"
+  (
+    cd "$repo"
+    bash "$installed_driver" \
+      "$base_file" "$current_file" "$other_file" "%L" "lint-ratchet.baseline.json"
+  ) 2>"$fallback_err" \
+    || fail "strict-min semantic merge should succeed: $(cat "$fallback_err")"
+  [ -s "$marker_file" ] \
+    || fail "strict-min semantic merge should leave a post-merge truth-up marker"
+  BASELINE="$current_file" bun -e '
+    const { readFileSync } = require("fs");
+    const parsed = JSON.parse(readFileSync(process.env.BASELINE, "utf8"));
+    const item = parsed.tests["ratchet/fixture-one"].items["packages/server/src/one.ts"];
+    if (item.count !== 3) throw new Error(`current side was rewritten to ${item.count}`);
+  ' || fail "strict-min semantic merge should keep the minimum floor"
+  rm -f "$marker_file" "$merge_head_file"
 
   cat >"$repo/.gitattributes" <<'EOF'
 /lint-ratchet.baseline.json merge=lint-ratchet-baseline
@@ -797,7 +1018,8 @@ assert_lint_ratchet_post_merge_truth_up() {
   local fake_bin="$TMP_ROOT/post-merge-fake-bin"
   local nobun_bin="$TMP_ROOT/post-merge-nobun-bin"
   local hook_log="$TMP_ROOT/post-merge-bun.log"
-  local output status tool
+  local git_dir linked_common_dir linked_git_dir linked_marker linked_repo marker_file output
+  local shared_marker status tool
 
   mkdir -p "$repo/scripts/git" "$fake_bin"
   cp scripts/git/lint-ratchet-post-merge-baseline-truth-up.sh "$repo/scripts/git/"
@@ -844,6 +1066,11 @@ SH
   git -C "$repo" update-ref ORIG_HEAD HEAD
   printf '{"version":1,"tests":{}}\n' >"$repo/lint-ratchet.baseline.json"
   git -C "$repo" commit -qam baseline
+  git_dir=$(cd "$repo" && git rev-parse --git-dir)
+  case "$git_dir" in
+    /*) marker_file="$git_dir/musi/lint-ratchet-baseline-postmerge-truth-up-required" ;;
+    *) marker_file="$repo/$git_dir/musi/lint-ratchet-baseline-postmerge-truth-up-required" ;;
+  esac
   : >"$hook_log"
   output=$(cd "$repo" && PATH="$fake_bin:$PATH" POST_MERGE_BUN_LOG="$hook_log" \
     bash scripts/git/lint-ratchet-post-merge-baseline-truth-up.sh 2>&1) \
@@ -852,6 +1079,77 @@ SH
     || fail "post-merge truth-up should stay quiet when cheap preflight passes: $output"
   [ "$(cat "$hook_log")" = "run scripts/lint-ratchet/post-merge-baseline-preflight.ts" ] \
     || fail "post-merge truth-up should run only cheap preflight on clean baseline: $(cat "$hook_log")"
+
+  mkdir -p "$(dirname "$marker_file")"
+  printf 'truth-up required\n' >"$marker_file"
+  : >"$hook_log"
+  output=$(cd "$repo" && PATH="$fake_bin:$PATH" POST_MERGE_BUN_LOG="$hook_log" \
+    bash scripts/git/lint-ratchet-post-merge-baseline-truth-up.sh 2>&1) \
+    || fail "post-merge truth-up should exit 0 when marker full check passes"
+  [ "$output" = "" ] \
+    || fail "post-merge truth-up should stay quiet when marker full check passes: $output"
+  [ "$(cat "$hook_log")" = $'run scripts/lint-ratchet/post-merge-baseline-preflight.ts\nrun lint:ratchet:check-baseline' ] \
+    || fail "truth-up marker should escalate to the full check: $(cat "$hook_log")"
+  [ ! -e "$marker_file" ] \
+    || fail "post-merge truth-up should consume the semantic merge marker"
+
+  git -C "$repo" update-ref ORIG_HEAD HEAD
+  printf 'unchanged baseline merge\n' >>"$repo/README.md"
+  git -C "$repo" add README.md
+  git -C "$repo" commit -qm unchanged-baseline
+  printf 'truth-up required\n' >"$marker_file"
+  : >"$hook_log"
+  output=$(cd "$repo" && PATH="$fake_bin:$PATH" POST_MERGE_BUN_LOG="$hook_log" \
+    bash scripts/git/lint-ratchet-post-merge-baseline-truth-up.sh 2>&1) \
+    || fail "post-merge truth-up should exit 0 when marker exists without baseline byte changes"
+  [ "$output" = "" ] \
+    || fail "post-merge truth-up should stay quiet for unchanged-baseline marker pass: $output"
+  [ "$(cat "$hook_log")" = $'run scripts/lint-ratchet/post-merge-baseline-preflight.ts\nrun lint:ratchet:check-baseline' ] \
+    || fail "unchanged-baseline marker should still run the full check: $(cat "$hook_log")"
+  [ ! -e "$marker_file" ] \
+    || fail "unchanged-baseline marker should be consumed before baseline-diff exit"
+
+  # A marker stamped for a merge that was aborted must not force a full check
+  # on the next unrelated merge: its merge-head stamp cannot match HEAD^2.
+  git -C "$repo" update-ref ORIG_HEAD HEAD
+  printf 'after aborted merge\n' >>"$repo/README.md"
+  git -C "$repo" add README.md
+  git -C "$repo" commit -qm after-aborted-merge
+  printf 'truth-up required\nmerge-head=%s\n' "$(printf 'a%.0s' {1..40})" >"$marker_file"
+  : >"$hook_log"
+  output=$(cd "$repo" && PATH="$fake_bin:$PATH" POST_MERGE_BUN_LOG="$hook_log" \
+    bash scripts/git/lint-ratchet-post-merge-baseline-truth-up.sh 2>&1) \
+    || fail "post-merge truth-up should exit 0 for a stale stamped marker"
+  [ "$output" = "" ] \
+    || fail "stale stamped marker should stay quiet: $output"
+  [ ! -s "$hook_log" ] \
+    || fail "stale stamped marker must not trigger any check on an unrelated merge: $(cat "$hook_log")"
+  [ ! -e "$marker_file" ] \
+    || fail "stale stamped marker should still be consumed"
+
+  # A marker stamped with the sha that IS this merge commit's second parent
+  # keeps the one-shot full-check escalation.
+  git -C "$repo" checkout -q -b stamp-side
+  printf 'stamp side\n' >>"$repo/README.md"
+  git -C "$repo" add README.md
+  git -C "$repo" commit -qm stamp-side
+  git -C "$repo" checkout -q main
+  git -C "$repo" merge -q --no-ff -m stamp-merge stamp-side
+  printf 'truth-up required\nmerge-head=%s\n' "$(git -C "$repo" rev-parse HEAD^2)" >"$marker_file"
+  : >"$hook_log"
+  output=$(cd "$repo" && PATH="$fake_bin:$PATH" POST_MERGE_BUN_LOG="$hook_log" \
+    bash scripts/git/lint-ratchet-post-merge-baseline-truth-up.sh 2>&1) \
+    || fail "post-merge truth-up should exit 0 for a matching stamped marker"
+  [ "$output" = "" ] \
+    || fail "matching stamped marker should stay quiet when checks pass: $output"
+  [ "$(cat "$hook_log")" = $'run scripts/lint-ratchet/post-merge-baseline-preflight.ts\nrun lint:ratchet:check-baseline' ] \
+    || fail "matching stamped marker should escalate to the full check: $(cat "$hook_log")"
+  [ ! -e "$marker_file" ] \
+    || fail "matching stamped marker should be consumed"
+
+  git -C "$repo" update-ref ORIG_HEAD HEAD
+  printf '{"version":1,"tests":{"afterMarker":{}}}\n' >"$repo/lint-ratchet.baseline.json"
+  git -C "$repo" commit -qam baseline-after-marker
 
   : >"$hook_log"
   output=$(cd "$repo" && PATH="$fake_bin:$PATH" POST_MERGE_BUN_LOG="$hook_log" \
@@ -876,6 +1174,43 @@ SH
     || fail "post-merge truth-up should print exactly one stale-baseline instruction: $output"
   [ "$(cat "$hook_log")" = $'run scripts/lint-ratchet/post-merge-baseline-preflight.ts\nrun lint:ratchet:check-baseline' ] \
     || fail "cheap failure should escalate to full check: $(cat "$hook_log")"
+
+  linked_repo="$TMP_ROOT/post-merge-truth-up-linked-worktree"
+  git -C "$repo" worktree add -q "$linked_repo" HEAD
+  mkdir -p "$linked_repo/scripts/git"
+  cp scripts/git/lint-ratchet-post-merge-baseline-truth-up.sh "$linked_repo/scripts/git/"
+  linked_git_dir=$(cd "$linked_repo" && git rev-parse --git-dir)
+  case "$linked_git_dir" in
+    /*) ;;
+    *) linked_git_dir="$linked_repo/$linked_git_dir" ;;
+  esac
+  linked_common_dir=$(cd "$linked_repo" && git rev-parse --git-common-dir)
+  case "$linked_common_dir" in
+    /*) ;;
+    *) linked_common_dir="$linked_repo/$linked_common_dir" ;;
+  esac
+  linked_marker="$linked_git_dir/musi/lint-ratchet-baseline-postmerge-truth-up-required"
+  shared_marker="$linked_common_dir/musi/lint-ratchet-baseline-postmerge-truth-up-required"
+  [ "$linked_marker" != "$shared_marker" ] \
+    || fail "linked post-merge fixture should have distinct git-dir and common-dir marker paths"
+  git -C "$linked_repo" update-ref ORIG_HEAD HEAD
+  printf 'linked worktree unrelated merge\n' >>"$linked_repo/README.md"
+  git -C "$linked_repo" add README.md
+  git -C "$linked_repo" commit -qm linked-worktree-readme
+  rm -f "$linked_marker" "$shared_marker"
+  mkdir -p "$(dirname "$shared_marker")"
+  printf 'truth-up required\n' >"$shared_marker"
+  : >"$hook_log"
+  output=$(cd "$linked_repo" && PATH="$fake_bin:$PATH" POST_MERGE_BUN_LOG="$hook_log" \
+    bash scripts/git/lint-ratchet-post-merge-baseline-truth-up.sh 2>&1) \
+    || fail "linked post-merge truth-up should exit 0 with only a shared marker"
+  [ "$output" = "" ] \
+    || fail "linked post-merge truth-up should stay quiet for a shared marker: $output"
+  [ ! -s "$hook_log" ] \
+    || fail "linked post-merge truth-up should ignore shared common-dir markers: $(cat "$hook_log")"
+  [ -e "$shared_marker" ] \
+    || fail "linked post-merge truth-up should not consume a shared common-dir marker"
+  rm -f "$shared_marker"
 
   # Environment guard: a host without bun on PATH (GUI git clients, broken
   # shells) must stay silent instead of printing the stale-baseline advisory.
@@ -917,6 +1252,116 @@ SH
     || fail "full-check exit 127 must not print the stale advisory: $output"
   [ "$(cat "$hook_log")" = $'run scripts/lint-ratchet/post-merge-baseline-preflight.ts\nrun lint:ratchet:check-baseline' ] \
     || fail "full-check exit 127 should still have escalated from the failing preflight: $(cat "$hook_log")"
+}
+
+assert_knip_unused_exports_post_merge_truth_up() {
+  local repo="$TMP_ROOT/knip-post-merge-truth-up"
+  local fake_bin="$TMP_ROOT/knip-post-merge-fake-bin"
+  local nobun_bin="$TMP_ROOT/knip-post-merge-nobun-bin"
+  local hook_log="$TMP_ROOT/knip-post-merge-bun.log"
+  local output status tool
+
+  grep -qF 'scripts/git/knip-unused-exports-post-merge-baseline-truth-up.sh' .husky/post-merge \
+    || fail "post-merge should run the knip unused-export baseline truth-up"
+
+  mkdir -p "$repo/scripts/git" "$fake_bin"
+  cp scripts/git/knip-unused-exports-post-merge-baseline-truth-up.sh "$repo/scripts/git/"
+  git -C "$TMP_ROOT" init -q -b main "$repo"
+  git -C "$repo" config user.email test@example.com
+  git -C "$repo" config user.name Test
+  printf '{}\n' >"$repo/sensor-knip-unused-exports.baseline.json"
+  git -C "$repo" add sensor-knip-unused-exports.baseline.json
+  git -C "$repo" commit -qm base
+
+  cat >"$fake_bin/bun" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$*" >>"${POST_MERGE_BUN_LOG:?}"
+if [ "$*" = "run sensor:knip-unused-exports" ]; then
+  exit "${POST_MERGE_KNIP_RC:-0}"
+fi
+printf 'unexpected bun invocation: %s\n' "$*" >&2
+exit 99
+SH
+  chmod +x "$fake_bin/bun"
+
+  : >"$hook_log"
+  (cd "$repo" && PATH="$fake_bin:$PATH" POST_MERGE_BUN_LOG="$hook_log" \
+    bash scripts/git/knip-unused-exports-post-merge-baseline-truth-up.sh) \
+    || fail "knip post-merge truth-up should exit 0 without ORIG_HEAD"
+  [ ! -s "$hook_log" ] \
+    || fail "knip post-merge truth-up should skip when ORIG_HEAD is absent: $(cat "$hook_log")"
+
+  git -C "$repo" update-ref ORIG_HEAD HEAD
+  printf 'not baseline\n' >"$repo/README.md"
+  git -C "$repo" add README.md
+  git -C "$repo" commit -qm readme
+  : >"$hook_log"
+  (cd "$repo" && PATH="$fake_bin:$PATH" POST_MERGE_BUN_LOG="$hook_log" \
+    bash scripts/git/knip-unused-exports-post-merge-baseline-truth-up.sh) \
+    || fail "knip post-merge truth-up should exit 0 for unrelated merges"
+  [ ! -s "$hook_log" ] \
+    || fail "knip post-merge truth-up should skip when baseline was not touched: $(cat "$hook_log")"
+
+  git -C "$repo" update-ref ORIG_HEAD HEAD
+  printf '{"version":1,"count":1}\n' >"$repo/sensor-knip-unused-exports.baseline.json"
+  git -C "$repo" commit -qam baseline
+  : >"$hook_log"
+  output=$(cd "$repo" && PATH="$fake_bin:$PATH" POST_MERGE_BUN_LOG="$hook_log" \
+    bash scripts/git/knip-unused-exports-post-merge-baseline-truth-up.sh 2>&1) \
+    || fail "knip post-merge truth-up should exit 0 when sensor passes"
+  [ "$output" = "" ] \
+    || fail "knip post-merge truth-up should stay quiet when sensor passes: $output"
+  [ "$(cat "$hook_log")" = "run sensor:knip-unused-exports" ] \
+    || fail "knip post-merge truth-up should run the sensor once: $(cat "$hook_log")"
+
+  : >"$hook_log"
+  set +e
+  output=$(cd "$repo" && PATH="$fake_bin:$PATH" POST_MERGE_BUN_LOG="$hook_log" \
+    POST_MERGE_KNIP_RC=1 \
+    bash scripts/git/knip-unused-exports-post-merge-baseline-truth-up.sh 2>&1)
+  status=$?
+  set -e
+  [ "$status" -eq 0 ] \
+    || fail "knip post-merge truth-up must stay advisory, got exit $status: $output"
+  [ "$output" = "post-merge: merge produced a stale knip unused-export baseline - run: bun scripts/sensor-knip-unused-exports.ts --update, review the diff against both parents, then git commit --amend" ] \
+    || fail "knip post-merge truth-up should print exactly one stale-baseline instruction: $output"
+  [ "$(cat "$hook_log")" = "run sensor:knip-unused-exports" ] \
+    || fail "knip post-merge truth-up should still run only the sensor on failure: $(cat "$hook_log")"
+
+  : >"$hook_log"
+  output=$(cd "$repo" && PATH="$fake_bin:$PATH" POST_MERGE_BUN_LOG="$hook_log" \
+    POST_MERGE_KNIP_RC=2 \
+    bash scripts/git/knip-unused-exports-post-merge-baseline-truth-up.sh 2>&1) \
+    || fail "knip post-merge truth-up should exit 0 when sensor exits 2"
+  [ "$output" = "" ] \
+    || fail "knip sensor exit 2 must not print the stale advisory: $output"
+  [ "$(cat "$hook_log")" = "run sensor:knip-unused-exports" ] \
+    || fail "knip post-merge truth-up should still run the sensor before seeing exit 2: $(cat "$hook_log")"
+
+  mkdir -p "$nobun_bin"
+  for tool in bash git grep; do
+    ln -s "$(command -v "$tool")" "$nobun_bin/$tool"
+  done
+  set +e
+  output=$(cd "$repo" && PATH="$nobun_bin" \
+    bash scripts/git/knip-unused-exports-post-merge-baseline-truth-up.sh 2>&1)
+  status=$?
+  set -e
+  [ "$status" -eq 0 ] \
+    || fail "knip post-merge truth-up must exit 0 without bun on PATH, got $status: $output"
+  [ "$output" = "" ] \
+    || fail "knip post-merge truth-up must not claim staleness without bun on PATH: $output"
+
+  : >"$hook_log"
+  output=$(cd "$repo" && PATH="$fake_bin:$PATH" POST_MERGE_BUN_LOG="$hook_log" \
+    POST_MERGE_KNIP_RC=127 \
+    bash scripts/git/knip-unused-exports-post-merge-baseline-truth-up.sh 2>&1) \
+    || fail "knip post-merge truth-up should exit 0 when sensor exits 127"
+  [ "$output" = "" ] \
+    || fail "knip sensor exit 127 must not print the stale advisory: $output"
+  [ "$(cat "$hook_log")" = "run sensor:knip-unused-exports" ] \
+    || fail "knip post-merge truth-up should have run the sensor before seeing 127: $(cat "$hook_log")"
 }
 
 use_fixture_node_modules_with_fake_plugin() {
@@ -1556,11 +2001,13 @@ grep -qF "lint:ratchet:check-registry OK" "$TMP_ROOT/real-registry.err" \
 assert_portable_runtime_import_boundary
 assert_local_identity_regression
 assert_lint_ratchet_merge_driver
+assert_lint_ratchet_merge_recipe_docs_match_driver
 assert_lint_ratchet_merge_driver_real_semantic_merge
 assert_lint_ratchet_merge_driver_hash_tool_guard
 assert_lint_ratchet_merge_driver_write_guard
 assert_lint_ratchet_merge_driver_auto_install_wiring
 assert_lint_ratchet_post_merge_truth_up
+assert_knip_unused_exports_post_merge_truth_up
 
 # --- Usage errors return exit 2 (CLI contract for harness wrappers) ----------
 # Each assertion runs against the real tree; usage errors throw before ESLint
@@ -1650,6 +2097,7 @@ status=$?
 set -e
 [ "$status" -eq 1 ] || fail "fixture regression should exit 1, got $status: $(cat "$TMP_ROOT/regression.err")"
 assert_envelope "$TMP_ROOT/regression.out" 1
+assert_regression_recovery_note "$TMP_ROOT/regression.out"
 ASSERT_FILE="$TMP_ROOT/regression.out" bun -e '
   const fs = require("fs");
   const env = JSON.parse(fs.readFileSync(process.env.ASSERT_FILE, "utf8"));

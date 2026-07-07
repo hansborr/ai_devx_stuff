@@ -1,3 +1,4 @@
+import { parseWindowDays } from "./advisory-common.js";
 import { readPositiveInt } from "./arg-readers.js";
 import { DriftAiError } from "./errors.js";
 import type { HotspotLens } from "./hotspots-format.js";
@@ -67,7 +68,7 @@ export function parseHotspotsArgs(argv: readonly string[]): ParsedHotspotsArgs {
         lens = parseLens(value);
       },
       "--window": (value) => {
-        windowDays = parseWindowDays(value);
+        windowDays = parseWindowDays(value, DEFAULT_WINDOW_DAYS);
       },
       "--top": (value) => {
         top = readPositiveInt(value, "--top");
@@ -90,13 +91,4 @@ function parseLens(value: string): HotspotLens {
   throw new DriftAiError(
     `--lens requires one of churn|coupling|fragmentation|suppression-churn|thrash|all (got '${value}').`,
   );
-}
-
-function parseWindowDays(value: string): number {
-  const match = /^(\d+)d?$/u.exec(value.trim());
-  const days = match === null ? Number.NaN : Number(match[1]);
-  if (!Number.isInteger(days) || days <= 0) {
-    throw new DriftAiError("--window requires a positive number of days, e.g. 14 or 14d.");
-  }
-  return days;
 }

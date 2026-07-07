@@ -3,19 +3,6 @@ import { ts } from "ts-morph";
 import type { DriftAiIgnoreConfig } from "./config.js";
 import { predictedBranchFor } from "./env-define-evaluation.js";
 import { collectReadsInExpression, rangeFor, readEvidenceFromNode } from "./env-define-reads.js";
-export type {
-  EnvDefineAssumedValue,
-  EnvDefineAssumption,
-  EnvDefineBranchPrediction,
-  EnvDefineConditionEvidence,
-  EnvDefineConditionReadEvidence,
-  EnvDefineInventory,
-  EnvDefineMatrix,
-  EnvDefineRange,
-  EnvDefineReadEvidence,
-  EnvDefineReadKind,
-  EnvDefineSourceInput,
-} from "./env-define-types.js";
 import type {
   EnvDefineConditionEvidence,
   EnvDefineInventory,

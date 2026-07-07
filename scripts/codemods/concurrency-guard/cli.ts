@@ -1,5 +1,6 @@
 import path from "node:path";
 
+import { requireArg } from "../../cli-option-values.js";
 import { fail } from "./errors.js";
 import type { CliArgs } from "./types.js";
 
@@ -14,7 +15,7 @@ const ALL_USAGE = "Usage: bun run codemod:concurrency-guard -- --all";
 const SINGLE_USAGE = "Usage: bun run codemod:concurrency-guard -- --check | --all | <file>";
 
 function parseCliArg(tokens: CliTokens, arg: string): void {
-  if (!arg) fail("Empty arguments are not supported.");
+  requireArg(arg, fail);
   if (arg === "--all") {
     tokens.all = true;
     return;

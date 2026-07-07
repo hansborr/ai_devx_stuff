@@ -1,6 +1,12 @@
 #!/bin/bash
 
 # Shared policy checks and verification command matching.
+#
+# Command matching is regex-based for accidental agent commands, not full shell
+# parsing. It covers direct commands, one prefix level, common shell separators
+# and reserved words, and command substitutions. Deliberately-unhandled
+# residuals include ssh-wrapped commands and double-wrapped `bash -c` strings;
+# do not re-flag those without changing the threat model.
 
 AI_POLICY_HOOK_BYPASS="Hook bypass is not allowed. Pre-commit hooks must always run."
 AI_POLICY_POSTGRES="Do not use PostgreSQL CLI tools directly. You are in a container - use Prisma for all DB operations: 'bun run --filter @musi/server db:push' for schema, 'bun run --filter @musi/server db:seed' for seeding, or Prisma CLI commands routed through the repo scripts. Credentials are in .devcontainer/.env."
@@ -10,6 +16,7 @@ AI_POLICY_CHANGEME="Wrong database credentials. 'ThisIsNotTheRealDatabasePasswor
 AI_POLICY_GIT_AMEND="Git commit amend is not allowed from agents because it rewrites local history. The amend did NOT run — HEAD and your staged changes are untouched. Stage your changes and create a NEW follow-up commit instead. If the previous commit genuinely must be amended, ask the user to do it manually."
 AI_POLICY_GIT_REBASE="Git rebase is not allowed from agents because it rewrites local history. Use merge or add follow-up commits; if a rebase is required, ask the user to run it."
 AI_POLICY_GIT_RESET="Dangerous git reset modes are not allowed from agents. Use path-scoped 'git restore --staged <path>' or ask the user to run the reset."
+AI_POLICY_GIT_WORKTREE_LOSS="Git worktree-discarding commands are not allowed from agents because they can destroy uncommitted work. Use non-destructive inspection commands, path-scoped staged-only restores, or ask the user to run the discard."
 AI_POLICY_GIT_HISTORY_REWRITE="Git history rewrite and direct ref manipulation are not allowed from agents. Add a follow-up commit or ask the user to run the rewrite."
 AI_POLICY_GIT_FORCE_PUSH="Git force-push and remote branch deletion are not allowed from agents. Push normal feature-branch updates only, or ask the user to perform the remote mutation."
 AI_POLICY_GIT_PUSH_MAIN="Pushing to main or master is not allowed from agents. Push a feature branch or ask the user to push the protected branch."
@@ -21,27 +28,124 @@ AI_POLICY_GH_AUTH="GitHub auth token output and auth reconfiguration are not all
 AI_POLICY_ALLOW_PROTECTED_EDITS_ADVISORY="Protected edit override marker .allow-protected-edits is repo-wide. Use it only for deliberate protected-file maintenance, and remove it immediately after that work is done."
 AI_FLAKY_NOTE="Note: If this failure looks flaky (passes in isolation, fails under load), ensure you document it under docs/agent_notes/observed_flaky_tests.md if you are unable to resolve it right now."
 
-AI_WRAPPED_BUN_RE='^bun run (lint|lint:changed|lint:fix|typecheck|test|test:changed|test:server|test:client|test:client:isolated|test:client:split|test:shared|test:coverage|test:slow|e2e|format|format:check|format:changed|format:changed:check|build|code:intel|verify|verify:changed|verify:slow|verify:logs|verify:async:status|verify:async:tail|verify:async:stop)( --| [A-Za-z0-9._:/=-]+| --[A-Za-z0-9._=-]+)*$'
-AI_POLICY_CMD_START='(^[[:space:]]*|[;&|][[:space:]]*)'
-AI_POLICY_CMD_END="($|[[:space:];|&'\"])"
+AI_WRAPPED_BUN_SCRIPTS='
+audit:deps
+audit:licenses
+build
+check:eslint-react-peer-exception
+check:fast-uri-override
+code:intel
+db:migration-safety
+docs:harness-controls:check
+docs:lint-coverage-map:audit
+docs:lint-coverage-map:check
+docs:lint-coverage-map:suggest
+docs:lint-guidance:check
+drift:ai
+drift:e2e
+e2e
+format
+format:changed
+format:changed:check
+format:check
+harness:audit
+harness:check
+harness:config-surfaces
+harness:config-surfaces:check
+harness:wiring:check
+lint
+lint:agent:local-rules
+lint:agent:local-rules:changed
+lint:changed
+lint:config-sensors
+lint:fix
+lint:import-cycles
+lint:probe-rule
+lint:ratchet
+lint:ratchet:check-baseline
+lint:ratchet:check-debt-accounting
+lint:ratchet:check-registry
+lint:ratchet:debt-log
+lint:ratchet:install-merge-driver
+lint:ratchet:merge-driver:check
+lint:ratchet:report
+lint:ratchet:summary
+lint:ratchet:trend
+lint:restricted-disable-rules
+lint:restricted-disable-rules:check
+lint:shell
+lint:suppressions
+logs:audit
+module:index:check
+sensor:blob-size
+sensor:knip
+sensor:knip-unused-exports
+test
+test:changed
+test:client
+test:client:isolated
+test:client:split
+test:coverage
+test:eslint-rules
+test:scripts
+test:scripts:changed
+test:scripts:file
+test:scripts:subjects
+test:scripts:subjects:check
+test:server
+test:shared
+test:slow
+typecheck
+verify
+verify:async:status
+verify:async:stop
+verify:async:tail
+verify:changed
+verify:history
+verify:logs
+verify:parallel
+verify:slow
+verify:steps:check
+'
+
+ai_wrapped_bun_script_regex() {
+  local script sep=""
+
+  while IFS= read -r script; do
+    [ -n "$script" ] || continue
+    printf '%s%s' "$sep" "$script"
+    sep='|'
+  done <<EOF
+$AI_WRAPPED_BUN_SCRIPTS
+EOF
+}
+
+AI_WRAPPED_BUN_RE="^bun run ($(ai_wrapped_bun_script_regex))( --| [A-Za-z0-9._:/=-]+| --[A-Za-z0-9._=-]+)*$"
+AI_POLICY_CMD_START='(^[[:space:]]*|[;&|][[:space:]]*|(^|[;&|])[[:space:]]*([A-Za-z_][A-Za-z0-9_]*=)?[$][(][[:space:]]*|(^|[;&|])[[:space:]]*([A-Za-z_][A-Za-z0-9_]*=)?`[[:space:]]*|(^|[;&|])[[:space:]]*(then|do|else|elif)[[:space:]]+|(^|[;&|])[[:space:]]*([{]|!)[[:space:]]+)'
+AI_POLICY_CMD_END="($|[[:space:];|&'\"\`)])"
 AI_POLICY_ENV_PREFIX='env[[:space:]]+([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]+[[:space:]]+)+'
 AI_POLICY_SHELL_PREFIX="(bash|sh)[[:space:]]+-[^[:space:]]*c[^[:space:]]*[[:space:]]+['\"]?"
-# Global git options that may legitimately sit between `git` and the `commit`
-# verb: a value-taking option with its argument (`-c key=val`, `-C path`,
-# `--git-dir path`, …) or any other single dash-led flag. Restricting the
-# pre-verb tokens to these keeps read-only subcommands that merely *name* commit
-# (`git grep commit`, `git log --grep commit`, `git show commit`) from being
-# mistaken for a real commit; subcommands are bare words, never dash-led.
-AI_POLICY_GIT_PRECOMMIT_OPTS='((-[cC]|--(git-dir|work-tree|namespace|exec-path|config-env|super-prefix))[[:space:]]+[^[:space:];&|]+[[:space:]]+|--[A-Za-z][^[:space:];&|]*[[:space:]]+|-[A-Za-z][^[:space:];&|]*[[:space:]]+)*'
+AI_POLICY_TIMEOUT_PREFIX='timeout[[:space:]]+(((-s|--signal|-k|--kill-after)(=|[[:space:]]+)[^[:space:];&|]+|--(foreground|preserve-status|verbose)|-[v])[[:space:]]+)*[0-9]+([.][0-9]+)?[smhd]?[[:space:]]+'
+AI_POLICY_COMMAND_PREFIX='command[[:space:]]+'
+AI_POLICY_NICE_PREFIX='nice([[:space:]]+(-n[[:space:]]+|-)[0-9]+)?[[:space:]]+'
+AI_POLICY_RUNNER_PREFIX="($AI_POLICY_TIMEOUT_PREFIX|$AI_POLICY_COMMAND_PREFIX|$AI_POLICY_NICE_PREFIX)+"
+# Global git options that may legitimately sit between `git` and the verb: a
+# value-taking option with its argument (`-c key=val`, `-C path`, `--git-dir
+# path`, …) or any other single dash-led flag. Restricting pre-verb tokens to
+# these keeps read-only subcommands that merely *name* a guarded verb from being
+# mistaken for the verb itself; subcommands are bare words, never dash-led.
+AI_POLICY_GIT_GLOBAL_OPTS='((-[cC]|--(git-dir|work-tree|namespace|exec-path|config-env|super-prefix))[[:space:]]+[^[:space:];&|]+[[:space:]]+|--[A-Za-z][^[:space:];&|]*[[:space:]]+|-[A-Za-z][^[:space:];&|]*[[:space:]]+)*'
+AI_POLICY_GIT_PRECOMMIT_OPTS="$AI_POLICY_GIT_GLOBAL_OPTS"
+AI_POLICY_GIT_CMD="git[[:space:]]+${AI_POLICY_GIT_GLOBAL_OPTS}"
 
 ai_policy_command_re() {
   local command_re="$1"
   local cmd_start="${2:-$AI_POLICY_CMD_START}"
 
-  printf '%s%s|%s%s%s|%s%s(%s)?%s' \
-    "$cmd_start" "$command_re" \
-    "$cmd_start" "$AI_POLICY_ENV_PREFIX" "$command_re" \
-    "$cmd_start" "$AI_POLICY_SHELL_PREFIX" "$AI_POLICY_ENV_PREFIX" "$command_re"
+  printf '%s(%s)?%s|%s%s(%s)?%s|%s%s(%s)?(%s)?%s' \
+    "$cmd_start" "$AI_POLICY_RUNNER_PREFIX" "$command_re" \
+    "$cmd_start" "$AI_POLICY_ENV_PREFIX" "$AI_POLICY_RUNNER_PREFIX" "$command_re" \
+    "$cmd_start" "$AI_POLICY_SHELL_PREFIX" "$AI_POLICY_ENV_PREFIX" "$AI_POLICY_RUNNER_PREFIX" "$command_re"
 }
 
 ai_policy_has_command() {
@@ -86,7 +190,7 @@ EOF
 }
 
 ai_policy_strip_allowed_rebase_controls() {
-  sed -E 's/git[[:space:]]+rebase[[:space:]]+--(continue|abort|skip|quit)//g' <<< "$1"
+  sed -E "s/${AI_POLICY_GIT_CMD}rebase[[:space:]]+--(continue|abort|skip|quit)//g" <<< "$1"
 }
 
 # Remove `git [opts] commit ... --dry-run ...` invocations so the live-commit
@@ -101,12 +205,32 @@ ai_policy_strip_dry_run_commits() {
 ai_policy_has_dangerous_git_reset() {
   local cmd="$1"
 
-  ai_policy_has_command "$cmd" "git[[:space:]]+reset[^;&|]*[[:space:]]--(hard|soft|merge|keep)$AI_POLICY_CMD_END" && return 0
-  if ai_policy_has_command "$cmd" "git[[:space:]]+reset([[:space:]]+(-[A-Za-z]+|--[A-Za-z0-9-]+(=[^[:space:];|&'\"]+)?))*[[:space:]]+[^[:space:]-][^[:space:];|&'\"]*$AI_POLICY_CMD_END"; then
-    ai_policy_has_command "$cmd" "git[[:space:]]+reset([[:space:]]+(-[A-Za-z]+|--[A-Za-z0-9-]+(=[^[:space:];|&'\"]+)?))*[[:space:]]+HEAD[[:space:]]+--[[:space:]]+" && return 1
+  ai_policy_has_command "$cmd" "${AI_POLICY_GIT_CMD}reset[^;&|]*[[:space:]]--(hard|soft|merge|keep)$AI_POLICY_CMD_END" && return 0
+  if ai_policy_has_command "$cmd" "${AI_POLICY_GIT_CMD}reset([[:space:]]+(-[A-Za-z]+|--[A-Za-z0-9-]+(=[^[:space:];|&'\"]+)?))*[[:space:]]+[^[:space:]-][^[:space:];|&'\"]*$AI_POLICY_CMD_END"; then
+    ai_policy_has_command "$cmd" "${AI_POLICY_GIT_CMD}reset([[:space:]]+(-[A-Za-z]+|--[A-Za-z0-9-]+(=[^[:space:];|&'\"]+)?))*[[:space:]]+HEAD[[:space:]]+--[[:space:]]+" && return 1
     return 0
   fi
 
+  return 1
+}
+
+ai_policy_strip_staged_only_restores() {
+  sed -E "s/${AI_POLICY_GIT_CMD}restore[^;&|]*[[:space:]](--staged|-[A-Za-z]*S[A-Za-z]*)[^;&|]*//g" <<< "$1"
+}
+
+ai_policy_has_git_worktree_loss() {
+  local cmd="$1"
+  local restore_residue
+
+  ai_policy_has_command "$cmd" "${AI_POLICY_GIT_CMD}(checkout|switch)[^;&|]*[[:space:]](--force|-[A-Za-z]*f[A-Za-z]*)$AI_POLICY_CMD_END" && return 0
+  ai_policy_has_command "$cmd" "${AI_POLICY_GIT_CMD}checkout[^;&|]*[[:space:]]--[[:space:]]+[^;&|]+" && return 0
+  ai_policy_has_command "$cmd" "${AI_POLICY_GIT_CMD}checkout([^;&|]*[[:space:]])?\.$AI_POLICY_CMD_END" && return 0
+
+  ai_policy_has_command "$cmd" "${AI_POLICY_GIT_CMD}restore[^;&|]*[[:space:]](--worktree|-[A-Za-z]*W[A-Za-z]*)$AI_POLICY_CMD_END" && return 0
+  restore_residue=$(ai_policy_strip_staged_only_restores "$cmd")
+  ai_policy_has_command "$restore_residue" "${AI_POLICY_GIT_CMD}restore([^;&|]*[[:space:]])?(--[[:space:]]+)?(\.|\./[^[:space:];|&'\"]*)$AI_POLICY_CMD_END" && return 0
+
+  ai_policy_has_command "$cmd" "${AI_POLICY_GIT_CMD}stash[[:space:]]+(drop|clear)$AI_POLICY_CMD_END" && return 0
   return 1
 }
 
@@ -118,8 +242,8 @@ ai_policy_has_git_push_to_main() {
   local push_redirect_tail
   local push_remote_re
 
-  ai_policy_has_command "$cmd" "git[[:space:]]+push[^;&|]*[[:space:]]((refs/heads/)?(main|master)|[^[:space:];|&'\"]+:(refs/heads/)?(main|master))$AI_POLICY_CMD_END" && return 0
-  ai_policy_has_command "$cmd" "git[[:space:]]+push[^;&|]*[[:space:]]--(all|branches)$AI_POLICY_CMD_END" && return 0
+  ai_policy_has_command "$cmd" "${AI_POLICY_GIT_CMD}push[^;&|]*[[:space:]]((refs/heads/)?(main|master)|[^[:space:];|&'\"]+:(refs/heads/)?(main|master))$AI_POLICY_CMD_END" && return 0
+  ai_policy_has_command "$cmd" "${AI_POLICY_GIT_CMD}push[^;&|]*[[:space:]]--(all|branches)$AI_POLICY_CMD_END" && return 0
 
   branch=$(ai_current_branch)
   ai_branch_is_protected "$branch" || return 1
@@ -128,10 +252,10 @@ ai_policy_has_git_push_to_main() {
   push_flags_re="([[:space:]]+(-[A-Za-z][A-Za-z0-9-]*|--[A-Za-z0-9-]+(=[^[:space:]]+)?))*"
   push_redirect_tail="[[:space:]]*[0-9]*(>&|<&|[<>])[^[:space:];|&'\"]*"
   push_remote_re="([[:space:]]+[A-Za-z0-9._/-]+)?"
-  ai_policy_has_command "$cmd" "git[[:space:]]+push${push_flags_re}${push_remote_re}[[:space:]]*$push_command_end" && return 0
-  ai_policy_has_command "$cmd" "git[[:space:]]+push${push_flags_re}${push_remote_re}${push_redirect_tail}" && return 0
-  ai_policy_has_command "$cmd" "git[[:space:]]+push${push_flags_re}${push_remote_re}[[:space:]]+HEAD[[:space:]]*$push_command_end" && return 0
-  ai_policy_has_command "$cmd" "git[[:space:]]+push${push_flags_re}${push_remote_re}[[:space:]]+HEAD${push_redirect_tail}" && return 0
+  ai_policy_has_command "$cmd" "${AI_POLICY_GIT_CMD}push${push_flags_re}${push_remote_re}[[:space:]]*$push_command_end" && return 0
+  ai_policy_has_command "$cmd" "${AI_POLICY_GIT_CMD}push${push_flags_re}${push_remote_re}${push_redirect_tail}" && return 0
+  ai_policy_has_command "$cmd" "${AI_POLICY_GIT_CMD}push${push_flags_re}${push_remote_re}[[:space:]]+HEAD[[:space:]]*$push_command_end" && return 0
+  ai_policy_has_command "$cmd" "${AI_POLICY_GIT_CMD}push${push_flags_re}${push_remote_re}[[:space:]]+HEAD${push_redirect_tail}" && return 0
   return 1
 }
 
@@ -206,11 +330,305 @@ ai_policy_touches_allow_protected_edits_marker() {
   return 1
 }
 
+ai_policy_load_protected_files() {
+  local policy_dir
+
+  declare -F ai_protected_file_deny_entry >/dev/null && return 0
+
+  policy_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  [ -f "$policy_dir/protected-files.sh" ] || return 1
+  # shellcheck source=/dev/null
+  . "$policy_dir/protected-files.sh"
+}
+
+ai_policy_clean_shell_path_token() {
+  local token="$1"
+
+  while [[ "$token" == \"* || "$token" == \'* ]]; do
+    token="${token:1}"
+  done
+  while [[ "$token" == *\" || "$token" == *\' || "$token" == *\; || "$token" == *\& || "$token" == *\| ]]; do
+    token="${token%?}"
+  done
+
+  printf '%s' "$token"
+}
+
+ai_policy_shell_token_ends_segment() {
+  local token="$1"
+
+  [[ "$token" == ";" || "$token" == "&&" || "$token" == "||" || "$token" == "|" \
+    || "$token" == *";" || "$token" == *"&&" || "$token" == *"||" || "$token" == *"|" ]]
+}
+
+ai_policy_resolve_bash_path() {
+  local path="$1"
+  local candidate repo_root
+
+  [ -n "$path" ] || return 1
+  case "$path" in
+    -|--|[0-9]|'&'*) return 1 ;;
+  esac
+
+  repo_root="${REPO_ROOT:-$(ai_repo_root)}"
+  if [[ "$path" = /* ]]; then
+    candidate="$path"
+  else
+    candidate="$repo_root/$path"
+  fi
+
+  realpath -m -- "$candidate" 2>/dev/null || printf '%s\n' "$candidate"
+}
+
+ai_policy_print_resolved_bash_path() {
+  local token="$1"
+  local path
+
+  path=$(ai_policy_clean_shell_path_token "$token")
+  ai_policy_resolve_bash_path "$path"
+}
+
+ai_policy_bash_redirect_path_from_token() {
+  local token="$1"
+  local path=""
+
+  case "$token" in
+    \'*|\"*) return 1 ;;
+  esac
+
+  case "$token" in
+    *"&>>"*) path="${token##*&>>}" ;;
+    *"&>"*) path="${token##*&>}" ;;
+    *">|"*) path="${token##*>|}" ;;
+    *">>"*) path="${token##*>>}" ;;
+    *">"*) path="${token##*>}" ;;
+    *) return 1 ;;
+  esac
+
+  [ -n "$path" ] || return 1
+  printf '%s' "$path"
+}
+
+ai_policy_bash_redirect_write_paths() {
+  local cmd="$1"
+  local -a tokens=()
+  local token path expect_target=0
+
+  read -r -a tokens <<< "$cmd"
+  for token in "${tokens[@]}"; do
+    if [ "$expect_target" -eq 1 ]; then
+      ai_policy_print_resolved_bash_path "$token" || true
+      expect_target=0
+      continue
+    fi
+
+    case "$token" in
+      \'*|\"*) continue ;;
+      ">"|">>"|">|"|[0-9]">"|[0-9]">>"|[0-9]">|"|"&>"|"&>>")
+        expect_target=1
+        continue
+        ;;
+      *)
+        path=$(ai_policy_bash_redirect_path_from_token "$token") || continue
+        ;;
+    esac
+
+    ai_policy_print_resolved_bash_path "$path" || true
+  done
+}
+
+ai_policy_bash_sed_write_paths() {
+  local cmd="$1"
+  local -a tokens=()
+  local token clean active=0 inplace=0 ends_segment
+
+  ai_policy_has_command "$cmd" "sed$AI_POLICY_CMD_END" || return 0
+
+  read -r -a tokens <<< "$cmd"
+  for token in "${tokens[@]}"; do
+    clean=$(ai_policy_clean_shell_path_token "$token")
+    ends_segment=0
+    ai_policy_shell_token_ends_segment "$token" && ends_segment=1
+
+    if [ "$active" -eq 1 ]; then
+      case "$clean" in
+        -i|-[A-Za-z]*i[A-Za-z]*|-i*|--in-place|--in-place=*) inplace=1 ;;
+        -*|"") ;;
+        *)
+          if [ "$inplace" -eq 1 ]; then
+            ai_policy_resolve_bash_path "$clean" || true
+          fi
+          ;;
+      esac
+
+      if [ "$ends_segment" -eq 1 ]; then
+        active=0
+        inplace=0
+      fi
+      continue
+    fi
+
+    if [ "$clean" = "sed" ]; then
+      active=1
+      inplace=0
+    fi
+  done
+}
+
+ai_policy_bash_tee_write_paths() {
+  local cmd="$1"
+  local -a tokens=()
+  local token clean active=0 ends_segment
+
+  ai_policy_has_command "$cmd" "tee$AI_POLICY_CMD_END" || return 0
+
+  read -r -a tokens <<< "$cmd"
+  for token in "${tokens[@]}"; do
+    clean=$(ai_policy_clean_shell_path_token "$token")
+    ends_segment=0
+    ai_policy_shell_token_ends_segment "$token" && ends_segment=1
+
+    if [ "$active" -eq 1 ]; then
+      case "$clean" in
+        -*|"") ;;
+        *) ai_policy_resolve_bash_path "$clean" || true ;;
+      esac
+
+      if [ "$ends_segment" -eq 1 ]; then
+        active=0
+      fi
+      continue
+    fi
+
+    if [ "$clean" = "tee" ]; then
+      active=1
+    fi
+  done
+}
+
+ai_policy_emit_copy_like_paths() {
+  local command_name="$1"
+  shift
+  local -a paths=("$@")
+  local path last_index
+
+  [ "${#paths[@]}" -gt 0 ] || return 0
+
+  if [ "$command_name" = "mv" ]; then
+    for path in "${paths[@]}"; do
+      ai_policy_resolve_bash_path "$path" || true
+    done
+    return 0
+  fi
+
+  last_index=$((${#paths[@]} - 1))
+  ai_policy_resolve_bash_path "${paths[$last_index]}" || true
+}
+
+ai_policy_bash_copy_like_write_paths() {
+  local cmd="$1"
+  local -a tokens=()
+  local -a paths=()
+  local token clean active=0 command_name="" ends_segment
+
+  ai_policy_has_command "$cmd" "(cp|install|mv)$AI_POLICY_CMD_END" || return 0
+
+  read -r -a tokens <<< "$cmd"
+  for token in "${tokens[@]}"; do
+    clean=$(ai_policy_clean_shell_path_token "$token")
+    ends_segment=0
+    ai_policy_shell_token_ends_segment "$token" && ends_segment=1
+
+    if [ "$active" -eq 1 ]; then
+      case "$clean" in
+        -*|"") ;;
+        *) paths+=("$clean") ;;
+      esac
+
+      if [ "$ends_segment" -eq 1 ]; then
+        ai_policy_emit_copy_like_paths "$command_name" "${paths[@]}"
+        active=0
+        command_name=""
+        paths=()
+      fi
+      continue
+    fi
+
+    case "$clean" in
+      cp|install|mv)
+        active=1
+        command_name="$clean"
+        paths=()
+        ;;
+    esac
+  done
+
+  [ "$active" -eq 1 ] && ai_policy_emit_copy_like_paths "$command_name" "${paths[@]}"
+}
+
+ai_policy_bash_write_candidate_paths() {
+  local cmd="$1"
+
+  ai_policy_bash_redirect_write_paths "$cmd"
+  ai_policy_bash_sed_write_paths "$cmd"
+  ai_policy_bash_tee_write_paths "$cmd"
+  ai_policy_bash_copy_like_write_paths "$cmd"
+}
+
+ai_policy_bash_protected_file_write_context() {
+  local cmd="$1"
+  local abs entry deny marker
+
+  ai_policy_load_protected_files || return 1
+
+  while IFS= read -r abs; do
+    [ -n "$abs" ] || continue
+    if entry=$(ai_protected_file_deny_entry "$abs"); then
+      deny="${entry#*$'\t'}"
+      marker=$(ai_protected_files_allow_marker_path)
+      if ai_protected_files_allow_marker_enabled; then
+        printf 'protected-files: Repo-wide protected edit override marker is active: %s. Without that marker, this Bash write would have been denied for %s. Remove the marker after this deliberate maintenance. %s' "$marker" "$abs" "$deny"
+      else
+        printf 'protected-files: %s' "$deny"
+      fi
+      return 0
+    fi
+  done < <(ai_policy_bash_write_candidate_paths "$cmd")
+
+  return 1
+}
+
+ai_policy_bash_protected_file_violation_reason() {
+  local cmd="$1"
+  local context
+
+  ai_policy_load_protected_files || return 1
+  context=$(ai_policy_bash_protected_file_write_context "$cmd") || return 1
+  ai_protected_files_allow_marker_enabled && return 1
+  printf '%s' "$context"
+}
+
+ai_policy_bash_protected_file_advisory() {
+  local cmd="$1"
+  local context
+
+  ai_policy_load_protected_files || return 1
+  ai_protected_files_allow_marker_enabled || return 1
+  context=$(ai_policy_bash_protected_file_write_context "$cmd") || return 1
+  printf '%s' "$context"
+}
+
 ai_policy_advisory_context() {
   local cmd="$1"
+  local advisory
 
   if ai_policy_touches_allow_protected_edits_marker "$cmd"; then
     printf '%s' "$AI_POLICY_ALLOW_PROTECTED_EDITS_ADVISORY"
+    return 0
+  fi
+
+  if advisory=$(ai_policy_bash_protected_file_advisory "$cmd"); then
+    printf '%s' "$advisory"
     return 0
   fi
 
@@ -254,17 +672,17 @@ ai_policy_violation_reason() {
     return 0
   fi
 
-  if grep -qE '\b(psql|pgcli|pg_dump|pg_restore|pg_isready|createdb|dropdb)\b' <<< "$cmd"; then
+  if ai_policy_has_command "$cmd" "(psql|pgcli|pg_dump|pg_restore|pg_isready|createdb|dropdb)$AI_POLICY_CMD_END"; then
     printf '%s' "$AI_POLICY_POSTGRES"
     return 0
   fi
 
-  if grep -qE '\bredis-cli\b' <<< "$cmd"; then
+  if ai_policy_has_command "$cmd" "redis-cli$AI_POLICY_CMD_END"; then
     printf '%s' "$AI_POLICY_REDIS"
     return 0
   fi
 
-  if grep -qE '(^[[:space:]]*|[;&|][[:space:]]*)docker([[:space:]]|-)' <<< "$cmd"; then
+  if ai_policy_has_command "$cmd" "docker(-compose)?$AI_POLICY_CMD_END"; then
     printf '%s' "$AI_POLICY_DOCKER"
     return 0
   fi
@@ -274,19 +692,21 @@ ai_policy_violation_reason() {
     return 0
   fi
 
-  # Match `git commit … --amend` AND the `git -c <cfg> … commit … --amend` form
-  # (config flags between `git` and `commit`). The optional `([^;&|]*[[:space:]])?`
-  # segment swallows any `-c key=val` config args before `commit`. `--amend` must
-  # still appear, so `git commit -c <commit>` (reuse-message, not an amend) is not
-  # matched — it has no `--amend`.
-  if ai_policy_has_command "$cmd" "git[[:space:]]+([^;&|]*[[:space:]])?commit[^;&|]*[[:space:]]--amend$AI_POLICY_CMD_END"; then
+  if ai_policy_bash_protected_file_violation_reason "$cmd"; then
+    return 0
+  fi
+
+  # Match `git commit … --amend` and global-option forms such as
+  # `git -c <cfg> commit … --amend`. `--amend` must still appear, so
+  # `git commit -c <commit>` (reuse-message, not an amend) is not matched.
+  if ai_policy_has_command "$cmd" "${AI_POLICY_GIT_CMD}commit[^;&|]*[[:space:]]--amend$AI_POLICY_CMD_END"; then
     printf '%s' "$AI_POLICY_GIT_AMEND"
     return 0
   fi
 
   rebase_residue=$(ai_policy_strip_allowed_rebase_controls "$cmd")
-  if ai_policy_has_command "$rebase_residue" "git[[:space:]]+rebase$AI_POLICY_CMD_END" \
-    || ai_policy_has_command "$rebase_residue" "git[[:space:]]+rebase[[:space:]]+"; then
+  if ai_policy_has_command "$rebase_residue" "${AI_POLICY_GIT_CMD}rebase$AI_POLICY_CMD_END" \
+    || ai_policy_has_command "$rebase_residue" "${AI_POLICY_GIT_CMD}rebase[[:space:]]+"; then
     printf '%s' "$AI_POLICY_GIT_REBASE"
     return 0
   fi
@@ -296,16 +716,21 @@ ai_policy_violation_reason() {
     return 0
   fi
 
-  if ai_policy_has_command "$cmd" "git[[:space:]]+(filter-branch|filter-repo|replace|update-ref)$AI_POLICY_CMD_END" \
-    || ai_policy_has_command "$cmd" "git[[:space:]]+reflog[[:space:]]+expire[^;&|]*--expire=now[^;&|]*--all"; then
+  if ai_policy_has_git_worktree_loss "$cmd"; then
+    printf '%s' "$AI_POLICY_GIT_WORKTREE_LOSS"
+    return 0
+  fi
+
+  if ai_policy_has_command "$cmd" "${AI_POLICY_GIT_CMD}(filter-branch|filter-repo|replace|update-ref)$AI_POLICY_CMD_END" \
+    || ai_policy_has_command "$cmd" "${AI_POLICY_GIT_CMD}reflog[[:space:]]+expire[^;&|]*--expire=now[^;&|]*--all"; then
     printf '%s' "$AI_POLICY_GIT_HISTORY_REWRITE"
     return 0
   fi
 
-  if ai_policy_has_command "$cmd" "git[[:space:]]+push[^;&|]*[[:space:]]((--force|--force-with-lease)(=[^[:space:];|&'\"]*)?|--mirror|--delete)$AI_POLICY_CMD_END" \
-    || ai_policy_has_command "$cmd" "git[[:space:]]+push[^;&|]*[[:space:]]-[A-Za-z]*[fd][A-Za-z]*$AI_POLICY_CMD_END" \
-    || ai_policy_has_command "$cmd" "git[[:space:]]+push[^;&|]*[[:space:]]\\+[^[:space:];|&'\"]+" \
-    || ai_policy_has_command "$cmd" "git[[:space:]]+push[^;&|]*[[:space:]]:[^[:space:];|&'\"]+"; then
+  if ai_policy_has_command "$cmd" "${AI_POLICY_GIT_CMD}push[^;&|]*[[:space:]]((--force|--force-with-lease)(=[^[:space:];|&'\"]*)?|--mirror|--delete)$AI_POLICY_CMD_END" \
+    || ai_policy_has_command "$cmd" "${AI_POLICY_GIT_CMD}push[^;&|]*[[:space:]]-[A-Za-z]*[fd][A-Za-z]*$AI_POLICY_CMD_END" \
+    || ai_policy_has_command "$cmd" "${AI_POLICY_GIT_CMD}push[^;&|]*[[:space:]]\\+[^[:space:];|&'\"]+" \
+    || ai_policy_has_command "$cmd" "${AI_POLICY_GIT_CMD}push[^;&|]*[[:space:]]:[^[:space:];|&'\"]+"; then
     printf '%s' "$AI_POLICY_GIT_FORCE_PUSH"
     return 0
   fi
@@ -315,24 +740,24 @@ ai_policy_violation_reason() {
     return 0
   fi
 
-  if ai_policy_has_command "$cmd" "git[[:space:]]+branch[^;&|]*[[:space:]]-D$AI_POLICY_CMD_END" \
-    || ai_policy_has_command "$cmd" "git[[:space:]]+branch[^;&|]*[[:space:]]-[A-Za-z]*D[A-Za-z]*$AI_POLICY_CMD_END" \
-    || ai_policy_has_command "$cmd" "git[[:space:]]+branch[^;&|]*[[:space:]]-[A-Za-z]*d[A-Za-z]*f[A-Za-z]*$AI_POLICY_CMD_END" \
-    || ai_policy_has_command "$cmd" "git[[:space:]]+branch[^;&|]*[[:space:]]-[A-Za-z]*f[A-Za-z]*d[A-Za-z]*$AI_POLICY_CMD_END" \
-    || ai_policy_has_command "$cmd" "git[[:space:]]+branch[^;&|]*[[:space:]]-[A-Za-z]*d[A-Za-z]*[^;&|]*[[:space:]]-[A-Za-z]*f[A-Za-z]*" \
-    || ai_policy_has_command "$cmd" "git[[:space:]]+branch[^;&|]*[[:space:]]-[A-Za-z]*f[A-Za-z]*[^;&|]*[[:space:]]-[A-Za-z]*d[A-Za-z]*" \
-    || ai_policy_has_command "$cmd" "git[[:space:]]+branch[^;&|]*--delete[^;&|]*--force" \
-    || ai_policy_has_command "$cmd" "git[[:space:]]+branch[^;&|]*--force[^;&|]*--delete" \
-    || ai_policy_has_command "$cmd" "git[[:space:]]+branch[^;&|]*--delete[^;&|]*[[:space:]]-[A-Za-z]*f[A-Za-z]*" \
-    || ai_policy_has_command "$cmd" "git[[:space:]]+branch[^;&|]*[[:space:]]-[A-Za-z]*f[A-Za-z]*[^;&|]*--delete" \
-    || ai_policy_has_command "$cmd" "git[[:space:]]+tag[^;&|]*[[:space:]]+(-[A-Za-z]*d[A-Za-z]*|--delete)$AI_POLICY_CMD_END" \
-    || ai_policy_has_command "$cmd" "git[[:space:]]+worktree[[:space:]]+remove[^;&|]*[[:space:]]--force$AI_POLICY_CMD_END" \
-    || ai_policy_has_command "$cmd" "git[[:space:]]+worktree[[:space:]]+remove[^;&|]*[[:space:]]-[A-Za-z]*f[A-Za-z]*$AI_POLICY_CMD_END"; then
+  if ai_policy_has_command "$cmd" "${AI_POLICY_GIT_CMD}branch[^;&|]*[[:space:]]-D$AI_POLICY_CMD_END" \
+    || ai_policy_has_command "$cmd" "${AI_POLICY_GIT_CMD}branch[^;&|]*[[:space:]]-[A-Za-z]*D[A-Za-z]*$AI_POLICY_CMD_END" \
+    || ai_policy_has_command "$cmd" "${AI_POLICY_GIT_CMD}branch[^;&|]*[[:space:]]-[A-Za-z]*d[A-Za-z]*f[A-Za-z]*$AI_POLICY_CMD_END" \
+    || ai_policy_has_command "$cmd" "${AI_POLICY_GIT_CMD}branch[^;&|]*[[:space:]]-[A-Za-z]*f[A-Za-z]*d[A-Za-z]*$AI_POLICY_CMD_END" \
+    || ai_policy_has_command "$cmd" "${AI_POLICY_GIT_CMD}branch[^;&|]*[[:space:]]-[A-Za-z]*d[A-Za-z]*[^;&|]*[[:space:]]-[A-Za-z]*f[A-Za-z]*" \
+    || ai_policy_has_command "$cmd" "${AI_POLICY_GIT_CMD}branch[^;&|]*[[:space:]]-[A-Za-z]*f[A-Za-z]*[^;&|]*[[:space:]]-[A-Za-z]*d[A-Za-z]*" \
+    || ai_policy_has_command "$cmd" "${AI_POLICY_GIT_CMD}branch[^;&|]*--delete[^;&|]*--force" \
+    || ai_policy_has_command "$cmd" "${AI_POLICY_GIT_CMD}branch[^;&|]*--force[^;&|]*--delete" \
+    || ai_policy_has_command "$cmd" "${AI_POLICY_GIT_CMD}branch[^;&|]*--delete[^;&|]*[[:space:]]-[A-Za-z]*f[A-Za-z]*" \
+    || ai_policy_has_command "$cmd" "${AI_POLICY_GIT_CMD}branch[^;&|]*[[:space:]]-[A-Za-z]*f[A-Za-z]*[^;&|]*--delete" \
+    || ai_policy_has_command "$cmd" "${AI_POLICY_GIT_CMD}tag[^;&|]*[[:space:]]+(-[A-Za-z]*d[A-Za-z]*|--delete)$AI_POLICY_CMD_END" \
+    || ai_policy_has_command "$cmd" "${AI_POLICY_GIT_CMD}worktree[[:space:]]+remove[^;&|]*[[:space:]]--force$AI_POLICY_CMD_END" \
+    || ai_policy_has_command "$cmd" "${AI_POLICY_GIT_CMD}worktree[[:space:]]+remove[^;&|]*[[:space:]]-[A-Za-z]*f[A-Za-z]*$AI_POLICY_CMD_END"; then
     printf '%s' "$AI_POLICY_GIT_BRANCH_FORCE_DELETE"
     return 0
   fi
 
-  if ai_policy_has_command "$cmd" "git[[:space:]]+clean[^;&|]*[[:space:]](--force|-[A-Za-z]*f[A-Za-z]*)$AI_POLICY_CMD_END"; then
+  if ai_policy_has_command "$cmd" "${AI_POLICY_GIT_CMD}clean[^;&|]*[[:space:]](--force|-[A-Za-z]*f[A-Za-z]*)$AI_POLICY_CMD_END"; then
     printf '%s' "$AI_POLICY_GIT_CLEAN_FORCE"
     return 0
   fi

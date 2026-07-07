@@ -7,6 +7,7 @@ export function buildInfoFinding(info: LintRatchetInfo): HarnessFinding {
     severity: "info",
     path: info.path,
     ruleId: info.ruleId,
+    kind: "info",
     reason: info.reason,
     baselineCount: info.baselineCount,
     currentCount: info.currentCount,

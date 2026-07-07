@@ -7,8 +7,12 @@
 //  - parity (scripts): every package.json script under the documented
 //    control-prefix conventions has a manifest entry (with an explicit
 //    EXEMPT_SCRIPTS escape for one-off operational utilities);
-//  - freshness: generated verify step data, AI hook wiring, and the generated
-//    harness-controls doc match harness.controls.json.
+//  - freshness: generated verify step data, AI hook wiring, local lint
+//    guidance, the harness-controls doc, the restricted-disable rule list,
+//    the config-surface tsconfig (tsconfig.configs.json), and smoke-subject
+//    metadata are up to date.
+//  - timeout constants: shell quiet-hook watchdog constants match their
+//    manifest-derived generated hook timeouts.
 //
 // Run via `bun run harness:check`. Exits non-zero on any failure with a
 // per-control diagnostic list so the harness gates surface drift loudly.
@@ -37,7 +41,19 @@ import {
   validateRatchetEntry,
   validateSourceField,
 } from "./harness/harness-check-validation.js";
+import {
+  CLAUDE_SETTINGS_PATH,
+  CODEX_HOOKS_PATH,
+  COPILOT_HOOKS_PATH,
+  GENERATED_CONFIG_SURFACES_PATH,
+  GENERATED_HARNESS_CONTROLS_DOC_PATH,
+  GENERATED_VERIFY_STEPS_PATH,
+  HARNESS_MANIFEST_FILENAME,
+  loadHarnessManifest,
+} from "./harness/harness-paths.js";
+import { checkHookTimeoutConstants } from "./harness/hook-timeout-constants.js";
 import { loadLocalRuleConfig } from "./harness/local-rule-config.js";
+import { VERIFY_STEP_DYNAMIC_RESOLVERS } from "./harness/verify-step-schema.js";
 import { lintRatchets } from "./lint-ratchet/lint-ratchet-config.js";
 
 const PROCESS_ARG_OFFSET = 2;
@@ -66,13 +82,16 @@ const EXEMPT_SCRIPTS = new Set<string>([
   // entry; --check is the same generator behind a flag.
   "docs:lint-guidance:check",
   "docs:harness-controls:check",
+  "harness:config-surfaces:check",
   "harness:wiring:check",
   "verify:steps:check",
-  // coverage-map :audit variant — the same checker behind --check-eslint-reach.
+  // coverage-map :audit/:suggest variants — the same checker behind helper flags.
   // `docs:lint-coverage-map:check` is the manifest control (the committing gate
   // runs it with --staged); :audit adds the advisory ESLint-reach probe that
-  // full `verify`/`verify:parallel` run but pre-commit deliberately skips.
+  // CI and full `verify`/`verify:parallel` run but pre-commit deliberately skips.
+  // :suggest emits ready-to-paste coverage-map rows for the same drift findings.
   "docs:lint-coverage-map:audit",
+  "docs:lint-coverage-map:suggest",
   // module-index --check variant — same generator, different mode.
   "module:index:check",
   // lint family: `lint:changed` is the changed-file variant of the
@@ -81,6 +100,9 @@ const EXEMPT_SCRIPTS = new Set<string>([
   // diagnostics envelope scripts are manifest entries.
   "lint:changed",
   "lint:fix",
+  // Generated restricted-disable list --check variant; the primary generator is
+  // registered as a check control and harness:check runs freshness directly.
+  "lint:restricted-disable-rules:check",
   "lint:ratchet:update",
   "lint:ratchet:check-baseline",
   "lint:ratchet:check-registry",
@@ -103,9 +125,16 @@ const EXEMPT_SCRIPTS = new Set<string>([
 ]);
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const manifestPath = join(repoRoot, "harness.controls.json");
 const packageJsonPath = join(repoRoot, "package.json");
 const eslintConfigPath = join(repoRoot, "eslint.config.js");
+const verifyStepsLibPath = join(repoRoot, "scripts/verify/steps-lib.sh");
+
+// Failure-bucket label for the hook-wiring generator, which writes all three
+// harness hook configs; built from their shared path constants so it stays in
+// lockstep with the generator and path-policy.
+const HOOK_WIRING_OUTPUTS_LABEL = [CLAUDE_SETTINGS_PATH, CODEX_HOOKS_PATH, COPILOT_HOOKS_PATH].join(
+  " + ",
+);
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -125,16 +154,11 @@ function loadPackageScripts(): Map<string, string> {
 }
 
 function loadManifest(): RawControl[] {
-  const text = readFileSync(manifestPath, "utf8");
-  const parsed: unknown = JSON.parse(text);
-  if (!isObject(parsed) || !Array.isArray(parsed.controls)) {
-    throw new Error("harness.controls.json must declare a controls array");
-  }
   const controls: RawControl[] = [];
-  for (const [index, entry] of parsed.controls.entries()) {
+  for (const [index, entry] of loadHarnessManifest(repoRoot).entries()) {
     if (!isObject(entry)) {
       throw new Error(
-        `harness.controls.json: control entry at index ${String(index)} is not an object`,
+        `${HARNESS_MANIFEST_FILENAME}: control entry at index ${String(index)} is not an object`,
       );
     }
     controls.push(entry);
@@ -171,22 +195,26 @@ function checkGeneratedFreshness(
   );
 }
 
+const GENERATED_FRESHNESS_OUTPUTS: readonly (readonly [outputId: string, generator: string])[] = [
+  [
+    "scripts/path-policy/path-policy-smoke-subjects-data.ts + scripts/fixtures/test-scripts/all-smoke-tests.txt",
+    "scripts/path-policy/generate-smoke-subjects.ts",
+  ],
+  [GENERATED_VERIFY_STEPS_PATH, "scripts/harness/generate-verify-steps.ts"],
+  [GENERATED_CONFIG_SURFACES_PATH, "scripts/harness/generate-config-surfaces.ts"],
+  [HOOK_WIRING_OUTPUTS_LABEL, "scripts/harness/generate-hook-wiring.ts"],
+  ["docs/generated/local-lint-rules.md", "scripts/generate-lint-guidance.ts"],
+  [GENERATED_HARNESS_CONTROLS_DOC_PATH, "scripts/harness/generate-harness-controls.ts"],
+  [
+    "eslint-config/ratchet-restricted-disable-rules.generated.js",
+    "scripts/harness/generate-restricted-disable-rules.ts",
+  ],
+];
+
 function checkGeneratedFreshnessOutputs(failures: Map<string, ControlFailures>): void {
-  checkGeneratedFreshness(
-    failures,
-    "scripts/verify/steps.generated.sh",
-    "scripts/harness/generate-verify-steps.ts",
-  );
-  checkGeneratedFreshness(
-    failures,
-    ".claude/settings.json + .codex/hooks.json + .github/hooks/copilot.json",
-    "scripts/harness/generate-hook-wiring.ts",
-  );
-  checkGeneratedFreshness(
-    failures,
-    "docs/generated/harness-controls.md",
-    "scripts/harness/generate-harness-controls.ts",
-  );
+  for (const [outputId, generatorPath] of GENERATED_FRESHNESS_OUTPUTS) {
+    checkGeneratedFreshness(failures, outputId, generatorPath);
+  }
 }
 
 function checkGeneratedHookWiringStructure(failures: Map<string, ControlFailures>): void {
@@ -198,7 +226,7 @@ function checkGeneratedHookWiringStructure(failures: Map<string, ControlFailures
   if (result.error !== undefined) {
     pushFailure(
       failures,
-      ".claude/settings.json + .codex/hooks.json + .github/hooks/copilot.json",
+      HOOK_WIRING_OUTPUTS_LABEL,
       `failed to run ${scriptPath}: ${result.error.message}`,
     );
     return;
@@ -208,11 +236,32 @@ function checkGeneratedHookWiringStructure(failures: Map<string, ControlFailures
   const output = [result.stdout.trim(), result.stderr.trim()].filter((text) => text.length > 0);
   pushFailure(
     failures,
-    ".claude/settings.json + .codex/hooks.json + .github/hooks/copilot.json",
+    HOOK_WIRING_OUTPUTS_LABEL,
     output.length > 0
       ? output.join("\n")
       : `${scriptPath} exited with status ${String(result.status)}`,
   );
+}
+
+function checkDynamicResolverBindings(failures: Map<string, ControlFailures>): void {
+  let stepsLib: string;
+  try {
+    stepsLib = readFileSync(verifyStepsLibPath, "utf8");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    pushFailure(failures, "scripts/verify/steps-lib.sh", `failed to read steps-lib.sh: ${message}`);
+    return;
+  }
+
+  for (const resolver of VERIFY_STEP_DYNAMIC_RESOLVERS) {
+    if (!stepsLib.includes(`${resolver})`)) {
+      pushFailure(
+        failures,
+        "scripts/verify/steps-lib.sh",
+        `dynamic resolver ${resolver} is declared in scripts/harness/verify-step-schema.ts but has no matching case arm in scripts/verify/steps-lib.sh`,
+      );
+    }
+  }
 }
 
 interface DeclaredControlSets {
@@ -335,6 +384,8 @@ async function main(): Promise<void> {
   checkRatchetParity(ratchetIds, declared.ratchets, failures);
   checkGeneratedFreshnessOutputs(failures);
   checkGeneratedHookWiringStructure(failures);
+  checkDynamicResolverBindings(failures);
+  checkHookTimeoutConstants(repoRoot, controls, failures);
   checkScriptParity(CONTROL_PREFIX_PATTERN, EXEMPT_SCRIPTS, declared.scripts, context);
 
   if (failures.size > 0) {
