@@ -1,6 +1,9 @@
 # 11. Emit resolver dispatch + hook timeout constants into generated shell
 
-Status: Pending
+Status: Done — implemented 2026-07-07 on branch
+`chore/arch-11-generated-constants`.
+Commits: `942e6c94` (`fix(harness): generate dynamic resolver dispatch`) and
+`d6867b56` (`fix(harness): generate hook timeout constants`).
 Size: S-M · Severity: med · Risk: low-medium, mostly mechanical
 Source: 00-report.md T3 / A2 (the piece not folded elsewhere — see
 01-promotion-map.md for the T2 and T4 folds)

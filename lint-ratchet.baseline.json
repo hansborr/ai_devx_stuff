@@ -1096,7 +1096,7 @@
       "target": 0,
       "metric": "message-count",
       "files": [
-        "scripts/code-intel.test.ts",
+        "scripts/code-intel/**/*.test.ts",
         "scripts/lint-coverage-map-check.test.ts",
         "scripts/lint-ratchet/lint-ratchet-baseline.test.ts"
       ],
@@ -1114,7 +1114,7 @@
           ]
         }
       ],
-      "configHash": "sha256:cb514857dd9b09a986aa896a59f6610119fe46c1c443ac826267b47973144b18",
+      "configHash": "sha256:776429f8d3862e662a24d29d0231a310eb550ac9ac5e288decb63651cd46301e",
       "ruleSourceHash": "sha256:dca95346de5edfbb32d2f084bec47542f1d2edc7c66eb352455c417747e61259",
       "items": {}
     },
@@ -1145,7 +1145,7 @@
       "target": 0,
       "metric": "message-count",
       "files": [
-        "scripts/code-intel.test.ts",
+        "scripts/code-intel/**/*.test.ts",
         "scripts/lint-coverage-map-check.test.ts",
         "scripts/lint-ratchet/lint-ratchet-baseline.test.ts"
       ],
@@ -1155,7 +1155,7 @@
           "maxArgs": 2
         }
       ],
-      "configHash": "sha256:9b3091698ef71b3169f514ee6e007c56c1943d80410a99e6189f8b1446a9c53a",
+      "configHash": "sha256:a0277df5b974b0dc5d13dfa8a48aa9fbc57f019e6a87e0376727ea3ab5465977",
       "ruleSourceHash": "sha256:dca95346de5edfbb32d2f084bec47542f1d2edc7c66eb352455c417747e61259",
       "items": {}
     }

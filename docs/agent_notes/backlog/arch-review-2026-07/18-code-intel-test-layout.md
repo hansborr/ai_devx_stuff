@@ -1,6 +1,6 @@
 # 18. Split code-intel's root test file into co-located suites
 
-Status: Pending
+Status: Done — implemented 2026-07-07; commits: 96a6f04d.
 Size: S-M · Severity: low
 Source: 00-report.md T6/Tier 3 (test-layout inconsistency)
 

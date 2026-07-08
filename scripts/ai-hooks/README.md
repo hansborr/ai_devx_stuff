@@ -63,11 +63,11 @@ controls doc explains why an adapter is absent.
 
 The Claude `bun-run-quiet` wrapper keeps a worktree-scoped lock because it
 protects shared Bun result markers and log files. Its default lock wait uses the
-same interactive budget as verification (`MUSI_VERIFY_TIMEOUT`,
-`MUSI_INTERACTIVE_TIMEOUT`, then `1200` seconds), and time spent waiting is
-subtracted from the post-lock watchdog. `AI_BUN_LOCK_WAIT` and `AI_BUN_TIMEOUT`
-remain overrides; the lock wait is capped to the total hook budget so one
-wrapper invocation does not consume multiple interactive windows.
+same interactive budget as verification (`MUSI_INTERACTIVE_TIMEOUT`, then
+`1200` seconds), and time spent waiting is subtracted from the post-lock
+watchdog. `AI_BUN_LOCK_WAIT` and `AI_BUN_TIMEOUT` remain overrides; the lock
+wait is capped to the total hook budget so one wrapper invocation does not
+consume multiple interactive windows.
 
 Commit queueing has two layers. `.husky/pre-commit` fail-fasts on the
 worktree-scoped verify lock, then waits on a Git-common-dir commit queue lock so

@@ -1,7 +1,7 @@
 # 01 — Lint coverage-map governance (A1–A6 + architectural)
 
 > Proposals only — not implemented. Verified against current HEAD.
-> Canonical doc today: `docs/agent_notes/lint-coverage-map.md` (~419 rows). The
+> Canonical doc today: `docs/generated/lint-coverage-map.md` (~419 rows). The
 > logs' `docs/agent_notes/backlog/lint-followups/lint-coverage-map.md` path is
 > gone. Checker hardcodes the current path at
 > `scripts/lint-coverage-map-check-io.ts:10`.
@@ -13,7 +13,7 @@ Key files:
 - `scripts/lint-coverage-map-check.ts` (+ `-findings.ts`, `-io.ts`, `-patterns.ts`, `-eslint-reach.ts`, `-types.ts`)
 - `scripts/lint-coverage-map-check.test.ts`
 - `scripts/ai-hooks/lint-coverage-check.sh` (edit-time hook), `lint-coverage-state.sh`
-- `docs/agent_notes/lint-coverage-map.md`
+- `docs/generated/lint-coverage-map.md`
 - `package.json` (`docs:lint-coverage-map:check`, currently `:81`)
 
 Gate wiring confirmed: `verify`/`verify:parallel` run the **non-staged +
@@ -70,7 +70,7 @@ path sets the base; later bare filenames resolve against it) is implicit in
    print the map path and a one-line "first full path sets the base dir for
    subsequent bare filenames" note in the unaccounted section.
 4. **Add an 8–10 line "Maintaining this map" section** to
-   `docs/agent_notes/lint-coverage-map.md` after line 15: column meanings, the
+   `docs/generated/lint-coverage-map.md` after line 15: column meanings, the
    base-dir rule, and "run `bun run scripts/lint-coverage-map-check.ts --suggest`".
 
 **Why not doc-only.** The rule has effectively been "documented" via repeated log
@@ -203,7 +203,7 @@ validate the inverse (a row marked not-linted whose files *do* resolve a config)
 `ratchet/<id>` token is a known id (`ratchetIds`, check.ts:34). It does not check
 that the row's files are actually members of that ratchet's `files` glob (or not
 pruned by its `ignores`), so a row can claim a ratchet that doesn't cover it and
-stay green. `docs/agent_notes/lint-coverage-map.md:14` explicitly says "*if/when
+stay green. `docs/generated/lint-coverage-map.md:14` explicitly says "*if/when
 a generator script is added…*" — advertising a generator that does not exist.
 
 **Root-cause fix.**
@@ -299,5 +299,5 @@ on the churny rows. Three constraints on the leaf:
 ## Critical files
 `scripts/lint-coverage-map-check.ts`, `-findings.ts`, `-io.ts`, `-patterns.ts`,
 `-eslint-reach.ts`, `scripts/ai-hooks/lint-coverage-check.sh`,
-`docs/agent_notes/lint-coverage-map.md`, `package.json:81`,
+`docs/generated/lint-coverage-map.md`, `package.json:81`,
 `scripts/lint-ratchet/ratchet-globs.ts`.

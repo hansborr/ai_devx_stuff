@@ -9,10 +9,8 @@
 //    EXEMPT_SCRIPTS escape for one-off operational utilities);
 //  - freshness: generated verify step data, AI hook wiring, local lint
 //    guidance, the harness-controls doc, the restricted-disable rule list,
-//    the config-surface tsconfig (tsconfig.configs.json), and smoke-subject
-//    metadata are up to date.
-//  - timeout constants: shell quiet-hook watchdog constants match their
-//    manifest-derived generated hook timeouts.
+//    the config-surface tsconfig (tsconfig.configs.json), generated hook
+//    timeout constants, and smoke-subject metadata are up to date.
 //
 // Run via `bun run harness:check`. Exits non-zero on any failure with a
 // per-control diagnostic list so the harness gates surface drift loudly.
@@ -47,13 +45,12 @@ import {
   COPILOT_HOOKS_PATH,
   GENERATED_CONFIG_SURFACES_PATH,
   GENERATED_HARNESS_CONTROLS_DOC_PATH,
+  GENERATED_HOOK_TIMEOUT_CONSTANTS_PATH,
   GENERATED_VERIFY_STEPS_PATH,
   HARNESS_MANIFEST_FILENAME,
   loadHarnessManifest,
 } from "./harness/harness-paths.js";
-import { checkHookTimeoutConstants } from "./harness/hook-timeout-constants.js";
 import { loadLocalRuleConfig } from "./harness/local-rule-config.js";
-import { VERIFY_STEP_DYNAMIC_RESOLVERS } from "./harness/verify-step-schema.js";
 import { lintRatchets } from "./lint-ratchet/lint-ratchet-config.js";
 
 const PROCESS_ARG_OFFSET = 2;
@@ -84,6 +81,7 @@ const EXEMPT_SCRIPTS = new Set<string>([
   "docs:harness-controls:check",
   "harness:config-surfaces:check",
   "harness:wiring:check",
+  "harness:hook-timeouts:check",
   "verify:steps:check",
   // coverage-map :audit/:suggest variants — the same checker behind helper flags.
   // `docs:lint-coverage-map:check` is the manifest control (the committing gate
@@ -103,6 +101,9 @@ const EXEMPT_SCRIPTS = new Set<string>([
   // Generated restricted-disable list --check variant; the primary generator is
   // registered as a check control and harness:check runs freshness directly.
   "lint:restricted-disable-rules:check",
+  // Write path for the max-lines cap exceptions baseline; the --check gate
+  // (lint:max-lines-exceptions) is the registered sensor control.
+  "lint:max-lines-exceptions:update",
   "lint:ratchet:update",
   "lint:ratchet:check-baseline",
   "lint:ratchet:check-registry",
@@ -127,7 +128,6 @@ const EXEMPT_SCRIPTS = new Set<string>([
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const packageJsonPath = join(repoRoot, "package.json");
 const eslintConfigPath = join(repoRoot, "eslint.config.js");
-const verifyStepsLibPath = join(repoRoot, "scripts/verify/steps-lib.sh");
 
 // Failure-bucket label for the hook-wiring generator, which writes all three
 // harness hook configs; built from their shared path constants so it stays in
@@ -201,6 +201,7 @@ const GENERATED_FRESHNESS_OUTPUTS: readonly (readonly [outputId: string, generat
     "scripts/path-policy/generate-smoke-subjects.ts",
   ],
   [GENERATED_VERIFY_STEPS_PATH, "scripts/harness/generate-verify-steps.ts"],
+  [GENERATED_HOOK_TIMEOUT_CONSTANTS_PATH, "scripts/harness/generate-hook-timeout-constants.ts"],
   [GENERATED_CONFIG_SURFACES_PATH, "scripts/harness/generate-config-surfaces.ts"],
   [HOOK_WIRING_OUTPUTS_LABEL, "scripts/harness/generate-hook-wiring.ts"],
   ["docs/generated/local-lint-rules.md", "scripts/generate-lint-guidance.ts"],
@@ -241,27 +242,6 @@ function checkGeneratedHookWiringStructure(failures: Map<string, ControlFailures
       ? output.join("\n")
       : `${scriptPath} exited with status ${String(result.status)}`,
   );
-}
-
-function checkDynamicResolverBindings(failures: Map<string, ControlFailures>): void {
-  let stepsLib: string;
-  try {
-    stepsLib = readFileSync(verifyStepsLibPath, "utf8");
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    pushFailure(failures, "scripts/verify/steps-lib.sh", `failed to read steps-lib.sh: ${message}`);
-    return;
-  }
-
-  for (const resolver of VERIFY_STEP_DYNAMIC_RESOLVERS) {
-    if (!stepsLib.includes(`${resolver})`)) {
-      pushFailure(
-        failures,
-        "scripts/verify/steps-lib.sh",
-        `dynamic resolver ${resolver} is declared in scripts/harness/verify-step-schema.ts but has no matching case arm in scripts/verify/steps-lib.sh`,
-      );
-    }
-  }
 }
 
 interface DeclaredControlSets {
@@ -384,8 +364,6 @@ async function main(): Promise<void> {
   checkRatchetParity(ratchetIds, declared.ratchets, failures);
   checkGeneratedFreshnessOutputs(failures);
   checkGeneratedHookWiringStructure(failures);
-  checkDynamicResolverBindings(failures);
-  checkHookTimeoutConstants(repoRoot, controls, failures);
   checkScriptParity(CONTROL_PREFIX_PATTERN, EXEMPT_SCRIPTS, declared.scripts, context);
 
   if (failures.size > 0) {

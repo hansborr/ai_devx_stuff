@@ -1,132 +1,106 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-
+import { HARNESS_MANIFEST_FILENAME } from "./harness-paths.js";
 import {
-  type ControlFailures,
+  type HookHarness,
   isNonEmptyString,
-  pushFailure,
-  type RawControl,
-} from "./harness-check-validation.js";
-import { type HookHarness, resolveHookWiring } from "./hook-wiring-schema.js";
+  isObject,
+  resolveHookWiring,
+} from "./hook-wiring-schema.js";
 
 interface HookTimeoutConstantBinding {
   readonly controlId: string;
   readonly harness: HookHarness;
-  readonly scriptPath: string;
   readonly variableName: string;
+}
+
+interface HookTimeoutConstant {
+  readonly variableName: string;
+  readonly timeout: number;
 }
 
 const HOOK_TIMEOUT_CONSTANT_BINDINGS = [
   {
     controlId: "hook/ai-bun-run-quiet",
     harness: "claude",
-    scriptPath: "scripts/ai-hooks/bun-run-quiet.sh",
     variableName: "BUN_RUN_QUIET_HOOK_TIMEOUT",
   },
   {
     controlId: "hook/ai-git-commit-quiet",
     harness: "claude",
-    scriptPath: "scripts/ai-hooks/git-commit-quiet.sh",
     variableName: "GIT_COMMIT_QUIET_HOOK_TIMEOUT",
   },
 ] as const satisfies readonly HookTimeoutConstantBinding[];
 
-function escapeRegexLiteral(text: string): string {
-  return text.replace(/[\\^$.*+?()[\]{}|]/gu, "\\$&");
-}
+const SHELL_VARIABLE_NAME_PATTERN = /^[A-Za-z_]\w*$/u;
 
-function readShellIntegerConstant(
-  repoRoot: string,
-  binding: HookTimeoutConstantBinding,
-  failures: Map<string, ControlFailures>,
-): number | undefined {
-  const fullPath = join(repoRoot, binding.scriptPath);
-  let text: string;
-  try {
-    text = readFileSync(fullPath, "utf8");
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    pushFailure(failures, binding.scriptPath, `failed to read ${binding.scriptPath}: ${message}`);
-    return undefined;
+function collectControlsById(manifest: unknown): ReadonlyMap<string, Record<string, unknown>> {
+  if (!isObject(manifest) || !Array.isArray(manifest.controls)) {
+    throw new Error(`${HARNESS_MANIFEST_FILENAME} must declare a controls array`);
   }
 
-  const variablePattern = new RegExp(
-    `^[ \\t]*${escapeRegexLiteral(binding.variableName)}=([0-9]+)[ \\t]*(?:#.*)?$`,
-    "mu",
-  );
-  const valueText = text.match(variablePattern)?.[1];
-  if (valueText === undefined) {
-    pushFailure(
-      failures,
-      binding.scriptPath,
-      `missing integer shell constant ${binding.variableName}`,
-    );
-    return undefined;
+  const controlsById = new Map<string, Record<string, unknown>>();
+  for (const [index, control] of manifest.controls.entries()) {
+    if (!isObject(control)) {
+      throw new Error(`control entry at index ${String(index)} must be an object`);
+    }
+    if (!isNonEmptyString(control.id)) {
+      throw new Error(`control entry at index ${String(index)} must declare a non-empty id`);
+    }
+    if (controlsById.has(control.id)) {
+      throw new Error(`duplicate control id: ${control.id}`);
+    }
+    controlsById.set(control.id, control);
   }
-  return Number.parseInt(valueText, 10);
+  return controlsById;
 }
 
-function readManifestHookTimeout(
-  controlsById: ReadonlyMap<string, RawControl>,
+function timeoutForBinding(
+  controlsById: ReadonlyMap<string, Record<string, unknown>>,
   binding: HookTimeoutConstantBinding,
-  failures: Map<string, ControlFailures>,
-): number | undefined {
+): number {
   const control = controlsById.get(binding.controlId);
   if (control === undefined) {
-    pushFailure(
-      failures,
-      binding.controlId,
+    throw new Error(
       `required hook timeout control ${binding.controlId} is missing from harness.controls.json`,
     );
-    return undefined;
   }
 
-  try {
-    const wiring = resolveHookWiring(binding.controlId, control.hookWiring);
-    const command = wiring.harnesses[binding.harness];
-    if (command === undefined) {
-      pushFailure(
-        failures,
-        binding.controlId,
-        `hookWiring.harnesses.${binding.harness} is required for ${binding.variableName}`,
-      );
-      return undefined;
-    }
-    if (command.timeout === undefined) {
-      pushFailure(
-        failures,
-        binding.controlId,
-        `hookWiring.harnesses.${binding.harness}.timeout is required for ${binding.variableName}`,
-      );
-      return undefined;
-    }
-    return command.timeout;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    pushFailure(failures, binding.controlId, message);
-    return undefined;
-  }
-}
-
-export function checkHookTimeoutConstants(
-  repoRoot: string,
-  controls: readonly RawControl[],
-  failures: Map<string, ControlFailures>,
-): void {
-  const controlsById = new Map<string, RawControl>();
-  for (const control of controls) {
-    if (isNonEmptyString(control.id)) controlsById.set(control.id, control);
-  }
-
-  for (const binding of HOOK_TIMEOUT_CONSTANT_BINDINGS) {
-    const manifestTimeout = readManifestHookTimeout(controlsById, binding, failures);
-    const shellTimeout = readShellIntegerConstant(repoRoot, binding, failures);
-    if (manifestTimeout === undefined || shellTimeout === undefined) continue;
-    if (manifestTimeout === shellTimeout) continue;
-    pushFailure(
-      failures,
-      binding.scriptPath,
-      `${binding.variableName}=${String(shellTimeout)} does not match ${binding.controlId} ${binding.harness} hookWiring timeout ${String(manifestTimeout)} from harness.controls.json`,
+  const wiring = resolveHookWiring(binding.controlId, control.hookWiring);
+  const command = wiring.harnesses[binding.harness];
+  if (command === undefined) {
+    throw new Error(
+      `hookWiring.harnesses.${binding.harness} is required for ${binding.variableName}`,
     );
   }
+  if (command.timeout === undefined) {
+    throw new Error(
+      `hookWiring.harnesses.${binding.harness}.timeout is required for ${binding.variableName}`,
+    );
+  }
+  return command.timeout;
+}
+
+function collectHookTimeoutConstants(manifest: unknown): readonly HookTimeoutConstant[] {
+  const controlsById = collectControlsById(manifest);
+  return HOOK_TIMEOUT_CONSTANT_BINDINGS.map((binding) => ({
+    variableName: binding.variableName,
+    timeout: timeoutForBinding(controlsById, binding),
+  }));
+}
+
+export function renderHookTimeoutConstantsShellFromManifest(manifest: unknown): string {
+  const lines = [
+    "# shellcheck shell=bash",
+    "# shellcheck disable=SC2034",
+    "# Generated by scripts/harness/generate-hook-timeout-constants.ts. Do not edit by hand.",
+    "",
+  ];
+
+  for (const constant of collectHookTimeoutConstants(manifest)) {
+    if (!SHELL_VARIABLE_NAME_PATTERN.test(constant.variableName)) {
+      throw new Error(`invalid shell variable name for hook timeout: ${constant.variableName}`);
+    }
+    lines.push(`${constant.variableName}=${String(constant.timeout)}`);
+  }
+
+  return `${lines.join("\n")}\n`;
 }

@@ -81,7 +81,7 @@ EOF
   touch "$FAST_ROOT/bun.lock"
   touch "$FAST_ROOT/node_modules/.bin"
 
-  for fake_script in worktree-db.sh db-status.sh suppression-register.sh; do
+  for fake_script in worktree-db.sh suppression-register.sh; do
     cat >"$FAST_ROOT/scripts/$fake_script" <<'SH'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -131,6 +131,10 @@ if [ "${1:-}" = "run" ]; then
       ;;
     sensor:blob-size)
       printf 'PASS: synthetic blob-size clean\n'
+      exit 0
+      ;;
+    */scripts/db-status.ts)
+      printf 'PASS: synthetic db status clean\n'
       exit 0
       ;;
     harness:check)
@@ -406,7 +410,7 @@ printf 'JWT_SECRET=synthetic-doctor-json-secret\n' >"$BLOCK_ROOT/.devcontainer/.
 touch "$BLOCK_ROOT/bun.lock"
 touch "$BLOCK_ROOT/node_modules/.bin"
 
-for fake_script in worktree-db.sh db-status.sh eslint-disable-register.sh suppression-register.sh; do
+for fake_script in worktree-db.sh eslint-disable-register.sh suppression-register.sh; do
   cat >"$BLOCK_ROOT/scripts/$fake_script" <<'SH'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -448,6 +452,10 @@ if [ "${1:-}" = "run" ]; then
       ;;
     sensor:blob-size)
       printf 'BLOCK: synthetic staged blob exceeds limit\n'
+      exit 0
+      ;;
+    */scripts/db-status.ts)
+      printf 'PASS: synthetic db status clean\n'
       exit 0
       ;;
     harness:check)

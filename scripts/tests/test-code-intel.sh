@@ -3,7 +3,6 @@
 # smoke-subjects: scripts/code-intel.ts
 # smoke-subjects: scripts/code-intel-server.ts
 # smoke-subjects: scripts/code-intel/
-# smoke-subjects: scripts/code-intel.test.ts
 # smoke-subjects: scripts/tests/test-code-intel.sh
 # smoke-subjects: scripts/vitest.config.ts
 # smoke-subjects: package.json

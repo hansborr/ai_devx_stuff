@@ -211,7 +211,7 @@ for file in "${CHANGED_FILES[@]}"; do
       file_vitest_relevant=1
       full_run=1
       ;;
-    scripts/*.test.ts|scripts/client-test-isolation-*.ts|scripts/codemods/*|scripts/code-intel*.ts|scripts/drift-ai.ts|scripts/drift-ai/*|scripts/drift/*|scripts/harness/*|scripts/logs-audit.ts|scripts/logs-audit/*|scripts/sensor-blob-size.ts|scripts/lint-coverage-map-check*.ts|scripts/lint-ratchet.ts|scripts/lint-ratchet/*)
+    scripts/*.test.ts|scripts/lib/*.ts|scripts/client-test-isolation-*.ts|scripts/codemods/*|scripts/code-intel*.ts|scripts/drift-ai.ts|scripts/drift-ai/*|scripts/drift/*|scripts/harness/*|scripts/logs-audit.ts|scripts/logs-audit/*|scripts/sensor-blob-size.ts|scripts/lint-coverage-map-check*.ts|scripts/lint-ratchet.ts|scripts/lint-ratchet/*)
       has_scripts=1
       has_vitest_relevant=1
       file_vitest_relevant=1

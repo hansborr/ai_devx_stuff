@@ -1,7 +1,10 @@
 # 15. Path-policy as the single file-classification source
 
-Status: Pending — reconcile scope with lint-deep-dive leaves 41/42 outcomes
-before starting (integration is in main as of 2026-07-07, so target `main`)
+Status: Done 2026-07-07 — implemented by `8cdc79f8`
+(`fix(scripts): derive path policy configs`) and `ed4e9c87`
+(`refactor(lint): share JS TS extensions`), with fixture follow-up
+`0024525c` (`fix(scripts): copy lint policy fixtures`) and verification
+expectation follow-up `8417fc15` (`fix(scripts): align verify config probe`).
 Size: M-L · Severity: med · Risk: medium-high — ESLint flat-config glob
 semantics are unforgiving
 Source: 00-report.md T6 / B3
@@ -32,6 +35,34 @@ report was written before that landing.
   selectors.
 - Start with the config-surface list, which already has a manifest — lowest
   risk, proves the derivation shape.
+
+## Reconciled outcome
+
+The 2026-07-07 reconciliation against lint-deep-dive leaves 41/42 superseded
+the original inversion direction. The config-surface manifest remains the
+single source of truth, and path-policy is now its fourth consumer for
+source-relevant config surface selectors. Path-policy does not generate the
+manifest.
+
+`doc-length-policy.sh` was descoped because it uses a different taxonomy:
+advisory hot-doc length budgets, not a second config-surface source that can
+drift against the manifest.
+
+`ESLINT_FULL_SCAN_TRIGGERS` remains hand-curated. It represents semantic
+full-scan triggers, not the config-surface inventory; the original claim that
+it re-listed `config-surfaces.js` was stale after leaf 41 landed.
+
+The implementation also single-sourced the JS/TS lintable extension set in
+`eslint-config/shared-policy.js`, deriving flat-config brace globs and
+path-policy changed-lint extensions from the same exported array. The full
+ESLint selection diff was empty before/after that change.
+
+Final changed-smoke verification found additional synthetic repos that copied
+`path-policy.ts`; those fixtures now copy `config-surfaces.js`, the manifest,
+and `shared-policy.js` instead of weakening the production imports.
+The verify changed-gate smoke now probes `vitest.slow.config.ts` instead of an
+unregistered root `prisma.config.ts`, matching the manifest-only source
+relevance contract.
 
 ## Verification
 

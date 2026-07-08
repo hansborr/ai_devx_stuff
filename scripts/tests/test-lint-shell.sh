@@ -36,6 +36,9 @@ PATH_POLICY_SMOKE_SUBJECTS="$SCRIPT_DIR/../path-policy/path-policy-smoke-subject
 PATH_POLICY_SMOKE_SUBJECTS_DATA="$SCRIPT_DIR/../path-policy/path-policy-smoke-subjects-data.ts"
 HARNESS_PATHS="$SCRIPT_DIR/../harness/harness-paths.ts"
 LINT_RATCHET_PATHS="$SCRIPT_DIR/../lint-ratchet/paths.ts"
+CONFIG_SURFACES="$REPO_ROOT/eslint-config/config-surfaces.js"
+CONFIG_SURFACE_MANIFEST="$REPO_ROOT/eslint-config/config-surface-manifest.json"
+SHARED_POLICY="$REPO_ROOT/eslint-config/shared-policy.js"
 
 PASS=0
 fail() { printf 'FAIL: %s\n' "$1" >&2; exit 1; }
@@ -54,7 +57,7 @@ new_repo() {
   local name="$1"
   local repo="$SANDBOX/$name"
   mkdir -p "$repo/scripts" "$repo/scripts/lib" "$repo/scripts/path-policy" \
-    "$repo/scripts/harness" "$repo/scripts/lint-ratchet" "$repo/.husky"
+    "$repo/scripts/harness" "$repo/scripts/lint-ratchet" "$repo/eslint-config" "$repo/.husky"
   git -C "$SANDBOX" init -q -b main "$repo"
   cp "$LINT_SHELL" "$repo/scripts/lint-shell.sh"
   cp "$LINT_CHANGED" "$repo/scripts/lint-changed.sh"
@@ -71,6 +74,10 @@ new_repo() {
     "$repo/scripts/path-policy/path-policy-smoke-subjects-data.ts"
   cp "$HARNESS_PATHS" "$repo/scripts/harness/harness-paths.ts"
   cp "$LINT_RATCHET_PATHS" "$repo/scripts/lint-ratchet/paths.ts"
+  cp "$CONFIG_SURFACES" "$repo/eslint-config/config-surfaces.js"
+  cp "$CONFIG_SURFACE_MANIFEST" "$repo/eslint-config/config-surface-manifest.json"
+  cp "$SHARED_POLICY" "$repo/eslint-config/shared-policy.js"
+  cp "$REPO_ROOT/eslint-config/max-lines-exceptions.baseline.json" "$repo/eslint-config/max-lines-exceptions.baseline.json"
   cat > "$repo/scripts/lint-config-sensors.sh" <<'SH'
 #!/usr/bin/env bash
 exit 0

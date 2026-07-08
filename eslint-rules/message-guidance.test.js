@@ -101,7 +101,7 @@ const SELF_CONTAINED_MESSAGE_DRIFT_TOKENS = [
   {
     context: "max-lines/exceed",
     tokens: [
-      "maxLinesPolicy.exceptions",
+      "eslint-config/max-lines-exceptions.baseline.json",
       "Do not compress lines or inline useful helpers just to satisfy the metric",
     ],
   },

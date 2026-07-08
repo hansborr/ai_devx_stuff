@@ -10,8 +10,8 @@ import { runKnipUnusedExportsCli } from "./sensor-knip-unused-exports-core.js";
 
 export {
   formatKnipUnusedExportsBaseline,
+  type KnipUnusedExportEntry,
   type KnipUnusedExportsRunResult,
-  type KnipUnusedExportsSnapshot,
   runKnipUnusedExportsCli,
   type RunKnipUnusedExportsCliOptions,
 } from "./sensor-knip-unused-exports-core.js";

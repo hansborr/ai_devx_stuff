@@ -9,6 +9,7 @@
 # smoke-subjects: scripts/path-policy/path-policy.ts
 # smoke-subjects: scripts/process-tree.sh
 # smoke-subjects: scripts/lib/parallel-step.sh
+# smoke-subjects: scripts/lib/verify-engine.sh
 # smoke-subjects: scripts/tests/lib/test-git-env.sh
 # smoke-subjects: scripts/tests/test-verify.sh
 # smoke-subjects: scripts/ai-hooks/cache.sh
@@ -55,6 +56,7 @@ if [ "${MUSI_TEST_VERIFY_IN_FIXTURE:-}" != "1" ]; then
   cp "$SCRIPT_DIR/lib/test-git-env.sh" "$FIXTURE_ROOT/scripts/tests/lib/"
   cp "$SCRIPT_DIR/../lib/verify-metadata.sh" "$SCRIPT_DIR/../lib/parallel-step.sh" \
     "$SCRIPT_DIR/../lib/lint-dist-preflight.sh" "$SCRIPT_DIR/../lib/gate-env.sh" \
+    "$SCRIPT_DIR/../lib/verify-engine.sh" \
     "$FIXTURE_ROOT/scripts/lib/"
   cp "$SCRIPT_DIR/../ai-hooks/cache.sh" "$SCRIPT_DIR/../ai-hooks/output-filter.sh" \
     "$FIXTURE_ROOT/scripts/ai-hooks/"
@@ -415,7 +417,7 @@ ok "verify --changed runs changed format check"
 # --- changed gate rejects unstaged source-relevant worktree drift -----------
 GATE_REPO="$SANDBOX/changed-gate-repo"
 SOURCE_RELEVANT_DRIFT_PATHS=(
-  "docs/agent_notes/lint-coverage-map.md"
+  "docs/generated/lint-coverage-map.md"
   ".claude/settings.json"
   ".codex/hooks.json"
   ".github/workflows/ci.yml"
@@ -429,7 +431,7 @@ SOURCE_RELEVANT_DRIFT_PATHS=(
   "stryker.config.mjs"
   "knip.config.ts"
   "playwright.config.ts"
-  "prisma.config.ts"
+  "vitest.slow.config.ts"
   ".claude/hooks/stop-reminder.sh"
   ".codex/hooks/pre-tool-use.sh"
   ".codex/config.toml"
@@ -498,7 +500,7 @@ exit_code=$?
 set -e
 [ "$exit_code" -ne 0 ] || fail "verify --changed did not propagate failure"
 grep -qF 'Failed: typecheck' <<< "$output" || fail "summary missed Failed: typecheck"
-grep -qF 'Passed: lint suppressions ratchet zero-baseline debt-accounting knip-unused-exports coverage-map format-check test scripts' <<< "$output" \
+grep -qF 'Passed: lint suppressions ratchet zero-baseline debt-accounting knip-unused-exports max-lines-exceptions coverage-map format-check test scripts' <<< "$output" \
   || fail "summary missed other passed parallel tasks"
 grep -qF 'verify:changed FAILED' <<< "$output" || fail "summary missed banner"
 [ -f "$MARKER_CHANGED" ] && fail "marker should not be written on failure"
@@ -586,7 +588,7 @@ rm -f "$MARKER_CHANGED"
 set +e
 # Tiny timeout + a sleep stub on lint guarantees the watchdog fires before
 # the lint stub returns. Capture stderr too — the timeout banner goes there.
-output=$(MUSI_VERIFY_TIMEOUT=2 STUB_SLEEP_lint_changed=10 run_verify --changed 2>&1)
+output=$(MUSI_INTERACTIVE_TIMEOUT=2 STUB_SLEEP_lint_changed=10 run_verify --changed 2>&1)
 exit_code=$?
 set -e
 [ "$exit_code" -eq 124 ] || fail "watchdog should exit 124 (got $exit_code)"
@@ -616,7 +618,7 @@ rm -f "$MARKER_CHANGED"
 TREE_PID_LOG="$SANDBOX/tree-pids"
 rm -f "$TREE_PID_LOG"
 set +e
-output=$(MUSI_VERIFY_TIMEOUT=2 STUB_SLEEP_lint_changed=30 STUB_PID_LOG="$TREE_PID_LOG" run_verify --changed 2>&1)
+output=$(MUSI_INTERACTIVE_TIMEOUT=2 STUB_SLEEP_lint_changed=30 STUB_PID_LOG="$TREE_PID_LOG" run_verify --changed 2>&1)
 exit_code=$?
 set -e
 [ "$exit_code" -eq 124 ] || fail "tree-cleanup watchdog should exit 124 (got $exit_code)"
@@ -632,7 +634,7 @@ if [ -f "$TREE_PID_LOG" ]; then
 fi
 ok "watchdog kills child process tree on timeout"
 
-# --- MUSI_INTERACTIVE_TIMEOUT is honored when MUSI_VERIFY_TIMEOUT is unset --
+# --- MUSI_INTERACTIVE_TIMEOUT is honored by the watchdog ------------------
 rm -f "$MARKER_CHANGED"
 : > "$STUB_LOG_FILE"
 set +e
@@ -804,7 +806,7 @@ exit_code=$?
 set -e
 [ "$exit_code" -ne 0 ] || fail "verify --parallel did not propagate failure"
 grep -qF 'Failed: typecheck' <<< "$output" || fail "parallel summary missed Failed: typecheck"
-grep -qF 'Passed: lint suppressions ratchet zero-baseline debt-accounting knip-unused-exports coverage-map format-check test scripts' <<< "$output" \
+grep -qF 'Passed: lint suppressions ratchet zero-baseline debt-accounting knip-unused-exports max-lines-exceptions coverage-map format-check test scripts' <<< "$output" \
   || fail "parallel summary missed other passed tasks"
 grep -q 'bun run test ' "$STUB_LOG_FILE" \
   || fail "parallel verify should still run test after typecheck failure"

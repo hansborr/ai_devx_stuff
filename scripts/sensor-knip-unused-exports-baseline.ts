@@ -1,213 +1,186 @@
-import { existsSync, readFileSync } from "node:fs";
-
 import { KNIP_SYMBOL_INCLUDE_CATEGORIES } from "./drift-ai/knip-runner.js";
 import {
   UNUSED_EXPORT_CATEGORIES,
   type UnusedExportCategory,
+  type UnusedExportSymbol,
 } from "./drift-ai/knip-unused-exports.js";
+import {
+  type BaselineMetricSpec,
+  formatBaseline,
+  parseBaseline,
+  type ParseResult,
+} from "./lib/baseline/entry-baseline.js";
+import { gateEntries, type GateResult } from "./lib/baseline/gate.js";
 
-const BASELINE_VERSION = 1;
-const JSON_INDENT_SPACES = 2;
-
-export type ParseResult<T> =
-  | { readonly ok: true; readonly value: T }
-  | { readonly ok: false; readonly error: string };
-
-export type KnipUnusedExportsCategoryCounts = Readonly<Record<UnusedExportCategory, number>>;
-
-export type KnipUnusedExportsSnapshot = {
-  readonly count: number;
-  readonly categories: KnipUnusedExportsCategoryCounts;
+// A single knip unused-export identity. The key is `category|path|symbol` after
+// path normalization to repo-relative POSIX (already applied by the knip
+// adapter) and namespace qualification of the symbol, intentionally independent
+// of line/column and knip's output order so a same-count swap of one symbol for
+// another is a visible change (leaf 61). Each identity is a count-1 entry.
+export type KnipUnusedExportEntry = {
+  readonly key: string;
+  readonly path: string;
+  readonly category: UnusedExportCategory;
+  readonly symbol: string;
 };
 
-export type KnipUnusedExportsBaseline = KnipUnusedExportsSnapshot & {
-  readonly version: typeof BASELINE_VERSION;
-  readonly tool: "knip";
-  readonly metric: "unused-export-symbols";
-  readonly includeCategories: typeof KNIP_SYMBOL_INCLUDE_CATEGORIES;
-};
-
-export function zeroKnipUnusedExportsCounts(): Record<UnusedExportCategory, number> {
-  return {
-    exports: 0,
-    types: 0,
-    enumMembers: 0,
-    namespaceMembers: 0,
-  };
+function zeroKnipUnusedExportsCounts(): Record<UnusedExportCategory, number> {
+  return { exports: 0, types: 0, enumMembers: 0, namespaceMembers: 0 };
 }
 
-export function readKnipUnusedExportsBaseline(
-  path: string,
-): ParseResult<KnipUnusedExportsBaseline> {
-  if (!existsSync(path)) {
-    return {
-      ok: false,
-      error: `baseline missing at ${path}; run bun scripts/sensor-knip-unused-exports.ts --update`,
-    };
-  }
-  let raw: unknown;
-  try {
-    raw = JSON.parse(readFileSync(path, "utf8"));
-  } catch (err) {
-    return { ok: false, error: `baseline is not valid JSON: ${errorMessage(err)}` };
-  }
-  return parseBaseline(raw);
-}
-
-export function compareKnipUnusedExportsSnapshots(
-  baseline: KnipUnusedExportsBaseline,
-  current: KnipUnusedExportsSnapshot,
-): { readonly exitCode: number; readonly stdout: string } {
-  const header = [
-    "sensor:knip-unused-exports",
-    formatSnapshotLine("baseline", baseline),
-    formatSnapshotLine("current", current),
-  ];
-  if (current.count > baseline.count) {
-    const delta = current.count - baseline.count;
-    return {
-      exitCode: 1,
-      stdout: [
-        ...header,
-        `FAIL: knip unused-export symbols grew by ${String(delta)}`,
-        "Remove the new unused export, add an intentional knip ignore, or refresh the baseline after review.",
-        ...formatCategoryDeltas(baseline.categories, current.categories),
-      ].join("\n"),
-    };
-  }
-  if (current.count < baseline.count) {
-    const delta = baseline.count - current.count;
-    return {
-      exitCode: 1,
-      stdout: [
-        ...header,
-        `FAIL: knip unused-export symbols decreased by ${String(delta)}`,
-        "Current tree is better than the baseline; run bun scripts/sensor-knip-unused-exports.ts --update to lock it in by lowering the committed baseline.",
-        ...formatCategoryDeltas(baseline.categories, current.categories),
-      ].join("\n"),
-    };
-  }
-  const lines = [
-    ...header,
-    `OK: knip unused-export symbols match baseline ${String(baseline.count)}`,
-  ];
-  return { exitCode: 0, stdout: lines.join("\n") };
-}
-
-export function formatSnapshotLine(label: string, snapshot: KnipUnusedExportsSnapshot): string {
-  return `${label}: ${String(snapshot.count)} (${formatCategorySummary(snapshot.categories)})`;
-}
-
-export function formatKnipUnusedExportsBaseline(snapshot: KnipUnusedExportsSnapshot): string {
-  const baseline: KnipUnusedExportsBaseline = {
-    version: BASELINE_VERSION,
-    tool: "knip",
-    metric: "unused-export-symbols",
-    includeCategories: KNIP_SYMBOL_INCLUDE_CATEGORIES,
-    count: snapshot.count,
-    categories: snapshot.categories,
-  };
-  return `${JSON.stringify(baseline, null, JSON_INDENT_SPACES)}\n`;
-}
-
-function parseBaseline(raw: unknown): ParseResult<KnipUnusedExportsBaseline> {
-  if (!isObject(raw)) return { ok: false, error: "baseline must be a JSON object" };
-  if (raw.version !== BASELINE_VERSION) {
-    return { ok: false, error: `baseline version must be ${String(BASELINE_VERSION)}` };
-  }
-  if (raw.tool !== "knip") return { ok: false, error: "baseline tool must be 'knip'" };
-  if (raw.metric !== "unused-export-symbols") {
-    return { ok: false, error: "baseline metric must be 'unused-export-symbols'" };
-  }
-  if (raw.includeCategories !== KNIP_SYMBOL_INCLUDE_CATEGORIES) {
-    return {
-      ok: false,
-      error: `baseline includeCategories must be '${KNIP_SYMBOL_INCLUDE_CATEGORIES}'`,
-    };
-  }
-  const count = parseNonnegativeInteger(raw.count, "baseline count");
-  if (!count.ok) return count;
-  const categories = parseCategoryCounts(raw.categories);
-  if (!categories.ok) return categories;
-  const categoryTotal =
-    categories.value.exports +
-    categories.value.types +
-    categories.value.enumMembers +
-    categories.value.namespaceMembers;
-  if (categoryTotal !== count.value) {
-    return {
-      ok: false,
-      error: `baseline category total ${String(categoryTotal)} does not match count ${String(count.value)}`,
-    };
-  }
-  return {
-    ok: true,
-    value: {
-      version: BASELINE_VERSION,
-      tool: "knip",
-      metric: "unused-export-symbols",
-      includeCategories: KNIP_SYMBOL_INCLUDE_CATEGORIES,
-      count: count.value,
-      categories: categories.value,
-    },
-  };
-}
-
-function parseCategoryCounts(raw: unknown): ParseResult<KnipUnusedExportsCategoryCounts> {
-  if (!isObject(raw)) return { ok: false, error: "baseline categories must be an object" };
-  const exportsCount = parseNonnegativeInteger(raw.exports, "baseline categories.exports");
-  if (!exportsCount.ok) return exportsCount;
-  const typesCount = parseNonnegativeInteger(raw.types, "baseline categories.types");
-  if (!typesCount.ok) return typesCount;
-  const enumMembersCount = parseNonnegativeInteger(
-    raw.enumMembers,
-    "baseline categories.enumMembers",
-  );
-  if (!enumMembersCount.ok) return enumMembersCount;
-  const namespaceMembersCount = parseNonnegativeInteger(
-    raw.namespaceMembers,
-    "baseline categories.namespaceMembers",
-  );
-  if (!namespaceMembersCount.ok) return namespaceMembersCount;
-  return {
-    ok: true,
-    value: {
-      exports: exportsCount.value,
-      types: typesCount.value,
-      enumMembers: enumMembersCount.value,
-      namespaceMembers: namespaceMembersCount.value,
-    },
-  };
-}
-
-function parseNonnegativeInteger(raw: unknown, label: string): ParseResult<number> {
-  if (!Number.isInteger(raw) || typeof raw !== "number" || raw < 0) {
-    return { ok: false, error: `${label} must be a non-negative integer` };
-  }
-  return { ok: true, value: raw };
-}
-
-function formatCategorySummary(categories: KnipUnusedExportsCategoryCounts): string {
-  return UNUSED_EXPORT_CATEGORIES.map(
-    (category) => `${category} ${String(categories[category])}`,
-  ).join(", ");
-}
-
-function formatCategoryDeltas(
-  baseline: KnipUnusedExportsCategoryCounts,
-  current: KnipUnusedExportsCategoryCounts,
-): readonly string[] {
-  return UNUSED_EXPORT_CATEGORIES.map((category) => {
-    const delta = current[category] - baseline[category];
-    const sign = delta > 0 ? "+" : "";
-    return `${category}: baseline ${String(baseline[category])}, current ${String(current[category])} (${sign}${String(delta)})`;
-  });
-}
-
-function isObject(value: unknown): value is Record<string, unknown> {
+function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function errorMessage(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
+function isUnusedExportCategory(value: unknown): value is UnusedExportCategory {
+  return (
+    typeof value === "string" && UNUSED_EXPORT_CATEGORIES.some((category) => category === value)
+  );
+}
+
+// enum/namespace members share a symbol name across enclosing enums/namespaces
+// in the same file; qualifying with the namespace keeps identity keys unique
+// (and collision-free) while plain exports/types keep their bare name.
+function symbolIdentity(symbol: UnusedExportSymbol): string {
+  return symbol.namespace === undefined ? symbol.name : `${symbol.namespace}.${symbol.name}`;
+}
+
+function knipEntryFromSymbol(symbol: UnusedExportSymbol): KnipUnusedExportEntry {
+  const symbolId = symbolIdentity(symbol);
+  return {
+    key: `${symbol.category}|${symbol.file}|${symbolId}`,
+    path: symbol.file,
+    category: symbol.category,
+    symbol: symbolId,
+  };
+}
+
+// Deduplicate by identity key so a symbol knip happens to report twice never
+// double-counts; the map preserves the first occurrence, then formatting sorts.
+export function knipEntriesFromSymbols(
+  symbols: readonly UnusedExportSymbol[],
+): KnipUnusedExportEntry[] {
+  const byKey = new Map<string, KnipUnusedExportEntry>();
+  for (const symbol of symbols) {
+    const entry = knipEntryFromSymbol(symbol);
+    if (!byKey.has(entry.key)) byKey.set(entry.key, entry);
+  }
+  return [...byKey.values()];
+}
+
+function categoryCounts(
+  entries: readonly KnipUnusedExportEntry[],
+): Record<UnusedExportCategory, number> {
+  const counts = zeroKnipUnusedExportsCounts();
+  for (const entry of entries) counts[entry.category] += 1;
+  return counts;
+}
+
+export const knipUnusedExportsSpec: BaselineMetricSpec<KnipUnusedExportEntry> = {
+  tool: "knip",
+  metric: "unused-export-symbols",
+  meta: { includeCategories: KNIP_SYMBOL_INCLUDE_CATEGORIES },
+  parseEntry(raw): ParseResult<KnipUnusedExportEntry> {
+    if (!isRecord(raw)) return { ok: false, error: "entry must be an object" };
+    const { key, path, category, symbol } = raw;
+    if (typeof path !== "string" || path.length === 0) {
+      return { ok: false, error: "entry path must be a non-empty string" };
+    }
+    if (typeof symbol !== "string" || symbol.length === 0) {
+      return { ok: false, error: "entry symbol must be a non-empty string" };
+    }
+    if (!isUnusedExportCategory(category)) {
+      return { ok: false, error: "entry category is not a known unused-export category" };
+    }
+    const expectedKey = `${category}|${path}|${symbol}`;
+    if (key !== expectedKey) {
+      return { ok: false, error: `entry key must be '${expectedKey}'` };
+    }
+    return { ok: true, value: { key: expectedKey, path, category, symbol } };
+  },
+  formatEntry(entry) {
+    return { key: entry.key, path: entry.path, category: entry.category, symbol: entry.symbol };
+  },
+  summarize(entries) {
+    return { count: entries.length, categories: categoryCounts(entries) };
+  },
+};
+
+export function formatKnipUnusedExportsBaseline(entries: readonly KnipUnusedExportEntry[]): string {
+  return formatBaseline(knipUnusedExportsSpec, entries);
+}
+
+export function readKnipUnusedExportsBaseline(
+  text: string,
+): ParseResult<readonly KnipUnusedExportEntry[]> {
+  const parsed = parseBaseline(knipUnusedExportsSpec, text);
+  if (!parsed.ok) return parsed;
+  return { ok: true, value: parsed.value.entries };
+}
+
+export function formatSummaryLine(
+  label: string,
+  entries: readonly KnipUnusedExportEntry[],
+): string {
+  const counts = categoryCounts(entries);
+  const summary = UNUSED_EXPORT_CATEGORIES.map(
+    (category) => `${category} ${String(counts[category])}`,
+  ).join(", ");
+  return `${label}: ${String(entries.length)} (${summary})`;
+}
+
+function pluralIdentities(count: number): string {
+  return count === 1 ? "identity" : "identities";
+}
+
+function identityLines(prefix: string, keys: readonly string[]): readonly string[] {
+  return keys.map((key) => `  ${prefix} ${key}`);
+}
+
+function regressionOutput(header: readonly string[], gate: GateResult): string {
+  const lines = [
+    ...header,
+    `FAIL: knip unused-export symbols added ${String(gate.added.length)} new ${pluralIdentities(gate.added.length)}`,
+    "Remove the new unused export, add an intentional knip ignore, or refresh the baseline after review.",
+    ...identityLines("+", gate.added),
+  ];
+  if (gate.removed.length > 0) {
+    lines.push(
+      `Also ${String(gate.removed.length)} baseline ${pluralIdentities(gate.removed.length)} disappeared; refresh the baseline to lock in the improvement.`,
+      ...identityLines("-", gate.removed),
+    );
+  }
+  return lines.join("\n");
+}
+
+function improvementOutput(header: readonly string[], gate: GateResult): string {
+  return [
+    ...header,
+    `FAIL: knip unused-export symbols dropped ${String(gate.removed.length)} baseline ${pluralIdentities(gate.removed.length)}`,
+    "Current tree is better than the baseline; run bun scripts/sensor-knip-unused-exports.ts --update to lock it in by lowering the committed baseline.",
+    ...identityLines("-", gate.removed),
+  ].join("\n");
+}
+
+export function compareKnipUnusedExports(
+  baselineEntries: readonly KnipUnusedExportEntry[],
+  currentEntries: readonly KnipUnusedExportEntry[],
+): { readonly exitCode: number; readonly stdout: string } {
+  const header = [
+    "sensor:knip-unused-exports",
+    formatSummaryLine("baseline", baselineEntries),
+    formatSummaryLine("current", currentEntries),
+  ];
+  // knip identities carry no count (each is count-1), so the gate reduces to
+  // pure key-set membership — increased/decreased are always empty here.
+  const gate = gateEntries(baselineEntries, currentEntries);
+  if (gate.status === "regressed") return { exitCode: 1, stdout: regressionOutput(header, gate) };
+  if (gate.status === "improved") return { exitCode: 1, stdout: improvementOutput(header, gate) };
+  return {
+    exitCode: 0,
+    stdout: [
+      ...header,
+      `OK: knip unused-export symbols match baseline ${String(baselineEntries.length)} identities`,
+    ].join("\n"),
+  };
 }

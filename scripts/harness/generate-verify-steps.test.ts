@@ -404,6 +404,25 @@ printf '%s\\n' "\${MUSI_RESOLVED_SLOT_CMD[*]}"
     );
   });
 
+  it("dispatches dynamic resolvers through the generated function map", () => {
+    const output = runBash(`
+set -u
+LOG_DIR=/tmp/musi-verify-steps-test
+TIMINGS_FILE="$LOG_DIR/test-timings.json"
+. scripts/fixtures/generate-verify-steps/expected.sh
+. scripts/verify/steps-lib.sh
+fixture_dynamic_resolver() {
+  MUSI_RESOLVED_SLOT_CMD=(fixture "$1" "$2")
+}
+MUSI_VERIFY_DYNAMIC_RESOLVER_FUNC['precommit-test-timings']=fixture_dynamic_resolver
+musi_resolve_slot_cmd pre_commit test
+IFS='|'
+printf '%s\\n' "\${MUSI_RESOLVED_SLOT_CMD[*]}"
+`);
+
+    expect(output).toBe("fixture|pre_commit|test\n");
+  });
+
   it("points runtime resolver invariants at verify-step regeneration", () => {
     const unknownSlot = runBashResult(`
 set -u

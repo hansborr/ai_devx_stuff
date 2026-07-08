@@ -71,7 +71,6 @@ ai_session_state_active_kill_switches() {
     "$AI_STOP_E2E_KILL_SWITCH" \
     "$AI_STOP_ASYNC_KILL_SWITCH" \
     "$AI_STOP_VERIFY_KILL_SWITCH" \
-    "$AI_STOP_VERIFY_LEGACY_KILL_SWITCH" \
     "$AI_STOP_LINT_WARNINGS_KILL_SWITCH" \
     "$AI_SESSION_STATE_EDIT_KILL_SWITCH"; do
     [ -f "$repo_root/$switch" ] || continue

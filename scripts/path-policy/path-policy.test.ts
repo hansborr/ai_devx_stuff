@@ -11,6 +11,25 @@ import { SCRIPT_SMOKE_SUBJECTS } from "./path-policy-smoke-subjects-data.js";
 
 const thisDir = dirname(fileURLToPath(import.meta.url));
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+
+const readManifestConfigSurfacePaths = (): readonly string[] => {
+  const parsed: unknown = JSON.parse(
+    readFileSync(resolve(thisDir, "../../eslint-config/config-surface-manifest.json"), "utf8"),
+  );
+  if (!isRecord(parsed) || !Array.isArray(parsed.surfaces)) {
+    throw new Error("config-surface-manifest.json must contain surfaces[]");
+  }
+
+  return parsed.surfaces.map((surface, index) => {
+    if (!isRecord(surface) || typeof surface.path !== "string") {
+      throw new Error(`config-surface-manifest.json surfaces[${String(index)}].path is invalid`);
+    }
+    return surface.path;
+  });
+};
+
 const matchSegmentGlob = (value: string, pattern: string): boolean => {
   const escaped = pattern
     .split("*")
@@ -43,6 +62,19 @@ describe("PATH_POLICY lintable extensions", () => {
     expect(PATH_POLICY.lintableExtensions.eslintChanged).toContain(".jsonc");
     expect(PATH_POLICY.lintableExtensions.agentChanged).not.toContain(".json");
     expect(PATH_POLICY.lintableExtensions.agentChanged).not.toContain(".jsonc");
+  });
+
+  it("keeps changed-lint JS/TS extensions aligned with modern module variants", () => {
+    expect(PATH_POLICY.lintableExtensions.agentChanged).toEqual([
+      ".js",
+      ".jsx",
+      ".cjs",
+      ".mjs",
+      ".ts",
+      ".tsx",
+      ".mts",
+      ".cts",
+    ]);
   });
 });
 
@@ -88,7 +120,7 @@ describe("PATH_POLICY known path surfaces", () => {
     expect(matchesAny(".playwright/cli.config.json", selectors)).toBe(true);
     expect(matchesAny("packages/server/src/index.ts", selectors)).toBe(true);
     expect(matchesAny("eslint-config/shared-policy.js", selectors)).toBe(true);
-    expect(matchesAny("docs/agent_notes/lint-coverage-map.md", selectors)).toBe(true);
+    expect(matchesAny("docs/generated/lint-coverage-map.md", selectors)).toBe(true);
     expect(matchesAny("bun.lock", selectors)).toBe(true);
     expect(matchesAny(".prettierignore", selectors)).toBe(true);
     expect(matchesAny("drift-ai.config.example.json", selectors)).toBe(true);
@@ -96,6 +128,33 @@ describe("PATH_POLICY known path surfaces", () => {
     expect(
       matchesAny("bun.lock", PATH_POLICY.sourceRelevant.precommitStagedExcludedSelectors),
     ).toBe(true);
+  });
+
+  it("keeps every manifest config surface source-relevant through exact selectors", () => {
+    const selectors = PATH_POLICY.sourceRelevant.selectors;
+    const exactSourceRelevantPaths = new Set(
+      selectors.flatMap((selector) => (selector.kind === "exact" ? [selector.path] : [])),
+    );
+
+    for (const path of readManifestConfigSurfacePaths()) {
+      expect(matchesAny(path, selectors), path).toBe(true);
+      expect(exactSourceRelevantPaths.has(path), path).toBe(true);
+    }
+  });
+
+  it("keeps tracked config files covered by the old config-family globs source-relevant", () => {
+    const selectors = PATH_POLICY.sourceRelevant.selectors;
+
+    expect(matchesAny("stryker.config.server.mjs", selectors)).toBe(true);
+    expect(matchesAny("vitest.slow.config.ts", selectors)).toBe(true);
+    expect(matchesAny("packages/server/vitest.mutation.config.ts", selectors)).toBe(true);
+  });
+
+  it("does not classify unregistered root config-family paths as source-relevant", () => {
+    const selectors = PATH_POLICY.sourceRelevant.selectors;
+
+    expect(matchesAny("astro.config.ts", selectors)).toBe(false);
+    expect(matchesAny("vitest.experimental.config.ts", selectors)).toBe(false);
   });
 
   it("covers maintained shell and config sensor surfaces", () => {

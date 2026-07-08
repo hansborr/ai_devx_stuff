@@ -9,7 +9,7 @@ AI_HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=/dev/null
 . "$AI_HOOKS_DIR/common.sh"
 
-AI_FAILURE_FLAKY_DOC_REL="docs/agent_notes/observed_flaky_tests.md"
+AI_FAILURE_FLAKY_DOC_REL="docs/generated/observed_flaky_tests.md"
 
 ai_failure_payload_candidate_text() {
   local payload="$1"

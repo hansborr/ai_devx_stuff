@@ -88,14 +88,14 @@ function maxLinesRatchets() {
 describe("max-lines policy", () => {
   it("does not contain stale exception paths, missing reasons, or invalid lifecycle labels", () => {
     const files = trackedFiles();
-    const validLifecycles = new Set(["temporary", "permanent", "candidate-for-split"]);
+    const validLifecycles = new Set(["permanent", "candidate-for-split"]);
 
     for (const entry of maxLinesPolicy.exceptions) {
       expect(entry.reason.trim(), `${entry.path} must explain its exception`).not.toBe("");
       expect(policyPathExists(entry.path, files), `${entry.path} must exist`).toBe(true);
       expect(
         validLifecycles.has(entry.lifecycle),
-        `${entry.path} must carry a valid lifecycle label (temporary | permanent | candidate-for-split)`,
+        `${entry.path} must carry a valid lifecycle label (permanent | candidate-for-split)`,
       ).toBe(true);
     }
   });

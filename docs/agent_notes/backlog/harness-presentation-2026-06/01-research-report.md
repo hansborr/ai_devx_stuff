@@ -52,7 +52,7 @@ The governance layer is what makes quality compound.
 - **The debt log is 100% retirements.** The append-only `lint-ratchet.debt-log.jsonl` has **12 entries, every one a retirement** — a ratchet deleted because normal strict lint finally absorbed it. Read top to bottom, it *is* the monotonic-improvement story: the codebase deleting its own guardrails.
 - **Normal lint stays fully strict.** All gates run `eslint . --max-warnings=0` (`scripts/lint.sh:32`), so warnings still fail the gate and entropy can't accumulate silently.
 - **Escape hatches carry receipts.** **49 governed `eslint-disable` directives** (per the disable-register, each carrying a required `-- reason`). *(2026-06-15 live re-check via the register script: `total=49 inline=32 broad=17`. A naive grep returns more — cite the governed count, never imply a raw grep yields 49.)*
-- **Coverage is inventoried.** A **~230-row coverage map** (`docs/agent_notes/lint-coverage-map.md`, verified 230 table rows) gives every tracked file a declared lint owner — closing the gap where unlinted files silently rot. *(Cite "every tracked file has a declared lint owner" rather than the linted/ratcheted sub-counts, which are not reliably cite-able.)*
+- **Coverage is inventoried.** A **~230-row coverage map** (`docs/generated/lint-coverage-map.md`, verified 230 table rows) gives every tracked file a declared lint owner — closing the gap where unlinted files silently rot. *(Cite "every tracked file has a declared lint owner" rather than the linted/ratcheted sub-counts, which are not reliably cite-able.)*
 
 ### State of the evidence (honest)
 
@@ -80,7 +80,7 @@ Each check is placed where its cost belongs.
 
 **The suite can't lie — enforced by lint, not vigilance.** There are **0 focused / 0 skipped / 0 commented-out tests** across the whole suite, computed by `eslint --max-warnings=0` (vitest `no-focused-tests`, `no-disabled-tests`, `no-commented-out-tests`), not hoped for in review — an agent under deadline pressure physically cannot land a `.only` or a skipped test. Flakes are root-caused, not silenced: a custom rule `local/test-file-location` forces tests to colocate, and the current deck cites **one annotated `{ retry: 3 }`** on a documented crypto-RNG critical-miss flake, with **0 in e2e**. *(A later live re-check superseded the earlier 73-retry figure. Frame as "surgical retry," singular, unless a fresh grep proves otherwise.)*
 
-A representative discipline example: an `encounter-combat-spell` flake was traced to a real 5e rule (natural 1 is a crit miss regardless of bonus, `attack-roll.ts:58`) and fixed with a reasoned `retry: 3` that drops residual flake to ~1e-5 — recorded in `docs/agent_notes/observed_flaky_tests.md` so the next agent doesn't re-chase red herrings.
+A representative discipline example: an `encounter-combat-spell` flake was traced to a real 5e rule (natural 1 is a crit miss regardless of bonus, `attack-roll.ts:58`) and fixed with a reasoned `retry: 3` that drops residual flake to ~1e-5 — recorded in `docs/generated/observed_flaky_tests.md` so the next agent doesn't re-chase red herrings.
 
 ### The metaphor for leadership
 
@@ -285,7 +285,7 @@ The rest of the corpus's ~25 improvement ideas map to existing R-numbers/backlog
 | `scripts/lint-ratchet/lint-ratchet-baseline-compare.ts` | The symmetric ratchet: blocks debt growth AND un-acknowledged cleanup; baseline only moves down. |
 | `lint-ratchet.debt-log.jsonl` (12 entries) | 100% retirements — the codebase deleting its own guardrails as strict lint absorbs them. |
 | `scripts/lint.sh:32` | `eslint . --max-warnings=0` — warnings are hard failures; advisory severity can't quietly accumulate. |
-| `docs/agent_notes/lint-coverage-map.md` (~230 rows) | Every tracked file has a declared lint owner — no silently-unlinted files where entropy hides. |
+| `docs/generated/lint-coverage-map.md` (~230 rows) | Every tracked file has a declared lint owner — no silently-unlinted files where entropy hides. |
 | `scripts/test-changed.sh` | Diff-aware fast loop that escalates to a full run on config/dep edits — the cheap path can't false-green. |
 | `stryker.config.mjs` + `docs/agent_notes/backlog/mutation-testing-stryker.md` | Mutation baseline 70.25% / 258 survivors / 1,438 mutants, off-gate by design (`thresholds.break: null`). |
 | `eslint-config/test-configs.js` | Vitest hygiene rules at error → the verified 0 focused / 0 skipped suite, enforced by lint not vigilance. |

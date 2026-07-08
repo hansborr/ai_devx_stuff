@@ -15,7 +15,7 @@ to moved files. Recording them here so reviewers don't re-investigate.
 | Coverage-map "same glob marked oppositely" (A4) | Not reproducible at HEAD; all `scripts/drift-ai/*` code rows are uniformly `linted + ratcheted`. (The missing internal-consistency *check* is still worth adding — see [01](01-coverage-map-governance.md#a4).) |
 | "tidy hook not type-aware on `scripts/**`" (D3) | Outdated: `scripts/**/*.ts` *are* type-aware in eslint (`base-configs.js:69-71`, `script-configs.js:144-150`). The real gap is `tsc`-only errors — see [03](03-edit-hooks-and-caches.md#d3). |
 | `bun run typecheck:scripts` doesn't exist | Correct — it never existed; root `typecheck` already covers `tsconfig.scripts.json`. Stale pack reference; nothing to fix. |
-| Coverage map at `docs/agent_notes/backlog/lint-followups/lint-coverage-map.md` | Moved to `docs/agent_notes/lint-coverage-map.md`. |
+| Coverage map at `docs/agent_notes/backlog/lint-followups/lint-coverage-map.md` | Moved to `docs/generated/lint-coverage-map.md`. |
 | Review packs say `bun run test:scripts -- <file>` | The bad form is not committed anywhere; it lived in transient packs. The fix is to *provide* a discoverable command — see [02](02-focused-test-ergonomics.md#b1). |
 | exit 124 vs gate failure confusion (T1) | Already distinguishable (separate exit code + "TIMED OUT" banner). The budget tightness is the live part — see [06](06-drift-scan-harness-governance.md#t1). |
 

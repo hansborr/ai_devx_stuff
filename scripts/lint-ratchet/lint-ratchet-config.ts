@@ -124,6 +124,11 @@ const driftAiVitestTestFiles = [
   "scripts/drift-ai/**/*.test.ts",
 ] as const;
 const driftAiVitestTestIgnores = ["scripts/drift-ai/fixtures/**"] as const;
+const scriptVitestOptionPinnedFiles = [
+  "scripts/code-intel/**/*.test.ts",
+  "scripts/lint-coverage-map-check.test.ts",
+  "scripts/lint-ratchet/lint-ratchet-baseline.test.ts",
+] as const;
 const designTokenLintExitPath =
   "docs/agent_notes/backlog/harness-research-followups-2026-06/02-design-token-lint.md";
 
@@ -384,7 +389,7 @@ export const lintRatchets = [
       reason: "normal Vitest lint uses resolved plugin defaults for expect-expect; this drift-ai ratchet narrows the assertFunctionNames allowlist to expect only",
     },
   },
-  { id: "ratchet/vitest-expect-expect-script-tests", ruleId: "vitest/expect-expect", source: { kind: "third-party", pluginModule: "@vitest/eslint-plugin" }, parserProfile: "minimal-ts", files: ["scripts/code-intel.test.ts", "scripts/lint-coverage-map-check.test.ts", "scripts/lint-ratchet/lint-ratchet-baseline.test.ts"], ignores: [], ruleOptions: [{ assertFunctionNames: scriptTestAssertFunctionNames }], mode: "no-new", target: 0, metric: "message-count", repairKind: "manual", principle: "Prevent singleton script tests without recognized assertions from growing now that the final Leaf 41g test rows are linted.", zeroBaselineDisposition: { kind: "narrow-floor", reason: "normal Vitest lint resolves extra plugin-default expect-expect options; this ratchet pins the assertFunctionNames allowlist (expect plus the named script-test helpers) scoped to the selected script tests" } },
+  { id: "ratchet/vitest-expect-expect-script-tests", ruleId: "vitest/expect-expect", source: { kind: "third-party", pluginModule: "@vitest/eslint-plugin" }, parserProfile: "minimal-ts", files: scriptVitestOptionPinnedFiles, ignores: [], ruleOptions: [{ assertFunctionNames: scriptTestAssertFunctionNames }], mode: "no-new", target: 0, metric: "message-count", repairKind: "manual", principle: "Prevent script tests without recognized assertions from growing now that the final Leaf 41g test rows are linted.", zeroBaselineDisposition: { kind: "narrow-floor", reason: "normal Vitest lint resolves extra plugin-default expect-expect options; this ratchet pins the assertFunctionNames allowlist (expect plus the named script-test helpers) scoped to the selected script tests" } },
   vitestValidExpectRatchet({
     id: "ratchet/vitest-valid-expect-drift-ai-tests",
     files: driftAiVitestTestFiles,
@@ -397,11 +402,7 @@ export const lintRatchets = [
   }),
   vitestValidExpectRatchet({
     id: "ratchet/vitest-valid-expect-script-tests",
-    files: [
-      "scripts/code-intel.test.ts",
-      "scripts/lint-coverage-map-check.test.ts",
-      "scripts/lint-ratchet/lint-ratchet-baseline.test.ts",
-    ],
+    files: scriptVitestOptionPinnedFiles,
     ignores: [],
     principle: "Prevent malformed Vitest expect calls in the newly linted singleton script tests while Leaf 41 drain work proceeds.",
     zeroBaselineDisposition: {

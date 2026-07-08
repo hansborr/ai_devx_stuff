@@ -2,10 +2,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  codeFiles,
   configSurfaceEntries,
   codemodTestFiles,
   configFileReincludePatterns,
   eslintRulesConfigReincludePatterns,
+  jsTsLintableExtensions,
   rootAndPackageTsConfigFiles,
   rootConfigReincludePatterns,
   rootJsConfigFiles,
@@ -14,6 +16,7 @@ import {
   scriptTestAssertFunctionNames,
   scriptTypeScriptFiles,
   tsConfigFiles,
+  typescriptFiles,
 } from "../eslint-config/shared-policy.js";
 import { unitTestConfigs } from "../eslint-config/test-configs.js";
 import { lintRatchets } from "../scripts/lint-ratchet/lint-ratchet-config.ts";
@@ -43,6 +46,21 @@ function getAssertFunctionNamesFromRatchetOptions(ruleOptions) {
 }
 
 describe("shared lint policy", () => {
+  it("derives JS/TS lint file globs from one canonical extension set", () => {
+    expect(jsTsLintableExtensions).toEqual([
+      ".js",
+      ".jsx",
+      ".cjs",
+      ".mjs",
+      ".ts",
+      ".tsx",
+      ".mts",
+      ".cts",
+    ]);
+    expect(codeFiles).toEqual(["**/*.{js,jsx,cjs,mjs,ts,tsx,mts,cts}"]);
+    expect(typescriptFiles).toEqual(["**/*.{ts,tsx,mts,cts}"]);
+  });
+
   it("derives maintained config file lists from the config surface manifest", () => {
     expect(rootJsConfigFiles).toEqual([
       "eslint.config.js",

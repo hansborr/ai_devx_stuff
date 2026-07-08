@@ -414,8 +414,7 @@ run_child() {
 
   (
     exec 8<&-
-    env -u MUSI_VERIFY_TIMEOUT \
-      MUSI_VERIFY_LOCK_ALREADY_HELD=1 \
+    env MUSI_VERIFY_LOCK_ALREADY_HELD=1 \
       MUSI_INTERACTIVE_TIMEOUT="$exec_timeout" \
       MUSI_VERIFY_LOCK="$lock" \
       MUSI_VERIFY_LOG_DIR="$log_dir/verify" \

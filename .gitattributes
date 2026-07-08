@@ -32,4 +32,3 @@ docs/agent_notes/LOG.md merge=union
 /.claude/output-styles/** -export-ignore
 /.claude/skills -export-ignore
 /.claude/skills/** -export-ignore
-/docs/agent_notes/lint-coverage-map.md -export-ignore

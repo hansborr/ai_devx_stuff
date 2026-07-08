@@ -535,7 +535,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `ratchet/vitest-expect-expect-script-tests`
 
-**Principle:** Prevent singleton script tests without recognized assertions from growing now that the final Leaf 41g test rows are linted.
+**Principle:** Prevent script tests without recognized assertions from growing now that the final Leaf 41g test rows are linted.
 
 **Category:** maintainability
 
@@ -611,7 +611,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Category:** architecture-fitness
 
-**Source:** `scripts/db-status.sh`
+**Source:** `scripts/db-status.ts`
 
 **Invocation:** `bun run db:status`
 
@@ -656,6 +656,20 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 **Source:** `scripts/sensor-knip-unused-exports.ts`
 
 **Invocation:** `bun run sensor:knip-unused-exports`
+
+**Paired guide:** [docs/ai-harness.md](../ai-harness.md)
+
+**Repair:** manual
+
+### `sensor/max-lines-exceptions`
+
+**Principle:** Keep the per-file max-lines cap exceptions baseline (eslint-config/max-lines-exceptions.baseline.json) normalized and framework-valid so the caps shared-policy.js feeds eslint cannot drift from a hand edit.
+
+**Category:** maintainability
+
+**Source:** `scripts/max-lines-exceptions.ts`
+
+**Invocation:** `bun run lint:max-lines-exceptions`
 
 **Paired guide:** [docs/ai-harness.md](../ai-harness.md)
 
@@ -709,6 +723,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 - `zero-baseline` — `lint:ratchet:zero-baseline`
 - `debt-accounting` — `lint:ratchet:check-debt-accounting`
 - `knip-unused-exports` — `sensor:knip-unused-exports`
+- `max-lines-exceptions` — `lint:max-lines-exceptions`
 - `coverage-map` — `docs:lint-coverage-map:audit`
 - `format-check` — `format:check`
 - `typecheck` — `typecheck`
@@ -751,6 +766,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 - `zero-baseline` — `lint:ratchet:zero-baseline`
 - `debt-accounting` — `lint:ratchet:check-debt-accounting`
 - `knip-unused-exports` — `sensor:knip-unused-exports`
+- `max-lines-exceptions` — `lint:max-lines-exceptions`
 - `coverage-map` — `docs:lint-coverage-map:check` — args: `-- --staged`
 - `format-check` — `format:changed:check`
 - `typecheck` — `typecheck`
@@ -807,6 +823,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 - `zero-baseline` — `lint:ratchet:zero-baseline`
 - `debt-accounting` — `lint:ratchet:check-debt-accounting`
 - `knip-unused-exports` — `sensor:knip-unused-exports`
+- `max-lines-exceptions` — `lint:max-lines-exceptions`
 - `coverage-map` — `docs:lint-coverage-map:audit`
 - `format-check` — `format:check`
 - `typecheck` — `typecheck`
@@ -1143,7 +1160,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Invocation:** `bun run lint:config-sensors`
 
-**Paired guide:** [docs/agent_notes/lint-coverage-map.md](../agent_notes/lint-coverage-map.md)
+**Paired guide:** [docs/generated/lint-coverage-map.md](lint-coverage-map.md)
 
 **Repair:** manual
 
@@ -1157,7 +1174,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Invocation:** `bun run harness:config-surfaces`
 
-**Paired guide:** [docs/agent_notes/lint-coverage-map.md](../agent_notes/lint-coverage-map.md)
+**Paired guide:** [docs/generated/lint-coverage-map.md](lint-coverage-map.md)
 
 **Repair:** autofix
 
@@ -1343,6 +1360,20 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Repair:** autofix
 
+### `check/hook-timeout-constants-generator`
+
+**Principle:** Generate quiet-hook watchdog timeout constants from harness.controls.json; --check fails on drift between manifest hook timeouts and the sourced shell constants.
+
+**Category:** maintainability
+
+**Source:** `scripts/harness/generate-hook-timeout-constants.ts`
+
+**Invocation:** `bun run harness:hook-timeouts`
+
+**Paired guide:** none
+
+**Repair:** autofix
+
 ### `check/import-cycles-floor`
 
 **Principle:** Always-run lint lane holding runtime import cycles at zero via drift:ai import-cycles with --fail-on-runtime-cycles; type-only cycles stay report-only evidence and a skipped check fails closed.
@@ -1395,7 +1426,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Invocation:** `bun run docs:lint-coverage-map:check`
 
-**Paired guide:** [docs/agent_notes/lint-coverage-map.md](../agent_notes/lint-coverage-map.md)
+**Paired guide:** [docs/generated/lint-coverage-map.md](lint-coverage-map.md)
 
 **Repair:** manual
 
@@ -1479,7 +1510,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Invocation:** `bun run lint:shell`
 
-**Paired guide:** [docs/agent_notes/lint-coverage-map.md](../agent_notes/lint-coverage-map.md)
+**Paired guide:** [docs/generated/lint-coverage-map.md](lint-coverage-map.md)
 
 **Repair:** manual
 
@@ -2071,6 +2102,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 - `zero-baseline` — `lint:ratchet:zero-baseline`
 - `debt-accounting` — `lint:ratchet:check-debt-accounting`
 - `knip-unused-exports` — `sensor:knip-unused-exports`
+- `max-lines-exceptions` — `lint:max-lines-exceptions`
 - `coverage-map` — `docs:lint-coverage-map:check` — args: `-- --staged`
 - `format-check` — `format:changed:check`
 - `typecheck` — `typecheck`

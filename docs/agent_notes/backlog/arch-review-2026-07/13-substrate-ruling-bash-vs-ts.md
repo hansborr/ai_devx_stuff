@@ -1,6 +1,8 @@
 # 13. Write down the substrate ruling (bash vs TS)
 
-Status: Pending (owner-decision leaf — draft the ruling, owner signs off)
+Status: Drafted 2026-07-07 — ruling text landed in `docs/ai-harness.md`
+("Substrate Ruling (Bash Vs TS)" section, branch `docs/arch-13-substrate-ruling`);
+awaiting owner sign-off, which is the done signal
 Size: S · Severity: low-med (prevents future re-litigation)
 Source: 00-report.md B1
 

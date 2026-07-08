@@ -23,7 +23,7 @@ import { baselinePath } from "./paths.js";
 // so a hand-built target with the matching ruleId passes the drift guard.
 const MINIMAL_TS_TEST_ID = "ratchet/vitest-expect-expect-script-tests";
 const MINIMAL_TS_RULE_ID = "vitest/expect-expect";
-const MINIMAL_TS_FILE = "scripts/code-intel.test.ts";
+const MINIMAL_TS_FILE = "scripts/code-intel/cli-options.test.ts";
 
 // A type-aware ratchet, intentionally excluded from the edit-time hot path.
 const TYPE_AWARE_TEST_ID = "ratchet/strict-boolean-expressions-shared";

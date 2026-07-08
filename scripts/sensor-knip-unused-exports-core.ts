@@ -1,4 +1,4 @@
-import { existsSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 import {
@@ -7,23 +7,20 @@ import {
   type KnipRunner,
   resolveKnipBin,
 } from "./drift-ai/knip-runner.js";
+import { parseKnipUnusedExports } from "./drift-ai/knip-unused-exports.js";
+import type { ParseResult } from "./lib/baseline/entry-baseline.js";
 import {
-  parseKnipUnusedExports,
-  type UnusedExportCategory,
-} from "./drift-ai/knip-unused-exports.js";
-import {
-  compareKnipUnusedExportsSnapshots,
+  compareKnipUnusedExports,
   formatKnipUnusedExportsBaseline,
-  formatSnapshotLine,
-  type KnipUnusedExportsSnapshot,
-  type ParseResult,
+  formatSummaryLine,
+  knipEntriesFromSymbols,
+  type KnipUnusedExportEntry,
   readKnipUnusedExportsBaseline,
-  zeroKnipUnusedExportsCounts,
 } from "./sensor-knip-unused-exports-baseline.js";
 
 export {
   formatKnipUnusedExportsBaseline,
-  type KnipUnusedExportsSnapshot,
+  type KnipUnusedExportEntry,
 } from "./sensor-knip-unused-exports-baseline.js";
 
 const DEFAULT_BASELINE_PATH = "sensor-knip-unused-exports.baseline.json";
@@ -40,7 +37,7 @@ export type RunKnipUnusedExportsCliOptions = {
 export type KnipUnusedExportsRunResult = {
   readonly exitCode: number;
   readonly stdout: string;
-  readonly snapshot?: KnipUnusedExportsSnapshot;
+  readonly entries?: readonly KnipUnusedExportEntry[];
 };
 
 type CliOptions = {
@@ -73,7 +70,7 @@ function usage(): string {
     "  bun scripts/sensor-knip-unused-exports.ts --update",
     "  bun scripts/sensor-knip-unused-exports.ts --baseline=<path>",
     "",
-    "Fails when knip's unused exported symbol count differs from the committed baseline.",
+    "Fails when knip's unused exported symbol identities differ from the committed baseline.",
   ].join("\n");
 }
 
@@ -98,21 +95,31 @@ export function runKnipUnusedExportsCli(
       exitCode: 0,
       stdout: [
         `sensor:knip-unused-exports -- wrote ${displayPath(cwd, baselinePath)}`,
-        formatSnapshotLine("current", collected.value),
+        formatSummaryLine("current", collected.value),
       ].join("\n"),
-      snapshot: collected.value,
+      entries: collected.value,
     };
   }
 
-  const baseline = readKnipUnusedExportsBaseline(baselinePath);
+  const baseline = readBaseline(baselinePath);
   if (!baseline.ok) return { exitCode: 2, stdout: `ERROR: ${baseline.error}` };
 
-  const comparison = compareKnipUnusedExportsSnapshots(baseline.value, collected.value);
+  const comparison = compareKnipUnusedExports(baseline.value, collected.value);
   return {
     exitCode: comparison.exitCode,
     stdout: comparison.stdout,
-    snapshot: collected.value,
+    entries: collected.value,
   };
+}
+
+function readBaseline(baselinePath: string): ParseResult<readonly KnipUnusedExportEntry[]> {
+  if (!existsSync(baselinePath)) {
+    return {
+      ok: false,
+      error: `baseline missing at ${baselinePath}; run bun scripts/sensor-knip-unused-exports.ts --update`,
+    };
+  }
+  return readKnipUnusedExportsBaseline(readFileSync(baselinePath, "utf8"));
 }
 
 function parseCliOptions(argv: readonly string[]): ParsedCliOptions {
@@ -169,7 +176,9 @@ type CollectOptions = {
   readonly warn?: (message: string) => void;
 };
 
-function collectKnipUnusedExports(options: CollectOptions): ParseResult<KnipUnusedExportsSnapshot> {
+function collectKnipUnusedExports(
+  options: CollectOptions,
+): ParseResult<readonly KnipUnusedExportEntry[]> {
   const runnerResult = resolveRunner(options);
   if (!runnerResult.ok) return runnerResult;
 
@@ -183,7 +192,7 @@ function collectKnipUnusedExports(options: CollectOptions): ParseResult<KnipUnus
   if (!parsed.ok) {
     return { ok: false, error: `knip JSON could not be parsed: ${parsed.error}` };
   }
-  return { ok: true, value: snapshotFromSymbols(parsed.symbols) };
+  return { ok: true, value: knipEntriesFromSymbols(parsed.symbols) };
 }
 
 function resolveRunner(options: CollectOptions): ParseResult<KnipRunner> {
@@ -234,18 +243,6 @@ function formatKnipRunFailure(
     case "spawn-failed":
       return `knip subprocess failed: ${result.error}`;
   }
-}
-
-function snapshotFromSymbols(
-  symbols: readonly { readonly category: UnusedExportCategory }[],
-): KnipUnusedExportsSnapshot {
-  const categories = zeroKnipUnusedExportsCounts();
-  for (const symbol of symbols) categories[symbol.category] += 1;
-  return {
-    count:
-      categories.exports + categories.types + categories.enumMembers + categories.namespaceMembers,
-    categories,
-  };
 }
 
 function displayPath(cwd: string, absolutePath: string): string {

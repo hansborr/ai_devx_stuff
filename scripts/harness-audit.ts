@@ -23,10 +23,6 @@ import { pathToFileURL } from "node:url";
 
 import { harnessDiagnosticsSchema } from "../packages/shared/src/schemas/harness-diagnostics.js";
 import {
-  readRequiredOptionValue,
-  requireArgAllowingEmpty as requireArg,
-} from "./cli-option-values.js";
-import {
   buildAuditReport,
   type EnvelopeFailure,
   formatJson,
@@ -34,6 +30,7 @@ import {
   type HarnessAuditReport,
   type LoadedEnvelope,
 } from "./harness/harness-audit-report.js";
+import { type CliFormat, parseCliArgs, parseFormatValue } from "./lib/cli.js";
 
 export {
   buildAuditReport,
@@ -51,7 +48,7 @@ export {
 const PROCESS_ARG_OFFSET = 2;
 const TOOL_ERROR_EXIT_CODE = 2;
 
-export type HarnessAuditFormat = "text" | "json";
+export type HarnessAuditFormat = CliFormat;
 
 export type HarnessAuditOptions = {
   readonly inputs: readonly string[];
@@ -106,60 +103,40 @@ function defaultWriteFile(filePath: string, contents: string): void {
   writeFileSync(filePath, contents);
 }
 
-function isHelpFlag(arg: string): boolean {
-  return arg === "--help" || arg === "-h";
-}
-
-function matchesOption(arg: string, name: string): boolean {
-  return arg === name || arg.startsWith(`${name}=`);
-}
-
-function parseFormatValue(value: string): HarnessAuditFormat {
-  if (value !== "text" && value !== "json") {
-    throw new HarnessAuditError("--format requires text or json.");
-  }
-  return value;
-}
-
 export function parseArgs(argv: readonly string[]): HarnessAuditOptions {
   const inputs: string[] = [];
   let format: HarnessAuditFormat = "text";
   let output: string | undefined;
+  const fail = (message: string): never => {
+    throw new HarnessAuditError(message);
+  };
 
-  for (let index = 0; index < argv.length; index += 1) {
-    const arg = requireArg(argv[index], (message) => {
-      throw new HarnessAuditError(message);
-    });
-    if (isHelpFlag(arg)) throw new HarnessAuditHelp();
-    if (matchesOption(arg, "--format")) {
-      const parsed = readRequiredOptionValue({
-        arg,
-        argv,
-        index,
-        usage: usage(),
-        createError: (message) => new HarnessAuditError(message),
-      });
-      format = parseFormatValue(parsed.value);
-      index = parsed.nextIndex;
-      continue;
-    }
-    if (matchesOption(arg, "--output")) {
-      const parsed = readRequiredOptionValue({
-        arg,
-        argv,
-        index,
-        usage: usage(),
-        createError: (message) => new HarnessAuditError(message),
-      });
-      output = parsed.value;
-      index = parsed.nextIndex;
-      continue;
-    }
-    if (arg.startsWith("--")) {
-      throw new HarnessAuditError(`Unknown argument: ${arg}\n${usage()}`);
-    }
-    inputs.push(arg);
-  }
+  parseCliArgs({
+    argv,
+    usage: usage(),
+    createError: (message) => new HarnessAuditError(message),
+    allowEmptyArgs: true,
+    onHelp: () => {
+      throw new HarnessAuditHelp();
+    },
+    options: [
+      {
+        name: "--format",
+        kind: "value",
+        apply: (value) => {
+          format = parseFormatValue(value, fail);
+        },
+      },
+      {
+        name: "--output",
+        kind: "value",
+        apply: (value) => {
+          output = value;
+        },
+      },
+    ],
+    onPositional: (value) => inputs.push(value),
+  });
 
   if (inputs.length === 0) {
     throw new HarnessAuditError(`harness:audit requires at least one envelope file.\n${usage()}`);

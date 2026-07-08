@@ -1,7 +1,7 @@
 import path from "node:path";
 
-import { describe, expect, it } from "bun:test";
 import { ModuleKind, ModuleResolutionKind, Project, ScriptTarget } from "ts-morph";
+import { describe, expect, it } from "vitest";
 
 import { parseArgs } from "./cli-args.js";
 import { CodeIntelError } from "./errors.js";

@@ -1,3 +1,5 @@
+import { configSurfaceEntries as rawConfigSurfaceEntries } from "../../eslint-config/config-surfaces.js";
+import { jsTsLintableExtensions as rawJsTsLintableExtensions } from "../../eslint-config/shared-policy.js";
 import {
   CLAUDE_SETTINGS_PATH,
   CODEX_HOOKS_PATH,
@@ -81,7 +83,17 @@ export type PathPolicy = {
   };
 };
 
-const JS_TS_LINTABLE_EXTENSIONS = [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"] as const;
+interface ConfigSurfacePathEntry {
+  readonly path: string;
+}
+
+const configSurfaceEntries = rawConfigSurfaceEntries as readonly ConfigSurfacePathEntry[]; // type-assertion-boundary: interop - JS config-surface loader validates manifest entry paths before export.
+const JS_TS_LINTABLE_EXTENSIONS = rawJsTsLintableExtensions;
+
+const CONFIG_SURFACE_SOURCE_RELEVANT_SELECTORS = configSurfaceEntries.map((entry) => ({
+  kind: "exact" as const,
+  path: entry.path,
+}));
 
 const ESLINT_FULL_SCAN_TRIGGERS = [
   { kind: "exact", path: "bun.lock" },
@@ -110,7 +122,7 @@ export const PATH_POLICY = {
       { kind: "exact", path: BASELINE_FILENAME },
       { kind: "exact", path: DEBT_LOG_FILENAME },
       { kind: "exact", path: HARNESS_MANIFEST_FILENAME },
-      { kind: "exact", path: "docs/agent_notes/lint-coverage-map.md" },
+      { kind: "exact", path: "docs/generated/lint-coverage-map.md" },
       { kind: "exact", path: CLAUDE_SETTINGS_PATH },
       { kind: "exact", path: CODEX_HOOKS_PATH },
       { kind: "exact", path: ".codex/config.toml" },
@@ -122,18 +134,10 @@ export const PATH_POLICY = {
       { kind: "exact", path: ".yamllint.yml" },
       { kind: "exact", path: "bunfig.toml" },
       { kind: "exact", path: "docker-compose.yml" },
+      ...CONFIG_SURFACE_SOURCE_RELEVANT_SELECTORS,
       { kind: "single-segment-glob", pattern: "tsconfig*.json" },
-      { kind: "single-segment-glob", pattern: "vitest*.config.*" },
-      { kind: "single-segment-glob", pattern: "eslint.config.*" },
-      { kind: "single-segment-glob", pattern: "commitlint.config.*" },
-      { kind: "single-segment-glob", pattern: "stryker.config.*" },
-      { kind: "single-segment-glob", pattern: "knip.config.*" },
-      { kind: "single-segment-glob", pattern: "playwright.config.*" },
-      { kind: "single-segment-glob", pattern: "prisma.config.*" },
       { kind: "single-segment-glob", pattern: "packages/*/package.json" },
       { kind: "single-segment-glob", pattern: "packages/*/tsconfig*.json" },
-      { kind: "single-segment-glob", pattern: "packages/*/vitest*.config.*" },
-      { kind: "single-segment-glob", pattern: "packages/*/prisma.config.*" },
       { kind: "prefix", prefix: ".claude/hooks/" },
       { kind: "prefix", prefix: ".codex/hooks/" },
       { kind: "prefix", prefix: ".copilot/hooks/" },

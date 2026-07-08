@@ -1,28 +1,24 @@
-import { execFileSync } from "node:child_process";
-
+import {
+  defaultGitRunner,
+  type GitRunner,
+  mergeBase,
+  type NameStatusCode,
+  parseNameStatus as parseGitNameStatus,
+  resolveRepoRoot,
+} from "../lib/git.js";
 import { DEFAULT_DRIFT_AI_CONFIG } from "./config.js";
 import { isPathIgnored } from "./config-match.js";
 import { DriftAiError } from "./errors.js";
 import { type ChangedFile, type ChangedFileStatus } from "./types.js";
 
-export type GitRunner = (args: readonly string[]) => string;
+// The injectable runner and the low-level git parsers now live in the shared
+// scripts substrate (`../lib/git.js`). This module keeps the drift-ai-specific
+// policy on top: `ChangedFile` mapping, config-based scope filtering, and the
+// `DriftAiError` messages for shallow/blobless clones and missing base refs.
+export { defaultGitRunner, type GitRunner, resolveRepoRoot };
 
 const SHALLOW_OR_BLOBLESS_CHANGED_SCOPE_MESSAGE =
   "drift:ai: changed scope needs full git history; this looks like a shallow/blobless clone. Run `git fetch --unshallow` (or use `--scope current`).";
-
-export function defaultGitRunner(): GitRunner {
-  return (args) => execFileSync("git", [...args], { encoding: "utf8" });
-}
-
-export function resolveRepoRoot(git: GitRunner): string {
-  try {
-    const out = git(["rev-parse", "--show-toplevel"]).trim();
-    if (out.length > 0) return out;
-  } catch {
-    // Fall through to process.cwd().
-  }
-  return process.cwd();
-}
 
 export function resolveBaseRef(base: string, git: GitRunner): string {
   for (const candidate of [base, `origin/${base}`]) {
@@ -39,39 +35,18 @@ export function resolveBaseRef(base: string, git: GitRunner): string {
 }
 
 export function resolveMergeBase(ref: string, git: GitRunner): string {
-  try {
-    const out = git(["merge-base", ref, "HEAD"]).trim();
-    if (out.length > 0) return out;
-  } catch {
-    // Fall through to the explicit drift:ai error below.
-  }
+  const base = mergeBase(ref, git);
+  if (base !== undefined) return base;
   throw new DriftAiError(`drift:ai: could not find a merge base between '${ref}' and HEAD.`);
 }
 
-type NameStatusCode = "A" | "C" | "M" | "R" | "D";
-
 export function parseNameStatus(output: string): ChangedFile[] {
-  const files: ChangedFile[] = [];
-  for (const raw of output.split("\n")) {
-    const line = raw.replace(/\r$/u, "");
-    if (line.length === 0) continue;
-    const [statusField, first, second] = line.split("\t");
-    const code = nameStatusCode(statusField);
-    if (code === undefined || first === undefined || first.length === 0) continue;
-    const status = mapStatus(code);
-    if (second) {
-      files.push({ path: second, status, previousPath: first });
-    } else {
-      files.push({ path: first, status });
-    }
-  }
-  return files;
-}
-
-function nameStatusCode(statusField: string | undefined): NameStatusCode | undefined {
-  const code = statusField?.[0];
-  if (code === "A" || code === "C" || code === "M" || code === "R" || code === "D") return code;
-  return undefined;
+  return parseGitNameStatus(output).map((entry) => {
+    const status = mapStatus(entry.code);
+    return entry.previousPath === undefined
+      ? { path: entry.path, status }
+      : { path: entry.path, status, previousPath: entry.previousPath };
+  });
 }
 
 function mapStatus(code: NameStatusCode): ChangedFileStatus {

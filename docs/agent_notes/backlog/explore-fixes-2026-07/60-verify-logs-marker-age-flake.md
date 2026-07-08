@@ -7,7 +7,7 @@ Track: TS (tests) · Priority: P1 · Size: XS
 
 - `scripts/tests/test-verify-logs.sh:466` — asserts on wall-clock
   seconds-based age text; `:126`/`:136` use real `sleep`s to age markers.
-- `docs/agent_notes/observed_flaky_tests.md:179` — this exact assertion has
+- `docs/generated/observed_flaky_tests.md:179` — this exact assertion has
   already flaked under load.
 
 ## Do

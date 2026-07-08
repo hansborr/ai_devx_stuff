@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { runLintCoverageMapCheck } from "./lint-coverage-map-check.js";
+import { loadTrackedFiles } from "./lint-coverage-map-check-io.js";
 
 const FIXTURE_MAP = `# Fixture
 
@@ -19,7 +20,7 @@ const FIXTURE_MAP = `# Fixture
 | \`config.json\` | 1 .json | yes | none | JSON | none | maybe-linted | — |
 `;
 
-const MAP_PATH = "docs/agent_notes/lint-coverage-map.md";
+const MAP_PATH = "docs/generated/lint-coverage-map.md";
 const SAFETY_ACKNOWLEDGED_PATH = "packages/server/prisma/migrations/.safety-acknowledged";
 const CLEAN_MAP = `# Fixture
 
@@ -189,7 +190,7 @@ describe("runLintCoverageMapCheck", () => {
     });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("docs/agent_notes/lint-coverage-map.md");
+    expect(result.stderr).toContain("docs/generated/lint-coverage-map.md");
     expect(result.stderr.toLowerCase()).toContain("base dir");
     expect(result.stderr).toContain("`bun run docs:lint-coverage-map:suggest`");
     expect(result.stderr).not.toContain("scripts/lint-coverage-map-check.ts --suggest");
@@ -259,7 +260,7 @@ describe("runLintCoverageMapCheck", () => {
     try {
       const mapPath = join(cwd, MAP_PATH);
       mkdirSync(join(cwd, "src"), { recursive: true });
-      mkdirSync(join(cwd, "docs/agent_notes"), { recursive: true });
+      mkdirSync(join(cwd, "docs/generated"), { recursive: true });
       // A new file added to the map row by exact name, but never `git add`-ed.
       const mapWithNewFile = CLEAN_MAP.replace("`src/**/*.ts`", "`src/added.ts`");
       writeFileSync(join(cwd, "src/added.ts"), "export const added = 1;\n");
@@ -281,7 +282,7 @@ describe("runLintCoverageMapCheck", () => {
     try {
       const mapPath = join(cwd, MAP_PATH);
       mkdirSync(join(cwd, "src"), { recursive: true });
-      mkdirSync(join(cwd, "docs/agent_notes/backlog/lint-followups"), { recursive: true });
+      mkdirSync(join(cwd, "docs/generated"), { recursive: true });
       writeFileSync(join(cwd, "src/index.ts"), "export const value = 1;\n");
       writeFileSync(mapPath, STAGED_DRIFTY_MAP);
       git(cwd, ["init", "-q", "-b", "main"]);
@@ -379,5 +380,23 @@ describe("runLintCoverageMapCheck", () => {
 
     expect(result.exitCode).toBe(0);
     expect(result.findings).toEqual([]);
+  });
+});
+
+describe("loadTrackedFiles", () => {
+  it("returns tracked files sorted, dropping untracked ones", () => {
+    // Pins the scripts/lib/git.ts migration: loadTrackedFiles must still list
+    // only git-tracked paths in default lexical order.
+    const cwd = mkdtempSync(join(tmpdir(), "lcm-tracked-"));
+    try {
+      git(cwd, ["init", "-q", "-b", "main"]);
+      writeFileSync(join(cwd, "b.ts"), "");
+      writeFileSync(join(cwd, "a.ts"), "");
+      writeFileSync(join(cwd, "untracked.ts"), "");
+      git(cwd, ["add", "b.ts", "a.ts"]);
+      expect(loadTrackedFiles(cwd)).toEqual(["a.ts", "b.ts"]);
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
   });
 });

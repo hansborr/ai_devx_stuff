@@ -16,6 +16,7 @@ declare -ga MUSI_PRE_COMMIT_STEPS=('test' 'scripts')
 
 declare -gA MUSI_VERIFY_SLOT_CMD_VAR=()
 declare -gA MUSI_VERIFY_SLOT_DYNAMIC=()
+declare -gA MUSI_VERIFY_DYNAMIC_RESOLVER_FUNC=()
 
 MUSI_VERIFY_LINT_CMD=('bun' 'run' 'lint')
 MUSI_VERIFY_SLOT_CMD_VAR['verify:lint']='MUSI_VERIFY_LINT_CMD'
@@ -49,3 +50,6 @@ MUSI_VERIFY_SLOT_DYNAMIC['pre_commit:test']='precommit-test-timings'
 MUSI_PRE_COMMIT_SCRIPTS_CMD=('bun' 'run' 'test:scripts:changed')
 MUSI_VERIFY_SLOT_CMD_VAR['pre_commit:scripts']='MUSI_PRE_COMMIT_SCRIPTS_CMD'
 MUSI_VERIFY_SLOT_DYNAMIC['pre_commit:scripts']='staged-script-classifier'
+
+MUSI_VERIFY_DYNAMIC_RESOLVER_FUNC['precommit-test-timings']='musi_resolve_precommit_test_timing_cmd'
+MUSI_VERIFY_DYNAMIC_RESOLVER_FUNC['staged-script-classifier']='musi_resolve_staged_script_cmd'

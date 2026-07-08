@@ -50,7 +50,7 @@ function groupByDirectory(files: readonly string[]): string[] {
   return lines;
 }
 
-const MAP_DOC_PATH = "docs/agent_notes/lint-coverage-map.md";
+const MAP_DOC_PATH = "docs/generated/lint-coverage-map.md";
 
 function appendLineFindingsSection(
   lines: string[],

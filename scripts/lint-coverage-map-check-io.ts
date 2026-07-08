@@ -1,29 +1,22 @@
-import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, isAbsolute, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { defaultGitRunner, listTrackedFiles } from "./lib/git.js";
 import type { LintCoverageMapCheckOptions } from "./lint-coverage-map-check-types.js";
 
 export const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
-const defaultMapPath = resolve(repoRoot, "docs/agent_notes/lint-coverage-map.md");
+const defaultMapPath = resolve(repoRoot, "docs/generated/lint-coverage-map.md");
 
 export function loadTrackedFiles(cwd: string): string[] {
-  const output = execFileSync("git", ["ls-files"], { cwd, encoding: "utf8" });
-  return output
-    .split(/\r?\n/u)
-    .filter((line) => line.length > 0)
-    .sort();
+  return listTrackedFiles(defaultGitRunner({ cwd })).sort();
 }
 
 function loadStagedMapText(cwd: string, mapPath: string): string {
-  const topLevel = execFileSync("git", ["rev-parse", "--show-toplevel"], {
-    cwd,
-    encoding: "utf8",
-  }).trim();
+  const topLevel = defaultGitRunner({ cwd })(["rev-parse", "--show-toplevel"]).trim();
   const gitPath = relative(topLevel, mapPath).replaceAll("\\", "/");
-  return execFileSync("git", ["show", `:${gitPath}`], { cwd: topLevel, encoding: "utf8" });
+  return defaultGitRunner({ cwd: topLevel })(["show", `:${gitPath}`]);
 }
 
 export function createWorktreeExists(cwd: string): (relativePath: string) => boolean {

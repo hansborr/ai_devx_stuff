@@ -1,6 +1,6 @@
 # 10. Single verify engine under verify.sh and pre-commit
 
-Status: Pending
+Status: Done 2026-07-07 (76bdb9cc verify.sh consumer; 3805cd2a pre-commit consumer). Engine extracted to scripts/lib/verify-engine.sh: watchdog, timeout-budget report, run-metadata persistence, signal-meta, failure summary + lint/format hints, success finalization. Both runners now consume it; behavior byte-for-byte unchanged.
 Size: M-L · Severity: high (the two highest-churn hand-written files) · Risk:
 high — this is the correctness core
 Source: 00-report.md T1 / A1

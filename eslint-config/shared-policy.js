@@ -1,5 +1,9 @@
 // @ts-check
 
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
 import {
   configSurfaceEntries,
   eslintRulesConfigReincludePatterns,
@@ -10,8 +14,29 @@ import {
   tsConfigFiles,
 } from "./config-surfaces.js";
 
-export const codeFiles = ["**/*.{js,cjs,mjs,ts,tsx,mts,cts}"];
-export const typescriptFiles = ["**/*.{ts,tsx,mts,cts}"];
+export const jsTsLintableExtensions = [
+  ".js",
+  ".jsx",
+  ".cjs",
+  ".mjs",
+  ".ts",
+  ".tsx",
+  ".mts",
+  ".cts",
+];
+
+/** @param {readonly string[]} extensions */
+const extensionsToBraceGlob = (extensions) =>
+  `**/*.{${extensions.map((extension) => extension.slice(1)).join(",")}}`;
+
+/** @param {string} extension */
+const isTypeScriptLintableExtension = (extension) =>
+  extension.endsWith("ts") || extension === ".tsx";
+
+export const codeFiles = [extensionsToBraceGlob(jsTsLintableExtensions)];
+export const typescriptFiles = [
+  extensionsToBraceGlob(jsTsLintableExtensions.filter(isTypeScriptLintableExtension)),
+];
 
 export { configSurfaceEntries };
 export { eslintRulesConfigReincludePatterns };
@@ -127,234 +152,57 @@ export const processEnvRestrictedSyntax = {
 
 const maxLinesCountingOptions = { skipBlankLines: true, skipComments: true };
 
+const maxLinesExceptionsBaselinePath = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  "max-lines-exceptions.baseline.json",
+);
+
+/** @param {unknown} value */
+function isPolicyObject(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+// The per-file max-lines cap exceptions live in a real baseline on the shared
+// item-keyed framework (scripts/lib/baseline), not inline here. Read the
+// committed JSON at config-load time — fail-loud, because a missing or malformed
+// table would silently drop every cap override and let large files pass. Edit
+// the caps in the JSON, then `bun scripts/max-lines-exceptions.ts --update` to
+// normalize it; `--check` (default) is the gate.
+function readMaxLinesExceptions() {
+  const parsed = JSON.parse(readFileSync(maxLinesExceptionsBaselinePath, "utf8"));
+  if (
+    !isPolicyObject(parsed) ||
+    parsed.tool !== "eslint-max-lines" ||
+    !Array.isArray(parsed.entries)
+  ) {
+    throw new Error(
+      "max-lines-exceptions.baseline.json must declare tool 'eslint-max-lines' and an entries[] array",
+    );
+  }
+  return parsed.entries.map((/** @type {unknown} */ entry, /** @type {number} */ index) => {
+    if (!isPolicyObject(entry)) {
+      throw new Error(`max-lines exception ${String(index)} must be an object`);
+    }
+    const { path, cap, severity, reason, lifecycle, ratchetExcluded } = entry;
+    if (
+      typeof path !== "string" ||
+      typeof cap !== "number" ||
+      (severity !== "error" && severity !== "warn") ||
+      typeof reason !== "string" ||
+      typeof lifecycle !== "string" ||
+      typeof ratchetExcluded !== "boolean"
+    ) {
+      throw new Error(`max-lines exception ${String(index)} (${String(path)}) is malformed`);
+    }
+    return { path, cap, severity, reason, lifecycle, ratchetExcluded };
+  });
+}
+
+const maxLinesExceptions = readMaxLinesExceptions();
+
 export const maxLinesPolicy = {
   counting: maxLinesCountingOptions,
   ratchetFloor: { cap: 300 },
-  exceptions: [
-    {
-      path: "scripts/lint-ratchet/lint-ratchet-config.ts",
-      cap: 600,
-      severity: "error",
-      reason:
-        "The ratchet registry grows as new ratchets land; the floor protects against accidental drift, not registry growth.",
-      lifecycle: "permanent",
-      ratchetExcluded: true,
-    },
-    {
-      path: "scripts/harness-check.ts",
-      cap: 330,
-      severity: "error",
-      reason:
-        "Single validator entrypoint covering every harness surface (lint rules, ratchets, hook wiring, verify steps, lint guidance, restricted-disable rules, config surfaces, smoke subjects); the 2026-07 lint deep-dive extended several of these families at once.",
-      lifecycle: "candidate-for-split",
-      ratchetExcluded: true,
-    },
-    {
-      path: "scripts/audit-dependency-licenses.ts",
-      cap: 310,
-      severity: "error",
-      reason:
-        "Dependency license audit remains one CLI while the pointer-only review remedy is added; split collection and reporting once more license policy behavior lands.",
-      lifecycle: "candidate-for-split",
-      ratchetExcluded: true,
-    },
-    {
-      path: "packages/shared/src/rules/attack-damage.ts",
-      cap: 440,
-      severity: "error",
-      reason:
-        "Rules-domain calculator has several tightly-coupled D&D damage branches pending a future rules refactor.",
-      lifecycle: "candidate-for-split",
-      ratchetExcluded: true,
-    },
-    {
-      path: "packages/server/src/routers/encounter.ts",
-      cap: 480,
-      severity: "warn",
-      reason:
-        "Encounter routing is still the main orchestration surface for combat and map workflows until split behind services.",
-      lifecycle: "candidate-for-split",
-      ratchetExcluded: true,
-    },
-    {
-      path: "packages/server/src/routers/homebrew.ts",
-      cap: 470,
-      severity: "warn",
-      reason:
-        "Homebrew routing carries several entry-type workflows while shared entry helpers are factored out.",
-      lifecycle: "candidate-for-split",
-      ratchetExcluded: true,
-    },
-    {
-      path: "packages/server/src/routers/srd.ts",
-      cap: 495,
-      severity: "warn",
-      reason:
-        "SRD routing is mostly read-side mapping and import/export glue, capped so routine endpoint edits stay bounded; +1 for the narrowDamageTypeName import wiring the tightened subspecies damageType enum at the Prisma read seam, +4 for the normalizeWeaponDataDamageType import and equipment weaponData read-seam canonicalization (legacy title-case damageType).",
-      lifecycle: "permanent",
-      ratchetExcluded: true,
-    },
-    {
-      path: "packages/server/src/services/rest-service.ts",
-      cap: 365,
-      severity: "warn",
-      reason:
-        "Rest behavior has tightly related state transitions and persistence checks pending a future service split; the ux-audit P0-3 encounter HP-attribution wiring (short + long rest) adds the in-tx capture and post-commit broadcast inline until that split lands.",
-      lifecycle: "candidate-for-split",
-      ratchetExcluded: true,
-    },
-    {
-      path: "packages/client/src/components/homebrew/entries/entry-dialog.tsx",
-      cap: 350,
-      severity: "warn",
-      reason:
-        "The homebrew entry dialog owns shared editor chrome for several entry kinds while repeated form sections settle.",
-      lifecycle: "candidate-for-split",
-      ratchetExcluded: true,
-    },
-    {
-      path: "packages/client/src/components/homebrew/magic-item/magic-item-form-fields.tsx",
-      cap: 330,
-      severity: "warn",
-      reason:
-        "Magic item form fields are a dense schema-aligned surface pending obvious field-group extraction.",
-      lifecycle: "candidate-for-split",
-      ratchetExcluded: true,
-    },
-    {
-      path: "packages/client/src/components/homebrew/monster/monster-form-fields.tsx",
-      cap: 470,
-      severity: "warn",
-      reason:
-        "Monster form fields mirror a large SRD/homebrew shape while the grouped form remains intact.",
-      lifecycle: "permanent",
-      ratchetExcluded: true,
-    },
-    {
-      path: "packages/client/src/components/homebrew/monster/monster-form-data.ts",
-      cap: 400,
-      severity: "warn",
-      reason:
-        "Monster form data centralizes defaults and parse/serialize helpers without absorbing UI logic.",
-      lifecycle: "permanent",
-      ratchetExcluded: true,
-    },
-    {
-      path: "packages/client/src/components/vtt/drawer/tabs/stats-tab-rolls.tsx",
-      cap: 320,
-      severity: "warn",
-      reason:
-        "The stats-tab roll panel is one compact VTT surface, with further roll modes expected to extract components.",
-      lifecycle: "candidate-for-split",
-      ratchetExcluded: true,
-    },
-    {
-      path: "packages/client/src/components/campaign/encounters/add-participant-dialog.tsx",
-      cap: 330,
-      severity: "warn",
-      reason:
-        "Add-participant combines search, selection, and encounter mutation glue until workflow growth justifies a split.",
-      lifecycle: "candidate-for-split",
-      ratchetExcluded: true,
-    },
-    {
-      path: "packages/client/src/components/campaign/encounters/encounter-detail-view.tsx",
-      cap: 390,
-      severity: "warn",
-      reason:
-        "Encounter detail coordinates combat, map, and participant panels while capped before more orchestration accumulates.",
-      lifecycle: "candidate-for-split",
-      ratchetExcluded: true,
-    },
-    {
-      path: "packages/client/src/components/campaign/notes/notes-panel.tsx",
-      cap: 340,
-      severity: "warn",
-      reason:
-        "Notes panel owns the note list, editor state, and campaign mutations until list/editor concerns split clearly.",
-      lifecycle: "candidate-for-split",
-      ratchetExcluded: true,
-    },
-    {
-      path: "packages/client/src/components/campaign/npcs/monster-tab.tsx",
-      cap: 370,
-      severity: "warn",
-      reason: "Monster tab is the NPC-side view over monster reference data and related actions.",
-      lifecycle: "permanent",
-      ratchetExcluded: true,
-    },
-    {
-      path: "packages/client/src/components/campaign/npcs/npc-panel.tsx",
-      cap: 320,
-      severity: "warn",
-      reason:
-        "NPC panel coordinates list and selected-detail state while future workflows split list helpers out.",
-      lifecycle: "candidate-for-split",
-      ratchetExcluded: true,
-    },
-    {
-      path: "packages/client/src/pages/settings-page.tsx",
-      cap: 340,
-      severity: "warn",
-      reason:
-        "Settings is a page-level account/preferences surface capped until another settings area is added.",
-      lifecycle: "candidate-for-split",
-      ratchetExcluded: true,
-    },
-    {
-      path: "packages/client/src/test/fixtures-encounter.ts",
-      cap: 410,
-      severity: "warn",
-      reason:
-        "Encounter fixtures keep related test data in one canonical scenario module for client tests.",
-      lifecycle: "permanent",
-      ratchetExcluded: true,
-    },
-    {
-      path: "scripts/path-policy/path-policy-smoke-subjects-data.ts",
-      cap: 535,
-      severity: "error",
-      reason:
-        "Generated side-effect-free smoke-subject lookup table keyed by test name; it grows with smoke tests, not logic, and the fs-backed discovery lives in the sibling module under the floor.",
-      lifecycle: "permanent",
-      ratchetExcluded: true,
-    },
-    {
-      path: "scripts/harness/hook-wiring-schema.ts",
-      cap: 370,
-      severity: "error",
-      reason:
-        "Hook wiring schema centralizes platform event, matcher, and output-capability contracts while the generator still consumes one schema module.",
-      lifecycle: "candidate-for-split",
-      ratchetExcluded: true,
-    },
-    {
-      path: "packages/client/src/test/fixtures-srd.ts",
-      cap: 380,
-      severity: "warn",
-      reason:
-        "SRD fixtures are cross-cutting reference data for client tests until another fixture family appears.",
-      lifecycle: "permanent",
-      ratchetExcluded: true,
-    },
-    {
-      path: "packages/client/src/test/mock-trpc.tsx",
-      cap: 600,
-      severity: "error",
-      reason:
-        "The tRPC mock is the shared client test harness for provider setup and mock procedure plumbing.",
-      lifecycle: "permanent",
-      ratchetExcluded: true,
-    },
-    {
-      path: "packages/client/src/stores/map-canvas-store.ts",
-      cap: 530,
-      severity: "warn",
-      reason:
-        "Map canvas state is centralized around one store boundary while future map workflows move to helper slices.",
-      lifecycle: "candidate-for-split",
-      ratchetExcluded: true,
-    },
-  ],
+  exceptions: maxLinesExceptions,
   ratchets: [],
 };

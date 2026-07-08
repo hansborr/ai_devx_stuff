@@ -32,6 +32,8 @@ REPO_ROOT=$(git -C "$HOOK_LIB" rev-parse --show-toplevel 2>/dev/null || git rev-
 . "$HOOK_LIB/commit-output.sh"
 # shellcheck source=/dev/null
 . "$REPO_ROOT/scripts/process-tree.sh"
+# shellcheck source=/dev/null
+. "$REPO_ROOT/scripts/ai-hooks/hook-timeouts.generated.sh"
 
 PAYLOAD=$(ai_read_payload)
 CMD=$(ai_payload_command "$PAYLOAD")
@@ -65,12 +67,11 @@ Wait for the in-flight commit to finish, then check git status before retrying â
 fi
 { printf 'PID=%s STARTED=%s\n' "$$" "$(date -Iseconds)"; } > "$LOCK"
 
-# Must match hook/ai-git-commit-quiet's generated timeout in harness.controls.json.
-GIT_COMMIT_QUIET_HOOK_TIMEOUT=1260
+# Sourced from hook/ai-git-commit-quiet's generated harness timeout.
 GIT_COMMIT_QUIET_TIMEOUT_MARGIN=60
 TOTAL_TIMEOUT=$(ai_clamp_timeout_below_harness \
   "git-commit-quiet" \
-  "${AI_GIT_COMMIT_TIMEOUT:-${MUSI_VERIFY_TIMEOUT:-${MUSI_INTERACTIVE_TIMEOUT:-1200}}}" \
+  "${AI_GIT_COMMIT_TIMEOUT:-${MUSI_INTERACTIVE_TIMEOUT:-1200}}" \
   "$GIT_COMMIT_QUIET_HOOK_TIMEOUT" \
   "$GIT_COMMIT_QUIET_TIMEOUT_MARGIN")
 

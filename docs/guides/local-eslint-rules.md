@@ -113,7 +113,7 @@ lint output. Keep these exact tokens in both the message and this guide;
 `eslint-rules/message-guidance.test.js` guards the overlap so the duplicated
 prose cannot drift silently:
 
-- `max-lines/exceed`: `maxLinesPolicy.exceptions`; "Do not compress lines or inline useful helpers just to satisfy the metric".
+- `max-lines/exceed`: `eslint-config/max-lines-exceptions.baseline.json` (per-file cap exceptions on the shared baseline framework; edit the JSON then `bun run lint:max-lines-exceptions:update` to normalize); "Do not compress lines or inline useful helpers just to satisfy the metric".
 - `no-explicit-any/noAny`: `unknown`, shared type, local type, and
   `// eslint-disable-next-line local/no-explicit-any -- <why this boundary is intentionally untyped>`.
 - `type-assertion-boundary/missingBoundary`:

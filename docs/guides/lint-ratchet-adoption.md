@@ -26,6 +26,20 @@ The ratchet has three pieces:
 The gate is the key property: debt cannot grow silently, and cleanup cannot go
 unacknowledged.
 
+### The item-keyed baseline pattern is reusable
+
+The committed-baseline + symmetric-gate + three-way-merge machinery is not
+ratchet-specific. Its item-keyed core lives in `scripts/lib/baseline/` as a
+generic `Baseline<Metric>` framework (deterministic file with a derived
+`summary` integrity check, a symmetric key-set gate, and a min-merge driver
+with post-merge truth-up). A collector produces identity-keyed entries; the
+framework owns everything downstream. The knip unused-export sensor is the
+first consumer at tier-0: its floor is an **identity ledger** keyed by
+`(category, path, symbol)` rather than a per-file count, so swapping one unused
+symbol for another — invisible to a count-only floor — fails the gate. When you
+adopt a second count-floor signal, reach for this shared framework instead of
+re-deriving parse/compare/format a fourth time.
+
 ## Tier 1 — Minimal ratchet
 
 The minimal tier gives you the gate, baseline, and registry. No agent envelope,

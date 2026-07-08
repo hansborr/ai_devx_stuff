@@ -12,10 +12,12 @@ import {
   isNonEmptyString,
   isObject,
   parseVerifyStepSlots,
+  VERIFY_STEP_DYNAMIC_RESOLVER_BINDINGS,
   type VerifyStepSlot,
 } from "./verify-step-schema.js";
 
 const VAR_REF_PATTERN = /\$(?:([A-Za-z_]\w*)|\{([A-Za-z_]\w*)\})/gu;
+const SHELL_FUNCTION_NAME_PATTERN = /^[A-Za-z_]\w*$/u;
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const outputPath = join(repoRoot, GENERATED_VERIFY_STEPS_PATH);
@@ -239,6 +241,7 @@ function renderSlots(consumers: readonly Consumer[]): string[] {
   const lines = [
     "declare -gA MUSI_VERIFY_SLOT_CMD_VAR=()",
     "declare -gA MUSI_VERIFY_SLOT_DYNAMIC=()",
+    "declare -gA MUSI_VERIFY_DYNAMIC_RESOLVER_FUNC=()",
     "",
   ];
   // shellVariableSuffix collapses non-alphanumerics, and consumer prefixes can
@@ -259,6 +262,22 @@ function renderSlots(consumers: readonly Consumer[]): string[] {
       lines.push(...renderSlotMetadata(consumer, slot));
     }
   }
+  return lines;
+}
+
+function renderDynamicResolverDispatch(): string[] {
+  const lines: string[] = [];
+  for (const binding of VERIFY_STEP_DYNAMIC_RESOLVER_BINDINGS) {
+    if (!SHELL_FUNCTION_NAME_PATTERN.test(binding.functionName)) {
+      throw new Error(
+        `dynamic resolver ${binding.id} uses invalid shell function ${binding.functionName}`,
+      );
+    }
+    lines.push(
+      `MUSI_VERIFY_DYNAMIC_RESOLVER_FUNC[${shellQuote(binding.id)}]=${shellQuote(binding.functionName)}`,
+    );
+  }
+  lines.push("");
   return lines;
 }
 
@@ -288,6 +307,7 @@ export function renderVerifyStepsShellFromManifest(
     ...renderHeader(consumers),
     ...renderConsumerMetadata(consumers),
     ...renderSlots(consumers),
+    ...renderDynamicResolverDispatch(),
   ];
   while (lines[lines.length - 1] === "") lines.pop();
   return `${lines.join("\n")}\n`;

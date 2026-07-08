@@ -19,11 +19,12 @@ export const GENERATED_VERIFY_STEPS_PATH = "scripts/verify/steps.generated.sh";
 export const GENERATED_CONFIG_SURFACES_PATH = "tsconfig.configs.json";
 export const GENERATED_HARNESS_CONTROLS_DOC_PATH = "docs/generated/harness-controls.md";
 
-// Generated hook-config outputs, shared by the hook-wiring generator (which
-// writes them), harness:check freshness, and path-policy source-relevance.
+// Generated hook-config outputs, shared by the hook generators (which write
+// them), harness:check freshness, and path-policy source-relevance.
 export const CLAUDE_SETTINGS_PATH = ".claude/settings.json";
 export const CODEX_HOOKS_PATH = ".codex/hooks.json";
 export const COPILOT_HOOKS_PATH = ".github/hooks/copilot.json";
+export const GENERATED_HOOK_TIMEOUT_CONSTANTS_PATH = "scripts/ai-hooks/hook-timeouts.generated.sh";
 
 /** Absolute path to the harness control manifest under `repoRoot`. */
 export function harnessManifestPath(repoRoot: string): string {

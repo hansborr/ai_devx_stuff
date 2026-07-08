@@ -18,7 +18,8 @@ public subset:
   `.codex/skills/`
 - `.claude/settings.json`, `.claude/hooks/`, `.claude/output-styles/`, and
   `.claude/skills/`
-- `docs/agent_notes/lint-coverage-map.md`
+- `docs/generated/lint-coverage-map.md`
+- `docs/generated/observed_flaky_tests.md`
 
 The rest of `docs/agent_notes/` remains export-ignored because it contains
 process notes such as recent-history logs, active backlog packs, and decision

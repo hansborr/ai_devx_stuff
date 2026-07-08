@@ -136,7 +136,7 @@ already linted area"):
 5. Reflect the new ratchet in the coverage map: add
    `ratchet/react-hooks-set-state-in-effect-client` to the
    `packages/client/src/**/*.{ts,tsx}` (production, non-test) row in
-   `docs/agent_notes/lint-coverage-map.md`, then
+   `docs/generated/lint-coverage-map.md`, then
    `bun run docs:lint-coverage-map:check`. The Coverage Map Gate validates that
    every `ratchet/<name>` named in the map resolves to a registry entry; keep
    the map accurate when adding the floor.

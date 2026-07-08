@@ -26,11 +26,12 @@ AI_POLICY_GIT_CLEAN_FORCE="Git clean with force is not allowed from agents becau
 AI_POLICY_GH_REMOTE_MUTATION="GitHub remote mutations are not allowed from agents. Use read-only 'gh ... view/list/status' commands, or ask the user to perform the mutation."
 AI_POLICY_GH_AUTH="GitHub auth token output and auth reconfiguration are not allowed from agents. Use 'gh auth status' for read-only auth checks, or ask the user to manage authentication."
 AI_POLICY_ALLOW_PROTECTED_EDITS_ADVISORY="Protected edit override marker .allow-protected-edits is repo-wide. Use it only for deliberate protected-file maintenance, and remove it immediately after that work is done."
-AI_FLAKY_NOTE="Note: If this failure looks flaky (passes in isolation, fails under load), ensure you document it under docs/agent_notes/observed_flaky_tests.md if you are unable to resolve it right now."
+AI_FLAKY_NOTE="Note: If this failure looks flaky (passes in isolation, fails under load), ensure you document it under docs/generated/observed_flaky_tests.md if you are unable to resolve it right now."
 
 AI_WRAPPED_BUN_SCRIPTS='
 audit:deps
 audit:licenses
+backlog:lint
 build
 check:eslint-react-peer-exception
 check:fast-uri-override
@@ -52,6 +53,7 @@ harness:audit
 harness:check
 harness:config-surfaces
 harness:config-surfaces:check
+harness:hook-timeouts:check
 harness:wiring:check
 lint
 lint:agent:local-rules
@@ -60,6 +62,7 @@ lint:changed
 lint:config-sensors
 lint:fix
 lint:import-cycles
+lint:max-lines-exceptions
 lint:probe-rule
 lint:ratchet
 lint:ratchet:check-baseline

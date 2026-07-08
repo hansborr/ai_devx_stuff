@@ -94,7 +94,7 @@ Integration (verified 2026-07-04 by non-destructive `git merge-tree`
 simulation of the full sequential `--no-ff` sequence): merge in the order
 gate → rules → alias → ergo → ratchet. Merges 1, 2, 3, and 5 are **clean**;
 only merge 4 (ergo) conflicts, on five files, all union / take-both:
-`.husky/pre-commit`, `docs/agent_notes/lint-coverage-map.md`,
+`.husky/pre-commit`, `docs/generated/lint-coverage-map.md`,
 `scripts/harness-check.ts`, `scripts/tests/test-dependency-freshness.sh`,
 `scripts/tests/test-harness-check.sh`. After merge 4, regenerate
 `docs/generated/harness-controls.md` and reconcile the coverage-map prose

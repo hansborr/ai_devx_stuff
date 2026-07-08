@@ -117,7 +117,7 @@ export default {
       repairKind: "manual",
     },
     messages: {
-      exceed: `Why: This file has {{actual}} effective lines, above the {{max}} line limit, which makes future edits harder to localize. How to fix: ${MAX_LINES_REPAIR_GUIDANCE} If it should stay larger for now, do not use eslint-disable; add or adjust maxLinesPolicy.exceptions for this exact file with a modest max and a reason.`,
+      exceed: `Why: This file has {{actual}} effective lines, above the {{max}} line limit, which makes future edits harder to localize. How to fix: ${MAX_LINES_REPAIR_GUIDANCE} If it should stay larger, do not eslint-disable; add this file's entry to eslint-config/max-lines-exceptions.baseline.json (cap, reason, lifecycle) and run \`bun run lint:max-lines-exceptions:update\`.`,
     },
     schema: [
       {

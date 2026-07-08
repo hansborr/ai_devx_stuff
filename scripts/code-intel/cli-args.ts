@@ -1,3 +1,4 @@
+import { matchesOption, parseFormatValue } from "../lib/cli.js";
 import { usage } from "./cli-help.js";
 import {
   ensureFlagHasNoValue,
@@ -85,29 +86,23 @@ function isSubcommandHelp(args: string[]): boolean {
 function parseGlobalOptions(args: string[]): { args: string[]; format: OutputFormat } {
   const parsedArgs: string[] = [];
   let format: OutputFormat = "text";
+  const fail = (message: string): never => {
+    throw new CodeIntelError(message);
+  };
 
   for (let index = 0; index < args.length; index += 1) {
     const arg = requireArg(args[index]);
-    if (arg === "--format") {
-      const value = args[index + 1];
-      if (!value) throw new CodeIntelError("--format requires text or json.");
-      format = parseOutputFormat(value);
-      index += 1;
-      continue;
-    }
-    if (arg.startsWith("--format=")) {
-      format = parseOutputFormat(arg.slice("--format=".length));
+    const option = parseOption(arg);
+    if (option !== undefined && matchesOption(arg, "--format")) {
+      const parsed = readOptionValue(option, args, index, "--format requires text or json.");
+      format = parseFormatValue(parsed.value, fail);
+      index = parsed.nextIndex;
       continue;
     }
     parsedArgs.push(arg);
   }
 
   return { args: parsedArgs, format };
-}
-
-function parseOutputFormat(value: string): OutputFormat {
-  if (value === "text" || value === "json") return value;
-  throw new CodeIntelError("--format requires text or json.");
 }
 
 function parseDefArgs(args: string[]): CliCommand {

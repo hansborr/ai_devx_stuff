@@ -113,6 +113,10 @@ ai_protected_file_deny_entry() {
       key="generated-verify-steps"
       deny="Protected generated file: regenerate scripts/verify/steps.generated.sh with 'bun run verify:steps' instead of editing it by hand."
       ;;
+    */scripts/ai-hooks/hook-timeouts.generated.sh)
+      key="generated-hook-timeouts"
+      deny="Protected generated file: regenerate scripts/ai-hooks/hook-timeouts.generated.sh with 'bun run harness:hook-timeouts' instead of editing it by hand."
+      ;;
     */bun.lock)
       key="lockfile"
       deny="Protected lockfile: update bun.lock through 'bun install' instead of editing it by hand."

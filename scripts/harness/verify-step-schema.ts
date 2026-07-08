@@ -1,11 +1,19 @@
-export const VERIFY_STEP_DYNAMIC_RESOLVERS = [
-  // Keep these ids bound to literal case arms in scripts/verify/steps-lib.sh;
-  // harness:check fails when an enum member has no shell resolver arm.
-  "precommit-test-timings",
-  "staged-script-classifier",
+export const VERIFY_STEP_DYNAMIC_RESOLVER_BINDINGS = [
+  {
+    id: "precommit-test-timings",
+    functionName: "musi_resolve_precommit_test_timing_cmd",
+  },
+  {
+    id: "staged-script-classifier",
+    functionName: "musi_resolve_staged_script_cmd",
+  },
 ] as const;
 
-export type VerifyStepDynamicResolver = (typeof VERIFY_STEP_DYNAMIC_RESOLVERS)[number];
+export type VerifyStepDynamicResolver =
+  (typeof VERIFY_STEP_DYNAMIC_RESOLVER_BINDINGS)[number]["id"];
+
+const VERIFY_STEP_DYNAMIC_RESOLVERS: readonly VerifyStepDynamicResolver[] =
+  VERIFY_STEP_DYNAMIC_RESOLVER_BINDINGS.map((binding) => binding.id);
 
 const verifyStepDynamicResolverSet: ReadonlySet<string> = new Set(VERIFY_STEP_DYNAMIC_RESOLVERS);
 

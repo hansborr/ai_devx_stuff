@@ -360,6 +360,30 @@ if grep -q -- '--changed' "$repo/bun.log"; then
 fi
 ok "nested script test changes run scripts project tests"
 
+repo="$(new_repo script-lib-source-change)"
+printf 'export const changed = true;\n' > "$repo/scripts/lib/git.ts"
+git -C "$repo" add scripts/lib/git.ts
+: > "$repo/bun.log"
+run_test_changed "$repo" >/dev/null || fail "scripts/lib source change should run"
+grep -qF 'stub vitest run --passWithNoTests --project=scripts' "$repo/bun.log" \
+  || fail "scripts/lib source change should run scripts project: $(cat "$repo/bun.log")"
+if grep -q -- '--changed' "$repo/bun.log"; then
+  fail "scripts/lib source changes should run scripts project in full: $(cat "$repo/bun.log")"
+fi
+ok "scripts/lib source changes run scripts project tests"
+
+repo="$(new_repo script-lib-test-change)"
+printf 'import { it } from "vitest";\nit("noop", () => {});\n' > "$repo/scripts/lib/git.test.ts"
+git -C "$repo" add scripts/lib/git.test.ts
+: > "$repo/bun.log"
+run_test_changed "$repo" >/dev/null || fail "scripts/lib test change should run"
+grep -qF 'stub vitest run --passWithNoTests --project=scripts' "$repo/bun.log" \
+  || fail "scripts/lib test change should run scripts project: $(cat "$repo/bun.log")"
+if grep -q -- '--changed' "$repo/bun.log"; then
+  fail "scripts/lib test changes should run scripts project in full: $(cat "$repo/bun.log")"
+fi
+ok "scripts/lib test changes run scripts project tests"
+
 repo="$(new_repo script-logs-audit-fixture-change)"
 mkdir -p "$repo/scripts/logs-audit/fixtures"
 printf '{}\n' > "$repo/scripts/logs-audit/fixtures/server.jsonl"

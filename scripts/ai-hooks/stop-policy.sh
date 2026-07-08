@@ -10,7 +10,6 @@ AI_STOP_ASYNC_KILL_SWITCH=".no-stop-async-verify"
 AI_STOP_ASYNC_MAX_NOTIFY="${AI_STOP_ASYNC_MAX_NOTIFY:-2}"
 AI_STOP_ASYNC_STATE_ROOT="${MUSI_VERIFY_ASYNC_STATE_ROOT:-/tmp/musi-verify-async}"
 AI_STOP_VERIFY_KILL_SWITCH=".no-stop-verify-changed"
-AI_STOP_VERIFY_LEGACY_KILL_SWITCH=".no-stop-verify"
 AI_STOP_VERIFY_MAX_NOTIFY="${AI_STOP_VERIFY_MAX_NOTIFY:-2}"
 AI_STOP_LINT_WARNINGS_KILL_SWITCH=".no-stop-lint-warnings"
 # Wall-clock cap for the live eslint scan the lint-warnings reminder runs. This
@@ -467,8 +466,7 @@ ai_stop_async_verify_status() {
 
 ai_stop_verify_disabled() {
   local repo_root="$1"
-  [ -f "$repo_root/$AI_STOP_VERIFY_KILL_SWITCH" ] \
-    || [ -f "$repo_root/$AI_STOP_VERIFY_LEGACY_KILL_SWITCH" ]
+  [ -f "$repo_root/$AI_STOP_VERIFY_KILL_SWITCH" ]
 }
 
 ai_stop_verify_counter_path() {

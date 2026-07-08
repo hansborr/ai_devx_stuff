@@ -8,10 +8,7 @@
 import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
-import {
-  readRequiredOptionValue,
-  requireArgAllowingEmpty as requireArg,
-} from "./cli-option-values.js";
+import { type CliFormat, parseCliArgs, parseFormatValue } from "./lib/cli.js";
 import type { ParsedLogRecord } from "./logs-audit/logs-audit-checks.js";
 import { auditEventFields, auditRequestIds } from "./logs-audit/logs-audit-checks.js";
 import { writeLogsAuditDiagnosticsSidecar } from "./logs-audit/logs-audit-diagnostics.js";
@@ -26,7 +23,7 @@ const LATEST_NO_COMPATIBLE_LOGS_HINT =
 export { formatJson, formatText };
 export { findLatestCompatibleLogFiles };
 
-export type LogsAuditFormat = "text" | "json";
+export type LogsAuditFormat = CliFormat;
 
 export type LogsAuditOptions = {
   readonly files: readonly string[];
@@ -87,73 +84,49 @@ function usage(): string {
   ].join("\n");
 }
 
-type ParsedAuditArg =
-  | {
-      readonly kind: "file";
-      readonly value: string;
-      readonly nextIndex: number;
-    }
-  | {
-      readonly kind: "format";
-      readonly value: LogsAuditFormat;
-      readonly nextIndex: number;
-    }
-  | {
-      readonly kind: "latest";
-      readonly nextIndex: number;
-    };
-
-function parseFileArg(arg: string, argv: readonly string[], index: number): ParsedAuditArg {
-  const parsed = readRequiredOptionValue({
-    arg,
-    argv,
-    index,
-    usage: usage(),
-    createError: (message) => new LogsAuditError(message),
-  });
-  return { kind: "file", value: parsed.value, nextIndex: parsed.nextIndex };
-}
-
-function parseFormatArg(arg: string, argv: readonly string[], index: number): ParsedAuditArg {
-  const parsed = readRequiredOptionValue({
-    arg,
-    argv,
-    index,
-    usage: usage(),
-    createError: (message) => new LogsAuditError(message),
-  });
-  if (parsed.value !== "text" && parsed.value !== "json") {
-    throw new LogsAuditError("--format requires text or json.");
-  }
-  return { kind: "format", value: parsed.value, nextIndex: parsed.nextIndex };
-}
-
-function parseAuditArg(arg: string, argv: readonly string[], index: number): ParsedAuditArg {
-  if (arg === "--help" || arg === "-h") throw new LogsAuditHelp();
-  if (arg === "--latest") return { kind: "latest", nextIndex: index };
-  if (arg === "--file" || arg.startsWith("--file=")) return parseFileArg(arg, argv, index);
-  if (arg === "--format" || arg.startsWith("--format=")) return parseFormatArg(arg, argv, index);
-  if (arg.startsWith("--")) throw new LogsAuditError(`Unknown argument: ${arg}\n${usage()}`);
-  return { kind: "file", value: arg, nextIndex: index };
-}
-
 export function parseArgs(argv: readonly string[]): LogsAuditOptions {
   const files: string[] = [];
   let format: LogsAuditFormat = "text";
-  let latest = false;
+  // Held in an object so the --latest flag closure below can set it without the
+  // caller's control-flow analysis narrowing the post-loop check to always-false.
+  const state = { latest: false };
+  const fail = (message: string): never => {
+    throw new LogsAuditError(message);
+  };
 
-  for (let index = 0; index < argv.length; index += 1) {
-    const arg = requireArg(argv[index], (message) => {
-      throw new LogsAuditError(message);
-    });
-    const parsed = parseAuditArg(arg, argv, index);
-    if (parsed.kind === "file") files.push(parsed.value);
-    else if (parsed.kind === "format") format = parsed.value;
-    else latest = true;
-    index = parsed.nextIndex;
-  }
+  parseCliArgs({
+    argv,
+    usage: usage(),
+    createError: (message) => new LogsAuditError(message),
+    allowEmptyArgs: true,
+    onHelp: () => {
+      throw new LogsAuditHelp();
+    },
+    options: [
+      {
+        name: "--file",
+        kind: "value",
+        apply: (value) => files.push(value),
+      },
+      {
+        name: "--format",
+        kind: "value",
+        apply: (value) => {
+          format = parseFormatValue(value, fail);
+        },
+      },
+      {
+        name: "--latest",
+        kind: "flag",
+        apply: () => {
+          state.latest = true;
+        },
+      },
+    ],
+    onPositional: (value) => files.push(value),
+  });
 
-  if (latest) {
+  if (state.latest) {
     if (files.length > 0) {
       throw new LogsAuditError("--latest cannot be combined with explicit log files.");
     }

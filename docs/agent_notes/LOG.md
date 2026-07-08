@@ -833,7 +833,7 @@ top-level scripts ratchet to `complexity-severity` metric.
 ## 2026-05-20 — Leaf 41 Coverage Map and Ratchet-First Planning
 
 Landed the coverage map artifact at
-`docs/agent_notes/lint-coverage-map.md`. Ratchet-first
+`docs/generated/lint-coverage-map.md`. Ratchet-first
 planning clarified: ratchets are migration floors not indefinite parking, add
 in small measured batches, re-measure runtime after each batch, bug-class
 findings are fix-soon drains. Core ESLint rule-source support added to the

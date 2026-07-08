@@ -61,8 +61,9 @@ Public source archives include the copyable harness config that
 `.claude/settings.json`, `.claude/hooks/`, `.claude/output-styles/`,
 `.claude/skills/`, `.codex/config.toml`, `.codex/hooks.json`,
 `.codex/hooks/`, and `.codex/skills/`. They also include
-`docs/agent_notes/lint-coverage-map.md`, because generated harness controls use
-it as a paired guide.
+`docs/generated/lint-coverage-map.md` and
+`docs/generated/observed_flaky_tests.md`, because generated and hook-facing
+harness docs point at those references.
 
 Other `docs/agent_notes/**` files remain process notes and are export-ignored.
 Use a full git clone, not a generated source archive, when you need backlog
@@ -146,6 +147,39 @@ Public source archives are enough for the `.claude/`, `.codex/`,
 `scripts/ai-hooks/`, `scripts/harness/`, `scripts/lint-ratchet/`, diagnostics
 schema, and manifest paths named above. They are not enough for backlog notes;
 use a full clone for `docs/agent_notes/backlog/**`.
+
+## Substrate Ruling (Bash Vs TS)
+
+Status: drafted 2026-07-07 from arch-review leaf 13; awaiting owner sign-off.
+
+The bash/TS boundary is a ruling, not author preference. New or reworked
+harness tools pick their substrate by these rules:
+
+- **Portable-skill surfaces stay single-file, dependency-free bash.** Anything
+  under `.claude/skills/**` meant to be copied into another repo (for example
+  `agent-run.sh`) must run before `bun install` in a fresh worktree or a
+  foreign repo, so it cannot depend on the TS toolchain.
+- **Repo-local gate orchestration stays bash, sharing engine libraries.**
+  `scripts/verify.sh`, `.husky/pre-commit`, `scripts/land.sh`, and the hook
+  entrypoints under `scripts/ai-hooks/` are process glue — traps, locks,
+  markers, watchdogs. They remain bash but must share extracted engine libs
+  rather than duplicating blocks (arch-review leaf 10 owns that extraction).
+- **Anything analytical lives in TS.** Parsing, comparing, reporting, policy
+  evaluation, and data transformation belong under `scripts/` in TS, reachable
+  from bash via `bun` entrypoints. A bash tool that grows analysis logic (the
+  831-line `doctor.sh` is the cautionary example) should shed that logic to
+  TS.
+- **Duplicates across the boundary are defects.** One substrate owns a
+  behavior; the other calls it. The DB-status diagnostic was the known
+  shell/TS duplicate; arch-review leaf 17 retired the shell copy and kept the
+  TS implementation under this rule.
+
+Recorded rejection: a full Bun/TS rewrite of
+`.claude/skills/agent-cli/scripts/agent-run.sh` was considered and rejected
+(2026-07-07) under the copyability lens — a `.sh` must run before
+`bun install` in a fresh worktree, and the skill stays self-contained. The
+backend-adapter-table work shrank the bash instead. Do not re-litigate the
+rewrite without a new constraint that defeats the copyability argument.
 
 ## Guides
 

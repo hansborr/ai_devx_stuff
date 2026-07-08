@@ -21,7 +21,7 @@ lint-review, and drift-ai backlogs were analysed:
 **The logs are old.** Many entries cite files that have since moved or been
 renamed (e.g. the coverage map moved from
 `docs/agent_notes/backlog/lint-followups/lint-coverage-map.md` to
-`docs/agent_notes/lint-coverage-map.md`; `scripts/harness-audit.test.ts` moved to
+`docs/generated/lint-coverage-map.md`; `scripts/harness-audit.test.ts` moved to
 `scripts/harness/harness-audit.test.ts`; the codex-review footguns were since
 documented in the codex-cli skill). Every entry below was therefore
 **re-verified against current HEAD** before being proposed. Issues that turned

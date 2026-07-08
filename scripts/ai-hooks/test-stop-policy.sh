@@ -680,13 +680,6 @@ fi
 [ ! -f "$VERIFY_COUNTER" ] || fail "kill switch should not write counter"
 rm -f "$VERIFY_REPO/$AI_STOP_VERIFY_KILL_SWITCH"
 
-write_verify_wrapper parallel-precommit 1 "$VERIFY_PRECOMMIT_FP"
-touch "$VERIFY_REPO/$AI_STOP_VERIFY_LEGACY_KILL_SWITCH"
-if MUSI_VERIFY_LOG_DIR="$VERIFY_LOG_DIR" ai_stop_verify_status "$VERIFY_REPO" >/dev/null; then
-  fail "legacy kill switch should suppress verify status"
-fi
-rm -f "$VERIFY_REPO/$AI_STOP_VERIFY_LEGACY_KILL_SWITCH"
-
 # R5/F7: name the failing gates from per-step meta so the agent can tell a
 # lint/ratchet failure from a typecheck/test failure without opening verify:logs.
 rm -f "$VERIFY_META_DIR"/*.json "$VERIFY_COUNTER"

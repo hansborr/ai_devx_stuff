@@ -73,6 +73,8 @@ fi
 . "$REPO_ROOT/scripts/lib/parallel-step.sh"
 # shellcheck source=/dev/null
 . "$REPO_ROOT/scripts/lib/lint-dist-preflight.sh"
+# shellcheck source=/dev/null
+. "$REPO_ROOT/scripts/lib/verify-engine.sh"
 
 FAST_COMMIT_RECORD_PENDING=0
 
@@ -182,11 +184,12 @@ warn_if_generated_surfaces_stale() {
   staged="$(git diff --cached --name-only --diff-filter=ACMR)"
   [ -n "$staged" ] || return 0
 
-  generated_pattern='^(harness\.controls\.json|tsconfig\.configs\.json|eslint-config/(config-surface-manifest\.json|config-surfaces\.js)|scripts/harness/(generate-(hook-wiring|verify-steps|harness-controls|config-surfaces)\.ts|hook-wiring-schema\.ts|verify-step-schema\.ts)|scripts/verify/steps\.generated\.sh|docs/generated/harness-controls\.md|\.claude/settings\.json|\.codex/hooks\.json|\.github/hooks/copilot\.json)$'
+  generated_pattern='^(harness\.controls\.json|tsconfig\.configs\.json|eslint-config/(config-surface-manifest\.json|config-surfaces\.js)|scripts/harness/(generate-(hook-wiring|hook-timeout-constants|verify-steps|harness-controls|config-surfaces)\.ts|hook-timeout-constants\.ts|hook-wiring-schema\.ts|verify-step-schema\.ts)|scripts/ai-hooks/hook-timeouts\.generated\.sh|scripts/verify/steps\.generated\.sh|docs/generated/harness-controls\.md|\.claude/settings\.json|\.codex/hooks\.json|\.github/hooks/copilot\.json)$'
   lint_guidance_pattern='^(eslint-rules/.*|eslint-config/local-plugin\.js|scripts/generate-lint-guidance\.ts|scripts/lib/lint-rule-docs\.ts|docs/generated/local-lint-rules\.md)$'
 
   if printf '%s\n' "$staged" | grep -Eq "$generated_pattern"; then
     warn_if_generated_surface_stale "verify step metadata" "verify:steps:check"
+    warn_if_generated_surface_stale "hook timeout constants" "harness:hook-timeouts:check"
     warn_if_generated_surface_stale "AI hook wiring" "harness:wiring:check"
     warn_if_generated_surface_stale "harness controls docs" "docs:harness-controls:check"
     warn_if_generated_surface_stale "config surface tsconfig" "harness:config-surfaces:check"
@@ -243,10 +246,9 @@ fi
 # Record holder info (readable by any contender via plain cat).
 { printf 'PID=%s STARTED=%s\n' "$$" "$(date -Iseconds)"; } > "$LOCK"
 
-# Default to a 20-minute hard budget. `MUSI_VERIFY_TIMEOUT` stays as a
-# back-compat override; new callers should set `MUSI_INTERACTIVE_TIMEOUT` /
-# `MUSI_INTERACTIVE_WARN_AFTER`.
-TOTAL_TIMEOUT="${MUSI_VERIFY_TIMEOUT:-${MUSI_INTERACTIVE_TIMEOUT:-1200}}"
+# Default to a 20-minute hard budget. Callers should tune the hard and soft
+# budgets with `MUSI_INTERACTIVE_TIMEOUT` / `MUSI_INTERACTIVE_WARN_AFTER`.
+TOTAL_TIMEOUT="${MUSI_INTERACTIVE_TIMEOUT:-1200}"
 WARN_AFTER="${MUSI_INTERACTIVE_WARN_AFTER:-1080}"
 
 # --- 3. Cross-worktree commit queue ----------------------------------------
@@ -316,23 +318,12 @@ if musi_try_verify_marker_bridge "$REPO_ROOT" "$MARKER" 120; then
 fi
 
 # --- 5. Watchdog ------------------------------------------------------------
+# The shared engine closes FDs 9 (worktree lock) and 8 (commit-queue lock) in
+# its sleep child so a killed watchdog cannot orphan either flock and block the
+# next commit until TIMEOUT elapses.
 HOOK_PID=$$
-(
-  # Close FD 9 so our `sleep` child doesn't inherit the flock — otherwise
-  # if we're killed before sleep finishes, sleep orphans to init still
-  # holding the lock, blocking the next commit until TIMEOUT elapses.
-  exec 9<&-
-  exec 8<&-
-  SLEEP_PID=""
-  trap '[ -n "$SLEEP_PID" ] && kill "$SLEEP_PID" 2>/dev/null; exit 0' TERM INT
-  sleep "$TIMEOUT" &
-  SLEEP_PID=$!
-  wait "$SLEEP_PID"
-  echo "" >&2
-  echo "=== PRE-COMMIT TIMED OUT (${TIMEOUT}s) ===" >&2
-  kill -TERM "$HOOK_PID" 2>/dev/null
-) &
-WD=$!
+musi_verify_start_watchdog "PRE-COMMIT" "$TIMEOUT" "$HOOK_PID"
+WD="$MUSI_VERIFY_WATCHDOG_PID"
 
 # --- 6. Parallel tasks -----------------------------------------------------
 LOG_DIR="${MUSI_VERIFY_LOG_DIR:-$(musi_standard_verify_log_dir "$REPO_ROOT")}"
@@ -364,12 +355,6 @@ STEP_EXITS=()
 # Propagate INT/TERM to children. Split traps to emit conventional exit codes:
 #   INT  (Ctrl-C) → 130
 #   TERM (watchdog timeout or external kill) → 124 (GNU `timeout` convention)
-report_timeout_budget() {
-  printf 'Timed out and stopped the verification process tree.\n' >&2
-  printf 'For deliberate long verification, use bun run verify:async[:changed] and check bun run verify:async:status.\n' >&2
-  printf 'logs: %s\n' "$LOG_DIR" >&2
-  printf 'inspect: bun run verify:logs budget\n' >&2
-}
 cleanup_parallel_children() {
   local pid
   for pid in "${PARALLEL_PIDS[@]}"; do
@@ -378,17 +363,11 @@ cleanup_parallel_children() {
   kill "$WD" 2>/dev/null
 }
 write_signal_wrapper_meta() {
-  exit_code="$1"
-  end_ts=$(date +%s)
-  end_time=$(date -Iseconds)
-  musi_write_wrapper_meta "$META_DIR/wrapper.json" parallel-precommit \
-    "$START_TS" "$START_TIME" "$end_ts" "$end_time" "$exit_code" "$0" \
-    "$META_HEAD" "$META_FP"
-  musi_combine_run_meta "$LOG_DIR" parallel-precommit "$META_DIR/wrapper.json"
-  musi_persist_run_meta_history "$LOG_DIR" "$HISTORY_DIR"
+  musi_verify_write_signal_meta "$1" "$META_DIR" parallel-precommit \
+    "$START_TS" "$START_TIME" "$0" "$META_HEAD" "$META_FP" "$LOG_DIR" "$HISTORY_DIR"
 }
 trap 'cleanup_parallel_children; write_signal_wrapper_meta 130; exit 130' INT
-trap 'cleanup_parallel_children; write_signal_wrapper_meta 124; report_timeout_budget; exit 124' TERM
+trap 'cleanup_parallel_children; write_signal_wrapper_meta 124; musi_verify_report_timeout_budget "$LOG_DIR"; exit 124' TERM
 trap 'exit_code=$?; musi_precommit_fast_provenance_on_exit "$exit_code"; kill $WD 2>/dev/null' EXIT
 
 musi_run_parallel_verify_steps pre_commit MUSI_PRE_COMMIT_STEPS parallel-precommit "" \
@@ -408,50 +387,20 @@ END_TS=$(date +%s)
 END_TIME=$(date -Iseconds)
 
 if [ -n "$failed" ]; then
-  musi_write_wrapper_meta "$META_DIR/wrapper.json" parallel-precommit \
+  musi_verify_persist_run_meta "$META_DIR" parallel-precommit \
     "$START_TS" "$START_TIME" "$END_TS" "$END_TIME" 1 "$0" \
-    "$META_HEAD" "$META_FP"
-  musi_combine_run_meta "$LOG_DIR" parallel-precommit "$META_DIR/wrapper.json"
-  musi_persist_run_meta_history "$LOG_DIR" "$HISTORY_DIR"
+    "$META_HEAD" "$META_FP" "$LOG_DIR" "$HISTORY_DIR"
   # Structured lines — git-commit-quiet.sh parses these.
-  echo ""
-  echo "=== PRE-COMMIT FAILED (${ELAPSED}s) ==="
-  echo "Passed:$passed"
-  echo "Failed:$failed"
-  for task in $failed; do
-    echo ""
-    echo "--- $task (full log: $LOG_DIR/${task}.log) ---"
-    if [ "$task" = ratchet ]; then
-      ai_ratchet_failure_excerpt "$LOG_DIR/ratchet-diagnostics.json" "$LOG_DIR/${task}.log" 30
-    else
-      ai_filtered_task_log_excerpt "$task" "$LOG_DIR/${task}.log" 30
-    fi
-  done
-  case "$failed" in
-    *lint*) echo ""; echo "Hint: try 'bun run lint:fix' to auto-fix formatting issues." ;;
-  esac
-  case "$failed" in
-    *format-check*) echo ""; echo "Hint: run 'bun run format:changed' to apply Prettier to changed files, or 'bun run format' for the full tree." ;;
-  esac
+  musi_verify_print_failure_summary "PRE-COMMIT" "$ELAPSED" "$LOG_DIR" "$passed" "$failed"
   exit 1
 fi
 
-musi_write_wrapper_meta "$META_DIR/wrapper.json" parallel-precommit \
+musi_verify_persist_run_meta "$META_DIR" parallel-precommit \
   "$START_TS" "$START_TIME" "$END_TS" "$END_TIME" 0 "$0" \
-  "$META_HEAD" "$META_FP"
-musi_combine_run_meta "$LOG_DIR" parallel-precommit "$META_DIR/wrapper.json"
-musi_persist_run_meta_history "$LOG_DIR" "$HISTORY_DIR"
+  "$META_HEAD" "$META_FP" "$LOG_DIR" "$HISTORY_DIR"
 
 # --- 8. Success marker -----------------------------------------------------
-if ! musi_write_success_marker "$MARKER" \
-    "$(git rev-parse HEAD 2>/dev/null || echo none)" \
-    "$(ai_precommit_fingerprint "$REPO_ROOT")"; then
-  printf 'pre-commit: WARN: failed to write marker %s\n' "$MARKER" >&2
-fi
-
-if [ "$ELAPSED" -gt "$WARN_AFTER" ]; then
-  printf 'pre-commit: WARN: elapsed=%ds exceeds soft budget %ds (hard=%ds). Inspect: bun run verify:logs budget\n' \
-    "$ELAPSED" "$WARN_AFTER" "$TIMEOUT" >&2
-fi
-
-echo "pre-commit: OK (${ELAPSED}s) —$passed"
+musi_verify_finalize_success "pre-commit" "$MARKER" \
+  "$(git rev-parse HEAD 2>/dev/null || echo none)" \
+  "$(ai_precommit_fingerprint "$REPO_ROOT")" \
+  "$ELAPSED" "$WARN_AFTER" "$TIMEOUT" "$passed"

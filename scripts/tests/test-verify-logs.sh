@@ -33,11 +33,11 @@ mkdir -p "$PRECOMMIT_LOG_DIR" "$BUN_LOG_DIR"
 
 run_logs() {
   # The budget view reports ${MUSI_INTERACTIVE_TIMEOUT:-1200}; neutralize that var
-  # (and its MUSI_VERIFY_TIMEOUT back-compat alias) so the default-budget assertion
-  # is hermetic. Otherwise any ambient override leaks in — e.g. verify:async sets
+  # so the default-budget assertion is hermetic. Otherwise any ambient override
+  # leaks in — e.g. verify:async sets
   # MUSI_INTERACTIVE_TIMEOUT to its exec timeout, which would make this test report
   # that value instead of the default it is asserting.
-  env -u MUSI_INTERACTIVE_TIMEOUT -u MUSI_VERIFY_TIMEOUT \
+  env -u MUSI_INTERACTIVE_TIMEOUT \
     MUSI_VERIFY_LOG_DIR="$PRECOMMIT_LOG_DIR" \
     AI_BUN_LOG_DIR="$BUN_LOG_DIR" \
     MUSI_VERIFY_MARKER_FULL="$VERIFY_MARKER_FULL" \

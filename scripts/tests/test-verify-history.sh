@@ -11,6 +11,7 @@
 # smoke-subjects: scripts/tests/lib/test-git-env.sh
 # smoke-subjects: scripts/verify/steps.generated.sh
 # smoke-subjects: scripts/verify/steps-lib.sh
+# smoke-subjects: scripts/lib/verify-engine.sh
 # smoke-subjects: .husky/pre-commit
 # smoke-subjects: package.json
 # Pure-shell smoke tests for verify/pre-commit run-meta history persistence.
@@ -127,6 +128,7 @@ copy_precommit_fixture() {
   cp "$SCRIPT_DIR/../lib/verify-metadata.sh" "$target/scripts/lib/verify-metadata.sh"
   cp "$SCRIPT_DIR/../process-tree.sh" "$target/scripts/process-tree.sh"
   cp "$SCRIPT_DIR/../lib/parallel-step.sh" "$target/scripts/lib/parallel-step.sh"
+  cp "$SCRIPT_DIR/../lib/verify-engine.sh" "$target/scripts/lib/verify-engine.sh"
   cp "$SCRIPT_DIR/../lib/lint-dist-preflight.sh" "$target/scripts/lib/lint-dist-preflight.sh"
   cp "$SCRIPT_DIR/../ai-hooks/output-filter.sh" "$target/scripts/ai-hooks/output-filter.sh"
   cp "$SCRIPT_DIR/../verify/steps.generated.sh" "$SCRIPT_DIR/../verify/steps-lib.sh" \

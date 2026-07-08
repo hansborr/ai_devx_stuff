@@ -42,6 +42,8 @@ REPO_ROOT="${AI_BUN_REPO_ROOT:-$HOOK_REPO_ROOT}"
 . "$HOOK_LIB/cache.sh"
 # shellcheck source=/dev/null
 . "$HOOK_REPO_ROOT/scripts/process-tree.sh"
+# shellcheck source=/dev/null
+. "$HOOK_REPO_ROOT/scripts/ai-hooks/hook-timeouts.generated.sh"
 
 # Read the hook payload once — stdin is consumed on first read, and we need
 # both .tool_input.command and .tool_input.run_in_background.
@@ -162,12 +164,11 @@ ai_bun_write_active_process_state() {
 # one-off diagnostics.
 ai_bun_block_if_orphaned_child_active
 LOCK="${AI_BUN_LOCK:-$(musi_standard_bun_lock "$REPO_ROOT")}"
-# Must match hook/ai-bun-run-quiet's generated timeout in harness.controls.json.
-BUN_RUN_QUIET_HOOK_TIMEOUT=1260
+# Sourced from hook/ai-bun-run-quiet's generated harness timeout.
 BUN_RUN_QUIET_TIMEOUT_MARGIN=60
 TOTAL_TIMEOUT=$(ai_clamp_timeout_below_harness \
   "bun-run-quiet" \
-  "${AI_BUN_TIMEOUT:-${MUSI_VERIFY_TIMEOUT:-${MUSI_INTERACTIVE_TIMEOUT:-1200}}}" \
+  "${AI_BUN_TIMEOUT:-${MUSI_INTERACTIVE_TIMEOUT:-1200}}" \
   "$BUN_RUN_QUIET_HOOK_TIMEOUT" \
   "$BUN_RUN_QUIET_TIMEOUT_MARGIN")
 LOCK_WAIT="${AI_BUN_LOCK_WAIT:-$TOTAL_TIMEOUT}"

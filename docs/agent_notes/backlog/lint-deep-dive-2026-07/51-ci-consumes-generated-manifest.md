@@ -24,7 +24,7 @@ generated YAML surface.** The CI validate job invokes the existing full verify
 wrapper for the core gate, so lint, suppressions, ratchet, zero-baseline, debt
 accounting, knip, coverage-map, format, typecheck, test, and scripts all come
 from `scripts/verify/steps.generated.sh` / `harness.controls.json`. Sequential
-`verify` was chosen over `verify:parallel` because `docs/agent_notes/observed_flaky_tests.md`
+`verify` was chosen over `verify:parallel` because `docs/generated/observed_flaky_tests.md`
 records full-parallel load flakes; leaf 51 is about single-sourcing CI's slot
 list, not increasing CI parallelism. CI-only ratchet reporting, artifact upload,
 generated lint guidance, harness check, module index, and build steps remain

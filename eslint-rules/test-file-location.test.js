@@ -20,9 +20,9 @@ describe("test-file-location", () => {
           filename: "packages/client/src/foo.test.tsx",
           code: "test('works', () => {});",
         },
-        // Non-e2e .spec.ts files use the scripts test convention.
+        // Co-located script tests use the standard .test.ts convention.
         {
-          filename: "scripts/code-intel/overview-query.spec.ts",
+          filename: "scripts/code-intel/overview-query.test.ts",
           code: "describe('overview', () => { it('works', () => {}); });",
         },
         // Member-expression callees (.each, .skip, .only) count as test blocks.
@@ -50,7 +50,7 @@ describe("test-file-location", () => {
         },
         // .spec.ts also needs a feature prefix when it is a non-e2e test file.
         {
-          filename: "scripts/code-intel/.spec.ts",
+          filename: "scripts/example/.spec.ts",
           code: "it('works', () => {});",
           errors: [{ messageId: "wrongNaming" }],
         },
@@ -62,7 +62,7 @@ describe("test-file-location", () => {
         },
         // .spec.ts with only setup/teardown hooks — must flag missingTests.
         {
-          filename: "scripts/code-intel/setup.spec.ts",
+          filename: "scripts/example/setup.spec.ts",
           code: "beforeEach(() => {}); afterEach(() => {});",
           errors: [{ messageId: "missingTests" }],
         },

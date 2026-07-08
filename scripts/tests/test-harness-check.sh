@@ -4,6 +4,7 @@
 # smoke-subjects: scripts/harness/control-field-validation.ts
 # smoke-subjects: scripts/harness/harness-check-validation.ts
 # smoke-subjects: scripts/harness/hook-timeout-constants.ts
+# smoke-subjects: scripts/harness/generate-hook-timeout-constants.ts
 # smoke-subjects: scripts/harness/harness-paths.ts
 # smoke-subjects: scripts/harness/generate-hook-wiring.ts
 # smoke-subjects: scripts/harness/generate-verify-steps.ts
@@ -14,6 +15,7 @@
 # smoke-subjects: scripts/ai-hooks/check-wiring.sh
 # smoke-subjects: scripts/ai-hooks/bun-run-quiet.sh
 # smoke-subjects: scripts/ai-hooks/git-commit-quiet.sh
+# smoke-subjects: scripts/ai-hooks/hook-timeouts.generated.sh
 # smoke-subjects: scripts/verify/steps.generated.sh
 # smoke-subjects: scripts/verify/steps-lib.sh
 # smoke-subjects: scripts/harness/verify-step-schema.ts
@@ -71,12 +73,14 @@ copy_validator() {
     "$fixture_dir/scripts/path-policy" \
     "$fixture_dir/scripts/verify"
   cp eslint-config/shared-policy.js "$fixture_dir/eslint-config/shared-policy.js"
+  cp eslint-config/max-lines-exceptions.baseline.json "$fixture_dir/eslint-config/max-lines-exceptions.baseline.json"
   cp eslint-config/config-surfaces.js "$fixture_dir/eslint-config/config-surfaces.js"
   cp eslint-config/config-surface-manifest.json "$fixture_dir/eslint-config/config-surface-manifest.json"
   cp scripts/harness-check.ts "$fixture_dir/scripts/harness-check.ts"
   cp scripts/ai-hooks/check-wiring.sh "$fixture_dir/scripts/ai-hooks/check-wiring.sh"
   cp scripts/ai-hooks/bun-run-quiet.sh "$fixture_dir/scripts/ai-hooks/bun-run-quiet.sh"
   cp scripts/ai-hooks/git-commit-quiet.sh "$fixture_dir/scripts/ai-hooks/git-commit-quiet.sh"
+  cp scripts/ai-hooks/hook-timeouts.generated.sh "$fixture_dir/scripts/ai-hooks/hook-timeouts.generated.sh"
   cp .claude/hooks/bun-run-quiet.sh "$fixture_dir/.claude/hooks/bun-run-quiet.sh"
   cp .claude/hooks/git-commit-quiet.sh "$fixture_dir/.claude/hooks/git-commit-quiet.sh"
   cp scripts/harness/harness-check-validation.ts "$fixture_dir/scripts/harness/harness-check-validation.ts"
@@ -90,6 +94,8 @@ copy_validator() {
   cp scripts/harness/generate-harness-controls-validation.ts \
     "$fixture_dir/scripts/harness/generate-harness-controls-validation.ts"
   cp scripts/harness/generate-hook-wiring.ts "$fixture_dir/scripts/harness/generate-hook-wiring.ts"
+  cp scripts/harness/generate-hook-timeout-constants.ts \
+    "$fixture_dir/scripts/harness/generate-hook-timeout-constants.ts"
   cp scripts/harness/generate-verify-steps.ts "$fixture_dir/scripts/harness/generate-verify-steps.ts"
   cp scripts/generate-lint-guidance.ts "$fixture_dir/scripts/generate-lint-guidance.ts"
   cp scripts/harness/generate-config-surfaces.ts \
@@ -177,6 +183,8 @@ write_package_json() {
     "docs:lint-coverage-map:check": "bun scripts/lint-coverage-map-check.ts -- --check-eslint-reach",
     "harness:config-surfaces": "bun run scripts/harness/generate-config-surfaces.ts",
     "harness:config-surfaces:check": "bun run scripts/harness/generate-config-surfaces.ts -- --check",
+    "harness:hook-timeouts": "bun run scripts/harness/generate-hook-timeout-constants.ts",
+    "harness:hook-timeouts:check": "bun run scripts/harness/generate-hook-timeout-constants.ts -- --check",
     "format:check": "prettier --check .",
     "format:changed:check": "bash scripts/format-changed.sh --check",
     "verify": "bash scripts/verify.sh",
@@ -302,6 +310,16 @@ $FIXTURE_RATCHET_ENTRIES,
       "repairKind": "autofix",
       "source": "scripts/harness/generate-config-surfaces.ts",
       "invocation": "bun run harness:config-surfaces"
+    },
+    {
+      "id": "check/hook-timeout-constants-generator",
+      "kind": "check",
+      "category": "maintainability",
+      "principle": "Hook timeout constants generator fixture principle.",
+      "pairedGuide": "none",
+      "repairKind": "autofix",
+      "source": "scripts/harness/generate-hook-timeout-constants.ts",
+      "invocation": "bun run harness:hook-timeouts"
     },
     {
       "id": "verify-wrapper/verify",
@@ -453,6 +471,7 @@ write_valid_fixture() {
   write_valid_manifest "$fixture_dir"
   (cd "$fixture_dir" && bun run scripts/path-policy/generate-smoke-subjects.ts >/dev/null)
   (cd "$fixture_dir" && bun run scripts/harness/generate-verify-steps.ts >/dev/null)
+  (cd "$fixture_dir" && bun run scripts/harness/generate-hook-timeout-constants.ts >/dev/null)
   (cd "$fixture_dir" && bun run scripts/harness/generate-config-surfaces.ts >/dev/null)
   (cd "$fixture_dir" && bun run scripts/harness/generate-hook-wiring.ts >/dev/null)
   (cd "$fixture_dir" && bun run scripts/generate-lint-guidance.ts >/dev/null)
@@ -770,12 +789,13 @@ mutate_stale_verify_steps() {
   printf '# stale\n' >> "$fixture_dir/scripts/verify/steps.generated.sh"
 }
 
-mutate_missing_dynamic_resolver_binding() {
+mutate_stale_dynamic_resolver_dispatch() {
   local fixture_dir=$1
-  local steps_lib="$fixture_dir/scripts/verify/steps-lib.sh"
+  local generated_steps="$fixture_dir/scripts/verify/steps.generated.sh"
 
-  grep -v '^[[:space:]]*staged-script-classifier)' "$steps_lib" > "$steps_lib.tmp"
-  mv "$steps_lib.tmp" "$steps_lib"
+  grep -v "MUSI_VERIFY_DYNAMIC_RESOLVER_FUNC\\['staged-script-classifier'\\]" \
+    "$generated_steps" > "$generated_steps.tmp"
+  mv "$generated_steps.tmp" "$generated_steps"
 }
 
 mutate_stale_config_surfaces() {
@@ -833,7 +853,7 @@ SH
 
 mutate_bun_quiet_timeout_drift() {
   local fixture_dir=$1
-  local script="$fixture_dir/scripts/ai-hooks/bun-run-quiet.sh"
+  local script="$fixture_dir/scripts/ai-hooks/hook-timeouts.generated.sh"
 
   sed 's/^BUN_RUN_QUIET_HOOK_TIMEOUT=1260$/BUN_RUN_QUIET_HOOK_TIMEOUT=1300/' "$script" > "$script.tmp"
   mv "$script.tmp" "$script"
@@ -841,7 +861,7 @@ mutate_bun_quiet_timeout_drift() {
 
 mutate_git_commit_quiet_timeout_drift() {
   local fixture_dir=$1
-  local script="$fixture_dir/scripts/ai-hooks/git-commit-quiet.sh"
+  local script="$fixture_dir/scripts/ai-hooks/hook-timeouts.generated.sh"
 
   sed 's/^GIT_COMMIT_QUIET_HOOK_TIMEOUT=1260$/GIT_COMMIT_QUIET_HOOK_TIMEOUT=1300/' "$script" > "$script.tmp"
   mv "$script.tmp" "$script"
@@ -877,13 +897,13 @@ run_failure_checks() {
   run_failure_case "paired-guide-missing" "pairedGuide does not resolve" mutate_paired_guide_missing
   run_failure_case "missing-ratchet-control" "Next steps:" mutate_missing_ratchet_control
   run_failure_case "stale-verify-steps" "steps.generated.sh is out of date" mutate_stale_verify_steps
-  run_failure_case "missing-dynamic-resolver-binding" "dynamic resolver staged-script-classifier" mutate_missing_dynamic_resolver_binding
+  run_failure_case "stale-dynamic-resolver-dispatch" "steps.generated.sh is out of date" mutate_stale_dynamic_resolver_dispatch
   run_failure_case "stale-config-surfaces" "tsconfig.configs.json is out of date" mutate_stale_config_surfaces
   run_failure_case "stale-hook-wiring" "hooks.json" mutate_stale_hook_wiring
   run_failure_case "stale-copilot-hook-wiring" "copilot.json" mutate_stale_copilot_hook_wiring
   run_failure_case "missing-hook-body" "execs a missing body" mutate_missing_hook_body
-  run_failure_case "bun-quiet-timeout-drift" "BUN_RUN_QUIET_HOOK_TIMEOUT" mutate_bun_quiet_timeout_drift
-  run_failure_case "git-commit-quiet-timeout-drift" "GIT_COMMIT_QUIET_HOOK_TIMEOUT" mutate_git_commit_quiet_timeout_drift
+  run_failure_case "bun-quiet-timeout-drift" "hook-timeouts.generated.sh is out of date" mutate_bun_quiet_timeout_drift
+  run_failure_case "git-commit-quiet-timeout-drift" "hook-timeouts.generated.sh is out of date" mutate_git_commit_quiet_timeout_drift
   run_failure_case "stale-lint-guidance" "local-lint-rules.md is out of date" mutate_stale_lint_guidance
   run_failure_case "stale-harness-docs" "harness-controls.md is out of date" mutate_stale_harness_docs
   run_failure_case "stale-restricted-disable-rules" "ratchet-restricted-disable-rules.generated.js is out of date" mutate_stale_restricted_disable_rules
@@ -935,7 +955,8 @@ run_public_archive_boundary_check() {
   assert_archive_includes ".codex/hooks.json"
   assert_archive_includes ".codex/config.toml"
   assert_archive_includes ".codex/skills/ts-graph/SKILL.md"
-  assert_archive_includes "docs/agent_notes/lint-coverage-map.md"
+  assert_archive_includes "docs/generated/lint-coverage-map.md"
+  assert_archive_includes "docs/generated/observed_flaky_tests.md"
   assert_archive_excludes "docs/agent_notes/LOG.md"
 }
 

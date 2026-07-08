@@ -1,6 +1,8 @@
 # 17. Verify/env legacy retirements + db-status duplicate
 
-Status: Pending
+Status: Done — implemented 2026-07-07.
+Commits: `ea6d5fff` (`fix(harness): retire legacy verify timeout aliases`);
+`65819772` (`fix(harness): retire duplicate db status shell wrapper`).
 Size: S · Severity: low
 Source: 00-report.md Tier 3 (the verify/env-owned items; see
 01-promotion-map.md for where the rest of Tier 3 went)

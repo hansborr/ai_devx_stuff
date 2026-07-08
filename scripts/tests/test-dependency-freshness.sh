@@ -8,6 +8,7 @@
 # smoke-subjects: scripts/ai-hooks/output-filter.sh
 # smoke-subjects: scripts/verify/steps.generated.sh
 # smoke-subjects: scripts/verify/steps-lib.sh
+# smoke-subjects: scripts/lib/verify-engine.sh
 # smoke-subjects: .husky/pre-commit
 # smoke-subjects: scripts/tests/lib/test-git-env.sh
 # smoke-subjects: scripts/tests/test-dependency-freshness.sh
@@ -78,6 +79,7 @@ copy_precommit_fixture() {
   cp "$SCRIPT_DIR/../lib/gate-env.sh" "$target/scripts/lib/gate-env.sh"
   cp "$SCRIPT_DIR/../process-tree.sh" "$target/scripts/process-tree.sh"
   cp "$SCRIPT_DIR/../lib/parallel-step.sh" "$target/scripts/lib/parallel-step.sh"
+  cp "$SCRIPT_DIR/../lib/verify-engine.sh" "$target/scripts/lib/verify-engine.sh"
   cp "$SCRIPT_DIR/../lib/lint-dist-preflight.sh" "$target/scripts/lib/lint-dist-preflight.sh"
   cp "$SCRIPT_DIR/../ai-hooks/output-filter.sh" "$target/scripts/ai-hooks/output-filter.sh"
   cp "$SCRIPT_DIR/../../.husky/pre-commit" "$target/.husky/pre-commit"
@@ -199,6 +201,7 @@ cp "$SCRIPT_DIR/../lib/verify-metadata.sh" "$hook_repo/scripts/lib/verify-metada
 cp "$SCRIPT_DIR/../lib/gate-env.sh" "$hook_repo/scripts/lib/gate-env.sh"
 cp "$SCRIPT_DIR/../process-tree.sh" "$hook_repo/scripts/process-tree.sh"
 cp "$SCRIPT_DIR/../lib/parallel-step.sh" "$hook_repo/scripts/lib/parallel-step.sh"
+cp "$SCRIPT_DIR/../lib/verify-engine.sh" "$hook_repo/scripts/lib/verify-engine.sh"
 cp "$SCRIPT_DIR/../lib/lint-dist-preflight.sh" "$hook_repo/scripts/lib/lint-dist-preflight.sh"
 cp "$SCRIPT_DIR/../ai-hooks/output-filter.sh" "$hook_repo/scripts/ai-hooks/output-filter.sh"
 cp "$SCRIPT_DIR/../../.husky/pre-commit" "$hook_repo/.husky/pre-commit"
@@ -599,6 +602,7 @@ cp "$SCRIPT_DIR/../lib/verify-metadata.sh" "$gate_repo/scripts/lib/verify-metada
 cp "$SCRIPT_DIR/../lib/gate-env.sh" "$gate_repo/scripts/lib/gate-env.sh"
 cp "$SCRIPT_DIR/../process-tree.sh" "$gate_repo/scripts/process-tree.sh"
 cp "$SCRIPT_DIR/../lib/parallel-step.sh" "$gate_repo/scripts/lib/parallel-step.sh"
+cp "$SCRIPT_DIR/../lib/verify-engine.sh" "$gate_repo/scripts/lib/verify-engine.sh"
 cp "$SCRIPT_DIR/../lib/lint-dist-preflight.sh" "$gate_repo/scripts/lib/lint-dist-preflight.sh"
 cp "$SCRIPT_DIR/../ai-hooks/output-filter.sh" "$gate_repo/scripts/ai-hooks/output-filter.sh"
 cp "$SCRIPT_DIR/../../.husky/pre-commit" "$gate_repo/.husky/pre-commit"
@@ -653,6 +657,7 @@ cp "$SCRIPT_DIR/../lib/verify-metadata.sh" "$manifest_repo/scripts/lib/verify-me
 cp "$SCRIPT_DIR/../lib/gate-env.sh" "$manifest_repo/scripts/lib/gate-env.sh"
 cp "$SCRIPT_DIR/../process-tree.sh" "$manifest_repo/scripts/process-tree.sh"
 cp "$SCRIPT_DIR/../lib/parallel-step.sh" "$manifest_repo/scripts/lib/parallel-step.sh"
+cp "$SCRIPT_DIR/../lib/verify-engine.sh" "$manifest_repo/scripts/lib/verify-engine.sh"
 cp "$SCRIPT_DIR/../lib/lint-dist-preflight.sh" "$manifest_repo/scripts/lib/lint-dist-preflight.sh"
 cp "$SCRIPT_DIR/../ai-hooks/output-filter.sh" "$manifest_repo/scripts/ai-hooks/output-filter.sh"
 cp "$SCRIPT_DIR/../../.husky/pre-commit" "$manifest_repo/.husky/pre-commit"
@@ -694,6 +699,8 @@ chmod +x "$manifest_repo/bin/bun"
     || fail "manifest staged change did not run lint"
   grep -qF "stub bun run verify:steps:check" "$stub_log" \
     || fail "manifest staged change did not run verify steps freshness advisory"
+  grep -qF "stub bun run harness:hook-timeouts:check" "$stub_log" \
+    || fail "manifest staged change did not run hook timeout constants freshness advisory"
   grep -qF "stub bun run harness:wiring:check" "$stub_log" \
     || fail "manifest staged change did not run hook wiring freshness advisory"
   grep -qF "stub bun run docs:harness-controls:check" "$stub_log" \
@@ -849,6 +856,7 @@ cp "$SCRIPT_DIR/../lib/verify-metadata.sh" "$cache_repo/scripts/lib/verify-metad
 cp "$SCRIPT_DIR/../lib/gate-env.sh" "$cache_repo/scripts/lib/gate-env.sh"
 cp "$SCRIPT_DIR/../process-tree.sh" "$cache_repo/scripts/process-tree.sh"
 cp "$SCRIPT_DIR/../lib/parallel-step.sh" "$cache_repo/scripts/lib/parallel-step.sh"
+cp "$SCRIPT_DIR/../lib/verify-engine.sh" "$cache_repo/scripts/lib/verify-engine.sh"
 cp "$SCRIPT_DIR/../lib/lint-dist-preflight.sh" "$cache_repo/scripts/lib/lint-dist-preflight.sh"
 cp "$SCRIPT_DIR/../ai-hooks/output-filter.sh" "$cache_repo/scripts/ai-hooks/output-filter.sh"
 cp "$SCRIPT_DIR/../../.husky/pre-commit" "$cache_repo/.husky/pre-commit"
@@ -1145,7 +1153,7 @@ ok "pre-commit bridge fails closed for stale malformed mismatched and FORCE mark
     PATH="$hook_repo/bin:$PATH" \
     STUB_LOG="$stub_log" \
     STUB_SLEEP_LINT_CHANGED=10 \
-    MUSI_VERIFY_TIMEOUT=2 \
+    MUSI_INTERACTIVE_TIMEOUT=2 \
     MUSI_PRECOMMIT_MARKER="$marker" \
     MUSI_VERIFY_LOCK="$hook_repo/precommit-lock-timeout" \
     MUSI_VERIFY_LOG_DIR="$log_dir" \
@@ -1243,6 +1251,7 @@ cp "$SCRIPT_DIR/../lib/verify-metadata.sh" "$hook_only_repo/scripts/lib/verify-m
 cp "$SCRIPT_DIR/../lib/gate-env.sh" "$hook_only_repo/scripts/lib/gate-env.sh"
 cp "$SCRIPT_DIR/../process-tree.sh" "$hook_only_repo/scripts/process-tree.sh"
 cp "$SCRIPT_DIR/../lib/parallel-step.sh" "$hook_only_repo/scripts/lib/parallel-step.sh"
+cp "$SCRIPT_DIR/../lib/verify-engine.sh" "$hook_only_repo/scripts/lib/verify-engine.sh"
 cp "$SCRIPT_DIR/../lib/lint-dist-preflight.sh" "$hook_only_repo/scripts/lib/lint-dist-preflight.sh"
 cp "$SCRIPT_DIR/../ai-hooks/output-filter.sh" "$hook_only_repo/scripts/ai-hooks/output-filter.sh"
 cp "$SCRIPT_DIR/../../.husky/pre-commit" "$hook_only_repo/.husky/pre-commit"

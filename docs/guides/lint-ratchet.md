@@ -203,7 +203,7 @@ protects the files named by that one rule's `files` and `ignores`; it does not
 prove that every maintained file family has a lint owner. The map records that
 broader boundary in a committed Markdown table derived from `git ls-files`,
 normal ESLint reach, and the current ratchet registry. Musi's current map lives
-at `docs/agent_notes/lint-coverage-map.md`.
+at `docs/generated/lint-coverage-map.md`.
 
 `bun run docs:lint-coverage-map:check` validates map drift rather than style
 (it mirrors the committing gate's behaviour — no ESLint-reach probe; see the

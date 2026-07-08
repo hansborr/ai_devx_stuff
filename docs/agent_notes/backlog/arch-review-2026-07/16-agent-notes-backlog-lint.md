@@ -1,6 +1,8 @@
 # 16. agent_notes: light tooling, not a database
 
-Status: Pending
+Status: Done — implemented 2026-07-07.
+Commits: `94fec547` (`feat(backlog): add advisory metadata lint`);
+`7c136aad` (`chore(docs): move generated notes out of agent tree`).
 Size: S-M · Severity: low-med
 Source: 00-report.md T7 / B4
 

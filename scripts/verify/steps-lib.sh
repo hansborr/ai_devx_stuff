@@ -18,6 +18,10 @@ if ! declare -p MUSI_VERIFY_CONSUMERS >/dev/null 2>&1; then
   printf 'verify steps: generated consumer list is missing; source steps.generated.sh before steps-lib.sh\n' >&2
   return 2 2>/dev/null || exit 2
 fi
+if ! declare -p MUSI_VERIFY_DYNAMIC_RESOLVER_FUNC >/dev/null 2>&1; then
+  printf 'verify steps: generated dynamic resolver map is missing; source steps.generated.sh before steps-lib.sh\n' >&2
+  return 2 2>/dev/null || exit 2
+fi
 
 musi_verify_has_pre_commit_consumer=0
 for musi_verify_consumer in "${MUSI_VERIFY_CONSUMERS[@]}"; do
@@ -132,7 +136,7 @@ musi_resolve_slot_cmd() {
     return 2
   fi
 
-  local consumer="$1" slot="$2" key dynamic
+  local consumer="$1" slot="$2" key dynamic resolver_func
 
   key="$consumer:$slot"
 
@@ -150,23 +154,22 @@ musi_resolve_slot_cmd() {
   fi
 
   dynamic="${MUSI_VERIFY_SLOT_DYNAMIC[$key]:-}"
-  # Keep these literal arms in sync with VERIFY_STEP_DYNAMIC_RESOLVERS in
-  # scripts/harness/verify-step-schema.ts; harness:check enforces the binding.
-  case "$dynamic" in
-    "")
-      musi_resolve_base_slot_cmd "$consumer" "$slot"
-      ;;
-    precommit-test-timings)
-      musi_resolve_precommit_test_timing_cmd "$consumer" "$slot"
-      ;;
-    staged-script-classifier)
-      musi_resolve_staged_script_cmd "$consumer" "$slot"
-      ;;
-    *)
-      printf 'verify steps: unknown dynamic resolver %s for %s\n' "$dynamic" "$key" >&2
-      return 2
-      ;;
-  esac
+  if [ -z "$dynamic" ]; then
+    musi_resolve_base_slot_cmd "$consumer" "$slot"
+    return $?
+  fi
+
+  resolver_func="${MUSI_VERIFY_DYNAMIC_RESOLVER_FUNC[$dynamic]:-}"
+  if [ -z "$resolver_func" ]; then
+    printf 'verify steps: unknown dynamic resolver %s for %s\n' "$dynamic" "$key" >&2
+    return 2
+  fi
+  if ! declare -F "$resolver_func" >/dev/null 2>&1; then
+    printf 'verify steps: generated dynamic resolver function is missing: %s\n' "$resolver_func" >&2
+    musi_verify_steps_print_regen_guidance
+    return 2
+  fi
+  "$resolver_func" "$consumer" "$slot"
 }
 
 musi_parallel_display_label() {

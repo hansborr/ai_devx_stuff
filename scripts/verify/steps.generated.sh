@@ -9,13 +9,14 @@
 : "${TIMINGS_FILE:?scripts/verify/steps.generated.sh requires TIMINGS_FILE}"
 
 declare -ga MUSI_VERIFY_CONSUMERS=('verify' 'verify_changed' 'verify_parallel' 'pre_commit')
-declare -ga MUSI_VERIFY_STEPS=('lint' 'suppressions' 'ratchet' 'zero-baseline' 'debt-accounting' 'knip-unused-exports' 'coverage-map' 'format-check' 'typecheck' 'test' 'scripts')
-declare -ga MUSI_VERIFY_CHANGED_STEPS=('lint' 'suppressions' 'ratchet' 'zero-baseline' 'debt-accounting' 'knip-unused-exports' 'coverage-map' 'format-check' 'typecheck' 'test' 'scripts')
-declare -ga MUSI_VERIFY_PARALLEL_STEPS=('lint' 'suppressions' 'ratchet' 'zero-baseline' 'debt-accounting' 'knip-unused-exports' 'coverage-map' 'format-check' 'typecheck' 'test' 'scripts')
-declare -ga MUSI_PRE_COMMIT_STEPS=('lint' 'suppressions' 'ratchet' 'zero-baseline' 'debt-accounting' 'knip-unused-exports' 'coverage-map' 'format-check' 'typecheck' 'test' 'scripts')
+declare -ga MUSI_VERIFY_STEPS=('lint' 'suppressions' 'ratchet' 'zero-baseline' 'debt-accounting' 'knip-unused-exports' 'max-lines-exceptions' 'coverage-map' 'format-check' 'typecheck' 'test' 'scripts')
+declare -ga MUSI_VERIFY_CHANGED_STEPS=('lint' 'suppressions' 'ratchet' 'zero-baseline' 'debt-accounting' 'knip-unused-exports' 'max-lines-exceptions' 'coverage-map' 'format-check' 'typecheck' 'test' 'scripts')
+declare -ga MUSI_VERIFY_PARALLEL_STEPS=('lint' 'suppressions' 'ratchet' 'zero-baseline' 'debt-accounting' 'knip-unused-exports' 'max-lines-exceptions' 'coverage-map' 'format-check' 'typecheck' 'test' 'scripts')
+declare -ga MUSI_PRE_COMMIT_STEPS=('lint' 'suppressions' 'ratchet' 'zero-baseline' 'debt-accounting' 'knip-unused-exports' 'max-lines-exceptions' 'coverage-map' 'format-check' 'typecheck' 'test' 'scripts')
 
 declare -gA MUSI_VERIFY_SLOT_CMD_VAR=()
 declare -gA MUSI_VERIFY_SLOT_DYNAMIC=()
+declare -gA MUSI_VERIFY_DYNAMIC_RESOLVER_FUNC=()
 
 MUSI_VERIFY_LINT_CMD=('bun' 'run' 'lint')
 MUSI_VERIFY_SLOT_CMD_VAR['verify:lint']='MUSI_VERIFY_LINT_CMD'
@@ -34,6 +35,9 @@ MUSI_VERIFY_SLOT_CMD_VAR['verify:debt-accounting']='MUSI_VERIFY_DEBT_ACCOUNTING_
 
 MUSI_VERIFY_KNIP_UNUSED_EXPORTS_CMD=('bun' 'run' 'sensor:knip-unused-exports')
 MUSI_VERIFY_SLOT_CMD_VAR['verify:knip-unused-exports']='MUSI_VERIFY_KNIP_UNUSED_EXPORTS_CMD'
+
+MUSI_VERIFY_MAX_LINES_EXCEPTIONS_CMD=('bun' 'run' 'lint:max-lines-exceptions')
+MUSI_VERIFY_SLOT_CMD_VAR['verify:max-lines-exceptions']='MUSI_VERIFY_MAX_LINES_EXCEPTIONS_CMD'
 
 MUSI_VERIFY_COVERAGE_MAP_CMD=('bun' 'run' 'docs:lint-coverage-map:audit')
 MUSI_VERIFY_SLOT_CMD_VAR['verify:coverage-map']='MUSI_VERIFY_COVERAGE_MAP_CMD'
@@ -67,6 +71,9 @@ MUSI_VERIFY_SLOT_CMD_VAR['verify_changed:debt-accounting']='MUSI_VERIFY_CHANGED_
 
 MUSI_VERIFY_CHANGED_KNIP_UNUSED_EXPORTS_CMD=('bun' 'run' 'sensor:knip-unused-exports')
 MUSI_VERIFY_SLOT_CMD_VAR['verify_changed:knip-unused-exports']='MUSI_VERIFY_CHANGED_KNIP_UNUSED_EXPORTS_CMD'
+
+MUSI_VERIFY_CHANGED_MAX_LINES_EXCEPTIONS_CMD=('bun' 'run' 'lint:max-lines-exceptions')
+MUSI_VERIFY_SLOT_CMD_VAR['verify_changed:max-lines-exceptions']='MUSI_VERIFY_CHANGED_MAX_LINES_EXCEPTIONS_CMD'
 
 MUSI_VERIFY_CHANGED_COVERAGE_MAP_CMD=('bun' 'run' 'docs:lint-coverage-map:check' '--' '--staged')
 MUSI_VERIFY_SLOT_CMD_VAR['verify_changed:coverage-map']='MUSI_VERIFY_CHANGED_COVERAGE_MAP_CMD'
@@ -102,6 +109,9 @@ MUSI_VERIFY_SLOT_CMD_VAR['verify_parallel:debt-accounting']='MUSI_VERIFY_PARALLE
 MUSI_VERIFY_PARALLEL_KNIP_UNUSED_EXPORTS_CMD=('bun' 'run' 'sensor:knip-unused-exports')
 MUSI_VERIFY_SLOT_CMD_VAR['verify_parallel:knip-unused-exports']='MUSI_VERIFY_PARALLEL_KNIP_UNUSED_EXPORTS_CMD'
 
+MUSI_VERIFY_PARALLEL_MAX_LINES_EXCEPTIONS_CMD=('bun' 'run' 'lint:max-lines-exceptions')
+MUSI_VERIFY_SLOT_CMD_VAR['verify_parallel:max-lines-exceptions']='MUSI_VERIFY_PARALLEL_MAX_LINES_EXCEPTIONS_CMD'
+
 MUSI_VERIFY_PARALLEL_COVERAGE_MAP_CMD=('bun' 'run' 'docs:lint-coverage-map:audit')
 MUSI_VERIFY_SLOT_CMD_VAR['verify_parallel:coverage-map']='MUSI_VERIFY_PARALLEL_COVERAGE_MAP_CMD'
 
@@ -135,6 +145,9 @@ MUSI_VERIFY_SLOT_CMD_VAR['pre_commit:debt-accounting']='MUSI_PRE_COMMIT_DEBT_ACC
 MUSI_PRE_COMMIT_KNIP_UNUSED_EXPORTS_CMD=('bun' 'run' 'sensor:knip-unused-exports')
 MUSI_VERIFY_SLOT_CMD_VAR['pre_commit:knip-unused-exports']='MUSI_PRE_COMMIT_KNIP_UNUSED_EXPORTS_CMD'
 
+MUSI_PRE_COMMIT_MAX_LINES_EXCEPTIONS_CMD=('bun' 'run' 'lint:max-lines-exceptions')
+MUSI_VERIFY_SLOT_CMD_VAR['pre_commit:max-lines-exceptions']='MUSI_PRE_COMMIT_MAX_LINES_EXCEPTIONS_CMD'
+
 MUSI_PRE_COMMIT_COVERAGE_MAP_CMD=('bun' 'run' 'docs:lint-coverage-map:check' '--' '--staged')
 MUSI_VERIFY_SLOT_CMD_VAR['pre_commit:coverage-map']='MUSI_PRE_COMMIT_COVERAGE_MAP_CMD'
 
@@ -151,3 +164,6 @@ MUSI_VERIFY_SLOT_DYNAMIC['pre_commit:test']='precommit-test-timings'
 MUSI_PRE_COMMIT_SCRIPTS_CMD=('bun' 'run' 'test:scripts:changed')
 MUSI_VERIFY_SLOT_CMD_VAR['pre_commit:scripts']='MUSI_PRE_COMMIT_SCRIPTS_CMD'
 MUSI_VERIFY_SLOT_DYNAMIC['pre_commit:scripts']='staged-script-classifier'
+
+MUSI_VERIFY_DYNAMIC_RESOLVER_FUNC['precommit-test-timings']='musi_resolve_precommit_test_timing_cmd'
+MUSI_VERIFY_DYNAMIC_RESOLVER_FUNC['staged-script-classifier']='musi_resolve_staged_script_cmd'

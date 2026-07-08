@@ -17,7 +17,7 @@ all.
 
 ## Evidence
 - `eslint-config/shared-policy.js:6-32` — the hand lists. Verified 2026-07-04.
-- `eslint-config/config-file-configs.js:37-50` — consumption; `tsconfig.configs.json:14-27` — parallel include list; `docs/agent_notes/lint-coverage-map.md:392-398` — parallel rows.
+- `eslint-config/config-file-configs.js:37-50` — consumption; `tsconfig.configs.json:14-27` — parallel include list; `docs/generated/lint-coverage-map.md:392-398` — parallel rows.
 - Verification agent 2026-07-04: no checker relates the three.
 
 ## Proposed direction

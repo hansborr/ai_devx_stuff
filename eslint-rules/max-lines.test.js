@@ -38,7 +38,7 @@ describe("max-lines", () => {
           errors: [
             {
               message:
-                "Why: This file has 3 effective lines, above the 2 line limit, which makes future edits harder to localize. How to fix: Split the module into focused components, helpers, or types when that makes the code clearer. Do not compress lines or inline useful helpers just to satisfy the metric. If it should stay larger for now, do not use eslint-disable; add or adjust maxLinesPolicy.exceptions for this exact file with a modest max and a reason.",
+                "Why: This file has 3 effective lines, above the 2 line limit, which makes future edits harder to localize. How to fix: Split the module into focused components, helpers, or types when that makes the code clearer. Do not compress lines or inline useful helpers just to satisfy the metric. If it should stay larger, do not eslint-disable; add this file's entry to eslint-config/max-lines-exceptions.baseline.json (cap, reason, lifecycle) and run `bun run lint:max-lines-exceptions:update`.",
             },
           ],
         },

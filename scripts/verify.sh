@@ -67,6 +67,8 @@ cd "$REPO_ROOT" || exit 1
 . "$REPO_ROOT/scripts/lib/parallel-step.sh"
 # shellcheck source=/dev/null
 . "$REPO_ROOT/scripts/lib/lint-dist-preflight.sh"
+# shellcheck source=/dev/null
+. "$REPO_ROOT/scripts/lib/verify-engine.sh"
 
 LOCK="${MUSI_VERIFY_LOCK:-$(musi_standard_verify_lock "$REPO_ROOT")}"
 LOG_DIR="${MUSI_VERIFY_LOG_DIR:-$(musi_standard_verify_log_dir "$REPO_ROOT")}"
@@ -85,7 +87,7 @@ TIMINGS_FILE="$LOG_DIR/test-timings.json"
 # shellcheck source=/dev/null
 . "$REPO_ROOT/scripts/verify/steps-lib.sh"
 META_DIR="$LOG_DIR/meta"
-INTERACTIVE_TIMEOUT="${MUSI_VERIFY_TIMEOUT:-${MUSI_INTERACTIVE_TIMEOUT:-1200}}"
+INTERACTIVE_TIMEOUT="${MUSI_INTERACTIVE_TIMEOUT:-1200}"
 WARN_AFTER="${MUSI_INTERACTIVE_WARN_AFTER:-1080}"
 case "$MODE" in
   changed)
@@ -177,24 +179,12 @@ fi
 # Mirrors pre-commit. Changed-mode verification runs its gate checks in
 # parallel while the default watchdog still bounds the full run. The wrapper
 # cuts the run on overrun and prints log paths plus a
-# `verify:logs budget` pointer. `MUSI_VERIFY_TIMEOUT` stays as a back-compat
-# override so existing tests / overrides keep working; new callers should
-# prefer `MUSI_INTERACTIVE_TIMEOUT` and `MUSI_INTERACTIVE_WARN_AFTER`.
+# `verify:logs budget` pointer. Callers should tune the hard and soft budgets
+# with `MUSI_INTERACTIVE_TIMEOUT` and `MUSI_INTERACTIVE_WARN_AFTER`.
 TIMEOUT="$EXEC_TIMEOUT"
 HOOK_PID=$$
-(
-  # Close FD 9 so the sleep child does not inherit the flock — otherwise a
-  # killed watchdog can orphan the lock.
-  exec 9<&-
-  SLEEP_PID=""
-  trap '[ -n "$SLEEP_PID" ] && kill "$SLEEP_PID" 2>/dev/null; exit 0' TERM INT
-  sleep "$TIMEOUT" &
-  SLEEP_PID=$!
-  wait "$SLEEP_PID"
-  printf '\n=== %s TIMED OUT (%ds) ===\n' "$LABEL" "$TIMEOUT" >&2
-  kill -TERM "$HOOK_PID" 2>/dev/null
-) &
-WD=$!
+musi_verify_start_watchdog "$LABEL" "$TIMEOUT" "$HOOK_PID"
+WD="$MUSI_VERIFY_WATCHDOG_PID"
 
 CURRENT_PID=""
 PARALLEL_PIDS=()
@@ -212,24 +202,13 @@ cleanup_children() {
   done
   kill "$WD" 2>/dev/null
 }
-report_timeout_budget() {
-  printf 'Timed out and stopped the verification process tree.\n' >&2
-  printf 'For deliberate long verification, use bun run verify:async[:changed] and check bun run verify:async:status.\n' >&2
-  printf 'logs: %s\n' "$LOG_DIR" >&2
-  printf 'inspect: bun run verify:logs budget\n' >&2
-}
 write_signal_wrapper_meta() {
-  local exit_code="$1" end_ts end_time
-  end_ts=$(date +%s)
-  end_time=$(date -Iseconds)
-  musi_write_wrapper_meta "$META_DIR/wrapper.json" "$META_MODE" \
-    "${START_TS:-$end_ts}" "${START_TIME:-$end_time}" "$end_ts" "$end_time" "$exit_code" "$WRAPPER_COMMAND" \
-    "$CUR_HEAD" "$CUR_HASH"
-  musi_combine_run_meta "$LOG_DIR" "$META_MODE" "$META_DIR/wrapper.json"
-  musi_persist_run_meta_history "$LOG_DIR" "$HISTORY_DIR"
+  musi_verify_write_signal_meta "$1" "$META_DIR" "$META_MODE" \
+    "${START_TS:-}" "${START_TIME:-}" "$WRAPPER_COMMAND" "$CUR_HEAD" "$CUR_HASH" \
+    "$LOG_DIR" "$HISTORY_DIR"
 }
 trap 'cleanup_children; write_signal_wrapper_meta 130; exit 130' INT
-trap 'cleanup_children; write_signal_wrapper_meta 124; report_timeout_budget; exit 124' TERM
+trap 'cleanup_children; write_signal_wrapper_meta 124; musi_verify_report_timeout_budget "$LOG_DIR"; exit 124' TERM
 trap 'kill "$WD" 2>/dev/null' EXIT
 
 # --- 4. Sequential runs ----------------------------------------------------
@@ -332,45 +311,17 @@ END_TS=$(date +%s)
 END_TIME=$(date -Iseconds)
 
 if [ -n "$failed" ]; then
-  musi_write_wrapper_meta "$META_DIR/wrapper.json" "$META_MODE" \
+  musi_verify_persist_run_meta "$META_DIR" "$META_MODE" \
     "$START_TS" "$START_TIME" "$END_TS" "$END_TIME" 1 "$WRAPPER_COMMAND" \
-    "$CUR_HEAD" "$CUR_HASH"
-  musi_combine_run_meta "$LOG_DIR" "$META_MODE" "$META_DIR/wrapper.json"
-  musi_persist_run_meta_history "$LOG_DIR" "$HISTORY_DIR"
-  printf '\n=== %s FAILED (%ds) ===\n' "$LABEL" "$ELAPSED"
-  printf 'Passed:%s\n' "$passed"
-  printf 'Failed:%s\n' "$failed"
-  for task in $failed; do
-    printf '\n--- %s (full log: %s/%s.log) ---\n' "$task" "$LOG_DIR" "$task"
-    if [ "$task" = ratchet ]; then
-      ai_ratchet_failure_excerpt "$LOG_DIR/ratchet-diagnostics.json" "$LOG_DIR/${task}.log" 30
-    else
-      ai_filtered_task_log_excerpt "$task" "$LOG_DIR/${task}.log" 30
-    fi
-  done
-  case "$failed" in
-    *lint*) printf "\nHint: try 'bun run lint:fix' to auto-fix formatting issues.\n" ;;
-  esac
-  case "$failed" in
-    *format-check*) printf "\nHint: run 'bun run format:changed' to apply Prettier to changed files, or 'bun run format' for the full tree.\n" ;;
-  esac
+    "$CUR_HEAD" "$CUR_HASH" "$LOG_DIR" "$HISTORY_DIR"
+  musi_verify_print_failure_summary "$LABEL" "$ELAPSED" "$LOG_DIR" "$passed" "$failed"
   exit 1
 fi
 
-musi_write_wrapper_meta "$META_DIR/wrapper.json" "$META_MODE" \
+musi_verify_persist_run_meta "$META_DIR" "$META_MODE" \
   "$START_TS" "$START_TIME" "$END_TS" "$END_TIME" 0 "$WRAPPER_COMMAND" \
-  "$CUR_HEAD" "$CUR_HASH"
-musi_combine_run_meta "$LOG_DIR" "$META_MODE" "$META_DIR/wrapper.json"
-musi_persist_run_meta_history "$LOG_DIR" "$HISTORY_DIR"
+  "$CUR_HEAD" "$CUR_HASH" "$LOG_DIR" "$HISTORY_DIR"
 
 # --- 5. Success marker (same format as pre-commit's) -----------------------
-if ! musi_write_success_marker "$MARKER" "$CUR_HEAD" "$CUR_HASH"; then
-  printf '%s: WARN: failed to write marker %s\n' "$LABEL" "$MARKER" >&2
-fi
-
-if [ "$ELAPSED" -gt "$WARN_AFTER" ]; then
-  printf '%s: WARN: elapsed=%ds exceeds soft budget %ds (hard=%ds). Inspect: bun run verify:logs budget\n' \
-    "$LABEL" "$ELAPSED" "$WARN_AFTER" "$INTERACTIVE_TIMEOUT" >&2
-fi
-
-printf '%s: OK (%ds) —%s\n' "$LABEL" "$ELAPSED" "$passed"
+musi_verify_finalize_success "$LABEL" "$MARKER" "$CUR_HEAD" "$CUR_HASH" \
+  "$ELAPSED" "$WARN_AFTER" "$INTERACTIVE_TIMEOUT" "$passed"

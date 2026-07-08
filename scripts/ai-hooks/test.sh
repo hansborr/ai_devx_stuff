@@ -184,7 +184,9 @@ docs:lint-guidance
 doctor
 e2e:debug
 e2e:ui
+harness:hook-timeouts
 harness:wiring
+lint:max-lines-exceptions:update
 lint:ratchet:update
 lint:ratchet:zero-baseline
 module:index
@@ -601,6 +603,7 @@ assert_policy_allows_each \
 
 assert_policy_blocks_contains "printf '%s\n' x > bun.lock" "Protected lockfile"
 assert_policy_blocks_contains "printf '%s\n' x >> scripts/verify/steps.generated.sh" "Protected generated file"
+assert_policy_blocks_contains "printf '%s\n' x >> scripts/ai-hooks/hook-timeouts.generated.sh" "Protected generated file"
 assert_policy_blocks_contains "echo x>bun.lock" "Protected lockfile"
 assert_policy_blocks_contains "echo x>>bun.lock" "Protected lockfile"
 assert_policy_blocks_contains "cat evil>bun.lock" "Protected lockfile"
@@ -617,6 +620,7 @@ assert_policy_allows_each \
   "cat bun.lock" \
   "cp bun.lock /tmp/bun.lock.copy" \
   "sed -n '1p' scripts/verify/steps.generated.sh" \
+  "sed -n '1p' scripts/ai-hooks/hook-timeouts.generated.sh" \
   "rg 'harness' docs/generated/harness-controls.md" \
   "printf '%s\n' x > packages/server/src/main.ts" \
   "sed -i 's/a/b/' packages/server/src/main.ts" \
@@ -930,6 +934,10 @@ assert_protected_file_deny_entry \
   "generated-verify-steps" \
   "bun run verify:steps"
 assert_protected_file_deny_entry \
+  "$REPO_ROOT/scripts/ai-hooks/hook-timeouts.generated.sh" \
+  "generated-hook-timeouts" \
+  "bun run harness:hook-timeouts"
+assert_protected_file_deny_entry \
   "$REPO_ROOT/bun.lock" \
   "lockfile" \
   "bun install"
@@ -1047,6 +1055,9 @@ assert_protected_files_deny \
 assert_protected_files_deny \
   "$REPO_ROOT/scripts/verify/steps.generated.sh" \
   "bun run verify:steps"
+assert_protected_files_deny \
+  "$REPO_ROOT/scripts/ai-hooks/hook-timeouts.generated.sh" \
+  "bun run harness:hook-timeouts"
 assert_protected_files_deny \
   "$REPO_ROOT/bun.lock" \
   "bun install"
@@ -1353,6 +1364,7 @@ assert_wrapped_bun "bun run verify:slow"
 assert_wrapped_bun "bun run verify:parallel"
 assert_wrapped_bun "bun run verify:logs budget"
 assert_wrapped_bun "bun run verify:steps:check"
+assert_wrapped_bun "bun run harness:hook-timeouts:check"
 assert_wrapped_bun "bun run verify:async:status"
 assert_wrapped_bun "bun run verify:async:tail"
 assert_wrapped_bun "bun run verify:async:stop"
@@ -1362,6 +1374,7 @@ assert_unwrapped_bun "bun run db:status"
 assert_unwrapped_bun "bun run test:watch"
 assert_unwrapped_bun "bun run test:mutation"
 assert_unwrapped_bun "bun run docs:harness-controls"
+assert_unwrapped_bun "bun run harness:hook-timeouts"
 assert_unwrapped_bun "bun run verify:steps"
 assert_unwrapped_bun "bun run test:changed && echo next"
 assert_unwrapped_bun "bun run verify:async"
@@ -2127,7 +2140,7 @@ assert_failure_guidance_payload_silent \
 FLAKY_FAILURE=$'packages/server/src/routers/srd.test.ts:428\nexpected subclasses to have length 12'
 assert_failure_guidance_payload_contains \
   "$(failure_guidance_stderr_payload "bun run test:changed --reporter=dot" "$TERSE_FAILURE" "$FLAKY_FAILURE")" \
-  "docs/agent_notes/observed_flaky_tests.md"
+  "docs/generated/observed_flaky_tests.md"
 assert_failure_guidance_payload_silent \
   "$(failure_guidance_stderr_payload "bun run test -- packages/server/src/routers/new-feature.test.ts" "$TERSE_FAILURE" "packages/server/src/routers/new-feature.test.ts failed deterministically")"
 

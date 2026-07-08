@@ -1,6 +1,26 @@
 /* Quick DB diagnostics. Run via: bun run db:status */
-import { prisma } from "../packages/server/src/prisma/client.js";
+import { spawnSync } from "node:child_process";
+import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
+import { dirname, isAbsolute, join, resolve } from "node:path";
+
+import type { prisma as prismaSingleton } from "../packages/server/src/prisma/client.js";
 import { DEFAULT_TEST_DATABASE_NAME } from "../packages/server/src/test/test-database-url.js";
+
+type PrismaSingleton = typeof prismaSingleton;
+
+const MIGRATION_STATUS_TAIL_LINES = 10;
+const MIGRATION_UNCLEAR_TAIL_LINES = 5;
+
+type RepoContext = {
+  repoRoot: string;
+  primaryRoot: string;
+  worktreeLabel: "primary" | "secondary";
+};
+
+type CommandResult = {
+  status: number;
+  output: string;
+};
 
 function maskUrl(raw: string | undefined): string {
   if (!raw) return "<unset>";
@@ -74,12 +94,136 @@ function resolveE2eDatabase(
   };
 }
 
+function commandOutput(command: string, args: readonly string[], cwd?: string): CommandResult {
+  const result = spawnSync(command, [...args], {
+    cwd,
+    encoding: "utf8",
+  });
+
+  return {
+    status: result.status ?? 1,
+    output: `${result.stdout}${result.stderr}`,
+  };
+}
+
+function gitOutput(args: readonly string[], cwd?: string): string {
+  const result = commandOutput("git", args, cwd);
+  if (result.status !== 0) {
+    throw new Error(result.output.trim() || `git ${args.join(" ")} failed`);
+  }
+  return result.output.trim();
+}
+
+function resolveGitPath(repoRoot: string, path: string): string {
+  return isAbsolute(path) ? path : resolve(repoRoot, path);
+}
+
+function repoContext(): RepoContext {
+  const repoRoot = realpathSync(gitOutput(["rev-parse", "--show-toplevel"]));
+  const gitCommonDir = realpathSync(
+    resolveGitPath(repoRoot, gitOutput(["rev-parse", "--git-common-dir"])),
+  );
+  const gitDir = realpathSync(resolveGitPath(repoRoot, gitOutput(["rev-parse", "--git-dir"])));
+  return {
+    repoRoot,
+    primaryRoot: realpathSync(dirname(gitCommonDir)),
+    worktreeLabel: gitCommonDir === gitDir ? "primary" : "secondary",
+  };
+}
+
+function unquoteEnvValue(value: string): string {
+  if (
+    (value.startsWith('"') && value.endsWith('"')) ||
+    (value.startsWith("'") && value.endsWith("'"))
+  ) {
+    return value.slice(1, -1);
+  }
+  return value;
+}
+
+function loadEnvFile(path: string): void {
+  if (!existsSync(path)) return;
+  for (const rawLine of readFileSync(path, "utf8").split(/\n/u)) {
+    const line = rawLine.trim().replace(/\r$/u, "");
+    if (!line || line.startsWith("#")) continue;
+    const assignment = line.startsWith("export ") ? line.slice("export ".length).trim() : line;
+    const separator = assignment.indexOf("=");
+    if (separator <= 0) continue;
+    const key = assignment.slice(0, separator).trim();
+    if (!/^[A-Za-z_]\w*$/u.test(key)) continue;
+    process.env[key] = unquoteEnvValue(assignment.slice(separator + 1).trim());
+  }
+}
+
+function loadWorktreeEnv(context: RepoContext): void {
+  for (const envFile of [
+    join(context.primaryRoot, ".devcontainer/.env"),
+    join(context.repoRoot, ".env"),
+    join(context.repoRoot, "packages/client/.env"),
+  ]) {
+    loadEnvFile(envFile);
+  }
+}
+
+function reportWorktreeContext(context: RepoContext): void {
+  console.log(`INFO: worktree=${context.repoRoot} (${context.worktreeLabel})`);
+  if (context.repoRoot === context.primaryRoot) return;
+  console.log(`INFO: primary=${context.primaryRoot}`);
+  if (!existsSync(join(context.repoRoot, ".env"))) {
+    console.warn(
+      `WARN: no ${context.repoRoot}/.env — using primary devcontainer DATABASE_URL; run 'bun run worktree:init' to provision this worktree`,
+    );
+  }
+}
+
+function lastLines(text: string, count: number): string[] {
+  const lines = text.trimEnd().split(/\n/u);
+  return lines.slice(-count);
+}
+
+function reportMigrationStatus(repoRoot: string): boolean {
+  const result = commandOutput(
+    "bun",
+    ["x", "prisma", "migrate", "status"],
+    join(repoRoot, "packages/server"),
+  );
+  const status = result.output;
+
+  if (status.includes("Database schema is up to date")) {
+    console.log("OK  : migrations up to date");
+    return true;
+  }
+
+  if (status.includes("have not yet been applied")) {
+    const pending = status.match(/^[ \t]*\d{14}_/gmu)?.length ?? 0;
+    console.warn(
+      `WARN: ${String(pending)} pending migration(s) — run 'bun run --filter @musi/server db:migrate'`,
+    );
+    return true;
+  }
+
+  if (/can't reach|connection.*refused|authentication/iu.test(status)) {
+    console.error("FAIL: database not reachable — see output below:");
+    for (const line of lastLines(status, MIGRATION_STATUS_TAIL_LINES)) {
+      console.error(line);
+    }
+    return false;
+  }
+
+  console.warn("WARN: migrate status unclear; last lines:");
+  for (const line of lastLines(status, MIGRATION_UNCLEAR_TAIL_LINES)) {
+    console.warn(line);
+  }
+  return true;
+}
+
 // Verify the test/e2e databases the vitest/Playwright harnesses assume exist.
 // pg_database is a cluster-wide catalog visible from the dev-DB connection we
 // already hold, so a single read confirms presence without a postgres-client
 // CLI. On a fresh volume the initdb hook has been seen to leave these absent;
 // .devcontainer/post-create.sh provisions them.
 async function reportTestDatabasesPresent(
+  prisma: PrismaSingleton,
   test: string | undefined,
   e2eUrl: string | undefined,
 ): Promise<void> {
@@ -104,7 +248,7 @@ async function reportTestDatabasesPresent(
   }
 }
 
-async function main(): Promise<void> {
+async function reportRuntimeDatabaseStatus(prisma: PrismaSingleton): Promise<boolean> {
   const dev = process.env["DATABASE_URL"];
   const rawTest = process.env["TEST_DATABASE_URL"];
   const test = resolveTestDatabase(rawTest, dev);
@@ -134,10 +278,10 @@ async function main(): Promise<void> {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("FAIL: cannot connect —", message);
-    process.exit(1);
+    return false;
   }
 
-  await reportTestDatabasesPresent(test.url, e2e.url);
+  await reportTestDatabasesPresent(prisma, test.url, e2e.url);
 
   const speciesCount = await prisma.species.count().catch(() => -1);
   if (speciesCount > 0) {
@@ -148,7 +292,58 @@ async function main(): Promise<void> {
     console.warn("WARN: could not query Species — schema may not be migrated");
   }
 
-  await prisma.$disconnect();
+  return true;
 }
 
-void main();
+function reportPrismaClientFreshness(repoRoot: string): void {
+  const schema = join(repoRoot, "packages/server/prisma/schema.prisma");
+  const client = join(repoRoot, "packages/server/src/generated/prisma");
+
+  if (!existsSync(client)) {
+    console.warn(
+      "WARN: Prisma client not generated - run 'bun run --filter @musi/server prisma:generate'",
+    );
+    return;
+  }
+
+  if (statSync(schema).mtimeMs > statSync(client).mtimeMs) {
+    console.warn(
+      "WARN: schema.prisma newer than generated client - run 'bun run --filter @musi/server prisma:generate'",
+    );
+    return;
+  }
+
+  console.log("OK  : Prisma client up to date");
+}
+
+async function main(): Promise<void> {
+  const context = repoContext();
+  loadWorktreeEnv(context);
+  reportWorktreeContext(context);
+
+  if (!reportMigrationStatus(context.repoRoot)) {
+    process.exit(1);
+  }
+
+  const { prisma } = await import("../packages/server/src/prisma/client.js");
+  let runtimeOk: boolean;
+  try {
+    runtimeOk = await reportRuntimeDatabaseStatus(prisma);
+  } finally {
+    await prisma.$disconnect();
+  }
+
+  if (!runtimeOk) {
+    process.exit(1);
+  }
+
+  reportPrismaClientFreshness(context.repoRoot);
+}
+
+if (import.meta.main) {
+  void main().catch((err: unknown) => {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("FAIL: db status crashed —", message);
+    process.exit(1);
+  });
+}

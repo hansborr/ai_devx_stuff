@@ -16,7 +16,7 @@ lint-reachable. The map is the inventory the ratchet leans on for its
 tightened the *claim wording*; the checker still can't see contradictions).
 
 ## Evidence
-- `docs/agent_notes/lint-coverage-map.md:62-64,342,398` — the live contradiction. Verified 2026-07-04 (including reachability probe).
+- `docs/generated/lint-coverage-map.md:62-64,342,398` — the live contradiction. Verified 2026-07-04 (including reachability probe).
 - `scripts/lint-coverage-map-check-findings.ts:37-128` — finding kinds enumerated; `collectUnaccountedFileFindings:119-128` only flags zero-match files. Verified.
 
 ## Proposed direction

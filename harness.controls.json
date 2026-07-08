@@ -319,6 +319,16 @@
       "invocation": "bun run sensor:knip-unused-exports"
     },
     {
+      "id": "sensor/max-lines-exceptions",
+      "kind": "sensor",
+      "category": "maintainability",
+      "principle": "Keep the per-file max-lines cap exceptions baseline (eslint-config/max-lines-exceptions.baseline.json) normalized and framework-valid so the caps shared-policy.js feeds eslint cannot drift from a hand edit.",
+      "pairedGuide": "docs/ai-harness.md",
+      "repairKind": "manual",
+      "source": "scripts/max-lines-exceptions.ts",
+      "invocation": "bun run lint:max-lines-exceptions"
+    },
+    {
       "id": "sensor/worktree-status",
       "kind": "sensor",
       "category": "maintainability",
@@ -335,7 +345,7 @@
       "principle": "Report migration, Prisma client, and database connectivity drift so the runtime contract between schema and code stays observable.",
       "pairedGuide": "docs/guides/add-prisma-migration.md",
       "repairKind": "manual",
-      "source": "scripts/db-status.sh",
+      "source": "scripts/db-status.ts",
       "invocation": "bun run db:status"
     },
     {
@@ -396,6 +406,10 @@
           "script": "sensor:knip-unused-exports"
         },
         {
+          "name": "max-lines-exceptions",
+          "script": "lint:max-lines-exceptions"
+        },
+        {
           "name": "coverage-map",
           "script": "docs:lint-coverage-map:audit"
         },
@@ -454,6 +468,10 @@
         {
           "name": "knip-unused-exports",
           "script": "sensor:knip-unused-exports"
+        },
+        {
+          "name": "max-lines-exceptions",
+          "script": "lint:max-lines-exceptions"
         },
         {
           "name": "coverage-map",
@@ -517,6 +535,10 @@
         {
           "name": "knip-unused-exports",
           "script": "sensor:knip-unused-exports"
+        },
+        {
+          "name": "max-lines-exceptions",
+          "script": "lint:max-lines-exceptions"
         },
         {
           "name": "coverage-map",
@@ -852,6 +874,16 @@
       "invocation": "bun run harness:wiring"
     },
     {
+      "id": "check/hook-timeout-constants-generator",
+      "kind": "check",
+      "category": "maintainability",
+      "principle": "Generate quiet-hook watchdog timeout constants from harness.controls.json; --check fails on drift between manifest hook timeouts and the sourced shell constants.",
+      "pairedGuide": "none",
+      "repairKind": "autofix",
+      "source": "scripts/harness/generate-hook-timeout-constants.ts",
+      "invocation": "bun run harness:hook-timeouts"
+    },
+    {
       "id": "check/verify-steps-generator",
       "kind": "check",
       "category": "maintainability",
@@ -866,7 +898,7 @@
       "kind": "check",
       "category": "maintainability",
       "principle": "Generate tsconfig.configs.json from eslint-config/config-surface-manifest.json; --check fails on drift between the manifest and the checked-in TypeScript config-surface project.",
-      "pairedGuide": "docs/agent_notes/lint-coverage-map.md",
+      "pairedGuide": "docs/generated/lint-coverage-map.md",
       "repairKind": "autofix",
       "source": "scripts/harness/generate-config-surfaces.ts",
       "invocation": "bun run harness:config-surfaces"
@@ -886,7 +918,7 @@
       "kind": "check",
       "category": "maintainability",
       "principle": "Detect drift between the Leaf 41 lint coverage map and tracked repository paths, cited ratchet IDs, and status vocabulary so the hand-maintained inventory stays load-bearing.",
-      "pairedGuide": "docs/agent_notes/lint-coverage-map.md",
+      "pairedGuide": "docs/generated/lint-coverage-map.md",
       "repairKind": "manual",
       "source": "scripts/lint-coverage-map-check.ts",
       "invocation": "bun run docs:lint-coverage-map:check"
@@ -916,7 +948,7 @@
       "kind": "check",
       "category": "maintainability",
       "principle": "Run ShellCheck over maintained shell scripts and hooks so shell bug classes are covered by the normal lint floor.",
-      "pairedGuide": "docs/agent_notes/lint-coverage-map.md",
+      "pairedGuide": "docs/generated/lint-coverage-map.md",
       "repairKind": "manual",
       "source": "scripts/lint-shell.sh",
       "invocation": "bun run lint:shell"
@@ -926,7 +958,7 @@
       "kind": "check",
       "category": "maintainability",
       "principle": "Run actionlint, yamllint, taplo, and hadolint over maintained workflow and config files so non-ESLint config surfaces stay covered by the normal lint floor.",
-      "pairedGuide": "docs/agent_notes/lint-coverage-map.md",
+      "pairedGuide": "docs/generated/lint-coverage-map.md",
       "repairKind": "manual",
       "source": "scripts/lint-config-sensors.sh",
       "invocation": "bun run lint:config-sensors"
@@ -1212,6 +1244,10 @@
         {
           "name": "knip-unused-exports",
           "script": "sensor:knip-unused-exports"
+        },
+        {
+          "name": "max-lines-exceptions",
+          "script": "lint:max-lines-exceptions"
         },
         {
           "name": "coverage-map",

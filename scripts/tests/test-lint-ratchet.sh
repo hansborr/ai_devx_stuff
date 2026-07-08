@@ -255,6 +255,7 @@ build_fixture() {
   mkdir -p "$fixture_dir/eslint-rules" "$fixture_dir/docs/guides"
   mkdir -p "$fixture_dir/eslint-config"
   cp eslint-config/shared-policy.js "$fixture_dir/eslint-config/shared-policy.js"
+  cp eslint-config/max-lines-exceptions.baseline.json "$fixture_dir/eslint-config/max-lines-exceptions.baseline.json"
   # Copy the portable runtime file set from the single shared source so the
   # fixture and the import-boundary check (assert_portable_runtime_import_boundary)
   # stay in lockstep. Every entry is repo-relative, so the destination path
@@ -1278,6 +1279,9 @@ assert_knip_unused_exports_post_merge_truth_up() {
 set -euo pipefail
 printf '%s\n' "$*" >>"${POST_MERGE_BUN_LOG:?}"
 if [ "$*" = "run sensor:knip-unused-exports" ]; then
+  if [ -n "${POST_MERGE_KNIP_STDOUT:-}" ]; then
+    printf '%s\n' "$POST_MERGE_KNIP_STDOUT"
+  fi
   exit "${POST_MERGE_KNIP_RC:-0}"
 fi
 printf 'unexpected bun invocation: %s\n' "$*" >&2
@@ -1338,6 +1342,36 @@ SH
     || fail "knip sensor exit 2 must not print the stale advisory: $output"
   [ "$(cat "$hook_log")" = "run sensor:knip-unused-exports" ] \
     || fail "knip post-merge truth-up should still run the sensor before seeing exit 2: $(cat "$hook_log")"
+
+  # A textual merge that corrupts the v2 identity baseline makes the sensor exit
+  # 2 with an `ERROR: baseline ...` integrity message; the hook must loudly warn
+  # (the floor is silently off otherwise), not stay quiet like other exit-2s. The
+  # real captured output is prefixed by `bun run`'s script echo and the knip
+  # self-scan heartbeat, so the ERROR line is not the first line — pin that shape.
+  : >"$hook_log"
+  output=$(cd "$repo" && PATH="$fake_bin:$PATH" POST_MERGE_BUN_LOG="$hook_log" \
+    POST_MERGE_KNIP_RC=2 \
+    POST_MERGE_KNIP_STDOUT=$'$ bun scripts/sensor-knip-unused-exports.ts\nsensor:knip-unused-exports: running knip self-scan (budget 180s)...\nsensor:knip-unused-exports\nbaseline: 189 (exports 75, types 114, enumMembers 0, namespaceMembers 0)\nERROR: baseline summary does not match the entries; regenerate with --update' \
+    bash scripts/git/knip-unused-exports-post-merge-baseline-truth-up.sh 2>&1) \
+    || fail "knip post-merge truth-up should exit 0 when the merged baseline is corrupt"
+  case "$output" in
+    *"the merged knip unused-export baseline is unparseable or internally inconsistent"*) : ;;
+    *) fail "knip post-merge truth-up should loudly report a corrupt/unparseable merged baseline: $output" ;;
+  esac
+  [ "$(cat "$hook_log")" = "run sensor:knip-unused-exports" ] \
+    || fail "knip post-merge truth-up should run the sensor once for the corrupt-baseline case: $(cat "$hook_log")"
+
+  # A transient knip-run failure also exits 2, but with an `ERROR: knip ...`
+  # message; that is an environment gap, not a merge defect, so stay silent even
+  # though it shares the script-echo/heartbeat prefix with the corrupt case.
+  : >"$hook_log"
+  output=$(cd "$repo" && PATH="$fake_bin:$PATH" POST_MERGE_BUN_LOG="$hook_log" \
+    POST_MERGE_KNIP_RC=2 \
+    POST_MERGE_KNIP_STDOUT=$'$ bun scripts/sensor-knip-unused-exports.ts\nsensor:knip-unused-exports: running knip self-scan (budget 180s)...\nERROR: knip executable unavailable: not found' \
+    bash scripts/git/knip-unused-exports-post-merge-baseline-truth-up.sh 2>&1) \
+    || fail "knip post-merge truth-up should exit 0 on a transient knip-run failure"
+  [ "$output" = "" ] \
+    || fail "knip post-merge truth-up must stay silent on a non-baseline exit-2 error: $output"
 
   mkdir -p "$nobun_bin"
   for tool in bash git grep; do

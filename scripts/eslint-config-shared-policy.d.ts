@@ -7,7 +7,7 @@ declare module "*eslint-config/shared-policy.js" {
   }
 
   type MaxLinesPolicySeverity = "error" | "warn";
-  type MaxLinesPolicyLifecycle = "temporary" | "permanent" | "candidate-for-split";
+  type MaxLinesPolicyLifecycle = "permanent" | "candidate-for-split";
 
   interface MaxLinesPolicyException {
     readonly path: string;
@@ -41,6 +41,9 @@ declare module "*eslint-config/shared-policy.js" {
   }
 
   export const maxLinesPolicy: MaxLinesPolicy;
+  export const jsTsLintableExtensions: readonly `.${string}`[];
+  export const codeFiles: readonly string[];
+  export const typescriptFiles: readonly string[];
   export const configSurfaceEntries: readonly ConfigSurfaceEntry[];
   export const rootJsConfigFiles: readonly string[];
   export const rootAndPackageTsConfigFiles: readonly string[];

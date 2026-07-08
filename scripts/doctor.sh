@@ -404,7 +404,7 @@ run_subcommand "worktree:status" \
 run_subcommand "db:status" \
   "review output above; common fixes: 'bun run --filter @musi/server db:migrate' (apply migrations) or check Postgres connectivity" \
   "sensor/db-status" \
-  bash "$REPO_ROOT/scripts/db-status.sh"
+  bun run "$REPO_ROOT/scripts/db-status.ts"
 
 # --- env-file sanity ----------------------------------------------------------
 # `.devcontainer/.env` lives in the primary worktree only. Per-worktree

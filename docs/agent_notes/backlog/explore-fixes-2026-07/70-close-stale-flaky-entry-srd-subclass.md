@@ -5,7 +5,7 @@ Track: DOC (docs) · Priority: P2 · Size: XS
 
 ## Evidence (verified 2026-07-03)
 
-- `docs/agent_notes/observed_flaky_tests.md:3` (entry #7) — records the
+- `docs/generated/observed_flaky_tests.md:3` (entry #7) — records the
   2026-06-22 `srd.getAll` subclass count drift (12 vs 13) as an open
   hypothesis.
 - `packages/server/src/services/level-up/level-up-subclass.test.ts:18` — an
@@ -15,7 +15,7 @@ Track: DOC (docs) · Priority: P2 · Size: XS
 
 ## Do
 
-Update entry #7 in `observed_flaky_tests.md`: state it was root-caused to
+Update entry #7 in `docs/generated/observed_flaky_tests.md`: state it was root-caused to
 the level-up subclass seed leaking past `cleanDb()` (SRD reference tables
 are intentionally not wiped) and fixed by the `afterEach` cleanup; cite the
 test file. Follow whatever resolved-entry convention the file already uses
