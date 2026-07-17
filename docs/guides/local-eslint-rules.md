@@ -1,11 +1,140 @@
 # Local ESLint Rules
 
-Authoring conventions for rules in `eslint-rules/`.
+Authoring conventions for rules in `eslint-rules/`. For the system-wide map of
+how local rules relate to the ratchet, suppression policy, and coverage map,
+see the [Lint System Overview](lint-overview.md).
 
 For projects adapting the guidance pipeline to Biome, see
 [Biome Lint Adoption](biome-lint-adoption.md). The portable part is the
 metadata and `HarnessDiagnostics` envelope; the current discovery mechanism is
 ESLint-specific.
+
+## Standalone Starter
+
+The smallest useful local-rule setup is four files and three development
+dependencies. This starter is repository-neutral: copy it into an empty
+directory, run the commands below, and then replace the example policy with
+your own. It uses ESLint's flat config and `RuleTester`; it does not import Musi
+code or depend on Musi paths.
+
+`package.json`:
+
+```json
+{
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.0",
+    "eslint": "^10.0.0",
+    "vitest": "^4.0.0"
+  }
+}
+```
+
+`eslint-rules/no-console-log.js`:
+
+```js
+export default {
+  meta: {
+    type: "suggestion",
+    docs: {
+      description: "Require an application logger instead of console.log",
+    },
+    schema: [],
+    messages: {
+      useLogger:
+        "Why: console.log bypasses the application logger. How to fix: Call the project logger instead.",
+    },
+  },
+  create(context) {
+    return {
+      "CallExpression[callee.object.name='console'][callee.property.name='log']"(node) {
+        context.report({ node, messageId: "useLogger" });
+      },
+    };
+  },
+};
+```
+
+`eslint.config.js` registers the rule under the `local` plugin name and enables
+it for normal lint:
+
+```js
+import js from "@eslint/js";
+
+import noConsoleLog from "./eslint-rules/no-console-log.js";
+
+export default [
+  { ignores: ["**/node_modules/**"] },
+  js.configs.recommended,
+  {
+    files: ["**/*.{js,mjs,cjs}"],
+    plugins: {
+      local: {
+        rules: { "no-console-log": noConsoleLog },
+      },
+    },
+    rules: {
+      "local/no-console-log": "error",
+    },
+  },
+];
+```
+
+`eslint-rules/no-console-log.test.js` proves both the clean and reporting
+paths without loading the repository's full lint config:
+
+```js
+import { RuleTester } from "eslint";
+import { describe, it } from "vitest";
+
+import rule from "./no-console-log.js";
+
+const ruleTester = new RuleTester({
+  languageOptions: { ecmaVersion: 2022, sourceType: "module" },
+});
+
+describe("no-console-log", () => {
+  it("requires the project logger", () => {
+    ruleTester.run("no-console-log", rule, {
+      valid: ["logger.info('ready');"],
+      invalid: [
+        {
+          code: "console.log('ready');",
+          errors: [{ messageId: "useLogger" }],
+        },
+      ],
+    });
+  });
+});
+```
+
+Install and exercise the standalone copy with:
+
+```sh
+bun install
+bun run test
+bun run lint
+```
+
+The rule, test, plugin object, and `local/<rule-name>` naming convention are
+portable. The `Why: ... How to fix: ...` diagnostic shape is recommended for
+actionable terminal output, but ESLint does not require it.
+
+Musi integration adds repository policy on top of that portable core:
+
+- Register the rule in `eslint-config/local-plugin.js` instead of declaring a
+  one-rule plugin inline.
+- Add the extra `meta.docs` fields in [Metadata Contract](#metadata-contract)
+  and follow the checked message shapes below.
+- Run the repository catalog, registry-completeness, paired-guide, and coverage
+  checks described in [Adding A New Rule](#adding-a-new-rule). These checks and
+  their `bun run` commands are Musi surfaces, not prerequisites for an external
+  ESLint plugin.
 
 ## Rule Catalog
 
@@ -27,21 +156,25 @@ surface reading the diagnostic.
 - In normal ESLint gates, `error` is both an editor error and a gate-enforced
   policy. Use it for permanent policy, drained ratchets promoted into normal
   lint, and findings that must block merge until fixed.
-- In the agent local-rule envelope, `bun run lint:agent:local-rules` and
+- In the agent lint envelope, `bun run lint:agent:local-rules` and
   `bun run lint:agent:local-rules:changed` emit harness diagnostics for
-  `local/*` findings and parser errors. `scripts/lint-agent.ts` maps ESLint
+  `local/*` findings, selected core/plugin steering rules from
+  `scripts/lint-agent-guidance.ts`, and parser errors. The legacy package
+  script name remains stable for callers. `scripts/lint-agent.ts` maps ESLint
   errors to harness `block` findings and ESLint warnings to harness `warn`
   findings, then exits nonzero only when the envelope has blocking findings.
-  Harness warnings are advisory and non-blocking in that envelope.
+  Harness warnings are advisory and non-blocking in that envelope. Rules with
+  neither local metadata nor an overlay remain info-severity completeness
+  disclosures pointing to the full lint report.
 
 The distinction exists because normal ESLint is the enforcement floor, while
-the agent envelope is a structured local-rule view for agents and hook
-surfaces. It carries rule metadata, repair kind, and paired-guide context
-without pretending to be full lint parity. Keep merge enforcement in normal
-lint, ratchet, pre-commit, and CI. Use envelope warnings for useful agent
-guidance that should not stop the local agent loop. If `lint-agent` ever becomes
-a gate, add an explicit mode that fails warnings too instead of changing the
-current advisory meaning silently.
+the agent envelope is a structured, selected-rule view for agents and hook
+surfaces. It carries local rule metadata or checked overlay guidance without
+pretending to be full lint parity. Keep merge enforcement in normal lint,
+ratchet, pre-commit, and CI. Use envelope warnings for useful agent guidance
+that should not stop the local agent loop. If `lint-agent` ever becomes a gate,
+add an explicit mode that fails warnings too instead of changing the current
+advisory meaning silently.
 
 ## Rule Implementation Format
 
@@ -67,6 +200,24 @@ Every local rule needs a `meta.docs` object. The guidance generator,
 contract. The message-guidance suite derives `ALL_LOCAL_RULES` from
 `localPlugin.rules`, then checks each registered rule's `messageId` against the
 guidance-shape or policy-shape expectations below.
+
+Core and plugin rules cannot provide Musi's custom `meta.docs` fields. Selected
+high-traffic steering rules instead use the rule-keyed registry in
+`scripts/lint-agent-guidance.ts`; a rule can supply default guidance and
+optional `messageId` overrides. The same message-guidance suite checks overlay
+`why`, `howToFix`, repair metadata, action verbs, length, and anti-gaming shape.
+During lint-agent runs, a final flat-config entry also enables `max-depth` at
+three and lowers `max-lines-per-function` to 100 effective lines over the same
+production scope and ignores as their no-new ratchets. These findings are
+warnings so accepted baseline debt remains advisory; changed files still get
+the structured guidance named by the edit-time ratchet hook.
+
+The message-guidance suite also carries a curated type-escape repair matrix.
+Those standalone snippets must compile and must be clean under exactly
+`local/no-explicit-any` plus `local/type-assertion-boundary`. The matrix is a
+focused regression check for the documented repair shapes; it is manually
+maintained, is not derived from diagnostic prose, and does not claim that every
+message repair is clean under the complete repository ESLint configuration.
 
 ## Message Guidance
 
@@ -197,10 +348,18 @@ The marker may sit on the same line after the cast, or on any line of the commen
 block directly above the statement (one JSDoc `/** … */` block, or a contiguous
 run of `//` lines with no gap). `as const` is always allowed and needs no marker.
 
+The two placements have different scope. A **block above the statement** covers
+every cast in that statement, so one marker justifies both casts in
+`const pair = [a as number, b as number];` (the worked example below). A
+**trailing same-line marker** covers only the nearest cast to its left, so on
+`foo(x as A, y as B); // …marker…` the marker justifies `y as B` and `x as A`
+still reports `missingBoundary`; give each same-line cast its own marker or move
+the justification to a block above the statement.
+
 `<category>` must be exactly one of the five values in `ALLOWED_CATEGORIES`
-(`eslint-rules/type-assertion-boundary.js`); any other category fails with
-`invalidCategory`, and a marker with no reason after the `-` fails with
-`emptyReason`:
+(`eslint-rules/type-assertion-boundary.js`); any other category — including a
+hyphen-extended form such as `framework-legacy` — fails with `invalidCategory`,
+and a marker with no reason after the `-` fails with `emptyReason`:
 
 | Category    | Use when the cast crosses…                                                    |
 | ----------- | ---------------------------------------------------------------------------- |
@@ -217,7 +376,7 @@ guard. Worked example (`packages/server/src/services/level-up/asi.ts`):
 
 ```ts
 for (const [key, delta] of Object.entries(abilityDeltas)) {
-  // type-assertion-boundary: interop - keys come from validateAsiChoice via Object.entries (which always types keys as `string`); the runtime invariant isn't expressible to TS. The `as number` narrows the indexed-access union, which would otherwise include non-ability fields the key set never reaches.
+  // type-assertion-boundary: interop - keys come from validateAsiChoice via Object.entries (which always types keys as `string`); the runtime invariant — `abilityDeltas` only contains AbilityScores keys mapped through ABILITY_ABBREVIATION_TO_KEY — isn't expressible to TS. The `as number` narrows the indexed-access union, which would otherwise include non-ability fields like `id`/`characterId` that the key set never reaches.
   const current = freshStats[key as keyof CharacterStats] as number;
 }
 ```
@@ -242,7 +401,7 @@ metric.
 When a new local rule becomes a normal-lint or ratchet responsibility, treat it
 as a coverage change too. Update the affected file-family rows in the lint
 coverage map and run the
-[Coverage Map Gate](lint-ratchet.md#coverage-map-gate). The gate catches stale
+[Coverage Map Gate](lint-ratchet-reference.md#coverage-map-gate). The gate catches stale
 map rows, unknown ratchet ids, unaccounted tracked files, and full-mode ESLint
 reach gaps before reviewers rely on a `local/*` rule for files ESLint does not
 actually reach.

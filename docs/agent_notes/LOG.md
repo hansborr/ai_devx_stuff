@@ -7,6 +7,22 @@ Newest on top.
 
 ---
 
+## 2026-07-13 - Agent-notes audit (5 parallel codex lanes)
+
+Audited every note under `agent_notes/` against `main` with five parallel
+GPT-5.6-luna lanes: verified each leaf's claims against code and git history,
+removed finished/superseded work, and reconciled pack indexes (net −12.9k
+lines across 279 files). Fully closed and removed: `lint-ratchet-audit-2026-07/`,
+`explore-fixes-2026-07/`, `explore-fixes-2026-07b/`,
+`agent-cli-consolidation-pass/`, and `worktree-lane-hardening-2026-07/`.
+Major trims: `harness-sweep-2026-07` (40→3), `codebase-audit` (38 landed
+leaves removed), `harness-review-2026-07` (36→27), `harness-explore-2026-07`
+(22→14), plus `testsuite-audit`, `agent-friction-2026-06`, and
+`harness-review-tasks`. `in_progress/codex-drain-queue-2026-06-21.md` was
+trimmed to open items only; the completed `fast-commit-toggle-handoff.md`
+was removed. Backlog root leaves: one removed (`land-verify-merge-tree.md`),
+the rest verified as genuinely parked.
+
 ## 2026-06-21 - Backlog reconciliation + Codex drain queue
 
 Re-verified every backlog pack against `main` (multi-agent reconciliation,

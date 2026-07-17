@@ -6,6 +6,7 @@ import {
   eslintConfigJsFiles,
   processEnvRestrictedSyntax,
   processExitRestrictedSyntax,
+  serverScriptTypeScriptFiles,
   scriptProjectIgnores,
   scriptTypeScriptFiles,
   testAndHelperFiles,
@@ -111,8 +112,11 @@ export const processPrimitiveConfigs = [
       // Implements the HARNESS_DIAGNOSTICS_OUTPUT sidecar contract; reading
       // that env var here IS the boundary every producer shares.
       "scripts/harness/harness-diagnostics-output.ts",
-      "scripts/lint-ratchet/lint-ratchet-output.ts",
+      "scripts/lint-ratchet/output.ts",
       "scripts/lint-ratchet.ts",
+      "scripts/max-lines-exceptions.ts",
+      "scripts/sensor-knip-unused-exports.ts",
+      "scripts/sensor-near-duplicates.ts",
       "packages/server/src/config/env.ts",
       "packages/server/src/main.ts",
       "packages/server/prisma/seed.ts",
@@ -161,7 +165,7 @@ export function createScriptProjectConfigs(repoRoot) {
     // Server scripts live outside `src/` and so aren't covered by the server
     // tsconfig's project service. Point them at a dedicated tsconfig.
     {
-      files: ["packages/server/scripts/**/*.ts", "packages/server/prisma/seed*.ts"],
+      files: serverScriptTypeScriptFiles,
       languageOptions: {
         parserOptions: {
           projectService: false,

@@ -14,6 +14,8 @@ declare -ga MUSI_VERIFY_CHANGED_STEPS=('coverage-map' 'test' 'scripts')
 declare -ga MUSI_VERIFY_PARALLEL_STEPS=('scripts')
 declare -ga MUSI_PRE_COMMIT_STEPS=('test' 'scripts')
 
+declare -ga MUSI_FAST_COMMIT_SKIP_SLOTS=('test' 'scripts')
+
 declare -gA MUSI_VERIFY_SLOT_CMD_VAR=()
 declare -gA MUSI_VERIFY_SLOT_DYNAMIC=()
 declare -gA MUSI_VERIFY_DYNAMIC_RESOLVER_FUNC=()

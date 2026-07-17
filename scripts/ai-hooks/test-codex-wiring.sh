@@ -233,4 +233,42 @@ PRISMA_CODEX_NEGATIVE_OUTPUT=$(
 assert_hook_continue_json "$PRISMA_CODEX_NEGATIVE_OUTPUT"
 [ ! -e "$PRISMA_CODEX_SENTINEL" ] || fail "Codex prisma hook should not invoke prisma generate for non-schema apply_patch"
 
+# --- backlog-note-lint Codex wiring ------------------------------------------
+BACKLOG_CODEX_DIR="$TMP_ROOT/backlog"
+mkdir -p "$BACKLOG_CODEX_DIR/pack"
+BACKLOG_CODEX_DIRTY="$BACKLOG_CODEX_DIR/pack/dirty.md"
+printf '# Dirty note\n\nNo front matter here.\n' > "$BACKLOG_CODEX_DIRTY"
+BACKLOG_CODEX_PATCH=$(printf '%s\n' \
+  '*** Begin Patch' \
+  "*** Update File: $BACKLOG_CODEX_DIRTY" \
+  '@@' \
+  '-old' \
+  '+new' \
+  '*** End Patch')
+BACKLOG_CODEX_OUTPUT=$(
+  jq -n --arg command "$BACKLOG_CODEX_PATCH" '{tool_name:"apply_patch",tool_input:{command:$command}}' \
+    | AI_BACKLOG_NOTES_DIR="$BACKLOG_CODEX_DIR" \
+      CLAUDE_PROJECT_DIR="$REPO_ROOT" bash "$REPO_ROOT/.codex/hooks/backlog-note-lint.sh"
+)
+assert_hook_json "$BACKLOG_CODEX_OUTPUT"
+[ "$(jq -r '.hookSpecificOutput.hookEventName // empty' <<< "$BACKLOG_CODEX_OUTPUT")" = "PostToolUse" ] \
+  || fail "Codex backlog-note-lint hook should emit PostToolUse context: $BACKLOG_CODEX_OUTPUT"
+BACKLOG_CODEX_CONTEXT=$(jq -r '.hookSpecificOutput.additionalContext // empty' <<< "$BACKLOG_CODEX_OUTPUT")
+assert_contains "$BACKLOG_CODEX_CONTEXT" "backlog:lint advisory findings"
+assert_contains "$BACKLOG_CODEX_CONTEXT" "Missing Status:"
+
+BACKLOG_CODEX_NEGATIVE_PATCH=$(printf '%s\n' \
+  '*** Begin Patch' \
+  '*** Update File: packages/server/src/main.ts' \
+  '@@' \
+  '-old' \
+  '+new' \
+  '*** End Patch')
+BACKLOG_CODEX_NEGATIVE_OUTPUT=$(
+  jq -n --arg command "$BACKLOG_CODEX_NEGATIVE_PATCH" '{tool_name:"apply_patch",tool_input:{command:$command}}' \
+    | AI_BACKLOG_NOTES_DIR="$BACKLOG_CODEX_DIR" \
+      CLAUDE_PROJECT_DIR="$REPO_ROOT" bash "$REPO_ROOT/.codex/hooks/backlog-note-lint.sh"
+)
+assert_hook_continue_json "$BACKLOG_CODEX_NEGATIVE_OUTPUT"
+
 printf 'codex wiring ai-hooks tests passed\n'

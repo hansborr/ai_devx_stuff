@@ -14,12 +14,21 @@ const LINE_OFFSET_WITH_BLANK = 2;
 const BOUNDARY_COMMENT_PREFIX_PATTERN = String.raw`^[\s*]*type-assertion-boundary:`;
 const LINE_BOUNDARY_COMMENT_PATTERN = /^\s*type-assertion-boundary:/u;
 const ALLOWED_CATEGORY_ALTERNATION = [...ALLOWED_CATEGORIES].sort().join("|");
-const BOUNDARY_COMMENT_PATTERN = new RegExp(BOUNDARY_COMMENT_PREFIX_PATTERN, "u");
+// The `m` flag anchors `^` at the start of each line inside a multi-line JSDoc
+// block, so a marker on any line of the block is found even when prose precedes
+// it on earlier lines. LINE_BOUNDARY_COMMENT_PATTERN stays single-line (no `m`)
+// so a `//` comment cannot smuggle a `*` prefix past its guard.
+const BOUNDARY_COMMENT_PATTERN = new RegExp(BOUNDARY_COMMENT_PREFIX_PATTERN, "mu");
+// `\s+-` (not `\s*-`) forces whitespace before the reason separator, so a
+// hyphen-extended token like `framework-legacy` cannot pass its `-` off as the
+// separator; it falls through to CATEGORY_PATTERN and reports invalidCategory.
 const BOUNDARY_REASON_PATTERN = new RegExp(
-  `${BOUNDARY_COMMENT_PREFIX_PATTERN}\\s*(?:${ALLOWED_CATEGORY_ALTERNATION})\\s*-\\s*\\S+`,
-  "u",
+  `${BOUNDARY_COMMENT_PREFIX_PATTERN}\\s*(?:${ALLOWED_CATEGORY_ALTERNATION})\\s+-\\s*\\S+`,
+  "mu",
 );
-const CATEGORY_PATTERN = new RegExp(`${BOUNDARY_COMMENT_PREFIX_PATTERN}\\s*([^\\s-]+)`, "u");
+// Capture the whole non-whitespace token (not `[^\s-]+`) so a bogus
+// hyphen-extended category is named in full by the invalidCategory message.
+const CATEGORY_PATTERN = new RegExp(`${BOUNDARY_COMMENT_PREFIX_PATTERN}\\s*(\\S+)`, "mu");
 const TEST_FILENAME_PATTERN = /^.*\.(?:test|spec)\.[jt]sx?$/u;
 const TEST_HELPER_FILENAME_PATTERN = /^.*\.test-helper\.[jt]sx?$/u;
 
@@ -158,17 +167,44 @@ function leadingBoundaryCommentBlock(statement, sourceCode) {
 }
 
 /**
+ * A trailing same-line marker justifies only the nearest cast to its left, so a
+ * reason written for one cast cannot silently bless another cast earlier on the
+ * same line. Returns true when some other assertion ends between this node and
+ * the comment (i.e. this node is not the nearest-preceding cast). Only sibling
+ * casts compete for the marker: in a chained cast like `x as unknown as Foo`
+ * the outer cast contains the inner one and is the same escape hatch, not a
+ * nearer assertion stripping the marker from it.
+ *
+ * @param {import('estree').Node} node
+ * @param {import('eslint').AST.Token} comment
+ * @param {import('estree').Node[]} assertionNodes
+ */
+function hasNearerTrailingAssertion(node, comment, assertionNodes) {
+  return assertionNodes.some(
+    (other) =>
+      other !== node &&
+      !(other.range[0] <= node.range[0] && other.range[1] >= node.range[1]) &&
+      !(node.range[0] <= other.range[0] && node.range[1] >= other.range[1]) &&
+      other.loc.end.line === node.loc.end.line &&
+      other.loc.end.column > node.loc.end.column &&
+      other.loc.end.column <= comment.loc.start.column,
+  );
+}
+
+/**
  * @param {import('estree').Node} node
  * @param {import('eslint').SourceCode} sourceCode
  * @param {import('eslint').AST.Token[]} allComments
+ * @param {import('estree').Node[]} assertionNodes
  */
-function nearbyBoundaryComments(node, sourceCode, allComments) {
+function nearbyBoundaryComments(node, sourceCode, allComments, assertionNodes) {
   const jsxContainer = findAncestorJSXExpressionContainer(node);
   const immediateTrailingNodeToken = sourceCode.getTokenAfter(node, { includeComments: true });
   const sameLineComments = allComments.filter(
     (comment) =>
       (comment.loc.start.line === node.loc.end.line &&
         comment.loc.start.column >= node.loc.end.column &&
+        !hasNearerTrailingAssertion(node, comment, assertionNodes) &&
         (jsxContainer === null || isSameToken(immediateTrailingNodeToken, comment))) ||
       (comment.loc.end.line === node.loc.start.line &&
         comment.loc.end.column <= node.loc.start.column),
@@ -220,21 +256,38 @@ export default {
     const sourceCode = context.sourceCode;
     const filename = context.physicalFilename ?? context.filename;
     const allComments = sourceCode.getAllComments();
+    /** @type {import('estree').Node[]} */
+    const assertionNodes = [];
 
     /** @param {import('estree').Node} node */
     function checkAssertion(node) {
       if (isConstAssertion(node)) return;
       if (isTestFile(filename)) return;
 
-      const status = boundaryCommentStatus(nearbyBoundaryComments(node, sourceCode, allComments));
+      const status = boundaryCommentStatus(
+        nearbyBoundaryComments(node, sourceCode, allComments, assertionNodes),
+      );
       if (status === "valid") return;
 
       context.report({ node, messageId: status });
     }
 
+    /** @param {import('estree').Node} node */
+    function collectAssertion(node) {
+      // `as const` never needs a marker, so it must not enter the nearest-cast
+      // contest and strip a trailing marker from the real cast beside it.
+      if (isConstAssertion(node)) return;
+      assertionNodes.push(node);
+    }
+
+    // Collect every assertion first so a trailing same-line marker can be scoped
+    // to its nearest cast; report only after the whole file's assertions are known.
     return {
-      TSAsExpression: checkAssertion,
-      TSTypeAssertion: checkAssertion,
+      TSAsExpression: collectAssertion,
+      TSTypeAssertion: collectAssertion,
+      "Program:exit": () => {
+        for (const node of assertionNodes) checkAssertion(node);
+      },
     };
   },
 };

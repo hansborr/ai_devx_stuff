@@ -18,6 +18,11 @@ import {
   severityFromEslint,
 } from "./lint-agent-envelope.js";
 import { lintAgentHowToFixFor } from "./lint-agent-fix-text.js";
+import {
+  type LintAgentGuidanceOverlay,
+  lintAgentGuidanceOverlayFor,
+  type LintAgentRuleGuidanceOverlay,
+} from "./lint-agent-guidance.js";
 
 function docsEntry(overrides: Partial<RuleDocsEntry> = {}): RuleDocsEntry {
   return {
@@ -42,6 +47,14 @@ function eslintMessage(overrides: Partial<ESLintMessage> = {}): ESLintMessage {
 
 function repoFile(path: string): string {
   return resolve(process.cwd(), path);
+}
+
+function guidance(why: string): LintAgentGuidanceOverlay {
+  return {
+    why,
+    howToFix: "Extract the fixture branch into a named helper.",
+    repairKind: "manual",
+  };
 }
 
 describe("severityFromEslint", () => {
@@ -187,6 +200,124 @@ describe("buildFinding", () => {
     expect(
       buildFinding(eslintMessage({ ruleId: "local/missing-docs" }), "relative.ts", ruleDocs),
     ).toBeUndefined();
+  });
+
+  it("projects overlaid core rules with structured repair guidance", () => {
+    expect(
+      buildFinding(
+        eslintMessage({
+          ruleId: "complexity",
+          messageId: "complex",
+          message: "Function 'resolveTurn' has a complexity of 12. Maximum allowed is 10.",
+          line: 24,
+        }),
+        repoFile("packages/server/src/services/turn.ts"),
+        new Map(),
+      ),
+    ).toEqual({
+      control: "lint/complexity",
+      severity: "block",
+      path: "packages/server/src/services/turn.ts",
+      line: 24,
+      ruleId: "complexity",
+      messageId: "complex",
+      why: "Complex branching makes behavior harder to verify and safe changes harder to isolate.",
+      howToFix:
+        "Extract cohesive decisions into named helpers, then use guard clauses or early returns to reduce independent branches. Before: `function pick(n: number): number { return n===0?0:n===1?1:n===2?2:n===3?3:n===4?4:n===5?5:n===6?6:n===7?7:n===8?8:n===9?9:n; }`. After: `function pick(n: number, choices: readonly number[]): number { return choices[n] ?? n; }`.",
+      repairKind: "manual",
+    });
+  });
+
+  it("leaves non-overlaid third-party rules on the existing disclosure path", () => {
+    const result = buildLintAgentEnvelope(
+      [
+        {
+          filePath: repoFile("packages/server/src/services/turn.ts"),
+          messages: [
+            eslintMessage({
+              ruleId: "@typescript-eslint/no-floating-promises",
+              messageId: "floating",
+              message: "Promises must be awaited.",
+              line: 8,
+            }),
+          ],
+        },
+      ],
+      new Map(),
+    );
+
+    expect(result.skippedNonLocal).toBe(1);
+    expect(result.envelope.findings).toEqual([
+      {
+        control: "lint/skipped-non-local",
+        severity: "info",
+        path: "packages/server/src/services/turn.ts",
+        line: 8,
+        ruleId: "@typescript-eslint/no-floating-promises",
+        messageId: "floating",
+        why: "Non-local ESLint rule; no structured local-rule metadata is available.",
+        howToFix: "Run `bun run lint` for the full ESLint report and fix this finding there.",
+        repairKind: "manual",
+      },
+    ]);
+  });
+});
+
+describe("lintAgentGuidanceOverlayFor", () => {
+  const defaultGuidance = guidance("Default guidance.");
+  const messageGuidance = guidance("Message-specific guidance.");
+  const overlays: ReadonlyMap<string, LintAgentRuleGuidanceOverlay> = new Map([
+    [
+      "plugin/example",
+      {
+        default: defaultGuidance,
+        messages: new Map([["specific", messageGuidance]]),
+      },
+    ],
+  ]);
+
+  it("prefers a messageId override over rule-level default guidance", () => {
+    expect(lintAgentGuidanceOverlayFor("plugin/example", "specific", overlays)).toBe(
+      messageGuidance,
+    );
+  });
+
+  it("falls back to rule-level guidance for an unknown messageId", () => {
+    expect(lintAgentGuidanceOverlayFor("plugin/example", "unknown", overlays)).toBe(
+      defaultGuidance,
+    );
+  });
+
+  it("discloses an unknown message when an overlay has messages only", () => {
+    const messagesOnlyOverlays: ReadonlyMap<string, LintAgentRuleGuidanceOverlay> = new Map([
+      ["plugin/example", { messages: new Map([["specific", messageGuidance]]) }],
+    ]);
+    const result = buildLintAgentEnvelope(
+      [
+        {
+          filePath: repoFile("packages/server/src/example.ts"),
+          messages: [
+            eslintMessage({
+              ruleId: "plugin/example",
+              messageId: "unknown",
+              message: "Unknown plugin diagnostic.",
+            }),
+          ],
+        },
+      ],
+      new Map(),
+      messagesOnlyOverlays,
+    );
+
+    expect(result.skippedNonLocal).toBe(1);
+    expect(result.envelope.findings).toEqual([
+      expect.objectContaining({
+        control: "lint/skipped-non-local",
+        ruleId: "plugin/example",
+        messageId: "unknown",
+        severity: "info",
+      }),
+    ]);
   });
 });
 

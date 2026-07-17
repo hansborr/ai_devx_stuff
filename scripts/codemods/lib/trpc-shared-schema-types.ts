@@ -2,9 +2,12 @@ import path from "node:path";
 
 import { type CallExpression, type Node, Project, type VariableStatement } from "ts-morph";
 
+import { SHARED_SCHEMA_PREFIX } from "../../../eslint-rules/shared-schema-prefix.js";
+
+export { SHARED_SCHEMA_PREFIX };
+
 export const ROUTER_ROOT = path.join("packages", "server", "src", "routers");
 export const SHARED_SCHEMA_ROOT = path.join("packages", "shared", "src", "schemas");
-export const SHARED_SCHEMA_PREFIX = "@musi/shared/schemas/";
 
 export type ImportSpecifierInfo = {
   imported: string;

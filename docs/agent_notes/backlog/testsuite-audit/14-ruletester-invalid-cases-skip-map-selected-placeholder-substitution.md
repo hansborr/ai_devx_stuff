@@ -1,6 +1,6 @@
 # 14. RuleTester invalid cases never assert map-selected `{{placeholder}}` substitution, so wrong helper/suggestion mappings ship green
 
-Status: Proposed — read-only finding from the test-suite audit; NOT implemented. Re-verify file:line before acting.
+Status: Done — both RuleTester files now assert the interpolated `data:` payload alongside `messageId`.
 Lens: defect-catching · Area: eslint-rules · Severity: med · Size: S-M · Confidence: high
 Theme: untested map-driven diagnostic guidance · Source: Musi test-suite audit 2026-06-13 (multi-agent, adversarially verified)
 

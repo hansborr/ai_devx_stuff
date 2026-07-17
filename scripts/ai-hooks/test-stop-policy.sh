@@ -102,7 +102,7 @@ assert_stop_readonly_git_uses_optional_locks() {
   guard_log=$(cat "$log")
   assert_not_contains "$guard_log" "MISSING"
   assert_contains "$guard_log" $'OK\t-C '"$repo_root"$' status --porcelain'
-  assert_contains "$guard_log" $'OK\t-C '"$repo_root"$' diff HEAD'
+  assert_contains "$guard_log" $'OK\t-C '"$repo_root"$' diff --no-ext-diff --binary HEAD'
   assert_contains "$guard_log" $'OK\t-C '"$repo_root"$' diff -z --name-only'
   assert_contains "$guard_log" $'OK\t-C '"$repo_root"$' diff -z --cached'
   rm -f "$repo_root/optional-locks.ts"
@@ -562,6 +562,21 @@ ai_stop_verify_read_counter "$VERIFY_COUNTER" \
   || fail "counter missing after exit-code change emit"
 [ "$AI_STOP_VERIFY_COUNTER_COUNT" = "1" ] || fail "exit-code change should reset count to 1"
 
+# fast-commit pre-commit runs carry the -fast mode suffix (leaf 3.10 relabels
+# the passing run so bridged/fast landings are greppable) but must be treated
+# exactly like parallel-precommit: failing still reports "cached pre-commit",
+# passing clears the counter rather than falling through to no-op.
+rm -f "$VERIFY_COUNTER"
+write_verify_wrapper parallel-precommit-fast 1 "$VERIFY_PRECOMMIT_FP"
+VERIFY_MSG=$(MUSI_VERIFY_LOG_DIR="$VERIFY_LOG_DIR" ai_stop_verify_status "$VERIFY_REPO") \
+  || fail "failing parallel-precommit-fast should emit status"
+assert_contains "$VERIFY_MSG" "cached pre-commit"
+write_verify_wrapper parallel-precommit-fast 0 "$VERIFY_PRECOMMIT_FP"
+if MUSI_VERIFY_LOG_DIR="$VERIFY_LOG_DIR" ai_stop_verify_status "$VERIFY_REPO" >/dev/null; then
+  fail "passing parallel-precommit-fast should not emit status"
+fi
+[ ! -f "$VERIFY_COUNTER" ] || fail "passing parallel-precommit-fast should clear counter"
+
 # serial-verify mode reports a different label.
 write_verify_wrapper serial-verify 1 "$VERIFY_WORKTREE_FP"
 rm -f "$VERIFY_COUNTER"
@@ -819,5 +834,173 @@ STOP_LINT_TIMEOUT_ELAPSED=$(( $(date +%s) - STOP_LINT_TIMEOUT_START ))
 STOP_LINT_TIMEOUT_MARKER=$(ai_stop_marker_path "$STOP_LINT_TIMEOUT_REPO" "lint-warnings")
 [ ! -f "$STOP_LINT_TIMEOUT_MARKER" ] \
   || fail "eslint overrun must not write a dedup marker so the check retries next stop"
+
+# --- ai_stop_policy_messages_subagent ----------------------------------------
+# The SubagentStop composer keeps only the two cheap, per-delegation metadata
+# reads (uncommitted changes + failing cached verify) and drops the e2e,
+# async-verify, and live-eslint lint checks. Per-agent scope keying keeps a
+# subagent nudge from consuming the main loop's one-shot Stop markers.
+SUBAGENT_REPO="$TMP_ROOT/subagent-repo"
+git init -b feature/subagent "$SUBAGENT_REPO" >/dev/null 2>&1 \
+  || fail "failed to init subagent fixture"
+git -C "$SUBAGENT_REPO" config user.email hooks@example.test
+git -C "$SUBAGENT_REPO" config user.name "Hook Test"
+mkdir -p "$SUBAGENT_REPO/src" "$SUBAGENT_REPO/node_modules/.bin"
+printf 'const clean = 1;\n' > "$SUBAGENT_REPO/src/warn.ts"
+git -C "$SUBAGENT_REPO" add src/warn.ts
+git -C "$SUBAGENT_REPO" commit -m base >/dev/null 2>&1 \
+  || fail "failed to commit subagent fixture"
+SUBAGENT_HEAD=$(git -C "$SUBAGENT_REPO" rev-parse HEAD)
+
+# eslint stub so the (skipped) lint-warnings reminder would otherwise fire.
+cat > "$SUBAGENT_REPO/node_modules/.bin/eslint" <<'EOF'
+#!/bin/bash
+printf '%s\n' '[{"filePath":"stub","errorCount":0,"warningCount":2,"messages":[{"ruleId":"no-console","severity":1},{"ruleId":"no-console","severity":1}]}]'
+EOF
+chmod +x "$SUBAGENT_REPO/node_modules/.bin/eslint"
+
+# Dirty the tree (commit-reminder + lint inputs) and freeze the fingerprint the
+# cached-state fixtures below key against.
+printf 'console.log("warn");\n' > "$SUBAGENT_REPO/src/warn.ts"
+SUBAGENT_FP=$(ai_worktree_fingerprint "$SUBAGENT_REPO")
+
+# Failing cached serial verify keyed to the current head + dirty worktree fp.
+SUBAGENT_LOG_DIR="$TMP_ROOT/subagent-verify-logs"
+mkdir -p "$SUBAGENT_LOG_DIR/meta"
+printf '{"name":"wrapper","mode":"serial-verify","start_time":"2026-05-05T00:00:00+00:00","end_time":"2026-05-05T00:00:30+00:00","elapsed_seconds":30,"exit_code":1,"head":"%s","fingerprint":"%s","command":"bash scripts/verify.sh"}\n' \
+  "$SUBAGENT_HEAD" "$SUBAGENT_FP" > "$SUBAGENT_LOG_DIR/meta/wrapper.json"
+
+# Failing cached e2e + async keyed to the same worktree fingerprint, so both
+# long-horizon reporters are live and the exclusion assertions below are real.
+ai_write_bun_marker "$AI_BUN_LOG_DIR/last.e2e" "$SUBAGENT_FP" 1
+SUBAGENT_ASYNC_DIR="$MUSI_VERIFY_ASYNC_STATE_ROOT/$(ai_stop_repo_key "$SUBAGENT_REPO")"
+mkdir -p "$SUBAGENT_ASYNC_DIR/runs/run-1/logs"
+SUBAGENT_ASYNC_STATE="$SUBAGENT_ASYNC_DIR/runs/run-1/state"
+SUBAGENT_ASYNC_STARTED=$(( $(date +%s) - 3 ))
+cat > "$SUBAGENT_ASYNC_STATE" <<EOF
+pid=$$
+started_epoch=$SUBAGENT_ASYNC_STARTED
+command=bun run verify:changed
+log_dir=$SUBAGENT_ASYNC_DIR/runs/run-1/logs
+exit_code=1
+finished_epoch=$(( SUBAGENT_ASYNC_STARTED + 1 ))
+EOF
+printf '%s\n' "$SUBAGENT_ASYNC_STATE" > "$SUBAGENT_ASYNC_DIR/latest"
+
+# Content: subagent composer keeps commit + verify, drops e2e/async/lint.
+SUBAGENT_MSG=$(MUSI_VERIFY_LOG_DIR="$SUBAGENT_LOG_DIR" \
+  ai_stop_policy_messages_subagent "$SUBAGENT_REPO" "agent-alpha") \
+  || fail "subagent composer should emit for a dirty tree + failing cached verify"
+assert_contains "$SUBAGENT_MSG" "uncommitted changes on branch 'feature/subagent'"
+assert_contains "$SUBAGENT_MSG" "cached verify"
+assert_not_contains "$SUBAGENT_MSG" "e2e tests are failing"
+assert_not_contains "$SUBAGENT_MSG" "async verify"
+assert_not_contains "$SUBAGENT_MSG" "eslint warning(s)"
+
+# Scope isolation: the agent-alpha one-shot commit marker must not suppress the
+# main loop's unscoped Stop reminder for the same dirty tree.
+SUBAGENT_MAIN_MSG=$(ai_stop_commit_reminder "$SUBAGENT_REPO") \
+  || fail "subagent-scoped commit marker must not consume the main-loop reminder"
+assert_contains "$SUBAGENT_MAIN_MSG" "uncommitted changes on branch 'feature/subagent'"
+
+# A second subagent stop on the same agent scope dedupes the commit reminder
+# (its scoped one-shot marker is now set), proving the scope threads through.
+SUBAGENT_MSG_2=$(MUSI_VERIFY_LOG_DIR="$SUBAGENT_LOG_DIR" \
+  ai_stop_policy_messages_subagent "$SUBAGENT_REPO" "agent-alpha") \
+  || fail "second subagent stop should still emit the surviving verify status"
+assert_not_contains "$SUBAGENT_MSG_2" "uncommitted changes"
+
+# Sanity: the full Stop composer DOES surface the three skipped sources for this
+# same fixture, so the exclusions above are meaningful (commit reminder is now
+# deduped by the unscoped marker written just above).
+SUBAGENT_FULL_MSG=$(MUSI_VERIFY_LOG_DIR="$SUBAGENT_LOG_DIR" \
+  ai_stop_policy_messages "$SUBAGENT_REPO") \
+  || fail "full stop composer should emit for the subagent fixture"
+assert_contains "$SUBAGENT_FULL_MSG" "e2e tests are failing"
+assert_contains "$SUBAGENT_FULL_MSG" "async verify"
+assert_contains "$SUBAGENT_FULL_MSG" "eslint warning(s)"
+
+# A malformed SubagentStop payload carrying neither a session id nor an agent id
+# yields an empty scope. It must NOT fall back to the main loop's unscoped repo
+# key: clear both marker paths, run the empty-scope composer, and prove it wrote
+# a distinct sentinel marker while leaving the main-loop unscoped reminder live.
+SUBAGENT_UNSCOPED_MARKER=$(ai_stop_marker_path "$SUBAGENT_REPO" "")
+SUBAGENT_SENTINEL_MARKER=$(ai_stop_marker_path "$SUBAGENT_REPO" "subagent-unscoped")
+rm -f "$SUBAGENT_UNSCOPED_MARKER" "$SUBAGENT_SENTINEL_MARKER"
+SUBAGENT_EMPTY_MSG=$(MUSI_VERIFY_LOG_DIR="$SUBAGENT_LOG_DIR" \
+  ai_stop_policy_messages_subagent "$SUBAGENT_REPO" "") \
+  || fail "empty-scope subagent composer should emit for a dirty tree"
+assert_contains "$SUBAGENT_EMPTY_MSG" "uncommitted changes on branch 'feature/subagent'"
+[ -f "$SUBAGENT_SENTINEL_MARKER" ] \
+  || fail "empty-scope subagent must write its distinct sentinel Stop marker"
+[ ! -f "$SUBAGENT_UNSCOPED_MARKER" ] \
+  || fail "empty-scope subagent must not write the main-loop unscoped Stop marker"
+SUBAGENT_MAIN_AFTER_EMPTY=$(ai_stop_commit_reminder "$SUBAGENT_REPO") \
+  || fail "empty-scope subagent must not consume the main-loop reminder"
+assert_contains "$SUBAGENT_MAIN_AFTER_EMPTY" "uncommitted changes on branch 'feature/subagent'"
+
+rm -f "$AI_BUN_LOG_DIR/last.e2e"
+
+# --- ai_subagent_stop_scope ---------------------------------------------------
+# Per-agent scope material: agent_id and session id fold together (mirroring
+# ai_throttle_key) so the SubagentStop marker key differs from the main loop's
+# repo-only (empty-scope) key.
+[ "$(ai_subagent_stop_scope '{"session_id":"s1","agent_id":"a1"}')" = "session:s1:agent:a1" ] \
+  || fail "subagent scope should combine session and agent id"
+[ "$(ai_subagent_stop_scope '{"agent_id":"a1"}')" = "agent:a1" ] \
+  || fail "subagent scope should use agent id alone when session id is absent"
+[ "$(ai_subagent_stop_scope '{"session_id":"s1"}')" = "session:s1" ] \
+  || fail "subagent scope should use session id alone when agent id is absent"
+[ -z "$(ai_subagent_stop_scope '{}')" ] \
+  || fail "subagent scope should be empty when no ids are present"
+
+# --- subagent-stop-reminder.sh wrapper ---------------------------------------
+# The SubagentStop adapter emits systemMessage-only JSON, exits 0, and keys its
+# one-shot marker to the payload's agent scope — never the unscoped main-loop key.
+SUBAGENT_WRAPPER="$REPO_ROOT/scripts/ai-hooks/subagent-stop-reminder.sh"
+SUBAGENT_WRAP_REPO="$TMP_ROOT/subagent-wrapper-repo"
+git init -b feature/subagent-wrap "$SUBAGENT_WRAP_REPO" >/dev/null 2>&1 \
+  || fail "failed to init subagent wrapper fixture"
+git -C "$SUBAGENT_WRAP_REPO" config user.email hooks@example.test
+git -C "$SUBAGENT_WRAP_REPO" config user.name "Hook Test"
+printf 'base\n' > "$SUBAGENT_WRAP_REPO/file.txt"
+git -C "$SUBAGENT_WRAP_REPO" add file.txt
+git -C "$SUBAGENT_WRAP_REPO" commit -m base >/dev/null 2>&1 \
+  || fail "failed to commit subagent wrapper fixture"
+SUBAGENT_WRAP_ERR="$TMP_ROOT/subagent-wrapper.err"
+SUBAGENT_WRAP_PAYLOAD='{"session_id":"s1","agent_id":"a1","hook_event_name":"SubagentStop"}'
+
+# Clean tree: no stdout, no stderr, exit 0.
+SUBAGENT_WRAP_EXIT=0
+SUBAGENT_WRAP_OUT=$(
+  cd "$SUBAGENT_WRAP_REPO"
+  printf '%s' "$SUBAGENT_WRAP_PAYLOAD" | bash "$SUBAGENT_WRAPPER" 2>"$SUBAGENT_WRAP_ERR"
+) || SUBAGENT_WRAP_EXIT=$?
+[ "$SUBAGENT_WRAP_EXIT" -eq 0 ] \
+  || fail "subagent wrapper on clean repo should exit 0 (got $SUBAGENT_WRAP_EXIT)"
+[ -z "$SUBAGENT_WRAP_OUT" ] || fail "subagent wrapper on clean repo should produce no stdout"
+[ ! -s "$SUBAGENT_WRAP_ERR" ] || fail "subagent wrapper on clean repo should produce no stderr"
+
+# Dirty tree: systemMessage-only JSON with the commit reminder, exit 0.
+printf 'subagent-wrapper-dirty\n' >> "$SUBAGENT_WRAP_REPO/file.txt"
+SUBAGENT_WRAP_EXIT=0
+SUBAGENT_WRAP_OUT=$(
+  cd "$SUBAGENT_WRAP_REPO"
+  printf '%s' "$SUBAGENT_WRAP_PAYLOAD" | bash "$SUBAGENT_WRAPPER" 2>"$SUBAGENT_WRAP_ERR"
+) || SUBAGENT_WRAP_EXIT=$?
+[ "$SUBAGENT_WRAP_EXIT" -eq 0 ] \
+  || fail "subagent wrapper on dirty repo should exit 0 (got $SUBAGENT_WRAP_EXIT)"
+[ ! -s "$SUBAGENT_WRAP_ERR" ] || fail "subagent wrapper on dirty repo should produce no stderr"
+assert_system_message_only "$SUBAGENT_WRAP_OUT"
+SUBAGENT_WRAP_MSG=$(jq -r '.systemMessage' <<< "$SUBAGENT_WRAP_OUT")
+assert_contains "$SUBAGENT_WRAP_MSG" "uncommitted changes on branch 'feature/subagent-wrap'"
+
+# End-to-end keying: the marker lands under the agent scope, not the main key.
+SUBAGENT_WRAP_SCOPED_MARKER=$(ai_stop_marker_path "$SUBAGENT_WRAP_REPO" "session:s1:agent:a1")
+SUBAGENT_WRAP_MAIN_MARKER=$(ai_stop_marker_path "$SUBAGENT_WRAP_REPO")
+[ -f "$SUBAGENT_WRAP_SCOPED_MARKER" ] \
+  || fail "subagent wrapper should write a per-agent scoped Stop marker"
+[ ! -f "$SUBAGENT_WRAP_MAIN_MARKER" ] \
+  || fail "subagent wrapper must not consume the unscoped main-loop Stop marker"
 
 printf 'ai-hooks stop-policy tests passed\n'

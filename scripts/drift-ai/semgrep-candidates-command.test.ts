@@ -105,6 +105,13 @@ describe("runSemgrepCandidates", () => {
 
     const result = runSemgrepCandidates({
       ...repo,
+      git: (args) => {
+        const key = args.join(" ");
+        if (key === "rev-parse --show-toplevel") return `${repo.repoRoot}\n`;
+        if (key.endsWith("rev-parse HEAD")) return "scan-head\n";
+        if (key.includes("status --porcelain")) return " M src/a.ts\n";
+        throw new Error(`unexpected git invocation: git ${key}`);
+      },
       argv: [
         "--root",
         "src",
@@ -133,6 +140,7 @@ describe("runSemgrepCandidates", () => {
       readonly kind: string;
       readonly lane: string;
       readonly subcommand: string;
+      readonly scanProvenance: unknown;
       readonly sections: readonly {
         readonly ruleSources: readonly { source: string }[];
         readonly scanScope: unknown;
@@ -141,6 +149,12 @@ describe("runSemgrepCandidates", () => {
     expect(advisory.kind).toBe("advisory");
     expect(advisory.lane).toBe("prototype");
     expect(advisory.subcommand).toBe("semgrep-candidates");
+    expect(advisory.scanProvenance).toEqual({
+      gitHead: "scan-head",
+      gitDirty: true,
+      stateFingerprint: null,
+      changedDuringScan: null,
+    });
     expect("findings" in advisory).toBe(false);
     expect(advisory.sections[0]?.ruleSources.map((source) => source.source)).toEqual([
       "/rules/manifest.yml",
@@ -150,6 +164,102 @@ describe("runSemgrepCandidates", () => {
     expect(advisory.sections[0]?.scanScope).toEqual({
       semgrepTargetFilters: "default",
       targetSemgrepignore: false,
+    });
+  });
+
+  it("stamps pre-scan provenance and flags a repository change made during the scan", () => {
+    const repo = makeRepo();
+    const sourcePath = path.join(repo.repoRoot, "src/a.ts");
+    mkdirSync(path.dirname(sourcePath), { recursive: true });
+    writeFileSync(sourcePath, "export const value = 'before';\n");
+    let renderedOutput = "";
+    const git: GitRunner = (args) => {
+      const key = args.join(" ");
+      if (key === "rev-parse --show-toplevel") return `${repo.repoRoot}\n`;
+      if (key.endsWith("rev-parse HEAD")) return "scan-head\n";
+      if (key.includes("status --porcelain")) return " M src/a.ts\n";
+      if (key.includes("diff --name-only -z HEAD")) return "src/a.ts\0";
+      if (key.includes("ls-files -z --others --exclude-standard")) return "";
+      throw new Error(`unexpected git invocation: git ${key}`);
+    };
+    const semgrep: SemgrepRunner = () => {
+      writeFileSync(sourcePath, "export const value = 'after';\n");
+      return okResult();
+    };
+
+    const result = runSemgrepCandidates({
+      ...repo,
+      git,
+      argv: [
+        "--semgrep-config",
+        "/rules/cli.yml",
+        "--rule-license",
+        "MIT",
+        "--format",
+        "json",
+        "--output",
+        "semgrep-candidates.json",
+      ],
+      semgrep,
+      writer: (_path, contents) => {
+        renderedOutput = contents;
+      },
+    });
+
+    expect(result.exitCode).toBe(0);
+    // type-assertion-boundary: test - narrow the serialized provenance fields under test.
+    const advisory = JSON.parse(renderedOutput) as {
+      readonly scanProvenance?: { readonly stateFingerprint?: unknown };
+    };
+    expect(advisory).toMatchObject({
+      scanProvenance: {
+        gitHead: "scan-head",
+        gitDirty: true,
+        changedDuringScan: true,
+      },
+    });
+    expect(advisory.scanProvenance?.stateFingerprint).toMatch(/^[a-f0-9]{64}$/u);
+  });
+
+  it("excludes a pre-existing sibling triage report from scan provenance", () => {
+    const repo = makeRepo();
+    let renderedOutput = "";
+    const git: GitRunner = (args) => {
+      const key = args.join(" ");
+      if (key === "rev-parse --show-toplevel") return `${repo.repoRoot}\n`;
+      if (key.endsWith("rev-parse HEAD")) return "scan-head\n";
+      if (key.includes("status --porcelain")) {
+        return args.includes(":(top,exclude,literal)drift-all.json") ? "" : "?? drift-all.json\n";
+      }
+      throw new Error(`unexpected git invocation: git ${key}`);
+    };
+
+    const result = runSemgrepCandidates({
+      ...repo,
+      git,
+      argv: [
+        "--semgrep-config",
+        "/rules/cli.yml",
+        "--rule-license",
+        "MIT",
+        "--format",
+        "json",
+        "--output",
+        "semgrep-candidates.json",
+      ],
+      semgrep: () => okResult(),
+      writer: (_path, contents) => {
+        renderedOutput = contents;
+      },
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(renderedOutput)).toMatchObject({
+      scanProvenance: {
+        gitHead: "scan-head",
+        gitDirty: false,
+        changedDuringScan: null,
+      },
     });
   });
 

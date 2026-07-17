@@ -122,7 +122,7 @@ export type StaleMarkerRow = {
   readonly baseline: HotspotBaselineDelta | null; // null unless --baseline given
 };
 
-export type StaleMarkerThresholds = {
+type StaleMarkerThresholds = {
   readonly ageThresholdDays: number;
 };
 
@@ -150,7 +150,7 @@ export type StaleMarkerSection = {
 // (mirrors how hotspots holds multiple section types).
 export type ColdspotsSection = ColdspotSection | StaleMarkerSection;
 
-export type ColdspotsWindow = {
+type ColdspotsWindow = {
   readonly requestedDays: number;
   readonly effectiveDays: number;
   readonly widened: boolean;

@@ -48,13 +48,15 @@
           "name": "test",
           "script": "test:changed",
           "args": ["--reporter=dot"],
-          "dynamic": "precommit-test-timings"
+          "dynamic": "precommit-test-timings",
+          "fastCommitSkip": true
         },
         {
           "name": "scripts",
           "script": "test:scripts:changed",
           "dynamic": "staged-script-classifier",
-          "condition": "when staged hook/script/harness inputs require script smoke"
+          "condition": "when staged hook/script/harness inputs require script smoke",
+          "fastCommitSkip": true
         }
       ]
     }

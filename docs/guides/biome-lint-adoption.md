@@ -119,7 +119,7 @@ The portable system has three layers:
   `.claude/hooks/`, and the corresponding `.codex/hooks.json` /
   `.claude/settings.json` entries.
 - Ratchet runtime: `scripts/lint-ratchet/lint-ratchet-config.ts`,
-  `scripts/lint-ratchet/modes.ts`, `scripts/lint-ratchet/lint-ratchet-baseline-compare.ts`,
+  `scripts/lint-ratchet/modes.ts`, `scripts/lint-ratchet/baseline-compare.ts`,
   `scripts/lint-ratchet/current-collector.ts`,
   `scripts/lint-ratchet/diagnostics.ts`, and
   `lint-ratchet.baseline.json`.

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Run package and scripts TypeScript checks concurrently while keeping output readable.
+# Run package, scripts, and eslint-config-JS TypeScript checks concurrently
+# while keeping output readable.
 set -eu
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
@@ -21,8 +22,10 @@ RUN_PID=""
 RUN_LOG=""
 build_pid=""
 scripts_pid=""
+eslint_js_pid=""
 build_log=""
 scripts_log=""
+eslint_js_log=""
 reader_pids=()
 
 cleanup_tmp() {
@@ -49,11 +52,13 @@ cleanup_children() {
   trap - INT TERM
   kill_pid "$build_pid"
   kill_pid "$scripts_pid"
+  kill_pid "$eslint_js_pid"
   for pid in "${reader_pids[@]}"; do
     kill_pid "$pid"
   done
   wait_pid "$build_pid"
   wait_pid "$scripts_pid"
+  wait_pid "$eslint_js_pid"
   for pid in "${reader_pids[@]}"; do
     wait_pid "$pid"
   done
@@ -172,15 +177,20 @@ build_log="$RUN_LOG"
 start_typecheck "tsc -p tsconfig.scripts.json" "scripts" "${TSC[@]}" -p tsconfig.scripts.json
 scripts_pid="$RUN_PID"
 scripts_log="$RUN_LOG"
+start_typecheck "tsc -p tsconfig.eslint-js.json" "eslint-js" "${TSC[@]}" -p tsconfig.eslint-js.json
+eslint_js_pid="$RUN_PID"
+eslint_js_log="$RUN_LOG"
 
 build_exit=0
 scripts_exit=0
+eslint_js_exit=0
 wait "$build_pid" || build_exit=$?
 wait "$scripts_pid" || scripts_exit=$?
+wait "$eslint_js_pid" || eslint_js_exit=$?
 wait_readers
 trap - INT TERM
 
-if [ "$build_exit" -eq 0 ] && [ "$scripts_exit" -eq 0 ]; then
+if [ "$build_exit" -eq 0 ] && [ "$scripts_exit" -eq 0 ] && [ "$eslint_js_exit" -eq 0 ]; then
   exit 0
 fi
 
@@ -190,14 +200,21 @@ fi
 if [ "$scripts_exit" -ne 0 ]; then
   print_failure_summary "tsc -p tsconfig.scripts.json" "$scripts_exit" "$scripts_log"
 fi
-
-final_exit=1
-if [ "$build_exit" -ne 0 ] && [ "$scripts_exit" -eq 0 ]; then
-  final_exit="$build_exit"
-elif [ "$scripts_exit" -ne 0 ] && [ "$build_exit" -eq 0 ]; then
-  final_exit="$scripts_exit"
-elif [ "$build_exit" -eq "$scripts_exit" ]; then
-  final_exit="$build_exit"
+if [ "$eslint_js_exit" -ne 0 ]; then
+  print_failure_summary "tsc -p tsconfig.eslint-js.json" "$eslint_js_exit" "$eslint_js_log"
 fi
+
+# Failing lanes agreeing on one exit code propagate it; disagreement falls
+# back to 1.
+final_exit=0
+for lane_exit in "$build_exit" "$scripts_exit" "$eslint_js_exit"; do
+  [ "$lane_exit" -ne 0 ] || continue
+  if [ "$final_exit" -eq 0 ]; then
+    final_exit="$lane_exit"
+  elif [ "$final_exit" -ne "$lane_exit" ]; then
+    final_exit=1
+    break
+  fi
+done
 
 exit "$final_exit"

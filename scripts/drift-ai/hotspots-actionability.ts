@@ -131,7 +131,7 @@ type BaselineIndex = {
   readonly churnMetric: string | null;
 };
 
-export function buildBaselineIndex(prior: unknown): BaselineIndex {
+function buildBaselineIndex(prior: unknown): BaselineIndex {
   const scores = new Map<string, Map<string, number>>();
   let churnMetric: string | null = null;
   const sections = asRecord(prior)?.["sections"];

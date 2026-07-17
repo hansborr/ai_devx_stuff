@@ -1,4 +1,4 @@
-export type StringDelim = '"' | "'" | "`";
+type StringDelim = '"' | "'" | "`";
 
 export type LineScanState = {
   readonly inBlockComment: boolean;

@@ -6,7 +6,49 @@
 # act on in code.
 set -uo pipefail
 
-REPO_ROOT="${1:-}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+MODE=full
+BASE=main
+REPO_ROOT=""
+POSITIONAL=()
+
+while [[ "$#" -gt 0 ]]; do
+  case "$1" in
+    --changed) MODE=changed; shift ;;
+    -h|--help)
+      printf 'usage: eslint-disable-register.sh [--changed [base]] [repo-root]\n'
+      exit 0
+      ;;
+    --*)
+      printf 'FAIL: eslint-disable register unknown argument: %s\n' "$1" >&2
+      exit 2
+      ;;
+    *) POSITIONAL+=("$1"); shift ;;
+  esac
+done
+
+if [[ "$MODE" == changed ]]; then
+  case "${#POSITIONAL[@]}" in
+    0) ;;
+    1)
+      if git -C "${POSITIONAL[0]}" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        REPO_ROOT="${POSITIONAL[0]}"
+      else
+        BASE="${POSITIONAL[0]}"
+      fi
+      ;;
+    2) BASE="${POSITIONAL[0]}"; REPO_ROOT="${POSITIONAL[1]}" ;;
+    *)
+      printf 'FAIL: eslint-disable register too many positional arguments\n' >&2
+      exit 2
+      ;;
+  esac
+elif [[ "${#POSITIONAL[@]}" -le 1 ]]; then
+  REPO_ROOT="${POSITIONAL[0]:-}"
+else
+  printf 'FAIL: eslint-disable register too many positional arguments\n' >&2
+  exit 2
+fi
 if [[ -z "$REPO_ROOT" ]]; then
   REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || {
     printf 'FAIL: eslint-disable register cannot check: not inside a git repository\n' >&2
@@ -18,21 +60,69 @@ if ! git -C "$REPO_ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   printf 'FAIL: eslint-disable register cannot check: %s is not a git repository\n' "$REPO_ROOT" >&2
   exit 2
 fi
+cd "$REPO_ROOT" || {
+  printf 'FAIL: eslint-disable register cannot enter repository: %s\n' "$REPO_ROOT" >&2
+  exit 2
+}
+
+SCAN_SCOPE=full
+FILES=()
+if [[ "$MODE" == changed ]]; then
+  # shellcheck source=scripts/lib/verify-metadata.sh
+  . "$SCRIPT_DIR/lib/verify-metadata.sh"
+  # shellcheck source=scripts/lib/changed-base.sh
+  . "$SCRIPT_DIR/lib/changed-base.sh"
+  # shellcheck source=scripts/lib/changed-lintable-files.sh
+  . "$SCRIPT_DIR/lib/changed-lintable-files.sh"
+
+  # This scanner runs under `set -uo pipefail` (no -e), so the abort is explicit:
+  # a bare call would discard the exit code and false-green a --changed run with
+  # unstaged source-relevant work. Mirrors lint-changed.sh / lint-config-sensors.sh.
+  musi_changed_gate_fail_if_unstaged "$REPO_ROOT" "lint:eslint-disable-register:changed" || exit $?
+  if ! musi_resolve_changed_base "$BASE"; then
+    printf 'eslint-disable register: %s — checking full repository.\n' "$MUSI_CHANGED_BASE_ERROR" >&2
+  else
+    BASE="$MUSI_CHANGED_BASE"
+    if ! musi_collect_changed_candidates "$REPO_ROOT" "$BASE" gate; then
+      printf 'FAIL: eslint-disable register could not collect changed files\n' >&2
+      exit 2
+    fi
+    selector_rc=0
+    musi_changed_candidates_trigger_full_scan full-scan-trigger:eslint-disable-register-changed \
+      || selector_rc=$?
+    case "$selector_rc" in
+      0) ;;
+      1)
+        if ! musi_select_changed_lintable_files "$REPO_ROOT" lintable:agent-changed; then
+          printf 'FAIL: eslint-disable register changed-file selection failed\n' >&2
+          exit 2
+        fi
+        SCAN_SCOPE=changed
+        ;;
+      *)
+        printf 'FAIL: eslint-disable register full-scan trigger selection failed\n' >&2
+        exit 2
+        ;;
+    esac
+  fi
+fi
 
 PATTERN='(^|[[:space:]])(//|/\*)[[:space:]]*eslint-disable(-next-line|-line)?($|[[:space:]])'
-BROAD_ALLOWLIST=(
-  "packages/shared/src/map/grid-utils.ts|no-magic-numbers"
-  "packages/shared/src/map/area-template.ts|no-magic-numbers"
-  "packages/shared/src/rules/xp.ts|no-magic-numbers"
-  "packages/shared/src/rules/spellcasting.ts|no-magic-numbers"
-  "packages/shared/src/schemas/character.ts|no-magic-numbers"
-  "packages/server/src/seed/generate-*.ts|no-magic-numbers"
-  "packages/server/src/seed/generate-*.ts|complexity"
-  "packages/server/src/seed/generate-*.ts|@typescript-eslint/restrict-template-expressions"
-  "packages/server/src/utils/prisma-types.test.ts|@typescript-eslint/no-deprecated"
-  "packages/server/src/utils/srd-query-helpers.ts|@typescript-eslint/explicit-function-return-type"
-  "packages/server/src/utils/__type-tests__/*.ts|@typescript-eslint/no-deprecated"
-)
+ALLOWLIST_FILE="$SCRIPT_DIR/data/eslint-disable-broad-allowlist.txt"
+BROAD_ALLOWLIST=()
+if [[ ! -r "$ALLOWLIST_FILE" ]]; then
+  printf 'FAIL: eslint-disable register cannot read allowlist: scripts/data/eslint-disable-broad-allowlist.txt\n' >&2
+  exit 2
+fi
+while IFS= read -r entry || [[ -n "$entry" ]]; do
+  entry="${entry%$'\r'}"
+  [[ -z "$entry" || "$entry" == \#* ]] && continue
+  if [[ "$entry" != *'|'* || -z "${entry%%|*}" || -z "${entry#*|}" ]]; then
+    printf 'FAIL: eslint-disable register malformed allowlist entry in scripts/data/eslint-disable-broad-allowlist.txt: %s\n' "$entry" >&2
+    exit 2
+  fi
+  BROAD_ALLOWLIST+=("$entry")
+done < "$ALLOWLIST_FILE"
 
 total=0
 inline=0
@@ -44,6 +134,7 @@ missing_entries=()
 broad_disallowed=0
 broad_entries=()
 IN_BLOCK_COMMENT=0
+IN_TEMPLATE=0
 
 trim() {
   local value="$1"
@@ -158,8 +249,8 @@ record_comment_segment() {
 scan_line() {
   local path="$1" line_no="$2" line="$3"
   local i=0 len=${#line} in_string="" ch next rest before segment
-  if (( IN_BLOCK_COMMENT == 0 )) &&
-    [[ "$line" != *"eslint-disable"* && "$line" != *"/*"* ]]; then
+  if (( IN_BLOCK_COMMENT == 0 && IN_TEMPLATE == 0 )) &&
+    [[ "$line" != *"eslint-disable"* && "$line" != *"/*"* && "$line" != *'`'* ]]; then
     return 0
   fi
   while (( i < len )); do
@@ -175,6 +266,23 @@ scan_line() {
       fi
       record_comment_segment "$path" "$line_no" "block" "$rest"
       return 0
+    fi
+
+    # Template literals span lines, so backtick state is file-scoped like
+    # IN_BLOCK_COMMENT. Template content is string data, never a directive;
+    # ${...} interpolation is coarsely ignored (missing a directive genuinely
+    # buried inside interpolation is far cheaper than false-failing on data).
+    if (( IN_TEMPLATE == 1 )); then
+      ch="${line:i:1}"
+      if [[ "$ch" == "\\" ]]; then
+        i=$((i + 2))
+        continue
+      fi
+      if [[ "$ch" == '`' ]]; then
+        IN_TEMPLATE=0
+      fi
+      i=$((i + 1))
+      continue
     fi
 
     ch="${line:i:1}"
@@ -211,35 +319,59 @@ scan_line() {
       return 0
     fi
 
-    if [[ "$ch" == '"' || "$ch" == "'" || "$ch" == '`' ]]; then
+    if [[ "$ch" == '"' || "$ch" == "'" ]]; then
       in_string="$ch"
+    elif [[ "$ch" == '`' ]]; then
+      # Accepted tradeoff: with no regex-literal handling, a code-position
+      # backtick that is not a template opener (e.g. the regex /[`]/) flips
+      # template state for the rest of the file until the next backtick, so a
+      # genuine directive in that span goes uncounted (false negative). That
+      # beats the alternative — treating template data as code and false-
+      # failing the gate. Pinned by the regex-backtick smoke case; changing
+      # this means a parser-backed scanner, not a tweak here.
+      IN_TEMPLATE=1
     fi
     i=$((i + 1))
   done
 }
 
+scan_files() {
+  local file
+  if [[ "$SCAN_SCOPE" == changed ]]; then
+    for file in "${FILES[@]}"; do
+      case "$file" in
+        docs/*|node_modules/*|packages/server/prisma/generated/*) continue ;;
+      esac
+      printf '%s\0' "$file"
+    done
+    return 0
+  fi
+
+  git -C "$REPO_ROOT" ls-files -z --cached --others --exclude-standard -- \
+    '*.cjs' '*.js' '*.jsx' '*.mjs' '*.ts' '*.tsx' \
+    ':(exclude)docs/**' \
+    ':(exclude)node_modules/**' \
+    ':(exclude)packages/server/prisma/generated/**'
+}
+
 while IFS= read -r -d '' file; do
+  [[ -r "$REPO_ROOT/$file" ]] || continue
   line_no=0
   IN_BLOCK_COMMENT=0
+  IN_TEMPLATE=0
   while IFS= read -r text || [[ -n "$text" ]]; do
     line_no=$((line_no + 1))
     scan_line "$file" "$line_no" "$text"
   done < "$REPO_ROOT/$file"
-done < <(
-  git -C "$REPO_ROOT" ls-files -z --cached --others --exclude-standard -- \
-    '*.cjs' \
-    '*.js' \
-    '*.jsx' \
-    '*.mjs' \
-    '*.ts' \
-    '*.tsx' \
-    ':(exclude)docs/**' \
-    ':(exclude)node_modules/**' \
-    ':(exclude)packages/server/prisma/generated/**'
-)
+done < <(scan_files)
 
-printf 'PASS: eslint-disable register total=%d inline=%d broad=%d\n' \
-  "$total" "$inline" "$broad"
+if [[ "$MODE" == changed ]]; then
+  printf 'PASS: eslint-disable register scope=%s total=%d inline=%d broad=%d\n' \
+    "$SCAN_SCOPE" "$total" "$inline" "$broad"
+else
+  printf 'PASS: eslint-disable register total=%d inline=%d broad=%d\n' \
+    "$total" "$inline" "$broad"
+fi
 
 if (( missing_total > 0 )); then
   printf 'FAIL: eslint-disable register missing reasons total=%d inline=%d broad=%d — add '"'"'-- reason'"'"' to each directive\n' \
@@ -252,7 +384,7 @@ else
 fi
 
 if (( broad_disallowed > 0 )); then
-  printf 'FAIL: eslint-disable register broad suppressions outside allowlist total=%d — prefer eslint-disable-next-line, or add a targeted file/rule exception in scripts/eslint-disable-register.sh\n' \
+  printf 'FAIL: eslint-disable register broad suppressions outside allowlist total=%d — prefer eslint-disable-next-line, or add a targeted file/rule exception in scripts/data/eslint-disable-broad-allowlist.txt\n' \
     "$broad_disallowed"
   for entry in "${broad_entries[@]}"; do
     printf '  - %s\n' "$entry"

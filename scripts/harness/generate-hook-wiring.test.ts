@@ -55,6 +55,7 @@ describe("hook wiring generator", () => {
           kind: "hook",
           hookWiring: {
             event: "PostToolUse",
+            body: "scripts/ai-hooks/fixture.sh",
             order: 90,
             harnesses: {
               codex: {
@@ -75,6 +76,7 @@ describe("hook wiring generator", () => {
           kind: "hook",
           hookWiring: {
             event: "PostToolUse",
+            body: "scripts/ai-hooks/fixture.sh",
             order: 10,
             harnesses: {
               claude: {
@@ -102,6 +104,7 @@ describe("hook wiring generator", () => {
           kind: "hook",
           hookWiring: {
             event: "PostToolUse",
+            body: "scripts/ai-hooks/fixture.sh",
             order: 20,
             harnesses: {
               claude: {
@@ -126,6 +129,7 @@ describe("hook wiring generator", () => {
           kind: "hook",
           hookWiring: {
             event: "Stop",
+            body: "scripts/ai-hooks/fixture.sh",
             order: 10,
             outputs: ["systemMessage"],
             harnesses: {
@@ -244,6 +248,7 @@ describe("hook wiring generator", () => {
           kind: "hook",
           hookWiring: {
             event: "PreToolUse",
+            body: "scripts/ai-hooks/fixture.sh",
             order: 10,
             harnesses: {
               copilot: {
@@ -274,6 +279,7 @@ describe("hook wiring generator", () => {
           kind: "hook",
           hookWiring: {
             event: "PreToolUse",
+            body: "scripts/ai-hooks/fixture.sh",
             order: 10,
             harnesses: {
               copilot: {
@@ -302,6 +308,7 @@ describe("hook wiring generator", () => {
           kind: "hook",
           hookWiring: {
             event: "PostCompact",
+            body: "scripts/ai-hooks/fixture.sh",
             order: 10,
             harnesses: {
               claude: {
@@ -324,6 +331,7 @@ describe("hook wiring generator", () => {
           kind: "hook",
           hookWiring: {
             event: "SubagentStart",
+            body: "scripts/ai-hooks/fixture.sh",
             order: 10,
             harnesses: {
               claude: {
@@ -348,6 +356,7 @@ describe("hook wiring generator", () => {
           kind: "hook",
           hookWiring: {
             event: "PostToolUseFailure",
+            body: "scripts/ai-hooks/fixture.sh",
             order: 10,
             harnesses: {
               claude: {
@@ -366,6 +375,7 @@ describe("hook wiring generator", () => {
           kind: "hook",
           hookWiring: {
             event: "UserPromptSubmit",
+            body: "scripts/ai-hooks/fixture.sh",
             order: 10,
             harnesses: {
               claude: {
@@ -491,6 +501,7 @@ describe("hook wiring generator", () => {
           kind: "hook",
           hookWiring: {
             event: "UserPromptSubmit",
+            body: "scripts/ai-hooks/fixture.sh",
             order: 10,
             harnesses: {
               claude: {
@@ -520,6 +531,7 @@ describe("hook wiring generator", () => {
           kind: "hook",
           hookWiring: {
             event: "PostToolUseFailure",
+            body: "scripts/ai-hooks/fixture.sh",
             order: 10,
             harnesses: {
               codex: {
@@ -550,6 +562,7 @@ describe("hook wiring generator", () => {
           kind: "hook",
           hookWiring: {
             event: "PostCompact",
+            body: "scripts/ai-hooks/fixture.sh",
             order: 10,
             outputs: ["additionalContext"],
             harnesses: {
@@ -579,6 +592,7 @@ describe("hook wiring generator", () => {
           kind: "hook",
           hookWiring: {
             event: "SubagentStop",
+            body: "scripts/ai-hooks/fixture.sh",
             order: 10,
             outputs: ["additionalContext"],
             harnesses: {
@@ -609,11 +623,40 @@ describe("hook wiring generator", () => {
           kind: "hook",
           hookWiring: {
             event: "Stop",
+            body: "scripts/ai-hooks/fixture.sh",
             order: 10,
             outputs: ["systemMessage"],
             harnesses: {
               claude: {
                 command: "bash $CLAUDE_PROJECT_DIR/.claude/hooks/stop-reminder.sh",
+              },
+            },
+            notes: {
+              codex: "Fixture only.",
+              copilot: "Fixture only.",
+            },
+          },
+        },
+      ],
+    };
+
+    expect(() => renderHookWiringOutputsFromManifest(manifest, BASE_SETTINGS)).not.toThrow();
+  });
+
+  it("accepts Claude SubagentStop systemMessage output", () => {
+    const manifest = {
+      controls: [
+        {
+          id: "hook/claude-subagent-stop-user-warning",
+          kind: "hook",
+          hookWiring: {
+            event: "SubagentStop",
+            body: "scripts/ai-hooks/fixture.sh",
+            order: 10,
+            outputs: ["systemMessage"],
+            harnesses: {
+              claude: {
+                command: "bash $CLAUDE_PROJECT_DIR/.claude/hooks/subagent-stop-reminder.sh",
               },
             },
             notes: {
@@ -636,6 +679,7 @@ describe("hook wiring generator", () => {
           kind: "hook",
           hookWiring: {
             event: "Stop",
+            body: "scripts/ai-hooks/fixture.sh",
             order: 10,
             outputs: ["systemMessage"],
             harnesses: {
@@ -666,6 +710,7 @@ describe("hook wiring generator", () => {
           kind: "hook",
           hookWiring: {
             event: "PreToolUse",
+            body: "scripts/ai-hooks/fixture.sh",
             order: 10,
             outputs: ["decisionBlock"],
             harnesses: {
@@ -695,6 +740,7 @@ describe("hook wiring generator", () => {
           kind: "hook",
           hookWiring: {
             event: "Stop",
+            body: "scripts/ai-hooks/fixture.sh",
             order: 10,
             harnesses: {
               claude: {
@@ -815,6 +861,7 @@ describe("hook wiring generator", () => {
   it("rejects duplicate manifest control ids instead of emitting duplicated hooks", () => {
     const stopWiring = {
       event: "Stop",
+      body: "scripts/ai-hooks/fixture.sh",
       order: 10,
       outputs: ["systemMessage"],
       harnesses: {
@@ -847,6 +894,7 @@ describe("hook wiring generator", () => {
           kind: "hook",
           hookWiring: {
             event: "PreToolUse",
+            body: "scripts/ai-hooks/fixture.sh",
             order: 10,
             harnesses: {
               claude: {
@@ -861,6 +909,32 @@ describe("hook wiring generator", () => {
 
     expect(() => renderHookWiringOutputsFromManifest(manifest, BASE_SETTINGS)).toThrow(
       "hook/claude-only omits codex wiring without a notes.codex explanation",
+    );
+  });
+
+  it("rejects Cursor hook wiring until Cursor exposes a repository hook policy surface", () => {
+    const manifest = {
+      controls: [
+        {
+          id: "hook/cursor-policy",
+          kind: "hook",
+          hookWiring: {
+            event: "PreToolUse",
+            body: "scripts/ai-hooks/fixture.sh",
+            order: 10,
+            harnesses: {
+              cursor: {
+                matcher: "Shell",
+                command: "bash scripts/ai-hooks/bash-pre-tool-use.sh",
+              },
+            },
+          },
+        },
+      ],
+    };
+
+    expect(() => renderHookWiringOutputsFromManifest(manifest, BASE_SETTINGS)).toThrow(
+      "Cursor has no repository PreToolUse policy surface; agent-cli work cursor uses --force with unrestricted shell",
     );
   });
 });

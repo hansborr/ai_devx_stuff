@@ -1,6 +1,6 @@
 # 10. Replace the refuse-and-recipe baseline merge driver with a true three-way semantic merge that takes the minimum floor
 
-Status: Proposed — from the 2026-07-01 AI-harness review; NOT implemented. Re-verify file:line before acting.
+Status: Done — semantic min-merge baseline driver landed (`e8b9f7db`); `scripts/lint-ratchet/baseline-merge.ts` + `baseline-merge-cli.ts` invoke the semantic merge before the refuse-recipe fallback.
 Lens: ratchet · Area: merge-driver · Severity: high · Size: M-L · Confidence: med
 Theme: baseline-merge-conflicts · Source: Musi AI-harness review 2026-07-01 (multi-agent + Codex second opinion + web research)
 
@@ -22,7 +22,7 @@ Implement the merge in a bun script (e.g. `scripts/lint-ratchet/baseline-merge.t
 - Entry identical on both sides → keep. Entry changed on one side only vs base → take the changed side (this alone kills the "two PRs drained different rules" conflict class).
 - Both sides changed, `configHash`/`ruleSourceHash`/metadata identical → merge `items` per file key: both present → MIN count (ratchet philosophy: the lower floor wins; the symmetric gate plus the leaf-12 post-merge truth-up demands regeneration if the merged code is actually worse); present on one side only → missing-as-drained, i.e. drop the item (min semantics with the other side at 0). For `lines`/`maxComplexity`/`perFunction` payloads, take the side with the lower count, or min the scalar payloads; if in doubt, refuse just that entry.
 - `configHash` or `ruleSourceHash` differing on both sides vs base → not textually resolvable; either exit 1 with the existing recipe scoped to that entry, or take one side and rely on the staleness gate (`baseline-validation.ts:35,46-49`) to force `lint:ratchet:update`.
-Write the result through the same deterministic formatter, exit 0 on a fully clean semantic merge. Because the three-way rules are symmetric in ours/theirs, the rebase side-swap problem disappears for resolved entries; keep the swap warning only in the fallback path. Update the Merge Conflicts section of `docs/guides/lint-ratchet.md:583-679` to describe the new common case.
+Write the result through the same deterministic formatter, exit 0 on a fully clean semantic merge. Because the three-way rules are symmetric in ours/theirs, the rebase side-swap problem disappears for resolved entries; keep the swap warning only in the fallback path. Update the portable merge-handling section of `docs/guides/lint-ratchet-merges.md` to describe the new common case.
 
 ## Scope / caveats
 - MUST pair with leaf 12: merge commits skip pre-commit (no `.husky/pre-merge-commit` exists — verified; `scripts/land.sh:12-13,41-47` verifies the branch tip, not the merge result), so an exit-0 semantic merge needs the post-merge truth-up plus CI (`.github/workflows/ci.yml:79-85`) as backstops for the "merged code is worse than min" case.

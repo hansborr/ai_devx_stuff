@@ -5,7 +5,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$REPO_ROOT"
-PATH_POLICY_QUERY="$SCRIPT_DIR/path-policy/path-policy-query.ts"
+# shellcheck source=/dev/null
+. "$SCRIPT_DIR/lib/verify-metadata.sh"
 
 MODE=full
 BASE=main
@@ -57,7 +58,7 @@ add_file() {
 collect_repo_files() {
   if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     git ls-files -z --cached --others --exclude-standard | sort -z
-    return 0
+    return $?
   fi
 
   while IFS= read -r -d '' file; do
@@ -66,16 +67,26 @@ collect_repo_files() {
 }
 
 collect_full_files() {
-  local file
+  local file candidates_file selected_file
 
+  candidates_file=$(mktemp "${TMPDIR:-/tmp}/musi-lint-shell-input.XXXXXX") || return 2
+  selected_file=$(mktemp "${TMPDIR:-/tmp}/musi-lint-shell-selected.XXXXXX") || {
+    rm -f "$candidates_file"
+    return 2
+  }
+  if ! collect_repo_files > "$candidates_file" \
+     || ! musi_path_policy_query_nul shell-surface < "$candidates_file" > "$selected_file"; then
+    printf 'lint:shell: path selection failed for shell-surface.\n' >&2
+    rm -f "$candidates_file" "$selected_file"
+    return 2
+  fi
   while IFS= read -r -d '' file; do
     add_file "$file"
-  done < <(collect_repo_files | bun --config=/dev/null "$PATH_POLICY_QUERY" shell-surface)
+  done < "$selected_file"
+  rm -f "$candidates_file" "$selected_file"
 }
 
 collect_changed_files() {
-  # shellcheck source=/dev/null
-  . "$SCRIPT_DIR/lib/verify-metadata.sh"
   # shellcheck source=scripts/lib/changed-base.sh
   . "$SCRIPT_DIR/lib/changed-base.sh"
 
@@ -89,14 +100,23 @@ collect_changed_files() {
     return 0
   fi
 
+  local candidates_file selected_file
+  candidates_file=$(mktemp "${TMPDIR:-/tmp}/musi-lint-shell-changed.XXXXXX") || return 2
+  selected_file=$(mktemp "${TMPDIR:-/tmp}/musi-lint-shell-selected.XXXXXX") || {
+    rm -f "$candidates_file"
+    return 2
+  }
+  if ! git diff -z --name-only --diff-filter=ACMRD "$BASE"...HEAD > "$candidates_file" \
+     || ! git diff -z --name-only --diff-filter=ACMRD --cached >> "$candidates_file" \
+     || ! musi_path_policy_query_nul shell-surface < "$candidates_file" > "$selected_file"; then
+    printf 'lint:shell: path selection failed for shell-surface.\n' >&2
+    rm -f "$candidates_file" "$selected_file"
+    return 2
+  fi
   while IFS= read -r -d '' file; do
     add_file "$file"
-  done < <(
-    {
-      git diff -z --name-only --diff-filter=ACMRD "$BASE"...HEAD
-      git diff -z --name-only --diff-filter=ACMRD --cached
-    } | bun --config=/dev/null "$PATH_POLICY_QUERY" shell-surface
-  )
+  done < "$selected_file"
+  rm -f "$candidates_file" "$selected_file"
 }
 
 shellcheck_command() {

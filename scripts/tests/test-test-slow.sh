@@ -4,6 +4,7 @@
 # smoke-subjects: scripts/test-changed.sh
 # smoke-subjects: scripts/vitest.sh
 # smoke-subjects: scripts/lib/changed-base.sh
+# smoke-subjects: scripts/lib/test-worker-count.sh
 # smoke-subjects: scripts/ai-hooks/output-filter.sh
 # smoke-subjects: scripts/tests/lib/test-git-env.sh
 # smoke-subjects: vitest.config.ts
@@ -183,6 +184,7 @@ cp "$SCRIPT_DIR/../test-changed.sh" "$repo/scripts/test-changed.sh"
 cp "$SCRIPT_DIR/../vitest.sh" "$repo/scripts/vitest.sh"
 cp "$SCRIPT_DIR/../ai-hooks/output-filter.sh" "$repo/scripts/ai-hooks/output-filter.sh"
 cp "$SCRIPT_DIR/../lib/changed-base.sh" "$repo/scripts/lib/changed-base.sh"
+cp "$SCRIPT_DIR/../lib/test-worker-count.sh" "$repo/scripts/lib/test-worker-count.sh"
 printf 'base\n' > "$repo/packages/server/src/foo.slow.test.ts"
 git -C "$repo" config user.email test@example.com
 git -C "$repo" config user.name Test
@@ -214,6 +216,7 @@ cp "$SCRIPT_DIR/../test-changed.sh" "$repo2/scripts/test-changed.sh"
 cp "$SCRIPT_DIR/../vitest.sh" "$repo2/scripts/vitest.sh"
 cp "$SCRIPT_DIR/../ai-hooks/output-filter.sh" "$repo2/scripts/ai-hooks/output-filter.sh"
 cp "$SCRIPT_DIR/../lib/changed-base.sh" "$repo2/scripts/lib/changed-base.sh"
+cp "$SCRIPT_DIR/../lib/test-worker-count.sh" "$repo2/scripts/lib/test-worker-count.sh"
 printf 'base\n' > "$repo2/packages/server/src/regular.test.ts"
 git -C "$repo2" config user.email test@example.com
 git -C "$repo2" config user.name Test

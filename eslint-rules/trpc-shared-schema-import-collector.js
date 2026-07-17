@@ -11,7 +11,9 @@
  * shared so a prefix change can't silently apply to one twin only.
  */
 
-export const SHARED_SCHEMA_PREFIX = "@musi/shared/schemas/";
+import { SHARED_SCHEMA_PREFIX } from "./shared-schema-prefix.js";
+
+export { SHARED_SCHEMA_PREFIX };
 
 /** @param {string} source */
 export function isSharedSchemaSource(source) {

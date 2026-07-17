@@ -43,7 +43,7 @@ export type CoverageFileEvidence = {
 // A non-fatal degradation recorded while reading or parsing an artifact. These
 // keep partial evidence honest: a later renderer can disclose that a run was
 // only partially parsed instead of mistaking it for clean coverage.
-export type CoverageParseNoteKind =
+type CoverageParseNoteKind =
   | "malformed-record"
   | "missing-end-of-record"
   | "unsupported-format"

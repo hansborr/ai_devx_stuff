@@ -29,7 +29,10 @@ export function createPackageDependencyConfigs(repoRoot) {
       ignores: sharedTestAndHelperSourceFiles,
       plugins: { "import-x": importX },
       rules: {
-        "import-x/no-extraneous-dependencies": ["error", { packageDir: [sharedDir] }],
+        "import-x/no-extraneous-dependencies": [
+          "error",
+          { packageDir: [sharedDir], devDependencies: false },
+        ],
       },
     },
 
@@ -85,7 +88,10 @@ export function createPackageDependencyConfigs(repoRoot) {
       ignores: clientTestAndHelperSourceFiles,
       plugins: { "import-x": importX },
       rules: {
-        "import-x/no-extraneous-dependencies": ["error", { packageDir: [clientDir] }],
+        "import-x/no-extraneous-dependencies": [
+          "error",
+          { packageDir: [clientDir], devDependencies: false },
+        ],
       },
     },
 

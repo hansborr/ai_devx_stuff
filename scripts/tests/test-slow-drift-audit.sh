@@ -48,6 +48,28 @@ write_report() {
   printf 'fused %s\n' "$format" > "$output"
 }
 
+write_message_eval() {
+  local output="" json_output=""
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --output)
+        output="$2"
+        shift 2
+        ;;
+      --json-output)
+        json_output="$2"
+        shift 2
+        ;;
+      *)
+        shift
+        ;;
+    esac
+  done
+  mkdir -p "$(dirname "$output")" "$(dirname "$json_output")"
+  printf '# message eval\n' > "$output"
+  printf '{"fixtures":[]}\n' > "$json_output"
+}
+
 case "$*" in
   "--version")
     printf '1.3.11\n'
@@ -77,6 +99,10 @@ case "$*" in
       exit $?
     fi
     write_report "$@"
+    ;;
+  run\ eval:lint-messages*)
+    shift 2
+    write_message_eval "$@"
     ;;
   *)
     printf 'unexpected bun stub call: %s\n' "$*" >&2
@@ -182,6 +208,8 @@ run_slow_drift "$repo" >/dev/null || fail "clean slow drift run should pass"
 [ -s "$out/envelopes/drift-ai.json" ] || fail "drift:ai envelope missing"
 [ -s "$out/fused/harness-audit.txt" ] || fail "text fused report missing"
 [ -s "$out/fused/harness-audit.json" ] || fail "json fused report missing"
+[ -s "$out/message-eval/latest.md" ] || fail "lint message eval markdown missing"
+[ -s "$out/message-eval/latest.json" ] || fail "lint message eval JSON missing"
 assert_metadata_header "$out/producers/lint-ratchet.txt" "$repo/bun-stub run lint:ratchet"
 assert_metadata_header "$out/producers/drift-ai.txt" "$repo/bun-stub run drift:ai --scope current --check all"
 assert_metadata_header "$out/producers/logs-audit.txt" "logs:audit skipped: no MUSI_SLOW_DRIFT_LOG_FILES"
@@ -192,6 +220,8 @@ grep -qF 'fused text' "$out/fused/harness-audit.txt" \
   || fail "text fused report should keep original body after metadata header"
 grep -qF 'run harness:audit --format text --output' "$repo/calls.log" \
   || fail "harness:audit text call missing"
+grep -qF 'run eval:lint-messages --output' "$repo/calls.log" \
+  || fail "lint message eval call missing"
 grep -qF 'no logs:audit inputs supplied' "$out/producers/logs-audit.txt" \
   || fail "logs:audit skip note missing"
 ok "clean run writes producer envelopes and fused reports"

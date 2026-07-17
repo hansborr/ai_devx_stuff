@@ -10,7 +10,7 @@ import { buildPathRowActionability } from "./hotspots-actionability.js";
 import type { ChurnHotspot, ChurnSection } from "./hotspots-format.js";
 import type { CollectedHistory, CommitRecord } from "./hotspots-history.js";
 
-export const DEFAULT_CHURN_STANDOUT_FACTOR = 2; // a row qualifies at ≥ factor × median churn
+const DEFAULT_CHURN_STANDOUT_FACTOR = 2; // a row qualifies at ≥ factor × median churn
 
 export type ReduceChurnOptions = {
   readonly top: number;

@@ -1,10 +1,9 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import type { ChangedFile } from "../drift-ai.js";
+import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
 import {
   analyzeCommentMetrics,
   COMMENTS_REPAIR_HINT,
@@ -359,22 +358,12 @@ describe("runCommentsCheck", () => {
 });
 
 describe("defaultFileReader", () => {
-  const tempRoots: string[] = [];
-
-  afterEach(() => {
-    while (tempRoots.length > 0) {
-      const root = tempRoots.pop();
-      if (root) rmSync(root, { recursive: true, force: true });
-    }
-  });
+  const tmpRepo = registerTempRootCleanup();
 
   function makeRepo(): { root: string; subFile: string } {
-    const root = mkdtempSync(path.join(tmpdir(), "drift-ai-comments-"));
-    tempRoots.push(root);
-    const sub = path.join(root, "packages/server/src/services");
-    mkdirSync(sub, { recursive: true });
-    const subFile = path.join(sub, "example.ts");
-    writeFileSync(subFile, "const x = 1;\n");
+    const root = path.join(tmpRepo.makeTempRepo("drift-ai-comments-"), "repo");
+    const subFile = path.join(root, "packages/server/src/services/example.ts");
+    tmpRepo.writeRepoFile(root, "packages/server/src/services/example.ts", "const x = 1;\n");
     return { root, subFile };
   }
 
@@ -392,10 +381,7 @@ describe("defaultFileReader", () => {
 
   it("refuses to escape the repo root via .. segments", () => {
     const { root } = makeRepo();
-    const outside = path.join(root, "..", "outside-secret");
-    mkdirSync(outside, { recursive: true });
-    tempRoots.push(outside);
-    writeFileSync(path.join(outside, "secret.ts"), "leak\n");
+    tmpRepo.writeRepoFile(root, "../outside-secret/secret.ts", "leak\n");
     const read = defaultFileReader(root);
     expect(read("../outside-secret/secret.ts")).toBeUndefined();
   });

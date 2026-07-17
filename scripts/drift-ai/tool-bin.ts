@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 
-export type ToolBinSource = "tools-checkout" | "target-repo" | "override";
+type ToolBinSource = "tools-checkout" | "target-repo" | "override";
 
 export type ToolBinResolution =
   | { readonly found: true; readonly binPath: string; readonly source: ToolBinSource }

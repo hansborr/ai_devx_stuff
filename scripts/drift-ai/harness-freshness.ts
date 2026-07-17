@@ -36,8 +36,8 @@ export type HarnessFreshnessFinding = {
   };
 };
 
-export type RepoFileReader = (filePath: string) => string | undefined;
-export type DirectoryListing = (directory: string) => readonly string[];
+type RepoFileReader = (filePath: string) => string | undefined;
+type DirectoryListing = (directory: string) => readonly string[];
 export type PathExists = (repoRelativePath: string, kind: HarnessFreshnessPathKind) => boolean;
 export type PathIgnored = (repoRelativePath: string) => boolean;
 

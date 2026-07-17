@@ -41,7 +41,7 @@ export type JscpdRunnerInput = {
   readonly ignoreGlobs: readonly string[];
 };
 
-export type JscpdSpawnResult = Pick<
+type JscpdSpawnResult = Pick<
   SpawnSyncReturns<string>,
   "error" | "status" | "stdout" | "stderr" | "signal"
 >;

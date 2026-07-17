@@ -1,5 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -11,6 +10,7 @@ import {
   harnessDiagnosticsSchema,
 } from "../../packages/shared/src/schemas/harness-diagnostics.js";
 import { HARNESS_DIAGNOSTICS_OUTPUT_ENV } from "../harness/harness-diagnostics-output.js";
+import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
 import { ALL_CHECKS, DEFAULT_CHECKS } from "./check-metadata.js";
 import {
   controlForCheck,
@@ -225,7 +225,7 @@ describe("projectDriftDiagnostics", () => {
 });
 
 describe("writeDriftDiagnosticsSidecar", () => {
-  const tempRoots: string[] = [];
+  const tmpRepo = registerTempRootCleanup();
 
   beforeEach(() => {
     vi.stubEnv(HARNESS_DIAGNOSTICS_OUTPUT_ENV, undefined);
@@ -233,16 +233,10 @@ describe("writeDriftDiagnosticsSidecar", () => {
 
   afterEach(() => {
     vi.unstubAllEnvs();
-    while (tempRoots.length > 0) {
-      const root = tempRoots.pop();
-      if (root !== undefined) rmSync(root, { recursive: true, force: true });
-    }
   });
 
   function makeTempRoot(): string {
-    const root = mkdtempSync(join(tmpdir(), "drift-diagnostics-"));
-    tempRoots.push(root);
-    return root;
+    return tmpRepo.makeTempRepo("drift-diagnostics-");
   }
 
   it("is a no-op when the env var is unset", () => {

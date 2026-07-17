@@ -1,6 +1,7 @@
 # Test-Suite Audit — 2026-06-13
 
-> **Status: direction-setting, not implementation.** Every leaf in this pack is a
+> **Status: historical direction-setting report.** The 2026-07-13 index reconciliation
+> removed six landed leaves; every surviving leaf remains a
 > read-only finding with re-verified `file:line` evidence. Nothing here has been
 > changed in the test suite itself. Promote one leaf at a time.
 

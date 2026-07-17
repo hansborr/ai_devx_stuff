@@ -1,6 +1,6 @@
 # Lint Messaging 2026-07 — Task Pack
 
-Status: Implemented 2026-07-05 — all 21 leaves landed on chore/lint-messaging-2026-07-pack (leaf 22 step (b) deferred)
+Status: Active residue after the 2026-07-13 docs audit; leaf 22 step (b) remains deferred.
 Created: 2026-07-05
 Source: 2026-07-05 lint-messaging review (5 parallel Sonnet exploration
 agents — local rules, agent envelope/hooks, ratchet, gates, sensors — with
@@ -29,27 +29,7 @@ noise/consistency polish.
 
 | # | Task | Track | Size | Severity | Depends on | Status |
 |---|---|---|---|---|---|---|
-| 10 | [Fast-commit success summary must say what was skipped](./10-fast-commit-skip-visibility.md) | T | S | high | none | Done |
-| 11 | [Suppression registers: unrun check must not read as pass](./11-suppression-register-soft-pass.md) | T | S | med-high | none | Done |
-| 12 | [concurrency-guard message contradicts its own pairedGuide](./12-concurrency-guard-doc-mismatch.md) | T | XS | med | none | Done |
-| 13 | [Truth-up stale harness-review leaf 72 status line](./13-stale-backlog-leaf-72-status.md) | T | XS | low | none | Done |
-| 20 | [Inline doc pointers for the four rules missing them](./20-inline-doc-pointers-missing-rules.md) | D | S | med-high | 12 (same convention) | Done |
-| 21 | [Contract-test guard: inline pointer ↔ pairedGuide parity](./21-contract-test-pointer-parity.md) | D | S-M | med-high | 12, 20 | Done |
-| 22 | [Bridge edit-time hook advisories to the envelope guidance](./22-envelope-hook-bridge.md) | D | M | high | none | Done (step b deferred) |
-| 23 | [Stable alias for coverage-map `--suggest` + reference it](./23-coverage-map-suggest-alias.md) | D | S | med | none | Done |
-| 24 | [Self-explaining constraints: zodAlias + todoNeedsReference](./24-self-explaining-rule-constraints.md) | D | S | med | none | Done |
-| 30 | [`audit:licenses` findings need a remedy path](./30-audit-licenses-remedy.md) | A | S-M | med | allowlist decision | Done |
-| 31 | [Audit-lane remedy-text batch (4 small fixes)](./31-audit-lane-remedy-batch.md) | A | S | low-med | none | Done |
-| 40 | [Dedupe ratchet `--allow-worse` boilerplate](./40-ratchet-allow-worse-dedupe.md) | N | S-M | med | none | Done |
-| 41 | [Single-source the baseline merge-conflict recipe](./41-merge-recipe-single-source.md) | N | S-M | med | none | Done |
-| 42 | [Explicit `kind` for improvement findings; drop dead `warning=0`](./42-improvement-kind-field.md) | N | S-M | med | none | Done |
-| 43 | [typecheck.sh failure-summary parity with other slots](./43-typecheck-failure-summary.md) | N | S | med | none | Done |
-| 44 | [commit-msg rejection: restate the template + example](./44-commit-msg-template-footer.md) | N | S | med | none | Done |
-| 45 | [lint-dist-preflight: dead-end remedy + divergence note](./45-lint-dist-preflight-remedy.md) | N | S | low-med | none | Done |
-| 46 | [Portable shellcheck install guidance](./46-shellcheck-install-portability.md) | N | XS | low | none | Done |
-| 47 | [Lint-message polish batch (7 tiny fixes)](./47-message-polish-batch.md) | N | S | low | none | Done |
-| 48 | [Near-cap policy-prose messages: trim or document duplication](./48-near-cap-policy-prose.md) | N | S-M | low-med | owner decision | Done |
-| 49 | [Gate-output observability batch (verify-logs, steps-lib)](./49-gate-output-observability-batch.md) | N | S | low | none | Done |
+| 22 | [Bridge edit-time hook advisories to the envelope guidance](./22-envelope-hook-bridge.md) | D | M | high | none | Done (step (a)); step (b) deferred |
 
 ## Recommended Order
 

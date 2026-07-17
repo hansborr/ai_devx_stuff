@@ -1,10 +1,4 @@
-export type CommitIntentCategory =
-  | "fix"
-  | "refactor"
-  | "scaffold"
-  | "generated"
-  | "update"
-  | "unknown";
+type CommitIntentCategory = "fix" | "refactor" | "scaffold" | "generated" | "update" | "unknown";
 
 export type CommitIntentClassification = {
   readonly category: CommitIntentCategory;

@@ -1,6 +1,6 @@
 # 02 - PR comprehension template
 
-> Proposal only - not implemented.
+Status: Done — `.github/pull_request_template.md` now opens with the `## Intent / Comprehension` section (`1fdea456`). Proposed change below is retained as the original finding.
 
 ## Problem
 

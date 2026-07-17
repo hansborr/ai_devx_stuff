@@ -19,14 +19,14 @@ import {
 export const COVERAGE_EVIDENCE_SUBCOMMAND = "coverage-evidence";
 export const DEFAULT_COVERAGE_EVIDENCE_TOP = 50;
 
-export type CoverageEvidenceSource = {
+type CoverageEvidenceSource = {
   readonly path: string;
   readonly label: string;
   readonly format: CoverageFormat | null;
   readonly timestamp: string | null;
 };
 
-export type CoverageEvidenceSummary = {
+type CoverageEvidenceSummary = {
   readonly files: number;
   readonly functionRows: number;
   readonly lineRows: number;
@@ -36,7 +36,7 @@ export type CoverageEvidenceSummary = {
   readonly linesHit: number;
 };
 
-export type CoverageEvidenceFunctionRow = {
+type CoverageEvidenceFunctionRow = {
   readonly rank: number;
   readonly source: CoverageEvidenceSource;
   readonly kind: "function";
@@ -47,7 +47,7 @@ export type CoverageEvidenceFunctionRow = {
   readonly hits: number;
 };
 
-export type CoverageEvidenceLineRow = {
+type CoverageEvidenceLineRow = {
   readonly rank: number;
   readonly source: CoverageEvidenceSource;
   readonly kind: "line";
@@ -56,9 +56,9 @@ export type CoverageEvidenceLineRow = {
   readonly hits: number;
 };
 
-export type CoverageEvidenceRow = CoverageEvidenceFunctionRow | CoverageEvidenceLineRow;
+type CoverageEvidenceRow = CoverageEvidenceFunctionRow | CoverageEvidenceLineRow;
 
-export type CoverageEvidenceSection = PrototypeSection<CoverageEvidenceRow> & {
+type CoverageEvidenceSection = PrototypeSection<CoverageEvidenceRow> & {
   readonly artifact: CoverageEvidenceSource | null;
   readonly summary: CoverageEvidenceSummary | null;
   readonly notes: readonly CoverageParseNote[];

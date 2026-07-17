@@ -79,7 +79,7 @@ describe("runKnipUnusedExportsMergeCli", () => {
     expect(exitCode).toBe(0);
     expect(readFileSync(fixture.currentPath, "utf8")).toBe(baselineText("a"));
     expect(existsSync(fixture.markerPath)).toBe(true);
-    expect(readFileSync(fixture.markerPath, "utf8")).toContain("merge-head=deadbeef");
+    expect(readFileSync(fixture.markerPath, "utf8")).toContain("pre-merge-head=deadbeef");
   });
 
   it("returns a nonzero exit and leaves current untouched when a side cannot be parsed", async () => {

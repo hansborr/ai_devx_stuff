@@ -13,7 +13,7 @@ import { expect } from "vitest";
 // those genuinely diverge (failure-assertion variant, runTwice policy, and the
 // trpc file's two-kind parameterization).
 
-export function unknownProperty(value: unknown, key: string): unknown {
+function unknownProperty(value: unknown, key: string): unknown {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new Error("Fixture metadata must be a JSON object.");
   }

@@ -8,15 +8,20 @@ AI_HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=/dev/null
 . "$AI_HOOKS_DIR/../lib/verify-metadata.sh"
 
+# Keyed on outcome, not marker presence: post-commit appends HEAD to the
+# fast-commit provenance log only when pre-commit actually skipped a slot,
+# and it has done so by the time this summary runs. A docs-only or
+# bridged/full-verified commit made with the marker set is not in the log
+# and must not be told its slots were skipped.
 ai_fast_commit_summary_suffix() {
   local repo_root="$1"
-  local marker="${MUSI_FAST_COMMIT_MARKER:-}"
+  local log head
 
-  if [ -z "$marker" ]; then
-    marker="$(musi_git_common_identity_path "$repo_root")/musi-fast-commit"
-  fi
-
-  if [ -f "$marker" ]; then
+  log="$(musi_fast_commit_log_path "$repo_root")"
+  [ -f "$log" ] || return 0
+  head="$(git -C "$repo_root" rev-parse HEAD 2>/dev/null)" || return 0
+  [ -n "$head" ] || return 0
+  if grep -qxF "$head" "$log"; then
     printf '\n(fast-commit: test+scripts slots skipped; land via bash scripts/land.sh)'
   fi
 }
@@ -42,6 +47,19 @@ ai_commit_success_summary() {
     printf 'Commit succeeded: %s %s' "$hash" "$subject"
   fi
   ai_fast_commit_summary_suffix "$repo_root"
+}
+
+# Extract the operator-facing baseline truth-up advisories that
+# .husky/post-commit emits (lint-ratchet / knip / max-lines) while a commit
+# runs — most importantly the "merge produced a stale baseline" warning after a
+# hand-completed conflicted merge. Every such line is prefixed `post-commit: `
+# and nothing else in the post-commit hook uses that prefix, so it is a clean
+# discriminator against the rest of the captured child output. Prints nothing
+# when there are none; grep's exit 1 on no-match must not abort the caller's
+# success path, hence the `|| true`.
+ai_commit_truth_up_lines() {
+  local output="$1"
+  printf '%s\n' "$output" | grep '^post-commit: ' || true
 }
 
 ai_precommit_failed_tasks() {

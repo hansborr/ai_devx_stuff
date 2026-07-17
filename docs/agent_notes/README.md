@@ -2,6 +2,16 @@
 
 Persistent working notes for context future agents cannot quickly recover from code or commits alone.
 
+> **Visitor note:** This tree is agent process state, not the public harness
+> tour. Start with [`docs/ai-harness.md`](../ai-harness.md) for the maintained
+> harness map and guidance. A full Git clone retains these notes for reviewers
+> who need session history, parked backlog packs, or decision handoffs.
+>
+> For a bounded sample, read the curated [`LOG.md`](LOG.md), the decision on
+> [advisory AI-hook nudges](decisions-build.md#soft-ai-hook-nudges-stay-advisory-in-claude),
+> and one [finished leaf](finished_work/drift-ai-readme-new-surfaces.md). The
+> rest is working archaeology, not a prerequisite reading list.
+
 ## Folder Map
 
 ```text

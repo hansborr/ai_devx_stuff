@@ -8,7 +8,6 @@ AI_STOP_E2E_KILL_SWITCH=".no-stop-e2e"
 AI_STOP_E2E_MAX_NOTIFY="${AI_STOP_E2E_MAX_NOTIFY:-2}"
 AI_STOP_ASYNC_KILL_SWITCH=".no-stop-async-verify"
 AI_STOP_ASYNC_MAX_NOTIFY="${AI_STOP_ASYNC_MAX_NOTIFY:-2}"
-AI_STOP_ASYNC_STATE_ROOT="${MUSI_VERIFY_ASYNC_STATE_ROOT:-/tmp/musi-verify-async}"
 AI_STOP_VERIFY_KILL_SWITCH=".no-stop-verify-changed"
 AI_STOP_VERIFY_MAX_NOTIFY="${AI_STOP_VERIFY_MAX_NOTIFY:-2}"
 AI_STOP_LINT_WARNINGS_KILL_SWITCH=".no-stop-lint-warnings"
@@ -89,6 +88,7 @@ ai_stop_write_marker() {
   local branch="$3"
   local dir base tmp
 
+  musi_fingerprint_is_valid "$fp" || return 1
   dir=$(dirname "$marker")
   base=$(basename "$marker")
   mkdir -p "$dir" || return 1
@@ -160,7 +160,9 @@ ai_stop_commit_reminder() {
     return 1
   fi
 
-  fp=$(ai_stop_with_readonly_git ai_worktree_fingerprint "$repo_root")
+  fp=$(musi_require_fingerprint \
+    "stop commit reminder" ai_stop_with_readonly_git \
+    ai_worktree_fingerprint "$repo_root") || return 1
   branch=$(ai_stop_current_branch "$repo_root")
   if ai_stop_read_marker "$marker" \
     && [ "$AI_STOP_MARKER_FP" = "$fp" ] \
@@ -250,13 +252,15 @@ ai_stop_e2e_status() {
   log="$AI_BUN_LOG_DIR/e2e.log"
   marker=$(ai_newest_bun_marker_for_base "$AI_BUN_LOG_DIR" e2e || true)
   counter=$(ai_stop_e2e_counter_path "$repo_root")
-  fp=$(ai_stop_with_readonly_git ai_worktree_fingerprint "$repo_root")
+  fp=$(musi_require_fingerprint \
+    "stop e2e status" ai_stop_with_readonly_git \
+    ai_worktree_fingerprint "$repo_root") || return 1
   branch=$(ai_stop_current_branch "$repo_root")
 
   if [ -n "$marker" ] && ai_read_bun_marker "$marker"; then
     now=$(date +%s)
     age=$((now - AI_MARKER_LAST_TS))
-    if [ "$age" -lt "${AI_BUN_TTL:-3600}" ] && [ "$AI_MARKER_LAST_FP" = "$fp" ]; then
+    if ai_marker_age_within_ttl "$age" "${AI_BUN_TTL:-3600}" && [ "$AI_MARKER_LAST_FP" = "$fp" ]; then
       exit_code=$AI_MARKER_LAST_EXIT
     fi
   fi
@@ -636,9 +640,21 @@ ai_stop_verify_status() {
   [ "$current_head" = "$head" ] || return 1
 
   case "$mode" in
-    parallel-precommit) fp=$(ai_stop_with_readonly_git ai_precommit_fingerprint "$repo_root") ;;
-    serial-verify|parallel-verify) fp=$(ai_stop_with_readonly_git ai_worktree_fingerprint "$repo_root") ;;
-    serial-verify-changed|parallel-verify-changed) fp=$(ai_stop_with_readonly_git ai_staged_fingerprint "$repo_root") ;;
+    parallel-precommit | parallel-precommit-fast)
+      fp=$(musi_require_fingerprint \
+        "stop pre-commit status" ai_stop_with_readonly_git \
+        ai_precommit_fingerprint "$repo_root") || return 1
+      ;;
+    serial-verify|parallel-verify)
+      fp=$(musi_require_fingerprint \
+        "stop verify status" ai_stop_with_readonly_git \
+        ai_worktree_fingerprint "$repo_root") || return 1
+      ;;
+    serial-verify-changed|parallel-verify-changed)
+      fp=$(musi_require_fingerprint \
+        "stop verify:changed status" ai_stop_with_readonly_git \
+        ai_staged_fingerprint "$repo_root") || return 1
+      ;;
     *) return 1 ;;
   esac
   counter=$(ai_stop_verify_counter_path "$repo_root" "$scope")
@@ -666,7 +682,7 @@ ai_stop_verify_status() {
   ai_stop_verify_write_counter "$counter" "$mode" "$fp" "$exit_code" "$count" || true
 
   case "$mode" in
-    parallel-precommit) source_label="cached pre-commit" ;;
+    parallel-precommit | parallel-precommit-fast) source_label="cached pre-commit" ;;
     serial-verify|parallel-verify) source_label="cached verify" ;;
     serial-verify-changed|parallel-verify-changed) source_label="cached verify:changed" ;;
   esac
@@ -800,7 +816,9 @@ ai_stop_lint_warnings_reminder() {
   ai_stop_lint_warnings_disabled "$repo_root" && return 1
   ai_stop_git_readonly -C "$repo_root" rev-parse --is-inside-work-tree >/dev/null 2>&1 || return 1
 
-  fp=$(ai_stop_with_readonly_git ai_worktree_fingerprint "$repo_root")
+  fp=$(musi_require_fingerprint \
+    "stop lint warning reminder" ai_stop_with_readonly_git \
+    ai_worktree_fingerprint "$repo_root") || return 1
   branch=$(ai_stop_lint_warning_branch "$repo_root")
   marker=$(ai_stop_marker_path "$repo_root" "lint-warnings")
   if ai_stop_read_marker "$marker" \
@@ -883,6 +901,37 @@ ai_stop_policy_messages() {
   fi
 
   if next_message=$(ai_stop_lint_warnings_reminder "$repo_root"); then
+    messages=$(ai_stop_append_message "$messages" "$next_message")
+  fi
+
+  [ -n "$messages" ] || return 1
+  printf '%s' "$messages"
+}
+
+# Scoped-down Stop policy for a finishing subagent (SubagentStop). Composes only
+# the two cheap, per-delegation-actionable metadata reads — uncommitted changes
+# and failing cached verify — and skips the e2e, async-verify, and live-eslint
+# lint-warning checks, which concern long-horizon main-loop state (or spawn real
+# work) and would mostly be noise or double-fire when one delegation ends. The
+# `scope` argument (a per-agent key such as the subagent session id) is threaded
+# into the marker/counter paths so a subagent nudge never consumes the main
+# loop's one-shot Stop suppression state, and vice versa. A malformed
+# SubagentStop payload can carry neither a session id nor an agent id, yielding
+# an empty scope; that must NOT fall back to the main loop's unscoped repo key
+# (it would let a subagent path consume or reset the main loop's one-shot
+# markers), so an empty scope is replaced with a distinct sentinel here.
+ai_stop_policy_messages_subagent() {
+  local repo_root="$1"
+  local scope="${2:-}"
+  local messages="" next_message
+
+  [ -n "$scope" ] || scope="subagent-unscoped"
+
+  if next_message=$(ai_stop_commit_reminder "$repo_root" "$scope"); then
+    messages=$(ai_stop_append_message "$messages" "$next_message")
+  fi
+
+  if next_message=$(ai_stop_verify_status "$repo_root" "$scope"); then
     messages=$(ai_stop_append_message "$messages" "$next_message")
   fi
 

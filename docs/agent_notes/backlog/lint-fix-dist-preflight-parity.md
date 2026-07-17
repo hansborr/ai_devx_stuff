@@ -1,6 +1,7 @@
 # Lint Fix Dist Preflight Parity
 
-Status: Parked
+Status: Done — `lint:fix` now runs `scripts/lint-fix.sh`, which sources `lint-dist-preflight.sh` so it surfaces the same `bun run typecheck` prerequisite diagnostic as the other lint entry points.
+Created: 2026-06-12
 Source: Subagent review of lint-review-2026-06 leaf 02 on 2026-06-12.
 
 ## Context

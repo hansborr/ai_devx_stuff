@@ -148,7 +148,6 @@ function probeRatchetFor(ruleId: string): LintRatchetConfig {
     ignores: PROBE_IGNORES,
     ruleOptions: [],
     mode: "no-new",
-    target: 0,
     metric: "message-count",
     repairKind: "manual",
     principle: "Probe a single local ESLint rule without the rest of the repo flat config.",

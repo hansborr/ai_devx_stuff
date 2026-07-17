@@ -69,6 +69,29 @@ const ESLINT_REACH_STATUS_MAP = `# Fixture
 | \`tools/multipart/*.ts\` | 1 | yes | none | ESLint | none | linted + ratcheted | — |
 | \`tools/ratchetonly/*.ts\` | 1 | no | none | ESLint | none | ratcheted | — |
 `;
+// A4: the `Normal lint` column must agree with the status token. Line 5 claims
+// `yes` but its status omits `linted`; line 6 claims `no` but its status asserts
+// `linted`. Line 7 is internally consistent (`yes` ⇔ `linted`) and must stay silent.
+const STATUS_CONSISTENCY_MAP = `# Fixture
+
+| Path / group | Files | Normal lint | Existing ratchet/floor | Parser/tool | Proposed rule/tool | Status | Blocker/follow-up |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| \`tools/lintyes/*.ts\` | 1 | yes | none | ESLint | none | ratcheted | — |
+| \`tools/lintno/*.md\` | 1 | no | none | Markdown | none | linted | — |
+| \`tools/lintok/*.ts\` | 1 | yes (project service) | none | ESLint | none | linted + ratcheted | — |
+`;
+// A5: a row may claim `ratchet/<id>` only when at least one tracked file it
+// matches is a member of that ratchet's glob. Line 5 matches a member; line 6
+// matches only a non-member (prose rot); line 7 matches both a member and a
+// non-member, so the partial overlap keeps it silent.
+const RATCHET_MEMBERSHIP_MAP = `# Fixture
+
+| Path / group | Files | Normal lint | Existing ratchet/floor | Parser/tool | Proposed rule/tool | Status | Blocker/follow-up |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| \`src/covered/a.ts\` | 1 .ts | yes | \`ratchet/scoped\` | ESLint | none | linted + ratcheted | — |
+| \`src/orphan/b.ts\` | 1 .ts | yes | \`ratchet/scoped\` | ESLint | none | linted + ratcheted | — |
+| \`src/mixed/*.ts\` | 2 .ts | yes | \`ratchet/scoped\` | ESLint | none | linted + ratcheted | — |
+`;
 const CONFLICTING_COVERAGE_MAP = `# Fixture
 
 | Path / group | Files | Normal lint | Existing ratchet/floor | Parser/tool | Proposed rule/tool | Status | Blocker/follow-up |
@@ -115,6 +138,90 @@ describe("runLintCoverageMapCheck", () => {
     expect(result.stderr).toContain("maybe-linted");
     expect(result.stderr).toContain("- extra:");
     expect(result.stderr).toContain("extra/missing.ts");
+  });
+
+  it("reports rows whose `Normal lint` column disagrees with the status token", async () => {
+    const result = await runLintCoverageMapCheck({
+      mapText: STATUS_CONSISTENCY_MAP,
+      trackedFiles: ["tools/lintyes/a.ts", "tools/lintno/a.md", "tools/lintok/a.ts"],
+      ratchetIds: new Set(),
+    });
+
+    expect(result.exitCode).toBe(1);
+    const consistency = result.findings.filter(
+      (finding) => finding.kind === "status-consistency-mismatch",
+    );
+    expect(consistency.map((finding) => finding.line)).toEqual([5, 6]);
+    expect(result.stderr).toContain("Normal-lint / status inconsistencies:");
+    expect(result.stderr).toContain("line 5:");
+    expect(result.stderr).toContain("line 6:");
+    // The consistent `yes` ⇔ `linted` row must not be reported.
+    expect(result.stderr).not.toContain("line 7:");
+  });
+
+  it("runs the Normal-lint consistency check in staged mode", async () => {
+    const result = await runLintCoverageMapCheck({
+      mapText: STATUS_CONSISTENCY_MAP,
+      staged: true,
+      trackedFiles: ["tools/lintyes/a.ts", "tools/lintno/a.md", "tools/lintok/a.ts"],
+      ratchetIds: new Set(),
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(
+      result.findings.filter((finding) => finding.kind === "status-consistency-mismatch"),
+    ).toHaveLength(2);
+  });
+
+  it("reports rows claiming a ratchet that covers none of their tracked files", async () => {
+    const result = await runLintCoverageMapCheck({
+      mapText: RATCHET_MEMBERSHIP_MAP,
+      trackedFiles: [
+        "src/covered/a.ts",
+        "src/orphan/b.ts",
+        "src/mixed/member.ts",
+        "src/mixed/x.ts",
+      ],
+      ratchetIds: new Set(["ratchet/scoped"]),
+      ratchetMembership: (id) =>
+        id === "ratchet/scoped"
+          ? (file) => file === "src/covered/a.ts" || file === "src/mixed/member.ts"
+          : undefined,
+    });
+
+    expect(result.exitCode).toBe(1);
+    const membership = result.findings.filter(
+      (finding) => finding.kind === "ratchet-membership-mismatch",
+    );
+    // Only the orphan row (line 6) is flagged: line 5 matches a member, and
+    // line 7's partial overlap (member + non-member) keeps it silent.
+    expect(membership.map((finding) => finding.line)).toEqual([6]);
+    expect(membership[0]?.value).toContain("ratchet/scoped");
+    expect(membership[0]?.value).toContain("src/orphan/b.ts");
+    expect(result.stderr).toContain("Ratchet membership mismatches:");
+  });
+
+  it("runs the ratchet membership check in staged mode", async () => {
+    const result = await runLintCoverageMapCheck({
+      mapText: RATCHET_MEMBERSHIP_MAP,
+      staged: true,
+      trackedFiles: [
+        "src/covered/a.ts",
+        "src/orphan/b.ts",
+        "src/mixed/member.ts",
+        "src/mixed/x.ts",
+      ],
+      ratchetIds: new Set(["ratchet/scoped"]),
+      ratchetMembership: (id) =>
+        id === "ratchet/scoped"
+          ? (file) => file === "src/covered/a.ts" || file === "src/mixed/member.ts"
+          : undefined,
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(
+      result.findings.filter((finding) => finding.kind === "ratchet-membership-mismatch"),
+    ).toHaveLength(1);
   });
 
   it("reports tracked files claimed by incompatible coverage statuses", async () => {

@@ -170,7 +170,7 @@ ai_ratchet_regression_compose() {
     printf '%s\n' "$note"
   fi
   if [ "$#" -gt 0 ]; then
-    printf '%s\n' "Full ratchet picture: bun run lint:ratchet. Structured local/* guidance only: bun run lint:agent:local-rules:changed"
+    printf '%s\n' "Full ratchet picture: bun run lint:ratchet. Structured selected-rule guidance: bun run lint:agent:local-rules:changed"
   fi
   printf '%s' "$body"
 }

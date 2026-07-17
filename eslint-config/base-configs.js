@@ -28,6 +28,10 @@ export function createBaseConfigs() {
         ".auth/",
         ".playwright-mcp/",
         "coverage/",
+        // Self-contained example sub-projects (e.g. examples/lint-ratchet-demo)
+        // carry their own eslint.config.js, tsconfig, package.json, and ratchet
+        // gate. The main repo does not lint them; their own CI smoke does.
+        "examples/",
         "e2e-ux-screenshots/",
         "**/*.config.{js,mjs,ts}",
         ...configFileReincludePatterns,
@@ -77,8 +81,19 @@ export function createBaseConfigs() {
     },
 
     ...tseslint.configs.strictTypeChecked.map((config) =>
-      config.files ? config : { ...config, files: typescriptFiles },
+      "files" in config && config.files ? config : { ...config, files: typescriptFiles },
     ),
+
+    // Keep these after strictTypeChecked, which disables the core
+    // no-implied-eval rule in favor of its TypeScript extension rule.
+    {
+      files: codeFiles,
+      rules: {
+        "no-eval": "error",
+        "no-implied-eval": "error",
+        "no-new-func": "error",
+      },
+    },
 
     {
       files: ["**/*.{ts,tsx}"],

@@ -17,9 +17,9 @@ import { buildRowActionability, pairKey, shellQuoteArg } from "./hotspots-action
 import type { CouplingHotspot, CouplingSection } from "./hotspots-format.js";
 import type { CollectedHistory, CommitRecord } from "./hotspots-history.js";
 
-export const DEFAULT_MIN_SUPPORT = 3; // pairs co-changing fewer times are noise
-export const DEFAULT_DEGREE_CAP = 5; // max distinct partners one file contributes to the top-N
-export const DEFAULT_SWEEP_CAP = 40; // commits touching more files are sweeps, not coupling
+const DEFAULT_MIN_SUPPORT = 3; // pairs co-changing fewer times are noise
+const DEFAULT_DEGREE_CAP = 5; // max distinct partners one file contributes to the top-N
+const DEFAULT_SWEEP_CAP = 40; // commits touching more files are sweeps, not coupling
 
 export type ReduceCouplingOptions = {
   readonly top: number;

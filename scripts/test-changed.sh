@@ -7,6 +7,8 @@ set -eu
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/lib/changed-base.sh
 . "$SCRIPT_DIR/lib/changed-base.sh"
+# shellcheck source=scripts/lib/test-worker-count.sh
+. "$SCRIPT_DIR/lib/test-worker-count.sh"
 VITEST_RUNNER="$SCRIPT_DIR/vitest.sh"
 CLIENT_TEST_RUNNER="$SCRIPT_DIR/client-test-isolation-runner.ts"
 
@@ -16,6 +18,11 @@ if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then
   shift
 fi
 USER_ARGS=("$@")
+musi_test_parse_cli_max_workers "${USER_ARGS[@]}" || exit $?
+musi_test_translate_cli_max_workers_to_native_env
+CLIENT_SPLIT_MAX_WORKERS="${MUSI_CLIENT_FAST_LANE_MAX_WORKERS-$MUSI_TEST_CHANGED_CLIENT_DEFAULT_MAX_WORKERS}"
+musi_test_validate_worker_count \
+  MUSI_CLIENT_FAST_LANE_MAX_WORKERS "$CLIENT_SPLIT_MAX_WORKERS" || exit $?
 
 # Resolve the base ref and preflight the common ancestor the triple-dot
 # diff needs (see scripts/lib/changed-base.sh); on failure fall back to
@@ -152,6 +159,7 @@ is_deleted_change() {
   return 1
 }
 
+# porting-knob: test-changed-classifiers -- retarget these repo-layout routing semantics
 for file in "${CHANGED_FILES[@]}"; do
   file_vitest_relevant=0
   case "$file" in
@@ -313,14 +321,13 @@ fi
 # split — especially the CPU-dense no-isolate fast lane — must not grab Vitest's
 # default nproc-1 worker fan-out as if it owned the machine. Bound it via
 # VITEST_MAX_WORKERS (read natively by Vitest, vitest/dist .../coverage.*.js) on
-# this changed-run path only; standalone `test:client` / `test:client:split`
-# bypass this script and keep the full fan-out for speed. Override the bound with
-# MUSI_CLIENT_FAST_LANE_MAX_WORKERS, or set it empty to opt out entirely.
-CLIENT_SPLIT_MAX_WORKERS="${MUSI_CLIENT_FAST_LANE_MAX_WORKERS-4}"
-CLIENT_SPLIT_WORKER_ENV=()
-if [ -n "$CLIENT_SPLIT_MAX_WORKERS" ]; then
-  CLIENT_SPLIT_WORKER_ENV=(env "VITEST_MAX_WORKERS=$CLIENT_SPLIT_MAX_WORKERS")
-fi
+# this changed-run path only. This deliberately replaces any translated CLI
+# value for the distinct client phase; the ordinary/fallback Vitest phase above
+# consumes translated CLI normally. Standalone `test:client` /
+# `test:client:split` bypass this script and keep the full fan-out for speed.
+# Override the bound with MUSI_CLIENT_FAST_LANE_MAX_WORKERS within the shared
+# measured 1-8 range.
+CLIENT_SPLIT_WORKER_ENV=(env "VITEST_MAX_WORKERS=$CLIENT_SPLIT_MAX_WORKERS")
 
 if [ "$RUN_CLIENT_SPLIT" -eq 1 ]; then
   run_and_remember_failure EXIT_CODE \

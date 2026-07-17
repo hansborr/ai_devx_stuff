@@ -8,7 +8,7 @@
 
 import type { PathProbe } from "./adapter-support.js";
 import type { CheckRunContext } from "./check-plugin.js";
-import type { ModuleEdge, ModuleGraph, ModuleGraphRunner } from "./import-cycles-graph.js";
+import type { ModuleGraph, ModuleGraphRunner } from "./import-cycles-graph.js";
 import { changedFilesFromScope, sortFindingsByFileMessage, toPosix } from "./path-util.js";
 import type { DetectorScope } from "./scope.js";
 import type { ConfigSource, DriftFinding, FindingProvenance, SkipReasonCode } from "./types.js";
@@ -29,14 +29,14 @@ export type ImportCyclesServices = {
 // cycles (adapter contract §4, evidence-not-verdicts). On installed Musi the real
 // ratio is ~3.4% (the spike), so 0.25 only trips on genuinely broken resolution
 // (wrong/missing tsconfig, or a heavily workspace-aliased uninstalled target).
-export const MAX_UNRESOLVED_RATIO = 0.25;
+const MAX_UNRESOLVED_RATIO = 0.25;
 
-export const IMPORT_CYCLES_TOOL = "ts-morph";
+const IMPORT_CYCLES_TOOL = "ts-morph";
 
-export const RUNTIME_CYCLE_HINT =
+const RUNTIME_CYCLE_HINT =
   "break the cycle: invert one dependency, or extract the shared code both files need into a third module. AI agents often introduce this by splitting a module so the new child re-imports its parent.";
 
-export const TYPE_ONLY_CYCLE_HINT =
+const TYPE_ONLY_CYCLE_HINT =
   "type-only: this cycle does not exist at runtime (it is formed only by `import type`/`export type` edges). It is reported as evidence, not a defect; if undesired, move the shared types into a leaf module both sides import.";
 
 // --- config resolution (ladder rungs 1–2) -----------------------------------
@@ -301,6 +301,3 @@ function assignComponents(
   }
   return components;
 }
-
-// Re-export so the check module imports edge typing from one place.
-export type { ModuleEdge };

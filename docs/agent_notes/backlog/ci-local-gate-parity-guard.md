@@ -1,6 +1,6 @@
 # CI Local Gate Parity Guard
 
-Status: Parked
+Status: Done — CI/local gate parity guard landed (`7b594eba`)
 Date: 2026-07-03
 Source: Deferred repo-audit finding from the docs/process staleness cleanup.
 

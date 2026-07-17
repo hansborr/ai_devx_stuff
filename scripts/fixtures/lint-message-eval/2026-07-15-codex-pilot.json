@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "runId": "2026-07-15-codex-pilot",
+  "generatedAt": "2026-07-15T20:37:49Z",
+  "gitCommit": "ce9d060a16d6d3be00572897f0e221153cecd943",
+  "agent": "Codex GPT-5 pilot; both arms produced in one session and not statistically independent",
+  "fixtures": [
+    {
+      "id": "area-template-line-cells",
+      "filename": "packages/shared/src/map/area-template.ts",
+      "sourceLine": 207,
+      "sourceEndLine": 236,
+      "source": "export function lineCells(origin: GridCell, li: LineInput): GridCell[] {\n  const lengthCells = Math.floor(li.sizeFt / li.gridSizeFt);\n  const halfWidth = (li.widthFt / li.gridSizeFt) * HALF;\n  const snapped = snapAngle(li.angleDeg, SNAP_COMPASS);\n  const rad = snapped * DEG_TO_RAD;\n  const cosA = Math.cos(rad);\n  const sinA = Math.sin(rad);\n  const cells: GridCell[] = [];\n  const b = { mapW: li.mapW, mapH: li.mapH };\n\n  // Rotated-rectangle hit test: rotate each cell offset into beam space, keeping\n  // forward distance `along` and (unsigned) sideways distance `perp`. Scan +1\n  // past lengthCells so rotated corners that round into range are not clipped.\n  const scan = lengthCells + 1;\n  for (let dx = -scan; dx <= scan; dx++) {\n    for (let dy = -scan; dy <= scan; dy++) {\n      if (dx === 0 && dy === 0) continue;\n      if (Math.max(Math.abs(dx), Math.abs(dy)) > lengthCells) continue;\n      const along = dx * cosA + dy * sinA;\n      const perp = Math.abs(-dx * sinA + dy * cosA);\n      // along > 0 is the half-open gate: drop the origin and the backward half so\n      // the line projects only forward; perp <= halfWidth keeps it within the band.\n      if (along > 0 && perp <= halfWidth) {\n        const c = { x: origin.x + dx, y: origin.y + dy };\n        if (inBounds(c, b)) cells.push(c);\n      }\n    }\n  }\n  return cells;\n}",
+      "targetRuleId": "max-depth",
+      "arms": [
+        {
+          "mode": "control",
+          "presentedMessage": "Blocks are nested too deeply (4). Maximum allowed is 3.",
+          "attempts": [
+            "export function lineCells(origin: GridCell, li: LineInput): GridCell[] {\n  const lengthCells = Math.floor(li.sizeFt / li.gridSizeFt);\n  const halfWidth = (li.widthFt / li.gridSizeFt) * HALF;\n  const snapped = snapAngle(li.angleDeg, SNAP_COMPASS);\n  const rad = snapped * DEG_TO_RAD;\n  const cosA = Math.cos(rad);\n  const sinA = Math.sin(rad);\n  const cells: GridCell[] = [];\n  const b = { mapW: li.mapW, mapH: li.mapH };\n  const scan = lengthCells + 1;\n  for (let dx = -scan; dx <= scan; dx++) {\n    for (let dy = -scan; dy <= scan; dy++) {\n      if (dx === 0 && dy === 0) continue;\n      if (Math.max(Math.abs(dx), Math.abs(dy)) > lengthCells) continue;\n      const along = dx * cosA + dy * sinA;\n      const perp = Math.abs(-dx * sinA + dy * cosA);\n      if (along <= 0 || perp > halfWidth) continue;\n      const c = { x: origin.x + dx, y: origin.y + dy };\n      if (!inBounds(c, b)) continue;\n      cells.push(c);\n    }\n  }\n  return cells;\n}"
+          ]
+        },
+        {
+          "mode": "treatment",
+          "presentedMessage": "Blocks are nested too deeply (4). Maximum allowed is 3. Why: Deeply nested control flow hides exit conditions and makes edge cases harder to reason about. How to fix: Use guard clauses or early returns, then extract nested branches into focused helpers. Before: `if (a) { if (b) { if (c) { if (d) run(); } } }`. After: `if (!a || !b || !c || !d) return; run();`.",
+          "attempts": [
+            "export function lineCells(origin: GridCell, li: LineInput): GridCell[] {\n  const lengthCells = Math.floor(li.sizeFt / li.gridSizeFt);\n  const halfWidth = (li.widthFt / li.gridSizeFt) * HALF;\n  const snapped = snapAngle(li.angleDeg, SNAP_COMPASS);\n  const rad = snapped * DEG_TO_RAD;\n  const cosA = Math.cos(rad);\n  const sinA = Math.sin(rad);\n  const cells: GridCell[] = [];\n  const b = { mapW: li.mapW, mapH: li.mapH };\n  const scan = lengthCells + 1;\n  for (let dx = -scan; dx <= scan; dx++) {\n    for (let dy = -scan; dy <= scan; dy++) {\n      if (dx === 0 && dy === 0) continue;\n      if (Math.max(Math.abs(dx), Math.abs(dy)) > lengthCells) continue;\n      const along = dx * cosA + dy * sinA;\n      const perp = Math.abs(-dx * sinA + dy * cosA);\n      if (along <= 0 || perp > halfWidth) continue;\n      const c = { x: origin.x + dx, y: origin.y + dy };\n      if (!inBounds(c, b)) continue;\n      cells.push(c);\n    }\n  }\n  return cells;\n}"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "background-equipment-options",
+      "filename": "packages/server/src/seed/seed-srd-backgrounds.ts",
+      "sourceLine": 95,
+      "sourceEndLine": 115,
+      "source": "function parseEquipmentOptions(bg: BackgroundJson): EquipmentOptionParsed[] | null {\n  const optionSet = bg.equipment_options?.[0];\n  if (!optionSet) return null;\n  const result: EquipmentOptionParsed[] = [];\n\n  for (const opt of optionSet.from.options) {\n    if (opt.option_type === \"money\") {\n      result.push({ label: \"B\", items: [], gold: opt.count });\n    } else {\n      const items: EquipmentOptionItemParsed[] = [];\n      let gold = 0;\n      for (const item of opt.items) {\n        const parsed = parseMultipleItem(item);\n        gold += parsed.gold;\n        if (parsed.item) items.push(parsed.item);\n      }\n      result.push({ label: \"A\", items, gold });\n    }\n  }\n  return result.length > 0 ? result : null;\n}",
+      "targetRuleId": "max-depth",
+      "arms": [
+        {
+          "mode": "control",
+          "presentedMessage": "Blocks are nested too deeply (4). Maximum allowed is 3.",
+          "attempts": [
+            "function parseEquipmentOptions(bg: BackgroundJson): EquipmentOptionParsed[] | null {\n  const optionSet = bg.equipment_options?.[0];\n  if (!optionSet) return null;\n  const result: EquipmentOptionParsed[] = [];\n  for (const opt of optionSet.from.options) {\n    if (opt.option_type === \"money\") {\n      result.push({ label: \"B\", items: [], gold: opt.count });\n      continue;\n    }\n    const items: EquipmentOptionItemParsed[] = [];\n    let gold = 0;\n    for (const item of opt.items) {\n      const parsed = parseMultipleItem(item);\n      gold += parsed.gold;\n      if (parsed.item) items.push(parsed.item);\n    }\n    result.push({ label: \"A\", items, gold });\n  }\n  return result.length > 0 ? result : null;\n}"
+          ]
+        },
+        {
+          "mode": "treatment",
+          "presentedMessage": "Blocks are nested too deeply (4). Maximum allowed is 3. Why: Deeply nested control flow hides exit conditions and makes edge cases harder to reason about. How to fix: Use guard clauses or early returns, then extract nested branches into focused helpers. Before: `if (a) { if (b) { if (c) { if (d) run(); } } }`. After: `if (!a || !b || !c || !d) return; run();`.",
+          "attempts": [
+            "function parseEquipmentOptions(bg: BackgroundJson): EquipmentOptionParsed[] | null {\n  const optionSet = bg.equipment_options?.[0];\n  if (!optionSet) return null;\n  const result: EquipmentOptionParsed[] = [];\n  for (const opt of optionSet.from.options) {\n    if (opt.option_type === \"money\") {\n      result.push({ label: \"B\", items: [], gold: opt.count });\n      continue;\n    }\n    const items: EquipmentOptionItemParsed[] = [];\n    let gold = 0;\n    for (const item of opt.items) {\n      const parsed = parseMultipleItem(item);\n      gold += parsed.gold;\n      if (parsed.item) items.push(parsed.item);\n    }\n    result.push({ label: \"A\", items, gold });\n  }\n  return result.length > 0 ? result : null;\n}"
+          ]
+        }
+      ]
+    }
+  ]
+}

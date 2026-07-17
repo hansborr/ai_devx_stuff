@@ -86,7 +86,7 @@ describe("buildSuggestions", () => {
  */
 
 function patternRow(pathGroup: string, line = 1): TableRow {
-  return { line, pathGroup, ratchets: "none", status: "linted" };
+  return { line, pathGroup, normalLint: "yes", ratchets: "none", status: "linted" };
 }
 
 /** Resolve the single path-group cell of a one-row table into its patterns. */

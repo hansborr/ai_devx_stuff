@@ -39,6 +39,8 @@ const config = {
     // declare local helper types for static analysis but are never imported at
     // runtime, so both their exports and types are intentional.
     "packages/server/src/utils/__type-tests__/**": ["exports", "types"],
+    // Stryker loads this configuration module by path, so Knip cannot see its required default export.
+    "scripts/stryker-scripts.ts": ["exports"],
   },
   workspaces: {
     ".": {

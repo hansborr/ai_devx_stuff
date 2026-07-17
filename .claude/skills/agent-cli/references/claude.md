@@ -21,3 +21,4 @@ Verified against claude 2.1.201.
 - Nested dispatch works: running from inside a Claude Code session or a Codex run inherits `CLAUDE*` env vars harmlessly (verified on 2.1.201).
 - CLAUDE.md/AGENTS.md auto-load and project hooks apply as in any session, so consults get project context for free.
 - A resumed run reports a fresh session id in its trailer; use the latest id for the next follow-up.
+- The session id lands only in the buffered final JSON envelope, so it reaches the `agent-run: session-id:` trailer only at finalization (unlike codex, which logs it early from the streamed exec header). A run killed before then leaves no session-id trailer — recover the id from claude's native session history under `~/.claude/`.

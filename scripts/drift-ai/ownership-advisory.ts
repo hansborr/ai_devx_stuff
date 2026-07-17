@@ -18,9 +18,6 @@ export type {
   BuildOwnershipAdvisoryInput,
   MailmapIdentityResolver,
   OwnershipAdvisory,
-  OwnershipAdvisoryRow,
-  OwnershipChangeSplit,
-  OwnershipContributor,
   OwnershipIdentity,
 } from "./ownership-types.js";
 export {

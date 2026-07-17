@@ -1,6 +1,7 @@
 import type { PathPattern, TableRow } from "./lint-coverage-map-check-types.js";
 
 const PATH_COLUMN = 0;
+const NORMAL_LINT_COLUMN = 2;
 const RATCHET_COLUMN = 3;
 const STATUS_COLUMN = 6;
 const CODE_SPAN_PATTERN = /`([^`]+)`/gu;
@@ -43,7 +44,8 @@ export function parseRows(mapText: string): TableRow[] {
     if (pathGroup === undefined || ratchets === undefined || status === undefined) continue;
     if (pathGroup === "Path / group") continue;
     if (cells.every((cell) => /^:?-{3,}:?$/u.test(cell))) continue;
-    rows.push({ line: index + 1, pathGroup, ratchets, status });
+    const normalLint = cells[NORMAL_LINT_COLUMN] ?? "";
+    rows.push({ line: index + 1, pathGroup, normalLint, ratchets, status });
   }
   return rows;
 }

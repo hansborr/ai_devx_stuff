@@ -1,6 +1,6 @@
 # 52. Subagents run with no Stop-policy nudge, so delegated work can end with uncommitted changes or failing cached gates silently
 
-Status: Proposed — from the 2026-07-01 AI-harness review; NOT implemented. Re-verify file:line before acting.
+Status: Done — SubagentStop stop-policy adapter + manifest entry landed (`f58262ac`); systemMessage output rationale recorded (`4285af0f`). Open follow-up: empirically verify `systemMessage` renders for SubagentStop; else switch adapter to `additionalContext` (could not verify live — rationale in the adapter script).
 Lens: hooks · Area: hooks-stop · Severity: med · Size: S-M · Confidence: med
 Theme: subagent-guardrails · Source: Musi AI-harness review 2026-07-01 (multi-agent + Codex second opinion + web research)
 

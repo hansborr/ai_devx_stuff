@@ -46,6 +46,42 @@ function runBashResult(script: string): {
 }
 
 describe("verify step generator", () => {
+  it("keeps documentation drift guards in both whole-tree verifiers", () => {
+    const generated = readFileSync("scripts/verify/steps.generated.sh", "utf8");
+
+    expect(generated).toContain("MUSI_VERIFY_DEMO_SYNC_CMD=('bun' 'run' 'lint:ratchet:demo-sync')");
+    expect(generated).toContain(
+      "MUSI_VERIFY_PARALLEL_DEMO_SYNC_CMD=('bun' 'run' 'lint:ratchet:demo-sync')",
+    );
+    expect(generated).not.toContain("MUSI_VERIFY_CHANGED_DEMO_SYNC_CMD");
+    expect(generated).not.toContain("MUSI_PRE_COMMIT_DEMO_SYNC_CMD");
+    expect(generated).toContain(
+      "MUSI_VERIFY_LOCAL_RULE_STARTER_CMD=('bun' 'run' 'docs:local-eslint-rule-starter:check')",
+    );
+    expect(generated).toContain(
+      "MUSI_VERIFY_PARALLEL_LOCAL_RULE_STARTER_CMD=('bun' 'run' 'docs:local-eslint-rule-starter:check')",
+    );
+    expect(generated).not.toContain("MUSI_VERIFY_CHANGED_LOCAL_RULE_STARTER_CMD");
+    expect(generated).not.toContain("MUSI_PRE_COMMIT_LOCAL_RULE_STARTER_CMD");
+  });
+
+  it("checks the whole near-duplicate baseline only in full-tree verifiers", () => {
+    const generated = readFileSync("scripts/verify/steps.generated.sh", "utf8");
+
+    expect(generated).toContain(
+      "MUSI_VERIFY_NEAR_DUPLICATES_CMD=('bun' 'run' 'sensor:near-duplicates' '--' '--check-baseline')",
+    );
+    expect(generated).toContain(
+      "MUSI_VERIFY_PARALLEL_NEAR_DUPLICATES_CMD=('bun' 'run' 'sensor:near-duplicates' '--' '--check-baseline')",
+    );
+    expect(generated).toContain(
+      "MUSI_VERIFY_CHANGED_NEAR_DUPLICATES_CMD=('bun' 'run' 'sensor:near-duplicates')",
+    );
+    expect(generated).toContain(
+      "MUSI_PRE_COMMIT_NEAR_DUPLICATES_CMD=('bun' 'run' 'sensor:near-duplicates')",
+    );
+  });
+
   it("keeps the CI core gate routed through generated verify metadata", () => {
     const ciWorkflow = readFileSync(".github/workflows/ci.yml", "utf8");
 
@@ -64,6 +100,7 @@ describe("verify step generator", () => {
       "lint:ratchet",
       "lint:ratchet:check-debt-accounting",
       "lint:ratchet:zero-baseline",
+      "docs:local-eslint-rule-starter:check",
       "sensor:knip-unused-exports",
       "docs:lint-coverage-map:audit",
       "test:scripts",
@@ -93,6 +130,24 @@ describe("verify step generator", () => {
 
     expect(() => renderVerifyStepsShellFromManifest(manifest)).toThrow(
       "duplicate control id: verify-wrapper/verify",
+    );
+  });
+
+  it("rejects fastCommitSkip on consumers other than pre-commit", () => {
+    const manifest = {
+      controls: [
+        {
+          id: "verify-wrapper/verify",
+          slots: [{ name: "lint", script: "lint", fastCommitSkip: true }],
+        },
+        { id: "verify-wrapper/verify-changed", slots: [{ name: "lint", script: "lint" }] },
+        { id: "verify-wrapper/verify-parallel", slots: [] },
+        { id: "hook/pre-commit", slots: [] },
+      ],
+    };
+
+    expect(() => renderVerifyStepsShellFromManifest(manifest)).toThrow(
+      "verify-wrapper/verify slot lint declares fastCommitSkip, but only hook/pre-commit slots may be fast-commit skippable",
     );
   });
 
@@ -147,6 +202,113 @@ describe("verify step generator", () => {
 
     expect(() => renderVerifyStepsShellFromManifest(manifest)).toThrow(
       "verify-wrapper/verify-changed slots must include every hook/pre-commit slot because pre-commit accepts fresh verify:changed success markers; missing: typecheck",
+    );
+  });
+
+  it("rejects a pre-commit slot whose command tokens diverge from the full verify slot", () => {
+    const manifest = {
+      controls: [
+        {
+          id: "verify-wrapper/verify",
+          slots: [{ name: "typecheck", script: "typecheck", args: ["--full"] }],
+        },
+        {
+          id: "verify-wrapper/verify-changed",
+          slots: [{ name: "typecheck", script: "typecheck" }],
+        },
+        { id: "verify-wrapper/verify-parallel", slots: [] },
+        {
+          id: "hook/pre-commit",
+          slots: [{ name: "typecheck", script: "typecheck" }],
+        },
+      ],
+    };
+
+    expect(() => renderVerifyStepsShellFromManifest(manifest)).toThrow(
+      "verify-wrapper/verify and hook/pre-commit must render identical command tokens for every shared slot because pre-commit accepts fresh verify success markers; divergent: typecheck (pre_commit: bun run typecheck; verify: bun run typecheck --full)",
+    );
+  });
+
+  it("rejects a pre-commit slot whose command tokens diverge from the changed verify slot", () => {
+    const manifest = {
+      controls: [
+        {
+          id: "verify-wrapper/verify",
+          slots: [{ name: "typecheck", script: "typecheck" }],
+        },
+        {
+          id: "verify-wrapper/verify-changed",
+          slots: [{ name: "typecheck", script: "typecheck", args: ["--", "--staged"] }],
+        },
+        { id: "verify-wrapper/verify-parallel", slots: [] },
+        {
+          id: "hook/pre-commit",
+          slots: [{ name: "typecheck", script: "typecheck" }],
+        },
+      ],
+    };
+
+    expect(() => renderVerifyStepsShellFromManifest(manifest)).toThrow(
+      "verify-wrapper/verify-changed and hook/pre-commit must render identical command tokens for every shared slot because pre-commit accepts fresh verify:changed success markers; divergent: typecheck (pre_commit: bun run typecheck; verify_changed: bun run typecheck -- --staged)",
+    );
+  });
+
+  it("detects a bridge divergence whose token vectors flatten to the same space-joined string", () => {
+    // ["a b", "c"] and ["a", "b c"] are distinct command vectors that both
+    // space-join to "a b c". A signature that joins on " " would call them equal
+    // and let a real pre-commit/verify command drift pass the marker-bridge guard;
+    // the signature must compare the token vector, not its flattened form.
+    const manifest = {
+      controls: [
+        {
+          id: "verify-wrapper/verify",
+          slots: [{ name: "typecheck", script: "typecheck", args: ["a", "b c"] }],
+        },
+        {
+          id: "verify-wrapper/verify-changed",
+          slots: [{ name: "typecheck", script: "typecheck", args: ["a b", "c"] }],
+        },
+        { id: "verify-wrapper/verify-parallel", slots: [] },
+        {
+          id: "hook/pre-commit",
+          slots: [{ name: "typecheck", script: "typecheck", args: ["a b", "c"] }],
+        },
+      ],
+    };
+
+    expect(() => renderVerifyStepsShellFromManifest(manifest)).toThrow(
+      "verify-wrapper/verify and hook/pre-commit must render identical command tokens for every shared slot because pre-commit accepts fresh verify success markers; divergent: typecheck",
+    );
+  });
+
+  it("orders slot env tokens by codepoint so committed bytes are ICU-independent", () => {
+    // Env keys reorder between localeCompare and codepoint order when a
+    // `_`-prefixed name (U+005F) is in play: en-US ICU sorts `_FOO` first and
+    // `AB_C` before `ABAR`, while codepoint order puts `_FOO` last and `AB_C`
+    // after `ABC`. slotCommandTokens renders these into the freshness-checked
+    // steps.generated.sh, so the schema must sort them deterministically.
+    const manifest = {
+      controls: [
+        {
+          id: "verify-wrapper/verify",
+          slots: [
+            {
+              name: "lint",
+              script: "lint",
+              env: { _FOO: "1", ABAR: "2", AB_C: "3", ABC: "4" },
+            },
+          ],
+        },
+        { id: "verify-wrapper/verify-changed", slots: [] },
+        { id: "verify-wrapper/verify-parallel", slots: [] },
+        { id: "hook/pre-commit", slots: [] },
+      ],
+    };
+
+    const rendered = renderVerifyStepsShellFromManifest(manifest);
+
+    expect(rendered).toContain(
+      "MUSI_VERIFY_LINT_CMD=('env' 'ABAR=2' 'ABC=4' 'AB_C=3' '_FOO=1' 'bun' 'run' 'lint')",
     );
   });
 

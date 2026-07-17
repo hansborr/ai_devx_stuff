@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import {
   defaultGitRunner,
   type GitRunner,
+  gitStatusPorcelainArgs,
   listTrackedFiles,
   mergeBase,
   nameStatusCode,
@@ -43,13 +44,39 @@ describe("defaultGitRunner", () => {
 });
 
 describe("listTrackedFiles", () => {
-  it("splits ls-files output, dropping blank lines and trailing CR, order preserved", () => {
-    const git = stubGit({ "ls-files": "b/z.ts\r\n\na/y.ts\nb/z.ts\n" });
+  it("NUL-splits ls-files -z output, dropping the trailing empty entry, order preserved", () => {
+    const git = stubGit({ "ls-files -z": "b/z.ts\0a/y.ts\0b/z.ts\0" });
     expect(listTrackedFiles(git)).toEqual(["b/z.ts", "a/y.ts", "b/z.ts"]);
   });
 
+  it("preserves a pathname containing a newline that a newline-split would corrupt", () => {
+    const git = stubGit({ "ls-files -z": "a\nb.ts\0c.ts\0" });
+    expect(listTrackedFiles(git)).toEqual(["a\nb.ts", "c.ts"]);
+  });
+
   it("returns an empty array for empty output", () => {
-    expect(listTrackedFiles(stubGit({ "ls-files": "\n" }))).toEqual([]);
+    expect(listTrackedFiles(stubGit({ "ls-files -z": "" }))).toEqual([]);
+    expect(listTrackedFiles(stubGit({ "ls-files -z": "\0" }))).toEqual([]);
+  });
+});
+
+describe("gitStatusPorcelainArgs", () => {
+  it("excludes generated artifacts inside the repository from dirty-state probes", () => {
+    expect(
+      gitStatusPorcelainArgs("/repo", [
+        "/repo/semgrep-candidates.json",
+        "/repo/packets",
+        "/outside/report.json",
+      ]),
+    ).toEqual([
+      "status",
+      "--porcelain",
+      "--untracked-files=all",
+      "--",
+      ".",
+      ":(top,exclude,literal)semgrep-candidates.json",
+      ":(top,exclude,literal)packets",
+    ]);
   });
 });
 

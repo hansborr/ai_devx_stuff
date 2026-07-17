@@ -19,7 +19,7 @@ export type BoundedHistoryRunContext = {
   readonly ignore: DriftAiIgnoreConfig;
 };
 
-export function boundedHistoryOptionFields(
+function boundedHistoryOptionFields(
   parsed: ParsedBoundedHistoryArgs,
 ): Omit<BoundedFullHistoryOptions, "git" | "ignore"> {
   return {

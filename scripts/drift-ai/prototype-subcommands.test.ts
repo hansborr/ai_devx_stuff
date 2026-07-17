@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
@@ -8,6 +9,7 @@ import type { StatRunner } from "./current-inventory.js";
 import type { DolosRunner, DolosRunnerInput } from "./dolos-runner.js";
 import { currentRepoGit as makeCurrentGit } from "./git-runner.test-helper.js";
 import { NEAR_DUPLICATE_TOOL, type NearDuplicateFunction } from "./near-duplicates.js";
+import { capturePrototypeScanSnapshot } from "./prototype-command.js";
 import { type PrototypeSubcommandResult, runPrototypeSubcommand } from "./prototype-subcommands.js";
 import type { SemgrepRunner, SemgrepRunnerInput } from "./semgrep-runner.js";
 
@@ -67,6 +69,31 @@ function cloneFunctions(
 }
 
 describe("runPrototypeSubcommand", () => {
+  it("probes the whole repository when scan provenance is captured from a nested directory", () => {
+    const repoRoot = tmpRepo.makeTmpGitRepo("drift-ai-prototype-provenance-");
+    tmpRepo.writeRepoFile(repoRoot, "outside.ts", "export const value = 'clean';\n");
+    execFileSync("git", ["add", "outside.ts"], { cwd: repoRoot });
+    execFileSync(
+      "git",
+      ["-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-qm", "base"],
+      { cwd: repoRoot },
+    );
+    const nested = path.join(repoRoot, "packages/server");
+    mkdirSync(nested, { recursive: true });
+    tmpRepo.writeRepoFile(repoRoot, "outside.ts", "export const value = 'dirty';\n");
+    const originalCwd = process.cwd();
+
+    try {
+      process.chdir(nested);
+      expect(
+        capturePrototypeScanSnapshot(undefined, repoRoot, ["generated-report.json"]).provenance
+          .gitDirty,
+      ).toBe(true);
+    } finally {
+      process.chdir(originalCwd);
+    }
+  });
+
   it("dispatches clone-candidates as a prototype advisory subcommand", () => {
     const repoRoot = makeTempDir();
     const files = ["src/left.ts", "src/right.ts"];
@@ -195,7 +222,13 @@ describe("runPrototypeSubcommand", () => {
     const result = expectPrototypeResult(
       runPrototypeSubcommand({
         argv: ["dolos-candidates", "--root", "src", "--top", "1", "--format", "json"],
-        git: makeCurrentGit(repoRoot),
+        git: (args) => {
+          const key = args.join(" ");
+          if (key === "rev-parse --show-toplevel") return `${repoRoot}\n`;
+          if (key.endsWith("rev-parse HEAD")) return "dolos-scan-head\n";
+          if (key.includes("status --porcelain")) return "";
+          throw new Error(`unexpected git invocation: git ${key}`);
+        },
         gitBuffer: () => nulDelimited(files),
         stat: statForCurrentFiles(repoRoot, files),
         rootExists: () => true,
@@ -212,6 +245,12 @@ describe("runPrototypeSubcommand", () => {
     expect(advisory["kind"]).toBe("advisory");
     expect(advisory["lane"]).toBe("prototype");
     expect(advisory["subcommand"]).toBe("dolos-candidates");
+    expect(advisory["scanProvenance"]).toEqual({
+      gitHead: "dolos-scan-head",
+      gitDirty: false,
+      stateFingerprint: null,
+      changedDuringScan: null,
+    });
     expect("findings" in advisory).toBe(false);
   });
 

@@ -25,6 +25,10 @@ import {
   parseRows,
   trackedFileIsInScope,
 } from "./lint-coverage-map-check-patterns.js";
+import {
+  collectRatchetMembershipFindings,
+  collectStatusConsistencyFindings,
+} from "./lint-coverage-map-check-row-consistency.js";
 import { buildSuggestions } from "./lint-coverage-map-check-suggest.js";
 import type {
   CheckFinding,
@@ -38,6 +42,13 @@ import { matchesRatchet } from "./lint-ratchet/ratchet-globs.js";
 export type { LintCoverageMapCheckOptions, LintCoverageMapCheckResult };
 
 const PROCESS_ARGV_USER_ARGS_START = 2;
+const ratchetScopeById = new Map(lintRatchets.map((ratchet) => [ratchet.id, ratchet] as const));
+
+function defaultRatchetMembership(ratchetId: string): ((file: string) => boolean) | undefined {
+  const scope = ratchetScopeById.get(ratchetId);
+  return scope === undefined ? undefined : (file: string) => matchesRatchet(scope, file);
+}
+
 const manifestConfigSurfaceEntries =
   defaultConfigSurfaceEntries as LintCoverageMapCheckOptions["configSurfaceEntries"]; // type-assertion-boundary: interop - JS config-surface loader validates manifest entries before export.
 const EMPTY_CONFIG_SURFACE_ENTRIES: NonNullable<
@@ -61,6 +72,7 @@ export async function runLintCoverageMapCheck(
   const mapText = loadMapText(options, cwd);
   const trackedFiles = [...(options.trackedFiles ?? loadTrackedFiles(cwd))].sort();
   const ratchetIds = options.ratchetIds ?? new Set(lintRatchets.map((ratchet) => ratchet.id));
+  const ratchetMembership = options.ratchetMembership ?? defaultRatchetMembership;
   const worktreeExists = options.worktreeExists ?? createWorktreeExists(cwd);
   const rows = parseRows(mapText);
   const pathPatterns = rows.flatMap(extractPathPatterns);
@@ -68,6 +80,13 @@ export async function runLintCoverageMapCheck(
   const findings: CheckFinding[] = [
     ...collectStalePathFindings(pathPatterns, trackedFiles, worktreeExists),
     ...collectRowFindings(rows, ratchetIds),
+    ...collectStatusConsistencyFindings(rows),
+    ...collectRatchetMembershipFindings({
+      extractPathPatterns,
+      ratchetMembership,
+      rows,
+      trackedFiles,
+    }),
     ...collectConflictingCoverageFindings(
       trackedFiles,
       rows,

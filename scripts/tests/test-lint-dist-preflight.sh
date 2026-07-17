@@ -1,8 +1,21 @@
 #!/usr/bin/env bash
 # smoke-order: 200
 # smoke-subjects: scripts/lint.sh
+# smoke-subjects: scripts/eslint-main.sh
 # smoke-subjects: scripts/lint-changed.sh
+# smoke-subjects: scripts/lib/eslint-main-partitions.sh
+# smoke-subjects: scripts/lib/eslint-main-cache.sh
 # smoke-subjects: scripts/lib/lint-dist-preflight.sh
+# smoke-subjects: scripts/lib/tool-memory-admission.sh
+# smoke-subjects: scripts/lib/test-worker-count.sh
+# smoke-subjects: scripts/lib/changed-base.sh
+# smoke-subjects: scripts/lib/changed-lintable-files.sh
+# smoke-subjects: scripts/lib/gate-env.sh
+# smoke-subjects: scripts/lib/parallel-runner.sh
+# smoke-subjects: scripts/lib/verify-metadata.sh
+# smoke-subjects: scripts/verify/memory-budget.sh
+# smoke-subjects: scripts/verify/admitted-command.sh
+# smoke-subjects: scripts/process-tree.sh
 # smoke-subjects: scripts/tests/test-lint-dist-preflight.sh
 # smoke-subjects: packages/shared/package.json
 # smoke-subjects: packages/server/package.json
@@ -13,21 +26,33 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 HELPER="$SCRIPT_DIR/../lib/lint-dist-preflight.sh"
 ESLINT_MAIN_CACHE="$SCRIPT_DIR/../lib/eslint-main-cache.sh"
+ESLINT_MAIN_PARTITIONS="$SCRIPT_DIR/../lib/eslint-main-partitions.sh"
+ESLINT_MAIN_RUNNER="$SCRIPT_DIR/../eslint-main.sh"
 LINT_WRAPPER="$SCRIPT_DIR/../lint.sh"
 LINT_CHANGED_WRAPPER="$SCRIPT_DIR/../lint-changed.sh"
 PARALLEL_RUNNER="$SCRIPT_DIR/../lib/parallel-runner.sh"
 VERIFY_METADATA="$SCRIPT_DIR/../lib/verify-metadata.sh"
 CHANGED_BASE="$SCRIPT_DIR/../lib/changed-base.sh"
+CHANGED_LINTABLE_FILES="$SCRIPT_DIR/../lib/changed-lintable-files.sh"
+GATE_ENV="$SCRIPT_DIR/../lib/gate-env.sh"
+TOOL_MEMORY_ADMISSION="$SCRIPT_DIR/../lib/tool-memory-admission.sh"
+TEST_WORKER_COUNT="$SCRIPT_DIR/../lib/test-worker-count.sh"
+MEMORY_BUDGET="$SCRIPT_DIR/../verify/memory-budget.sh"
+ADMITTED_COMMAND="$SCRIPT_DIR/../verify/admitted-command.sh"
+PROCESS_TREE="$SCRIPT_DIR/../process-tree.sh"
 PATH_POLICY_QUERY="$SCRIPT_DIR/../path-policy/path-policy-query.ts"
 PATH_POLICY_QUERY_CORE="$SCRIPT_DIR/../path-policy/path-policy-query-core.ts"
 PATH_POLICY="$SCRIPT_DIR/../path-policy/path-policy.ts"
 PATH_POLICY_SMOKE_SUBJECTS="$SCRIPT_DIR/../path-policy/path-policy-smoke-subjects.ts"
 PATH_POLICY_SMOKE_SUBJECTS_DATA="$SCRIPT_DIR/../path-policy/path-policy-smoke-subjects-data.ts"
 HARNESS_PATHS="$SCRIPT_DIR/../harness/harness-paths.ts"
+HARNESS_MANIFEST="$SCRIPT_DIR/../harness/harness-manifest.ts"
 LINT_RATCHET_PATHS="$SCRIPT_DIR/../lint-ratchet/paths.ts"
+LINT_RATCHET_METRICS_TYPES="$SCRIPT_DIR/../lint-ratchet/metrics-types.ts"
 CONFIG_SURFACES="$REPO_ROOT/eslint-config/config-surfaces.js"
 CONFIG_SURFACE_MANIFEST="$REPO_ROOT/eslint-config/config-surface-manifest.json"
 SHARED_POLICY="$REPO_ROOT/eslint-config/shared-policy.js"
+PACKAGE_SCRIPTS="$REPO_ROOT/package.json"
 
 PASS=0
 fail() { printf 'FAIL: %s\n' "$1" >&2; exit 1; }
@@ -39,8 +64,50 @@ ok "lint-dist-preflight.sh passes bash -n"
 bash -n "$ESLINT_MAIN_CACHE" || fail "eslint-main-cache.sh fails bash -n"
 ok "eslint-main-cache.sh passes bash -n"
 
+bash -n "$ESLINT_MAIN_PARTITIONS" || fail "eslint-main-partitions.sh fails bash -n"
+ok "eslint-main-partitions.sh passes bash -n"
+
+bash -n "$ESLINT_MAIN_RUNNER" || fail "eslint-main.sh fails bash -n"
+ok "eslint-main.sh passes bash -n"
+
 bash -n "$LINT_WRAPPER" || fail "lint.sh fails bash -n"
 ok "lint.sh passes bash -n"
+
+if awk '!/^[[:space:]]*#/' \
+    "$LINT_WRAPPER" "$ESLINT_MAIN_RUNNER" "$LINT_CHANGED_WRAPPER" \
+    "$ESLINT_MAIN_CACHE" "$ESLINT_MAIN_PARTITIONS" "$PACKAGE_SCRIPTS" \
+    | grep -Eq -- '--concurrency(=|[^[:alnum:]_-]|$)'; then
+  fail "main lint entrypoints must never enable ESLint concurrency; see lint memory profile note 73"
+fi
+ok "all main lint entrypoints statically reject ESLint concurrency flags"
+
+# shellcheck source=/dev/null
+. "$ESLINT_MAIN_PARTITIONS"
+
+[ "${MUSI_ESLINT_MAIN_PARTITIONS[*]}" = "shared server client remainder" ] \
+  || fail "full lint partitions must keep measured sequential order: ${MUSI_ESLINT_MAIN_PARTITIONS[*]}"
+
+for fixture in \
+  "packages/shared/src/schema.ts:shared" \
+  "packages/server/src/router.ts:server" \
+  "packages/client/src/app.tsx:client" \
+  "packages/shared/vitest.config.ts:remainder" \
+  "packages/server/scripts/pgexec.ts:remainder" \
+  "scripts/lint-ratchet.ts:remainder" \
+  "eslint.config.js:remainder"; do
+  path="${fixture%:*}"
+  expected_partition="${fixture##*:}"
+  actual_partition="$(musi_eslint_main_partition_for_path "$path")"
+  [ "$actual_partition" = "$expected_partition" ] \
+    || fail "$path should select $expected_partition, got $actual_partition"
+done
+ok "partition selection isolates only package src trees"
+
+musi_eslint_main_full_partition_args remainder
+[ "${MUSI_ESLINT_MAIN_PARTITION_ARGS[*]}" = \
+  ". --ignore-pattern packages/shared/src/** --ignore-pattern packages/server/src/** --ignore-pattern packages/client/src/**" ] \
+  || fail "remainder must cover dot while excluding each package src tree: ${MUSI_ESLINT_MAIN_PARTITION_ARGS[*]}"
+ok "full partition targets are disjoint and leave root/config surfaces in remainder"
 
 bash -n "$LINT_CHANGED_WRAPPER" || fail "lint-changed.sh fails bash -n"
 ok "lint-changed.sh passes bash -n"
@@ -191,6 +258,11 @@ install_eslint_stub() {
   done
   printf '\n'
 } >> "${ESLINT_LOG:?}"
+for arg in "$@"; do
+  if [ -n "${STUB_ESLINT_FAIL_TARGET:-}" ] && [ "$arg" = "$STUB_ESLINT_FAIL_TARGET" ]; then
+    exit "${STUB_ESLINT_FAIL_EXIT:-1}"
+  fi
+done
 exit 0
 STUB
   chmod +x "$bin_dir/eslint"
@@ -225,10 +297,13 @@ copy_path_policy() {
   cp "$PATH_POLICY_SMOKE_SUBJECTS_DATA" \
     "$repo/scripts/path-policy/path-policy-smoke-subjects-data.ts"
   cp "$HARNESS_PATHS" "$repo/scripts/harness/harness-paths.ts"
+  cp "$HARNESS_MANIFEST" "$repo/scripts/harness/harness-manifest.ts"
   cp "$LINT_RATCHET_PATHS" "$repo/scripts/lint-ratchet/paths.ts"
+  cp "$LINT_RATCHET_METRICS_TYPES" "$repo/scripts/lint-ratchet/metrics-types.ts"
   cp "$CONFIG_SURFACES" "$repo/eslint-config/config-surfaces.js"
   cp "$CONFIG_SURFACE_MANIFEST" "$repo/eslint-config/config-surface-manifest.json"
   cp "$SHARED_POLICY" "$repo/eslint-config/shared-policy.js"
+  cp "$REPO_ROOT/eslint-config/max-lines-exceptions-codec.js" "$repo/eslint-config/max-lines-exceptions-codec.js"
   cp "$REPO_ROOT/eslint-config/max-lines-exceptions.baseline.json" "$repo/eslint-config/max-lines-exceptions.baseline.json"
 }
 
@@ -238,9 +313,13 @@ copy_lint_changed_dependencies() {
   cp "$LINT_CHANGED_WRAPPER" "$repo/scripts/lint-changed.sh"
   cp "$HELPER" "$repo/scripts/lib/lint-dist-preflight.sh"
   cp "$ESLINT_MAIN_CACHE" "$repo/scripts/lib/eslint-main-cache.sh"
+  cp "$ESLINT_MAIN_PARTITIONS" "$repo/scripts/lib/eslint-main-partitions.sh"
+  cp "$ESLINT_MAIN_RUNNER" "$repo/scripts/eslint-main.sh"
   cp "$PARALLEL_RUNNER" "$repo/scripts/lib/parallel-runner.sh"
   cp "$VERIFY_METADATA" "$repo/scripts/lib/verify-metadata.sh"
   cp "$CHANGED_BASE" "$repo/scripts/lib/changed-base.sh"
+  cp "$CHANGED_LINTABLE_FILES" "$repo/scripts/lib/changed-lintable-files.sh"
+  cp "$GATE_ENV" "$repo/scripts/lib/gate-env.sh"
   install_lint_support_stubs "$repo"
   copy_path_policy "$repo"
 }
@@ -330,22 +409,136 @@ ok "successful typecheck without dist output names the tsconfig remedy"
 
 install_eslint_stub "$ROOT/bin"
 
+install_lint_memory_support() {
+  local repo="$1"
+  mkdir -p "$repo/scripts/lib" "$repo/scripts/verify"
+  cp "$TOOL_MEMORY_ADMISSION" "$repo/scripts/lib/tool-memory-admission.sh"
+  cp "$TEST_WORKER_COUNT" "$repo/scripts/lib/test-worker-count.sh"
+  cp "$MEMORY_BUDGET" "$repo/scripts/verify/memory-budget.sh"
+  cp "$ADMITTED_COMMAND" "$repo/scripts/verify/admitted-command.sh"
+  cp "$PROCESS_TREE" "$repo/scripts/process-tree.sh"
+}
+
 REPO_LINT_WRAPPER="$ROOT/lint-wrapper"
 mkdir -p "$REPO_LINT_WRAPPER/scripts/lib"
 cp "$LINT_WRAPPER" "$REPO_LINT_WRAPPER/scripts/lint.sh"
 cp "$HELPER" "$REPO_LINT_WRAPPER/scripts/lib/lint-dist-preflight.sh"
 cp "$ESLINT_MAIN_CACHE" "$REPO_LINT_WRAPPER/scripts/lib/eslint-main-cache.sh"
+cp "$ESLINT_MAIN_PARTITIONS" "$REPO_LINT_WRAPPER/scripts/lib/eslint-main-partitions.sh"
+cp "$ESLINT_MAIN_RUNNER" "$REPO_LINT_WRAPPER/scripts/eslint-main.sh"
 cp "$PARALLEL_RUNNER" "$REPO_LINT_WRAPPER/scripts/lib/parallel-runner.sh"
+cp "$GATE_ENV" "$REPO_LINT_WRAPPER/scripts/lib/gate-env.sh"
+install_lint_memory_support "$REPO_LINT_WRAPPER"
 install_lint_support_stubs "$REPO_LINT_WRAPPER"
 expect_wrapper_repair_then_eslint "lint-wrapper" "$REPO_LINT_WRAPPER" bash scripts/lint.sh
 ok "lint.sh repairs missing dist outputs before eslint"
+
+[ "$(wc -l < "$ROOT/lint-wrapper.eslint.log")" -eq 4 ] \
+  || fail "full lint should invoke four ESLint partitions: $(cat "$ROOT/lint-wrapper.eslint.log")"
+mapfile -t lint_partition_calls < "$ROOT/lint-wrapper.eslint.log"
+for index_and_target in \
+  "0:<packages/shared/src>" \
+  "1:<packages/server/src>" \
+  "2:<packages/client/src>" \
+  "3:<.>"; do
+  index="${index_and_target%%:*}"
+  target="${index_and_target#*:}"
+  grep -qF "$target" <<< "${lint_partition_calls[$index]}" \
+    || fail "partition $index should target $target: ${lint_partition_calls[$index]}"
+done
+ok "lint.sh runs all four partitions in measured sequential order"
+
+for partition in shared server client remainder; do
+  grep -qF "/$partition.eslintcache>" "$ROOT/lint-wrapper.eslint.log" \
+    || fail "full lint should use the isolated $partition cache: $(cat "$ROOT/lint-wrapper.eslint.log")"
+done
+ok "full lint uses one content cache per partition"
+
+expect_full_lint_args_rejected() {
+  local label="$1"
+  shift
+  local output rc
+
+  : > "$ROOT/lint-wrapper.eslint.log"
+  set +e
+  output="$(
+    (
+      cd "$REPO_LINT_WRAPPER"
+      ESLINT_LOG="$ROOT/lint-wrapper.eslint.log" PATH="$ROOT/bin:$PATH" "$@"
+    ) 2>&1
+  )"
+  rc=$?
+  set -e
+
+  [ "$rc" -eq 2 ] \
+    || fail "$label should fail with usage exit 2, got $rc: $output"
+  grep -qF 'partitioned full lint accepts no forwarded ESLint arguments' <<< "$output" \
+    || fail "$label should explain the fail-closed argument contract: $output"
+  [ ! -s "$ROOT/lint-wrapper.eslint.log" ] \
+    || fail "$label should fail before invoking any ESLint partition: $(cat "$ROOT/lint-wrapper.eslint.log")"
+}
+
+expect_full_lint_args_rejected "lint positional target" \
+  bash scripts/lint.sh packages/server/src/app.ts
+ok "lint.sh rejects positional targets before partitioning"
+
+expect_full_lint_args_rejected "full runner output file" \
+  bash scripts/eslint-main.sh --full --output-file report.json
+ok "full runner rejects output files that partitions would overwrite"
+
+expect_full_lint_args_rejected "full runner JSON stdout" \
+  bash scripts/eslint-main.sh --full --format json
+ok "full runner rejects JSON stdout that would contain multiple arrays"
+
+: > "$ROOT/lint-wrapper.eslint.log"
+set +e
+(
+  cd "$REPO_LINT_WRAPPER"
+  ESLINT_LOG="$ROOT/lint-wrapper.eslint.log" \
+    STUB_ESLINT_FAIL_TARGET="packages/server/src" \
+    STUB_ESLINT_FAIL_EXIT=1 \
+    PATH="$ROOT/bin:$PATH" \
+    bash scripts/eslint-main.sh --full
+)
+partition_exit=$?
+set -e
+[ "$partition_exit" -eq 1 ] \
+  || fail "partitioned lint should preserve ESLint diagnostic exit 1, got $partition_exit"
+[ "$(wc -l < "$ROOT/lint-wrapper.eslint.log")" -eq 4 ] \
+  || fail "diagnostic failure should not hide later partition diagnostics"
+ok "partitioned lint aggregates all scopes and preserves diagnostic exit 1"
+
+: > "$ROOT/lint-wrapper.eslint.log"
+set +e
+(
+  cd "$REPO_LINT_WRAPPER"
+  ESLINT_LOG="$ROOT/lint-wrapper.eslint.log" \
+    STUB_ESLINT_FAIL_TARGET="packages/client/src" \
+    STUB_ESLINT_FAIL_EXIT=2 \
+    PATH="$ROOT/bin:$PATH" \
+    bash scripts/eslint-main.sh --full
+)
+partition_exit=$?
+set -e
+[ "$partition_exit" -eq 2 ] \
+  || fail "partitioned lint should preserve ESLint fatal exit 2, got $partition_exit"
+ok "partitioned lint preserves fatal ESLint exit 2"
+
+if grep -q -- '<--concurrency' "$ROOT/lint-wrapper.eslint.log"; then
+  fail "main ESLint lane must remain serial per lint memory profile note 73: $(cat "$ROOT/lint-wrapper.eslint.log")"
+fi
+ok "lint.sh never adds an ESLint concurrency flag"
 
 REPO_LINT_WRAPPER_FAIL="$ROOT/lint-wrapper-fail"
 mkdir -p "$REPO_LINT_WRAPPER_FAIL/scripts/lib"
 cp "$LINT_WRAPPER" "$REPO_LINT_WRAPPER_FAIL/scripts/lint.sh"
 cp "$HELPER" "$REPO_LINT_WRAPPER_FAIL/scripts/lib/lint-dist-preflight.sh"
 cp "$ESLINT_MAIN_CACHE" "$REPO_LINT_WRAPPER_FAIL/scripts/lib/eslint-main-cache.sh"
+cp "$ESLINT_MAIN_PARTITIONS" "$REPO_LINT_WRAPPER_FAIL/scripts/lib/eslint-main-partitions.sh"
+cp "$ESLINT_MAIN_RUNNER" "$REPO_LINT_WRAPPER_FAIL/scripts/eslint-main.sh"
 cp "$PARALLEL_RUNNER" "$REPO_LINT_WRAPPER_FAIL/scripts/lib/parallel-runner.sh"
+cp "$GATE_ENV" "$REPO_LINT_WRAPPER_FAIL/scripts/lib/gate-env.sh"
+install_lint_memory_support "$REPO_LINT_WRAPPER_FAIL"
 install_lint_support_stubs "$REPO_LINT_WRAPPER_FAIL"
 expect_wrapper_typecheck_failure "lint-wrapper-fail" "$REPO_LINT_WRAPPER_FAIL" bash scripts/lint.sh
 ok "lint.sh blocks eslint when typecheck repair fails"

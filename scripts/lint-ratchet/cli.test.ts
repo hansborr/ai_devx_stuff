@@ -7,6 +7,17 @@ describe("parseArgs --check-debt-accounting", () => {
     const parsed = parseArgs(["--check-debt-accounting"]);
     expect(parsed.mode).toBe("check-debt-accounting");
   });
+
+  it("parses staged and custom-base accounting options", () => {
+    const parsed = parseArgs([
+      "--check-debt-accounting",
+      "--staged",
+      "--base-ref",
+      "upstream/trunk",
+    ]);
+    expect(parsed.debtAccountingStaged).toBe(true);
+    expect(parsed.debtAccountingBaseRef).toBe("upstream/trunk");
+  });
 });
 
 describe("parseArgs --retire-ratchet", () => {
@@ -37,6 +48,65 @@ describe("parseArgs --retire-ratchet", () => {
   it("omits retireRatchetId when the flag is absent", () => {
     const parsed = parseArgs(["--update"]);
     expect(parsed.retireRatchetId).toBeUndefined();
+  });
+
+  it("parses an attested different-options retirement", () => {
+    const parsed = parseArgs([
+      "--update",
+      "--retire-ratchet",
+      "ratchet/old",
+      "--accept-different-options",
+      "--reason",
+      "normal lint uses a lower maximum than the drained ratchet",
+    ]);
+
+    expect(parsed.acceptDifferentOptions).toBe(true);
+    expect(parsed.reason).toContain("lower maximum");
+  });
+
+  it("requires a retire id and reason for --accept-different-options", () => {
+    expect(() =>
+      parseArgs(["--update", "--accept-different-options", "--reason", "reviewed options"]),
+    ).toThrow("requires --retire-ratchet");
+    expect(() =>
+      parseArgs(["--update", "--retire-ratchet", "ratchet/old", "--accept-different-options"]),
+    ).toThrow("requires --reason");
+  });
+});
+
+describe("parseArgs --migration-reason", () => {
+  it("parses --migration-reason alongside --reason in an update", () => {
+    const parsed = parseArgs([
+      "--update",
+      "--allow-worse",
+      "--reason",
+      "accept the extra finding surfaced during the migration",
+      "--migration-reason",
+      "effective line count is the right measure for this rule",
+    ]);
+    expect(parsed.reason).toBe("accept the extra finding surfaced during the migration");
+    expect(parsed.migrationReason).toBe("effective line count is the right measure for this rule");
+  });
+
+  it("parses the --migration-reason=<why> form", () => {
+    const parsed = parseArgs([
+      "--update",
+      "--migration-reason=effective line count is the right measure",
+    ]);
+    expect(parsed.migrationReason).toBe("effective line count is the right measure");
+  });
+
+  it("requires a non-flag argument after --migration-reason", () => {
+    expect(() => parseArgs(["--update", "--migration-reason"])).toThrow(UsageError);
+    expect(() => parseArgs(["--update", "--migration-reason", "--allow-worse"])).toThrow(
+      UsageError,
+    );
+  });
+
+  it("rejects --migration-reason outside --update", () => {
+    expect(() => parseArgs(["--summary", "--migration-reason", "x"])).toThrow(
+      "--migration-reason is only valid with --update",
+    );
   });
 });
 
@@ -115,11 +185,12 @@ describe("parseArgs --summary --by-directory", () => {
 
 describe("parseArgs --trend", () => {
   it("parses trend mode with optional history filters", () => {
-    const parsed = parseArgs(["--trend", "--since", "2026-01-01", "--max", "25"]);
+    const parsed = parseArgs(["--trend", "--since", "2026-01-01", "--max", "25", "--all"]);
 
     expect(parsed.mode).toBe("trend");
     expect(parsed.trendSince).toBe("2026-01-01");
     expect(parsed.trendMax).toBe(25);
+    expect(parsed.trendAll).toBe(true);
   });
 
   it("rejects trend-only flags outside trend mode and invalid max values", () => {
@@ -127,5 +198,47 @@ describe("parseArgs --trend", () => {
       "--since is only valid with --trend",
     );
     expect(() => parseArgs(["--trend", "--max", "0"])).toThrow("--max requires a positive integer");
+    expect(() => parseArgs(["--summary", "--all"])).toThrow("--all is only valid with --trend");
+  });
+});
+
+describe("parseArgs inline-value rejection", () => {
+  it("still accepts the inline --reason= form", () => {
+    expect(parseArgs(["--update", "--reason=because"]).reason).toBe("because");
+  });
+
+  it("rejects an inline value on a mode flag", () => {
+    expect(() => parseArgs(["--summary=false"])).toThrow("Unknown argument: --summary=false");
+  });
+
+  it("rejects an inline value on a boolean flag rather than inverting it", () => {
+    expect(() => parseArgs(["--update", "--allow-worse=false", "--reason", "x"])).toThrow(
+      "Unknown argument: --allow-worse=false",
+    );
+  });
+
+  it("rejects an inline value on a non-reason string flag", () => {
+    expect(() => parseArgs(["--check-debt-accounting", "--base-ref=x"])).toThrow(
+      "Unknown argument: --base-ref=x",
+    );
+  });
+
+  it("reports the original argv token for unknown flags", () => {
+    expect(() => parseArgs(["-x"])).toThrow("Unknown argument: -x");
+    expect(() => parseArgs(["--bogus=value"])).toThrow("Unknown argument: --bogus=value");
+  });
+});
+
+describe("parseArgs -- separator", () => {
+  it("does not let a value flag bind across a -- separator", () => {
+    expect(() => parseArgs(["--update", "--allow-worse", "--reason", "--", "accepted"])).toThrow(
+      "--reason requires a non-empty argument",
+    );
+  });
+
+  it("does not treat a post-separator token as a --by-directory depth", () => {
+    expect(() => parseArgs(["--summary", "--by-directory", "--", "2"])).toThrow(
+      "Unknown argument: 2",
+    );
   });
 });

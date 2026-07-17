@@ -38,12 +38,12 @@ import type { DriftCheckId, DriftFinding, FindingProvenance } from "./types.js";
 // structural analysis (not a target tool's verdict), so configSource is
 // "drift-baseline" and the engine is "ts-morph" (the bundled TypeScript parser the
 // extractors run on), matching how near-duplicates stamps its ts-morph engine.
-export const DUPLICATE_SHAPE_PROVENANCE: FindingProvenance = {
+const DUPLICATE_SHAPE_PROVENANCE: FindingProvenance = {
   configSource: "drift-baseline",
   tool: "ts-morph",
 };
 
-export type DuplicateShapeDetailValue = string | number | boolean | readonly string[];
+type DuplicateShapeDetailValue = string | number | boolean | readonly string[];
 export type DuplicateShapeDetails = Readonly<Record<string, DuplicateShapeDetailValue>>;
 
 // One extracted, canonicalized shape occurrence. `canonicalKey` is the structural

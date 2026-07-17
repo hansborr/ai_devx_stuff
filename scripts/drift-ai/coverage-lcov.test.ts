@@ -77,6 +77,21 @@ describe("parseLcov", () => {
     expect(parsed.files.map((file) => file.file)).toEqual(["src/abc.ts", "src/zed.ts"]);
   });
 
+  it("discloses duplicate DA records with differing hits and keeps the last value", () => {
+    const parsed = parseLcov("SF:src/a.ts\nDA:1,2\nDA:1,5\nDA:2,3\nDA:2,3\nend_of_record\n");
+    expect(parsed.files[0]?.lines).toEqual([
+      { line: 1, hits: 5 },
+      { line: 2, hits: 3 },
+    ]);
+    expect(parsed.notes).toEqual([
+      {
+        kind: "malformed-record",
+        line: 3,
+        detail: "duplicate DA record for line 1 with differing hits",
+      },
+    ]);
+  });
+
   it("records malformed notes for negative line and hit counts", () => {
     const parsed = parseLcov(
       "SF:src/a.ts\nDA:-1,2\nDA:2,-3\nFN:-1,bad\nFN:4,2,badRange\nFNDA:-1,bad\nLF:-1\nend_of_record\n",

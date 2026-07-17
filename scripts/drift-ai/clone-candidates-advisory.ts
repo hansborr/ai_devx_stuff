@@ -51,7 +51,7 @@ export type CloneCandidateAdvisoryInput = {
   readonly siblingCaveatLabeler?: SiblingCaveatLabeler;
 };
 
-export type CloneCandidateEngineConfig = {
+type CloneCandidateEngineConfig = {
   readonly shingleSize: number;
   readonly bands: number;
   readonly rowsPerBand: number;
@@ -60,7 +60,7 @@ export type CloneCandidateEngineConfig = {
   readonly maxCandidatePairs: number;
 };
 
-export type CloneCandidateAdvisoryRow = {
+type CloneCandidateAdvisoryRow = {
   readonly rank: number;
   readonly candidateSource: "minhash-lsh";
   readonly comparator: "ts-morph";

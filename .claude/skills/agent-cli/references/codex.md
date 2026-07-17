@@ -21,5 +21,5 @@ Verified against codex-cli 0.142.5.
 
 ## Sessions
 
-- `exec` prints its session id in the log header; the wrapper surfaces it as the `agent-run: session-id:` trailer. Resume by explicit id only: codex's own `--last` picks the most recently *active* session, so any interleaved run retargets it — the wrapper does not expose it and rejects passthrough `resume`/`--last`.
+- `exec` prints its session id in the log header; the wrapper surfaces it as the `agent-run: session-id:` trailer **as soon as that header streams — before it waits on the run** — so a crash before finalization (a container OOM or any SIGKILL, neither of which runs the fatal-signal trap) still leaves a resumable id in the log rather than forcing a cold-discovery recovery run. Resume by explicit id only: codex's own `--last` picks the most recently *active* session, so any interleaved run retargets it — the wrapper does not expose it and rejects passthrough `resume`/`--last`.
 - `exec resume` silently ignores stdin (verified on 0.139.0 and 0.142.5); the wrapper therefore rejects oversized `-f` material on resume — have the prompt reference an absolute file path for codex to read instead.

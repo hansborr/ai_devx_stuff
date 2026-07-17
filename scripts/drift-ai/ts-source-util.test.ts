@@ -1,10 +1,10 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { ts } from "ts-morph";
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
+import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
 import {
   findAncestor,
   hasAncestor,
@@ -12,14 +12,7 @@ import {
   tsSysReadFile,
 } from "./ts-source-util.js";
 
-const tempRoots: string[] = [];
-
-afterEach(() => {
-  while (tempRoots.length > 0) {
-    const root = tempRoots.pop();
-    if (root !== undefined) rmSync(root, { recursive: true, force: true });
-  }
-});
+const tmpRepo = registerTempRootCleanup();
 
 function parse(source: string): ts.SourceFile {
   return ts.createSourceFile("fixture.ts", source, ts.ScriptTarget.Latest, true);
@@ -91,8 +84,7 @@ describe("tsSysModuleResolutionHost", () => {
   });
 
   it("delegates fileExists/readFile to ts.sys", () => {
-    const root = mkdtempSync(join(tmpdir(), "ts-source-util-"));
-    tempRoots.push(root);
+    const root = tmpRepo.makeTempRepo("ts-source-util-");
     const filePath = join(root, "present.ts");
     writeFileSync(filePath, "export const value = 1;\n");
 
@@ -106,8 +98,7 @@ describe("tsSysModuleResolutionHost", () => {
 
 describe("tsSysReadFile", () => {
   it("reads a file through ts.sys without an unbound method", () => {
-    const root = mkdtempSync(join(tmpdir(), "ts-source-util-"));
-    tempRoots.push(root);
+    const root = tmpRepo.makeTempRepo("ts-source-util-");
     const filePath = join(root, "config.json");
     writeFileSync(filePath, '{ "ok": true }\n');
 

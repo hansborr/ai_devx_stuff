@@ -31,7 +31,7 @@
       }
     }
   },
-  "initializeCommand": "mkdir -p /tmp/musi && chmod 1777 /tmp/musi",
+  "initializeCommand": "mkdir -p /var/tmp/devcontainer-musi && chmod 1777 /var/tmp/devcontainer-musi",
   "remoteUser": "node",
   "mounts": [],
   "containerEnv": {

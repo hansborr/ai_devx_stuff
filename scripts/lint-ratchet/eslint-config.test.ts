@@ -1,10 +1,13 @@
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
 import {
   CACHE_HASH_PREFIX_LENGTH,
   cacheKeyHashFor,
+  typeAwareProjectFor,
   usesEslintCache,
   writeEslintConfig,
 } from "./eslint-config.js";
@@ -17,7 +20,6 @@ const minimalRatchet = {
   ignores: ["**/node_modules/**"],
   ruleOptions: [],
   mode: "no-new",
-  target: 0,
   metric: "message-count",
   repairKind: "manual",
   principle: "Keep the cache-key unit test fixture small and deterministic.",
@@ -49,20 +51,48 @@ describe("cacheKeyHashFor", () => {
     expect(firstHash).toMatch(/^[0-9a-f]{12}$/u);
   });
 
-  it("changes when the ratchet config changes", () => {
+  it("changes when a config field that reaches the ESLint config changes", () => {
     const originalHash = cacheKeyHashFor(minimalRatchet, "sha256:rule-source-a");
     const changedRatchet = {
       ...minimalRatchet,
-      target: 1,
+      ruleOptions: [{ allowExtra: true }],
     } satisfies LintRatchetConfig;
 
     expect(cacheKeyHashFor(changedRatchet, "sha256:rule-source-a")).not.toBe(originalHash);
+  });
+
+  it("ignores metric changes that never reach the ESLint config", () => {
+    // The metric affects post-parse interpretation only, so the same ESLint
+    // invocation should share a cache entry rather than needlessly re-linting.
+    const base = cacheKeyHashFor(minimalRatchet, "sha256:rule-source-a");
+    expect(
+      cacheKeyHashFor(
+        { ...minimalRatchet, metric: "effective-line-count" },
+        "sha256:rule-source-a",
+      ),
+    ).toBe(base);
   });
 
   it("changes when the rule source hash changes", () => {
     const originalHash = cacheKeyHashFor(minimalRatchet, "sha256:rule-source-a");
 
     expect(cacheKeyHashFor(minimalRatchet, "sha256:rule-source-b")).not.toBe(originalHash);
+  });
+});
+
+describe("typeAwareProjectFor", () => {
+  it("prefers an explicit typeAwareProject override", () => {
+    expect(
+      typeAwareProjectFor({ ...minimalRatchet, typeAwareProject: "./tsconfig.custom.json" }),
+    ).toBe("./tsconfig.custom.json");
+  });
+
+  it("infers the scripts tsconfig for a scripts/-only ratchet with no override", () => {
+    expect(typeAwareProjectFor(minimalRatchet)).toBe("./tsconfig.scripts.json");
+  });
+
+  it("returns undefined (projectService default) otherwise", () => {
+    expect(typeAwareProjectFor({ ...minimalRatchet, files: ["packages/**/*.ts"] })).toBeUndefined();
   });
 });
 
@@ -80,6 +110,27 @@ describe("writeEslintConfig", () => {
       const rendered = readFileSync(configPath, "utf8");
 
       expect(rendered).toContain("  { linterOptions: { noInlineConfig: true } },\n");
+    }
+  });
+
+  it("repairs a corrupt content-addressed config and reuses byte-identical content", () => {
+    const configDirectory = mkdtempSync(join(tmpdir(), "lint-ratchet-config-"));
+    try {
+      const configPath = writeEslintConfig(coreRatchet, "sha256:rule-source-a", {
+        configDirectory,
+      });
+      writeFileSync(configPath, "truncated");
+      const corruptInode = statSync(configPath).ino;
+
+      writeEslintConfig(coreRatchet, "sha256:rule-source-a", { configDirectory });
+      expect(readFileSync(configPath, "utf8")).toContain("export default");
+      const repairedInode = statSync(configPath).ino;
+      expect(repairedInode).not.toBe(corruptInode);
+
+      writeEslintConfig(coreRatchet, "sha256:rule-source-a", { configDirectory });
+      expect(statSync(configPath).ino).toBe(repairedInode);
+    } finally {
+      rmSync(configDirectory, { recursive: true, force: true });
     }
   });
 });

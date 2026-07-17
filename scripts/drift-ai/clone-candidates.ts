@@ -55,13 +55,13 @@ export type CloneCandidate = {
   readonly estimatedSimilarity: number;
 };
 
-export type CloneCandidateCaps = {
+type CloneCandidateCaps = {
   readonly maxFunctions: number;
   readonly maxShinglesPerFunction: number;
   readonly maxCandidatePairs: number;
 };
 
-export type CloneCandidateTruncation = {
+type CloneCandidateTruncation = {
   // Functions at or above the size floors, before the maxFunctions cap.
   readonly eligibleFunctions: number;
   // Functions actually fed to MinHash (== eligibleFunctions unless capped).

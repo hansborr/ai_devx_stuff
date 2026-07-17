@@ -42,6 +42,15 @@ describe("type-assertion-boundary", () => {
           filename: nonTestFilename,
         },
         {
+          // A chained double cast is one escape hatch: the outer cast is the
+          // inner cast's ancestor, not a competing sibling, so one trailing
+          // marker covers the whole chain.
+          code: [
+            "const y = x as unknown as Foo; // type-assertion-boundary: interop - runtime invariant widening",
+          ].join("\n"),
+          filename: nonTestFilename,
+        },
+        {
           code: [
             "/** type-assertion-boundary: framework - jsdoc accepted */",
             "const body = req.body as LoginInput;",
@@ -54,6 +63,31 @@ describe("type-assertion-boundary", () => {
             " * type-assertion-boundary: framework - multi-line jsdoc accepted",
             " */",
             "const body = req.body as LoginInput;",
+          ].join("\n"),
+          filename: nonTestFilename,
+        },
+        {
+          // JSDoc that explains first, then carries the marker on a later line:
+          // the canonical explanation-first shape an agent writes for an interop cast.
+          code: [
+            "/**",
+            " * Object.entries widens keys to string on this branch, so the indexed",
+            " * access needs narrowing that TS cannot follow from the runtime invariant.",
+            " * type-assertion-boundary: interop - keys come from validated ability deltas",
+            " */",
+            "const current = freshStats[key] as number;",
+          ].join("\n"),
+          filename: nonTestFilename,
+        },
+        {
+          // Marker on the last content line, after two prose lines.
+          code: [
+            "/**",
+            " * The upstream package omits a stable runtime field on this response.",
+            " * We know it is always present for the discriminated branch we handle.",
+            " * type-assertion-boundary: framework - upstream lib type is too wide here",
+            " */",
+            "const event = value as LibraryEvent;",
           ].join("\n"),
           filename: nonTestFilename,
         },
@@ -133,6 +167,24 @@ describe("type-assertion-boundary", () => {
           ].join("\n"),
           filename: nonTestFilename,
         },
+        {
+          // A block-above marker is statement-scoped: one marker covers every cast
+          // in the statement below it (the asi.ts Object.entries pattern).
+          code: [
+            "// type-assertion-boundary: interop - keys come from validated ability deltas",
+            "const pair = [first as number, second as number];",
+          ].join("\n"),
+          filename: nonTestFilename,
+        },
+        {
+          // An `as const` never needs a marker, so it must not compete in the
+          // nearest-cast contest: the trailing marker binds to the real cast even
+          // when an exempt const assertion sits between it and the comment.
+          code: [
+            "foo(x as Foo, y as const); // type-assertion-boundary: framework - real cast justified",
+          ].join("\n"),
+          filename: nonTestFilename,
+        },
       ],
       invalid: [
         {
@@ -184,7 +236,46 @@ describe("type-assertion-boundary", () => {
           errors: [{ messageId: "missingBoundary" }],
         },
         {
+          // Prose on the SAME line as the marker still fails: the per-line anchor
+          // requires only whitespace/asterisks before `type-assertion-boundary:`,
+          // so words between the anchor and the marker break the match.
+          code: [
+            "/**",
+            " * see type-assertion-boundary: framework - marker after prose on one line",
+            " */",
+            "const x = value as Foo;",
+          ].join("\n"),
+          filename: nonTestFilename,
+          errors: [{ messageId: "missingBoundary" }],
+        },
+        {
           code: "const x = <Foo>value;",
+          filename: nonTestFilename,
+          errors: [{ messageId: "missingBoundary" }],
+        },
+        {
+          // A hyphen-extended category is not one of the five: the hyphen must not
+          // read as the reason separator, so this reports invalidCategory (not valid).
+          code: [
+            "// type-assertion-boundary: framework-legacy - because it was here first",
+            "const x = value as Foo;",
+          ].join("\n"),
+          filename: nonTestFilename,
+          errors: [{ messageId: "invalidCategory" }],
+        },
+        {
+          // Bare hyphen-suffix form with no real reason: the `-x` must not read as
+          // separator-plus-reason, so this reports invalidCategory (not valid, not emptyReason).
+          code: ["// type-assertion-boundary: framework-x", "const x = value as Foo;"].join("\n"),
+          filename: nonTestFilename,
+          errors: [{ messageId: "invalidCategory" }],
+        },
+        {
+          // A trailing marker covers only the nearest-preceding cast on its line; the
+          // earlier cast on the same line is not blessed by a reason written for another.
+          code: [
+            "foo(x as A, y as B); // type-assertion-boundary: json - one reason for both casts",
+          ].join("\n"),
           filename: nonTestFilename,
           errors: [{ messageId: "missingBoundary" }],
         },

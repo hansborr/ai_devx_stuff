@@ -37,7 +37,6 @@ export {
   type StaleMarkerOrigin,
   type StaleMarkerRow,
   type StaleMarkerSection,
-  type StaleMarkerThresholds,
 } from "./drift-ai/coldspots-format.js";
 export {
   scanStaleMarkers,
@@ -96,13 +95,7 @@ export {
   parseGitLog,
 } from "./drift-ai/hotspots-history.js";
 export { buildInventoryByDir } from "./drift-ai/inventory-by-dir.js";
-export {
-  buildReport,
-  type CheckContext,
-  type CheckRunContext,
-  type CheckRunInput,
-  type Clock,
-} from "./drift-ai/report-builder.js";
+export { buildReport, type Clock } from "./drift-ai/report-builder.js";
 export { formatJson, formatText } from "./drift-ai/report-format.js";
 export type { RunOptions, RunResult } from "./drift-ai/runner.js";
 export { runDriftAi } from "./drift-ai/runner.js";
@@ -133,7 +126,6 @@ export type {
   ConfigSource,
   DriftCheckId,
   DriftChunkManifest,
-  DriftChunkManifestEntry,
   DriftFinding,
   DriftFindingChunk,
   DriftReport,
@@ -145,7 +137,6 @@ export type {
 export {
   DEFAULT_BASE,
   DEFAULT_CHUNK_SIZE,
-  DEFAULT_IGNORE_DIR_PREFIXES,
   DEFAULT_IGNORE_EXTENSIONS,
   DEFAULT_IGNORE_FILES,
   DEFAULT_SCOPE_MODE,

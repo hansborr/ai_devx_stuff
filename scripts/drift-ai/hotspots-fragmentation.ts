@@ -6,7 +6,7 @@ import { buildPathRowActionability } from "./hotspots-actionability.js";
 import type { FragmentationHotspot, FragmentationSection } from "./hotspots-format.js";
 import type { CollectedHistory, CommitRecord } from "./hotspots-history.js";
 
-export const DEFAULT_FRAGMENTATION_MIN_HANDS = 3;
+const DEFAULT_FRAGMENTATION_MIN_HANDS = 3;
 const HAND_SAMPLE_LIMIT = 12;
 
 export type ReduceFragmentationOptions = {

@@ -1,6 +1,6 @@
 # useEffect and AI coding agents — research
 
-Status: research · no implementation yet
+Status: research · guardrails implemented by lint-adoption-2026-07 Leaf 21
 Date: 2026-06-05 · deep-research run (20 sources fetched, 96 claims extracted,
 25 adversarially verified with 3 independent votes each: 23 confirmed,
 2 killed) plus direct reads of the two AI-agent-specific sources and a local
@@ -21,13 +21,25 @@ Everything below is tiered by evidence strength:
   no primary/empirical evidence behind it.
 - **[local]** — measured in this repository on 2026-06-05.
 
-## TL;DR
+## Historical research summary (pre-implementation)
+
+Implementation update (2026-07-15): Leaf 21 kept the no-ban verdict, drained
+the dialog reset cohort with keyed remounts, and shipped the ratcheted local
+`local/no-effect-misuse` detector instead of installing the third-party plugin.
+The local rule directly names Musi's tRPC/TanStack Query, render-time
+derivation, event-handler, and keyed-remount alternatives.
+
+The remaining bullets and research sections preserve the evidence available
+before implementation. They are not rollout instructions; the final decisions
+live in the implementation plan's 2026-07-15 outcome.
 
 - **Do not ban `useEffect`.** The React core team's own position is targeted
   linting of concrete anti-patterns, never import prohibition; Musi's heaviest
   usage is legitimate external-system sync (sockets, DOM, browser APIs); and
-  two prior local inventories of the main anti-pattern rule found **zero
-  actual bugs** across 24 findings.
+  two prior local inventories classified **zero actual bugs** across 24
+  findings. That historical classification was later corrected: Leaf 21's
+  review proved the movement-tracking finding was a same-turn reset bug and
+  fixed it.
 - Musi already runs the strongest official guardrail:
   `eslint-plugin-react-hooks@^7` `recommended-latest` (compiler-era rules) at
   error for all client TS/TSX. The one disabled rule,
@@ -43,8 +55,8 @@ Everything below is tiered by evidence strength:
   (`eslint-plugin-react-you-might-not-need-an-effect`) covers the
   architectural anti-pattern classes the official rule structurally cannot,
   but v1.0.0 shipped 2026-05-31 — five days before this note — so its
-  false-positive behavior at scale is uncharacterized. Ratchet tier, not
-  error tier.
+  false-positive behavior at scale was uncharacterized. The later decision
+  was not to trial it: Leaf 21 shipped the narrower local rule instead.
 
 ## 1. [verified] React core team position
 

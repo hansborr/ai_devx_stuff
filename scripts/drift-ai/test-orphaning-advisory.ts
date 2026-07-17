@@ -33,17 +33,9 @@ export {
 } from "./test-orphaning-format.js";
 export type {
   BuildTestOrphaningAdvisoryInput,
-  RelatedTestEvidence,
   TestOrphaningAdvisory,
-  TestOrphaningRow,
-  TestOrphaningSection,
 } from "./test-orphaning-types.js";
-export {
-  DEFAULT_MIN_SOURCE_COMMITS,
-  DEFAULT_TEST_MAPPING_PATTERNS,
-  DEFAULT_TEST_ORPHANING_TOP,
-  TEST_ORPHANING_SUBCOMMAND,
-} from "./test-orphaning-types.js";
+export { DEFAULT_TEST_ORPHANING_TOP } from "./test-orphaning-types.js";
 
 const NO_TEST_CANDIDATE_KIND = "source files with no inferred test";
 const STALE_CANDIDATE_KIND = "source files whose tests lag source churn";

@@ -40,7 +40,7 @@ export type SimilarityTsSpawn = (
   options: SpawnSyncOptionsWithStringEncoding,
 ) => SimilarityTsSpawnResult;
 
-export type NearDuplicateRunnerInput = {
+type NearDuplicateRunnerInput = {
   readonly repoRoot: string;
   readonly roots: readonly string[];
   readonly sourceExtensions: ReadonlySet<string>;
@@ -57,7 +57,7 @@ export type NearDuplicateSourceInventoryInput = Pick<
   "excludeGlobs" | "ignore" | "repoRoot" | "roots" | "sourceExtensions"
 >;
 
-export type NearDuplicateRunnerResult =
+type NearDuplicateRunnerResult =
   | {
       readonly ok: true;
       readonly engine: typeof NEAR_DUPLICATE_TOOL;

@@ -1,6 +1,6 @@
 # 34. Ban `z.any()` in shared schemas and permissive tRPC output schemas at lint time
 
-Status: Proposed — from the 2026-07-01 AI-harness review; NOT implemented. Re-verify file:line before acting.
+Status: Done — `sharedSchemaZAnyRestrictedSyntax` + `permissiveTrpcOutputRestrictedSyntax` in `package-boundary-configs.js`.
 Lens: lint-rules · Area: shared+server · Severity: med-high · Size: S-M · Confidence: med
 Theme: schema-permissiveness · Source: Musi AI-harness review 2026-07-01 (multi-agent + Codex second opinion + web research)
 

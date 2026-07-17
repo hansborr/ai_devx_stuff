@@ -31,3 +31,11 @@ component effect. This needs an owner call before implementation.
 - Focused `join-page` client tests for the chosen flow.
 - Manual or e2e smoke for login-then-join and already-authenticated invite
   links if the behavior changes.
+
+## Leaf 21 boundary
+
+The 2026-07-15 effect-misuse enforcement deliberately does not classify this
+mutation as fetch-in-effect or derived-state-only work. The product choice
+between automatic joining and explicit confirmation still determines the
+correct replacement, so this note remains the single owner of that decision;
+Leaf 21 neither duplicates nor silently resolves it.

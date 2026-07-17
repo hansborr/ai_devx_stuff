@@ -97,6 +97,27 @@ printf 'PASS: synthetic lint-ratchet merge-driver health\n'
 SH
   chmod +x "$FAST_ROOT/scripts/git/check-lint-ratchet-merge-driver.sh"
 
+  cat >"$FAST_ROOT/scripts/git/check-knip-unused-exports-merge-driver.sh" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'PASS: synthetic knip unused-exports merge-driver health\n'
+SH
+  chmod +x "$FAST_ROOT/scripts/git/check-knip-unused-exports-merge-driver.sh"
+
+  cat >"$FAST_ROOT/scripts/git/check-max-lines-exceptions-merge-driver.sh" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'PASS: synthetic max-lines exceptions merge-driver health\n'
+SH
+  chmod +x "$FAST_ROOT/scripts/git/check-max-lines-exceptions-merge-driver.sh"
+
+  cat >"$FAST_ROOT/scripts/git/check-near-duplicates-merge-driver.sh" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'PASS: synthetic near-duplicates merge-driver health\n'
+SH
+  chmod +x "$FAST_ROOT/scripts/git/check-near-duplicates-merge-driver.sh"
+
   cat >"$FAST_ROOT/scripts/eslint-disable-register.sh" <<'SH'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -127,6 +148,13 @@ if [ "${1:-}" = "run" ]; then
       fi
       ;;
     sensor:knip)
+      # Report-only sensor. Default clean (exit 0). The nonzero branches model
+      # knip's real exit semantics for the run_report_subcommand tests:
+      # DOCTOR_JSON_KNIP_EXIT=1 → findings present, =2 → tool crash.
+      if [ -n "${DOCTOR_JSON_KNIP_EXIT:-}" ]; then
+        printf '%s\n' "${DOCTOR_JSON_KNIP_OUTPUT:-}"
+        exit "${DOCTOR_JSON_KNIP_EXIT}"
+      fi
       exit 0
       ;;
     sensor:blob-size)
@@ -158,6 +186,9 @@ if [ "${1:-}" = "run" ]; then
         printf 'forced harness check stdout\n'
         printf 'forced harness check stderr\n' >&2
         exit 1
+      fi
+      if [ "${DOCTOR_JSON_RUN_REAL_HARNESS:-0}" = "1" ]; then
+        exec "${REAL_BUN:?}" "$@"
       fi
       exit 0
       ;;
@@ -426,6 +457,27 @@ printf 'PASS: synthetic lint-ratchet merge-driver health\n'
 SH
 chmod +x "$BLOCK_ROOT/scripts/git/check-lint-ratchet-merge-driver.sh"
 
+cat >"$BLOCK_ROOT/scripts/git/check-knip-unused-exports-merge-driver.sh" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'PASS: synthetic knip unused-exports merge-driver health\n'
+SH
+chmod +x "$BLOCK_ROOT/scripts/git/check-knip-unused-exports-merge-driver.sh"
+
+cat >"$BLOCK_ROOT/scripts/git/check-max-lines-exceptions-merge-driver.sh" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'PASS: synthetic max-lines exceptions merge-driver health\n'
+SH
+chmod +x "$BLOCK_ROOT/scripts/git/check-max-lines-exceptions-merge-driver.sh"
+
+cat >"$BLOCK_ROOT/scripts/git/check-near-duplicates-merge-driver.sh" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'PASS: synthetic near-duplicates merge-driver health\n'
+SH
+chmod +x "$BLOCK_ROOT/scripts/git/check-near-duplicates-merge-driver.sh"
+
 cat >"$BLOCK_ROOT/scripts/migration-safety-scan.sh" <<'SH'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -525,6 +577,145 @@ jq -e '
   || { cat "$HARNESS_FAIL_JSON" >&2; cat "$HARNESS_FAIL_ERR" >&2; fail "harness:check failure missing blocking doctor finding"; }
 ok "harness:check failure emits a blocking doctor finding in --json mode"
 
+# --- knip report-only sensor: findings (rc=1) vs crash (rc=2) ----------------
+# run_report_subcommand (only caller: sensor:knip) must distinguish knip's
+# exit codes in --json mode: rc=1 is report-only findings (carry a bounded
+# output excerpt in the finding), rc>=2 is a tool crash (a distinct finding, not
+# a report-only warn). Report-only sensors never gate doctor's exit, so both
+# must keep the same exit code the clean fast run produced ($DOCTOR_EXIT).
+KNIP_FINDINGS_JSON="$(mktemp)"
+KNIP_FINDINGS_ERR="$(mktemp)"
+KNIP_FINDINGS_EXIT=0
+(
+  cd "$FAST_ROOT"
+  DOCTOR_JSON_KNIP_EXIT=1 \
+    DOCTOR_JSON_KNIP_OUTPUT='Unused exports (2)
+packages/server/src/foo.ts:10:3  bar
+packages/server/src/baz.ts:4:1  qux' \
+    REAL_BUN="$REAL_BUN" PATH="$FAST_FAKE_BIN:$PATH" \
+    bash "$SCRIPT" --json >"$KNIP_FINDINGS_JSON" 2>"$KNIP_FINDINGS_ERR"
+) || KNIP_FINDINGS_EXIT=$?
+[ "$KNIP_FINDINGS_EXIT" = "$DOCTOR_EXIT" ] \
+  || { cat "$KNIP_FINDINGS_JSON" >&2; cat "$KNIP_FINDINGS_ERR" >&2; fail "knip rc=1 must preserve report-only exit policy (expected $DOCTOR_EXIT, got $KNIP_FINDINGS_EXIT)"; }
+jq -e '
+  .findings
+  | any(
+      .control == "sensor/knip"
+      and .severity == "warn"
+      and (.messageId | test("crash") | not)
+      and (.why | contains("report-only"))
+      and (.why | contains("packages/server/src/foo.ts"))
+    )
+' "$KNIP_FINDINGS_JSON" >/dev/null \
+  || { cat "$KNIP_FINDINGS_JSON" >&2; fail "knip rc=1 should emit a report-only warn carrying an output excerpt in why"; }
+ok "knip rc=1 emits a report-only warn carrying an output excerpt"
+
+KNIP_CRASH_JSON="$(mktemp)"
+KNIP_CRASH_ERR="$(mktemp)"
+KNIP_CRASH_EXIT=0
+(
+  cd "$FAST_ROOT"
+  DOCTOR_JSON_KNIP_EXIT=2 \
+    DOCTOR_JSON_KNIP_OUTPUT='Error: could not load knip config from knip.json' \
+    REAL_BUN="$REAL_BUN" PATH="$FAST_FAKE_BIN:$PATH" \
+    bash "$SCRIPT" --json >"$KNIP_CRASH_JSON" 2>"$KNIP_CRASH_ERR"
+) || KNIP_CRASH_EXIT=$?
+[ "$KNIP_CRASH_EXIT" = "$DOCTOR_EXIT" ] \
+  || { cat "$KNIP_CRASH_JSON" >&2; cat "$KNIP_CRASH_ERR" >&2; fail "knip rc=2 crash must preserve report-only exit policy (expected $DOCTOR_EXIT, got $KNIP_CRASH_EXIT)"; }
+jq -e '
+  .findings
+  | any(
+      .control == "sensor/knip"
+      and (.messageId | test("crash"))
+      and (.why | test("crashed|did not"))
+    )
+' "$KNIP_CRASH_JSON" >/dev/null \
+  || { cat "$KNIP_CRASH_JSON" >&2; fail "knip rc=2 should emit a distinct sensor-crashed finding, not a report-only warn"; }
+ok "knip rc=2 crash emits a distinct sensor-crashed finding"
+
+# The two nonzero branches must be distinguishable to a consumer (messageId).
+KNIP_FINDINGS_MID="$(jq -r '.findings[] | select(.control=="sensor/knip") | .messageId' "$KNIP_FINDINGS_JSON")"
+KNIP_CRASH_MID="$(jq -r '.findings[] | select(.control=="sensor/knip") | .messageId' "$KNIP_CRASH_JSON")"
+[ -n "$KNIP_FINDINGS_MID" ] && [ -n "$KNIP_CRASH_MID" ] && [ "$KNIP_FINDINGS_MID" != "$KNIP_CRASH_MID" ] \
+  || fail "knip rc=1 and rc=2 must yield distinguishable messageIds (got '$KNIP_FINDINGS_MID' vs '$KNIP_CRASH_MID')"
+ok "knip rc=1 and rc=2 produce distinguishable findings"
+rm -f "$KNIP_FINDINGS_JSON" "$KNIP_FINDINGS_ERR" "$KNIP_CRASH_JSON" "$KNIP_CRASH_ERR"
+
+# --- conflict-marker presentation through doctor ---------------------------
+# Clone the live tree so the baseline can contain real conflict markers without
+# mutating the caller's worktree. Overlay the current harness boundary (which
+# may be uncommitted while this test drives TDD), share node_modules, and keep
+# the unrelated doctor probes synthetic so this remains a focused integration.
+MARKER_ROOT="$(mktemp -d)"
+git clone -q --shared "$REPO_ROOT" "$MARKER_ROOT"
+cp "$REPO_ROOT/scripts/harness-check.ts" "$MARKER_ROOT/scripts/harness-check.ts"
+cp "$REPO_ROOT/scripts/harness/local-rule-config.ts" \
+  "$MARKER_ROOT/scripts/harness/local-rule-config.ts"
+cp "$REPO_ROOT/eslint-config/shared-policy.js" "$MARKER_ROOT/eslint-config/shared-policy.js"
+ln -s "$REPO_ROOT/node_modules" "$MARKER_ROOT/node_modules"
+cp -R "$FAST_ROOT/.devcontainer" "$MARKER_ROOT/.devcontainer"
+cp "$FAST_ROOT/.env" "$MARKER_ROOT/.env"
+cp "$FAST_ROOT/packages/client/.env" "$MARKER_ROOT/packages/client/.env"
+for fake_script in worktree-db.sh suppression-register.sh eslint-disable-register.sh migration-safety-scan.sh; do
+  cp "$FAST_ROOT/scripts/$fake_script" "$MARKER_ROOT/scripts/$fake_script"
+done
+for driver_check in check-lint-ratchet-merge-driver.sh check-knip-unused-exports-merge-driver.sh check-max-lines-exceptions-merge-driver.sh check-near-duplicates-merge-driver.sh; do
+  cp "$FAST_ROOT/scripts/git/$driver_check" "$MARKER_ROOT/scripts/git/$driver_check"
+done
+printf '%s\n' \
+  '<<<<<<< ours' \
+  '{"version":2}' \
+  '=======' \
+  '{"version":2}' \
+  '>>>>>>> theirs' \
+  >"$MARKER_ROOT/eslint-config/max-lines-exceptions.baseline.json"
+
+# Backticks are literal CLI guidance.
+# shellcheck disable=SC2016
+MARKER_MESSAGE='eslint-config/max-lines-exceptions.baseline.json is generated; Git conflict markers mean its semantic merge driver was not installed. Run `bun run lint:max-lines-exceptions:install-merge-driver`, restore a parseable side with `bun run baseline:restore-stage -- --ours eslint-config/max-lines-exceptions.baseline.json` (always use stage 2/`--ours`; during rebase stage 2 is the upstream base, not the branch being rebased; if the markers were already committed, restore that side from a parent commit first), then reconcile entries from both sides and normalize with `bun run lint:max-lines-exceptions:update`; never hand-merge conflict markers in this file. Inspect the resulting baseline against both sides before staging; preserve any lower floor from the other side or explicitly accept the regression.'
+MARKER_PLAIN="$(mktemp)"
+MARKER_PLAIN_EXIT=0
+(
+  cd "$MARKER_ROOT"
+  CI=1 DOCTOR_JSON_RUN_REAL_HARNESS=1 REAL_BUN="$REAL_BUN" PATH="$FAST_FAKE_BIN:$PATH" \
+    bash scripts/doctor.sh >"$MARKER_PLAIN" 2>&1
+) || MARKER_PLAIN_EXIT=$?
+[ "$MARKER_PLAIN_EXIT" -eq 1 ] \
+  || fail "doctor with a conflict-marker baseline should exit 1, got $MARKER_PLAIN_EXIT"
+grep -qF "$MARKER_MESSAGE" "$MARKER_PLAIN" \
+  || { cat "$MARKER_PLAIN" >&2; fail "plain doctor omitted conflict-marker recovery"; }
+if grep -qF 'SyntaxError' "$MARKER_PLAIN" || grep -qE '^[[:space:]]*at ' "$MARKER_PLAIN"; then
+  cat "$MARKER_PLAIN" >&2
+  fail "plain doctor leaked a raw stack for conflict markers"
+fi
+ok "plain doctor presents conflict-marker recovery without a stack"
+
+MARKER_JSON="$(mktemp)"
+MARKER_JSON_ERR="$(mktemp)"
+MARKER_JSON_EXIT=0
+(
+  cd "$MARKER_ROOT"
+  CI=1 DOCTOR_JSON_RUN_REAL_HARNESS=1 REAL_BUN="$REAL_BUN" PATH="$FAST_FAKE_BIN:$PATH" \
+    bash scripts/doctor.sh --json >"$MARKER_JSON" 2>"$MARKER_JSON_ERR"
+) || MARKER_JSON_EXIT=$?
+[ "$MARKER_JSON_EXIT" -eq 1 ] \
+  || fail "doctor --json with a conflict-marker baseline should exit 1, got $MARKER_JSON_EXIT"
+jq -e --arg message "$MARKER_MESSAGE" '
+  .findings
+  | any(
+      .messageId == "harness-check-failed"
+      and (.why | contains($message))
+      and (.why | contains("SyntaxError") | not)
+      and (.why | test("(^|\\n)[[:space:]]*at ") | not)
+    )
+' "$MARKER_JSON" >/dev/null \
+  || { cat "$MARKER_JSON" >&2; cat "$MARKER_JSON_ERR" >&2; fail "doctor --json did not cleanly present conflict-marker recovery"; }
+if grep -qF 'SyntaxError' "$MARKER_JSON_ERR" || grep -qE '^[[:space:]]*at ' "$MARKER_JSON_ERR"; then
+  cat "$MARKER_JSON_ERR" >&2
+  fail "doctor --json leaked a raw stack to stderr for conflict markers"
+fi
+ok "doctor --json presents conflict-marker recovery without a stack"
+
 # --- lint-tools missing-tool scenario ---------------------------------------
 # Strip node_modules/.bin from PATH and omit the npm-tool stubs so the
 # npm-managed lint tools are unresolvable. node-actionlint is npm-only, so it is
@@ -597,7 +788,7 @@ rm -rf "$LINT_OVERRIDE_BIN"
 rm -f "$LINT_OVERRIDE_OUT"
 
 # --- cleanup ----------------------------------------------------------------
-rm -f "$DOCTOR_JSON" "$DOCTOR_STDERR" "$REGISTERED_CONTROLS" "$EMITTED_CONTROLS" "$SUBDIR_JSON" "$SUBDIR_ERR" "$DEFAULT_OUT" "$EMPTY_ENV" "$BLOCK_JSON" "$BLOCK_ERR" "$HARNESS_FAIL_JSON" "$HARNESS_FAIL_ERR" /tmp/doctor-help.out /tmp/doctor-bad.out
-rm -rf "$FAST_ROOT" "$FAST_FAKE_BIN" "$BLOCK_ROOT" "$BLOCK_FAKE_BIN"
+rm -f "$DOCTOR_JSON" "$DOCTOR_STDERR" "$REGISTERED_CONTROLS" "$EMITTED_CONTROLS" "$SUBDIR_JSON" "$SUBDIR_ERR" "$DEFAULT_OUT" "$EMPTY_ENV" "$BLOCK_JSON" "$BLOCK_ERR" "$HARNESS_FAIL_JSON" "$HARNESS_FAIL_ERR" "$MARKER_PLAIN" "$MARKER_JSON" "$MARKER_JSON_ERR" /tmp/doctor-help.out /tmp/doctor-bad.out
+rm -rf "$FAST_ROOT" "$FAST_FAKE_BIN" "$BLOCK_ROOT" "$BLOCK_FAKE_BIN" "$MARKER_ROOT"
 
 printf '\n%d/%d tests passed\n' "$PASS" "$PASS"

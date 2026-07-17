@@ -152,14 +152,14 @@ export type HotspotSection =
   | SuppressionChurnSection
   | ThrashSection;
 
-export type HotspotsWindow = {
+type HotspotsWindow = {
   readonly requestedDays: number;
   readonly effectiveDays: number;
   readonly widened: boolean;
   readonly widenReason: string | null;
 };
 
-export type HotspotsMetric = {
+type HotspotsMetric = {
   readonly name: ChurnMetric;
   readonly autoSwitched: boolean;
   readonly squashReason: string | null;

@@ -1,0 +1,25 @@
+{
+  // Enforces the `// @ts-check` pragma on the ESLint policy surface
+  // (eslint-config/*.js); scripts/typecheck.sh runs this project as its own
+  // lane. Deliberately standalone rather than extending tsconfig.base.json:
+  // the pragma's in-editor semantics are loose (no strict/noImplicitAny), and
+  // the strict base would drown the drift signal in JSDoc-light parameter
+  // errors.
+  //
+  // eslint-config/local-plugin.js stays excluded for now: it imports every
+  // eslint-rules/*.js rule file, and those carry estree-vs-TSESTree JSDoc
+  // typedef mismatches (harness-sweep-2026-07 leaf 22c, parked). Nothing else
+  // in eslint-config imports it, so excluding it keeps the rule files out of
+  // this program.
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "target": "ES2024",
+    "skipLibCheck": true
+  },
+  "include": ["eslint-config/*.js"],
+  "exclude": ["eslint-config/local-plugin.js"]
+}

@@ -1,4 +1,4 @@
-import { HARNESS_MANIFEST_FILENAME } from "./harness-paths.js";
+import { HARNESS_MANIFEST_FILENAME } from "./harness-manifest.js";
 import {
   type HookHarness,
   isNonEmptyString,

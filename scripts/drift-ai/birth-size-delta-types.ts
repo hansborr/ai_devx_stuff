@@ -9,7 +9,7 @@ export const DEFAULT_BIRTH_SIZE_DELTA_MAX_BLOB_READS = 100;
 export const DEFAULT_BIRTH_SIZE_DELTA_MAX_BLOB_BYTES = 1024 * 1024;
 export const DEFAULT_BIRTH_SIZE_DELTA_BLOB_TIMEOUT_MS = 2_000;
 
-export type BirthBlobRequest = {
+type BirthBlobRequest = {
   readonly commit: string;
   readonly path: string;
 };
@@ -24,7 +24,7 @@ export type BirthBlobReadResult =
   | { readonly ok: false; readonly reason: string };
 
 export type BirthBlobReader = (request: BirthBlobRequest) => BirthBlobReadResult;
-export type CurrentBlobReader = (path: string) => string | undefined;
+type CurrentBlobReader = (path: string) => string | undefined;
 
 export type BirthSizeDeltaMetric = {
   readonly birth: number | null;
@@ -37,7 +37,7 @@ export type BirthSizeDeltaBlobState = {
   readonly reason: string | null;
 };
 
-export type BirthSizeDeltaBirth = {
+type BirthSizeDeltaBirth = {
   readonly commit: string;
   readonly authorName: string;
   readonly authorEmail: string;
@@ -45,13 +45,13 @@ export type BirthSizeDeltaBirth = {
   readonly subject: string;
 };
 
-export type BirthSizeDeltaBirthBurst = {
+type BirthSizeDeltaBirthBurst = {
   readonly fileCount: number;
   readonly linesAdded: number | null;
   readonly linesAvailable: boolean;
 };
 
-export type BirthSizeDeltaChurn = {
+type BirthSizeDeltaChurn = {
   readonly commits: number;
   readonly linesChanged: number | null;
 };

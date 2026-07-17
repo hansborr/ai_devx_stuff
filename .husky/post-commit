@@ -15,28 +15,89 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 . "$REPO_ROOT/scripts/lib/verify-metadata.sh"
 
 musi_post_commit_fast_pending() {
-  printf '%s/musi-fast-commit-pending' "$(musi_git_common_identity_path "$REPO_ROOT")"
-}
-
-musi_post_commit_fast_log() {
-  printf '%s/musi-fast-commit-log' "$(musi_git_common_identity_path "$REPO_ROOT")"
+  musi_fast_commit_pending_marker "$REPO_ROOT"
 }
 
 musi_post_commit_main() {
-  local pending log head
+  local pending head recorded_heads recorded_head
 
   pending=$(musi_post_commit_fast_pending)
   [ -f "$pending" ] || return 0
 
-  log=$(musi_post_commit_fast_log)
   head=$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || true)
   [ -n "$head" ] || return 0
 
-  mkdir -p "$(dirname "$log")"
-  if [ ! -f "$log" ] || ! grep -qxF "$head" "$log"; then
-    printf '%s\n' "$head" >> "$log"
+  # Persist the commit being finalized before attempting the shared-log append.
+  # The next pre-commit can then retry this exact SHA even after HEAD advances.
+  # If this best-effort enrichment itself fails, the original parent field stays
+  # available for immediate-next-commit compatibility recovery.
+  if ! grep -qxF "head=$head" "$pending" 2>/dev/null; then
+    printf 'head=%s\n' "$head" >> "$pending" \
+      || printf 'post-commit: WARNING: failed to record recoverable HEAD %s in pending marker %s\n' \
+        "$head" "$pending" >&2
+  fi
+
+  # Fail-safe ordering: the pending marker is the only record that these commits
+  # fast-skipped slots, so replay every stored HEAD and consume it only after all
+  # appends are known durable. Re-appends are de-duplicated by the shared helper.
+  if ! recorded_heads=$(sed -n 's/^head=//p' "$pending" 2>/dev/null); then
+    printf 'post-commit: WARNING: failed to read fast-commit pending marker %s; keeping it for retry\n' \
+      "$pending" >&2
+    return 0
+  fi
+  while IFS= read -r recorded_head; do
+    [ -n "$recorded_head" ] || continue
+    if ! musi_fast_commit_log_append "$REPO_ROOT" "$recorded_head"; then
+      printf 'post-commit: WARNING: failed to append %s to the fast-commit provenance log; keeping pending marker %s so the skipped-slot debt is retried on the next commit\n' \
+        "$recorded_head" "$pending" >&2
+      return 0
+    fi
+  done <<< "$recorded_heads"
+
+  # Keep the direct current-HEAD append even if enriching the marker failed.
+  # Usually this is a de-duplicated no-op after the replay above.
+  if ! musi_fast_commit_log_append "$REPO_ROOT" "$head"; then
+    printf 'post-commit: WARNING: failed to append %s to the fast-commit provenance log; keeping pending marker %s so the skipped-slot debt is retried on the next commit\n' \
+      "$head" "$pending" >&2
+    return 0
   fi
   rm -f "$pending"
 }
 
+# A merge completed with a plain `git commit` (`git merge --no-commit`, or a
+# conflicted merge resolved by hand) runs post-commit but never post-merge, so
+# the truth-up markers the baseline merge drivers leave would otherwise sit
+# unread. Dispatch the same truth-up scripts in post-commit context, but only
+# when there is something to do: a merge commit (a second parent) or a pending
+# marker leaked onto a non-merge commit. The common case - an ordinary commit
+# with neither - costs one rev-parse plus a stat per baseline driver and
+# returns. The driver names are read from the shared registry
+# (scripts/git/baseline-drivers.sh) that the install and truth-up dispatchers
+# also consume, so a new baseline artifact is a one-line registry change.
+musi_post_commit_truth_up() {
+  local git_dir metric found
+
+  if ! git rev-parse --verify --quiet 'HEAD^2' >/dev/null 2>&1; then
+    git_dir=$(git rev-parse --git-dir 2>/dev/null || true)
+    [ -n "$git_dir" ] || return 0
+    case "$git_dir" in
+      /*) ;;
+      *) git_dir="$REPO_ROOT/$git_dir" ;;
+    esac
+    # shellcheck source=scripts/git/baseline-drivers.sh
+    . "$REPO_ROOT/scripts/git/baseline-drivers.sh"
+    found=0
+    for metric in "${MUSI_BASELINE_DRIVERS[@]}"; do
+      if [ -f "$git_dir/musi/$metric-baseline-postmerge-truth-up-required" ]; then
+        found=1
+        break
+      fi
+    done
+    [ "$found" -eq 1 ] || return 0
+  fi
+
+  bash "$REPO_ROOT/scripts/git/run-baseline-truth-up.sh" post-commit
+}
+
 musi_post_commit_main "$@"
+musi_post_commit_truth_up

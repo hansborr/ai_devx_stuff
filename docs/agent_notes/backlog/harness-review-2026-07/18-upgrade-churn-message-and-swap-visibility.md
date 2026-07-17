@@ -1,8 +1,10 @@
 # 18. Distinguish plugin-upgrade identity drift from real regressions, and surface equal-count finding swaps
 
-Status: Proposed — from the 2026-07-01 AI-harness review; NOT implemented. Re-verify file:line before acting.
+Status: Done — half (a) classifies stale rule-source identity as findings-unchanged versus a real finding-set change while keeping the gate non-zero; half (b) equal-count swap visibility was already landed.
 Lens: ratchet · Area: ux · Severity: low-med · Size: S · Confidence: high
 Theme: ratchet-ux · Source: Musi AI-harness review 2026-07-01 (multi-agent + Codex second opinion + web research)
+
+> **Fully landed** — default mode structurally re-parses a baseline only when stale `ruleSourceHash` failures are the sole strict-parse failure, collects and compares current findings, and classifies the still-failing gate message. `messagesFingerprint` remains the independent half (b) implementation consumed by `message-swap-info.ts`.
 
 ## Problem
 Two small honesty gaps in what the gate tells you:

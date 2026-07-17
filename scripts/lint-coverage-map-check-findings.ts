@@ -5,7 +5,7 @@ import type {
   TableRow,
 } from "./lint-coverage-map-check-types.js";
 
-const RATCHET_ID_PATTERN = /ratchet\/[a-z0-9-]+/gu;
+export const RATCHET_ID_PATTERN = /ratchet\/[a-z0-9-]+/gu;
 const VALID_STATUS_PARTS = new Set([
   "linted",
   "ratcheted",
@@ -24,7 +24,7 @@ const COMPATIBLE_STATUS_PARTS = new Map<string, ReadonlySet<string>>([
   ["not-code", new Set(["excluded", "not-code"])],
 ]);
 
-function validStatusParts(status: string): string[] {
+export function validStatusParts(status: string): string[] {
   const parts = status.split("+").map((part) => part.trim());
   return parts.length > 0 && parts.every((part) => VALID_STATUS_PARTS.has(part)) ? parts : [];
 }
@@ -89,6 +89,12 @@ export function formatFindings(findings: readonly CheckFinding[]): string {
   const stale = findings.filter((finding) => finding.kind === "stale-path");
   const unknown = findings.filter((finding) => finding.kind === "unknown-ratchet");
   const invalid = findings.filter((finding) => finding.kind === "invalid-status");
+  const statusConsistency = findings.filter(
+    (finding) => finding.kind === "status-consistency-mismatch",
+  );
+  const ratchetMembership = findings.filter(
+    (finding) => finding.kind === "ratchet-membership-mismatch",
+  );
   const conflicts = findings.filter((finding) => finding.kind === "conflicting-coverage");
   const configSurfaceMismatches = findings.filter(
     (finding) => finding.kind === "config-surface-coverage-mismatch",
@@ -98,6 +104,8 @@ export function formatFindings(findings: readonly CheckFinding[]): string {
   appendLineFindingsSection(lines, "Stale path/group patterns:", stale);
   appendLineFindingsSection(lines, "Unknown ratchet IDs:", unknown);
   appendLineFindingsSection(lines, "Invalid status values:", invalid);
+  appendLineFindingsSection(lines, "Normal-lint / status inconsistencies:", statusConsistency);
+  appendLineFindingsSection(lines, "Ratchet membership mismatches:", ratchetMembership);
   appendValueFindingsSection(lines, "Conflicting coverage rows:", conflicts);
   appendValueFindingsSection(lines, "Config surface coverage mismatches:", configSurfaceMismatches);
   appendUnaccountedSection(lines, unaccounted);

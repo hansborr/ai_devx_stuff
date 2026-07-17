@@ -1,0 +1,420 @@
+import { describe, expect, it } from "vitest";
+
+import { buildTriagePackets } from "./triage-packets.js";
+import type { TriageItem, TriageReport } from "./triage-report.js";
+
+function item(id: string, path: string, overrides: Partial<TriageItem> = {}): TriageItem {
+  return {
+    id,
+    priority: "review",
+    category: "clone",
+    title: `Review ${id}`,
+    locations: [path],
+    locationDetails: [{ path, startLine: 1, startCol: null, endLine: 10, endCol: null }],
+    evidence: [{ inputPath: "drift.json", source: "dolos", row: 1 }],
+    ...overrides,
+  };
+}
+
+function report(items: readonly TriageItem[], inputs: TriageReport["inputs"] = []): TriageReport {
+  return {
+    schemaVersion: 1,
+    kind: "drift-triage",
+    policy: {
+      includeLiterals: false,
+      includeTypeOnlyCycles: false,
+      minCloneFragment: 20,
+    },
+    summary: {
+      inputRows: items.length,
+      reviewRows: items.length,
+      reviewItems: items.length,
+      deferredRows: 0,
+      mergedRows: 0,
+      unshownRows: 0,
+      inputsWithUnknownTail: 0,
+    },
+    inputs,
+    deferred: [],
+    items,
+  };
+}
+
+function advisoryInput(
+  path: string,
+  scanProvenance?: {
+    readonly gitHead: string | null;
+    readonly gitDirty: boolean | null;
+    readonly stateFingerprint?: string | null;
+    readonly changedDuringScan?: boolean | null;
+  },
+): TriageReport["inputs"][number] {
+  return {
+    path,
+    kind: "semgrep-advisory",
+    displayedRows: 1,
+    totalRows: 1,
+    unshownRows: 0,
+    partial: false,
+    completeness: "complete",
+    unknownBeyondCaps: false,
+    scopeMode: null,
+    roots: null,
+    enabledChecks: null,
+    unmetPrerequisites: [],
+    skippedChecks: [],
+    inapplicableChecks: [],
+    hitCaps: [],
+    degradations: [],
+    ...(scanProvenance === undefined ? {} : { scanProvenance }),
+  };
+}
+
+const PROVENANCE = {
+  gitHead: "abc123",
+  gitDirty: false,
+  stateFingerprint: "current-fingerprint",
+  inputHashes: [{ path: "drift.json", sha256: "deadbeef" }],
+} as const;
+
+describe("buildTriagePackets", () => {
+  it("assigns every selected item exactly once with deterministic packet checksums", () => {
+    const source = report([
+      item("first", "packages/client/src/a.ts"),
+      item("second", "packages/client/src/b.ts"),
+      item("third", "packages/server/src/c.ts"),
+    ]);
+
+    const first = buildTriagePackets(source, { packetSize: 1 }, PROVENANCE);
+    const second = buildTriagePackets(source, { packetSize: 1 }, PROVENANCE);
+
+    expect(first).toEqual(second);
+    expect(first.manifest.selection).toEqual({
+      totalItems: 3,
+      selectedItems: 3,
+      excludedItems: 0,
+      exclusionCounts: {},
+    });
+    expect(first.packets.flatMap((packet) => packet.items.map((entry) => entry.id))).toEqual([
+      "first",
+      "second",
+      "third",
+    ]);
+    expect(first.manifest.packets).toHaveLength(3);
+    expect(first.manifest.packets[0]).toMatchObject({
+      packetId: "packet-001",
+      file: "packet-001.json",
+      itemCount: 1,
+    });
+    expect(first.manifest.packets[0]?.sha256).toMatch(/^[a-f0-9]{64}$/u);
+  });
+
+  it("keeps bounded path-connected findings together", () => {
+    const source = report([
+      item("a-to-b", "packages/client/src/routes/a.ts", {
+        locations: ["packages/client/src/routes/a.ts:1-10", "packages/client/src/routes/b.ts:1-10"],
+        locationDetails: [
+          {
+            path: "packages/client/src/routes/a.ts",
+            startLine: 1,
+            startCol: null,
+            endLine: 10,
+            endCol: null,
+          },
+          {
+            path: "packages/client/src/routes/b.ts",
+            startLine: 1,
+            startCol: null,
+            endLine: 10,
+            endCol: null,
+          },
+        ],
+      }),
+      item("b-to-c", "packages/client/src/routes/b.ts", {
+        locations: ["packages/client/src/routes/b.ts:1-10", "packages/client/src/routes/c.ts:1-10"],
+        locationDetails: [
+          {
+            path: "packages/client/src/routes/b.ts",
+            startLine: 1,
+            startCol: null,
+            endLine: 10,
+            endCol: null,
+          },
+          {
+            path: "packages/client/src/routes/c.ts",
+            startLine: 1,
+            startCol: null,
+            endLine: 10,
+            endCol: null,
+          },
+        ],
+      }),
+    ]);
+
+    const bundle = buildTriagePackets(source, { packetSize: 2 }, PROVENANCE);
+
+    expect(bundle.packets).toHaveLength(1);
+    expect(bundle.packets[0]).toMatchObject({
+      oversized: false,
+      splitPathComponent: false,
+      itemIds: ["a-to-b", "b-to-c"],
+    });
+    expect(bundle.manifest.packets[0]).toMatchObject({ itemCount: 2, oversized: false });
+  });
+
+  it("hard-splits a giant path component and discloses shared-path continuation", () => {
+    const shared = "packages/server/src/shared.ts";
+    const source = report([item("first", shared), item("second", shared), item("third", shared)]);
+
+    const bundle = buildTriagePackets(source, { packetSize: 2 }, PROVENANCE);
+
+    expect(bundle.packets).toHaveLength(2);
+    expect(bundle.packets.map((packet) => packet.items.length)).toEqual([2, 1]);
+    expect(bundle.packets.every((packet) => packet.splitPathComponent)).toBe(true);
+    expect(bundle.manifest.packets.every((packet) => packet.splitPathComponent)).toBe(true);
+  });
+
+  it("packs different repository areas together when their review lane matches", () => {
+    const bundle = buildTriagePackets(
+      report([
+        item("client", "packages/client/src/a.ts"),
+        item("server", "packages/server/src/b.ts"),
+      ]),
+      { packetSize: 2 },
+      PROVENANCE,
+    );
+
+    expect(bundle.packets).toHaveLength(1);
+    expect(bundle.packets[0]?.lane.area).toBe("mixed");
+  });
+
+  it("applies explicit filters without hiding excluded-item accounting", () => {
+    const source = report([
+      item("security", "packages/server/src/auth.ts", {
+        priority: "review-first",
+        category: "security",
+        evidence: [{ inputPath: "semgrep.json", source: "semgrep", row: 1 }],
+      }),
+      item("client-clone", "packages/client/src/a.ts"),
+      item("server-clone", "packages/server/src/b.ts"),
+    ]);
+
+    const bundle = buildTriagePackets(
+      source,
+      {
+        packetSize: 20,
+        filters: {
+          priorities: ["review-first"],
+          categories: ["security"],
+          sources: ["semgrep"],
+          pathPrefixes: ["packages/server/"],
+        },
+      },
+      PROVENANCE,
+    );
+
+    expect(bundle.packets.flatMap((packet) => packet.itemIds)).toEqual(["security"]);
+    expect(bundle.manifest.selection).toEqual({
+      totalItems: 3,
+      selectedItems: 1,
+      excludedItems: 2,
+      exclusionCounts: {
+        priority: 2,
+        category: 2,
+        source: 2,
+        pathPrefix: 1,
+      },
+    });
+    expect(bundle.manifest.filters).toEqual({
+      priorities: ["review-first"],
+      categories: ["security"],
+      sources: ["semgrep"],
+      pathPrefixes: ["packages/server/"],
+    });
+  });
+
+  it("embeds reproducibility and adjudication instructions in every packet", () => {
+    const bundle = buildTriagePackets(report([item("one", "scripts/a.ts")]), {}, PROVENANCE);
+
+    expect(bundle.manifest.provenance).toEqual(PROVENANCE);
+    expect(bundle.packets[0]).toMatchObject({
+      kind: "drift-triage-packet",
+      packetId: "packet-001",
+      verdictContract: {
+        verdicts: ["confirmed", "false-positive", "accepted-drift", "duplicate-of", "needs-human"],
+        severities: ["high", "medium", "low", "informational"],
+        confidences: ["high", "medium", "low"],
+        requiredFields: [
+          "itemId",
+          "verdict",
+          "severity",
+          "confidence",
+          "rationale",
+          "verifiedLocations",
+          "recommendedAction",
+          "canonicalItemId",
+        ],
+        duplicateOfRequires: "canonicalItemId",
+      },
+    });
+    expect(bundle.packets[0]?.task).toContain("return one verdict for every item ID");
+    expect(bundle.packets[0]?.disclosures.policy).toEqual(report([]).policy);
+  });
+
+  it("routes advisory items with mismatched scan provenance to regeneration", () => {
+    const semgrepItem = item("stale-semgrep", "src/auth.ts", {
+      category: "security",
+      locations: ["src/auth.ts:3-10"],
+      locationDetails: [
+        {
+          path: "src/auth.ts",
+          startLine: 3,
+          startCol: 1,
+          endLine: 10,
+          endCol: 20,
+        },
+      ],
+      evidence: [{ inputPath: "semgrep.json", source: "semgrep", row: 1 }],
+    });
+    const bundle = buildTriagePackets(
+      report(
+        [semgrepItem],
+        [advisoryInput("semgrep.json", { gitHead: "old-head", gitDirty: false })],
+      ),
+      { readSourceFile: () => "one\ntwo\nthree\nfour\nfive\nsix\nseven\neight\nnine\nten\n" },
+      PROVENANCE,
+    );
+
+    expect(bundle.packets[0]?.disclosures.staleAdvisories).toEqual([
+      {
+        inputPath: "semgrep.json",
+        itemIds: ["stale-semgrep"],
+        scanProvenance: { gitHead: "old-head", gitDirty: false },
+        reasons: ["git-head-mismatch"],
+        unresolvableLocations: [],
+        route: "needs-human-regenerate",
+      },
+    ]);
+    expect(bundle.packets[0]?.task).toContain(
+      "return needs-human and recommend regenerating the advisory",
+    );
+  });
+
+  it("uses range resolvability to catch stale dirty-tree advisory evidence", () => {
+    const dolosItem = item("stale-dolos", "src/a.ts", {
+      locations: ["src/a.ts:1-40", "src/b.ts:5-30"],
+      locationDetails: [
+        { path: "src/a.ts", startLine: 1, startCol: null, endLine: 40, endCol: null },
+        { path: "src/b.ts", startLine: 5, startCol: null, endLine: 30, endCol: null },
+      ],
+      evidence: [{ inputPath: "dolos.json", source: "dolos", row: 1 }],
+    });
+    const bundle = buildTriagePackets(
+      report([dolosItem], [advisoryInput("dolos.json", { gitHead: "abc123", gitDirty: true })]),
+      {
+        readSourceFile: (path) =>
+          path === "src/a.ts"
+            ? "only one line\n"
+            : Array.from({ length: 30 }, () => "line").join("\n"),
+      },
+      { ...PROVENANCE, gitDirty: true },
+    );
+
+    expect(bundle.packets[0]?.disclosures.staleAdvisories).toEqual([
+      expect.objectContaining({
+        inputPath: "dolos.json",
+        itemIds: ["stale-dolos"],
+        reasons: ["unresolvable-location"],
+        unresolvableLocations: ["src/a.ts:1-40"],
+        route: "needs-human-regenerate",
+      }),
+    ]);
+  });
+
+  it("routes advisory evidence when the repository changes during the scan", () => {
+    const semgrepItem = item("mid-scan-change", "src/auth.ts", {
+      category: "security",
+      locations: ["src/auth.ts:1-2"],
+      locationDetails: [{ path: "src/auth.ts", startLine: 1, startCol: 1, endLine: 2, endCol: 10 }],
+      evidence: [{ inputPath: "semgrep.json", source: "semgrep", row: 1 }],
+    });
+    const bundle = buildTriagePackets(
+      report(
+        [semgrepItem],
+        [
+          advisoryInput("semgrep.json", {
+            gitHead: "abc123",
+            gitDirty: false,
+            changedDuringScan: true,
+          }),
+        ],
+      ),
+      { readSourceFile: () => "line one\nline two\n" },
+      PROVENANCE,
+    );
+
+    expect(bundle.packets[0]?.disclosures.staleAdvisories).toEqual([
+      expect.objectContaining({
+        inputPath: "semgrep.json",
+        reasons: ["repository-changed-during-scan"],
+        route: "needs-human-regenerate",
+      }),
+    ]);
+  });
+
+  it("routes dirty advisory evidence when its state fingerprint no longer matches", () => {
+    const semgrepItem = item("different-dirty-state", "src/auth.ts", {
+      category: "security",
+      locations: ["src/auth.ts:1-2"],
+      locationDetails: [{ path: "src/auth.ts", startLine: 1, startCol: 1, endLine: 2, endCol: 10 }],
+      evidence: [{ inputPath: "semgrep.json", source: "semgrep", row: 1 }],
+    });
+    const bundle = buildTriagePackets(
+      report(
+        [semgrepItem],
+        [
+          advisoryInput("semgrep.json", {
+            gitHead: "abc123",
+            gitDirty: true,
+            stateFingerprint: "scan-fingerprint",
+            changedDuringScan: false,
+          }),
+        ],
+      ),
+      { readSourceFile: () => "line one\nline two\n" },
+      { ...PROVENANCE, gitDirty: true },
+    );
+
+    expect(bundle.packets[0]?.disclosures.staleAdvisories).toEqual([
+      expect.objectContaining({
+        inputPath: "semgrep.json",
+        reasons: ["state-fingerprint-mismatch"],
+        route: "needs-human-regenerate",
+      }),
+    ]);
+  });
+
+  it("keeps legacy advisory evidence on HEAD/dirty semantics when no fingerprint was serialized", () => {
+    const freshItem = item("fresh-semgrep", "src/auth.ts", {
+      locations: ["src/auth.ts:1-2"],
+      locationDetails: [{ path: "src/auth.ts", startLine: 1, startCol: 1, endLine: 2, endCol: 10 }],
+      evidence: [{ inputPath: "semgrep.json", source: "semgrep", row: 1 }],
+    });
+    const bundle = buildTriagePackets(
+      report([freshItem], [advisoryInput("semgrep.json", { gitHead: "abc123", gitDirty: false })]),
+      { readSourceFile: () => "line one\nline two\n" },
+      PROVENANCE,
+    );
+
+    expect(bundle.packets[0]?.disclosures.staleAdvisories).toEqual([]);
+  });
+
+  it.each([0, -1, 1.5, Number.POSITIVE_INFINITY])(
+    "rejects invalid packet size %s",
+    (packetSize) => {
+      expect(() => buildTriagePackets(report([]), { packetSize }, PROVENANCE)).toThrow(
+        /packetSize must be a positive integer/u,
+      );
+    },
+  );
+});

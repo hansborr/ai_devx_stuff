@@ -8,9 +8,14 @@ import { ratchetRestrictedDisableRuleIds } from "./ratchet-restricted-disable-ru
 export { eslintComments, regexp };
 
 const hardRestrictedDisableRuleIds = [
+  "@typescript-eslint/no-implied-eval",
   "local/concurrency-guard",
   "local/no-broadcast-in-transaction",
   "local/no-outer-client-in-transaction",
+  "no-eval",
+  "no-implied-eval",
+  "no-new-func",
+  "no-restricted-properties",
   "no-restricted-syntax",
 ];
 

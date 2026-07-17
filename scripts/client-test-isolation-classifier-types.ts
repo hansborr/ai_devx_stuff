@@ -1,4 +1,4 @@
-export const MODULE_REGISTRY_MUTATION_METHOD_NAMES = [
+const MODULE_REGISTRY_MUTATION_METHOD_NAMES = [
   "mock",
   "unmock",
   "doMock",
@@ -10,7 +10,7 @@ export const MODULE_REGISTRY_MUTATION_METHODS: ReadonlySet<string> = new Set(
   MODULE_REGISTRY_MUTATION_METHOD_NAMES,
 );
 
-export type ClientTestIsolationMode = "no-isolate" | "isolated";
+type ClientTestIsolationMode = "no-isolate" | "isolated";
 export type ModuleRegistryMutationMethod = (typeof MODULE_REGISTRY_MUTATION_METHOD_NAMES)[number];
 
 export type ClientTestIsolationReason = {

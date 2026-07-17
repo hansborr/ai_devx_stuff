@@ -1,22 +1,14 @@
 import { formatBacklogLintResult } from "./backlog-lint-format.js";
+import type { MetadataField, NoteMetadata } from "./backlog-lint-metadata.js";
+import { extractMetadata } from "./backlog-lint-metadata.js";
+import { collectPackFindings } from "./backlog-lint-packs.js";
+import { terminalStatus } from "./backlog-lint-status.js";
 import type {
   BacklogLintFile,
   BacklogLintFinding,
   BacklogLintOptions,
   BacklogLintResult,
 } from "./backlog-lint-types.js";
-
-interface MetadataField {
-  readonly name: string;
-  readonly value: string;
-  readonly line: number;
-}
-
-interface NoteMetadata {
-  readonly status?: MetadataField;
-  readonly date?: MetadataField;
-  readonly allFields: readonly MetadataField[];
-}
 
 interface DateCandidate {
   readonly value: Date;
@@ -34,100 +26,10 @@ interface FileCheckContext extends StaleCheckContext {
 }
 
 const DEFAULT_STALE_MONTHS = 6;
-const FRONT_MATTER_SCAN_LINES = 30;
-const BOLD_MARKER = "**";
-const BOLD_MARKER_LENGTH = BOLD_MARKER.length;
-const DATE_FIELD_NAMES = new Set(["date", "created", "updated", "last triaged"]);
-const STATUS_FIELD_NAME = "status";
+const DEFAULT_BACKLOG_DIR = "docs/agent_notes/backlog";
+const ISO_DATE_PART_WIDTH = 2;
 const ISO_DATE_TOKEN_PATTERN = /\b(\d{4})-(\d{2})-(\d{2})\b/u;
 const ISO_MONTH_TOKEN_PATTERN = /\b(\d{4})-(\d{2})[a-z]?\b/u;
-const FIELD_NAME_PATTERN = /^[a-z][a-z -]*$/u;
-const TERMINAL_STATUS_TOKENS = [
-  "closed",
-  "decided",
-  "done",
-  "drained",
-  "implemented",
-  "rejected",
-  "shipped",
-  "superseded",
-] as const;
-
-function normalizeMetadataLine(line: string): string {
-  let normalized = line.trim();
-  if (normalized.startsWith(">")) normalized = normalized.slice(1).trim();
-  return normalized;
-}
-
-function stripWrappingBold(value: string): string {
-  let stripped = value.trim();
-  if (stripped.startsWith(BOLD_MARKER)) {
-    stripped = stripped.slice(BOLD_MARKER_LENGTH).trimStart();
-  }
-  if (stripped.endsWith(BOLD_MARKER)) {
-    stripped = stripped.slice(0, -BOLD_MARKER_LENGTH).trimEnd();
-  }
-  return stripped;
-}
-
-function splitMetadataField(
-  line: string,
-): { readonly name: string; readonly value: string } | undefined {
-  let normalized = normalizeMetadataLine(line);
-  if (normalized.startsWith(BOLD_MARKER)) {
-    normalized = normalized.slice(BOLD_MARKER_LENGTH).trimStart();
-  }
-  const colonIndex = normalized.indexOf(":");
-  if (colonIndex < 0) return undefined;
-  const name = normalized.slice(0, colonIndex).trim();
-  if (!FIELD_NAME_PATTERN.test(name.toLowerCase())) return undefined;
-  let value = normalized.slice(colonIndex + 1).trim();
-  if (value.startsWith(BOLD_MARKER)) {
-    value = value.slice(BOLD_MARKER_LENGTH).trimStart();
-  }
-  return { name, value: stripWrappingBold(value) };
-}
-
-function isMetadataFieldLine(line: string): boolean {
-  return splitMetadataField(line) !== undefined;
-}
-
-function continuationValue(lines: readonly string[], startIndex: number): string {
-  const parts: string[] = [];
-  for (let index = startIndex + 1; index < lines.length; index += 1) {
-    const trimmed = normalizeMetadataLine(lines[index] ?? "");
-    if (trimmed.length === 0 || trimmed.startsWith("#") || isMetadataFieldLine(trimmed)) break;
-    parts.push(stripWrappingBold(trimmed));
-  }
-  return parts.join(" ").trim();
-}
-
-function updateKnownFields(
-  field: MetadataField,
-  known: { status?: MetadataField; date?: MetadataField },
-): void {
-  if (field.name === STATUS_FIELD_NAME && known.status === undefined) known.status = field;
-  if (DATE_FIELD_NAMES.has(field.name) && known.date === undefined) known.date = field;
-}
-
-function extractMetadata(text: string): NoteMetadata {
-  const lines = text.split(/\r?\n/u).slice(0, FRONT_MATTER_SCAN_LINES);
-  const allFields: MetadataField[] = [];
-  const known: { status?: MetadataField; date?: MetadataField } = {};
-  for (let index = 0; index < lines.length; index += 1) {
-    const split = splitMetadataField(lines[index] ?? "");
-    if (split === undefined) continue;
-    const directValue = split.value.trim();
-    const field = {
-      name: split.name.toLowerCase(),
-      value: directValue.length > 0 ? directValue : continuationValue(lines, index),
-      line: index + 1,
-    };
-    allFields.push(field);
-    updateKnownFields(field, known);
-  }
-  return { status: known.status, date: known.date, allFields };
-}
 
 function validDateFromParts(year: number, month: number, day: number): Date | undefined {
   const parsed = new Date(Date.UTC(year, month - 1, day));
@@ -181,16 +83,7 @@ function firstDateCandidate(path: string, metadata: NoteMetadata): DateCandidate
     const statusDate = dateCandidateFromField(metadata.status);
     if (statusDate !== undefined) return statusDate;
   }
-  for (const field of metadata.allFields) {
-    const fieldDate = dateCandidateFromField(field);
-    if (fieldDate !== undefined) return fieldDate;
-  }
   return dateCandidateFromPath(path);
-}
-
-function terminalStatus(status: string): boolean {
-  const lower = status.toLowerCase();
-  return TERMINAL_STATUS_TOKENS.some((token) => lower.includes(token));
 }
 
 function staleCutoff(now: Date, staleMonths: number): Date {
@@ -201,8 +94,8 @@ function staleCutoff(now: Date, staleMonths: number): Date {
 
 function formatIsoDate(date: Date): string {
   const yyyy = String(date.getUTCFullYear());
-  const mm = String(date.getUTCMonth() + 1).padStart(BOLD_MARKER_LENGTH, "0");
-  const dd = String(date.getUTCDate()).padStart(BOLD_MARKER_LENGTH, "0");
+  const mm = String(date.getUTCMonth() + 1).padStart(ISO_DATE_PART_WIDTH, "0");
+  const dd = String(date.getUTCDate()).padStart(ISO_DATE_PART_WIDTH, "0");
   return `${yyyy}-${mm}-${dd}`;
 }
 
@@ -274,8 +167,7 @@ function collectStaleFindings(
 ): BacklogLintFinding[] {
   if (
     date === undefined ||
-    metadata.status === undefined ||
-    terminalStatus(metadata.status.value)
+    (metadata.status !== undefined && terminalStatus(metadata.status.value))
   ) {
     return [];
   }
@@ -310,7 +202,14 @@ export function checkBacklogFiles(options: BacklogLintOptions): BacklogLintResul
   const checkStaleness = options.checkStaleness ?? true;
   const requireFrontMatter = options.requireFrontMatter ?? false;
   const context = { now, staleMonths, checkStaleness, requireFrontMatter };
-  const findings = files.flatMap((file) => collectFileFindings(file, context));
+  const fileFindings = files.flatMap((file) => collectFileFindings(file, context));
+  const backlogDir = options.backlogDir ?? DEFAULT_BACKLOG_DIR;
+  const packFindings = collectPackFindings({
+    corpus: options.packCorpus ?? files,
+    backlogDir,
+    focusPaths: options.focusPaths,
+  });
+  const findings = [...fileFindings, ...packFindings];
   return {
     exitCode: 0,
     stdout: formatBacklogLintResult(files.length, findings),

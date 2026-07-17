@@ -4,10 +4,10 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import type { LintRatchetBaseline } from "./baseline.js";
 import { LINT_RATCHET_BASELINE_VERSION } from "./baseline-constants.js";
 import { formatLintRatchetBaseline } from "./baseline-format.js";
 import { runBaselineMergeCli } from "./baseline-merge-cli.js";
-import type { LintRatchetBaseline } from "./lint-ratchet-baseline.js";
 
 const CONFIG_HASH = `sha256:${"a".repeat(64)}`;
 const RULE_SOURCE_HASH = `sha256:${"b".repeat(64)}`;
@@ -19,7 +19,6 @@ function baseline(count: number, configHash = CONFIG_HASH): LintRatchetBaseline 
       "ratchet/fixture-one": {
         ruleId: "local/example-rule",
         mode: "no-new",
-        target: 0,
         metric: "message-count",
         files: ["packages/**/*.ts"],
         ignores: [],
@@ -47,7 +46,7 @@ describe("lint ratchet baseline merge CLI", () => {
     await expect(runBaselineMergeCli([])).resolves.toBe(2);
 
     expect(error).toHaveBeenCalledWith(
-      "usage: bun scripts/lint-ratchet/baseline-merge-cli.ts <base> <current> <other> [path] [truth-up-marker] [merge-head]",
+      "usage: bun scripts/lint-ratchet/baseline-merge-cli.ts <base> <current> <other> [path] [truth-up-marker] [pre-merge-head]",
     );
   });
 
@@ -83,14 +82,14 @@ describe("lint ratchet baseline merge CLI", () => {
     }
   });
 
-  it("stamps the truth-up marker with the merge head so an aborted merge cannot leak it", async () => {
+  it("stamps the truth-up marker with the pre-merge head so leaked markers cannot fire on unrelated merges", async () => {
     const dir = await mkdtemp(join(tmpdir(), "baseline-merge-cli-"));
     try {
       const basePath = join(dir, "base.json");
       const currentPath = join(dir, "current.json");
       const otherPath = join(dir, "other.json");
       const markerPath = join(dir, "truth-up-required");
-      const mergeHeadSha = "d".repeat(40);
+      const preMergeHeadSha = "d".repeat(40);
       await writeBaseline(basePath, baseline(5));
       await writeBaseline(currentPath, baseline(3));
       await writeBaseline(otherPath, baseline(4));
@@ -102,15 +101,13 @@ describe("lint ratchet baseline merge CLI", () => {
           otherPath,
           "lint-ratchet.baseline.json",
           markerPath,
-          mergeHeadSha,
+          preMergeHeadSha,
         ]),
       ).resolves.toBe(0);
 
-      // The stamp lets the post-merge consumer match the marker to the merge
-      // that wrote it (HEAD^2) and ignore markers left by an aborted merge.
       await expect(readFile(markerPath, "utf8")).resolves.toBe(
         "lint-ratchet baseline semantic merge requires post-merge truth-up\n" +
-          `merge-head=${mergeHeadSha}\n`,
+          `pre-merge-head=${preMergeHeadSha}\n`,
       );
     } finally {
       await rm(dir, { force: true, recursive: true });
@@ -125,7 +122,7 @@ describe("lint ratchet baseline merge CLI", () => {
     ).resolves.toBe(2);
 
     expect(error).toHaveBeenCalledWith(
-      "usage: bun scripts/lint-ratchet/baseline-merge-cli.ts <base> <current> <other> [path] [truth-up-marker] [merge-head]",
+      "usage: bun scripts/lint-ratchet/baseline-merge-cli.ts <base> <current> <other> [path] [truth-up-marker] [pre-merge-head]",
     );
   });
 

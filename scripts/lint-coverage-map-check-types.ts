@@ -3,6 +3,7 @@ import type { EslintReachChecker } from "./lint-coverage-map-check-eslint-reach.
 export interface TableRow {
   readonly line: number;
   readonly pathGroup: string;
+  readonly normalLint: string;
   readonly ratchets: string;
   readonly status: string;
 }
@@ -24,6 +25,8 @@ export interface CheckFinding {
     | "stale-path"
     | "unknown-ratchet"
     | "invalid-status"
+    | "status-consistency-mismatch"
+    | "ratchet-membership-mismatch"
     | "conflicting-coverage"
     | "config-surface-coverage-mismatch"
     | "unaccounted-file"
@@ -46,6 +49,14 @@ export interface LintCoverageMapCheckOptions {
   readonly staged?: boolean;
   readonly trackedFiles?: readonly string[];
   readonly ratchetIds?: ReadonlySet<string>;
+  /**
+   * Resolve a ratchet id to a file-membership predicate (its `files` glob minus
+   * `ignores`), or `undefined` when the id is unknown. Used to validate that a
+   * row claiming `ratchet/<id>` actually shares files with that ratchet rather
+   * than only that the id exists. Injectable for tests; defaults to the real
+   * `lintRatchets` registry.
+   */
+  readonly ratchetMembership?: (ratchetId: string) => ((file: string) => boolean) | undefined;
   readonly checkEslintReach?: boolean;
   readonly eslintReachChecker?: EslintReachChecker;
   readonly configSurfaceEntries?: readonly ConfigSurfaceCoverageEntry[];

@@ -11,6 +11,14 @@ adapters. A shim may resolve the repo root, translate harness-specific payload
 details, and `exec` one shared body from `scripts/ai-hooks/`. Keep behavior in
 the body unless the harness shape forces the adapter to differ.
 
+`check-wiring.sh` requires every generated-config adapter to resolve exactly
+one canonical body. `hookWiring.body` declares that shared body explicitly;
+the checker binds each generated harness command back to its manifest control
+before validating the adapter edge. It does not infer policy from adapter
+basenames or the control's informational `source`. Unreferenced adapter files
+are rejected unless temporarily inventoried in that checker for a separately
+owned cleanup.
+
 Canonical Claude shim header:
 
 ```sh
@@ -23,6 +31,17 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT=$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null || git rev-parse --show-toplevel 2>/dev/null || echo "${CLAUDE_PROJECT_DIR:-/workspace}")
 exec bash "$REPO_ROOT/scripts/ai-hooks/<body>.sh"
 ```
+
+The `REPO_ROOT` a shim derives from its own file location identifies the
+checkout that *registered* the hook — use it only to source the body and its
+libraries. It is NOT the checkout a command operates on: a session parked at one
+worktree routinely commits in another via `cd <wt> && git commit` or
+`git -C <wt> commit`. Anything keyed to where the work lands — HEAD snapshots,
+per-worktree locks, branch policy, the success summary — must resolve the target
+from the *invocation* context (`ai_resolve_target_dir` reads the command's
+leading `cd`/`git -C` forms, then the payload `cwd`), not from the hook file's
+home. Keying those on `REPO_ROOT` makes every worktree commit look like it
+landed in the main checkout (false "no commit landed", mis-keyed locks).
 
 Codex shims use the same header but fall back to `/workspace`. The Bash-surface
 aggregates (`bash-pre-tool-use.sh` and `bash-post-tool-use.sh` in this
@@ -50,8 +69,9 @@ has trusted in `~/.copilot/config.json`.
 that must stay harness-neutral. `edited-paths.sh` is the single translation point
 for edited file paths: `ai_edited_payload_paths` reads Claude file paths and
 Codex apply_patch headers, while callers decide how to resolve and filter them.
-`policy.sh` owns command policy decisions, and `cache.sh` owns shared state-root
-defaults and marker helpers.
+`policy.sh` owns command policy decisions. The marked porting-knob block near
+the top of `common.sh` owns repo-specific shell default literals; `cache.sh`
+derives shared state directories from those defaults and owns marker helpers.
 
 Most bodies should work for both harnesses once paths flow through
 `ai_edited_payload_paths` and `ai_resolve_edited_payload_path`. Harness-specific
@@ -90,6 +110,11 @@ For Copilot the generator renders `PreToolUse`/`PostToolUse` as
 `preToolUse`/`postToolUse`. No stop hook targets Codex or Copilot, so `Stop` is
 wired for Claude only (as a user-visible `systemMessage`) and no `agentStop`
 entry is generated.
+
+`body` is the repo-relative canonical shared body that every wired adapter for
+the control must invoke. Keep it tied to the control and event when changing
+adapter commands; `source` describes the control for inventory purposes and is
+not the executable-body contract.
 
 `matcher` is the harness matcher for a command group. It is required for
 `PreToolUse` and `PostToolUse` on Claude, Codex, and Copilot; `Stop` hooks omit
@@ -137,18 +162,31 @@ documentation-only and renders into `docs/generated/harness-controls.md`.
 These values are Musi-specific and should be changed when adapting the setup to
 another repo:
 
-- `/workspace` fallbacks in Codex shims and `common.sh`'s `ai_repo_root`.
-- `/tmp/musi-*` state roots, including the env-keyed defaults in `cache.sh`.
-- The `bun run` command assumption in `generate-verify-steps.ts`
-  `slotCommandTokens`.
-- The hardcoded verify `CONSUMERS` table in `generate-verify-steps.ts`; adding a
-  consumer also means manifest and wrapper changes.
-- The wrapped-script whitelist in `policy.sh`.
-- The protected-files advisory/deny table in `protected-files.sh`. The
-  repo-root `.allow-protected-edits` marker is repo-wide; create it only for
+- `repo-root-fallback` — `/workspace` fallbacks in harness shims and
+  `common.sh`'s `ai_repo_root`.
+- `hook-state-paths` — `/tmp/musi-*` state and result paths. Repo-specific
+  literals live in `common.sh`'s marked block; `cache.sh` consumes them while
+  preserving the existing environment overrides.
+- `bun-command-runner` — the `bun run` command assumption in
+  `generate-verify-steps.ts` `slotCommandTokens`.
+- `verify-consumers` — the hardcoded verify `CONSUMERS` table in
+  `generate-verify-steps.ts`; adding a consumer also means manifest and wrapper
+  changes.
+- `test-changed-classifiers` — the package, ESLint, config, and scripts layout
+  classifiers in `test-changed.sh`.
+- `baseline-restore-allowlist` — the generated baseline paths accepted by
+  `restore-generated-baseline-stage.sh`.
+- `wrapped-bun-scripts` — the wrapped-script whitelist in `policy.sh`.
+- `protected-files` — the advisory/deny path table in `protected-files.sh`.
+  The repo-root `.allow-protected-edits` marker is repo-wide; create it only for
   deliberate protected-file maintenance and remove it after use.
-- The `MUSI_*` and `AI_*` environment variable prefixes used by wrappers,
-  caches, hooks, and tests.
+- `suppression-allowlists` — the repo-specific suppression exceptions now
+  stored in `scripts/data/eslint-disable-broad-allowlist.txt` and
+  `scripts/data/ts-nocheck-allowlist.txt`.
+- `generated-surface-freshness` — the generated input/output/check registry in
+  `scripts/harness/generated-surface-freshness.ts`.
+- `environment-prefixes` — the `MUSI_*` and `AI_*` environment variable
+  prefixes used by wrappers, caches, hooks, and tests.
 
 ### Not Configurable Without Code Changes
 

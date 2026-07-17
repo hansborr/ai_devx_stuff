@@ -1,0 +1,551 @@
+import { describe, expect, it } from "vitest";
+
+import { type LintRatchetDebtLogEntry, parseLintRatchetDebtLogEntry } from "./debt-log-schema.js";
+import { RATCHET_REGRESSION_REASON_PLACEHOLDER } from "./recovery-command.js";
+
+const validEntry: LintRatchetDebtLogEntry = {
+  version: "1",
+  acceptanceReason: "legacy module slated for rewrite next quarter",
+  regressions: [
+    {
+      testId: "ratchet/no-debugger",
+      ruleId: "no-debugger",
+      path: "packages/server/src/legacy.ts",
+      baselineCount: 1,
+      currentCount: 2,
+      reason: "increased-count",
+    },
+  ],
+  orphansRemoved: [],
+};
+
+function asJson(value: unknown): unknown {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function entryWithRegression(regression: Record<string, unknown>): unknown {
+  return asJson({ ...validEntry, regressions: [regression] });
+}
+
+const lineRegressionBase = {
+  testId: "ratchet/max-lines",
+  ruleId: "local/max-lines",
+  path: "packages/server/src/big.ts",
+  baselineCount: 1,
+  currentCount: 1,
+};
+
+const complexityRegressionBase = {
+  testId: "ratchet/complexity",
+  ruleId: "complexity",
+  path: "packages/server/src/complex.ts",
+  baselineCount: 1,
+  currentCount: 1,
+};
+
+const newPathRegressionBase = {
+  testId: "ratchet/max-lines",
+  ruleId: "local/max-lines",
+  path: "packages/server/src/new.ts",
+  baselineCount: 0,
+  currentCount: 1,
+  reason: "new-path",
+};
+
+describe("parseLintRatchetDebtLogEntry", () => {
+  it("accepts a minimal worse-acceptance entry", () => {
+    const result = parseLintRatchetDebtLogEntry(asJson(validEntry));
+
+    expect(result.failures).toEqual([]);
+    expect(result.entry).toEqual(validEntry);
+  });
+
+  it("accepts a proven retirement record", () => {
+    const entry = {
+      version: "1",
+      kind: "retirement",
+      ratchetId: "ratchet/promoted",
+      promotionProof: "normal-lint-error",
+    };
+
+    expect(parseLintRatchetDebtLogEntry(entry)).toEqual({ entry, failures: [] });
+  });
+
+  it("accepts a human-attested different-options retirement record", () => {
+    const entry = {
+      version: "1",
+      kind: "retirement",
+      ratchetId: "ratchet/promoted",
+      promotionProof: "normal-lint-error",
+      optionsAttestation: {
+        reason: "normal lint uses a lower maximum after promotion",
+        ratchetOptions: [{ max: 20 }],
+        normalLintOptions: [[{ max: 10 }]],
+      },
+    };
+
+    expect(parseLintRatchetDebtLogEntry(entry)).toEqual({ entry, failures: [] });
+  });
+
+  it("accepts a reasoned metric-migration record", () => {
+    const entry = {
+      version: "1",
+      kind: "metric-migration",
+      ratchetId: "ratchet/converted",
+      fromMetric: "message-count",
+      toMetric: "effective-line-count",
+      reason: "effective lines are now the durable policy metric",
+    };
+
+    expect(parseLintRatchetDebtLogEntry(entry)).toEqual({ entry, failures: [] });
+  });
+
+  it("accepts a reasoned coverage-shrink record", () => {
+    const entry = {
+      version: "1",
+      kind: "coverage-shrink",
+      ratchetId: "ratchet/narrowed",
+      previousFiles: ["packages/**/*.ts"],
+      currentFiles: ["packages/server/**/*.ts"],
+      previousIgnores: [],
+      currentIgnores: ["packages/server/src/generated.ts"],
+      removedPaths: ["packages/client/src/legacy.ts"],
+      reason: "the client floor moved to its own dedicated ratchet",
+    };
+
+    expect(parseLintRatchetDebtLogEntry(entry)).toEqual({ entry, failures: [] });
+  });
+
+  it("rejects a coverage-shrink record without removed paths", () => {
+    const result = parseLintRatchetDebtLogEntry({
+      version: "1",
+      kind: "coverage-shrink",
+      ratchetId: "ratchet/narrowed",
+      previousFiles: ["packages/**/*.ts"],
+      currentFiles: ["packages/server/**/*.ts"],
+      previousIgnores: [],
+      currentIgnores: [],
+      removedPaths: [],
+      reason: "the client floor moved to its own dedicated ratchet",
+    });
+
+    expect(result.entry).toBeUndefined();
+    expect(result.failures.join("\n")).toContain(
+      "removedPaths: coverage-shrink must record at least one removed path",
+    );
+  });
+
+  it("accepts complexity orphan snapshots with perFunction rows", () => {
+    const entry: LintRatchetDebtLogEntry = {
+      version: "1",
+      acceptanceReason: "rename ratchet/old-complexity to ratchet/new-complexity",
+      regressions: [],
+      orphansRemoved: [
+        {
+          testId: "ratchet/old-complexity",
+          ruleId: "complexity",
+          metric: "complexity-severity",
+          baselineItems: [
+            {
+              path: "packages/server/src/a.ts",
+              count: 1,
+              maxComplexity: 18,
+              perFunction: [{ line: 12, label: "handler", complexity: 18 }],
+            },
+          ],
+        },
+      ],
+    };
+
+    const result = parseLintRatchetDebtLogEntry(asJson(entry));
+
+    expect(result.failures).toEqual([]);
+    expect(result.entry).toEqual(entry);
+  });
+
+  it("accepts effective-line-count orphan snapshots", () => {
+    const entry: LintRatchetDebtLogEntry = {
+      version: "1",
+      acceptanceReason: "remove ratchet/old-lines",
+      regressions: [],
+      orphansRemoved: [
+        {
+          testId: "ratchet/old-lines",
+          ruleId: "max-lines",
+          metric: "effective-line-count",
+          baselineItems: [{ path: "packages/client/src/b.ts", count: 1, lines: 240 }],
+        },
+      ],
+    };
+
+    expect(parseLintRatchetDebtLogEntry(asJson(entry)).entry).toEqual(entry);
+  });
+
+  it("rejects a non-object", () => {
+    expect(parseLintRatchetDebtLogEntry(null).entry).toBeUndefined();
+    expect(parseLintRatchetDebtLogEntry("x").failures.length).toBeGreaterThan(0);
+  });
+
+  it("rejects an unknown version", () => {
+    const result = parseLintRatchetDebtLogEntry(asJson({ ...validEntry, version: "2" }));
+    expect(result.entry).toBeUndefined();
+    expect(result.failures.join("\n")).toContain("version");
+  });
+
+  it("rejects unknown top-level keys", () => {
+    const result = parseLintRatchetDebtLogEntry(
+      asJson({ ...validEntry, committedAt: "2026-01-01" }),
+    );
+    expect(result.entry).toBeUndefined();
+    expect(result.failures.join("\n")).toContain("committedAt");
+  });
+
+  it("rejects an empty or whitespace acceptanceReason", () => {
+    expect(
+      parseLintRatchetDebtLogEntry(asJson({ ...validEntry, acceptanceReason: "" })).entry,
+    ).toBeUndefined();
+    expect(
+      parseLintRatchetDebtLogEntry(asJson({ ...validEntry, acceptanceReason: "   " })).entry,
+    ).toBeUndefined();
+  });
+
+  it("rejects the regression reason placeholder as an acceptanceReason", () => {
+    const result = parseLintRatchetDebtLogEntry(
+      asJson({ ...validEntry, acceptanceReason: RATCHET_REGRESSION_REASON_PLACEHOLDER }),
+    );
+
+    expect(result.entry).toBeUndefined();
+    expect(result.failures.join("\n")).toContain(
+      "acceptanceReason must be a real reason, not the placeholder",
+    );
+  });
+
+  it("rejects a no-op acceptance with no regressions or orphan removals", () => {
+    const result = parseLintRatchetDebtLogEntry(
+      asJson({
+        version: "1",
+        acceptanceReason: "looks intentional but records no accepted debt",
+        regressions: [],
+        orphansRemoved: [],
+      }),
+    );
+
+    expect(result.entry).toBeUndefined();
+    expect(result.failures.join("\n")).toContain("accepted debt");
+  });
+
+  it("rejects a regression with an unknown key", () => {
+    const result = parseLintRatchetDebtLogEntry(
+      asJson({
+        ...validEntry,
+        regressions: [{ ...validEntry.regressions[0], extra: 1 }],
+      }),
+    );
+    expect(result.entry).toBeUndefined();
+    expect(result.failures.join("\n")).toContain("extra");
+  });
+
+  it("rejects a regression with an unknown reason", () => {
+    const result = parseLintRatchetDebtLogEntry(
+      asJson({
+        ...validEntry,
+        regressions: [{ ...validEntry.regressions[0], reason: "vanished" }],
+      }),
+    );
+    expect(result.entry).toBeUndefined();
+    expect(result.failures.join("\n")).toContain("reason");
+  });
+
+  it("rejects a regression missing a required field", () => {
+    const result = parseLintRatchetDebtLogEntry(
+      asJson({
+        ...validEntry,
+        regressions: [
+          {
+            testId: "ratchet/no-debugger",
+            ruleId: "no-debugger",
+            baselineCount: 1,
+            currentCount: 2,
+            reason: "increased-count",
+          },
+        ],
+      }),
+    );
+    expect(result.entry).toBeUndefined();
+    expect(result.failures.join("\n")).toContain("path");
+  });
+
+  it("rejects a regression with a non-normalized path", () => {
+    const result = parseLintRatchetDebtLogEntry(
+      asJson({
+        ...validEntry,
+        regressions: [{ ...validEntry.regressions[0], path: "./packages/server/src/legacy.ts" }],
+      }),
+    );
+
+    expect(result.entry).toBeUndefined();
+    expect(result.failures.join("\n")).toContain("path must be normalized");
+  });
+
+  it("rejects a regression with a non-integer optional line", () => {
+    const result = parseLintRatchetDebtLogEntry(
+      asJson({ ...validEntry, regressions: [{ ...validEntry.regressions[0], line: 1.5 }] }),
+    );
+    expect(result.entry).toBeUndefined();
+    expect(result.failures.join("\n")).toContain("line");
+  });
+
+  it("rejects an orphan with an unknown metric", () => {
+    const result = parseLintRatchetDebtLogEntry(
+      asJson({
+        ...validEntry,
+        orphansRemoved: [
+          { testId: "ratchet/x", ruleId: "complexity", metric: "bogus", baselineItems: [] },
+        ],
+      }),
+    );
+    expect(result.entry).toBeUndefined();
+    expect(result.failures.join("\n")).toContain("metric");
+  });
+
+  it("rejects a malformed orphan baseline item", () => {
+    const result = parseLintRatchetDebtLogEntry(
+      asJson({
+        ...validEntry,
+        orphansRemoved: [
+          {
+            testId: "ratchet/x",
+            ruleId: "no-debugger",
+            metric: "message-count",
+            baselineItems: [{ path: "packages/server/src/a.ts", count: -1 }],
+          },
+        ],
+      }),
+    );
+    expect(result.entry).toBeUndefined();
+    expect(result.failures.join("\n")).toContain("count");
+  });
+
+  it("rejects an orphan baseline item with a non-normalized path", () => {
+    const result = parseLintRatchetDebtLogEntry(
+      asJson({
+        ...validEntry,
+        orphansRemoved: [
+          {
+            testId: "ratchet/x",
+            ruleId: "no-debugger",
+            metric: "message-count",
+            baselineItems: [{ path: "packages\\server\\src\\a.ts", count: 1 }],
+          },
+        ],
+      }),
+    );
+
+    expect(result.entry).toBeUndefined();
+    expect(result.failures.join("\n")).toContain("path must be normalized");
+  });
+
+  it("rejects orphan baseline items that do not match their metric", () => {
+    const result = parseLintRatchetDebtLogEntry(
+      asJson({
+        ...validEntry,
+        orphansRemoved: [
+          {
+            testId: "ratchet/x",
+            ruleId: "max-lines",
+            metric: "effective-line-count",
+            baselineItems: [{ path: "packages/server/src/a.ts", count: 1 }],
+          },
+        ],
+      }),
+    );
+
+    expect(result.entry).toBeUndefined();
+    expect(result.failures.join("\n")).toContain("lines is required for effective-line-count");
+  });
+
+  it("rejects an unknown key inside an orphan perFunction row", () => {
+    const result = parseLintRatchetDebtLogEntry(
+      asJson({
+        ...validEntry,
+        orphansRemoved: [
+          {
+            testId: "ratchet/x",
+            ruleId: "complexity",
+            metric: "complexity-severity",
+            baselineItems: [
+              {
+                path: "packages/server/src/a.ts",
+                count: 1,
+                maxComplexity: 12,
+                perFunction: [{ line: 3, label: "fn", complexity: 12, extra: true }],
+              },
+            ],
+          },
+        ],
+      }),
+    );
+    expect(result.entry).toBeUndefined();
+    expect(result.failures.join("\n")).toContain("extra");
+  });
+
+  it("rejects an orphan baseline item with an unknown key", () => {
+    const result = parseLintRatchetDebtLogEntry(
+      asJson({
+        ...validEntry,
+        orphansRemoved: [
+          {
+            testId: "ratchet/x",
+            ruleId: "no-debugger",
+            metric: "message-count",
+            baselineItems: [{ path: "packages/server/src/a.ts", count: 1, weird: true }],
+          },
+        ],
+      }),
+    );
+    expect(result.entry).toBeUndefined();
+    expect(result.failures.join("\n")).toContain("weird");
+  });
+
+  describe("regression shape by reason", () => {
+    it("accepts an increased-lines regression with both line fields", () => {
+      const result = parseLintRatchetDebtLogEntry(
+        entryWithRegression({
+          ...lineRegressionBase,
+          baselineLines: 200,
+          currentLines: 240,
+          reason: "increased-lines",
+        }),
+      );
+      expect(result.failures).toEqual([]);
+      expect(result.entry).toBeDefined();
+    });
+
+    it("rejects an increased-lines regression missing currentLines", () => {
+      const result = parseLintRatchetDebtLogEntry(
+        entryWithRegression({
+          ...lineRegressionBase,
+          baselineLines: 200,
+          reason: "increased-lines",
+        }),
+      );
+      expect(result.entry).toBeUndefined();
+      expect(result.failures.join("\n")).toContain("currentLines");
+    });
+
+    it("rejects an increased-lines regression missing baselineLines", () => {
+      const result = parseLintRatchetDebtLogEntry(
+        entryWithRegression({
+          ...lineRegressionBase,
+          currentLines: 240,
+          reason: "increased-lines",
+        }),
+      );
+      expect(result.entry).toBeUndefined();
+      expect(result.failures.join("\n")).toContain("baselineLines");
+    });
+
+    it("rejects an increased-lines regression carrying complexity fields", () => {
+      const result = parseLintRatchetDebtLogEntry(
+        entryWithRegression({
+          ...lineRegressionBase,
+          baselineLines: 200,
+          currentLines: 240,
+          baselineComplexity: 10,
+          currentComplexity: 12,
+          reason: "increased-lines",
+        }),
+      );
+      expect(result.entry).toBeUndefined();
+      expect(result.failures.join("\n")).toContain("baselineComplexity");
+    });
+
+    it("accepts an increased-complexity regression with both complexity fields", () => {
+      const result = parseLintRatchetDebtLogEntry(
+        entryWithRegression({
+          ...complexityRegressionBase,
+          baselineComplexity: 18,
+          currentComplexity: 24,
+          reason: "increased-complexity",
+        }),
+      );
+      expect(result.failures).toEqual([]);
+      expect(result.entry).toBeDefined();
+    });
+
+    it("rejects an increased-complexity regression carrying line fields", () => {
+      const result = parseLintRatchetDebtLogEntry(
+        entryWithRegression({
+          ...complexityRegressionBase,
+          baselineComplexity: 18,
+          currentComplexity: 24,
+          baselineLines: 100,
+          currentLines: 120,
+          reason: "increased-complexity",
+        }),
+      );
+      expect(result.entry).toBeUndefined();
+      expect(result.failures.join("\n")).toContain("baselineLines");
+    });
+
+    it("rejects an increased-count regression carrying line details", () => {
+      const result = parseLintRatchetDebtLogEntry(
+        entryWithRegression({ ...validEntry.regressions[0], currentLines: 50 }),
+      );
+      expect(result.entry).toBeUndefined();
+      expect(result.failures.join("\n")).toContain("currentLines");
+    });
+
+    it("rejects an increased-count regression carrying complexity details", () => {
+      const result = parseLintRatchetDebtLogEntry(
+        entryWithRegression({ ...validEntry.regressions[0], currentComplexity: 12 }),
+      );
+      expect(result.entry).toBeUndefined();
+      expect(result.failures.join("\n")).toContain("currentComplexity");
+    });
+
+    it("accepts a new-path regression with no severity detail", () => {
+      const result = parseLintRatchetDebtLogEntry(
+        entryWithRegression({ ...newPathRegressionBase }),
+      );
+      expect(result.failures).toEqual([]);
+      expect(result.entry).toBeDefined();
+    });
+
+    it("accepts a new-path regression carrying only currentLines", () => {
+      const result = parseLintRatchetDebtLogEntry(
+        entryWithRegression({ ...newPathRegressionBase, currentLines: 240, line: 12 }),
+      );
+      expect(result.failures).toEqual([]);
+      expect(result.entry).toBeDefined();
+    });
+
+    it("accepts a new-path regression carrying only currentComplexity", () => {
+      const result = parseLintRatchetDebtLogEntry(
+        entryWithRegression({ ...newPathRegressionBase, currentComplexity: 18, line: 12 }),
+      );
+      expect(result.failures).toEqual([]);
+      expect(result.entry).toBeDefined();
+    });
+
+    it("rejects a new-path regression carrying baseline severity detail", () => {
+      const result = parseLintRatchetDebtLogEntry(
+        entryWithRegression({ ...newPathRegressionBase, baselineLines: 100, currentLines: 240 }),
+      );
+      expect(result.entry).toBeUndefined();
+      expect(result.failures.join("\n")).toContain("baselineLines");
+    });
+
+    it("rejects a new-path regression carrying both current lines and complexity", () => {
+      const result = parseLintRatchetDebtLogEntry(
+        entryWithRegression({
+          ...newPathRegressionBase,
+          currentLines: 240,
+          currentComplexity: 18,
+        }),
+      );
+      expect(result.entry).toBeUndefined();
+      expect(result.failures.join("\n")).toMatch(/currentLines|currentComplexity/);
+    });
+  });
+});

@@ -14,7 +14,7 @@ import { toPosix, uniqSorted } from "./path-util.js";
 
 export type SiblingMarkerKind = "version" | "lifecycle" | "copy-backup";
 
-export type SiblingMarkerPosition = "prefix" | "infix" | "suffix";
+type SiblingMarkerPosition = "prefix" | "infix" | "suffix";
 
 export type SiblingMarker = {
   readonly token: string;
@@ -25,7 +25,7 @@ export type SiblingMarker = {
 // `plain-vs-marked`: one side adds only marker tokens over the other's full name.
 // `marked-vs-marked`: both sides carry differing marker tokens over a shared base
 // (e.g. `config-v2.ts` vs `config-v3.ts`). Neither relation claims a replacement.
-export type SiblingNamingRelation = "plain-vs-marked" | "marked-vs-marked";
+type SiblingNamingRelation = "plain-vs-marked" | "marked-vs-marked";
 
 export type SiblingNamingPair = {
   readonly leftPath: string;
@@ -57,7 +57,7 @@ export type SiblingNamingOptions = {
 
 // Seed marker vocabulary. Configurable so task 47 can expose overrides only if a
 // field run shows a repo's naming convention needs it.
-export const DEFAULT_SIBLING_LIFECYCLE_MARKERS: readonly string[] = [
+const DEFAULT_SIBLING_LIFECYCLE_MARKERS: readonly string[] = [
   "old",
   "legacy",
   "new",
@@ -67,7 +67,7 @@ export const DEFAULT_SIBLING_LIFECYCLE_MARKERS: readonly string[] = [
   "prev",
 ];
 
-export const DEFAULT_SIBLING_COPY_BACKUP_MARKERS: readonly string[] = [
+const DEFAULT_SIBLING_COPY_BACKUP_MARKERS: readonly string[] = [
   "copy",
   "backup",
   "bak",
@@ -81,7 +81,7 @@ export const DEFAULT_SIBLING_COPY_BACKUP_MARKERS: readonly string[] = [
 
 // Version markers are a `v` + digits family (`v2`, `v10`); a bare trailing number
 // (`user2`) is deliberately NOT a version marker to avoid obvious false positives.
-export const DEFAULT_SIBLING_VERSION_PATTERN = /^v\d+$/u;
+const DEFAULT_SIBLING_VERSION_PATTERN = /^v\d+$/u;
 
 const DEFAULT_LIFECYCLE_SET: ReadonlySet<string> = new Set(DEFAULT_SIBLING_LIFECYCLE_MARKERS);
 const DEFAULT_COPY_BACKUP_SET: ReadonlySet<string> = new Set(DEFAULT_SIBLING_COPY_BACKUP_MARKERS);

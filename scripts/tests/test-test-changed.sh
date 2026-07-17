@@ -3,6 +3,7 @@
 # smoke-subjects: scripts/test-changed.sh
 # smoke-subjects: scripts/vitest.sh
 # smoke-subjects: scripts/lib/changed-base.sh
+# smoke-subjects: scripts/lib/test-worker-count.sh
 # smoke-subjects: scripts/ai-hooks/output-filter.sh
 # smoke-subjects: scripts/tests/lib/test-git-env.sh
 # smoke-subjects: scripts/tests/test-test-changed.sh
@@ -19,6 +20,7 @@ TEST_CHANGED="$SCRIPT_DIR/../test-changed.sh"
 VITEST_RUNNER="$SCRIPT_DIR/../vitest.sh"
 OUTPUT_FILTER="$SCRIPT_DIR/../ai-hooks/output-filter.sh"
 CHANGED_BASE="$SCRIPT_DIR/../lib/changed-base.sh"
+TEST_WORKER_COUNT="$SCRIPT_DIR/../lib/test-worker-count.sh"
 
 PASS=0
 fail() { printf 'FAIL: %s\n' "$1" >&2; exit 1; }
@@ -32,6 +34,9 @@ REAL_BUN="$(command -v bun)"
 cat > "$SANDBOX/bin/vitest" <<'STUB'
 #!/usr/bin/env bash
 printf 'stub vitest %s\n' "$*" >> "${STUB_LOG:-/dev/null}"
+printf 'vitest-env VITEST_MAX_WORKERS=%s NON_SERVER_TEST_MAX_WORKERS=%s\n' \
+  "${VITEST_MAX_WORKERS-<unset>}" "${NON_SERVER_TEST_MAX_WORKERS-<unset>}" \
+  >> "${STUB_LOG:-/dev/null}"
 if [ "${STUB_VITEST_NOISE:-0}" = "1" ]; then
   printf 'useful before\n'
   printf '(node:123) DeprecationWarning: Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0. Use async/await or an external async flow control mechanism instead.\n'
@@ -73,6 +78,7 @@ new_repo() {
   cp "$VITEST_RUNNER" "$repo/scripts/vitest.sh"
   cp "$OUTPUT_FILTER" "$repo/scripts/ai-hooks/output-filter.sh"
   cp "$CHANGED_BASE" "$repo/scripts/lib/changed-base.sh"
+  cp "$TEST_WORKER_COUNT" "$repo/scripts/lib/test-worker-count.sh"
   printf 'export default {};\n' > "$repo/scripts/vitest.config.ts"
   printf '{"scripts":{"test":"vitest"},"devDependencies":{"vitest":"1.0.0"}}\n' > "$repo/package.json"
   printf '{"compilerOptions":{"strict":true}}\n' > "$repo/tsconfig.base.json"
@@ -115,6 +121,20 @@ grep -qF 'stub vitest run --passWithNoTests --project=server --changed main' "$r
   || fail "server change should run server project with --changed: $(cat "$repo/bun.log")"
 ok "server-only changes run server changed tests"
 
+repo="$(new_repo scripts-change-cli-worker-cap)"
+printf 'export default { test: { changed: true } };\n' > "$repo/scripts/vitest.config.ts"
+: > "$repo/bun.log"
+(
+  cd "$repo"
+  STUB_LOG="$repo/bun.log" NON_SERVER_TEST_MAX_WORKERS=8 PATH="$SANDBOX/bin:$PATH" \
+    bash scripts/test-changed.sh --maxWorkers=4
+) >/dev/null || fail "scripts change with CLI worker cap should run"
+grep -qF 'stub vitest run --passWithNoTests --project=scripts --maxWorkers=4' "$repo/bun.log" \
+  || fail "scripts change should run the non-server project: $(cat "$repo/bun.log")"
+grep -qF 'vitest-env VITEST_MAX_WORKERS=4 NON_SERVER_TEST_MAX_WORKERS=8' "$repo/bun.log" \
+  || fail "test:changed should translate CLI workers for direct Vitest: $(cat "$repo/bun.log")"
+ok "test:changed translates CLI workers for its ordinary Vitest phase"
+
 repo="$(new_repo client-change)"
 printf 'changed\n' > "$repo/packages/client/src/base.ts"
 : > "$repo/bun.log"
@@ -148,6 +168,35 @@ grep -qF 'client-runner-env VITEST_MAX_WORKERS=2' "$repo/bun.log" \
   || fail "MUSI_CLIENT_FAST_LANE_MAX_WORKERS should override the worker cap: $(cat "$repo/bun.log")"
 ok "MUSI_CLIENT_FAST_LANE_MAX_WORKERS overrides the client worker cap"
 
+repo="$(new_repo client-change-worker-cap-elevated)"
+printf 'changed\n' > "$repo/packages/client/src/base.ts"
+: > "$repo/bun.log"
+(
+  cd "$repo"
+  STUB_LOG="$repo/bun.log" MUSI_CLIENT_FAST_LANE_MAX_WORKERS=8 PATH="$SANDBOX/bin:$PATH" \
+    bash scripts/test-changed.sh
+) >/dev/null || fail "client change with elevated worker override should run"
+grep -qF 'client-runner-env VITEST_MAX_WORKERS=8' "$repo/bun.log" \
+  || fail "elevated fast-lane cap should reach the client runner: $(cat "$repo/bun.log")"
+ok "client fast-lane override accepts the measured maximum"
+
+repo="$(new_repo client-change-worker-cap-rejected)"
+printf 'changed\n' > "$repo/packages/client/src/base.ts"
+: > "$repo/bun.log"
+set +e
+output=$(
+  cd "$repo"
+  STUB_LOG="$repo/bun.log" MUSI_CLIENT_FAST_LANE_MAX_WORKERS=60 PATH="$SANDBOX/bin:$PATH" \
+    bash scripts/test-changed.sh 2>&1
+)
+exit_code=$?
+set -e
+[ "$exit_code" -ne 0 ] || fail "fast-lane worker cap 60 should be rejected"
+grep -qF 'MUSI_CLIENT_FAST_LANE_MAX_WORKERS must be a positive integer from 1 to 8' <<< "$output" \
+  || fail "fast-lane worker cap 60 should fail loudly: $output"
+[ ! -s "$repo/bun.log" ] || fail "rejected fast-lane cap must not dispatch: $(cat "$repo/bun.log")"
+ok "client fast-lane values above the measured maximum are rejected"
+
 repo="$(new_repo client-change-worker-cap-optout)"
 printf 'changed\n' > "$repo/packages/client/src/base.ts"
 : > "$repo/bun.log"
@@ -155,13 +204,9 @@ printf 'changed\n' > "$repo/packages/client/src/base.ts"
   cd "$repo"
   STUB_LOG="$repo/bun.log" MUSI_CLIENT_FAST_LANE_MAX_WORKERS='' PATH="$SANDBOX/bin:$PATH" \
     bash scripts/test-changed.sh
-) >/dev/null || fail "client change with worker opt-out should run"
-grep -qF 'stub client-test-isolation-runner' "$repo/bun.log" \
-  || fail "opt-out should still run the client split: $(cat "$repo/bun.log")"
-if grep -qF 'client-runner-env' "$repo/bun.log"; then
-  fail "empty MUSI_CLIENT_FAST_LANE_MAX_WORKERS should leave the client lanes uncapped: $(cat "$repo/bun.log")"
-fi
-ok "empty MUSI_CLIENT_FAST_LANE_MAX_WORKERS opts out of the client worker cap"
+) >/dev/null 2>&1 && fail "empty fast-lane worker cap should be rejected"
+[ ! -s "$repo/bun.log" ] || fail "rejected empty fast-lane cap must not dispatch: $(cat "$repo/bun.log")"
+ok "empty client fast-lane override is rejected"
 
 repo="$(new_repo client-coverage-change)"
 printf 'changed\n' > "$repo/packages/client/src/base.ts"
@@ -196,6 +241,21 @@ grep -qF 'stub vitest run --passWithNoTests --project=server --changed main' "$r
 grep -qF 'stub client-test-isolation-runner --changed main' "$repo/bun.log" \
   || fail "client and server changes should run split client changed tests: $(cat "$repo/bun.log")"
 ok "client and server changes split client from direct Vitest"
+
+repo="$(new_repo client-scripts-change-distinct-worker-phases)"
+printf 'changed\n' > "$repo/packages/client/src/base.ts"
+printf 'export default { test: { changed: true } };\n' > "$repo/scripts/vitest.config.ts"
+: > "$repo/bun.log"
+(
+  cd "$repo"
+  STUB_LOG="$repo/bun.log" MUSI_CLIENT_FAST_LANE_MAX_WORKERS=2 PATH="$SANDBOX/bin:$PATH" \
+    bash scripts/test-changed.sh --maxWorkers=8
+) >/dev/null || fail "client/server change with phase worker caps should run"
+grep -qF 'vitest-env VITEST_MAX_WORKERS=8 NON_SERVER_TEST_MAX_WORKERS=<unset>' "$repo/bun.log" \
+  || fail "ordinary changed phase should use translated CLI cap: $(cat "$repo/bun.log")"
+grep -qF 'client-runner-env VITEST_MAX_WORKERS=2' "$repo/bun.log" \
+  || fail "client fast lane should force its distinct cap: $(cat "$repo/bun.log")"
+ok "test:changed keeps ordinary and client fast-lane worker phases distinct"
 
 repo="$(new_repo staged-source-deletion)"
 git -C "$repo" rm -q packages/server/src/base.ts
@@ -511,13 +571,17 @@ cp "$TEST_CHANGED" "$repo/scripts/test-changed.sh"
 cp "$VITEST_RUNNER" "$repo/scripts/vitest.sh"
 cp "$OUTPUT_FILTER" "$repo/scripts/ai-hooks/output-filter.sh"
 cp "$CHANGED_BASE" "$repo/scripts/lib/changed-base.sh"
+cp "$TEST_WORKER_COUNT" "$repo/scripts/lib/test-worker-count.sh"
 : > "$repo/bun.log"
-output="$(run_test_changed "$repo" 2>&1)" || fail "missing base should fall back to full suite: $output"
+output="$(NON_SERVER_TEST_MAX_WORKERS=8 run_test_changed "$repo" --maxWorkers=4 2>&1)" \
+  || fail "missing base should fall back to full suite: $output"
 grep -qF "neither 'main' nor 'origin/main' exists" <<< "$output" \
   || fail "missing base fallback should be announced: $output"
 grep -qF 'stub vitest run --passWithNoTests' "$repo/bun.log" \
   || fail "missing base should run full Vitest suite: $(cat "$repo/bun.log")"
-ok "missing base ref falls back to full Vitest suite"
+grep -qF 'vitest-env VITEST_MAX_WORKERS=4 NON_SERVER_TEST_MAX_WORKERS=8' "$repo/bun.log" \
+  || fail "missing-base fallback should retain translated CLI workers: $(cat "$repo/bun.log")"
+ok "missing base ref falls back with translated CLI workers"
 
 # Disjoint history: `main` resolves but shares no ancestor with HEAD, so the
 # triple-dot diff would fatal. Expect the same loud full-suite fallback as

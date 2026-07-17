@@ -3,6 +3,8 @@
 # smoke-subjects: scripts/verify.sh
 # smoke-subjects: scripts/verify/steps.generated.sh
 # smoke-subjects: scripts/verify/steps-lib.sh
+# smoke-subjects: scripts/verify/memory-budget.sh
+# smoke-subjects: scripts/verify/admitted-command.sh
 # smoke-subjects: scripts/lib/verify-metadata.sh
 # smoke-subjects: scripts/path-policy/path-policy-query.ts
 # smoke-subjects: scripts/path-policy/path-policy-query-core.ts
@@ -10,9 +12,14 @@
 # smoke-subjects: scripts/process-tree.sh
 # smoke-subjects: scripts/lib/parallel-step.sh
 # smoke-subjects: scripts/lib/verify-engine.sh
+# smoke-subjects: scripts/lib/test-worker-count.sh
+# smoke-subjects: scripts/lib/changed-base.sh
+# smoke-subjects: scripts/lib/gate-env.sh
+# smoke-subjects: scripts/lib/lint-dist-preflight.sh
 # smoke-subjects: scripts/tests/lib/test-git-env.sh
 # smoke-subjects: scripts/tests/test-verify.sh
 # smoke-subjects: scripts/ai-hooks/cache.sh
+# smoke-subjects: scripts/ai-hooks/common.sh
 # smoke-subjects: scripts/ai-hooks/output-filter.sh
 # test-verify.sh — pure-shell smoke tests for scripts/verify.sh.
 #
@@ -56,11 +63,15 @@ if [ "${MUSI_TEST_VERIFY_IN_FIXTURE:-}" != "1" ]; then
   cp "$SCRIPT_DIR/lib/test-git-env.sh" "$FIXTURE_ROOT/scripts/tests/lib/"
   cp "$SCRIPT_DIR/../lib/verify-metadata.sh" "$SCRIPT_DIR/../lib/parallel-step.sh" \
     "$SCRIPT_DIR/../lib/lint-dist-preflight.sh" "$SCRIPT_DIR/../lib/gate-env.sh" \
+    "$SCRIPT_DIR/../lib/changed-base.sh" \
     "$SCRIPT_DIR/../lib/verify-engine.sh" \
+    "$SCRIPT_DIR/../lib/test-worker-count.sh" \
     "$FIXTURE_ROOT/scripts/lib/"
-  cp "$SCRIPT_DIR/../ai-hooks/cache.sh" "$SCRIPT_DIR/../ai-hooks/output-filter.sh" \
+  cp "$SCRIPT_DIR/../ai-hooks/cache.sh" "$SCRIPT_DIR/../ai-hooks/common.sh" \
+    "$SCRIPT_DIR/../ai-hooks/output-filter.sh" \
     "$FIXTURE_ROOT/scripts/ai-hooks/"
   cp "$SCRIPT_DIR/../verify/steps.generated.sh" "$SCRIPT_DIR/../verify/steps-lib.sh" \
+    "$SCRIPT_DIR/../verify/memory-budget.sh" "$SCRIPT_DIR/../verify/admitted-command.sh" \
     "$FIXTURE_ROOT/scripts/verify/"
   touch "$FIXTURE_ROOT/packages/shared/dist/constants.d.ts"
   touch "$FIXTURE_ROOT/packages/shared/dist/dice/dice-roller.d.ts"
@@ -94,6 +105,13 @@ unset FORCE_VERIFY
 
 PASS=0
 fail() { printf 'FAIL: %s\n' "$1" >&2; exit 1; }
+write_live_memory_reservation() {
+  local token="$1" mb="$2" slot="$3" owner_pid owner_start_time
+  owner_pid="$BASHPID"
+  owner_start_time="$(awk '{ print $22 }' "/proc/$owner_pid/stat")"
+  printf 'pid=%s\npid_start_time=%s\nmb=%s\nslot=%s\n' \
+    "$owner_pid" "$owner_start_time" "$mb" "$slot" > "$token"
+}
 ok()   { PASS=$((PASS + 1)); printf 'ok %d - %s\n' "$PASS" "$1"; }
 
 # Sandbox so the script never touches real /tmp markers, locks, or logs.
@@ -114,13 +132,28 @@ if [ "${1:-}" = run ] && [ -n "${2:-}" ]; then
   safe_name="${safe_name//-/_}"
   var_fail="STUB_FAIL_${safe_name}"
   var_sleep="STUB_SLEEP_${safe_name}"
+  var_ignore_term="STUB_IGNORE_TERM_${safe_name}"
+  var_late_fork="STUB_LATE_FORK_${safe_name}"
   if [ -n "${!var_sleep:-}" ]; then
     sleep_pid=""
     [ -n "${STUB_PID_LOG:-}" ] && printf '%s\n' "$$" >> "$STUB_PID_LOG"
+    if [ "${!var_ignore_term:-0}" = "1" ]; then
+      trap '' TERM
+    fi
     sleep "${!var_sleep}" &
     sleep_pid=$!
     [ -n "${STUB_PID_LOG:-}" ] && printf '%s\n' "$sleep_pid" >> "$STUB_PID_LOG"
-    trap 'kill "$sleep_pid" 2>/dev/null || true; wait "$sleep_pid" 2>/dev/null || true; exit 143' TERM
+    if [ "${!var_late_fork:-0}" = "1" ]; then
+      late_fork_on_term() {
+        bash -c 'trap "" TERM; printf "%s\n" "$BASHPID" > "$STUB_LATE_PID_FILE"; while :; do sleep 1; done' &
+        kill "$sleep_pid" 2>/dev/null || true
+        wait "$sleep_pid" 2>/dev/null || true
+        exit 143
+      }
+      trap late_fork_on_term TERM
+    else
+      trap 'kill "$sleep_pid" 2>/dev/null || true; wait "$sleep_pid" 2>/dev/null || true; exit 143' TERM
+    fi
     wait "$sleep_pid"
     trap - TERM
   fi
@@ -147,6 +180,7 @@ run_verify() {
   MUSI_VERIFY_LOCK="$LOCK" \
   MUSI_VERIFY_LOG_DIR="$LOG_DIR" \
   MUSI_VERIFY_HISTORY_DIR="$HISTORY_DIR" \
+  MUSI_VERIFY_MEMORY_STATE_ROOT="$SANDBOX/memory-state" \
   MUSI_VERIFY_MARKER_CHANGED="$MARKER_CHANGED" \
   MUSI_VERIFY_MARKER_FULL="$MARKER_FULL" \
     bash "$VERIFY" "$@"
@@ -212,12 +246,300 @@ ok "verify.sh passes bash -n"
 )
 ok "gate-env applies managed NODE_OPTIONS defaults"
 
+# --- memory-budget unit policy --------------------------------------------
+(
+  # shellcheck source=../verify/memory-budget.sh
+  . "$SCRIPT_DIR/../verify/memory-budget.sh"
+  export MUSI_VERIFY_MEMORY_STATE_ROOT="$SANDBOX/memory-unit-state"
+  export MUSI_VERIFY_MEMORY_AVAILABLE_MB=7500
+  export MUSI_VERIFY_MEMORY_SAFETY_MB=1000
+  unset NON_SERVER_TEST_MAX_WORKERS VITEST_MAX_WORKERS
+
+  [ "$(musi_verify_slot_expected_peak_mb lint)" -eq 3700 ] \
+    || fail "lint expected peak must stay rounded up from leaf 76"
+  [ "$(musi_verify_slot_expected_peak_mb test)" -eq 3200 ] \
+    || fail "test expected peak must stay rounded up from leaf 77"
+  [ "$(musi_verify_slot_expected_peak_mb scripts)" -eq 2470 ] \
+    || fail "scripts expected peak must stay seeded from note 73"
+  [ "$(musi_verify_slot_expected_peak_mb ratchet)" -eq 2210 ] \
+    || fail "ratchet expected peak must stay seeded from note 73"
+  [ "$(musi_verify_slot_expected_peak_mb unmeasured-slot)" -eq 256 ] \
+    || fail "unmeasured slots should use the documented accounting floor"
+
+  export NON_SERVER_TEST_MAX_WORKERS=4
+  [ "$(musi_verify_slot_expected_peak_mb test)" -eq 3200 ] \
+    || fail "a lower worker override should keep the measured reservation"
+  export NON_SERVER_TEST_MAX_WORKERS=6
+  [ "$(musi_verify_slot_expected_peak_mb test)" -eq 3200 ] \
+    || fail "the measured worker cap should keep the measured reservation"
+  export NON_SERVER_TEST_MAX_WORKERS=7
+  [ "$(musi_verify_slot_expected_peak_mb test)" -eq 5580 ] \
+    || fail "an elevated worker override must use the conservative reservation"
+  [ "$(musi_verify_slot_expected_peak_mb lint)" -eq 3700 ] \
+    || fail "the worker override must not alter another slot reservation"
+  export NON_SERVER_TEST_MAX_WORKERS=""
+  [ "$(musi_verify_slot_expected_peak_mb test)" -eq 5580 ] \
+    || fail "an invalid worker override must fail closed for admission"
+  export NON_SERVER_TEST_MAX_WORKERS=999999999999999999999
+  [ "$(musi_verify_slot_expected_peak_mb test)" -eq 5580 ] \
+    || fail "an unknown worker override must fail closed for admission"
+  export NON_SERVER_TEST_MAX_WORKERS=60
+  [ "$(musi_verify_slot_expected_peak_mb test)" -eq 5580 ] \
+    || fail "a large parser-rejected worker override must fail closed for admission"
+  unset NON_SERVER_TEST_MAX_WORKERS
+
+  export VITEST_MAX_WORKERS=4
+  [ "$(musi_verify_slot_expected_peak_mb test)" -eq 3200 ] \
+    || fail "a lower native worker override should keep the measured reservation"
+  export VITEST_MAX_WORKERS=8
+  [ "$(musi_verify_slot_expected_peak_mb test)" -eq 5580 ] \
+    || fail "an elevated native worker override must use the conservative reservation"
+  export VITEST_MAX_WORKERS=60
+  [ "$(musi_verify_slot_expected_peak_mb test)" -eq 5580 ] \
+    || fail "a large native worker override must fail closed for admission"
+
+  export NON_SERVER_TEST_MAX_WORKERS=8 VITEST_MAX_WORKERS=4
+  [ "$(musi_verify_slot_expected_peak_mb test)" -eq 3200 ] \
+    || fail "native worker precedence must use its lower effective reservation"
+  export NON_SERVER_TEST_MAX_WORKERS=4 VITEST_MAX_WORKERS=8
+  [ "$(musi_verify_slot_expected_peak_mb test)" -eq 5580 ] \
+    || fail "native worker precedence must use its elevated effective reservation"
+  unset NON_SERVER_TEST_MAX_WORKERS VITEST_MAX_WORKERS
+
+  # shellcheck disable=SC2034 # Read by sourced memory-budget.sh.
+  MUSI_TEST_CLI_MAX_WORKERS=4 VITEST_MAX_WORKERS=8
+  [ "$(musi_verify_slot_expected_peak_mb test)" -eq 5580 ] \
+    || fail "native worker env must outrank a lower CLI worker value"
+  # shellcheck disable=SC2034 # Read by sourced memory-budget.sh.
+  MUSI_TEST_CLI_MAX_WORKERS=8 VITEST_MAX_WORKERS=4
+  [ "$(musi_verify_slot_expected_peak_mb test)" -eq 3200 ] \
+    || fail "native worker env must outrank an elevated CLI worker value"
+  unset MUSI_TEST_CLI_MAX_WORKERS VITEST_MAX_WORKERS
+
+  export MUSI_CLIENT_FAST_LANE_MAX_WORKERS=4
+  [ "$(musi_verify_slot_expected_peak_mb test)" -eq 3200 ] \
+    || fail "the default fast-lane cap should keep the measured reservation"
+  export MUSI_CLIENT_FAST_LANE_MAX_WORKERS=8
+  [ "$(musi_verify_slot_expected_peak_mb test)" -eq 5580 ] \
+    || fail "an inherited elevated fast-lane cap must use the conservative reservation"
+  export MUSI_CLIENT_FAST_LANE_MAX_WORKERS=60
+  [ "$(musi_verify_slot_expected_peak_mb test)" -eq 5580 ] \
+    || fail "an invalid fast-lane cap must fail closed for admission"
+  unset MUSI_CLIENT_FAST_LANE_MAX_WORKERS
+
+  export NON_SERVER_TEST_MAX_WORKERS=8
+  musi_memory_budget_try_reserve test \
+    || fail "an elevated worker override should reserve on an idle host"
+  elevated_test_token="$MUSI_VERIFY_MEMORY_RESERVATION_TOKEN"
+  grep -qx 'mb=5580' "$elevated_test_token" \
+    || fail "the elevated worker reservation token must charge 5580 MB"
+  musi_memory_budget_release "$elevated_test_token"
+  unset NON_SERVER_TEST_MAX_WORKERS
+
+  musi_memory_budget_try_reserve test || fail "first heavy slot should reserve"
+  test_token="$MUSI_VERIFY_MEMORY_RESERVATION_TOKEN"
+  if musi_memory_budget_try_reserve lint; then
+    fail "lint should defer when test plus lint exceeds available memory"
+  fi
+  musi_memory_budget_release "$test_token"
+  musi_memory_budget_try_reserve lint || fail "lint should reserve after test releases"
+  lint_token="$MUSI_VERIFY_MEMORY_RESERVATION_TOKEN"
+  musi_memory_budget_release "$lint_token"
+
+  export MUSI_VERIFY_MEMORY_AVAILABLE_MB=16000
+  musi_memory_budget_try_reserve test || fail "test should reserve on an idle host"
+  test_token="$MUSI_VERIFY_MEMORY_RESERVATION_TOKEN"
+  musi_memory_budget_try_reserve lint \
+    || fail "lint should launch alongside test when memory is plentiful"
+  lint_token="$MUSI_VERIFY_MEMORY_RESERVATION_TOKEN"
+  musi_memory_budget_release "$test_token"
+  musi_memory_budget_release "$lint_token"
+
+  # Rollout compatibility is conservative: reservations written before owner
+  # start times were recorded, or whose live owner identity is temporarily
+  # unreadable, must stay charged. Only a positive identity mismatch is stale.
+  identity_owner_pid=""
+  trap '[ -z "$identity_owner_pid" ] || { kill "$identity_owner_pid" 2>/dev/null || true; wait "$identity_owner_pid" 2>/dev/null || true; }' EXIT
+  sleep 60 &
+  identity_owner_pid=$!
+  identity_owner_start_time="$(awk '{ print $22 }' "/proc/$identity_owner_pid/stat")"
+  export MUSI_VERIFY_MEMORY_AVAILABLE_MB=6000
+  legacy_token="$MUSI_VERIFY_MEMORY_STATE_ROOT/reservation.legacy-live"
+  printf 'pid=%s\nmb=3000\nslot=legacy\n' "$identity_owner_pid" > "$legacy_token"
+  if musi_memory_budget_try_reserve lint; then
+    fail "live legacy reservation without start identity must stay accounted"
+  fi
+  [ -e "$legacy_token" ] || fail "live legacy reservation was reclaimed"
+  rm -f "$legacy_token"
+
+  unreadable_token="$MUSI_VERIFY_MEMORY_STATE_ROOT/reservation.unreadable-live"
+  printf 'pid=%s\npid_start_time=%s\nmb=3000\nslot=unreadable\n' \
+    "$identity_owner_pid" "$identity_owner_start_time" > "$unreadable_token"
+  fake_proc_root="$SANDBOX/memory-unit-proc"
+  reservation_caller_pid="$BASHPID"
+  mkdir -p "$fake_proc_root/$reservation_caller_pid"
+  cp "/proc/$reservation_caller_pid/stat" "$fake_proc_root/$reservation_caller_pid/stat"
+  export MUSI_VERIFY_PROC_ROOT="$fake_proc_root"
+  if musi_memory_budget_try_reserve lint; then
+    fail "live reservation with unreadable start identity must stay accounted"
+  fi
+  [ -e "$unreadable_token" ] || fail "live unreadable reservation was reclaimed"
+  rm -f "$unreadable_token"
+  unset MUSI_VERIFY_PROC_ROOT
+
+  mismatch_token="$MUSI_VERIFY_MEMORY_STATE_ROOT/reservation.identity-mismatch"
+  printf 'pid=%s\npid_start_time=%s\nmb=3000\nslot=mismatch\n' \
+    "$identity_owner_pid" "$((identity_owner_start_time + 1))" > "$mismatch_token"
+  musi_memory_budget_try_reserve lint \
+    || fail "start-time mismatch should be reclaimed as positive stale evidence"
+  lint_token="$MUSI_VERIFY_MEMORY_RESERVATION_TOKEN"
+  [ ! -e "$mismatch_token" ] || fail "start-time mismatch was not reclaimed"
+  musi_memory_budget_release "$lint_token"
+  kill "$identity_owner_pid" 2>/dev/null || true
+  wait "$identity_owner_pid" 2>/dev/null || true
+  identity_owner_pid=""
+  trap - EXIT
+
+  # Once a reserved process has ramped up, its RSS is already absent from
+  # MemAvailable. Add that live RSS back before charging the peak reservation,
+  # otherwise a plentiful 12 GB baseline incorrectly serializes test + lint.
+  export MUSI_VERIFY_MEMORY_AVAILABLE_MB=12000
+  unset MUSI_VERIFY_MEMORY_LIVE_RESERVED_RSS_MB
+  musi_memory_budget_try_reserve test || fail "test should reserve before RSS ramp"
+  test_token="$MUSI_VERIFY_MEMORY_RESERVATION_TOKEN"
+  export MUSI_VERIFY_MEMORY_AVAILABLE_MB=8800
+  export MUSI_VERIFY_MEMORY_LIVE_RESERVED_RSS_MB=3200
+  musi_memory_budget_try_reserve lint \
+    || fail "live reserved RSS must not be charged twice against MemAvailable"
+  lint_token="$MUSI_VERIFY_MEMORY_RESERVATION_TOKEN"
+  musi_memory_budget_release "$test_token"
+  musi_memory_budget_release "$lint_token"
+
+  # Unsupported memory discovery deliberately publishes only the accounting
+  # floor. Zero Musi reservations do not prove the host is idle, so admission
+  # must fail closed unless the caller explicitly opts into a solo launch.
+  unset MUSI_VERIFY_MEMORY_AVAILABLE_MB MUSI_VERIFY_MEMORY_LIVE_RESERVED_RSS_MB
+  export MUSI_VERIFY_MEMORY_FORCE_UNSUPPORTED=1
+  if musi_memory_budget_try_reserve test; then
+    fail "unsupported-host fallback must not admit an oversized slot by default"
+  fi
+  [ -z "$MUSI_VERIFY_MEMORY_RESERVATION_TOKEN" ] \
+    || fail "failed low-memory admission must not publish a reservation token"
+
+  export MUSI_VERIFY_MEMORY_WAIT_TIMEOUT=0
+  set +e
+  low_memory_output="$(musi_memory_budget_wait_and_reserve test verify:low-memory 2>&1)"
+  low_memory_rc=$?
+  set -e
+  [ "$low_memory_rc" -eq 3 ] \
+    || fail "low-memory admission should time out without launching: rc=$low_memory_rc"
+  grep -qF 'needs 3200 MB' <<< "$low_memory_output" \
+    || fail "low-memory diagnostic must state the required peak: $low_memory_output"
+  grep -qF 'memory availability discovery is unsupported' <<< "$low_memory_output" \
+    || fail "unsupported-memory diagnostic must identify discovery failure: $low_memory_output"
+  grep -qF 'provide readable Linux MemAvailable or cgroup memory accounting' <<< "$low_memory_output" \
+    || fail "unsupported-memory diagnostic must state required host support: $low_memory_output"
+  grep -qF 'MUSI_VERIFY_MEMORY_ALLOW_SOLO_FALLBACK=1' <<< "$low_memory_output" \
+    || fail "unsupported-memory diagnostic must name the explicit solo opt-in: $low_memory_output"
+  if grep -qF 'measured available memory' <<< "$low_memory_output"; then
+    fail "unsupported-memory diagnostic must not describe the synthetic floor as measured: $low_memory_output"
+  fi
+  unset MUSI_VERIFY_MEMORY_WAIT_TIMEOUT
+
+  export MUSI_VERIFY_MEMORY_ALLOW_SOLO_FALLBACK=1
+  musi_memory_budget_try_reserve test \
+    || fail "explicit solo-fallback opt-in should admit an oversized slot"
+  [ "${MUSI_VERIFY_MEMORY_SOLO_FALLBACK:-0}" = 1 ] \
+    || fail "opted-in unsupported-host solo admission should be explicit"
+  test_token="$MUSI_VERIFY_MEMORY_RESERVATION_TOKEN"
+  musi_memory_budget_release "$test_token"
+  unset MUSI_VERIFY_MEMORY_ALLOW_SOLO_FALLBACK MUSI_VERIFY_MEMORY_FORCE_UNSUPPORTED
+
+  cgroup_dir="$SANDBOX/nested-cgroup"
+  mkdir -p "$cgroup_dir"
+  printf '10000000000\n' > "$cgroup_dir/memory.max"
+  printf '4000000000\n' > "$cgroup_dir/memory.current"
+  export MUSI_VERIFY_CGROUP_MAX_FILE="$cgroup_dir/memory.max"
+  export MUSI_VERIFY_CGROUP_CURRENT_FILE="$cgroup_dir/memory.current"
+  [ "$(musi_memory_cgroup_available_mb)" -eq 6000 ] \
+    || fail "cgroup discovery should honor the current delegated group files"
+  unset MUSI_VERIFY_CGROUP_MAX_FILE MUSI_VERIFY_CGROUP_CURRENT_FILE
+
+  export MUSI_VERIFY_MEMORY_AVAILABLE_MB=6000
+  export MUSI_VERIFY_MEMORY_WAIT_TIMEOUT=1
+  export MUSI_VERIFY_MEMORY_POLL_SECONDS=0.1
+  mkdir -p "$MUSI_VERIFY_MEMORY_STATE_ROOT"
+  sequential_blocker="$MUSI_VERIFY_MEMORY_STATE_ROOT/reservation.sequential-timeout"
+  write_live_memory_reservation "$sequential_blocker" 5000 external
+  set +e
+  musi_memory_budget_wait_and_reserve lint verify:test >/dev/null 2>&1
+  sequential_wait_rc=$?
+  set -e
+  rm -f "$sequential_blocker"
+  [ "$sequential_wait_rc" -eq 3 ] \
+    || fail "sequential memory wait should time out instead of spinning: rc=$sequential_wait_rc"
+  export MUSI_VERIFY_MEMORY_POLL_SECONDS=999999
+  [ "$(musi_memory_budget_poll_seconds)" = 1 ] \
+    || fail "memory polling must stay capped at one second"
+  unset MUSI_VERIFY_MEMORY_WAIT_TIMEOUT MUSI_VERIFY_MEMORY_POLL_SECONDS
+
+  mkdir -p "$MUSI_VERIFY_MEMORY_STATE_ROOT"
+  printf 'pid=99999999\nmb=9000\n' > "$MUSI_VERIFY_MEMORY_STATE_ROOT/reservation.stale"
+  export MUSI_VERIFY_MEMORY_AVAILABLE_MB=8000
+  musi_memory_budget_try_reserve lint || fail "dead-owner reservation should be reclaimed"
+  lint_token="$MUSI_VERIFY_MEMORY_RESERVATION_TOKEN"
+  [ ! -e "$MUSI_VERIFY_MEMORY_STATE_ROOT/reservation.stale" ] \
+    || fail "stale reservation was not removed"
+  musi_memory_budget_release "$lint_token"
+
+  unset MUSI_VERIFY_MEMORY_AVAILABLE_MB
+  available_mb="$(musi_memory_available_mb)"
+  case "$available_mb" in
+    '' | *[!0-9]*) fail "detected available memory is not an integer: $available_mb" ;;
+  esac
+  [ "$available_mb" -gt 0 ] || fail "detected available memory must be positive"
+) || exit 1
+ok "memory budget reserves measured peaks against host and cgroup availability"
+
+# A process that remains non-killable after KILL must not trap a verification
+# controller in an unbounded builtin wait.
+(
+  # shellcheck source=../process-tree.sh
+  . "$SCRIPT_DIR/../process-tree.sh"
+  bounded_wait_sleeps=0
+  musi_process_needs_signal() { return 0; }
+  sleep() { bounded_wait_sleeps=$((bounded_wait_sleeps + 1)); }
+  wait() { fail "bounded process wait should not reap a still-running process"; }
+  export MUSI_PROCESS_TREE_KILL_WAIT_TENTHS=3
+  set +e
+  musi_wait_for_pid_exit_bounded 424242
+  bounded_wait_rc=$?
+  set -e
+  [ "$bounded_wait_rc" -eq 1 ] \
+    || fail "bounded process wait should report a still-running process"
+  [ "$bounded_wait_sleeps" -eq 3 ] \
+    || fail "bounded process wait should stop after three polls: $bounded_wait_sleeps"
+)
+ok "post-KILL process waits are bounded"
+
 PARALLEL_STEP_LOG_DIR="$SANDBOX/parallel-step-logs"
 mkdir -p "$PARALLEL_STEP_LOG_DIR/meta"
+PARALLEL_STEP_OOM_SCORE_FILE="$SANDBOX/parallel-step-oom-score"
+printf '0\n' > "$PARALLEL_STEP_OOM_SCORE_FILE"
+PARALLEL_STEP_RESERVATION_TOKEN="$SANDBOX/parallel-step-reservation"
+PARALLEL_STEP_OWNER_PID="$BASHPID"
+PARALLEL_STEP_OWNER_START_TIME="$(awk '{ print $22 }' "/proc/$PARALLEL_STEP_OWNER_PID/stat")"
+printf 'pid=%s\npid_start_time=%s\nmb=256\nslot=env-check\n' \
+  "$PARALLEL_STEP_OWNER_PID" "$PARALLEL_STEP_OWNER_START_TIME" > "$PARALLEL_STEP_RESERVATION_TOKEN"
 set +e
 parallel_step_output=$(
   export LOG_DIR="$PARALLEL_STEP_LOG_DIR"
   export META_DIR="$PARALLEL_STEP_LOG_DIR/meta"
+  export MUSI_VERIFY_OOM_SCORE_ADJ_FILE="$PARALLEL_STEP_OOM_SCORE_FILE"
+  export PARALLEL_STEP_RESERVATION_TOKEN
+  # shellcheck source=../verify/memory-budget.sh
+  . "$SCRIPT_DIR/../verify/memory-budget.sh"
+  MUSI_VERIFY_MEMORY_RESERVATION_TOKEN="$PARALLEL_STEP_RESERVATION_TOKEN"
   # shellcheck source=../lib/verify-metadata.sh
   . "$SCRIPT_DIR/../lib/verify-metadata.sh"
   # shellcheck source=../lib/parallel-step.sh
@@ -228,6 +550,16 @@ parallel_step_output=$(
     GIT_PREFIX=outer \
     GIT_COMMON_DIR=/outer/common \
     musi_run_parallel_step test "" env-check bash -c '
+      [ "${MUSI_VERIFY_MEMORY_ADMISSION_TOKEN:-}" = \
+        "$PARALLEL_STEP_RESERVATION_TOKEN" ] || {
+        printf "MUSI_VERIFY_MEMORY_ADMISSION_TOKEN=%s\n" \
+          "${MUSI_VERIFY_MEMORY_ADMISSION_TOKEN:-unset}"
+        exit 1
+      }
+      [ "$(cat "$MUSI_VERIFY_OOM_SCORE_ADJ_FILE")" -ge 500 ] || {
+        printf "oom_score_adj=%s\n" "$(cat "$MUSI_VERIFY_OOM_SCORE_ADJ_FILE")"
+        exit 1
+      }
       for name in GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE GIT_PREFIX GIT_COMMON_DIR; do
         value="${!name-}"
         [ -z "$value" ] || {
@@ -286,8 +618,38 @@ ok "verify.sh rejects unknown flags"
     || fail "fast-commit marker must not affect the verify_changed consumer"
   [ "$(resolve_rc "$absent_marker" pre_commit test)" = "0" ] \
     || fail "absent fast-commit marker should resolve the pre_commit test slot normally"
+
+  # Adopter portability: a manifest with no fastCommitSkip slots generates
+  # MUSI_FAST_COMMIT_SKIP_SLOTS=(). Resolution must degrade to "skip nothing"
+  # — and the expansion in steps-lib.sh must use the ${arr[@]+...} guard,
+  # because "${empty[@]}" under set -u aborts as unbound on bash < 4.4
+  # (macOS system bash). This host's bash cannot reproduce the abort, so this
+  # case pins the empty-set behavior the guard must preserve.
+  # shellcheck disable=SC2034 # Read by musi_resolve_slot_cmd from the sourced steps-lib.
+  MUSI_FAST_COMMIT_SKIP_SLOTS=()
+  [ "$(resolve_rc "$present_marker" pre_commit test)" = "0" ] \
+    || fail "empty fast-commit skip set should resolve the pre_commit test slot normally"
+  [ "$(resolve_rc "$present_marker" pre_commit scripts)" = "$(resolve_rc "$absent_marker" pre_commit scripts)" ] \
+    || fail "empty fast-commit skip set must make the marker a no-op for the dynamic scripts slot"
 ) || exit 1
 ok "fast-commit marker skips only the slow pre-commit test slots"
+
+# --- empty changed mode exits before launching any verification slots -----
+: > "$STUB_LOG_FILE"
+rm -f "$MARKER_CHANGED"
+output=$(run_verify --changed) || fail "empty verify --changed should exit successfully: $output"
+[ ! -s "$STUB_LOG_FILE" ] \
+  || fail "empty verify --changed should not launch slots: $(cat "$STUB_LOG_FILE")"
+[ ! -f "$MARKER_CHANGED" ] || fail "empty verify --changed should not mint a success marker"
+grep -qF 'stage intended work and rerun' <<< "$output" \
+  || fail "empty verify --changed should explain how to stage work: $output"
+grep -qF 'bun run verify' <<< "$output" \
+  || fail "empty verify --changed should point intentional full verification to bun run verify: $output"
+ok "empty verify --changed skips every slot with precise guidance"
+
+mkdir -p packages/server/src
+printf 'export const verifyFixture = true;\n' > packages/server/src/verify-fixture.ts
+git add packages/server/src/verify-fixture.ts
 
 # --- happy path: changed mode writes a marker -----------------------------
 : > "$STUB_LOG_FILE"
@@ -295,6 +657,36 @@ rm -f "$MARKER_CHANGED"
 run_verify --changed >/dev/null || fail "verify --changed unexpectedly failed"
 [ -f "$MARKER_CHANGED" ] || fail "verify --changed did not write marker"
 ok "verify --changed writes marker on success"
+
+# A constrained live budget defers the next heavy slot instead of skipping it.
+# Keep an external reservation until the first admitted stub starts. Because
+# lint is considered first, this deterministically exercises the deferred path
+# without relying on two short-lived commands overlapping under runner load.
+rm -f "$MARKER_CHANGED"
+: > "$STUB_LOG_FILE"
+rm -rf "$SANDBOX/memory-state"
+mkdir -p "$SANDBOX/memory-state"
+memory_blocker="$SANDBOX/memory-state/reservation.integration"
+write_live_memory_reservation "$memory_blocker" 5000 external
+(
+  while [ ! -s "$STUB_LOG_FILE" ]; do sleep 0.05; done
+  rm -f "$memory_blocker"
+) &
+memory_releaser_pid=$!
+set +e
+output=$(MUSI_VERIFY_MEMORY_AVAILABLE_MB=7000 \
+  FORCE_VERIFY=1 run_verify --changed 2>&1)
+exit_code=$?
+set -e
+wait "$memory_releaser_pid"
+[ "$exit_code" -eq 0 ] || fail "memory-budgeted verify --changed should still succeed: $output"
+grep -qE 'deferring (lint|ratchet|test|scripts) until memory budget is available' <<< "$output" \
+  || fail "memory budget should report the deferred heavy slot: $output"
+grep -qF 'stub bun run lint:ratchet' "$STUB_LOG_FILE" \
+  || fail "memory budget must eventually run the deferred ratchet slot"
+grep -qF 'stub bun run test:changed' "$STUB_LOG_FILE" \
+  || fail "memory budget must not skip later test slots"
+ok "verify --changed defers heavy slots without skipping work"
 
 # --- DX7.0a: test command requests Vitest timing capture into LOG_DIR -----
 # The wrapper pairs --reporter=dot (visible test progress) with --reporter=json
@@ -389,6 +781,113 @@ ok "verify --changed defers lint and ratchet until typecheck when dist outputs a
   write_required_dist_outputs
 ) || exit 1
 ok "parallel dispatch fails loudly when dist-deferred slots have no typecheck slot"
+
+# --- memory scheduler liveness / parent ownership -------------------------
+(
+  LOG_DIR="$SANDBOX/memory-runner-logs"
+  META_DIR="$LOG_DIR/meta"
+  # shellcheck disable=SC2034 # Consumed by sourced generated verify steps.
+  TIMINGS_FILE="$LOG_DIR/timings.json"
+  mkdir -p "$META_DIR"
+  # shellcheck source=../lib/verify-metadata.sh
+  . "$SCRIPT_DIR/../lib/verify-metadata.sh"
+  # shellcheck source=../lib/parallel-step.sh
+  . "$SCRIPT_DIR/../lib/parallel-step.sh"
+  # shellcheck source=../lib/lint-dist-preflight.sh
+  . "$SCRIPT_DIR/../lib/lint-dist-preflight.sh"
+  # shellcheck source=../verify/steps.generated.sh
+  . "$SCRIPT_DIR/../verify/steps.generated.sh"
+  # shellcheck source=../verify/steps-lib.sh
+  . "$SCRIPT_DIR/../verify/steps-lib.sh"
+
+  export MUSI_VERIFY_MEMORY_STATE_ROOT="$SANDBOX/memory-runner-state"
+  export MUSI_VERIFY_MEMORY_AVAILABLE_MB=6000
+  export MUSI_VERIFY_MEMORY_SAFETY_MB=1000
+  export MUSI_VERIFY_MEMORY_POLL_SECONDS=0.1
+
+  # A denied lint at the head must not block a later 256 MB slot. Keep an
+  # external reservation alive for one second and assert the smaller command
+  # runs before that reservation is released and lint follows afterward.
+  rm -rf "$MUSI_VERIFY_MEMORY_STATE_ROOT"
+  mkdir -p "$MUSI_VERIFY_MEMORY_STATE_ROOT"
+  order_log="$SANDBOX/memory-head-of-line.log"
+  : > "$order_log"
+  external_token="$MUSI_VERIFY_MEMORY_STATE_ROOT/reservation.external"
+  write_live_memory_reservation "$external_token" 2000 external
+  (
+    sleep 1
+    printf 'released\n' >> "$order_log"
+    rm -f "$external_token"
+  ) &
+  releaser_pid=$!
+  # shellcheck disable=SC2034 # Resolved by name in the shared runner.
+  MUSI_MEMORY_HOL_STEPS=(lint suppressions)
+  # shellcheck disable=SC2034 # Resolved through MUSI_VERIFY_SLOT_CMD_VAR.
+  MUSI_MEMORY_HOL_LINT_CMD=(bash -c 'printf "lint\n" >> "$1"' _ "$order_log")
+  # shellcheck disable=SC2034 # Resolved through MUSI_VERIFY_SLOT_CMD_VAR.
+  MUSI_MEMORY_HOL_SMALL_CMD=(bash -c 'printf "small\n" >> "$1"' _ "$order_log")
+  MUSI_VERIFY_SLOT_CMD_VAR['memory_hol:lint']='MUSI_MEMORY_HOL_LINT_CMD'
+  MUSI_VERIFY_SLOT_CMD_VAR['memory_hol:suppressions']='MUSI_MEMORY_HOL_SMALL_CMD'
+  step_names=(); step_pids=(); step_exits=(); parallel_pids=()
+  musi_run_parallel_verify_steps memory_hol MUSI_MEMORY_HOL_STEPS parallel-test \
+    verify:test "$PWD" step_names step_pids step_exits parallel_pids
+  wait "$releaser_pid"
+  [ "$(cat "$order_log")" = $'small\nreleased\nlint' ] \
+    || fail "smaller slot should bypass deferred lint: $(cat "$order_log")"
+  [ "${step_exits[0]}:${step_exits[1]}" = '0:0' ] \
+    || fail "head-of-line fixture should pass both slots: ${step_exits[*]}"
+
+  # Kill the parallel wrapper itself, bypassing its EXIT trap. The parent wait
+  # must still remove the token while this gate shell remains alive.
+  rm -rf "$MUSI_VERIFY_MEMORY_STATE_ROOT" "$LOG_DIR"
+  mkdir -p "$MUSI_VERIFY_MEMORY_STATE_ROOT" "$META_DIR"
+  export MUSI_VERIFY_MEMORY_AVAILABLE_MB=16000
+  # shellcheck disable=SC2034 # Resolved by name in the shared runner.
+  MUSI_MEMORY_KILL_STEPS=(lint)
+  # shellcheck disable=SC2034 # Resolved through MUSI_VERIFY_SLOT_CMD_VAR.
+  MUSI_MEMORY_KILL_CMD=(bash -c 'kill -KILL "$PPID"; exit 0')
+  MUSI_VERIFY_SLOT_CMD_VAR['memory_kill:lint']='MUSI_MEMORY_KILL_CMD'
+  step_names=(); step_pids=(); step_exits=(); parallel_pids=()
+  musi_run_parallel_verify_steps memory_kill MUSI_MEMORY_KILL_STEPS parallel-test \
+    verify:test "$PWD" step_names step_pids step_exits parallel_pids 2>/dev/null
+  [ "${step_exits[0]}" -ne 0 ] || fail "SIGKILL fixture should fail its slot"
+  if find "$MUSI_VERIFY_MEMORY_STATE_ROOT" -maxdepth 1 -name 'reservation.*' -print -quit \
+      | grep -q .; then
+    fail "parent wait leaked a reservation after the child EXIT trap was SIGKILLed"
+  fi
+
+  # A live external reservation can defer safely, but only up to the explicit
+  # deadline used by pre-commit while it owns the cross-worktree queue lock.
+  rm -rf "$MUSI_VERIFY_MEMORY_STATE_ROOT" "$LOG_DIR"
+  mkdir -p "$MUSI_VERIFY_MEMORY_STATE_ROOT" "$META_DIR"
+  export MUSI_VERIFY_MEMORY_AVAILABLE_MB=6000
+  export MUSI_VERIFY_MEMORY_WAIT_TIMEOUT=1
+  external_token="$MUSI_VERIFY_MEMORY_STATE_ROOT/reservation.timeout"
+  write_live_memory_reservation "$external_token" 5000 external
+  # shellcheck disable=SC2034 # Resolved by name in the shared runner.
+  MUSI_MEMORY_TIMEOUT_STEPS=(lint)
+  # shellcheck disable=SC2034 # Resolved through MUSI_VERIFY_SLOT_CMD_VAR.
+  MUSI_MEMORY_TIMEOUT_CMD=(bash -c 'exit 0')
+  # shellcheck disable=SC2034 # Read by musi_resolve_slot_cmd in the shared runner.
+  MUSI_VERIFY_SLOT_CMD_VAR['memory_timeout:lint']='MUSI_MEMORY_TIMEOUT_CMD'
+  # shellcheck disable=SC2034 # Passed by name to the shared runner.
+  step_names=()
+  # shellcheck disable=SC2034 # Passed by name to the shared runner.
+  step_pids=()
+  step_exits=()
+  # shellcheck disable=SC2034 # Passed by name to the shared runner.
+  parallel_pids=()
+  start_seconds="$(date +%s)"
+  musi_run_parallel_verify_steps memory_timeout MUSI_MEMORY_TIMEOUT_STEPS parallel-test \
+    verify:test "$PWD" step_names step_pids step_exits parallel_pids 2>/dev/null
+  elapsed_seconds=$(( $(date +%s) - start_seconds ))
+  [ "${step_exits[0]}" -eq 1 ] || fail "memory wait timeout should fail the pending slot"
+  [ "$elapsed_seconds" -lt 5 ] || fail "memory wait timeout took ${elapsed_seconds}s"
+  grep -qF 'memory wait timed out after 1s for lint' "$LOG_DIR/lint.log" \
+    || fail "memory timeout diagnostic is missing: $(cat "$LOG_DIR/lint.log")"
+  rm -f "$external_token"
+) || exit 1
+ok "parallel memory scheduler avoids head-of-line stalls, leaks, and unbounded waits"
 
 # --- MR1: changed mode runs script smoke tests after Vitest --------------
 # verify --changed must invoke `bun run test:scripts:changed` so script-only
@@ -500,7 +999,7 @@ exit_code=$?
 set -e
 [ "$exit_code" -ne 0 ] || fail "verify --changed did not propagate failure"
 grep -qF 'Failed: typecheck' <<< "$output" || fail "summary missed Failed: typecheck"
-grep -qF 'Passed: lint suppressions ratchet zero-baseline debt-accounting knip-unused-exports max-lines-exceptions coverage-map format-check test scripts' <<< "$output" \
+grep -qF 'Passed: lint suppressions ratchet zero-baseline debt-accounting knip-unused-exports near-duplicates max-lines-exceptions coverage-map format-check test scripts' <<< "$output" \
   || fail "summary missed other passed parallel tasks"
 grep -qF 'verify:changed FAILED' <<< "$output" || fail "summary missed banner"
 [ -f "$MARKER_CHANGED" ] && fail "marker should not be written on failure"
@@ -634,6 +1133,96 @@ if [ -f "$TREE_PID_LOG" ]; then
 fi
 ok "watchdog kills child process tree on timeout"
 
+# --- watchdog KILL-escalates a TERM-ignoring process tree ----------------
+rm -f "$MARKER_CHANGED"
+: > "$STUB_LOG_FILE"
+STUBBORN_PID_LOG="$SANDBOX/stubborn-tree-pids"
+rm -f "$STUBBORN_PID_LOG"
+start_seconds=$SECONDS
+set +e
+output=$(
+  STUB_LOG="$STUB_LOG_FILE" \
+    PATH="$SANDBOX/bin:$PATH" \
+    MUSI_VERIFY_LOCK="$LOCK" \
+    MUSI_VERIFY_LOG_DIR="$LOG_DIR" \
+    MUSI_VERIFY_HISTORY_DIR="$HISTORY_DIR" \
+    MUSI_VERIFY_MEMORY_STATE_ROOT="$SANDBOX/memory-state" \
+    MUSI_VERIFY_MARKER_CHANGED="$MARKER_CHANGED" \
+    MUSI_VERIFY_MARKER_FULL="$MARKER_FULL" \
+    MUSI_INTERACTIVE_TIMEOUT=2 \
+    MUSI_PROCESS_TREE_TERM_GRACE_TENTHS=5 \
+    STUB_SLEEP_lint_changed=30 \
+    STUB_IGNORE_TERM_lint_changed=1 \
+    STUB_PID_LOG="$STUBBORN_PID_LOG" \
+    timeout --preserve-status --kill-after=2s 8s bash "$VERIFY" --changed 2>&1
+)
+exit_code=$?
+set -e
+elapsed_seconds=$((SECONDS - start_seconds))
+leaked_pid=""
+if [ -f "$STUBBORN_PID_LOG" ]; then
+  while IFS= read -r pid; do
+    [ -n "$pid" ] || continue
+    if kill -0 "$pid" 2>/dev/null; then
+      leaked_pid="$pid"
+      kill -KILL "$pid" 2>/dev/null || true
+    fi
+  done < "$STUBBORN_PID_LOG"
+fi
+[ "$exit_code" -eq 124 ] || fail "TERM-ignoring watchdog should exit 124 (got $exit_code): $output"
+[ "$elapsed_seconds" -lt 8 ] \
+  || fail "TERM-ignoring watchdog exceeded its bounded cleanup (${elapsed_seconds}s)"
+[ -f "$LOG_DIR/run-meta.json" ] || fail "TERM-ignoring watchdog did not write run-meta.json"
+grep -q '"exit_code":124' "$LOG_DIR/run-meta.json" \
+  || fail "TERM-ignoring watchdog metadata should record exit_code 124"
+[ -z "$leaked_pid" ] \
+  || fail "TERM-ignoring watchdog left process $leaked_pid alive after escalation"
+if ! (exec 9> "$LOCK"; flock -n 9); then
+  fail "TERM-ignoring watchdog retained the verify flock after exit"
+fi
+ok "watchdog KILL-escalates TERM-ignoring trees and releases timeout state"
+
+# --- watchdog catches a descendant forked from a TERM handler -------------
+rm -f "$MARKER_CHANGED"
+: > "$STUB_LOG_FILE"
+LATE_FORK_INITIAL_PIDS="$SANDBOX/late-fork-initial-pids"
+LATE_FORK_PID_FILE="$SANDBOX/late-fork.pid"
+rm -f "$LATE_FORK_INITIAL_PIDS" "$LATE_FORK_PID_FILE"
+set +e
+output=$(
+  MUSI_INTERACTIVE_TIMEOUT=2 \
+    MUSI_PROCESS_TREE_TERM_GRACE_TENTHS=5 \
+    STUB_SLEEP_lint_changed=30 \
+    STUB_LATE_FORK_lint_changed=1 \
+    STUB_LATE_PID_FILE="$LATE_FORK_PID_FILE" \
+    STUB_PID_LOG="$LATE_FORK_INITIAL_PIDS" \
+    run_verify --changed 2>&1
+)
+exit_code=$?
+set -e
+[ "$exit_code" -eq 124 ] || fail "late-fork watchdog should exit 124 (got $exit_code): $output"
+late_fork_wait=0
+while [ ! -s "$LATE_FORK_PID_FILE" ] && [ "$late_fork_wait" -lt 20 ]; do
+  sleep 0.1
+  late_fork_wait=$((late_fork_wait + 1))
+done
+[ -s "$LATE_FORK_PID_FILE" ] || fail "TERM handler did not create the late descendant"
+late_fork_pid=$(cat "$LATE_FORK_PID_FILE")
+if grep -qxF "$late_fork_pid" "$LATE_FORK_INITIAL_PIDS"; then
+  kill -KILL "$late_fork_pid" 2>/dev/null || true
+  fail "late-fork fixture logged pid $late_fork_pid before timeout cleanup began"
+fi
+late_fork_survived=0
+if kill -0 "$late_fork_pid" 2>/dev/null; then
+  late_fork_survived=1
+  kill -KILL "$late_fork_pid" 2>/dev/null || true
+fi
+[ "$late_fork_survived" -eq 0 ] \
+  || fail "watchdog left TERM-handler descendant $late_fork_pid alive after exit 124"
+grep -q '"exit_code":124' "$LOG_DIR/run-meta.json" \
+  || fail "late-fork watchdog metadata should record exit_code 124"
+ok "watchdog kills descendants forked during TERM grace"
+
 # --- MUSI_INTERACTIVE_TIMEOUT is honored by the watchdog ------------------
 rm -f "$MARKER_CHANGED"
 : > "$STUB_LOG_FILE"
@@ -714,6 +1303,10 @@ grep -qF 'bun run lint:ratchet' "$STUB_LOG_FILE" \
   || fail "verify (full) should invoke bun run lint:ratchet"
 ok "verify (full) runs lint ratchet"
 
+grep -qF 'bun run docs:local-eslint-rule-starter:check' "$STUB_LOG_FILE" \
+  || fail "verify (full) should invoke the standalone local-rule starter check"
+ok "verify (full) runs standalone local-rule starter check"
+
 grep -qF 'bun run docs:lint-coverage-map:audit' "$STUB_LOG_FILE" \
   || fail "verify (full) should invoke bun run docs:lint-coverage-map:audit (ESLint-reach enforced)"
 if grep -qF 'bun run docs:lint-coverage-map:check -- --staged' "$STUB_LOG_FILE"; then
@@ -761,6 +1354,10 @@ grep -qF 'bun run lint:ratchet' "$STUB_LOG_FILE" \
   || fail "verify --parallel should invoke bun run lint:ratchet"
 ok "verify --parallel runs lint ratchet"
 
+grep -qF 'bun run docs:local-eslint-rule-starter:check' "$STUB_LOG_FILE" \
+  || fail "verify --parallel should invoke the standalone local-rule starter check"
+ok "verify --parallel runs standalone local-rule starter check"
+
 grep -qF 'bun run format:check' "$STUB_LOG_FILE" \
   || fail "verify --parallel should invoke bun run format:check"
 if grep -qF 'bun run format:changed:check' "$STUB_LOG_FILE"; then
@@ -806,7 +1403,7 @@ exit_code=$?
 set -e
 [ "$exit_code" -ne 0 ] || fail "verify --parallel did not propagate failure"
 grep -qF 'Failed: typecheck' <<< "$output" || fail "parallel summary missed Failed: typecheck"
-grep -qF 'Passed: lint suppressions ratchet zero-baseline debt-accounting knip-unused-exports max-lines-exceptions coverage-map format-check test scripts' <<< "$output" \
+grep -qF 'Passed: lint suppressions ratchet zero-baseline debt-accounting demo-sync local-rule-starter knip-unused-exports near-duplicates max-lines-exceptions coverage-map format-check test scripts' <<< "$output" \
   || fail "parallel summary missed other passed tasks"
 grep -q 'bun run test ' "$STUB_LOG_FILE" \
   || fail "parallel verify should still run test after typecheck failure"

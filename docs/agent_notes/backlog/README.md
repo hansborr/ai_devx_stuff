@@ -1,5 +1,8 @@
 # Backlog
 
+Status: Living reference index
+Updated: 2026-07-16
+
 Parked workstreams that still matter, but should stay out of the default
 agent loop.
 
@@ -117,10 +120,10 @@ Do **not** read this folder at session start. Promote an item back into
   forms, selectable cards, sheet rows, codemods, and homebrew fields.
   _(Done 2026-06-21 except #8 — codemod-engine `parseArgs` dedup across
   `scripts/codemods/trpc-shared-input.ts`/`-output.ts`.)_
-- `drift-ai-ghost-files-agent-noun-pairs.md` — parked detector-tuning follow-up
-  from the 2026-06-05 field-run calibration: reviewed current-scope
-  `ghost-files` false positive for intentional `evaluation`/`evaluator` role
-  siblings.
+- `drift-ai-ghost-files-agent-noun-pairs.md` — detector-tuning follow-up
+  from the 2026-06-05 field-run calibration (**done** — `currentAllowedPairs`
+  now covers the pair): reviewed current-scope `ghost-files` false positive for
+  intentional `evaluation`/`evaluator` role siblings.
 - `semgrep-drift-sensor-research.md` /
   `semgrep-drift-ai-implementation-plan.md` — research and implementation plan
   for adding Semgrep as an opt-in `drift:ai` prototype advisory, with explicit
@@ -148,95 +151,91 @@ Do **not** read this folder at session start. Promote an item back into
   component surface or team size justifies the tooling. Companion deferred work:
   a WCAG contrast audit and `prefers-reduced-motion` handling.
 - `codebase-audit/00-report.md` — 2026-06-13 read-only maintainability/onboarding
-  audit; mostly implemented (updated 2026-06-20): 38/43 leaves Done & landed,
-  3 partial (#08/#09/#24 server-layering), 2 open Proposals (#05, #20). Re-verify
+  audit; reconciled 2026-07-13: 38 landed leaves removed, 3 remain partial
+  (#08/#09/#24 server-layering), 2 open Proposals (#05, #20). Re-verify
   `file:line` and pull one open leaf at a time. Excludes the dup/dead-code lane
-  (now
-  `../finished_work/drift-ai-findings.md`) and already-tracked packs.
-- `harness-strictness-comprehension-2026-06/00-index.md` — two proposal-only
-  harness follow-ups from the 2026-06 research notes: ratchet the remaining
+  (now `../finished_work/drift-ai-findings.md`) and already-tracked packs.
+- `harness-strictness-comprehension-2026-06/00-index.md` — two harness
+  follow-ups from the 2026-06 research notes (HC-1 PR comprehension template
+  landed `1fdea456`; HS-1 remains a proposal): ratchet the remaining
   TypeScript strictness flags (`exactOptionalPropertyTypes`,
   `noPropertyAccessFromIndexSignature`, `noImplicitOverride`,
   `noFallthroughCasesInSwitch`) with measured adoption, and add a short
   intent/comprehension prompt to the PR template while preserving
   `verify:changed`.
-- `lint-messaging-2026-07/00-index.md` — 21-leaf task pack from the
-  2026-07-05 lint-messaging review (5 parallel Sonnet surface agents +
-  Fable synthesis; highest-impact claims spot-verified, rest
-  report-sourced). Four tracks: truthfulness (fast-commit success summary
-  silent about skipped slots, suppression-register soft pass,
-  concurrency-guard doc contradiction), discoverability (envelope↔hook
-  bridge, inline doc-pointer parity + contract-test guard, coverage-map
-  `--suggest` alias), audit-lane actionability (`audit:licenses` remedy,
-  logs-audit/blob-size/knip remedy batch), and consistency/noise polish
-  (ratchet `--allow-worse` dedupe, merge-recipe single-sourcing,
-  improvement `kind` field, typecheck/commit-msg summaries).
-- `lint-deep-dive-2026-07/00-index.md` — 32-leaf task pack from the
-  2026-07-04 lint deep-dive (3 parallel Codex xhigh lanes + Claude
-  verification agents; every claim verified against HEAD). Seven tracks:
-  ratchet correctness (post-merge truth-up staleness, transitive rule-source
-  hashing, merge fingerprint drop, debt accounting into the commit gate),
-  performance (shared heap policy, ESLint caching, collection dedupe),
-  local-rule correctness (raw-SQL computed-property bypass, one confirmed
-  false positive in socket-listener-cleanup, binding-resolution gaps across
-  four rules), config architecture (additive restricted-syntax composition,
-  config-surface manifest, smoke-subject single-sourcing), gate wiring
-  (suppression registers into the gate — owner priority, CI manifest
-  generation), inventory floors (coverage-map conflict detection, knip
-  identity baseline), and docs/portability (guide accuracy sweep, portable
-  engine context milestone 2).
-- `harness-review-2026-07/00-index.md` — 36-leaf task pack from the
-  2026-07-01 AI-harness review (multi-agent + Codex second opinion + web
-  research; every count re-verified against HEAD). Five tracks: ratchet
-  merge-conflict lane (semantic min-merge driver, driver health check,
-  post-merge truth-up — motivated by real multi-contributor field pain),
-  ratchet platform (hand-edit integrity gate, collection parallelism,
-  report-only mode, trend reporting), new lint rules (transaction-client,
-  raw-SQL fence + live escapee, tRPC error codes, query keys, socket
-  cleanup, effect-boundary marker), hooks (lifecycle-event schema support,
-  policy.sh false-positive fix, protected-files deny tier, pre-push
-  backstop), and public-reference fitness (export-ignore, portable-core
-  extraction). Rejected verdicts recorded in `01-sources-and-verdicts.md`.
-- `explore-fixes-2026-07/00-index.md` — 17-leaf task pack from the 2026-07-03
-  exploration pass (Codex investigation + three independent sweeps + Codex
-  adversarial triage; every citation re-verified at HEAD). Dominant theme is
-  dogfood-tooling correctness: CLI option-value parsing footguns
-  (logs/harness audit, drift-ai/code-intel), an unsafe slow-drift `rm -rf`,
-  the silent `.allow-protected-edits` override, stale-artifact metadata,
-  bun-run-quiet allowlist drift, a typecheck.sh test gap — plus two
-  whole-ratchet clears, a ratchet-debt disposition decision, two client
-  dedups, one test de-flake, and one stale flaky-doc closure. Kill list and
-  ratchet-debt snapshot in its `01-sources-and-verdicts.md`.
-- `explore-fixes-2026-07b/00-index.md` — 12-leaf task pack from the second
-  2026-07-03 exploration pass (Codex investigation + three independent
-  Claude sweeps + Codex adversarial triage + orchestrator spot-checks),
-  run after the first pack landed and aimed at angles it did not cover.
-  Two themes: tooling atomic/ordering hazards (CI running the weaker
-  coverage-map checker vs the documented audit form, cross-filesystem
-  `.env` and MODULE-INDEX writes, unenforced commit scope, unmodeled
-  client→server tsconfig edge) and client cache-layer correctness
-  (optimistic updates that never cancel in-flight queries, a missed
-  `character.list` invalidation, an incomplete slot-conversion patch, a
-  missing roster broadcast) — plus guide drift from the ESLint-config
-  split and the lint-ratchet portable-set extraction. Kill list and the
-  pass's verified-clean record in its `01-sources-and-verdicts.md`.
+- `lint-messaging-2026-07/00-index.md` — 1-leaf residue of the 2026-07-05
+  lint-messaging review (reconciled 2026-07-13): the envelope↔hook bridge's
+  deferred step (b). Everything else in the 21-leaf pack landed.
+- `lint-deep-dive-2026-07/00-index.md` — 8-leaf residue of the 2026-07-04
+  lint deep-dive (reconciled 2026-07-13): proposed/parked/design-gated
+  follow-ups — propose-mode registry validation, scheduler cancellation,
+  shared collection design, additive restricted-syntax composition,
+  suppression registers into the commit gate, ratchet docs accuracy,
+  portable engine context, and lint-lane memory profiling. (Type-program
+  partitioning, leaf 76, landed 2026-07-14 — `d714f4ce`.)
+- `harness-review-2026-07/00-index.md` — 27-leaf pack from the 2026-07-01
+  AI-harness review (reconciled 2026-07-13; was 36). The ratchet merge-conflict
+  lane, ratchet platform, new lint rules, and hooks all landed
+  2026-07-12..2026-07-15; the open residue is 38, 52 (drain 3.1), and half
+  (a) of 18 (drain 2.1), with 35 boundary / 36 / 70 / 74 design-gated or
+  human-reviewed. Rejected verdicts recorded in `01-sources-and-verdicts.md`.
+- `harness-audit-2026-07/00-index.md` — 45-leaf task pack from the 2026-07-13
+  six-lane harness audit and per-lane adversarial verification: gate/worktree
+  correctness, cross-harness parity, CLI UX, lint showcase accuracy, and
+  first-contact presentation work.
+- `harness-explore-2026-07/00-index.md` — 14-leaf residue of the 2026-07-11
+  harness exploration (reconciled 2026-07-13; was 22 — both P1s and the other
+  landed/rejected leaves removed): Ready leaves on drift-prone hand-maintained
+  lists (staleness regex, allowlists, exempt scripts, the coverage map),
+  gate-script dedup, suppression policy as data, gate-run-mode recording, and
+  copyability/docs splits.
+- `harness-sweep-2026-07/00-index.md` — 3-leaf residue of the 2026-07-11
+  multi-model sweep (reconciled 2026-07-13; was 40): checkJs gate / shared
+  policy-shim parity, the knip dead-export floor drain, and worktree-aware
+  commit guards. Sweep design and the 59-item kill list remain in
+  `00-sources-and-verdicts.md`.
 - `harness-research-followups-2026-06/00-index.md` — second round of
-  proposal-only follow-ups from the harness research, after cross-checking each
-  recommendation against what the repo already enforces. Four **ready** leaves:
-  property-based tests for the rules engine (fast-check), token-aware design
+  follow-ups from the harness research, after cross-checking each
+  recommendation against what the repo already enforces. Four leaves:
+  property-based tests for the rules engine (fast-check; PB-1 partially landed
+  `3c302f89`, residue = drain leaf 5.1), token-aware design
   lint (arbitrary Tailwind / scoped raw hex), a codebase-grounded golden-task
   eval harness, and runtime a11y (axe-core) in the Playwright e2e suite. Three
   **design-gated, do-not-implement-yet** leaves with open questions: secret
   scanning (gitleaks/trufflehog), a PR diff-size warning, and a guardrail-config
   change tripwire (the last two shaped by this being a single-author repo).
   Index lists what is already covered elsewhere so nothing is double-proposed.
+- `lint-adoption-2026-07/00-index.md` — 10-leaf adoption pack from the
+  2026-07-15 lint-as-harness research (Musi vs Factory vs llm-core); all 10
+  leaves landed (merged via `ab318d05` / `4528e972`): P0 =
+  near-duplicate gate, function-length/nesting tightening, error-semantics
+  siblings, envelope overlay for core rules; P1 = llm-core correctness
+  bundle, effect-misuse enforcement, message upgrades/evals,
+  `no-commented-out-code`, security primitives, unbounded `Promise.all`.
+  Non-recommendations and the P2 watchlist live in
+  `01-sources-and-verdicts.md`.
+- `lint-arch-review-2026-07/00-index.md` — 10-leaf pack from the 2026-07-16
+  five-model architecture review of the lint system (artifact-sourced;
+  semantics unanimously endorsed, packaging faulted). Two P0s: migrate the
+  ratchet onto the `scripts/lib/baseline/` kernel (the semantic-minimum merge
+  is implemented twice), and replace the portable copy manifest + demo-sync
+  harness with a real package seam (adjudicated 2026-07-16: internal
+  workspace package, amends lint-deep-dive 71). All leaves re-verified at
+  HEAD 2026-07-16. P1/P2 tail: metric strategies, one merge-driver shell
+  body, engine file consolidation, rule-source identity hashing (reshaped
+  P2/S), coverage map as data, validation/CLI idiom, docs split hygiene,
+  `report-only` trim.
+- `sequential-drain-2026-07/00-index.md` — 2026-07-15 consolidation pack: the
+  verified-open residue of every other pack and standalone note, ordered into
+  five phases for a sequential stacked-branch drain (worktree/dispatch →
+  ratchet residue → hooks/gates → sensors/tests → tail). Its
+  `01-verification-record.md` lists the ~20 leaves found already landed with
+  stale status lines, plus the exclusion verdicts — check it before promoting
+  from the older packs above.
 - `arch-review-2026-07/00-report.md` — 2026-07-06 whole-repo architectural
-  review (five parallel survey agents + synthesis; harness-focused per owner).
-  Verdict: product code clean; harness refactors ranked in three tiers —
-  single verify engine, finish single-sourcing of tripwire-guarded bindings,
-  agent-run backend adapter table, unified baseline framework, then
-  substrate-ruling/shared-lib/classification decisions, then a cheap-cleanup
-  drain list. Cross-referenced against the existing packs it amends.
+  review (reconciled 2026-07-13): only the baseline-framework/max-lines
+  git-attributes follow-up (#12) and the bash-vs-TS substrate ruling (#13,
+  owner sign-off) remain open; the other ranked refactor tiers landed.
 
 ## Promotion rules
 

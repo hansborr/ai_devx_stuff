@@ -548,20 +548,21 @@ assert_envelope() {
   ASSERT_FILE="$file" ASSERT_WARN="$expected_warn" ASSERT_INFO="$expected_info" \
     bun -e '
     const fs = require("fs");
+    const assertionFailed = (message) => { console.error(message); process.exit(1); };
     const env = JSON.parse(fs.readFileSync(process.env.ASSERT_FILE, "utf8"));
     const warn = Number(process.env.ASSERT_WARN);
     const info = Number(process.env.ASSERT_INFO);
-    if (env.version !== "1") throw new Error("bad version");
-    if (env.tool !== "verify:logs") throw new Error(`bad tool ${env.tool}`);
-    if (!Array.isArray(env.findings)) throw new Error("findings not array");
-    if (env.summary.blocking !== 0) throw new Error(`blocking expected 0, got ${env.summary.blocking}`);
-    if (env.summary.warning !== warn) throw new Error(`warning expected ${warn}, got ${env.summary.warning}`);
-    if (env.summary.info !== info) throw new Error(`info expected ${info}, got ${env.summary.info}`);
+    if (env.version !== "1") assertionFailed("bad version");
+    if (env.tool !== "verify:logs") assertionFailed(`bad tool ${env.tool}`);
+    if (!Array.isArray(env.findings)) assertionFailed("findings not array");
+    if (env.summary.blocking !== 0) assertionFailed(`blocking expected 0, got ${env.summary.blocking}`);
+    if (env.summary.warning !== warn) assertionFailed(`warning expected ${warn}, got ${env.summary.warning}`);
+    if (env.summary.info !== info) assertionFailed(`info expected ${info}, got ${env.summary.info}`);
     for (const f of env.findings) {
       if (f.control !== "verify-wrapper/verify-logs") {
-        throw new Error(`bad control ${f.control}`);
+        assertionFailed(`bad control ${f.control}`);
       }
-      if (f.repairKind !== "manual") throw new Error(`bad repairKind ${f.repairKind}`);
+      if (f.repairKind !== "manual") assertionFailed(`bad repairKind ${f.repairKind}`);
     }
   ' || fail "invalid verify:logs envelope: $file"
 }
@@ -579,13 +580,14 @@ run_logs --json > "$JSON_OUT" || fail "--json must exit 0 even when a task faile
 assert_envelope "$JSON_OUT" 1 0
 ASSERT_FILE="$JSON_OUT" bun -e '
   const fs = require("fs");
+  const assertionFailed = (message) => { console.error(message); process.exit(1); };
   const env = JSON.parse(fs.readFileSync(process.env.ASSERT_FILE, "utf8"));
   const f = env.findings.find((f) => f.messageId === "lint-failure");
-  if (!f) throw new Error("missing lint-failure finding");
-  if (f.severity !== "warn") throw new Error(`expected warn, got ${f.severity}`);
-  if (!f.path.endsWith("lint_changed.log")) throw new Error(`bad path ${f.path}`);
+  if (!f) assertionFailed("missing lint-failure finding");
+  if (f.severity !== "warn") assertionFailed(`expected warn, got ${f.severity}`);
+  if (!f.path.endsWith("lint_changed.log")) assertionFailed(`bad path ${f.path}`);
   if (!/exit/.test(f.why) || !/code 1/.test(f.why)) {
-    throw new Error(`why missing exit code: ${f.why}`);
+    assertionFailed(`why missing exit code: ${f.why}`);
   }
 ' || fail "lint-failure envelope shape mismatch"
 ok "--json emits warn finding with task-failure messageId on FAIL state"
@@ -597,9 +599,10 @@ run_logs --json > "$JSON_OUT" || fail "--json must exit 0 on OK state"
 assert_envelope "$JSON_OUT" 0 0
 ASSERT_FILE="$JSON_OUT" bun -e '
   const fs = require("fs");
+  const assertionFailed = (message) => { console.error(message); process.exit(1); };
   const env = JSON.parse(fs.readFileSync(process.env.ASSERT_FILE, "utf8"));
   if (env.findings.length !== 0) {
-    throw new Error(`OK state must not emit findings, got ${env.findings.length}`);
+    assertionFailed(`OK state must not emit findings, got ${env.findings.length}`);
   }
 ' || fail "OK state should produce empty findings"
 ok "--json emits no findings when all tasks are OK"
@@ -613,10 +616,11 @@ run_logs --json > "$JSON_OUT" || fail "--json must exit 0 on state-unknown"
 assert_envelope "$JSON_OUT" 0 1
 ASSERT_FILE="$JSON_OUT" bun -e '
   const fs = require("fs");
+  const assertionFailed = (message) => { console.error(message); process.exit(1); };
   const env = JSON.parse(fs.readFileSync(process.env.ASSERT_FILE, "utf8"));
   const f = env.findings.find((f) => f.messageId === "lint-state-unknown");
-  if (!f) throw new Error("missing lint-state-unknown finding");
-  if (f.severity !== "info") throw new Error(`expected info, got ${f.severity}`);
+  if (!f) assertionFailed("missing lint-state-unknown finding");
+  if (f.severity !== "info") assertionFailed(`expected info, got ${f.severity}`);
 ' || fail "lint-state-unknown envelope shape mismatch"
 ok "--json emits info finding when task state cannot be confirmed"
 
@@ -638,11 +642,12 @@ JSON_OUT="$SANDBOX/json-corrupt.json"
 run_logs --json > "$JSON_OUT" || fail "--json must exit 0 when wrapper marker is corrupt"
 ASSERT_FILE="$JSON_OUT" bun -e '
   const fs = require("fs");
+  const assertionFailed = (message) => { console.error(message); process.exit(1); };
   const env = JSON.parse(fs.readFileSync(process.env.ASSERT_FILE, "utf8"));
   const f = env.findings.find((f) => f.messageId === "wrapper-marker-corrupt-verify-changed");
-  if (!f) throw new Error("missing wrapper-marker-corrupt-verify-changed finding");
-  if (f.severity !== "warn") throw new Error(`expected warn, got ${f.severity}`);
-  if (!f.path.endsWith("verify-changed")) throw new Error(`bad path ${f.path}`);
+  if (!f) assertionFailed("missing wrapper-marker-corrupt-verify-changed finding");
+  if (f.severity !== "warn") assertionFailed(`expected warn, got ${f.severity}`);
+  if (!f.path.endsWith("verify-changed")) assertionFailed(`bad path ${f.path}`);
 ' || fail "wrapper-marker-corrupt envelope shape mismatch"
 ok "--json emits warn finding for each corrupt wrapper marker"
 rm -f "$VERIFY_MARKER_CHANGED" "$PRECOMMIT_LOG_DIR/lint.log"

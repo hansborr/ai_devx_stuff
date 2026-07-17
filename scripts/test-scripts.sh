@@ -33,7 +33,8 @@
 #   MUSI_SCRIPTS_CONCURRENCY   — selected-smoke concurrency override; default
 #                                is min(8, nproc), falling back to 4.
 #   MUSI_SCRIPTS_LOG_DIR       — parallel-mode per-smoke log directory;
-#                                default /tmp/musi-test-scripts-logs.
+#                                default is worktree-scoped under the standard
+#                                verification state root.
 
 set -u
 
@@ -52,6 +53,20 @@ cd "$REPO_ROOT" || exit 1
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/lib/changed-base.sh
 . "$SCRIPT_DIR/lib/changed-base.sh"
+# shellcheck source=scripts/lib/verify-metadata.sh
+. "$SCRIPT_DIR/lib/verify-metadata.sh"
+# shellcheck source=scripts/lib/tool-memory-admission.sh
+. "$SCRIPT_DIR/lib/tool-memory-admission.sh"
+if [ "$CHANGED" -eq 0 ]; then
+  SCRIPTS_RUN_SCOPE=full
+else
+  SCRIPTS_RUN_SCOPE=focused
+fi
+if musi_tool_memory_admission_needed "$SCRIPTS_RUN_SCOPE"; then
+  musi_tool_memory_run_admitted scripts test:scripts:direct \
+    bash "$SCRIPT_DIR/test-scripts.sh" "$@"
+  exit $?
+fi
 PATH_POLICY_QUERY="${MUSI_PATH_POLICY_QUERY:-$SCRIPT_DIR/path-policy/path-policy-query.ts}"
 PATH_POLICY_BUN="${MUSI_PATH_POLICY_BUN:-bun}"
 
@@ -219,7 +234,7 @@ if [ "${#SELECTED[@]}" -eq 0 ]; then
 fi
 
 RUNNER="${MUSI_SCRIPTS_RUNNER:-bash}"
-LOG_DIR="${MUSI_SCRIPTS_LOG_DIR:-/tmp/musi-test-scripts-logs}"
+LOG_DIR="${MUSI_SCRIPTS_LOG_DIR:-$(musi_standard_state_path musi-test-scripts-logs "$REPO_ROOT")}"
 LOG_TAIL_LINES=30
 
 default_scripts_concurrency() {

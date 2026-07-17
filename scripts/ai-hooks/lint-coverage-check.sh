@@ -128,7 +128,7 @@ ai_lint_coverage_compose() {
   bullets=$(ai_lint_coverage_bullets "$tier" "$@")
   if [ "$tier" = ratchet ]; then
     header="lint-coverage (info): file(s) you just edited are covered only by lint:ratchet (single-rule floors), not full ESLint:"
-    body="That's an accepted floor, not an error. For the full ratchet picture: bun run lint:ratchet. For structured local/* guidance only: bun run lint:agent:local-rules:changed. If you added a new lint surface (a new directory or file group), add a row in docs/generated/lint-coverage-map.md. The per-file counts there are descriptive, but new surfaces/globs should get a row."
+    body="That's an accepted floor, not an error. For the full ratchet picture: bun run lint:ratchet. For structured selected-rule guidance: bun run lint:agent:local-rules:changed. If you added a new lint surface (a new directory or file group), add a row in docs/generated/lint-coverage-map.md. The per-file counts there are descriptive, but new surfaces/globs should get a row."
   else
     header="lint-coverage (WARNING): file(s) you just edited are NOT covered by ESLint at all:"
     body="If it should be linted, add it to eslint.config.js and the relevant tsconfig. Either way, account for it in docs/generated/lint-coverage-map.md; run this for a ready-to-paste coverage-map row:

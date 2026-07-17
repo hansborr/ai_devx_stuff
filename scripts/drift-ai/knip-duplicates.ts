@@ -7,7 +7,7 @@ import { changedFilesFromScope, sortFindingsByFileMessage, toPosix } from "./pat
 import type { DetectorScope } from "./scope.js";
 import type { DriftFinding, FindingProvenance } from "./types.js";
 
-export type KnipDuplicateExportSymbol = {
+type KnipDuplicateExportSymbol = {
   readonly name: string;
   readonly line?: number;
   readonly col?: number;
@@ -71,7 +71,7 @@ function symbolFromItem(item: unknown): readonly KnipDuplicateExportSymbol[] {
 
 // --- findings ---------------------------------------------------------------
 
-export const KNIP_DUPLICATES_REPAIR_HINT =
+const KNIP_DUPLICATES_REPAIR_HINT =
   "if the aliases are redundant, keep one exported name and update callers; if the alias is intentional public API compatibility, add it to the target's knip ignore config so the duplicate-export signal stays clean.";
 
 export function buildKnipDuplicateFindings(

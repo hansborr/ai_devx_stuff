@@ -55,7 +55,7 @@ export type ModuleGraphResult =
   // The engine threw building the graph -> attempted-and-failed (one diagnostic).
   | { readonly ok: false; readonly error: string };
 
-export type ModuleGraphRunnerInput = {
+type ModuleGraphRunnerInput = {
   readonly repoRoot: string;
   // Configured source roots (repo-relative). Empty walks the whole repoRoot.
   readonly roots: readonly string[];

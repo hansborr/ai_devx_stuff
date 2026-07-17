@@ -247,6 +247,7 @@ describe("buildDuplicatesFindings", () => {
         file: "packages/server/src/utils/character-auth.ts:40-68",
         message: "duplicates packages/server/src/utils/campaign-auth.ts:22-50 (29 lines)",
         hint: DUPLICATE_REPAIR_HINT,
+        relatedFiles: ["packages/server/src/utils/campaign-auth.ts:22-50"],
       },
     ]);
   });
@@ -321,6 +322,7 @@ describe("buildDuplicatesFindings", () => {
         file: "packages/client/src/monster-form-fields.tsx:436-474",
         message: "repeats within the same file at lines 435-473 (39 lines)",
         hint: SAME_FILE_DUPLICATE_REPAIR_HINT,
+        relatedFiles: ["packages/client/src/monster-form-fields.tsx:435-473"],
       },
     ]);
   });
@@ -523,6 +525,7 @@ describe("runDuplicatesCheck", () => {
         file: "packages/server/src/utils/character-auth.ts:40-68",
         message: "duplicates packages/server/src/utils/campaign-auth.ts:22-50 (29 lines)",
         hint: DUPLICATE_REPAIR_HINT,
+        relatedFiles: ["packages/server/src/utils/campaign-auth.ts:22-50"],
       },
     ]);
   });
@@ -622,6 +625,7 @@ describe("runDuplicatesCheck", () => {
         file: "packages/server/src/a.ts:9-26",
         message: "duplicates packages/server/src/b.ts:5-22 (18 lines)",
         hint: DUPLICATE_REPAIR_HINT,
+        relatedFiles: ["packages/server/src/b.ts:5-22"],
       },
     ]);
   });
@@ -662,6 +666,7 @@ describe("runDuplicatesCheck", () => {
         file: "src/legacy/a.ts:9-29",
         message: "duplicates src/legacy/b.ts:5-25 (21 lines)",
         hint: DUPLICATE_REPAIR_HINT,
+        relatedFiles: ["src/legacy/b.ts:5-25"],
       },
     ]);
   });

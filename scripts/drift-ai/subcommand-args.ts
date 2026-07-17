@@ -25,11 +25,11 @@ export type SubcommandBaseOptions = {
 
 // A per-subcommand value option: given the raw value, validate and stash it
 // (mutating the subcommand's own accumulator). Throws DriftAiError on a bad value.
-export type SubcommandValueOption = (value: string) => void;
+type SubcommandValueOption = (value: string) => void;
 
 // A per-subcommand valueless boolean flag (present = true): the handler flips the
 // subcommand's own accumulator. Mirrors the main parser's parseBooleanFlag.
-export type SubcommandFlagOption = () => void;
+type SubcommandFlagOption = () => void;
 
 export type SubcommandSpec = {
   // Full usage text, shown on `--help` and appended to unknown-arg / missing-value

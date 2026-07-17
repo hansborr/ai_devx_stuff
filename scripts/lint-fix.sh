@@ -10,6 +10,10 @@ if [ "${1:-}" = "--" ]; then
   shift
 fi
 
+# Raise the Node heap so a direct `bun run lint:fix` full-tree repair gets the
+# same OOM mitigation the gates do; idempotent when NODE_OPTIONS already sets it.
+# shellcheck source=scripts/lib/gate-env.sh
+. "$SCRIPT_DIR/lib/gate-env.sh"
 # shellcheck source=scripts/lib/lint-dist-preflight.sh
 . "$SCRIPT_DIR/lib/lint-dist-preflight.sh"
 

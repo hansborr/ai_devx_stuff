@@ -1,4 +1,4 @@
-export function numericLiteralDigitCount(sourceText: string): number {
+function numericLiteralDigitCount(sourceText: string): number {
   const normalized = sourceText.replace(/^[+-]/u, "").replace(/[_.]/gu, "");
   const hexadecimalDigits = normalized.match(/^0x([0-9a-f]+)$/iu)?.[1];
   if (hexadecimalDigits !== undefined) return hexadecimalDigits.length;

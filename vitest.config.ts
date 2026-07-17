@@ -1,6 +1,27 @@
 import { defineConfig } from "vitest/config";
 
+import {
+  clearTranslatedNativeWorkerOverride,
+  maxWorkersFromEnv,
+  workerEnvWithTranslatedNativeOverride,
+} from "./scripts/vitest-worker-count.js";
+
 export const DEFAULT_VITEST_TEST_TIMEOUT_MS = 30_000;
+export const DEFAULT_NON_SERVER_TEST_MAX_WORKERS = 6;
+export const MAX_NON_SERVER_TEST_MAX_WORKERS = 8;
+// Vitest requires projects in the same sequence group to share maxWorkers.
+// Server runs separately in group 1; every other project shares this group-0 cap.
+export const NON_SERVER_TEST_MAX_WORKERS = maxWorkersFromEnv(
+  ["NON_SERVER_TEST_MAX_WORKERS", "VITEST_MAX_WORKERS"],
+  DEFAULT_NON_SERVER_TEST_MAX_WORKERS,
+  MAX_NON_SERVER_TEST_MAX_WORKERS,
+  workerEnvWithTranslatedNativeOverride(process.env),
+);
+// The wrapper's translated native env makes CLI effective for workspace
+// projects. Remove the synthetic global override after the initial group-0
+// capture; the marker lets later project-config module evaluation reconstruct
+// that value, while Vitest itself sees no native override for server.
+clearTranslatedNativeWorkerOverride(process.env);
 
 export default defineConfig({
   test: {

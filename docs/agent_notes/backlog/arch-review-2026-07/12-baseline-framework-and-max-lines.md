@@ -117,10 +117,8 @@ in 00-report.md
   scheduled a real-merge field exercise of the driver
   (`../merge-driver-field-exercise.md`, after the agent-cli pack) — its
   findings are the sanctioned path to such evidence.
-- The knip-sensor identity gap already has a drafted design:
-  `../lint-deep-dive-2026-07/61-knip-identity-baseline.md` (deferred pending
-  owner review). Coordinate — implementing 61's identity ledger *on* the
-  extracted framework is the natural combined slice.
+- The knip-sensor identity gap was implemented on the extracted framework;
+  the remaining open seam is the git-attributes wiring tracked below.
 
 ## Problem (remaining, still real)
 

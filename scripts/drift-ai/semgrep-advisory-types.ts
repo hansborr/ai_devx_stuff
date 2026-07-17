@@ -4,6 +4,7 @@
 // and the formatter can share them without a cycle.
 
 import type { PrototypeAdvisory, PrototypeSection } from "./prototype-advisory.js";
+import type { PrototypeScanProvenance } from "./prototype-advisory.js";
 import type {
   RuleLicenseClass,
   RuleSourceDecision,
@@ -99,6 +100,7 @@ export type SemgrepAdvisoryInput = {
 
 export type SemgrepAdvisoryOptions = {
   readonly top?: number;
+  readonly scanProvenance?: PrototypeScanProvenance;
   // `--include-rule-messages`: carry Semgrep's rendered rule messages on the
   // rows. Off by default — rendered messages interpolate matched metavariable
   // values, so they can embed matched source text (snippet policy, decision 5).

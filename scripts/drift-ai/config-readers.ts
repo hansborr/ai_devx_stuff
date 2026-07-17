@@ -82,7 +82,7 @@ export function uniqAllowedPairs(values: readonly GhostFileAllowedPair[]): Ghost
   );
 }
 
-export function parseEmptyCheckConfig(raw: unknown, keyPath: string): Record<string, never> {
+function parseEmptyCheckConfig(raw: unknown, keyPath: string): Record<string, never> {
   const record = assertConfigObject(raw, keyPath);
   assertKnownKeys(record, [], keyPath);
   return {};

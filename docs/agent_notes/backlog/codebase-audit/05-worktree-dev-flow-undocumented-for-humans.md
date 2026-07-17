@@ -1,6 +1,7 @@
 # 5. Per-worktree dev flow (worktree:* scripts, MUSI_DEV_DRIFT_GATE) auto-runs on `bun run dev` in secondary worktrees but has no human-facing doc
 
-Status: Proposed — codebase maintainability/onboarding audit 2026-06-13. Not yet started.
+Status: Done — the human-facing per-worktree dev doc landed at `docs/guides/per-worktree-dev.md` (referenced from AGENTS.md). Problem statement below is retained as the original finding.
+Created: 2026-06-13 · Updated: 2026-07-15
 Theme: onboarding discoverability · Area: docs · Severity: medium · Size: S
 
 Source: codebase maintainability/onboarding audit 2026-06-13 (lens: onboarding-setup); evidence independently re-verified. · Confidence: high
@@ -15,7 +16,7 @@ Source: codebase maintainability/onboarding audit 2026-06-13 (lens: onboarding-s
 - `package.json:19-25` — seven `worktree:*` scripts (`init`, `new`, `drop`, `gc`, `status`, `template-refresh`, `refresh-data`); none is referenced from a human onboarding doc.
 - `scripts/worktree-db.sh:1-62` — the authoritative per-worktree DB/port/env provisioner; its full subcommand semantics (DB names it may create, files it writes to the current vs. primary worktree) exist only in this shell header.
 - `is_primary_worktree` at `scripts/worktree-db.sh:136-141` — the detection that decides "secondary worktree" (git-common-dir vs. git-dir), the implicit trigger for all of the above.
-- README.md and AGENTS.md: `rg -ni worktree` returns no matches (exit 1) in either — zero mentions. `docs/guides/` has no `*worktree*` file (the four guides that contain the word use it incidentally, e.g. `docs/guides/add-prisma-migration.md:66`, `docs/guides/lint-ratchet.md:617-622`). `MUSI_DEV_DRIFT_GATE` appears only in `scripts/dev.sh` and `scripts/tests/test-worktree-db.sh` — documented in no prose.
+- README.md and AGENTS.md: `rg -ni worktree` returns no matches (exit 1) in either — zero mentions. `docs/guides/` has no `*worktree*` file (the guides that contain the word use it incidentally, e.g. `docs/guides/add-prisma-migration.md` and `docs/guides/lint-ratchet-merges.md`). `MUSI_DEV_DRIFT_GATE` appears only in `scripts/dev.sh` and `scripts/tests/test-worktree-db.sh` — documented in no prose.
 - `docs/ai-harness.md:127,138` — the per-worktree drift checks are surfaced only in the *agent harness* table (pointing at "`bun run worktree:*` scripts"), not a human-facing onboarding guide; it assumes the reader already knows the worktree model.
 
 ## Proposed direction

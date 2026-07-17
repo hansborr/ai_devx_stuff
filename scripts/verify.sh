@@ -62,6 +62,8 @@ cd "$REPO_ROOT" || exit 1
 # shellcheck source=/dev/null
 . "$REPO_ROOT/scripts/lib/verify-metadata.sh"
 # shellcheck source=/dev/null
+. "$REPO_ROOT/scripts/lib/changed-base.sh"
+# shellcheck source=/dev/null
 . "$REPO_ROOT/scripts/process-tree.sh"
 # shellcheck source=/dev/null
 . "$REPO_ROOT/scripts/lib/parallel-step.sh"
@@ -87,7 +89,7 @@ TIMINGS_FILE="$LOG_DIR/test-timings.json"
 # shellcheck source=/dev/null
 . "$REPO_ROOT/scripts/verify/steps-lib.sh"
 META_DIR="$LOG_DIR/meta"
-INTERACTIVE_TIMEOUT="${MUSI_INTERACTIVE_TIMEOUT:-1200}"
+INTERACTIVE_TIMEOUT="${MUSI_INTERACTIVE_TIMEOUT:-$MUSI_GATE_INTERACTIVE_TIMEOUT_DEFAULT}"
 WARN_AFTER="${MUSI_INTERACTIVE_WARN_AFTER:-1080}"
 case "$MODE" in
   changed)
@@ -111,7 +113,28 @@ case "$MODE" in
 esac
 
 if [ "$MODE" = changed ]; then
-  musi_changed_gate_fail_if_unstaged "$REPO_ROOT" "$LABEL" || exit 1
+  musi_changed_gate_fail_if_unstaged "$REPO_ROOT" "$LABEL" || exit $?
+  if musi_resolve_changed_base main; then
+    changed_input=$(mktemp "${TMPDIR:-/tmp}/musi-verify-changed-input.XXXXXX") || {
+      printf '%s: failed to allocate changed-input selection state.\n' "$LABEL" >&2
+      exit 2
+    }
+    if ! git diff -z --name-only --diff-filter=ACMRD "$MUSI_CHANGED_BASE"...HEAD > "$changed_input" \
+       || ! git diff -z --name-only --diff-filter=ACMRD --cached >> "$changed_input"; then
+      printf '%s: failed to inspect committed and staged changes.\n' "$LABEL" >&2
+      rm -f "$changed_input"
+      exit 2
+    fi
+    if [ ! -s "$changed_input" ]; then
+      rm -f "$changed_input"
+      printf '%s: no committed changes vs %s and no staged files — nothing to verify.\n' \
+        "$LABEL" "$MUSI_CHANGED_BASE"
+      printf '%s: stage intended work and rerun, or use `bun run verify` for an intentional full-tree verification.\n' \
+        "$LABEL"
+      exit 0
+    fi
+    rm -f "$changed_input"
+  fi
 fi
 
 # --- 1. Single-writer lock -------------------------------------------------
@@ -162,14 +185,14 @@ fi
 # Parsed line-by-line by verify-metadata.sh — never eval /tmp files.
 CUR_HEAD=$(git rev-parse HEAD 2>/dev/null || echo none)
 if [ "$MODE" = changed ]; then
-  CUR_HASH=$(ai_staged_fingerprint "$REPO_ROOT")
+  CUR_HASH=$(musi_require_fingerprint "$LABEL" ai_staged_fingerprint "$REPO_ROOT") || exit 2
 else
-  CUR_HASH=$(ai_worktree_fingerprint "$REPO_ROOT")
+  CUR_HASH=$(musi_require_fingerprint "$LABEL" ai_worktree_fingerprint "$REPO_ROOT") || exit 2
 fi
 
 if [ -f "$MARKER" ] \
    && [ "${FORCE_VERIFY:-}" != "1" ] \
-   && musi_success_marker_matches "$MARKER" "$CUR_HEAD" "$CUR_HASH" 120; then
+   && musi_success_marker_matches "$MARKER" "$CUR_HEAD" "$CUR_HASH" "$MUSI_GATE_MARKER_FRESHNESS_SECONDS"; then
   printf '%s: already verified %ds ago at %s — skipping (set FORCE_VERIFY=1 to re-run).\n' \
     "$LABEL" "$MUSI_MARKER_MATCH_AGE" "$CUR_HEAD"
   exit 0
@@ -190,17 +213,17 @@ CURRENT_PID=""
 PARALLEL_PIDS=()
 cleanup_children() {
   if [ -n "$CURRENT_PID" ]; then
-    musi_signal_process_tree "$CURRENT_PID" TERM
-    wait "$CURRENT_PID" 2>/dev/null
+    musi_terminate_process_tree "$CURRENT_PID"
+    musi_wait_for_pid_exit_bounded "$CURRENT_PID" || true
   fi
   local pid
   for pid in "${PARALLEL_PIDS[@]}"; do
-    musi_signal_process_tree "$pid" TERM
+    musi_terminate_process_tree "$pid"
   done
   for pid in "${PARALLEL_PIDS[@]}"; do
-    wait "$pid" 2>/dev/null
+    musi_wait_for_pid_exit_bounded "$pid" || true
   done
-  kill "$WD" 2>/dev/null
+  kill "$WD" 2>/dev/null || true
 }
 write_signal_wrapper_meta() {
   musi_verify_write_signal_meta "$1" "$META_DIR" "$META_MODE" \
@@ -228,18 +251,29 @@ passed=""; failed=""
 run_step() {
   local name="$1"; shift
   local log="$LOG_DIR/${name}.log"
-  local step_start step_start_time step_end step_end_time exit_code command
+  local step_start step_start_time step_end step_end_time exit_code command reservation_token reserve_rc=0
   command="$(musi_meta_command_string "$@")"
   printf '%s: running %s...\n' "$LABEL" "$name"
+  musi_memory_budget_wait_and_reserve "$name" "$LABEL" || reserve_rc=$?
+  if [ "$reserve_rc" -ne 0 ]; then
+    printf '%s: memory admission failed for %s (rc=%s)\n' \
+      "$LABEL" "$name" "$reserve_rc" > "$log"
+    failed="$failed $name"
+    return 1
+  fi
+  reservation_token="$MUSI_VERIFY_MEMORY_RESERVATION_TOKEN"
   step_start=$(date +%s)
   step_start_time=$(date -Iseconds)
   # Close FD 9 in the child so test workers don't hold the lock past our exit;
   # mirrors bun-run-quiet.sh's `9>&-` redirect on its wrapped child.
-  env -u MUSI_VERIFY_LOCK_ALREADY_HELD "$@" > "$log" 2>&1 9>&- &
+  musi_run_in_isolated_process_group env -u MUSI_VERIFY_LOCK_ALREADY_HELD \
+    "MUSI_VERIFY_MEMORY_ADMISSION_TOKEN=$reservation_token" \
+    bash "$MUSI_VERIFY_MEMORY_ADMITTED_COMMAND" "$@" > "$log" 2>&1 9>&- &
   CURRENT_PID=$!
   if wait "$CURRENT_PID"; then
     exit_code=0
     CURRENT_PID=""
+    musi_memory_budget_release "$reservation_token"
     step_end=$(date +%s)
     step_end_time=$(date -Iseconds)
     musi_write_step_meta "$META_DIR/${name}.json" "$name" "$META_MODE" \
@@ -249,6 +283,7 @@ run_step() {
   fi
   exit_code=$?
   CURRENT_PID=""
+  musi_memory_budget_release "$reservation_token"
   step_end=$(date +%s)
   step_end_time=$(date -Iseconds)
   musi_write_step_meta "$META_DIR/${name}.json" "$name" "$META_MODE" \

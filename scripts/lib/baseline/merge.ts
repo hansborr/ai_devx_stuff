@@ -1,11 +1,10 @@
 // Three-way semantic merge for item-keyed baselines, generalized from the
 // lint-ratchet baseline merge driver (scripts/lint-ratchet/baseline-merge.ts).
 // The floor is a maximum, so a conflicting key resolves to the LOWER count
-// (the stricter floor); a key present on only one side, or a lowered count,
-// flags a post-merge truth-up so the merged baseline is regenerated against the
-// real tree. Identity ledgers (count defaulted to 1) collapse this to: keep the
-// keys present on both sides, and require truth-up whenever the two sides'
-// key sets differ.
+// (the stricter floor). By default, a key present on only one side is dropped
+// and flags a post-merge truth-up. Configuration ledgers may opt into base-aware
+// one-sided handling, which preserves additions while removals still win.
+// Identity ledgers (count defaulted to 1) use the default intersection behavior.
 
 import {
   type BaselineEntry,
@@ -15,11 +14,17 @@ import {
   parseBaseline,
   type ParseResult,
 } from "./entry-baseline.js";
+import { type ItemMergeOutcome, type ItemMergePolicy, mergeItemMaps } from "./item-merge.js";
 
-export interface MergeBaselineOptions {
+export interface MergeBaselineOptions<Entry extends BaselineEntry = BaselineEntry> {
   readonly baseText: string;
   readonly currentText: string;
   readonly otherText: string;
+  readonly oneSidedEntryStrategy?: "intersection" | "base-aware";
+  // Identity floors can preserve a narrowly reviewed one-sided addition while
+  // retaining intersection semantics for every unreviewed addition and drain.
+  readonly preserveOneSidedAddition?: (entry: Entry) => boolean;
+  readonly truthUpOnOneSidedFastPath?: boolean;
 }
 
 export interface MergeBaselineResult {
@@ -28,74 +33,95 @@ export interface MergeBaselineResult {
   readonly postMergeTruthUpRequired: boolean;
 }
 
-interface TruthUpState {
-  required: boolean;
-}
-
-interface MergeContext<Entry extends BaselineEntry> {
-  readonly spec: BaselineMetricSpec<Entry>;
-  readonly truthUp: TruthUpState;
-  readonly failures: string[];
-}
-
 function entryMap<Entry extends BaselineEntry>(
   entries: readonly Entry[],
 ): ReadonlyMap<string, Entry> {
   return new Map(entries.map((entry) => [entry.key, entry]));
 }
 
-function sortedUnionKeys<Entry extends BaselineEntry>(
-  left: ReadonlyMap<string, Entry>,
-  right: ReadonlyMap<string, Entry>,
-): readonly string[] {
-  return [...new Set([...left.keys(), ...right.keys()])].sort((a, b) => a.localeCompare(b));
+// Compare two entries ignoring their count: normalize both to the same count and
+// diff the spec's formatted payload. A cap-style entry can carry non-count policy
+// fields (max-lines severity/reason/lifecycle/ratchetExcluded) that feed
+// enforcement, so a differing count must not silently discard the other side's
+// edits to those fields.
+function nonCountPayloadDiffers<Entry extends BaselineEntry>(
+  spec: BaselineMetricSpec<Entry>,
+  current: Entry,
+  other: Entry,
+): boolean {
+  const normalize = (entry: Entry): string =>
+    JSON.stringify(spec.formatEntry({ ...entry, count: 0 }));
+  return normalize(current) !== normalize(other);
 }
 
 function mergeSharedEntry<Entry extends BaselineEntry>(
-  context: MergeContext<Entry>,
+  spec: BaselineMetricSpec<Entry>,
   key: string,
   current: Entry,
   other: Entry,
-): Entry | undefined {
+): ItemMergeOutcome<Entry> {
   const currentCount = entryCount(current);
   const otherCount = entryCount(other);
   if (currentCount !== otherCount) {
-    context.truthUp.required = true;
-    return currentCount < otherCount ? current : other;
+    // The lower count is the stricter floor, but only take it when nothing else
+    // diverged. If the sides also disagree on a non-count field, taking one
+    // entry whole would silently drop the other's policy edits, so fail the
+    // merge and let the driver fall back to the manual reconcile recipe.
+    if (nonCountPayloadDiffers(spec, current, other)) {
+      return {
+        failure: `${key}: conflicting counts also disagree on non-count fields; reconcile the baseline by hand`,
+      };
+    }
+    return { item: currentCount < otherCount ? current : other, truthUp: true };
   }
   // Equal count: the non-count payload must agree, or the sides disagree on what
   // this key means and a human must regenerate.
-  if (
-    JSON.stringify(context.spec.formatEntry(current)) !==
-    JSON.stringify(context.spec.formatEntry(other))
-  ) {
-    context.failures.push(`${key}: equal-count entries disagree; regenerate the baseline`);
-    return undefined;
+  if (JSON.stringify(spec.formatEntry(current)) !== JSON.stringify(spec.formatEntry(other))) {
+    return { failure: `${key}: equal-count entries disagree; regenerate the baseline` };
   }
-  return current;
+  return { item: current };
 }
 
-function mergeEntries<Entry extends BaselineEntry>(
-  context: MergeContext<Entry>,
-  current: readonly Entry[],
-  other: readonly Entry[],
-): Entry[] {
-  const currentMap = entryMap(current);
-  const otherMap = entryMap(other);
-  const merged: Entry[] = [];
-  for (const key of sortedUnionKeys(currentMap, otherMap)) {
-    const currentEntry = currentMap.get(key);
-    const otherEntry = otherMap.get(key);
-    if (currentEntry === undefined || otherEntry === undefined) {
-      // One side dropped or added this key: take the stricter (intersection)
-      // floor and let the post-merge truth-up regenerate against the real tree.
-      context.truthUp.required = true;
-      continue;
+function mergeOneSidedEntry<Entry extends BaselineEntry>(
+  spec: BaselineMetricSpec<Entry>,
+  options: MergeBaselineOptions<Entry>,
+  presentEntry: Entry,
+  baseEntry: Entry | undefined,
+): ItemMergeOutcome<Entry> {
+  if ((options.oneSidedEntryStrategy ?? "intersection") === "intersection") {
+    if (baseEntry === undefined && options.preserveOneSidedAddition?.(presentEntry) === true) {
+      return { item: presentEntry };
     }
-    const mergedEntry = mergeSharedEntry(context, key, currentEntry, otherEntry);
-    if (mergedEntry !== undefined && entryCount(mergedEntry) > 0) merged.push(mergedEntry);
+    // One side dropped or added this key: take the stricter (intersection)
+    // floor and let the post-merge truth-up regenerate against the real tree.
+    return { truthUp: true };
   }
-  return merged;
+
+  if (baseEntry === undefined) {
+    // Configuration entry added on one side: preserve it. Unlike a floor
+    // regression, its absence from the other side means that side simply
+    // predates the addition.
+    return { item: presentEntry };
+  }
+  // A removal wins over an unchanged peer. If the peer also changed the entry,
+  // truth-up must decide whether the retired configuration is still needed in
+  // the merged tree.
+  return {
+    truthUp:
+      JSON.stringify(spec.formatEntry(baseEntry)) !==
+      JSON.stringify(spec.formatEntry(presentEntry)),
+  };
+}
+
+function entryMergePolicy<Entry extends BaselineEntry>(
+  spec: BaselineMetricSpec<Entry>,
+  options: MergeBaselineOptions<Entry>,
+): ItemMergePolicy<Entry> {
+  return {
+    count: (entry) => entryCount(entry),
+    mergeShared: (key, current, other) => mergeSharedEntry(spec, key, current, other),
+    mergeOneSided: (_key, present, base) => mergeOneSidedEntry(spec, options, present, base),
+  };
 }
 
 function parseSide<Entry extends BaselineEntry>(
@@ -111,9 +137,13 @@ function parseSide<Entry extends BaselineEntry>(
   return undefined;
 }
 
+function fastPathResult(mergedText: string, postMergeTruthUpRequired = false): MergeBaselineResult {
+  return { mergedText, failures: [], postMergeTruthUpRequired };
+}
+
 export function mergeBaseline<Entry extends BaselineEntry>(
   spec: BaselineMetricSpec<Entry>,
-  options: MergeBaselineOptions,
+  options: MergeBaselineOptions<Entry>,
 ): MergeBaselineResult {
   const parseFailures: string[] = [];
   const base = parseSide(spec, "base", options.baseText, parseFailures);
@@ -127,21 +157,34 @@ export function mergeBaseline<Entry extends BaselineEntry>(
   const currentText = formatBaseline(spec, current);
   const otherText = formatBaseline(spec, other);
 
-  // One side unchanged from the base: take the other verbatim, no truth-up.
-  if (currentText === baseText) {
-    return { mergedText: otherText, failures: [], postMergeTruthUpRequired: false };
+  // Identical sides are already reconciled. When exactly one side changed,
+  // take it verbatim. Tree-derived ledgers may request truth-up because source
+  // conflict resolution can retain debt that the changed baseline drained.
+  if (currentText === otherText) {
+    return fastPathResult(currentText);
   }
-  if (otherText === baseText || currentText === otherText) {
-    return { mergedText: currentText, failures: [], postMergeTruthUpRequired: false };
+  if (currentText === baseText) {
+    return fastPathResult(otherText, options.truthUpOnOneSidedFastPath);
+  }
+  if (otherText === baseText) {
+    return fastPathResult(currentText, options.truthUpOnOneSidedFastPath);
   }
 
-  const failures: string[] = [];
-  const truthUp: TruthUpState = { required: false };
-  const merged = mergeEntries({ spec, truthUp, failures }, current, other);
-  if (failures.length > 0) return { failures, postMergeTruthUpRequired: false };
+  const result = mergeItemMaps(entryMergePolicy(spec, options), {
+    base: entryMap(base),
+    current: entryMap(current),
+    other: entryMap(other),
+    compareKeys: (left, right) => left.localeCompare(right),
+  });
+  if (result.failures.length > 0) {
+    return { failures: result.failures, postMergeTruthUpRequired: false };
+  }
   return {
-    mergedText: formatBaseline(spec, merged),
+    mergedText: formatBaseline(
+      spec,
+      result.merged.map((entry) => entry.item),
+    ),
     failures: [],
-    postMergeTruthUpRequired: truthUp.required,
+    postMergeTruthUpRequired: result.truthUpRequired,
   };
 }

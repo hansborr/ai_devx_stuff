@@ -20,6 +20,7 @@ export const KINDS = [
   "logs-audit",
   "codemod",
   "hook",
+  "skill",
 ] as const;
 
 export const CONTROL_CATEGORIES = RULE_DOC_CATEGORIES;
@@ -126,9 +127,9 @@ export function lintRuleRestatementFailures(
 
 // Module path of the ratchet registry that owns the dedicated `principle` field.
 // Used in both diagnostics below so the agent is pointed at the single source.
-export const LINT_RATCHET_CONFIG_PATH = "scripts/lint-ratchet/lint-ratchet-config.ts";
+const LINT_RATCHET_CONFIG_PATH = "scripts/lint-ratchet/lint-ratchet-config.ts";
 
-export const RATCHET_PRINCIPLE_RESTATEMENT_MESSAGE =
+const RATCHET_PRINCIPLE_RESTATEMENT_MESSAGE =
   "ratchet entries must not restate principle; it is re-projected from the lint-ratchet registry";
 
 // Ratchet `principle` is re-projected from the registry (parallel to how

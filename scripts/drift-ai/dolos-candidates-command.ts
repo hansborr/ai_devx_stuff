@@ -13,12 +13,15 @@ import type { GitRunner } from "./git-changed-scope.js";
 import { nearDuplicateExcludeGlobs } from "./near-duplicates-check-config.js";
 import { prepareCurrentRun } from "./prepare-run.js";
 import {
+  capturePrototypeScanSnapshot,
+  completedScanProvenance,
   currentPrototypeCliOptions,
   finishPrototypeCommand,
   renderPrototypeAdvisory,
   runPrototypeCommand,
 } from "./prototype-command.js";
 import type { ReportWriter } from "./report-output.js";
+import { triageGeneratedArtifactExclusions } from "./triage-packet-staleness.js";
 
 export type DolosCandidatesRunOptions = {
   readonly argv: readonly string[];
@@ -48,8 +51,20 @@ function runParsedDolosCandidates(
   parsed: ParsedDolosCandidatesArgs,
 ): DolosCandidatesRunResult {
   const prepared = prepareCurrentRun(currentPrototypeCliOptions(parsed), options);
+  const excludedArtifacts = triageGeneratedArtifactExclusions(
+    parsed.base.outputPath === null ? [] : [parsed.base.outputPath],
+  );
+  const beforeScan = capturePrototypeScanSnapshot(
+    options.git,
+    prepared.repoRoot,
+    excludedArtifacts,
+  );
   const result = runDolosEngine(options, prepared, parsed);
-  const advisory = buildDolosAdvisory(result, { top: parsed.top });
+  const afterScan = capturePrototypeScanSnapshot(options.git, prepared.repoRoot, excludedArtifacts);
+  const advisory = buildDolosAdvisory(result, {
+    top: parsed.top,
+    scanProvenance: completedScanProvenance(beforeScan, afterScan),
+  });
   return finishPrototypeCommand(
     parsed,
     renderPrototypeAdvisory(parsed.base.format, advisory, {

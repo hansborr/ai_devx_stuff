@@ -14,14 +14,11 @@ const DEFAULT_TOP_N = 20;
 // Coldspots needs deeper history than the 14d hotspots default — stillness is only
 // meaningful over a longer horizon — so it defaults to the human-team hotspot
 // horizon (also the collector's widen cap). The collector still widens if sparse.
-export const DEFAULT_COLDSPOT_WINDOW_DAYS = 180;
+const DEFAULT_COLDSPOT_WINDOW_DAYS = 180;
 
 export type ConcreteColdspotLens = Exclude<ColdspotLens, "all">;
 
-export const CONCRETE_COLDSPOT_LENSES: readonly ConcreteColdspotLens[] = [
-  "coldspot",
-  "stale-markers",
-];
+const CONCRETE_COLDSPOT_LENSES: readonly ConcreteColdspotLens[] = ["coldspot", "stale-markers"];
 
 export const COLDSPOT_LENS_SELECTIONS: Record<ColdspotLens, readonly ConcreteColdspotLens[]> = {
   coldspot: ["coldspot"],

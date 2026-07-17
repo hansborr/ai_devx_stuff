@@ -33,6 +33,11 @@ Sanctioned exception: `scripts/eslint-config-shared-policy.d.ts` is an ambient
 declaration for `eslint-config/shared-policy.js` and `eslint-rules/max-lines.js`.
 Keeping it under `scripts/` avoids the TypeScript and ESLint resolver treating it
 as a concrete colocated module for only one of those JavaScript files.
+`scripts/eslint-config-shared-policy.test.ts` guards the declaration against
+runtime drift: it parses the `.d.ts` and asserts every promised export exists in
+the imported JavaScript with the declared shallow shape (the runtime modules may
+intentionally export more than the declaration exposes; only the declared
+surface is checked).
 
 Do not add a new implementation family as `scripts/<topic>-*.ts` or
 `scripts/<topic>-*.sh`. Add `scripts/<topic>/` and keep only the package-facing
@@ -101,6 +106,12 @@ Current generated surfaces:
   `scripts/harness/generate-harness-controls.ts` from `harness.controls.json`
   (refresh with `bun run docs:harness-controls`, check with
   `bun run docs:harness-controls:check`).
+- The copied runtime under `examples/lint-ratchet-demo/` is regenerated from
+  `scripts/lint-ratchet/portable-manifest.json` by
+  `scripts/check-lint-ratchet-demo-sync.ts` (refresh with
+  `bun run lint:ratchet:demo-sync:update`, check with
+  `bun run lint:ratchet:demo-sync`). Full `bun run verify` owns the check; the
+  changed gate deliberately omits it.
 
 `bun run harness:check` runs the relevant `--check` modes and fails when these
 generated files are stale. Do not hand-edit generated regions as a substitute

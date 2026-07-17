@@ -5,12 +5,19 @@ import {
   HARNESS_DIAGNOSTICS_SCHEMA_VERSION,
   type HarnessDiagnostics,
   type HarnessFinding,
+  type HarnessFindingRepairKind,
   type HarnessFindingSeverity,
   summarizeHarnessFindings,
 } from "../packages/shared/src/schemas/harness-diagnostics.js";
 import type { ESLintFileResult, ESLintMessage } from "./lib/eslint-json.js";
 import type { RuleDocsEntry } from "./lib/lint-rule-docs.js";
 import { lintAgentHowToFixFor } from "./lint-agent-fix-text.js";
+import {
+  LINT_AGENT_GUIDANCE_OVERLAYS,
+  type LintAgentGuidanceOverlay,
+  lintAgentGuidanceOverlayFor,
+  type LintAgentRuleGuidanceOverlay,
+} from "./lint-agent-guidance.js";
 
 const ESLINT_SEVERITY_ERROR = 2;
 const ESLINT_SEVERITY_WARN = 1;
@@ -111,40 +118,103 @@ export function buildFinding(
   message: ESLintMessage,
   filePath: string,
   ruleDocs: ReadonlyMap<string, RuleDocsEntry>,
+  guidanceOverlays: ReadonlyMap<
+    string,
+    LintAgentRuleGuidanceOverlay
+  > = LINT_AGENT_GUIDANCE_OVERLAYS,
 ): HarnessFinding | undefined {
   const ruleId = message.ruleId;
-  if (ruleId === null) {
-    if (message.fatal === true || message.severity === ESLINT_SEVERITY_ERROR) {
-      return buildParserErrorFinding(message, filePath);
-    }
-    return undefined;
+  if (ruleId === null)
+    return message.fatal === true || message.severity === ESLINT_SEVERITY_ERROR
+      ? buildParserErrorFinding(message, filePath)
+      : undefined;
+  if (!ruleId.startsWith(LOCAL_RULE_PREFIX)) {
+    const overlay = lintAgentGuidanceOverlayFor(ruleId, message.messageId, guidanceOverlays);
+    return overlay === undefined
+      ? undefined
+      : buildOverlaidFinding(message, filePath, ruleId, overlay);
   }
-  if (!ruleId.startsWith(LOCAL_RULE_PREFIX)) return undefined;
+
   const entry = ruleDocs.get(ruleId);
   if (entry === undefined) return undefined;
+  return buildLocalFinding(message, filePath, ruleId, entry);
+}
 
-  const control = `${LINT_CONTROL_PREFIX}${ruleId}`;
-  const path = relativePath(filePath);
+interface FindingIdentity {
+  readonly control: string;
+  readonly ruleId: string;
+  readonly severity: HarnessFindingSeverity;
+}
+
+interface ResolvedFindingGuidance {
+  readonly why: string;
+  readonly howToFix: string;
+  readonly repairKind: HarnessFindingRepairKind;
+  readonly repairCommand?: string;
+}
+
+function assembleFinding(
+  message: ESLintMessage,
+  filePath: string,
+  identity: FindingIdentity,
+  guidance: ResolvedFindingGuidance,
+): HarnessFinding {
   const base = {
-    control,
-    severity: severityFromEslint(message.severity),
-    path,
-    ruleId,
-    why: entry.principle,
-    howToFix: lintAgentHowToFixFor(entry, message),
-    repairKind: entry.repairKind,
+    ...identity,
+    path: relativePath(filePath),
+    why: guidance.why,
+    howToFix: guidance.howToFix,
+    repairKind: guidance.repairKind,
   } as const;
-
   const withLocation = message.line !== undefined ? { ...base, line: message.line } : base;
   const withMessageId =
     message.messageId !== undefined
       ? { ...withLocation, messageId: message.messageId }
       : withLocation;
-  const withRepair =
-    entry.repairKind === "codemod" && entry.repairCommand !== undefined
-      ? { ...withMessageId, repairCommand: entry.repairCommand }
-      : withMessageId;
-  return withRepair;
+  return guidance.repairKind === "codemod" && guidance.repairCommand !== undefined
+    ? { ...withMessageId, repairCommand: guidance.repairCommand }
+    : withMessageId;
+}
+
+function buildLocalFinding(
+  message: ESLintMessage,
+  filePath: string,
+  ruleId: string,
+  entry: RuleDocsEntry,
+): HarnessFinding {
+  return assembleFinding(
+    message,
+    filePath,
+    {
+      control: `${LINT_CONTROL_PREFIX}${ruleId}`,
+      severity: severityFromEslint(message.severity),
+      ruleId,
+    },
+    {
+      why: entry.principle,
+      howToFix: lintAgentHowToFixFor(entry, message),
+      repairKind: entry.repairKind,
+      repairCommand: entry.repairCommand,
+    },
+  );
+}
+
+function buildOverlaidFinding(
+  message: ESLintMessage,
+  filePath: string,
+  ruleId: string,
+  overlay: LintAgentGuidanceOverlay,
+): HarnessFinding {
+  return assembleFinding(
+    message,
+    filePath,
+    {
+      control: `${LINT_CONTROL_PREFIX}${ruleId}`,
+      severity: severityFromEslint(message.severity),
+      ruleId,
+    },
+    overlay,
+  );
 }
 
 function buildSkippedNonLocalFinding(
@@ -153,20 +223,16 @@ function buildSkippedNonLocalFinding(
 ): HarnessFinding | undefined {
   const ruleId = message.ruleId;
   if (ruleId === null || ruleId.startsWith(LOCAL_RULE_PREFIX)) return undefined;
-  const path = relativePath(filePath);
-  const base = {
-    control: SKIPPED_NON_LOCAL_CONTROL,
-    severity: "info",
-    path,
-    ruleId,
-    why: "Non-local ESLint rule; no structured local-rule metadata is available.",
-    howToFix: "Run `bun run lint` for the full ESLint report and fix this finding there.",
-    repairKind: "manual",
-  } as const;
-  const withLocation = message.line !== undefined ? { ...base, line: message.line } : base;
-  return message.messageId !== undefined
-    ? { ...withLocation, messageId: message.messageId }
-    : withLocation;
+  return assembleFinding(
+    message,
+    filePath,
+    { control: SKIPPED_NON_LOCAL_CONTROL, severity: "info", ruleId },
+    {
+      why: "Non-local ESLint rule; no structured local-rule metadata is available.",
+      howToFix: "Run `bun run lint` for the full ESLint report and fix this finding there.",
+      repairKind: "manual",
+    },
+  );
 }
 
 export function compareLintAgentFindings(a: HarnessFinding, b: HarnessFinding): number {
@@ -180,12 +246,16 @@ export function compareLintAgentFindings(a: HarnessFinding, b: HarnessFinding): 
 export function buildLintAgentEnvelope(
   eslintResults: readonly ESLintFileResult[],
   ruleDocs: ReadonlyMap<string, RuleDocsEntry>,
+  guidanceOverlays: ReadonlyMap<
+    string,
+    LintAgentRuleGuidanceOverlay
+  > = LINT_AGENT_GUIDANCE_OVERLAYS,
 ): LintAgentEnvelopeResult {
   const findings: HarnessFinding[] = [];
   let skippedNonLocal = 0;
   for (const file of eslintResults) {
     for (const message of file.messages) {
-      const finding = buildFinding(message, file.filePath, ruleDocs);
+      const finding = buildFinding(message, file.filePath, ruleDocs, guidanceOverlays);
       if (finding === undefined) {
         const skippedFinding = buildSkippedNonLocalFinding(message, file.filePath);
         if (skippedFinding !== undefined) {

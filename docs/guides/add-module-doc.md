@@ -33,8 +33,9 @@ orientation file for a code surface.
 10. In Test Seams, name the focused test files, test helpers, mocks, or command
     slices a contributor should run when changing the module.
 11. In Gotchas, record invariants and cross-module dependencies that are easy
-    to break. Do not add open-ended TODOs; link an issue, roadmap item, or
-    agent note when deferred work matters.
+    to break. Do not add open-ended TODOs; use a locatable issue/PR id, URL, or
+    concrete path under `docs/roadmap/` or `docs/agent_notes/` when deferred
+    work matters.
 12. Keep the doc short enough to scan. Prefer durable contracts and ownership
     rules over churn-prone implementation narration.
 13. After adding, moving, renaming, or deleting any `*MODULE.md` file, or after

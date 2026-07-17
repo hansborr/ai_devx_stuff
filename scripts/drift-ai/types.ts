@@ -122,7 +122,7 @@ export type DriftFindingChunk = {
   readonly findings: readonly DriftFinding[];
 };
 
-export type DriftChunkManifestEntry = {
+type DriftChunkManifestEntry = {
   readonly index: number;
   readonly path: string;
   readonly check: DriftCheckId;
@@ -181,24 +181,6 @@ export type CliOptions = {
 export const DEFAULT_BASE = "main";
 export const DEFAULT_SCOPE_MODE: ScopeMode = "changed";
 export const DEFAULT_CHUNK_SIZE = 75;
-
-export const DEFAULT_IGNORE_DIR_PREFIXES: readonly string[] = [
-  "node_modules/",
-  "vendor/",
-  "dist/",
-  "build/",
-  "coverage/",
-  ".next/",
-  "out/",
-  "target/",
-  "generated/",
-  "reports/",
-  "tmp/",
-  ".git/",
-  ".husky/",
-  ".claude/worktrees/",
-];
-
 export const DEFAULT_IGNORE_EXTENSIONS: readonly string[] = [
   ".png",
   ".jpg",

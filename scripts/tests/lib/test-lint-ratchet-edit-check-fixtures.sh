@@ -175,10 +175,11 @@ TS
     || fail "edit-check bad-baseline update failed: $(cat "$TMP_ROOT/update.err")"
   BASELINE_FILE="$EDIT_CHECK_BAD_BASELINE_DIR/lint-ratchet.baseline.json" bun -e '
     const fs = require("fs");
+    const assertionFailed = (message) => { console.error(message); process.exit(1); };
     const path = process.env.BASELINE_FILE;
     const parsed = JSON.parse(fs.readFileSync(path, "utf8"));
     const item = parsed.tests["ratchet/fixture-max-lines"].items["packages/app/src/example.ts"];
-    if (item === undefined) throw new Error("missing max-lines baseline item");
+    if (item === undefined) assertionFailed("missing max-lines baseline item");
     delete item.lines;
     fs.writeFileSync(path, `${JSON.stringify(parsed, null, 2)}\n`);
   ' || fail "edit-check bad-baseline corruption failed"

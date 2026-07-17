@@ -32,7 +32,7 @@ export type OrphanFilesServices = {
 // Known target-local knip config locations, in priority order. Must NOT assume
 // repo-root: OpenClaw ships config/knip.config.ts, not ./knip.json (01-shared-context).
 // Mirrors knip's own discovery set plus the common non-root config/ location.
-export const KNIP_CONFIG_CANDIDATES: readonly string[] = [
+const KNIP_CONFIG_CANDIDATES: readonly string[] = [
   "knip.json",
   "knip.jsonc",
   ".knip.json",
@@ -48,7 +48,7 @@ export const KNIP_CONFIG_CANDIDATES: readonly string[] = [
   "config/knip.jsonc",
 ];
 
-export const ORPHAN_FILES_REPAIR_HINT =
+const ORPHAN_FILES_REPAIR_HINT =
   "if the file is dead code, remove it; if it is an entry point or used dynamically (CLI, config, plugin), add it to the target's knip entry/ignore config so the signal stays clean.";
 
 // Check-agnostic on purpose: shared by knip pass-through checks, so it must not

@@ -42,6 +42,12 @@
           },
           {
             "type": "command",
+            "command": "bash \"$(git rev-parse --show-toplevel)/.codex/hooks/backlog-note-lint.sh\"",
+            "statusMessage": "Linting edited backlog note",
+            "timeout": 30
+          },
+          {
+            "type": "command",
             "command": "bash \"$(git rev-parse --show-toplevel)/.codex/hooks/tidy-edited-file.sh\"",
             "statusMessage": "Tidying edited file",
             "timeout": 120

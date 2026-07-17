@@ -122,6 +122,80 @@ git_worktree_add() {
   git "${args[@]}" >&2
 }
 
+# resolve_start_commit prints the commit a `-b` worktree branch would be created
+# at: the explicit --from ref when given, else HEAD. Prints nothing and returns
+# non-zero when the ref cannot be resolved (the same input git worktree add would
+# itself reject). Resolved BEFORE the add so a post-failure branch pointing at
+# this commit is provably the one this invocation just created.
+resolve_start_commit() {
+  local start_ref="$1"
+  git rev-parse --verify --quiet "${start_ref:-HEAD}^{commit}"
+}
+
+# assert_writable_parent fails fast when the new worktree's parent directory is
+# missing or not writable — before any branch/worktree state exists. The
+# 2026-07-13 field failure was an unwritable lane parent where git had already
+# created the `-b` branch by the time the add died, forcing a manual cleanup.
+assert_writable_parent() {
+  local path="$1" parent
+  parent="$(dirname "$path")"
+  [[ -d "$parent" ]] \
+    || die "cannot create worktree: parent directory does not exist or is not a directory: $parent"
+  [[ -w "$parent" ]] \
+    || die "cannot create worktree: parent directory is not writable: $parent"
+}
+
+# cleanup_failed_add unwinds the branch THIS invocation asked git to create after
+# a failed `git worktree add`, but only when it is provably the freshly created
+# one: the branch did not already exist before the add, the worktree directory
+# never materialized, and the branch now points exactly at the start commit
+# resolved before the add. Any mismatch (no branch, directory present, branch
+# moved, or a branch that pre-existed the add — even at the same SHA) leaves
+# state untouched and is named for the operator. Deletes only with `git branch
+# -d` (never -D/--force, which agent sessions block). Prints a one-line recovery
+# sentence to stdout.
+cleanup_failed_add() {
+  local path="$1" branch="$2" start_commit="$3" branch_existed_before="${4:-0}"
+  [[ -n "$branch" ]] || return 0
+  if [[ -e "$path" ]]; then
+    printf 'left the worktree path in place for inspection: %q' "$path"
+    return 0
+  fi
+  local branch_commit
+  if ! branch_commit="$(git rev-parse --verify --quiet "refs/heads/$branch")"; then
+    printf 'no branch %q was created' "$branch"
+    return 0
+  fi
+  if [[ "$branch_existed_before" == 1 ]]; then
+    printf 'left branch %q in place (it already existed before this invocation, so it is not ours to delete)' \
+      "$branch"
+  elif [[ -n "$start_commit" && "$branch_commit" == "$start_commit" ]]; then
+    if git branch -d "$branch" >/dev/null 2>&1; then
+      printf 'deleted the branch this invocation created: %q' "$branch"
+    else
+      printf 'branch %q remains; remove it with: git branch -d %q' "$branch" "$branch"
+    fi
+  else
+    printf 'left branch %q in place (it does not point at the requested start ref, so it is not provably ours); inspect, then remove with: git branch -d %q' \
+      "$branch" "$branch"
+  fi
+}
+
+# init_failure_recovery_block prints the exact, copy-pasteable commands to unwind
+# a worktree whose provisioning (worktree:init) failed. Agent-allowed commands
+# only — never `git branch -D` / `--force`. The `git branch -d` line is emitted
+# only when this invocation created a new branch (-b); an existing checked-out
+# branch must not be offered for deletion.
+init_failure_recovery_block() {
+  local path="$1" new_branch="$2"
+  printf 'inspect the worktree, then recover with:\n'
+  printf '  cd %q && bun run worktree:drop\n' "$path"
+  printf '  git worktree remove %q\n' "$path"
+  if [[ -n "$new_branch" ]]; then
+    printf '  git branch -d %q\n' "$new_branch"
+  fi
+}
+
 print_summary() {
   local wt_path="$1"
   local slug allocation_json server_port client_port redis_db
@@ -171,15 +245,38 @@ cmd_new() {
     die "target path already exists: $WT_NEW_PATH"
   fi
 
-  git_worktree_add "$WT_NEW_PATH" "$WT_NEW_NEW_BRANCH" "$WT_NEW_EXISTING_BRANCH" "$WT_NEW_START_REF"
+  # Fail before git creates any state when the lane parent is unusable.
+  assert_writable_parent "$WT_NEW_PATH"
+
+  # Resolve the branch's start commit up front so a post-failure branch pointing
+  # at it is provably the one this invocation created (see cleanup_failed_add).
+  local start_commit="" branch_existed_before=0
+  if [[ -n "$WT_NEW_NEW_BRANCH" ]]; then
+    start_commit="$(resolve_start_commit "$WT_NEW_START_REF")" \
+      || die "cannot resolve start ref ${WT_NEW_START_REF:-HEAD} for -b $WT_NEW_NEW_BRANCH"
+    # A branch that already exists at the start commit would, after a failed add,
+    # satisfy the SHA-match precondition and be wrongly deleted as "ours". Record
+    # its prior existence so cleanup only removes a branch this invocation created.
+    if git rev-parse --verify --quiet "refs/heads/$WT_NEW_NEW_BRANCH" >/dev/null; then
+      branch_existed_before=1
+    fi
+  fi
+
+  if ! git_worktree_add "$WT_NEW_PATH" "$WT_NEW_NEW_BRANCH" "$WT_NEW_EXISTING_BRANCH" "$WT_NEW_START_REF"; then
+    local recovery
+    recovery="$(cleanup_failed_add "$WT_NEW_PATH" "$WT_NEW_NEW_BRANCH" "$start_commit" "$branch_existed_before")"
+    die "git worktree add failed for $WT_NEW_PATH${recovery:+ — $recovery}"
+  fi
 
   local target
   target="$(cd "$WT_NEW_PATH" && pwd -P)" \
     || die "git worktree add reported success but $WT_NEW_PATH is not accessible"
 
   log "running: bun run worktree:init (in $target)"
-  ( cd "$target" && bun run worktree:init >&2 ) \
-    || die "worktree:init failed in $target — leaving the worktree in place for inspection"
+  if ! ( cd "$target" && bun run worktree:init >&2 ); then
+    die "worktree:init failed in $target; see the specific error above. Leaving the worktree in place for inspection.
+$(init_failure_recovery_block "$target" "$WT_NEW_NEW_BRANCH")"
+  fi
 
   print_summary "$target"
 }

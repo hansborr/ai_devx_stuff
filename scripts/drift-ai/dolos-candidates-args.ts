@@ -6,11 +6,11 @@ import { parseSubcommandArgs, type SubcommandBaseOptions } from "./subcommand-ar
 // similarity), deliberately NOT tied to the near-duplicates similarity threshold,
 // which measures a different (ts-morph AST) signal. The cap defaults keep a
 // foreign-repo run bounded; every cap is disclosed in the advisory header.
-export const DEFAULT_DOLOS_LANGUAGE = "typescript";
-export const DEFAULT_DOLOS_THRESHOLD = 0.3;
-export const DEFAULT_DOLOS_MAX_FILES = 2000;
-export const DEFAULT_DOLOS_MAX_CANDIDATE_PAIRS = 50_000;
-export const DEFAULT_DOLOS_MAX_REPORTED_PAIRS = 200;
+const DEFAULT_DOLOS_LANGUAGE = "typescript";
+const DEFAULT_DOLOS_THRESHOLD = 0.3;
+const DEFAULT_DOLOS_MAX_FILES = 2000;
+const DEFAULT_DOLOS_MAX_CANDIDATE_PAIRS = 50_000;
+const DEFAULT_DOLOS_MAX_REPORTED_PAIRS = 200;
 
 const DOLOS_CANDIDATES_USAGE = [
   "Usage:",

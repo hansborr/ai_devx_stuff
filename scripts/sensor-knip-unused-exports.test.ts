@@ -1,4 +1,5 @@
-import { readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { copyFileSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 import { describe, expect, it } from "vitest";
@@ -14,6 +15,12 @@ import { registerTempRootCleanup } from "./test-support/tmp-repo.test-helper.js"
 
 const tmpRepo = registerTempRootCleanup();
 const SYMBOL_FILE = "src/symbols.ts";
+const repoRoot = path.resolve(import.meta.dirname, "..");
+const DRIVER_WARN =
+  "WARN: knip unused-exports merge driver is missing or stale - run bun run sensor:knip-unused-exports:install-merge-driver";
+const CONFLICT_MARKER_TRIPWIRE =
+  "sensor-knip-unused-exports.baseline.json is generated; Git conflict markers mean its semantic merge driver was not installed. Run `bun run sensor:knip-unused-exports:install-merge-driver`, restore a parseable side with `bun run baseline:restore-stage -- --ours sensor-knip-unused-exports.baseline.json` (always use stage 2/`--ours`; during rebase stage 2 is the upstream base, not the branch being rebased; if the markers were already committed, restore that side from a parent commit first), then resolve by regenerating with `bun scripts/sensor-knip-unused-exports.ts --update`; never hand-merge this file. Inspect the resulting baseline against both sides before staging; preserve any lower floor from the other side or explicitly accept the regression.";
+const SUPPRESS_DRIVER_WARN_ENV = "MUSI_SUPPRESS_MERGE_DRIVER_WARN";
 
 type CategoryCounts = Partial<Record<UnusedExportCategory, number>>;
 
@@ -90,7 +97,105 @@ function baselineJson(overrides: Record<string, unknown>): string {
   return `${JSON.stringify({ ...baselineRecord(), ...overrides }, null, 2)}\n`;
 }
 
+function makeDriverFixture(): string {
+  const root = tmpRepo.makeTmpGitRepo("knip-driver-presence-");
+  tmpRepo.writeRepoFile(root, "scripts/git/.gitkeep", "");
+  copyFileSync(
+    path.join(repoRoot, "scripts/git/baseline-merge-driver.sh"),
+    path.join(root, "scripts/git/baseline-merge-driver.sh"),
+  );
+  return root;
+}
+
+function installDriver(root: string): void {
+  execFileSync(
+    "bash",
+    [path.join(repoRoot, "scripts/git/install-knip-unused-exports-merge-driver.sh")],
+    {
+      cwd: root,
+      stdio: "ignore",
+    },
+  );
+}
+
 describe("runKnipUnusedExportsCli", () => {
+  it("warns once in check and update modes when the merge driver is missing", () => {
+    const root = makeDriverFixture();
+    const baselinePath = path.join(root, "sensor-knip-unused-exports.baseline.json");
+    const warnings: string[] = [];
+    const runner = knipReporting(unusedExportReport({ exports: 1 }));
+    writeFileSync(baselinePath, baselineText({ exports: 1 }));
+
+    const check = runKnipUnusedExportsCli({
+      argv: [],
+      cwd: root,
+      runner,
+      warn: (line) => warnings.push(line),
+    });
+    expect(check.exitCode).toBe(0);
+    expect(check.stdout).not.toContain(DRIVER_WARN);
+    expect(warnings).toEqual([DRIVER_WARN]);
+
+    warnings.length = 0;
+    const update = runKnipUnusedExportsCli({
+      argv: ["--update"],
+      cwd: root,
+      runner,
+      warn: (line) => warnings.push(line),
+    });
+    expect(update.exitCode).toBe(0);
+    expect(update.stdout).not.toContain(DRIVER_WARN);
+    expect(warnings).toEqual([DRIVER_WARN]);
+  });
+
+  it("stays silent when the merge driver is installed or warning probes are suppressed", () => {
+    const root = makeDriverFixture();
+    const baselinePath = path.join(root, "sensor-knip-unused-exports.baseline.json");
+    const runner = knipReporting(unusedExportReport({ exports: 1 }));
+    writeFileSync(baselinePath, baselineText({ exports: 1 }));
+    installDriver(root);
+
+    const installedWarnings: string[] = [];
+    expect(
+      runKnipUnusedExportsCli({
+        argv: [],
+        cwd: root,
+        runner,
+        warn: (line) => installedWarnings.push(line),
+      }).exitCode,
+    ).toBe(0);
+    expect(installedWarnings).toEqual([]);
+
+    const ciRoot = makeDriverFixture();
+    const ciWarnings: string[] = [];
+    writeFileSync(
+      path.join(ciRoot, "sensor-knip-unused-exports.baseline.json"),
+      baselineText({ exports: 1 }),
+    );
+    expect(
+      runKnipUnusedExportsCli({
+        argv: [],
+        cwd: ciRoot,
+        env: { CI: "1" },
+        runner,
+        warn: (line) => ciWarnings.push(line),
+      }).exitCode,
+    ).toBe(0);
+    expect(ciWarnings).toEqual([]);
+
+    const suppressedWarnings: string[] = [];
+    expect(
+      runKnipUnusedExportsCli({
+        argv: [],
+        cwd: ciRoot,
+        env: { [SUPPRESS_DRIVER_WARN_ENV]: "1" },
+        runner,
+        warn: (line) => suppressedWarnings.push(line),
+      }).exitCode,
+    ).toBe(0);
+    expect(suppressedWarnings).toEqual([]);
+  });
+
   it("passes when the current identities match the baseline", () => {
     const root = tmpRepo.writeRepo({
       "sensor-knip-unused-exports.baseline.json": baselineText({ exports: 1, types: 1 }),
@@ -212,16 +317,6 @@ describe("runKnipUnusedExportsCli", () => {
       expected: `ERROR: baseline includeCategories must be '${KNIP_SYMBOL_INCLUDE_CATEGORIES}'`,
     },
     {
-      name: "summary drift",
-      baseline: baselineJson({
-        summary: {
-          count: 2,
-          categories: { exports: 2, types: 0, enumMembers: 0, namespaceMembers: 0 },
-        },
-      }),
-      expected: "ERROR: baseline summary does not match the entries",
-    },
-    {
       name: "entry key mismatch",
       baseline: baselineJson({
         summary: {
@@ -250,6 +345,93 @@ describe("runKnipUnusedExportsCli", () => {
 
     expect(result.exitCode).toBe(2);
     expect(result.stdout).toContain(expected);
+  });
+
+  it("replaces a generic JSON error with merge-driver recovery for conflict markers", () => {
+    const root = tmpRepo.writeRepo({
+      "sensor-knip-unused-exports.baseline.json":
+        '<<<<<<< ours\n{"version":2}\n=======\n{"version":2}\n>>>>>>> theirs\n',
+    });
+
+    const result = runKnipUnusedExportsCli({
+      argv: [],
+      cwd: root,
+      runner: knipReporting(unusedExportReport({})),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(result.stdout).toBe(`ERROR: ${CONFLICT_MARKER_TRIPWIRE}`);
+    expect(result.stdout).not.toContain("JSON");
+  });
+
+  it("blocks summary drift until update regenerates the derived summary", () => {
+    const root = tmpRepo.writeRepo({
+      "sensor-knip-unused-exports.baseline.json": baselineJson({
+        summary: {
+          count: 2,
+          categories: { exports: 2, types: 0, enumMembers: 0, namespaceMembers: 0 },
+        },
+      }),
+    });
+
+    const result = runKnipUnusedExportsCli({
+      argv: [],
+      cwd: root,
+      runner: knipReporting(unusedExportReport({ exports: 1 })),
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toContain("WARN: baseline summary does not match the entries");
+    expect(result.stdout).toContain(
+      'derived {"count":1,"categories":{"exports":1,"types":0,"enumMembers":0,"namespaceMembers":0}}',
+    );
+    expect(result.stdout).toContain(
+      'committed {"count":2,"categories":{"exports":2,"types":0,"enumMembers":0,"namespaceMembers":0}}',
+    );
+    expect(result.stdout).toContain("run: bun scripts/sensor-knip-unused-exports.ts --update");
+    expect(result.stdout).toContain("OK: knip unused-export symbols match baseline 1 identities");
+
+    const updateResult = runKnipUnusedExportsCli({
+      argv: ["--update"],
+      cwd: root,
+      runner: knipReporting(unusedExportReport({ exports: 1 })),
+    });
+
+    expect(updateResult.exitCode).toBe(0);
+    expect(readFileSync(path.join(root, "sensor-knip-unused-exports.baseline.json"), "utf8")).toBe(
+      baselineText({ exports: 1 }),
+    );
+
+    const repairedCheck = runKnipUnusedExportsCli({
+      argv: [],
+      cwd: root,
+      runner: knipReporting(unusedExportReport({ exports: 1 })),
+    });
+
+    expect(repairedCheck.exitCode).toBe(0);
+    expect(repairedCheck.stdout).not.toContain("WARN:");
+  });
+
+  it("keeps entry mismatch failure messaging ahead of simultaneous summary drift", () => {
+    const root = tmpRepo.writeRepo({
+      "sensor-knip-unused-exports.baseline.json": baselineJson({
+        summary: {
+          count: 2,
+          categories: { exports: 2, types: 0, enumMembers: 0, namespaceMembers: 0 },
+        },
+      }),
+    });
+
+    const result = runKnipUnusedExportsCli({
+      argv: [],
+      cwd: root,
+      runner: knipReporting(unusedExportReport({ exports: 2 })),
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toContain("FAIL: knip unused-export symbols added 1 new identity");
+    expect(result.stdout).not.toContain("WARN: baseline summary does not match the entries");
+    expect(result.stdout).not.toContain("run: bun scripts/sensor-knip-unused-exports.ts --update");
   });
 
   it("returns an infrastructure failure when the baseline is missing", () => {

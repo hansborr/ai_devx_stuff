@@ -38,7 +38,7 @@ export type BranchPointFunction = {
   readonly branchPoints: number;
 };
 
-export type BranchPointMetrics = {
+type BranchPointMetrics = {
   readonly total: number;
   // Every scope that contributed at least one branch point, sorted by branch points
   // descending then by line. The module bucket appears as MODULE_SCOPE_NAME when it

@@ -39,6 +39,24 @@ ok "verify-metadata.sh passes bash -n"
 VALID_HASH="$(printf 'test' | sha256sum | awk '{print $1}')"
 ZERO_HASH="0000000000000000000000000000000000000000000000000000000000000000"
 
+# --- required fingerprints reject command and digest failures ----------------
+fingerprint_ok() { printf '%s\n' "$VALID_HASH"; }
+fingerprint_empty() { return 0; }
+fingerprint_malformed() { printf 'not-a-digest\n'; }
+fingerprint_failed() { return 87; }
+
+required_fp=$(musi_require_fingerprint "test fingerprint" fingerprint_ok) \
+  || fail "musi_require_fingerprint rejected a valid digest"
+[ "$required_fp" = "$VALID_HASH" ] || fail "required fingerprint output changed"
+for producer in fingerprint_empty fingerprint_malformed fingerprint_failed; do
+  output_file="$SANDBOX/required-$producer.out"
+  if musi_require_fingerprint "test fingerprint" "$producer" > "$output_file" 2>/dev/null; then
+    fail "musi_require_fingerprint accepted $producer"
+  fi
+  [ ! -s "$output_file" ] || fail "musi_require_fingerprint emitted stdout for $producer"
+done
+ok "musi_require_fingerprint emits only successful 64-hex digests"
+
 # =============================================================================
 # musi_read_success_marker
 # =============================================================================
@@ -217,6 +235,45 @@ fi
 ok "musi_success_marker_matches rejects future timestamp (negative age)"
 
 # =============================================================================
+# Shared gate timing constants (leaf 3.3)
+# =============================================================================
+
+# --- constants expose the canonical budgets in one place ----------------------
+[ "${MUSI_GATE_MARKER_FRESHNESS_SECONDS:-unset}" = "120" ] \
+  || fail "MUSI_GATE_MARKER_FRESHNESS_SECONDS should be 120 (got '${MUSI_GATE_MARKER_FRESHNESS_SECONDS:-unset}')"
+[ "${MUSI_GATE_INTERACTIVE_TIMEOUT_DEFAULT:-unset}" = "1200" ] \
+  || fail "MUSI_GATE_INTERACTIVE_TIMEOUT_DEFAULT should be 1200 (got '${MUSI_GATE_INTERACTIVE_TIMEOUT_DEFAULT:-unset}')"
+[ "${MUSI_GATE_PRE_PUSH_FRESHNESS_SECONDS:-unset}" = "3600" ] \
+  || fail "MUSI_GATE_PRE_PUSH_FRESHNESS_SECONDS should be 3600 (got '${MUSI_GATE_PRE_PUSH_FRESHNESS_SECONDS:-unset}')"
+ok "shared gate timing constants expose the canonical 120/1200/3600 budgets"
+
+# --- default freshness arg falls back to the shared constant ------------------
+# With no 4th arg, musi_success_marker_matches must reuse
+# MUSI_GATE_MARKER_FRESHNESS_SECONDS: a marker aged just inside the window is
+# accepted and one just beyond it is rejected, pinning the default to the single
+# source of truth rather than a re-typed literal.
+inside_ts=$((now - (MUSI_GATE_MARKER_FRESHNESS_SECONDS - 5)))
+cat > "$SANDBOX/marker-default-fresh" <<EOF
+LAST_TS=$inside_ts
+LAST_HEAD=correct-head
+LAST_HASH=$VALID_HASH
+EOF
+musi_success_marker_matches "$SANDBOX/marker-default-fresh" "correct-head" "$VALID_HASH" \
+  || fail "default freshness should accept a marker within the shared window"
+ok "musi_success_marker_matches default freshness accepts within the shared window"
+
+beyond_ts=$((now - (MUSI_GATE_MARKER_FRESHNESS_SECONDS + 5)))
+cat > "$SANDBOX/marker-default-stale" <<EOF
+LAST_TS=$beyond_ts
+LAST_HEAD=correct-head
+LAST_HASH=$VALID_HASH
+EOF
+if musi_success_marker_matches "$SANDBOX/marker-default-stale" "correct-head" "$VALID_HASH"; then
+  fail "default freshness should reject a marker beyond the shared window"
+fi
+ok "musi_success_marker_matches default freshness rejects beyond the shared window"
+
+# =============================================================================
 # musi_write_success_marker
 # =============================================================================
 
@@ -232,6 +289,13 @@ line_count=$(wc -l < "$MARKER_WRITE" | tr -d ' ')
 musi_read_success_marker "$MARKER_WRITE" \
   || fail "written marker should pass musi_read_success_marker validation"
 ok "musi_write_success_marker writes atomically shaped marker content"
+
+INVALID_MARKER="$SANDBOX/write-subdir/invalid-marker"
+if musi_write_success_marker "$INVALID_MARKER" "my-head" "" 2>/dev/null; then
+  fail "musi_write_success_marker accepted an empty fingerprint"
+fi
+[ ! -e "$INVALID_MARKER" ] || fail "invalid success marker was written"
+ok "musi_write_success_marker refuses invalid fingerprints"
 
 # =============================================================================
 # musi_restamp_verify_marker
@@ -339,6 +403,13 @@ WRAP="$SANDBOX/wrapper/wrapper.json"
 now=$(date +%s)
 start_iso=$(date -d "@$((now - 300))" -Iseconds)
 end_iso=$(date -d "@$((now - 60))" -Iseconds)
+
+if musi_write_wrapper_meta "$WRAP" serial-verify "$((now - 300))" "$start_iso" \
+  "$((now - 60))" "$end_iso" 0 "bun run verify" "branch-tip" "" 2>/dev/null; then
+  fail "musi_write_wrapper_meta accepted an empty fingerprint"
+fi
+[ ! -e "$WRAP" ] || fail "invalid wrapper metadata was written"
+ok "musi_write_wrapper_meta refuses invalid fingerprints"
 
 # --- re-stamps head/fingerprint of a passing wrapper, keeping exit_code 0 -----
 musi_write_wrapper_meta "$WRAP" serial-verify "$((now - 300))" "$start_iso" \
@@ -460,6 +531,59 @@ fp2=$(ai_worktree_fingerprint "$repo")
 [ "$fp1" != "$fp2" ] || fail "worktree fingerprint should change for tracked edits"
 ok "ai_worktree_fingerprint changes for tracked edits"
 
+# --- broken external diff cannot collapse a tracked edit to the clean hash ---
+repo="$(new_repo worktree-fp-external-diff)"
+clean_fp=$(ai_worktree_fingerprint "$repo")
+printf 'edited behind broken external diff\n' > "$repo/file.txt"
+cat > "$SANDBOX/failing-external-diff" <<'EOF'
+#!/usr/bin/env bash
+exit 86
+EOF
+chmod +x "$SANDBOX/failing-external-diff"
+if ! dirty_fp=$(GIT_EXTERNAL_DIFF="$SANDBOX/failing-external-diff" ai_worktree_fingerprint "$repo"); then
+  fail "worktree fingerprint should bypass configured external diff drivers"
+fi
+[ "$clean_fp" != "$dirty_fp" ] \
+  || fail "broken external diff collapsed a tracked edit to the clean fingerprint"
+ok "ai_worktree_fingerprint bypasses broken external diffs without a clean-hash collision"
+
+# --- fingerprint functions fail closed when their git diff input fails -------
+repo="$(new_repo fingerprint-diff-failure)"
+if (
+  git() {
+    case " $* " in
+      *" diff "*) return 87 ;;
+      *) command git "$@" ;;
+    esac
+  }
+  ai_worktree_fingerprint "$repo" >/dev/null
+); then
+  fail "worktree fingerprint should fail when git diff fails"
+fi
+if (
+  git() {
+    case " $* " in
+      *" diff "*) return 87 ;;
+      *) command git "$@" ;;
+    esac
+  }
+  ai_staged_fingerprint "$repo" >/dev/null
+); then
+  fail "staged fingerprint should fail when git diff fails"
+fi
+if (
+  git() {
+    case " $* " in
+      *" diff "*) return 87 ;;
+      *) command git "$@" ;;
+    esac
+  }
+  ai_precommit_fingerprint "$repo" >/dev/null
+); then
+  fail "precommit fingerprint should fail when git diff fails"
+fi
+ok "fingerprint functions fail closed when a git diff input fails"
+
 # --- ai_worktree_fingerprint changes for untracked file contents --------------
 repo="$(new_repo worktree-fp-untracked)"
 fp1=$(ai_worktree_fingerprint "$repo")
@@ -467,6 +591,26 @@ printf 'new file\n' > "$repo/untracked.txt"
 fp2=$(ai_worktree_fingerprint "$repo")
 [ "$fp1" != "$fp2" ] || fail "worktree fingerprint should change for untracked files"
 ok "ai_worktree_fingerprint changes for untracked file contents"
+
+# --- worktree fingerprint fails closed when untracked hashing fails ----------
+repo="$(new_repo worktree-fp-untracked-hash-failure)"
+printf 'unhashable\n' > "$repo/untracked.txt"
+mkdir -p "$SANDBOX/failing-hash-bin"
+cat > "$SANDBOX/failing-hash-bin/sha256sum" <<'EOF'
+#!/usr/bin/env bash
+case "${1:-}" in
+  *untracked.txt) exit 88 ;;
+  *) exec /usr/bin/sha256sum "$@" ;;
+esac
+EOF
+chmod +x "$SANDBOX/failing-hash-bin/sha256sum"
+if (
+  PATH="$SANDBOX/failing-hash-bin:$PATH"
+  ai_worktree_fingerprint "$repo" >/dev/null
+); then
+  fail "worktree fingerprint should fail when untracked sha256sum fails"
+fi
+ok "ai_worktree_fingerprint fails closed when untracked hashing fails"
 
 # --- ai_precommit_fingerprint includes staged diff ----------------------------
 repo="$(new_repo precommit-staged)"
@@ -486,6 +630,26 @@ fp2=$(ai_precommit_fingerprint "$repo")
 [ "$fp1" != "$fp2" ] \
   || fail "precommit fingerprint should change for relevant untracked paths (scripts/*)"
 ok "ai_precommit_fingerprint includes relevant unstaged/untracked paths"
+
+# --- ai_precommit_fingerprint preserves newline-containing paths --------------
+repo="$(new_repo precommit-newline-paths)"
+tracked_newline_path=$'packages/server/tracked\nsource.ts'
+untracked_newline_path=$'packages/server/untracked\nsource.ts'
+mkdir -p "$repo/packages/server"
+printf 'tracked base\n' > "$repo/$tracked_newline_path"
+git -C "$repo" add "$tracked_newline_path"
+git -C "$repo" commit -qm "add newline source path"
+fp1=$(ai_precommit_fingerprint "$repo")
+printf 'tracked edit\n' > "$repo/$tracked_newline_path"
+fp2=$(ai_precommit_fingerprint "$repo")
+[ "$fp1" != "$fp2" ] \
+  || fail "precommit fingerprint should include a tracked newline-containing path"
+fp1="$fp2"
+printf 'untracked source\n' > "$repo/$untracked_newline_path"
+fp2=$(ai_precommit_fingerprint "$repo")
+[ "$fp1" != "$fp2" ] \
+  || fail "precommit fingerprint should include an untracked newline-containing path"
+ok "ai_precommit_fingerprint preserves tracked and untracked newline paths"
 
 # --- ai_precommit_fingerprint includes tracked .codex/.claude extras ----------
 repo="$(new_repo precommit-tracked-agent-extra)"
@@ -527,9 +691,50 @@ fp_off_again=$(ai_precommit_fingerprint "$repo")
   || fail "precommit fingerprint should match the legacy value once the marker is removed"
 ok "ai_precommit_fingerprint diverges only when fast-commit marker is present"
 
+# --- fast-commit marker tripwire logs create/remove transitions --------------
+# The toggle is created/removed by hand, so a mid-session vanish is otherwise
+# folklore. Each observation records presence; a flip appends a transition line
+# (path + the observing process's pid + timestamp). The pid is the observer's,
+# not the creator/remover's — the log labels it observed-by-pid= so nobody
+# misreads it as attribution for who flipped the marker. The first observation
+# is a silent baseline, and a repeated observation with no flip appends nothing.
+repo="$(new_repo fast-commit-marker-tripwire)"
+tw_marker="$(musi_git_common_identity_path "$repo")/musi-fast-commit"
+tw_log="$(musi_fast_commit_marker_log_path "$repo")"
+musi_fast_commit_marker_observe "$repo"
+[ ! -s "$tw_log" ] || fail "first tripwire observation must not log a transition"
+: > "$tw_marker"
+musi_fast_commit_marker_observe "$repo"
+[ "$(grep -c ' created ' "$tw_log" 2>/dev/null || echo 0)" -eq 1 ] \
+  || fail "tripwire should log exactly one created transition"
+grep -qF "$tw_marker" "$tw_log" || fail "tripwire line should record the marker path"
+grep -qE "observed-by-pid=$$|observed-by-pid=[0-9]+" "$tw_log" \
+  || fail "tripwire line should record the observing pid, honestly labelled observed-by-pid="
+rm -f "$tw_marker"
+musi_fast_commit_marker_observe "$repo"
+[ "$(grep -c ' removed ' "$tw_log" 2>/dev/null || echo 0)" -eq 1 ] \
+  || fail "tripwire should log exactly one removed transition"
+tw_lines_before=$(wc -l < "$tw_log")
+musi_fast_commit_marker_observe "$repo"
+[ "$(wc -l < "$tw_log")" -eq "$tw_lines_before" ] \
+  || fail "a repeated observation with no flip must not append a transition"
+ok "musi_fast_commit_marker_observe logs create/remove transitions attributably"
+
 # =============================================================================
 # musi_changed_gate_fail_if_unstaged
 # =============================================================================
+
+# --- staged source detection preserves newline-containing paths --------------
+repo="$(new_repo staged-newline-source)"
+staged_newline_path=$'packages/server/staged\nsource.ts'
+mkdir -p "$repo/packages/server"
+printf 'staged source\n' > "$repo/$staged_newline_path"
+git -C "$repo" add "$staged_newline_path"
+(
+  cd "$repo" || exit 2
+  musi_staged_has_source_relevant_change
+) || fail "staged source detection should preserve newline-containing paths"
+ok "musi_staged_has_source_relevant_change preserves newline paths"
 
 # --- reports source-relevant unstaged files -----------------------------------
 repo="$(new_repo gate-relevant-unstaged)"
@@ -562,6 +767,37 @@ grep -qF 'gate-test:   - packages/server/newfile.ts' <<< "$output" \
   || fail "gate should report untracked source-relevant file: $output"
 ok "musi_changed_gate_fail_if_unstaged reports source-relevant untracked files"
 
+# --- rejects newline-containing source-relevant untracked files ---------------
+repo="$(new_repo gate-newline-untracked)"
+newline_path=$'packages/server/newline\nsource.ts'
+mkdir -p "$repo/packages/server"
+printf 'new file\n' > "$repo/$newline_path"
+set +e
+output=$(musi_changed_gate_fail_if_unstaged "$repo" "gate-test" 2>&1)
+exit_code=$?
+set -e
+[ "$exit_code" -eq 1 ] \
+  || fail "gate should reject newline-containing source path (got $exit_code): $output"
+grep -qF 'gate-test: source-relevant unstaged or untracked changes are present.' <<< "$output" \
+  || fail "gate should report newline-containing source path: $output"
+ok "musi_changed_gate_fail_if_unstaged preserves newline paths"
+
+# --- rejects newline-containing source-relevant tracked edits ----------------
+repo="$(new_repo gate-newline-tracked)"
+newline_path=$'packages/server/tracked\nsource.ts'
+mkdir -p "$repo/packages/server"
+printf 'base\n' > "$repo/$newline_path"
+git -C "$repo" add "$newline_path"
+git -C "$repo" commit -qm "add tracked newline path"
+printf 'unstaged edit\n' > "$repo/$newline_path"
+set +e
+output=$(musi_changed_gate_fail_if_unstaged "$repo" "gate-test" 2>&1)
+exit_code=$?
+set -e
+[ "$exit_code" -eq 1 ] \
+  || fail "gate should reject tracked newline-containing source path (got $exit_code): $output"
+ok "musi_changed_gate_fail_if_unstaged preserves tracked newline paths"
+
 # --- ignores irrelevant paths -------------------------------------------------
 repo="$(new_repo gate-irrelevant)"
 printf 'committed\n' > "$repo/notes.txt"
@@ -592,5 +828,197 @@ set -e
 [ "$classifier_rc" -eq 1 ] \
   || fail "staged script deletion should request full script-smoke fallback, got $classifier_rc"
 ok "musi_classify_staged_script_input detects script-smoke-sensitive deletions"
+
+repo="$(new_repo script-newline-classifier)"
+mkdir -p "$repo/scripts"
+newline_script=$'scripts/new\nsmoke.sh'
+printf '#!/usr/bin/env bash\n' > "$repo/$newline_script"
+git -C "$repo" add "$newline_script"
+set +e
+(
+  cd "$repo" || exit 2
+  musi_classify_staged_script_input
+)
+classifier_rc=$?
+set -e
+[ "$classifier_rc" -eq 1 ] \
+  || fail "newline-containing staged path should request full script-smoke fallback, got $classifier_rc"
+ok "musi_classify_staged_script_input falls back for newline paths"
+
+# =============================================================================
+# Fast-commit provenance state (log/lock shared; pending per-worktree)
+# =============================================================================
+
+# --- log + lock are Git-common-dir scoped; pending is per-worktree ------------
+fc_repo="$(new_repo fast-scope-primary)"
+fc_sibling="$SANDBOX/fast-scope-sibling"
+git -C "$fc_repo" worktree add -q -b fast-scope-sibling "$fc_sibling" HEAD
+[ "$(musi_fast_commit_log_path "$fc_repo")" = "$(musi_fast_commit_log_path "$fc_sibling")" ] \
+  || fail "fast-commit log should be shared across sibling worktrees"
+[ "$(musi_fast_commit_log_lock "$fc_repo")" = "$(musi_fast_commit_log_lock "$fc_sibling")" ] \
+  || fail "fast-commit log lock should be shared across sibling worktrees"
+[ "$(musi_fast_commit_pending_marker "$fc_repo")" != "$(musi_fast_commit_pending_marker "$fc_sibling")" ] \
+  || fail "fast-commit pending marker should differ for sibling worktrees"
+fc_unrelated="$(new_repo fast-scope-unrelated)"
+[ "$(musi_fast_commit_log_path "$fc_repo")" != "$(musi_fast_commit_log_path "$fc_unrelated")" ] \
+  || fail "fast-commit log should differ for unrelated repositories"
+ok "fast-commit log/lock are common-dir scoped and pending marker is per-worktree"
+
+# --- append de-duplicates under the lock --------------------------------------
+fc_repo="$(new_repo fast-append-dedup)"
+musi_fast_commit_log_append "$fc_repo" sha1111
+musi_fast_commit_log_append "$fc_repo" sha1111
+musi_fast_commit_log_append "$fc_repo" sha2222
+fc_log="$(musi_fast_commit_log_path "$fc_repo")"
+[ "$(grep -c . "$fc_log")" -eq 2 ] \
+  || fail "append should de-duplicate: $(cat "$fc_log")"
+ok "musi_fast_commit_log_append de-duplicates repeated commits"
+
+# --- clear replaces atomically beside the log, independent of TMPDIR -----------
+# The temp is created as "$log.XXXXXX" (same dir/filesystem), so an unwritable or
+# missing TMPDIR must not break the clear and the rename stays atomic.
+fc_repo="$(new_repo fast-clear-tmpdir)"
+fc_log="$(musi_fast_commit_log_path "$fc_repo")"
+mkdir -p "$(dirname "$fc_log")"
+printf 'keepme\ndropme\n' > "$fc_log"
+TMPDIR=/nonexistent-musi-fast-clear musi_fast_commit_log_clear "$fc_repo" "dropme" \
+  || fail "clear should succeed with an unwritable TMPDIR (temp lives beside the log)"
+grep -qxF keepme "$fc_log" || fail "clear should keep unlisted commits: $(cat "$fc_log")"
+if grep -qxF dropme "$fc_log"; then
+  fail "clear should remove listed commits: $(cat "$fc_log")"
+fi
+ok "musi_fast_commit_log_clear replaces beside the log regardless of TMPDIR"
+
+# --- append and clear serialize on the shared lock ----------------------------
+# Hold the lock externally; an append must block until it is released rather than
+# racing the holder. A gate file (not a fixed sleep) drives the release so the
+# test cannot hang or depend on timing of the critical section.
+fc_repo="$(new_repo fast-lock-serialize)"
+fc_log="$(musi_fast_commit_log_path "$fc_repo")"
+fc_lock="$(musi_fast_commit_log_lock "$fc_repo")"
+mkdir -p "$(dirname "$fc_lock")"
+fc_held="$SANDBOX/fast-lock-held"
+fc_gate="$SANDBOX/fast-lock-gate"
+rm -f "$fc_held"
+: > "$fc_gate"
+(
+  flock 9
+  : > "$fc_held"
+  while [ -f "$fc_gate" ]; do sleep 0.05; done
+) 9<>"$fc_lock" &
+holder_pid=$!
+for _ in $(seq 1 100); do [ -f "$fc_held" ] && break; sleep 0.05; done
+[ -f "$fc_held" ] || fail "external lock holder never acquired the lock"
+musi_fast_commit_log_append "$fc_repo" blocked-sha &
+append_pid=$!
+sleep 0.3
+if [ -f "$fc_log" ] && grep -qxF blocked-sha "$fc_log"; then
+  fail "append landed while the lock was held externally (no serialization)"
+fi
+rm -f "$fc_gate"
+wait "$holder_pid" 2>/dev/null || true
+wait "$append_pid" 2>/dev/null || true
+grep -qxF blocked-sha "$fc_log" \
+  || fail "append should land once the lock is released: $(cat "$fc_log" 2>/dev/null)"
+ok "musi_fast_commit_log_append serializes on the shared lock"
+
+# --- concurrent append and clear never lose the appended commit ---------------
+# The race the lock closes: a clear that reads the log, then a concurrent append,
+# then the clear's rename overwrites the just-appended line. Under the lock the
+# outcome is deterministic ({incoming} only) every iteration; without it the
+# appended commit is periodically dropped.
+fc_repo="$(new_repo fast-log-race)"
+fc_log="$(musi_fast_commit_log_path "$fc_repo")"
+mkdir -p "$(dirname "$fc_log")"
+race_ok=1
+for _ in $(seq 1 60); do
+  printf 'outgoing\n' > "$fc_log"
+  musi_fast_commit_log_append "$fc_repo" incoming &
+  ap=$!
+  musi_fast_commit_log_clear "$fc_repo" "outgoing" &
+  cp=$!
+  wait "$ap" 2>/dev/null || true
+  wait "$cp" 2>/dev/null || true
+  if ! grep -qxF incoming "$fc_log"; then
+    race_ok=0
+    break
+  fi
+  if grep -qxF outgoing "$fc_log"; then
+    race_ok=0
+    break
+  fi
+done
+[ "$race_ok" -eq 1 ] \
+  || fail "concurrent append+clear dropped the appended commit or left a partial log"
+ok "concurrent fast-commit append and clear never lose the appended commit"
+
+# =============================================================================
+# Short-circuit / bridge run-mode recording (leaf 3.10)
+# =============================================================================
+
+# --- records a minimal, greppable history entry without a wrapper.json --------
+# The marker short-circuit and the verify bridge exit before any run-meta is
+# produced, so this writes the audit entry straight to the history dir. It must
+# never touch a meta/wrapper.json (the pre-push evidence fallback) — the function
+# is only handed a history dir, so there is nothing else it can clobber.
+sc_hist="$SANDBOX/shortcircuit-history"
+musi_record_precommit_shortcircuit "$sc_hist" precommit-marker "sc-head" "$VALID_HASH" precommit-marker \
+  || fail "musi_record_precommit_shortcircuit should record a marker short-circuit"
+sc_file=$(find "$sc_hist" -maxdepth 1 -type f -name '*-precommit-marker-0.json' | head -1)
+[ -n "$sc_file" ] || fail "expected a <epoch>-precommit-marker-0.json history entry"
+sc_json=$(sed -n '1p' "$sc_file")
+sc_wrapper=$(musi_run_meta_wrapper_fragment "$sc_json")
+[ -n "$sc_wrapper" ] || fail "recorded entry should expose a parseable wrapper fragment"
+[ "$(musi_run_meta_json_string_field "$sc_wrapper" mode)" = "precommit-marker" ] \
+  || fail "recorded wrapper mode should be precommit-marker"
+[ "$(musi_run_meta_json_string_field "$sc_wrapper" head)" = "sc-head" ] \
+  || fail "recorded wrapper head should round-trip"
+[ "$(musi_run_meta_json_string_field "$sc_wrapper" fingerprint)" = "$VALID_HASH" ] \
+  || fail "recorded wrapper fingerprint should round-trip"
+[ "$(musi_run_meta_json_string_field "$sc_wrapper" satisfied_marker)" = "precommit-marker" ] \
+  || fail "recorded wrapper should note which marker satisfied the gate"
+[ "$(musi_run_meta_json_int_field "$sc_wrapper" exit_code)" = "0" ] \
+  || fail "a short-circuit that admitted the commit records exit_code 0"
+[ ! -e "$sc_hist/wrapper.json" ] && [ ! -e "$sc_hist/meta" ] \
+  || fail "recording must not create a wrapper.json / meta dir"
+ok "musi_record_precommit_shortcircuit writes a greppable history entry, no wrapper.json"
+
+# --- refuses to record an invalid fingerprint (best-effort, non-fatal) --------
+sc_hist_bad="$SANDBOX/shortcircuit-history-bad"
+musi_record_precommit_shortcircuit "$sc_hist_bad" precommit-bridged "sc-head" "not-a-fingerprint" verify \
+  || fail "recording should stay non-fatal even when it refuses"
+[ -z "$(find "$sc_hist_bad" -maxdepth 1 -type f -name '*.json' 2>/dev/null)" ] \
+  || fail "an invalid fingerprint must not produce a history entry"
+ok "musi_record_precommit_shortcircuit refuses an invalid fingerprint without failing"
+
+# --- bridge exposes which marker satisfied the gate + its head/fingerprint -----
+# The pre-commit hook needs head/fingerprint/which-marker to record a bridged
+# commit, but the bridge helper's values are otherwise function-local. On a
+# successful bridge it publishes them as globals (mirroring how
+# musi_success_marker_matches sets MUSI_MARKER_MATCH_AGE).
+br_repo="$(new_repo bridge-globals)"
+br_head=$(git -C "$br_repo" rev-parse HEAD)
+br_verify_hash=$(ai_worktree_fingerprint "$br_repo")
+br_precommit_hash=$(ai_precommit_fingerprint "$br_repo")
+br_verify_marker="$SANDBOX/bridge-verify-marker"
+br_precommit_marker="$SANDBOX/bridge-precommit-marker"
+cat > "$br_verify_marker" <<EOF
+LAST_TS=$(date +%s)
+LAST_HEAD=$br_head
+LAST_HASH=$br_verify_hash
+EOF
+MUSI_VERIFY_BRIDGE_KIND=""
+MUSI_VERIFY_BRIDGE_HEAD=""
+MUSI_VERIFY_BRIDGE_FINGERPRINT=""
+musi_try_single_verify_marker_bridge "$br_repo" "$br_precommit_marker" "$br_verify_marker" \
+  verify 120 "$br_head" "$br_verify_hash" >/dev/null \
+  || fail "a fresh matching verify marker should bridge the pre-commit"
+[ "$MUSI_VERIFY_BRIDGE_KIND" = "verify" ] \
+  || fail "bridge should publish which marker satisfied the gate (got '$MUSI_VERIFY_BRIDGE_KIND')"
+[ "$MUSI_VERIFY_BRIDGE_HEAD" = "$br_head" ] \
+  || fail "bridge should publish the bridged HEAD"
+[ "$MUSI_VERIFY_BRIDGE_FINGERPRINT" = "$br_precommit_hash" ] \
+  || fail "bridge should publish the pre-commit fingerprint it stamped"
+ok "musi_try_single_verify_marker_bridge publishes bridge provenance globals"
 
 printf 'verify-metadata tests passed (%d)\n' "$PASS"

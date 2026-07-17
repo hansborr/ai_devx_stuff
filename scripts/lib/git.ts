@@ -1,4 +1,7 @@
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { isAbsolute, join, relative, resolve, sep } from "node:path";
 
 // Shared git plumbing for the scripts substrate. This is the superset home for
 // the injectable runner and the low-level parsers that several tools re-derive
@@ -18,6 +21,110 @@ export function defaultGitRunner(options?: { readonly cwd?: string }): GitRunner
   return (args) => execFileSync("git", [...args], { cwd: options?.cwd, encoding: "utf8" });
 }
 
+/** Anchor a git command at the repository root, independent of the invocation cwd. */
+export function gitRepoRootArgs(repoRoot: string, args: readonly string[]): string[] {
+  return ["-C", repoRoot, ...args];
+}
+
+export function gitStatusPorcelainArgs(
+  repoRoot: string,
+  excludedPaths: readonly string[],
+): string[] {
+  const exclusions = gitExclusionPathspecs(repoRoot, excludedPaths);
+  if (exclusions.length === 0) return ["status", "--porcelain"];
+  return ["status", "--porcelain", "--untracked-files=all", "--", ".", ...exclusions];
+}
+
+function gitChangedPathsArgs(repoRoot: string, excludedPaths: readonly string[]): string[] {
+  return [
+    "diff",
+    "--name-only",
+    "-z",
+    "HEAD",
+    "--",
+    ".",
+    ...gitExclusionPathspecs(repoRoot, excludedPaths),
+  ];
+}
+
+function gitUntrackedPathsArgs(repoRoot: string, excludedPaths: readonly string[]): string[] {
+  return [
+    "ls-files",
+    "-z",
+    "--others",
+    "--exclude-standard",
+    "--",
+    ".",
+    ...gitExclusionPathspecs(repoRoot, excludedPaths),
+  ];
+}
+
+/**
+ * Hash every changed or untracked working-tree path and its current content.
+ * `null` means a git content probe failed; file-read races remain represented
+ * by the stable `missing` marker and are caught by the surrounding snapshots.
+ */
+export function captureGitStateFingerprint(
+  git: GitRunner,
+  repoRoot: string,
+  excludedPaths: readonly string[],
+): string | null {
+  const changed = runRawGitProbe(
+    git,
+    gitRepoRootArgs(repoRoot, gitChangedPathsArgs(repoRoot, excludedPaths)),
+  );
+  const untracked = runRawGitProbe(
+    git,
+    gitRepoRootArgs(repoRoot, gitUntrackedPathsArgs(repoRoot, excludedPaths)),
+  );
+  if (changed === null || untracked === null) return null;
+  const dirtyPaths = new Set([...parseNulPaths(changed), ...parseNulPaths(untracked)]);
+  const stateToken = [...dirtyPaths]
+    .sort()
+    .map((path) => `${path}\0${workingTreeContentHash(repoRoot, path)}`)
+    .join("\0");
+  return createHash("sha256").update(stateToken).digest("hex");
+}
+
+function runRawGitProbe(git: GitRunner, args: readonly string[]): string | null {
+  try {
+    return git(args);
+  } catch {
+    return null;
+  }
+}
+
+function parseNulPaths(output: string): string[] {
+  return output.split("\0").filter((path) => path.length > 0);
+}
+
+function workingTreeContentHash(repoRoot: string, path: string): string {
+  try {
+    return createHash("sha256")
+      .update(readFileSync(join(repoRoot, path)))
+      .digest("hex");
+  } catch {
+    return "missing";
+  }
+}
+
+function gitExclusionPathspecs(repoRoot: string, excludedPaths: readonly string[]): string[] {
+  return excludedPaths.flatMap((artifactPath) => {
+    const absoluteArtifactPath = isAbsolute(artifactPath)
+      ? artifactPath
+      : resolve(repoRoot, artifactPath);
+    const repoRelative = relative(repoRoot, absoluteArtifactPath);
+    if (
+      repoRelative.length === 0 ||
+      repoRelative.startsWith(`..${sep}`) ||
+      isAbsolute(repoRelative)
+    ) {
+      return [];
+    }
+    return [`:(top,exclude,literal)${repoRelative.split(sep).join("/")}`];
+  });
+}
+
 /** Resolve the working-tree root, falling back to `process.cwd()` when git cannot answer. */
 export function resolveRepoRoot(git: GitRunner): string {
   try {
@@ -30,14 +137,17 @@ export function resolveRepoRoot(git: GitRunner): string {
 }
 
 /**
- * List repository-tracked files (`git ls-files`), newline-split with blank lines
- * and trailing CR dropped. Returned in git's own order — callers apply their own
- * sort, since consumers order differently (default lexical vs. locale-aware).
+ * List repository-tracked files via `git ls-files -z`, NUL-split. `-z` disables
+ * git's `core.quotePath` C-quoting, so pathnames containing non-ASCII bytes,
+ * spaces, or even newlines (all legal in git) survive verbatim instead of being
+ * quoted or split apart — a newline-split of plain `ls-files` silently drops or
+ * corrupts such files. Empty entries (the trailing NUL) are dropped. Returned in
+ * git's own order — callers apply their own sort, since consumers order
+ * differently (default lexical vs. locale-aware).
  */
 export function listTrackedFiles(git: GitRunner): string[] {
   const files: string[] = [];
-  for (const raw of git(["ls-files"]).split("\n")) {
-    const file = raw.replace(/\r$/u, "");
+  for (const file of git(["ls-files", "-z"]).split("\0")) {
     if (file.length > 0) files.push(file);
   }
   return files;

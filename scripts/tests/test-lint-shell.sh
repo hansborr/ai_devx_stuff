@@ -3,9 +3,11 @@
 # smoke-subjects: scripts/lint-shell.sh
 # smoke-subjects: scripts/lib/parallel-runner.sh
 # smoke-subjects: scripts/lib/changed-base.sh
+# smoke-subjects: scripts/lib/changed-lintable-files.sh
 # smoke-subjects: scripts/path-policy/path-policy-query.ts
 # smoke-subjects: scripts/path-policy/path-policy-query-core.ts
 # smoke-subjects: scripts/path-policy/path-policy.ts
+# smoke-subjects: scripts/harness/harness-manifest.ts
 # smoke-subjects: scripts/harness/harness-paths.ts
 # smoke-subjects: scripts/lint-ratchet/paths.ts
 # smoke-subjects: scripts/tests/lib/test-git-env.sh
@@ -27,15 +29,19 @@ LINT_CHANGED="$SCRIPT_DIR/../lint-changed.sh"
 PARALLEL_RUNNER="$SCRIPT_DIR/../lib/parallel-runner.sh"
 VERIFY_METADATA="$SCRIPT_DIR/../lib/verify-metadata.sh"
 CHANGED_BASE="$SCRIPT_DIR/../lib/changed-base.sh"
+CHANGED_LINTABLE_FILES="$SCRIPT_DIR/../lib/changed-lintable-files.sh"
 LINT_DIST_PREFLIGHT="$SCRIPT_DIR/../lib/lint-dist-preflight.sh"
 ESLINT_MAIN_CACHE="$SCRIPT_DIR/../lib/eslint-main-cache.sh"
+GATE_ENV="$SCRIPT_DIR/../lib/gate-env.sh"
 PATH_POLICY_QUERY="$SCRIPT_DIR/../path-policy/path-policy-query.ts"
 PATH_POLICY_QUERY_CORE="$SCRIPT_DIR/../path-policy/path-policy-query-core.ts"
 PATH_POLICY="$SCRIPT_DIR/../path-policy/path-policy.ts"
 PATH_POLICY_SMOKE_SUBJECTS="$SCRIPT_DIR/../path-policy/path-policy-smoke-subjects.ts"
 PATH_POLICY_SMOKE_SUBJECTS_DATA="$SCRIPT_DIR/../path-policy/path-policy-smoke-subjects-data.ts"
 HARNESS_PATHS="$SCRIPT_DIR/../harness/harness-paths.ts"
+HARNESS_MANIFEST="$SCRIPT_DIR/../harness/harness-manifest.ts"
 LINT_RATCHET_PATHS="$SCRIPT_DIR/../lint-ratchet/paths.ts"
+LINT_RATCHET_METRICS_TYPES="$SCRIPT_DIR/../lint-ratchet/metrics-types.ts"
 CONFIG_SURFACES="$REPO_ROOT/eslint-config/config-surfaces.js"
 CONFIG_SURFACE_MANIFEST="$REPO_ROOT/eslint-config/config-surface-manifest.json"
 SHARED_POLICY="$REPO_ROOT/eslint-config/shared-policy.js"
@@ -64,8 +70,10 @@ new_repo() {
   cp "$PARALLEL_RUNNER" "$repo/scripts/lib/parallel-runner.sh"
   cp "$VERIFY_METADATA" "$repo/scripts/lib/verify-metadata.sh"
   cp "$CHANGED_BASE" "$repo/scripts/lib/changed-base.sh"
+  cp "$CHANGED_LINTABLE_FILES" "$repo/scripts/lib/changed-lintable-files.sh"
   cp "$LINT_DIST_PREFLIGHT" "$repo/scripts/lib/lint-dist-preflight.sh"
   cp "$ESLINT_MAIN_CACHE" "$repo/scripts/lib/eslint-main-cache.sh"
+  cp "$GATE_ENV" "$repo/scripts/lib/gate-env.sh"
   cp "$PATH_POLICY_QUERY" "$repo/scripts/path-policy/path-policy-query.ts"
   cp "$PATH_POLICY_QUERY_CORE" "$repo/scripts/path-policy/path-policy-query-core.ts"
   cp "$PATH_POLICY" "$repo/scripts/path-policy/path-policy.ts"
@@ -73,10 +81,13 @@ new_repo() {
   cp "$PATH_POLICY_SMOKE_SUBJECTS_DATA" \
     "$repo/scripts/path-policy/path-policy-smoke-subjects-data.ts"
   cp "$HARNESS_PATHS" "$repo/scripts/harness/harness-paths.ts"
+  cp "$HARNESS_MANIFEST" "$repo/scripts/harness/harness-manifest.ts"
   cp "$LINT_RATCHET_PATHS" "$repo/scripts/lint-ratchet/paths.ts"
+  cp "$LINT_RATCHET_METRICS_TYPES" "$repo/scripts/lint-ratchet/metrics-types.ts"
   cp "$CONFIG_SURFACES" "$repo/eslint-config/config-surfaces.js"
   cp "$CONFIG_SURFACE_MANIFEST" "$repo/eslint-config/config-surface-manifest.json"
   cp "$SHARED_POLICY" "$repo/eslint-config/shared-policy.js"
+  cp "$REPO_ROOT/eslint-config/max-lines-exceptions-codec.js" "$repo/eslint-config/max-lines-exceptions-codec.js"
   cp "$REPO_ROOT/eslint-config/max-lines-exceptions.baseline.json" "$repo/eslint-config/max-lines-exceptions.baseline.json"
   cat > "$repo/scripts/lint-config-sensors.sh" <<'SH'
 #!/usr/bin/env bash
@@ -258,5 +269,48 @@ grep -qF 'lint:changed: ShellCheck failed with exit' <<< "$output" \
 [ ! -s "$repo/eslint.log" ] \
   || fail "lint:changed should not invoke eslint for shell-only violation"
 ok "lint-changed wiring fails on changed shell violation without eslint files"
+
+repo="$(new_repo selector-crash)"
+printf 'process.exit(73);\n' > "$repo/scripts/path-policy/path-policy-query.ts"
+set +e
+output="$(run_lint_shell "$repo" 2>&1)"
+exit_code=$?
+set -e
+[ "$exit_code" -eq 2 ] \
+  || fail "lint:shell selector crash should exit 2 (got $exit_code): $output"
+grep -qF 'path selection failed' <<< "$output" \
+  || fail "lint:shell selector crash should report selection failure: $output"
+grep -qF 'no maintained shell files found' <<< "$output" \
+  && fail "lint:shell selector crash should not report an empty selection: $output"
+ok "lint:shell distinguishes selector failure from an empty selection"
+
+repo="$(new_repo git-collector-crash)"
+mkdir -p "$repo/failing-git-bin"
+cat > "$repo/failing-git-bin/git" <<'STUB'
+#!/usr/bin/env bash
+if [ "${1:-}" = "ls-files" ]; then
+  printf 'injected git ls-files failure\n' >&2
+  exit 73
+fi
+exec "${REAL_GIT:?}" "$@"
+STUB
+chmod +x "$repo/failing-git-bin/git"
+set +e
+output=$(
+  cd "$repo"
+  REAL_GIT="$(command -v git)" PATH="$repo/failing-git-bin:$PATH" \
+    bash scripts/lint-shell.sh 2>&1
+)
+exit_code=$?
+set -e
+[ "$exit_code" -eq 2 ] \
+  || fail "lint:shell git collector crash should exit 2 (got $exit_code): $output"
+grep -qF 'injected git ls-files failure' <<< "$output" \
+  || fail "lint:shell git collector fixture did not reach ls-files: $output"
+grep -qF 'path selection failed' <<< "$output" \
+  || fail "lint:shell git collector crash should report selection failure: $output"
+grep -qF 'no maintained shell files found' <<< "$output" \
+  && fail "lint:shell git collector crash should not report an empty selection: $output"
+ok "lint:shell propagates git collector failure"
 
 printf 'lint-shell tests passed (%d)\n' "$PASS"

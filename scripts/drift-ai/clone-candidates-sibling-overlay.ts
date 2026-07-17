@@ -33,7 +33,7 @@ export type CloneCandidateSiblingOverlayRow = {
   readonly threshold: number;
 };
 
-export type CloneCandidateSiblingNamingEvidence = {
+type CloneCandidateSiblingNamingEvidence = {
   readonly source: "near-duplicate-row";
   readonly candidateSource: "minhash-lsh";
   readonly comparator: "ts-morph";

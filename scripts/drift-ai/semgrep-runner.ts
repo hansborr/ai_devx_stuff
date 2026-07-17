@@ -49,7 +49,6 @@ const TIMEOUT_KILL_SIGNAL = "SIGKILL";
 
 export type {
   DefaultSemgrepRunnerOptions,
-  SemgrepCommandSource,
   SemgrepRunner,
   SemgrepRunnerCaps,
   SemgrepRunnerInput,

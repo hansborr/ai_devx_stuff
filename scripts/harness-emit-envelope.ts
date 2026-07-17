@@ -4,8 +4,6 @@ import {
   HARNESS_DIAGNOSTICS_SCHEMA_VERSION,
   type HarnessDiagnostics,
   harnessDiagnosticsSchema,
-  type HarnessDiagnosticTool,
-  harnessDiagnosticToolSchema,
   type HarnessFinding,
   harnessFindingSchema,
   summarizeHarnessFindings,
@@ -15,10 +13,34 @@ const PROCESS_ARG_OFFSET = 2;
 const OPTION_WITH_VALUE_ARG_SPAN = 2;
 const JSON_INDENT_SPACES = 2;
 
+// The shared envelope schema treats `tool` as any non-empty string (a permissive
+// transport). This CLI is the Musi-side gate: it restricts producers to Musi's
+// closed inventory of harness tool ids so a typo fails loudly at emit time
+// rather than flowing an unknown tool into the aggregated audit. (Kept as a
+// plain tuple rather than a Zod enum because the scripts project does not depend
+// on Zod directly — the shared schema is the only Zod boundary the CLI crosses.)
+const MUSI_HARNESS_TOOLS = [
+  "doctor",
+  "verify:logs",
+  "module:index:check",
+  "migration-safety-scan",
+  "lint:agent",
+  "lint:ratchet",
+  "drift:ai",
+  "logs:audit",
+  "harness:audit",
+] as const;
+
+type MusiHarnessTool = (typeof MUSI_HARNESS_TOOLS)[number];
+
+function isMusiHarnessTool(value: string): value is MusiHarnessTool {
+  return MUSI_HARNESS_TOOLS.some((tool) => tool === value);
+}
+
 class UsageError extends Error {}
 
 interface ParsedArgs {
-  readonly tool: HarnessDiagnosticTool;
+  readonly tool: MusiHarnessTool;
   readonly outputPath: string | undefined;
 }
 
@@ -85,11 +107,10 @@ function parseArgs(argv: readonly string[]): ParsedArgs {
     throw new UsageError(`Unknown argument: ${arg}`);
   }
   if (tool === undefined) throw new UsageError("--tool is required");
-  const parsedTool = harnessDiagnosticToolSchema.safeParse(tool);
-  if (!parsedTool.success) {
+  if (!isMusiHarnessTool(tool)) {
     throw new UsageError(`--tool must be one of the harness tool ids; got '${tool}'`);
   }
-  return { tool: parsedTool.data, outputPath };
+  return { tool, outputPath };
 }
 
 async function readStdin(): Promise<string> {

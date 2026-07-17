@@ -5,12 +5,14 @@ on the SRD 5.2.1 ruleset.
 
 - Monorepo: `packages/{shared,server,client}`
 - Stack: TypeScript, Bun, Fastify, tRPC, Prisma/PostgreSQL, React, TanStack Query/Router, Tailwind v4, Socket.io
-- Key docs: `docs/architecture-plan.md`, `docs/authorization.md`, `docs/socket-architecture.md`, `docs/CONCURRENCY.md`
+- Key docs: `docs/architecture-plan.md`, `docs/authorization.md`, `docs/socket-architecture.md`, `docs/CONCURRENCY.md`, `docs/ai-harness.md`
 - Task guides: see `docs/guides/` before tRPC, Prisma, socket, race-sensitive, client cache/socket, e2e, rules changes, or ratcheted-lint changes (`docs/guides/lint-ratchet.md`).
 
 ## Commands
 
 `bun run` lists every script. Non-obvious ones:
+
+- Root scripts resolve against the nearest `package.json`. From a package subdirectory, run `bun --cwd="$(git rev-parse --show-toplevel)" run <script> [-- <args>]`; this preserves the script's arguments and exit status. Use this form for root-only tools such as `doctor`, `backlog:lint`, `code:intel`, `harness:check`, and `worktree:status`. Keep the `=` in `--cwd=...`; Bun 1.3 otherwise prints help instead of running the script.
 
 - `bun run verify:changed` — default manual verification when you need a pre-commit check. Runs the generated changed-mode slot set (`MUSI_VERIFY_CHANGED_STEPS` in `scripts/verify/steps.generated.sh`) in parallel via `scripts/verify.sh`. Stage intended source-relevant changes first; changed verification intentionally aborts on unstaged or untracked source-relevant work.
 - `bun run --filter @musi/server db:migrate` / `prisma:generate` — schema change path; follow `docs/guides/add-prisma-migration.md`. `db:push` is local-only, never committed schema work.

@@ -10,7 +10,7 @@ const TS_CANNOT_READ_FILE = 5083;
 
 export type AliasHead = { readonly head: string; readonly exact: boolean };
 
-export type ResolvedTsconfig = {
+type ResolvedTsconfig = {
   readonly options: ts.CompilerOptions;
   readonly aliasHeads: readonly AliasHead[];
 };

@@ -37,6 +37,8 @@ REPO_ROOT=$(git -C "$HOOK_LIB" rev-parse --show-toplevel 2>/dev/null || git rev-
 
 PAYLOAD=$(ai_read_payload)
 CMD=$(ai_payload_command "$PAYLOAD")
+PAYLOAD_CWD=$(ai_payload_cwd "$PAYLOAD")
+[ -n "$PAYLOAD_CWD" ] || PAYLOAD_CWD=$(pwd -P)
 
 # Only wrap `git commit` invocations; pass everything else through.
 ai_is_git_commit_cmd "$CMD" || {
@@ -44,16 +46,25 @@ ai_is_git_commit_cmd "$CMD" || {
   exit 0
 }
 
+# WORK_ROOT is the checkout the commit lands in — resolved from the command's
+# leading `cd`/`git -C` forms or the payload cwd, NOT from REPO_ROOT (the hook
+# file's own checkout, used only to source the libraries below). A /workspace
+# session committing in a linked worktree via `cd <wt> && git commit` must key
+# its locks, HEAD snapshots, branch policy, and success summary on the worktree;
+# keying them on REPO_ROOT is J (false "no commit landed", mis-keyed locks).
+TARGET_DIR=$(ai_resolve_target_dir "$CMD" "$PAYLOAD_CWD" "$REPO_ROOT")
+WORK_ROOT=$(git -C "$TARGET_DIR" rev-parse --show-toplevel 2>/dev/null || printf '%s' "$REPO_ROOT")
+
 # Self-block forbidden commits BEFORE running them. This hook executes the
 # command itself (bash -c "$CMD" below), so a `git commit --amend` would rewrite
 # HEAD here even though no-direct-db.sh / the deny glob report it as "blocked"
 # (G1). The gate above only matches an adjacent `git commit`, so the `git -c …
 # commit --amend` form never reaches this hook — it is closed at the policy
 # layer (widened regex) before the harness dispatches it. ai_emit_block exits.
-ai_preflight_or_block "$CMD"
+ai_preflight_or_block "$CMD" "$WORK_ROOT"
 
 # --- Single-writer lock ----------------------------------------------------
-LOCK="${AI_GIT_COMMIT_LOCK:-$(musi_standard_git_commit_lock "$REPO_ROOT")}"
+LOCK="${AI_GIT_COMMIT_LOCK:-$(musi_standard_git_commit_lock "$WORK_ROOT")}"
 mkdir -p "$(dirname "$LOCK")"
 exec 9<>"$LOCK"
 if ! flock -n 9; then
@@ -76,26 +87,82 @@ TOTAL_TIMEOUT=$(ai_clamp_timeout_below_harness \
   "$GIT_COMMIT_QUIET_TIMEOUT_MARGIN")
 
 # --- Cross-worktree commit queue -------------------------------------------
-COMMIT_QUEUE_LOCK="${MUSI_COMMIT_QUEUE_LOCK:-$(musi_standard_commit_queue_lock "$REPO_ROOT")}"
+# Sibling worktrees serialize on a common-dir-keyed lock. Rather than a single
+# opaque `flock -w`, wait in a bounded FOREGROUND poll loop (`flock -n` + short
+# sleeps) so a parked lane is not invisible: every heartbeat interval it prints
+# the current holder, how long it has waited, and how many peer lanes are queued
+# behind the same lock. Visibility comes from a per-lane ticket under
+# `<lock>.waiters/`; peers count live tickets (and expire a SIGKILLed lane's
+# stale one via `kill -0`). Deliberately no background heartbeat child: the queue
+# wait runs before the wrapper's EXIT trap is installed, so a detached heartbeat
+# could outlive a killed lane and print forever — the foreground loop cannot.
+COMMIT_QUEUE_LOCK="${MUSI_COMMIT_QUEUE_LOCK:-$(musi_standard_commit_queue_lock "$WORK_ROOT")}"
 COMMIT_QUEUE_WAIT="${MUSI_COMMIT_QUEUE_TIMEOUT:-$TOTAL_TIMEOUT}"
 if [ "$COMMIT_QUEUE_WAIT" -gt "$TOTAL_TIMEOUT" ]; then
   COMMIT_QUEUE_WAIT="$TOTAL_TIMEOUT"
 fi
+COMMIT_QUEUE_POLL_INTERVAL="${MUSI_COMMIT_QUEUE_POLL_INTERVAL:-1}"
+COMMIT_QUEUE_HEARTBEAT_INTERVAL="${MUSI_COMMIT_QUEUE_HEARTBEAT_INTERVAL:-60}"
 mkdir -p "$(dirname "$COMMIT_QUEUE_LOCK")"
 exec 8<>"$COMMIT_QUEUE_LOCK"
+
+# Register this lane so peers can see it, and guarantee the ticket is dropped on
+# any catchable exit during the wait. The wrapper's own EXIT/INT/TERM traps are
+# installed later (post-acquire); these interim traps cover only the wait window
+# so a normally-terminated wait never leaves a ghost ticket. A SIGKILL cannot run
+# them — peers expire the orphan via `kill -0` on its PID.
+WAITER_DIR=$(musi_commit_queue_waiter_dir "$COMMIT_QUEUE_LOCK")
+WAITER_TICKET="$WAITER_DIR/$$"
+musi_cleanup_waiter_ticket() {
+  [ -n "${WAITER_TICKET:-}" ] && rm -f "$WAITER_TICKET" 2>/dev/null
+}
+trap 'musi_cleanup_waiter_ticket' EXIT
+trap 'musi_cleanup_waiter_ticket; exit 130' INT
+trap 'musi_cleanup_waiter_ticket; exit 143' TERM
+musi_register_commit_queue_waiter "$WAITER_DIR" "$$" "$WORK_ROOT" || true
+
 QUEUE_START=$(date +%s)
-if ! flock -w "$COMMIT_QUEUE_WAIT" 8; then
+QUEUE_NEXT_HEARTBEAT=$(( QUEUE_START + COMMIT_QUEUE_HEARTBEAT_INTERVAL ))
+QUEUE_ACQUIRED=0
+while :; do
+  if flock -n 8; then
+    QUEUE_ACQUIRED=1
+    break
+  fi
+  NOW=$(date +%s)
+  QUEUE_WAITED=$(( NOW - QUEUE_START ))
+  [ "$QUEUE_WAITED" -ge "$COMMIT_QUEUE_WAIT" ] && break
+  if [ "$NOW" -ge "$QUEUE_NEXT_HEARTBEAT" ]; then
+    HOLDER=$(cat "$COMMIT_QUEUE_LOCK" 2>/dev/null || echo '<holder info unavailable>')
+    OTHERS=$(musi_count_commit_queue_waiters "$WAITER_DIR" "$$")
+    printf 'git-commit-quiet: still waiting for shared commit queue (%ss) — holder: %s, %s other waiter(s)\n' \
+      "$QUEUE_WAITED" "$HOLDER" "$OTHERS" >&2
+    QUEUE_NEXT_HEARTBEAT=$(( NOW + COMMIT_QUEUE_HEARTBEAT_INTERVAL ))
+  fi
+  sleep "$COMMIT_QUEUE_POLL_INTERVAL"
+done
+
+QUEUE_WAITED=$(( $(date +%s) - QUEUE_START ))
+if [ "$QUEUE_ACQUIRED" -ne 1 ]; then
   HOLDER=$(cat "$COMMIT_QUEUE_LOCK" 2>/dev/null || echo '<holder info unavailable>')
-  REASON="Waited ${COMMIT_QUEUE_WAIT}s for the shared commit queue lock but another worktree is still committing ($HOLDER).
+  OTHERS=$(musi_count_commit_queue_waiters "$WAITER_DIR" "$$")
+  musi_cleanup_waiter_ticket
+  REASON="Waited ${QUEUE_WAITED}s for the shared commit queue lock but another worktree is still committing ($HOLDER). Queue depth: ${OTHERS} other waiter(s).
 
 Wait for the in-flight commit to finish, then check git status before retrying."
   jq -Rn --arg r "$REASON" '{decision:"block", reason:$r}'
   exit 0
 fi
-QUEUE_WAITED=$(( $(date +%s) - QUEUE_START ))
+
+# Acquired: drop our waiter ticket and hand trap ownership to the commit phase
+# (its EXIT/INT/TERM handlers install below). No ticket remains once we hold the
+# lock — we are the holder now, recorded in the lock file for peers to read.
+musi_remove_commit_queue_waiter "$WAITER_DIR" "$$"
+WAITER_TICKET=""
+trap - EXIT INT TERM
 [ "$QUEUE_WAITED" -gt 5 ] && printf 'git-commit-quiet: waited %ss for shared commit queue %s\n' "$QUEUE_WAITED" "$COMMIT_QUEUE_LOCK" >&2
 {
-  printf 'PID=%s WORKTREE=%s CMD=%s STARTED=%s\n' "$$" "$REPO_ROOT" "$CMD" "$(date -Iseconds)"
+  printf 'PID=%s WORKTREE=%s CMD=%s STARTED=%s\n' "$$" "$WORK_ROOT" "$CMD" "$(date -Iseconds)"
 } > "$COMMIT_QUEUE_LOCK"
 
 TIMEOUT=$(( TOTAL_TIMEOUT - QUEUE_WAITED ))
@@ -110,7 +177,10 @@ fi
 
 OUTFILE=$(mktemp /tmp/musi-git-commit.XXXXXX)
 
-cd "$REPO_ROOT" || exit 1
+# Replay from the shell cwd reported with the payload. WORK_ROOT is observation
+# state only: using it as the child cwd would apply a relative leading `cd` or
+# `git -C` twice and change the command the agent actually issued.
+cd "$PAYLOAD_CWD" || exit 1
 
 # Snapshot HEAD before the commit. Cross-checking HEAD_BEFORE != HEAD_AFTER
 # catches the case where CMD swallows the real exit code (e.g. `git commit ...
@@ -118,7 +188,7 @@ cd "$REPO_ROOT" || exit 1
 # returns 0 but no commit landed. Without this check, the wrapper would then
 # read `git log -1` and cheerfully report the PREVIOUS commit as if it were
 # the new one — exactly the "misleading success" bug this guards against.
-HEAD_BEFORE=$(git rev-parse HEAD 2>/dev/null || echo none)
+HEAD_BEFORE=$(git -C "$WORK_ROOT" rev-parse HEAD 2>/dev/null || echo none)
 
 # Run in background so TERM/INT traps fire immediately (foreground children
 # block trap delivery until they exit, defeating timeout handling).
@@ -177,10 +247,22 @@ trap 'kill "$WD" 2>/dev/null; rm -f "$OUTFILE"' EXIT
 wait "$CHILD"
 EXIT_CODE=$?
 
-HEAD_AFTER=$(git rev-parse HEAD 2>/dev/null || echo none)
+HEAD_AFTER=$(git -C "$WORK_ROOT" rev-parse HEAD 2>/dev/null || echo none)
 
 if [ "$EXIT_CODE" -eq 0 ] && [ "$HEAD_AFTER" != "$HEAD_BEFORE" ]; then
-  MSG=$(ai_commit_success_summary "$REPO_ROOT" "$HEAD_BEFORE" "$HEAD_AFTER")
+  MSG=$(ai_commit_success_summary "$WORK_ROOT" "$HEAD_BEFORE" "$HEAD_AFTER")
+  # .husky/post-commit runs the lint-ratchet / knip / max-lines baseline
+  # truth-up scripts as the commit lands and prints operator-facing advisories
+  # (e.g. "merge produced a stale baseline" after a hand-completed merge) to the
+  # captured OUTFILE. The quiet summary replaces the whole tool output, so those
+  # advisories would otherwise be silently discarded on exactly the flow the
+  # truth-up hooks exist for. Forward just the `post-commit: ` lines.
+  SUCCESS_OUTPUT=$(cat "$OUTFILE" 2>/dev/null || true)
+  TRUTH_UP_LINES=$(ai_commit_truth_up_lines "$SUCCESS_OUTPUT")
+  if [ -n "$TRUTH_UP_LINES" ]; then
+    MSG="$MSG
+$TRUTH_UP_LINES"
+  fi
   # Per-invocation result file — no shared-state race if flock ever fails open.
   ai_claude_result_command "$MSG" "$AI_RESULT_COMMAND_TMP_PREFIX"
 fi

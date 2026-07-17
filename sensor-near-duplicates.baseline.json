@@ -1,0 +1,232 @@
+{
+  "version": 2,
+  "tool": "drift-ai/near-duplicates",
+  "metric": "high-confidence-function-pair-identities",
+  "minLines": "8",
+  "minTokens": "45",
+  "similarityThreshold": "0.85",
+  "tokenBandRatio": "0.35",
+  "regenerate": "bun scripts/sensor-near-duplicates.ts --update",
+  "summary": {
+    "identities": 27,
+    "pairs": 27
+  },
+  "entries": [
+    {
+      "key": "eslint-rules/trpc-shared-input-schema.js#CallExpression <=> eslint-rules/trpc-shared-output-schema.js#CallExpression",
+      "left": "eslint-rules/trpc-shared-input-schema.js#CallExpression",
+      "right": "eslint-rules/trpc-shared-output-schema.js#CallExpression",
+      "leftFile": "eslint-rules/trpc-shared-input-schema.js",
+      "rightFile": "eslint-rules/trpc-shared-output-schema.js",
+      "count": 1
+    },
+    {
+      "key": "packages/client/src/components/campaign/encounters/encounter-detail-view.tsx#EncounterErrorState <=> packages/client/src/components/campaign/maps/map-detail-view.tsx#MapErrorState",
+      "left": "packages/client/src/components/campaign/encounters/encounter-detail-view.tsx#EncounterErrorState",
+      "right": "packages/client/src/components/campaign/maps/map-detail-view.tsx#MapErrorState",
+      "leftFile": "packages/client/src/components/campaign/encounters/encounter-detail-view.tsx",
+      "rightFile": "packages/client/src/components/campaign/maps/map-detail-view.tsx",
+      "count": 1
+    },
+    {
+      "key": "packages/client/src/components/campaign/encounters/encounters-panel.tsx#EncountersList <=> packages/client/src/components/campaign/maps/maps-panel.tsx#MapsList",
+      "left": "packages/client/src/components/campaign/encounters/encounters-panel.tsx#EncountersList",
+      "right": "packages/client/src/components/campaign/maps/maps-panel.tsx#MapsList",
+      "leftFile": "packages/client/src/components/campaign/encounters/encounters-panel.tsx",
+      "rightFile": "packages/client/src/components/campaign/maps/maps-panel.tsx",
+      "count": 1
+    },
+    {
+      "key": "packages/client/src/components/campaign/npcs/homebrew-monster-tab.tsx#HomebrewMonsterTab <=> packages/client/src/components/sheet/homebrew-item-tab.tsx#HomebrewItemTab",
+      "left": "packages/client/src/components/campaign/npcs/homebrew-monster-tab.tsx#HomebrewMonsterTab",
+      "right": "packages/client/src/components/sheet/homebrew-item-tab.tsx#HomebrewItemTab",
+      "leftFile": "packages/client/src/components/campaign/npcs/homebrew-monster-tab.tsx",
+      "rightFile": "packages/client/src/components/sheet/homebrew-item-tab.tsx",
+      "count": 1
+    },
+    {
+      "key": "packages/client/src/components/character-create/steps/species-step.tsx#SubspeciesSection <=> packages/client/src/components/compendium/magic-item-detail-dialog.tsx#VariantsSection",
+      "left": "packages/client/src/components/character-create/steps/species-step.tsx#SubspeciesSection",
+      "right": "packages/client/src/components/compendium/magic-item-detail-dialog.tsx#VariantsSection",
+      "leftFile": "packages/client/src/components/character-create/steps/species-step.tsx",
+      "rightFile": "packages/client/src/components/compendium/magic-item-detail-dialog.tsx",
+      "count": 1
+    },
+    {
+      "key": "packages/client/src/components/character-create/steps/species-step.tsx#SubspeciesSection <=> packages/client/src/components/homebrew/monster/monster-ability-scores.tsx#MonsterAbilityScores",
+      "left": "packages/client/src/components/character-create/steps/species-step.tsx#SubspeciesSection",
+      "right": "packages/client/src/components/homebrew/monster/monster-ability-scores.tsx#MonsterAbilityScores",
+      "leftFile": "packages/client/src/components/character-create/steps/species-step.tsx",
+      "rightFile": "packages/client/src/components/homebrew/monster/monster-ability-scores.tsx",
+      "count": 1
+    },
+    {
+      "key": "packages/client/src/components/character-create/steps/species-step.tsx#SubspeciesSection <=> packages/client/src/components/homebrew/monster/monster-defenses-fields.tsx#MonsterDefensesFields",
+      "left": "packages/client/src/components/character-create/steps/species-step.tsx#SubspeciesSection",
+      "right": "packages/client/src/components/homebrew/monster/monster-defenses-fields.tsx#MonsterDefensesFields",
+      "leftFile": "packages/client/src/components/character-create/steps/species-step.tsx",
+      "rightFile": "packages/client/src/components/homebrew/monster/monster-defenses-fields.tsx",
+      "count": 1
+    },
+    {
+      "key": "packages/client/src/components/compendium/magic-item-detail-dialog.tsx#VariantsSection <=> packages/client/src/components/homebrew/monster/monster-ability-scores.tsx#MonsterAbilityScores",
+      "left": "packages/client/src/components/compendium/magic-item-detail-dialog.tsx#VariantsSection",
+      "right": "packages/client/src/components/homebrew/monster/monster-ability-scores.tsx#MonsterAbilityScores",
+      "leftFile": "packages/client/src/components/compendium/magic-item-detail-dialog.tsx",
+      "rightFile": "packages/client/src/components/homebrew/monster/monster-ability-scores.tsx",
+      "count": 1
+    },
+    {
+      "key": "packages/client/src/components/compendium/magic-item-detail-dialog.tsx#VariantsSection <=> packages/client/src/components/homebrew/monster/monster-defenses-fields.tsx#MonsterDefensesFields",
+      "left": "packages/client/src/components/compendium/magic-item-detail-dialog.tsx#VariantsSection",
+      "right": "packages/client/src/components/homebrew/monster/monster-defenses-fields.tsx#MonsterDefensesFields",
+      "leftFile": "packages/client/src/components/compendium/magic-item-detail-dialog.tsx",
+      "rightFile": "packages/client/src/components/homebrew/monster/monster-defenses-fields.tsx",
+      "count": 1
+    },
+    {
+      "key": "packages/client/src/components/homebrew/entries/entry-dialog.tsx#EntryTypeSelector <=> packages/client/src/components/sheet/add-item-dialog.tsx#ItemTypeSelect",
+      "left": "packages/client/src/components/homebrew/entries/entry-dialog.tsx#EntryTypeSelector",
+      "right": "packages/client/src/components/sheet/add-item-dialog.tsx#ItemTypeSelect",
+      "leftFile": "packages/client/src/components/homebrew/entries/entry-dialog.tsx",
+      "rightFile": "packages/client/src/components/sheet/add-item-dialog.tsx",
+      "count": 1
+    },
+    {
+      "key": "packages/client/src/components/homebrew/monster/monster-ability-scores.tsx#MonsterAbilityScores <=> packages/client/src/components/homebrew/monster/monster-defenses-fields.tsx#MonsterDefensesFields",
+      "left": "packages/client/src/components/homebrew/monster/monster-ability-scores.tsx#MonsterAbilityScores",
+      "right": "packages/client/src/components/homebrew/monster/monster-defenses-fields.tsx#MonsterDefensesFields",
+      "leftFile": "packages/client/src/components/homebrew/monster/monster-ability-scores.tsx",
+      "rightFile": "packages/client/src/components/homebrew/monster/monster-defenses-fields.tsx",
+      "count": 1
+    },
+    {
+      "key": "packages/client/src/components/sheet/level-up-helpers.tsx#ClassSelector <=> packages/client/src/components/sheet/subclass-step.tsx#SubclassStep",
+      "left": "packages/client/src/components/sheet/level-up-helpers.tsx#ClassSelector",
+      "right": "packages/client/src/components/sheet/subclass-step.tsx#SubclassStep",
+      "leftFile": "packages/client/src/components/sheet/level-up-helpers.tsx",
+      "rightFile": "packages/client/src/components/sheet/subclass-step.tsx",
+      "count": 1
+    },
+    {
+      "key": "packages/client/src/components/vtt/drawer/monster-stat-block-abilities.tsx#AbilityGrid <=> packages/client/src/components/vtt/drawer/tabs/features-tab.tsx#FeatsSection",
+      "left": "packages/client/src/components/vtt/drawer/monster-stat-block-abilities.tsx#AbilityGrid",
+      "right": "packages/client/src/components/vtt/drawer/tabs/features-tab.tsx#FeatsSection",
+      "leftFile": "packages/client/src/components/vtt/drawer/monster-stat-block-abilities.tsx",
+      "rightFile": "packages/client/src/components/vtt/drawer/tabs/features-tab.tsx",
+      "count": 1
+    },
+    {
+      "key": "packages/client/src/components/vtt/drawer/monster-stat-block-abilities.tsx#AbilityGrid <=> packages/client/src/components/vtt/drawer/tabs/features-tab.tsx#FeaturesSection",
+      "left": "packages/client/src/components/vtt/drawer/monster-stat-block-abilities.tsx#AbilityGrid",
+      "right": "packages/client/src/components/vtt/drawer/tabs/features-tab.tsx#FeaturesSection",
+      "leftFile": "packages/client/src/components/vtt/drawer/monster-stat-block-abilities.tsx",
+      "rightFile": "packages/client/src/components/vtt/drawer/tabs/features-tab.tsx",
+      "count": 1
+    },
+    {
+      "key": "packages/client/src/components/vtt/drawer/monster-stat-block-abilities.tsx#AbilityGrid <=> packages/client/src/components/vtt/drawer/tabs/stats-tab-rolls.tsx#AbilityGrid",
+      "left": "packages/client/src/components/vtt/drawer/monster-stat-block-abilities.tsx#AbilityGrid",
+      "right": "packages/client/src/components/vtt/drawer/tabs/stats-tab-rolls.tsx#AbilityGrid",
+      "leftFile": "packages/client/src/components/vtt/drawer/monster-stat-block-abilities.tsx",
+      "rightFile": "packages/client/src/components/vtt/drawer/tabs/stats-tab-rolls.tsx",
+      "count": 1
+    },
+    {
+      "key": "packages/client/src/components/vtt/drawer/tabs/features-tab.tsx#FeatsSection <=> packages/client/src/components/vtt/drawer/tabs/stats-tab-rolls.tsx#AbilityGrid",
+      "left": "packages/client/src/components/vtt/drawer/tabs/features-tab.tsx#FeatsSection",
+      "right": "packages/client/src/components/vtt/drawer/tabs/stats-tab-rolls.tsx#AbilityGrid",
+      "leftFile": "packages/client/src/components/vtt/drawer/tabs/features-tab.tsx",
+      "rightFile": "packages/client/src/components/vtt/drawer/tabs/stats-tab-rolls.tsx",
+      "count": 1
+    },
+    {
+      "key": "packages/client/src/components/vtt/drawer/tabs/features-tab.tsx#FeaturesSection <=> packages/client/src/components/vtt/drawer/tabs/features-tab.tsx#FeatsSection",
+      "left": "packages/client/src/components/vtt/drawer/tabs/features-tab.tsx#FeaturesSection",
+      "right": "packages/client/src/components/vtt/drawer/tabs/features-tab.tsx#FeatsSection",
+      "leftFile": "packages/client/src/components/vtt/drawer/tabs/features-tab.tsx",
+      "rightFile": "packages/client/src/components/vtt/drawer/tabs/features-tab.tsx",
+      "count": 1
+    },
+    {
+      "key": "packages/client/src/components/vtt/drawer/tabs/features-tab.tsx#FeaturesSection <=> packages/client/src/components/vtt/drawer/tabs/stats-tab-rolls.tsx#AbilityGrid",
+      "left": "packages/client/src/components/vtt/drawer/tabs/features-tab.tsx#FeaturesSection",
+      "right": "packages/client/src/components/vtt/drawer/tabs/stats-tab-rolls.tsx#AbilityGrid",
+      "leftFile": "packages/client/src/components/vtt/drawer/tabs/features-tab.tsx",
+      "rightFile": "packages/client/src/components/vtt/drawer/tabs/stats-tab-rolls.tsx",
+      "count": 1
+    },
+    {
+      "key": "packages/client/src/pages/campaigns-page.tsx#ErrorState <=> packages/client/src/pages/homebrew-page.tsx#ErrorState",
+      "left": "packages/client/src/pages/campaigns-page.tsx#ErrorState",
+      "right": "packages/client/src/pages/homebrew-page.tsx#ErrorState",
+      "leftFile": "packages/client/src/pages/campaigns-page.tsx",
+      "rightFile": "packages/client/src/pages/homebrew-page.tsx",
+      "count": 1
+    },
+    {
+      "key": "packages/client/src/pages/collection-detail-page.tsx#EmptyState <=> packages/client/src/pages/homebrew-page.tsx#EmptyState",
+      "left": "packages/client/src/pages/collection-detail-page.tsx#EmptyState",
+      "right": "packages/client/src/pages/homebrew-page.tsx#EmptyState",
+      "leftFile": "packages/client/src/pages/collection-detail-page.tsx",
+      "rightFile": "packages/client/src/pages/homebrew-page.tsx",
+      "count": 1
+    },
+    {
+      "key": "packages/client/src/test/mock-trpc-magic-item.ts#queryFn <=> packages/client/src/test/mock-trpc-monster.ts#queryFn",
+      "left": "packages/client/src/test/mock-trpc-magic-item.ts#queryFn",
+      "right": "packages/client/src/test/mock-trpc-monster.ts#queryFn",
+      "leftFile": "packages/client/src/test/mock-trpc-magic-item.ts",
+      "rightFile": "packages/client/src/test/mock-trpc-monster.ts",
+      "count": 1
+    },
+    {
+      "key": "packages/server/src/services/character-live-state/rest.ts#shortRest <=> packages/server/src/services/character-live-state/rest.ts#longRest",
+      "left": "packages/server/src/services/character-live-state/rest.ts#shortRest",
+      "right": "packages/server/src/services/character-live-state/rest.ts#longRest",
+      "leftFile": "packages/server/src/services/character-live-state/rest.ts",
+      "rightFile": "packages/server/src/services/character-live-state/rest.ts",
+      "count": 1
+    },
+    {
+      "key": "scripts/codemods/trpc-shared-input-candidates.ts#assertConstSchemaIsOnlyInputReference <=> scripts/codemods/trpc-shared-output-candidates.ts#assertConstSchemaIsOnlyOutputReference",
+      "left": "scripts/codemods/trpc-shared-input-candidates.ts#assertConstSchemaIsOnlyInputReference",
+      "right": "scripts/codemods/trpc-shared-output-candidates.ts#assertConstSchemaIsOnlyOutputReference",
+      "leftFile": "scripts/codemods/trpc-shared-input-candidates.ts",
+      "rightFile": "scripts/codemods/trpc-shared-output-candidates.ts",
+      "count": 1
+    },
+    {
+      "key": "scripts/drift-ai/knip-unused-exports-deprecated.ts#deprecatedPositionsFor <=> scripts/drift-ai/parsed-source-cache.ts#collect",
+      "left": "scripts/drift-ai/knip-unused-exports-deprecated.ts#deprecatedPositionsFor",
+      "right": "scripts/drift-ai/parsed-source-cache.ts#collect",
+      "leftFile": "scripts/drift-ai/knip-unused-exports-deprecated.ts",
+      "rightFile": "scripts/drift-ai/parsed-source-cache.ts",
+      "count": 1
+    },
+    {
+      "key": "scripts/drift-ai/semgrep-rule-manifest.ts#readManifestLocalRuleConfig <=> scripts/drift-ai/semgrep-rule-manifest.ts#readManifestRegistryPack",
+      "left": "scripts/drift-ai/semgrep-rule-manifest.ts#readManifestLocalRuleConfig",
+      "right": "scripts/drift-ai/semgrep-rule-manifest.ts#readManifestRegistryPack",
+      "leftFile": "scripts/drift-ai/semgrep-rule-manifest.ts",
+      "rightFile": "scripts/drift-ai/semgrep-rule-manifest.ts",
+      "count": 1
+    },
+    {
+      "key": "scripts/harness-emit-envelope.ts#requireToolValue <=> scripts/harness-emit-envelope.ts#requireOutputValue",
+      "left": "scripts/harness-emit-envelope.ts#requireToolValue",
+      "right": "scripts/harness-emit-envelope.ts#requireOutputValue",
+      "leftFile": "scripts/harness-emit-envelope.ts",
+      "rightFile": "scripts/harness-emit-envelope.ts",
+      "count": 1
+    },
+    {
+      "key": "scripts/sensor-knip-unused-exports-baseline.ts#readKnipUnusedExportsBaseline <=> scripts/sensor-near-duplicates-baseline.ts#readNearDuplicatesBaseline",
+      "left": "scripts/sensor-knip-unused-exports-baseline.ts#readKnipUnusedExportsBaseline",
+      "right": "scripts/sensor-near-duplicates-baseline.ts#readNearDuplicatesBaseline",
+      "leftFile": "scripts/sensor-knip-unused-exports-baseline.ts",
+      "rightFile": "scripts/sensor-near-duplicates-baseline.ts",
+      "count": 1
+    }
+  ]
+}

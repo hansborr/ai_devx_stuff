@@ -9,6 +9,7 @@ function manifestWithTimeouts(bunTimeout: number, gitTimeout: number): unknown {
         id: "hook/ai-bun-run-quiet",
         hookWiring: {
           event: "PreToolUse",
+          body: "scripts/ai-hooks/fixture.sh",
           order: 10,
           harnesses: {
             claude: {
@@ -27,6 +28,7 @@ function manifestWithTimeouts(bunTimeout: number, gitTimeout: number): unknown {
         id: "hook/ai-git-commit-quiet",
         hookWiring: {
           event: "PreToolUse",
+          body: "scripts/ai-hooks/fixture.sh",
           order: 20,
           harnesses: {
             claude: {
@@ -65,6 +67,7 @@ GIT_COMMIT_QUIET_HOOK_TIMEOUT=900
             id: "hook/ai-bun-run-quiet",
             hookWiring: {
               event: "PreToolUse",
+              body: "scripts/ai-hooks/fixture.sh",
               order: 10,
               harnesses: {
                 claude: {
@@ -83,6 +86,7 @@ GIT_COMMIT_QUIET_HOOK_TIMEOUT=900
             id: "hook/ai-git-commit-quiet",
             hookWiring: {
               event: "PreToolUse",
+              body: "scripts/ai-hooks/fixture.sh",
               order: 20,
               harnesses: {
                 claude: {

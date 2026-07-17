@@ -4,6 +4,7 @@
 # smoke-subjects: scripts/lint-agent.ts
 # smoke-subjects: scripts/lint-agent-envelope.ts
 # smoke-subjects: scripts/lib/changed-base.sh
+# smoke-subjects: scripts/lib/changed-lintable-files.sh
 # smoke-subjects: scripts/harness-emit-envelope.ts
 # smoke-subjects: scripts/path-policy/path-policy-query.ts
 # smoke-subjects: scripts/path-policy/path-policy-query-core.ts
@@ -35,6 +36,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 musi_clear_inherited_git_hook_env
 musi_exit_after_git_hook_env_assertion_if_requested
 WRAPPER="$SCRIPT_DIR/../lint-agent-changed.sh"
+CHANGED_LINTABLE_FILES="$SCRIPT_DIR/../lib/changed-lintable-files.sh"
 
 PASS=0
 fail() { printf 'FAIL: %s\n' "$1" >&2; exit 1; }
@@ -42,6 +44,8 @@ ok()   { PASS=$((PASS + 1)); printf 'ok %d - %s\n' "$PASS" "$1"; }
 
 bash -n "$WRAPPER" || fail "lint-agent-changed.sh fails bash -n"
 ok "lint-agent-changed.sh passes bash -n"
+bash -n "$CHANGED_LINTABLE_FILES" || fail "changed-lintable-files.sh fails bash -n"
+ok "changed-lintable-files.sh passes bash -n"
 
 new_repo() {
   local repo="$1"
@@ -403,5 +407,23 @@ err=$( (cd "$REPO25/sub" && bash "$WRAPPER" base --output out.json) 2>&1 >/dev/n
 [ -f "$REPO25/sub/out.json" ] || { printf 'stderr:\n%s\n' "$err"; fail "case25 expected relative --output to resolve under caller cwd"; }
 [ ! -f "$REPO25/out.json" ] || fail "case25 did not expect relative --output at repo root"
 ok "subdirectory relative --output writes next to caller"
+
+REPO26="$ROOT/case26-selector-crash"
+new_repo "$REPO26"
+mkdir -p "$ROOT/case26-bin"
+cat > "$ROOT/case26-bin/bun" <<'STUB'
+#!/usr/bin/env bash
+exit 73
+STUB
+chmod +x "$ROOT/case26-bin/bun"
+set +e
+out=$( (cd "$REPO26" && PATH="$ROOT/case26-bin:$PATH" bash "$WRAPPER" --print-files base) 2>&1 )
+rc=$?
+set -e
+[ "$rc" -eq 2 ] || fail "case26 selector crash should exit 2 (got $rc): $out"
+grep -qF 'path selection failed' <<< "$out" \
+  || fail "case26 selector crash should report selection failure: $out"
+[ "$out" != "EMPTY" ] || fail "case26 selector crash should not report EMPTY"
+ok "agent changed lint distinguishes selector failure from EMPTY"
 
 printf '\n%d/%d tests passed\n' "$PASS" "$PASS"

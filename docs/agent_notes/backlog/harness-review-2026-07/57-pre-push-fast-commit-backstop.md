@@ -1,6 +1,6 @@
 # 57. Nothing guards a direct git push of a fast-commit branch whose tip never saw a full verify; add a cheap pre-push freshness backstop
 
-Status: Proposed — from the 2026-07-01 AI-harness review; NOT implemented. Re-verify file:line before acting.
+Status: Done — `.husky/pre-push` fast-commit backstop checks verify evidence and points at `land.sh`.
 Lens: hooks · Area: git-hooks · Severity: med · Size: S · Confidence: high
 Theme: push-gate-backstop · Source: Musi AI-harness review 2026-07-01 (multi-agent + Codex second opinion + web research)
 

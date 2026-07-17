@@ -44,6 +44,18 @@ This table is generated from `meta.docs` on each rule and grouped into maintaina
 
 **Repair:** manual
 
+### `local/no-commented-out-code`
+
+**Description:** Disallow multi-line comment regions that parse as operative code
+
+**Principle:** Commented-out implementations obscure the active design and should be removed instead of preserved beside live code.
+
+**Category:** maintainability
+
+**Paired guide:** [docs/guides/local-eslint-rules.md](../guides/local-eslint-rules.md)
+
+**Repair:** manual
+
 ### `local/no-explicit-any`
 
 **Description:** Disallow explicit any with repair guidance
@@ -96,7 +108,7 @@ This table is generated from `meta.docs` on each rule and grouped into maintaina
 
 **Description:** Enforce test file naming and require at least one test block
 
-**Principle:** Test files must follow naming conventions and contain test blocks so they colocate with the code they cover.
+**Principle:** Recognizable test filenames and real test blocks keep helpers and stubs from being mistaken for executable coverage.
 
 **Category:** maintainability
 
@@ -129,6 +141,18 @@ This table is generated from `meta.docs` on each rule and grouped into maintaina
 **Paired guide:** [docs/guides/local-eslint-rules.md](../guides/local-eslint-rules.md)
 
 **Repair:** codemod — `bun run codemod:expand-barrel`
+
+### `local/no-effect-misuse`
+
+**Description:** Disallow imperative data fetching and derived-state-only React effects
+
+**Principle:** Effects synchronize React with external systems; server data, derived state, event logic, and form resets have dedicated declarative owners.
+
+**Category:** architecture-fitness
+
+**Paired guide:** [docs/guides/client-effects.md](../guides/client-effects.md)
+
+**Repair:** manual
 
 ### `local/strict-shared-schemas`
 
@@ -192,6 +216,30 @@ This table is generated from `meta.docs` on each rule and grouped into maintaina
 
 ## Behavior
 
+### `local/bad-comparison-sequence`
+
+**Description:** Disallow chained comparisons that reuse an intermediate boolean result
+
+**Principle:** JavaScript evaluates chained comparisons from left to right, so mathematical range notation silently compares an intermediate boolean instead of the original value.
+
+**Category:** behavior
+
+**Paired guide:** none
+
+**Repair:** manual
+
+### `local/bad-min-max-func`
+
+**Description:** Disallow nested Math.min and Math.max clamps with inverted literal bounds
+
+**Principle:** Inverted Math.min and Math.max bounds collapse a clamp to a constant instead of preserving values inside the intended range.
+
+**Category:** behavior
+
+**Paired guide:** none
+
+**Repair:** manual
+
 ### `local/concurrency-guard`
 
 **Description:** Disallow direct Prisma update/upsert calls on concurrency-gated delegates
@@ -203,6 +251,18 @@ This table is generated from `meta.docs` on each rule and grouped into maintaina
 **Paired guide:** [docs/guides/add-race-sensitive-mutation.md](../guides/add-race-sensitive-mutation.md)
 
 **Repair:** codemod — `bun run codemod:concurrency-guard`
+
+### `local/missing-throw`
+
+**Description:** Disallow standalone built-in Error constructions that are never thrown
+
+**Principle:** Constructing an Error as a standalone expression does not stop execution or notify callers, leaving invalid control-flow paths to continue silently.
+
+**Category:** behavior
+
+**Paired guide:** none
+
+**Repair:** autofix
 
 ### `local/no-async-array-callbacks`
 
@@ -225,6 +285,18 @@ This table is generated from `meta.docs` on each rule and grouped into maintaina
 **Category:** behavior
 
 **Paired guide:** [docs/guides/add-socket-broadcast.md](../guides/add-socket-broadcast.md)
+
+**Repair:** manual
+
+### `local/no-incorrect-sort`
+
+**Description:** Require an explicit comparator when sorting numeric arrays
+
+**Principle:** Array.prototype.sort without a comparator coerces numeric values to strings, silently producing lexicographic instead of numeric ordering.
+
+**Category:** behavior
+
+**Paired guide:** none
 
 **Repair:** manual
 
@@ -254,13 +326,25 @@ This table is generated from `meta.docs` on each rule and grouped into maintaina
 
 ### `local/no-swallowed-errors`
 
-**Description:** Disallow catch blocks that only log to console and continue
+**Description:** Disallow catch blocks that erase or double-report failure semantics
 
-**Principle:** Catch blocks that only log to console hide failures from callers, preventing error propagation and handling.
+**Principle:** Catch blocks must keep failures observable without hiding them behind normal-looking fallbacks or logging the same error twice.
 
 **Category:** behavior
 
 **Paired guide:** [docs/guides/local-eslint-rules.md](../guides/local-eslint-rules.md)
+
+**Repair:** manual
+
+### `local/no-unbounded-promise-all`
+
+**Description:** Disallow unbounded dynamic fan-out through Promise combinators
+
+**Principle:** Dynamically sized Promise fan-out must not exhaust database pools or external API capacity.
+
+**Category:** behavior
+
+**Paired guide:** none
 
 **Repair:** manual
 
@@ -285,5 +369,17 @@ This table is generated from `meta.docs` on each rule and grouped into maintaina
 **Category:** behavior
 
 **Paired guide:** [docs/guides/add-socket-broadcast.md](../guides/add-socket-broadcast.md)
+
+**Repair:** manual
+
+### `local/uninvoked-array-callback`
+
+**Description:** Disallow callbacks on sparse arrays created with a length-only Array call
+
+**Principle:** Array callbacks skip holes created by Array(length), so code expecting one callback per index silently performs no work for those slots.
+
+**Category:** behavior
+
+**Paired guide:** none
 
 **Repair:** manual

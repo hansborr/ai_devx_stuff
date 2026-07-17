@@ -1,8 +1,15 @@
 # 70. `export-ignore` strips the harness config and notes out of the very archive a "harness engineering reference" would ship
 
-Status: Proposed — from the 2026-07-01 AI-harness review; NOT implemented. Re-verify file:line before acting.
+Status: Partially superseded — copyable harness config is carved back into archives; first-hour discoverability moved to harness-audit leaf 63.
 Lens: reference-fitness · Area: repo-config · Severity: high · Size: S · Confidence: high
 Theme: export-ignore-vs-public-reference · Source: Musi AI-harness review 2026-07-01 (multi-agent + Codex second opinion + web research)
+
+> **Reconciled 2026-07-14:** `.gitattributes` now exports the referenced
+> `.claude`, `.codex`, and `.copilot` configuration subsets while keeping
+> `docs/agent_notes/**` process state excluded. `docs/ai-harness.md` and
+> `docs/public-release-notes.md` document that boundary. The remaining gap was
+> the early README route, owned by harness-audit leaf 63; the original evidence
+> below is retained as historical rationale rather than current state.
 
 ## Problem
 The repo owner wants Musi to serve as a public reference for AI-harness engineering — people should be able to read the setup and copy ideas. But `.gitattributes` marks the entire harness-config surface `export-ignore`, so `git archive` output (and anything built on it, e.g. GitHub release "Source code" tarballs) ships *without* `.claude/` (hooks, settings, skills, output styles), `.codex/` (hooks, wiring, skills), and all of `docs/agent_notes/` (lint-coverage-map, backlog packs, decisions). Meanwhile the tracked-and-exported surfaces reference those paths directly: the generated `docs/generated/harness-controls.md` embeds `.claude/hooks/*` and `.codex/hooks/*` commands and links `docs/generated/lint-coverage-map.md` as a paired guide, and root `harness.controls.json` names `.claude/`/`.codex/` hook sources. A reader who grabs an archive of the reference gets dangling pointers to the most reference-worthy files.

@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 
 import { defaultExclude, defineConfig } from "vitest/config";
 
-import { DEFAULT_VITEST_TEST_TIMEOUT_MS } from "../vitest.config.js";
+import { DEFAULT_VITEST_TEST_TIMEOUT_MS, NON_SERVER_TEST_MAX_WORKERS } from "../vitest.config.js";
 
 // Pin root to this directory so `include` doesn't walk into compiled test
 // artifacts under packages/*/dist when invoked from the repo root.
@@ -21,5 +21,6 @@ export default defineConfig({
     // recursive `include` can't start sweeping git-ignored worktree duplicates.
     exclude: [...defaultExclude, "**/worktrees/**"],
     environment: "node",
+    maxWorkers: NON_SERVER_TEST_MAX_WORKERS,
   },
 });

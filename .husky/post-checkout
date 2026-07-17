@@ -1,4 +1,11 @@
 #!/usr/bin/env bash
-bash "$(dirname "$0")/../scripts/git/install-lint-ratchet-merge-driver.sh"
+# git post-checkout passes a third arg `branch_flag`: 1 for a branch checkout,
+# 0 for a file-only checkout (`git checkout -- foo`). Only branch checkouts,
+# fresh clones, and `git worktree add` (all flag 1) can leave the installed
+# merge drivers stale, so file checkouts skip the four installer subprocesses.
+# An absent flag defaults to 1 to preserve self-heal, matching the drift hook.
+if [ "${3:-1}" = 1 ]; then
+  bash "$(dirname "$0")/../scripts/git/install-all-merge-drivers.sh"
+fi
 . "$(dirname "$0")/../scripts/worktree-drift-hook.sh"
 musi_worktree_drift_hook "post-checkout" "$@"

@@ -46,7 +46,7 @@ export type CoverageUnusedCorrelationAdvisoryInput = {
   readonly top: number;
 };
 
-export type CoverageUnusedCorrelationSection = PrototypeSection<CoverageUnusedCorrelationRow> & {
+type CoverageUnusedCorrelationSection = PrototypeSection<CoverageUnusedCorrelationRow> & {
   readonly standingCaveat: string;
 };
 

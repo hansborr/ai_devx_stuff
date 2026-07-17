@@ -17,6 +17,8 @@ REPO_ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel)"
 . "$SCRIPT_DIR/ai-hooks/cache.sh"
 # shellcheck source=/dev/null
 . "$SCRIPT_DIR/process-tree.sh"
+# shellcheck source=/dev/null
+. "$SCRIPT_DIR/lib/verify-engine.sh"
 
 STATE_ROOT="${MUSI_VERIFY_ASYNC_STATE_ROOT:-/tmp/musi-verify-async}"
 LOCK="${MUSI_VERIFY_LOCK:-$(musi_standard_verify_lock "$REPO_ROOT")}"
@@ -103,6 +105,23 @@ write_state() {
   fi
 }
 
+write_latest_pointer() {
+  local state="$1" latest dir base tmp
+  latest=$(latest_file)
+  dir=$(dirname "$latest")
+  base=$(basename "$latest")
+  mkdir -p "$dir" || return 1
+  tmp=$(mktemp "$dir/.${base}.tmp.XXXXXX") || return 1
+  if ! printf '%s\n' "$state" > "$tmp"; then
+    rm -f "$tmp"
+    return 1
+  fi
+  if ! mv -f "$tmp" "$latest"; then
+    rm -f "$tmp"
+    return 1
+  fi
+}
+
 update_finished_state() {
   local file="$1" exit_code="$2" finished_epoch="$3" finished_at="$4"
   local pid started_epoch started_at command head fp log_dir
@@ -181,6 +200,20 @@ signal_run_process_group() {
   kill "-$signal" -- "-$pid" 2>/dev/null || kill "-$signal" "$pid" 2>/dev/null || true
 }
 
+terminate_started_child() {
+  local child="$1"
+  signal_run_process_group "$child" TERM
+  for _ in $(seq 1 30); do
+    if ! process_running "$child"; then
+      wait "$child" 2>/dev/null || true
+      return 0
+    fi
+    sleep 0.1
+  done
+  signal_run_process_group "$child" KILL
+  musi_wait_for_pid_exit_bounded "$child" || true
+}
+
 process_running() {
   local pid="$1" stat
   is_integer "$pid" || return 1
@@ -188,9 +221,6 @@ process_running() {
   stat=$(ps -o stat= -p "$pid" 2>/dev/null | awk '{print $1}')
   [ -n "$stat" ] && [[ "$stat" != Z* ]]
 }
-
-child_pids() { musi_child_pids "$@"; }
-signal_process_tree() { musi_signal_process_tree "$@"; }
 
 state_status() {
   local file="$1" pid exit_code
@@ -269,7 +299,10 @@ gc_old_runs() {
 
 start_run() {
   load_command "$@" || { usage; exit 2; }
-  mkdir -p "$(runs_dir)"
+  if ! mkdir -p "$(runs_dir)"; then
+    printf 'verify:async: failed to create state directory: %s\n' "$(runs_dir)" >&2
+    return 1
+  fi
 
   local now started_at run_id run_dir log_dir state command head fp child run_mode
   now=$(date +%s)
@@ -280,9 +313,18 @@ start_run() {
   state="$run_dir/state"
   command=$(command_display "${CMD[@]}")
   head=$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || echo none)
-  fp=$(ai_worktree_fingerprint "$REPO_ROOT")
-  mkdir -p "$log_dir" "$run_dir/markers"
-  write_state "$state" 0 "$now" "$started_at" "$command" "$head" "$fp" "$log_dir" "" "" ""
+  fp=$(musi_require_fingerprint \
+    "verify:async start" ai_worktree_fingerprint "$REPO_ROOT") || return 1
+  if ! mkdir -p "$log_dir" "$run_dir/markers"; then
+    printf 'verify:async: failed to create run state: %s\n' "$run_dir" >&2
+    rm -rf "$run_dir"
+    return 1
+  fi
+  if ! write_state "$state" 0 "$now" "$started_at" "$command" "$head" "$fp" "$log_dir" "" "" ""; then
+    printf 'verify:async: failed to persist initial state: %s\n' "$state" >&2
+    rm -rf "$run_dir"
+    return 1
+  fi
 
   if command -v setsid >/dev/null 2>&1; then
     run_mode="setsid"
@@ -292,8 +334,18 @@ start_run() {
     nohup bash "$0" __run "$state" "$ASYNC_TIMEOUT" "$LOCK" "$run_mode" -- "${CMD[@]}" >/dev/null 2>&1 </dev/null &
   fi
   child=$!
-  write_state "$state" "$child" "$now" "$started_at" "$command" "$head" "$fp" "$log_dir" "" "" ""
-  printf '%s\n' "$state" > "$(latest_file)"
+  if ! write_state "$state" "$child" "$now" "$started_at" "$command" "$head" "$fp" "$log_dir" "" "" ""; then
+    printf 'verify:async: failed to persist PID state; terminating PID %s\n' "$child" >&2
+    terminate_started_child "$child"
+    rm -rf "$run_dir"
+    return 1
+  fi
+  if ! write_latest_pointer "$state"; then
+    printf 'verify:async: failed to update latest state pointer; terminating PID %s\n' "$child" >&2
+    terminate_started_child "$child"
+    rm -rf "$run_dir"
+    return 1
+  fi
   disown "$child" 2>/dev/null || true
 
   printf 'verify:async: started PID %s\n' "$child"
@@ -303,7 +355,7 @@ start_run() {
 }
 
 run_child() {
-  local state="$1" timeout="$2" lock="$3" run_mode="$4"
+  local state="$1" timeout="$2" lock="$3"
   shift 5
   local expected_pid log_dir command current_pid="" watchdog="" timeout_marker="" exit_code=0
   expected_pid="$BASHPID"
@@ -347,30 +399,10 @@ run_child() {
       "$(musi_standard_verify_full_marker "$REPO_ROOT")"
   }
 
-  signal_payload() {
-    local signal="${1:-TERM}"
-    [ -n "$current_pid" ] && signal_process_tree "$current_pid" "$signal"
-  }
-
-  wait_for_payload_exit() {
-    local pid="$1" attempts="${2:-30}"
-    for _ in $(seq 1 "$attempts"); do
-      if ! process_running "$pid"; then
-        wait "$pid" 2>/dev/null || true
-        return 0
-      fi
-      sleep 0.1
-    done
-    return 1
-  }
-
   cleanup_payload() {
     [ -n "$current_pid" ] || return 0
-    signal_payload TERM
-    if ! wait_for_payload_exit "$current_pid" 30; then
-      signal_payload KILL
-      wait_for_payload_exit "$current_pid" 50 || return 1
-    fi
+    musi_terminate_process_tree "$current_pid"
+    musi_wait_for_pid_exit_bounded "$current_pid" || true
     current_pid=""
   }
 
@@ -414,7 +446,7 @@ run_child() {
 
   (
     exec 8<&-
-    env MUSI_VERIFY_LOCK_ALREADY_HELD=1 \
+    musi_run_in_isolated_process_group env MUSI_VERIFY_LOCK_ALREADY_HELD=1 \
       MUSI_INTERACTIVE_TIMEOUT="$exec_timeout" \
       MUSI_VERIFY_LOCK="$lock" \
       MUSI_VERIFY_LOG_DIR="$log_dir/verify" \
@@ -424,22 +456,22 @@ run_child() {
   ) &
   current_pid=$!
 
-  (
-    exec 8<&-
-    sleep_pid=""
-    trap '[ -n "$sleep_pid" ] && kill "$sleep_pid" 2>/dev/null; exit 0' TERM INT
-    sleep "$exec_timeout" &
-    sleep_pid=$!
-    wait "$sleep_pid"
+  # The trap/sleep/wait watchdog idiom lives once in scripts/lib/verify-engine.sh
+  # (musi_verify_start_watchdog); the on-timeout callback injects the async-only
+  # tail — the distinct banner, the .timeout marker poll status reads, and the
+  # mode-aware process-group signal. The callback reads run_child's locals via
+  # bash dynamic scope from the watchdog subshell fork.
+  async_watchdog_timeout() {
     printf 'verify:async: timed out after %ss\n' "$exec_timeout" >&2
     : > "$timeout_marker"
-    if [ "$run_mode" = "setsid" ]; then
-      signal_run_process_group "$expected_pid" TERM
-    else
-      kill -TERM "$expected_pid" 2>/dev/null || true
-    fi
-  ) &
-  watchdog=$!
+    # The payload owns a separate process group. Signal only this controller so
+    # its TERM trap can snapshot that group and complete TERM/KILL escalation;
+    # killing the controller group here would erase the parent link first.
+    kill -TERM "$expected_pid" 2>/dev/null || true
+  }
+  musi_verify_start_watchdog "verify:async" "$exec_timeout" "$expected_pid" \
+    async_watchdog_timeout
+  watchdog="$MUSI_VERIFY_WATCHDOG_PID"
 
   if wait "$current_pid"; then
     exit_code=0
@@ -553,7 +585,9 @@ stop_latest() {
     printf 'verify:async: no running async job (latest status: %s)\n' "$status"
     return 0
   fi
-  signal_run_process_group "$pid" TERM
+  # The controller owns payload-group cleanup. Preserve its parent link long
+  # enough for the TERM trap to snapshot and terminate that isolated group.
+  kill -TERM "$pid" 2>/dev/null || true
   for _ in $(seq 1 30); do
     if [ -n "$(state_get "$state" exit_code || printf '')" ]; then
       printf 'verify:async: stopped PID %s\n' "$pid"

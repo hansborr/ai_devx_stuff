@@ -1,6 +1,11 @@
 # Harness Research Follow-ups (2026-06-15)
 
-> **Status: proposals only. Nothing in this folder has been implemented.**
+> **Status: mostly proposals. PB-1's drain-leaf scope is Done** — the fast-check
+> infrastructure and the character-rules property suite landed (`3c302f89`), and
+> spellcasting / armor-class / dice property suites landed (`d10d67b9`, 22 tests,
+> drain leaf 5.1). The two lower-priority candidate modules (`attack-damage.ts`,
+> `xp.ts`) remain uncovered but were outside leaf 5.1's seed set. The other
+> leaves are still proposals.
 > This pack is a second round of follow-ups from the harness-engineering
 > research notes, created after cross-checking each top recommendation against
 > what the repo already enforces. Sibling pack:
@@ -47,7 +52,7 @@ metrics, OIDC publishing) and are deliberately omitted.
 
 | ID | Item | Plan | Effort | Risk |
 | --- | --- | --- | --- | --- |
-| PB-1 | Property-based tests for the rules engine (fast-check) | [01](01-property-based-testing-fast-check.md) | M | low |
+| PB-1 | Property-based tests for the rules engine (fast-check) — **Done (drain-leaf scope)**: infra + character-rules (`3c302f89`), spellcasting/armor-class/dice (`d10d67b9`, 22 tests, drain leaf 5.1); `attack-damage.ts`/`xp.ts` candidates remain but were outside leaf 5.1's seed set | [01](01-property-based-testing-fast-check.md) | M | low |
 | DL-1 | Token-aware design lint (arbitrary Tailwind / raw hex) | [02](02-design-token-lint.md) | M | medium |
 | EV-1 | Codebase-grounded golden-task eval harness | [03](03-golden-task-eval-harness.md) | L | medium |
 | A11Y-1 | Runtime a11y checks (axe-core) in Playwright e2e | [04](04-runtime-a11y-axe-e2e.md) | S-M | low |

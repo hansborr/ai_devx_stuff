@@ -1,6 +1,6 @@
 # 19. `--update` runs weaker preflight than the default gate, and preflight/collection expand globs differently — unify both, plus share one GFM-escaping helper
 
-Status: Proposed — from the 2026-07-01 AI-harness review; NOT implemented. Re-verify file:line before acting.
+Status: Done — `assertLintRatchetUpdateRegistryClean` preflight, `runEslintForFiles` explicit file list, and `markdown-escape.ts` GFM escaping (`e8e46212`, `c7843953`, `93167a63`).
 Lens: ratchet · Area: modes · Severity: med · Size: S-M · Confidence: high
 Theme: mode-parity · Source: Musi AI-harness review 2026-07-01 (multi-agent + Codex second opinion + web research)
 

@@ -16,7 +16,7 @@ const EDIT_NOTE_PATTERNS = [
 
 const TODO_PATTERN = /\bTODO\b/iu;
 export const TODO_REFERENCE_PATTERN =
-  /https?:\/\/|docs\/(?:roadmap|agent_notes)\/|(?:issue|pr)\s*#?\d+|#\d+|GH-\d+|[A-Z][A-Z0-9]+-\d+|\broadmap\b|\bagent\s+note\b/iu;
+  /[Hh][Tt][Tt][Pp][Ss]?:\/\/[A-Za-z0-9][A-Za-z0-9.-]*(?::\d+)?(?:[/?#]\S*)?|\bdocs\/(?:roadmap|agent_notes)\/[\w./-]*\w[\w./-]*|\b(?:[Ii][Ss][Ss][Uu][Ee]|[Pp][Rr])\s*#?\d+\b|#\d+\b|\b[A-Z][A-Z0-9]+-\d+\b/u;
 const INCOMPLETE_ERROR_PATTERN =
   /^(?:not implemented|not yet implemented|todo|implement me)[.!]?$/iu;
 
@@ -68,7 +68,7 @@ export default {
       leftoverEditNote:
         "Remove this leftover editing note. Restore the real code or delete the comment.",
       todoNeedsReference:
-        "TODO comments need a tracking reference. Link an issue/PR id, URL, docs/roadmap|agent_notes path, or the words roadmap/agent note; otherwise resolve the TODO.",
+        "TODO comments need a locatable tracking reference. Link an issue/PR id, URL, or docs/roadmap|agent_notes path; otherwise resolve the TODO.",
       incompleteImplementation:
         "Replace this incomplete implementation with real behavior, or remove the dead path.",
     },

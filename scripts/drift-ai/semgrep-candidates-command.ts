@@ -16,6 +16,8 @@ import { DriftAiError } from "./errors.js";
 import type { GitRunner } from "./git-changed-scope.js";
 import { prepareCurrentRun } from "./prepare-run.js";
 import {
+  capturePrototypeScanSnapshot,
+  completedScanProvenance,
   currentPrototypeCliOptions,
   finishPrototypeCommand,
   renderPrototypeAdvisory,
@@ -44,6 +46,7 @@ import {
   type SemgrepRunnerResult,
   semgrepScanExcludeGlobs,
 } from "./semgrep-runner.js";
+import { triageGeneratedArtifactExclusions } from "./triage-packet-staleness.js";
 
 export type SemgrepCandidatesRunOptions = {
   readonly argv: readonly string[];
@@ -87,7 +90,16 @@ function runParsedSemgrepCandidates(
     // resolve from the repo root, exactly like the runner's spawn cwd.
     localConfigExists: (config) => ruleConfigExists(path.resolve(prepared.repoRoot, config)),
   });
+  const excludedArtifacts = triageGeneratedArtifactExclusions(
+    parsed.base.outputPath === null ? [] : [parsed.base.outputPath],
+  );
+  const beforeScan = capturePrototypeScanSnapshot(
+    options.git,
+    prepared.repoRoot,
+    excludedArtifacts,
+  );
   const run = runSemgrepEngine(options, prepared, parsed, ruleSources);
+  const afterScan = capturePrototypeScanSnapshot(options.git, prepared.repoRoot, excludedArtifacts);
   const advisory = buildSemgrepAdvisory(
     {
       ruleSources,
@@ -109,7 +121,11 @@ function runParsedSemgrepCandidates(
           semgrepScanExcludeGlobs({ roots: prepared.roots, ignore: prepared.config.ignore }),
         ),
     },
-    { top: parsed.top, includeRuleMessages: parsed.includeRuleMessages },
+    {
+      top: parsed.top,
+      includeRuleMessages: parsed.includeRuleMessages,
+      scanProvenance: completedScanProvenance(beforeScan, afterScan),
+    },
   );
   return finishPrototypeCommand(
     parsed,

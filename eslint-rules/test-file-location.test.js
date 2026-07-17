@@ -1,5 +1,5 @@
 // @ts-check
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { makeRuleTester } from "./rule-tester.js";
 import rule from "./test-file-location.js";
@@ -7,6 +7,19 @@ import rule from "./test-file-location.js";
 const ruleTester = makeRuleTester();
 
 describe("test-file-location", () => {
+  it("documents only the filename and test-block semantics it enforces", () => {
+    expect(rule.meta.docs?.principle).toBe(
+      "Recognizable test filenames and real test blocks keep helpers and stubs from being mistaken for executable coverage.",
+    );
+    expect(rule.meta.messages?.wrongNaming).toBe(
+      "Rename this file to use a non-empty feature prefix: `<feature>.test.ts`, `<feature>.test.tsx`, or `<feature>.spec.ts`.",
+    );
+    expect(rule.meta.messages?.missingTests).toBe(
+      "Add a `describe`, `it`, or `test` block, or rename a helper to remove the .test/.spec suffix.",
+    );
+    expect(JSON.stringify(rule.meta)).not.toMatch(/colocat/iu);
+  });
+
   it("runs", () => {
     ruleTester.run("test-file-location", rule, {
       valid: [
@@ -42,7 +55,7 @@ describe("test-file-location", () => {
         },
       ],
       invalid: [
-        // .test.ts with no feature prefix — must point to colocated naming guidance.
+        // .test.ts with no feature prefix — must report the basename contract.
         {
           filename: "packages/server/src/.test.ts",
           code: "it('works', () => {});",

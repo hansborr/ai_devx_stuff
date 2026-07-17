@@ -3,10 +3,12 @@
 # smoke-subjects: scripts/harness/control-field-validation.ts
 # smoke-subjects: scripts/harness/generate-harness-controls.ts
 # smoke-subjects: scripts/harness/generate-harness-controls-validation.ts
+# smoke-subjects: scripts/harness/harness-manifest.ts
 # smoke-subjects: scripts/harness/harness-paths.ts
 # smoke-subjects: scripts/harness/hook-wiring-schema.ts
 # smoke-subjects: scripts/harness/verify-step-schema.ts
 # smoke-subjects: scripts/lib/lint-rule-docs.ts
+# smoke-subjects: scripts/lib/codepoint-compare.ts
 # smoke-subjects: scripts/tests/test-generate-harness-controls.sh
 # smoke-subjects: scripts/fixtures/generate-harness-controls/
 # smoke-subjects: harness.controls.json
@@ -46,10 +48,15 @@ copy_generator() {
   cp scripts/harness/generate-harness-controls.ts "$fixture_dir/scripts/harness/generate-harness-controls.ts"
   cp scripts/harness/generate-harness-controls-validation.ts "$fixture_dir/scripts/harness/generate-harness-controls-validation.ts"
   cp scripts/harness/harness-paths.ts "$fixture_dir/scripts/harness/harness-paths.ts"
+  cp scripts/harness/harness-manifest.ts "$fixture_dir/scripts/harness/harness-manifest.ts"
   cp scripts/harness/hook-wiring-schema.ts "$fixture_dir/scripts/harness/hook-wiring-schema.ts"
   cp scripts/lib/lint-rule-docs.ts "$fixture_dir/scripts/lib/lint-rule-docs.ts"
   cp scripts/lib/doc-generator.ts "$fixture_dir/scripts/lib/doc-generator.ts"
   cp scripts/harness/verify-step-schema.ts "$fixture_dir/scripts/harness/verify-step-schema.ts"
+  # The generator sorts via compareByCodepoint from scripts/lib/codepoint-compare;
+  # that module is dependency-free, so the fixture copies only it (the stubbed
+  # lint-ratchet-config below still satisfies the generator's type-only import).
+  cp scripts/lib/codepoint-compare.ts "$fixture_dir/scripts/lib/codepoint-compare.ts"
   # Minimal ratchet registry stub: the generator re-projects ratchet principles
   # from lintRatchets (id -> principle), so the fixture supplies its own backing
   # entry for ratchet/fixture instead of copying the real registry chain.

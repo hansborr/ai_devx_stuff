@@ -80,6 +80,12 @@ export const knipUnusedExportsSpec: BaselineMetricSpec<KnipUnusedExportEntry> = 
   tool: "knip",
   metric: "unused-export-symbols",
   meta: { includeCategories: KNIP_SYMBOL_INCLUDE_CATEGORIES },
+  regenerate: "bun scripts/sensor-knip-unused-exports.ts --update",
+  conflictMarkerRemediation: {
+    baselineFile: "sensor-knip-unused-exports.baseline.json",
+    installerCommand: "bun run sensor:knip-unused-exports:install-merge-driver",
+    updateCommand: "bun scripts/sensor-knip-unused-exports.ts --update",
+  },
   parseEntry(raw): ParseResult<KnipUnusedExportEntry> {
     if (!isRecord(raw)) return { ok: false, error: "entry must be an object" };
     const { key, path, category, symbol } = raw;
@@ -115,6 +121,9 @@ export function readKnipUnusedExportsBaseline(
 ): ParseResult<readonly KnipUnusedExportEntry[]> {
   const parsed = parseBaseline(knipUnusedExportsSpec, text);
   if (!parsed.ok) return parsed;
+  if (parsed.warnings !== undefined) {
+    return { ok: true, value: parsed.value.entries, warnings: parsed.warnings };
+  }
   return { ok: true, value: parsed.value.entries };
 }
 

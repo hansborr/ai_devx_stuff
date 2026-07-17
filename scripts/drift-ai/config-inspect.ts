@@ -17,7 +17,7 @@ export const CONFIG_INSPECT_SUBCOMMAND = "config";
 // - "explicit": the operator passed `--config <path>`;
 // - "auto-discovered": a `drift-ai.config.json` at the target repo root loaded;
 // - "default": no config file was found, so the built-in defaults are in effect.
-export type ConfigInspectionSource = "default" | "auto-discovered" | "explicit";
+type ConfigInspectionSource = "default" | "auto-discovered" | "explicit";
 
 export type ConfigInspection = {
   readonly kind: "config-inspection";

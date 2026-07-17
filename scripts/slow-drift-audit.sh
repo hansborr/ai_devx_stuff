@@ -13,6 +13,7 @@ OUTPUT_DIR="${MUSI_SLOW_DRIFT_OUTPUT_DIR:-reports/slow-drift}"
 ENVELOPE_DIR="$OUTPUT_DIR/envelopes"
 PRODUCER_DIR="$OUTPUT_DIR/producers"
 FUSED_DIR="$OUTPUT_DIR/fused"
+MESSAGE_EVAL_DIR="$OUTPUT_DIR/message-eval"
 RUN_GENERATED_AT="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 RUN_HEAD="$(git rev-parse HEAD 2>/dev/null || printf 'unknown')"
 RUN_BUN_VERSION="$("$BUN_BIN" --version 2>/dev/null || printf 'unknown')"
@@ -58,8 +59,8 @@ assert_safe_output_dir() {
 
 reset_output_dirs() {
   assert_safe_output_dir
-  rm -rf "$ENVELOPE_DIR" "$PRODUCER_DIR" "$FUSED_DIR"
-  mkdir -p "$ENVELOPE_DIR" "$PRODUCER_DIR" "$FUSED_DIR"
+  rm -rf "$ENVELOPE_DIR" "$PRODUCER_DIR" "$FUSED_DIR" "$MESSAGE_EVAL_DIR"
+  mkdir -p "$ENVELOPE_DIR" "$PRODUCER_DIR" "$FUSED_DIR" "$MESSAGE_EVAL_DIR"
 }
 
 format_command() {
@@ -162,6 +163,36 @@ run_logs_audit_if_configured() {
     "$BUN_BIN" run logs:audit "${args[@]}"
 }
 
+run_lint_message_eval() {
+  local markdown="$MESSAGE_EVAL_DIR/latest.md"
+  local json="$MESSAGE_EVAL_DIR/latest.json"
+  local output="$PRODUCER_DIR/lint-message-eval.txt"
+  local command status
+  command=$(format_command \
+    "$BUN_BIN" run eval:lint-messages \
+    --output "$markdown" \
+    --json-output "$json")
+  printf 'slow-drift: running lint message eval\n'
+  write_metadata_header "$output" "$command"
+  set +e
+  "$BUN_BIN" run eval:lint-messages \
+    --output "$markdown" \
+    --json-output "$json" >>"$output" 2>&1
+  status=$?
+  set -e
+  if [ "$status" -ne 0 ]; then
+    printf 'slow-drift: lint message eval failed with exit %s; see %s\n' "$status" "$output" >&2
+    return "$status"
+  fi
+  if [ ! -s "$markdown" ] || [ ! -s "$json" ]; then
+    printf 'slow-drift: lint message eval did not write both reports; see %s\n' "$output" >&2
+    return 2
+  fi
+  write_metadata_sidecar "$markdown" "$command"
+  write_metadata_sidecar "$json" "$command"
+  printf 'slow-drift: lint message eval completed\n'
+}
+
 write_fused_report() {
   local format="$1" output="$2" command
   command=$(format_command "$BUN_BIN" run harness:audit --format "$format" --output "$output" "${ENVELOPES[@]}")
@@ -190,6 +221,7 @@ run_report_only_producer \
   "$BUN_BIN" run drift:ai --scope current --check all
 
 run_logs_audit_if_configured
+run_lint_message_eval
 
 if [ "${#ENVELOPES[@]}" -eq 0 ]; then
   fail "no producer envelopes were written"

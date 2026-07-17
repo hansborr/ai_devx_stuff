@@ -36,6 +36,7 @@ ai_protected_file_advisory_entry() {
   local file="$1"
   local advisory key
 
+  # porting-knob: protected-files -- retarget repo-specific advisory and deny path tables
   case "$file" in
     */prisma/schema.prisma)
       key="prisma-schema"
@@ -104,6 +105,11 @@ ai_protected_file_deny_entry() {
     */docs/generated/local-lint-rules.md)
       key="generated-lint-guidance"
       deny="Protected generated file: regenerate docs/generated/local-lint-rules.md with 'bun run docs:lint-guidance' instead of editing it by hand."
+      ;;
+    */docs/generated/README.md|*/docs/generated/lint-coverage-map.md|*/docs/generated/observed_flaky_tests.md)
+      # docs/generated/README.md is the ownership ledger; these three files
+      # are intentionally hand-maintained rather than generated artifacts.
+      return 1
       ;;
     */docs/generated/*)
       key="generated-docs"

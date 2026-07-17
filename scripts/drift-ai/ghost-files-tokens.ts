@@ -2,7 +2,7 @@ import path from "node:path";
 
 import { toPosix } from "./path-util.js";
 
-export { isSourceLike, SOURCE_LIKE_EXTS, toPosix, uniqSorted } from "./path-util.js";
+export { SOURCE_LIKE_EXTS } from "./path-util.js";
 
 export const DEFAULT_GHOST_FILE_WEAK_TOKENS: readonly string[] = [
   "helper",

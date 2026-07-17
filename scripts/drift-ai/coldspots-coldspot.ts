@@ -39,14 +39,14 @@ import { type CollectedHistory, type CommitRecord, newestTimestamp } from "./hot
 
 // --- thresholds (named, overridable) ----------------------------------------
 
-export const DEFAULT_COLDSPOT_AGE_THRESHOLD_DAYS = 30; // absolute floor: a coldspot must be quiet at least this long.
-export const DEFAULT_COLDSPOT_REVISION_FLOOR = 2; // a coldspot is barely touched in-window.
-export const DEFAULT_COLDSPOT_AGE_STANDOUT_FACTOR = 2; // inverted churn: age ≥ factor × median touched-set age.
-export const DEFAULT_NEIGHBORHOOD_CHURN_RATIO = 4; // K: dir_churn / file_churn for stale-in-hot-neighborhood.
-export const DEFAULT_BIRTH_BURST_FILES = 8; // N: files in the birth commit.
-export const DEFAULT_BIRTH_BURST_LINES = 200; // M: lines added in the birth commit.
-export const DEFAULT_GONE_SILENT_DAYS = 60; // dominant author's last repo-wide commit older than this.
-export const DEFAULT_LARGE_FILE_CHURN_LINES = 400; // size proxy: accumulated added+deleted across the window.
+const DEFAULT_COLDSPOT_AGE_THRESHOLD_DAYS = 30; // absolute floor: a coldspot must be quiet at least this long.
+const DEFAULT_COLDSPOT_REVISION_FLOOR = 2; // a coldspot is barely touched in-window.
+const DEFAULT_COLDSPOT_AGE_STANDOUT_FACTOR = 2; // inverted churn: age ≥ factor × median touched-set age.
+const DEFAULT_NEIGHBORHOOD_CHURN_RATIO = 4; // K: dir_churn / file_churn for stale-in-hot-neighborhood.
+const DEFAULT_BIRTH_BURST_FILES = 8; // N: files in the birth commit.
+const DEFAULT_BIRTH_BURST_LINES = 200; // M: lines added in the birth commit.
+const DEFAULT_GONE_SILENT_DAYS = 60; // dominant author's last repo-wide commit older than this.
+const DEFAULT_LARGE_FILE_CHURN_LINES = 400; // size proxy: accumulated added+deleted across the window.
 
 export type ReduceColdspotOptions = {
   readonly top: number;

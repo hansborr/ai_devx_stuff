@@ -13,11 +13,21 @@ PAYLOAD=$(ai_read_payload)
 CMD=$(ai_payload_command "$PAYLOAD")
 [ -z "$CMD" ] && ai_emit_continue
 
-if REASON=$(ai_policy_violation_reason "$CMD"); then
+# Resolve the checkout the command targets (leading `cd <dir>`/`git -C <dir>`,
+# else payload cwd, else this hook's repo root) so branch-scoped policy — the
+# push/commit-on-main guards — evaluates that checkout's branch, not the hook
+# process cwd. A `cd <main> && git push` fired from a feature worktree must be
+# judged against main; without the resolved root it reads the feature branch.
+# Kept in a local name (not the global REPO_ROOT the protected-file path
+# resolver reads) so that scanner's existing cwd-based behavior is untouched.
+HOOK_REPO_ROOT=$(git -C "$HOOK_LIB" rev-parse --show-toplevel 2>/dev/null || git rev-parse --show-toplevel 2>/dev/null || echo "${CLAUDE_PROJECT_DIR:-/workspace}")
+WORK_ROOT=$(git -C "$(ai_resolve_target_dir "$CMD" "$(ai_payload_cwd "$PAYLOAD")" "$HOOK_REPO_ROOT")" rev-parse --show-toplevel 2>/dev/null || printf '%s' "$HOOK_REPO_ROOT")
+
+if REASON=$(ai_policy_violation_reason "$CMD" "$WORK_ROOT"); then
   if ai_policy_is_soft_guidance "$REASON"; then
     # Soft nudges should return guidance without turning advisory policy into a
     # hard block.
-    ai_claude_result_command "$REASON" /tmp/musi-policy-guidance
+    ai_claude_result_command "$REASON" "$AI_POLICY_GUIDANCE_TMP_PREFIX"
   fi
   ai_emit_block "$REASON"
 fi

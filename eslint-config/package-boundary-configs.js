@@ -3,6 +3,8 @@
 import {
   processEnvRestrictedSyntax,
   processExitRestrictedSyntax,
+  serverScriptTypeScriptFiles,
+  serverSourceFiles,
   serverTestAndHelperSourceFiles,
   sharedSchemasBarrelRestrictedImportPattern,
   sharedSourceFiles,
@@ -35,6 +37,23 @@ const permissiveTrpcOutputRestrictedSyntax = {
 const uploadServiceRestBoundaryFile = "packages/server/src/services/upload-service.ts";
 
 export const packagePolicyConfigs = [
+  {
+    files: [...serverSourceFiles, ...serverScriptTypeScriptFiles],
+    ignores: serverTestAndHelperSourceFiles,
+    rules: {
+      "local/no-unbounded-promise-all": "error",
+      "no-restricted-properties": [
+        "error",
+        {
+          object: "Math",
+          property: "random",
+          message:
+            "Use crypto.randomBytes or crypto.randomUUID for server-side randomness; Math.random is not suitable for tokens, invite codes, or other secrets.",
+        },
+      ],
+    },
+  },
+
   {
     files: ["packages/server/src/**/*.ts"],
     ignores: ["**/*.test.ts"],

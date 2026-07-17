@@ -145,7 +145,12 @@ function parseJsonLine(line: string): unknown {
 
 export function auditJsonlText(file: string, contents: string): LogsAuditReport {
   const lines = contents.split(/\r?\n/u);
-  if (lines.length > 0 && lines[lines.length - 1] === "") lines.pop();
+  // Drop every trailing empty split element, not just one: a file ending in
+  // "\n\n" is benign trailing slop, not an empty record. Interior empty lines
+  // survive and are still flagged below. Deliberately the opposite of the
+  // debt log's strict reader (scripts/lint-ratchet/debt-log-jsonl.ts), which
+  // tolerates exactly one trailing newline in its tool-written log.
+  while (lines.length > 0 && lines[lines.length - 1] === "") lines.pop();
 
   const findings: LogsAuditFinding[] = [];
   const parsedRecords: ParsedLogRecord[] = [];

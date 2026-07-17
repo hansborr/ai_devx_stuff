@@ -12,9 +12,6 @@ import {
   type DriftReportSummary,
   type SkippedDriftCheck,
 } from "./types.js";
-
-export type { CheckRunContext, CheckRunInput } from "./check-plugin.js";
-export type CheckContext = CheckRunInput;
 export type ReportBuildInput = Omit<CheckRunInput, "env"> & {
   readonly env: Omit<CheckServiceEnv, "cli" | "reportCache">;
 };

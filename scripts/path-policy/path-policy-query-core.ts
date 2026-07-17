@@ -19,6 +19,8 @@ export const PATH_POLICY_QUERY_NAMES = [
   "full-scan-trigger:eslint-changed",
   "full-scan-trigger:agent-lint-changed",
   "full-scan-trigger:config-sensors-changed",
+  "full-scan-trigger:eslint-disable-register-changed",
+  "full-scan-trigger:suppression-register-changed",
   "script-smoke-test-names",
   "script-smoke-tests",
   "deletion-class:script-smoke-sensitive",
@@ -37,12 +39,12 @@ const regexSpecialCharacters = /[\\^$+?.()|[\]{}]/gu;
 
 const escapeRegexLiteral = (value: string): string => value.replace(regexSpecialCharacters, "\\$&");
 
-export const matchSegmentGlob = (value: string, pattern: string): boolean => {
+const matchSegmentGlob = (value: string, pattern: string): boolean => {
   const expression = pattern.split("*").map(escapeRegexLiteral).join("[^/]*");
   return new RegExp(`^${expression}$`, "u").test(value);
 };
 
-export const matchesPathPolicySelector = (path: string, selector: PathPolicySelector): boolean => {
+const matchesPathPolicySelector = (path: string, selector: PathPolicySelector): boolean => {
   const comparablePath = normalizeComparablePath(path);
 
   switch (selector.kind) {
@@ -192,6 +194,12 @@ const queryHandlers: Record<PathPolicyQueryName, QueryHandler> = {
   ),
   "full-scan-trigger:config-sensors-changed": pathFilter((path) =>
     matchesAnySelector(path, PATH_POLICY.fullScanTriggers.configSensorsChanged),
+  ),
+  "full-scan-trigger:eslint-disable-register-changed": pathFilter((path) =>
+    matchesAnySelector(path, PATH_POLICY.fullScanTriggers.eslintDisableRegisterChanged),
+  ),
+  "full-scan-trigger:suppression-register-changed": pathFilter((path) =>
+    matchesAnySelector(path, PATH_POLICY.fullScanTriggers.suppressionRegisterChanged),
   ),
   "script-smoke-test-names": () => [...SCRIPT_SMOKE_TEST_NAMES],
   "script-smoke-tests": smokeTestsForPaths,

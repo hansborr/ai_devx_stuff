@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 
 import { dirname, join, relative } from "node:path";
 
 import { parseCheckModeArgs, readCurrentOutput } from "../lib/doc-generator.js";
+import { validateMonitoredFixtureShellDependencies } from "./fixture-shell-dependencies.js";
 
 const smokeFilePattern = /^test-.+\.sh$/u;
 const smokeSubjectsHeaderPrefixPattern = /^#\s*smoke-subjects:/u;
@@ -165,6 +166,7 @@ export function renderAllSmokeTestsFixture(definitions: readonly SmokeSubjectDef
 }
 
 function smokeSubjectGeneratedOutputs(repoRoot: string): readonly GeneratedOutput[] {
+  validateMonitoredFixtureShellDependencies(repoRoot);
   const definitions = collectSmokeSubjectDefinitions(repoRoot);
   return [
     {

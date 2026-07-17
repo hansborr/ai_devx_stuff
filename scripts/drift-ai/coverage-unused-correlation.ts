@@ -31,11 +31,11 @@ export const CORRELATION_STANDING_CAVEAT =
 // hit count, kept distinct so "uncovered" never silently becomes "unused".
 // `unavailable` means coverage did not speak to this symbol (no file/line match
 // or no location), which is NOT evidence of deadness.
-export type CoverageMatchState = "covered" | "uncovered" | "unavailable";
+type CoverageMatchState = "covered" | "uncovered" | "unavailable";
 
-export type CoverageMatchKind = "function-range" | "line" | "none";
+type CoverageMatchKind = "function-range" | "line" | "none";
 
-export type PathMatchKind = "exact" | "suffix" | "none";
+type PathMatchKind = "exact" | "suffix" | "none";
 
 // One artifact's coverage result for one unused-export symbol. Never merged with
 // other artifacts: unit/e2e/prod stay distinguishable.
@@ -76,7 +76,7 @@ export type CoverageUnusedCorrelationRow = {
   readonly caveats: readonly string[];
 };
 
-export type CoverageUnusedCorrelationStats = {
+type CoverageUnusedCorrelationStats = {
   readonly totalSymbols: number;
   readonly missingLocation: number;
   readonly fileNotInAnyArtifact: number;
@@ -95,7 +95,7 @@ export type CoverageUnusedCorrelationResult = {
 // standing caveat); the task-40b corpus tests inject a labeler so they can assert
 // trap/candidate/known-unused labels survive onto the row without the renderer
 // ever calling the symbol dead.
-export type CorrelationCaveatLabeler = (symbol: UnusedExportSymbol) => readonly string[];
+type CorrelationCaveatLabeler = (symbol: UnusedExportSymbol) => readonly string[];
 
 export type CorrelateOptions = {
   readonly caveatLabeler?: CorrelationCaveatLabeler;

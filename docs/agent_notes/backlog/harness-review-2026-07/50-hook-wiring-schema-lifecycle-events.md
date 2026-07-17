@@ -1,6 +1,6 @@
 # 50. The hook-wiring schema hard-codes three lifecycle events, making the officially supported session/compaction/subagent/failure hooks structurally impossible to wire
 
-Status: Proposed — from the 2026-07-01 AI-harness review; NOT implemented. Re-verify file:line before acting.
+Status: Done — `hook-wiring-schema.ts` lists ~17 lifecycle events.
 Lens: hooks · Area: harness-wiring · Severity: high · Size: M · Confidence: high
 Theme: hook-lifecycle-coverage · Source: Musi AI-harness review 2026-07-01 (multi-agent + Codex second opinion + web research)
 

@@ -30,8 +30,8 @@ have different triggers and use different transports.
   `packages/client/src/hooks/auth-context.tsx`.
 - Trigger: once, when `AuthProvider` mounts (e.g. initial load or hard reload).
 - Mechanism: the tRPC `auth.refresh` **mutation** (`refreshMutation.mutateAsync()`),
-  then `setAccessToken(data.accessToken)` followed by `fetchCurrentUser()` to
-  hydrate `user`.
+  which returns the access token and the session user already loaded during
+  refresh. The client stores both directly without a follow-up `auth.me` query.
 - Guard: a `didRefresh` ref makes it fire exactly once. React StrictMode
   re-fires effects, and the first refresh **rotates the refresh token**, so a
   second call would fail — the ref prevents that double-execution.

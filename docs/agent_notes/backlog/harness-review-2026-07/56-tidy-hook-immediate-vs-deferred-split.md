@@ -1,6 +1,6 @@
 # 56. tidy-edited-file.sh mixes urgent and style-tier lint feedback mid-edit; split immediate errors from a Stop-time residual-warning summary
 
-Status: Proposed — from the 2026-07-01 AI-harness review; NOT implemented. Re-verify file:line before acting.
+Status: Done — `ai_stop_lint_warnings_*` immediate/deferred split in `stop-policy.sh`; per-edit residual warnings removed (`48ac51aa`).
 Lens: hooks · Area: hooks-edit-loop · Severity: low-med · Size: M · Confidence: med
 Theme: edit-loop-noise · Source: Musi AI-harness review 2026-07-01 (multi-agent + Codex second opinion + web research)
 

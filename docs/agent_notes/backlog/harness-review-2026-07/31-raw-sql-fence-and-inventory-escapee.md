@@ -1,6 +1,6 @@
 # 31. Fence `$queryRaw`/`$executeRaw` to sanctioned modules and migrate the inventory-router escapee
 
-Status: Proposed — from the 2026-07-01 AI-harness review; NOT implemented. Re-verify file:line before acting.
+Status: Done — `rawPrismaSqlRestrictedSyntax` fence; inventory escapee migrated to `inventory-service.ts` (`ee14e9f8`).
 Lens: lint-rules · Area: server · Severity: high · Size: S · Confidence: high
 Theme: raw-sql-boundary · Source: Musi AI-harness review 2026-07-01 (multi-agent + Codex second opinion + web research)
 

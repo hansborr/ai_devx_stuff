@@ -1,6 +1,7 @@
 # 20. pages/ has no orientation doc for the page-as-composition-root pattern, despite 28 MODULE.md docs deeper in the tree
 
-Status: Proposed — codebase maintainability/onboarding audit 2026-06-13. Not yet started.
+Status: Done — the pages orientation doc landed at `packages/client/src/pages/MODULE.md`. Problem statement below is retained as the original finding.
+Created: 2026-06-13 · Updated: 2026-07-15
 Theme: discoverability / onboarding orientation · Area: client · Severity: low · Size: S
 
 Source: codebase maintainability/onboarding audit 2026-06-13 (lens: client-architecture); evidence independently re-verified. · Confidence: high

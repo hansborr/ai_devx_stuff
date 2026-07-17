@@ -1,6 +1,6 @@
 # 32. Enforce "use tRPC error codes consistently" with a rule banning plain `Error` throws in routers/services
 
-Status: Proposed — from the 2026-07-01 AI-harness review; NOT implemented. Re-verify file:line before acting.
+Status: Done — `local/no-plain-error-in-trpc` at error for routers/services, with the documented `upload-service.ts` REST carve-out (`11f5d8f7`→`ae34ef94`).
 Lens: lint-rules · Area: server · Severity: high · Size: M · Confidence: med
 Theme: error-code-discipline · Source: Musi AI-harness review 2026-07-01 (multi-agent + Codex second opinion + web research)
 

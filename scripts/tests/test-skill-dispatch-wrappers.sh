@@ -6,11 +6,15 @@
 # smoke-subjects: .claude/skills/agent-cli/references/claude.md
 # smoke-subjects: .claude/skills/agent-cli/references/codex.md
 # smoke-subjects: .claude/skills/agent-cli/references/copilot.md
+# smoke-subjects: .claude/skills/agent-cli/references/cursor.md
+# smoke-subjects: .claude/skills/agent-cli/references/portability.md
 # smoke-subjects: .claude/skills/agent-cli/references/trailer-contract.md
 # smoke-subjects: .codex/skills/agent-cli/SKILL.md
 # smoke-subjects: .codex/skills/agent-cli/references/claude.md
 # smoke-subjects: .codex/skills/agent-cli/references/codex.md
 # smoke-subjects: .codex/skills/agent-cli/references/copilot.md
+# smoke-subjects: .codex/skills/agent-cli/references/cursor.md
+# smoke-subjects: .codex/skills/agent-cli/references/portability.md
 # smoke-subjects: .codex/skills/agent-cli/references/trailer-contract.md
 # smoke-subjects: scripts/tests/test-skill-dispatch-wrappers.sh
 # Pure-shell tests for the unified agent dispatch wrapper behind the agent-cli
@@ -18,10 +22,10 @@
 # skill's SKILL.md and reference docs.
 #
 # The wrapper runs its CLI binary as a child, so the tests run it against fake
-# `claude`/`codex`/`copilot` executables on PATH that print their argv and the
-# permission-relevant environment, inside a throwaway git repo so the
-# per-worktree lock path and the consult drift check resolve somewhere
-# disposable.
+# `claude`/`codex`/`copilot`/`agent` (cursor) executables on PATH that print
+# their argv and the permission-relevant environment, inside a throwaway git
+# repo so the per-worktree lock path and the consult drift check resolve
+# somewhere disposable.
 
 set -euo pipefail
 
@@ -52,6 +56,11 @@ if [ "${AGENT_FAKE_PRINT_GIT_OPTIONAL_LOCKS-}" = "1" ]; then
   printf 'BACKEND_GIT_OPTIONAL_LOCKS=%s\n' "${GIT_OPTIONAL_LOCKS-__unset__}"
 fi
 if [ "${AGENT_FAKE_READ_STDIN-}" = "1" ]; then printf 'STDIN:[%s]\n' "$(cat)"; fi
+# Background a long-lived child that outlives this backend and then exit 0 —
+# the delegate-backgrounded-`land.sh &` shape. The child inherits this backend's
+# process group (the wrapper exec's it under setsid), so it is what
+# detect_orphaned_children probes for.
+if [ "${AGENT_FAKE_ORPHAN_CHILD-}" = "1" ]; then sleep 30 & fi
 if [ -n "${AGENT_FAKE_SLEEP-}" ]; then sleep "$AGENT_FAKE_SLEEP"; fi
 if [ "${AGENT_FAKE_TOUCH-}" = "1" ]; then touch drift-artifact.txt; fi
 if [ "${AGENT_FAKE_APPEND-}" = "1" ]; then printf 'drift\n' >>tracked.txt; fi
@@ -169,7 +178,30 @@ if [ "${AGENT_FAKE_EMPTY_ANSWER-}" = "1" ]; then exit 0; fi
 printf 'fake copilot answer\n'
 exit 0
 EOF
-chmod +x "$FAKE_BIN/claude" "$FAKE_BIN/codex" "$FAKE_BIN/copilot"
+# Fake cursor CLI (the binary is named `agent`): echoes argv, optionally
+# dirties the worktree or reads stdin, then prints the --output-format
+# stream-json events the wrapper parses. The stream carries incremental
+# assistant commentary and a final assistant message, plus a result envelope
+# whose `result` field concatenates the commentary before the final summary
+# (the real bug); the wrapper must land only the final assistant message in -o.
+# Unlike claude's envelope it carries usage-token fields and no cost/turn data.
+cat >"$FAKE_BIN/agent" <<'EOF'
+#!/usr/bin/env bash
+for arg in "$@"; do printf 'ARG:%s\n' "$arg"; done
+if [ "${AGENT_FAKE_READ_STDIN-}" = "1" ]; then printf 'STDIN:[%s]\n' "$(cat)"; fi
+if [ "${AGENT_FAKE_TOUCH-}" = "1" ]; then touch drift-artifact.txt; fi
+if [ "${AGENT_FAKE_NO_ENVELOPE-}" != "1" ]; then
+  err=false
+  if [ "${AGENT_FAKE_IS_ERROR-}" = "1" ]; then err=true; fi
+  printf '{"type":"system","subtype":"init","session_id":"cafe0001-2222-3333-4444-555555555555"}\n'
+  printf '{"type":"assistant","message":{"content":[{"type":"text","text":"incremental commentary one"}]}}\n'
+  printf '{"type":"assistant","message":{"content":[{"type":"text","text":"incremental commentary two"}]}}\n'
+  printf '{"type":"assistant","message":{"content":[{"type":"text","text":"fake cursor answer"}]}}\n'
+  printf '{"type":"result","subtype":"success","is_error":%s,"result":"incremental commentary one\\nincremental commentary two\\nfake cursor answer","session_id":"cafe0001-2222-3333-4444-555555555555","request_id":"beef0002-6666-7777-8888-999999999999","usage":{"inputTokens":10,"outputTokens":5,"cacheReadTokens":0,"cacheWriteTokens":0}}\n' "$err"
+fi
+exit "${AGENT_FAKE_EXIT-0}"
+EOF
+chmod +x "$FAKE_BIN/claude" "$FAKE_BIN/codex" "$FAKE_BIN/copilot" "$FAKE_BIN/agent"
 
 WORKTREE="$TMP_ROOT/repo"
 git init -q "$WORKTREE"
@@ -302,6 +334,17 @@ expect_out "<write>" "sourced copilot command"
 expect_out "<--share=$TMP_ROOT/unit-copilot.msg.transcript.md>" "sourced copilot command"
 ok "phase command: copilot argv assembly is directly testable"
 
+run_sourced_phase 'parse_and_validate_args consult cursor -p review; run_passthrough_guards; assemble_prompt; STDIN_SRC=/dev/null; build_cursor_command; cmd_lines'
+expect_code 0 "sourced cursor command"
+expect_out "<agent>" "sourced cursor command"
+expect_out "<--output-format>" "sourced cursor command"
+expect_out "<stream-json>" "sourced cursor command"
+expect_out "<--mode>" "sourced cursor command"
+expect_out "<ask>" "sourced cursor command"
+expect_out "<--trust>" "sourced cursor command"
+expect_out "<grok-4.5-xhigh>" "sourced cursor command"
+ok "phase command: cursor argv assembly defaults the model, composes ask mode, and streams json"
+
 run_sourced_phase 'MODE=consult; AGENT=codex; OUT="$TMP_ROOT/unit-header.msg"; emit_dispatch_header'
 expect_code 0 "sourced dispatch header"
 grep -qE "^agent-run: dispatched: consult codex wrapper-pid [0-9]+ answer $TMP_ROOT/unit-header.msg$" <<<"$OUT" \
@@ -341,7 +384,7 @@ ok "phase drift: consult drift check can be driven directly"
 
 # Every backend defines the required adapter verbs, dispatched by constructed
 # name from run_passthrough_guards / build_backend_command / run_backend.
-run_sourced_phase 'for a in codex claude copilot; do declare -F "guard_$a" "build_${a}_command" "launch_$a" >/dev/null || { printf "missing verbs for %s\n" "$a"; exit 7; }; done'
+run_sourced_phase 'for a in codex claude copilot cursor; do declare -F "guard_$a" "build_${a}_command" "launch_$a" >/dev/null || { printf "missing verbs for %s\n" "$a"; exit 7; }; done'
 expect_code 0 "adapter required verbs"
 ok "adapter: every backend defines guard/build/launch verbs"
 
@@ -391,6 +434,23 @@ run_wrapper consult claude
 expect_code 2 "missing prompt"
 expect_out "prompt" "missing prompt"
 ok "consult without a prompt exits 2"
+
+ATTACHMENT_ONLY="$TMP_ROOT/attachment-only.md"
+printf 'supporting evidence\n' > "$ATTACHMENT_ONLY"
+run_wrapper consult claude -f "$ATTACHMENT_ONLY"
+expect_code 2 "attachment-only mission"
+expect_out "non-empty mission" "attachment-only mission"
+expect_out "supporting material" "attachment-only mission"
+assert_prelaunch_reject_contract "attachment-only mission contract" "$OUT"
+ok "mission: attachment-only invocation is rejected before dispatch"
+
+for backend in claude codex copilot cursor; do
+  run_wrapper work "$backend" -p $' \t\n' -f "$ATTACHMENT_ONLY"
+  expect_code 2 "whitespace-only -p mission ($backend)"
+  expect_out "non-whitespace" "whitespace-only -p mission ($backend)"
+  assert_prelaunch_reject_contract "whitespace-only -p mission contract ($backend)" "$OUT"
+done
+ok "mission: whitespace-only -p plus attachments is rejected before every backend"
 
 run_wrapper consult claude -p ''
 expect_code 2 "empty -p"
@@ -474,6 +534,7 @@ for expected in ARG:-p ARG:--output-format ARG:json ARG:--disallowedTools 'ARG:W
   expect_out "$expected" "claude consult args"
 done
 expect_out "Do not modify files" "claude consult preamble"
+expect_out "git diff is fine" "claude consult keeps the shared shell-capable preamble"
 expect_not_out "granted you specific extra commands" "claude consult preamble without grants"
 expect_out "hello world" "claude consult prompt"
 expect_not_out "ARG:--dangerously-skip-permissions" "claude consult args"
@@ -730,12 +791,41 @@ expect_out "<attached>" "mission-file with -f attachment block"
 expect_out "finding two" "mission-file with -f material"
 ok "mission: -f material still attaches after a mission-file mission"
 
-run_wrapper work codex -p hi --mission-file "$MISSION_FILE_PATH"
-expect_code 2 "-p plus --mission-file"
-expect_out "exactly one" "-p plus --mission-file"
-run_wrapper work codex --mission-file "$MISSION_FILE_PATH" -p hi
-expect_code 2 "--mission-file plus -p"
-ok "mission: -p plus --mission-file is rejected in either order"
+# -P is repeatable; a single -p composes with the -P files in caller order,
+# separated by a blank line, and reaches the backend once as a single mission
+# prompt (the resume-composition one-command path: original mission file +
+# recovery note).
+ORDER_A="$TMP_ROOT/mission-order-a.prompt"
+ORDER_B="$TMP_ROOT/mission-order-b.prompt"
+printf 'ALPHA mission component\n' >"$ORDER_A"
+printf 'BETA mission component\n' >"$ORDER_B"
+run_wrapper work codex -P "$ORDER_A" -P "$ORDER_B"
+expect_code 0 "two mission files compose"
+expect_out "ALPHA mission component" "two mission files compose first component"
+expect_out "BETA mission component" "two mission files compose second component"
+A_LINE="$(first_line_matching 'ARG:ALPHA mission component' "$OUT")"
+B_LINE="$(first_line_matching 'BETA mission component' "$OUT")"
+{ [ -n "$A_LINE" ] && [ -n "$B_LINE" ] && [ "$B_LINE" -gt "$A_LINE" ]; } \
+  || fail "two mission files compose: components not in caller order ($OUT)"
+# the two components share one prompt argument, joined by the documented blank
+# line: the line after the first component is empty and the next is the second
+[ -z "$(sed -n "$((A_LINE + 1))p" <<<"$OUT")" ] \
+  || fail "two mission files compose: no blank-line separator between components ($OUT)"
+ok "mission: repeatable -P composes components once, in caller order, blank-line separated"
+
+run_wrapper work codex -p 'INLINE component' -P "$ORDER_B"
+expect_code 0 "-p composes with -P"
+PI_LINE="$(first_line_matching 'ARG:INLINE component' "$OUT")"
+PB_LINE="$(first_line_matching 'BETA mission component' "$OUT")"
+{ [ -n "$PI_LINE" ] && [ -n "$PB_LINE" ] && [ "$PB_LINE" -gt "$PI_LINE" ]; } \
+  || fail "-p composes with -P: components not in caller order ($OUT)"
+run_wrapper work codex -P "$ORDER_B" -p 'INLINE tail'
+expect_code 0 "-P composes with -p"
+TB_LINE="$(first_line_matching 'ARG:BETA mission component' "$OUT")"
+TI_LINE="$(first_line_matching 'INLINE tail' "$OUT")"
+{ [ -n "$TB_LINE" ] && [ -n "$TI_LINE" ] && [ "$TI_LINE" -gt "$TB_LINE" ]; } \
+  || fail "-P composes with -p: components not in caller order ($OUT)"
+ok "mission: -p and -P interleave in caller order in either arrangement"
 
 run_wrapper work codex --mission-file "$TMP_ROOT/no-such-mission.prompt"
 expect_code 2 "missing mission file"
@@ -748,12 +838,33 @@ EMPTY_MISSION="$TMP_ROOT/mission-empty.prompt"
 run_wrapper work codex --mission-file "$EMPTY_MISSION"
 expect_code 2 "empty mission file"
 expect_out "empty" "empty mission file"
-run_wrapper work codex --mission-file "$MISSION_FILE_PATH" -P "$EQ_MISSION"
-expect_code 2 "duplicate mission file"
-expect_out "duplicate" "duplicate mission file"
+WHITESPACE_MISSION="$TMP_ROOT/mission-whitespace.prompt"
+printf ' \t\n' >"$WHITESPACE_MISSION"
+for backend in claude codex copilot cursor; do
+  run_wrapper work "$backend" --mission-file "$WHITESPACE_MISSION" -f "$MATERIAL"
+  expect_code 2 "whitespace-only mission file ($backend)"
+  expect_out "non-whitespace" "whitespace-only mission file ($backend)"
+  assert_prelaunch_reject_contract "whitespace-only mission-file contract ($backend)" "$OUT"
+done
 run_wrapper work codex --mission-file
 expect_code 2 "bare --mission-file"
-ok "mission: missing, directory, empty, duplicate, and valueless mission files are usage errors"
+ok "mission: missing, directory, empty, whitespace-only, and valueless mission files are usage errors"
+
+# A composed mission that reduces to only whitespace is still rejected, naming
+# the offending component.
+run_wrapper work codex -P "$MISSION_FILE_PATH" -P "$WHITESPACE_MISSION"
+expect_code 2 "composed mission with a whitespace component"
+expect_out "non-whitespace" "composed mission with a whitespace component"
+ok "mission: a whitespace-only component in a composed mission is rejected by name"
+
+# A whitespace-only -p component must be rejected on its own merits even when it
+# composes with a non-whitespace -P file that would otherwise carry the aggregate
+# past the non-whitespace check.
+run_wrapper work codex -p '   ' -P "$MISSION_FILE_PATH"
+expect_code 2 "whitespace-only -p composed with a valid -P"
+expect_out "non-whitespace" "whitespace-only -p composed with a valid -P"
+assert_prelaunch_reject_contract "whitespace-only -p composed contract" "$OUT"
+ok "mission: a whitespace-only -p component is rejected even when a -P file follows"
 
 UNREADABLE_MISSION="$TMP_ROOT/mission-unreadable.prompt"
 printf 'hidden\n' >"$UNREADABLE_MISSION"
@@ -942,6 +1053,131 @@ expect_out "fake copilot answer" "copilot leading dash -o"
 expect_out "agent-run: session-id: 99999999-8888-7777-6666-555555555555" "copilot leading dash -o"
 rm -f -- "$TMP_ROOT/-x" "$TMP_ROOT/-x.transcript.md"
 ok "copilot: leading-dash -o and transcript paths are treated as file operands"
+
+# --- cursor mapping ---------------------------------------------------------------
+
+run_wrapper consult cursor -p 'review this'
+expect_code 0 "cursor consult happy path"
+for expected in ARG:-p ARG:--output-format ARG:stream-json ARG:--trust ARG:--mode ARG:ask ARG:--model ARG:grok-4.5-xhigh; do
+  expect_out "$expected" "cursor consult args"
+done
+expect_out "Do not modify files" "cursor consult preamble"
+expect_out "Shell commands are denied" "cursor consult preamble names the ask-mode shell denial"
+expect_not_out "git diff is fine" "cursor consult preamble must not promise shell (ask mode denies it)"
+expect_not_out "ARG:--force" "cursor consult args"
+expect_out "agent-run: session-id: cafe0001-2222-3333-4444-555555555555" "cursor consult trailer"
+expect_not_out "agent-run: cost-usd:" "cursor consult has no claude cost metadata"
+expect_out "fake cursor answer" "cursor consult answer in log"
+ok "cursor: consult composes ask mode, the default model, preamble, and result trailer"
+
+# The stream's incremental commentary must stay in the diagnostic log but never
+# reach the -o answer file: -o carries the final assistant message only.
+CURSOR_FINAL_OUT="$TMP_ROOT/cursor-final-only.txt"
+run_wrapper consult cursor -p 'summarize the diff' -o "$CURSOR_FINAL_OUT"
+expect_code 0 "cursor final-message normalization"
+[ "$(cat "$CURSOR_FINAL_OUT")" = "fake cursor answer" ] \
+  || fail "cursor final-message normalization: -o is not the final assistant message only ($(cat "$CURSOR_FINAL_OUT"))"
+grep -qF 'incremental commentary' "$CURSOR_FINAL_OUT" \
+  && fail "cursor final-message normalization: incremental commentary leaked into -o ($(cat "$CURSOR_FINAL_OUT"))"
+expect_out "incremental commentary one" "cursor incremental commentary stays in the diagnostic log"
+rm -f "$CURSOR_FINAL_OUT"
+ok "cursor: -o carries only the final assistant message; incremental commentary stays in the log"
+
+run_wrapper work cursor -p 'implement it' -m composer-2.5 -r cccc-session
+expect_code 0 "cursor work happy path"
+expect_out "ARG:--force" "cursor work args"
+expect_out "ARG:composer-2.5" "cursor work args"
+expect_not_out "ARG:grok-4.5-xhigh" "cursor work -m overrides the default model"
+expect_not_out "ARG:ask" "cursor work args (no consult ask mode)"
+expect_out "ARG:--resume" "cursor work resume args"
+expect_out "ARG:cccc-session" "cursor work resume args"
+expect_not_out "Do not modify files" "cursor work has no consult preamble"
+ok "cursor: work composes --force and -m/-r overrides without the preamble"
+
+CURSOR_OUT="$TMP_ROOT/cursor-answer.txt"
+run_wrapper consult cursor -p hi -o "$CURSOR_OUT"
+expect_code 0 "cursor -o"
+[ "$(cat "$CURSOR_OUT")" = "fake cursor answer" ] || fail "cursor -o: unexpected answer file content ($(cat "$CURSOR_OUT"))"
+expect_out "agent-run: answer: $CURSOR_OUT" "cursor -o trailer"
+ok "cursor: -o extracts the result field into the answer file"
+
+run_wrapper consult cursor -p hi -e high
+expect_code 2 "cursor -e"
+expect_out "no effort flag" "cursor -e"
+ok "cursor: -e is rejected (effort is encoded in the model id)"
+
+run_wrapper work cursor -p update
+expect_code 2 "cursor subcommand-word mission"
+expect_out "would dispatch the cursor subcommand" "cursor subcommand-word mission"
+run_wrapper consult cursor -p update
+expect_code 0 "cursor consult subcommand-word prompt (preamble prefixes it)"
+ok "cursor: a one-word work mission matching a subcommand is rejected; consults are immune"
+
+# load_mission_file reads via command substitution, which strips trailing
+# newlines — so a normally-edited one-word mission file still hits the guard.
+printf 'update\n' >"$TMP_ROOT/cursor-mission.txt"
+run_wrapper work cursor -P "$TMP_ROOT/cursor-mission.txt"
+expect_code 2 "cursor subcommand-word mission file"
+expect_out "would dispatch the cursor subcommand" "cursor subcommand-word mission file"
+ok "cursor: a one-word -P mission file matching a subcommand is rejected despite its trailing newline"
+
+set +e
+OUT="$(cd "$WORKTREE" && PATH="$FAKE_BIN:$PATH" AGENT_FAKE_NO_ENVELOPE=1 bash "$WRAPPER" consult cursor -p hi 2>&1)"
+CODE=$?
+set -e
+expect_code 1 "cursor missing envelope"
+expect_out "could not parse the cursor result envelope" "cursor missing envelope"
+ok "cursor: a missing result envelope fails the run instead of a silent 0"
+
+set +e
+OUT="$(cd "$WORKTREE" && PATH="$FAKE_BIN:$PATH" AGENT_FAKE_IS_ERROR=1 bash "$WRAPPER" consult cursor -p hi 2>&1)"
+CODE=$?
+set -e
+expect_code 1 "cursor is_error envelope"
+expect_out "cursor reported an error result envelope" "cursor is_error envelope"
+ok "cursor: an is_error envelope fails the run even on backend exit 0"
+
+set +e
+OUT="$(cd "$WORKTREE" && PATH="$FAKE_BIN:$PATH" AGENT_FAKE_READ_STDIN=1 bash "$WRAPPER" work cursor -p 'apply this' -f "$BIG_FILE" 2>&1)"
+CODE=$?
+set -e
+expect_code 0 "cursor oversize prompt"
+expect_out "ENDMARKER" "cursor oversize prompt"
+expect_not_out "ARG:apply this" "cursor oversize prompt"
+ok "prompt: oversize material falls back to stdin delivery for cursor"
+
+# Unlike codex, cursor resume reads stdin, so oversize prompts compose with -r.
+set +e
+OUT="$(cd "$WORKTREE" && PATH="$FAKE_BIN:$PATH" AGENT_FAKE_READ_STDIN=1 bash "$WRAPPER" work cursor -p 'apply this' -f "$BIG_FILE" -r dddd-resume 2>&1)"
+CODE=$?
+set -e
+expect_code 0 "cursor oversize prompt with resume"
+expect_out "ENDMARKER" "cursor oversize prompt with resume"
+expect_out "ARG:--resume" "cursor oversize prompt with resume"
+expect_out "ARG:dddd-resume" "cursor oversize prompt with resume"
+expect_not_out "ARG:apply this" "cursor oversize prompt with resume"
+ok "prompt: oversize stdin delivery composes with -r for cursor (codex rejects this)"
+
+# With stdin delivery the `--`+prompt operand is omitted; a surviving benign
+# passthrough flag must ride along without becoming a positional mission.
+set +e
+OUT="$(cd "$WORKTREE" && PATH="$FAKE_BIN:$PATH" AGENT_FAKE_READ_STDIN=1 bash "$WRAPPER" work cursor -p 'apply this' -f "$BIG_FILE" -- --approve-mcps 2>&1)"
+CODE=$?
+set -e
+expect_code 0 "cursor oversize prompt with passthrough"
+expect_out "ENDMARKER" "cursor oversize prompt with passthrough"
+expect_out "ARG:--approve-mcps" "cursor oversize prompt with passthrough"
+expect_not_out "ARG:apply this" "cursor oversize prompt with passthrough"
+ok "prompt: oversize stdin delivery keeps benign passthrough flags on argv for cursor"
+
+set +e
+OUT="$(cd "$WORKTREE" && PATH="$FAKE_BIN:$PATH" AGENT_FAKE_TOUCH=1 bash "$WRAPPER" consult cursor -p hi 2>&1)"
+CODE=$?
+set -e
+expect_code 4 "cursor consult drift"
+expect_out "agent-run: worktree: DIRTY (consult modified:" "cursor consult drift"
+reset_worktree
+ok "cursor: a consult that mutates the worktree exits 4 like the other lock-free consults"
 
 # --- passthrough guards -------------------------------------------------------------
 
@@ -1345,6 +1581,76 @@ run_wrapper consult copilot -m m -p hi -- --model other
 expect_code 2 "copilot passthrough model"
 ok "copilot: passthrough --model is rejected (wrapper owns -m)"
 
+for flag in -p --print --output-format --stream-partial-output; do
+  run_wrapper consult cursor -p hi -- "$flag"
+  expect_code 2 "cursor passthrough $flag"
+  expect_out "wrapper-owned" "cursor passthrough $flag"
+done
+ok "cursor: print-mode and output-format passthroughs are rejected (wrapper owns the envelope)"
+
+for flag in --model --model=other --list-models; do
+  run_wrapper consult cursor -p hi -- "$flag"
+  expect_code 2 "cursor passthrough $flag"
+  expect_out "use the wrapper's -m option" "cursor passthrough $flag"
+done
+ok "cursor: passthrough model flags are rejected (wrapper owns -m)"
+
+for flag in --resume --resume=abc --continue; do
+  run_wrapper consult cursor -p hi -- "$flag"
+  expect_code 2 "cursor passthrough $flag"
+  expect_out "wrapper session handling" "cursor passthrough $flag"
+done
+ok "cursor: native session controls are rejected (wrapper owns sessions via -r)"
+
+for flag in -f --force --yolo --auto-review; do
+  run_wrapper consult cursor -p hi -- "$flag"
+  expect_code 2 "cursor consult $flag"
+  expect_out "read-only guarantee" "cursor consult $flag"
+done
+run_wrapper work cursor -p hi -- --force
+expect_code 2 "cursor work --force"
+expect_out "work already runs with --force" "cursor work --force"
+ok "cursor: permission escalations are rejected in consult and redundant in work"
+
+for flag in --mode --mode=agent --plan; do
+  run_wrapper consult cursor -p hi -- "$flag"
+  expect_code 2 "cursor consult $flag"
+  expect_out "consult already runs read-only --mode ask" "cursor consult $flag"
+done
+run_wrapper work cursor -p hi -- --mode plan
+expect_code 2 "cursor work --mode"
+expect_out "downgrade work to a read-only mode" "cursor work --mode"
+ok "cursor: mode overrides are rejected in both directions"
+
+for flag in --sandbox --sandbox=disabled --trust; do
+  run_wrapper consult cursor -p hi -- "$flag"
+  expect_code 2 "cursor passthrough $flag"
+  expect_out "wrapper-owned" "cursor passthrough $flag"
+done
+ok "cursor: sandbox and trust passthroughs are wrapper-owned"
+
+run_wrapper consult cursor -p hi -- --approve-mcps
+expect_code 2 "cursor consult --approve-mcps"
+expect_out "read-only surface" "cursor consult --approve-mcps"
+run_wrapper work cursor -p hi -- --approve-mcps
+expect_code 0 "cursor work --approve-mcps"
+expect_out "ARG:--approve-mcps" "cursor work --approve-mcps"
+ok "cursor: --approve-mcps is consult-rejected but passes through for work"
+
+for flag in --workspace --workspace=/elsewhere -w --worktree --worktree=lane --worktree-base --skip-worktree-setup; do
+  run_wrapper work cursor -p hi -- "$flag"
+  expect_code 2 "cursor passthrough $flag"
+  expect_out "worktree" "cursor passthrough $flag"
+done
+ok "cursor: workspace- and worktree-moving passthroughs are rejected (lock and drift cover this worktree only)"
+
+for word in models update login worker create-chat; do
+  run_wrapper consult cursor -p hi -- "$word"
+  expect_code 2 "cursor bare subcommand $word"
+  expect_out "would dispatch the cursor subcommand" "cursor bare subcommand $word"
+done
+ok "cursor: bare subcommand words in the passthrough are rejected (they dispatch even after --)"
+
 # --- per-worktree lock ----------------------------------------------------------------
 
 if command -v flock >/dev/null 2>&1; then
@@ -1368,7 +1674,10 @@ if command -v flock >/dev/null 2>&1; then
   expect_out "agent-run: worktree: unchecked" "consult claude under held lock"
   run_wrapper consult copilot -m m -p hi
   expect_code 0 "consult copilot lock free"
-  ok "lock: claude/copilot consults stay lock-free (enforced read-only)"
+  run_wrapper consult cursor -p hi
+  expect_code 0 "consult cursor lock free"
+  expect_out "agent-run: worktree: unchecked" "consult cursor under held lock"
+  ok "lock: claude/copilot/cursor consults stay lock-free (enforced read-only)"
 
   set +e
   OUT="$(cd "$WORKTREE" && PATH="$FAKE_BIN:$PATH" AGENT_FAKE_TOUCH=1 bash "$WRAPPER" consult claude -p hi 2>&1)"
@@ -1852,6 +2161,45 @@ expect_code 0 "lock is free after a TERM'd run"
 ok "signals: a TERM'd work wrapper kills its backend and emits completion trailers"
 ok "contract: TERM exits 1 with launch header before completion anchors"
 
+# codex streams its session id in the exec header, and the wrapper logs it as
+# soon as it appears — before the run finalizes. A crash before finalization
+# (OOM/SIGKILL, which cannot run the fatal-signal trap) then still leaves a
+# resumable id in the log. Prove the id is present while the backend is still
+# sleeping and no completion anchor has been written yet.
+EARLY_LOG="$TMP_ROOT/early-session.log"
+EARLY_ANS="$TMP_ROOT/early-session.msg"
+(cd "$WORKTREE" && PATH="$FAKE_BIN:$PATH" AGENT_FAKE_SLEEP=30 AGENT_FAKE_SKIP_OUTPUT=1 \
+  exec bash "$WRAPPER" work codex -p hi -o "$EARLY_ANS") >"$EARLY_LOG" 2>&1 &
+EARLY_WRAPPER=$!
+n=0
+until grep -q '^agent-run: session-id:' "$EARLY_LOG" 2>/dev/null || [ "$n" -ge 200 ]; do
+  sleep 0.05
+  n=$((n + 1))
+done
+grep -q '^agent-run: session-id: 12345678-1234-1234-1234-123456789abc' "$EARLY_LOG" \
+  || fail "codex early session: session id not logged before finalization ($(cat "$EARLY_LOG"))"
+if grep -Eq '^agent-run: (worktree|backend-exit):' "$EARLY_LOG"; then
+  fail "codex early session: a completion anchor beat the early session id — not proving early capture ($(cat "$EARLY_LOG"))"
+fi
+# a crashed run's recovery reads exactly this line; make sure it is retrievable
+CRASH_SID="$(sed -n 's/^agent-run: session-id: //p' "$EARLY_LOG" | head -n1)"
+[ "$CRASH_SID" = "12345678-1234-1234-1234-123456789abc" ] \
+  || fail "codex early session: crash recovery cannot retrieve the id ($CRASH_SID)"
+# the early id is logged once, not duplicated when the run later finalizes
+kill -TERM "$EARLY_WRAPPER" 2>/dev/null || true
+set +e
+wait "$EARLY_WRAPPER"
+set -e
+SID_COUNT="$(grep -c '^agent-run: session-id: 12345678-1234-1234-1234-123456789abc' "$EARLY_LOG")"
+[ "$SID_COUNT" = 1 ] || fail "codex early session: session id logged $SID_COUNT times, expected once ($(cat "$EARLY_LOG"))"
+EARLY_BACKEND="$(sed -n 's/^agent-run: backend-pid: //p' "$EARLY_LOG" | head -n1)"
+if [ -n "$EARLY_BACKEND" ] && kill -0 "$EARLY_BACKEND" 2>/dev/null; then
+  kill -9 -- "-$EARLY_BACKEND" 2>/dev/null || kill -9 "$EARLY_BACKEND" 2>/dev/null || true
+fi
+run_wrapper work claude -p hi
+expect_code 0 "lock free after the early-session probe run"
+ok "signals: codex logs a resumable session id before finalization, exactly once (crash-recoverable)"
+
 # Escalation must track the backend *tree*: here the backend leader dies on
 # TERM but leaves a TERM-ignoring child in its process group holding the
 # inherited lock fd. The grace loop has to see the group as still alive and
@@ -2049,6 +2397,71 @@ run_wrapper work claude -p hi
 expect_code 0 "lock is free after a review launch that aborted before exec"
 ok "signals: a codex launch that aborts before exec reports no backend and orphans nothing"
 
+# A backend that exits 0 but leaves a background child running in its process
+# group (a delegate that backgrounded a long command and ended its turn) must
+# not finalize as an unqualified clean success: the wrapper flags a distinct
+# `backend-exit: orphaned-children` anchor and exits 1 so a trailer-reading
+# caller learns the "success" is unreliable.
+if command -v setsid >/dev/null 2>&1; then
+  set +e
+  OUT="$(cd "$WORKTREE" && PATH="$FAKE_BIN:$PATH" AGENT_FAKE_ORPHAN_CHILD=1 bash "$WRAPPER" work claude -p hi 2>&1)"
+  CODE=$?
+  set -e
+  expect_code 1 "orphaned-children exit code"
+  expect_out "agent-run: backend-exit: orphaned-children" "orphaned-children distinct trailer"
+  expect_out "die at end-of-turn" "orphaned-children trailer explains the lifetime"
+  assert_finalized_contract "orphaned-children contract" "$OUT"
+  # The wrapper must not merely flag the orphan: it TERMs the reaped backend
+  # group so "die at end-of-turn" is true. Pin that production kill path — the
+  # backgrounded child's group is gone once the wrapper has exited (no manual
+  # kill here). A short grace covers the TERM delivery after the wrapper returns.
+  OC_BACKEND="$(sed -n 's/^agent-run: backend-pid: //p' <<<"$OUT" | head -n1)"
+  if [ -n "$OC_BACKEND" ]; then
+    OC_N=0
+    while [ "$OC_N" -lt 20 ] && kill -0 -- "-$OC_BACKEND" 2>/dev/null; do
+      sleep 0.05
+      OC_N=$((OC_N + 1))
+    done
+    kill -0 -- "-$OC_BACKEND" 2>/dev/null \
+      && fail "orphaned-children: wrapper left the backend group alive (production TERM did not fire)"
+    # belt-and-suspenders reap in case a future regression leaves it running
+    kill -9 -- "-$OC_BACKEND" 2>/dev/null || true
+  fi
+  run_wrapper work claude -p hi
+  expect_code 0 "clean run after orphaned-children run"
+  ok "signals: a backend exiting 0 with a live background child fails with a distinct orphaned-children trailer and TERMs the abandoned group"
+
+  # A read-only consult cannot leave mutating work behind, and some backends
+  # (cursor's worker-server daemons) linger in the backend group on an otherwise
+  # clean consult. So the same orphan on a consult reaps the group but stays a
+  # success: a distinct warning trailer, no backend-exit: failure anchor, and
+  # exit 0 (the worktree: anchor finalizes; the answer still landed).
+  set +e
+  OUT="$(cd "$WORKTREE" && PATH="$FAKE_BIN:$PATH" AGENT_FAKE_ORPHAN_CHILD=1 bash "$WRAPPER" consult claude -p hi 2>&1)"
+  CODE=$?
+  set -e
+  expect_code 0 "consult orphaned-children stays a success"
+  expect_out "agent-run: orphaned-children-reaped: consult" "consult orphan reap warning trailer"
+  expect_not_out "agent-run: backend-exit: orphaned-children" "consult orphan is not a backend-exit failure"
+  expect_out "fake claude answer" "consult orphan still landed an answer"
+  assert_finalized_contract "consult orphaned-children contract" "$OUT"
+  # The consult must still TERM the reaped group so the lingering child dies.
+  OC_C_BACKEND="$(sed -n 's/^agent-run: backend-pid: //p' <<<"$OUT" | head -n1)"
+  if [ -n "$OC_C_BACKEND" ]; then
+    OC_C_N=0
+    while [ "$OC_C_N" -lt 20 ] && kill -0 -- "-$OC_C_BACKEND" 2>/dev/null; do
+      sleep 0.05
+      OC_C_N=$((OC_C_N + 1))
+    done
+    kill -0 -- "-$OC_C_BACKEND" 2>/dev/null \
+      && fail "consult orphaned-children: wrapper left the backend group alive (production TERM did not fire)"
+    kill -9 -- "-$OC_C_BACKEND" 2>/dev/null || true
+  fi
+  ok "signals: a consult backend exiting 0 with a live background child reaps the group and stays a success (no failure anchor)"
+else
+  ok "skipped orphaned-children check (setsid unavailable)"
+fi
+
 # --- agent-wait.sh -----------------------------------------------------------------------
 # Bounded wait helper: semantic exit codes over a dispatch log, status-only
 # output. The synthetic logs pin the waiter's parsing contract; the real-run
@@ -2154,7 +2567,7 @@ grep -qF '[references/trailer-contract.md](references/trailer-contract.md)' "$RE
 ok "contract: optional trailer records are documented as optional and linked by wrapper/SKILL.md"
 
 # Reference docs stay byte-identical mirrors across the two trees.
-for doc in references/claude.md references/codex.md references/copilot.md references/trailer-contract.md; do
+for doc in references/claude.md references/codex.md references/copilot.md references/cursor.md references/portability.md references/trailer-contract.md; do
   src="$REPO_ROOT/.claude/skills/agent-cli/$doc"
   dst="$REPO_ROOT/.codex/skills/agent-cli/$doc"
   [ -f "$src" ] || fail "mirror: missing $src"

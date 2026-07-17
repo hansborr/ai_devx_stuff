@@ -1,22 +1,108 @@
 #!/usr/bin/env bash
-# Land the current feature branch into the protected branch behind a FULL
-# verify gate.
+# Land a feature branch into the protected branch behind a FULL verify gate.
 #
-# Usage: bash scripts/land.sh   (run from the feature-branch worktree)
+# Usage:
+#   bash scripts/land.sh                 (run from the feature-branch worktree)
+#   bash scripts/land.sh --branch <name> (run from a clean worktree, e.g. main)
+#
+# Exit status contract (the final output line always repeats this state):
+#   0 landed-verified — main contains the verified tree and is ready to push
+#   1 not-landed — no merge commit was created; follow the reported recovery
+#   2 verify-failed — verification failed before main moved; fix and re-run
+#   3 merged-unverified — main moved but provenance could not be stamped; verify before push
+# Trailer: land: exit: <code> (<status-token>) — <one-line action>
 #
 # Why this exists: pre-commit can run in fast-commit mode (skips the slow
 # `test` / `scripts` slots — see scripts/verify/steps-lib.sh), which lets an
 # autonomous workflow land many cheap commits on a feature branch. This script
 # is the backstop: it runs the full, sequential `bun run verify` (which always
 # runs every slot, fast-commit marker or not) before integrating, then merges
-# with `--no-ff`. The merge deliberately skips the pre-commit hook (git does not
-# run it for merge commits), so the heavy gate runs exactly once here.
+# with `--no-ff`. When main and the feature have diverged, it first builds and
+# verifies a detached synthetic merge commit; main is moved only after that
+# exact tree passes. A branch that already contains main keeps the one-verify
+# tree-equality fast path. The merge deliberately skips the pre-commit hook
+# (git does not run it for merge commits), so the heavy gate runs once.
+#
+# --branch mode verifies a frozen snapshot of another branch in the CURRENT
+# healthy worktree. The original branch may be checked out elsewhere; its tip
+# is checked for movement before main is touched.
 #
 # Not automatic: the push is left to a human. This script never pushes.
 set -euo pipefail
 
+LAND_EXIT_CODE=1
+LAND_STATUS_TOKEN="not-landed"
+LAND_ACTION="inspect the failure above, then re-run land"
+mode="current"
+target_branch=""
+integration_branch=""
+landing_checkout=""
+starting_checkout=""
+preview_active=0
+
+land_exit() {
+  LAND_EXIT_CODE="$1"
+  LAND_STATUS_TOKEN="$2"
+  LAND_ACTION="$3"
+  exit "$LAND_EXIT_CODE"
+}
+
+land_on_exit() {
+  trap - EXIT ERR
+  if [ "$preview_active" -eq 1 ] && [ -n "${landing_checkout:-}" ]; then
+    git merge --abort >/dev/null 2>&1 || true
+    git switch "$landing_checkout" >/dev/null 2>&1 || true
+  fi
+  printf 'land: exit: %s (%s) — %s\n' "$LAND_EXIT_CODE" "$LAND_STATUS_TOKEN" "$LAND_ACTION" >&2
+  exit "$LAND_EXIT_CODE"
+}
+
+land_on_error() {
+  local command_status
+
+  command_status=$?
+  trap - ERR
+  if [ "$LAND_EXIT_CODE" -eq 3 ]; then
+    echo "land: unexpected command failure (exit $command_status) after main moved." >&2
+    echo "land: the surviving merge has not been proven push-ready. Do not re-run land." >&2
+    exit "$LAND_EXIT_CODE"
+  fi
+  if [ "$mode" = "branch" ] && [ -n "$integration_branch" ] &&
+    [ "$(git symbolic-ref --short HEAD 2>/dev/null || true)" = "$integration_branch" ]; then
+    echo "land: FAILED on integration branch $integration_branch (built from $target_branch)." >&2
+    echo "land: you are still on $integration_branch — inspect the failure, then run" >&2
+    echo "land:   git switch main && git branch -D $integration_branch" >&2
+    echo "land: fix $target_branch and re-run 'bash scripts/land.sh --branch $target_branch'." >&2
+  else
+    echo "land: unexpected command failure (exit $command_status)." >&2
+  fi
+  LAND_EXIT_CODE=1
+  LAND_STATUS_TOKEN="not-landed"
+  LAND_ACTION="inspect the unexpected failure above, restore a clean worktree, then re-run land"
+  exit 1
+}
+
+trap land_on_exit EXIT
+trap land_on_error ERR
+
+land_restore_preview() {
+  if [ "$preview_active" -eq 1 ]; then
+    git merge --abort >/dev/null 2>&1 || true
+    git switch "$landing_checkout" >/dev/null
+    preview_active=0
+  fi
+}
+
+land_cleanup_integration() {
+  if [ "$mode" = "branch" ] && [ -n "$integration_branch" ] &&
+    git rev-parse --verify --quiet "refs/heads/$integration_branch" >/dev/null; then
+    git switch "$starting_checkout" >/dev/null
+    git branch -D "$integration_branch" >/dev/null
+  fi
+}
+
 REPO_ROOT="$(git rev-parse --show-toplevel)"
-cd "$REPO_ROOT" || exit 1
+cd "$REPO_ROOT"
 
 # shellcheck source=/dev/null
 . "$REPO_ROOT/scripts/lib/gate-env.sh"
@@ -24,96 +110,234 @@ cd "$REPO_ROOT" || exit 1
 # shellcheck source=/dev/null
 . "$REPO_ROOT/scripts/lib/verify-metadata.sh"
 
-branch="$(git symbolic-ref --short HEAD 2>/dev/null || true)"
-if [ -z "$branch" ]; then
-  echo "land: HEAD is detached — run from a feature branch." >&2
-  exit 1
+if [ "$#" -gt 0 ]; then
+  case "$1" in
+    --branch)
+      mode="branch"
+      if [ "$#" -ne 2 ] || [ -z "$2" ]; then
+        echo "land: --branch requires a branch name. Usage: bash scripts/land.sh --branch <name>" >&2
+        land_exit 1 "not-landed" "provide exactly one branch name and re-run land"
+      fi
+      target_branch="$2"
+      ;;
+    *)
+      echo "land: unknown argument '$1'. Usage: bash scripts/land.sh [--branch <name>]" >&2
+      land_exit 1 "not-landed" "use land with no arguments or with --branch <name>"
+      ;;
+  esac
 fi
-case "$branch" in
-  main | master)
-    echo "land: already on $branch — run from a feature branch." >&2
-    exit 1
-    ;;
-esac
+
+if [ "$mode" = "current" ]; then
+  branch="$(git symbolic-ref --short HEAD 2>/dev/null || true)"
+  if [ -z "$branch" ]; then
+    echo "land: HEAD is detached — run from a feature branch." >&2
+    land_exit 1 "not-landed" "switch to the feature branch, then re-run land"
+  fi
+  case "$branch" in
+    main | master)
+      echo "land: already on $branch — run from a feature branch." >&2
+      land_exit 1 "not-landed" "switch to the feature branch, then re-run land"
+      ;;
+  esac
+  target_branch="$branch"
+else
+  current_branch="$(git symbolic-ref --short HEAD 2>/dev/null || true)"
+  starting_checkout="${current_branch:-$(git rev-parse HEAD)}"
+  if ! git rev-parse --verify --quiet "refs/heads/$target_branch" >/dev/null; then
+    echo "land: branch '$target_branch' does not exist." >&2
+    land_exit 1 "not-landed" "provide an existing feature branch and re-run land"
+  fi
+  case "$target_branch" in
+    main | master)
+      echo "land: refusing to land '$target_branch' — it is a protected branch." >&2
+      land_exit 1 "not-landed" "provide a non-protected feature branch"
+      ;;
+  esac
+  if [ "$target_branch" = "$current_branch" ]; then
+    echo "land: '$target_branch' is the current branch — use 'bash scripts/land.sh' (no --branch) to land it." >&2
+    land_exit 1 "not-landed" "re-run land without --branch from the current feature branch"
+  fi
+  integration_branch="land/$target_branch"
+  if git rev-parse --verify --quiet "refs/heads/$integration_branch" >/dev/null; then
+    echo "land: integration branch '$integration_branch' already exists — a previous attempt left it behind." >&2
+    echo "land: inspect it, then delete it with 'git branch -D $integration_branch' and re-run." >&2
+    land_exit 1 "not-landed" "inspect and delete the stale integration branch, then re-run land"
+  fi
+fi
 
 if ! git diff --quiet || ! git diff --cached --quiet; then
   echo "land: uncommitted changes — commit or stash them first." >&2
-  exit 1
+  land_exit 1 "not-landed" "commit or stash the worktree changes, then re-run land"
+fi
+if ! musi_changed_gate_fail_if_unstaged "$REPO_ROOT" "land"; then
+  land_exit 1 "not-landed" "commit or remove source-relevant untracked work, then re-run land"
 fi
 
-echo "land: running harness freshness gate on $branch …"
-bun run harness:check
+land_resolve_path() {
+  (cd "$1" 2>/dev/null && pwd -P)
+}
 
-echo "land: running full verify on $branch …"
-# Full (no-flag) verify is sequential and always runs test + scripts. Gate heap
-# policy is sourced above and by verify.sh, so no inline NODE_OPTIONS is needed.
-bun run verify
+main_worktree=""
+wt_path=""
+while IFS= read -r line; do
+  case "$line" in
+    "worktree "*) wt_path="${line#worktree }" ;;
+    "branch refs/heads/main") main_worktree="$wt_path" ;;
+  esac
+done < <(git worktree list --porcelain)
 
-echo "land: verify passed — merging $branch into main (--no-ff; skips pre-commit by design)"
+if [ -n "$main_worktree" ]; then
+  if ! main_worktree_resolved="$(land_resolve_path "$main_worktree")"; then
+    echo "land: the worktree entry holding main cannot be entered: $main_worktree" >&2
+    echo "land: the entry looks stale, so this preflight cannot prove 'git switch main'" >&2
+    echo "land: will succeed after the full verify — failing closed now instead. Inspect" >&2
+    echo "land: it with 'git worktree list', then repair or remove it and re-run." >&2
+    land_exit 1 "not-landed" "repair or prune the stale main worktree entry, then re-run land"
+  fi
+  if [ "$main_worktree_resolved" != "$(land_resolve_path "$REPO_ROOT")" ]; then
+    echo "land: main is checked out in a sibling worktree: $main_worktree" >&2
+    echo "land: 'git switch main' would fail here, so aborting before the full verify." >&2
+    echo "land:   cd $main_worktree && bash scripts/land.sh --branch $target_branch" >&2
+    land_exit 1 "not-landed" "run land --branch from the worktree that holds main"
+  fi
+fi
 
-# Capture the verified branch-tip state before switching. The full verify above
-# stamped full-verify evidence (success marker + wrapper.json) for THIS HEAD and
-# worktree fingerprint. Re-compute that fingerprint now, while still on the
-# branch, so we can re-stamp the evidence onto the merge commit below — but only
-# when the merge introduces no new tree content.
-verified_head="$(git rev-parse HEAD)"
-verified_fingerprint="$(ai_worktree_fingerprint "$REPO_ROOT")"
+if ! git rev-parse --verify --quiet refs/heads/main >/dev/null; then
+  echo "land: protected branch 'main' does not exist." >&2
+  land_exit 1 "not-landed" "create or restore the main branch, then re-run land"
+fi
 
-# Single-worktree assumption: `git switch main` fails if main is checked out in
-# a sibling worktree. Multi-worktree support is intentionally out of scope.
+target_head="$(git rev-parse "refs/heads/$target_branch")"
+main_head="$(git rev-parse refs/heads/main)"
+
+if git merge-base --is-ancestor "$target_head" "$main_head"; then
+  echo "land: main already contains $target_branch; no merge is needed." >&2
+  land_exit 1 "not-landed" "confirm the branch is already landed; do not re-run land"
+fi
+
+if [ "$mode" = "branch" ]; then
+  echo "land: creating integration branch $integration_branch at the $target_branch tip …"
+  git switch -c "$integration_branch" "$target_head"
+  landing_checkout="$integration_branch"
+else
+  landing_checkout="$target_branch"
+fi
+
+verify_kind="branch tip"
+verified_commit="$target_head"
+
+if ! git merge-base --is-ancestor "$main_head" "$target_head"; then
+  verify_kind="merge tree"
+  echo "land: $target_branch and main have diverged — building the merge tree before verification …"
+  git switch --detach "$main_head"
+  preview_active=1
+  if ! git -c core.hooksPath=/dev/null merge --no-ff \
+    -m "Merge branch '$target_branch'" "$target_head"; then
+    echo "land: the prospective merge conflicts; main is untouched." >&2
+    land_restore_preview
+    land_cleanup_integration
+    land_exit 1 "not-landed" "resolve the branch against current main, then re-run land"
+  fi
+  verified_commit="$(git rev-parse HEAD)"
+fi
+
+echo "land: running harness freshness gate on $target_branch ($verify_kind) …"
+if ! bun run harness:check; then
+  land_restore_preview
+  land_cleanup_integration
+  land_exit 1 "not-landed" "regenerate the stale harness surfaces, commit them, then re-run land"
+fi
+
+echo "land: running full verify on $target_branch ($verify_kind) …"
+if ! bun run verify; then
+  land_restore_preview
+  land_cleanup_integration
+  if [ "$verify_kind" = "merge tree" ]; then
+    echo "land: the prospective merge tree failed verification; main is untouched." >&2
+    land_exit 2 "verify-failed" "fix the merge-tree verification failure, then re-run land"
+  fi
+  echo "land: the branch tip failed verification; main is untouched." >&2
+  land_exit 2 "verify-failed" "fix the branch verification failure, then re-run land"
+fi
+
+if ! verified_fingerprint="$(musi_require_fingerprint \
+  "land verified tree" ai_worktree_fingerprint "$REPO_ROOT")"; then
+  echo "land: failed to fingerprint the tree that passed verify; refusing to merge." >&2
+  land_restore_preview
+  land_cleanup_integration
+  land_exit 1 "not-landed" "repair the fingerprint input failure, then re-run land"
+fi
+verified_tree="$(git rev-parse "${verified_commit}^{tree}")"
+
+land_restore_preview
+
+current_tip="$(git rev-parse --verify --quiet "refs/heads/$target_branch" || true)"
+if [ "$current_tip" != "$target_head" ]; then
+  echo "land: $target_branch advanced during verification — refusing to merge unverified commits." >&2
+  echo "land:   verified tip: $target_head" >&2
+  echo "land:   current tip:  ${current_tip:-<branch deleted>}" >&2
+  land_cleanup_integration
+  land_exit 1 "not-landed" "re-run land on the new branch tip"
+fi
+
+if [ "$(git rev-parse refs/heads/main)" != "$main_head" ]; then
+  echo "land: main advanced during verification — the verified merge inputs are stale." >&2
+  land_cleanup_integration
+  land_exit 1 "not-landed" "re-run land against current main"
+fi
+
+echo "land: verify passed — merging frozen tip $target_head into main (--no-ff)"
 git switch main
-git merge --no-ff "$branch"
+if ! git merge --no-ff -m "Merge branch '$target_branch'" "$target_head"; then
+  echo "land: the real merge unexpectedly failed after its tree was verified." >&2
+  git merge --abort >/dev/null 2>&1 || true
+  land_exit 1 "not-landed" "inspect the merge failure on main, then re-run land from a clean worktree"
+fi
+
+LAND_EXIT_CODE=3
+LAND_STATUS_TOKEN="merged-unverified"
+LAND_ACTION="run bun run verify before pushing main"
 
 merge_head="$(git rev-parse HEAD)"
+merge_tree="$(git rev-parse "${merge_head}^{tree}")"
 
-# A `--no-ff` merge of a branch that already contains main records new parents
-# but no new tree content: the merge commit's tree is byte-identical to the
-# branch tip's. When that holds, the full verify that just passed on the branch
-# tip covers exactly what pushing main would publish, so we re-stamp its
-# provenance onto the merge commit instead of forcing a redundant (~10-minute)
-# re-verify of an identical tree.
-#
-# When the trees DIFFER — a genuine 3-way merge where main had commits the
-# branch lacked — the merge tree was never verified. We MUST NOT stamp it: the
-# merge needs its own verify before it can be pushed. That refusal is the whole
-# point of the pre-push gate and is never weakened here; we simply leave the
-# evidence untouched and tell the human to re-verify.
-if [ "$(git rev-parse "${verified_head}^{tree}")" = "$(git rev-parse "${merge_head}^{tree}")" ]; then
-  merge_fingerprint="$(ai_worktree_fingerprint "$REPO_ROOT")"
-  full_marker="${MUSI_VERIFY_MARKER_FULL:-$(musi_standard_verify_full_marker "$REPO_ROOT")}"
-  wrapper_json="${MUSI_VERIFY_LOG_DIR:-$(musi_standard_verify_log_dir "$REPO_ROOT")}/meta/wrapper.json"
-
-  # Re-stamp only if the source marker is a FRESH, matching pass for the branch
-  # tip we just verified (same HEAD + fingerprint, within the freshness window).
-  # The marker was written by the `bun run verify` above that finished seconds
-  # ago, so the standard success-marker freshness comfortably covers it; an aged
-  # or drifted marker is refused rather than resurrected.
-  if musi_restamp_verify_marker "$full_marker" "$verified_fingerprint" "$merge_head" \
-       "$merge_fingerprint" "$verified_head" 120; then
-    # Keep the wrapper.json fallback consistent with the re-stamped marker so no
-    # evidence still points at the pre-merge HEAD. Best-effort: the marker above
-    # already satisfies the pre-push gate on its own.
-    musi_restamp_verify_wrapper "$wrapper_json" "$merge_head" "$merge_fingerprint" || true
-    echo "land: merged $branch → main and re-stamped full-verify evidence onto the merge commit."
-    echo "land: the merge tree matches the verified branch tip, so the push is ready:"
-    echo "land:   git push origin main"
-  else
-    echo "land: SUCCESS — merged $branch → main; main now contains the branch." >&2
-    echo "land: But the recorded full-verify marker was not a fresh matching pass, so" >&2
-    echo "land: evidence was NOT re-stamped onto the merge commit. The merge itself is" >&2
-    echo "land: fine — it just needs its own verify before the push gate will accept it." >&2
-    echo "land: Do NOT re-run land (you are already on main). Instead run:" >&2
-    echo "land:   bun run verify && git push origin main" >&2
-    # Nonzero so a chained '… && git push' does not push an unverified merge.
-    exit 1
+if [ "$mode" = "branch" ]; then
+  git branch -d "$integration_branch"
+  post_merge_tip="$(git rev-parse --verify --quiet "refs/heads/$target_branch" || true)"
+  if [ "$post_merge_tip" != "$target_head" ]; then
+    echo "land: NOTE: $target_branch advanced after it was verified — only its verified tip" >&2
+    echo "land: was merged, so main does NOT contain the newer commits." >&2
+    echo "land:   merged (verified) tip: $target_head" >&2
+    echo "land:   $target_branch now at:  ${post_merge_tip:-<branch deleted>}" >&2
+    echo "land: The merge is push-safe. After pushing, land the newer commits separately." >&2
   fi
-else
-  echo "land: SUCCESS — merged $branch → main; main now contains the branch." >&2
-  echo "land: But this was a genuine 3-way merge (main had commits $branch lacked), so" >&2
-  echo "land: the merge tree was never verified and evidence was left untouched. The" >&2
-  echo "land: merge itself is fine — it just needs its own verify before the push gate" >&2
-  echo "land: will accept it. Do NOT re-run land (you are already on main). Instead run:" >&2
-  echo "land:   bun run verify && git push origin main" >&2
-  # Nonzero so a chained '… && git push' does not push an unverified merge.
-  exit 1
 fi
+
+if [ "$merge_tree" != "$verified_tree" ]; then
+  echo "land: CRITICAL — the created merge tree differs from the tree that passed verify." >&2
+  echo "land: main contains a merged-but-unverified commit. Do not push it." >&2
+  land_exit 3 "merged-unverified" "run bun run verify before pushing main"
+fi
+
+if ! merge_fingerprint="$(musi_require_fingerprint \
+  "land merge tree" ai_worktree_fingerprint "$REPO_ROOT")"; then
+  echo "land: CRITICAL — the merged tree could not be fingerprinted for provenance stamping." >&2
+  land_exit 3 "merged-unverified" "repair the fingerprint input failure and run bun run verify before pushing main"
+fi
+full_marker="${MUSI_VERIFY_MARKER_FULL:-$(musi_standard_verify_full_marker "$REPO_ROOT")}"
+wrapper_json="${MUSI_VERIFY_LOG_DIR:-$(musi_standard_verify_log_dir "$REPO_ROOT")}/meta/wrapper.json"
+
+if musi_restamp_verify_marker "$full_marker" "$verified_fingerprint" "$merge_head" \
+  "$merge_fingerprint" "$verified_commit" 120; then
+  musi_restamp_verify_wrapper "$wrapper_json" "$merge_head" "$merge_fingerprint" || true
+  echo "land: merged $target_branch → main and re-stamped full-verify evidence onto the merge commit."
+  echo "land: the published merge tree is exactly the tree that passed verify."
+  LAND_EXIT_CODE=0
+  LAND_STATUS_TOKEN="landed-verified"
+  LAND_ACTION="push main with: git push origin main"
+  land_exit 0 "$LAND_STATUS_TOKEN" "$LAND_ACTION"
+fi
+
+echo "land: SUCCESS — merged $target_branch → main, but fresh matching verify evidence" >&2
+echo "land: could not be re-stamped. Do not re-run land and do not push yet." >&2
+land_exit 3 "merged-unverified" "run bun run verify before pushing main"

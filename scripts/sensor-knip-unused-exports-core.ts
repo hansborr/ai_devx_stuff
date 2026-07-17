@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 import {
@@ -9,6 +9,8 @@ import {
 } from "./drift-ai/knip-runner.js";
 import { parseKnipUnusedExports } from "./drift-ai/knip-unused-exports.js";
 import type { ParseResult } from "./lib/baseline/entry-baseline.js";
+import { forwardMissingMergeDriverWarning } from "./lib/baseline/merge-driver-presence.js";
+import { writeFileAtomicallySync } from "./lint-ratchet/atomic-write.js";
 import {
   compareKnipUnusedExports,
   formatKnipUnusedExportsBaseline,
@@ -30,6 +32,7 @@ const HELP_FLAGS = new Set(["--help", "-h"]);
 export type RunKnipUnusedExportsCliOptions = {
   readonly argv: readonly string[];
   readonly cwd?: string;
+  readonly env?: NodeJS.ProcessEnv;
   readonly runner?: KnipRunner;
   readonly warn?: (message: string) => void;
 };
@@ -63,6 +66,16 @@ class KnipUnusedExportsCliError extends Error {
   }
 }
 
+function warnIfMergeDriverMissing(options: RunKnipUnusedExportsCliOptions, cwd: string): void {
+  if (options.warn === undefined) return;
+  forwardMissingMergeDriverWarning({
+    checkScriptPath: resolve(import.meta.dirname, "git/check-knip-unused-exports-merge-driver.sh"),
+    cwd,
+    env: options.env ?? {},
+    warn: options.warn,
+  });
+}
+
 function usage(): string {
   return [
     "Usage:",
@@ -81,6 +94,7 @@ export function runKnipUnusedExportsCli(
   if (parsed.kind === "result") return parsed.result;
 
   const cwd = options.cwd ?? process.cwd();
+  warnIfMergeDriverMissing(options, cwd);
   const baselinePath = resolve(cwd, parsed.options.baselinePath);
   const collected = collectKnipUnusedExports({
     cwd,
@@ -90,7 +104,7 @@ export function runKnipUnusedExportsCli(
   if (!collected.ok) return { exitCode: 2, stdout: `ERROR: ${collected.error}` };
 
   if (parsed.options.update) {
-    writeFileSync(baselinePath, formatKnipUnusedExportsBaseline(collected.value));
+    writeFileAtomicallySync(baselinePath, formatKnipUnusedExportsBaseline(collected.value));
     return {
       exitCode: 0,
       stdout: [
@@ -105,10 +119,37 @@ export function runKnipUnusedExportsCli(
   if (!baseline.ok) return { exitCode: 2, stdout: `ERROR: ${baseline.error}` };
 
   const comparison = compareKnipUnusedExports(baseline.value, collected.value);
+  const warningLines = baseline.warnings?.map((warning) => `WARN: ${warning}`) ?? [];
+  return checkResult(comparison, warningLines, collected.value);
+}
+
+function checkResult(
+  comparison: { readonly exitCode: number; readonly stdout: string },
+  warningLines: readonly string[],
+  entries: readonly KnipUnusedExportEntry[],
+): KnipUnusedExportsRunResult {
+  if (comparison.exitCode !== 0) {
+    return {
+      exitCode: comparison.exitCode,
+      stdout: comparison.stdout,
+      entries,
+    };
+  }
+  if (warningLines.length > 0) {
+    return {
+      exitCode: 1,
+      stdout: [
+        ...warningLines,
+        comparison.stdout,
+        "run: bun scripts/sensor-knip-unused-exports.ts --update",
+      ].join("\n"),
+      entries,
+    };
+  }
   return {
     exitCode: comparison.exitCode,
     stdout: comparison.stdout,
-    entries: collected.value,
+    entries,
   };
 }
 

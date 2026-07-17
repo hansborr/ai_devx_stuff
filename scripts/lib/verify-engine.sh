@@ -24,8 +24,16 @@
 # never inherits either flock: a killed watchdog must not orphan a lock holder.
 # FD 8 is the pre-commit commit-queue lock; verify.sh never opens it, so closing
 # it there is a harmless no-op.
+#
+# Optional 4th arg `on_timeout`: the name of a shell function/command run when
+# the budget expires. When given it fully owns the on-timeout tail (its own
+# banner plus whatever termination it needs) and the default banner + `kill
+# -TERM "$hook_pid"` are skipped; verify:async uses it to keep its distinct
+# banner and inject the timeout-marker touch and mode-aware process-group signal.
+# The watchdog subshell is a fork of the caller, so the callback sees the
+# caller's functions and locals (bash dynamic scope) — no arguments are passed.
 musi_verify_start_watchdog() {
-  local banner_label="$1" timeout="$2" hook_pid="$3"
+  local banner_label="$1" timeout="$2" hook_pid="$3" on_timeout="${4:-}"
   (
     exec 9<&-
     exec 8<&-
@@ -34,8 +42,12 @@ musi_verify_start_watchdog() {
     sleep "$timeout" &
     sleep_pid=$!
     wait "$sleep_pid"
-    printf '\n=== %s TIMED OUT (%ds) ===\n' "$banner_label" "$timeout" >&2
-    kill -TERM "$hook_pid" 2>/dev/null
+    if [ -n "$on_timeout" ]; then
+      "$on_timeout"
+    else
+      printf '\n=== %s TIMED OUT (%ds) ===\n' "$banner_label" "$timeout" >&2
+      kill -TERM "$hook_pid" 2>/dev/null
+    fi
   ) &
   # shellcheck disable=SC2034 # Read by the caller (verify.sh / pre-commit) to kill the watchdog.
   MUSI_VERIFY_WATCHDOG_PID=$!

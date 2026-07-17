@@ -1,6 +1,6 @@
 # 16. The typed `report-only`/`ratchet-down` modes are rejected at runtime — implement report-only (plus a `--propose` dry-run) or delete the vocabulary
 
-Status: Proposed — from the 2026-07-01 AI-harness review; NOT implemented. Re-verify file:line before acting.
+Status: Done — `report-only` mode (`lint-ratchet-config.ts`, `caf53107`) plus `propose.ts` dry-run (`e2efc1ee`; registry-parity + glob-normalization follow-ups `db040d5a`, `96d99573`).
 Lens: ratchet · Area: cli · Severity: med · Size: S-M · Confidence: high
 Theme: mode-vocabulary · Source: Musi AI-harness review 2026-07-01 (multi-agent + Codex second opinion + web research)
 

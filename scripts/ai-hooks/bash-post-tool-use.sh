@@ -34,12 +34,19 @@ if ai_is_git_commit_cmd "$CMD"; then
   STATE_FILE=""
   HEAD_BEFORE=""
   START_TS=""
+  WORK_ROOT=""
   if [ -n "$TOOL_USE_ID" ]; then
     STATE_FILE="$AI_GIT_STATE_DIR/$TOOL_USE_ID"
     HEAD_BEFORE=$(ai_read_state_value "$STATE_FILE" HEAD_BEFORE 2>/dev/null || true)
     START_TS=$(ai_read_state_value "$STATE_FILE" START_TS 2>/dev/null || true)
+    WORK_ROOT=$(ai_read_state_value "$STATE_FILE" WORK_ROOT 2>/dev/null || true)
   fi
-  HEAD_AFTER=$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || echo none)
+  # Fall back to re-resolving the commit's checkout when the pre hook left no
+  # WORK_ROOT (older state file, or no tool_use_id): observe HEAD in the target
+  # worktree, not REPO_ROOT (the hook file's own checkout) — J.
+  [ -z "$WORK_ROOT" ] \
+    && WORK_ROOT=$(git -C "$(ai_resolve_target_dir "$CMD" "$(ai_payload_cwd "$PAYLOAD")" "$REPO_ROOT")" rev-parse --show-toplevel 2>/dev/null || printf '%s' "$REPO_ROOT")
+  HEAD_AFTER=$(git -C "$WORK_ROOT" rev-parse HEAD 2>/dev/null || echo none)
   DRY_RUN=0
   if ai_is_git_commit_dry_run "$CMD"; then
     DRY_RUN=1
@@ -48,7 +55,7 @@ if ai_is_git_commit_cmd "$CMD"; then
   [ -n "$STATE_FILE" ] && rm -f "$STATE_FILE"
 
   if [ "$DRY_RUN" -ne 1 ] && [ -n "$HEAD_BEFORE" ] && [ "$HEAD_AFTER" != "$HEAD_BEFORE" ]; then
-    ai_emit_block "$(ai_commit_success_summary "$REPO_ROOT" "$HEAD_BEFORE" "$HEAD_AFTER")"
+    ai_emit_block "$(ai_commit_success_summary "$WORK_ROOT" "$HEAD_BEFORE" "$HEAD_AFTER")"
   fi
 
   if SUMMARY=$(ai_precommit_failure_summary "$COMBINED" "$AI_PRECOMMIT_LOG_DIR"); then

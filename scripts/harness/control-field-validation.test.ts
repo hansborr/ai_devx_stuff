@@ -1,9 +1,6 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { describe, expect, it } from "vitest";
 
-import { afterEach, describe, expect, it } from "vitest";
-
+import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
 import type { RawControl as GenerateRawControl } from "./generate-harness-controls.js";
 import { resolveControl } from "./generate-harness-controls-validation.js";
 import {
@@ -15,25 +12,14 @@ import {
   validateSourceField,
 } from "./harness-check-validation.js";
 
-const tempRoots: string[] = [];
-
-afterEach(() => {
-  while (tempRoots.length > 0) {
-    const root = tempRoots.pop();
-    if (root !== undefined) rmSync(root, { recursive: true, force: true });
-  }
-});
+const tmpRepo = registerTempRootCleanup();
 
 function makeRepoRoot(): string {
-  const root = mkdtempSync(join(tmpdir(), "control-field-validation-"));
-  tempRoots.push(root);
-  return root;
+  return tmpRepo.makeTempRepo("control-field-validation-");
 }
 
 function writeRepoFile(repoRoot: string, path: string): void {
-  const filePath = join(repoRoot, path);
-  mkdirSync(dirname(filePath), { recursive: true });
-  writeFileSync(filePath, "");
+  tmpRepo.writeRepoFile(repoRoot, path, "");
 }
 
 function generateControl(overrides: Partial<GenerateRawControl> = {}): GenerateRawControl {

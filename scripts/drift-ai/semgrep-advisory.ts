@@ -40,11 +40,6 @@ export type {
   SemgrepAdvisory,
   SemgrepAdvisoryInput,
   SemgrepAdvisoryOptions,
-  SemgrepAdvisoryRow,
-  SemgrepAdvisorySection,
-  SemgrepCandidateRange,
-  SemgrepRuleSourceProvenance,
-  SemgrepScanScope,
 } from "./semgrep-advisory-types.js";
 export {
   DEFAULT_SEMGREP_CANDIDATES_TOP,
@@ -65,6 +60,7 @@ export function buildSemgrepAdvisory(
   const scan = input.run !== null && input.run.ok ? input.run.scan : null;
   return buildPrototypeAdvisory({
     subcommand: SEMGREP_CANDIDATES_SUBCOMMAND,
+    ...(options.scanProvenance === undefined ? {} : { scanProvenance: options.scanProvenance }),
     prerequisites: [
       enginePrerequisite(input.run, input.ruleSources),
       ruleSourcePrerequisite(input.ruleSources, allowed),

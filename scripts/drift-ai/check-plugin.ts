@@ -52,7 +52,7 @@ export type CheckServiceEnv = {
 
 // Common run state shared by every check, independent of any adapter. Kept central
 // on purpose (the plan's "keep common run state central").
-export type CheckRunState = {
+type CheckRunState = {
   readonly detectorScope: DetectorScope;
   readonly inventoryByDir: ReadonlyMap<string, readonly string[]> | null;
   readonly repoRoot: string;

@@ -8,14 +8,26 @@ docs/agent_notes/LOG.md merge=union
 # Derived from the source tree, so no textual merge is ever correct. The custom
 # driver first attempts the semantic three-way baseline merge. If that cannot
 # resolve safely, it keeps "ours" as valid JSON, prints the manual recovery
-# recipe, and declares a conflict; see "Merge Conflicts" in docs/guides/lint-ratchet.md.
+# recipe, and declares a conflict; see docs/guides/lint-ratchet-merges.md.
 /lint-ratchet.baseline.json merge=lint-ratchet-baseline
+# Identity entries are authoritative and the summary is derived. The custom
+# driver keeps disjoint drains from corrupting summary-vs-entry consistency.
+/sensor-knip-unused-exports.baseline.json merge=knip-unused-exports-baseline
+# Near-duplicate pair identities are a shrink-only floor; intersect independent
+# drains and truth up the result against the merged source tree.
+/sensor-near-duplicates.baseline.json merge=near-duplicates-baseline
+# Per-file max-lines cap exceptions keep hard-fail summary semantics, so the
+# custom driver must regenerate a normalized summary after semantic merges.
+/eslint-config/max-lines-exceptions.baseline.json merge=max-lines-exceptions-baseline
 
 # Public source archives should include copyable harness config referenced by
 # harness.controls.json and docs/generated/harness-controls.md. Local harness
 # state and process notes stay private by default unless explicitly carved back.
+# The .codex, .claude, and .copilot harness trees are export-ignored, then their
+# entirely-copyable shim subsets are carved back below.
 /.codex/** export-ignore
 /.claude/** export-ignore
+/.copilot/** export-ignore
 /docs/agent_notes/** export-ignore
 /.codex -export-ignore
 /.codex/config.toml -export-ignore
@@ -32,3 +44,6 @@ docs/agent_notes/LOG.md merge=union
 /.claude/output-styles/** -export-ignore
 /.claude/skills -export-ignore
 /.claude/skills/** -export-ignore
+/.copilot -export-ignore
+/.copilot/hooks -export-ignore
+/.copilot/hooks/** -export-ignore

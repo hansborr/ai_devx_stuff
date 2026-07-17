@@ -146,7 +146,7 @@ ai_failure_guidance_for_payload() {
   combined="${command}"$'\n'"${text}"
 
   if ai_failure_is_eslint_oom "$command" "$text"; then
-    guidance="${guidance}failure-guidance: Known: full-scan ESLint OOMs at the default heap. Gate wrappers source scripts/lib/gate-env.sh; retry via bun run verify or git commit so NODE_OPTIONS is managed there."$'\n'
+    guidance="${guidance}failure-guidance: Known: full-scan ESLint can OOM at Node's default heap. Every lint entry point and gate sources scripts/lib/gate-env.sh, which raises --max-old-space-size to 6144MB; if it still OOMs, raise MUSI_GATE_NODE_OLD_SPACE_MB rather than routing through a gate."$'\n'
   fi
 
   if ai_failure_is_test_like "$command" "$text" \

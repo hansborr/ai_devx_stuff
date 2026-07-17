@@ -1,33 +1,25 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
+import { registerTempRootCleanup } from "../../test-support/tmp-repo.test-helper.js";
 import { walkTsFiles } from "./walk-ts-files.js";
 
-const tempRoots: string[] = [];
-
-afterEach(() => {
-  while (tempRoots.length > 0) {
-    const root = tempRoots.pop();
-    if (root) rmSync(root, { recursive: true, force: true });
-  }
-});
+const tmpRepo = registerTempRootCleanup();
 
 function makeTree(): string {
-  const root = mkdtempSync(path.join(tmpdir(), "walk-ts-files-"));
-  tempRoots.push(root);
-  mkdirSync(path.join(root, "nested", "deep"), { recursive: true });
-  mkdirSync(path.join(root, "skipme"), { recursive: true });
-  writeFileSync(path.join(root, "a.ts"), "");
-  writeFileSync(path.join(root, "b.tsx"), "");
-  writeFileSync(path.join(root, "c.d.ts"), "");
-  writeFileSync(path.join(root, "notes.md"), "");
-  writeFileSync(path.join(root, "nested", "child.ts"), "");
-  writeFileSync(path.join(root, "nested", "deep", "leaf.ts"), "");
-  writeFileSync(path.join(root, "skipme", "ignored.ts"), "");
-  return root;
+  return tmpRepo.writeRepo(
+    {
+      "a.ts": "",
+      "b.tsx": "",
+      "c.d.ts": "",
+      "notes.md": "",
+      "nested/child.ts": "",
+      "nested/deep/leaf.ts": "",
+      "skipme/ignored.ts": "",
+    },
+    "walk-ts-files-",
+  );
 }
 
 const includeAllTs = (p: string): boolean => /\.tsx?$/u.test(p);
@@ -86,12 +78,11 @@ describe("walkTsFiles", () => {
   });
 
   it("returns results in stable locale-sorted order across roots", () => {
-    const rootA = mkdtempSync(path.join(tmpdir(), "walk-ts-files-a-"));
-    const rootB = mkdtempSync(path.join(tmpdir(), "walk-ts-files-b-"));
-    tempRoots.push(rootA, rootB);
-    writeFileSync(path.join(rootB, "zebra.ts"), "");
-    writeFileSync(path.join(rootA, "alpha.ts"), "");
-    writeFileSync(path.join(rootA, "Beta.ts"), "");
+    const rootA = tmpRepo.makeTempRepo("walk-ts-files-a-");
+    const rootB = tmpRepo.makeTempRepo("walk-ts-files-b-");
+    tmpRepo.writeRepoFile(rootB, "zebra.ts", "");
+    tmpRepo.writeRepoFile(rootA, "alpha.ts", "");
+    tmpRepo.writeRepoFile(rootA, "Beta.ts", "");
     const result = walkTsFiles([rootB, rootA], { include: includeAllTs });
     const expected = [...result].sort((left, right) => left.localeCompare(right, "en"));
     expect(result).toEqual(expected);

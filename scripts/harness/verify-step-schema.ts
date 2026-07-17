@@ -1,3 +1,5 @@
+import { compareByCodepoint } from "../lib/codepoint-compare.js";
+
 export const VERIFY_STEP_DYNAMIC_RESOLVER_BINDINGS = [
   {
     id: "precommit-test-timings",
@@ -9,19 +11,18 @@ export const VERIFY_STEP_DYNAMIC_RESOLVER_BINDINGS = [
   },
 ] as const;
 
-export type VerifyStepDynamicResolver =
-  (typeof VERIFY_STEP_DYNAMIC_RESOLVER_BINDINGS)[number]["id"];
+type VerifyStepDynamicResolver = (typeof VERIFY_STEP_DYNAMIC_RESOLVER_BINDINGS)[number]["id"];
 
 const VERIFY_STEP_DYNAMIC_RESOLVERS: readonly VerifyStepDynamicResolver[] =
   VERIFY_STEP_DYNAMIC_RESOLVER_BINDINGS.map((binding) => binding.id);
 
 const verifyStepDynamicResolverSet: ReadonlySet<string> = new Set(VERIFY_STEP_DYNAMIC_RESOLVERS);
 
-export function isVerifyStepDynamicResolver(value: unknown): value is VerifyStepDynamicResolver {
+function isVerifyStepDynamicResolver(value: unknown): value is VerifyStepDynamicResolver {
   return typeof value === "string" && verifyStepDynamicResolverSet.has(value);
 }
 
-export function formatVerifyStepDynamicResolvers(): string {
+function formatVerifyStepDynamicResolvers(): string {
   return VERIFY_STEP_DYNAMIC_RESOLVERS.join(", ");
 }
 
@@ -33,12 +34,22 @@ export interface VerifyStepSlot {
   readonly dynamic?: VerifyStepDynamicResolver;
   /** Documentation-only: rendered into the generated harness-controls doc; nothing gates execution on it. */
   readonly condition?: string;
+  /** Pre-commit only: fast-commit mode skips this slot; generated into MUSI_FAST_COMMIT_SKIP_SLOTS. */
+  readonly fastCommitSkip?: boolean;
 }
 
 const ENV_NAME_PATTERN = /^[A-Za-z_]\w*$/u;
 const SLOT_NAME_PATTERN = /^[A-Za-z0-9][\w-]*$/u;
 const SLOT_NAME_PATTERN_DESCRIPTION = "/^[A-Za-z0-9][A-Za-z0-9_-]*$/";
-const SLOT_KEYS = ["name", "script", "condition", "args", "env", "dynamic"] as const;
+const SLOT_KEYS = [
+  "name",
+  "script",
+  "condition",
+  "args",
+  "env",
+  "dynamic",
+  "fastCommitSkip",
+] as const;
 const slotKeySet: ReadonlySet<string> = new Set(SLOT_KEYS);
 
 export function isObject(value: unknown): value is Record<string, unknown> {
@@ -85,8 +96,13 @@ function parseSlotEnv(
     return undefined;
   }
   const env: Record<string, string> = {};
+  // Codepoint order, not localeCompare — load-bearing for committed/freshness-compared
+  // bytes: slotCommandTokens renders these `env NAME=value` tokens in this order into
+  // the committed steps.generated.sh. Env names may be `_`-prefixed (U+005F), which
+  // localeCompare reorders across ICU locales/versions, so an ICU-varying sort here
+  // would produce generator-freshness drift on a multi-key slot. (Mirrors leaf 23.)
   for (const [name, value] of Object.entries(rawEnv).sort(([left], [right]) =>
-    left.localeCompare(right),
+    compareByCodepoint(left, right),
   )) {
     if (!ENV_NAME_PATTERN.test(name)) {
       failures.push(`${slotPrefix} env key must be a shell variable name: ${name}`);
@@ -140,6 +156,36 @@ function parseSlotHeader(
   return { name, script, ...(condition !== undefined ? { condition } : {}) };
 }
 
+function parseSlotDynamic(
+  rawDynamic: unknown,
+  slotName: string,
+  failures: string[],
+  contextPrefix: string,
+): VerifyStepDynamicResolver | undefined {
+  if (rawDynamic === undefined) return undefined;
+  if (!isVerifyStepDynamicResolver(rawDynamic)) {
+    failures.push(
+      `${contextPrefix}slot ${slotName} dynamic must be one of: ${formatVerifyStepDynamicResolvers()}`,
+    );
+    return undefined;
+  }
+  return rawDynamic;
+}
+
+function parseSlotFastCommitSkip(
+  rawValue: unknown,
+  slotName: string,
+  failures: string[],
+  contextPrefix: string,
+): boolean | undefined {
+  if (rawValue === undefined) return undefined;
+  if (typeof rawValue !== "boolean") {
+    failures.push(`${contextPrefix}slot ${slotName} fastCommitSkip must be a boolean when present`);
+    return undefined;
+  }
+  return rawValue;
+}
+
 function parseSlot(
   rawSlot: unknown,
   index: number,
@@ -163,18 +209,19 @@ function parseSlot(
   if (header === undefined) return undefined;
   const args = parseSlotArgs(rawSlot.args, header.name, failures, contextPrefix);
   const env = parseSlotEnv(rawSlot.env, header.name, failures, contextPrefix);
-  const dynamic = rawSlot.dynamic;
-  if (dynamic !== undefined && !isVerifyStepDynamicResolver(dynamic)) {
-    failures.push(
-      `${contextPrefix}slot ${header.name} dynamic must be one of: ${formatVerifyStepDynamicResolvers()}`,
-    );
-    return undefined;
-  }
+  const dynamic = parseSlotDynamic(rawSlot.dynamic, header.name, failures, contextPrefix);
+  const fastCommitSkip = parseSlotFastCommitSkip(
+    rawSlot.fastCommitSkip,
+    header.name,
+    failures,
+    contextPrefix,
+  );
   return {
     ...header,
     ...(args !== undefined ? { args } : {}),
     ...(env !== undefined ? { env } : {}),
     ...(dynamic !== undefined ? { dynamic } : {}),
+    ...(fastCommitSkip !== undefined ? { fastCommitSkip } : {}),
   };
 }
 

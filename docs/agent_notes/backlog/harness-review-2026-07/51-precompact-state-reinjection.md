@@ -1,6 +1,6 @@
 # 51. Long sessions lose harness state at compaction; a PostCompact hook should re-inject a bounded harness-state snapshot
 
-Status: Proposed — from the 2026-07-01 AI-harness review; NOT implemented. Re-verify file:line before acting.
+Status: Done — `.claude/settings.json` SessionStart matcher `startup|resume|compact` → `scripts/ai-hooks/session-state.sh` (also satisfies the R11 SessionStart item).
 Lens: hooks · Area: hooks-lifecycle · Severity: med-high · Size: S-M · Confidence: med
 Theme: compaction-rehydration · Source: Musi AI-harness review 2026-07-01 (multi-agent + Codex second opinion + web research)
 

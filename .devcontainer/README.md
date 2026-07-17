@@ -99,6 +99,29 @@ to create per-container volumes in `devcontainer.json` `mounts`. The ID changes 
 every rebuild, so a fresh empty volume is created each time — wiping history.
 Moving the mount to `docker-compose.yml` with a fixed name avoids this.
 
+### Other agent CLIs (codex, copilot, cursor)
+
+```yaml
+- codex-config:/home/node/.codex:U
+- copilot-config:/home/node/.copilot:U
+- cursor-config:/home/node/.cursor:U
+- cursor-auth:/home/node/.config/cursor:U
+```
+
+Same principle as `claude-config`: each agent CLI keeps its auth and history in a
+home-directory dotfolder, and a fixed-name volume carries it across rebuilds.
+
+Cursor is the one that splits its state: `~/.cursor` holds config, chat history,
+and skills, but the login token lives separately in `~/.config/cursor/auth.json` —
+hence the second `cursor-auth` volume. Persisting only `~/.cursor` looks like it
+works until the next rebuild asks you to log in again.
+
+**Binaries are not persisted here.** The CLI binaries come from the base image
+(or their self-update paths), not from these volumes. Cursor's installer puts its
+binary in `~/.local/share/cursor-agent` with launchers in `~/.local/bin`; if the
+base image does not include it, re-run the install script after a rebuild —
+the volumes above make the login and history survive it.
+
 ### Shell history
 
 ```yaml

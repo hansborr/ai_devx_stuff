@@ -2,8 +2,9 @@
   "version": 2,
   "tool": "eslint-max-lines",
   "metric": "file-line-cap-exceptions",
+  "regenerate": "bun run lint:max-lines-exceptions:update",
   "summary": {
-    "count": 25
+    "count": 27
   },
   "entries": [
     {
@@ -175,10 +176,34 @@
       "ratchetExcluded": true
     },
     {
+      "path": "scripts/drift-ai/coverage-lcov.ts",
+      "cap": 320,
+      "severity": "warn",
+      "reason": "Lcov parser holds record dispatch and note construction together; duplicate-record disclosure pushed it just over the floor until value parsing splits out.",
+      "lifecycle": "candidate-for-split",
+      "ratchetExcluded": true
+    },
+    {
+      "path": "scripts/drift-ai/near-duplicates.ts",
+      "cap": 320,
+      "severity": "warn",
+      "reason": "Comparison, ranking, and finding construction share this module; config validation pushed it just over the floor until ranking splits out.",
+      "lifecycle": "candidate-for-split",
+      "ratchetExcluded": true
+    },
+    {
       "path": "scripts/harness-check.ts",
       "cap": 330,
       "severity": "error",
       "reason": "Single validator entrypoint covering every harness surface (lint rules, ratchets, hook wiring, verify steps, lint guidance, restricted-disable rules, config surfaces, smoke subjects); the 2026-07 lint deep-dive extended several of these families at once.",
+      "lifecycle": "candidate-for-split",
+      "ratchetExcluded": true
+    },
+    {
+      "path": "scripts/harness/generate-verify-steps.ts",
+      "cap": 400,
+      "severity": "warn",
+      "reason": "Verify-step generator plus the marker-bridge superset guard (per-slot command-token comparison and its annotated intentional-divergence allowlist) that keeps pre-commit's slots in lockstep with the verify/verify:changed markers.",
       "lifecycle": "candidate-for-split",
       "ratchetExcluded": true
     },
@@ -195,14 +220,6 @@
       "cap": 600,
       "severity": "error",
       "reason": "The ratchet registry grows as new ratchets land; the floor protects against accidental drift, not registry growth.",
-      "lifecycle": "permanent",
-      "ratchetExcluded": true
-    },
-    {
-      "path": "scripts/path-policy/path-policy-smoke-subjects-data.ts",
-      "cap": 536,
-      "severity": "error",
-      "reason": "Generated side-effect-free smoke-subject lookup table keyed by test name; it grows with smoke tests, not logic, and the fs-backed discovery lives in the sibling module under the floor. +1 for registering verify-engine.sh as a hook smoke subject in test-dependency-freshness and test-verify-history.",
       "lifecycle": "permanent",
       "ratchetExcluded": true
     }

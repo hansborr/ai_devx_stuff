@@ -1,6 +1,6 @@
 # 58. Failed Bash tool calls return raw stderr only; a PostToolUseFailure hook should inject known-failure fix guidance
 
-Status: Proposed — from the 2026-07-01 AI-harness review; NOT implemented. Re-verify file:line before acting.
+Status: Done — `.claude/settings.json` wires `failure-guidance.sh` with OOM/lock-holder/flaky matchers.
 Lens: hooks · Area: hooks-feedback · Severity: low-med · Size: S-M · Confidence: med
 Theme: failure-feedback · Source: Musi AI-harness review 2026-07-01 (multi-agent + Codex second opinion + web research)
 

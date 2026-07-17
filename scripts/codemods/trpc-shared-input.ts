@@ -5,28 +5,19 @@ import { pathToFileURL } from "node:url";
 
 import type { Project, SourceFile } from "ts-morph";
 
-import { requireArg } from "../cli-option-values.js";
-import type { ImportBinding, SharedSchemaCodemodCandidate } from "./lib/trpc-shared-schema.js";
 import {
-  appendSharedSchemaExports,
-  CodemodError,
-  collectAllowlistedRouterImports,
+  runSharedSchemaCodemod,
+  runSharedSchemaCodemodCli,
+  type SharedSchemaCodemodConfig,
+  type SharedSchemaTargetContext,
+} from "./lib/trpc-shared-engine.js";
+import {
   collectExportedTopLevelIdentifiers,
-  collectTargetIdentifiers,
-  createProject,
-  discoverSharedSchemaCandidates,
-  ensureSharedSchemaImports,
-  fail as failWithName,
   getSourceFileAtPath,
   moduleSource,
-  normalizeRelativeRouterPath,
-  reportSharedSchemaDiscovery,
-  rewriteRouterSharedSchemaReferences,
   SHARED_SCHEMA_PREFIX,
   targetPathFromSource,
-  validateSharedSchemaCandidates,
   validateSharedSchemaSource,
-  writeOrPreviewFiles,
 } from "./lib/trpc-shared-schema.js";
 import {
   assertConstSchemaIsOnlyInputReference,
@@ -37,104 +28,7 @@ import {
 
 const SHARED_INPUT_PREFIX = SHARED_SCHEMA_PREFIX;
 
-type Candidate = SharedSchemaCodemodCandidate;
-
-type CliArgs =
-  | {
-      mode: "single";
-      routerFile: string;
-      targetSource?: string;
-      dryRun: boolean;
-    }
-  | {
-      mode: "check";
-    };
-
 export type TrpcSharedInputCodemodArgs = string[];
-
-type ParsedCliFlags = {
-  check: boolean;
-  dryRun: boolean;
-  positional: string[];
-  targetSource?: string;
-};
-
-function fail(message: string): never {
-  failWithName(CODEMOD_NAME, message);
-}
-
-function initialParsedFlags(): ParsedCliFlags {
-  return {
-    check: false,
-    dryRun: false,
-    positional: [],
-  };
-}
-
-function targetValue(args: string[], index: number): string {
-  const value = args[index + 1];
-  if (!value) fail("--target requires a shared schema module source.");
-  return value;
-}
-
-function readFlagArg(args: string[], index: number, parsed: ParsedCliFlags): number {
-  const arg = requireArg(args[index], fail);
-  if (arg === "--check") {
-    parsed.check = true;
-    return index;
-  }
-  if (arg === "--dry-run") {
-    parsed.dryRun = true;
-    return index;
-  }
-  if (arg === "--target") {
-    parsed.targetSource = targetValue(args, index);
-    return index + 1;
-  }
-  if (arg.startsWith("--target=")) {
-    parsed.targetSource = arg.slice("--target=".length);
-    return index;
-  }
-  if (arg.startsWith("-")) fail(`Unknown argument: ${arg}`);
-  parsed.positional.push(arg);
-  return index;
-}
-
-function checkModeArgs(parsed: ParsedCliFlags): CliArgs | undefined {
-  if (!parsed.check) return undefined;
-  if (parsed.positional.length !== 0 || parsed.targetSource || parsed.dryRun) {
-    fail("Usage: bun run codemod:trpc-shared-input -- --check");
-  }
-  return { mode: "check" };
-}
-
-function singleModeArgs(parsed: ParsedCliFlags): CliArgs {
-  if (parsed.positional.length !== 1) {
-    fail(
-      "Usage: bun run codemod:trpc-shared-input -- [--dry-run] [--target <shared-schema.js>] <router-file> | --check",
-    );
-  }
-  const routerFile = parsed.positional[0];
-  if (!routerFile) fail("Router file argument is required.");
-  return {
-    mode: "single",
-    routerFile,
-    targetSource: parsed.targetSource,
-    dryRun: parsed.dryRun,
-  };
-}
-
-function finalizeArgs(parsed: ParsedCliFlags): CliArgs {
-  return checkModeArgs(parsed) ?? singleModeArgs(parsed);
-}
-
-function parseArgs(args: string[]): CliArgs {
-  const parsed = initialParsedFlags();
-  for (let index = 0; index < args.length; index += 1) {
-    index = readFlagArg(args, index, parsed);
-  }
-  return finalizeArgs(parsed);
-}
 
 function validateTargetSource(source: string): void {
   validateSharedSchemaSource(CODEMOD_NAME, source);
@@ -195,108 +89,40 @@ function resolveTargetSource(
   return defaultTargetSource(routerFile);
 }
 
-function runCheck(root: string): void {
-  reportSharedSchemaDiscovery(
-    CODEMOD_NAME,
-    "input",
-    discoverSharedSchemaCandidates(CODEMOD_NAME, root, collectInputCandidates),
-  );
-}
-
-function rewriteRouter(
-  routerFile: SourceFile,
-  targetSource: string,
-  candidates: Candidate[],
-  neededImports: Map<string, ImportBinding>,
-): void {
-  rewriteRouterSharedSchemaReferences({
-    candidates,
-    codemodName: CODEMOD_NAME,
-    removeLocalNames: neededImports.keys(),
-    routerFile,
-    targetSource,
-  });
-}
+const config: SharedSchemaCodemodConfig = {
+  announceSelectedTarget: true,
+  assertConstSchemaIsOnlyCallReference: assertConstSchemaIsOnlyInputReference,
+  codemodName: CODEMOD_NAME,
+  collectCandidates: collectInputCandidates,
+  defaultTargetSource,
+  kind: "input",
+  removeLocalNames: (_candidates, neededImports) => neededImports.keys(),
+  resolveTargetSource: (context: SharedSchemaTargetContext) =>
+    resolveTargetSource(
+      context.root,
+      context.project,
+      context.relativeRouterPath,
+      context.routerFile,
+      context.explicitTargetSource,
+    ),
+  supportsAll: false,
+  typeNameForSchema: inputTypeNameForSchema,
+  usage: {
+    check: "Usage: bun run codemod:trpc-shared-input -- --check",
+    single:
+      "Usage: bun run codemod:trpc-shared-input -- [--dry-run] [--target <shared-schema.js>] <router-file> | --check",
+  },
+};
 
 export function runTrpcSharedInputCodemod(
   argv: TrpcSharedInputCodemodArgs,
   root = process.cwd(),
 ): void {
-  const args = parseArgs(argv);
-  if (args.mode === "check") {
-    runCheck(root);
-    return;
-  }
-  const routerPath = path.resolve(root, args.routerFile);
-  const relativeRouterPath = normalizeRelativeRouterPath(CODEMOD_NAME, root, routerPath);
-  if (!existsSync(routerPath)) fail(`${relativeRouterPath} does not exist.`);
-
-  const project = createProject();
-  const routerFile = project.addSourceFileAtPath(routerPath);
-  const targetSource = resolveTargetSource(
-    root,
-    project,
-    relativeRouterPath,
-    routerFile,
-    args.targetSource,
-  );
-  const defaultSource = defaultTargetSource(relativeRouterPath);
-  const targetPath = targetPathFromSource(root, targetSource);
-  const targetFile = existsSync(targetPath)
-    ? getSourceFileAtPath(project, targetPath)
-    : project.createSourceFile(targetPath, "", { overwrite: true });
-
-  const candidates = collectInputCandidates(routerFile);
-  if (candidates.length === 0) {
-    console.log(
-      `${CODEMOD_NAME} codemod: no router-local input schemas found in ${relativeRouterPath}.`,
-    );
-    return;
-  }
-
-  const targetIdentifiers = collectTargetIdentifiers(targetFile);
-  const neededImports = validateSharedSchemaCandidates({
-    allowlistedImports: collectAllowlistedRouterImports(CODEMOD_NAME, routerFile, targetSource),
-    assertConstSchemaIsOnlyCallReference: assertConstSchemaIsOnlyInputReference,
-    candidates,
-    codemodName: CODEMOD_NAME,
-    sourceFile: routerFile,
-    targetIdentifiers,
-    typeNameForSchema: inputTypeNameForSchema,
-  });
-
-  ensureSharedSchemaImports(CODEMOD_NAME, targetFile, neededImports, targetIdentifiers);
-  appendSharedSchemaExports(targetFile, candidates, inputTypeNameForSchema);
-  rewriteRouter(routerFile, targetSource, candidates, neededImports);
-  writeOrPreviewFiles(
-    CODEMOD_NAME,
-    root,
-    [
-      { path: routerPath, text: routerFile.getFullText() },
-      { path: targetPath, text: targetFile.getFullText() },
-    ],
-    args.dryRun,
-  );
-
-  if (targetSource !== defaultSource) {
-    console.log(`${CODEMOD_NAME} codemod: selected existing target ${targetSource}.`);
-  }
-  console.log(
-    `${CODEMOD_NAME} codemod: moved ${candidates.map((candidate) => candidate.schemaName).join(", ")}; touched ${relativeRouterPath} and ${path.relative(root, targetPath)}.`,
-  );
+  runSharedSchemaCodemod(config, argv, root);
 }
 
 export function runTrpcSharedInputCodemodCli(): void {
-  try {
-    runTrpcSharedInputCodemod(process.argv.slice(2));
-  } catch (error) {
-    if (error instanceof CodemodError) {
-      console.error(error.message);
-      process.exitCode = 1;
-      return;
-    }
-    throw error;
-  }
+  runSharedSchemaCodemodCli(runTrpcSharedInputCodemod);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

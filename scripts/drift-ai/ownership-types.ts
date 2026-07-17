@@ -57,7 +57,7 @@ export type OwnershipAdvisoryRow = {
   readonly inspectCommand: string;
 };
 
-export type OwnershipSection = PrototypeSection<OwnershipAdvisoryRow>;
+type OwnershipSection = PrototypeSection<OwnershipAdvisoryRow>;
 
 export type OwnershipAdvisory = PrototypeAdvisory<OwnershipSection> & {
   readonly history: BoundedHistoryDisclosure;

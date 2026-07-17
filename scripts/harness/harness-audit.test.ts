@@ -1,9 +1,8 @@
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { harnessDiagnosticsSchema } from "../../packages/shared/src/schemas/harness-diagnostics.js";
 import {
@@ -15,6 +14,7 @@ import {
   parseArgs,
   runHarnessAudit,
 } from "../harness-audit.js";
+import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
 
 const fixtureDir = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -37,18 +37,10 @@ const DRIFT_AI_SKIPPED = "drift-ai-skipped.json";
 const DRIFT_AI_FINDINGS = "drift-ai-findings.json";
 const MALFORMED_NOT_JSON = "malformed-not-json.txt";
 
-const tempRoots: string[] = [];
-
-afterEach(() => {
-  while (tempRoots.length > 0) {
-    const root = tempRoots.pop();
-    if (root !== undefined) rmSync(root, { recursive: true, force: true });
-  }
-});
+const tmpRepo = registerTempRootCleanup();
 
 function makeTempRoot(): string {
-  const root = mkdtempSync(path.join(tmpdir(), "harness-audit-"));
-  tempRoots.push(root);
+  const root = tmpRepo.makeTempRepo("harness-audit-");
   return root;
 }
 
@@ -355,6 +347,7 @@ describe("runHarnessAudit", () => {
     });
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain(`wrote text report to ${outputPath}`);
+    expect(result.stdout).not.toContain("unreadable/malformed");
     expect(readFileSync(outputPath, "utf8")).toContain("lint:ratchet");
   });
 
@@ -370,6 +363,7 @@ describe("runHarnessAudit", () => {
     });
     expect(result.exitCode).toBe(2);
     expect(result.stdout).toContain(`wrote text report to ${outputPath}`);
+    expect(result.stdout).toContain("(1 envelope(s) unreadable/malformed - see report)");
     expect(readFileSync(outputPath, "utf8")).toContain("Unreadable or malformed envelopes (1):");
   });
 

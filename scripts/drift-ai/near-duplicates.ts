@@ -12,7 +12,6 @@ import type { DetectorScope } from "./scope.js";
 import type { DriftFinding, FindingProvenance } from "./types.js";
 
 export {
-  DEFAULT_NEAR_DUPLICATE_IGNORE_GLOBS,
   DEFAULT_NEAR_DUPLICATE_MIN_LINES,
   DEFAULT_NEAR_DUPLICATE_MIN_TOKENS,
   DEFAULT_NEAR_DUPLICATE_SIMILARITY,
@@ -58,6 +57,7 @@ export function findNearDuplicatePairs(
   options: NearDuplicateCompareOptions = {},
 ): NearDuplicatePair[] {
   const config = compareConfig(options);
+  validateCompareConfig(config);
   const candidates = functions
     .filter((item) => item.lineCount >= config.minLines && item.tokenCount >= config.minTokens)
     .sort(compareByTokenThenLocation);
@@ -129,6 +129,26 @@ function compareConfig(options: NearDuplicateCompareOptions): ResolvedCompareCon
     similarityThreshold: options.similarityThreshold ?? DEFAULT_NEAR_DUPLICATE_SIMILARITY,
     tokenBandRatio: options.tokenBandRatio ?? DEFAULT_NEAR_DUPLICATE_TOKEN_BAND_RATIO,
   };
+}
+
+// NaN compares false against every bound, so range checks alone would let
+// non-finite values through silently.
+function isPositiveInteger(value: number): boolean {
+  return Number.isInteger(value) && value >= 1;
+}
+
+function requireUnitInterval(name: string, value: number): void {
+  if (!Number.isFinite(value) || value < 0 || value > 1) {
+    throw new RangeError(`near-duplicates: ${name} must be within [0, 1]`);
+  }
+}
+
+function validateCompareConfig(config: ResolvedCompareConfig): void {
+  if (!isPositiveInteger(config.minLines) || !isPositiveInteger(config.minTokens)) {
+    throw new RangeError("near-duplicates: minLines and minTokens must be integers >= 1");
+  }
+  requireUnitInterval("similarityThreshold", config.similarityThreshold);
+  requireUnitInterval("tokenBandRatio", config.tokenBandRatio);
 }
 
 function candidateBuckets(candidates: readonly NearDuplicateFunction[]): NearDuplicateFunction[][] {

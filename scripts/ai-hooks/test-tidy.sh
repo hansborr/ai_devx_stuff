@@ -174,6 +174,26 @@ assert_hook_json "$TIDY_OUTPUT"
 assert_contains "$(tidy_context "$TIDY_OUTPUT")" "node_modules/foo.ts skipped (unsupported path)"
 [ ! -s "$TIDY_PINNED_LOG" ] || fail "node_modules path should not invoke pinned tools"
 
+# A repo checked out under an out-of-repo prefix that itself contains a
+# node_modules segment must still tidy its own files: the .git / node_modules
+# classification is relative to the file's own repo root, not the absolute path.
+TIDY_NESTED_ROOT="$TMP_ROOT/node_modules/nested-lane"
+mkdir -p "$TIDY_NESTED_ROOT/scripts/ai-hooks" "$TIDY_NESTED_ROOT/src" "$TIDY_NESTED_ROOT/node_modules/.bin"
+cp "$REPO_ROOT/scripts/ai-hooks/common.sh" "$REPO_ROOT/scripts/ai-hooks/tidy-edited-file.sh" \
+  "$TIDY_NESTED_ROOT/scripts/ai-hooks/"
+cp "$TIDY_REPO_TMP/node_modules/.bin/prettier" "$TIDY_REPO_TMP/node_modules/.bin/eslint" \
+  "$TIDY_NESTED_ROOT/node_modules/.bin/"
+git -C "$TIDY_NESTED_ROOT" init -q
+printf 'const value={answer:1}\n' > "$TIDY_NESTED_ROOT/src/nested.ts"
+: > "$TIDY_PINNED_LOG"
+TIDY_NESTED_OUTPUT=$(TIDY_PINNED_LOG="$TIDY_PINNED_LOG" TIDY_PINNED_PRETTIER_FORMAT_FIXTURE=1 \
+  bash "$TIDY_NESTED_ROOT/scripts/ai-hooks/tidy-edited-file.sh" <<< "$(tidy_payload_for_file "src/nested.ts")") \
+  || fail "tidy hook should not fail for a repo nested under a node_modules prefix"
+assert_hook_json "$TIDY_NESTED_OUTPUT"
+assert_not_contains "$(tidy_context "$TIDY_NESTED_OUTPUT")" "unsupported path"
+[ -s "$TIDY_PINNED_LOG" ] \
+  || fail "a file inside a node_modules-prefixed repo should be tidied, not skipped as unsupported"
+
 TIDY_BINARY="$TIDY_REPO_TMP/src/blob.bin"
 TIDY_BINARY_REL=$(tidy_relative_path "$TIDY_BINARY")
 printf 'a\0b' > "$TIDY_BINARY"
@@ -317,5 +337,41 @@ TIDY_OUTPUT=$(run_tidy_hook "$(tidy_payload_for_file "$TIDY_NOWARN_TS_REL")") \
 assert_hook_continue_json "$TIDY_OUTPUT"
 assert_not_contains "$(tidy_context "$TIDY_OUTPUT")" "eslint warning(s)"
 assert_not_contains "$(cat "$TIDY_PINNED_LOG")" $'eslint\t-f\tjson\t--no-warn-ignored'
+
+# --- Lane (sibling worktree) edits are first-class ----------------------------
+# A file in a linked worktree of THIS repo formats exactly like a primary edit
+# (resolved from the file's own worktree root, reported lane-relative); a file
+# in an unrelated repository still skips as outside repository.
+git -C "$TIDY_REPO_TMP" -c user.email=t@example.com -c user.name=t \
+  commit -q --allow-empty -m "tidy fixture base commit for lane worktree"
+TIDY_LANE="$TMP_ROOT/tidy-lane"
+git -C "$TIDY_REPO_TMP" worktree add -q -b feat/tidy-lane "$TIDY_LANE" >/dev/null
+mkdir -p "$TIDY_LANE/src"
+TIDY_LANE_TS="$TIDY_LANE/src/lane-format.ts"
+printf 'const laneValue={answer:1}\n' > "$TIDY_LANE_TS"
+: > "$TIDY_PINNED_LOG"
+TIDY_OUTPUT=$(TIDY_PINNED_PRETTIER_FORMAT_FIXTURE=1 run_tidy_hook "$(tidy_payload_for_file "$TIDY_LANE_TS")") \
+  || fail "tidy hook should not fail for a lane worktree file"
+assert_hook_json "$TIDY_OUTPUT"
+TIDY_CONTEXT=$(tidy_context "$TIDY_OUTPUT")
+[ "$TIDY_CONTEXT" = "tidy-edited-file: src/lane-format.ts tidied" ] \
+  || fail "lane .ts tidy should report the lane-relative path, got: $TIDY_CONTEXT"
+TIDY_EXPECTED_LOG=$(printf 'prettier\t--write\t--ignore-unknown\t%s\neslint\t--fix\t--no-warn-ignored\t%s' "$TIDY_LANE_TS" "$TIDY_LANE_TS")
+[ "$(cat "$TIDY_PINNED_LOG")" = "$TIDY_EXPECTED_LOG" ] \
+  || fail "lane .ts tidy command log mismatch: $(cat "$TIDY_PINNED_LOG")"
+[ "$(cat "$TIDY_LANE_TS")" = 'const value = { answer: 1 };' ] \
+  || fail "lane .ts tidy should format the fixture: $(cat "$TIDY_LANE_TS")"
+
+TIDY_OUTSIDE_REPO="$TMP_ROOT/outside-repo"
+git -C "$REPO_ROOT" init -q "$TIDY_OUTSIDE_REPO"
+mkdir -p "$TIDY_OUTSIDE_REPO/src"
+TIDY_OUTSIDE_TS="$TIDY_OUTSIDE_REPO/src/foo.ts"
+printf 'const x=1\n' > "$TIDY_OUTSIDE_TS"
+: > "$TIDY_PINNED_LOG"
+TIDY_OUTPUT=$(run_tidy_hook "$(tidy_payload_for_file "$TIDY_OUTSIDE_TS")") \
+  || fail "tidy hook should not fail for an unrelated-repo file"
+assert_hook_json "$TIDY_OUTPUT"
+assert_contains "$(tidy_context "$TIDY_OUTPUT")" "$TIDY_OUTSIDE_TS skipped (outside repository)"
+[ ! -s "$TIDY_PINNED_LOG" ] || fail "unrelated-repo file should not invoke pinned tools"
 
 printf 'ai-hooks tidy tests passed\n'

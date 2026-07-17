@@ -6,20 +6,25 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Raise the Node heap so a direct `bun run lint:changed` that escalates to a
+# full-tree scan gets the same OOM mitigation the gates do; idempotent when
+# NODE_OPTIONS already sets it.
+# shellcheck source=scripts/lib/gate-env.sh
+. "$SCRIPT_DIR/lib/gate-env.sh"
 # shellcheck source=/dev/null
 . "$SCRIPT_DIR/lib/verify-metadata.sh"
 # shellcheck source=scripts/lib/parallel-runner.sh
 . "$SCRIPT_DIR/lib/parallel-runner.sh"
 # shellcheck source=scripts/lib/changed-base.sh
 . "$SCRIPT_DIR/lib/changed-base.sh"
+# shellcheck source=scripts/lib/changed-lintable-files.sh
+. "$SCRIPT_DIR/lib/changed-lintable-files.sh"
 # shellcheck source=scripts/lib/lint-dist-preflight.sh
 . "$SCRIPT_DIR/lib/lint-dist-preflight.sh"
-# shellcheck source=scripts/lib/eslint-main-cache.sh
-. "$SCRIPT_DIR/lib/eslint-main-cache.sh"
 LINT_SHELL="$SCRIPT_DIR/lint-shell.sh"
 LINT_CONFIG_SENSORS="$SCRIPT_DIR/lint-config-sensors.sh"
 LINT_IMPORT_CYCLES="$SCRIPT_DIR/lint-import-cycles.sh"
-PATH_POLICY_QUERY="$SCRIPT_DIR/path-policy/path-policy-query.ts"
+LINT_ESLINT_MAIN="$SCRIPT_DIR/eslint-main.sh"
 
 start_import_cycles_lane() {
   musi_parallel_start "import cycles" "import-cycles" bash "$LINT_IMPORT_CYCLES"
@@ -30,16 +35,13 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 
 musi_changed_gate_fail_if_unstaged "$REPO_ROOT" "lint:changed"
 
-path_policy_has_match() {
-  local query="$1"
-  shift
-
-  IFS= read -r -d '' < <(printf '%s\0' "$@" | bun --config=/dev/null "$PATH_POLICY_QUERY" "$query")
+selection_failed() {
+  printf 'lint:changed: path selection failed for %s.\n' "$1" >&2
+  exit 2
 }
 
 run_full_lint() {
   musi_lint_dist_preflight "$REPO_ROOT"
-  musi_eslint_main_cache_args "$REPO_ROOT"
 
   musi_parallel_init "musi-lint-changed"
   musi_parallel_install_traps
@@ -47,8 +49,7 @@ run_full_lint() {
   musi_parallel_start "ShellCheck" "shell" bash "$LINT_SHELL"
   musi_parallel_start "config sensors" "config" bash "$LINT_CONFIG_SENSORS"
   start_import_cycles_lane
-  musi_parallel_start "ESLint" "eslint" eslint --max-warnings=0 \
-    "${MUSI_ESLINT_MAIN_CACHE_ARGS[@]}" .
+  musi_parallel_start "ESLint" "eslint" bash "$LINT_ESLINT_MAIN" --full
 
   musi_parallel_wait_all "lint:changed"
   exit "$MUSI_PARALLEL_EXIT"
@@ -57,7 +58,6 @@ run_full_lint() {
 run_changed_lint() {
   if [ "${#FILES[@]}" -gt 0 ]; then
     musi_lint_dist_preflight "$REPO_ROOT"
-    musi_eslint_main_cache_args "$REPO_ROOT"
   fi
 
   musi_parallel_init "musi-lint-changed"
@@ -70,9 +70,9 @@ run_changed_lint() {
   if [ "${#FILES[@]}" -eq 0 ]; then
     echo "lint:changed: no staged/base changed lintable files vs $BASE — skipping lint."
   else
-    echo "lint:changed: checking ${#FILES[@]} staged/base changed working-tree file(s) with eslint."
-    musi_parallel_start "ESLint" "eslint" eslint --max-warnings=0 --no-warn-ignored \
-      "${MUSI_ESLINT_MAIN_CACHE_ARGS[@]}" "${FILES[@]}"
+    echo "lint:changed: checking ${#FILES[@]} staged/base changed working-tree file(s) with sequential eslint partitions."
+    musi_parallel_start "ESLint" "eslint" bash "$LINT_ESLINT_MAIN" \
+      --changed "${FILES[@]}"
   fi
 
   musi_parallel_wait_all "lint:changed"
@@ -92,30 +92,22 @@ fi
 # Collect base + staged files (NUL-delimited for space-safety), filter to
 # lintable policy paths and existing files, deduplicate. Unstaged source-relevant
 # changes are rejected above instead of being mixed into this selection.
-declare -A SEEN
 CHANGED_FILES=()
 FILES=()
 FULL_LINT=0
-while IFS= read -r -d '' f; do
-  CHANGED_FILES+=("$f")
-done < <(
-  {
-    git diff -z --name-only --diff-filter=ACMRD "$BASE"...HEAD
-    git diff -z --name-only --diff-filter=ACMRD --cached
-  }
-)
+musi_collect_changed_candidates "$REPO_ROOT" "$BASE" gate || \
+  selection_failed changed-files
 
-if [ "${#CHANGED_FILES[@]}" -gt 0 ] \
-   && path_policy_has_match full-scan-trigger:eslint-changed "${CHANGED_FILES[@]}"; then
-  FULL_LINT=1
-fi
+selector_rc=0
+musi_changed_candidates_trigger_full_scan full-scan-trigger:eslint-changed || selector_rc=$?
+case "$selector_rc" in
+  0) FULL_LINT=1 ;;
+  1) ;;
+  *) selection_failed full-scan-trigger:eslint-changed ;;
+esac
 
-while IFS= read -r -d '' f; do
-  [ -f "$f" ] || continue
-  [ -n "${SEEN[$f]:-}" ] && continue
-  SEEN[$f]=1
-  FILES+=("$f")
-done < <(printf '%s\0' "${CHANGED_FILES[@]}" | bun --config=/dev/null "$PATH_POLICY_QUERY" lintable:eslint-changed)
+musi_select_changed_lintable_files "$REPO_ROOT" lintable:eslint-changed || \
+  selection_failed lintable:eslint-changed
 
 if [ "$FULL_LINT" -eq 1 ]; then
   echo "lint:changed: lint-affecting staged/base config changed — checking full repo working tree with ShellCheck, config sensors, import cycles, and eslint."

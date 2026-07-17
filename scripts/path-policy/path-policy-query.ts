@@ -8,12 +8,12 @@ import {
   queryPathPolicy,
 } from "./path-policy-query-core.js";
 
-export interface PathPolicyQueryCliOptions {
+interface PathPolicyQueryCliOptions {
   readonly argv: readonly string[];
   readonly stdin: string;
 }
 
-export interface PathPolicyQueryCliResult {
+interface PathPolicyQueryCliResult {
   readonly exitCode: number;
   readonly stdout: string;
   readonly stderr: string;
@@ -31,7 +31,7 @@ const usage = (): string =>
     ...PATH_POLICY_QUERY_NAMES.map((name) => `  ${name}`),
   ].join("\n");
 
-export const runPathPolicyQueryCli = ({
+const runPathPolicyQueryCli = ({
   argv,
   stdin,
 }: PathPolicyQueryCliOptions): PathPolicyQueryCliResult => {

@@ -1,0 +1,4 @@
+# porting-knob: suppression-allowlists -- retarget repo-specific suppression exceptions
+# path glob — files permitted to use file-level @ts-nocheck
+scripts/drift-ai/suppressions.ts
+scripts/drift-ai/suppressions.test.ts

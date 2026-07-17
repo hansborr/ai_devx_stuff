@@ -5,9 +5,11 @@
 # smoke-subjects: scripts/lint-changed.sh
 # smoke-subjects: scripts/lib/verify-metadata.sh
 # smoke-subjects: scripts/lib/changed-base.sh
+# smoke-subjects: scripts/lib/changed-lintable-files.sh
 # smoke-subjects: scripts/path-policy/path-policy-query.ts
 # smoke-subjects: scripts/path-policy/path-policy-query-core.ts
 # smoke-subjects: scripts/path-policy/path-policy.ts
+# smoke-subjects: scripts/harness/harness-manifest.ts
 # smoke-subjects: scripts/harness/harness-paths.ts
 # smoke-subjects: scripts/lint-ratchet/paths.ts
 # smoke-subjects: scripts/tests/lib/test-git-env.sh
@@ -34,6 +36,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 LINT_CONFIG_SENSORS="$SCRIPT_DIR/../lint-config-sensors.sh"
 VERIFY_METADATA="$SCRIPT_DIR/../lib/verify-metadata.sh"
 CHANGED_BASE="$SCRIPT_DIR/../lib/changed-base.sh"
+CHANGED_LINTABLE_FILES="$SCRIPT_DIR/../lib/changed-lintable-files.sh"
 YAMLLINT_CONFIG="$REPO_ROOT/.yamllint.yml"
 PATH_POLICY_QUERY="$SCRIPT_DIR/../path-policy/path-policy-query.ts"
 PATH_POLICY_QUERY_CORE="$SCRIPT_DIR/../path-policy/path-policy-query-core.ts"
@@ -41,7 +44,9 @@ PATH_POLICY="$SCRIPT_DIR/../path-policy/path-policy.ts"
 PATH_POLICY_SMOKE_SUBJECTS="$SCRIPT_DIR/../path-policy/path-policy-smoke-subjects.ts"
 PATH_POLICY_SMOKE_SUBJECTS_DATA="$SCRIPT_DIR/../path-policy/path-policy-smoke-subjects-data.ts"
 HARNESS_PATHS="$SCRIPT_DIR/../harness/harness-paths.ts"
+HARNESS_MANIFEST="$SCRIPT_DIR/../harness/harness-manifest.ts"
 LINT_RATCHET_PATHS="$SCRIPT_DIR/../lint-ratchet/paths.ts"
+LINT_RATCHET_METRICS_TYPES="$SCRIPT_DIR/../lint-ratchet/metrics-types.ts"
 CONFIG_SURFACES="$REPO_ROOT/eslint-config/config-surfaces.js"
 CONFIG_SURFACE_MANIFEST="$REPO_ROOT/eslint-config/config-surface-manifest.json"
 SHARED_POLICY="$REPO_ROOT/eslint-config/shared-policy.js"
@@ -121,6 +126,7 @@ new_repo() {
   cp "$LINT_CONFIG_SENSORS" "$repo/scripts/lint-config-sensors.sh"
   cp "$VERIFY_METADATA" "$repo/scripts/lib/verify-metadata.sh"
   cp "$CHANGED_BASE" "$repo/scripts/lib/changed-base.sh"
+  cp "$CHANGED_LINTABLE_FILES" "$repo/scripts/lib/changed-lintable-files.sh"
   cp "$PATH_POLICY_QUERY" "$repo/scripts/path-policy/path-policy-query.ts"
   cp "$PATH_POLICY_QUERY_CORE" "$repo/scripts/path-policy/path-policy-query-core.ts"
   cp "$PATH_POLICY" "$repo/scripts/path-policy/path-policy.ts"
@@ -128,10 +134,13 @@ new_repo() {
   cp "$PATH_POLICY_SMOKE_SUBJECTS_DATA" \
     "$repo/scripts/path-policy/path-policy-smoke-subjects-data.ts"
   cp "$HARNESS_PATHS" "$repo/scripts/harness/harness-paths.ts"
+  cp "$HARNESS_MANIFEST" "$repo/scripts/harness/harness-manifest.ts"
   cp "$LINT_RATCHET_PATHS" "$repo/scripts/lint-ratchet/paths.ts"
+  cp "$LINT_RATCHET_METRICS_TYPES" "$repo/scripts/lint-ratchet/metrics-types.ts"
   cp "$CONFIG_SURFACES" "$repo/eslint-config/config-surfaces.js"
   cp "$CONFIG_SURFACE_MANIFEST" "$repo/eslint-config/config-surface-manifest.json"
   cp "$SHARED_POLICY" "$repo/eslint-config/shared-policy.js"
+  cp "$REPO_ROOT/eslint-config/max-lines-exceptions-codec.js" "$repo/eslint-config/max-lines-exceptions-codec.js"
   cp "$REPO_ROOT/eslint-config/max-lines-exceptions.baseline.json" "$repo/eslint-config/max-lines-exceptions.baseline.json"
   cp "$YAMLLINT_CONFIG" "$repo/.yamllint.yml"
   cat > "$repo/.github/workflows/ci.yml" <<'YML'
@@ -287,6 +296,22 @@ set -e
 grep -qF 'DL3008' <<< "$output" || fail "hadolint output should report DL3008: $output"
 ok "hadolint fails on unpinned apt package"
 
+repo="$(new_repo missing-hadolint-pin)"
+bun -e '
+  const path = process.argv[1];
+  const pkg = await Bun.file(path).json();
+  delete pkg.config.hadolint;
+  await Bun.write(path, `${JSON.stringify(pkg, null, 2)}\n`);
+' "$repo/package.json"
+set +e
+output="$(run_lint_config_sensors "$repo" 2>&1)"
+exit_code=$?
+set -e
+[ "$exit_code" -eq 2 ] || fail "missing config.hadolint should fail unchecked (got $exit_code): $output"
+grep -qF 'package.json config.hadolint must be a non-empty string' <<< "$output" \
+  || fail "missing hadolint pin should name the effective package field: $output"
+ok "requires the effective package.json config.hadolint pin"
+
 repo="$(new_repo combined-config-violations)"
 cat > "$repo/.codex/skills/example/agents/openai.yaml" <<'YML'
 interface:
@@ -327,7 +352,7 @@ repo="$(new_repo changed-package-full-scan)"
 printf '[install\n' > "$repo/bunfig.toml"
 git -C "$repo" add bunfig.toml
 git -C "$repo" commit -qm "commit invalid toml fixture"
-printf '{"name":"changed-package-full-scan"}\n' > "$repo/package.json"
+printf '{"name":"changed-package-full-scan","config":{"hadolint":"2.14.0"}}\n' > "$repo/package.json"
 git -C "$repo" add package.json
 set +e
 output="$(run_lint_config_sensors "$repo" --changed main 2>&1)"
@@ -337,5 +362,52 @@ set -e
 grep -qF 'taplo' <<< "$output" \
   || fail "package.json full-scan trigger should run full TOML sensor set: $output"
 ok "changed package.json trigger runs full config sensor set"
+
+repo="$(new_repo selector-crash)"
+printf 'process.exit(73);\n' > "$repo/scripts/path-policy/path-policy-query.ts"
+set +e
+output="$(run_lint_config_sensors "$repo" 2>&1)"
+exit_code=$?
+set -e
+[ "$exit_code" -eq 2 ] \
+  || fail "config sensor selector crash should exit 2 (got $exit_code): $output"
+grep -qF 'path selection failed' <<< "$output" \
+  || fail "config sensor selector crash should report selection failure: $output"
+grep -qF 'no maintained config files found' <<< "$output" \
+  && fail "config sensor selector crash should not report an empty selection: $output"
+ok "config sensors distinguish selector failure from an empty selection"
+
+repo="$(new_repo git-collector-crash)"
+mkdir -p "$repo/failing-git-bin"
+cat > "$repo/failing-git-bin/git" <<'STUB'
+#!/usr/bin/env bash
+if [ "${1:-}" = "ls-files" ]; then
+  printf 'injected git ls-files failure\n' >&2
+  exit 73
+fi
+exec "${REAL_GIT:?}" "$@"
+STUB
+chmod +x "$repo/failing-git-bin/git"
+set +e
+output=$(
+  cd "$repo"
+  REAL_GIT="$(command -v git)" \
+    PATH="$repo/failing-git-bin:$PATH" \
+    MUSI_ACTIONLINT_BIN="$ACTIONLINT_BIN" \
+    MUSI_ACTIONLINT_TIMEOUT=20s \
+    MUSI_TAPLO_BIN="$TAPLO_BIN" \
+    bash scripts/lint-config-sensors.sh 2>&1
+)
+exit_code=$?
+set -e
+[ "$exit_code" -eq 2 ] \
+  || fail "config git collector crash should exit 2 (got $exit_code): $output"
+grep -qF 'injected git ls-files failure' <<< "$output" \
+  || fail "config git collector fixture did not reach ls-files: $output"
+grep -qF 'path selection failed while collecting repository files' <<< "$output" \
+  || fail "config git collector crash should report selection failure: $output"
+grep -qF 'no maintained config files found' <<< "$output" \
+  && fail "config git collector crash should not report an empty selection: $output"
+ok "config sensors propagate git collector failure"
 
 printf 'lint-config-sensors tests passed (%d)\n' "$PASS"

@@ -26,7 +26,7 @@ export function staticString(node: Node | undefined): string | undefined {
   return undefined;
 }
 
-export function isStringConcat(node: Node): boolean {
+function isStringConcat(node: Node): boolean {
   if (
     !Node.isBinaryExpression(node) ||
     node.getOperatorToken().getKind() !== SyntaxKind.PlusToken

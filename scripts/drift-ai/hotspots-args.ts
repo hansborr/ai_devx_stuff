@@ -9,7 +9,7 @@ const DEFAULT_TOP_N = 20;
 
 export type ConcreteHotspotLens = Exclude<HotspotLens, "all">;
 
-export const CONCRETE_LENSES: readonly ConcreteHotspotLens[] = [
+const CONCRETE_LENSES: readonly ConcreteHotspotLens[] = [
   "churn",
   "coupling",
   "fragmentation",

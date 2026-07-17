@@ -10,10 +10,7 @@ import {
 } from "./ghost-files-tokens.js";
 import { isSourceLike, SOURCE_LIKE_EXTS, uniqSorted } from "./path-util.js";
 
-export type GhostFileMatchKind =
-  | "identical-normalized"
-  | "weak-suffix-variant"
-  | "near-edit-distance";
+type GhostFileMatchKind = "identical-normalized" | "weak-suffix-variant" | "near-edit-distance";
 
 export type GhostFileMatch = {
   readonly newPath: string;

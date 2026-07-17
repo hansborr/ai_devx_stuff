@@ -226,7 +226,7 @@ assert_contains "$LINT_COVERAGE_CONTEXT" "covered only by lint:ratchet"
 assert_contains "$LINT_COVERAGE_CONTEXT" "  - $LINT_COVERAGE_RATCHETED_TS_REL (fixture/rule)"
 assert_contains "$LINT_COVERAGE_CONTEXT" "accepted floor, not an error"
 assert_contains "$LINT_COVERAGE_CONTEXT" "For the full ratchet picture: bun run lint:ratchet"
-assert_contains "$LINT_COVERAGE_CONTEXT" "For structured local/* guidance only: bun run lint:agent:local-rules:changed"
+assert_contains "$LINT_COVERAGE_CONTEXT" "For structured selected-rule guidance: bun run lint:agent:local-rules:changed"
 assert_not_contains "$LINT_COVERAGE_CONTEXT" "For structured per-rule fix guidance"
 assert_not_contains "$LINT_COVERAGE_CONTEXT" "NOT covered by ESLint at all"
 LINT_COVERAGE_EXPECTED_LOG=$(printf 'eslint\t--print-config\t%s' "$LINT_COVERAGE_RATCHETED_TS")

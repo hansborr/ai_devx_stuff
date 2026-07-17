@@ -2,13 +2,9 @@ import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import {
-  CLAUDE_SETTINGS_PATH,
-  CODEX_HOOKS_PATH,
-  COPILOT_HOOKS_PATH,
-  HARNESS_MANIFEST_FILENAME,
-  readHarnessManifest,
-} from "./harness-paths.js";
+import { compareByCodepoint } from "../lib/codepoint-compare.js";
+import { HARNESS_MANIFEST_FILENAME, readHarnessManifest } from "./harness-manifest.js";
+import { CLAUDE_SETTINGS_PATH, CODEX_HOOKS_PATH, COPILOT_HOOKS_PATH } from "./harness-paths.js";
 import {
   HOOK_EVENTS,
   type HookEvent,
@@ -93,7 +89,10 @@ function collectHookWiring(manifest: unknown): OrderedHookWiring[] {
   return hooks.sort((left, right) => {
     const eventOrder = HOOK_EVENTS.indexOf(left.event) - HOOK_EVENTS.indexOf(right.event);
     if (eventOrder !== 0) return eventOrder;
-    return left.order - right.order || left.controlId.localeCompare(right.controlId);
+    // codepoint order, not localeCompare — load-bearing for committed/freshness-compared bytes:
+    // the controlId tiebreaker feeds the committed settings.json / codex / copilot hook files
+    // (freshness-gated by harness:check).
+    return left.order - right.order || compareByCodepoint(left.controlId, right.controlId);
   });
 }
 

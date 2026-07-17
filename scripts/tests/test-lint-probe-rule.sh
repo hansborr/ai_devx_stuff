@@ -3,9 +3,9 @@
 # smoke-subjects: scripts/lint-probe-rule.test.ts
 # smoke-subjects: scripts/tests/test-lint-probe-rule.sh
 # smoke-subjects: scripts/lint-ratchet/eslint-config.ts
-# smoke-subjects: scripts/lint-ratchet/lint-ratchet-baseline.ts
+# smoke-subjects: scripts/lint-ratchet/baseline.ts
 # smoke-subjects: scripts/lint-ratchet/lint-ratchet-config.ts
-# smoke-subjects: scripts/lint-ratchet/lint-ratchet-metrics.ts
+# smoke-subjects: scripts/lint-ratchet/metrics.ts
 # smoke-subjects: scripts/lint-ratchet/paths.ts
 # smoke-subjects: scripts/lint-ratchet/rule-source.ts
 # smoke-subjects: scripts/lint-ratchet/runtime-config.ts

@@ -2,7 +2,9 @@
 # smoke-order: 330
 # smoke-subjects: scripts/lint-agent.ts
 # smoke-subjects: scripts/lint-agent-envelope.ts
+# smoke-subjects: scripts/lint-agent-guidance.ts
 # smoke-subjects: scripts/lib/lint-rule-docs.ts
+# smoke-subjects: scripts/lib/eslint-main-cache.sh
 # smoke-subjects: scripts/tests/test-lint-agent.sh
 # smoke-subjects: packages/shared/src/schemas/harness-diagnostics.ts
 # smoke-subjects: eslint.config.js
@@ -16,7 +18,8 @@
 # - happy path emits a schema-valid envelope on a clean tree (zero findings, exit 0);
 # - a known local-rule violation produces a finding with the expected control,
 #   severity, repair kind, and how-to-fix, and the run exits 1;
-# - non-local findings are surfaced as info disclosures and counted in the
+# - overlaid core findings carry structured guidance;
+# - non-overlaid findings are surfaced as info disclosures and counted in the
 #   stderr summary.
 set -euo pipefail
 
@@ -38,8 +41,10 @@ build_fixture() {
   cp scripts/lint-agent.ts "$fixture_dir/scripts/lint-agent.ts"
   cp scripts/lint-agent-envelope.ts "$fixture_dir/scripts/lint-agent-envelope.ts"
   cp scripts/lint-agent-fix-text.ts "$fixture_dir/scripts/lint-agent-fix-text.ts"
+  cp scripts/lint-agent-guidance.ts "$fixture_dir/scripts/lint-agent-guidance.ts"
   cp scripts/lib/eslint-json.ts "$fixture_dir/scripts/lib/eslint-json.ts"
   cp scripts/lib/lint-rule-docs.ts "$fixture_dir/scripts/lib/lint-rule-docs.ts"
+  cp scripts/lib/eslint-main-cache.sh "$fixture_dir/scripts/lib/eslint-main-cache.sh"
   cp scripts/lint-ratchet/local-rule-fix-text.ts \
     "$fixture_dir/scripts/lint-ratchet/local-rule-fix-text.ts"
   cp packages/shared/src/schemas/harness-diagnostics.ts \
@@ -162,9 +167,41 @@ export default [
       "local/always-flag-autofix": "error",
       "local/always-flag-suggestion": "error",
       "local/always-flag-suggestion-fallback": "error",
+      "complexity": ["error", { max: 1 }],
       "no-var": "error",
     },
   },
+  {
+    files: ["ratchet-only/**"],
+    rules: {
+      "local/always-flag-manual": "off",
+      "local/always-flag-manual-how": "off",
+      "local/always-flag-codemod": "off",
+      "local/always-flag-autofix": "off",
+      "local/always-flag-suggestion": "off",
+      "local/always-flag-suggestion-fallback": "off",
+      "complexity": "off",
+      "no-var": "off",
+      "max-lines-per-function": [
+        "error",
+        { max: 200, skipBlankLines: true, skipComments: true },
+      ],
+    },
+  },
+  ...(process.env.MUSI_LINT_AGENT_STRUCTURAL_OVERLAY === "1"
+    ? [
+        {
+          files: ["ratchet-only/**"],
+          rules: {
+            "max-depth": ["warn", { max: 3 }],
+            "max-lines-per-function": [
+              "warn",
+              { max: 100, skipBlankLines: true, skipComments: true },
+            ],
+          },
+        },
+      ]
+    : []),
 ];
 JS
 
@@ -262,6 +299,10 @@ build_fixture "$VIO_DIR"
 mkdir -p "$VIO_DIR/src"
 cat >"$VIO_DIR/src/buggy.js" <<'JS'
 var nonLocalViolation = 1;
+export function overlaidComplexity(value) {
+  if (value) return nonLocalViolation;
+  return 0;
+}
 export const value = nonLocalViolation;
 JS
 
@@ -282,14 +323,23 @@ echo "$VIO_JSON" | bun -e '
   const env = JSON.parse(fs.readFileSync(0, "utf8"));
   if (env.version !== "1") { console.error("bad version"); process.exit(1); }
   if (env.tool !== "lint:agent") { console.error("bad tool"); process.exit(1); }
-  if (!Array.isArray(env.findings) || env.findings.length !== 7) {
-    console.error("expected 7 findings, got", env.findings?.length); process.exit(1);
+  if (!Array.isArray(env.findings) || env.findings.length !== 8) {
+    console.error("expected 8 findings, got", env.findings?.length); process.exit(1);
   }
   const localFindings = env.findings.filter((f) => f.control.startsWith("lint/local/"));
   if (localFindings.length !== 6) {
     console.error("expected 6 local findings, got", localFindings.length); process.exit(1);
   }
   const byControl = Object.fromEntries(env.findings.map((f) => [f.control, f]));
+  const complexity = byControl["lint/complexity"];
+  if (!complexity) { console.error("missing overlaid complexity finding"); process.exit(1); }
+  if (complexity.severity !== "block") { console.error("complexity severity wrong"); process.exit(1); }
+  if (complexity.ruleId !== "complexity") { console.error("complexity ruleId wrong"); process.exit(1); }
+  if (complexity.messageId !== "complex") { console.error("complexity messageId wrong:", complexity.messageId); process.exit(1); }
+  if (complexity.repairKind !== "manual") { console.error("complexity repairKind wrong"); process.exit(1); }
+  if (!complexity.why.includes("Complex branching")) { console.error("complexity why wrong:", complexity.why); process.exit(1); }
+  if (!complexity.howToFix.includes("Extract cohesive decisions")) { console.error("complexity howToFix wrong:", complexity.howToFix); process.exit(1); }
+
   const manual = byControl["lint/local/always-flag-manual"];
   if (!manual) { console.error("missing manual finding"); process.exit(1); }
   if (manual.severity !== "block") { console.error("manual severity wrong"); process.exit(1); }
@@ -348,10 +398,11 @@ echo "$VIO_JSON" | bun -e '
     console.error("skipped non-local howToFix wrong:", skippedNonLocal.howToFix); process.exit(1);
   }
 
-  if (env.summary.blocking !== 5) { console.error("blocking count wrong:", env.summary.blocking); process.exit(1); }
+  if (env.summary.blocking !== 6) { console.error("blocking count wrong:", env.summary.blocking); process.exit(1); }
   if (env.summary.warning !== 1) { console.error("warning count wrong:", env.summary.warning); process.exit(1); }
   if (env.summary.info !== 1) { console.error("info count wrong:", env.summary.info); process.exit(1); }
   const byControlCounts = env.summary.byControl;
+  if (byControlCounts["lint/complexity"] !== 1) { console.error("byControl complexity wrong"); process.exit(1); }
   if (byControlCounts["lint/local/always-flag-manual"] !== 1) { console.error("byControl manual wrong"); process.exit(1); }
   if (byControlCounts["lint/local/always-flag-manual-how"] !== 1) { console.error("byControl manual-how wrong"); process.exit(1); }
   if (byControlCounts["lint/local/always-flag-codemod"] !== 1) { console.error("byControl codemod wrong"); process.exit(1); }
@@ -367,7 +418,64 @@ if ! grep -q "skipped 1 non-local finding" "$TMP_ROOT/violations.err"; then
   exit 1
 fi
 
-# --- Run 3: fatal parser errors surface as block-severity findings ------------
+# --- Run 3: ratchet-only structural thresholds surface as overlaid warnings ---
+RATCHET_DIR="$TMP_ROOT/ratchet-threshold"
+build_fixture "$RATCHET_DIR"
+mkdir -p "$RATCHET_DIR/ratchet-only"
+{
+  printf 'export function overRatchetThreshold() {\n'
+  for i in $(seq 1 100); do
+    printf '  const value%s = %s;\n' "$i" "$i"
+  done
+  printf '  return value1;\n'
+  printf '}\n'
+} >"$RATCHET_DIR/ratchet-only/long-function.js"
+cat >"$RATCHET_DIR/ratchet-only/deep-function.js" <<'JS'
+export function overRatchetDepth(values) {
+  if (values.length > 0) {
+    while (values.length > 1) {
+      for (const value of values) {
+        if (value > 1) return value;
+      }
+    }
+  }
+  return 0;
+}
+JS
+
+if ! (cd "$RATCHET_DIR" && bun run scripts/lint-agent.ts --output ./envelope.json ratchet-only/ \
+      >"$TMP_ROOT/ratchet.out" 2>"$TMP_ROOT/ratchet.err"); then
+  echo "FAIL: advisory ratchet-threshold finding should not make lint-agent exit non-zero"
+  cat "$TMP_ROOT/ratchet.err"
+  exit 1
+fi
+
+RATCHET_JSON=$(cat "$RATCHET_DIR/envelope.json")
+echo "$RATCHET_JSON" | bun -e '
+  const fs = require("fs");
+  const env = JSON.parse(fs.readFileSync(0, "utf8"));
+  if (env.findings.length !== 2) { console.error("expected 2 ratchet-threshold findings, got", env.findings.length); process.exit(1); }
+  const byControl = Object.fromEntries(env.findings.map((finding) => [finding.control, finding]));
+  const lines = byControl["lint/max-lines-per-function"];
+  if (!lines) { console.error("missing max-lines-per-function finding"); process.exit(1); }
+  if (lines.ruleId !== "max-lines-per-function") { console.error("bad max-lines ruleId:", lines.ruleId); process.exit(1); }
+  if (lines.messageId !== "exceed") { console.error("bad max-lines messageId:", lines.messageId); process.exit(1); }
+  if (lines.severity !== "warn") { console.error("max-lines finding must be warn:", lines.severity); process.exit(1); }
+  if (!lines.why.includes("Long functions")) { console.error("bad max-lines why:", lines.why); process.exit(1); }
+  if (!lines.howToFix.includes("Extract cohesive responsibilities")) { console.error("bad max-lines howToFix:", lines.howToFix); process.exit(1); }
+  const depth = byControl["lint/max-depth"];
+  if (!depth) { console.error("missing max-depth finding"); process.exit(1); }
+  if (depth.ruleId !== "max-depth") { console.error("bad max-depth ruleId:", depth.ruleId); process.exit(1); }
+  if (depth.messageId !== "tooDeeply") { console.error("bad max-depth messageId:", depth.messageId); process.exit(1); }
+  if (depth.severity !== "warn") { console.error("max-depth finding must be warn:", depth.severity); process.exit(1); }
+  if (!depth.why.includes("Deeply nested")) { console.error("bad max-depth why:", depth.why); process.exit(1); }
+  if (!depth.howToFix.includes("Use guard clauses")) { console.error("bad max-depth howToFix:", depth.howToFix); process.exit(1); }
+  if (env.summary.blocking !== 0 || env.summary.warning !== 2 || env.summary.info !== 0) {
+    console.error("bad structural summary:", env.summary); process.exit(1);
+  }
+'
+
+# --- Run 4: fatal parser errors surface as block-severity findings ------------
 PARSER_DIR="$TMP_ROOT/parser-error"
 build_fixture "$PARSER_DIR"
 mkdir -p "$PARSER_DIR/src"
@@ -398,5 +506,72 @@ echo "$PARSER_JSON" | bun -e '
   if (!/Fix the syntax error/.test(f.howToFix)) { console.error("parser howToFix wrong:", f.howToFix); process.exit(1); }
   if (env.summary.blocking !== 1) { console.error("summary blocking wrong"); process.exit(1); }
 '
+
+# --- Run 5: the agent envelope uses the salted, self-invalidating main cache --
+# lint-agent must derive its cache args from scripts/lib/eslint-main-cache.sh
+# so a change to any salt input (here: a new TS source that is a type-graph
+# input but not itself linted) moves the cache identity, exactly as it does for
+# the main lint lane. The old unsalted node_modules/.cache/eslint/ location
+# would have served pre-change findings. An isolated cache root keeps the
+# fixture from pruning the real repo's shared eslint-main cache.
+SALT_DIR="$TMP_ROOT/salt"
+build_fixture "$SALT_DIR"
+SALT_CACHE_ROOT="$TMP_ROOT/salt-cache"
+mkdir -p "$SALT_DIR/ratchet-only"
+# ratchet-only disables the always-flag rules, so this file lints clean (exit 0)
+# yet is still linted, which is what makes ESLint persist the cache entry. The
+# fixture flat config lints .js (not .ts), so the linted target is .js.
+printf 'export const ratchetOk = 1;\n' >"$SALT_DIR/ratchet-only/ok.js"
+
+run_salt_agent() {
+  (cd "$SALT_DIR" && MUSI_ESLINT_MAIN_CACHE_ROOT="$SALT_CACHE_ROOT" \
+    bun run scripts/lint-agent.ts --output ./envelope.json ratchet-only/ \
+    >"$TMP_ROOT/salt.out" 2>"$TMP_ROOT/salt.err")
+}
+
+count_identity_dirs() {
+  find "$SALT_CACHE_ROOT" -mindepth 1 -maxdepth 1 -type d -name 'identity-*' 2>/dev/null | wc -l
+}
+
+if ! run_salt_agent; then
+  echo "FAIL: salted-cache run 1 exited non-zero"
+  cat "$TMP_ROOT/salt.err"
+  exit 1
+fi
+
+if [ "$(count_identity_dirs)" -ne 1 ]; then
+  echo "FAIL: expected exactly one salted identity-* cache dir after run 1"
+  find "$SALT_CACHE_ROOT" 2>/dev/null || true
+  exit 1
+fi
+IDENTITY_BEFORE=$(find "$SALT_CACHE_ROOT" -mindepth 1 -maxdepth 1 -type d -name 'identity-*')
+if [ ! -f "$IDENTITY_BEFORE/.eslintcache" ]; then
+  echo "FAIL: agent did not write the salted .eslintcache under $IDENTITY_BEFORE"
+  find "$SALT_CACHE_ROOT" 2>/dev/null || true
+  exit 1
+fi
+
+# Change a salt input that is NOT the linted file: a new TS source in the type
+# graph. ESLint's own per-file metadata/config hash never looks at it (the
+# fixture never even lints .ts), so only the salt catches this. The identity
+# must move and the stale sibling be pruned.
+printf 'export const extraTypeGraphInput = 2;\n' >"$SALT_DIR/extra-source.ts"
+
+if ! run_salt_agent; then
+  echo "FAIL: salted-cache run 2 exited non-zero"
+  cat "$TMP_ROOT/salt.err"
+  exit 1
+fi
+
+IDENTITY_AFTER=$(find "$SALT_CACHE_ROOT" -mindepth 1 -maxdepth 1 -type d -name 'identity-*')
+if [ "$IDENTITY_AFTER" = "$IDENTITY_BEFORE" ]; then
+  echo "FAIL: a salt-input change did not move the agent cache identity"
+  exit 1
+fi
+if [ "$(count_identity_dirs)" -ne 1 ]; then
+  echo "FAIL: stale salted identity dir was not pruned after the salt-input change"
+  find "$SALT_CACHE_ROOT" 2>/dev/null || true
+  exit 1
+fi
 
 echo "PASS: lint-agent smoke"

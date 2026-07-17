@@ -1,6 +1,7 @@
 # drift:ai ghost-files noun/agent role pairs
 
-Status: Parked
+Status: Done — `drift-ai.config.json` `currentAllowedPairs` now covers the `evaluation`/`evaluator` sibling pair, suppressing the reviewed false positive.
+Created: 2026-06-05
 Source: `docs/agent_notes/finished_work/drift-ai-field-run-calibration.md`
 
 ## Trigger

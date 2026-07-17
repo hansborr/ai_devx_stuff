@@ -1,6 +1,6 @@
 # 71. Portable-core milestone 2: pass an engine context instead of importing the Musi registry singleton (design-gated)
 
-Status: Design recorded — in-tree engine context recommended; implementation still pending.
+Status: Design recorded — in-tree engine context recommended; implementation still pending. Amended 2026-07-16: packaging mechanism superseded by lint-arch-review-2026-07 leaf 02 (see Addendum); the engine-context design itself stands.
 Lens: portability · Area: ratchet + pipeline core · Severity: med · Size: L · Confidence: med-high
 Theme: public-reference · Source: Musi lint deep-dive 2026-07-04 (3 parallel Codex xhigh lanes + Claude verification agents); successor to harness-review-2026-07 leaf 75 (Milestone 1 done)
 
@@ -17,7 +17,7 @@ next real milestone, not more docs.
 
 ## Evidence
 - `scripts/lint-ratchet/modes.ts:36,298-310`, `current-collector.ts:12,214-228`, `current-collection-scheduler.ts:4` — singleton imports. Verified 2026-07-04.
-- `scripts/lint-ratchet/diagnostics.ts:5-10`, `lint-ratchet-output.ts:4` — shared-schema coupling (adoption guide documents the manual rewrite today).
+- `scripts/lint-ratchet/diagnostics.ts:5-10`, `output.ts:4` — shared-schema coupling (adoption guide documents the manual rewrite today).
 - `scripts/path-policy/path-policy.ts:95-170` — embedded repo profile.
 - `docs/agent_notes/backlog/harness-review-2026-07/75-portable-core-extraction.md` — Milestone 1 scope + the deferred remainder.
 
@@ -62,13 +62,13 @@ Current seams re-verified before this decision:
   imports in `scripts/lint-ratchet/modes.ts:36`,
   `default-mode.ts:14`, `current-collector.ts:12`,
   `current-collection-scheduler.ts:4`, `edit-check.ts:19`,
-  `lint-ratchet-check-registry.ts:13`, and
+  `check-registry.ts:13`, and
   `post-merge-baseline-preflight.ts:4`.
 - `scripts/lint-ratchet/diagnostics.ts:4-10` imports the Musi shared
   harness-diagnostics builders/schema, and
-  `scripts/lint-ratchet/lint-ratchet-output.ts:4` imports the shared
+  `scripts/lint-ratchet/output.ts:4` imports the shared
   `HarnessDiagnostics` type.
-- `scripts/lint-ratchet/lint-ratchet-output.test.ts:35-57` already proves the
+- `scripts/lint-ratchet/output.test.ts:35-57` already proves the
   right shape for an in-tree copy fixture by excluding the real registry and
   deriving runtime modules, but it still copies
   `packages/shared/src/schemas/harness-diagnostics.ts` as a cross-directory
@@ -115,3 +115,30 @@ Acceptance test for a future implementation:
 - Path-policy query tests run against both the Musi `PathPolicyProfile` and a
   small fixture profile with different package roots/full-scan triggers, proving
   that the query engine is profile-driven rather than hard-coded to Musi.
+
+## Addendum — 2026-07-16 (owner ruling via lint-arch-review-2026-07 leaf 02)
+
+The packaging half of this decision is amended; the engine-context half
+stands.
+
+- **Superseded:** "keep the portable core in-tree under
+  `scripts/lint-ratchet/` with adopters copying the directory" (the copy
+  manifest + demo-sync mechanism). The engine moves to an internal
+  workspace package whose boundary *is* the portable surface. Grounds: the
+  sync harness carrying cost is now quantified (~830 LOC of
+  manifest-expand + demo-sync check + test, plus a full mirrored engine
+  copy), and lint-arch-review leaf 01 moves the baseline kernel onto
+  `scripts/lib/baseline/`, splitting the portable surface across two
+  directories — the "runtime-copy model as the cheaper seam" premise this
+  decision rested on does not survive that convergence.
+- **Still deferred:** external publication (npm package / separate repo)
+  pending external adopter demand, exactly as leaf 75 recorded. The
+  amendment is internal packaging only.
+- **Stands:** the `LintRatchetEngineContext` / `PathPolicyProfile` design
+  and this leaf's acceptance tests — the context object becomes the
+  injected configuration the Musi adapter (leaf 02's layer 4) passes into
+  the packaged kernel, and the import-boundary acceptance check becomes
+  structural (package dependency graph) rather than copy-based.
+
+Full ruling:
+`docs/agent_notes/backlog/lint-arch-review-2026-07/02-package-seam-replaces-copy-manifest.md`.

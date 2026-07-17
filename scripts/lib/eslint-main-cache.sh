@@ -5,6 +5,7 @@
 # that can change diagnostics for otherwise unchanged linted files.
 
 MUSI_ESLINT_MAIN_CACHE_ARGS=()
+MUSI_ESLINT_MAIN_CACHE_DIR=""
 
 musi_eslint_main_repo_root() {
   local repo_root="${1:-}"
@@ -144,16 +145,32 @@ musi_eslint_main_prune_cache_dirs() {
     ! -path "$current_dir" -exec rm -rf {} +
 }
 
-musi_eslint_main_cache_args() {
-  local repo_root fingerprint cache_root cache_root_abs cache_dir cache_location
+musi_eslint_main_cache_prepare() {
+  local repo_root fingerprint cache_root cache_root_abs cache_dir
   repo_root="$(musi_eslint_main_repo_root "${1:-}")"
   fingerprint="$(musi_eslint_main_cache_identity_fingerprint "$repo_root")" || return 1
   cache_root="${MUSI_ESLINT_MAIN_CACHE_ROOT:-node_modules/.cache/eslint-main}"
   cache_root_abs="$(musi_eslint_main_absolute_cache_root "$repo_root" "$cache_root")"
   cache_dir="$cache_root_abs/identity-$fingerprint"
-  cache_location="$cache_dir/.eslintcache"
   mkdir -p "$cache_dir"
   musi_eslint_main_prune_cache_dirs "$cache_root_abs" "$cache_dir"
+  MUSI_ESLINT_MAIN_CACHE_DIR="$cache_dir"
+}
+
+musi_eslint_main_cache_args_for_key() {
+  local cache_key="${1:-}" cache_location
+  [ -n "$MUSI_ESLINT_MAIN_CACHE_DIR" ] || {
+    printf 'eslint-main-cache: prepare the cache before selecting an entry\n' >&2
+    return 2
+  }
+  case "$cache_key" in
+    '') cache_location="$MUSI_ESLINT_MAIN_CACHE_DIR/.eslintcache" ;;
+    *[!a-z0-9-]* | -*)
+      printf 'eslint-main-cache: invalid cache key %s\n' "$cache_key" >&2
+      return 2
+      ;;
+    *) cache_location="$MUSI_ESLINT_MAIN_CACHE_DIR/$cache_key.eslintcache" ;;
+  esac
   MUSI_ESLINT_MAIN_CACHE_ARGS=(
     --cache
     --cache-location
@@ -161,4 +178,11 @@ musi_eslint_main_cache_args() {
     --cache-strategy
     content
   )
+}
+
+musi_eslint_main_cache_args() {
+  local repo_root cache_key="${2:-}"
+  repo_root="$(musi_eslint_main_repo_root "${1:-}")"
+  musi_eslint_main_cache_prepare "$repo_root" || return $?
+  musi_eslint_main_cache_args_for_key "$cache_key"
 }

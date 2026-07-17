@@ -105,7 +105,7 @@ const HOOK_OUTPUT_SUPPORT = {
   claude: {
     additionalContext: ["SessionStart", "PreToolUse", "PostToolUse", "PostToolUseFailure"],
     decisionBlock: ["PreToolUse"],
-    systemMessage: ["Stop"],
+    systemMessage: ["Stop", "SubagentStop"],
   },
   codex: {
     additionalContext: ["PreToolUse", "PostToolUse"],
@@ -128,6 +128,7 @@ export interface HookHarnessCommand {
 
 export interface HookWiring {
   readonly event: HookEvent;
+  readonly body: string;
   readonly order: number;
   readonly outputs?: readonly HookOutputCapability[];
   readonly harnesses: Readonly<Partial<Record<HookHarness, HookHarnessCommand>>>;
@@ -338,8 +339,14 @@ export function resolveHookWiring(controlId: string, rawWiring: unknown): HookWi
   if (!isObject(rawWiring.harnesses)) {
     throw new Error(`${controlId}.hookWiring.harnesses must be an object`);
   }
+  const body = requiredString(rawWiring, "body", `${controlId}.hookWiring`);
   const harnesses: Partial<Record<HookHarness, HookHarnessCommand>> = {};
   for (const [key, value] of Object.entries(rawWiring.harnesses)) {
+    if (key === "cursor") {
+      throw new Error(
+        `${controlId}.hookWiring.harnesses.cursor: Cursor has no repository PreToolUse policy surface; agent-cli work cursor uses --force with unrestricted shell. Revisit this exclusion before adding Cursor hook wiring.`,
+      );
+    }
     if (!isHookHarness(key)) throw new Error(`${controlId}.hookWiring.harnesses.${key} is invalid`);
     harnesses[key] = parseHarnessCommand(
       key,
@@ -357,6 +364,7 @@ export function resolveHookWiring(controlId: string, rawWiring: unknown): HookWi
   assertOutputSupport(controlId, rawWiring.event, harnesses, outputs);
   return {
     event: rawWiring.event,
+    body,
     order: positiveInteger(rawWiring, "order", `${controlId}.hookWiring`),
     ...(outputs !== undefined ? { outputs } : {}),
     harnesses,
@@ -393,7 +401,9 @@ function formatHarnessLine(wiring: HookWiring, harness: HookHarness): string | u
 export function formatHookWiring(wiring: HookWiring | undefined): string[] {
   if (wiring === undefined) return [];
   const lines = ["**Hook wiring:**", ""];
-  lines.push(`- event: \`${wiring.event}\`; canonical order: \`${String(wiring.order)}\``);
+  lines.push(
+    `- event: \`${wiring.event}\`; canonical order: \`${String(wiring.order)}\`; shared body: \`${wiring.body}\``,
+  );
   lines.push(...formatOutputs(wiring.outputs));
   for (const harness of HOOK_HARNESSES) {
     const line = formatHarnessLine(wiring, harness);

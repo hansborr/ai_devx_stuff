@@ -1,6 +1,6 @@
 # 30. Custom rule: ban outer `prisma` client member calls inside interactive `$transaction` callbacks
 
-Status: Proposed — from the 2026-07-01 AI-harness review; NOT implemented. Re-verify file:line before acting.
+Status: Done — `eslint-rules/no-outer-client-in-transaction.js`, registered in `local-plugin.js` (`d867c3d2`→`3a5e55ca`).
 Lens: lint-rules · Area: server · Severity: high · Size: M · Confidence: high
 Theme: transaction-atomicity · Source: Musi AI-harness review 2026-07-01 (multi-agent + Codex second opinion + web research)
 

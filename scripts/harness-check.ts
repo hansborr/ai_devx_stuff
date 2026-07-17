@@ -4,13 +4,18 @@
 //  - every lint-rule entry's ruleName resolves to a real local plugin rule;
 //  - every codemod entry's repairCommand is a real package.json script;
 //  - parity (rules): every local/* rule has a lint-rule manifest entry;
+//  - parity (overlays): every lint-agent guidance overlay has a manifest control;
 //  - parity (scripts): every package.json script under the documented
 //    control-prefix conventions has a manifest entry (with an explicit
 //    EXEMPT_SCRIPTS escape for one-off operational utilities);
+//  - parity (doctor): every doctor-check id emitted by doctor.sh is declared
+//    in the manifest and every manifest doctor check is still emitted;
+//  - parity (porting): every Porting This checklist id has a greppable source
+//    marker and every source marker remains documented;
 //  - freshness: generated verify step data, AI hook wiring, local lint
 //    guidance, the harness-controls doc, the restricted-disable rule list,
 //    the config-surface tsconfig (tsconfig.configs.json), generated hook
-//    timeout constants, and smoke-subject metadata are up to date.
+//    timeout constants, skill mirrors, and smoke-subject metadata are up to date.
 //
 // Run via `bun run harness:check`. Exits non-zero on any failure with a
 // per-control diagnostic list so the harness gates surface drift loudly.
@@ -20,15 +25,18 @@ import { readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { checkSkillInventory } from "./harness/check-skill-inventory.js";
+import { GENERATED_SURFACE_FRESHNESS } from "./harness/generated-surface-freshness.js";
 import type {
   ControlFailures,
   ManifestCheckContext,
   RawControl,
 } from "./harness/harness-check-validation.js";
 import {
+  checkAgentOverlayControlParity,
+  checkDoctorParity,
   checkRatchetParity,
   checkRuleParity,
-  checkScriptParity,
   extractBunRunScript,
   formatFailures,
   isNonEmptyString,
@@ -40,90 +48,28 @@ import {
   validateSourceField,
 } from "./harness/harness-check-validation.js";
 import {
+  checkCiGateParity,
+  checkScriptParity,
+  parseHarnessParityConfig,
+} from "./harness/harness-gate-parity.js";
+import {
+  HARNESS_MANIFEST_FILENAME,
+  loadHarnessManifest,
+  readHarnessManifest,
+} from "./harness/harness-manifest.js";
+import {
   CLAUDE_SETTINGS_PATH,
   CODEX_HOOKS_PATH,
   COPILOT_HOOKS_PATH,
-  GENERATED_CONFIG_SURFACES_PATH,
-  GENERATED_HARNESS_CONTROLS_DOC_PATH,
-  GENERATED_HOOK_TIMEOUT_CONSTANTS_PATH,
-  GENERATED_VERIFY_STEPS_PATH,
-  HARNESS_MANIFEST_FILENAME,
-  loadHarnessManifest,
 } from "./harness/harness-paths.js";
 import { loadLocalRuleConfig } from "./harness/local-rule-config.js";
-import { lintRatchets } from "./lint-ratchet/lint-ratchet-config.js";
+import { checkPortingKnobParity } from "./harness/porting-knob-parity.js";
+import { LINT_AGENT_GUIDANCE_OVERLAYS } from "./lint-agent-guidance.js";
 
 const PROCESS_ARG_OFFSET = 2;
 
 const CONTROL_PREFIX_PATTERN =
   /^(sensor|verify|codemod|drift|logs|doctor|module|docs|db|worktree|harness|lint):/u;
-
-// Scripts whose name matches CONTROL_PREFIX_PATTERN but that are not
-// enforcement controls — operational utilities (worktree provisioning,
-// verify:async sub-commands, lint:fix entry points) and meta scripts the
-// manifest doesn't enumerate. The parity check skips these with an
-// explicit comment so additions to this set are reviewable.
-const EXEMPT_SCRIPTS = new Set<string>([
-  // verify:async sub-commands ride the same background wrapper as
-  // `verify:async` (which is in the manifest); they trigger the same
-  // gates via different surfaces (`:changed` and `:slow` spawn
-  // pre-enumerated variants; `:status`/`:tail`/`:stop` are operations
-  // on a running task). The control surface is the underlying verify
-  // gate, not these wrapper entry points.
-  "verify:async:changed",
-  "verify:async:slow",
-  "verify:async:status",
-  "verify:async:tail",
-  "verify:async:stop",
-  // doc-generator --check variants — the primary script is the manifest
-  // entry; --check is the same generator behind a flag.
-  "docs:lint-guidance:check",
-  "docs:harness-controls:check",
-  "harness:config-surfaces:check",
-  "harness:wiring:check",
-  "harness:hook-timeouts:check",
-  "verify:steps:check",
-  // coverage-map :audit/:suggest variants — the same checker behind helper flags.
-  // `docs:lint-coverage-map:check` is the manifest control (the committing gate
-  // runs it with --staged); :audit adds the advisory ESLint-reach probe that
-  // CI and full `verify`/`verify:parallel` run but pre-commit deliberately skips.
-  // :suggest emits ready-to-paste coverage-map rows for the same drift findings.
-  "docs:lint-coverage-map:audit",
-  "docs:lint-coverage-map:suggest",
-  // module-index --check variant — same generator, different mode.
-  "module:index:check",
-  // lint family: `lint:changed` is the changed-file variant of the
-  // lint runner (the per-rule manifest entries enumerate the gate);
-  // `lint:fix` is the repair entry point. The preferred local-rule
-  // diagnostics envelope scripts are manifest entries.
-  "lint:changed",
-  "lint:fix",
-  // Generated restricted-disable list --check variant; the primary generator is
-  // registered as a check control and harness:check runs freshness directly.
-  "lint:restricted-disable-rules:check",
-  // Write path for the max-lines cap exceptions baseline; the --check gate
-  // (lint:max-lines-exceptions) is the registered sensor control.
-  "lint:max-lines-exceptions:update",
-  "lint:ratchet:update",
-  "lint:ratchet:check-baseline",
-  "lint:ratchet:check-registry",
-  "lint:ratchet:report",
-  "lint:ratchet:debt-log",
-  "lint:ratchet:summary",
-  "lint:ratchet:trend",
-  "lint:ratchet:install-merge-driver",
-  // worktree provisioning utilities — dev ergonomics, not enforcement
-  // gates. `worktree:status` is the read-only sensor and IS in the
-  // manifest (sensor/worktree-status).
-  "worktree:init",
-  "worktree:new",
-  "worktree:drop",
-  "worktree:gc",
-  "worktree:template-refresh",
-  "worktree:refresh-data",
-  // The validator itself — meta-control; not self-referential by design.
-  "harness:check",
-]);
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const packageJsonPath = join(repoRoot, "package.json");
@@ -169,9 +115,9 @@ function loadManifest(): RawControl[] {
 function checkGeneratedFreshness(
   failures: Map<string, ControlFailures>,
   outputId: string,
-  generatorPath: string,
+  checkScript: string,
 ): void {
-  const result = spawnSync("bun", ["run", generatorPath, "--", "--check"], {
+  const result = spawnSync("bun", ["run", checkScript], {
     cwd: repoRoot,
     encoding: "utf8",
   });
@@ -179,7 +125,7 @@ function checkGeneratedFreshness(
     pushFailure(
       failures,
       outputId,
-      `failed to run ${generatorPath} --check: ${result.error.message}`,
+      `failed to run bun run ${checkScript}: ${result.error.message}`,
     );
     return;
   }
@@ -191,30 +137,13 @@ function checkGeneratedFreshness(
     outputId,
     output.length > 0
       ? output.join("\n")
-      : `${generatorPath} --check exited with status ${String(result.status)}`,
+      : `bun run ${checkScript} exited with status ${String(result.status)}`,
   );
 }
 
-const GENERATED_FRESHNESS_OUTPUTS: readonly (readonly [outputId: string, generator: string])[] = [
-  [
-    "scripts/path-policy/path-policy-smoke-subjects-data.ts + scripts/fixtures/test-scripts/all-smoke-tests.txt",
-    "scripts/path-policy/generate-smoke-subjects.ts",
-  ],
-  [GENERATED_VERIFY_STEPS_PATH, "scripts/harness/generate-verify-steps.ts"],
-  [GENERATED_HOOK_TIMEOUT_CONSTANTS_PATH, "scripts/harness/generate-hook-timeout-constants.ts"],
-  [GENERATED_CONFIG_SURFACES_PATH, "scripts/harness/generate-config-surfaces.ts"],
-  [HOOK_WIRING_OUTPUTS_LABEL, "scripts/harness/generate-hook-wiring.ts"],
-  ["docs/generated/local-lint-rules.md", "scripts/generate-lint-guidance.ts"],
-  [GENERATED_HARNESS_CONTROLS_DOC_PATH, "scripts/harness/generate-harness-controls.ts"],
-  [
-    "eslint-config/ratchet-restricted-disable-rules.generated.js",
-    "scripts/harness/generate-restricted-disable-rules.ts",
-  ],
-];
-
 function checkGeneratedFreshnessOutputs(failures: Map<string, ControlFailures>): void {
-  for (const [outputId, generatorPath] of GENERATED_FRESHNESS_OUTPUTS) {
-    checkGeneratedFreshness(failures, outputId, generatorPath);
+  for (const entry of GENERATED_SURFACE_FRESHNESS) {
+    checkGeneratedFreshness(failures, entry.outputPaths.join(" + "), entry.checkScript);
   }
 }
 
@@ -242,6 +171,15 @@ function checkGeneratedHookWiringStructure(failures: Map<string, ControlFailures
       ? output.join("\n")
       : `${scriptPath} exited with status ${String(result.status)}`,
   );
+}
+
+function checkManifestSkillInventory(
+  controls: readonly RawControl[],
+  failures: Map<string, ControlFailures>,
+): void {
+  for (const failure of checkSkillInventory(repoRoot, { controls })) {
+    pushFailure(failures, "skill mirrors and filesystem inventory", failure);
+  }
 }
 
 interface DeclaredControlSets {
@@ -339,9 +277,12 @@ async function main(): Promise<void> {
     return;
   }
 
+  const { lintRatchets } = await import("./lint-ratchet/lint-ratchet-config.js");
+  const rawManifest = readHarnessManifest(repoRoot);
   const controls = loadManifest();
   const localRuleConfig = await loadLocalRuleConfig(eslintConfigPath);
   const failures = new Map<string, ControlFailures>();
+  const parityConfig = parseHarnessParityConfig(rawManifest, failures);
   const context: ManifestCheckContext = { repoRoot, scripts: loadPackageScripts(), failures };
   const declared: DeclaredControlSets = {
     scripts: new Set<string>(),
@@ -349,8 +290,14 @@ async function main(): Promise<void> {
     ratchets: new Set<string>(),
   };
   const ratchetIds = new Set<string>(lintRatchets.map((ratchet) => ratchet.id));
+  const declaredControlIds = new Set<string>();
+  const controlInvocations = new Map<string, string>();
 
   for (const raw of controls) {
+    if (isNonEmptyString(raw.id)) {
+      declaredControlIds.add(raw.id);
+      if (isNonEmptyString(raw.invocation)) controlInvocations.set(raw.id, raw.invocation);
+    }
     validateManifestControl(raw, {
       context,
       ruleNames: localRuleConfig.registeredRuleNames,
@@ -361,10 +308,47 @@ async function main(): Promise<void> {
   }
 
   checkRuleParity(localRuleConfig.registeredRuleNames, declared.rules, failures);
+  checkAgentOverlayControlParity(
+    new Set(LINT_AGENT_GUIDANCE_OVERLAYS.keys()),
+    declaredControlIds,
+    failures,
+  );
   checkRatchetParity(ratchetIds, declared.ratchets, failures);
+  checkDoctorParity(
+    readFileSync(join(repoRoot, "scripts/doctor.sh"), "utf8"),
+    new Set([...declaredControlIds].filter((id) => id.startsWith("doctor-check/"))),
+    failures,
+  );
   checkGeneratedFreshnessOutputs(failures);
   checkGeneratedHookWiringStructure(failures);
-  checkScriptParity(CONTROL_PREFIX_PATTERN, EXEMPT_SCRIPTS, declared.scripts, context);
+  checkManifestSkillInventory(controls, failures);
+  for (const failure of checkPortingKnobParity(repoRoot)) {
+    pushFailure(failures, "porting-knob checklist", failure);
+  }
+  checkScriptParity(
+    CONTROL_PREFIX_PATTERN,
+    parityConfig.scriptParityExemptions,
+    declared.scripts,
+    context,
+  );
+  const expectedCiGates = new Map<string, string>();
+  for (const controlId of parityConfig.ciGateControlIds) {
+    const invocation = controlInvocations.get(controlId);
+    if (invocation === undefined) {
+      pushFailure(
+        failures,
+        "(CI parity)",
+        `ciGateControlIds references ${controlId}, which has no manifest control invocation`,
+      );
+    } else {
+      expectedCiGates.set(controlId, invocation);
+    }
+  }
+  checkCiGateParity(
+    readFileSync(join(repoRoot, ".github/workflows/ci.yml"), "utf8"),
+    expectedCiGates,
+    failures,
+  );
 
   if (failures.size > 0) {
     console.error(formatFailures(failures));
@@ -376,4 +360,9 @@ async function main(): Promise<void> {
   );
 }
 
-await main();
+try {
+  await main();
+} catch (error) {
+  console.error(`harness:check: ${error instanceof Error ? error.message : String(error)}`);
+  process.exitCode = 1;
+}

@@ -1,7 +1,10 @@
 # Merge-driver field exercise — adversarial real-merge validation
 
-Status: Parked — owner-requested deeper dive, scheduled AFTER the
-agent-cli-consolidation-pass pack drains
+Status: Done (2026-07-16) — exercised as drain leaf 2.2; adversarial real-merge
+validation complete. Findings, per-conflict-class verdicts, and the sharding
+linkage record are in
+[`merge-driver-field-exercise-findings.md`](./merge-driver-field-exercise-findings.md).
+Prerequisite agent-cli-consolidation-pass pack merged (`b8fcdfbc`, archived `8e72996c`).
 Date: 2026-07-07
 Source: owner ruling during the arch-review promotion pass. The semantic
 min-merge baseline driver (`baseline-merge.ts`, landed `e8b9f7db`, hardened

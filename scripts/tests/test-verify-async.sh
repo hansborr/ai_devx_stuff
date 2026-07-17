@@ -4,6 +4,7 @@
 # smoke-subjects: scripts/tests/test-verify-async.sh
 # smoke-subjects: scripts/process-tree.sh
 # smoke-subjects: scripts/verify.sh
+# smoke-subjects: scripts/lib/verify-engine.sh
 # smoke-subjects: scripts/lib/verify-metadata.sh
 # smoke-subjects: scripts/ai-hooks/cache.sh
 # test-verify-async.sh — pure-shell smoke tests for scripts/verify-async.sh.
@@ -178,10 +179,89 @@ grep -qF 'verify:async: started PID ' <<< "$output" \
   && fail "unknown start mode launched an async state: $output"
 ok "start rejects unknown async modes"
 
+# --- start fails before spawn when durable state cannot be created ----------
+BAD_STATE_ROOT="$SANDBOX/bad-state-root"
+printf 'not a directory\n' > "$BAD_STATE_ROOT"
+set +e
+output=$(
+  MUSI_VERIFY_ASYNC_STATE_ROOT="$BAD_STATE_ROOT" \
+  MUSI_VERIFY_LOCK="$LOCK" \
+    bash "$ASYNC" start --command bash -c 'sleep 30' 2>&1
+)
+bad_state_rc=$?
+set -e
+[[ "$bad_state_rc" -ne 0 ]] || fail "start should fail for an unusable state root"
+grep -qF 'verify:async: started PID ' <<< "$output" \
+  && fail "unusable state root reported a successful start: $output"
+ok "start requires durable initial state before spawning"
+
+# Fail only the second atomic state-file move: the initial pid=0 state exists,
+# then post-spawn PID persistence fails. The starter must terminate and reap
+# the detached child without publishing latest or a success line.
+PID_FAIL_BIN="$SANDBOX/pid-fail-bin"
+PID_FAIL_ROOT="$SANDBOX/pid-fail-state"
+PID_FAIL_COUNTER="$SANDBOX/pid-fail-mv-count"
+PID_FAIL_CHILD="$SANDBOX/pid-fail-child"
+mkdir -p "$PID_FAIL_BIN"
+for tool in bash git sha256sum awk date dirname basename mkdir mktemp rm find sort \
+  flock tail ps env sleep cat grep sed wc xargs seq pgrep; do
+  path=$(command -v "$tool") || fail "missing tool needed for PID-state failure fixture: $tool"
+  ln -s "$path" "$PID_FAIL_BIN/$tool"
+done
+REAL_MV=$(command -v mv)
+REAL_NOHUP=$(command -v nohup)
+cat > "$PID_FAIL_BIN/mv" <<'PID_FAIL_MV'
+#!/usr/bin/env bash
+count=0
+if [[ -f "$PID_FAIL_COUNTER" ]]; then
+  count=$(cat "$PID_FAIL_COUNTER")
+fi
+printf '%s\n' "$((count + 1))" > "$PID_FAIL_COUNTER"
+if [[ "$count" == "1" ]]; then
+  exit 73
+fi
+exec "$REAL_MV" "$@"
+PID_FAIL_MV
+cat > "$PID_FAIL_BIN/nohup" <<'PID_FAIL_NOHUP'
+#!/usr/bin/env bash
+printf '%s\n' "$$" > "$PID_FAIL_CHILD"
+exec "$REAL_NOHUP" "$@"
+PID_FAIL_NOHUP
+chmod +x "$PID_FAIL_BIN/mv" "$PID_FAIL_BIN/nohup"
+
+set +e
+output=$(
+  PATH="$PID_FAIL_BIN" \
+  PID_FAIL_COUNTER="$PID_FAIL_COUNTER" \
+  PID_FAIL_CHILD="$PID_FAIL_CHILD" \
+  REAL_MV="$REAL_MV" \
+  REAL_NOHUP="$REAL_NOHUP" \
+  MUSI_VERIFY_ASYNC_STATE_ROOT="$PID_FAIL_ROOT" \
+  MUSI_VERIFY_LOCK="$LOCK" \
+    bash "$ASYNC" start --command bash -c 'sleep 30' 2>&1
+)
+pid_state_rc=$?
+set -e
+[[ "$pid_state_rc" -ne 0 ]] || fail "start should fail when PID state persistence fails"
+grep -qF 'verify:async: started PID ' <<< "$output" \
+  && fail "PID state failure reported a successful start: $output"
+pid_fail_child=$(wait_for_pid_file "$PID_FAIL_CHILD") \
+  || fail "PID state failure fixture did not observe the spawned child"
+CLEANUP_PIDS+=("$pid_fail_child")
+wait_for_pid_not_running "$pid_fail_child" \
+  || fail "PID state failure left spawned child running: pid $pid_fail_child"
+pid_fail_repo_state="$PID_FAIL_ROOT/$REPO_KEY"
+[[ ! -e "$pid_fail_repo_state/latest" ]] \
+  || fail "PID state failure published a latest pointer"
+ok "post-spawn PID persistence failure reaps child without publishing success"
+
 # --- start -> status -> tail -> pass --------------------------------------
 output=$(run_async start --command bash -c 'echo begin; sleep 1; echo done')
 grep -qF 'verify:async: started PID ' <<< "$output" || fail "start did not print PID: $output"
 grep -qF 'status: bun run verify:async:status' <<< "$output" || fail "start did not print status command: $output"
+[[ -f "$REPO_STATE/latest" ]] || fail "successful start did not publish latest pointer"
+latest_state=$(cat "$REPO_STATE/latest")
+[[ -f "$latest_state" ]] || fail "latest pointer does not name durable state: $latest_state"
 ok "start returns immediately with status command"
 
 output=$(wait_for_status running) || fail "short command never reached running state: $output"
@@ -288,21 +368,42 @@ wait_for_pid_not_running "$timeout_ignore_pid" \
   || fail "timeout cleanup left TERM-ignoring payload running: pid $timeout_ignore_pid"
 ok "timeout reports running until payload cleanup completes"
 
+# --- timeout kills a TERM-handler descendant after its parent exits ---------
+TERM_FORK_SCRIPT="$SANDBOX/term-fork-exit.sh"
+TERM_FORK_CHILD_PID_FILE="$SANDBOX/term-fork-child.pid"
+cat > "$TERM_FORK_SCRIPT" <<'SCRIPT'
+#!/usr/bin/env bash
+trap 'bash -c '\''trap "" TERM; echo $$ > "$TERM_FORK_CHILD_PID_FILE"; while :; do sleep 1; done'\'' & exit 0' TERM
+while :; do sleep 1; done
+SCRIPT
+chmod +x "$TERM_FORK_SCRIPT"
+output=$(run_async_with_timeout 2 start --command env \
+  TERM_FORK_CHILD_PID_FILE="$TERM_FORK_CHILD_PID_FILE" bash "$TERM_FORK_SCRIPT")
+grep -qF 'verify:async: started PID ' <<< "$output" \
+  || fail "TERM-fork timeout start failed: $output"
+term_fork_child_pid=$(wait_for_pid_file "$TERM_FORK_CHILD_PID_FILE") \
+  || fail "TERM-fork payload did not record its late child pid"
+CLEANUP_PIDS+=("$term_fork_child_pid")
+output=$(wait_for_status failed) || fail "TERM-fork timeout never reported failed: $output"
+grep -qF 'exit_code: 124' <<< "$output" \
+  || fail "TERM-fork timeout status missing exit_code 124: $output"
+wait_for_pid_not_running "$term_fork_child_pid" \
+  || fail "timeout left TERM-ignoring descendant running after its parent exited: pid $term_fork_child_pid"
+ok "timeout kills TERM-handler descendants after the direct payload exits"
+
 # --- payload descendants do not inherit the verify lock fd -----------------
 ORPHAN_PID_FILE="$SANDBOX/fd-orphan.pid"
 output=$(run_async start --command env ORPHAN_PID_FILE="$ORPHAN_PID_FILE" \
-  bash -c 'setsid bash -c '\''echo $$ > "$ORPHAN_PID_FILE"; sleep 30'\'' & echo fd-orphan-started; sleep 30')
+  bash -c 'setsid bash -c '\''echo $$ > "$ORPHAN_PID_FILE"; sleep 30'\'' & echo fd-orphan-started')
 grep -qF 'verify:async: started PID ' <<< "$output" || fail "fd orphan start failed: $output"
-output=$(wait_for_status running) || fail "fd orphan command never reached running state: $output"
+output=$(wait_for_status passed) || fail "fd orphan command never reached passed state: $output"
 orphan_pid=$(wait_for_pid_file "$ORPHAN_PID_FILE") || fail "fd orphan command did not write child pid"
 CLEANUP_PIDS+=("$orphan_pid")
 grep -qF 'fd-orphan-started' <<< "$(run_async tail)" || fail "fd orphan command did not write initial log line"
 
-output=$(run_async stop)
-grep -qF 'verify:async: stopped PID ' <<< "$output" || fail "fd orphan stop did not report stopped PID: $output"
-output=$(wait_for_status failed) || fail "fd orphan command never reported failed: $output"
 pid_running "$orphan_pid" || fail "fd orphan fixture exited before lock assertion"
 wait_for_lock_available || fail "payload descendant inherited and held verify lock fd"
+kill -KILL "$orphan_pid" 2>/dev/null || true
 ok "payload descendants cannot inherit the verify lock fd"
 
 # --- status detects crashed jobs and prunes old state ----------------------

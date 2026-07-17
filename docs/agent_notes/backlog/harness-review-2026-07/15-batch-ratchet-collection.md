@@ -1,6 +1,6 @@
 # 15. Ratchet collection spawns one sequential ESLint process per registry entry — parallelize with the existing bounded-concurrency pattern
 
-Status: Proposed — from the 2026-07-01 AI-harness review; NOT implemented. Re-verify file:line before acting.
+Status: Done — `current-collector.ts` runs a bounded concurrency pool (default 3).
 Lens: ratchet · Area: collection · Severity: med · Size: M · Confidence: high
 Theme: ratchet-performance · Source: Musi AI-harness review 2026-07-01 (multi-agent + Codex second opinion + web research)
 

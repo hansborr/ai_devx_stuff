@@ -10,7 +10,6 @@ import {
   type ResolveToolBinOptions,
   type ToolBinConfig,
   type ToolBinResolution,
-  type ToolBinSource,
 } from "./tool-bin.js";
 
 // Relative location of the jscpd executable shim inside any node_modules tree.
@@ -24,9 +23,6 @@ const JSCPD_TOOL_BIN: ToolBinConfig = {
   binRelativePath: JSCPD_BIN_RELATIVE,
   moduleDir: DRIFT_AI_MODULE_DIR,
 };
-
-export type JscpdBinSource = ToolBinSource;
-
 export type JscpdBinResolution = ToolBinResolution;
 
 export type ResolveJscpdBinOptions = ResolveToolBinOptions;

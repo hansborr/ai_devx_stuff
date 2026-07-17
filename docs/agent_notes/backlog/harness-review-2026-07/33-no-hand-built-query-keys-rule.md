@@ -1,6 +1,6 @@
 # 33. Ban hand-built array-literal query keys in client production code (typed keys via `queryOptions()` only)
 
-Status: Proposed — from the 2026-07-01 AI-harness review; NOT implemented. Re-verify file:line before acting.
+Status: Done — `handBuiltQueryKeyPropertyRestrictedSyntax` in `client-configs.js` (`40c451d0`, `2fbf5031`).
 Lens: lint-rules · Area: client · Severity: med-high · Size: S-M · Confidence: high
 Theme: typed-query-keys · Source: Musi AI-harness review 2026-07-01 (multi-agent + Codex second opinion + web research)
 

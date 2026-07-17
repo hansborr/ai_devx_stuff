@@ -1,6 +1,7 @@
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
+import { compareByCodepoint } from "../lib/codepoint-compare.js";
 import { runDocGenerator } from "../lib/doc-generator.js";
 import { lintRatchets } from "../lint-ratchet/lint-ratchet-config.js";
 
@@ -8,8 +9,10 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const outputPath = join(repoRoot, "eslint-config/ratchet-restricted-disable-rules.generated.js");
 
 function renderRestrictedDisableRules(): string {
-  const ruleIds = [...new Set(lintRatchets.map((ratchet) => ratchet.ruleId))].sort((left, right) =>
-    left.localeCompare(right),
+  // codepoint order, not localeCompare — load-bearing for committed/freshness-compared bytes:
+  // this list is rendered verbatim into the committed generated file and freshness-gated.
+  const ruleIds = [...new Set(lintRatchets.map((ratchet) => ratchet.ruleId))].sort(
+    compareByCodepoint,
   );
   return [
     "// @ts-check",

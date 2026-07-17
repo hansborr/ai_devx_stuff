@@ -123,6 +123,23 @@ slugify_title() {
     | sed -E 's/[^a-z0-9]+/-/g; s/^-+|-+$//g'
 }
 
+# Bounded, single-line excerpt of a report-subcommand's captured output, for
+# embedding in a finding's `why` so a JSON consumer keeps some of the sensor's
+# inventory instead of having it `>/dev/null`'d. Newlines/tabs collapse to
+# spaces and the head is capped so the finding stays readable; a truncation
+# marker is appended when the source exceeds the cap.
+REPORT_EXCERPT_MAX_BYTES=800
+report_output_excerpt() {
+  local file="$1" excerpt total
+  excerpt="$(head -c "$REPORT_EXCERPT_MAX_BYTES" "$file" 2>/dev/null | tr '\n\t' '  ' | tr -s ' ')"
+  excerpt="${excerpt#"${excerpt%%[![:space:]]*}"}"
+  total="$(wc -c <"$file" 2>/dev/null || printf '0')"
+  if (( total > REPORT_EXCERPT_MAX_BYTES )); then
+    excerpt="${excerpt} …(truncated, ${total} bytes total)"
+  fi
+  printf '%s' "$excerpt"
+}
+
 prose_print() { (( JSON_MODE )) && return 0; printf '%s\n' "$*"; }
 prose_print_err() { (( JSON_MODE )) && return 0; printf '%s\n' "$*" >&2; }
 
@@ -243,19 +260,51 @@ run_report_subcommand() {
   CURRENT_HINT="$hint"
   prose_print ""
   prose_print "=== $title ==="
+  # Capture the subcommand's output (mirroring run_drift_report_subcommand)
+  # instead of `>/dev/null`, so JSON mode can carry a bounded excerpt and tell a
+  # crash apart from findings. Prose mode still streams live via tee.
+  local tmp
+  tmp="$(mktemp)"
   local rc
   if (( JSON_MODE )); then
-    (cd "$REPO_ROOT" && "$@") >/dev/null 2>&1
+    (cd "$REPO_ROOT" && "$@") >"$tmp" 2>&1
     rc=$?
   else
-    (cd "$REPO_ROOT" && "$@") 2>&1
-    rc=$?
+    (cd "$REPO_ROOT" && "$@") 2>&1 | tee "$tmp"
+    rc=${PIPESTATUS[0]}
   fi
   if [[ $rc -eq 0 ]]; then
     note_pass "$title completed without reported findings"
+  elif [[ $rc -eq 1 ]]; then
+    # rc==1 is report-only findings (e.g. knip totalErrorCount>max-issues). In
+    # JSON mode attach a bounded output excerpt so the envelope keeps some of the
+    # inventory the previous `>/dev/null` discarded; prose already streamed it.
+    if (( JSON_MODE )); then
+      local excerpt
+      excerpt="$(report_output_excerpt "$tmp")"
+      note_warn "$title exited $rc (report-only) — $hint${excerpt:+ | output: ${excerpt}}"
+    else
+      note_warn "$title exited $rc (report-only) — $hint"
+    fi
   else
-    note_warn "$title exited $rc (report-only) — $hint"
+    # rc>=2 is a tool crash (e.g. knip config-load failure), not a findings
+    # report. Emit a distinct `sensor-crashed` finding so a consumer can tell
+    # "sensor never ran" from "sensor reported findings". Report-only sensors do
+    # not gate doctor's exit, so this deliberately does NOT touch FAIL_COUNT: the
+    # crash/findings distinction lives in the envelope (distinct messageId), not
+    # the process exit code (an envelope-only fix that preserves exit policy).
+    if (( JSON_MODE )); then
+      local excerpt
+      excerpt="$(report_output_excerpt "$tmp")"
+      WARN_COUNT=$((WARN_COUNT + 1))
+      emit_finding "$control" warn "${control##*/}-sensor-crashed" \
+        "$title crashed (exit $rc — sensor did not run to completion; not a findings report) — $hint${excerpt:+ | output: ${excerpt}}" \
+        "$hint"
+    else
+      note_warn "$title crashed (exit $rc — sensor did not run to completion) — $hint"
+    fi
   fi
+  rm -f "$tmp"
   CURRENT_CONTROL=""
   CURRENT_HINT=""
 }
@@ -652,7 +701,7 @@ check_shellcheck_system_tool() {
 # MUSI_ACTIONLINT_BIN / MUSI_HADOLINT_BIN overrides (see resolve_lint_bin).
 # Known-good versions are single-sourced (read here, never re-pinned):
 #   - npm-managed tools (eslint, prettier, taplo, node-actionlint): package.json
-#   - hadolint's binary pin: scripts/lint-config-sensors.sh (HADOLINT_VERSION)
+#   - hadolint's downloaded binary: package.json config.hadolint
 #   - Bun: package.json's packageManager field
 # For npm-managed tools the reported "installed" version is the installed npm
 # package version (node_modules/<pkg>/package.json), which shares a namespace
@@ -663,6 +712,12 @@ check_shellcheck_system_tool() {
 pkg_dep_version() {
   # Print the package.json pin (known-good) for dependency $1, or empty on error.
   bun -e 'const p=require(process.argv[1]);const n=process.argv[2];const d=p.dependencies||{};const v=p.devDependencies||{};process.stdout.write(String(d[n]||v[n]||""))' \
+    "$REPO_ROOT/package.json" "$1" 2>/dev/null || true
+}
+
+pkg_config_value() {
+  # Print package.json config key $1, or empty on error.
+  bun -e 'const p=require(process.argv[1]);const v=p.config?.[process.argv[2]];process.stdout.write(typeof v==="string"?v:"")' \
     "$REPO_ROOT/package.json" "$1" 2>/dev/null || true
 }
 
@@ -744,7 +799,7 @@ check_lint_tools() {
   prose_print ""
   prose_print "=== lint tools ==="
   local hadolint_kg bun_kg
-  hadolint_kg="$(grep -E '^HADOLINT_VERSION=' "$SCRIPT_DIR/lint-config-sensors.sh" 2>/dev/null | head -n1 | cut -d= -f2 || true)"
+  hadolint_kg="$(pkg_config_value hadolint)"
   bun_kg="$(bun -e 'const p=require(process.argv[1]);process.stdout.write(String(p.packageManager||""))' "$REPO_ROOT/package.json" 2>/dev/null || true)"
   bun_kg="${bun_kg#bun@}"
   # The override env-var args (taplo, node-actionlint, hadolint) mirror the
@@ -776,6 +831,21 @@ run_subcommand "lint-ratchet merge-driver health" \
   "run 'bun run lint:ratchet:install-merge-driver' to refresh local Git merge-driver config, installed driver copy, and info attributes" \
   "doctor-check/lint-ratchet-merge-driver" \
   bash "$REPO_ROOT/scripts/git/check-lint-ratchet-merge-driver.sh"
+
+run_subcommand "knip unused-exports merge-driver health" \
+  "run 'bun run sensor:knip-unused-exports:install-merge-driver' to refresh local Git merge-driver config, installed driver copy, and info attributes" \
+  "doctor-check/knip-unused-exports-merge-driver" \
+  bash "$REPO_ROOT/scripts/git/check-knip-unused-exports-merge-driver.sh"
+
+run_subcommand "near-duplicates merge-driver health" \
+  "run 'bun run sensor:near-duplicates:install-merge-driver' to refresh local Git merge-driver config, installed driver copy, and info attributes" \
+  "doctor-check/near-duplicates-merge-driver" \
+  bash "$REPO_ROOT/scripts/git/check-near-duplicates-merge-driver.sh"
+
+run_subcommand "max-lines exceptions merge-driver health" \
+  "run 'bun run lint:max-lines-exceptions:install-merge-driver' to refresh local Git merge-driver config, installed driver copy, and info attributes" \
+  "doctor-check/max-lines-exceptions-merge-driver" \
+  bash "$REPO_ROOT/scripts/git/check-max-lines-exceptions-merge-driver.sh"
 
 run_subcommand "eslint-disable register" \
   "add '-- reason', prefer eslint-disable-next-line, or add a targeted broad-disable allowlist entry when the suppression is intentionally scoped" \

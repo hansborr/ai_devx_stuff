@@ -1,6 +1,6 @@
 # 71. The lint-coverage-map claims every tracked maintained surface is accounted for, but the checker only enforces a dozen file extensions
 
-Status: Proposed — from the 2026-07-01 AI-harness review; NOT implemented. Re-verify file:line before acting.
+Status: Done — the checker was widened (`c28439e4`): `scripts/lint-coverage-map-check-patterns.ts` now carries `TRACKED_BASENAMES` alongside a broadened `TRACKED_EXTENSION_PATTERN`, so the previously invisible families are enforced. Problem statement below is retained as the original finding.
 Lens: reference-fitness · Area: lint-governance · Severity: med · Size: S · Confidence: high
 Theme: gate-matches-claim · Source: Musi AI-harness review 2026-07-01 (multi-agent + Codex second opinion + web research)
 

@@ -16,7 +16,7 @@ import {
   validateSourcePath,
 } from "./control-field-validation.js";
 
-export { formatMissingRatchetManifestMessage, isNonEmptyString };
+export { isNonEmptyString };
 
 export interface RawControl {
   readonly id?: unknown;
@@ -208,29 +208,6 @@ export function validateRatchetEntry(
   }
 }
 
-export function checkScriptParity(
-  controlPrefixPattern: RegExp,
-  exemptScripts: ReadonlySet<string>,
-  declaredScripts: ReadonlySet<string>,
-  context: ManifestCheckContext,
-): void {
-  for (const name of context.scripts.keys()) {
-    if (!controlPrefixPattern.test(name)) continue;
-    if (exemptScripts.has(name)) continue;
-    if (declaredScripts.has(name)) continue;
-    pushFailure(
-      context.failures,
-      "(parity)",
-      `package.json script "${name}" matches the control-prefix convention but is ` +
-        `not declared in harness.controls.json and not exempt. Fix one of:\n` +
-        `      1. Add a control entry (with "invocation": "bun run ${name}") to ` +
-        `harness.controls.json, then run \`bun run docs:harness-controls\`.\n` +
-        `      2. If it is an operational utility (not an enforcement gate), add "${name}" ` +
-        `to EXEMPT_SCRIPTS in scripts/harness-check.ts (with a justifying comment).`,
-    );
-  }
-}
-
 export function checkRuleParity(
   ruleNames: ReadonlySet<string>,
   declaredRules: ReadonlySet<string>,
@@ -243,6 +220,22 @@ export function checkRuleParity(
   }
 }
 
+export function checkAgentOverlayControlParity(
+  overlayRuleIds: ReadonlySet<string>,
+  declaredControlIds: ReadonlySet<string>,
+  failures: Map<string, ControlFailures>,
+): void {
+  for (const ruleId of overlayRuleIds) {
+    const controlId = `lint/${ruleId}`;
+    if (declaredControlIds.has(controlId)) continue;
+    pushFailure(
+      failures,
+      "(parity)",
+      `lint-agent overlay ${ruleId} is not declared as control ${controlId} in harness.controls.json`,
+    );
+  }
+}
+
 export function checkRatchetParity(
   ratchetIds: ReadonlySet<string>,
   declaredRatchets: ReadonlySet<string>,
@@ -252,6 +245,44 @@ export function checkRatchetParity(
     if (!declaredRatchets.has(ratchetId)) {
       pushFailure(failures, "(parity)", formatMissingRatchetManifestMessage(ratchetId));
     }
+  }
+}
+
+const QUOTED_DOCTOR_CHECK_ID_PATTERN = /["'](doctor-check\/[a-z0-9][a-z0-9-]*)["']/gu;
+
+export function extractDoctorCheckIds(doctorSource: string): ReadonlySet<string> {
+  const ids = new Set<string>();
+  for (const line of doctorSource.split("\n")) {
+    if (line.trimStart().startsWith("#")) continue;
+    for (const match of line.matchAll(QUOTED_DOCTOR_CHECK_ID_PATTERN)) {
+      const id = match[1];
+      if (id !== undefined) ids.add(id);
+    }
+  }
+  return ids;
+}
+
+export function checkDoctorParity(
+  doctorSource: string,
+  manifestDoctorIds: ReadonlySet<string>,
+  failures: Map<string, ControlFailures>,
+): void {
+  const emittedDoctorIds = extractDoctorCheckIds(doctorSource);
+  for (const id of emittedDoctorIds) {
+    if (manifestDoctorIds.has(id)) continue;
+    pushFailure(
+      failures,
+      "(doctor parity)",
+      `doctor.sh emits ${id}, but harness.controls.json does not declare it`,
+    );
+  }
+  for (const id of manifestDoctorIds) {
+    if (emittedDoctorIds.has(id)) continue;
+    pushFailure(
+      failures,
+      "(doctor parity)",
+      `harness.controls.json declares ${id}, but doctor.sh does not emit it`,
+    );
   }
 }
 

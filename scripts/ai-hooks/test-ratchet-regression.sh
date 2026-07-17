@@ -167,7 +167,7 @@ RR_CTX=$(rr_context "$RR_OUT")
 assert_contains "$RR_CTX" "lint-ratchet (WARNING)"
 assert_contains "$RR_CTX" "src/foo.ts:1 (local/type-assertion-boundary — new-path)"
 assert_contains "$RR_CTX" "Full ratchet picture: bun run lint:ratchet"
-assert_contains "$RR_CTX" "Structured local/* guidance only: bun run lint:agent:local-rules:changed"
+assert_contains "$RR_CTX" "Structured selected-rule guidance: bun run lint:agent:local-rules:changed"
 assert_not_contains "$RR_CTX" "For structured per-rule fix guidance"
 assert_contains "$RR_CTX" "Type-aware ratchets are not checked"
 RR_DISCOVERY=$(grep -F -- '--edit-check-targets' "$RR_BUN_LOG" || true)

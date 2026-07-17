@@ -5,11 +5,22 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$REPO_ROOT"
-PATH_POLICY_QUERY="$SCRIPT_DIR/path-policy/path-policy-query.ts"
+# shellcheck source=/dev/null
+. "$SCRIPT_DIR/lib/verify-metadata.sh"
+# shellcheck source=scripts/lib/changed-lintable-files.sh
+. "$SCRIPT_DIR/lib/changed-lintable-files.sh"
 
 MODE=full
 BASE=main
-HADOLINT_VERSION=2.14.0
+HADOLINT_VERSION="$(bun -e '
+  const pkg = require(process.argv[1]);
+  const version = pkg.config?.hadolint;
+  if (typeof version !== "string" || version.length === 0) process.exit(1);
+  process.stdout.write(version);
+' "$REPO_ROOT/package.json" 2>/dev/null)" || {
+  printf 'lint:config-sensors: package.json config.hadolint must be a non-empty string.\n' >&2
+  exit 2
+}
 
 usage() {
   cat <<'EOF'
@@ -96,11 +107,20 @@ add_reference_dockerfile() {
   REFERENCE_DOCKERFILES+=("$file")
 }
 
-path_policy_has_match() {
-  local query="$1"
+select_config_policy_paths() {
+  local query="$1" tmp file
   shift
-
-  IFS= read -r -d '' < <(printf '%s\0' "$@" | bun --config=/dev/null "$PATH_POLICY_QUERY" "$query")
+  tmp=$(mktemp "${TMPDIR:-/tmp}/musi-config-selected.XXXXXX") || return 2
+  if ! printf '%s\0' "$@" | musi_path_policy_query_nul "$query" > "$tmp"; then
+    printf 'lint:config-sensors: path selection failed for %s.\n' "$query" >&2
+    rm -f "$tmp"
+    return 2
+  fi
+  MUSI_CONFIG_POLICY_FILES=()
+  while IFS= read -r -d '' file; do
+    MUSI_CONFIG_POLICY_FILES+=("$file")
+  done < "$tmp"
+  rm -f "$tmp"
 }
 
 reset_config_sensor_files() {
@@ -119,11 +139,11 @@ reset_config_sensor_files() {
 collect_repo_files() {
   if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     {
-      git ls-files -z --cached --others --exclude-standard
+      git ls-files -z --cached --others --exclude-standard || exit $?
       # Reference Dockerfile is gitignored but explicitly linted with relaxed rules.
       printf '%s\0' "docs/refs/5e-database/Dockerfile"
     } | sort -z -u
-    return 0
+    return $?
   fi
 
   while IFS= read -r -d '' file; do
@@ -135,44 +155,54 @@ collect_config_sensor_candidates() {
   local file
   declare -A REFERENCE_POLICY_MATCH=()
 
-  while IFS= read -r -d '' file; do
+  select_config_policy_paths config-surface:reference-dockerfile "$@" || return 2
+  for file in "${MUSI_CONFIG_POLICY_FILES[@]}"; do
     REFERENCE_POLICY_MATCH[$file]=1
     add_reference_dockerfile "$file"
-  done < <(printf '%s\0' "$@" | bun --config=/dev/null "$PATH_POLICY_QUERY" config-surface:reference-dockerfile)
+  done
 
-  while IFS= read -r -d '' file; do
+  select_config_policy_paths config-surface:workflow-yaml "$@" || return 2
+  for file in "${MUSI_CONFIG_POLICY_FILES[@]}"; do
     add_actionlint_file "$file"
-  done < <(printf '%s\0' "$@" | bun --config=/dev/null "$PATH_POLICY_QUERY" config-surface:workflow-yaml)
+  done
 
-  while IFS= read -r -d '' file; do
+  select_config_policy_paths config-surface:yaml "$@" || return 2
+  for file in "${MUSI_CONFIG_POLICY_FILES[@]}"; do
     add_yaml_file "$file"
-  done < <(printf '%s\0' "$@" | bun --config=/dev/null "$PATH_POLICY_QUERY" config-surface:yaml)
+  done
 
-  while IFS= read -r -d '' file; do
+  select_config_policy_paths config-surface:toml "$@" || return 2
+  for file in "${MUSI_CONFIG_POLICY_FILES[@]}"; do
     add_toml_file "$file"
-  done < <(printf '%s\0' "$@" | bun --config=/dev/null "$PATH_POLICY_QUERY" config-surface:toml)
+  done
 
-  while IFS= read -r -d '' file; do
+  select_config_policy_paths config-surface:dockerfile "$@" || return 2
+  for file in "${MUSI_CONFIG_POLICY_FILES[@]}"; do
     [ -n "${REFERENCE_POLICY_MATCH[$file]:-}" ] && continue
     add_dockerfile "$file"
-  done < <(printf '%s\0' "$@" | bun --config=/dev/null "$PATH_POLICY_QUERY" config-surface:dockerfile)
+  done
 }
 
 collect_full_files() {
-  local candidates=() file
+  local candidates=() file candidates_file
 
+  candidates_file=$(mktemp "${TMPDIR:-/tmp}/musi-config-input.XXXXXX") || return 2
+  if ! collect_repo_files > "$candidates_file"; then
+    printf 'lint:config-sensors: path selection failed while collecting repository files.\n' >&2
+    rm -f "$candidates_file"
+    return 2
+  fi
   while IFS= read -r -d '' file; do
     candidates+=("$file")
-  done < <(collect_repo_files)
+  done < "$candidates_file"
+  rm -f "$candidates_file"
 
   collect_config_sensor_candidates "${candidates[@]}"
 }
 
 collect_changed_files() {
-  local changed_files=() file
+  local selector_rc
 
-  # shellcheck source=/dev/null
-  . "$SCRIPT_DIR/lib/verify-metadata.sh"
   # shellcheck source=scripts/lib/changed-base.sh
   . "$SCRIPT_DIR/lib/changed-base.sh"
 
@@ -186,19 +216,21 @@ collect_changed_files() {
     return 0
   fi
 
-  while IFS= read -r -d '' file; do
-    changed_files+=("$file")
-  done < <(
-    {
-      git diff -z --name-only --diff-filter=ACMRD "$BASE"...HEAD
-      git diff -z --name-only --diff-filter=ACMRD --cached
-    }
-  )
-
-  if [ "${#changed_files[@]}" -gt 0 ] \
-     && path_policy_has_match full-scan-trigger:config-sensors-changed "${changed_files[@]}"; then
-    FULL_SENSOR_RUN=1
+  if ! musi_collect_changed_candidates "$REPO_ROOT" "$BASE" gate; then
+    printf 'lint:config-sensors: path selection failed while collecting changed files.\n' >&2
+    return 2
   fi
+
+  selector_rc=0
+  musi_changed_candidates_trigger_full_scan full-scan-trigger:config-sensors-changed || selector_rc=$?
+  case "$selector_rc" in
+    0) FULL_SENSOR_RUN=1 ;;
+    1) ;;
+    *)
+      printf 'lint:config-sensors: path selection failed for full-scan-trigger:config-sensors-changed.\n' >&2
+      return 2
+      ;;
+  esac
 
   if [ "$FULL_SENSOR_RUN" -eq 1 ]; then
     reset_config_sensor_files
@@ -206,7 +238,7 @@ collect_changed_files() {
     return 0
   fi
 
-  collect_config_sensor_candidates "${changed_files[@]}"
+  collect_config_sensor_candidates "${CHANGED_FILES[@]}"
 }
 
 command_from_env_or_path() {

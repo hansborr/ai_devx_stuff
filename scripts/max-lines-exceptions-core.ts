@@ -10,15 +10,18 @@
 // the deterministic formatter, and the --check/--update CLI.
 
 import {
+  MAX_LINES_EXCEPTIONS_METRIC,
+  MAX_LINES_EXCEPTIONS_TOOL,
+  parseMaxLinesExceptionEntry,
+} from "../eslint-config/max-lines-exceptions-codec.js";
+import {
   type BaselineMetricSpec,
+  conflictMarkerTripwire,
   formatBaseline,
   parseBaseline,
   type ParseResult,
 } from "./lib/baseline/entry-baseline.js";
 import { gateEntries } from "./lib/baseline/gate.js";
-
-const MAX_LINES_EXCEPTIONS_TOOL = "eslint-max-lines";
-const MAX_LINES_EXCEPTIONS_METRIC = "file-line-cap-exceptions";
 
 export type MaxLinesSeverity = "error" | "warn";
 export type MaxLinesLifecycle = "permanent" | "candidate-for-split";
@@ -38,27 +41,8 @@ export type MaxLinesExceptionEntry = {
   readonly ratchetExcluded: boolean;
 };
 
-const SEVERITIES: readonly MaxLinesSeverity[] = ["error", "warn"];
-const LIFECYCLES: readonly MaxLinesLifecycle[] = ["permanent", "candidate-for-split"];
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function isNonBlankString(value: unknown): value is string {
-  return typeof value === "string" && value.trim().length > 0;
-}
-
-function isPositiveInteger(value: unknown): value is number {
-  return typeof value === "number" && Number.isInteger(value) && value > 0;
-}
-
-function isSeverity(value: unknown): value is MaxLinesSeverity {
-  return typeof value === "string" && SEVERITIES.some((severity) => severity === value);
-}
-
-function isLifecycle(value: unknown): value is MaxLinesLifecycle {
-  return typeof value === "string" && LIFECYCLES.some((lifecycle) => lifecycle === value);
 }
 
 export function makeMaxLinesExceptionEntry(input: {
@@ -76,38 +60,17 @@ export const maxLinesExceptionsSpec: BaselineMetricSpec<MaxLinesExceptionEntry> 
   tool: MAX_LINES_EXCEPTIONS_TOOL,
   metric: MAX_LINES_EXCEPTIONS_METRIC,
   meta: {},
+  regenerate: "bun run lint:max-lines-exceptions:update",
+  conflictMarkerRemediation: {
+    baselineFile: "eslint-config/max-lines-exceptions.baseline.json",
+    installerCommand: "bun run lint:max-lines-exceptions:install-merge-driver",
+    updateCommand: "bun run lint:max-lines-exceptions:update",
+    reconcileEntries: true,
+  },
   parseEntry(raw): ParseResult<MaxLinesExceptionEntry> {
-    if (!isRecord(raw)) return { ok: false, error: "entry must be an object" };
-    const { path, cap, severity, reason, lifecycle, ratchetExcluded } = raw;
-    if (!isNonBlankString(path)) {
-      return { ok: false, error: "entry path must be a non-empty string" };
-    }
-    if (!isPositiveInteger(cap)) {
-      return { ok: false, error: `entry cap must be a positive integer (${path})` };
-    }
-    if (!isSeverity(severity)) {
-      return { ok: false, error: `entry severity must be "error" or "warn" (${path})` };
-    }
-    if (!isNonBlankString(reason)) {
-      return { ok: false, error: `entry reason must be a non-empty string (${path})` };
-    }
-    if (!isLifecycle(lifecycle)) {
-      return { ok: false, error: `entry lifecycle is invalid (${path})` };
-    }
-    if (typeof ratchetExcluded !== "boolean") {
-      return { ok: false, error: `entry ratchetExcluded must be a boolean (${path})` };
-    }
-    return {
-      ok: true,
-      value: makeMaxLinesExceptionEntry({
-        path,
-        cap,
-        severity,
-        reason,
-        lifecycle,
-        ratchetExcluded,
-      }),
-    };
+    const parsed = parseMaxLinesExceptionEntry(raw);
+    if (!parsed.ok) return { ok: false, error: parsed.error };
+    return { ok: true, value: makeMaxLinesExceptionEntry(parsed.value) };
   },
   formatEntry(entry) {
     return {
@@ -139,8 +102,7 @@ export function readMaxLinesExceptionsBaseline(
 }
 
 // Parse only the entries, ignoring the committed summary. --update re-derives the
-// summary and re-sorts, so it must tolerate the stale summary it is about to fix
-// (parseBaseline would reject that as summary drift).
+// summary and re-sorts, so it must tolerate the stale summary it is about to fix.
 export function parseMaxLinesEntriesForUpdate(
   text: string,
 ): ParseResult<readonly MaxLinesExceptionEntry[]> {
@@ -148,6 +110,8 @@ export function parseMaxLinesEntriesForUpdate(
   try {
     raw = JSON.parse(text);
   } catch (err) {
+    const tripwire = conflictMarkerTripwire(text, maxLinesExceptionsSpec.conflictMarkerRemediation);
+    if (tripwire !== undefined) return { ok: false, error: tripwire };
     return {
       ok: false,
       error: `baseline is not valid JSON: ${err instanceof Error ? err.message : String(err)}`,

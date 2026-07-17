@@ -1,6 +1,6 @@
 # 54. protected-files.sh is advisory-only even for files where an agent edit is near-certainly wrong; split the path list into advisory and deny tiers
 
-Status: Proposed — from the 2026-07-01 AI-harness review; NOT implemented. Re-verify file:line before acting.
+Status: Done — `protected-files.sh` `ai_emit_deny` tier for baseline/registers/generated/lockfile (`68999c63`).
 Lens: hooks · Area: hooks-protected-files · Severity: med-high · Size: M · Confidence: high
 Theme: protected-files-tiering · Source: Musi AI-harness review 2026-07-01 (multi-agent + Codex second opinion + web research)
 

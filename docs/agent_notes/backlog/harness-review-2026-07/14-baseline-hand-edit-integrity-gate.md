@@ -1,6 +1,6 @@
 # 14. A hand-edited baseline count increase passes the gate with no --allow-worse and no debt-log line — add a merge-base integrity check
 
-Status: Proposed — from the 2026-07-01 AI-harness review; NOT implemented. Re-verify file:line before acting.
+Status: Done — `baseline-debt-accounting*.ts` wired as `--check-debt-accounting` through `bun run verify`.
 Lens: ratchet · Area: baseline · Severity: high · Size: M · Confidence: high
 Theme: baseline-integrity · Source: Musi AI-harness review 2026-07-01 (multi-agent + Codex second opinion + web research)
 
@@ -16,7 +16,7 @@ The baseline's `configHash` deliberately covers only the ratchet's configuration
 - `docs/guides/lint-ratchet.md:560-575` — enforcement of the debt log "stays local by design — there is no CI commitlint gate for the log"; this leaf closes that stated gap for the increase direction.
 
 ## Proposed direction
-Add a diff-aware integrity check (new mode `lint:ratchet:check-debt-accounting` or folded into CI + the pre-commit ratchet slot): compare the committed baseline against the merge-base version (`git show $(git merge-base HEAD origin/main):lint-ratchet.baseline.json`, falling back to the parent commit locally). For every per-(testId, path) increase — count up, `lines` up, `maxComplexity` up, or new path — require a debt-log line appended *in the same range* whose `regressions[]` contains a matching `(testId, path)` with `currentCount` ≥ the new baseline count. Exemptions, all derivable from the same two snapshots: (a) test ids absent at merge-base (new ratchet adoption legitimately captures debt with no acceptance — `docs/guides/lint-ratchet.md:913-921`), (b) entries whose `configHash` changed (scope/options changed; the floor is not comparable — the `--allow-worse` path still logs the cases that matter via `decideLintRatchetUpdate`). No new state: baseline history + union-merged debt log already contain everything.
+Add a diff-aware integrity check (new mode `lint:ratchet:check-debt-accounting` or folded into CI + the pre-commit ratchet slot): compare the committed baseline against the merge-base version (`git show $(git merge-base HEAD origin/main):lint-ratchet.baseline.json`, falling back to the parent commit locally). For every per-(testId, path) increase — count up, `lines` up, `maxComplexity` up, or new path — require a debt-log line appended *in the same range* whose `regressions[]` contains a matching `(testId, path)` with `currentCount` ≥ the new baseline count. Exemptions, all derivable from the same two snapshots: (a) test ids absent at merge-base (new ratchet adoption legitimately captures debt with no acceptance — `docs/guides/lint-ratchet.md#commands`), (b) entries whose `configHash` changed (scope/options changed; the floor is not comparable — the `--allow-worse` path still logs the cases that matter via `decideLintRatchetUpdate`). No new state: baseline history + union-merged debt log already contain everything.
 
 ## Scope / caveats
 - This does not prevent hand edits; it makes an unaccounted *increase* fail loudly. Hand-editing a count *down* already fails naturally (reality > floor ⇒ regression).

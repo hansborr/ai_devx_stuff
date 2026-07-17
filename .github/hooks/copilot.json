@@ -31,6 +31,12 @@
       {
         "type": "command",
         "matcher": "create|edit",
+        "bash": "bash \"$(git rev-parse --show-toplevel)/.copilot/hooks/backlog-note-lint.sh\"",
+        "timeoutSec": 30
+      },
+      {
+        "type": "command",
+        "matcher": "create|edit",
         "bash": "bash \"$(git rev-parse --show-toplevel)/.copilot/hooks/tidy-edited-file.sh\"",
         "timeoutSec": 120
       },

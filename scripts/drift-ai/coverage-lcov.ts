@@ -243,6 +243,12 @@ function applyDa(
     notes.push(malformed(lineNo, `DA record has a malformed line/hits '${truncate(value)}'`));
     return;
   }
+  const existing = section.lines.get(line);
+  if (existing !== undefined && existing !== hits) {
+    notes.push(
+      malformed(lineNo, `duplicate DA record for line ${String(line)} with differing hits`),
+    );
+  }
   section.lines.set(line, hits);
 }
 

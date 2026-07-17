@@ -4,7 +4,7 @@ import path from "node:path";
 export type RepoFileReader = (filePath: string) => string | undefined;
 export type DirectoryListing = (directory: string) => readonly string[];
 export type PathProbe = (relativePath: string) => boolean;
-export type RepoPathKind = "file" | "directory";
+type RepoPathKind = "file" | "directory";
 export type PathExists = (repoRelativePath: string, kind: RepoPathKind) => boolean;
 
 export function compareStrings(left: string, right: string): number {

@@ -247,4 +247,29 @@ POST_PLAIN_OUTPUT=$(
 )
 assert_no_output "$POST_PLAIN_OUTPUT" "copilot post hook on unwrapped command"
 
+# --- backlog-note-lint Copilot wiring ----------------------------------------
+BACKLOG_COPILOT_DIR="$TMP_ROOT/backlog"
+mkdir -p "$BACKLOG_COPILOT_DIR/pack"
+BACKLOG_COPILOT_DIRTY="$BACKLOG_COPILOT_DIR/pack/dirty.md"
+printf '# Dirty note\n\nNo front matter here.\n' > "$BACKLOG_COPILOT_DIRTY"
+BACKLOG_COPILOT_OUTPUT=$(
+  copilot_edit_payload "$BACKLOG_COPILOT_DIRTY" \
+    | AI_BACKLOG_NOTES_DIR="$BACKLOG_COPILOT_DIR" \
+      CLAUDE_PROJECT_DIR="$REPO_ROOT" bash "$REPO_ROOT/.copilot/hooks/backlog-note-lint.sh"
+)
+assert_hook_json "$BACKLOG_COPILOT_OUTPUT"
+BACKLOG_COPILOT_CONTEXT=$(jq -r '.additionalContext // empty' <<< "$BACKLOG_COPILOT_OUTPUT")
+assert_contains "$BACKLOG_COPILOT_CONTEXT" "backlog:lint advisory findings"
+assert_contains "$BACKLOG_COPILOT_CONTEXT" "Missing Status:"
+
+BACKLOG_COPILOT_OUTSIDE="$TMP_ROOT/not-backlog/note.md"
+mkdir -p "$(dirname "$BACKLOG_COPILOT_OUTSIDE")"
+printf '# Outside\n\nno front matter\n' > "$BACKLOG_COPILOT_OUTSIDE"
+BACKLOG_COPILOT_NEGATIVE_OUTPUT=$(
+  copilot_edit_payload "$BACKLOG_COPILOT_OUTSIDE" \
+    | AI_BACKLOG_NOTES_DIR="$BACKLOG_COPILOT_DIR" \
+      CLAUDE_PROJECT_DIR="$REPO_ROOT" bash "$REPO_ROOT/.copilot/hooks/backlog-note-lint.sh"
+)
+assert_no_output "$BACKLOG_COPILOT_NEGATIVE_OUTPUT" "copilot backlog-note-lint on non-backlog note"
+
 printf 'copilot wiring ai-hooks tests passed\n'

@@ -23,6 +23,12 @@ declare module "*eslint-config/shared-policy.js" {
     readonly skipComments: true;
   }
 
+  interface MaxLinesPolicyGeneratedExemption {
+    readonly path: string;
+    readonly generator: string;
+    readonly reason: string;
+  }
+
   interface MaxLinesPolicyRatchet {
     readonly id: string;
     readonly files: readonly string[];
@@ -37,6 +43,7 @@ declare module "*eslint-config/shared-policy.js" {
     readonly counting: MaxLinesPolicyCounting;
     readonly ratchetFloor: { readonly cap: number };
     readonly exceptions: readonly MaxLinesPolicyException[];
+    readonly generatedExemptions: readonly MaxLinesPolicyGeneratedExemption[];
     readonly ratchets: readonly MaxLinesPolicyRatchet[];
   }
 
@@ -53,6 +60,8 @@ declare module "*eslint-config/shared-policy.js" {
   export const scriptTestAssertFunctionNames: readonly string[];
   export const clientSourceFiles: readonly string[];
   export const clientTestAndHelperSourceFiles: readonly string[];
+  export const productionFunctionStructureFiles: readonly string[];
+  export const productionFunctionStructureIgnores: readonly string[];
 }
 
 declare module "*eslint-config/config-surfaces.js" {
@@ -73,12 +82,43 @@ declare module "*eslint-config/config-surfaces.js" {
   export const scriptProjectConfigIgnores: readonly string[];
 }
 
+declare module "*eslint-config/max-lines-exceptions-codec.js" {
+  type MaxLinesSeverity = "error" | "warn";
+  type MaxLinesLifecycle = "permanent" | "candidate-for-split";
+
+  interface MaxLinesExceptionFields {
+    readonly path: string;
+    readonly cap: number;
+    readonly severity: MaxLinesSeverity;
+    readonly reason: string;
+    readonly lifecycle: MaxLinesLifecycle;
+    readonly ratchetExcluded: boolean;
+  }
+
+  type MaxLinesExceptionParse =
+    | { readonly ok: true; readonly value: MaxLinesExceptionFields; readonly error: null }
+    | { readonly ok: false; readonly value: null; readonly error: string };
+
+  export const MAX_LINES_EXCEPTIONS_TOOL: "eslint-max-lines";
+  export const MAX_LINES_EXCEPTIONS_METRIC: "file-line-cap-exceptions";
+  export function parseMaxLinesExceptionEntry(raw: unknown): MaxLinesExceptionParse;
+}
+
 declare module "*eslint-rules/max-lines.js" {
-  import type { Rule } from "eslint";
+  import type { Rule, SourceCode } from "eslint";
 
   export const MAX_LINES_SPLIT_GUIDANCE: string;
   export const MAX_LINES_METRIC_GUIDANCE: string;
 
+  export function effectiveLines(
+    sourceCode: SourceCode,
+    options: { readonly skipBlankLines: boolean; readonly skipComments: boolean },
+  ): ReadonlyArray<{ readonly lineNumber: number; readonly text: string }>;
+
   const rule: Rule.RuleModule;
   export default rule;
+}
+
+declare module "*eslint-rules/shared-schema-prefix.js" {
+  export const SHARED_SCHEMA_PREFIX: string;
 }

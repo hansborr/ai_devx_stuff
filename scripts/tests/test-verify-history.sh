@@ -11,7 +11,18 @@
 # smoke-subjects: scripts/tests/lib/test-git-env.sh
 # smoke-subjects: scripts/verify/steps.generated.sh
 # smoke-subjects: scripts/verify/steps-lib.sh
+# smoke-subjects: scripts/verify/memory-budget.sh
+# smoke-subjects: scripts/verify/admitted-command.sh
 # smoke-subjects: scripts/lib/verify-engine.sh
+# smoke-subjects: scripts/lib/test-worker-count.sh
+# smoke-subjects: scripts/lib/gate-env.sh
+# smoke-subjects: scripts/dependency-freshness.sh
+# smoke-subjects: scripts/prisma-client-freshness.sh
+# smoke-subjects: scripts/doc-length-policy.sh
+# smoke-subjects: scripts/process-tree.sh
+# smoke-subjects: scripts/lib/parallel-step.sh
+# smoke-subjects: scripts/lib/lint-dist-preflight.sh
+# smoke-subjects: scripts/ai-hooks/output-filter.sh
 # smoke-subjects: .husky/pre-commit
 # smoke-subjects: package.json
 # Pure-shell smoke tests for verify/pre-commit run-meta history persistence.
@@ -38,6 +49,9 @@ ok() { PASS=$((PASS + 1)); printf 'ok %d - %s\n' "$PASS" "$1"; }
 
 SANDBOX="$(mktemp -d /tmp/musi-verify-history-test.XXXXXX)"
 trap 'rm -rf "$SANDBOX"' EXIT
+# Nested pre-commit fixtures are independent gates and must not inherit an
+# outer test:scripts reservation namespace.
+export MUSI_VERIFY_MEMORY_STATE_ROOT="$SANDBOX/memory-state"
 
 write_run_meta() {
   local file="$1"
@@ -126,12 +140,15 @@ copy_precommit_fixture() {
   cp "$SCRIPT_DIR/../prisma-client-freshness.sh" "$target/scripts/prisma-client-freshness.sh"
   cp "$SCRIPT_DIR/../doc-length-policy.sh" "$target/scripts/doc-length-policy.sh"
   cp "$SCRIPT_DIR/../lib/verify-metadata.sh" "$target/scripts/lib/verify-metadata.sh"
+  cp "$SCRIPT_DIR/../lib/gate-env.sh" "$target/scripts/lib/gate-env.sh"
+  cp "$SCRIPT_DIR/../lib/test-worker-count.sh" "$target/scripts/lib/test-worker-count.sh"
   cp "$SCRIPT_DIR/../process-tree.sh" "$target/scripts/process-tree.sh"
   cp "$SCRIPT_DIR/../lib/parallel-step.sh" "$target/scripts/lib/parallel-step.sh"
   cp "$SCRIPT_DIR/../lib/verify-engine.sh" "$target/scripts/lib/verify-engine.sh"
   cp "$SCRIPT_DIR/../lib/lint-dist-preflight.sh" "$target/scripts/lib/lint-dist-preflight.sh"
   cp "$SCRIPT_DIR/../ai-hooks/output-filter.sh" "$target/scripts/ai-hooks/output-filter.sh"
   cp "$SCRIPT_DIR/../verify/steps.generated.sh" "$SCRIPT_DIR/../verify/steps-lib.sh" \
+    "$SCRIPT_DIR/../verify/memory-budget.sh" "$SCRIPT_DIR/../verify/admitted-command.sh" \
     "$target/scripts/verify/"
   cp "$SCRIPT_DIR/../../.husky/pre-commit" "$target/.husky/pre-commit"
   cat > "$target/bin/bun" <<'STUB'

@@ -37,11 +37,7 @@ export {
   type EnvelopeFailure,
   formatJson,
   formatText,
-  type HarnessAuditControlSummary,
   type HarnessAuditReport,
-  type HarnessAuditSeverityCounts,
-  type HarnessAuditToolSummary,
-  type HarnessAuditTotals,
   type LoadedEnvelope,
 } from "./harness/harness-audit-report.js";
 
@@ -241,9 +237,15 @@ export function runHarnessAudit(options: RunHarnessAuditOptions): RunHarnessAudi
         report,
       };
     }
+    // Exit 2 with only a success-sounding confirmation reads as a clean run;
+    // surface the drop count so the terminal line agrees with the exit code.
+    const failureNote =
+      report.failures.length > 0
+        ? ` (${String(report.failures.length)} envelope(s) unreadable/malformed - see report)`
+        : "";
     return {
       exitCode,
-      stdout: `harness:audit: wrote ${parsed.format} report to ${parsed.output}`,
+      stdout: `harness:audit: wrote ${parsed.format} report to ${parsed.output}${failureNote}`,
       report,
     };
   }

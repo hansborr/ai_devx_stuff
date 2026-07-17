@@ -26,8 +26,28 @@ export const maxLinesExceptionConfigs = maxLinesPolicy.exceptions.map(
   }),
 );
 
+// Generator-owned files carry no per-file cap — the size gate is turned off
+// entirely (the generator is the reviewed surface, not its emitted table). The
+// allowlist and its "must be generator-owned" guard live in shared-policy.js /
+// scripts/max-lines-exceptions.ts; here it only wires the `off` override, which
+// must be spread after the base `local/max-lines` rule to win.
+export const maxLinesGeneratedExemptionConfigs = maxLinesPolicy.generatedExemptions.map(
+  ({ path: filePath }) => ({
+    files: [filePath],
+    rules: {
+      "local/max-lines": "off",
+    },
+  }),
+);
+
 export function createRepoCodeQualityConfigs(repoRoot, localPlugin) {
   return [
+    {
+      files: [...eslintConfigJsFiles, "eslint-rules/*.test.js"],
+      plugins: { "eslint-comments": eslintComments },
+      rules: eslintCommentsRules,
+    },
+
     {
       files: codeFiles,
       ignores: ["eslint-rules/*.js", ...eslintConfigJsFiles],
@@ -56,6 +76,12 @@ export function createRepoCodeQualityConfigs(repoRoot, localPlugin) {
       rules: {
         ...maintainabilityRules,
 
+        "local/bad-comparison-sequence": "error",
+        "local/bad-min-max-func": "error",
+        "local/missing-throw": "error",
+        "local/no-incorrect-sort": "error",
+        "local/uninvoked-array-callback": "error",
+
         "@typescript-eslint/explicit-function-return-type": [
           "error",
           {
@@ -67,7 +93,13 @@ export function createRepoCodeQualityConfigs(repoRoot, localPlugin) {
         "@typescript-eslint/no-explicit-any": "off",
         "local/no-explicit-any": "error",
         "local/no-llm-artifacts": "error",
-        "local/no-swallowed-errors": "error",
+        "local/no-swallowed-errors": [
+          "error",
+          {
+            checkEmptyCatch: false,
+            checkLoggedFallback: false,
+          },
+        ],
         "local/no-async-array-callbacks": "error",
         "local/no-barrel": "error",
         "@typescript-eslint/consistent-type-imports": ["error", { prefer: "type-imports" }],

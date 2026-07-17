@@ -1,10 +1,11 @@
 // @ts-check
 import { describe, expect, it } from "vitest";
 
+import { SHARED_SCHEMA_PREFIX } from "./shared-schema-prefix.js";
 import {
   createSharedSchemaImportCollector,
   isSharedSchemaSource,
-  SHARED_SCHEMA_PREFIX,
+  SHARED_SCHEMA_PREFIX as COLLECTOR_SHARED_SCHEMA_PREFIX,
 } from "./trpc-shared-schema-import-collector.js";
 
 /**
@@ -23,6 +24,7 @@ function importNode(source, specifiers) {
 describe("trpc-shared-schema-import-collector", () => {
   it("exposes the shared-schema prefix and predicate", () => {
     expect(SHARED_SCHEMA_PREFIX).toBe("@musi/shared/schemas/");
+    expect(COLLECTOR_SHARED_SCHEMA_PREFIX).toBe(SHARED_SCHEMA_PREFIX);
     expect(isSharedSchemaSource("@musi/shared/schemas/campaign.js")).toBe(true);
     expect(isSharedSchemaSource("../schemas/local.js")).toBe(false);
     expect(isSharedSchemaSource("@musi/shared/rules")).toBe(false);

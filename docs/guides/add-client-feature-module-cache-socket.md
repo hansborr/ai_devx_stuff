@@ -69,4 +69,6 @@ Useful checks and examples:
   cache insertion and duplicate handling.
 - `packages/client/src/hooks/character-sheet/*.test.ts*` covers optimistic
   cache updates, rollback, and conflict-visible behavior.
-- `local/test-file-location` keeps new tests beside the code they exercise.
+- `local/test-file-location` checks the unit-test filename shape and requires a
+  `describe`, `it`, or `test` block. Keeping the test beside the code it covers
+  remains this guide's placement convention, not a guarantee of that rule.

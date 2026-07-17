@@ -1,7 +1,7 @@
 import type { CallExpression } from "ts-morph";
 
 export type CliArgs = { mode: "check" } | { mode: "all" } | { mode: "single"; file: string };
-export type Verdict = "ERROR" | "WARN";
+type Verdict = "ERROR" | "WARN";
 
 export type Finding = {
   category: string;

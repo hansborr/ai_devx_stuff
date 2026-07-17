@@ -15,7 +15,6 @@ import {
   type ResolveToolBinOptions,
   type ToolBinConfig,
   type ToolBinResolution,
-  type ToolBinSource,
 } from "./tool-bin.js";
 import type { DriftCheckId } from "./types.js";
 
@@ -43,7 +42,7 @@ export const DEFAULT_KNIP_TIMEOUT_MS = 180 * 1000;
 
 // Narrowed subprocess seam: tests only need the fields defaultKnipRunner reads,
 // while node's real spawnSync remains directly assignable.
-export type KnipSpawnResult = Pick<
+type KnipSpawnResult = Pick<
   SpawnSyncReturns<string>,
   "error" | "status" | "stdout" | "stderr" | "signal"
 >;
@@ -54,7 +53,7 @@ export type KnipSpawn = (
   options: SpawnSyncOptionsWithStringEncoding,
 ) => KnipSpawnResult;
 
-export type KnipRunnerInput = {
+type KnipRunnerInput = {
   // Path to pass via knip's `--config`, or null to let knip auto-discover (used
   // for a root config knip already finds, e.g. package.json#knip).
   readonly configPath: string | null;
@@ -307,8 +306,6 @@ export function clearKnipRunCache(): void {
 export function unresolvedKnipRunner(error: string): KnipRunner {
   return () => ({ ok: false, reason: "tool-unavailable", error });
 }
-
-export type KnipBinSource = ToolBinSource;
 
 export type KnipBinResolution = ToolBinResolution;
 

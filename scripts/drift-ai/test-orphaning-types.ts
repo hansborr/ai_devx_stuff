@@ -29,7 +29,7 @@ export const DEFAULT_TEST_MAPPING_PATTERNS: readonly string[] = [
 // Whether a related test was inferred at all. The two values map to the two
 // advisory sections so "we looked and found no test" never reads the same as
 // "a test exists but stopped moving with the source".
-export type TestRelation = "no-test-inferred" | "test-inferred";
+type TestRelation = "no-test-inferred" | "test-inferred";
 
 export type RelatedTestEvidence = {
   readonly path: string;

@@ -27,7 +27,7 @@ export type ModuleDocPathsFinding = DriftFinding & { readonly check: "module-doc
 
 export type RepoFileReader = (repoRelativePath: string) => string | undefined;
 export type RepoPathProbe = (repoRelativePath: string) => boolean;
-export type RepoPathIgnored = (repoRelativePath: string) => boolean;
+type RepoPathIgnored = (repoRelativePath: string) => boolean;
 
 export type RunModuleDocPathsOptions = {
   // Used only to build the default git check-ignore probe when `isIgnored` is not

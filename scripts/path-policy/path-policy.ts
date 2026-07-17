@@ -1,10 +1,10 @@
 import { configSurfaceEntries as rawConfigSurfaceEntries } from "../../eslint-config/config-surfaces.js";
 import { jsTsLintableExtensions as rawJsTsLintableExtensions } from "../../eslint-config/shared-policy.js";
+import { HARNESS_MANIFEST_FILENAME } from "../harness/harness-manifest.js";
 import {
   CLAUDE_SETTINGS_PATH,
   CODEX_HOOKS_PATH,
   COPILOT_HOOKS_PATH,
-  HARNESS_MANIFEST_FILENAME,
 } from "../harness/harness-paths.js";
 import { BASELINE_FILENAME, DEBT_LOG_FILENAME } from "../lint-ratchet/paths.js";
 import {
@@ -49,6 +49,8 @@ export type PathPolicy = {
     readonly eslintChanged: readonly PathPolicySelector[];
     readonly agentLintChanged: readonly PathPolicySelector[];
     readonly configSensorsChanged: readonly PathPolicySelector[];
+    readonly eslintDisableRegisterChanged: readonly PathPolicySelector[];
+    readonly suppressionRegisterChanged: readonly PathPolicySelector[];
   };
   readonly shellSurfaces: {
     readonly maintained: readonly PathPolicySelector[];
@@ -163,6 +165,24 @@ export const PATH_POLICY = {
       { kind: "exact", path: "bun.lock" },
       { kind: "exact", path: ".yamllint.yml" },
       { kind: "exact", path: "scripts/lint-config-sensors.sh" },
+    ],
+    eslintDisableRegisterChanged: [
+      { kind: "exact", path: "scripts/eslint-disable-register.sh" },
+      { kind: "exact", path: "scripts/data/eslint-disable-broad-allowlist.txt" },
+      // The shared changed-file collector and the aggregator that forwards to
+      // this scanner decide what gets scanned; editing either must escalate to a
+      // full scan so a change to selection cannot false-green in changed scope.
+      { kind: "exact", path: "scripts/lib/changed-lintable-files.sh" },
+      { kind: "exact", path: "scripts/lint-suppressions.sh" },
+    ],
+    suppressionRegisterChanged: [
+      { kind: "exact", path: "scripts/suppression-register.sh" },
+      { kind: "exact", path: "scripts/data/ts-nocheck-allowlist.txt" },
+      // The shared changed-file collector and the aggregator that forwards to
+      // this scanner decide what gets scanned; editing either must escalate to a
+      // full scan so a change to selection cannot false-green in changed scope.
+      { kind: "exact", path: "scripts/lib/changed-lintable-files.sh" },
+      { kind: "exact", path: "scripts/lint-suppressions.sh" },
     ],
   },
   shellSurfaces: {

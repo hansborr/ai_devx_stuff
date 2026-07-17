@@ -9,6 +9,38 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ## Lint rules
 
+### `lint/local/bad-comparison-sequence`
+
+**Rule:** `local/bad-comparison-sequence`
+
+**Principle:** JavaScript evaluates chained comparisons from left to right, so mathematical range notation silently compares an intermediate boolean instead of the original value.
+
+**Category:** behavior
+
+**Source:** `eslint-rules/bad-comparison-sequence.js`
+
+**Invocation:** `bun run lint`
+
+**Paired guide:** none
+
+**Repair:** manual
+
+### `lint/local/bad-min-max-func`
+
+**Rule:** `local/bad-min-max-func`
+
+**Principle:** Inverted Math.min and Math.max bounds collapse a clamp to a constant instead of preserving values inside the intended range.
+
+**Category:** behavior
+
+**Source:** `eslint-rules/bad-min-max-func.js`
+
+**Invocation:** `bun run lint`
+
+**Paired guide:** none
+
+**Repair:** manual
+
 ### `lint/local/concurrency-guard`
 
 **Rule:** `local/concurrency-guard`
@@ -56,6 +88,22 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 **Paired guide:** [docs/guides/local-eslint-rules.md](../guides/local-eslint-rules.md)
 
 **Repair:** manual
+
+### `lint/local/missing-throw`
+
+**Rule:** `local/missing-throw`
+
+**Principle:** Constructing an Error as a standalone expression does not stop execution or notify callers, leaving invalid control-flow paths to continue silently.
+
+**Category:** behavior
+
+**Source:** `eslint-rules/missing-throw.js`
+
+**Invocation:** `bun run lint`
+
+**Paired guide:** none
+
+**Repair:** autofix
 
 ### `lint/local/no-arbitrary-tailwind-value`
 
@@ -121,6 +169,38 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Repair:** manual
 
+### `lint/local/no-commented-out-code`
+
+**Rule:** `local/no-commented-out-code`
+
+**Principle:** Commented-out implementations obscure the active design and should be removed instead of preserved beside live code.
+
+**Category:** maintainability
+
+**Source:** `eslint-rules/no-commented-out-code.js`
+
+**Invocation:** `bun run lint:ratchet`
+
+**Paired guide:** [docs/guides/local-eslint-rules.md](../guides/local-eslint-rules.md)
+
+**Repair:** manual
+
+### `lint/local/no-effect-misuse`
+
+**Rule:** `local/no-effect-misuse`
+
+**Principle:** Effects synchronize React with external systems; server data, derived state, event logic, and form resets have dedicated declarative owners.
+
+**Category:** architecture-fitness
+
+**Source:** `eslint-rules/no-effect-misuse.js`
+
+**Invocation:** `bun run lint:ratchet`
+
+**Paired guide:** [docs/guides/client-effects.md](../guides/client-effects.md)
+
+**Repair:** manual
+
 ### `lint/local/no-explicit-any`
 
 **Rule:** `local/no-explicit-any`
@@ -134,6 +214,22 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 **Invocation:** `bun run lint`
 
 **Paired guide:** [docs/guides/local-eslint-rules.md](../guides/local-eslint-rules.md)
+
+**Repair:** manual
+
+### `lint/local/no-incorrect-sort`
+
+**Rule:** `local/no-incorrect-sort`
+
+**Principle:** Array.prototype.sort without a comparator coerces numeric values to strings, silently producing lexicographic instead of numeric ordering.
+
+**Category:** behavior
+
+**Source:** `eslint-rules/no-incorrect-sort.js`
+
+**Invocation:** `bun run lint`
+
+**Paired guide:** none
 
 **Repair:** manual
 
@@ -205,7 +301,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Rule:** `local/no-swallowed-errors`
 
-**Principle:** Catch blocks that only log to console hide failures from callers, preventing error propagation and handling.
+**Principle:** Catch blocks must keep failures observable without hiding them behind normal-looking fallbacks or logging the same error twice.
 
 **Category:** behavior
 
@@ -214,6 +310,22 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 **Invocation:** `bun run lint`
 
 **Paired guide:** [docs/guides/local-eslint-rules.md](../guides/local-eslint-rules.md)
+
+**Repair:** manual
+
+### `lint/local/no-unbounded-promise-all`
+
+**Rule:** `local/no-unbounded-promise-all`
+
+**Principle:** Dynamically sized Promise fan-out must not exhaust database pools or external API capacity.
+
+**Category:** behavior
+
+**Source:** `eslint-rules/no-unbounded-promise-all.js`
+
+**Invocation:** `bun run lint`
+
+**Paired guide:** none
 
 **Repair:** manual
 
@@ -301,7 +413,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Rule:** `local/test-file-location`
 
-**Principle:** Test files must follow naming conventions and contain test blocks so they colocate with the code they cover.
+**Principle:** Recognizable test filenames and real test blocks keep helpers and stubs from being mistaken for executable coverage.
 
 **Category:** maintainability
 
@@ -377,6 +489,22 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Repair:** manual
 
+### `lint/local/uninvoked-array-callback`
+
+**Rule:** `local/uninvoked-array-callback`
+
+**Principle:** Array callbacks skip holes created by Array(length), so code expecting one callback per index silently performs no work for those slots.
+
+**Category:** behavior
+
+**Source:** `eslint-rules/uninvoked-array-callback.js`
+
+**Invocation:** `bun run lint`
+
+**Paired guide:** none
+
+**Repair:** manual
+
 ## Ratchets
 
 ### `ratchet/local-no-arbitrary-tailwind-value-client`
@@ -393,9 +521,79 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Repair:** manual
 
+### `ratchet/local-no-commented-out-code`
+
+**Principle:** Prevent multi-line operative code from being preserved in comments, where it obscures the active implementation and can be resurrected as a stale alternative.
+
+**Category:** maintainability
+
+**Source:** `scripts/lint-ratchet/lint-ratchet-config.ts`
+
+**Invocation:** `bun run lint:ratchet`
+
+**Paired guide:** [docs/guides/lint-ratchet.md](../guides/lint-ratchet.md)
+
+**Repair:** manual
+
+### `ratchet/local-no-effect-misuse-client`
+
+**Principle:** Prevent imperative data fetching and derived-state-only React effects from growing while existing reset and synchronization debt moves to query hooks, event handlers, render-time derivation, or keyed remounts.
+
+**Category:** architecture-fitness
+
+**Source:** `scripts/lint-ratchet/lint-ratchet-config.ts`
+
+**Invocation:** `bun run lint:ratchet`
+
+**Paired guide:** [docs/guides/client-effects.md](../guides/client-effects.md)
+
+**Repair:** manual
+
+### `ratchet/local-no-swallowed-errors-broader-semantics`
+
+**Principle:** Prevent empty catches and log-then-return fallbacks from growing beyond the leaf 12 inventory while the accepted error-semantics debt drains.
+
+**Category:** behavior
+
+**Source:** `scripts/lint-ratchet/lint-ratchet-config.ts`
+
+**Invocation:** `bun run lint:ratchet`
+
+**Paired guide:** [docs/guides/lint-ratchet.md](../guides/lint-ratchet.md)
+
+**Repair:** manual
+
 ### `ratchet/local-type-assertion-boundary`
 
 **Principle:** Prevent the known type-assertion debt pool from growing while cleanup proceeds incrementally.
+
+**Category:** maintainability
+
+**Source:** `scripts/lint-ratchet/lint-ratchet-config.ts`
+
+**Invocation:** `bun run lint:ratchet`
+
+**Paired guide:** [docs/guides/lint-ratchet.md](../guides/lint-ratchet.md)
+
+**Repair:** manual
+
+### `ratchet/max-depth-production`
+
+**Principle:** Freeze production nesting beyond three blocks so new deeply nested handlers fail and repairs favor early returns, guard clauses, and focused helpers.
+
+**Category:** maintainability
+
+**Source:** `scripts/lint-ratchet/lint-ratchet-config.ts`
+
+**Invocation:** `bun run lint:ratchet`
+
+**Paired guide:** [docs/guides/lint-ratchet.md](../guides/lint-ratchet.md)
+
+**Repair:** manual
+
+### `ratchet/max-lines-per-function-production`
+
+**Principle:** Prevent the number of production functions over 100 effective lines from growing while the 200-line normal-lint ceiling remains the hard cap and existing debt drains without artificial splits.
 
 **Category:** maintainability
 
@@ -661,6 +859,48 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Repair:** manual
 
+### `sensor/lint-message-eval`
+
+**Principle:** Replay a treatment/control trace against the current structural lint rules and message overlays, measure iterations to green, and surface stuck, oscillating, or cascading repairs without adding a commit-blocking agent evaluation.
+
+**Category:** maintainability
+
+**Source:** `scripts/lint-message-eval.ts`
+
+**Invocation:** `bun run eval:lint-messages`
+
+**Paired guide:** [docs/guides/lint-message-evals.md](../guides/lint-message-evals.md)
+
+**Repair:** manual
+
+### `sensor/lint-ratchet-demo-sync`
+
+**Principle:** Compare the standalone lint-ratchet demo against the portable manifest expansion so copied runtime and merge-driver files cannot drift from their source implementations.
+
+**Category:** maintainability
+
+**Source:** `scripts/check-lint-ratchet-demo-sync.ts`
+
+**Invocation:** `bun run lint:ratchet:demo-sync`
+
+**Paired guide:** [docs/guides/lint-ratchet-adoption.md](../guides/lint-ratchet-adoption.md)
+
+**Repair:** autofix
+
+### `sensor/local-eslint-rule-starter`
+
+**Principle:** Extract the four-file standalone local ESLint rule starter from its guide and exercise its rule test and flat-config lint path with the repository toolchain so copyable documentation cannot rot silently.
+
+**Category:** maintainability
+
+**Source:** `scripts/check-local-eslint-rule-starter.ts`
+
+**Invocation:** `bun run docs:local-eslint-rule-starter:check`
+
+**Paired guide:** [docs/guides/local-eslint-rules.md](../guides/local-eslint-rules.md)
+
+**Repair:** manual
+
 ### `sensor/max-lines-exceptions`
 
 **Principle:** Keep the per-file max-lines cap exceptions baseline (eslint-config/max-lines-exceptions.baseline.json) normalized and framework-valid so the caps shared-policy.js feeds eslint cannot drift from a hand edit.
@@ -670,6 +910,20 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 **Source:** `scripts/max-lines-exceptions.ts`
 
 **Invocation:** `bun run lint:max-lines-exceptions`
+
+**Paired guide:** [docs/ai-harness.md](../ai-harness.md)
+
+**Repair:** manual
+
+### `sensor/near-duplicates`
+
+**Principle:** Block new high-confidence function-clone pairs touching staged files while existing whole-repo debt remains in a committed shrink-only identity baseline.
+
+**Category:** maintainability
+
+**Source:** `scripts/sensor-near-duplicates.ts`
+
+**Invocation:** `bun run sensor:near-duplicates`
 
 **Paired guide:** [docs/ai-harness.md](../ai-harness.md)
 
@@ -707,7 +961,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `verify-wrapper/verify`
 
-**Principle:** Run lint, suppression policy registers, lint:ratchet, the zero-baseline lifecycle check, the debt-accounting integrity gate, the knip unused-export floor, coverage-map, format check, typecheck, test, and script smoke suites against the full tree with shared cache, lock, and log directory so a failing slot leaves the rest reusable; lint preflights packages/{shared,server}/dist and runs typecheck automatically before ESLint when those ignored outputs are missing.
+**Principle:** Run lint, suppression policy registers, lint:ratchet, the zero-baseline lifecycle check, the debt-accounting integrity gate, portable demo sync, the standalone local-rule starter check, the knip unused-export floor and whole-tree near-duplicate baseline, coverage-map, format check, typecheck, test, and script smoke suites against the full tree with shared cache, lock, and log directory so a failing slot leaves the rest reusable; lint preflights packages/{shared,server}/dist and runs typecheck automatically before ESLint when those ignored outputs are missing.
 
 **Category:** maintainability
 
@@ -722,7 +976,10 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 - `ratchet` — `lint:ratchet` — env: `HARNESS_DIAGNOSTICS_OUTPUT=$LOG_DIR/ratchet-diagnostics.json`
 - `zero-baseline` — `lint:ratchet:zero-baseline`
 - `debt-accounting` — `lint:ratchet:check-debt-accounting`
+- `demo-sync` — `lint:ratchet:demo-sync`
+- `local-rule-starter` — `docs:local-eslint-rule-starter:check`
 - `knip-unused-exports` — `sensor:knip-unused-exports`
+- `near-duplicates` — `sensor:near-duplicates` — args: `-- --check-baseline`
 - `max-lines-exceptions` — `lint:max-lines-exceptions`
 - `coverage-map` — `docs:lint-coverage-map:audit`
 - `format-check` — `format:check`
@@ -750,7 +1007,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `verify-wrapper/verify-changed`
 
-**Principle:** Run lint:changed, suppression policy registers, lint:ratchet, the zero-baseline lifecycle check, the debt-accounting integrity gate, the knip unused-export floor, coverage-map, format:changed:check, typecheck, test:changed, and test:scripts:changed in parallel against the changed-file set; default edit-loop gate before commit; when packages/{shared,server}/dist is missing, the wrapper defers lint and ratchet until the existing typecheck slot has produced those ignored outputs.
+**Principle:** Run lint:changed, suppression policy registers, lint:ratchet, the zero-baseline lifecycle check, the debt-accounting integrity gate, the knip unused-export and staged near-duplicate floors, coverage-map, format:changed:check, typecheck, test:changed, and test:scripts:changed in parallel against the changed-file set; default edit-loop gate before commit; when packages/{shared,server}/dist is missing, the wrapper defers lint and ratchet until the existing typecheck slot has produced those ignored outputs.
 
 **Category:** maintainability
 
@@ -761,11 +1018,12 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 **Slots:**
 
 - `lint` — `lint:changed`
-- `suppressions` — `lint:suppressions`
+- `suppressions` — `lint:suppressions:changed`
 - `ratchet` — `lint:ratchet` — env: `HARNESS_DIAGNOSTICS_OUTPUT=$LOG_DIR/ratchet-diagnostics.json`
 - `zero-baseline` — `lint:ratchet:zero-baseline`
-- `debt-accounting` — `lint:ratchet:check-debt-accounting`
+- `debt-accounting` — `lint:ratchet:check-debt-accounting` — args: `-- --staged`
 - `knip-unused-exports` — `sensor:knip-unused-exports`
+- `near-duplicates` — `sensor:near-duplicates`
 - `max-lines-exceptions` — `lint:max-lines-exceptions`
 - `coverage-map` — `docs:lint-coverage-map:check` — args: `-- --staged`
 - `format-check` — `format:changed:check`
@@ -807,7 +1065,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `verify-wrapper/verify-parallel`
 
-**Principle:** Run the full lint, suppression policy registers, ratchet, zero-baseline lifecycle check, debt-accounting integrity gate, knip unused-export floor, coverage-map, format check, typecheck, test, and scripts suites in parallel; reduces full-verify wall time when the full script suite fits the selected timeout or cached state; when packages/{shared,server}/dist is missing, the wrapper defers lint and ratchet until the existing typecheck slot has produced those ignored outputs.
+**Principle:** Run the full lint, suppression policy registers, ratchet, zero-baseline lifecycle check, debt-accounting integrity gate, portable demo sync, standalone local-rule starter check, knip unused-export floor and whole-tree near-duplicate baseline, coverage-map, format check, typecheck, test, and scripts suites in parallel; reduces full-verify wall time when the full script suite fits the selected timeout or cached state; when packages/{shared,server}/dist is missing, the wrapper defers lint and ratchet until the existing typecheck slot has produced those ignored outputs.
 
 **Category:** maintainability
 
@@ -822,7 +1080,10 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 - `ratchet` — `lint:ratchet` — env: `HARNESS_DIAGNOSTICS_OUTPUT=$LOG_DIR/ratchet-diagnostics.json`
 - `zero-baseline` — `lint:ratchet:zero-baseline`
 - `debt-accounting` — `lint:ratchet:check-debt-accounting`
+- `demo-sync` — `lint:ratchet:demo-sync`
+- `local-rule-starter` — `docs:local-eslint-rule-starter:check`
 - `knip-unused-exports` — `sensor:knip-unused-exports`
+- `near-duplicates` — `sensor:near-duplicates` — args: `-- --check-baseline`
 - `max-lines-exceptions` — `lint:max-lines-exceptions`
 - `coverage-map` — `docs:lint-coverage-map:audit`
 - `format-check` — `format:check`
@@ -892,6 +1153,20 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Repair:** manual
 
+### `doctor-check/knip-unused-exports-merge-driver`
+
+**Principle:** Verify the clone-local knip unused-exports baseline merge driver config, installed driver copy, and info-attributes mirror are present and current so disjoint drains do not desync the derived summary from the entries.
+
+**Category:** maintainability
+
+**Source:** `scripts/git/check-knip-unused-exports-merge-driver.sh`
+
+**Invocation:** `bun run sensor:knip-unused-exports:merge-driver:check`
+
+**Paired guide:** [docs/guides/lint-ratchet.md](../guides/lint-ratchet.md)
+
+**Repair:** manual
+
 ### `doctor-check/lint-ratchet-merge-driver`
 
 **Principle:** Verify the clone-local lint-ratchet baseline merge driver config, installed driver copy, and info-attributes mirror are present and current so baseline merges do not silently fall back to textual JSON conflict markers.
@@ -917,6 +1192,34 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 **Invocation:** `bun run doctor`
 
 **Paired guide:** none
+
+**Repair:** manual
+
+### `doctor-check/max-lines-exceptions-merge-driver`
+
+**Principle:** Verify the clone-local max-lines exceptions baseline merge driver config, installed driver copy, and info-attributes mirror are present and current so disjoint exception drains do not desync the hard-fail derived summary from entries.
+
+**Category:** maintainability
+
+**Source:** `scripts/git/check-max-lines-exceptions-merge-driver.sh`
+
+**Invocation:** `bun run lint:max-lines-exceptions:merge-driver:check`
+
+**Paired guide:** [docs/guides/lint-ratchet.md](../guides/lint-ratchet.md)
+
+**Repair:** manual
+
+### `doctor-check/near-duplicates-merge-driver`
+
+**Principle:** Verify the clone-local near-duplicates baseline merge driver so independently drained clone identities merge to the stricter floor.
+
+**Category:** maintainability
+
+**Source:** `scripts/git/check-near-duplicates-merge-driver.sh`
+
+**Invocation:** `bun run sensor:near-duplicates:merge-driver:check`
+
+**Paired guide:** [docs/guides/lint-ratchet.md](../guides/lint-ratchet.md)
 
 **Repair:** manual
 
@@ -1106,6 +1409,20 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ## Doc generators
 
+### `doc-generator/baseline-conflict-recipes`
+
+**Principle:** Project the per-baseline merge-conflict recovery recipes into the merge runbook from the driver's own print_conflict_recovery cases (keyed by baseline), so the docs and scripts/git/baseline-merge-driver.sh never carry differently-worded recipes; --check fails on drift.
+
+**Category:** maintainability
+
+**Source:** `scripts/generate-baseline-conflict-recipes.ts`
+
+**Invocation:** `bun run docs:baseline-conflict-recipes`
+
+**Paired guide:** [docs/guides/lint-ratchet-merges.md](../guides/lint-ratchet-merges.md)
+
+**Repair:** autofix
+
 ### `doc-generator/harness-controls`
 
 **Principle:** Generate the agent-facing harness controls map from harness.controls.json (lint-rule entries re-projected from each rule's meta.docs); --check fails on drift between the manifest and the generated markdown.
@@ -1177,6 +1494,20 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 **Paired guide:** [docs/generated/lint-coverage-map.md](lint-coverage-map.md)
 
 **Repair:** autofix
+
+### `check/cursor-hook-exclusion`
+
+**Principle:** Keep Cursor explicitly outside repository hook wiring because Cursor has no PreToolUse policy surface and agent-cli work cursor uses --force with unrestricted shell; fail if cursor is added to hookWiring before this exclusion is revisited.
+
+**Category:** behavior
+
+**Source:** `scripts/harness/hook-wiring-schema.ts`
+
+**Invocation:** `bun run harness:check`
+
+**Paired guide:** none
+
+**Repair:** manual
 
 ### `check/drift-ai-commented-out-code`
 
@@ -1390,7 +1721,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `check/lint-agent-local-rules`
 
-**Principle:** Emit a schema-validated harness diagnostics envelope for `local/*` ESLint findings, parser errors, and info disclosures for skipped non-local ESLint findings; this is a local-rule view, not full lint parity, and is intentionally not a verify/pre-commit gate slot (see docs/guides/local-eslint-rules.md#severity-semantics).
+**Principle:** Emit a schema-validated harness diagnostics envelope for `local/*`, selected core/plugin steering findings, parser errors, and info disclosures for non-overlaid ESLint findings; this is a selected-rule view, not full lint parity, and is intentionally not a verify/pre-commit gate slot (see docs/guides/local-eslint-rules.md#severity-semantics).
 
 **Category:** maintainability
 
@@ -1404,7 +1735,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `check/lint-agent-local-rules-changed`
 
-**Principle:** Scope the local-rule diagnostics envelope to changed JS/TS-like files while preserving the `local/*` and parser-error contract; this is not `lint:changed` parity and is intentionally not a verify/pre-commit gate slot (see docs/guides/local-eslint-rules.md#severity-semantics).
+**Principle:** Scope the selected-rule diagnostics envelope to changed JS/TS-like files while preserving `local/*`, overlaid core/plugin, skipped-disclosure, and parser-error behavior; this is not `lint:changed` parity and is intentionally not a verify/pre-commit gate slot (see docs/guides/local-eslint-rules.md#severity-semantics).
 
 **Category:** maintainability
 
@@ -1464,7 +1795,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Category:** maintainability
 
-**Source:** `scripts/lint-ratchet/lint-ratchet-zero-baseline.ts`
+**Source:** `scripts/lint-ratchet/zero-baseline.ts`
 
 **Invocation:** `bun run lint:ratchet:zero-baseline`
 
@@ -1474,13 +1805,27 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `check/lint-suppressions`
 
-**Principle:** Run the ESLint-disable and TypeScript/Stryker suppression registers as one commit-gate slot so suppression policy drift is caught by verify, verify:changed, verify:parallel, and pre-commit.
+**Principle:** Run the ESLint-disable and TypeScript/Stryker suppression registers across the full tree so whole-repository suppression policy drift is caught by verify and verify:parallel.
 
 **Category:** maintainability
 
 **Source:** `scripts/lint-suppressions.sh`
 
 **Invocation:** `bun run lint:suppressions`
+
+**Paired guide:** none
+
+**Repair:** manual
+
+### `check/lint-suppressions-changed`
+
+**Principle:** Run both suppression registers over staged and base-branch changed source files for verify:changed and pre-commit, escalating to full scans when scanner policy changes.
+
+**Category:** maintainability
+
+**Source:** `scripts/lint-suppressions.sh`
+
+**Invocation:** `bun run lint:suppressions:changed`
 
 **Paired guide:** none
 
@@ -1528,9 +1873,93 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Repair:** autofix
 
+### `lint/complexity`
+
+**Principle:** Complex branching makes behavior harder to verify and safe changes harder to isolate.
+
+**Category:** maintainability
+
+**Source:** `scripts/lint-agent-guidance.ts`
+
+**Invocation:** `bun run lint:agent:local-rules`
+
+**Paired guide:** [docs/guides/local-eslint-rules.md](../guides/local-eslint-rules.md)
+
+**Repair:** manual
+
+### `lint/max-depth`
+
+**Principle:** Deeply nested control flow hides exit conditions and makes edge cases harder to reason about.
+
+**Category:** maintainability
+
+**Source:** `scripts/lint-agent-guidance.ts`
+
+**Invocation:** `bun run lint:agent:local-rules`
+
+**Paired guide:** [docs/guides/local-eslint-rules.md](../guides/local-eslint-rules.md)
+
+**Repair:** manual
+
+### `lint/max-lines-per-function`
+
+**Principle:** Long functions hide distinct responsibilities and make reviews and tests harder to focus.
+
+**Category:** maintainability
+
+**Source:** `scripts/lint-agent-guidance.ts`
+
+**Invocation:** `bun run lint:agent:local-rules`
+
+**Paired guide:** [docs/guides/local-eslint-rules.md](../guides/local-eslint-rules.md)
+
+**Repair:** manual
+
+### `lint/max-params`
+
+**Principle:** Wide parameter lists obscure a function's inputs and make call sites easy to misuse.
+
+**Category:** maintainability
+
+**Source:** `scripts/lint-agent-guidance.ts`
+
+**Invocation:** `bun run lint:agent:local-rules`
+
+**Paired guide:** [docs/guides/local-eslint-rules.md](../guides/local-eslint-rules.md)
+
+**Repair:** manual
+
+### `lint/react-hooks/exhaustive-deps`
+
+**Principle:** Incomplete hook dependencies can capture stale values or skip synchronization when an input changes.
+
+**Category:** maintainability
+
+**Source:** `scripts/lint-agent-guidance.ts`
+
+**Invocation:** `bun run lint:agent:local-rules`
+
+**Paired guide:** [docs/guides/local-eslint-rules.md](../guides/local-eslint-rules.md)
+
+**Repair:** manual
+
+### `lint/react-hooks/rules-of-hooks`
+
+**Principle:** Stable hook ordering is required for React to associate state and effects with the correct component render.
+
+**Category:** maintainability
+
+**Source:** `scripts/lint-agent-guidance.ts`
+
+**Invocation:** `bun run lint:agent:local-rules`
+
+**Paired guide:** [docs/guides/local-eslint-rules.md](../guides/local-eslint-rules.md)
+
+**Repair:** manual
+
 ### `lint/skipped-non-local`
 
-**Principle:** Represent non-local ESLint findings omitted from the local-rule diagnostics projection as info-severity envelope entries so consumers can see that the artifact is intentionally partial.
+**Principle:** Represent non-overlaid ESLint findings omitted from the selected-rule diagnostics projection as info-severity envelope entries so consumers can see that the artifact is intentionally partial.
 
 **Category:** maintainability
 
@@ -1688,6 +2117,27 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ## Hooks
 
+### `hook/ai-backlog-note-lint`
+
+**Principle:** Advise when an AI edit to a docs/agent_notes/backlog note has missing/empty Status, missing/invalid Date, or a stale date so new working notes are born with clean front matter; linting the legacy tree is a non-goal.
+
+**Category:** maintainability
+
+**Source:** `scripts/ai-hooks/backlog-note-lint.sh`
+
+**Invocation:** `Claude PostToolUse / Codex PostToolUse / Copilot postToolUse hook`
+
+**Hook wiring:**
+
+- event: `PostToolUse`; canonical order: `25`; shared body: `scripts/ai-hooks/backlog-note-lint.sh`
+- `claude` — `bash $CLAUDE_PROJECT_DIR/.claude/hooks/backlog-note-lint.sh` (matcher: `Edit|Write`; timeout: `30s`)
+- `codex` — `bash "$(git rev-parse --show-toplevel)/.codex/hooks/backlog-note-lint.sh"` (matcher: `apply_patch`; timeout: `30s`; status: `Linting edited backlog note`)
+- `copilot` — `bash "$(git rev-parse --show-toplevel)/.copilot/hooks/backlog-note-lint.sh"` (matcher: `create|edit`; timeout: `30s`)
+
+**Paired guide:** none
+
+**Repair:** manual
+
 ### `hook/ai-bun-run-quiet`
 
 **Principle:** Short-circuit repeated Claude `bun run` commands through the AI hook cache and summarize prior failures so routine verification stays readable.
@@ -1700,7 +2150,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Hook wiring:**
 
-- event: `PreToolUse`; canonical order: `30`
+- event: `PreToolUse`; canonical order: `30`; shared body: `scripts/ai-hooks/bun-run-quiet.sh`
 - `claude` — `bash $CLAUDE_PROJECT_DIR/.claude/hooks/bun-run-quiet.sh` (matcher: `Bash`; timeout: `1260s`)
 - `codex` — deliberately not wired: Codex deliberately handles `bun run` cache and quieting inside .codex/hooks/pre-tool-use.sh.
 - `copilot` — deliberately not wired: Copilot deliberately handles `bun run` cache checks and output quieting inside its Bash aggregators, mirroring Codex.
@@ -1721,7 +2171,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Hook wiring:**
 
-- event: `PostToolUse`; canonical order: `90`
+- event: `PostToolUse`; canonical order: `90`; shared body: `scripts/ai-hooks/bash-post-tool-use.sh`
 - `claude` — deliberately not wired: Claude deliberately keeps commit output handling in its git-commit-quiet adapter instead of using a Bash PostToolUse aggregator.
 - `codex` — `bash "$(git rev-parse --show-toplevel)/.codex/hooks/post-tool-use.sh"` (matcher: `Bash`; timeout: `60s`; status: `Summarizing repository Bash output`)
 - `copilot` — deliberately not wired: Copilot runs the same shared Bash aggregate body through hook/ai-copilot-post-tool-use.
@@ -1742,7 +2192,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Hook wiring:**
 
-- event: `PreToolUse`; canonical order: `10`
+- event: `PreToolUse`; canonical order: `10`; shared body: `scripts/ai-hooks/bash-pre-tool-use.sh`
 - `claude` — deliberately not wired: Claude deliberately uses direct Bash PreToolUse adapters because it does not have Codex's Bash aggregator model.
 - `codex` — `bash "$(git rev-parse --show-toplevel)/.codex/hooks/pre-tool-use.sh"` (matcher: `Bash`; timeout: `60s`; status: `Running repository Bash hooks`)
 - `copilot` — deliberately not wired: Copilot runs the same shared Bash aggregate body through hook/ai-copilot-pre-tool-use.
@@ -1763,7 +2213,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Hook wiring:**
 
-- event: `PostToolUse`; canonical order: `90`
+- event: `PostToolUse`; canonical order: `90`; shared body: `scripts/ai-hooks/bash-post-tool-use.sh`
 - `claude` — deliberately not wired: Claude deliberately keeps commit output handling in its git-commit-quiet adapter instead of using a Bash PostToolUse aggregator.
 - `codex` — deliberately not wired: Codex runs the same shared Bash aggregate body through hook/ai-codex-post-tool-use.
 - `copilot` — `bash "$(git rev-parse --show-toplevel)/.copilot/hooks/post-tool-use.sh"` (matcher: `bash|powershell`; timeout: `60s`)
@@ -1784,7 +2234,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Hook wiring:**
 
-- event: `PreToolUse`; canonical order: `10`
+- event: `PreToolUse`; canonical order: `10`; shared body: `scripts/ai-hooks/bash-pre-tool-use.sh`
 - `claude` — deliberately not wired: Claude deliberately uses direct Bash PreToolUse adapters because it does not have Copilot's aggregator model.
 - `codex` — deliberately not wired: Codex runs the same shared Bash aggregate body through hook/ai-codex-pre-tool-use.
 - `copilot` — `bash "$(git rev-parse --show-toplevel)/.copilot/hooks/pre-tool-use.sh"` (matcher: `bash|powershell`; timeout: `60s`)
@@ -1805,7 +2255,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Hook wiring:**
 
-- event: `PostToolUse`; canonical order: `20`
+- event: `PostToolUse`; canonical order: `20`; shared body: `scripts/ai-hooks/doc-length.sh`
 - `claude` — `bash $CLAUDE_PROJECT_DIR/.claude/hooks/doc-length.sh` (matcher: `Edit|Write`)
 - `codex` — `bash "$(git rev-parse --show-toplevel)/.codex/hooks/doc-length.sh"` (matcher: `apply_patch`; timeout: `15s`; status: `Checking edited doc length`)
 - `copilot` — `bash "$(git rev-parse --show-toplevel)/.copilot/hooks/doc-length.sh"` (matcher: `create|edit`; timeout: `15s`)
@@ -1826,7 +2276,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Hook wiring:**
 
-- event: `PostToolUseFailure`; canonical order: `10`
+- event: `PostToolUseFailure`; canonical order: `10`; shared body: `scripts/ai-hooks/failure-guidance.sh`
 - outputs: `additionalContext`
 - `claude` — `bash $CLAUDE_PROJECT_DIR/.claude/hooks/failure-guidance.sh` (matcher: `Bash`; timeout: `15s`)
 - `codex` — deliberately not wired: Codex has no PostToolUseFailure hook event.
@@ -1848,7 +2298,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Hook wiring:**
 
-- event: `PreToolUse`; canonical order: `20`
+- event: `PreToolUse`; canonical order: `20`; shared body: `scripts/ai-hooks/git-commit-quiet.sh`
 - `claude` — `bash $CLAUDE_PROJECT_DIR/.claude/hooks/git-commit-quiet.sh` (matcher: `Bash`; timeout: `1260s`)
 - `codex` — deliberately not wired: Codex deliberately handles commit state and summaries inside its PreToolUse/PostToolUse Bash aggregators.
 - `copilot` — deliberately not wired: Copilot deliberately handles commit state and summaries inside its PreToolUse/PostToolUse Bash aggregators, mirroring Codex.
@@ -1869,7 +2319,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Hook wiring:**
 
-- event: `PostToolUse`; canonical order: `40`
+- event: `PostToolUse`; canonical order: `40`; shared body: `scripts/ai-hooks/lint-coverage-check.sh`
 - `claude` — `bash $CLAUDE_PROJECT_DIR/.claude/hooks/lint-coverage-check.sh` (matcher: `Edit|Write`; timeout: `15s`)
 - `codex` — `bash "$(git rev-parse --show-toplevel)/.codex/hooks/lint-coverage-check.sh"` (matcher: `apply_patch`; timeout: `15s`; status: `Checking ESLint coverage`)
 - `copilot` — `bash "$(git rev-parse --show-toplevel)/.copilot/hooks/lint-coverage-check.sh"` (matcher: `create|edit`; timeout: `15s`)
@@ -1890,7 +2340,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Hook wiring:**
 
-- event: `PreToolUse`; canonical order: `10`
+- event: `PreToolUse`; canonical order: `10`; shared body: `scripts/ai-hooks/no-direct-db.sh`
 - `claude` — `bash $CLAUDE_PROJECT_DIR/.claude/hooks/no-direct-db.sh` (matcher: `Bash`)
 - `codex` — deliberately not wired: Codex deliberately uses .codex/hooks/pre-tool-use.sh as a Bash aggregator for the same policy surface.
 - `copilot` — deliberately not wired: Copilot deliberately gets the same policy surface through .copilot/hooks/pre-tool-use.sh, its Bash aggregator.
@@ -1911,7 +2361,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Hook wiring:**
 
-- event: `PostToolUse`; canonical order: `10`
+- event: `PostToolUse`; canonical order: `10`; shared body: `scripts/ai-hooks/prisma-generate.sh`
 - `claude` — `bash $CLAUDE_PROJECT_DIR/.claude/hooks/prisma-generate.sh` (matcher: `Edit|Write`; timeout: `120s`)
 - `codex` — `bash "$(git rev-parse --show-toplevel)/.codex/hooks/prisma-generate.sh"` (matcher: `apply_patch`; timeout: `120s`; status: `Regenerating Prisma client`)
 - `copilot` — `bash "$(git rev-parse --show-toplevel)/.copilot/hooks/prisma-generate.sh"` (matcher: `create|edit`; timeout: `120s`)
@@ -1922,7 +2372,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `hook/ai-protected-files`
 
-**Principle:** Advise on guide-worthy AI edits and deny hand edits to generated, lockfile, ratchet-baseline, suppression-register, and Husky-internal surfaces unless the repo-wide .allow-protected-edits marker loudly downgrades the denial for deliberate maintenance.
+**Principle:** Advise on guide-worthy AI edits and deny hand edits to machine-generated, lockfile, ratchet-baseline, suppression-register, and Husky-internal surfaces unless the repo-wide .allow-protected-edits marker loudly downgrades the denial for deliberate maintenance; hand-maintained documents declared in docs/generated/README.md remain directly editable.
 
 **Category:** maintainability
 
@@ -1932,7 +2382,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Hook wiring:**
 
-- event: `PreToolUse`; canonical order: `40`
+- event: `PreToolUse`; canonical order: `40`; shared body: `scripts/ai-hooks/protected-files.sh`
 - outputs: `additionalContext`, `decisionBlock`
 - `claude` — `bash $CLAUDE_PROJECT_DIR/.claude/hooks/protected-files.sh` (matcher: `Edit|Write`)
 - `codex` — `bash "$(git rev-parse --show-toplevel)/.codex/hooks/protected-files.sh"` (matcher: `apply_patch`; timeout: `15s`; status: `Checking protected-file edits`)
@@ -1954,7 +2404,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Hook wiring:**
 
-- event: `PostToolUse`; canonical order: `50`
+- event: `PostToolUse`; canonical order: `50`; shared body: `scripts/ai-hooks/ratchet-regression-check.sh`
 - `claude` — `bash $CLAUDE_PROJECT_DIR/.claude/hooks/ratchet-regression-check.sh` (matcher: `Edit|Write`; timeout: `60s`)
 - `codex` — `bash "$(git rev-parse --show-toplevel)/.codex/hooks/ratchet-regression-check.sh"` (matcher: `apply_patch`; timeout: `60s`; status: `Checking lint-ratchet regressions`)
 - `copilot` — `bash "$(git rev-parse --show-toplevel)/.copilot/hooks/ratchet-regression-check.sh"` (matcher: `create|edit`; timeout: `60s`)
@@ -1975,7 +2425,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Hook wiring:**
 
-- event: `SessionStart`; canonical order: `10`
+- event: `SessionStart`; canonical order: `10`; shared body: `scripts/ai-hooks/session-state.sh`
 - outputs: `additionalContext`
 - `claude` — `bash $CLAUDE_PROJECT_DIR/.claude/hooks/session-state.sh` (matcher: `startup|resume|compact`; timeout: `15s`)
 - `codex` — deliberately not wired: Codex compact hooks do not support additionalContext re-injection; omitted until a Codex-valid context-injection contract exists.
@@ -1997,11 +2447,33 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Hook wiring:**
 
-- event: `Stop`; canonical order: `10`
+- event: `Stop`; canonical order: `10`; shared body: `scripts/ai-hooks/stop-reminder.sh`
 - outputs: `systemMessage`
 - `claude` — `bash $CLAUDE_PROJECT_DIR/.claude/hooks/stop-reminder.sh` (timeout: `30s`)
 - `codex` — deliberately not wired: Codex Stop has no verified user-only output channel; stop wiring is omitted rather than using an agent-facing block decision.
 - `copilot` — deliberately not wired: Copilot agentStop has no verified user-only output channel; stop wiring is omitted rather than translating warnings into block decisions.
+
+**Paired guide:** none
+
+**Repair:** manual
+
+### `hook/ai-subagent-stop-reminder`
+
+**Principle:** Run a scoped-down Claude Stop reminder when a delegated subagent stops so a dirty tree or failing cached verify left by that delegation is surfaced (advisory, non-blocking, keyed per agent) while the responsible agent's context is still fresh, without consuming the main loop's one-shot Stop markers.
+
+**Category:** maintainability
+
+**Source:** `scripts/ai-hooks/subagent-stop-reminder.sh`
+
+**Invocation:** `Claude SubagentStop hook`
+
+**Hook wiring:**
+
+- event: `SubagentStop`; canonical order: `10`; shared body: `scripts/ai-hooks/subagent-stop-reminder.sh`
+- outputs: `systemMessage`
+- `claude` — `bash $CLAUDE_PROJECT_DIR/.claude/hooks/subagent-stop-reminder.sh` (timeout: `30s`)
+- `codex` — deliberately not wired: Codex SubagentStop has no verified user-only output channel; subagent stop wiring is omitted rather than using an agent-facing block decision, and cross-harness dual-agent parity is not yet established.
+- `copilot` — deliberately not wired: Copilot exposes no SubagentStop hook event.
 
 **Paired guide:** none
 
@@ -2019,7 +2491,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Hook wiring:**
 
-- event: `PostToolUse`; canonical order: `30`
+- event: `PostToolUse`; canonical order: `30`; shared body: `scripts/ai-hooks/tidy-edited-file.sh`
 - `claude` — `bash $CLAUDE_PROJECT_DIR/.claude/hooks/tidy-edited-file.sh` (matcher: `Edit|Write`; timeout: `120s`)
 - `codex` — `bash "$(git rev-parse --show-toplevel)/.codex/hooks/tidy-edited-file.sh"` (matcher: `apply_patch`; timeout: `120s`; status: `Tidying edited file`)
 - `copilot` — `bash "$(git rev-parse --show-toplevel)/.copilot/hooks/tidy-edited-file.sh"` (matcher: `create|edit`; timeout: `120s`)
@@ -2086,7 +2558,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `hook/pre-commit`
 
-**Principle:** Run lint:changed, suppression policy registers, lint:ratchet, the zero-baseline lifecycle check, the debt-accounting integrity gate, the knip unused-export floor, coverage-map, format:changed:check, typecheck, test:changed, and conditionally test:scripts:changed in parallel before allowing the commit; when packages/{shared,server}/dist is missing, defer lint and ratchet until the existing typecheck slot has produced those ignored outputs.
+**Principle:** Run lint:changed, suppression policy registers, lint:ratchet, the zero-baseline lifecycle check, the debt-accounting integrity gate, the knip unused-export and staged near-duplicate floors, coverage-map, format:changed:check, typecheck, test:changed, and conditionally test:scripts:changed in parallel before allowing the commit; when packages/{shared,server}/dist is missing, defer lint and ratchet until the existing typecheck slot has produced those ignored outputs. Opt-in fast-commit mode (musi-fast-commit marker in the Git common dir) skips exactly the slots declared fastCommitSkip here (test, scripts); the skip set is generated into steps.generated.sh, never hand-coded.
 
 **Category:** maintainability
 
@@ -2097,11 +2569,12 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 **Slots:**
 
 - `lint` — `lint:changed`
-- `suppressions` — `lint:suppressions`
+- `suppressions` — `lint:suppressions:changed`
 - `ratchet` — `lint:ratchet` — env: `HARNESS_DIAGNOSTICS_OUTPUT=$LOG_DIR/ratchet-diagnostics.json`
 - `zero-baseline` — `lint:ratchet:zero-baseline`
-- `debt-accounting` — `lint:ratchet:check-debt-accounting`
+- `debt-accounting` — `lint:ratchet:check-debt-accounting` — args: `-- --staged`
 - `knip-unused-exports` — `sensor:knip-unused-exports`
+- `near-duplicates` — `sensor:near-duplicates`
 - `max-lines-exceptions` — `lint:max-lines-exceptions`
 - `coverage-map` — `docs:lint-coverage-map:check` — args: `-- --staged`
 - `format-check` — `format:changed:check`
@@ -2122,6 +2595,50 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 **Source:** `.husky/pre-push`
 
 **Invocation:** `git push`
+
+**Paired guide:** none
+
+**Repair:** manual
+
+## Skills
+
+### `skill/agent-cli`
+
+**Principle:** Keep the agent-cli skill's shared instructions and references aligned across Claude and Codex while preserving only the declared harness-specific workflow, metadata, and dispatch-script overlays.
+
+**Category:** maintainability
+
+**Source:** `.claude/skills/agent-cli/SKILL.md`
+
+**Invocation:** `bun run harness:check`
+
+**Paired guide:** none
+
+**Repair:** manual
+
+### `skill/playwright-cli`
+
+**Principle:** Keep Playwright browser-automation instructions and references byte-identical across Claude and Codex, apart from declared Codex discovery metadata.
+
+**Category:** maintainability
+
+**Source:** `.claude/skills/playwright-cli/SKILL.md`
+
+**Invocation:** `bun run harness:check`
+
+**Paired guide:** none
+
+**Repair:** manual
+
+### `skill/ts-graph`
+
+**Principle:** Keep TS Graph instructions aligned across Claude and Codex while permitting only Claude's command allowlist frontmatter and Codex discovery metadata.
+
+**Category:** maintainability
+
+**Source:** `.claude/skills/ts-graph/SKILL.md`
+
+**Invocation:** `bun run harness:check`
 
 **Paired guide:** none
 

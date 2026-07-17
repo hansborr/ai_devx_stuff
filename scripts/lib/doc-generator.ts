@@ -20,7 +20,7 @@ const PROCESS_ARG_OFFSET = 2;
  * (with a leading space) to the `Wrote <output>` log line when the file is
  * written — e.g. ` (12 rule(s) with metadata)` — and omitted in check mode.
  */
-export interface DocRenderResult {
+interface DocRenderResult {
   readonly rendered: string;
   readonly wroteSuffix?: string;
 }

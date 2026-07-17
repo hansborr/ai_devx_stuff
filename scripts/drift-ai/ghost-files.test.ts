@@ -1,10 +1,9 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import type { ChangedFile } from "../drift-ai.js";
+import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
 import {
   DEFAULT_DEPENDENTS_HINT,
   DEFAULT_GHOST_FILE_ENTRY_POINT_STEMS,
@@ -914,22 +913,17 @@ describe("runGhostFilesCheck", () => {
 });
 
 describe("defaultDirectoryListing", () => {
-  const tempRoots: string[] = [];
-
-  afterEach(() => {
-    while (tempRoots.length > 0) {
-      const root = tempRoots.pop();
-      if (root) rmSync(root, { recursive: true, force: true });
-    }
-  });
+  const tmpRepo = registerTempRootCleanup();
 
   function makeRepo(): { root: string; sub: string } {
-    const root = mkdtempSync(path.join(tmpdir(), "ghost-files-default-"));
-    tempRoots.push(root);
+    const root = path.join(tmpRepo.makeTempRepo("ghost-files-default-"), "repo");
     const sub = path.join(root, "packages/server/src/utils");
-    mkdirSync(sub, { recursive: true });
-    writeFileSync(path.join(sub, "character-auth.ts"), "export {};\n");
-    writeFileSync(path.join(sub, "character-auth-utils.ts"), "export {};\n");
+    tmpRepo.writeRepoFile(root, "packages/server/src/utils/character-auth.ts", "export {};\n");
+    tmpRepo.writeRepoFile(
+      root,
+      "packages/server/src/utils/character-auth-utils.ts",
+      "export {};\n",
+    );
     return { root, sub };
   }
 
@@ -950,10 +944,7 @@ describe("defaultDirectoryListing", () => {
 
   it("refuses to escape the repo root via .. segments", () => {
     const { root } = makeRepo();
-    const outside = path.join(root, "..", "outside-secret");
-    mkdirSync(outside, { recursive: true });
-    tempRoots.push(outside);
-    writeFileSync(path.join(outside, "secret.txt"), "nope\n");
+    tmpRepo.writeRepoFile(root, "../outside-secret/secret.txt", "nope\n");
     const list = defaultDirectoryListing(root);
     expect(list("../outside-secret")).toEqual([]);
   });

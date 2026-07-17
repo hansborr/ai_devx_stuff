@@ -1,6 +1,8 @@
 # Harness Strictness & Comprehension Backlog (2026-06-15)
 
-> **Status: proposals only. Nothing in this folder has been implemented.**
+> **Status: HC-1 landed (`1fdea456`); HS-1 remains a proposal.** The PR
+> template now carries the `## Intent / Comprehension` section; the TypeScript
+> strictness ratchets (HS-1) are still an unstarted, measurement-first proposal.
 > These leaves translate two harness-engineering research follow-ups into
 > reviewable work items.
 
@@ -25,7 +27,7 @@ has no explicit intent/comprehension prompt beyond `Summary`.
 | ID | Item | Plan | Effort | Risk |
 | --- | --- | --- | --- | --- |
 | HS-1 | Ratchet remaining TypeScript strictness flags | [01](01-typescript-strictness-ratchets.md) | M-L | medium |
-| HC-1 | Strengthen PR template around human comprehension | [02](02-pr-comprehension-template.md) | S | low |
+| HC-1 | Strengthen PR template around human comprehension — **DONE** (`1fdea456`) | [02](02-pr-comprehension-template.md) | S | low |
 
 ## Suggested Sequencing
 

@@ -1,5 +1,5 @@
 #!/bin/bash
-# lint-agent-changed.sh — emit the local-rule agent-facing JSON envelope,
+# lint-agent-changed.sh — emit the structured agent-facing lint JSON envelope,
 # scoped to files an in-progress branch has touched vs a base ref. Unlike
 # lint:changed, this script does NOT fail on unstaged work: agents are
 # expected to run this against their uncommitted changes. The scoping
@@ -27,7 +27,10 @@ CALLER_CWD="$PWD"
 cd "$(git rev-parse --show-toplevel)"
 # shellcheck source=scripts/lib/changed-base.sh
 . "$SCRIPT_DIR/lib/changed-base.sh"
-PATH_POLICY_QUERY="$SCRIPT_DIR/path-policy/path-policy-query.ts"
+# shellcheck source=/dev/null
+. "$SCRIPT_DIR/lib/verify-metadata.sh"
+# shellcheck source=scripts/lib/changed-lintable-files.sh
+. "$SCRIPT_DIR/lib/changed-lintable-files.sh"
 COMMAND_LABEL="lint:agent:local-rules:changed"
 
 usage_error() {
@@ -43,11 +46,9 @@ normalize_output_path() {
   esac
 }
 
-path_policy_has_match() {
-  local query="$1"
-  shift
-
-  IFS= read -r -d '' < <(printf '%s\0' "$@" | bun --config=/dev/null "$PATH_POLICY_QUERY" "$query")
+selection_failed() {
+  printf '%s: path selection failed for %s.\n' "$COMMAND_LABEL" "$1" >&2
+  exit 2
 }
 
 PRINT_FILES=0
@@ -144,35 +145,22 @@ fi
 # for space-safety). Dedupe via an associative array after querying the
 # shared path policy. Track whether any lint-affecting config file appears so
 # we can upgrade to a full scan.
-declare -A SEEN
 CHANGED_FILES=()
 FILES=()
 FULL_SCAN=0
-while IFS= read -r -d '' f; do
-  CHANGED_FILES+=("$f")
-done < <(
-  {
-    git diff -z --name-only --diff-filter=ACMRD "$BASE"...HEAD
-    git diff -z --name-only --diff-filter=ACMRD --cached
-    git diff -z --name-only --diff-filter=ACMRD
-    # Untracked files are invisible to `git diff` but agents
-    # routinely create new files without staging them yet — pick those
-    # up so a brand-new lintable file isn't silently dropped.
-    git ls-files -z --others --exclude-standard
-  }
-)
+musi_collect_changed_candidates "$PWD" "$BASE" agent || \
+  selection_failed changed-files
 
-if [ "${#CHANGED_FILES[@]}" -gt 0 ] \
-   && path_policy_has_match full-scan-trigger:agent-lint-changed "${CHANGED_FILES[@]}"; then
-  FULL_SCAN=1
-fi
+selector_rc=0
+musi_changed_candidates_trigger_full_scan full-scan-trigger:agent-lint-changed || selector_rc=$?
+case "$selector_rc" in
+  0) FULL_SCAN=1 ;;
+  1) ;;
+  *) selection_failed full-scan-trigger:agent-lint-changed ;;
+esac
 
-while IFS= read -r -d '' f; do
-  [ -f "$f" ] || continue
-  [ -n "${SEEN[$f]:-}" ] && continue
-  SEEN[$f]=1
-  FILES+=("$f")
-done < <(printf '%s\0' "${CHANGED_FILES[@]}" | bun --config=/dev/null "$PATH_POLICY_QUERY" lintable:agent-changed)
+musi_select_changed_lintable_files "$PWD" lintable:agent-changed || \
+  selection_failed lintable:agent-changed
 
 if [ "$FULL_SCAN" -eq 1 ]; then
   if [ "$PRINT_FILES" -eq 1 ]; then

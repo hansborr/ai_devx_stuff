@@ -9,8 +9,8 @@ import type { SuppressionChurnHotspot, SuppressionChurnSection } from "./hotspot
 import { buildGitLogWalkArgs } from "./hotspots-git-log.js";
 import { type CommitRecord, parseGitLog } from "./hotspots-history.js";
 
-export const SUPPRESSION_CHURN_PATTERN = "eslint-disable|@ts-";
-export const DEFAULT_SUPPRESSION_CHURN_MIN_CHANGES = 2;
+const SUPPRESSION_CHURN_PATTERN = "eslint-disable|@ts-";
+const DEFAULT_SUPPRESSION_CHURN_MIN_CHANGES = 2;
 
 export type CollectSuppressionChurnOptions = {
   readonly git: GitRunner;

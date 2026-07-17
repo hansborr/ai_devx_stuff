@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "runtimeFiles": [
+    "eslint-rules/max-lines.js",
+    "packages/shared/src/schemas/harness-diagnostics.ts",
+    "scripts/harness/harness-diagnostics-output.ts",
+    "scripts/harness/harness-manifest.ts",
+    "scripts/lib/baseline/atomic-write.ts",
+    "scripts/lib/baseline/item-merge.ts",
+    "scripts/lib/baseline/merge-cli.ts",
+    "scripts/lib/baseline/merge-driver-presence.ts",
+    "scripts/lib/codepoint-compare.ts",
+    "scripts/lib/eslint-json.ts",
+    "scripts/lib/lint-rule-docs.ts",
+    "scripts/lint-ratchet.ts"
+  ],
+  "expandDirectories": [
+    {
+      "path": "scripts/lint-ratchet",
+      "include": "*.ts",
+      "exclude": ["*.test-helper.ts", "*.test.ts", "lint-ratchet-config.ts"]
+    }
+  ],
+  "mergeDriverFiles": [
+    "scripts/git/baseline-info-attributes.ts",
+    "scripts/git/baseline-merge-driver-lib.sh",
+    "scripts/git/baseline-post-merge-truth-up.sh",
+    "scripts/git/check-baseline-merge-driver.sh",
+    "scripts/git/check-lint-ratchet-merge-driver.sh",
+    "scripts/git/install-baseline-merge-driver.sh",
+    "scripts/git/install-lint-ratchet-merge-driver.sh",
+    "scripts/git/baseline-merge-driver.sh",
+    "scripts/git/lint-ratchet-merge-driver-lib.sh",
+    "scripts/git/lint-ratchet-post-merge-baseline-truth-up.sh",
+    "scripts/git/restore-generated-baseline-stage.sh"
+  ]
+}

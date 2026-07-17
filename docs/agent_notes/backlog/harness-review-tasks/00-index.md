@@ -29,19 +29,12 @@ Tracks: **D** docs/feedforward, **Dg** diagnostics, **L** loop/autonomy,
 | # | Task | Track | Size | Depends on | Blocks | Status |
 |---|---|---|---|---|---|---|
 | 10 | [Fix character-live-state module doc](./10-character-live-state-module-doc.md) | D | S | none | 11 | Parked |
-| 11 | [Module-doc path accuracy sensor](./11-module-doc-path-accuracy-sensor.md) | Dg | S-M | 10 | 23, 24 | Superseded -> next-items 20 |
 | 12 | [Doc-length phantom-file cleanup](../../finished_work/doc-length-hook-redesign.md) | D | S | none | none | Done -> doc-length redesign |
 | 13 | [Refresh ai-harness current gaps](./13-ai-harness-gap-refresh.md) | D | S | none | 20, 22 | Parked |
 | 14 | [Skill trigger grammar](./14-skill-use-when-trigger-grammar.md) | D | S | none | none | Parked |
 | 15 | [Golden-path reference feature pointer](./15-golden-path-reference-feature.md) | D | S | none | none | Parked |
 | 16 | [Guide breadcrumbs and hook advisories](./16-guide-breadcrumbs-and-advisories.md) | D | S-M | none | none | Parked |
-| 20 | [Diagnostics schema tool extension](./20-diagnostics-schema-tool-extension.md) | Dg | S | 13 | 21, 22, 23 | Superseded -> next-items 10 |
-| 21 | [drift:ai diagnostics projection](./21-drift-ai-diagnostics-projection.md) | Dg | M | 20 | 23 | Superseded -> next-items 11 |
-| 22 | [logs:audit diagnostics projection](./22-logs-audit-diagnostics-projection.md) | Dg | M | 13, 20 | 23 | Superseded -> next-items 12 |
-| 23 | [harness:audit fusion consumer](./23-harness-audit-fusion-consumer.md) | Dg | M | 11, 20, 21, 22, 53 | 24 | Superseded -> next-items 13 |
-| 24 | [Basic scheduled slow-drift lane](./24-scheduled-slow-drift-basic-lane.md) | Dg | M | 11, 23, 53 | 25 | Superseded -> next-items 14 |
 | 25 | [Slow-lane mutation and timing add-ons](./25-slow-lane-mutation-and-timing-addons.md) | Dg | M | 24 | none | Parked |
-| 40 | [Layer-direction report-only sensor](./40-layer-direction-sensor.md) | A | M | none | none | Superseded -> next-items 22 |
 | 50 | [Lint self-correction exemption audit](./50-lint-self-correction-exemption-audit.md) | G | M | none | none | Parked |
 | 51 | [Thin spec/plan template](./51-thin-spec-plan-template.md) | G | S-M | none | none | Parked |
 | 52 | [Demotion rule and noise budgets](./52-demotion-and-noise-budgets.md) | G | S | none | all report-only sensors | Parked |

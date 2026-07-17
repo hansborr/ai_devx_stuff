@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "tests": {
+    "ratchet/no-console-src": {
+      "ruleId": "local/no-console-log",
+      "mode": "no-new",
+      "metric": "message-count",
+      "files": [
+        "src/**/*.ts"
+      ],
+      "ignores": [
+        "**/dist/**",
+        "**/node_modules/**"
+      ],
+      "ruleOptions": [],
+      "configHash": "sha256:17172387dcd678a0e62f665211a82939a06893efabde08b32bc9f855c1b877d2",
+      "ruleSourceHash": "sha256:9f5574c1a492e47516b3dafb59826e69343d0a267588d3103f30dc5f982430e5",
+      "items": {
+        "src/app.ts": {
+          "count": 2,
+          "messagesFingerprint": "sha256:3f3136561098d2d123ca8c2909b813fc023dcce58ffff952b4eb1236ac9c88b8"
+        }
+      }
+    }
+  }
+}

@@ -1,6 +1,6 @@
 # 17. Debt is only observable as a snapshot — add `lint:ratchet:trend` from baseline git history and `--by-directory` summary grouping
 
-Status: Proposed — from the 2026-07-01 AI-harness review; NOT implemented. Re-verify file:line before acting.
+Status: Done — `lint:ratchet:trend` (`package.json`) and `--by-directory` (`cli.ts`) shipped (`3b79af88`, `583e8357`); retained as historical design context.
 Lens: ratchet · Area: reporting · Severity: low-med · Size: S-M · Confidence: high
 Theme: debt-observability · Source: Musi AI-harness review 2026-07-01 (multi-agent + Codex second opinion + web research)
 

@@ -35,6 +35,13 @@ export const PROTOTYPE_ADVISORY_BANNER =
   "Experimental candidate signal, NOT defects or verdicts. This prototype lens has no " +
   "field-calibrated precision yet; treat every row as an unranked lead to confirm or discard.";
 
+export type PrototypeScanProvenance = {
+  readonly gitHead: string | null;
+  readonly gitDirty: boolean | null;
+  readonly stateFingerprint?: string | null;
+  readonly changedDuringScan?: boolean | null;
+};
+
 // A prerequisite a prototype lens needs before it can compute (a tool on PATH, a
 // coverage artifact, a resolved graph). Disclosed so an UNMET prerequisite never reads
 // as "checked and clear" — the row says what was looked for and what was found.
@@ -77,6 +84,7 @@ export type PrototypeAdvisory<TSection> = {
   readonly lane: typeof PROTOTYPE_ADVISORY_LANE;
   readonly subcommand: string; // the requested prototype subcommand/lens name
   readonly banner: string;
+  readonly scanProvenance?: PrototypeScanProvenance;
   readonly prerequisites: readonly PrototypePrerequisite[];
   readonly caps: readonly PrototypeCap[];
   readonly degradations: readonly string[];
@@ -88,6 +96,7 @@ export type PrototypeAdvisory<TSection> = {
 // only the variable parts; the optional disclosure arrays default to empty.
 export function buildPrototypeAdvisory<TSection>(input: {
   readonly subcommand: string;
+  readonly scanProvenance?: PrototypeScanProvenance;
   readonly prerequisites?: readonly PrototypePrerequisite[];
   readonly caps?: readonly PrototypeCap[];
   readonly degradations?: readonly string[];
@@ -98,6 +107,7 @@ export function buildPrototypeAdvisory<TSection>(input: {
     lane: PROTOTYPE_ADVISORY_LANE,
     subcommand: input.subcommand,
     banner: PROTOTYPE_ADVISORY_BANNER,
+    ...(input.scanProvenance === undefined ? {} : { scanProvenance: input.scanProvenance }),
     prerequisites: input.prerequisites ?? [],
     caps: input.caps ?? [],
     degradations: input.degradations ?? [],
@@ -123,6 +133,12 @@ export function formatPrototypeHeader<TSection>(advisory: PrototypeAdvisory<TSec
     `drift:ai ${advisory.subcommand} (advisory, ${advisory.lane} lane) -- candidate signal`,
     `  ${advisory.banner}`,
   ];
+  if (advisory.scanProvenance !== undefined) {
+    lines.push(
+      `  scan provenance: git ${advisory.scanProvenance.gitHead ?? "unknown"}; ` +
+        `working tree ${dirtyState(advisory.scanProvenance.gitDirty)}`,
+    );
+  }
   for (const prereq of advisory.prerequisites) {
     const state = prereq.satisfied ? "ok" : "unmet";
     lines.push(`  prerequisite ${prereq.name}: ${state} -- ${prereq.detail}`);
@@ -130,6 +146,11 @@ export function formatPrototypeHeader<TSection>(advisory: PrototypeAdvisory<TSec
   for (const cap of advisory.caps) lines.push(`  ${formatCap(cap)}`);
   for (const note of advisory.degradations) lines.push(`  degraded: ${note}`);
   return lines;
+}
+
+function dirtyState(gitDirty: boolean | null): string {
+  if (gitDirty === null) return "state unknown";
+  return gitDirty ? "dirty" : "clean";
 }
 
 // One cap line. An un-hit cap discloses the bound (so a reader knows a limit exists); a

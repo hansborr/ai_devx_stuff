@@ -3,7 +3,7 @@ import { changedFilesFromScope, toPosix } from "./path-util.js";
 import type { DetectorScope } from "./scope.js";
 import type { DriftFinding, FindingProvenance } from "./types.js";
 
-export type ServerLayer = "utils" | "services" | "routers";
+type ServerLayer = "utils" | "services" | "routers";
 
 type LayerDirectionRule = {
   readonly id: string;
@@ -24,7 +24,7 @@ export type LayerDirectionServices = {
   readonly tsconfigOverride: string | null;
 };
 
-export const LAYER_DIRECTION_PROVENANCE: FindingProvenance = {
+const LAYER_DIRECTION_PROVENANCE: FindingProvenance = {
   configSource: "drift-baseline",
   tool: "ts-morph",
   configPath: "server layer-direction rules",

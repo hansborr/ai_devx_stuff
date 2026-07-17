@@ -48,6 +48,10 @@ case "$*" in
     lane="scripts"
     exit_code="${STUB_SCRIPTS_EXIT:-0}"
     ;;
+  "-p tsconfig.eslint-js.json")
+    lane="eslint-js"
+    exit_code="${STUB_ESLINT_JS_EXIT:-0}"
+    ;;
   *)
     printf 'unexpected tsc args: %s\n' "$*" >&2
     exit 99
@@ -81,7 +85,7 @@ new_repo() {
 CASE_OUTPUT=""
 CASE_EXIT=0
 run_typecheck_case() {
-  local name="$1" build_exit="$2" scripts_exit="$3"
+  local name="$1" build_exit="$2" scripts_exit="$3" eslint_js_exit="${4:-0}"
   local repo output_file
   repo="$(new_repo "$name")"
   output_file="$repo/output.log"
@@ -90,6 +94,7 @@ run_typecheck_case() {
     cd "$repo"
     STUB_BUILD_EXIT="$build_exit" \
     STUB_SCRIPTS_EXIT="$scripts_exit" \
+    STUB_ESLINT_JS_EXIT="$eslint_js_exit" \
     MUSI_TSC_BIN="$FAKE_TSC" \
       timeout 5s bash scripts/typecheck.sh
   ) > "$output_file" 2>&1
@@ -108,19 +113,23 @@ assert_prefixed_lane_output() {
   assert_contains "$output" "[tsc -b] build stderr before" "build stderr"
   assert_contains "$output" "[tsc -p tsconfig.scripts.json] scripts stdout before" "scripts stdout"
   assert_contains "$output" "[tsc -p tsconfig.scripts.json] scripts stderr before" "scripts stderr"
+  assert_contains "$output" "=== tsc -p tsconfig.eslint-js.json ===" "eslint-js heading"
+  assert_contains "$output" "[tsc -p tsconfig.eslint-js.json] eslint-js stdout before" "eslint-js stdout"
+  assert_contains "$output" "[tsc -p tsconfig.eslint-js.json] eslint-js stderr before" "eslint-js stderr"
   assert_contains "$output" "[tsc -b] build stdout after" "build stdout"
   assert_contains "$output" "[tsc -p tsconfig.scripts.json] scripts stdout after" "scripts stdout"
+  assert_contains "$output" "[tsc -p tsconfig.eslint-js.json] eslint-js stdout after" "eslint-js stdout"
 }
 
 bash -n "$TYPECHECK_SCRIPT" || fail "typecheck.sh fails bash -n"
 ok "typecheck.sh passes bash -n"
 
-run_typecheck_case both-green 0 0
-[ "$CASE_EXIT" -eq 0 ] || fail "both-green should exit 0, got $CASE_EXIT:
+run_typecheck_case all-green 0 0 0
+[ "$CASE_EXIT" -eq 0 ] || fail "all-green should exit 0, got $CASE_EXIT:
 $CASE_OUTPUT"
 assert_prefixed_lane_output "$CASE_OUTPUT"
 assert_not_contains "$CASE_OUTPUT" "failed with exit" "green run"
-ok "both typecheck lanes passing exits 0 and preserves prefixed output"
+ok "all typecheck lanes passing exits 0 and preserves prefixed output"
 
 run_typecheck_case build-fails 7 0
 [ "$CASE_EXIT" -eq 7 ] || fail "build failure should exit 7, got $CASE_EXIT:
@@ -140,14 +149,31 @@ assert_contains "$CASE_OUTPUT" "[tsc -p tsconfig.scripts.json] src/scripts.ts(1,
 assert_not_contains "$CASE_OUTPUT" "typecheck: tsc -b failed" "scripts-only failure"
 ok "scripts lane failure surfaces the scripts exit code"
 
-run_typecheck_case both-fail-same 4 4
+run_typecheck_case eslint-js-fails 0 0 5
+[ "$CASE_EXIT" -eq 5 ] || fail "eslint-js failure should exit 5, got $CASE_EXIT:
+$CASE_OUTPUT"
+assert_contains "$CASE_OUTPUT" "typecheck: tsc -p tsconfig.eslint-js.json failed with exit 5" "eslint-js failure"
+assert_contains "$CASE_OUTPUT" "typecheck: tsc -p tsconfig.eslint-js.json diagnostics: 1 TypeScript error line(s)" "eslint-js diagnostics"
+assert_contains "$CASE_OUTPUT" "[tsc -p tsconfig.eslint-js.json] src/eslint-js.ts(1,1): error TS2322" "eslint-js excerpt"
+assert_not_contains "$CASE_OUTPUT" "typecheck: tsc -b failed" "eslint-js-only failure"
+assert_not_contains "$CASE_OUTPUT" "typecheck: tsc -p tsconfig.scripts.json failed" "eslint-js-only failure"
+ok "eslint-js lane failure surfaces the eslint-js exit code"
+
+run_typecheck_case all-fail-same 4 4 4
 [ "$CASE_EXIT" -eq 4 ] || fail "matching failures should exit 4, got $CASE_EXIT:
 $CASE_OUTPUT"
 assert_contains "$CASE_OUTPUT" "typecheck: tsc -b failed with exit 4" "same-failure build"
 assert_contains "$CASE_OUTPUT" "typecheck: tsc -p tsconfig.scripts.json failed with exit 4" "same-failure scripts"
+assert_contains "$CASE_OUTPUT" "typecheck: tsc -p tsconfig.eslint-js.json failed with exit 4" "same-failure eslint-js"
 ok "matching lane failures preserve the shared exit code"
 
-run_typecheck_case both-fail-different 7 9
+run_typecheck_case two-fail-same 4 4 0
+[ "$CASE_EXIT" -eq 4 ] || fail "two matching failures should exit 4, got $CASE_EXIT:
+$CASE_OUTPUT"
+assert_not_contains "$CASE_OUTPUT" "typecheck: tsc -p tsconfig.eslint-js.json failed" "two-failure eslint-js"
+ok "two matching lane failures preserve the shared exit code"
+
+run_typecheck_case fail-different 7 9 0
 [ "$CASE_EXIT" -eq 1 ] || fail "different failures should fall back to exit 1, got $CASE_EXIT:
 $CASE_OUTPUT"
 assert_contains "$CASE_OUTPUT" "typecheck: tsc -b failed with exit 7" "different-failure build"

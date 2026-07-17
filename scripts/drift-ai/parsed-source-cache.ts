@@ -21,8 +21,8 @@ export type ParsedSourceCollectionInput = {
   readonly ignore: DriftAiIgnoreConfig;
 };
 
-export type SourceFileReader = (absolutePath: string) => string;
-export type SourceFileParser = (filePath: string, source: string) => ts.SourceFile;
+type SourceFileReader = (absolutePath: string) => string;
+type SourceFileParser = (filePath: string, source: string) => ts.SourceFile;
 
 export type ParsedSourceFileCacheOptions = {
   readonly readFile?: SourceFileReader;

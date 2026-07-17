@@ -2,12 +2,12 @@ import { readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
+import { compareByCodepoint } from "../lib/codepoint-compare.js";
 import { runDocGenerator } from "../lib/doc-generator.js";
-import {
-  GENERATED_VERIFY_STEPS_PATH,
-  HARNESS_MANIFEST_FILENAME,
-  readHarnessManifest,
-} from "./harness-paths.js";
+import { generateSurfaceFreshnessShell } from "./generated-surface-freshness.js";
+import { HARNESS_MANIFEST_FILENAME, readHarnessManifest } from "./harness-manifest.js";
+import { GENERATED_VERIFY_STEPS_PATH } from "./harness-paths.js";
+import { MARKER_BRIDGE_DIVERGENCE_ALLOWLIST } from "./verify-step-bridge-divergences.js";
 import {
   isNonEmptyString,
   isObject,
@@ -17,11 +17,10 @@ import {
 } from "./verify-step-schema.js";
 
 const VAR_REF_PATTERN = /\$(?:([A-Za-z_]\w*)|\{([A-Za-z_]\w*)\})/gu;
-const SHELL_FUNCTION_NAME_PATTERN = /^[A-Za-z_]\w*$/u;
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
-const outputPath = join(repoRoot, GENERATED_VERIFY_STEPS_PATH);
 
+// porting-knob: verify-consumers -- retarget manifest consumers and their wrapper variables
 const CONSUMERS = [
   {
     id: "verify-wrapper/verify",
@@ -111,17 +110,64 @@ function findConsumer(consumers: readonly Consumer[], id: string): Consumer {
   return consumer;
 }
 
-function assertSlotSuperset(superset: Consumer, subset: Consumer, markerLabel: string): void {
-  const supersetNames = new Set(superset.slots.map((slot) => slot.name));
-  const missing = subset.slots
-    .map((slot) => slot.name)
-    .filter((slotName) => !supersetNames.has(slotName));
-
-  if (missing.length === 0) return;
-
-  throw new Error(
-    `${superset.spec.id} slots must include every ${subset.spec.id} slot because pre-commit accepts fresh ${markerLabel} success markers; missing: ${missing.join(", ")}`,
+function markerBridgeAllowedDivergences(supersetId: string): ReadonlySet<string> {
+  return new Set(
+    MARKER_BRIDGE_DIVERGENCE_ALLOWLIST.filter((entry) => entry.supersetId === supersetId).map(
+      (entry) => entry.slot,
+    ),
   );
+}
+
+// Human-readable rendering for divergence messages: a space-joined command line.
+// Never compare on this — distinct token vectors can flatten to the same string
+// (`["--foo", "a b"]` vs `["--foo a", "b"]`), which would hide a real drift.
+function slotCommandDisplay(slot: VerifyStepSlot): string {
+  const tokens = slotCommandTokens(slot).join(" ");
+  return slot.dynamic === undefined ? tokens : `${tokens} [dynamic:${slot.dynamic}]`;
+}
+
+// Comparison signature: JSON.stringify keeps the token vector unambiguous so a
+// space inside a token (env values, quoted args) cannot make two different
+// command vectors share a signature and let a bridge divergence pass undetected.
+function slotBridgeSignature(slot: VerifyStepSlot): string {
+  const tokens = JSON.stringify(slotCommandTokens(slot));
+  return slot.dynamic === undefined ? tokens : `${tokens} [dynamic:${slot.dynamic}]`;
+}
+
+function assertSlotSuperset(superset: Consumer, subset: Consumer, markerLabel: string): void {
+  const supersetByName = new Map(superset.slots.map((slot) => [slot.name, slot] as const));
+  const allowed = markerBridgeAllowedDivergences(superset.spec.id);
+  const missing: string[] = [];
+  const diverged: string[] = [];
+
+  for (const slot of subset.slots) {
+    const supersetSlot = supersetByName.get(slot.name);
+    if (supersetSlot === undefined) {
+      missing.push(slot.name);
+      continue;
+    }
+    if (allowed.has(slot.name)) continue;
+    const subsetSignature = slotBridgeSignature(slot);
+    const supersetSignature = slotBridgeSignature(supersetSlot);
+    if (subsetSignature !== supersetSignature) {
+      diverged.push(
+        `${slot.name} (${subset.spec.name}: ${slotCommandDisplay(slot)}; ${superset.spec.name}: ${slotCommandDisplay(supersetSlot)})`,
+      );
+    }
+  }
+
+  // Report a missing slot with the historical message first: a name that is
+  // absent cannot also be compared for command tokens.
+  if (missing.length > 0) {
+    throw new Error(
+      `${superset.spec.id} slots must include every ${subset.spec.id} slot because pre-commit accepts fresh ${markerLabel} success markers; missing: ${missing.join(", ")}`,
+    );
+  }
+  if (diverged.length > 0) {
+    throw new Error(
+      `${superset.spec.id} and ${subset.spec.id} must render identical command tokens for every shared slot because pre-commit accepts fresh ${markerLabel} success markers; divergent: ${diverged.join(", ")}. If a divergence is intentional, add {supersetId, slot, reason} to MARKER_BRIDGE_DIVERGENCE_ALLOWLIST in generate-verify-steps.ts.`,
+    );
+  }
 }
 
 function assertMarkerBridgeSupersets(consumers: readonly Consumer[]): void {
@@ -167,6 +213,7 @@ function shellVariableSuffix(value: string): string {
 
 function slotCommandTokens(slot: VerifyStepSlot): readonly string[] {
   const envTokens = Object.entries(slot.env ?? {}).map(([name, value]) => `${name}=${value}`);
+  // porting-knob: bun-command-runner -- generated verification invokes package scripts via Bun
   return [
     ...(envTokens.length > 0 ? ["env", ...envTokens] : []),
     "bun",
@@ -188,7 +235,10 @@ function runtimeVariables(consumers: readonly Consumer[]): readonly string[] {
       }
     }
   }
-  return Array.from(variables).sort((left, right) => left.localeCompare(right));
+  // codepoint order, not localeCompare — load-bearing for committed/freshness-compared bytes:
+  // these variable names are rendered into the committed steps.generated.sh and freshness-gated.
+  // The names contain `_` (U+005F), which localeCompare reorders under many ICU collations.
+  return Array.from(variables).sort(compareByCodepoint);
 }
 
 function renderHeader(consumers: readonly Consumer[]): string[] {
@@ -221,6 +271,27 @@ function renderConsumerMetadata(consumers: readonly Consumer[]): string[] {
 
 function slotVariableName(consumer: Consumer, slot: VerifyStepSlot): string {
   return `${consumer.spec.variablePrefix}_${shellVariableSuffix(slot.name)}_CMD`;
+}
+
+// The fast-commit skip set is a pre-commit-only concept: manual verify /
+// verify:changed always run every slot so their success markers stay
+// trustworthy. Reject the field elsewhere instead of silently ignoring it,
+// and emit the pre-commit set as one generated array so steps-lib.sh never
+// hand-codes slot names.
+function renderFastCommitSkipSlots(consumers: readonly Consumer[]): string[] {
+  const skipSlots: string[] = [];
+  for (const consumer of consumers) {
+    for (const slot of consumer.slots) {
+      if (slot.fastCommitSkip !== true) continue;
+      if (consumer.spec.id !== PRE_COMMIT_CONSUMER_ID) {
+        throw new Error(
+          `${consumer.spec.id} slot ${slot.name} declares fastCommitSkip, but only ${PRE_COMMIT_CONSUMER_ID} slots may be fast-commit skippable`,
+        );
+      }
+      skipSlots.push(slot.name);
+    }
+  }
+  return [`declare -ga MUSI_FAST_COMMIT_SKIP_SLOTS=${shellArray(skipSlots)}`, ""];
 }
 
 function renderSlotMetadata(consumer: Consumer, slot: VerifyStepSlot): string[] {
@@ -268,7 +339,7 @@ function renderSlots(consumers: readonly Consumer[]): string[] {
 function renderDynamicResolverDispatch(): string[] {
   const lines: string[] = [];
   for (const binding of VERIFY_STEP_DYNAMIC_RESOLVER_BINDINGS) {
-    if (!SHELL_FUNCTION_NAME_PATTERN.test(binding.functionName)) {
+    if (!/^[A-Za-z_]\w*$/u.test(binding.functionName)) {
       throw new Error(
         `dynamic resolver ${binding.id} uses invalid shell function ${binding.functionName}`,
       );
@@ -306,15 +377,12 @@ export function renderVerifyStepsShellFromManifest(
   const lines = [
     ...renderHeader(consumers),
     ...renderConsumerMetadata(consumers),
+    ...renderFastCommitSkipSlots(consumers),
     ...renderSlots(consumers),
     ...renderDynamicResolverDispatch(),
   ];
   while (lines[lines.length - 1] === "") lines.pop();
   return `${lines.join("\n")}\n`;
-}
-
-function readManifest(): unknown {
-  return readHarnessManifest(repoRoot);
 }
 
 function readPackageScripts(): ReadonlySet<string> {
@@ -325,16 +393,16 @@ function readPackageScripts(): ReadonlySet<string> {
   return new Set(Object.keys(pkg.scripts));
 }
 
-function main(): void {
+if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
   runDocGenerator({
-    outputPath,
+    outputPath: join(repoRoot, GENERATED_VERIFY_STEPS_PATH),
     refreshCommand: "verify:steps",
     render: () => ({
-      rendered: renderVerifyStepsShellFromManifest(readManifest(), readPackageScripts()),
+      rendered: renderVerifyStepsShellFromManifest(
+        readHarnessManifest(repoRoot),
+        readPackageScripts(),
+      ),
     }),
   });
-}
-
-if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  main();
+  generateSurfaceFreshnessShell(repoRoot);
 }

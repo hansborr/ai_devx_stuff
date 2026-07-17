@@ -7,6 +7,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
+import { compareByCodepoint } from "../lib/codepoint-compare.js";
 import { runDocGeneratorAsync } from "../lib/doc-generator.js";
 import { loadLintRuleDocs, type RuleDocs } from "../lib/lint-rule-docs.js";
 import { lintRatchets } from "../lint-ratchet/lint-ratchet-config.js";
@@ -21,11 +22,8 @@ import {
   formatValidationFailures,
   resolveControl,
 } from "./generate-harness-controls-validation.js";
-import {
-  GENERATED_HARNESS_CONTROLS_DOC_PATH,
-  HARNESS_MANIFEST_FILENAME,
-  harnessManifestPath,
-} from "./harness-paths.js";
+import { HARNESS_MANIFEST_FILENAME, harnessManifestPath } from "./harness-manifest.js";
+import { GENERATED_HARNESS_CONTROLS_DOC_PATH } from "./harness-paths.js";
 import { formatHookWiring, type HookWiring } from "./hook-wiring-schema.js";
 
 const KIND_HEADINGS: Record<ControlKind, string> = {
@@ -40,6 +38,7 @@ const KIND_HEADINGS: Record<ControlKind, string> = {
   "logs-audit": "Logs audit",
   codemod: "Codemods",
   hook: "Hooks",
+  skill: "Skills",
 };
 
 export interface RawControl {
@@ -164,7 +163,9 @@ async function collectControls(): Promise<ResolvedControl[] | undefined> {
   }
   entries.sort((a, b) => {
     const kindOrder = KINDS.indexOf(a.kind) - KINDS.indexOf(b.kind);
-    return kindOrder === 0 ? a.id.localeCompare(b.id) : kindOrder;
+    // codepoint order, not localeCompare — load-bearing for committed/freshness-compared bytes:
+    // the id tiebreaker feeds the committed generated doc (freshness-gated by harness:check).
+    return kindOrder === 0 ? compareByCodepoint(a.id, b.id) : kindOrder;
   });
   return entries;
 }

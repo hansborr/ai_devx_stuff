@@ -458,25 +458,26 @@ assert_envelope() {
   local expected_infos=$3
   ASSERT_FILE="$file" ASSERT_WARN="$expected_warnings" ASSERT_INFO="$expected_infos" bun -e '
     const fs = require("fs");
+    const assertionFailed = (message) => { console.error(message); process.exit(1); };
     const env = JSON.parse(fs.readFileSync(process.env.ASSERT_FILE, "utf8"));
     const expectedWarn = Number(process.env.ASSERT_WARN);
     const expectedInfo = Number(process.env.ASSERT_INFO);
-    if (env.version !== "1") throw new Error("bad version");
-    if (env.tool !== "migration-safety-scan") throw new Error(`bad tool ${env.tool}`);
-    if (!Array.isArray(env.findings)) throw new Error("findings not array");
-    if (env.summary.blocking !== 0) throw new Error(`blocking expected 0, got ${env.summary.blocking}`);
+    if (env.version !== "1") assertionFailed("bad version");
+    if (env.tool !== "migration-safety-scan") assertionFailed(`bad tool ${env.tool}`);
+    if (!Array.isArray(env.findings)) assertionFailed("findings not array");
+    if (env.summary.blocking !== 0) assertionFailed(`blocking expected 0, got ${env.summary.blocking}`);
     if (env.summary.warning !== expectedWarn) {
-      throw new Error(`warning expected ${expectedWarn}, got ${env.summary.warning}`);
+      assertionFailed(`warning expected ${expectedWarn}, got ${env.summary.warning}`);
     }
     if (env.summary.info !== expectedInfo) {
-      throw new Error(`info expected ${expectedInfo}, got ${env.summary.info}`);
+      assertionFailed(`info expected ${expectedInfo}, got ${env.summary.info}`);
     }
     for (const f of env.findings) {
       if (f.control !== "sensor/db-migration-safety") {
-        throw new Error(`bad control ${f.control}`);
+        assertionFailed(`bad control ${f.control}`);
       }
       if (f.repairKind !== "manual") {
-        throw new Error(`bad repairKind ${f.repairKind}`);
+        assertionFailed(`bad repairKind ${f.repairKind}`);
       }
     }
   ' || fail "invalid migration-safety-scan envelope: $file"
@@ -495,14 +496,15 @@ assert_envelope "$JSON_OUT" 1 0
 # Sanity: the warn finding must carry path/line/messageId.
 ASSERT_FILE="$JSON_OUT" bun -e '
   const fs = require("fs");
+  const assertionFailed = (message) => { console.error(message); process.exit(1); };
   const env = JSON.parse(fs.readFileSync(process.env.ASSERT_FILE, "utf8"));
   const finding = env.findings[0];
   if (!finding.path || !finding.path.endsWith("/migration.sql")) {
-    throw new Error("missing path");
+    assertionFailed("missing path");
   }
-  if (finding.line !== 1) throw new Error(`bad line ${finding.line}`);
-  if (finding.messageId !== "DROP COLUMN") throw new Error(`bad messageId ${finding.messageId}`);
-  if (finding.severity !== "warn") throw new Error(`bad severity ${finding.severity}`);
+  if (finding.line !== 1) assertionFailed(`bad line ${finding.line}`);
+  if (finding.messageId !== "DROP COLUMN") assertionFailed(`bad messageId ${finding.messageId}`);
+  if (finding.severity !== "warn") assertionFailed(`bad severity ${finding.severity}`);
 ' || fail "drop_column envelope missing expected finding shape"
 ok "--json on drop_column emits warn finding with messageId/path/line"
 
@@ -513,15 +515,16 @@ bash "$SCRIPT" --json > "$JSON_OUT" \
   || fail "--json on real repo migrations must exit 0"
 ASSERT_FILE="$JSON_OUT" bun -e '
   const fs = require("fs");
+  const assertionFailed = (message) => { console.error(message); process.exit(1); };
   const env = JSON.parse(fs.readFileSync(process.env.ASSERT_FILE, "utf8"));
   if (env.summary.warning !== 0) {
-    throw new Error(`real repo should have 0 warnings, got ${env.summary.warning}`);
+    assertionFailed(`real repo should have 0 warnings, got ${env.summary.warning}`);
   }
   if (env.summary.info < 1) {
-    throw new Error("real repo should have at least one acknowledged finding");
+    assertionFailed("real repo should have at least one acknowledged finding");
   }
   for (const f of env.findings) {
-    if (f.severity !== "info") throw new Error(`real repo finding has severity ${f.severity}`);
+    if (f.severity !== "info") assertionFailed(`real repo finding has severity ${f.severity}`);
   }
 ' || fail "real repo --json envelope failed"
 ok "--json on the real repo emits info-severity acknowledged findings"
@@ -534,14 +537,15 @@ MUSI_MIGRATION_ALLOWLIST="$STALE_ALLOWLIST" bash "$SCRIPT" --json \
   || fail "--json on stale allowlist must exit 0"
 ASSERT_FILE="$JSON_OUT" bun -e '
   const fs = require("fs");
+  const assertionFailed = (message) => { console.error(message); process.exit(1); };
   const env = JSON.parse(fs.readFileSync(process.env.ASSERT_FILE, "utf8"));
   const stale = env.findings.find((f) => f.messageId === "stale-allowlist");
-  if (!stale) throw new Error("missing stale-allowlist finding");
-  if (stale.severity !== "warn") throw new Error(`stale severity ${stale.severity}`);
+  if (!stale) assertionFailed("missing stale-allowlist finding");
+  if (stale.severity !== "warn") assertionFailed(`stale severity ${stale.severity}`);
   if (!stale.path.endsWith(".safety-acknowledged-stale")) {
-    throw new Error(`stale path ${stale.path}`);
+    assertionFailed(`stale path ${stale.path}`);
   }
-  if (stale.line !== 3) throw new Error(`stale line ${stale.line}`);
+  if (stale.line !== 3) assertionFailed(`stale line ${stale.line}`);
 ' || fail "stale --json envelope missing expected finding shape"
 ok "--json surfaces stale allowlist entries as warn-severity findings"
 
@@ -576,14 +580,15 @@ MUSI_MIGRATION_ALLOWLIST="$TAB_ALLOWLIST" bash "$SCRIPT" --json \
 assert_envelope "$JSON_OUT" 0 1
 ASSERT_FILE="$JSON_OUT" bun -e '
   const fs = require("fs");
+  const assertionFailed = (message) => { console.error(message); process.exit(1); };
   const env = JSON.parse(fs.readFileSync(process.env.ASSERT_FILE, "utf8"));
-  if (env.findings.length !== 1) throw new Error(`expected 1 finding, got ${env.findings.length}`);
+  if (env.findings.length !== 1) assertionFailed(`expected 1 finding, got ${env.findings.length}`);
   const f = env.findings[0];
-  if (f.severity !== "info") throw new Error(`expected info, got ${f.severity}`);
-  if (!f.why.includes("data export")) throw new Error(`why missing reason prefix: ${f.why}`);
-  if (!f.why.includes("and verified")) throw new Error(`why missing reason suffix: ${f.why}`);
+  if (f.severity !== "info") assertionFailed(`expected info, got ${f.severity}`);
+  if (!f.why.includes("data export")) assertionFailed(`why missing reason prefix: ${f.why}`);
+  if (!f.why.includes("and verified")) assertionFailed(`why missing reason suffix: ${f.why}`);
   if (!f.howToFix.startsWith("Already acknowledged")) {
-    throw new Error(`howToFix shifted by tab corruption: ${f.howToFix}`);
+    assertionFailed(`howToFix shifted by tab corruption: ${f.howToFix}`);
   }
 ' || fail "tab-in-reason envelope corrupted"
 ok "--json preserves tabs in allowlist reasons without corrupting fields"

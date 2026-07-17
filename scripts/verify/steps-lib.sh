@@ -11,6 +11,9 @@
 # the base *_CMD arrays and metadata maps exist. This library never returns raw
 # command strings and does not use eval.
 
+# shellcheck source=./memory-budget.sh
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/memory-budget.sh"
+
 MUSI_VERIFY_SLOT_SKIP_RC=100
 MUSI_RESOLVED_SLOT_CMD=()
 
@@ -136,21 +139,30 @@ musi_resolve_slot_cmd() {
     return 2
   fi
 
-  local consumer="$1" slot="$2" key dynamic resolver_func
+  local consumer="$1" slot="$2" key dynamic resolver_func fast_skip_slot
 
   key="$consumer:$slot"
 
-  # Opt-in fast-commit mode: skip only the two slow test slots, and only for
+  # Opt-in fast-commit mode: skip only the slots the manifest declares
+  # fastCommitSkip (generated into MUSI_FAST_COMMIT_SKIP_SLOTS), and only for
   # the pre-commit consumer. Manual `verify` / `verify:changed` (the merge gate)
   # always run them so their success markers stay trustworthy.
   if [ "$consumer" = "pre_commit" ] && musi_fast_commit_enabled; then
-    case "$slot" in
-      test | scripts)
-        printf 'verify steps: fast-commit mode — skipping %s slot (remove the musi-fast-commit marker in the Git common dir to disable)\n' "$slot" >&2
-        MUSI_RESOLVED_SLOT_CMD=()
-        return "$MUSI_VERIFY_SLOT_SKIP_RC"
-        ;;
-    esac
+    # ${arr[@]+...} guard: an adopter manifest with no fastCommitSkip slots
+    # generates an empty array, and "${empty[@]}" under set -u is an unbound-
+    # variable abort on bash < 4.4 (macOS system bash 3.2).
+    for fast_skip_slot in ${MUSI_FAST_COMMIT_SKIP_SLOTS[@]+"${MUSI_FAST_COMMIT_SKIP_SLOTS[@]}"}; do
+      [ "$fast_skip_slot" = "$slot" ] || continue
+      printf 'verify steps: fast-commit mode — skipping %s slot (remove the musi-fast-commit marker in the Git common dir to disable)\n' "$slot" >&2
+      # Outcome signal for fast-commit provenance: MUSI_VERIFY_SLOT_SKIP_RC
+      # alone is ambiguous (condition-based slot skips return the same RC),
+      # so record the fast-commit skip here, at the only place it happens.
+      # The parallel runner executes in the hook shell, so this global
+      # reaches pre-commit's EXIT trap.
+      MUSI_FAST_COMMIT_SKIPPED=1
+      MUSI_RESOLVED_SLOT_CMD=()
+      return "$MUSI_VERIFY_SLOT_SKIP_RC"
+    done
   fi
 
   dynamic="${MUSI_VERIFY_SLOT_DYNAMIC[$key]:-}"
@@ -197,6 +209,121 @@ musi_record_pending_dist_failure() {
   step_exits_ref[$index]=1
 }
 
+musi_wait_parallel_verify_index() {
+  local index="$1" step_pids_name="$2" step_exits_name="$3" memory_tokens_name="$4"
+  local -n wait_pids_ref="$step_pids_name"
+  local -n wait_exits_ref="$step_exits_name"
+  local -n wait_tokens_ref="$memory_tokens_name"
+  local pid token
+
+  pid="${wait_pids_ref[$index]:-}"
+  [ -n "$pid" ] || return 0
+  if [ -z "${wait_exits_ref[$index]:-}" ]; then
+    if wait "$pid"; then
+      wait_exits_ref[$index]=0
+    else
+      wait_exits_ref[$index]=$?
+    fi
+  fi
+  token="${wait_tokens_ref[$index]:-}"
+  musi_memory_budget_release "$token"
+  wait_tokens_ref[$index]=""
+}
+
+musi_drain_memory_pending_slots() {
+  if [ "$#" -ne 13 ]; then
+    printf 'usage: musi_drain_memory_pending_slots <meta-mode> <label> <display-label> <pending-indexes> <step-names> <command-tokens> <command-starts> <command-lengths> <step-pids> <step-exits> <memory-tokens> <parallel-pids> <wait-timeout>\n' >&2
+    return 2
+  fi
+
+  local meta_mode="$1" label="$2" display_label="$3" pending_name="$4"
+  local step_names_name="$5" command_tokens_name="$6" command_starts_name="$7"
+  local command_lengths_name="$8" step_pids_name="$9" step_exits_name="${10}"
+  local memory_tokens_name="${11}" parallel_pids_name="${12}" wait_timeout="${13}"
+  local -n pending_ref="$pending_name"
+  local -n drain_names_ref="$step_names_name"
+  local -n drain_commands_ref="$command_tokens_name"
+  local -n drain_starts_ref="$command_starts_name"
+  local -n drain_lengths_ref="$command_lengths_name"
+  local -n drain_pids_ref="$step_pids_name"
+  local -n drain_exits_ref="$step_exits_name"
+  local -n drain_tokens_ref="$memory_tokens_name"
+  local -n drain_parallel_ref="$parallel_pids_name"
+  local -a still_pending=()
+  local -A announced=()
+  local index slot reserve_rc progress start now token command_start command_length
+
+  case "$wait_timeout" in
+    '' | *[!0-9]*)
+      printf '%s: invalid MUSI_VERIFY_MEMORY_WAIT_TIMEOUT=%s; expected whole seconds\n' \
+        "$display_label" "$wait_timeout" >&2
+      return 2
+      ;;
+  esac
+  start="$SECONDS"
+  while [ "${#pending_ref[@]}" -gt 0 ]; do
+    still_pending=()
+    progress=0
+    for index in "${pending_ref[@]}"; do
+      slot="${drain_names_ref[$index]}"
+      reserve_rc=0
+      musi_memory_budget_try_reserve "$slot" || reserve_rc=$?
+      if [ "$reserve_rc" -eq 1 ]; then
+        if [ -z "${announced[$index]:-}" ]; then
+          printf '%s: deferring %s until memory budget is available (expected peak %s MB)\n' \
+            "$display_label" "$slot" "$(musi_verify_slot_expected_peak_mb "$slot")" >&2
+          announced[$index]=1
+        fi
+        still_pending+=("$index")
+        continue
+      fi
+      if [ "$reserve_rc" -ne 0 ]; then
+        printf '%s: memory admission failed for %s (rc=%s)\n' \
+          "$display_label" "$slot" "$reserve_rc" > "$LOG_DIR/${slot}.log"
+        drain_exits_ref[$index]="$reserve_rc"
+        progress=1
+        continue
+      fi
+
+      musi_memory_budget_report_solo_fallback "$display_label" "$slot"
+      token="$MUSI_VERIFY_MEMORY_RESERVATION_TOKEN"
+      command_start="${drain_starts_ref[$index]}"
+      command_length="${drain_lengths_ref[$index]}"
+      musi_run_parallel_step "$meta_mode" "$label" "$slot" \
+        "${drain_commands_ref[@]:command_start:command_length}"
+      drain_pids_ref[$index]="$STEP_PID"
+      drain_tokens_ref[$index]="$token"
+      drain_parallel_ref+=("$STEP_PID")
+      musi_memory_budget_attach_pid "$token" "$STEP_PID" || {
+        printf '%s: failed to attach %s reservation to pid %s\n' \
+          "$display_label" "$slot" "$STEP_PID" >&2
+      }
+      progress=1
+    done
+    pending_ref=("${still_pending[@]}")
+    [ "${#pending_ref[@]}" -gt 0 ] || break
+    if [ "$progress" -eq 1 ]; then
+      continue
+    fi
+
+    now="$SECONDS"
+    if [ "$((now - start))" -ge "$wait_timeout" ]; then
+      for index in "${pending_ref[@]}"; do
+        slot="${drain_names_ref[$index]}"
+        printf '%s: memory wait timed out after %ss for %s (expected peak %s MB); no slot was launched\n' \
+          "$display_label" "$wait_timeout" "$slot" \
+          "$(musi_verify_slot_expected_peak_mb "$slot")" > "$LOG_DIR/${slot}.log"
+        drain_exits_ref[$index]=1
+      done
+      printf '%s: memory wait timed out after %ss; failing pending slots instead of holding the gate indefinitely\n' \
+        "$display_label" "$wait_timeout" >&2
+      pending_ref=()
+      break
+    fi
+    sleep "$(musi_memory_budget_poll_seconds)"
+  done
+}
+
 musi_run_parallel_verify_steps() {
   if [ "$#" -ne 9 ]; then
     printf 'usage: musi_run_parallel_verify_steps <consumer> <steps-array> <meta-mode> <label> <repo-root> <step-names-array> <step-pids-array> <step-exits-array> <parallel-pids-array>\n' >&2
@@ -211,8 +338,9 @@ musi_run_parallel_verify_steps() {
   # shellcheck disable=SC2178 # Nameref target is the caller's step exits array.
   local -n step_exits_ref="$step_exits_name"
   local -n parallel_pids_ref="$parallel_pids_name"
-  local -a pending_lint_cmd=() pending_ratchet_cmd=()
-  local slot resolve_rc index pid display_label
+  local -a pending_indexes=() dist_pending_indexes=() command_tokens=()
+  local -a command_starts=() command_lengths=() memory_tokens=()
+  local slot resolve_rc index display_label command_start wait_timeout
   local defer_dist_slots=0 pending_lint_index=-1 pending_ratchet_index=-1 pending_dist_count=0
   local typecheck_index=-1 dist_ready
 
@@ -240,32 +368,34 @@ musi_run_parallel_verify_steps() {
       step_exits_ref+=("$resolve_rc")
       break
     fi
+    index="${#step_names_ref[@]}"
+    command_start="${#command_tokens[@]}"
+    command_starts[$index]="$command_start"
+    command_lengths[$index]="${#MUSI_RESOLVED_SLOT_CMD[@]}"
+    command_tokens+=("${MUSI_RESOLVED_SLOT_CMD[@]}")
+    step_names_ref+=("$slot")
+    step_pids_ref+=("")
+    step_exits_ref+=("")
+    memory_tokens+=("")
     if [ "$defer_dist_slots" -eq 1 ] && musi_defer_dist_slot "$slot"; then
       case "$slot" in
-        lint)
-          pending_lint_index="${#step_names_ref[@]}"
-          pending_lint_cmd=("${MUSI_RESOLVED_SLOT_CMD[@]}")
-          ;;
-        ratchet)
-          pending_ratchet_index="${#step_names_ref[@]}"
-          pending_ratchet_cmd=("${MUSI_RESOLVED_SLOT_CMD[@]}")
-          ;;
+        lint) pending_lint_index="$index" ;;
+        ratchet) pending_ratchet_index="$index" ;;
       esac
       pending_dist_count=$((pending_dist_count + 1))
-      step_names_ref+=("$slot")
-      step_pids_ref+=("")
-      step_exits_ref+=("")
+      dist_pending_indexes+=("$index")
       continue
     fi
-    musi_run_parallel_step "$meta_mode" "$label" "$slot" "${MUSI_RESOLVED_SLOT_CMD[@]}"
-    step_names_ref+=("$slot")
-    step_pids_ref+=("$STEP_PID")
-    step_exits_ref+=("")
-    parallel_pids_ref+=("$STEP_PID")
+    pending_indexes+=("$index")
     if [ "$slot" = typecheck ]; then
-      typecheck_index=$(( ${#step_names_ref[@]} - 1 ))
+      typecheck_index="$index"
     fi
   done
+
+  wait_timeout="${MUSI_VERIFY_MEMORY_WAIT_TIMEOUT:-120}"
+  musi_drain_memory_pending_slots "$meta_mode" "$label" "$display_label" \
+    pending_indexes "$step_names_name" command_tokens command_starts command_lengths \
+    "$step_pids_name" "$step_exits_name" memory_tokens "$parallel_pids_name" "$wait_timeout"
 
   if [ "$pending_dist_count" -gt 0 ]; then
     dist_ready=1
@@ -282,30 +412,18 @@ musi_run_parallel_verify_steps() {
       fi
       dist_ready=0
     elif [ "$typecheck_index" -ge 0 ] && [ -n "${step_pids_ref[$typecheck_index]}" ]; then
-      pid="${step_pids_ref[$typecheck_index]}"
-      if [ -z "${step_exits_ref[$typecheck_index]}" ]; then
-        if wait "$pid"; then
-          step_exits_ref[$typecheck_index]=0
-        else
-          step_exits_ref[$typecheck_index]=$?
-        fi
-      fi
+      musi_wait_parallel_verify_index "$typecheck_index" "$step_pids_name" \
+        "$step_exits_name" memory_tokens
       if [ "${step_exits_ref[$typecheck_index]}" -ne 0 ]; then
         dist_ready=0
       fi
     fi
 
     if [ "$dist_ready" -eq 1 ]; then
-      if [ "$pending_lint_index" -ge 0 ]; then
-        musi_run_parallel_step "$meta_mode" "$label" lint "${pending_lint_cmd[@]}"
-        step_pids_ref[$pending_lint_index]="$STEP_PID"
-        parallel_pids_ref+=("$STEP_PID")
-      fi
-      if [ "$pending_ratchet_index" -ge 0 ]; then
-        musi_run_parallel_step "$meta_mode" "$label" ratchet "${pending_ratchet_cmd[@]}"
-        step_pids_ref[$pending_ratchet_index]="$STEP_PID"
-        parallel_pids_ref+=("$STEP_PID")
-      fi
+      pending_indexes=("${dist_pending_indexes[@]}")
+      musi_drain_memory_pending_slots "$meta_mode" "$label" "$display_label" \
+        pending_indexes "$step_names_name" command_tokens command_starts command_lengths \
+        "$step_pids_name" "$step_exits_name" memory_tokens "$parallel_pids_name" "$wait_timeout"
     elif [ "$typecheck_index" -ge 0 ] && [ -n "${step_pids_ref[$typecheck_index]}" ]; then
       if [ "$pending_lint_index" -ge 0 ]; then
         musi_record_pending_dist_failure lint "$pending_lint_index" \
@@ -322,13 +440,8 @@ musi_run_parallel_verify_steps() {
 
   for index in "${!step_names_ref[@]}"; do
     [ -n "${step_exits_ref[$index]}" ] && continue
-    pid="${step_pids_ref[$index]}"
-    [ -n "$pid" ] || continue
-    if wait "$pid"; then
-      step_exits_ref[$index]=0
-    else
-      step_exits_ref[$index]=$?
-    fi
+    musi_wait_parallel_verify_index "$index" "$step_pids_name" \
+      "$step_exits_name" memory_tokens
   done
   parallel_pids_ref=()
 }

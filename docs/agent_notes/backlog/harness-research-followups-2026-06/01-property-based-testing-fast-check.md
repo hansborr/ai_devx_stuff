@@ -1,7 +1,16 @@
 # PB-1 - Property-based tests for the rules engine (fast-check)
 
-> Proposal only - not implemented. Re-verify module paths before promotion;
-> the rules surface moves as 5.5E content lands.
+Status: Done (drain-leaf scope) — fast-check infra + `character-rules` (`3c302f89`) and spellcasting/armor-class/dice property suites (`d10d67b9`, 22 tests, drain leaf 5.1) landed. The two lower-priority candidate modules in the table below (`attack-damage.ts`, `xp.ts`) remain uncovered but were outside the seed set leaf 5.1 targeted.
+
+> Done for the seeded scope — the fast-check infrastructure plus the
+> `character-rules` (`3c302f89`) and spellcasting/armor-class/dice
+> (`d10d67b9`, 22 tests) property suites landed: `fast-check` is a
+> `packages/shared` dev dependency and the reusable arbitrary/pattern is
+> established. **Remaining (not part of drain leaf 5.1's seed set):** the two
+> lower-priority "Candidate Modules" below — weapon/spell attack
+> (`attack-damage.ts`) and XP/CR (`xp.ts`) — are still example-test only.
+> Re-verify module paths before promotion, as the rules surface moves while
+> 5.5E content lands.
 
 ## Problem
 
@@ -18,9 +27,11 @@ land directly on this repo:
 
 Musi has an unusually good fit for this: the D&D 5.5E rules engine is a large
 body of **pure, deterministic functions** with well-defined mathematical
-invariants, and there is currently **zero** property-based testing anywhere
-(`fast-check` is in no `package.json`). Today every rules module is covered by
-example-based Vitest tests colocated beside the code.
+invariants. When this finding was written there was **zero** property-based
+testing anywhere; since then the reference pattern landed (`fast-check` is now
+in `packages/shared/package.json` and `character-rules` has a property suite —
+see the Status note above). The remaining rules modules are still covered only
+by example-based Vitest tests colocated beside the code.
 
 ## Candidate Modules
 

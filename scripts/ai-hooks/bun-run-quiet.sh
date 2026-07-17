@@ -227,16 +227,24 @@ cd "$REPO_ROOT" || exit 1
 # anything the :changed scripts would see. The fingerprint — not the TTL —
 # is the real gate; TTL just bounds how long a "nothing changed" claim is
 # trusted when clocks/state get weird.
-CUR_FP=$(ai_worktree_fingerprint "$REPO_ROOT")
+CUR_FP_VALID=1
+if ! CUR_FP=$(musi_require_fingerprint \
+  "bun-run cache" ai_worktree_fingerprint "$REPO_ROOT"); then
+  CUR_FP_VALID=0
+  CUR_FP=""
+fi
 TTL="$AI_BUN_TTL"
 
-if ai_read_bun_marker "$MARKER" && [ -z "$FORCE_VERIFY_REQ" ] && [ "${FORCE_VERIFY:-}" != "1" ]; then
+if [ "$CUR_FP_VALID" -eq 1 ] \
+  && ai_read_bun_marker "$MARKER" \
+  && [ -z "$FORCE_VERIFY_REQ" ] \
+  && [ "${FORCE_VERIFY:-}" != "1" ]; then
   NOW=$(date +%s)
   AGE=$((NOW - AI_MARKER_LAST_TS))
-  if [ "$AGE" -lt "$TTL" ] && [ "$AI_MARKER_LAST_FP" = "$CUR_FP" ]; then
+  if ai_marker_age_within_ttl "$AGE" "$TTL" && [ "$AI_MARKER_LAST_FP" = "$CUR_FP" ]; then
     if [ "$AI_MARKER_LAST_EXIT" -eq 0 ]; then
       MSG="$SCRIPT cached OK (${AGE}s ago, unchanged worktree) - prefix command with FORCE_VERIFY=1 to re-run. Full log: $LOG"
-      ai_claude_result_command "$MSG" /tmp/musi-bun-result
+      ai_claude_result_command "$MSG" "$AI_BUN_RESULT_TMP_PREFIX"
     fi
     # Cached failure — replay the tail so Claude doesn't lose context.
     SUMMARY=$(ai_bun_cached_failure_summary "$SCRIPT" "$LOG" "$AGE" "$AI_MARKER_LAST_EXIT")
@@ -344,14 +352,14 @@ ELAPSED=$(( $(date +%s) - START ))
 # Record result for idempotency — but only for real exits. Signal exits
 # (EXIT >= 128) mean the command was killed; don't poison the cache with
 # a "failure" that would just be retried.
-if [ "$EXIT" -lt 128 ]; then
+if [ "$EXIT" -lt 128 ] && [ "$CUR_FP_VALID" -eq 1 ]; then
   ai_write_bun_marker "$MARKER" "$CUR_FP" "$EXIT"
 fi
 
 if [ "$EXIT" -eq 0 ]; then
   MSG="$SCRIPT OK (${ELAPSED}s) - full log: $LOG"
   # Per-invocation file — no shared-state race if flock ever fails open.
-  ai_claude_result_command "$MSG" /tmp/musi-bun-result
+  ai_claude_result_command "$MSG" "$AI_BUN_RESULT_TMP_PREFIX"
 fi
 
 # Failure path: return a bounded tail of the full log.

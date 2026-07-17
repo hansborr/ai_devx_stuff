@@ -154,6 +154,140 @@ assert_policy_allows_each() {
   done
 }
 
+claude_destructive_git_family() {
+  local entry="$1"
+
+  if [[ "$entry" == *" commit "* || "$entry" == *" commit"* ]]; then
+    if [[ "$entry" == *"--amend"* ]]; then
+      printf '%s\n' commit-amend
+      return 0
+    fi
+    if [[ "$entry" == *"--no-verify"* ]]; then
+      printf '%s\n' commit-hook-bypass
+      return 0
+    fi
+  elif [[ "$entry" == *" push "* ]]; then
+    if [[ "$entry" == *"--prune"* ]]; then
+      printf '%s\n' push-prune
+    elif [[ "$entry" == *"--delete"* || "$entry" == *" -d"* || "$entry" == *" :"* ]]; then
+      printf '%s\n' push-delete
+    else
+      printf '%s\n' push-force
+    fi
+    return 0
+  elif [[ "$entry" == *" reset "* ]]; then
+    printf '%s\n' reset-ref-or-index
+    return 0
+  elif [[ "$entry" == *" clean "* ]]; then
+    printf '%s\n' clean-force
+    return 0
+  elif [[ "$entry" == *" branch "* ]]; then
+    if [[ "$entry" == *"--delete"* || "$entry" == *"-D"* || "$entry" == *"-df"* || "$entry" == *"-fd"* ]]; then
+      printf '%s\n' branch-force-delete
+    elif [ "$entry" = 'Bash(git branch *--force*)' ]; then
+      printf '%s\n' branch-force-long
+    elif [ "$entry" = 'Bash(git branch -f*)' ]; then
+      printf '%s\n' branch-force-f-leading
+    elif [ "$entry" = 'Bash(git branch * -f*)' ]; then
+      printf '%s\n' branch-force-f-after
+    elif [ "$entry" = 'Bash(git branch -M*)' ]; then
+      printf '%s\n' branch-force-move-leading
+    elif [ "$entry" = 'Bash(git branch * -M*)' ]; then
+      printf '%s\n' branch-force-move-after
+    elif [ "$entry" = 'Bash(git branch -C*)' ]; then
+      printf '%s\n' branch-force-copy-leading
+    elif [ "$entry" = 'Bash(git branch * -C*)' ]; then
+      printf '%s\n' branch-force-copy-after
+    else
+      return 1
+    fi
+    return 0
+  elif [[ "$entry" == *" tag "* ]]; then
+    if [[ "$entry" == *"--delete"* || "$entry" == *" -d"* ]]; then
+      printf '%s\n' tag-delete
+    else
+      printf '%s\n' tag-force-update
+    fi
+    return 0
+  elif [[ "$entry" == *" worktree remove "* ]]; then
+    printf '%s\n' worktree-force-remove
+    return 0
+  elif [[ "$entry" == *" checkout "* ]]; then
+    if [[ "$entry" == *"--force"* || "$entry" == *" -f"* ]]; then
+      printf '%s\n' checkout-force
+    else
+      printf '%s\n' checkout-path-discard
+    fi
+    return 0
+  elif [[ "$entry" == *" switch "* ]]; then
+    printf '%s\n' switch-force
+    return 0
+  elif [[ "$entry" == *" restore "* ]]; then
+    printf '%s\n' restore-worktree
+    return 0
+  elif [[ "$entry" == *" stash "* ]]; then
+    printf '%s\n' stash-discard
+    return 0
+  elif [[ "$entry" == *" filter-branch"* || "$entry" == *" filter-repo"* || "$entry" == *" replace"* || "$entry" == *" update-ref"* || "$entry" == *" reflog expire"* ]]; then
+    printf '%s\n' history-rewrite
+    return 0
+  fi
+
+  return 1
+}
+
+assert_claude_destructive_git_parity() {
+  local corpus_file="$TMP_ROOT/claude-destructive-git-corpus.tsv"
+  local native_families_file="$TMP_ROOT/claude-destructive-git-families.txt"
+  local entry family command expected
+
+  cat > "$corpus_file" <<EOF
+commit-amend|git commit --amend|$AI_POLICY_GIT_AMEND
+commit-hook-bypass|git commit --no-verify|$AI_POLICY_HOOK_BYPASS
+push-force|git push --force|$AI_POLICY_GIT_FORCE_PUSH
+push-delete|git push --delete origin feat/foo|$AI_POLICY_GIT_FORCE_PUSH
+push-prune|git push --prune origin|$AI_POLICY_GIT_FORCE_PUSH
+reset-ref-or-index|git reset --hard HEAD|$AI_POLICY_GIT_RESET
+clean-force|git clean --force|$AI_POLICY_GIT_CLEAN_FORCE
+branch-force-delete|git branch -D feat/foo|$AI_POLICY_GIT_BRANCH_FORCE_DELETE
+branch-force-long|git branch --force feat/foo HEAD~1|$AI_POLICY_GIT_BRANCH_FORCE_DELETE
+branch-force-f-leading|git branch -f feat/foo HEAD~1|$AI_POLICY_GIT_BRANCH_FORCE_DELETE
+branch-force-f-after|git branch feat/foo -f HEAD~1|$AI_POLICY_GIT_BRANCH_FORCE_DELETE
+branch-force-move-leading|git branch -M feat/old feat/new|$AI_POLICY_GIT_BRANCH_FORCE_DELETE
+branch-force-move-after|git branch feat/old -M feat/new|$AI_POLICY_GIT_BRANCH_FORCE_DELETE
+branch-force-copy-leading|git branch -C feat/source feat/copy|$AI_POLICY_GIT_BRANCH_FORCE_DELETE
+branch-force-copy-after|git branch feat/source -C feat/copy|$AI_POLICY_GIT_BRANCH_FORCE_DELETE
+tag-delete|git tag --delete v1.0.0|$AI_POLICY_GIT_BRANCH_FORCE_DELETE
+tag-force-update|git tag --force v1.0.0 HEAD~1|$AI_POLICY_GIT_BRANCH_FORCE_DELETE
+worktree-force-remove|git worktree remove --force ../feature|$AI_POLICY_GIT_BRANCH_FORCE_DELETE
+checkout-force|git checkout --force main|$AI_POLICY_GIT_WORKTREE_LOSS
+checkout-path-discard|git checkout -- packages/client/src/foo.ts|$AI_POLICY_GIT_WORKTREE_LOSS
+switch-force|git switch --force main|$AI_POLICY_GIT_WORKTREE_LOSS
+restore-worktree|git restore --worktree packages/client/src/foo.ts|$AI_POLICY_GIT_WORKTREE_LOSS
+stash-discard|git stash clear|$AI_POLICY_GIT_WORKTREE_LOSS
+history-rewrite|git update-ref refs/heads/main abc|$AI_POLICY_GIT_HISTORY_REWRITE
+EOF
+
+  : > "$native_families_file"
+  while IFS= read -r entry; do
+    family=$(claude_destructive_git_family "$entry") \
+      || fail "unclassified Claude destructive-git deny entry: $entry"
+    printf '%s\n' "$family" >> "$native_families_file"
+  done < <(jq -r '.permissions.deny[] | select(startswith("Bash(git "))' "$REPO_ROOT/.claude/settings.json")
+  sort -u -o "$native_families_file" "$native_families_file"
+
+  while IFS='|' read -r family command expected; do
+    grep -Fxq "$family" "$native_families_file" \
+      || fail "shared destructive-git parity corpus has no Claude family: $family"
+    assert_policy_blocks "$command" "$expected"
+  done < "$corpus_file"
+
+  while IFS= read -r family; do
+    awk -F '|' -v family="$family" '$1 == family { found = 1 } END { exit !found }' "$corpus_file" \
+      || fail "Claude destructive-git family lacks a shared-policy fixture: $family"
+  done < "$native_families_file"
+}
+
 assert_wrapped_bun() {
   local cmd="$1"
 
@@ -169,6 +303,7 @@ assert_unwrapped_bun() {
 }
 
 AI_BUN_CLASSIFIED_BYPASS_SCRIPTS='
+baseline:restore-stage
 clean
 code:intel:perf
 code:intel:server
@@ -179,6 +314,7 @@ codemod:trpc-shared-input
 codemod:trpc-shared-output
 db:status
 dev
+docs:baseline-conflict-recipes
 docs:harness-controls
 docs:lint-guidance
 doctor
@@ -340,6 +476,11 @@ assert_policy_allows_each \
   "command git status"
 assert_policy_blocks "echo ThisIsNotTheRealDatabasePassword" "$AI_POLICY_CHANGEME"
 
+# Every destructive Git family denied natively by Claude must have a
+# representative command blocked by the shared Codex/Copilot policy. New
+# native families therefore require an explicit cross-harness fixture.
+assert_claude_destructive_git_parity
+
 assert_policy_blocks_each "$AI_POLICY_GIT_AMEND" \
   " git commit --amend -m fix" \
   "git commit --amend -m fix" \
@@ -456,6 +597,7 @@ assert_policy_blocks_each "$AI_POLICY_GIT_FORCE_PUSH" \
   "git push --force-with-lease origin feat/foo" \
   "git push --force-with-lease=refs/heads/feat/foo origin feat/foo" \
   "git push --mirror origin" \
+  "git push --prune origin" \
   "git push origin +main" \
   "git push origin :feat/foo" \
   "git push --delete origin feat/foo" \
@@ -580,8 +722,14 @@ assert_policy_blocks_each "$AI_POLICY_GIT_BRANCH_FORCE_DELETE" \
   "git branch --delete --force feat/foo" \
   "git branch --delete -f feat/foo" \
   "git branch --force --delete feat/foo" \
+  "git branch --force feat/foo HEAD~1" \
+  "git branch -f feat/foo HEAD~1" \
+  "git branch -M feat/old feat/new" \
+  "git branch -C feat/source feat/copy" \
   "git tag -d v1.0.0" \
   "git tag --delete v1.0.0" \
+  "git tag --force v1.0.0 HEAD~1" \
+  "git tag -f v1.0.0 HEAD~1" \
   "git worktree remove --force ../feature" \
   "git worktree remove -f ../feature" \
   "echo ok && git branch -D feat/foo" \
@@ -599,6 +747,9 @@ assert_policy_blocks_each "$AI_POLICY_GIT_CLEAN_FORCE" \
   "env FOO=bar git clean -fd"
 assert_policy_allows_each \
   "git branch -d feat/foo" \
+  "git branch -m feat/old feat/new" \
+  "git branch -c feat/source feat/copy" \
+  "git tag v1.0.0" \
   "git clean -n"
 
 assert_policy_blocks_contains "printf '%s\n' x > bun.lock" "Protected lockfile"
@@ -613,6 +764,9 @@ assert_policy_blocks_contains "echo x&>bun.lock" "Protected lockfile"
 assert_policy_blocks_contains "sed -i 's/a/b/' lint-ratchet.baseline.json" "lint-ratchet.baseline.json"
 assert_policy_blocks_contains "printf '%s\n' x | tee docs/generated/harness-controls.md" "Protected generated file"
 assert_policy_blocks_contains "cp package.json docs/generated/local-lint-rules.md" "Protected generated file"
+assert_policy_allows "printf '%s\n' x > docs/generated/README.md"
+assert_policy_allows "printf '%s\n' x >> docs/generated/lint-coverage-map.md"
+assert_policy_allows "printf '%s\n' x | tee docs/generated/observed_flaky_tests.md"
 assert_policy_blocks_contains "install package.json .husky/_/pre-commit" "Protected Husky internals"
 assert_policy_blocks_contains "mv package.json scripts/suppression-register.sh" "suppression registers"
 assert_policy_blocks_contains "mv bun.lock /tmp/bun.lock.moved" "Protected lockfile"
@@ -859,6 +1013,287 @@ assert_hook_continue_json "$(claude_policy_out 'bun run test:changed')"
 assert_codex_allows "grep -r TODO ."
 assert_codex_hard_block_unchanged "docker ps" "$AI_POLICY_DOCKER"
 
+# --- L8: heredoc bodies are data, not executable command shapes -------------
+# Keep this group at the end of the shared-policy/direct-caller section so
+# parallel hook lanes can append their own groups without interleaving cases.
+HEREDOC_ONLY_CMD=$'cat > /tmp/musi-l8-notes.txt <<\'NOTES\'\nThe wrapper is scripts/ai-hooks/git-commit-quiet.sh.\nExample only: git commit --amend --no-edit\nNOTES'
+HEREDOC_ADVISORY_ONLY_CMD=$'cat <<"POLICY_NOTES"\ntouch .allow-protected-edits\nprintf x > bun.lock\nPOLICY_NOTES'
+HEREDOC_THEN_COMMIT_CMD=$'cat <<\'FIRST\' <<-"SECOND"\nfirst body: git commit --amend\nFIRST\n\tsecond body: scripts/ai-hooks/git-commit-quiet.sh\n\tSECOND\ngit commit -m real'
+HEREDOC_THEN_AMEND_CMD=$'cat <<ONE <<-TWO\nfirst body\nONE\n\tsecond body\n\tTWO\ngit commit --amend --no-edit'
+UNTERMINATED_HEREDOC_CMD=$'cat <<BROKEN\ngit commit --amend'
+UNTERMINATED_ADVISORY_CMD=$'cat <<BROKEN\ntouch .allow-protected-edits'
+COMMENT_PHANTOM_HEREDOC_CMD=$': # <<HIDE\ngit reset --hard\nHIDE'
+REAL_HEREDOC_BEFORE_COMMENT_CMD=$'cat <<DATA # <<PHANTOM\ngit reset --hard\nDATA\ngit reset --hard'
+HASH_IN_WORD_HEREDOC_CMD=$'cat foo#bar <<DATA\ngit reset --hard\nDATA'
+UNQUOTED_HEREDOC_SUBSTITUTION_CMD=$'cat <<EOF\n$(git reset --hard HEAD~5)\nEOF'
+QUOTED_HEREDOC_SUBSTITUTION_CMD=$'cat <<\'EOF\'\n$(git reset --hard HEAD~5)\nEOF'
+UNQUOTED_HEREDOC_BACKTICK_CMD=$'cat <<EOF\n`git reset --hard HEAD~5`\nEOF'
+HERESTRING_FAKE_HEREDOC_CMD=$'grep -q x <<< "DELIM"\ngit commit --no-verify -m foo\nDELIM'
+HERESTRING_THEN_COMMIT_CMD='grep -q x <<< "DELIM"; git commit -m foo'
+
+assert_policy_allows "$HEREDOC_ONLY_CMD"
+if ai_is_git_commit_cmd "$HEREDOC_ONLY_CMD"; then
+  fail "heredoc-only command must not be routed to the commit wrapper"
+fi
+HEREDOC_WRAPPER_OUT=$(jq -n --arg cmd "$HEREDOC_ONLY_CMD" '{tool_input:{command:$cmd}}' \
+  | bash "$REPO_ROOT/scripts/ai-hooks/git-commit-quiet.sh")
+assert_hook_continue_json "$HEREDOC_WRAPPER_OUT"
+
+# Both raw direct callers must inherit stripping from policy.sh itself.
+assert_hook_continue_json "$(no_direct_db_body_out "$HEREDOC_ONLY_CMD")"
+assert_hook_continue_json "$(claude_policy_out "$HEREDOC_ONLY_CMD")"
+assert_codex_allows "$HEREDOC_ONLY_CMD"
+
+# Advisory/protected-file scanners ignore heredoc data too.
+assert_policy_allows "$HEREDOC_ADVISORY_ONLY_CMD"
+if ai_policy_advisory_context "$HEREDOC_ADVISORY_ONLY_CMD" >/dev/null; then
+  fail "heredoc-only marker/protected-file text must not emit an advisory"
+fi
+
+# Executable commands after one or more heredocs remain visible. The second
+# heredoc uses <<- and a tab-indented terminator.
+ai_is_git_commit_cmd "$HEREDOC_THEN_COMMIT_CMD" \
+  || fail "real commit after two heredocs must be routed to the wrapper"
+assert_policy_blocks "$HEREDOC_THEN_AMEND_CMD" "$AI_POLICY_GIT_AMEND"
+HEREDOC_AMEND_WRAPPER_OUT=$(jq -n --arg cmd "$HEREDOC_THEN_AMEND_CMD" '{tool_input:{command:$cmd}}' \
+  | bash "$REPO_ROOT/scripts/ai-hooks/git-commit-quiet.sh")
+[ "$(jq -r '.decision // empty' <<< "$HEREDOC_AMEND_WRAPPER_OUT")" = "block" ] \
+  || fail "real amend after heredocs must reach the wrapper preflight: $HEREDOC_AMEND_WRAPPER_OUT"
+assert_contains "$(jq -r '.reason // empty' <<< "$HEREDOC_AMEND_WRAPPER_OUT")" "amend"
+
+# The protected-branch scanner is independently callable and must use the same
+# stripped view. An unterminated heredoc exercises the raw-text fallback for
+# policy scanners AND commit routing: a commit behind a malformed heredoc must
+# still route through the wrapper rather than run unguarded.
+if (cd "$MAIN_BRANCH_REPO" && ai_policy_has_git_commit_on_main "$HEREDOC_ONLY_CMD"); then
+  fail "commit-on-main scanner must ignore commit text in a heredoc body"
+fi
+(cd "$MAIN_BRANCH_REPO" && ai_policy_has_git_commit_on_main "$UNTERMINATED_HEREDOC_CMD") \
+  || fail "commit-on-main scanner must fail closed for an unterminated heredoc"
+assert_policy_blocks "$UNTERMINATED_HEREDOC_CMD" "$AI_POLICY_GIT_AMEND"
+ai_is_git_commit_cmd "$UNTERMINATED_HEREDOC_CMD" \
+  || fail "commit routing must fall back to raw text for an unterminated heredoc"
+assert_contains "$(ai_policy_advisory_context "$UNTERMINATED_ADVISORY_CMD")" ".allow-protected-edits"
+
+# An unquoted # starts a shell comment only at a word boundary. A declaration
+# inside that comment is inert and must not hide the executable reset below it.
+assert_policy_blocks "$COMMENT_PHANTOM_HEREDOC_CMD" "$AI_POLICY_GIT_RESET"
+# A real declaration before the comment still owns its body, while the phantom
+# declaration after # does not. A # embedded in a word does not start a comment.
+assert_policy_blocks "$REAL_HEREDOC_BEFORE_COMMENT_CMD" "$AI_POLICY_GIT_RESET"
+assert_policy_allows "$HASH_IN_WORD_HEREDOC_CMD"
+
+# Unquoted heredoc bodies undergo shell expansion, so executable command
+# substitutions in them remain policy-visible. A quoted delimiter makes the
+# same body pure data; HEREDOC_ONLY_CMD above covers that stripping behavior.
+assert_policy_blocks "$UNQUOTED_HEREDOC_SUBSTITUTION_CMD" "$AI_POLICY_GIT_RESET"
+assert_policy_blocks "$UNQUOTED_HEREDOC_BACKTICK_CMD" "$AI_POLICY_GIT_RESET"
+assert_policy_allows "$QUOTED_HEREDOC_SUBSTITUTION_CMD"
+
+# A herestring is not a heredoc declaration: it must neither swallow later
+# commands through a fake delimiter nor make same-line commit routing fail open.
+assert_policy_blocks "$HERESTRING_FAKE_HEREDOC_CMD" "$AI_POLICY_HOOK_BYPASS"
+HERESTRING_STRIPPED=$(ai_strip_noncommand_text "$HERESTRING_THEN_COMMIT_CMD") \
+  || fail "herestring-bearing command must not fail heredoc stripping"
+[ "$HERESTRING_STRIPPED" = "$HERESTRING_THEN_COMMIT_CMD" ] \
+  || fail "herestring-bearing command must remain intact after stripping"
+ai_is_git_commit_cmd "$HERESTRING_THEN_COMMIT_CMD" \
+  || fail "commit after a same-line herestring must be routed to the wrapper"
+
+# --- heredoc stripper hardening: interpreter-fed bodies, arithmetic <<,
+# $() desync, partially quoted delimiters, quoted global-option args ---------
+
+# A heredoc body fed to an obvious stdin-reading shell invocation (directly
+# or through a pipeline) IS the script that shell executes: it must stay
+# visible to the hard policy scanners instead of being stripped as data.
+# Detection is deliberately conservative (command-position shell name,
+# optional path/env prefix) — bumpers, not a wall: exotic spellings such as
+# quoted-concatenated shell names ("ba"sh) are accepted residuals.
+INTERP_HEREDOC_PUSH_CMD=$'bash <<\'EOF\'\ngit push origin main\nEOF'
+INTERP_HEREDOC_AMEND_CMD=$'sh <<EOF\ngit commit --amend --no-edit\nEOF'
+INTERP_PATH_HEREDOC_CMD=$'/bin/bash <<\'EOF\'\ngit reset --hard\nEOF'
+INTERP_PIPE_HEREDOC_CMD=$'cat <<\'EOF\' | bash\ngit reset --hard\nEOF'
+INTERP_ENV_HEREDOC_CMD=$'env bash <<\'EOF\'\ngit rebase main\nEOF'
+assert_policy_blocks "$INTERP_HEREDOC_PUSH_CMD" "$AI_POLICY_GIT_PUSH_MAIN"
+assert_policy_blocks "$INTERP_HEREDOC_AMEND_CMD" "$AI_POLICY_GIT_AMEND"
+assert_policy_blocks "$INTERP_PATH_HEREDOC_CMD" "$AI_POLICY_GIT_RESET"
+assert_policy_blocks "$INTERP_PIPE_HEREDOC_CMD" "$AI_POLICY_GIT_RESET"
+assert_policy_blocks "$INTERP_ENV_HEREDOC_CMD" "$AI_POLICY_GIT_REBASE"
+# The pre-hook (the only gate for push) must inherit the same visibility.
+assert_claude_hard_block "$INTERP_HEREDOC_PUSH_CMD" "$AI_POLICY_GIT_PUSH_MAIN"
+# Non-executing shell shapes stay data: a syntax-check (-n), a shell name in
+# argument position, and a shell running an explicit script operand none of
+# which execute the body.
+NONEXEC_SYNTAX_CHECK_CMD=$'bash -n <<\'EOF\'\ngit reset --hard\nEOF'
+NONEXEC_ARG_POSITION_CMD=$'cat - bash <<\'EOF\'\ngit reset --hard\nEOF'
+NONEXEC_SCRIPT_OPERAND_CMD=$'bash upgrade.sh <<\'EOF\'\ngit reset --hard\nEOF'
+assert_policy_allows "$NONEXEC_SYNTAX_CHECK_CMD"
+assert_policy_allows "$NONEXEC_ARG_POSITION_CMD"
+assert_policy_allows "$NONEXEC_SCRIPT_OPERAND_CMD"
+# Operands are scanned uniformly across the <<WORD token: a script operand
+# after the declaration still disarms the shell, and a filename operand after
+# it is not a pipeline consumer. A trailing comment does not read as an
+# operand. (Accepted residual: a value-taking shell option such as
+# `bash -O extglob <<'EOF'` reads its value as a script operand and strips
+# the body even though stdin executes — no option-table modeling.)
+NONEXEC_OPERAND_AFTER_CMD=$'bash <<\'EOF\' upgrade.sh\ngit reset --hard\nEOF'
+NONINTERP_FILE_OPERAND_CMD=$'cat <<\'EOF\' bash\ngit commit --amend\nEOF'
+INTERP_TRAILING_COMMENT_CMD=$'bash <<\'EOF\' # cleanup\ngit reset --hard\nEOF'
+assert_policy_allows "$NONEXEC_OPERAND_AFTER_CMD"
+assert_policy_allows "$NONINTERP_FILE_OPERAND_CMD"
+assert_policy_blocks "$INTERP_TRAILING_COMMENT_CMD" "$AI_POLICY_GIT_RESET"
+# Non-interpreter consumers keep the data-stripping behavior, even when a
+# shell name appears only inside the body text.
+NONINTERP_BASH_MENTION_CMD=$'cat <<\'EOF\'\nrun bash later; example: git commit --amend\nEOF'
+assert_policy_allows "$NONINTERP_BASH_MENTION_CMD"
+
+# $((...)) / ((...)) arithmetic uses << as a shift operator: it must neither
+# invent a heredoc that swallows following commands nor unmoor commit routing.
+ARITH_SHIFT_EATEN_AMEND_CMD=$'echo $((1<<1))\ngit commit --amend --no-edit\n1'
+assert_policy_blocks "$ARITH_SHIFT_EATEN_AMEND_CMD" "$AI_POLICY_GIT_AMEND"
+ARITH_CMD_EATEN_RESET_CMD=$'((x = 1<<1))\ngit reset --hard\n1'
+assert_policy_blocks "$ARITH_CMD_EATEN_RESET_CMD" "$AI_POLICY_GIT_RESET"
+ARITH_THEN_COMMIT_CMD=$'echo $((1<<1))\ngit commit -m "real commit"'
+ai_is_git_commit_cmd "$ARITH_THEN_COMMIT_CMD" \
+  || fail "commit after an arithmetic shift line must be routed to the wrapper"
+ARITH_BENIGN_CMD=$'echo $((1<<1))\necho after'
+ARITH_STRIPPED=$(ai_strip_noncommand_text "$ARITH_BENIGN_CMD") \
+  || fail "arithmetic shift must not register an unterminated heredoc"
+[ "$ARITH_STRIPPED" = "$ARITH_BENIGN_CMD" ] \
+  || fail "arithmetic shift lines must pass through the stripper unchanged"
+ARITH_THEN_HEREDOC_CMD=$'echo $((1<<1)) && cat <<\'EOF\'\ngit commit --amend\nEOF'
+assert_policy_allows "$ARITH_THEN_HEREDOC_CMD"
+
+# Unquoted bodies: from the first substitution opener ($( or backtick) the
+# rest of the body is retained wholesale — no depth/quote/comment modeling —
+# so a ")" hidden in a comment or quoted string cannot drop later executable
+# lines from the policy view. Over-retaining trailing data is the intended
+# trade-off (fail closed).
+SUBST_COMMENT_PAREN_CMD=$'cat <<EOF\n$(\n# )\ngit reset --hard\n)\nEOF'
+assert_policy_blocks "$SUBST_COMMENT_PAREN_CMD" "$AI_POLICY_GIT_RESET"
+SUBST_QUOTED_PAREN_CMD=$'cat <<EOF\n$(echo \')\'\ngit reset --hard\n)\nEOF'
+assert_policy_blocks "$SUBST_QUOTED_PAREN_CMD" "$AI_POLICY_GIT_RESET"
+# Body lines before the first opener are pure data and stay stripped; lines
+# from the opener on are retained.
+SUBST_STICKY_BODY_CMD=$'cat <<EOF\nplain prose before\n$(echo hi)\ntrailing prose after\nEOF'
+SUBST_STICKY_STRIPPED=$(ai_strip_noncommand_text "$SUBST_STICKY_BODY_CMD") \
+  || fail "substitution-bearing body must still strip cleanly"
+case "$SUBST_STICKY_STRIPPED" in
+  *"plain prose before"*) fail "body lines before a substitution opener must be stripped" ;;
+esac
+assert_contains "$SUBST_STICKY_STRIPPED" "trailing prose after"
+
+# POSIX delimiter quoting: ANY quoted part (\MSG, M"SG") suppresses body
+# expansion, and the terminator matches the delimiter with quotes removed. A
+# valid partially quoted delimiter must not fail the strip (which would fail
+# commit routing open past the wrapper, lock, and queue).
+BACKSLASH_DELIM_COMMIT_CMD=$'git commit -F - <<\\MSG\nfeat(x): subject line\n\nbody long enough for the hook\nMSG'
+ai_is_git_commit_cmd "$BACKSLASH_DELIM_COMMIT_CMD" \
+  || fail "commit with a backslash-quoted heredoc delimiter must be routed to the wrapper"
+BACKSLASH_DELIM_STRIPPED=$(ai_strip_noncommand_text "$BACKSLASH_DELIM_COMMIT_CMD") \
+  || fail "backslash-quoted delimiter must terminate its heredoc cleanly"
+case "$BACKSLASH_DELIM_STRIPPED" in
+  *"subject line"*) fail "backslash-quoted delimiter body must be stripped as data" ;;
+esac
+BACKSLASH_DELIM_DATA_CMD=$'cat <<\\EOF\n$(git reset --hard HEAD~5)\nEOF'
+assert_policy_allows "$BACKSLASH_DELIM_DATA_CMD"
+PARTIAL_QUOTE_DELIM_DATA_CMD=$'cat <<M"SG"\ngit commit --amend\nMSG'
+assert_policy_allows "$PARTIAL_QUOTE_DELIM_DATA_CMD"
+PARTIAL_QUOTE_DELIM_COMMIT_CMD=$'git commit -F - <<M"SG"\ncommit message text\nMSG'
+ai_is_git_commit_cmd "$PARTIAL_QUOTE_DELIM_COMMIT_CMD" \
+  || fail "commit with a partially quoted heredoc delimiter must be routed to the wrapper"
+# Inside a double-quoted delimiter, backslash is special only before $ ` " \
+# (POSIX): elsewhere it stays a literal delimiter character, so the
+# terminator carries the backslash and a benign body must strip cleanly
+# instead of tripping the raw fallback.
+DQ_PLAIN_DELIM_CMD=$'cat <<"MSG"\ngit commit --amend\nMSG'
+DQ_LITERAL_BACKSLASH_DELIM_CMD=$'cat <<"M\\SG"\ngit commit --amend\nM\\SG'
+DQ_ESCAPED_DOLLAR_DELIM_CMD=$'cat <<"M\\$G"\ngit commit --amend\nM$G'
+assert_policy_allows "$DQ_PLAIN_DELIM_CMD"
+assert_policy_allows "$DQ_LITERAL_BACKSLASH_DELIM_CMD"
+assert_policy_allows "$DQ_ESCAPED_DOLLAR_DELIM_CMD"
+
+# Global git option arguments may carry whitespace behind any quoting style
+# (quoted spans, escapes, concatenations); the pre-verb matcher must still
+# see the verb behind them.
+assert_policy_blocks "git -C '/tmp/feature lane' commit --amend" "$AI_POLICY_GIT_AMEND"
+assert_policy_blocks 'git -C "/tmp/feature lane" commit --amend' "$AI_POLICY_GIT_AMEND"
+assert_policy_blocks 'git -C /tmp/feature\ lane commit --amend' "$AI_POLICY_GIT_AMEND"
+assert_policy_blocks "git -C /tmp/'feature lane' commit --amend" "$AI_POLICY_GIT_AMEND"
+assert_policy_blocks "git --git-dir='/tmp/feature lane/.git' commit --amend" "$AI_POLICY_GIT_AMEND"
+ai_is_git_commit_cmd "git -C '/tmp/feature lane' commit -m x" \
+  || fail "quoted -C argument must not unroute the commit wrapper"
+assert_policy_allows "git -C '/tmp/feature lane' log --oneline"
+
+# --- pre-hook work-root wiring: branch policy follows the command's target
+# checkout, not the hook process cwd ----------------------------------------
+# `git push` has no executing wrapper, so the pre hooks (no-direct-db.sh and the
+# bash-pre-tool-use aggregate) are the only gate. A push/commit aimed at another
+# checkout via a leading `cd <dir>`/`git -C <dir>` must be judged against THAT
+# checkout's branch. Before the callers forwarded a resolved work root they
+# evaluated the hook process cwd instead: a `cd <main> && git push` fired from a
+# feature worktree slipped past the push-to-main guard, while the mirror
+# `cd <feature> && git push` fired from main was blocked as a false positive.
+# These run the real hook bodies with the payload cwd AND the process cwd parked
+# on the OPPOSITE branch, so they fail on the cwd-only behavior and pass only
+# once the caller resolves the command's target dir.
+run_pre_hook_with_cwd() {
+  local hook="$1" cmd="$2" payload_cwd="$3" proc_cwd="$4"
+  (
+    cd "$proc_cwd" || exit 1
+    jq -n --arg c "$cmd" --arg cwd "$payload_cwd" \
+      '{cwd:$cwd,tool_input:{command:$c}}' \
+      | AI_STATE_ROOT="$AI_STATE_ROOT" \
+        AI_BUN_LOG_DIR="$TMP_ROOT/workroot-bun-logs" \
+        AI_PRECOMMIT_LOG_DIR="$AI_PRECOMMIT_LOG_DIR" \
+        CLAUDE_PROJECT_DIR="$REPO_ROOT" \
+        bash "$hook"
+  )
+}
+
+assert_pre_hook_blocks_cross_checkout() {
+  local hook="$1" cmd="$2" payload_cwd="$3" proc_cwd="$4" expected="$5" out
+  out=$(run_pre_hook_with_cwd "$hook" "$cmd" "$payload_cwd" "$proc_cwd")
+  assert_hook_json "$out"
+  [ "$(jq -r '.decision' <<< "$out")" = "block" ] \
+    || fail "[$hook] must block cross-checkout [$cmd] (proc cwd $proc_cwd): $out"
+  [ "$(jq -r '.reason' <<< "$out")" = "$expected" ] \
+    || fail "[$hook] block reason mismatch for cross-checkout [$cmd]: $out"
+}
+
+assert_pre_hook_allows_cross_checkout() {
+  local hook="$1" cmd="$2" payload_cwd="$3" proc_cwd="$4" out
+  out=$(run_pre_hook_with_cwd "$hook" "$cmd" "$payload_cwd" "$proc_cwd")
+  assert_hook_continue_json "$out"
+}
+
+BASH_PRE_TOOL_USE="$REPO_ROOT/scripts/ai-hooks/bash-pre-tool-use.sh"
+for pre_hook in "$NO_DIRECT_DB_BODY" "$BASH_PRE_TOOL_USE"; do
+  # `cd <dir> && git push`: the target checkout's branch decides, not the cwd.
+  assert_pre_hook_blocks_cross_checkout "$pre_hook" \
+    "cd $MAIN_BRANCH_REPO && git push" \
+    "$FEATURE_BRANCH_REPO" "$FEATURE_BRANCH_REPO" "$AI_POLICY_GIT_PUSH_MAIN"
+  assert_pre_hook_allows_cross_checkout "$pre_hook" \
+    "cd $FEATURE_BRANCH_REPO && git push" \
+    "$MAIN_BRANCH_REPO" "$MAIN_BRANCH_REPO"
+  # `git -C <dir> commit`: same work-root resolution reaches the commit-on-main
+  # guard for the global-option form.
+  assert_pre_hook_blocks_cross_checkout "$pre_hook" \
+    "git -C $MAIN_BRANCH_REPO commit -m 'wire work root through'" \
+    "$FEATURE_BRANCH_REPO" "$FEATURE_BRANCH_REPO" "$AI_POLICY_GIT_COMMIT_ON_MAIN"
+  assert_pre_hook_allows_cross_checkout "$pre_hook" \
+    "git -C $FEATURE_BRANCH_REPO commit -m 'wire work root through'" \
+    "$MAIN_BRANCH_REPO" "$MAIN_BRANCH_REPO"
+  # `git -C <dir> push`: the original review bypass. Needs the non-commit
+  # resolver generalization, so it lands with the merged branches.
+  assert_pre_hook_blocks_cross_checkout "$pre_hook" \
+    "git -C $MAIN_BRANCH_REPO push" \
+    "$FEATURE_BRANCH_REPO" "$FEATURE_BRANCH_REPO" "$AI_POLICY_GIT_PUSH_MAIN"
+  assert_pre_hook_allows_cross_checkout "$pre_hook" \
+    "git -C $FEATURE_BRANCH_REPO push" \
+    "$MAIN_BRANCH_REPO" "$MAIN_BRANCH_REPO"
+done
+
 assert_protected_file_entry() {
   local path="$1"
   local expected_key="$2"
@@ -887,6 +1322,14 @@ assert_protected_file_deny_entry() {
   deny=$(ai_protected_file_deny "$path") \
     || fail "expected protected-file deny text for $path"
   assert_contains "$deny" "$expected_text"
+}
+
+assert_protected_file_not_denied() {
+  local path="$1"
+
+  if ai_protected_file_deny "$path" >/dev/null; then
+    fail "hand-maintained generated-directory document should not be denied: $path"
+  fi
 }
 
 assert_protected_file_entry \
@@ -929,6 +1372,9 @@ assert_protected_file_deny_entry \
   "$REPO_ROOT/docs/generated/harness-controls.md" \
   "generated-harness-controls" \
   "bun run docs:harness-controls"
+assert_protected_file_not_denied "$REPO_ROOT/docs/generated/README.md"
+assert_protected_file_not_denied "$REPO_ROOT/docs/generated/lint-coverage-map.md"
+assert_protected_file_not_denied "$REPO_ROOT/docs/generated/observed_flaky_tests.md"
 assert_protected_file_deny_entry \
   "$REPO_ROOT/scripts/verify/steps.generated.sh" \
   "generated-verify-steps" \
@@ -1043,6 +1489,14 @@ assert_protected_files_deny() {
   assert_contains "$reason" "$expected"
 }
 
+assert_protected_files_allow() {
+  local path="$1"
+  local output
+
+  output=$(protected_files_out_for_path "$path" "protected-files-allow-$path" "$TMP_ROOT/protected-files-allow-state")
+  assert_hook_continue_json "$output"
+}
+
 assert_protected_files_deny \
   "$REPO_ROOT/lint-ratchet.baseline.json" \
   "bun run lint:ratchet:update"
@@ -1052,6 +1506,9 @@ assert_protected_files_deny \
 assert_protected_files_deny \
   "$REPO_ROOT/docs/generated/local-lint-rules.md" \
   "bun run docs:lint-guidance"
+assert_protected_files_allow "$REPO_ROOT/docs/generated/README.md"
+assert_protected_files_allow "$REPO_ROOT/docs/generated/lint-coverage-map.md"
+assert_protected_files_allow "$REPO_ROOT/docs/generated/observed_flaky_tests.md"
 assert_protected_files_deny \
   "$REPO_ROOT/scripts/verify/steps.generated.sh" \
   "bun run verify:steps"
@@ -1190,6 +1647,76 @@ fi
 if ai_doc_length_advisory_for_count "$SHORT_DOC" 1 >/dev/null; then
   fail "unexpected doc-length count advisory for short doc"
 fi
+
+# --- backlog-note-lint hook (Claude Edit|Write) ------------------------------
+# Fixture backlog tree pointed at via AI_BACKLOG_NOTES_DIR so the scope filter
+# runs against isolated notes instead of the live docs/agent_notes/backlog tree.
+BACKLOG_NOTES_DIR="$TMP_ROOT/backlog"
+mkdir -p "$BACKLOG_NOTES_DIR/pack"
+
+BACKLOG_DIRTY_NOTE="$BACKLOG_NOTES_DIR/pack/dirty.md"
+printf '# Dirty note\n\nNo front matter here.\n' > "$BACKLOG_DIRTY_NOTE"
+BACKLOG_DIRTY_OUT=$(
+  jq -n --arg path "$BACKLOG_DIRTY_NOTE" '{tool_input:{file_path:$path}}' \
+    | AI_BACKLOG_NOTES_DIR="$BACKLOG_NOTES_DIR" \
+      CLAUDE_PROJECT_DIR="$REPO_ROOT" bash "$SCRIPT_DIR/backlog-note-lint.sh"
+)
+assert_hook_json "$BACKLOG_DIRTY_OUT"
+[ "$(jq -r '.hookSpecificOutput.hookEventName // empty' <<< "$BACKLOG_DIRTY_OUT")" = "PostToolUse" ] \
+  || fail "backlog-note-lint should emit PostToolUse context for a dirty note: $BACKLOG_DIRTY_OUT"
+BACKLOG_DIRTY_CONTEXT=$(jq -r '.hookSpecificOutput.additionalContext // empty' <<< "$BACKLOG_DIRTY_OUT")
+assert_contains "$BACKLOG_DIRTY_CONTEXT" "backlog:lint advisory findings"
+assert_contains "$BACKLOG_DIRTY_CONTEXT" "Missing Status:"
+assert_contains "$BACKLOG_DIRTY_CONTEXT" "Missing Date:"
+
+# A clean note carries the required front matter and must stay silent.
+BACKLOG_CLEAN_NOTE="$BACKLOG_NOTES_DIR/pack/clean.md"
+printf -- '---\nStatus: Ready\nDate: 2026-07-08\n---\n\n# Clean note\n\nBody.\n' > "$BACKLOG_CLEAN_NOTE"
+BACKLOG_CLEAN_OUT=$(
+  jq -n --arg path "$BACKLOG_CLEAN_NOTE" '{tool_input:{file_path:$path}}' \
+    | AI_BACKLOG_NOTES_DIR="$BACKLOG_NOTES_DIR" \
+      CLAUDE_PROJECT_DIR="$REPO_ROOT" bash "$SCRIPT_DIR/backlog-note-lint.sh"
+)
+assert_hook_continue_json "$BACKLOG_CLEAN_OUT"
+
+# Pack-level findings must also run against the overridden backlog root. This
+# fixture is clean as a single note but its pack lacks a required index.
+BACKLOG_MISSING_INDEX_DIR="$BACKLOG_NOTES_DIR/missing-index"
+mkdir -p "$BACKLOG_MISSING_INDEX_DIR"
+BACKLOG_MISSING_INDEX_NOTE="$BACKLOG_MISSING_INDEX_DIR/10-a.md"
+printf '# A\n\nStatus: Ready\nDate: 2026-07-08\n' > "$BACKLOG_MISSING_INDEX_NOTE"
+printf '# B\n\nStatus: Ready\nDate: 2026-07-08\n' > "$BACKLOG_MISSING_INDEX_DIR/11-b.md"
+BACKLOG_MISSING_INDEX_OUT=$(
+  jq -n --arg path "$BACKLOG_MISSING_INDEX_NOTE" '{tool_input:{file_path:$path}}' \
+    | AI_BACKLOG_NOTES_DIR="$BACKLOG_NOTES_DIR" \
+      CLAUDE_PROJECT_DIR="$REPO_ROOT" bash "$SCRIPT_DIR/backlog-note-lint.sh"
+)
+assert_hook_json "$BACKLOG_MISSING_INDEX_OUT"
+[ "$(jq -r '.hookSpecificOutput.hookEventName // empty' <<< "$BACKLOG_MISSING_INDEX_OUT")" = "PostToolUse" ] \
+  || fail "backlog-note-lint should emit PostToolUse context for overridden-root pack findings: $BACKLOG_MISSING_INDEX_OUT"
+BACKLOG_MISSING_INDEX_CONTEXT=$(jq -r '.hookSpecificOutput.additionalContext // empty' <<< "$BACKLOG_MISSING_INDEX_OUT")
+assert_contains "$BACKLOG_MISSING_INDEX_CONTEXT" "Missing Pack Index:"
+assert_contains "$BACKLOG_MISSING_INDEX_CONTEXT" "$BACKLOG_MISSING_INDEX_DIR"
+
+# A markdown edit outside the backlog tree must stay silent (hot path).
+BACKLOG_OUTSIDE_NOTE="$TMP_ROOT/not-backlog/note.md"
+mkdir -p "$(dirname "$BACKLOG_OUTSIDE_NOTE")"
+printf '# Outside\n\nno front matter\n' > "$BACKLOG_OUTSIDE_NOTE"
+BACKLOG_OUTSIDE_OUT=$(
+  jq -n --arg path "$BACKLOG_OUTSIDE_NOTE" '{tool_input:{file_path:$path}}' \
+    | AI_BACKLOG_NOTES_DIR="$BACKLOG_NOTES_DIR" \
+      CLAUDE_PROJECT_DIR="$REPO_ROOT" bash "$SCRIPT_DIR/backlog-note-lint.sh"
+)
+assert_hook_continue_json "$BACKLOG_OUTSIDE_OUT"
+
+# A deleted/renamed-away note is in scope by path but absent on disk; file mode
+# skips it silently rather than reporting a phantom finding.
+BACKLOG_DELETED_OUT=$(
+  jq -n --arg path "$BACKLOG_NOTES_DIR/pack/gone.md" '{tool_input:{file_path:$path}}' \
+    | AI_BACKLOG_NOTES_DIR="$BACKLOG_NOTES_DIR" \
+      CLAUDE_PROJECT_DIR="$REPO_ROOT" bash "$SCRIPT_DIR/backlog-note-lint.sh"
+)
+assert_hook_continue_json "$BACKLOG_DELETED_OUT"
 
 # --- Codex apply_patch wiring -------------------------------------------------
 # Extracted to a focused script so this adapter family can also run on its own
@@ -1351,11 +1878,13 @@ assert_wrapped_bun "bun run test:eslint-rules -- eslint-rules/no-barrel.test.js"
 assert_wrapped_bun "bun run test:scripts:file -- scripts/logs-audit/logs-audit.test.ts"
 assert_wrapped_bun "bun run test:slow"
 assert_wrapped_bun "bun run e2e"
+assert_wrapped_bun "bun run eval:lint-messages"
 assert_wrapped_bun "bun run format:check"
 assert_wrapped_bun "bun run format:changed:check"
 assert_wrapped_bun "bun run build --silent"
 assert_wrapped_bun "bun run code:intel -- exports packages/shared/src/constants.ts"
 assert_wrapped_bun "bun run drift:ai --scope current --check all"
+assert_wrapped_bun "bun run drift:triage --format json report.json"
 assert_wrapped_bun "bun run logs:audit --file reports/server.jsonl"
 assert_wrapped_bun "bun run harness:audit --format json reports/envelope.json"
 assert_wrapped_bun "bun run verify"
@@ -1532,9 +2061,12 @@ assert_response_combined_exit \
   "completed text" \
   ""
 
+# The suffix keys on the fast-commit provenance log (actual skip outcome),
+# not on marker presence: a marker-set commit whose HEAD was never logged
+# (docs-only, bridged, fully verified) must not claim skipped slots.
 assert_commit_success_summary_fast_commit_notice() {
   local repo="$TMP_ROOT/fast-commit-summary-repo"
-  local before after summary common_dir override_marker
+  local before after summary common_dir
 
   git init -q "$repo"
   git -C "$repo" config user.email test@example.invalid
@@ -1551,17 +2083,26 @@ assert_commit_success_summary_fast_commit_notice() {
   summary=$(ai_commit_success_summary "$repo" "$before" "$after")
   assert_not_contains "$summary" "fast-commit: test+scripts slots skipped"
 
+  # Marker present but HEAD not in the provenance log (nothing was actually
+  # skipped): no skip claim.
   common_dir=$(musi_git_common_identity_path "$repo")
   : > "$common_dir/musi-fast-commit"
+  summary=$(ai_commit_success_summary "$repo" "$before" "$after")
+  assert_not_contains "$summary" "fast-commit: test+scripts slots skipped"
+
+  # HEAD recorded in the provenance log: the suffix appears.
+  musi_fast_commit_log_append "$repo" "$after"
   summary=$(ai_commit_success_summary "$repo" "$before" "$after")
   assert_contains "$summary" "fast-commit: test+scripts slots skipped"
   assert_contains "$summary" "bash scripts/land.sh"
 
+  # A logged non-HEAD commit must not stamp the suffix onto a later commit.
+  musi_fast_commit_log_clear "$repo" "$after"
+  musi_fast_commit_log_append "$repo" "$before"
+  summary=$(ai_commit_success_summary "$repo" "$before" "$after")
+  assert_not_contains "$summary" "fast-commit: test+scripts slots skipped"
+
   rm -f "$common_dir/musi-fast-commit"
-  override_marker="$TMP_ROOT/fast-commit-summary-override"
-  : > "$override_marker"
-  summary=$(MUSI_FAST_COMMIT_MARKER="$override_marker" ai_commit_success_summary "$repo" "$before" "$after")
-  assert_contains "$summary" "fast-commit: test+scripts slots skipped"
 }
 
 assert_codex_git_commit_unknown_guidance() {
@@ -1646,12 +2187,12 @@ assert_git_commit_quiet_lock_contention_fail_fast() {
   sleep 0.2
 
   hook_out=$(
-    # git-commit-quiet.sh runs the commit-policy preflight in the ambient cwd, so
-    # a plain `git commit` is (correctly) blocked on main/master before the lock
-    # check under test. Invoke from a feature-branch repo to reach the lock path
-    # regardless of the branch the harness itself runs on.
-    cd "$FEATURE_BRANCH_REPO" || exit 1
-    printf '{"tool_input":{"command":"git commit -m test"}}' \
+    # git-commit-quiet.sh runs the commit-policy preflight against the resolved
+    # WORK_ROOT, so a plain `git commit` is (correctly) blocked on main/master
+    # before the lock check under test. Point the payload cwd at a feature-branch
+    # repo to reach the lock path regardless of the branch the harness runs on.
+    jq -n --arg cwd "$FEATURE_BRANCH_REPO" \
+      '{cwd:$cwd, tool_input:{command:"git commit -m test"}}' \
       | AI_GIT_COMMIT_LOCK="$lock" \
         bash "$REPO_ROOT/scripts/ai-hooks/git-commit-quiet.sh"
   )
@@ -1850,6 +2391,601 @@ assert_claude_git_commit_timeout_guidance() {
   assert_not_contains "$reason" "backgrounded"
 }
 
+# --- L1: commit wrapper resolves the target worktree, not the hook's checkout --
+# The wrapper derives REPO_ROOT from its own file location (the main checkout).
+# A session parked there but committing in a linked worktree must key HEAD
+# tracking, locks, branch policy, and the success summary on the worktree the
+# commit lands in — resolved from the command's leading `cd`/`git -C` forms or
+# the payload cwd (ai_resolve_target_dir).
+
+assert_resolve_target_dir_order() {
+  local quoted_dashc="git -C '/wt' commit -m x"
+  resolve() { ai_resolve_target_dir "$1" "$2" "$3"; }
+
+  [ "$(resolve 'cd /wt && git commit -m x' /workspace /repo)" = /wt ] \
+    || fail "resolve: leading cd should win over payload cwd"
+  [ "$(resolve 'git -C /wt commit -m x' /workspace /repo)" = /wt ] \
+    || fail "resolve: leading git -C should win over payload cwd"
+  [ "$(resolve 'git -C /tmp/commit-lane commit -m x' /workspace /repo)" = /tmp/commit-lane ] \
+    || fail "resolve: commit substring in git -C path must not truncate the target"
+  [ "$(resolve 'cd /main-checkout && git push' /feature-worktree /repo)" = /main-checkout ] \
+    || fail "resolve: leading cd should target a non-commit git command"
+  [ "$(resolve 'git -C /main-checkout push' /feature-worktree /repo)" = /main-checkout ] \
+    || fail "resolve: git -C should target a non-commit git command"
+  [ "$(resolve 'git -C /tmp/commit-lane push' /feature-worktree /repo)" = /tmp/commit-lane ] \
+    || fail "resolve: commit substring in non-commit git -C path must not truncate the target"
+  [ "$(resolve 'cd /a && git -C rel push' /payload/cwd /repo)" = /a/rel ] \
+    || fail "resolve: relative git -C after cd should resolve from the effective cd directory"
+  [ "$(resolve 'cd /a && command git push' /feature-worktree /repo)" = /a ] \
+    || fail "resolve: command-prefixed git should use the leading cd target"
+  [ "$(resolve 'cd /a && env X=1 git push' /feature-worktree /repo)" = /a ] \
+    || fail "resolve: env-prefixed git should use the leading cd target"
+  [ "$(resolve 'cd lanes/wt && git commit -m x' /workspace /repo)" = /workspace/lanes/wt ] \
+    || fail "resolve: relative leading cd should resolve from payload cwd"
+  [ "$(resolve "$quoted_dashc" /workspace /repo)" = /wt ] \
+    || fail "resolve: git -C should unquote its directory token"
+  [ "$(resolve 'git commit -m x' /wt /repo)" = /wt ] \
+    || fail "resolve: bare commit should fall back to payload cwd"
+  [ "$(resolve 'git push' /feature-worktree /repo)" = /feature-worktree ] \
+    || fail "resolve: git without cd or -C should fall back to payload cwd"
+  [ "$(resolve 'git commit -m x' '' /repo)" = /repo ] \
+    || fail "resolve: no cd/-C and no cwd should fall back to the repo root"
+  # `-C` AFTER `commit` is --reuse-message (a commit-ish), never a directory.
+  [ "$(resolve 'git commit -C HEAD~1' /wt /repo)" = /wt ] \
+    || fail "resolve: git commit -C <commit-ish> must not be read as a directory"
+  # A -C owned by an earlier git command must not retarget the later commit.
+  [ "$(resolve 'git -C /repo-a status && git commit -m x' /repo-b /repo)" = /repo-b ] \
+    || fail "resolve: an earlier git invocation's -C must not retarget the commit"
+  # In a simple compound, the last cd before commit is the effective cwd.
+  [ "$(resolve 'cd /feature && cd /main-checkout && git commit -m x' /cwd /repo)" = /main-checkout ] \
+    || fail "resolve: multiple cds should use the last cd before commit"
+  [ "$(resolve 'cd /feature; cd /main-checkout; git commit -m x' /cwd /repo)" = /main-checkout ] \
+    || fail "resolve: semicolon-separated cds should use the last cd before commit"
+  [ "$(resolve 'echo $(pwd) && git commit -m x' /cwd /repo)" = /cwd ] \
+    || fail "resolve: command substitution should fall back to payload cwd"
+}
+
+# Build a linked worktree of WT_MAIN_REPO on its own feature branch, with one
+# file staged and ready to commit. Echoes the worktree path.
+wt_new_lane() {
+  local branch="$1"
+  local name="$2"
+  local wt="$TMP_ROOT/$name"
+
+  git -C "$WT_MAIN_REPO" worktree add -q -b "$branch" "$wt" >/dev/null
+  printf '%s\n' "$name" > "$wt/$name.txt"
+  git -C "$wt" add "$name.txt"
+  printf '%s' "$wt"
+}
+
+# On success the wrapper rewrites the command to a `cat <tmp>; rm <tmp>` that
+# prints the commit summary. Extract and run it to read that summary.
+git_commit_quiet_success_summary() {
+  local hook_out="$1"
+  local rewritten
+  rewritten=$(printf '%s' "$hook_out" | jq -r '.hookSpecificOutput.updatedInput.command // empty')
+  [ -n "$rewritten" ] || return 1
+  eval "$rewritten"
+}
+
+# Shared assertion for the two leading-form shapes (cd prefix and git -C) plus
+# the bare-commit-with-worktree-cwd shape: the commit lands in the worktree, the
+# wrapper reports success, and its locks key on the worktree.
+assert_git_commit_quiet_lands_in_worktree() {
+  local wt="$1"
+  local payload="$2"
+  local before after hook_out decision summary writer_lock queue_lock
+  queue_lock="$TMP_ROOT/$(basename "$wt")-queue.lock"
+
+  before=$(git -C "$wt" rev-parse HEAD)
+  hook_out=$(
+    printf '%s' "$payload" \
+      | MUSI_VERIFY_STATE_ROOT="$TMP_ROOT" \
+        MUSI_COMMIT_QUEUE_LOCK="$queue_lock" \
+        bash "$REPO_ROOT/scripts/ai-hooks/git-commit-quiet.sh"
+  )
+  after=$(git -C "$wt" rev-parse HEAD)
+  decision=$(printf '%s' "$hook_out" | jq -r '.hookSpecificOutput.permissionDecision // empty')
+  summary=$(git_commit_quiet_success_summary "$hook_out")
+
+  [ "$decision" = "allow" ] \
+    || fail "worktree commit should succeed (updatedInput), got: $hook_out"
+  assert_contains "$summary" "Commit succeeded"
+  [ "$after" != "$before" ] \
+    || fail "worktree commit did not move the worktree HEAD ($wt)"
+  # Single-writer lock keyed on the worktree, and the queue holder names it.
+  writer_lock=$(MUSI_VERIFY_STATE_ROOT="$TMP_ROOT" musi_standard_git_commit_lock "$wt")
+  [ -s "$writer_lock" ] \
+    || fail "single-writer lock not keyed on the worktree ($writer_lock)"
+  assert_contains "$(cat "$queue_lock")" "WORKTREE="
+  assert_contains "$(cat "$queue_lock")" "$(basename "$wt")"
+}
+
+assert_git_commit_quiet_worktree_cd_form_lands() {
+  local wt
+  wt=$(wt_new_lane feat/lane-cd wt-cd)
+  assert_git_commit_quiet_lands_in_worktree "$wt" \
+    "$(jq -n --arg cwd "$WT_MAIN_REPO" --arg cmd "cd $wt && git commit -m 'test: land via cd prefix in the linked worktree'" \
+      '{cwd:$cwd, tool_input:{command:$cmd}}')"
+}
+
+assert_git_commit_quiet_relative_cd_replays_from_payload_cwd() {
+  local wt
+  wt=$(wt_new_lane feat/lane-relative-cd wt-relative-cd)
+  assert_git_commit_quiet_lands_in_worktree "$wt" \
+    "$(jq -n --arg cwd "$TMP_ROOT" \
+      --arg cmd "cd wt-relative-cd && git commit -m 'test: replay relative cd from payload cwd'" \
+      '{cwd:$cwd, tool_input:{command:$cmd}}')"
+}
+
+assert_git_commit_quiet_quoted_space_cd_lands() {
+  local wt
+  wt=$(wt_new_lane feat/lane-quoted-space "wt quoted space")
+  assert_git_commit_quiet_lands_in_worktree "$wt" \
+    "$(jq -n --arg cwd "$TMP_ROOT" \
+      --arg cmd "cd 'wt quoted space' && git commit -m 'test: land through quoted space path'" \
+      '{cwd:$cwd, tool_input:{command:$cmd}}')"
+}
+
+assert_git_commit_quiet_worktree_dashC_form_lands() {
+  local wt
+  wt=$(wt_new_lane feat/lane-dashc wt-dashc)
+  assert_git_commit_quiet_lands_in_worktree "$wt" \
+    "$(jq -n --arg cwd "$WT_MAIN_REPO" --arg cmd "git -C $wt commit -m 'test: land via git -C in the linked worktree'" \
+      '{cwd:$cwd, tool_input:{command:$cmd}}')"
+}
+
+assert_git_commit_quiet_worktree_payload_cwd_lands() {
+  local wt
+  wt=$(wt_new_lane feat/lane-cwd wt-cwd)
+  # Bare `git commit` — only the payload cwd (the worktree) points at the target.
+  assert_git_commit_quiet_lands_in_worktree "$wt" \
+    "$(jq -n --arg cwd "$wt" \
+      '{cwd:$cwd, tool_input:{command:"git commit -m \"test: land via payload cwd in the worktree\""}}')"
+}
+
+# ai_commit_truth_up_lines is the filter that isolates the `.husky/post-commit`
+# baseline advisories from the rest of the captured child output. It must keep
+# exactly the `post-commit: `-prefixed lines, drop everything else, and exit 0
+# (grep no-match) when there are none.
+assert_commit_truth_up_lines_filter() {
+  local output extracted
+  output="On branch main
+post-commit: merge produced a stale ratchet baseline - run: bun run lint:ratchet:update
+[main abc1234] test: hand-completed merge
+post-commit: merged lint-ratchet baseline verified truthful.
+ 1 file changed, 1 insertion(+)"
+
+  extracted=$(ai_commit_truth_up_lines "$output")
+  assert_contains "$extracted" "post-commit: merge produced a stale ratchet baseline"
+  assert_contains "$extracted" "post-commit: merged lint-ratchet baseline verified truthful."
+  assert_not_contains "$extracted" "On branch main"
+  assert_not_contains "$extracted" "1 file changed"
+
+  # No advisories -> empty output, and grep's no-match exit 1 must not surface
+  # (the caller runs it on the wrapper success path, which must stay exit 0).
+  extracted=$(ai_commit_truth_up_lines "just a normal commit line
+ 2 files changed, 3 insertions(+)")
+  [ -z "$extracted" ] || fail "expected no truth-up lines, got: $extracted"
+}
+
+# End-to-end: when a hand-completed merge commits through the wrapper, the
+# `.husky/post-commit` truth-up advisories printed during the commit must reach
+# the agent. Before the fix the wrapper captured them into its OUTFILE and then
+# discarded them, replacing the tool output with the quiet success summary alone.
+# Simulate the post-commit hook by having the committed command emit the same
+# `post-commit: ` lines to stderr (captured into the wrapper's OUTFILE just like
+# the real hook's output).
+assert_git_commit_quiet_forwards_truth_up_advisories() {
+  local wt payload before after hook_out decision summary queue_lock
+  wt=$(wt_new_lane feat/lane-truth-up wt-truth-up)
+  queue_lock="$TMP_ROOT/$(basename "$wt")-queue.lock"
+  payload=$(jq -n --arg cwd "$wt" \
+    --arg cmd "git commit -m 'test: land a hand-completed merge tripping the ratchet truth-up' && { printf '%s\n' 'post-commit: merge produced a stale ratchet baseline - run: bun run lint:ratchet:update' >&2; printf '%s\n' 'post-commit: max-lines exception merge needs truth-up - run bun run lint' >&2; }" \
+    '{cwd:$cwd, tool_input:{command:$cmd}}')
+
+  before=$(git -C "$wt" rev-parse HEAD)
+  hook_out=$(
+    printf '%s' "$payload" \
+      | MUSI_VERIFY_STATE_ROOT="$TMP_ROOT" \
+        MUSI_COMMIT_QUEUE_LOCK="$queue_lock" \
+        bash "$REPO_ROOT/scripts/ai-hooks/git-commit-quiet.sh"
+  )
+  after=$(git -C "$wt" rev-parse HEAD)
+  decision=$(printf '%s' "$hook_out" | jq -r '.hookSpecificOutput.permissionDecision // empty')
+  summary=$(git_commit_quiet_success_summary "$hook_out")
+
+  [ "$decision" = "allow" ] \
+    || fail "truth-up commit should succeed (updatedInput), got: $hook_out"
+  [ "$after" != "$before" ] \
+    || fail "truth-up commit did not move HEAD ($wt)"
+  assert_contains "$summary" "Commit succeeded"
+  assert_contains "$summary" "post-commit: merge produced a stale ratchet baseline"
+  assert_contains "$summary" "post-commit: max-lines exception merge needs truth-up"
+}
+
+# An ordinary success (no post-commit advisories in the child output) must be
+# left exactly as before — just the "Commit succeeded" summary, no stray lines.
+assert_git_commit_quiet_plain_success_has_no_truth_up_noise() {
+  local wt payload hook_out summary queue_lock
+  wt=$(wt_new_lane feat/lane-no-truth-up wt-no-truth-up)
+  queue_lock="$TMP_ROOT/$(basename "$wt")-queue.lock"
+  payload=$(jq -n --arg cwd "$wt" \
+    '{cwd:$cwd, tool_input:{command:"git commit -m \"test: an ordinary commit with no truth-up advisories\""}}')
+
+  hook_out=$(
+    printf '%s' "$payload" \
+      | MUSI_VERIFY_STATE_ROOT="$TMP_ROOT" \
+        MUSI_COMMIT_QUEUE_LOCK="$queue_lock" \
+        bash "$REPO_ROOT/scripts/ai-hooks/git-commit-quiet.sh"
+  )
+  summary=$(git_commit_quiet_success_summary "$hook_out")
+  assert_contains "$summary" "Commit succeeded"
+  assert_not_contains "$summary" "post-commit:"
+}
+
+assert_git_commit_quiet_prior_dashC_does_not_retarget() {
+  local wt
+  wt=$(wt_new_lane feat/lane-prior-dashc wt-prior-dashc)
+  assert_git_commit_quiet_lands_in_worktree "$wt" \
+    "$(jq -n --arg cwd "$wt" \
+      --arg cmd "git -C $WT_MAIN_REPO status --short && git commit -m 'test: ignore prior git dash C target'" \
+      '{cwd:$cwd, tool_input:{command:$cmd}}')"
+}
+
+# Branch policy must evaluate the resolved WORK_ROOT, not the hook process cwd.
+assert_git_commit_quiet_branch_policy_uses_work_root() {
+  local out reason
+  # Feature-branch work_root is allowed even from a protected-branch cwd.
+  out=$(cd "$MAIN_BRANCH_REPO" && ai_preflight_or_block "git commit -m 'subject long enough here'" "$FEATURE_BRANCH_REPO") \
+    || fail "preflight exited non-zero for a feature-branch work_root"
+  [ -z "$out" ] \
+    || fail "preflight blocked a commit into a feature-branch work_root: $out"
+  # Protected-branch work_root is blocked even from a feature-branch cwd.
+  out=$(cd "$FEATURE_BRANCH_REPO" && ai_preflight_or_block "git commit -m 'subject long enough here'" "$MAIN_BRANCH_REPO")
+  reason=$(printf '%s' "$out" | jq -r '.reason // empty')
+  [ "$(printf '%s' "$out" | jq -r '.decision // empty')" = "block" ] \
+    || fail "preflight should block a commit into a protected-branch work_root: $out"
+  [ "$reason" = "$AI_POLICY_GIT_COMMIT_ON_MAIN" ] \
+    || fail "preflight block reason mismatch for a protected-branch work_root: $reason"
+}
+
+# Two linked worktrees committing concurrently must not collide on the
+# single-writer lock (keyed per worktree); they serialize on the shared queue.
+assert_git_commit_quiet_concurrent_worktrees_no_writer_collision() {
+  local wt_a wt_b out_a out_b lock_a lock_b
+  wt_a=$(wt_new_lane feat/lane-cc-a wt-cc-a)
+  wt_b=$(wt_new_lane feat/lane-cc-b wt-cc-b)
+  out_a="$TMP_ROOT/wt-cc-a.out"
+  out_b="$TMP_ROOT/wt-cc-b.out"
+
+  # Shared common dir -> one shared queue lock; distinct worktrees -> distinct
+  # single-writer locks. Derive both under TMP_ROOT (no AI_GIT_COMMIT_LOCK).
+  (
+    jq -n --arg cwd "$wt_a" '{cwd:$cwd, tool_input:{command:"git commit -m \"test: concurrent lane a commit\""}}' \
+      | MUSI_VERIFY_STATE_ROOT="$TMP_ROOT" bash "$REPO_ROOT/scripts/ai-hooks/git-commit-quiet.sh" > "$out_a"
+  ) &
+  local pid_a=$!
+  (
+    jq -n --arg cwd "$wt_b" '{cwd:$cwd, tool_input:{command:"git commit -m \"test: concurrent lane b commit\""}}' \
+      | MUSI_VERIFY_STATE_ROOT="$TMP_ROOT" bash "$REPO_ROOT/scripts/ai-hooks/git-commit-quiet.sh" > "$out_b"
+  ) &
+  local pid_b=$!
+  wait "$pid_a" 2>/dev/null || true
+  wait "$pid_b" 2>/dev/null || true
+
+  assert_not_contains "$(cat "$out_a")" "Another git commit is in progress"
+  assert_not_contains "$(cat "$out_b")" "Another git commit is in progress"
+  [ "$(git -C "$wt_a" rev-parse HEAD)" != "$(git -C "$WT_MAIN_REPO" rev-parse HEAD)" ] \
+    || fail "concurrent lane a did not land its commit"
+  [ "$(git -C "$wt_b" rev-parse HEAD)" != "$(git -C "$WT_MAIN_REPO" rev-parse HEAD)" ] \
+    || fail "concurrent lane b did not land its commit"
+  lock_a=$(MUSI_VERIFY_STATE_ROOT="$TMP_ROOT" musi_standard_git_commit_lock "$wt_a")
+  lock_b=$(MUSI_VERIFY_STATE_ROOT="$TMP_ROOT" musi_standard_git_commit_lock "$wt_b")
+  [ "$lock_a" != "$lock_b" ] \
+    || fail "the two worktrees shared one single-writer lock ($lock_a)"
+}
+
+# The independent landing-detection path (bash-pre/bash-post, via the Codex
+# adapters) must observe the worktree HEAD too — no false no-landing summary.
+assert_bash_pre_post_worktree_landing_detection() {
+  local wt tool_id payload state_dir post_out reason
+  wt=$(wt_new_lane feat/lane-prepost wt-prepost)
+  tool_id="prepost-worktree-landing"
+  state_dir="$AI_STATE_ROOT/git"
+  payload=$(jq -n --arg id "$tool_id" --arg cwd "$WT_MAIN_REPO" \
+    --arg cmd "cd $wt && git commit -m 'test: land in worktree observed by the shared path'" \
+    '{tool_use_id:$id, cwd:$cwd, tool_input:{command:$cmd}}')
+
+  # 1. Pre hook snapshots HEAD_BEFORE + WORK_ROOT for this tool_use_id.
+  printf '%s' "$payload" \
+    | AI_STATE_ROOT="$AI_STATE_ROOT" AI_PRECOMMIT_LOG_DIR="$AI_PRECOMMIT_LOG_DIR" \
+      bash "$REPO_ROOT/.codex/hooks/pre-tool-use.sh" >/dev/null
+  [ "$(ai_read_state_value "$state_dir/$tool_id" WORK_ROOT)" = "$(cd "$wt" && pwd -P)" ] \
+    || fail "pre hook did not record the worktree as WORK_ROOT"
+
+  # 2. The commit actually lands in the worktree.
+  git -C "$wt" commit -qm "test: land in worktree observed by the shared path"
+
+  # 3. Post hook must report success against the worktree HEAD, not no-landing.
+  post_out=$(printf '%s' "$payload" \
+    | jq '. + {tool_response:{exit_code:0, stdout:""}}' \
+    | AI_STATE_ROOT="$AI_STATE_ROOT" AI_PRECOMMIT_LOG_DIR="$AI_PRECOMMIT_LOG_DIR" \
+      bash "$REPO_ROOT/.codex/hooks/post-tool-use.sh")
+  reason=$(printf '%s' "$post_out" | jq -r '.reason // empty')
+  assert_contains "$reason" "Commit succeeded"
+  assert_not_contains "$reason" "No commit landed"
+}
+
+# --- worktree fixture for the L1 wrapper tests -------------------------------
+WT_MAIN_REPO="$TMP_ROOT/wt-main"
+git init -q "$WT_MAIN_REPO"
+git -C "$WT_MAIN_REPO" config user.email test@example.invalid
+git -C "$WT_MAIN_REPO" config user.name Test
+git -C "$WT_MAIN_REPO" symbolic-ref HEAD refs/heads/main
+printf 'base\n' > "$WT_MAIN_REPO/base.txt"
+git -C "$WT_MAIN_REPO" add base.txt
+git -C "$WT_MAIN_REPO" commit -qm "test: base commit for the worktree fixture"
+
+# --- Item 1: PreToolUse commit guard is worktree-aware -----------------------
+# A session parked in one checkout committing into a linked worktree via
+# `cd <lane> && git commit` or `git -C <lane> commit` must judge the branch of
+# the LANE the commit lands in, not the session's own checkout. The real hooks
+# (no-direct-db.sh / bash-pre-tool-use.sh) resolve the target with
+# ai_resolve_target_dir and pass that work root to ai_policy_violation_reason;
+# this mirrors that path so the guard behavior is pinned end to end.
+SD15_REPO="$TMP_ROOT/sd15-primary"
+git init -q -b feat/primary "$SD15_REPO"
+git -C "$SD15_REPO" config user.email test@example.invalid
+git -C "$SD15_REPO" config user.name Test
+git -C "$SD15_REPO" commit -q --allow-empty -m "test: base commit for worktree-aware guard"
+git -C "$SD15_REPO" branch main
+SD15_LANE_FEAT="$TMP_ROOT/sd15-lane-feat"
+SD15_LANE_MAIN="$TMP_ROOT/sd15-lane-main"
+git -C "$SD15_REPO" worktree add -q -b feat/lane "$SD15_LANE_FEAT" >/dev/null
+git -C "$SD15_REPO" worktree add -q "$SD15_LANE_MAIN" main >/dev/null
+
+# Resolve the commit's target checkout exactly as the PreToolUse hooks do, then
+# return the policy reason (empty when allowed).
+sd15_guard_reason() {
+  local payload_cwd="$1"
+  local cmd="$2"
+  local target work_root
+  target=$(ai_resolve_target_dir "$cmd" "$payload_cwd" "$payload_cwd")
+  work_root=$(git -C "$target" rev-parse --show-toplevel 2>/dev/null || printf '%s' "$payload_cwd")
+  ai_policy_violation_reason "$cmd" "$work_root" || true
+}
+assert_sd15_allows() {
+  local reason
+  reason=$(sd15_guard_reason "$1" "$2")
+  [ -z "$reason" ] || fail "worktree-aware guard should allow [$2] from [$1], got: $reason"
+}
+assert_sd15_blocks_commit_on_main() {
+  local reason
+  reason=$(sd15_guard_reason "$1" "$2")
+  [ "$reason" = "$AI_POLICY_GIT_COMMIT_ON_MAIN" ] \
+    || fail "worktree-aware guard should block [$2] from [$1], got: $reason"
+}
+
+# (a) Session parked on the protected branch commits into a feature-branch lane.
+assert_sd15_allows "$SD15_REPO" "cd $SD15_LANE_FEAT && git commit -m 'lane feature work'"
+assert_sd15_allows "$SD15_REPO" "git -C $SD15_LANE_FEAT commit -m 'lane feature work'"
+# (d) A lane that is itself parked on a protected branch is still blocked, via
+# the cd form, the git -C form, and when the session cwd IS that lane.
+assert_sd15_blocks_commit_on_main "$SD15_REPO" "cd $SD15_LANE_MAIN && git commit -m wip"
+assert_sd15_blocks_commit_on_main "$SD15_REPO" "git -C $SD15_LANE_MAIN commit -m wip"
+assert_sd15_blocks_commit_on_main "$SD15_LANE_MAIN" "git commit -m wip"
+# A bare commit whose session cwd is the feature lane stays allowed.
+assert_sd15_allows "$SD15_LANE_FEAT" "git commit -m 'lane feature work'"
+
+# --- L7: shared commit-queue visibility (heartbeat + waiter tickets) ---------
+# The cross-worktree queue wait is a bounded FOREGROUND poll loop that heartbeats
+# the holder + queue depth, backed by per-lane waiter tickets under
+# <lock>.waiters/. These assert the heartbeat content under real 3-lane
+# contention, ticket cleanup on normal exit, self-clean on catchable signals,
+# peer-expiry of a SIGKILLed lane's ticket, and that no wait machinery outlives a
+# killed lane.
+
+# Grab the shared queue lock and hold it for $2 seconds with a recognizable
+# holder line, so waiter lanes park behind it. Sets QUEUE_HOLDER_PID.
+start_queue_holder() {
+  local queue_lock="$1"
+  local hold="$2"
+  (
+    exec 8<>"$queue_lock"
+    flock -n 8 || exit 1
+    printf 'PID=holderfix WORKTREE=%s CMD=git commit -m holder STARTED=now\n' \
+      "$FEATURE_BRANCH_REPO" > "$queue_lock"
+    sleep "$hold"
+  ) &
+  QUEUE_HOLDER_PID=$!
+}
+
+# Block until the holder fixture owns the lock (its line is visible in it).
+wait_for_queue_holder() {
+  local queue_lock="$1"
+  local n=0
+  while [ "$n" -lt 50 ]; do
+    grep -qF 'CMD=git commit -m holder' "$queue_lock" 2>/dev/null && return 0
+    sleep 0.1
+    n=$((n + 1))
+  done
+  return 1
+}
+
+# Launch a waiter lane parked on $queue_lock (stderr -> $err_file). A distinct
+# writer lock per lane lets lanes reach the shared queue instead of colliding on
+# the per-worktree single-writer lock. Fast heartbeat/poll intervals keep the
+# test bounded. Sets QUEUE_WAITER_PID.
+start_queue_waiter() {
+  local queue_lock="$1"
+  local writer_lock="$2"
+  local err_file="$3"
+  local queue_timeout="$4"
+  jq -n --arg cwd "$FEATURE_BRANCH_REPO" \
+    '{cwd:$cwd, tool_input:{command:"git commit --dry-run"}}' \
+    | AI_GIT_COMMIT_LOCK="$writer_lock" \
+      MUSI_COMMIT_QUEUE_LOCK="$queue_lock" \
+      MUSI_COMMIT_QUEUE_TIMEOUT="$queue_timeout" \
+      MUSI_COMMIT_QUEUE_HEARTBEAT_INTERVAL=1 \
+      MUSI_COMMIT_QUEUE_POLL_INTERVAL=0.2 \
+      AI_GIT_COMMIT_TIMEOUT=30 \
+      bash "$REPO_ROOT/scripts/ai-hooks/git-commit-quiet.sh" >/dev/null 2>"$err_file" &
+  QUEUE_WAITER_PID=$!
+}
+
+# Waiter-dir bookkeeping: naming, dead-PID/age pruning, self-exclusion. This is
+# the "expired on abandonment (next lane ignores its ticket)" acceptance bullet
+# at the helper level; the SIGKILL integration below exercises the same path
+# end-to-end.
+assert_commit_queue_waiter_ticket_expiry() {
+  local wd="$TMP_ROOT/expiry-queue.lock.waiters"
+  local live dead old now count
+
+  [ "$(musi_commit_queue_waiter_dir "$TMP_ROOT/x/q.lock")" = "$TMP_ROOT/x/q.lock.waiters" ] \
+    || fail "waiter dir naming"
+
+  mkdir -p "$wd"
+  sleep 30 & live=$!
+  sleep 30 & dead=$!
+  kill -9 "$dead"; wait "$dead" 2>/dev/null || true
+  now=$(date +%s)
+  printf 'PID=%s WORKTREE=/a STARTED=%s\n' "$live" "$now" > "$wd/$live"
+  printf 'PID=%s WORKTREE=/b STARTED=%s\n' "$dead" "$now" > "$wd/$dead"
+
+  count=$(musi_count_commit_queue_waiters "$wd" 999999)
+  [ "$count" = 1 ] || fail "waiter expiry: expected 1 live waiter, got [$count]"
+  [ ! -e "$wd/$dead" ] || fail "waiter expiry: dead (SIGKILLed) ticket not pruned"
+  [ -e "$wd/$live" ] || fail "waiter expiry: live ticket wrongly pruned"
+  [ "$(musi_count_commit_queue_waiters "$wd" "$live")" = 0 ] \
+    || fail "waiter expiry: self must be excluded from the count"
+
+  sleep 30 & old=$!
+  printf 'PID=%s WORKTREE=/c STARTED=%s\n' "$old" "$((now - 10000))" > "$wd/$old"
+  count=$(musi_count_commit_queue_waiters "$wd" 999999 5)
+  [ "$count" = 1 ] || fail "waiter expiry: aged ticket should not count, got [$count]"
+  [ ! -e "$wd/$old" ] || fail "waiter expiry: aged ticket not pruned"
+
+  kill "$live" "$old" 2>/dev/null || true
+  wait "$live" "$old" 2>/dev/null || true
+}
+
+# Under 3-lane contention, every parked lane heartbeats the holder line and a
+# waiter count; at least one lane observes both peers (2 other waiters).
+assert_git_commit_quiet_queue_heartbeat_three_lanes() {
+  local queue_lock="$TMP_ROOT/hb-queue.lock"
+  local e1="$TMP_ROOT/hb-lane1.err"
+  local e2="$TMP_ROOT/hb-lane2.err"
+  local e3="$TMP_ROOT/hb-lane3.err"
+  local p1 p2 p3 f combined
+
+  start_queue_holder "$queue_lock" 4
+  wait_for_queue_holder "$queue_lock" || fail "heartbeat: holder never took the queue lock"
+
+  start_queue_waiter "$queue_lock" "$TMP_ROOT/hb-l1.wl" "$e1" 8; p1=$QUEUE_WAITER_PID
+  start_queue_waiter "$queue_lock" "$TMP_ROOT/hb-l2.wl" "$e2" 8; p2=$QUEUE_WAITER_PID
+  start_queue_waiter "$queue_lock" "$TMP_ROOT/hb-l3.wl" "$e3" 8; p3=$QUEUE_WAITER_PID
+  wait "$p1" "$p2" "$p3" 2>/dev/null || true
+  wait "$QUEUE_HOLDER_PID" 2>/dev/null || true
+
+  for f in "$e1" "$e2" "$e3"; do
+    assert_contains "$(cat "$f")" "still waiting for shared commit queue"
+    assert_contains "$(cat "$f")" "holder: PID=holderfix"
+    assert_contains "$(cat "$f")" "CMD=git commit -m holder"
+    assert_contains "$(cat "$f")" "other waiter(s)"
+  done
+  combined=$(cat "$e1" "$e2" "$e3")
+  assert_contains "$combined" "2 other waiter(s)"
+}
+
+# A lane that acquires without contention still registers then drops its ticket:
+# after a normal (successful) commit no waiter ticket is left behind.
+assert_git_commit_quiet_queue_ticket_cleaned_on_normal_exit() {
+  local wt queue_lock waiter_dir
+
+  wt=$(wt_new_lane feat/lane-ticket wt-ticket)
+  queue_lock="$TMP_ROOT/wt-ticket-queue.lock"
+  waiter_dir=$(musi_commit_queue_waiter_dir "$queue_lock")
+
+  jq -n --arg cwd "$wt" \
+    '{cwd:$cwd, tool_input:{command:"git commit -m \"test: normal-exit waiter ticket cleanup\""}}' \
+    | MUSI_VERIFY_STATE_ROOT="$TMP_ROOT" MUSI_COMMIT_QUEUE_LOCK="$queue_lock" \
+      bash "$REPO_ROOT/scripts/ai-hooks/git-commit-quiet.sh" >/dev/null
+
+  [ "$(git -C "$wt" rev-parse HEAD)" != "$(git -C "$WT_MAIN_REPO" rev-parse HEAD)" ] \
+    || fail "normal-exit lane did not land its commit"
+  local ticket
+  for ticket in "$waiter_dir"/*; do
+    [ -e "$ticket" ] || continue
+    case "$(basename "$ticket")" in
+      ''|*[!0-9]*) ;;
+      *) fail "normal-exit lane left a waiter ticket: $ticket" ;;
+    esac
+  done
+}
+
+# TERM/INT/KILL a lane mid-wait. Catchable signals self-clean the ticket via the
+# interim trap; SIGKILL leaves it for a peer to expire. In every case no queue
+# machinery outlives the lane: no further heartbeat output, no orphaned child.
+_queue_signal_scenarios() {
+  local queue_lock="$TMP_ROOT/sig-queue.lock"
+  local waiter_dir sig err wp n sz1 sz2 c
+  waiter_dir=$(musi_commit_queue_waiter_dir "$queue_lock")
+
+  for sig in TERM INT KILL; do
+    err="$TMP_ROOT/sig-$sig.err"
+    : > "$err"
+    start_queue_holder "$queue_lock" 30
+    wait_for_queue_holder "$queue_lock" || fail "$sig: holder never took the queue lock"
+    start_queue_waiter "$queue_lock" "$TMP_ROOT/sig-$sig.wl" "$err" 60
+    wp=$QUEUE_WAITER_PID
+
+    n=0
+    while [ "$n" -lt 80 ]; do
+      [ -e "$waiter_dir/$wp" ] && grep -qF 'still waiting' "$err" 2>/dev/null && break
+      sleep 0.1
+      n=$((n + 1))
+    done
+    [ -e "$waiter_dir/$wp" ] || fail "$sig: waiter ticket never registered"
+    grep -qF 'still waiting' "$err" || fail "$sig: waiter never heartbeat before the signal"
+
+    kill -"$sig" "$wp" 2>/dev/null || true
+    wait "$wp" 2>/dev/null || true   # reap; a trap-driven exit is prompt
+
+    sz1=$(wc -c < "$err")
+    sleep 1.3
+    sz2=$(wc -c < "$err")
+    [ "$sz1" = "$sz2" ] \
+      || fail "$sig: queue-status output continued after the lane died ($sz1 -> $sz2)"
+    [ -z "$(pgrep -P "$wp" 2>/dev/null)" ] \
+      || fail "$sig: a child of the killed lane is still running"
+
+    if [ "$sig" = KILL ]; then
+      [ -e "$waiter_dir/$wp" ] || fail "KILL: ticket vanished before peer expiry"
+      c=$(musi_count_commit_queue_waiters "$waiter_dir" 999999)
+      [ "$c" = 0 ] || fail "KILL: peer did not expire the abandoned ticket (count $c)"
+      [ ! -e "$waiter_dir/$wp" ] || fail "KILL: abandoned ticket not pruned by peer"
+    else
+      [ ! -e "$waiter_dir/$wp" ] || fail "$sig: interim trap did not remove the waiter ticket"
+    fi
+
+    kill -9 "$QUEUE_HOLDER_PID" 2>/dev/null || true
+    wait "$QUEUE_HOLDER_PID" 2>/dev/null || true
+  done
+}
+
+# Job control (set -m) so a backgrounded lane gets a trappable INT — a plain-&
+# child has SIGINT set to SIG_IGN, which the real foreground hook never does. Run
+# in a subshell so monitor-mode job notices and a `fail` exit stay contained; the
+# captured log is surfaced only on failure.
+assert_git_commit_quiet_queue_no_orphan_on_signals() {
+  local log="$TMP_ROOT/queue-signal-scenarios.log"
+  if ! ( set -m; _queue_signal_scenarios ) 2>"$log"; then
+    fail "queue signal scenarios failed:
+$(cat "$log")"
+  fi
+}
+
 assert_no_sleep_marker() {
   local marker="$1"
   local pid args found=0
@@ -2040,6 +3176,23 @@ assert_git_commit_quiet_shared_queue_blocks_other_worktrees
 assert_git_commit_quiet_timeout_clamps_to_hook_margin
 assert_git_commit_quiet_amend_blocked_pre_execution
 assert_git_commit_quiet_normal_commit_allowed_by_guard
+assert_resolve_target_dir_order
+assert_git_commit_quiet_worktree_cd_form_lands
+assert_git_commit_quiet_relative_cd_replays_from_payload_cwd
+assert_git_commit_quiet_quoted_space_cd_lands
+assert_git_commit_quiet_worktree_dashC_form_lands
+assert_git_commit_quiet_worktree_payload_cwd_lands
+assert_commit_truth_up_lines_filter
+assert_git_commit_quiet_forwards_truth_up_advisories
+assert_git_commit_quiet_plain_success_has_no_truth_up_noise
+assert_git_commit_quiet_prior_dashC_does_not_retarget
+assert_git_commit_quiet_branch_policy_uses_work_root
+assert_git_commit_quiet_concurrent_worktrees_no_writer_collision
+assert_bash_pre_post_worktree_landing_detection
+assert_commit_queue_waiter_ticket_expiry
+assert_git_commit_quiet_queue_heartbeat_three_lanes
+assert_git_commit_quiet_queue_ticket_cleaned_on_normal_exit
+assert_git_commit_quiet_queue_no_orphan_on_signals
 assert_claude_git_commit_timeout_guidance
 assert_claude_bun_lock_wait_subtracts_watchdog_budget
 assert_claude_bun_timeout_clamps_to_hook_margin
@@ -2134,6 +3287,16 @@ assert_failure_guidance_payload_silent \
 assert_failure_guidance_payload_contains \
   "$(failure_guidance_stderr_payload "bun run lint" "$TERSE_FAILURE" "$OOM_FAILURE")" \
   "scripts/lib/gate-env.sh"
+# The heap policy now follows the lint tool itself (lint/lint:changed/lint:fix
+# all source gate-env.sh), so the guidance points at raising the heap, not at
+# rerouting through a gate.
+OOM_GUIDANCE_CONTEXT=$(failure_guidance_context "$(printf '%s' \
+  "$(failure_guidance_stderr_payload "bun run lint" "$TERSE_FAILURE" "$OOM_FAILURE")" \
+  | "$REPO_ROOT/scripts/ai-hooks/failure-guidance.sh")")
+assert_contains "$OOM_GUIDANCE_CONTEXT" "MUSI_GATE_NODE_OLD_SPACE_MB"
+if grep -qF "retry via bun run verify or git commit" <<< "$OOM_GUIDANCE_CONTEXT"; then
+  fail "failure-guidance should retire the route-through-a-gate workaround: $OOM_GUIDANCE_CONTEXT"
+fi
 assert_failure_guidance_payload_silent \
   "$(failure_guidance_error_payload "node scripts/unrelated.js" "FATAL ERROR: unrelated process failed")"
 

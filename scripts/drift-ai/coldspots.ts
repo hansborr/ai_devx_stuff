@@ -24,7 +24,6 @@ import { tagColdspotSectionsWithBaseline } from "./coldspots-baseline.js";
 import { defaultBlameGitRunner } from "./coldspots-blame.js";
 import { reduceColdspot } from "./coldspots-coldspot.js";
 import {
-  type ColdspotLens,
   type ColdspotsAdvisory,
   type ColdspotsSection,
   formatColdspotsJson,
@@ -279,5 +278,3 @@ const LENS_REDUCERS: Record<ConcreteColdspotLens, LensReducer> = {
         : { ageThresholdDays: context.parsed.markerAgeThresholdDays }),
     }),
 };
-
-export type { ColdspotLens };

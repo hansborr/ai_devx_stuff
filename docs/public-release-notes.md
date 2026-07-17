@@ -18,8 +18,12 @@ public subset:
   `.codex/skills/`
 - `.claude/settings.json`, `.claude/hooks/`, `.claude/output-styles/`, and
   `.claude/skills/`
-- `docs/generated/lint-coverage-map.md`
-- `docs/generated/observed_flaky_tests.md`
+- `.copilot/hooks/`
+
+The generated harness docs `docs/generated/lint-coverage-map.md` and
+`docs/generated/observed_flaky_tests.md` are not carved back — they are never
+`export-ignore`d in the first place, so they ship in every archive; generated
+and hook-facing harness docs point at those references.
 
 The rest of `docs/agent_notes/` remains export-ignored because it contains
 process notes such as recent-history logs, active backlog packs, and decision

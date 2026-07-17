@@ -16,6 +16,7 @@ runner ran test-generate-lint-guidance
 runner ran test-generate-module-index
 runner ran test-harness-check
 runner ran test-harness-emit-envelope
+runner ran test-land
 runner ran test-lint-agent-changed
 runner ran test-lint-agent
 runner ran test-lint-changed
@@ -25,6 +26,7 @@ runner ran test-lint-fix-dist-preflight
 runner ran test-lint-probe-rule
 runner ran test-lint-ratchet
 runner ran test-lint-shell
+runner ran test-merge-driver-dispatch
 runner ran test-migration-safety-scan
 runner ran test-parallel-runner
 runner ran test-post-create
@@ -38,6 +40,7 @@ runner ran test-test-client
 runner ran test-test-dist-preflight
 runner ran test-test-scripts
 runner ran test-test-slow
+runner ran test-tool-memory-admission
 runner ran test-typecheck
 runner ran test-verify-async
 runner ran test-verify-history

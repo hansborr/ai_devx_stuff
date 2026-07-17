@@ -5,9 +5,11 @@
 # smoke-subjects: scripts/lib/parallel-runner.sh
 # smoke-subjects: scripts/lib/verify-metadata.sh
 # smoke-subjects: scripts/lib/changed-base.sh
+# smoke-subjects: scripts/lib/changed-lintable-files.sh
 # smoke-subjects: scripts/path-policy/path-policy-query.ts
 # smoke-subjects: scripts/path-policy/path-policy-query-core.ts
 # smoke-subjects: scripts/path-policy/path-policy.ts
+# smoke-subjects: scripts/harness/harness-manifest.ts
 # smoke-subjects: scripts/harness/harness-paths.ts
 # smoke-subjects: scripts/lint-ratchet/paths.ts
 # smoke-subjects: scripts/tests/lib/test-git-env.sh
@@ -28,16 +30,22 @@ LINT_SHELL="$SCRIPT_DIR/../lint-shell.sh"
 PARALLEL_RUNNER="$SCRIPT_DIR/../lib/parallel-runner.sh"
 LINT_CONFIG_SENSORS="$SCRIPT_DIR/../lint-config-sensors.sh"
 ESLINT_MAIN_CACHE="$SCRIPT_DIR/../lib/eslint-main-cache.sh"
+ESLINT_MAIN_PARTITIONS="$SCRIPT_DIR/../lib/eslint-main-partitions.sh"
+ESLINT_MAIN_RUNNER="$SCRIPT_DIR/../eslint-main.sh"
 VERIFY_METADATA="$SCRIPT_DIR/../lib/verify-metadata.sh"
 CHANGED_BASE="$SCRIPT_DIR/../lib/changed-base.sh"
+CHANGED_LINTABLE_FILES="$SCRIPT_DIR/../lib/changed-lintable-files.sh"
 LINT_DIST_PREFLIGHT="$SCRIPT_DIR/../lib/lint-dist-preflight.sh"
+GATE_ENV="$SCRIPT_DIR/../lib/gate-env.sh"
 PATH_POLICY_QUERY="$SCRIPT_DIR/../path-policy/path-policy-query.ts"
 PATH_POLICY_QUERY_CORE="$SCRIPT_DIR/../path-policy/path-policy-query-core.ts"
 PATH_POLICY="$SCRIPT_DIR/../path-policy/path-policy.ts"
 PATH_POLICY_SMOKE_SUBJECTS="$SCRIPT_DIR/../path-policy/path-policy-smoke-subjects.ts"
 PATH_POLICY_SMOKE_SUBJECTS_DATA="$SCRIPT_DIR/../path-policy/path-policy-smoke-subjects-data.ts"
 HARNESS_PATHS="$SCRIPT_DIR/../harness/harness-paths.ts"
+HARNESS_MANIFEST="$SCRIPT_DIR/../harness/harness-manifest.ts"
 LINT_RATCHET_PATHS="$SCRIPT_DIR/../lint-ratchet/paths.ts"
+LINT_RATCHET_METRICS_TYPES="$SCRIPT_DIR/../lint-ratchet/metrics-types.ts"
 CONFIG_SURFACES="$REPO_ROOT/eslint-config/config-surfaces.js"
 CONFIG_SURFACE_MANIFEST="$REPO_ROOT/eslint-config/config-surface-manifest.json"
 SHARED_POLICY="$REPO_ROOT/eslint-config/shared-policy.js"
@@ -59,6 +67,12 @@ cat > "$SANDBOX/bin/eslint" <<'STUB'
   done
   printf '\n'
 } >> "${STUB_LOG:-/dev/null}"
+for arg in "$@"; do
+  if [ -n "${STUB_ESLINT_FAIL_TARGET:-}" ] \
+    && [ "$arg" = "$STUB_ESLINT_FAIL_TARGET" ]; then
+    exit "${STUB_ESLINT_FAIL_EXIT:-1}"
+  fi
+done
 exit "${STUB_ESLINT_EXIT:-0}"
 STUB
 chmod +x "$SANDBOX/bin/eslint"
@@ -100,9 +114,13 @@ new_repo() {
   cp "$LINT_SHELL" "$repo/scripts/lint-shell.sh"
   cp "$PARALLEL_RUNNER" "$repo/scripts/lib/parallel-runner.sh"
   cp "$ESLINT_MAIN_CACHE" "$repo/scripts/lib/eslint-main-cache.sh"
+  cp "$ESLINT_MAIN_PARTITIONS" "$repo/scripts/lib/eslint-main-partitions.sh"
+  cp "$ESLINT_MAIN_RUNNER" "$repo/scripts/eslint-main.sh"
   cp "$VERIFY_METADATA" "$repo/scripts/lib/verify-metadata.sh"
   cp "$CHANGED_BASE" "$repo/scripts/lib/changed-base.sh"
+  cp "$CHANGED_LINTABLE_FILES" "$repo/scripts/lib/changed-lintable-files.sh"
   cp "$LINT_DIST_PREFLIGHT" "$repo/scripts/lib/lint-dist-preflight.sh"
+  cp "$GATE_ENV" "$repo/scripts/lib/gate-env.sh"
   cp "$PATH_POLICY_QUERY" "$repo/scripts/path-policy/path-policy-query.ts"
   cp "$PATH_POLICY_QUERY_CORE" "$repo/scripts/path-policy/path-policy-query-core.ts"
   cp "$PATH_POLICY" "$repo/scripts/path-policy/path-policy.ts"
@@ -110,10 +128,13 @@ new_repo() {
   cp "$PATH_POLICY_SMOKE_SUBJECTS_DATA" \
     "$repo/scripts/path-policy/path-policy-smoke-subjects-data.ts"
   cp "$HARNESS_PATHS" "$repo/scripts/harness/harness-paths.ts"
+  cp "$HARNESS_MANIFEST" "$repo/scripts/harness/harness-manifest.ts"
   cp "$LINT_RATCHET_PATHS" "$repo/scripts/lint-ratchet/paths.ts"
+  cp "$LINT_RATCHET_METRICS_TYPES" "$repo/scripts/lint-ratchet/metrics-types.ts"
   cp "$CONFIG_SURFACES" "$repo/eslint-config/config-surfaces.js"
   cp "$CONFIG_SURFACE_MANIFEST" "$repo/eslint-config/config-surface-manifest.json"
   cp "$SHARED_POLICY" "$repo/eslint-config/shared-policy.js"
+  cp "$REPO_ROOT/eslint-config/max-lines-exceptions-codec.js" "$repo/eslint-config/max-lines-exceptions-codec.js"
   cp "$REPO_ROOT/eslint-config/max-lines-exceptions.baseline.json" "$repo/eslint-config/max-lines-exceptions.baseline.json"
   cat > "$repo/scripts/lint-config-sensors.sh" <<'STUB'
 #!/usr/bin/env bash
@@ -211,16 +232,28 @@ run_lint_changed_real_eslint() {
 }
 
 eslint_cache_log_args() {
-  local repo="$1"
+  local repo="$1" cache_key="${2:-}"
   (
     cd "$repo"
     # shellcheck source=/dev/null
     . scripts/lib/eslint-main-cache.sh
-    musi_eslint_main_cache_args "$repo"
+    musi_eslint_main_cache_args "$repo" "$cache_key"
     for arg in "${MUSI_ESLINT_MAIN_CACHE_ARGS[@]}"; do
       printf ' <%s>' "$arg"
     done
   )
+}
+
+eslint_full_partition_log() {
+  local repo="$1"
+  printf 'stub eslint <--max-warnings=0>%s <packages/shared/src>\n' \
+    "$(eslint_cache_log_args "$repo" shared)"
+  printf 'stub eslint <--max-warnings=0>%s <packages/server/src>\n' \
+    "$(eslint_cache_log_args "$repo" server)"
+  printf 'stub eslint <--max-warnings=0>%s <packages/client/src>\n' \
+    "$(eslint_cache_log_args "$repo" client)"
+  printf 'stub eslint <--max-warnings=0>%s <.> <--ignore-pattern> <packages/shared/src/**> <--ignore-pattern> <packages/server/src/**> <--ignore-pattern> <packages/client/src/**>\n' \
+    "$(eslint_cache_log_args "$repo" remainder)"
 }
 
 assert_stage_or_stash_failure() {
@@ -250,6 +283,12 @@ ok "lint-config-sensors.sh passes bash -n"
 
 bash -n "$ESLINT_MAIN_CACHE" || fail "eslint-main-cache.sh fails bash -n"
 ok "eslint-main-cache.sh passes bash -n"
+
+bash -n "$ESLINT_MAIN_PARTITIONS" || fail "eslint-main-partitions.sh fails bash -n"
+ok "eslint-main-partitions.sh passes bash -n"
+
+bash -n "$ESLINT_MAIN_RUNNER" || fail "eslint-main.sh fails bash -n"
+ok "eslint-main.sh passes bash -n"
 
 repo="$(new_repo clean)"
 : > "$repo/eslint.log"
@@ -451,6 +490,29 @@ esac
   || fail "non-identity cache directories should not be pruned"
 ok "main ESLint cache args use absolute paths and prune stale identity caches"
 
+partition_cache_dir=""
+for partition in shared server client remainder; do
+  partition_cache_location="$(
+    cd "$repo"
+    # shellcheck source=/dev/null
+    . scripts/lib/eslint-main-cache.sh
+    musi_eslint_main_cache_args "$repo" "$partition"
+    printf '%s\n' "${MUSI_ESLINT_MAIN_CACHE_ARGS[2]}"
+  )"
+  [ "$(basename "$partition_cache_location")" = "$partition.eslintcache" ] \
+    || fail "$partition cache should have a stable isolated filename: $partition_cache_location"
+  if [ -z "$partition_cache_dir" ]; then
+    partition_cache_dir="$(dirname "$partition_cache_location")"
+  else
+    [ "$(dirname "$partition_cache_location")" = "$partition_cache_dir" ] \
+      || fail "all partition caches should share one salted identity directory"
+  fi
+  : > "$partition_cache_location"
+done
+[ "$(find "$partition_cache_dir" -maxdepth 1 -type f -name '*.eslintcache' | wc -l)" -eq 4 ] \
+  || fail "all four partition cache entries should coexist"
+ok "partition caches coexist under the safe whole-graph identity salt"
+
 repo="$(new_repo cache-root-trailing-slash)"
 mkdir -p "$repo/node_modules/.cache/eslint-main/identity-stale"
 cache_location="$(
@@ -475,10 +537,48 @@ printf 'changed\n' > "$repo/packages/server/src/app.ts"
 git -C "$repo" add packages/server/src/app.ts
 : > "$repo/eslint.log"
 run_lint_changed "$repo" >/dev/null || fail "staged source change should run lint"
-expected="stub eslint <--max-warnings=0> <--no-warn-ignored>$(eslint_cache_log_args "$repo") <packages/server/src/app.ts>"
+expected="stub eslint <--max-warnings=0> <--no-warn-ignored>$(eslint_cache_log_args "$repo" server) <--> <packages/server/src/app.ts>"
 [ "$(cat "$repo/eslint.log")" = "$expected" ] \
   || fail "staged source change should lint only staged source file: $(cat "$repo/eslint.log")"
 ok "staged source-only changes lint staged files"
+
+repo="$(new_repo staged-multi-partition-change)"
+mkdir -p "$repo/packages/shared/src" "$repo/packages/client/src" "$repo/scripts"
+printf 'export const shared = true;\n' > "$repo/packages/shared/src/shared.ts"
+printf 'export const client = true;\n' > "$repo/packages/client/src/client.ts"
+printf 'export const tool = true;\n' > "$repo/scripts/tool.ts"
+printf 'changed\n' > "$repo/packages/server/src/app.ts"
+git -C "$repo" add packages/shared/src/shared.ts packages/server/src/app.ts \
+  packages/client/src/client.ts scripts/tool.ts
+: > "$repo/eslint.log"
+run_lint_changed "$repo" >/dev/null || fail "multi-package staged changes should run lint"
+expected="$(
+  printf 'stub eslint <--max-warnings=0> <--no-warn-ignored>%s <--> <packages/shared/src/shared.ts>\n' \
+    "$(eslint_cache_log_args "$repo" shared)"
+  printf 'stub eslint <--max-warnings=0> <--no-warn-ignored>%s <--> <packages/server/src/app.ts>\n' \
+    "$(eslint_cache_log_args "$repo" server)"
+  printf 'stub eslint <--max-warnings=0> <--no-warn-ignored>%s <--> <packages/client/src/client.ts>\n' \
+    "$(eslint_cache_log_args "$repo" client)"
+  printf 'stub eslint <--max-warnings=0> <--no-warn-ignored>%s <--> <scripts/tool.ts>\n' \
+    "$(eslint_cache_log_args "$repo" remainder)"
+)"
+[ "$(cat "$repo/eslint.log")" = "$expected" ] \
+  || fail "changed files should run in four sequential owning partitions: $(cat "$repo/eslint.log")"
+ok "multi-package changed lint uses sequential owning partitions and caches"
+
+: > "$repo/eslint.log"
+set +e
+output="$(STUB_ESLINT_FAIL_TARGET=packages/server/src/app.ts \
+  STUB_ESLINT_FAIL_EXIT=2 run_lint_changed "$repo" 2>&1)"
+exit_code=$?
+set -e
+[ "$exit_code" -eq 2 ] \
+  || fail "changed partition fatal status should propagate as exit 2: $output"
+[ "$(wc -l < "$repo/eslint.log")" -eq 4 ] \
+  || fail "a changed partition failure should not hide later diagnostics: $(cat "$repo/eslint.log")"
+grep -qF '<scripts/tool.ts>' "$repo/eslint.log" \
+  || fail "remainder should still run after a server partition failure: $(cat "$repo/eslint.log")"
+ok "changed lint aggregates partition failures without skipping later scopes"
 
 repo="$(new_repo staged-jsonc-change)"
 mkdir -p "$repo/packages/server/src/data"
@@ -486,7 +586,7 @@ printf '{ "extends": "./base.json" }\n' > "$repo/packages/server/src/data/tsconf
 git -C "$repo" add packages/server/src/data/tsconfig.jsonc
 : > "$repo/eslint.log"
 run_lint_changed "$repo" >/dev/null || fail "staged JSONC change should run lint"
-expected="stub eslint <--max-warnings=0> <--no-warn-ignored>$(eslint_cache_log_args "$repo") <packages/server/src/data/tsconfig.jsonc>"
+expected="stub eslint <--max-warnings=0> <--no-warn-ignored>$(eslint_cache_log_args "$repo" server) <--> <packages/server/src/data/tsconfig.jsonc>"
 [ "$(cat "$repo/eslint.log")" = "$expected" ] \
   || fail "staged JSONC change should lint JSONC file: $(cat "$repo/eslint.log")"
 ok "staged JSONC changes are selected for ESLint"
@@ -661,7 +761,7 @@ printf 'space\n' > "$repo/packages/server/src/file with spaces.ts"
 git -C "$repo" add "packages/server/src/file with spaces.ts"
 : > "$repo/eslint.log"
 run_lint_changed "$repo" >/dev/null || fail "staged source path with spaces should run lint"
-expected="stub eslint <--max-warnings=0> <--no-warn-ignored>$(eslint_cache_log_args "$repo") <packages/server/src/file with spaces.ts>"
+expected="stub eslint <--max-warnings=0> <--no-warn-ignored>$(eslint_cache_log_args "$repo" server) <--> <packages/server/src/file with spaces.ts>"
 [ "$(cat "$repo/eslint.log")" = "$expected" ] \
   || fail "source path with spaces should be passed as one eslint argument: $(cat "$repo/eslint.log")"
 ok "paths with spaces are linted safely"
@@ -683,7 +783,7 @@ git -C "$repo" add eslint.config.js
 output="$(run_lint_changed "$repo")" || fail "eslint config change should run lint: $output"
 grep -qF 'lint-affecting staged/base config changed' <<< "$output" \
   || fail "eslint config change should announce full lint: $output"
-expected="stub eslint <--max-warnings=0>$(eslint_cache_log_args "$repo") <.>"
+expected="$(eslint_full_partition_log "$repo")"
 [ "$(cat "$repo/eslint.log")" = "$expected" ] \
   || fail "eslint config change should run full lint: $(cat "$repo/eslint.log")"
 ok "eslint config changes force full lint"
@@ -693,7 +793,7 @@ printf 'changed rule\n' > "$repo/eslint-rules/example.js"
 git -C "$repo" add eslint-rules/example.js
 : > "$repo/eslint.log"
 run_lint_changed "$repo" >/dev/null || fail "eslint rule change should run lint"
-expected="stub eslint <--max-warnings=0>$(eslint_cache_log_args "$repo") <.>"
+expected="$(eslint_full_partition_log "$repo")"
 [ "$(cat "$repo/eslint.log")" = "$expected" ] \
   || fail "eslint rule change should run full lint: $(cat "$repo/eslint.log")"
 ok "eslint rule changes force full lint"
@@ -703,7 +803,7 @@ printf '{ "compilerOptions": {} }\n' > "$repo/tsconfig.json"
 git -C "$repo" add tsconfig.json
 : > "$repo/eslint.log"
 run_lint_changed "$repo" >/dev/null || fail "tsconfig change should run lint"
-expected="stub eslint <--max-warnings=0>$(eslint_cache_log_args "$repo") <.>"
+expected="$(eslint_full_partition_log "$repo")"
 [ "$(cat "$repo/eslint.log")" = "$expected" ] \
   || fail "tsconfig change should run full lint: $(cat "$repo/eslint.log")"
 ok "tsconfig changes force full lint"
@@ -722,7 +822,7 @@ for trigger_path in \
   output="$(run_lint_changed "$repo")" || fail "$trigger_path change should run lint: $output"
   grep -qF 'lint-affecting staged/base config changed' <<< "$output" \
     || fail "$trigger_path change should announce full lint: $output"
-  expected="stub eslint <--max-warnings=0>$(eslint_cache_log_args "$repo") <.>"
+  expected="$(eslint_full_partition_log "$repo")"
   [ "$(cat "$repo/eslint.log")" = "$expected" ] \
     || fail "$trigger_path change should run full lint: $(cat "$repo/eslint.log")"
   ok "$trigger_path changes force full lint"
@@ -747,9 +847,13 @@ cp "$LINT_CHANGED" "$repo/scripts/lint-changed.sh"
 cp "$LINT_SHELL" "$repo/scripts/lint-shell.sh"
 cp "$PARALLEL_RUNNER" "$repo/scripts/lib/parallel-runner.sh"
 cp "$ESLINT_MAIN_CACHE" "$repo/scripts/lib/eslint-main-cache.sh"
+cp "$ESLINT_MAIN_PARTITIONS" "$repo/scripts/lib/eslint-main-partitions.sh"
+cp "$ESLINT_MAIN_RUNNER" "$repo/scripts/eslint-main.sh"
 cp "$VERIFY_METADATA" "$repo/scripts/lib/verify-metadata.sh"
 cp "$CHANGED_BASE" "$repo/scripts/lib/changed-base.sh"
+cp "$CHANGED_LINTABLE_FILES" "$repo/scripts/lib/changed-lintable-files.sh"
 cp "$LINT_DIST_PREFLIGHT" "$repo/scripts/lib/lint-dist-preflight.sh"
+cp "$GATE_ENV" "$repo/scripts/lib/gate-env.sh"
 cp "$PATH_POLICY_QUERY" "$repo/scripts/path-policy/path-policy-query.ts"
 cp "$PATH_POLICY_QUERY_CORE" "$repo/scripts/path-policy/path-policy-query-core.ts"
 cp "$PATH_POLICY" "$repo/scripts/path-policy/path-policy.ts"
@@ -757,10 +861,13 @@ cp "$PATH_POLICY_SMOKE_SUBJECTS" "$repo/scripts/path-policy/path-policy-smoke-su
 cp "$PATH_POLICY_SMOKE_SUBJECTS_DATA" \
   "$repo/scripts/path-policy/path-policy-smoke-subjects-data.ts"
 cp "$HARNESS_PATHS" "$repo/scripts/harness/harness-paths.ts"
+cp "$HARNESS_MANIFEST" "$repo/scripts/harness/harness-manifest.ts"
 cp "$LINT_RATCHET_PATHS" "$repo/scripts/lint-ratchet/paths.ts"
+cp "$LINT_RATCHET_METRICS_TYPES" "$repo/scripts/lint-ratchet/metrics-types.ts"
 cp "$CONFIG_SURFACES" "$repo/eslint-config/config-surfaces.js"
 cp "$CONFIG_SURFACE_MANIFEST" "$repo/eslint-config/config-surface-manifest.json"
 cp "$SHARED_POLICY" "$repo/eslint-config/shared-policy.js"
+cp "$REPO_ROOT/eslint-config/max-lines-exceptions-codec.js" "$repo/eslint-config/max-lines-exceptions-codec.js"
 cp "$REPO_ROOT/eslint-config/max-lines-exceptions.baseline.json" "$repo/eslint-config/max-lines-exceptions.baseline.json"
 cat > "$repo/scripts/lint-config-sensors.sh" <<'STUB'
 #!/usr/bin/env bash
@@ -791,12 +898,12 @@ touch "$repo/packages/shared/dist/rules/attack-damage.d.ts"
 touch "$repo/packages/shared/dist/schemas/auth.d.ts"
 touch "$repo/packages/shared/dist/test/parse-helpers.d.ts"
 touch "$repo/packages/server/dist/routers/app-router.d.ts"
-git -C "$repo" add scripts/lint-changed.sh scripts/lint-shell.sh scripts/lib/parallel-runner.sh scripts/lint-config-sensors.sh scripts/lint-import-cycles.sh scripts/lib/eslint-main-cache.sh scripts/lib/verify-metadata.sh scripts/lib/changed-base.sh scripts/lib/lint-dist-preflight.sh scripts/path-policy/path-policy-query.ts scripts/path-policy/path-policy-query-core.ts scripts/path-policy/path-policy.ts scripts/path-policy/path-policy-smoke-subjects.ts scripts/path-policy/path-policy-smoke-subjects-data.ts scripts/harness/harness-paths.ts scripts/lint-ratchet/paths.ts eslint-config/config-surfaces.js eslint-config/config-surface-manifest.json eslint-config/shared-policy.js eslint-config/max-lines-exceptions.baseline.json packages/shared/dist/constants.d.ts packages/shared/dist/dice/dice-roller.d.ts packages/shared/dist/map/drawing.d.ts packages/shared/dist/rules/attack-damage.d.ts packages/shared/dist/schemas/auth.d.ts packages/shared/dist/test/parse-helpers.d.ts packages/server/dist/routers/app-router.d.ts
+git -C "$repo" add scripts/eslint-main.sh scripts/lint-changed.sh scripts/lint-shell.sh scripts/lib/parallel-runner.sh scripts/lint-config-sensors.sh scripts/lint-import-cycles.sh scripts/lib/eslint-main-cache.sh scripts/lib/eslint-main-partitions.sh scripts/lib/verify-metadata.sh scripts/lib/changed-base.sh scripts/lib/changed-lintable-files.sh scripts/lib/lint-dist-preflight.sh scripts/lib/gate-env.sh scripts/path-policy/path-policy-query.ts scripts/path-policy/path-policy-query-core.ts scripts/path-policy/path-policy.ts scripts/path-policy/path-policy-smoke-subjects.ts scripts/path-policy/path-policy-smoke-subjects-data.ts scripts/harness/harness-paths.ts scripts/harness/harness-manifest.ts scripts/lint-ratchet/paths.ts scripts/lint-ratchet/metrics-types.ts eslint-config/config-surfaces.js eslint-config/config-surface-manifest.json eslint-config/shared-policy.js eslint-config/max-lines-exceptions-codec.js eslint-config/max-lines-exceptions.baseline.json packages/shared/dist/constants.d.ts packages/shared/dist/dice/dice-roller.d.ts packages/shared/dist/map/drawing.d.ts packages/shared/dist/rules/attack-damage.d.ts packages/shared/dist/schemas/auth.d.ts packages/shared/dist/test/parse-helpers.d.ts packages/server/dist/routers/app-router.d.ts
 : > "$repo/eslint.log"
 output="$(run_lint_changed "$repo" 2>&1)" || fail "missing base should fall back to full lint: $output"
 grep -qF "neither 'main' nor 'origin/main' exists" <<< "$output" \
   || fail "missing base fallback should be announced: $output"
-expected="stub eslint <--max-warnings=0>$(eslint_cache_log_args "$repo") <.>"
+expected="$(eslint_full_partition_log "$repo")"
 [ "$(cat "$repo/eslint.log")" = "$expected" ] \
   || fail "missing base should run full lint: $(cat "$repo/eslint.log")"
 ok "missing base ref falls back to full lint"
@@ -811,9 +918,21 @@ git -C "$repo" commit -qm orphan-seed
 output="$(run_lint_changed "$repo" 2>&1)" || fail "disjoint base should fall back to full lint: $output"
 grep -qF "'main' shares no history with HEAD" <<< "$output" \
   || fail "disjoint base fallback should be announced: $output"
-expected="stub eslint <--max-warnings=0>$(eslint_cache_log_args "$repo") <.>"
+expected="$(eslint_full_partition_log "$repo")"
 [ "$(cat "$repo/eslint.log")" = "$expected" ] \
   || fail "disjoint base should run full lint: $(cat "$repo/eslint.log")"
 ok "base with no common ancestor falls back to full lint"
+
+repo="$(new_repo selector-crash)"
+printf 'process.exit(73);\n' > "$repo/scripts/path-policy/path-policy-query.ts"
+set +e
+output="$(run_lint_changed "$repo" 2>&1)"
+exit_code=$?
+set -e
+[ "$exit_code" -eq 2 ] \
+  || fail "lint:changed selector crash should exit 2 (got $exit_code): $output"
+grep -qF 'path selection failed' <<< "$output" \
+  || fail "lint:changed selector crash should report selection failure: $output"
+ok "lint:changed distinguishes selector failure from an empty selection"
 
 printf 'lint-changed tests passed (%d)\n' "$PASS"

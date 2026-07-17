@@ -49,14 +49,14 @@ export const DEFAULT_ENV_BRANCHES_TOP = 50;
 //    short-circuits past such a read still lands here (the read is syntactically present),
 //    which under-claims rather than over-claims erasure;
 //  - "not-static": the branch is unresolved, so there is no constant to fold.
-export type EnvBranchEraseExpectation = "static-define" | "env-inlining-dependent" | "not-static";
+type EnvBranchEraseExpectation = "static-define" | "env-inlining-dependent" | "not-static";
 
 // The branch the prediction marks unreachable: "else" when the guard is always truthy,
 // "then" when always falsy, null when unresolved. These name the guarded vs. fallback
 // paths of the condition; they are not a claim about a specific if/ternary node shape.
-export type EnvBranchDeadBranch = "then" | "else" | null;
+type EnvBranchDeadBranch = "then" | "else" | null;
 
-export type EnvBranchReadEvidence = {
+type EnvBranchReadEvidence = {
   readonly kind: EnvDefineReadKind;
   readonly key: string;
   readonly text: string;
@@ -64,7 +64,7 @@ export type EnvBranchReadEvidence = {
   readonly valueSource: string | undefined;
 };
 
-export type EnvBranchCandidateRow = {
+type EnvBranchCandidateRow = {
   readonly rank: number;
   readonly file: string;
   readonly startLine: number;

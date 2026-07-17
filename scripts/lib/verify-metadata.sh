@@ -10,22 +10,106 @@
 # `ai_worktree_fingerprint` is defined here for the same reason; cache.sh
 # sources this file and re-exports it for ai-hooks callers.
 
+# --- Shared gate timing budgets ----------------------------------------------
+# Single definition for the timing literals the local gates would otherwise
+# re-type. Every consumer (.husky/pre-commit, .husky/pre-push, scripts/verify.sh,
+# and the helpers below) sources this file before it needs a budget, so these
+# constants are the one place to change a window. Env overrides stay at each
+# call site (MUSI_INTERACTIVE_TIMEOUT, MUSI_PRE_PUSH_VERIFY_FRESHNESS_SECONDS);
+# these are only the defaults those overrides fall back to.
+#
+# NOTE: musi_count_commit_queue_waiters' own 3600s ticket-age backstop is a
+# different semantic (a reused-PID ghost-ticket bound, not verify freshness) and
+# is intentionally *not* one of these constants.
+MUSI_GATE_MARKER_FRESHNESS_SECONDS=120     # success-marker / short-circuit freshness
+# shellcheck disable=SC2034 # Consumed by .husky/pre-commit and scripts/verify.sh.
+MUSI_GATE_INTERACTIVE_TIMEOUT_DEFAULT=1200 # default for MUSI_INTERACTIVE_TIMEOUT watchdog
+# shellcheck disable=SC2034 # Consumed by .husky/pre-push.
+MUSI_GATE_PRE_PUSH_FRESHNESS_SECONDS=3600  # pre-push full-verify evidence freshness
+
 musi_git_readonly() {
   GIT_OPTIONAL_LOCKS=0 git "$@"
 }
 
+musi_fingerprint_digest_file() {
+  local input_file="$1"
+  local digest_line
+
+  digest_line=$(sha256sum "$input_file") || return 1
+  digest_line="${digest_line%% *}"
+  musi_fingerprint_is_valid "$digest_line" || return 1
+  printf '%s\n' "$digest_line"
+}
+
+musi_fingerprint_is_valid() {
+  local fingerprint="${1:-}"
+
+  case "$fingerprint" in
+    ''|*[!0-9a-f]*) return 1 ;;
+  esac
+  [ "${#fingerprint}" -eq 64 ]
+}
+
+# Run a fingerprint producer and emit its digest only when the command succeeds
+# and returns exactly one valid SHA-256 value. Callers use this at every cache,
+# marker, or metadata trust boundary so a failed command substitution can never
+# turn an empty string into matching provenance.
+musi_require_fingerprint() {
+  local label="$1"
+  shift
+  local fingerprint
+
+  if ! fingerprint=$("$@"); then
+    printf '%s: fingerprint computation failed.\n' "$label" >&2
+    return 1
+  fi
+  if ! musi_fingerprint_is_valid "$fingerprint"; then
+    printf '%s: fingerprint computation returned an invalid digest.\n' "$label" >&2
+    return 1
+  fi
+  printf '%s\n' "$fingerprint"
+}
+
 ai_worktree_fingerprint() {
   local repo_root="$1"
+  local input_file untracked_file
 
-  {
-    musi_git_readonly -C "$repo_root" rev-parse HEAD 2>/dev/null || echo none
-    musi_git_readonly -C "$repo_root" diff HEAD 2>/dev/null
-    (
-      cd "$repo_root" || exit 1
-      musi_git_readonly ls-files --others --exclude-standard -z 2>/dev/null \
-        | xargs -0 -r sha256sum 2>/dev/null
-    )
-  } | sha256sum | awk '{print $1}'
+  input_file=$(mktemp "${TMPDIR:-/tmp}/musi-worktree-fingerprint.XXXXXX") || return 1
+  untracked_file=$(mktemp "${TMPDIR:-/tmp}/musi-worktree-untracked.XXXXXX") || {
+    rm -f "$input_file"
+    return 1
+  }
+
+  if ! musi_git_readonly -C "$repo_root" rev-parse HEAD > "$input_file" 2>/dev/null; then
+    printf 'none\n' > "$input_file"
+  fi
+  # --binary matches ai_staged_fingerprint: without it a tracked binary
+  # file's content change collapses to the constant "Binary files ... differ"
+  # diff text, so swapping binary content would not change the fingerprint.
+  # --no-ext-diff keeps user-configured diff drivers out of this trust boundary.
+  if ! musi_git_readonly -C "$repo_root" diff --no-ext-diff --binary HEAD >> "$input_file" 2>/dev/null \
+     || ! musi_git_readonly -C "$repo_root" ls-files --others --exclude-standard -z > "$untracked_file" 2>/dev/null \
+     || ! (cd "$repo_root" && xargs -0 -r sha256sum < "$untracked_file" >> "$input_file" 2>/dev/null); then
+    rm -f "$input_file" "$untracked_file"
+    return 1
+  fi
+
+  rm -f "$untracked_file"
+  if ! musi_fingerprint_digest_file "$input_file"; then
+    rm -f "$input_file"
+    return 1
+  fi
+  rm -f "$input_file"
+}
+
+# Shared freshness floor for the wrapped-bun/stop marker readers. Mirrors
+# musi_success_marker_matches: a negative age (future-dated marker, e.g. after
+# clock skew) is stale, never fresh — otherwise a future timestamp satisfies
+# `age < ttl` forever and replays a cached verdict past its TTL.
+ai_marker_age_within_ttl() {
+  local age="$1" ttl="$2"
+
+  [ "$age" -ge 0 ] && [ "$age" -lt "$ttl" ]
 }
 
 musi_repo_root_for_state() {
@@ -178,6 +262,212 @@ musi_standard_commit_queue_lock() {
   printf '%s' "${MUSI_STANDARD_COMMIT_QUEUE_LOCK:-$(musi_standard_common_state_path musi-commit-queue.lock "$repo_root")}"
 }
 
+# Directory of waiter tickets parked on a shared commit-queue lock. Keyed off the
+# lock path itself (not the repo root) so an MUSI_COMMIT_QUEUE_LOCK override — the
+# test seam and any bespoke lock — carries its waiters alongside it.
+musi_commit_queue_waiter_dir() {
+  local queue_lock="$1"
+
+  printf '%s.waiters' "$queue_lock"
+}
+
+# Register this lane's waiter ticket: one file named by PID, recording the target
+# worktree and the start epoch. Peers read it to report queue depth; the epoch
+# lets them expire an abandoned ticket. Best-effort — a failed registration only
+# costs an under-count in someone's heartbeat, never correctness.
+musi_register_commit_queue_waiter() {
+  local waiter_dir="$1"
+  local pid="$2"
+  local worktree="$3"
+
+  mkdir -p "$waiter_dir" 2>/dev/null || return 1
+  printf 'PID=%s WORKTREE=%s STARTED=%s\n' "$pid" "$worktree" "$(date +%s)" \
+    > "$waiter_dir/$pid" 2>/dev/null || return 1
+}
+
+musi_remove_commit_queue_waiter() {
+  local waiter_dir="$1"
+  local pid="$2"
+
+  rm -f "$waiter_dir/$pid" 2>/dev/null || true
+}
+
+# Prune dead/expired tickets from a waiter dir and print the count of live
+# waiters other than self_pid. A ticket is dead when its owner PID is gone (the
+# SIGKILLed-lane case — the lane could not run its own cleanup) or when it is
+# older than max_age (a backstop so a reused PID cannot keep a ghost ticket alive
+# forever). Pruning on read means an abandoned wait self-heals for the next lane.
+musi_count_commit_queue_waiters() {
+  local waiter_dir="$1"
+  local self_pid="$2"
+  local max_age="${3:-3600}"
+  local now count ticket pid started age
+
+  [ -d "$waiter_dir" ] || { printf '0'; return 0; }
+  now=$(date +%s)
+  count=0
+  for ticket in "$waiter_dir"/*; do
+    [ -e "$ticket" ] || continue
+    pid=$(basename "$ticket")
+    case "$pid" in
+      ''|*[!0-9]*) rm -f "$ticket" 2>/dev/null; continue ;;
+    esac
+    if ! kill -0 "$pid" 2>/dev/null; then
+      rm -f "$ticket" 2>/dev/null
+      continue
+    fi
+    started=$(sed -n 's/.*STARTED=\([0-9][0-9]*\).*/\1/p' "$ticket" 2>/dev/null)
+    case "$started" in
+      ''|*[!0-9]*) : ;;
+      *)
+        age=$((now - started))
+        if [ "$age" -gt "$max_age" ]; then
+          rm -f "$ticket" 2>/dev/null
+          continue
+        fi
+        ;;
+    esac
+    [ "$pid" = "$self_pid" ] && continue
+    count=$((count + 1))
+  done
+  printf '%s' "$count"
+}
+
+# --- Fast-commit provenance state -------------------------------------------
+# Fast-commit mode defers slow verify slots at commit time; the pre-push
+# backstop then demands a fresh full verify before any such commit is
+# published. Three pieces of shared state coordinate this:
+#   - the mode toggle (musi-fast-commit) and the provenance log
+#     (musi-fast-commit-log) live in the Git common dir, shared by every
+#     worktree, because pre-push in any worktree must see every lane's fast
+#     commits;
+#   - the pending marker is per-worktree (keyed like the standard state paths)
+#     so parallel lanes committing at once cannot delete or consume each
+#     other's in-flight markers between pre-commit and post-commit.
+
+musi_fast_commit_log_path() {
+  printf '%s/musi-fast-commit-log' "$(musi_git_common_identity_path "${1:-}")"
+}
+
+# Lock guarding every append/clear of the provenance log. Kept beside the log in
+# the Git common dir so all worktrees serialize on one inode: a concurrent
+# post-commit append can never be lost to a pre-push clear's
+# read-filter-rename, and the log is never observed truncated or partial.
+musi_fast_commit_log_lock() {
+  printf '%s/musi-fast-commit-log.lock' "$(musi_git_common_identity_path "${1:-}")"
+}
+
+# Per-worktree in-flight marker pre-commit leaves for post-commit to convert
+# into a logged commit SHA. Suffixed by the committing worktree's key so a
+# sibling lane's pre-commit prepare-rm or post-commit consume touches only its
+# own marker.
+musi_fast_commit_pending_marker() {
+  printf '%s/musi-fast-commit-pending.%s' \
+    "$(musi_git_common_identity_path "${1:-}")" \
+    "$(musi_worktree_key "${1:-}")"
+}
+
+# Append HEAD to the provenance log under the shared lock, de-duplicating so a
+# retried post-commit cannot double-record. No-op when head is empty.
+musi_fast_commit_log_append() {
+  local repo_root="$1"
+  local head="$2"
+  local log lock
+
+  [ -n "$head" ] || return 0
+  log="$(musi_fast_commit_log_path "$repo_root")"
+  lock="$(musi_fast_commit_log_lock "$repo_root")"
+  mkdir -p "$(dirname "$log")" || return 1
+  (
+    flock 9 || exit 1
+    if [ ! -f "$log" ] || ! grep -qxF "$head" "$log"; then
+      printf '%s\n' "$head" >> "$log"
+    fi
+  ) 9<>"$lock"
+}
+
+# Remove the given commits from the provenance log under the shared lock. The
+# temp file is created beside the log (same directory, same filesystem) so the
+# replacement is an atomic rename rather than a cross-filesystem copy-then-
+# unlink through which a concurrent reader could observe a partial log.
+musi_fast_commit_log_clear() {
+  local repo_root="$1"
+  local commits="$2"
+  local log lock tmp
+
+  [ -n "$commits" ] || return 0
+  log="$(musi_fast_commit_log_path "$repo_root")"
+  lock="$(musi_fast_commit_log_lock "$repo_root")"
+  [ -f "$log" ] || return 0
+  mkdir -p "$(dirname "$lock")" || return 1
+  (
+    flock 9 || exit 1
+    [ -f "$log" ] || exit 0
+    tmp=$(mktemp "$log.XXXXXX") || exit 1
+    grep -vxF -f <(printf '%s\n' "$commits") "$log" > "$tmp" || true
+    mv "$tmp" "$log"
+  ) 9<>"$lock"
+}
+
+# --- Fast-commit marker tripwire --------------------------------------------
+# The musi-fast-commit toggle is created and removed by hand (touch/rm); no
+# production code owns its lifecycle, yet it has been observed to vanish
+# mid-session, forcing "re-touch before every commit" folklore in lane prompts.
+# This tripwire records the toggle's presence each time pre-commit consults it
+# and appends a line to a dedicated transition log whenever presence flips, so
+# the next observed vanish is attributable (path + pid + timestamp) rather than
+# folklore. The log and its last-observed-state sidecar live beside the toggle in
+# the Git common dir (worktree-shared). Kept separate from the commit-SHA
+# provenance log so free-text transition lines never corrupt that log's
+# exact-line append/clear. The observer never blocks a commit: it always
+# succeeds.
+
+musi_fast_commit_marker_log_path() {
+  printf '%s/musi-fast-commit-marker-log' "$(musi_git_common_identity_path "${1:-}")"
+}
+
+musi_fast_commit_marker_state_path() {
+  printf '%s/musi-fast-commit-marker-state' "$(musi_git_common_identity_path "${1:-}")"
+}
+
+# Observe the toggle's current presence, compare it to the last recorded
+# observation, and append a created/removed transition line when it flips. The
+# first observation records a baseline silently — there is no prior state to
+# compare. Serialized on the provenance log lock so concurrent lane pre-commits
+# cannot interleave a read-modify-write of the state sidecar. Always returns 0.
+musi_fast_commit_marker_observe() {
+  local repo_root="$1"
+  local marker state_file log lock cur
+
+  marker="$(musi_git_common_identity_path "$repo_root")/musi-fast-commit"
+  state_file="$(musi_fast_commit_marker_state_path "$repo_root")"
+  log="$(musi_fast_commit_marker_log_path "$repo_root")"
+  lock="$(musi_fast_commit_log_lock "$repo_root")"
+  mkdir -p "$(dirname "$state_file")" 2>/dev/null || return 0
+  if [ -e "$marker" ]; then
+    cur=present
+  else
+    cur=absent
+  fi
+  (
+    flock 9 || exit 0
+    local prev transition
+    prev=$(cat "$state_file" 2>/dev/null || printf 'unknown')
+    if [ "$prev" != "$cur" ]; then
+      if [ "$prev" != unknown ]; then
+        if [ "$cur" = present ]; then
+          transition=created
+        else
+          transition=removed
+        fi
+        printf '%s observed-by-pid=%s %s %s\n' "$(date -Iseconds)" "$$" "$transition" "$marker" >> "$log"
+      fi
+      printf '%s\n' "$cur" > "$state_file"
+    fi
+  ) 9<>"$lock"
+  return 0
+}
+
 musi_path_policy_query_script() {
   if [ -n "${MUSI_PATH_POLICY_QUERY:-}" ]; then
     printf '%s\n' "$MUSI_PATH_POLICY_QUERY"
@@ -197,13 +487,28 @@ musi_path_policy_query_script() {
   printf '%s\n' "$(cd "$(dirname "$0")/.." && pwd)/path-policy/path-policy-query.ts"
 }
 
-musi_path_policy_query_lines() {
+musi_path_policy_query_nul() {
   local query="$1"
-  local script bun_bin tmp status
+  local script bun_bin tmp
   script="$(musi_path_policy_query_script)"
   bun_bin="${MUSI_PATH_POLICY_BUN:-bun}"
   tmp=$(mktemp "${TMPDIR:-/tmp}/musi-path-policy-query.XXXXXX") || return 2
   if ! "$bun_bin" --config=/dev/null "$script" "$query" > "$tmp"; then
+    rm -f "$tmp"
+    return 2
+  fi
+  if ! cat "$tmp"; then
+    rm -f "$tmp"
+    return 2
+  fi
+  rm -f "$tmp"
+}
+
+musi_path_policy_query_lines() {
+  local query="$1"
+  local tmp status
+  tmp=$(mktemp "${TMPDIR:-/tmp}/musi-path-policy-lines.XXXXXX") || return 2
+  if ! musi_path_policy_query_nul "$query" > "$tmp"; then
     rm -f "$tmp"
     return 2
   fi
@@ -216,17 +521,36 @@ musi_path_policy_query_lines() {
 musi_path_policy_path_matches() {
   local query="$1"
   local path="$2"
+  local tmp status
 
-  printf '%s\n' "$path" | musi_path_policy_query_lines "$query" | grep -q .
+  tmp=$(mktemp "${TMPDIR:-/tmp}/musi-path-policy-match.XXXXXX") || return 2
+  if ! printf '%s\0' "$path" | musi_path_policy_query_nul "$query" > "$tmp"; then
+    rm -f "$tmp"
+    return 2
+  fi
+  status=1
+  [ -s "$tmp" ] && status=0
+  rm -f "$tmp"
+  return "$status"
 }
 
 ai_staged_fingerprint() {
   local repo_root="$1"
+  local input_file
 
-  {
-    git -C "$repo_root" rev-parse HEAD 2>/dev/null || echo none
-    git -C "$repo_root" diff --cached --binary --diff-filter=ACMRD
-  } | sha256sum | awk '{print $1}'
+  input_file=$(mktemp "${TMPDIR:-/tmp}/musi-staged-fingerprint.XXXXXX") || return 1
+  if ! musi_git_readonly -C "$repo_root" rev-parse HEAD > "$input_file" 2>/dev/null; then
+    printf 'none\n' > "$input_file"
+  fi
+  if ! musi_git_readonly -C "$repo_root" diff --no-ext-diff --cached --binary --diff-filter=ACMRD >> "$input_file"; then
+    rm -f "$input_file"
+    return 1
+  fi
+  if ! musi_fingerprint_digest_file "$input_file"; then
+    rm -f "$input_file"
+    return 1
+  fi
+  rm -f "$input_file"
 }
 
 musi_changed_gate_relevant_path() {
@@ -239,9 +563,9 @@ musi_staged_has_source_relevant_change() {
   local tmp
 
   tmp=$(mktemp "${TMPDIR:-/tmp}/musi-staged-source.XXXXXX") || return 2
-  if ! {
-    git diff --cached --name-only --diff-filter=ACMRD 2>/dev/null || true
-  } | musi_path_policy_query_lines source-relevant:precommit-staged > "$tmp"; then
+  if ! (set -o pipefail; \
+    git diff --cached --name-only -z --diff-filter=ACMRD 2>/dev/null \
+      | musi_path_policy_query_nul source-relevant:precommit-staged) > "$tmp"; then
     rm -f "$tmp"
     return 2
   fi
@@ -271,21 +595,23 @@ musi_changed_gate_fail_if_unstaged() {
   local tmp file
 
   tmp=$(mktemp "${TMPDIR:-/tmp}/musi-changed-gate.XXXXXX") || return 2
-  (
+  if ! (
     cd "$repo_root" || exit 2
+    set -o pipefail
     {
-      git diff --name-only --diff-filter=ACMRD 2>/dev/null || true
-      git ls-files --others --exclude-standard 2>/dev/null || true
-    } | sort -u | musi_path_policy_query_lines source-relevant | while IFS= read -r file; do
-      [ -n "$file" ] || continue
-      printf '%s\n' "$file"
-    done
-  ) > "$tmp"
+      git diff --name-only -z --diff-filter=ACMRD 2>/dev/null \
+        && git ls-files --others --exclude-standard -z 2>/dev/null
+    } | sort -z -u | musi_path_policy_query_nul source-relevant
+  ) > "$tmp"; then
+    printf '%s: source-relevant path selection failed.\n' "$label" >&2
+    rm -f "$tmp"
+    return 2
+  fi
 
   if [ -s "$tmp" ]; then
     printf '%s: source-relevant unstaged or untracked changes are present.\n' "$label" >&2
     printf '%s: stage the intended commit, or stash/restore unrelated source-relevant work, before running changed verification.\n' "$label" >&2
-    while IFS= read -r file; do
+    while IFS= read -r -d '' file; do
       [ -n "$file" ] || continue
       printf '%s:   - %s\n' "$label" "$file" >&2
     done < "$tmp"
@@ -299,36 +625,73 @@ musi_changed_gate_fail_if_unstaged() {
 
 ai_precommit_fingerprint() {
   local repo_root="$1"
+  local input_file paths_file selected_file file hash_status
 
-  {
-    git -C "$repo_root" rev-parse HEAD 2>/dev/null || echo none
-    # Fast-commit mode skips slow pre-commit test slots; fold its presence in so
-    # a partial (fast) success marker cannot short-circuit a later full
-    # pre-commit at the same HEAD/diff. Absent ⇒ byte-identical to the legacy
-    # fingerprint. The marker lives in the Git common dir (worktree-shared).
-    if [ -f "$(musi_git_common_identity_path "$repo_root")/musi-fast-commit" ]; then
-      printf 'fast-commit=1\n'
+  input_file=$(mktemp "${TMPDIR:-/tmp}/musi-precommit-fingerprint.XXXXXX") || return 1
+  paths_file=$(mktemp "${TMPDIR:-/tmp}/musi-precommit-paths.XXXXXX") || {
+    rm -f "$input_file"
+    return 1
+  }
+  selected_file=$(mktemp "${TMPDIR:-/tmp}/musi-precommit-selected.XXXXXX") || {
+    rm -f "$input_file" "$paths_file"
+    return 1
+  }
+
+  if ! musi_git_readonly -C "$repo_root" rev-parse HEAD > "$input_file" 2>/dev/null; then
+    printf 'none\n' > "$input_file"
+  fi
+  # Fast-commit mode skips slow pre-commit test slots; fold its presence in so
+  # a partial (fast) success marker cannot short-circuit a later full
+  # pre-commit at the same HEAD/diff. Absent ⇒ byte-identical to the legacy
+  # fingerprint. The marker lives in the Git common dir (worktree-shared).
+  if [ -f "$(musi_git_common_identity_path "$repo_root")/musi-fast-commit" ]; then
+    printf 'fast-commit=1\n' >> "$input_file"
+  fi
+  if ! musi_git_readonly -C "$repo_root" diff --no-ext-diff --cached --binary --diff-filter=ACMRD >> "$input_file" \
+     || ! musi_git_readonly -C "$repo_root" diff --no-ext-diff --name-only -z --diff-filter=ACMRD HEAD > "$paths_file" 2>/dev/null \
+     || ! (set -o pipefail; sort -z -u "$paths_file" | musi_path_policy_query_nul source-relevant:precommit-tracked) > "$selected_file"; then
+    rm -f "$input_file" "$paths_file" "$selected_file"
+    return 1
+  fi
+
+  hash_status=0
+  while IFS= read -r -d '' file; do
+    [ -n "$file" ] || continue
+    if [ -f "$repo_root/$file" ]; then
+      (cd "$repo_root" && sha256sum "$file") >> "$input_file" || {
+        hash_status=$?
+        break
+      }
+    else
+      printf 'deleted\0%s\0' "$file" >> "$input_file"
     fi
-    git -C "$repo_root" diff --cached --binary --diff-filter=ACMRD
-    (
-      cd "$repo_root" || exit 1
-      {
-        git diff --name-only --diff-filter=ACMRD HEAD 2>/dev/null
-      } | sort -u | musi_path_policy_query_lines source-relevant:precommit-tracked | while IFS= read -r file; do
-        [ -n "$file" ] || continue
-        if [ -f "$file" ]; then
-          sha256sum "$file"
-        else
-          printf 'deleted %s\n' "$file"
-        fi
-      done
-      git ls-files --others --exclude-standard 2>/dev/null | sort -u | musi_path_policy_query_lines source-relevant | while IFS= read -r file; do
-        [ -n "$file" ] || continue
-        [ -f "$file" ] || continue
-        sha256sum "$file"
-      done
-    )
-  } | sha256sum | awk '{print $1}'
+  done < "$selected_file"
+  if [ "$hash_status" -ne 0 ] \
+     || ! musi_git_readonly -C "$repo_root" ls-files --others --exclude-standard -z > "$paths_file" 2>/dev/null \
+     || ! (set -o pipefail; sort -z -u "$paths_file" | musi_path_policy_query_nul source-relevant) > "$selected_file"; then
+    rm -f "$input_file" "$paths_file" "$selected_file"
+    return 1
+  fi
+
+  hash_status=0
+  while IFS= read -r -d '' file; do
+    [ -n "$file" ] || continue
+    [ -f "$repo_root/$file" ] || continue
+    (cd "$repo_root" && sha256sum "$file") >> "$input_file" || {
+      hash_status=$?
+      break
+    }
+  done < "$selected_file"
+  rm -f "$paths_file" "$selected_file"
+  if [ "$hash_status" -ne 0 ]; then
+    rm -f "$input_file"
+    return 1
+  fi
+  if ! musi_fingerprint_digest_file "$input_file"; then
+    rm -f "$input_file"
+    return 1
+  fi
+  rm -f "$input_file"
 }
 
 musi_read_success_marker() {
@@ -384,11 +747,12 @@ musi_success_marker_matches() {
   local marker="$1"
   local current_head="$2"
   local current_hash="$3"
-  local freshness_seconds="${4:-120}"
+  local freshness_seconds="${4:-$MUSI_GATE_MARKER_FRESHNESS_SECONDS}"
   local now age
 
   MUSI_MARKER_MATCH_AGE=""
 
+  musi_fingerprint_is_valid "$current_hash" || return 1
   musi_read_success_marker "$marker" || return 1
   now=$(date +%s)
   age=$((now - MUSI_MARKER_LAST_TS))
@@ -406,6 +770,7 @@ musi_write_success_marker() {
   local hash="$3"
   local marker_dir marker_base marker_tmp
 
+  musi_fingerprint_is_valid "$hash" || return 1
   marker_dir=$(dirname "$marker")
   marker_base=$(basename "$marker")
   mkdir -p "$marker_dir" || return 1
@@ -445,8 +810,8 @@ musi_write_success_marker() {
 #     merge commit and its own fingerprint).
 #   verified_head          - the HEAD the source pass verified; must equal the
 #     marker's recorded LAST_HEAD.
-#   freshness_seconds      - max marker age accepted (default 120, the standard
-#     success-marker freshness).
+#   freshness_seconds      - max marker age accepted (default
+#     MUSI_GATE_MARKER_FRESHNESS_SECONDS, the standard success-marker freshness).
 # Returns: 0 re-stamped; nonzero refused (missing, stale, or non-matching
 #   source marker — no write performed).
 musi_restamp_verify_marker() {
@@ -455,7 +820,7 @@ musi_restamp_verify_marker() {
   local new_head="$3"
   local new_hash="$4"
   local verified_head="$5"
-  local freshness_seconds="${6:-120}"
+  local freshness_seconds="${6:-$MUSI_GATE_MARKER_FRESHNESS_SECONDS}"
 
   musi_success_marker_matches "$marker" "$verified_head" "$expected_verified_hash" \
     "$freshness_seconds" || return 1
@@ -486,11 +851,48 @@ musi_staged_has_script_relevant_deletion() {
   return 1
 }
 
-musi_classify_staged_script_input() {
-  MUSI_STAGED_SCRIPT_ALL="$(git diff --cached --name-only --diff-filter=ACMRD 2>/dev/null || true)"
-  MUSI_STAGED_SCRIPT_DELETED="$(git diff --cached --name-only --diff-filter=D 2>/dev/null || true)"
+musi_nul_paths_are_line_safe() {
+  local path
 
-  [ -n "$MUSI_STAGED_SCRIPT_ALL" ] || return 2
+  while IFS= read -r -d '' path; do
+    case "$path" in
+      *$'\n'*) return 1 ;;
+    esac
+  done
+  return 0
+}
+
+musi_classify_staged_script_input() {
+  local all_file deleted_file line_safe_rc=0
+
+  all_file=$(mktemp "${TMPDIR:-/tmp}/musi-staged-script-all.XXXXXX") || return 2
+  deleted_file=$(mktemp "${TMPDIR:-/tmp}/musi-staged-script-deleted.XXXXXX") || {
+    rm -f "$all_file"
+    return 2
+  }
+  if ! git diff --cached --name-only -z --diff-filter=ACMRD > "$all_file" 2>/dev/null \
+     || ! git diff --cached --name-only -z --diff-filter=D > "$deleted_file" 2>/dev/null; then
+    rm -f "$all_file" "$deleted_file"
+    return 2
+  fi
+
+  [ -s "$all_file" ] || {
+    rm -f "$all_file" "$deleted_file"
+    return 2
+  }
+  musi_nul_paths_are_line_safe < "$all_file" || line_safe_rc=$?
+  if [ "$line_safe_rc" -ne 0 ]; then
+    rm -f "$all_file" "$deleted_file"
+    # The changed-smoke handoff uses environment variables, which cannot carry
+    # NUL records. Conservatively request the full suite for newline paths.
+    return 1
+  fi
+
+  # shellcheck disable=SC2034 # Read by scripts/verify/steps-lib.sh after classification.
+  MUSI_STAGED_SCRIPT_ALL="$(tr '\0' '\n' < "$all_file")"
+  # shellcheck disable=SC2034 # Read by scripts/verify/steps-lib.sh after classification.
+  MUSI_STAGED_SCRIPT_DELETED="$(tr '\0' '\n' < "$deleted_file")"
+  rm -f "$all_file" "$deleted_file"
 
   if [ -n "$MUSI_STAGED_SCRIPT_DELETED" ] \
      && musi_staged_has_script_relevant_deletion "$MUSI_STAGED_SCRIPT_DELETED"; then
@@ -512,10 +914,21 @@ musi_try_single_verify_marker_bridge() {
 
   musi_success_marker_matches "$verify_marker" "$current_head" "$current_verify_hash" "$freshness_seconds" || return 1
   age=$MUSI_MARKER_MATCH_AGE
-  current_precommit_hash=$(ai_precommit_fingerprint "$repo_root")
+  current_precommit_hash=$(musi_require_fingerprint \
+    "pre-commit marker bridge" ai_precommit_fingerprint "$repo_root") || return 1
   if ! musi_write_success_marker "$precommit_marker" "$current_head" "$current_precommit_hash"; then
     printf 'pre-commit: WARN: failed to write marker %s\n' "$precommit_marker" >&2
+    return 1
   fi
+  # Publish which marker bridged and the state it stamped so the pre-commit hook
+  # can record the bridged commit (these values are otherwise function-local),
+  # mirroring how musi_success_marker_matches exports MUSI_MARKER_MATCH_AGE.
+  # shellcheck disable=SC2034 # Consumed by .husky/pre-commit's bridge recording.
+  MUSI_VERIFY_BRIDGE_KIND="$label"
+  # shellcheck disable=SC2034 # Consumed by .husky/pre-commit's bridge recording.
+  MUSI_VERIFY_BRIDGE_HEAD="$current_head"
+  # shellcheck disable=SC2034 # Consumed by .husky/pre-commit's bridge recording.
+  MUSI_VERIFY_BRIDGE_FINGERPRINT="$current_precommit_hash"
   printf 'pre-commit: %s passed %ss ago for this staged/worktree state — skipping (set FORCE_VERIFY=1 to re-run).\n' \
     "$label" "$age"
 }
@@ -523,14 +936,16 @@ musi_try_single_verify_marker_bridge() {
 musi_try_verify_marker_bridge() {
   local repo_root="$1"
   local precommit_marker="${2:-${MUSI_PRECOMMIT_MARKER:-$(musi_standard_precommit_marker "$repo_root")}}"
-  local freshness_seconds="${3:-120}"
+  local freshness_seconds="${3:-$MUSI_GATE_MARKER_FRESHNESS_SECONDS}"
   local current_head current_staged_hash current_worktree_hash changed_marker full_marker
 
   [ "${FORCE_VERIFY:-}" = "1" ] && return 1
 
   current_head=$(git -C "$repo_root" rev-parse HEAD 2>/dev/null || echo none)
-  current_staged_hash=$(ai_staged_fingerprint "$repo_root")
-  current_worktree_hash=$(ai_worktree_fingerprint "$repo_root")
+  current_staged_hash=$(musi_require_fingerprint \
+    "pre-commit verify:changed bridge" ai_staged_fingerprint "$repo_root") || return 1
+  current_worktree_hash=$(musi_require_fingerprint \
+    "pre-commit verify bridge" ai_worktree_fingerprint "$repo_root") || return 1
   changed_marker="${MUSI_VERIFY_MARKER_CHANGED:-$(musi_standard_verify_changed_marker "$repo_root")}"
   full_marker="${MUSI_VERIFY_MARKER_FULL:-$(musi_standard_verify_full_marker "$repo_root")}"
 
@@ -697,6 +1112,82 @@ musi_persist_run_meta_history() {
   return 0
 }
 
+# Record a minimal audit entry when a pre-commit short-circuit (fresh
+# success marker) or a manual-verify marker bridge admits a commit without
+# running any steps. Those paths exit before a run-meta.json exists, so unlike
+# musi_persist_run_meta_history (which copies an existing run-meta) this writes
+# the entry directly, using the same <epoch>-<mode>-<exit>.json history naming
+# so bridged/marker landings stay greppable after the fact.
+#
+# Deliberately writes ONLY under history_dir: it is never handed the live
+# LOG_DIR/meta/wrapper.json that .husky/pre-push reads as its verify-evidence
+# fallback, so a bridged commit leaves that evidence untouched. Best-effort and
+# non-fatal — the commit is already admitted, so a recording problem only warns.
+#
+# Args: <history_dir> <mode> <head> <fingerprint> <satisfied_marker>
+#   mode: precommit-marker | precommit-bridged (embedded in the filename)
+musi_record_precommit_shortcircuit() {
+  local history_dir="$1"
+  local mode="$2"
+  local head="$3"
+  local fingerprint="$4"
+  local satisfied="$5"
+  local limit="${MUSI_VERIFY_HISTORY_LIMIT:-50}"
+  local epoch iso target
+
+  case "$mode" in
+    ''|*[!A-Za-z0-9._-]*)
+      musi_run_meta_warn "refusing to record short-circuit with malformed mode '$mode'"
+      return 0
+      ;;
+  esac
+  if ! musi_fingerprint_is_valid "$fingerprint"; then
+    musi_run_meta_warn "refusing to record short-circuit with invalid fingerprint"
+    return 0
+  fi
+  [ -n "$head" ] || head="none"
+
+  if ! mkdir -p "$history_dir"; then
+    musi_run_meta_warn "could not create history directory $history_dir"
+    return 0
+  fi
+
+  epoch=$(date +%s)
+  iso=$(date -Iseconds)
+  target="$history_dir/$epoch-$mode-0.json"
+
+  # Shaped like a combined run-meta (flat wrapper object so
+  # musi_run_meta_wrapper_fragment's `{[^}]*}` extractor still matches), with an
+  # empty steps list because no step ran.
+  if ! {
+    printf '{'
+    printf '"version":1,'
+    printf '"mode":"%s",' "$(musi_meta_json_escape "$mode")"
+    printf '"generated_at":"%s",' "$(musi_meta_json_escape "$iso")"
+    printf '"wrapper":{'
+    printf '"name":"wrapper",'
+    printf '"mode":"%s",' "$(musi_meta_json_escape "$mode")"
+    printf '"start_time":"%s",' "$(musi_meta_json_escape "$iso")"
+    printf '"end_time":"%s",' "$(musi_meta_json_escape "$iso")"
+    printf '"elapsed_seconds":0,'
+    printf '"exit_code":0,'
+    printf '"head":"%s",' "$(musi_meta_json_escape "$head")"
+    printf '"fingerprint":"%s",' "$(musi_meta_json_escape "$fingerprint")"
+    printf '"satisfied_marker":"%s"' "$(musi_meta_json_escape "$satisfied")"
+    printf '},'
+    printf '"steps":[]'
+    printf '}\n'
+  } > "$target"; then
+    musi_run_meta_warn "could not write history file $target"
+    return 0
+  fi
+
+  if ! musi_prune_run_meta_history "$history_dir" "$limit"; then
+    musi_run_meta_warn "could not prune history directory $history_dir"
+  fi
+  return 0
+}
+
 musi_write_step_meta() {
   local file="$1"
   local name="$2"
@@ -738,6 +1229,7 @@ musi_write_wrapper_meta() {
   local elapsed=$((end_epoch - start_epoch))
   [ "$elapsed" -lt 0 ] && elapsed=0
 
+  musi_fingerprint_is_valid "$fingerprint" || return 1
   mkdir -p "$(dirname "$file")"
   {
     printf '{'

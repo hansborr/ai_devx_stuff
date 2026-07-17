@@ -141,6 +141,12 @@ describe("path policy classification", () => {
       "eslint.config.js",
       "eslint-config/shared-policy.js",
       "scripts/lint-config-sensors.sh",
+      "scripts/eslint-disable-register.sh",
+      "scripts/suppression-register.sh",
+      "scripts/data/eslint-disable-broad-allowlist.txt",
+      "scripts/data/ts-nocheck-allowlist.txt",
+      "scripts/lib/changed-lintable-files.sh",
+      "scripts/lint-suppressions.sh",
     ];
 
     expect(queryPathPolicy("full-scan-trigger:eslint-changed", paths)).toEqual([
@@ -155,6 +161,18 @@ describe("path policy classification", () => {
     expect(queryPathPolicy("full-scan-trigger:config-sensors-changed", paths)).toEqual([
       ".yamllint.yml",
       "scripts/lint-config-sensors.sh",
+    ]);
+    expect(queryPathPolicy("full-scan-trigger:eslint-disable-register-changed", paths)).toEqual([
+      "scripts/eslint-disable-register.sh",
+      "scripts/data/eslint-disable-broad-allowlist.txt",
+      "scripts/lib/changed-lintable-files.sh",
+      "scripts/lint-suppressions.sh",
+    ]);
+    expect(queryPathPolicy("full-scan-trigger:suppression-register-changed", paths)).toEqual([
+      "scripts/suppression-register.sh",
+      "scripts/data/ts-nocheck-allowlist.txt",
+      "scripts/lib/changed-lintable-files.sh",
+      "scripts/lint-suppressions.sh",
     ]);
   });
 

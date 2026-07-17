@@ -72,7 +72,9 @@ jobs:
       # The core gate consumes scripts/verify/steps.generated.sh, generated from
       # harness.controls.json. CI-only report, docs, and artifact steps stay
       # hand-written around that generated core.
+      # harness-ci-gate: verify-wrapper/verify
       - name: Verify generated gate manifest
+        id: verify
         env:
           FORCE_VERIFY: "1"
           MUSI_VERIFY_LOG_DIR: .musi-ci-verify-logs
@@ -109,10 +111,12 @@ jobs:
                 echo "Lint ratchet diagnostics envelope was produced, but the report formatter failed."
                 echo
                 echo "Formatter output:"
-                echo '```'
-                cat "$report_stdout"
-                cat "$report_stderr"
-                echo '```'
+                echo
+                # Indent instead of fencing: a triple-backtick in the formatter
+                # output would otherwise escape a ``` fence and inject markdown
+                # into the step summary and PR comment. An indented block cannot
+                # be broken by its own contents.
+                sed 's/^/    /' "$report_stdout" "$report_stderr"
                 echo
                 echo "Artifact: $artifact_url"
                 echo "Recovery: see the failed run/artifact above; runner/formatter failure, not a baseline movement."
@@ -135,12 +139,18 @@ jobs:
           marker="<!-- lint-ratchet-summary -->"
 
           post_comment() {
-            if ! comment_id="$(
+            # With --paginate, gh runs --jq once per page, so a `// ""` default
+            # would emit one empty line per non-matching page and, on a PR with
+            # more than one page of comments, give comment_id embedded newlines.
+            # Emit only real matches (select drops non-matches with no default),
+            # then take the first non-empty line as the id.
+            if ! matching_ids="$(
               gh api --paginate "repos/${{ github.repository }}/issues/$pr_number/comments" \
-                --jq "first(.[] | select(.body | contains(\"$marker\")) | .id) // \"\""
+                --jq ".[] | select(.body | contains(\"$marker\")) | .id"
             )"; then
               return 1
             fi
+            comment_id="$(printf '%s\n' "$matching_ids" | grep -m1 . || true)"
 
             if [ -n "$comment_id" ]; then
               # gh --field body=@file reads the file contents into the request field.
@@ -164,6 +174,32 @@ jobs:
           name: lint-ratchet-diagnostics
           path: .musi-ci-verify-logs/ratchet-diagnostics.json
           retention-days: 7
+
+      # The failure summary prints only a 30-line filtered excerpt per failed
+      # slot and points at a log path on the ephemeral runner; without this
+      # upload the full failing output is unrecoverable. Full slot logs are
+      # retained only when the verify gate itself failed.
+      - name: Upload verify slot logs
+        if: always() && steps.verify.outcome == 'failure'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: verify-slot-logs
+          path: .musi-ci-verify-logs
+          retention-days: 7
+          if-no-files-found: ignore
+
+      # Per-slot timing data is small and worth sampling from every run
+      # (success or failure) for latency measurement.
+      - name: Upload verify timing data
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: verify-timings
+          path: |
+            .musi-ci-verify-logs/meta/*.json
+            .musi-ci-verify-logs/test-timings.json
+          retention-days: 7
+          if-no-files-found: ignore
 
       - name: Check harness manifest parity with rules and scripts
         run: bun run harness:check

@@ -25,16 +25,16 @@ export default {
     docs: {
       description: "Enforce test file naming and require at least one test block",
       principle:
-        "Test files must follow naming conventions and contain test blocks so they colocate with the code they cover.",
+        "Recognizable test filenames and real test blocks keep helpers and stubs from being mistaken for executable coverage.",
       category: "maintainability",
       pairedGuide: "none",
       repairKind: "manual",
     },
     messages: {
       wrongNaming:
-        "Test file basename is missing a name prefix. Rename to `<feature>.test.ts`, `.test.tsx`, or `.spec.ts` so the file colocates with the code it covers.",
+        "Rename this file to use a non-empty feature prefix: `<feature>.test.ts`, `<feature>.test.tsx`, or `<feature>.spec.ts`.",
       missingTests:
-        "Add a `describe`, `it`, or `test` block. If this file is a test helper, rename it to drop the .test/.spec suffix so it stops matching the test-file convention.",
+        "Add a `describe`, `it`, or `test` block, or rename a helper to remove the .test/.spec suffix.",
     },
     schema: [],
   },

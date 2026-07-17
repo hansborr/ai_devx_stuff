@@ -1,6 +1,6 @@
 # useEffect guardrails — implementation plan
 
-Status: proposed, no implementation yet
+Status: Implemented and absorbed by lint-adoption-2026-07 Leaf 21 (2026-07-15)
 Date: 2026-06-05 (mechanics reconciled to the current repo layout 2026-06-12)
 Research: `docs/agent_notes/backlog/useeffect-ai-agents-research.md`
 Related: `docs/agent_notes/finished_work/lint-followups-2026-06.md`
@@ -12,7 +12,11 @@ Related: `docs/agent_notes/finished_work/lint-followups-2026-06.md`
 `31b43881 docs(lint): consolidate lint review backlog`; read them from git
 history.
 
-## 2026-07-02 positioning update
+## Historical 2026-07-02 positioning (superseded)
+
+This section records the pre-implementation proposal. It is not active
+instruction; the final Leaf 21 decisions are stated in the implementation
+outcome below.
 
 Recommendation 1 is now live as
 `ratchet/react-hooks-set-state-in-effect-client`; it freezes the
@@ -34,7 +38,33 @@ owner because the value premise that every effect should carry an explicit
 marker is the policy judgment this research lane reserved rather than a settled
 mechanical follow-up.
 
-## Goal
+## 2026-07-15 implementation outcome
+
+Leaf 21 replaced Recommendation 2's uncalibrated third-party plugin trial with
+the narrower local `local/no-effect-misuse` rule. It reports imperative
+`fetch`, TanStack Query imperative fetch methods, tRPC-style `.query()` calls,
+and effects whose only work is synchronously updating state created by
+`useState`. Its two diagnostics carry the alternatives from
+`docs/guides/client-effects.md` rather than banning `useEffect`.
+
+The rule is owned by `ratchet/local-no-effect-misuse-client`: its initial
+12-finding inventory dropped to 2 after the keyed-dialog migration. The
+existing official `ratchet/react-hooks-set-state-in-effect-client` remains
+complementary: the dialog migration dropped it from 21 findings to 6, and the
+movement-tracking follow-up fixed a same-turn reset bug and dropped it to 5. A
+temporary direct-fetch probe in an in-scope client hook proved the new ratchet
+blocks a new path. The third-party plugin trial was rejected in favor of the
+repository-specific rule; it is not pending work. The broader effect-boundary
+marker proposal remains deferred and is not stacked beside the high-signal
+misuse detector.
+
+## Historical proposal record (do not execute)
+
+The goal, non-goals, mechanics, and rollout below are retained only to explain
+the decisions considered before Leaf 21. They are superseded by the 2026-07-15
+implementation outcome above and must not be used as a work plan.
+
+## Historical goal
 
 Contain the AI-agent `useEffect` leak-in dynamic — new unnecessary effects
 accreting because the model reproduces patterns it sees — without banning the
@@ -45,7 +75,7 @@ The shape is three ratchet-sized moves: freeze the known anti-pattern rule at
 its current floor, trial the dedicated unnecessary-effect plugin at ratchet
 tier, and encode the effect decision rule where agents read it.
 
-## Non-goals
+## Historical non-goals
 
 - **No hard ban.** `no-restricted-imports` on `useEffect` is rejected: Musi's
   VTT domain is unusually effect-legitimate (sockets, canvas, presence,
@@ -63,7 +93,7 @@ tier, and encode the effect decision rule where agents read it.
   `SocketProvider` owns the socket lifecycle. Nothing here changes runtime
   code.
 
-## Recommendation 1 — ratchet `react-hooks/set-state-in-effect` (no-new)
+## Historical recommendation 1 — completed ratchet adoption
 
 Convert the rule from `off` to a `no-new` ratchet so the 24-finding floor is
 frozen and finding #25 fails locally at commit time.
@@ -157,7 +187,12 @@ already linted area"):
 Drain path: opportunistic. When a dialog/state refactor lands, the touched
 findings drain and `lint:ratchet:update` tightens the floor monotonically.
 
-## Recommendation 2 — trial `eslint-plugin-react-you-might-not-need-an-effect`
+## Historical recommendation 2 — rejected plugin trial
+
+The plugin trial below is retained as historical evaluation context. Leaf 21
+did not install it: the local detector directly owns Musi's fetch/query and
+derived-state-only policy with repository-specific messages and a reviewable
+12-finding starting inventory.
 
 The plugin's 9 rules cover architectural classes the official rule
 structurally cannot (derived state via handlers/async, effect chains, passing
@@ -205,7 +240,7 @@ plugin's `recommended` (warn) preset is not the right vehicle here — ratchet
 entries are the warn-equivalent tier, with eventual promotion to normal-lint
 `error` per the zero-baseline lifecycle.
 
-## Recommendation 3 — agent-facing effect guidance
+## Historical recommendation 3 — completed agent-facing guidance
 
 One short block, either added to `AGENTS.md` (Code Standards) or placed in a
 new `docs/guides/client-effects.md` (it does not exist yet) and referenced
@@ -224,7 +259,7 @@ violation time, but guidance prevents the attempt — they complement. (No
 verified evidence on guidance-doc efficacy exists; this is inference, kept
 cheap accordingly.)
 
-## Rollout order
+## Historical rollout order (superseded)
 
 1. Recommendation 1 (smallest, reuses a completed inventory, immediately
    closes the accretion gap on the known rule).
@@ -239,17 +274,16 @@ update + diff review, `bun run lint:ratchet`, coverage-map refresh
 (`bun run docs:lint-coverage-map:check`), violation probe for zero-or-frozen
 scopes, `bun run verify:changed`.
 
-## Exit / revisit conditions
+## Current revisit conditions
 
 - If the React team promotes the existing non-preset
   `no-deriving-state-in-effects` (it ships in `eslint-plugin-react-hooks`
   7.1.1 but is absent from `recommended-latest`, as probed in Leaf 14) into
-  the recommended presets, re-evaluate Recommendation 2's overlap before
-  adopting more third-party rules.
+  the recommended presets, re-evaluate overlap with the local rule before
+  adopting the official rule.
 - If a dialog/state-pattern refactor drains the set-state-in-effect baseline
   to zero, follow the zero-baseline lifecycle: promote the rule to normal
   ESLint at error and retire the ratchet.
-- If the you-might-not-need-an-effect inventory shows >5:1 noise on every
-  rule, record the rejection verdict and fall back to Recommendations 1 + 3
-  only — they already cover the accretion risk for the locally-observed
-  pattern classes.
+- The third-party plugin trial is closed, not deferred. Reopening it requires a
+  separately approved leaf with new evidence that the local and official rules
+  leave a material enforcement gap.

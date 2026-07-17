@@ -1,35 +1,48 @@
 import {
   clientSourceFiles,
   clientTestAndHelperSourceFiles,
+  codeFiles,
+  productionFunctionStructureFiles,
+  productionFunctionStructureIgnores,
   scriptFixtureIgnores,
   scriptTestAssertFunctionNames,
 } from "../../eslint-config/shared-policy.js";
 import {
   localTypeAssertionBoundaryRatchet,
   vitestValidExpectRatchet,
-} from "./lint-ratchet-registry-builders.js";
+} from "./registry-builders.js";
 import type { LintRatchetZeroBaselineDisposition } from "./zero-baseline-types.js";
 
 type JsonPrimitive = string | number | boolean | null;
 export type JsonObject = { readonly [key: string]: JsonValue };
 export type JsonValue = JsonPrimitive | readonly JsonValue[] | JsonObject;
 
-export type LintRatchetMode = "no-new" | "ratchet-down" | "report-only";
+// Two never-earning modes have been trimmed from the surface. `ratchet-down`
+// (drive a floor downward over time) was advertised but never implemented — a
+// copier would design against a mode that does not exist. `report-only` (collect
+// a rule and emit info diagnostics without a committed floor) was implemented but
+// no live registry entry ever used it, and `--propose` already covers the
+// discovery use case. Both are off the public surface: `no-new` is the only mode
+// a ratchet entry or committed baseline may carry. A future mode adds itself back
+// here and teaches the comparison logic its semantics; the baseline parser stays
+// deliberately narrow (no committed baseline ever carried either removed mode,
+// since registry validation always rejected them before write).
+export type LintRatchetMode = "no-new";
 export type LintRatchetMetric = "complexity-severity" | "effective-line-count" | "message-count";
 type LintRatchetRepairKind = "manual";
 export type LintRatchetParserProfile = "minimal-ts" | "type-aware-ts";
-export type LintRatchetPluginExport = "default" | "plugin";
+type LintRatchetPluginExport = "default" | "plugin";
 
-export interface LintRatchetLocalSource {
+interface LintRatchetLocalSource {
   readonly kind: "local";
 }
 
-export interface LintRatchetThirdPartySource {
+interface LintRatchetThirdPartySource {
   readonly kind: "third-party";
   readonly pluginModule: string;
 }
 
-export interface LintRatchetCoreSource {
+interface LintRatchetCoreSource {
   readonly kind: "core";
 }
 
@@ -45,7 +58,6 @@ interface LintRatchetConfigBase {
   readonly ignores: readonly string[];
   readonly ruleOptions: readonly JsonValue[];
   readonly mode: LintRatchetMode;
-  readonly target: number;
   readonly metric: LintRatchetMetric;
   readonly repairKind: LintRatchetRepairKind;
   // Single source of truth for the harness-controls doc "Principle" line. The
@@ -56,11 +68,18 @@ interface LintRatchetConfigBase {
   // disposition when the ratchet reaches zero findings).
   readonly principle: string;
   readonly allowEmpty?: boolean;
+  // Explicit tsconfig for a type-aware ratchet's generated config. When unset,
+  // the config writer's default is `projectService: true`, except that a ratchet
+  // whose files are all under `scripts/` infers `./tsconfig.scripts.json` — a
+  // Musi-registry convenience, not a portable default, so an adopter with a
+  // different `scripts/` layout should set this field explicitly instead.
+  readonly typeAwareProject?: string;
   readonly zeroBaselineDisposition?: LintRatchetZeroBaselineDisposition;
 }
 
-// This union intentionally rejects type-aware local entries; see Leaf 22
-// Review Cycle F3.
+// This union intentionally rejects type-aware local entries: local sources
+// default to the minimal-ts parser profile, so only third-party and core
+// sources may opt into type-aware-ts.
 export type LintRatchetConfig =
   | (LintRatchetConfigBase & {
       readonly source?: LintRatchetLocalSource;
@@ -102,6 +121,14 @@ const testingLibraryClientTestFiles = ["packages/client/src/**/*.test.tsx"] as c
 // Shared ignore floor for ratchets that only need to skip build output; reused
 // by every entry whose ignores are exactly the dist/generated/node_modules set.
 const commonRatchetIgnores = ["**/dist/**", "**/generated/**", "**/node_modules/**"] as const;
+// Code-wide ratchets mirror the main repository's lint scope: self-contained
+// examples own their lint CI, and script fixtures stay outside the script TS
+// project. Keep this named posture reusable for future code-wide entries.
+const codeWideRatchetIgnores = [
+  ...commonRatchetIgnores,
+  "examples/**",
+  ...scriptFixtureIgnores,
+] as const;
 const testingLibraryDrainExitPath = "docs/agent_notes/finished_work/lint-followups-2026-06.md";
 const harnessReview202607Leaf37 =
   "docs/agent_notes/backlog/harness-review-2026-07/37-cheap-plugin-and-config-rule-adds.md";
@@ -127,10 +154,12 @@ const driftAiVitestTestIgnores = ["scripts/drift-ai/fixtures/**"] as const;
 const scriptVitestOptionPinnedFiles = [
   "scripts/code-intel/**/*.test.ts",
   "scripts/lint-coverage-map-check.test.ts",
-  "scripts/lint-ratchet/lint-ratchet-baseline.test.ts",
+  "scripts/lint-ratchet/baseline.test.ts",
 ] as const;
 const designTokenLintExitPath =
   "docs/agent_notes/backlog/harness-research-followups-2026-06/02-design-token-lint.md";
+const errorSemanticsDrainExitPath =
+  "docs/agent_notes/backlog/lint-adoption-2026-07/12-broaden-error-semantics-coverage.md";
 
 // prettier-ignore
 export const lintRatchets = [
@@ -141,7 +170,6 @@ export const lintRatchets = [
     ignores: clientTestAndHelperSourceFiles,
     ruleOptions: [],
     mode: "no-new",
-    target: 0,
     metric: "message-count",
     repairKind: "manual",
     principle: "Freeze the accepted client arbitrary Tailwind bracket-value inventory so new one-off class values fail while the design-token cleanup drains incrementally.",
@@ -149,6 +177,54 @@ export const lintRatchets = [
       kind: "promote-to-normal-lint",
       reason: "client class strings should use DESIGN.md and packages/client/src/app.css @theme tokens; once the existing arbitrary-value inventory drains, normal lint should enforce the rule directly",
       exitPath: designTokenLintExitPath,
+    },
+  },
+  {
+    id: "ratchet/local-no-commented-out-code",
+    ruleId: "local/no-commented-out-code",
+    files: codeFiles,
+    ignores: codeWideRatchetIgnores,
+    ruleOptions: [],
+    mode: "no-new",
+    metric: "message-count",
+    repairKind: "manual",
+    principle: "Prevent multi-line operative code from being preserved in comments, where it obscures the active implementation and can be resurrected as a stale alternative.",
+    zeroBaselineDisposition: {
+      kind: "intentional-ratchet-only",
+      reason: "the deliberately conservative comment-shape heuristic should block new debt at commit time without becoming a normal-lint editor diagnostic across every maintained JS/TS file",
+    },
+  },
+  {
+    id: "ratchet/local-no-effect-misuse-client",
+    ruleId: "local/no-effect-misuse",
+    parserProfile: "minimal-ts",
+    files: clientSourceFiles,
+    ignores: clientTestAndHelperSourceFiles,
+    ruleOptions: [],
+    mode: "no-new",
+    metric: "message-count",
+    repairKind: "manual",
+    principle: "Prevent imperative data fetching and derived-state-only React effects from growing while existing reset and synchronization debt moves to query hooks, event handlers, render-time derivation, or keyed remounts.",
+  },
+  {
+    id: "ratchet/local-no-swallowed-errors-broader-semantics",
+    ruleId: "local/no-swallowed-errors",
+    files: codeFiles,
+    ignores: codeWideRatchetIgnores,
+    ruleOptions: [
+      {
+        checkLoggedRethrow: false,
+        checkSwallowedError: false,
+      },
+    ],
+    mode: "no-new",
+    metric: "message-count",
+    repairKind: "manual",
+    principle: "Prevent empty catches and log-then-return fallbacks from growing beyond the leaf 12 inventory while the accepted error-semantics debt drains.",
+    zeroBaselineDisposition: {
+      kind: "promote-to-normal-lint",
+      reason: "once empty catches and logged fallbacks drain, remove the normal-lint adoption options so every no-swallowed-errors message is a hard error",
+      exitPath: errorSemanticsDrainExitPath,
     },
   },
   localTypeAssertionBoundaryRatchet({
@@ -171,6 +247,44 @@ export const lintRatchets = [
     },
   }),
   {
+    id: "ratchet/max-depth-production",
+    ruleId: "max-depth",
+    source: { kind: "core" },
+    parserProfile: "minimal-ts",
+    files: productionFunctionStructureFiles,
+    ignores: productionFunctionStructureIgnores,
+    ruleOptions: [{ max: 3 }],
+    mode: "no-new",
+    metric: "message-count",
+    repairKind: "manual",
+    principle: "Freeze production nesting beyond three blocks so new deeply nested handlers fail and repairs favor early returns, guard clauses, and focused helpers.",
+  },
+  {
+    id: "ratchet/max-lines-per-function-production",
+    ruleId: "max-lines-per-function",
+    source: { kind: "core" },
+    parserProfile: "minimal-ts",
+    files: productionFunctionStructureFiles,
+    ignores: productionFunctionStructureIgnores,
+    // This calibrated first step deliberately does not adopt llm-core's
+    // monorepo-wide 50-line limit. Revisit 60 for services and routers after
+    // the production debt frozen here has drained.
+    // Accepted cooperative-agent gap: message-count freezes the number of
+    // over-100-line functions, not each finding's rendered line count, so an
+    // existing violation can grow while it remains below the normal-lint
+    // 200-line ceiling. A precise per-function severity vector would require a
+    // new metric across collection, baseline schema/merge, comparison,
+    // debt-log, reporting, and portability surfaces. That machinery is
+    // disproportionate for this accidental-drift rollout; revisit if
+    // within-function growth becomes recurring evidence rather than a
+    // theoretical evasion.
+    ruleOptions: [{ max: 100, skipBlankLines: true, skipComments: true }],
+    mode: "no-new",
+    metric: "message-count",
+    repairKind: "manual",
+    principle: "Prevent the number of production functions over 100 effective lines from growing while the 200-line normal-lint ceiling remains the hard cap and existing debt drains without artificial splits.",
+  },
+  {
     id: "ratchet/no-real-time-in-package-tests",
     ruleId: "no-restricted-syntax",
     source: { kind: "core" },
@@ -179,7 +293,6 @@ export const lintRatchets = [
     ignores: commonRatchetIgnores,
     ruleOptions: noRealTimeInPackageTestsRestrictedSyntax,
     mode: "no-new",
-    target: 0,
     metric: "message-count",
     repairKind: "manual",
     principle: "Freeze real-clock usage in package tests so new Date.now() and no-arg new Date() calls cannot grow while existing tests migrate to fake timers or injected clocks.",
@@ -198,7 +311,6 @@ export const lintRatchets = [
     ignores: clientTestAndHelperSourceFiles,
     ruleOptions: [],
     mode: "no-new",
-    target: 0,
     metric: "message-count",
     repairKind: "manual",
     principle: "Freeze the accepted set-state-in-effect floor so finding #25 fails at commit time while cleanup proceeds opportunistically.",
@@ -216,7 +328,6 @@ export const lintRatchets = [
       },
     ],
     mode: "no-new",
-    target: 0,
     metric: "message-count",
     repairKind: "manual",
     principle: "Prevent Fast Refresh unsafe mixed exports in client TSX modules from growing while shared constants and helpers move out of component files.",
@@ -251,7 +362,6 @@ export const lintRatchets = [
       },
     ],
     mode: "no-new",
-    target: 0,
     metric: "message-count",
     repairKind: "manual",
     principle: "Hold a strict-boolean-expressions zero floor over the packages/server/src/services/encounter-combat slice while package-wide server cleanup proceeds incrementally.",
@@ -286,7 +396,6 @@ export const lintRatchets = [
       },
     ],
     mode: "no-new",
-    target: 0,
     metric: "message-count",
     repairKind: "manual",
     principle: "Extend strict-boolean-expressions coverage across server services while excluding the existing encounter-combat slice that already owns its zero floor.",
@@ -303,8 +412,9 @@ export const lintRatchets = [
     files: ["packages/shared/src/**/*.{ts,tsx}"],
     ignores: [
       ...commonRatchetIgnores,
-      "packages/shared/src/**/*.{test,spec}.{ts,tsx}",
+      // Codepoint order (`t` < `{`): registry ignores must be codepoint-sorted.
       "packages/shared/src/**/*.test-helper.{ts,tsx}",
+      "packages/shared/src/**/*.{test,spec}.{ts,tsx}",
       "packages/shared/src/test/**/*.{ts,tsx}",
     ],
     ruleOptions: [
@@ -320,7 +430,6 @@ export const lintRatchets = [
       },
     ],
     mode: "no-new",
-    target: 0,
     metric: "message-count",
     repairKind: "manual",
     principle: "Prevent strict-boolean-expressions debt from growing in packages/shared/src production code while cleanup proceeds incrementally.",
@@ -338,7 +447,6 @@ export const lintRatchets = [
     ignores: commonRatchetIgnores,
     ruleOptions: [],
     mode: "no-new",
-    target: 0,
     metric: "message-count",
     repairKind: "manual",
     principle: "Prevent render-result container querying (testing-library/no-container) in client component tests from growing past the leaf 06 inventory while the debt drains toward normal-lint promotion.",
@@ -357,7 +465,6 @@ export const lintRatchets = [
     ignores: commonRatchetIgnores,
     ruleOptions: [],
     mode: "no-new",
-    target: 0,
     metric: "message-count",
     repairKind: "manual",
     principle: "Prevent direct DOM-node access (testing-library/no-node-access) in client component tests from growing past the leaf 06 inventory while the debt drains toward normal-lint promotion.",
@@ -380,7 +487,6 @@ export const lintRatchets = [
       },
     ],
     mode: "no-new",
-    target: 0,
     metric: "message-count",
     repairKind: "manual",
     principle: "Keep the drift-ai test expect-expect floor pinned to assertFunctionNames [\"expect\"] only, stricter than the resolved plugin defaults normal lint applies (keep verdict, lint-review-2026-06 leaf 03e).",
@@ -389,7 +495,23 @@ export const lintRatchets = [
       reason: "normal Vitest lint uses resolved plugin defaults for expect-expect; this drift-ai ratchet narrows the assertFunctionNames allowlist to expect only",
     },
   },
-  { id: "ratchet/vitest-expect-expect-script-tests", ruleId: "vitest/expect-expect", source: { kind: "third-party", pluginModule: "@vitest/eslint-plugin" }, parserProfile: "minimal-ts", files: scriptVitestOptionPinnedFiles, ignores: [], ruleOptions: [{ assertFunctionNames: scriptTestAssertFunctionNames }], mode: "no-new", target: 0, metric: "message-count", repairKind: "manual", principle: "Prevent script tests without recognized assertions from growing now that the final Leaf 41g test rows are linted.", zeroBaselineDisposition: { kind: "narrow-floor", reason: "normal Vitest lint resolves extra plugin-default expect-expect options; this ratchet pins the assertFunctionNames allowlist (expect plus the named script-test helpers) scoped to the selected script tests" } },
+  {
+    id: "ratchet/vitest-expect-expect-script-tests",
+    ruleId: "vitest/expect-expect",
+    source: { kind: "third-party", pluginModule: "@vitest/eslint-plugin" },
+    parserProfile: "minimal-ts",
+    files: scriptVitestOptionPinnedFiles,
+    ignores: [],
+    ruleOptions: [{ assertFunctionNames: scriptTestAssertFunctionNames }],
+    mode: "no-new",
+    metric: "message-count",
+    repairKind: "manual",
+    principle: "Prevent script tests without recognized assertions from growing now that the final Leaf 41g test rows are linted.",
+    zeroBaselineDisposition: {
+      kind: "narrow-floor",
+      reason: "normal Vitest lint resolves extra plugin-default expect-expect options; this ratchet pins the assertFunctionNames allowlist (expect plus the named script-test helpers) scoped to the selected script tests",
+    },
+  },
   vitestValidExpectRatchet({
     id: "ratchet/vitest-valid-expect-drift-ai-tests",
     files: driftAiVitestTestFiles,

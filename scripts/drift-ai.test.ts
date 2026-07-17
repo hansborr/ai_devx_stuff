@@ -1,5 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -68,6 +67,7 @@ import {
 import { nearDuplicatesCheck } from "./drift-ai/near-duplicates-check.js";
 import type { SuppressionsGitRunner } from "./drift-ai/suppressions.js";
 import { HARNESS_DIAGNOSTICS_OUTPUT_ENV } from "./harness/harness-diagnostics-output.js";
+import { registerTempRootCleanup } from "./test-support/tmp-repo.test-helper.js";
 
 function emptyJscpdRunner(): JscpdRunner {
   return () => ({ ok: true, reportJson: '{"duplicates":[]}' });
@@ -132,20 +132,14 @@ function makeCheckRunContext(
   };
 }
 
-const tempRoots: string[] = [];
+const tmpRepo = registerTempRootCleanup();
 
 afterEach(() => {
   clearKnipRunCache();
-  while (tempRoots.length > 0) {
-    const root = tempRoots.pop();
-    if (root) rmSync(root, { recursive: true, force: true });
-  }
 });
 
 function makeTempDir(): string {
-  const root = mkdtempSync(path.join(tmpdir(), "drift-ai-test-"));
-  tempRoots.push(root);
-  return root;
+  return tmpRepo.makeTempRepo("drift-ai-test-");
 }
 
 function captureThrown(callback: () => void): unknown {
@@ -1535,6 +1529,7 @@ describe("runDriftAi", () => {
         check: "duplicates",
         file: "src/a.ts:7-18",
         message: "duplicates src/b.ts:3-14 (12 lines)",
+        relatedFiles: ["src/b.ts:3-14"],
         hint: stringContaining("extract or reuse"),
       },
     ]);
@@ -2083,6 +2078,7 @@ describe("runDriftAi", () => {
         check: "duplicates",
         file: "packages/server/src/utils/character-auth.ts:40-68",
         message: "duplicates packages/server/src/utils/campaign-auth.ts:22-50 (29 lines)",
+        relatedFiles: ["packages/server/src/utils/campaign-auth.ts:22-50"],
         hint: stringContaining("extract or reuse"),
       },
     ]);

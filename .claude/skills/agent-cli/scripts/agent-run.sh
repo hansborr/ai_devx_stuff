@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Unified dispatch wrapper for delegated/consulted agent CLI runs (claude,
-# codex, copilot). The caller-facing `agent-run:` trailer and exit-code
+# codex, copilot, cursor — whose CLI binary is confusingly named `agent`).
+# The caller-facing `agent-run:` trailer and exit-code
 # contract lives in ../references/trailer-contract.md; keep this script
 # hand-written and portable with no generation/build step.
 # This bash entrypoint also bypasses interactive-shell aliases that silently
@@ -11,15 +12,15 @@ set -euo pipefail
 
 usage() {
   cat >&2 <<'EOF'
-Usage: agent-run.sh <consult|work|review> <claude|codex|copilot> [options] [-- <native args>]
+Usage: agent-run.sh <consult|work|review> <claude|codex|copilot|cursor> [options] [-- <native args>]
   consult  read-only second opinion / review / investigation
   work     delegated implementation with full permissions (takes the worktree lock)
   review   codex-only: the native priority-tagged diff-review harness
 Options (normalized across agents):
-  -p, --prompt <text>       mission prompt
-  -P, --mission-file <file> mission prompt read from a file (exactly one of -p / -P)
-  -f, --prompt-file <file>  prompt material appended as an <attached> block (repeatable)
-  -m, --model <id>          model (required for copilot)
+  -p, --prompt <text>       non-whitespace mission prompt (required for consult/work)
+  -P, --mission-file <file> non-whitespace mission from a file (alternative to -p)
+  -f, --prompt-file <file>  supporting material appended as an <attached> block (repeatable)
+  -m, --model <id>          model (required for copilot; cursor defaults to grok-4.5-xhigh)
   -e, --effort <level>      reasoning effort where the model supports it
   -o, --output <file>       answer file (default: auto-generated under $TMPDIR,
                             named in the `agent-run: answer:` trailer)
@@ -37,6 +38,10 @@ EOF
 reject() {
   printf 'agent-run.sh: %s\n' "$1" >&2
   exit 2
+}
+
+has_non_whitespace() {
+  [[ "$1" =~ [^[:space:]] ]]
 }
 
 # Reject a caller-supplied write path ($2) that resolves inside the worktree
@@ -58,7 +63,8 @@ agent_run_reset_state() {
   MODE=''
   AGENT=''
   PROMPT=''
-  MISSION_FILE=''
+  MISSION_FILES=()
+  MISSION_SOURCES=()
   PROMPT_FILES=()
   MODEL=''
   EFFORT=''
@@ -95,6 +101,9 @@ agent_run_reset_state() {
   cmd=()
   CAPTURE=''
   SESSION_ID=''
+  SESSION_ID_LOGGED=0
+  ORPHANED_CHILDREN=0
+  ORPHANED_PGID=''
   code=0
   PARSE_FAIL=0
   IS_ERROR=0
@@ -151,7 +160,7 @@ parse_args() {
   AGENT="$2"
   shift 2
   case "$MODE" in consult | work | review) ;; *) usage ;; esac
-  case "$AGENT" in claude | codex | copilot) ;; *) usage ;; esac
+  case "$AGENT" in claude | codex | copilot | cursor) ;; *) usage ;; esac
   if [ "$MODE" = review ] && [ "$AGENT" != codex ]; then
     reject "review is the codex native diff-review harness; use 'review codex' (or consult for the others)"
   fi
@@ -164,12 +173,13 @@ parse_args() {
         [ -n "${2-}" ] || reject "$1 requires a non-empty value"
         [ -z "$PROMPT" ] || reject "duplicate $1 would silently drop the first mission; merge the text into one prompt"
         PROMPT="$2"
+        MISSION_SOURCES+=("p")
         shift 2
         ;;
       -P | --mission-file)
         [ -n "${2-}" ] || reject "$1 requires a non-empty value"
-        [ -z "$MISSION_FILE" ] || reject "duplicate $1 would silently drop the first mission file; merge the text into one file"
-        MISSION_FILE="$2"
+        MISSION_FILES+=("$2")
+        MISSION_SOURCES+=("P")
         shift 2
         ;;
       -f | --prompt-file)
@@ -226,17 +236,43 @@ parse_args() {
 }
 
 load_mission_file() {
-  # --mission-file is -p read from a file: validated here, then folded into
-  # PROMPT so every later step (preamble, assembly, size limits) treats the two
-  # identically. It is caller input, so unlike -o it may live inside the worktree.
-  if [ -n "$MISSION_FILE" ]; then
-    [ -z "$PROMPT" ] || reject "-p and --mission-file both carry a mission; pass exactly one"
-    [ -e "$MISSION_FILE" ] || reject "--mission-file '$MISSION_FILE' does not exist"
-    [ ! -d "$MISSION_FILE" ] || reject "--mission-file '$MISSION_FILE' is a directory, not a mission text file"
-    { [ -f "$MISSION_FILE" ] && [ -r "$MISSION_FILE" ]; } || reject "--mission-file '$MISSION_FILE' is not a readable file"
-    [ -s "$MISSION_FILE" ] || reject "--mission-file '$MISSION_FILE' is empty; write the mission text into it (or use -p)"
-    PROMPT="$(cat -- "$MISSION_FILE")"
-  fi
+  # -P/--mission-file is -p read from a file. Both -p and -P are repeatable and
+  # composable: every mission component is concatenated in the exact order it
+  # appeared on the command line, separated by one blank line, then folded into
+  # PROMPT so every later step (preamble, assembly, size limits) treats the
+  # result identically to a single -p. This makes resume composition a
+  # one-command operation — the original mission file plus a recovery preamble
+  # (e.g. `-P orig.prompt -P resume-note.prompt`) reach the backend as one
+  # prompt, no hand-concatenation. Mission files are caller input, so unlike -o
+  # they may live inside the worktree.
+  local composed='' src text path fidx=0
+  [ ${#MISSION_FILES[@]} -gt 0 ] || return 0
+  for src in ${MISSION_SOURCES[@]+"${MISSION_SOURCES[@]}"}; do
+    case "$src" in
+      p)
+        text="$PROMPT"
+        has_non_whitespace "$text" \
+          || reject "-p mission text has no non-whitespace content; write the mission into it (or use --mission-file)"
+        ;;
+      P)
+        path="${MISSION_FILES[fidx]}"
+        fidx=$((fidx + 1))
+        [ -e "$path" ] || reject "--mission-file '$path' does not exist"
+        [ ! -d "$path" ] || reject "--mission-file '$path' is a directory, not a mission text file"
+        { [ -f "$path" ] && [ -r "$path" ]; } || reject "--mission-file '$path' is not a readable file"
+        [ -s "$path" ] || reject "--mission-file '$path' is empty; write the mission text into it (or use -p)"
+        text="$(cat -- "$path")"
+        has_non_whitespace "$text" \
+          || reject "--mission-file '$path' has no non-whitespace mission text; write the mission into it (or use -p)"
+        ;;
+    esac
+    if [ -n "$composed" ]; then
+      composed="$composed"$'\n\n'"$text"
+    else
+      composed="$text"
+    fi
+  done
+  PROMPT="$composed"
 }
 
 validate_usage_options() {
@@ -245,7 +281,8 @@ validate_usage_options() {
     [ -z "$RESUME" ] || reject "review has no resume; iterate via consult/work sessions instead"
     [ ${#PROMPT_FILES[@]} -eq 0 ] || reject "review takes only a short custom-instruction -p"
   else
-    [ -n "$PROMPT" ] || [ ${#PROMPT_FILES[@]} -gt 0 ] || reject "a prompt is required: -p '<text>', --mission-file <path>, and/or -f <file>"
+    has_non_whitespace "$PROMPT" \
+      || reject "a non-empty mission prompt with non-whitespace text is required: use -p '<text>' or --mission-file <path>; -f only attaches supporting material"
   fi
   if [ "$DIRTY_OK" = 1 ] && [ "$MODE" != work ]; then
     reject "--dirty-ok only applies to work; consult and review are read-only and safe on a dirty tree"
@@ -269,6 +306,27 @@ validate_usage_claude() {
     || reject "the claude backend needs python3 on PATH to parse the result envelope (-o and the trailers depend on it)"
 }
 
+# Cursor's `agent` dispatches a subcommand whenever the first operand token is
+# exactly one of these words — even after `--` — so a one-word mission like
+# `update` would run `agent update` (a self-update) instead of prompting.
+CURSOR_SUBCOMMANDS='install-shell-integration uninstall-shell-integration login logout mcp worker status whoami models about update create-chat generate-rule rule'
+
+validate_usage_cursor() {
+  command -v python3 >/dev/null 2>&1 \
+    || reject "the cursor backend needs python3 on PATH to parse the result envelope (-o and the trailers depend on it)"
+  [ -z "$EFFORT" ] \
+    || reject "cursor has no effort flag; effort is encoded in the model id (grok-4.5-xhigh) or a bracket override (-m 'claude-opus-4-8[effort=high]')"
+  # Consults are immune to the subcommand-word collision (the injected
+  # preamble prefixes the prompt), as is any mission with -f material appended.
+  if [ "$MODE" = work ] && [ ${#PROMPT_FILES[@]} -eq 0 ]; then
+    case " $CURSOR_SUBCOMMANDS " in
+      *" $PROMPT "*)
+        reject "a mission of exactly '$PROMPT' would dispatch the cursor subcommand of that name instead of prompting; rephrase the mission"
+        ;;
+    esac
+  fi
+}
+
 parse_and_validate_args() {
   parse_args "$@"
   load_mission_file
@@ -288,11 +346,13 @@ parse_and_validate_args() {
 # `<verb>_<backend>` function is absent:
 #   validate_usage_<backend>          extra usage validation
 #   lock_required_<backend>           force the worktree lock on
+#   consult_preamble_<backend>        swap the consult preamble for the backend's read-only profile
 #   oversized_prompt_guard_<backend>  reject an over-argv prompt where stdin is ignored
 #   prepare_answer_<backend>          answer/sidecar path prep before the lock
 #   validate_launch_paths_<backend>   answer/sidecar path checks under the lock
 #   drift_cwd_<backend>               detect a cwd move for the consult drift check
 #   resolve_backend_pid_<backend>     recover a pid the launch had not yet captured
+#   early_session_<backend>           log the session id from streamed output before the wait
 #   extract_session_<backend>         parse the backend session id
 #
 # Adding a backend is one adapter set plus one entry in the agent registry
@@ -559,6 +619,66 @@ guard_copilot() {
   done
 }
 
+# Cursor's `agent` is commander-style: long flags take `--flag value` or
+# `--flag=value`, and the short flags here are boolean, so there are no
+# attached short-value spellings to mirror. Bare subcommand words are vetoed
+# like codex's `resume` — they would dispatch behind the wrapper (see
+# CURSOR_SUBCOMMANDS above).
+guard_cursor() {
+  local i=0 n=${#PASSTHRU[@]} arg
+  while [ "$i" -lt "$n" ]; do
+    arg="${PASSTHRU[i]}"
+    case "$arg" in
+      -p | --print | --output-format | --output-format=* | --stream-partial-output)
+        reject "$arg is wrapper-owned (print mode and the JSON result envelope)"
+        ;;
+      --model | --model=* | --list-models)
+        reject "$arg is wrapper-owned; use the wrapper's -m option"
+        ;;
+      --resume | --resume=* | --continue)
+        reject "$arg conflicts with wrapper session handling; use -r <session-id>"
+        ;;
+      -f | --force | --yolo | --auto-review)
+        if [ "$MODE" = consult ]; then
+          reject "$arg breaks consult's read-only guarantee; use work mode"
+        else
+          reject "$arg is wrapper-owned; work already runs with --force"
+        fi
+        ;;
+      --mode | --mode=* | --plan)
+        if [ "$MODE" = consult ]; then
+          reject "$arg is wrapper-owned; consult already runs read-only --mode ask"
+        else
+          reject "$arg would downgrade work to a read-only mode and no-op the mission; use consult for read-only runs"
+        fi
+        ;;
+      --sandbox | --sandbox=*)
+        reject "$arg is wrapper-owned sandbox config; permissions come from the wrapper's mode"
+        ;;
+      --trust)
+        reject "$arg is wrapper-owned (the wrapper always trusts the dispatch worktree)"
+        ;;
+      --approve-mcps)
+        if [ "$MODE" = consult ]; then
+          reject "$arg can auto-approve MCP servers whose tools mutate outside ask mode's read-only surface; use work mode"
+        fi
+        ;;
+      --workspace | --workspace=*)
+        reject "$arg moves the run off this worktree's lock; dispatch from the worktree the run should own"
+        ;;
+      -w | --worktree | --worktree=* | --worktree-base | --worktree-base=* | --skip-worktree-setup)
+        reject "$arg moves the run into a fresh worktree, off this worktree's lock and drift check; dispatch from the worktree the run should own"
+        ;;
+    esac
+    case " $CURSOR_SUBCOMMANDS " in
+      *" $arg "*)
+        reject "bare '$arg' would dispatch the cursor subcommand of that name behind the wrapper; drop it"
+        ;;
+    esac
+    i=$((i + 1))
+  done
+}
+
 run_passthrough_guards() {
   "guard_$AGENT"
 }
@@ -643,6 +763,7 @@ assemble_prompt() {
   # (models read it as forbidding file reads and git diff).
   CONSULT_PREAMBLE='Do not run the test suite/build; reading files and git diff is fine.
 Do not modify files. Assume tests pass.'
+  run_adapter_hook consult_preamble
 
   FULL_PROMPT="$PROMPT"
   for prompt_file in "${PROMPT_FILES[@]}"; do
@@ -657,6 +778,14 @@ Do not modify files. Assume tests pass.'
     fi
     FULL_PROMPT="$CONSULT_PREAMBLE"$'\n\n'"$FULL_PROMPT"
   fi
+}
+
+consult_preamble_cursor() {
+  # Ask mode denies all shell, so the shared preamble's "git diff is fine"
+  # would promise a tool this session does not have; steer to file reads and
+  # the <attached> material the caller supplies instead.
+  CONSULT_PREAMBLE='Shell commands are denied in this session; do not attempt them. Reading files is fine, and any diffs or command output you need arrive as <attached> material.
+Do not modify files. Assume tests pass.'
 }
 
 prepare_prompt_transport() {
@@ -818,7 +947,7 @@ check_dirty_work_start() {
 }
 
 prepare_lock_probe() {
-  # Lock-free consults (claude/copilot) may legitimately run alongside a work
+  # Lock-free consults (claude/copilot/cursor) may legitimately run alongside a work
   # dispatch; drift seen then belongs to the work run, not the consult. Probe
   # the lock around the run and report `unchecked` instead of a false DIRTY.
   # (A work run that starts and finishes entirely inside the consult's window
@@ -1067,6 +1196,31 @@ build_copilot_command() {
   cmd+=(-p "$FULL_PROMPT")
 }
 
+build_cursor_command() {
+  # cursor's CLI binary is confusingly named `agent`; --trust skips the
+  # headless workspace-trust prompt for the dispatch worktree. stream-json (not
+  # the single `json` envelope) breaks the run into typed events, so the answer
+  # contract can be the final assistant message alone: cursor's envelope
+  # `result` has been observed to concatenate every incremental status line
+  # before the final summary, which -o must not carry (see the cursor parser in
+  # launch_result_envelope_backend and references/cursor.md).
+  cmd=(agent -p --output-format stream-json --trust)
+  if [ "$MODE" = consult ]; then
+    # ask mode is cursor's enforced read-only profile: file reads work, the
+    # write tool is refused, and headless shell is denied outright.
+    cmd+=(--mode ask)
+  else
+    # headless denies every shell command without --force
+    cmd+=(--force)
+  fi
+  # cursor's own default is `auto` (a server-side pick), so pin a
+  # deterministic default instead of inheriting it
+  cmd+=(--model "${MODEL:-grok-4.5-xhigh}")
+  if [ -n "$RESUME" ]; then cmd+=(--resume "$RESUME"); fi
+  cmd+=("${PASSTHRU[@]}")
+  if [ "$STDIN_SRC" = /dev/null ]; then cmd+=(-- "$FULL_PROMPT"); fi
+}
+
 build_backend_command() {
   cmd=()
   "build_${AGENT}_command"
@@ -1077,6 +1231,9 @@ build_backend_command() {
 initialize_backend_runtime() {
   CAPTURE="$TMP_RUN/capture.log"
   SESSION_ID=''
+  SESSION_ID_LOGGED=0
+  ORPHANED_CHILDREN=0
+  ORPHANED_PGID=''
   code=0
   PARSE_FAIL=0
   IS_ERROR=0
@@ -1133,6 +1290,46 @@ backend_alive() {
   else
     kill -0 "$BACKEND_PID" 2>/dev/null
   fi
+}
+
+# After the backend leader is reaped on a clean (exit 0) run, a process still
+# alive in its process group is a child the delegate backgrounded and abandoned
+# — the classic case is a headless `scripts/land.sh &` started just before the
+# delegate ended its turn "to wait for the notification". That child dies with
+# the wrapper at end-of-turn, so reporting an unqualified clean success would
+# vouch for work that is unfinished and about to be killed. Detecting it needs a
+# real process group, so this is a no-op without setsid; a short grace lets a
+# child merely racing the leader's own exit finish first, so only a genuinely
+# long-lived background process trips the flag ($1 is the reaped backend pgid).
+detect_orphaned_children() {
+  local pgid="$1" n=0
+  ORPHANED_CHILDREN=0
+  ORPHANED_PGID=''
+  [ ${#SETSID[@]} -gt 0 ] || return 0
+  [ -n "$pgid" ] || return 0
+  while [ "$n" -lt 5 ]; do
+    kill -0 -- "-$pgid" 2>/dev/null || return 0
+    sleep 0.1
+    n=$((n + 1))
+  done
+  ORPHANED_CHILDREN=1
+  ORPHANED_PGID="$pgid"
+}
+
+# The skill contract promises abandoned background work "dies at end-of-turn",
+# but a setsid backend group is its own session: nothing in the wrapper's own
+# session reaps it on exit, so a detected orphan can outlive the wrapper and keep
+# mutating the worktree while holding the inherited lock fd. Make the contract
+# true by TERMing the reaped backend's group once, best-effort and bounded (no
+# KILL escalation): a cooperative child stops here; a signal-ignoring one is a
+# rarer case the trailer already flagged for the operator. The guard is
+# belt-and-suspenders — a setsid group leader's pgid is its own pid, never the
+# wrapper's ($$) — so this can never reach the wrapper's own group.
+terminate_orphaned_children() {
+  local pgid="$ORPHANED_PGID"
+  [ -n "$pgid" ] || return 0
+  [ "$pgid" != "$$" ] || return 0
+  kill -TERM -- "-$pgid" 2>/dev/null || true
 }
 
 # Close the codex pid-capture race: the codex launch path records the backend
@@ -1200,6 +1397,16 @@ sid_from_header() {
     | grep -oE "$UUID_RE" | head -n1 || true
 }
 
+# Emit the session-id trailer exactly once, whether it was discovered early
+# (from streamed output, before the wait) or at finalization. Idempotent so an
+# early emit is never repeated by emit_result_trailers or the fatal-signal path.
+log_session_id_once() {
+  [ -n "$SESSION_ID" ] || return 0
+  [ "$SESSION_ID_LOGGED" != 1 ] || return 0
+  printf 'agent-run: session-id: %s\n' "$SESSION_ID"
+  SESSION_ID_LOGGED=1
+}
+
 # Best-effort finalization when the wrapper itself is killed: without it a
 # TERM'd wrapper dies before any trailer exists and callers cannot tell a
 # dead run from a healthy quiet one. The signal is propagated to the backend
@@ -1244,9 +1451,7 @@ on_fatal_signal() {
     printf 'agent-run: backend-exit: killed (SIG%s, no backend dispatched yet)\n' "$sig"
   fi
   run_adapter_hook extract_session
-  if [ -n "$SESSION_ID" ]; then
-    printf 'agent-run: session-id: %s\n' "$SESSION_ID"
-  fi
+  log_session_id_once
   if [ -n "$OUT" ] && [ -s "$OUT" ]; then
     printf 'agent-run: answer: %s\n' "$OUT"
   fi
@@ -1281,9 +1486,23 @@ run_backend() {
   "launch_$AGENT"
 }
 
+# claude and cursor both end their print-mode output with a JSON result
+# envelope; the shared launcher spawns the backend directly (no pipeline) and
+# parses it for the answer, session id, and error state. claude emits one
+# envelope object; cursor runs in stream-json, so its log is a sequence of typed
+# events (the answer parse below normalizes cursor to the final assistant
+# message; claude keeps using the envelope's `result` field).
 launch_claude() {
+  launch_result_envelope_backend
+}
+
+launch_cursor() {
+  launch_result_envelope_backend
+}
+
+launch_result_envelope_backend() {
   local py_rc
-  # claude -p buffers until done (a quiet log is normal); the JSON envelope
+  # the backend buffers until done (a quiet log is normal); the JSON envelope
   # lands in the log for debugging while the parsed answer goes to -o.
   set +e
   # phase before the launch (see the codex path): a fatal signal in the gap
@@ -1296,34 +1515,67 @@ launch_claude() {
   printf 'agent-run: backend-pid: %d\n' "$BACKEND_PID"
   wait "$BACKEND_PID"
   code=$?
+  if [ "$code" -eq 0 ]; then detect_orphaned_children "$BACKEND_PID"; fi
   set -e
   BACKEND_PID=''
   BACKEND_PHASE=reaped
   cat "$CAPTURE"
   # python exit 0: parsed fine; 3: envelope carries is_error; else: no envelope
   set +e
-  python3 - "$CAPTURE" "$OUT" <<'PY' # -o is always set outside review, so the answer always lands in a file
+  python3 - "$CAPTURE" "$OUT" "$AGENT" <<'PY' # -o is always set outside review, so the answer always lands in a file
 import json
 import sys
 
-capture_path, out_path = sys.argv[1], sys.argv[2]
-envelope = None
+capture_path, out_path, agent = sys.argv[1], sys.argv[2], sys.argv[3]
+objects = []
 with open(capture_path, encoding="utf-8", errors="replace") as fh:
     lines = fh.read().splitlines()
-for line in reversed(lines):
+for line in lines:
     line = line.strip()
     if not line.startswith("{"):
         continue
     try:
-        data = json.loads(line)
+        objects.append(json.loads(line))
     except ValueError:
         continue
+envelope = None
+for data in reversed(objects):
     if data.get("type") == "result":
         envelope = data
         break
 if envelope is None:
     sys.exit(1)
+
+
+def assistant_text(event):
+    message = event.get("message") or {}
+    content = message.get("content")
+    if isinstance(content, str):
+        return content
+    if not isinstance(content, list):
+        return ""
+    return "".join(
+        block.get("text") or ""
+        for block in content
+        if isinstance(block, dict) and block.get("type") == "text"
+    )
+
+
 result = envelope.get("result") or ""
+if agent == "cursor":
+    # cursor's envelope `result` can accumulate every incremental status line
+    # ahead of the final summary; the answer contract is the final assistant
+    # message only. Take the text of the last assistant event in the stream, and
+    # fall back to the envelope result only when the stream carried no assistant
+    # events — so an unanticipated stream shape degrades to today's behaviour
+    # rather than an empty answer. Incremental commentary stays in the log.
+    finals = [
+        text
+        for text in (assistant_text(o) for o in objects if o.get("type") == "assistant")
+        if text.strip()
+    ]
+    if finals:
+        result = finals[-1]
 if not result.strip():
     result = ""
 elif not result.endswith("\n"):
@@ -1335,10 +1587,12 @@ denials = envelope.get("permission_denials") or []
 session_id = envelope.get("session_id") or ""
 if session_id:
     print("agent-run: session-id: %s" % session_id)
-print(
-    "agent-run: cost-usd: %s turns: %s permission-denials: %d"
-    % (envelope.get("total_cost_usd", "?"), envelope.get("num_turns", "?"), len(denials))
-)
+# claude-only cost/turn metadata; cursor envelopes carry none of these keys
+if "total_cost_usd" in envelope or "num_turns" in envelope:
+    print(
+        "agent-run: cost-usd: %s turns: %s permission-denials: %d"
+        % (envelope.get("total_cost_usd", "?"), envelope.get("num_turns", "?"), len(denials))
+    )
 if envelope.get("is_error"):
     sys.exit(3)
 PY
@@ -1363,6 +1617,7 @@ launch_copilot() {
   printf 'agent-run: backend-pid: %d\n' "$BACKEND_PID"
   wait "$BACKEND_PID"
   code=$?
+  if [ "$code" -eq 0 ]; then detect_orphaned_children "$BACKEND_PID"; fi
   set -e
   BACKEND_PID=''
   BACKEND_PHASE=reaped
@@ -1418,6 +1673,7 @@ launch_codex() {
   BACKEND_PID="$(cat "$BACKEND_PID_FILE" 2>/dev/null || true)"
   if [ -n "$BACKEND_PID" ]; then
     printf 'agent-run: backend-pid: %s\n' "$BACKEND_PID"
+    run_adapter_hook early_session
     wait "$BACKEND_PID"
     code=$?
   else
@@ -1448,11 +1704,36 @@ launch_codex() {
       code=1
     fi
   fi
+  if [ "$code" -eq 0 ]; then detect_orphaned_children "$BACKEND_PID"; fi
   wait "$TEE_PID" 2>/dev/null # CAPTURE is complete before the sid parse
   set -e
   BACKEND_PID=''
   BACKEND_PHASE=reaped
   extract_session_codex
+}
+
+# Log the codex session id as soon as `codex exec` streams its header, before
+# the wrapper waits on the run. A crash before finalization — a container OOM or
+# any SIGKILL, neither of which can run the fatal-signal trap — then still leaves
+# a resumable id in the log instead of forcing a cold-discovery recovery run. The
+# parse is the same anchored sid_from_header used at finalization, so streamed
+# prompt content cannot spoof the id. Bounded: give up after ~1s of polling if no
+# header has appeared (finalization still extracts it), and stop the instant the
+# backend is gone so a headerless run never spins.
+early_session_codex() {
+  local n=0 sid
+  [ -n "$CAPTURE" ] || return 0
+  while [ "$n" -lt 100 ]; do
+    sid="$(sid_from_header "$CAPTURE")"
+    if [ -n "$sid" ]; then
+      SESSION_ID="$sid"
+      log_session_id_once
+      return 0
+    fi
+    backend_alive || return 0
+    sleep 0.01
+    n=$((n + 1))
+  done
 }
 
 # The codex session id is parsed from the exec capture header. The tee is reaped
@@ -1472,13 +1753,35 @@ normalize_backend_result() {
   if [ "$code" -ne 0 ]; then
     printf 'agent-run: backend-exit: %d\n' "$code"
     code=1
+  elif [ "$ORPHANED_CHILDREN" = 1 ] && [ "$MODE" = consult ]; then
+    # A consult is read-only, so a lingering child cannot leave mutating work
+    # behind: any real mutation it made is caught by the drift check below, which
+    # outranks this and exits 4. Some backends — notably cursor, whose
+    # worker-server daemons linger in the backend group — trip the orphan
+    # detector on an otherwise clean read-only consult, so reap the group but
+    # keep the run a success. A distinct warning-style trailer records the reap
+    # without the backend-exit: failure anchor; the answer-landed check below
+    # still demotes to exit 1 when no answer arrived, and the worktree: anchor
+    # still finalizes the run.
+    printf 'agent-run: orphaned-children-reaped: consult backend exited 0; lingering background process reaped; not a failure\n'
+    terminate_orphaned_children
+  elif [ "$ORPHANED_CHILDREN" = 1 ]; then
+    # A distinct completion anchor so a trailer-reading waiter never reads this
+    # as an unqualified clean success: the backend exited 0 but abandoned live
+    # background work that dies at end-of-turn. For work runs that abandoned work
+    # can still be mutating the tree, so this stays a hard failure.
+    printf 'agent-run: backend-exit: orphaned-children (backend exited 0 but left background processes running in its group; they die at end-of-turn — foreground long-running work instead of backgrounding it)\n'
+    code=1
+    # Make "die at end-of-turn" true: a setsid backend group would otherwise
+    # outlive this wrapper. TERM it here, after the trailer already recorded it.
+    terminate_orphaned_children
   fi
   if [ "$PARSE_FAIL" = 1 ] && [ "$code" -eq 0 ]; then
-    printf 'agent-run.sh: could not parse the claude result envelope from the output\n' >&2
+    printf 'agent-run.sh: could not parse the %s result envelope from the output\n' "$AGENT" >&2
     code=1
   fi
   if [ "$IS_ERROR" = 1 ] && [ "$code" -eq 0 ]; then
-    printf 'agent-run.sh: claude reported an error result envelope (is_error); treating the run as failed\n' >&2
+    printf 'agent-run.sh: %s reported an error result envelope (is_error); treating the run as failed\n' "$AGENT" >&2
     code=1
   fi
   if [ -n "$OUT" ] && [ "$code" -eq 0 ] && ! [ -s "$OUT" ]; then
@@ -1491,9 +1794,7 @@ emit_result_trailers() {
   if [ -n "$OUT" ] && [ -s "$OUT" ]; then
     printf 'agent-run: answer: %s\n' "$OUT"
   fi
-  if [ -n "$SESSION_ID" ]; then
-    printf 'agent-run: session-id: %s\n' "$SESSION_ID"
-  fi
+  log_session_id_once
 
   if [ "$MODE" = work ]; then
     emit_work_outcome

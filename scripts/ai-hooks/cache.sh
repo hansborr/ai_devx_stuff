@@ -3,14 +3,25 @@
 # Shared cache state for verification hooks.
 
 AI_HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# common.sh centralizes the repo-specific state-path defaults this file reads
+# (AI_STATE_ROOT_PREFIX, AI_REPO_ROOT_FALLBACK, the result-command tmp prefixes,
+# AI_STATE_SWEEP_STOP_GLOB_DEFAULT). Source it when a caller has not already, so
+# cache.sh is self-sufficient under `set -u` (verify.sh / verify-async.sh source
+# this file directly). The `+x` guard is set -u-safe and avoids a double-source
+# when a hook adapter already pulled common.sh in.
+if [ -z "${AI_STATE_ROOT_PREFIX+x}" ]; then
+  # shellcheck source=/dev/null
+  . "$AI_HOOKS_DIR/common.sh"
+fi
 # shellcheck source=/dev/null
 . "$AI_HOOKS_DIR/output-filter.sh"
 # shellcheck source=/dev/null
 . "$AI_HOOKS_DIR/../lib/verify-metadata.sh"
 
-AI_CACHE_REPO_ROOT="${REPO_ROOT:-$(git -C "$AI_HOOKS_DIR" rev-parse --show-toplevel 2>/dev/null || git rev-parse --show-toplevel 2>/dev/null || printf '/workspace')}"
+# porting-knob: hook-state-paths -- repo-specific defaults are centralized in common.sh
+AI_CACHE_REPO_ROOT="${REPO_ROOT:-$(git -C "$AI_HOOKS_DIR" rev-parse --show-toplevel 2>/dev/null || git rev-parse --show-toplevel 2>/dev/null || printf '%s' "$AI_REPO_ROOT_FALLBACK")}"
 AI_WORKTREE_STATE_KEY="${MUSI_WORKTREE_STATE_KEY:-$(musi_worktree_key "$AI_CACHE_REPO_ROOT")}"
-AI_STATE_ROOT="${AI_STATE_ROOT:-/tmp/musi-ai-hooks.$AI_WORKTREE_STATE_KEY}"
+AI_STATE_ROOT="${AI_STATE_ROOT:-$AI_STATE_ROOT_PREFIX.$AI_WORKTREE_STATE_KEY}"
 AI_GIT_STATE_DIR="${AI_GIT_STATE_DIR:-$AI_STATE_ROOT/git}"
 AI_BUN_STATE_DIR="${AI_BUN_STATE_DIR:-$AI_STATE_ROOT/bun}"
 AI_STOP_STATE_DIR="${AI_STOP_STATE_DIR:-$AI_STATE_ROOT/stop}"
@@ -57,7 +68,7 @@ ai_cache_sweep_stale() {
   # no-direct-db uses /tmp/musi-policy-guidance. Sweep them all. Tests override
   # the list via AI_RESULT_COMMAND_TMP_PREFIXES to stay hermetic.
   local result_prefixes
-  result_prefixes="${AI_RESULT_COMMAND_TMP_PREFIXES:-${AI_RESULT_COMMAND_TMP_PREFIX:-/tmp/musi-commit-result} /tmp/musi-bun-result /tmp/musi-policy-guidance}"
+  result_prefixes="${AI_RESULT_COMMAND_TMP_PREFIXES:-$AI_RESULT_COMMAND_TMP_PREFIX $AI_BUN_RESULT_TMP_PREFIX $AI_POLICY_GUIDANCE_TMP_PREFIX}"
   for prefix in $result_prefixes; do
     prefix_dir=$(dirname "$prefix")
     prefix_base=$(basename "$prefix")
@@ -65,7 +76,7 @@ ai_cache_sweep_stale() {
       -mtime +"$AI_STATE_SWEEP_TTL_DAYS" -delete 2>/dev/null || true
   done
 
-  stop_glob="${AI_STATE_SWEEP_STOP_GLOB:-/tmp/musi-ai-hooks.*/stop}"
+  stop_glob="${AI_STATE_SWEEP_STOP_GLOB:-$AI_STATE_SWEEP_STOP_GLOB_DEFAULT}"
   for dir in $stop_glob; do
     [ -d "$dir" ] || continue
     find "$dir" -type f -mtime +"$AI_STATE_SWEEP_TTL_DAYS" -delete 2>/dev/null || true
@@ -136,6 +147,7 @@ ai_write_bun_marker() {
   local exit_code="$3"
   local dir base tmp
 
+  musi_fingerprint_is_valid "$fp" || return 1
   dir=$(dirname "$marker")
   base=$(basename "$marker")
   tmp=$(mktemp "$dir/.${base}.tmp.XXXXXX") || return 1

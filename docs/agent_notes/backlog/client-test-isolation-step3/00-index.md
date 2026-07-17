@@ -2,7 +2,13 @@
 
 Follow-up program to test-suite-audit finding 01 (client isolate costs; closed 2026-06-21, see [`finished_work/testsuite-audit.md`](../../finished_work/testsuite-audit.md)) and its still-open mock-hygiene sibling [`16-vitest-clearmocks-unset…`](../testsuite-audit/16-vitest-clearmocks-unset-mock-isolation-hand-managed.md).
 
-> Status: **Landed (3a, 3b, 3c-Track-A) — only 3c-Track-B deferred.** Implemented and merged via 700cf17b (branch feat/client-test-isolation, 2026-06-16). Split runner, classifier, central default-real mocks, the per-test tRPC override API, and the no-redundant-central-mock lint guard all shipped. Live classifier on HEAD: 249 no-isolate / 20 isolated / 269 total (was 190/76/266 at the 2026-06-15 baseline below). The 20 remaining isolated files are exactly the 3c-Track-B child-component-mock web, explicitly do-not-schedule unless CI wall time becomes a measured blocker. Re-run `bun scripts/client-test-isolation-classifier.ts --json` to re-derive.
+> Status: **Landed (3a, 3b, 3c-Track-A) — only 3c-Track-B deferred.** The landed
+> 3a/3b leaf files were removed during the 2026-07-13 reconciliation. Split runner,
+> classifier, central default-real mocks, the per-test tRPC override API, and the
+> no-redundant-central-mock lint guard all shipped. Live classifier on HEAD: 249
+> no-isolate / 20 isolated / 269 total. The 20 remaining isolated files are exactly
+> the 3c-Track-B child-component-mock web; do not schedule unless CI wall time is a
+> measured blocker. Re-run `bun scripts/client-test-isolation-classifier.ts --json`.
 
 ## What already landed (the baseline these build on)
 
@@ -25,8 +31,6 @@ Under `isolate:false`, **any module that is BOTH mocked somewhere AND real-teste
 
 | Item | Frees | Effort | Risk | Headline |
 |---|---|---|---|---|
-| [3a — centralize router + tRPC per-test override API](./3a-centralize-router-and-trpc-per-test-override-api.md) | ~30 files (bucket A: 6 router-only + 16 trpc-only + 8 both) | M | low | The cheap bulk win. 6 router-only files free on router centralization alone — but the router mock must be a **partial passthrough** (real `createRouter`/`createRoute`/…, override only `Link`/nav hooks) so `router.test.tsx` stays green. ~28s → ~20s. |
-| [3b — central mocks for recurring side-effect hooks](./3b-central-mocks-for-recurring-hooks.md) | up to ~15 consumer files (bucket B) | M–L | med | Holder pattern, but **default-real unless proven pure infra**: only `query-invalidation` has no real-test (simple global fake); the other 6 module groups (`realtime-invalidation`, `token-store`, `download-json`, `use-campaign-presence`/`use-srd-lookups`/`use-notifications`) have real-tests and need the 3c-style default-real passthrough — a naive global fake would *demote* a currently-fast real-test. ~20s → ~16s. |
 | [3c — invert the global-mock model & dissolve the child-component-mock web](./3c-invert-global-mock-model-eliminate-unmock.md) | the 25 `vi.unmock` files | **L–XL** | high | The architectural one. Removes the irreducible floor and the parent-mocks-child web that broke the full flip. ~16s → ~13s (the original dream). Prior agents deliberately stopped short of this. |
 
 ## ROI ceiling — read before sequencing

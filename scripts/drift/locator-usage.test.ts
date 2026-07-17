@@ -1,9 +1,9 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync } from "node:fs";
 import path from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
+import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
 import {
   buildLocatorUsageReport,
   countOccurrences,
@@ -14,7 +14,7 @@ import {
   runLocatorUsage,
 } from "./locator-usage.js";
 
-const tempRoots: string[] = [];
+const tmpRepo = registerTempRootCleanup();
 let originalCwd: string | undefined;
 
 afterEach(() => {
@@ -22,23 +22,16 @@ afterEach(() => {
     process.chdir(originalCwd);
     originalCwd = undefined;
   }
-  while (tempRoots.length > 0) {
-    const root = tempRoots.pop();
-    if (root) rmSync(root, { recursive: true, force: true });
-  }
 });
 
 function makeTempRepo(): string {
-  const root = mkdtempSync(path.join(tmpdir(), "locator-usage-test-"));
-  tempRoots.push(root);
+  const root = tmpRepo.makeTempRepo("locator-usage-test-");
   mkdirSync(path.join(root, "e2e", "page-objects"), { recursive: true });
   return root;
 }
 
 function writeRepoFile(repoRoot: string, relativePath: string, contents: string): void {
-  const absolutePath = path.join(repoRoot, relativePath);
-  mkdirSync(path.dirname(absolutePath), { recursive: true });
-  writeFileSync(absolutePath, contents);
+  tmpRepo.writeRepoFile(repoRoot, relativePath, contents);
 }
 
 function thrownMessage(run: () => unknown): string {

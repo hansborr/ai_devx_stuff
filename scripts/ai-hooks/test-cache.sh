@@ -199,7 +199,7 @@ set -euo pipefail
 
 guarded=0
 case "$*" in
-  -C\ *\ rev-parse\ HEAD|-C\ *\ diff\ HEAD|ls-files\ --others\ --exclude-standard\ -z)
+  -C\ *\ rev-parse\ HEAD|-C\ *\ diff\ --no-ext-diff\ --binary\ HEAD|-C\ *\ ls-files\ --others\ --exclude-standard\ -z)
     guarded=1
     ;;
 esac
@@ -260,12 +260,101 @@ BUN_SHIM
 
   guard_log=$(cat "$log")
   assert_not_contains "$guard_log" "MISSING"
-  diff_hits=$(grep -cF $'OK\t-C '"$REPO_ROOT"$' diff HEAD' "$log" || true)
+  diff_hits=$(grep -cF $'OK\t-C '"$REPO_ROOT"$' diff --no-ext-diff --binary HEAD' "$log" || true)
   [ "$diff_hits" -ge 2 ] \
-    || fail "expected both bun fingerprint entry points to guard git diff HEAD: $guard_log"
-  ls_files_hits=$(grep -cF $'OK\tls-files --others --exclude-standard -z' "$log" || true)
+    || fail "expected both bun fingerprint entry points to guard git diff --no-ext-diff --binary HEAD: $guard_log"
+  ls_files_hits=$(grep -cF $'OK\t-C '"$REPO_ROOT"$' ls-files --others --exclude-standard -z' "$log" || true)
   [ "$ls_files_hits" -ge 2 ] \
     || fail "expected both bun fingerprint entry points to guard git ls-files: $guard_log"
+}
+
+# The worktree fingerprint must track tracked-binary content: without
+# `git diff --no-ext-diff --binary HEAD` every binary change collapses to the constant
+# "Binary files ... differ" line and two different contents fingerprint alike.
+assert_worktree_fingerprint_tracks_binary_content() {
+  local repo="$TMP_ROOT/binary-fp-repo"
+  local fp_v2 fp_v3
+
+  git init -q -b main "$repo"
+  git -C "$repo" config user.email hooks@example.test
+  git -C "$repo" config user.name "Hook Test"
+  printf 'v1\0binary\n' > "$repo/asset.bin"
+  git -C "$repo" add asset.bin
+  git -C "$repo" commit -qm init
+
+  printf 'v2\0binary\n' > "$repo/asset.bin"
+  fp_v2=$(ai_worktree_fingerprint "$repo")
+  printf 'v3\0binary\n' > "$repo/asset.bin"
+  fp_v3=$(ai_worktree_fingerprint "$repo")
+  [ "$fp_v2" != "$fp_v3" ] \
+    || fail "worktree fingerprint is blind to tracked binary content changes: $fp_v2"
+}
+
+# A future-dated marker (clock skew) must never be served as fresh: the age
+# floor mirrors musi_success_marker_matches, and all three marker readers
+# (bash-pre-tool-use, bun-run-quiet, stop-policy) share the helper.
+assert_marker_age_floor() {
+  local reader
+
+  ai_marker_age_within_ttl 0 3600 || fail "age 0 should be within TTL"
+  ai_marker_age_within_ttl 3599 3600 || fail "age just under TTL should be fresh"
+  if ai_marker_age_within_ttl 3600 3600; then
+    fail "age at TTL should be stale"
+  fi
+  if ai_marker_age_within_ttl -1 3600; then
+    fail "negative (future-dated) age should be stale"
+  fi
+
+  for reader in bash-pre-tool-use.sh bun-run-quiet.sh stop-policy.sh; do
+    grep -q 'ai_marker_age_within_ttl' "$REPO_ROOT/scripts/ai-hooks/$reader" \
+      || fail "marker reader $reader does not use the shared age floor"
+  done
+}
+
+# End-to-end through the Claude bun hook: prime a cached OK, then future-date
+# the marker's timestamp; the re-run must execute fresh, not replay the cache.
+assert_bun_future_dated_marker_not_replayed() {
+  local shim_dir="$TMP_ROOT/bun-future-shim"
+  local fixture_repo="$TMP_ROOT/bun-future-fixture-repo"
+  local run_log="$TMP_ROOT/bun-future-runs.log"
+  local cmd="bun run test -- packages/future.test.ts"
+  local marker out replay runs future_ts
+
+  create_bun_cache_fixture_repo "$fixture_repo"
+  mkdir -p "$shim_dir"
+  cat > "$shim_dir/bun" <<BUN_SHIM
+#!/bin/bash
+printf '%s\n' "\$*" >> "$run_log"
+exit 0
+BUN_SHIM
+  chmod +x "$shim_dir/bun"
+  : > "$run_log"
+
+  out=$(
+    printf '{"tool_input":{"command":"%s","run_in_background":false}}' "$cmd" \
+      | PATH="$shim_dir:$PATH" AI_BUN_REPO_ROOT="$fixture_repo" AI_BUN_LOG_DIR="$AI_BUN_LOG_DIR" bash "$BUN_HOOK"
+  )
+  runs=$(wc -l < "$run_log")
+  [ "$runs" -eq 1 ] || fail "future-marker priming run should execute once, recorded $runs: $out"
+
+  marker="$AI_BUN_LOG_DIR/$(ai_bun_marker_name "$cmd")"
+  ai_read_bun_marker "$marker" || fail "priming run left no readable marker: $marker"
+  future_ts=$(($(date +%s) + 3600))
+  printf 'LAST_TS=%s\nLAST_FP=%s\nLAST_EXIT=%s\n' \
+    "$future_ts" "$AI_MARKER_LAST_FP" "$AI_MARKER_LAST_EXIT" > "$marker"
+
+  out=$(
+    printf '{"tool_input":{"command":"%s","run_in_background":false}}' "$cmd" \
+      | PATH="$shim_dir:$PATH" AI_BUN_REPO_ROOT="$fixture_repo" AI_BUN_LOG_DIR="$AI_BUN_LOG_DIR" bash "$BUN_HOOK"
+  )
+  replay=$(printf '%s' "$out" | jq -r '.hookSpecificOutput.updatedInput.command // empty')
+  if [ -n "$replay" ] && grep -qF "cached OK" <<< "$(bash -c "$replay")"; then
+    fail "future-dated marker was replayed as fresh: $out"
+  fi
+  runs=$(wc -l < "$run_log")
+  [ "$runs" -eq 2 ] || fail "future-dated marker should force a fresh run, recorded $runs: $out"
+
+  rm -f "$AI_BUN_LOG_DIR"/last.test.* "$AI_BUN_LOG_DIR/test.log"
 }
 
 # H1 end-to-end: a narrow `bun run test -- fileA` cached OK on an unchanged
@@ -444,6 +533,9 @@ assert_bun_fingerprint_entrypoints_use_optional_locks
 assert_codex_bun_post_success_is_non_blocking
 assert_codex_bun_post_failure_keeps_bounded_block
 assert_bun_widened_command_busts_cache
+assert_worktree_fingerprint_tracks_binary_content
+assert_marker_age_floor
+assert_bun_future_dated_marker_not_replayed
 
 MARKER="$AI_BUN_LOG_DIR/last.test_changed"
 VALID_FP="$(printf 'a%.0s' {1..64})"
@@ -680,5 +772,20 @@ sweep_run 3600
 rm -f "$SWEEP_STATE/.last-sweep"
 sweep_run 0
 [ ! -f "$OLD_RESULT2" ] || fail "sweep did not reap after throttle reset: $OLD_RESULT2"
+
+# Regression: cache.sh must be self-sufficient under `set -u` when no hook
+# adapter has pre-sourced common.sh. scripts/verify.sh and scripts/verify-async.sh
+# source cache.sh this way; before cache.sh sourced common.sh itself, this
+# aborted with "AI_STATE_ROOT_PREFIX: unbound variable" (exit 127). Runs in a
+# fresh bash with a clean environment so the in-process common.sh sourcing above
+# cannot mask the failure.
+if ! env -u AI_STATE_ROOT -u AI_STATE_ROOT_PREFIX -u AI_REPO_ROOT_FALLBACK \
+  bash -c '
+    set -u
+    cd "$1" || exit 3
+    . scripts/ai-hooks/cache.sh
+  ' _ "$REPO_ROOT" >/dev/null 2>&1; then
+  fail "cache.sh must source common.sh so it self-sufficiently sources under set -u"
+fi
 
 printf 'ai-hooks cache tests passed\n'

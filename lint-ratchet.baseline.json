@@ -4,294 +4,422 @@
     "ratchet/local-no-arbitrary-tailwind-value-client": {
       "ruleId": "local/no-arbitrary-tailwind-value",
       "mode": "no-new",
-      "target": 0,
       "metric": "message-count",
       "files": [
         "packages/client/src/**/*.{ts,tsx}"
       ],
       "ignores": [
         "packages/client/src/**/*.{test,spec}.{ts,tsx}",
-        "packages/client/src/**/*.test-helper.{ts,tsx}",
+        "packages/client/src/**/*test-helper*.{ts,tsx}",
         "packages/client/src/test/**/*.{ts,tsx}"
       ],
       "ruleOptions": [],
-      "configHash": "sha256:a080cb3615a49086c94d1d4265d485d9a9e48406a2b3bdb379cc564c4a84ff88",
-      "ruleSourceHash": "sha256:78b4a3d27816070395bf4edb03a7dcdc0c276784088eaa3bcbacf345f2ae81dd",
+      "configHash": "sha256:90aa3de027ee76efffe93f50c79388454f56c674001c8af357b982e553bb48d0",
+      "ruleSourceHash": "sha256:3ea8b209e8ddd85e905258cd3e690d1f6133aca1eaf3f2aed60af19bedf92c35",
       "items": {
         "packages/client/src/components/campaign/chat/chat-panel.tsx": {
           "count": 2,
-          "messagesFingerprint": "sha256:12765c950271862a5734a49544645d2249915faf865c9c67e821e2517b1daf6b"
+          "messagesFingerprint": "sha256:7311e2fff2752625d58f138a47314ce5496bbb2f303d62be92ba32fb567cc199"
         },
         "packages/client/src/components/campaign/combat/action-economy-indicators.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:b9f01130fa6473e6df15be0bc85fb9e6731707e047ed140235e64759d7ba1aab"
+          "messagesFingerprint": "sha256:4b162728ec57705d3cbdb2fb9002e687d1f304e513e3b2fc06fb06667908949b"
         },
         "packages/client/src/components/campaign/combat/combat-log-panel.tsx": {
           "count": 4,
-          "messagesFingerprint": "sha256:f0330e451c87904db3acbecce38a032845aa18c8d7ae3e97426f55bfae53cffc"
+          "messagesFingerprint": "sha256:6bc1a6d779816d3e5d487ae7db9101eda50b6751be0d25b17ae99d1deb2abe69"
         },
         "packages/client/src/components/campaign/combat/condition-toggle-popover.tsx": {
           "count": 2,
-          "messagesFingerprint": "sha256:890a0381c61c9f46e4444d170f70606bb5adbada318b10a5ae492a71c193957f"
+          "messagesFingerprint": "sha256:7311e2fff2752625d58f138a47314ce5496bbb2f303d62be92ba32fb567cc199"
         },
         "packages/client/src/components/campaign/encounters/add-participant-dialog.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:4c8ae9271c9f13a54c45a9741cb89e932387de2347ab13cd438371292c40abe9"
+          "messagesFingerprint": "sha256:4b162728ec57705d3cbdb2fb9002e687d1f304e513e3b2fc06fb06667908949b"
         },
         "packages/client/src/components/campaign/maps/map-image-field.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:f28f32c0b56570410cad611a9ac65f8ea5fe6bbb82d56510bbfd98e1fee1234d"
+          "messagesFingerprint": "sha256:4b162728ec57705d3cbdb2fb9002e687d1f304e513e3b2fc06fb06667908949b"
         },
         "packages/client/src/components/campaign/maps/map-toolbar-drawing-tools.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:b9f01130fa6473e6df15be0bc85fb9e6731707e047ed140235e64759d7ba1aab"
+          "messagesFingerprint": "sha256:4b162728ec57705d3cbdb2fb9002e687d1f304e513e3b2fc06fb06667908949b"
         },
         "packages/client/src/components/campaign/maps/map-toolbar-view-controls.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:e7239c258f2aa656c31251682e0227fffe4c63582f69d72cfef94a42bdbb2791"
+          "messagesFingerprint": "sha256:4b162728ec57705d3cbdb2fb9002e687d1f304e513e3b2fc06fb06667908949b"
         },
         "packages/client/src/components/campaign/maps/template-toolbar.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:b9f01130fa6473e6df15be0bc85fb9e6731707e047ed140235e64759d7ba1aab"
+          "messagesFingerprint": "sha256:4b162728ec57705d3cbdb2fb9002e687d1f304e513e3b2fc06fb06667908949b"
         },
         "packages/client/src/components/campaign/members/character-assignment.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:4c8ae9271c9f13a54c45a9741cb89e932387de2347ab13cd438371292c40abe9"
+          "messagesFingerprint": "sha256:4b162728ec57705d3cbdb2fb9002e687d1f304e513e3b2fc06fb06667908949b"
         },
         "packages/client/src/components/campaign/members/presence-indicator.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:2e1d7303dee719545f8792e199dd095d0fcdc915021288cc330ea771ca69ade0"
+          "messagesFingerprint": "sha256:4b162728ec57705d3cbdb2fb9002e687d1f304e513e3b2fc06fb06667908949b"
         },
         "packages/client/src/components/campaign/npcs/monster-detail-dialog.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:a465f0282edf9fa0950ddccd804844e14a9515c0f47b92723041d5233d558250"
+          "messagesFingerprint": "sha256:4b162728ec57705d3cbdb2fb9002e687d1f304e513e3b2fc06fb06667908949b"
         },
         "packages/client/src/components/campaign/settings/campaign-card.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:4c8ae9271c9f13a54c45a9741cb89e932387de2347ab13cd438371292c40abe9"
+          "messagesFingerprint": "sha256:4b162728ec57705d3cbdb2fb9002e687d1f304e513e3b2fc06fb06667908949b"
         },
         "packages/client/src/components/campaign/settings/campaign-overview.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:b9f01130fa6473e6df15be0bc85fb9e6731707e047ed140235e64759d7ba1aab"
+          "messagesFingerprint": "sha256:4b162728ec57705d3cbdb2fb9002e687d1f304e513e3b2fc06fb06667908949b"
         },
         "packages/client/src/components/campaign/tokens/token-context-menu.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:20c759d8dec9e50d18535bcfd64f58dfc140e10be1d527fbdd95b134e783501f"
+          "messagesFingerprint": "sha256:4b162728ec57705d3cbdb2fb9002e687d1f304e513e3b2fc06fb06667908949b"
         },
         "packages/client/src/components/character-card.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:4c8ae9271c9f13a54c45a9741cb89e932387de2347ab13cd438371292c40abe9"
+          "messagesFingerprint": "sha256:4b162728ec57705d3cbdb2fb9002e687d1f304e513e3b2fc06fb06667908949b"
         },
         "packages/client/src/components/character-create/steps/proficiencies-step.tsx": {
           "count": 2,
-          "messagesFingerprint": "sha256:4359cd67210f0a16fde6ab76ed376fce818cd0e24163a5b9223d3dfb659f0ef1"
+          "messagesFingerprint": "sha256:7311e2fff2752625d58f138a47314ce5496bbb2f303d62be92ba32fb567cc199"
         },
         "packages/client/src/components/character-create/steps/spell-selection-step.tsx": {
           "count": 2,
-          "messagesFingerprint": "sha256:75bc4d725c30b2797b812762962ac03203db9495f11182263adf2146bf9bff36"
+          "messagesFingerprint": "sha256:7311e2fff2752625d58f138a47314ce5496bbb2f303d62be92ba32fb567cc199"
         },
         "packages/client/src/components/character-create/wizard-stepper.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:4c8ae9271c9f13a54c45a9741cb89e932387de2347ab13cd438371292c40abe9"
+          "messagesFingerprint": "sha256:4b162728ec57705d3cbdb2fb9002e687d1f304e513e3b2fc06fb06667908949b"
         },
         "packages/client/src/components/compendium/magic-item-detail-dialog.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:a465f0282edf9fa0950ddccd804844e14a9515c0f47b92723041d5233d558250"
+          "messagesFingerprint": "sha256:4b162728ec57705d3cbdb2fb9002e687d1f304e513e3b2fc06fb06667908949b"
         },
         "packages/client/src/components/homebrew/class/class-form-fields.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:1190b1e113a23e8b85f6ef53b6df3d73305110a6161f270b9d8eac8eafe57230"
+          "messagesFingerprint": "sha256:4b162728ec57705d3cbdb2fb9002e687d1f304e513e3b2fc06fb06667908949b"
         },
         "packages/client/src/components/homebrew/collections/import-collection-dialog.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:43f9ff9edfd22ddfb19426c27da66bfc5c1bcbf2d5a2c446614a112490c8a46c"
+          "messagesFingerprint": "sha256:4b162728ec57705d3cbdb2fb9002e687d1f304e513e3b2fc06fb06667908949b"
         },
         "packages/client/src/components/homebrew/entries/entry-dialog.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:a465f0282edf9fa0950ddccd804844e14a9515c0f47b92723041d5233d558250"
+          "messagesFingerprint": "sha256:4b162728ec57705d3cbdb2fb9002e687d1f304e513e3b2fc06fb06667908949b"
         },
         "packages/client/src/components/notifications/notification-bell.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:b9f01130fa6473e6df15be0bc85fb9e6731707e047ed140235e64759d7ba1aab"
+          "messagesFingerprint": "sha256:4b162728ec57705d3cbdb2fb9002e687d1f304e513e3b2fc06fb06667908949b"
         },
         "packages/client/src/components/notifications/notification-item.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:4c8ae9271c9f13a54c45a9741cb89e932387de2347ab13cd438371292c40abe9"
+          "messagesFingerprint": "sha256:4b162728ec57705d3cbdb2fb9002e687d1f304e513e3b2fc06fb06667908949b"
         },
         "packages/client/src/components/notifications/notification-popover.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:3941fd462d40e91183f9c4bb5b8379d5b229df7bf41b060c55486a663e5a6df8"
+          "messagesFingerprint": "sha256:4b162728ec57705d3cbdb2fb9002e687d1f304e513e3b2fc06fb06667908949b"
         },
         "packages/client/src/components/sheet/add-spell-dialog.tsx": {
           "count": 4,
-          "messagesFingerprint": "sha256:c22e476a36005192d3770eefe41201610846f3dd895003f324b58a85acef7983"
+          "messagesFingerprint": "sha256:6bc1a6d779816d3e5d487ae7db9101eda50b6751be0d25b17ae99d1deb2abe69"
         },
         "packages/client/src/components/sheet/equipment-summary.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:b9f01130fa6473e6df15be0bc85fb9e6731707e047ed140235e64759d7ba1aab"
+          "messagesFingerprint": "sha256:4b162728ec57705d3cbdb2fb9002e687d1f304e513e3b2fc06fb06667908949b"
         },
         "packages/client/src/components/sheet/inventory-item-row.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:63c8af2ecdb2234d8f628c833736aa67f611d700c92276574b88a1c66ef9f35e"
+          "messagesFingerprint": "sha256:4b162728ec57705d3cbdb2fb9002e687d1f304e513e3b2fc06fb06667908949b"
         },
         "packages/client/src/components/sheet/personality-panel.tsx": {
           "count": 2,
-          "messagesFingerprint": "sha256:eed396b7b912f933e3280d3ddb7111e602605753b87eb2109b8ebb62a3356ef2"
+          "messagesFingerprint": "sha256:7311e2fff2752625d58f138a47314ce5496bbb2f303d62be92ba32fb567cc199"
         },
         "packages/client/src/components/sheet/roll-context-menu.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:4d17381bb12096c747a21bf630cc75bef34888c6360d12afbdfe328a251bcc43"
+          "messagesFingerprint": "sha256:4b162728ec57705d3cbdb2fb9002e687d1f304e513e3b2fc06fb06667908949b"
         },
         "packages/client/src/components/sheet/spell-detail-dialog.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:7e2e3ca2c18088941f301b854747eec7aa5538c108c64350af71e4476b3a8ad5"
+          "messagesFingerprint": "sha256:4b162728ec57705d3cbdb2fb9002e687d1f304e513e3b2fc06fb06667908949b"
         },
         "packages/client/src/components/sheet/spell-row.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:b9f01130fa6473e6df15be0bc85fb9e6731707e047ed140235e64759d7ba1aab"
+          "messagesFingerprint": "sha256:4b162728ec57705d3cbdb2fb9002e687d1f304e513e3b2fc06fb06667908949b"
         },
         "packages/client/src/components/sheet/weapon-mastery-dialog.tsx": {
           "count": 2,
-          "messagesFingerprint": "sha256:e803ff0e9c0827d833677d71472bc3619aadeccd07412cd1bfde7fd9af37ad45"
+          "messagesFingerprint": "sha256:7311e2fff2752625d58f138a47314ce5496bbb2f303d62be92ba32fb567cc199"
         },
         "packages/client/src/components/ui/button.tsx": {
           "count": 3,
-          "messagesFingerprint": "sha256:1ba662bbd33cdd1e84c11a2ffbc3f6f9f65a0ef3bf7346b7977b3666bcdefaf6"
+          "messagesFingerprint": "sha256:03dbe78381f4104a32ca1ab55600cf4b51210daa1b9052f8525d6961c6ffe049"
         },
         "packages/client/src/components/ui/card.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:4c8ae9271c9f13a54c45a9741cb89e932387de2347ab13cd438371292c40abe9"
+          "messagesFingerprint": "sha256:4b162728ec57705d3cbdb2fb9002e687d1f304e513e3b2fc06fb06667908949b"
         },
         "packages/client/src/components/ui/dialog.tsx": {
           "count": 4,
-          "messagesFingerprint": "sha256:477de0bfde0f1a39cc7f3a9f98a7a3fa6c346657b8d97fce5fc77acc103b519b"
-        },
-        "packages/client/src/components/ui/input.tsx": {
-          "count": 1,
-          "messagesFingerprint": "sha256:4c8ae9271c9f13a54c45a9741cb89e932387de2347ab13cd438371292c40abe9"
+          "messagesFingerprint": "sha256:6bc1a6d779816d3e5d487ae7db9101eda50b6751be0d25b17ae99d1deb2abe69"
         },
         "packages/client/src/components/ui/popover.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:4c8ae9271c9f13a54c45a9741cb89e932387de2347ab13cd438371292c40abe9"
+          "messagesFingerprint": "sha256:4b162728ec57705d3cbdb2fb9002e687d1f304e513e3b2fc06fb06667908949b"
         },
         "packages/client/src/components/ui/scroll-area.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:1093d1fe74d688ddcd6a778ce6cbf1784ccb4eb0786b09c49e30c83f82dc29f1"
+          "messagesFingerprint": "sha256:4b162728ec57705d3cbdb2fb9002e687d1f304e513e3b2fc06fb06667908949b"
         },
         "packages/client/src/components/ui/select.tsx": {
           "count": 6,
-          "messagesFingerprint": "sha256:d1f0abfd55847c95829349812dc8fca57b6e1278f5960f9bff9e6ebfde8f45db"
+          "messagesFingerprint": "sha256:308371afa240ffa76432b09f784f9c463cb636cc4541bfcffd56703858d18e52"
         },
         "packages/client/src/components/ui/sheet.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:4c8ae9271c9f13a54c45a9741cb89e932387de2347ab13cd438371292c40abe9"
+          "messagesFingerprint": "sha256:4b162728ec57705d3cbdb2fb9002e687d1f304e513e3b2fc06fb06667908949b"
         },
         "packages/client/src/components/ui/tabs.tsx": {
           "count": 2,
-          "messagesFingerprint": "sha256:4359cd67210f0a16fde6ab76ed376fce818cd0e24163a5b9223d3dfb659f0ef1"
+          "messagesFingerprint": "sha256:7311e2fff2752625d58f138a47314ce5496bbb2f303d62be92ba32fb567cc199"
         },
         "packages/client/src/components/ui/textarea.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:4c8ae9271c9f13a54c45a9741cb89e932387de2347ab13cd438371292c40abe9"
+          "messagesFingerprint": "sha256:4b162728ec57705d3cbdb2fb9002e687d1f304e513e3b2fc06fb06667908949b"
         },
         "packages/client/src/components/vtt/drawer/cast-rail-concentration.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:fe3bed5d84414f6864af9ae3707727640da7b6403fd62626475c67606d351a52"
+          "messagesFingerprint": "sha256:4b162728ec57705d3cbdb2fb9002e687d1f304e513e3b2fc06fb06667908949b"
         },
         "packages/client/src/components/vtt/drawer/cast-rail-header.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:b9f01130fa6473e6df15be0bc85fb9e6731707e047ed140235e64759d7ba1aab"
+          "messagesFingerprint": "sha256:4b162728ec57705d3cbdb2fb9002e687d1f304e513e3b2fc06fb06667908949b"
         },
         "packages/client/src/components/vtt/drawer/cast-rail-meta.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:b9f01130fa6473e6df15be0bc85fb9e6731707e047ed140235e64759d7ba1aab"
+          "messagesFingerprint": "sha256:4b162728ec57705d3cbdb2fb9002e687d1f304e513e3b2fc06fb06667908949b"
         },
         "packages/client/src/components/vtt/drawer/cast-rail-slot-picker.tsx": {
           "count": 3,
-          "messagesFingerprint": "sha256:ff63cdf305556685c204346ab891943b47576ba63abfc15ac420446452c09808"
+          "messagesFingerprint": "sha256:03dbe78381f4104a32ca1ab55600cf4b51210daa1b9052f8525d6961c6ffe049"
         },
         "packages/client/src/components/vtt/drawer/cast-rail.tsx": {
           "count": 2,
-          "messagesFingerprint": "sha256:51518035e0169d62a50901db1aaaa7abdb86bf6a01d76c09eed815f2eff9b82f"
+          "messagesFingerprint": "sha256:7311e2fff2752625d58f138a47314ce5496bbb2f303d62be92ba32fb567cc199"
         },
         "packages/client/src/components/vtt/drawer/monster-hp-control-strip.tsx": {
           "count": 2,
-          "messagesFingerprint": "sha256:890a0381c61c9f46e4444d170f70606bb5adbada318b10a5ae492a71c193957f"
+          "messagesFingerprint": "sha256:7311e2fff2752625d58f138a47314ce5496bbb2f303d62be92ba32fb567cc199"
         },
         "packages/client/src/components/vtt/drawer/monster-stat-block-abilities.tsx": {
           "count": 2,
-          "messagesFingerprint": "sha256:890a0381c61c9f46e4444d170f70606bb5adbada318b10a5ae492a71c193957f"
+          "messagesFingerprint": "sha256:7311e2fff2752625d58f138a47314ce5496bbb2f303d62be92ba32fb567cc199"
         },
         "packages/client/src/components/vtt/drawer/monster-stat-block-actions.tsx": {
           "count": 4,
-          "messagesFingerprint": "sha256:7fc0b7e9b05a5e42bd5c9f76afc7f24832c19124dd607321fb4beca6c41f7bbd"
+          "messagesFingerprint": "sha256:6bc1a6d779816d3e5d487ae7db9101eda50b6751be0d25b17ae99d1deb2abe69"
         },
         "packages/client/src/components/vtt/drawer/monster-stat-block-header.tsx": {
           "count": 2,
-          "messagesFingerprint": "sha256:0319664207fcbe215422bba897ac4ebe9cc3de9ab7d7acf8dfd224a1000caed8"
+          "messagesFingerprint": "sha256:7311e2fff2752625d58f138a47314ce5496bbb2f303d62be92ba32fb567cc199"
         },
         "packages/client/src/components/vtt/drawer/monster-stat-block-profile.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:b9f01130fa6473e6df15be0bc85fb9e6731707e047ed140235e64759d7ba1aab"
+          "messagesFingerprint": "sha256:4b162728ec57705d3cbdb2fb9002e687d1f304e513e3b2fc06fb06667908949b"
         },
         "packages/client/src/components/vtt/drawer/tabs/actions-tab-economy.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:b9f01130fa6473e6df15be0bc85fb9e6731707e047ed140235e64759d7ba1aab"
+          "messagesFingerprint": "sha256:4b162728ec57705d3cbdb2fb9002e687d1f304e513e3b2fc06fb06667908949b"
         },
         "packages/client/src/components/vtt/drawer/tabs/actions-tab-features.tsx": {
           "count": 3,
-          "messagesFingerprint": "sha256:635e2d68d8f69f18b0f4d443ebf2b8512d1eb3416ff8b989e428742db5c71592"
+          "messagesFingerprint": "sha256:03dbe78381f4104a32ca1ab55600cf4b51210daa1b9052f8525d6961c6ffe049"
         },
         "packages/client/src/components/vtt/drawer/tabs/actions-tab-spells.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:b9f01130fa6473e6df15be0bc85fb9e6731707e047ed140235e64759d7ba1aab"
+          "messagesFingerprint": "sha256:4b162728ec57705d3cbdb2fb9002e687d1f304e513e3b2fc06fb06667908949b"
         },
         "packages/client/src/components/vtt/drawer/tabs/actions-tab-weapons.tsx": {
           "count": 2,
-          "messagesFingerprint": "sha256:0319664207fcbe215422bba897ac4ebe9cc3de9ab7d7acf8dfd224a1000caed8"
+          "messagesFingerprint": "sha256:7311e2fff2752625d58f138a47314ce5496bbb2f303d62be92ba32fb567cc199"
         },
         "packages/client/src/components/vtt/drawer/tabs/features-tab.tsx": {
           "count": 5,
-          "messagesFingerprint": "sha256:5b8771a2fc99372f50152ed2e173e19f25a519004367dfe342716f3f8f051740"
+          "messagesFingerprint": "sha256:b02f66f1e98b6cdc3a081d23bde8d0290e16d9c6e242f53d5c0eca7fbf6c7ba0"
         },
         "packages/client/src/components/vtt/drawer/tabs/inventory-tab.tsx": {
           "count": 3,
-          "messagesFingerprint": "sha256:635e2d68d8f69f18b0f4d443ebf2b8512d1eb3416ff8b989e428742db5c71592"
+          "messagesFingerprint": "sha256:03dbe78381f4104a32ca1ab55600cf4b51210daa1b9052f8525d6961c6ffe049"
         },
         "packages/client/src/components/vtt/drawer/tabs/spells-tab.tsx": {
           "count": 5,
-          "messagesFingerprint": "sha256:46ebb976232d18a3be26116154270773688b43c5fc9a7d3e9df9ba53702a0555"
+          "messagesFingerprint": "sha256:b02f66f1e98b6cdc3a081d23bde8d0290e16d9c6e242f53d5c0eca7fbf6c7ba0"
         },
         "packages/client/src/components/vtt/drawer/tabs/stats-tab-rolls.tsx": {
           "count": 3,
-          "messagesFingerprint": "sha256:635e2d68d8f69f18b0f4d443ebf2b8512d1eb3416ff8b989e428742db5c71592"
+          "messagesFingerprint": "sha256:03dbe78381f4104a32ca1ab55600cf4b51210daa1b9052f8525d6961c6ffe049"
         },
         "packages/client/src/components/vtt/drawer/tabs/stats-tab-summary.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:b9f01130fa6473e6df15be0bc85fb9e6731707e047ed140235e64759d7ba1aab"
+          "messagesFingerprint": "sha256:4b162728ec57705d3cbdb2fb9002e687d1f304e513e3b2fc06fb06667908949b"
         },
         "packages/client/src/components/vtt/in-vtt-drawer.tsx": {
           "count": 7,
-          "messagesFingerprint": "sha256:3f13cb68e11b1eccc2930bc624ba79d731956407c2a6eca816bb7c81ba4eb2ac"
+          "messagesFingerprint": "sha256:eb770bf511d7ec9e8ed303df095f3c86c780ca3815b3b236f049f754509a2cdc"
         },
         "packages/client/src/pages/character-create-page.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:932e97f22b6d8c10a0246077b3eaba55d8f5598324af806188f82096d13fb2ca"
+          "messagesFingerprint": "sha256:4b162728ec57705d3cbdb2fb9002e687d1f304e513e3b2fc06fb06667908949b"
         },
         "packages/client/src/pages/login-page.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:2701d741535af67481e92c6b977d7f1999533c5f858c13ace2e36aa54f99f9cb"
+          "messagesFingerprint": "sha256:4b162728ec57705d3cbdb2fb9002e687d1f304e513e3b2fc06fb06667908949b"
         },
         "packages/client/src/pages/register-page.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:2701d741535af67481e92c6b977d7f1999533c5f858c13ace2e36aa54f99f9cb"
+          "messagesFingerprint": "sha256:4b162728ec57705d3cbdb2fb9002e687d1f304e513e3b2fc06fb06667908949b"
+        }
+      }
+    },
+    "ratchet/local-no-commented-out-code": {
+      "ruleId": "local/no-commented-out-code",
+      "mode": "no-new",
+      "metric": "message-count",
+      "files": [
+        "**/*.{js,jsx,cjs,mjs,ts,tsx,mts,cts}"
+      ],
+      "ignores": [
+        "**/dist/**",
+        "**/generated/**",
+        "**/node_modules/**",
+        "examples/**",
+        "scripts/codemods/fixtures/**",
+        "scripts/drift-ai/fixtures/**",
+        "scripts/fixtures/**",
+        "scripts/harness-audit/fixtures/**",
+        "scripts/logs-audit/fixtures/**"
+      ],
+      "ruleOptions": [],
+      "configHash": "sha256:a3c76fde32c2924965cfaa5220dfb8d0382621ab65d4a8c8d0bf3e2dda550129",
+      "ruleSourceHash": "sha256:c400ca374627bbc699dfb8c547671831ef75ce34e16e70bc28a6eaf8d5ceb57a",
+      "items": {}
+    },
+    "ratchet/local-no-effect-misuse-client": {
+      "ruleId": "local/no-effect-misuse",
+      "mode": "no-new",
+      "metric": "message-count",
+      "files": [
+        "packages/client/src/**/*.{ts,tsx}"
+      ],
+      "ignores": [
+        "packages/client/src/**/*.{test,spec}.{ts,tsx}",
+        "packages/client/src/**/*test-helper*.{ts,tsx}",
+        "packages/client/src/test/**/*.{ts,tsx}"
+      ],
+      "ruleOptions": [],
+      "configHash": "sha256:d6ad31dd538c54cd0dfc7f35aff3dac4e54c4976ae269972441eb96da95866b1",
+      "ruleSourceHash": "sha256:381d5b3998287623332a0c7ef3f726b734ff88465f5f6c2f96e3a33238464ce1",
+      "items": {
+        "packages/client/src/components/sheet/dm-editable-score.tsx": {
+          "count": 1,
+          "messagesFingerprint": "sha256:4b2b357dc32eedff809233db67e678efbd5110d14619008980da709c34b80006"
+        },
+        "packages/client/src/hooks/use-debounced-cursor-list.ts": {
+          "count": 1,
+          "messagesFingerprint": "sha256:4b2b357dc32eedff809233db67e678efbd5110d14619008980da709c34b80006"
+        }
+      }
+    },
+    "ratchet/local-no-swallowed-errors-broader-semantics": {
+      "ruleId": "local/no-swallowed-errors",
+      "mode": "no-new",
+      "metric": "message-count",
+      "files": [
+        "**/*.{js,jsx,cjs,mjs,ts,tsx,mts,cts}"
+      ],
+      "ignores": [
+        "**/dist/**",
+        "**/generated/**",
+        "**/node_modules/**",
+        "examples/**",
+        "scripts/codemods/fixtures/**",
+        "scripts/drift-ai/fixtures/**",
+        "scripts/fixtures/**",
+        "scripts/harness-audit/fixtures/**",
+        "scripts/logs-audit/fixtures/**"
+      ],
+      "ruleOptions": [
+        {
+          "checkLoggedRethrow": false,
+          "checkSwallowedError": false
+        }
+      ],
+      "configHash": "sha256:385dfa91172f04f2e601164834b8e4a9ac3760524e0130cf3c9e1cbea5006de7",
+      "ruleSourceHash": "sha256:7f84955528c7b7544f2aa81f630e73c1f851708ce58d81452137116ca3f9a41f",
+      "items": {
+        "packages/client/src/components/sheet/ability-scores-state.ts": {
+          "count": 1,
+          "messagesFingerprint": "sha256:e46c89896070168ca3a8c80d9c552036d36dc80a81754af7c7f8cb9f45c6829f"
+        },
+        "packages/client/src/hooks/use-map-image-upload.test.ts": {
+          "count": 1,
+          "messagesFingerprint": "sha256:e46c89896070168ca3a8c80d9c552036d36dc80a81754af7c7f8cb9f45c6829f"
+        },
+        "packages/server/scripts/pgexec.ts": {
+          "count": 1,
+          "messagesFingerprint": "sha256:e46c89896070168ca3a8c80d9c552036d36dc80a81754af7c7f8cb9f45c6829f"
+        },
+        "packages/server/src/routers/rest-long.test.ts": {
+          "count": 1,
+          "messagesFingerprint": "sha256:e46c89896070168ca3a8c80d9c552036d36dc80a81754af7c7f8cb9f45c6829f"
+        },
+        "packages/server/src/services/upload-service.ts": {
+          "count": 1,
+          "messagesFingerprint": "sha256:e46c89896070168ca3a8c80d9c552036d36dc80a81754af7c7f8cb9f45c6829f"
+        },
+        "packages/server/src/socket/campaign-room-handler.ts": {
+          "count": 1,
+          "messagesFingerprint": "sha256:e46c89896070168ca3a8c80d9c552036d36dc80a81754af7c7f8cb9f45c6829f"
+        },
+        "scripts/code-intel/graph-cache.ts": {
+          "count": 1,
+          "messagesFingerprint": "sha256:e46c89896070168ca3a8c80d9c552036d36dc80a81754af7c7f8cb9f45c6829f"
+        },
+        "scripts/drift-ai/dolos-runner.ts": {
+          "count": 1,
+          "messagesFingerprint": "sha256:e46c89896070168ca3a8c80d9c552036d36dc80a81754af7c7f8cb9f45c6829f"
+        },
+        "scripts/drift-ai/git-changed-scope.ts": {
+          "count": 1,
+          "messagesFingerprint": "sha256:e46c89896070168ca3a8c80d9c552036d36dc80a81754af7c7f8cb9f45c6829f"
+        },
+        "scripts/lib/git.ts": {
+          "count": 2,
+          "messagesFingerprint": "sha256:21cc79e960c45e89232cd4e36d66dec8a4a8bc2272307c9282449af54f3f2594"
+        },
+        "scripts/lint-ratchet.ts": {
+          "count": 1,
+          "messagesFingerprint": "sha256:e46c89896070168ca3a8c80d9c552036d36dc80a81754af7c7f8cb9f45c6829f"
+        },
+        "scripts/lint-ratchet/eslint-runner.ts": {
+          "count": 1,
+          "messagesFingerprint": "sha256:e46c89896070168ca3a8c80d9c552036d36dc80a81754af7c7f8cb9f45c6829f"
+        },
+        "scripts/lint-ratchet/portable-manifest-expand.ts": {
+          "count": 1,
+          "messagesFingerprint": "sha256:e46c89896070168ca3a8c80d9c552036d36dc80a81754af7c7f8cb9f45c6829f"
+        },
+        "scripts/logs-audit/logs-audit-redaction.ts": {
+          "count": 1,
+          "messagesFingerprint": "sha256:e46c89896070168ca3a8c80d9c552036d36dc80a81754af7c7f8cb9f45c6829f"
         }
       }
     },
     "ratchet/local-type-assertion-boundary": {
       "ruleId": "local/type-assertion-boundary",
       "mode": "no-new",
-      "target": 0,
       "metric": "message-count",
       "files": [
         "e2e/**/*.ts",
@@ -309,14 +437,179 @@
         "scripts/vitest.config.ts"
       ],
       "ruleOptions": [],
-      "configHash": "sha256:faa030224018118d15ceacc6ef878b27a84a2788c8e61e8def638c6d8062426f",
-      "ruleSourceHash": "sha256:6e1058020d8d72113a079f347e4d84aceece96ddb763e34d3891407d91f31a7c",
+      "configHash": "sha256:ebccfd10494123e551a33db5a35b810a73adb3e55975301767d106de1771661b",
+      "ruleSourceHash": "sha256:32b7c7e19480dfeec8117c2dfc60f56b1235153852dd9e3bda61ca63ec9a8ac8",
       "items": {}
+    },
+    "ratchet/max-depth-production": {
+      "ruleId": "max-depth",
+      "mode": "no-new",
+      "metric": "message-count",
+      "files": [
+        "packages/{client,server,shared}/src/**/*.{ts,tsx}"
+      ],
+      "ignores": [
+        "**/dist/**",
+        "**/generated/**",
+        "**/node_modules/**",
+        "packages/client/src/**/*.{test,spec}.{ts,tsx}",
+        "packages/client/src/**/*test-helper*.{ts,tsx}",
+        "packages/client/src/test/**/*.{ts,tsx}",
+        "packages/server/src/**/*.{test,spec}.{ts,tsx}",
+        "packages/server/src/**/*test-helper*.{ts,tsx}",
+        "packages/server/src/**/__type-tests__/**/*.{ts,tsx}",
+        "packages/server/src/test/**/*.{ts,tsx}",
+        "packages/shared/src/**/*.{test,spec}.{ts,tsx}",
+        "packages/shared/src/**/*test-helper*.{ts,tsx}",
+        "packages/shared/src/test/**/*.{ts,tsx}"
+      ],
+      "ruleOptions": [
+        {
+          "max": 3
+        }
+      ],
+      "configHash": "sha256:a148c15af74377921974ea8a1c22d13e40a882d0bda587f3466d693f655c250b",
+      "ruleSourceHash": "sha256:b8b95a8f28501092a4097d726038b857c19198fb63db4bc692b854629f8438fe",
+      "items": {
+        "packages/server/src/routers/character-spell.ts": {
+          "count": 1,
+          "messagesFingerprint": "sha256:50995dd1f21b9ce076473f5c63d91dbcb66d7d112454a6748b92a62d9c4fab80"
+        },
+        "packages/server/src/seed/generate-class-features.ts": {
+          "count": 1,
+          "messagesFingerprint": "sha256:50995dd1f21b9ce076473f5c63d91dbcb66d7d112454a6748b92a62d9c4fab80"
+        },
+        "packages/server/src/seed/seed-srd-backgrounds.ts": {
+          "count": 1,
+          "messagesFingerprint": "sha256:50995dd1f21b9ce076473f5c63d91dbcb66d7d112454a6748b92a62d9c4fab80"
+        },
+        "packages/shared/src/map/area-template.ts": {
+          "count": 1,
+          "messagesFingerprint": "sha256:50995dd1f21b9ce076473f5c63d91dbcb66d7d112454a6748b92a62d9c4fab80"
+        }
+      }
+    },
+    "ratchet/max-lines-per-function-production": {
+      "ruleId": "max-lines-per-function",
+      "mode": "no-new",
+      "metric": "message-count",
+      "files": [
+        "packages/{client,server,shared}/src/**/*.{ts,tsx}"
+      ],
+      "ignores": [
+        "**/dist/**",
+        "**/generated/**",
+        "**/node_modules/**",
+        "packages/client/src/**/*.{test,spec}.{ts,tsx}",
+        "packages/client/src/**/*test-helper*.{ts,tsx}",
+        "packages/client/src/test/**/*.{ts,tsx}",
+        "packages/server/src/**/*.{test,spec}.{ts,tsx}",
+        "packages/server/src/**/*test-helper*.{ts,tsx}",
+        "packages/server/src/**/__type-tests__/**/*.{ts,tsx}",
+        "packages/server/src/test/**/*.{ts,tsx}",
+        "packages/shared/src/**/*.{test,spec}.{ts,tsx}",
+        "packages/shared/src/**/*test-helper*.{ts,tsx}",
+        "packages/shared/src/test/**/*.{ts,tsx}"
+      ],
+      "ruleOptions": [
+        {
+          "max": 100,
+          "skipBlankLines": true,
+          "skipComments": true
+        }
+      ],
+      "configHash": "sha256:8658646934b2628f3e4adbf3514099925011ebd657f88798e3b5c249a75ecf66",
+      "ruleSourceHash": "sha256:f8ceeed625dbf8d3af97ee20cd64f610556714ff92c5a58b5124074751c9cfa1",
+      "items": {
+        "packages/client/src/components/campaign/combat/combat-map-content.tsx": {
+          "count": 1,
+          "messagesFingerprint": "sha256:31ef2d372b5e9d7db7f835b377150724e67759b5da9031e8b1e3dd48db65aed7"
+        },
+        "packages/client/src/components/campaign/encounters/encounter-detail-view.tsx": {
+          "count": 1,
+          "messagesFingerprint": "sha256:31ef2d372b5e9d7db7f835b377150724e67759b5da9031e8b1e3dd48db65aed7"
+        },
+        "packages/client/src/components/campaign/encounters/encounter-map-link.tsx": {
+          "count": 1,
+          "messagesFingerprint": "sha256:31ef2d372b5e9d7db7f835b377150724e67759b5da9031e8b1e3dd48db65aed7"
+        },
+        "packages/client/src/components/campaign/encounters/encounters-panel.tsx": {
+          "count": 1,
+          "messagesFingerprint": "sha256:31ef2d372b5e9d7db7f835b377150724e67759b5da9031e8b1e3dd48db65aed7"
+        },
+        "packages/client/src/components/campaign/maps/map-canvas.tsx": {
+          "count": 1,
+          "messagesFingerprint": "sha256:31ef2d372b5e9d7db7f835b377150724e67759b5da9031e8b1e3dd48db65aed7"
+        },
+        "packages/client/src/components/campaign/maps/map-detail-content.tsx": {
+          "count": 1,
+          "messagesFingerprint": "sha256:31ef2d372b5e9d7db7f835b377150724e67759b5da9031e8b1e3dd48db65aed7"
+        },
+        "packages/client/src/components/campaign/maps/maps-panel.tsx": {
+          "count": 1,
+          "messagesFingerprint": "sha256:31ef2d372b5e9d7db7f835b377150724e67759b5da9031e8b1e3dd48db65aed7"
+        },
+        "packages/client/src/components/campaign/notes/notes-panel.tsx": {
+          "count": 1,
+          "messagesFingerprint": "sha256:31ef2d372b5e9d7db7f835b377150724e67759b5da9031e8b1e3dd48db65aed7"
+        },
+        "packages/client/src/components/homebrew/collections/import-collection-dialog.tsx": {
+          "count": 1,
+          "messagesFingerprint": "sha256:31ef2d372b5e9d7db7f835b377150724e67759b5da9031e8b1e3dd48db65aed7"
+        },
+        "packages/client/src/components/homebrew/item/item-weapon-fields.tsx": {
+          "count": 1,
+          "messagesFingerprint": "sha256:31ef2d372b5e9d7db7f835b377150724e67759b5da9031e8b1e3dd48db65aed7"
+        },
+        "packages/client/src/components/homebrew/species/species-form-fields.tsx": {
+          "count": 1,
+          "messagesFingerprint": "sha256:31ef2d372b5e9d7db7f835b377150724e67759b5da9031e8b1e3dd48db65aed7"
+        },
+        "packages/client/src/components/sheet/add-item-dialog.tsx": {
+          "count": 1,
+          "messagesFingerprint": "sha256:31ef2d372b5e9d7db7f835b377150724e67759b5da9031e8b1e3dd48db65aed7"
+        },
+        "packages/client/src/components/sheet/desktop-sheet-layout.tsx": {
+          "count": 1,
+          "messagesFingerprint": "sha256:31ef2d372b5e9d7db7f835b377150724e67759b5da9031e8b1e3dd48db65aed7"
+        },
+        "packages/client/src/components/sheet/edit-item-dialog.tsx": {
+          "count": 1,
+          "messagesFingerprint": "sha256:31ef2d372b5e9d7db7f835b377150724e67759b5da9031e8b1e3dd48db65aed7"
+        },
+        "packages/client/src/components/sheet/inventory-item-row.tsx": {
+          "count": 1,
+          "messagesFingerprint": "sha256:31ef2d372b5e9d7db7f835b377150724e67759b5da9031e8b1e3dd48db65aed7"
+        },
+        "packages/client/src/components/sheet/level-up-dialog.tsx": {
+          "count": 1,
+          "messagesFingerprint": "sha256:31ef2d372b5e9d7db7f835b377150724e67759b5da9031e8b1e3dd48db65aed7"
+        },
+        "packages/client/src/components/sheet/mobile-sheet-tabs.tsx": {
+          "count": 1,
+          "messagesFingerprint": "sha256:31ef2d372b5e9d7db7f835b377150724e67759b5da9031e8b1e3dd48db65aed7"
+        },
+        "packages/client/src/lib/query-invalidation.ts": {
+          "count": 1,
+          "messagesFingerprint": "sha256:31ef2d372b5e9d7db7f835b377150724e67759b5da9031e8b1e3dd48db65aed7"
+        },
+        "packages/client/src/pages/character-sheet/sheet-layout.tsx": {
+          "count": 1,
+          "messagesFingerprint": "sha256:31ef2d372b5e9d7db7f835b377150724e67759b5da9031e8b1e3dd48db65aed7"
+        },
+        "packages/client/src/pages/collection-detail-page.tsx": {
+          "count": 1,
+          "messagesFingerprint": "sha256:31ef2d372b5e9d7db7f835b377150724e67759b5da9031e8b1e3dd48db65aed7"
+        },
+        "packages/client/src/pages/homebrew-page.tsx": {
+          "count": 1,
+          "messagesFingerprint": "sha256:31ef2d372b5e9d7db7f835b377150724e67759b5da9031e8b1e3dd48db65aed7"
+        }
+      }
     },
     "ratchet/no-real-time-in-package-tests": {
       "ruleId": "no-restricted-syntax",
       "mode": "no-new",
-      "target": 0,
       "metric": "message-count",
       "files": [
         "packages/**/*.{test,spec}.{ts,tsx}"
@@ -336,213 +629,143 @@
           "selector": "NewExpression[callee.name='Date'][arguments.length=0]"
         }
       ],
-      "configHash": "sha256:4d15d954de6c09a1b4edda848779ca547373862751cb34db4a652e7df3daf160",
-      "ruleSourceHash": "sha256:4d0282d7e6f2c1a87255f9939a4d0e4e9939c9158287e70874c34b0b2b163368",
+      "configHash": "sha256:a6e025882500e44c94776ed9a747ac04a125632953bb31e6618cfcab3428f8ad",
+      "ruleSourceHash": "sha256:ac7181bfdce6a53a3faa244d87ccd385989762c835b6b99bc582643cc733abd1",
       "items": {
         "packages/client/src/components/notifications/notification-item.test.tsx": {
           "count": 4,
-          "messagesFingerprint": "sha256:c01b2885f8a88596f968f5f2adf100a546f82b7e6edadc776c2debbc56c190d3"
+          "messagesFingerprint": "sha256:429b64c9542e36695492d0b53665da4378a6b273357d0aa5bfe1dac4a1dab823"
         },
         "packages/client/src/components/notifications/notification-popover.test.tsx": {
           "count": 2,
-          "messagesFingerprint": "sha256:2bbb041033fb00ed1218063be89f35b5cdbfa77e6eda4f31ae49f096aa3e2626"
+          "messagesFingerprint": "sha256:aaaf105ea01e877f38d4239d8c5e79b5def7be96de3e82e5b76e58e427e029c1"
         },
         "packages/client/src/components/vtt/drawer/cast-rail.test.tsx": {
           "count": 6,
-          "messagesFingerprint": "sha256:4a322dfee221c8e9913710739546a4cfcd4675ca5c218b45c10c9bac0c4c3b4b"
+          "messagesFingerprint": "sha256:3cca27b9761e9d14d650f7e5fba345e5508cea0345684a00ef39e4892d0c5960"
         },
         "packages/client/src/components/vtt/drawer/confirm-cast-strip.test.tsx": {
           "count": 4,
-          "messagesFingerprint": "sha256:ac85c7a0ce2e5011314cd5f27e75fe4d1beee8163fb953d37bc5b9324fbd2f6f"
-        },
-        "packages/client/src/hooks/use-weapon-roll.test.ts": {
-          "count": 1,
-          "messagesFingerprint": "sha256:414678d013c764e509d05da78d4eb29da2b4e547e390b08b9d61fb503c39038a"
+          "messagesFingerprint": "sha256:429b64c9542e36695492d0b53665da4378a6b273357d0aa5bfe1dac4a1dab823"
         },
         "packages/client/src/hooks/vtt-drawer/use-cast-placement.test.ts": {
           "count": 4,
-          "messagesFingerprint": "sha256:ac85c7a0ce2e5011314cd5f27e75fe4d1beee8163fb953d37bc5b9324fbd2f6f"
+          "messagesFingerprint": "sha256:429b64c9542e36695492d0b53665da4378a6b273357d0aa5bfe1dac4a1dab823"
         },
         "packages/server/src/routers/character-level-up.test.ts": {
           "count": 2,
-          "messagesFingerprint": "sha256:610e6d8ad6574fac75af67b0e9b52c4be5a91cb2bed60a86de9a8195e0fa64e5"
+          "messagesFingerprint": "sha256:aaaf105ea01e877f38d4239d8c5e79b5def7be96de3e82e5b76e58e427e029c1"
         },
         "packages/server/src/routers/homebrew-import.test.ts": {
           "count": 1,
-          "messagesFingerprint": "sha256:414678d013c764e509d05da78d4eb29da2b4e547e390b08b9d61fb503c39038a"
+          "messagesFingerprint": "sha256:5098811e01ce1a2317c545ac9042cd6f11da1fe7ec2aa50465d7147222790975"
         },
         "packages/server/src/routers/invite-manage.test.ts": {
           "count": 1,
-          "messagesFingerprint": "sha256:a614311401ef32e60f14370f72b33541804866ee227ad8bb591086ea1c2b05a8"
+          "messagesFingerprint": "sha256:5098811e01ce1a2317c545ac9042cd6f11da1fe7ec2aa50465d7147222790975"
         },
         "packages/server/src/routers/invite.test.ts": {
           "count": 1,
-          "messagesFingerprint": "sha256:a614311401ef32e60f14370f72b33541804866ee227ad8bb591086ea1c2b05a8"
+          "messagesFingerprint": "sha256:5098811e01ce1a2317c545ac9042cd6f11da1fe7ec2aa50465d7147222790975"
         },
         "packages/server/src/routes/upload-routes.test.ts": {
           "count": 1,
-          "messagesFingerprint": "sha256:a614311401ef32e60f14370f72b33541804866ee227ad8bb591086ea1c2b05a8"
+          "messagesFingerprint": "sha256:5098811e01ce1a2317c545ac9042cd6f11da1fe7ec2aa50465d7147222790975"
         },
         "packages/server/src/services/rest-service.test.ts": {
           "count": 1,
-          "messagesFingerprint": "sha256:414678d013c764e509d05da78d4eb29da2b4e547e390b08b9d61fb503c39038a"
+          "messagesFingerprint": "sha256:5098811e01ce1a2317c545ac9042cd6f11da1fe7ec2aa50465d7147222790975"
         },
         "packages/server/src/socket/broadcast-registry.test.ts": {
           "count": 4,
-          "messagesFingerprint": "sha256:ac85c7a0ce2e5011314cd5f27e75fe4d1beee8163fb953d37bc5b9324fbd2f6f"
+          "messagesFingerprint": "sha256:429b64c9542e36695492d0b53665da4378a6b273357d0aa5bfe1dac4a1dab823"
         },
         "packages/server/src/socket/chat-broadcast.test.ts": {
           "count": 1,
-          "messagesFingerprint": "sha256:414678d013c764e509d05da78d4eb29da2b4e547e390b08b9d61fb503c39038a"
+          "messagesFingerprint": "sha256:5098811e01ce1a2317c545ac9042cd6f11da1fe7ec2aa50465d7147222790975"
         },
         "packages/server/src/test/clean-db.test.ts": {
           "count": 2,
-          "messagesFingerprint": "sha256:610e6d8ad6574fac75af67b0e9b52c4be5a91cb2bed60a86de9a8195e0fa64e5"
+          "messagesFingerprint": "sha256:aaaf105ea01e877f38d4239d8c5e79b5def7be96de3e82e5b76e58e427e029c1"
         },
         "packages/server/src/utils/homebrew-helpers.test.ts": {
           "count": 1,
-          "messagesFingerprint": "sha256:414678d013c764e509d05da78d4eb29da2b4e547e390b08b9d61fb503c39038a"
+          "messagesFingerprint": "sha256:5098811e01ce1a2317c545ac9042cd6f11da1fe7ec2aa50465d7147222790975"
         },
         "packages/server/src/utils/session-cleanup.test.ts": {
           "count": 4,
-          "messagesFingerprint": "sha256:074fde433c66fe2bfd8af54f3240b598d0f0789c0bb43175d2d80dca92cb88db"
+          "messagesFingerprint": "sha256:429b64c9542e36695492d0b53665da4378a6b273357d0aa5bfe1dac4a1dab823"
         },
         "packages/server/src/utils/spell-mapping.test.ts": {
           "count": 4,
-          "messagesFingerprint": "sha256:ac85c7a0ce2e5011314cd5f27e75fe4d1beee8163fb953d37bc5b9324fbd2f6f"
+          "messagesFingerprint": "sha256:429b64c9542e36695492d0b53665da4378a6b273357d0aa5bfe1dac4a1dab823"
         },
         "packages/shared/src/schemas/campaign.test.ts": {
           "count": 8,
-          "messagesFingerprint": "sha256:b5eae2e4c54626982529ff8fe311ed717104e8e5d566136d7d238ade26ed7142"
+          "messagesFingerprint": "sha256:56e16d1dd2c9ba88f847e499987c068456c6c40f6bdd5de50aeef216aa1c61eb"
         },
         "packages/shared/src/schemas/combat-action.test.ts": {
           "count": 2,
-          "messagesFingerprint": "sha256:2bbb041033fb00ed1218063be89f35b5cdbfa77e6eda4f31ae49f096aa3e2626"
+          "messagesFingerprint": "sha256:aaaf105ea01e877f38d4239d8c5e79b5def7be96de3e82e5b76e58e427e029c1"
         },
         "packages/shared/src/schemas/encounter.test.ts": {
           "count": 3,
-          "messagesFingerprint": "sha256:150d4a9870ad8a87d06a1d81e4b5ca4bb492498588a432f7b5c910614a98cfc9"
+          "messagesFingerprint": "sha256:02c6e877bbd944d5adf4592d2489f665c4ed2e4900d298c94258f135b1c4fe20"
         },
         "packages/shared/src/schemas/inventory.test.ts": {
           "count": 2,
-          "messagesFingerprint": "sha256:2bbb041033fb00ed1218063be89f35b5cdbfa77e6eda4f31ae49f096aa3e2626"
+          "messagesFingerprint": "sha256:aaaf105ea01e877f38d4239d8c5e79b5def7be96de3e82e5b76e58e427e029c1"
         }
       }
     },
     "ratchet/react-hooks-set-state-in-effect-client": {
       "ruleId": "react-hooks/set-state-in-effect",
       "mode": "no-new",
-      "target": 0,
       "metric": "message-count",
       "files": [
         "packages/client/src/**/*.{ts,tsx}"
       ],
       "ignores": [
         "packages/client/src/**/*.{test,spec}.{ts,tsx}",
-        "packages/client/src/**/*.test-helper.{ts,tsx}",
+        "packages/client/src/**/*test-helper*.{ts,tsx}",
         "packages/client/src/test/**/*.{ts,tsx}"
       ],
       "ruleOptions": [],
-      "configHash": "sha256:9e9130d518f1b82d6426e8a9e088994dac5f7f536c292030290e2612f432af41",
-      "ruleSourceHash": "sha256:9ab9d544d9d38eb2bf0d64f8e54177cda509d157afb017422518a40b161b6d06",
+      "configHash": "sha256:6c3bb52df4149e5095b52606cb8bdf14f6d347e804a1c03470372806c9076c33",
+      "ruleSourceHash": "sha256:dc95cfc0d7c60a0a536ba4e70f8e79e60c2350c890d64d9f8992788da5e328db",
       "items": {
-        "packages/client/src/components/campaign/combat/combat-map-bridges.ts": {
-          "count": 1,
-          "messagesFingerprint": "sha256:e9f0777dd6231b743d50cb8efa778af8537ecf687d0513a503d8715e050f06a9"
-        },
-        "packages/client/src/components/campaign/maps/edit-map-dialog.tsx": {
-          "count": 1,
-          "messagesFingerprint": "sha256:fb3b20dea35b46852188257a230f47031a7af245435d8686809c4d6560439cdc"
-        },
-        "packages/client/src/components/campaign/members/join-campaign-dialog.tsx": {
-          "count": 1,
-          "messagesFingerprint": "sha256:036c0094ff150e972ecf5b47ff3a420cab1813743ef9da3e9e0314c865a12ca0"
-        },
-        "packages/client/src/components/campaign/notes/note-editor.tsx": {
-          "count": 1,
-          "messagesFingerprint": "sha256:5e27dc4234156523b02ac276b7b4d6118b068e4f1345f2df4335404453965175"
-        },
-        "packages/client/src/components/campaign/npcs/npc-editor.tsx": {
-          "count": 1,
-          "messagesFingerprint": "sha256:8b1eeb18a5738afa3d20d90b066d06beb0d75108ba85eea1e78223026f7ae8e8"
-        },
-        "packages/client/src/components/campaign/settings/create-campaign-dialog.tsx": {
-          "count": 1,
-          "messagesFingerprint": "sha256:b59dfdffc2ad69facdb0889ac81abf0241c8f5770ebf61a4fceb7875b58c4418"
-        },
-        "packages/client/src/components/campaign/tokens/add-token-dialog.tsx": {
-          "count": 1,
-          "messagesFingerprint": "sha256:b75edadb8804b4989a8b425493a1888d31e62a41c75ac1a2547b6b1e1bb80f4d"
-        },
-        "packages/client/src/components/campaign/tokens/edit-token-dialog.tsx": {
-          "count": 1,
-          "messagesFingerprint": "sha256:9ca08cb6c4d06312e264ad96fba81d097fd4a5b7633911ce04d8b25656df9ac0"
-        },
-        "packages/client/src/components/homebrew/collections/collection-dialog.tsx": {
-          "count": 1,
-          "messagesFingerprint": "sha256:ed7dcecbc0241d019a94308fe53276ad3741d077e6408338a929710a34cfe564"
-        },
-        "packages/client/src/components/homebrew/collections/delete-collection-dialog.tsx": {
-          "count": 1,
-          "messagesFingerprint": "sha256:033fba131a4562a4fd62c64587616741c842e08fb8a84019e6784fd37c5bfd3a"
-        },
-        "packages/client/src/components/homebrew/entries/delete-entry-dialog.tsx": {
-          "count": 1,
-          "messagesFingerprint": "sha256:f317a5b15e7d1c1471e104ebd2bd1607646de47d03382233d34976d06b4de44e"
-        },
-        "packages/client/src/components/homebrew/entries/entry-dialog.tsx": {
-          "count": 1,
-          "messagesFingerprint": "sha256:b26f7f520070f7ade198f4761f88d0f1c0a031bfd713e43a185b8a27c40ce9e7"
-        },
-        "packages/client/src/components/sheet/cast-spell-dialog.tsx": {
-          "count": 1,
-          "messagesFingerprint": "sha256:8de2d8e6dad7106f4ab0b22236bbb7d168cc20f2e9045d2b52243c0b1bc63214"
-        },
         "packages/client/src/components/sheet/dm-editable-score.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:a0ad240384cada56f7dcb050bc854913a0ca13a8fb6a1865074511adf6481d22"
-        },
-        "packages/client/src/components/sheet/edit-item-dialog.tsx": {
-          "count": 1,
-          "messagesFingerprint": "sha256:02afbc4b0e47571d0c3098bcabdd988c217719fa5fca37914383d0180f11c789"
-        },
-        "packages/client/src/components/sheet/level-up-state.ts": {
-          "count": 1,
-          "messagesFingerprint": "sha256:4c91f6a83e66d3200f8db9ba2c06d06ef8a9ff71cf7c8d4cdf11c83ecb55a713"
-        },
-        "packages/client/src/components/sheet/rest-dialog.tsx": {
-          "count": 1,
-          "messagesFingerprint": "sha256:6353bfcf10ef2d992b8db22043c178b68ef97f08afba46e37baf3da4839ff2c2"
+          "messagesFingerprint": "sha256:729355a44880f591df3330927ad2295d22fd46308f1731dcd82513342976f306"
         },
         "packages/client/src/hooks/socket-context.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:00174089ade2f9e9cb2ff4d6ebeaea4c6e16d9a7f960244e27d5f064d950ce19"
+          "messagesFingerprint": "sha256:729355a44880f591df3330927ad2295d22fd46308f1731dcd82513342976f306"
         },
         "packages/client/src/hooks/use-background-image.ts": {
           "count": 1,
-          "messagesFingerprint": "sha256:cc9844d5a1b209008b2ef7de67a31d9778aae8a60ced8fce4beb5d254c87b3f1"
+          "messagesFingerprint": "sha256:729355a44880f591df3330927ad2295d22fd46308f1731dcd82513342976f306"
         },
         "packages/client/src/hooks/use-campaign-presence.ts": {
           "count": 1,
-          "messagesFingerprint": "sha256:83817b2c684fcca2f2b6b70ec014f61a6a5eeeb3b6ef89b0cba3e5758e3eae85"
+          "messagesFingerprint": "sha256:729355a44880f591df3330927ad2295d22fd46308f1731dcd82513342976f306"
         },
         "packages/client/src/hooks/use-debounced-cursor-list.ts": {
           "count": 1,
-          "messagesFingerprint": "sha256:77420b591cc5251b2c19efc973455c7087df3ff6828bdd7a03fe41c238099198"
+          "messagesFingerprint": "sha256:729355a44880f591df3330927ad2295d22fd46308f1731dcd82513342976f306"
         }
       }
     },
     "ratchet/react-refresh-only-export-components-client": {
       "ruleId": "react-refresh/only-export-components",
       "mode": "no-new",
-      "target": 0,
       "metric": "message-count",
       "files": [
         "packages/client/src/**/*.tsx"
       ],
       "ignores": [
         "packages/client/src/**/*.{test,spec}.{ts,tsx}",
-        "packages/client/src/**/*.test-helper.{ts,tsx}",
+        "packages/client/src/**/*test-helper*.{ts,tsx}",
         "packages/client/src/test/**/*.{ts,tsx}"
       ],
       "ruleOptions": [
@@ -550,119 +773,118 @@
           "allowConstantExport": true
         }
       ],
-      "configHash": "sha256:4aff81b9db4c87207df81e5cb99d0821d8e6c3cd2f554629c16f287ee7aad0b0",
-      "ruleSourceHash": "sha256:56c8b4c8056c716787eeec9533d303cb431ce228d3d77ac2610b4aba3410d97d",
+      "configHash": "sha256:860e0eb17421bee7d39e69f96683f604b4a50279c31cb1edd4526f7fd0257293",
+      "ruleSourceHash": "sha256:5493f82ed7cc0773a342135716ea52112d1d280a6c6caa8ab203b31276492cf1",
       "items": {
         "packages/client/src/components/campaign/encounters/encounter-participants.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:8c4c6316f0587ddbcb4a33f5eaea914a85972ee19948575c6c3ddb66977a8bd9"
+          "messagesFingerprint": "sha256:f921bf48dd58e6d70b82ae72f6f6d0ec71b522acdf05c84d5e7fe9aeb2c346c7"
         },
         "packages/client/src/components/campaign/maps/fog-overlay.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:8c4c6316f0587ddbcb4a33f5eaea914a85972ee19948575c6c3ddb66977a8bd9"
+          "messagesFingerprint": "sha256:f921bf48dd58e6d70b82ae72f6f6d0ec71b522acdf05c84d5e7fe9aeb2c346c7"
         },
         "packages/client/src/components/campaign/tokens/token-context-menu.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:8c4c6316f0587ddbcb4a33f5eaea914a85972ee19948575c6c3ddb66977a8bd9"
+          "messagesFingerprint": "sha256:f921bf48dd58e6d70b82ae72f6f6d0ec71b522acdf05c84d5e7fe9aeb2c346c7"
         },
         "packages/client/src/components/campaign/tokens/token-form-fields.tsx": {
           "count": 4,
-          "messagesFingerprint": "sha256:c0c3523d5b3d134529dabfc268d304a01e27a1e7e77b1be4f5a6364cf7ba393d"
+          "messagesFingerprint": "sha256:51528730ac20c7a01b7b13008a9530851a2dc71da009696299b8dc3c66f5728c"
         },
         "packages/client/src/components/character-create/steps/ability-score-card.tsx": {
           "count": 8,
-          "messagesFingerprint": "sha256:d9c69889104b3e58631ff57b6e4182ac2b36bae95d67d24c6fd44e9c7d619bca"
+          "messagesFingerprint": "sha256:416c2c19df7b624fe5811dee627f18e5cfaeec65ce0c2954f2006ba0055789b5"
         },
         "packages/client/src/components/character-create/steps/spells-review-card.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:8c4c6316f0587ddbcb4a33f5eaea914a85972ee19948575c6c3ddb66977a8bd9"
+          "messagesFingerprint": "sha256:f921bf48dd58e6d70b82ae72f6f6d0ec71b522acdf05c84d5e7fe9aeb2c346c7"
         },
         "packages/client/src/components/character-create/wizard-context.tsx": {
           "count": 5,
-          "messagesFingerprint": "sha256:25dc88d3aaba5daacc18acc25c1ccc87bf85e81a2c28d78ed8b3e4f2f5726322"
+          "messagesFingerprint": "sha256:deac5a55b3bcd8cf3620316cd36624b1bb5e9b6c02880364b7f577234e972e6a"
         },
         "packages/client/src/components/common/filter-select.tsx": {
           "count": 2,
-          "messagesFingerprint": "sha256:6c674b426ad5947129d8a4fed4b9f73f60fe78f295b2fd92c72dd758d6f6afd1"
+          "messagesFingerprint": "sha256:7d8be3a1fdddfafc5d51a7c59c6753978fa3f2c637219cd883a89e72d51f5523"
         },
         "packages/client/src/components/homebrew/background/background-form-fields.tsx": {
           "count": 2,
-          "messagesFingerprint": "sha256:6c674b426ad5947129d8a4fed4b9f73f60fe78f295b2fd92c72dd758d6f6afd1"
+          "messagesFingerprint": "sha256:7d8be3a1fdddfafc5d51a7c59c6753978fa3f2c637219cd883a89e72d51f5523"
         },
         "packages/client/src/components/homebrew/class/class-form-fields.tsx": {
           "count": 2,
-          "messagesFingerprint": "sha256:6c674b426ad5947129d8a4fed4b9f73f60fe78f295b2fd92c72dd758d6f6afd1"
+          "messagesFingerprint": "sha256:7d8be3a1fdddfafc5d51a7c59c6753978fa3f2c637219cd883a89e72d51f5523"
         },
         "packages/client/src/components/homebrew/feat/feat-form-fields.tsx": {
           "count": 2,
-          "messagesFingerprint": "sha256:6c674b426ad5947129d8a4fed4b9f73f60fe78f295b2fd92c72dd758d6f6afd1"
+          "messagesFingerprint": "sha256:7d8be3a1fdddfafc5d51a7c59c6753978fa3f2c637219cd883a89e72d51f5523"
         },
         "packages/client/src/components/homebrew/item/item-form-fields.tsx": {
           "count": 2,
-          "messagesFingerprint": "sha256:6c674b426ad5947129d8a4fed4b9f73f60fe78f295b2fd92c72dd758d6f6afd1"
+          "messagesFingerprint": "sha256:7d8be3a1fdddfafc5d51a7c59c6753978fa3f2c637219cd883a89e72d51f5523"
         },
         "packages/client/src/components/homebrew/magic-item/magic-item-form-fields.tsx": {
           "count": 2,
-          "messagesFingerprint": "sha256:6c674b426ad5947129d8a4fed4b9f73f60fe78f295b2fd92c72dd758d6f6afd1"
+          "messagesFingerprint": "sha256:7d8be3a1fdddfafc5d51a7c59c6753978fa3f2c637219cd883a89e72d51f5523"
         },
         "packages/client/src/components/homebrew/monster/monster-ability-scores.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:8c4c6316f0587ddbcb4a33f5eaea914a85972ee19948575c6c3ddb66977a8bd9"
+          "messagesFingerprint": "sha256:f921bf48dd58e6d70b82ae72f6f6d0ec71b522acdf05c84d5e7fe9aeb2c346c7"
         },
         "packages/client/src/components/homebrew/monster/monster-form-fields.tsx": {
           "count": 2,
-          "messagesFingerprint": "sha256:6c674b426ad5947129d8a4fed4b9f73f60fe78f295b2fd92c72dd758d6f6afd1"
+          "messagesFingerprint": "sha256:7d8be3a1fdddfafc5d51a7c59c6753978fa3f2c637219cd883a89e72d51f5523"
         },
         "packages/client/src/components/homebrew/spell/spell-form-fields.tsx": {
           "count": 2,
-          "messagesFingerprint": "sha256:6c674b426ad5947129d8a4fed4b9f73f60fe78f295b2fd92c72dd758d6f6afd1"
+          "messagesFingerprint": "sha256:7d8be3a1fdddfafc5d51a7c59c6753978fa3f2c637219cd883a89e72d51f5523"
         },
         "packages/client/src/components/homebrew/subclass/subclass-form-fields.tsx": {
           "count": 2,
-          "messagesFingerprint": "sha256:6c674b426ad5947129d8a4fed4b9f73f60fe78f295b2fd92c72dd758d6f6afd1"
+          "messagesFingerprint": "sha256:7d8be3a1fdddfafc5d51a7c59c6753978fa3f2c637219cd883a89e72d51f5523"
         },
         "packages/client/src/components/sheet/homebrew-item-tab.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:8c4c6316f0587ddbcb4a33f5eaea914a85972ee19948575c6c3ddb66977a8bd9"
+          "messagesFingerprint": "sha256:f921bf48dd58e6d70b82ae72f6f6d0ec71b522acdf05c84d5e7fe9aeb2c346c7"
         },
         "packages/client/src/components/sheet/level-up-helpers.tsx": {
           "count": 2,
-          "messagesFingerprint": "sha256:6c674b426ad5947129d8a4fed4b9f73f60fe78f295b2fd92c72dd758d6f6afd1"
+          "messagesFingerprint": "sha256:7d8be3a1fdddfafc5d51a7c59c6753978fa3f2c637219cd883a89e72d51f5523"
         },
         "packages/client/src/components/sheet/spell-filter-bar.tsx": {
           "count": 4,
-          "messagesFingerprint": "sha256:c0c3523d5b3d134529dabfc268d304a01e27a1e7e77b1be4f5a6364cf7ba393d"
+          "messagesFingerprint": "sha256:51528730ac20c7a01b7b13008a9530851a2dc71da009696299b8dc3c66f5728c"
         },
         "packages/client/src/components/sheet/spells-panel.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:8c4c6316f0587ddbcb4a33f5eaea914a85972ee19948575c6c3ddb66977a8bd9"
+          "messagesFingerprint": "sha256:f921bf48dd58e6d70b82ae72f6f6d0ec71b522acdf05c84d5e7fe9aeb2c346c7"
         },
         "packages/client/src/components/ui/badge.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:8c4c6316f0587ddbcb4a33f5eaea914a85972ee19948575c6c3ddb66977a8bd9"
+          "messagesFingerprint": "sha256:f921bf48dd58e6d70b82ae72f6f6d0ec71b522acdf05c84d5e7fe9aeb2c346c7"
         },
         "packages/client/src/components/ui/button.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:8c4c6316f0587ddbcb4a33f5eaea914a85972ee19948575c6c3ddb66977a8bd9"
+          "messagesFingerprint": "sha256:f921bf48dd58e6d70b82ae72f6f6d0ec71b522acdf05c84d5e7fe9aeb2c346c7"
         },
         "packages/client/src/components/vtt/drawer/cast-rail-concentration.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:8c4c6316f0587ddbcb4a33f5eaea914a85972ee19948575c6c3ddb66977a8bd9"
+          "messagesFingerprint": "sha256:f921bf48dd58e6d70b82ae72f6f6d0ec71b522acdf05c84d5e7fe9aeb2c346c7"
         },
         "packages/client/src/hooks/auth-context.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:149c5f25c9c0aaa2a0e35df95096e698d05353350408f474fe4266824ae4c056"
+          "messagesFingerprint": "sha256:84c51da3d0b251b57652d2ff332d4e61d8d349b56158036dbe1288c3c97c5efd"
         },
         "packages/client/src/hooks/socket-context.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:149c5f25c9c0aaa2a0e35df95096e698d05353350408f474fe4266824ae4c056"
+          "messagesFingerprint": "sha256:84c51da3d0b251b57652d2ff332d4e61d8d349b56158036dbe1288c3c97c5efd"
         }
       }
     },
     "ratchet/strict-boolean-expressions-server-encounter-combat": {
       "ruleId": "@typescript-eslint/strict-boolean-expressions",
       "mode": "no-new",
-      "target": 0,
       "metric": "message-count",
       "files": [
         "packages/server/src/services/encounter-combat/**/*.{ts,tsx}"
@@ -687,14 +909,13 @@
           "allowString": false
         }
       ],
-      "configHash": "sha256:89b55bb599079910441bc954d2282b5ae5399b1b5b1f4949e34adb94377792c7",
-      "ruleSourceHash": "sha256:b59cb4594a258f43ffa276e84e5c1e16ed5c1152003e1755851a1ccfc1ded457",
+      "configHash": "sha256:7e49716d78b60d91af6f8732a4e5c6b210b6004a8b11b0af94229ff87956ca98",
+      "ruleSourceHash": "sha256:3bba264757292b7d612367c54c3fd74f8b67e62f8f91a75dd45466f7a352eab2",
       "items": {}
     },
     "ratchet/strict-boolean-expressions-server-services": {
       "ruleId": "@typescript-eslint/strict-boolean-expressions",
       "mode": "no-new",
-      "target": 0,
       "metric": "message-count",
       "files": [
         "packages/server/src/services/**/*.{ts,tsx}"
@@ -720,95 +941,66 @@
           "allowString": false
         }
       ],
-      "configHash": "sha256:6d80cde728e28e1b873147fd9b53ed648390323e03c2454fdb20400f15c7eae7",
-      "ruleSourceHash": "sha256:b59cb4594a258f43ffa276e84e5c1e16ed5c1152003e1755851a1ccfc1ded457",
+      "configHash": "sha256:d1b094c213262861760acba137d6910317c33a5874105565bb6eb9aec0b9d63b",
+      "ruleSourceHash": "sha256:3bba264757292b7d612367c54c3fd74f8b67e62f8f91a75dd45466f7a352eab2",
       "items": {
         "packages/server/src/services/character-create-helpers.ts": {
           "count": 5,
-          "messagesFingerprint": "sha256:8fd047382eaacdb43b04cf54420a4b4f375bbd4c6c1eb4b735b2720781dc8d3f"
+          "messagesFingerprint": "sha256:386e3075fb9afb848399903e8da8b7dba5d1fc58db4c5c2de801555de86044b2"
         },
         "packages/server/src/services/character-create-spells.ts": {
           "count": 1,
-          "messagesFingerprint": "sha256:38cbfdd582ad3b7917d5dab995474c0850a9bc888fe6c78c97e68ef0a541336d"
+          "messagesFingerprint": "sha256:a24c907045421b49338d5dd6d6463bf7f96816b9c9db254e3192c72c3330361c"
         },
         "packages/server/src/services/character-create.ts": {
-          "count": 6,
-          "messagesFingerprint": "sha256:f195fbe6bbc8b8cd2c5079ee798ee1d39e21003fdadd3140e12f209bf43561d4"
-        },
-        "packages/server/src/services/character-live-state/feature.ts": {
-          "count": 2,
-          "messagesFingerprint": "sha256:e63b68e30b3d31bf23cef7152521bcd7aae4c7af548cf990cb6ee25830ab7577"
+          "count": 3,
+          "messagesFingerprint": "sha256:3ae50531f2dcb924ba20eaadabe227c1dc08ddf01dd608e3e0f45ed3da6efa2e"
         },
         "packages/server/src/services/character-live-state/rest.ts": {
           "count": 2,
-          "messagesFingerprint": "sha256:e63b68e30b3d31bf23cef7152521bcd7aae4c7af548cf990cb6ee25830ab7577"
-        },
-        "packages/server/src/services/combat-actions/apply-damage.ts": {
-          "count": 1,
-          "messagesFingerprint": "sha256:38cbfdd582ad3b7917d5dab995474c0850a9bc888fe6c78c97e68ef0a541336d"
-        },
-        "packages/server/src/services/combat-actions/attack-transaction.ts": {
-          "count": 1,
-          "messagesFingerprint": "sha256:38cbfdd582ad3b7917d5dab995474c0850a9bc888fe6c78c97e68ef0a541336d"
+          "messagesFingerprint": "sha256:0a0c90e7ebb79b8625bd3a47a3905200693b39a41b2bf58da4dd7c1a3d32d241"
         },
         "packages/server/src/services/combat-actions/combat-actions.ts": {
           "count": 2,
-          "messagesFingerprint": "sha256:e63b68e30b3d31bf23cef7152521bcd7aae4c7af548cf990cb6ee25830ab7577"
-        },
-        "packages/server/src/services/combat-actions/resolve-attack.ts": {
-          "count": 1,
-          "messagesFingerprint": "sha256:38cbfdd582ad3b7917d5dab995474c0850a9bc888fe6c78c97e68ef0a541336d"
+          "messagesFingerprint": "sha256:0a0c90e7ebb79b8625bd3a47a3905200693b39a41b2bf58da4dd7c1a3d32d241"
         },
         "packages/server/src/services/homebrew-import-service.ts": {
           "count": 2,
-          "messagesFingerprint": "sha256:e4a63c0bb8885e139c693c32e7af8177b8e142d563b6b35d50fc986e4faddb0d"
+          "messagesFingerprint": "sha256:6e37e65d0fe34ed1e868d73eebe795213c12303006e595b1d0753a03a83c56bf"
         },
         "packages/server/src/services/inventory-service.ts": {
           "count": 3,
-          "messagesFingerprint": "sha256:daa724641d63b3f1fad012a60f671559fe1fdf6599530b28e65ccc8bebdf46e9"
-        },
-        "packages/server/src/services/level-up/asi.ts": {
-          "count": 1,
-          "messagesFingerprint": "sha256:21c9b98a1cc8be58db349858784d875e003891961c37ae6c7da895eed5367f6c"
+          "messagesFingerprint": "sha256:7bdfb9755638267d87b7551da2c225ba19d37141402ec73a7cd81a3290c99c8c"
         },
         "packages/server/src/services/level-up/core.ts": {
           "count": 4,
-          "messagesFingerprint": "sha256:21c62edd9226ab5f9bf0e237b7961c31dab1196aafb118dd2b5286bc2961cf6a"
+          "messagesFingerprint": "sha256:0cd6b0993115b8b07d056248d1a71082c978cc8a8ca018360a78c39376fbc3a2"
         },
         "packages/server/src/services/level-up/subclass.ts": {
           "count": 3,
-          "messagesFingerprint": "sha256:daa724641d63b3f1fad012a60f671559fe1fdf6599530b28e65ccc8bebdf46e9"
+          "messagesFingerprint": "sha256:7bdfb9755638267d87b7551da2c225ba19d37141402ec73a7cd81a3290c99c8c"
         },
         "packages/server/src/services/rest-service.ts": {
           "count": 4,
-          "messagesFingerprint": "sha256:21c62edd9226ab5f9bf0e237b7961c31dab1196aafb118dd2b5286bc2961cf6a"
-        },
-        "packages/server/src/services/spell-casting/apply-damage.ts": {
-          "count": 1,
-          "messagesFingerprint": "sha256:38cbfdd582ad3b7917d5dab995474c0850a9bc888fe6c78c97e68ef0a541336d"
+          "messagesFingerprint": "sha256:0cd6b0993115b8b07d056248d1a71082c978cc8a8ca018360a78c39376fbc3a2"
         },
         "packages/server/src/services/spell-casting/combat-transaction.ts": {
           "count": 2,
-          "messagesFingerprint": "sha256:e63b68e30b3d31bf23cef7152521bcd7aae4c7af548cf990cb6ee25830ab7577"
-        },
-        "packages/server/src/services/spell-casting/resolve-spell.ts": {
-          "count": 1,
-          "messagesFingerprint": "sha256:880802ee96d014eb728dc9114ab65bea869e77d720b51c947bd8d223d3111aa0"
+          "messagesFingerprint": "sha256:0a0c90e7ebb79b8625bd3a47a3905200693b39a41b2bf58da4dd7c1a3d32d241"
         },
         "packages/server/src/services/spell-casting/spell-casting.ts": {
           "count": 3,
-          "messagesFingerprint": "sha256:daa724641d63b3f1fad012a60f671559fe1fdf6599530b28e65ccc8bebdf46e9"
+          "messagesFingerprint": "sha256:7bdfb9755638267d87b7551da2c225ba19d37141402ec73a7cd81a3290c99c8c"
         },
         "packages/server/src/services/starting-equipment-service.ts": {
           "count": 3,
-          "messagesFingerprint": "sha256:856767e6def95e2e33315b059c9778835b19a198fc4e1d8ea528b650d3661c85"
+          "messagesFingerprint": "sha256:30cc0dc75d985ff0fd1ea669464dc6767fa81dce7bba3c2e240507c9e156ae2d"
         }
       }
     },
     "ratchet/strict-boolean-expressions-shared": {
       "ruleId": "@typescript-eslint/strict-boolean-expressions",
       "mode": "no-new",
-      "target": 0,
       "metric": "message-count",
       "files": [
         "packages/shared/src/**/*.{ts,tsx}"
@@ -817,8 +1009,8 @@
         "**/dist/**",
         "**/generated/**",
         "**/node_modules/**",
-        "packages/shared/src/**/*.{test,spec}.{ts,tsx}",
         "packages/shared/src/**/*.test-helper.{ts,tsx}",
+        "packages/shared/src/**/*.{test,spec}.{ts,tsx}",
         "packages/shared/src/test/**/*.{ts,tsx}"
       ],
       "ruleOptions": [
@@ -833,14 +1025,13 @@
           "allowString": false
         }
       ],
-      "configHash": "sha256:2b79e77804a4842916434288e178f430bc4f877725a0b1a5b9cca0050f75d5b8",
-      "ruleSourceHash": "sha256:b59cb4594a258f43ffa276e84e5c1e16ed5c1152003e1755851a1ccfc1ded457",
+      "configHash": "sha256:0877ac9927361b41f032567212b6da280ea25d6b0edd7c0fa5ffbd5d3c365c86",
+      "ruleSourceHash": "sha256:3bba264757292b7d612367c54c3fd74f8b67e62f8f91a75dd45466f7a352eab2",
       "items": {}
     },
     "ratchet/testing-library-no-container-client-tests": {
       "ruleId": "testing-library/no-container",
       "mode": "no-new",
-      "target": 0,
       "metric": "message-count",
       "files": [
         "packages/client/src/**/*.test.tsx"
@@ -851,71 +1042,66 @@
         "**/node_modules/**"
       ],
       "ruleOptions": [],
-      "configHash": "sha256:b7449bbc2a0f30dca79a13cdc0b7172f8a03da07ff1824bfabe1fa09600edb02",
-      "ruleSourceHash": "sha256:b7bfe351dbf81f24efc3eaebdb3d6a8ee934b9364f15c6629f79cc7013384297",
+      "configHash": "sha256:dcf40ef4389988a5cb03e69374f08fc90b80d38fd83df3af5653f4332d3d6aca",
+      "ruleSourceHash": "sha256:d7022752176a1c441b83bf4a9c5fbc3bc4b0e7b21b9399ccea4a67a839fdb00b",
       "items": {
-        "packages/client/src/components/campaign/combat/combat-death-saves.test.tsx": {
-          "count": 1,
-          "messagesFingerprint": "sha256:a3051121d2d6d7936dc30ca9c31926c46ff0c145f6e54809630629fcce4f6b59"
-        },
         "packages/client/src/components/campaign/combat/combat-map-panel.test.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:a3051121d2d6d7936dc30ca9c31926c46ff0c145f6e54809630629fcce4f6b59"
+          "messagesFingerprint": "sha256:d5b14f3f41d834efb9dfb923112038fed821b77b721041ca8589c4294db4fc40"
         },
         "packages/client/src/components/campaign/combat/participant-stats.test.tsx": {
           "count": 4,
-          "messagesFingerprint": "sha256:32034919603d42185623fb20b2706e57e62d4b16701fe529db113b6924284376"
+          "messagesFingerprint": "sha256:ecdcc0febeeff7618b823b541fedbb2cafc7e017882d8377e59d06079926abf5"
         },
         "packages/client/src/components/campaign/maps/edit-map-dialog.test.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:a3051121d2d6d7936dc30ca9c31926c46ff0c145f6e54809630629fcce4f6b59"
+          "messagesFingerprint": "sha256:d5b14f3f41d834efb9dfb923112038fed821b77b721041ca8589c4294db4fc40"
         },
         "packages/client/src/components/campaign/maps/template-overlay.test.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:a3051121d2d6d7936dc30ca9c31926c46ff0c145f6e54809630629fcce4f6b59"
+          "messagesFingerprint": "sha256:d5b14f3f41d834efb9dfb923112038fed821b77b721041ca8589c4294db4fc40"
         },
         "packages/client/src/components/common/loading-spinner.test.tsx": {
           "count": 3,
-          "messagesFingerprint": "sha256:94f64ed5364f584775e97155a86981acf2a2b05a988d9788aaf6abdca47e9429"
+          "messagesFingerprint": "sha256:5e5592d87e7a95323304c764b39d66cc9104b378a367a84d82114e453e0c5607"
         },
         "packages/client/src/components/common/paginated-result-list.test.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:a3051121d2d6d7936dc30ca9c31926c46ff0c145f6e54809630629fcce4f6b59"
+          "messagesFingerprint": "sha256:d5b14f3f41d834efb9dfb923112038fed821b77b721041ca8589c4294db4fc40"
         },
         "packages/client/src/components/homebrew/shared/form-field-error.test.tsx": {
           "count": 2,
-          "messagesFingerprint": "sha256:8341b0aca2adeb86d661cab7152cdb4b7e447da52c440431780c2f4702cba76a"
+          "messagesFingerprint": "sha256:a7d73d970a068eafffb2788eb7f0fed5683cef02f3945807a2bfc3ff3a63a40e"
         },
         "packages/client/src/components/homebrew/shared/homebrew-core-fields.test.tsx": {
           "count": 2,
-          "messagesFingerprint": "sha256:8341b0aca2adeb86d661cab7152cdb4b7e447da52c440431780c2f4702cba76a"
+          "messagesFingerprint": "sha256:a7d73d970a068eafffb2788eb7f0fed5683cef02f3945807a2bfc3ff3a63a40e"
         },
         "packages/client/src/components/homebrew/shared/homebrew-text-field.test.tsx": {
           "count": 2,
-          "messagesFingerprint": "sha256:8341b0aca2adeb86d661cab7152cdb4b7e447da52c440431780c2f4702cba76a"
+          "messagesFingerprint": "sha256:a7d73d970a068eafffb2788eb7f0fed5683cef02f3945807a2bfc3ff3a63a40e"
         },
         "packages/client/src/components/homebrew/shared/homebrew-textarea-field.test.tsx": {
           "count": 2,
-          "messagesFingerprint": "sha256:8341b0aca2adeb86d661cab7152cdb4b7e447da52c440431780c2f4702cba76a"
+          "messagesFingerprint": "sha256:a7d73d970a068eafffb2788eb7f0fed5683cef02f3945807a2bfc3ff3a63a40e"
         },
         "packages/client/src/components/notifications/notification-bell.test.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:a3051121d2d6d7936dc30ca9c31926c46ff0c145f6e54809630629fcce4f6b59"
+          "messagesFingerprint": "sha256:d5b14f3f41d834efb9dfb923112038fed821b77b721041ca8589c4294db4fc40"
         },
         "packages/client/src/components/notifications/notification-item.test.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:a3051121d2d6d7936dc30ca9c31926c46ff0c145f6e54809630629fcce4f6b59"
+          "messagesFingerprint": "sha256:d5b14f3f41d834efb9dfb923112038fed821b77b721041ca8589c4294db4fc40"
         },
         "packages/client/src/components/notifications/notification-popover.test.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:a3051121d2d6d7936dc30ca9c31926c46ff0c145f6e54809630629fcce4f6b59"
+          "messagesFingerprint": "sha256:d5b14f3f41d834efb9dfb923112038fed821b77b721041ca8589c4294db4fc40"
         }
       }
     },
     "ratchet/testing-library-no-node-access-client-tests": {
       "ruleId": "testing-library/no-node-access",
       "mode": "no-new",
-      "target": 0,
       "metric": "message-count",
       "files": [
         "packages/client/src/**/*.test.tsx"
@@ -926,151 +1112,150 @@
         "**/node_modules/**"
       ],
       "ruleOptions": [],
-      "configHash": "sha256:2ce4f4c0479f20ea8731c151a67b0f490ce644821d42995a52319a381e115bf2",
-      "ruleSourceHash": "sha256:b7bfe351dbf81f24efc3eaebdb3d6a8ee934b9364f15c6629f79cc7013384297",
+      "configHash": "sha256:9403f1d5d0e4190c8feb21ab7f516189ef83c05ea6b2ea3b437d751ca683b518",
+      "ruleSourceHash": "sha256:d7022752176a1c441b83bf4a9c5fbc3bc4b0e7b21b9399ccea4a67a839fdb00b",
       "items": {
         "packages/client/src/components/campaign/combat/combat-death-saves.test.tsx": {
           "count": 2,
-          "messagesFingerprint": "sha256:958b0962274ef74fd632399b1679fe9c3d2397fa582bbc7582ab7cb1745314cf"
+          "messagesFingerprint": "sha256:3b5be15603708ca8f6d02c8b0918708e16ff6a564ed8a8b92e73d0dbc507235d"
         },
         "packages/client/src/components/campaign/combat/initiative-tracker-initiative-edit.test.tsx": {
           "count": 2,
-          "messagesFingerprint": "sha256:958b0962274ef74fd632399b1679fe9c3d2397fa582bbc7582ab7cb1745314cf"
+          "messagesFingerprint": "sha256:3b5be15603708ca8f6d02c8b0918708e16ff6a564ed8a8b92e73d0dbc507235d"
         },
         "packages/client/src/components/campaign/combat/initiative-tracker.test.tsx": {
           "count": 3,
-          "messagesFingerprint": "sha256:0cb19fc87d7d6114a50cb1b452a1290502e52851efbc2b43cf1b9f9eac6f73a8"
+          "messagesFingerprint": "sha256:20c8ffab5cd1956b3b7b20f52423af7c5da74a1a6c2278b38931d9cc7c48f57d"
         },
         "packages/client/src/components/campaign/combat/participant-stats.test.tsx": {
           "count": 8,
-          "messagesFingerprint": "sha256:58cb45a7c98760b37ca72f9b393f0439094044867ba48f17d4ec9658fd4fa445"
+          "messagesFingerprint": "sha256:5b86a15837523ff162a47eb6974731f1fb7ebefdcc8499375ed8ad0ae2b52007"
         },
         "packages/client/src/components/campaign/maps/edit-map-dialog.test.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:fd5244828892d8bf0349cb7ae18c8be94f0fec8ad4a3e639bf717044bd44e513"
+          "messagesFingerprint": "sha256:5c2f0e4b4c4037224321d5f96d1aea6d8b8e5d5484305f764f3d8f38f28f57b6"
         },
         "packages/client/src/components/campaign/maps/fog-overlay.test.tsx": {
           "count": 2,
-          "messagesFingerprint": "sha256:958b0962274ef74fd632399b1679fe9c3d2397fa582bbc7582ab7cb1745314cf"
+          "messagesFingerprint": "sha256:3b5be15603708ca8f6d02c8b0918708e16ff6a564ed8a8b92e73d0dbc507235d"
         },
         "packages/client/src/components/campaign/maps/map-toolbar.test.tsx": {
           "count": 4,
-          "messagesFingerprint": "sha256:3960d000205934c8834dc17f9787d80e1be192be2e185ffe7746a5b04cd0fda7"
+          "messagesFingerprint": "sha256:3bb999cf9754b8ef5011dafea6a4102ecb1c99ad742dd2a4e54edb42866717d7"
         },
         "packages/client/src/components/campaign/maps/template-overlay.test.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:fd5244828892d8bf0349cb7ae18c8be94f0fec8ad4a3e639bf717044bd44e513"
+          "messagesFingerprint": "sha256:5c2f0e4b4c4037224321d5f96d1aea6d8b8e5d5484305f764f3d8f38f28f57b6"
         },
         "packages/client/src/components/campaign/npcs/monster-tab.test.tsx": {
           "count": 4,
-          "messagesFingerprint": "sha256:3960d000205934c8834dc17f9787d80e1be192be2e185ffe7746a5b04cd0fda7"
+          "messagesFingerprint": "sha256:3bb999cf9754b8ef5011dafea6a4102ecb1c99ad742dd2a4e54edb42866717d7"
         },
         "packages/client/src/components/campaign/tokens/token-sidebar.test.tsx": {
           "count": 2,
-          "messagesFingerprint": "sha256:958b0962274ef74fd632399b1679fe9c3d2397fa582bbc7582ab7cb1745314cf"
+          "messagesFingerprint": "sha256:3b5be15603708ca8f6d02c8b0918708e16ff6a564ed8a8b92e73d0dbc507235d"
         },
         "packages/client/src/components/character-create/steps/background-step.test.tsx": {
           "count": 10,
-          "messagesFingerprint": "sha256:e044ba30eddea06f0a9472c17b1031ad4b14c2627c88ad352990de85a8197f94"
+          "messagesFingerprint": "sha256:5e38126c0d6dae9318fe48f62a23182c0178cda5e9426503908596ce7e40ca3c"
         },
         "packages/client/src/components/character-create/steps/class-step.test.tsx": {
           "count": 10,
-          "messagesFingerprint": "sha256:e044ba30eddea06f0a9472c17b1031ad4b14c2627c88ad352990de85a8197f94"
+          "messagesFingerprint": "sha256:5e38126c0d6dae9318fe48f62a23182c0178cda5e9426503908596ce7e40ca3c"
         },
         "packages/client/src/components/character-create/steps/equipment-step.test.tsx": {
           "count": 2,
-          "messagesFingerprint": "sha256:958b0962274ef74fd632399b1679fe9c3d2397fa582bbc7582ab7cb1745314cf"
+          "messagesFingerprint": "sha256:3b5be15603708ca8f6d02c8b0918708e16ff6a564ed8a8b92e73d0dbc507235d"
         },
         "packages/client/src/components/character-create/steps/species-step.test.tsx": {
           "count": 19,
-          "messagesFingerprint": "sha256:1dda5574754ce98443f554489b17b7ed0dbc79553d3fc319ae899007f2b4560f"
+          "messagesFingerprint": "sha256:bf1845e90de4d64f0d3d9e04d756244908bf9a5f1c2d2989ed48d616fdd26ade"
         },
         "packages/client/src/components/common/connection-status.test.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:fd5244828892d8bf0349cb7ae18c8be94f0fec8ad4a3e639bf717044bd44e513"
+          "messagesFingerprint": "sha256:5c2f0e4b4c4037224321d5f96d1aea6d8b8e5d5484305f764f3d8f38f28f57b6"
         },
         "packages/client/src/components/common/loading-spinner.test.tsx": {
           "count": 5,
-          "messagesFingerprint": "sha256:f0e0b67f2941800878e227662d9b3d27123b10f0855fdd06920bf3729ee8e278"
+          "messagesFingerprint": "sha256:f276a42643ab15703bedf6e41b3f92c2f4cdbd74089da4a65ab1f0caf03d5753"
         },
         "packages/client/src/components/common/paginated-result-list.test.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:fd5244828892d8bf0349cb7ae18c8be94f0fec8ad4a3e639bf717044bd44e513"
+          "messagesFingerprint": "sha256:5c2f0e4b4c4037224321d5f96d1aea6d8b8e5d5484305f764f3d8f38f28f57b6"
         },
         "packages/client/src/components/compendium/magic-item-list.test.tsx": {
           "count": 6,
-          "messagesFingerprint": "sha256:6651ab9679d12c5e8627eb2d104394ec678ee46ddab2fd01f508bc6ce1761e95"
+          "messagesFingerprint": "sha256:d528776ea8e2b7c82bb073cac6daa222def6ba86029e1cdacd900dcc93eae583"
         },
         "packages/client/src/components/homebrew/entries/entry-dialog.test.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:fd5244828892d8bf0349cb7ae18c8be94f0fec8ad4a3e639bf717044bd44e513"
+          "messagesFingerprint": "sha256:5c2f0e4b4c4037224321d5f96d1aea6d8b8e5d5484305f764f3d8f38f28f57b6"
         },
         "packages/client/src/components/homebrew/shared/form-field-error.test.tsx": {
           "count": 2,
-          "messagesFingerprint": "sha256:958b0962274ef74fd632399b1679fe9c3d2397fa582bbc7582ab7cb1745314cf"
+          "messagesFingerprint": "sha256:3b5be15603708ca8f6d02c8b0918708e16ff6a564ed8a8b92e73d0dbc507235d"
         },
         "packages/client/src/components/homebrew/shared/homebrew-core-fields.test.tsx": {
           "count": 2,
-          "messagesFingerprint": "sha256:958b0962274ef74fd632399b1679fe9c3d2397fa582bbc7582ab7cb1745314cf"
+          "messagesFingerprint": "sha256:3b5be15603708ca8f6d02c8b0918708e16ff6a564ed8a8b92e73d0dbc507235d"
         },
         "packages/client/src/components/homebrew/shared/homebrew-text-field.test.tsx": {
           "count": 2,
-          "messagesFingerprint": "sha256:958b0962274ef74fd632399b1679fe9c3d2397fa582bbc7582ab7cb1745314cf"
+          "messagesFingerprint": "sha256:3b5be15603708ca8f6d02c8b0918708e16ff6a564ed8a8b92e73d0dbc507235d"
         },
         "packages/client/src/components/homebrew/shared/homebrew-textarea-field.test.tsx": {
           "count": 2,
-          "messagesFingerprint": "sha256:958b0962274ef74fd632399b1679fe9c3d2397fa582bbc7582ab7cb1745314cf"
+          "messagesFingerprint": "sha256:3b5be15603708ca8f6d02c8b0918708e16ff6a564ed8a8b92e73d0dbc507235d"
         },
         "packages/client/src/components/notifications/notification-bell.test.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:fd5244828892d8bf0349cb7ae18c8be94f0fec8ad4a3e639bf717044bd44e513"
+          "messagesFingerprint": "sha256:5c2f0e4b4c4037224321d5f96d1aea6d8b8e5d5484305f764f3d8f38f28f57b6"
         },
         "packages/client/src/components/notifications/notification-item.test.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:fd5244828892d8bf0349cb7ae18c8be94f0fec8ad4a3e639bf717044bd44e513"
+          "messagesFingerprint": "sha256:5c2f0e4b4c4037224321d5f96d1aea6d8b8e5d5484305f764f3d8f38f28f57b6"
         },
         "packages/client/src/components/notifications/notification-popover.test.tsx": {
           "count": 2,
-          "messagesFingerprint": "sha256:958b0962274ef74fd632399b1679fe9c3d2397fa582bbc7582ab7cb1745314cf"
+          "messagesFingerprint": "sha256:3b5be15603708ca8f6d02c8b0918708e16ff6a564ed8a8b92e73d0dbc507235d"
         },
         "packages/client/src/components/sheet/ability-scores.test.tsx": {
           "count": 2,
-          "messagesFingerprint": "sha256:958b0962274ef74fd632399b1679fe9c3d2397fa582bbc7582ab7cb1745314cf"
+          "messagesFingerprint": "sha256:3b5be15603708ca8f6d02c8b0918708e16ff6a564ed8a8b92e73d0dbc507235d"
         },
         "packages/client/src/components/sheet/character-sheet.test.tsx": {
           "count": 2,
-          "messagesFingerprint": "sha256:958b0962274ef74fd632399b1679fe9c3d2397fa582bbc7582ab7cb1745314cf"
+          "messagesFingerprint": "sha256:3b5be15603708ca8f6d02c8b0918708e16ff6a564ed8a8b92e73d0dbc507235d"
         },
         "packages/client/src/components/sheet/concentration-indicator.test.tsx": {
           "count": 1,
-          "messagesFingerprint": "sha256:fd5244828892d8bf0349cb7ae18c8be94f0fec8ad4a3e639bf717044bd44e513"
+          "messagesFingerprint": "sha256:5c2f0e4b4c4037224321d5f96d1aea6d8b8e5d5484305f764f3d8f38f28f57b6"
         },
         "packages/client/src/components/sheet/saving-throws.test.tsx": {
           "count": 3,
-          "messagesFingerprint": "sha256:0cb19fc87d7d6114a50cb1b452a1290502e52851efbc2b43cf1b9f9eac6f73a8"
+          "messagesFingerprint": "sha256:20c8ffab5cd1956b3b7b20f52423af7c5da74a1a6c2278b38931d9cc7c48f57d"
         },
         "packages/client/src/components/sheet/skills-list.test.tsx": {
           "count": 2,
-          "messagesFingerprint": "sha256:958b0962274ef74fd632399b1679fe9c3d2397fa582bbc7582ab7cb1745314cf"
+          "messagesFingerprint": "sha256:3b5be15603708ca8f6d02c8b0918708e16ff6a564ed8a8b92e73d0dbc507235d"
         },
         "packages/client/src/components/sheet/spell-row.test.tsx": {
           "count": 2,
-          "messagesFingerprint": "sha256:958b0962274ef74fd632399b1679fe9c3d2397fa582bbc7582ab7cb1745314cf"
+          "messagesFingerprint": "sha256:3b5be15603708ca8f6d02c8b0918708e16ff6a564ed8a8b92e73d0dbc507235d"
         },
         "packages/client/src/components/sheet/spell-slot-pips.test.tsx": {
           "count": 2,
-          "messagesFingerprint": "sha256:958b0962274ef74fd632399b1679fe9c3d2397fa582bbc7582ab7cb1745314cf"
+          "messagesFingerprint": "sha256:3b5be15603708ca8f6d02c8b0918708e16ff6a564ed8a8b92e73d0dbc507235d"
         },
         "packages/client/src/components/vtt/drawer/tabs/stats-tab.test.tsx": {
           "count": 2,
-          "messagesFingerprint": "sha256:958b0962274ef74fd632399b1679fe9c3d2397fa582bbc7582ab7cb1745314cf"
+          "messagesFingerprint": "sha256:3b5be15603708ca8f6d02c8b0918708e16ff6a564ed8a8b92e73d0dbc507235d"
         }
       }
     },
     "ratchet/vitest-expect-expect-drift-ai-tests": {
       "ruleId": "vitest/expect-expect",
       "mode": "no-new",
-      "target": 0,
       "metric": "message-count",
       "files": [
         "scripts/drift-ai.test.ts",
@@ -1086,19 +1271,18 @@
           ]
         }
       ],
-      "configHash": "sha256:49cfa4e3968baabeaabb8059517eeaa623d9ecdf498c00a937635601a7446bec",
-      "ruleSourceHash": "sha256:dca95346de5edfbb32d2f084bec47542f1d2edc7c66eb352455c417747e61259",
+      "configHash": "sha256:017288d9c8a4759c3e65874f921727ac1a6d570a67cb5d0c8dac02ee9fc18b3a",
+      "ruleSourceHash": "sha256:84fa68f3c7b9c2a27f7bcd2605979cedf0d3d507a35e4f4c6fb73088411d8639",
       "items": {}
     },
     "ratchet/vitest-expect-expect-script-tests": {
       "ruleId": "vitest/expect-expect",
       "mode": "no-new",
-      "target": 0,
       "metric": "message-count",
       "files": [
         "scripts/code-intel/**/*.test.ts",
         "scripts/lint-coverage-map-check.test.ts",
-        "scripts/lint-ratchet/lint-ratchet-baseline.test.ts"
+        "scripts/lint-ratchet/baseline.test.ts"
       ],
       "ignores": [],
       "ruleOptions": [
@@ -1114,14 +1298,13 @@
           ]
         }
       ],
-      "configHash": "sha256:776429f8d3862e662a24d29d0231a310eb550ac9ac5e288decb63651cd46301e",
-      "ruleSourceHash": "sha256:dca95346de5edfbb32d2f084bec47542f1d2edc7c66eb352455c417747e61259",
+      "configHash": "sha256:689ef7670cf52dff644563b2d6ed8e0313f0e10106f579976118b44f3612281e",
+      "ruleSourceHash": "sha256:84fa68f3c7b9c2a27f7bcd2605979cedf0d3d507a35e4f4c6fb73088411d8639",
       "items": {}
     },
     "ratchet/vitest-valid-expect-drift-ai-tests": {
       "ruleId": "vitest/valid-expect",
       "mode": "no-new",
-      "target": 0,
       "metric": "message-count",
       "files": [
         "scripts/drift-ai.test.ts",
@@ -1135,19 +1318,18 @@
           "maxArgs": 2
         }
       ],
-      "configHash": "sha256:20d2c0f6fbbd924d344b0dcaeb4572a8a28f95212a4dacf207db23ed4bb33960",
-      "ruleSourceHash": "sha256:dca95346de5edfbb32d2f084bec47542f1d2edc7c66eb352455c417747e61259",
+      "configHash": "sha256:bc463a5c4413ccd50cbe1a1679fa3d2830aaac6ab3b6c814ea880b27205abe93",
+      "ruleSourceHash": "sha256:84fa68f3c7b9c2a27f7bcd2605979cedf0d3d507a35e4f4c6fb73088411d8639",
       "items": {}
     },
     "ratchet/vitest-valid-expect-script-tests": {
       "ruleId": "vitest/valid-expect",
       "mode": "no-new",
-      "target": 0,
       "metric": "message-count",
       "files": [
         "scripts/code-intel/**/*.test.ts",
         "scripts/lint-coverage-map-check.test.ts",
-        "scripts/lint-ratchet/lint-ratchet-baseline.test.ts"
+        "scripts/lint-ratchet/baseline.test.ts"
       ],
       "ignores": [],
       "ruleOptions": [
@@ -1155,8 +1337,8 @@
           "maxArgs": 2
         }
       ],
-      "configHash": "sha256:a0277df5b974b0dc5d13dfa8a48aa9fbc57f019e6a87e0376727ea3ab5465977",
-      "ruleSourceHash": "sha256:dca95346de5edfbb32d2f084bec47542f1d2edc7c66eb352455c417747e61259",
+      "configHash": "sha256:83c28088d3af8ac5b58af40bcb15122484f6337003944513d9cfe515475f11db",
+      "ruleSourceHash": "sha256:84fa68f3c7b9c2a27f7bcd2605979cedf0d3d507a35e4f4c6fb73088411d8639",
       "items": {}
     }
   }

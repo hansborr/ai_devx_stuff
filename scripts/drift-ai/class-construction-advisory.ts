@@ -34,7 +34,7 @@ const PARSER_LIMITATION =
   "framework host API modeling, or runtime registration proof";
 const AMBIGUOUS_NAME_CAVEAT = "risky-context: ambiguous-name-shared-evidence";
 
-export type ClassUnusedExportsReportStatus = KnipUnusedExportsReportStatus;
+type ClassUnusedExportsReportStatus = KnipUnusedExportsReportStatus;
 
 export type ClassConstructionAdvisoryInput = {
   readonly inventory: ClassConstructionInventory;
@@ -45,7 +45,7 @@ export type ClassConstructionAdvisoryInput = {
   readonly top?: number;
 };
 
-export type ClassConstructionUnusedExportCorrelation = {
+type ClassConstructionUnusedExportCorrelation = {
   readonly kind: "unused-export";
   readonly source: "knip report";
   readonly category: UnusedExportCategory;
@@ -56,7 +56,7 @@ export type ClassConstructionUnusedExportCorrelation = {
   readonly namespace: string | null;
 };
 
-export type ClassConstructionAdvisoryRow = {
+type ClassConstructionAdvisoryRow = {
   readonly rank: number;
   readonly id: string;
   readonly filePath: string;
@@ -72,7 +72,7 @@ export type ClassConstructionAdvisoryRow = {
   readonly correlations: readonly ClassConstructionUnusedExportCorrelation[];
 };
 
-export type ClassConstructionAdvisorySection = PrototypeSection<ClassConstructionAdvisoryRow>;
+type ClassConstructionAdvisorySection = PrototypeSection<ClassConstructionAdvisoryRow>;
 export type ClassConstructionAdvisory = PrototypeAdvisory<ClassConstructionAdvisorySection>;
 
 export function buildClassConstructionAdvisory(

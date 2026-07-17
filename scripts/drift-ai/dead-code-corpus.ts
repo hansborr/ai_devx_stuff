@@ -15,13 +15,8 @@ import {
 export { loadDeadCodeCorpusLabels } from "./dead-code-corpus-labels.js";
 export { extractDeadCodeCorpusSymbols } from "./dead-code-corpus-symbols.js";
 export {
-  DEAD_CODE_CORPUS_LABEL_KINDS,
-  type DeadCodeCorpusExportKind,
   type DeadCodeCorpusLabel,
-  type DeadCodeCorpusLabelKind,
   type DeadCodeCorpusLabels,
-  type DeadCodeCorpusSymbol,
-  type DeadCodeCorpusSymbolId,
   deadCodeCorpusSymbolId,
   type DeadCodeCorpusSymbolRef,
   type DeadCodeCorpusValidation,

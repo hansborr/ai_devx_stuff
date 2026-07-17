@@ -1,34 +1,20 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
-
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import {
   classifyClientTestFileSource,
   classifyClientTestIsolation,
   runClientTestIsolationClassifierCli,
 } from "./client-test-isolation-classifier.js";
+import { registerTempRootCleanup } from "./test-support/tmp-repo.test-helper.js";
 
-const tempRoots: string[] = [];
-
-afterEach(() => {
-  while (tempRoots.length > 0) {
-    const root = tempRoots.pop();
-    if (root) rmSync(root, { recursive: true, force: true });
-  }
-});
+const tmpRepo = registerTempRootCleanup();
 
 function makeRepo(): string {
-  const root = mkdtempSync(path.join(tmpdir(), "client-test-isolation-classifier-"));
-  tempRoots.push(root);
-  return root;
+  return tmpRepo.makeTempRepo("client-test-isolation-classifier-");
 }
 
 function writeFixture(root: string, relativePath: string, source: string): void {
-  const target = path.join(root, relativePath);
-  mkdirSync(path.dirname(target), { recursive: true });
-  writeFileSync(target, source);
+  tmpRepo.writeRepoFile(root, relativePath, source);
 }
 
 describe("classifyClientTestFileSource", () => {

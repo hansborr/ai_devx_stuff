@@ -19,6 +19,7 @@ import {
   formatPrototypeHeader,
   type PrototypeAdvisory,
   type PrototypeCap,
+  type PrototypeScanProvenance,
   type PrototypeSection,
 } from "./prototype-advisory.js";
 
@@ -26,7 +27,7 @@ export const DOLOS_CANDIDATES_SUBCOMMAND = "dolos-candidates";
 export const DEFAULT_DOLOS_CANDIDATES_TOP = 20;
 const DOLOS_CANDIDATE_KIND = "Dolos fragment-level clone candidates";
 
-export type DolosAdvisoryRow = {
+type DolosAdvisoryRow = {
   readonly rank: number;
   readonly candidateSource: typeof DOLOS_TOOL;
   readonly engineVersion: string | null;
@@ -38,21 +39,23 @@ export type DolosAdvisoryRow = {
   readonly metrics: DolosPairMetrics;
 };
 
-export type DolosAdvisorySection = PrototypeSection<DolosAdvisoryRow>;
+type DolosAdvisorySection = PrototypeSection<DolosAdvisoryRow>;
 export type DolosAdvisory = PrototypeAdvisory<DolosAdvisorySection>;
 
 export type DolosAdvisoryOptions = {
   readonly top?: number;
+  readonly scanProvenance?: PrototypeScanProvenance;
 };
 
 export function buildDolosAdvisory(
   result: DolosRunnerResult,
   options: DolosAdvisoryOptions = {},
 ): DolosAdvisory {
-  if (!result.ok) return failedAdvisory(result);
+  if (!result.ok) return failedAdvisory(result, options.scanProvenance);
   const rows = result.candidates.map((candidate, index) => rowForCandidate(candidate, index + 1));
   return buildPrototypeAdvisory({
     subcommand: DOLOS_CANDIDATES_SUBCOMMAND,
+    ...(options.scanProvenance === undefined ? {} : { scanProvenance: options.scanProvenance }),
     prerequisites: [
       {
         name: "dolos engine",
@@ -97,7 +100,10 @@ export function formatDolosAdvisoryText(advisory: DolosAdvisory): string {
 type FailedDolosResult = Extract<DolosRunnerResult, { readonly ok: false }>;
 type SuccessfulDolosResult = Extract<DolosRunnerResult, { readonly ok: true }>;
 
-function failedAdvisory(result: FailedDolosResult): DolosAdvisory {
+function failedAdvisory(
+  result: FailedDolosResult,
+  scanProvenance: PrototypeScanProvenance | undefined,
+): DolosAdvisory {
   // Each failure mode has exactly one canonical disclosure: a missing binary is an
   // UNMET prerequisite; a timeout is a HIT wall-clock cap; a run-failure is a
   // degradation. timeout/run-failure both keep the prerequisite satisfied (Dolos
@@ -105,6 +111,7 @@ function failedAdvisory(result: FailedDolosResult): DolosAdvisory {
   const available = result.reason !== "tool-unavailable";
   return buildPrototypeAdvisory<DolosAdvisorySection>({
     subcommand: DOLOS_CANDIDATES_SUBCOMMAND,
+    ...(scanProvenance === undefined ? {} : { scanProvenance }),
     prerequisites: [
       {
         name: "dolos engine",

@@ -25,7 +25,7 @@ import { toPosix } from "./path-util.js";
 // A function reference, formatted `<corpus-relative-path>#<functionName>`.
 export type CloneCorpusFunctionId = string;
 
-export type CloneCorpusPairLabel = {
+type CloneCorpusPairLabel = {
   readonly a: CloneCorpusFunctionId;
   readonly b: CloneCorpusFunctionId;
   readonly category: string;
@@ -56,7 +56,7 @@ export type DetectedClonePair = {
   readonly lineImpact: number;
 };
 
-export type CloneCorpusCategoryRecall = {
+type CloneCorpusCategoryRecall = {
   readonly detected: number;
   readonly total: number;
 };

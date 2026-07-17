@@ -26,6 +26,7 @@ function isCliEntrypoint(): boolean {
 if (isCliEntrypoint()) {
   const result = runKnipUnusedExportsCli({
     argv: process.argv.slice(PROCESS_ARGV_USER_ARGS_START),
+    env: process.env,
     warn: (message) => {
       console.error(message);
     },

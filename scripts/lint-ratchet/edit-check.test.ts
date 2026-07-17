@@ -29,21 +29,27 @@ const MINIMAL_TS_FILE = "scripts/code-intel/cli-options.test.ts";
 const TYPE_AWARE_TEST_ID = "ratchet/strict-boolean-expressions-shared";
 const TYPE_AWARE_RULE_ID = "@typescript-eslint/strict-boolean-expressions";
 const SHARED_SOURCE_FILE = "packages/shared/src/foo.ts";
+const SERVER_TEST_HELPER_FILE = "packages/server/src/services/level-up/level-up-test-helper.ts";
+const SHARED_MINIMAL_TS_TEST_IDS = [
+  "ratchet/local-no-commented-out-code",
+  "ratchet/local-no-swallowed-errors-broader-semantics",
+  "ratchet/local-type-assertion-boundary",
+  "ratchet/max-depth-production",
+  "ratchet/max-lines-per-function-production",
+] as const;
 
 describe("discoverEditCheckTargets", () => {
-  it("includes only the minimal-TS ratchet for a shared source file and excludes the type-aware floor", () => {
-    // packages/shared/src matches both the local type-assertion ratchet
-    // (minimal-ts) and the type-aware strict-boolean-expressions floor. Only
-    // the cache-using one survives the usesEslintCache gate; flipping that gate
-    // would either drop the local ratchet or pull the type-aware one in.
+  it("includes the minimal-TS ratchets for a shared source file and excludes the type-aware floor", () => {
+    // packages/shared/src matches the code-wide local rules, local
+    // type-assertion and structural function ratchets (minimal-ts), plus the
+    // type-aware strict-boolean floor. Only the cache-using ratchets survive
+    // the usesEslintCache gate.
     const targets = discoverEditCheckTargets([SHARED_SOURCE_FILE]);
-    expect(targets.map((target) => target.testId)).toStrictEqual([
-      "ratchet/local-type-assertion-boundary",
-    ]);
+    expect(targets.map((target) => target.testId)).toStrictEqual(SHARED_MINIMAL_TS_TEST_IDS);
     expect(targets.some((target) => target.testId === TYPE_AWARE_TEST_ID)).toBe(false);
   });
 
-  it("maps a script test file to its three minimal-TS ratchets sorted by ratchet id with cache identities", () => {
+  it("maps a script test file to its minimal-TS ratchets sorted by ratchet id with cache identities", () => {
     const targets = discoverEditCheckTargets([MINIMAL_TS_FILE]);
     expect(
       targets.map((target) => ({
@@ -52,6 +58,16 @@ describe("discoverEditCheckTargets", () => {
         ruleId: target.ruleId,
       })),
     ).toStrictEqual([
+      {
+        path: MINIMAL_TS_FILE,
+        testId: "ratchet/local-no-commented-out-code",
+        ruleId: "local/no-commented-out-code",
+      },
+      {
+        path: MINIMAL_TS_FILE,
+        testId: "ratchet/local-no-swallowed-errors-broader-semantics",
+        ruleId: "local/no-swallowed-errors",
+      },
       {
         path: MINIMAL_TS_FILE,
         testId: "ratchet/local-type-assertion-boundary",
@@ -82,10 +98,11 @@ describe("discoverEditCheckTargets", () => {
     ]);
     // byPathThenTestId sorts ascending on path: aaa before zzz even though the
     // input listed zzz first.
-    expect(targets.map((target) => target.path)).toStrictEqual([
-      "packages/shared/src/aaa.ts",
-      "packages/shared/src/zzz.ts",
-    ]);
+    expect(targets.map((target) => [target.path, target.testId])).toStrictEqual(
+      ["packages/shared/src/aaa.ts", "packages/shared/src/zzz.ts"].flatMap((path) =>
+        SHARED_MINIMAL_TS_TEST_IDS.map((testId) => [path, testId]),
+      ),
+    );
   });
 
   it("deduplicates a repeated path so each (path, ratchet) pair appears once", () => {
@@ -99,6 +116,24 @@ describe("discoverEditCheckTargets", () => {
 
   it("returns no targets for a path no ratchet glob matches", () => {
     expect(discoverEditCheckTargets(["README.md"])).toStrictEqual([]);
+  });
+
+  it("keeps examples and script fixtures outside the code-wide ratchets", () => {
+    expect(
+      discoverEditCheckTargets([
+        "examples/lint-ratchet-demo/scripts/lint-ratchet.ts",
+        "scripts/fixtures/example.ts",
+      ]),
+    ).toStrictEqual([]);
+  });
+
+  it("keeps hyphenated package test helpers out of production structural ratchets", () => {
+    const targets = discoverEditCheckTargets([SERVER_TEST_HELPER_FILE]);
+    expect(targets.map((target) => target.testId)).toStrictEqual([
+      "ratchet/local-no-commented-out-code",
+      "ratchet/local-no-swallowed-errors-broader-semantics",
+      "ratchet/local-type-assertion-boundary",
+    ]);
   });
 
   it("returns no targets for an empty path list", () => {

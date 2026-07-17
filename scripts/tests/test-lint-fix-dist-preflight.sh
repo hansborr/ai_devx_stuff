@@ -12,6 +12,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HELPER="$SCRIPT_DIR/../lib/lint-dist-preflight.sh"
 LINT_FIX_WRAPPER="$SCRIPT_DIR/../lint-fix.sh"
+GATE_ENV="$SCRIPT_DIR/../lib/gate-env.sh"
 
 PASS=0
 fail() { printf 'FAIL: %s\n' "$1" >&2; exit 1; }
@@ -66,6 +67,7 @@ new_lint_fix_repo() {
   rm -rf "$repo"
   mkdir -p "$repo/scripts/lib"
   cp "$HELPER" "$repo/scripts/lib/lint-dist-preflight.sh"
+  cp "$GATE_ENV" "$repo/scripts/lib/gate-env.sh"
   cp "$LINT_FIX_WRAPPER" "$repo/scripts/lint-fix.sh"
   printf '{"scripts":{"lint:fix":"bash scripts/lint-fix.sh"}}\n' > "$repo/package.json"
 }

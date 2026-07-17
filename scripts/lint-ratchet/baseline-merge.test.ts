@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 
+import type { LintRatchetBaseline } from "./baseline.js";
 import { LINT_RATCHET_BASELINE_VERSION } from "./baseline-constants.js";
 import type { LintRatchetBaselineTest } from "./baseline-format.js";
 import { formatLintRatchetBaseline } from "./baseline-format.js";
 import { mergeLintRatchetBaselines } from "./baseline-merge.js";
-import type { LintRatchetBaseline } from "./lint-ratchet-baseline.js";
-import type { LintRatchetComplexityFunction } from "./lint-ratchet-metrics.js";
-import type { LintRatchetMetricItem } from "./lint-ratchet-metrics-types.js";
+import type { LintRatchetComplexityFunction } from "./metrics.js";
+import type { LintRatchetMetricItem } from "./metrics-types.js";
 
 const CONFIG_HASH = `sha256:${"a".repeat(64)}`;
 const RULE_SOURCE_HASH = `sha256:${"b".repeat(64)}`;
@@ -31,7 +31,6 @@ function messageBaseline(
     baselineTests[testId] = {
       ruleId: "local/example-rule",
       mode: "no-new",
-      target: 0,
       metric: "message-count",
       files: ["packages/**/*.ts"],
       ignores: [],
@@ -71,7 +70,6 @@ function complexityBaseline(
       "ratchet/fixture-complexity": {
         ruleId: "complexity",
         mode: "no-new",
-        target: 0,
         metric: "complexity-severity",
         files: ["packages/**/*.ts"],
         ignores: [],
@@ -97,7 +95,6 @@ function maxLinesBaseline(path: string, lines: number, count = 1): LintRatchetBa
       "ratchet/local-max-lines-fixture": {
         ruleId: "local/max-lines",
         mode: "no-new",
-        target: 0,
         metric: "effective-line-count",
         files: ["packages/**/*.ts"],
         ignores: [],
@@ -190,6 +187,141 @@ describe("lint ratchet baseline semantic merge", () => {
       formatLintRatchetBaseline(
         messageBaseline({
           "ratchet/fixture-one": { "packages/server/src/shared.ts": 4 },
+        }),
+      ),
+    );
+  });
+
+  it("keeps an item added on one side without requesting truth-up", () => {
+    const base = messageBaseline({
+      "ratchet/fixture-one": { "packages/server/src/shared.ts": 5 },
+    });
+    const current = messageBaseline({
+      "ratchet/fixture-one": {
+        "packages/server/src/added.ts": 2,
+        "packages/server/src/shared.ts": 4,
+      },
+    });
+    const other = messageBaseline({
+      "ratchet/fixture-one": { "packages/server/src/shared.ts": 4 },
+    });
+
+    const result = mergeResult(base, current, other);
+
+    expect(result.failures).toEqual([]);
+    expect(result.postMergeTruthUpRequired).toBe(false);
+    expect(result.mergedText).toBe(formatLintRatchetBaseline(current));
+  });
+
+  it("drops an item drained on one side and requests truth-up", () => {
+    const base = messageBaseline({
+      "ratchet/fixture-one": {
+        "packages/server/src/drained.ts": 2,
+        "packages/server/src/shared.ts": 5,
+      },
+    });
+    const current = messageBaseline({
+      "ratchet/fixture-one": { "packages/server/src/shared.ts": 4 },
+    });
+    const other = messageBaseline({
+      "ratchet/fixture-one": {
+        "packages/server/src/drained.ts": 2,
+        "packages/server/src/shared.ts": 4,
+      },
+    });
+
+    const result = mergeResult(base, current, other);
+
+    expect(result.failures).toEqual([]);
+    expect(result.postMergeTruthUpRequired).toBe(true);
+    expect(result.mergedText).toBe(formatLintRatchetBaseline(current));
+  });
+
+  it("takes the minimum when both sides add the same item", () => {
+    const base = messageBaseline({
+      "ratchet/fixture-one": { "packages/server/src/shared.ts": 5 },
+    });
+    const current = messageBaseline({
+      "ratchet/fixture-one": {
+        "packages/server/src/added.ts": 3,
+        "packages/server/src/shared.ts": 4,
+      },
+    });
+    const other = messageBaseline({
+      "ratchet/fixture-one": {
+        "packages/server/src/added.ts": 2,
+        "packages/server/src/shared.ts": 4,
+      },
+    });
+
+    const result = mergeResult(base, current, other);
+
+    expect(result.failures).toEqual([]);
+    expect(result.postMergeTruthUpRequired).toBe(true);
+    expect(result.mergedText).toBe(formatLintRatchetBaseline(other));
+  });
+
+  it("uses item-level base semantics for a mixed both-sides-changed test", () => {
+    const base = messageBaseline({
+      "ratchet/fixture-one": {
+        "packages/server/src/drained.ts": 4,
+        "packages/server/src/shared.ts": 8,
+      },
+    });
+    const current = messageBaseline({
+      "ratchet/fixture-one": {
+        "packages/server/src/added-current.ts": 2,
+        "packages/server/src/added-shared.ts": 5,
+        "packages/server/src/drained.ts": 4,
+        "packages/server/src/shared.ts": 6,
+      },
+    });
+    const other = messageBaseline({
+      "ratchet/fixture-one": {
+        "packages/server/src/added-other.ts": 3,
+        "packages/server/src/added-shared.ts": 4,
+        "packages/server/src/shared.ts": 7,
+      },
+    });
+
+    const result = mergeResult(base, current, other);
+
+    expect(result.failures).toEqual([]);
+    expect(result.postMergeTruthUpRequired).toBe(true);
+    expect(result.mergedText).toBe(
+      formatLintRatchetBaseline(
+        messageBaseline({
+          "ratchet/fixture-one": {
+            "packages/server/src/added-current.ts": 2,
+            "packages/server/src/added-other.ts": 3,
+            "packages/server/src/added-shared.ts": 4,
+            "packages/server/src/shared.ts": 6,
+          },
+        }),
+      ),
+    );
+  });
+
+  it("treats a missing base test as empty item-level base", () => {
+    const base = messageBaseline({});
+    const current = messageBaseline({
+      "ratchet/fixture-one": { "packages/server/src/current.ts": 2 },
+    });
+    const other = messageBaseline({
+      "ratchet/fixture-one": { "packages/server/src/other.ts": 3 },
+    });
+
+    const result = mergeResult(base, current, other);
+
+    expect(result.failures).toEqual([]);
+    expect(result.postMergeTruthUpRequired).toBe(false);
+    expect(result.mergedText).toBe(
+      formatLintRatchetBaseline(
+        messageBaseline({
+          "ratchet/fixture-one": {
+            "packages/server/src/current.ts": 2,
+            "packages/server/src/other.ts": 3,
+          },
         }),
       ),
     );

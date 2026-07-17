@@ -80,6 +80,19 @@ describe("mergeBaseline identity ledger", () => {
     expect(result.postMergeTruthUpRequired).toBe(false);
   });
 
+  it("can request truth-up when a one-sided change takes the fast path", () => {
+    const base = formatBaseline(nameSpec, names("a", "b"));
+    const other = formatBaseline(nameSpec, names("a"));
+    const result = mergeBaseline(nameSpec, {
+      baseText: base,
+      currentText: base,
+      otherText: other,
+      truthUpOnOneSidedFastPath: true,
+    });
+    expect(result.mergedText).toBe(other);
+    expect(result.postMergeTruthUpRequired).toBe(true);
+  });
+
   it("keeps only keys present on both sides and requires truth-up on divergence", () => {
     const base = formatBaseline(nameSpec, names("a", "b"));
     const current = formatBaseline(nameSpec, names("a", "c")); // dropped b, added c
@@ -114,6 +127,72 @@ describe("mergeBaseline identity ledger", () => {
   });
 });
 
+// Policy cap ledger: a count-bearing entry that also carries a non-count payload
+// field, mirroring the max-lines exceptions baseline (cap plus severity/reason).
+interface PolicyCapEntry extends BaselineEntry {
+  readonly key: string;
+  readonly count: number;
+  readonly severity: "warn" | "error";
+}
+
+const policyCapSpec: BaselineMetricSpec<PolicyCapEntry> = {
+  tool: "demo",
+  metric: "policy-caps",
+  meta: {},
+  parseEntry(raw): ParseResult<PolicyCapEntry> {
+    if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+      return { ok: false, error: "entry must be an object" };
+    }
+    const record = raw as Record<string, unknown>;
+    const { key, count, severity } = record;
+    if (typeof key !== "string" || typeof count !== "number") {
+      return { ok: false, error: "entry needs string key and number count" };
+    }
+    if (severity !== "warn" && severity !== "error") {
+      return { ok: false, error: "entry needs a warn|error severity" };
+    }
+    return { ok: true, value: { key, count, severity } };
+  },
+  formatEntry(entry) {
+    return { key: entry.key, count: entry.count, severity: entry.severity };
+  },
+  summarize(entries) {
+    return { total: entries.reduce((sum, entry) => sum + entry.count, 0) };
+  },
+};
+
+describe("mergeBaseline non-count payload conflicts", () => {
+  it("fails the merge when a differing count also disagrees on a non-count field", () => {
+    const base = formatBaseline(policyCapSpec, [{ key: "f", count: 10, severity: "warn" }]);
+    const current = formatBaseline(policyCapSpec, [{ key: "f", count: 8, severity: "warn" }]);
+    const other = formatBaseline(policyCapSpec, [{ key: "f", count: 6, severity: "error" }]);
+    const result = mergeBaseline(policyCapSpec, {
+      baseText: base,
+      currentText: current,
+      otherText: other,
+    });
+    expect(result.mergedText).toBeUndefined();
+    expect(result.failures.some((failure) => failure.includes("f"))).toBe(true);
+    expect(result.postMergeTruthUpRequired).toBe(false);
+  });
+
+  it("still takes the lower cap when only the count differs", () => {
+    const base = formatBaseline(policyCapSpec, [{ key: "f", count: 10, severity: "warn" }]);
+    const current = formatBaseline(policyCapSpec, [{ key: "f", count: 8, severity: "warn" }]);
+    const other = formatBaseline(policyCapSpec, [{ key: "f", count: 6, severity: "warn" }]);
+    const result = mergeBaseline(policyCapSpec, {
+      baseText: base,
+      currentText: current,
+      otherText: other,
+    });
+    expect(result.failures).toEqual([]);
+    expect(result.postMergeTruthUpRequired).toBe(true);
+    expect(result.mergedText).toBe(
+      formatBaseline(policyCapSpec, [{ key: "f", count: 6, severity: "warn" }]),
+    );
+  });
+});
+
 describe("mergeBaseline cap ledger", () => {
   it("resolves a conflicting count to the lower floor and requires truth-up", () => {
     const base = formatBaseline(capSpec, [{ key: "f", count: 10 }]);
@@ -127,5 +206,55 @@ describe("mergeBaseline cap ledger", () => {
     expect(result.failures).toEqual([]);
     expect(result.postMergeTruthUpRequired).toBe(true);
     expect(result.mergedText).toBe(formatBaseline(capSpec, [{ key: "f", count: 6 }]));
+  });
+
+  it("preserves one-sided additions only when base-aware semantics are requested", () => {
+    const base = formatBaseline(capSpec, [{ key: "c", count: 10 }]);
+    const current = formatBaseline(capSpec, [
+      { key: "a", count: 8 },
+      { key: "c", count: 10 },
+    ]);
+    const other = formatBaseline(capSpec, [
+      { key: "b", count: 6 },
+      { key: "c", count: 10 },
+    ]);
+
+    const defaultResult = mergeBaseline(capSpec, {
+      baseText: base,
+      currentText: current,
+      otherText: other,
+    });
+    const baseAwareResult = mergeBaseline(capSpec, {
+      baseText: base,
+      currentText: current,
+      otherText: other,
+      oneSidedEntryStrategy: "base-aware",
+    });
+
+    expect(defaultResult.mergedText).toBe(formatBaseline(capSpec, [{ key: "c", count: 10 }]));
+    expect(defaultResult.postMergeTruthUpRequired).toBe(true);
+    expect(baseAwareResult.mergedText).toBe(
+      formatBaseline(capSpec, [
+        { key: "a", count: 8 },
+        { key: "b", count: 6 },
+        { key: "c", count: 10 },
+      ]),
+    );
+    expect(baseAwareResult.postMergeTruthUpRequired).toBe(false);
+  });
+
+  it("drops a retired entry and requests truth-up when the other side changed it", () => {
+    const base = formatBaseline(capSpec, [{ key: "a", count: 10 }]);
+    const current = formatBaseline(capSpec, []);
+    const other = formatBaseline(capSpec, [{ key: "a", count: 8 }]);
+    const result = mergeBaseline(capSpec, {
+      baseText: base,
+      currentText: current,
+      otherText: other,
+      oneSidedEntryStrategy: "base-aware",
+    });
+
+    expect(result.mergedText).toBe(formatBaseline(capSpec, []));
+    expect(result.postMergeTruthUpRequired).toBe(true);
   });
 });

@@ -107,13 +107,14 @@ JSON_OUT="$SANDBOX/module-index-fresh.json"
 ) >"$JSON_OUT" || fail "--json should pass for a fresh index"
 ASSERT_FILE="$JSON_OUT" bun -e '
   const fs = require("fs");
+  const assertionFailed = (message) => { console.error(message); process.exit(1); };
   const env = JSON.parse(fs.readFileSync(process.env.ASSERT_FILE, "utf8"));
-  if (env.version !== "1") throw new Error("bad version");
-  if (env.tool !== "module:index:check") throw new Error(`bad tool ${env.tool}`);
-  if (!Array.isArray(env.findings)) throw new Error("findings not array");
-  if (env.findings.length !== 0) throw new Error(`expected no findings, got ${env.findings.length}`);
+  if (env.version !== "1") assertionFailed("bad version");
+  if (env.tool !== "module:index:check") assertionFailed(`bad tool ${env.tool}`);
+  if (!Array.isArray(env.findings)) assertionFailed("findings not array");
+  if (env.findings.length !== 0) assertionFailed(`expected no findings, got ${env.findings.length}`);
   if (env.summary.blocking !== 0 || env.summary.warning !== 0 || env.summary.info !== 0) {
-    throw new Error(`bad summary ${JSON.stringify(env.summary)}`);
+    assertionFailed(`bad summary ${JSON.stringify(env.summary)}`);
   }
 ' || fail "--json fresh envelope shape is wrong"
 ok "json mode emits a valid empty envelope when index is current"
@@ -148,23 +149,24 @@ set -e
 [ "$exit_code" -ne 0 ] || fail "--json should fail when index is out of date"
 ASSERT_FILE="$JSON_OUT" bun -e '
   const fs = require("fs");
+  const assertionFailed = (message) => { console.error(message); process.exit(1); };
   const env = JSON.parse(fs.readFileSync(process.env.ASSERT_FILE, "utf8"));
-  if (env.version !== "1") throw new Error("bad version");
-  if (env.tool !== "module:index:check") throw new Error(`bad tool ${env.tool}`);
+  if (env.version !== "1") assertionFailed("bad version");
+  if (env.tool !== "module:index:check") assertionFailed(`bad tool ${env.tool}`);
   if (!Array.isArray(env.findings) || env.findings.length !== 1) {
-    throw new Error(`expected one finding, got ${env.findings?.length}`);
+    assertionFailed(`expected one finding, got ${env.findings?.length}`);
   }
   const [finding] = env.findings;
-  if (finding.control !== "doc-generator/module-index") throw new Error(`bad control ${finding.control}`);
+  if (finding.control !== "doc-generator/module-index") assertionFailed(`bad control ${finding.control}`);
   if (finding.severity !== "warn" && finding.severity !== "info") {
-    throw new Error(`bad severity ${finding.severity}`);
+    assertionFailed(`bad severity ${finding.severity}`);
   }
-  if (finding.path !== "MODULE-INDEX.md") throw new Error(`bad path ${finding.path}`);
-  if (!finding.why.includes("out of date")) throw new Error(`bad why ${finding.why}`);
-  if (finding.repairKind !== "manual") throw new Error(`bad repairKind ${finding.repairKind}`);
-  if (env.summary.blocking !== 0) throw new Error(`bad blocking ${env.summary.blocking}`);
+  if (finding.path !== "MODULE-INDEX.md") assertionFailed(`bad path ${finding.path}`);
+  if (!finding.why.includes("out of date")) assertionFailed(`bad why ${finding.why}`);
+  if (finding.repairKind !== "manual") assertionFailed(`bad repairKind ${finding.repairKind}`);
+  if (env.summary.blocking !== 0) assertionFailed(`bad blocking ${env.summary.blocking}`);
   if (env.summary.warning + env.summary.info !== 1) {
-    throw new Error(`expected one non-blocking finding in summary: ${JSON.stringify(env.summary)}`);
+    assertionFailed(`expected one non-blocking finding in summary: ${JSON.stringify(env.summary)}`);
   }
 ' || fail "--json stale envelope shape is wrong"
 assert_no_module_index_temp

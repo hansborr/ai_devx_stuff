@@ -4,12 +4,20 @@
 # smoke-subjects: scripts/prisma-client-freshness.sh
 # smoke-subjects: scripts/doc-length-policy.sh
 # smoke-subjects: scripts/lib/verify-metadata.sh
+# smoke-subjects: scripts/lib/gate-env.sh
+# smoke-subjects: scripts/lib/parallel-step.sh
+# smoke-subjects: scripts/lib/lint-dist-preflight.sh
 # smoke-subjects: scripts/process-tree.sh
 # smoke-subjects: scripts/ai-hooks/output-filter.sh
 # smoke-subjects: scripts/verify/steps.generated.sh
+# smoke-subjects: scripts/harness/generated-surface-freshness.generated.sh
 # smoke-subjects: scripts/verify/steps-lib.sh
+# smoke-subjects: scripts/verify/memory-budget.sh
+# smoke-subjects: scripts/verify/admitted-command.sh
+# smoke-subjects: scripts/lib/test-worker-count.sh
 # smoke-subjects: scripts/lib/verify-engine.sh
 # smoke-subjects: .husky/pre-commit
+# smoke-subjects: .husky/post-commit
 # smoke-subjects: scripts/tests/lib/test-git-env.sh
 # smoke-subjects: scripts/tests/test-dependency-freshness.sh
 # Pure-shell tests for dependency freshness diagnostics.
@@ -48,9 +56,21 @@ export MUSI_PATH_POLICY_BUN
 PASS=0
 TMP_ROOT="$(mktemp -d)"
 trap 'rm -rf "$TMP_ROOT"' EXIT
+# Nested pre-commit fixtures are independent gates. Keep their reservation
+# namespace hermetic so an outer test:scripts gate cannot serialize or time out
+# the sandbox gates it is exercising.
+export MUSI_VERIFY_MEMORY_STATE_ROOT="$TMP_ROOT/memory-state"
 
 fail() { printf 'FAIL: %s\n' "$1" >&2; exit 1; }
 ok() { PASS=$((PASS + 1)); printf 'ok %d - %s\n' "$PASS" "$1"; }
+
+write_live_memory_reservation() {
+  local token="$1" mb="$2" slot="$3" owner_pid owner_start_time
+  owner_pid="$BASHPID"
+  owner_start_time="$(awk '{ print $22 }' "/proc/$owner_pid/stat")"
+  printf 'pid=%s\npid_start_time=%s\nmb=%s\nslot=%s\n' \
+    "$owner_pid" "$owner_start_time" "$mb" "$slot" > "$token"
+}
 
 assert_status() {
   local repo="$1"
@@ -63,15 +83,20 @@ assert_status() {
 copy_verify_steps_fixture() {
   local target="$1"
 
-  mkdir -p "$target/scripts/verify" "$target/scripts/lib"
+  mkdir -p "$target/scripts/verify" "$target/scripts/harness" "$target/scripts/lib"
   cp "$SCRIPT_DIR/../verify/steps.generated.sh" "$target/scripts/verify/steps.generated.sh"
+  cp "$SCRIPT_DIR/../harness/generated-surface-freshness.generated.sh" \
+    "$target/scripts/harness/generated-surface-freshness.generated.sh"
   cp "$SCRIPT_DIR/../verify/steps-lib.sh" "$target/scripts/verify/steps-lib.sh"
+  cp "$SCRIPT_DIR/../verify/memory-budget.sh" "$target/scripts/verify/memory-budget.sh"
+  cp "$SCRIPT_DIR/../verify/admitted-command.sh" "$target/scripts/verify/admitted-command.sh"
+  cp "$SCRIPT_DIR/../lib/test-worker-count.sh" "$target/scripts/lib/test-worker-count.sh"
 }
 
 copy_precommit_fixture() {
   local target="$1"
 
-  mkdir -p "$target/scripts/ai-hooks" "$target/scripts/lib" "$target/.husky" "$target/node_modules/.bin" "$target/bin"
+  mkdir -p "$target/scripts/ai-hooks" "$target/scripts/harness" "$target/scripts/lib" "$target/.husky" "$target/node_modules/.bin" "$target/bin"
   cp "$SCRIPT_DIR/../dependency-freshness.sh" "$target/scripts/dependency-freshness.sh"
   cp "$SCRIPT_DIR/../prisma-client-freshness.sh" "$target/scripts/prisma-client-freshness.sh"
   cp "$SCRIPT_DIR/../doc-length-policy.sh" "$target/scripts/doc-length-policy.sh"
@@ -83,11 +108,13 @@ copy_precommit_fixture() {
   cp "$SCRIPT_DIR/../lib/lint-dist-preflight.sh" "$target/scripts/lib/lint-dist-preflight.sh"
   cp "$SCRIPT_DIR/../ai-hooks/output-filter.sh" "$target/scripts/ai-hooks/output-filter.sh"
   cp "$SCRIPT_DIR/../../.husky/pre-commit" "$target/.husky/pre-commit"
+  cp "$SCRIPT_DIR/../../.husky/post-commit" "$target/.husky/post-commit"
   copy_verify_steps_fixture "$target"
-  cat > "$target/bin/bun" <<'STUB'
+cat > "$target/bin/bun" <<'STUB'
 #!/usr/bin/env sh
 printf 'stub bun %s\n' "$*" >> "$STUB_LOG"
 [ -z "${STUB_NODE_OPTIONS_LOG:-}" ] || printf '%s\n' "${NODE_OPTIONS:-}" >> "$STUB_NODE_OPTIONS_LOG"
+[ -z "${STUB_FAIL_MATCH:-}" ] || ! printf '%s\n' "$*" | grep -qF "$STUB_FAIL_MATCH" || exit 1
 exit 0
 STUB
   chmod +x "$target/bin/bun"
@@ -260,6 +287,9 @@ cat > bin/bun <<'STUB'
 #!/usr/bin/env sh
 printf 'stub bun %s\n' "$*" >> "$STUB_LOG"
 [ -z "${STUB_NODE_OPTIONS_LOG:-}" ] || printf '%s\n' "${NODE_OPTIONS:-}" >> "$STUB_NODE_OPTIONS_LOG"
+if [ "${2:-}" = "lint:changed" ] && [ -n "${STUB_TERM_FORK_SCRIPT:-}" ]; then
+  exec "$STUB_TERM_FORK_SCRIPT"
+fi
 if [ "${2:-}" = "lint:changed" ] && [ -n "${STUB_SLEEP_LINT_CHANGED:-}" ]; then
   sleep "$STUB_SLEEP_LINT_CHANGED"
 fi
@@ -645,8 +675,43 @@ chmod +x "$gate_repo/bin/bun"
     || fail "eslint-rules staged change did not run test:changed"
   grep -qF "pre-commit: OK" <<< "$output" \
     || fail "pre-commit with eslint-rules edit missing OK output: $output"
+
+  memory_state="$gate_repo/precommit-memory-state"
+  memory_queue="$gate_repo/precommit-memory-queue"
+  mkdir -p "$memory_state"
+  write_live_memory_reservation "$memory_state/reservation.external" 5000 external
+  start_seconds="$(date +%s)"
+  set +e
+  output="$({
+    PATH="$gate_repo/bin:$PATH" \
+    STUB_LOG="$stub_log" \
+    FORCE_VERIFY=1 \
+    MUSI_VERIFY_MEMORY_AVAILABLE_MB=6000 \
+    MUSI_VERIFY_MEMORY_STATE_ROOT="$memory_state" \
+    MUSI_VERIFY_MEMORY_WAIT_TIMEOUT=1 \
+    MUSI_VERIFY_MEMORY_POLL_SECONDS=0.1 \
+    MUSI_COMMIT_QUEUE_LOCK="$memory_queue" \
+    MUSI_VERIFY_LOCK="$gate_repo/precommit-lock-memory" \
+    MUSI_VERIFY_LOG_DIR="$gate_repo/precommit-logs-memory" \
+      sh .husky/pre-commit
+  } 2>&1)"
+  memory_exit=$?
+  set -e
+  elapsed_seconds=$(( $(date +%s) - start_seconds ))
+  rm -f "$memory_state/reservation.external"
+  [ "$memory_exit" -ne 0 ] || fail "pre-commit memory deadline should fail pending slots"
+  [ "$elapsed_seconds" -lt 5 ] \
+    || fail "pre-commit held the queue for ${elapsed_seconds}s after a 1s memory deadline"
+  grep -qF 'memory wait timed out after 1s' <<< "$output" \
+    || fail "pre-commit memory deadline diagnostic missing: $output"
+  exec {queue_probe_fd}>"$memory_queue"
+  flock -n "$queue_probe_fd" \
+    || fail "pre-commit left the commit queue locked after memory timeout"
+  flock -u "$queue_probe_fd"
+  exec {queue_probe_fd}>&-
 )
 ok "pre-commit runs checks for staged eslint-rules changes"
+ok "pre-commit bounds memory deferral while holding the commit queue"
 
 manifest_repo="$TMP_ROOT/manifest-repo"
 mkdir -p "$manifest_repo/scripts/ai-hooks" "$manifest_repo/scripts/lib" "$manifest_repo/.husky" "$manifest_repo/node_modules/.bin" "$manifest_repo/bin"
@@ -705,8 +770,9 @@ chmod +x "$manifest_repo/bin/bun"
     || fail "manifest staged change did not run hook wiring freshness advisory"
   grep -qF "stub bun run docs:harness-controls:check" "$stub_log" \
     || fail "manifest staged change did not run harness controls freshness advisory"
-  grep -qF "stub bun run harness:config-surfaces:check" "$stub_log" \
-    || fail "manifest staged change did not run config-surface tsconfig freshness advisory"
+  if grep -qF "stub bun run harness:config-surfaces:check" "$stub_log"; then
+    fail "manifest staged change should not run unrelated config-surface freshness advisory"
+  fi
   if grep -qF "stub bun run docs:lint-guidance:check" "$stub_log"; then
     fail "manifest staged change should not run lint guidance freshness advisory"
   fi
@@ -1182,6 +1248,62 @@ ok "pre-commit timeout records wrapper metadata"
 
 (
   cd "$hook_repo"
+  printf 'timeout descendant source\n' > packages/timeout-descendant.ts
+  git add packages/timeout-descendant.ts
+
+  term_fork_script="$hook_repo/precommit-term-fork.sh"
+  term_fork_pid_file="$hook_repo/precommit-term-fork-child.pid"
+  cat > "$term_fork_script" <<'SCRIPT'
+#!/usr/bin/env bash
+trap 'bash -c '\''trap "" TERM; echo $$ > "$TERM_FORK_CHILD_PID_FILE"; while :; do sleep 1; done'\'' & exit 0' TERM
+while :; do sleep 1; done
+SCRIPT
+  chmod +x "$term_fork_script"
+
+  # Give the parallel smoke runner enough startup headroom to launch the
+  # TERM-fork stub before the watchdog fires; this case tests descendant
+  # cleanup, not a two-second scheduling deadline.
+  set +e
+  output="$(
+    PATH="$hook_repo/bin:$PATH" \
+    STUB_LOG="$hook_repo/bun-timeout-descendant.log" \
+    STUB_TERM_FORK_SCRIPT="$term_fork_script" \
+    TERM_FORK_CHILD_PID_FILE="$term_fork_pid_file" \
+    MUSI_INTERACTIVE_TIMEOUT=5 \
+    MUSI_PROCESS_TREE_TERM_GRACE_TENTHS=2 \
+    MUSI_PRECOMMIT_MARKER="$hook_repo/precommit-marker-timeout-descendant" \
+    MUSI_VERIFY_LOCK="$hook_repo/precommit-lock-timeout-descendant" \
+    MUSI_VERIFY_LOG_DIR="$hook_repo/precommit-logs-timeout-descendant" \
+      sh .husky/pre-commit 2>&1
+  )"
+  exit_code=$?
+  set -e
+
+  [ "$exit_code" -eq 124 ] \
+    || fail "pre-commit descendant timeout should exit 124 (got $exit_code): $output"
+  for _ in $(seq 1 50); do
+    [ -s "$term_fork_pid_file" ] && break
+    sleep 0.1
+  done
+  [ -s "$term_fork_pid_file" ] \
+    || fail "pre-commit TERM handler did not record its descendant pid"
+  term_fork_pid=$(cat "$term_fork_pid_file")
+  for _ in $(seq 1 50); do
+    if ! kill -0 "$term_fork_pid" 2>/dev/null; then
+      term_fork_pid=""
+      break
+    fi
+    sleep 0.1
+  done
+  if [ -n "$term_fork_pid" ]; then
+    kill -KILL "$term_fork_pid" 2>/dev/null || true
+    fail "pre-commit timeout left TERM-handler descendant $term_fork_pid running"
+  fi
+)
+ok "pre-commit timeout escalates cleanup for TERM-handler descendants"
+
+(
+  cd "$hook_repo"
   printf 'script source\n' > scripts/example.sh
   git add scripts/example.sh
 
@@ -1441,6 +1563,43 @@ copy_precommit_fixture "$harness_controls_doc_repo"
 )
 ok "pre-commit checks harness controls freshness for staged generated doc"
 
+# --- restricted-disable generator now triggers its generated warning --------
+restricted_disable_repo="$TMP_ROOT/restricted-disable-repo"
+copy_precommit_fixture "$restricted_disable_repo"
+(
+  cd "$restricted_disable_repo"
+  git init -q
+  git config user.name "Test User"
+  git config user.email "test@example.invalid"
+  mkdir -p scripts/harness
+  printf 'export {};\n' > scripts/harness/generate-restricted-disable-rules.ts
+  git add scripts bin .husky
+  git commit -q -m init
+  printf '\n' >> scripts/harness/generate-restricted-disable-rules.ts
+  git add scripts/harness/generate-restricted-disable-rules.ts
+
+  marker="$restricted_disable_repo/precommit-marker"
+  log_dir="$restricted_disable_repo/precommit-logs"
+  stub_log="$restricted_disable_repo/bun.log"
+  : > "$stub_log"
+
+  output="$(
+    PATH="$restricted_disable_repo/bin:$PATH" \
+    STUB_LOG="$stub_log" \
+    STUB_FAIL_MATCH="run lint:restricted-disable-rules:check" \
+    MUSI_PRECOMMIT_MARKER="$marker" \
+    MUSI_VERIFY_LOCK="$restricted_disable_repo/precommit-lock" \
+    MUSI_VERIFY_LOG_DIR="$log_dir" \
+      bash .husky/pre-commit 2>&1
+  )" || fail "pre-commit should keep generated freshness advisory-only: $output"
+
+  grep -qF "stub bun run lint:restricted-disable-rules:check" "$stub_log" \
+    || fail "restricted-disable generator did not invoke its freshness check"
+  grep -qF "pre-commit: WARN: restricted-disable rule metadata appears stale" <<< "$output" \
+    || fail "restricted-disable generator did not emit the expected stale warning: $output"
+)
+ok "pre-commit warns when restricted-disable generator output is stale"
+
 # --- pre-commit with non-script deletion passes staged files through --------
 non_script_del_repo="$TMP_ROOT/non-script-del-repo"
 copy_precommit_fixture "$non_script_del_repo"
@@ -1514,5 +1673,225 @@ copy_precommit_fixture "$script_del_fallback_repo"
     || fail "pre-commit with script deletion missing OK output: $output"
 )
 ok "pre-commit uses full fallback when script deletion is staged"
+
+# --- fast-commit provenance is keyed on actual slot skips -------------------
+# End-to-end through pre-commit's EXIT trap and post-commit's finalizer: only
+# a commit that really fast-skipped slots may reach the provenance log.
+
+# Positive control first, so the two negatives below cannot pass vacuously on
+# a miswired fixture: a source commit under the fast-commit marker skips the
+# test/scripts slots, leaves a pending marker, and post-commit logs HEAD.
+fast_skip_repo="$TMP_ROOT/fast-skip-provenance-repo"
+init_bridge_repo "$fast_skip_repo"
+(
+  cd "$fast_skip_repo"
+  printf 'fast tracked edit\n' > packages/example.ts
+  git add packages/example.ts
+  identity="$(musi_git_common_identity_path "$PWD")"
+  : > "$identity/musi-fast-commit"
+
+  stub_log="$TMP_ROOT/fast-skip-provenance-bun.log"
+  : > "$stub_log"
+  output="$(
+    PATH="$fast_skip_repo/bin:$PATH" \
+    STUB_LOG="$stub_log" \
+    MUSI_PRECOMMIT_MARKER="$TMP_ROOT/fast-skip-provenance-precommit-marker" \
+    MUSI_VERIFY_LOCK="$TMP_ROOT/fast-skip-provenance-lock" \
+    MUSI_VERIFY_LOG_DIR="$TMP_ROOT/fast-skip-provenance-logs" \
+      sh .husky/pre-commit 2>&1
+  )" || fail "fast-commit pre-commit should pass with stubbed slots: $output"
+  grep -qF "fast-commit mode — skipping test slot" <<< "$output" \
+    || fail "fast-commit run should report the skipped test slot: $output"
+  [ -f "$(musi_fast_commit_pending_marker "$PWD")" ] \
+    || fail "slot-skipping run should leave a pending provenance marker"
+
+  sh .husky/post-commit \
+    || fail "post-commit should finalize the fast-skip pending marker"
+  grep -qxF "$(git rev-parse HEAD)" "$identity/musi-fast-commit-log" \
+    || fail "fast-skipping commit should be appended to the provenance log"
+  [ ! -e "$(musi_fast_commit_pending_marker "$PWD")" ] \
+    || fail "post-commit should consume the pending marker after logging"
+)
+ok "fast-commit slot skip records provenance end-to-end"
+
+# Regression: if post-commit cannot append after a real fast-skipping commit,
+# the next pre-commit must recover that commit before it initializes provenance
+# for the new commit. Previously prepare unconditionally deleted the pending
+# marker, so even a docs-only follow-up silently erased the skipped-slot debt.
+fast_retry_repo="$TMP_ROOT/fast-retry-next-commit-repo"
+init_bridge_repo "$fast_retry_repo"
+(
+  cd "$fast_retry_repo"
+  printf 'fast tracked edit before append failure\n' > packages/example.ts
+  git add packages/example.ts
+  identity="$(musi_git_common_identity_path "$PWD")"
+  : > "$identity/musi-fast-commit"
+
+  stub_log="$TMP_ROOT/fast-retry-next-commit-bun.log"
+  : > "$stub_log"
+  output="$(
+    PATH="$fast_retry_repo/bin:$PATH" \
+    STUB_LOG="$stub_log" \
+    MUSI_PRECOMMIT_MARKER="$TMP_ROOT/fast-retry-next-commit-precommit-marker" \
+    MUSI_VERIFY_LOCK="$TMP_ROOT/fast-retry-next-commit-lock" \
+    MUSI_VERIFY_LOG_DIR="$TMP_ROOT/fast-retry-next-commit-logs" \
+      sh .husky/pre-commit 2>&1
+  )" || fail "fast-commit pre-commit should pass before append failure: $output"
+  git commit -q -m "fast commit whose append fails"
+  skipped_head="$(git rev-parse HEAD)"
+
+  mkdir "$identity/musi-fast-commit-log"
+  output="$(sh .husky/post-commit 2>&1)" \
+    || fail "post-commit append failure must not fail the existing commit: $output"
+  grep -qF "post-commit: WARNING: failed to append" <<< "$output" \
+    || fail "post-commit append failure should warn before next-commit recovery: $output"
+  [ -f "$(musi_fast_commit_pending_marker "$PWD")" ] \
+    || fail "post-commit append failure must retain pending provenance"
+
+  mkdir -p docs
+  printf 'docs-only follow-up\n' > docs/follow-up.md
+  git add docs/follow-up.md
+  set +e
+  output="$(sh .husky/pre-commit 2>&1)"
+  exit_code=$?
+  set -e
+  [ "$exit_code" -ne 0 ] \
+    || fail "follow-up pre-commit must fail while provenance recovery is unwritable: $output"
+  [ -f "$(musi_fast_commit_pending_marker "$PWD")" ] \
+    || fail "failed next-commit recovery must retain pending provenance"
+
+  rmdir "$identity/musi-fast-commit-log"
+  output="$(sh .husky/pre-commit 2>&1)" \
+    || fail "follow-up pre-commit should recover pending fast provenance: $output"
+  grep -qxF "$skipped_head" "$identity/musi-fast-commit-log" \
+    || fail "follow-up pre-commit silently lost fast-skipped SHA $skipped_head"
+  [ ! -e "$(musi_fast_commit_pending_marker "$PWD")" ] \
+    || fail "docs-only follow-up should leave no pending marker after recovery"
+)
+ok "next pre-commit recovers a failed post-commit provenance append"
+
+# A marker can accumulate multiple failed HEADs when another post-commit runs
+# before the shared log becomes writable. Recovery must replay every line, not
+# just the most recently appended HEAD.
+multi_head_repo="$TMP_ROOT/fast-retry-multiple-heads-repo"
+init_bridge_repo "$multi_head_repo"
+(
+  cd "$multi_head_repo"
+  identity="$(musi_git_common_identity_path "$PWD")"
+  pending="$(musi_fast_commit_pending_marker "$PWD")"
+  older_head="$(git rev-parse HEAD^)"
+  newer_head="$(git rev-parse HEAD)"
+  {
+    printf 'head=%s\n' "$older_head"
+    printf 'head=%s\n' "$newer_head"
+  } > "$pending"
+  mkdir -p docs
+  printf 'multi-head recovery follow-up\n' > docs/multi-head.md
+  git add docs/multi-head.md
+
+  output="$(sh .husky/pre-commit 2>&1)" \
+    || fail "pre-commit should replay every pending HEAD: $output"
+  grep -qxF "$older_head" "$identity/musi-fast-commit-log" \
+    || fail "multi-head recovery lost older pending SHA $older_head"
+  grep -qxF "$newer_head" "$identity/musi-fast-commit-log" \
+    || fail "multi-head recovery lost newer pending SHA $newer_head"
+  [ ! -e "$pending" ] \
+    || fail "multi-head recovery should consume marker after all appends succeed"
+)
+ok "next pre-commit recovers every pending fast-commit HEAD"
+
+# An old parent-only marker may no longer identify the skipped commit after HEAD
+# advances. Fail closed, but give the operator the exact append/remove recipe
+# and concrete shared-log and pending-marker paths needed to unblock safely.
+unresolved_repo="$TMP_ROOT/fast-retry-unresolved-marker-repo"
+init_bridge_repo "$unresolved_repo"
+(
+  cd "$unresolved_repo"
+  identity="$(musi_git_common_identity_path "$PWD")"
+  log="$identity/musi-fast-commit-log"
+  pending="$(musi_fast_commit_pending_marker "$PWD")"
+  printf 'parent=unresolvable-parent\n' > "$pending"
+  mkdir -p docs
+  printf 'unresolved recovery follow-up\n' > docs/unresolved.md
+  git add docs/unresolved.md
+
+  set +e
+  output="$(sh .husky/pre-commit 2>&1)"
+  exit_code=$?
+  set -e
+  [ "$exit_code" -ne 0 ] \
+    || fail "unresolved pending provenance must fail closed: $output"
+  grep -qF "Append the skipped SHA(s) to $log, then remove $pending" <<< "$output" \
+    || fail "unresolved marker error must print concrete recovery paths: $output"
+  [ -f "$pending" ] \
+    || fail "unresolved marker failure must preserve pending provenance"
+)
+ok "unresolved fast provenance prints an actionable recovery recipe"
+
+# Negative: a docs-only commit skips no slots even with the marker present, so
+# nothing may reach the provenance log — re-logging it would force a redundant
+# full verify at push time.
+docs_only_fast_repo="$TMP_ROOT/docs-only-fast-repo"
+init_bridge_repo "$docs_only_fast_repo"
+(
+  cd "$docs_only_fast_repo"
+  mkdir -p docs
+  printf 'notes only\n' > docs/notes.md
+  git add docs/notes.md
+  identity="$(musi_git_common_identity_path "$PWD")"
+  : > "$identity/musi-fast-commit"
+
+  output="$(sh .husky/pre-commit 2>&1)" \
+    || fail "docs-only pre-commit should pass under the fast-commit marker: $output"
+  grep -qF "no source changes staged" <<< "$output" \
+    || fail "docs-only run should take the source-skip path: $output"
+  [ ! -e "$(musi_fast_commit_pending_marker "$PWD")" ] \
+    || fail "docs-only commit must not leave a pending provenance marker"
+
+  sh .husky/post-commit \
+    || fail "post-commit should be a no-op for a docs-only commit"
+  [ ! -s "$identity/musi-fast-commit-log" ] \
+    || fail "docs-only commit must not be appended to the provenance log"
+)
+ok "docs-only commit under fast-commit marker records no provenance"
+
+# Negative: a marker-bridged commit skipped no slots either — bridge markers
+# come from manual verify / verify:changed, which never fast-skip.
+bridge_fast_repo="$TMP_ROOT/bridge-fast-provenance-repo"
+init_bridge_repo "$bridge_fast_repo"
+(
+  cd "$bridge_fast_repo"
+  printf 'bridged tracked edit\n' > packages/example.ts
+  git add packages/example.ts
+  identity="$(musi_git_common_identity_path "$PWD")"
+  : > "$identity/musi-fast-commit"
+  changed_marker="$TMP_ROOT/bridge-fast-changed-marker"
+  musi_write_success_marker "$changed_marker" "$(git rev-parse HEAD)" \
+    "$(ai_staged_fingerprint "$PWD")" \
+    || fail "test setup failed to write changed verify marker"
+
+  stub_log="$TMP_ROOT/bridge-fast-bun.log"
+  : > "$stub_log"
+  output="$(
+    PATH="$bridge_fast_repo/bin:$PATH" \
+    STUB_LOG="$stub_log" \
+    MUSI_PRECOMMIT_MARKER="$TMP_ROOT/bridge-fast-precommit-marker" \
+    MUSI_VERIFY_MARKER_CHANGED="$changed_marker" \
+    MUSI_VERIFY_MARKER_FULL="$TMP_ROOT/bridge-fast-full-marker" \
+    MUSI_VERIFY_LOCK="$TMP_ROOT/bridge-fast-lock" \
+    MUSI_VERIFY_LOG_DIR="$TMP_ROOT/bridge-fast-logs" \
+      sh .husky/pre-commit 2>&1
+  )" || fail "bridged pre-commit should pass under the fast-commit marker: $output"
+  grep -qF "verify:changed passed" <<< "$output" \
+    || fail "bridged run should take the verify-marker bridge path: $output"
+  [ ! -e "$(musi_fast_commit_pending_marker "$PWD")" ] \
+    || fail "marker-bridged commit must not leave a pending provenance marker"
+
+  sh .husky/post-commit \
+    || fail "post-commit should be a no-op for a marker-bridged commit"
+  [ ! -s "$identity/musi-fast-commit-log" ] \
+    || fail "marker-bridged commit must not be appended to the provenance log"
+)
+ok "marker-bridged commit under fast-commit marker records no provenance"
 
 printf 'dependency freshness tests passed\n'

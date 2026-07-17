@@ -43,6 +43,15 @@ const tagSpec: BaselineMetricSpec<TagEntry> = {
   },
 };
 
+// A second spec that carries the optional `regenerate` self-description key, so
+// its round-trip and compatibility can be exercised without disturbing tagSpec's
+// exact-shape assertions (tagSpec proves a regenerate-less spec emits no key).
+const regenSpec: BaselineMetricSpec<TagEntry> = {
+  ...tagSpec,
+  tool: "regen-demo",
+  regenerate: "bun run demo:update",
+};
+
 function tag(kind: string, name: string): TagEntry {
   return { key: tagKey(kind, name), kind, name };
 }
@@ -70,6 +79,26 @@ describe("formatBaseline", () => {
     const first = formatBaseline(tagSpec, [tag("a", "one"), tag("b", "two")]);
     const second = formatBaseline(tagSpec, [tag("b", "two"), tag("a", "one")]);
     expect(first).toBe(second);
+  });
+});
+
+describe("formatBaseline regenerate annotation", () => {
+  it("emits regenerate outside the meta spread for specs that declare it", () => {
+    const parsed: unknown = JSON.parse(formatBaseline(regenSpec, [tag("a", "one")]));
+    expect(parsed).toEqual({
+      version: BASELINE_SCHEMA_VERSION,
+      tool: "regen-demo",
+      metric: "tags",
+      scope: "all",
+      regenerate: "bun run demo:update",
+      summary: { count: 1, kinds: { a: 1 } },
+      entries: [{ key: "a|one", kind: "a", name: "one" }],
+    });
+  });
+
+  it("omits regenerate entirely for specs that do not declare it", () => {
+    const parsed: unknown = JSON.parse(formatBaseline(tagSpec, [tag("a", "one")]));
+    expect(parsed).not.toHaveProperty("regenerate");
   });
 });
 
@@ -150,7 +179,57 @@ describe("parseBaseline", () => {
     if (!parsed.ok) expect(parsed.error).toContain("duplicate entry key");
   });
 
-  it("rejects a summary that does not match the entries", () => {
+  it("round-trips a baseline carrying the regenerate annotation", () => {
+    const entries = [tag("a", "one"), tag("b", "two")];
+    const parsed = parseBaseline(regenSpec, formatBaseline(regenSpec, entries));
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.value.entries).toEqual(entries);
+      expect(parsed.warnings).toBeUndefined();
+    }
+  });
+
+  it("tolerates a pre-change baseline that omits the regenerate key", () => {
+    // A baseline generated before the annotation existed: no `regenerate` key.
+    // The merge driver parses base/ours/theirs from such older branches, so this
+    // must stay ok with no error and no warning.
+    const text = JSON.stringify({
+      version: 2,
+      tool: "regen-demo",
+      metric: "tags",
+      scope: "all",
+      summary: { count: 1, kinds: { a: 1 } },
+      entries: [{ key: "a|one", kind: "a", name: "one" }],
+    });
+    const parsed = parseBaseline(regenSpec, text);
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.value.entries).toEqual([tag("a", "one")]);
+      expect(parsed.warnings).toBeUndefined();
+    }
+  });
+
+  it("warns but does not reject a stale regenerate annotation", () => {
+    // A present-but-wrong value must never be a parse error: older branches may
+    // carry an earlier command string, and rejecting would break their merges.
+    const text = JSON.stringify({
+      version: 2,
+      tool: "regen-demo",
+      metric: "tags",
+      scope: "all",
+      regenerate: "bun run demo:update-old",
+      summary: { count: 1, kinds: { a: 1 } },
+      entries: [{ key: "a|one", kind: "a", name: "one" }],
+    });
+    const parsed = parseBaseline(regenSpec, text);
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.value.entries).toEqual([tag("a", "one")]);
+      expect(parsed.warnings?.some((warning) => warning.includes("regenerate"))).toBe(true);
+    }
+  });
+
+  it("parses with a warning when the summary does not match the entries", () => {
     const text = JSON.stringify({
       version: 2,
       tool: "demo",
@@ -160,7 +239,12 @@ describe("parseBaseline", () => {
       entries: [{ key: "a|one", kind: "a", name: "one" }],
     });
     const parsed = parseBaseline(tagSpec, text);
-    expect(parsed.ok).toBe(false);
-    if (!parsed.ok) expect(parsed.error).toContain("summary does not match the entries");
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.value.entries).toEqual([tag("a", "one")]);
+      expect(parsed.warnings).toContain(
+        'baseline summary does not match the entries; entries govern enforcement (derived {"count":1,"kinds":{"a":1}}, committed {"count":99,"kinds":{"a":1}})',
+      );
+    }
   });
 });

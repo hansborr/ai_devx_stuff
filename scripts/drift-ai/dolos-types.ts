@@ -39,7 +39,7 @@ export type DolosReportMetadata = {
   readonly threshold: number;
 };
 
-export type DolosParserCaps = {
+type DolosParserCaps = {
   readonly maxCandidatePairs?: number;
   readonly maxReportedPairs?: number;
 };

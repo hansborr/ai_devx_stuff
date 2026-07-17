@@ -1,14 +1,16 @@
 # Codebase Maintainability & Onboarding Audit — 2026-06-13
 
-> **Status: largely implemented (updated 2026-06-20). 38 of 43 leaves are Done and
-> landed; 3 (#08/#09/#24) are partially implemented; 2 docs leaves (#05, #20) remain
-> open Proposals.** Per-leaf `Status:` lines are authoritative — re-verify before
+> **Status: reconciled 2026-07-13 (docs leaves reconciled 2026-07-15). 38 landed
+> leaves were removed; 3 (#08/#09/#24) remain partial. The 2 docs leaves (#05,
+> #20) are Done — `docs/guides/per-worktree-dev.md` and
+> `packages/client/src/pages/MODULE.md` landed.** Per-leaf `Status:` lines
+> in git history are authoritative — re-verify before
 > promoting. The original 10 locked Decision blocks (#1, #11, #13, #14, #23, #24, #25,
 > #32, #35, #40) have mostly been acted on; the remaining README/AGENTS/test-helper doc
 > leaves (#03, #04, #15, #21, #22, #43) landed in the 2026-06-20 docs lane.
 
-- **Status:** 38/43 leaves Done & landed; 3 partial (#08/#09/#24); 2 open Proposals
-  (#05, #20).
+- **Status:** 3 partial (#08/#09/#24); #05/#20 docs leaves Done (docs landed).
+  The 38 landed leaves were removed from this working queue on 2026-07-13.
 - **Created:** 2026-06-13
 - **Source:** Multi-agent maintainability/onboarding survey of Musi at HEAD on `docs/codebase-audit`
 - **Scope:** Maintainability, code quality, and first-time-onboarding ease across `packages/{shared,server,client}`, `docs/`, and the human-facing setup path. Read-only. Excludes the in-repo agent-harness tooling lanes already owned elsewhere (see *Out of scope*).
@@ -235,49 +237,11 @@ a production-incident severity.
 
 | # | Task | Track | Size | Severity | Depends on | Status |
 |---|------|-------|------|----------|-----------|--------|
-| 1 | [README Quickstart db:seed crashes with ENOENT — SRD JSON source in gitignored docs/refs/ is never provisioned or documented](./01-readme-db-seed-missing-srd-source.md) | onboarding-setup | M | high | none | Decided |
-| 2 | [Devcontainer .env.example ships a 31-char JWT_SECRET below the enforced 32-char minimum, crashing the server on first boot if copied unedited](./02-devcontainer-jwt-secret-too-short.md) | onboarding-setup | XS | medium | none | Proposed |
-| 3 | [README Quickstart sets a phantom JWT_REFRESH_SECRET no code reads and .env.example omits](./03-readme-phantom-jwt-refresh-secret.md) | onboarding-setup | XS | low | none | Proposed |
-| 4 | [Seeded dev login accounts (dm@example.com / player1 / player2, password password123) are absent from onboarding docs](./04-seeded-login-accounts-undocumented.md) | onboarding-setup | XS | low | none | Proposed |
-| 5 | [Per-worktree dev flow (worktree:* scripts, MUSI_DEV_DRIFT_GATE) auto-runs on `bun run dev` in secondary worktrees but has no human-facing doc](./05-worktree-dev-flow-undocumented-for-humans.md) | onboarding-setup | S | medium | none | Proposed |
-| 6 | [Client auth/session token lifecycle is undocumented: in-memory token store, two divergent refresh paths, three consumers](./06-client-auth-token-lifecycle-undocumented.md) | client-architecture | S | medium | none | Proposed |
-| 7 | [Existing code-aware error helper (onTRPCError / TOAST_MESSAGES) adopted by only 5 hooks; 18 mutation files hardcode generic 'Failed to X' toasts](./07-trpc-error-helper-low-adoption.md) | error-observability | M | medium | none | Proposed |
 | 8 | [Transaction-owning mutation orchestration lives inline in 8 routers, contradicting the services/ rubric the repo documents](./08-router-inline-transaction-orchestration.md) | server-layering | L | medium | none | Proposed |
-| 9 | [No single contract for request-facing services: calling convention and auth/broadcast ownership vary per procedure, even within one router](./09-service-calling-convention-inconsistent.md) | server-layering | M | medium | none | Proposed |
-| 10 | [Zustand stores/ directory has no MODULE.md despite owning the densest, highest-fan-out client VTT state](./10-stores-dir-no-module-doc.md) | docs-coverage | S | medium | none | Proposed |
-| 11 | [packages/shared (the contract package) has no schema orientation doc or barrel: 41 schema files reached via 683 deep imports with no map](./11-shared-package-no-schema-orientation.md) | shared-contracts | S | medium | none | Decided |
-| 12 | [Character-sheet prop architecture: ~25-field prop bag hand-duplicated across 4 interfaces, parallel self/DM handlers drilled to leaves, opaque sheet god-object slots](./12-character-sheet-prop-architecture.md) | client-architecture | M | medium | none | Proposed |
-| 13 | [damageType validated inconsistently across the shared contract: canonical enum in some schemas, free string in others](./13-damage-type-validation-inconsistent.md) | shared-contracts | S | medium | none | Decided |
-| 14 | [SRD_CONDITIONS has no exported derived Zod enum; condition-name fields are bare free strings, unlike sibling damage-types](./14-srd-conditions-no-derived-enum.md) | shared-contracts | S | medium | none | Decided |
-| 15 | [AGENTS.md type-assertion guidance omits the lint-enforced marker syntax and the heavily-used interop category](./15-type-assertion-guidance-incomplete.md) | type-safety-boundaries | S | medium | none | Proposed |
-| 16 | [Entry-point docs route newcomers to docs/agent_notes/STATUS.md and NEXT.md, which were deleted](./16-orientation-docs-point-to-deleted-status.md) | docs-coverage | XS | medium | none | Proposed |
-| 17 | [CONCURRENCY.md cites NON_RACING_FIELDS allowlist and turn-service.ts, both of which no longer exist](./17-concurrency-md-stale-anchors.md) | docs-coverage | S | medium | none | Proposed |
-| 18 | [packages/server/src/routers/ has no orientation doc despite 29 router files including the largest non-generated server files](./18-routers-dir-no-orientation-doc.md) | docs-coverage | S | low | none | Proposed |
-| 19 | [rules/attack-damage.ts mixes the static SRD weapon data table with rules math; two test files don't match the source that owns their symbols](./19-attack-damage-mixed-data-and-math.md) | complexity-hotspots | M | low | none | Proposed |
-| 20 | [pages/ has no orientation doc for the page-as-composition-root pattern, despite 28 MODULE.md docs deeper in the tree](./20-pages-dir-no-composition-root-doc.md) | client-architecture | S | low | none | Proposed |
-| 21 | [No human command-tiering: README documents 8 of 94 root scripts, doctor diagnostic and single-test commands are invisible](./21-no-human-command-tiering.md) | tooling-newcomer-clarity | S | low | none | Proposed |
-| 22 | [No index/README for server and client test/ helper directories, leaving overlapping encounter fixture builders undiscoverable](./22-test-helper-dirs-no-orientation.md) | testing-ergonomics | S | low | none | Proposed |
-| 23 | [Combatant/token 'kind' of thing is discriminated by `type` in shared schemas but `kind` in the client drawer/token UI unions](./23-type-vs-kind-discriminator-split.md) | naming-consistency | S | low | none | Decided |
+| 9 | [No single contract for request-facing services: calling convention and auth/broadcast ownership vary per procedure, even within one router](./09-service-calling-convention-inconsistent.md) | server-layering | M | medium | none | Partial — steps 1 & 3 landed (step 3 `executeLongRest`→ctx-first reorder `60e08986`, drain leaf 5.2; both rest cores aligned to `(ctx, character, input)`); step 2 rename deferred |
 | 24 | [Single-entity routers disagree on 'fetch one by id' naming (getById vs bare get), hurting cross-router predictability](./24-router-getbyid-naming-inconsistent.md) | naming-consistency | S | low | none | Decided |
-| 25 | [Map 'gmNotes' layer type uses GM terminology while the rest of the app models the role as dm/isDm/DM](./25-gmnotes-layer-vs-dm-role-naming.md) | naming-consistency | S | low | none | Decided |
-| 26 | [Homebrew EDITOR_REGISTRY boundary erases all per-entry-type form typing to unknown, so handler/formState mismatch only fails at runtime Zod parse](./26-homebrew-editor-registry-erases-form-typing.md) | type-safety-boundaries | M | low | none | Proposed |
-| 27 | [Server names the CharacterStats concept 'character-live-state' while shared/Prisma/client all call it 'stats', with no breadcrumb](./27-character-live-state-vs-stats-naming.md) | naming-consistency | S | low | none | Proposed |
-| 28 | [No top-level components/vtt/ MODULE.md or glossary line ties the client-only 'VTT' label to the server's Encounter/Map model](./28-vtt-label-no-glossary-or-top-module.md) | naming-consistency | XS | low | none | Proposed |
-| 29 | [Upload REST route uses a separate error convention (HTTP status + {error} body) from the repo-wide tRPC pattern, with no orientation note](./29-upload-route-error-convention-unsignposted.md) | error-observability | S | low | none | Proposed |
-| 30 | ['single trust boundary' DbClient downgrade comment is contradicted by identical casts in 3+ production/test files with no sanctioned factory](./30-dbclient-downgrade-not-single-boundary.md) | type-safety-boundaries | S | low | none | Proposed |
-| 31 | [togglePrepared mutation toasts the raw server error.message, bypassing the onTRPCError copy catalog every sibling hook uses](./31-toggle-prepared-leaks-raw-error-message.md) | error-observability | XS | low | [#7](./07-trpc-error-helper-low-adoption.md) | Proposed |
-| 32 | [Client error contract exposes an unreachable PRECONDITION_FAILED recovery path the server never emits](./32-unreachable-precondition-failed-path.md) | error-observability | S | low | none | Decided |
-| 33 | [activateEncounter lives in utils/ but owns a $transaction, sequences multi-participant writes, and enforces domain invariants](./33-activate-encounter-misplaced-in-utils.md) | server-layering | S | low | none | Proposed |
-| 34 | [resolveSavingThrow tests live in combat.test.ts, breaking the colocated rules-test convention (no saving-throw.test.ts)](./34-saving-throw-tests-misplaced.md) | testing-ergonomics | XS | low | none | Proposed |
-| 35 | [Five undocumented 100-char name-cap constants make it unclear whether per-domain name limits are intentional](./35-duplicated-name-cap-constants.md) | shared-contracts | XS | low | none | Decided |
-| 36 | [Persisted ASI choiceData schema is strictly looser than its validated input (free string/int vs STR..CHA enum + 1\|2)](./36-asi-choicedata-looser-than-input.md) | shared-contracts | S | low | none | Proposed |
-| 37 | [Load-bearing 'fire-after-set' holder idiom repeats 4x in map-canvas-store but its TS-narrowing rationale is documented only once](./37-map-canvas-holder-idiom-under-documented.md) | complexity-hotspots | XS | low | none | Proposed |
-| 38 | [confirm-cast-strip unwind() triggers cleanup via setActiveTool('select') side effects instead of the named cancelTargetPick action](./38-unwind-relies-on-setactivetool-side-effects.md) | complexity-hotspots | S | low | none | Proposed |
-| 39 | [AoE template geometry (cone/cube/line) lacks a coordinate model and WHY-comments on its reflection/projection math](./39-area-template-geometry-undocumented-math.md) | complexity-hotspots | XS | low | none | Proposed |
-| 40 | [Shared map entity type is named VttMap, breaking the Map* prefix family and having zero references](./40-vttmap-type-name-breaks-prefix-family.md) | naming-consistency | XS | low | none | Decided |
-| 41 | [srd.ts splits its import section with five module-level const declarations mid-file](./41-srd-imports-split-by-consts.md) | complexity-hotspots | XS | low | none | Proposed |
-| 42 | [vtt-drawer page object is the lone e2e page-object file that omits the *.po.ts naming convention](./42-vtt-drawer-po-naming-outlier.md) | testing-ergonomics | XS | low | none | Proposed |
-| 43 | [README Quickstart understates the Bun minimum (>= 1.2.0) below the engines-enforced >= 1.3.0 floor](./43-readme-bun-version-understated.md) | onboarding-setup | XS | low | none | Proposed |
+| 5 | [Per-worktree dev flow](./05-worktree-dev-flow-undocumented-for-humans.md) | onboarding-setup | S | medium | none | Proposed |
+| 20 | [Pages composition-root orientation doc](./20-pages-dir-no-composition-root-doc.md) | client-architecture | S | low | none | Proposed |
 
 ## Out of scope / already covered elsewhere
 

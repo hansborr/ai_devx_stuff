@@ -1,8 +1,9 @@
 # Architectural review — 2026-07-06
 
-**Status:** report — retained as source material. **Promoted 2026-07-07:**
-every ranked candidate now lives as a leaf in this folder or as a fold into
-the pack that owned the seam — see [`01-promotion-map.md`](./01-promotion-map.md).
+**Status:** report — retained as source material. **Promoted 2026-07-07; audited
+2026-07-13:** landed candidates are archived, while surviving open seams remain
+as leaves in this folder or as folds into the pack that owned the seam — see
+[`01-promotion-map.md`](./01-promotion-map.md).
 Dispatch from the leaves, not from this file; where a leaf and this report
 disagree, trust the leaf (two claims were corrected during promotion — see
 Corrections at the end).

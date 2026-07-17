@@ -106,6 +106,7 @@ export function buildDuplicatesFindings(
         ? sameFileDuplicateMessage(secondary, clone.lines)
         : `duplicates ${secondary.name}:${secondary.start}-${secondary.end} (${clone.lines} lines)`,
       hint: sameFile ? SAME_FILE_DUPLICATE_REPAIR_HINT : DUPLICATE_REPAIR_HINT,
+      relatedFiles: [`${secondary.name}:${secondary.start}-${secondary.end}`],
     });
   }
   return findings;

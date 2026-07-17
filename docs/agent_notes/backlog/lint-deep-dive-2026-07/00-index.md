@@ -1,8 +1,8 @@
 # Lint Deep-Dive 2026-07 — Task Pack
 
-Status: Drained 2026-07-04 — implemented across five unmerged branches (see
-Drain Status below); awaiting owner review + integration. Rows updated to
-reflect per-branch reality.
+Status: Active residue after the 2026-07-13 docs audit. Landed/design-complete
+leaves were archived; the rows below are the remaining proposals, parked work,
+and deferred design/measurement records.
 Created: 2026-07-04
 Source: 2026-07-04 lint deep-dive (3 parallel Codex xhigh lanes: ratchet /
 configs+rules / pipeline, plus Claude gate-trace and claim-verification
@@ -37,39 +37,16 @@ deliberately not done. Branch short names: **gate** =
 
 | # | Task | Track | Size | Severity | Depends on | Status |
 |---|---|---|---|---|---|---|
-| 10 | [Post-merge truth-up misses semantic staleness](./10-postmerge-truthup-semantic-staleness.md) | R | M | high | pairs with 12 | Done — ratchet |
-| 11 | [`ruleSourceHash` ignores transitive helpers](./11-rulesource-hash-transitive-helpers.md) | R | M | med (latent high) | none | Done — ratchet |
-| 12 | [Semantic merge drops `messagesFingerprint`](./12-semantic-merge-drops-fingerprints.md) | R | S | med | pairs with 10 | Done — ratchet |
-| 13 | [Debt accounting into the commit gate](./13-debt-accounting-into-commit-gate.md) | R | S-M | med | none | Done — gate |
 | 14 | [`--propose` bypasses registry validation](./14-propose-mode-skips-registry-validation.md) | R | S | low-med | none | Not done (trim candidate — left Proposed) |
-| 15 | [Structured codes for drift classification](./15-structured-drift-error-codes.md) | R | S | low | none | Done — ratchet |
 | 16 | [Scheduler cancellation of ESLint workers](./16-scheduler-cancellation.md) | R | M | low-med | none | Parked (2026-07-04) |
-| 20 | [Shared heap policy for all gates](./20-shared-heap-policy.md) | P | M | high | none | Done — gate |
-| 21 | [`--cache` for the main ESLint lane](./21-eslint-cache-normal-lint.md) | P | S-M | med-high | none | Done — gate |
-| 22 | [Zero-baseline config-resolution memoization](./22-zero-baseline-config-resolution-memoization.md) | P | S-M | low-med | none | Done — gate |
 | 23 | [Shared-collection design (4 spawns/gate)](./23-shared-collection-design.md) | P | L | med | 21, 22 measured first; DESIGN-GATED | Design recorded (option c: keep per-slot caching, do not build shared collection) — gate |
-| 30 | [Raw-SQL fence computed-property bypass](./30-raw-sql-fence-computed-property-bypass.md) | L | S | high | none | Done — rules |
-| 31 | [Concurrency-guard alias bypass](./31-concurrency-guard-alias-bypass.md) | L | M | med-high | shared helper w/ 32/36/38 | Done — alias |
-| 32 | [Outer-client nested-param exemption](./32-outer-client-nested-param-exemption.md) | L | M | med-high | shared helper w/ 31 | Done — alias |
-| 33 | [Broadcast rule misses direct `.emit`](./33-broadcast-in-transaction-direct-emit.md) | L | S | med-high | none | Done — rules |
-| 34 | [Schema-guard escape forms](./34-strict-shared-schemas-escape-forms.md) | L | M | med | selector half w/ 30 | Done — alias |
-| 35 | [`throw Error(...)` call form](./35-plain-error-call-form.md) | L | S | med | none | Done — rules |
-| 36 | [Output-schema rule alias bypass](./36-trpc-output-schema-alias-bypass.md) | L | M | med | shared helper w/ 31 | Done — alias |
-| 37 | [Socket-cleanup FALSE POSITIVE on member events](./37-socket-cleanup-false-positive-member-events.md) | L | M | med (latent) | none | Done — rules |
-| 38 | [Async-array consumption keyed by bare name](./38-async-array-callbacks-name-keying.md) | L | M | med | builds shared helper | Done — alias |
 | 40 | [Additive `no-restricted-syntax` composition](./40-restricted-syntax-additive-composition.md) | C | S+L | med | test first; builder DESIGN-GATED | Done step 1 (test) + design recorded step 2 (builder) — ergo |
-| 41 | [Config-surface manifest (3 sources of truth)](./41-config-surface-manifest.md) | C | M | med | coordinate w/ 60 | Done — ergo |
-| 42 | [Smoke-subject single-sourcing](./42-smoke-subject-single-sourcing.md) | C | M | med | none | Done — ergo |
 | 50 | [Suppression registers into the commit gate](./50-suppression-registers-into-commit-gate.md) | G | M | med-high | none · OWNER PRIORITY | Done steps 1+3; step 2 (ledger) design recorded, impl deferred — gate |
-| 51 | [CI consumes the generated gate manifest](./51-ci-consumes-generated-manifest.md) | G | M | med | none | Done — gate |
-| 52 | [Config sensors accumulate failures](./52-config-sensors-accumulate-failures.md) | G | S | low | none | Done — gate |
-| 53 | [lint-agent / guidance-check wiring decision](./53-lint-agent-guidance-check-wiring.md) | G | S | low-med | none | Done — gate |
-| 54 | [Inline disables launder ratchet debt into tightenings](./54-inline-disables-launder-ratchet-debt.md) | G | S | med-high | pairs with 50 | Done — gate |
-| 60 | [Coverage-map conflict detection (+ live fix)](./60-coverage-map-conflict-detection.md) | I | M | med | none | Done — ergo |
-| 61 | [Knip identity baseline](./61-knip-identity-baseline.md) | I | M | med | ledger design w/ 50 | Design recorded (identity-ledger, w/ 50 step 2), impl deferred — gate |
 | 70 | [Ratchet doc accuracy sweep + split decision](./70-ratchet-docs-accuracy-and-shape.md) | D | M | low-med | item 3 DESIGN-GATED | Done items 1-2 + design recorded item 3 (split) — rules |
 | 71 | [Portable engine context (milestone 2)](./71-portable-engine-context.md) | D | L | med | DESIGN-GATED; after 15 helps | Design recorded (keep in-tree, thread context; no extraction now) — rules |
-| 72 | [Single-rule probe command](./72-single-rule-probe-script.md) | D | S | low | respects 42 | Done — ergo |
+| 73 | [Lint-lane memory profile](./73-lint-lane-memory-profile.md) | P | M | high | measurement spike | Findings recorded — `auto/38-lint-memory-profile` |
+| 76 | [Partition the lint type program](./76-partition-lint-type-program.md) | P | M | med-high | 73; measurement first | Done — implemented 2026-07-14 (`d714f4ce`) |
+| 77 | [Cap Vitest workers and ratchet the test reservation](./77-cap-vitest-workers.md) | P | M | high | 73; measurement first | Done — `auto/vitest-worker-caps` |
 
 ## Drain Status (2026-07-04)
 

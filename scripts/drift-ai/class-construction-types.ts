@@ -14,7 +14,7 @@ export type ClassConstructionSourceInput = {
 
 export type ClassExportStatus = "named" | "default" | "internal";
 
-export type ClassDeclarationKind = "declaration" | "expression";
+type ClassDeclarationKind = "declaration" | "expression";
 
 export type ClassHeritage = {
   readonly extends: readonly string[];
@@ -91,7 +91,7 @@ export type ClassConstructionOptions = {
   readonly factoryMethodNames?: Iterable<string>;
 };
 
-export const RISKY_CONTEXT_PREFIX = "risky-context: ";
+const RISKY_CONTEXT_PREFIX = "risky-context: ";
 
 // The standing reminder carried by every record: zero construction evidence is a
 // lead, never a verdict. It enumerates the live contexts a never-`new`ed class
@@ -105,20 +105,17 @@ export const CLASS_CONSTRUCTION_STANDING_CAVEAT =
 
 // Risky-context kinds. Returned as caveat labels rather than silently suppressing
 // the class, so the evidence stays visible while the danger stays attached.
-export const CLASS_RISKY_CONTEXTS = [
-  "di-or-decorator",
-  "orm-entity",
-  "react-class-component",
-  "custom-element",
-  "factory-static-construction",
-  "reflection-string-keyed",
-  "instantiated-via-subclass",
-  "test-or-fixture-only-construction",
-  "anonymous-untrackable",
-  "ambiguous-name-shared-evidence",
-] as const;
-
-export type ClassRiskyContext = (typeof CLASS_RISKY_CONTEXTS)[number];
+export type ClassRiskyContext =
+  | "di-or-decorator"
+  | "orm-entity"
+  | "react-class-component"
+  | "custom-element"
+  | "factory-static-construction"
+  | "reflection-string-keyed"
+  | "instantiated-via-subclass"
+  | "test-or-fixture-only-construction"
+  | "anonymous-untrackable"
+  | "ambiguous-name-shared-evidence";
 
 // Decorator name -> di-or-decorator is keyed on "any decorator present"; these
 // extra sets refine the more specific framework caveats.

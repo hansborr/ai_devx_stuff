@@ -5,10 +5,19 @@
 #   slug                Print the DB slug for the current worktree.
 #   init                Idempotent provisioning: copy .claude, allocate ports+Redis DB,
 #                       ensure template DB, clone per-worktree DBs, write .env files.
-#   drop                Drop the current worktree's DBs (allowlisted).
+#   drop [<path>] [--remove]
+#                       Drop a worktree's allowlisted DBs and release its state.
+#                       With --remove, require a clean target and remove the git
+#                       worktree afterward, while retaining its branch.
 #   gc [--force]        Sweep orphan musi_wt_<slug>* DBs whose worktrees no longer
 #                       exist and whose grace period has elapsed.
-#   status              Print current worktree DB/port/template diagnostics.
+#   status [--all]      Print current worktree DB/port/template diagnostics;
+#                       --all prints a provisioning block per worktree.
+#   status --lanes [--base <ref>]
+#                       One git-work row per worktree (ahead/behind vs base,
+#                       staged/unstaged counts, last-commit age). Read-only,
+#                       no Postgres. Base: --base, else upstream, else the
+#                       primary worktree's branch, else origin/HEAD.
 #   template-refresh [--from-musi]
 #                       (Re)build the fingerprinted musi_template_<hash> DB via
 #                       prisma migrate deploy + seedSrd; fingerprint stored in
@@ -37,11 +46,20 @@
 #   packages/server/prisma/migrations/
 #   packages/server/prisma/seed-template.ts
 #   packages/server/src/seed/
+#   packages/server/src/generated/prisma/
+#   packages/server/src/utils/{prisma-json,script-logger}.ts
+#   packages/shared/src/, package.json, tsconfig.json
+#   scripts/worktree-seed-import-closure.ts
+#   tsconfig.base.json
 #
 # Writes (to current worktree, not primary):
 #   .env                     — DATABASE_URL, TEST_DATABASE_URL, E2E_DATABASE_URL,
 #                              SERVER_PORT, REDIS_URL, CORS_ORIGIN
 #   packages/client/.env     — VITE_DEV_PORT, VITE_API_URL
+#   packages/shared/dist/.musi-build-fingerprint
+#                            — source/config hash for the built shared output
+#   packages/server/src/generated/prisma/.musi-schema-fingerprint
+#                            — schema hash for the generated Prisma client
 #
 # Writes (to primary worktree):
 #   .worktree-state/tombstones.json
@@ -49,6 +67,7 @@
 #   .worktree-state/allocations.json
 #   .worktree-state/allocation.lock
 #   .worktree-state/gc.lock
+#   .worktree-state/init-<slug>.lock
 #
 # Databases it may CREATE:
 #   musi_template_<hash>     — golden copy (migrated + SRD seed)
@@ -69,6 +88,15 @@ set -euo pipefail
 readonly TEMPLATE_DB_PREFIX="musi_template"
 readonly META_DB="musi_wt_meta"
 readonly PRIMARY_DB_NAMES=("musi" "musi_test" "musi_test_e2e" "postgres")
+readonly SEED_BLANKET_HASHED_ROOTS=(
+  "packages/server/src/seed"
+  "packages/server/src/generated/prisma"
+  "packages/shared/src"
+)
+readonly SEED_SERVER_RUNTIME_INPUTS=(
+  "packages/server/src/utils/prisma-json.ts"
+  "packages/server/src/utils/script-logger.ts"
+)
 
 # Postgres identifier limit is 63 bytes. The longest worktree DB name is
 # `musi_wt_<49-byte slug>_test`; worker DBs use `musi_wt_<slug>_w<key>` so they
@@ -89,6 +117,8 @@ readonly SLUG_HASH_LEN=6
 # enough space that accidental collisions are not a practical concern here.
 readonly TEMPLATE_HASH_LEN=12
 readonly PRESERVE_REFRESH_SEED_FP="preserve-refresh-unknown"
+readonly PRISMA_SCHEMA_FINGERPRINT_FILE=".musi-schema-fingerprint"
+readonly SHARED_OUTPUT_FINGERPRINT_FILE=".musi-build-fingerprint"
 
 # Port bands (documented in the plan).
 readonly SERVER_PORT_MIN=8100
@@ -102,6 +132,10 @@ readonly REDIS_DB_MAX=15
 
 # Default GC grace period: 24 hours. Override via MUSI_WT_GRACE.
 readonly DEFAULT_GRACE_SECONDS=86400
+
+# Bound same-worktree init/refresh serialization so a stalled process cannot
+# leave its lane waiting forever. Different slugs always use different locks.
+readonly DEFAULT_INIT_LOCK_TIMEOUT_SECONDS=120
 
 # ============================================================================
 # Helpers: logging, path, admin connection
@@ -140,11 +174,44 @@ install_lint_ratchet_merge_driver() {
   bash "$installer" || log "WARN: lint-ratchet merge-driver installer exited non-zero"
 }
 
+install_knip_unused_exports_merge_driver() {
+  local wt_root="$1"
+  local installer="$wt_root/scripts/git/install-knip-unused-exports-merge-driver.sh"
+  [ -f "$installer" ] || return 0
+  bash "$installer" || log "WARN: knip unused-exports merge-driver installer exited non-zero"
+}
+
+install_near_duplicates_merge_driver() {
+  local wt_root="$1"
+  local installer="$wt_root/scripts/git/install-near-duplicates-merge-driver.sh"
+  [ -f "$installer" ] || return 0
+  bash "$installer" || log "WARN: near-duplicates merge-driver installer exited non-zero"
+}
+
+install_max_lines_exceptions_merge_driver() {
+  local wt_root="$1"
+  local installer="$wt_root/scripts/git/install-max-lines-exceptions-merge-driver.sh"
+  [ -f "$installer" ] || return 0
+  bash "$installer" || log "WARN: max-lines exceptions merge-driver installer exited non-zero"
+}
+
 is_primary_worktree() {
+  if (( $# > 0 )); then
+    local wt_path="$1"
+    (cd "$wt_path" && is_primary_worktree)
+    return
+  fi
   local common dir
   common="$(git rev-parse --git-common-dir)"
   dir="$(git rev-parse --git-dir)"
   [[ "$(cd "$common" && pwd -P)" == "$(cd "$dir" && pwd -P)" ]]
+}
+
+resolve_worktree_root() {
+  local path="$1" root
+  root="$(git -C "$path" rev-parse --show-toplevel 2>/dev/null)" \
+    || die "not a git worktree: $path"
+  (cd "$root" && pwd -P)
 }
 
 # Admin connection URL: derive from .devcontainer/.env's DATABASE_URL, then
@@ -243,6 +310,23 @@ ensure_state_dir() {
   mkdir -p "$dir"
 }
 
+# Guard state-file writers against overwriting a good file with a payload that
+# is not a JSON object. A corrupt read upstream (jq failing on a malformed file)
+# can leave the in-memory $json empty or malformed; without this check the
+# atomic `mv` would replace the registry with a blank line and drop every other
+# slug's reservation (the field-observed registry wipe). Die instead so the
+# existing file is preserved and the corruption is reported, not cascaded.
+assert_state_json() {
+  local json="$1" label="$2"
+  # jq returns 0 on empty input (no value to test), so reject blank payloads
+  # explicitly before the object-type check.
+  if [[ -z "${json//[[:space:]]/}" ]]; then
+    die "refusing to write $label: payload is empty (state file left unchanged)"
+  fi
+  printf '%s' "$json" | jq -e 'type == "object"' >/dev/null 2>&1 \
+    || die "refusing to write $label: payload is not a JSON object (state file left unchanged)"
+}
+
 tombstones_file() {
   printf '%s' "$(state_dir)/tombstones.json"
 }
@@ -331,29 +415,144 @@ worktree_redis_url() {
 # Template fingerprint
 # ============================================================================
 
+write_migration_fingerprint_input_digests() {
+  local schema="packages/server/prisma/schema.prisma"
+  local migrations="packages/server/prisma/migrations"
+
+  sha256sum "$schema" || return 1
+  if [[ -d "$migrations" ]]; then
+    find "$migrations" -type f \( -name '*.sql' -o -name '*.toml' \) \
+      -print0 | sort -z | xargs -0 -r sha256sum || return 1
+  fi
+}
+
+validate_seed_runtime_import_closure() {
+  local checker root input
+  local -a checker_args
+
+  checker="${MUSI_SEED_IMPORT_CLOSURE_CHECKER:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/worktree-seed-import-closure.ts}"
+  [[ -f "$checker" ]] || die "missing $checker — can't validate seed runtime imports"
+  checker_args=(
+    bun "$checker"
+    --root "$PWD"
+    --entry "packages/server/prisma/seed-template.ts"
+    --emit-closure-nul
+  )
+  for root in "${SEED_BLANKET_HASHED_ROOTS[@]}"; do
+    checker_args+=(--allowed-root "$root")
+  done
+  for input in "${SEED_SERVER_RUNTIME_INPUTS[@]}"; do
+    checker_args+=(--allowed-file "$input")
+  done
+  "${checker_args[@]}" || return 1
+}
+
+write_seed_runtime_import_digests() {
+  local closure_file input status=0
+
+  closure_file=$(mktemp "${TMPDIR:-/tmp}/musi-seed-import-closure.XXXXXX") || return 1
+  if ! validate_seed_runtime_import_closure > "$closure_file"; then
+    rm -f "$closure_file"
+    return 1
+  fi
+  while IFS= read -r -d '' input; do
+    sha256sum "$input" || {
+      status=1
+      break
+    }
+  done < "$closure_file"
+  rm -f "$closure_file"
+  return "$status"
+}
+
+write_seed_fingerprint_input_digests() {
+  local config root
+
+  write_seed_runtime_import_digests || return 1
+  for root in "${SEED_BLANKET_HASHED_ROOTS[@]}"; do
+    [[ -d "$root" ]] || die "missing $PWD/$root — can't fingerprint template inputs"
+    find "$root" -type f \( -name '*.ts' -o -name '*.json' \) \
+      ! -name '*.test.ts' ! -name '*.spec.ts' ! -name '*.test-helper.ts' \
+      -print0 | sort -z | xargs -0 -r sha256sum || return 1
+  done
+
+  # Seed modules execute these helpers outside src/seed. Keep this manifest
+  # explicit so runtime imports cannot be mistaken for unrelated server code.
+  for config in "${SEED_SERVER_RUNTIME_INPUTS[@]}"; do
+    [[ -f "$config" ]] || die "missing $PWD/$config — can't fingerprint template inputs"
+    sha256sum "$config" || return 1
+  done
+
+  # Shared package configs determine how the blanket-hashed sources are built
+  # and exposed to the server seed runtime.
+  for config in packages/shared/package.json packages/shared/tsconfig.json tsconfig.base.json; do
+    [[ -f "$config" ]] || die "missing $PWD/$config — can't fingerprint template inputs"
+    sha256sum "$config" || return 1
+  done
+}
+
+write_template_fingerprint_input_digests() {
+  write_migration_fingerprint_input_digests || return 1
+  write_seed_fingerprint_input_digests || return 1
+}
+
+write_shared_output_fingerprint_input_digests() {
+  local config root="packages/shared/src"
+
+  [[ -d "$root" ]] || die "missing $PWD/$root — can't fingerprint shared output inputs"
+  find "$root" -type f -print0 | sort -z | xargs -0 -r sha256sum || return 1
+  for config in packages/shared/package.json packages/shared/tsconfig.json tsconfig.base.json; do
+    [[ -f "$config" ]] || die "missing $PWD/$config — can't fingerprint shared output inputs"
+    sha256sum "$config" || return 1
+  done
+}
+
+write_prisma_client_fingerprint_input_digests() {
+  local input
+  # schema.prisma drives the client's shape; packages/server/package.json pins
+  # the prisma / @prisma/client versions the generator runs — a version bump
+  # there produces a different client from an unchanged schema, so both must be
+  # inputs or a warm lane keeps a stale generated client after an upgrade.
+  for input in packages/server/prisma/schema.prisma packages/server/package.json; do
+    [[ -f "$input" ]] || die "missing $PWD/$input — can't fingerprint generated Prisma client inputs"
+    sha256sum "$input" || return 1
+  done
+}
+
+hash_fingerprint_inputs() {
+  local wt_root="$1" producer="$2" input_file digest_line digest
+
+  input_file=$(mktemp "${TMPDIR:-/tmp}/musi-artifact-fingerprint.XXXXXX") \
+    || die "can't create fingerprint input file"
+  if ! (cd "$wt_root" && "$producer") > "$input_file"; then
+    rm -f "$input_file"
+    die "failed to produce complete fingerprint input"
+  fi
+  if ! digest_line=$(sha256sum "$input_file"); then
+    rm -f "$input_file"
+    die "failed to hash complete fingerprint input"
+  fi
+  rm -f "$input_file"
+  digest="${digest_line%% *}"
+  [[ "$digest" =~ ^[a-f0-9]{64}$ ]] || die "invalid input fingerprint: $digest"
+  printf '%s\n' "$digest"
+}
+
 compute_migration_fingerprint() {
   # $1: optional worktree path (default current worktree). This deliberately
   # uses the checked-out code in that worktree, not the primary worktree, so a
   # branch with Prisma/seed changes provisions DBs that match that branch.
   #
-  # Hashing happens after `cd "$wt_root"` so `sha256sum`'s output records
-  # relative paths only. Two worktrees with byte-identical inputs at different
-  # absolute paths must produce the same fingerprint, so they share one
-  # musi_template_<hash> DB.
+  # Producers run after `cd "$wt_root"` so `sha256sum` records relative paths
+  # only. Two worktrees with byte-identical inputs at different absolute paths
+  # therefore share one musi_template_<hash> DB.
   local wt_root="${1:-$(current_root)}"
   local schema="packages/server/prisma/schema.prisma"
-  local migrations="packages/server/prisma/migrations"
   # These are hard requirements — silently hashing their absence would let a
   # broken project state produce a valid-looking fingerprint and defer the
   # failure to `prisma migrate deploy`.
   [[ -f "$wt_root/$schema" ]] || die "missing $wt_root/$schema — can't fingerprint template inputs"
-  ( cd "$wt_root" && {
-      sha256sum "$schema"
-      if [[ -d "$migrations" ]]; then
-        find "$migrations" -type f \( -name '*.sql' -o -name '*.toml' \) \
-          -print0 | sort -z | xargs -0 -r sha256sum
-      fi
-    } | sha256sum | cut -d' ' -f1 )
+  hash_fingerprint_inputs "$wt_root" write_migration_fingerprint_input_digests
 }
 
 compute_seed_fingerprint() {
@@ -366,15 +565,8 @@ compute_seed_fingerprint() {
   # — see compute_migration_fingerprint for why.
   local wt_root="${1:-$(current_root)}"
   local seed="packages/server/prisma/seed-template.ts"
-  local seed_dir="packages/server/src/seed"
   [[ -f "$wt_root/$seed" ]] || die "missing $wt_root/$seed — can't fingerprint template inputs"
-  ( cd "$wt_root" && {
-      sha256sum "$seed"
-      if [[ -d "$seed_dir" ]]; then
-        find "$seed_dir" -type f \( -name '*.ts' -o -name '*.json' \) ! -name '*.test.ts' \
-          -print0 | sort -z | xargs -0 -r sha256sum
-      fi
-    } | sha256sum | cut -d' ' -f1 )
+  hash_fingerprint_inputs "$wt_root" write_seed_fingerprint_input_digests
 }
 
 compute_fingerprint() {
@@ -383,22 +575,34 @@ compute_fingerprint() {
   local wt_root="${1:-$(current_root)}"
   local schema="packages/server/prisma/schema.prisma"
   local seed="packages/server/prisma/seed-template.ts"
-  local migrations="packages/server/prisma/migrations"
-  local seed_dir="packages/server/src/seed"
   [[ -f "$wt_root/$schema" ]] || die "missing $wt_root/$schema — can't fingerprint template inputs"
   [[ -f "$wt_root/$seed" ]] || die "missing $wt_root/$seed — can't fingerprint template inputs"
-  ( cd "$wt_root" && {
-      sha256sum "$schema"
-      sha256sum "$seed"
-      if [[ -d "$migrations" ]]; then
-        find "$migrations" -type f \( -name '*.sql' -o -name '*.toml' \) \
-          -print0 | sort -z | xargs -0 -r sha256sum
-      fi
-      if [[ -d "$seed_dir" ]]; then
-        find "$seed_dir" -type f \( -name '*.ts' -o -name '*.json' \) ! -name '*.test.ts' \
-          -print0 | sort -z | xargs -0 -r sha256sum
-      fi
-    } | sha256sum | cut -d' ' -f1 )
+  hash_fingerprint_inputs "$wt_root" write_template_fingerprint_input_digests
+}
+
+compute_shared_output_fingerprint() {
+  local wt_root="${1:-$(current_root)}"
+  hash_fingerprint_inputs "$wt_root" write_shared_output_fingerprint_input_digests
+}
+
+compute_prisma_schema_fingerprint() {
+  local wt_root="${1:-$(current_root)}"
+  hash_fingerprint_inputs "$wt_root" write_prisma_client_fingerprint_input_digests
+}
+
+store_artifact_fingerprint() {
+  local path="$1" fingerprint="$2" temp
+  mkdir -p "${path%/*}"
+  temp="$(mktemp "${path}.tmp.XXXXXX")" \
+    || die "can't create artifact fingerprint temporary file for $path"
+  if ! printf '%s\n' "$fingerprint" > "$temp"; then
+    rm -f "$temp"
+    die "can't write artifact fingerprint for $path"
+  fi
+  if ! mv "$temp" "$path"; then
+    rm -f "$temp"
+    die "can't install artifact fingerprint at $path"
+  fi
 }
 
 template_db_for_fingerprint() {
@@ -620,6 +824,7 @@ template_refresh_for_fingerprint() {
   else
     run_admin "CREATE DATABASE $target_template" >/dev/null
     # Run migrations + SRD seed against the fresh template.
+    ensure_shared_output "$wt_root"
     (
       cd "$wt_root/packages/server"
       DATABASE_URL="$(db_url "$target_template")" bunx --no-install prisma migrate deploy
@@ -645,6 +850,7 @@ template_refresh() {
 
   local wt_root current
   wt_root="$(current_root)"
+  ensure_shared_output "$wt_root"
   current="$(compute_fingerprint "$wt_root")"
   template_refresh_for_fingerprint "$current" "$from_musi" "$wt_root"
 }
@@ -658,31 +864,79 @@ template_refresh() {
 # hook (lint:changed/typecheck/test:changed) or `bun run dev` until the user
 # manually bootstraps. Idempotent: warm worktrees return immediately.
 ensure_dependencies() {
-  local wt_root prisma_out
+  local wt_root prisma_out prisma_fingerprint_path current_prisma_fingerprint
+  local stored_prisma_fingerprint="" needs_install=0 needs_prisma_generate=0
   wt_root="$(git rev-parse --show-toplevel)"
   # Match the generator's `output` in packages/server/prisma/schema.prisma
   # (relative path "../src/generated/prisma" → packages/server/src/generated/prisma).
   prisma_out="$wt_root/packages/server/src/generated/prisma"
+  prisma_fingerprint_path="$prisma_out/$PRISMA_SCHEMA_FINGERPRINT_FILE"
+  current_prisma_fingerprint="$(compute_prisma_schema_fingerprint "$wt_root")"
+  if [[ -f "$prisma_fingerprint_path" ]]; then
+    stored_prisma_fingerprint="$(<"$prisma_fingerprint_path")"
+  fi
 
-  if [[ -d "$wt_root/node_modules" && -d "$prisma_out" ]]; then
-    log "dependencies ok (node_modules + prisma client present)"
+  [[ -d "$wt_root/node_modules" ]] || needs_install=1
+  if [[ ! -d "$prisma_out" || "$stored_prisma_fingerprint" != "$current_prisma_fingerprint" ]]; then
+    needs_prisma_generate=1
+  fi
+
+  if (( ! needs_install && ! needs_prisma_generate )); then
+    log "dependencies ok (node_modules + fresh prisma client present)"
     return 0
   fi
 
   log "bootstrapping worktree dependencies (this may take a moment)"
-  (
-    cd "$wt_root"
-    log "running: bun install"
-    bun install >&2
-  ) || die "ensure_dependencies: bun install failed"
+  if (( needs_install )); then
+    (
+      cd "$wt_root"
+      log "running: bun install"
+      bun install >&2
+    ) || die "ensure_dependencies: bun install failed"
+  fi
 
-  (
-    cd "$wt_root"
-    log "running: bun run --filter @musi/server prisma:generate"
-    bun run --filter @musi/server prisma:generate >&2
-  ) || die "ensure_dependencies: prisma:generate failed"
+  if (( needs_prisma_generate )); then
+    rm -f "$prisma_fingerprint_path"
+    (
+      cd "$wt_root"
+      log "running: bun run --filter @musi/server prisma:generate"
+      bun run --filter @musi/server prisma:generate >&2
+    ) || die "ensure_dependencies: prisma:generate failed"
+    [[ -d "$prisma_out" ]] \
+      || die "ensure_dependencies: prisma:generate did not create $prisma_out"
+    store_artifact_fingerprint "$prisma_fingerprint_path" "$current_prisma_fingerprint"
+  fi
 
   log "dependencies bootstrapped"
+}
+
+ensure_shared_output() {
+  local wt_root="$1" dist fingerprint_path current_fingerprint stored_fingerprint=""
+
+  if [[ "${MUSI_SHARED_OUTPUT_READY_ROOT:-}" == "$wt_root" ]]; then
+    return 0
+  fi
+  dist="$wt_root/packages/shared/dist"
+  fingerprint_path="$dist/$SHARED_OUTPUT_FINGERPRINT_FILE"
+  current_fingerprint="$(compute_shared_output_fingerprint "$wt_root")"
+  if [[ -f "$fingerprint_path" ]]; then
+    stored_fingerprint="$(<"$fingerprint_path")"
+  fi
+  if [[ -d "$dist" && "$stored_fingerprint" == "$current_fingerprint" ]]; then
+    log "@musi/shared output is fresh"
+    MUSI_SHARED_OUTPUT_READY_ROOT="$wt_root"
+    return 0
+  fi
+  log "building @musi/shared output required by template seeding"
+  rm -f "$fingerprint_path"
+  (
+    cd "$wt_root"
+    bun run --filter @musi/shared build >&2
+  ) || die "ensure_shared_output: failed to build shared output required by template seeding"
+  [[ -d "$dist" ]] \
+    || die "ensure_shared_output: shared build did not create $dist"
+  store_artifact_fingerprint "$fingerprint_path" "$current_fingerprint"
+  MUSI_SHARED_OUTPUT_READY_ROOT="$wt_root"
 }
 
 copy_worktreeinclude_entries() {
@@ -908,6 +1162,38 @@ write_worktree_env() {
   log "wrote $client_env"
 }
 
+worktree_init_lock_path() {
+  local slug="$1"
+  printf '%s/init-%s.lock' "$(state_dir)" "$slug"
+}
+
+# Keep one stable pathname per slug. These files are intentionally never
+# unlinked: sibling worktrees on older revisions may already have the inode
+# open, and removing its pathname would permit a second exclusive lock on a
+# newly created inode. The small empty files are harmless coordination state.
+acquire_worktree_init_lock() {
+  local slug="$1" output_fd_var="$2" init_lock acquired_fd
+  local timeout_seconds="${MUSI_WT_INIT_LOCK_TIMEOUT:-$DEFAULT_INIT_LOCK_TIMEOUT_SECONDS}"
+  if ! [[ "$timeout_seconds" =~ ^[1-9][0-9]*$ ]]; then
+    die "MUSI_WT_INIT_LOCK_TIMEOUT must be a positive integer (got: $timeout_seconds)"
+  fi
+
+  init_lock="$(worktree_init_lock_path "$slug")"
+  exec {acquired_fd}>"$init_lock"
+  if ! flock -w "$timeout_seconds" "$acquired_fd"; then
+    exec {acquired_fd}>&-
+    die "timed out after ${timeout_seconds}s waiting for worktree init lock for slug=$slug; another init or refresh-data may be stalled"
+  fi
+
+  printf -v "$output_fd_var" '%s' "$acquired_fd"
+}
+
+release_worktree_init_lock() {
+  local lockfd="$1"
+  flock -u "$lockfd"
+  exec {lockfd}>&-
+}
+
 cmd_init() {
   if is_primary_worktree; then
     log "primary worktree; no provisioning needed"
@@ -921,19 +1207,21 @@ cmd_init() {
   wt_root="$(current_root)"
 
   install_lint_ratchet_merge_driver "$wt_root"
+  install_knip_unused_exports_merge_driver "$wt_root"
+  install_near_duplicates_merge_driver "$wt_root"
+  install_max_lines_exceptions_merge_driver "$wt_root"
 
   log "slug: $slug"
 
   ensure_state_dir
-  local init_lock init_lockfd
-  init_lock="$(state_dir)/init-${slug}.lock"
-  exec {init_lockfd}>"$init_lock"
-  flock "$init_lockfd"
+  local init_lockfd=""
+  acquire_worktree_init_lock "$slug" init_lockfd
 
   # Bootstrap node_modules + prisma client for this worktree before any DB
   # provisioning. The template build and catch-up migrations run from this
   # worktree so branch-local Prisma changes are honored.
   ensure_dependencies
+  ensure_shared_output "$wt_root"
 
   # Opportunistic GC before allocating — reclaim orphaned ports/DBs.
   cmd_gc || true
@@ -959,11 +1247,14 @@ cmd_init() {
 
   # Allocate ports and Redis index from a locked registry so concurrent fresh
   # worktrees cannot reserve the same resources before servers bind.
-  local server_start client_start
+  local server_start client_start alloc_line
   server_start=$(( hash % (SERVER_PORT_MAX - SERVER_PORT_MIN + 1) ))
   client_start=$(( hash % (CLIENT_PORT_MAX - CLIENT_PORT_MIN + 1) ))
-  IFS=$'\t' read -r server_port client_port redis_db \
-    <<< "$(allocate_resources "$slug" "$hash" "$server_start" "$client_start")"
+  # Capture into a guarded assignment first: allocate_resources `die`s on pool
+  # exhaustion, and a bare `read <<< "$(...)"` would swallow that failure and
+  # write a poisoned .env. resolve_worktree_resources fails loud instead.
+  alloc_line="$(resolve_worktree_resources "$slug" "$hash" "$server_start" "$client_start")"
+  IFS=$'\t' read -r server_port client_port redis_db <<< "$alloc_line"
   log "allocated: server=$server_port client=$client_port redis=/$redis_db"
 
   write_worktree_env "$slug" "$server_port" "$client_port" "$redis_db"
@@ -971,11 +1262,12 @@ cmd_init() {
   # Clear tombstone for this slug, if any.
   tombstone_forget "$slug"
 
+  release_worktree_init_lock "$init_lockfd"
   log "init complete for worktree slug=$slug"
 }
 
 # ============================================================================
-# Drop (current worktree)
+# Drop (target worktree)
 # ============================================================================
 
 validate_wt_db_name() {
@@ -1012,11 +1304,59 @@ drop_db() {
 }
 
 cmd_drop() {
-  if is_primary_worktree; then
+  local remove=0 target_arg="" arg explicit_target=0 target_path
+  for arg in "$@"; do
+    case "$arg" in
+      --remove) remove=1 ;;
+      --*) die "unknown arg to drop: $arg" ;;
+      *)
+        [[ -z "$target_arg" ]] || die "usage: worktree:drop [<path>] [--remove]"
+        target_arg="$arg"
+        explicit_target=1
+        ;;
+    esac
+  done
+
+  if (( explicit_target )); then
+    target_path="$(resolve_worktree_root "$target_arg")"
+  else
+    # Preserve the no-argument command's existing cwd-based slug behavior.
+    target_path="$(pwd -P)"
+  fi
+
+  if is_primary_worktree "$target_path"; then
     die "refusing to drop DBs from the primary worktree"
   fi
+
+  # `git worktree remove` refuses to remove the worktree that holds the caller's
+  # cwd, but only after cmd_drop has already torn down DBs, fingerprint, and
+  # allocations — a half-torn stranded lane. The no-path form is always a self
+  # target, but `worktree:drop . --remove` (or any explicit path resolving to the
+  # caller's own lane) hits the same trap, so refuse whenever the caller's cwd is
+  # the resolved target or lives inside it — before any teardown runs.
+  if (( remove )); then
+    local caller_pwd
+    caller_pwd="$(pwd -P)"
+    if [[ "$caller_pwd" == "$target_path" || "$caller_pwd" == "$target_path"/* ]]; then
+      die "refusing to remove the worktree containing the current shell; run it from the primary with an explicit path"
+    fi
+  fi
+
+  local branch="" status_output=""
+  if (( remove )); then
+    # This must precede every DB/state teardown operation. Git removal without
+    # --force rejects dirty worktrees, and agents cannot use --force to recover
+    # from a late refusal after the databases and allocations are already gone.
+    status_output="$(git -C "$target_path" status --porcelain --untracked-files=normal)" \
+      || die "could not inspect worktree status at $target_path"
+    [[ -z "$status_output" ]] \
+      || die "uncommitted work at $target_path; commit or inspect before dropping"
+    branch="$(git -C "$target_path" branch --show-current)" \
+      || die "could not resolve the branch at $target_path"
+  fi
+
   local slug dbs target
-  slug="$(compute_slug)"
+  slug="$(compute_slug "$target_path")"
   # Fail loudly on admin DB failure: silently treating a connection error as
   # "no DBs" would clear local registry state (fingerprint, tombstone,
   # allocation) while orphan DBs persist. cmd_gc still discovers orphans on a
@@ -1029,6 +1369,15 @@ cmd_drop() {
   forget_worktree_fingerprint "$slug"
   tombstone_forget "$slug"
   allocation_forget "$slug"
+
+  if (( remove )); then
+    git worktree remove "$target_path"
+    if [[ -n "$branch" ]]; then
+      log "worktree removed; branch retained — delete it when safe with: git branch -d $branch"
+    else
+      log "worktree removed; target was detached, so there is no branch to delete"
+    fi
+  fi
 }
 
 # ============================================================================
@@ -1038,6 +1387,7 @@ cmd_drop() {
 reseed_worktree_db() {
   local db="$1" wt_root="$2"
   validate_wt_db_name "$db"
+  ensure_shared_output "$wt_root"
   log "applying migrations + SRD seed to $db (preserves non-SRD rows)"
   (
     cd "$wt_root/packages/server"
@@ -1097,15 +1447,13 @@ cmd_refresh_data() {
   log "slug: $slug"
 
   ensure_state_dir
-  # Reuse the per-slug init lock so concurrent `worktree:init` and
-  # `worktree:refresh-data` cannot interleave migrations / template rebuilds
-  # for the same worktree.
-  local lock lockfd
-  lock="$(state_dir)/init-${slug}.lock"
-  exec {lockfd}>"$lock"
-  flock "$lockfd"
+  # Reuse this slug's init lock so `worktree:init` and
+  # `worktree:refresh-data` cannot interleave changes to its databases.
+  local lockfd=""
+  acquire_worktree_init_lock "$slug" lockfd
 
   ensure_dependencies
+  ensure_shared_output "$wt_root"
 
   current_fp="$(compute_fingerprint "$wt_root")"
   current_migration_fp="$(compute_migration_fingerprint "$wt_root")"
@@ -1138,7 +1486,7 @@ cmd_refresh_data() {
   IFS=$'\t' read -r recorded_fp recorded_migration_fp recorded_seed_fp \
     <<< "$(refresh_data_recorded_fingerprints "$destructive" "$stored_fp" "$stored_seed_fp" "$current_fp" "$current_migration_fp" "$current_seed_fp")"
   store_worktree_fingerprints "$slug" "$recorded_fp" "$recorded_migration_fp" "$recorded_seed_fp"
-  flock -u "$lockfd"
+  release_worktree_init_lock "$lockfd"
   if (( destructive )); then
     log "refresh-data complete (destructive) for slug=$slug"
   else
@@ -1171,13 +1519,31 @@ meta_read_value() {
 }
 
 cmd_status() {
-  local all=0 arg
-  for arg in "$@"; do
-    case "$arg" in
+  local all=0 lanes=0 base_override=""
+  while (( $# > 0 )); do
+    case "$1" in
       --all) all=1 ;;
-      *) die "unknown arg to status: $arg" ;;
+      --lanes) lanes=1 ;;
+      --base)
+        [[ $# -ge 2 ]] || die "status: --base requires a ref argument"
+        base_override="$2"
+        shift
+        ;;
+      *) die "unknown arg to status: $1" ;;
     esac
+    shift
   done
+  if (( all && lanes )); then
+    die "status: --all and --lanes are mutually exclusive"
+  fi
+  if [[ -n "$base_override" ]] && (( ! lanes )); then
+    die "status: --base only applies to --lanes"
+  fi
+
+  if (( lanes )); then
+    cmd_status_lanes "$base_override"
+    return 0
+  fi
 
   if (( all )); then
     cmd_status_all
@@ -1310,6 +1676,90 @@ list_worktrees_porcelain() {
   local pr
   pr="$(primary_root)"
   git worktree list --porcelain | parse_worktree_porcelain "$pr"
+}
+
+# Split `git status --porcelain` output (stdin) into staged vs unstaged counts,
+# emitted as <staged>\t<unstaged>. X column = index, Y column = worktree;
+# untracked (`??`) counts as unstaged, a both-columns line increments both.
+count_status_porcelain() {
+  local staged=0 unstaged=0 line x y
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ -z "$line" ]] && continue
+    x="${line:0:1}"
+    y="${line:1:1}"
+    if [[ "$x" == "?" ]]; then
+      unstaged=$(( unstaged + 1 ))
+      continue
+    fi
+    if [[ "$x" != " " && "$x" != "!" ]]; then staged=$(( staged + 1 )); fi
+    if [[ "$y" != " " && "$y" != "!" ]]; then unstaged=$(( unstaged + 1 )); fi
+  done
+  printf '%d\t%d\n' "$staged" "$unstaged"
+}
+
+# Base ref for ahead/behind comparisons. Lanes fan out from whatever the
+# primary worktree has checked out, so `main` is never assumed: an explicit
+# --base override wins, then the lane branch's configured upstream, then the
+# primary worktree's checked-out branch, then origin/HEAD, then a local
+# main/master. Empty output means no base could be resolved.
+resolve_lane_base() {
+  local wt_path="$1" base_override="$2" primary_branch="$3"
+  if [[ -n "$base_override" ]]; then
+    printf '%s' "$base_override"
+    return 0
+  fi
+  local upstream
+  if upstream="$(git -C "$wt_path" rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null)"; then
+    printf '%s' "$upstream"
+    return 0
+  fi
+  if [[ -n "$primary_branch" && "$primary_branch" != "<detached>" && "$primary_branch" != "<bare>" ]]; then
+    printf '%s' "$primary_branch"
+    return 0
+  fi
+  local default_branch
+  if default_branch="$(git -C "$wt_path" symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null)"; then
+    printf '%s' "$default_branch"
+    return 0
+  fi
+  local ref
+  for ref in main master; do
+    if git -C "$wt_path" show-ref --verify --quiet "refs/heads/$ref" 2>/dev/null; then
+      printf '%s' "$ref"
+      return 0
+    fi
+  done
+  printf ''
+}
+
+# Read-only git-work facts for one worktree, emitted as
+# <ahead>\t<behind>\t<staged>\t<unstaged>\t<last-commit-age>. Ahead/behind are
+# counted against the merge-base with $base (rev-list --left-right emits
+# behind<TAB>ahead) and degrade to '?' when the base is empty or incomparable.
+lane_git_work_facts() {
+  local wt_path="$1" base="$2"
+  local ahead="?" behind="?" counts porcelain staged_unstaged staged unstaged age
+  if [[ -n "$base" ]]; then
+    if counts="$(git -C "$wt_path" rev-list --left-right --count "${base}...HEAD" 2>/dev/null)"; then
+      behind="${counts%%$'\t'*}"
+      ahead="${counts##*$'\t'}"
+    fi
+  fi
+  porcelain="$(git -C "$wt_path" status --porcelain 2>/dev/null || true)"
+  staged_unstaged="$(printf '%s' "$porcelain" | count_status_porcelain)"
+  staged="${staged_unstaged%%$'\t'*}"
+  unstaged="${staged_unstaged##*$'\t'}"
+  age="$(git -C "$wt_path" log -1 --format=%cr 2>/dev/null || true)"
+  printf '%s\t%s\t%s\t%s\t%s\n' "$ahead" "$behind" "$staged" "$unstaged" "${age:-<none>}"
+}
+
+# Raw facts only — deliberately no derived idle/working/done word: git state
+# plus commit age cannot distinguish an active agent from an abandoned lane,
+# so the dashboard exposes the evidence and leaves the judgment to the reader.
+format_lane_work_line() {
+  local ahead="$1" behind="$2" staged="$3" unstaged="$4" age="$5" base="$6"
+  printf 'ahead=%s behind=%s staged=%s unstaged=%s last_commit="%s" base=%s' \
+    "$ahead" "$behind" "$staged" "$unstaged" "$age" "${base:-<none>}"
 }
 
 # Newline-delimited DB membership check. Used to batch one admin-side DB
@@ -1519,6 +1969,33 @@ cmd_status_all() {
   print_stale_allocations "$allocation_json" "$live_slugs"
 }
 
+# Glance-able git-work dashboard: one row per worktree, read-only and
+# Postgres-independent, cheap enough for a watch loop. Answers "what is each
+# lane's work doing" (ahead/behind, staged/unstaged, last-commit age) where
+# --all answers "is this worktree provisioned".
+cmd_status_lanes() {
+  local base_override="$1"
+  local pr primary_branch
+  pr="$(primary_root)"
+  primary_branch="$(git -C "$pr" rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
+
+  printf '# worktree:status --lanes\n'
+  local wt_path branch is_primary marker base ahead behind staged unstaged age
+  while IFS=$'\t' read -r wt_path branch is_primary; do
+    [[ -z "$wt_path" ]] && continue
+    marker=""
+    if [[ "$is_primary" == "yes" ]]; then marker=" [primary]"; fi
+    if [[ "$branch" == "<bare>" ]]; then
+      printf 'lane %s%s (%s): skipped (bare worktree)\n' "$wt_path" "$marker" "$branch"
+      continue
+    fi
+    base="$(resolve_lane_base "$wt_path" "$base_override" "$primary_branch")"
+    IFS=$'\t' read -r ahead behind staged unstaged age < <(lane_git_work_facts "$wt_path" "$base")
+    printf 'lane %s%s (%s): %s\n' "$wt_path" "$marker" "$branch" \
+      "$(format_lane_work_line "$ahead" "$behind" "$staged" "$unstaged" "$age" "$base")"
+  done < <(list_worktrees_porcelain)
+}
+
 # ============================================================================
 # GC (cross-worktree cleanup)
 # ============================================================================
@@ -1573,15 +2050,19 @@ list_template_dbs() {
 }
 
 list_live_template_dbs() {
-  local line wt_path fp
-  git worktree list --porcelain | while IFS= read -r line; do
+  local line wt_path fp worktrees
+  worktrees="$(git worktree list --porcelain)" || return 1
+  while IFS= read -r line || [[ -n "$line" ]]; do
     if [[ "$line" == worktree* ]]; then
       wt_path="${line#worktree }"
-      fp="$(compute_fingerprint "$wt_path")" || continue
+      if ! fp="$(compute_fingerprint "$wt_path")"; then
+        log "could not fingerprint live worktree $wt_path; template live set is incomplete"
+        return 1
+      fi
       template_db_for_fingerprint "$fp"
       printf '\n'
     fi
-  done
+  done <<< "$worktrees"
 }
 
 validate_template_db_name() {
@@ -1617,6 +2098,7 @@ tombstone_read() {
 
 tombstone_write() {
   local json="$1" file tmp
+  assert_state_json "$json" "tombstones.json"
   file="$(tombstones_file)"
   ensure_state_dir
   # Create the temp file on the same filesystem as the target so `mv` is a
@@ -1685,6 +2167,7 @@ template_tombstone_read() {
 
 template_tombstone_write() {
   local json="$1" file tmp
+  assert_state_json "$json" "template-tombstones.json"
   file="$(template_tombstones_file)"
   ensure_state_dir
   tmp="$(mktemp -p "$(state_dir)")"
@@ -1727,19 +2210,48 @@ template_tombstone_age() {
 }
 
 allocation_read() {
-  local file
+  local file json
   file="$(allocations_file)"
   [[ -f "$file" ]] || { printf '{}'; return 0; }
-  cat "$file"
+  json="$(cat "$file")"
+  assert_allocation_json "$json"
+  printf '%s' "$json"
 }
 
 allocation_write() {
   local json="$1" file tmp
+  assert_allocation_json "$json"
   file="$(allocations_file)"
   ensure_state_dir
   tmp="$(mktemp -p "$(state_dir)")"
   printf '%s\n' "$json" > "$tmp"
   mv "$tmp" "$file"
+}
+
+assert_allocation_json() {
+  local json="$1"
+  assert_state_json "$json" "allocations.json"
+
+  printf '%s' "$json" | jq -e \
+    --argjson server_min "$SERVER_PORT_MIN" \
+    --argjson server_max "$SERVER_PORT_MAX" \
+    --argjson client_min "$CLIENT_PORT_MIN" \
+    --argjson client_max "$CLIENT_PORT_MAX" \
+    --argjson redis_min "$REDIS_DB_MIN" \
+    --argjson redis_max "$REDIS_DB_MAX" '
+      ([to_entries[].value |
+        . as $row |
+        ($row | type == "object") and
+        ($row.server | type == "number" and . == floor and . >= $server_min and . <= $server_max) and
+        ($row.client | type == "number" and . == floor and . >= $client_min and . <= $client_max) and
+        ($row.redis | type == "number" and . == floor and . >= $redis_min and . <= $redis_max) and
+        ($row.updatedAt | type == "number" and . == floor and . >= 0)
+      ] | all) and
+      (([.[].server] | length) == ([.[].server] | unique | length)) and
+      (([.[].client] | length) == ([.[].client] | unique | length)) and
+      (([.[].redis] | length) == ([.[].redis] | unique | length))
+    ' >/dev/null 2>&1 \
+    || die "invalid allocations.json: entries must have unique, in-range integer resources (state file left unchanged)"
 }
 
 allocation_forget() {
@@ -1804,6 +2316,22 @@ allocate_resources() {
   )
 }
 
+# Resolve a slug's server/client/redis allocation, failing loudly when the pool
+# is exhausted. allocate_resources `die`s inside a command-substitution subshell,
+# whose non-zero status is invisible to `IFS=... read <<< "$(...)"` (read still
+# returns 0 for the empty here-string). Capturing the substitution into a guarded
+# assignment surfaces that failure here, and validating all three fields rejects
+# malformed registry rows before write_worktree_env can create a poisoned .env.
+resolve_worktree_resources() {
+  local slug="$1" hash="$2" server_start="$3" client_start="$4" alloc_output
+  local allocation_row_re=$'^[0-9]+\t[0-9]+\t[0-9]+$'
+  if ! alloc_output="$(allocate_resources "$slug" "$hash" "$server_start" "$client_start")" \
+    || ! [[ "$alloc_output" =~ $allocation_row_re ]]; then
+    die "resource allocation failed for slug=$slug — the port/Redis pool is likely exhausted; stop or drop a secondary worktree, then retry (the specific limit is in the errors above)"
+  fi
+  printf '%s' "$alloc_output"
+}
+
 cmd_gc() {
   local force=0 arg
   for arg in "$@"; do
@@ -1842,7 +2370,12 @@ cmd_gc() {
 
   # Collect orphan slugs from DB listing.
   local dbs db slug age
-  dbs="$(list_worktree_dbs || true)"
+  if ! dbs="$(list_worktree_dbs)"; then
+    log "database discovery failed; preserving GC state and skipping template cleanup"
+    flock -u "$lockfd"
+    exec {lockfd}>&-
+    return 1
+  fi
 
   # Pass 1: mark tombstones for slugs whose worktree is gone but aren't yet tracked.
   declare -A seen_slugs=()
@@ -1884,7 +2417,12 @@ cmd_gc() {
   # longer exist. Re-query the DB list because pass 2 may have just dropped
   # some of them.
   local current_dbs json all_dead_slugs=""
-  current_dbs="$(list_worktree_dbs || true)"
+  if ! current_dbs="$(list_worktree_dbs)"; then
+    log "database discovery failed after worktree cleanup; preserving reservation metadata and skipping template cleanup"
+    flock -u "$lockfd"
+    exec {lockfd}>&-
+    return 1
+  fi
   json="$(tombstone_read)"
   while IFS= read -r slug; do
     [[ -z "$slug" ]] && continue
@@ -1905,8 +2443,13 @@ cmd_gc() {
   # by list_template_dbs/validate_template_db_name and left untouched.
   local live_template_dbs template_dbs template_db template_age
   live_template_dbs="$(list_live_template_dbs | sort -u)" \
-    || die "git worktree list failed; refusing to GC templates with an empty live set"
-  template_dbs="$(list_template_dbs || true)"
+    || die "live template discovery failed; refusing to GC templates with an incomplete live set"
+  if ! template_dbs="$(list_template_dbs)"; then
+    log "template database discovery failed; preserving template GC state"
+    flock -u "$lockfd"
+    exec {lockfd}>&-
+    return 1
+  fi
   while IFS= read -r template_db; do
     [[ -z "$template_db" ]] && continue
     if ! printf '%s\n' "$live_template_dbs" | grep -qx "$template_db"; then
@@ -1933,7 +2476,12 @@ cmd_gc() {
   done <<< "$template_dbs"
 
   local current_template_dbs template_json dead_template_dbs=""
-  current_template_dbs="$(list_template_dbs || true)"
+  if ! current_template_dbs="$(list_template_dbs)"; then
+    log "template database discovery failed after template cleanup; preserving template tombstones"
+    flock -u "$lockfd"
+    exec {lockfd}>&-
+    return 1
+  fi
   template_json="$(template_tombstone_read)"
   while IFS= read -r template_db; do
     [[ -z "$template_db" ]] && continue

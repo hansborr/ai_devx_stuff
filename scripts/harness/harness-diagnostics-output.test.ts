@@ -1,5 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -9,6 +8,7 @@ import {
   type HarnessDiagnostics,
   harnessDiagnosticsSchema,
 } from "../../packages/shared/src/schemas/harness-diagnostics.js";
+import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
 import {
   HARNESS_DIAGNOSTICS_OUTPUT_ENV,
   harnessDiagnosticsOutputPath,
@@ -16,12 +16,10 @@ import {
   writeHarnessDiagnosticsSidecar,
 } from "./harness-diagnostics-output.js";
 
-const tempRoots: string[] = [];
+const tmpRepo = registerTempRootCleanup();
 
 function makeTempRoot(): string {
-  const root = mkdtempSync(join(tmpdir(), "harness-diagnostics-output-"));
-  tempRoots.push(root);
-  return root;
+  return tmpRepo.makeTempRepo("harness-diagnostics-output-");
 }
 
 function validEnvelope(): HarnessDiagnostics {
@@ -39,10 +37,6 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllEnvs();
-  while (tempRoots.length > 0) {
-    const root = tempRoots.pop();
-    if (root !== undefined) rmSync(root, { recursive: true, force: true });
-  }
 });
 
 describe("harnessDiagnosticsOutputPath", () => {

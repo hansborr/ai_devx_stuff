@@ -56,26 +56,22 @@ export function licenseValue(value: unknown): string | null {
   return null;
 }
 
+const LICENSE_TEXT_MARKERS: ReadonlyArray<readonly [readonly string[], string]> = [
+  [["permission is hereby granted", "mit license"], "MIT"],
+  [["apache license", "version 2.0"], "Apache-2.0"],
+  [["bsd 3-clause"], "BSD-3-Clause"],
+  [["bsd 2-clause"], "BSD-2-Clause"],
+  [["isc license"], "ISC"],
+];
+
 function licenseFromNearbyFile(packageDir: string): string | null {
   for (const filename of ["LICENSE", "LICENSE.md", "LICENSE.txt", "COPYING"]) {
     const licensePath = join(packageDir, filename);
     if (!existsSync(licensePath)) continue;
 
     const text = readFileSync(licensePath, "utf8").toLowerCase();
-    if (text.includes("permission is hereby granted") && text.includes("mit license")) {
-      return "MIT";
-    }
-    if (text.includes("apache license") && text.includes("version 2.0")) {
-      return "Apache-2.0";
-    }
-    if (text.includes("bsd 3-clause")) {
-      return "BSD-3-Clause";
-    }
-    if (text.includes("bsd 2-clause")) {
-      return "BSD-2-Clause";
-    }
-    if (text.includes("isc license")) {
-      return "ISC";
+    for (const [markers, license] of LICENSE_TEXT_MARKERS) {
+      if (markers.every((marker) => text.includes(marker))) return license;
     }
   }
 
@@ -341,9 +337,17 @@ if (import.meta.main) {
     (pkg) => pkg.license === "UNKNOWN" || pkg.license === "UNLICENSED",
   );
 
+  // A compound license ("GPL-3.0 OR LGPL-3.0") can match more than one
+  // category; count distinct packages so the summary never double-counts.
+  const flaggedCount = new Set(
+    [...strongCopyleft, ...reviewCopyleft, ...unknown].map((pkg) => `${pkg.name}@${pkg.version}`),
+  ).size;
+
   console.log("Dependency license audit");
   console.log(`Mode: ${ALL_MODE ? "all installed packages" : "production dependency closure"}`);
   console.log(`Packages audited: ${String(packages.length)}`);
+  console.log(`Flagged packages: ${String(flaggedCount)}`);
+  console.log(`Clean packages: ${String(packages.length - flaggedCount)}`);
   console.log("");
   console.log("License summary:");
   for (const [license, count] of summarizeLicenses(packages)) {

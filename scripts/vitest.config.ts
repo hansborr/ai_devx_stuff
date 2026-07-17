@@ -1,6 +1,6 @@
 import { defaultExclude, defineProject } from "vitest/config";
 
-import { DEFAULT_VITEST_TEST_TIMEOUT_MS } from "../vitest.config.js";
+import { DEFAULT_VITEST_TEST_TIMEOUT_MS, NON_SERVER_TEST_MAX_WORKERS } from "../vitest.config.js";
 
 export default defineProject({
   cacheDir: "../node_modules/.cache/vitest-scripts",
@@ -10,6 +10,7 @@ export default defineProject({
     testTimeout: DEFAULT_VITEST_TEST_TIMEOUT_MS,
     environment: "node",
     include: ["**/*.test.ts"],
+    maxWorkers: NON_SERVER_TEST_MAX_WORKERS,
     exclude: [
       ...defaultExclude,
       "**/worktrees/**",

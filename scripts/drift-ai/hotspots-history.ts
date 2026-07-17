@@ -38,8 +38,8 @@ export function defaultHistoryGitRunner(repoRoot: string): GitRunner {
 }
 
 export const DEFAULT_WINDOW_DAYS = 14; // AI cadence: agents compress weeks of churn into days.
-export const DEFAULT_MAX_WINDOW_DAYS = 180; // classic human-team hotspot horizon; widen cap.
-export const DEFAULT_MIN_COMMITS = 30; // sparse-history widen floor.
+const DEFAULT_MAX_WINDOW_DAYS = 180; // classic human-team hotspot horizon; widen cap.
+const DEFAULT_MIN_COMMITS = 30; // sparse-history widen floor.
 
 // Squash detection: when almost every touched file appears once in-window, the
 // `revisions` metric is lying (a squash-merge collapses a whole branch into one

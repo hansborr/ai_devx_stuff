@@ -40,7 +40,7 @@ export type SemgrepRegistryRuleSource = {
 
 export type SemgrepRuleSource = SemgrepLocalRuleSource | SemgrepRegistryRuleSource;
 
-export const SEMGREP_RULES_LICENSE = "Semgrep-Rules-License-1.0";
+const SEMGREP_RULES_LICENSE = "Semgrep-Rules-License-1.0";
 
 // License classes per the plan's table. Identifiers match case-insensitively so an
 // operator typing `mit` or `agpl-3.0` lands in the intended class; anything not
@@ -79,7 +79,7 @@ const KNOWN_PACK_LICENSES: ReadonlyMap<string, string> = new Map([
 // The `--allow-rule-license` token that opts in sources with NO declared license.
 // It deliberately does NOT match a source declaring an unrecognized license string;
 // that source needs its exact license allowed so the opt-in stays informed.
-export const UNKNOWN_LICENSE_ALLOW_TOKEN = "unknown";
+const UNKNOWN_LICENSE_ALLOW_TOKEN = "unknown";
 
 export function readLocalRuleConfig(value: string, sourceName: string): string {
   const config = value.trim();

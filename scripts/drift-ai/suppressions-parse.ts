@@ -21,7 +21,7 @@ export const TS_NOCHECK_SUPPRESSION_HINT =
 export const STRYKER_SUPPRESSION_HINT =
   "prefer `disable next-line` over a broad mutator disable; include `-- <reason>`.";
 
-export type SuppressionKind =
+type SuppressionKind =
   | "eslint-disable"
   | "eslint-disable-next-line"
   | "eslint-disable-line"

@@ -1,9 +1,8 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
+import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
 import {
   defaultPathProbe,
   detectTargetInstall,
@@ -17,20 +16,11 @@ function pathExistsFor(present: readonly string[]): PathProbe {
 }
 
 describe("defaultPathProbe", () => {
-  const tempRoots: string[] = [];
-
-  afterEach(() => {
-    while (tempRoots.length > 0) {
-      const root = tempRoots.pop();
-      if (root) rmSync(root, { recursive: true, force: true });
-    }
-  });
+  const tmpRepo = registerTempRootCleanup();
 
   function makeRepo(): string {
-    const root = mkdtempSync(path.join(tmpdir(), "drift-ai-adapter-support-"));
-    tempRoots.push(root);
-    mkdirSync(path.join(root, "config"), { recursive: true });
-    writeFileSync(path.join(root, "config/knip.config.ts"), "export default {};\n");
+    const root = path.join(tmpRepo.makeTempRepo("drift-ai-adapter-support-"), "repo");
+    tmpRepo.writeRepoFile(root, "config/knip.config.ts", "export default {};\n");
     return root;
   }
 
@@ -44,10 +34,7 @@ describe("defaultPathProbe", () => {
 
   it("refuses paths outside the repo root", () => {
     const root = makeRepo();
-    const outside = path.join(root, "..", "outside-adapter-support");
-    mkdirSync(outside, { recursive: true });
-    tempRoots.push(outside);
-    writeFileSync(path.join(outside, "secret.txt"), "nope\n");
+    tmpRepo.writeRepoFile(root, "../outside-adapter-support/secret.txt", "nope\n");
     const probe = defaultPathProbe(root);
     expect(probe("../outside-adapter-support/secret.txt")).toBe(false);
     expect(probe("/etc/hosts")).toBe(false);

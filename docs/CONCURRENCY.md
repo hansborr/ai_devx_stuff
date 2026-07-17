@@ -65,6 +65,12 @@ and writes via `updateMany({where:{id, version}, data:{..., version:
 {increment:1}}})`. A concurrent committer causes `CONFLICT` instead of
 a lost update.
 
+Attack and spell damage share `applyDamageLocked` in
+`utils/damage-mutations.ts`. Callers retain their attack/spell eligibility
+guards, then pass the transaction, target participant/character identity, and
+already-computed damage; the helper routes through the appropriate locked
+Pattern A mutator.
+
 ```ts
 await updateCharacterStatsLocked(tx, characterId, (stats) => {
   const hp = applyHpAdjustment({
@@ -103,11 +109,13 @@ tracker, and the fix (click again) is instant.
 
 ## Pattern B — counter-as-CAS
 
-**Applies to:** `CharacterSpellSlot.used` (via `consumeSpellSlot`,
-`recoverSpellSlot`, `convertSlotToPoints`) and `CharacterClass.level` /
-`.hitDiceUsed` / `.subclassId` (via `advanceClassLevel`, `spendHitDice`,
-`setSubclass`). All are monotonic-ish counters where the counter itself
-serves as the optimistic-lock key.
+**Applies to:** `CharacterSpellSlot.used` (via `consumeSpellSlot` and
+`recoverSpellSlot`) and `CharacterClass.level` / `.hitDiceUsed` /
+`.subclassId` (via `advanceClassLevel`, `spendHitDice`, `setSubclass`). All
+are monotonic-ish counters where the counter itself serves as the
+optimistic-lock key. `convertSlotToPoints` calls `consumeSpellSlot`, but the
+conversion also writes `CharacterStats`, so it is a cross-table writer listed
+below rather than a single-table Pattern B path.
 
 **The rule:** writes go through helpers in
 `utils/spell-slot-mutations.ts` and `utils/character-class-mutations.ts`.
@@ -172,12 +180,13 @@ below). Row identities: `EP(M)` (monster) + `CSS(C) + Stats(C)` (caster).
 Caster-row order: **Stats(C) → CSS(C)** (canonical). The `EP(M)` lock
 is acquired first but `M` is a monster participant whose row identity
 is disjoint from every other multi-table writer, so its early
-acquisition can't interleave. Both spell-cast paths (combat and
-non-combat) delegate the concentration+slot sequence to the internal
-helper `concentrateAndConsumeSlot` in `services/spell-casting/combat-transaction.ts`,
-which enforces *replaceConcentration before consumeSpellSlot* —
-flipping would put `CSS → Stats` (reverse of rest-service) and
-deadlock with a concurrent rest on the same character.
+acquisition can't interleave. The combat path delegates the concentration+slot
+sequence to the internal helper `concentrateAndConsumeSlot` in
+`services/spell-casting/combat-transaction.ts`, which enforces
+*replaceConcentration before consumeSpellSlot*. The independent non-combat
+sequence is path 8 below and preserves the same relative order. Flipping
+either path would put `CSS → Stats` (reverse of rest-service) and deadlock
+with a concurrent rest on the same character.
 
 **3. `services/rest-service.ts:executeShortRest`** — writes
 `CharacterStats` + `CharacterClass`. Implemented as a two-pass
@@ -190,16 +199,50 @@ Canonical.
 **Stats → CC → CSS** (canonical). Wrapped in Serializable isolation
 for reasons unrelated to lock order (see below).
 
+**5. `services/level-up/apply-level-up.ts:applyLevelUp`** — writes
+`CharacterStats` + `CharacterClass` + `CharacterSpellSlot`. Row identities:
+`Stats(X) + CC(X,K) + CSS(X,1..9)`, where `K` is the class being advanced or
+created. Lock order: **Stats → CC → CSS** (canonical). Sorcerer level-up and
+subclass work may revisit the already-acquired `Stats(X)` or `CC(X,K)` row;
+those same-transaction writes do not reverse the acquisition order.
+
+**6. `services/character-live-state/sorcery-point.ts:convertSlotToPoints`**
+— writes `CharacterStats` + `CharacterSpellSlot`. Row identities:
+`Stats(X) + CSS(X,L)`, where `L` is the converted slot level. Lock order:
+**Stats → CSS** (canonical).
+
+**7. `services/character-live-state/sorcery-point.ts:createSlotFromPoints`**
+— writes `CharacterStats` + `CharacterSpellSlot`. Row identities:
+`Stats(X) + CSS(X,L)`, where `L` is the created slot level. Lock order:
+**Stats → CSS** (canonical).
+
+**8. `services/spell-casting/non-combat-cast.ts:applyLeveledCast`** — every
+leveled non-combat cast writes `CharacterSpellSlot`; concentration or
+metamagic also writes `CharacterStats`. In those multi-table cases, row
+identities are `Stats(C) + CSS(C,L)`, where `L` is the cast slot level.
+`applyMetamagicCost` and/or `replaceConcentration` run before
+`consumeSpellSlot`, so lock order is **Stats → CSS** (canonical). Concentration
+cantrips and rituals write only `Stats` and are not cross-table writers.
+
 ### No deadlock between these paths
 
 - **1 vs 2:** At most `Stats` is shared. Path 1's `EP(P_X)` is a
   character participant; path 2's `EP(M)` is a monster participant;
   by schema (`characterId XOR monsterId`), these are distinct rows.
   Single shared row can't deadlock.
-- **2 vs 3/4:** Shared rows are `Stats(C)` and `CSS(C)`, both in the
-  canonical `Stats → CSS` order.
-- **1 vs 3/4:** Rest doesn't touch `EP`; DM override doesn't touch
+- **1 vs 3–8:** Paths 3–8 don't touch `EP`; path 1 doesn't touch
   `CC`/`CSS`. At most `Stats` is shared.
+- **2/6/7/8 pairwise:** Shared caster rows are acquired in the canonical
+  **Stats → CSS** order. Path 2's early monster-only `EP(M)` acquisition is
+  disjoint from paths 6–8.
+- **2/6/7/8 vs 3:** At most `Stats` is shared because short rest doesn't touch
+  `CSS`.
+- **2/6/7/8 vs 4/5:** Shared rows are `Stats` and `CSS`, acquired in the
+  canonical **Stats → CSS** order.
+- **3 vs 4/5:** Shared rows are `Stats` and `CC`, acquired in the canonical
+  **Stats → CC** order.
+- **4 vs 5:** All three row families can be shared, and both paths acquire
+  them in the canonical **Stats → CC → CSS** order.
 
 ### Spell-cast cases
 

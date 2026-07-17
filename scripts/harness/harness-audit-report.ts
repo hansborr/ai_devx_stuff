@@ -23,18 +23,18 @@ export type EnvelopeFailure = {
   readonly reason: string;
 };
 
-export type HarnessAuditSeverityCounts = {
+type HarnessAuditSeverityCounts = {
   readonly blocking: number;
   readonly warning: number;
   readonly info: number;
 };
 
-export type HarnessAuditControlSummary = HarnessAuditSeverityCounts & {
+type HarnessAuditControlSummary = HarnessAuditSeverityCounts & {
   readonly control: string;
   readonly total: number;
 };
 
-export type HarnessAuditToolSummary = HarnessAuditSeverityCounts & {
+type HarnessAuditToolSummary = HarnessAuditSeverityCounts & {
   readonly tool: HarnessDiagnosticTool;
   readonly sources: readonly string[];
   readonly envelopes: number;
@@ -42,7 +42,7 @@ export type HarnessAuditToolSummary = HarnessAuditSeverityCounts & {
   readonly controls: readonly HarnessAuditControlSummary[];
 };
 
-export type HarnessAuditTotals = HarnessAuditSeverityCounts & {
+type HarnessAuditTotals = HarnessAuditSeverityCounts & {
   readonly envelopes: number;
   readonly tools: number;
   readonly total: number;

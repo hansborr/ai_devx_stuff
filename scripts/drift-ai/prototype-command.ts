@@ -1,7 +1,9 @@
+import { captureGitStateFingerprint, gitRepoRootArgs, gitStatusPorcelainArgs } from "../lib/git.js";
 import { DriftAiHelp } from "./cli-args.js";
 import { type DriftAiConfig, loadDriftAiConfig } from "./config.js";
 import { DriftAiError } from "./errors.js";
 import { defaultGitRunner, type GitRunner, resolveRepoRoot } from "./git-changed-scope.js";
+import type { PrototypeScanProvenance } from "./prototype-advisory.js";
 import { defaultReportWriter, type ReportWriter } from "./report-output.js";
 import type { SubcommandBaseOptions, SubcommandFormat } from "./subcommand-args.js";
 import { writeSubcommandOutput } from "./subcommand-args.js";
@@ -79,6 +81,61 @@ export function resolvePrototypeConfig(
     ...(configPath === null ? {} : { configPath }),
   });
   return { repoRoot, config: loaded.config, configPath: loaded.configPath };
+}
+
+export type PrototypeScanSnapshot = {
+  readonly provenance: Pick<PrototypeScanProvenance, "gitHead" | "gitDirty" | "stateFingerprint">;
+  readonly stateToken: string | null;
+};
+
+export function capturePrototypeScanSnapshot(
+  injectedGit: GitRunner | undefined,
+  repoRoot: string,
+  excludedPaths: readonly string[],
+): PrototypeScanSnapshot {
+  const git = injectedGit ?? defaultGitRunner();
+  const gitHead = runGitProbe(git, gitRepoRootArgs(repoRoot, ["rev-parse", "HEAD"]));
+  const status = runGitProbe(
+    git,
+    gitRepoRootArgs(repoRoot, gitStatusPorcelainArgs(repoRoot, excludedPaths)),
+  );
+  const stateFingerprint = captureGitStateFingerprint(git, repoRoot, excludedPaths);
+  const normalizedHead = gitHead === null || gitHead.length === 0 ? null : gitHead;
+  const baseStateToken =
+    normalizedHead === null || status === null ? null : `${normalizedHead}\0${status}`;
+  return {
+    provenance: {
+      gitHead: normalizedHead,
+      gitDirty: status === null ? null : status.length > 0,
+      stateFingerprint,
+    },
+    stateToken:
+      baseStateToken === null || stateFingerprint === null
+        ? null
+        : `${baseStateToken}\0${stateFingerprint}`,
+  };
+}
+
+export function completedScanProvenance(
+  before: PrototypeScanSnapshot,
+  after: PrototypeScanSnapshot,
+): PrototypeScanProvenance {
+  return {
+    ...before.provenance,
+    changedDuringScan:
+      before.stateToken === null || after.stateToken === null
+        ? null
+        : before.stateToken !== after.stateToken,
+  };
+}
+
+function runGitProbe(git: GitRunner, args: readonly string[]): string | null {
+  try {
+    const output = git(args).trim();
+    return output.length > 0 ? output : "";
+  } catch {
+    return null;
+  }
 }
 
 export function renderPrototypeAdvisory<Advisory>(

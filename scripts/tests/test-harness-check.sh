@@ -1,30 +1,51 @@
 #!/usr/bin/env bash
 # smoke-order: 320
 # smoke-subjects: scripts/harness-check.ts
+# smoke-subjects: scripts/lint-agent-guidance.ts
 # smoke-subjects: scripts/harness/control-field-validation.ts
 # smoke-subjects: scripts/harness/harness-check-validation.ts
+# smoke-subjects: scripts/harness/harness-gate-parity.ts
+# smoke-subjects: scripts/doctor.sh
+# smoke-subjects: scripts/harness/generated-surface-freshness.ts
 # smoke-subjects: scripts/harness/hook-timeout-constants.ts
 # smoke-subjects: scripts/harness/generate-hook-timeout-constants.ts
+# smoke-subjects: scripts/harness/harness-manifest.ts
 # smoke-subjects: scripts/harness/harness-paths.ts
+# smoke-subjects: scripts/harness/porting-knob-parity.ts
+# smoke-subjects: scripts/harness/porting-knob-parity.test.ts
 # smoke-subjects: scripts/harness/generate-hook-wiring.ts
 # smoke-subjects: scripts/harness/generate-verify-steps.ts
 # smoke-subjects: scripts/harness/generate-config-surfaces.ts
+# smoke-subjects: scripts/generate-baseline-conflict-recipes.ts
+# smoke-subjects: scripts/git/baseline-merge-driver.sh
+# smoke-subjects: docs/guides/lint-ratchet-merges.md
 # smoke-subjects: scripts/harness/hook-wiring-schema.ts
+# smoke-subjects: scripts/harness/check-skill-inventory.ts
+# smoke-subjects: scripts/harness/skill-inventory-schema.ts
+# smoke-subjects: scripts/harness/skill-tree-comparison.ts
 # smoke-subjects: scripts/path-policy/generate-smoke-subjects.ts
 # smoke-subjects: scripts/path-policy/smoke-subject-headers.ts
+# smoke-subjects: scripts/path-policy/fixture-shell-dependencies.ts
+# smoke-subjects: scripts/path-policy/fixture-shell-scope.ts
 # smoke-subjects: scripts/ai-hooks/check-wiring.sh
 # smoke-subjects: scripts/ai-hooks/bun-run-quiet.sh
 # smoke-subjects: scripts/ai-hooks/git-commit-quiet.sh
 # smoke-subjects: scripts/ai-hooks/hook-timeouts.generated.sh
+# smoke-subjects: scripts/ai-hooks/README.md
+# smoke-subjects: scripts/ai-hooks/common.sh
 # smoke-subjects: scripts/verify/steps.generated.sh
 # smoke-subjects: scripts/verify/steps-lib.sh
+# smoke-subjects: scripts/verify/memory-budget.sh
+# smoke-subjects: scripts/lib/test-worker-count.sh
 # smoke-subjects: scripts/harness/verify-step-schema.ts
 # smoke-subjects: scripts/lint-ratchet/ratchet-manifest-message.ts
+# smoke-subjects: scripts/lib/codepoint-compare.ts
 # smoke-subjects: scripts/tests/test-harness-check.sh
 # smoke-subjects: tsconfig.configs.json
 # smoke-subjects: .claude/settings.json
 # smoke-subjects: .codex/hooks.json
 # smoke-subjects: .github/hooks/copilot.json
+# smoke-subjects: .github/workflows/ci.yml
 # smoke-subjects: harness.controls.json
 # smoke-subjects: eslint.config.js
 # smoke-subjects: eslint-config/
@@ -39,6 +60,7 @@
 #   a package.json control-prefix script is undeclared, when a manifest entry
 #   points at a missing source / unknown rule / unknown script, and when
 #   shape rules are violated;
+# - the Porting This checklist and greppable source markers stay in parity;
 # - generated smoke-subjects, verify step, hook-wiring, local lint guidance,
 #   harness-controls doc, and restricted disable rule-list freshness fail when
 #   their checked-in outputs are stale.
@@ -67,16 +89,23 @@ copy_validator() {
     "$fixture_dir/eslint-config" \
     "$fixture_dir/.claude/hooks" \
     "$fixture_dir/scripts/ai-hooks" \
+    "$fixture_dir/scripts/git" \
     "$fixture_dir/scripts/harness" \
     "$fixture_dir/scripts/lib" \
     "$fixture_dir/scripts/lint-ratchet" \
     "$fixture_dir/scripts/path-policy" \
-    "$fixture_dir/scripts/verify"
+    "$fixture_dir/scripts/verify" \
+    "$fixture_dir/docs/guides"
   cp eslint-config/shared-policy.js "$fixture_dir/eslint-config/shared-policy.js"
+  cp eslint-config/max-lines-exceptions-codec.js \
+    "$fixture_dir/eslint-config/max-lines-exceptions-codec.js"
   cp eslint-config/max-lines-exceptions.baseline.json "$fixture_dir/eslint-config/max-lines-exceptions.baseline.json"
   cp eslint-config/config-surfaces.js "$fixture_dir/eslint-config/config-surfaces.js"
   cp eslint-config/config-surface-manifest.json "$fixture_dir/eslint-config/config-surface-manifest.json"
   cp scripts/harness-check.ts "$fixture_dir/scripts/harness-check.ts"
+  cat >"$fixture_dir/scripts/lint-agent-guidance.ts" <<'TS'
+export const LINT_AGENT_GUIDANCE_OVERLAYS = new Map();
+TS
   cp scripts/ai-hooks/check-wiring.sh "$fixture_dir/scripts/ai-hooks/check-wiring.sh"
   cp scripts/ai-hooks/bun-run-quiet.sh "$fixture_dir/scripts/ai-hooks/bun-run-quiet.sh"
   cp scripts/ai-hooks/git-commit-quiet.sh "$fixture_dir/scripts/ai-hooks/git-commit-quiet.sh"
@@ -84,8 +113,16 @@ copy_validator() {
   cp .claude/hooks/bun-run-quiet.sh "$fixture_dir/.claude/hooks/bun-run-quiet.sh"
   cp .claude/hooks/git-commit-quiet.sh "$fixture_dir/.claude/hooks/git-commit-quiet.sh"
   cp scripts/harness/harness-check-validation.ts "$fixture_dir/scripts/harness/harness-check-validation.ts"
+  cp scripts/harness/harness-gate-parity.ts "$fixture_dir/scripts/harness/harness-gate-parity.ts"
+  cp scripts/harness/generated-surface-freshness.ts \
+    "$fixture_dir/scripts/harness/generated-surface-freshness.ts"
+  cp scripts/harness/check-skill-inventory.ts "$fixture_dir/scripts/harness/check-skill-inventory.ts"
+  cp scripts/harness/skill-inventory-schema.ts "$fixture_dir/scripts/harness/skill-inventory-schema.ts"
+  cp scripts/harness/skill-tree-comparison.ts "$fixture_dir/scripts/harness/skill-tree-comparison.ts"
   cp scripts/harness/hook-timeout-constants.ts "$fixture_dir/scripts/harness/hook-timeout-constants.ts"
   cp scripts/harness/harness-paths.ts "$fixture_dir/scripts/harness/harness-paths.ts"
+  cp scripts/harness/harness-manifest.ts "$fixture_dir/scripts/harness/harness-manifest.ts"
+  cp scripts/harness/porting-knob-parity.ts "$fixture_dir/scripts/harness/porting-knob-parity.ts"
   cp scripts/harness/local-rule-config.ts "$fixture_dir/scripts/harness/local-rule-config.ts"
   cp scripts/harness/control-field-validation.ts "$fixture_dir/scripts/harness/control-field-validation.ts"
   cp scripts/harness/generate-harness-controls.ts "$fixture_dir/scripts/harness/generate-harness-controls.ts"
@@ -97,7 +134,15 @@ copy_validator() {
   cp scripts/harness/generate-hook-timeout-constants.ts \
     "$fixture_dir/scripts/harness/generate-hook-timeout-constants.ts"
   cp scripts/harness/generate-verify-steps.ts "$fixture_dir/scripts/harness/generate-verify-steps.ts"
+  cp scripts/harness/verify-step-bridge-divergences.ts \
+    "$fixture_dir/scripts/harness/verify-step-bridge-divergences.ts"
   cp scripts/generate-lint-guidance.ts "$fixture_dir/scripts/generate-lint-guidance.ts"
+  # The baseline-conflict-recipes generator projects the driver's recovery cases
+  # into the merge runbook; its --check reads both, so copy the consistent pair.
+  cp scripts/generate-baseline-conflict-recipes.ts \
+    "$fixture_dir/scripts/generate-baseline-conflict-recipes.ts"
+  cp scripts/git/baseline-merge-driver.sh "$fixture_dir/scripts/git/baseline-merge-driver.sh"
+  cp docs/guides/lint-ratchet-merges.md "$fixture_dir/docs/guides/lint-ratchet-merges.md"
   cp scripts/harness/generate-config-surfaces.ts \
     "$fixture_dir/scripts/harness/generate-config-surfaces.ts"
   cp scripts/lib/lint-rule-docs.ts "$fixture_dir/scripts/lib/lint-rule-docs.ts"
@@ -108,12 +153,21 @@ copy_validator() {
     "$fixture_dir/scripts/path-policy/generate-smoke-subjects.ts"
   cp scripts/path-policy/smoke-subject-headers.ts \
     "$fixture_dir/scripts/path-policy/smoke-subject-headers.ts"
+  cp scripts/path-policy/fixture-shell-dependencies.ts \
+    "$fixture_dir/scripts/path-policy/fixture-shell-dependencies.ts"
+  cp scripts/path-policy/fixture-shell-scope.ts \
+    "$fixture_dir/scripts/path-policy/fixture-shell-scope.ts"
   cp scripts/lint-ratchet/lint-ratchet-config.ts "$fixture_dir/scripts/lint-ratchet/lint-ratchet-config.ts"
-  cp scripts/lint-ratchet/max-lines-policy.ts "$fixture_dir/scripts/lint-ratchet/max-lines-policy.ts"
-  cp scripts/lint-ratchet/lint-ratchet-registry-builders.ts \
-    "$fixture_dir/scripts/lint-ratchet/lint-ratchet-registry-builders.ts"
+  cp scripts/lib/max-lines-policy.ts "$fixture_dir/scripts/lib/max-lines-policy.ts"
+  cp scripts/lint-ratchet/registry-builders.ts \
+    "$fixture_dir/scripts/lint-ratchet/registry-builders.ts"
   cp scripts/lint-ratchet/ratchet-manifest-message.ts "$fixture_dir/scripts/lint-ratchet/ratchet-manifest-message.ts"
+  # The generators sort via compareByCodepoint from scripts/lib/codepoint-compare;
+  # that module is dependency-free, so the fixture copies only it.
+  cp scripts/lib/codepoint-compare.ts "$fixture_dir/scripts/lib/codepoint-compare.ts"
   cp scripts/verify/steps-lib.sh "$fixture_dir/scripts/verify/steps-lib.sh"
+  cp scripts/verify/memory-budget.sh "$fixture_dir/scripts/verify/memory-budget.sh"
+  cp scripts/lib/test-worker-count.sh "$fixture_dir/scripts/lib/test-worker-count.sh"
 }
 
 write_eslint_plugin() {
@@ -153,12 +207,36 @@ JS
 
 write_source_files() {
   local fixture_dir=$1
-  mkdir -p "$fixture_dir/eslint-rules" "$fixture_dir/scripts" "$fixture_dir/scripts/codemods"
+  mkdir -p \
+    "$fixture_dir/eslint-rules" \
+    "$fixture_dir/scripts" \
+    "$fixture_dir/scripts/codemods" \
+    "$fixture_dir/scripts/tests" \
+    "$fixture_dir/.claude/skills/fixture" \
+    "$fixture_dir/.codex/skills/fixture"
   : >"$fixture_dir/eslint-rules/fixture-rule.js"
   : >"$fixture_dir/scripts/sensor-fixture.ts"
+  : >"$fixture_dir/scripts/doctor.sh"
   : >"$fixture_dir/scripts/lint-coverage-map-check.ts"
-  : >"$fixture_dir/scripts/lint-ratchet/lint-ratchet-zero-baseline.ts"
+  : >"$fixture_dir/scripts/lint-ratchet/zero-baseline.ts"
   : >"$fixture_dir/scripts/codemods/fixture.ts"
+  printf 'same\n' >"$fixture_dir/.claude/skills/fixture/SKILL.md"
+  printf 'same\n' >"$fixture_dir/.codex/skills/fixture/SKILL.md"
+  cat >"$fixture_dir/scripts/ai-hooks/README.md" <<'MD'
+## Porting This
+
+- `fixture-knob` — Retarget the fixture value.
+- `bun-command-runner` — Retarget the fixture command runner.
+- `generated-surface-freshness` — Retarget the fixture generated-surface registry.
+- `verify-consumers` — Retarget the fixture verify consumers.
+MD
+  cat >"$fixture_dir/scripts/ai-hooks/common.sh" <<'SH'
+# porting-knob: fixture-knob -- fixture source marker
+SH
+  printf '%s\n' \
+    '!.claude/skills/fixture/' \
+    '!.codex/skills/fixture/' \
+    >"$fixture_dir/.gitignore"
 }
 
 write_package_json() {
@@ -171,6 +249,7 @@ write_package_json() {
     "lint": "eslint .",
     "lint:changed": "eslint . --changed",
     "lint:restricted-disable-rules": "bun run scripts/harness/generate-restricted-disable-rules.ts",
+    "lint:restricted-disable-rules:check": "bun run scripts/harness/generate-restricted-disable-rules.ts -- --check",
     "lint:ratchet": "bun scripts/lint-ratchet.ts",
     "lint:ratchet:zero-baseline": "bun scripts/lint-ratchet.ts --zero-baseline",
     "typecheck": "tsc --noEmit",
@@ -181,15 +260,20 @@ write_package_json() {
     "test:scripts:subjects": "bun run scripts/path-policy/generate-smoke-subjects.ts",
     "test:scripts:subjects:check": "bun run scripts/path-policy/generate-smoke-subjects.ts -- --check",
     "docs:lint-coverage-map:check": "bun scripts/lint-coverage-map-check.ts -- --check-eslint-reach",
+    "docs:lint-guidance:check": "bun run scripts/generate-lint-guidance.ts -- --check",
+    "docs:harness-controls:check": "bun run scripts/harness/generate-harness-controls.ts -- --check",
+    "docs:baseline-conflict-recipes:check": "bun run scripts/generate-baseline-conflict-recipes.ts -- --check",
     "harness:config-surfaces": "bun run scripts/harness/generate-config-surfaces.ts",
     "harness:config-surfaces:check": "bun run scripts/harness/generate-config-surfaces.ts -- --check",
     "harness:hook-timeouts": "bun run scripts/harness/generate-hook-timeout-constants.ts",
     "harness:hook-timeouts:check": "bun run scripts/harness/generate-hook-timeout-constants.ts -- --check",
+    "harness:wiring:check": "bun run scripts/harness/generate-hook-wiring.ts -- --check",
     "format:check": "prettier --check .",
     "format:changed:check": "bash scripts/format-changed.sh --check",
     "verify": "bash scripts/verify.sh",
     "verify:changed": "bash scripts/verify.sh --changed",
     "verify:parallel": "bash scripts/verify.sh --parallel",
+    "verify:steps:check": "bun run scripts/harness/generate-verify-steps.ts -- --check",
     "sensor:fixture": "bun scripts/sensor-fixture.ts",
     "codemod:fixture": "bun scripts/codemods/fixture.ts"$extra_scripts
   }
@@ -208,6 +292,15 @@ SH
 #!/usr/bin/env bash
 echo pre-commit
 SH
+  mkdir -p "$fixture_dir/.github/workflows"
+  cat >"$fixture_dir/.github/workflows/ci.yml" <<'YAML'
+jobs:
+  validate:
+    steps:
+      # harness-ci-gate: verify-wrapper/verify
+      - name: Verify
+        run: bun run verify
+YAML
 }
 
 write_generated_hook_files() {
@@ -241,6 +334,18 @@ write_valid_manifest() {
   local extra_entries=${2-}
   cat >"$fixture_dir/harness.controls.json" <<JSON
 {
+  "scriptParityExemptions": [
+    "lint:changed",
+    "lint:restricted-disable-rules:check",
+    "docs:lint-guidance:check",
+    "docs:harness-controls:check",
+    "docs:baseline-conflict-recipes:check",
+    "harness:config-surfaces:check",
+    "harness:hook-timeouts:check",
+    "harness:wiring:check",
+    "verify:steps:check"
+  ],
+  "ciGateControlIds": ["verify-wrapper/verify"],
   "controls": [
     {
       "id": "lint/local/fixture-rule",
@@ -288,7 +393,7 @@ $FIXTURE_RATCHET_ENTRIES,
       "principle": "Zero-baseline fixture principle.",
       "pairedGuide": "none",
       "repairKind": "manual",
-      "source": "scripts/lint-ratchet/lint-ratchet-zero-baseline.ts",
+      "source": "scripts/lint-ratchet/zero-baseline.ts",
       "invocation": "bun run lint:ratchet:zero-baseline"
     },
     {
@@ -382,6 +487,36 @@ $FIXTURE_RATCHET_ENTRIES,
       ]
     },
     {
+      "id": "skill/fixture",
+      "kind": "skill",
+      "category": "maintainability",
+      "principle": "Skill mirror fixture principle.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": ".claude/skills/fixture/SKILL.md",
+      "invocation": "bun run test",
+      "skillWiring": {
+        "canonical": ".claude/skills/fixture",
+        "targets": [
+          {
+            "harness": "claude",
+            "path": ".claude/skills/fixture",
+            "overlays": []
+          },
+          {
+            "harness": "codex",
+            "path": ".codex/skills/fixture",
+            "overlays": []
+          }
+        ],
+        "gitignoreOptIns": [
+          "!.claude/skills/fixture/",
+          "!.codex/skills/fixture/"
+        ],
+        "smokeSubjects": []
+      }
+    },
+    {
       "id": "hook/ai-git-commit-quiet",
       "kind": "hook",
       "category": "maintainability",
@@ -392,6 +527,7 @@ $FIXTURE_RATCHET_ENTRIES,
       "invocation": "Claude PreToolUse Bash hook",
       "hookWiring": {
         "event": "PreToolUse",
+        "body": "scripts/ai-hooks/git-commit-quiet.sh",
         "order": 20,
         "harnesses": {
           "claude": {
@@ -417,6 +553,7 @@ $FIXTURE_RATCHET_ENTRIES,
       "invocation": "Claude PreToolUse Bash hook",
       "hookWiring": {
         "event": "PreToolUse",
+        "body": "scripts/ai-hooks/bun-run-quiet.sh",
         "order": 30,
         "harnesses": {
           "claude": {
@@ -536,6 +673,26 @@ mutate_undeclared_script() {
   # Add a sensor:* script without a manifest entry.
   write_package_json "$fixture_dir" ',
     "sensor:undeclared": "echo undeclared"'
+}
+
+mutate_missing_ci_gate() {
+  local fixture_dir=$1
+  sed -i '/harness-ci-gate:/d' "$fixture_dir/.github/workflows/ci.yml"
+}
+
+mutate_extra_ci_gate() {
+  local fixture_dir=$1
+  cat >>"$fixture_dir/.github/workflows/ci.yml" <<'YAML'
+      # harness-ci-gate: verify-wrapper/extra
+      - name: Extra gate
+        run: bun run verify:changed
+YAML
+}
+
+mutate_renamed_ci_gate_script() {
+  local fixture_dir=$1
+  sed -i 's/run: bun run verify$/run: bun run verify:changed/' \
+    "$fixture_dir/.github/workflows/ci.yml"
 }
 
 mutate_non_object_manifest_entry() {
@@ -833,6 +990,7 @@ SH
       "invocation": "agent hook",
       "hookWiring": {
         "event": "PostToolUse",
+        "body": "scripts/ai-hooks/missing-body.sh",
         "order": 10,
         "harnesses": {
           "codex": {
@@ -882,10 +1040,19 @@ mutate_stale_restricted_disable_rules() {
   printf '// stale\n' >> "$fixture_dir/eslint-config/ratchet-restricted-disable-rules.generated.js"
 }
 
+mutate_undocumented_porting_knob() {
+  local fixture_dir=$1
+  printf '%s\n' '# porting-knob: source-only -- undocumented fixture knob' \
+    >>"$fixture_dir/scripts/ai-hooks/common.sh"
+}
+
 run_failure_checks() {
   run_failure_case "orphan-rule" "is not declared in the manifest" mutate_orphan_rule
   run_failure_case "undeclared-script" "not declared in harness.controls.json and not exempt" mutate_undeclared_script
   run_failure_case "undeclared-db-script" "db:undeclared" mutate_undeclared_db_script
+  run_failure_case "missing-ci-gate" "CI has no harness-ci-gate marker" mutate_missing_ci_gate
+  run_failure_case "extra-ci-gate" "ciGateControlIds does not declare it" mutate_extra_ci_gate
+  run_failure_case "renamed-ci-gate" "expected manifest invocation" mutate_renamed_ci_gate_script
   run_failure_case "non-object-manifest-entry" "is not an object" mutate_non_object_manifest_entry
   run_failure_case "missing-source" "source does not resolve" mutate_missing_source
   run_failure_case "unknown-rule-name" "not registered in the local ESLint plugin" mutate_unknown_rule_name
@@ -907,6 +1074,33 @@ run_failure_checks() {
   run_failure_case "stale-lint-guidance" "local-lint-rules.md is out of date" mutate_stale_lint_guidance
   run_failure_case "stale-harness-docs" "harness-controls.md is out of date" mutate_stale_harness_docs
   run_failure_case "stale-restricted-disable-rules" "ratchet-restricted-disable-rules.generated.js is out of date" mutate_stale_restricted_disable_rules
+  run_failure_case "undocumented-porting-knob" "source-only" mutate_undocumented_porting_knob
+}
+
+run_conflict_marker_presentation_check() {
+  local fixture_dir="$TMP_ROOT/conflict-marker"
+  local stderr_path="$TMP_ROOT/conflict-marker.err"
+  # Backticks are literal CLI guidance.
+  # shellcheck disable=SC2016
+  local expected='harness:check: eslint-config/max-lines-exceptions.baseline.json is generated; Git conflict markers mean its semantic merge driver was not installed. Run `bun run lint:max-lines-exceptions:install-merge-driver`, restore a parseable side with `bun run baseline:restore-stage -- --ours eslint-config/max-lines-exceptions.baseline.json` (always use stage 2/`--ours`; during rebase stage 2 is the upstream base, not the branch being rebased; if the markers were already committed, restore that side from a parent commit first), then reconcile entries from both sides and normalize with `bun run lint:max-lines-exceptions:update`; never hand-merge conflict markers in this file. Inspect the resulting baseline against both sides before staging; preserve any lower floor from the other side or explicitly accept the regression.'
+  write_valid_fixture "$fixture_dir"
+  printf '%s\n' \
+    '<<<<<<< ours' \
+    '{"version":2}' \
+    '=======' \
+    '{"version":2}' \
+    '>>>>>>> theirs' \
+    >"$fixture_dir/eslint-config/max-lines-exceptions.baseline.json"
+
+  if (cd "$fixture_dir" && bun run scripts/harness-check.ts >"$TMP_ROOT/conflict-marker.out" 2>"$stderr_path"); then
+    echo "FAIL: conflict-marker baseline unexpectedly passed harness:check"
+    exit 1
+  fi
+  if [ "$(cat "$stderr_path")" != "$expected" ]; then
+    echo "FAIL: conflict-marker baseline did not produce one clean harness error"
+    cat "$stderr_path"
+    exit 1
+  fi
 }
 
 run_real_tree_check() {
@@ -962,6 +1156,7 @@ run_public_archive_boundary_check() {
 
 run_pass_case
 run_failure_checks
+run_conflict_marker_presentation_check
 run_real_tree_check
 run_public_archive_boundary_check
 

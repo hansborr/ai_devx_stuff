@@ -1,6 +1,6 @@
 # 70. Ratchet doc accuracy sweep: stale "Current ratchets" (2 of 14 listed), stale `.gitattributes` comment, and a split decision for the 1135-line guide
 
-Status: Partial — items 1-2 implemented on fix/lint-rule-holes-lane; item 3 design recorded, implementation still pending.
+Status: Done — items 1-2 implemented on fix/lint-rule-holes-lane; item 3's split executed 2026-07-17 by lint-arch-review-2026-07 leaf 09 (lint-ratchet.md 1,139→448 lines; new docs/guides/lint-ratchet-reference.md; compatibility anchors preserved for #coverage-map-gate, #portable-adoption, #test-portability).
 Lens: docs · Area: ratchet guide family · Severity: low-med · Size: M · Confidence: high
 Theme: doc-accuracy · Source: Musi lint deep-dive 2026-07-04 (3 parallel Codex xhigh lanes + Claude verification agents)
 
@@ -20,8 +20,8 @@ Three accuracy/shape issues in the public-reference doc family:
    visible in near-duplicate copy-set descriptions.
 
 ## Evidence
-- `docs/guides/lint-ratchet.md:850-861` — two-entry list; `grep -c 'id: "ratchet/'` on `lint-ratchet-config.ts` = 14. Verified.
-- `.gitattributes:7-11` vs `scripts/git/lint-ratchet-baseline-merge-driver.sh:39-48` + `docs/guides/lint-ratchet.md:604-612`. Verified stale.
+- `docs/guides/lint-ratchet.md#current-ratchets` — the section had a two-entry list; `grep -c 'id: "ratchet/'` on `lint-ratchet-config.ts` = 14. Verified.
+- `.gitattributes:7-11` vs `scripts/git/lint-ratchet-baseline-merge-driver.sh:39-48` + `docs/guides/lint-ratchet-merges.md`. Verified stale.
 - `wc -l`: lint-ratchet.md 1135, lint-ratchet-adoption.md 295.
 
 ## Proposed direction

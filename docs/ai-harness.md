@@ -1,7 +1,8 @@
 # AI Harness
 
 Musi's AI harness is the repo-owned support system around coding agents. Keep
-this file as an inventory and gap map, not a design essay.
+this file as an inventory and gap map, not a design essay. First visit? Start
+with the [15-minute harness tour](harness-tour.md) before this inventory.
 
 ## Terms
 
@@ -46,8 +47,26 @@ Hook registration is generated from `harness.controls.json`. The generator at
 which render into `docs/generated/harness-controls.md`, not explained only by
 leaving an adapter unwired.
 
+Cursor is a checked exclusion from that hook inventory. Cursor currently has
+no repository `PreToolUse` (or equivalent policy) API, while
+`agent-cli work cursor` must launch headless Cursor with `--force`, which gives
+the run unrestricted shell access. `harness:check` rejects any `cursor` entry
+under `hookWiring.harnesses`; adding Cursor to a hook surface requires revisiting
+this exclusion against a real product hook API.
+
 Implementation details for shim headers, shared bodies, `hookWiring`, verify
 slots, and porting assumptions live in `scripts/ai-hooks/README.md`.
+
+Shared skills are also inventoried in `harness.controls.json` as `skill`
+controls. Each `skillWiring` entry names the canonical tree, harness targets,
+gitignore opt-ins, smoke subjects, and narrow permitted overlays. Exact bytes
+are the default. `harness:check` performs a bounded filesystem scan of the
+immediate children under `.claude/skills/` and `.codex/skills/`, including
+ignored local directories, and rejects an uninventoried skill tree. Mirror
+comparison fails closed on symlinks, requires real opening and closing
+frontmatter delimiters before applying a field overlay, and rejects forbidden
+overlay paths even when their bytes match. Metadata files and smoke/gitignore
+surfaces remain inventoried as well.
 
 When changing shared behavior, update `scripts/ai-hooks/` first, then adjust
 the thin shims only when the harness payload shape requires it. If a hook body is
@@ -60,7 +79,7 @@ Public source archives include the copyable harness config that
 `harness.controls.json` and `docs/generated/harness-controls.md` reference:
 `.claude/settings.json`, `.claude/hooks/`, `.claude/output-styles/`,
 `.claude/skills/`, `.codex/config.toml`, `.codex/hooks.json`,
-`.codex/hooks/`, and `.codex/skills/`. They also include
+`.codex/hooks/`, `.codex/skills/`, and `.copilot/hooks/`. They also include
 `docs/generated/lint-coverage-map.md` and
 `docs/generated/observed_flaky_tests.md`, because generated and hook-facing
 harness docs point at those references.
@@ -105,7 +124,7 @@ as examples to replace, not portable policy:
 
 - Concrete ratchet registry entries and path globs in
   `scripts/lint-ratchet/lint-ratchet-config.ts`,
-  `scripts/lint-ratchet/max-lines-policy.ts`, and
+  `scripts/lib/max-lines-policy.ts`, and
   `eslint-config/shared-policy.js`.
 - The concrete controls manifest in `harness.controls.json` and its generated
   output in `docs/generated/harness-controls.md`.
@@ -149,8 +168,6 @@ schema, and manifest paths named above. They are not enough for backlog notes;
 use a full clone for `docs/agent_notes/backlog/**`.
 
 ## Substrate Ruling (Bash Vs TS)
-
-Status: drafted 2026-07-07 from arch-review leaf 13; awaiting owner sign-off.
 
 The bash/TS boundary is a ruling, not author preference. New or reworked
 harness tools pick their substrate by these rules:
@@ -198,6 +215,7 @@ needs them.
 | Guide | Category | Mode | Prevents | Timing | Paired sensor |
 |---|---|---|---|---|---|
 | `AGENTS.md` | Maintainability, architecture fitness, behavior | Inferential | Agents missing global repo rules, workflow, and domain constraints | Session start | `verify:changed`, pre-commit, `doctor` |
+| `docs/guides/verify-gate-lifecycle.md` | Maintainability | Inferential | Contributors and adopters treating the commit gate as an opaque exit code instead of generated slots with structured repair feedback | First-contact harness tour or gate troubleshooting | `verify` / `verify:changed` wrapper, pre-commit |
 | `docs/agent_notes/README.md`, `docs/agent_notes/LOG.md`, and `docs/agent_notes/backlog/README.md` | Maintainability | Inferential | Agents treating pruned notes as active work or preserving excessive history | On demand | Stop-hook dirty-work user warning |
 | `docs/architecture-plan.md` | Architecture fitness | Inferential | Cross-package and stack-level changes drifting from planned architecture | Manual, area-specific | Typecheck, tests, future graph checks |
 | `docs/authorization.md` | Architecture fitness, behavior | Inferential | Auth mismatch semantics, especially intentional `NOT_FOUND`, being reimplemented incorrectly | Area-specific | Auth/router tests |
@@ -207,7 +225,9 @@ needs them.
 | `docs/module-docs.md` | Maintainability | Inferential | Module notes drifting into inconsistent shape | When adding or refreshing module docs | `bun run module:index:check` |
 | `docs/guides/add-module-doc.md` | Maintainability | Inferential | Agents adding or refreshing module docs without the charter, `Concepts:` breadcrumb, index refresh, and verification recipe | When adding or refreshing module docs | `bun run module:index:check`, `scripts/tests/test-generate-module-index.sh` |
 | `docs/guides/coverage-cadence.md` | Maintainability, behavior | Inferential | Agents turning coverage into an edit-loop gate or missing the manual baseline cadence | Manual, weekly | `bun run test:coverage` |
+| `docs/guides/per-worktree-dev.md` | Maintainability | Inferential | Agents running a secondary worktree without its provisioned DB, ports, Redis, and env files | When working in a secondary worktree | `bun run worktree:init`, `bun run doctor` |
 | `docs/guides/local-eslint-rules.md` | Maintainability | Inferential | Agents adding local ESLint diagnostics outside the repo's message guidance convention | When editing `eslint-rules/` | `eslint-rules/message-guidance.test.js` |
+| `docs/guides/lint-overview.md` | Maintainability | Inferential | Agents changing the lint system's parts without the architecture map and rationale that orient them | When editing lint config or rules | `bun run lint` |
 | `docs/guides/lint-ratchet.md` and `docs/guides/lint-ratchet-adoption.md` | Maintainability | Inferential | Agents changing ratchets without preserving baseline lifecycle, registry checks, and adopter-facing assumptions | When editing ratchet config or docs | `bun run lint:ratchet`, `bun run lint:ratchet:zero-baseline` |
 | `docs/guides/biome-lint-adoption.md` | Maintainability | Inferential | Agents treating Biome as a drop-in replacement for the authoritative ESLint/ratchet setup | Manual, external-adopter work | `bun run lint` |
 | `.claude/skills/playwright-cli/SKILL.md` and `.codex/skills/playwright-cli/SKILL.md` | Behavior | Inferential | Browser verification being run with the wrong workflow | Manual | Playwright e2e logs and Playwright lint rules |
@@ -217,6 +237,8 @@ needs them.
 | `docs/guides/add-prisma-migration.md` | Architecture fitness, behavior | Inferential | Agents changing Prisma schema without generating, inspecting, applying, and safety-scanning the migration | Area-specific | `db:migration-safety`, `db:status`, `doctor` |
 | `docs/guides/add-race-sensitive-mutation.md` | Architecture fitness, behavior | Inferential | Agents adding or changing race-sensitive mutations without the gate, locked helper, conflict semantics, restricted imports, and concurrency test recipe | Area-specific | `local/concurrency-guard`, `RawTxClient` restricted import, Restricted Prisma delegate types |
 | `docs/guides/add-client-feature-module-cache-socket.md` | Architecture fitness, behavior | Inferential | Agents adding client feature modules with hand-built query keys, component-local socket listeners, or untested optimistic cache writes | Area-specific | Client hook/component tests, `local/test-file-location` |
+| `docs/guides/client-effects.md` | Behavior | Inferential | Agents reaching for a client `useEffect` for derived state, event logic, or data fetching instead of external-system sync | Before adding a client effect | `local` effect lint, client hook/component tests |
+| `docs/guides/client-auth-session.md` | Architecture fitness, behavior | Inferential | Agents mishandling the client auth token and session lifecycle | Area-specific | Client auth/session tests |
 | `docs/guides/change-rules-logic.md` | Behavior | Inferential | Agents touching 5e/5.5e rules logic without SRD provenance, shared helper reuse, pure rules boundaries, or required colocated tests | Area-specific | Shared rules Vitest, `test:changed`, `bun run test:mutation` |
 | Future narrow guides | Architecture fitness, behavior | Inferential | Repeated edits requiring the same local recipe | Manual, area-specific | Matching lint/test/doctor sensor |
 | `bun run codemod:trpc-shared-input -- --check` / `-- [--target <schema.js>] <router-file>` | Architecture fitness | Computational | Agents hand-editing simple router-local tRPC input schema moves | Manual, before edit | `local/trpc-shared-input-schema` |
@@ -229,8 +251,10 @@ needs them.
 ## Sensors
 
 - TypeScript ESLint strict opt-ins now enabled at `error`: `consistent-type-exports`, `prefer-readonly`, and `switch-exhaustiveness-check`.
-- Local rule principles: see `docs/generated/local-lint-rules.md`
-  (generated; refresh with `bun run docs:lint-guidance`).
+- Complete local-rule catalog and principles: see
+  `docs/generated/local-lint-rules.md` (generated; refresh with
+  `bun run docs:lint-guidance`). The `local/*` rows below are selected
+  operational examples, not a second inventory.
 
 | Sensor | Category | Mode | Catches | Timing / command | Paired guide |
 |---|---|---|---|---|---|
@@ -244,7 +268,7 @@ needs them.
 | ESLint `reportUnusedDisableDirectives` | Maintainability | Computational | Stale `eslint-disable*` directives that no longer suppress an active diagnostic | `bun run lint`, `bun run lint:changed` | Rule diagnostic, `eslint-disable-register` |
 | `local/max-lines` | Maintainability | Computational | Source/helper modules over the 300 effective-line default, with targeted warning caps for accepted larger files | `bun run lint`, `bun run lint:changed` | Rule diagnostic, override comments in `eslint.config.js` |
 | `local/no-explicit-any` | Maintainability | Computational | Explicit `any` usage without a deliberate line-level suppression reason | `bun run lint`, `bun run lint:changed` | Rule diagnostic, `eslint-disable-register` |
-| `local/no-llm-artifacts` | Maintainability | Computational | Leftover AI editing comments, bare TODO comments without tracking references, and exact incomplete implementation throws | `bun run lint`, `bun run lint:changed` | Rule diagnostic |
+| `local/no-llm-artifacts` | Maintainability | Computational | Leftover AI editing comments, TODO comments without a locatable issue/PR id, URL, or `docs/roadmap|agent_notes` path, and exact incomplete implementation throws | `bun run lint`, `bun run lint:changed` | Rule diagnostic |
 | `local/no-async-array-callbacks` | Behavior, maintainability | Computational | Async callbacks passed to array methods that drop promises or treat promises as predicates, while preserving Promise-combinator async map shapes | `bun run lint`, `bun run lint:changed` | Rule diagnostic |
 | `local/no-swallowed-errors` | Behavior, maintainability | Computational | Catch blocks whose executable body only logs to `console.log`, `console.warn`, `console.error`, or `console.debug` and then continues | `bun run lint`, `bun run lint:changed` | Rule diagnostic |
 | `local/no-barrel` | Architecture fitness, maintainability | Computational | `index.ts(x)` re-export barrels, with a repair command for source-import expansion | `bun run lint`, `bun run lint:changed` | `codemod:expand-barrel`, `docs/agent_notes/finished_work/expand-barrel-codemod.md` |
@@ -254,7 +278,7 @@ needs them.
 | `local/trpc-shared-output-schema` | Architecture fitness | Computational | Router `.output(...)` schemas not imported directly from `@musi/shared/schemas/...` | `bun run lint`, `bun run lint:changed` | `docs/guides/add-trpc-procedure.md` |
 | `local/strict-shared-schemas` | Architecture fitness | Computational | Input schemas allowing unknown keys at package boundaries | `bun run lint`, `bun run lint:changed` | `docs/guides/add-trpc-procedure.md` |
 | `local/structured-logging` | Maintainability, architecture fitness | Computational | Server code bypassing structured logging or direct `console.*` in server/seed code | `bun run lint`, `bun run lint:changed` | `codemod:structured-logging-fix` |
-| `local/test-file-location` | Maintainability | Computational | Tests landing away from the code they cover | `bun run lint`, `bun run lint:changed` | Rule diagnostic |
+| `local/test-file-location` | Maintainability | Computational | Unit-test files with an empty feature prefix or no `describe`/`it`/`test` block | `bun run lint`, `bun run lint:changed` | Rule diagnostic |
 | Shared schema barrel import ban | Architecture fitness | Computational | Imports from removed `@musi/shared/schemas` barrel | `bun run lint`, `bun run lint:changed` | Future schema-import codemod |
 | Shared/client socket import restrictions | Architecture fitness | Computational | `packages/shared` depending on app/runtime adapters, or client code constructing a second Socket.io client outside `SocketProvider` | `bun run lint`, `bun run lint:changed` | `AGENTS.md`, `docs/socket-architecture.md` |
 | `local/concurrency-guard` | Architecture fitness, behavior | Computational | Direct `.update`, `.updateMany`, `.updateManyAndReturn`, or `.upsert` calls on concurrency-gated Prisma delegates outside mutation helpers | `bun run lint`, `bun run lint:changed` | `docs/guides/add-race-sensitive-mutation.md` |
@@ -272,12 +296,13 @@ needs them.
 | `doctor` | Architecture fitness, maintainability | Computational | Worktree, DB, env, port, dependency, lint-suppression, and migration-safety drift | `bun run doctor` | `bun run worktree:*` scripts, `docs/guides/add-prisma-migration.md` |
 | knip unused-code advisory sensor | Maintainability | Computational | Workspace-unused files, exports, types, and dependencies; broad report remains advisory | `bun run sensor:knip`, `bun run doctor` | `knip.config.ts` |
 | knip unused-export floor | Maintainability | Computational | Drift in knip-reported unused exported symbol count above or below the committed baseline; intentionally fail-closed in verify/pre-commit, measured about 1.5s on 2026-07-02, and runs without knip `--cache` so each gate reads the current graph directly | `bun run sensor:knip-unused-exports`, `verify`, pre-commit | `knip.config.ts`, `sensor-knip-unused-exports.baseline.json` |
+| near-duplicate no-new floor | Maintainability | Computational | New high-confidence function-clone identities touching staged files; existing whole-repo debt is admitted by a committed shrink-only baseline, while whole-repo reporting remains advisory | `bun run sensor:near-duplicates`, `verify`, pre-commit; update after cleanup with `bun scripts/sensor-near-duplicates.ts --update`; explicitly admit one reviewed identity with `--admit "<identity>" --reason "<why>"` | `scripts/drift-ai/near-duplicates.ts`, `sensor-near-duplicates.baseline.json` |
 | staged blob-size sensor | Maintainability | Computational | Staged files over 500 KiB / 5 MiB thresholds unless allowlisted with a reason | `bun run sensor:blob-size`, via `doctor` | `.blob-size-allowlist` |
 | `db:status` | Architecture fitness | Computational | Migration, Prisma client, and DB connectivity drift | `bun run db:status`, via `doctor` | `docs/guides/add-prisma-migration.md` |
 | `db:migration-safety` | Architecture fitness, behavior | Computational | Destructive or risky Prisma migrations lacking acknowledgement | `bun run db:migration-safety`, via `doctor` | `docs/guides/add-prisma-migration.md` |
 | `module:index:check` | Maintainability | Computational | Module doc index drift | `bun run module:index:check` | `docs/module-docs.md` |
-| `eslint-disable-register` | Maintainability | Computational | New suppressions without `-- reason` text or broad disables outside the file/rule allowlist | Via `doctor`, script smoke tests | Register diagnostic |
-| `suppression-register` | Maintainability | Computational | Current-state TypeScript and Stryker suppressions missing `-- reason`, deprecated `@ts-ignore`, `@ts-nocheck` outside allowlist, or broad Stryker disables; report-only in Leaf 16 v1 | Manual: `bash scripts/suppression-register.sh /workspace`, script smoke tests | Leaf 16 suppression baseline |
+| `eslint-disable-register` | Maintainability | Computational | New suppressions without `-- reason` text or broad disables outside the file/rule allowlist | Blocking: `bun run lint:suppressions` in `verify`, `verify:changed`, `verify:parallel`, and pre-commit | `docs/generated/harness-controls.md` |
+| `suppression-register` | Maintainability | Computational | Current-state TypeScript and Stryker suppressions missing `-- reason`, deprecated `@ts-ignore`, `@ts-nocheck` outside allowlist, or broad Stryker disables | Blocking: `bun run lint:suppressions` in `verify`, `verify:changed`, `verify:parallel`, and pre-commit | `docs/generated/harness-controls.md` |
 | AI hook adapters | Maintainability, architecture fitness | Computational | Protected-file edits, doc bloat, stale Prisma client risk, noisy command output, uncommitted stop state | Claude/Codex hooks | Adapter Boundary section above |
 | Stop-hook cached-verify replay | Maintainability, architecture fitness, behavior | Computational | A stop while the most recent `verify:changed` / pre-commit run is still red, when its wrapper meta still matches the worktree, surfaced to the user | Stop hook, user warning (reads `$LOG_DIR/meta/wrapper.json`) | `verify` / `verify:changed` wrapper |
 | Script smoke tests | Maintainability | Computational | Hook, verify, worktree, module-index, migration-safety, and script wrapper regressions | `bun run test:scripts`, `bun run verify` | `scripts/` comments and shell tests |
@@ -289,13 +314,78 @@ needs them.
 | `drift:ai module-doc-paths` | Maintainability | Computational | Stale backtick file references in `MODULE.md` / `*-MODULE.md` notes (path existence only; multi-base resolution, precision over recall); opt-in, report-only | Manual: `bun run drift:ai --check module-doc-paths` (or `--check all`) | `scripts/drift-ai/README.md`, `MODULE.md` files |
 | `drift:ai` default report | Maintainability, architecture fitness | Computational | AI-specific drift on changed files: copy/paste duplicates, suspicious sibling modules, over-narrated comments, and newly added suppression comments; repo-specific roots and exclusions live in `drift-ai.config.json` | Manual, report-only by default: `bun run drift:ai` (filter with `--check`; pass `--config <path>` to test another config) | `scripts/drift-ai/README.md`, `drift-ai.config.json` |
 | `drift:ai` opt-in checks | Maintainability, architecture fitness | Computational | Slower whole-graph AI-drift signals: commented-out code blocks, stale module-doc paths, knip-backed orphan files / duplicate export aliases / unused exports, TypeScript import cycles, server layer-direction reverse imports, AST-similar near-duplicate functions, and duplicate type/schema/literal/constant shapes | Manual, report-only by default: `bun run drift:ai --check commented-out-code`, `--check module-doc-paths`, `--check orphan-files`, `--check knip-duplicates`, `--check import-cycles`, `--check layer-direction`, `--check near-duplicates`, `--check duplicate-types`, `--check duplicate-schemas`, `--check duplicate-literals`, `--check duplicate-constants`, `--check unused-exports`, or `--check all` | `scripts/drift-ai/README.md`, target `knip` / `tsconfig` |
+| `drift:triage` report reducer | Maintainability, architecture fitness | Computational | Agent handoffs overwhelmed by repeated cross-tool evidence, ambiguous swarm ownership, incompatible verdicts, explicitly informational cycles, test-only examples, high-volume literal signals, and hidden upstream truncation | Manual after JSON drift / Semgrep / Dolos scans: reduce with `bun run drift:triage --format json --output <triage.json> [--packet-dir <dir>] <report.json...>`; collect swarm verdicts with `bun run drift:triage collect --manifest <manifest.json> --verdict-dir <dir>` | `scripts/drift-ai/README.md`, raw input reports |
 | `drift:ai` runtime import-cycle floor | Architecture fitness, maintainability | Computational | New runtime import cycles anywhere in the module graph (cycles that survive when type-only edges are removed); type-only cycles stay report-only evidence and never gate | `bun run lint`, `bun run lint:changed` — the "import cycles" lane runs `drift:ai --scope current --check import-cycles --fail-on-runtime-cycles` and fails closed if the check skips | `scripts/drift-ai/README.md`, `scripts/lint.sh` |
 | `drift:ai hotspots` | Maintainability | Computational | Advisory git-history hotspots: churn, coupling, fragmentation, suppression-churn, and thrash lenses; areas to inspect, not defects | Manual advisory: `bun run drift:ai hotspots --lens all` | `scripts/drift-ai/README.md` |
 | `drift:ai coldspots` | Maintainability | Computational | Advisory git-history coldspots: low-churn source files and stale-marker lines that may need a human look; areas to inspect, not defects | Manual advisory: `bun run drift:ai coldspots --lens all` | `scripts/drift-ai/README.md` |
 | `harness:audit` fusion | Maintainability | Computational | Read-only fusion of `HarnessDiagnostics` envelope files (`lint:ratchet`, `drift:ai`, `logs:audit`) into one bounded report grouped by tool, with totals and per-control counts; an artifact generator for scheduled/manual review, not an edit-loop gate (findings never gate; only unreadable/malformed envelopes exit non-zero) | Manual: run a producer with `HARNESS_DIAGNOSTICS_OUTPUT=<path>`, then `bun run harness:audit <path...>` (`--format text\|json`, `--output <file>`). Scheduled weekly: `.github/workflows/slow-drift.yml` runs `bash scripts/slow-drift-audit.sh` and uploads fused artifacts. | `scripts/harness-audit.ts`, `scripts/slow-drift-audit.sh`, `packages/shared/src/schemas/harness-diagnostics.ts` |
+| Lint message eval | Maintainability | Inferential + computational grader | Treatment/control agent repairs over identical structural-rule violations; iterations to green plus stuck, oscillating, and cascading interactions | Manual capture and `bun run eval:lint-messages`; weekly replay in `.github/workflows/slow-drift.yml`, report-only and outside commit gates | `docs/guides/lint-message-evals.md` |
 | Future approved behavior fixtures | Behavior | Computational | Generated tests proving the wrong shape or missing reviewed scenario data | Targeted Vitest suites | Domain docs, SRD reference |
 | Future slow drift reports | Maintainability, architecture fitness | Computational | Stale module docs, flake trends, layer drift, and other drift reports not already covered by `drift:ai` or existing sensors | `doctor`, CI, scheduled, or manual | This map |
 | Future project-specific reviewer | Architecture fitness, behavior | Inferential | Semantic drift not expressible as deterministic checks | Manual after deterministic checks pass | This map and area docs |
+
+### Heavy-tool memory admission
+
+`scripts/verify/memory-budget.sh` is the shared, cross-worktree admission
+policy for gate slots and full direct runs of `bun run test`, `bun run lint`,
+`bun run test:scripts`, and `bun run lint:ratchet`. Its expected-peak table is
+seeded from measured cold process-tree RSS. Gate launchers pass their live
+reservation token into admitted children, so a nested tool entry point skips a
+second reservation only while that owning reservation remains live. Admitted children also
+best-effort raise `oom_score_adj`; unsupported hosts silently keep their
+default score.
+
+Admission fails closed whenever a slot's expected peak exceeds measured
+headroom, even when there are no other live Musi reservations: an empty
+reservation set does not prove that unrelated host workloads are idle. The
+timeout diagnostic reports the required peak, measured availability, safety
+reserve, and resulting admission headroom; free memory and retry rather than
+launching below the budget. `MUSI_VERIFY_MEMORY_ALLOW_SOLO_FALLBACK=1` is an
+explicit emergency opt-in for admitting an oversized slot only when no other
+Musi reservation is live. It restores the risky solo behavior for that process
+and is not a normal gate or direct-tool setting.
+
+Only positively identified narrow test invocations—where every positional
+selector resolves to an explicit existing `*.test.*` or `*.spec.*` file inside
+the repository—and `test:scripts --changed` skip the full-suite reservation.
+Directories, project selections (including strict subsets), unresolved
+substrings, and glob-like selectors pay full admission. Option values are
+consumed before classifying positionals, while config/root overrides and other
+ambiguous or potentially full shapes reserve the full peak. This fail-closed
+boundary keeps ordinary full invocations admitted without serializing genuine
+edit-loop checks behind the default test slot's 3,200 MB reservation. The
+measured default is `NON_SERVER_TEST_MAX_WORKERS=6`: an unset override or a
+positive override at or below 6 charges 3,200 MB, while an elevated or
+malformed value charges the conservative pre-cap 5,580 MB bound. The largest
+supported override is 8, the only measured elevated candidate. Under installed
+Vitest 4.1.7, `VITEST_MAX_WORKERS` takes precedence over CLI `--maxWorkers`, which takes precedence over `NON_SERVER_TEST_MAX_WORKERS`;
+the full-suite wrapper makes that order execution-real by translating a
+validated CLI value into `VITEST_MAX_WORKERS` only when native env is unset.
+This is necessary because Vitest workspace projects otherwise retain their own
+configured `maxWorkers` instead of inheriting the global CLI value. Admission
+observes the translated value, and both environment variables are still
+validated independently. A translation-origin marker lets root Vitest config
+capture the translated value for non-server projects and then remove only the
+synthetic native override before server resolution, preserving the measured
+server cap; an explicitly inherited native override keeps its existing global
+semantics. The `test:changed` ordinary/fallback Vitest phase uses the same translation;
+its client fast-lane phase deliberately replaces native env with
+`MUSI_CLIENT_FAST_LANE_MAX_WORKERS` (4 by default), so that distinct phase does
+not consume the CLI value. The root test wrappers accept both CLI value syntaxes
+and Vitest's equivalent `--max-workers` spelling, validate them before
+classification and admission, and reject malformed or above-8 values before
+dispatch. Repeated worker flags are rejected as ambiguous, including mixed
+camel- and kebab-case spellings, because Vitest 4.1.7 accumulates repeats rather
+than applying last-wins semantics. An effective 7 or 8 always charges 5,580 MB,
+while 1 through 6 charges 3,200 MB.
+`MUSI_CLIENT_FAST_LANE_MAX_WORKERS` is 4 by default and uses the same 1–8 validation;
+because the gate can see it before `test-changed.sh` converts it to
+`VITEST_MAX_WORKERS`, 7 or 8 also raises the parent test-slot reservation to
+5,580 MB. The focused test override remains 2. For emergency diagnostics only,
+`MUSI_TOOL_MEMORY_ADMISSION_BYPASS=1` bypasses direct tool-entry admission; it
+does not bypass verify or pre-commit admission. Keep the full lint ESLint lane
+serial—`--concurrency` remains prohibited because its measured process-tree
+growth can kill the host.
 
 For `drift:ai`, `--scope current` audits the current whole repo instead of the
 default diff against `main`. `--check all` enables the slower opt-in checks;
@@ -316,6 +406,7 @@ prototype-lane `drift:ai` advisory subcommands until a lens is promoted.
 - producer envelopes to `reports/slow-drift/envelopes/`;
 - producer stdout/stderr captures to `reports/slow-drift/producers/`;
 - fused `harness:audit` text and JSON reports to `reports/slow-drift/fused/`.
+- replayed lint-message treatment/control reports to `reports/slow-drift/message-eval/`.
 
 These `reports/` artifacts are gitignored local outputs and may be stale after
 the worktree moves. Slow-drift text artifacts include a metadata header
@@ -325,9 +416,11 @@ sidecars. Rerun `bash scripts/slow-drift-audit.sh` or use the latest uploaded
 CI artifact before treating local reports as current.
 
 GitHub uploads those paths as `slow-drift-producer-envelopes`,
-`slow-drift-producer-output`, and `slow-drift-fused-reports`. The default
-scheduled producers are `lint:ratchet` and `drift:ai --scope current --check
-all`. `logs:audit` joins the same fusion path when the driver receives
+`slow-drift-producer-output`, `slow-drift-fused-reports`, and
+`slow-drift-lint-message-eval`. The default scheduled producers are
+`lint:ratchet` and `drift:ai --scope current --check all`; the message-eval
+replay runs beside them but is not a `HarnessDiagnostics` fusion producer.
+`logs:audit` joins the same fusion path when the driver receives
 newline-separated runtime JSONL paths through `MUSI_SLOW_DRIFT_LOG_FILES`; the
 scheduled CI job skips it by default because that job does not collect runtime
 server logs.

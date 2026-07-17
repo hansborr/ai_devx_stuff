@@ -8,7 +8,49 @@
 # suppressions contributors can act on in code.
 set -uo pipefail
 
-REPO_ROOT="${1:-}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+MODE=full
+BASE=main
+REPO_ROOT=""
+POSITIONAL=()
+
+while [[ "$#" -gt 0 ]]; do
+  case "$1" in
+    --changed) MODE=changed; shift ;;
+    -h|--help)
+      printf 'usage: suppression-register.sh [--changed [base]] [repo-root]\n'
+      exit 0
+      ;;
+    --*)
+      printf 'FAIL: suppression register unknown argument: %s\n' "$1" >&2
+      exit 2
+      ;;
+    *) POSITIONAL+=("$1"); shift ;;
+  esac
+done
+
+if [[ "$MODE" == changed ]]; then
+  case "${#POSITIONAL[@]}" in
+    0) ;;
+    1)
+      if git -C "${POSITIONAL[0]}" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        REPO_ROOT="${POSITIONAL[0]}"
+      else
+        BASE="${POSITIONAL[0]}"
+      fi
+      ;;
+    2) BASE="${POSITIONAL[0]}"; REPO_ROOT="${POSITIONAL[1]}" ;;
+    *)
+      printf 'FAIL: suppression register too many positional arguments\n' >&2
+      exit 2
+      ;;
+  esac
+elif [[ "${#POSITIONAL[@]}" -le 1 ]]; then
+  REPO_ROOT="${POSITIONAL[0]:-}"
+else
+  printf 'FAIL: suppression register too many positional arguments\n' >&2
+  exit 2
+fi
 if [[ -z "$REPO_ROOT" ]]; then
   REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || {
     printf 'FAIL: suppression register cannot check: not inside a git repository\n' >&2
@@ -20,14 +62,67 @@ if ! git -C "$REPO_ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   printf 'FAIL: suppression register cannot check: %s is not a git repository\n' "$REPO_ROOT" >&2
   exit 2
 fi
+cd "$REPO_ROOT" || {
+  printf 'FAIL: suppression register cannot enter repository: %s\n' "$REPO_ROOT" >&2
+  exit 2
+}
+
+SCAN_SCOPE=full
+FILES=()
+if [[ "$MODE" == changed ]]; then
+  # shellcheck source=scripts/lib/verify-metadata.sh
+  . "$SCRIPT_DIR/lib/verify-metadata.sh"
+  # shellcheck source=scripts/lib/changed-base.sh
+  . "$SCRIPT_DIR/lib/changed-base.sh"
+  # shellcheck source=scripts/lib/changed-lintable-files.sh
+  . "$SCRIPT_DIR/lib/changed-lintable-files.sh"
+
+  # This scanner runs under `set -uo pipefail` (no -e), so the abort is explicit:
+  # a bare call would discard the exit code and false-green a --changed run with
+  # unstaged source-relevant work. Mirrors lint-changed.sh / lint-config-sensors.sh.
+  musi_changed_gate_fail_if_unstaged "$REPO_ROOT" "lint:suppression-register:changed" || exit $?
+  if ! musi_resolve_changed_base "$BASE"; then
+    printf 'suppression register: %s — checking full repository.\n' "$MUSI_CHANGED_BASE_ERROR" >&2
+  else
+    BASE="$MUSI_CHANGED_BASE"
+    if ! musi_collect_changed_candidates "$REPO_ROOT" "$BASE" gate; then
+      printf 'FAIL: suppression register could not collect changed files\n' >&2
+      exit 2
+    fi
+    selector_rc=0
+    musi_changed_candidates_trigger_full_scan full-scan-trigger:suppression-register-changed \
+      || selector_rc=$?
+    case "$selector_rc" in
+      0) ;;
+      1)
+        if ! musi_select_changed_lintable_files "$REPO_ROOT" lintable:agent-changed; then
+          printf 'FAIL: suppression register changed-file selection failed\n' >&2
+          exit 2
+        fi
+        SCAN_SCOPE=changed
+        ;;
+      *)
+        printf 'FAIL: suppression register full-scan trigger selection failed\n' >&2
+        exit 2
+        ;;
+    esac
+  fi
+fi
 
 PATTERN_TS='(^|[[:space:]])(//|/\*)[[:space:]]*@ts-(expect-error|ignore|nocheck)($|[[:space:]])'
 PATTERN_STRYKER='(^|[[:space:]])(//|/\*)[[:space:]]*Stryker[[:space:]]+disable($|[[:space:]])'
 PATTERN_STRYKER_INLINE='Stryker[[:space:]]+disable[[:space:]]+next-line($|[[:space:]])'
-TS_NOCHECK_ALLOWLIST=(
-  "scripts/drift-ai/suppressions.ts"
-  "scripts/drift-ai/suppressions.test.ts"
-)
+ALLOWLIST_FILE="$SCRIPT_DIR/data/ts-nocheck-allowlist.txt"
+TS_NOCHECK_ALLOWLIST=()
+if [[ ! -r "$ALLOWLIST_FILE" ]]; then
+  printf 'FAIL: suppression register cannot read allowlist: scripts/data/ts-nocheck-allowlist.txt\n' >&2
+  exit 2
+fi
+while IFS= read -r pattern || [[ -n "$pattern" ]]; do
+  pattern="${pattern%$'\r'}"
+  [[ -z "$pattern" || "$pattern" == \#* ]] && continue
+  TS_NOCHECK_ALLOWLIST+=("$pattern")
+done < "$ALLOWLIST_FILE"
 
 total=0
 ts_expect_error=0
@@ -43,6 +138,7 @@ ts_ignore_entries=()
 ts_nocheck_entries=()
 stryker_broad_entries=()
 IN_BLOCK_COMMENT=0
+IN_TEMPLATE=0
 
 trim() {
   local value="$1"
@@ -166,8 +262,8 @@ record_comment_segment() {
 scan_line() {
   local path="$1" line_no="$2" line="$3"
   local i=0 len=${#line} in_string="" ch next rest before segment
-  if (( IN_BLOCK_COMMENT == 0 )) &&
-    [[ "$line" != *"@ts-"* && "$line" != *"Stryker"* && "$line" != *"/*"* ]]; then
+  if (( IN_BLOCK_COMMENT == 0 && IN_TEMPLATE == 0 )) &&
+    [[ "$line" != *"@ts-"* && "$line" != *"Stryker"* && "$line" != *"/*"* && "$line" != *'`'* ]]; then
     return 0
   fi
   while (( i < len )); do
@@ -183,6 +279,23 @@ scan_line() {
       fi
       record_comment_segment "$path" "$line_no" "block" "$rest"
       return 0
+    fi
+
+    # Template literals span lines, so backtick state is file-scoped like
+    # IN_BLOCK_COMMENT. Template content is string data, never a directive;
+    # ${...} interpolation is coarsely ignored (missing a directive genuinely
+    # buried inside interpolation is far cheaper than false-failing on data).
+    if (( IN_TEMPLATE == 1 )); then
+      ch="${line:i:1}"
+      if [[ "$ch" == "\\" ]]; then
+        i=$((i + 2))
+        continue
+      fi
+      if [[ "$ch" == '`' ]]; then
+        IN_TEMPLATE=0
+      fi
+      i=$((i + 1))
+      continue
     fi
 
     ch="${line:i:1}"
@@ -219,36 +332,59 @@ scan_line() {
       return 0
     fi
 
-    if [[ "$ch" == '"' || "$ch" == "'" || "$ch" == '`' ]]; then
+    if [[ "$ch" == '"' || "$ch" == "'" ]]; then
       in_string="$ch"
+    elif [[ "$ch" == '`' ]]; then
+      # Accepted tradeoff: with no regex-literal handling, a code-position
+      # backtick that is not a template opener (e.g. the regex /[`]/) flips
+      # template state for the rest of the file until the next backtick, so a
+      # genuine directive in that span goes uncounted (false negative). That
+      # beats the alternative — treating template data as code and false-
+      # failing the gate. Pinned by the regex-backtick smoke case; changing
+      # this means a parser-backed scanner, not a tweak here.
+      IN_TEMPLATE=1
     fi
     i=$((i + 1))
   done
+}
+
+scan_files() {
+  local file
+  if [[ "$SCAN_SCOPE" == changed ]]; then
+    for file in "${FILES[@]}"; do
+      case "$file" in
+        docs/*|node_modules/*|packages/server/prisma/generated/*) continue ;;
+      esac
+      printf '%s\0' "$file"
+    done
+    return 0
+  fi
+
+  git -C "$REPO_ROOT" ls-files -z --cached --others --exclude-standard -- \
+    '*.cjs' '*.js' '*.jsx' '*.mjs' '*.ts' '*.tsx' \
+    ':(exclude)docs/**' \
+    ':(exclude)node_modules/**' \
+    ':(exclude)packages/server/prisma/generated/**'
 }
 
 while IFS= read -r -d '' file; do
   [[ -r "$REPO_ROOT/$file" ]] || continue
   line_no=0
   IN_BLOCK_COMMENT=0
+  IN_TEMPLATE=0
   while IFS= read -r text || [[ -n "$text" ]]; do
     line_no=$((line_no + 1))
     scan_line "$file" "$line_no" "$text"
   done < "$REPO_ROOT/$file"
-done < <(
-  git -C "$REPO_ROOT" ls-files -z --cached --others --exclude-standard -- \
-    '*.cjs' \
-    '*.js' \
-    '*.jsx' \
-    '*.mjs' \
-    '*.ts' \
-    '*.tsx' \
-    ':(exclude)docs/**' \
-    ':(exclude)node_modules/**' \
-    ':(exclude)packages/server/prisma/generated/**'
-)
+done < <(scan_files)
 
-printf 'PASS: suppression register total=%d ts-expect-error=%d ts-ignore=%d ts-nocheck=%d stryker=%d\n' \
-  "$total" "$ts_expect_error" "$ts_ignore" "$ts_nocheck" "$stryker"
+if [[ "$MODE" == changed ]]; then
+  printf 'PASS: suppression register scope=%s total=%d ts-expect-error=%d ts-ignore=%d ts-nocheck=%d stryker=%d\n' \
+    "$SCAN_SCOPE" "$total" "$ts_expect_error" "$ts_ignore" "$ts_nocheck" "$stryker"
+else
+  printf 'PASS: suppression register total=%d ts-expect-error=%d ts-ignore=%d ts-nocheck=%d stryker=%d\n' \
+    "$total" "$ts_expect_error" "$ts_ignore" "$ts_nocheck" "$stryker"
+fi
 
 if (( missing_total > 0 )); then
   printf 'FAIL: suppression register reasons missing %s separator total=%d — add %s after the directive\n' \
@@ -271,7 +407,7 @@ else
 fi
 
 if (( ts_nocheck_disallowed > 0 )); then
-  printf 'FAIL: suppression register @ts-nocheck outside allowlist total=%d — prefer per-line @ts-expect-error or add an exception in scripts/suppression-register.sh\n' \
+  printf 'FAIL: suppression register @ts-nocheck outside allowlist total=%d — prefer per-line @ts-expect-error or add an exception in scripts/data/ts-nocheck-allowlist.txt\n' \
     "$ts_nocheck_disallowed"
   for entry in "${ts_nocheck_entries[@]}"; do
     printf '  - %s\n' "$entry"

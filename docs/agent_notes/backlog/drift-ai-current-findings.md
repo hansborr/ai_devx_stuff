@@ -231,6 +231,11 @@ rules-specific interfaces stay local.
 
 ### 8. Consolidate shared-schema codemod engine pieces
 
+> **DONE** (`8454fab4`, drain leaf 4.9) — the trpc-shared input/output codemods
+> now share a common engine (CLI parsing, candidate validation, shared-import
+> insertion, export append, router rewrite), keeping input/output-specific
+> discovery and tests.
+
 Files:
 
 - `scripts/codemods/trpc-shared-input.ts:12`

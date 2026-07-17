@@ -1,14 +1,16 @@
-// Emits an agent-facing JSON envelope of local/* ESLint diagnostics for the
-// PR 3 machine-readable diagnostics contract (see
+// Emits an agent-facing JSON envelope of local/* diagnostics, selected
+// core/plugin steering rules, and parser errors for the PR 3 machine-readable
+// diagnostics contract (see
 // packages/shared/src/schemas/harness-diagnostics.ts).
 //
 // Local rule metadata is re-projected from each rule's meta.docs (PR 1
-// contract) so the envelope is self-contained: each finding carries its
-// manifest control id, severity, repair kind, and (for codemod rules)
-// repair command. Non-local findings are counted on stderr and also emitted
-// as info-severity completeness disclosures under lint/skipped-non-local.
+// contract); selected non-local rules use the checked overlay registry. The
+// envelope is self-contained: each finding carries its manifest control id,
+// severity, repair kind, and (for codemod rules) repair command. Rules without
+// either metadata source are counted on stderr and emitted as info-severity
+// completeness disclosures under lint/skipped-non-local.
 
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { dirname, isAbsolute, resolve } from "node:path";
 
 import { harnessDiagnosticsSchema } from "../packages/shared/src/schemas/harness-diagnostics.js";
@@ -24,20 +26,65 @@ import {
 const PROCESS_ARG_OFFSET = 2;
 const JSON_INDENT_SPACES = 2;
 const DISPLAY_COMMAND = "lint:agent:local-rules";
+const STRUCTURAL_OVERLAY_ENV = "MUSI_LINT_AGENT_STRUCTURAL_OVERLAY";
+
+// Obtain the salted ESLint cache args from the main lane's shared lib rather
+// than reimplementing the fingerprint (which would drift). The lib salts the
+// cache location by every input that can change diagnostics for otherwise
+// unchanged files (rule sources, config, tsconfig, TS sources, lockfiles) and
+// prunes stale siblings, so the agent envelope can never serve pre-change
+// findings the way the old unsalted `node_modules/.cache/eslint/` could.
+// On any failure, degrade to an uncached run: correctness beats a cache that
+// can lie about rule-development edits.
+function saltedCacheArgs(): readonly string[] {
+  const script =
+    ". scripts/lib/eslint-main-cache.sh" +
+    ' && musi_eslint_main_cache_args "$1"' +
+    " && " +
+    "printf '%s\\n' \"${MUSI_ESLINT_MAIN_CACHE_ARGS[@]}\"";
+  // spawnSync (not execFileSync) so a failing shell-out is an ordinary result
+  // to branch on rather than a thrown error we would have to log-and-swallow.
+  const result = spawnSync("bash", ["-c", script, "bash", lintAgentRepoRoot], {
+    cwd: lintAgentRepoRoot,
+    env: globalThis.process.env,
+    encoding: "utf8",
+  });
+  if (result.error !== undefined || result.status !== 0) {
+    const stderr = result.stderr.trim();
+    const detail =
+      result.error?.message ?? (stderr.length > 0 ? stderr : `exit ${String(result.status)}`);
+    console.error(
+      `${DISPLAY_COMMAND}: could not derive the salted ESLint cache args ` +
+        `(${detail}); running without the ESLint cache.`,
+    );
+    return [];
+  }
+  const args = result.stdout
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+  if (args[0] !== "--cache") {
+    console.error(
+      `${DISPLAY_COMMAND}: unexpected cache args from eslint-main-cache.sh; ` +
+        `running without the ESLint cache.`,
+    );
+    return [];
+  }
+  return args;
+}
 
 async function runEslint(patterns: readonly string[]): Promise<string> {
   const args = [
     "--format=json",
     "--no-error-on-unmatched-pattern",
-    "--cache",
-    "--cache-location",
-    "node_modules/.cache/eslint/",
+    ...saltedCacheArgs(),
     ...(patterns.length > 0 ? patterns : ["."]),
   ];
 
   return new Promise((resolveOutput, rejectOutput) => {
     const child = spawn(resolve(lintAgentRepoRoot, "node_modules/.bin/eslint"), args, {
       cwd: lintAgentRepoRoot,
+      env: { ...globalThis.process.env, [STRUCTURAL_OVERLAY_ENV]: "1" },
       stdio: ["ignore", "pipe", "pipe"],
     });
     let stdout = "";

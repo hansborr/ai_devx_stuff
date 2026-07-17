@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import type { LintRatchetConfig } from "./lint-ratchet-config.js";
-import type { NormalLintFileStatus } from "./lint-ratchet-zero-baseline.js";
 import {
   type OrphanRetireScope,
   proveOrphanPromotedToNormalError,
 } from "./retire-promotion-proof.js";
+import type { NormalLintFileStatus } from "./zero-baseline.js";
 
 const scope: OrphanRetireScope = {
   id: "ratchet/old-promoted",
@@ -53,6 +53,26 @@ describe("proveOrphanPromotedToNormalError", () => {
     );
     expect(proof.normalError).toBe(false);
     expect(proof.normalLintStatus).toBe("mixed");
+  });
+
+  it("accepts all-error different options only with explicit attestation", async () => {
+    const statuses = statusMap({
+      "packages/server/src/a.ts": "error-different-options",
+      "packages/server/src/b.ts": "error-different-options",
+    });
+
+    await expect(proveOrphanPromotedToNormalError(scope, tracked, statuses)).resolves.toMatchObject(
+      {
+        normalError: false,
+        normalLintStatus: "normal-error-different-options",
+      },
+    );
+    await expect(
+      proveOrphanPromotedToNormalError(scope, tracked, statuses, true),
+    ).resolves.toMatchObject({
+      normalError: true,
+      normalLintStatus: "normal-error-different-options",
+    });
   });
 
   it("never proves promotion for an empty scope", async () => {

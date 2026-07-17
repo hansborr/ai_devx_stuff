@@ -110,8 +110,61 @@ describe("runBaselineDebtAccountingCheck", () => {
       runBaselineDebtAccountingCheck(deps);
     });
 
+    expect(stderr).toContain("WARN - configured base refs are unavailable");
     expect(stderr).toContain("SKIP - no comparable git base found");
     expect(calls.some((call) => call[0] === "show")).toBe(false);
+  });
+
+  it("reads stage-0 baseline and debt-log blobs in pre-commit context", () => {
+    const base = "basesha444444444";
+    const stagedDebtLog = "";
+    const { calls, deps } = makeDeps([
+      [["rev-parse", "HEAD"], "headsha444444444\n"],
+      [["merge-base", "HEAD", "origin/main"], `${base}\n`],
+      [["show", `${base}:${BASELINE_FILENAME}`], EMPTY_BASELINE],
+      [["show", `:${BASELINE_FILENAME}`], EMPTY_BASELINE],
+      [["show", `${base}:${DEBT_LOG_FILENAME}`], ""],
+      [["show", `:${DEBT_LOG_FILENAME}`], stagedDebtLog],
+    ]);
+
+    runBaselineDebtAccountingCheck(deps, { currentSource: "index" });
+
+    expect(calls).toContainEqual(["show", `:${BASELINE_FILENAME}`]);
+    expect(calls).toContainEqual(["show", `:${DEBT_LOG_FILENAME}`]);
+  });
+
+  it("uses an explicitly configured base ref instead of default candidates", () => {
+    const base = "basesha555555555";
+    const { calls, deps } = makeDeps([
+      [["rev-parse", "HEAD"], "headsha555555555\n"],
+      [["merge-base", "HEAD", "upstream/trunk"], `${base}\n`],
+      [["show", `${base}:${BASELINE_FILENAME}`], EMPTY_BASELINE],
+      [["show", `${base}:${DEBT_LOG_FILENAME}`], ""],
+    ]);
+
+    runBaselineDebtAccountingCheck(deps, { baseRefCandidates: ["upstream/trunk"] });
+
+    expect(calls).toContainEqual(["merge-base", "HEAD", "upstream/trunk"]);
+    expect(calls.map((call) => call.join(" "))).not.toContain("merge-base HEAD origin/main");
+  });
+
+  it("warns when unavailable configured refs degrade accounting to the first parent", () => {
+    const parent = "parentsha666666";
+    const { deps } = makeDeps([
+      [["rev-parse", "HEAD"], "headsha666666666\n"],
+      [["merge-base", "HEAD", "upstream/trunk"], new Error("not fetched")],
+      [["rev-parse", "HEAD^"], `${parent}\n`],
+      [["show", `${parent}:${BASELINE_FILENAME}`], EMPTY_BASELINE],
+      [["show", `${parent}:${DEBT_LOG_FILENAME}`], ""],
+    ]);
+
+    const stderr = collectConsoleError(() => {
+      runBaselineDebtAccountingCheck(deps, { baseRefCandidates: ["upstream/trunk"] });
+    });
+
+    expect(stderr).toContain("WARN - configured base refs are unavailable");
+    expect(stderr).toContain("falling back to HEAD^");
+    expect(stderr).toContain("--base-ref <ref>");
   });
 
   it("treats a missing current debt log as empty", () => {

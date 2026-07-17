@@ -1,13 +1,4 @@
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  utimesSync,
-  writeFileSync,
-} from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, mkdirSync, readFileSync, utimesSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -27,6 +18,7 @@ import {
   parseArgs,
   runLogsAudit,
 } from "../logs-audit.js";
+import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
 import {
   controlForCheck,
   LOGS_AUDIT_DIAGNOSTIC_CONTROL_IDS,
@@ -113,6 +105,43 @@ describe("auditJsonlText", () => {
         file: "bad.jsonl",
         line: 4,
         message: "JSONL record must be an object",
+      },
+    ]);
+  });
+
+  it("accepts files ending in multiple trailing newlines without findings", () => {
+    for (const contents of ['{"message":"ok"}\n\n', '{"message":"ok"}\n\n\n']) {
+      const report = auditJsonlText("trailing.jsonl", contents);
+      expect(report.files).toEqual([
+        { file: "trailing.jsonl", totalLines: 1, records: 1, rejectedLines: 0 },
+      ]);
+      expect(report.findings).toEqual([]);
+    }
+  });
+
+  it("reports an all-blank file as clean (every line is trailing slop)", () => {
+    // Pins the leaf-31 drop-all-trailing-blanks policy at its extreme: a file
+    // of only newlines audits clean (previously "\n" flagged one empty line).
+    for (const contents of ["\n", "\n\n\n"]) {
+      const report = auditJsonlText("blank.jsonl", contents);
+      expect(report.files).toEqual([
+        { file: "blank.jsonl", totalLines: 0, records: 0, rejectedLines: 0 },
+      ]);
+      expect(report.findings).toEqual([]);
+    }
+  });
+
+  it("still flags an interior empty line when the file ends in trailing newlines", () => {
+    const report = auditJsonlText("interior.jsonl", '{"message":"ok"}\n\n{"message":"ok"}\n\n');
+    expect(report.files).toEqual([
+      { file: "interior.jsonl", totalLines: 3, records: 2, rejectedLines: 1 },
+    ]);
+    expect(report.findings).toEqual([
+      {
+        check: "jsonl",
+        file: "interior.jsonl",
+        line: 2,
+        message: "line is empty",
       },
     ]);
   });
@@ -1019,19 +1048,10 @@ describe("runLogsAudit", () => {
 });
 
 describe("runLogsAudit --latest", () => {
-  const tempRoots: string[] = [];
-
-  afterEach(() => {
-    while (tempRoots.length > 0) {
-      const root = tempRoots.pop();
-      if (root !== undefined) rmSync(root, { recursive: true, force: true });
-    }
-  });
+  const tmpRepo = registerTempRootCleanup();
 
   function makeTempRoot(): string {
-    const root = mkdtempSync(path.join(tmpdir(), "logs-audit-latest-"));
-    tempRoots.push(root);
-    return root;
+    return tmpRepo.makeTempRepo("logs-audit-latest-");
   }
 
   function writeLog(root: string, relativePath: string, contents: string, mtime: Date): string {
@@ -1250,7 +1270,7 @@ describe("projectLogsAuditDiagnostics", () => {
 });
 
 describe("writeLogsAuditDiagnosticsSidecar and runLogsAudit sidecar", () => {
-  const tempRoots: string[] = [];
+  const tmpRepo = registerTempRootCleanup();
 
   beforeEach(() => {
     vi.stubEnv(HARNESS_DIAGNOSTICS_OUTPUT_ENV, undefined);
@@ -1258,16 +1278,10 @@ describe("writeLogsAuditDiagnosticsSidecar and runLogsAudit sidecar", () => {
 
   afterEach(() => {
     vi.unstubAllEnvs();
-    while (tempRoots.length > 0) {
-      const root = tempRoots.pop();
-      if (root !== undefined) rmSync(root, { recursive: true, force: true });
-    }
   });
 
   function makeTempRoot(): string {
-    const root = mkdtempSync(path.join(tmpdir(), "logs-audit-diagnostics-"));
-    tempRoots.push(root);
-    return root;
+    return tmpRepo.makeTempRepo("logs-audit-diagnostics-");
   }
 
   it("is a no-op when the env var is unset", () => {

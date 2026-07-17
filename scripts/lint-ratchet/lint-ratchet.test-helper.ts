@@ -2,7 +2,7 @@ import {
   LINT_RATCHET_CONFIG_HASH_PREFIX,
   type LintRatchetCurrentById,
   type LintRatchetCurrentItem,
-} from "./lint-ratchet-baseline.js";
+} from "./baseline.js";
 
 // Shared lint-ratchet test fixtures. lint-ratchet is load-bearing tooling and
 // its baseline/current shape (LintRatchetCurrentById, the rule-source-hash
