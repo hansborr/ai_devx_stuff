@@ -30,8 +30,9 @@ What actually runs in this clone, after `bun install` (no database, Redis, or
 env setup):
 
 - `bun run harness:check` — validates the manifest against the live tree.
-  One piece of drift is expected here: the local-only `sync-from-upstream`
-  skill is not in the mirrored manifest.
+  It exits non-zero with exactly two expected drift lines: the local-only
+  `sync-from-upstream` skill (its `.claude/skills/` and `.codex/skills/`
+  copies) is not in the mirrored manifest. Anything else is real drift.
 - `examples/lint-ratchet-demo` — a self-contained ratchet demo; `bun run
   smoke` inside it exercises a green baseline, a blocked regression, an
   accepted increase, and a locked-in improvement in a temp repo.
@@ -61,10 +62,10 @@ replays in milliseconds. Time-based caches can lie; content-keyed markers
 can't.
 
 **Every policy block ships a repair string.** `scripts/ai-hooks/policy.sh`
-denies bypass envs (`HUSKY=0`), raw shell `grep`, direct `psql` /
-`redis-cli` / `docker`, destructive git history rewrites, force pushes,
-pushes to `main`, and `gh` mutations — and every denial echoes a one-line
-"do this instead", so the agent has a repair path rather than a dead end.
+denies bypass envs (`HUSKY=0`), direct `psql` / `redis-cli` / `docker`,
+destructive git history rewrites, force pushes, pushes to `main`, and `gh`
+mutations — and every denial echoes a one-line "do this instead", so the
+agent has a repair path rather than a dead end.
 
 **Shared hook bodies, thin per-tool adapters.** The behavior lives once in
 `scripts/ai-hooks/`; `.claude/hooks/`, `.codex/hooks/`, and
@@ -119,20 +120,24 @@ bloat — feedforward context stays scannable because something checks.
   agents working *here*. Upstream's real always-loaded brief is preserved at
   `docs/upstream-AGENTS.md` as an example of the pattern (shared brief in
   `AGENTS.md`, thin `@AGENTS.md` include in `CLAUDE.md`).
-- `docs/guides/` — task recipes paired with sensors: tRPC procedures, socket
-  broadcasts, Prisma migrations, race-sensitive mutations, client
-  cache/socket modules, client effects, e2e tests, module docs, rules logic,
-  the lint-ratchet family, `lint-overview.md`, `local-eslint-rules.md`,
-  `verify-gate-lifecycle.md`, `per-worktree-dev.md`, `code-intel.md`.
-- `docs/agent_notes/` — the persistent-context system: `STATUS.md` /
-  `NEXT.md` hot path, curated `LOG.md`, ADR-lite `DECISIONS.md`, backlog
-  packs.
+- `docs/guides/` — 22 task recipes paired with sensors: adding tRPC
+  procedures, socket broadcasts, Prisma migrations, race-sensitive
+  mutations, client modules/effects, auth sessions, e2e tests, module docs,
+  rules logic; the lint surface (`lint-overview`, `local-eslint-rules`, the
+  four-part lint-ratchet family, `biome-lint-adoption`, `lint-message-evals`,
+  `coverage-cadence`); plus `code-intel`, `verify-gate-lifecycle`, and
+  `per-worktree-dev`.
+- `docs/agent_notes/` — the persistent-context system: curated `LOG.md`,
+  ADR-lite `DECISIONS.md` plus per-topic `decisions-*.md`, and `backlog/` /
+  `in_progress/` / `finished_work/` packs, format-checked by
+  `scripts/backlog-lint*` through a hook.
 - `docs/module-docs.md` + `MODULE-INDEX.md` — the per-directory `MODULE.md`
   orientation-file convention and its generated index
   (`scripts/generate-module-index.sh`).
-- Product docs (`architecture-plan`, `authorization`, `socket-architecture`,
-  `CONCURRENCY`, SRD sources) are mirrored for context; they describe Musi,
-  not the reusable pattern.
+- Product and meta docs (`architecture-plan`, `authorization`,
+  `socket-architecture`, `CONCURRENCY`, SRD sources, `docs/roadmap/`,
+  `design-direction`, `public-release-notes`) are mirrored for context; they
+  describe Musi, not the reusable pattern.
 
 ### Agent hooks
 
@@ -141,14 +146,15 @@ bloat — feedforward context stays scannable because something checks.
   read-only Stop-hook checks, and a bash test harness. Start at its
   `README.md`.
 - `.claude/` — Claude Code adapters: `settings.json` hook registrations,
-  ~15 hooks (quiet wrappers for `bun run` and `git commit`, DB-access and
+  14 hooks (quiet wrappers for `bun run` and `git commit`, DB-access and
   protected-file guards, Prisma-client refresh, doc-length and
   ratchet-regression advisories, session state, Stop reminders), the
   `cadence` output style, `statusline.sh`, and skills (`agent-cli`,
   `playwright-cli`, `ts-graph`, `sync-from-upstream`).
 - `.codex/` and `.copilot/` — the same behaviors through each tool's hook
   shape (Codex needs a two-phase pre/post dance where Claude's PreToolUse
-  rewrites in one call; Copilot translates yet another payload shape).
+  rewrites in one call; Copilot translates yet another payload shape, and
+  its registration lives at `.github/hooks/copilot.json`).
 
 ### Git hooks and verification
 
@@ -161,8 +167,8 @@ bloat — feedforward context stays scannable because something checks.
   (land runs the full sequential verify, then `merge --no-ff`).
 - `scripts/verify.sh` + `scripts/verify/steps.generated.sh` — the manual
   sibling of pre-commit, same lock and log dir; `verify-async.sh` runs long
-  confidence checks detached with status/tail/stop; `verify-logs.sh`
-  inspects cached logs.
+  confidence checks detached with status/tail/stop; `verify-logs.sh` and
+  `verify-history.sh` inspect cached logs and past runs.
 - `scripts/test-slow.sh` + `vitest.slow.config.ts` — an explicit slow-test
   tier for `*.slow.test.*`, kept out of default gates.
 
@@ -181,6 +187,12 @@ bloat — feedforward context stays scannable because something checks.
 - `scripts/lint-agent*.ts` — agent-facing lint envelopes: structured
   findings with per-rule fix text and guidance
   (`scripts/generate-lint-guidance.ts`).
+- `scripts/lint-message-eval*` — an eval harness for lint-message quality,
+  so rule text improves with evidence (guide:
+  `docs/guides/lint-message-evals.md`).
+- `scripts/lint-coverage-map-check*.ts` — keeps
+  `docs/generated/lint-coverage-map.md` in step with the live rule surface,
+  run from a Claude hook.
 - `scripts/codemods/` — the paired repairs (`trpc-shared-input/-output`,
   `structured-logging-fix`, `concurrency-guard`, `expand-barrel`) with
   `--check`/`--all` modes, fixtures, and tests.
@@ -202,6 +214,9 @@ bloat — feedforward context stays scannable because something checks.
   `lint:suppressions`, `scripts/eslint-disable-register.sh` — baseline-backed
   drift sensors for unused exports, near-duplicate files, oversized blobs,
   and lint-suppression accumulation.
+- `scripts/audit-dependency-licenses.ts` +
+  `docs/dependency-license-audit.md` — license audit over the dependency
+  tree, with its written report.
 - `stryker.config*.mjs` + `tools/stryker-lint-ratchet.ts` — narrow,
   explicitly-invoked mutation-testing lanes.
 
@@ -221,7 +236,9 @@ bloat — feedforward context stays scannable because something checks.
   here.
 - `packages/` — **local stubs**, not upstream code: just enough exported
   symbols for lint, typecheck-adjacent tooling, and code intel.
-- `.devcontainer/`, `.github/` — the container/CI wiring the harness assumes.
+- `.devcontainer/`, `.github/` — the container/CI wiring the harness
+  assumes (`ci.yml`, `slow-drift.yml`, a standalone lint-ratchet-demo
+  workflow, and the Copilot hook registration).
 - Root configs (`tsconfig*.json`, `vitest.config.ts`, `commitlint.config.js`,
   `knip.config.ts`, `playwright.config.ts`, ...) — included so the wiring is
   legible even where it can't run.
@@ -233,8 +250,9 @@ Upstream lives at `/workspace` (private). The `sync-from-upstream` skill
 re-mirrors upstream's git-tracked file list into this repo: files in both
 are overwritten, upstream-only files are added, and here-only orphans are
 deleted — except the preserve set (`README.md`, `AGENTS.md`, `CLAUDE.md`,
-`docs/upstream-AGENTS.md`, `bun.lock`, the `packages/**` stubs, the sync
-skill itself, `.claude/statusline.sh`), which stays local. Everything outside that set is
+`docs/upstream-AGENTS.md` — regenerated from upstream's `AGENTS.md` on each
+apply — `bun.lock`, the `packages/**` stubs, the sync skill itself,
+`.claude/statusline.sh`), which stays local. Everything outside that set is
 a mirror: don't edit it here, fix it upstream and re-sync.
 
 ## Borrow ideas, not the code

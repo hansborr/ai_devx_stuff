@@ -25,9 +25,10 @@ Works after `bun install` (no DB, Redis, or env setup needed):
 
 - Reading and copying everything — the point of the repo.
 - `docs/harness-tour.md` — the 15-minute open-run-observe tour.
-- `bun run harness:check` — with one piece of **expected drift**: the
-  local-only `sync-from-upstream` skill is not in the mirrored
-  `harness.controls.json`.
+- `bun run harness:check` — exits non-zero with exactly two **expected
+  drift** lines: the local-only `sync-from-upstream` skill (its `.claude/`
+  and `.codex/` copies) is not in the mirrored `harness.controls.json`.
+  Anything beyond those two lines is real drift.
 - `examples/lint-ratchet-demo` — `bun run smoke` inside it (self-contained;
   copies itself to a temp repo first).
 - `bun run test:eslint-rules` — the `RuleTester` unit tests pass; a handful
