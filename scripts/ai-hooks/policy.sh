@@ -76,8 +76,6 @@ lint:ratchet:check-baseline
 lint:ratchet:check-debt-accounting
 lint:ratchet:check-registry
 lint:ratchet:debt-log
-lint:ratchet:demo-sync
-lint:ratchet:demo-sync:update
 lint:ratchet:install-merge-driver
 lint:ratchet:merge-driver:check
 lint:ratchet:report

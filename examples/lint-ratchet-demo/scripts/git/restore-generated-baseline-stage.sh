@@ -6,9 +6,7 @@ usage() {
   printf '%s\n' \
     'usage: bun run baseline:restore-stage -- --ours|--theirs <baseline>' \
     'supported baselines:' \
-    '  lint-ratchet.baseline.json' \
-    '  sensor-knip-unused-exports.baseline.json' \
-    '  eslint-config/max-lines-exceptions.baseline.json' >&2
+    '  lint-ratchet.baseline.json' >&2
 }
 
 if [ "$#" -ne 2 ]; then
@@ -30,11 +28,11 @@ esac
 
 # porting-knob: baseline-restore-allowlist -- retarget supported generated baselines
 case "$baseline" in
-  lint-ratchet.baseline.json|sensor-knip-unused-exports.baseline.json|eslint-config/max-lines-exceptions.baseline.json) ;;
+  lint-ratchet.baseline.json) ;;
   *)
     printf '%s\n' \
       "baseline:restore-stage: unsupported path: $baseline" \
-      'baseline:restore-stage: only the three generated baseline paths are supported' >&2
+      'baseline:restore-stage: only lint-ratchet.baseline.json is supported' >&2
     usage
     exit 2
     ;;

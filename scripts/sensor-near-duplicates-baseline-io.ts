@@ -2,7 +2,8 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 
-import type { ParseResult } from "./lib/baseline/entry-baseline.js";
+import type { ParseResult } from "@musi/lint-ratchet/kernel/entry-baseline.js";
+
 import {
   type NearDuplicateBaselineEntry,
   readNearDuplicatesBaseline,

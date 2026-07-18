@@ -1,6 +1,10 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
+import { forwardMissingMergeDriverWarning } from "@musi/lint-ratchet/git-rail/merge-driver-presence.js";
+import { writeFileAtomicallySync } from "@musi/lint-ratchet/kernel/atomic-write.js";
+import type { ParseResult } from "@musi/lint-ratchet/kernel/entry-baseline.js";
+
 import {
   defaultKnipRunner,
   KNIP_SYMBOL_INCLUDE_CATEGORIES,
@@ -8,9 +12,6 @@ import {
   resolveKnipBin,
 } from "./drift-ai/knip-runner.js";
 import { parseKnipUnusedExports } from "./drift-ai/knip-unused-exports.js";
-import type { ParseResult } from "./lib/baseline/entry-baseline.js";
-import { forwardMissingMergeDriverWarning } from "./lib/baseline/merge-driver-presence.js";
-import { writeFileAtomicallySync } from "./lint-ratchet/atomic-write.js";
 import {
   compareKnipUnusedExports,
   formatKnipUnusedExportsBaseline,

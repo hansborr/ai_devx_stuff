@@ -1,10 +1,10 @@
 import { execFileSync } from "node:child_process";
 
+import { trackedFilesFromGit } from "@musi/lint-ratchet/kernel/git-tracked-files.js";
+import { matchesRatchet } from "@musi/lint-ratchet/kernel/ratchet-globs.js";
 import { describe, expect, it } from "vitest";
 
 import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
-import { trackedFilesFromGit } from "./git-tracked-files.js";
-import { matchesRatchet } from "./ratchet-globs.js";
 
 const tmpRepo = registerTempRootCleanup();
 

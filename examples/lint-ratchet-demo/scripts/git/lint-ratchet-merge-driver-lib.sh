@@ -9,7 +9,7 @@ script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd) || return 1
 DRIVER_NAME="lint-ratchet-baseline"
 INSTALLED_DRIVER_RELATIVE_PATH="musi/baseline-merge-driver.sh"
 # shellcheck disable=SC2034 # Consumed by the sourcing installer and checker.
-driver_command=$(musi_baseline_driver_command \
+driver_command=$(baseline_driver_command \
   "$INSTALLED_DRIVER_RELATIVE_PATH" \
   "lint-ratchet-baseline-merge-driver" \
   "lint-ratchet")

@@ -1,14 +1,14 @@
 import { readFileSync } from "node:fs";
 
-import { parseLintRatchetBaseline } from "./baseline.js";
-import { lintRatchets } from "./lint-ratchet-config.js";
-import { baselinePath } from "./paths.js";
-import { buildRuleSourceHashesById } from "./rule-source.js";
+import { parseLintRatchetBaseline } from "@musi/lint-ratchet/kernel/baseline.js";
+import { buildRuleSourceHashesById } from "@musi/lint-ratchet/kernel/rule-source.js";
+
+import { baselinePath, demoBinding, demoRatchets } from "./adapter.js";
 
 const parsed = parseLintRatchetBaseline(
   readFileSync(baselinePath, "utf8"),
-  lintRatchets,
-  buildRuleSourceHashesById(lintRatchets),
+  demoRatchets,
+  buildRuleSourceHashesById(demoRatchets, demoBinding),
 );
 
 if (parsed.baseline === undefined) {

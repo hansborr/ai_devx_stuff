@@ -1,15 +1,15 @@
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { describe, expect, it } from "vitest";
-
-import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
 import {
   formatLintRatchetDebtLogReport,
   readLintRatchetDebtLog,
   runLintRatchetDebtLogReport,
-} from "./debt-log.js";
-import type { LintRatchetDebtLogEntry } from "./debt-log-schema.js";
+} from "@musi/lint-ratchet/governance/debt-log.js";
+import type { LintRatchetDebtLogEntry } from "@musi/lint-ratchet/governance/debt-log-schema.js";
+import { describe, expect, it } from "vitest";
+
+import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
 
 const tmpRepo = registerTempRootCleanup();
 
@@ -220,6 +220,7 @@ describe("readLintRatchetDebtLog", () => {
 describe("runLintRatchetDebtLogReport", () => {
   it("returns the empty report without throwing when the file is absent", () => {
     const report = runLintRatchetDebtLogReport({
+      repoRoot: tmpdir(),
       debtLogPath: join(tmpdir(), "lint-ratchet-debt-log-absent-fixture.jsonl"),
     });
     expect(report).toContain("No debt acceptances recorded yet");
@@ -230,7 +231,7 @@ describe("runLintRatchetDebtLogReport", () => {
       `${JSON.stringify(entryWithReason("first recorded acceptance"))}\n` +
         `${JSON.stringify(entryWithReason("second recorded acceptance"))}\n`,
     );
-    const report = runLintRatchetDebtLogReport({ debtLogPath: path });
+    const report = runLintRatchetDebtLogReport({ repoRoot: tmpdir(), debtLogPath: path });
     expect(report).toContain("Acceptance 1");
     expect(report).toContain("Acceptance 2");
     expect(report).toContain("first recorded acceptance");

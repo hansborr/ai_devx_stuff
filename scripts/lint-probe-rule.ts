@@ -5,8 +5,10 @@ import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { writeEslintConfig } from "./lint-ratchet/eslint-config.js";
-import type { LintRatchetConfig } from "./lint-ratchet/lint-ratchet-config.js";
+import type { LintRatchetConfig } from "@musi/lint-ratchet/kernel/config-types.js";
+import { writeEslintConfig } from "@musi/lint-ratchet/kernel/eslint-config.js";
+
+import { musiLintRatchetBinding } from "./lint-ratchet/engine-binding.js";
 import { repoRoot } from "./lint-ratchet/paths.js";
 
 const PROCESS_ARGV_USER_ARGS_START = 2;
@@ -185,7 +187,7 @@ function writeTemporaryProbeConfig(
   const configDirectory = mkdtempSync(join(cacheDirectory, PROBE_CONFIG_DIRECTORY_PREFIX));
   try {
     return {
-      path: writeEslintConfig(ratchet, ruleSourceHash, { configDirectory }),
+      path: writeEslintConfig(ratchet, ruleSourceHash, musiLintRatchetBinding, { configDirectory }),
       cleanup: () => {
         rmSync(configDirectory, { recursive: true, force: true });
       },

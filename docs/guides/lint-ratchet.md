@@ -28,30 +28,25 @@ model are portable; the current runner and reach checks are ESLint-specific.
 
 Start with one core ESLint rule and a small, real file scope. For a ready-made
 worked copy to diff against as you go, see
-[`examples/lint-ratchet-demo/`](../../examples/lint-ratchet-demo/) — a
-clone-and-run proof of the portable runtime.
+[`examples/lint-ratchet-demo/`](../../examples/lint-ratchet-demo/) — a minimal
+workspace consumer of the `@musi/lint-ratchet` package.
 
-1. Copy the portable runtime shape:
+1. Copy the engine and write a thin adapter:
 
-   - `scripts/lint-ratchet.ts`, the CLI entry point.
-   - `scripts/lint-ratchet/portable-manifest.json`, the authoritative copy
-     inventory. Copy its `runtimeFiles`, then expand `expandDirectories` while
-     applying each entry's exclusions.
-   - `scripts/lint-ratchet/lint-ratchet-config.ts`, the registry file an adopter
-     edits for a real runner.
-   - The manifest's `mergeDriverFiles` when adopting the recommended semantic
-     merge protection described below.
-   - `packages/shared/src/schemas/harness-diagnostics.ts`, or an equivalent
-     local schema with the output, diagnostics, report, and test imports
-     updated.
+   - Copy `tools/lint-ratchet/` (the whole package) into your repo, or add it as
+     a dependency. Its per-layer subpath exports are the whole API.
+   - Write a small adapter like the demo's `scripts/lint-ratchet.ts` +
+     `scripts/lint-ratchet/adapter.ts`: a `LintRatchetEngineContext`/binding over
+     your repo root, your registry, and a result envelope.
+   - Copy the demo's `scripts/git/*` + the two CLI wrappers when adopting the
+     recommended semantic merge protection described below.
    - `lint-ratchet.baseline.json`, initially
-     `{ "version": 1, "tests": {} }`.
+     `{ "version": 2, "regenerate": "bun run lint:ratchet:update", "tests": {} }`.
 
-2. Replace the copied registry's Musi-specific contents. Remove the
-   `shared-policy` and registry-builder imports, keep the exported types, and
-   start `lintRatchets` with the entry below. The adoption guide's
-   [registry replacement step](lint-ratchet-adoption.md#what-to-change) covers
-   the remaining registry cleanup.
+2. Declare your registry in the adapter — import `LintRatchetConfig` from
+   `@musi/lint-ratchet/kernel/config-types.js`, with no Musi imports, and start
+   `lintRatchets` with the entry below. The adoption guide's
+   [registry step](lint-ratchet-adoption.md#what-to-change) covers the details.
 
 3. Add package scripts for `lint:ratchet:check-registry`,
    `lint:ratchet:update`, and `lint:ratchet`.

@@ -148,7 +148,7 @@ export function auditJsonlText(file: string, contents: string): LogsAuditReport 
   // Drop every trailing empty split element, not just one: a file ending in
   // "\n\n" is benign trailing slop, not an empty record. Interior empty lines
   // survive and are still flagged below. Deliberately the opposite of the
-  // debt log's strict reader (scripts/lint-ratchet/debt-log-jsonl.ts), which
+  // debt log's strict reader (tools/lint-ratchet/src/governance/debt-log-jsonl.ts), which
   // tolerates exactly one trailing newline in its tool-written log.
   while (lines.length > 0 && lines[lines.length - 1] === "") lines.pop();
 

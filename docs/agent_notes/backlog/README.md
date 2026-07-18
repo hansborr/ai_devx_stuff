@@ -214,17 +214,17 @@ Do **not** read this folder at session start. Promote an item back into
   `no-commented-out-code`, security primitives, unbounded `Promise.all`.
   Non-recommendations and the P2 watchlist live in
   `01-sources-and-verdicts.md`.
-- `lint-arch-review-2026-07/00-index.md` — 10-leaf pack from the 2026-07-16
-  five-model architecture review of the lint system (artifact-sourced;
-  semantics unanimously endorsed, packaging faulted). Two P0s: migrate the
-  ratchet onto the `scripts/lib/baseline/` kernel (the semantic-minimum merge
-  is implemented twice), and replace the portable copy manifest + demo-sync
-  harness with a real package seam (adjudicated 2026-07-16: internal
-  workspace package, amends lint-deep-dive 71). All leaves re-verified at
-  HEAD 2026-07-16. P1/P2 tail: metric strategies, one merge-driver shell
-  body, engine file consolidation, rule-source identity hashing (reshaped
-  P2/S), coverage map as data, validation/CLI idiom, docs split hygiene,
-  `report-only` trim.
+- `lint-arch-review-2026-07/00-index.md` — 3-leaf residue of the 2026-07-16
+  five-model architecture review of the lint system (reconciled 2026-07-17;
+  was 10 — semantics unanimously endorsed, packaging faulted). Landed
+  2026-07-16/17: the P0 kernel migration (ratchet now on
+  `scripts/lib/baseline/`, baseline v2, net −1,700 LOC), metric strategies,
+  one merge-driver shell body, rule-source identity hardening, validation/CLI
+  idiom, docs split, `report-only` trim, and kernel diagnostics parity. Open
+  residue: leaf 02 package seam (P0 next mission — adjudicated 2026-07-16:
+  internal workspace package, amends lint-deep-dive 71), leaf 05 engine file
+  consolidation (needs owner cap-policy ruling; cheaper after 02), leaf 07
+  coverage map as data (trigger: next checker schema change).
 - `sequential-drain-2026-07/00-index.md` — 2026-07-15 consolidation pack: the
   verified-open residue of every other pack and standalone note, ordered into
   five phases for a sequential stacked-branch drain (worktree/dispatch →

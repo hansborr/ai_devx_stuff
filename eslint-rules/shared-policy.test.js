@@ -79,6 +79,8 @@ describe("shared lint policy", () => {
       "packages/server/vitest.config.ts",
       "packages/server/vitest.mutation.config.ts",
       "packages/shared/vitest.config.ts",
+      "tools/lint-ratchet/vitest.config.ts",
+      "tools/stryker-lint-ratchet.ts",
     ]);
     expect(tsConfigFiles).toEqual([
       ...rootAndPackageTsConfigFiles,

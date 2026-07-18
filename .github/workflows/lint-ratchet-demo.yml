@@ -1,21 +1,19 @@
 name: Lint Ratchet Demo
 
 # Non-default tier: a fresh `bun install` is network/cache-dependent, so this
-# runs only when the demo or the portable manifest it is copied from changes
+# runs only when the demo or the @musi/lint-ratchet engine it consumes changes
 # (plus on manual dispatch) — never in the per-commit changed-gate.
 on:
   push:
     paths:
       - ".github/workflows/lint-ratchet-demo.yml"
       - "examples/lint-ratchet-demo/**"
-      - "scripts/check-lint-ratchet-demo-sync.ts"
-      - "scripts/lint-ratchet/portable-manifest.json"
+      - "tools/lint-ratchet/**"
   pull_request:
     paths:
       - ".github/workflows/lint-ratchet-demo.yml"
       - "examples/lint-ratchet-demo/**"
-      - "scripts/check-lint-ratchet-demo-sync.ts"
-      - "scripts/lint-ratchet/portable-manifest.json"
+      - "tools/lint-ratchet/**"
   workflow_dispatch:
 
 permissions:
@@ -38,8 +36,9 @@ jobs:
         with:
           bun-version: "1.3.14"
 
-      - name: Check the demo matches the portable manifest
-        run: bun scripts/check-lint-ratchet-demo-sync.ts
-
-      - name: Fresh-install portability smoke
+      # The demo-consumer smoke copies tools/lint-ratchet + the demo into a
+      # throwaway Bun workspace off this checkout, installs, and walks the
+      # adoption path with the merge driver — proving the package is copyable
+      # without the deleted copy-sync manifest.
+      - name: Fresh-install demo-consumer smoke
         run: bash examples/lint-ratchet-demo/smoke.sh

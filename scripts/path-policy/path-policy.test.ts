@@ -91,6 +91,13 @@ describe("PATH_POLICY full-scan triggers", () => {
     expect(matchesAny(".yamllint.yml", lintTriggers)).toBe(true);
   });
 
+  it("escalates tool package/tsconfig changes to a full scan", () => {
+    const lintTriggers = PATH_POLICY.fullScanTriggers.eslintChanged;
+
+    expect(matchesAny("tools/lint-ratchet/package.json", lintTriggers)).toBe(true);
+    expect(matchesAny("tools/lint-ratchet/tsconfig.json", lintTriggers)).toBe(true);
+  });
+
   it("keeps agent lint triggers separate from config-sensor-only triggers", () => {
     expect(matchesAny(".yamllint.yml", PATH_POLICY.fullScanTriggers.agentLintChanged)).toBe(false);
     expect(matchesAny(".yamllint.yml", PATH_POLICY.fullScanTriggers.configSensorsChanged)).toBe(
@@ -128,6 +135,13 @@ describe("PATH_POLICY known path surfaces", () => {
     expect(
       matchesAny("bun.lock", PATH_POLICY.sourceRelevant.precommitStagedExcludedSelectors),
     ).toBe(true);
+  });
+
+  it("classifies portable tool package sources as source-relevant", () => {
+    const selectors = PATH_POLICY.sourceRelevant.selectors;
+
+    expect(matchesAny("tools/lint-ratchet/src/kernel/engine-context.ts", selectors)).toBe(true);
+    expect(matchesAny("tools/stryker-lint-ratchet.ts", selectors)).toBe(true);
   });
 
   it("keeps every manifest config surface source-relevant through exact selectors", () => {

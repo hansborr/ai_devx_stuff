@@ -33,9 +33,9 @@
 #   10  still running when --timeout elapsed. Re-invoke to keep waiting.
 #   20  dead run — dispatch header present, wrapper pid dead, no completion
 #       trailers, backend gone too. Recover per SKILL.md "Dead-run signature".
-#   21  dead run whose backend pid is still alive: an orphan that still holds
-#       the worktree lock — kill its process group before taking the
-#       worktree over.
+#   21  dead run whose backend pid is still alive: an orphan that may still
+#       be writing (a work orphan also still holds the worktree lock) — kill
+#       its process group before taking the worktree over.
 #   2   usage error.
 
 set -euo pipefail
@@ -133,7 +133,7 @@ while :; do
     if decided; then exit 0; fi
     BACKEND_PID="$(log_field '^agent-run: backend-pid: \([0-9][0-9]*\).*$')"
     if [ -n "$BACKEND_PID" ] && kill -0 "$BACKEND_PID" 2>/dev/null; then
-      printf 'agent-wait: dead-run wrapper-pid=%s backend-pid=%s backend=alive (orphan holds the worktree lock; kill -- -%s before takeover)\n' \
+      printf 'agent-wait: dead-run wrapper-pid=%s backend-pid=%s backend=alive (orphan may still write and, for work, holds the worktree lock; kill -- -%s before takeover)\n' \
         "$WRAPPER_PID" "$BACKEND_PID" "$BACKEND_PID"
       exit 21
     fi

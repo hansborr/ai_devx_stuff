@@ -1,11 +1,11 @@
 import { existsSync, readFileSync } from "node:fs";
-import { dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 // Import the error class from its leaf module, not the metrics barrel: paths.ts
 // is copied into sandbox fixtures (test-format-changed) that provide only its
 // direct dependency closure, so it must stay near-leaf.
-import { ConfigError } from "./metrics-types.js";
+import { ConfigError } from "@musi/lint-ratchet/kernel/metrics-types.js";
 
 export const BASELINE_FILENAME = "lint-ratchet.baseline.json";
 // Append-only JSONL log of accepted --allow-worse/orphan-removal debt, committed
@@ -24,14 +24,4 @@ export function readBaselineOrThrow(): string {
     throw new ConfigError(`${BASELINE_FILENAME} does not exist; run bun run lint:ratchet:update`);
   }
   return readFileSync(baselinePath, "utf8");
-}
-
-export function relativePath(filePath: string): string {
-  if (!isAbsolute(filePath)) return filePath.replaceAll("\\", "/");
-  const rel = relative(repoRoot, filePath);
-  return rel === "" ? filePath : rel.replaceAll("\\", "/");
-}
-
-export function safeRatchetId(id: string): string {
-  return id.replaceAll("/", "-").replaceAll(/[^a-z0-9-]/gu, "-");
 }

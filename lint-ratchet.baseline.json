@@ -1,5 +1,6 @@
 {
-  "version": 1,
+  "version": 2,
+  "regenerate": "bun run lint:ratchet:update",
   "tests": {
     "ratchet/local-no-arbitrary-tailwind-value-client": {
       "ruleId": "local/no-arbitrary-tailwind-value",
@@ -403,14 +404,6 @@
           "count": 1,
           "messagesFingerprint": "sha256:e46c89896070168ca3a8c80d9c552036d36dc80a81754af7c7f8cb9f45c6829f"
         },
-        "scripts/lint-ratchet/eslint-runner.ts": {
-          "count": 1,
-          "messagesFingerprint": "sha256:e46c89896070168ca3a8c80d9c552036d36dc80a81754af7c7f8cb9f45c6829f"
-        },
-        "scripts/lint-ratchet/portable-manifest-expand.ts": {
-          "count": 1,
-          "messagesFingerprint": "sha256:e46c89896070168ca3a8c80d9c552036d36dc80a81754af7c7f8cb9f45c6829f"
-        },
         "scripts/logs-audit/logs-audit-redaction.ts": {
           "count": 1,
           "messagesFingerprint": "sha256:e46c89896070168ca3a8c80d9c552036d36dc80a81754af7c7f8cb9f45c6829f"
@@ -424,7 +417,8 @@
       "files": [
         "e2e/**/*.ts",
         "packages/**/*.{ts,tsx}",
-        "scripts/**/*.ts"
+        "scripts/**/*.ts",
+        "tools/**/*.ts"
       ],
       "ignores": [
         "**/dist/**",
@@ -437,7 +431,7 @@
         "scripts/vitest.config.ts"
       ],
       "ruleOptions": [],
-      "configHash": "sha256:ebccfd10494123e551a33db5a35b810a73adb3e55975301767d106de1771661b",
+      "configHash": "sha256:ca34c777719fdf36762a1c73c3a9c4586280b76cd598438959cb72ca00a6573e",
       "ruleSourceHash": "sha256:32b7c7e19480dfeec8117c2dfc60f56b1235153852dd9e3bda61ca63ec9a8ac8",
       "items": {}
     },

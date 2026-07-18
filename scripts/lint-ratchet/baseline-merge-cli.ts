@@ -2,8 +2,8 @@ import {
   type MergeDriverCliConfig,
   runMergeDriverCli,
   runMergeDriverCliMain,
-} from "../lib/baseline/merge-cli.js";
-import { mergeLintRatchetBaselines } from "./baseline-merge.js";
+} from "@musi/lint-ratchet/git-rail/merge-cli.js";
+import { mergeLintRatchetBaselines } from "@musi/lint-ratchet/kernel/baseline-merge.js";
 
 const nodeArgvUserArgumentOffset = 2;
 

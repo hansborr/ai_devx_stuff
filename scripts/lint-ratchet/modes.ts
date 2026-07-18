@@ -1,5 +1,37 @@
 import { existsSync, readFileSync } from "node:fs";
 
+import { runBaselineDebtAccountingCheck } from "@musi/lint-ratchet/governance/baseline-debt-accounting-git.js";
+import {
+  applyLintRatchetUpdate,
+  type ApplyLintRatchetUpdateOptions,
+} from "@musi/lint-ratchet/governance/baseline-update-apply.js";
+import { runLintRatchetDebtLogReport } from "@musi/lint-ratchet/governance/debt-log.js";
+import {
+  discoverEditCheckTargets,
+  type EditCheckTarget,
+  type LintRatchetEditCheckEngine,
+  runEditCheckRegressions,
+} from "@musi/lint-ratchet/governance/edit-check.js";
+import {
+  formatEditCheckChecked,
+  formatEditCheckRegression,
+  formatEditCheckTarget,
+  parseEditCheckTargetLine,
+} from "@musi/lint-ratchet/governance/edit-check-protocol.js";
+import {
+  type LintRatchetProposeEngine,
+  runLintRatchetProposeCli,
+} from "@musi/lint-ratchet/governance/propose.js";
+import {
+  formatRatchetCoverageRow,
+  ratchetCoverageForPaths,
+} from "@musi/lint-ratchet/governance/ratchet-coverage.js";
+import { resolveRetireRequest } from "@musi/lint-ratchet/governance/retire-update.js";
+import { runLintRatchetSummaryCli } from "@musi/lint-ratchet/governance/summary.js";
+import {
+  formatUndocumentedZeroBaselineFailure,
+  runLintRatchetZeroBaselineAuditResult,
+} from "@musi/lint-ratchet/governance/zero-baseline.js";
 import {
   buildLintRatchetBaseline,
   compareCurrentToBaseline,
@@ -8,47 +40,42 @@ import {
   type LintRatchetRuleSourceHashesById,
   parseLintRatchetBaseline,
   validateLintRatchetRegistry,
-} from "./baseline.js";
-import { runBaselineDebtAccountingCheck } from "./baseline-debt-accounting-git.js";
-import {
-  applyLintRatchetUpdate,
-  type ApplyLintRatchetUpdateOptions,
-} from "./baseline-update-apply.js";
-import type { ParsedArgs } from "./cli.js";
+} from "@musi/lint-ratchet/kernel/baseline.js";
 import {
   collectCurrentById,
   DEFAULT_COLLECT_CONCURRENCY,
   totalCurrentCount,
-} from "./current-collector.js";
-import { runLintRatchetDebtLogReport } from "./debt-log.js";
+} from "@musi/lint-ratchet/kernel/current-collector.js";
+import { ConfigError } from "@musi/lint-ratchet/kernel/metrics.js";
+import { buildRuleSourceHashesById } from "@musi/lint-ratchet/kernel/rule-source.js";
+
+import type { ParsedArgs } from "./cli.js";
 import { runDefault } from "./default-mode.js";
 import { assertCheckBaselineComparisonClean, loadRuleDocsById } from "./diagnostics.js";
-import {
-  discoverEditCheckTargets,
-  type EditCheckTarget,
-  runEditCheckRegressions,
-} from "./edit-check.js";
-import {
-  formatEditCheckChecked,
-  formatEditCheckRegression,
-  formatEditCheckTarget,
-  parseEditCheckTargetLine,
-} from "./edit-check-protocol.js";
+import { musiLintRatchetBinding, musiLintRatchetContext } from "./engine-binding.js";
 import { lintRatchets, lintRatchetThirdPartyPluginAllowlist } from "./lint-ratchet-config.js";
-import { ConfigError } from "./metrics.js";
 import { baselinePath, readBaselineOrThrow } from "./paths.js";
-import { runLintRatchetProposeCli } from "./propose.js";
-import { formatRatchetCoverageRow, ratchetCoverageForPaths } from "./ratchet-coverage.js";
 import { runLintRatchetReport } from "./report.js";
-import { resolveRetireRequest } from "./retire-update.js";
-import { buildRuleSourceHashesById } from "./rule-source.js";
-import { runLintRatchetSummaryCli } from "./summary.js";
-import {
-  formatUndocumentedZeroBaselineFailure,
-  runLintRatchetZeroBaselineAuditResult,
-} from "./zero-baseline.js";
 
 const DEFAULT_EDIT_CHECK_CONCURRENCY = 3;
+
+// The Musi engine bundles the governance operations take: the edit-time check
+// needs the repo root, committed baseline, registry, and plugin allowlist; the
+// propose collection needs the repo root and allowlist. Built once from the
+// adapter's resolved context + registry so the operations reach the repository
+// without importing `paths` or the Musi registry themselves.
+const musiEditCheckEngine: LintRatchetEditCheckEngine = {
+  repoRoot: musiLintRatchetContext.repoRoot,
+  baselinePath: musiLintRatchetContext.baselinePath,
+  registry: lintRatchets,
+  binding: musiLintRatchetBinding,
+};
+
+const musiProposeEngine: LintRatchetProposeEngine = {
+  repoRoot: musiLintRatchetContext.repoRoot,
+  binding: musiLintRatchetBinding,
+  registryHint: "scripts/lint-ratchet/lint-ratchet-config.ts",
+};
 
 export interface LintRatchetRuntimeOptions {
   readonly reportArtifactName?: string;
@@ -67,6 +94,8 @@ async function assertRegistryPreflight(): Promise<void> {
 async function runZeroBaseline(): Promise<void> {
   const result = await runLintRatchetZeroBaselineAuditResult({
     baselinePath,
+    repoRoot: musiLintRatchetContext.repoRoot,
+    binding: musiLintRatchetBinding,
     registry: lintRatchets,
   });
   process.stdout.write(result.report);
@@ -86,7 +115,12 @@ function runReport(options: LintRatchetRuntimeOptions): void {
 }
 
 function runDebtLogReport(): void {
-  process.stdout.write(runLintRatchetDebtLogReport());
+  process.stdout.write(
+    runLintRatchetDebtLogReport({
+      repoRoot: musiLintRatchetContext.repoRoot,
+      debtLogPath: musiLintRatchetContext.debtLogPath,
+    }),
+  );
 }
 
 function parseCommittedBaseline(
@@ -97,6 +131,7 @@ function parseCommittedBaseline(
     lintRatchets,
     ruleSourceHashesById,
   );
+  for (const warning of parsed.warnings) console.error(`lint:ratchet WARN - ${warning}`);
   if (parsed.baseline === undefined) throw new ConfigError(parsed.failures.join("\n"));
   return parsed.baseline;
 }
@@ -120,7 +155,7 @@ async function updateOptions(args: ParsedArgs): Promise<ApplyLintRatchetUpdateOp
   const retire =
     args.retireRatchetId === undefined
       ? undefined
-      : await resolveRetireRequest(args.retireRatchetId, lintRatchets, {
+      : await resolveRetireRequest(musiLintRatchetContext, args.retireRatchetId, lintRatchets, {
           ...(args.acceptDifferentOptions === true ? { acceptDifferentOptions: true } : {}),
           ...(args.reason === undefined ? {} : { reason: args.reason }),
         });
@@ -133,8 +168,13 @@ async function updateOptions(args: ParsedArgs): Promise<ApplyLintRatchetUpdateOp
 }
 
 async function runUpdate(args: ParsedArgs, options: LintRatchetRuntimeOptions): Promise<void> {
-  const ruleSourceHashesById = buildRuleSourceHashesById(lintRatchets);
-  const currentById = await collectCurrentById(ruleSourceHashesById, collectConcurrency(options));
+  const ruleSourceHashesById = buildRuleSourceHashesById(lintRatchets, musiLintRatchetBinding);
+  const currentById = await collectCurrentById({
+    ruleSourceHashesById,
+    ratchets: lintRatchets,
+    binding: musiLintRatchetBinding,
+    concurrency: collectConcurrency(options),
+  });
   const generated = buildLintRatchetBaseline(lintRatchets, currentById, ruleSourceHashesById);
   const rendered = formatLintRatchetBaseline(generated);
   const parsedGenerated = parseLintRatchetBaseline(rendered, lintRatchets, ruleSourceHashesById);
@@ -145,6 +185,7 @@ async function runUpdate(args: ParsedArgs, options: LintRatchetRuntimeOptions): 
   }
 
   applyLintRatchetUpdate({
+    context: musiLintRatchetContext,
     generated,
     rendered,
     registry: lintRatchets,
@@ -154,9 +195,14 @@ async function runUpdate(args: ParsedArgs, options: LintRatchetRuntimeOptions): 
 }
 
 async function runCheckBaseline(options: LintRatchetRuntimeOptions): Promise<void> {
-  const ruleSourceHashesById = buildRuleSourceHashesById(lintRatchets);
+  const ruleSourceHashesById = buildRuleSourceHashesById(lintRatchets, musiLintRatchetBinding);
   const baseline = parseCommittedBaseline(ruleSourceHashesById);
-  const currentById = await collectCurrentById(ruleSourceHashesById, collectConcurrency(options));
+  const currentById = await collectCurrentById({
+    ruleSourceHashesById,
+    ratchets: lintRatchets,
+    binding: musiLintRatchetBinding,
+    concurrency: collectConcurrency(options),
+  });
   const comparison = compareCurrentToBaseline(baseline, lintRatchets, currentById);
   assertCheckBaselineComparisonClean(comparison);
   console.error(
@@ -165,7 +211,7 @@ async function runCheckBaseline(options: LintRatchetRuntimeOptions): Promise<voi
 }
 
 function runEditCheckTargets(args: ParsedArgs): void {
-  const targets = discoverEditCheckTargets(args.editCheckTargets ?? []);
+  const targets = discoverEditCheckTargets(musiEditCheckEngine, args.editCheckTargets ?? []);
   const lines = targets.map(formatEditCheckTarget);
   if (lines.length > 0) process.stdout.write(`${lines.join("\n")}\n`);
 }
@@ -174,21 +220,24 @@ function runEditCheckTargets(args: ParsedArgs): void {
 // baseline ratchets track each edited path so the hook reuses the ratchet
 // matcher instead of embedding its own. No ESLint, no registry validation.
 function runEditRatchetCoverage(args: ParsedArgs): void {
-  const rows = ratchetCoverageForPaths(args.editRatchetCoveragePaths ?? []);
+  const rows = ratchetCoverageForPaths(musiLintRatchetContext, args.editRatchetCoveragePaths ?? []);
   const lines = rows.map(formatRatchetCoverageRow);
   if (lines.length > 0) process.stdout.write(`${lines.join("\n")}\n`);
 }
 
 async function runPropose(args: ParsedArgs): Promise<void> {
-  await runLintRatchetProposeCli({
-    ruleId: args.proposeRuleId,
-    files: args.proposeFiles,
-    ...(args.proposeIgnores === undefined ? {} : { ignores: args.proposeIgnores }),
-    ...(args.proposeMetric === undefined ? {} : { metric: args.proposeMetric }),
-    ...(args.proposeRuleOptionsJson === undefined
-      ? {}
-      : { ruleOptionsJson: args.proposeRuleOptionsJson }),
-  });
+  await runLintRatchetProposeCli(
+    {
+      ruleId: args.proposeRuleId,
+      files: args.proposeFiles,
+      ...(args.proposeIgnores === undefined ? {} : { ignores: args.proposeIgnores }),
+      ...(args.proposeMetric === undefined ? {} : { metric: args.proposeMetric }),
+      ...(args.proposeRuleOptionsJson === undefined
+        ? {}
+        : { ruleOptionsJson: args.proposeRuleOptionsJson }),
+    },
+    musiProposeEngine,
+  );
 }
 
 function editCheckConcurrency(options: LintRatchetRuntimeOptions): number {
@@ -233,7 +282,11 @@ async function runEditCheck(args: ParsedArgs, options: LintRatchetRuntimeOptions
   const targetsFile = editCheckTargetsFileToRead(args.targetsFile);
   if (targetsFile === undefined) return;
   const targets = parseTargetsFile(targetsFile);
-  const result = await runEditCheckRegressions(targets, editCheckConcurrency(options));
+  const result = await runEditCheckRegressions(
+    musiEditCheckEngine,
+    targets,
+    editCheckConcurrency(options),
+  );
   // `checked` rows let the hook distinguish a genuinely-linted-clean file from a
   // soft skip, so it only content-caches bytes ESLint actually inspected.
   const lines = [
@@ -259,11 +312,13 @@ async function runUnvalidatedMode(
     return true;
   }
   if (args.mode === "trend") {
-    (await import("./trend.js")).runLintRatchetTrendCli(
-      args.trendSince,
-      args.trendMax,
-      args.trendAll,
-    );
+    (await import("@musi/lint-ratchet/governance/trend.js")).runLintRatchetTrendCli({
+      context: musiLintRatchetContext,
+      ratchets: lintRatchets,
+      since: args.trendSince,
+      max: args.trendMax,
+      includeRetired: args.trendAll,
+    });
     return true;
   }
   if (args.mode === "propose") {
@@ -310,7 +365,7 @@ async function runValidatedMode(
     return;
   }
   if (args.mode === "check-debt-accounting") {
-    runBaselineDebtAccountingCheck(undefined, {
+    runBaselineDebtAccountingCheck(musiLintRatchetContext, undefined, {
       ...(args.debtAccountingStaged === true ? { currentSource: "index" } : {}),
       ...(args.debtAccountingBaseRef === undefined
         ? {}

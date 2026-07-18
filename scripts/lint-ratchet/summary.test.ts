@@ -1,20 +1,24 @@
-import { describe, expect, it } from "vitest";
-
-import {
-  buildLintRatchetBaseline,
-  type LintRatchetBaseline,
-  type LintRatchetRuleSourceHashesById,
-} from "./baseline.js";
-import { currentById, FIXTURE_HASH } from "./lint-ratchet.test-helper.js";
-import type { LintRatchetConfig } from "./lint-ratchet-config.js";
-import type { LintRatchetComplexityFunction } from "./metrics.js";
 import {
   formatLintRatchetDirectorySummary,
   formatLintRatchetSummary,
   type LintRatchetSummaryRow,
   summarizeLintRatchetBaseline,
   summarizeLintRatchetBaselineByDirectory,
-} from "./summary.js";
+} from "@musi/lint-ratchet/governance/summary.js";
+import {
+  buildLintRatchetBaseline,
+  type LintRatchetBaseline,
+  type LintRatchetRuleSourceHashesById,
+} from "@musi/lint-ratchet/kernel/baseline.js";
+import {
+  LINT_RATCHET_BASELINE_WRITE_VERSION,
+  lintRatchetBaselineRegenerateForVersion,
+} from "@musi/lint-ratchet/kernel/baseline-constants.js";
+import type { LintRatchetConfig } from "@musi/lint-ratchet/kernel/config-types.js";
+import type { LintRatchetComplexityFunction } from "@musi/lint-ratchet/kernel/metrics.js";
+import { describe, expect, it } from "vitest";
+
+import { currentById, FIXTURE_HASH } from "./lint-ratchet.test-helper.js";
 
 const messageRatchet: LintRatchetConfig = {
   id: "ratchet/fixture-message",
@@ -141,7 +145,12 @@ describe("lint ratchet summary", () => {
   });
 
   it("formats an empty baseline as a header plus no-ratchets body", () => {
-    const emptyBaseline: LintRatchetBaseline = { version: 1, tests: {} };
+    const regenerate = lintRatchetBaselineRegenerateForVersion(LINT_RATCHET_BASELINE_WRITE_VERSION);
+    const emptyBaseline: LintRatchetBaseline = {
+      version: LINT_RATCHET_BASELINE_WRITE_VERSION,
+      ...(regenerate === undefined ? {} : { regenerate }),
+      tests: {},
+    };
     expect(formatLintRatchetSummary(summarizeLintRatchetBaseline(emptyBaseline, []))).toBe(
       "ratchet  rule  metric  debt files  findings\n(no ratchets)\n",
     );

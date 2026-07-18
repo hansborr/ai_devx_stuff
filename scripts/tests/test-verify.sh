@@ -1403,7 +1403,7 @@ exit_code=$?
 set -e
 [ "$exit_code" -ne 0 ] || fail "verify --parallel did not propagate failure"
 grep -qF 'Failed: typecheck' <<< "$output" || fail "parallel summary missed Failed: typecheck"
-grep -qF 'Passed: lint suppressions ratchet zero-baseline debt-accounting demo-sync local-rule-starter knip-unused-exports near-duplicates max-lines-exceptions coverage-map format-check test scripts' <<< "$output" \
+grep -qF 'Passed: lint suppressions ratchet zero-baseline debt-accounting local-rule-starter knip-unused-exports near-duplicates max-lines-exceptions coverage-map format-check test scripts' <<< "$output" \
   || fail "parallel summary missed other passed tasks"
 grep -q 'bun run test ' "$STUB_LOG_FILE" \
   || fail "parallel verify should still run test after typecheck failure"

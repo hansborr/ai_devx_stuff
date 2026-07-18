@@ -46,7 +46,6 @@ PATH_POLICY_SMOKE_SUBJECTS_DATA="$SCRIPT_DIR/../path-policy/path-policy-smoke-su
 HARNESS_PATHS="$SCRIPT_DIR/../harness/harness-paths.ts"
 HARNESS_MANIFEST="$SCRIPT_DIR/../harness/harness-manifest.ts"
 LINT_RATCHET_PATHS="$SCRIPT_DIR/../lint-ratchet/paths.ts"
-LINT_RATCHET_METRICS_TYPES="$SCRIPT_DIR/../lint-ratchet/metrics-types.ts"
 CONFIG_SURFACES="$REPO_ROOT/eslint-config/config-surfaces.js"
 CONFIG_SURFACE_MANIFEST="$REPO_ROOT/eslint-config/config-surface-manifest.json"
 SHARED_POLICY="$REPO_ROOT/eslint-config/shared-policy.js"
@@ -136,7 +135,11 @@ new_repo() {
   cp "$HARNESS_PATHS" "$repo/scripts/harness/harness-paths.ts"
   cp "$HARNESS_MANIFEST" "$repo/scripts/harness/harness-manifest.ts"
   cp "$LINT_RATCHET_PATHS" "$repo/scripts/lint-ratchet/paths.ts"
-  cp "$LINT_RATCHET_METRICS_TYPES" "$repo/scripts/lint-ratchet/metrics-types.ts"
+  # @musi/lint-ratchet resolves through the whole-store node_modules symlink
+  # created at the end of this function (the package is a root workspace
+  # devDependency). Do NOT pre-create $repo/node_modules for a scoped symlink
+  # here: an existing directory makes the later `ln -s` nest the store link
+  # inside it, silently dropping node_modules/.bin from the sandbox.
   cp "$CONFIG_SURFACES" "$repo/eslint-config/config-surfaces.js"
   cp "$CONFIG_SURFACE_MANIFEST" "$repo/eslint-config/config-surface-manifest.json"
   cp "$SHARED_POLICY" "$repo/eslint-config/shared-policy.js"
@@ -217,6 +220,17 @@ ok "yamllint smoke test uses system PATH binary"
 repo="$(new_repo clean)"
 make_hadolint_cache_non_executable
 run_lint_config_sensors "$repo" >/dev/null || fail "clean config sensor set should repair a non-executable hadolint cache"
+# Guard against the sensor silently resolving a different hadolint (system
+# PATH binary, or the real wrapper via command -v under bun-run PATH): the
+# case only counts if the shared cache binary itself was repaired. Without
+# this, a broken sandbox node_modules passes vacuously and leaves the shared
+# cache non-executable for every later consumer.
+repaired_cache="$(
+  find "$REPO_ROOT/node_modules/hadolint/.cache/hadolint" -maxdepth 1 -type f \
+    -name 'hadolint-*' -print -quit 2>/dev/null || true
+)"
+[ -n "$repaired_cache" ] && [ -x "$repaired_cache" ] \
+  || fail "sensor left the shared hadolint cache non-executable; repair path was not exercised"
 ok "clean maintained config sensor set repairs a non-executable hadolint cache"
 
 repo="$(new_repo actionlint-violation)"

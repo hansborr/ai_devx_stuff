@@ -1,6 +1,8 @@
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { matchesRatchet } from "@musi/lint-ratchet/kernel/ratchet-globs.js";
+
 import { configSurfaceEntries as defaultConfigSurfaceEntries } from "../eslint-config/config-surfaces.js";
 import {
   collectEslintReachFindings,
@@ -37,7 +39,6 @@ import type {
   PathPattern,
 } from "./lint-coverage-map-check-types.js";
 import { lintRatchets } from "./lint-ratchet/lint-ratchet-config.js";
-import { matchesRatchet } from "./lint-ratchet/ratchet-globs.js";
 
 export type { LintCoverageMapCheckOptions, LintCoverageMapCheckResult };
 

@@ -1,6 +1,5 @@
 {
   "$comment": "Authoritative inventory of Musi harness controls. Re-generate the agent-facing markdown with `bun run docs:harness-controls`; validate against reality with `bun run harness:check`. For `kind: lint-rule` entries, the per-rule `category`, `principle`, `pairedGuide`, `repairKind`, and `repairCommand` are re-projected by the generator from the rule's own `meta.docs` (PR 1 contract) \u2014 keep them out of the manifest so there is one source of truth. In verify slots, `condition` is documentation-only; executable branching belongs in `dynamic` ids with matching scripts/verify/steps-lib.sh resolver arms.",
-  "$parityComment": "scriptParityExemptions lists operational package scripts that match a control prefix without defining a distinct control. ciGateControlIds lists controls that .github/workflows/ci.yml must mark with harness-ci-gate and invoke exactly as declared.",
   "scriptParityExemptions": [
     "verify:async:changed",
     "verify:async:slow",
@@ -21,7 +20,6 @@
     "lint:fix",
     "lint:restricted-disable-rules:check",
     "lint:max-lines-exceptions:update",
-    "lint:ratchet:demo-sync:update",
     "lint:ratchet:update",
     "lint:ratchet:check-baseline",
     "lint:ratchet:check-registry",
@@ -533,16 +531,6 @@
       "invocation": "bun run eval:lint-messages"
     },
     {
-      "id": "sensor/lint-ratchet-demo-sync",
-      "kind": "sensor",
-      "category": "maintainability",
-      "principle": "Compare the standalone lint-ratchet demo against the portable manifest expansion so copied runtime and merge-driver files cannot drift from their source implementations.",
-      "pairedGuide": "docs/guides/lint-ratchet-adoption.md",
-      "repairKind": "autofix",
-      "source": "scripts/check-lint-ratchet-demo-sync.ts",
-      "invocation": "bun run lint:ratchet:demo-sync"
-    },
-    {
       "id": "sensor/local-eslint-rule-starter",
       "kind": "sensor",
       "category": "maintainability",
@@ -556,7 +544,7 @@
       "id": "verify-wrapper/verify",
       "kind": "verify-wrapper",
       "category": "maintainability",
-      "principle": "Run lint, suppression policy registers, lint:ratchet, the zero-baseline lifecycle check, the debt-accounting integrity gate, portable demo sync, the standalone local-rule starter check, the knip unused-export floor and whole-tree near-duplicate baseline, coverage-map, format check, typecheck, test, and script smoke suites against the full tree with shared cache, lock, and log directory so a failing slot leaves the rest reusable; lint preflights packages/{shared,server}/dist and runs typecheck automatically before ESLint when those ignored outputs are missing.",
+      "principle": "Run lint, suppression policy registers, lint:ratchet, the zero-baseline lifecycle check, the debt-accounting integrity gate, the standalone local-rule starter check, the knip unused-export floor and whole-tree near-duplicate baseline, coverage-map, format check, typecheck, test, and script smoke suites against the full tree with shared cache, lock, and log directory so a failing slot leaves the rest reusable; lint preflights packages/{shared,server}/dist and runs typecheck automatically before ESLint when those ignored outputs are missing.",
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": "scripts/verify.sh",
@@ -584,10 +572,6 @@
         {
           "name": "debt-accounting",
           "script": "lint:ratchet:check-debt-accounting"
-        },
-        {
-          "name": "demo-sync",
-          "script": "lint:ratchet:demo-sync"
         },
         {
           "name": "local-rule-starter",
@@ -705,7 +689,7 @@
       "id": "verify-wrapper/verify-parallel",
       "kind": "verify-wrapper",
       "category": "maintainability",
-      "principle": "Run the full lint, suppression policy registers, ratchet, zero-baseline lifecycle check, debt-accounting integrity gate, portable demo sync, standalone local-rule starter check, knip unused-export floor and whole-tree near-duplicate baseline, coverage-map, format check, typecheck, test, and scripts suites in parallel; reduces full-verify wall time when the full script suite fits the selected timeout or cached state; when packages/{shared,server}/dist is missing, the wrapper defers lint and ratchet until the existing typecheck slot has produced those ignored outputs.",
+      "principle": "Run the full lint, suppression policy registers, ratchet, zero-baseline lifecycle check, debt-accounting integrity gate, standalone local-rule starter check, knip unused-export floor and whole-tree near-duplicate baseline, coverage-map, format check, typecheck, test, and scripts suites in parallel; reduces full-verify wall time when the full script suite fits the selected timeout or cached state; when packages/{shared,server}/dist is missing, the wrapper defers lint and ratchet until the existing typecheck slot has produced those ignored outputs.",
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": "scripts/verify.sh",
@@ -733,10 +717,6 @@
         {
           "name": "debt-accounting",
           "script": "lint:ratchet:check-debt-accounting"
-        },
-        {
-          "name": "demo-sync",
-          "script": "lint:ratchet:demo-sync"
         },
         {
           "name": "local-rule-starter",
@@ -1255,7 +1235,7 @@
       "principle": "Fail when drained lint ratchets are not documented with a zero-baseline lifecycle disposition, while still reporting normal ESLint promotion status.",
       "pairedGuide": "docs/guides/lint-ratchet.md",
       "repairKind": "manual",
-      "source": "scripts/lint-ratchet/zero-baseline.ts",
+      "source": "tools/lint-ratchet/src/governance/zero-baseline.ts",
       "invocation": "bun run lint:ratchet:zero-baseline"
     },
     {
@@ -1265,7 +1245,7 @@
       "principle": "Fail when a changed lint-ratchet baseline increases recorded debt unless the same range is recorded in the debt log, so hand-edited baselines cannot hide regressions.",
       "pairedGuide": "docs/guides/lint-ratchet.md",
       "repairKind": "manual",
-      "source": "scripts/lint-ratchet/baseline-debt-accounting-git.ts",
+      "source": "tools/lint-ratchet/src/governance/baseline-debt-accounting-git.ts",
       "invocation": "bun run lint:ratchet:check-debt-accounting"
     },
     {
@@ -2237,6 +2217,7 @@
           ".claude/skills/agent-cli/scripts/agent-wait.sh",
           ".claude/skills/agent-cli/SKILL.md",
           ".claude/skills/agent-cli/references/claude.md",
+          ".claude/skills/agent-cli/references/claude-workflows.md",
           ".claude/skills/agent-cli/references/codex.md",
           ".claude/skills/agent-cli/references/copilot.md",
           ".claude/skills/agent-cli/references/cursor.md",
@@ -2244,6 +2225,7 @@
           ".claude/skills/agent-cli/references/trailer-contract.md",
           ".codex/skills/agent-cli/SKILL.md",
           ".codex/skills/agent-cli/references/claude.md",
+          ".codex/skills/agent-cli/references/claude-workflows.md",
           ".codex/skills/agent-cli/references/codex.md",
           ".codex/skills/agent-cli/references/copilot.md",
           ".codex/skills/agent-cli/references/cursor.md",

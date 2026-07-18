@@ -1,16 +1,17 @@
+import {
+  type BaselineMetricSpec,
+  formatBaseline,
+  parseBaseline,
+  type ParseResult,
+} from "@musi/lint-ratchet/kernel/entry-baseline.js";
+import { gateEntries, type GateResult } from "@musi/lint-ratchet/kernel/gate.js";
+
 import { KNIP_SYMBOL_INCLUDE_CATEGORIES } from "./drift-ai/knip-runner.js";
 import {
   UNUSED_EXPORT_CATEGORIES,
   type UnusedExportCategory,
   type UnusedExportSymbol,
 } from "./drift-ai/knip-unused-exports.js";
-import {
-  type BaselineMetricSpec,
-  formatBaseline,
-  parseBaseline,
-  type ParseResult,
-} from "./lib/baseline/entry-baseline.js";
-import { gateEntries, type GateResult } from "./lib/baseline/gate.js";
 
 // A single knip unused-export identity. The key is `category|path|symbol` after
 // path normalization to repo-relative POSIX (already applied by the knip

@@ -9,13 +9,14 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
+import { forwardMissingMergeDriverWarning } from "@musi/lint-ratchet/git-rail/merge-driver-presence.js";
+import { writeFileAtomicallySync } from "@musi/lint-ratchet/kernel/atomic-write.js";
+
 import { maxLinesPolicy } from "../eslint-config/shared-policy.js";
-import { forwardMissingMergeDriverWarning } from "./lib/baseline/merge-driver-presence.js";
 import {
   type MaxLinesGeneratedExemptionPolicy,
   maxLinesPolicy as validatedMaxLinesPolicy,
 } from "./lib/max-lines-policy.js";
-import { writeFileAtomicallySync } from "./lint-ratchet/atomic-write.js";
 import { computeEffectiveLineCount } from "./max-lines-effective-lines.js";
 import {
   checkMaxLinesExceptionsBaseline,

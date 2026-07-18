@@ -10,8 +10,9 @@ baseline identity, parser profiles, CI parity, and the coverage map — see the
 [Lint Ratchet Reference](lint-ratchet-reference.md).
 
 For a ready-made worked copy to diff against,
-[`examples/lint-ratchet-demo/`](../../examples/lint-ratchet-demo/) is a
-clone-and-run proof that the runtime copies cleanly out of this repo.
+[`examples/lint-ratchet-demo/`](../../examples/lint-ratchet-demo/) is a minimal
+workspace consumer of the `@musi/lint-ratchet` package — a thin adapter binding
+the engine to one rule — proving the engine copies and adopts cleanly.
 
 ## How the ratchet works
 
@@ -31,19 +32,31 @@ The ratchet has three pieces:
 The gate is the key property: debt cannot grow silently, and cleanup cannot go
 unacknowledged.
 
-### The item-keyed baseline pattern is reusable
+### The grouped baseline kernel is reusable
 
 The committed-baseline + symmetric-gate + three-way-merge machinery is not
-ratchet-specific. Its item-keyed core lives in `scripts/lib/baseline/` as a
-generic `Baseline<Metric>` framework (deterministic file with a derived
-`summary` integrity check, a symmetric key-set gate, and a min-merge driver
-with post-merge truth-up). A collector produces identity-keyed entries; the
-framework owns everything downstream. The knip unused-export sensor is the
-first consumer at tier-0: its floor is an **identity ledger** keyed by
-`(category, path, symbol)` rather than a per-file count, so swapping one unused
-symbol for another — invisible to a count-only floor — fails the gate. When you
-adopt a second count-floor signal, reach for this shared framework instead of
-re-deriving parse/compare/format a fourth time.
+ratchet-specific. Its shared kernel lives in the `@musi/lint-ratchet` package
+(`tools/lint-ratchet/src/kernel/`). A
+`GroupedBaselineSpec` injects the document family, versions, group metadata,
+item codec, ordering, comparison, and merge policy; the kernel owns envelope
+parsing, deterministic formatting, symmetric comparison, semantic-minimum
+merge, and item lifecycle. `singleGroupSpec` adapts the same kernel to flat
+entry documents without changing their bytes.
+
+The ratchet is now one grouped-spec consumer, not a parallel parser/comparator/
+merge stack. The knip unused-export sensor uses the flat adapter for an
+**identity ledger** keyed by `(category, path, symbol)`, so swapping one unused
+symbol for another — invisible to a count-only floor — fails the gate.
+Max-lines and near-duplicates use the same flat compatibility surface. All
+consumers use the package's `@musi/lint-ratchet/kernel/atomic-write.js`;
+generated baseline and ESLint-config readers never observe a truncated
+replacement.
+
+The exact kernel and Git-rail exports the package carries are listed in the
+reference's
+[Shared baseline kernel](lint-ratchet-reference.md#shared-baseline-kernel)
+section. Copy `tools/lint-ratchet/` as a unit; do not rebuild a ratchet-only
+baseline stack in the adopting repository.
 
 ## Tier 1 — Minimal ratchet
 
@@ -55,25 +68,21 @@ envelope" means you are not adopting the separate changed-file
 
 ### What to copy
 
-Runtime files (all paths relative to repo root):
+The engine is a self-contained package. Copy the **whole directory** — no manual
+file selection, no copy manifest — and bind it with a thin adapter you write:
 
-| File | Role |
+| Item | Role |
 | --- | --- |
-| `scripts/lint-ratchet/portable-manifest.json` | Authoritative, machine-readable inventory for the core runtime, directory expansion/exclusions, and recommended merge-driver profile |
-| `scripts/lint-ratchet.ts` | CLI entry point and re-exports |
-| `scripts/lint-ratchet/lint-ratchet-config.ts` | Registry types, third-party plugin allowlist, and the `lintRatchets` array you edit |
-| Every path selected by the manifest's `runtimeFiles` and `expandDirectories` | Runner internals and cross-directory dependencies; expansion exclusions keep tests, test helpers, and the Musi registry out of the copied runtime |
-| Merge drivers (recommended): the manifest's `mergeDriverFiles` | Installs the semantic baseline merge, checks that the installed copy is current, and validates a completed merge before consuming its truth-up marker |
-| `packages/shared/src/schemas/harness-diagnostics.ts` | Zod schema for the diagnostics envelope; copy at this path or move it and update the imports in the ratchet output, diagnostics, report, and copied tests |
-| `lint-ratchet.baseline.json` | Start with `{ "version": 1, "tests": {} }` |
+| `tools/lint-ratchet/` | The portable engine (kernel + git-rail + governance). Copy it verbatim into your repo, or add it as a dependency; it carries no `@musi/*` or repo-relative imports. Its per-layer subpath exports (`@musi/lint-ratchet/kernel/*`, `/git-rail/*`, `/governance/*`) are the whole API. |
+| A thin adapter (you write it) | Construct a `LintRatchetEngineContext`/`LintRatchetEngineBinding` over your repo root, declare your registry (`LintRatchetConfig[]`), and render whatever result envelope your CI wants. `examples/lint-ratchet-demo/scripts/lint-ratchet.ts` + `scripts/lint-ratchet/adapter.ts` is a minimal, working template to diff against. |
+| Merge drivers (recommended): `scripts/git/*` + the fixed-path CLI wrappers | Copy the git-rail shells and the two CLI wrappers (`baseline-merge-cli.ts`, `post-merge-baseline-preflight.ts`) from the demo; they consume the package's pure git-rail ops and install the semantic baseline merge. |
+| `lint-ratchet.baseline.json` | Start with `{ "version": 2, "regenerate": "bun run lint:ratchet:update", "tests": {} }`, then `lint:ratchet:update` to populate it against your toolchain. |
 
-Do not maintain a second hand-written inventory. Both
-`scripts/tests/test-lint-ratchet.sh` and
-`scripts/lint-ratchet/output.test.ts` consume
-`scripts/lint-ratchet/portable-manifest.json`; the output fixture additionally
-copies the manifest's explicit `mergeDriverFiles` profile. The fixtures write
-their own registry, so `lint-ratchet-config.ts` remains a documented adopter
-replacement rather than a copied Musi configuration.
+The engine no longer ships a copy manifest or a demo sync-checker: because
+`tools/lint-ratchet/` is a real package with an import boundary, "the portable
+surface" is just the package directory. The `examples/lint-ratchet-demo/` consumer
+is the worked template, and its `smoke.sh` proves the whole copy-and-run path in
+isolation.
 
 ### Merge-driver wiring (recommended)
 
@@ -136,9 +145,10 @@ script changes.
 
 ### What to change
 
-1. **Replace the registry.** Remove the Musi-specific imports from
-   `scripts/lint-ratchet/lint-ratchet-config.ts` (shared-policy globs and registry builders),
-   clear `lintRatchets`, keep the exported types, and add one entry:
+1. **Declare your registry.** In your adapter (see the demo's
+   `scripts/lint-ratchet/adapter.ts`), import `LintRatchetConfig` from
+   `@musi/lint-ratchet/kernel/config-types.js` and declare your own `lintRatchets`
+   array — no Musi imports, no shared-policy globs — with one entry:
 
    ```ts
    export const lintRatchets = [
@@ -243,24 +253,18 @@ script changes.
    bun run lint:ratchet                  # prove the gate passes
    ```
 
-### What to copy for tests
+### Tests
 
-The minimum portable test set:
+The engine's own tests travel with the package: `tools/lint-ratchet/test/` and
+the co-located `src/**/*.test.ts` cover baseline building/parsing/comparison,
+update decisions, hashing, registry validation, the semantic merge, and — in
+`test/boundary/` + `test/fixture-context.test.ts` — the structural proofs that the
+package is self-contained and consumable with a non-Musi registry. You get all of
+that by copying `tools/lint-ratchet/`; run them with the package's `vitest.config.ts`.
 
-- `scripts/lint-ratchet/baseline.test.ts` — baseline building, parsing,
-  comparison, update decisions, diagnostics formatting, hashing, and registry
-  validation with fixture data.
-- `scripts/lint-ratchet/summary.test.ts` — summary reduction and table
-  formatting with fixture baselines.
-- `scripts/lint-ratchet/output.test.ts` — consumes the portable
-  manifest, copies runtime files into a temporary repo, writes a small core-rule
-  registry, runs the CLI, and verifies `HARNESS_DIAGNOSTICS_OUTPUT` behavior
-  without project app state.
-- `scripts/lint-ratchet/check-registry.test.ts` — the portable cases test
-  synthetic failure modes (empty globs, absolute paths, orphan baselines,
-  deterministic ordering, absent-baseline). Replace the Musi-specific
-  `accepts the Musi registry fixture` case with an equivalent smoke test for
-  your own registry.
+For your **adapter**, write one small end-to-end test like the demo's `smoke.sh`:
+seed a fixture repo, run collect→compare→update through your registry/binding, and
+assert the gate behaves. You are testing your wiring, not the engine.
 
 ### What you own afterward
 
@@ -284,9 +288,9 @@ The minimum portable test set:
   `docs/guides/lint-ratchet-reference.md`): they shift type-aware findings and surface as a
   plain gate failure that `lint:ratchet:update` clears. The gate fails until you
   re-baseline, so every re-key is explicit.
-- **Portable test upkeep.** Update `portable-manifest.json` when a runtime,
-  expansion exclusion, or merge-driver dependency changes; both fixture
-  consumers verify the resulting copy set.
+- **Engine upkeep.** When you pull an upstream engine change, re-copy
+  `tools/lint-ratchet/` wholesale — there is no per-file inventory to reconcile,
+  because the package boundary is the portable surface.
 
 ### Staying in sync
 
@@ -294,28 +298,20 @@ Copy-paste adoption has no automatic upgrade path. That is the deliberate cost
 of copying a reference instead of depending on a published package: you own a
 fork, and upstream correctness fixes do not flow to you on their own.
 
-The exact set of files you copied is enumerable from one committed file,
-`scripts/lint-ratchet/portable-manifest.json`: its `runtimeFiles`, the
-`expandDirectories` expansion (applying each entry's exclusions), and
-`mergeDriverFiles`. Use that list as your sync anchor.
+The set of files you copied is one directory, `tools/lint-ratchet/`, plus your
+own adapter and git-rail wrappers. Use the package directory as your sync anchor.
 
 To pull upstream correctness fixes:
 
-1. Resolve the copied paths from the manifest as above.
-2. Watch this repo's history for changes to them —
-   `git log -- <paths from the manifest>` — and diff each changed file against
-   your copy.
-3. Cherry-pick or hand-apply the fixes, reconciling against any local edits you
-   made. You own the reconciliation, because you own your fork.
+1. Watch this repo's history for changes under `tools/lint-ratchet/` —
+   `git log -- tools/lint-ratchet` — and diff against your copy.
+2. Re-copy the package wholesale, or cherry-pick the fixes, reconciling against
+   any local edits you made. You own the reconciliation, because you own your
+   fork. Your adapter is yours and rarely needs upstream changes.
 
-If you re-copy the runtime wholesale, regenerate the baseline afterward with
-`lint:ratchet:update`, since renames and counts may have shifted upstream.
-
-Note: a CI check that force-bumps the manifest's `version` on every runtime-file
-change, or a version-keyed portable-set changelog, could make this less manual —
-but both are deliberately out of scope until real downstream adopters exist. The
-`version` field is currently a schema-compat guard, not a change counter, and
-there is no external audience yet to justify the enforcement.
+If you re-copy the engine wholesale, regenerate the baseline afterward with
+`lint:ratchet:update`, since renames, counts, or the rule-source identity may
+have shifted upstream.
 
 ## Tier 2 — Full platform
 

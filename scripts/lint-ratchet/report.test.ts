@@ -1,5 +1,6 @@
 import { join } from "node:path";
 
+import { REGRESSION_RECOVERY_FOOTER } from "@musi/lint-ratchet/kernel/recovery-command.js";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -9,7 +10,6 @@ import {
   summarizeHarnessFindings,
 } from "../../packages/shared/src/schemas/harness-diagnostics.js";
 import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
-import { REGRESSION_RECOVERY_FOOTER } from "./recovery-command.js";
 import { formatHarnessDiagnosticsReport, runLintRatchetReport } from "./report.js";
 
 const tmpRepo = registerTempRootCleanup();

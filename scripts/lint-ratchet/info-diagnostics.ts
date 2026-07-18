@@ -1,5 +1,6 @@
+import type { LintRatchetInfo } from "@musi/lint-ratchet/kernel/baseline.js";
+
 import type { HarnessFinding } from "../../packages/shared/src/schemas/harness-diagnostics.js";
-import type { LintRatchetInfo } from "./baseline.js";
 
 export function buildInfoFinding(info: LintRatchetInfo): HarnessFinding {
   return {

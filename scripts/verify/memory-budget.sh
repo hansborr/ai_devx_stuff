@@ -56,7 +56,6 @@ declare -gA MUSI_VERIFY_SLOT_EXPECTED_PEAK_MB=(
   [ratchet]=2210
   [zero-baseline]=256
   [debt-accounting]=256
-  [demo-sync]=256
   [local-rule-starter]=256
   [knip-unused-exports]=256
   [max-lines-exceptions]=256

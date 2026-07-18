@@ -345,7 +345,6 @@ parse_and_validate_args() {
 # invoked through run_adapter_hook <verb>, which is a no-op where the
 # `<verb>_<backend>` function is absent:
 #   validate_usage_<backend>          extra usage validation
-#   lock_required_<backend>           force the worktree lock on
 #   consult_preamble_<backend>        swap the consult preamble for the backend's read-only profile
 #   oversized_prompt_guard_<backend>  reject an over-argv prompt where stdin is ignored
 #   prepare_answer_<backend>          answer/sidecar path prep before the lock
@@ -393,7 +392,7 @@ guard_codex() {
     arg="${PASSTHRU[i]}"
     case "$arg" in
       -C | -C?* | --cd | --cd=*)
-        reject "$arg moves the run off this worktree's lock; dispatch from the worktree the run should own"
+        reject "$arg moves the run off this worktree's lock and drift check; dispatch from the worktree the run should own"
         ;;
       -a | -a?* | --ask-for-approval | --ask-for-approval=*)
         reject "$arg overrides the wrapper's approval policy ('-a never' keeps headless runs from stalling)"
@@ -664,7 +663,7 @@ guard_cursor() {
         fi
         ;;
       --workspace | --workspace=*)
-        reject "$arg moves the run off this worktree's lock; dispatch from the worktree the run should own"
+        reject "$arg moves the run off this worktree's lock and drift check; dispatch from the worktree the run should own"
         ;;
       -w | --worktree | --worktree=* | --worktree-base | --worktree-base=* | --skip-worktree-setup)
         reject "$arg moves the run into a fresh worktree, off this worktree's lock and drift check; dispatch from the worktree the run should own"
@@ -890,20 +889,17 @@ lock_holder_desc() {
   return 1
 }
 
-# codex holds the worktree lock even for read-only consults: a codex consult can
-# still touch the tree (and its own busy lock exits 3), so it serializes against
-# other codex runs the same way work does.
-lock_required_codex() {
-  LOCK_NEEDED=1
-}
-
+# The lock is work-only on every backend. Read-only modes (consult, codex
+# review) never take it: their read-only-ness is enforced by backend sandboxes
+# where those exist and verified by the post-run drift check everywhere (codex
+# has no working sandbox here — see references/codex.md), and the lock probe
+# below attributes drift seen while a work run holds the lock.
 acquire_worktree_lock() {
   local holder
   LOCK_NEEDED=0
   if [ "$MODE" = work ]; then
     LOCK_NEEDED=1
   fi
-  run_adapter_hook lock_required
   if [ "$LOCK_NEEDED" = 1 ] && [ -n "$GIT_DIR_PATH" ] && command -v flock >/dev/null 2>&1; then
     LOCK_PATH="$GIT_DIR_PATH/agent-run.lock"
     if ! { exec 9>"$LOCK_PATH"; } 2>/dev/null; then
@@ -947,15 +943,15 @@ check_dirty_work_start() {
 }
 
 prepare_lock_probe() {
-  # Lock-free consults (claude/copilot/cursor) may legitimately run alongside a work
-  # dispatch; drift seen then belongs to the work run, not the consult. Probe
-  # the lock around the run and report `unchecked` instead of a false DIRTY.
-  # (A work run that starts and finishes entirely inside the consult's window
-  # slips past both probes and would be misattributed — accepted: work runs are
-  # long, consults short.)
+  # Lock-free read-only runs (all consults, codex review) may legitimately run
+  # alongside a work dispatch; drift seen then belongs to the work run, not the
+  # read-only run. Probe the lock around the run and report `unchecked` instead
+  # of a false DIRTY. (A work run that starts and finishes entirely inside the
+  # read-only run's window slips past both probes and would be misattributed —
+  # accepted: work runs are long, consults short.)
   CAN_PROBE=0
   LOCK_PROBE_UNAVAILABLE=0
-  if [ "$MODE" = consult ] && [ "$LOCK_NEEDED" = 0 ] && [ -n "$GIT_DIR_PATH" ] \
+  if { [ "$MODE" = consult ] || [ "$MODE" = review ]; } && [ -n "$GIT_DIR_PATH" ] \
     && command -v flock >/dev/null 2>&1; then
     LOCK_PATH="$GIT_DIR_PATH/agent-run.lock"
     if { exec 8>"$LOCK_PATH"; } 2>/dev/null; then

@@ -1,21 +1,29 @@
 import { readFileSync } from "node:fs";
 
 import {
+  LOWER_COMPLEXITY_REASON,
+  LOWER_COUNT_REASON,
+  LOWER_LINES_REASON,
+} from "@musi/lint-ratchet/kernel/baseline-compare.js";
+import {
+  escapeMarkdownProse,
+  escapeMarkdownText,
+  markdownCode,
+} from "@musi/lint-ratchet/kernel/markdown-escape.js";
+import { ConfigError } from "@musi/lint-ratchet/kernel/metrics.js";
+import {
+  RATCHET_UPDATE_COMMAND,
+  REGRESSION_RECOVERY_FOOTER,
+} from "@musi/lint-ratchet/kernel/recovery-command.js";
+import { REMOVED_PATH_REASON } from "@musi/lint-ratchet/kernel/removed-path-improvements.js";
+
+import {
   HARNESS_DIAGNOSTICS_SCHEMA_VERSION,
   type HarnessDiagnostics,
   harnessDiagnosticsSchema,
   type HarnessFinding,
   type HarnessFindingSeverity,
 } from "../../packages/shared/src/schemas/harness-diagnostics.js";
-import {
-  LOWER_COMPLEXITY_REASON,
-  LOWER_COUNT_REASON,
-  LOWER_LINES_REASON,
-} from "./baseline-compare.js";
-import { escapeMarkdownProse, escapeMarkdownText, markdownCode } from "./markdown-escape.js";
-import { ConfigError } from "./metrics.js";
-import { RATCHET_UPDATE_COMMAND, REGRESSION_RECOVERY_FOOTER } from "./recovery-command.js";
-import { REMOVED_PATH_REASON } from "./removed-path-improvements.js";
 
 const DEFAULT_MAX_FINDINGS_PER_CONTROL = 10;
 const JSON_INDENT_SPACES = 2;

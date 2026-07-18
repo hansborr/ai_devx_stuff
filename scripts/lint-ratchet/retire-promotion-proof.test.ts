@@ -1,11 +1,10 @@
-import { describe, expect, it } from "vitest";
-
-import type { LintRatchetConfig } from "./lint-ratchet-config.js";
 import {
   type OrphanRetireScope,
   proveOrphanPromotedToNormalError,
-} from "./retire-promotion-proof.js";
-import type { NormalLintFileStatus } from "./zero-baseline.js";
+} from "@musi/lint-ratchet/governance/retire-promotion-proof.js";
+import type { NormalLintFileStatus } from "@musi/lint-ratchet/governance/zero-baseline.js";
+import type { LintRatchetConfig } from "@musi/lint-ratchet/kernel/config-types.js";
+import { describe, expect, it } from "vitest";
 
 const scope: OrphanRetireScope = {
   id: "ratchet/old-promoted",

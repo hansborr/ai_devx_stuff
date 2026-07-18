@@ -16,8 +16,8 @@ Verified against codex-cli 0.142.5.
 
 ## Sandbox and locking
 
-- codex sandboxing (bwrap/landlock) does not work in this devcontainer (`bwrap: Unexpected capabilities`), so the wrapper always runs `danger-full-access` with `-a never` and rejects passthrough sandbox overrides. This is why every codex run — consults included — holds the worktree lock, and why consult read-only-ness rests on the injected preamble plus the post-run drift check.
-- Dirty starts are risky for `work codex`: a Stop hook nudges Codex about a dirty finish, and it tends to react by committing stray WIP — even files it did not create — as its own work. This failure mode is why the wrapper rejects dirty `work` starts unless `--dirty-ok` says the diff is the mission.
+- codex sandboxing (bwrap/landlock) does not work in this devcontainer (`bwrap: Unexpected capabilities`), so the wrapper always runs `danger-full-access` with `-a never` and rejects passthrough sandbox overrides. Consult and review read-only-ness therefore rests on the injected preamble (or the native review harness) plus the post-run drift check — detection, not prevention.
+- Dirty starts are risky for `work codex`: a delegate finishing over a dirty tree tends to absorb stray WIP — even files it did not create — as its own work. This failure mode is why the wrapper rejects dirty `work` starts unless `--dirty-ok` says the diff is the mission.
 
 ## Sessions
 

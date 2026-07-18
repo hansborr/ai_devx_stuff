@@ -331,6 +331,7 @@ prepare
 test:mutation
 test:scripts:mutation
 test:server:mutation
+test:lint-ratchet:mutation
 test:watch
 typecheck:watch
 verify:async

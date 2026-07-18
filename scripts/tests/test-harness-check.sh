@@ -39,7 +39,7 @@
 # smoke-subjects: scripts/lib/test-worker-count.sh
 # smoke-subjects: scripts/harness/verify-step-schema.ts
 # smoke-subjects: scripts/lint-ratchet/ratchet-manifest-message.ts
-# smoke-subjects: scripts/lib/codepoint-compare.ts
+# smoke-subjects: tools/lint-ratchet/src/kernel/codepoint-compare.ts
 # smoke-subjects: scripts/tests/test-harness-check.sh
 # smoke-subjects: tsconfig.configs.json
 # smoke-subjects: .claude/settings.json
@@ -164,7 +164,11 @@ TS
   cp scripts/lint-ratchet/ratchet-manifest-message.ts "$fixture_dir/scripts/lint-ratchet/ratchet-manifest-message.ts"
   # The generators sort via compareByCodepoint from scripts/lib/codepoint-compare;
   # that module is dependency-free, so the fixture copies only it.
-  cp scripts/lib/codepoint-compare.ts "$fixture_dir/scripts/lib/codepoint-compare.ts"
+  # @musi/lint-ratchet engine moved to the package (leaf 02 S3); the copied
+  # adapter/generators import it, so resolve it via a scoped node_modules
+  # symlink instead of copying the moved leaf file.
+  mkdir -p "$fixture_dir/node_modules/@musi"
+  [ -e "$fixture_dir/node_modules/@musi/lint-ratchet" ] || ln -s "$PWD/tools/lint-ratchet" "$fixture_dir/node_modules/@musi/lint-ratchet"
   cp scripts/verify/steps-lib.sh "$fixture_dir/scripts/verify/steps-lib.sh"
   cp scripts/verify/memory-budget.sh "$fixture_dir/scripts/verify/memory-budget.sh"
   cp scripts/lib/test-worker-count.sh "$fixture_dir/scripts/lib/test-worker-count.sh"

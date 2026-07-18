@@ -873,20 +873,6 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Repair:** manual
 
-### `sensor/lint-ratchet-demo-sync`
-
-**Principle:** Compare the standalone lint-ratchet demo against the portable manifest expansion so copied runtime and merge-driver files cannot drift from their source implementations.
-
-**Category:** maintainability
-
-**Source:** `scripts/check-lint-ratchet-demo-sync.ts`
-
-**Invocation:** `bun run lint:ratchet:demo-sync`
-
-**Paired guide:** [docs/guides/lint-ratchet-adoption.md](../guides/lint-ratchet-adoption.md)
-
-**Repair:** autofix
-
 ### `sensor/local-eslint-rule-starter`
 
 **Principle:** Extract the four-file standalone local ESLint rule starter from its guide and exercise its rule test and flat-config lint path with the repository toolchain so copyable documentation cannot rot silently.
@@ -961,7 +947,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `verify-wrapper/verify`
 
-**Principle:** Run lint, suppression policy registers, lint:ratchet, the zero-baseline lifecycle check, the debt-accounting integrity gate, portable demo sync, the standalone local-rule starter check, the knip unused-export floor and whole-tree near-duplicate baseline, coverage-map, format check, typecheck, test, and script smoke suites against the full tree with shared cache, lock, and log directory so a failing slot leaves the rest reusable; lint preflights packages/{shared,server}/dist and runs typecheck automatically before ESLint when those ignored outputs are missing.
+**Principle:** Run lint, suppression policy registers, lint:ratchet, the zero-baseline lifecycle check, the debt-accounting integrity gate, the standalone local-rule starter check, the knip unused-export floor and whole-tree near-duplicate baseline, coverage-map, format check, typecheck, test, and script smoke suites against the full tree with shared cache, lock, and log directory so a failing slot leaves the rest reusable; lint preflights packages/{shared,server}/dist and runs typecheck automatically before ESLint when those ignored outputs are missing.
 
 **Category:** maintainability
 
@@ -976,7 +962,6 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 - `ratchet` — `lint:ratchet` — env: `HARNESS_DIAGNOSTICS_OUTPUT=$LOG_DIR/ratchet-diagnostics.json`
 - `zero-baseline` — `lint:ratchet:zero-baseline`
 - `debt-accounting` — `lint:ratchet:check-debt-accounting`
-- `demo-sync` — `lint:ratchet:demo-sync`
 - `local-rule-starter` — `docs:local-eslint-rule-starter:check`
 - `knip-unused-exports` — `sensor:knip-unused-exports`
 - `near-duplicates` — `sensor:near-duplicates` — args: `-- --check-baseline`
@@ -1065,7 +1050,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `verify-wrapper/verify-parallel`
 
-**Principle:** Run the full lint, suppression policy registers, ratchet, zero-baseline lifecycle check, debt-accounting integrity gate, portable demo sync, standalone local-rule starter check, knip unused-export floor and whole-tree near-duplicate baseline, coverage-map, format check, typecheck, test, and scripts suites in parallel; reduces full-verify wall time when the full script suite fits the selected timeout or cached state; when packages/{shared,server}/dist is missing, the wrapper defers lint and ratchet until the existing typecheck slot has produced those ignored outputs.
+**Principle:** Run the full lint, suppression policy registers, ratchet, zero-baseline lifecycle check, debt-accounting integrity gate, standalone local-rule starter check, knip unused-export floor and whole-tree near-duplicate baseline, coverage-map, format check, typecheck, test, and scripts suites in parallel; reduces full-verify wall time when the full script suite fits the selected timeout or cached state; when packages/{shared,server}/dist is missing, the wrapper defers lint and ratchet until the existing typecheck slot has produced those ignored outputs.
 
 **Category:** maintainability
 
@@ -1080,7 +1065,6 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 - `ratchet` — `lint:ratchet` — env: `HARNESS_DIAGNOSTICS_OUTPUT=$LOG_DIR/ratchet-diagnostics.json`
 - `zero-baseline` — `lint:ratchet:zero-baseline`
 - `debt-accounting` — `lint:ratchet:check-debt-accounting`
-- `demo-sync` — `lint:ratchet:demo-sync`
 - `local-rule-starter` — `docs:local-eslint-rule-starter:check`
 - `knip-unused-exports` — `sensor:knip-unused-exports`
 - `near-duplicates` — `sensor:near-duplicates` — args: `-- --check-baseline`
@@ -1781,7 +1765,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Category:** maintainability
 
-**Source:** `scripts/lint-ratchet/baseline-debt-accounting-git.ts`
+**Source:** `tools/lint-ratchet/src/governance/baseline-debt-accounting-git.ts`
 
 **Invocation:** `bun run lint:ratchet:check-debt-accounting`
 
@@ -1795,7 +1779,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Category:** maintainability
 
-**Source:** `scripts/lint-ratchet/zero-baseline.ts`
+**Source:** `tools/lint-ratchet/src/governance/zero-baseline.ts`
 
 **Invocation:** `bun run lint:ratchet:zero-baseline`
 

@@ -1,6 +1,7 @@
+import { ratchetRegressionReasonFailure } from "@musi/lint-ratchet/kernel/recovery-command.js";
+
 import { UsageError } from "./cli-errors.js";
 import { hasDebtAccountingOptions, type ParsedArgs, type ParsedArgsState } from "./cli-types.js";
-import { ratchetRegressionReasonFailure } from "./recovery-command.js";
 
 // The mutual-exclusion / cross-field validation layer for the ratchet CLI. The
 // token walker in cli.ts fills a ParsedArgsState; these checks enforce the

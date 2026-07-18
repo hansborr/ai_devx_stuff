@@ -1,10 +1,11 @@
-# Lint Ratchet — minimal clone-and-run demo
+# Lint Ratchet — minimal adoption example
 
-This is the smallest working copy of the lint ratchet: one local ESLint rule, a
-committed per-file baseline, and the symmetric gate that fails on any
-uncommitted change to your accepted debt — in either direction. It is a real,
-runnable project, not a snippet. Clone it, `bun install`, and walk the
-ten-minute path below to feel the whole lifecycle.
+This is the smallest working consumer of the portable
+[`@musi/lint-ratchet`](../../tools/lint-ratchet) engine: one local ESLint rule, a
+committed per-file baseline, and the symmetric gate that fails on any uncommitted
+change to your accepted debt — in either direction. A thin, demo-owned **adapter**
+binds the package to this project; the engine itself carries no repository
+bindings.
 
 For the concepts and the full reference, see the parent repo's
 [lint system overview](../../docs/guides/lint-overview.md) and
@@ -16,20 +17,15 @@ take-home; those guides are the manual.
 | Path | Role |
 | --- | --- |
 | `src/app.ts` | The code under lint. Ships with **two** pre-existing `console.log` calls — the accepted debt the ratchet freezes. |
-| `scripts/lint-ratchet/lint-ratchet-config.ts` | **The one file you write.** A stripped registry with a single `local/no-console-log` ratchet and no host-project imports. Copy it as your starting template. |
+| `scripts/lint-ratchet.ts` | **The adapter you write.** A minimal CLI that wires the demo's registry/binding to the package's kernel + governance operations and renders its *own* result envelope (proving the engine dictates neither the CLI surface nor the output format). |
+| `scripts/lint-ratchet/adapter.ts` | The demo's whole binding to the engine: its repo paths, its one-ratchet registry, and the `LintRatchetEngineContext`/`LintRatchetEngineBinding` the kernel operations receive. |
+| `scripts/lint-ratchet/*.ts`, `scripts/git/*` | The git-rail adapter: fixed-path CLI wrappers + the merge-driver install/driver/truth-up shells the installed Git driver dispatches. They consume the package's *pure* git-rail ops. |
 | `lint-ratchet.baseline.json` | The committed per-file baseline: `src/app.ts` → 2 findings. Generated, never hand-edited. |
-| `eslint.config.js` | Metadata source and flat-config registration for the demo-local rule. |
-| `eslint-rules/no-console-log.js` | The neutral, demo-authored local-rule example. Its diagnostic names only repairs available in any JavaScript project. |
-| `scripts/`, `packages/`, and the other files under `eslint-rules/` | The **portable runtime**, copied verbatim from the parent repo's `scripts/lint-ratchet/portable-manifest.json`. You never edit these — they are the product. |
-| `package.json` + `bun.lock` | Honest, standalone dependencies (`eslint`, `minimatch`, `typescript-eslint`, `zod`, `typescript`) and a committed lockfile. No symlinks into any host `node_modules`. |
-| `.gitattributes` | Committed merge semantics for the two generated files: `merge=union` for the debt log (built into git, works with no installed driver) and `merge=lint-ratchet-baseline` for the baseline (the `prepare` installer supplies the clone-local driver command this file names). |
+| `eslint.config.js` + `eslint-rules/no-console-log.js` | The demo-local rule and its flat-config registration. The rule's diagnostic names only repairs available in any JavaScript project. |
+| `.gitattributes` | Committed merge semantics for the two generated files: `merge=union` for the debt log (built into git) and `merge=lint-ratchet-baseline` for the baseline (the installed clone-local driver). |
 
-Everything under `scripts/` and `packages/`, plus
-`eslint-rules/max-lines.js`, is a byte-for-byte copy of the parent repo's
-portable file set. `eslint-rules/no-console-log.js` is explicitly demo-authored;
-the parent sync checker protects both ownership classes. That makes the ratchet
-runtime copyable without presenting the Musi-coupled max-lines policy as an
-adoption example.
+The engine lives in `@musi/lint-ratchet`, resolved as a workspace dependency —
+there is no copied-in engine mirror and no sync manifest to keep in step.
 
 ## Requirements
 
@@ -39,13 +35,8 @@ adoption example.
 
 ## The ten-minute path
 
-Run each step from inside this directory.
-
-### 0. Install
-
-```sh
-bun install
-```
+Run each step from inside this directory. (`bun install` once at the monorepo
+root links the `@musi/lint-ratchet` workspace dependency.)
 
 ### 1. The gate is green
 
@@ -53,9 +44,9 @@ bun install
 bun run lint:ratchet
 ```
 
-The two existing `console.log` calls match the committed baseline exactly, so
-the gate passes: `2 current finding(s); 0 regression(s); 0 improvement(s)`.
-Accepted debt does not fail the build.
+The two existing `console.log` calls match the committed baseline exactly, so the
+gate prints `{"tool":"lint-ratchet-demo","status":"ok",...}` and exits 0. Accepted
+debt does not fail the build.
 
 ### 2. Add a finding — watch it fail
 
@@ -67,19 +58,11 @@ export function debugPing(): void {
 }
 ```
 
-Run the gate again:
-
-```sh
-bun run lint:ratchet
-```
-
-It now **fails** (exit 1) with a regression on `src/app.ts` — count went from 2
-to 3 — and prints the exact recovery command. New debt cannot slip in silently.
+Run the gate again — it now **fails** (exit 1) with `"status":"regressed"` on
+`src/app.ts` and prints the exact recovery command. New debt cannot slip in
+silently.
 
 ### 3. Accept the debt (only if it's truly intentional)
-
-The gate told you how. Accepting debt is deliberate and leaves a reviewable
-record:
 
 ```sh
 bun run lint:ratchet:update -- --allow-worse \
@@ -87,20 +70,13 @@ bun run lint:ratchet:update -- --allow-worse \
 ```
 
 The baseline moves to 3, and the acceptance — with your reason — is appended to
-`lint-ratchet.debt-log.jsonl`. Inspect it:
-
-```sh
-bun run lint:ratchet:debt-log
-```
-
-`bun run lint:ratchet:summary` shows the remaining baseline totals at a glance —
-the quick answer to "how much debt is left" without running ESLint.
+`lint-ratchet.debt-log.jsonl`. Inspect that file to see the reasoned record.
 
 ### 4. Fix it and lock in the improvement
 
-Now delete the `debugPing` function you added. The finding count drops back to
-2 — an *improvement* over the committed baseline of 3. The gate fails on an
-unrecorded improvement too (the ratchet is symmetric), so lock it in:
+Delete the `debugPing` function you added. The finding count drops back to 2 — an
+*improvement* over the committed baseline of 3. The gate fails on an unrecorded
+improvement too (the ratchet is symmetric), so lock it in:
 
 ```sh
 bun run lint:ratchet:update
@@ -111,25 +87,21 @@ and every move is a committed diff.
 
 ## Make it yours
 
-1. Copy `scripts/lint-ratchet.ts`, `scripts/lint-ratchet/` (minus
-   `lint-ratchet-config.ts`), and the other files listed in the parent repo's
-   `portable-manifest.json` into your project. Never hand-list them — expand the
-   manifest.
-2. Replace `scripts/lint-ratchet/lint-ratchet-config.ts` with your own registry:
-   pick a rule you have real debt in, scope it to a file glob, write a one-line
-   `principle`.
-3. `bun run lint:ratchet:update` to generate your first baseline, commit it, and
-   wire `bun run lint:ratchet` into your CI and pre-commit;
-   `bun run lint:ratchet:summary` shows the baseline totals at a glance.
+1. Copy `tools/lint-ratchet` into your repo (or add it as a dependency) — the
+   whole portable engine, no pruning.
+2. Write a thin adapter like `scripts/lint-ratchet.ts` + `scripts/lint-ratchet/adapter.ts`:
+   construct a `LintRatchetEngineContext`/`LintRatchetEngineBinding` over your repo
+   root, declare your registry (pick a rule you have real debt in, scope it to a
+   file glob, write a one-line `principle`), and render whatever result envelope
+   your CI wants.
+3. `bun run lint:ratchet:update` to generate your first baseline (it pins your
+   installed eslint/typescript-eslint versions), commit it, and wire
+   `bun run lint:ratchet` into your CI and pre-commit.
+4. For the semantic baseline merge driver, copy `scripts/git/*` and
+   `bun run lint:ratchet:install-merge-driver` in each clone; `.gitattributes`
+   names both generated files' merge semantics so a collaborator's fresh clone
+   gets them even before the driver is installed.
 
-This demo already uses a **local** rule: `eslint.config.js` registers
-`eslint-rules/no-console-log.js` under `plugins.local.rules`, and the registry
-selects `local/no-console-log`. Replace that file and both identifiers with your
-own policy. The rule's metadata and diagnostic contain no parent-repository
-paths or commands.
-
-The merge driver, zero-baseline lifecycle, and debt-log accounting shown in the
-parent guides are all portable too; this demo keeps the surface minimal so the
-core loop is unmistakable. The committed `.gitattributes` names both files'
-merge semantics so a collaborator's fresh clone gets them even before `prepare`
-installs the clone-local driver command.
+`smoke.sh` proves this whole path in genuine isolation: it copies the package and
+this demo into a throwaway Bun workspace off the Musi checkout, installs, and
+walks the adoption steps with the merge driver included.

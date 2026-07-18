@@ -4,20 +4,34 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 // against the real committed baseline + ratchet registry without running
 // ESLint. An empty item map means "linted, no findings" — distinct from a
 // soft-skip, which never reaches the collector at all.
-vi.mock("./current-collector.js", () => ({
+vi.mock("@musi/lint-ratchet/kernel/current-collector.js", () => ({
   collectCurrentForRatchet: vi.fn(() => Promise.resolve(new Map())),
 }));
 
 import type * as NodeFsModule from "node:fs";
 
-import type * as BaselineValidationModule from "./baseline-validation.js";
-import { collectCurrentForRatchet } from "./current-collector.js";
 import {
   discoverEditCheckTargets,
   type EditCheckTarget,
+  type LintRatchetEditCheckEngine,
   runEditCheckRegressions,
-} from "./edit-check.js";
+} from "@musi/lint-ratchet/governance/edit-check.js";
+import type * as BaselineValidationModule from "@musi/lint-ratchet/kernel/baseline-validation.js";
+import { collectCurrentForRatchet } from "@musi/lint-ratchet/kernel/current-collector.js";
+
+import { musiLintRatchetBinding, musiLintRatchetContext } from "./engine-binding.js";
+import { lintRatchets } from "./lint-ratchet-config.js";
 import { baselinePath } from "./paths.js";
+
+// The Musi edit-check engine: these suites exercise the operation against the
+// real committed baseline + ratchet registry, so the engine binds the adapter's
+// resolved context, the live registry, and the plugin allowlist.
+const editCheckEngine: LintRatchetEditCheckEngine = {
+  repoRoot: musiLintRatchetContext.repoRoot,
+  baselinePath: musiLintRatchetContext.baselinePath,
+  registry: lintRatchets,
+  binding: musiLintRatchetBinding,
+};
 
 // A minimal-TS (cache-using) ratchet that is present in the committed baseline,
 // so a hand-built target with the matching ruleId passes the drift guard.
@@ -44,13 +58,13 @@ describe("discoverEditCheckTargets", () => {
     // type-assertion and structural function ratchets (minimal-ts), plus the
     // type-aware strict-boolean floor. Only the cache-using ratchets survive
     // the usesEslintCache gate.
-    const targets = discoverEditCheckTargets([SHARED_SOURCE_FILE]);
+    const targets = discoverEditCheckTargets(editCheckEngine, [SHARED_SOURCE_FILE]);
     expect(targets.map((target) => target.testId)).toStrictEqual(SHARED_MINIMAL_TS_TEST_IDS);
     expect(targets.some((target) => target.testId === TYPE_AWARE_TEST_ID)).toBe(false);
   });
 
   it("maps a script test file to its minimal-TS ratchets sorted by ratchet id with cache identities", () => {
-    const targets = discoverEditCheckTargets([MINIMAL_TS_FILE]);
+    const targets = discoverEditCheckTargets(editCheckEngine, [MINIMAL_TS_FILE]);
     expect(
       targets.map((target) => ({
         path: target.path,
@@ -92,7 +106,7 @@ describe("discoverEditCheckTargets", () => {
   });
 
   it("orders targets by path first regardless of input order", () => {
-    const targets = discoverEditCheckTargets([
+    const targets = discoverEditCheckTargets(editCheckEngine, [
       "packages/shared/src/zzz.ts",
       "packages/shared/src/aaa.ts",
     ]);
@@ -106,8 +120,8 @@ describe("discoverEditCheckTargets", () => {
   });
 
   it("deduplicates a repeated path so each (path, ratchet) pair appears once", () => {
-    const once = discoverEditCheckTargets(["packages/shared/src/aaa.ts"]);
-    const twice = discoverEditCheckTargets([
+    const once = discoverEditCheckTargets(editCheckEngine, ["packages/shared/src/aaa.ts"]);
+    const twice = discoverEditCheckTargets(editCheckEngine, [
       "packages/shared/src/aaa.ts",
       "packages/shared/src/aaa.ts",
     ]);
@@ -115,12 +129,12 @@ describe("discoverEditCheckTargets", () => {
   });
 
   it("returns no targets for a path no ratchet glob matches", () => {
-    expect(discoverEditCheckTargets(["README.md"])).toStrictEqual([]);
+    expect(discoverEditCheckTargets(editCheckEngine, ["README.md"])).toStrictEqual([]);
   });
 
   it("keeps examples and script fixtures outside the code-wide ratchets", () => {
     expect(
-      discoverEditCheckTargets([
+      discoverEditCheckTargets(editCheckEngine, [
         "examples/lint-ratchet-demo/scripts/lint-ratchet.ts",
         "scripts/fixtures/example.ts",
       ]),
@@ -128,7 +142,7 @@ describe("discoverEditCheckTargets", () => {
   });
 
   it("keeps hyphenated package test helpers out of production structural ratchets", () => {
-    const targets = discoverEditCheckTargets([SERVER_TEST_HELPER_FILE]);
+    const targets = discoverEditCheckTargets(editCheckEngine, [SERVER_TEST_HELPER_FILE]);
     expect(targets.map((target) => target.testId)).toStrictEqual([
       "ratchet/local-no-commented-out-code",
       "ratchet/local-no-swallowed-errors-broader-semantics",
@@ -137,13 +151,13 @@ describe("discoverEditCheckTargets", () => {
   });
 
   it("returns no targets for an empty path list", () => {
-    expect(discoverEditCheckTargets([])).toStrictEqual([]);
+    expect(discoverEditCheckTargets(editCheckEngine, [])).toStrictEqual([]);
   });
 });
 
 describe("runEditCheckRegressions soft-skip guards", () => {
   it("returns an empty result without touching the collector when there are no targets", async () => {
-    const result = await runEditCheckRegressions([], 1);
+    const result = await runEditCheckRegressions(editCheckEngine, [], 1);
     expect(result).toStrictEqual({ regressions: [], checked: [] });
     expect(collectCurrentForRatchet).not.toHaveBeenCalled();
   });
@@ -154,7 +168,7 @@ describe("runEditCheckRegressions soft-skip guards", () => {
       testId: MINIMAL_TS_TEST_ID,
       ruleId: MINIMAL_TS_RULE_ID,
     };
-    const result = await runEditCheckRegressions([target], 1);
+    const result = await runEditCheckRegressions(editCheckEngine, [target], 1);
     // An empty mocked collector means the file was genuinely linted with no
     // findings: it appears in `checked` (not a soft skip) with no regressions.
     expect(result).toStrictEqual({ regressions: [], checked: [MINIMAL_TS_FILE] });
@@ -167,7 +181,7 @@ describe("runEditCheckRegressions soft-skip guards", () => {
       testId: MINIMAL_TS_TEST_ID,
       ruleId: "wrong/rule-id",
     };
-    const result = await runEditCheckRegressions([target], 1);
+    const result = await runEditCheckRegressions(editCheckEngine, [target], 1);
     // The ruleId-mismatch guard (`target.ruleId !== ratchet.ruleId`) drops the
     // pair: no false regression, and the file is NOT reported as checked.
     expect(result).toStrictEqual({ regressions: [], checked: [] });
@@ -180,7 +194,7 @@ describe("runEditCheckRegressions soft-skip guards", () => {
       testId: "ratchet/does-not-exist",
       ruleId: MINIMAL_TS_RULE_ID,
     };
-    const result = await runEditCheckRegressions([target], 1);
+    const result = await runEditCheckRegressions(editCheckEngine, [target], 1);
     expect(result).toStrictEqual({ regressions: [], checked: [] });
     expect(collectCurrentForRatchet).not.toHaveBeenCalled();
   });
@@ -191,7 +205,7 @@ describe("runEditCheckRegressions soft-skip guards", () => {
       testId: TYPE_AWARE_TEST_ID,
       ruleId: TYPE_AWARE_RULE_ID,
     };
-    const result = await runEditCheckRegressions([target], 1);
+    const result = await runEditCheckRegressions(editCheckEngine, [target], 1);
     // groupTargets drops any ratchet for which usesEslintCache is false.
     expect(result).toStrictEqual({ regressions: [], checked: [] });
     expect(collectCurrentForRatchet).not.toHaveBeenCalled();
@@ -206,7 +220,7 @@ describe("runEditCheckRegressions drift guard", () => {
 
   it("soft-skips a target whose baseline test has drifted from the live registry", async () => {
     vi.resetModules();
-    vi.doMock("./baseline-validation.js", async (importOriginal) => {
+    vi.doMock("@musi/lint-ratchet/kernel/baseline-validation.js", async (importOriginal) => {
       const actual = await importOriginal<typeof BaselineValidationModule>();
       return {
         ...actual,
@@ -214,16 +228,16 @@ describe("runEditCheckRegressions drift guard", () => {
         validateBaselineTestForRatchet: vi.fn(() => ["configHash is stale"]),
       };
     });
-    const editCheck = await import("./edit-check.js");
-    const collector = await import("./current-collector.js");
-    const validation = await import("./baseline-validation.js");
+    const editCheck = await import("@musi/lint-ratchet/governance/edit-check.js");
+    const collector = await import("@musi/lint-ratchet/kernel/current-collector.js");
+    const validation = await import("@musi/lint-ratchet/kernel/baseline-validation.js");
 
     const target: EditCheckTarget = {
       path: MINIMAL_TS_FILE,
       testId: MINIMAL_TS_TEST_ID,
       ruleId: MINIMAL_TS_RULE_ID,
     };
-    const result = await editCheck.runEditCheckRegressions([target], 1);
+    const result = await editCheck.runEditCheckRegressions(editCheckEngine, [target], 1);
     // A drifted baseline (validation returns failures) is soft-skipped rather
     // than linted against a stale floor: no regression, nothing checked.
     expect(result).toStrictEqual({ regressions: [], checked: [] });
@@ -233,7 +247,7 @@ describe("runEditCheckRegressions drift guard", () => {
 
   it("lints a target when its baseline test reports no drift", async () => {
     vi.resetModules();
-    vi.doMock("./baseline-validation.js", async (importOriginal) => {
+    vi.doMock("@musi/lint-ratchet/kernel/baseline-validation.js", async (importOriginal) => {
       const actual = await importOriginal<typeof BaselineValidationModule>();
       return {
         ...actual,
@@ -242,15 +256,15 @@ describe("runEditCheckRegressions drift guard", () => {
         validateBaselineTestForRatchet: vi.fn(() => []),
       };
     });
-    const editCheck = await import("./edit-check.js");
-    const collector = await import("./current-collector.js");
+    const editCheck = await import("@musi/lint-ratchet/governance/edit-check.js");
+    const collector = await import("@musi/lint-ratchet/kernel/current-collector.js");
 
     const target: EditCheckTarget = {
       path: MINIMAL_TS_FILE,
       testId: MINIMAL_TS_TEST_ID,
       ruleId: MINIMAL_TS_RULE_ID,
     };
-    const result = await editCheck.runEditCheckRegressions([target], 1);
+    const result = await editCheck.runEditCheckRegressions(editCheckEngine, [target], 1);
     expect(result).toStrictEqual({ regressions: [], checked: [MINIMAL_TS_FILE] });
     expect(collector.collectCurrentForRatchet).toHaveBeenCalledTimes(1);
   });
@@ -291,10 +305,10 @@ describe("runEditCheckRegressions baseline-availability guards", () => {
         ),
       };
     });
-    const editCheck = await import("./edit-check.js");
-    const collector = await import("./current-collector.js");
+    const editCheck = await import("@musi/lint-ratchet/governance/edit-check.js");
+    const collector = await import("@musi/lint-ratchet/kernel/current-collector.js");
 
-    const result = await editCheck.runEditCheckRegressions([liveTarget], 1);
+    const result = await editCheck.runEditCheckRegressions(editCheckEngine, [liveTarget], 1);
     // Absent baseline -> soft skip: empty regressions, nothing checked, and the
     // baseline is never even read (the guard short-circuits the file read).
     expect(result).toStrictEqual({ regressions: [], checked: [] });
@@ -320,10 +334,10 @@ describe("runEditCheckRegressions baseline-availability guards", () => {
         ),
       };
     });
-    const editCheck = await import("./edit-check.js");
-    const collector = await import("./current-collector.js");
+    const editCheck = await import("@musi/lint-ratchet/governance/edit-check.js");
+    const collector = await import("@musi/lint-ratchet/kernel/current-collector.js");
 
-    const result = await editCheck.runEditCheckRegressions([liveTarget], 1);
+    const result = await editCheck.runEditCheckRegressions(editCheckEngine, [liveTarget], 1);
     // structural.baseline === undefined -> soft skip: no false regression and
     // the collector never runs against a baseline that failed to parse.
     expect(result).toStrictEqual({ regressions: [], checked: [] });

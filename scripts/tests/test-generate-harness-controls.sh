@@ -8,7 +8,7 @@
 # smoke-subjects: scripts/harness/hook-wiring-schema.ts
 # smoke-subjects: scripts/harness/verify-step-schema.ts
 # smoke-subjects: scripts/lib/lint-rule-docs.ts
-# smoke-subjects: scripts/lib/codepoint-compare.ts
+# smoke-subjects: tools/lint-ratchet/src/kernel/codepoint-compare.ts
 # smoke-subjects: scripts/tests/test-generate-harness-controls.sh
 # smoke-subjects: scripts/fixtures/generate-harness-controls/
 # smoke-subjects: harness.controls.json
@@ -56,7 +56,11 @@ copy_generator() {
   # The generator sorts via compareByCodepoint from scripts/lib/codepoint-compare;
   # that module is dependency-free, so the fixture copies only it (the stubbed
   # lint-ratchet-config below still satisfies the generator's type-only import).
-  cp scripts/lib/codepoint-compare.ts "$fixture_dir/scripts/lib/codepoint-compare.ts"
+  # @musi/lint-ratchet engine moved to the package (leaf 02 S3); the copied
+  # adapter/generators import it, so resolve it via a scoped node_modules
+  # symlink instead of copying the moved leaf file.
+  mkdir -p "$fixture_dir/node_modules/@musi"
+  [ -e "$fixture_dir/node_modules/@musi/lint-ratchet" ] || ln -s "$PWD/tools/lint-ratchet" "$fixture_dir/node_modules/@musi/lint-ratchet"
   # Minimal ratchet registry stub: the generator re-projects ratchet principles
   # from lintRatchets (id -> principle), so the fixture supplies its own backing
   # entry for ratchet/fixture instead of copying the real registry chain.

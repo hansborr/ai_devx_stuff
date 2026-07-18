@@ -4,16 +4,17 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { describe, expect, it } from "vitest";
-
-import { formatRuleDocsFailures, loadLintRuleDocs } from "../lib/lint-rule-docs.js";
-import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
 import {
   buildLintRatchetBaseline,
   formatLintRatchetBaseline,
   type LintRatchetCurrentById,
   type LintRatchetRuleSourceHashesById,
-} from "./baseline.js";
+} from "@musi/lint-ratchet/kernel/baseline.js";
+import type { LintRatchetConfig } from "@musi/lint-ratchet/kernel/config-types.js";
+import { describe, expect, it } from "vitest";
+
+import { formatRuleDocsFailures, loadLintRuleDocs } from "../lib/lint-rule-docs.js";
+import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
 import {
   checkLintRatchetRegistry,
   parseHarnessManifestRatchetIds,
@@ -21,11 +22,7 @@ import {
   type RegistryCheckFailureKind,
 } from "./check-registry.js";
 import { FIXTURE_HASH } from "./lint-ratchet.test-helper.js";
-import {
-  type LintRatchetConfig,
-  lintRatchets,
-  lintRatchetThirdPartyPluginAllowlist,
-} from "./lint-ratchet-config.js";
+import { lintRatchets, lintRatchetThirdPartyPluginAllowlist } from "./lint-ratchet-config.js";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const tmpRepo = registerTempRootCleanup();

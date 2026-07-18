@@ -23,7 +23,7 @@ const TRACKED_BASENAMES = new Set([
   "LICENSE",
   "bun.lock",
 ]);
-const ROOT_PATH_PREFIXES = new Set(["packages", "scripts", "docs", "e2e", "eslint-rules"]);
+const ROOT_PATH_PREFIXES = new Set(["packages", "scripts", "docs", "e2e", "eslint-rules", "tools"]);
 const GLOBSTAR_WIDTH = 2;
 const GLOBSTAR_WITH_SLASH_WIDTH = 3;
 

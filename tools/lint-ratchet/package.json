@@ -1,0 +1,23 @@
+{
+  "name": "@musi/lint-ratchet",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Portable, repo-agnostic lint-ratchet engine (kernel + git-rail + governance). Copy this directory into your repo and bind it with a thin adapter; its engine and tests carry no @musi/* or repo-relative imports (the sole sealed exception is the pinned Vitest project config, which an adopter replaces).",
+  "exports": {
+    "./kernel/*.js": "./src/kernel/*.ts",
+    "./git-rail/*.js": "./src/git-rail/*.ts",
+    "./governance/*.js": "./src/governance/*.ts"
+  },
+  "dependencies": {
+    "eslint": "10.4.0",
+    "minimatch": "10.2.4",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.59.4",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.12.4",
+    "vitest": "^4.1.7"
+  }
+}

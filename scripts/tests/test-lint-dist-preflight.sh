@@ -48,7 +48,6 @@ PATH_POLICY_SMOKE_SUBJECTS_DATA="$SCRIPT_DIR/../path-policy/path-policy-smoke-su
 HARNESS_PATHS="$SCRIPT_DIR/../harness/harness-paths.ts"
 HARNESS_MANIFEST="$SCRIPT_DIR/../harness/harness-manifest.ts"
 LINT_RATCHET_PATHS="$SCRIPT_DIR/../lint-ratchet/paths.ts"
-LINT_RATCHET_METRICS_TYPES="$SCRIPT_DIR/../lint-ratchet/metrics-types.ts"
 CONFIG_SURFACES="$REPO_ROOT/eslint-config/config-surfaces.js"
 CONFIG_SURFACE_MANIFEST="$REPO_ROOT/eslint-config/config-surface-manifest.json"
 SHARED_POLICY="$REPO_ROOT/eslint-config/shared-policy.js"
@@ -299,7 +298,11 @@ copy_path_policy() {
   cp "$HARNESS_PATHS" "$repo/scripts/harness/harness-paths.ts"
   cp "$HARNESS_MANIFEST" "$repo/scripts/harness/harness-manifest.ts"
   cp "$LINT_RATCHET_PATHS" "$repo/scripts/lint-ratchet/paths.ts"
-  cp "$LINT_RATCHET_METRICS_TYPES" "$repo/scripts/lint-ratchet/metrics-types.ts"
+  # @musi/lint-ratchet engine moved to the package (leaf 02 S3); the copied
+  # adapter/generators import it, so resolve it via a scoped node_modules
+  # symlink instead of copying the moved leaf file.
+  mkdir -p "$repo/node_modules/@musi"
+  [ -e "$repo/node_modules/@musi/lint-ratchet" ] || ln -s "$REPO_ROOT/tools/lint-ratchet" "$repo/node_modules/@musi/lint-ratchet"
   cp "$CONFIG_SURFACES" "$repo/eslint-config/config-surfaces.js"
   cp "$CONFIG_SURFACE_MANIFEST" "$repo/eslint-config/config-surface-manifest.json"
   cp "$SHARED_POLICY" "$repo/eslint-config/shared-policy.js"

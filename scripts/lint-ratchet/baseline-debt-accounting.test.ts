@@ -1,19 +1,19 @@
-import { describe, expect, it } from "vitest";
-
+import {
+  type BaselineDebtAccountingResult,
+  checkBaselineDebtAccounting,
+  formatBaselineDebtAccountingFailures,
+} from "@musi/lint-ratchet/governance/baseline-debt-accounting.js";
 import {
   buildLintRatchetBaseline,
   formatLintRatchetBaseline,
   type LintRatchetBaseline,
   type LintRatchetCurrentItem,
   type LintRatchetRegression,
-} from "./baseline.js";
-import {
-  type BaselineDebtAccountingResult,
-  checkBaselineDebtAccounting,
-  formatBaselineDebtAccountingFailures,
-} from "./baseline-debt-accounting.js";
+} from "@musi/lint-ratchet/kernel/baseline.js";
+import type { LintRatchetConfig } from "@musi/lint-ratchet/kernel/config-types.js";
+import { describe, expect, it } from "vitest";
+
 import { currentById, FIXTURE_HASH } from "./lint-ratchet.test-helper.js";
-import type { LintRatchetConfig } from "./lint-ratchet-config.js";
 
 type BaselineTest = NonNullable<LintRatchetBaseline["tests"][string]>;
 

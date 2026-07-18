@@ -1,5 +1,20 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
+import { checkBaselineDebtAccounting } from "@musi/lint-ratchet/governance/baseline-debt-accounting.js";
+import {
+  applyLintRatchetUpdate,
+  type RunUpdateDeps,
+} from "@musi/lint-ratchet/governance/baseline-update-apply.js";
+import type { LintRatchetDebtLogEntry } from "@musi/lint-ratchet/governance/debt-log-schema.js";
+import {
+  isAcceptedDebtLogEntry,
+  isCoverageShrinkLogEntry,
+  isMetricMigrationLogEntry,
+  parseLintRatchetDebtLogEntry,
+} from "@musi/lint-ratchet/governance/debt-log-schema.js";
+import {
+  appendValidatedDebtLogEntry,
+  buildLintRatchetDebtLogEntry,
+} from "@musi/lint-ratchet/governance/debt-log-write.js";
+import { WorseBaselineError } from "@musi/lint-ratchet/governance/errors.js";
 import {
   buildLintRatchetBaseline,
   decideLintRatchetUpdate,
@@ -7,20 +22,12 @@ import {
   type LintRatchetBaseline,
   type LintRatchetCurrentById,
   parseLintRatchetBaselineStructure,
-} from "./baseline.js";
-import { checkBaselineDebtAccounting } from "./baseline-debt-accounting.js";
-import { applyLintRatchetUpdate, type RunUpdateDeps } from "./baseline-update-apply.js";
-import { WorseBaselineError } from "./cli-errors.js";
-import type { LintRatchetDebtLogEntry } from "./debt-log-schema.js";
-import {
-  isAcceptedDebtLogEntry,
-  isCoverageShrinkLogEntry,
-  isMetricMigrationLogEntry,
-  parseLintRatchetDebtLogEntry,
-} from "./debt-log-schema.js";
-import { appendValidatedDebtLogEntry, buildLintRatchetDebtLogEntry } from "./debt-log-write.js";
-import type { LintRatchetConfig } from "./lint-ratchet-config.js";
-import { ConfigError } from "./metrics.js";
+} from "@musi/lint-ratchet/kernel/baseline.js";
+import type { LintRatchetConfig } from "@musi/lint-ratchet/kernel/config-types.js";
+import { ConfigError } from "@musi/lint-ratchet/kernel/metrics.js";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { musiLintRatchetContext } from "./engine-binding.js";
 import { baselinePath, debtLogPath } from "./paths.js";
 
 const PATH = "packages/server/src/legacy.ts";
@@ -334,6 +341,7 @@ describe("applyLintRatchetUpdate", () => {
     const rec = recorder(committedText);
 
     const logged = applyLintRatchetUpdate({
+      context: musiLintRatchetContext,
       generated,
       rendered,
       registry: [narrowedRatchet],
@@ -359,6 +367,7 @@ describe("applyLintRatchetUpdate", () => {
     const rec = recorder(committedText);
 
     const logged = applyLintRatchetUpdate({
+      context: musiLintRatchetContext,
       generated,
       rendered,
       registry: [ratchet],
@@ -385,6 +394,7 @@ describe("applyLintRatchetUpdate", () => {
     const rec = recorder(rendered);
 
     const logged = applyLintRatchetUpdate({
+      context: musiLintRatchetContext,
       generated,
       rendered,
       registry: [ratchet],
@@ -406,6 +416,7 @@ describe("applyLintRatchetUpdate", () => {
     const rec = recorder(committedText);
 
     const logged = applyLintRatchetUpdate({
+      context: musiLintRatchetContext,
       generated,
       rendered,
       registry: [ratchet],
@@ -428,6 +439,7 @@ describe("applyLintRatchetUpdate", () => {
 
     expect(() =>
       applyLintRatchetUpdate({
+        context: musiLintRatchetContext,
         generated,
         rendered,
         registry: [ratchet],
@@ -449,6 +461,7 @@ describe("applyLintRatchetUpdate", () => {
 
     expect(() =>
       applyLintRatchetUpdate({
+        context: musiLintRatchetContext,
         generated,
         rendered,
         registry: [ratchet],
@@ -461,6 +474,7 @@ describe("applyLintRatchetUpdate", () => {
 
     const retry = recorder(committedText, { debtLogText: firstAttempt.appended.join("") });
     const logged = applyLintRatchetUpdate({
+      context: musiLintRatchetContext,
       generated,
       rendered,
       registry: [ratchet],
@@ -494,13 +508,19 @@ describe("applyLintRatchetUpdate", () => {
     } as const;
     const firstAttempt = recorder(committedText, { throwOnWrite: true });
 
-    expect(() => applyLintRatchetUpdate({ ...params, deps: firstAttempt.deps })).toThrow(
-      "write failed",
-    );
+    expect(() =>
+      applyLintRatchetUpdate({
+        context: musiLintRatchetContext,
+        ...params,
+        deps: firstAttempt.deps,
+      }),
+    ).toThrow("write failed");
     expect(firstAttempt.appended.join("").trim().split("\n")).toHaveLength(2);
 
     const retry = recorder(committedText, { debtLogText: firstAttempt.appended.join("") });
-    expect(applyLintRatchetUpdate({ ...params, deps: retry.deps })).toBe(false);
+    expect(
+      applyLintRatchetUpdate({ context: musiLintRatchetContext, ...params, deps: retry.deps }),
+    ).toBe(false);
     expect(retry.calls).toEqual(["write:baseline"]);
     expect(retry.appended).toEqual([]);
   });
@@ -513,6 +533,7 @@ describe("applyLintRatchetUpdate", () => {
 
     expect(() =>
       applyLintRatchetUpdate({
+        context: musiLintRatchetContext,
         generated,
         rendered,
         registry: [ratchet],
@@ -532,6 +553,7 @@ describe("applyLintRatchetUpdate", () => {
     const rec = recorder(undefined);
 
     const logged = applyLintRatchetUpdate({
+      context: musiLintRatchetContext,
       generated,
       rendered,
       registry: [ratchet],
@@ -558,6 +580,7 @@ describe("applyLintRatchetUpdate", () => {
     const rec = recorder(committedText);
 
     const logged = applyLintRatchetUpdate({
+      context: musiLintRatchetContext,
       generated,
       rendered,
       registry: [ratchet],
@@ -594,6 +617,7 @@ describe("applyLintRatchetUpdate", () => {
 
     expect(() =>
       applyLintRatchetUpdate({
+        context: musiLintRatchetContext,
         generated,
         rendered,
         registry: [ratchet],
@@ -621,6 +645,7 @@ describe("applyLintRatchetUpdate", () => {
     const rec = recorder(committedText);
 
     const logged = applyLintRatchetUpdate({
+      context: musiLintRatchetContext,
       generated,
       rendered,
       registry: [lineRatchet],
@@ -668,6 +693,7 @@ describe("applyLintRatchetUpdate", () => {
 
     expect(() =>
       applyLintRatchetUpdate({
+        context: musiLintRatchetContext,
         generated,
         rendered,
         registry: [lineRatchet],
@@ -688,6 +714,7 @@ describe("applyLintRatchetUpdate", () => {
     const rec = recorder(committedText);
 
     const logged = applyLintRatchetUpdate({
+      context: musiLintRatchetContext,
       generated,
       rendered,
       registry: [lineRatchet],
@@ -733,6 +760,7 @@ describe("applyLintRatchetUpdate", () => {
     const rec = recorder(committedText);
 
     const logged = applyLintRatchetUpdate({
+      context: musiLintRatchetContext,
       generated,
       rendered,
       registry: [lineRatchet],
@@ -778,6 +806,7 @@ describe("applyLintRatchetUpdate", () => {
 
     expect(() =>
       applyLintRatchetUpdate({
+        context: musiLintRatchetContext,
         generated,
         rendered,
         registry: [lineRatchet],
@@ -802,6 +831,7 @@ describe("applyLintRatchetUpdate", () => {
     const rec = recorder(committedText);
 
     applyLintRatchetUpdate({
+      context: musiLintRatchetContext,
       generated,
       rendered,
       registry: [lineRatchet],
@@ -830,6 +860,7 @@ describe("applyLintRatchetUpdate", () => {
 
     expect(() =>
       applyLintRatchetUpdate({
+        context: musiLintRatchetContext,
         generated,
         rendered,
         registry: [lineRatchet],
@@ -852,6 +883,7 @@ describe("applyLintRatchetUpdate", () => {
     const rec = recorder(committedText);
 
     applyLintRatchetUpdate({
+      context: musiLintRatchetContext,
       generated,
       rendered: formatLintRatchetBaseline(generated),
       registry: [ratchet],

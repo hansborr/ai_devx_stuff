@@ -45,7 +45,6 @@ PATH_POLICY_SMOKE_SUBJECTS_DATA="$SCRIPT_DIR/../path-policy/path-policy-smoke-su
 HARNESS_PATHS="$SCRIPT_DIR/../harness/harness-paths.ts"
 HARNESS_MANIFEST="$SCRIPT_DIR/../harness/harness-manifest.ts"
 LINT_RATCHET_PATHS="$SCRIPT_DIR/../lint-ratchet/paths.ts"
-LINT_RATCHET_METRICS_TYPES="$SCRIPT_DIR/../lint-ratchet/metrics-types.ts"
 CONFIG_SURFACES="$REPO_ROOT/eslint-config/config-surfaces.js"
 CONFIG_SURFACE_MANIFEST="$REPO_ROOT/eslint-config/config-surface-manifest.json"
 SHARED_POLICY="$REPO_ROOT/eslint-config/shared-policy.js"
@@ -130,7 +129,11 @@ new_repo() {
   cp "$HARNESS_PATHS" "$repo/scripts/harness/harness-paths.ts"
   cp "$HARNESS_MANIFEST" "$repo/scripts/harness/harness-manifest.ts"
   cp "$LINT_RATCHET_PATHS" "$repo/scripts/lint-ratchet/paths.ts"
-  cp "$LINT_RATCHET_METRICS_TYPES" "$repo/scripts/lint-ratchet/metrics-types.ts"
+  # @musi/lint-ratchet engine moved to the package (leaf 02 S3); the copied
+  # adapter/generators import it, so resolve it via a scoped node_modules
+  # symlink instead of copying the moved leaf file.
+  mkdir -p "$repo/node_modules/@musi"
+  [ -e "$repo/node_modules/@musi/lint-ratchet" ] || ln -s "$REPO_ROOT/tools/lint-ratchet" "$repo/node_modules/@musi/lint-ratchet"
   cp "$CONFIG_SURFACES" "$repo/eslint-config/config-surfaces.js"
   cp "$CONFIG_SURFACE_MANIFEST" "$repo/eslint-config/config-surface-manifest.json"
   cp "$SHARED_POLICY" "$repo/eslint-config/shared-policy.js"
@@ -183,6 +186,10 @@ new_json_lint_repo() {
   local repo
 
   repo="$(new_repo "$name")"
+  # JSON lint needs @eslint/json from the real node_modules; replace new_repo's
+  # scoped @musi node_modules with the whole store (which still resolves
+  # @musi/lint-ratchet via the workspace .bun metadata).
+  rm -rf "$repo/node_modules"
   ln -s "$REPO_ROOT/node_modules" "$repo/node_modules"
   cat > "$repo/package.json" <<'JSON'
 {"type":"module"}
@@ -863,7 +870,11 @@ cp "$PATH_POLICY_SMOKE_SUBJECTS_DATA" \
 cp "$HARNESS_PATHS" "$repo/scripts/harness/harness-paths.ts"
 cp "$HARNESS_MANIFEST" "$repo/scripts/harness/harness-manifest.ts"
 cp "$LINT_RATCHET_PATHS" "$repo/scripts/lint-ratchet/paths.ts"
-cp "$LINT_RATCHET_METRICS_TYPES" "$repo/scripts/lint-ratchet/metrics-types.ts"
+# @musi/lint-ratchet engine moved to the package (leaf 02 S3); the copied
+# adapter/generators import it, so resolve it via a scoped node_modules
+# symlink instead of copying the moved leaf file.
+mkdir -p "$repo/node_modules/@musi"
+[ -e "$repo/node_modules/@musi/lint-ratchet" ] || ln -s "$REPO_ROOT/tools/lint-ratchet" "$repo/node_modules/@musi/lint-ratchet"
 cp "$CONFIG_SURFACES" "$repo/eslint-config/config-surfaces.js"
 cp "$CONFIG_SURFACE_MANIFEST" "$repo/eslint-config/config-surface-manifest.json"
 cp "$SHARED_POLICY" "$repo/eslint-config/shared-policy.js"
@@ -898,7 +909,7 @@ touch "$repo/packages/shared/dist/rules/attack-damage.d.ts"
 touch "$repo/packages/shared/dist/schemas/auth.d.ts"
 touch "$repo/packages/shared/dist/test/parse-helpers.d.ts"
 touch "$repo/packages/server/dist/routers/app-router.d.ts"
-git -C "$repo" add scripts/eslint-main.sh scripts/lint-changed.sh scripts/lint-shell.sh scripts/lib/parallel-runner.sh scripts/lint-config-sensors.sh scripts/lint-import-cycles.sh scripts/lib/eslint-main-cache.sh scripts/lib/eslint-main-partitions.sh scripts/lib/verify-metadata.sh scripts/lib/changed-base.sh scripts/lib/changed-lintable-files.sh scripts/lib/lint-dist-preflight.sh scripts/lib/gate-env.sh scripts/path-policy/path-policy-query.ts scripts/path-policy/path-policy-query-core.ts scripts/path-policy/path-policy.ts scripts/path-policy/path-policy-smoke-subjects.ts scripts/path-policy/path-policy-smoke-subjects-data.ts scripts/harness/harness-paths.ts scripts/harness/harness-manifest.ts scripts/lint-ratchet/paths.ts scripts/lint-ratchet/metrics-types.ts eslint-config/config-surfaces.js eslint-config/config-surface-manifest.json eslint-config/shared-policy.js eslint-config/max-lines-exceptions-codec.js eslint-config/max-lines-exceptions.baseline.json packages/shared/dist/constants.d.ts packages/shared/dist/dice/dice-roller.d.ts packages/shared/dist/map/drawing.d.ts packages/shared/dist/rules/attack-damage.d.ts packages/shared/dist/schemas/auth.d.ts packages/shared/dist/test/parse-helpers.d.ts packages/server/dist/routers/app-router.d.ts
+git -C "$repo" add scripts/eslint-main.sh scripts/lint-changed.sh scripts/lint-shell.sh scripts/lib/parallel-runner.sh scripts/lint-config-sensors.sh scripts/lint-import-cycles.sh scripts/lib/eslint-main-cache.sh scripts/lib/eslint-main-partitions.sh scripts/lib/verify-metadata.sh scripts/lib/changed-base.sh scripts/lib/changed-lintable-files.sh scripts/lib/lint-dist-preflight.sh scripts/lib/gate-env.sh scripts/path-policy/path-policy-query.ts scripts/path-policy/path-policy-query-core.ts scripts/path-policy/path-policy.ts scripts/path-policy/path-policy-smoke-subjects.ts scripts/path-policy/path-policy-smoke-subjects-data.ts scripts/harness/harness-paths.ts scripts/harness/harness-manifest.ts scripts/lint-ratchet/paths.ts eslint-config/config-surfaces.js eslint-config/config-surface-manifest.json eslint-config/shared-policy.js eslint-config/max-lines-exceptions-codec.js eslint-config/max-lines-exceptions.baseline.json packages/shared/dist/constants.d.ts packages/shared/dist/dice/dice-roller.d.ts packages/shared/dist/map/drawing.d.ts packages/shared/dist/rules/attack-damage.d.ts packages/shared/dist/schemas/auth.d.ts packages/shared/dist/test/parse-helpers.d.ts packages/server/dist/routers/app-router.d.ts
 : > "$repo/eslint.log"
 output="$(run_lint_changed "$repo" 2>&1)" || fail "missing base should fall back to full lint: $output"
 grep -qF "neither 'main' nor 'origin/main' exists" <<< "$output" \

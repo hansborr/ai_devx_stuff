@@ -1,16 +1,17 @@
 import {
+  type BaselineMetricSpec,
+  formatBaseline,
+  parseBaseline,
+  type ParseResult,
+} from "@musi/lint-ratchet/kernel/entry-baseline.js";
+
+import {
   DEFAULT_NEAR_DUPLICATE_MIN_LINES,
   DEFAULT_NEAR_DUPLICATE_MIN_TOKENS,
   DEFAULT_NEAR_DUPLICATE_SIMILARITY,
   DEFAULT_NEAR_DUPLICATE_TOKEN_BAND_RATIO,
   type NearDuplicatePair,
 } from "./drift-ai/near-duplicates.js";
-import {
-  type BaselineMetricSpec,
-  formatBaseline,
-  parseBaseline,
-  type ParseResult,
-} from "./lib/baseline/entry-baseline.js";
 
 export type NearDuplicateBaselineEntry = {
   readonly key: string;

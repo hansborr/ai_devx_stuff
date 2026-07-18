@@ -42,7 +42,9 @@ build_fixture() {
   cp scripts/lint-agent-envelope.ts "$fixture_dir/scripts/lint-agent-envelope.ts"
   cp scripts/lint-agent-fix-text.ts "$fixture_dir/scripts/lint-agent-fix-text.ts"
   cp scripts/lint-agent-guidance.ts "$fixture_dir/scripts/lint-agent-guidance.ts"
-  cp scripts/lib/eslint-json.ts "$fixture_dir/scripts/lib/eslint-json.ts"
+  # lint-agent imports @musi/lint-ratchet/kernel/eslint-json (leaf 02 S3); the
+  # whole-node_modules symlink below carries the workspace .bun store, so Bun
+  # resolves the package there — no leaf copy needed.
   cp scripts/lib/lint-rule-docs.ts "$fixture_dir/scripts/lib/lint-rule-docs.ts"
   cp scripts/lib/eslint-main-cache.sh "$fixture_dir/scripts/lib/eslint-main-cache.sh"
   cp scripts/lint-ratchet/local-rule-fix-text.ts \

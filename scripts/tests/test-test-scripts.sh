@@ -954,7 +954,7 @@ MUSI_SCRIPTS_CHANGED_FILES="scripts/tests/lib/test-lint-ratchet-edit-check-fixtu
 ok "--changed selects test-lint-ratchet on lint-ratchet edit-check fixture helper change"
 
 : > "$STUB_LOG_FILE"
-MUSI_SCRIPTS_CHANGED_FILES="scripts/lint-ratchet/zero-baseline.ts" run_runner --changed >/dev/null
+MUSI_SCRIPTS_CHANGED_FILES="tools/lint-ratchet/src/governance/zero-baseline.ts" run_runner --changed >/dev/null
 [ "$(cat "$STUB_LOG_FILE")" = "runner ran test-lint-ratchet" ] \
   || fail "lint-ratchet zero-baseline helper change should select its smoke: $(cat "$STUB_LOG_FILE")"
 ok "--changed selects test-lint-ratchet on lint-ratchet zero-baseline helper change"

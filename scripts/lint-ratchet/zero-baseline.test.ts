@@ -1,16 +1,5 @@
 import { join } from "node:path";
 
-import { describe, expect, it } from "vitest";
-
-import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
-import {
-  buildLintRatchetBaseline,
-  formatLintRatchetBaseline,
-  type LintRatchetBaseline,
-  type LintRatchetRuleSourceHashesById,
-} from "./baseline.js";
-import { currentById, FIXTURE_HASH } from "./lint-ratchet.test-helper.js";
-import type { LintRatchetConfig } from "./lint-ratchet-config.js";
 import {
   auditZeroBaselineRatchets,
   createNormalLintStatusForFile,
@@ -20,7 +9,18 @@ import {
   runLintRatchetZeroBaselineAudit,
   undocumentedZeroBaselineRows,
   type ZeroBaselineAuditRow,
-} from "./zero-baseline.js";
+} from "@musi/lint-ratchet/governance/zero-baseline.js";
+import {
+  buildLintRatchetBaseline,
+  formatLintRatchetBaseline,
+  type LintRatchetBaseline,
+  type LintRatchetRuleSourceHashesById,
+} from "@musi/lint-ratchet/kernel/baseline.js";
+import type { LintRatchetConfig } from "@musi/lint-ratchet/kernel/config-types.js";
+import { describe, expect, it } from "vitest";
+
+import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
+import { currentById, FIXTURE_HASH } from "./lint-ratchet.test-helper.js";
 
 const tmpRepo = registerTempRootCleanup();
 
@@ -238,10 +238,12 @@ describe("lint ratchet zero-baseline audit", () => {
     await expect(
       runLintRatchetZeroBaselineAudit({
         baselinePath: join(tempRoot, "missing-baseline.json"),
+        repoRoot: tempRoot,
+        binding: { repoRoot: tempRoot, thirdPartyPluginAllowlist: [] },
         registry: [promotedRatchet],
         ruleSourceHashesById: new Map([[promotedRatchet.id, FIXTURE_HASH]]),
       }),
-    ).rejects.toThrow("lint-ratchet.baseline.json does not exist; run bun run lint:ratchet:update");
+    ).rejects.toThrow("missing-baseline.json does not exist; run bun run lint:ratchet:update");
   });
 
   it("uses strict committed-baseline validation before auditing", async () => {
@@ -257,6 +259,8 @@ describe("lint ratchet zero-baseline audit", () => {
     await expect(
       runLintRatchetZeroBaselineAudit({
         baselinePath,
+        repoRoot: ".",
+        binding: { repoRoot: ".", thirdPartyPluginAllowlist: [] },
         registry: [promotedRatchet],
         ruleSourceHashesById: new Map([[promotedRatchet.id, FIXTURE_HASH]]),
       }),

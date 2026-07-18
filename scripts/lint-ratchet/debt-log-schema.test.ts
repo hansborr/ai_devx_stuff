@@ -1,7 +1,9 @@
+import {
+  type LintRatchetDebtLogEntry,
+  parseLintRatchetDebtLogEntry,
+} from "@musi/lint-ratchet/governance/debt-log-schema.js";
+import { RATCHET_REGRESSION_REASON_PLACEHOLDER } from "@musi/lint-ratchet/kernel/recovery-command.js";
 import { describe, expect, it } from "vitest";
-
-import { type LintRatchetDebtLogEntry, parseLintRatchetDebtLogEntry } from "./debt-log-schema.js";
-import { RATCHET_REGRESSION_REASON_PLACEHOLDER } from "./recovery-command.js";
 
 const validEntry: LintRatchetDebtLogEntry = {
   version: "1",

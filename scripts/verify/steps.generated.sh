@@ -9,9 +9,9 @@
 : "${TIMINGS_FILE:?scripts/verify/steps.generated.sh requires TIMINGS_FILE}"
 
 declare -ga MUSI_VERIFY_CONSUMERS=('verify' 'verify_changed' 'verify_parallel' 'pre_commit')
-declare -ga MUSI_VERIFY_STEPS=('lint' 'suppressions' 'ratchet' 'zero-baseline' 'debt-accounting' 'demo-sync' 'local-rule-starter' 'knip-unused-exports' 'near-duplicates' 'max-lines-exceptions' 'coverage-map' 'format-check' 'typecheck' 'test' 'scripts')
+declare -ga MUSI_VERIFY_STEPS=('lint' 'suppressions' 'ratchet' 'zero-baseline' 'debt-accounting' 'local-rule-starter' 'knip-unused-exports' 'near-duplicates' 'max-lines-exceptions' 'coverage-map' 'format-check' 'typecheck' 'test' 'scripts')
 declare -ga MUSI_VERIFY_CHANGED_STEPS=('lint' 'suppressions' 'ratchet' 'zero-baseline' 'debt-accounting' 'knip-unused-exports' 'near-duplicates' 'max-lines-exceptions' 'coverage-map' 'format-check' 'typecheck' 'test' 'scripts')
-declare -ga MUSI_VERIFY_PARALLEL_STEPS=('lint' 'suppressions' 'ratchet' 'zero-baseline' 'debt-accounting' 'demo-sync' 'local-rule-starter' 'knip-unused-exports' 'near-duplicates' 'max-lines-exceptions' 'coverage-map' 'format-check' 'typecheck' 'test' 'scripts')
+declare -ga MUSI_VERIFY_PARALLEL_STEPS=('lint' 'suppressions' 'ratchet' 'zero-baseline' 'debt-accounting' 'local-rule-starter' 'knip-unused-exports' 'near-duplicates' 'max-lines-exceptions' 'coverage-map' 'format-check' 'typecheck' 'test' 'scripts')
 declare -ga MUSI_PRE_COMMIT_STEPS=('lint' 'suppressions' 'ratchet' 'zero-baseline' 'debt-accounting' 'knip-unused-exports' 'near-duplicates' 'max-lines-exceptions' 'coverage-map' 'format-check' 'typecheck' 'test' 'scripts')
 
 declare -ga MUSI_FAST_COMMIT_SKIP_SLOTS=('test' 'scripts')
@@ -34,9 +34,6 @@ MUSI_VERIFY_SLOT_CMD_VAR['verify:zero-baseline']='MUSI_VERIFY_ZERO_BASELINE_CMD'
 
 MUSI_VERIFY_DEBT_ACCOUNTING_CMD=('bun' 'run' 'lint:ratchet:check-debt-accounting')
 MUSI_VERIFY_SLOT_CMD_VAR['verify:debt-accounting']='MUSI_VERIFY_DEBT_ACCOUNTING_CMD'
-
-MUSI_VERIFY_DEMO_SYNC_CMD=('bun' 'run' 'lint:ratchet:demo-sync')
-MUSI_VERIFY_SLOT_CMD_VAR['verify:demo-sync']='MUSI_VERIFY_DEMO_SYNC_CMD'
 
 MUSI_VERIFY_LOCAL_RULE_STARTER_CMD=('bun' 'run' 'docs:local-eslint-rule-starter:check')
 MUSI_VERIFY_SLOT_CMD_VAR['verify:local-rule-starter']='MUSI_VERIFY_LOCAL_RULE_STARTER_CMD'
@@ -119,9 +116,6 @@ MUSI_VERIFY_SLOT_CMD_VAR['verify_parallel:zero-baseline']='MUSI_VERIFY_PARALLEL_
 
 MUSI_VERIFY_PARALLEL_DEBT_ACCOUNTING_CMD=('bun' 'run' 'lint:ratchet:check-debt-accounting')
 MUSI_VERIFY_SLOT_CMD_VAR['verify_parallel:debt-accounting']='MUSI_VERIFY_PARALLEL_DEBT_ACCOUNTING_CMD'
-
-MUSI_VERIFY_PARALLEL_DEMO_SYNC_CMD=('bun' 'run' 'lint:ratchet:demo-sync')
-MUSI_VERIFY_SLOT_CMD_VAR['verify_parallel:demo-sync']='MUSI_VERIFY_PARALLEL_DEMO_SYNC_CMD'
 
 MUSI_VERIFY_PARALLEL_LOCAL_RULE_STARTER_CMD=('bun' 'run' 'docs:local-eslint-rule-starter:check')
 MUSI_VERIFY_SLOT_CMD_VAR['verify_parallel:local-rule-starter']='MUSI_VERIFY_PARALLEL_LOCAL_RULE_STARTER_CMD'

@@ -2,19 +2,24 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import type { LintRatchetBaseline } from "@musi/lint-ratchet/kernel/baseline.js";
+import {
+  LINT_RATCHET_BASELINE_WRITE_VERSION,
+  lintRatchetBaselineRegenerateForVersion,
+} from "@musi/lint-ratchet/kernel/baseline-constants.js";
+import { formatLintRatchetBaseline } from "@musi/lint-ratchet/kernel/baseline-format.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { LintRatchetBaseline } from "./baseline.js";
-import { LINT_RATCHET_BASELINE_VERSION } from "./baseline-constants.js";
-import { formatLintRatchetBaseline } from "./baseline-format.js";
 import { runBaselineMergeCli } from "./baseline-merge-cli.js";
 
 const CONFIG_HASH = `sha256:${"a".repeat(64)}`;
 const RULE_SOURCE_HASH = `sha256:${"b".repeat(64)}`;
 
 function baseline(count: number, configHash = CONFIG_HASH): LintRatchetBaseline {
+  const regenerate = lintRatchetBaselineRegenerateForVersion(LINT_RATCHET_BASELINE_WRITE_VERSION);
   return {
-    version: LINT_RATCHET_BASELINE_VERSION,
+    version: LINT_RATCHET_BASELINE_WRITE_VERSION,
+    ...(regenerate === undefined ? {} : { regenerate }),
     tests: {
       "ratchet/fixture-one": {
         ruleId: "local/example-rule",

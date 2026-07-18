@@ -1,4 +1,4 @@
-import { compareByCodepoint } from "../lib/codepoint-compare.js";
+import { compareByCodepoint } from "@musi/lint-ratchet/kernel/codepoint-compare.js";
 
 export const VERIFY_STEP_DYNAMIC_RESOLVER_BINDINGS = [
   {

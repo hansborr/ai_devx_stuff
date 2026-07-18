@@ -1,22 +1,22 @@
 import { existsSync, readFileSync } from "node:fs";
 
-import { harnessManifestPath as resolveHarnessManifestPath } from "../harness/harness-manifest.js";
-import { formatRuleDocsFailures, loadLintRuleDocs } from "../lib/lint-rule-docs.js";
 import {
   collectOrphanRemovals,
   parseLintRatchetBaselineStructure,
   validateLintRatchetRegistry,
-} from "./baseline.js";
-import { trackedFilesFromGit } from "./git-tracked-files.js";
-import {
-  type LintRatchetConfig,
-  lintRatchets,
-  lintRatchetThirdPartyPluginAllowlist,
-  type LintRatchetThirdPartyPluginAllowlistEntry,
-} from "./lint-ratchet-config.js";
-import { ConfigError } from "./metrics.js";
+} from "@musi/lint-ratchet/kernel/baseline.js";
+import type {
+  LintRatchetConfig,
+  LintRatchetThirdPartyPluginAllowlistEntry,
+} from "@musi/lint-ratchet/kernel/config-types.js";
+import { trackedFilesFromGit } from "@musi/lint-ratchet/kernel/git-tracked-files.js";
+import { ConfigError } from "@musi/lint-ratchet/kernel/metrics.js";
+import { matchesAny, matchingTrackedFiles } from "@musi/lint-ratchet/kernel/ratchet-globs.js";
+
+import { harnessManifestPath as resolveHarnessManifestPath } from "../harness/harness-manifest.js";
+import { formatRuleDocsFailures, loadLintRuleDocs } from "../lib/lint-rule-docs.js";
+import { lintRatchets, lintRatchetThirdPartyPluginAllowlist } from "./lint-ratchet-config.js";
 import { BASELINE_FILENAME, baselinePath, repoRoot } from "./paths.js";
-import { matchesAny, matchingTrackedFiles } from "./ratchet-globs.js";
 import { formatMissingRatchetManifestMessage } from "./ratchet-manifest-message.js";
 
 const WINDOWS_ABSOLUTE_PATH_PATTERN = /^[A-Z]:[\\/]/iu;
@@ -269,7 +269,7 @@ async function checkCurrentLintRatchetRegistry(
     ratchets: lintRatchets,
     localRuleIds: new Set(ruleDocsById.keys()),
     thirdPartyPlugins: lintRatchetThirdPartyPluginAllowlist,
-    trackedFiles: trackedFilesFromGit("checking lint ratchet globs"),
+    trackedFiles: trackedFilesFromGit("checking lint ratchet globs", repoRoot),
     baselineText: baselineTextIfPresent(),
     baselineLabel: BASELINE_FILENAME,
     harnessManifestRatchetIds: harnessManifestRatchetIdsIfPresent(),

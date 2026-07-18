@@ -1,10 +1,7 @@
 # agent-run trailer and exit-code contract
 
 This is the caller-facing contract for
-`.claude/skills/agent-cli/scripts/agent-run.sh`. It is a reference artifact
-that travels with the skill by file copy. The wrapper remains hand-written
-single-file bash; this file is not a generated input and there is no build
-step.
+`.claude/skills/agent-cli/scripts/agent-run.sh`.
 
 ## Stream Model
 
@@ -40,7 +37,7 @@ relative order is intentionally not a byte-exact golden contract.
 |---|---|---|---|
 | `agent-run: branch:` | Optional | Before `dispatched:` when present | A `work --branch <name>` run created and switched to the named branch before backend launch. |
 | `agent-run: dispatched:` | Required for every dispatch attempt that reaches the launch phase | Before `backend-pid:` and before completion anchors | Names the mode, agent, wrapper pid, and the answer path when the mode has one. `review codex` has no answer path. |
-| `agent-run: backend-pid:` | Required for every dispatch attempt that emitted `dispatched:` | After `dispatched:` and before completion anchors | Names the backend pid. The launch subshell records the pid with a write-guarded `printf … && exec`, so an empty pid record can only mean the write failed and no backend was exec'd; that case reads `none (...)` and there is nothing to orphan — the worktree lock releases with the wrapper. An empty pid record never coexists with a live, lock-holding backend. |
+| `agent-run: backend-pid:` | Required for every dispatch attempt that emitted `dispatched:` | After `dispatched:` and before completion anchors | Names the backend pid. `none (...)` means no backend was exec'd — there is nothing to orphan, and the worktree lock releases with the wrapper. A `none` record never coexists with a live, lock-holding backend. |
 
 ## Finalize Records
 
@@ -63,7 +60,7 @@ relative order is intentionally not a byte-exact golden contract.
 | 0 | Wrapper | Finalized success. For read-only modes, no drift was detected or drift was explicitly unchecked; for `work`, the backend completed and the worktree outcome was reported. |
 | 1 | Wrapper | Run failure. This includes a non-zero backend exit, a launch abort before `exec`, a backend that produced no answer where one was required, parse/envelope failure, or TERM/INT/HUP finalization. Backend codes never pass through raw; numeric backend status appears only in `agent-run: backend-exit:` when available. |
 | 2 | Wrapper | Usage error before backend launch, including invalid arguments, stale answer paths, dirty `work` start without `--dirty-ok`, and invalid branch policy combinations. No launch header is emitted. |
-| 3 | Wrapper | Worktree lock failure before backend launch: busy lock, missing `flock` for a lock-required run, or an unavailable lock path. No launch header is emitted. |
+| 3 | Wrapper | Worktree lock failure before backend launch: busy lock, missing `flock` for a `work` run, or an unavailable lock path. No launch header is emitted. |
 | 4 | Wrapper | A read-only run (`consult` or `review codex`) mutated the worktree. The log includes a `worktree: DIRTY (...)` completion anchor. Drift outranks backend failure, but the backend status is still preserved in `backend-exit:` when available. |
 
 Codes 2, 3, and 4 always mean the wrapper, not the backend.
@@ -80,3 +77,19 @@ The `agent-run: backend-pid:` record then decides recovery shape: a live backend
 is an orphan that may still hold the worktree lock, while a dead backend means
 the wrapper died without finalizing. `agent-wait.sh` reports those cases as
 dead-run statuses; consumers must not infer completion from the launch header.
+
+Recovery:
+
+- A still-alive backend pid is an orphan that may still be writing (a `work`
+  orphan also still holds the worktree lock): kill its process group
+  (`kill -- -<backend-pid>`) before taking the worktree over.
+- Recover the delegate's staged-but-uncommitted work with a fresh
+  `work --dirty-ok` run told the staged diff is its own, or resume the session
+  from its id: check the log for an `agent-run: session-id:` line (codex logs
+  it early, so it usually survives a crash; the other backends log it only at
+  finalization), and fall back to the backend's native session store
+  (`~/.codex/sessions/`, `~/.claude/`, or per the backend reference).
+- An empty leftover explicit `-o` can be reused as-is; only a non-empty one is
+  rejected as stale. An auto-generated `-o` that never received an answer is
+  deleted whenever the wrapper finalizes (including the TERM path); only
+  SIGKILL leaves the empty file behind.

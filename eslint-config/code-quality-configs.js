@@ -26,6 +26,35 @@ export const maxLinesExceptionConfigs = maxLinesPolicy.exceptions.map(
   }),
 );
 
+// Engine zone cap: the lint-ratchet engine (kernel codec + governance) is
+// designed to consolidate at real seams — collect / compare / merge / git —
+// so its files legitimately run larger than the repo-wide 300-line ratchet
+// floor. That is deliberate zone policy, not tracked debt, so it lives in
+// config (a scoped `local/max-lines` cap over the engine globs) rather than as
+// a few dozen exceptions-baseline entries, which would manufacture false debt
+// and keep the fragmentation pressure the cap exists to relieve. Spread this
+// AFTER createRepoCodeQualityConfigs (so it overrides the 300 floor) and BEFORE
+// maxLinesExceptionConfigs (so genuine >500 outliers keep their per-file entry,
+// which wins last). Carried to `tools/lint-ratchet/**` when the engine moves.
+// Ruling: docs/agent_notes/backlog/lint-arch-review-2026-07/05-engine-file-consolidation.md.
+// Globs are scoped to `.ts` (the engine is all TypeScript): a bare
+// `scripts/lint-ratchet/**` would also match any JSON config placed there, and
+// applying a `local/*` code rule to a JSON file linted by the JSON parser fails
+// to resolve the `local` plugin. The per-file exception configs sidestep the
+// same hazard by listing exact `.ts` paths.
+export const maxLinesEngineZoneConfigs = [
+  {
+    files: [
+      "scripts/lint-ratchet/**/*.ts",
+      "scripts/lib/baseline/**/*.ts",
+      "tools/lint-ratchet/**/*.ts",
+    ],
+    rules: {
+      "local/max-lines": ["error", { max: 500, ...maxLinesPolicy.counting }],
+    },
+  },
+];
+
 // Generator-owned files carry no per-file cap — the size gate is turned off
 // entirely (the generator is the reviewed surface, not its emitted table). The
 // allowlist and its "must be generator-owned" guard live in shared-policy.js /

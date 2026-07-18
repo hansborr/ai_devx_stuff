@@ -1,5 +1,6 @@
 {
-  "version": 1,
+  "version": 2,
+  "regenerate": "bun run lint:ratchet:update",
   "tests": {
     "ratchet/no-console-src": {
       "ruleId": "local/no-console-log",
@@ -14,7 +15,7 @@
       ],
       "ruleOptions": [],
       "configHash": "sha256:17172387dcd678a0e62f665211a82939a06893efabde08b32bc9f855c1b877d2",
-      "ruleSourceHash": "sha256:9f5574c1a492e47516b3dafb59826e69343d0a267588d3103f30dc5f982430e5",
+      "ruleSourceHash": "sha256:fc0c009f9b618ba719b39e5796728cfa82730364d550523c6d3fc812cbe9bda5",
       "items": {
         "src/app.ts": {
           "count": 2,

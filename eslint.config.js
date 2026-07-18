@@ -4,6 +4,7 @@ import { defineConfig } from "eslint/config";
 
 import { createBaseConfigs } from "./eslint-config/base-configs.js";
 import {
+  maxLinesEngineZoneConfigs,
   maxLinesExceptionConfigs,
   maxLinesGeneratedExemptionConfigs,
   createRepoCodeQualityConfigs,
@@ -25,6 +26,7 @@ import {
   processPrimitiveConfigs,
   scriptDebtOverrideConfigs,
 } from "./eslint-config/script-configs.js";
+import { createToolsProjectConfigs } from "./eslint-config/tools-configs.js";
 import {
   productionFunctionStructureFiles,
   productionFunctionStructureIgnores,
@@ -63,6 +65,11 @@ export default defineConfig(
   ...clientFrameworkConfigs,
   ...jsonFileConfigs,
 
+  // Raise the max-lines floor to 500 for the lint-ratchet engine zone before
+  // the per-file caps below, so engine files consolidate at real seams while
+  // genuine >500 outliers still resolve to their per-file exception entry.
+  ...maxLinesEngineZoneConfigs,
+
   // Keep high per-file caps and max-300 ratchet floor metadata in one policy.
   ...maxLinesExceptionConfigs,
 
@@ -72,6 +79,7 @@ export default defineConfig(
 
   ...packagePolicyConfigs,
   ...createScriptProjectConfigs(repoRoot),
+  ...createToolsProjectConfigs(repoRoot),
   ...createTestAndE2eConfigs(repoRoot),
   ...rawTxClientBoundaryConfigs,
   ...clientRuntimeBoundaryConfigs,

@@ -1,161 +1,287 @@
-import { realpathSync } from "node:fs";
-import { basename, resolve } from "node:path";
-import { pathToFileURL } from "node:url";
+// The demo's minimal CLI adapter for the portable lint-ratchet engine.
+//
+// It wires the demo's registry/binding/context (see scripts/lint-ratchet/adapter.ts)
+// to the package's pure kernel + governance operations and renders its OWN tiny
+// result envelope — deliberately a different shape from the Musi diagnostics
+// envelope — to prove the engine dictates neither the CLI surface nor the output
+// format. Supported invocations:
+//
+//   bun scripts/lint-ratchet.ts                      # gate (default)
+//   bun scripts/lint-ratchet.ts --check-registry     # validate the registry
+//   bun scripts/lint-ratchet.ts --check-baseline     # gate + missing-driver warning
+//   bun scripts/lint-ratchet.ts --update [--allow-worse --reason "<why>"]
+//   bun scripts/lint-ratchet.ts --propose <ruleId> <glob...>  # preview a baseline
+import { resolve } from "node:path";
 
-import { forwardMissingMergeDriverWarning } from "./lib/baseline/merge-driver-presence.js";
-import { parseArgs, PROCESS_ARG_OFFSET, usage, UsageError } from "./lint-ratchet/cli.js";
-import { WorseBaselineError } from "./lint-ratchet/cli-errors.js";
-import { ConfigError } from "./lint-ratchet/metrics.js";
-import { type LintRatchetRuntimeOptions, runLintRatchetCli } from "./lint-ratchet/modes.js";
-import { repoRoot } from "./lint-ratchet/paths.js";
-import { LINT_RATCHET_REPORT_ARTIFACT_URL_ENV } from "./lint-ratchet/report.js";
+import { forwardMissingMergeDriverWarning } from "@musi/lint-ratchet/git-rail/merge-driver-presence.js";
+import { applyLintRatchetUpdate } from "@musi/lint-ratchet/governance/baseline-update-apply.js";
+import { WorseBaselineError } from "@musi/lint-ratchet/governance/errors.js";
+import { runLintRatchetProposeCli } from "@musi/lint-ratchet/governance/propose.js";
+import {
+  buildLintRatchetBaseline,
+  compareCurrentToBaseline,
+  formatLintRatchetBaseline,
+  parseLintRatchetBaseline,
+  validateLintRatchetRegistry,
+} from "@musi/lint-ratchet/kernel/baseline.js";
+import {
+  collectCurrentById,
+  totalCurrentCount,
+} from "@musi/lint-ratchet/kernel/current-collector.js";
+import { buildRuleSourceHashesById } from "@musi/lint-ratchet/kernel/rule-source.js";
 
-export {
-  assertCheckBaselineComparisonClean,
-  buildEnvelope,
-  buildEnvelopeFromComparison,
-} from "./lint-ratchet/diagnostics.js";
+import {
+  demoBinding,
+  demoContext,
+  demoProposeEngine,
+  demoRatchets,
+  readBaselineText,
+  repoRoot,
+} from "./lint-ratchet/adapter.js";
 
-const DECIMAL_RADIX = 10;
-const MIN_EDIT_CHECK_CONCURRENCY = 1;
-const MIN_COLLECT_CONCURRENCY = 1;
+const PROCESS_ARG_OFFSET = 2;
+// The demo defines exactly one local rule; check-registry validates the registry
+// against this set the same way the Musi adapter validates against its wired rules.
+const DEMO_LOCAL_RULE_IDS = new Set(["local/no-console-log"]);
 
-function nonEmptyEnvValue(name: string): string | undefined {
-  const value = process.env[name];
-  return value === undefined || value.length === 0 ? undefined : value;
+type Mode = "gate" | "check-registry" | "check-baseline" | "update" | "propose";
+
+interface DemoArgs {
+  readonly mode: Mode;
+  readonly allowWorse: boolean;
+  readonly reason?: string;
+  // Populated only for --propose <ruleId> <glob...>.
+  readonly proposeRuleId?: string;
+  readonly proposeFiles?: readonly string[];
 }
 
-/**
- * Parse a concurrency env value, failing loud on garbage. A set env var
- * expresses operator intent, so a typo like `AI_RATCHET_COLLECT_CONCURRENCY=1O`
- * (letter O) or a below-minimum value should stop the run — not silently fall
- * back to the default via `parseInt`'s trailing-junk tolerance. Unset or empty
- * means "use the default" (consistent with nonEmptyEnvValue).
- */
-export function parseConcurrencyEnvValue(
-  raw: string | undefined,
-  name: string,
-  minimum: number,
-): number | undefined {
-  if (raw === undefined || raw.length === 0) return undefined;
-  if (!/^\d+$/u.test(raw)) {
-    throw new ConfigError(
-      `${name}=${raw} is not a valid concurrency (expected an integer >= ${String(minimum)})`,
-    );
+class UsageError extends Error {}
+
+function parseArgs(argv: readonly string[]): DemoArgs {
+  let mode: Mode = "gate";
+  let allowWorse = false;
+  let reason: string | undefined;
+  let proposeRuleId: string | undefined;
+  const proposeFiles: string[] = [];
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+    switch (arg) {
+      case "--check-registry":
+        mode = "check-registry";
+        break;
+      case "--check-baseline":
+        mode = "check-baseline";
+        break;
+      case "--update":
+        mode = "update";
+        break;
+      case "--propose": {
+        // --propose <ruleId> <glob...>: the ruleId then one or more file globs,
+        // consumed up to the next flag.
+        mode = "propose";
+        proposeRuleId = argv[index + 1];
+        index += 1;
+        while (index + 1 < argv.length && !argv[index + 1].startsWith("--")) {
+          index += 1;
+          proposeFiles.push(argv[index]);
+        }
+        break;
+      }
+      case "--allow-worse":
+        allowWorse = true;
+        break;
+      case "--reason": {
+        index += 1;
+        const value = argv[index];
+        if (value === undefined) throw new UsageError("--reason requires a value");
+        reason = value;
+        break;
+      }
+      default:
+        throw new UsageError(`unknown argument: ${arg ?? "(none)"}`);
+    }
   }
-  const parsed = Number.parseInt(raw, DECIMAL_RADIX);
-  if (parsed < minimum) {
-    throw new ConfigError(`${name}=${raw} is below the minimum concurrency ${String(minimum)}`);
-  }
-  return parsed;
-}
-
-function concurrencyFromEnv(name: string, minimum: number): number | undefined {
-  return parseConcurrencyEnvValue(process.env[name], name, minimum);
-}
-
-function editCheckConcurrencyFromEnv(): number | undefined {
-  return concurrencyFromEnv("AI_RATCHET_REGRESSION_CONCURRENCY", MIN_EDIT_CHECK_CONCURRENCY);
-}
-
-function collectConcurrencyFromEnv(): number | undefined {
-  return concurrencyFromEnv("AI_RATCHET_COLLECT_CONCURRENCY", MIN_COLLECT_CONCURRENCY);
-}
-
-function runtimeOptionsFromEnv(): LintRatchetRuntimeOptions {
-  const reportArtifactName = nonEmptyEnvValue(LINT_RATCHET_REPORT_ARTIFACT_URL_ENV);
-  const editCheckConcurrency = editCheckConcurrencyFromEnv();
-  const collectConcurrency = collectConcurrencyFromEnv();
   return {
-    ...(reportArtifactName === undefined ? {} : { reportArtifactName }),
-    ...(editCheckConcurrency === undefined ? {} : { editCheckConcurrency }),
-    ...(collectConcurrency === undefined ? {} : { collectConcurrency }),
+    mode,
+    allowWorse,
+    ...(reason === undefined ? {} : { reason }),
+    ...(proposeRuleId === undefined ? {} : { proposeRuleId }),
+    ...(proposeFiles.length === 0 ? {} : { proposeFiles }),
   };
 }
 
-async function main(): Promise<void> {
-  const args = parseArgs(process.argv.slice(PROCESS_ARG_OFFSET));
-  if (args.mode === "update" || args.mode === "check-baseline") {
-    forwardMissingMergeDriverWarning({
-      checkScriptPath: resolve(repoRoot, "scripts/git/check-lint-ratchet-merge-driver.sh"),
-      cwd: process.cwd(),
-      env: process.env,
-      warn: (message) => {
-        console.error(message);
-      },
-    });
-  }
-  await runLintRatchetCli(args, runtimeOptionsFromEnv());
-}
-
-// Injectable path plumbing so the entry classification is unit-testable without
-// spawning the script through a real symlink.
-interface EntryProbe {
-  readonly resolvePath: (path: string) => string;
-  readonly realpath: (path: string) => string;
-  readonly toHref: (path: string) => string;
-}
-
-const nodeEntryProbe: EntryProbe = {
-  resolvePath: (path) => resolve(path),
-  realpath: (path) => realpathSync(path),
-  toHref: (path) => pathToFileURL(path).href,
-};
-
-const SCRIPT_BASENAME = "lint-ratchet.ts";
+const RECOVERY_COMMAND =
+  'bun run lint:ratchet:update -- --allow-worse --reason "<why accepting this debt beats a rushed fix>"';
 
 /**
- * Decide whether this module was invoked as the CLI, imported for its exports,
- * or invoked as the CLI with a broken identity match. Node's ESM loader
- * realpaths the entry module URL while `resolve(argv[1])` does not follow
- * symlinks, so a symlinked checkout makes the raw comparison fail; probing the
- * realpathed form too lets a symlinked invocation still `"run"`. When the guard
- * fails yet `argv[1]` still names THIS script, that is a wiring anomaly, not a
- * module import — return `"mismatch"` so the caller fails loud instead of a
- * gate silently exiting 0 having checked nothing.
+ * The demo's own result envelope. Intentionally minimal and distinct from the
+ * Musi diagnostics envelope: a status plus the blocking key deltas, printed as
+ * one-line JSON so a consumer (and the smoke) can assert on it without the demo
+ * inheriting a Musi output contract.
  */
-export function classifyScriptEntry(
-  argvPath: string | undefined,
-  importMetaHref: string,
-  scriptBasename: string = SCRIPT_BASENAME,
-  probe: EntryProbe = nodeEntryProbe,
-): "run" | "skip" | "mismatch" {
-  if (argvPath === undefined) return "skip";
-  const resolved = probe.resolvePath(argvPath);
-  const candidates = [resolved];
-  try {
-    candidates.push(probe.realpath(resolved));
-  } catch {
-    // realpath throws if the path vanished mid-run; the unresolved form stands.
-  }
-  if (candidates.some((candidate) => probe.toHref(candidate) === importMetaHref)) return "run";
-  return basename(argvPath) === scriptBasename ? "mismatch" : "skip";
+function renderEnvelope(payload: {
+  readonly status: "ok" | "regressed" | "improved";
+  readonly regressions: readonly string[];
+  readonly improvements: readonly string[];
+  readonly recovery?: string;
+}): string {
+  return JSON.stringify({ tool: "lint-ratchet-demo", ...payload });
 }
 
-const entryDisposition = classifyScriptEntry(process.argv[1], import.meta.url);
-if (entryDisposition === "mismatch") {
-  console.error(
-    `lint:ratchet: invoked as a script but the entry-point identity check failed — the gate did ` +
-      `NOT run. import.meta.url=${import.meta.url} did not match argv[1]=${process.argv[1] ?? "(none)"} ` +
-      `(resolved or realpathed). This usually means a symlink or path-casing mismatch in the wiring; ` +
-      `fix the invocation so the ratchet actually runs.`,
-  );
-  process.exitCode = 2;
-} else if (entryDisposition === "run") {
+async function collectCurrent(): Promise<Awaited<ReturnType<typeof collectCurrentById>>> {
+  const ruleSourceHashesById = buildRuleSourceHashesById(demoRatchets, demoBinding);
+  return collectCurrentById({
+    ruleSourceHashesById,
+    ratchets: demoRatchets,
+    binding: demoBinding,
+  });
+}
+
+function parseCommittedBaseline(): NonNullable<
+  ReturnType<typeof parseLintRatchetBaseline>["baseline"]
+> {
+  const ruleSourceHashesById = buildRuleSourceHashesById(demoRatchets, demoBinding);
+  const parsed = parseLintRatchetBaseline(readBaselineText(), demoRatchets, ruleSourceHashesById);
+  if (parsed.baseline === undefined) {
+    throw new Error(`baseline failed to parse:\n${parsed.failures.join("\n")}`);
+  }
+  return parsed.baseline;
+}
+
+function reportComparison(regressions: readonly string[], improvements: readonly string[]): number {
+  if (regressions.length > 0) {
+    process.stdout.write(
+      `${renderEnvelope({ status: "regressed", regressions, improvements, recovery: RECOVERY_COMMAND })}\n`,
+    );
+    return 1;
+  }
+  if (improvements.length > 0) {
+    process.stdout.write(
+      `${renderEnvelope({
+        status: "improved",
+        regressions,
+        improvements,
+        recovery: "bun run lint:ratchet:update  # lock in the improvement",
+      })}\n`,
+    );
+    return 1;
+  }
+  process.stdout.write(`${renderEnvelope({ status: "ok", regressions, improvements })}\n`);
+  return 0;
+}
+
+async function runGate(): Promise<number> {
+  const baseline = parseCommittedBaseline();
+  const currentById = await collectCurrent();
+  const comparison = compareCurrentToBaseline(baseline, demoRatchets, currentById);
+  const regressions = comparison.regressions.map((entry) => entry.path);
+  const improvements = comparison.improvements.map((entry) => entry.path);
+  return reportComparison(regressions, improvements);
+}
+
+function runCheckRegistry(): number {
+  const failures = validateLintRatchetRegistry(demoRatchets, {
+    localRuleIds: DEMO_LOCAL_RULE_IDS,
+  });
+  if (failures.length > 0) {
+    process.stderr.write(`lint:ratchet: registry invalid:\n${failures.join("\n")}\n`);
+    return 1;
+  }
+  process.stdout.write("lint:ratchet: registry OK\n");
+  return 0;
+}
+
+async function runUpdate(args: DemoArgs): Promise<number> {
+  const ruleSourceHashesById = buildRuleSourceHashesById(demoRatchets, demoBinding);
+  const currentById = await collectCurrent();
+  const generated = buildLintRatchetBaseline(demoRatchets, currentById, ruleSourceHashesById);
+  const rendered = formatLintRatchetBaseline(generated);
+  // The packaged update orchestration gates the committed baseline (structurally,
+  // so a stale rule-source hash does not block a regeneration), records any
+  // accepted debt in the debt log, and writes the baseline atomically — the same
+  // apply path the Musi adapter uses.
   try {
-    await main();
+    applyLintRatchetUpdate({
+      context: demoContext,
+      generated,
+      rendered,
+      registry: demoRatchets,
+      options: {
+        allowWorse: args.allowWorse,
+        ...(args.reason === undefined ? {} : { reason: args.reason }),
+      },
+      currentFindingCount: totalCurrentCount(currentById),
+    });
   } catch (error) {
-    if (error instanceof UsageError) {
-      console.error(`lint:ratchet: ${error.message}\n${usage()}`);
-      process.exitCode = 2;
-    } else if (error instanceof ConfigError) {
-      console.error(`lint:ratchet: ${error.message}`);
-      process.exitCode = 2;
-    } else if (error instanceof WorseBaselineError) {
-      console.error(`lint:ratchet: ${error.message}`);
-      process.exitCode = 1;
-    } else {
-      throw error;
+    if (error instanceof WorseBaselineError) {
+      process.stderr.write(
+        `lint:ratchet: update refused:\n${error.message}\nAccept the debt with:\n  ${RECOVERY_COMMAND}\n`,
+      );
+      return 1;
     }
+    throw error;
+  }
+  return 0;
+}
+
+async function runProposeMode(args: DemoArgs): Promise<number> {
+  if (args.proposeRuleId === undefined || args.proposeFiles === undefined) {
+    throw new UsageError("--propose requires <ruleId> <glob...>");
+  }
+  // Preview the baseline a rule + globs WOULD produce without writing anything.
+  // The demo's own propose engine supplies the registry hint (S4's injected
+  // adapter concern) pointing at this demo's registry file.
+  await runLintRatchetProposeCli(
+    { ruleId: args.proposeRuleId, files: args.proposeFiles },
+    demoProposeEngine,
+  );
+  return 0;
+}
+
+function warnIfMergeDriverMissing(): void {
+  forwardMissingMergeDriverWarning({
+    checkScriptPath: resolve(repoRoot, "scripts/git/check-lint-ratchet-merge-driver.sh"),
+    cwd: process.cwd(),
+    env: process.env,
+    warn: (message) => {
+      console.error(message);
+    },
+  });
+}
+
+async function main(): Promise<number> {
+  const args = parseArgs(process.argv.slice(PROCESS_ARG_OFFSET));
+  if (args.mode === "update" || args.mode === "check-baseline") {
+    warnIfMergeDriverMissing();
+  }
+  switch (args.mode) {
+    case "check-registry":
+      return runCheckRegistry();
+    case "update":
+      return runUpdate(args);
+    case "propose":
+      return runProposeMode(args);
+    case "gate":
+    case "check-baseline":
+      return runGate();
+    default:
+      return runGate();
+  }
+}
+
+try {
+  process.exitCode = await main();
+} catch (error) {
+  if (error instanceof UsageError) {
+    process.stderr.write(`lint:ratchet: ${error.message}\n`);
+    process.exitCode = 2;
+  } else {
+    // A parse/config failure (e.g. a stale rule-source hash, or a baseline left
+    // unparseable by a bad merge) surfaces as a `lint:ratchet:` diagnostic and a
+    // failing exit — not an uncaught stack trace — so callers like the post-merge
+    // truth-up hook see a clean "run lint:ratchet:update" verdict.
+    const message = error instanceof Error ? error.message : String(error);
+    process.stderr.write(`lint:ratchet: ${message}\n`);
+    process.exitCode = 1;
   }
 }

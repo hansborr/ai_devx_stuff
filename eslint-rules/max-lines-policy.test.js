@@ -6,9 +6,10 @@ import { resolve } from "node:path";
 import { ESLint } from "eslint";
 import { describe, expect, it } from "vitest";
 
+import { maxLinesEngineZoneConfigs } from "../eslint-config/code-quality-configs.js";
 import { maxLinesPolicy } from "../eslint-config/shared-policy.js";
 import { lintRatchets } from "../scripts/lint-ratchet/lint-ratchet-config.ts";
-import { globToRegExp, matchesRatchet } from "../scripts/lint-ratchet/ratchet-globs.ts";
+import { globToRegExp, matchesRatchet } from "@musi/lint-ratchet/kernel/ratchet-globs.js";
 import { resolvedConfigTestTimeoutMs } from "./eslint-config-resolution-timeout.js";
 
 const repoRoot = resolve(import.meta.dirname, "..");
@@ -112,6 +113,51 @@ describe("max-lines policy", () => {
           ...maxLinesPolicy.counting,
         });
       }
+    },
+  );
+
+  it("declares the engine zone as a scoped 500-line cap over the ratchet floor", () => {
+    // Zone policy, not per-file debt: the lint-ratchet engine consolidates at
+    // real seams, so its files carry a higher `local/max-lines` floor than the
+    // repo-wide 300 ratchet floor. Genuine outliers above 500 still take a
+    // per-file exceptions-baseline entry (spread after this block, so it wins).
+    expect(maxLinesEngineZoneConfigs).toHaveLength(1);
+    const [zone] = maxLinesEngineZoneConfigs;
+    expect(zone.files).toEqual([
+      "scripts/lint-ratchet/**/*.ts",
+      "scripts/lib/baseline/**/*.ts",
+      "tools/lint-ratchet/**/*.ts",
+    ]);
+    expect(readMaxLinesRule(localMaxLinesRule(zone))).toEqual({
+      severity: "error",
+      max: 500,
+      ...maxLinesPolicy.counting,
+    });
+  });
+
+  it(
+    "resolves the engine zone cap for engine files while leaving the floor elsewhere",
+    { timeout: resolvedConfigTestTimeoutMs },
+    async () => {
+      // An engine file with no per-file exception resolves to the 500 zone cap.
+      const engineConfig = await eslint.calculateConfigForFile(
+        resolve(repoRoot, "tools/lint-ratchet/src/kernel/gate.ts"),
+      );
+      expect(readMaxLinesRule(localMaxLinesRule(engineConfig))).toEqual({
+        severity: "error",
+        max: 500,
+        ...maxLinesPolicy.counting,
+      });
+
+      // The zone is scoped: a file outside the engine globs keeps the 300 floor.
+      const nonEngineConfig = await eslint.calculateConfigForFile(
+        resolve(repoRoot, "packages/shared/src/rules/combat.ts"),
+      );
+      expect(readMaxLinesRule(localMaxLinesRule(nonEngineConfig))).toEqual({
+        severity: "error",
+        max: maxLinesPolicy.ratchetFloor.cap,
+        ...maxLinesPolicy.counting,
+      });
     },
   );
 

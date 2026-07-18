@@ -3,27 +3,21 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Minimal clone-and-run example of the lint ratchet: one neutral local rule, a committed per-file baseline, and the symmetric gate.",
+  "description": "Minimal example of adopting the @musi/lint-ratchet engine: a thin adapter binds the portable package to one neutral local rule, a committed per-file baseline, and the symmetric gate.",
   "scripts": {
     "baseline:restore-stage": "bash scripts/git/restore-generated-baseline-stage.sh",
     "lint:ratchet": "bun scripts/lint-ratchet.ts",
     "lint:ratchet:check-baseline": "bun scripts/lint-ratchet.ts --check-baseline",
     "lint:ratchet:check-registry": "bun scripts/lint-ratchet.ts --check-registry",
     "lint:ratchet:update": "bun scripts/lint-ratchet.ts --update",
-    "lint:ratchet:debt-log": "bun scripts/lint-ratchet.ts --debt-log",
     "lint:ratchet:install-merge-driver": "bash scripts/git/install-lint-ratchet-merge-driver.sh",
-    "lint:ratchet:summary": "bun scripts/lint-ratchet.ts --summary",
-    "lint:ratchet:trend": "bun scripts/lint-ratchet.ts --trend",
-    "lint:ratchet:zero-baseline": "bun scripts/lint-ratchet.ts --zero-baseline",
-    "prepare": "bun run lint:ratchet:install-merge-driver",
+    "lint:ratchet:merge-driver:check": "bash scripts/git/check-lint-ratchet-merge-driver.sh",
     "smoke": "bash smoke.sh"
   },
   "dependencies": {
+    "@musi/lint-ratchet": "workspace:*",
     "eslint": "10.4.0",
-    "minimatch": "10.2.4",
-    "typescript": "~5.9.3",
-    "typescript-eslint": "^8.59.4",
-    "zod": "^4.4.3"
+    "typescript-eslint": "^8.59.4"
   },
   "devDependencies": {
     "@types/bun": "^1.3.14"

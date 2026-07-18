@@ -1,4 +1,4 @@
-import type { ParseResult } from "./lib/baseline/entry-baseline.js";
+import type { ParseResult } from "@musi/lint-ratchet/kernel/entry-baseline.js";
 
 const DEFAULT_BASELINE_PATH = "sensor-near-duplicates.baseline.json";
 const HELP_FLAGS = new Set(["--help", "-h"]);

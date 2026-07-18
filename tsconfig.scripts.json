@@ -2,7 +2,17 @@
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
     "composite": false,
-    "noEmit": true
+    "noEmit": true,
+    // The scripts adapter is the first in-repo consumer of the source-only
+    // @musi/lint-ratchet package. It has no built dist and its exports point at
+    // TypeScript source, so map its subpaths to source here for tsc (the packages
+    // resolve each other through project references; scripts is not composite).
+    // Bun's workspace-aware runtime resolves the same specifiers natively.
+    "paths": {
+      "@musi/lint-ratchet/kernel/*.js": ["./tools/lint-ratchet/src/kernel/*.ts"],
+      "@musi/lint-ratchet/git-rail/*.js": ["./tools/lint-ratchet/src/git-rail/*.ts"],
+      "@musi/lint-ratchet/governance/*.js": ["./tools/lint-ratchet/src/governance/*.ts"]
+    }
   },
   "include": ["scripts/**/*.ts"],
   "exclude": [

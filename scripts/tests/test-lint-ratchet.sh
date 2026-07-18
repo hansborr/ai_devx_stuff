@@ -5,9 +5,9 @@
 # smoke-subjects: scripts/lint-ratchet/debt-log.test.ts
 # smoke-subjects: scripts/lint-ratchet/debt-log-schema.test.ts
 # smoke-subjects: scripts/lint-ratchet/debt-log-write.test.ts
-# smoke-subjects: scripts/lint-ratchet/baseline-compare.ts
-# smoke-subjects: scripts/lint-ratchet/baseline-parse.ts
-# smoke-subjects: scripts/lint-ratchet/baseline.ts
+# smoke-subjects: tools/lint-ratchet/src/kernel/baseline-compare.ts
+# smoke-subjects: tools/lint-ratchet/src/kernel/baseline-spec-parse.ts
+# smoke-subjects: tools/lint-ratchet/src/kernel/baseline.ts
 # smoke-subjects: scripts/lint-ratchet/baseline.test.ts
 # smoke-subjects: scripts/lint-ratchet/check-registry.ts
 # smoke-subjects: scripts/lint-ratchet/check-registry.test.ts
@@ -16,11 +16,9 @@
 # smoke-subjects: scripts/lint-ratchet/registry-builders.ts
 # smoke-subjects: scripts/lint-ratchet/report.ts
 # smoke-subjects: scripts/lint-ratchet/report.test.ts
-# smoke-subjects: scripts/lint-ratchet/summary.ts
+# smoke-subjects: tools/lint-ratchet/src/governance/
 # smoke-subjects: scripts/lint-ratchet/summary.test.ts
-# smoke-subjects: scripts/lint-ratchet/zero-baseline.ts
 # smoke-subjects: scripts/lint-ratchet/zero-baseline.test.ts
-# smoke-subjects: scripts/lint-ratchet/portable-manifest.json
 # smoke-subjects: scripts/fixtures/lint-ratchet/
 # smoke-subjects: scripts/git/check-lint-ratchet-merge-driver.sh
 # smoke-subjects: scripts/git/install-lint-ratchet-merge-driver.sh
@@ -49,8 +47,8 @@
 # smoke-subjects: scripts/max-lines-exceptions-merge-cli.ts
 # smoke-subjects: scripts/max-lines-exceptions-merge-cli.test.ts
 # smoke-subjects: scripts/lib/lint-rule-docs.ts
-# smoke-subjects: scripts/lib/baseline/atomic-write.ts
-# smoke-subjects: scripts/lib/baseline/merge-driver-presence.ts
+# smoke-subjects: tools/lint-ratchet/src/kernel/atomic-write.ts
+# smoke-subjects: tools/lint-ratchet/src/git-rail/
 # smoke-subjects: scripts/harness/harness-manifest.ts
 # smoke-subjects: scripts/lint-ratchet/ratchet-manifest-message.ts
 # smoke-subjects: scripts/tests/lib/test-git-env.sh
@@ -87,14 +85,29 @@ REPO_ROOT="$(pwd)"
 MERGE_DRIVER_CONFIG_HASH="sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 MERGE_DRIVER_SOURCE_HASH="sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 
-# Runtime-only file list from the shared portable-manifest expander (the single
-# source of the expansion semantics; merge-driver files are intentionally omitted
-# from this fixture copy).
-portable_runtime_file_list=$(bun run scripts/lint-ratchet/portable-manifest-expand.ts) || {
-  printf 'FAIL: could not expand scripts/lint-ratchet/portable-manifest.json\n' >&2
-  exit 1
-}
-mapfile -t PORTABLE_RUNTIME_FILES <<<"$portable_runtime_file_list"
+# The still-present portable runtime file set: the Musi adapter under
+# scripts/lint-ratchet/ (every non-test .ts except the registry the fixture writes
+# its own copy of) plus the cross-directory helpers it imports. The engine
+# resolves as the symlinked @musi/lint-ratchet workspace member (see
+# build_fixture); merge-driver files are intentionally omitted from this fixture
+# copy. (The copy manifest + expander that used to derive this list were deleted
+# in leaf 02 S5; copyability is now proven by the package's §2 structural checks
+# and the examples/lint-ratchet-demo consumer.)
+mapfile -t PORTABLE_RUNTIME_FILES < <(
+  {
+    printf '%s\n' \
+      eslint-rules/max-lines.js \
+      packages/shared/src/schemas/harness-diagnostics.ts \
+      scripts/harness/harness-diagnostics-output.ts \
+      scripts/harness/harness-manifest.ts \
+      scripts/lib/lint-rule-docs.ts \
+      scripts/lint-ratchet.ts
+    git ls-files scripts/lint-ratchet |
+      grep -E '\.ts$' |
+      grep -vE '\.test\.ts$|\.test-helper\.ts$' |
+      grep -v '^scripts/lint-ratchet/lint-ratchet-config\.ts$'
+  }
+)
 
 TMP_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/lint-ratchet-smoke-XXXXXX")
 cleanup() {
@@ -159,125 +172,25 @@ assert_regression_recovery_note() {
   ' || fail "lint-ratchet envelope missing recovery command note: $file"
 }
 
-assert_portable_runtime_import_boundary() {
-  PORTABLE_RUNTIME_FILE_LIST=$(printf '%s\n' "${PORTABLE_RUNTIME_FILES[@]}") \
-  bun -e '
-    const { readFileSync } = await import("node:fs");
-    const { builtinModules } = await import("node:module");
-    const { dirname, relative, resolve } = await import("node:path");
-    const ts = await import("typescript");
-
-    const repoRoot = process.cwd();
-    // Consume the single shell-side portable runtime file list (see
-    // PORTABLE_RUNTIME_FILES) so this boundary check and the smoke fixture copy
-    // cannot disagree about which files make up the runtime.
-    const runtimeFiles = (process.env.PORTABLE_RUNTIME_FILE_LIST ?? "")
-      .split("\n")
-      .filter((line) => line.length > 0)
-      .sort();
-    const allowedRelativeFiles = new Set([
-      ...runtimeFiles,
-      "scripts/lint-ratchet/lint-ratchet-config.ts",
-    ]);
-    const allowedPackages = new Set(["eslint", "minimatch", "zod"]);
-    const allowedBuiltins = new Set(
-      builtinModules.flatMap((moduleName) => {
-        const normalized = moduleName.startsWith("node:")
-          ? moduleName.slice("node:".length)
-          : moduleName;
-        return [normalized, `node:${normalized}`];
-      }),
-    );
-
-    function normalizedRelativePath(path) {
-      return path.replaceAll("\\\\", "/");
-    }
-
-    function relativeImportCandidates(importer, specifier) {
-      const resolved = normalizedRelativePath(
-        relative(repoRoot, resolve(repoRoot, dirname(importer), specifier)),
-      );
-      if (resolved.endsWith(".js")) return [resolved, `${resolved.slice(0, -3)}.ts`];
-      return [resolved];
-    }
-
-    function isAllowedImport(importer, specifier) {
-      if (!specifier.startsWith(".") && !specifier.startsWith("/")) {
-        return allowedBuiltins.has(specifier) || allowedPackages.has(specifier);
-      }
-      return relativeImportCandidates(importer, specifier).some((candidate) =>
-        allowedRelativeFiles.has(candidate),
-      );
-    }
-
-    function importLine(sourceFile, node) {
-      return sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1;
-    }
-
-    function collectImports(relativePath) {
-      const source = readFileSync(resolve(repoRoot, relativePath), "utf8");
-      const sourceFile = ts.createSourceFile(relativePath, source, ts.ScriptTarget.Latest, true);
-      const imports = [];
-
-      function record(moduleSpecifier) {
-        imports.push({
-          specifier: moduleSpecifier.text,
-          line: importLine(sourceFile, moduleSpecifier),
-        });
-      }
-
-      function visit(node) {
-        if (
-          (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) &&
-          node.moduleSpecifier !== undefined &&
-          ts.isStringLiteral(node.moduleSpecifier)
-        ) {
-          record(node.moduleSpecifier);
-        }
-
-        if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
-          const [specifier] = node.arguments;
-          if (specifier !== undefined && ts.isStringLiteral(specifier)) record(specifier);
-        }
-
-        ts.forEachChild(node, visit);
-      }
-
-      visit(sourceFile);
-      return imports;
-    }
-
-    const failures = [];
-    for (const runtimeFile of runtimeFiles) {
-      for (const runtimeImport of collectImports(runtimeFile)) {
-        if (!isAllowedImport(runtimeFile, runtimeImport.specifier)) {
-          failures.push(
-            `${runtimeFile}:${runtimeImport.line} imports ${runtimeImport.specifier}`,
-          );
-        }
-      }
-    }
-
-    if (failures.length > 0) {
-      console.error(failures.join("\n"));
-      process.exit(1);
-    }
-  ' || fail "portable runtime import boundary changed"
-}
-
 build_fixture() {
   local fixture_dir=$1
   mkdir -p "$fixture_dir/scripts" "$fixture_dir/packages/shared/src/schemas"
   mkdir -p "$fixture_dir/eslint-rules" "$fixture_dir/docs/guides"
   mkdir -p "$fixture_dir/eslint-config"
   cp eslint-config/max-lines-exceptions.baseline.json "$fixture_dir/eslint-config/max-lines-exceptions.baseline.json"
-  # Copy the portable runtime file set from the single shared source so the
-  # fixture and the import-boundary check (assert_portable_runtime_import_boundary)
-  # stay in lockstep. Every entry is repo-relative, so the destination path
-  # mirrors the source path.
+  # Copy the still-present portable runtime file set (adapter + cross-dir deps);
+  # engine sources moved to the @musi/lint-ratchet package (leaf 02 S3) and come
+  # in via the symlinked workspace member below. The import-boundary self-
+  # containment proof this smoke used to run moved to the package's §2 resolver-
+  # aware boundary checker (tools/lint-ratchet/test/boundary/). Every entry is
+  # repo-relative, so the destination path mirrors the source path.
   mkdir -p "$fixture_dir/scripts/lint-ratchet"
   local runtime_file
   for runtime_file in "${PORTABLE_RUNTIME_FILES[@]}"; do
+    # Engine sources resolve via the symlinked @musi/lint-ratchet workspace member
+    # below rather than being copied, so skip any listed path that no longer
+    # resolves here.
+    [ -e "$runtime_file" ] || continue
     mkdir -p "$fixture_dir/$(dirname "$runtime_file")"
     cp "$runtime_file" "$fixture_dir/$runtime_file"
   done
@@ -295,6 +208,10 @@ build_fixture() {
   # covers the diagnostics envelope's imports).
   ln -s "$REPO_ROOT/node_modules/zod" "$fixture_dir/node_modules/zod"
   ln -s "$REPO_ROOT/packages/shared/node_modules" "$fixture_dir/packages/shared/node_modules"
+  # The copied adapter imports @musi/lint-ratchet/*; resolve it to the source-only
+  # package via a scoped node_modules symlink (leaf 02 S3).
+  mkdir -p "$fixture_dir/node_modules/@musi"
+  ln -s "$REPO_ROOT/tools/lint-ratchet" "$fixture_dir/node_modules/@musi/lint-ratchet"
 
   cat >"$fixture_dir/package.json" <<'JSON'
 {
@@ -356,12 +273,17 @@ assert_local_identity_regression() {
   local -a paths
 
   identity_paths=$(bun -e '
-      const { lintRatchets } = await import("./scripts/lint-ratchet/lint-ratchet-config.ts");
+      const { lintRatchets, lintRatchetThirdPartyPluginAllowlist } =
+        await import("./scripts/lint-ratchet/lint-ratchet-config.ts");
       const { writeEslintConfig, eslintCachePathFor } =
-        await import("./scripts/lint-ratchet/eslint-config.ts");
+        await import("@musi/lint-ratchet/kernel/eslint-config.js");
       const { buildRuleSourceHashesById } =
-        await import("./scripts/lint-ratchet/rule-source.ts");
-      const hashes = buildRuleSourceHashesById(lintRatchets);
+        await import("@musi/lint-ratchet/kernel/rule-source.js");
+      const binding = {
+        repoRoot: process.cwd(),
+        thirdPartyPluginAllowlist: lintRatchetThirdPartyPluginAllowlist,
+      };
+      const hashes = buildRuleSourceHashesById(lintRatchets, binding);
       const cases = ["ratchet/local-type-assertion-boundary"];
       const paths = [];
       for (const id of cases) {
@@ -369,8 +291,8 @@ assert_local_identity_regression() {
         if (ratchet === undefined) throw new Error(`missing ratchet ${id}`);
         const hash = hashes.get(id);
         if (hash === undefined) throw new Error(`missing rule source hash ${id}`);
-        paths.push(writeEslintConfig(ratchet, hash));
-        paths.push(eslintCachePathFor(ratchet, hash));
+        paths.push(writeEslintConfig(ratchet, hash, binding));
+        paths.push(eslintCachePathFor(ratchet, hash, binding.repoRoot));
       }
       console.log(paths.join("\n"));
     ') || fail "local generated config/cache identity derivation failed"
@@ -403,6 +325,10 @@ assert_baseline_merge_driver_legacy_block_migration() {
   cp scripts/git/lint-ratchet-merge-driver-lib.sh "$repo/scripts/git/"
   cp scripts/git/baseline-merge-driver.sh "$repo/scripts/git/"
   cp scripts/git/baseline-info-attributes.ts "$repo/scripts/git/"
+  # The attributes wrapper imports @musi/lint-ratchet/git-rail (leaf 02 S4);
+  # resolve the source-only package via a scoped node_modules symlink.
+  mkdir -p "$repo/node_modules/@musi"
+  ln -s "$REPO_ROOT/tools/lint-ratchet" "$repo/node_modules/@musi/lint-ratchet"
   git -C "$TMP_ROOT" init -q -b main "merge-driver-legacy-block"
   git -C "$repo" config user.email test@example.com
   git -C "$repo" config user.name Test
@@ -484,6 +410,10 @@ assert_lint_ratchet_merge_driver() {
   cp scripts/git/lint-ratchet-merge-driver-lib.sh "$repo/scripts/git/"
   cp scripts/git/baseline-merge-driver.sh "$repo/scripts/git/"
   cp scripts/git/baseline-info-attributes.ts "$repo/scripts/git/"
+  # The attributes wrapper imports @musi/lint-ratchet/git-rail (leaf 02 S4);
+  # resolve the source-only package via a scoped node_modules symlink.
+  mkdir -p "$repo/node_modules/@musi"
+  ln -s "$REPO_ROOT/tools/lint-ratchet" "$repo/node_modules/@musi/lint-ratchet"
   git -C "$TMP_ROOT" init -q -b main "$repo"
   git -C "$repo" config user.email test@example.com
   git -C "$repo" config user.name Test
@@ -849,7 +779,7 @@ assert_policy_safe_recovery_docs() {
   grep -qF 'stage 2 is the' docs/guides/lint-ratchet-merges.md \
     || fail "lint-ratchet guide should identify stage 2 as the rebase upstream base"
   if grep -qF 'during rebase the sides swap, so use `--theirs`' \
-      scripts/lib/baseline/entry-baseline.ts scripts/lint-ratchet/baseline-validation.ts \
+      tools/lint-ratchet/src/kernel/entry-baseline.ts tools/lint-ratchet/src/kernel/baseline-validation.ts \
       eslint-config/shared-policy.js docs/guides/lint-ratchet-merges.md; then
     fail "driverless recovery guidance must keep stage 2 during rebase"
   fi
@@ -1009,15 +939,23 @@ copy_lint_ratchet_merge_runtime() {
   cp scripts/git/baseline-merge-driver.sh "$repo/scripts/git/"
   cp scripts/git/baseline-info-attributes.ts "$repo/scripts/git/"
   cp scripts/harness/harness-manifest.ts "$repo/scripts/harness/harness-manifest.ts"
-  # baseline-merge-cli.ts imports the shared CLI runner and async atomic writer,
-  # and baseline-merge.ts imports the shared item-merge core, all from
-  # scripts/lib/baseline; copy them so the real CLI resolves in the sandbox.
-  cp scripts/lib/baseline/atomic-write.ts "$repo/scripts/lib/baseline/"
-  cp scripts/lib/baseline/merge-cli.ts "$repo/scripts/lib/baseline/"
-  cp scripts/lib/baseline/item-merge.ts "$repo/scripts/lib/baseline/"
-  # baseline-merge-values.ts imports the shared codepoint comparator from
-  # scripts/lib; copy it so the real CLI resolves in the sandbox.
-  cp scripts/lib/codepoint-compare.ts "$repo/scripts/lib/"
+  # The merge CLI's grouped-codec closure (baseline codec, atomic writer, item
+  # merge, git-rail merge-cli, codepoint comparator) moved to the
+  # @musi/lint-ratchet package (leaf 02 S3). Provide it as a symlinked workspace
+  # member — plus the node_modules the engine resolves at runtime — so the real
+  # adapter CLI resolves in the sandbox, instead of copying the engine sources.
+  mkdir -p "$repo/tools"
+  ln -s "$REPO_ROOT/tools/lint-ratchet" "$repo/tools/lint-ratchet"
+  ln -s "$REPO_ROOT/node_modules" "$repo/node_modules"
+  cat >"$repo/package.json" <<'JSON'
+{
+  "name": "lint-ratchet-merge-sandbox",
+  "private": true,
+  "type": "module",
+  "workspaces": ["tools/lint-ratchet"],
+  "devDependencies": { "@musi/lint-ratchet": "workspace:*" }
+}
+JSON
   for runtime_file in scripts/lint-ratchet/*.ts; do
     case "$runtime_file" in
       *.test.ts) continue ;;
@@ -1768,6 +1706,10 @@ assert_lint_ratchet_merge_driver_hash_tool_guard() {
   cp scripts/git/lint-ratchet-merge-driver-lib.sh "$repo/scripts/git/"
   cp scripts/git/baseline-merge-driver.sh "$repo/scripts/git/"
   cp scripts/git/baseline-info-attributes.ts "$repo/scripts/git/"
+  # The attributes wrapper imports @musi/lint-ratchet/git-rail (leaf 02 S4);
+  # resolve the source-only package via a scoped node_modules symlink.
+  mkdir -p "$repo/node_modules/@musi"
+  ln -s "$REPO_ROOT/tools/lint-ratchet" "$repo/node_modules/@musi/lint-ratchet"
   git -C "$TMP_ROOT" init -q -b main "$repo"
   git -C "$repo" config user.email test@example.com
   git -C "$repo" config user.name Test
@@ -3400,6 +3342,10 @@ use_fixture_node_modules_with_fake_plugin() {
   # fixture needs zod at its own node_modules root (packages/shared's copy only
   # covers the diagnostics envelope's imports).
   ln -s "$REPO_ROOT/node_modules/zod" "$fixture_dir/node_modules/zod"
+  # The copied adapter imports @musi/lint-ratchet/*; resolve it to the source-only
+  # package via a scoped node_modules symlink (leaf 02 S3).
+  mkdir -p "$fixture_dir/node_modules/@musi"
+  ln -s "$REPO_ROOT/tools/lint-ratchet" "$fixture_dir/node_modules/@musi/lint-ratchet"
 
   cat >"$fixture_dir/node_modules/eslint-plugin-ratchet-fixture/package.json" <<'JSON'
 {
@@ -4018,7 +3964,6 @@ if ! bun run lint:ratchet:check-registry >"$TMP_ROOT/real-registry.out" 2>"$TMP_
 fi
 grep -qF "lint:ratchet:check-registry OK" "$TMP_ROOT/real-registry.err" \
   || fail "lint:ratchet:check-registry OK line missing: $(cat "$TMP_ROOT/real-registry.err")"
-assert_portable_runtime_import_boundary
 assert_local_identity_regression
 assert_baseline_merge_driver_legacy_block_migration
 assert_lint_ratchet_merge_driver
@@ -5000,7 +4945,7 @@ run_lint_ratchet_edit_check_fixtures
 # --- Fixture: ratchet coverage query (--edit-ratchet-coverage) ---------------
 # The lint-coverage advisory hook asks this no-ESLint mode which committed
 # baseline ratchets track an edited path. It reuses the canonical ratchet glob
-# matcher (scripts/lint-ratchet/ratchet-globs.ts) instead of the hook embedding
+# matcher (tools/lint-ratchet/src/kernel/ratchet-globs.ts) instead of the hook embedding
 # its own copy: a path matched by a ratchet's files (and not its ignores) returns
 # the sorted rule id(s); ignored / unmatched paths and a missing or malformed
 # baseline return nothing so the hook degrades to its uncovered behavior.

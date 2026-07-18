@@ -1,5 +1,5 @@
-import type { LintRatchetConfig } from "./lint-ratchet-config.js";
-import type { LintRatchetZeroBaselineDisposition } from "./zero-baseline-types.js";
+import type { LintRatchetConfig } from "@musi/lint-ratchet/kernel/config-types.js";
+import type { LintRatchetZeroBaselineDisposition } from "@musi/lint-ratchet/kernel/zero-baseline-types.js";
 
 // Builder-family scope: the per-entry fields the registry supplies inline.
 // `principle` is the dedicated harness-controls source of truth (see

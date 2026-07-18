@@ -2,13 +2,13 @@
 # smoke-subjects: scripts/lint-probe-rule.ts
 # smoke-subjects: scripts/lint-probe-rule.test.ts
 # smoke-subjects: scripts/tests/test-lint-probe-rule.sh
-# smoke-subjects: scripts/lint-ratchet/eslint-config.ts
-# smoke-subjects: scripts/lint-ratchet/baseline.ts
+# smoke-subjects: tools/lint-ratchet/src/kernel/eslint-config.ts
+# smoke-subjects: tools/lint-ratchet/src/kernel/baseline.ts
 # smoke-subjects: scripts/lint-ratchet/lint-ratchet-config.ts
-# smoke-subjects: scripts/lint-ratchet/metrics.ts
+# smoke-subjects: tools/lint-ratchet/src/kernel/metrics.ts
 # smoke-subjects: scripts/lint-ratchet/paths.ts
-# smoke-subjects: scripts/lint-ratchet/rule-source.ts
-# smoke-subjects: scripts/lint-ratchet/runtime-config.ts
+# smoke-subjects: tools/lint-ratchet/src/kernel/rule-source.ts
+# smoke-subjects: tools/lint-ratchet/src/kernel/runtime-config.ts
 # smoke-subjects: eslint-rules/
 # smoke-subjects: package.json
 # Smoke test for bun run lint:probe-rule.

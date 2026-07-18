@@ -1,13 +1,28 @@
-import { describe, expect, it } from "vitest";
-
+import {
+  formatLintRatchetTrend,
+  type LintRatchetTrendDeps,
+  runLintRatchetTrend,
+} from "@musi/lint-ratchet/governance/trend.js";
 import {
   buildLintRatchetBaseline,
   formatLintRatchetBaseline,
   type LintRatchetRuleSourceHashesById,
-} from "./baseline.js";
+} from "@musi/lint-ratchet/kernel/baseline.js";
+import { createLintRatchetBaselineVersionPolicy } from "@musi/lint-ratchet/kernel/baseline-constants.js";
+import type { LintRatchetConfig } from "@musi/lint-ratchet/kernel/config-types.js";
+import type { LintRatchetEngineContext } from "@musi/lint-ratchet/kernel/engine-context.js";
+import { describe, expect, it } from "vitest";
+
 import { currentById, FIXTURE_HASH } from "./lint-ratchet.test-helper.js";
-import type { LintRatchetConfig } from "./lint-ratchet-config.js";
-import { formatLintRatchetTrend, type LintRatchetTrendDeps, runLintRatchetTrend } from "./trend.js";
+
+// A throwaway fixture context: the mocked git deps ignore the cwd and never read
+// the baseline path, so any repo root that yields the conventional relative
+// baseline filename works.
+const trendContext: LintRatchetEngineContext = {
+  repoRoot: "/repo",
+  baselinePath: "/repo/lint-ratchet.baseline.json",
+  debtLogPath: "/repo/lint-ratchet.debt-log.jsonl",
+};
 
 const messageRatchet: LintRatchetConfig = {
   id: "ratchet/fixture-message",
@@ -27,12 +42,13 @@ const ruleSourceHashes: LintRatchetRuleSourceHashesById = new Map([
   [messageRatchet.id, FIXTURE_HASH],
 ]);
 
-function baselineText(total: number): string {
+function baselineText(total: number, writeVersion: 1 | 2 = 1): string {
   return formatLintRatchetBaseline(
     buildLintRatchetBaseline(
       [messageRatchet],
       currentById([[messageRatchet.id, [["packages/app/src/a.ts", { count: total }]]]]),
       ruleSourceHashes,
+      createLintRatchetBaselineVersionPolicy(writeVersion),
     ),
   );
 }
@@ -64,11 +80,12 @@ function trendDeps(blobs: Readonly<Record<string, string>>): LintRatchetTrendDep
 
 describe("lint ratchet trend", () => {
   it("formats zero-history output", () => {
-    expect(formatLintRatchetTrend([])).toContain("(no ratchet trend points)");
+    expect(formatLintRatchetTrend([], new Set())).toContain("(no ratchet trend points)");
   });
 
   it("summarizes baseline history from oldest point to current point", () => {
     const result = runLintRatchetTrend({
+      context: trendContext,
       deps: trendDeps({ old: baselineText(5), new: baselineText(2) }),
       ratchets: [messageRatchet],
     });
@@ -81,8 +98,22 @@ describe("lint ratchet trend", () => {
     expect(result.warnings).toEqual([]);
   });
 
+  it("keeps v1 and v2 history in one continuous warning-free series", () => {
+    const result = runLintRatchetTrend({
+      context: trendContext,
+      deps: trendDeps({ old: baselineText(5, 1), new: baselineText(2, 2) }),
+      ratchets: [messageRatchet],
+    });
+
+    expect(result.report).toContain("ratchet/fixture-message");
+    expect(result.report).toMatch(/\s5\s+2\s+-3\s/u);
+    expect(result.report).toMatch(/\s2\s+2026-07-02/u);
+    expect(result.warnings).toEqual([]);
+  });
+
   it("marks historical series absent from the current registry as retired", () => {
     const result = runLintRatchetTrend({
+      context: trendContext,
       deps: trendDeps({ old: baselineText(5), new: baselineText(2) }),
       ratchets: [],
       includeRetired: true,
@@ -95,6 +126,7 @@ describe("lint ratchet trend", () => {
 
   it("omits retired series by default and points to the complete history command", () => {
     const result = runLintRatchetTrend({
+      context: trendContext,
       deps: trendDeps({ old: baselineText(5), new: baselineText(2) }),
       ratchets: [],
     });
@@ -106,6 +138,7 @@ describe("lint ratchet trend", () => {
 
   it("includes every historical series in explicit all mode", () => {
     const result = runLintRatchetTrend({
+      context: trendContext,
       deps: trendDeps({ old: baselineText(5), new: baselineText(2) }),
       ratchets: [],
       includeRetired: true,
@@ -117,6 +150,7 @@ describe("lint ratchet trend", () => {
 
   it("skips malformed historical baselines with a warning", () => {
     const result = runLintRatchetTrend({
+      context: trendContext,
       deps: trendDeps({ old: "{", new: baselineText(2) }),
       ratchets: [messageRatchet],
     });
@@ -128,6 +162,7 @@ describe("lint ratchet trend", () => {
 
   it("reads each commit's historical baseline path across a rename", () => {
     const result = runLintRatchetTrend({
+      context: trendContext,
       ratchets: [messageRatchet],
       deps: {
         execFileSync: (command, args) => {
@@ -155,6 +190,8 @@ describe("lint ratchet trend", () => {
 
   it("captions the trend as committed-baseline totals", () => {
     const result = runLintRatchetTrend({
+      context: trendContext,
+      ratchets: [],
       deps: trendDeps({ old: baselineText(5), new: baselineText(2) }),
     });
 
@@ -165,6 +202,8 @@ describe("lint ratchet trend", () => {
 
   it("warns when a historical baseline blob cannot be read", () => {
     const result = runLintRatchetTrend({
+      context: trendContext,
+      ratchets: [],
       deps: {
         execFileSync: (command, args) => {
           expect(command).toBe("git");
@@ -180,6 +219,8 @@ describe("lint ratchet trend", () => {
 
   it("passes markdown-sensitive trend warnings through without escaping", () => {
     const result = runLintRatchetTrend({
+      context: trendContext,
+      ratchets: [],
       deps: {
         execFileSync: (command, args) => {
           expect(command).toBe("git");

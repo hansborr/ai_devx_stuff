@@ -6,9 +6,59 @@ reference, and baseline lifecycle; projects copying the runtime into another
 codebase start with [Lint Ratchet Adoption](lint-ratchet-adoption.md).
 
 This document covers the deeper mechanics an operator only reaches for
-occasionally: the coverage-map gate, registry preflight and runtime internals,
-CI parity wiring, metrics and baseline item shapes, baseline identity and
-rule-source hashing, parser profiles, and advanced rollout patterns.
+occasionally: the coverage-map gate, the shared baseline kernel, registry
+preflight and runtime internals, CI parity wiring, metrics and baseline item
+shapes, baseline identity and rule-source hashing, parser profiles, and
+advanced rollout patterns.
+
+## Shared baseline kernel
+
+The lint ratchet and the flat knip, max-lines, and near-duplicate sensors use
+one baseline kernel, the `@musi/lint-ratchet` package
+(`tools/lint-ratchet/src/kernel/`). The ratchet contributes its group metadata
+and metric policies in `tools/lint-ratchet/src/kernel/baseline-spec.ts`;
+the shared kernel owns envelope parsing, deterministic formatting, symmetric
+comparison, semantic-minimum merge, item lifecycle, and atomic replacement.
+There is no retained legacy parser, comparator, merge implementation, or
+ratchet-local atomic writer.
+
+Leaf 02's internal workspace package will expose this existing surface rather
+than invent another one:
+
+- `group-baseline.ts`: `GroupedBaselineSpec`, `GroupedBaseline`,
+  `GroupedBaselineGroup`, `GroupedParseResult`,
+  `CompareGroupedBaselineResult`, `MergeGroupedBaselineInput`, and
+  `MergeGroupedBaselineResult`, plus `parseGroupedBaseline`,
+  `formatGroupedBaseline`, `compareGroupedBaseline`, `mergeGroupedBaseline`,
+  and `conflictMarkerTripwire`.
+- `item-merge.ts`: `ItemMergePolicy`, `ItemMergeOutcome`, and `mergeItemMaps`.
+- `single-group-spec.ts`: `SingleGroupMeta`, `SingleGroupMergePolicyOptions`,
+  `singleGroupSpec`, `singleGroupBaseline`, and `singleGroupEntries`, which
+  adapt flat entry documents without changing their wire format.
+- `entry-baseline.ts`: the existing flat compatibility exports
+  `BaselineMetricSpec`, `BaselineEntry`, `parseBaseline`, `formatBaseline`, and
+  `entryCount`.
+- `atomic-write.ts`: `writeFileAtomically`, `writeFileAtomicallySync`, and
+  `writePostMergeTruthUpMarker`.
+- `merge-cli.ts` and `merge-driver-presence.ts`: `runMergeDriverCli`,
+  `runMergeDriverCliMain`, and `forwardMissingMergeDriverWarning` for the Git
+  rail.
+
+Two diagnostics/merge contracts are pinned by tests (lint-arch-review-2026-07
+leaf 11): the tests-family structural parse accumulates and reports the full
+defect set across groups, items, and metadata in one pass (only the envelope
+checks — JSON syntax, version, document family — fail fast), and the merge's
+"side unchanged vs base" decision compares canonically formatted groups, so
+formatting-only noise in hand-edited inputs (e.g. a reordered `files` list) is
+not treated as a change.
+
+The kernel now lives in the `@musi/lint-ratchet` workspace package
+(`tools/lint-ratchet/src/kernel/` and `/git-rail/`), consumed through its
+per-layer subpath exports. The former copy-sync harness (a portable manifest plus
+a demo drift-checker) is gone: the package's import boundary — enforced by the
+resolver-aware boundary check and knip self-containment in
+`tools/lint-ratchet/test/` — is the portable surface, and
+`examples/lint-ratchet-demo/` is the worked consumer.
 
 ## Coverage Map Gate
 

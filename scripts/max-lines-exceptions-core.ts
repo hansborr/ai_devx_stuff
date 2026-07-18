@@ -10,18 +10,19 @@
 // the deterministic formatter, and the --check/--update CLI.
 
 import {
-  MAX_LINES_EXCEPTIONS_METRIC,
-  MAX_LINES_EXCEPTIONS_TOOL,
-  parseMaxLinesExceptionEntry,
-} from "../eslint-config/max-lines-exceptions-codec.js";
-import {
   type BaselineMetricSpec,
   conflictMarkerTripwire,
   formatBaseline,
   parseBaseline,
   type ParseResult,
-} from "./lib/baseline/entry-baseline.js";
-import { gateEntries } from "./lib/baseline/gate.js";
+} from "@musi/lint-ratchet/kernel/entry-baseline.js";
+import { gateEntries } from "@musi/lint-ratchet/kernel/gate.js";
+
+import {
+  MAX_LINES_EXCEPTIONS_METRIC,
+  MAX_LINES_EXCEPTIONS_TOOL,
+  parseMaxLinesExceptionEntry,
+} from "../eslint-config/max-lines-exceptions-codec.js";
 
 export type MaxLinesSeverity = "error" | "warn";
 export type MaxLinesLifecycle = "permanent" | "candidate-for-split";

@@ -1,11 +1,10 @@
-// The ratchet reads this file only to validate `local/*` rule metadata
-// (scripts/lib/lint-rule-docs.ts): every rule under `plugins.local.rules` must
-// carry a valid `meta.docs`. It is NOT the config used to lint — each ratchet
-// generates its own isolated ESLint config at run time.
+// The demo lists its `local/*` rules here so an adopter can see where a rule is
+// declared. This is NOT the config used to lint — the @musi/lint-ratchet engine
+// generates its own isolated ESLint config per ratchet at run time.
 //
-// This demo ratchets one demo-authored, repository-neutral local rule. The
-// manifest-copied max-lines rule is a runtime dependency of ratchet diagnostics,
-// not the adoption example; its Musi-specific policy is intentionally not wired.
+// This demo ratchets one demo-authored, repository-neutral local rule; a real
+// adopter adds their own rules to the same map and to the registry in
+// scripts/lint-ratchet/adapter.ts.
 
 import noConsoleLog from "./eslint-rules/no-console-log.js";
 

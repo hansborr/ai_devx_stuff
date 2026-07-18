@@ -1,12 +1,14 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
-
-import type { EditCheckRegression, EditCheckTarget } from "./edit-check.js";
+import type {
+  EditCheckRegression,
+  EditCheckTarget,
+} from "@musi/lint-ratchet/governance/edit-check.js";
 import {
   formatEditCheckChecked,
   formatEditCheckRegression,
   formatEditCheckTarget,
   parseEditCheckTargetLine,
-} from "./edit-check-protocol.js";
+} from "@musi/lint-ratchet/governance/edit-check-protocol.js";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 describe("edit-check protocol tab/newline loudness", () => {
   afterEach(() => {

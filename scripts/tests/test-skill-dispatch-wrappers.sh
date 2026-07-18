@@ -4,6 +4,7 @@
 # smoke-subjects: .claude/skills/agent-cli/scripts/agent-wait.sh
 # smoke-subjects: .claude/skills/agent-cli/SKILL.md
 # smoke-subjects: .claude/skills/agent-cli/references/claude.md
+# smoke-subjects: .claude/skills/agent-cli/references/claude-workflows.md
 # smoke-subjects: .claude/skills/agent-cli/references/codex.md
 # smoke-subjects: .claude/skills/agent-cli/references/copilot.md
 # smoke-subjects: .claude/skills/agent-cli/references/cursor.md
@@ -11,6 +12,7 @@
 # smoke-subjects: .claude/skills/agent-cli/references/trailer-contract.md
 # smoke-subjects: .codex/skills/agent-cli/SKILL.md
 # smoke-subjects: .codex/skills/agent-cli/references/claude.md
+# smoke-subjects: .codex/skills/agent-cli/references/claude-workflows.md
 # smoke-subjects: .codex/skills/agent-cli/references/codex.md
 # smoke-subjects: .codex/skills/agent-cli/references/copilot.md
 # smoke-subjects: .codex/skills/agent-cli/references/cursor.md
@@ -395,11 +397,12 @@ run_sourced_phase 'AGENT=copilot; FIRED=0; probe_copilot() { FIRED=1; }; run_ada
 expect_code 0 "adapter hook dispatch"
 ok "adapter: run_adapter_hook fires the active backend's hook and no-ops when absent"
 
-# codex is the only backend that forces the lock on for consults; the hook makes
-# that a per-backend fact, not a shared branch.
-run_sourced_phase 'AGENT=codex; MODE=consult; run_adapter_hook lock_required; [ "${LOCK_NEEDED:-0}" = 1 ] || exit 7; AGENT=claude; LOCK_NEEDED=0; run_adapter_hook lock_required; [ "$LOCK_NEEDED" = 0 ] || exit 8'
-expect_code 0 "adapter lock_required"
-ok "adapter: lock_required_codex forces the lock while other backends leave it off"
+# The lock is work-only on every backend: a codex consult acquires nothing, so
+# consults parallelize and run beside a work dispatch; drift attribution falls
+# to the lock probe instead.
+run_sourced_phase 'parse_and_validate_args consult codex -p hi; load_git_context; acquire_worktree_lock; [ "$LOCK_NEEDED" = 0 ] || exit 7; [ "$LOCK_ACQUIRED" = 0 ] || exit 8'
+expect_code 0 "consult acquires no lock"
+ok "lock: consult leaves the worktree lock untaken on every backend (work-only)"
 
 # --opt=value normalization splits a leading wrapper option in two and leaves
 # native args after -- untouched.
@@ -1663,11 +1666,9 @@ if command -v flock >/dev/null 2>&1; then
   ok "contract: lock-busy exits 3 before dispatch"
   run_wrapper work copilot -m m -p hi
   expect_code 3 "work copilot lock busy"
-  run_wrapper consult codex -p hi
-  expect_code 3 "consult codex lock busy"
-  run_wrapper review codex -- --commit abc
-  expect_code 3 "review codex lock busy"
-  ok "lock: work runs and every codex run exit 3 while the lock is held"
+  run_wrapper work codex -p hi
+  expect_code 3 "work codex lock busy"
+  ok "lock: work runs exit 3 on every backend while the lock is held"
 
   run_wrapper consult claude -p hi
   expect_code 0 "consult claude lock free"
@@ -1677,7 +1678,13 @@ if command -v flock >/dev/null 2>&1; then
   run_wrapper consult cursor -p hi
   expect_code 0 "consult cursor lock free"
   expect_out "agent-run: worktree: unchecked" "consult cursor under held lock"
-  ok "lock: claude/copilot/cursor consults stay lock-free (enforced read-only)"
+  run_wrapper consult codex -p hi
+  expect_code 0 "consult codex lock free"
+  expect_out "agent-run: worktree: unchecked" "consult codex under held lock"
+  run_wrapper review codex -- --commit abc
+  expect_code 0 "review codex lock free"
+  expect_out "agent-run: worktree: unchecked" "review codex under held lock"
+  ok "lock: consults and codex review stay lock-free (read-only by contract)"
 
   set +e
   OUT="$(cd "$WORKTREE" && PATH="$FAKE_BIN:$PATH" AGENT_FAKE_TOUCH=1 bash "$WRAPPER" consult claude -p hi 2>&1)"
@@ -2567,7 +2574,7 @@ grep -qF '[references/trailer-contract.md](references/trailer-contract.md)' "$RE
 ok "contract: optional trailer records are documented as optional and linked by wrapper/SKILL.md"
 
 # Reference docs stay byte-identical mirrors across the two trees.
-for doc in references/claude.md references/codex.md references/copilot.md references/cursor.md references/portability.md references/trailer-contract.md; do
+for doc in references/claude.md references/claude-workflows.md references/codex.md references/copilot.md references/cursor.md references/portability.md references/trailer-contract.md; do
   src="$REPO_ROOT/.claude/skills/agent-cli/$doc"
   dst="$REPO_ROOT/.codex/skills/agent-cli/$doc"
   [ -f "$src" ] || fail "mirror: missing $src"

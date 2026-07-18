@@ -124,6 +124,48 @@ const config = {
       typescript: true,
       vitest: true,
     },
+    "tools/lint-ratchet": {
+      // Exported engine surface (per the package.json subpath exports) plus the
+      // package-owned tests (co-located under src/ and the boundary tests under
+      // test/) are the reachability roots.
+      entry: [
+        "src/kernel/*.ts",
+        "src/git-rail/*.ts",
+        "src/governance/*.ts",
+        "src/**/*.test.ts",
+        "test/**/*.test.ts",
+      ],
+      project: ["src/**/*.ts", "test/**/*.ts"],
+      typescript: true,
+      vitest: true,
+      // eslint + typescript-eslint are runtime dependencies the engine resolves
+      // dynamically (createRequire for ESLint's bin, node_modules version reads
+      // for rule-source hashing) and emits into generated config text, never as a
+      // static import knip can trace — so declare them for portability but keep
+      // them off knip's unused-dependency scan.
+      ignoreDependencies: ["eslint", "typescript-eslint"],
+    },
+    "examples/lint-ratchet-demo": {
+      // The adapter entry (the CLI), the git-rail wrappers the installed merge
+      // driver dispatches, and the ESLint config are the reachability roots; the
+      // adapter module and eslint-rules are reached from them.
+      entry: [
+        "scripts/lint-ratchet.ts",
+        "scripts/lint-ratchet/baseline-merge-cli.ts",
+        "scripts/lint-ratchet/post-merge-baseline-preflight.ts",
+        "scripts/git/baseline-info-attributes.ts",
+        "eslint.config.js",
+      ],
+      project: ["scripts/**/*.ts", "src/**/*.ts", "eslint-rules/*.js", "eslint.config.js"],
+      typescript: true,
+      // Same as the engine package: eslint + typescript-eslint are resolved
+      // dynamically from the demo repo root (the engine spawns ESLint's bin and
+      // reads both package versions for the rule-source hash), never as a static
+      // import, so declare them for a real adopter but keep them off the unused
+      // scan. zod is the engine's own dependency, resolved from the package, so
+      // the demo does not declare it.
+      ignoreDependencies: ["eslint", "typescript-eslint"],
+    },
   },
 } satisfies KnipConfig;
 

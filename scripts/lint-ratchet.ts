@@ -2,10 +2,11 @@ import { realpathSync } from "node:fs";
 import { basename, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { forwardMissingMergeDriverWarning } from "./lib/baseline/merge-driver-presence.js";
+import { forwardMissingMergeDriverWarning } from "@musi/lint-ratchet/git-rail/merge-driver-presence.js";
+import { WorseBaselineError } from "@musi/lint-ratchet/governance/errors.js";
+import { ConfigError } from "@musi/lint-ratchet/kernel/metrics.js";
+
 import { parseArgs, PROCESS_ARG_OFFSET, usage, UsageError } from "./lint-ratchet/cli.js";
-import { WorseBaselineError } from "./lint-ratchet/cli-errors.js";
-import { ConfigError } from "./lint-ratchet/metrics.js";
 import { type LintRatchetRuntimeOptions, runLintRatchetCli } from "./lint-ratchet/modes.js";
 import { repoRoot } from "./lint-ratchet/paths.js";
 import { LINT_RATCHET_REPORT_ARTIFACT_URL_ENV } from "./lint-ratchet/report.js";

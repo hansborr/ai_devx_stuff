@@ -1,12 +1,28 @@
-import { describe, expect, it, vi } from "vitest";
-
 import {
   type BaselineDebtAccountingGitDeps,
   runBaselineDebtAccountingCheck,
-} from "./baseline-debt-accounting-git.js";
+} from "@musi/lint-ratchet/governance/baseline-debt-accounting-git.js";
+import {
+  LINT_RATCHET_BASELINE_WRITE_VERSION,
+  lintRatchetBaselineRegenerateForVersion,
+} from "@musi/lint-ratchet/kernel/baseline-constants.js";
+import { describe, expect, it, vi } from "vitest";
+
+import { musiLintRatchetContext } from "./engine-binding.js";
 import { BASELINE_FILENAME, baselinePath, DEBT_LOG_FILENAME, debtLogPath } from "./paths.js";
 
-const EMPTY_BASELINE = `${JSON.stringify({ version: 1, tests: {} }, null, 2)}\n`;
+const emptyBaselineRegenerate = lintRatchetBaselineRegenerateForVersion(
+  LINT_RATCHET_BASELINE_WRITE_VERSION,
+);
+const EMPTY_BASELINE = `${JSON.stringify(
+  {
+    version: LINT_RATCHET_BASELINE_WRITE_VERSION,
+    ...(emptyBaselineRegenerate === undefined ? {} : { regenerate: emptyBaselineRegenerate }),
+    tests: {},
+  },
+  null,
+  2,
+)}\n`;
 
 type GitResponse = Error | string;
 
@@ -66,7 +82,7 @@ describe("runBaselineDebtAccountingCheck", () => {
     ]);
 
     const stderr = collectConsoleError(() => {
-      runBaselineDebtAccountingCheck(deps);
+      runBaselineDebtAccountingCheck(musiLintRatchetContext, deps);
     });
 
     expect(stderr).toContain("OK - 0 baseline increase(s) accounted against parentsha000");
@@ -91,7 +107,7 @@ describe("runBaselineDebtAccountingCheck", () => {
     ]);
 
     const stderr = collectConsoleError(() => {
-      runBaselineDebtAccountingCheck(deps);
+      runBaselineDebtAccountingCheck(musiLintRatchetContext, deps);
     });
 
     expect(stderr).toContain("OK - 0 baseline increase(s) accounted against basesha11111");
@@ -107,7 +123,7 @@ describe("runBaselineDebtAccountingCheck", () => {
     ]);
 
     const stderr = collectConsoleError(() => {
-      runBaselineDebtAccountingCheck(deps);
+      runBaselineDebtAccountingCheck(musiLintRatchetContext, deps);
     });
 
     expect(stderr).toContain("WARN - configured base refs are unavailable");
@@ -127,7 +143,7 @@ describe("runBaselineDebtAccountingCheck", () => {
       [["show", `:${DEBT_LOG_FILENAME}`], stagedDebtLog],
     ]);
 
-    runBaselineDebtAccountingCheck(deps, { currentSource: "index" });
+    runBaselineDebtAccountingCheck(musiLintRatchetContext, deps, { currentSource: "index" });
 
     expect(calls).toContainEqual(["show", `:${BASELINE_FILENAME}`]);
     expect(calls).toContainEqual(["show", `:${DEBT_LOG_FILENAME}`]);
@@ -142,7 +158,9 @@ describe("runBaselineDebtAccountingCheck", () => {
       [["show", `${base}:${DEBT_LOG_FILENAME}`], ""],
     ]);
 
-    runBaselineDebtAccountingCheck(deps, { baseRefCandidates: ["upstream/trunk"] });
+    runBaselineDebtAccountingCheck(musiLintRatchetContext, deps, {
+      baseRefCandidates: ["upstream/trunk"],
+    });
 
     expect(calls).toContainEqual(["merge-base", "HEAD", "upstream/trunk"]);
     expect(calls.map((call) => call.join(" "))).not.toContain("merge-base HEAD origin/main");
@@ -159,7 +177,9 @@ describe("runBaselineDebtAccountingCheck", () => {
     ]);
 
     const stderr = collectConsoleError(() => {
-      runBaselineDebtAccountingCheck(deps, { baseRefCandidates: ["upstream/trunk"] });
+      runBaselineDebtAccountingCheck(musiLintRatchetContext, deps, {
+        baseRefCandidates: ["upstream/trunk"],
+      });
     });
 
     expect(stderr).toContain("WARN - configured base refs are unavailable");
@@ -180,7 +200,7 @@ describe("runBaselineDebtAccountingCheck", () => {
     );
 
     expect(() => {
-      runBaselineDebtAccountingCheck(deps);
+      runBaselineDebtAccountingCheck(musiLintRatchetContext, deps);
     }).not.toThrow();
   });
 });

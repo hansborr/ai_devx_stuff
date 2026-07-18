@@ -17,8 +17,7 @@ Verified against GitHub Copilot CLI 1.0.68. Requires a logged-in account (`copil
 
 - Exit code 0 even when individual tool calls were denied — read the trailers and log, not just the code.
 - Consults deny mutations without prompting (no blanket grants plus `--deny-tool write`); file reads under the cwd and safe read-only shell commands run freely. Widen reads with `-- --add-dir <dir>` (or `--allow-all-paths`); URLs are denied by default, `-- --allow-url=<domain>` opts one in.
-- Copilot consults are lock-free, so unlike the other backends they may pass a `-C <dir>` cwd override through `--` — the single cwd-moving flag the wrapper permits (every other backend rejects cwd-moving flags outright). The drift trailer then reads `unchecked`: the wrapper can only snapshot the dispatch worktree, not the `-C` target.
+- Copilot consults may pass a `-C <dir>` cwd override through `--` — the single cwd-moving flag the wrapper permits (every other backend rejects cwd-moving flags outright). The drift trailer then reads `unchecked`: the wrapper can only snapshot the dispatch worktree, not the `-C` target.
 - The wrapper strips output to the bare answer (`-s`) and keeps the transcript plus session id in `<answer-file>.transcript.md`. A passthrough `--share=<path outside the worktree>` replaces that sidecar (one transcript per run), and like the sidecar it must be a fresh path.
 - A resume (`-r`) still requires `-m`: the session inherits its model, so pass the same one.
-- The session id lives in the share transcript, which Copilot writes at end of run, so the `agent-run: session-id:` trailer appears only at finalization (unlike codex, which logs it early). A run killed before then leaves no session-id trailer — recover the id from Copilot's own session history.
-- Quick consults return in seconds; anything reading a real diff or codebase area takes minutes — background it like any other run.
+- The session id lives in the share transcript, which Copilot writes at end of run, so the `agent-run: session-id:` trailer appears only at finalization. A run killed before then leaves no session-id trailer — recover the id from Copilot's own session history.

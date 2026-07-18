@@ -336,7 +336,10 @@ ensure_hadolint_wrapper_executable_unlocked() {
     file="$(hadolint_cache_file "$wrapper")"
   fi
   [ -n "$file" ] || return 0
-  [ -x "$file" ] || chmod +x "$file"
+  # Repair unconditionally: a concurrent extraction can drop the executable bit
+  # after an earlier [ -x ] check would have skipped it, so always (re)assert it
+  # before the path is handed back for a direct spawn.
+  chmod +x "$file" 2>/dev/null || true
 }
 
 ensure_hadolint_wrapper_executable() {
@@ -364,13 +367,24 @@ hadolint_command() {
 }
 
 hadolint_command_unlocked() {
-  local wrapper="$1"
+  local wrapper="$1" cache_file
   if [ -n "${MUSI_HADOLINT_BIN:-}" ]; then
     printf '%s\n' "$MUSI_HADOLINT_BIN"
     return 0
   fi
   if [ -x "$wrapper" ]; then
     ensure_hadolint_wrapper_executable_unlocked "$wrapper"
+    # Prefer spawning the extracted binary directly over re-entering the npm
+    # wrapper. The wrapper checks the cache for existence only (not an
+    # executable bit) and re-fetches a missing binary without one, so invoking
+    # it can race a concurrent extraction and die with an unhandled spawn
+    # EACCES. The binary we just repaired under the lock is safe to launch
+    # directly, and the wrapper's own execute() spawns it exactly this way.
+    cache_file="$(hadolint_cache_file "$wrapper")"
+    if [ -n "$cache_file" ] && [ -x "$cache_file" ]; then
+      printf '%s\n' "$cache_file"
+      return 0
+    fi
     printf '%s\n' "$wrapper"
     return 0
   fi
@@ -394,6 +408,49 @@ EOF
   }
 
   "$bin" "$@"
+}
+
+# A concurrent config-sensors run — or the npm wrapper's first-run
+# self-extraction of the pinned binary — can momentarily leave the shared
+# hadolint cache binary non-executable (0644) or mid-write, so an otherwise
+# healthy invocation dies with a Node spawn EACCES/ETXTBSY/ENOENT instead of a
+# lint result. That transient infrastructure failure is distinguishable from a
+# genuine nonzero exit: hadolint reports Dockerfile findings on stdout and never
+# emits a spawn errno, so a spawn-shaped stderr means the binary could not be
+# launched, not that the Dockerfile is dirty.
+hadolint_stderr_is_spawn_failure() {
+  local stderr_file="$1"
+  grep -qE 'spawn[[:print:]]*(EACCES|ETXTBSY|ENOENT)' "$stderr_file" 2>/dev/null
+}
+
+# Run one locked hadolint invocation; on a spawn-shaped failure only, re-run the
+# locked executable-bit repair and retry exactly once. The retry is gated on the
+# stderr shape so a Dockerfile with real findings is never linted twice and a
+# real regression can never be masked, and each lock is acquired fresh (never
+# nested) so the repair cannot deadlock against the invocation's own flock.
+run_hadolint_with_repair_retry() {
+  local wrapper="$1"
+  shift
+  local stderr_file status
+  stderr_file="$(mktemp "${TMPDIR:-/tmp}/musi-hadolint-stderr.XXXXXX")"
+  if run_with_hadolint_lock "$wrapper" run_hadolint_locked "$wrapper" "$@" 2>"$stderr_file"; then
+    status=0
+  else
+    status=$?
+  fi
+  if [ "$status" -ne 0 ] && hadolint_stderr_is_spawn_failure "$stderr_file"; then
+    echo "lint:config-sensors: hadolint could not be launched (transient shared-cache spawn failure); repairing the executable bit and retrying once." >&2
+    run_with_hadolint_lock "$wrapper" ensure_hadolint_wrapper_executable_unlocked "$wrapper" || true
+    : >"$stderr_file"
+    if run_with_hadolint_lock "$wrapper" run_hadolint_locked "$wrapper" "$@" 2>"$stderr_file"; then
+      status=0
+    else
+      status=$?
+    fi
+  fi
+  cat "$stderr_file" >&2
+  rm -f "$stderr_file"
+  return "$status"
 }
 
 run_actionlint() {
@@ -461,13 +518,13 @@ run_hadolint() {
   # release stream. Keep DL3007 out of this repo's floor until that changes.
   if [ "${#DOCKERFILES[@]}" -gt 0 ]; then
     echo "lint:config-sensors: hadolint checking ${#DOCKERFILES[@]} maintained Dockerfile(s)."
-    if ! run_with_hadolint_lock "$wrapper" run_hadolint_locked "$wrapper" --ignore DL3007 "${DOCKERFILES[@]}"; then
+    if ! run_hadolint_with_repair_retry "$wrapper" --ignore DL3007 "${DOCKERFILES[@]}"; then
       failed=1
     fi
   fi
   if [ "${#REFERENCE_DOCKERFILES[@]}" -gt 0 ]; then
     echo "lint:config-sensors: hadolint checking ${#REFERENCE_DOCKERFILES[@]} local reference Dockerfile(s)."
-    if ! run_with_hadolint_lock "$wrapper" run_hadolint_locked "$wrapper" --ignore DL3008 --ignore DL3015 --ignore DL4006 "${REFERENCE_DOCKERFILES[@]}"; then
+    if ! run_hadolint_with_repair_retry "$wrapper" --ignore DL3008 --ignore DL3015 --ignore DL4006 "${REFERENCE_DOCKERFILES[@]}"; then
       failed=1
     fi
   fi

@@ -1,16 +1,13 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import {
-  cpSync,
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  readFileSync,
-  symlinkSync,
-  writeFileSync,
-} from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import {
+  LINT_RATCHET_BASELINE_REGENERATE,
+  LINT_RATCHET_BASELINE_WRITE_VERSION,
+} from "@musi/lint-ratchet/kernel/baseline-constants.js";
+import { REGRESSION_RECOVERY_FOOTER } from "@musi/lint-ratchet/kernel/recovery-command.js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import {
@@ -18,26 +15,64 @@ import {
   harnessDiagnosticsSchema,
 } from "../../packages/shared/src/schemas/harness-diagnostics.js";
 import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
-import portableManifest from "./portable-manifest.json";
-import { expandPortableManifest, matchesManifestPattern } from "./portable-manifest-expand.js";
-import { REGRESSION_RECOVERY_FOOTER } from "./recovery-command.js";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const OUTPUT_BUFFER_BYTES = 10_000_000;
 const OUTPUT_ENV = "HARNESS_DIAGNOSTICS_OUTPUT";
 const perTestTmpRepo = registerTempRootCleanup();
 
-const CROSS_DIR_RUNTIME_FILES = portableManifest.runtimeFiles;
-const MERGE_DRIVER_RUNTIME_FILES = portableManifest.mergeDriverFiles;
-
 const DRIVER_WARN =
   "WARN: lint-ratchet merge driver is missing or stale - run bun run lint:ratchet:install-merge-driver";
 const SUPPRESS_DRIVER_WARN_ENV = "MUSI_SUPPRESS_MERGE_DRIVER_WARN";
 
-// Expand through the shared portable-manifest expander so this fixture and the
-// two other copy-set consumers cannot disagree about the runtime file list.
-const expandedManifest = expandPortableManifest(portableManifest, repoRoot);
-const runtimeFiles = [...expandedManifest.runtimeFiles, ...expandedManifest.mergeDriverFiles];
+// The Musi adapter files the fixture runs against a synthetic registry. The
+// portable engine is no longer copied in — it resolves as the symlinked
+// @musi/lint-ratchet workspace package (see makeFixture) — so this is just the
+// adapter + git-rail rail plus the few shared helpers the adapter imports. (The
+// copy manifest + expander that used to derive this list were deleted in leaf 02
+// S5; the copyability they guarded is proven by the package's §2 structural
+// checks and the examples/lint-ratchet-demo consumer.)
+const ADAPTER_SUPPORT_FILES: readonly string[] = [
+  "eslint-rules/max-lines.js",
+  "packages/shared/src/schemas/harness-diagnostics.ts",
+  "scripts/harness/harness-diagnostics-output.ts",
+  "scripts/harness/harness-manifest.ts",
+  "scripts/lib/lint-rule-docs.ts",
+  "scripts/lint-ratchet.ts",
+];
+const MERGE_DRIVER_FILES: readonly string[] = [
+  "scripts/git/baseline-info-attributes.ts",
+  "scripts/git/baseline-merge-driver-lib.sh",
+  "scripts/git/baseline-merge-driver.sh",
+  "scripts/git/baseline-post-merge-truth-up.sh",
+  "scripts/git/check-baseline-merge-driver.sh",
+  "scripts/git/check-lint-ratchet-merge-driver.sh",
+  "scripts/git/install-baseline-merge-driver.sh",
+  "scripts/git/install-lint-ratchet-merge-driver.sh",
+  "scripts/git/lint-ratchet-merge-driver-lib.sh",
+  "scripts/git/lint-ratchet-post-merge-baseline-truth-up.sh",
+  "scripts/git/restore-generated-baseline-stage.sh",
+];
+
+// The adapter modules under scripts/lint-ratchet/ (every non-test .ts except the
+// registry the fixture writes its own copy of). Enumerated from git so a moved or
+// renamed adapter file stays covered without a hand-maintained list.
+function lintRatchetAdapterFiles(): string[] {
+  return execFileSync("git", ["ls-files", "scripts/lint-ratchet"], {
+    cwd: repoRoot,
+    encoding: "utf8",
+  })
+    .split("\n")
+    .filter((file) => file.endsWith(".ts"))
+    .filter((file) => !file.endsWith(".test.ts") && !file.endsWith(".test-helper.ts"))
+    .filter((file) => file !== "scripts/lint-ratchet/lint-ratchet-config.ts");
+}
+
+const runtimeFiles = [
+  ...ADAPTER_SUPPORT_FILES,
+  ...lintRatchetAdapterFiles(),
+  ...MERGE_DRIVER_FILES,
+];
 
 interface RunResult {
   readonly status: number | null;
@@ -54,15 +89,33 @@ interface FixtureRatchetConfigOptions {
 }
 
 function copyRuntimeFile(fixtureRoot: string, relativePath: string): void {
+  const source = join(repoRoot, relativePath);
+  // Engine sources (baseline codec, git-rail, etc.) resolve as the symlinked
+  // @musi/lint-ratchet package in makeFixture, not as copied files, so skip any
+  // listed path that no longer resolves here rather than failing the copy.
+  if (!existsSync(source)) return;
   const target = join(fixtureRoot, relativePath);
   mkdirSync(dirname(target), { recursive: true });
-  cpSync(join(repoRoot, relativePath), target);
+  cpSync(source, target);
 }
 
 function writeFixturePackage(fixtureRoot: string): void {
   writeFileSync(
     join(fixtureRoot, "package.json"),
-    `${JSON.stringify({ name: "lint-ratchet-output-fixture", private: true, type: "module" }, null, 2)}\n`,
+    `${JSON.stringify(
+      {
+        name: "lint-ratchet-output-fixture",
+        private: true,
+        type: "module",
+        // The adapter copied into the fixture imports @musi/lint-ratchet/*; declare
+        // the symlinked package as a workspace member so Bun resolves it (mirrors
+        // how the real repo root consumes the package).
+        workspaces: ["tools/lint-ratchet"],
+        devDependencies: { "@musi/lint-ratchet": "workspace:*" },
+      },
+      null,
+      2,
+    )}\n`,
   );
 }
 
@@ -222,6 +275,11 @@ function makeFixture(
   writeFixtureEslintConfig(fixtureRoot);
   writeFixtureRatchetConfig(fixtureRoot, configOptions);
   writeCleanSource(fixtureRoot);
+  // The engine now resolves as the @musi/lint-ratchet workspace package rather
+  // than being manifest-copied; symlink it in so the copied adapter's
+  // `@musi/lint-ratchet/*` imports resolve when the CLI runs in the fixture.
+  mkdirSync(join(fixtureRoot, "tools"), { recursive: true });
+  symlinkSync(join(repoRoot, "tools/lint-ratchet"), join(fixtureRoot, "tools/lint-ratchet"), "dir");
   symlinkSync(join(repoRoot, "node_modules"), join(fixtureRoot, "node_modules"), "dir");
   symlinkSync(
     join(repoRoot, "packages/shared/node_modules"),
@@ -296,6 +354,19 @@ function stripFixtureMessageFingerprint(fixtureRoot: string): void {
   writeFileSync(baselineFile, stripped);
 }
 
+function stampFixtureBaselineWithStaleV2Regenerate(fixtureRoot: string): void {
+  const baselineFile = join(fixtureRoot, "lint-ratchet.baseline.json");
+  const original = readFileSync(baselineFile, "utf8");
+  expect(original).toContain(`  "version": ${String(LINT_RATCHET_BASELINE_WRITE_VERSION)},\n`);
+  const v1Line = '  "version": 1,\n';
+  const staleAnnotation = '  "regenerate": "bun run lint:ratchet:legacy-update",\n';
+  const stamped = original.includes(v1Line)
+    ? original.replace(v1Line, `  "version": 2,\n${staleAnnotation}`)
+    : original.replace(`  "regenerate": "${LINT_RATCHET_BASELINE_REGENERATE}",\n`, staleAnnotation);
+  expect(stamped).not.toBe(original);
+  writeFileSync(baselineFile, stamped);
+}
+
 function parseEnvelope(stdout: string): HarnessDiagnostics {
   const parsed: unknown = JSON.parse(stdout);
   const result = harnessDiagnosticsSchema.safeParse(parsed);
@@ -304,118 +375,13 @@ function parseEnvelope(stdout: string): HarnessDiagnostics {
   return result.data;
 }
 
-describe("fixture runtime file derivation", () => {
-  it("copies every scripts/lint-ratchet runtime module without hand-maintaining the list", () => {
-    const expansion = portableManifest.expandDirectories.find(
-      (entry) => entry.path === "scripts/lint-ratchet",
-    );
-    expect(expansion).toBeDefined();
-    if (expansion === undefined) throw new Error("missing lint-ratchet manifest expansion");
-    const ratchetModules = readdirSync(join(repoRoot, "scripts/lint-ratchet"))
-      .filter((name) => name.endsWith(".ts") && !name.endsWith(".test.ts"))
-      .map((name) => `scripts/lint-ratchet/${name}`);
-
-    for (const module of ratchetModules) {
-      const name = module.slice("scripts/lint-ratchet/".length);
-      if (expansion.exclude.some((pattern) => matchesManifestPattern(name, pattern))) {
-        expect(runtimeFiles).not.toContain(module);
-      } else {
-        expect(runtimeFiles, `runtime module ${module} must be copied into the fixture`).toContain(
-          module,
-        );
-      }
-    }
-  });
-
-  it("excludes vitest files from the copied runtime set", () => {
-    expect(runtimeFiles.some((file) => file.endsWith(".test.ts"))).toBe(false);
-  });
-
-  it("excludes test helpers through the portable manifest", () => {
-    expect(portableManifest.version).toBe(1);
-    expect(portableManifest.expandDirectories[0]?.exclude).toContain("*.test-helper.ts");
-    expect(runtimeFiles.some((file) => file.endsWith(".test-helper.ts"))).toBe(false);
-  });
-
-  it("keeps the manifest expansion free of duplicate paths", () => {
-    expect(new Set(runtimeFiles).size).toBe(runtimeFiles.length);
-  });
-
-  it("keeps the cross-directory runtime dependencies explicit", () => {
-    for (const crossDirFile of [...CROSS_DIR_RUNTIME_FILES, ...MERGE_DRIVER_RUNTIME_FILES]) {
-      expect(runtimeFiles, `cross-dir runtime file ${crossDirFile}`).toContain(crossDirFile);
-      expect(existsSync(join(repoRoot, crossDirFile)), `${crossDirFile} exists`).toBe(true);
-    }
-  });
-});
-
-describe("expandPortableManifest fail-loud semantics", () => {
-  it("throws naming the path and pattern when an include matches no entries", () => {
-    const root = perTestTmpRepo.writeRepo({ "expand/readme.md": "x\n" });
-    expect(() =>
-      expandPortableManifest(
-        {
-          version: 1,
-          runtimeFiles: [],
-          expandDirectories: [{ path: "expand", include: "*.ts", exclude: [] }],
-          mergeDriverFiles: [],
-        },
-        root,
-      ),
-    ).toThrow(/expandDirectories 'expand' include '\*\.ts' matched no entries/);
-  });
-
-  it("throws naming the subdirectory instead of silently narrowing the copy set", () => {
-    // The include must be the production-shaped `*.ts`, which a plainly named
-    // subdirectory does NOT match: the guard has to fire on the directory
-    // entry itself, before any include/exclude name filtering, or a module
-    // moved into `expand/nested/` silently drops from the copy set.
-    const root = perTestTmpRepo.writeRepo({
-      "expand/keep.ts": "x\n",
-      "expand/nested/moved.ts": "x\n",
-    });
-    expect(() =>
-      expandPortableManifest(
-        {
-          version: 1,
-          runtimeFiles: [],
-          expandDirectories: [{ path: "expand", include: "*.ts", exclude: [] }],
-          mergeDriverFiles: [],
-        },
-        root,
-      ),
-    ).toThrow(/expandDirectories 'expand' contains subdirectory 'nested'/);
-  });
-
-  it("does not advertise an exclude remedy the guard's ordering makes impossible", () => {
-    // The directory guard fires before include/exclude name filtering, so an
-    // exclude pattern for the subdirectory never runs. The error must not point
-    // a maintainer at that dead escape hatch — only an explicit runtimeFiles
-    // entry actually resolves it.
-    const root = perTestTmpRepo.writeRepo({
-      "expand/keep.ts": "x\n",
-      "expand/nested/moved.ts": "x\n",
-    });
-    let caught: unknown;
-    try {
-      expandPortableManifest(
-        {
-          version: 1,
-          runtimeFiles: [],
-          expandDirectories: [{ path: "expand", include: "*.ts", exclude: [] }],
-          mergeDriverFiles: [],
-        },
-        root,
-      );
-    } catch (error) {
-      caught = error;
-    }
-    expect(caught).toBeInstanceOf(Error);
-    const message = caught instanceof Error ? caught.message : "";
-    expect(message).toContain("Add an explicit runtimeFiles entry");
-    expect(message).not.toMatch(/exclude/i);
-  });
-});
+// The "fixture runtime file derivation" and copy-manifest fail-loud
+// assertions were removed with the copy manifest (leaf 02 S3/S5): the engine is
+// no longer copied into the fixture — it resolves as the @musi/lint-ratchet
+// workspace package (see makeFixture below). The self-containment/copyability
+// those assertions proved is now proven directly by the package's §2 structural
+// checks (fail-closed boundary + exports-resolution + fixture-context acceptance
+// tests in tools/lint-ratchet/) and the examples/lint-ratchet-demo consumer.
 
 describe("lint ratchet merge-driver presence warning", () => {
   it(
@@ -454,6 +420,24 @@ describe("lint ratchet merge-driver presence warning", () => {
       expect(installed.stderr).not.toContain(DRIVER_WARN);
     },
   );
+});
+
+describe("lint ratchet baseline annotation warning", () => {
+  it("warns without failing check mode when a v2 regenerate annotation is stale", () => {
+    const fixtureRoot = makeFixture();
+    seedCleanBaseline(fixtureRoot);
+    stampFixtureBaselineWithStaleV2Regenerate(fixtureRoot);
+
+    const result = runLintRatchet(fixtureRoot, ["--check-baseline"], {
+      [SUPPRESS_DRIVER_WARN_ENV]: "1",
+    });
+
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stderr).toContain(
+      "lint:ratchet WARN - baseline regenerate annotation is stale; regenerate with `bun run lint:ratchet:update`",
+    );
+    expect(result.stderr).toContain("lint:ratchet:check-baseline OK");
+  });
 });
 
 describe("lint ratchet diagnostics output file", () => {

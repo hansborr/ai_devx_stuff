@@ -2,24 +2,26 @@ import {
   compareCurrentToBaseline,
   type LintRatchetBaseline,
   type LintRatchetRuleSourceHashesById,
-} from "./baseline.js";
+} from "@musi/lint-ratchet/kernel/baseline.js";
 import {
   collectCurrentById,
   DEFAULT_COLLECT_CONCURRENCY,
   totalCurrentCount,
-} from "./current-collector.js";
-import { buildEnvelopeFromComparison, loadRuleDocsById, validateEnvelope } from "./diagnostics.js";
-import { lintRatchets } from "./lint-ratchet-config.js";
-import { ConfigError } from "./metrics.js";
-import { emitHarnessDiagnosticsEnvelope } from "./output.js";
-import { readBaselineOrThrow } from "./paths.js";
-import { REGRESSION_RECOVERY_FOOTER } from "./recovery-command.js";
-import { buildRuleSourceHashesById } from "./rule-source.js";
+} from "@musi/lint-ratchet/kernel/current-collector.js";
+import { ConfigError } from "@musi/lint-ratchet/kernel/metrics.js";
+import { REGRESSION_RECOVERY_FOOTER } from "@musi/lint-ratchet/kernel/recovery-command.js";
+import { buildRuleSourceHashesById } from "@musi/lint-ratchet/kernel/rule-source.js";
 import {
   equalCountSwapsProvable,
   formatRuleSourceDriftClassification,
   parseBaselineWithRuleSourceDrift,
-} from "./rule-source-drift.js";
+} from "@musi/lint-ratchet/kernel/rule-source-drift.js";
+
+import { buildEnvelopeFromComparison, loadRuleDocsById, validateEnvelope } from "./diagnostics.js";
+import { musiLintRatchetBinding } from "./engine-binding.js";
+import { lintRatchets } from "./lint-ratchet-config.js";
+import { emitHarnessDiagnosticsEnvelope } from "./output.js";
+import { BASELINE_FILENAME, readBaselineOrThrow } from "./paths.js";
 
 export interface LintRatchetDefaultModeOptions {
   readonly collectConcurrency?: number;
@@ -47,9 +49,14 @@ function parseDefaultBaseline(ruleSourceHashesById: LintRatchetRuleSourceHashesB
 
 export async function runDefault(options: LintRatchetDefaultModeOptions): Promise<void> {
   const ruleDocsById = await loadRuleDocsById();
-  const ruleSourceHashesById = buildRuleSourceHashesById(lintRatchets);
+  const ruleSourceHashesById = buildRuleSourceHashesById(lintRatchets, musiLintRatchetBinding);
   const parsedBaseline = parseDefaultBaseline(ruleSourceHashesById);
-  const currentById = await collectCurrentById(ruleSourceHashesById, collectConcurrency(options));
+  const currentById = await collectCurrentById({
+    ruleSourceHashesById,
+    ratchets: lintRatchets,
+    binding: musiLintRatchetBinding,
+    concurrency: collectConcurrency(options),
+  });
   const comparison = compareCurrentToBaseline(parsedBaseline.baseline, lintRatchets, currentById);
   const envelope = buildEnvelopeFromComparison({
     regressions: comparison.regressions,
@@ -77,6 +84,7 @@ export async function runDefault(options: LintRatchetDefaultModeOptions): Promis
     console.error(
       formatRuleSourceDriftClassification(
         changedCount,
+        BASELINE_FILENAME,
         infoCount,
         equalCountSwapsProvable(parsedBaseline.baseline, lintRatchets),
       ),

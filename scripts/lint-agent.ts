@@ -13,8 +13,9 @@
 import { spawn, spawnSync } from "node:child_process";
 import { dirname, isAbsolute, resolve } from "node:path";
 
+import { parseEslintOutput } from "@musi/lint-ratchet/kernel/eslint-json.js";
+
 import { harnessDiagnosticsSchema } from "../packages/shared/src/schemas/harness-diagnostics.js";
-import { parseEslintOutput } from "./lib/eslint-json.js";
 import { formatRuleDocsFailures, loadLintRuleDocs } from "./lib/lint-rule-docs.js";
 import {
   buildLintAgentEnvelope,

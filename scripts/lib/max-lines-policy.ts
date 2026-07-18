@@ -1,6 +1,7 @@
+import type { LintRatchetZeroBaselineDisposition } from "@musi/lint-ratchet/kernel/zero-baseline-types.js";
+
 import { parseMaxLinesExceptionEntry } from "../../eslint-config/max-lines-exceptions-codec.js";
 import { maxLinesPolicy as rawMaxLinesPolicy } from "../../eslint-config/shared-policy.js";
-import type { LintRatchetZeroBaselineDisposition } from "../lint-ratchet/zero-baseline-types.js";
 
 interface MaxLinesRatchetPolicy {
   readonly id: string;

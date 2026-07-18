@@ -1,15 +1,7 @@
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 
-import { Linter } from "eslint";
-import { describe, expect, it } from "vitest";
-
-import { harnessDiagnosticsSchema } from "../../packages/shared/src/schemas/harness-diagnostics.js";
-import type { RuleDocsEntry } from "../lib/lint-rule-docs.js";
-import {
-  assertCheckBaselineComparisonClean,
-  buildEnvelope,
-  buildEnvelopeFromComparison,
-} from "../lint-ratchet.js";
 import {
   buildLintRatchetBaseline,
   compareCurrentToBaseline,
@@ -28,18 +20,34 @@ import {
   parseLintRatchetBaselineStructure,
   ruleNamespace,
   validateLintRatchetRegistry,
-} from "./baseline.js";
-import { normalizeStringList } from "./baseline-hash.js";
-import { itemsFromResults } from "./current-collector.js";
-import { type LintRatchetConfig, lintRatchets } from "./lint-ratchet-config.js";
+} from "@musi/lint-ratchet/kernel/baseline.js";
+import {
+  createLintRatchetBaselineVersionPolicy,
+  LINT_RATCHET_BASELINE_REGENERATE,
+} from "@musi/lint-ratchet/kernel/baseline-constants.js";
+import { normalizeStringList } from "@musi/lint-ratchet/kernel/baseline-hash.js";
+import type { LintRatchetConfig } from "@musi/lint-ratchet/kernel/config-types.js";
+import { itemsFromResults } from "@musi/lint-ratchet/kernel/current-collector.js";
 import {
   complexityDelta,
   ConfigError,
   type LintRatchetComplexityFunction,
   parseComplexitySeverityMessage,
   uniqueComplexityMap,
-} from "./metrics.js";
-import { RATCHET_REGRESSION_REASON_PLACEHOLDER } from "./recovery-command.js";
+} from "@musi/lint-ratchet/kernel/metrics.js";
+import { RATCHET_REGRESSION_REASON_PLACEHOLDER } from "@musi/lint-ratchet/kernel/recovery-command.js";
+import { Linter } from "eslint";
+import { describe, expect, it } from "vitest";
+
+import { harnessDiagnosticsSchema } from "../../packages/shared/src/schemas/harness-diagnostics.js";
+import type { RuleDocsEntry } from "../lib/lint-rule-docs.js";
+import {
+  assertCheckBaselineComparisonClean,
+  buildEnvelope,
+  buildEnvelopeFromComparison,
+} from "../lint-ratchet.js";
+import { lintRatchets } from "./lint-ratchet-config.js";
+import { baselinePath, repoRoot } from "./paths.js";
 
 const baseRatchet: LintRatchetConfig = {
   id: "ratchet/local-type-assertion-boundary",
@@ -111,6 +119,12 @@ const complexityRatchet: LintRatchetConfig = {
 };
 
 const FIXTURE_RULE_SOURCE_HASH = `${LINT_RATCHET_CONFIG_HASH_PREFIX}${"a".repeat(64)}`;
+const PRE_FLIP_BASELINE_REVISION = "08aa91a0ab8ac5b9d60ecc7b57794f8252ed5483";
+const FLIP_BASELINE_REVISION = "c6586fffcfd05190ea0daa075e0c0834ab6d09ef";
+const COMMITTED_BASELINE_ARTIFACTS = [
+  "lint-ratchet.baseline.json",
+  "examples/lint-ratchet-demo/lint-ratchet.baseline.json",
+] as const;
 const fixtureRuleSourceHashes: LintRatchetRuleSourceHashesById = new Map([
   [baseRatchet.id, FIXTURE_RULE_SOURCE_HASH],
   [complexityRatchet.id, FIXTURE_RULE_SOURCE_HASH],
@@ -224,7 +238,7 @@ function maxLinesPerFunctionItems(
     // minimal TypeScript ratchet parser.
     { filename: "baseline-debt.js" },
   );
-  return itemsFromResults(ratchet, [{ filePath: path, messages }]);
+  return itemsFromResults(ratchet, [{ filePath: path, messages }], "");
 }
 
 function oneTestBaseline(paths: readonly [string, number][]): LintRatchetBaseline {
@@ -277,6 +291,330 @@ function complexityBaseline(
   );
 }
 
+interface ComparatorCharacterizationCase {
+  readonly name: string;
+  readonly baseline: () => LintRatchetBaseline;
+  readonly ratchet: LintRatchetConfig;
+  readonly current: () => LintRatchetCurrentById;
+  readonly expected: LintRatchetComparison;
+}
+
+const CHARACTERIZATION_PATH = "packages/server/src/characterization.ts";
+const COMPARATOR_CHARACTERIZATION_CASES: readonly ComparatorCharacterizationCase[] = [
+  {
+    name: "new path",
+    baseline: () => oneTestBaseline([]),
+    ratchet: baseRatchet,
+    current: () => current([[baseRatchet.id, [[CHARACTERIZATION_PATH, 1, 7]]]]),
+    expected: {
+      regressions: [
+        {
+          testId: baseRatchet.id,
+          ruleId: baseRatchet.ruleId,
+          path: CHARACTERIZATION_PATH,
+          baselineCount: 0,
+          currentCount: 1,
+          line: 7,
+          reason: "new-path",
+        },
+      ],
+      improvements: [],
+      infos: [],
+    },
+  },
+  {
+    name: "increased count",
+    baseline: () => oneTestBaseline([[CHARACTERIZATION_PATH, 2]]),
+    ratchet: baseRatchet,
+    current: () => current([[baseRatchet.id, [[CHARACTERIZATION_PATH, 3, 9]]]]),
+    expected: {
+      regressions: [
+        {
+          testId: baseRatchet.id,
+          ruleId: baseRatchet.ruleId,
+          path: CHARACTERIZATION_PATH,
+          baselineCount: 2,
+          currentCount: 3,
+          line: 9,
+          reason: "increased-count",
+        },
+      ],
+      improvements: [],
+      infos: [],
+    },
+  },
+  {
+    name: "increased lines",
+    baseline: () => maxLinesBaseline(CHARACTERIZATION_PATH, 320),
+    ratchet: maxLinesRatchet,
+    current: () => current([[maxLinesRatchet.id, [[CHARACTERIZATION_PATH, 1, 301, 321]]]]),
+    expected: {
+      regressions: [
+        {
+          testId: maxLinesRatchet.id,
+          ruleId: maxLinesRatchet.ruleId,
+          path: CHARACTERIZATION_PATH,
+          baselineCount: 1,
+          currentCount: 1,
+          baselineLines: 320,
+          currentLines: 321,
+          line: 301,
+          reason: "increased-lines",
+        },
+      ],
+      improvements: [],
+      infos: [],
+    },
+  },
+  {
+    name: "increased complexity",
+    baseline: () =>
+      complexityBaseline(CHARACTERIZATION_PATH, [
+        complexityFunction(12, "Function 'characterize'", 11),
+      ]),
+    ratchet: complexityRatchet,
+    current: () =>
+      current([
+        [
+          complexityRatchet.id,
+          [
+            [
+              CHARACTERIZATION_PATH,
+              1,
+              12,
+              undefined,
+              [complexityFunction(12, "Function 'characterize'", 12)],
+            ],
+          ],
+        ],
+      ]),
+    expected: {
+      regressions: [
+        {
+          testId: complexityRatchet.id,
+          ruleId: complexityRatchet.ruleId,
+          path: CHARACTERIZATION_PATH,
+          baselineCount: 1,
+          currentCount: 1,
+          baselineComplexity: 11,
+          currentComplexity: 12,
+          line: 12,
+          reason: "increased-complexity",
+        },
+      ],
+      improvements: [],
+      infos: [],
+    },
+  },
+  {
+    name: "removed path",
+    baseline: () => oneTestBaseline([[CHARACTERIZATION_PATH, 2]]),
+    ratchet: baseRatchet,
+    current: () => current([[baseRatchet.id, []]]),
+    expected: {
+      regressions: [],
+      improvements: [
+        {
+          testId: baseRatchet.id,
+          ruleId: baseRatchet.ruleId,
+          path: CHARACTERIZATION_PATH,
+          baselineCount: 2,
+          currentCount: 0,
+          reason: "removed-path",
+        },
+      ],
+      infos: [],
+    },
+  },
+  {
+    name: "baseline-only item when the current group is absent",
+    baseline: () => oneTestBaseline([[CHARACTERIZATION_PATH, 2]]),
+    ratchet: baseRatchet,
+    current: () => current([]),
+    expected: {
+      regressions: [],
+      improvements: [
+        {
+          testId: baseRatchet.id,
+          ruleId: baseRatchet.ruleId,
+          path: CHARACTERIZATION_PATH,
+          baselineCount: 2,
+          currentCount: 0,
+          reason: "removed-path",
+        },
+      ],
+      infos: [],
+    },
+  },
+  {
+    name: "empty group",
+    baseline: () => oneTestBaseline([]),
+    ratchet: baseRatchet,
+    current: () => current([]),
+    expected: { regressions: [], improvements: [], infos: [] },
+  },
+  {
+    name: "orphan group",
+    baseline: () => {
+      const registered = oneTestBaseline([]);
+      const registeredTest = registered.tests[baseRatchet.id];
+      if (registeredTest === undefined) throw new Error("missing registered characterization test");
+      return {
+        ...registered,
+        tests: {
+          ...registered.tests,
+          "ratchet/orphan-characterization": {
+            ...registeredTest,
+            items: { [CHARACTERIZATION_PATH]: { count: 4 } },
+          },
+        },
+      };
+    },
+    ratchet: baseRatchet,
+    current: () => current([]),
+    expected: { regressions: [], improvements: [], infos: [] },
+  },
+  {
+    name: "lowered count",
+    baseline: () => oneTestBaseline([[CHARACTERIZATION_PATH, 2]]),
+    ratchet: baseRatchet,
+    current: () => current([[baseRatchet.id, [[CHARACTERIZATION_PATH, 1]]]]),
+    expected: {
+      regressions: [],
+      improvements: [
+        {
+          testId: baseRatchet.id,
+          ruleId: baseRatchet.ruleId,
+          path: CHARACTERIZATION_PATH,
+          baselineCount: 2,
+          currentCount: 1,
+          reason: "lower-count",
+        },
+      ],
+      infos: [],
+    },
+  },
+  {
+    name: "lowered lines",
+    baseline: () => maxLinesBaseline(CHARACTERIZATION_PATH, 320),
+    ratchet: maxLinesRatchet,
+    current: () => current([[maxLinesRatchet.id, [[CHARACTERIZATION_PATH, 1, 301, 319]]]]),
+    expected: {
+      regressions: [],
+      improvements: [
+        {
+          testId: maxLinesRatchet.id,
+          ruleId: maxLinesRatchet.ruleId,
+          path: CHARACTERIZATION_PATH,
+          baselineCount: 1,
+          currentCount: 1,
+          baselineLines: 320,
+          currentLines: 319,
+          reason: "lower-lines",
+        },
+      ],
+      infos: [],
+    },
+  },
+  {
+    name: "lowered complexity",
+    baseline: () =>
+      complexityBaseline(CHARACTERIZATION_PATH, [
+        complexityFunction(12, "Function 'characterize'", 12),
+      ]),
+    ratchet: complexityRatchet,
+    current: () =>
+      current([
+        [
+          complexityRatchet.id,
+          [
+            [
+              CHARACTERIZATION_PATH,
+              1,
+              12,
+              undefined,
+              [complexityFunction(12, "Function 'characterize'", 11)],
+            ],
+          ],
+        ],
+      ]),
+    expected: {
+      regressions: [],
+      improvements: [
+        {
+          testId: complexityRatchet.id,
+          ruleId: complexityRatchet.ruleId,
+          path: CHARACTERIZATION_PATH,
+          baselineCount: 1,
+          currentCount: 1,
+          baselineComplexity: 12,
+          currentComplexity: 11,
+          reason: "lower-complexity",
+        },
+      ],
+      infos: [],
+    },
+  },
+  {
+    name: "equal-count payload swap",
+    baseline: () =>
+      buildLintRatchetBaseline(
+        [baseRatchet],
+        current([
+          [
+            baseRatchet.id,
+            [
+              [
+                CHARACTERIZATION_PATH,
+                2,
+                7,
+                undefined,
+                undefined,
+                undefined,
+                undefined,
+                expectedMessageFingerprint(["first", "second"]),
+              ],
+            ],
+          ],
+        ]),
+        fixtureRuleSourceHashes,
+      ),
+    ratchet: baseRatchet,
+    current: () =>
+      current([
+        [
+          baseRatchet.id,
+          [
+            [
+              CHARACTERIZATION_PATH,
+              2,
+              11,
+              undefined,
+              undefined,
+              undefined,
+              undefined,
+              expectedMessageFingerprint(["first", "replacement"]),
+            ],
+          ],
+        ],
+      ]),
+    expected: {
+      regressions: [],
+      improvements: [],
+      infos: [
+        {
+          testId: baseRatchet.id,
+          ruleId: baseRatchet.ruleId,
+          path: CHARACTERIZATION_PATH,
+          baselineCount: 2,
+          currentCount: 2,
+          reason: "equal-count-message-swap",
+        },
+      ],
+    },
+  },
+];
+
 describe("complexity message parsing", () => {
   it.each([
     ["Function 'choose'", 12],
@@ -319,6 +657,13 @@ describe("complexity message parsing", () => {
 });
 
 describe("lint ratchet comparison", () => {
+  it.each(COMPARATOR_CHARACTERIZATION_CASES)(
+    "characterizes $name for the kernel migration oracle",
+    ({ baseline, ratchet, current: currentFixture, expected }) => {
+      expect(compareCurrentToBaseline(baseline(), [ratchet], currentFixture())).toEqual(expected);
+    },
+  );
+
   it("flags a new path with findings as a regression", () => {
     const baseline = oneTestBaseline([]);
     const comparison = compareCurrentToBaseline(
@@ -511,26 +856,30 @@ describe("lint ratchet comparison", () => {
 
   it("keeps first message text and messageId paired while aggregating findings", () => {
     const path = "packages/server/src/app.ts";
-    const items = itemsFromResults(baseRatchet, [
-      {
-        filePath: path,
-        messages: [
-          {
-            ruleId: baseRatchet.ruleId,
-            severity: 2,
-            line: 12,
-            message: "Why: first finding. How to fix: Keep the first guidance.",
-          },
-          {
-            ruleId: baseRatchet.ruleId,
-            severity: 2,
-            line: 20,
-            message: "Why: second finding. How to fix: Do not mix message ids.",
-            messageId: "secondMessage",
-          },
-        ],
-      },
-    ]);
+    const items = itemsFromResults(
+      baseRatchet,
+      [
+        {
+          filePath: path,
+          messages: [
+            {
+              ruleId: baseRatchet.ruleId,
+              severity: 2,
+              line: 12,
+              message: "Why: first finding. How to fix: Keep the first guidance.",
+            },
+            {
+              ruleId: baseRatchet.ruleId,
+              severity: 2,
+              line: 20,
+              message: "Why: second finding. How to fix: Do not mix message ids.",
+              messageId: "secondMessage",
+            },
+          ],
+        },
+      ],
+      "",
+    );
 
     expect(items.get(path)).toEqual({
       count: 2,
@@ -548,26 +897,30 @@ describe("lint ratchet comparison", () => {
 
   it("fingerprints sorted message identities without line-number churn", () => {
     const path = "packages/server/src/app.ts";
-    const items = itemsFromResults(baseRatchet, [
-      {
-        filePath: path,
-        messages: [
-          {
-            ruleId: baseRatchet.ruleId,
-            severity: 2,
-            line: 40,
-            message: "Why: message-only finding. How to fix: Keep the message.",
-          },
-          {
-            ruleId: baseRatchet.ruleId,
-            severity: 2,
-            line: 10,
-            message: "Why: identified finding. How to fix: Keep the id.",
-            messageId: "identifiedFinding",
-          },
-        ],
-      },
-    ]);
+    const items = itemsFromResults(
+      baseRatchet,
+      [
+        {
+          filePath: path,
+          messages: [
+            {
+              ruleId: baseRatchet.ruleId,
+              severity: 2,
+              line: 40,
+              message: "Why: message-only finding. How to fix: Keep the message.",
+            },
+            {
+              ruleId: baseRatchet.ruleId,
+              severity: 2,
+              line: 10,
+              message: "Why: identified finding. How to fix: Keep the id.",
+              messageId: "identifiedFinding",
+            },
+          ],
+        },
+      ],
+      "",
+    );
 
     expect(items.get(path)).toMatchObject({
       count: 2,
@@ -584,27 +937,31 @@ describe("lint ratchet comparison", () => {
 
   it("fingerprints only messageId while preserving duplicate identities in the multiset", () => {
     const path = "packages/server/src/router.ts";
-    const items = itemsFromResults(baseRatchet, [
-      {
-        filePath: path,
-        messages: [
-          {
-            ruleId: baseRatchet.ruleId,
-            severity: 2,
-            line: 10,
-            message: "Why: first branch. How to fix: Do the first repair.",
-            messageId: "staticMessage",
-          },
-          {
-            ruleId: baseRatchet.ruleId,
-            severity: 2,
-            line: 20,
-            message: "Why: second branch. How to fix: Do the second repair.",
-            messageId: "staticMessage",
-          },
-        ],
-      },
-    ]);
+    const items = itemsFromResults(
+      baseRatchet,
+      [
+        {
+          filePath: path,
+          messages: [
+            {
+              ruleId: baseRatchet.ruleId,
+              severity: 2,
+              line: 10,
+              message: "Why: first branch. How to fix: Do the first repair.",
+              messageId: "staticMessage",
+            },
+            {
+              ruleId: baseRatchet.ruleId,
+              severity: 2,
+              line: 20,
+              message: "Why: second branch. How to fix: Do the second repair.",
+              messageId: "staticMessage",
+            },
+          ],
+        },
+      ],
+      "",
+    );
 
     expect(items.get(path)).toMatchObject({
       count: 2,
@@ -643,7 +1000,7 @@ describe("lint ratchet comparison", () => {
             ],
           },
         ],
-        { repoRootPath: rootPath },
+        rootPath,
       );
       const fingerprint = items.get(relativeFilePath)?.messagesFingerprint;
       expect(fingerprint).toBeDefined();
@@ -668,25 +1025,29 @@ describe("lint ratchet comparison", () => {
     // the `message.ruleId !== ratchet.ruleId` -> `false` mutant (finding 80),
     // which would count the foreign rule and report 2.
     const path = "packages/server/src/app.ts";
-    const items = itemsFromResults(baseRatchet, [
-      {
-        filePath: path,
-        messages: [
-          {
-            ruleId: baseRatchet.ruleId,
-            severity: 2,
-            line: 7,
-            message: "Why: matching finding. How to fix: Keep the boundary.",
-          },
-          {
-            ruleId: "local/some-other-rule",
-            severity: 2,
-            line: 9,
-            message: "Why: a different rule entirely. How to fix: ignored here.",
-          },
-        ],
-      },
-    ]);
+    const items = itemsFromResults(
+      baseRatchet,
+      [
+        {
+          filePath: path,
+          messages: [
+            {
+              ruleId: baseRatchet.ruleId,
+              severity: 2,
+              line: 7,
+              message: "Why: matching finding. How to fix: Keep the boundary.",
+            },
+            {
+              ruleId: "local/some-other-rule",
+              severity: 2,
+              line: 9,
+              message: "Why: a different rule entirely. How to fix: ignored here.",
+            },
+          ],
+        },
+      ],
+      "",
+    );
 
     expect(items.get(path)).toEqual({
       count: 1,
@@ -704,14 +1065,23 @@ describe("lint ratchet comparison", () => {
     // Kills the `message.ruleId === null &&` -> `false` mutant (finding 80).
     const path = "packages/server/src/broken.ts";
     expect(() =>
-      itemsFromResults(baseRatchet, [
-        {
-          filePath: path,
-          messages: [
-            { ruleId: null, severity: 2, fatal: true, message: "Parsing error: Unexpected token" },
-          ],
-        },
-      ]),
+      itemsFromResults(
+        baseRatchet,
+        [
+          {
+            filePath: path,
+            messages: [
+              {
+                ruleId: null,
+                severity: 2,
+                fatal: true,
+                message: "Parsing error: Unexpected token",
+              },
+            ],
+          },
+        ],
+        "",
+      ),
     ).toThrow(/ESLint could not parse/);
   });
 
@@ -721,12 +1091,16 @@ describe("lint ratchet comparison", () => {
     // `severity === ESLINT_SEVERITY_ERROR` branch of the fatal-parse guard.
     const path = "packages/server/src/broken.ts";
     expect(() =>
-      itemsFromResults(baseRatchet, [
-        {
-          filePath: path,
-          messages: [{ ruleId: null, severity: 2, message: "Parsing error: Unexpected token" }],
-        },
-      ]),
+      itemsFromResults(
+        baseRatchet,
+        [
+          {
+            filePath: path,
+            messages: [{ ruleId: null, severity: 2, message: "Parsing error: Unexpected token" }],
+          },
+        ],
+        "",
+      ),
     ).toThrow(/ESLint could not parse/);
   });
 
@@ -736,14 +1110,18 @@ describe("lint ratchet comparison", () => {
     // skipped, so no entry is added. Pins the second clause of the `&&` guard
     // as a guard, not an unconditional throw.
     const path = "packages/server/src/warned.ts";
-    const items = itemsFromResults(baseRatchet, [
-      {
-        filePath: path,
-        messages: [
-          { ruleId: null, severity: 1, fatal: false, message: "A non-fatal processor warning" },
-        ],
-      },
-    ]);
+    const items = itemsFromResults(
+      baseRatchet,
+      [
+        {
+          filePath: path,
+          messages: [
+            { ruleId: null, severity: 1, fatal: false, message: "A non-fatal processor warning" },
+          ],
+        },
+      ],
+      "",
+    );
 
     expect(items.has(path)).toBe(false);
   });
@@ -1887,14 +2265,115 @@ describe("lint ratchet baseline parsing", () => {
     expect(parsed.baseline).toEqual(baseline);
   });
 
+  it("round-trips the committed baseline byte-identically", () => {
+    const committed = readFileSync(baselinePath, "utf8");
+    const parsed = parseLintRatchetBaselineStructure(committed);
+
+    expect(parsed.failures).toEqual([]);
+    expect(parsed.baseline).toBeDefined();
+    expect(formatLintRatchetBaseline(parsed.baseline ?? oneTestBaseline([]))).toBe(committed);
+  });
+
+  it("round-trips committed v1 bytes under a write-version-2 engine", () => {
+    const committed = execFileSync(
+      "git",
+      ["show", `${PRE_FLIP_BASELINE_REVISION}:lint-ratchet.baseline.json`],
+      { cwd: repoRoot, encoding: "utf8" },
+    );
+    const writeV2 = createLintRatchetBaselineVersionPolicy(2);
+    const parsed = parseLintRatchetBaselineStructure(committed, writeV2);
+
+    expect(parsed.failures).toEqual([]);
+    expect(parsed.baseline?.version).toBe(1);
+    expect(formatLintRatchetBaseline(parsed.baseline ?? oneTestBaseline([]))).toBe(committed);
+  });
+
+  it.each(COMMITTED_BASELINE_ARTIFACTS)(
+    "preserves the complete nested tests object across the deliberate flip of %s",
+    (artifactPath) => {
+      const beforeText = execFileSync(
+        "git",
+        ["show", `${PRE_FLIP_BASELINE_REVISION}:${artifactPath}`],
+        { cwd: repoRoot, encoding: "utf8" },
+      );
+      const afterText = execFileSync("git", ["show", `${FLIP_BASELINE_REVISION}:${artifactPath}`], {
+        cwd: repoRoot,
+        encoding: "utf8",
+      });
+      const before = parseLintRatchetBaselineStructure(beforeText);
+      const after = parseLintRatchetBaselineStructure(afterText);
+
+      expect(before.failures).toEqual([]);
+      expect(after.failures).toEqual([]);
+      expect(before.baseline?.version).toBe(1);
+      expect(before.baseline?.regenerate).toBeUndefined();
+      expect(after.baseline?.tests).toEqual(before.baseline?.tests);
+      expect(after.baseline?.version).toBe(2);
+      expect(after.baseline?.regenerate).toBe(LINT_RATCHET_BASELINE_REGENERATE);
+    },
+  );
+
+  it("emits and preserves the v2 regenerate annotation without making staleness fatal", () => {
+    const writeV2 = createLintRatchetBaselineVersionPolicy(2);
+    const generated = buildLintRatchetBaseline(
+      [baseRatchet],
+      current([[baseRatchet.id, []]]),
+      fixtureRuleSourceHashes,
+      writeV2,
+    );
+    const rendered = formatLintRatchetBaseline(generated);
+
+    expect(rendered).toContain('"version": 2');
+    expect(rendered).toContain(`"regenerate": "${LINT_RATCHET_BASELINE_REGENERATE}"`);
+
+    const staleCommand = "bun run lint:ratchet:legacy-update";
+    const stale = rendered.replace(LINT_RATCHET_BASELINE_REGENERATE, staleCommand);
+    const parsed = parseLintRatchetBaseline(stale, [baseRatchet], fixtureRuleSourceHashes, writeV2);
+
+    expect(parsed.failures).toEqual([]);
+    expect(parsed.warnings).toEqual([
+      `baseline regenerate annotation is stale; regenerate with \`${LINT_RATCHET_BASELINE_REGENERATE}\` (committed ${JSON.stringify(staleCommand)})`,
+    ]);
+    expect(formatLintRatchetBaseline(parsed.baseline ?? generated)).toBe(stale);
+  });
+
+  it("tolerates a missing v2 regenerate annotation", () => {
+    const writeV2 = createLintRatchetBaselineVersionPolicy(2);
+    const rendered = formatLintRatchetBaseline(
+      buildLintRatchetBaseline(
+        [baseRatchet],
+        current([[baseRatchet.id, []]]),
+        fixtureRuleSourceHashes,
+        writeV2,
+      ),
+    ).replace(/^ {2}"regenerate": .*\n/mu, "");
+    const parsed = parseLintRatchetBaseline(
+      rendered,
+      [baseRatchet],
+      fixtureRuleSourceHashes,
+      writeV2,
+    );
+
+    expect(parsed.failures).toEqual([]);
+    expect(parsed.warnings).toEqual([]);
+    expect(formatLintRatchetBaseline(parsed.baseline ?? oneTestBaseline([]))).toBe(rendered);
+  });
+
   it("rejects unknown version, missing tests, bad ids, negative counts, and non-deterministic output", () => {
     expect(
-      parseLintRatchetBaseline('{"version":2,"tests":{}}\n', [baseRatchet], fixtureRuleSourceHashes)
+      parseLintRatchetBaseline('{"version":3,"tests":{}}\n', [baseRatchet], fixtureRuleSourceHashes)
         .failures,
-    ).toContain("version must be 1");
+    ).toContain("baseline version must be one of 1, 2");
+    expect(
+      parseLintRatchetBaseline(
+        '{"version":2,"tool":"fixture","metric":"count","entries":[]}\n',
+        [baseRatchet],
+        fixtureRuleSourceHashes,
+      ).failures,
+    ).toContain("baseline has wrong document family: expected 'tests', found 'entries'");
     expect(
       parseLintRatchetBaseline('{"version":1}\n', [baseRatchet], fixtureRuleSourceHashes).failures,
-    ).toContain("tests must be an object");
+    ).toContain("baseline tests must be an object");
     expect(
       parseLintRatchetBaseline(
         '{"version":1,"tests":{"bad":{"ruleId":"local/type-assertion-boundary","mode":"no-new","target":0,"metric":"message-count","files":["packages/**/*.ts"],"ignores":[],"ruleOptions":[],"configHash":"sha256:x","items":{}}}}\n',
@@ -1909,7 +2388,7 @@ describe("lint ratchet baseline parsing", () => {
         fixtureRuleSourceHashes,
       ).failures,
     ).toContain(
-      "ratchet/local-type-assertion-boundary.items.packages/a.ts.count must be a non-negative integer",
+      "ratchet/local-type-assertion-boundary.items.packages/a.ts: count must be a non-negative integer",
     );
 
     const rendered = formatLintRatchetBaseline(oneTestBaseline([])).trimEnd();
@@ -1959,7 +2438,9 @@ describe("lint ratchet baseline parsing", () => {
     const invalidFingerprint = renderedMessageBaseline.replace(fingerprint, "sha256:not-a-hash");
     expect(
       parseLintRatchetBaseline(invalidFingerprint, [baseRatchet], fixtureRuleSourceHashes).failures,
-    ).toContain(`${baseRatchet.id}.items.${messagePath}.messagesFingerprint must be a sha256 hash`);
+    ).toContain(
+      `${baseRatchet.id}.items.${messagePath}: messagesFingerprint must be a sha256 hash`,
+    );
 
     const linePath = "packages/server/src/large.ts";
     const lineBaseline = formatLintRatchetBaseline(maxLinesBaseline(linePath, 320)).replace(
@@ -2004,21 +2485,21 @@ describe("lint ratchet baseline parsing", () => {
         [baseRatchet],
         fixtureRuleSourceHashes,
       ).failures,
-    ).toContain("ratchet/local-type-assertion-boundary.metric is unknown");
+    ).toContain("ratchet/local-type-assertion-boundary: metric is unknown");
     expect(
       parseLintRatchetBaseline(
         '{"version":1,"tests":{"ratchet/local-type-assertion-boundary":{"ruleId":"local/type-assertion-boundary","mode":"no-new","target":0,"metric":"message-count","ignores":[],"ruleOptions":[],"configHash":"sha256:x","items":{}}}}\n',
         [baseRatchet],
         fixtureRuleSourceHashes,
       ).failures,
-    ).toContain("ratchet/local-type-assertion-boundary.files is required");
+    ).toContain("ratchet/local-type-assertion-boundary: files is required");
     expect(
       parseLintRatchetBaseline(
         rendered.replace('"ruleOptions": [],', ""),
         [baseRatchet],
         fixtureRuleSourceHashes,
       ).failures,
-    ).toContain("ratchet/local-type-assertion-boundary.ruleOptions is required");
+    ).toContain("ratchet/local-type-assertion-boundary: ruleOptions is required");
     expect(
       parseLintRatchetBaseline(
         rendered.replace(baseRatchet.id, "ratchet/unknown"),
@@ -2412,7 +2893,7 @@ describe("lint ratchet structural parsing", () => {
       for (const malformed of ["sha256:", "sha256:not-a-hash"]) {
         expect(
           parseLintRatchetBaselineStructure(rendered.replace(valid, malformed)).failures,
-        ).toContain(`${baseRatchet.id}.${field} must be a sha256 hash`);
+        ).toContain(`${baseRatchet.id}: ${field} must be a sha256 hash`);
       }
     }
   });
@@ -2442,13 +2923,13 @@ describe("lint ratchet structural parsing", () => {
 
   it("rejects malformed JSON in structural parse as a hard error", () => {
     expect(parseLintRatchetBaselineStructure("{not-json}\n").failures).toEqual([
-      expect.stringMatching(/^baseline JSON parse failed: /u),
+      expect.stringMatching(/^baseline is not valid JSON: /u),
     ]);
     expect(parseLintRatchetBaselineStructure('"a string"\n').failures).toContain(
-      "baseline must be an object",
+      "baseline must be a JSON object",
     );
     expect(parseLintRatchetBaselineStructure('{"version":1}\n').failures).toContain(
-      "tests must be an object",
+      "baseline tests must be an object",
     );
   });
 
@@ -2466,7 +2947,61 @@ describe("lint ratchet structural parsing", () => {
     const bad = parseLintRatchetBaselineStructure(
       '{"version":1,"tests":{"ratchet/local-type-assertion-boundary":{"ruleId":"local/type-assertion-boundary","mode":"no-new","target":0,"metric":"line-count","files":["packages/**/*.ts"],"ignores":[],"ruleOptions":[],"configHash":"sha256:x","items":{}}}}\n',
     );
-    expect(bad.failures).toContain("ratchet/local-type-assertion-boundary.metric is unknown");
+    expect(bad.failures).toContain("ratchet/local-type-assertion-boundary: metric is unknown");
+  });
+
+  it("accumulates every structural defect across tests, fields, and items in one pass", () => {
+    const text = `${JSON.stringify(
+      {
+        version: 1,
+        tests: {
+          "ratchet/fixture-one": {
+            ruleId: "Not A Rule",
+            mode: "no-new",
+            metric: "message-count",
+            files: ["packages/**/*.ts"],
+            ignores: [],
+            ruleOptions: [],
+            configHash: "sha256:x",
+            items: {},
+          },
+          "ratchet/fixture-two": {
+            ruleId: "local/example-rule",
+            mode: "no-new",
+            metric: "message-count",
+            files: ["packages/**/*.ts"],
+            ignores: [],
+            ruleOptions: [],
+            configHash: `sha256:${"a".repeat(64)}`,
+            ruleSourceHash: `sha256:${"b".repeat(64)}`,
+            items: { "packages/server/src/a.ts": { count: "two" } },
+          },
+          "ratchet/fixture-three": {
+            ruleId: "local/example-rule",
+            mode: "no-new",
+            metric: "message-count",
+            files: ["packages/**/*.ts"],
+            ignores: [],
+            ruleOptions: [],
+            configHash: "sha256:y",
+            items: "not an items object",
+          },
+        },
+      },
+      null,
+      2,
+    )}\n`;
+
+    const parsed = parseLintRatchetBaselineStructure(text);
+
+    expect(parsed.baseline).toBeUndefined();
+    expect(parsed.failures).toEqual([
+      "ratchet/fixture-one: ruleId must be a bare or namespaced ESLint rule id",
+      "ratchet/fixture-one: configHash must be a sha256 hash",
+      "ratchet/fixture-two.items.packages/server/src/a.ts: count must be a non-negative integer",
+      "ratchet/fixture-three: baseline group must contain an items object",
+      "ratchet/fixture-three: configHash must be a sha256 hash",
+    ]);
   });
 });
 

@@ -26,7 +26,14 @@ clearTranslatedNativeWorkerOverride(process.env);
 export default defineConfig({
   test: {
     testTimeout: DEFAULT_VITEST_TEST_TIMEOUT_MS,
-    projects: ["packages/shared", "packages/server", "packages/client", "eslint-rules", "scripts"],
+    projects: [
+      "packages/shared",
+      "packages/server",
+      "packages/client",
+      "eslint-rules",
+      "scripts",
+      "tools/lint-ratchet",
+    ],
     coverage: {
       provider: "v8",
       reporter: ["json-summary", "json", "text"],
@@ -65,6 +72,12 @@ export default defineConfig({
           statements: 74,
           functions: 74,
           branches: 69,
+        },
+        "tools/lint-ratchet/src/**": {
+          lines: 90,
+          statements: 90,
+          functions: 90,
+          branches: 80,
         },
       },
     },

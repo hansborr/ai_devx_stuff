@@ -4,7 +4,9 @@
   "license": "MIT",
   "type": "module",
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "tools/*",
+    "examples/lint-ratchet-demo"
   ],
   "overrides": {
     "fast-uri": "3.1.2"
@@ -47,6 +49,7 @@
     "test:slow": "bash scripts/test-slow.sh",
     "test:mutation": "bash -c 'trap \"rm -f stryker-setup-*.js\" EXIT INT TERM; stryker run \"$@\"' --",
     "test:scripts:mutation": "bash -c 'trap \"rm -f stryker-setup-*.js\" EXIT INT TERM; stryker run scripts/stryker-scripts.ts \"$@\"' --",
+    "test:lint-ratchet:mutation": "bash -c 'trap \"rm -f stryker-setup-*.js\" EXIT INT TERM; stryker run tools/stryker-lint-ratchet.ts \"$@\"' --",
     "test:server:mutation": "bash -c 'trap \"rm -f stryker-setup-*.js\" EXIT INT TERM; stryker run stryker.config.server.mjs \"$@\"' --",
     "test:scripts": "bash scripts/test-scripts.sh",
     "test:scripts:changed": "bash scripts/test-scripts.sh --changed",
@@ -82,8 +85,6 @@
     "lint:ratchet:check-debt-accounting": "bun scripts/lint-ratchet.ts --check-debt-accounting",
     "lint:ratchet:check-registry": "bun scripts/lint-ratchet.ts --check-registry",
     "lint:ratchet:debt-log": "bun scripts/lint-ratchet.ts --debt-log",
-    "lint:ratchet:demo-sync": "bun scripts/check-lint-ratchet-demo-sync.ts",
-    "lint:ratchet:demo-sync:update": "bun scripts/check-lint-ratchet-demo-sync.ts --write",
     "lint:ratchet:report": "bun scripts/lint-ratchet.ts --report",
     "lint:ratchet:summary": "bun scripts/lint-ratchet.ts --summary",
     "lint:ratchet:trend": "bun scripts/lint-ratchet.ts --trend",
@@ -100,7 +101,7 @@
     "e2e": "playwright test",
     "e2e:ui": "playwright test --ui",
     "e2e:debug": "playwright test --debug",
-    "clean": "rm -rf packages/*/dist packages/*/tsconfig.tsbuildinfo node_modules/.cache",
+    "clean": "rm -rf packages/*/dist packages/*/tsconfig.tsbuildinfo tools/*/dist tools/*/tsconfig.tsbuildinfo node_modules/.cache",
     "db:status": "bun run scripts/db-status.ts",
     "db:migration-safety": "bash scripts/migration-safety-scan.sh",
     "doctor": "bash scripts/doctor.sh",
@@ -161,6 +162,7 @@
     "@eslint-community/eslint-plugin-eslint-comments": "4.7.1",
     "@eslint/js": "10.0.1",
     "@eslint/json": "1.2.0",
+    "@musi/lint-ratchet": "workspace:*",
     "@playwright/test": "^1.60.0",
     "@stryker-mutator/core": "^9.6.1",
     "@stryker-mutator/typescript-checker": "^9.6.1",

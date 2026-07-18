@@ -1,9 +1,10 @@
-import { mergeBaseline } from "./lib/baseline/merge.js";
 import {
   type MergeDriverCliConfig,
   runMergeDriverCli,
   runMergeDriverCliMain,
-} from "./lib/baseline/merge-cli.js";
+} from "@musi/lint-ratchet/git-rail/merge-cli.js";
+import { mergeBaseline } from "@musi/lint-ratchet/kernel/merge.js";
+
 import { knipUnusedExportsSpec } from "./sensor-knip-unused-exports-baseline.js";
 
 const nodeArgvUserArgumentOffset = 2;

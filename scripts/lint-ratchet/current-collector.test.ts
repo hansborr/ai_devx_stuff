@@ -1,16 +1,21 @@
+import type { LintRatchetConfig } from "@musi/lint-ratchet/kernel/config-types.js";
+import { collectCurrentById } from "@musi/lint-ratchet/kernel/current-collector.js";
+import type { LintRatchetEngineBinding } from "@musi/lint-ratchet/kernel/engine-context.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { collectCurrentById } from "./current-collector.js";
-import { type LintRatchetConfig, lintRatchets } from "./lint-ratchet-config.js";
+import { lintRatchets } from "./lint-ratchet-config.js";
+import { repoRoot } from "./paths.js";
 
 const eslintRunnerMock = vi.hoisted(() => ({
   runEslintForFiles: vi.fn(),
   sweepStaleCacheSiblings: vi.fn(),
 }));
 
-vi.mock("./eslint-runner.js", () => eslintRunnerMock);
+vi.mock("@musi/lint-ratchet/kernel/eslint-runner.js", () => eslintRunnerMock);
 
 const FIXTURE_RULE_SOURCE_HASH = `sha256:${"b".repeat(64)}`;
+
+const binding: LintRatchetEngineBinding = { repoRoot, thirdPartyPluginAllowlist: [] };
 
 function fixtureRuleSourceHashes(): Map<string, string> {
   return new Map(lintRatchets.map((ratchet) => [ratchet.id, FIXTURE_RULE_SOURCE_HASH]));
@@ -45,7 +50,12 @@ describe("collectCurrentById", () => {
       return [];
     });
 
-    const currentById = await collectCurrentById(fixtureRuleSourceHashes(), 3);
+    const currentById = await collectCurrentById({
+      ruleSourceHashesById: fixtureRuleSourceHashes(),
+      ratchets: lintRatchets,
+      binding,
+      concurrency: 3,
+    });
 
     expect(maxInFlight).toBe(3);
     expect(startedIds.slice(0, 3)).toStrictEqual(
@@ -78,7 +88,12 @@ describe("collectCurrentById", () => {
       return [];
     });
 
-    await collectCurrentById(fixtureRuleSourceHashes(), 3);
+    await collectCurrentById({
+      ruleSourceHashesById: fixtureRuleSourceHashes(),
+      ratchets: lintRatchets,
+      binding,
+      concurrency: 3,
+    });
 
     expect(maxInFlight).toBe(3);
     expect(maxTypeAwareInFlight).toBe(1);
@@ -92,16 +107,29 @@ describe("collectCurrentById", () => {
       return [];
     });
 
-    await expect(collectCurrentById(fixtureRuleSourceHashes(), 3)).rejects.toThrow(failure);
+    await expect(
+      collectCurrentById({
+        ruleSourceHashesById: fixtureRuleSourceHashes(),
+        ratchets: lintRatchets,
+        binding,
+        concurrency: 3,
+      }),
+    ).rejects.toThrow(failure);
   });
 
   it("collects each ratchet from matched tracked files instead of raw globs", async () => {
     eslintRunnerMock.runEslintForFiles.mockResolvedValue([]);
 
-    await collectCurrentById(fixtureRuleSourceHashes(), 1, [
-      "packages/server/src/services/upload-service.ts",
-      "packages/server/src/services/upload-service.test.ts",
-    ]);
+    await collectCurrentById({
+      ruleSourceHashesById: fixtureRuleSourceHashes(),
+      ratchets: lintRatchets,
+      binding,
+      concurrency: 1,
+      trackedFiles: [
+        "packages/server/src/services/upload-service.ts",
+        "packages/server/src/services/upload-service.test.ts",
+      ],
+    });
 
     const strictBooleanCall = eslintRunnerMock.runEslintForFiles.mock.calls.find((call) => {
       const ratchet = call[0] as LintRatchetConfig;

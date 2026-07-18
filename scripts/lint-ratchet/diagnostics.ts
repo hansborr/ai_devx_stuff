@@ -1,3 +1,15 @@
+import { WorseBaselineError } from "@musi/lint-ratchet/governance/errors.js";
+import type {
+  LintRatchetComparison,
+  LintRatchetImprovement,
+  LintRatchetInfo,
+  LintRatchetRegression,
+} from "@musi/lint-ratchet/kernel/baseline.js";
+import type { LintRatchetConfig } from "@musi/lint-ratchet/kernel/config-types.js";
+import { ConfigError } from "@musi/lint-ratchet/kernel/metrics.js";
+import { RATCHET_REGRESSION_UPDATE_COMMAND } from "@musi/lint-ratchet/kernel/recovery-command.js";
+import { assertNever, ratchetSource } from "@musi/lint-ratchet/kernel/runtime-config.js";
+
 import {
   MAX_LINES_METRIC_GUIDANCE,
   MAX_LINES_SPLIT_GUIDANCE,
@@ -14,20 +26,9 @@ import {
   loadLintRuleDocs,
   type RuleDocsEntry,
 } from "../lib/lint-rule-docs.js";
-import type {
-  LintRatchetComparison,
-  LintRatchetImprovement,
-  LintRatchetInfo,
-  LintRatchetRegression,
-} from "./baseline.js";
-import { WorseBaselineError } from "./cli-errors.js";
 import { buildInfoFinding } from "./info-diagnostics.js";
-import type { LintRatchetConfig } from "./lint-ratchet-config.js";
 import { localRuleMessageHowToFixFor } from "./local-rule-fix-text.js";
-import { ConfigError } from "./metrics.js";
 import { BASELINE_FILENAME, repoRoot } from "./paths.js";
-import { RATCHET_REGRESSION_UPDATE_COMMAND } from "./recovery-command.js";
-import { assertNever, ratchetSource } from "./runtime-config.js";
 
 const JSON_INDENT_SPACES = 2;
 const REGRESSION_RECOVERY_NOTE: HarnessDiagnosticNote = {

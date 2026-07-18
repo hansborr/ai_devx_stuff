@@ -6,14 +6,13 @@
 # rules are unit-testable rather than encoded in awk. Resolve it next to this lib
 # at source time, so a fixture that runs the real installer from the repo tree
 # finds the real renderer without having to copy it in.
-_MUSI_BASELINE_LIB_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd) || return 1
-_MUSI_BASELINE_INFO_ATTRIBUTES_RENDERER="$_MUSI_BASELINE_LIB_DIR/baseline-info-attributes.ts"
+_baseline_lib_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd) || return 1
+_baseline_info_attributes_renderer="$_baseline_lib_dir/baseline-info-attributes.ts"
 
-# Render the clone-local merge.<name>.driver command. Every baseline now shares
-# one installed driver body (musi/baseline-merge-driver.sh); the driver key baked
-# in here is what selects the per-baseline descriptor inside that generic body,
-# so the same installed file serves all four merge.<name>.driver entries.
-musi_baseline_driver_command() {
+# Render the clone-local merge.<name>.driver command. The baseline shares one
+# installed driver body (musi/baseline-merge-driver.sh); the driver key baked in
+# here selects the per-baseline descriptor inside that generic body.
+baseline_driver_command() {
   local installed_driver_relative_path="$1" argv0="$2" driver_key="$3"
   printf '%s\n' "bash -c 'set -e; driver=\"\$(git rev-parse --git-common-dir)/$installed_driver_relative_path\"; exec bash \"\$driver\" $driver_key \"\$@\"' $argv0 %O %A %B %L %P"
 }
@@ -53,6 +52,6 @@ render_baseline_merge_attributes() {
   local managed_begin="$3" managed_end="$4" managed_attributes="$5"
 
   command -v bun >/dev/null 2>&1 || return 1
-  bun run "$_MUSI_BASELINE_INFO_ATTRIBUTES_RENDERER" \
+  bun run "$_baseline_info_attributes_renderer" \
     "$current_attributes" "$rendered" "$managed_begin" "$managed_end" "$managed_attributes"
 }

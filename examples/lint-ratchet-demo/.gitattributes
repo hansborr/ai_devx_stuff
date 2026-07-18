@@ -5,7 +5,8 @@
 # both inside the monorepo and when the demo is copied out standalone.
 /lint-ratchet.debt-log.jsonl merge=union
 # Derived from the source tree, so no textual merge is ever correct. The custom
-# driver (installed clone-locally by `prepare`) attempts the semantic three-way
-# baseline merge, and on failure keeps "ours" as valid JSON and prints the
-# recovery recipe; see ../../docs/guides/lint-ratchet-merges.md.
+# driver (installed clone-locally by `bun run lint:ratchet:install-merge-driver`)
+# attempts the semantic three-way baseline merge, and on failure keeps "ours" as
+# valid JSON and prints the recovery recipe; see
+# ../../docs/guides/lint-ratchet-merges.md.
 /lint-ratchet.baseline.json merge=lint-ratchet-baseline

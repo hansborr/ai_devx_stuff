@@ -1,12 +1,20 @@
-import { describe, expect, it } from "vitest";
-
-import { validateLintRatchetRegistry } from "./baseline.js";
 import {
   buildProposeRatchet,
   formatLintRatchetPropose,
+  type LintRatchetProposeEngine,
   type ProposeSummary,
   runLintRatchetPropose,
-} from "./propose.js";
+} from "@musi/lint-ratchet/governance/propose.js";
+import { validateLintRatchetRegistry } from "@musi/lint-ratchet/kernel/baseline.js";
+import { describe, expect, it } from "vitest";
+
+import { musiLintRatchetBinding, musiLintRatchetContext } from "./engine-binding.js";
+
+const proposeEngine: LintRatchetProposeEngine = {
+  repoRoot: musiLintRatchetContext.repoRoot,
+  binding: musiLintRatchetBinding,
+  registryHint: "scripts/lint-ratchet/lint-ratchet-config.ts",
+};
 
 const summary: ProposeSummary = {
   ruleId: "no-console",
@@ -19,6 +27,7 @@ const summary: ProposeSummary = {
   totalFindings: 3,
   topFiles: [{ path: "src/a.ts", count: 2 }],
   baselineText: "{}\n",
+  registryHint: "scripts/lint-ratchet/lint-ratchet-config.ts",
 };
 
 describe("--propose pairing validation", () => {
@@ -52,23 +61,29 @@ describe("--propose pairing validation", () => {
     // effective-line-count is only valid with local/max-lines; no ESLint runs
     // because buildProposeRatchet throws before collection.
     await expect(
-      runLintRatchetPropose({
-        ruleId: "no-console",
-        files: ["src/**/*.ts"],
-        metric: "effective-line-count",
-        trackedFiles: [],
-      }),
+      runLintRatchetPropose(
+        {
+          ruleId: "no-console",
+          files: ["src/**/*.ts"],
+          metric: "effective-line-count",
+          trackedFiles: [],
+        },
+        proposeEngine,
+      ),
     ).rejects.toThrow(/effective-line-count metric requires ruleId local\/max-lines/u);
   });
 
   it("rejects complexity-severity on a non-core rule", async () => {
     await expect(
-      runLintRatchetPropose({
-        ruleId: "local/whatever",
-        files: ["src/**/*.ts"],
-        metric: "complexity-severity",
-        trackedFiles: [],
-      }),
+      runLintRatchetPropose(
+        {
+          ruleId: "local/whatever",
+          files: ["src/**/*.ts"],
+          metric: "complexity-severity",
+          trackedFiles: [],
+        },
+        proposeEngine,
+      ),
     ).rejects.toThrow(/complexity-severity metric requires core ruleId complexity/u);
   });
 });

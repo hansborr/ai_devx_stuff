@@ -649,4 +649,40 @@ grep -qF 'repo vitest --version' "$repo/bun.log" \
   || fail "Vitest wrapper should run repo-local binary: $(cat "$repo/bun.log")"
 ok "Vitest wrapper finds repo-local binary without PATH vitest"
 
+repo="$(new_repo tool-source-change)"
+mkdir -p "$repo/tools/lint-ratchet/src/kernel"
+printf 'export const x = 1;\n' > "$repo/tools/lint-ratchet/src/kernel/engine.ts"
+git -C "$repo" add tools/lint-ratchet/src/kernel/engine.ts
+: > "$repo/bun.log"
+run_test_changed "$repo" >/dev/null || fail "tool source change should run"
+grep -qF 'stub vitest run --passWithNoTests --project=lint-ratchet --changed main' "$repo/bun.log" \
+  || fail "tool source change should run lint-ratchet project with --changed: $(cat "$repo/bun.log")"
+ok "nested tool source changes run lint-ratchet changed tests"
+
+repo="$(new_repo tool-manifest-change)"
+mkdir -p "$repo/tools/lint-ratchet"
+printf '{"name":"@musi/lint-ratchet"}\n' > "$repo/tools/lint-ratchet/package.json"
+git -C "$repo" add tools/lint-ratchet/package.json
+: > "$repo/bun.log"
+run_test_changed "$repo" >/dev/null || fail "tool manifest change should run"
+grep -qF 'stub vitest run --passWithNoTests --project=lint-ratchet' "$repo/bun.log" \
+  || fail "tool manifest change should run lint-ratchet project: $(cat "$repo/bun.log")"
+if grep -q -- '--changed' "$repo/bun.log"; then
+  fail "tool package.json changes should run lint-ratchet project in full: $(cat "$repo/bun.log")"
+fi
+ok "tool package.json changes run lint-ratchet project tests in full"
+
+repo="$(new_repo tool-stryker-change)"
+mkdir -p "$repo/tools"
+printf 'export default {};\n' > "$repo/tools/stryker-lint-ratchet.ts"
+git -C "$repo" add tools/stryker-lint-ratchet.ts
+: > "$repo/bun.log"
+run_test_changed "$repo" >/dev/null || fail "tool stryker config change should run"
+grep -qF 'stub vitest run --passWithNoTests --project=lint-ratchet' "$repo/bun.log" \
+  || fail "tool stryker config change should run lint-ratchet project: $(cat "$repo/bun.log")"
+if grep -q -- '--changed' "$repo/bun.log"; then
+  fail "tool stryker config changes should run lint-ratchet project in full: $(cat "$repo/bun.log")"
+fi
+ok "tool stryker config changes run lint-ratchet project tests in full"
+
 printf 'test-changed tests passed (%d)\n' "$PASS"

@@ -106,12 +106,10 @@ Current generated surfaces:
   `scripts/harness/generate-harness-controls.ts` from `harness.controls.json`
   (refresh with `bun run docs:harness-controls`, check with
   `bun run docs:harness-controls:check`).
-- The copied runtime under `examples/lint-ratchet-demo/` is regenerated from
-  `scripts/lint-ratchet/portable-manifest.json` by
-  `scripts/check-lint-ratchet-demo-sync.ts` (refresh with
-  `bun run lint:ratchet:demo-sync:update`, check with
-  `bun run lint:ratchet:demo-sync`). Full `bun run verify` owns the check; the
-  changed gate deliberately omits it.
+- `examples/lint-ratchet-demo/` is an ordinary workspace consumer of the
+  `@musi/lint-ratchet` package (no copied-in engine, no sync manifest); its
+  `smoke.sh` proves the adoption path in isolation and runs in
+  `.github/workflows/lint-ratchet-demo.yml`.
 
 `bun run harness:check` runs the relevant `--check` modes and fails when these
 generated files are stale. Do not hand-edit generated regions as a substitute

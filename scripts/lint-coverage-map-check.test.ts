@@ -43,11 +43,13 @@ const ESLINT_REACH_MAP = `# Fixture
 | \`scripts/codemods/tsconfig.json\` | 1 .json | yes | none | ESLint JSON | none | linted | — |
 `;
 
-// A single linted row carrying TWO independent path patterns. Exactly one tracked
-// file (tools/reach/managed-a.ts) satisfies all three filter conjuncts in
+// A single linted row carrying TWO independent path patterns. Both spans are
+// rooted full paths (tools/ and packages/ are repository roots), so neither
+// establishes a base dir that would prefix the other. Exactly one tracked file
+// (tools/reach/managed-a.ts) satisfies all three filter conjuncts in
 // collectEslintReachFindings (in-scope && uses-eslint && matches a row pattern):
-// - dist/reach/scope-b.ts matches a pattern and uses ESLint but is out-of-scope
-//   (generated `dist/` dir), so trackedFileIsInScope is false for it.
+// - packages/reach/dist/scope-b.ts matches a pattern and uses ESLint but is
+//   out-of-scope (generated `dist/` dir), so trackedFileIsInScope is false for it.
 // - tools/reach/notes.md matches a pattern and is in-scope but is not an
 //   ESLint-managed extension, so trackedFileUsesEslint is false for it.
 // Each tracked file matches only ONE of the two patterns, so `.some` and `.every`
@@ -56,7 +58,7 @@ const ESLINT_REACH_FILTER_MAP = `# Fixture
 
 | Path / group | Files | Normal lint | Existing ratchet/floor | Parser/tool | Proposed rule/tool | Status | Blocker/follow-up |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| \`tools/reach/*\` \`dist/reach/*\` | 3 | yes | none | ESLint | none | linted | — |
+| \`tools/reach/*\` \`packages/reach/dist/*\` | 3 | yes | none | ESLint | none | linted | — |
 `;
 
 // Two rows that pin status parsing: line 5 has a multi-part status with
@@ -429,7 +431,11 @@ describe("runLintCoverageMapCheck", () => {
       // No file resolves an ESLint config, so every file the filter admits is "missing".
       eslintReachChecker: () => false,
       mapText: ESLINT_REACH_FILTER_MAP,
-      trackedFiles: ["tools/reach/managed-a.ts", "dist/reach/scope-b.ts", "tools/reach/notes.md"],
+      trackedFiles: [
+        "tools/reach/managed-a.ts",
+        "packages/reach/dist/scope-b.ts",
+        "tools/reach/notes.md",
+      ],
       ratchetIds: new Set(),
     });
 
@@ -437,12 +443,12 @@ describe("runLintCoverageMapCheck", () => {
     expect(result.findings.map((finding) => finding.kind)).toEqual(["eslint-reach-missing"]);
     // Exactly ONE of the three tracked files satisfies all three filter conjuncts,
     // so the row's total (the `M` in `N of M`) is 1, and it names that file.
-    // - dist/reach/scope-b.ts excluded by trackedFileIsInScope (out-of-scope dir)
+    // - packages/reach/dist/scope-b.ts excluded by trackedFileIsInScope (out-of-scope dir)
     // - tools/reach/notes.md excluded by trackedFileUsesEslint (.md is not ESLint-managed)
     expect(result.stderr).toContain(
       "line 5: 1 of 1 ESLint-managed file(s) have no ESLint config (e.g. `tools/reach/managed-a.ts`)",
     );
-    expect(result.stderr).not.toContain("dist/reach/scope-b.ts");
+    expect(result.stderr).not.toContain("packages/reach/dist/scope-b.ts");
     expect(result.stderr).not.toContain("tools/reach/notes.md");
     // 2 of 2 / 3 of 3 would mean a conjunct flipped to constant-true or `&&`→`||`
     // admitted the out-of-scope or non-ESLint file.

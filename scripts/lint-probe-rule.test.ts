@@ -1,9 +1,9 @@
 import { existsSync, rmSync } from "node:fs";
 
+import type { LintRatchetConfig } from "@musi/lint-ratchet/kernel/config-types.js";
 import { describe, expect, it } from "vitest";
 
 import { runLintProbeRuleCli } from "./lint-probe-rule.js";
-import type { LintRatchetConfig } from "./lint-ratchet/lint-ratchet-config.js";
 
 describe("lint-probe-rule", () => {
   it("writes a single-rule ratchet config and runs ESLint against positional files", () => {

@@ -49,10 +49,12 @@ describe("verify step generator", () => {
   it("keeps documentation drift guards in both whole-tree verifiers", () => {
     const generated = readFileSync("scripts/verify/steps.generated.sh", "utf8");
 
-    expect(generated).toContain("MUSI_VERIFY_DEMO_SYNC_CMD=('bun' 'run' 'lint:ratchet:demo-sync')");
-    expect(generated).toContain(
-      "MUSI_VERIFY_PARALLEL_DEMO_SYNC_CMD=('bun' 'run' 'lint:ratchet:demo-sync')",
-    );
+    // Permanent regression guard: the demo-sync checker and its verify slot were
+    // deleted with the copy-sync harness (leaf 02 S5, replaced by the
+    // demo-consumer CI smoke), and no verifier should ever emit a demo-sync
+    // command again.
+    expect(generated).not.toContain("MUSI_VERIFY_DEMO_SYNC_CMD");
+    expect(generated).not.toContain("MUSI_VERIFY_PARALLEL_DEMO_SYNC_CMD");
     expect(generated).not.toContain("MUSI_VERIFY_CHANGED_DEMO_SYNC_CMD");
     expect(generated).not.toContain("MUSI_PRE_COMMIT_DEMO_SYNC_CMD");
     expect(generated).toContain(
