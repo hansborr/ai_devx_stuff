@@ -28,6 +28,9 @@ LINT_SHELL="$SCRIPT_DIR/../lint-shell.sh"
 LINT_CHANGED="$SCRIPT_DIR/../lint-changed.sh"
 PARALLEL_RUNNER="$SCRIPT_DIR/../lib/parallel-runner.sh"
 VERIFY_METADATA="$SCRIPT_DIR/../lib/verify-metadata.sh"
+# Sandbox copies of verify-metadata.sh resolve the run-meta codec from the
+# source tree via the MUSI_VERIFY_META_CORE seam.
+export MUSI_VERIFY_META_CORE="$SCRIPT_DIR/../lib/verify-metadata-core.ts"
 CHANGED_BASE="$SCRIPT_DIR/../lib/changed-base.sh"
 CHANGED_LINTABLE_FILES="$SCRIPT_DIR/../lib/changed-lintable-files.sh"
 LINT_DIST_PREFLIGHT="$SCRIPT_DIR/../lib/lint-dist-preflight.sh"

@@ -28,7 +28,17 @@ AI_POLICY_GH_AUTH="GitHub auth token output and auth reconfiguration are not all
 AI_POLICY_ALLOW_PROTECTED_EDITS_ADVISORY="Protected edit override marker .allow-protected-edits is repo-wide. Use it only for deliberate protected-file maintenance, and remove it immediately after that work is done."
 AI_FLAKY_NOTE="Note: If this failure looks flaky (passes in isolation, fails under load), ensure you document it under docs/generated/observed_flaky_tests.md if you are unable to resolve it right now."
 
+# Generated classifier slices (AI_GENERATED_WRAPPED_BUN_SCRIPTS /
+# AI_GENERATED_BYPASS_BUN_SCRIPTS) for generator-contributed package scripts,
+# rendered from harness.controls.json generatedSurface bunHook facets. Sourced
+# relative to this file so every consumer (hooks, tests, other checkouts)
+# resolves the sibling fragment without needing REPO_ROOT.
+# shellcheck source=classified-bun-scripts.generated.sh
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/classified-bun-scripts.generated.sh"
+
 # porting-knob: wrapped-bun-scripts -- retarget the package scripts handled by hook wrappers
+# Hand-maintained slice only: generator-contributed scripts render into
+# AI_GENERATED_WRAPPED_BUN_SCRIPTS (appended below) and must not be re-added here.
 AI_WRAPPED_BUN_SCRIPTS='
 audit:deps
 audit:licenses
@@ -38,13 +48,10 @@ check:eslint-react-peer-exception
 check:fast-uri-override
 code:intel
 db:migration-safety
-docs:baseline-conflict-recipes:check
-docs:harness-controls:check
 docs:local-eslint-rule-starter:check
 docs:lint-coverage-map:audit
 docs:lint-coverage-map:check
 docs:lint-coverage-map:suggest
-docs:lint-guidance:check
 drift:ai
 drift:triage
 drift:e2e
@@ -56,10 +63,6 @@ format:changed:check
 format:check
 harness:audit
 harness:check
-harness:config-surfaces
-harness:config-surfaces:check
-harness:hook-timeouts:check
-harness:wiring:check
 lint
 lint:agent:local-rules
 lint:agent:local-rules:changed
@@ -81,8 +84,6 @@ lint:ratchet:merge-driver:check
 lint:ratchet:report
 lint:ratchet:summary
 lint:ratchet:trend
-lint:restricted-disable-rules
-lint:restricted-disable-rules:check
 lint:shell
 lint:suppressions
 lint:suppressions:changed
@@ -106,8 +107,6 @@ test:eslint-rules
 test:scripts
 test:scripts:changed
 test:scripts:file
-test:scripts:subjects
-test:scripts:subjects:check
 test:server
 test:shared
 test:slow
@@ -121,8 +120,10 @@ verify:history
 verify:logs
 verify:parallel
 verify:slow
-verify:steps:check
 '
+
+AI_WRAPPED_BUN_SCRIPTS="${AI_WRAPPED_BUN_SCRIPTS}
+${AI_GENERATED_WRAPPED_BUN_SCRIPTS}"
 
 ai_wrapped_bun_script_regex() {
   local script sep=""

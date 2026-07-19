@@ -8,6 +8,7 @@ import {
   harnessFindingSchema,
   summarizeHarnessFindings,
 } from "../packages/shared/src/schemas/harness-diagnostics.js";
+import { ensureDirWriteFileAtomicallySync } from "./lib/atomic-write.js";
 
 const PROCESS_ARG_OFFSET = 2;
 const OPTION_WITH_VALUE_ARG_SPAN = 2;
@@ -183,10 +184,7 @@ async function main(): Promise<void> {
     const outPath = isAbsolute(args.outputPath)
       ? args.outputPath
       : resolve(process.cwd(), args.outputPath);
-    const fs = await import("node:fs");
-    const path = await import("node:path");
-    fs.mkdirSync(path.dirname(outPath), { recursive: true });
-    fs.writeFileSync(outPath, rendered);
+    ensureDirWriteFileAtomicallySync(outPath, rendered);
   } else {
     process.stdout.write(rendered);
   }

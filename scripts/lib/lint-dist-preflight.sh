@@ -76,8 +76,9 @@ musi_lint_dist_require_outputs() {
   fi
 
   # Reporting-only path for lint:fix: ESLint --fix mutates files, so keep it
-  # from silently running a build first while the parity decision remains parked
-  # in docs/agent_notes/backlog/lint-fix-dist-preflight-parity.md.
+  # from silently running a build first. Parity decision recorded in the
+  # closed lint-fix-dist-preflight-parity backlog note (removed 2026-07-19;
+  # git history).
   musi_lint_dist_print_require_outputs_diagnostic
   printf 'lint: run `bun run typecheck` before %s.\n' "$consumer" >&2
   return 1

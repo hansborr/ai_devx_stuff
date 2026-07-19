@@ -1,7 +1,7 @@
 # Backlog
 
 Status: Living reference index
-Updated: 2026-07-16
+Updated: 2026-07-19
 
 Parked workstreams that still matter, but should stay out of the default
 agent loop.
@@ -48,6 +48,19 @@ Do **not** read this folder at session start. Promote an item back into
 - `ci-local-gate-parity-guard.md` — systemic follow-up to keep local and CI
   gate lists structurally aligned via `harness:check` or generation from
   `harness.controls.json`, beyond one-off wiring fixes.
+- `land-prisma-preflight.md` — teach `land.sh` to regenerate the Prisma
+  client unconditionally after the verify tree is settled (merge-tree
+  construction included), before dispatching the full verify; automates the
+  manual land-prep recipe in `add-prisma-migration.md` that cost three
+  failed lands on 2026-07-19.
+- `commit-queue-test-load-flake.md` — make the ai-hooks
+  shared-queue-blocks-other-worktrees test deterministic under parallel-lane
+  load via a two-marker holder handshake (the current content poll proves
+  "was written", not "is held"); each flake burns a full land attempt today.
+- `tail-proof-gate-failure-footer.md` — re-print failing-slot log paths as
+  the LAST lines of verify's failure summary and land's exit trailer, so a
+  `| tail -N` (or any truncated capture) still hands the reader the
+  breadcrumb; today the pointer is a section header ~35 lines above the end.
 - `scripts-flat-family-reorg.md` — decide whether the flat
   `lint-coverage-map-check*`, `client-test-isolation*`, and
   `sensor-knip-unused-exports*` script families should move under directories
@@ -120,23 +133,12 @@ Do **not** read this folder at session start. Promote an item back into
   forms, selectable cards, sheet rows, codemods, and homebrew fields.
   _(Done 2026-06-21 except #8 — codemod-engine `parseArgs` dedup across
   `scripts/codemods/trpc-shared-input.ts`/`-output.ts`.)_
-- `drift-ai-ghost-files-agent-noun-pairs.md` — detector-tuning follow-up
-  from the 2026-06-05 field-run calibration (**done** — `currentAllowedPairs`
-  now covers the pair): reviewed current-scope `ghost-files` false positive for
-  intentional `evaluation`/`evaluator` role siblings.
 - `semgrep-drift-sensor-research.md` /
   `semgrep-drift-ai-implementation-plan.md` — research and implementation plan
   for adding Semgrep as an opt-in `drift:ai` prototype advisory, with explicit
   rule-source licensing gates for registry, AGPL, and unknown-license packs.
   _(Implementation-plan slices all landed; the research note + plan are retained
   as the cited record. The first-party ai-footguns rule pack stays deferred.)_
-- `useeffect-ai-agents-research.md` /
-  `useeffect-guardrails-implementation-plan.md` — research on AI-agent
-  `useEffect` misuse patterns (verified React-team guidance vs anecdote-tier
-  agent mechanisms, plus a local audit) and a guardrail plan: no-new ratchet
-  for the deferred `react-hooks/set-state-in-effect`, a gated
-  `eslint-plugin-react-you-might-not-need-an-effect` trial, agent-facing
-  effect guidance, and an explicit hard-ban rejection.
 - `dialog-reset-on-open-convention.md` — parked convention decision for dialog
   local-state resets on open; choosing key-remounts or a tiny helper would
   drain much of the frozen `set-state-in-effect` debt and close the `prevOpen`
@@ -166,33 +168,25 @@ Do **not** read this folder at session start. Promote an item back into
 - `lint-messaging-2026-07/00-index.md` — 1-leaf residue of the 2026-07-05
   lint-messaging review (reconciled 2026-07-13): the envelope↔hook bridge's
   deferred step (b). Everything else in the 21-leaf pack landed.
-- `lint-deep-dive-2026-07/00-index.md` — 8-leaf residue of the 2026-07-04
-  lint deep-dive (reconciled 2026-07-13): proposed/parked/design-gated
+- `lint-deep-dive-2026-07/00-index.md` — 7-leaf residue of the 2026-07-04
+  lint deep-dive (triaged 2026-07-19): proposed/parked/design-gated
   follow-ups — propose-mode registry validation, scheduler cancellation,
   shared collection design, additive restricted-syntax composition,
-  suppression registers into the commit gate, ratchet docs accuracy,
-  portable engine context, and lint-lane memory profiling. (Type-program
-  partitioning, leaf 76, landed 2026-07-14 — `d714f4ce`.)
-- `harness-review-2026-07/00-index.md` — 27-leaf pack from the 2026-07-01
-  AI-harness review (reconciled 2026-07-13; was 36). The ratchet merge-conflict
+  suppression registers into the commit gate, portable engine context, and
+  lint-lane memory profiling. (Type-program partitioning, leaf 76, landed
+  2026-07-14 — `d714f4ce`; ratchet docs accuracy, leaf 70, landed
+  2026-07-16 — `9e8bd211`.)
+- `harness-review-2026-07/00-index.md` — 4-leaf residue of the 2026-07-01
+  AI-harness review (triaged 2026-07-19; was 36). The ratchet merge-conflict
   lane, ratchet platform, new lint rules, and hooks all landed
-  2026-07-12..2026-07-15; the open residue is 38, 52 (drain 3.1), and half
-  (a) of 18 (drain 2.1), with 35 boundary / 36 / 70 / 74 design-gated or
+  2026-07-12..2026-07-15 and their leaf files were removed (git history);
+  the open residue is 38, with 35 boundary half / 36 design-gated and 74
   human-reviewed. Rejected verdicts recorded in `01-sources-and-verdicts.md`.
-- `harness-audit-2026-07/00-index.md` — 45-leaf task pack from the 2026-07-13
-  six-lane harness audit and per-lane adversarial verification: gate/worktree
-  correctness, cross-harness parity, CLI UX, lint showcase accuracy, and
-  first-contact presentation work.
-- `harness-explore-2026-07/00-index.md` — 14-leaf residue of the 2026-07-11
-  harness exploration (reconciled 2026-07-13; was 22 — both P1s and the other
-  landed/rejected leaves removed): Ready leaves on drift-prone hand-maintained
-  lists (staleness regex, allowlists, exempt scripts, the coverage map),
-  gate-script dedup, suppression policy as data, gate-run-mode recording, and
-  copyability/docs splits.
-- `harness-sweep-2026-07/00-index.md` — 3-leaf residue of the 2026-07-11
-  multi-model sweep (reconciled 2026-07-13; was 40): checkJs gate / shared
-  policy-shim parity, the knip dead-export floor drain, and worktree-aware
-  commit guards. Sweep design and the 59-item kill list remain in
+- `harness-sweep-2026-07/00-index.md` — 1-leaf residue of the 2026-07-11
+  multi-model sweep (triaged 2026-07-19; was 40): checkJs gate / shared
+  policy-shim parity. The knip dead-export floor drain (`4bb0b024`) and
+  worktree-aware commit guards (drain 1.5) landed and their leaves were
+  removed. Sweep design and the 59-item kill list remain in
   `00-sources-and-verdicts.md`.
 - `harness-research-followups-2026-06/00-index.md` — second round of
   follow-ups from the harness research, after cross-checking each
@@ -232,10 +226,20 @@ Do **not** read this folder at session start. Promote an item back into
   `01-verification-record.md` lists the ~20 leaves found already landed with
   stale status lines, plus the exclusion verdicts — check it before promoting
   from the older packs above.
+- `arch-plans-2026-07/00-index.md` — 2026-07-19 cross-reviewed intake pack: six
+  plans drafted in the sibling checkout's 2026-07-17/18 architecture reviews,
+  each fact-checked and verdicted by both Fable 5 and GPT-5 codex before
+  intake, with the surviving fixes applied. DRAINED 2026-07-19: leaves 01, 02,
+  03, 05 (harness) and 06 (turn-movement server origin) all landed the same
+  day via cross-reviewed lanes; only leaf 04 (contested sensor-baseline merge)
+  remains, deliberately unscheduled behind its double trigger. A seventh
+  candidate (coverage-map spoke fold) was not adopted; its residue is a rider
+  in `lint-arch-review-2026-07/07-*.md`.
 - `arch-review-2026-07/00-report.md` — 2026-07-06 whole-repo architectural
-  review (reconciled 2026-07-13): only the baseline-framework/max-lines
-  git-attributes follow-up (#12) and the bash-vs-TS substrate ruling (#13,
-  owner sign-off) remain open; the other ranked refactor tiers landed.
+  review (triaged 2026-07-19): only the baseline-framework/max-lines
+  git-attributes follow-up (#12) remains open; the bash-vs-TS substrate
+  ruling (#13) closed with owner sign-off 2026-07-14 (recorded in
+  `docs/ai-harness.md`) and the other ranked refactor tiers landed.
 
 ## Promotion rules
 

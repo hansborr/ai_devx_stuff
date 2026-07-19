@@ -13,9 +13,9 @@ full acceptance criteria.
 - `mutation-coverage-2026-06/75`: add the residual tests, including the still
   missing `scripts/lint-ratchet/max-lines-policy.test.ts`; see the archived
   source leaf referenced by the original queue.
-- `lint-fix-dist-preflight-parity`: verify whether the current lint-fix path
-  fully covers the requested diagnostic and registered smoke test; see
-  `backlog/lint-fix-dist-preflight-parity.md`.
+- `lint-fix-dist-preflight-parity`: resolved — verified Done at the
+  sequential-drain reconciliation and the note was removed at the 2026-07-19
+  triage (git history).
 - `harness-research-followups-2026-06/02`: token-aware design lint; proposal
   remains unimplemented. See `backlog/harness-research-followups-2026-06/02-*`.
 - `harness-review-tasks/10`: character-live-state module-doc/facade follow-up

@@ -1,13 +1,8 @@
-import { matchesOption, parseFormatValue } from "../lib/cli.js";
+import { z } from "zod";
+
+import { readRequiredOptionValue, requireArg as sharedRequireArg } from "../cli-option-values.js";
+import { matchesOption, parseCli, parseFormatValue } from "../lib/cli.js";
 import { usage } from "./cli-help.js";
-import {
-  ensureFlagHasNoValue,
-  type ParsedOption,
-  parseOption,
-  readOptionValue,
-  requireArg,
-  unknownArgument,
-} from "./cli-options.js";
 import {
   parseDepth,
   parseLimit,
@@ -16,25 +11,19 @@ import {
   parseSymbolName,
 } from "./cli-values.js";
 import { CodeIntelError } from "./errors.js";
-import type { CliCommand, HelpTopic, OutputFormat, ParsedCli, ProjectFilter } from "./types.js";
+import type { CliCommand, HelpTopic, OutputFormat, ParsedCli } from "./types.js";
 
-type DependentsArgState = {
-  depth: number;
-  excludeTests: boolean;
-  limit?: number;
-  project?: ProjectFilter;
-};
+// code:intel parse-error contract: every failure throws CodeIntelError (the
+// "code:intel: " prefix comes from the class), cli-main maps it to exit 1, and
+// unknown-argument diagnostics carry no usage suffix — hence the empty `usage`
+// handed to parseCli below. Coercion lives in cli-values.ts; the schemas here
+// reuse those parsers as transforms, so the exact thrown error identities are
+// unchanged.
 
-type RefsArgState = {
-  limit?: number;
-};
+const createError = (message: string): Error => new CodeIntelError(message);
 
-type TestsArgState = {
-  depth: number;
-  depthSpecified: boolean;
-  direct: boolean;
-  limit?: number;
-  project?: ProjectFilter;
+const fail = (message: string): never => {
+  throw new CodeIntelError(message);
 };
 
 const SUBCOMMAND_PARSERS: Record<HelpTopic, (args: string[]) => CliCommand> = {
@@ -83,59 +72,77 @@ function isSubcommandHelp(args: string[]): boolean {
   return args.length === 1 && (args[0] === "--help" || args[0] === "-h");
 }
 
+// The global pass is a pass-through filter (extract --format anywhere, keep
+// every other token for the subcommand parser), which is exactly what
+// parseCli deliberately does not do — so this one small loop stays by hand,
+// riding the same shared value reader.
 function parseGlobalOptions(args: string[]): { args: string[]; format: OutputFormat } {
-  const parsedArgs: string[] = [];
+  const rest: string[] = [];
   let format: OutputFormat = "text";
-  const fail = (message: string): never => {
-    throw new CodeIntelError(message);
-  };
 
   for (let index = 0; index < args.length; index += 1) {
-    const arg = requireArg(args[index]);
-    const option = parseOption(arg);
-    if (option !== undefined && matchesOption(arg, "--format")) {
-      const parsed = readOptionValue(option, args, index, "--format requires text or json.");
+    const arg = sharedRequireArg(args[index], fail);
+    if (matchesOption(arg, "--format")) {
+      const parsed = readRequiredOptionValue({
+        arg,
+        argv: args,
+        index,
+        message: "--format requires text or json.",
+        createError,
+      });
       format = parseFormatValue(parsed.value, fail);
       index = parsed.nextIndex;
       continue;
     }
-    parsedArgs.push(arg);
+    rest.push(arg);
   }
 
-  return { args: parsedArgs, format };
+  return { args: rest, format };
 }
 
+// The pre-spec parsers treated every single-dash token as an (unknown) option;
+// parseCli routes them to positionals, so re-reject them for byte-identical
+// diagnostics before any positional-count usage error.
+function rejectDashPositionals(positionals: readonly string[]): void {
+  const dashToken = positionals.find((token) => token.startsWith("-"));
+  if (dashToken !== undefined) throw new CodeIntelError(`Unknown argument: ${dashToken}`);
+}
+
+const defSchema = z.object({
+  "--name": z
+    .string()
+    .transform((value) => parseSymbolName(value))
+    .optional(),
+});
+
 function parseDefArgs(args: string[]): CliCommand {
-  const positional: string[] = [];
-  let name: string | undefined;
-
-  for (let index = 0; index < args.length; index += 1) {
-    const arg = requireArg(args[index]);
-    const option = parseOption(arg);
-    if (!option) {
-      positional.push(arg);
-      continue;
-    }
-    if (option.name !== "--name") throw unknownArgument(option.raw);
-    const parsed = readOptionValue(option, args, index, "--name requires a symbol name.");
-    name = parseSymbolName(parsed.value);
-    index = parsed.nextIndex;
-  }
-
-  if (name && positional.length > 0) {
+  const parsed = parseCli({
+    argv: args,
+    usage: "",
+    createError,
+    options: [
+      { name: "--name", kind: "value", valueErrorMessage: "--name requires a symbol name." },
+    ],
+    schema: defSchema,
+  });
+  rejectDashPositionals(parsed.positionals);
+  const name = parsed.options["--name"];
+  if (name !== undefined && parsed.positionals.length > 0) {
     throw new CodeIntelError("Use either def <file>:<line>:<col> or def --name <symbol>.");
   }
-  if (name) return { kind: "defName", name };
-  if (positional.length !== 1) {
+  if (name !== undefined) return { kind: "defName", name };
+  if (parsed.positionals.length !== 1) {
     throw new CodeIntelError(
       "Usage: bun run code:intel -- def <file>:<line>:<col> OR def --name <symbol>",
     );
   }
-  const rawLocation = positional[0];
+  const rawLocation = parsed.positionals[0];
   if (!rawLocation) throw new CodeIntelError("Definition location is required.");
   return { kind: "def", location: parseLocation(rawLocation, "Definition") };
 }
 
+// A fixed positional destructure (merge-CLI shape): any single token — even an
+// option-like one — is the file argument, so this stays off parseCli.
 function parseSingleFileArgs(args: string[]): CliCommand {
   if (args.length !== 1) throw new CodeIntelError("Usage: bun run code:intel -- exports <file>");
   const file = args[0];
@@ -143,181 +150,169 @@ function parseSingleFileArgs(args: string[]): CliCommand {
   return { kind: "exports", file };
 }
 
-function parseOverviewArgs(args: string[]): CliCommand {
-  const positional: string[] = [];
-  for (const rawArg of args) {
-    const arg = requireArg(rawArg);
-    const option = parseOption(arg);
-    if (option) throw unknownArgument(option.raw);
-    positional.push(arg);
-  }
+const overviewSchema = z.object({});
 
-  if (positional.length !== 1) {
+function parseOverviewArgs(args: string[]): CliCommand {
+  const parsed = parseCli({
+    argv: args,
+    usage: "",
+    createError,
+    options: [],
+    schema: overviewSchema,
+  });
+  rejectDashPositionals(parsed.positionals);
+  if (parsed.positionals.length !== 1) {
     throw new CodeIntelError("Usage: bun run code:intel -- overview <file>");
   }
-  const file = positional[0];
+  const file = parsed.positionals[0];
   if (!file) throw new CodeIntelError("overview file argument is required.");
   return { kind: "overview", file };
 }
 
+const dependentsSchema = z.object({
+  "--depth": z
+    .string()
+    .transform((value) => parseDepth(value))
+    .default(1),
+  "--exclude-tests": z.boolean().default(false),
+  "--limit": z
+    .string()
+    .transform((value) => parseLimit(value))
+    .optional(),
+  "--project": z
+    .string()
+    .transform((value) => parseProjectFilter(value))
+    .optional(),
+});
+
 function parseDependentsArgs(args: string[]): CliCommand {
-  const positional: string[] = [];
-  const state: DependentsArgState = { depth: 1, excludeTests: false };
-
-  for (let index = 0; index < args.length; index += 1) {
-    const arg = requireArg(args[index]);
-    const option = parseOption(arg);
-    if (!option) {
-      positional.push(arg);
-      continue;
-    }
-    index = consumeDependentsOption(option, args, index, state);
-  }
-
-  if (positional.length !== 1) {
+  const parsed = parseCli({
+    argv: args,
+    usage: "",
+    createError,
+    options: [
+      { name: "--depth", kind: "value", valueErrorMessage: "--depth requires a positive integer." },
+      { name: "--exclude-tests", kind: "flag" },
+      {
+        name: "--limit",
+        kind: "value",
+        valueErrorMessage: "--limit requires a non-negative integer.",
+      },
+      {
+        name: "--project",
+        kind: "value",
+        valueErrorMessage: "--project requires shared, server, or client.",
+      },
+    ],
+    schema: dependentsSchema,
+  });
+  rejectDashPositionals(parsed.positionals);
+  if (parsed.positionals.length !== 1) {
     throw new CodeIntelError(
       "Usage: bun run code:intel -- dependents <file> [--depth <N>] [--project <shared|server|client>] [--exclude-tests] [--limit <N>]",
     );
   }
-  const file = positional[0];
+  const file = parsed.positionals[0];
   if (!file) throw new CodeIntelError("Dependents file argument is required.");
   return {
     kind: "dependents",
     file,
-    depth: state.depth,
-    excludeTests: state.excludeTests,
-    limit: state.limit,
-    project: state.project,
+    depth: parsed.options["--depth"],
+    excludeTests: parsed.options["--exclude-tests"],
+    limit: parsed.options["--limit"],
+    project: parsed.options["--project"],
   };
 }
 
-function consumeDependentsOption(
-  option: ParsedOption,
-  args: string[],
-  index: number,
-  state: DependentsArgState,
-): number {
-  if (option.name === "--exclude-tests") {
-    ensureFlagHasNoValue(option);
-    state.excludeTests = true;
-    return index;
-  }
-  if (option.name === "--depth") {
-    const parsed = readOptionValue(option, args, index, "--depth requires a positive integer.");
-    state.depth = parseDepth(parsed.value);
-    return parsed.nextIndex;
-  }
-  if (option.name === "--limit") {
-    const parsed = readOptionValue(option, args, index, "--limit requires a non-negative integer.");
-    state.limit = parseLimit(parsed.value);
-    return parsed.nextIndex;
-  }
-  if (option.name === "--project") {
-    const parsed = readOptionValue(
-      option,
-      args,
-      index,
-      "--project requires shared, server, or client.",
-    );
-    state.project = parseProjectFilter(parsed.value);
-    return parsed.nextIndex;
-  }
-  throw unknownArgument(option.raw);
-}
+const testsSchema = z.object({
+  "--depth": z
+    .string()
+    .transform((value) => parseDepth(value))
+    .optional(),
+  "--direct": z.boolean().default(false),
+  "--limit": z
+    .string()
+    .transform((value) => parseLimit(value))
+    .optional(),
+  "--project": z
+    .string()
+    .transform((value) => parseProjectFilter(value))
+    .optional(),
+});
 
 function parseTestsArgs(args: string[]): CliCommand {
-  const positional: string[] = [];
-  const state: TestsArgState = {
-    depth: Number.POSITIVE_INFINITY,
-    depthSpecified: false,
-    direct: false,
-  };
-
-  for (let index = 0; index < args.length; index += 1) {
-    const arg = requireArg(args[index]);
-    const option = parseOption(arg);
-    if (!option) {
-      positional.push(arg);
-      continue;
-    }
-    index = consumeTestsOption(option, args, index, state);
-  }
-
-  if (state.direct && state.depthSpecified) {
+  const parsed = parseCli({
+    argv: args,
+    usage: "",
+    createError,
+    options: [
+      { name: "--depth", kind: "value", valueErrorMessage: "--depth requires a positive integer." },
+      { name: "--direct", kind: "flag" },
+      {
+        name: "--limit",
+        kind: "value",
+        valueErrorMessage: "--limit requires a non-negative integer.",
+      },
+      {
+        name: "--project",
+        kind: "value",
+        valueErrorMessage: "--project requires shared, server, or client.",
+      },
+    ],
+    schema: testsSchema,
+  });
+  rejectDashPositionals(parsed.positionals);
+  const direct = parsed.options["--direct"];
+  const depth = parsed.options["--depth"];
+  if (direct && depth !== undefined) {
     throw new CodeIntelError("Use either --direct or --depth, not both.");
   }
-  if (positional.length !== 1) {
+  if (parsed.positionals.length !== 1) {
     throw new CodeIntelError(
       "Usage: bun run code:intel -- tests <file> [--depth <N>] [--direct] [--project <shared|server|client>] [--limit <N>]",
     );
   }
-  const file = positional[0];
+  const file = parsed.positionals[0];
   if (!file) throw new CodeIntelError("tests file argument is required.");
   return {
     kind: "tests",
     file,
-    depth: state.direct ? 1 : state.depth,
-    limit: state.limit,
-    project: state.project,
+    depth: direct ? 1 : (depth ?? Number.POSITIVE_INFINITY),
+    limit: parsed.options["--limit"],
+    project: parsed.options["--project"],
   };
 }
 
+const refsSchema = z.object({
+  "--limit": z
+    .string()
+    .transform((value) => parseLimit(value))
+    .optional(),
+});
+
 function parseRefsArgs(args: string[]): CliCommand {
-  const positional: string[] = [];
-  const state: RefsArgState = {};
-
-  for (let index = 0; index < args.length; index += 1) {
-    const arg = requireArg(args[index]);
-    const option = parseOption(arg);
-    if (!option) {
-      positional.push(arg);
-      continue;
-    }
-    if (option.name !== "--limit") throw unknownArgument(option.raw);
-    const parsed = readOptionValue(option, args, index, "--limit requires a non-negative integer.");
-    state.limit = parseLimit(parsed.value);
-    index = parsed.nextIndex;
-  }
-
-  if (positional.length !== 1) {
+  const parsed = parseCli({
+    argv: args,
+    usage: "",
+    createError,
+    options: [
+      {
+        name: "--limit",
+        kind: "value",
+        valueErrorMessage: "--limit requires a non-negative integer.",
+      },
+    ],
+    schema: refsSchema,
+  });
+  rejectDashPositionals(parsed.positionals);
+  if (parsed.positionals.length !== 1) {
     throw new CodeIntelError("Usage: bun run code:intel -- refs <file>:<line>:<col> [--limit <N>]");
   }
-  const rawLocation = positional[0];
+  const rawLocation = parsed.positionals[0];
   if (!rawLocation) throw new CodeIntelError("References location is required.");
-  return { kind: "refs", location: parseLocation(rawLocation, "References"), limit: state.limit };
-}
-
-function consumeTestsOption(
-  option: ParsedOption,
-  args: string[],
-  index: number,
-  state: TestsArgState,
-): number {
-  if (option.name === "--direct") {
-    ensureFlagHasNoValue(option);
-    state.direct = true;
-    return index;
-  }
-  if (option.name === "--depth") {
-    const parsed = readOptionValue(option, args, index, "--depth requires a positive integer.");
-    state.depth = parseDepth(parsed.value);
-    state.depthSpecified = true;
-    return parsed.nextIndex;
-  }
-  if (option.name === "--limit") {
-    const parsed = readOptionValue(option, args, index, "--limit requires a non-negative integer.");
-    state.limit = parseLimit(parsed.value);
-    return parsed.nextIndex;
-  }
-  if (option.name === "--project") {
-    const parsed = readOptionValue(
-      option,
-      args,
-      index,
-      "--project requires shared, server, or client.",
-    );
-    state.project = parseProjectFilter(parsed.value);
-    return parsed.nextIndex;
-  }
-  throw unknownArgument(option.raw);
+  return {
+    kind: "refs",
+    location: parseLocation(rawLocation, "References"),
+    limit: parsed.options["--limit"],
+  };
 }

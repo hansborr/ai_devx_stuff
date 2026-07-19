@@ -8,7 +8,7 @@
 # Exit status contract (the final output line always repeats this state):
 #   0 landed-verified — main contains the verified tree and is ready to push
 #   1 not-landed — no merge commit was created; follow the reported recovery
-#   2 verify-failed — verification failed before main moved; fix and re-run
+#   2 verify-failed — verification failed before main moved; the trailer names the verify failure-log dir — inspect, fix, re-run
 #   3 merged-unverified — main moved but provenance could not be stamped; verify before push
 # Trailer: land: exit: <code> (<status-token>) — <one-line action>
 #
@@ -248,16 +248,59 @@ if ! bun run harness:check; then
   land_exit 1 "not-landed" "regenerate the stale harness surfaces, commit them, then re-run land"
 fi
 
-echo "land: running full verify on $target_branch ($verify_kind) …"
-if ! bun run verify; then
+# Prisma preflight: packages/server/src/generated/ is gitignored per-worktree
+# state, so a client generated for another branch's schema makes the typecheck
+# slot fail with misleading TS2345 errors at innocent mapper call sites and
+# re-trips the test slot's schema-vs-client mtime guard after any checkout
+# that rewrites schema.prisma. Regenerate UNCONDITIONALLY from the settled
+# verify tree — after the prospective merge-tree construction above, so a
+# diverged branch generates from the merged schema, not the branch tip.
+# Generation is seconds against a 10-15 min verify and is deterministic from
+# the checked-out schema; an mtime heuristic cannot prove schema-content
+# identity. See docs/guides/add-prisma-migration.md ("Cross-worktree
+# staleness"). Verify has not run yet, so failure here is 1 not-landed
+# (matching the harness:check preflight), never 2 verify-failed.
+echo "land: regenerating the Prisma client from the settled $verify_kind …"
+if ! bun run --filter @musi/server prisma:generate; then
+  echo "land: Prisma client generation failed on the $verify_kind; main is untouched." >&2
   land_restore_preview
   land_cleanup_integration
+  land_exit 1 "not-landed" "fix the Prisma client generation failure above, then re-run land"
+fi
+
+# Resolved before verify runs so the exit-2 trailer (the final stderr line)
+# can carry the failure-log breadcrumb: a truncated capture of a land run
+# (`... 2>&1 | tail -N`) keeps only recovery boilerplate and the trailer, so
+# the trailer itself must name where the per-slot verify logs live.
+verify_log_dir="${MUSI_VERIFY_LOG_DIR:-$(musi_standard_verify_log_dir "$REPO_ROOT")}"
+
+echo "land: running full verify on $target_branch ($verify_kind) …"
+if ! bun run verify; then
+  # The client-staleness NOTE below applies only when the failure path
+  # rewrites the checkout: a diverged preview restore (preview_active=1) or
+  # branch mode's return to the starting checkout. On the current-mode fast
+  # path both restores are no-ops and the worktree still holds the exact
+  # tree the client was generated from, so warning there would be false.
+  checkout_rewritten=0
+  if [ "$preview_active" -eq 1 ] || [ "$mode" = "branch" ]; then
+    checkout_rewritten=1
+  fi
+  land_restore_preview
+  land_cleanup_integration
+  if [ "$checkout_rewritten" -eq 1 ]; then
+    # Accepted-because-guarded drift: the restore above rewrites
+    # schema.prisma while src/generated/ still matches the abandoned verify
+    # tree. The mtime guard forces regeneration on the next guarded run, but
+    # unguarded consumers (dev server, editor typecheck) see the
+    # ahead-of-schema client until then.
+    echo "land: NOTE: the regenerated Prisma client still matches the abandoned verify tree; the next guarded run regenerates it, unguarded consumers see it stale until then." >&2
+  fi
   if [ "$verify_kind" = "merge tree" ]; then
     echo "land: the prospective merge tree failed verification; main is untouched." >&2
-    land_exit 2 "verify-failed" "fix the merge-tree verification failure, then re-run land"
+    land_exit 2 "verify-failed" "inspect $verify_log_dir/<slot>.log, fix the merge-tree verification failure, then re-run land"
   fi
   echo "land: the branch tip failed verification; main is untouched." >&2
-  land_exit 2 "verify-failed" "fix the branch verification failure, then re-run land"
+  land_exit 2 "verify-failed" "inspect $verify_log_dir/<slot>.log, fix the branch verification failure, then re-run land"
 fi
 
 if ! verified_fingerprint="$(musi_require_fingerprint \
@@ -325,7 +368,7 @@ if ! merge_fingerprint="$(musi_require_fingerprint \
   land_exit 3 "merged-unverified" "repair the fingerprint input failure and run bun run verify before pushing main"
 fi
 full_marker="${MUSI_VERIFY_MARKER_FULL:-$(musi_standard_verify_full_marker "$REPO_ROOT")}"
-wrapper_json="${MUSI_VERIFY_LOG_DIR:-$(musi_standard_verify_log_dir "$REPO_ROOT")}/meta/wrapper.json"
+wrapper_json="$verify_log_dir/meta/wrapper.json"
 
 if musi_restamp_verify_marker "$full_marker" "$verified_fingerprint" "$merge_head" \
   "$merge_fingerprint" "$verified_commit" 120; then

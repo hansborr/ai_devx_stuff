@@ -35,6 +35,9 @@ musi_exit_after_git_hook_env_assertion_if_requested
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 LINT_CONFIG_SENSORS="$SCRIPT_DIR/../lint-config-sensors.sh"
 VERIFY_METADATA="$SCRIPT_DIR/../lib/verify-metadata.sh"
+# Sandbox copies of verify-metadata.sh resolve the run-meta codec from the
+# source tree via the MUSI_VERIFY_META_CORE seam.
+export MUSI_VERIFY_META_CORE="$SCRIPT_DIR/../lib/verify-metadata-core.ts"
 CHANGED_BASE="$SCRIPT_DIR/../lib/changed-base.sh"
 CHANGED_LINTABLE_FILES="$SCRIPT_DIR/../lib/changed-lintable-files.sh"
 YAMLLINT_CONFIG="$REPO_ROOT/.yamllint.yml"

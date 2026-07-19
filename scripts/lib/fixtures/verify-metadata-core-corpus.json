@@ -1,0 +1,336 @@
+{
+  "captured": "Characterization corpus for scripts/lib/verify-metadata-core.ts. legacyParity expectations were captured 2026-07-19 by running the pre-port bash implementation (scripts/lib/verify-metadata.sh at 56d74ba3) by hand and committing its outputs as static data; defectFixes record where the codec intentionally diverges from the sed/awk extractors, with the observed legacy behavior beside each case. Tests never drive the bash implementation.",
+  "legacyParity": [
+    {
+      "name": "step-meta emits the exact legacy step document",
+      "argv": [
+        "step-meta",
+        "lint",
+        "changed-verify",
+        "100",
+        "2026-07-19T10:00:00+00:00",
+        "130",
+        "2026-07-19T10:00:30+00:00",
+        "0",
+        "bun run lint"
+      ],
+      "stdin": "",
+      "expectExitCode": 0,
+      "expectStdout": "{\"name\":\"lint\",\"mode\":\"changed-verify\",\"start_time\":\"2026-07-19T10:00:00+00:00\",\"end_time\":\"2026-07-19T10:00:30+00:00\",\"elapsed_seconds\":30,\"exit_code\":0,\"command\":\"bun run lint\"}\n"
+    },
+    {
+      "name": "step-meta clamps negative elapsed and escapes quote/backslash/tab like the awk escaper",
+      "argv": [
+        "step-meta",
+        "fmt",
+        "changed-verify",
+        "200",
+        "2026-07-19T10:00:00+00:00",
+        "150",
+        "2026-07-19T09:59:10+00:00",
+        "3",
+        "echo \"hi\" \\ and\ttab"
+      ],
+      "stdin": "",
+      "expectExitCode": 0,
+      "expectStdout": "{\"name\":\"fmt\",\"mode\":\"changed-verify\",\"start_time\":\"2026-07-19T10:00:00+00:00\",\"end_time\":\"2026-07-19T09:59:10+00:00\",\"elapsed_seconds\":0,\"exit_code\":3,\"command\":\"echo \\\"hi\\\" \\\\ and\\ttab\"}\n"
+    },
+    {
+      "name": "wrapper-meta emits the exact legacy wrapper document",
+      "argv": [
+        "wrapper-meta",
+        "parallel-verify",
+        "100",
+        "2026-07-19T10:00:00+00:00",
+        "400",
+        "2026-07-19T10:05:00+00:00",
+        "0",
+        "bash scripts/verify.sh",
+        "abc123def",
+        "1111111111111111111111111111111111111111111111111111111111111111"
+      ],
+      "stdin": "",
+      "expectExitCode": 0,
+      "expectStdout": "{\"name\":\"wrapper\",\"mode\":\"parallel-verify\",\"start_time\":\"2026-07-19T10:00:00+00:00\",\"end_time\":\"2026-07-19T10:05:00+00:00\",\"elapsed_seconds\":300,\"exit_code\":0,\"head\":\"abc123def\",\"fingerprint\":\"1111111111111111111111111111111111111111111111111111111111111111\",\"command\":\"bash scripts/verify.sh\"}\n"
+    },
+    {
+      "name": "wrapper-meta refuses an invalid fingerprint without emitting a document (legacy returned 1, wrote nothing)",
+      "argv": [
+        "wrapper-meta",
+        "serial-verify",
+        "100",
+        "2026-07-19T10:00:00+00:00",
+        "400",
+        "2026-07-19T10:05:00+00:00",
+        "0",
+        "bun run verify",
+        "branch-tip",
+        ""
+      ],
+      "stdin": "",
+      "expectExitCode": 5,
+      "expectStdout": ""
+    },
+    {
+      "name": "restamp-wrapper re-stamps head/fingerprint of a passing wrapper and keeps mode/start_time/command",
+      "argv": [
+        "restamp-wrapper",
+        "merge-head",
+        "2222222222222222222222222222222222222222222222222222222222222222",
+        "1784463300",
+        "2026-07-19T12:15:00+00:00"
+      ],
+      "stdin": "{\"name\":\"wrapper\",\"mode\":\"serial-verify\",\"start_time\":\"2026-07-19T12:00:00+00:00\",\"end_time\":\"2026-07-19T12:05:00+00:00\",\"elapsed_seconds\":300,\"exit_code\":0,\"head\":\"branch-tip\",\"fingerprint\":\"1111111111111111111111111111111111111111111111111111111111111111\",\"command\":\"bun run verify\"}",
+      "expectExitCode": 0,
+      "expectStdout": "{\"name\":\"wrapper\",\"mode\":\"serial-verify\",\"start_time\":\"2026-07-19T12:00:00+00:00\",\"end_time\":\"2026-07-19T12:15:00+00:00\",\"elapsed_seconds\":900,\"exit_code\":0,\"head\":\"merge-head\",\"fingerprint\":\"2222222222222222222222222222222222222222222222222222222222222222\",\"command\":\"bun run verify\"}\n"
+    },
+    {
+      "name": "restamp-wrapper refuses a non-verify mode (legacy rc=1, file untouched)",
+      "argv": [
+        "restamp-wrapper",
+        "merge-head",
+        "1111111111111111111111111111111111111111111111111111111111111111",
+        "1784463300",
+        "2026-07-19T12:15:00+00:00"
+      ],
+      "stdin": "{\"name\":\"wrapper\",\"mode\":\"changed-verify\",\"start_time\":\"2026-07-19T12:00:00+00:00\",\"end_time\":\"x\",\"elapsed_seconds\":1,\"exit_code\":0,\"head\":\"h\",\"fingerprint\":\"1111111111111111111111111111111111111111111111111111111111111111\",\"command\":\"c\"}",
+      "expectExitCode": 1,
+      "expectStdout": ""
+    },
+    {
+      "name": "restamp-wrapper refuses a non-passing wrapper (legacy rc=1, file untouched)",
+      "argv": [
+        "restamp-wrapper",
+        "merge-head",
+        "1111111111111111111111111111111111111111111111111111111111111111",
+        "1784463300",
+        "2026-07-19T12:15:00+00:00"
+      ],
+      "stdin": "{\"name\":\"wrapper\",\"mode\":\"serial-verify\",\"start_time\":\"2026-07-19T12:00:00+00:00\",\"end_time\":\"x\",\"elapsed_seconds\":1,\"exit_code\":1,\"head\":\"h\",\"fingerprint\":\"1111111111111111111111111111111111111111111111111111111111111111\",\"command\":\"c\"}",
+      "expectExitCode": 1,
+      "expectStdout": ""
+    },
+    {
+      "name": "restamp-wrapper clamps a future (post-now) start_time to elapsed_seconds 0",
+      "argv": [
+        "restamp-wrapper",
+        "merge-head",
+        "2222222222222222222222222222222222222222222222222222222222222222",
+        "1784463300",
+        "2026-07-19T12:15:00+00:00"
+      ],
+      "stdin": "{\"name\":\"wrapper\",\"mode\":\"parallel-verify\",\"start_time\":\"2099-01-01T00:00:00+00:00\",\"end_time\":\"2026-07-19T12:05:00+00:00\",\"elapsed_seconds\":300,\"exit_code\":0,\"head\":\"branch-tip\",\"fingerprint\":\"1111111111111111111111111111111111111111111111111111111111111111\",\"command\":\"bun run verify\"}",
+      "expectExitCode": 0,
+      "expectStdout": "{\"name\":\"wrapper\",\"mode\":\"parallel-verify\",\"start_time\":\"2099-01-01T00:00:00+00:00\",\"end_time\":\"2026-07-19T12:15:00+00:00\",\"elapsed_seconds\":0,\"exit_code\":0,\"head\":\"merge-head\",\"fingerprint\":\"2222222222222222222222222222222222222222222222222222222222222222\",\"command\":\"bun run verify\"}\n"
+    },
+    {
+      "name": "restamp-wrapper falls back to now for an unparseable start_time (legacy date -d fallback)",
+      "argv": [
+        "restamp-wrapper",
+        "merge-head",
+        "2222222222222222222222222222222222222222222222222222222222222222",
+        "1784463300",
+        "2026-07-19T12:15:00+00:00"
+      ],
+      "stdin": "{\"name\":\"wrapper\",\"mode\":\"serial-verify\",\"start_time\":\"not-a-date\",\"end_time\":\"x\",\"elapsed_seconds\":1,\"exit_code\":0,\"head\":\"h\",\"fingerprint\":\"1111111111111111111111111111111111111111111111111111111111111111\",\"command\":\"c\"}",
+      "expectExitCode": 0,
+      "expectStdout": "{\"name\":\"wrapper\",\"mode\":\"serial-verify\",\"start_time\":\"not-a-date\",\"end_time\":\"2026-07-19T12:15:00+00:00\",\"elapsed_seconds\":0,\"exit_code\":0,\"head\":\"merge-head\",\"fingerprint\":\"2222222222222222222222222222222222222222222222222222222222222222\",\"command\":\"c\"}\n"
+    },
+    {
+      "name": "shortcircuit-meta emits the exact legacy audit document shape",
+      "argv": [
+        "shortcircuit-meta",
+        "precommit-marker",
+        "sc-head",
+        "1111111111111111111111111111111111111111111111111111111111111111",
+        "precommit-marker",
+        "2026-07-19T12:00:00+00:00"
+      ],
+      "stdin": "",
+      "expectExitCode": 0,
+      "expectStdout": "{\"version\":1,\"mode\":\"precommit-marker\",\"generated_at\":\"2026-07-19T12:00:00+00:00\",\"wrapper\":{\"name\":\"wrapper\",\"mode\":\"precommit-marker\",\"start_time\":\"2026-07-19T12:00:00+00:00\",\"end_time\":\"2026-07-19T12:00:00+00:00\",\"elapsed_seconds\":0,\"exit_code\":0,\"head\":\"sc-head\",\"fingerprint\":\"1111111111111111111111111111111111111111111111111111111111111111\",\"satisfied_marker\":\"precommit-marker\"},\"steps\":[]}\n"
+    },
+    {
+      "name": "shortcircuit-meta records head none for an empty head (legacy fallback)",
+      "argv": [
+        "shortcircuit-meta",
+        "precommit-bridged",
+        "",
+        "1111111111111111111111111111111111111111111111111111111111111111",
+        "verify",
+        "2026-07-19T12:00:00+00:00"
+      ],
+      "stdin": "",
+      "expectExitCode": 0,
+      "expectStdout": "{\"version\":1,\"mode\":\"precommit-bridged\",\"generated_at\":\"2026-07-19T12:00:00+00:00\",\"wrapper\":{\"name\":\"wrapper\",\"mode\":\"precommit-bridged\",\"start_time\":\"2026-07-19T12:00:00+00:00\",\"end_time\":\"2026-07-19T12:00:00+00:00\",\"elapsed_seconds\":0,\"exit_code\":0,\"head\":\"none\",\"fingerprint\":\"1111111111111111111111111111111111111111111111111111111111111111\",\"satisfied_marker\":\"verify\"},\"steps\":[]}\n"
+    },
+    {
+      "name": "shortcircuit-meta refuses a malformed mode (legacy warned and wrote nothing)",
+      "argv": [
+        "shortcircuit-meta",
+        "bad mode!",
+        "sc-head",
+        "1111111111111111111111111111111111111111111111111111111111111111",
+        "verify",
+        "2026-07-19T12:00:00+00:00"
+      ],
+      "stdin": "",
+      "expectExitCode": 4,
+      "expectStdout": ""
+    },
+    {
+      "name": "shortcircuit-meta refuses an invalid fingerprint (legacy warned and wrote nothing)",
+      "argv": [
+        "shortcircuit-meta",
+        "precommit-marker",
+        "sc-head",
+        "not-a-fingerprint",
+        "verify",
+        "2026-07-19T12:00:00+00:00"
+      ],
+      "stdin": "",
+      "expectExitCode": 5,
+      "expectStdout": ""
+    },
+    {
+      "name": "combine assembles wrapper and steps with the legacy field values",
+      "argv": ["combine", "parallel-verify", "2026-07-19T12:00:00+00:00"],
+      "stdin": "{\"name\":\"wrapper\",\"mode\":\"parallel-verify\",\"exit_code\":0}\n{\"name\":\"fmt\",\"exit_code\":3}\n{\"name\":\"lint\",\"exit_code\":0}\n",
+      "expectExitCode": 0,
+      "expectStdout": "{\"version\":1,\"mode\":\"parallel-verify\",\"generated_at\":\"2026-07-19T12:00:00+00:00\",\"wrapper\":{\"name\":\"wrapper\",\"mode\":\"parallel-verify\",\"exit_code\":0},\"steps\":[{\"name\":\"fmt\",\"exit_code\":3},{\"name\":\"lint\",\"exit_code\":0}]}\n"
+    },
+    {
+      "name": "combine records wrapper null when the wrapper slot is the null literal (legacy missing-fragment path)",
+      "argv": ["combine", "serial-verify", "2026-07-19T12:00:00+00:00"],
+      "stdin": "null\n{\"name\":\"lint\",\"exit_code\":0}\n",
+      "expectExitCode": 0,
+      "expectStdout": "{\"version\":1,\"mode\":\"serial-verify\",\"generated_at\":\"2026-07-19T12:00:00+00:00\",\"wrapper\":null,\"steps\":[{\"name\":\"lint\",\"exit_code\":0}]}\n"
+    },
+    {
+      "name": "wrapper-fragment extracts the wrapper object from a combined document",
+      "argv": ["wrapper-fragment"],
+      "stdin": "{\"version\":1,\"mode\":\"serial-verify\",\"generated_at\":\"T\",\"wrapper\":{\"name\":\"wrapper\",\"mode\":\"serial-verify\",\"exit_code\":0},\"steps\":[]}",
+      "expectExitCode": 0,
+      "expectStdout": "{\"name\":\"wrapper\",\"mode\":\"serial-verify\",\"exit_code\":0}\n"
+    },
+    {
+      "name": "string-field emits a simple string value (legacy extractor match)",
+      "argv": ["string-field", "mode"],
+      "stdin": "{\"name\":\"wrapper\",\"mode\":\"parallel-verify\",\"exit_code\":0}",
+      "expectExitCode": 0,
+      "expectStdout": "parallel-verify\n"
+    },
+    {
+      "name": "string-field emits nothing for a missing key (legacy no-match)",
+      "argv": ["string-field", "absent"],
+      "stdin": "{\"mode\":\"parallel-verify\"}",
+      "expectExitCode": 0,
+      "expectStdout": ""
+    },
+    {
+      "name": "int-field emits an unsigned integer value (legacy extractor match)",
+      "argv": ["int-field", "elapsed_seconds"],
+      "stdin": "{\"elapsed_seconds\":300,\"exit_code\":0}",
+      "expectExitCode": 0,
+      "expectStdout": "300\n"
+    },
+    {
+      "name": "int-field emits nothing for a string-typed number (legacy no-match: quoted digits never matched)",
+      "argv": ["int-field", "exit_code"],
+      "stdin": "{\"exit_code\":\"3\"}",
+      "expectExitCode": 0,
+      "expectStdout": ""
+    },
+    {
+      "name": "int-field emits nothing for a negative number (legacy no-match)",
+      "argv": ["int-field", "exit_code"],
+      "stdin": "{\"exit_code\":-1}",
+      "expectExitCode": 0,
+      "expectStdout": ""
+    }
+  ],
+  "defectFixes": [
+    {
+      "name": "string-field decodes escaped quotes instead of truncating",
+      "legacyBehavior": "sed extractor stopped at the first escaped quote: emitted 'echo \\' for this document",
+      "argv": ["string-field", "command"],
+      "stdin": "{\"command\":\"echo \\\"hi\\\" \\\\ and\\ttab\"}",
+      "expectExitCode": 0,
+      "expectStdout": "echo \"hi\" \\ and\ttab\n"
+    },
+    {
+      "name": "string-field reads the top-level key instead of greedily binding the last occurrence",
+      "legacyBehavior": "greedy ^.* bound the LAST \"mode\": emitted 'second' for this document",
+      "argv": ["string-field", "mode"],
+      "stdin": "{\"mode\":\"first\",\"nested\":{\"mode\":\"second\"}}",
+      "expectExitCode": 0,
+      "expectStdout": "first\n"
+    },
+    {
+      "name": "string-field refuses a non-JSON document instead of pattern-matching inside garbage",
+      "legacyBehavior": "sed matched key-shaped text inside arbitrary non-JSON input: emitted 'sneaky' for this document",
+      "argv": ["string-field", "mode"],
+      "stdin": "this is not json but contains \"mode\":\"sneaky\" anyway",
+      "expectExitCode": 3,
+      "expectStdout": ""
+    },
+    {
+      "name": "wrapper-fragment survives a nested object inside the wrapper",
+      "legacyBehavior": "the {[^}]*} extractor stopped at the first close brace: emitted the invalid fragment '{\"mode\":\"x\",\"extra\":{\"a\":1}' for this document",
+      "argv": ["wrapper-fragment"],
+      "stdin": "{\"wrapper\":{\"mode\":\"x\",\"extra\":{\"a\":1},\"exit_code\":0},\"steps\":[]}",
+      "expectExitCode": 0,
+      "expectStdout": "{\"mode\":\"x\",\"extra\":{\"a\":1},\"exit_code\":0}\n"
+    },
+    {
+      "name": "wrapper-fragment refuses a document without a wrapper object via a distinct exit code",
+      "legacyBehavior": "sed no-match emitted nothing with exit 0; the shim preserves that surface while the CLI reports the reason",
+      "argv": ["wrapper-fragment"],
+      "stdin": "{\"version\":1,\"steps\":[]}",
+      "expectExitCode": 4,
+      "expectStdout": ""
+    },
+    {
+      "name": "step-meta refuses a malformed epoch instead of failing in bash arithmetic",
+      "legacyBehavior": "$((end - start)) aborted the sourced function with a bash arithmetic error on non-numeric input",
+      "argv": [
+        "step-meta",
+        "lint",
+        "changed-verify",
+        "not-an-epoch",
+        "T1",
+        "130",
+        "T2",
+        "0",
+        "cmd"
+      ],
+      "stdin": "",
+      "expectExitCode": 4,
+      "expectStdout": ""
+    },
+    {
+      "name": "step-meta refuses a non-numeric exit code instead of emitting invalid JSON",
+      "legacyBehavior": "printf '\"exit_code\":%s' interpolated the raw value, producing an unparseable document",
+      "argv": ["step-meta", "lint", "changed-verify", "100", "T1", "130", "T2", "boom", "cmd"],
+      "stdin": "",
+      "expectExitCode": 4,
+      "expectStdout": ""
+    },
+    {
+      "name": "combine drops a malformed step fragment instead of embedding garbage",
+      "legacyBehavior": "cat embedded the fragment bytes verbatim, corrupting run-meta.json into invalid JSON",
+      "argv": ["combine", "serial-verify", "2026-07-19T12:00:00+00:00"],
+      "stdin": "null\ngarbage-not-json\n{\"name\":\"ok\",\"exit_code\":0}\n",
+      "expectExitCode": 0,
+      "expectStdout": "{\"version\":1,\"mode\":\"serial-verify\",\"generated_at\":\"2026-07-19T12:00:00+00:00\",\"wrapper\":null,\"steps\":[{\"name\":\"ok\",\"exit_code\":0}]}\n"
+    },
+    {
+      "name": "combine degrades a malformed wrapper fragment to null instead of embedding garbage",
+      "legacyBehavior": "cat embedded the wrapper bytes verbatim, corrupting run-meta.json into invalid JSON",
+      "argv": ["combine", "parallel-verify", "2026-07-19T12:00:00+00:00"],
+      "stdin": "{broken wrapper\n{\"name\":\"ok\",\"exit_code\":0}\n",
+      "expectExitCode": 0,
+      "expectStdout": "{\"version\":1,\"mode\":\"parallel-verify\",\"generated_at\":\"2026-07-19T12:00:00+00:00\",\"wrapper\":null,\"steps\":[{\"name\":\"ok\",\"exit_code\":0}]}\n"
+    }
+  ]
+}

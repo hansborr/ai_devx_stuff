@@ -99,6 +99,98 @@ read-modify-write in `services/combat-actions/turn-transaction.ts` (the
 C2 fix), and widening `BlindParticipantFields` would silently reintroduce
 the `advanceTurn` conditions race.
 
+**Turn-origin columns are non-racing.** `turnStartX`, `turnStartY`,
+`turnStartMapId`, and `turnStartRound` have exactly three writer classes,
+all in `utils/participant-stats-mutations.ts`:
+
+1. `services/combat-actions/turn-origin.ts::captureTurnOrigin` (via
+   `setParticipantTurnOrigin`) inside the already-CAS'd activation and
+   advance-turn transactions (`setEncounterState` / `advanceTurnCompound`
+   serialize the capture side against other captures).
+2. `clearParticipantTurnOrigin`, the fail-closed all-null invalidation
+   that every token↔participant link mutation
+   (`encounterMap.link/unlink/autoLinkTokens`, `mapToken.create` with a
+   participant, `mapToken.delete` of a linked token) runs in the same
+   transaction as the link write — required because the projection's
+   visibility gate reads the *currently linked* token while the origin
+   was captured from the token linked at turn start.
+3. `clearTurnOriginsForParticipants`, the tolerant batch clear that the
+   two cascade deleters (`map.delete`, whose map cascade removes every
+   token on the map, and `deleteCharacterWithCascade`, whose character
+   cascade removes tokens possibly cross-linked to surviving
+   participants) run in the same transaction as the delete.
+
+All writers set the whole four-column set atomically and none bumps
+`version`, so capture/clear stays invisible to concurrent CAS-protected
+DM edits. They are kept out of `BlindParticipantFields` on purpose — the
+blind whitelist stays a deliberate list of DM-adjacent metadata, and any
+further writer for these columns would be a reviewable decision.
+
+**Capture/clear serialization protocol.** A capture that read the link
+with a plain `include` could race a link mutation: read hidden token H's
+position, lose to the relink tx (which clears the origin), then land H's
+coordinates with a fresh round stamp — re-leaking a hidden position
+through the projection once a visible token is linked. Because every
+link mutation's clear UPDATEs the participant row inside the same
+transaction as its link write, the participant row itself is the
+mutual-exclusion channel, and `captureTurnOrigin` uses it lock-by-write:
+it clears the origin FIRST (acquiring the row lock through the
+sanctioned helper — Pattern A's write-based serialization without the
+version bump), then reads the link on a fresh statement snapshot, then
+writes the origin from that read. A relink that committed before the
+lock is visible to the read; one still in flight has its clear queued
+behind the lock, so the all-null clear lands last. Either order leaves
+the origin coherent with the committed link state. (`SELECT FOR UPDATE`
+stays out per §Don't use; the lock-by-write shape keeps the rule inside
+the mutation helpers.) The link mutations' own side is Pattern C: each
+resolves the token's current link *inside* its transaction and re-checks
+it in the compound `updateMany`/`deleteMany` WHERE
+(`{id, encounterParticipantId: <value just read>}`), surfacing
+`CONFLICT` instead of clearing a stale "previous" participant
+(`autoLinkTokens` skips instead of conflicting — best-effort semantics).
+Both `captureTurnOrigin` and `executeAdvanceTurnTx` resolve "the
+participant at turn index N" with the shared `PARTICIPANT_ORDER`
+tie-break so duplicate `sortOrder` values cannot make the tick, the
+capture, and the projection disagree on the row.
+
+**Known pre-existing edge: cross-steal relink deadlock (assessed
+2026-07-19, out of turn-origin scope).** Two concurrent steal-style
+relinks that swap two participants' tokens (T1: token A→P_B, T2: token
+B→P_A, starting from A↔P_A / B↔P_B) deadlock on the
+`MapToken.encounterParticipantId` `@unique` index: each UPDATE removes
+one unique value uncommitted and then waits on the other transaction's
+uncommitted removal of the value it inserts, so Postgres's detector
+aborts one side (`40P01`, surfaced by Prisma and reaching the client as
+`INTERNAL_SERVER_ERROR` rather than `CONFLICT`). This cycle is not a
+product of the turn-origin work: before it, the link path was a bare
+autocommit `mapToken.update` overwrite against the same `@unique`
+(`routers/encounter-map.ts` at `56d74ba3`; the constraint predates the
+branch), and two such single-statement transactions form the identical
+wait cycle at the same two statements. The in-tx CAS added since blocks
+at that same token write — *before* any origin clear runs in this
+interleaving — so the sorted-id clear order cannot and need not prevent
+it (it prevents the different, branch-introduced participant-row clear
+cycle). Consequences are benign: the aborted side is an interactive
+transaction that rolls back completely (token write and origin clears
+all revert — no partial state, no origin disclosure), the surviving
+swap commits coherently with its clears, and recovery is "click
+again". Per §Scope, no retry or extra lock-ordering machinery until a
+real session reports it.
+
+**Ruling: residual origin-without-token window (accepted, 2026-07-19).**
+The cascade paths cannot be made fully airtight without gating token
+reads: a link + capture interleaving with a concurrent `map.delete` /
+character delete can leave a participant holding a fresh-round origin
+while its token is gone (the deleter's in-tx sweep read predates the
+late link). This state is **non-disclosing by construction**: the
+projection (`resolveActiveTurnOrigin`) returns `null` for non-DM viewers
+unless the participant has a *currently linked* visible token, and every
+path that would give the participant a new token is a link mutation that
+clears the origin first — so stale coordinates can never pair with a
+visible token. The residue is DM-only, self-healing, and per §Scope
+(gates grow on reported bugs, not theoretical races) carries no further
+machinery.
+
 **Action-economy flags are intentionally last-writer-wins.**
 `actionUsed`, `bonusActionUsed`, and `reactionUsed` are blind-written
 by both the DM toggle path (`encounter.updateParticipant`) and

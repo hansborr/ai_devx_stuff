@@ -9,8 +9,8 @@ import type { StatRunner } from "./current-inventory.js";
 import type { DolosRunner, DolosRunnerInput } from "./dolos-runner.js";
 import { currentRepoGit as makeCurrentGit } from "./git-runner.test-helper.js";
 import { NEAR_DUPLICATE_TOOL, type NearDuplicateFunction } from "./near-duplicates.js";
-import { capturePrototypeScanSnapshot } from "./prototype-command.js";
 import { type PrototypeSubcommandResult, runPrototypeSubcommand } from "./prototype-subcommands.js";
+import { capturePrototypeScanSnapshot } from "./scan-provenance.js";
 import type { SemgrepRunner, SemgrepRunnerInput } from "./semgrep-runner.js";
 
 const tmpRepo = registerTempRootCleanup();

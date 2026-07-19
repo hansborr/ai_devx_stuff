@@ -2,12 +2,12 @@
 # smoke-order: 370
 # smoke-subjects: scripts/lint-ratchet.ts
 # smoke-subjects: scripts/lint-ratchet/
-# smoke-subjects: scripts/lint-ratchet/debt-log.test.ts
-# smoke-subjects: scripts/lint-ratchet/debt-log-schema.test.ts
-# smoke-subjects: scripts/lint-ratchet/debt-log-write.test.ts
 # smoke-subjects: tools/lint-ratchet/src/kernel/baseline-compare.ts
 # smoke-subjects: tools/lint-ratchet/src/kernel/baseline-spec-parse.ts
 # smoke-subjects: tools/lint-ratchet/src/kernel/baseline.ts
+# smoke-subjects: tools/lint-ratchet/src/kernel/baseline.test.ts
+# smoke-subjects: tools/lint-ratchet/src/kernel/current-collector.test.ts
+# smoke-subjects: tools/lint-ratchet/src/kernel/git-tracked-files.test.ts
 # smoke-subjects: scripts/lint-ratchet/baseline.test.ts
 # smoke-subjects: scripts/lint-ratchet/check-registry.ts
 # smoke-subjects: scripts/lint-ratchet/check-registry.test.ts
@@ -17,8 +17,7 @@
 # smoke-subjects: scripts/lint-ratchet/report.ts
 # smoke-subjects: scripts/lint-ratchet/report.test.ts
 # smoke-subjects: tools/lint-ratchet/src/governance/
-# smoke-subjects: scripts/lint-ratchet/summary.test.ts
-# smoke-subjects: scripts/lint-ratchet/zero-baseline.test.ts
+# smoke-subjects: tools/lint-ratchet/test/support/
 # smoke-subjects: scripts/fixtures/lint-ratchet/
 # smoke-subjects: scripts/git/check-lint-ratchet-merge-driver.sh
 # smoke-subjects: scripts/git/install-lint-ratchet-merge-driver.sh
@@ -46,6 +45,7 @@
 # smoke-subjects: scripts/git/restore-generated-baseline-stage.sh
 # smoke-subjects: scripts/max-lines-exceptions-merge-cli.ts
 # smoke-subjects: scripts/max-lines-exceptions-merge-cli.test.ts
+# smoke-subjects: scripts/lib/atomic-write.ts
 # smoke-subjects: scripts/lib/lint-rule-docs.ts
 # smoke-subjects: tools/lint-ratchet/src/kernel/atomic-write.ts
 # smoke-subjects: tools/lint-ratchet/src/git-rail/
@@ -100,6 +100,7 @@ mapfile -t PORTABLE_RUNTIME_FILES < <(
       packages/shared/src/schemas/harness-diagnostics.ts \
       scripts/harness/harness-diagnostics-output.ts \
       scripts/harness/harness-manifest.ts \
+      scripts/lib/atomic-write.ts \
       scripts/lib/lint-rule-docs.ts \
       scripts/lint-ratchet.ts
     git ls-files scripts/lint-ratchet |

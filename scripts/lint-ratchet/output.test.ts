@@ -37,6 +37,7 @@ const ADAPTER_SUPPORT_FILES: readonly string[] = [
   "packages/shared/src/schemas/harness-diagnostics.ts",
   "scripts/harness/harness-diagnostics-output.ts",
   "scripts/harness/harness-manifest.ts",
+  "scripts/lib/atomic-write.ts",
   "scripts/lib/lint-rule-docs.ts",
   "scripts/lint-ratchet.ts",
 ];

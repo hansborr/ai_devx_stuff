@@ -73,108 +73,11 @@ drop `--root`; otherwise see [Config discovery](#config-discovery) and the
 
 ### Compact multiple reports for agent triage
 
-`drift:triage` accepts the main drift JSON contract plus `semgrep-candidates`
-and `dolos-candidates` advisory JSON. It produces one ranked review queue while
-keeping the original input path and row/rank on every evidence record, plus the
-configuration provenance attached to drift findings:
-
-```sh
-bun run drift:triage --format json --output triage.json \
-  drift-all.json semgrep-candidates.json dolos-candidates.json
-```
-
-For a multi-agent review, add `--packet-dir`. Packetization happens after
-cross-tool merging and policy deferrals, so every selected item is assigned
-exactly once and all of its evidence stays together:
-
-```sh
-bun run drift:triage --format json --output triage.json \
-  --packet-dir triage-packets --packet-size 20 \
-  drift-all.json semgrep-candidates.json dolos-candidates.json
-```
-
-`manifest.json` records the Git head/dirty state, SHA-256 of every raw input,
-selection filters, selected/excluded accounting, packet checksums, and packet
-item IDs. Packets are grouped by priority, category, evidence source, repository
-area, and exact path overlap. Bounded path-connected components stay together;
-when a transitive component would exceed `--packet-size`, the hard bound wins
-and every affected packet sets `splitPathComponent: true` so reviewers know
-that related paths continue elsewhere. Repeat
-`--priority`, `--category`, `--source`, or `--path-prefix` to create a bounded
-lane while keeping excluded-item counts visible in the manifest.
-
-Each packet tells an agent to inspect rather than edit and carries the allowed
-verdict, severity, and confidence vocabularies plus every required output field.
-Agents return one JSON file per packet using this contract:
-
-```json
-{
-  "schemaVersion": 1,
-  "kind": "drift-triage-verdicts",
-  "packetId": "packet-001",
-  "reviewer": "agent-id",
-  "verdicts": [
-    {
-      "itemId": "<packet item ID>",
-      "verdict": "confirmed",
-      "severity": "medium",
-      "confidence": "high",
-      "rationale": "Concrete source-based reasoning.",
-      "verifiedLocations": ["src/example.ts:10-20"],
-      "recommendedAction": "Consolidate the implementations.",
-      "canonicalItemId": null
-    }
-  ]
-}
-```
-
-Allowed verdicts are `confirmed`, `false-positive`, `accepted-drift`,
-`duplicate-of`, and `needs-human`; `duplicate-of` requires a different assigned
-`canonicalItemId`, while every other verdict must leave it `null`. Collect any
-completed subset without losing retry accounting:
-
-```sh
-bun run drift:triage collect --manifest triage-packets/manifest.json \
-  --verdict-dir triage-verdicts --format json --output triage-collection.json
-```
-
-The collector rejects malformed files, unknown packets/items, cross-packet
-ownership, duplicate item verdicts, and invalid canonical references. Missing
-items stay grouped by packet for retry; completed, partial, and unstarted packet
-counts are separate. It warns when the current Git HEAD differs from the
-manifest and emits a second-pass queue for `needs-human` verdicts plus confirmed
-medium/high findings.
-
-The reducer merges equivalent Semgrep locations and repeated cross-file clone
-pairs while retaining every distinct location and drift message contributed by merged
-evidence. Drift-authored titles deterministically win over generic advisory
-titles regardless of input order. Same-file clone pairs merge only when their
-line ranges match, so fragment-level drift pairs remain separate from the
-whole-file ranges emitted by Dolos and separate internal duplications remain
-separate review items.
-It defers, with counts and machine-readable reasons, type-only cycles,
-unadjudicated repeated literals, test-only security/constant/type/schema evidence, clone
-evidence with two distinct test-only locations, and
-Dolos rows below the `--min-clone-fragment` floor (default `20`). No source row
-is rewritten or deleted: deferred rows remain recoverable from their named raw
-input, and upstream display truncation or degradations are copied into the input
-summary. Every drift input preserves and displays its scope mode, roots, and
-enabled checks; changed-scope, root-restricted, and scans missing a default check
-are marked partial even when they have zero findings. Both the normal default-check
-set and `--check all` count as complete check coverage. A check that is
-inapplicable to the requested scope (for example, suppressions in current scope)
-is disclosed separately instead of making an otherwise complete scan partial.
-Processing caps distinguish an unknown producer tail from ordinary display
-truncation. Partial-input disclosures also name
-skipped drift checks and their reasons, hit advisory caps and their details, unmet
-prerequisites, and every degradation reason (including zero-row timeouts). Use `--include-literals` or
-`--include-type-only-cycles` for dedicated passes that need those streams. Only
-complete schema-v4 drift reports are accepted; finding chunk files are rejected
-so they cannot be mistaken for complete reports. Semgrep candidate rows must
-include at least one source range, and exact columns are preserved in structured
-packet locations. Semgrep evidence is `review-first` only when its severity is
-ERROR/CRITICAL or its declared confidence is HIGH; other security candidates
-remain in the security lane without implying a severity verdict.
+Downstream triage — reducing drift / Semgrep / Dolos JSON reports into one
+ranked review queue, swarm packets, and collected verdicts — is the
+`drift:triage` module's job; see
+[`scripts/drift-triage/MODULE.md`](../drift-triage/MODULE.md) for the
+workflow and contracts.
 
 ### Optional: Semgrep community-rule scan
 

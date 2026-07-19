@@ -87,6 +87,8 @@ and hit **frequent baseline merge conflicts** in day-to-day work.
 - **Secret scanning, PR diff-size warning, guardrail-config tripwire** →
   `../harness-research-followups-2026-06/00-index.md` (design-gated
   leaves there).
-- **`useEffect` guardrails** → `../useeffect-guardrails-implementation-plan.md`;
-  leaf 36 here proposes a different mechanism (marker rule) and is
+- **`useEffect` guardrails** → the standalone
+  `useeffect-guardrails-implementation-plan.md` note (implemented via
+  lint-adoption-2026-07 leaf 21; removed at the 2026-07-19 triage — git
+  history); leaf 36 here proposes a different mechanism (marker rule) and is
   design-gated on reconciling with that plan.

@@ -42,7 +42,11 @@ cp "$REPO_ROOT/scripts/ai-hooks/common.sh" \
   "$REPO_ROOT/scripts/ai-hooks/ratchet-regression-check.sh" \
   "$RR_REPO/scripts/ai-hooks/"
 mkdir -p "$RR_REPO/scripts/lib"
-cp "$REPO_ROOT/scripts/lib/verify-metadata.sh" "$RR_REPO/scripts/lib/"
+# verify-metadata.sh resolves its run-meta codec beside itself, so the fixture
+# gets the TS entrypoint too (keeps the copied chain matching production).
+cp "$REPO_ROOT/scripts/lib/verify-metadata.sh" \
+  "$REPO_ROOT/scripts/lib/verify-metadata-core.ts" \
+  "$RR_REPO/scripts/lib/"
 git -C "$RR_REPO" init -q
 
 cat > "$RR_FAKE_BIN/bun" <<'EOF'

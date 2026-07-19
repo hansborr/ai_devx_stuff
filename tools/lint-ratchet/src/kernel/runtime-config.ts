@@ -3,7 +3,7 @@ import type {
   LintRatchetParserProfile,
   LintRatchetRuleSource,
 } from "./config-types.js";
-import { ConfigError } from "./metrics.js";
+import { ConfigError } from "./metrics-types.js";
 
 // The single place ratchet source/parser-profile defaults are defined. Hash
 // inputs (baseline-hash.ts, rule-source.ts) and execution (eslint-config.ts)

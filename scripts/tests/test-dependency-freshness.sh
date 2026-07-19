@@ -52,6 +52,11 @@ unset MUSI_CAPTURE_TEST_TIMINGS
 export MUSI_PATH_POLICY_QUERY="$SCRIPT_DIR/../path-policy/path-policy-query.ts"
 MUSI_PATH_POLICY_BUN="$(command -v bun)"
 export MUSI_PATH_POLICY_BUN
+# Sandbox copies of verify-metadata.sh resolve the run-meta codec from the
+# source tree (same seam pattern as MUSI_PATH_POLICY_QUERY above).
+export MUSI_VERIFY_META_CORE="$SCRIPT_DIR/../lib/verify-metadata-core.ts"
+MUSI_VERIFY_META_BUN="$(command -v bun)"
+export MUSI_VERIFY_META_BUN
 
 PASS=0
 TMP_ROOT="$(mktemp -d)"

@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import type { LintRatchetBaseline } from "./baseline.js";
+import {
+  formatLintRatchetBaseline,
+  type LintRatchetBaseline,
+  type LintRatchetBaselineTest,
+} from "./baseline.js";
 import {
   createLintRatchetBaselineVersionPolicy,
   LINT_RATCHET_BASELINE_REGENERATE,
@@ -8,11 +12,8 @@ import {
   lintRatchetBaselineRegenerateForVersion,
   type LintRatchetBaselineVersion,
 } from "./baseline-constants.js";
-import type { LintRatchetBaselineTest } from "./baseline-format.js";
-import { formatLintRatchetBaseline } from "./baseline-format.js";
 import { mergeLintRatchetBaselines } from "./baseline-merge.js";
-import type { LintRatchetComplexityFunction } from "./metrics.js";
-import type { LintRatchetMetricItem } from "./metrics-types.js";
+import type { LintRatchetComplexityFunction, LintRatchetMetricItem } from "./metrics-types.js";
 
 const CONFIG_HASH = `sha256:${"a".repeat(64)}`;
 const RULE_SOURCE_HASH = `sha256:${"b".repeat(64)}`;

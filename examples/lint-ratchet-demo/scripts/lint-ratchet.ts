@@ -14,28 +14,23 @@
 import { resolve } from "node:path";
 
 import { forwardMissingMergeDriverWarning } from "@musi/lint-ratchet/git-rail/merge-driver-presence.js";
-import { applyLintRatchetUpdate } from "@musi/lint-ratchet/governance/baseline-update-apply.js";
-import { WorseBaselineError } from "@musi/lint-ratchet/governance/errors.js";
+import {
+  BaselineParseError,
+  MissingBaselineError,
+  WorseBaselineError,
+} from "@musi/lint-ratchet/governance/errors.js";
+import {
+  runLintRatchetGate,
+  runLintRatchetUpdate,
+} from "@musi/lint-ratchet/governance/operations.js";
 import { runLintRatchetProposeCli } from "@musi/lint-ratchet/governance/propose.js";
-import {
-  buildLintRatchetBaseline,
-  compareCurrentToBaseline,
-  formatLintRatchetBaseline,
-  parseLintRatchetBaseline,
-  validateLintRatchetRegistry,
-} from "@musi/lint-ratchet/kernel/baseline.js";
-import {
-  collectCurrentById,
-  totalCurrentCount,
-} from "@musi/lint-ratchet/kernel/current-collector.js";
-import { buildRuleSourceHashesById } from "@musi/lint-ratchet/kernel/rule-source.js";
+import { validateLintRatchetRegistry } from "@musi/lint-ratchet/kernel/baseline.js";
 
 import {
   demoBinding,
   demoContext,
   demoProposeEngine,
   demoRatchets,
-  readBaselineText,
   repoRoot,
 } from "./lint-ratchet/adapter.js";
 
@@ -128,26 +123,6 @@ function renderEnvelope(payload: {
   return JSON.stringify({ tool: "lint-ratchet-demo", ...payload });
 }
 
-async function collectCurrent(): Promise<Awaited<ReturnType<typeof collectCurrentById>>> {
-  const ruleSourceHashesById = buildRuleSourceHashesById(demoRatchets, demoBinding);
-  return collectCurrentById({
-    ruleSourceHashesById,
-    ratchets: demoRatchets,
-    binding: demoBinding,
-  });
-}
-
-function parseCommittedBaseline(): NonNullable<
-  ReturnType<typeof parseLintRatchetBaseline>["baseline"]
-> {
-  const ruleSourceHashesById = buildRuleSourceHashesById(demoRatchets, demoBinding);
-  const parsed = parseLintRatchetBaseline(readBaselineText(), demoRatchets, ruleSourceHashesById);
-  if (parsed.baseline === undefined) {
-    throw new Error(`baseline failed to parse:\n${parsed.failures.join("\n")}`);
-  }
-  return parsed.baseline;
-}
-
 function reportComparison(regressions: readonly string[], improvements: readonly string[]): number {
   if (regressions.length > 0) {
     process.stdout.write(
@@ -170,12 +145,17 @@ function reportComparison(regressions: readonly string[], improvements: readonly
   return 0;
 }
 
+// The gate orchestration (hashes → parse committed baseline → collect →
+// compare) is the package operation; the demo only renders its own envelope
+// from the returned comparison data.
 async function runGate(): Promise<number> {
-  const baseline = parseCommittedBaseline();
-  const currentById = await collectCurrent();
-  const comparison = compareCurrentToBaseline(baseline, demoRatchets, currentById);
-  const regressions = comparison.regressions.map((entry) => entry.path);
-  const improvements = comparison.improvements.map((entry) => entry.path);
+  const result = await runLintRatchetGate({
+    context: demoContext,
+    binding: demoBinding,
+    registry: demoRatchets,
+  });
+  const regressions = result.comparison.regressions.map((entry) => entry.path);
+  const improvements = result.comparison.improvements.map((entry) => entry.path);
   return reportComparison(regressions, improvements);
 }
 
@@ -192,25 +172,20 @@ function runCheckRegistry(): number {
 }
 
 async function runUpdate(args: DemoArgs): Promise<number> {
-  const ruleSourceHashesById = buildRuleSourceHashesById(demoRatchets, demoBinding);
-  const currentById = await collectCurrent();
-  const generated = buildLintRatchetBaseline(demoRatchets, currentById, ruleSourceHashesById);
-  const rendered = formatLintRatchetBaseline(generated);
-  // The packaged update orchestration gates the committed baseline (structurally,
-  // so a stale rule-source hash does not block a regeneration), records any
-  // accepted debt in the debt log, and writes the baseline atomically — the same
-  // apply path the Musi adapter uses.
+  // The packaged update operation regenerates the baseline, round-trip-validates
+  // the rendered text before anything is written (a validation the demo used to
+  // lack), gates the committed baseline (structurally, so a stale rule-source
+  // hash does not block a regeneration), records any accepted debt in the debt
+  // log, and writes the baseline atomically — the same path the Musi adapter uses.
   try {
-    applyLintRatchetUpdate({
+    await runLintRatchetUpdate({
       context: demoContext,
-      generated,
-      rendered,
+      binding: demoBinding,
       registry: demoRatchets,
       options: {
         allowWorse: args.allowWorse,
         ...(args.reason === undefined ? {} : { reason: args.reason }),
       },
-      currentFindingCount: totalCurrentCount(currentById),
     });
   } catch (error) {
     if (error instanceof WorseBaselineError) {
@@ -275,11 +250,23 @@ try {
   if (error instanceof UsageError) {
     process.stderr.write(`lint:ratchet: ${error.message}\n`);
     process.exitCode = 2;
+  } else if (error instanceof MissingBaselineError) {
+    // The package reports only the missing path; the recovery command is this
+    // demo's own runner script, so the adapter appends it.
+    process.stderr.write(
+      `lint:ratchet: ${error.relativeBaselinePath} does not exist; run bun run lint:ratchet:update\n`,
+    );
+    process.exitCode = 1;
+  } else if (error instanceof BaselineParseError) {
+    // A baseline left unparseable by a bad merge keeps this adapter's own
+    // `baseline failed to parse:` framing around the package's failure list.
+    process.stderr.write(`lint:ratchet: baseline failed to parse:\n${error.failures.join("\n")}\n`);
+    process.exitCode = 1;
   } else {
-    // A parse/config failure (e.g. a stale rule-source hash, or a baseline left
-    // unparseable by a bad merge) surfaces as a `lint:ratchet:` diagnostic and a
-    // failing exit — not an uncaught stack trace — so callers like the post-merge
-    // truth-up hook see a clean "run lint:ratchet:update" verdict.
+    // Any other parse/config failure (e.g. a stale rule-source hash) surfaces
+    // as a `lint:ratchet:` diagnostic and a failing exit — not an uncaught
+    // stack trace — so callers like the post-merge truth-up hook see a clean
+    // "run lint:ratchet:update" verdict.
     const message = error instanceof Error ? error.message : String(error);
     process.stderr.write(`lint:ratchet: ${message}\n`);
     process.exitCode = 1;

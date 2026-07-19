@@ -1,6 +1,6 @@
 import type { LintRatchetCurrentItem, LintRatchetInfo } from "./baseline.js";
 import type { LintRatchetConfig } from "./config-types.js";
-import type { LintRatchetMetricItem } from "./metrics.js";
+import type { LintRatchetMetricItem } from "./metrics-types.js";
 
 export interface EqualCountMessageSwapContext {
   readonly ratchet: LintRatchetConfig;

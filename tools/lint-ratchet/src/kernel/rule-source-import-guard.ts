@@ -1,4 +1,4 @@
-import { ConfigError } from "./metrics.js";
+import { ConfigError } from "./metrics-types.js";
 
 // The rule-source closure hash is only as trustworthy as the textual import
 // scan that builds it. Two import shapes cannot be followed textually and would

@@ -21,6 +21,8 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { pathToFileURL } from "node:url";
 
+import { z } from "zod";
+
 import { harnessDiagnosticsSchema } from "../packages/shared/src/schemas/harness-diagnostics.js";
 import {
   buildAuditReport,
@@ -30,7 +32,7 @@ import {
   type HarnessAuditReport,
   type LoadedEnvelope,
 } from "./harness/harness-audit-report.js";
-import { type CliFormat, parseCliArgs, parseFormatValue } from "./lib/cli.js";
+import { type CliFormat, parseCli } from "./lib/cli.js";
 
 export {
   buildAuditReport,
@@ -99,15 +101,15 @@ function defaultWriteFile(filePath: string, contents: string): void {
   writeFileSync(filePath, contents);
 }
 
-export function parseArgs(argv: readonly string[]): HarnessAuditOptions {
-  const inputs: string[] = [];
-  let format: HarnessAuditFormat = "text";
-  let output: string | undefined;
-  const fail = (message: string): never => {
-    throw new HarnessAuditError(message);
-  };
+const cliOptionsSchema = z.object({
+  "--format": z
+    .enum(["text", "json"], { error: "--format requires text or json." })
+    .default("text"),
+  "--output": z.string().optional(),
+});
 
-  parseCliArgs({
+export function parseArgs(argv: readonly string[]): HarnessAuditOptions {
+  const parsed = parseCli({
     argv,
     usage: usage(),
     createError: (message) => new HarnessAuditError(message),
@@ -116,28 +118,20 @@ export function parseArgs(argv: readonly string[]): HarnessAuditOptions {
       throw new HarnessAuditHelp();
     },
     options: [
-      {
-        name: "--format",
-        kind: "value",
-        apply: (value) => {
-          format = parseFormatValue(value, fail);
-        },
-      },
-      {
-        name: "--output",
-        kind: "value",
-        apply: (value) => {
-          output = value;
-        },
-      },
+      { name: "--format", kind: "value" },
+      { name: "--output", kind: "value" },
     ],
-    onPositional: (value) => inputs.push(value),
+    schema: cliOptionsSchema,
   });
 
-  if (inputs.length === 0) {
+  if (parsed.positionals.length === 0) {
     throw new HarnessAuditError(`harness:audit requires at least one envelope file.\n${usage()}`);
   }
-  return { inputs, format, output };
+  return {
+    inputs: parsed.positionals,
+    format: parsed.options["--format"],
+    output: parsed.options["--output"],
+  };
 }
 
 function formatSchemaIssues(

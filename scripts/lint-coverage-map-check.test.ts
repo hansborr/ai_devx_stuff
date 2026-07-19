@@ -3,9 +3,9 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { runLintCoverageMapCheck } from "./lint-coverage-map-check.js";
+import { parseCliArgs, runLintCoverageMapCheck } from "./lint-coverage-map-check.js";
 import { loadTrackedFiles } from "./lint-coverage-map-check-io.js";
 
 const FIXTURE_MAP = `# Fixture
@@ -119,6 +119,57 @@ const CONFIG_SURFACE_OMITTED_FROM_MANIFEST_MAP = `# Fixture
 function git(cwd: string, args: readonly string[]): void {
   execFileSync("git", args, { cwd, stdio: "ignore" });
 }
+
+// Characterization tests (arch-plans-2026-07 leaf 02, S0): pin the CURRENT
+// CLI parser contract before any migration onto parseCli(spec). Pinned quirks:
+// bare `--` tokens are filtered out (allowed anywhere), there is no --help
+// handling (help flags are unknown arguments), any unknown token collapses to
+// `undefined` after writing the usage line to stderr (the entrypoint exits 2),
+// and --check-eslint-reach is silently disabled when --staged is present.
+describe("parseCliArgs (lint-coverage-map-check CLI)", () => {
+  function withStderrCapture<T>(run: () => T): { result: T; stderr: string } {
+    const writes: string[] = [];
+    const spy = vi.spyOn(process.stderr, "write").mockImplementation((chunk) => {
+      writes.push(String(chunk));
+      return true;
+    });
+    try {
+      return { result: run(), stderr: writes.join("") };
+    } finally {
+      spy.mockRestore();
+    }
+  }
+
+  it("parses an empty argv to all-off options", () => {
+    expect(parseCliArgs([])).toEqual({ staged: false, checkEslintReach: false, suggest: false });
+  });
+
+  it("recognizes the three flags and filters bare -- tokens", () => {
+    expect(parseCliArgs(["--", "--check-eslint-reach", "--suggest", "--"])).toEqual({
+      staged: false,
+      checkEslintReach: true,
+      suggest: true,
+    });
+  });
+
+  it("silently disables --check-eslint-reach when --staged is present", () => {
+    expect(parseCliArgs(["--staged", "--check-eslint-reach"])).toEqual({
+      staged: true,
+      checkEslintReach: false,
+      suggest: false,
+    });
+  });
+
+  it("rejects unknown tokens, inline values, positionals, and help flags via stderr", () => {
+    for (const argv of [["--nope"], ["--staged=x"], ["positional"], ["--help"], [""]]) {
+      const { result, stderr } = withStderrCapture(() => parseCliArgs(argv));
+      expect(result).toBeUndefined();
+      expect(stderr).toBe(
+        "usage: lint-coverage-map-check.ts [--check-eslint-reach] [--staged] [--suggest]\n",
+      );
+    }
+  });
+});
 
 describe("runLintCoverageMapCheck", () => {
   it("reports stale paths, unknown ratchets, invalid statuses, and unaccounted files", async () => {

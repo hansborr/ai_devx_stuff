@@ -11,11 +11,12 @@
 // completeness disclosures under lint/skipped-non-local.
 
 import { spawn, spawnSync } from "node:child_process";
-import { dirname, isAbsolute, resolve } from "node:path";
+import { isAbsolute, resolve } from "node:path";
 
 import { parseEslintOutput } from "@musi/lint-ratchet/kernel/eslint-json.js";
 
 import { harnessDiagnosticsSchema } from "../packages/shared/src/schemas/harness-diagnostics.js";
+import { ensureDirWriteFileAtomicallySync } from "./lib/atomic-write.js";
 import { formatRuleDocsFailures, loadLintRuleDocs } from "./lib/lint-rule-docs.js";
 import {
   buildLintAgentEnvelope,
@@ -138,9 +139,7 @@ async function main(): Promise<void> {
     const outPath = isAbsolute(args.outputPath)
       ? args.outputPath
       : resolve(process.cwd(), args.outputPath);
-    const { writeFileSync, mkdirSync } = await import("node:fs");
-    mkdirSync(dirname(outPath), { recursive: true });
-    writeFileSync(outPath, rendered);
+    ensureDirWriteFileAtomicallySync(outPath, rendered);
   } else {
     process.stdout.write(rendered);
   }

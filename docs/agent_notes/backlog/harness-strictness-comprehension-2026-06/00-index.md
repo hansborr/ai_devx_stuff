@@ -27,12 +27,12 @@ has no explicit intent/comprehension prompt beyond `Summary`.
 | ID | Item | Plan | Effort | Risk |
 | --- | --- | --- | --- | --- |
 | HS-1 | Ratchet remaining TypeScript strictness flags | [01](01-typescript-strictness-ratchets.md) | M-L | medium |
-| HC-1 | Strengthen PR template around human comprehension — **DONE** (`1fdea456`) | [02](02-pr-comprehension-template.md) | S | low |
+| HC-1 | Strengthen PR template around human comprehension — **DONE** (`1fdea456`) | leaf 02 (removed at the 2026-07-19 triage; git history) | S | low |
 
 ## Suggested Sequencing
 
-1. Ship [02](02-pr-comprehension-template.md) first. It is tiny, low-risk, and
-   reinforces the human-side review expectation immediately.
+1. HC-1 shipped (`1fdea456`); its leaf 02 was removed at the 2026-07-19
+   triage (git history).
 2. Promote [01](01-typescript-strictness-ratchets.md) as a measured ratchet, not
    a blind flag flip. Start with discovery and per-flag error inventories before
    deciding whether the first implementation PR enables a flag globally,

@@ -33,8 +33,8 @@ before building). Grouped by theme; within a theme, ordered by priority.
 | # | Task | Theme | Track | Size | Priority | Status |
 |---|---|---|---|---|---|---|
 | 22 | [eslint-rules @ts-check is ungated; shared-policy .d.ts can drift silently](./22-checkjs-gate-and-shared-policy-shim-parity.md) | Local lint rules | T | M | P3 | Split (re-triage 2026-07-12): 22a shim-parity Done · 22b scoped checkJs gate Done · 22c TSESTree migration Parked P4/L (see leaf) |
-| 25 | [Drain the 182-entry knip dead-export floor toward zero](./25-drain-knip-dead-export-floor.md) | Scripts-tree quality | T | M | P3 | Implemented (2026-07-12 on `auto/25-knip-dead-export-drain`; pending integration) |
-| 45 | [Make the commit guard layer worktree-aware (first-class lane commits)](./45-worktree-aware-commit-guards.md) | Lane orchestration UX | T | M | P2 | Done (2026-07-16 via sd-1.5): item 1 already landed in 008029e2 (now pinned by lane commit-guard tests); item 3 tidy hook resolves the edited file's own worktree root; item 4 marker-vanish tripwire logs create/remove transitions |
+| 25 | Drain the 182-entry knip dead-export floor toward zero | Scripts-tree quality | T | M | P3 | Done — integrated on main (`4bb0b024`; knip unused-exports baseline count 0) |
+| 45 | Make the commit guard layer worktree-aware (first-class lane commits) | Lane orchestration UX | T | M | P2 | Done (2026-07-16 via sd-1.5): item 1 already landed in 008029e2 (now pinned by lane commit-guard tests); item 3 tidy hook resolves the edited file's own worktree root; item 4 marker-vanish tripwire logs create/remove transitions |
 
 ## Recommended Order
 

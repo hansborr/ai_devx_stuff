@@ -4,16 +4,12 @@ import type {
   LintRatchetRetirementOptionsAttestation,
 } from "@musi/lint-ratchet/kernel/baseline.js";
 import { isJsonValue } from "@musi/lint-ratchet/kernel/baseline-hash.js";
+import { isNormalizedLintRatchetPath } from "@musi/lint-ratchet/kernel/baseline-item-parse.js";
 import type { JsonValue } from "@musi/lint-ratchet/kernel/config-types.js";
+import { validateMetricItem } from "@musi/lint-ratchet/kernel/metric-strategies.js";
+import type { LintRatchetMetricItem } from "@musi/lint-ratchet/kernel/metrics-types.js";
 import { isRatchetRegressionReasonPlaceholder } from "@musi/lint-ratchet/kernel/recovery-command.js";
 import { z } from "zod";
-
-import {
-  coverageShrinkLogEntrySchema,
-  type LintRatchetCoverageShrinkLogEntry,
-} from "./debt-log-coverage-shrink-schema.js";
-import { debtLogOrphanRemovalSchema } from "./debt-log-orphan-schema.js";
-import { debtLogRegressionSchema } from "./debt-log-regression-schema.js";
 
 // Zod schemas for one committed debt-log line. The repo's Zod-first policy holds
 // here just as it does for the shared harness-diagnostics envelope this engine
@@ -47,7 +43,20 @@ export interface LintRatchetMetricMigrationLogEntry {
   readonly reason: string;
 }
 
-export type { LintRatchetCoverageShrinkLogEntry } from "./debt-log-coverage-shrink-schema.js";
+// Hand-written rather than `z.infer` so the persisted shape keeps its `readonly`
+// arrays: the writer's `buildLintRatchetCoverageShrinkLogEntry` copies
+// `readonly string[]` fields straight off the update decision into this type.
+export interface LintRatchetCoverageShrinkLogEntry {
+  readonly version: "1";
+  readonly kind: "coverage-shrink";
+  readonly ratchetId: string;
+  readonly previousFiles: readonly string[];
+  readonly currentFiles: readonly string[];
+  readonly previousIgnores: readonly string[];
+  readonly currentIgnores: readonly string[];
+  readonly removedPaths: readonly string[];
+  readonly reason: string;
+}
 
 export type LintRatchetDebtLogEntry =
   | LintRatchetAcceptedDebtLogEntry
@@ -94,6 +103,219 @@ const nonBlankString = z
 const jsonValue = z.custom<JsonValue>((value) => isJsonValue(value), {
   message: "must be a JSON value",
 });
+
+// `.int()` accepts only safe integers, a deliberate tightening over the old
+// Number.isInteger check: ratchet counts/lines/complexity are always small, so
+// rejecting values past MAX_SAFE_INTEGER is strictly safer here.
+const nonNegativeInt = z.number().int().nonnegative();
+
+const normalizedPath = z
+  .string()
+  .min(1)
+  .refine((value) => isNormalizedLintRatchetPath(value), { message: "path must be normalized" });
+
+// Zod schema for one accepted-regression row in a committed debt-log entry.
+// Unknown keys are rejected (`.strict()`) so a stray field such as `firstMessage`
+// — carried on the in-memory comparator type but never persisted — cannot slip
+// into the log. The shape-by-reason rules below mirror the comparator's
+// producing functions in baseline-compare.ts.
+
+// Severity-delta fields are the optional payload the comparator attaches to a
+// regression to explain *how* a path got worse. `line` is deliberately excluded:
+// it is a pure location hint the comparator may add to any reason, so it is
+// never required or forbidden by the shape rules.
+type SeverityDeltaField =
+  | "baselineLines"
+  | "currentLines"
+  | "baselineComplexity"
+  | "currentComplexity";
+
+const SEVERITY_DELTA_FIELDS: readonly SeverityDeltaField[] = [
+  "baselineLines",
+  "currentLines",
+  "baselineComplexity",
+  "currentComplexity",
+];
+
+interface RegressionShapeRule {
+  // Fields that must be present for this reason.
+  readonly required: readonly SeverityDeltaField[];
+  // Fields that may be present in addition to `required`; everything else in
+  // SEVERITY_DELTA_FIELDS is forbidden for this reason.
+  readonly allowed: readonly SeverityDeltaField[];
+  // Optional fields of which at most one may be present (new-path carries either
+  // a current line count or a current complexity, never both).
+  readonly atMostOne?: readonly SeverityDeltaField[];
+}
+
+const REGRESSION_SHAPE_RULES: Readonly<
+  Record<LintRatchetRegression["reason"], RegressionShapeRule>
+> = {
+  "increased-lines": { required: ["baselineLines", "currentLines"], allowed: [] },
+  "increased-complexity": { required: ["baselineComplexity", "currentComplexity"], allowed: [] },
+  "increased-count": { required: [], allowed: [] },
+  "new-path": {
+    required: [],
+    allowed: ["currentLines", "currentComplexity"],
+    atMostOne: ["currentLines", "currentComplexity"],
+  },
+};
+
+type ParsedRegressionSeverity = Partial<Record<SeverityDeltaField, number>>;
+
+function validateRegressionShape(
+  reason: LintRatchetRegression["reason"],
+  severity: ParsedRegressionSeverity,
+  ctx: z.RefinementCtx,
+): void {
+  const rule = REGRESSION_SHAPE_RULES[reason];
+  const allowedFields = new Set<SeverityDeltaField>([...rule.required, ...rule.allowed]);
+  for (const field of rule.required) {
+    if (severity[field] === undefined) {
+      ctx.addIssue({
+        code: "custom",
+        path: [field],
+        message: `${field} is required for reason "${reason}"`,
+      });
+    }
+  }
+  for (const field of SEVERITY_DELTA_FIELDS) {
+    if (!allowedFields.has(field) && severity[field] !== undefined) {
+      ctx.addIssue({
+        code: "custom",
+        path: [field],
+        message: `${field} is not allowed for reason "${reason}"`,
+      });
+    }
+  }
+  if (rule.atMostOne !== undefined) {
+    const present = rule.atMostOne.filter((field) => severity[field] !== undefined);
+    if (present.length > 1) {
+      ctx.addIssue({
+        code: "custom",
+        path: [],
+        message: `reason "${reason}" must not carry both ${rule.atMostOne.join(" and ")}`,
+      });
+    }
+  }
+}
+
+const debtLogRegressionSchema = z
+  .object({
+    testId: z.string().min(1),
+    ruleId: z.string().min(1),
+    path: normalizedPath,
+    baselineCount: nonNegativeInt,
+    currentCount: nonNegativeInt,
+    baselineLines: nonNegativeInt.optional(),
+    currentLines: nonNegativeInt.optional(),
+    baselineComplexity: nonNegativeInt.optional(),
+    currentComplexity: nonNegativeInt.optional(),
+    line: nonNegativeInt.optional(),
+    reason: z.enum(["new-path", "increased-count", "increased-lines", "increased-complexity"]),
+  })
+  .strict()
+  .superRefine((regression, ctx) => {
+    // `reason` is a valid enum value here (an invalid one produced its own issue
+    // and the shape rules would have no entry for it), so the lookup is total.
+    if (!(regression.reason in REGRESSION_SHAPE_RULES)) return;
+    validateRegressionShape(regression.reason, regression, ctx);
+  });
+
+// Zod schema for one orphan-removal snapshot in a committed debt-log entry: the
+// committed baseline paths dropped when a renamed/removed ratchet id is accepted.
+// The item *shape* (fields, types, strict keys) is validated declaratively here;
+// the metric-specific rules (which fields a given metric requires or forbids, and
+// the perFunction/count invariants) are owned by the metric strategies, so this
+// schema delegates that cross-field check to `validateMetricItem` rather than
+// forking it.
+
+const SHA256_HASH_PATTERN = /^sha256:[a-f0-9]{64}$/u;
+
+const orphanBaselineItemSchema = z
+  .object({
+    path: normalizedPath,
+    count: nonNegativeInt,
+    lines: nonNegativeInt.optional(),
+    maxComplexity: nonNegativeInt.optional(),
+    perFunction: z
+      .array(
+        z
+          .object({
+            line: nonNegativeInt,
+            label: z.string().min(1),
+            complexity: nonNegativeInt,
+          })
+          .strict(),
+      )
+      .optional(),
+    messagesFingerprint: z
+      .string()
+      .regex(SHA256_HASH_PATTERN, { message: "messagesFingerprint must be a sha256 hash" })
+      .optional(),
+  })
+  .strict();
+
+const orphanMetricSchema = z.enum(["complexity-severity", "effective-line-count", "message-count"]);
+
+function isMetric(value: string): value is z.infer<typeof orphanMetricSchema> {
+  return orphanMetricSchema.safeParse(value).success;
+}
+
+const debtLogOrphanRemovalSchema = z
+  .object({
+    testId: z.string().min(1),
+    ruleId: z.string().min(1),
+    metric: orphanMetricSchema,
+    baselineItems: z.array(orphanBaselineItemSchema),
+  })
+  .strict()
+  .superRefine((removal, ctx) => {
+    // A bad metric produced its own issue; item validation is metric-specific, so
+    // skip it entirely rather than dispatch on an unknown strategy (matches the
+    // hand-rolled parser, which never parsed items when the metric was unknown).
+    if (!isMetric(removal.metric)) return;
+    removal.baselineItems.forEach((item, index) => {
+      const failures: string[] = [];
+      // `item` carries an extra `path`; validateMetricItem reads only the metric
+      // fields, so the surplus key is inert.
+      const metricItem: LintRatchetMetricItem = item;
+      validateMetricItem(`baselineItems[${String(index)}]`, removal.metric, metricItem, failures);
+      for (const failure of failures) {
+        ctx.addIssue({ code: "custom", path: ["baselineItems", index], message: failure });
+      }
+    });
+  });
+
+// Zod schema for a coverage-shrink debt-log entry: the reasoned record written
+// when a ratchet's file/ignore globs narrow and committed paths drop out of
+// coverage. `removedPaths` must name at least one dropped path, and `reason` must
+// be a real explanation rather than the update command's placeholder.
+
+const nonEmptyStringArray = z.array(z.string().min(1));
+
+const realReason = z
+  .string()
+  .min(1)
+  .refine((value) => !isRatchetRegressionReasonPlaceholder(value), {
+    message: "reason must be a real reason, not the placeholder",
+  });
+
+const coverageShrinkLogEntrySchema = z
+  .object({
+    version: z.literal("1"),
+    kind: z.literal("coverage-shrink"),
+    ratchetId: z.string().min(1),
+    previousFiles: nonEmptyStringArray,
+    currentFiles: nonEmptyStringArray,
+    previousIgnores: nonEmptyStringArray,
+    currentIgnores: nonEmptyStringArray,
+    removedPaths: nonEmptyStringArray.min(1, {
+      message: "coverage-shrink must record at least one removed path",
+    }),
+    reason: realReason,
+  })
+  .strict();
 
 const optionsAttestationSchema = z
   .object({

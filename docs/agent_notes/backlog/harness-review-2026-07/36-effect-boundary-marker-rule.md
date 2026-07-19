@@ -17,9 +17,11 @@ exportable idea.
 
 ## Decision
 
-Deferred for repo-owner judgment on 2026-07-02. If adopted later, the marker
-rule should complement Recommendation 1 in
-`docs/agent_notes/backlog/useeffect-guardrails-implementation-plan.md`: the
+Deferred for repo-owner judgment on 2026-07-02. (The two useEffect research
+notes cited below were implemented via lint-adoption-2026-07 leaf 21 and
+removed at the 2026-07-19 triage; read them from git history.) If adopted
+later, the marker rule should complement Recommendation 1 in
+`useeffect-guardrails-implementation-plan.md`: the
 shipped `ratchet/react-hooks-set-state-in-effect-client` floor catches one
 concrete bad-effect shape, while markers would force classification of new
 effects that do not synchronously call `setState`. The marker rule would

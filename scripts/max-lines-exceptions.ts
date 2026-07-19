@@ -10,9 +10,9 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { forwardMissingMergeDriverWarning } from "@musi/lint-ratchet/git-rail/merge-driver-presence.js";
-import { writeFileAtomicallySync } from "@musi/lint-ratchet/kernel/atomic-write.js";
 
 import { maxLinesPolicy } from "../eslint-config/shared-policy.js";
+import { writeFileAtomicallySync } from "./lib/atomic-write.js";
 import {
   type MaxLinesGeneratedExemptionPolicy,
   maxLinesPolicy as validatedMaxLinesPolicy,

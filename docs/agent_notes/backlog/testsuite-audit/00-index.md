@@ -26,8 +26,8 @@ Full narrative, methodology, and the run-time lever ranking are in
 
 | # | Finding | Area | Status |
 |---|---|---|---|
-| 14 | [RuleTester invalid cases never assert map-selected `{{placeholder}}` substitution](./14-ruletester-invalid-cases-skip-map-selected-placeholder-substitution.md) | eslint-rules | done — both test files now assert interpolated `data:` alongside `messageId` |
-| 32 | [Tmp-dir/git-repo test scaffold reinvented per-file across scripts](./32-scripts-tmp-repo-scaffold-no-shared-helper.md) | scripts | done — adoption finished; all 15 remaining hand-rolled drain loops migrated onto `tmp-repo.test-helper.ts` (drain leaf 4.7, `0fa03a57`/`0dd8c183`/`c639a2f8`/`4762528e`) |
+| 14 | RuleTester invalid cases never assert map-selected `{{placeholder}}` substitution | eslint-rules | done — both test files now assert interpolated `data:` alongside `messageId` |
+| 32 | Tmp-dir/git-repo test scaffold reinvented per-file across scripts | scripts | done — adoption finished; all 15 remaining hand-rolled drain loops migrated onto `tmp-repo.test-helper.ts` (drain leaf 4.7, `0fa03a57`/`0dd8c183`/`c639a2f8`/`4762528e`) |
 
 ## Remaining — Codex-suitable (in the drain queue)
 

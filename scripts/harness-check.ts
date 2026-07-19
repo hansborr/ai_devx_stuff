@@ -6,8 +6,10 @@
 //  - parity (rules): every local/* rule has a lint-rule manifest entry;
 //  - parity (overlays): every lint-agent guidance overlay has a manifest control;
 //  - parity (scripts): every package.json script under the documented
-//    control-prefix conventions has a manifest entry (with an explicit
-//    EXEMPT_SCRIPTS escape for one-off operational utilities);
+//    control-prefix conventions has a manifest entry, is a generatedSurface
+//    checkScript alias of one, or sits in the scriptParityExemptions escape
+//    for one-off operational utilities (redundant alias-covered exemptions
+//    fail so the list cannot silently re-grow);
 //  - parity (doctor): every doctor-check id emitted by doctor.sh is declared
 //    in the manifest and every manifest doctor check is still emitted;
 //  - parity (porting): every Porting This checklist id has a greppable source
@@ -26,7 +28,11 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { checkSkillInventory } from "./harness/check-skill-inventory.js";
-import { GENERATED_SURFACE_FRESHNESS } from "./harness/generated-surface-freshness.js";
+import { checkFixtureCopyClosure } from "./harness/fixture-closure-check.js";
+import {
+  type GeneratedSurfaceRecord,
+  loadGeneratedSurfaces,
+} from "./harness/generated-surfaces.js";
 import type {
   ControlFailures,
   ManifestCheckContext,
@@ -141,9 +147,12 @@ function checkGeneratedFreshness(
   );
 }
 
-function checkGeneratedFreshnessOutputs(failures: Map<string, ControlFailures>): void {
-  for (const entry of GENERATED_SURFACE_FRESHNESS) {
-    checkGeneratedFreshness(failures, entry.outputPaths.join(" + "), entry.checkScript);
+function checkGeneratedFreshnessOutputs(
+  records: readonly GeneratedSurfaceRecord[],
+  failures: Map<string, ControlFailures>,
+): void {
+  for (const record of records) {
+    checkGeneratedFreshness(failures, record.outputPaths.join(" + "), record.checkScript);
   }
 }
 
@@ -319,16 +328,21 @@ async function main(): Promise<void> {
     new Set([...declaredControlIds].filter((id) => id.startsWith("doctor-check/"))),
     failures,
   );
-  checkGeneratedFreshnessOutputs(failures);
+  const generatedSurfaces = loadGeneratedSurfaces(repoRoot);
+  checkGeneratedFreshnessOutputs(generatedSurfaces, failures);
+  await checkFixtureCopyClosure(repoRoot, failures);
   checkGeneratedHookWiringStructure(failures);
   checkManifestSkillInventory(controls, failures);
   for (const failure of checkPortingKnobParity(repoRoot)) {
     pushFailure(failures, "porting-knob checklist", failure);
   }
   checkScriptParity(
-    CONTROL_PREFIX_PATTERN,
-    parityConfig.scriptParityExemptions,
-    declared.scripts,
+    {
+      controlPrefixPattern: CONTROL_PREFIX_PATTERN,
+      exemptScripts: parityConfig.scriptParityExemptions,
+      declaredScripts: declared.scripts,
+      aliasScripts: new Set(generatedSurfaces.map((record) => record.checkScript)),
+    },
     context,
   );
   const expectedCiGates = new Map<string, string>();

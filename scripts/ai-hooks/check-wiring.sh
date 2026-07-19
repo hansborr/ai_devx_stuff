@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
-# Validates generated AI hook config wiring and shim-to-body exec targets.
+# Generator-independent semantic backstop for the AI hook wiring: binds each
+# generated config command back to exactly one manifest control body,
+# validates the committed shim-to-body edge, and rejects unreferenced or
+# duplicate adapters. Shim bytes themselves are generated and byte-compared
+# by `bun run harness:wiring:check`; this checker deliberately validates the
+# committed files without trusting the generator.
 
 set -euo pipefail
 
@@ -175,60 +180,13 @@ assert_generated_hook_config() {
     '.. | objects | select(.type? == "command") | .[$field] // empty' "$config")
 }
 
-# Self-check the exec-target assertion against fixtures so a future refactor
-# of the shim shape cannot silently turn it into a no-op.
+# Shim bytes are generated (`bun run harness:wiring`) and byte-compared by
+# `harness:wiring:check`, so the per-shape self-check fixtures that once
+# guarded the exec-target and copilot-body assertions are gone. The
+# manifest-body edge self-check below stays: it validates committed files
+# without trusting the generator, which is exactly this checker's remit.
 SHIM_FIXTURE_DIR="$TMP_ROOT/shim-fixtures"
 mkdir -p "$SHIM_FIXTURE_DIR"
-printf '#!/bin/bash\nexec bash "$REPO_ROOT/scripts/ai-hooks/check-wiring.sh"\n' \
-  > "$SHIM_FIXTURE_DIR/present-body.sh"
-assert_shim_exec_target "$SHIM_FIXTURE_DIR/present-body.sh" "scripts/ai-hooks/check-wiring.sh"
-printf '#!/bin/bash\nexec bash "$REPO_ROOT/scripts/ai-hooks/no-direct-db.sh"\n' \
-  > "$SHIM_FIXTURE_DIR/wrong-existing-body.sh"
-if (assert_shim_exec_target "$SHIM_FIXTURE_DIR/wrong-existing-body.sh" "scripts/ai-hooks/check-wiring.sh") 2>/dev/null; then
-  fail "shim exec-target assertion should reject a wrong existing body"
-fi
-printf '#!/bin/bash\nexec bash "$REPO_ROOT/scripts/ai-hooks/no-such-body.sh"\n' \
-  > "$SHIM_FIXTURE_DIR/missing-body.sh"
-if (assert_shim_exec_target "$SHIM_FIXTURE_DIR/missing-body.sh" "scripts/ai-hooks/no-such-body.sh") 2>/dev/null; then
-  fail "shim exec-target assertion should reject a missing body"
-fi
-printf '#!/bin/bash\nexit 0\n' > "$SHIM_FIXTURE_DIR/no-body.sh"
-if (assert_shim_exec_target "$SHIM_FIXTURE_DIR/no-body.sh" "scripts/ai-hooks/check-wiring.sh") 2>/dev/null; then
-  fail "shim exec-target assertion should reject a shim without a body"
-fi
-printf '#!/bin/bash\nexec bash "$REPO_ROOT/scripts/ai-hooks/check-wiring.sh"\nexec bash "$REPO_ROOT/scripts/ai-hooks/check-wiring.sh"\n' \
-  > "$SHIM_FIXTURE_DIR/multiple-bodies.sh"
-if (assert_shim_exec_target "$SHIM_FIXTURE_DIR/multiple-bodies.sh" "scripts/ai-hooks/check-wiring.sh") 2>/dev/null; then
-  fail "shim exec-target assertion should reject multiple body edges"
-fi
-printf '#!/bin/bash\nai_copilot_dispatch pre bash "$HOOK_LIB/check-wiring.sh"\n' \
-  > "$SHIM_FIXTURE_DIR/copilot-present-body.sh"
-assert_copilot_shim_body_target "$SHIM_FIXTURE_DIR/copilot-present-body.sh" "scripts/ai-hooks/check-wiring.sh"
-printf '#!/bin/bash\nai_copilot_dispatch pre bash "$HOOK_LIB/no-direct-db.sh"\n' \
-  > "$SHIM_FIXTURE_DIR/copilot-wrong-existing-body.sh"
-if (assert_copilot_shim_body_target "$SHIM_FIXTURE_DIR/copilot-wrong-existing-body.sh" "scripts/ai-hooks/check-wiring.sh") 2>/dev/null; then
-  fail "copilot shim body assertion should reject a wrong existing body"
-fi
-printf '#!/bin/bash\nai_copilot_dispatch pre bash "$HOOK_LIB/no-such-body.sh"\n' \
-  > "$SHIM_FIXTURE_DIR/copilot-missing-body.sh"
-if (assert_copilot_shim_body_target "$SHIM_FIXTURE_DIR/copilot-missing-body.sh" "scripts/ai-hooks/no-such-body.sh") 2>/dev/null; then
-  fail "copilot shim body assertion should reject a missing body"
-fi
-printf '#!/bin/bash\n. "$HOOK_LIB/common.sh"\n. "$HOOK_LIB/copilot-adapter.sh"\n' \
-  > "$SHIM_FIXTURE_DIR/copilot-source-only.sh"
-if (assert_copilot_shim_body_target "$SHIM_FIXTURE_DIR/copilot-source-only.sh" "scripts/ai-hooks/check-wiring.sh") 2>/dev/null; then
-  fail "copilot shim body assertion should reject helper-only source references"
-fi
-printf '#!/bin/bash\nexit 0\n' > "$SHIM_FIXTURE_DIR/copilot-no-body.sh"
-if (assert_copilot_shim_body_target "$SHIM_FIXTURE_DIR/copilot-no-body.sh" "scripts/ai-hooks/check-wiring.sh") 2>/dev/null; then
-  fail "copilot shim body assertion should reject a shim without body references"
-fi
-printf '#!/bin/bash\n# ai_copilot_dispatch pre bash "$HOOK_LIB/check-wiring.sh"\nexit 0\n' \
-  > "$SHIM_FIXTURE_DIR/copilot-commented-body.sh"
-if (assert_copilot_shim_body_target "$SHIM_FIXTURE_DIR/copilot-commented-body.sh" "scripts/ai-hooks/check-wiring.sh") 2>/dev/null; then
-  fail "copilot shim body assertion should reject commented-out dispatches"
-fi
-
 MANIFEST_BODY_FIXTURE="$TMP_ROOT/manifest-body.json"
 printf '%s\n' \
   '{"controls":[{"id":"hook/pre","hookWiring":{"event":"PreToolUse","body":"scripts/ai-hooks/bash-pre-tool-use.sh","harnesses":{"codex":{"command":"bash swapped-adapter.sh"}}}}]}' \

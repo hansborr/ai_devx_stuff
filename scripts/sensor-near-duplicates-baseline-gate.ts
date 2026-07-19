@@ -1,6 +1,6 @@
-import { writeFileAtomicallySync } from "@musi/lint-ratchet/kernel/atomic-write.js";
 import { gateEntries } from "@musi/lint-ratchet/kernel/gate.js";
 
+import { writeFileAtomicallySync } from "./lib/atomic-write.js";
 import {
   formatNearDuplicatesBaseline,
   type NearDuplicateBaselineEntry,

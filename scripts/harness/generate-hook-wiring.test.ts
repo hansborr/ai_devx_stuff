@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -30,11 +30,32 @@ describe("hook wiring generator", () => {
   it("writes every output into a bare repo root with no pre-created directories", () => {
     const tempRoot = mkdtempSync(join(tmpdir(), "musi-hook-wiring-"));
     try {
-      const outputs = renderHookWiringOutputsFromManifest({ controls: [] }, BASE_SETTINGS);
+      const manifest = {
+        controls: [
+          {
+            id: "hook/shim-fixture",
+            kind: "hook",
+            hookWiring: {
+              event: "PostToolUse",
+              body: "scripts/ai-hooks/fixture.sh",
+              order: 10,
+              harnesses: {
+                claude: {
+                  matcher: "Edit|Write",
+                  command: "bash $CLAUDE_PROJECT_DIR/.claude/hooks/fixture.sh",
+                },
+              },
+              notes: { codex: "Fixture only.", copilot: "Fixture only." },
+            },
+          },
+        ],
+      };
+      const outputs = renderHookWiringOutputsFromManifest(manifest, BASE_SETTINGS);
       const paths = {
         claudeSettingsPath: join(tempRoot, ".claude/settings.json"),
         codexHooksPath: join(tempRoot, ".codex/hooks.json"),
         copilotHooksPath: join(tempRoot, ".github/hooks/copilot.json"),
+        shimRootPath: tempRoot,
       };
 
       writeHookWiringOutputs(outputs, paths);
@@ -42,6 +63,10 @@ describe("hook wiring generator", () => {
       expect(readFileSync(paths.claudeSettingsPath, "utf8")).toBe(outputs.claudeSettingsJson);
       expect(readFileSync(paths.codexHooksPath, "utf8")).toBe(outputs.codexHooksJson);
       expect(readFileSync(paths.copilotHooksPath, "utf8")).toBe(outputs.copilotHooksJson);
+      const shimPath = join(tempRoot, ".claude/hooks/fixture.sh");
+      expect(readFileSync(shimPath, "utf8")).toBe(outputs.shims[0]?.content);
+      // The atomic writer does not set modes; shim emission must chmod.
+      expect(statSync(shimPath).mode & 0o111).not.toBe(0);
     } finally {
       rmSync(tempRoot, { recursive: true, force: true });
     }
@@ -715,7 +740,7 @@ describe("hook wiring generator", () => {
             outputs: ["decisionBlock"],
             harnesses: {
               copilot: {
-                matcher: "edit",
+                matcher: "create|edit",
                 command:
                   'bash "$(git rev-parse --show-toplevel)/.copilot/hooks/protected-files.sh"',
               },

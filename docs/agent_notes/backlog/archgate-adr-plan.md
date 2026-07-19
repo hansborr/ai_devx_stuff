@@ -104,8 +104,9 @@ is mostly extraction and cross-linking.
      app-router output coverage test.
 
 5. `ADR-0005` Shared package APIs use subpath exports, not broad barrels.
-   - Source: `docs/agent_notes/decisions-build.md`,
-     `docs/roadmap/developer-experience.md`.
+   - Source: `docs/agent_notes/decisions-build.md`, the closed DX5-DX8
+     roadmap (`docs/roadmap/developer-experience.md`, removed 2026-07-19;
+     git history).
    - Gates: shared schema barrel import ban, `local/no-barrel`,
      `codemod:expand-barrel`.
 

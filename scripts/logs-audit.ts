@@ -8,7 +8,9 @@
 import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
-import { type CliFormat, parseCliArgs, parseFormatValue } from "./lib/cli.js";
+import { z } from "zod";
+
+import { type CliFormat, parseCli } from "./lib/cli.js";
 import type { ParsedLogRecord } from "./logs-audit/logs-audit-checks.js";
 import { auditEventFields, auditRequestIds } from "./logs-audit/logs-audit-checks.js";
 import { writeLogsAuditDiagnosticsSidecar } from "./logs-audit/logs-audit-diagnostics.js";
@@ -84,17 +86,16 @@ function usage(): string {
   ].join("\n");
 }
 
-export function parseArgs(argv: readonly string[]): LogsAuditOptions {
-  const files: string[] = [];
-  let format: LogsAuditFormat = "text";
-  // Held in an object so the --latest flag closure below can set it without the
-  // caller's control-flow analysis narrowing the post-loop check to always-false.
-  const state = { latest: false };
-  const fail = (message: string): never => {
-    throw new LogsAuditError(message);
-  };
+const cliOptionsSchema = z.object({
+  "--file": z.array(z.string()).default([]),
+  "--format": z
+    .enum(["text", "json"], { error: "--format requires text or json." })
+    .default("text"),
+  "--latest": z.boolean().default(false),
+});
 
-  parseCliArgs({
+export function parseArgs(argv: readonly string[]): LogsAuditOptions {
+  const parsed = parseCli({
     argv,
     usage: usage(),
     createError: (message) => new LogsAuditError(message),
@@ -103,30 +104,16 @@ export function parseArgs(argv: readonly string[]): LogsAuditOptions {
       throw new LogsAuditHelp();
     },
     options: [
-      {
-        name: "--file",
-        kind: "value",
-        apply: (value) => files.push(value),
-      },
-      {
-        name: "--format",
-        kind: "value",
-        apply: (value) => {
-          format = parseFormatValue(value, fail);
-        },
-      },
-      {
-        name: "--latest",
-        kind: "flag",
-        apply: () => {
-          state.latest = true;
-        },
-      },
+      { name: "--file", kind: "value", repeatable: true },
+      { name: "--format", kind: "value" },
+      { name: "--latest", kind: "flag" },
     ],
-    onPositional: (value) => files.push(value),
+    schema: cliOptionsSchema,
   });
 
-  if (state.latest) {
+  const files = [...parsed.options["--file"], ...parsed.positionals];
+  const format = parsed.options["--format"];
+  if (parsed.options["--latest"]) {
     if (files.length > 0) {
       throw new LogsAuditError("--latest cannot be combined with explicit log files.");
     }

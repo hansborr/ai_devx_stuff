@@ -1016,7 +1016,7 @@ expect_not_out "ARG:--allow-all" "copilot consult args"
 expect_out "agent-run: session-id: 99999999-8888-7777-6666-555555555555" "copilot consult trailer"
 ok "copilot: consult composes read-only flags and strips COPILOT_ALLOW_ALL"
 
-run_wrapper work copilot -m gemini-3.1-pro-preview -p 'implement it' -r bbbb-session
+run_wrapper work copilot -m gemini-3.5-flash -p 'implement it' -r bbbb-session
 expect_code 0 "copilot work happy path"
 expect_out "ARG:--allow-all" "copilot work args"
 expect_out "ARG:--resume=bbbb-session" "copilot work args"

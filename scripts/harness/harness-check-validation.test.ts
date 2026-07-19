@@ -33,20 +33,93 @@ describe("checkScriptParity", () => {
     const { context, failures } = makeContext(scripts);
 
     checkScriptParity(
-      controlPrefix,
-      new Set(["docs:exempt"]),
-      new Set(["sensor:declared"]),
+      {
+        controlPrefixPattern: controlPrefix,
+        exemptScripts: new Set(["docs:exempt"]),
+        declaredScripts: new Set(["sensor:declared"]),
+        aliasScripts: new Set(),
+      },
       context,
     );
 
     expect(failures.size).toBe(0);
   });
 
+  it("accounts for a facet checkScript alias without an exemption entry", () => {
+    const scripts = new Map([
+      ["docs:generate", "bun run scripts/generate.ts"],
+      ["docs:generate:check", "bun run scripts/generate.ts -- --check"],
+    ]);
+    const { context, failures } = makeContext(scripts);
+
+    checkScriptParity(
+      {
+        controlPrefixPattern: controlPrefix,
+        exemptScripts: new Set(),
+        declaredScripts: new Set(["docs:generate"]),
+        aliasScripts: new Set(["docs:generate:check"]),
+      },
+      context,
+    );
+
+    expect(failures.size).toBe(0);
+  });
+
+  it("still fails a :check script with no backing generatedSurface record", () => {
+    const scripts = new Map([["docs:orphan:check", "bun run scripts/orphan.ts -- --check"]]);
+    const { context, failures } = makeContext(scripts);
+
+    checkScriptParity(
+      {
+        controlPrefixPattern: controlPrefix,
+        exemptScripts: new Set(),
+        declaredScripts: new Set(),
+        aliasScripts: new Set(),
+      },
+      context,
+    );
+
+    const message = failures.get("(parity)")?.failures.join("\n") ?? "";
+    expect(message).toContain('"docs:orphan:check"');
+    expect(message).toContain("not declared in harness.controls.json and not exempt");
+  });
+
+  it("rejects exemption entries that are already alias-covered", () => {
+    const scripts = new Map([
+      ["docs:generate", "bun run scripts/generate.ts"],
+      ["docs:generate:check", "bun run scripts/generate.ts -- --check"],
+    ]);
+    const { context, failures } = makeContext(scripts);
+
+    checkScriptParity(
+      {
+        controlPrefixPattern: controlPrefix,
+        exemptScripts: new Set(["docs:generate:check"]),
+        declaredScripts: new Set(["docs:generate"]),
+        aliasScripts: new Set(["docs:generate:check"]),
+      },
+      context,
+    );
+
+    expect(failures.get("(parity)")?.failures).toEqual([
+      'scriptParityExemptions includes "docs:generate:check", which is already covered as a ' +
+        "generatedSurface checkScript alias; remove the redundant exemption",
+    ]);
+  });
+
   it("names the offending script and both remedies plus the regen command", () => {
     const scripts = new Map([["docs:lint-coverage-map:audit", "bun run scripts/x.ts"]]);
     const { context, failures } = makeContext(scripts);
 
-    checkScriptParity(controlPrefix, new Set(), new Set(), context);
+    checkScriptParity(
+      {
+        controlPrefixPattern: controlPrefix,
+        exemptScripts: new Set(),
+        declaredScripts: new Set(),
+        aliasScripts: new Set(),
+      },
+      context,
+    );
 
     const parityBucket = failures.get("(parity)");
     expect(parityBucket).toBeDefined();
@@ -64,7 +137,15 @@ describe("checkScriptParity", () => {
   it("rejects stale and non-control-prefixed manifest exemptions", () => {
     const { context, failures } = makeContext(new Map([["build", "bun build"]]));
 
-    checkScriptParity(controlPrefix, new Set(["sensor:missing", "build"]), new Set(), context);
+    checkScriptParity(
+      {
+        controlPrefixPattern: controlPrefix,
+        exemptScripts: new Set(["sensor:missing", "build"]),
+        declaredScripts: new Set(),
+        aliasScripts: new Set(),
+      },
+      context,
+    );
 
     expect(failures.get("(parity)")?.failures).toEqual([
       'scriptParityExemptions names unknown package.json script "sensor:missing"',

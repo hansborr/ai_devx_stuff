@@ -1,16 +1,16 @@
-import type {
-  LintRatchetBaseline,
-  LintRatchetComparison,
-  LintRatchetCoverageShrink,
-  LintRatchetMetricMigration,
-  LintRatchetOrphanBaselineItem,
-  LintRatchetOrphanRemoval,
-  LintRatchetRetireRequest,
-  LintRatchetUpdateDecision,
-  LintRatchetUpdateOptions,
+import {
+  currentByIdFromBaseline,
+  type LintRatchetBaseline,
+  type LintRatchetComparison,
+  type LintRatchetCoverageShrink,
+  type LintRatchetMetricMigration,
+  type LintRatchetOrphanBaselineItem,
+  type LintRatchetOrphanRemoval,
+  type LintRatchetRetireRequest,
+  type LintRatchetUpdateDecision,
+  type LintRatchetUpdateOptions,
 } from "./baseline.js";
 import { compareCurrentToBaseline as compareCurrentToBaselineImpl } from "./baseline-compare.js";
-import { currentByIdFromBaseline } from "./baseline-format.js";
 import {
   collectCoverageShrinks,
   collectMetricMigrations,

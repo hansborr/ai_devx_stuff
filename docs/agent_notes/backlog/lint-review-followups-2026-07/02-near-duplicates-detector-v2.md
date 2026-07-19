@@ -12,10 +12,10 @@ Track: S (sensors/gates) · Priority: P2 · Size: L
   comparison at `scripts/drift-ai/near-duplicates.ts:55` and never reached
   scoring. (The trio itself was drained on the branch; the class of miss
   remains.)
-- (Moved out 2026-07-15: the config-vs-gate threshold disagreement is now
-  leaf [07](./07-gate-honors-configured-thresholds.md) — it is cheap and
-  unconditional, and does not belong behind this leaf's earn-its-slot
-  condition.)
+- (Moved out 2026-07-15: the config-vs-gate threshold disagreement became
+  leaf 07, which landed `065266c4` and was removed at the 2026-07-19 triage
+  — it was cheap and unconditional, and did not belong behind this leaf's
+  earn-its-slot condition.)
 - Whole-function granularity misses block duplication: candidates must share
   a sorted multiset of top-level statement hashes
   (`scripts/drift-ai/near-duplicates.ts:154`) before AST-feature Dice

@@ -1,13 +1,16 @@
 # 13 — CLI driver inside the package (reopens leaf 02 dispatch ruling 2)
 
-Status: Split 2026-07-18 (owner) — the full driver stays rejected as
-proposed (codex + opus consult); its trigger is unchanged: a third *real*
-adapter independently re-implementing gate/update orchestration, and any
-reopening of leaf 02 dispatch ruling 2 needs an owner ruling — this leaf
-records the evidence, it does not grant one. The neutral
-`runGate`/`runUpdate` application operations (previously gated behind that
-trigger as the "first step") are promoted to Proposed on their own merits —
-see "In scope now" below.
+Status: Operations slice DONE 2026-07-18 (drain phase 4, merge `e1fa3141`)
+— `runLintRatchetGate`/`runLintRatchetUpdate` landed in
+`tools/lint-ratchet/src/governance/operations.ts` as data-in/data-out
+package operations behind typed `MissingBaselineError`/`BaselineParseError`
+errors (recovery text and rendering stay adapter-side per the review
+round), with both adapters rebased and the demo gaining round-trip
+validation by construction. The full driver stays rejected as proposed
+(codex + opus consult); its trigger is unchanged: a third *real* adapter
+independently re-implementing gate/update orchestration, and any reopening
+of leaf 02 dispatch ruling 2 needs an owner ruling — this leaf records the
+evidence, it does not grant one.
 Priority: P2 · Size: M (operations slice alone: S) · Risk: medium (API
 design against one real consumer; the operations slice is low)
 Source: architecture review 2026-07-18 (candidate 3); owner decision

@@ -256,9 +256,10 @@ duplication/dead-code or already-tracked angle was dropped.
   ergonomics, edit hooks/caches, lint-rule ergonomics for agents, drift-scan
   governance) — owned by `docs/agent_notes/backlog/agent-friction-2026-06/`.
   Human-onboarding angles are in scope here; harness-for-agents tooling is not.
-- **useEffect-misuse guardrails** (ESLint trial, agent guidance) — owned by
-  `docs/agent_notes/backlog/useeffect-guardrails-implementation-plan.md` /
-  `useeffect-ai-agents-research.md`.
+- **useEffect-misuse guardrails** (ESLint trial, agent guidance) — landed
+  via lint-adoption-2026-07 leaf 21; the owning notes
+  (`useeffect-guardrails-implementation-plan.md` /
+  `useeffect-ai-agents-research.md`) were removed at the 2026-07-19 triage.
 - **Storybook / component catalog** for `packages/client/src/components/ui/`
   primitives — owned by
   `docs/agent_notes/backlog/storybook-component-catalog.md`.

@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # smoke-order: 420
 # smoke-subjects: scripts/lib/verify-metadata.sh
+# smoke-subjects: scripts/lib/verify-metadata-core.ts
+# smoke-subjects: scripts/lib/fixtures/verify-metadata-core-corpus.json
 # smoke-subjects: scripts/path-policy/path-policy-query.ts
 # smoke-subjects: scripts/path-policy/path-policy-query-core.ts
 # smoke-subjects: scripts/path-policy/path-policy.ts
@@ -443,6 +445,131 @@ if musi_restamp_verify_wrapper "$SANDBOX/wrapper/absent.json" "merge-head" "$MER
   fail "should refuse to re-stamp a missing wrapper file"
 fi
 ok "musi_restamp_verify_wrapper refuses when the wrapper file is missing"
+
+# =============================================================================
+# Run-meta codec shim seam (verify-metadata-core.ts)
+# =============================================================================
+
+# --- MUSI_VERIFY_META_CORE overrides the codec entrypoint resolution ----------
+override_script=$(MUSI_VERIFY_META_CORE="$SANDBOX/custom-core.ts" musi_verify_meta_core_script)
+[ "$override_script" = "$SANDBOX/custom-core.ts" ] \
+  || fail "MUSI_VERIFY_META_CORE should override the codec path: $override_script"
+default_script=$(musi_verify_meta_core_script)
+[ "$default_script" = "$SCRIPT_DIR/../lib/verify-metadata-core.ts" ] \
+  || case "$default_script" in
+    */scripts/lib/verify-metadata-core.ts) ;;
+    *) fail "default codec resolution should land in scripts/lib: $default_script" ;;
+  esac
+ok "musi_verify_meta_core_script honors the MUSI_VERIFY_META_CORE seam"
+
+# --- writer shims fail closed when the codec spawn fails ----------------------
+# A broken bun (or missing entrypoint) must never truncate or half-write a
+# metadata file: writers return nonzero without touching the target, and the
+# extractors fall back to the legacy empty-output/exit-0 no-match surface.
+BROKEN_BUN="$SANDBOX/no-such-bun"
+if MUSI_VERIFY_META_BUN="$BROKEN_BUN" musi_write_step_meta "$SANDBOX/broken/step.json" \
+  s m 1 t1 2 t2 0 cmd 2>/dev/null; then
+  fail "musi_write_step_meta should fail when the codec spawn fails"
+fi
+[ ! -e "$SANDBOX/broken/step.json" ] || fail "failed step-meta spawn must not write a file"
+if MUSI_VERIFY_META_BUN="$BROKEN_BUN" musi_write_wrapper_meta "$SANDBOX/broken/wrapper.json" \
+  serial-verify 1 t1 2 t2 0 cmd head "$VALID_HASH" 2>/dev/null; then
+  fail "musi_write_wrapper_meta should fail when the codec spawn fails"
+fi
+[ ! -e "$SANDBOX/broken/wrapper.json" ] || fail "failed wrapper-meta spawn must not write a file"
+ok "writer shims fail closed without writing when the codec spawn fails"
+
+# --- restamp leaves the wrapper untouched when the codec spawn fails ----------
+BROKEN_WRAP="$SANDBOX/wrapper/broken-restamp.json"
+musi_write_wrapper_meta "$BROKEN_WRAP" serial-verify "$((now - 300))" "$start_iso" \
+  "$((now - 60))" "$end_iso" 0 "bun run verify" "branch-tip" "$VALID_HASH"
+before_restamp=$(cat "$BROKEN_WRAP")
+if MUSI_VERIFY_META_BUN="$BROKEN_BUN" musi_restamp_verify_wrapper "$BROKEN_WRAP" \
+  "merge-head" "$MERGE_HASH" 2>/dev/null; then
+  fail "musi_restamp_verify_wrapper should fail when the codec spawn fails"
+fi
+[ "$(cat "$BROKEN_WRAP")" = "$before_restamp" ] \
+  || fail "failed restamp spawn must leave the wrapper untouched"
+ok "musi_restamp_verify_wrapper leaves the wrapper untouched on codec spawn failure"
+
+# --- extractors keep the legacy empty/exit-0 surface on codec failure ---------
+frag_out=$(MUSI_VERIFY_META_BUN="$BROKEN_BUN" musi_run_meta_wrapper_fragment '{"wrapper":{}}' 2>/dev/null) \
+  || fail "musi_run_meta_wrapper_fragment must return 0 on codec failure"
+[ -z "$frag_out" ] || fail "failed fragment spawn must emit nothing: $frag_out"
+field_out=$(MUSI_VERIFY_META_BUN="$BROKEN_BUN" musi_run_meta_json_string_field '{"mode":"x"}' mode 2>/dev/null) \
+  || fail "musi_run_meta_json_string_field must return 0 on codec failure"
+[ -z "$field_out" ] || fail "failed string-field spawn must emit nothing: $field_out"
+ok "extractor shims keep the legacy empty-output surface on codec failure"
+
+# --- short-circuit recording stays non-fatal on codec failure -----------------
+sc_broken_hist="$SANDBOX/shortcircuit-broken"
+MUSI_VERIFY_META_BUN="$BROKEN_BUN" musi_record_precommit_shortcircuit \
+  "$sc_broken_hist" precommit-marker head "$VALID_HASH" precommit-marker 2>/dev/null \
+  || fail "musi_record_precommit_shortcircuit must stay non-fatal on codec failure"
+[ -z "$(find "$sc_broken_hist" -maxdepth 1 -type f -name '*.json' 2>/dev/null)" ] \
+  || fail "failed short-circuit spawn must not produce a history entry"
+ok "musi_record_precommit_shortcircuit stays non-fatal on codec spawn failure"
+
+# --- argv-only writers must not block on an inherited readable stdin ----------
+# Regression guard: the codec once read stdin unconditionally, so writer shims
+# that spawn it argv-only hung forever when the caller's stdin was a terminal
+# or held-open pipe (interactive `git commit`, foreground verify). Both sides
+# now defend — the codec skips stdin for argv-only subcommands and the shims
+# redirect from /dev/null. Hold a pipe open on stdin and require completion.
+stdin_guard_dir="$SANDBOX/stdin-guard"
+mkdir -p "$stdin_guard_dir"
+if ! timeout 15 bash -c '
+  set -eu
+  exec < <(sleep 60)
+  source "$1"
+  musi_write_step_meta "$2/step.json" guard-step serial-verify 100 t0 105 t1 0 "echo hi"
+  musi_write_wrapper_meta "$2/wrapper.json" serial-verify 100 t0 105 t1 0 "bun run verify" \
+    guard-head "$3"
+  musi_record_precommit_shortcircuit "$2/hist" precommit-marker guard-head "$3" precommit-marker
+  # Direct spawn (no shim redirect) exercises the codec-side lazy stdin read.
+  musi_verify_meta_core step-meta guard-direct m 1 t0 2 t1 0 cmd > /dev/null
+' _ "$VERIFY_METADATA" "$stdin_guard_dir" "$VALID_HASH"; then
+  fail "argv-only writer shims must complete with stdin held open (stdin-hang regression)"
+fi
+grep -q '"name":"guard-step"' "$stdin_guard_dir/step.json" \
+  || fail "stdin-guard run must still write step metadata"
+grep -q '"fingerprint"' "$stdin_guard_dir/wrapper.json" \
+  || fail "stdin-guard run must still write wrapper metadata"
+[ -n "$(find "$stdin_guard_dir/hist" -maxdepth 1 -type f -name '*.json' 2>/dev/null)" ] \
+  || fail "stdin-guard run must still record the short-circuit history entry"
+ok "argv-only writer shims complete with stdin held open (no stdin hang)"
+
+# --- combine removes stale output instead of leaving it on codec failure ------
+combine_dir="$SANDBOX/combine-broken"
+mkdir -p "$combine_dir/meta"
+printf '%s\n' '{"name":"lint","exit_code":0}' > "$combine_dir/meta/lint.json"
+printf '%s\n' '{"stale":true}' > "$combine_dir/run-meta.json"
+MUSI_VERIFY_META_BUN="$BROKEN_BUN" musi_combine_run_meta \
+  "$combine_dir" serial-verify "$combine_dir/meta/wrapper.json" 2>/dev/null \
+  || fail "musi_combine_run_meta must stay non-fatal on codec failure"
+[ ! -e "$combine_dir/run-meta.json" ] \
+  || fail "failed combine spawn must remove the stale run-meta.json"
+musi_combine_run_meta "$combine_dir" serial-verify "$combine_dir/meta/wrapper.json"
+grep -q '"wrapper":null' "$combine_dir/run-meta.json" \
+  || fail "combine without a wrapper fragment should record wrapper null"
+grep -q '"name":"lint"' "$combine_dir/run-meta.json" \
+  || fail "combine should embed the step fragment"
+ok "musi_combine_run_meta fails closed on spawn failure and combines otherwise"
+
+# --- persist accepts the pre-port multi-line run-meta shape -------------------
+legacy_dir="$SANDBOX/legacy-run-meta"
+legacy_hist="$SANDBOX/legacy-history"
+mkdir -p "$legacy_dir"
+printf '%s\n%s\n%s\n' \
+  '{"version":1,"mode":"serial-verify","generated_at":"x","wrapper":{"name":"wrapper","mode":"serial-verify","start_time":"2026-07-19T10:00:00+00:00","end_time":"2026-07-19T10:05:00+00:00","elapsed_seconds":300,"exit_code":0,"head":"h","fingerprint":"'"$VALID_HASH"'","command":"bun run verify"}' \
+  ',"steps":[{"name":"lint","exit_code":0}' \
+  ']}' > "$legacy_dir/run-meta.json"
+musi_persist_run_meta_history "$legacy_dir" "$legacy_hist" \
+  || fail "musi_persist_run_meta_history should stay non-fatal"
+legacy_entry=$(find "$legacy_hist" -maxdepth 1 -type f -name '*-serial-verify-0.json' | head -1)
+[ -n "$legacy_entry" ] \
+  || fail "pre-port multi-line run-meta should still persist a history entry"
+ok "musi_persist_run_meta_history parses pre-port multi-line run-meta documents"
 
 # =============================================================================
 # Fingerprinting — git fixture repos

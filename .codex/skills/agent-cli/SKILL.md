@@ -33,7 +33,7 @@ For an off-family opinion, swap in `consult copilot -m <model>` or `consult curs
 ## Choosing agent and model
 
 - Delegated implementation: `work codex` (no `-m`; user-configured model) is the default delegate. Use `work claude -m opus|fable`, `work copilot -m <model>`, or `work cursor` only when the implementation should come from that specific model.
-- Second opinion from Claude Code: `consult codex` for GPT, `consult copilot -m gemini-3.5-flash|gemini-3.1-pro-preview` for Gemini, `consult cursor` for Grok (catalogs in [references/copilot.md](references/copilot.md) and [references/cursor.md](references/cursor.md)). `consult claude` is pointless from Claude Code — spawn a subagent instead.
+- Second opinion from Claude Code: `consult codex` for GPT, `consult copilot -m gemini-3.5-flash` for Gemini, `consult cursor` for Grok (catalogs in [references/copilot.md](references/copilot.md) and [references/cursor.md](references/cursor.md)). `consult claude` is pointless from Claude Code — spawn a subagent instead.
 - Second opinion from Codex: `consult claude -m fable|opus`; `consult copilot` for Gemini/Kimi, `consult cursor` for Grok. Copilot-hosted `claude-*`/`gpt-*` models are fallbacks for when the native CLI can't serve the model.
 - `review codex -- --base main` runs codex's native priority-tagged diff review (log-only; prefer `consult codex` so the result lands in `-o`).
 

@@ -13,7 +13,7 @@ import type {
   LintRatchetThirdPartyPluginAllowlistEntry,
 } from "./config-types.js";
 import type { LintRatchetEngineBinding } from "./engine-context.js";
-import { ConfigError } from "./metrics.js";
+import { ConfigError } from "./metrics-types.js";
 import { assertScannableImports } from "./rule-source-import-guard.js";
 import { assertNever, ratchetParserProfile, ratchetSource } from "./runtime-config.js";
 

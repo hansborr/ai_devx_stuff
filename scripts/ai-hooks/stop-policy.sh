@@ -540,7 +540,8 @@ ai_stop_verify_write_counter() {
 
 # Extract a string-valued JSON field from a flat single-object JSON file.
 # Only safe for fields whose values cannot contain quote/backslash escapes —
-# fine for `mode`, `head`, `fingerprint` produced by musi_write_wrapper_meta.
+# fine for `mode`, `head`, `fingerprint` produced by musi_write_wrapper_meta
+# and the slot-derived step `name` produced by musi_write_step_meta.
 ai_stop_verify_meta_string() {
   local file="$1"
   local key="$2"

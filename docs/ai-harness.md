@@ -41,11 +41,15 @@ kept as defense in depth.
 
 Hook registration is generated from `harness.controls.json`. The generator at
 `scripts/harness/generate-hook-wiring.ts` replaces the `hooks` key in
-`.claude/settings.json` and writes `.codex/hooks.json` and
-`.github/hooks/copilot.json`; `bun run harness:check` runs the generator's
-`--check` mode. Deliberate harness gaps must be recorded in the manifest notes,
-which render into `docs/generated/harness-controls.md`, not explained only by
-leaving an adapter unwired.
+`.claude/settings.json`, writes `.codex/hooks.json` and
+`.github/hooks/copilot.json`, and emits every adapter shim under
+`.claude/hooks/`, `.codex/hooks/`, and `.copilot/hooks/` from per-adapter
+templates (`scripts/harness/hook-shims.ts`), reconciling orphans away when a
+manifest entry is removed. `bun run harness:check` runs the generator's
+`--check` mode, which byte-compares configs and shims and asserts shim file
+type and executable bits. Deliberate harness gaps must be recorded in the
+manifest notes, which render into `docs/generated/harness-controls.md`, not
+explained only by leaving an adapter unwired.
 
 Cursor is a checked exclusion from that hook inventory. Cursor currently has
 no repository `PreToolUse` (or equivalent policy) API, while
@@ -68,10 +72,13 @@ frontmatter delimiters before applying a field overlay, and rejects forbidden
 overlay paths even when their bytes match. Metadata files and smoke/gitignore
 surfaces remain inventoried as well.
 
-When changing shared behavior, update `scripts/ai-hooks/` first, then adjust
-the thin shims only when the harness payload shape requires it. If a hook body is
-intentionally harness-specific, keep that fact in `harness.controls.json` so the
-generated wiring and docs stay aligned.
+When changing shared behavior, update `scripts/ai-hooks/` first. The thin
+shims themselves are generated projections — never edit one by hand. When the
+harness payload shape requires a shim-side change, adjust the `hookWiring`
+entries in `harness.controls.json` (or the per-adapter templates in
+`scripts/harness/hook-shims.ts`) and rerun `bun run harness:wiring`. If a hook
+body is intentionally harness-specific, keep that fact in
+`harness.controls.json` so the generated wiring and docs stay aligned.
 
 ## Public Archive Boundary
 
@@ -101,7 +108,14 @@ TypeScript repo with limited policy edits:
   `packages/shared/src/schemas/harness-diagnostics.ts`,
   `scripts/harness/harness-diagnostics-output.ts`,
   `scripts/harness-audit.ts`, and
-  `scripts/harness/harness-audit-report.ts`.
+  `scripts/harness/harness-audit-report.ts` — plus the CLI substrate
+  they parse through: `scripts/lib/cli.ts` (spec-driven `parseCli`
+  with a structural schema contract) and its value reader
+  `scripts/cli-option-values.ts`. The pair copies together —
+  `cli.ts` imports that sibling reader and nothing else, so the
+  substrate carries no package imports; the per-tool option schemas
+  use Zod, which the envelope schema already requires, so the copy
+  set gains no new dependency.
 - The lint-ratchet engine under `scripts/lint-ratchet/` plus the
   `scripts/lint-ratchet.ts` entrypoint. The current registry still contains
   Musi-specific rules; use `docs/guides/lint-ratchet-adoption.md` for the
@@ -190,6 +204,15 @@ harness tools pick their substrate by these rules:
   behavior; the other calls it. The DB-status diagnostic was the known
   shell/TS duplicate; arch-review leaf 17 retired the shell copy and kept the
   TS implementation under this rule.
+
+Recorded exception (2026-07-19): three hook- and CLI-local run-meta readers
+stay outside the TS codec (`scripts/lib/verify-metadata-core.ts`) — the
+`.husky/pre-push` jq verify-evidence fallback readers
+(`musi_pre_push_json_string`/`_int`), `scripts/verify-logs.sh`'s jq display
+queries, and `scripts/ai-hooks/stop-policy.sh`'s awk readers
+(`ai_stop_verify_meta_string`/`_int`). Rationale and measured latency numbers:
+`docs/agent_notes/backlog/arch-plans-2026-07/05-verify-metadata-ts-analytical-core.md`
+(S2 record). Revisit all three together only if a defect is traced to one.
 
 Recorded rejection: a full Bun/TS rewrite of
 `.claude/skills/agent-cli/scripts/agent-run.sh` was considered and rejected
@@ -314,7 +337,7 @@ needs them.
 | `drift:ai module-doc-paths` | Maintainability | Computational | Stale backtick file references in `MODULE.md` / `*-MODULE.md` notes (path existence only; multi-base resolution, precision over recall); opt-in, report-only | Manual: `bun run drift:ai --check module-doc-paths` (or `--check all`) | `scripts/drift-ai/README.md`, `MODULE.md` files |
 | `drift:ai` default report | Maintainability, architecture fitness | Computational | AI-specific drift on changed files: copy/paste duplicates, suspicious sibling modules, over-narrated comments, and newly added suppression comments; repo-specific roots and exclusions live in `drift-ai.config.json` | Manual, report-only by default: `bun run drift:ai` (filter with `--check`; pass `--config <path>` to test another config) | `scripts/drift-ai/README.md`, `drift-ai.config.json` |
 | `drift:ai` opt-in checks | Maintainability, architecture fitness | Computational | Slower whole-graph AI-drift signals: commented-out code blocks, stale module-doc paths, knip-backed orphan files / duplicate export aliases / unused exports, TypeScript import cycles, server layer-direction reverse imports, AST-similar near-duplicate functions, and duplicate type/schema/literal/constant shapes | Manual, report-only by default: `bun run drift:ai --check commented-out-code`, `--check module-doc-paths`, `--check orphan-files`, `--check knip-duplicates`, `--check import-cycles`, `--check layer-direction`, `--check near-duplicates`, `--check duplicate-types`, `--check duplicate-schemas`, `--check duplicate-literals`, `--check duplicate-constants`, `--check unused-exports`, or `--check all` | `scripts/drift-ai/README.md`, target `knip` / `tsconfig` |
-| `drift:triage` report reducer | Maintainability, architecture fitness | Computational | Agent handoffs overwhelmed by repeated cross-tool evidence, ambiguous swarm ownership, incompatible verdicts, explicitly informational cycles, test-only examples, high-volume literal signals, and hidden upstream truncation | Manual after JSON drift / Semgrep / Dolos scans: reduce with `bun run drift:triage --format json --output <triage.json> [--packet-dir <dir>] <report.json...>`; collect swarm verdicts with `bun run drift:triage collect --manifest <manifest.json> --verdict-dir <dir>` | `scripts/drift-ai/README.md`, raw input reports |
+| `drift:triage` report reducer | Maintainability, architecture fitness | Computational | Agent handoffs overwhelmed by repeated cross-tool evidence, ambiguous swarm ownership, incompatible verdicts, explicitly informational cycles, test-only examples, high-volume literal signals, and hidden upstream truncation | Manual after JSON drift / Semgrep / Dolos scans: reduce with `bun run drift:triage --format json --output <triage.json> [--packet-dir <dir>] <report.json...>`; collect swarm verdicts with `bun run drift:triage collect --manifest <manifest.json> --verdict-dir <dir>` | `scripts/drift-triage/MODULE.md`, raw input reports |
 | `drift:ai` runtime import-cycle floor | Architecture fitness, maintainability | Computational | New runtime import cycles anywhere in the module graph (cycles that survive when type-only edges are removed); type-only cycles stay report-only evidence and never gate | `bun run lint`, `bun run lint:changed` — the "import cycles" lane runs `drift:ai --scope current --check import-cycles --fail-on-runtime-cycles` and fails closed if the check skips | `scripts/drift-ai/README.md`, `scripts/lint.sh` |
 | `drift:ai hotspots` | Maintainability | Computational | Advisory git-history hotspots: churn, coupling, fragmentation, suppression-churn, and thrash lenses; areas to inspect, not defects | Manual advisory: `bun run drift:ai hotspots --lens all` | `scripts/drift-ai/README.md` |
 | `drift:ai coldspots` | Maintainability | Computational | Advisory git-history coldspots: low-churn source files and stale-marker lines that may need a human look; areas to inspect, not defects | Manual advisory: `bun run drift:ai coldspots --lens all` | `scripts/drift-ai/README.md` |

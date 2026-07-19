@@ -1,5 +1,7 @@
 # Lint Deep-Dive 2026-07-04 — Sources and Verdicts
 
+Status: Provenance record for the pack (not a task leaf)
+
 How this pack was produced, what was verified, and what was deliberately not
 re-proposed. Read before promoting any leaf.
 
@@ -86,8 +88,9 @@ verification agent running four targeted checks) produced these changes:
   here only cover *defects or seams in what landed*.
 - Parked upgrade notes that remain their own backlog items:
   `../eslint-plugin-jsdoc-63-upgrade.md`,
-  `../eslint-react-peer-exception-removal.md`,
-  `../lint-fix-dist-preflight-parity.md`.
+  `../eslint-react-peer-exception-removal.md`.
+  (`lint-fix-dist-preflight-parity.md` closed Done and was removed at the
+  2026-07-19 triage.)
 - Biome adoption: lane C assessed `docs/guides/biome-lint-adoption.md` as
   still coherent with the current pipeline (ESLint authoritative, Biome
   advisory-future); no action leaf.

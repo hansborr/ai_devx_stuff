@@ -13,7 +13,7 @@ import {
   type LintRatchetEngineContext,
   relativeToRepoRoot,
 } from "@musi/lint-ratchet/kernel/engine-context.js";
-import { ConfigError } from "@musi/lint-ratchet/kernel/metrics.js";
+import { ConfigError } from "@musi/lint-ratchet/kernel/metrics-types.js";
 
 import type { LintRatchetDebtLogEntry } from "./debt-log-schema.js";
 import {

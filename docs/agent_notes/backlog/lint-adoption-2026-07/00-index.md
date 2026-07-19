@@ -25,15 +25,15 @@ Tracks: **S** sensors/gates, **L** lint rules, **E** envelope/feedback.
 | # | Task | Track | Priority | Size | Depends on | Status |
 |---|---|---|---|---|---|---|
 | 10 | [Wire the dormant near-duplicate detector into a ratcheted gate](./10-wire-near-duplicate-detector-into-a-ratcheted-gate.md) | S | P0 | M | none | Done |
-| 11 | [Tighten function length and add nesting depth](./11-tighten-function-length-and-add-nesting-depth.md) | L | P0 | M | none | Done |
+| 11 | Tighten function length and add nesting depth | L | P0 | M | none | Done |
 | 12 | [Broaden error-semantics coverage](./12-broaden-error-semantics-coverage.md) | L | P0 | S | none | Done |
-| 13 | [Extend the agent-diagnostics envelope beyond `local/*`](./13-extend-agent-diagnostics-envelope-beyond-local-rules.md) | E | P0 | M | 11 helps (overlay covers its rules) | Done |
-| 20 | [Port the llm-core correctness bundle](./20-port-the-llm-core-correctness-bundle.md) | L | P1 | S | none — can land any afternoon | Done |
-| 21 | [Effect-misuse enforcement (docs→lint conversion)](./21-effect-misuse-enforcement.md) | L | P1 | M | dialog-convention decision (parked notes linked in leaf) | Done |
-| 22 | [Message upgrades + message measurement](./22-message-upgrades-and-measurement.md) | E | P1 | M | (a)/(b) none; (c) after 13 helps | Done |
-| 23 | [`no-commented-out-code`](./23-no-commented-out-code.md) | L | P1 | S | none | Done |
-| 24 | [Security-primitive bundle](./24-security-primitive-bundle.md) | L | P1 | S | none | Done |
-| 25 | [`no-unbounded-promise-all`, server-scoped](./25-no-unbounded-promise-all-server.md) | L | P1 | S | none | Done |
+| 13 | Extend the agent-diagnostics envelope beyond `local/*` | E | P0 | M | 11 helps (overlay covers its rules) | Done |
+| 20 | Port the llm-core correctness bundle | L | P1 | S | none — can land any afternoon | Done |
+| 21 | Effect-misuse enforcement (docs→lint conversion) | L | P1 | M | dialog-convention decision (parked notes linked in leaf) | Done |
+| 22 | Message upgrades + message measurement | E | P1 | M | (a)/(b) none; (c) after 13 helps | Done |
+| 23 | `no-commented-out-code` | L | P1 | S | none | Done |
+| 24 | Security-primitive bundle | L | P1 | S | none | Done |
+| 25 | `no-unbounded-promise-all`, server-scoped | L | P1 | S | none | Done |
 
 ## Recommended order
 

@@ -2,10 +2,11 @@
 
 No active roadmap sprint is currently declared.
 
-`developer-experience.md` is the closed DX5-DX8 scope archive. Current
-agent-driven work lives in `docs/agent_notes/in_progress/`; parked workstreams
-live in `docs/agent_notes/backlog/`; curated recent history lives in
-`docs/agent_notes/LOG.md`.
+The closed DX5-DX8 scope archive (`developer-experience.md`, closed
+2026-04-28) was removed at the 2026-07-19 triage — read it from git history.
+Current agent-driven work lives in `docs/agent_notes/in_progress/`; parked
+workstreams live in `docs/agent_notes/backlog/`; curated recent history lives
+in `docs/agent_notes/LOG.md`.
 
 ## BatonLoop configuration
 
@@ -25,7 +26,8 @@ pass `FORCE_VERIFY=1` to bypass the short-circuit. Agents must tick every
 `- [ ]` under a leaf's `###` heading when they complete it; otherwise the loop
 runs forever.
 
-Historical sizing guidance for the closed DX5-DX8 sprint:
+Historical sizing guidance for the closed DX5-DX8 sprint (roadmap file
+in git history):
 
 - `iterations`: at least 30. The sprint contains 19 leaves and each iteration
   completes one leaf plus promotes the next, so a 15-iteration default will

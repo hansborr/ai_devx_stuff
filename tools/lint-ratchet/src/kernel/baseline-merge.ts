@@ -1,10 +1,9 @@
-import type { LintRatchetBaseline } from "./baseline.js";
+import { formatLintRatchetBaseline, type LintRatchetBaseline } from "./baseline.js";
 import {
   LINT_RATCHET_BASELINE_VERSION_POLICY,
   lintRatchetBaselineRegenerateForVersion,
   type LintRatchetBaselineVersionPolicy,
 } from "./baseline-constants.js";
-import { formatLintRatchetBaseline } from "./baseline-format.js";
 import {
   lintRatchetBaselineFromGrouped,
   type LintRatchetBaselineGroupMeta,
@@ -13,7 +12,7 @@ import {
 } from "./baseline-spec.js";
 import { parseLintRatchetBaselineStructure } from "./baseline-validation.js";
 import { mergeGroupedBaseline, type MergeGroupedBaselineResult } from "./group-baseline.js";
-import { validateMetricItem } from "./metrics.js";
+import { validateMetricItem } from "./metric-strategies.js";
 import type { LintRatchetMetricItem } from "./metrics-types.js";
 
 export interface MergeLintRatchetBaselinesOptions {

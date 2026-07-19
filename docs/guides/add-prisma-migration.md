@@ -60,6 +60,32 @@ Acknowledgement rules:
 - Fix stale acknowledgement warnings by correcting the directory name or
   removing the stale line.
 
+Cross-worktree staleness — the generated client is per-worktree state:
+
+- `packages/server/src/generated/` is gitignored, so step 6's regeneration
+  only fixes the worktree you ran it in. Every OTHER worktree of this repo
+  (secondary lanes, and the worktree a land-gate `verify` runs in) keeps
+  serving its previously generated client until someone regenerates there.
+  `scripts/land.sh` regenerates the client from the settled verify tree
+  (merge-tree construction included) immediately before dispatching its full
+  verify, which covers the stale-client typecheck/mtime failures only: a
+  migration not yet applied to that worktree's database (`db:migrate`, below)
+  is out of the preflight's scope and can still fail the test slot. Other
+  worktrees still need the full remedy below.
+- The symptom of checking out a migration-carrying branch on a stale
+  worktree is a typecheck failure, not a runtime one: Prisma payload types
+  lack the new columns, so hand-written row contracts stop matching at
+  mapper call sites (e.g. `TS2345: Argument of type '{ character: ... }'
+  is not assignable to parameter of type 'ParticipantRow'` at every
+  `mapParticipant(...)` caller when columns were added to
+  `EncounterParticipant`). The error points at innocent files; the fix is
+  never at the call site.
+- Remedy in the stale worktree:
+  `bun run --filter @musi/server prisma:generate` (types), and
+  `bun run --filter @musi/server db:migrate` (that worktree's database,
+  before running tests). `bun run db:status` reports client freshness and
+  pending migrations if you are unsure which side is stale.
+
 Useful checks:
 
 - `bun run db:status` reports connectivity, pending migrations, seed health,

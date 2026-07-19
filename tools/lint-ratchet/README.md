@@ -11,8 +11,10 @@ sources directly through per-layer subpath exports.
 - `git-rail/` — pure merge-driver operations, merge-driver presence checks, and
   the `.git/info/attributes` block renderer.
 - `governance/` — debt log, zero-baseline lifecycle audit, trend, summary,
-  propose, edit-check, retirement, baseline debt-accounting, and the shared
-  `WorseBaselineError`.
+  propose, edit-check, retirement, baseline debt-accounting, the shared
+  `WorseBaselineError`, and the neutral gate/update application operations
+  (`operations.js`: hashes → collect → build/compare → round-trip-validate →
+  gated apply, as pure data-in/data-out functions).
 
 The package carries **layers 1–3 only**. The repo adapter — registry data,
 path/context construction, harness wiring, CLI composition, and the

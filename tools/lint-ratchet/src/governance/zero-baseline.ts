@@ -16,7 +16,7 @@ import {
   relativeToRepoRoot,
 } from "@musi/lint-ratchet/kernel/engine-context.js";
 import { trackedFilesFromGit } from "@musi/lint-ratchet/kernel/git-tracked-files.js";
-import { ConfigError } from "@musi/lint-ratchet/kernel/metrics.js";
+import { ConfigError } from "@musi/lint-ratchet/kernel/metrics-types.js";
 import { matchingTrackedFiles } from "@musi/lint-ratchet/kernel/ratchet-globs.js";
 import { buildRuleSourceHashesById } from "@musi/lint-ratchet/kernel/rule-source.js";
 import type { LintRatchetZeroBaselineDisposition } from "@musi/lint-ratchet/kernel/zero-baseline-types.js";

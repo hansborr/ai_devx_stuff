@@ -5,14 +5,28 @@ import ts from "typescript";
 
 import { runtimeImportSpecifiers } from "./worktree-seed-runtime-loaders.js";
 
-interface ClosureOptions {
+export interface ClosureOptions {
   readonly root: string;
   readonly entry: string;
   readonly allowedRoots: readonly string[];
   readonly allowedFiles: readonly string[];
+  /**
+   * Bare package specifiers to treat as external (resolved via node_modules at
+   * runtime, e.g. a workspace package symlink): matching imports are skipped
+   * instead of resolved into the repository-local closure. Matches the exact
+   * package name or any subpath under it. Defaults to none, preserving the
+   * historical behavior where unexpected `@musi/*` imports throw.
+   */
+  readonly externalPackages?: readonly string[];
+  /**
+   * Forwarded to `runtimeImportSpecifiers`: `"throw"` (default) rejects
+   * runtime imports without a static string specifier; `"skip"` ignores them
+   * for closure walks over code that loads runtime-configured inputs.
+   */
+  readonly nonStaticSpecifiers?: "throw" | "skip";
 }
 
-interface ClosureValidation {
+export interface ClosureValidation {
   readonly files: readonly string[];
   readonly violations: readonly string[];
 }
@@ -66,6 +80,9 @@ const resolutionCandidates = (base: string): readonly string[] => {
   ];
 };
 
+const specifierMatchesPackage = (specifier: string, packageName: string): boolean =>
+  specifier === packageName || specifier.startsWith(`${packageName}/`);
+
 const localImportBase = (root: string, importer: string, specifier: string): string | undefined => {
   if (specifier.startsWith(".")) return resolve(dirname(importer), specifier);
   if (specifier === "@musi/shared") return resolve(root, "packages/shared/src/index");
@@ -86,7 +103,11 @@ const resolveLocalImport = (
   root: string,
   importer: string,
   specifier: string,
+  externalPackages: ReadonlySet<string>,
 ): string | undefined => {
+  for (const packageName of externalPackages) {
+    if (specifierMatchesPackage(specifier, packageName)) return undefined;
+  }
   const base = localImportBase(root, importer, specifier);
   if (base === undefined) return undefined;
   const candidate = resolutionCandidates(base).find(isFile);
@@ -109,9 +130,10 @@ const resolveLocalImport = (
   return resolved;
 };
 
-const validateSeedImportClosure = (options: ClosureOptions): ClosureValidation => {
+export const validateSeedImportClosure = (options: ClosureOptions): ClosureValidation => {
   const root = realpathSync(options.root);
   const entry = realpathSync(resolve(root, options.entry));
+  const externalPackages = new Set(options.externalPackages ?? []);
   const allowedRoots = options.allowedRoots.map((path) => resolve(root, path));
   const allowedFiles = new Set([
     entry,
@@ -129,8 +151,11 @@ const validateSeedImportClosure = (options: ClosureOptions): ClosureValidation =
 
     const source = readFileSync(importer, "utf8");
     const sourceFile = ts.createSourceFile(importer, source, ts.ScriptTarget.Latest, true);
-    for (const specifier of runtimeImportSpecifiers(sourceFile)) {
-      const imported = resolveLocalImport(root, importer, specifier);
+    const specifiers = runtimeImportSpecifiers(sourceFile, {
+      nonStaticSpecifiers: options.nonStaticSpecifiers,
+    });
+    for (const specifier of specifiers) {
+      const imported = resolveLocalImport(root, importer, specifier, externalPackages);
       if (imported === undefined) continue;
       const allowed =
         allowedFiles.has(imported) ||

@@ -9,7 +9,7 @@ import type {
   LintRatchetMetric,
   LintRatchetMode,
 } from "@musi/lint-ratchet/kernel/config-types.js";
-import { ConfigError } from "@musi/lint-ratchet/kernel/metrics.js";
+import { ConfigError } from "@musi/lint-ratchet/kernel/metrics-types.js";
 
 type LintRatchetBaselineTest = NonNullable<LintRatchetBaseline["tests"][string]>;
 const DEBT_FILES_HEADER = "debt files";

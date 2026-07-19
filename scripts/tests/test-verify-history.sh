@@ -40,6 +40,11 @@ VERIFY_HISTORY="$SCRIPT_DIR/../verify-history.sh"
 export MUSI_PATH_POLICY_QUERY="$SCRIPT_DIR/../path-policy/path-policy-query.ts"
 MUSI_PATH_POLICY_BUN="$(command -v bun)"
 export MUSI_PATH_POLICY_BUN
+# Sandbox copies of verify-metadata.sh resolve the run-meta codec from the
+# source tree (same seam pattern as MUSI_PATH_POLICY_QUERY above).
+export MUSI_VERIFY_META_CORE="$SCRIPT_DIR/../lib/verify-metadata-core.ts"
+MUSI_VERIFY_META_BUN="$(command -v bun)"
+export MUSI_VERIFY_META_BUN
 # shellcheck source=../lib/verify-metadata.sh
 . "$SCRIPT_DIR/../lib/verify-metadata.sh"
 
@@ -94,6 +99,23 @@ grep -qF "TIMESTAMP" <<< "$output" || fail "history output missing header: $outp
 grep -qE '2026-05-21T15:32:11Z +parallel-precommit +124 +240s +a1146555' <<< "$output" \
   || fail "history output missing persisted run row: $output"
 ok "verify:history prints a newest-first table row"
+
+# Display-only read path stays silent on degraded rows (legacy sed parity):
+# wrapper:null and malformed-JSON entries fall back to filename-derived
+# fields without leaking codec stderr to the terminal.
+DEGRADED_HISTORY="$SANDBOX/degraded-history"
+mkdir -p "$DEGRADED_HISTORY"
+printf '{"version":1,"mode":"serial-verify","generated_at":"x","wrapper":null,"steps":[]}\n' \
+  > "$DEGRADED_HISTORY/$START_EPOCH-serial-verify-0.json"
+printf '{oops\n' > "$DEGRADED_HISTORY/$((START_EPOCH + 1))-serial-verify-1.json"
+degraded_stderr="$SANDBOX/degraded-stderr"
+degraded_output="$(MUSI_VERIFY_HISTORY_DIR="$DEGRADED_HISTORY" bash "$VERIFY_HISTORY" 2> "$degraded_stderr")" \
+  || fail "verify:history must succeed on degraded history rows"
+grep -qE 'serial-verify +0' <<< "$degraded_output" \
+  || fail "degraded rows should fall back to filename-derived fields: $degraded_output"
+[ ! -s "$degraded_stderr" ] \
+  || fail "display read path must not leak codec stderr: $(cat "$degraded_stderr")"
+ok "verify:history stays silent on wrapper:null and malformed rows"
 
 RETENTION_LOG="$SANDBOX/retention-logs"
 RETENTION_HISTORY="$SANDBOX/retention-history"

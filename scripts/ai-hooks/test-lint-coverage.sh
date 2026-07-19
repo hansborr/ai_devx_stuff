@@ -66,7 +66,11 @@ cp "$REPO_ROOT/scripts/ai-hooks/common.sh" \
   "$REPO_ROOT/scripts/ai-hooks/lint-coverage-check.sh" \
   "$LINT_COVERAGE_REPO_TMP/scripts/ai-hooks/"
 mkdir -p "$LINT_COVERAGE_REPO_TMP/scripts/lib"
-cp "$REPO_ROOT/scripts/lib/verify-metadata.sh" "$LINT_COVERAGE_REPO_TMP/scripts/lib/"
+# verify-metadata.sh resolves its run-meta codec beside itself, so the fixture
+# gets the TS entrypoint too (keeps the copied chain matching production).
+cp "$REPO_ROOT/scripts/lib/verify-metadata.sh" \
+  "$REPO_ROOT/scripts/lib/verify-metadata-core.ts" \
+  "$LINT_COVERAGE_REPO_TMP/scripts/lib/"
 git -C "$LINT_COVERAGE_REPO_TMP" init -q
 HOOK_FIXTURE_REPO_ROOT="$LINT_COVERAGE_REPO_TMP"
 LINT_COVERAGE_PINNED_LOG="$TMP_ROOT/lint-coverage-pinned.log"

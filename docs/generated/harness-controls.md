@@ -1663,7 +1663,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `check/harness-hook-wiring-generator`
 
-**Principle:** Generate Claude and Codex hook wiring from harness.controls.json; --check fails on drift between the manifest and checked-in adapter configs.
+**Principle:** Generate Claude, Codex, and Copilot hook wiring — the three configs and every adapter shim under .claude/hooks/, .codex/hooks/, and .copilot/hooks/ — from harness.controls.json; --check fails on drift between the manifest and the checked-in configs and shims (bytes, file type, executable bit, orphans).
 
 **Category:** maintainability
 
@@ -1842,6 +1842,20 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 **Paired guide:** [docs/generated/lint-coverage-map.md](lint-coverage-map.md)
 
 **Repair:** manual
+
+### `check/smoke-subjects-generator`
+
+**Principle:** Generate script smoke-subject metadata from the `# smoke-subjects:` headers in the shell smoke tests; --check fails on drift between the headers and the checked-in subjects data and fixture inventory.
+
+**Category:** maintainability
+
+**Source:** `scripts/path-policy/generate-smoke-subjects.ts`
+
+**Invocation:** `bun run test:scripts:subjects`
+
+**Paired guide:** none
+
+**Repair:** autofix
 
 ### `check/verify-steps-generator`
 

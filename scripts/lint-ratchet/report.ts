@@ -10,7 +10,7 @@ import {
   escapeMarkdownText,
   markdownCode,
 } from "@musi/lint-ratchet/kernel/markdown-escape.js";
-import { ConfigError } from "@musi/lint-ratchet/kernel/metrics.js";
+import { ConfigError } from "@musi/lint-ratchet/kernel/metrics-types.js";
 import {
   RATCHET_UPDATE_COMMAND,
   REGRESSION_RECOVERY_FOOTER,

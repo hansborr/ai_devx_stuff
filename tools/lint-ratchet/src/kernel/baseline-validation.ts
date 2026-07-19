@@ -1,26 +1,24 @@
-import type {
-  LintRatchetBaseline,
-  LintRatchetBaselineValidationFailure,
-  LintRatchetBaselineValidationFailureCode,
-  LintRatchetRuleSourceHashesById,
-  ParsedLintRatchetBaseline,
-  StructuralLintRatchetBaseline,
+import {
+  baselineTestFromConfig,
+  formatLintRatchetBaseline,
+  type LintRatchetBaseline,
+  type LintRatchetBaselineTest,
+  type LintRatchetBaselineValidationFailure,
+  type LintRatchetBaselineValidationFailureCode,
+  type LintRatchetRuleSourceHashesById,
+  type ParsedLintRatchetBaseline,
+  type StructuralLintRatchetBaseline,
 } from "./baseline.js";
 import {
   LINT_RATCHET_BASELINE_REGENERATE,
   LINT_RATCHET_BASELINE_VERSION_POLICY,
   type LintRatchetBaselineVersionPolicy,
 } from "./baseline-constants.js";
-import {
-  baselineTestFromConfig,
-  formatLintRatchetBaseline,
-  type LintRatchetBaselineTest,
-} from "./baseline-format.js";
 import { stableJson } from "./baseline-hash.js";
 import { lintRatchetBaselineFromGrouped, lintRatchetBaselineSpec } from "./baseline-spec.js";
 import type { LintRatchetConfig } from "./config-types.js";
 import { parseGroupedBaseline } from "./group-baseline.js";
-import { validateMetricItem } from "./metrics.js";
+import { validateMetricItem } from "./metric-strategies.js";
 
 function validateBaselineTestMetadata(
   testId: string,

@@ -6,19 +6,11 @@
     "verify:async:status",
     "verify:async:tail",
     "verify:async:stop",
-    "docs:lint-guidance:check",
-    "docs:harness-controls:check",
-    "docs:baseline-conflict-recipes:check",
-    "harness:config-surfaces:check",
-    "harness:wiring:check",
-    "harness:hook-timeouts:check",
-    "verify:steps:check",
     "docs:lint-coverage-map:audit",
     "docs:lint-coverage-map:suggest",
     "module:index:check",
     "lint:changed",
     "lint:fix",
-    "lint:restricted-disable-rules:check",
     "lint:max-lines-exceptions:update",
     "lint:ratchet:update",
     "lint:ratchet:check-baseline",
@@ -1046,7 +1038,22 @@
       "pairedGuide": "docs/guides/lint-ratchet-merges.md",
       "repairKind": "autofix",
       "source": "scripts/generate-baseline-conflict-recipes.ts",
-      "invocation": "bun run docs:baseline-conflict-recipes"
+      "invocation": "bun run docs:baseline-conflict-recipes",
+      "generatedSurface": {
+        "triggerPaths": [
+          "scripts/git/baseline-merge-driver.sh",
+          "scripts/generate-baseline-conflict-recipes.ts"
+        ],
+        "outputPaths": ["docs/guides/lint-ratchet-merges.md"],
+        "checkScript": "docs:baseline-conflict-recipes:check",
+        "warnLabel": "baseline conflict recovery recipes",
+        "bunHook": { "refresh": "bypass", "check": "wrapped" },
+        "fixturePaths": [
+          "scripts/generate-baseline-conflict-recipes.ts",
+          "scripts/git/baseline-merge-driver.sh",
+          "docs/guides/lint-ratchet-merges.md"
+        ]
+      }
     },
     {
       "id": "doc-generator/harness-controls",
@@ -1056,7 +1063,23 @@
       "pairedGuide": "none",
       "repairKind": "autofix",
       "source": "scripts/harness/generate-harness-controls.ts",
-      "invocation": "bun run docs:harness-controls"
+      "invocation": "bun run docs:harness-controls",
+      "generatedSurface": {
+        "triggerPaths": [
+          "harness.controls.json",
+          "scripts/harness/generate-harness-controls.ts",
+          "scripts/harness/generate-harness-controls-validation.ts",
+          "scripts/harness/control-field-validation.ts"
+        ],
+        "outputPaths": ["docs/generated/harness-controls.md"],
+        "checkScript": "docs:harness-controls:check",
+        "warnLabel": "harness controls docs",
+        "bunHook": { "refresh": "bypass", "check": "wrapped" },
+        "fixturePaths": [
+          "scripts/harness/generate-harness-controls.ts",
+          "scripts/harness/generate-harness-controls-validation.ts"
+        ]
+      }
     },
     {
       "id": "doc-generator/lint-guidance",
@@ -1066,7 +1089,20 @@
       "pairedGuide": "docs/guides/local-eslint-rules.md",
       "repairKind": "autofix",
       "source": "scripts/generate-lint-guidance.ts",
-      "invocation": "bun run docs:lint-guidance"
+      "invocation": "bun run docs:lint-guidance",
+      "generatedSurface": {
+        "triggerPaths": [
+          "eslint-rules/",
+          "eslint-config/local-plugin.js",
+          "scripts/generate-lint-guidance.ts",
+          "scripts/lib/lint-rule-docs.ts"
+        ],
+        "outputPaths": ["docs/generated/local-lint-rules.md"],
+        "checkScript": "docs:lint-guidance:check",
+        "warnLabel": "lint guidance",
+        "bunHook": { "refresh": "bypass", "check": "wrapped" },
+        "fixturePaths": ["scripts/generate-lint-guidance.ts", "scripts/lib/lint-rule-docs.ts"]
+      }
     },
     {
       "id": "doc-generator/module-index",
@@ -1172,11 +1208,43 @@
       "id": "check/harness-hook-wiring-generator",
       "kind": "check",
       "category": "maintainability",
-      "principle": "Generate Claude and Codex hook wiring from harness.controls.json; --check fails on drift between the manifest and checked-in adapter configs.",
+      "principle": "Generate Claude, Codex, and Copilot hook wiring — the three configs and every adapter shim under .claude/hooks/, .codex/hooks/, and .copilot/hooks/ — from harness.controls.json; --check fails on drift between the manifest and the checked-in configs and shims (bytes, file type, executable bit, orphans).",
       "pairedGuide": "none",
       "repairKind": "autofix",
       "source": "scripts/harness/generate-hook-wiring.ts",
-      "invocation": "bun run harness:wiring"
+      "invocation": "bun run harness:wiring",
+      "generatedSurface": {
+        "triggerPaths": [
+          "harness.controls.json",
+          "scripts/harness/generate-hook-wiring.ts",
+          "scripts/harness/hook-shim-files.ts",
+          "scripts/harness/hook-shims.ts",
+          "scripts/harness/hook-wiring-schema.ts"
+        ],
+        "outputPaths": [
+          ".claude/settings.json",
+          ".claude/hooks/",
+          ".codex/hooks.json",
+          ".codex/hooks/",
+          ".copilot/hooks/",
+          ".github/hooks/copilot.json"
+        ],
+        "checkScript": "harness:wiring:check",
+        "warnLabel": "AI hook wiring",
+        "bunHook": { "refresh": "bypass", "check": "wrapped" },
+        "fixturePaths": [
+          "scripts/harness/generate-hook-wiring.ts",
+          "scripts/harness/hook-shim-files.ts",
+          "scripts/harness/hook-shims.ts",
+          "scripts/harness/hook-wiring-schema.ts",
+          "scripts/lib/atomic-write.ts",
+          "scripts/ai-hooks/check-wiring.sh",
+          "scripts/ai-hooks/bun-run-quiet.sh",
+          "scripts/ai-hooks/git-commit-quiet.sh",
+          ".claude/hooks/bun-run-quiet.sh",
+          ".claude/hooks/git-commit-quiet.sh"
+        ]
+      }
     },
     {
       "id": "check/hook-timeout-constants-generator",
@@ -1186,7 +1254,23 @@
       "pairedGuide": "none",
       "repairKind": "autofix",
       "source": "scripts/harness/generate-hook-timeout-constants.ts",
-      "invocation": "bun run harness:hook-timeouts"
+      "invocation": "bun run harness:hook-timeouts",
+      "generatedSurface": {
+        "triggerPaths": [
+          "harness.controls.json",
+          "scripts/harness/generate-hook-timeout-constants.ts",
+          "scripts/harness/hook-timeout-constants.ts"
+        ],
+        "outputPaths": ["scripts/ai-hooks/hook-timeouts.generated.sh"],
+        "checkScript": "harness:hook-timeouts:check",
+        "warnLabel": "hook timeout constants",
+        "bunHook": { "refresh": "bypass", "check": "wrapped" },
+        "fixturePaths": [
+          "scripts/harness/generate-hook-timeout-constants.ts",
+          "scripts/harness/hook-timeout-constants.ts",
+          "scripts/ai-hooks/hook-timeouts.generated.sh"
+        ]
+      }
     },
     {
       "id": "check/verify-steps-generator",
@@ -1196,7 +1280,53 @@
       "pairedGuide": "none",
       "repairKind": "autofix",
       "source": "scripts/harness/generate-verify-steps.ts",
-      "invocation": "bun run verify:steps"
+      "invocation": "bun run verify:steps",
+      "generatedSurface": {
+        "triggerPaths": [
+          "harness.controls.json",
+          "scripts/harness/generate-verify-steps.ts",
+          "scripts/harness/generated-surfaces.ts",
+          "scripts/harness/verify-step-schema.ts",
+          "scripts/harness/verify-step-bridge-divergences.ts"
+        ],
+        "outputPaths": [
+          "scripts/verify/steps.generated.sh",
+          "scripts/harness/generated-surface-freshness.generated.sh",
+          "scripts/ai-hooks/classified-bun-scripts.generated.sh",
+          "scripts/tests/harness-check-fixture-manifest.generated.txt"
+        ],
+        "checkScript": "verify:steps:check",
+        "warnLabel": "verify step and generated-surface metadata",
+        "bunHook": { "refresh": "bypass", "check": "wrapped" },
+        "fixturePaths": [
+          "scripts/harness/generate-verify-steps.ts",
+          "scripts/harness/verify-step-schema.ts",
+          "scripts/harness/verify-step-bridge-divergences.ts",
+          "scripts/harness/generated-surfaces.ts",
+          "scripts/verify/steps-lib.sh",
+          "scripts/verify/memory-budget.sh",
+          "scripts/lib/test-worker-count.sh",
+          "scripts/harness-check.ts",
+          "scripts/harness/fixture-closure-check.ts",
+          "scripts/harness/harness-check-validation.ts",
+          "scripts/harness/harness-gate-parity.ts",
+          "scripts/harness/harness-manifest.ts",
+          "scripts/harness/harness-paths.ts",
+          "scripts/harness/control-field-validation.ts",
+          "scripts/harness/local-rule-config.ts",
+          "scripts/harness/porting-knob-parity.ts",
+          "scripts/harness/check-skill-inventory.ts",
+          "scripts/harness/skill-inventory-schema.ts",
+          "scripts/harness/skill-tree-comparison.ts",
+          "scripts/lib/doc-generator.ts",
+          "scripts/lint-ratchet/ratchet-manifest-message.ts",
+          "scripts/worktree-seed-import-closure.ts",
+          "scripts/worktree-seed-runtime-loaders.ts",
+          "scripts/worktree-seed-runtime-loader-validation.ts",
+          "scripts/worktree-seed-runtime-loader-exports.ts",
+          "scripts/worktree-seed-runtime-loader-identifiers.ts"
+        ]
+      }
     },
     {
       "id": "check/config-surface-generator",
@@ -1206,7 +1336,57 @@
       "pairedGuide": "docs/generated/lint-coverage-map.md",
       "repairKind": "autofix",
       "source": "scripts/harness/generate-config-surfaces.ts",
-      "invocation": "bun run harness:config-surfaces"
+      "invocation": "bun run harness:config-surfaces",
+      "generatedSurface": {
+        "triggerPaths": [
+          "eslint-config/shared-policy.js",
+          "scripts/harness/generate-config-surfaces.ts"
+        ],
+        "outputPaths": ["tsconfig.configs.json"],
+        "checkScript": "harness:config-surfaces:check",
+        "warnLabel": "config surface tsconfig",
+        "bunHook": { "refresh": "wrapped", "check": "wrapped" },
+        "fixturePaths": [
+          "scripts/harness/generate-config-surfaces.ts",
+          "eslint-config/shared-policy.js",
+          "eslint-config/config-surfaces.js",
+          "eslint-config/config-surface-manifest.json",
+          "eslint-config/max-lines-exceptions-codec.js",
+          "eslint-config/max-lines-exceptions.baseline.json"
+        ]
+      }
+    },
+    {
+      "id": "check/smoke-subjects-generator",
+      "kind": "check",
+      "category": "maintainability",
+      "principle": "Generate script smoke-subject metadata from the `# smoke-subjects:` headers in the shell smoke tests; --check fails on drift between the headers and the checked-in subjects data and fixture inventory.",
+      "pairedGuide": "none",
+      "repairKind": "autofix",
+      "source": "scripts/path-policy/generate-smoke-subjects.ts",
+      "invocation": "bun run test:scripts:subjects",
+      "generatedSurface": {
+        "triggerPaths": [
+          "scripts/path-policy/generate-smoke-subjects.ts",
+          "scripts/path-policy/smoke-subject-headers.ts",
+          "scripts/path-policy/fixture-shell-dependencies.ts",
+          "scripts/path-policy/fixture-shell-scope.ts",
+          "scripts/tests/"
+        ],
+        "outputPaths": [
+          "scripts/path-policy/path-policy-smoke-subjects-data.ts",
+          "scripts/fixtures/test-scripts/all-smoke-tests.txt"
+        ],
+        "checkScript": "test:scripts:subjects:check",
+        "warnLabel": "script smoke-subject metadata",
+        "bunHook": { "refresh": "wrapped", "check": "wrapped" },
+        "fixturePaths": [
+          "scripts/path-policy/generate-smoke-subjects.ts",
+          "scripts/path-policy/smoke-subject-headers.ts",
+          "scripts/path-policy/fixture-shell-dependencies.ts",
+          "scripts/path-policy/fixture-shell-scope.ts"
+        ]
+      }
     },
     {
       "id": "check/lint-agent-local-rules-changed",
@@ -1286,7 +1466,22 @@
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": "scripts/harness/generate-restricted-disable-rules.ts",
-      "invocation": "bun run lint:restricted-disable-rules"
+      "invocation": "bun run lint:restricted-disable-rules",
+      "generatedSurface": {
+        "triggerPaths": [
+          "scripts/harness/generate-restricted-disable-rules.ts",
+          "scripts/lint-ratchet/lint-ratchet-config.ts"
+        ],
+        "outputPaths": ["eslint-config/ratchet-restricted-disable-rules.generated.js"],
+        "checkScript": "lint:restricted-disable-rules:check",
+        "warnLabel": "restricted-disable rule metadata",
+        "bunHook": { "refresh": "wrapped", "check": "wrapped" },
+        "fixturePaths": [
+          "scripts/harness/generate-restricted-disable-rules.ts",
+          "scripts/lint-ratchet/lint-ratchet-config.ts",
+          "scripts/lint-ratchet/registry-builders.ts"
+        ]
+      }
     },
     {
       "id": "check/drift-ai-commented-out-code",

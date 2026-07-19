@@ -63,9 +63,18 @@ const noRealTimeInPackageTestsRestrictedSyntax = [
   },
 ] as const;
 
+// The drift-ai vitest option-pin families cover the whole drift metrics/
+// reporting family: drift-ai plus scripts/drift-triage/**, the triage reducer
+// relocated out of drift-ai (drift-triage-collapse S2) — mirroring the ESLint
+// family policy in eslint-config/script-configs.js, which spans the entry and
+// the directory. The triage-* tests were in these families before the
+// relocation; the entry-adjacent tests (drift-triage.test.ts,
+// drift-triage-collect.test.ts) were flat and never were, but they are the
+// same test family, so the directory glob deliberately includes them.
 const driftAiVitestTestFiles = [
   "scripts/drift-ai.test.ts",
   "scripts/drift-ai/**/*.test.ts",
+  "scripts/drift-triage/**/*.test.ts",
 ] as const;
 const driftAiVitestTestIgnores = ["scripts/drift-ai/fixtures/**"] as const;
 const scriptVitestOptionPinnedFiles = [

@@ -5,12 +5,22 @@ import {
   pushFailure,
 } from "./harness-check-validation.js";
 
-export function checkScriptParity(
-  controlPrefixPattern: RegExp,
-  exemptScripts: ReadonlySet<string>,
-  declaredScripts: ReadonlySet<string>,
-  context: ManifestCheckContext,
-): void {
+export interface ScriptParityInputs {
+  readonly controlPrefixPattern: RegExp;
+  readonly exemptScripts: ReadonlySet<string>;
+  readonly declaredScripts: ReadonlySet<string>;
+  /**
+   * Derived from the generatedSurface facets (each record's `checkScript`): a
+   * package.json script equal to a facet checkScript is accounted for by that
+   * control, with no scriptParityExemptions entry needed. Exemption entries
+   * that are also alias-covered fail so the list cannot silently re-grow past
+   * what the facet already declares.
+   */
+  readonly aliasScripts: ReadonlySet<string>;
+}
+
+export function checkScriptParity(inputs: ScriptParityInputs, context: ManifestCheckContext): void {
+  const { controlPrefixPattern, exemptScripts, declaredScripts, aliasScripts } = inputs;
   for (const name of exemptScripts) {
     if (!context.scripts.has(name)) {
       pushFailure(
@@ -24,11 +34,18 @@ export function checkScriptParity(
         "(parity)",
         `scriptParityExemptions includes "${name}", which does not match the control-prefix convention`,
       );
+    } else if (aliasScripts.has(name)) {
+      pushFailure(
+        context.failures,
+        "(parity)",
+        `scriptParityExemptions includes "${name}", which is already covered as a ` +
+          `generatedSurface checkScript alias; remove the redundant exemption`,
+      );
     }
   }
   for (const name of context.scripts.keys()) {
     if (!controlPrefixPattern.test(name)) continue;
-    if (exemptScripts.has(name) || declaredScripts.has(name)) continue;
+    if (exemptScripts.has(name) || declaredScripts.has(name) || aliasScripts.has(name)) continue;
     pushFailure(
       context.failures,
       "(parity)",
@@ -36,7 +53,9 @@ export function checkScriptParity(
         `not declared in harness.controls.json and not exempt. Fix one of:\n` +
         `      1. Add a control entry (with "invocation": "bun run ${name}") to ` +
         `harness.controls.json, then run \`bun run docs:harness-controls\`.\n` +
-        `      2. If it is an operational utility (not an enforcement gate), add "${name}" ` +
+        `      2. If it is the --check twin of a generated surface, declare it as ` +
+        `"generatedSurface": { "checkScript": "${name}", ... } on that control record.\n` +
+        `      3. If it is an operational utility (not an enforcement gate), add "${name}" ` +
         `to scriptParityExemptions in harness.controls.json.`,
     );
   }

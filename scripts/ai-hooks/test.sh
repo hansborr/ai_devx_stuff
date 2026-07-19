@@ -302,6 +302,9 @@ assert_unwrapped_bun() {
   fi
 }
 
+# Hand-maintained slice only: generator-contributed bypass scripts render into
+# AI_GENERATED_BYPASS_BUN_SCRIPTS (classified-bun-scripts.generated.sh, sourced
+# via policy.sh) and are appended below; do not re-add them here.
 AI_BUN_CLASSIFIED_BYPASS_SCRIPTS='
 baseline:restore-stage
 clean
@@ -314,14 +317,9 @@ codemod:trpc-shared-input
 codemod:trpc-shared-output
 db:status
 dev
-docs:baseline-conflict-recipes
-docs:harness-controls
-docs:lint-guidance
 doctor
 e2e:debug
 e2e:ui
-harness:hook-timeouts
-harness:wiring
 lint:max-lines-exceptions:update
 lint:ratchet:update
 lint:ratchet:zero-baseline
@@ -337,7 +335,6 @@ typecheck:watch
 verify:async
 verify:async:changed
 verify:async:slow
-verify:steps
 worktree:drop
 worktree:gc
 worktree:init
@@ -346,6 +343,9 @@ worktree:refresh-data
 worktree:status
 worktree:template-refresh
 '
+
+AI_BUN_CLASSIFIED_BYPASS_SCRIPTS="${AI_BUN_CLASSIFIED_BYPASS_SCRIPTS}
+${AI_GENERATED_BYPASS_BUN_SCRIPTS}"
 
 script_list_contains() {
   local needle="$1" list="$2" script
@@ -358,8 +358,30 @@ script_list_contains() {
   return 1
 }
 
+script_list_duplicates() {
+  local list="$1"
+
+  grep -v '^$' <<< "$list" | LC_ALL=C sort | uniq -d | paste -sd ',' -
+}
+
+# Completeness tripwire over the COMBINED (hand + generated) classifier lists:
+# every package.json script must be classified exactly once. Duplicates within
+# or across the lists usually mean a generator-contributed script was re-added
+# to a hand-maintained heredoc; fix the heredoc, not the generated fragment.
 assert_bun_package_scripts_are_classified() {
   local package_scripts missing="" stale_wrapped="" stale_bypass="" script
+  local duplicate_wrapped duplicate_bypass overlap
+
+  duplicate_wrapped=$(script_list_duplicates "$AI_WRAPPED_BUN_SCRIPTS")
+  [ -z "$duplicate_wrapped" ] \
+    || fail "wrapped bun script list has duplicate entries: $duplicate_wrapped"
+  duplicate_bypass=$(script_list_duplicates "$AI_BUN_CLASSIFIED_BYPASS_SCRIPTS")
+  [ -z "$duplicate_bypass" ] \
+    || fail "bun-run-quiet bypass list has duplicate entries: $duplicate_bypass"
+  overlap=$(script_list_duplicates "$AI_WRAPPED_BUN_SCRIPTS
+$AI_BUN_CLASSIFIED_BYPASS_SCRIPTS")
+  [ -z "$overlap" ] \
+    || fail "scripts classified both wrapped and bypass: $overlap"
 
   package_scripts=$(bun -e 'const pkg = require("./package.json"); console.log(Object.keys(pkg.scripts).join("\n"));')
 
@@ -756,6 +778,7 @@ assert_policy_allows_each \
 assert_policy_blocks_contains "printf '%s\n' x > bun.lock" "Protected lockfile"
 assert_policy_blocks_contains "printf '%s\n' x >> scripts/verify/steps.generated.sh" "Protected generated file"
 assert_policy_blocks_contains "printf '%s\n' x >> scripts/ai-hooks/hook-timeouts.generated.sh" "Protected generated file"
+assert_policy_blocks_contains "printf '%s\n' x >> scripts/ai-hooks/classified-bun-scripts.generated.sh" "Protected generated file"
 assert_policy_blocks_contains "echo x>bun.lock" "Protected lockfile"
 assert_policy_blocks_contains "echo x>>bun.lock" "Protected lockfile"
 assert_policy_blocks_contains "cat evil>bun.lock" "Protected lockfile"
@@ -776,6 +799,7 @@ assert_policy_allows_each \
   "cp bun.lock /tmp/bun.lock.copy" \
   "sed -n '1p' scripts/verify/steps.generated.sh" \
   "sed -n '1p' scripts/ai-hooks/hook-timeouts.generated.sh" \
+  "sed -n '1p' scripts/ai-hooks/classified-bun-scripts.generated.sh" \
   "rg 'harness' docs/generated/harness-controls.md" \
   "printf '%s\n' x > packages/server/src/main.ts" \
   "sed -i 's/a/b/' packages/server/src/main.ts" \
@@ -1385,6 +1409,14 @@ assert_protected_file_deny_entry \
   "generated-hook-timeouts" \
   "bun run harness:hook-timeouts"
 assert_protected_file_deny_entry \
+  "$REPO_ROOT/scripts/ai-hooks/classified-bun-scripts.generated.sh" \
+  "generated-classified-bun-scripts" \
+  "bun run verify:steps"
+assert_protected_file_deny_entry \
+  "$REPO_ROOT/scripts/tests/harness-check-fixture-manifest.generated.txt" \
+  "generated-harness-check-fixture-manifest" \
+  "bun run verify:steps"
+assert_protected_file_deny_entry \
   "$REPO_ROOT/bun.lock" \
   "lockfile" \
   "bun install"
@@ -1516,6 +1548,9 @@ assert_protected_files_deny \
 assert_protected_files_deny \
   "$REPO_ROOT/scripts/ai-hooks/hook-timeouts.generated.sh" \
   "bun run harness:hook-timeouts"
+assert_protected_files_deny \
+  "$REPO_ROOT/scripts/ai-hooks/classified-bun-scripts.generated.sh" \
+  "bun run verify:steps"
 assert_protected_files_deny \
   "$REPO_ROOT/bun.lock" \
   "bun install"
@@ -2211,28 +2246,48 @@ assert_git_commit_quiet_shared_queue_blocks_other_worktrees() {
   local first_lock="$TMP_ROOT/git-commit-worktree-a.lock"
   local second_lock="$TMP_ROOT/git-commit-worktree-b.lock"
   local first_out="$TMP_ROOT/git-commit-shared-first.out"
-  local second_out reason waited=0
+  local ready="$TMP_ROOT/git-commit-shared-queue.ready"
+  local release="$TMP_ROOT/git-commit-shared-queue.release"
+  local second_out reason decision waited=0
 
+  # Two-marker handshake instead of a wall-clock `sleep 2` hold: the holder's
+  # command touches `ready` only once the wrapper has acquired the shared queue
+  # flock (bash -c runs post-acquisition), then blocks until `release` exists.
+  # Grepping the lock file's CONTENT is not a liveness signal — the wrapper
+  # truncate-writes holder info after acquiring and nothing clears it on
+  # release, so under parallel-lane load the old content poll matched residue
+  # from an already-exited holder and the waiter saw an uncontended acquire.
+  # The `ready` marker exists only while the holder is alive inside its
+  # critical section, so the waiter below always meets a genuinely held flock.
+  # Backstop bound: AI_GIT_COMMIT_TIMEOUT=30 arms the wrapper's watchdog, which
+  # reaps the holder tree even if `release` were never touched.
   (
-    jq -n --arg cmd "git commit --dry-run >/dev/null 2>&1; sleep 2" \
+    jq -n --arg cmd "git commit --dry-run >/dev/null 2>&1; touch '$ready'; until [ -e '$release' ]; do sleep 0.05; done" \
       '{tool_input:{command:$cmd}}' \
       | AI_GIT_COMMIT_LOCK="$first_lock" \
         MUSI_COMMIT_QUEUE_LOCK="$queue_lock" \
-        AI_GIT_COMMIT_TIMEOUT=5 \
+        AI_GIT_COMMIT_TIMEOUT=30 \
         bash "$REPO_ROOT/scripts/ai-hooks/git-commit-quiet.sh" > "$first_out"
   ) &
   first_pid=$!
 
-  while [ "$waited" -lt 30 ]; do
-    if grep -qF "CMD=git commit --dry-run" "$queue_lock" 2>/dev/null; then
-      break
-    fi
+  # Bounded wait (10s) for proof-of-acquisition.
+  while [ "$waited" -lt 100 ]; do
+    [ -e "$ready" ] && break
     sleep 0.1
     waited=$((waited + 1))
   done
-  grep -qF "CMD=git commit --dry-run" "$queue_lock" 2>/dev/null \
-    || fail "first git-commit-quiet invocation did not acquire shared queue"
+  if [ ! -e "$ready" ]; then
+    touch "$release"
+    wait "$first_pid" 2>/dev/null || true
+    fail "first git-commit-quiet invocation did not signal shared-queue acquisition within 10s"
+  fi
 
+  # Guard every fallible step between here and the release/reap below: the
+  # suite runs under set -e, so an unguarded nonzero substitution (waiter
+  # pipeline, jq parse of its output) would exit the suite before the release
+  # — and the suite EXIT trap deletes TMP_ROOT, leaving the holder blocked on
+  # a marker path that can never appear until its 30s watchdog fires.
   second_out=$(
     jq -n --arg cmd "git commit --dry-run" '{tool_input:{command:$cmd}}' \
       | AI_GIT_COMMIT_LOCK="$second_lock" \
@@ -2240,11 +2295,18 @@ assert_git_commit_quiet_shared_queue_blocks_other_worktrees() {
         MUSI_COMMIT_QUEUE_TIMEOUT=1 \
         AI_GIT_COMMIT_TIMEOUT=5 \
         bash "$REPO_ROOT/scripts/ai-hooks/git-commit-quiet.sh"
-  )
-  wait "$first_pid" 2>/dev/null || true
-  reason=$(printf '%s' "$second_out" | jq -r '.reason // empty')
+  ) || second_out="<waiter invocation failed: exit $?>"
 
-  [ "$(printf '%s' "$second_out" | jq -r '.decision // empty')" = "block" ] \
+  # Release and reap BEFORE parsing or asserting: fail (and any implicit
+  # errexit) ends the suite, so cleanup placed after this point would leak a
+  # holder still blocked on the release marker.
+  touch "$release"
+  wait "$first_pid" 2>/dev/null || true
+
+  decision=$(printf '%s' "$second_out" | jq -r '.decision // empty' 2>/dev/null || true)
+  reason=$(printf '%s' "$second_out" | jq -r '.reason // empty' 2>/dev/null || true)
+
+  [ "$decision" = "block" ] \
     || fail "git-commit-quiet should block on shared queue held by another worktree: $second_out"
   assert_contains "$reason" "shared commit queue lock"
   assert_contains "$reason" "CMD=git commit --dry-run"

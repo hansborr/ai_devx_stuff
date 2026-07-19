@@ -1,4 +1,5 @@
-import { type LintRatchetMetricItem, parseMetricFields } from "./metrics.js";
+import { parseMetricFields } from "./metrics-parse.js";
+import type { LintRatchetMetricItem } from "./metrics-types.js";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);

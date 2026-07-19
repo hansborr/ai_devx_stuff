@@ -24,3 +24,7 @@ export const CLAUDE_SETTINGS_PATH = ".claude/settings.json";
 export const CODEX_HOOKS_PATH = ".codex/hooks.json";
 export const COPILOT_HOOKS_PATH = ".github/hooks/copilot.json";
 export const GENERATED_HOOK_TIMEOUT_CONSTANTS_PATH = "scripts/ai-hooks/hook-timeouts.generated.sh";
+export const GENERATED_CLASSIFIED_BUN_SCRIPTS_PATH =
+  "scripts/ai-hooks/classified-bun-scripts.generated.sh";
+export const GENERATED_HARNESS_CHECK_FIXTURE_MANIFEST_PATH =
+  "scripts/tests/harness-check-fixture-manifest.generated.txt";

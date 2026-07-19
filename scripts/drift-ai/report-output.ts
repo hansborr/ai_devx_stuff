@@ -1,6 +1,7 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync } from "node:fs";
 import path from "node:path";
 
+import { writeFileAtomicallySync } from "../lib/atomic-write.js";
 import {
   buildChunkManifest,
   chunkFilename,
@@ -17,7 +18,7 @@ import {
 export type ReportWriter = (path: string, contents: string) => void;
 
 export function defaultReportWriter(target: string, contents: string): void {
-  writeFileSync(target, contents);
+  writeFileAtomicallySync(target, contents);
 }
 
 export function writeReportOutputs(

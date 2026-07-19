@@ -1,28 +1,31 @@
 #!/usr/bin/env bun
 // Compact drift reports into a review queue and optional deterministic swarm packets.
 
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
+import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
-import { triageGeneratedArtifactExclusions } from "./drift-ai/triage-packet-staleness.js";
-import type { TriagePacketBundle } from "./drift-ai/triage-packet-types.js";
-import { buildTriagePackets } from "./drift-ai/triage-packets.js";
-import { buildTriageReport, type TriageReport } from "./drift-ai/triage-report.js";
-import { formatTriageText } from "./drift-ai/triage-report-text.js";
-import { runDriftTriageCollect, type RunDriftTriageCollectResult } from "./drift-triage-collect.js";
-import { loadTriageInputs } from "./drift-triage-inputs.js";
+import { triageGeneratedArtifactExclusions } from "./drift-ai/scan-provenance.js";
+import {
+  runDriftTriageCollect,
+  type RunDriftTriageCollectResult,
+} from "./drift-triage/drift-triage-collect.js";
+import { loadTriageInputs } from "./drift-triage/drift-triage-inputs.js";
 import {
   DriftTriageError,
   DriftTriageHelp,
   type DriftTriageOptions,
   parseArgs,
-} from "./drift-triage-options.js";
+} from "./drift-triage/drift-triage-options.js";
 import {
   type RepoProvenance,
   resolveRepoProvenance,
   writePacketBundle,
-} from "./drift-triage-packet-io.js";
+} from "./drift-triage/drift-triage-packet-io.js";
+import type { TriagePacketBundle } from "./drift-triage/triage-packet-types.js";
+import { buildTriagePackets } from "./drift-triage/triage-packets.js";
+import { buildTriageReport, type TriageReport } from "./drift-triage/triage-report.js";
+import { formatTriageText } from "./drift-triage/triage-report-text.js";
+import { ensureDirWriteFileAtomicallySync } from "./lib/atomic-write.js";
 
 const TOOL_ERROR_EXIT_CODE = 2;
 const JSON_INDENT_SPACES = 2;
@@ -51,7 +54,7 @@ type DeliveryContext = {
   readonly readSourceFile: (filePath: string) => string | null;
 };
 
-export { parseArgs } from "./drift-triage-options.js";
+export { parseArgs } from "./drift-triage/drift-triage-options.js";
 
 export function runDriftTriageCommand(
   options: RunDriftTriageOptions,
@@ -170,8 +173,7 @@ function defaultReadFile(filePath: string): string {
 }
 
 function defaultWriteFile(filePath: string, contents: string): void {
-  mkdirSync(dirname(filePath), { recursive: true });
-  writeFileSync(filePath, contents);
+  ensureDirWriteFileAtomicallySync(filePath, contents);
 }
 
 function describeError(error: unknown): string {

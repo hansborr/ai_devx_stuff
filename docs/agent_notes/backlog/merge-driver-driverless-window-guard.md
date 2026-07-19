@@ -3,8 +3,8 @@
 Status: Ready — low priority.
 Date: 2026-07-16
 Source: the merge-driver field exercise (drain
-leaf 2.2, findings in
-[`merge-driver-field-exercise-findings.md`](./merge-driver-field-exercise-findings.md)).
+leaf 2.2; the exercise and findings notes were closed Done and removed at
+the 2026-07-19 triage — recoverable from git history).
 Size: S.
 
 ## Evidence

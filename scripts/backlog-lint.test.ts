@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { runBacklogLint } from "./backlog-lint.js";
+import { parseCliArgs, runBacklogLint } from "./backlog-lint.js";
 import { BACKLOG_LINT_SECTION_TITLES, formatBacklogLintResult } from "./backlog-lint-format.js";
 import type { BacklogLintFinding, BacklogLintFindingKind } from "./backlog-lint-types.js";
 
@@ -303,6 +303,60 @@ describe("runBacklogLint", () => {
     });
 
     expect(result.findings.map((finding) => finding.kind)).toEqual(["missing-date"]);
+  });
+});
+
+// Characterization tests (arch-plans-2026-07 leaf 02, S0): pin the CURRENT
+// backlog-lint CLI parser contract before any migration onto parseCli(spec).
+// Pinned quirks: no --help handling (help flags are unknown arguments), bare
+// `--` tokens are skipped, no inline `--name=value` form, any parse problem
+// collapses to `undefined` (the entrypoint prints usage to stderr and exits 2),
+// and path values may not start with `-`.
+describe("parseCliArgs (backlog-lint CLI)", () => {
+  it("returns an empty options object for an empty argv", () => {
+    expect(parseCliArgs([])).toEqual({});
+  });
+
+  it("applies toggles and skips bare -- tokens", () => {
+    expect(parseCliArgs(["--", "--no-stale", "--require-front-matter", "--"])).toEqual({
+      checkStaleness: false,
+      requireFrontMatter: true,
+    });
+  });
+
+  it("reads valued options in the separate form only", () => {
+    expect(parseCliArgs(["--backlog-dir", "docs/x", "--stale-months", "3"])).toEqual({
+      backlogDir: "docs/x",
+      staleMonths: 3,
+    });
+    expect(parseCliArgs(["--backlog-dir=docs/x"])).toBeUndefined();
+  });
+
+  it("accumulates repeated --file values and last-wins repeated scalars", () => {
+    expect(parseCliArgs(["--file", "a.md", "--file", "b.md"])).toEqual({
+      filePaths: ["a.md", "b.md"],
+    });
+    expect(parseCliArgs(["--stale-months", "3", "--stale-months", "9"])).toEqual({
+      staleMonths: 9,
+    });
+  });
+
+  it("rejects non-positive or non-integer --stale-months values", () => {
+    expect(parseCliArgs(["--stale-months", "0"])).toBeUndefined();
+    expect(parseCliArgs(["--stale-months", "1.5"])).toBeUndefined();
+    expect(parseCliArgs(["--stale-months"])).toBeUndefined();
+  });
+
+  it("rejects path values that are missing or start with a dash", () => {
+    expect(parseCliArgs(["--backlog-dir"])).toBeUndefined();
+    expect(parseCliArgs(["--file", "--no-stale"])).toBeUndefined();
+  });
+
+  it("rejects unknown arguments, positionals, empty args, and help flags", () => {
+    expect(parseCliArgs(["--nope"])).toBeUndefined();
+    expect(parseCliArgs(["positional"])).toBeUndefined();
+    expect(parseCliArgs([""])).toBeUndefined();
+    expect(parseCliArgs(["--help"])).toBeUndefined();
   });
 });
 

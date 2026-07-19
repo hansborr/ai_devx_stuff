@@ -5,7 +5,7 @@
 # smoke-subjects: tools/lint-ratchet/src/kernel/eslint-config.ts
 # smoke-subjects: tools/lint-ratchet/src/kernel/baseline.ts
 # smoke-subjects: scripts/lint-ratchet/lint-ratchet-config.ts
-# smoke-subjects: tools/lint-ratchet/src/kernel/metrics.ts
+# smoke-subjects: tools/lint-ratchet/src/kernel/metrics-types.ts
 # smoke-subjects: scripts/lint-ratchet/paths.ts
 # smoke-subjects: tools/lint-ratchet/src/kernel/rule-source.ts
 # smoke-subjects: tools/lint-ratchet/src/kernel/runtime-config.ts

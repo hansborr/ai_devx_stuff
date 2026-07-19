@@ -4,7 +4,7 @@ import { pathToFileURL } from "node:url";
 
 import { forwardMissingMergeDriverWarning } from "@musi/lint-ratchet/git-rail/merge-driver-presence.js";
 import { WorseBaselineError } from "@musi/lint-ratchet/governance/errors.js";
-import { ConfigError } from "@musi/lint-ratchet/kernel/metrics.js";
+import { ConfigError } from "@musi/lint-ratchet/kernel/metrics-types.js";
 
 import { parseArgs, PROCESS_ARG_OFFSET, usage, UsageError } from "./lint-ratchet/cli.js";
 import { type LintRatchetRuntimeOptions, runLintRatchetCli } from "./lint-ratchet/modes.js";

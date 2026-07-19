@@ -8,7 +8,7 @@ import { ruleNamespace } from "./baseline.js";
 import { normalizeRuleOptions, normalizeStringList } from "./baseline-hash.js";
 import type { LintRatchetConfig } from "./config-types.js";
 import { type LintRatchetEngineBinding, safeRatchetId } from "./engine-context.js";
-import { ConfigError } from "./metrics.js";
+import { ConfigError } from "./metrics-types.js";
 import { localRuleName, localRulePath, thirdPartySupportFor } from "./rule-source.js";
 import { assertNever, ratchetParserProfile, ratchetSource } from "./runtime-config.js";
 

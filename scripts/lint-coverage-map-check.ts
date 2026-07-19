@@ -2,8 +2,10 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { matchesRatchet } from "@musi/lint-ratchet/kernel/ratchet-globs.js";
+import { z } from "zod";
 
 import { configSurfaceEntries as defaultConfigSurfaceEntries } from "../eslint-config/config-surfaces.js";
+import { parseCli } from "./lib/cli.js";
 import {
   collectEslintReachFindings,
   createEslintReachChecker,
@@ -150,21 +152,44 @@ async function buildSuggestionLines(
   });
 }
 
-function parseCliArgs(args: readonly string[]): LintCoverageMapCheckOptions | undefined {
-  const allowed = new Set(["--staged", "--check-eslint-reach", "--suggest"]);
-  const flags = args.filter((arg) => arg !== "--");
-  if (flags.every((arg) => allowed.has(arg))) {
-    const staged = flags.includes("--staged");
+const cliFlagsSchema = z.object({
+  "--staged": z.boolean().default(false),
+  "--check-eslint-reach": z.boolean().default(false),
+  "--suggest": z.boolean().default(false),
+});
+
+// Exported for the S0 characterization tests of arch-plans-2026-07 leaf 02;
+// the CLI entrypoint below remains the only runtime caller. Contract (pinned):
+// bare `--` tokens are filtered, any other unexpected token (positional, help
+// flag, inline value) writes the usage line to stderr and returns undefined,
+// and --check-eslint-reach is dropped when --staged is present.
+export function parseCliArgs(args: readonly string[]): LintCoverageMapCheckOptions | undefined {
+  try {
+    const parsed = parseCli({
+      argv: args.filter((arg) => arg !== "--"),
+      usage: "",
+      createError: (message) => new Error(message),
+      options: [
+        { name: "--staged", kind: "flag" },
+        { name: "--check-eslint-reach", kind: "flag" },
+        { name: "--suggest", kind: "flag" },
+      ],
+      schema: cliFlagsSchema,
+    });
+    const stray = parsed.positionals[0];
+    if (stray !== undefined) throw new Error(`unexpected argument: ${stray}`);
+    const staged = parsed.options["--staged"];
     return {
       staged,
-      checkEslintReach: flags.includes("--check-eslint-reach") && !staged,
-      suggest: flags.includes("--suggest"),
+      checkEslintReach: parsed.options["--check-eslint-reach"] && !staged,
+      suggest: parsed.options["--suggest"],
     };
+  } catch {
+    process.stderr.write(
+      "usage: lint-coverage-map-check.ts [--check-eslint-reach] [--staged] [--suggest]\n",
+    );
+    return undefined;
   }
-  process.stderr.write(
-    "usage: lint-coverage-map-check.ts [--check-eslint-reach] [--staged] [--suggest]\n",
-  );
-  return undefined;
 }
 
 const invokedPath = process.argv[1] === undefined ? "" : resolve(process.argv[1]);

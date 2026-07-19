@@ -1,15 +1,8 @@
 import { createHash } from "node:crypto";
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  realpathSync,
-  rmSync,
-  unlinkSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, unlinkSync } from "node:fs";
 import path from "node:path";
 
+import { writeFileAtomicallySync } from "../lib/atomic-write.js";
 import { CODE_INTEL_DAEMON_PROTOCOL_VERSION } from "./daemon-protocol.js";
 import { CodeIntelError } from "./errors.js";
 import { isRecord } from "./json-utils.js";
@@ -66,10 +59,15 @@ export function ensureStateDir(paths: DaemonStatePaths): void {
   mkdirSync(paths.stateDir, { recursive: true });
 }
 
+// Metadata + pidfile are each replaced atomically; the pair itself is
+// still a two-file publication (pair atomicity is a non-goal).
 export function writeDaemonMetadata(paths: DaemonStatePaths, metadata: DaemonMetadata): void {
   ensureStateDir(paths);
-  writeFileSync(paths.metadataPath, `${JSON.stringify(metadata, null, METADATA_INDENT)}\n`, "utf8");
-  writeFileSync(paths.pidPath, `${String(metadata.pid)}\n`, "utf8");
+  writeFileAtomicallySync(
+    paths.metadataPath,
+    `${JSON.stringify(metadata, null, METADATA_INDENT)}\n`,
+  );
+  writeFileAtomicallySync(paths.pidPath, `${String(metadata.pid)}\n`);
 }
 
 export function readDaemonMetadata(paths: DaemonStatePaths): DaemonMetadata | undefined {

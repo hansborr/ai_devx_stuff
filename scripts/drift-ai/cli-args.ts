@@ -1,5 +1,6 @@
-import { requireArgAllowingEmpty as requireArg } from "../cli-option-values.js";
-import { optionName, readFormat, readPath, readValue } from "./arg-readers.js";
+import { z } from "zod";
+
+import { parseCli } from "../lib/cli.js";
 import { ALL_CHECKS, CHECK_USAGE, DEFAULT_CHECKS } from "./check-metadata.js";
 import { DriftAiError } from "./errors.js";
 import { PROTOTYPE_ROOT_USAGE_LINES } from "./prototype-subcommand-definitions.js";
@@ -57,221 +58,80 @@ function usage(): string {
   ].join("\n");
 }
 
-type ParsedCliOptions = {
-  scopeMode: CliOptions["scopeMode"];
-  base: string;
-  baseExplicit: boolean;
-  format: CliOptions["format"];
-  roots: string[];
-  configPath?: string;
-  outputPath?: string;
-  chunkDir?: string;
-  chunkSize?: number;
-  jscpdBin?: string;
-  knipConfig?: string;
-  tsconfig?: string;
-  requested: DriftCheckId[];
-  allRequested: boolean;
-  includeScope: boolean;
-  failOnFindings: boolean;
-  failOnRuntimeCycles: boolean;
-};
+const cliOptionsSchema = z.object({
+  "--scope": z
+    .enum(["changed", "current"], { error: "--scope requires changed or current." })
+    .default(DEFAULT_SCOPE_MODE),
+  "--base": z.string().optional(),
+  "--check": z.array(z.string()).default([]),
+  "--root": z.array(z.string()).default([]),
+  "--config": z.string().optional(),
+  "--format": z
+    .enum(["text", "json"], { error: "--format requires text or json." })
+    .default("text"),
+  "--output": z.string().optional(),
+  "--chunk-dir": z.string().optional(),
+  "--chunk-size": z
+    .string()
+    .regex(/^[1-9]\d*$/u, { error: "--chunk-size requires a positive integer." })
+    .transform(Number)
+    .optional(),
+  "--jscpd-bin": z.string().optional(),
+  "--knip-config": z.string().optional(),
+  "--tsconfig": z.string().optional(),
+  "--include-scope": z.boolean().default(false),
+  "--fail-on-findings": z.boolean().default(false),
+  "--fail-on-runtime-cycles": z.boolean().default(false),
+});
 
-function initialParsedOptions(): ParsedCliOptions {
+function booleanFlag(name: string): {
+  readonly name: string;
+  readonly kind: "flag";
+  readonly inlineValueErrorMessage: string;
+} {
   return {
-    scopeMode: DEFAULT_SCOPE_MODE,
-    base: DEFAULT_BASE,
-    baseExplicit: false,
-    format: "text",
-    roots: [],
-    requested: [],
-    allRequested: false,
-    includeScope: false,
-    failOnFindings: false,
-    failOnRuntimeCycles: false,
+    name,
+    kind: "flag" as const,
+    inlineValueErrorMessage: `${name} does not accept a value.`,
   };
 }
 
-function parseScopeOption(
-  arg: string,
-  argv: readonly string[],
-  index: number,
-  parsed: ParsedCliOptions,
-): number | undefined {
-  const option = readValue(arg, argv, index, usage());
-  if (option.value !== "changed" && option.value !== "current") {
-    throw new DriftAiError("--scope requires changed or current.");
+// `--check` values resolve tool-side (not in the schema) so the exact
+// `Unknown check: <value>\n<usage>` diagnostic and the dedupe-preserving-order
+// accumulation stay byte-identical to the hand parser.
+function resolveRequestedChecks(values: readonly string[]): {
+  requested: DriftCheckId[];
+  allRequested: boolean;
+} {
+  const requested: DriftCheckId[] = [];
+  let allRequested = false;
+  for (const value of values) {
+    if (value === "all") {
+      allRequested = true;
+      continue;
+    }
+    if (!isCheckId(value)) throw new DriftAiError(`Unknown check: ${value}\n${usage()}`);
+    if (!requested.includes(value)) requested.push(value);
   }
-  parsed.scopeMode = option.value;
-  return option.nextIndex;
+  return { requested, allRequested };
 }
 
-function parsePathOption(
-  arg: string,
-  argv: readonly string[],
-  index: number,
-  parsed: ParsedCliOptions,
-): number | undefined {
-  const name = optionName(arg);
-  const option = readValue(arg, argv, index, usage());
-  if (!option.value) {
-    throw new DriftAiError(
-      name === "--base" ? "--base requires a ref." : `${name} requires a path.`,
-    );
-  }
-  if (name === "--base") {
-    parsed.base = option.value;
-    parsed.baseExplicit = true;
-  } else if (name === "--root") {
-    parsed.roots.push(option.value);
-  } else {
-    parsed.configPath = option.value;
-  }
-  return option.nextIndex;
-}
+type ParsedDriftAiOptions = z.output<typeof cliOptionsSchema>;
 
-function parseOutputOption(
-  arg: string,
-  argv: readonly string[],
-  index: number,
-  parsed: ParsedCliOptions,
-): number | undefined {
-  if (optionName(arg) === "--format") {
-    const option = readValue(arg, argv, index, usage());
-    parsed.format = readFormat(option.value);
-    return option.nextIndex;
-  }
-  const option = readValue(arg, argv, index, usage());
-  parsed.outputPath = readPath("--output", option.value);
-  return option.nextIndex;
-}
-
-function parseChunkOption(
-  arg: string,
-  argv: readonly string[],
-  index: number,
-  parsed: ParsedCliOptions,
-): number | undefined {
-  if (optionName(arg) === "--chunk-dir") {
-    const option = readValue(arg, argv, index, usage());
-    parsed.chunkDir = readPath("--chunk-dir", option.value);
-    return option.nextIndex;
-  }
-  const option = readValue(arg, argv, index, usage());
-  if (!/^[1-9]\d*$/u.test(option.value)) {
-    throw new DriftAiError("--chunk-size requires a positive integer.");
-  }
-  parsed.chunkSize = Number(option.value);
-  return option.nextIndex;
-}
-
-// Single-valued tool/path options that just stash a path on `parsed`: --jscpd-bin,
-// --knip-config, --tsconfig. They share the read-value-or-error shape, so one
-// parser keyed by option name keeps them DRY.
-function parseToolPathOption(
-  arg: string,
-  argv: readonly string[],
-  index: number,
-  parsed: ParsedCliOptions,
-): number | undefined {
-  const name = optionName(arg);
-  const option = readValue(arg, argv, index, usage());
-  const pathValue = readPath(name, option.value);
-  if (name === "--jscpd-bin") parsed.jscpdBin = pathValue;
-  else if (name === "--knip-config") parsed.knipConfig = pathValue;
-  else parsed.tsconfig = pathValue;
-  return option.nextIndex;
-}
-
-// Valueless boolean flags (present = true): --include-scope, --fail-on-findings,
-// --fail-on-runtime-cycles. One parser keyed by option name keeps them DRY
-// alongside the declarative OPTION_PARSERS table, mirroring parseToolPathOption
-// for the single-value paths.
-function parseBooleanFlag(
-  arg: string,
-  _argv: readonly string[],
-  index: number,
-  parsed: ParsedCliOptions,
-): number | undefined {
-  const name = optionName(arg);
-  if (arg !== name) throw new DriftAiError(`${name} does not accept a value.`);
-  if (name === "--include-scope") parsed.includeScope = true;
-  else if (name === "--fail-on-findings") parsed.failOnFindings = true;
-  else if (name === "--fail-on-runtime-cycles") parsed.failOnRuntimeCycles = true;
-  // An unhandled name falls through to parseArgs' unknown-argument error rather
-  // than silently arming the wrong flag if a future boolean flag forgets a branch.
-  else return undefined;
-  return index;
-}
-
-function parseCheckOption(
-  arg: string,
-  argv: readonly string[],
-  index: number,
-  parsed: ParsedCliOptions,
-): number | undefined {
-  const option = readValue(arg, argv, index, usage());
-  if (!option.value) {
-    throw new DriftAiError(`--check requires ${CHECK_USAGE.replace(/\|/gu, ", ")}.`);
-  }
-  if (option.value === "all") {
-    parsed.allRequested = true;
-    return option.nextIndex;
-  }
-  if (!isCheckId(option.value))
-    throw new DriftAiError(`Unknown check: ${option.value}\n${usage()}`);
-  if (!parsed.requested.includes(option.value)) parsed.requested.push(option.value);
-  return option.nextIndex;
-}
-
-type OptionParser = (
-  arg: string,
-  argv: readonly string[],
-  index: number,
-  parsed: ParsedCliOptions,
-) => number | undefined;
-
-const OPTION_PARSERS: Readonly<Record<string, OptionParser>> = {
-  "--scope": parseScopeOption,
-  "--base": parsePathOption,
-  "--check": parseCheckOption,
-  "--root": parsePathOption,
-  "--config": parsePathOption,
-  "--format": parseOutputOption,
-  "--output": parseOutputOption,
-  "--chunk-dir": parseChunkOption,
-  "--chunk-size": parseChunkOption,
-  "--jscpd-bin": parseToolPathOption,
-  "--knip-config": parseToolPathOption,
-  "--tsconfig": parseToolPathOption,
-  "--include-scope": parseBooleanFlag,
-  "--fail-on-findings": parseBooleanFlag,
-  "--fail-on-runtime-cycles": parseBooleanFlag,
-};
-
-function parseKnownOption(
-  arg: string,
-  argv: readonly string[],
-  index: number,
-  parsed: ParsedCliOptions,
-): number | undefined {
-  return OPTION_PARSERS[optionName(arg)]?.(arg, argv, index, parsed);
-}
-
-function validateScopeOptions(parsed: ParsedCliOptions): void {
-  if (parsed.scopeMode === "current" && parsed.baseExplicit) {
+function validateScopeOptions(parsed: ParsedDriftAiOptions): void {
+  if (parsed["--scope"] === "current" && parsed["--base"] !== undefined) {
     throw new DriftAiError(
       "--scope current does not accept --base; current scope has no merge base.",
     );
   }
-  if (parsed.scopeMode === "changed" && parsed.roots.length > 0) {
+  if (parsed["--scope"] === "changed" && parsed["--root"].length > 0) {
     throw new DriftAiError("--root is only valid with --scope current.");
   }
 }
 
-function validateChunkOptions(parsed: ParsedCliOptions): void {
-  if (parsed.chunkSize === undefined) return;
-  if (parsed.chunkDir === undefined) {
+function validateChunkOptions(parsed: ParsedDriftAiOptions): void {
+  if (parsed["--chunk-size"] === undefined) return;
+  if (parsed["--chunk-dir"] === undefined) {
     throw new DriftAiError("--chunk-size is only valid with --chunk-dir.");
   }
 }
@@ -279,60 +139,91 @@ function validateChunkOptions(parsed: ParsedCliOptions): void {
 // The runtime-cycle gate is meaningless when the run never dispatches the
 // import-cycles check (it is opt-in, so a bare run excludes it); reject that
 // instead of letting a misconfigured gate pass green forever.
-function validateRuntimeCycleGate(parsed: ParsedCliOptions): void {
-  if (!parsed.failOnRuntimeCycles) return;
-  if (!resolveChecks(parsed).includes("import-cycles")) {
+function validateRuntimeCycleGate(
+  parsed: ParsedDriftAiOptions,
+  checks: readonly DriftCheckId[],
+): void {
+  if (!parsed["--fail-on-runtime-cycles"]) return;
+  if (!checks.includes("import-cycles")) {
     throw new DriftAiError(
       "--fail-on-runtime-cycles requires --check import-cycles (or --check all).",
     );
   }
 }
 
-function resolveChecks(parsed: ParsedCliOptions): DriftCheckId[] {
-  if (parsed.allRequested) return [...ALL_CHECKS];
-  if (parsed.requested.length === 0) return [...DEFAULT_CHECKS];
-  return parsed.requested;
-}
-
-function cliOptionsFromParsed(parsed: ParsedCliOptions): CliOptions {
-  return {
-    scopeMode: parsed.scopeMode,
-    base: parsed.base,
-    baseExplicit: parsed.baseExplicit,
-    checks: resolveChecks(parsed),
-    format: parsed.format,
-    roots: parsed.roots,
-    ...(parsed.configPath === undefined ? {} : { configPath: parsed.configPath }),
-    ...(parsed.outputPath === undefined ? {} : { outputPath: parsed.outputPath }),
-    ...(parsed.chunkDir === undefined
-      ? {}
-      : { chunkDir: parsed.chunkDir, chunkSize: parsed.chunkSize ?? DEFAULT_CHUNK_SIZE }),
-    ...(parsed.jscpdBin === undefined ? {} : { jscpdBin: parsed.jscpdBin }),
-    ...(parsed.knipConfig === undefined ? {} : { knipConfig: parsed.knipConfig }),
-    ...(parsed.tsconfig === undefined ? {} : { tsconfig: parsed.tsconfig }),
-    includeScope: parsed.includeScope,
-    failOnFindings: parsed.failOnFindings,
-    failOnRuntimeCycles: parsed.failOnRuntimeCycles,
-  };
-}
-
 export function parseArgs(argv: readonly string[]): CliOptions {
-  const parsed = initialParsedOptions();
-
-  for (let index = 0; index < argv.length; index += 1) {
-    const arg = requireArg(argv[index], (message) => {
-      throw new DriftAiError(message);
-    });
-    if (arg === "--help" || arg === "-h") {
+  const { options, positionals } = parseCli({
+    argv,
+    usage: usage(),
+    createError: (message) => new DriftAiError(message),
+    // Empty-string args flow through to the unknown-argument rejection below,
+    // matching the hand parser's requireArgAllowingEmpty behavior.
+    allowEmptyArgs: true,
+    onHelp: () => {
       throw new DriftAiHelp();
-    }
-    const nextIndex = parseKnownOption(arg, argv, index, parsed);
-    if (nextIndex === undefined) throw new DriftAiError(`Unknown argument: ${arg}\n${usage()}`);
-    index = nextIndex;
-  }
+    },
+    options: [
+      { name: "--scope", kind: "value" },
+      { name: "--base", kind: "value" },
+      { name: "--check", kind: "value", repeatable: true },
+      { name: "--root", kind: "value", repeatable: true },
+      { name: "--config", kind: "value" },
+      { name: "--format", kind: "value" },
+      { name: "--output", kind: "value" },
+      { name: "--chunk-dir", kind: "value" },
+      { name: "--chunk-size", kind: "value" },
+      { name: "--jscpd-bin", kind: "value" },
+      { name: "--knip-config", kind: "value" },
+      { name: "--tsconfig", kind: "value" },
+      booleanFlag("--include-scope"),
+      booleanFlag("--fail-on-findings"),
+      booleanFlag("--fail-on-runtime-cycles"),
+    ],
+    schema: cliOptionsSchema,
+  });
 
-  validateScopeOptions(parsed);
-  validateChunkOptions(parsed);
-  validateRuntimeCycleGate(parsed);
-  return cliOptionsFromParsed(parsed);
+  // drift:ai's main command takes no positionals; subcommand routing happens
+  // before parseArgs in the entrypoint.
+  const stray = positionals[0];
+  if (stray !== undefined) throw new DriftAiError(`Unknown argument: ${stray}\n${usage()}`);
+
+  const checks = resolveChecks(options["--check"]);
+  validateScopeOptions(options);
+  validateChunkOptions(options);
+  validateRuntimeCycleGate(options, checks);
+  return cliOptionsFromParsed(options, checks);
+}
+
+function resolveChecks(values: readonly string[]): DriftCheckId[] {
+  const { requested, allRequested } = resolveRequestedChecks(values);
+  if (allRequested) return [...ALL_CHECKS];
+  if (requested.length === 0) return [...DEFAULT_CHECKS];
+  return requested;
+}
+
+function cliOptionsFromParsed(
+  options: ParsedDriftAiOptions,
+  checks: readonly DriftCheckId[],
+): CliOptions {
+  const base = options["--base"];
+  const chunkDir = options["--chunk-dir"];
+  return {
+    scopeMode: options["--scope"],
+    base: base ?? DEFAULT_BASE,
+    baseExplicit: base !== undefined,
+    checks,
+    format: options["--format"],
+    roots: options["--root"],
+    ...(options["--config"] === undefined ? {} : { configPath: options["--config"] }),
+    ...(options["--output"] === undefined ? {} : { outputPath: options["--output"] }),
+    ...(chunkDir === undefined
+      ? {}
+      : { chunkDir, chunkSize: options["--chunk-size"] ?? DEFAULT_CHUNK_SIZE }),
+    ...(options["--jscpd-bin"] === undefined ? {} : { jscpdBin: options["--jscpd-bin"] }),
+    ...(options["--knip-config"] === undefined ? {} : { knipConfig: options["--knip-config"] }),
+    ...(options["--tsconfig"] === undefined ? {} : { tsconfig: options["--tsconfig"] }),
+    includeScope: options["--include-scope"],
+    failOnFindings: options["--fail-on-findings"],
+    failOnRuntimeCycles: options["--fail-on-runtime-cycles"],
+  };
 }

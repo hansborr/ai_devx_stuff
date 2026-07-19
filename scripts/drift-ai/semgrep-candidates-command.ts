@@ -16,14 +16,17 @@ import { DriftAiError } from "./errors.js";
 import type { GitRunner } from "./git-changed-scope.js";
 import { prepareCurrentRun } from "./prepare-run.js";
 import {
-  capturePrototypeScanSnapshot,
-  completedScanProvenance,
   currentPrototypeCliOptions,
   finishPrototypeCommand,
   renderPrototypeAdvisory,
   runPrototypeCommand,
 } from "./prototype-command.js";
 import type { ReportWriter } from "./report-output.js";
+import {
+  capturePrototypeScanSnapshot,
+  completedScanProvenance,
+  triageGeneratedArtifactExclusions,
+} from "./scan-provenance.js";
 import {
   buildSemgrepAdvisory,
   formatSemgrepAdvisoryJson,
@@ -46,7 +49,6 @@ import {
   type SemgrepRunnerResult,
   semgrepScanExcludeGlobs,
 } from "./semgrep-runner.js";
-import { triageGeneratedArtifactExclusions } from "./triage-packet-staleness.js";
 
 export type SemgrepCandidatesRunOptions = {
   readonly argv: readonly string[];

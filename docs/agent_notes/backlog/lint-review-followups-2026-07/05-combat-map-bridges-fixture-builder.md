@@ -1,6 +1,12 @@
 # 05 — combat-map-bridges test fixture builder
 
-Status: Ready
+Status: Superseded — 2026-07-19 by `../arch-plans-2026-07/06-turn-movement-server-origin.md`.
+The `useMovementTracking` hook suite this leaf schedules a fixture
+builder for was deleted when turn movement moved to the
+server-authoritative origin (the hook, its six `renderHook` tests, and
+`combat-map-bridges.test.ts` itself no longer exist); the replacement
+selector tests in `turn-movement.test.ts` already use small local
+builders. Nothing left to do.
 Track: C (client) · Priority: P3 · Size: S
 
 ## Evidence (verified 2026-07-15 on feat/lint-adoption-2026-07 pre-land; re-verify before implementing)

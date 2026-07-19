@@ -21,7 +21,7 @@ import type {
 } from "./group-baseline.js";
 import type { ItemMergeOutcome } from "./item-merge.js";
 import { metricStrategy } from "./metric-strategies.js";
-import type { LintRatchetMetricItem } from "./metrics.js";
+import type { LintRatchetMetricItem } from "./metrics-types.js";
 
 export type { LintRatchetBaselineGroupMeta } from "./baseline-spec-parse.js";
 

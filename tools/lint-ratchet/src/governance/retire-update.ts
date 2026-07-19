@@ -11,7 +11,7 @@ import {
   relativeToRepoRoot,
 } from "@musi/lint-ratchet/kernel/engine-context.js";
 import { trackedFilesFromGit } from "@musi/lint-ratchet/kernel/git-tracked-files.js";
-import { ConfigError } from "@musi/lint-ratchet/kernel/metrics.js";
+import { ConfigError } from "@musi/lint-ratchet/kernel/metrics-types.js";
 import { ESLint } from "eslint";
 
 import {

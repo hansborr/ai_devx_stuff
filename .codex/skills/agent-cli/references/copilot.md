@@ -4,8 +4,7 @@ Verified against GitHub Copilot CLI 1.0.68. Requires a logged-in account (`copil
 
 ## Model catalog (`-m` is wrapper-required)
 
-- `gemini-3.5-flash` — default consult pick: not served by claude or codex; fast, cheap, useful for fresh-angle reviews and idea generation.
-- `gemini-3.1-pro-preview` — strongest non-Claude/non-GPT option for a heavyweight second opinion.
+- `gemini-3.5-flash` — the Gemini pick: not served by claude or codex; fast, cheap, useful for fresh-angle reviews and idea generation.
 - `kimi-k2.7-code` — another off-family perspective; no effort support.
 - `mai-code-1-flash-picker` — cheap and not very capable; only for delegating very simple mechanical tasks, never judgment calls.
 - `gpt-5.5`, `gpt-5.4`, `gpt-5.3-codex`, `gpt-5.4-mini`, `gpt-5-mini` — Codex's own family: no second opinion for a Codex caller, and a Claude Code caller wanting GPT should use `consult codex` (better-tuned native harness).

@@ -3,6 +3,7 @@
 # smoke-subjects: scripts/lint-agent.ts
 # smoke-subjects: scripts/lint-agent-envelope.ts
 # smoke-subjects: scripts/lint-agent-guidance.ts
+# smoke-subjects: scripts/lib/atomic-write.ts
 # smoke-subjects: scripts/lib/lint-rule-docs.ts
 # smoke-subjects: scripts/lib/eslint-main-cache.sh
 # smoke-subjects: scripts/tests/test-lint-agent.sh
@@ -45,6 +46,7 @@ build_fixture() {
   # lint-agent imports @musi/lint-ratchet/kernel/eslint-json (leaf 02 S3); the
   # whole-node_modules symlink below carries the workspace .bun store, so Bun
   # resolves the package there — no leaf copy needed.
+  cp scripts/lib/atomic-write.ts "$fixture_dir/scripts/lib/atomic-write.ts"
   cp scripts/lib/lint-rule-docs.ts "$fixture_dir/scripts/lib/lint-rule-docs.ts"
   cp scripts/lib/eslint-main-cache.sh "$fixture_dir/scripts/lib/eslint-main-cache.sh"
   cp scripts/lint-ratchet/local-rule-fix-text.ts \

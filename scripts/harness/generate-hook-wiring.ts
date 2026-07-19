@@ -1,11 +1,14 @@
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { compareByCodepoint } from "@musi/lint-ratchet/kernel/codepoint-compare.js";
 
+import { ensureDirWriteFileAtomicallySync } from "../lib/atomic-write.js";
 import { HARNESS_MANIFEST_FILENAME, readHarnessManifest } from "./harness-manifest.js";
 import { CLAUDE_SETTINGS_PATH, CODEX_HOOKS_PATH, COPILOT_HOOKS_PATH } from "./harness-paths.js";
+import { checkHookShimsOnDisk, writeHookShims } from "./hook-shim-files.js";
+import { deriveHookShims, type RenderedShim } from "./hook-shims.js";
 import {
   HOOK_EVENTS,
   type HookEvent,
@@ -261,6 +264,7 @@ export function renderHookWiringOutputsFromManifest(
   readonly claudeSettingsJson: string;
   readonly codexHooksJson: string;
   readonly copilotHooksJson: string;
+  readonly shims: readonly RenderedShim[];
 } {
   const hooks = collectHookWiring(manifest);
   const claudeHooks = renderHooksForHarness(hooks, "claude");
@@ -270,6 +274,7 @@ export function renderHookWiringOutputsFromManifest(
     claudeSettingsJson: replaceClaudeHooksInSettings(claudeSettingsText, claudeHooks),
     codexHooksJson: `${JSON.stringify({ hooks: codexHooks }, null, JSON_INDENT)}\n`,
     copilotHooksJson: `${JSON.stringify({ version: 1, hooks: copilotHooks }, null, JSON_INDENT)}\n`,
+    shims: deriveHookShims(hooks),
   };
 }
 
@@ -282,20 +287,14 @@ function readFileOrEmpty(path: string): string {
   }
 }
 
-function writeFileAtomic(path: string, contents: string): void {
-  const tempPath = `${path}.${String(process.pid)}.tmp`;
-  mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(tempPath, contents);
-  renameSync(tempPath, path);
-}
-
 export function writeHookWiringOutputs(
   outputs: ReturnType<typeof renderHookWiringOutputsFromManifest>,
-  paths = { claudeSettingsPath, codexHooksPath, copilotHooksPath },
+  paths = { claudeSettingsPath, codexHooksPath, copilotHooksPath, shimRootPath: repoRoot },
 ): void {
-  writeFileAtomic(paths.claudeSettingsPath, outputs.claudeSettingsJson);
-  writeFileAtomic(paths.codexHooksPath, outputs.codexHooksJson);
-  writeFileAtomic(paths.copilotHooksPath, outputs.copilotHooksJson);
+  ensureDirWriteFileAtomicallySync(paths.claudeSettingsPath, outputs.claudeSettingsJson);
+  ensureDirWriteFileAtomicallySync(paths.codexHooksPath, outputs.codexHooksJson);
+  ensureDirWriteFileAtomicallySync(paths.copilotHooksPath, outputs.copilotHooksJson);
+  writeHookShims(outputs.shims, paths.shimRootPath);
 }
 
 function parseArgs(args: readonly string[]): { readonly checkMode: boolean } {
@@ -316,6 +315,7 @@ function main(): void {
       ...(claudeSettingsText === outputs.claudeSettingsJson ? [] : [claudeSettingsPath]),
       ...(readFileOrEmpty(codexHooksPath) === outputs.codexHooksJson ? [] : [codexHooksPath]),
       ...(readFileOrEmpty(copilotHooksPath) === outputs.copilotHooksJson ? [] : [copilotHooksPath]),
+      ...checkHookShimsOnDisk(outputs.shims, repoRoot),
     ];
     if (stale.length === 0) {
       console.log("Generated hook wiring is up to date.");
@@ -326,7 +326,9 @@ function main(): void {
     return;
   }
   writeHookWiringOutputs(outputs);
-  console.log(`Wrote ${claudeSettingsPath} hooks, ${codexHooksPath}, and ${copilotHooksPath}.`);
+  console.log(
+    `Wrote ${claudeSettingsPath} hooks, ${codexHooksPath}, ${copilotHooksPath}, and ${String(outputs.shims.length)} adapter shims.`,
+  );
 }
 
 if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {

@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 
 import { compareByCodepoint } from "./codepoint-compare.js";
-import { ConfigError } from "./metrics.js";
+import { ConfigError } from "./metrics-types.js";
 
 export function trackedFilesFromGit(context: string, cwd: string): readonly string[] {
   try {

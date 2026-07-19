@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { LintRatchetConfig, LintRatchetMetric } from "./config-types.js";
 import type { ESLintMessage } from "./eslint-runner.js";
 import { metricStrategies, metricStrategy } from "./metric-strategies.js";
-import { ConfigError } from "./metrics.js";
+import { ConfigError } from "./metrics-types.js";
 
 function ratchet(overrides: Partial<LintRatchetConfig> = {}): LintRatchetConfig {
   return {

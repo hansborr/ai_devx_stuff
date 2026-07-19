@@ -8,7 +8,7 @@ import { computeCoreLintRatchetRuleSourceHash } from "./baseline.js";
 import type { LintRatchetConfig } from "./config-types.js";
 import type { LintRatchetEngineBinding } from "./engine-context.js";
 import { cacheKeyHashFor } from "./eslint-config.js";
-import { ConfigError } from "./metrics.js";
+import { ConfigError } from "./metrics-types.js";
 import {
   bareSpecifierPackageRoot,
   buildRuleSourceHashesById,

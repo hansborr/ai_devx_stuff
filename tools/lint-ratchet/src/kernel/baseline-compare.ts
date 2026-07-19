@@ -19,7 +19,7 @@ import {
 } from "./group-baseline.js";
 import type { MetricItemComparison } from "./metric-comparison.js";
 import { metricStrategy } from "./metric-strategies.js";
-import type { LintRatchetMetricItem } from "./metrics.js";
+import type { LintRatchetMetricItem } from "./metrics-types.js";
 import { removedPathImprovement } from "./removed-path-improvements.js";
 
 // Improvement reason vocabulary produced by the metric strategies. The report

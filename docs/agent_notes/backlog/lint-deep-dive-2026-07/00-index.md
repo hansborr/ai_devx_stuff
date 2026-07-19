@@ -42,7 +42,7 @@ deliberately not done. Branch short names: **gate** =
 | 23 | [Shared-collection design (4 spawns/gate)](./23-shared-collection-design.md) | P | L | med | 21, 22 measured first; DESIGN-GATED | Design recorded (option c: keep per-slot caching, do not build shared collection) — gate |
 | 40 | [Additive `no-restricted-syntax` composition](./40-restricted-syntax-additive-composition.md) | C | S+L | med | test first; builder DESIGN-GATED | Done step 1 (test) + design recorded step 2 (builder) — ergo |
 | 50 | [Suppression registers into the commit gate](./50-suppression-registers-into-commit-gate.md) | G | M | med-high | none · OWNER PRIORITY | Done steps 1+3; step 2 (ledger) design recorded, impl deferred — gate |
-| 70 | [Ratchet doc accuracy sweep + split decision](./70-ratchet-docs-accuracy-and-shape.md) | D | M | low-med | item 3 DESIGN-GATED | Done items 1-2 + design recorded item 3 (split) — rules |
+| 70 | Ratchet doc accuracy sweep + split decision | D | M | low-med | item 3 DESIGN-GATED | Done items 1-2 + design recorded item 3 (split) — rules |
 | 71 | [Portable engine context (milestone 2)](./71-portable-engine-context.md) | D | L | med | DESIGN-GATED; after 15 helps | Design recorded (keep in-tree, thread context; no extraction now) — rules |
 | 73 | [Lint-lane memory profile](./73-lint-lane-memory-profile.md) | P | M | high | measurement spike | Findings recorded — `auto/38-lint-memory-profile` |
 | 76 | [Partition the lint type program](./76-partition-lint-type-program.md) | P | M | med-high | 73; measurement first | Done — implemented 2026-07-14 (`d714f4ce`) |

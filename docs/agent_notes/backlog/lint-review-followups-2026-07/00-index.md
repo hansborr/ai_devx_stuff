@@ -21,13 +21,13 @@ Tracks: **S** sensors/gates · **T** tooling/config · **C** client.
 
 | # | Task | Track | Size | Priority | Status |
 | --- | --- | --- | --- | --- | --- |
-| 01 | [Baseline truth checks at integration boundaries](./01-integration-boundary-baseline-truth-checks.md) | S | M | P1 | Done — `99fe7815`/`164191b6`/`0cec8cd5`/`2e586eff` |
+| 01 | Baseline truth checks at integration boundaries | S | M | P1 | Done — `99fe7815`/`164191b6`/`0cec8cd5`/`2e586eff` |
 | 02 | [Near-duplicates detector v2: exact-clone tier + block detection](./02-near-duplicates-detector-v2.md) | S | L | P2 | Ready |
-| 03 | [Baseline admission artifact + rename migration](./03-baseline-admission-and-rename-migration.md) | S | M | P2 | Done — `4a260e12` |
-| 04 | [lint-message-eval: paired iteration delta](./04-lint-message-eval-paired-delta.md) | T | S | P3 | Done — `952d67eb` |
-| 05 | [combat-map-bridges test fixture builder](./05-combat-map-bridges-fixture-builder.md) | C | S | P3 | Ready |
-| 06 | [Compose structural ignore lists in shared-policy](./06-compose-structural-ignore-lists.md) | T | M | P3 | Done — `3f2ca4d2` |
-| 07 | [Near-duplicates gate honors configured thresholds](./07-gate-honors-configured-thresholds.md) | S | S | P2 | Done — `065266c4` |
+| 03 | Baseline admission artifact + rename migration | S | M | P2 | Done — `4a260e12` |
+| 04 | lint-message-eval: paired iteration delta | T | S | P3 | Done — `952d67eb` |
+| 05 | [combat-map-bridges test fixture builder](./05-combat-map-bridges-fixture-builder.md) | C | S | P3 | Superseded — arch-plans-2026-07/06 deleted the hook suite |
+| 06 | Compose structural ignore lists in shared-policy | T | M | P3 | Done — `3f2ca4d2` |
+| 07 | Near-duplicates gate honors configured thresholds | S | S | P2 | Done — `065266c4` |
 
 ## Recommended Order
 

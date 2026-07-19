@@ -7,6 +7,25 @@ Newest on top.
 
 ---
 
+## 2026-07-19 - Docs triage (7-partition workflow + adversarial verify)
+
+Triaged all 437 files under `docs/` with a 7-partition subagent workflow;
+every archive recommendation carried commit-level evidence and passed an
+adversarial verifier (60 approved, 7 rejected — the rejects were
+deliberately-retained records and one false no-references claim). Fully
+closed and removed: `harness-audit-2026-07/`, `harness-explore-2026-07/`,
+`harness-review-2026-07b/` (close-out summaries in `finished_work/`),
+`worktree-provisioning-2026-07/`, and `drift-triage-2026-07-06/`. Major
+trims: `harness-review-2026-07` (27→4), `lint-adoption-2026-07` (leaves
+11/13/20-25; 10 and 12 stay for live references), `lint-review-followups`
+(5 leaves), plus single leaves from `lint-deep-dive`, `testsuite-audit`,
+`harness-sweep`, `arch-review`, and `harness-strictness`. Eleven closed
+standalone notes retired (merge-driver field exercise set, useEffect
+research pair, drift-triage collapse, and others), and the closed DX5-DX8
+roadmap archive was removed. Stale index rows and README bullets (18/52/70
+residue claims, "pending integration" knip floor, arch #13) were truthed
+up; all inbound references now point at git history.
+
 ## 2026-07-13 - Agent-notes audit (5 parallel codex lanes)
 
 Audited every note under `agent_notes/` against `main` with five parallel

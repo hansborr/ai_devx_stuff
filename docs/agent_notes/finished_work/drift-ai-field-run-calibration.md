@@ -101,8 +101,10 @@ Finding:
 
 `tune`: keep `ghost-files` report-only/default-on behavior unchanged from this
 single focused run, but track the noun/agent role-pair class as follow-up
-evidence. A parked tuning note lives at
-`docs/agent_notes/backlog/drift-ai-ghost-files-agent-noun-pairs.md`.
+evidence. The parked tuning note
+(`drift-ai-ghost-files-agent-noun-pairs.md`) closed Done —
+`currentAllowedPairs` covers the pair — and was removed at the 2026-07-19
+triage (git history).
 
 ## 2026-06-05 - semgrep-candidates first calibration (Musi + 4-repo corpus, generic MIT pack)
 

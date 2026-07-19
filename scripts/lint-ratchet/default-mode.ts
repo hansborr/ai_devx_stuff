@@ -8,7 +8,7 @@ import {
   DEFAULT_COLLECT_CONCURRENCY,
   totalCurrentCount,
 } from "@musi/lint-ratchet/kernel/current-collector.js";
-import { ConfigError } from "@musi/lint-ratchet/kernel/metrics.js";
+import { ConfigError } from "@musi/lint-ratchet/kernel/metrics-types.js";
 import { REGRESSION_RECOVERY_FOOTER } from "@musi/lint-ratchet/kernel/recovery-command.js";
 import { buildRuleSourceHashesById } from "@musi/lint-ratchet/kernel/rule-source.js";
 import {

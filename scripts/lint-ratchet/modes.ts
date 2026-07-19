@@ -1,10 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 
 import { runBaselineDebtAccountingCheck } from "@musi/lint-ratchet/governance/baseline-debt-accounting-git.js";
-import {
-  applyLintRatchetUpdate,
-  type ApplyLintRatchetUpdateOptions,
-} from "@musi/lint-ratchet/governance/baseline-update-apply.js";
+import type { ApplyLintRatchetUpdateOptions } from "@musi/lint-ratchet/governance/baseline-update-apply.js";
 import { runLintRatchetDebtLogReport } from "@musi/lint-ratchet/governance/debt-log.js";
 import {
   discoverEditCheckTargets,
@@ -18,6 +15,12 @@ import {
   formatEditCheckTarget,
   parseEditCheckTargetLine,
 } from "@musi/lint-ratchet/governance/edit-check-protocol.js";
+import { BaselineParseError, MissingBaselineError } from "@musi/lint-ratchet/governance/errors.js";
+import {
+  type LintRatchetGateResult,
+  runLintRatchetGate,
+  runLintRatchetUpdate,
+} from "@musi/lint-ratchet/governance/operations.js";
 import {
   type LintRatchetProposeEngine,
   runLintRatchetProposeCli,
@@ -32,29 +35,15 @@ import {
   formatUndocumentedZeroBaselineFailure,
   runLintRatchetZeroBaselineAuditResult,
 } from "@musi/lint-ratchet/governance/zero-baseline.js";
-import {
-  buildLintRatchetBaseline,
-  compareCurrentToBaseline,
-  formatLintRatchetBaseline,
-  type LintRatchetBaseline,
-  type LintRatchetRuleSourceHashesById,
-  parseLintRatchetBaseline,
-  validateLintRatchetRegistry,
-} from "@musi/lint-ratchet/kernel/baseline.js";
-import {
-  collectCurrentById,
-  DEFAULT_COLLECT_CONCURRENCY,
-  totalCurrentCount,
-} from "@musi/lint-ratchet/kernel/current-collector.js";
-import { ConfigError } from "@musi/lint-ratchet/kernel/metrics.js";
-import { buildRuleSourceHashesById } from "@musi/lint-ratchet/kernel/rule-source.js";
+import { validateLintRatchetRegistry } from "@musi/lint-ratchet/kernel/baseline.js";
+import { ConfigError } from "@musi/lint-ratchet/kernel/metrics-types.js";
 
 import type { ParsedArgs } from "./cli.js";
 import { runDefault } from "./default-mode.js";
 import { assertCheckBaselineComparisonClean, loadRuleDocsById } from "./diagnostics.js";
 import { musiLintRatchetBinding, musiLintRatchetContext } from "./engine-binding.js";
 import { lintRatchets, lintRatchetThirdPartyPluginAllowlist } from "./lint-ratchet-config.js";
-import { baselinePath, readBaselineOrThrow } from "./paths.js";
+import { baselinePath } from "./paths.js";
 import { runLintRatchetReport } from "./report.js";
 
 const DEFAULT_EDIT_CHECK_CONCURRENCY = 3;
@@ -123,19 +112,6 @@ function runDebtLogReport(): void {
   );
 }
 
-function parseCommittedBaseline(
-  ruleSourceHashesById: LintRatchetRuleSourceHashesById,
-): LintRatchetBaseline {
-  const parsed = parseLintRatchetBaseline(
-    readBaselineOrThrow(),
-    lintRatchets,
-    ruleSourceHashesById,
-  );
-  for (const warning of parsed.warnings) console.error(`lint:ratchet WARN - ${warning}`);
-  if (parsed.baseline === undefined) throw new ConfigError(parsed.failures.join("\n"));
-  return parsed.baseline;
-}
-
 async function validateRegistry(): Promise<void> {
   const ruleDocsById = await loadRuleDocsById();
   const failures = validateLintRatchetRegistry(lintRatchets, {
@@ -147,8 +123,14 @@ async function validateRegistry(): Promise<void> {
   }
 }
 
-function collectConcurrency(options: LintRatchetRuntimeOptions): number {
-  return options.collectConcurrency ?? DEFAULT_COLLECT_CONCURRENCY;
+// Forward the harness-supplied collect concurrency to a package operation; an
+// absent option defers to the collector's own default.
+function collectConcurrencyOption(
+  options: LintRatchetRuntimeOptions,
+): { readonly collectConcurrency: number } | Record<string, never> {
+  return options.collectConcurrency === undefined
+    ? {}
+    : { collectConcurrency: options.collectConcurrency };
 }
 
 async function updateOptions(args: ParsedArgs): Promise<ApplyLintRatchetUpdateOptions> {
@@ -167,46 +149,51 @@ async function updateOptions(args: ParsedArgs): Promise<ApplyLintRatchetUpdateOp
   };
 }
 
+// The gate/update orchestration (hashes → collect → build/compare → round-trip
+// validation → gated apply) lives in the package operations; this adapter only
+// supplies the Musi engine + registry and renders the results.
 async function runUpdate(args: ParsedArgs, options: LintRatchetRuntimeOptions): Promise<void> {
-  const ruleSourceHashesById = buildRuleSourceHashesById(lintRatchets, musiLintRatchetBinding);
-  const currentById = await collectCurrentById({
-    ruleSourceHashesById,
-    ratchets: lintRatchets,
-    binding: musiLintRatchetBinding,
-    concurrency: collectConcurrency(options),
-  });
-  const generated = buildLintRatchetBaseline(lintRatchets, currentById, ruleSourceHashesById);
-  const rendered = formatLintRatchetBaseline(generated);
-  const parsedGenerated = parseLintRatchetBaseline(rendered, lintRatchets, ruleSourceHashesById);
-  if (parsedGenerated.baseline === undefined) {
-    throw new ConfigError(
-      `generated baseline failed validation:\n${parsedGenerated.failures.join("\n")}`,
-    );
-  }
-
-  applyLintRatchetUpdate({
+  await runLintRatchetUpdate({
     context: musiLintRatchetContext,
-    generated,
-    rendered,
+    binding: musiLintRatchetBinding,
     registry: lintRatchets,
     options: await updateOptions(args),
-    currentFindingCount: totalCurrentCount(currentById),
+    ...collectConcurrencyOption(options),
   });
 }
 
+// Adapter-owned rendering for the packaged gate's typed baseline failures: the
+// recovery command is Musi's runner invocation (the package deliberately does
+// not know it), and parse WARN lines still print before an unparseable
+// baseline aborts — the pre-extraction parseCommittedBaseline contract.
+async function runMusiGate(options: LintRatchetRuntimeOptions): Promise<LintRatchetGateResult> {
+  try {
+    return await runLintRatchetGate({
+      context: musiLintRatchetContext,
+      binding: musiLintRatchetBinding,
+      registry: lintRatchets,
+      ...collectConcurrencyOption(options),
+    });
+  } catch (error) {
+    if (error instanceof MissingBaselineError) {
+      throw new ConfigError(
+        `${error.relativeBaselinePath} does not exist; run bun run lint:ratchet:update`,
+      );
+    }
+    if (error instanceof BaselineParseError) {
+      for (const warning of error.warnings) console.error(`lint:ratchet WARN - ${warning}`);
+      throw new ConfigError(error.failures.join("\n"));
+    }
+    throw error;
+  }
+}
+
 async function runCheckBaseline(options: LintRatchetRuntimeOptions): Promise<void> {
-  const ruleSourceHashesById = buildRuleSourceHashesById(lintRatchets, musiLintRatchetBinding);
-  const baseline = parseCommittedBaseline(ruleSourceHashesById);
-  const currentById = await collectCurrentById({
-    ruleSourceHashesById,
-    ratchets: lintRatchets,
-    binding: musiLintRatchetBinding,
-    concurrency: collectConcurrency(options),
-  });
-  const comparison = compareCurrentToBaseline(baseline, lintRatchets, currentById);
-  assertCheckBaselineComparisonClean(comparison);
+  const result = await runMusiGate(options);
+  for (const warning of result.baselineWarnings) console.error(`lint:ratchet WARN - ${warning}`);
+  assertCheckBaselineComparisonClean(result.comparison);
   console.error(
-    `lint:ratchet:check-baseline OK — ${String(totalCurrentCount(currentById))} current finding(s).`,
+    `lint:ratchet:check-baseline OK — ${String(result.currentFindingCount)} current finding(s).`,
   );
 }
 

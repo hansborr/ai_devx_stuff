@@ -44,6 +44,12 @@ if [ -z "${MUSI_PATH_POLICY_BUN:-}" ]; then
   MUSI_PATH_POLICY_BUN="$(command -v bun)"
   export MUSI_PATH_POLICY_BUN
 fi
+# The fixture shadows PATH with a stub bun; the run-meta codec must keep
+# spawning the real bun (same seam pattern as MUSI_PATH_POLICY_BUN).
+if [ -z "${MUSI_VERIFY_META_BUN:-}" ]; then
+  MUSI_VERIFY_META_BUN="$(command -v bun)"
+  export MUSI_VERIFY_META_BUN
+fi
 
 if [ "${MUSI_TEST_VERIFY_IN_FIXTURE:-}" != "1" ]; then
   FIXTURE_ROOT="$(mktemp -d /tmp/musi-verify-smoke-repo.XXXXXX)"
@@ -62,6 +68,7 @@ if [ "${MUSI_TEST_VERIFY_IN_FIXTURE:-}" != "1" ]; then
   cp "$SCRIPT_DIR/test-verify.sh" "$FIXTURE_ROOT/scripts/tests/test-verify.sh"
   cp "$SCRIPT_DIR/lib/test-git-env.sh" "$FIXTURE_ROOT/scripts/tests/lib/"
   cp "$SCRIPT_DIR/../lib/verify-metadata.sh" "$SCRIPT_DIR/../lib/parallel-step.sh" \
+    "$SCRIPT_DIR/../lib/verify-metadata-core.ts" \
     "$SCRIPT_DIR/../lib/lint-dist-preflight.sh" "$SCRIPT_DIR/../lib/gate-env.sh" \
     "$SCRIPT_DIR/../lib/changed-base.sh" \
     "$SCRIPT_DIR/../lib/verify-engine.sh" \
@@ -1080,6 +1087,47 @@ grep -q 'bun run typecheck' "$STUB_LOG_FILE" \
 grep -q 'bun run test:changed' "$STUB_LOG_FILE" \
   || fail "parallel changed verify should still start test after format-check failure"
 ok "verify --changed reports format-check failure with hint"
+
+# --- failure summary ends with a tail-proof failure-logs footer ------------
+# The footer must be the summary's LAST line — after every excerpt and hint —
+# so `... 2>&1 | tail -n 1` still carries the log-dir breadcrumb after the
+# per-slot `--- <task> (full log: ...) ---` headers scroll out of a truncated
+# capture. test-timings.json is mentioned only when it exists (early failures
+# may not write it).
+(
+  # shellcheck source=../ai-hooks/output-filter.sh
+  . "$SCRIPT_DIR/../ai-hooks/output-filter.sh"
+  # shellcheck source=../lib/verify-engine.sh
+  . "$SCRIPT_DIR/../lib/verify-engine.sh"
+  footer_log_dir="$SANDBOX/footer-logs"
+  mkdir -p "$footer_log_dir"
+  printf 'stub lint failure\n' > "$footer_log_dir/lint.log"
+  printf 'stub test failure\n' > "$footer_log_dir/test.log"
+  summary=$(musi_verify_print_failure_summary 'verify:changed' 7 "$footer_log_dir" \
+    ' typecheck' ' lint test')
+  footer_line="verify: failure logs: $footer_log_dir (per-slot <slot>.log; wiped by the next verify/pre-commit run — read or copy first)"
+  [ "$(printf '%s\n' "$summary" | tail -n 1)" = "$footer_line" ] \
+    || fail "failure-logs footer must be the summary's last line, after every hint: $summary"
+  grep -qF "bun run lint:fix" <<< "$summary" \
+    || fail "footer must not displace the lint repair hint: $summary"
+  touch "$footer_log_dir/test-timings.json"
+  summary=$(musi_verify_print_failure_summary 'verify:changed' 7 "$footer_log_dir" \
+    ' typecheck' ' lint test')
+  timings_footer_line="verify: failure logs: $footer_log_dir (per-slot <slot>.log, test-timings.json; wiped by the next verify/pre-commit run — read or copy first)"
+  [ "$(printf '%s\n' "$summary" | tail -n 1)" = "$timings_footer_line" ] \
+    || fail "footer should mention test-timings.json only when it exists: $summary"
+) || exit 1
+ok "failure summary ends with the tail-proof failure-logs footer"
+
+# --- the failure-logs footer survives `2>&1 | tail -n 1` -------------------
+rm -f "$MARKER_CHANGED"
+: > "$STUB_LOG_FILE"
+set +e
+tail_line=$(STUB_FAIL_typecheck=1 run_verify --changed 2>&1 | tail -n 1)
+set -e
+[ "$tail_line" = "verify: failure logs: $LOG_DIR (per-slot <slot>.log; wiped by the next verify/pre-commit run — read or copy first)" ] \
+  || fail "failed verify output must end with the failure-logs footer: $tail_line"
+ok "verify --changed failure footer survives 2>&1 | tail -n 1"
 
 # --- watchdog kills a hung step and reports a timeout banner --------------
 rm -f "$MARKER_CHANGED"

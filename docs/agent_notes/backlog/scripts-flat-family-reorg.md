@@ -24,6 +24,13 @@ is a hollow directory — fixtures only, while the logic lives in
 `scripts/harness/harness-audit-report.ts`. Fold it into whichever position this
 reorg picks (move the fixtures next to the logic, or document the split).
 
+Resolved separately (2026-07-18): the `drift-triage*` flat family collapsed
+into `scripts/drift-triage/` behind the flat `scripts/drift-triage.ts` entry
+(the entry-plus-directory sibling idiom) via the drift-triage collapse (the
+`drift-triage-collapse.md` note closed Done and was removed at the 2026-07-19
+triage; git history). That idiom is the shape
+this reorg can reuse for the remaining families.
+
 ## Scope
 
 - Either move each family under an owner directory and leave only package-facing

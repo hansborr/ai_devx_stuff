@@ -28,6 +28,10 @@ trap 'rm -rf "$TMP_ROOT"' EXIT
 
 export MUSI_PATH_POLICY_QUERY="$REPO_ROOT/scripts/path-policy/path-policy-query.ts"
 export MUSI_PATH_POLICY_BUN="${MUSI_PATH_POLICY_BUN:-$(command -v bun)}"
+# Sandbox copies of verify-metadata.sh resolve the run-meta codec from the
+# source tree (same seam pattern as MUSI_PATH_POLICY_QUERY above).
+export MUSI_VERIFY_META_CORE="$REPO_ROOT/scripts/lib/verify-metadata-core.ts"
+export MUSI_VERIFY_META_BUN="${MUSI_VERIFY_META_BUN:-$(command -v bun)}"
 unset MUSI_PRE_PUSH_VERIFY_FRESHNESS_SECONDS
 
 PASS=0
@@ -430,7 +434,7 @@ set -e
 grep -qF "land: running harness freshness gate on feature" <<< "$output" \
   || fail "land.sh should announce harness freshness gate before failing: $output"
 [ "$(cat "$stub_log")" = "run harness:check" ] \
-  || fail "land.sh should stop before verify when harness:check fails: $(cat "$stub_log")"
+  || fail "land.sh should stop before the prisma preflight and verify when harness:check fails: $(cat "$stub_log")"
 ok "land.sh gates harness freshness before full verify"
 
 repo=$(new_repo land-harness-check-passes)
@@ -458,9 +462,9 @@ grep -qF "land: running harness freshness gate on feature" <<< "$output" \
   || fail "land.sh should announce harness freshness gate before verify: $output"
 grep -qF "land: running full verify on feature" <<< "$output" \
   || fail "land.sh should proceed to full verify after harness:check passes: $output"
-[ "$(cat "$stub_log")" = $'run harness:check\nrun verify' ] \
-  || fail "land.sh should run harness:check then verify when harness is fresh: $(cat "$stub_log")"
-ok "land.sh proceeds to verify after harness freshness passes"
+[ "$(cat "$stub_log")" = $'run harness:check\nrun --filter @musi/server prisma:generate\nrun verify' ] \
+  || fail "land.sh should run harness:check, the prisma preflight, then verify when harness is fresh: $(cat "$stub_log")"
+ok "land.sh proceeds through the prisma preflight to verify after harness freshness passes"
 
 repo=$(new_repo fast-post-commit-finalizes)
 : > "$(fast_commit_pending "$repo")"
@@ -739,8 +743,8 @@ if git -C "$repo" rev-parse --verify --quiet refs/heads/land/feature >/dev/null;
 fi
 grep -qF "land: creating integration branch land/feature" <<< "$output" \
   || fail "land.sh --branch should announce the integration branch: $output"
-[ "$(cat "$stub_log")" = $'run harness:check\nrun verify' ] \
-  || fail "land.sh --branch should run harness:check then verify: $(cat "$stub_log")"
+[ "$(cat "$stub_log")" = $'run harness:check\nrun --filter @musi/server prisma:generate\nrun verify' ] \
+  || fail "land.sh --branch should run harness:check, the prisma preflight, then verify: $(cat "$stub_log")"
 ok "land.sh --branch verifies on an integration branch, merges, and cleans it up"
 
 repo=$(new_repo land-branch-race)

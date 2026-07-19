@@ -79,7 +79,8 @@ in 00-report.md
   merge CLI, unit-tested) and knip keeps its advisory post-merge truth-up hook;
   converging the two merge-driver installers touches the shared installer/lib
   and its ~14 assertion sites (the flagged highest-risk edge), so it belongs
-  with the sanctioned `../merge-driver-field-exercise.md` rather than riding
+  with the sanctioned merge-driver field exercise (completed Done 2026-07-16;
+  note removed at the 2026-07-19 triage — git history) rather than riding
   this slice.
 
 ### Review fixes (Codex, 2026-07-07 — land-after-fixes; both P1s addressed)
@@ -114,9 +115,10 @@ in 00-report.md
   semantic min-merge driver landed (`e8b9f7db`, hardened `6a0106df`) and
   covered both collision classes, including one sharding cannot fix. Do not
   reopen without new evidence that the driver is insufficient. The owner has
-  scheduled a real-merge field exercise of the driver
-  (`../merge-driver-field-exercise.md`, after the agent-cli pack) — its
-  findings are the sanctioned path to such evidence.
+  scheduled a real-merge field exercise of the driver — completed Done
+  2026-07-16 (`merge-driver-field-exercise.md`, removed at the 2026-07-19
+  triage; git history) — its findings are the sanctioned path to such
+  evidence.
 - The knip-sensor identity gap was implemented on the extracted framework;
   the remaining open seam is the git-attributes wiring tracked below.
 

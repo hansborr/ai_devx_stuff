@@ -257,9 +257,11 @@ script changes.
 
 The engine's own tests travel with the package: `tools/lint-ratchet/test/` and
 the co-located `src/**/*.test.ts` cover baseline building/parsing/comparison,
-update decisions, hashing, registry validation, the semantic merge, and — in
-`test/boundary/` + `test/fixture-context.test.ts` — the structural proofs that the
-package is self-contained and consumable with a non-Musi registry. You get all of
+update decisions, hashing, registry validation, the semantic merge, the
+governance layer (debt-log schema/write/accounting, summary, trend,
+zero-baseline, propose, retire, and the edit-time check's guard behavior), and
+— in `test/boundary/` + `test/fixture-context.test.ts` — the structural proofs
+that the package is self-contained and consumable with a non-Musi registry. You get all of
 that by copying `tools/lint-ratchet/`; run them with the package's `vitest.config.ts`.
 
 For your **adapter**, write one small end-to-end test like the demo's `smoke.sh`:

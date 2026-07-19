@@ -1253,7 +1253,8 @@
       "metric": "message-count",
       "files": [
         "scripts/drift-ai.test.ts",
-        "scripts/drift-ai/**/*.test.ts"
+        "scripts/drift-ai/**/*.test.ts",
+        "scripts/drift-triage/**/*.test.ts"
       ],
       "ignores": [
         "scripts/drift-ai/fixtures/**"
@@ -1265,7 +1266,7 @@
           ]
         }
       ],
-      "configHash": "sha256:017288d9c8a4759c3e65874f921727ac1a6d570a67cb5d0c8dac02ee9fc18b3a",
+      "configHash": "sha256:6cae35d39192c714093b9d0f2e16253a6994e819796850c798fef67df7a02b41",
       "ruleSourceHash": "sha256:84fa68f3c7b9c2a27f7bcd2605979cedf0d3d507a35e4f4c6fb73088411d8639",
       "items": {}
     },
@@ -1302,7 +1303,8 @@
       "metric": "message-count",
       "files": [
         "scripts/drift-ai.test.ts",
-        "scripts/drift-ai/**/*.test.ts"
+        "scripts/drift-ai/**/*.test.ts",
+        "scripts/drift-triage/**/*.test.ts"
       ],
       "ignores": [
         "scripts/drift-ai/fixtures/**"
@@ -1312,7 +1314,7 @@
           "maxArgs": 2
         }
       ],
-      "configHash": "sha256:bc463a5c4413ccd50cbe1a1679fa3d2830aaac6ab3b6c814ea880b27205abe93",
+      "configHash": "sha256:74d747b29463b32f803761e9a1e490f78c50a4ee9c7f29ae663b2c38637c2a1a",
       "ruleSourceHash": "sha256:84fa68f3c7b9c2a27f7bcd2605979cedf0d3d507a35e4f4c6fb73088411d8639",
       "items": {}
     },

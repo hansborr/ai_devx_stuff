@@ -1,10 +1,8 @@
-import { mkdirSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
-
 import {
   type HarnessDiagnostics,
   harnessDiagnosticsSchema,
 } from "../../packages/shared/src/schemas/harness-diagnostics.js";
+import { ensureDirWriteFileAtomicallySync } from "../lib/atomic-write.js";
 
 const JSON_INDENT_SPACES = 2;
 
@@ -51,6 +49,5 @@ export function writeHarnessDiagnosticsSidecar(envelope: HarnessDiagnostics): vo
     throw new Error(`harness diagnostics sidecar received an invalid envelope:\n${issues}`);
   }
 
-  mkdirSync(dirname(outputPath), { recursive: true });
-  writeFileSync(outputPath, renderHarnessDiagnosticsEnvelope(validated.data));
+  ensureDirWriteFileAtomicallySync(outputPath, renderHarnessDiagnosticsEnvelope(validated.data));
 }

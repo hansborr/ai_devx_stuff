@@ -13,15 +13,17 @@ import type { GitRunner } from "./git-changed-scope.js";
 import { nearDuplicateExcludeGlobs } from "./near-duplicates-check-config.js";
 import { prepareCurrentRun } from "./prepare-run.js";
 import {
-  capturePrototypeScanSnapshot,
-  completedScanProvenance,
   currentPrototypeCliOptions,
   finishPrototypeCommand,
   renderPrototypeAdvisory,
   runPrototypeCommand,
 } from "./prototype-command.js";
 import type { ReportWriter } from "./report-output.js";
-import { triageGeneratedArtifactExclusions } from "./triage-packet-staleness.js";
+import {
+  capturePrototypeScanSnapshot,
+  completedScanProvenance,
+  triageGeneratedArtifactExclusions,
+} from "./scan-provenance.js";
 
 export type DolosCandidatesRunOptions = {
   readonly argv: readonly string[];

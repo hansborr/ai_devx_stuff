@@ -9,9 +9,57 @@ import {
   serverScriptTypeScriptFiles,
   scriptProjectIgnores,
   scriptTypeScriptFiles,
+  sharedSchemasBarrelRestrictedImportPattern,
   testAndHelperFiles,
   tsConfigFiles,
 } from "./shared-policy.js";
+
+export const driftDirectionLawConfigs = [
+  // Direction law (drift-triage collapse, 2026-07-17 ruling 4): triage is the
+  // downstream reducer over drift-ai's scan output, so drift-ai (the flat
+  // entries scripts/drift-ai.ts and scripts/drift-ai.test.ts as well as
+  // scripts/drift-ai/**) must never import the triage module — neither the
+  // scripts/drift-triage/** internals nor the scripts/drift-triage.ts entry.
+  // Enforced one-way only; the forward contract (types, check-metadata, scope,
+  // prototype-advisory, scan-provenance) is documented in the triage module
+  // doc and policed by review, not by a reverse allowlist.
+  {
+    files: ["scripts/drift-ai.ts", "scripts/drift-ai.test.ts", "scripts/drift-ai/**/*.ts"],
+    rules: {
+      // Flat config replaces (not merges) rule entries by key, so the global
+      // schemas-barrel restriction must be repeated here alongside the
+      // direction-law restriction.
+      "@typescript-eslint/no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            sharedSchemasBarrelRestrictedImportPattern,
+            {
+              group: [
+                // The triage directory (module internals), from any depth.
+                "**/drift-triage/**",
+                "../drift-triage/**",
+                "./drift-triage/**",
+                // The flat triage entry scripts/drift-triage.ts: bare and
+                // extensioned (.js/.ts) specifiers from a flat sibling
+                // (./...), from inside scripts/drift-ai/ (../...), or through
+                // any deeper path that ends at the entry (**/...).
+                "**/drift-triage",
+                "**/drift-triage.*",
+                "../drift-triage",
+                "../drift-triage.*",
+                "./drift-triage",
+                "./drift-triage.*",
+              ],
+              message:
+                "Direction law: scripts/drift-ai must not import scripts/drift-triage. Triage is the downstream reducer over drift-ai output; move shared logic into drift-ai and let triage import it.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+];
 
 export const scriptDebtOverrideConfigs = [
   // Drift-AI family CLI policy (lint-review-2026-06 leaf 03e): a deliberate
@@ -22,8 +70,17 @@ export const scriptDebtOverrideConfigs = [
   // register, now in git history; summary in
   // docs/agent_notes/finished_work/lint-review-2026-06.md).
   // Tests inherit the same options instead of a blanket test relax.
+  // scripts/drift-triage (the triage reducer relocated out of drift-ai,
+  // drift-triage-collapse S2) is the same metrics/reporting family and keeps
+  // the same verdict.
   {
-    files: ["scripts/drift-ai.ts", "scripts/drift-ai.test.ts", "scripts/drift-ai/**/*.ts"],
+    files: [
+      "scripts/drift-ai.ts",
+      "scripts/drift-ai.test.ts",
+      "scripts/drift-ai/**/*.ts",
+      "scripts/drift-triage.ts",
+      "scripts/drift-triage/**/*.ts",
+    ],
     rules: {
       "@typescript-eslint/restrict-template-expressions": [
         "error",
@@ -112,6 +169,9 @@ export const processPrimitiveConfigs = [
       // Implements the HARNESS_DIAGNOSTICS_OUTPUT sidecar contract; reading
       // that env var here IS the boundary every producer shares.
       "scripts/harness/harness-diagnostics-output.ts",
+      // Implements the MUSI_HARNESS_CHECK_ALLOW_NO_FIXTURE_PATHS fixture
+      // opt-out; reading that env var here IS the fail-closed boundary.
+      "scripts/harness/fixture-closure-check.ts",
       "scripts/lint-ratchet/output.ts",
       "scripts/lint-ratchet.ts",
       "scripts/max-lines-exceptions.ts",

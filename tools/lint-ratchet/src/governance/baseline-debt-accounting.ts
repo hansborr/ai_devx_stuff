@@ -6,7 +6,7 @@ import {
   DEFAULT_BASELINE_FILENAME,
   DEFAULT_DEBT_LOG_FILENAME,
 } from "@musi/lint-ratchet/kernel/engine-context.js";
-import { ConfigError } from "@musi/lint-ratchet/kernel/metrics.js";
+import { ConfigError } from "@musi/lint-ratchet/kernel/metrics-types.js";
 
 import { hasAccountingEntry } from "./baseline-debt-accounting-chains.js";
 import {

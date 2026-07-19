@@ -1,7 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
 
-import { writeFileAtomicallySync } from "@musi/lint-ratchet/kernel/atomic-write.js";
 import type { ParseResult } from "@musi/lint-ratchet/kernel/entry-baseline.js";
 import { gateEntries, type GateResult } from "@musi/lint-ratchet/kernel/gate.js";
 
@@ -13,6 +12,7 @@ import {
   type NearDuplicateRunner,
 } from "./drift-ai/near-duplicates-runner.js";
 import { buildSourceExtensions } from "./drift-ai/scope.js";
+import { writeFileAtomicallySync } from "./lib/atomic-write.js";
 import {
   formatNearDuplicatesBaseline,
   type NearDuplicateBaselineEntry,

@@ -3,7 +3,7 @@ import type { LintRatchetConfig } from "./config-types.js";
 import type { LintRatchetEngineBinding } from "./engine-context.js";
 import type { ESLintFileResult } from "./eslint-runner.js";
 import { runEslintForFiles, sweepStaleCacheSiblings } from "./eslint-runner.js";
-import { ConfigError } from "./metrics.js";
+import { ConfigError } from "./metrics-types.js";
 import { matchingTrackedFiles } from "./ratchet-globs.js";
 import { ratchetParserProfile } from "./runtime-config.js";
 

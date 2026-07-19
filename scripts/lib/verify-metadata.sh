@@ -4,11 +4,17 @@
 # children never append to the same file concurrently; the wrapper combines
 # fragments into run-meta.json at the end of the run.
 #
-# Kept in scripts/lib so the dash-invoked smoke test in
-# `scripts/tests/test-dependency-freshness.sh` can source it without pulling in
-# `scripts/ai-hooks/cache.sh` (which contains bash-only constructs).
+# Kept in scripts/lib so gate scripts and smoke tests can source it without
+# pulling in `scripts/ai-hooks/cache.sh`. Every sourcer is bash (there is no
+# dash/POSIX-sh constraint); the real contract is staying sourceable under
+# `set -euo pipefail` with stable function names and out-variables.
 # `ai_worktree_fingerprint` is defined here for the same reason; cache.sh
 # sources this file and re-exports it for ai-hooks callers.
+#
+# Run-meta JSON parsing/serialization lives in the TS codec
+# `scripts/lib/verify-metadata-core.ts` per the substrate ruling
+# (docs/ai-harness.md); the musi_run_meta_* / musi_write_*_meta /
+# musi_combine_run_meta functions below are thin shims around it.
 
 # --- Shared gate timing budgets ----------------------------------------------
 # Single definition for the timing literals the local gates would otherwise
@@ -956,20 +962,37 @@ musi_try_verify_marker_bridge() {
     "verify" "$freshness_seconds" "$current_head" "$current_worktree_hash"
 }
 
-musi_meta_json_escape() {
-  local s="${1-}"
-  printf '%s' "$s" | awk '
-    {
-      gsub(/\\/, "\\\\")
-      gsub(/"/, "\\\"")
-      gsub(/\t/, "\\t")
-      gsub(/\r/, "\\r")
-      if (NR > 1) {
-        printf "\\n"
-      }
-      printf "%s", $0
-    }
-  '
+# --- Run-meta JSON codec shims ----------------------------------------------
+# The codec entrypoint is scripts/lib/verify-metadata-core.ts; resolution and
+# override seam mirror musi_path_policy_query_script (MUSI_PATH_POLICY_QUERY):
+#   MUSI_VERIFY_META_CORE - absolute path to the codec entrypoint
+#   MUSI_VERIFY_META_BUN  - bun binary used to spawn it
+# Core exit codes (fail closed, distinct per class): 0 ok, 1 verdict refusal,
+# 2 usage, 3 malformed JSON, 4 invalid argument, 5 invalid fingerprint.
+musi_verify_meta_core_script() {
+  if [ -n "${MUSI_VERIFY_META_CORE:-}" ]; then
+    printf '%s\n' "$MUSI_VERIFY_META_CORE"
+    return 0
+  fi
+
+  if [ -n "${REPO_ROOT:-}" ] && [ -f "$REPO_ROOT/scripts/lib/verify-metadata-core.ts" ]; then
+    printf '%s\n' "$REPO_ROOT/scripts/lib/verify-metadata-core.ts"
+    return 0
+  fi
+
+  if [ -n "${BASH_SOURCE:-}" ]; then
+    printf '%s\n' "$(cd "$(dirname "$BASH_SOURCE")" && pwd)/verify-metadata-core.ts"
+    return 0
+  fi
+
+  printf '%s\n' "$(cd "$(dirname "$0")" && pwd)/verify-metadata-core.ts"
+}
+
+musi_verify_meta_core() {
+  local script bun_bin
+  script="$(musi_verify_meta_core_script)"
+  bun_bin="${MUSI_VERIFY_META_BUN:-bun}"
+  "$bun_bin" --config=/dev/null "$script" "$@"
 }
 
 musi_meta_command_string() {
@@ -984,24 +1007,38 @@ musi_meta_command_string() {
   printf '%s' "$out"
 }
 
+# Extractor shims. Legacy sed out-contract preserved: on empty input or any
+# codec failure they emit nothing and return 0 — consumers already treat an
+# empty result as missing/malformed metadata and fail closed on it.
 musi_run_meta_wrapper_fragment() {
   local json="$1"
+  local out
 
-  printf '%s\n' "$json" | sed -n 's/^.*"wrapper":\({[^}]*}\).*$/\1/p'
+  [ -n "$json" ] || return 0
+  out=$(printf '%s\n' "$json" | musi_verify_meta_core wrapper-fragment) || return 0
+  printf '%s\n' "$out"
 }
 
 musi_run_meta_json_string_field() {
   local json="$1"
   local key="$2"
+  local out
 
-  printf '%s\n' "$json" | sed -n "s/^.*\"$key\":\"\\([^\"]*\\)\".*$/\\1/p"
+  [ -n "$json" ] || return 0
+  out=$(printf '%s\n' "$json" | musi_verify_meta_core string-field "$key") || return 0
+  [ -n "$out" ] || return 0
+  printf '%s\n' "$out"
 }
 
 musi_run_meta_json_int_field() {
   local json="$1"
   local key="$2"
+  local out
 
-  printf '%s\n' "$json" | sed -n "s/^.*\"$key\":\\([0-9][0-9]*\\).*$/\\1/p"
+  [ -n "$json" ] || return 0
+  out=$(printf '%s\n' "$json" | musi_verify_meta_core int-field "$key") || return 0
+  [ -n "$out" ] || return 0
+  printf '%s\n' "$out"
 }
 
 musi_run_meta_warn() {
@@ -1061,7 +1098,9 @@ musi_persist_run_meta_history() {
     musi_run_meta_warn "missing run metadata at $run_meta"
     return 0
   fi
-  if ! json=$(sed -n '1p' "$run_meta" 2>/dev/null); then
+  # Whole-file read (not first-line): pre-port combine wrote multi-line
+  # run-meta documents, and the codec parses either shape as one document.
+  if ! json=$(cat "$run_meta" 2>/dev/null); then
     musi_run_meta_warn "could not read run metadata at $run_meta"
     return 0
   fi
@@ -1133,51 +1172,35 @@ musi_record_precommit_shortcircuit() {
   local fingerprint="$4"
   local satisfied="$5"
   local limit="${MUSI_VERIFY_HISTORY_LIMIT:-50}"
-  local epoch iso target
+  local epoch iso target json rc
 
-  case "$mode" in
-    ''|*[!A-Za-z0-9._-]*)
-      musi_run_meta_warn "refusing to record short-circuit with malformed mode '$mode'"
-      return 0
-      ;;
-  esac
-  if ! musi_fingerprint_is_valid "$fingerprint"; then
-    musi_run_meta_warn "refusing to record short-circuit with invalid fingerprint"
+  epoch=$(date +%s)
+  iso=$(date -Iseconds)
+  # The codec validates mode (filename-safe charset) and fingerprint and emits
+  # the combined-run-meta-shaped audit document with an empty steps list.
+  rc=0
+  json=$(musi_verify_meta_core shortcircuit-meta \
+    "$mode" "$head" "$fingerprint" "$satisfied" "$iso" < /dev/null 2>/dev/null) || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    case "$rc" in
+      4) musi_run_meta_warn "refusing to record short-circuit with malformed mode '$mode'" ;;
+      5) musi_run_meta_warn "refusing to record short-circuit with invalid fingerprint" ;;
+      *) musi_run_meta_warn "could not build short-circuit metadata (core exit $rc)" ;;
+    esac
     return 0
   fi
-  [ -n "$head" ] || head="none"
+  if [ -z "$json" ]; then
+    musi_run_meta_warn "could not build short-circuit metadata (empty codec output)"
+    return 0
+  fi
 
   if ! mkdir -p "$history_dir"; then
     musi_run_meta_warn "could not create history directory $history_dir"
     return 0
   fi
 
-  epoch=$(date +%s)
-  iso=$(date -Iseconds)
   target="$history_dir/$epoch-$mode-0.json"
-
-  # Shaped like a combined run-meta (flat wrapper object so
-  # musi_run_meta_wrapper_fragment's `{[^}]*}` extractor still matches), with an
-  # empty steps list because no step ran.
-  if ! {
-    printf '{'
-    printf '"version":1,'
-    printf '"mode":"%s",' "$(musi_meta_json_escape "$mode")"
-    printf '"generated_at":"%s",' "$(musi_meta_json_escape "$iso")"
-    printf '"wrapper":{'
-    printf '"name":"wrapper",'
-    printf '"mode":"%s",' "$(musi_meta_json_escape "$mode")"
-    printf '"start_time":"%s",' "$(musi_meta_json_escape "$iso")"
-    printf '"end_time":"%s",' "$(musi_meta_json_escape "$iso")"
-    printf '"elapsed_seconds":0,'
-    printf '"exit_code":0,'
-    printf '"head":"%s",' "$(musi_meta_json_escape "$head")"
-    printf '"fingerprint":"%s",' "$(musi_meta_json_escape "$fingerprint")"
-    printf '"satisfied_marker":"%s"' "$(musi_meta_json_escape "$satisfied")"
-    printf '},'
-    printf '"steps":[]'
-    printf '}\n'
-  } > "$target"; then
+  if ! printf '%s\n' "$json" > "$target"; then
     musi_run_meta_warn "could not write history file $target"
     return 0
   fi
@@ -1188,62 +1211,38 @@ musi_record_precommit_shortcircuit() {
   return 0
 }
 
+# Writer shims. The codec builds the document; bash keeps mkdir and the file
+# write. The document is captured before the write, so a codec failure returns
+# nonzero without truncating or half-writing the target file.
+#
+# Argv-only codec spawns redirect stdin from /dev/null: these shims run inside
+# `git commit` and foreground verify, where the inherited stdin can be an
+# interactive terminal, and must never hand the codec a readable stdin it
+# could block on. The codec independently skips stdin for these subcommands.
 musi_write_step_meta() {
   local file="$1"
-  local name="$2"
-  local mode="$3"
-  local start_epoch="$4"
-  local start_time="$5"
-  local end_epoch="$6"
-  local end_time="$7"
-  local exit_code="$8"
-  local command="$9"
-  local elapsed=$((end_epoch - start_epoch))
-  [ "$elapsed" -lt 0 ] && elapsed=0
+  shift
+  local out
 
-  mkdir -p "$(dirname "$file")"
-  {
-    printf '{'
-    printf '"name":"%s",' "$(musi_meta_json_escape "$name")"
-    printf '"mode":"%s",' "$(musi_meta_json_escape "$mode")"
-    printf '"start_time":"%s",' "$(musi_meta_json_escape "$start_time")"
-    printf '"end_time":"%s",' "$(musi_meta_json_escape "$end_time")"
-    printf '"elapsed_seconds":%s,' "$elapsed"
-    printf '"exit_code":%s,' "$exit_code"
-    printf '"command":"%s"' "$(musi_meta_json_escape "$command")"
-    printf '}\n'
-  } > "$file"
+  out=$(musi_verify_meta_core step-meta "$@" < /dev/null) || return 1
+  [ -n "$out" ] || return 1
+  mkdir -p "$(dirname "$file")" || return 1
+  printf '%s\n' "$out" > "$file"
 }
 
+# Argument order is unchanged: <file> <mode> <start_epoch> <start_time>
+# <end_epoch> <end_time> <exit_code> <command> [head] [fingerprint]. The codec
+# refuses an invalid fingerprint (exit 5) before anything touches the file.
 musi_write_wrapper_meta() {
   local file="$1"
-  local mode="$2"
-  local start_epoch="$3"
-  local start_time="$4"
-  local end_epoch="$5"
-  local end_time="$6"
-  local exit_code="$7"
-  local command="$8"
-  local head="${9:-}"
-  local fingerprint="${10:-}"
-  local elapsed=$((end_epoch - start_epoch))
-  [ "$elapsed" -lt 0 ] && elapsed=0
+  shift
+  local out
 
-  musi_fingerprint_is_valid "$fingerprint" || return 1
-  mkdir -p "$(dirname "$file")"
-  {
-    printf '{'
-    printf '"name":"wrapper",'
-    printf '"mode":"%s",' "$(musi_meta_json_escape "$mode")"
-    printf '"start_time":"%s",' "$(musi_meta_json_escape "$start_time")"
-    printf '"end_time":"%s",' "$(musi_meta_json_escape "$end_time")"
-    printf '"elapsed_seconds":%s,' "$elapsed"
-    printf '"exit_code":%s,' "$exit_code"
-    printf '"head":"%s",' "$(musi_meta_json_escape "$head")"
-    printf '"fingerprint":"%s",' "$(musi_meta_json_escape "$fingerprint")"
-    printf '"command":"%s"' "$(musi_meta_json_escape "$command")"
-    printf '}\n'
-  } > "$file"
+  out=$(musi_verify_meta_core wrapper-meta "${1:-}" "${2:-}" "${3:-}" "${4:-}" "${5:-}" \
+    "${6:-}" "${7:-}" "${8:-}" "${9:-}" < /dev/null) || return 1
+  [ -n "$out" ] || return 1
+  mkdir -p "$(dirname "$file")" || return 1
+  printf '%s\n' "$out" > "$file"
 }
 
 # Re-stamp a passing verify wrapper.json (the pre-push evidence fallback that
@@ -1259,65 +1258,63 @@ musi_restamp_verify_wrapper() {
   local wrapper="$1"
   local new_head="$2"
   local new_fingerprint="$3"
-  local json mode exit_code start_time command now_epoch now_iso start_epoch
+  local json out now_epoch now_iso
 
   [ -f "$wrapper" ] || return 1
-  json=$(sed -n '1p' "$wrapper" 2>/dev/null) || return 1
+  json=$(cat "$wrapper" 2>/dev/null) || return 1
   [ -n "$json" ] || return 1
-
-  mode=$(musi_run_meta_json_string_field "$json" mode)
-  case "$mode" in
-    serial-verify | parallel-verify) ;;
-    *) return 1 ;;
-  esac
-
-  exit_code=$(musi_run_meta_json_int_field "$json" exit_code)
-  [ "$exit_code" = "0" ] || return 1
-
-  start_time=$(musi_run_meta_json_string_field "$json" start_time)
-  command=$(musi_run_meta_json_string_field "$json" command)
 
   now_epoch=$(date +%s)
   now_iso=$(date -Iseconds)
-  if ! start_epoch=$(date -d "$start_time" +%s 2>/dev/null); then
-    start_epoch=$now_epoch
-  fi
-  case "$start_epoch" in
-    '' | *[!0-9]*) start_epoch=$now_epoch ;;
-  esac
-
-  musi_write_wrapper_meta "$wrapper" "$mode" "$start_epoch" "$start_time" \
-    "$now_epoch" "$now_iso" 0 "$command" "$new_head" "$new_fingerprint"
+  # The codec refuses (exit 1) unless the wrapper records a passing
+  # serial/parallel verify, and preserves mode/start_time/command; only a
+  # successful transform overwrites the file.
+  out=$(printf '%s\n' "$json" | musi_verify_meta_core restamp-wrapper \
+    "$new_head" "$new_fingerprint" "$now_epoch" "$now_iso") || return 1
+  [ -n "$out" ] || return 1
+  printf '%s\n' "$out" > "$wrapper"
 }
 
+# Bash globs the fragment files (orchestration) and hands the codec one
+# single-line JSON document per stdin line: line 1 is the wrapper fragment (or
+# the literal `null` when it is missing), the rest are step fragments. The
+# codec drops malformed fragments instead of embedding garbage, so
+# run-meta.json is always well-formed JSON; on a codec/spawn failure the stale
+# output is removed rather than left lying (fail closed, non-fatal like the
+# legacy writer).
 musi_combine_run_meta() {
   local log_dir="$1"
   local mode="$2"
   local wrapper_fragment="$3"
   local output="$log_dir/run-meta.json"
-  local first=1 fragment
+  local fragment wrapper_line out
 
-  {
-    printf '{'
-    printf '"version":1,'
-    printf '"mode":"%s",' "$(musi_meta_json_escape "$mode")"
-    printf '"generated_at":"%s",' "$(date -Iseconds)"
-    printf '"wrapper":'
-    if [ -f "$wrapper_fragment" ]; then
-      cat "$wrapper_fragment"
-    else
-      printf 'null'
-    fi
-    printf ',"steps":['
-    for fragment in "$log_dir"/meta/*.json; do
-      [ -f "$fragment" ] || continue
-      [ "$fragment" = "$wrapper_fragment" ] && continue
-      if [ "$first" -eq 0 ]; then
-        printf ','
-      fi
-      first=0
-      cat "$fragment"
-    done
-    printf ']}\n'
-  } > "$output"
+  wrapper_line=""
+  if [ -f "$wrapper_fragment" ]; then
+    wrapper_line=$(sed -n '1p' "$wrapper_fragment" 2>/dev/null) || wrapper_line=""
+  fi
+  [ -n "$wrapper_line" ] || wrapper_line=null
+
+  if ! out=$(
+    {
+      printf '%s\n' "$wrapper_line"
+      for fragment in "$log_dir"/meta/*.json; do
+        [ -f "$fragment" ] || continue
+        [ "$fragment" = "$wrapper_fragment" ] && continue
+        sed -n '1p' "$fragment"
+      done
+    } | musi_verify_meta_core combine "$mode" "$(date -Iseconds)"
+  ); then
+    musi_run_meta_warn "could not combine run metadata into $output"
+    rm -f "$output"
+    return 0
+  fi
+  # Empty output means the spawn was intercepted (e.g. a stubbed bun): treat
+  # it like a codec failure rather than writing an empty document.
+  if [ -z "$out" ]; then
+    musi_run_meta_warn "could not combine run metadata into $output"
+    rm -f "$output"
+    return 0
+  fi
+  printf '%s\n' "$out" > "$output"
 }

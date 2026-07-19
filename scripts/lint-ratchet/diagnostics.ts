@@ -6,7 +6,7 @@ import type {
   LintRatchetRegression,
 } from "@musi/lint-ratchet/kernel/baseline.js";
 import type { LintRatchetConfig } from "@musi/lint-ratchet/kernel/config-types.js";
-import { ConfigError } from "@musi/lint-ratchet/kernel/metrics.js";
+import { ConfigError } from "@musi/lint-ratchet/kernel/metrics-types.js";
 import { RATCHET_REGRESSION_UPDATE_COMMAND } from "@musi/lint-ratchet/kernel/recovery-command.js";
 import { assertNever, ratchetSource } from "@musi/lint-ratchet/kernel/runtime-config.js";
 

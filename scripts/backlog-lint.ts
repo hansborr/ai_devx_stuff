@@ -3,8 +3,11 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, extname, isAbsolute, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { z } from "zod";
+
 import { checkBacklogFiles } from "./backlog-lint-core.js";
 import type { BacklogLintFile, BacklogLintResult } from "./backlog-lint-types.js";
+import { parseCli } from "./lib/cli.js";
 
 export type {
   BacklogLintFile,
@@ -241,72 +244,57 @@ export function runBacklogLint(options: RunBacklogLintOptions = {}): BacklogLint
     : runValidatedBacklogLint(options, cwd, backlogDir, fileMode);
 }
 
-function parsePositiveInteger(value: string): number | undefined {
-  if (!/^[1-9]\d*$/u.test(value)) return undefined;
-  return Number(value);
-}
+// A path value may not start with a dash (pinned: `--file --no-stale` fails).
+// The walk itself already rejects `--`-prefixed values; this extends the
+// rejection to single-dash values the way the pre-substrate parser did.
+const cliPathValue = z.string().refine((value) => !value.startsWith("-"));
 
-function parseStaleMonths(args: readonly string[], index: number): number | undefined {
-  const value = args[index + 1];
-  return value === undefined ? undefined : parsePositiveInteger(value);
-}
+const cliOptionsSchema = z.object({
+  "--no-stale": z.boolean().default(false),
+  "--require-front-matter": z.boolean().default(false),
+  "--stale-months": z
+    .string()
+    .regex(/^[1-9]\d*$/u)
+    .transform(Number)
+    .optional(),
+  "--backlog-dir": cliPathValue.optional(),
+  "--file": z.array(cliPathValue).default([]),
+});
 
-function parsePathArgument(args: readonly string[], index: number): string | undefined {
-  const value = args[index + 1];
-  if (value === undefined || value.startsWith("-")) return undefined;
-  return value;
-}
-
-function applyToggleCliArg(options: MutableCliOptions, arg: string): boolean {
-  if (arg === "--no-stale") {
-    options.checkStaleness = false;
-    return true;
+// Exported for the S0 characterization tests of arch-plans-2026-07 leaf 02;
+// the CLI entrypoint below remains the only runtime caller. Contract (pinned):
+// no help handling, bare `--` tokens skipped, no inline `--name=value` forms,
+// and every parse problem collapses to `undefined` (the entrypoint prints the
+// usage line to stderr and exits 2).
+export function parseCliArgs(args: readonly string[]): CliOptions | undefined {
+  try {
+    const parsed = parseCli({
+      argv: args.filter((arg) => arg !== "--"),
+      usage: "",
+      createError: (message) => new Error(message),
+      options: [
+        { name: "--no-stale", kind: "flag" },
+        { name: "--require-front-matter", kind: "flag" },
+        { name: "--stale-months", kind: "value", rejectInlineForm: true },
+        { name: "--backlog-dir", kind: "value", rejectInlineForm: true },
+        { name: "--file", kind: "value", repeatable: true, rejectInlineForm: true },
+      ],
+      schema: cliOptionsSchema,
+    });
+    if (parsed.positionals.length > 0) return undefined;
+    const options: MutableCliOptions = {};
+    if (parsed.options["--no-stale"]) options.checkStaleness = false;
+    if (parsed.options["--require-front-matter"]) options.requireFrontMatter = true;
+    const staleMonths = parsed.options["--stale-months"];
+    if (staleMonths !== undefined) options.staleMonths = staleMonths;
+    const backlogDir = parsed.options["--backlog-dir"];
+    if (backlogDir !== undefined) options.backlogDir = backlogDir;
+    const filePaths = parsed.options["--file"];
+    if (filePaths.length > 0) options.filePaths = filePaths;
+    return options;
+  } catch {
+    return undefined;
   }
-  if (arg === "--require-front-matter") {
-    options.requireFrontMatter = true;
-    return true;
-  }
-  return false;
-}
-
-function applyValuedCliArg(
-  options: MutableCliOptions,
-  args: readonly string[],
-  index: number,
-): number | undefined {
-  const arg = args[index] ?? "";
-  if (arg === "--stale-months") {
-    const staleMonths = parseStaleMonths(args, index);
-    if (staleMonths === undefined) return undefined;
-    options.staleMonths = staleMonths;
-    return index + 1;
-  }
-  if (arg === "--backlog-dir") {
-    const backlogDir = parsePathArgument(args, index);
-    if (backlogDir === undefined) return undefined;
-    options.backlogDir = backlogDir;
-    return index + 1;
-  }
-  if (arg === "--file") {
-    const filePath = parsePathArgument(args, index);
-    if (filePath === undefined) return undefined;
-    options.filePaths ??= [];
-    options.filePaths.push(filePath);
-    return index + 1;
-  }
-  return undefined;
-}
-
-function parseCliArgs(args: readonly string[]): CliOptions | undefined {
-  const options: MutableCliOptions = {};
-  for (let index = 0; index < args.length; index += 1) {
-    const arg = args[index] ?? "";
-    if (arg === "--" || applyToggleCliArg(options, arg)) continue;
-    const nextIndex = applyValuedCliArg(options, args, index);
-    if (nextIndex === undefined) return undefined;
-    index = nextIndex;
-  }
-  return options;
 }
 
 const invokedPath = process.argv[1] === undefined ? "" : resolve(process.argv[1]);

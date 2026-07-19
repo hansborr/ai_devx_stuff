@@ -23,7 +23,7 @@ import {
   writeEslintConfig,
 } from "./eslint-config.js";
 import { type ESLintFileResult, type ESLintMessage, parseEslintOutput } from "./eslint-json.js";
-import { ConfigError } from "./metrics.js";
+import { ConfigError } from "./metrics-types.js";
 
 export type { ESLintFileResult, ESLintMessage };
 

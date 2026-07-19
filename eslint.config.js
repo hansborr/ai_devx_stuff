@@ -23,6 +23,7 @@ import {
 import { createPackageDependencyConfigs } from "./eslint-config/package-dependency-configs.js";
 import {
   createScriptProjectConfigs,
+  driftDirectionLawConfigs,
   processPrimitiveConfigs,
   scriptDebtOverrideConfigs,
 } from "./eslint-config/script-configs.js";
@@ -61,6 +62,7 @@ export default defineConfig(
   ...createRepoCodeQualityConfigs(repoRoot, localPlugin),
   ...createLocalRuleAuthoringConfigs(localPlugin),
   ...scriptDebtOverrideConfigs,
+  ...driftDirectionLawConfigs,
   ...processPrimitiveConfigs,
   ...clientFrameworkConfigs,
   ...jsonFileConfigs,

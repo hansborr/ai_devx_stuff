@@ -21,6 +21,10 @@ set -euo pipefail
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 REPO_ROOT=$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel)
 
+# Sandbox copies of verify-metadata.sh resolve the run-meta codec from the
+# source tree via the MUSI_VERIFY_META_CORE seam.
+export MUSI_VERIFY_META_CORE="$REPO_ROOT/scripts/lib/verify-metadata-core.ts"
+
 TMP_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/merge-driver-dispatch-test.XXXXXX")
 trap 'rm -rf "$TMP_ROOT"' EXIT
 

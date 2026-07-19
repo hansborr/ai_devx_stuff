@@ -2,12 +2,14 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import type { LintRatchetBaseline } from "@musi/lint-ratchet/kernel/baseline.js";
+import {
+  formatLintRatchetBaseline,
+  type LintRatchetBaseline,
+} from "@musi/lint-ratchet/kernel/baseline.js";
 import {
   LINT_RATCHET_BASELINE_WRITE_VERSION,
   lintRatchetBaselineRegenerateForVersion,
 } from "@musi/lint-ratchet/kernel/baseline-constants.js";
-import { formatLintRatchetBaseline } from "@musi/lint-ratchet/kernel/baseline-format.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { runBaselineMergeCli } from "./baseline-merge-cli.js";

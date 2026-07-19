@@ -14,7 +14,7 @@ import { runEslintForFiles } from "./eslint-runner.js";
 import { trackedFilesFromGit } from "./git-tracked-files.js";
 import { messageIdentityForFinding, type MessageIdentityLocation } from "./message-identity.js";
 import { type MetricFinding, metricStrategy } from "./metric-strategies.js";
-import { ConfigError, type LintRatchetComplexityFunction } from "./metrics.js";
+import { ConfigError, type LintRatchetComplexityFunction } from "./metrics-types.js";
 
 const ESLINT_SEVERITY_ERROR = 2;
 export const DEFAULT_COLLECT_CONCURRENCY = 3;

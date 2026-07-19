@@ -1,6 +1,10 @@
 # Harness Review 2026-07 — Task Pack
 
-Status: Parked task index (27 leaves; the ratchet-merge, ratchet-platform, lint-rule, and hook lanes landed 2026-07-12..2026-07-15 — see per-row status)
+Status: Parked task index (4 surviving leaves; the ratchet-merge,
+ratchet-platform, lint-rule, and hook lanes landed 2026-07-12..2026-07-15.
+The 23 Done/superseded leaf files were removed at the 2026-07-19 backlog
+triage — recoverable from git history; their rows below keep the landing
+record)
 Created: 2026-07-01
 Source: 2026-07-01 AI-harness review (multi-agent: harness surface map, lint +
 ratchet deep-dive, web research, Codex second opinion). Provenance,
@@ -26,32 +30,32 @@ rules, **H** hooks, **P** public-reference fitness.
 
 | # | Task | Track | Size | Severity | Depends on | Status |
 |---|---|---|---|---|---|---|
-| 10 | [Semantic min-merge baseline driver](./10-semantic-min-merge-driver-for-baseline.md) | RM | M-L | high | pair with 12 | Done — semantic min-merge driver landed (`e8b9f7db`) |
-| 11 | [Automate merge-driver install (+ health check)](./11-merge-driver-auto-install-and-health-check.md) | RM | S | high | none | Done — `prepare` installs drivers; `doctor.sh` health check |
-| 12 | [Post-merge baseline truth-up](./12-post-merge-baseline-truth-up.md) | RM | S-M | med-high | none (pairs with 10) | Done — `.husky/post-merge` baseline truth-up (`1b732828`) |
-| 14 | [Baseline hand-edit integrity gate](./14-baseline-hand-edit-integrity-gate.md) | RP | M | high | none | Done — `baseline-debt-accounting*.ts` via `--check-debt-accounting` |
-| 15 | [Parallelize ratchet collection](./15-batch-ratchet-collection.md) | RP | M | med | none | Done — `current-collector.ts` bounded concurrency pool (default 3) |
-| 16 | [Implement `report-only` + `--propose` dry-run](./16-report-only-mode-and-propose-dry-run.md) | RP | S-M | med | none | Done — `report-only` mode (`caf53107`) + `propose.ts` dry-run (`e2efc1ee`) |
-| 17 | [Ratchet trend + by-directory attribution](./17-ratchet-trend-and-debt-attribution.md) | RP | S-M | low-med | none | Done — `lint:ratchet:trend` + `--by-directory` (`3b79af88`, `583e8357`) |
-| 18 | [Upgrade-drift classification + swap visibility](./18-upgrade-churn-message-and-swap-visibility.md) | RP | S | low-med | none | Done — stale rule-source identity classification and equal-count swap visibility landed |
-| 19 | [`--update` preflight + expansion unification](./19-update-mode-preflight-and-expansion-unification.md) | RP | S-M | med | none | Done — update preflight + glob unification + GFM escaping (`e8e46212`) |
-| 30 | [No outer `prisma` client in `$transaction` callbacks](./30-no-prisma-client-in-transaction-rule.md) | L | M | high | none | Done — `no-outer-client-in-transaction.js` (`d867c3d2`→`3a5e55ca`) |
-| 31 | [Raw-SQL fence + inventory-router escapee](./31-raw-sql-fence-and-inventory-escapee.md) | L | S | high | none | Done — raw-SQL fence + inventory escapee migrated (`ee14e9f8`) |
-| 32 | [tRPC error-code discipline rule](./32-trpc-error-code-discipline-rule.md) | L | M | high | none | Done — `local/no-plain-error-in-trpc` (`11f5d8f7`→`ae34ef94`) |
-| 33 | [No hand-built query keys](./33-no-hand-built-query-keys-rule.md) | L | S-M | med-high | none | Done — `no-hand-built-query-keys` restricted-syntax (`40c451d0`) |
-| 34 | [Ban permissive shared/output schemas](./34-ban-permissive-shared-and-output-schemas.md) | L | S-M | med-high | none | Done — permissive shared/output schema bans landed |
+| 10 | Semantic min-merge baseline driver | RM | M-L | high | pair with 12 | Done — semantic min-merge driver landed (`e8b9f7db`) |
+| 11 | Automate merge-driver install (+ health check) | RM | S | high | none | Done — `prepare` installs drivers; `doctor.sh` health check |
+| 12 | Post-merge baseline truth-up | RM | S-M | med-high | none (pairs with 10) | Done — `.husky/post-merge` baseline truth-up (`1b732828`) |
+| 14 | Baseline hand-edit integrity gate | RP | M | high | none | Done — `baseline-debt-accounting*.ts` via `--check-debt-accounting` |
+| 15 | Parallelize ratchet collection | RP | M | med | none | Done — `current-collector.ts` bounded concurrency pool (default 3) |
+| 16 | Implement `report-only` + `--propose` dry-run | RP | S-M | med | none | Done — `report-only` mode (`caf53107`) + `propose.ts` dry-run (`e2efc1ee`) |
+| 17 | Ratchet trend + by-directory attribution | RP | S-M | low-med | none | Done — `lint:ratchet:trend` + `--by-directory` (`3b79af88`, `583e8357`) |
+| 18 | Upgrade-drift classification + swap visibility | RP | S | low-med | none | Done — stale rule-source identity classification and equal-count swap visibility landed |
+| 19 | `--update` preflight + expansion unification | RP | S-M | med | none | Done — update preflight + glob unification + GFM escaping (`e8e46212`) |
+| 30 | No outer `prisma` client in `$transaction` callbacks | L | M | high | none | Done — `no-outer-client-in-transaction.js` (`d867c3d2`→`3a5e55ca`) |
+| 31 | Raw-SQL fence + inventory-router escapee | L | S | high | none | Done — raw-SQL fence + inventory escapee migrated (`ee14e9f8`) |
+| 32 | tRPC error-code discipline rule | L | M | high | none | Done — `local/no-plain-error-in-trpc` (`11f5d8f7`→`ae34ef94`) |
+| 33 | No hand-built query keys | L | S-M | med-high | none | Done — `no-hand-built-query-keys` restricted-syntax (`40c451d0`) |
+| 34 | Ban permissive shared/output schemas | L | S-M | med-high | none | Done — permissive shared/output schema bans landed |
 | 35 | [Socket listener cleanup rule](./35-client-socket-listener-cleanup-rule.md) | L | M | med-high | none | Done — pairing half landed (`b1d220ba`); boundary half deferred (owner) |
 | 36 | [`effect-boundary` marker rule](./36-effect-boundary-marker-rule.md) | L | M | med-high | useeffect-plan decision | Deferred (owner decision) |
 | 38 | [`strict-boolean-expressions` next slice](./38-strict-boolean-expressions-next-slice.md) | L | S | med | none | Open — leaf says not implemented |
-| 50 | [Hook-wiring schema: lifecycle events](./50-hook-wiring-schema-lifecycle-events.md) | H | M | high | none | Done — `hook-wiring-schema.ts` lists ~17 lifecycle events |
-| 51 | [PostCompact state re-injection](./51-precompact-state-reinjection.md) | H | S-M | med-high | 50 | Done — SessionStart re-injection via `session-state.sh` |
-| 52 | [SubagentStop stop-policy](./52-subagentstop-stop-policy.md) | H | S-M | med | 50 | Done — SubagentStop stop-policy adapter + manifest entry (`f58262ac`); systemMessage rationale recorded (`4285af0f`) |
-| 54 | [protected-files advisory/deny split](./54-protected-files-advisory-deny-split.md) | H | M | med-high | none | Done — `protected-files.sh` deny tier (`68999c63`) |
-| 56 | [tidy hook immediate/deferred split](./56-tidy-hook-immediate-vs-deferred-split.md) | H | M | low-med | none | Done — `stop-policy.sh` immediate/deferred split (`48ac51aa`) |
-| 57 | [pre-push fast-commit backstop](./57-pre-push-fast-commit-backstop.md) | H | S | med | none | Done — `.husky/pre-push` fast-commit backstop → `land.sh` |
-| 58 | [PostToolUseFailure fix guidance](./58-posttoolusefailure-fix-guidance.md) | H | S-M | low-med | 50 | Done — `failure-guidance.sh` wired in `.claude/settings.json` |
-| 70 | [export-ignore vs the reference goal](./70-export-ignore-vs-reference-goal.md) | P | S | high | none | Partially superseded — copyable config carved into archives; discoverability → harness-audit 63 |
-| 71 | [Coverage-map claim vs checker scope](./71-coverage-map-claim-vs-checker-scope.md) | P | S | med | none | Done — `TRACKED_EXTENSION_PATTERN`/`TRACKED_BASENAMES` widened (`c28439e4`) |
+| 50 | Hook-wiring schema: lifecycle events | H | M | high | none | Done — `hook-wiring-schema.ts` lists ~17 lifecycle events |
+| 51 | PostCompact state re-injection | H | S-M | med-high | 50 | Done — SessionStart re-injection via `session-state.sh` |
+| 52 | SubagentStop stop-policy | H | S-M | med | 50 | Done — SubagentStop stop-policy adapter + manifest entry (`f58262ac`); systemMessage rationale recorded (`4285af0f`) |
+| 54 | protected-files advisory/deny split | H | M | med-high | none | Done — `protected-files.sh` deny tier (`68999c63`) |
+| 56 | tidy hook immediate/deferred split | H | M | low-med | none | Done — `stop-policy.sh` immediate/deferred split (`48ac51aa`) |
+| 57 | pre-push fast-commit backstop | H | S | med | none | Done — `.husky/pre-push` fast-commit backstop → `land.sh` |
+| 58 | PostToolUseFailure fix guidance | H | S-M | low-med | 50 | Done — `failure-guidance.sh` wired in `.claude/settings.json` |
+| 70 | export-ignore vs the reference goal | P | S | high | none | Partially superseded — copyable config carved into archives; discoverability → harness-audit 63 |
+| 71 | Coverage-map claim vs checker scope | P | S | med | none | Done — `TRACKED_EXTENSION_PATTERN`/`TRACKED_BASENAMES` widened (`c28439e4`) |
 | 74 | [Relocate cadence output-style rules](./74-cadence-output-style-load-bearing-rules.md) | P | S | med | none | Open — leaf says not implemented |
 
 ## Recommended Order

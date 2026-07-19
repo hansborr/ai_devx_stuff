@@ -93,11 +93,16 @@ musi_verify_write_signal_meta() {
 
 # --- Failure summary -------------------------------------------------------
 # Print the FAILED banner, Passed/Failed lines, per-task log excerpts (ratchet
-# gets its diagnostics excerpt), and the lint/format repair hints. The caller
-# still owns the failure run-metadata write and the exit.
+# gets its diagnostics excerpt), the lint/format repair hints, and a one-line
+# failure-logs footer. The footer is deliberately the summary's LAST line: the
+# per-slot log pointers above are section HEADERS, so a truncated capture
+# (`... 2>&1 | tail -N`) would otherwise keep only boilerplate and lose the
+# breadcrumb. Its wipe warning is folded in so `tail -1` still carries the
+# path; test-timings.json is named only when it exists (early failures may not
+# write it). The caller still owns the failure run-metadata write and the exit.
 musi_verify_print_failure_summary() {
   local banner_label="$1" elapsed="$2" log_dir="$3" passed="$4" failed="$5"
-  local task
+  local task timings_note=""
   printf '\n=== %s FAILED (%ds) ===\n' "$banner_label" "$elapsed"
   printf 'Passed:%s\n' "$passed"
   printf 'Failed:%s\n' "$failed"
@@ -115,6 +120,11 @@ musi_verify_print_failure_summary() {
   case "$failed" in
     *format-check*) printf "\nHint: run 'bun run format:changed' to apply Prettier to changed files, or 'bun run format' for the full tree.\n" ;;
   esac
+  if [ -e "$log_dir/test-timings.json" ]; then
+    timings_note=", test-timings.json"
+  fi
+  printf '\nverify: failure logs: %s (per-slot <slot>.log%s; wiped by the next verify/pre-commit run — read or copy first)\n' \
+    "$log_dir" "$timings_note"
 }
 
 # --- Success finalization --------------------------------------------------

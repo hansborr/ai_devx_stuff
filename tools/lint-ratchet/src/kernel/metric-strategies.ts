@@ -5,8 +5,8 @@
 //
 // A strategy owns its metric's collection reduction, item codec (format +
 // validate), and — folded in by later slices — comparison and semantic-minimum
-// merge. The metrics-format/metrics-validation entry points delegate here so the
-// codec lives in exactly one place.
+// merge. The metricItemForFormat/validateMetricItem entry points below delegate
+// to the strategy so the codec lives in exactly one place.
 
 import { sameCanonicalValue } from "./baseline-merge-values.js";
 import type { LintRatchetConfig, LintRatchetMetric } from "./config-types.js";
@@ -250,4 +250,25 @@ export function metricStrategy(metric: LintRatchetMetric): MetricStrategy {
 
 export function metricStrategies(): readonly MetricStrategy[] {
   return Object.values(METRIC_STRATEGIES);
+}
+
+// Canonical committed-baseline form of an item. The per-metric codec lives on
+// the metric strategy; this entry point delegates so callers keep one import.
+export function metricItemForFormat(
+  metric: LintRatchetMetric,
+  item: LintRatchetMetricItem,
+): LintRatchetMetricItem {
+  return metricStrategy(metric).formatItem(item);
+}
+
+// Append a failure for every field invalid or missing for this metric. The
+// per-metric rules live on the metric strategy; this entry point delegates so
+// callers keep one import.
+export function validateMetricItem(
+  path: string,
+  metric: LintRatchetMetric,
+  item: LintRatchetMetricItem,
+  failures: string[],
+): void {
+  metricStrategy(metric).validateItem(path, item, failures);
 }

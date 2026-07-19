@@ -10,7 +10,7 @@ import type {
   LintRatchetThirdPartyPluginAllowlistEntry,
 } from "@musi/lint-ratchet/kernel/config-types.js";
 import { trackedFilesFromGit } from "@musi/lint-ratchet/kernel/git-tracked-files.js";
-import { ConfigError } from "@musi/lint-ratchet/kernel/metrics.js";
+import { ConfigError } from "@musi/lint-ratchet/kernel/metrics-types.js";
 import { matchesAny, matchingTrackedFiles } from "@musi/lint-ratchet/kernel/ratchet-globs.js";
 
 import { harnessManifestPath as resolveHarnessManifestPath } from "../harness/harness-manifest.js";

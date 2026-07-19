@@ -72,3 +72,12 @@ detail that cannot be recovered from code, tests, commits, `LOG.md`, or
   merged `feat/mutation-expand-shared-server`; residual #75 queued for Codex.
 - `ux-audit-2026-06-p0.md` — three 2026-06-06 live-play P0 blockers shipped;
   only the manual dev-DB fixture reseed deferred.
+- `harness-audit-2026-07.md` — closed 45-leaf six-lane harness audit pack
+  (both waves landed 2026-07-14): fail-closed gate fixes, worktree template
+  fingerprints, cross-harness guard parity, showcase accuracy.
+- `harness-explore-2026-07.md` — closed 14-leaf harness exploration pack
+  (drained via sequential-drain phases 1–3): manifest-derived staleness
+  surfaces, salted lint-agent cache, shared gate plumbing.
+- `harness-review-2026-07b.md` — closed 20-leaf 2026-07-06 deep-dive pack;
+  all five `fix/hr07b` lane merges verified on `main`, stale "Open" index
+  rows truthed up at close-out.

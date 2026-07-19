@@ -5,7 +5,6 @@
 // context/binding the kernel operations receive as parameters. Everything the
 // gate needs about "this repository" is assembled here from the package's pure
 // primitives; the engine itself carries no demo bindings.
-import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -78,15 +77,3 @@ export const demoProposeEngine: LintRatchetProposeEngine = {
   binding: demoBinding,
   registryHint: "scripts/lint-ratchet/adapter.ts",
 };
-
-/**
- * Read the committed baseline text, failing loud with the recovery command when
- * it is missing — the same "missing baseline => run update" contract the Musi
- * adapter enforces.
- */
-export function readBaselineText(): string {
-  if (!existsSync(baselinePath)) {
-    throw new Error(`${BASELINE_FILENAME} does not exist; run bun run lint:ratchet:update`);
-  }
-  return readFileSync(baselinePath, "utf8");
-}

@@ -5,9 +5,19 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { compareByCodepoint } from "@musi/lint-ratchet/kernel/codepoint-compare.js";
 
 import { runDocGenerator } from "../lib/doc-generator.js";
-import { generateSurfaceFreshnessShell } from "./generated-surface-freshness.js";
+import {
+  loadGeneratedSurfaces,
+  renderClassifierFragment,
+  renderFixtureManifest,
+  renderFreshnessShell,
+} from "./generated-surfaces.js";
 import { HARNESS_MANIFEST_FILENAME, readHarnessManifest } from "./harness-manifest.js";
-import { GENERATED_VERIFY_STEPS_PATH } from "./harness-paths.js";
+import {
+  GENERATED_CLASSIFIED_BUN_SCRIPTS_PATH,
+  GENERATED_HARNESS_CHECK_FIXTURE_MANIFEST_PATH,
+  GENERATED_SURFACE_FRESHNESS_PATH,
+  GENERATED_VERIFY_STEPS_PATH,
+} from "./harness-paths.js";
 import { MARKER_BRIDGE_DIVERGENCE_ALLOWLIST } from "./verify-step-bridge-divergences.js";
 import {
   isNonEmptyString,
@@ -405,5 +415,25 @@ if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.a
       ),
     }),
   });
-  generateSurfaceFreshnessShell(repoRoot);
+  runDocGenerator({
+    outputPath: join(repoRoot, GENERATED_SURFACE_FRESHNESS_PATH),
+    refreshCommand: "verify:steps",
+    render: () => ({
+      rendered: renderFreshnessShell(loadGeneratedSurfaces(repoRoot)),
+    }),
+  });
+  runDocGenerator({
+    outputPath: join(repoRoot, GENERATED_CLASSIFIED_BUN_SCRIPTS_PATH),
+    refreshCommand: "verify:steps",
+    render: () => ({
+      rendered: renderClassifierFragment(loadGeneratedSurfaces(repoRoot)),
+    }),
+  });
+  runDocGenerator({
+    outputPath: join(repoRoot, GENERATED_HARNESS_CHECK_FIXTURE_MANIFEST_PATH),
+    refreshCommand: "verify:steps",
+    render: () => ({
+      rendered: renderFixtureManifest(loadGeneratedSurfaces(repoRoot)),
+    }),
+  });
 }

@@ -67,15 +67,21 @@ print_history_row() {
 
   json=""
   wrapper=""
-  if json=$(sed -n '1p' "$file" 2>/dev/null); then
-    wrapper=$(musi_run_meta_wrapper_fragment "$json")
+  # Whole-file read (not first-line): pre-port combine wrote multi-line
+  # run-meta documents, and the codec parses either shape as one document.
+  # Display-only read path: silence codec stderr (legacy sed was silent on
+  # wrapper:null / malformed rows, and the row already degrades to the
+  # filename-derived fields). Write/restamp paths keep codec stderr for
+  # diagnosability — suppress only here.
+  if json=$(cat "$file" 2>/dev/null); then
+    wrapper=$(musi_run_meta_wrapper_fragment "$json" 2>/dev/null)
   fi
 
-  mode=$(musi_run_meta_json_string_field "$wrapper" mode)
-  start_time=$(musi_run_meta_json_string_field "$wrapper" start_time)
-  elapsed=$(musi_run_meta_json_int_field "$wrapper" elapsed_seconds)
-  exit_code=$(musi_run_meta_json_int_field "$wrapper" exit_code)
-  head=$(musi_run_meta_json_string_field "$wrapper" head)
+  mode=$(musi_run_meta_json_string_field "$wrapper" mode 2>/dev/null)
+  start_time=$(musi_run_meta_json_string_field "$wrapper" start_time 2>/dev/null)
+  elapsed=$(musi_run_meta_json_int_field "$wrapper" elapsed_seconds 2>/dev/null)
+  exit_code=$(musi_run_meta_json_int_field "$wrapper" exit_code 2>/dev/null)
+  head=$(musi_run_meta_json_string_field "$wrapper" head 2>/dev/null)
 
   [ -n "$mode" ] || mode="$file_mode"
   [ -n "$exit_code" ] || exit_code="$file_exit"

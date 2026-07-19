@@ -169,13 +169,30 @@ const runtimeCallSpecifier = (
   return node.arguments[0];
 };
 
-export const runtimeImportSpecifiers = (sourceFile: ts.SourceFile): readonly string[] => {
+export interface RuntimeImportSpecifierOptions {
+  /**
+   * How to treat a runtime import whose specifier is not a static string
+   * literal. The worktree-seed contract keeps the historical `"throw"` default
+   * (a seed closure must be fully statically resolvable); `"skip"` is for
+   * closure walks over code that intentionally loads runtime-configured inputs
+   * (e.g. `await import(pathToFileURL(configPath).href)`), which a static walk
+   * cannot and should not resolve.
+   */
+  readonly nonStaticSpecifiers?: "throw" | "skip";
+}
+
+export const runtimeImportSpecifiers = (
+  sourceFile: ts.SourceFile,
+  options: RuntimeImportSpecifierOptions = {},
+): readonly string[] => {
+  const nonStaticSpecifiers = options.nonStaticSpecifiers ?? "throw";
   const specifiers: string[] = [];
   const bindings = runtimeLoaderBindings(sourceFile);
   validateKnownLoaderSourceUsage(sourceFile, bindings);
   const record = (node: ts.Expression | undefined): void => {
     if (node === undefined) return;
     if (!ts.isStringLiteralLike(node)) {
+      if (nonStaticSpecifiers === "skip") return;
       throw new Error(
         `runtime import in ${sourceFile.fileName} must use a static string specifier`,
       );
