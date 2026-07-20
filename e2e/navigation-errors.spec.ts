@@ -5,6 +5,11 @@ import { LoginPO } from "./page-objects/login.po.js";
 import { RegisterPO } from "./page-objects/register.po.js";
 
 test.describe("Navigation and error handling", () => {
+  // All tests here are read-only and fixture-isolated (fresh context per
+  // userPage/page test, no shared mutable state) — safe to fan across
+  // workers despite the global fullyParallel:false. (testsuite-audit leaf 04)
+  test.describe.configure({ mode: "parallel" });
+
   test("visiting /characters/nonexistent-id shows error", async ({ userPage: { page } }) => {
     await page.goto("/characters/00000000-0000-0000-0000-000000000000");
     await expect(page.getByText(/not found|failed to load/i)).toBeVisible({

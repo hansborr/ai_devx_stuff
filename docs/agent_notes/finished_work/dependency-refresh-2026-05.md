@@ -36,13 +36,13 @@ Deferred by policy:
 Recommended next phases:
 1. Safe refresh landed in commit `b87cb51e`.
 2. Deferred upgrade backlog notes:
-   - `docs/agent_notes/backlog/dependency-age-gated-followups.md`
+   - `docs/agent_notes/backlog/ready-2026-07/10-dependency-age-gated-followups.md`
    - ESLint 10 / `@eslint/js` 10: **landed (Phase A) 2026-05-28** — see `../LOG.md`;
      jsdoc 63 remains as Phase B below.
-   - `docs/agent_notes/backlog/typescript-6-upgrade.md`
-   - `docs/agent_notes/backlog/fastify-multipart-10-upgrade.md`
-   - `docs/agent_notes/backlog/eslint-plugin-jsdoc-63-upgrade.md`
-   - `docs/agent_notes/backlog/node-types-25-upgrade.md`
+   - `docs/agent_notes/backlog/ready-2026-07/06-typescript-6-upgrade.md`
+   - `docs/agent_notes/backlog/ready-2026-07/07-fastify-multipart-10-upgrade.md`
+   - `docs/agent_notes/backlog/ready-2026-07/08-eslint-plugin-jsdoc-63-upgrade.md`
+   - `docs/agent_notes/backlog/ready-2026-07/09-node-types-25-upgrade.md`
 
 Migration-tool research notes:
 - ESLint v10 docs mention `eslint-transforms v9-rule-migration` for custom rule/plugin migration and `@eslint/compat` compatibility patches.

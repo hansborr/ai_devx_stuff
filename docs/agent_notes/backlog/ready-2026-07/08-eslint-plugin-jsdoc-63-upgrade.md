@@ -1,6 +1,6 @@
 # eslint-plugin-jsdoc 63 Upgrade
 
-Status: Backlog
+Status: Ready — isolated migration; preconditions re-verified 2026-07-19
 Date: 2026-05-28
 
 ## Why Parked

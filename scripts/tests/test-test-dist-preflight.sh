@@ -286,6 +286,10 @@ assert_includes_server 0 run --project=client
 assert_includes_server 0 run --passWithNoTests --project=shared
 assert_includes_server 0 run --project=scripts somefile.test.ts
 assert_includes_server 0 run --project eslint-rules
+# server-unit is the DB-free seed/parser project: it never imports the
+# generated Prisma client at runtime, so it is NOT server-context on its own.
+assert_includes_server 0 run --project=server-unit
+assert_includes_server 1 run --project=server --project=server-unit
 ok "musi_test_dist_run_includes_server maps --project filters to server-context"
 
 # --- musi_test_dist_run_includes_shared_consumer reads --project filters ------
@@ -306,6 +310,9 @@ assert_includes_shared_consumer 1 run --project=scripts --project=server
 assert_includes_shared_consumer 0 run --project=scripts somefile.test.ts
 assert_includes_shared_consumer 0 run --passWithNoTests --project=shared
 assert_includes_shared_consumer 0 run --project eslint-rules
+# server-unit's seed tests import the built @musi/shared dist, so a run
+# filtered to server-unit alone still needs the shared-dist freshness gate.
+assert_includes_shared_consumer 1 run --project=server-unit
 ok "musi_test_dist_run_includes_shared_consumer maps --project filters to shared-consumer context"
 
 # --- project scope inferred from positional file paths (no --project) ---------
@@ -321,6 +328,10 @@ assert_includes_server 0 run --passWithNoTests eslint-rules/foo.test.js
 assert_includes_shared_consumer 0 run --passWithNoTests eslint-rules/foo.test.js
 assert_includes_server 1 run --passWithNoTests packages/server/src/x.test.ts
 assert_includes_shared_consumer 1 run --passWithNoTests packages/server/src/x.test.ts
+# src/seed/** paths run in the DB-free server-unit project: no Prisma gate,
+# but they still import the built @musi/shared dist, so the dist gate stays on.
+assert_includes_server 0 run --passWithNoTests packages/server/src/seed/foo.test.ts
+assert_includes_shared_consumer 1 run --passWithNoTests packages/server/src/seed/foo.test.ts
 assert_includes_server 0 run --passWithNoTests packages/client/src/x.test.tsx
 assert_includes_shared_consumer 1 run --passWithNoTests packages/client/src/x.test.tsx
 ok "positional file paths infer project scope when no --project is present"

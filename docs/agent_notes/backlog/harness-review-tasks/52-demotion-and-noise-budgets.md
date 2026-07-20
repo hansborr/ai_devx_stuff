@@ -1,6 +1,6 @@
 # 52 - Demotion rule and noise budgets
 
-Status: Parked
+Status: Done — landed 2026-07-19 (wave-1 ready-2026-07 drain, A13); report-only sensor lifecycle policy in `docs/ai-harness.md`
 Track: G (governance/refinement)
 Size: small
 Depends on: none

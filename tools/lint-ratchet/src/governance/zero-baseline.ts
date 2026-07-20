@@ -1,27 +1,21 @@
 import { existsSync, readFileSync } from "node:fs";
 
+import { ESLint } from "eslint";
+
 import {
   type LintRatchetBaseline,
   type LintRatchetRuleSourceHashesById,
   parseLintRatchetBaseline,
-} from "@musi/lint-ratchet/kernel/baseline.js";
-import {
-  isJsonValue,
-  isRecord,
-  normalizeRuleOptions,
-} from "@musi/lint-ratchet/kernel/baseline-hash.js";
-import { type JsonValue, type LintRatchetConfig } from "@musi/lint-ratchet/kernel/config-types.js";
-import {
-  type LintRatchetEngineBinding,
-  relativeToRepoRoot,
-} from "@musi/lint-ratchet/kernel/engine-context.js";
-import { trackedFilesFromGit } from "@musi/lint-ratchet/kernel/git-tracked-files.js";
-import { ConfigError } from "@musi/lint-ratchet/kernel/metrics-types.js";
-import { matchingTrackedFiles } from "@musi/lint-ratchet/kernel/ratchet-globs.js";
-import { buildRuleSourceHashesById } from "@musi/lint-ratchet/kernel/rule-source.js";
-import type { LintRatchetZeroBaselineDisposition } from "@musi/lint-ratchet/kernel/zero-baseline-types.js";
-import { ESLint } from "eslint";
-export { matchingTrackedFiles } from "@musi/lint-ratchet/kernel/ratchet-globs.js";
+} from "../kernel/baseline.js";
+import { isJsonValue, isRecord, normalizeRuleOptions } from "../kernel/baseline-hash.js";
+import { type JsonValue, type LintRatchetConfig } from "../kernel/config-types.js";
+import { type LintRatchetEngineBinding, relativeToRepoRoot } from "../kernel/engine-context.js";
+import { trackedFilesFromGit } from "../kernel/git-tracked-files.js";
+import { ConfigError } from "../kernel/metrics-types.js";
+import { matchingTrackedFiles } from "../kernel/ratchet-globs.js";
+import { buildRuleSourceHashesById } from "../kernel/rule-source.js";
+import type { LintRatchetZeroBaselineDisposition } from "../kernel/zero-baseline-types.js";
+export { matchingTrackedFiles } from "../kernel/ratchet-globs.js";
 
 const ESLINT_ERROR_SEVERITY = 2;
 

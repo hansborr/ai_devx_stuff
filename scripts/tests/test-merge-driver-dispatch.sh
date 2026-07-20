@@ -8,6 +8,7 @@
 # smoke-subjects: .husky/post-checkout
 # smoke-subjects: .husky/post-commit
 # smoke-subjects: scripts/tests/test-merge-driver-dispatch.sh
+# smoke-subjects: scripts/lib/verify-metadata.sh
 #
 # Smoke test for the shared merge-driver install and baseline truth-up
 # dispatchers factored out of the post-merge / post-checkout / post-commit

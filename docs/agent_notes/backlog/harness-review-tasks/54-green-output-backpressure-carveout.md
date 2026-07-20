@@ -1,6 +1,13 @@
 # 54 - Green-output backpressure carve-out
 
-Status: Parked
+Status: Done 2026-07-19 on `auto/ready-b-hooks` — inventory and
+classification recorded in
+`../../finished_work/green-output-backpressure-audit-2026-07.md`; policy
+documented in `docs/ai-harness.md` (Green-Output Policy). No output behavior
+changed: hooks are already silent-on-green and the intentional backpressure
+lines are already test-pinned. Deferred removals (verify per-slot `running …`
+lines, stderr-only prisma-generate OK) and the one unpinned backpressure line
+(`nothing to verify`) are listed as follow-ups in the note.
 Track: G (governance/refinement)
 Size: medium
 Depends on: none

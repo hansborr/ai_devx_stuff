@@ -7,22 +7,15 @@ import {
   type LintRatchetBaseline,
   type LintRatchetCurrentItem,
   parseLintRatchetBaselineStructure,
-} from "@musi/lint-ratchet/kernel/baseline.js";
-import { stableJson } from "@musi/lint-ratchet/kernel/baseline-hash.js";
-import { validateBaselineTestForRatchet } from "@musi/lint-ratchet/kernel/baseline-validation.js";
-import type {
-  JsonObject,
-  JsonValue,
-  LintRatchetConfig,
-} from "@musi/lint-ratchet/kernel/config-types.js";
-import { collectCurrentForRatchet } from "@musi/lint-ratchet/kernel/current-collector.js";
-import {
-  type LintRatchetEngineBinding,
-  relativeToRepoRoot,
-} from "@musi/lint-ratchet/kernel/engine-context.js";
-import { usesEslintCache } from "@musi/lint-ratchet/kernel/eslint-config.js";
-import { matchesRatchet } from "@musi/lint-ratchet/kernel/ratchet-globs.js";
-import { buildRuleSourceHashesById } from "@musi/lint-ratchet/kernel/rule-source.js";
+} from "../kernel/baseline.js";
+import { stableJson } from "../kernel/baseline-hash.js";
+import { validateBaselineTestForRatchet } from "../kernel/baseline-validation.js";
+import type { JsonObject, JsonValue, LintRatchetConfig } from "../kernel/config-types.js";
+import { collectCurrentForRatchet } from "../kernel/current-collector.js";
+import { type LintRatchetEngineBinding, relativeToRepoRoot } from "../kernel/engine-context.js";
+import { usesEslintCache } from "../kernel/eslint-config.js";
+import { matchesRatchet } from "../kernel/ratchet-globs.js";
+import { buildRuleSourceHashesById } from "../kernel/rule-source.js";
 
 // The repo binding the edit-time check needs: where the gate runs, the committed
 // baseline, the registry to match paths against, and the plugin allowlist for
@@ -51,6 +44,11 @@ export interface EditCheckRegression {
   readonly line?: number;
   readonly baselineCount: number;
   readonly currentCount: number;
+  // Mechanical repair command for this rule (codemod command or the autofix
+  // runner). The repo-agnostic engine never sets it; the adapter CLI enriches
+  // regressions from its rule-docs metadata before formatting the wire row, so
+  // the advisory hook can name the exact command without a second engine call.
+  readonly repairCommand?: string;
 }
 
 function byPathThenTestId(

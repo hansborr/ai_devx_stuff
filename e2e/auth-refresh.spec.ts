@@ -1,8 +1,18 @@
 import { expect, test } from "./fixtures.js";
+import { loginViaUi } from "./helpers/auth.setup.js";
+import { readSharedUser } from "./helpers/test-data.js";
 import { TIMEOUT_MEDIUM } from "./helpers/timeouts.js";
 import { DashboardPO } from "./page-objects/dashboard.po.js";
 
-test.describe.serial("Authentication token refresh flow", () => {
+test.describe("Authentication token refresh flow", () => {
+  // Context-isolated tests: each gets its own browser context and session
+  // (API login via userPage, or an explicit UI login for login-subject
+  // tests), and the per-token session model (login creates a fresh session
+  // row; logout/refresh touch only their own tokenHash/session id) means no
+  // test can disturb a sibling's session — safe to fan across workers despite
+  // the global fullyParallel:false. (testsuite-audit leaf 04)
+  test.describe.configure({ mode: "parallel" });
+
   test("session persists after page reload", async ({ userPage: { page } }) => {
     const dashboard = new DashboardPO(page);
     await dashboard.expectVisible();
@@ -11,7 +21,11 @@ test.describe.serial("Authentication token refresh flow", () => {
     await dashboard.expectVisible();
   });
 
-  test("tRPC requests include Authorization header", async ({ userPage: { page } }) => {
+  // Login-subject test: asserts post-login request state, so it must drive a
+  // real UI login rather than the fixture's pre-seeded API session.
+  test("tRPC requests include Authorization header", async ({ page }) => {
+    const user = readSharedUser();
+    await loginViaUi(page, user.email, user.password);
     const dashboard = new DashboardPO(page);
     await dashboard.expectVisible();
 
@@ -27,7 +41,11 @@ test.describe.serial("Authentication token refresh flow", () => {
     expect(authHeader).toMatch(/^Bearer .+/);
   });
 
-  test("refresh token cookie is present after login", async ({ userPage: { page } }) => {
+  // Login-subject test: its subject is that login *produces* the cookie, so a
+  // pre-seeded session would test nothing — keep the real UI login.
+  test("refresh token cookie is present after login", async ({ page }) => {
+    const user = readSharedUser();
+    await loginViaUi(page, user.email, user.password);
     const dashboard = new DashboardPO(page);
     await dashboard.expectVisible();
 
@@ -47,7 +65,11 @@ test.describe.serial("Authentication token refresh flow", () => {
     }
   });
 
-  test("logout clears session and reload does not restore it", async ({ userPage: { page } }) => {
+  // Login-subject test: asserts the login → logout lifecycle end to end, so it
+  // keeps the real UI login instead of the fixture's API session.
+  test("logout clears session and reload does not restore it", async ({ page }) => {
+    const user = readSharedUser();
+    await loginViaUi(page, user.email, user.password);
     const dashboard = new DashboardPO(page);
     await dashboard.expectVisible();
 

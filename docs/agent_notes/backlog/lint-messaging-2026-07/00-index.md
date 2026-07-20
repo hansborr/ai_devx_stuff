@@ -1,6 +1,6 @@
 # Lint Messaging 2026-07 — Task Pack
 
-Status: Active residue after the 2026-07-13 docs audit; leaf 22 step (b) remains deferred.
+Status: Closed 2026-07-19 — leaf 22 step (b) landed on auto/ready-b-hooks; no open leaves remain.
 Created: 2026-07-05
 Source: 2026-07-05 lint-messaging review (5 parallel Sonnet exploration
 agents — local rules, agent envelope/hooks, ratchet, gates, sensors — with
@@ -29,7 +29,7 @@ noise/consistency polish.
 
 | # | Task | Track | Size | Severity | Depends on | Status |
 |---|---|---|---|---|---|---|
-| 22 | [Bridge edit-time hook advisories to the envelope guidance](./22-envelope-hook-bridge.md) | D | M | high | none | Done (step (a)); step (b) deferred |
+| 22 | [Bridge edit-time hook advisories to the envelope guidance](./22-envelope-hook-bridge.md) | D | M | high | none | Done (steps (a) and (b)) |
 
 ## Recommended Order
 

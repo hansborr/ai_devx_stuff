@@ -10,6 +10,14 @@ detail that cannot be recovered from code, tests, commits, `LOG.md`, or
 
 ## Index
 
+- `green-output-backpressure-audit-2026-07.md` — harness-review leaf 54
+  inventory of success/green output across hooks and verify surfaces with the
+  required/backpressure/chatter classification behind the `docs/ai-harness.md`
+  Green-Output Policy section.
+- `lint-self-correction-exemption-audit-2026-07.md` — harness-review leaf 50
+  inventory of off-in-normal-lint rules, suppressions, and ratchet floors with
+  keep/adopt/split verdicts (no adoptions warranted; near-drain floors named
+  for the next promotion review).
 - `socket-emit-inventory.md` — DX5.3a inventory and registry-scope
   classification (closed at DX5.3f).
 - `fixture-builder-inventory.md` — DX7.0c inventory of fixture outliers and

@@ -1,7 +1,10 @@
 # 12. One baseline update/gate layer + max-lines exceptions as a real baseline
 
-Status: **Leaf complete 2026-07-07** except the deferred git-attributes
-merge-driver wiring (a tracked follow-up for the merge-driver field exercise).
+Status: **Done — leaf complete 2026-07-07**; the last deferred piece (the
+git-attributes merge-driver wiring) landed via the merge-driver field
+exercise (Done 2026-07-16): `.gitattributes` now maps both baselines to
+their semantic merge drivers and `scripts/tests/test-lint-ratchet.sh`
+asserts the driver install. Verified on main at the 2026-07-19 triage.
 Slice 1 (framework + knip identity ledger) landed on main via
 `chore/arch-12-baseline-framework`; slice 2 (max-lines) done on
 `chore/arch-12-max-lines-baseline`. See "Slice 1 outcome" and "Slice 2 outcome".

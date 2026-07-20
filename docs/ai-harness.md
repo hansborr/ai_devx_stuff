@@ -25,6 +25,46 @@ Fast checks belong in the edit loop, `verify:changed`, or pre-commit. Slow or
 judgment-heavy checks start as `doctor`, CI, scheduled, or manual signals.
 Only promote a sensor to a gate after it has low noise and clear repair text.
 
+## Report-Only Sensor Lifecycle
+
+For gate-candidate sensors — checks that exist to eventually block a class
+of drift — report-only is a stage, not a destination: a warning agents can
+ignore becomes background noise, and unearned sensors erode the whole
+report surface. Some sensors are instead deliberately terminal advisories
+and never candidates for gating — the inventory below marks `drift:ai
+hotspots`/`coldspots` as "areas to inspect, not defects" and `harness:audit`
+as an artifact generator whose findings never gate. Terminal advisories are
+exempt from promotion pressure but still answer to the noise budget. Every
+gate-candidate report-only sensor follows this lifecycle:
+
+- **Entry**: a new broad or judgment-heavy sensor starts report-only outside
+  the edit loop, with the drift it is supposed to catch stated in its
+  inventory row below and its repair text drafted up front.
+- **Observation**: run it report-only through roughly 2-4 weeks of normal
+  work or about 10 real invocations before deciding anything. During
+  observation nothing may treat its findings as blocking.
+- **Noise budget**: a finding an agent correctly ignores is noise — false
+  positives, duplicates of another sensor's report, or debt nobody will act
+  on. More than roughly 1 ignorable finding in 5 puts the sensor over budget:
+  narrow its scope or sharpen its detection before the next review.
+- **Promotion**: promote to a gate only when the Timing rule holds for the
+  tier the check will gate in — low noise, clear repair text, and fast enough
+  for that tier (edit-loop and pre-commit gates must be fast; slower checks
+  can gate only in CI) — and observation produced findings that were actually
+  fixed. Promotion is per-check, not per-tool: `drift:ai`'s runtime
+  import-cycle floor gates in lint while its sibling checks remain
+  report-only.
+- **Demotion, retention, or deletion**: a sensor still over budget after one
+  narrowing attempt, or whose findings nobody acted on across an observation
+  window, moves down a stage — gate back to report-only, report-only to
+  deleted. A sensor whose reports are read and useful but that should never
+  gate may instead exit the lifecycle as a terminal advisory — record that
+  disposition in its inventory row (as the hotspots, coldspots, and
+  `harness:audit` rows do) so it stops counting as a stalled gate candidate.
+  Record any demotion and its evidence in the inventory row or the sensor's
+  README. Deleting a sensor that never earned trust is a harness improvement,
+  not a loss.
+
 ## Adapter Boundary
 
 Shared hook policy and reusable behavior belong in `scripts/ai-hooks/`. The
@@ -221,6 +261,30 @@ Recorded rejection: a full Bun/TS rewrite of
 backend-adapter-table work shrank the bash instead. Do not re-litigate the
 rewrite without a new constraint that defeats the copyability argument.
 
+## Green-Output Policy
+
+Actionable red output is the harness's scarce signal; green paths stay quiet
+by default. Every success line a hook or gate emits to the agent must earn its
+place as one of:
+
+- **Required command output** — the summary that replaces deliberately
+  suppressed verbose output (`<script> OK (Ns) - full log: …`,
+  `Commit succeeded: …`, the verify `OK (Ns) — <slots>` banner) or the
+  load-bearing rows of a diagnostics command (`verify:logs`).
+- **Backpressure confirmation** — a "this already happened, do not retry"
+  note: `cached OK … FORCE_VERIFY=1 to re-run`, `already verified … skipping`,
+  the fast-commit `slots skipped` suffix, `async verify: running`, tidy
+  `skipped (<reason>)`. These prevent redundant re-runs and stay.
+- Anything else is chatter and should be removed or kept off the agent
+  channel (stderr/log file only).
+
+Hook bodies are silent-on-green by construction (`ai_emit_continue` with no
+message); intentional backpressure strings are pinned by the ai-hooks and
+verify smokes so a cleanup cannot drop them by accident — with one known
+exception: `verify.sh`'s `nothing to verify` guidance is not yet pinned
+(follow-up #2 in the audit note). Inventory and per-line classification:
+`docs/agent_notes/finished_work/green-output-backpressure-audit-2026-07.md`.
+
 ## Guides
 
 Always-loaded workflow rules belong in `AGENTS.md`. Output styles can shape
@@ -317,9 +381,9 @@ needs them.
 | `verify` / `verify:changed` wrapper | Maintainability, architecture fitness, behavior | Computational | Lint, typecheck, and test failures with shared cache/lock/logs | `bun run verify:changed` | `AGENTS.md` |
 | `verify:logs` | Maintainability | Computational | Hidden or stale verification failures in cached logs | `bun run verify:logs` | Stop-policy user warnings |
 | `doctor` | Architecture fitness, maintainability | Computational | Worktree, DB, env, port, dependency, lint-suppression, and migration-safety drift | `bun run doctor` | `bun run worktree:*` scripts, `docs/guides/add-prisma-migration.md` |
-| knip unused-code advisory sensor | Maintainability | Computational | Workspace-unused files, exports, types, and dependencies; broad report remains advisory | `bun run sensor:knip`, `bun run doctor` | `knip.config.ts` |
+| knip unused-code advisory sensor | Maintainability | Computational | Workspace-unused files, exports, types, and dependencies; the broad report is a terminal advisory and never gates — the unused-export floor below is its promoted per-check gate | `bun run sensor:knip`, `bun run doctor` | `knip.config.ts` |
 | knip unused-export floor | Maintainability | Computational | Drift in knip-reported unused exported symbol count above or below the committed baseline; intentionally fail-closed in verify/pre-commit, measured about 1.5s on 2026-07-02, and runs without knip `--cache` so each gate reads the current graph directly | `bun run sensor:knip-unused-exports`, `verify`, pre-commit | `knip.config.ts`, `sensor-knip-unused-exports.baseline.json` |
-| near-duplicate no-new floor | Maintainability | Computational | New high-confidence function-clone identities touching staged files; existing whole-repo debt is admitted by a committed shrink-only baseline, while whole-repo reporting remains advisory | `bun run sensor:near-duplicates`, `verify`, pre-commit; update after cleanup with `bun scripts/sensor-near-duplicates.ts --update`; explicitly admit one reviewed identity with `--admit "<identity>" --reason "<why>"` | `scripts/drift-ai/near-duplicates.ts`, `sensor-near-duplicates.baseline.json` |
+| near-duplicate no-new floor | Maintainability | Computational | New high-confidence function-clone identities touching staged files; existing whole-repo debt is admitted by a committed shrink-only baseline, while whole-repo reporting is a terminal advisory and never gates | `bun run sensor:near-duplicates`, `verify`, pre-commit; update after cleanup with `bun scripts/sensor-near-duplicates.ts --update`; explicitly admit one reviewed identity with `--admit "<identity>" --reason "<why>"` | `scripts/drift-ai/near-duplicates.ts`, `sensor-near-duplicates.baseline.json` |
 | staged blob-size sensor | Maintainability | Computational | Staged files over 500 KiB / 5 MiB thresholds unless allowlisted with a reason | `bun run sensor:blob-size`, via `doctor` | `.blob-size-allowlist` |
 | `db:status` | Architecture fitness | Computational | Migration, Prisma client, and DB connectivity drift | `bun run db:status`, via `doctor` | `docs/guides/add-prisma-migration.md` |
 | `db:migration-safety` | Architecture fitness, behavior | Computational | Destructive or risky Prisma migrations lacking acknowledgement | `bun run db:migration-safety`, via `doctor` | `docs/guides/add-prisma-migration.md` |

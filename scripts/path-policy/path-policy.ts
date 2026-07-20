@@ -110,6 +110,23 @@ const ESLINT_FULL_SCAN_TRIGGERS = [
   { kind: "prefix", prefix: "eslint-rules/" },
 ] as const satisfies readonly PathPolicySelector[];
 
+// Shared trigger group: the changed-file collector decides what EVERY
+// changed-scope lint gate scans, so editing it must escalate each of those
+// gates to full scope — a selection change cannot be allowed to false-green
+// in changed scope (self-referential gap; see phase-3 review follow-up 1).
+const CHANGED_COLLECTOR_FULL_SCAN_TRIGGERS = [
+  { kind: "exact", path: "scripts/lib/changed-lintable-files.sh" },
+] as const satisfies readonly PathPolicySelector[];
+
+// The register scanners are additionally fed through the lint-suppressions
+// aggregator, which forwards changed scope to them; it joins their collector
+// trigger group. The eslint/config-sensor gates are NOT behind it and must
+// not over-escalate on aggregator edits.
+const SUPPRESSION_FORWARDER_FULL_SCAN_TRIGGERS = [
+  ...CHANGED_COLLECTOR_FULL_SCAN_TRIGGERS,
+  { kind: "exact", path: "scripts/lint-suppressions.sh" },
+] as const satisfies readonly PathPolicySelector[];
+
 export const PATH_POLICY = {
   lintableExtensions: {
     eslintChanged: [...JS_TS_LINTABLE_EXTENSIONS, ".json", ".jsonc"],
@@ -163,31 +180,28 @@ export const PATH_POLICY = {
     precommitTrackedExtraPrefixes: [".claude/", ".codex/", ".copilot/"],
   },
   fullScanTriggers: {
-    eslintChanged: [...ESLINT_FULL_SCAN_TRIGGERS, { kind: "exact", path: ".yamllint.yml" }],
-    agentLintChanged: ESLINT_FULL_SCAN_TRIGGERS,
+    eslintChanged: [
+      ...ESLINT_FULL_SCAN_TRIGGERS,
+      { kind: "exact", path: ".yamllint.yml" },
+      ...CHANGED_COLLECTOR_FULL_SCAN_TRIGGERS,
+    ],
+    agentLintChanged: [...ESLINT_FULL_SCAN_TRIGGERS, ...CHANGED_COLLECTOR_FULL_SCAN_TRIGGERS],
     configSensorsChanged: [
       { kind: "exact", path: "package.json" },
       { kind: "exact", path: "bun.lock" },
       { kind: "exact", path: ".yamllint.yml" },
       { kind: "exact", path: "scripts/lint-config-sensors.sh" },
+      ...CHANGED_COLLECTOR_FULL_SCAN_TRIGGERS,
     ],
     eslintDisableRegisterChanged: [
       { kind: "exact", path: "scripts/eslint-disable-register.sh" },
       { kind: "exact", path: "scripts/data/eslint-disable-broad-allowlist.txt" },
-      // The shared changed-file collector and the aggregator that forwards to
-      // this scanner decide what gets scanned; editing either must escalate to a
-      // full scan so a change to selection cannot false-green in changed scope.
-      { kind: "exact", path: "scripts/lib/changed-lintable-files.sh" },
-      { kind: "exact", path: "scripts/lint-suppressions.sh" },
+      ...SUPPRESSION_FORWARDER_FULL_SCAN_TRIGGERS,
     ],
     suppressionRegisterChanged: [
       { kind: "exact", path: "scripts/suppression-register.sh" },
       { kind: "exact", path: "scripts/data/ts-nocheck-allowlist.txt" },
-      // The shared changed-file collector and the aggregator that forwards to
-      // this scanner decide what gets scanned; editing either must escalate to a
-      // full scan so a change to selection cannot false-green in changed scope.
-      { kind: "exact", path: "scripts/lib/changed-lintable-files.sh" },
-      { kind: "exact", path: "scripts/lint-suppressions.sh" },
+      ...SUPPRESSION_FORWARDER_FULL_SCAN_TRIGGERS,
     ],
   },
   shellSurfaces: {

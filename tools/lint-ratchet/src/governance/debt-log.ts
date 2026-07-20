@@ -1,11 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 
-import {
-  DEFAULT_DEBT_LOG_FILENAME,
-  relativeToRepoRoot,
-} from "@musi/lint-ratchet/kernel/engine-context.js";
-import { escapeMarkdownTableCell } from "@musi/lint-ratchet/kernel/markdown-escape.js";
-
+import { DEFAULT_DEBT_LOG_FILENAME, relativeToRepoRoot } from "../kernel/engine-context.js";
+import { escapeMarkdownTableCell } from "../kernel/markdown-escape.js";
 import { parseDebtLogJsonl } from "./debt-log-jsonl.js";
 import {
   isAcceptedDebtLogEntry,

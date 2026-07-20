@@ -30,8 +30,9 @@ export function createToolsProjectConfigs(repoRoot) {
     // forbid the obvious outward reach targets so a leak is caught in the
     // edit/lint loop. The resolver-aware, fail-closed proof is the committed
     // boundary test under tools/lint-ratchet/test/boundary; this guard is not it.
-    // The package's own name is intentionally NOT restricted — the sources and
-    // tests self-import via `@musi/lint-ratchet/*`.
+    // The package's own name is intentionally NOT restricted — package tests
+    // self-import via `@musi/lint-ratchet/*` as a live proof of the enumerated
+    // exports map (src/ uses relative imports only; lint-arch leaf 14).
     {
       files: ["tools/lint-ratchet/**/*.ts"],
       ignores: ["tools/lint-ratchet/**/*.config.ts"],

@@ -203,7 +203,7 @@ musi_test_dist_preflight() {
 musi_test_dist_classify_project_name() {
   case "$1" in
     *'*'* | '!'*) printf 'ALL\n' ;;
-    server | client | shared | scripts | eslint-rules) printf "%s\n" "$1" ;;
+    server | server-unit | client | shared | scripts | eslint-rules) printf "%s\n" "$1" ;;
   esac
 }
 
@@ -213,6 +213,9 @@ musi_test_dist_classify_project_name() {
 # conservative).
 musi_test_dist_classify_path() {
   case "$1" in
+    # src/seed/** tests run in the DB-free `server-unit` project (the `server`
+    # project excludes them), so they must not force the Prisma-freshness gate.
+    packages/server/src/seed/*) printf 'server-unit\n' ;;
     packages/server/* | packages/server) printf 'server\n' ;;
     packages/client/* | packages/client) printf 'client\n' ;;
     packages/shared/* | packages/shared) printf 'shared\n' ;;
@@ -336,7 +339,10 @@ musi_test_dist_run_includes_server() {
 # present, scope is inferred from any positional file paths, so a positional
 # under packages/client or packages/server also counts. A run filtered to only
 # non-consumers (scripts/eslint-rules/shared — the shared project's own tests
-# import ./src directly, not the dist) returns 0.
+# import ./src directly, not the dist) returns 0. The DB-free server-unit
+# project's seed tests also import the built shared dist, so it is a consumer;
+# it is NOT in the server (Prisma freshness) target set because its only
+# generated-client imports are type-only and erased at runtime.
 musi_test_dist_run_includes_shared_consumer() {
-  musi_test_dist_run_includes "client server" "$@"
+  musi_test_dist_run_includes "client server server-unit" "$@"
 }

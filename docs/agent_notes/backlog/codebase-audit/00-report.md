@@ -1,7 +1,8 @@
 # Codebase Maintainability & Onboarding Audit — 2026-06-13
 
 > **Status: reconciled 2026-07-13 (docs leaves reconciled 2026-07-15). 38 landed
-> leaves were removed; 3 (#08/#09/#24) remain partial. The 2 docs leaves (#05,
+> leaves were removed; 2 (#08/#09) remain partial; #24 Done (aliases removed
+> 2026-07-19, wave-1 ready-2026-07 drain). The 2 docs leaves (#05,
 > #20) are Done — `docs/guides/per-worktree-dev.md` and
 > `packages/client/src/pages/MODULE.md` landed.** Per-leaf `Status:` lines
 > in git history are authoritative — re-verify before
@@ -9,7 +10,7 @@
 > #32, #35, #40) have mostly been acted on; the remaining README/AGENTS/test-helper doc
 > leaves (#03, #04, #15, #21, #22, #43) landed in the 2026-06-20 docs lane.
 
-- **Status:** 3 partial (#08/#09/#24); #05/#20 docs leaves Done (docs landed).
+- **Status:** 2 partial (#08/#09); #24 Done (2026-07-19); #05/#20 docs leaves Done (docs landed).
   The 38 landed leaves were removed from this working queue on 2026-07-13.
 - **Created:** 2026-06-13
 - **Source:** Multi-agent maintainability/onboarding survey of Musi at HEAD on `docs/codebase-audit`
@@ -230,7 +231,7 @@ being filed.
 ## Prioritized tasks
 
 Most leaves are now **Done & landed** (see the per-leaf `Status:` lines, which are
-authoritative); only #05 and #20 remain open Proposals and #08/#09/#24 are partial.
+authoritative); only #08/#09 remain open (both partial); #05/#20 are Done (docs landed) and #24 is Done (2026-07-19).
 Re-verify `file:line` evidence before implementing — this table is a snapshot. Sizes
 are XS–L; severity is the audit agent's onboarding/maintainability impact rating, not
 a production-incident severity.
@@ -239,9 +240,9 @@ a production-incident severity.
 |---|------|-------|------|----------|-----------|--------|
 | 8 | [Transaction-owning mutation orchestration lives inline in 8 routers, contradicting the services/ rubric the repo documents](./08-router-inline-transaction-orchestration.md) | server-layering | L | medium | none | Proposed |
 | 9 | [No single contract for request-facing services: calling convention and auth/broadcast ownership vary per procedure, even within one router](./09-service-calling-convention-inconsistent.md) | server-layering | M | medium | none | Partial — steps 1 & 3 landed (step 3 `executeLongRest`→ctx-first reorder `60e08986`, drain leaf 5.2; both rest cores aligned to `(ctx, character, input)`); step 2 rename deferred |
-| 24 | [Single-entity routers disagree on 'fetch one by id' naming (getById vs bare get), hurting cross-router predictability](./24-router-getbyid-naming-inconsistent.md) | naming-consistency | S | low | none | Decided |
-| 5 | [Per-worktree dev flow](./05-worktree-dev-flow-undocumented-for-humans.md) | onboarding-setup | S | medium | none | Proposed |
-| 20 | [Pages composition-root orientation doc](./20-pages-dir-no-composition-root-doc.md) | client-architecture | S | low | none | Proposed |
+| 24 | [Single-entity routers disagree on 'fetch one by id' naming (getById vs bare get), hurting cross-router predictability](./24-router-getbyid-naming-inconsistent.md) | naming-consistency | S | low | none | Done — compat aliases removed (landed 2026-07-19, wave-1 ready-2026-07 drain) |
+| 5 | [Per-worktree dev flow](./05-worktree-dev-flow-undocumented-for-humans.md) | onboarding-setup | S | medium | none | Done — `docs/guides/per-worktree-dev.md` landed |
+| 20 | [Pages composition-root orientation doc](./20-pages-dir-no-composition-root-doc.md) | client-architecture | S | low | none | Done — `packages/client/src/pages/MODULE.md` landed |
 
 ## Out of scope / already covered elsewhere
 

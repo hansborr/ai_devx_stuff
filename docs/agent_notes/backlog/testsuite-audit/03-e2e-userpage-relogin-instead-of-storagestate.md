@@ -1,10 +1,53 @@
 # 3. e2e re-drives a full browser UI login per test instead of reusing Playwright storageState
 
-Status: Proposed — read-only finding from the test-suite audit; NOT implemented. Re-verify file:line before acting.
+Status: Implemented 2026-07-19 (branch auto/ready-b-e2e) — see Design decision below.
 Lens: speed · Area: e2e · Severity: med · Size: M · Confidence: high
 Theme: redundant-per-test-setup · Source: Musi test-suite audit 2026-06-13 (multi-agent, adversarially verified)
 
+## Design decision (2026-07-19)
+
+**Chosen: per-context API login. No `storageState` file is written or restored at all.**
+
+- The `userPage` fixture performs one headless `POST /trpc/auth.login` through `context.request`,
+  routed via the browser-visible client origin (Vite proxies `/trpc` to this worktree's server),
+  so the host-scoped `musi_refresh` cookie is set on the same host the page later loads from
+  regardless of how `E2E_SERVER_URL` spells the server hostname. Playwright stores the
+  `Set-Cookie` in that browser context's
+  private cookie jar, so every context owns a distinct session row and a distinct `musi_refresh`
+  cookie. The rotation hazard only exists when a cookie is *shared*: `auth.refresh` deletes and
+  re-mints only the session addressed by the presented token (`routers/auth.ts` session
+  delete/create pair is keyed to the looked-up session id), so a context's boot-time rotation can
+  never invalidate any other context or worker. Nothing is shared, so nothing goes stale.
+- **Rejected — single project-wide `use.storageState`:** the first restored context's boot refresh
+  rotates the one shared cookie and breaks the 2nd..Nth contexts (the trap this leaf documents).
+- **Rejected — per-worker captured `storageState`:** every restored context's boot refresh rotates
+  the worker's saved cookie, so the file goes stale after one use and needs re-capture
+  bookkeeping; API-per-context has no persisted state that can go stale, for the same per-login
+  cost (one cheap headless request instead of a file restore).
+- The `setup` project still registers the shared user once (UI `/register` flow) and writes
+  `.auth/user-info.json`; only the per-test UI login is replaced.
+- After API login the fixture opens `/dashboard`; the client boots without an in-memory access
+  token (`token-store.ts`), `AuthGuard` renders a spinner while `isLoading`, and the mount-time
+  `auth.refresh` re-hydrates the token from the cookie — the URL never transits `/login`. The
+  fixture waits for that refresh response, mirroring `loginViaUi`'s waitForResponse pattern.
+- Auth-subject fencing per Scope: the `auth-refresh.spec.ts` blocks "tRPC requests include
+  Authorization header", "refresh token cookie is present after login", and "logout clears
+  session" now drive the raw `page` with a real `loginViaUi` (shared user via
+  `readSharedUser()`), so they keep asserting post-*login* state rather than a pre-seeded
+  session. `auth-smoke.spec.ts`'s register → login → logout block already used the raw `page`
+  and is untouched.
+
 ## Problem
+
+> **Historical (pre-change snapshot).** Everything below this point describes the tree as it
+> stood at the 2026-06-13 audit, before this leaf was implemented; its present tense, line
+> numbers, and counts are from that snapshot and are retained as the rationale for the Design
+> decision above. As implemented, the per-test UI login is gone: `userPage` does a headless API
+> login per context, and the fixture now has 24 consuming `test()` blocks across 9 spec files
+> (`wizard-validation`: 8, `navigation-errors`: 5, `character-create`: 4, `auth-refresh`: 2,
+> plus one each in `auth-smoke`, `a11y`, `mobile-nav`, `character-data-integrity`,
+> `homebrew-sharing`).
+
 The Playwright `storageState` pattern was half-scaffolded but never wired, so every `userPage`-consuming test pays a full browser-UI login round-trip purely as setup. The `setup` project runs `e2e/storage.setup.ts` once before the suite: it registers a shared user via the real `/register` form, waits for the redirect to `/login`, and writes the user's credentials to `.auth/user-info.json` (`storage.setup.ts:12-30`). Crucially it stops there — it neither logs the user in nor calls `page.context().storageState({ path })`, so no authenticated browser state is ever persisted. (Note: the setup as written ends on `/login` having only *registered*; capturing an authenticated `storageState` would require adding a login step inside setup, see Proposed direction.)
 
 As a result the `userPage` fixture opens a brand-new, cookieless browser context and performs a complete UI login on **every** test that consumes it: `browser.newContext()` then `loginViaUi(page, ...)` (`fixtures.ts:34-41`). `loginViaUi` is the full flow — `goto /login`, fill email + password, click "Log in", `waitForResponse(auth.login POST)`, and `await expect(page).toHaveURL(/\/dashboard/)` (`auth.setup.ts:7-17`). `userPage` is destructured per individual `test()` block (not once per file), and it is consumed across 8 spec files: `wizard-validation` (8 blocks), `navigation-errors` (5), `auth-refresh` (5), `character-create` (4), `homebrew-sharing` (1), plus one block each in `mobile-nav`, `character-data-integrity`, and `auth-smoke` — 26 `userPage`-consuming `test()` blocks in total. So the suite pays roughly two dozen sequential UI logins — each a page load + network round-trip + redirect wait — as setup for tests whose subject is **not** login.

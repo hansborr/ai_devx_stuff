@@ -13,6 +13,10 @@
 # smoke-subjects: scripts/harness/harness-paths.ts
 # smoke-subjects: scripts/harness/porting-knob-parity.ts
 # smoke-subjects: scripts/harness/porting-knob-parity.test.ts
+# smoke-subjects: scripts/harness/pre-push-scope-pin.ts
+# smoke-subjects: scripts/drift-ai/scope.ts
+# smoke-subjects: drift-ai.config.json
+# smoke-subjects: .husky/pre-push
 # smoke-subjects: scripts/harness/generate-hook-wiring.ts
 # smoke-subjects: scripts/harness/hook-shims.ts
 # smoke-subjects: scripts/harness/hook-shim-files.ts
@@ -39,6 +43,7 @@
 # smoke-subjects: scripts/verify/steps.generated.sh
 # smoke-subjects: scripts/verify/steps-lib.sh
 # smoke-subjects: scripts/verify/memory-budget.sh
+# smoke-subjects: scripts/lib/codepoint-compare.ts
 # smoke-subjects: scripts/lib/test-worker-count.sh
 # smoke-subjects: scripts/harness/verify-step-schema.ts
 # smoke-subjects: scripts/harness/fixture-closure-check.ts
@@ -73,6 +78,8 @@
 #   by their generatedSurface checkScript alias (no exemption entry), so
 #   dropping the facet orphans the script and a redundant exemption fails;
 # - the Porting This checklist and greppable source markers stay in parity;
+# - the pre-push source-extension pin fails when the fixture hook's boundary
+#   trigger alternation drifts from the scanner extensions or is missing;
 # - generated smoke-subjects, verify step, hook-wiring, local lint guidance,
 #   harness-controls doc, and restricted disable rule-list freshness fail when
 #   their checked-in outputs are stale.
@@ -261,6 +268,17 @@ SH
   cat >"$fixture_dir/.husky/pre-commit" <<'SH'
 #!/usr/bin/env bash
 echo pre-commit
+SH
+  # Representative near-duplicates boundary trigger: the pre-push scope pin
+  # (scripts/harness/pre-push-scope-pin.ts) reads this alternation and compares
+  # it against the copied scanner's BUILT_IN_SOURCE_EXTENSIONS (the fixture has
+  # no drift-ai.config.json, so no additional extensions apply).
+  cat >"$fixture_dir/.husky/pre-push" <<'SH'
+#!/usr/bin/env bash
+changed="fixture.ts"
+if grep -qE '(^|/)(sensor-near-duplicates\.baseline|drift-ai\.config)\.json$|\.(ts|tsx|js|jsx|mjs|cjs)$' <<< "$changed"; then
+  echo boundary-scan
+fi
 SH
   mkdir -p "$fixture_dir/.github/workflows"
   cat >"$fixture_dir/.github/workflows/ci.yml" <<'YAML'
@@ -784,6 +802,18 @@ run_failure_case() {
   fi
 }
 
+mutate_pre_push_pin_drift() {
+  local fixture_dir=$1
+  # Drop .cjs from the boundary trigger alternation so the scope pin reports
+  # the hook as out of sync with the scanner's source extensions.
+  sed -i 's/|mjs|cjs)/|mjs)/' "$fixture_dir/.husky/pre-push"
+}
+
+mutate_pre_push_pin_missing_hook() {
+  local fixture_dir=$1
+  rm "$fixture_dir/.husky/pre-push"
+}
+
 mutate_orphan_rule() {
   local fixture_dir=$1
   # Re-emit eslint config with an extra rule not in the manifest.
@@ -1233,6 +1263,10 @@ run_failure_checks() {
     "already covered as a generatedSurface checkScript alias" \
     mutate_redundant_alias_exemption
   run_failure_case "undocumented-porting-knob" "source-only" mutate_undocumented_porting_knob
+  run_failure_case "pre-push-pin-drift" \
+    "near-duplicates boundary trigger is out of sync" mutate_pre_push_pin_drift
+  run_failure_case "pre-push-pin-missing-hook" ".husky/pre-push could not be read" \
+    mutate_pre_push_pin_missing_hook
 }
 
 run_conflict_marker_presentation_check() {

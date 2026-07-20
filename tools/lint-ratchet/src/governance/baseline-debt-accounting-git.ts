@@ -1,12 +1,8 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 
-import {
-  type LintRatchetEngineContext,
-  relativeToRepoRoot,
-} from "@musi/lint-ratchet/kernel/engine-context.js";
-import { ConfigError } from "@musi/lint-ratchet/kernel/metrics-types.js";
-
+import { type LintRatchetEngineContext, relativeToRepoRoot } from "../kernel/engine-context.js";
+import { ConfigError } from "../kernel/metrics-types.js";
 import {
   checkBaselineDebtAccounting,
   formatBaselineDebtAccountingFailures,

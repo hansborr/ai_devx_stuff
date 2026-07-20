@@ -1,6 +1,8 @@
 # A11Y-1 - Runtime a11y checks (axe-core) in Playwright e2e
 
-> Proposal only - not implemented.
+Status: Done — implemented 2026-06-22 as `e2e/a11y.spec.ts` (login, register,
+character sheet, campaign detail) via `@axe-core/playwright`, with a
+documented serious/critical baseline-violation allowlist (`d49d3ca9`).
 
 ## Problem
 

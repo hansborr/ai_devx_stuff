@@ -1,4 +1,5 @@
 /** Shared test data generators and constants for E2E tests. */
+import { readFileSync } from "node:fs";
 
 const TEST_PASSWORD = "TestPassword123!";
 const RANDOM_SUFFIX_RADIX = 36;
@@ -40,4 +41,29 @@ export function makeUser(prefix: string): TestUser {
     password: TEST_PASSWORD,
     displayName: `E2E ${prefix}`,
   };
+}
+
+/**
+ * Reads the shared user registered once by the `setup` project
+ * (`storage.setup.ts`) from `.auth/user-info.json`.
+ */
+export function readSharedUser(): TestUser {
+  const value: unknown = JSON.parse(readFileSync(".auth/user-info.json", "utf-8"));
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    "email" in value &&
+    "password" in value &&
+    "displayName" in value &&
+    typeof value.email === "string" &&
+    typeof value.password === "string" &&
+    typeof value.displayName === "string"
+  ) {
+    return {
+      email: value.email,
+      password: value.password,
+      displayName: value.displayName,
+    };
+  }
+  throw new Error(".auth/user-info.json must contain email, password, and displayName strings.");
 }

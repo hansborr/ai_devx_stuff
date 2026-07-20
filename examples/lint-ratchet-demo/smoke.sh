@@ -53,6 +53,15 @@ JSON
 cd "$WORK_DIR"
 bun install >/dev/null 2>&1 || fail "bun install at the generated workspace root failed"
 
+# 2b. Explicit demo typecheck through the enumerated exports map (lint-arch
+#     leaf 14): tsc resolves @musi/lint-ratchet via the fresh install's
+#     workspace link and the package's exact `exports` keys — the same
+#     fail-closed path the runtime uses, so an import of a private subpath
+#     would break here, not silently typecheck. `tsc` is the package's own
+#     pinned typescript dependency (bun installs member deps member-locally).
+"$WORK_DIR/tools/lint-ratchet/node_modules/.bin/tsc" -p "$WORK_DIR/demo/tsconfig.json" \
+  || fail "demo typecheck against the enumerated exports map failed"
+
 # 3. Everything else runs INSIDE the demo member: the merge-driver installer
 #    resolves the repo root via `git rev-parse`, so Git must live at demo/ for
 #    its `scripts/git/*` + `scripts/lint-ratchet/*` dispatch paths to resolve.

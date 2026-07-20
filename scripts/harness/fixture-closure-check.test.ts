@@ -24,7 +24,13 @@ const FULL_CLOSURE = [
   "scripts/lib/helper.ts",
 ] as const;
 
-function manifestSource(fixturePaths?: readonly string[]): string {
+interface ClosureRepoOptions {
+  readonly fixturePaths?: readonly string[];
+  /** Defaults to the full generator import closure so trigger checks pass. */
+  readonly triggerPaths?: readonly string[];
+}
+
+function manifestSource(options: ClosureRepoOptions): string {
   return JSON.stringify({
     controls: [
       {
@@ -33,21 +39,33 @@ function manifestSource(fixturePaths?: readonly string[]): string {
         source: "scripts/alpha-generator.ts",
         invocation: "bun run alpha",
         generatedSurface: {
-          triggerPaths: ["scripts/alpha-generator.ts"],
+          triggerPaths: options.triggerPaths ?? [
+            "scripts/alpha-generator.ts",
+            "scripts/lib/helper.ts",
+          ],
           outputPaths: ["generated/alpha.txt"],
           checkScript: "alpha:check",
           warnLabel: "alpha output",
           bunHook: { refresh: "bypass", check: "wrapped" },
-          ...(fixturePaths === undefined ? {} : { fixturePaths }),
+          ...(options.fixturePaths === undefined ? {} : { fixturePaths: options.fixturePaths }),
         },
       },
     ],
   });
 }
 
-function makeClosureRepo(fixturePaths?: readonly string[]): string {
+function makeClosureRepo(
+  fixturePaths?: readonly string[],
+  triggerPaths?: readonly string[],
+): string {
   return tmpRepo.writeRepo(
-    { ...WALK_SOURCES, [HARNESS_MANIFEST_FILENAME]: manifestSource(fixturePaths) },
+    {
+      ...WALK_SOURCES,
+      [HARNESS_MANIFEST_FILENAME]: manifestSource({
+        ...(fixturePaths === undefined ? {} : { fixturePaths }),
+        ...(triggerPaths === undefined ? {} : { triggerPaths }),
+      }),
+    },
     "fixture-closure-check-",
   );
 }
@@ -109,6 +127,18 @@ describe("checkFixtureCopyClosure (orchestration over a temp repo)", () => {
     expect(failures).toHaveLength(1);
     expect(failures[0]).toContain("scripts/lib/gone.sh");
     expect(failures[0]).toContain("does not resolve to a regular file");
+  });
+
+  it("fails on a generator import that no triggerPaths entry covers", async () => {
+    // Fixture declarations are complete, but the trigger list omits the
+    // imported helper: the staleness warner would never fire for edits to it.
+    const root = makeClosureRepo([...FULL_CLOSURE], ["scripts/alpha-generator.ts"]);
+    const failures = await runValidator(root);
+
+    expect(failures).toHaveLength(1);
+    expect(failures[0]).toContain("check/alpha-generator");
+    expect(failures[0]).toContain("scripts/lib/helper.ts");
+    expect(failures[0]).toContain("triggerPaths");
   });
 
   it("fails closed when no record declares fixturePaths", async () => {

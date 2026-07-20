@@ -1,10 +1,10 @@
 # Port ready/release handshake to the timeout-clamp commit-queue test
 
-Status: Ready — promote when it next costs a land attempt or a lane run.
+Status: Done — landed 2026-07-19 (wave-1 ready-2026-07 drain; mechanical port of the proven e4f54b1f/3ccefe73 handshake).
 Date: 2026-07-19
-Source: live load reproduction while draining
-docs/agent_notes/backlog/commit-queue-test-load-flake.md (fixed in
-fix/commit-queue-test-flake, e4f54b1f + 3ccefe73).
+Source: live load reproduction while draining the commit-queue-test-load-flake
+note (fixed in fix/commit-queue-test-flake, e4f54b1f + 3ccefe73; note removed
+2026-07-19 — git history).
 Size: S.
 
 ## Evidence

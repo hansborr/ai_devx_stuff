@@ -4,7 +4,7 @@ import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 // against a generated fixture baseline + synthetic registry without running
 // ESLint. An empty item map means "linted, no findings" — distinct from a
 // soft-skip, which never reaches the collector at all.
-vi.mock("@musi/lint-ratchet/kernel/current-collector.js", () => ({
+vi.mock("../kernel/current-collector.js", () => ({
   collectCurrentForRatchet: vi.fn(() => Promise.resolve(new Map())),
 }));
 
@@ -18,16 +18,15 @@ import {
   buildLintRatchetBaseline,
   formatLintRatchetBaseline,
   type LintRatchetCurrentById,
-} from "@musi/lint-ratchet/kernel/baseline.js";
-import type * as BaselineValidationModule from "@musi/lint-ratchet/kernel/baseline-validation.js";
-import type { LintRatchetConfig } from "@musi/lint-ratchet/kernel/config-types.js";
-import { collectCurrentForRatchet } from "@musi/lint-ratchet/kernel/current-collector.js";
+} from "../kernel/baseline.js";
+import type * as BaselineValidationModule from "../kernel/baseline-validation.js";
+import type { LintRatchetConfig } from "../kernel/config-types.js";
+import { collectCurrentForRatchet } from "../kernel/current-collector.js";
 import {
   DEFAULT_BASELINE_FILENAME,
   type LintRatchetEngineBinding,
-} from "@musi/lint-ratchet/kernel/engine-context.js";
-import { buildRuleSourceHashesById } from "@musi/lint-ratchet/kernel/rule-source.js";
-
+} from "../kernel/engine-context.js";
+import { buildRuleSourceHashesById } from "../kernel/rule-source.js";
 import {
   type EditCheckTarget,
   type LintRatchetEditCheckEngine,
@@ -167,13 +166,13 @@ describe("runEditCheckRegressions soft-skip guards", () => {
 
 describe("runEditCheckRegressions drift guard", () => {
   afterEach(() => {
-    vi.doUnmock("@musi/lint-ratchet/kernel/baseline-validation.js");
+    vi.doUnmock("../kernel/baseline-validation.js");
     vi.resetModules();
   });
 
   it("soft-skips a target whose baseline test has drifted from the live registry", async () => {
     vi.resetModules();
-    vi.doMock("@musi/lint-ratchet/kernel/baseline-validation.js", async (importOriginal) => {
+    vi.doMock("../kernel/baseline-validation.js", async (importOriginal) => {
       const actual = await importOriginal<typeof BaselineValidationModule>();
       return {
         ...actual,
@@ -182,8 +181,8 @@ describe("runEditCheckRegressions drift guard", () => {
       };
     });
     const editCheck = await import("./edit-check.js");
-    const collector = await import("@musi/lint-ratchet/kernel/current-collector.js");
-    const validation = await import("@musi/lint-ratchet/kernel/baseline-validation.js");
+    const collector = await import("../kernel/current-collector.js");
+    const validation = await import("../kernel/baseline-validation.js");
 
     const target: EditCheckTarget = {
       path: MINIMAL_TS_FILE,
@@ -200,7 +199,7 @@ describe("runEditCheckRegressions drift guard", () => {
 
   it("lints a target when its baseline test reports no drift", async () => {
     vi.resetModules();
-    vi.doMock("@musi/lint-ratchet/kernel/baseline-validation.js", async (importOriginal) => {
+    vi.doMock("../kernel/baseline-validation.js", async (importOriginal) => {
       const actual = await importOriginal<typeof BaselineValidationModule>();
       return {
         ...actual,
@@ -210,7 +209,7 @@ describe("runEditCheckRegressions drift guard", () => {
       };
     });
     const editCheck = await import("./edit-check.js");
-    const collector = await import("@musi/lint-ratchet/kernel/current-collector.js");
+    const collector = await import("../kernel/current-collector.js");
 
     const target: EditCheckTarget = {
       path: MINIMAL_TS_FILE,
@@ -259,7 +258,7 @@ describe("runEditCheckRegressions baseline-availability guards", () => {
       };
     });
     const editCheck = await import("./edit-check.js");
-    const collector = await import("@musi/lint-ratchet/kernel/current-collector.js");
+    const collector = await import("../kernel/current-collector.js");
 
     const result = await editCheck.runEditCheckRegressions(editCheckEngine, [liveTarget], 1);
     // Absent baseline -> soft skip: empty regressions, nothing checked, and the
@@ -288,7 +287,7 @@ describe("runEditCheckRegressions baseline-availability guards", () => {
       };
     });
     const editCheck = await import("./edit-check.js");
-    const collector = await import("@musi/lint-ratchet/kernel/current-collector.js");
+    const collector = await import("../kernel/current-collector.js");
 
     const result = await editCheck.runEditCheckRegressions(editCheckEngine, [liveTarget], 1);
     // structural.baseline === undefined -> soft skip: no false regression and

@@ -1,19 +1,16 @@
 import { existsSync, readFileSync } from "node:fs";
 
+import { ESLint } from "eslint";
+
 import {
   type LintRatchetRetireRequest,
   parseLintRatchetBaselineStructure,
-} from "@musi/lint-ratchet/kernel/baseline.js";
-import { isJsonValue, isRecord } from "@musi/lint-ratchet/kernel/baseline-hash.js";
-import type { JsonValue, LintRatchetConfig } from "@musi/lint-ratchet/kernel/config-types.js";
-import {
-  type LintRatchetEngineContext,
-  relativeToRepoRoot,
-} from "@musi/lint-ratchet/kernel/engine-context.js";
-import { trackedFilesFromGit } from "@musi/lint-ratchet/kernel/git-tracked-files.js";
-import { ConfigError } from "@musi/lint-ratchet/kernel/metrics-types.js";
-import { ESLint } from "eslint";
-
+} from "../kernel/baseline.js";
+import { isJsonValue, isRecord } from "../kernel/baseline-hash.js";
+import type { JsonValue, LintRatchetConfig } from "../kernel/config-types.js";
+import { type LintRatchetEngineContext, relativeToRepoRoot } from "../kernel/engine-context.js";
+import { trackedFilesFromGit } from "../kernel/git-tracked-files.js";
+import { ConfigError } from "../kernel/metrics-types.js";
 import {
   type OrphanRetireScope,
   proveOrphanPromotedToNormalError,

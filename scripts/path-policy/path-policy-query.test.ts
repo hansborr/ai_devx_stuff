@@ -153,14 +153,17 @@ describe("path policy classification", () => {
       ".yamllint.yml",
       "eslint.config.js",
       "eslint-config/shared-policy.js",
+      "scripts/lib/changed-lintable-files.sh",
     ]);
     expect(queryPathPolicy("full-scan-trigger:agent-lint-changed", paths)).toEqual([
       "eslint.config.js",
       "eslint-config/shared-policy.js",
+      "scripts/lib/changed-lintable-files.sh",
     ]);
     expect(queryPathPolicy("full-scan-trigger:config-sensors-changed", paths)).toEqual([
       ".yamllint.yml",
       "scripts/lint-config-sensors.sh",
+      "scripts/lib/changed-lintable-files.sh",
     ]);
     expect(queryPathPolicy("full-scan-trigger:eslint-disable-register-changed", paths)).toEqual([
       "scripts/eslint-disable-register.sh",

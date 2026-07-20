@@ -1,6 +1,6 @@
 # 24. Single-entity routers disagree on "fetch one by id" naming (getById vs bare get), hurting cross-router predictability
 
-Status: In progress — convention documented + callers migrated to bare `get` (batch 5a, 2026-06-14); `getById` retained as a temporary deprecated compat alias in `magic-item.ts`/`monster.ts`. Remaining: remove the alias in a future cleanup once no pre-rename client bundles remain.
+Status: Done — convention documented + callers migrated to bare `get` (batch 5a, 2026-06-14); the deprecated `getById` compat aliases in `magic-item.ts`/`monster.ts` were removed (landed 2026-07-19, wave-1 ready-2026-07 drain).
 Theme: tRPC procedure naming · Area: server · Severity: low · Size: S
 
 Source: codebase maintainability/onboarding audit 2026-06-13 (lens: naming-consistency); evidence independently re-verified. · Confidence: high

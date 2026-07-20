@@ -1,6 +1,6 @@
 # 22. Bridge edit-time hook advisories to the envelope guidance
 
-Status: Done (step (a) only) — implemented on lane/lint-msg-coverage-bridge-fix: hook advisories now bridge to the envelope via `bun run lint:agent:local-rules:changed`. Step (b) — naming the specific repair command when the regressed rule has `repairKind: codemod`/autofix — is deferred; promote it as its own leaf if the generic bridge proves insufficient.
+Status: Done — step (a) implemented on lane/lint-msg-coverage-bridge-fix (hook advisories bridge to the envelope via `bun run lint:agent:local-rules:changed`); step (b) implemented 2026-07-19 on auto/ready-b-hooks: the `--edit-check` wire row carries a ninth `repairCommand` column (adapter-enriched from rule docs for `repairKind: codemod`/`autofix`; the engine stays repo-agnostic) and the ratchet-regression advisory bullet names the exact repair command inline.
 Lens: hooks · Area: discoverability · Severity: high · Size: M · Confidence: med-high
 Theme: two-systems-no-bridge · Source: Musi lint-messaging review 2026-07-05 (5 Sonnet agents + Fable verification)
 

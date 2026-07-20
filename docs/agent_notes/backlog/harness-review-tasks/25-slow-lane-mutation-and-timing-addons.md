@@ -1,6 +1,6 @@
 # 25 - Slow-lane mutation and timing add-ons
 
-Status: Parked
+Status: Ready — queued in `../ready-2026-07/00-index.md` (2026-07-19 triage)
 Track: Dg (diagnostics)
 Size: medium
 Depends on: 24

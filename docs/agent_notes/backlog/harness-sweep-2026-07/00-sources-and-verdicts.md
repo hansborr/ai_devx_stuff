@@ -123,14 +123,14 @@ repo*. Cluster ids (`cNN`) are the sweep's internal numbering.
 | c23 | land.sh current-branch mode merges the mutable ref, not the frozen SHA | Literally true but non-reproducing: the branch is held as worktree HEAD throughout the ~10-min verify, and the tree-comparison gate (land.sh:214) already blocks pushing a divergent merge. |
 | c28 | Main-lane ESLint cache identity rotation on TS edits is a defect | The rotation is the documented, tested soundness mechanism (lint-deep-dive-2026-07/21, Done); the "cold at land" claim is false since prune preserves the current, unchanged-tree fingerprint dir. |
 | c29 | Pre-commit generated-surface advisories run serially before short-circuit | Single-lens P3 whose pure-time fix duplicates harness-explore-2026-07/14, and whose cheap reorder trades away the only commit-time generator-freshness signal; fold as a note into leaf 05/14 instead. |
-| c30 | Diagnostic sensors (harness:audit, blob-size, knip) never run in CI | False: sensor:knip-unused-exports is a blocking CI slot and harness:audit runs in slow-drift.yml; only blob-size lacks CI wiring and it is already subsumed by the parked ci-local-gate-parity-guard.md. |
+| c30 | Diagnostic sensors (harness:audit, blob-size, knip) never run in CI | False: sensor:knip-unused-exports is a blocking CI slot and harness:audit runs in slow-drift.yml; only blob-size lacks CI wiring and it is already subsumed by the ci-local-gate-parity-guard note (Done `7b594eba`; note removed 2026-07-19 — git history). |
 | c31 | Serial verify run_step omits the parallel launcher's env scrub / FD-8 close | No-ops on the serial path: verify.sh never opens FD 8 and never runs under a git hook, so there is no triggering failure; the DRY angle is subsumed by harness-explore-2026-07/10. |
 
 ### Scripts-tree quality (4)
 
 | id | Candidate | Why rejected |
 |---|---|---|
-| c36 | Fixture lint-stack copy-set hand-duplicated across 6+ shell smokes | The same drift tax is already filed as the parked fixture-copy-set-import-graph-guard.md, which deliberately chose a drift guard over dedup because the copy-sets legitimately vary per smoke. |
+| c36 | Fixture lint-stack copy-set hand-duplicated across 6+ shell smokes | The same drift tax is already filed as the fixture-copy-set-import-graph-guard note (now `ready-2026-07/03-fixture-copy-set-import-graph-guard.md`), which deliberately chose a drift guard over dedup because the copy-sets legitimately vary per smoke. |
 | c37 | Split the 4,734-line test-lint-ratchet.sh monolith | Single-lens style refactor of a safety-critical merge-driver/ratchet smoke; splitting the subject map risks decoupling merge-driver edits from the baseline assertions that guard against silent corruption. |
 | c39 | doctor.sh remains an ~840-line bash analysis surface | Already written into the substrate ruling (doctor.sh is the cautionary example), and arch-review-2026-07 deliberately chose incremental migration (leaf 14) over the big-bang rewrite c39 proposes. |
 | c41 | harness-emit-envelope.ts hand-rolls the option loop cli.ts owns | The "behavior-identical" claim is false: migrating to parseCliArgs would regress the eleven distinct error strings the file's dedicated smoke locks; the guard code is intentional and well-tested. |
@@ -140,7 +140,7 @@ repo*. Cluster ids (`cNN`) are the sweep's internal numbering.
 | id | Candidate | Why rejected |
 |---|---|---|
 | c01 | Serialize concurrent ratchet --update with a lock + baseline CAS | No triggering scenario: --update is a manual single invocation, parallel lanes use separate worktrees reconciled by the merge driver, and any same-worktree clobber is git-visible; locking+CAS is the gold-plating lint-ratchet-audit-2026-07/33 already ruled against. |
-| c07 | Validate portable-manifest transitive import closure, not just byte parity | Already filed as the parked fixture-copy-set-import-graph-guard.md; c07 adds only a fresher anchor and an implementation shortcut, i.e. a refresh of that leaf, not new substance. |
+| c07 | Validate portable-manifest transitive import closure, not just byte parity | Already filed as the fixture-copy-set-import-graph-guard note (now `ready-2026-07/03-fixture-copy-set-import-graph-guard.md`); c07 adds only a fresher anchor and an implementation shortcut, i.e. a refresh of that leaf, not new substance. |
 
 ### Docs / copyability (2)
 

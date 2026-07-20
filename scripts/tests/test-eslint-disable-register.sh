@@ -266,7 +266,13 @@ cat > "$repo/src/legacy.ts" <<'EOF'
 console.log("legacy");
 EOF
 cp "$REPORT" "$repo/scripts/eslint-disable-register.sh"
-git -C "$repo" add src/legacy.ts scripts/eslint-disable-register.sh
+# Keep the sandbox copy set closed over the scanner's sourced dependencies
+# (fixture-shell-dependencies tripwire); tracked so changed mode stays clean.
+mkdir -p "$repo/scripts/lib"
+cp "$SCRIPT_DIR/../lib/changed-base.sh" "$repo/scripts/lib/changed-base.sh"
+cp "$SCRIPT_DIR/../lib/changed-lintable-files.sh" "$repo/scripts/lib/changed-lintable-files.sh"
+cp "$SCRIPT_DIR/../lib/verify-metadata.sh" "$repo/scripts/lib/verify-metadata.sh"
+git -C "$repo" add src/legacy.ts scripts/eslint-disable-register.sh scripts/lib
 git -C "$repo" -c commit.gpgsign=false commit -q -m "seed scanner and violation"
 git -C "$repo" branch base
 printf '\n# scanner policy changed\n' >> "$repo/scripts/eslint-disable-register.sh"

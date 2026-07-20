@@ -98,6 +98,31 @@ describe("PATH_POLICY full-scan triggers", () => {
     expect(matchesAny("tools/lint-ratchet/tsconfig.json", lintTriggers)).toBe(true);
   });
 
+  it("escalates shared-collector changes across every changed-scope gate", () => {
+    const collector = "scripts/lib/changed-lintable-files.sh";
+
+    expect(matchesAny(collector, PATH_POLICY.fullScanTriggers.eslintChanged)).toBe(true);
+    expect(matchesAny(collector, PATH_POLICY.fullScanTriggers.agentLintChanged)).toBe(true);
+    expect(matchesAny(collector, PATH_POLICY.fullScanTriggers.configSensorsChanged)).toBe(true);
+    expect(matchesAny(collector, PATH_POLICY.fullScanTriggers.eslintDisableRegisterChanged)).toBe(
+      true,
+    );
+    expect(matchesAny(collector, PATH_POLICY.fullScanTriggers.suppressionRegisterChanged)).toBe(
+      true,
+    );
+    // The lint-suppressions aggregator only feeds the register scanners; the
+    // eslint/config-sensor gates must not over-escalate on it.
+    expect(
+      matchesAny("scripts/lint-suppressions.sh", PATH_POLICY.fullScanTriggers.eslintChanged),
+    ).toBe(false);
+    expect(
+      matchesAny("scripts/lint-suppressions.sh", PATH_POLICY.fullScanTriggers.agentLintChanged),
+    ).toBe(false);
+    expect(
+      matchesAny("scripts/lint-suppressions.sh", PATH_POLICY.fullScanTriggers.configSensorsChanged),
+    ).toBe(false);
+  });
+
   it("keeps agent lint triggers separate from config-sensor-only triggers", () => {
     expect(matchesAny(".yamllint.yml", PATH_POLICY.fullScanTriggers.agentLintChanged)).toBe(false);
     expect(matchesAny(".yamllint.yml", PATH_POLICY.fullScanTriggers.configSensorsChanged)).toBe(

@@ -1,6 +1,6 @@
 # Dependency Age-Gated Follow-ups
 
-Status: Backlog
+Status: Ready — rerun `bun outdated`/registry checks first; the note's version list is from 2026-05-27 and stale (re-verified 2026-07-19: none of the listed bumps applied yet)
 Date: 2026-05-28
 
 ## Why Parked

@@ -1,11 +1,8 @@
 import { existsSync, readFileSync } from "node:fs";
 
-import { parseLintRatchetBaselineStructure } from "@musi/lint-ratchet/kernel/baseline.js";
-import {
-  type LintRatchetEngineContext,
-  relativeToRepoRoot,
-} from "@musi/lint-ratchet/kernel/engine-context.js";
-import { matchesRatchet } from "@musi/lint-ratchet/kernel/ratchet-globs.js";
+import { parseLintRatchetBaselineStructure } from "../kernel/baseline.js";
+import { type LintRatchetEngineContext, relativeToRepoRoot } from "../kernel/engine-context.js";
+import { matchesRatchet } from "../kernel/ratchet-globs.js";
 
 // One edited path and the committed-baseline rule(s) that track it. The hook
 // only ever shows the rule ids, but the path round-trips so a multi-path query

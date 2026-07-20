@@ -7,6 +7,17 @@ Newest on top.
 
 ---
 
+## 2026-07-19 - Backlog readiness sweep, close-out, and ready queue
+
+Eight parallel verification agents checked every backlog pack and standalone
+note against HEAD. Close-out: six done standalone notes and seven landed
+pack leaves retired (git history), stale statuses reconciled (lint-arch
+02/05, harness-review 38/74, DL-1/A11Y-1, HS-1 half, arch-review #12,
+lint-deep-dive 71). All verified-ready work now lives behind one index:
+`backlog/ready-2026-07/00-index.md` (moved standalone notes + by-reference
+rows into source packs, sequential-drain model). Owner-decision items stay
+parked and are listed in that index's section D.
+
 ## 2026-07-19 - Docs triage (7-partition workflow + adversarial verify)
 
 Triaged all 437 files under `docs/` with a 7-partition subagent workflow;

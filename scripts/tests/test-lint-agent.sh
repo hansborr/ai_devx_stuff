@@ -4,6 +4,7 @@
 # smoke-subjects: scripts/lint-agent-envelope.ts
 # smoke-subjects: scripts/lint-agent-guidance.ts
 # smoke-subjects: scripts/lib/atomic-write.ts
+# smoke-subjects: scripts/lib/eslint-json.ts
 # smoke-subjects: scripts/lib/lint-rule-docs.ts
 # smoke-subjects: scripts/lib/eslint-main-cache.sh
 # smoke-subjects: scripts/tests/test-lint-agent.sh
@@ -43,9 +44,11 @@ build_fixture() {
   cp scripts/lint-agent-envelope.ts "$fixture_dir/scripts/lint-agent-envelope.ts"
   cp scripts/lint-agent-fix-text.ts "$fixture_dir/scripts/lint-agent-fix-text.ts"
   cp scripts/lint-agent-guidance.ts "$fixture_dir/scripts/lint-agent-guidance.ts"
-  # lint-agent imports @musi/lint-ratchet/kernel/eslint-json (leaf 02 S3); the
-  # whole-node_modules symlink below carries the workspace .bun store, so Bun
-  # resolves the package there — no leaf copy needed.
+  # lint-agent's eslint-json parser comes through the scripts/lib/eslint-json.ts
+  # shim, which re-exports @musi/lint-ratchet/kernel/eslint-json (leaf 02 S3);
+  # the whole-node_modules symlink below carries the workspace .bun store, so
+  # Bun resolves the package there — only the shim itself needs a copy.
+  cp scripts/lib/eslint-json.ts "$fixture_dir/scripts/lib/eslint-json.ts"
   cp scripts/lib/atomic-write.ts "$fixture_dir/scripts/lib/atomic-write.ts"
   cp scripts/lib/lint-rule-docs.ts "$fixture_dir/scripts/lib/lint-rule-docs.ts"
   cp scripts/lib/eslint-main-cache.sh "$fixture_dir/scripts/lib/eslint-main-cache.sh"

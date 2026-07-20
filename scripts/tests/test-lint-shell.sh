@@ -14,6 +14,11 @@
 # smoke-subjects: scripts/tests/test-lint-shell.sh
 # smoke-subjects: package.json
 # smoke-subjects: bun.lock
+# smoke-subjects: scripts/lib/eslint-main-cache.sh
+# smoke-subjects: scripts/lib/gate-env.sh
+# smoke-subjects: scripts/lib/lint-dist-preflight.sh
+# smoke-subjects: scripts/lib/verify-metadata.sh
+# smoke-subjects: scripts/lint-changed.sh
 # Pure-shell smoke tests for scripts/lint-shell.sh and its changed-lint wiring.
 
 set -euo pipefail

@@ -2,8 +2,9 @@
 
 Status: Ready — low urgency; decide scope before any parallel-suite use.
 Date: 2026-07-19
-Source: parallel-instance determinism runs while draining
-docs/agent_notes/backlog/commit-queue-test-load-flake.md.
+Source: parallel-instance determinism runs while draining the
+commit-queue-test-load-flake note (landed via fix/commit-queue-test-flake;
+note removed 2026-07-19 — git history).
 Size: S (document) to M (isolate).
 
 ## Evidence

@@ -8,9 +8,9 @@
 // projection (fixture manifest) lands in slice S4 and must build on
 // `loadGeneratedSurfaces` rather than re-reading the manifest.
 
-import { compareByCodepoint } from "@musi/lint-ratchet/kernel/codepoint-compare.js";
 import { z } from "zod";
 
+import { compareByCodepoint } from "../lib/codepoint-compare.js";
 import { extractBunRunScript } from "./harness-check-validation.js";
 import { HARNESS_MANIFEST_FILENAME, loadHarnessManifest } from "./harness-manifest.js";
 
@@ -37,10 +37,10 @@ const generatedSurfaceFacetSchema = z.strictObject({
    * prefix entries: the freshness warner (`renderFreshnessShell` below) is
    * prefix-aware via `renderCasePattern`; `harness-check.ts` only joins
    * outputPaths into a failure label, so a prefix reads fine as prose; the
-   * fixture-closure check (`diffFixtureClosure`) exact-matches against
-   * closure files, which are statically walkable TS/JS — shell outputs under
-   * a prefix can never appear there, so prefix entries are deliberately
-   * inert for it.
+   * fixture-closure check (`diffFixtureClosure`) treats closure files under a
+   * prefix as generated via `pathListCovers` (today the only prefixes hold
+   * shell shims the TS/JS walker never reaches, but the matcher stays aligned
+   * with triggerPaths semantics rather than silently exact-matching).
    */
   outputPaths: z.array(repoPathSchema).min(1),
   checkScript: z.string().min(1),
@@ -367,11 +367,12 @@ function missingCopyFailures(
   closureOwners: ReadonlyMap<string, readonly string[]>,
 ): readonly string[] {
   const recordIds = new Set(options.records.map((record) => record.id));
-  const generated = new Set(options.records.flatMap((record) => record.outputPaths));
+  const generated = options.records.flatMap((record) => record.outputPaths);
   const synthesized = new Set(options.synthesizedPaths ?? []);
   const failures: string[] = [];
   for (const [file, owners] of closureOwners) {
-    if (declaredOwners.has(file) || generated.has(file) || synthesized.has(file)) continue;
+    if (declaredOwners.has(file) || pathListCovers(generated, file) || synthesized.has(file))
+      continue;
     const soleOwner = owners.length === 1 ? owners[0] : undefined;
     const suggestion =
       soleOwner !== undefined && recordIds.has(soleOwner)
@@ -380,6 +381,47 @@ function missingCopyFailures(
     failures.push(
       `fixture import closure includes ${file} (reached from ${owners.join(", ")}), but no generatedSurface.fixturePaths declares it; add it to fixturePaths of ${suggestion}`,
     );
+  }
+  return failures;
+}
+
+export interface DiffTriggerPathClosureOptions {
+  readonly records: readonly GeneratedSurfaceRecord[];
+  readonly entryClosures: readonly FixtureClosureEntry[];
+}
+
+/** True when any entry covers `file` exactly, or via a directory prefix ending in slash. */
+function pathListCovers(paths: readonly string[], file: string): boolean {
+  return paths.some((entry) => (entry.endsWith("/") ? file.startsWith(entry) : file === entry));
+}
+
+/**
+ * Compare each record's declared `triggerPaths` against the computed static
+ * import closure of its generator source: a closure file no trigger covers
+ * (exactly, or via a directory prefix ending in slash) means edits to that
+ * file would never stale-warn the record's generated outputs — the drift class
+ * a hand-maintained trigger list accumulates silently. One direction only:
+ * triggers legitimately exceed the closure (runtime data like
+ * harness.controls.json, scanned directories), so extra triggers never fail.
+ * Closure entries with no matching record id (the validator root) are ignored,
+ * and records without a walked closure (non-walkable sources) are skipped.
+ */
+export function diffTriggerPathClosure(options: DiffTriggerPathClosureOptions): readonly string[] {
+  const closuresByOwner = new Map(
+    options.entryClosures.map((entry) => [entry.ownerId, entry.files] as const),
+  );
+  const failures: string[] = [];
+  for (const record of options.records) {
+    const closure = closuresByOwner.get(record.id);
+    if (closure === undefined) continue;
+    const uncovered = closure
+      .filter((file) => !pathListCovers(record.triggerPaths, file))
+      .sort(compareByCodepoint);
+    for (const file of uncovered) {
+      failures.push(
+        `${record.id}: generator import closure includes ${file}, but no generatedSurface.triggerPaths entry covers it; add the file (or a covering directory prefix ending in /) so edits to it stale-warn the generated outputs`,
+      );
+    }
   }
   return failures;
 }

@@ -6,6 +6,7 @@
 # smoke-subjects: scripts/tests/test-lint-fix-dist-preflight.sh
 # smoke-subjects: packages/shared/package.json
 # smoke-subjects: packages/server/package.json
+# smoke-subjects: scripts/lib/gate-env.sh
 # Smoke test for the lint:fix TypeScript-build prerequisite preflight.
 set -euo pipefail
 

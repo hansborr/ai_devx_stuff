@@ -2,6 +2,7 @@
 # smoke-order: 110
 # smoke-subjects: scripts/lint-suppressions.sh
 # smoke-subjects: scripts/suppression-register.sh
+# smoke-subjects: scripts/eslint-disable-register.sh
 # smoke-subjects: scripts/data/ts-nocheck-allowlist.txt
 # smoke-subjects: scripts/lib/changed-base.sh
 # smoke-subjects: scripts/lib/changed-lintable-files.sh
@@ -262,7 +263,13 @@ repo="$(new_repo changed-self-trigger)"
 mkdir -p "$repo/scripts"
 seed_file "$repo" src/legacy.ts "$ts_ignore_reason" 'unknownValue();'
 cp "$REPORT" "$repo/scripts/suppression-register.sh"
-git -C "$repo" add scripts/suppression-register.sh
+# Keep the sandbox copy set closed over the scanner's sourced dependencies
+# (fixture-shell-dependencies tripwire); tracked so changed mode stays clean.
+mkdir -p "$repo/scripts/lib"
+cp "$SCRIPT_DIR/../lib/changed-base.sh" "$repo/scripts/lib/changed-base.sh"
+cp "$SCRIPT_DIR/../lib/changed-lintable-files.sh" "$repo/scripts/lib/changed-lintable-files.sh"
+cp "$SCRIPT_DIR/../lib/verify-metadata.sh" "$repo/scripts/lib/verify-metadata.sh"
+git -C "$repo" add scripts/suppression-register.sh scripts/lib
 git -C "$repo" -c commit.gpgsign=false commit -q -m "seed scanner and violation"
 git -C "$repo" branch base
 printf '\n# scanner policy changed\n' >> "$repo/scripts/suppression-register.sh"
@@ -312,12 +319,17 @@ run_wrapper() {
 
 seed_wrapper_scripts() {
   local repo="$1"
-  mkdir -p "$repo/scripts/data"
+  mkdir -p "$repo/scripts/data" "$repo/scripts/lib"
   cp "$SCRIPT_DIR/../lint-suppressions.sh" \
     "$SCRIPT_DIR/../eslint-disable-register.sh" \
     "$SCRIPT_DIR/../suppression-register.sh" "$repo/scripts/"
   cp "$SCRIPT_DIR/../data/eslint-disable-broad-allowlist.txt" \
     "$SCRIPT_DIR/../data/ts-nocheck-allowlist.txt" "$repo/scripts/data/"
+  # Both registers source the shared changed-scope libs; keep the sandbox
+  # closed over them (fixture-shell-dependencies tripwire).
+  cp "$SCRIPT_DIR/../lib/changed-base.sh" \
+    "$SCRIPT_DIR/../lib/changed-lintable-files.sh" \
+    "$SCRIPT_DIR/../lib/verify-metadata.sh" "$repo/scripts/lib/"
 }
 
 repo="$(new_repo wrapper-aggregate)"

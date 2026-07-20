@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { validateMonitoredFixtureShellDependencies } from "./fixture-shell-dependencies.js";
+import { validateFixtureShellDependencies } from "./fixture-shell-dependencies.js";
 
 describe("monitored fixture shell dependencies", () => {
   let repoRoot: string;
@@ -45,7 +45,7 @@ describe("monitored fixture shell dependencies", () => {
     ]);
 
     expect(() => {
-      validateMonitoredFixtureShellDependencies(repoRoot);
+      validateFixtureShellDependencies(repoRoot);
     }).toThrow(
       "scripts/tests/test-fixture.sh fixture $repo copies scripts/verify/memory-budget.sh but omits sourced dependency scripts/lib/test-worker-count.sh",
     );
@@ -63,7 +63,7 @@ describe("monitored fixture shell dependencies", () => {
     ]);
 
     expect(() => {
-      validateMonitoredFixtureShellDependencies(repoRoot);
+      validateFixtureShellDependencies(repoRoot);
     }).toThrow(
       "scripts/tests/test-fixture.sh copies scripts/lib/gate-env.sh but its smoke-subject headers omit that path",
     );
@@ -80,7 +80,7 @@ describe("monitored fixture shell dependencies", () => {
     ]);
 
     expect(() => {
-      validateMonitoredFixtureShellDependencies(repoRoot);
+      validateFixtureShellDependencies(repoRoot);
     }).toThrow(
       "scripts/tests/test-fixture.sh fixture $repo_two copies scripts/verify/memory-budget.sh but omits sourced dependency scripts/lib/test-worker-count.sh",
     );
@@ -101,9 +101,32 @@ describe("monitored fixture shell dependencies", () => {
     ]);
 
     expect(() => {
-      validateMonitoredFixtureShellDependencies(repoRoot);
+      validateFixtureShellDependencies(repoRoot);
     }).toThrow(
       "scripts/tests/test-fixture.sh function copy_incomplete_fixture fixture $repo copies scripts/verify/memory-budget.sh but omits sourced dependency scripts/lib/test-worker-count.sh",
+    );
+  });
+
+  it("keeps function scope across a brace-group guard closed by a lone brace", () => {
+    // `|| { ... }` guard blocks closed by a bare `}` are common in real smokes
+    // (expect_reject helpers); the closer must not pop the enclosing function
+    // scope, or copies after the guard land in the wrong fixture group.
+    writeSmoke([
+      "# smoke-subjects: scripts/verify/memory-budget.sh",
+      "# smoke-subjects: scripts/tests/test-fixture.sh",
+      "copy_guarded_fixture() {",
+      "  command -v git >/dev/null || {",
+      '    echo "skipping"',
+      "    exit 0",
+      "  }",
+      '  cp "$SCRIPT_DIR/../verify/memory-budget.sh" "$repo/scripts/verify/memory-budget.sh"',
+      "}",
+    ]);
+
+    expect(() => {
+      validateFixtureShellDependencies(repoRoot);
+    }).toThrow(
+      "scripts/tests/test-fixture.sh function copy_guarded_fixture fixture $repo copies scripts/verify/memory-budget.sh but omits sourced dependency scripts/lib/test-worker-count.sh",
     );
   });
 
@@ -122,7 +145,7 @@ describe("monitored fixture shell dependencies", () => {
     ]);
 
     expect(() => {
-      validateMonitoredFixtureShellDependencies(repoRoot);
+      validateFixtureShellDependencies(repoRoot);
     }).toThrow(
       "scripts/tests/test-fixture.sh function copy_incomplete_fixture fixture $repo copies scripts/verify/memory-budget.sh but omits sourced dependency scripts/lib/test-worker-count.sh",
     );
@@ -147,9 +170,100 @@ describe("monitored fixture shell dependencies", () => {
     ]);
 
     expect(() => {
-      validateMonitoredFixtureShellDependencies(repoRoot);
+      validateFixtureShellDependencies(repoRoot);
     }).toThrow(
       "scripts/tests/test-fixture.sh function copy_incomplete_outer > copy_nested fixture $repo copies scripts/verify/memory-budget.sh but omits sourced dependency scripts/lib/test-worker-count.sh",
+    );
+  });
+
+  it("follows a copy-helper call site into the caller's fixture group", () => {
+    // The helper copies the sourced dependency; the caller copies the root
+    // script and hands the fixture root to the helper. The composed group is
+    // closed, so no failure fires despite the scope split.
+    writeSmoke([
+      "# smoke-subjects: scripts/verify/memory-budget.sh",
+      "# smoke-subjects: scripts/lib/test-worker-count.sh",
+      "# smoke-subjects: scripts/tests/test-fixture.sh",
+      "install_support() {",
+      '  local repo="$1"',
+      '  cp "$SCRIPT_DIR/../lib/test-worker-count.sh" "$repo/scripts/lib/test-worker-count.sh"',
+      "}",
+      'cp "$SCRIPT_DIR/../verify/memory-budget.sh" "$WRAPPER_REPO/scripts/verify/memory-budget.sh"',
+      'install_support "$WRAPPER_REPO"',
+    ]);
+
+    expect(() => {
+      validateFixtureShellDependencies(repoRoot);
+    }).not.toThrow();
+  });
+
+  it("follows a delegate-only wrapper helper into the caller's fixture group", () => {
+    // wrapper only forwards to copy_leaf and copies nothing itself, so no
+    // group exists under wrapper before propagation. Transitive composition
+    // must still deliver the leaf's copied dependency to the caller's group.
+    writeSmoke([
+      "# smoke-subjects: scripts/verify/memory-budget.sh",
+      "# smoke-subjects: scripts/lib/test-worker-count.sh",
+      "# smoke-subjects: scripts/tests/test-fixture.sh",
+      "copy_leaf() {",
+      '  local repo="$1"',
+      '  cp "$SCRIPT_DIR/../lib/test-worker-count.sh" "$repo/scripts/lib/test-worker-count.sh"',
+      "}",
+      "wrapper() {",
+      '  local repo="$1"',
+      '  copy_leaf "$repo"',
+      "}",
+      'cp "$SCRIPT_DIR/../verify/memory-budget.sh" "$WRAPPER_REPO/scripts/verify/memory-budget.sh"',
+      'wrapper "$WRAPPER_REPO"',
+    ]);
+
+    expect(() => {
+      validateFixtureShellDependencies(repoRoot);
+    }).not.toThrow();
+  });
+
+  it("follows a constructor helper that prints the fixture root it seeded", () => {
+    writeSmoke([
+      "# smoke-subjects: scripts/verify/memory-budget.sh",
+      "# smoke-subjects: scripts/lib/test-worker-count.sh",
+      "# smoke-subjects: scripts/tests/test-fixture.sh",
+      "make_repo() {",
+      '  local repo="$TMP_ROOT/$1"',
+      '  cp "$SCRIPT_DIR/../lib/test-worker-count.sh" "$repo/scripts/lib/test-worker-count.sh"',
+      '  printf "%s\\n" "$repo"',
+      "}",
+      "repo=$(make_repo default)",
+      'cp "$SCRIPT_DIR/../verify/memory-budget.sh" "$repo/scripts/verify/memory-budget.sh"',
+    ]);
+
+    expect(() => {
+      validateFixtureShellDependencies(repoRoot);
+    }).not.toThrow();
+  });
+
+  it("validates copy sets outside the memory-admission family (B5 generalization)", () => {
+    // No admission script anywhere: a plain wrapper with a sourced lib must
+    // still close its sandbox copy set.
+    writeFileSync(
+      join(repoRoot, "scripts", "custom-wrapper.sh"),
+      [
+        "#!/usr/bin/env bash",
+        "# shellcheck source=lib/custom-lib.sh",
+        '. "$(dirname "${BASH_SOURCE[0]}")/lib/custom-lib.sh"',
+        "",
+      ].join("\n"),
+    );
+    writeFileSync(join(repoRoot, "scripts", "lib", "custom-lib.sh"), "#!/bin/bash\n");
+    writeSmoke([
+      "# smoke-subjects: scripts/custom-wrapper.sh",
+      "# smoke-subjects: scripts/tests/test-fixture.sh",
+      'cp "$SCRIPT_DIR/../custom-wrapper.sh" "$repo/scripts/custom-wrapper.sh"',
+    ]);
+
+    expect(() => {
+      validateFixtureShellDependencies(repoRoot);
+    }).toThrow(
+      "scripts/tests/test-fixture.sh fixture $repo copies scripts/custom-wrapper.sh but omits sourced dependency scripts/lib/custom-lib.sh",
     );
   });
 
@@ -178,7 +292,7 @@ describe("monitored fixture shell dependencies", () => {
     ]);
 
     expect(() => {
-      validateMonitoredFixtureShellDependencies(repoRoot);
+      validateFixtureShellDependencies(repoRoot);
     }).not.toThrow();
   });
 });

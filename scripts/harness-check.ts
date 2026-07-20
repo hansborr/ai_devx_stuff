@@ -69,7 +69,9 @@ import {
   COPILOT_HOOKS_PATH,
 } from "./harness/harness-paths.js";
 import { loadLocalRuleConfig } from "./harness/local-rule-config.js";
+import { checkManifestContract } from "./harness/manifest-contract-check.js";
 import { checkPortingKnobParity } from "./harness/porting-knob-parity.js";
+import { checkPrePushScopePin } from "./harness/pre-push-scope-pin.js";
 import { LINT_AGENT_GUIDANCE_OVERLAYS } from "./lint-agent-guidance.js";
 
 const PROCESS_ARG_OFFSET = 2;
@@ -118,21 +120,23 @@ function loadManifest(): RawControl[] {
   return controls;
 }
 
-function checkGeneratedFreshness(
+// Shared spawn-and-collect step for freshness/structure checks that shell out:
+// a spawn error, a nonzero exit, and silent failure all surface as pushed
+// failures under the caller's output id.
+type SpawnedSurfaceCheck = {
+  readonly outputId: string;
+  readonly command: string;
+  readonly args: readonly string[];
+  readonly displayCommand: string;
+};
+
+function checkSpawnedSurface(
   failures: Map<string, ControlFailures>,
-  outputId: string,
-  checkScript: string,
+  { outputId, command, args, displayCommand }: SpawnedSurfaceCheck,
 ): void {
-  const result = spawnSync("bun", ["run", checkScript], {
-    cwd: repoRoot,
-    encoding: "utf8",
-  });
+  const result = spawnSync(command, [...args], { cwd: repoRoot, encoding: "utf8" });
   if (result.error !== undefined) {
-    pushFailure(
-      failures,
-      outputId,
-      `failed to run bun run ${checkScript}: ${result.error.message}`,
-    );
+    pushFailure(failures, outputId, `failed to run ${displayCommand}: ${result.error.message}`);
     return;
   }
   if (result.status === 0) return;
@@ -143,7 +147,7 @@ function checkGeneratedFreshness(
     outputId,
     output.length > 0
       ? output.join("\n")
-      : `bun run ${checkScript} exited with status ${String(result.status)}`,
+      : `${displayCommand} exited with status ${String(result.status)}`,
   );
 }
 
@@ -152,34 +156,23 @@ function checkGeneratedFreshnessOutputs(
   failures: Map<string, ControlFailures>,
 ): void {
   for (const record of records) {
-    checkGeneratedFreshness(failures, record.outputPaths.join(" + "), record.checkScript);
+    checkSpawnedSurface(failures, {
+      outputId: record.outputPaths.join(" + "),
+      command: "bun",
+      args: ["run", record.checkScript],
+      displayCommand: `bun run ${record.checkScript}`,
+    });
   }
 }
 
 function checkGeneratedHookWiringStructure(failures: Map<string, ControlFailures>): void {
   const scriptPath = "scripts/ai-hooks/check-wiring.sh";
-  const result = spawnSync("bash", [scriptPath], {
-    cwd: repoRoot,
-    encoding: "utf8",
+  checkSpawnedSurface(failures, {
+    outputId: HOOK_WIRING_OUTPUTS_LABEL,
+    command: "bash",
+    args: [scriptPath],
+    displayCommand: scriptPath,
   });
-  if (result.error !== undefined) {
-    pushFailure(
-      failures,
-      HOOK_WIRING_OUTPUTS_LABEL,
-      `failed to run ${scriptPath}: ${result.error.message}`,
-    );
-    return;
-  }
-  if (result.status === 0) return;
-
-  const output = [result.stdout.trim(), result.stderr.trim()].filter((text) => text.length > 0);
-  pushFailure(
-    failures,
-    HOOK_WIRING_OUTPUTS_LABEL,
-    output.length > 0
-      ? output.join("\n")
-      : `${scriptPath} exited with status ${String(result.status)}`,
-  );
 }
 
 function checkManifestSkillInventory(
@@ -328,6 +321,7 @@ async function main(): Promise<void> {
     new Set([...declaredControlIds].filter((id) => id.startsWith("doctor-check/"))),
     failures,
   );
+  checkManifestContract(repoRoot, rawManifest, failures);
   const generatedSurfaces = loadGeneratedSurfaces(repoRoot);
   checkGeneratedFreshnessOutputs(generatedSurfaces, failures);
   await checkFixtureCopyClosure(repoRoot, failures);
@@ -335,6 +329,9 @@ async function main(): Promise<void> {
   checkManifestSkillInventory(controls, failures);
   for (const failure of checkPortingKnobParity(repoRoot)) {
     pushFailure(failures, "porting-knob checklist", failure);
+  }
+  for (const failure of checkPrePushScopePin(repoRoot)) {
+    pushFailure(failures, "pre-push source-extension pin", failure);
   }
   checkScriptParity(
     {

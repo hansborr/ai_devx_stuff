@@ -29,6 +29,8 @@ export default defineConfig({
     projects: [
       "packages/shared",
       "packages/server",
+      // DB-free server seed/parser tests; see packages/server/vitest.unit.config.ts.
+      "packages/server/vitest.unit.config.ts",
       "packages/client",
       "eslint-rules",
       "scripts",

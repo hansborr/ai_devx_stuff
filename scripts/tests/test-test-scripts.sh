@@ -376,12 +376,13 @@ expected=$'runner ran test-verify-history\nrunner ran test-dependency-freshness'
   || fail "pre-commit change should select hook smokes: $(cat "$STUB_LOG_FILE")"
 ok "--changed selects hook smokes on pre-commit change"
 
-# --- --changed selects pre-push smoke on pre-push hook changes -----------
+# --- --changed selects pre-push smokes on pre-push hook changes ----------
 : > "$STUB_LOG_FILE"
 MUSI_SCRIPTS_CHANGED_FILES=".husky/pre-push" run_runner --changed >/dev/null
-[ "$(cat "$STUB_LOG_FILE")" = "runner ran test-pre-push" ] \
-  || fail "pre-push change should select pre-push smoke: $(cat "$STUB_LOG_FILE")"
-ok "--changed selects test-pre-push on pre-push hook change"
+expected=$'runner ran test-pre-push\nrunner ran test-harness-check'
+[ "$(cat "$STUB_LOG_FILE")" = "$expected" ] \
+  || fail "pre-push change should select pre-push and harness-check smokes: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects test-pre-push and test-harness-check on pre-push hook change"
 
 : > "$STUB_LOG_FILE"
 MUSI_SCRIPTS_CHANGED_FILES=".husky/post-commit" run_runner --changed >/dev/null
@@ -391,9 +392,12 @@ expected=$'runner ran test-dependency-freshness\nrunner ran test-pre-push\nrunne
 ok "--changed selects dependency-freshness, pre-push, lint-ratchet, and merge-driver-dispatch smokes on post-commit hook change"
 
 # --- --changed selects eslint-disable diagnostics smoke ------------------
+# test-suppression-register also executes the copied register through the
+# lint-suppressions wrapper, so a register change selects both smokes.
 : > "$STUB_LOG_FILE"
 MUSI_SCRIPTS_CHANGED_FILES="scripts/eslint-disable-register.sh" run_runner --changed >/dev/null
-[ "$(cat "$STUB_LOG_FILE")" = "runner ran test-eslint-disable-register" ] \
+expected=$'runner ran test-eslint-disable-register\nrunner ran test-suppression-register'
+[ "$(cat "$STUB_LOG_FILE")" = "$expected" ] \
   || fail "eslint-disable register change should select its smoke test: $(cat "$STUB_LOG_FILE")"
 ok "--changed selects test-eslint-disable-register on diagnostics change"
 
@@ -577,7 +581,7 @@ ok "direct fixture-git smokes clear inherited git env"
 # --- --changed selects lint-changed smoke on lint wrapper changes ---------
 : > "$STUB_LOG_FILE"
 MUSI_SCRIPTS_CHANGED_FILES="scripts/lint-changed.sh" run_runner --changed >/dev/null
-[ "$(cat "$STUB_LOG_FILE")" = $'runner ran test-lint-changed\nrunner ran test-lint-dist-preflight\nrunner ran test-lint-config-sensors' ] \
+[ "$(cat "$STUB_LOG_FILE")" = $'runner ran test-lint-changed\nrunner ran test-lint-dist-preflight\nrunner ran test-lint-shell\nrunner ran test-lint-config-sensors' ] \
   || fail "lint-changed.sh change should select lint-changed smoke: $(cat "$STUB_LOG_FILE")"
 ok "--changed selects test-lint-changed on lint wrapper change"
 
@@ -636,7 +640,7 @@ ok "--changed selects verify smokes on parallel step helper change"
 
 : > "$STUB_LOG_FILE"
 MUSI_SCRIPTS_CHANGED_FILES="scripts/lib/verify-metadata.sh" run_runner --changed >/dev/null
-expected=$'runner ran test-verify\nrunner ran test-verify-async\nrunner ran test-verify-history\nrunner ran test-dependency-freshness\nrunner ran test-pre-push\nrunner ran test-land\nrunner ran test-ai-hooks\nrunner ran test-eslint-disable-register\nrunner ran test-suppression-register\nrunner ran test-lint-changed\nrunner ran test-lint-dist-preflight\nrunner ran test-lint-config-sensors\nrunner ran test-verify-metadata\nrunner ran test-test-scripts'
+expected=$'runner ran test-verify\nrunner ran test-verify-async\nrunner ran test-verify-history\nrunner ran test-dependency-freshness\nrunner ran test-pre-push\nrunner ran test-land\nrunner ran test-ai-hooks\nrunner ran test-eslint-disable-register\nrunner ran test-suppression-register\nrunner ran test-lint-changed\nrunner ran test-lint-dist-preflight\nrunner ran test-lint-shell\nrunner ran test-lint-config-sensors\nrunner ran test-verify-metadata\nrunner ran test-test-scripts\nrunner ran test-merge-driver-dispatch'
 [ "$(cat "$STUB_LOG_FILE")" = "$expected" ] \
   || fail "verify-metadata.sh change should select dependent and dedicated smokes: $(cat "$STUB_LOG_FILE")"
 ok "--changed selects dependent and dedicated smokes on verify metadata change"

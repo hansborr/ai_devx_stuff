@@ -117,7 +117,7 @@ repo="$(new_repo server-change)"
 printf 'changed\n' > "$repo/packages/server/src/base.ts"
 : > "$repo/bun.log"
 run_test_changed "$repo" >/dev/null || fail "server change should run"
-grep -qF 'stub vitest run --passWithNoTests --project=server --changed main' "$repo/bun.log" \
+grep -qF 'stub vitest run --passWithNoTests --project=server --project=server-unit --changed main' "$repo/bun.log" \
   || fail "server change should run server project with --changed: $(cat "$repo/bun.log")"
 ok "server-only changes run server changed tests"
 
@@ -236,7 +236,7 @@ printf 'changed\n' > "$repo/packages/client/src/base.ts"
 printf 'changed\n' > "$repo/packages/server/src/base.ts"
 : > "$repo/bun.log"
 run_test_changed "$repo" >/dev/null || fail "client and server changes should run"
-grep -qF 'stub vitest run --passWithNoTests --project=server --changed main' "$repo/bun.log" \
+grep -qF 'stub vitest run --passWithNoTests --project=server --project=server-unit --changed main' "$repo/bun.log" \
   || fail "client and server changes should run server changed tests: $(cat "$repo/bun.log")"
 grep -qF 'stub client-test-isolation-runner --changed main' "$repo/bun.log" \
   || fail "client and server changes should run split client changed tests: $(cat "$repo/bun.log")"
@@ -261,7 +261,7 @@ repo="$(new_repo staged-source-deletion)"
 git -C "$repo" rm -q packages/server/src/base.ts
 : > "$repo/bun.log"
 run_test_changed "$repo" >/dev/null || fail "staged source deletion should run"
-grep -qF 'stub vitest run --passWithNoTests --project=server' "$repo/bun.log" \
+grep -qF 'stub vitest run --passWithNoTests --project=server --project=server-unit' "$repo/bun.log" \
   || fail "staged source deletion should run server project tests: $(cat "$repo/bun.log")"
 if grep -q -- '--changed' "$repo/bun.log"; then
   fail "staged source deletions should run affected project in full: $(cat "$repo/bun.log")"

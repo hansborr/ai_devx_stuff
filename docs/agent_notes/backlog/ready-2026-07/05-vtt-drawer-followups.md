@@ -1,7 +1,13 @@
 # VTT Drawer Follow-ups
 
-Deferred VTT drawer work. Keep these parked until schema work is worth
-promoting; do not reopen the legacy combat dialogs.
+Status: Ready — design-then-implement (largest ready item; L). The schema
+work IS the task: extend `spellSchema`/`monsterActionSchema` with structured
+damage/attack fields, backfill from SRD ingest, then wire `useConfirmCast`'s
+combat path and the inert monster Atk/Dmg buttons. Re-verified 2026-07-19:
+both sub-items fully open (`monster-stat-block-actions.tsx` buttons still
+`console.log` placeholders; `encounterCombat.castCombatSpell` has no client
+surface). Do not reopen the legacy combat dialogs.
+Date: 2026-06-14 (re-verified 2026-07-19)
 
 ## Combat-spell resolution through the drawer
 

@@ -1,6 +1,6 @@
 # Phase 3 review follow-ups
 
-Status: Open leaves (small)
+Status: Open leaves (small); item 1 landed 2026-07-19 (wave-1 ready-2026-07 drain)
 Created: 2026-07-16
 Source: 4-model pre-land review of `feat/sd-p3-integration` (grok/codex/opus/fable)
 and the confirm-then-fix pass. Context commits: 4a99db39..9e228ffc.
@@ -8,7 +8,7 @@ and the confirm-then-fix pass. Context commits: 4a99db39..9e228ffc.
 Low-priority residue that survived the fix pass deliberately — none of these
 block anything today.
 
-## 1. Shared-collector escalation for the remaining changed-scope gates
+## 1. Shared-collector escalation for the remaining changed-scope gates — DONE 2026-07-19 (wave-1 ready-2026-07 drain)
 
 The suppression scanners now escalate to full scope when
 `scripts/lib/changed-lintable-files.sh` or `scripts/lint-suppressions.sh`

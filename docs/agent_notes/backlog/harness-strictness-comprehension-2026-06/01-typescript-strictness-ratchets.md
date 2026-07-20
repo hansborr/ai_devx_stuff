@@ -1,7 +1,11 @@
 # 01 - TypeScript strictness ratchets
 
-> Proposal only - not implemented. Re-verify current compiler errors before
-> promotion; TypeScript diagnostics drift quickly as code changes.
+Status: Partial — `noFallthroughCasesInSwitch` (`f6fd1c81`) and
+`noImplicitOverride` (`88092cfd`) landed in `tsconfig.base.json` 2026-06-22.
+Open residue: the measurement-first discovery pass (per-flag error
+inventories, grouped by package) for `exactOptionalPropertyTypes` and
+`noPropertyAccessFromIndexSignature`. Re-verify current compiler errors
+before promotion; TypeScript diagnostics drift quickly as code changes.
 
 ## Problem
 

@@ -10,8 +10,7 @@
 // shell metacharacters, non-`.sh` names, colliding output paths, and bodies
 // outside `scripts/ai-hooks/<safe-name>.sh`.
 
-import { compareByCodepoint } from "@musi/lint-ratchet/kernel/codepoint-compare.js";
-
+import { compareByCodepoint } from "../lib/codepoint-compare.js";
 import type { HookEvent, HookHarness, HookHarnessCommand } from "./hook-wiring-schema.js";
 
 /** Adapter directories owned (written and reconciled) by the generator. */

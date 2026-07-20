@@ -15,6 +15,11 @@ const WIZARD_LEVEL1_SPELLS = [
 ];
 
 test.describe("Character creation wizard", () => {
+  // Fixture-isolated userPage tests; every created character uses
+  // uniqueName(...) so concurrent runs cannot collide — safe to fan across
+  // workers despite the global fullyParallel:false. (testsuite-audit leaf 04)
+  test.describe.configure({ mode: "parallel" });
+
   test("full wizard flow creates character and returns to dashboard", async ({
     userPage: { page },
   }) => {

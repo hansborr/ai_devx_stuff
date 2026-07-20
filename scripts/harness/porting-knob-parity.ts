@@ -1,12 +1,22 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 
 const PORTING_SECTION_HEADING = "## Porting This";
 const PORTING_README_PATH = "scripts/ai-hooks/README.md";
-const PORTING_SCAN_ROOTS = ["scripts"] as const;
+// Scoped scan, not a repo-root recursion: the collector reads every file under
+// each root, so the roots stay a curated list of directories that carry
+// portable harness machinery. Top-level files (hook drivers, shared configs)
+// are scanned separately and non-recursively by collectTopLevelSourceFiles.
+// Roots may be absent in reduced trees (smoke fixtures); missing ones are
+// skipped.
+const PORTING_SCAN_ROOTS = [".husky", "eslint-config", "eslint-rules", "scripts"] as const;
 const SKIPPED_DIRECTORY_NAMES = new Set(["fixtures", "node_modules", "tests"]);
 const CHECKLIST_ID_PATTERN = /^- `([a-z0-9]+(?:-[a-z0-9]+)*)`(?:\s|$)/u;
-const SOURCE_MARKER_PATTERN = /^\s*(?:#|\/\/)\s*porting-knob:\s*([a-z0-9]+(?:-[a-z0-9]+)*)\b/gmu;
+// Recognized comment leaders: `#`, `//`, block-comment openers (`/*`, `/**`),
+// and JSDoc continuation lines (`*`). Markdown checklist bullets use `- ` and
+// never match.
+const SOURCE_MARKER_PATTERN =
+  /^\s*(?:#|\/\/|\/\*\*?|\*)\s*porting-knob:\s*([a-z0-9]+(?:-[a-z0-9]+)*)\b/gmu;
 
 function compareText(left: string, right: string): number {
   if (left < right) return -1;
@@ -105,6 +115,11 @@ export function portingKnobParityFailures(
   return failures;
 }
 
+function readTextSource(root: string, path: string, sources: Map<string, string>): void {
+  const source = readFileSync(path, "utf8");
+  if (!source.includes("\0")) sources.set(relative(root, path), source);
+}
+
 function collectSourceFiles(root: string, directory: string, sources: Map<string, string>): void {
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
     if (entry.isDirectory()) {
@@ -115,17 +130,36 @@ function collectSourceFiles(root: string, directory: string, sources: Map<string
     }
     if (!entry.isFile()) continue;
 
-    const path = join(directory, entry.name);
-    const source = readFileSync(path, "utf8");
-    if (!source.includes("\0")) sources.set(relative(root, path), source);
+    readTextSource(root, join(directory, entry.name), sources);
+  }
+}
+
+// Non-recursive by design: a top-level config or hook driver can carry a
+// porting-knob marker, but recursing from the repo root (node_modules,
+// packages, docs) is out of scope for this gate.
+function collectTopLevelSourceFiles(root: string, sources: Map<string, string>): void {
+  for (const entry of readdirSync(root, { withFileTypes: true })) {
+    if (!entry.isFile()) continue;
+    readTextSource(root, join(root, entry.name), sources);
+  }
+}
+
+function isDirectory(path: string): boolean {
+  try {
+    return statSync(path).isDirectory();
+  } catch {
+    return false;
   }
 }
 
 export function checkPortingKnobParity(repoRoot: string): readonly string[] {
   const sources = new Map<string, string>();
   for (const scanRoot of PORTING_SCAN_ROOTS) {
-    collectSourceFiles(repoRoot, join(repoRoot, scanRoot), sources);
+    const directory = join(repoRoot, scanRoot);
+    if (!isDirectory(directory)) continue;
+    collectSourceFiles(repoRoot, directory, sources);
   }
+  collectTopLevelSourceFiles(repoRoot, sources);
   return portingKnobParityFailures(
     readFileSync(join(repoRoot, PORTING_README_PATH), "utf8"),
     sources,

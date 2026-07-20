@@ -40,7 +40,7 @@
     "test:coverage": "bash scripts/test-all.sh --coverage",
     "test:watch": "vitest",
     "test:changed": "bash scripts/test-changed.sh",
-    "test:server": "bash scripts/vitest.sh run --passWithNoTests --project=server",
+    "test:server": "bash scripts/vitest.sh run --passWithNoTests --project=server --project=server-unit",
     "test:client": "bash scripts/test-client.sh",
     "test:client:isolated": "bash scripts/vitest.sh run --passWithNoTests --project=client",
     "test:client:split": "bun scripts/client-test-isolation-runner.ts",

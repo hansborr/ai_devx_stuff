@@ -22,13 +22,9 @@ REPO_ROOT=$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel)
 TMP_ROOT=$(mktemp -d /tmp/musi-ai-hooks-copilot-wiring-test.XXXXXX)
 trap 'rm -rf "$TMP_ROOT"' EXIT
 
-assert_no_output() {
-  local output="$1"
-  local label="$2"
-
-  [ -z "$output" ] || fail "$label should emit nothing, got: $output"
-}
-
+# The payload builders below stay per-backend by design: they encode Copilot's
+# camelCase toolArgs dialect (toolArgs as a JSON string, synthesized session
+# ids), so they are backend fixtures rather than test-support.sh candidates.
 copilot_edit_payload() {
   local path="$1"
 
@@ -114,13 +110,7 @@ assert_no_output "$DOC_LENGTH_NEGATIVE_OUTPUT" "copilot doc-length on short doc"
 # --- prisma-generate Copilot wiring --------------------------------------------
 PRISMA_FAKE_BIN="$TMP_ROOT/prisma-fake-bin"
 PRISMA_SENTINEL="$TMP_ROOT/prisma-generate-called"
-mkdir -p "$PRISMA_FAKE_BIN"
-{
-  printf '#!/bin/bash\n'
-  printf 'touch "$AI_PRISMA_TEST_SENTINEL"\n'
-  printf 'exit 0\n'
-} > "$PRISMA_FAKE_BIN/bun"
-chmod +x "$PRISMA_FAKE_BIN/bun"
+make_prisma_sentinel_bun_shim "$PRISMA_FAKE_BIN"
 
 PRISMA_OUTPUT=$(
   copilot_edit_payload "packages/server/prisma/schema.prisma" \

@@ -129,6 +129,10 @@ describe("formatEditCheckChecked", () => {
 });
 
 describe("formatEditCheckRegression", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   const regression: EditCheckRegression = {
     path: "packages/app/src/example.ts",
     testId: "ratchet/local-type-assertion-boundary",
@@ -139,20 +143,51 @@ describe("formatEditCheckRegression", () => {
     currentCount: 2,
   };
 
-  it("emits the eight regression columns with a line number", () => {
+  it("emits the nine regression columns with a line number and an empty repair column", () => {
     const line = formatEditCheckRegression(regression);
     expect(line).toBe(
-      "regression\tpackages/app/src/example.ts\tratchet/local-type-assertion-boundary\tlocal/type-assertion-boundary\tincreased-count\t12\t1\t2",
+      "regression\tpackages/app/src/example.ts\tratchet/local-type-assertion-boundary\tlocal/type-assertion-boundary\tincreased-count\t12\t1\t2\t",
     );
-    expect(line.split("\t")).toHaveLength(8);
+    expect(line.split("\t")).toHaveLength(9);
   });
 
   it("emits an empty line column when the regression has no line", () => {
     const { line: _line, ...withoutLine } = regression;
     const formatted = formatEditCheckRegression(withoutLine);
     expect(formatted).toBe(
-      "regression\tpackages/app/src/example.ts\tratchet/local-type-assertion-boundary\tlocal/type-assertion-boundary\tincreased-count\t\t1\t2",
+      "regression\tpackages/app/src/example.ts\tratchet/local-type-assertion-boundary\tlocal/type-assertion-boundary\tincreased-count\t\t1\t2\t",
     );
-    expect(formatted.split("\t")).toHaveLength(8);
+    expect(formatted.split("\t")).toHaveLength(9);
+  });
+
+  it("emits the repair command in the ninth column when the regression carries one", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const formatted = formatEditCheckRegression({
+      ...regression,
+      repairCommand: "bun run lint:fix",
+    });
+    expect(formatted).toBe(
+      "regression\tpackages/app/src/example.ts\tratchet/local-type-assertion-boundary\tlocal/type-assertion-boundary\tincreased-count\t12\t1\t2\tbun run lint:fix",
+    );
+    expect(formatted.split("\t")).toHaveLength(9);
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("collapses tabs and newlines in the repair command and warns instead of corrupting the row", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const formatted = formatEditCheckRegression({
+      ...regression,
+      repairCommand: "bun run lint:fix\t--flag\r\nsecond line",
+    });
+    expect(formatted).toBe(
+      "regression\tpackages/app/src/example.ts\tratchet/local-type-assertion-boundary\tlocal/type-assertion-boundary\tincreased-count\t12\t1\t2\tbun run lint:fix --flag second line",
+    );
+    expect(formatted.split("\t")).toHaveLength(9);
+    expect(formatted).not.toContain("\n");
+    expect(spy).toHaveBeenCalledWith(
+      expect.stringContaining(
+        "repair command for 'local/type-assertion-boundary' contains a tab or newline",
+      ),
+    );
   });
 });

@@ -1,20 +1,16 @@
 import { appendFileSync, existsSync, readFileSync } from "node:fs";
 
-import { writeFileAtomicallySync } from "@musi/lint-ratchet/kernel/atomic-write.js";
+import { writeFileAtomicallySync } from "../kernel/atomic-write.js";
 import {
   decideLintRatchetUpdate,
   type LintRatchetBaseline,
   type LintRatchetUpdateDecision,
   type LintRatchetUpdateOptions,
   parseLintRatchetBaselineStructure,
-} from "@musi/lint-ratchet/kernel/baseline.js";
-import type { LintRatchetConfig } from "@musi/lint-ratchet/kernel/config-types.js";
-import {
-  type LintRatchetEngineContext,
-  relativeToRepoRoot,
-} from "@musi/lint-ratchet/kernel/engine-context.js";
-import { ConfigError } from "@musi/lint-ratchet/kernel/metrics-types.js";
-
+} from "../kernel/baseline.js";
+import type { LintRatchetConfig } from "../kernel/config-types.js";
+import { type LintRatchetEngineContext, relativeToRepoRoot } from "../kernel/engine-context.js";
+import { ConfigError } from "../kernel/metrics-types.js";
 import type { LintRatchetDebtLogEntry } from "./debt-log-schema.js";
 import {
   appendValidatedDebtLogEntries,

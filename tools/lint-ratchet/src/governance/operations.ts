@@ -19,20 +19,16 @@ import {
   type LintRatchetCurrentById,
   type LintRatchetRuleSourceHashesById,
   parseLintRatchetBaseline,
-} from "@musi/lint-ratchet/kernel/baseline.js";
-import type { LintRatchetConfig } from "@musi/lint-ratchet/kernel/config-types.js";
-import {
-  collectCurrentById,
-  totalCurrentCount,
-} from "@musi/lint-ratchet/kernel/current-collector.js";
+} from "../kernel/baseline.js";
+import type { LintRatchetConfig } from "../kernel/config-types.js";
+import { collectCurrentById, totalCurrentCount } from "../kernel/current-collector.js";
 import {
   type LintRatchetEngineBinding,
   type LintRatchetEngineContext,
   relativeToRepoRoot,
-} from "@musi/lint-ratchet/kernel/engine-context.js";
-import { ConfigError } from "@musi/lint-ratchet/kernel/metrics-types.js";
-import { buildRuleSourceHashesById } from "@musi/lint-ratchet/kernel/rule-source.js";
-
+} from "../kernel/engine-context.js";
+import { ConfigError } from "../kernel/metrics-types.js";
+import { buildRuleSourceHashesById } from "../kernel/rule-source.js";
 import {
   applyLintRatchetUpdate,
   type ApplyLintRatchetUpdateOptions,

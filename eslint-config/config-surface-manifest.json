@@ -80,6 +80,12 @@
       "coverageStatus": "linted"
     },
     {
+      "path": "packages/server/vitest.unit.config.ts",
+      "language": "ts",
+      "group": "root-package-ts",
+      "coverageStatus": "linted"
+    },
+    {
       "path": "packages/shared/vitest.config.ts",
       "language": "ts",
       "group": "root-package-ts",

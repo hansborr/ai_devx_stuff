@@ -5,6 +5,12 @@ import { CharacterWizardPO } from "./page-objects/character-wizard.po.js";
 import { DashboardPO } from "./page-objects/dashboard.po.js";
 
 test.describe("Wizard step validation", () => {
+  // Fixture-isolated, non-mutating validation checks — safe to fan across
+  // workers despite the global fullyParallel:false. Scoped to THIS describe
+  // only: the "feat backgrounds" describe.serial block below creates
+  // characters and must stay serial. (testsuite-audit leaf 04)
+  test.describe.configure({ mode: "parallel" });
+
   test("species step - cannot advance without selecting a species", async ({
     userPage: { page },
   }) => {

@@ -5,6 +5,7 @@ import type { ApplyLintRatchetUpdateOptions } from "@musi/lint-ratchet/governanc
 import { runLintRatchetDebtLogReport } from "@musi/lint-ratchet/governance/debt-log.js";
 import {
   discoverEditCheckTargets,
+  type EditCheckRegression,
   type EditCheckTarget,
   type LintRatchetEditCheckEngine,
   runEditCheckRegressions,
@@ -38,6 +39,7 @@ import {
 import { validateLintRatchetRegistry } from "@musi/lint-ratchet/kernel/baseline.js";
 import { ConfigError } from "@musi/lint-ratchet/kernel/metrics-types.js";
 
+import type { RuleDocsEntry } from "../lib/lint-rule-docs.js";
 import type { ParsedArgs } from "./cli.js";
 import { runDefault } from "./default-mode.js";
 import { assertCheckBaselineComparisonClean, loadRuleDocsById } from "./diagnostics.js";
@@ -262,6 +264,50 @@ export function editCheckTargetsFileToRead(
   return targetsFile;
 }
 
+/**
+ * Repair command worth naming in an edit-time advisory bullet: only rules whose
+ * docs declare a mechanical repair (a codemod command, or ESLint autofix via
+ * `bun run lint:fix`) get one. Manual and suggestion rules keep their prose
+ * guidance on the envelope path (`bun run lint:agent:local-rules:changed`), and
+ * rules without a docs entry (non-local ratchets) get nothing. Mirrors the
+ * codemod/autofix branches of the envelope's howToFix composition.
+ */
+export function editCheckRepairCommandFor(entry: RuleDocsEntry | undefined): string | undefined {
+  if (entry === undefined) return undefined;
+  if (entry.repairKind === "codemod") return entry.repairCommand;
+  if (entry.repairKind === "autofix") return "bun run lint:fix";
+  return undefined;
+}
+
+/**
+ * Enrich engine regressions with the repo's rule-docs repair metadata so the
+ * advisory hook can name the exact repair command without shelling out to a
+ * second bun process (the hook path is latency- and throttle-sensitive). Docs
+ * load only when a regression exists — the common clean edit stays free of
+ * docs IO — and a load failure degrades to unenriched rows with a stderr
+ * breadcrumb rather than failing the advisory check.
+ */
+export async function withEditCheckRepairCommands(
+  regressions: readonly EditCheckRegression[],
+  loadDocs: () => Promise<ReadonlyMap<string, RuleDocsEntry>> = loadRuleDocsById,
+  notify: (message: string) => void = (message) => process.stderr.write(`${message}\n`),
+): Promise<readonly EditCheckRegression[]> {
+  if (regressions.length === 0) return regressions;
+  let ruleDocsById: ReadonlyMap<string, RuleDocsEntry>;
+  try {
+    ruleDocsById = await loadDocs();
+  } catch (error) {
+    notify(
+      `lint:ratchet --edit-check: rule docs unavailable; omitting repair commands (${String(error)})`,
+    );
+    return regressions;
+  }
+  return regressions.map((regression) => {
+    const repairCommand = editCheckRepairCommandFor(ruleDocsById.get(regression.ruleId));
+    return repairCommand === undefined ? regression : { ...regression, repairCommand };
+  });
+}
+
 // Two-step contract: --edit-check-targets lists candidate ratchets (no ESLint)
 // so the hook can throttle before linting; --edit-check then lints only the
 // surviving targets written to <file> and prints fresh regressions.
@@ -274,11 +320,12 @@ async function runEditCheck(args: ParsedArgs, options: LintRatchetRuntimeOptions
     targets,
     editCheckConcurrency(options),
   );
+  const regressions = await withEditCheckRepairCommands(result.regressions);
   // `checked` rows let the hook distinguish a genuinely-linted-clean file from a
   // soft skip, so it only content-caches bytes ESLint actually inspected.
   const lines = [
     ...result.checked.map(formatEditCheckChecked),
-    ...result.regressions.map(formatEditCheckRegression),
+    ...regressions.map(formatEditCheckRegression),
   ];
   if (lines.length > 0) process.stdout.write(`${lines.join("\n")}\n`);
 }

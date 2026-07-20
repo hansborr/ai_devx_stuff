@@ -1,15 +1,16 @@
+import { z } from "zod";
+
 import type {
   LintRatchetOrphanRemoval,
   LintRatchetRegression,
   LintRatchetRetirementOptionsAttestation,
-} from "@musi/lint-ratchet/kernel/baseline.js";
-import { isJsonValue } from "@musi/lint-ratchet/kernel/baseline-hash.js";
-import { isNormalizedLintRatchetPath } from "@musi/lint-ratchet/kernel/baseline-item-parse.js";
-import type { JsonValue } from "@musi/lint-ratchet/kernel/config-types.js";
-import { validateMetricItem } from "@musi/lint-ratchet/kernel/metric-strategies.js";
-import type { LintRatchetMetricItem } from "@musi/lint-ratchet/kernel/metrics-types.js";
-import { isRatchetRegressionReasonPlaceholder } from "@musi/lint-ratchet/kernel/recovery-command.js";
-import { z } from "zod";
+} from "../kernel/baseline.js";
+import { isJsonValue } from "../kernel/baseline-hash.js";
+import { isNormalizedLintRatchetPath } from "../kernel/baseline-item-parse.js";
+import type { JsonValue } from "../kernel/config-types.js";
+import { validateMetricItem } from "../kernel/metric-strategies.js";
+import type { LintRatchetMetricItem } from "../kernel/metrics-types.js";
+import { isRatchetRegressionReasonPlaceholder } from "../kernel/recovery-command.js";
 
 // Zod schemas for one committed debt-log line. The repo's Zod-first policy holds
 // here just as it does for the shared harness-diagnostics envelope this engine

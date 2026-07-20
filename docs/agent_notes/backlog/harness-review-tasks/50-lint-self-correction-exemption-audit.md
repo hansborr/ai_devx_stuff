@@ -1,6 +1,10 @@
 # 50 - Lint self-correction exemption audit
 
-Status: Parked
+Status: Done 2026-07-19 on `auto/ready-b-hooks` — inventory recorded in
+`../../finished_work/lint-self-correction-exemption-audit-2026-07.md`; no
+adopt-now items and no new leaves split (every exemption is an intentional
+ruling, upstream-blocked, exit-path-owned, or awaiting the evidence-gated
+human promotion decision).
 Track: G (governance/refinement)
 Size: medium
 Depends on: none

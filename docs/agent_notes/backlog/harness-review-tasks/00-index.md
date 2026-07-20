@@ -28,18 +28,18 @@ Tracks: **D** docs/feedforward, **Dg** diagnostics, **L** loop/autonomy,
 
 | # | Task | Track | Size | Depends on | Blocks | Status |
 |---|---|---|---|---|---|---|
-| 10 | [Fix character-live-state module doc](./10-character-live-state-module-doc.md) | D | S | none | 11 | Parked |
+| 10 | Fix character-live-state module doc | D | S | none | 11 | Done — MODULE.md rewritten to match the facade-less layout (`dc291028`); leaf removed 2026-07-19 (git history) |
 | 12 | [Doc-length phantom-file cleanup](../../finished_work/doc-length-hook-redesign.md) | D | S | none | none | Done -> doc-length redesign |
-| 13 | [Refresh ai-harness current gaps](./13-ai-harness-gap-refresh.md) | D | S | none | 20, 22 | Parked |
-| 14 | [Skill trigger grammar](./14-skill-use-when-trigger-grammar.md) | D | S | none | none | Parked |
-| 15 | [Golden-path reference feature pointer](./15-golden-path-reference-feature.md) | D | S | none | none | Parked |
-| 16 | [Guide breadcrumbs and hook advisories](./16-guide-breadcrumbs-and-advisories.md) | D | S-M | none | none | Parked |
-| 25 | [Slow-lane mutation and timing add-ons](./25-slow-lane-mutation-and-timing-addons.md) | Dg | M | 24 | none | Parked |
-| 50 | [Lint self-correction exemption audit](./50-lint-self-correction-exemption-audit.md) | G | M | none | none | Parked |
-| 51 | [Thin spec/plan template](./51-thin-spec-plan-template.md) | G | S-M | none | none | Parked |
-| 52 | [Demotion rule and noise budgets](./52-demotion-and-noise-budgets.md) | G | S | none | all report-only sensors | Parked |
-| 53 | [logs:audit latest graceful degradation](./53-logs-audit-latest-graceful-degrade.md) | Dg | M | none | 23, 24 | Parked |
-| 54 | [Green-output backpressure carve-out](./54-green-output-backpressure-carveout.md) | G | M | none | none | Parked |
+| 13 | Refresh ai-harness current gaps | D | S | none | 20, 22 | Done — `docs/ai-harness.md` now names `harness:audit` as the fusion consumer; content verified current 2026-07-19; leaf removed (git history) |
+| 14 | Skill trigger grammar | D | S | none | none | Done — all tracked SKILL.md files carry the two-sentence trigger pattern (`75c40334`); leaf removed 2026-07-19 (git history) |
+| 15 | [Golden-path reference feature pointer](./15-golden-path-reference-feature.md) | D | S | none | none | Done — golden-path pointer landed in `docs/guides/add-trpc-procedure.md` (2026-07-19, wave-1 ready-2026-07 drain, A11) |
+| 16 | Guide breadcrumbs and hook advisories | D | S-M | none | none | Done — `protected-files.sh` guide advisories landed (`9a2bc4a2`); leaf removed 2026-07-19 (git history) |
+| 25 | [Slow-lane mutation and timing add-ons](./25-slow-lane-mutation-and-timing-addons.md) | Dg | M | 24 | none | Ready — queued in `../ready-2026-07/00-index.md` (2026-07-19 triage) |
+| 50 | [Lint self-correction exemption audit](./50-lint-self-correction-exemption-audit.md) | G | M | none | none | Done — inventory audit recorded in `../../finished_work/lint-self-correction-exemption-audit-2026-07.md` (2026-07-19, wave-2 ready-2026-07 drain, B11) |
+| 51 | [Thin spec/plan template](./51-thin-spec-plan-template.md) | G | S-M | none | none | Done — template was already on `main` (`48cbb9fc`) before the wave-1 lane started; closed 2026-07-19 (ready-2026-07 A12) |
+| 52 | [Demotion rule and noise budgets](./52-demotion-and-noise-budgets.md) | G | S | none | all report-only sensors | Done — report-only sensor lifecycle policy landed in `docs/ai-harness.md` (2026-07-19, wave-1 ready-2026-07 drain, A13) |
+| 53 | logs:audit latest graceful degradation | Dg | M | none | 23, 24 | Done — `scripts/logs-audit.ts --latest` with the graceful no-logs hint; leaf removed 2026-07-19 (git history) |
+| 54 | [Green-output backpressure carve-out](./54-green-output-backpressure-carveout.md) | G | M | none | none | Done — audit and backpressure policy recorded in `../../finished_work/green-output-backpressure-audit-2026-07.md` (2026-07-19, wave-2 ready-2026-07 drain, B12) |
 
 ## Recommended Order
 

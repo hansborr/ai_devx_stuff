@@ -234,7 +234,7 @@ for file in "${CHANGED_FILES[@]}"; do
   esac
 
   case "$file" in
-    packages/*/package.json|packages/*/vitest.config.*|packages/*/tsconfig*.json|eslint-rules/vitest.config.*)
+    packages/*/package.json|packages/*/vitest.config.*|packages/server/vitest.unit.config.*|packages/*/tsconfig*.json|eslint-rules/vitest.config.*)
       has_vitest_relevant=1
       file_vitest_relevant=1
       full_run=1
@@ -296,7 +296,9 @@ if client_split_supports_user_args; then
     # the set); the client project runs through the split runner below.
     VITEST_PROJECT_ARGS=("--project=!client")
   else
-    [ "$has_server" -eq 1 ] && VITEST_PROJECT_ARGS+=("--project=server")
+    # Server changes run both server projects: the DB-backed `server` project
+    # and the DB-free `server-unit` seed/parser project split from it.
+    [ "$has_server" -eq 1 ] && VITEST_PROJECT_ARGS+=("--project=server" "--project=server-unit")
     [ "$has_client" -eq 1 ] && RUN_CLIENT_SPLIT=1
     [ "$has_eslint_rules" -eq 1 ] && VITEST_PROJECT_ARGS+=("--project=eslint-rules")
     [ "$has_scripts" -eq 1 ] && VITEST_PROJECT_ARGS+=("--project=scripts")
@@ -304,7 +306,7 @@ if client_split_supports_user_args; then
   fi
 else
   if [ "$has_global" -eq 0 ] && [ "$has_shared" -eq 0 ]; then
-    [ "$has_server" -eq 1 ] && VITEST_PROJECT_ARGS+=("--project=server")
+    [ "$has_server" -eq 1 ] && VITEST_PROJECT_ARGS+=("--project=server" "--project=server-unit")
     [ "$has_client" -eq 1 ] && VITEST_PROJECT_ARGS+=("--project=client")
     [ "$has_eslint_rules" -eq 1 ] && VITEST_PROJECT_ARGS+=("--project=eslint-rules")
     [ "$has_scripts" -eq 1 ] && VITEST_PROJECT_ARGS+=("--project=scripts")

@@ -3,13 +3,17 @@
 // must cover — and not exceed — the computed static import closure of
 // scripts/harness-check.ts plus every record's generator source, because the
 // scripts/tests/test-harness-check.sh fixture copies exactly that union and
-// then runs all of those entry points.
+// then runs all of those entry points. The same per-record closure walk feeds
+// a second consumer: every generator import must be covered by the record's
+// `generatedSurface.triggerPaths` (imports ⊆ triggers), so a new leaf module
+// cannot silently escape the pre-commit staleness warner.
 
 import { statSync } from "node:fs";
 import { join } from "node:path";
 
 import {
   diffFixtureClosure,
+  diffTriggerPathClosure,
   FIXTURE_SYNTHESIZED_PATHS,
   type FixtureClosureEntry,
   type GeneratedSurfaceRecord,
@@ -21,6 +25,9 @@ import { HARNESS_MANIFEST_FILENAME } from "./harness-manifest.js";
 
 // Failure bucket for every fixture copy-closure diagnostic.
 const FIXTURE_CLOSURE_FAILURE_ID = "harness-check fixture copy manifest";
+// Failure bucket for trigger-list-vs-import-closure diagnostics: a generator
+// import that no triggerPaths entry covers would never stale-warn its outputs.
+const TRIGGER_CLOSURE_FAILURE_ID = "generatedSurface triggerPaths closure";
 // The fixture resolves these via node_modules symlinks, so the closure walk
 // must not pull the packages' own sources into the copy manifest.
 const FIXTURE_CLOSURE_EXTERNAL_PACKAGES = ["@musi/lint-ratchet", "zod"] as const;
@@ -138,5 +145,10 @@ export async function checkFixtureCopyClosure(
   });
   for (const message of diffFailures) {
     pushFailure(failures, FIXTURE_CLOSURE_FAILURE_ID, message);
+  }
+  // Same walk, second consumer: every generator import must be covered by the
+  // record's triggerPaths so edits to it stale-warn the generated outputs.
+  for (const message of diffTriggerPathClosure({ records, entryClosures })) {
+    pushFailure(failures, TRIGGER_CLOSURE_FAILURE_ID, message);
   }
 }

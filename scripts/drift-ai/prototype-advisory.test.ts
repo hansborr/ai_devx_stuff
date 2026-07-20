@@ -145,6 +145,54 @@ describe("partial-run disclosure", () => {
   });
 });
 
+describe("scan-provenance header line", () => {
+  function provenanceAdvisory(
+    scanProvenance: PrototypeAdvisory<PrototypeSection<FakeRow>>["scanProvenance"],
+  ): PrototypeAdvisory<PrototypeSection<FakeRow>> {
+    return buildPrototypeAdvisory<PrototypeSection<FakeRow>>({
+      subcommand: "clone-candidates",
+      ...(scanProvenance === undefined ? {} : { scanProvenance }),
+      sections: [],
+    });
+  }
+
+  function provenanceLine(
+    scanProvenance: PrototypeAdvisory<PrototypeSection<FakeRow>>["scanProvenance"],
+  ): string | undefined {
+    return formatPrototypeHeader(provenanceAdvisory(scanProvenance)).find((line) =>
+      line.includes("scan provenance"),
+    );
+  }
+
+  it("omits the provenance line entirely when no scan provenance was captured", () => {
+    expect(provenanceLine(undefined)).toBeUndefined();
+  });
+
+  it("prints head and dirty state without a stability clause for legacy provenance", () => {
+    expect(provenanceLine({ gitHead: "abc123", gitDirty: false })).toBe(
+      "  scan provenance: git abc123; working tree clean",
+    );
+  });
+
+  it("shouts when the repository changed during the scan", () => {
+    expect(provenanceLine({ gitHead: "abc123", gitDirty: true, changedDuringScan: true })).toBe(
+      "  scan provenance: git abc123; working tree dirty; repository CHANGED during scan",
+    );
+  });
+
+  it("discloses a stable mid-scan repository state", () => {
+    expect(provenanceLine({ gitHead: "abc123", gitDirty: false, changedDuringScan: false })).toBe(
+      "  scan provenance: git abc123; working tree clean; unchanged during scan",
+    );
+  });
+
+  it("discloses unknown mid-scan stability instead of implying freshness", () => {
+    expect(provenanceLine({ gitHead: null, gitDirty: null, changedDuringScan: null })).toBe(
+      "  scan provenance: git unknown; working tree state unknown; mid-scan stability unknown",
+    );
+  });
+});
+
 describe("appendPrototypeSection", () => {
   it("renders the candidate-kind line and each row via the caller's renderer", () => {
     const lines: string[] = [];

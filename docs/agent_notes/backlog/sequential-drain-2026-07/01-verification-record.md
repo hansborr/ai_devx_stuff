@@ -102,7 +102,7 @@ unverified in its row). Highlights that re-scope the source notes:
 | harness-review 35 (socket-listener boundary half), 36 (effect-boundary marker) | design-gated / owner decision recorded in leaves |
 | harness-review 74 (cadence rules → AGENTS.md) | AGENTS.md edit is deliberately human-reviewed |
 | harness-strictness HS-1 (TS strictness flags) | wants a discovery pass + per-flag review; `exactOptionalPropertyTypes` explicitly not for unattended work |
-| harness-research DL-1 / A11Y-1 / EV-1 | DL-1 drains ~40 client files of visual code (review-heavy); A11Y-1/EV-1 add deps/infra — promote deliberately, not as drain filler |
+| harness-research DL-1 / A11Y-1 / EV-1 | DL-1 drains ~40 client files of visual code (review-heavy); A11Y-1/EV-1 add deps/infra — promote deliberately, not as drain filler. _Correction (2026-07-19): DL-1 and A11Y-1 had in fact already landed 2026-06-22 (`c7ed8c00`, `d49d3ca9`) when this record was written; only EV-1 remains open._ |
 | harness-research SEC-1 / PR-1 / GC-1 | pack marks design-gated, "do not implement during routine backlog draining" |
 | agent-friction A-arch, D2, D3 | A-arch is its own dedicated leaf (gate re-pointing); D2 needs a repro capture first; D3 flag-gated, med-high risk |
 | client-test-isolation 3c Track B | own doc: do-not-schedule unless CI wall time is a measured blocker |

@@ -260,7 +260,10 @@ musi_pre_push_near_duplicates_boundary() {
       #     too — the committed baseline already lists eslint-rules/*.js pairs);
       #   - config: drift-ai.config.json feeds thresholds/exclusions, so a
       #     config-only push changes detector truth without touching any source.
-      # Keep this alternation in sync with BUILT_IN_SOURCE_EXTENSIONS.
+      # This alternation is pinned to the scanner's extension set
+      # (BUILT_IN_SOURCE_EXTENSIONS + drift-ai.config.json
+      # additionalSourceExtensions) by scripts/harness/pre-push-scope-pin.ts;
+      # `bun run harness:check` fails with the exact replacement on drift.
       if grep -qE '(^|/)(sensor-near-duplicates\.baseline|drift-ai\.config)\.json$|\.(ts|tsx|js|jsx|mjs|cjs)$' <<< "$changed"; then
         ref_needs_scan=1
       fi

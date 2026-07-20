@@ -27,6 +27,13 @@ assert_not_contains() {
   fi
 }
 
+assert_no_output() {
+  local output="$1"
+  local label="$2"
+
+  [ -z "$output" ] || fail "$label should emit nothing, got: $output"
+}
+
 assert_hook_json() {
   local output="$1"
 
@@ -58,4 +65,19 @@ printf '%s\t%s\n' "$state" "$*" >> "$AI_TEST_GIT_OPTIONAL_LOCKS_LOG"
 exec "$AI_TEST_REAL_GIT" "$@"
 GIT_OPTIONAL_LOCKS_SHIM
   chmod +x "$shim_dir/git"
+}
+
+# Writes a fake `bun` that only records it was invoked (touching
+# AI_PRISMA_TEST_SENTINEL) so prisma-generate wiring tests can assert the hook
+# shelled out without running the real generator.
+make_prisma_sentinel_bun_shim() {
+  local shim_dir="$1"
+
+  mkdir -p "$shim_dir"
+  cat > "$shim_dir/bun" <<'PRISMA_SENTINEL_BUN_SHIM'
+#!/bin/bash
+touch "$AI_PRISMA_TEST_SENTINEL"
+exit 0
+PRISMA_SENTINEL_BUN_SHIM
+  chmod +x "$shim_dir/bun"
 }

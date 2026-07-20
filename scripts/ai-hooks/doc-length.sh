@@ -12,22 +12,6 @@ REPO_ROOT=$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null || git re
 # shellcheck source=/dev/null
 . "$SCRIPT_DIR/edited-paths.sh"
 
-ai_doc_length_rule() {
-  musi_doc_length_set_rule "$1"
-}
-
-ai_doc_length_rule_surface() {
-  musi_doc_length_rule_surface "$1"
-}
-
-ai_doc_length_advisory_for_count() {
-  musi_doc_length_advisory_for_count "$1" "$2"
-}
-
-ai_doc_length_advisory() {
-  musi_doc_length_advisory "$1"
-}
-
 ai_doc_length_hook_main() {
   local payload path abs surface advisory combined
   local -A seen=()
@@ -45,10 +29,10 @@ ai_doc_length_hook_main() {
     fi
     seen[$abs]=1
 
-    surface=$(ai_doc_length_rule_surface "$abs" || true)
+    surface=$(musi_doc_length_rule_surface "$abs" || true)
     [ "$surface" = "edit" ] || continue
 
-    advisory=$(ai_doc_length_advisory "$abs" || true)
+    advisory=$(musi_doc_length_advisory "$abs" || true)
     if [ -n "$advisory" ]; then
       if [ -n "$combined" ]; then
         combined="${combined}"$'\n\n'"$advisory"

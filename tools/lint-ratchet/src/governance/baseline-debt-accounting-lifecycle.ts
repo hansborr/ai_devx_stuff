@@ -1,14 +1,10 @@
-import type {
-  LintRatchetBaseline,
-  LintRatchetOrphanRemoval,
-} from "@musi/lint-ratchet/kernel/baseline.js";
-import { compareByCodepoint } from "@musi/lint-ratchet/kernel/codepoint-compare.js";
+import type { LintRatchetBaseline, LintRatchetOrphanRemoval } from "../kernel/baseline.js";
+import { compareByCodepoint } from "../kernel/codepoint-compare.js";
 import {
   collectCoverageShrinkDiffs,
   collectMetricChangeDiffs,
   type CoverageShrinkDiff,
-} from "@musi/lint-ratchet/kernel/lifecycle-diff.js";
-
+} from "../kernel/lifecycle-diff.js";
 import {
   isAcceptedDebtLogEntry,
   isCoverageShrinkLogEntry,

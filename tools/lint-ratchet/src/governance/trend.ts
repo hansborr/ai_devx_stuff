@@ -1,11 +1,7 @@
 import { execFileSync } from "node:child_process";
 
-import { parseLintRatchetBaselineStructure } from "@musi/lint-ratchet/kernel/baseline.js";
-import {
-  type LintRatchetEngineContext,
-  relativeToRepoRoot,
-} from "@musi/lint-ratchet/kernel/engine-context.js";
-
+import { parseLintRatchetBaselineStructure } from "../kernel/baseline.js";
+import { type LintRatchetEngineContext, relativeToRepoRoot } from "../kernel/engine-context.js";
 import { summarizeLintRatchetBaseline } from "./summary.js";
 
 const SHORT_SHA_LENGTH = 12;

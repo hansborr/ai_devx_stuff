@@ -1,6 +1,6 @@
 # Merge-driver driverless-window guard (low-priority / optional)
 
-Status: Ready — low priority.
+Status: Done — landed 2026-07-19 (wave-1 ready-2026-07 drain; doc paragraph in `docs/guides/lint-ratchet-merges.md`).
 Date: 2026-07-16
 Source: the merge-driver field exercise (drain
 leaf 2.2; the exercise and findings notes were closed Done and removed at

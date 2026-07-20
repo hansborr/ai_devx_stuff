@@ -103,10 +103,14 @@ if [ "$mode" = "check" ]; then
     [ "$kind" = "target" ] || continue
     printf 'checked\t%s\n' "$rel"
     [ "${RR_BUN_NO_REGRESSION:-0}" = "1" ] && continue
-    if [ "${RR_BUN_EMPTY_LINE:-0}" = "1" ]; then
-      printf 'regression\t%s\t%s\t%s\tnew-path\t\t0\t1\n' "$rel" "$test" "$rule"
+    line_col="1"
+    [ "${RR_BUN_EMPTY_LINE:-0}" = "1" ] && line_col=""
+    # RR_BUN_REPAIR emits the 9-column row shape (trailing repair command);
+    # default stays 8 columns so the hook's tolerance of older rows is pinned.
+    if [ -n "${RR_BUN_REPAIR:-}" ]; then
+      printf 'regression\t%s\t%s\t%s\tnew-path\t%s\t0\t1\t%s\n' "$rel" "$test" "$rule" "$line_col" "$RR_BUN_REPAIR"
     else
-      printf 'regression\t%s\t%s\t%s\tnew-path\t1\t0\t1\n' "$rel" "$test" "$rule"
+      printf 'regression\t%s\t%s\t%s\tnew-path\t%s\t0\t1\n' "$rel" "$test" "$rule" "$line_col"
     fi
   done < "$tf"
   exit 0
@@ -122,6 +126,7 @@ run_ratchet_regression_hook() {
     RR_BUN_FAIL_CHECK="${RR_BUN_FAIL_CHECK:-0}" \
     RR_BUN_NO_REGRESSION="${RR_BUN_NO_REGRESSION:-0}" \
     RR_BUN_EMPTY_LINE="${RR_BUN_EMPTY_LINE:-0}" \
+    RR_BUN_REPAIR="${RR_BUN_REPAIR:-}" \
     RR_BUN_MULTI_TARGETS="${RR_BUN_MULTI_TARGETS:-0}" \
     RR_BUN_CACHE_IDENTITY="${RR_BUN_CACHE_IDENTITY:-cache-identity-v1}" \
     AI_STATE_ROOT="$RR_STATE_ROOT" \
@@ -174,6 +179,8 @@ assert_contains "$RR_CTX" "Full ratchet picture: bun run lint:ratchet"
 assert_contains "$RR_CTX" "Structured selected-rule guidance: bun run lint:agent:local-rules:changed"
 assert_not_contains "$RR_CTX" "For structured per-rule fix guidance"
 assert_contains "$RR_CTX" "Type-aware ratchets are not checked"
+# An 8-column row (no repair metadata) must not grow a repair suffix.
+assert_not_contains "$RR_CTX" "repair:"
 RR_DISCOVERY=$(grep -F -- '--edit-check-targets' "$RR_BUN_LOG" || true)
 assert_contains "$RR_DISCOVERY" $'\tsrc/foo.ts'
 grep -qE -- '--edit-check($|[^-])' "$RR_BUN_LOG" \
@@ -189,6 +196,15 @@ RR_OUT=$(RR_BUN_EMPTY_LINE=1 AI_FAKE_NOW=110000 run_ratchet_regression_hook "$(r
 RR_CTX=$(rr_context "$RR_OUT")
 assert_contains "$RR_CTX" "src/el.ts (local/type-assertion-boundary — new-path)"
 assert_not_contains "$RR_CTX" "src/el.ts:"
+
+# (1c) A 9-column regression row carrying a repair command names it inline in
+# the bullet (the envelope↔hook bridge for codemod/autofix rules).
+printf 'const rep: unknown = {};\nexport const r = rep as { value: number };\n' > "$RR_REPO/src/rep.ts"
+: > "$RR_BUN_LOG"
+RR_OUT=$(RR_BUN_REPAIR="bun run lint:fix" AI_FAKE_NOW=115000 run_ratchet_regression_hook "$(rr_edit_payload "src/rep.ts" "rr-rep")") \
+  || fail "ratchet-regression hook should not fail on a repair-carrying regression row"
+RR_CTX=$(rr_context "$RR_OUT")
+assert_contains "$RR_CTX" "src/rep.ts:1 (local/type-assertion-boundary — new-path) — repair: bun run lint:fix"
 
 # (2) Codex apply_patch path extraction: Add/Update linted, Delete + node_modules skipped.
 printf 'const added: unknown = {};\nexport const a = added as { value: number };\n' > "$RR_REPO/src/added.ts"

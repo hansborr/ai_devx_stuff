@@ -34,8 +34,23 @@ function containsProtocolSeparator(value: string): boolean {
   return /[\t\r\n]/u.test(value);
 }
 
-function warnUnroundtrippableTarget(detail: string): void {
+function warnProtocolSeparator(detail: string): void {
   console.error(`edit-check-protocol: ${detail}`);
+}
+
+// A regression row's identity fields round-tripped through validated `target`
+// rows, `reason` is an internal literal, and the counts are numbers — none can
+// carry a separator. `repairCommand` is the one field sourced from human-edited
+// rule docs (`meta.docs.repairCommand`), so an accidental tab or newline there
+// would truncate or split the fixed-arity row the advisory hook reads
+// positionally. Collapse separators to single spaces (the command stays
+// readable advisory text) and announce, mirroring the target-row loudness.
+function sanitizeRepairCommand(value: string, ruleId: string): string {
+  if (!containsProtocolSeparator(value)) return value;
+  warnProtocolSeparator(
+    `repair command for '${ruleId}' contains a tab or newline; collapsed to spaces to keep the row intact`,
+  );
+  return value.replace(/[\t\r\n]+/gu, " ");
 }
 
 function isNonEmpty(value: string | undefined): value is string {
@@ -51,7 +66,7 @@ export function formatEditCheckTarget(target: EditCheckTarget): string {
     target.cacheIdentity ?? "",
   ];
   if (fields.some(containsProtocolSeparator)) {
-    warnUnroundtrippableTarget(
+    warnProtocolSeparator(
       `target for '${target.path}' contains a tab or newline and will not round-trip; it will be dropped on decode`,
     );
   }
@@ -61,7 +76,7 @@ export function formatEditCheckTarget(target: EditCheckTarget): string {
 export function parseEditCheckTargetLine(line: string): EditCheckTarget | undefined {
   const fields = line.split("\t");
   if (fields[0] === TARGET_KIND && fields.length !== TARGET_FIELD_COUNT) {
-    warnUnroundtrippableTarget(
+    warnProtocolSeparator(
       `target row has ${String(fields.length)} fields (expected ${String(TARGET_FIELD_COUNT)}); a path or id likely contains a tab; dropping`,
     );
   }
@@ -78,6 +93,10 @@ export function formatEditCheckChecked(path: string): string {
   return [CHECKED_KIND, path].join("\t");
 }
 
+// Regression columns: kind, path, testId, ruleId, reason, line, baselineCount,
+// currentCount, repairCommand. The trailing repair column is empty for rules
+// without a mechanical repair; the hook reads it positionally, so it is always
+// emitted (fixed arity) rather than appended conditionally.
 export function formatEditCheckRegression(regression: EditCheckRegression): string {
   return [
     REGRESSION_KIND,
@@ -88,5 +107,8 @@ export function formatEditCheckRegression(regression: EditCheckRegression): stri
     regression.line ?? "",
     String(regression.baselineCount),
     String(regression.currentCount),
+    regression.repairCommand === undefined
+      ? ""
+      : sanitizeRepairCommand(regression.repairCommand, regression.ruleId),
   ].join("\t");
 }

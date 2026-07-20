@@ -306,6 +306,32 @@ baseline; max-lines is especially strict because summary drift hard-fails its
 gate. The merge-driver health checks and `bun run doctor` report the missing
 local config.
 
+That driverless state is also a timing window: Git has no native "hard-fail
+when a mapped merge driver is undefined," so between `git clone` and the first
+`bun install` (whose `prepare` script installs the drivers) any merge, rebase,
+or cherry-pick touching a mapped baseline silently falls back to Git's
+built-in text merge. Overlapping edits then write conflict markers into the
+generated JSON; disjoint edits "merge" cleanly but with no semantic guarantee
+and no truth-up marker. Humans rarely hit this window because dependencies get
+installed before work starts, but automation operating in a pristine checkout
+— a CI auto-merge bot or a scripted rebase — can. In a fresh clone, run
+`bun install` (or the manual installers above) before any baseline-touching
+merge operation. Leaving the window open is a current design trade-off, not a
+Git limitation: committing `-merge` for the baselines in `.gitattributes`
+would make a driverless checkout fall back to Git's binary merge — keep
+"ours" and declare a conflict — instead of silently text-merging, and the
+installer's `.git/info/attributes` entries take precedence after install, so
+they would map the real drivers back in. This repo instead keeps the driver
+names in the committed `.gitattributes` and accepts the window, so the guards
+are deliberately reactive — and they cover all four mapped baselines, not
+just lint-ratchet: every baseline parser shares the kernel conflict-marker
+tripwire (surfaced for the lint-ratchet baseline via
+`parseLintRatchetBaselineStructure`), which rejects a marker-corrupted
+baseline at the next check and prints that baseline's recovery recipe, and
+CI's `bun run verify` runs all four baseline gates (`ratchet`,
+`knip-unused-exports`, `near-duplicates`, `max-lines-exceptions`), blocking a
+silently mis-merged baseline from landing on `main`.
+
 Truth-up markers are stamped with the pre-merge `HEAD`, because `MERGE_HEAD` is
 not available while Git invokes merge drivers. The truth-up hooks honor a marker
 only when that stamp matches the completed commit's first parent (`HEAD^1`). The

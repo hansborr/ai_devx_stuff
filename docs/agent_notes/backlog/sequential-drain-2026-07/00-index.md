@@ -70,7 +70,7 @@ then the discretionary tail. Within a phase, drain top to bottom.
 | 3.8 | Hook trio dedup | harness-explore-2026-07 / 11 | S | Done — deduped 4 merge-driver installs (verification-record correction); `worktree-db.sh` wrappers deliberately left |
 | 3.9 | Suppression policy as data + dead hadolint pin | harness-explore-2026-07 / 12 | M | Done — hadolint pin made effective (`1edc16f3`) + suppression allowlists as data (`761f0d98`) |
 | 3.10 | Record gate run mode | harness-explore-2026-07 / 16 | S | Done |
-| 3.11 | [CI/local gate parity guard](../ci-local-gate-parity-guard.md) | standalone note | M | Done |
+| 3.11 | CI/local gate parity guard | standalone note (removed 2026-07-19; git history) | M | Done — `7b594eba` |
 | 3.12 | Porting-knob greppable markers | harness-explore-2026-07 / 19 | M | Done |
 
 ### Phase 4 — sensors & test quality
@@ -85,7 +85,7 @@ then the discretionary tail. Within a phase, drain top to bottom.
 | 4.6 | [Drift provenance contract v2, items 1/3/4](../drift-triage-2026-07-13/REVIEW-FOLLOWUPS.md) | drift-triage-2026-07-13 | M | Done — items 1/3/4 (`e2750f17`/`e9d00a48`/`a5f2dda5`); item 2 already landed via `31ce6e49` |
 | 4.7 | [Finish tmp-repo helper adoption](../testsuite-audit/00-index.md) | testsuite-audit / 32 | S | Done — `0fa03a57`/`0dd8c183`/`c639a2f8`/`4762528e`; all 15 remaining hand-rolled drain loops migrated |
 | 4.8 | [Coverage-map governance checks A4 + A5 (membership half)](../agent-friction-2026-06/00-report.md) | agent-friction-2026-06 / A4, A5 | M | Done — A4 + A5 membership half (`4ba3e561`); A5 generation half stays open |
-| 4.9 | [Codemod-engine dedup for trpc-shared codemods](../drift-ai-current-findings.md) | drift-ai-current-findings / #8 | S | Done — `8454fab4` |
+| 4.9 | Codemod-engine dedup for trpc-shared codemods | drift-ai-current-findings / #8 (note fully drained; removed 2026-07-19 — git history) | S | Done — `8454fab4` |
 
 ### Phase 5 — discretionary tail
 
@@ -98,8 +98,8 @@ then the discretionary tail. Within a phase, drain top to bottom.
 
 | # | Task | Source | Size | Status |
 |---|---|---|---|---|
-| F.1 | [Phase 3 review follow-ups](./03-phase3-review-followups.md) | this pack | S | Open — three low-priority residues from the Phase 3 pre-land review (trigger-group sharing, generator-import consistency test, porting-knob scan roots); item 4 (SubagentStop delivery) resolved 2026-07-16 as a keep-off-pending-attribution decision |
-| F.2 | [Phase 4/5 review follow-ups](./04-phase45-review-followups.md) | this pack | S | Open — two low-priority residues from the Phase 4/5 pre-land review (derive pre-push scan-trigger extensions from scope source; sibling-worktree hint for the non-HEAD push guard) |
+| F.1 | [Phase 3 review follow-ups](./03-phase3-review-followups.md) | this pack | S | Open — item 1 (trigger-group sharing) landed 2026-07-19 (wave-1 ready-2026-07 drain); two low-priority residues remain (generator-import consistency test, porting-knob scan roots); item 4 (SubagentStop delivery) resolved 2026-07-16 as a keep-off-pending-attribution decision |
+| F.2 | [Phase 4/5 review follow-ups](./04-phase45-review-followups.md) | this pack | S | Open — item 1 (derive pre-push scan-trigger extensions from scope source) landed 2026-07-19 (wave-1 ready-2026-07 drain); one low-priority residue remains (sibling-worktree hint for the non-HEAD push guard) |
 
 ## Promotion rules
 

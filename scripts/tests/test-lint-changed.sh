@@ -15,6 +15,11 @@
 # smoke-subjects: scripts/tests/lib/test-git-env.sh
 # smoke-subjects: scripts/tests/test-lint-changed.sh
 # smoke-subjects: eslint-config/
+# smoke-subjects: scripts/eslint-main.sh
+# smoke-subjects: scripts/lib/eslint-main-cache.sh
+# smoke-subjects: scripts/lib/eslint-main-partitions.sh
+# smoke-subjects: scripts/lib/gate-env.sh
+# smoke-subjects: scripts/lib/lint-dist-preflight.sh
 # Pure-shell smoke tests for scripts/lint-changed.sh selection behavior.
 
 set -euo pipefail

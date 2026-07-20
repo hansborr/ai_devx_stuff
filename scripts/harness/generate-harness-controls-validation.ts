@@ -4,7 +4,6 @@
 import type { RuleDocs } from "../lib/lint-rule-docs.js";
 import {
   CONTROL_CATEGORIES,
-  type ControlCategory,
   type ControlKind,
   isControlCategory,
   isControlKind,
@@ -15,7 +14,6 @@ import {
   missingRatchetPrincipleMessage,
   ratchetPrincipleRestatementFailures,
   REPAIR_KINDS,
-  type RepairKind,
   validatePairedGuidePath,
   validateRepairCommandPresence,
   validateSourcePath,
@@ -25,6 +23,7 @@ import type {
   RawControl,
   ResolvedControl,
 } from "./generate-harness-controls.js";
+import { categorizedControlFieldsSchema } from "./harness-manifest-schema.js";
 import { resolveHookWiring } from "./hook-wiring-schema.js";
 import { parseVerifyStepSlots } from "./verify-step-schema.js";
 
@@ -140,26 +139,37 @@ function resolveNonLintControl(
   const slots = parseVerifyStepSlots(raw.slots, failures);
   const hookWiring = resolveOptionalHookWiring(raw, kind, failures);
   if (failures.length > 0) return undefined;
-  /*
-   * type-assertion-boundary: json - each field above was shape-validated by an
-   * `isControlCategory` / `isRepairKind` / `isNonEmptyString` type guard, but
-   * the guards push into `failures` rather than early-returning (so the caller
-   * sees every problem at once), and TypeScript can't carry the per-field
-   * narrowings through the intermediate `failures.push(...)` statements. The
-   * casts narrow back to the validated shape at the single return point.
-   */
+  // The guards above already reported every granular field failure (pinned
+  // diagnostics); the schema re-parse narrows the raw record to the typed
+  // field view at the single success point, replacing the per-field casts
+  // that used to stand in for this. A parse failure after clean guards is a
+  // guard/schema divergence and reported defensively rather than swallowed.
+  const parsed = categorizedControlFieldsSchema.safeParse(raw);
+  if (!parsed.success) {
+    for (const issue of parsed.error.issues) {
+      failures.push(`schema divergence at ${issue.path.map(String).join(".")}: ${issue.message}`);
+    }
+    return undefined;
+  }
+  const fields = parsed.data;
+  // For ratchets the principle is re-projected from the registry
+  // (derivedPrinciple); other non-lint kinds carry it in the manifest, and the
+  // guards above rejected a missing one.
+  const principle = derivedPrinciple ?? fields.principle;
+  if (principle === undefined) {
+    failures.push("principle must be a non-empty string");
+    return undefined;
+  }
   return {
     id: raw.id,
     kind,
-    category: raw.category as ControlCategory,
-    // For ratchets the principle is re-projected from the registry
-    // (derivedPrinciple); other non-lint kinds carry it in the manifest.
-    principle: derivedPrinciple ?? (raw.principle as string),
-    pairedGuide: raw.pairedGuide as string,
-    repairKind: raw.repairKind as RepairKind,
-    ...(raw.repairCommand !== undefined ? { repairCommand: raw.repairCommand } : {}),
-    source: raw.source as string,
-    invocation: raw.invocation as string,
+    category: fields.category,
+    principle,
+    pairedGuide: fields.pairedGuide,
+    repairKind: fields.repairKind,
+    ...(fields.repairCommand !== undefined ? { repairCommand: fields.repairCommand } : {}),
+    source: fields.source,
+    invocation: fields.invocation,
     ...(slots !== undefined ? { slots } : {}),
     ...(hookWiring !== undefined ? { hookWiring } : {}),
   };

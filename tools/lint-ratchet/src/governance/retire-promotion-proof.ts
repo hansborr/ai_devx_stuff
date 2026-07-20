@@ -1,5 +1,4 @@
-import type { JsonValue, LintRatchetConfig } from "@musi/lint-ratchet/kernel/config-types.js";
-
+import type { JsonValue, LintRatchetConfig } from "../kernel/config-types.js";
 import {
   aggregateNormalLintStatus,
   matchingTrackedFiles,

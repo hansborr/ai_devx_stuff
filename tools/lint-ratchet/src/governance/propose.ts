@@ -2,23 +2,16 @@ import {
   buildLintRatchetBaseline,
   formatLintRatchetBaseline,
   type LintRatchetCurrentItem,
-} from "@musi/lint-ratchet/kernel/baseline.js";
-import { isJsonValue, normalizeStringList } from "@musi/lint-ratchet/kernel/baseline-hash.js";
-import type {
-  JsonValue,
-  LintRatchetConfig,
-  LintRatchetMetric,
-} from "@musi/lint-ratchet/kernel/config-types.js";
-import { collectCurrentForRatchet } from "@musi/lint-ratchet/kernel/current-collector.js";
-import type { LintRatchetEngineBinding } from "@musi/lint-ratchet/kernel/engine-context.js";
-import { trackedFilesFromGit } from "@musi/lint-ratchet/kernel/git-tracked-files.js";
-import { ConfigError } from "@musi/lint-ratchet/kernel/metrics-types.js";
-import { matchingTrackedFiles } from "@musi/lint-ratchet/kernel/ratchet-globs.js";
-import {
-  hasNormalizedPath,
-  metricPairingFailures,
-} from "@musi/lint-ratchet/kernel/registry-validation.js";
-import { buildRuleSourceHashesById } from "@musi/lint-ratchet/kernel/rule-source.js";
+} from "../kernel/baseline.js";
+import { isJsonValue, normalizeStringList } from "../kernel/baseline-hash.js";
+import type { JsonValue, LintRatchetConfig, LintRatchetMetric } from "../kernel/config-types.js";
+import { collectCurrentForRatchet } from "../kernel/current-collector.js";
+import type { LintRatchetEngineBinding } from "../kernel/engine-context.js";
+import { trackedFilesFromGit } from "../kernel/git-tracked-files.js";
+import { ConfigError } from "../kernel/metrics-types.js";
+import { matchingTrackedFiles } from "../kernel/ratchet-globs.js";
+import { hasNormalizedPath, metricPairingFailures } from "../kernel/registry-validation.js";
+import { buildRuleSourceHashesById } from "../kernel/rule-source.js";
 
 const PROPOSE_RATCHET_ID = "ratchet/propose";
 const CORE_RULE_PATTERN = /^[a-z][a-z0-9-]*$/u;

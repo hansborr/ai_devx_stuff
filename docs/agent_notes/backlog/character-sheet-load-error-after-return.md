@@ -1,6 +1,6 @@
 # Character Sheet Load Error After Return
 
-Status: Parked
+Status: Done — fixed 2026-07-19 (wave-1 ready-2026-07 drain, A14) in `packages/client/src/pages/character-sheet-page.tsx`: cached data now renders over a background-refetch error; the full-page error shows only when there is no data. The optional login-redirect was deliberately NOT added — the GuestGuard bounce makes it a no-op; a real session-expired pathway is a follow-up.
 Date: 2026-07-03
 Source: Migrated from the stale `docs/bugs` scratch file during the
 docs/process audit cleanup.

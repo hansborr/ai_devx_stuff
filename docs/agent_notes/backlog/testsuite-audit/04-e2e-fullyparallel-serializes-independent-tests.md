@@ -1,6 +1,6 @@
 # 4. e2e `fullyParallel:false` serializes ~20 fixture-isolated `userPage` tests within their files, and a redundant `describe.serial` compounds it
 
-Status: Proposed — read-only finding from the test-suite audit; NOT implemented. Re-verify file:line before acting.
+Status: Done — landed 2026-07-19 (wave-1 ready-2026-07 drain): redundant `auth-refresh` `describe.serial` dropped; the 4 independent fixture-isolated specs opted into per-file parallel mode.
 Lens: speed · Area: e2e · Severity: med · Size: S-M · Confidence: high
 Theme: e2e-scheduling · Source: Musi test-suite audit 2026-06-13 (multi-agent, adversarially verified)
 

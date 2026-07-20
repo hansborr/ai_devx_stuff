@@ -1,25 +1,21 @@
-import {
-  type MergeDriverCliConfig,
-  runMergeDriverCli,
-  runMergeDriverCliMain,
-} from "@musi/lint-ratchet/git-rail/merge-cli.js";
+// Path-stable wrapper: scripts/git/baseline-merge-driver.sh dispatches this
+// exact path. Usage/failure strings derive from the merge-CLI table
+// (ready-2026-07 leaf 16); the merge binding stays here so this CLI's runtime
+// import closure remains its own (the lint-ratchet merge smoke runs this file
+// inside a minimal sandbox fixture — see copy_lint_ratchet_merge_runtime in
+// scripts/tests/test-lint-ratchet.sh).
+import { runMergeDriverCli, runMergeDriverCliMain } from "@musi/lint-ratchet/git-rail/merge-cli.js";
 import { mergeLintRatchetBaselines } from "@musi/lint-ratchet/kernel/baseline-merge.js";
 
-const nodeArgvUserArgumentOffset = 2;
+import { mergeCliConfigFor } from "../baseline-merge-cli-table.js";
+import { PROCESS_ARGV_USER_ARGS_START } from "../lib/process-argv.js";
 
-const CONFIG: MergeDriverCliConfig = {
-  usage:
-    "usage: bun scripts/lint-ratchet/baseline-merge-cli.ts <base> <current> <other> [path] [truth-up-marker] [pre-merge-head]",
-  unresolvedFailureLabel: "lint-ratchet baseline semantic merge could not resolve",
-  fatalFailureLabel: "lint-ratchet baseline semantic merge failed",
-  markerMessage: "lint-ratchet baseline semantic merge requires post-merge truth-up",
-  merge: mergeLintRatchetBaselines,
-};
+const CONFIG = mergeCliConfigFor("lint-ratchet", mergeLintRatchetBaselines);
 
 export async function runBaselineMergeCli(argv: readonly string[]): Promise<number> {
   return runMergeDriverCli(argv, CONFIG);
 }
 
 if (import.meta.main) {
-  runMergeDriverCliMain(process.argv.slice(nodeArgvUserArgumentOffset), CONFIG);
+  runMergeDriverCliMain(process.argv.slice(PROCESS_ARGV_USER_ARGS_START), CONFIG);
 }

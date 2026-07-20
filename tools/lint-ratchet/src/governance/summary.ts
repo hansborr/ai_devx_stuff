@@ -1,15 +1,12 @@
 import { readFileSync } from "node:fs";
 
-import {
-  type LintRatchetBaseline,
-  parseLintRatchetBaselineStructure,
-} from "@musi/lint-ratchet/kernel/baseline.js";
+import { type LintRatchetBaseline, parseLintRatchetBaselineStructure } from "../kernel/baseline.js";
 import type {
   LintRatchetConfig,
   LintRatchetMetric,
   LintRatchetMode,
-} from "@musi/lint-ratchet/kernel/config-types.js";
-import { ConfigError } from "@musi/lint-ratchet/kernel/metrics-types.js";
+} from "../kernel/config-types.js";
+import { ConfigError } from "../kernel/metrics-types.js";
 
 type LintRatchetBaselineTest = NonNullable<LintRatchetBaseline["tests"][string]>;
 const DEBT_FILES_HEADER = "debt files";

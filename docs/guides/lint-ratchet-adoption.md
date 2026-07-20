@@ -73,7 +73,7 @@ file selection, no copy manifest — and bind it with a thin adapter you write:
 
 | Item | Role |
 | --- | --- |
-| `tools/lint-ratchet/` | The portable engine (kernel + git-rail + governance). Copy it verbatim into your repo, or add it as a dependency; it carries no `@musi/*` or repo-relative imports. Its per-layer subpath exports (`@musi/lint-ratchet/kernel/*`, `/git-rail/*`, `/governance/*`) are the whole API. |
+| `tools/lint-ratchet/` | The portable engine (kernel + git-rail + governance). Copy it verbatim into your repo, or add it as a dependency; it carries no `@musi/*` or repo-relative imports. Its `package.json#exports` map enumerates every supported entry point as an exact per-layer subpath key (`@musi/lint-ratchet/kernel/<module>.js`, `/git-rail/<module>.js`, `/governance/<module>.js` — no wildcards); that enumerated set is the whole API, and the package README's exports inventory is the authoritative list. |
 | A thin adapter (you write it) | Construct a `LintRatchetEngineContext`/`LintRatchetEngineBinding` over your repo root, declare your registry (`LintRatchetConfig[]`), and render whatever result envelope your CI wants. `examples/lint-ratchet-demo/scripts/lint-ratchet.ts` + `scripts/lint-ratchet/adapter.ts` is a minimal, working template to diff against. |
 | Merge drivers (recommended): `scripts/git/*` + the fixed-path CLI wrappers | Copy the git-rail shells and the two CLI wrappers (`baseline-merge-cli.ts`, `post-merge-baseline-preflight.ts`) from the demo; they consume the package's pure git-rail ops and install the semantic baseline merge. |
 | `lint-ratchet.baseline.json` | Start with `{ "version": 2, "regenerate": "bun run lint:ratchet:update", "tests": {} }`, then `lint:ratchet:update` to populate it against your toolchain. |

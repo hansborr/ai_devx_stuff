@@ -1,8 +1,7 @@
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { compareByCodepoint } from "@musi/lint-ratchet/kernel/codepoint-compare.js";
-
+import { compareByCodepoint } from "../lib/codepoint-compare.js";
 import { runDocGenerator } from "../lib/doc-generator.js";
 import { lintRatchets } from "../lint-ratchet/lint-ratchet-config.js";
 

@@ -8,6 +8,28 @@ partitioned and which file owns which mount key — see
 `packages/server/src/routers/routers-MODULE.md`. This guide covers the
 authoring *mechanics*; that doc is the *map*.
 
+For a worked reference, read the `encounter` slice in build order — it
+exercises every step below on real code:
+
+- shared contract: strict inputs in
+  `packages/shared/src/schemas/encounter-inputs.ts` and named output schemas
+  in `packages/shared/src/schemas/encounter.ts`, with tests beside each;
+- server service: `packages/server/src/services/encounter-combat/` holds the
+  combat business logic, tested in place;
+- router: `packages/server/src/routers/encounter-combat.ts` is the exemplary
+  delegating shape — the services taxonomy
+  (`packages/server/src/services/README.md`) names it the documented ideal:
+  every procedure is a one-line call into the service, shared input/output
+  schemas are imported from concrete files, and auth checks and
+  post-commit broadcasts are owned by the service. Its sibling
+  `encounter.ts` shows the thin read shape (`get` is fetch, auth helper,
+  mapper) and delegates its race-sensitive `addParticipant`/
+  `updateParticipant` writes, but do not copy its `removeParticipant` —
+  that still inlines a lock/delete/reindex transaction and is listed in
+  the taxonomy as known debt, not a pattern to copy;
+- client: `packages/client/src/components/campaign/encounters/encounter-detail-view.tsx`
+  consumes `trpc.encounter.get` through TanStack Query.
+
 1. Put the wire contract in `packages/shared/src/schemas/`. Inputs live in a
    `*-inputs.ts` file and must be strict shared schemas. Outputs should be
    named result/detail/summary schemas that describe the response returned to

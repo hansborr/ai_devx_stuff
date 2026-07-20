@@ -87,7 +87,7 @@ verification agent running four targeted checks) produced these changes:
   lane, report-only mode, trend, integrity gate, new-rule adds 30-40). Leaves
   here only cover *defects or seams in what landed*.
 - Parked upgrade notes that remain their own backlog items:
-  `../eslint-plugin-jsdoc-63-upgrade.md`,
+  `../ready-2026-07/08-eslint-plugin-jsdoc-63-upgrade.md`,
   `../eslint-react-peer-exception-removal.md`.
   (`lint-fix-dist-preflight-parity.md` closed Done and was removed at the
   2026-07-19 triage.)

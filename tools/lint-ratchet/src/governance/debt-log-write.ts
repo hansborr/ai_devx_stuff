@@ -4,9 +4,8 @@ import type {
   LintRatchetMetricMigration,
   LintRatchetRegression,
   LintRatchetUpdateDecision,
-} from "@musi/lint-ratchet/kernel/baseline.js";
-import { ConfigError } from "@musi/lint-ratchet/kernel/metrics-types.js";
-
+} from "../kernel/baseline.js";
+import { ConfigError } from "../kernel/metrics-types.js";
 import {
   type LintRatchetAcceptedDebtLogEntry,
   type LintRatchetCoverageShrinkLogEntry,

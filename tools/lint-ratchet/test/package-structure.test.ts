@@ -24,19 +24,17 @@ function isUnderEngineOrTests(relPath: string): boolean {
   );
 }
 
-interface WildcardExport {
-  readonly specifierPrefix: string;
-  readonly specifierSuffix: string;
-  readonly sourceDir: string;
-  readonly sourceSuffix: string;
-}
-
 function isStringRecord(value: unknown): value is Record<string, string> {
   if (typeof value !== "object" || value === null) return false;
   return Object.values(value).every((entry) => typeof entry === "string");
 }
 
-function readWildcardExports(): WildcardExport[] {
+interface PackageExports {
+  readonly packageName: string;
+  readonly exportsMap: Record<string, string>;
+}
+
+function readPackageExports(): PackageExports {
   const parsed: unknown = JSON.parse(readFileSync(join(packageDir, "package.json"), "utf8"));
   const packageName =
     typeof parsed === "object" && parsed !== null && "name" in parsed ? parsed.name : undefined;
@@ -47,32 +45,24 @@ function readWildcardExports(): WildcardExport[] {
   if (typeof packageName !== "string" || !isStringRecord(exportsField)) {
     throw new Error("package.json must declare a string name and a string-valued exports map");
   }
-  const wildcards: WildcardExport[] = [];
-  for (const [key, target] of Object.entries(exportsField)) {
-    if (!key.includes("*") || !target.includes("*")) continue;
-    const [keyBefore = "", keyAfter = ""] = key.split("*");
-    const [targetBefore = "", targetAfter = ""] = target.split("*");
-    wildcards.push({
-      specifierPrefix: `${packageName}${keyBefore.replace(/^\./u, "")}`,
-      specifierSuffix: keyAfter,
-      sourceDir: join(packageDir, targetBefore),
-      sourceSuffix: targetAfter,
-    });
-  }
-  return wildcards;
+  return { packageName, exportsMap: exportsField };
 }
 
-function exportedSpecifiers(wildcard: WildcardExport): string[] {
-  const files = readdirSync(wildcard.sourceDir, { withFileTypes: true });
-  const specifiers: string[] = [];
-  for (const file of files) {
-    if (!file.isFile()) continue;
-    if (!file.name.endsWith(wildcard.sourceSuffix)) continue;
-    if (file.name.endsWith(".test.ts")) continue;
-    const stem = file.name.slice(0, file.name.length - wildcard.sourceSuffix.length);
-    specifiers.push(`${wildcard.specifierPrefix}${stem}${wildcard.specifierSuffix}`);
+/** Every non-test `.ts` module under `src/`, as a `./<layer>/<stem>.js` subpath. */
+function sourceModuleSubpaths(): string[] {
+  const srcDir = join(packageDir, "src");
+  const subpaths: string[] = [];
+  for (const entry of readdirSync(srcDir, { recursive: true, withFileTypes: true })) {
+    if (!entry.isFile() || !entry.name.endsWith(".ts")) continue;
+    if (entry.name.endsWith(".test.ts")) continue;
+    const relDir = entry.parentPath
+      .slice(srcDir.length + 1)
+      .split(sep)
+      .join("/");
+    const stem = entry.name.slice(0, -".ts".length);
+    subpaths.push(relDir === "" ? `./${stem}.js` : `./${relDir}/${stem}.js`);
   }
-  return specifiers;
+  return subpaths;
 }
 
 describe("package boundary", () => {
@@ -110,22 +100,68 @@ describe("sealed ignore mechanism", () => {
   });
 });
 
-describe("exports resolution", () => {
-  it("resolves every exported source file through its subpath export key", async () => {
-    const wildcards = readWildcardExports();
-    expect(wildcards.length).toBeGreaterThan(0);
-    let resolvedCount = 0;
-    for (const wildcard of wildcards) {
-      for (const specifier of exportedSpecifiers(wildcard)) {
-        // Resolution is the proof: the subpath export key must resolve to a real
-        // module. A type-only kernel source (e.g. config-types.ts) resolves to an
-        // empty runtime namespace, which is still a successful resolution — so
-        // assert it imports as an object, not that it has runtime exports.
-        const module: unknown = await import(specifier);
-        expect(module).toBeTypeOf("object");
-        resolvedCount += 1;
-      }
+// The enumerated exports contract (lint-arch-review leaf 14): the exports map
+// is the reviewed inventory of supported entry points — exact keys only, each
+// mirroring one `src/` module. Wildcards made every file API; they are gone,
+// and this suite fails if one returns, if a key stops mirroring its target,
+// or if the private majority of `src/` becomes importable again.
+describe("enumerated exports contract", () => {
+  const SUBPATH_KEY_PATTERN = /^\.\/(?:kernel|git-rail|governance)\/[a-z0-9-]+\.js$/u;
+
+  it("declares exact keys only — no wildcard entries", () => {
+    const { exportsMap } = readPackageExports();
+    expect(Object.keys(exportsMap).length).toBeGreaterThan(0);
+    for (const [key, target] of Object.entries(exportsMap)) {
+      expect(key).not.toContain("*");
+      expect(target).not.toContain("*");
     }
-    expect(resolvedCount).toBeGreaterThan(0);
+  });
+
+  it("keys are layer subpaths whose targets mirror them into src/", () => {
+    const { exportsMap } = readPackageExports();
+    const sourceSet = new Set(sourceModuleSubpaths());
+    for (const [key, target] of Object.entries(exportsMap)) {
+      expect(key).toMatch(SUBPATH_KEY_PATTERN);
+      expect(target).toBe(`./src${key.slice(1).replace(/\.js$/u, ".ts")}`);
+      expect(sourceSet.has(key)).toBe(true);
+    }
+  });
+
+  it("resolves and imports every enumerated entry", async () => {
+    const { packageName, exportsMap } = readPackageExports();
+    const keys = Object.keys(exportsMap);
+    expect(keys.length).toBeGreaterThan(0);
+    for (const key of keys) {
+      const specifier = `${packageName}${key.slice(1)}`;
+      // Resolution is the proof: the subpath export key must resolve to a real
+      // module. A type-only kernel source (e.g. config-types.ts) resolves to an
+      // empty runtime namespace, which is still a successful resolution — so
+      // assert it imports as an object, not that it has runtime exports.
+      const module: unknown = await import(specifier);
+      expect(module).toBeTypeOf("object");
+    }
+  });
+
+  it("keeps every private src module unimportable through the package name", async () => {
+    const { packageName, exportsMap } = readPackageExports();
+    const exported = new Set(Object.keys(exportsMap));
+    const privateSubpaths = sourceModuleSubpaths().filter((subpath) => !exported.has(subpath));
+    // The enumerated set is a deliberately smaller inventory than the tree:
+    // most of src/ is private. If this drops to zero the exports map has
+    // regressed to exporting everything and the contract review is void.
+    expect(privateSubpaths.length).toBeGreaterThan(0);
+    for (const subpath of privateSubpaths) {
+      const specifier = `${packageName}${subpath.slice(1)}`;
+      // The rejection must be an exports denial — the resolver refusing a
+      // subpath the exports map does not declare — not some incidental
+      // failure. Under this suite's runtime (vitest/vite module runner) that
+      // surfaces as a plain Error whose message reads
+      //   "./<layer>/<stem>.js" is not exported under the conditions [...]
+      // (Node's ERR_PACKAGE_PATH_NOT_EXPORTED never appears here), so pin
+      // the subpath-specific denial text via substring match.
+      await expect(import(specifier), specifier).rejects.toThrow(
+        `"${subpath}" is not exported under the conditions`,
+      );
+    }
   });
 });

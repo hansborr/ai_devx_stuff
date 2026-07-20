@@ -2,9 +2,8 @@ import { readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { compareByCodepoint } from "@musi/lint-ratchet/kernel/codepoint-compare.js";
-
 import { ensureDirWriteFileAtomicallySync } from "../lib/atomic-write.js";
+import { compareByCodepoint } from "../lib/codepoint-compare.js";
 import { HARNESS_MANIFEST_FILENAME, readHarnessManifest } from "./harness-manifest.js";
 import { CLAUDE_SETTINGS_PATH, CODEX_HOOKS_PATH, COPILOT_HOOKS_PATH } from "./harness-paths.js";
 import { checkHookShimsOnDisk, writeHookShims } from "./hook-shim-files.js";

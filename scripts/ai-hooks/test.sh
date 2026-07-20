@@ -1634,14 +1634,14 @@ AGENTS_DOC="$TMP_ROOT/AGENTS.md"
 for _ in $(seq 1 251); do
   printf 'line\n' >> "$AGENTS_DOC"
 done
-DOC_MSG=$(ai_doc_length_advisory "$AGENTS_DOC")
+DOC_MSG=$(musi_doc_length_advisory "$AGENTS_DOC")
 assert_contains "$DOC_MSG" "doc-length advisory"
 assert_contains "$DOC_MSG" "AGENTS.md is 251 lines"
 assert_contains "$DOC_MSG" "budget: 250"
 assert_contains "$DOC_MSG" "loaded into every agent session"
 assert_not_contains "$DOC_MSG" "Trim it now"
 assert_not_contains "$DOC_MSG" "threshold:"
-[ "$(ai_doc_length_rule_surface "$AGENTS_DOC")" = "edit" ] \
+[ "$(musi_doc_length_rule_surface "$AGENTS_DOC")" = "edit" ] \
   || fail "AGENTS.md should be an edit-surface doc-length rule"
 
 HOOK_MSG=$(
@@ -1660,13 +1660,13 @@ IN_PROGRESS_DOC="$TMP_ROOT/docs/agent_notes/in_progress/long.md"
 for _ in $(seq 1 301); do
   printf 'line\n' >> "$IN_PROGRESS_DOC"
 done
-COUNT_MSG=$(ai_doc_length_advisory_for_count "$IN_PROGRESS_DOC" 301)
+COUNT_MSG=$(musi_doc_length_advisory_for_count "$IN_PROGRESS_DOC" 301)
 assert_contains "$COUNT_MSG" "doc-length advisory"
 assert_contains "$COUNT_MSG" "long.md is 301 lines"
 assert_contains "$COUNT_MSG" "budget: 300"
 assert_contains "$COUNT_MSG" "in_progress notes can be long while work is active"
 assert_not_contains "$COUNT_MSG" "Trim it now"
-[ "$(ai_doc_length_rule_surface "$IN_PROGRESS_DOC")" = "commit" ] \
+[ "$(musi_doc_length_rule_surface "$IN_PROGRESS_DOC")" = "commit" ] \
   || fail "in_progress docs should be commit-surface doc-length rules"
 
 HOOK_MSG=$(
@@ -1677,10 +1677,10 @@ assert_hook_continue_json "$HOOK_MSG"
 
 SHORT_DOC="$TMP_ROOT/docs/agent_notes/README.md"
 printf 'short\n' > "$SHORT_DOC"
-if ai_doc_length_advisory "$SHORT_DOC" >/dev/null; then
+if musi_doc_length_advisory "$SHORT_DOC" >/dev/null; then
   fail "unexpected doc-length advisory for short doc"
 fi
-if ai_doc_length_advisory_for_count "$SHORT_DOC" 1 >/dev/null; then
+if musi_doc_length_advisory_for_count "$SHORT_DOC" 1 >/dev/null; then
   fail "unexpected doc-length count advisory for short doc"
 fi
 
@@ -2317,17 +2317,48 @@ assert_git_commit_quiet_timeout_clamps_to_hook_margin() {
   local worktree_lock="$TMP_ROOT/git-commit-timeout-clamp-worktree.lock"
   local hook_out="$TMP_ROOT/git-commit-timeout-clamp.out"
   local hook_err="$TMP_ROOT/git-commit-timeout-clamp.err"
-  local reason
+  local ready="$TMP_ROOT/git-commit-timeout-clamp.ready"
+  local release="$TMP_ROOT/git-commit-timeout-clamp.release"
+  local reason fixture_status waited=0
 
+  # Two-marker handshake instead of a wall-clock hold (same cure as the
+  # shared-queue sibling above): the holder touches `ready` only after
+  # `flock -n` has actually succeeded, so the waiter below always meets a
+  # genuinely held queue instead of racing a fixed startup grace. Unlike the
+  # sibling, this holder is a raw subshell with no wrapper watchdog behind
+  # it, so the release wait is bounded INSIDE the holder (~30s of short
+  # sleeps) — an unbounded loop could leak past the suite forever.
   (
     exec 8<>"$queue_lock"
     flock -n 8 || exit 1
     printf 'PID=fixture WORKTREE=%s CMD=git commit --dry-run STARTED=now\n' "$FEATURE_BRANCH_REPO" > "$queue_lock"
-    sleep 2
+    touch "$ready"
+    held=0
+    while [ "$held" -lt 600 ] && [ ! -e "$release" ]; do
+      sleep 0.05
+      held=$((held + 1))
+    done
   ) &
   holder=$!
-  sleep 0.2
 
+  # Bounded wait (10s) for proof-of-acquisition.
+  while [ "$waited" -lt 100 ]; do
+    [ -e "$ready" ] && break
+    sleep 0.1
+    waited=$((waited + 1))
+  done
+  if [ ! -e "$ready" ]; then
+    touch "$release"
+    wait "$holder" 2>/dev/null || true
+    fail "timeout-clamp holder did not signal shared-queue acquisition within 10s"
+  fi
+
+  # Guard every fallible step between here and the release/reap below: the
+  # suite runs under set -e, so an unguarded failure (fixture subshell, jq
+  # parse) would exit the suite before the release — and the EXIT trap
+  # deletes TMP_ROOT, leaving the holder blocked on a marker path that can
+  # never appear until its own ~30s bound expires.
+  fixture_status=0
   (
     cd "$FEATURE_BRANCH_REPO" || exit 1
     printf '{"tool_input":{"command":"git commit --dry-run"}}' \
@@ -2336,11 +2367,19 @@ assert_git_commit_quiet_timeout_clamps_to_hook_margin() {
         MUSI_COMMIT_QUEUE_TIMEOUT=1 \
         AI_GIT_COMMIT_TIMEOUT=1300 \
         bash "$REPO_ROOT/scripts/ai-hooks/git-commit-quiet.sh" > "$hook_out" 2> "$hook_err"
-  ) || fail "git-commit-quiet timeout clamp fixture failed"
-  wait "$holder" 2>/dev/null || true
-  reason=$(jq -r '.reason // empty' "$hook_out")
+  ) || fixture_status=$?
 
-  [ "$(jq -r '.decision // empty' "$hook_out")" = "block" ] \
+  # Release and reap BEFORE any assertion or parse step: fail (and any
+  # implicit errexit) ends the suite, so cleanup placed after this point
+  # would leak a holder still blocked on the release marker.
+  touch "$release"
+  wait "$holder" 2>/dev/null || true
+
+  [ "$fixture_status" -eq 0 ] \
+    || fail "git-commit-quiet timeout clamp fixture failed (exit $fixture_status): $(cat "$hook_err" 2>/dev/null || true)"
+  reason=$(jq -r '.reason // empty' "$hook_out" 2>/dev/null || true)
+
+  [ "$(jq -r '.decision // empty' "$hook_out" 2>/dev/null || true)" = "block" ] \
     || fail "git-commit-quiet should block on held queue with clamp active: $(cat "$hook_out")"
   assert_contains "$reason" "shared commit queue lock"
   assert_contains "$(cat "$hook_err")" "git-commit-quiet: clamped timeout from 1300s to 1200s"

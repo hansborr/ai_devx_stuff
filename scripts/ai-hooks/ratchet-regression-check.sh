@@ -177,7 +177,7 @@ ai_ratchet_regression_compose() {
 
 ai_ratchet_regression_main() {
   local payload key now discovery edit_output tmp_targets rc max_targets dropped
-  local row relpath ruleid reason line kind converted unit
+  local row relpath ruleid reason line kind converted unit repair
   local ids token cache_file loc tier partial_tier message_dropped throttle_ttl throttle_max
   local -a edited_paths=() all_target_rows=() exec_target_rows=() lint_rows=() bullets=()
   local -A fresh_token=() lint_file=() matched=() checked_count=()
@@ -276,12 +276,15 @@ ai_ratchet_regression_main() {
 
   # Tally what the engine ACTUALLY linted (`checked` rows) and collect confirmed
   # regressions. Parse with a non-whitespace separator (\x1f) so an empty `line`
-  # field is preserved instead of collapsed by tab-as-IFS-whitespace.
+  # field is preserved instead of collapsed by tab-as-IFS-whitespace. The 9th
+  # `repair` column (mechanical repair command, empty when none) is optional so
+  # older 8-column rows still parse; the trailing sink keeps a future 10th
+  # column out of `repair`.
   unit=$'\x1f'
   while IFS= read -r row; do
     [ -n "$row" ] || continue
     converted=${row//$'\t'/$unit}
-    IFS="$unit" read -r kind relpath _ ruleid reason line _ _ <<< "$converted"
+    IFS="$unit" read -r kind relpath _ ruleid reason line _ _ repair _ <<< "$converted"
     case "$kind" in
       checked)
         checked_count[$relpath]=$(( ${checked_count[$relpath]:-0} + 1 ))
@@ -292,7 +295,14 @@ ai_ratchet_regression_main() {
         # and advancing/resetting the per-(file,rule) throttle counter.
         if ai_throttle_should_emit "$tier" "$key" "$now" "$throttle_ttl" "$throttle_max"; then
           if [ -n "$line" ]; then loc="$relpath:$line"; else loc="$relpath"; fi
-          bullets+=("  - $loc ($ruleid — $reason)")
+          # Name the rule's mechanical repair command inline when the engine
+          # supplied one (codemod/autofix rules), keeping the advisory budget
+          # to the same single bullet line.
+          if [ -n "$repair" ]; then
+            bullets+=("  - $loc ($ruleid — $reason) — repair: $repair")
+          else
+            bullets+=("  - $loc ($ruleid — $reason)")
+          fi
         fi
         ;;
     esac

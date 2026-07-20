@@ -1,8 +1,4 @@
-import {
-  DEFAULT_BASELINE_FILENAME,
-  DEFAULT_DEBT_LOG_FILENAME,
-} from "@musi/lint-ratchet/kernel/engine-context.js";
-
+import { DEFAULT_BASELINE_FILENAME, DEFAULT_DEBT_LOG_FILENAME } from "../kernel/engine-context.js";
 import type { BaselineDebtAccountingFailure } from "./baseline-debt-accounting.js";
 
 type LifecycleFailure = Extract<

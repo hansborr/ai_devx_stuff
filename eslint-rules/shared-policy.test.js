@@ -78,6 +78,7 @@ describe("shared lint policy", () => {
       "packages/server/prisma.config.ts",
       "packages/server/vitest.config.ts",
       "packages/server/vitest.mutation.config.ts",
+      "packages/server/vitest.unit.config.ts",
       "packages/shared/vitest.config.ts",
       "tools/lint-ratchet/vitest.config.ts",
       "tools/stryker-lint-ratchet.ts",

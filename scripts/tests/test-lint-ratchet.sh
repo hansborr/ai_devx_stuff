@@ -45,6 +45,8 @@
 # smoke-subjects: scripts/git/restore-generated-baseline-stage.sh
 # smoke-subjects: scripts/max-lines-exceptions-merge-cli.ts
 # smoke-subjects: scripts/max-lines-exceptions-merge-cli.test.ts
+# smoke-subjects: scripts/baseline-merge-cli-table.ts
+# smoke-subjects: scripts/lib/process-argv.ts
 # smoke-subjects: scripts/lib/atomic-write.ts
 # smoke-subjects: scripts/lib/lint-rule-docs.ts
 # smoke-subjects: tools/lint-ratchet/src/kernel/atomic-write.ts
@@ -940,6 +942,11 @@ copy_lint_ratchet_merge_runtime() {
   cp scripts/git/baseline-merge-driver.sh "$repo/scripts/git/"
   cp scripts/git/baseline-info-attributes.ts "$repo/scripts/git/"
   cp scripts/harness/harness-manifest.ts "$repo/scripts/harness/harness-manifest.ts"
+  # The merge-CLI wrappers derive their config from the data table and share
+  # the argv-offset constant (ready-2026-07 leaf 16); both are import-free at
+  # runtime, so copying the two files closes the sandbox closure.
+  cp scripts/baseline-merge-cli-table.ts "$repo/scripts/"
+  cp scripts/lib/process-argv.ts "$repo/scripts/lib/"
   # The merge CLI's grouped-codec closure (baseline codec, atomic writer, item
   # merge, git-rail merge-cli, codepoint comparator) moved to the
   # @musi/lint-ratchet package (leaf 02 S3). Provide it as a symlinked workspace

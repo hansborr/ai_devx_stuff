@@ -1041,8 +1041,9 @@
       "invocation": "bun run docs:baseline-conflict-recipes",
       "generatedSurface": {
         "triggerPaths": [
+          "scripts/generate-baseline-conflict-recipes.ts",
           "scripts/git/baseline-merge-driver.sh",
-          "scripts/generate-baseline-conflict-recipes.ts"
+          "scripts/lib/doc-generator.ts"
         ],
         "outputPaths": ["docs/guides/lint-ratchet-merges.md"],
         "checkScript": "docs:baseline-conflict-recipes:check",
@@ -1066,10 +1067,23 @@
       "invocation": "bun run docs:harness-controls",
       "generatedSurface": {
         "triggerPaths": [
+          "eslint-config/config-surfaces.js",
+          "eslint-config/max-lines-exceptions-codec.js",
+          "eslint-config/shared-policy.js",
           "harness.controls.json",
-          "scripts/harness/generate-harness-controls.ts",
+          "scripts/harness/control-field-validation.ts",
           "scripts/harness/generate-harness-controls-validation.ts",
-          "scripts/harness/control-field-validation.ts"
+          "scripts/harness/generate-harness-controls.ts",
+          "scripts/harness/harness-manifest-schema.ts",
+          "scripts/harness/harness-manifest.ts",
+          "scripts/harness/harness-paths.ts",
+          "scripts/harness/hook-wiring-schema.ts",
+          "scripts/harness/verify-step-schema.ts",
+          "scripts/lib/codepoint-compare.ts",
+          "scripts/lib/doc-generator.ts",
+          "scripts/lib/lint-rule-docs.ts",
+          "scripts/lint-ratchet/lint-ratchet-config.ts",
+          "scripts/lint-ratchet/registry-builders.ts"
         ],
         "outputPaths": ["docs/generated/harness-controls.md"],
         "checkScript": "docs:harness-controls:check",
@@ -1092,9 +1106,10 @@
       "invocation": "bun run docs:lint-guidance",
       "generatedSurface": {
         "triggerPaths": [
-          "eslint-rules/",
           "eslint-config/local-plugin.js",
+          "eslint-rules/",
           "scripts/generate-lint-guidance.ts",
+          "scripts/lib/doc-generator.ts",
           "scripts/lib/lint-rule-docs.ts"
         ],
         "outputPaths": ["docs/generated/local-lint-rules.md"],
@@ -1217,9 +1232,13 @@
         "triggerPaths": [
           "harness.controls.json",
           "scripts/harness/generate-hook-wiring.ts",
+          "scripts/harness/harness-manifest.ts",
+          "scripts/harness/harness-paths.ts",
           "scripts/harness/hook-shim-files.ts",
           "scripts/harness/hook-shims.ts",
-          "scripts/harness/hook-wiring-schema.ts"
+          "scripts/harness/hook-wiring-schema.ts",
+          "scripts/lib/atomic-write.ts",
+          "scripts/lib/codepoint-compare.ts"
         ],
         "outputPaths": [
           ".claude/settings.json",
@@ -1259,7 +1278,11 @@
         "triggerPaths": [
           "harness.controls.json",
           "scripts/harness/generate-hook-timeout-constants.ts",
-          "scripts/harness/hook-timeout-constants.ts"
+          "scripts/harness/harness-manifest.ts",
+          "scripts/harness/harness-paths.ts",
+          "scripts/harness/hook-timeout-constants.ts",
+          "scripts/harness/hook-wiring-schema.ts",
+          "scripts/lib/doc-generator.ts"
         ],
         "outputPaths": ["scripts/ai-hooks/hook-timeouts.generated.sh"],
         "checkScript": "harness:hook-timeouts:check",
@@ -1284,10 +1307,18 @@
       "generatedSurface": {
         "triggerPaths": [
           "harness.controls.json",
+          "scripts/harness/control-field-validation.ts",
           "scripts/harness/generate-verify-steps.ts",
           "scripts/harness/generated-surfaces.ts",
+          "scripts/harness/harness-check-validation.ts",
+          "scripts/harness/harness-manifest.ts",
+          "scripts/harness/harness-paths.ts",
+          "scripts/harness/verify-step-bridge-divergences.ts",
           "scripts/harness/verify-step-schema.ts",
-          "scripts/harness/verify-step-bridge-divergences.ts"
+          "scripts/lib/codepoint-compare.ts",
+          "scripts/lib/doc-generator.ts",
+          "scripts/lib/lint-rule-docs.ts",
+          "scripts/lint-ratchet/ratchet-manifest-message.ts"
         ],
         "outputPaths": [
           "scripts/verify/steps.generated.sh",
@@ -1301,6 +1332,7 @@
         "fixturePaths": [
           "scripts/harness/generate-verify-steps.ts",
           "scripts/harness/verify-step-schema.ts",
+          "scripts/lib/codepoint-compare.ts",
           "scripts/harness/verify-step-bridge-divergences.ts",
           "scripts/harness/generated-surfaces.ts",
           "scripts/verify/steps-lib.sh",
@@ -1310,11 +1342,15 @@
           "scripts/harness/fixture-closure-check.ts",
           "scripts/harness/harness-check-validation.ts",
           "scripts/harness/harness-gate-parity.ts",
+          "scripts/harness/harness-manifest-schema.ts",
           "scripts/harness/harness-manifest.ts",
+          "scripts/harness/manifest-contract-check.ts",
           "scripts/harness/harness-paths.ts",
           "scripts/harness/control-field-validation.ts",
           "scripts/harness/local-rule-config.ts",
           "scripts/harness/porting-knob-parity.ts",
+          "scripts/harness/pre-push-scope-pin.ts",
+          "scripts/drift-ai/scope.ts",
           "scripts/harness/check-skill-inventory.ts",
           "scripts/harness/skill-inventory-schema.ts",
           "scripts/harness/skill-tree-comparison.ts",
@@ -1339,8 +1375,11 @@
       "invocation": "bun run harness:config-surfaces",
       "generatedSurface": {
         "triggerPaths": [
+          "eslint-config/config-surfaces.js",
+          "eslint-config/max-lines-exceptions-codec.js",
           "eslint-config/shared-policy.js",
-          "scripts/harness/generate-config-surfaces.ts"
+          "scripts/harness/generate-config-surfaces.ts",
+          "scripts/lib/doc-generator.ts"
         ],
         "outputPaths": ["tsconfig.configs.json"],
         "checkScript": "harness:config-surfaces:check",
@@ -1367,10 +1406,12 @@
       "invocation": "bun run test:scripts:subjects",
       "generatedSurface": {
         "triggerPaths": [
-          "scripts/path-policy/generate-smoke-subjects.ts",
-          "scripts/path-policy/smoke-subject-headers.ts",
+          "scripts/lib/doc-generator.ts",
+          "scripts/path-policy/fixture-helper-calls.ts",
           "scripts/path-policy/fixture-shell-dependencies.ts",
           "scripts/path-policy/fixture-shell-scope.ts",
+          "scripts/path-policy/generate-smoke-subjects.ts",
+          "scripts/path-policy/smoke-subject-headers.ts",
           "scripts/tests/"
         ],
         "outputPaths": [
@@ -1383,6 +1424,7 @@
         "fixturePaths": [
           "scripts/path-policy/generate-smoke-subjects.ts",
           "scripts/path-policy/smoke-subject-headers.ts",
+          "scripts/path-policy/fixture-helper-calls.ts",
           "scripts/path-policy/fixture-shell-dependencies.ts",
           "scripts/path-policy/fixture-shell-scope.ts"
         ]
@@ -1469,8 +1511,14 @@
       "invocation": "bun run lint:restricted-disable-rules",
       "generatedSurface": {
         "triggerPaths": [
+          "eslint-config/config-surfaces.js",
+          "eslint-config/max-lines-exceptions-codec.js",
+          "eslint-config/shared-policy.js",
           "scripts/harness/generate-restricted-disable-rules.ts",
-          "scripts/lint-ratchet/lint-ratchet-config.ts"
+          "scripts/lib/codepoint-compare.ts",
+          "scripts/lib/doc-generator.ts",
+          "scripts/lint-ratchet/lint-ratchet-config.ts",
+          "scripts/lint-ratchet/registry-builders.ts"
         ],
         "outputPaths": ["eslint-config/ratchet-restricted-disable-rules.generated.js"],
         "checkScript": "lint:restricted-disable-rules:check",

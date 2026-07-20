@@ -1,5 +1,4 @@
-import { ConfigError } from "@musi/lint-ratchet/kernel/metrics-types.js";
-
+import { ConfigError } from "../kernel/metrics-types.js";
 import { type LintRatchetDebtLogEntry, parseLintRatchetDebtLogEntry } from "./debt-log-schema.js";
 
 // The one JSONL parse loop for the debt log. Both readers (the CLI report via

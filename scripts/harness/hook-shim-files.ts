@@ -12,9 +12,8 @@
 import { chmodSync, lstatSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 
-import { compareByCodepoint } from "@musi/lint-ratchet/kernel/codepoint-compare.js";
-
 import { ensureDirWriteFileAtomicallySync } from "../lib/atomic-write.js";
+import { compareByCodepoint } from "../lib/codepoint-compare.js";
 import { HARNESS_MANIFEST_FILENAME } from "./harness-manifest.js";
 import { HOOK_SHIM_DIRS, type RenderedShim } from "./hook-shims.js";
 

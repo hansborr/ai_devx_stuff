@@ -1,4 +1,4 @@
-import { ConfigError } from "@musi/lint-ratchet/kernel/metrics-types.js";
+import { ConfigError } from "../kernel/metrics-types.js";
 
 /**
  * Governance-tier error signalling a baseline/debt-accounting regression: an

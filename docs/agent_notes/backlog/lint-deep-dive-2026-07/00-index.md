@@ -43,7 +43,7 @@ deliberately not done. Branch short names: **gate** =
 | 40 | [Additive `no-restricted-syntax` composition](./40-restricted-syntax-additive-composition.md) | C | S+L | med | test first; builder DESIGN-GATED | Done step 1 (test) + design recorded step 2 (builder) — ergo |
 | 50 | [Suppression registers into the commit gate](./50-suppression-registers-into-commit-gate.md) | G | M | med-high | none · OWNER PRIORITY | Done steps 1+3; step 2 (ledger) design recorded, impl deferred — gate |
 | 70 | Ratchet doc accuracy sweep + split decision | D | M | low-med | item 3 DESIGN-GATED | Done items 1-2 + design recorded item 3 (split) — rules |
-| 71 | [Portable engine context (milestone 2)](./71-portable-engine-context.md) | D | L | med | DESIGN-GATED; after 15 helps | Design recorded (keep in-tree, thread context; no extraction now) — rules |
+| 71 | [Portable engine context (milestone 2)](./71-portable-engine-context.md) | D | L | med | superseded by lint-arch 02 | Superseded/Done — packaging shipped via lint-arch-review-2026-07 leaf 02 (merged `6e685069`, 2026-07-18); the engine-context design landed as its layer 4 |
 | 73 | [Lint-lane memory profile](./73-lint-lane-memory-profile.md) | P | M | high | measurement spike | Findings recorded — `auto/38-lint-memory-profile` |
 | 76 | [Partition the lint type program](./76-partition-lint-type-program.md) | P | M | med-high | 73; measurement first | Done — implemented 2026-07-14 (`d714f4ce`) |
 | 77 | [Cap Vitest workers and ratchet the test reservation](./77-cap-vitest-workers.md) | P | M | high | 73; measurement first | Done — `auto/vitest-worker-caps` |

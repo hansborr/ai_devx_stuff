@@ -136,7 +136,8 @@ export function formatPrototypeHeader<TSection>(advisory: PrototypeAdvisory<TSec
   if (advisory.scanProvenance !== undefined) {
     lines.push(
       `  scan provenance: git ${advisory.scanProvenance.gitHead ?? "unknown"}; ` +
-        `working tree ${dirtyState(advisory.scanProvenance.gitDirty)}`,
+        `working tree ${dirtyState(advisory.scanProvenance.gitDirty)}` +
+        scanStabilityClause(advisory.scanProvenance.changedDuringScan),
     );
   }
   for (const prereq of advisory.prerequisites) {
@@ -151,6 +152,17 @@ export function formatPrototypeHeader<TSection>(advisory: PrototypeAdvisory<TSec
 function dirtyState(gitDirty: boolean | null): string {
   if (gitDirty === null) return "state unknown";
   return gitDirty ? "dirty" : "clean";
+}
+
+// The mid-scan stability clause of the provenance line. `changedDuringScan` is the
+// strongest freshness signal the scanner captures (a state-token mismatch between the
+// before/after snapshots of one scan), so the text header must not keep it JSON-only:
+// a CHANGED scan shouts, an unknown probe is disclosed rather than read as fresh, and
+// legacy provenance without the field (undefined) omits the clause entirely.
+function scanStabilityClause(changedDuringScan: boolean | null | undefined): string {
+  if (changedDuringScan === undefined) return "";
+  if (changedDuringScan === null) return "; mid-scan stability unknown";
+  return changedDuringScan ? "; repository CHANGED during scan" : "; unchanged during scan";
 }
 
 // One cap line. An un-hit cap discloses the bound (so a reader knows a limit exists); a

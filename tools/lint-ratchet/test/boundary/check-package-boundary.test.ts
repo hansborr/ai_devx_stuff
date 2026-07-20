@@ -77,6 +77,18 @@ describe("checkPackageBoundary — accepted categories", () => {
     expect(report.ignoredFiles).toEqual([]);
     expect(report.scannedFiles).toBe(4);
   });
+
+  it("accepts a self-import through an exact (non-wildcard) export key", () => {
+    writeManifest({ exports: { "./kernel/thing.js": "./src/kernel/thing.ts" } });
+    write("src/kernel/thing.ts", `export const widget = 1;\n`);
+    write(
+      "src/c.ts",
+      `import { widget } from "${PACKAGE_NAME}/kernel/thing.js";\nexport const c = widget;\n`,
+    );
+    const report = checkPackageBoundary(root);
+    expect(report.violations).toEqual([]);
+    expect(report.scannedFiles).toBe(2);
+  });
 });
 
 describe("checkPackageBoundary — rejections", () => {
@@ -100,6 +112,18 @@ describe("checkPackageBoundary — rejections", () => {
   it("flags a self-import subpath that has no exports target on disk", () => {
     writeManifest({ exports: { "./kernel/*.js": "./src/kernel/*.ts" } });
     write("src/self.ts", `export { z } from "${PACKAGE_NAME}/kernel/nope.js";\n`);
+    const report = checkPackageBoundary(root);
+    expect(report.violations).toHaveLength(1);
+    expect(report.violations[0]?.reason).toContain(
+      "does not resolve through the package exports map",
+    );
+  });
+
+  it("flags a self-import of a subpath absent from an exact exports map", () => {
+    writeManifest({ exports: { "./kernel/thing.js": "./src/kernel/thing.ts" } });
+    write("src/kernel/thing.ts", `export const widget = 1;\n`);
+    write("src/kernel/private.ts", `export const hidden = 1;\n`);
+    write("src/self.ts", `export { hidden } from "${PACKAGE_NAME}/kernel/private.js";\n`);
     const report = checkPackageBoundary(root);
     expect(report.violations).toHaveLength(1);
     expect(report.violations[0]?.reason).toContain(

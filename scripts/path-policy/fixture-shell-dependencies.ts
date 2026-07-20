@@ -1,24 +1,29 @@
 // Structural tripwire for the fixture class that has repeatedly drifted across
-// memory-hardening lanes. This deliberately scopes enforcement to smoke tests
-// that copy one of the memory-admission core scripts below. For those fixtures,
-// literal `cp` sources must be named by smoke-subject headers and each sandbox
-// destination must be closed over literal `# shellcheck source=` edges.
-// Dynamic sources and unrelated fixture families remain out of scope because
-// statically interpreting arbitrary shell would make this check misleading.
-// Heredoc bodies are treated as generated stub/data text and skipped; an
-// executable body such as `bash <<EOF` that performs fixture copies is also
-// intentionally out of scope and must not be used for monitored setup.
+// dispatched lanes: a smoke test copies a script into a sandbox but omits one
+// of its sourced leaf modules, and the gap only surfaces at the next-deeper
+// gate. Every literal fixture copy set is enforced: `cp` sources must be named
+// by smoke-subject headers and each sandbox destination must be closed over
+// the literal `# shellcheck source=` edges of every shell file it copies.
+// (Originally scoped to the memory-admission family; generalized to all
+// hand-written copy sets by ready-row B5.) Dynamic sources remain out of scope
+// because statically interpreting arbitrary shell would make this check
+// misleading. Heredoc bodies are treated as generated stub/data text and
+// skipped; an executable body such as `bash <<EOF` that performs fixture
+// copies is also intentionally out of scope and must not be used for
+// monitored setup.
 
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, relative, resolve } from "node:path";
 
+import {
+  fixtureGroupKey,
+  type FixtureHelperCall,
+  mergeHelperCallSources,
+  type MutableFixtureCopyGroup,
+  parseFixtureHelperCall,
+} from "./fixture-helper-calls.js";
 import { collectScopedShellLines, type ScopedShellLine } from "./fixture-shell-scope.js";
 
-const monitoredAdmissionRoots = new Set([
-  "scripts/lib/tool-memory-admission.sh",
-  "scripts/verify/admitted-command.sh",
-  "scripts/verify/memory-budget.sh",
-]);
 const smokeFilePattern = /^test-.+\.sh$/u;
 const assignmentPattern = /^\s*([A-Z][A-Z0-9_]*)=("[^"]*"|'[^']*'|[^\s#]+)\s*$/gmu;
 const shellcheckSourcePattern = /^\s*#\s*shellcheck\s+source=(\S+)\s*$/gmu;
@@ -142,23 +147,21 @@ function parseFixtureCopyCommand(
   return { functionScope: scopedLine.functionScope, fixtureRoot, sources };
 }
 
-function fixtureGroupKey(functionScope: readonly string[], fixtureRoot: string): string {
-  return `${functionScope.join("\u0000")}\u0001${fixtureRoot}`;
-}
-
 function collectCopiedShellSourcesByFixture(
   repoRoot: string,
   source: string,
 ): readonly FixtureCopyGroup[] {
   const assignments = collectAssignments(repoRoot, source);
-  const copiedByFixture = new Map<
-    string,
-    { functionScope: readonly string[]; fixtureRoot: string; sources: Set<string> }
-  >();
+  const copiedByFixture = new Map<string, MutableFixtureCopyGroup>();
+  const helperCalls: FixtureHelperCall[] = [];
 
   for (const scopedLine of collectScopedShellLines(source)) {
     const command = parseFixtureCopyCommand(repoRoot, scopedLine, assignments);
-    if (command === undefined) continue;
+    if (command === undefined) {
+      const helperCall = parseFixtureHelperCall(scopedLine);
+      if (helperCall !== undefined) helperCalls.push(helperCall);
+      continue;
+    }
     const key = fixtureGroupKey(command.functionScope, command.fixtureRoot);
     const group = copiedByFixture.get(key) ?? {
       functionScope: command.functionScope,
@@ -168,6 +171,7 @@ function collectCopiedShellSourcesByFixture(
     for (const path of command.sources) group.sources.add(path);
     if (group.sources.size > 0) copiedByFixture.set(key, group);
   }
+  mergeHelperCallSources(copiedByFixture, helperCalls);
   return [...copiedByFixture.values()];
 }
 
@@ -216,12 +220,6 @@ function collectSourcedDependencyClosure(repoRoot: string, root: string): Readon
   return dependencies;
 }
 
-function monitoredFixtureGroups(groups: readonly FixtureCopyGroup[]): readonly FixtureCopyGroup[] {
-  return groups.filter((group) =>
-    [...group.sources].some((path) => monitoredAdmissionRoots.has(path)),
-  );
-}
-
 function collectSmokeMetadataFailures(
   fixturePath: string,
   subjects: ReadonlySet<string>,
@@ -243,17 +241,15 @@ function collectFixtureClosureFailures(
   group: FixtureCopyGroup,
 ): readonly string[] {
   const failures: string[] = [];
-  const admissionRoots = [...group.sources]
-    .filter((path) => monitoredAdmissionRoots.has(path))
-    .sort();
+  const closureRoots = [...group.sources].sort();
   const functionLabel =
     group.functionScope.length === 0 ? "" : ` function ${group.functionScope.join(" > ")}`;
-  for (const admissionRoot of admissionRoots) {
-    const dependencies = [...collectSourcedDependencyClosure(repoRoot, admissionRoot)].sort();
+  for (const closureRoot of closureRoots) {
+    const dependencies = [...collectSourcedDependencyClosure(repoRoot, closureRoot)].sort();
     for (const dependency of dependencies) {
       if (!group.sources.has(dependency)) {
         failures.push(
-          `${fixturePath}${functionLabel} fixture ${group.fixtureRoot} copies ${admissionRoot} but omits sourced dependency ${dependency}`,
+          `${fixturePath}${functionLabel} fixture ${group.fixtureRoot} copies ${closureRoot} but omits sourced dependency ${dependency}`,
         );
       }
     }
@@ -269,19 +265,18 @@ function collectSmokeFixtureFailures(
   const fixturePath = `scripts/tests/${smokeFile}`;
   const source = readFileSync(resolve(testsDir, smokeFile), "utf8");
   const groups = collectCopiedShellSourcesByFixture(repoRoot, source);
-  const monitoredGroups = monitoredFixtureGroups(groups);
-  if (monitoredGroups.length === 0) return [];
+  if (groups.length === 0) return [];
 
   const failures = [
     ...collectSmokeMetadataFailures(fixturePath, collectSmokeSubjects(source), groups),
   ];
-  for (const group of monitoredGroups) {
+  for (const group of groups) {
     failures.push(...collectFixtureClosureFailures(repoRoot, fixturePath, group));
   }
   return failures;
 }
 
-export function validateMonitoredFixtureShellDependencies(repoRoot: string): void {
+export function validateFixtureShellDependencies(repoRoot: string): void {
   const testsDir = resolve(repoRoot, "scripts", "tests");
   if (!existsSync(testsDir)) return;
   const failures: string[] = [];
@@ -294,6 +289,6 @@ export function validateMonitoredFixtureShellDependencies(repoRoot: string): voi
   }
 
   if (failures.length > 0) {
-    throw new Error(`memory-admission fixture dependency drift:\n${failures.join("\n")}`);
+    throw new Error(`fixture shell dependency drift:\n${failures.join("\n")}`);
   }
 }

@@ -1,13 +1,13 @@
 # Phase 4/5 review follow-ups
 
-Status: Open leaves (small)
+Status: Open leaves (small); item 1 landed 2026-07-19 (wave-1 ready-2026-07 drain)
 Created: 2026-07-16
 Source: 4-model pre-land review of `feat/sd-q45-integration` (grok/codex/opus/fable)
 and the confirm-then-fix pass. Context commits: 1e42101b..a73675af.
 
 Low-priority residue that survived the fix pass deliberately.
 
-## 1. Derive the pre-push scan trigger from the scanner's extension source
+## 1. Derive the pre-push scan trigger from the scanner's extension source — DONE 2026-07-19 (wave-1 ready-2026-07 drain)
 
 The `.husky/pre-push` near-duplicates trigger regex and
 `BUILT_IN_SOURCE_EXTENSIONS` (`scripts/drift-ai/scope.ts`) are coupled by a

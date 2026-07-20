@@ -1,6 +1,6 @@
 # 71. Portable-core milestone 2: pass an engine context instead of importing the Musi registry singleton (design-gated)
 
-Status: Design recorded — in-tree engine context recommended; implementation still pending. Amended 2026-07-16: packaging mechanism superseded by lint-arch-review-2026-07 leaf 02 (see Addendum); the engine-context design itself stands.
+Status: Superseded/Done — packaging mechanism superseded by lint-arch-review-2026-07 leaf 02 (see Addendum), which landed 2026-07-18 (merged `6e685069`) carrying this leaf's engine-context design as its layer 4. Nothing standalone remains.
 Lens: portability · Area: ratchet + pipeline core · Severity: med · Size: L · Confidence: med-high
 Theme: public-reference · Source: Musi lint deep-dive 2026-07-04 (3 parallel Codex xhigh lanes + Claude verification agents); successor to harness-review-2026-07 leaf 75 (Milestone 1 done)
 

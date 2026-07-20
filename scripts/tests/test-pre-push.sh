@@ -10,6 +10,8 @@
 # smoke-subjects: scripts/path-policy/path-policy.ts
 # smoke-subjects: scripts/tests/lib/test-git-env.sh
 # smoke-subjects: scripts/tests/test-pre-push.sh
+# smoke-subjects: scripts/git/baseline-drivers.sh
+# smoke-subjects: scripts/lib/gate-env.sh
 
 set -euo pipefail
 

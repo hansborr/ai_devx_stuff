@@ -1,13 +1,6 @@
-import {
-  type LintRatchetBaseline,
-  parseLintRatchetBaselineStructure,
-} from "@musi/lint-ratchet/kernel/baseline.js";
-import {
-  DEFAULT_BASELINE_FILENAME,
-  DEFAULT_DEBT_LOG_FILENAME,
-} from "@musi/lint-ratchet/kernel/engine-context.js";
-import { ConfigError } from "@musi/lint-ratchet/kernel/metrics-types.js";
-
+import { type LintRatchetBaseline, parseLintRatchetBaselineStructure } from "../kernel/baseline.js";
+import { DEFAULT_BASELINE_FILENAME, DEFAULT_DEBT_LOG_FILENAME } from "../kernel/engine-context.js";
+import { ConfigError } from "../kernel/metrics-types.js";
 import { hasAccountingEntry } from "./baseline-debt-accounting-chains.js";
 import {
   collectUnaccountedLifecycleChanges,

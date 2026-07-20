@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
 import {
   diffFixtureClosure,
+  diffTriggerPathClosure,
   type GeneratedSurfaceRecord,
   loadGeneratedSurfaces,
   renderClassifierFragment,
@@ -226,6 +227,29 @@ describe("diffFixtureClosure (fixturePaths vs computed import closure)", () => {
     expect(failures).toEqual([]);
   });
 
+  it("treats closure files under a directory-prefix outputPath as generated", () => {
+    // No manifest record currently emits walkable files under a prefix
+    // outputPath (the only prefixes are shell shim dirs), but the matcher must
+    // stay aligned with triggerCovers: a generated file under a declared
+    // directory prefix is regenerated, not a missing fixture copy.
+    const failures = diffFixtureClosure({
+      records: [
+        closureRecord("check/alpha", {
+          fixturePaths: ["scripts/check/alpha.ts"],
+          outputPaths: ["generated/alpha-dir/"],
+        }),
+      ],
+      entryClosures: [
+        {
+          ownerId: "check/alpha",
+          files: ["scripts/check/alpha.ts", "generated/alpha-dir/emitted.js"],
+        },
+      ],
+    });
+
+    expect(failures).toEqual([]);
+  });
+
   it("fails on a closure file missing from the declarations, naming the owning record", () => {
     const failures = diffFixtureClosure({
       records: [closureRecord("check/alpha", { fixturePaths: ["scripts/check/alpha.ts"] })],
@@ -303,6 +327,126 @@ describe("diffFixtureClosure (fixturePaths vs computed import closure)", () => {
     });
 
     expect(failures).toEqual([]);
+  });
+});
+
+describe("diffTriggerPathClosure (triggerPaths vs generator import closure)", () => {
+  function triggerRecord(id: string, triggerPaths: readonly string[]): GeneratedSurfaceRecord {
+    return {
+      id,
+      source: `scripts/${id}.ts`,
+      checkScript: `${id}:check`,
+      refreshScript: id,
+      triggerPaths,
+      outputPaths: [`generated/${id}.txt`],
+      warnLabel: `${id} output`,
+      bunHook: { refresh: "bypass", check: "wrapped" },
+    };
+  }
+
+  it("passes when every closure file is exactly declared as a trigger", () => {
+    const failures = diffTriggerPathClosure({
+      records: [triggerRecord("check/alpha", ["scripts/check/alpha.ts", "scripts/lib/helper.ts"])],
+      entryClosures: [
+        { ownerId: "check/alpha", files: ["scripts/check/alpha.ts", "scripts/lib/helper.ts"] },
+      ],
+    });
+
+    expect(failures).toEqual([]);
+  });
+
+  it("treats a directory prefix trigger as covering every file under it", () => {
+    const failures = diffTriggerPathClosure({
+      records: [triggerRecord("check/alpha", ["scripts/check/alpha.ts", "scripts/lib/"])],
+      entryClosures: [
+        {
+          ownerId: "check/alpha",
+          files: ["scripts/check/alpha.ts", "scripts/lib/deep/helper.ts"],
+        },
+      ],
+    });
+
+    expect(failures).toEqual([]);
+  });
+
+  it("fails on a closure file no trigger covers, naming the record and the fix", () => {
+    const failures = diffTriggerPathClosure({
+      records: [triggerRecord("check/alpha", ["scripts/check/alpha.ts"])],
+      entryClosures: [
+        { ownerId: "check/alpha", files: ["scripts/check/alpha.ts", "scripts/lib/missed.ts"] },
+      ],
+    });
+
+    expect(failures).toHaveLength(1);
+    expect(failures[0]).toContain("check/alpha");
+    expect(failures[0]).toContain("scripts/lib/missed.ts");
+    expect(failures[0]).toContain("triggerPaths");
+  });
+
+  it("does not treat a non-slash trigger entry as a prefix", () => {
+    // "scripts/lib" without the trailing slash is an exact path, so it must
+    // not silently cover files under scripts/lib/.
+    const failures = diffTriggerPathClosure({
+      records: [triggerRecord("check/alpha", ["scripts/check/alpha.ts", "scripts/lib"])],
+      entryClosures: [
+        { ownerId: "check/alpha", files: ["scripts/check/alpha.ts", "scripts/lib/helper.ts"] },
+      ],
+    });
+
+    expect(failures).toHaveLength(1);
+    expect(failures[0]).toContain("scripts/lib/helper.ts");
+  });
+
+  it("ignores closure entries that belong to no record, such as the validator root", () => {
+    const failures = diffTriggerPathClosure({
+      records: [triggerRecord("check/alpha", ["scripts/check/alpha.ts"])],
+      entryClosures: [
+        { ownerId: "check/alpha", files: ["scripts/check/alpha.ts"] },
+        { ownerId: "scripts/harness-check.ts", files: ["scripts/harness/shared.ts"] },
+      ],
+    });
+
+    expect(failures).toEqual([]);
+  });
+
+  it("skips records without a walked closure entry, e.g. non-walkable sources", () => {
+    const failures = diffTriggerPathClosure({
+      records: [triggerRecord("check/alpha", ["scripts/check/alpha.sh"])],
+      entryClosures: [],
+    });
+
+    expect(failures).toEqual([]);
+  });
+
+  it("reports failures sorted by file within a record for deterministic output", () => {
+    const failures = diffTriggerPathClosure({
+      records: [triggerRecord("check/alpha", ["scripts/check/alpha.ts"])],
+      entryClosures: [
+        {
+          ownerId: "check/alpha",
+          files: ["scripts/check/alpha.ts", "scripts/lib/zeta.ts", "scripts/lib/beta.ts"],
+        },
+      ],
+    });
+
+    expect(failures).toHaveLength(2);
+    expect(failures[0]).toContain("scripts/lib/beta.ts");
+    expect(failures[1]).toContain("scripts/lib/zeta.ts");
+  });
+
+  it("covers the real manifest: every generator import is a declared trigger", () => {
+    // Guards the live registration, not just the pure diff: a generator import
+    // absent from triggerPaths means edits to it would never stale-warn.
+    const records = loadGeneratedSurfaces(repoRoot);
+    for (const record of records) {
+      expect(
+        record.triggerPaths.includes(record.source) ||
+          record.triggerPaths.some(
+            (trigger) => trigger.endsWith("/") && record.source.startsWith(trigger),
+          ),
+        `${record.id}: source ${record.source} must itself be covered by triggerPaths`,
+      ).toBe(true);
+    }
   });
 });
 

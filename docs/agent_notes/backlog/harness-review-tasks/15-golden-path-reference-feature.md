@@ -1,6 +1,6 @@
 # 15 - Golden-path reference feature pointer
 
-Status: Parked
+Status: Done — landed 2026-07-19 (wave-1 ready-2026-07 drain, A11); golden-path pointer in `docs/guides/add-trpc-procedure.md`
 Track: D (docs/feedforward)
 Size: small
 Depends on: none

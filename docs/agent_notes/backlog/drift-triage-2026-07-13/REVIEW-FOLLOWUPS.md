@@ -2,7 +2,8 @@
 
 **Status:** P1 provenance contract v2 complete — items 1/3/4 landed
 (`e2750f17`/`e9d00a48`/`a5f2dda5`, drain leaf 4.6); item 2 landed earlier
-(`31ce6e49`). P2 items 5–10 remain.
+(`31ce6e49`). P2 items 5–8 landed 2026-07-19 (wave-1 ready-2026-07 drain);
+evaluate-before-fixing items 9–10 remain.
 **Source:** cross-model review of merge `ae1720d6` (the ten-item FIX batch from
 `FIX-PLAN.md`) on 2026-07-13 — one Claude (Fable) inline review, one codex
 (GPT) consult, one cursor (Grok) consult, all three verdicts "meaningful
@@ -57,18 +58,21 @@ false negatives (item 1) and false positives (item 2).
 
 ## P2 — staleness/observability polish
 
-5. **Surface `changedDuringScan` in the text advisory header.**
+5. **Surface `changedDuringScan` in the text advisory header.** _(DONE —
+   landed 2026-07-19, wave-1 ready-2026-07 drain.)_
    `formatPrototypeHeader` prints HEAD and dirty state only; the strongest
    freshness signal is JSON-only today (`prototype-advisory.ts`). Tests for
    the feature inspect JSON exclusively.
-6. **Column-aware range resolvability.** `rangeResolves` validates lines
+6. **Column-aware range resolvability.** _(DONE — landed 2026-07-19, wave-1
+   ready-2026-07 drain.)_ `rangeResolves` validates lines
    only; a Semgrep citation like `src/a.ts:1:500-1:700` passes on a
    ten-character line, letting stale evidence dodge regeneration
    (`triage-packet-staleness.ts`).
 
 ## P2 — product-code boundaries
 
-7. **Restore the projection boundary in `mapToSpellAttackResult`.** The rest
+7. **Restore the projection boundary in `mapToSpellAttackResult`.** _(DONE —
+   landed 2026-07-19, wave-1 ready-2026-07 drain.)_ The rest
    spread forwards every runtime property except `attackName`/`attackerName`
    (`packages/server/src/services/spell-casting/resolve-spell.ts`). TS
    excess-property checks do not apply to spreads, so a structurally richer
@@ -76,7 +80,8 @@ false negatives (item 1) and false positives (item 2).
    is persisted in combat-log JSON. Destructure/pick the shared resolution
    fields explicitly; the exact-value test uses no extra property, so it
    does not pin the boundary.
-8. **Pin the damage-routing loader invariant.** `applyDamageLocked` routes on
+8. **Pin the damage-routing loader invariant.** _(DONE — landed 2026-07-19,
+   wave-1 ready-2026-07 drain.)_ `applyDamageLocked` routes on
    `characterId !== null` alone, dropping the old `target.type` agreement
    check and the spell path's truthiness guard (empty-string → character path
    is now test-pinned). Fine while loaders only set `targetCharacterId` for

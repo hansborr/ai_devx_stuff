@@ -114,7 +114,7 @@ describe("verify step generator", () => {
 
   it("renders command arrays and dynamic metadata from the manifest slots", () => {
     const manifest: unknown = JSON.parse(readFixture("manifest.json"));
-    const expected = readFixture("expected.sh");
+    const expected = readFixture("expected.generated.sh");
 
     expect(renderVerifyStepsShellFromManifest(manifest)).toBe(expected);
   });
@@ -555,7 +555,7 @@ describe("verify step generator", () => {
 set -u
 LOG_DIR=/tmp/musi-verify-steps-test
 TIMINGS_FILE="$LOG_DIR/test-timings.json"
-. scripts/fixtures/generate-verify-steps/expected.sh
+. scripts/fixtures/generate-verify-steps/expected.generated.sh
 . scripts/verify/steps-lib.sh
 MUSI_CAPTURE_TEST_TIMINGS=1
 musi_resolve_slot_cmd pre_commit test
@@ -573,7 +573,7 @@ printf '%s\\n' "\${MUSI_RESOLVED_SLOT_CMD[*]}"
 set -u
 LOG_DIR=/tmp/musi-verify-steps-test
 TIMINGS_FILE="$LOG_DIR/test-timings.json"
-. scripts/fixtures/generate-verify-steps/expected.sh
+. scripts/fixtures/generate-verify-steps/expected.generated.sh
 . scripts/verify/steps-lib.sh
 fixture_dynamic_resolver() {
   MUSI_RESOLVED_SLOT_CMD=(fixture "$1" "$2")
@@ -592,7 +592,7 @@ printf '%s\\n' "\${MUSI_RESOLVED_SLOT_CMD[*]}"
 set -u
 LOG_DIR=/tmp/musi-verify-steps-test
 TIMINGS_FILE="$LOG_DIR/test-timings.json"
-. scripts/fixtures/generate-verify-steps/expected.sh
+. scripts/fixtures/generate-verify-steps/expected.generated.sh
 . scripts/verify/steps-lib.sh
 musi_resolve_slot_cmd verify nope
 `);
@@ -606,7 +606,7 @@ musi_resolve_slot_cmd verify nope
 set -u
 LOG_DIR=/tmp/musi-verify-steps-test
 TIMINGS_FILE="$LOG_DIR/test-timings.json"
-. scripts/fixtures/generate-verify-steps/expected.sh
+. scripts/fixtures/generate-verify-steps/expected.generated.sh
 . scripts/verify/steps-lib.sh
 unset MUSI_VERIFY_LINT_CMD
 musi_resolve_slot_cmd verify lint
@@ -625,7 +625,7 @@ musi_resolve_slot_cmd verify lint
 set -u
 LOG_DIR=/tmp/musi-verify-steps-test
 TIMINGS_FILE="$LOG_DIR/test-timings.json"
-. scripts/fixtures/generate-verify-steps/expected.sh
+. scripts/fixtures/generate-verify-steps/expected.generated.sh
 . scripts/verify/steps-lib.sh
 musi_classify_staged_script_input() { return 2; }
 musi_resolve_slot_cmd pre_commit scripts || pre_rc=$?
@@ -647,7 +647,7 @@ printf 'changed:%s\\n' "\${MUSI_RESOLVED_SLOT_CMD[*]}"
 set -u
 LOG_DIR=/tmp/musi-verify-steps-test
 TIMINGS_FILE="$LOG_DIR/test-timings.json"
-. scripts/fixtures/generate-verify-steps/expected.sh
+. scripts/fixtures/generate-verify-steps/expected.generated.sh
 . scripts/verify/steps-lib.sh
 musi_classify_staged_script_input() { return 100; }
 resolver_rc=0

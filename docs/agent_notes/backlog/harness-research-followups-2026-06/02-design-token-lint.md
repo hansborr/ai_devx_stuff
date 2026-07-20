@@ -1,7 +1,10 @@
 # DL-1 - Token-aware design lint
 
-> Proposal only - not implemented. Re-verify finding counts before promotion;
-> client styling churns quickly.
+Status: Done — implemented 2026-06-22 as `eslint-rules/no-arbitrary-tailwind-value.js`
+plus the `ratchet/local-no-arbitrary-tailwind-value-client` ratchet entry
+(`c7ed8c00`, hardened `ee5f0358`). This leaf stays in place because
+`scripts/lint-ratchet/lint-ratchet-config.ts` cites it as the rule's
+principle doc.
 
 ## Problem
 

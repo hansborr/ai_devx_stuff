@@ -271,7 +271,7 @@ describe("buildTriagePackets", () => {
           startLine: 3,
           startCol: 1,
           endLine: 10,
-          endCol: 20,
+          endCol: 4,
         },
       ],
       evidence: [{ inputPath: "semgrep.json", source: "semgrep", row: 1 }],
@@ -331,11 +331,178 @@ describe("buildTriagePackets", () => {
     ]);
   });
 
+  it("routes column citations that overrun the cited line as unresolvable", () => {
+    // Review follow-up 6: `src/a.ts:1:500-1:700` must not pass on a ten-character line.
+    const semgrepItem = item("stale-columns", "src/a.ts", {
+      category: "security",
+      locations: ["src/a.ts:1:500-1:700"],
+      locationDetails: [{ path: "src/a.ts", startLine: 1, startCol: 500, endLine: 1, endCol: 700 }],
+      evidence: [{ inputPath: "semgrep.json", source: "semgrep", row: 1 }],
+    });
+    const bundle = buildTriagePackets(
+      report(
+        [semgrepItem],
+        [advisoryInput("semgrep.json", { gitHead: "abc123", gitDirty: false })],
+      ),
+      { readSourceFile: () => "ten chars!\n" },
+      PROVENANCE,
+    );
+
+    expect(bundle.packets[0]?.disclosures.staleAdvisories).toEqual([
+      expect.objectContaining({
+        inputPath: "semgrep.json",
+        itemIds: ["stale-columns"],
+        reasons: ["unresolvable-location"],
+        unresolvableLocations: ["src/a.ts:1:500-1:700"],
+        route: "needs-human-regenerate",
+      }),
+    ]);
+  });
+
+  it("accepts an exclusive end column one past the final character of the line", () => {
+    // Semgrep end columns point one past the match, so length + 1 must resolve while
+    // length + 2 must not.
+    const boundaryItem = (id: string, endCol: number): TriageItem =>
+      item(id, "src/a.ts", {
+        locations: [`src/a.ts:1:1-1:${String(endCol)}`],
+        locationDetails: [{ path: "src/a.ts", startLine: 1, startCol: 1, endLine: 1, endCol }],
+        evidence: [{ inputPath: "semgrep.json", source: "semgrep", row: 1 }],
+      });
+    const build = (endCol: number): ReturnType<typeof buildTriagePackets> =>
+      buildTriagePackets(
+        report(
+          [boundaryItem(`boundary-${String(endCol)}`, endCol)],
+          [advisoryInput("semgrep.json", { gitHead: "abc123", gitDirty: false })],
+        ),
+        { readSourceFile: () => "ten chars!\n" },
+        PROVENANCE,
+      );
+
+    expect(build(11).packets[0]?.disclosures.staleAdvisories).toEqual([]);
+    expect(build(12).packets[0]?.disclosures.staleAdvisories).toEqual([
+      expect.objectContaining({
+        reasons: ["unresolvable-location"],
+        unresolvableLocations: ["src/a.ts:1:1-1:12"],
+      }),
+    ]);
+  });
+
+  it("treats both columns as carets bounded by byte length + 1", () => {
+    // Semgrep's exclusive-end model makes both endpoints carets between characters:
+    // each column is valid in 1..byteLength + 1. On a ten-byte line, 11:11 is a
+    // zero-width caret after the final character (fresh), 11:10 inverts the range
+    // (stale), and a start of 12 points past every caret the line holds (stale).
+    const boundaryItem = (id: string, startCol: number, endCol: number): TriageItem =>
+      item(id, "src/a.ts", {
+        locations: [`src/a.ts:1:${String(startCol)}-1:${String(endCol)}`],
+        locationDetails: [{ path: "src/a.ts", startLine: 1, startCol, endLine: 1, endCol }],
+        evidence: [{ inputPath: "semgrep.json", source: "semgrep", row: 1 }],
+      });
+    const build = (startCol: number, endCol: number): ReturnType<typeof buildTriagePackets> =>
+      buildTriagePackets(
+        report(
+          [boundaryItem(`caret-${String(startCol)}-${String(endCol)}`, startCol, endCol)],
+          [advisoryInput("semgrep.json", { gitHead: "abc123", gitDirty: false })],
+        ),
+        { readSourceFile: () => "ten chars!\n" },
+        PROVENANCE,
+      );
+
+    expect(build(11, 11).packets[0]?.disclosures.staleAdvisories).toEqual([]);
+    expect(build(11, 10).packets[0]?.disclosures.staleAdvisories).toEqual([
+      expect.objectContaining({
+        reasons: ["unresolvable-location"],
+        unresolvableLocations: ["src/a.ts:1:11-1:10"],
+      }),
+    ]);
+    expect(build(12, 12).packets[0]?.disclosures.staleAdvisories).toEqual([
+      expect.objectContaining({
+        reasons: ["unresolvable-location"],
+        unresolvableLocations: ["src/a.ts:1:12-1:12"],
+      }),
+    ]);
+  });
+
+  it("accepts a zero-width span on an empty line", () => {
+    // An empty line still holds one caret: Semgrep cites zero-width matches there
+    // as 1:1-1:1, and byte length 0 must not reject that start column.
+    const emptyLineItem = item("empty-line-caret", "src/a.ts", {
+      locations: ["src/a.ts:1:1-1:1"],
+      locationDetails: [{ path: "src/a.ts", startLine: 1, startCol: 1, endLine: 1, endCol: 1 }],
+      evidence: [{ inputPath: "semgrep.json", source: "semgrep", row: 1 }],
+    });
+    const bundle = buildTriagePackets(
+      report(
+        [emptyLineItem],
+        [advisoryInput("semgrep.json", { gitHead: "abc123", gitDirty: false })],
+      ),
+      { readSourceFile: () => "\n" },
+      PROVENANCE,
+    );
+
+    expect(bundle.packets[0]?.disclosures.staleAdvisories).toEqual([]);
+  });
+
+  it("routes an inverted same-line column range as unresolvable", () => {
+    // Both 9 and 2 are carets a nine-plus-byte line holds, but no match can end
+    // before it starts: src/a.ts:1:9-1:2 cites a range Semgrep could never emit.
+    const invertedItem = item("inverted-columns", "src/a.ts", {
+      locations: ["src/a.ts:1:9-1:2"],
+      locationDetails: [{ path: "src/a.ts", startLine: 1, startCol: 9, endLine: 1, endCol: 2 }],
+      evidence: [{ inputPath: "semgrep.json", source: "semgrep", row: 1 }],
+    });
+    const bundle = buildTriagePackets(
+      report(
+        [invertedItem],
+        [advisoryInput("semgrep.json", { gitHead: "abc123", gitDirty: false })],
+      ),
+      { readSourceFile: () => "ten chars!\n" },
+      PROVENANCE,
+    );
+
+    expect(bundle.packets[0]?.disclosures.staleAdvisories).toEqual([
+      expect.objectContaining({
+        reasons: ["unresolvable-location"],
+        unresolvableLocations: ["src/a.ts:1:9-1:2"],
+      }),
+    ]);
+  });
+
+  it("measures column bounds in UTF-8 bytes to match Semgrep offsets", () => {
+    // Semgrep 1.165.0 derives columns from UTF-8 byte offsets, so a line holding
+    // multi-byte characters has valid columns past its UTF-16 length. "héllo·wörld"
+    // is 11 UTF-16 units but 14 UTF-8 bytes: an end column of 15 (byte length + 1)
+    // is fresh evidence, while 16 overruns the line and is stale.
+    const boundaryItem = (id: string, endCol: number): TriageItem =>
+      item(id, "src/a.ts", {
+        locations: [`src/a.ts:1:1-1:${String(endCol)}`],
+        locationDetails: [{ path: "src/a.ts", startLine: 1, startCol: 1, endLine: 1, endCol }],
+        evidence: [{ inputPath: "semgrep.json", source: "semgrep", row: 1 }],
+      });
+    const build = (endCol: number): ReturnType<typeof buildTriagePackets> =>
+      buildTriagePackets(
+        report(
+          [boundaryItem(`utf8-boundary-${String(endCol)}`, endCol)],
+          [advisoryInput("semgrep.json", { gitHead: "abc123", gitDirty: false })],
+        ),
+        { readSourceFile: () => "héllo·wörld\n" },
+        PROVENANCE,
+      );
+
+    expect(build(15).packets[0]?.disclosures.staleAdvisories).toEqual([]);
+    expect(build(16).packets[0]?.disclosures.staleAdvisories).toEqual([
+      expect.objectContaining({
+        reasons: ["unresolvable-location"],
+        unresolvableLocations: ["src/a.ts:1:1-1:16"],
+      }),
+    ]);
+  });
+
   it("routes advisory evidence when the repository changes during the scan", () => {
     const semgrepItem = item("mid-scan-change", "src/auth.ts", {
       category: "security",
       locations: ["src/auth.ts:1-2"],
-      locationDetails: [{ path: "src/auth.ts", startLine: 1, startCol: 1, endLine: 2, endCol: 10 }],
+      locationDetails: [{ path: "src/auth.ts", startLine: 1, startCol: 1, endLine: 2, endCol: 9 }],
       evidence: [{ inputPath: "semgrep.json", source: "semgrep", row: 1 }],
     });
     const bundle = buildTriagePackets(
@@ -366,7 +533,7 @@ describe("buildTriagePackets", () => {
     const semgrepItem = item("different-dirty-state", "src/auth.ts", {
       category: "security",
       locations: ["src/auth.ts:1-2"],
-      locationDetails: [{ path: "src/auth.ts", startLine: 1, startCol: 1, endLine: 2, endCol: 10 }],
+      locationDetails: [{ path: "src/auth.ts", startLine: 1, startCol: 1, endLine: 2, endCol: 9 }],
       evidence: [{ inputPath: "semgrep.json", source: "semgrep", row: 1 }],
     });
     const bundle = buildTriagePackets(
@@ -397,7 +564,7 @@ describe("buildTriagePackets", () => {
   it("keeps legacy advisory evidence on HEAD/dirty semantics when no fingerprint was serialized", () => {
     const freshItem = item("fresh-semgrep", "src/auth.ts", {
       locations: ["src/auth.ts:1-2"],
-      locationDetails: [{ path: "src/auth.ts", startLine: 1, startCol: 1, endLine: 2, endCol: 10 }],
+      locationDetails: [{ path: "src/auth.ts", startLine: 1, startCol: 1, endLine: 2, endCol: 9 }],
       evidence: [{ inputPath: "semgrep.json", source: "semgrep", row: 1 }],
     });
     const bundle = buildTriagePackets(

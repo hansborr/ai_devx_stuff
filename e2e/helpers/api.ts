@@ -4,46 +4,21 @@
  * These bypass the UI to create test data quickly (e.g. characters).
  * Use when the UI flow itself isn't what we're testing.
  */
-import { execFileSync } from "node:child_process";
-
 import { type APIRequestContext, request } from "@playwright/test";
 
-const DEFAULT_SERVER_PORT = "8001";
+import { resolveServerBaseUrl } from "./environment.js";
 
-function gitPath(args: string[]): string | null {
-  try {
-    return execFileSync("git", args, {
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"],
-    }).trim();
-  } catch {
-    return null;
-  }
-}
-
-function isSecondaryWorktree(): boolean {
-  const commonDir = gitPath(["rev-parse", "--path-format=absolute", "--git-common-dir"]);
-  const gitDir = gitPath(["rev-parse", "--path-format=absolute", "--git-dir"]);
-  return commonDir !== null && gitDir !== null && commonDir !== gitDir;
-}
-
-function resolveServerBaseUrl(): string {
-  const explicitUrl = process.env["E2E_SERVER_URL"];
-  if (explicitUrl) return explicitUrl;
-
-  const serverPort = process.env["SERVER_PORT"];
-  if (serverPort) return `http://localhost:${serverPort}`;
-
-  if (isSecondaryWorktree()) {
-    throw new Error(
-      "E2E_SERVER_URL or SERVER_PORT must be set for E2E API helpers in a secondary worktree; run `bun run worktree:init` and load the generated .env, or set E2E_SERVER_URL explicitly.",
-    );
-  }
-
-  return `http://localhost:${DEFAULT_SERVER_PORT}`;
-}
-
-const SERVER_BASE_URL = resolveServerBaseUrl();
+/**
+ * Browser-visible client origin (the Vite dev server). Vite proxies `/trpc`
+ * and `/socket.io` to the API server (`packages/client/vite.config.ts`), so
+ * auth cookies issued through this origin are scoped to the same host the
+ * page loads from. Use this — not the direct server base URL — for any request whose
+ * `Set-Cookie` the page must later present (the host-scoped `musi_refresh`
+ * cookie would otherwise land in the wrong jar whenever `E2E_SERVER_URL`
+ * uses a different hostname than the client origin, e.g. 127.0.0.1 vs
+ * localhost). Token-authenticated data-seeding helpers don't need cookies
+ * and keep using the direct server base URL.
+ */
 
 interface TrpcResult<T> {
   result: { data: T };
@@ -54,7 +29,7 @@ interface TrpcResult<T> {
  * Reuse across multiple calls in a single beforeAll to avoid overhead.
  */
 export async function createApiContext(): Promise<APIRequestContext> {
-  return request.newContext({ baseURL: SERVER_BASE_URL });
+  return request.newContext({ baseURL: resolveServerBaseUrl() });
 }
 
 /** Call a tRPC mutation via HTTP POST. */

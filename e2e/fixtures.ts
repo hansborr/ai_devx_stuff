@@ -1,42 +1,36 @@
 import { type BrowserContext, expect, type Page, test as base } from "@playwright/test";
-import { readFileSync } from "fs";
 
-import { loginViaUi } from "./helpers/auth.setup.js";
-import type { TestUser } from "./helpers/test-data.js";
+import { loginViaApi } from "./helpers/auth.setup.js";
+import { readSharedUser, type TestUser } from "./helpers/test-data.js";
+import { TIMEOUT_MEDIUM } from "./helpers/timeouts.js";
 
 type MusiFixtures = {
   /** A fresh browser context with a pre-authenticated user on /dashboard. */
   userPage: { page: Page; user: TestUser };
 };
 
-function parseTestUser(raw: string): TestUser {
-  const value: unknown = JSON.parse(raw);
-  if (
-    typeof value === "object" &&
-    value !== null &&
-    "email" in value &&
-    "password" in value &&
-    "displayName" in value &&
-    typeof value.email === "string" &&
-    typeof value.password === "string" &&
-    typeof value.displayName === "string"
-  ) {
-    return {
-      email: value.email,
-      password: value.password,
-      displayName: value.displayName,
-    };
-  }
-  throw new Error(".auth/user-info.json must contain email, password, and displayName strings.");
-}
-
 export const test = base.extend<MusiFixtures>({
   userPage: async ({ browser }, use) => {
-    const user = parseTestUser(readFileSync(".auth/user-info.json", "utf-8"));
+    const user = readSharedUser();
     const context = await browser.newContext();
+    // Headless API login: the context's cookie jar receives its own
+    // `musi_refresh` cookie (own session row), so refresh-token rotation
+    // stays private to this context. Registration is handled once by the
+    // setup project; auth-subject tests drive `loginViaUi` explicitly.
+    await loginViaApi(context, user.email, user.password);
     const page = await context.newPage();
-    // Login only — registration is handled once by the setup project
-    await loginViaUi(page, user.email, user.password);
+    // The client boots without an in-memory access token and re-hydrates it
+    // from the cookie via the mount-time auth.refresh; wait for that refresh
+    // so tests start from a settled authenticated state on /dashboard.
+    const [refreshResp] = await Promise.all([
+      page.waitForResponse((r) => r.url().includes("auth.refresh")),
+      page.goto("/dashboard"),
+    ]);
+    expect(
+      refreshResp.ok(),
+      `auth.refresh failed (${String(refreshResp.status())}) at ${refreshResp.url()}`,
+    ).toBe(true);
+    await expect(page).toHaveURL(/\/dashboard/, { timeout: TIMEOUT_MEDIUM });
     await use({ page, user });
     await context.close();
   },

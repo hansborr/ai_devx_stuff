@@ -1,5 +1,13 @@
 # Archgate ADR Plan for Musi
 
+Status: Ready — pilot slice only ("Recommended First Leaf": ADR skeleton +
+`adr:check` + ADR-0001/0003 + retire `decisions-concurrency.md`); the
+ADR-0002/4/5/6 expansion stays sequenced behind the pilot. Re-verified
+2026-07-19: 0% implemented; entry-point rules all exist, with two drifts —
+the RawTxClient restricted-import message now lives in
+`eslint-config/package-boundary-configs.js` (not `eslint.config.js`), and
+`docs/agent_notes/STATUS.md`/`NEXT.md` no longer exist, so re-derive that
+framing rather than re-reading it.
 Date: 2026-05-10
 Repo inspected: `/workspace`
 

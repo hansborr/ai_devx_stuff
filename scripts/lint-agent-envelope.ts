@@ -1,8 +1,6 @@
 import { dirname, isAbsolute, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import type { ESLintFileResult, ESLintMessage } from "@musi/lint-ratchet/kernel/eslint-json.js";
-
 import {
   HARNESS_DIAGNOSTICS_SCHEMA_VERSION,
   type HarnessDiagnostics,
@@ -11,6 +9,7 @@ import {
   type HarnessFindingSeverity,
   summarizeHarnessFindings,
 } from "../packages/shared/src/schemas/harness-diagnostics.js";
+import type { ESLintFileResult, ESLintMessage } from "./lib/eslint-json.js";
 import type { RuleDocsEntry } from "./lib/lint-rule-docs.js";
 import { lintAgentHowToFixFor } from "./lint-agent-fix-text.js";
 import {

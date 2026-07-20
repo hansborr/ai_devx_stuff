@@ -4,9 +4,11 @@
 # smoke-subjects: scripts/harness/generate-harness-controls.ts
 # smoke-subjects: scripts/harness/generate-harness-controls-validation.ts
 # smoke-subjects: scripts/harness/harness-manifest.ts
+# smoke-subjects: scripts/harness/harness-manifest-schema.ts
 # smoke-subjects: scripts/harness/harness-paths.ts
 # smoke-subjects: scripts/harness/hook-wiring-schema.ts
 # smoke-subjects: scripts/harness/verify-step-schema.ts
+# smoke-subjects: scripts/lib/codepoint-compare.ts
 # smoke-subjects: scripts/lib/lint-rule-docs.ts
 # smoke-subjects: tools/lint-ratchet/src/kernel/codepoint-compare.ts
 # smoke-subjects: scripts/tests/test-generate-harness-controls.sh
@@ -49,18 +51,24 @@ copy_generator() {
   cp scripts/harness/generate-harness-controls-validation.ts "$fixture_dir/scripts/harness/generate-harness-controls-validation.ts"
   cp scripts/harness/harness-paths.ts "$fixture_dir/scripts/harness/harness-paths.ts"
   cp scripts/harness/harness-manifest.ts "$fixture_dir/scripts/harness/harness-manifest.ts"
+  cp scripts/harness/harness-manifest-schema.ts "$fixture_dir/scripts/harness/harness-manifest-schema.ts"
   cp scripts/harness/hook-wiring-schema.ts "$fixture_dir/scripts/harness/hook-wiring-schema.ts"
   cp scripts/lib/lint-rule-docs.ts "$fixture_dir/scripts/lib/lint-rule-docs.ts"
   cp scripts/lib/doc-generator.ts "$fixture_dir/scripts/lib/doc-generator.ts"
   cp scripts/harness/verify-step-schema.ts "$fixture_dir/scripts/harness/verify-step-schema.ts"
-  # The generator sorts via compareByCodepoint from scripts/lib/codepoint-compare;
-  # that module is dependency-free, so the fixture copies only it (the stubbed
-  # lint-ratchet-config below still satisfies the generator's type-only import).
+  # The generator and verify-step-schema sort via compareByCodepoint from the
+  # scripts/lib/codepoint-compare shim, which re-exports the
+  # @musi/lint-ratchet kernel comparator; the fixture copies the shim and the
+  # scoped node_modules symlink below resolves the package side.
+  cp scripts/lib/codepoint-compare.ts "$fixture_dir/scripts/lib/codepoint-compare.ts"
   # @musi/lint-ratchet engine moved to the package (leaf 02 S3); the copied
   # adapter/generators import it, so resolve it via a scoped node_modules
   # symlink instead of copying the moved leaf file.
   mkdir -p "$fixture_dir/node_modules/@musi"
   [ -e "$fixture_dir/node_modules/@musi/lint-ratchet" ] || ln -s "$PWD/tools/lint-ratchet" "$fixture_dir/node_modules/@musi/lint-ratchet"
+  # harness-manifest-schema.ts (copied above) imports zod at runtime; resolve
+  # it via the same node_modules symlink pattern rather than vendoring it.
+  [ -e "$fixture_dir/node_modules/zod" ] || ln -s "$PWD/node_modules/zod" "$fixture_dir/node_modules/zod"
   # Minimal ratchet registry stub: the generator re-projects ratchet principles
   # from lintRatchets (id -> principle), so the fixture supplies its own backing
   # entry for ratchet/fixture instead of copying the real registry chain.

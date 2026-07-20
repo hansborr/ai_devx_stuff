@@ -1,17 +1,21 @@
 import { defineConfig } from "@playwright/test";
 
-const DEFAULT_SERVER_PORT = 8001;
-const DEFAULT_CLIENT_PORT = 8000;
+import {
+  loadE2eEnvironment,
+  resolveClientPort,
+  resolveServerPort,
+} from "./e2e/helpers/environment.js";
+
 const CI_RETRIES = 2;
 
-const SERVER_PORT = Number(process.env["SERVER_PORT"] ?? DEFAULT_SERVER_PORT);
+loadE2eEnvironment();
+
+const SERVER_PORT = resolveServerPort();
 // CLIENT_PORT wins over VITE_DEV_PORT when both are set. In practice
 // worktree-db.sh only writes VITE_DEV_PORT (in packages/client/.env); the
 // CLIENT_PORT branch is here for callers that export it explicitly (CI,
 // local overrides) and should take precedence over the Vite-facing var.
-const CLIENT_PORT = Number(
-  process.env["CLIENT_PORT"] ?? process.env["VITE_DEV_PORT"] ?? DEFAULT_CLIENT_PORT,
-);
+const CLIENT_PORT = resolveClientPort();
 const VITE_DEV_PORT = String(CLIENT_PORT);
 const VITE_API_URL = process.env["VITE_API_URL"] ?? `http://localhost:${String(SERVER_PORT)}`;
 

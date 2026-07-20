@@ -1,6 +1,6 @@
 # 51 - Thin spec/plan template
 
-Status: Parked
+Status: Done — closed 2026-07-19 (ready-2026-07 A12); the template was already on `main` (`48cbb9fc`) before the wave-1 lane started
 Track: G (governance/refinement)
 Size: small-medium
 Depends on: none

@@ -158,13 +158,7 @@ assert_contains "$DOC_LENGTH_SUBDIR_CONTEXT" "AGENTS.md is 251 lines"
 # --- prisma-generate Codex wiring --------------------------------------------
 PRISMA_CODEX_FAKE_BIN="$TMP_ROOT/prisma-codex-fake-bin"
 PRISMA_CODEX_SENTINEL="$TMP_ROOT/prisma-codex-generate-called"
-mkdir -p "$PRISMA_CODEX_FAKE_BIN"
-{
-  printf '#!/bin/bash\n'
-  printf 'touch "$AI_PRISMA_TEST_SENTINEL"\n'
-  printf 'exit 0\n'
-} > "$PRISMA_CODEX_FAKE_BIN/bun"
-chmod +x "$PRISMA_CODEX_FAKE_BIN/bun"
+make_prisma_sentinel_bun_shim "$PRISMA_CODEX_FAKE_BIN"
 
 PRISMA_CODEX_PATCH=$(printf '%s\n' \
   '*** Begin Patch' \

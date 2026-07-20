@@ -9,7 +9,7 @@ musi_warn_generated_surfaces_stale() {
 
   while IFS= read -r staged_path; do
     case "$staged_path" in
-      'eslint-config/shared-policy.js'|'scripts/harness/generate-config-surfaces.ts'|'tsconfig.configs.json')
+      'eslint-config/config-surfaces.js'|'eslint-config/max-lines-exceptions-codec.js'|'eslint-config/shared-policy.js'|'scripts/harness/generate-config-surfaces.ts'|'scripts/lib/doc-generator.ts'|'tsconfig.configs.json')
         warn_if_generated_surface_stale 'config surface tsconfig' 'harness:config-surfaces:check'
         break
         ;;
@@ -18,7 +18,7 @@ musi_warn_generated_surfaces_stale() {
 
   while IFS= read -r staged_path; do
     case "$staged_path" in
-      'harness.controls.json'|'scripts/harness/generate-hook-wiring.ts'|'scripts/harness/hook-shim-files.ts'|'scripts/harness/hook-shims.ts'|'scripts/harness/hook-wiring-schema.ts'|'.claude/settings.json'|'.claude/hooks/'*|'.codex/hooks.json'|'.codex/hooks/'*|'.copilot/hooks/'*|'.github/hooks/copilot.json')
+      'harness.controls.json'|'scripts/harness/generate-hook-wiring.ts'|'scripts/harness/harness-manifest.ts'|'scripts/harness/harness-paths.ts'|'scripts/harness/hook-shim-files.ts'|'scripts/harness/hook-shims.ts'|'scripts/harness/hook-wiring-schema.ts'|'scripts/lib/atomic-write.ts'|'scripts/lib/codepoint-compare.ts'|'.claude/settings.json'|'.claude/hooks/'*|'.codex/hooks.json'|'.codex/hooks/'*|'.copilot/hooks/'*|'.github/hooks/copilot.json')
         warn_if_generated_surface_stale 'AI hook wiring' 'harness:wiring:check'
         break
         ;;
@@ -27,7 +27,7 @@ musi_warn_generated_surfaces_stale() {
 
   while IFS= read -r staged_path; do
     case "$staged_path" in
-      'harness.controls.json'|'scripts/harness/generate-hook-timeout-constants.ts'|'scripts/harness/hook-timeout-constants.ts'|'scripts/ai-hooks/hook-timeouts.generated.sh')
+      'harness.controls.json'|'scripts/harness/generate-hook-timeout-constants.ts'|'scripts/harness/harness-manifest.ts'|'scripts/harness/harness-paths.ts'|'scripts/harness/hook-timeout-constants.ts'|'scripts/harness/hook-wiring-schema.ts'|'scripts/lib/doc-generator.ts'|'scripts/ai-hooks/hook-timeouts.generated.sh')
         warn_if_generated_surface_stale 'hook timeout constants' 'harness:hook-timeouts:check'
         break
         ;;
@@ -36,7 +36,7 @@ musi_warn_generated_surfaces_stale() {
 
   while IFS= read -r staged_path; do
     case "$staged_path" in
-      'scripts/harness/generate-restricted-disable-rules.ts'|'scripts/lint-ratchet/lint-ratchet-config.ts'|'eslint-config/ratchet-restricted-disable-rules.generated.js')
+      'eslint-config/config-surfaces.js'|'eslint-config/max-lines-exceptions-codec.js'|'eslint-config/shared-policy.js'|'scripts/harness/generate-restricted-disable-rules.ts'|'scripts/lib/codepoint-compare.ts'|'scripts/lib/doc-generator.ts'|'scripts/lint-ratchet/lint-ratchet-config.ts'|'scripts/lint-ratchet/registry-builders.ts'|'eslint-config/ratchet-restricted-disable-rules.generated.js')
         warn_if_generated_surface_stale 'restricted-disable rule metadata' 'lint:restricted-disable-rules:check'
         break
         ;;
@@ -45,7 +45,7 @@ musi_warn_generated_surfaces_stale() {
 
   while IFS= read -r staged_path; do
     case "$staged_path" in
-      'scripts/path-policy/generate-smoke-subjects.ts'|'scripts/path-policy/smoke-subject-headers.ts'|'scripts/path-policy/fixture-shell-dependencies.ts'|'scripts/path-policy/fixture-shell-scope.ts'|'scripts/tests/'*|'scripts/path-policy/path-policy-smoke-subjects-data.ts'|'scripts/fixtures/test-scripts/all-smoke-tests.txt')
+      'scripts/lib/doc-generator.ts'|'scripts/path-policy/fixture-helper-calls.ts'|'scripts/path-policy/fixture-shell-dependencies.ts'|'scripts/path-policy/fixture-shell-scope.ts'|'scripts/path-policy/generate-smoke-subjects.ts'|'scripts/path-policy/smoke-subject-headers.ts'|'scripts/tests/'*|'scripts/path-policy/path-policy-smoke-subjects-data.ts'|'scripts/fixtures/test-scripts/all-smoke-tests.txt')
         warn_if_generated_surface_stale 'script smoke-subject metadata' 'test:scripts:subjects:check'
         break
         ;;
@@ -54,7 +54,7 @@ musi_warn_generated_surfaces_stale() {
 
   while IFS= read -r staged_path; do
     case "$staged_path" in
-      'harness.controls.json'|'scripts/harness/generate-verify-steps.ts'|'scripts/harness/generated-surfaces.ts'|'scripts/harness/verify-step-schema.ts'|'scripts/harness/verify-step-bridge-divergences.ts'|'scripts/verify/steps.generated.sh'|'scripts/harness/generated-surface-freshness.generated.sh'|'scripts/ai-hooks/classified-bun-scripts.generated.sh'|'scripts/tests/harness-check-fixture-manifest.generated.txt')
+      'harness.controls.json'|'scripts/harness/control-field-validation.ts'|'scripts/harness/generate-verify-steps.ts'|'scripts/harness/generated-surfaces.ts'|'scripts/harness/harness-check-validation.ts'|'scripts/harness/harness-manifest.ts'|'scripts/harness/harness-paths.ts'|'scripts/harness/verify-step-bridge-divergences.ts'|'scripts/harness/verify-step-schema.ts'|'scripts/lib/codepoint-compare.ts'|'scripts/lib/doc-generator.ts'|'scripts/lib/lint-rule-docs.ts'|'scripts/lint-ratchet/ratchet-manifest-message.ts'|'scripts/verify/steps.generated.sh'|'scripts/harness/generated-surface-freshness.generated.sh'|'scripts/ai-hooks/classified-bun-scripts.generated.sh'|'scripts/tests/harness-check-fixture-manifest.generated.txt')
         warn_if_generated_surface_stale 'verify step and generated-surface metadata' 'verify:steps:check'
         break
         ;;
@@ -63,7 +63,7 @@ musi_warn_generated_surfaces_stale() {
 
   while IFS= read -r staged_path; do
     case "$staged_path" in
-      'scripts/git/baseline-merge-driver.sh'|'scripts/generate-baseline-conflict-recipes.ts'|'docs/guides/lint-ratchet-merges.md')
+      'scripts/generate-baseline-conflict-recipes.ts'|'scripts/git/baseline-merge-driver.sh'|'scripts/lib/doc-generator.ts'|'docs/guides/lint-ratchet-merges.md')
         warn_if_generated_surface_stale 'baseline conflict recovery recipes' 'docs:baseline-conflict-recipes:check'
         break
         ;;
@@ -72,7 +72,7 @@ musi_warn_generated_surfaces_stale() {
 
   while IFS= read -r staged_path; do
     case "$staged_path" in
-      'harness.controls.json'|'scripts/harness/generate-harness-controls.ts'|'scripts/harness/generate-harness-controls-validation.ts'|'scripts/harness/control-field-validation.ts'|'docs/generated/harness-controls.md')
+      'eslint-config/config-surfaces.js'|'eslint-config/max-lines-exceptions-codec.js'|'eslint-config/shared-policy.js'|'harness.controls.json'|'scripts/harness/control-field-validation.ts'|'scripts/harness/generate-harness-controls-validation.ts'|'scripts/harness/generate-harness-controls.ts'|'scripts/harness/harness-manifest-schema.ts'|'scripts/harness/harness-manifest.ts'|'scripts/harness/harness-paths.ts'|'scripts/harness/hook-wiring-schema.ts'|'scripts/harness/verify-step-schema.ts'|'scripts/lib/codepoint-compare.ts'|'scripts/lib/doc-generator.ts'|'scripts/lib/lint-rule-docs.ts'|'scripts/lint-ratchet/lint-ratchet-config.ts'|'scripts/lint-ratchet/registry-builders.ts'|'docs/generated/harness-controls.md')
         warn_if_generated_surface_stale 'harness controls docs' 'docs:harness-controls:check'
         break
         ;;
@@ -81,7 +81,7 @@ musi_warn_generated_surfaces_stale() {
 
   while IFS= read -r staged_path; do
     case "$staged_path" in
-      'eslint-rules/'*|'eslint-config/local-plugin.js'|'scripts/generate-lint-guidance.ts'|'scripts/lib/lint-rule-docs.ts'|'docs/generated/local-lint-rules.md')
+      'eslint-config/local-plugin.js'|'eslint-rules/'*|'scripts/generate-lint-guidance.ts'|'scripts/lib/doc-generator.ts'|'scripts/lib/lint-rule-docs.ts'|'docs/generated/local-lint-rules.md')
         warn_if_generated_surface_stale 'lint guidance' 'docs:lint-guidance:check'
         break
         ;;

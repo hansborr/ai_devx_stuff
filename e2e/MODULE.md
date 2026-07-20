@@ -37,5 +37,10 @@ copying selectors across specs.
 ## Gotchas
 
 - Use role/text/test-id locators over styling selectors.
+- Auth: `userPage` authenticates each context with a headless API login
+  (`loginViaApi`), never a shared Playwright `storageState` file — the server
+  rotates `musi_refresh` on every refresh, so a shared cookie goes stale after
+  the first context boots. Login-subject specs keep an explicit `loginViaUi`.
+  See docs/agent_notes/backlog/testsuite-audit/03-*.md for the design decision.
 - Keep e2e off the per-commit path unless the harness task explicitly says
   otherwise.
