@@ -11,6 +11,12 @@ import {
 import type { ExecutableCliCommand } from "./types.js";
 
 describe("references-query", () => {
+  it("builds the reference project without deprecated compiler options", () => {
+    const project = createReferenceFixtureProject();
+
+    expect(project.getProgram().compilerObject.getOptionsDiagnostics()).toEqual([]);
+  });
+
   it("finds references across packages and classifies import, value, and type kinds", () => {
     const project = createReferenceFixtureProject();
     addSource(

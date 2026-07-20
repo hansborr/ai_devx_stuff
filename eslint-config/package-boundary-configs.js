@@ -296,7 +296,7 @@ export const rawTxClientBoundaryConfigs = [
               group: ["**/prisma-types.js"],
               importNames: ["RawTxClient"],
               message:
-                "RawTxClient may only be imported by utils/*-mutations.ts files. Go through a locked helper (see docs/CONCURRENCY.md).",
+                "Why: ADR-0001 restricts RawTxClient because it bypasses gated delegate types. How to fix: Use a locked helper; see docs/guides/add-race-sensitive-mutation.md.",
             },
           ],
         },

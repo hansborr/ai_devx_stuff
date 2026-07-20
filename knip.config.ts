@@ -41,6 +41,9 @@ const config = {
     "packages/server/src/utils/__type-tests__/**": ["exports", "types"],
     // Stryker loads this configuration module by path, so Knip cannot see its required default export.
     "scripts/stryker-scripts.ts": ["exports"],
+    // Playwright loads this by the `globalSetup` path string in playwright.config.ts,
+    // not as an ES import, so Knip cannot see its required default export.
+    "e2e/global-setup.ts": ["exports"],
   },
   workspaces: {
     ".": {

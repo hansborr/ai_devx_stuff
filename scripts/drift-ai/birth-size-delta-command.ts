@@ -1,3 +1,4 @@
+import { readGitBlobAtRef } from "../lib/git.js";
 import { type BirthBlobReader, buildBirthSizeDeltaAdvisory } from "./birth-size-delta-advisory.js";
 import { parseBirthSizeDeltaArgs, type ParsedBirthSizeDeltaArgs } from "./birth-size-delta-args.js";
 import {
@@ -122,7 +123,7 @@ function birthBlobReader(
 ): BirthBlobReader {
   return ({ commit, path }) => {
     try {
-      return { ok: true, source: git(["show", `${commit}:${path}`], caps) };
+      return { ok: true, source: readGitBlobAtRef(git, commit, path, caps) };
     } catch (err) {
       return { ok: false, reason: errorMessage(err) };
     }

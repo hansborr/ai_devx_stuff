@@ -162,7 +162,7 @@ export default {
     },
     messages: {
       noDirectWrite:
-        "Why: Direct {{delegate}}.{{method}} bypasses the documented concurrency helper boundary. How to fix: {{suggestion}} Try `bun run codemod:concurrency-guard -- <file>` first. See docs/guides/add-race-sensitive-mutation.md.",
+        "Why: ADR-0001 requires direct {{delegate}}.{{method}} writes to use the race-sensitive helper boundary so concurrent writers cannot lose updates. How to fix: {{suggestion}} Try `bun run codemod:concurrency-guard -- <file>` first. See docs/guides/add-race-sensitive-mutation.md.",
     },
     schema: [],
   },

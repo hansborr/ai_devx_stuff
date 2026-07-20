@@ -101,12 +101,14 @@ describe("schemas-barrel restriction", () => {
       const patterns = patternsOf(entry);
       expect(patternsMatchingBareBarrel(patterns).length).toBeGreaterThan(0);
       // RawTxClient restriction must survive flat-config rule replacement.
-      const hasRawTx = patterns.some((p) => {
+      const rawTxPattern = patterns.find((p) => {
         if (!p || typeof p !== "object") return false;
         const names = /** @type {{ importNames?: unknown }} */ (p).importNames;
         return Array.isArray(names) && names.includes("RawTxClient");
       });
-      expect(hasRawTx).toBe(true);
+      expect(rawTxPattern).toBeDefined();
+      const message = /** @type {{ message?: unknown }} */ (rawTxPattern).message;
+      expect(message).toContain("ADR-0001");
     },
   );
 

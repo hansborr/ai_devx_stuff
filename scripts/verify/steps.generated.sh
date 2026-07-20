@@ -9,10 +9,10 @@
 : "${TIMINGS_FILE:?scripts/verify/steps.generated.sh requires TIMINGS_FILE}"
 
 declare -ga MUSI_VERIFY_CONSUMERS=('verify' 'verify_changed' 'verify_parallel' 'pre_commit')
-declare -ga MUSI_VERIFY_STEPS=('lint' 'suppressions' 'ratchet' 'zero-baseline' 'debt-accounting' 'local-rule-starter' 'knip-unused-exports' 'near-duplicates' 'max-lines-exceptions' 'coverage-map' 'format-check' 'typecheck' 'test' 'scripts')
-declare -ga MUSI_VERIFY_CHANGED_STEPS=('lint' 'suppressions' 'ratchet' 'zero-baseline' 'debt-accounting' 'knip-unused-exports' 'near-duplicates' 'max-lines-exceptions' 'coverage-map' 'format-check' 'typecheck' 'test' 'scripts')
-declare -ga MUSI_VERIFY_PARALLEL_STEPS=('lint' 'suppressions' 'ratchet' 'zero-baseline' 'debt-accounting' 'local-rule-starter' 'knip-unused-exports' 'near-duplicates' 'max-lines-exceptions' 'coverage-map' 'format-check' 'typecheck' 'test' 'scripts')
-declare -ga MUSI_PRE_COMMIT_STEPS=('lint' 'suppressions' 'ratchet' 'zero-baseline' 'debt-accounting' 'knip-unused-exports' 'near-duplicates' 'max-lines-exceptions' 'coverage-map' 'format-check' 'typecheck' 'test' 'scripts')
+declare -ga MUSI_VERIFY_STEPS=('lint' 'suppressions' 'ratchet' 'zero-baseline' 'debt-accounting' 'local-rule-starter' 'adr' 'knip-unused-exports' 'near-duplicates' 'max-lines-exceptions' 'coverage-map' 'format-check' 'typecheck' 'test' 'scripts')
+declare -ga MUSI_VERIFY_CHANGED_STEPS=('lint' 'suppressions' 'ratchet' 'zero-baseline' 'debt-accounting' 'adr' 'knip-unused-exports' 'near-duplicates' 'max-lines-exceptions' 'coverage-map' 'format-check' 'typecheck' 'test' 'scripts')
+declare -ga MUSI_VERIFY_PARALLEL_STEPS=('lint' 'suppressions' 'ratchet' 'zero-baseline' 'debt-accounting' 'local-rule-starter' 'adr' 'knip-unused-exports' 'near-duplicates' 'max-lines-exceptions' 'coverage-map' 'format-check' 'typecheck' 'test' 'scripts')
+declare -ga MUSI_PRE_COMMIT_STEPS=('lint' 'suppressions' 'ratchet' 'zero-baseline' 'debt-accounting' 'adr' 'knip-unused-exports' 'near-duplicates' 'max-lines-exceptions' 'coverage-map' 'format-check' 'typecheck' 'test' 'scripts')
 
 declare -ga MUSI_FAST_COMMIT_SKIP_SLOTS=('test' 'scripts')
 
@@ -37,6 +37,9 @@ MUSI_VERIFY_SLOT_CMD_VAR['verify:debt-accounting']='MUSI_VERIFY_DEBT_ACCOUNTING_
 
 MUSI_VERIFY_LOCAL_RULE_STARTER_CMD=('bun' 'run' 'docs:local-eslint-rule-starter:check')
 MUSI_VERIFY_SLOT_CMD_VAR['verify:local-rule-starter']='MUSI_VERIFY_LOCAL_RULE_STARTER_CMD'
+
+MUSI_VERIFY_ADR_CMD=('bun' 'run' 'adr:check')
+MUSI_VERIFY_SLOT_CMD_VAR['verify:adr']='MUSI_VERIFY_ADR_CMD'
 
 MUSI_VERIFY_KNIP_UNUSED_EXPORTS_CMD=('bun' 'run' 'sensor:knip-unused-exports')
 MUSI_VERIFY_SLOT_CMD_VAR['verify:knip-unused-exports']='MUSI_VERIFY_KNIP_UNUSED_EXPORTS_CMD'
@@ -76,6 +79,9 @@ MUSI_VERIFY_SLOT_CMD_VAR['verify_changed:zero-baseline']='MUSI_VERIFY_CHANGED_ZE
 
 MUSI_VERIFY_CHANGED_DEBT_ACCOUNTING_CMD=('bun' 'run' 'lint:ratchet:check-debt-accounting' '--' '--staged')
 MUSI_VERIFY_SLOT_CMD_VAR['verify_changed:debt-accounting']='MUSI_VERIFY_CHANGED_DEBT_ACCOUNTING_CMD'
+
+MUSI_VERIFY_CHANGED_ADR_CMD=('bun' 'run' 'adr:check')
+MUSI_VERIFY_SLOT_CMD_VAR['verify_changed:adr']='MUSI_VERIFY_CHANGED_ADR_CMD'
 
 MUSI_VERIFY_CHANGED_KNIP_UNUSED_EXPORTS_CMD=('bun' 'run' 'sensor:knip-unused-exports')
 MUSI_VERIFY_SLOT_CMD_VAR['verify_changed:knip-unused-exports']='MUSI_VERIFY_CHANGED_KNIP_UNUSED_EXPORTS_CMD'
@@ -120,6 +126,9 @@ MUSI_VERIFY_SLOT_CMD_VAR['verify_parallel:debt-accounting']='MUSI_VERIFY_PARALLE
 MUSI_VERIFY_PARALLEL_LOCAL_RULE_STARTER_CMD=('bun' 'run' 'docs:local-eslint-rule-starter:check')
 MUSI_VERIFY_SLOT_CMD_VAR['verify_parallel:local-rule-starter']='MUSI_VERIFY_PARALLEL_LOCAL_RULE_STARTER_CMD'
 
+MUSI_VERIFY_PARALLEL_ADR_CMD=('bun' 'run' 'adr:check')
+MUSI_VERIFY_SLOT_CMD_VAR['verify_parallel:adr']='MUSI_VERIFY_PARALLEL_ADR_CMD'
+
 MUSI_VERIFY_PARALLEL_KNIP_UNUSED_EXPORTS_CMD=('bun' 'run' 'sensor:knip-unused-exports')
 MUSI_VERIFY_SLOT_CMD_VAR['verify_parallel:knip-unused-exports']='MUSI_VERIFY_PARALLEL_KNIP_UNUSED_EXPORTS_CMD'
 
@@ -158,6 +167,9 @@ MUSI_VERIFY_SLOT_CMD_VAR['pre_commit:zero-baseline']='MUSI_PRE_COMMIT_ZERO_BASEL
 
 MUSI_PRE_COMMIT_DEBT_ACCOUNTING_CMD=('bun' 'run' 'lint:ratchet:check-debt-accounting' '--' '--staged')
 MUSI_VERIFY_SLOT_CMD_VAR['pre_commit:debt-accounting']='MUSI_PRE_COMMIT_DEBT_ACCOUNTING_CMD'
+
+MUSI_PRE_COMMIT_ADR_CMD=('bun' 'run' 'adr:check')
+MUSI_VERIFY_SLOT_CMD_VAR['pre_commit:adr']='MUSI_PRE_COMMIT_ADR_CMD'
 
 MUSI_PRE_COMMIT_KNIP_UNUSED_EXPORTS_CMD=('bun' 'run' 'sensor:knip-unused-exports')
 MUSI_VERIFY_SLOT_CMD_VAR['pre_commit:knip-unused-exports']='MUSI_PRE_COMMIT_KNIP_UNUSED_EXPORTS_CMD'

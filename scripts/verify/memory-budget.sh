@@ -57,6 +57,7 @@ declare -gA MUSI_VERIFY_SLOT_EXPECTED_PEAK_MB=(
   [zero-baseline]=256
   [debt-accounting]=256
   [local-rule-starter]=256
+  [adr]=256
   [knip-unused-exports]=256
   [max-lines-exceptions]=256
   [coverage-map]=256

@@ -1,6 +1,6 @@
 # eslint-plugin-jsdoc 63 Upgrade
 
-Status: Ready — isolated migration; preconditions re-verified 2026-07-19
+Status: Done — implemented and verified 2026-07-19 on `auto/ready-b-deps19`
 Date: 2026-05-28
 
 ## Why Parked

@@ -61,6 +61,38 @@ write_bun_stub() {
   mkdir -p "$stub_dir"
   cat > "$stub_dir/bun" <<'STUB'
 #!/usr/bin/env bash
+set -euo pipefail
+
+if [ "$1" = "install" ]; then
+  root=$(git rev-parse --show-toplevel)
+  package_dep=""
+  locked_dep=""
+  if [ -f "$root/package.json" ]; then
+    package_dep=$(sed -n 's/.*"fixture-dependency":"\([^"]*\)".*/\1/p' "$root/package.json")
+  fi
+  if [ -f "$root/bun.lock" ]; then
+    locked_dep=$(sed -n 's/^fixture-dependency=//p' "$root/bun.lock")
+  fi
+  printf 'install:%s:%s:%s\n' "$root" "${2:-<missing-flag>}" "${locked_dep:-<none>}" \
+    >> "${MUSI_LAND_BUN_LOG:?}"
+  if [ "${2:-}" != "--frozen-lockfile" ]; then
+    printf 'stub install diagnostic: expected --frozen-lockfile\n' >&2
+    exit 93
+  fi
+  if [ -n "$package_dep" ] && [ "$package_dep" != "$locked_dep" ]; then
+    printf 'stub install diagnostic: package.json and bun.lock disagree\n' >&2
+    exit 94
+  fi
+  if [ "${MUSI_LAND_INSTALL_STATUS:-0}" -ne 0 ]; then
+    printf 'stub install diagnostic: forced locked install failure\n' >&2
+    exit "${MUSI_LAND_INSTALL_STATUS}"
+  fi
+  if [ -n "$locked_dep" ]; then
+    mkdir -p "$root/node_modules"
+    printf '%s\n' "$locked_dep" > "$root/node_modules/.fixture-dependency"
+  fi
+  exit 0
+fi
 if [ "$1" = "run" ] && [ "${2:-}" = "harness:check" ]; then
   printf 'harness:%s\n' "$(git rev-parse --show-toplevel)" >> "${MUSI_LAND_BUN_LOG:?}"
   exit "${MUSI_LAND_HARNESS_CHECK_STATUS:-0}"
@@ -79,6 +111,18 @@ if [ "$1" = "run" ] && [ "${2:-}" = "--filter" ] &&
 fi
 if [ "$1" = "run" ] && [ "${2:-}" = "verify" ]; then
   root=$(git rev-parse --show-toplevel)
+  marker="${MUSI_VERIFY_MARKER_FULL:-}"
+  if [ -n "$marker" ] && [ -f "$marker" ] && [ "${FORCE_VERIFY:-}" != "1" ]; then
+    # shellcheck source=/dev/null
+    . "$root/scripts/lib/verify-metadata.sh"
+    current_head=$(git rev-parse HEAD)
+    current_hash=$(ai_worktree_fingerprint "$root")
+    if musi_success_marker_matches "$marker" "$current_head" "$current_hash"; then
+      printf 'verify-marker-skip:%s:%s\n' "$root" "$current_head" \
+        >> "${MUSI_LAND_BUN_LOG:?}"
+      exit 0
+    fi
+  fi
   parents=$(git rev-list --parents -n 1 HEAD | awk '{print NF - 1}')
   printf 'verify:%s:%s:%s\n' "$root" "$parents" "$(git rev-parse HEAD^{tree})" \
     >> "${MUSI_LAND_BUN_LOG:?}"
@@ -92,6 +136,15 @@ if [ "$1" = "run" ] && [ "${2:-}" = "verify" ]; then
       }
     done
     IFS=$old_ifs
+  fi
+  if [ "${MUSI_LAND_VERIFY_DEP_SYNC:-0}" -eq 1 ]; then
+    expected_dep=$(sed -n 's/^fixture-dependency=//p' "$root/bun.lock")
+    actual_dep=$(sed -n '1p' "$root/node_modules/.fixture-dependency" 2>/dev/null || true)
+    if [ "$actual_dep" != "$expected_dep" ]; then
+      printf 'dependency mismatch during verify: expected %s, got %s\n' \
+        "$expected_dep" "${actual_dep:-<missing>}" >&2
+      exit 92
+    fi
   fi
   status="${MUSI_LAND_VERIFY_STATUS:-0}"
   if [ "$status" -eq 0 ] && [ -n "${MUSI_LAND_VERIFY_MARKER:-}" ]; then
@@ -128,12 +181,33 @@ if [ "${MUSI_LAND_GIT_MODE:-}" = "fail-after-merge" ] &&
 fi
 
 is_merge=0
+is_merge_abort=0
 for arg in "$@"; do
   if [ "$arg" = "merge" ]; then
     is_merge=1
-    break
+  elif [ "$arg" = "--abort" ]; then
+    is_merge_abort=1
   fi
 done
+
+if [ "$is_merge" -eq 1 ] && [ "$is_merge_abort" -eq 0 ] &&
+  [ "$("$MUSI_LAND_REAL_GIT" symbolic-ref --short HEAD 2>/dev/null || true)" = "main" ]; then
+  printf 'final-merge-attempt\n' >> "$state_file"
+  final_merge_attempt=$(grep -c '^final-merge-attempt$' "$state_file")
+  case "${MUSI_LAND_GIT_MODE:-}" in
+    final-merge-index-lock)
+      if [ "$final_merge_attempt" -le "${MUSI_LAND_GIT_FAIL_COUNT:-1}" ]; then
+        printf "fatal: Unable to create '%s/.git/index.lock': File exists.\n" \
+          "$("$MUSI_LAND_REAL_GIT" rev-parse --show-toplevel)" >&2
+        exit 128
+      fi
+      ;;
+    final-merge-error)
+      printf 'injected non-lock final merge failure\n' >&2
+      exit 88
+      ;;
+  esac
+fi
 
 "${MUSI_LAND_REAL_GIT:?}" "$@"
 status=$?
@@ -320,6 +394,179 @@ set -e
 [ "$(grep -c '^prisma-generate:' "$stub_log")" -eq 1 ] \
   || fail "a fresh-looking generated dir must not suppress regeneration: $(cat "$stub_log")"
 ok "a fresh-looking generated client does not gate the unconditional preflight"
+
+# Frozen install rejects a landing package.json whose lockfile still pins the
+# starting dependency. This is a verify-gate failure: main stays put, cleanup
+# restores main's dependency tree, and verify itself never runs.
+repo=$(new_repo land-dependency-install-fails)
+printf '{"dependencies":{"fixture-dependency":"main"}}\n' > "$repo/package.json"
+printf 'fixture-dependency=main\n' > "$repo/bun.lock"
+git -C "$repo" add package.json bun.lock
+git -C "$repo" commit -qm "test: install failure fixture"
+mkdir -p "$repo/node_modules"
+printf 'stale-before-cleanup\n' > "$repo/node_modules/.fixture-dependency"
+git -C "$repo" switch -qc feature
+printf '{"dependencies":{"fixture-dependency":"landing"}}\n' > "$repo/package.json"
+git -C "$repo" add package.json
+git -C "$repo" commit -qm "test: inconsistent landing lock"
+git -C "$repo" switch -q main
+main_before=$(git -C "$repo" rev-parse main)
+stub_dir="$TMP_ROOT/dependency-install-fail-bin"
+stub_log="$TMP_ROOT/dependency-install-fail.log"
+marker="$TMP_ROOT/dependency-install-fail.marker"
+write_bun_stub "$stub_dir"
+: > "$stub_log"
+set +e
+output=$(run_land_branch "$repo" "$stub_dir" "$stub_log" "$marker" feature env 2>&1)
+exit_code=$?
+set -e
+[ "$exit_code" -eq 2 ] || fail "locked dependency install failure should exit 2: $output"
+[ "$(git -C "$repo" rev-parse main)" = "$main_before" ] \
+  || fail "locked dependency install failure must not move main"
+[ "$(git -C "$repo" symbolic-ref --short HEAD)" = "main" ] \
+  || fail "locked dependency install failure should restore main"
+if git -C "$repo" rev-parse --verify --quiet refs/heads/land/feature >/dev/null; then
+  fail "locked dependency install failure should remove its integration branch"
+fi
+grep -qF 'stub install diagnostic: package.json and bun.lock disagree' <<< "$output" \
+  || fail "locked install diagnostic should be retained in the output: $output"
+grep -qF 'land: locked dependency install failed on the branch tip; main is untouched.' <<< "$output" \
+  || fail "land should classify the locked install failure clearly: $output"
+if grep -q '^verify:' "$stub_log"; then
+  fail "verify must not run after a failed locked dependency install: $(cat "$stub_log")"
+fi
+grep -qF "install:$repo:--frozen-lockfile:main" "$stub_log" \
+  || fail "install failure cleanup should run main's frozen reconcile: $(cat "$stub_log")"
+[ "$(sed -n '1p' "$repo/node_modules/.fixture-dependency")" = "main" ] \
+  || fail "install failure cleanup should reconcile main dependencies"
+[ "$(last_line "$output")" = "land: exit: 2 (verify-failed) — fix the locked dependency install failure above, then re-run land" ] \
+  || fail "locked install failure trailer mismatch: $output"
+ok "locked dependency install failure is verify-failed without moving main"
+
+# A failed branch-mode verify restores the starting checkout. Since the landing
+# install changes node_modules first, cleanup must frozen-install main's lockfile
+# after switching back so the operator is not left with landing dependencies.
+repo=$(new_repo land-dependency-restore)
+printf '{"dependencies":{"fixture-dependency":"main"}}\n' > "$repo/package.json"
+printf 'fixture-dependency=main\n' > "$repo/bun.lock"
+git -C "$repo" add package.json bun.lock
+git -C "$repo" commit -qm "test: restore dependency fixture"
+mkdir -p "$repo/node_modules"
+printf 'main\n' > "$repo/node_modules/.fixture-dependency"
+git -C "$repo" switch -qc feature
+printf '{"dependencies":{"fixture-dependency":"landing"}}\n' > "$repo/package.json"
+printf 'fixture-dependency=landing\n' > "$repo/bun.lock"
+git -C "$repo" add package.json bun.lock
+git -C "$repo" commit -qm "test: restore landing dependency"
+git -C "$repo" switch -q main
+main_before=$(git -C "$repo" rev-parse main)
+stub_dir="$TMP_ROOT/dependency-restore-bin"
+stub_log="$TMP_ROOT/dependency-restore.log"
+marker="$TMP_ROOT/dependency-restore.marker"
+write_bun_stub "$stub_dir"
+: > "$stub_log"
+set +e
+output=$(
+  run_land_branch "$repo" "$stub_dir" "$stub_log" "$marker" feature \
+    env MUSI_LAND_VERIFY_STATUS=42 2>&1
+)
+exit_code=$?
+set -e
+[ "$exit_code" -eq 2 ] || fail "dependency-restore verify failure should exit 2: $output"
+[ "$(git -C "$repo" rev-parse main)" = "$main_before" ] \
+  || fail "dependency-restore verify failure must not move main"
+[ "$(git -C "$repo" symbolic-ref --short HEAD)" = "main" ] \
+  || fail "dependency-restore verify failure should restore main"
+grep -qF "install:$repo:--frozen-lockfile:landing" "$stub_log" \
+  || fail "restore fixture should first install landing dependencies: $(cat "$stub_log")"
+[ "$(tail -n1 "$stub_log")" = "install:$repo:--frozen-lockfile:main" ] \
+  || fail "restore should finish by installing main dependencies: $(cat "$stub_log")"
+[ "$(sed -n '1p' "$repo/node_modules/.fixture-dependency")" = "main" ] \
+  || fail "restored main should retain main's dependency tree"
+ok "verify failure reconciles dependencies to the restored starting checkout"
+
+# Dependency bumps must be installed from the checked-out landing tree before
+# verify. The Bun stub models a frozen install by copying the lockfile's pinned
+# fixture version into node_modules; verify then rejects any stale version.
+repo=$(new_repo land-dependency-sync)
+printf '{"dependencies":{"fixture-dependency":"main"}}\n' > "$repo/package.json"
+printf 'fixture-dependency=main\n' > "$repo/bun.lock"
+git -C "$repo" add package.json bun.lock
+git -C "$repo" commit -qm "test: main dependency fixture"
+mkdir -p "$repo/node_modules"
+printf 'main\n' > "$repo/node_modules/.fixture-dependency"
+git -C "$repo" switch -qc feature
+printf '{"dependencies":{"fixture-dependency":"landing"}}\n' > "$repo/package.json"
+printf 'fixture-dependency=landing\n' > "$repo/bun.lock"
+git -C "$repo" add package.json bun.lock
+git -C "$repo" commit -qm "test: bump landing dependency"
+git -C "$repo" switch -q main
+stub_dir="$TMP_ROOT/dependency-sync-bin"
+stub_log="$TMP_ROOT/dependency-sync.log"
+marker="$TMP_ROOT/dependency-sync.marker"
+write_bun_stub "$stub_dir"
+: > "$stub_log"
+set +e
+output=$(
+  run_land_branch "$repo" "$stub_dir" "$stub_log" "$marker" feature \
+    env MUSI_LAND_VERIFY_DEP_SYNC=1 2>&1
+)
+exit_code=$?
+set -e
+[ "$exit_code" -eq 0 ] || fail "dependency-sync land should succeed: $output"
+grep -qF "install:$repo:--frozen-lockfile:landing" "$stub_log" \
+  || fail "landing should frozen-install its pinned dependency: $(cat "$stub_log")"
+install_line=$(grep -nF "install:$repo:--frozen-lockfile:landing" "$stub_log" | head -n1 | cut -d: -f1)
+verify_line=$(grep -n '^verify:' "$stub_log" | head -n1 | cut -d: -f1)
+[ "$install_line" -lt "$verify_line" ] \
+  || fail "landing dependency install must run before verify: $(cat "$stub_log")"
+ok "landing tree dependencies are frozen-installed before verify"
+
+# A marker written for the landing commit before its dependency graph changed
+# cannot satisfy land's verify gate. The stub mirrors verify.sh's marker
+# short-circuit, including FORCE_VERIFY, so this fixture reproduces the stale
+# evidence hole when land invokes verify without forcing it: land exits 0 while
+# the verify body (and its dependency-sync check) never runs.
+repo=$(new_repo land-marker-cannot-skip-verify)
+printf '{"dependencies":{"fixture-dependency":"main"}}\n' > "$repo/package.json"
+printf 'fixture-dependency=main\n' > "$repo/bun.lock"
+printf 'node_modules/\n' > "$repo/.gitignore"
+git -C "$repo" add .gitignore package.json bun.lock
+git -C "$repo" commit -qm "test: marker main dependency"
+mkdir -p "$repo/node_modules"
+printf 'main\n' > "$repo/node_modules/.fixture-dependency"
+git -C "$repo" switch -qc feature
+printf '{"dependencies":{"fixture-dependency":"landing"}}\n' > "$repo/package.json"
+printf 'fixture-dependency=landing\n' > "$repo/bun.lock"
+git -C "$repo" add package.json bun.lock
+git -C "$repo" commit -qm "test: marker landing dependency"
+stub_dir="$TMP_ROOT/marker-cannot-skip-bin"
+stub_log="$TMP_ROOT/marker-cannot-skip.log"
+marker="$TMP_ROOT/marker-cannot-skip.marker"
+(
+  cd "$repo"
+  # shellcheck source=/dev/null
+  . scripts/lib/verify-metadata.sh
+  musi_write_success_marker "$marker" "$(git rev-parse HEAD)" \
+    "$(ai_worktree_fingerprint "$repo")"
+)
+git -C "$repo" switch -q main
+write_bun_stub "$stub_dir"
+: > "$stub_log"
+set +e
+output=$(
+  run_land_branch "$repo" "$stub_dir" "$stub_log" "$marker" feature \
+    env MUSI_LAND_VERIFY_DEP_SYNC=1 2>&1
+)
+exit_code=$?
+set -e
+[ "$exit_code" -eq 0 ] || fail "forced land verify with a matching marker should succeed: $output"
+if grep -q '^verify-marker-skip:' "$stub_log"; then
+  fail "land must ignore pre-existing verify evidence after installing landing dependencies: $(cat "$stub_log")"
+fi
+grep -q '^verify:' "$stub_log" \
+  || fail "land must execute the real verify body after installing landing dependencies: $(cat "$stub_log")"
+ok "land ignores matching markers and verifies the freshly installed dependency graph"
 
 repo=$(new_repo land-fast-verify-fails)
 git -C "$repo" switch -qc feature
@@ -559,9 +806,15 @@ set -e
 if git -C "$repo" rev-parse --verify --quiet refs/heads/land/feature >/dev/null; then
   fail "branch three-way success should remove its integration branch"
 fi
+[ "$(grep -cF "install:$repo:--frozen-lockfile:<none>" "$stub_log")" -eq 3 ] \
+  || fail "branch three-way path should install the preview, restored integration tree, and merged main: $(cat "$stub_log")"
+grep -qF 'land: reconciling locked dependencies after checkout restoration' <<< "$output" \
+  || fail "branch three-way path should reconcile after restoring the merge preview: $output"
+grep -qF 'land: reconciling locked dependencies for merged main' <<< "$output" \
+  || fail "branch three-way path should reconcile merged main: $output"
 [ "$(last_line "$output")" = "land: exit: 0 (landed-verified) — push main with: git push origin main" ] \
   || fail "branch three-way success trailer mismatch: $output"
-ok "branch mode verifies and lands a genuine three-way merge tree"
+ok "branch mode reconciles and lands a verified three-way merge tree"
 
 repo=$(new_repo land-merge-verify-fails)
 git -C "$repo" switch -qc feature
@@ -713,6 +966,81 @@ set -e
 [ "$(git -C "$repo" symbolic-ref --short HEAD)" = "feature" ] || fail "advanced main should leave feature checked out"
 grep -qF "main advanced during verification" <<< "$output" || fail "advanced main diagnostic missing: $output"
 ok "main movement during verify refuses stale verified inputs"
+
+# The final merge is post-verify and must still fail immediately for any real
+# Git error that is not the narrow index.lock contention signature. Recording
+# the invocation count guards against retrying or masking an arbitrary failure.
+repo=$(new_repo land-final-merge-non-lock-fails)
+git -C "$repo" switch -qc feature
+printf 'feature\n' > "$repo/feature.txt"
+git -C "$repo" add feature.txt
+git -C "$repo" commit -qm "test: non-lock final merge failure"
+main_before=$(git -C "$repo" rev-parse main)
+stub_dir="$TMP_ROOT/final-merge-non-lock-bin"
+stub_log="$TMP_ROOT/final-merge-non-lock.log"
+marker="$TMP_ROOT/final-merge-non-lock.marker"
+git_state="$TMP_ROOT/final-merge-non-lock.state"
+real_git=$(command -v git)
+write_bun_stub "$stub_dir"
+write_git_stub "$stub_dir"
+: > "$stub_log"
+: > "$git_state"
+set +e
+output=$(
+  run_land "$repo" "$stub_dir" "$stub_log" "$marker" \
+    env MUSI_LAND_REAL_GIT="$real_git" MUSI_LAND_GIT_STATE="$git_state" \
+    MUSI_LAND_GIT_MODE=final-merge-error 2>&1
+)
+exit_code=$?
+set -e
+[ "$exit_code" -eq 1 ] || fail "non-lock final merge failure should retain exit 1: $output"
+[ "$(grep -c '^final-merge-attempt$' "$git_state")" -eq 1 ] \
+  || fail "non-lock final merge failure must not be retried: $(cat "$git_state")"
+grep -qF 'injected non-lock final merge failure' <<< "$output" \
+  || fail "non-lock final merge stderr must remain visible: $output"
+[ "$(git -C "$repo" rev-parse main)" = "$main_before" ] \
+  || fail "non-lock final merge failure must leave main untouched"
+[ "$(last_line "$output")" = "land: exit: 1 (not-landed) — inspect the merge failure on main, then re-run land from a clean worktree" ] \
+  || fail "non-lock final merge failure trailer mismatch: $output"
+ok "non-lock final merge failures retain exit 1 without retry"
+
+# A dev watcher can briefly own the shared index.lock after the post-verify
+# switch to main. The exact lock diagnostic is retryable; after two injected
+# failures, the identical final merge must run a third time and land normally.
+repo=$(new_repo land-final-merge-index-lock-retries)
+git -C "$repo" switch -qc feature
+printf 'feature\n' > "$repo/feature.txt"
+git -C "$repo" add feature.txt
+git -C "$repo" commit -qm "test: transient final merge lock"
+stub_dir="$TMP_ROOT/final-merge-index-lock-bin"
+stub_log="$TMP_ROOT/final-merge-index-lock.log"
+marker="$TMP_ROOT/final-merge-index-lock.marker"
+git_state="$TMP_ROOT/final-merge-index-lock.state"
+real_git=$(command -v git)
+write_bun_stub "$stub_dir"
+write_git_stub "$stub_dir"
+: > "$stub_log"
+: > "$git_state"
+set +e
+output=$(
+  run_land "$repo" "$stub_dir" "$stub_log" "$marker" \
+    env MUSI_LAND_REAL_GIT="$real_git" MUSI_LAND_GIT_STATE="$git_state" \
+    MUSI_LAND_GIT_MODE=final-merge-index-lock MUSI_LAND_GIT_FAIL_COUNT=2 2>&1
+)
+exit_code=$?
+set -e
+[ "$exit_code" -eq 0 ] || fail "transient final merge lock should be retried to success: $output"
+[ "$(grep -c '^final-merge-attempt$' "$git_state")" -eq 3 ] \
+  || fail "transient final merge lock should take three attempts: $(cat "$git_state")"
+[ "$(grep -c 'fatal: Unable to create.*index.lock.*File exists' <<< "$output")" -eq 2 ] \
+  || fail "each transient lock stderr diagnostic must remain visible: $output"
+[ "$(grep -c 'land: git index.lock contention; retrying' <<< "$output")" -eq 2 ] \
+  || fail "each transient lock failure should announce its retry: $output"
+git -C "$repo" merge-base --is-ancestor feature main \
+  || fail "transient final merge lock retry should ultimately land the feature"
+[ "$(last_line "$output")" = "land: exit: 0 (landed-verified) — push main with: git push origin main" ] \
+  || fail "transient final merge lock success trailer mismatch: $output"
+ok "transient final merge index.lock contention retries and lands"
 
 repo=$(new_repo land-tree-mismatch)
 git -C "$repo" switch -qc feature

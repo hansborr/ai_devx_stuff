@@ -601,6 +601,124 @@
         }
       }
     },
+    "ratchet/no-direct-git-exec-scripts": {
+      "ruleId": "no-restricted-syntax",
+      "mode": "no-new",
+      "metric": "message-count",
+      "files": [
+        "scripts/**/*.ts"
+      ],
+      "ignores": [
+        "**/dist/**",
+        "**/generated/**",
+        "**/node_modules/**",
+        "examples/**",
+        "scripts/codemods/fixtures/**",
+        "scripts/drift-ai/fixtures/**",
+        "scripts/fixtures/**",
+        "scripts/harness-audit/fixtures/**",
+        "scripts/lib/git.ts",
+        "scripts/logs-audit/fixtures/**"
+      ],
+      "ruleOptions": [
+        {
+          "message": "Route production Git commands through named scripts/lib/git.ts primitives; keep accepted fixture and injected-runner calls within this ratcheted floor.",
+          "selector": "CallExpression[arguments.0.type=\"Literal\"][arguments.0.value=\"git\"][callee.type=\"Identifier\"][callee.name=/^(?:execFile|execFileSync|spawn|spawnSync)$/]"
+        }
+      ],
+      "configHash": "sha256:72a8571b50e4d3f5004b2e14368f0e1e94ef51d1f45e7916bac13ccf85ae94a7",
+      "ruleSourceHash": "sha256:52e0718e4a8cf96e1bf45dce6d62e38014654e2ed2df65dd11724c357093343f",
+      "items": {
+        "scripts/backlog-lint.ts": {
+          "count": 1,
+          "messagesFingerprint": "sha256:5098811e01ce1a2317c545ac9042cd6f11da1fe7ec2aa50465d7147222790975"
+        },
+        "scripts/drift-ai/bounded-full-history.ts": {
+          "count": 1,
+          "messagesFingerprint": "sha256:5098811e01ce1a2317c545ac9042cd6f11da1fe7ec2aa50465d7147222790975"
+        },
+        "scripts/drift-ai/coldspots-blame.ts": {
+          "count": 1,
+          "messagesFingerprint": "sha256:5098811e01ce1a2317c545ac9042cd6f11da1fe7ec2aa50465d7147222790975"
+        },
+        "scripts/drift-ai/current-inventory.test.ts": {
+          "count": 1,
+          "messagesFingerprint": "sha256:5098811e01ce1a2317c545ac9042cd6f11da1fe7ec2aa50465d7147222790975"
+        },
+        "scripts/drift-ai/current-inventory.ts": {
+          "count": 1,
+          "messagesFingerprint": "sha256:5098811e01ce1a2317c545ac9042cd6f11da1fe7ec2aa50465d7147222790975"
+        },
+        "scripts/drift-ai/harness-freshness-io.ts": {
+          "count": 1,
+          "messagesFingerprint": "sha256:5098811e01ce1a2317c545ac9042cd6f11da1fe7ec2aa50465d7147222790975"
+        },
+        "scripts/drift-ai/hotspots-history.ts": {
+          "count": 1,
+          "messagesFingerprint": "sha256:5098811e01ce1a2317c545ac9042cd6f11da1fe7ec2aa50465d7147222790975"
+        },
+        "scripts/drift-ai/near-duplicates.test.ts": {
+          "count": 5,
+          "messagesFingerprint": "sha256:0514f216b46741d6b8cef19e40948a868c1d0cfbb9ba0da685aa1ce407e335fc"
+        },
+        "scripts/drift-ai/prototype-subcommands.test.ts": {
+          "count": 2,
+          "messagesFingerprint": "sha256:aaaf105ea01e877f38d4239d8c5e79b5def7be96de3e82e5b76e58e427e029c1"
+        },
+        "scripts/drift-ai/suppressions.ts": {
+          "count": 1,
+          "messagesFingerprint": "sha256:5098811e01ce1a2317c545ac9042cd6f11da1fe7ec2aa50465d7147222790975"
+        },
+        "scripts/drift-triage/drift-triage-packet-io.ts": {
+          "count": 1,
+          "messagesFingerprint": "sha256:5098811e01ce1a2317c545ac9042cd6f11da1fe7ec2aa50465d7147222790975"
+        },
+        "scripts/drift-triage/drift-triage.test.ts": {
+          "count": 2,
+          "messagesFingerprint": "sha256:aaaf105ea01e877f38d4239d8c5e79b5def7be96de3e82e5b76e58e427e029c1"
+        },
+        "scripts/lint-coverage-map-check.test.ts": {
+          "count": 1,
+          "messagesFingerprint": "sha256:5098811e01ce1a2317c545ac9042cd6f11da1fe7ec2aa50465d7147222790975"
+        },
+        "scripts/lint-ratchet/baseline.test.ts": {
+          "count": 3,
+          "messagesFingerprint": "sha256:02c6e877bbd944d5adf4592d2489f665c4ed2e4900d298c94258f135b1c4fe20"
+        },
+        "scripts/lint-ratchet/check-registry.test.ts": {
+          "count": 1,
+          "messagesFingerprint": "sha256:5098811e01ce1a2317c545ac9042cd6f11da1fe7ec2aa50465d7147222790975"
+        },
+        "scripts/lint-ratchet/output.test.ts": {
+          "count": 4,
+          "messagesFingerprint": "sha256:429b64c9542e36695492d0b53665da4378a6b273357d0aa5bfe1dac4a1dab823"
+        },
+        "scripts/logs-audit/logs-audit-latest.ts": {
+          "count": 1,
+          "messagesFingerprint": "sha256:5098811e01ce1a2317c545ac9042cd6f11da1fe7ec2aa50465d7147222790975"
+        },
+        "scripts/sensor-blob-size.test.ts": {
+          "count": 1,
+          "messagesFingerprint": "sha256:5098811e01ce1a2317c545ac9042cd6f11da1fe7ec2aa50465d7147222790975"
+        },
+        "scripts/sensor-blob-size.ts": {
+          "count": 2,
+          "messagesFingerprint": "sha256:aaaf105ea01e877f38d4239d8c5e79b5def7be96de3e82e5b76e58e427e029c1"
+        },
+        "scripts/sensor-near-duplicates-baseline-io.ts": {
+          "count": 3,
+          "messagesFingerprint": "sha256:02c6e877bbd944d5adf4592d2489f665c4ed2e4900d298c94258f135b1c4fe20"
+        },
+        "scripts/sensor-near-duplicates-core.ts": {
+          "count": 1,
+          "messagesFingerprint": "sha256:5098811e01ce1a2317c545ac9042cd6f11da1fe7ec2aa50465d7147222790975"
+        },
+        "scripts/test-support/tmp-repo.test-helper.ts": {
+          "count": 1,
+          "messagesFingerprint": "sha256:5098811e01ce1a2317c545ac9042cd6f11da1fe7ec2aa50465d7147222790975"
+        }
+      }
+    },
     "ratchet/no-real-time-in-package-tests": {
       "ruleId": "no-restricted-syntax",
       "mode": "no-new",
@@ -904,7 +1022,7 @@
         }
       ],
       "configHash": "sha256:7e49716d78b60d91af6f8732a4e5c6b210b6004a8b11b0af94229ff87956ca98",
-      "ruleSourceHash": "sha256:3bba264757292b7d612367c54c3fd74f8b67e62f8f91a75dd45466f7a352eab2",
+      "ruleSourceHash": "sha256:5aa4eb0bdc955fbd5f6a2fd8c4d59fc3d19b54c84ffcebc6610b2892384f905d",
       "items": {}
     },
     "ratchet/strict-boolean-expressions-server-services": {
@@ -936,7 +1054,7 @@
         }
       ],
       "configHash": "sha256:d1b094c213262861760acba137d6910317c33a5874105565bb6eb9aec0b9d63b",
-      "ruleSourceHash": "sha256:3bba264757292b7d612367c54c3fd74f8b67e62f8f91a75dd45466f7a352eab2",
+      "ruleSourceHash": "sha256:5aa4eb0bdc955fbd5f6a2fd8c4d59fc3d19b54c84ffcebc6610b2892384f905d",
       "items": {
         "packages/server/src/services/character-create-helpers.ts": {
           "count": 5,
@@ -1020,7 +1138,7 @@
         }
       ],
       "configHash": "sha256:0877ac9927361b41f032567212b6da280ea25d6b0edd7c0fa5ffbd5d3c365c86",
-      "ruleSourceHash": "sha256:3bba264757292b7d612367c54c3fd74f8b67e62f8f91a75dd45466f7a352eab2",
+      "ruleSourceHash": "sha256:5aa4eb0bdc955fbd5f6a2fd8c4d59fc3d19b54c84ffcebc6610b2892384f905d",
       "items": {}
     },
     "ratchet/testing-library-no-container-client-tests": {

@@ -74,7 +74,8 @@ Launch header present, completion anchors absent, wrapper pid dead. `agent-wait.
 Reviews, design consults, "what am I missing here", idea generation. The wrapper injects the read-only preamble for you (do not restate it); the outcome lands in the `agent-run: worktree: clean|DIRTY|unchecked` trailer. DIRTY exits 4: inspect `git status` and revert the drift before trusting the worktree again — the `-o` answer itself may still be usable, and a transient DIRTY from a consult's subagents that has already reverted is trustworthy.
 
 - Consults are lock-free on every backend — safe in parallel and alongside a running work dispatch. While another run holds the worktree lock, drift cannot be attributed, so the trailer reads `unchecked`.
-- codex consults are drift-checked, not sandboxed (see [references/codex.md](references/codex.md)) — verify cleanliness first. cursor's read-only ask mode denies all shell — it cannot run `git diff`, so attach diffs and command output as `-f` material.
+- codex consults are drift-checked, not sandboxed (see [references/codex.md](references/codex.md)) — verify cleanliness first.
+- **Reviewing a branch: name the branch, don't attach the diff.** Tell the consult "review branch `<feature>` vs `main`" and let it run `git diff main...<feature>` itself — it then sees the live tree (real whitespace, surrounding context, adjacent files it can open to trace a hunk). A pre-computed `-f` diff is strictly worse: it anchors the reviewer on the frozen hunk and hides the surrounding system. Reserve `-f` for material the agent genuinely cannot gather itself.
 - Ask for priority-tagged (`[P0]`/`[P1]`/`[P2]`) findings with file:line citations.
 
 ## work — delegated implementation

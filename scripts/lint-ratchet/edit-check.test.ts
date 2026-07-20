@@ -74,6 +74,11 @@ describe("discoverEditCheckTargets", () => {
       },
       {
         path: MINIMAL_TS_FILE,
+        testId: "ratchet/no-direct-git-exec-scripts",
+        ruleId: "no-restricted-syntax",
+      },
+      {
+        path: MINIMAL_TS_FILE,
         testId: "ratchet/vitest-expect-expect-script-tests",
         ruleId: "vitest/expect-expect",
       },

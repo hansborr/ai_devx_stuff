@@ -1,13 +1,8 @@
 # Archgate ADR Plan for Musi
 
-Status: Ready — pilot slice only ("Recommended First Leaf": ADR skeleton +
-`adr:check` + ADR-0001/0003 + retire `decisions-concurrency.md`); the
-ADR-0002/4/5/6 expansion stays sequenced behind the pilot. Re-verified
-2026-07-19: 0% implemented; entry-point rules all exist, with two drifts —
-the RawTxClient restricted-import message now lives in
-`eslint-config/package-boundary-configs.js` (not `eslint.config.js`), and
-`docs/agent_notes/STATUS.md`/`NEXT.md` no longer exist, so re-derive that
-framing rather than re-reading it.
+Status: Done — implemented 2026-07-20 (ADR skeleton, checked ADR-0001/0003,
+harness gate, and legacy concurrency-source retirement). ADR-0002/0004/0005/
+0006 remain explicitly unpromoted and sequenced behind the completed pilot.
 Date: 2026-05-10
 Repo inspected: `/workspace`
 
@@ -88,8 +83,8 @@ Start with six. These already exist as docs or `DECISIONS` entries, so the work
 is mostly extraction and cross-linking.
 
 1. `ADR-0001` Race-sensitive writes go through mutation helpers.
-   - Source: `docs/CONCURRENCY.md`,
-     `docs/agent_notes/decisions-concurrency.md`.
+   - Source: `docs/CONCURRENCY.md` and the concurrency-domain decision source
+     retired by this pilot.
    - Gates: `local/concurrency-guard`, `RawTxClient` restricted import,
      restricted Prisma delegate types, `codemod:concurrency-guard`.
 
@@ -145,7 +140,7 @@ Retirement requires, in order:
 
 An ADR without its source-note retired counts as half-landed. Concretely:
 
-- ADR-0001 retires `decisions-concurrency.md`.
+- ADR-0001 retires its concurrency-domain decision source.
 - ADR-0002 retires `decisions-auth.md`.
 - ADR-0004 retires `decisions-schemas.md`.
 - ADR-0005 retires `decisions-build.md`.
@@ -294,16 +289,17 @@ should cover it as well.
   - Guardrail: ADR states the invariant and links outward; guides keep recipes.
 
 - Risk: checker turns into a broad static-analysis project.
-  - Guardrail: start with explicit registry and exact id scanning.
+  - Guardrail: use typed locators resolved from real sources and exact id
+    scanning, without a separate gate registry.
 
 ## Recommended First Leaf
 
 Promote a small pilot:
 
 > Add ADR skeleton, implement `adr:check`, cross-link concurrency and
-> socket-broadcast gates with the WHY/FIX template, and retire
-> `decisions-concurrency.md` once ADR-0001 reaches parity. (ADR-0003 has no
-> `decisions-*.md` source to retire.)
+> socket-broadcast gates with the WHY/FIX template, and retire the legacy
+> concurrency source once ADR-0001 reaches parity. (ADR-0003 has no source
+> note to retire.)
 
 This gives the pattern enough surface to prove itself — message format,
 sensor, and source-retirement all exercised — while keeping the first change

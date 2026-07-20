@@ -2,6 +2,9 @@
 
 This is the real-time rulebook for Musi. If a feature needs persistence, validation, or authorization decisions, start in tRPC, not Socket.io.
 
+The post-commit registry boundary and its enforcing gates are recorded in
+`docs/adr/0003-socket-broadcasts-after-commit.md` (ADR-0003).
+
 ## Core Boundary
 
 - tRPC owns queries and mutations.

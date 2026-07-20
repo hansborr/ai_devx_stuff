@@ -9,6 +9,7 @@ const ruleTester = makeRuleTester();
 describe("concurrency-guard", () => {
   it("does not point the diagnostic at the broad concurrency guide", () => {
     expect(rule.meta.messages.noDirectWrite).not.toContain("docs/CONCURRENCY.md");
+    expect(rule.meta.messages.noDirectWrite).toContain("ADR-0001");
   });
 
   it("blocks direct writes to gated Prisma delegates outside mutation helpers", () => {

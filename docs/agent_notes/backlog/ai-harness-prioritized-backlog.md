@@ -96,6 +96,10 @@ execution where the scopes overlap; keep this file as ordering rationale.
     `NoCoverage` mutants by file, rule area, and likely covering tests. Keep
     Stryker itself manual and slow; make the output easier for agents and
     reviewers to triage.
+    Landed 2026-07-19 as `bun run mutation:survivors`
+    (`scripts/mutation-survivors.ts`): ranks by file and directory area with
+    bounded samples. The "likely covering tests" mapping was deferred — wire
+    it through `code:intel tests` if triage shows it is worth the lookup.
 
 11. Scheduled slow harness report.
     Add one report-only command, such as `bun run harness:audit`, that can be

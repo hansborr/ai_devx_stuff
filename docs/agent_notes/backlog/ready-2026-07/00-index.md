@@ -87,7 +87,7 @@ leaves).
 | C4 | EV-1 codebase-grounded golden-task eval harness (full spec in the leaf; genuinely unstarted) | harness-research-followups-2026-06 / 03 | L | Ready |
 | C5 | `lint-coverage-map-gen.ts` generator with marker-block diff (A5 generation half; precedent: `scripts/harness/generate-verify-steps.ts`) | agent-friction-2026-06 / 01 | M-L | Ready |
 | C6 | [VTT drawer schema work](./05-vtt-drawer-followups.md) — structured spell damage + monster Atk/Dmg wiring; design pass first | this pack | L | Ready |
-| C7 | [Gate-lifecycle seam](./12-verify-gate-lifecycle-seam.md) — grow `verify-engine.sh` a gate-run interface; per-divergence policy-vs-drift matrix before extraction; after B22, strictly before C8 (same files — never concurrent lanes) | this pack | M-L | Ready |
+| C7 | [Gate-lifecycle seam](./12-verify-gate-lifecycle-seam.md) — grow `verify-engine.sh` a gate-run interface; per-divergence policy-vs-drift matrix before extraction; after B22, strictly before C8 (same files — never concurrent lanes) | this pack | M-L | Done |
 | C8 | [Command-policy TS core](./13-command-policy-ts-core.md) — five-slice port of `policy.sh` + the `common.sh` lexer (lexer first, per-domain authority flips, differential-corpus parity, procedure-pinned perf gate); strictly after C7, one lane re-branched per slice | this pack | L | Ready |
 
 ## D — Needs a quick owner call before dispatch

@@ -134,6 +134,9 @@ cat > "$SANDBOX/bin/bun" <<'STUB'
 # used by the watchdog test below. STUB_PID_LOG logs PIDs for process-tree
 # survival checks.
 printf 'stub bun %s\n' "$*" >> "${STUB_LOG:-/dev/null}"
+if [ -n "${STUB_FORCE_VERIFY_LOG:-}" ]; then
+  printf '%s\n' "${FORCE_VERIFY-<unset>}" >> "$STUB_FORCE_VERIFY_LOG"
+fi
 if [ "${1:-}" = run ] && [ -n "${2:-}" ]; then
   safe_name="${2//:/_}"
   safe_name="${safe_name//-/_}"
@@ -227,6 +230,455 @@ remove_required_dist_outputs() {
 bash -n "$VERIFY" || fail "verify.sh fails bash -n"
 ok "verify.sh passes bash -n"
 
+# --- shared gate-lifecycle contract ---------------------------------------
+# Run each exit path in a fresh shell so the process-global EXIT dispatcher is
+# tested with the same one-owner lifetime it has in verify.sh and pre-commit.
+run_exit_dispatch_case() {
+  local scenario="$1" expected_status="$2" expected_event="$3"
+  local callback_file="$SANDBOX/gate-exit-${scenario}.callback"
+  local event_file="$SANDBOX/gate-exit-${scenario}.events"
+  : > "$callback_file"
+  : > "$event_file"
+
+  set +e
+  (
+    # shellcheck source=../lib/verify-engine.sh
+    . "$SCRIPT_DIR/../lib/verify-engine.sh"
+
+    MATRIX_SCENARIO="$scenario"
+    MATRIX_CALLBACK_FILE="$callback_file"
+    MATRIX_EVENT_FILE="$event_file"
+    MATRIX_MARKER="$SANDBOX/gate-exit-${scenario}.marker"
+    MATRIX_LOG_DIR="$SANDBOX/gate-exit-${scenario}.logs"
+    rm -f "$MATRIX_MARKER"
+
+    matrix_event() { printf '%s\n' "$1" >> "$MATRIX_EVENT_FILE"; }
+    matrix_exit() { printf '%s\n' "$1" >> "$MATRIX_CALLBACK_FILE"; }
+    matrix_cache_head() { printf 'cache-head\n'; }
+    matrix_cache_fingerprint() { printf 'cache-fingerprint\n'; }
+    matrix_run_head() { printf 'run-head\n'; }
+    matrix_run_fingerprint() { printf 'run-fingerprint\n'; }
+    matrix_final_fingerprint() { printf 'final-fingerprint\n'; }
+    matrix_marker_head() { printf 'marker-head\n'; }
+    matrix_marker_hit() { matrix_event marker-hit-hook; }
+    matrix_bridge() {
+      if [ "$MATRIX_SCENARIO" = bridge-hit ]; then
+        matrix_event bridge-hit-predicate
+        return 0
+      fi
+      return 1
+    }
+    matrix_prepare() {
+      # shellcheck disable=SC2034 # Read by name through policy[steps_array].
+      MATRIX_STEPS=(contract)
+    }
+    matrix_success_mode() { printf 'matrix-success\n'; }
+
+    musi_success_marker_matches() {
+      if [ "$MATRIX_SCENARIO" = native-marker ]; then
+        matrix_event native-marker-match
+        return 0
+      fi
+      return 1
+    }
+    musi_verify_start_watchdog() {
+      # shellcheck disable=SC2034 # Engine reads the watchdog PID global.
+      MUSI_VERIFY_WATCHDOG_PID=""
+      matrix_event "watchdog-budget:$2"
+      case "$MATRIX_SCENARIO" in
+        timeout) kill -TERM "$BASHPID" ;;
+        int-signal) kill -INT "$BASHPID" ;;
+      esac
+    }
+    musi_run_parallel_verify_steps() {
+      local -n matrix_names_ref="$6" matrix_pids_ref="$7" \
+        matrix_exits_ref="$8" matrix_parallel_ref="$9"
+      # shellcheck disable=SC2034 # Output array is consumed by name in the engine.
+      matrix_names_ref=(contract)
+      # shellcheck disable=SC2034 # Output array is consumed by name in the engine.
+      matrix_pids_ref=("")
+      # shellcheck disable=SC2034 # Output array is consumed by name in the engine.
+      matrix_parallel_ref=("")
+      if [ "$MATRIX_SCENARIO" = slot-failure ]; then
+        # shellcheck disable=SC2034 # Output array is consumed by name in the engine.
+        matrix_exits_ref=(1)
+      else
+        # shellcheck disable=SC2034 # Output array is consumed by name in the engine.
+        matrix_exits_ref=(0)
+      fi
+      matrix_event "runner:$MATRIX_SCENARIO"
+    }
+    musi_verify_persist_run_meta() { matrix_event "persist:$7"; }
+    musi_verify_print_failure_summary() { matrix_event failure-summary; }
+    musi_verify_finalize_success() { matrix_event "finalize-budget:$7"; }
+    musi_verify_write_signal_meta() { matrix_event "signal-meta:$1"; }
+    musi_verify_report_timeout_budget() { matrix_event timeout-report; }
+
+    if [ "$MATRIX_SCENARIO" = pre-engine ]; then
+      musi_verify_install_exit_dispatcher matrix_exit || exit 2
+      matrix_event pre-engine-failure
+      exit 9
+    fi
+
+    if [ "$MATRIX_SCENARIO" = native-marker ]; then
+      : > "$MATRIX_MARKER"
+    fi
+
+    # shellcheck disable=SC2034 # Passed by name to musi_verify_run_gate.
+    declare -A matrix_policy=(
+      [label]='verify:matrix'
+      [banner_label]='VERIFY-MATRIX'
+      [step_label]=''
+      [wrapper_command]='verify.sh --matrix'
+      [repo_root]="$PWD"
+      [lock_mode]='blocking'
+      [lock_path]="$SANDBOX/gate-exit-${scenario}.lock"
+      [lock_already_held]='1'
+      [commit_queue_mode]='none'
+      [commit_queue_lock]=''
+      [commit_queue_already_held]='0'
+      [commit_queue_timeout]='30'
+      [total_timeout]='45'
+      [warn_after]='30'
+      [marker_path]="$MATRIX_MARKER"
+      [marker_freshness]='300'
+      [cache_head_provider]='matrix_cache_head'
+      [cache_fingerprint_provider]='matrix_cache_fingerprint'
+      [run_head_provider]='matrix_run_head'
+      [run_fingerprint_provider]='matrix_run_fingerprint'
+      [final_fingerprint_provider]='matrix_final_fingerprint'
+      [marker_head_provider]='matrix_marker_head'
+      [execution_mode]='parallel'
+      [consumer]='matrix_consumer'
+      [steps_array]='MATRIX_STEPS'
+      [signal_mode]='matrix-signal'
+      [failure_mode]='matrix-failure'
+      [success_mode_provider]='matrix_success_mode'
+      [log_dir]="$MATRIX_LOG_DIR"
+      [history_dir]="$SANDBOX/gate-exit-${scenario}.history"
+      [marker_hit_hook]='matrix_marker_hit'
+      [marker_miss_hook]=''
+      [bridge_predicate]='matrix_bridge'
+      [prepare_slots_hook]='matrix_prepare'
+      [after_slots_hook]=''
+      [exit_hook]='matrix_exit'
+    )
+
+    if [ "$MATRIX_SCENARIO" = lock-wait ]; then
+      MATRIX_DATE_INDEX="$SANDBOX/gate-exit-lock-wait.date-index"
+      MATRIX_DATE_VALUES="$SANDBOX/gate-exit-lock-wait.date-values"
+      printf '1\n' > "$MATRIX_DATE_INDEX"
+      printf '100\n103\n200\n201\n202\n' > "$MATRIX_DATE_VALUES"
+      date() {
+        if [ "${1:-}" = +%s ]; then
+          local index value
+          index=$(<"$MATRIX_DATE_INDEX")
+          value=$(sed -n "${index}p" "$MATRIX_DATE_VALUES")
+          printf '%s\n' "$value"
+          printf '%s\n' "$((index + 1))" > "$MATRIX_DATE_INDEX"
+        elif [ "${1:-}" = -Iseconds ]; then
+          printf '2026-07-20T00:00:00+00:00\n'
+        else
+          command date "$@"
+        fi
+      }
+      flock() { return 0; }
+      # shellcheck disable=SC2034 # Policy is consumed by name in the engine.
+      matrix_policy[lock_already_held]='0'
+    fi
+
+    matrix_rc=0
+    musi_verify_run_gate matrix_policy >/dev/null 2>&1 || matrix_rc=$?
+    exit "$matrix_rc"
+  )
+  actual_status=$?
+  set -e
+
+  [ "$actual_status" -eq "$expected_status" ] \
+    || fail "$scenario should preserve exit $expected_status (got $actual_status)"
+  [ "$(wc -l < "$callback_file")" -eq 1 ] \
+    || fail "$scenario should dispatch the exit hook exactly once"
+  [ "$(cat "$callback_file")" = "$expected_status" ] \
+    || fail "$scenario exit hook should capture status $expected_status"
+  grep -qF "$expected_event" "$event_file" \
+    || fail "$scenario did not exercise expected behavior $expected_event"
+
+  case "$scenario" in
+    native-marker|bridge-hit)
+      if grep -q '^runner:' "$event_file"; then
+        fail "$scenario should short-circuit before slot dispatch"
+      fi
+      ;;
+    timeout)
+      grep -qF 'timeout-report' "$event_file" \
+        || fail "timeout should report the exhausted budget"
+      ;;
+    int-signal)
+      if grep -qF 'timeout-report' "$event_file"; then
+        fail "INT should not report a watchdog timeout"
+      fi
+      ;;
+  esac
+}
+
+run_exit_dispatch_case pre-engine 9 pre-engine-failure
+run_exit_dispatch_case slot-failure 1 runner:slot-failure
+run_exit_dispatch_case native-marker 0 native-marker-match
+run_exit_dispatch_case bridge-hit 0 bridge-hit-predicate
+run_exit_dispatch_case timeout 124 signal-meta:124
+run_exit_dispatch_case int-signal 130 signal-meta:130
+run_exit_dispatch_case lock-wait 0 finalize-budget:42
+grep -qF 'watchdog-budget:42' "$SANDBOX/gate-exit-lock-wait.events" \
+  || fail "lock wait should pass its reduced budget to the watchdog"
+ok "exit dispatcher preserves status and dispatches once across lifecycle paths"
+ok "INT and timeout signals dispatch once with distinct status behavior"
+ok "lock wait passes the reduced execution budget through finalization"
+
+cleanup_trace="$SANDBOX/gate-cleanup-mixed.trace"
+(
+  # shellcheck source=../lib/verify-engine.sh
+  . "$SCRIPT_DIR/../lib/verify-engine.sh"
+  musi_terminate_process_tree() { printf 'terminate:%s\n' "$1" >> "$cleanup_trace"; }
+  musi_wait_for_pid_exit_bounded() { printf 'wait:%s\n' "$1" >> "$cleanup_trace"; }
+  musi_verify_gate_trace() { printf '%s\n' "$1" >> "$cleanup_trace"; }
+  # shellcheck disable=SC2034 # Read by the sourced cleanup function.
+  MUSI_VERIFY_GATE_CLEANED=0
+  # shellcheck disable=SC2034 # Read by the sourced cleanup function.
+  MUSI_VERIFY_GATE_CURRENT_PID=""
+  # shellcheck disable=SC2034 # Read by the sourced cleanup function.
+  MUSI_VERIFY_GATE_PARALLEL_PIDS=("" 111 "" 222)
+  # shellcheck disable=SC2034 # Read by the sourced cleanup function.
+  MUSI_VERIFY_GATE_WATCHDOG_PID=""
+  musi_verify_cleanup_gate
+  musi_verify_cleanup_gate
+)
+expected_cleanup_trace='terminate:111
+terminate:222
+wait:111
+wait:222
+cleanup'
+[ "$(cat "$cleanup_trace")" = "$expected_cleanup_trace" ] \
+  || fail "mixed PID cleanup should skip empty entries and run once: $(cat "$cleanup_trace")"
+ok "shared cleanup handles mixed empty and populated PID arrays once"
+
+# Exercise the sourced engine directly so lifecycle ordering and identity
+# policy stay observable without invoking the real verify slot commands.
+(
+  # shellcheck source=../lib/verify-engine.sh
+  . "$SCRIPT_DIR/../lib/verify-engine.sh"
+  declare -F musi_verify_run_gate >/dev/null 2>&1 \
+    || fail "verify engine is missing musi_verify_run_gate"
+
+  trace="$SANDBOX/gate-contract.trace"
+  exit_trace="$SANDBOX/gate-contract.exit"
+  identity_dir="$SANDBOX/gate-contract-identity"
+  log_dir="$SANDBOX/gate-contract-logs"
+  mkdir -p "$identity_dir" "$log_dir"
+  printf 'cache-head\n' > "$identity_dir/cache-head"
+  printf 'cache-fingerprint\n' > "$identity_dir/cache-fingerprint"
+  printf 'run-head\n' > "$identity_dir/run-head"
+  printf 'run-fingerprint\n' > "$identity_dir/run-fingerprint"
+  printf 'pre-slot-fingerprint\n' > "$identity_dir/final-fingerprint"
+  printf 'pre-slot-head\n' > "$identity_dir/marker-head"
+
+  musi_verify_gate_trace() { printf '%s\n' "$1" >> "$trace"; }
+  contract_cache_head() { cat "$identity_dir/cache-head"; }
+  contract_cache_fingerprint() { cat "$identity_dir/cache-fingerprint"; }
+  contract_run_head() { cat "$identity_dir/run-head"; }
+  contract_run_fingerprint() { cat "$identity_dir/run-fingerprint"; }
+  contract_final_fingerprint() { cat "$identity_dir/final-fingerprint"; }
+  contract_marker_head() { cat "$identity_dir/marker-head"; }
+  contract_marker_hit() { printf 'marker-hit\n' >> "$trace"; }
+  contract_marker_miss() { printf 'marker-miss-hook\n' >> "$trace"; }
+  contract_bridge_miss() { printf 'bridge-predicate\n' >> "$trace"; return 1; }
+  contract_prepare() {
+    # shellcheck disable=SC2034 # Read by name through policy[steps_array].
+    CONTRACT_STEPS=(contract)
+    printf 'prepare-hook\n' >> "$trace"
+  }
+  contract_after() { printf 'after-hook\n' >> "$trace"; }
+  contract_exit() { printf '%s\n' "$1" >> "$exit_trace"; }
+  contract_success_mode() { printf 'contract-success\n'; }
+
+  musi_success_marker_matches() { return 1; }
+  musi_verify_start_watchdog() {
+    printf 'watchdog-helper\n' >> "$trace"
+    # shellcheck disable=SC2034 # Engine reads the watchdog PID global.
+    MUSI_VERIFY_WATCHDOG_PID=""
+  }
+  musi_run_parallel_verify_steps() {
+    local -n names_ref="$6" pids_ref="$7" exits_ref="$8" parallel_ref="$9"
+    # shellcheck disable=SC2034 # Output array is consumed by name in the engine.
+    names_ref=(contract)
+    # shellcheck disable=SC2034 # Output array is consumed by name in the engine.
+    pids_ref=("")
+    # shellcheck disable=SC2034 # Output array is consumed by name in the engine.
+    exits_ref=(0)
+    # shellcheck disable=SC2034 # Output array is consumed by name in the engine.
+    parallel_ref=("")
+    printf 'parallel-runner:%s:%s\n' "$1" "$4" >> "$trace"
+    # Controlled during-slot state change: success metadata must retain the
+    # run-start HEAD while final fingerprint and marker HEAD refresh.
+    printf 'final-fingerprint\n' > "$identity_dir/final-fingerprint"
+    printf 'marker-head\n' > "$identity_dir/marker-head"
+  }
+  musi_verify_persist_run_meta() {
+    printf 'persist:%s:%s:%s\n' "$2" "$9" "${10}" >> "$trace"
+  }
+  musi_verify_finalize_success() {
+    printf 'finalize:%s:%s:%s\n' "$1" "$3" "$4" >> "$trace"
+  }
+
+  # shellcheck disable=SC2034 # Passed by name to musi_verify_run_gate.
+  declare -A contract_policy=(
+    [label]='verify:contract'
+    [banner_label]='VERIFY-CONTRACT'
+    [step_label]=''
+    [wrapper_command]='verify.sh --contract'
+    [repo_root]="$PWD"
+    [lock_mode]='blocking'
+    [lock_path]="$SANDBOX/gate-contract.lock"
+    [lock_already_held]='1'
+    [commit_queue_mode]='none'
+    [commit_queue_lock]=''
+    [commit_queue_already_held]='0'
+    [commit_queue_timeout]='30'
+    [total_timeout]='45'
+    [warn_after]='30'
+    [marker_path]="$SANDBOX/gate-contract.marker"
+    [marker_freshness]='300'
+    [cache_head_provider]='contract_cache_head'
+    [cache_fingerprint_provider]='contract_cache_fingerprint'
+    [run_head_provider]='contract_run_head'
+    [run_fingerprint_provider]='contract_run_fingerprint'
+    [final_fingerprint_provider]='contract_final_fingerprint'
+    [marker_head_provider]='contract_marker_head'
+    [execution_mode]='parallel'
+    [consumer]='contract_consumer'
+    [steps_array]='CONTRACT_STEPS'
+    [signal_mode]='contract-signal'
+    [failure_mode]='contract-failure'
+    [success_mode_provider]='contract_success_mode'
+    [log_dir]="$log_dir"
+    [history_dir]="$SANDBOX/gate-contract-history"
+    [marker_hit_hook]='contract_marker_hit'
+    [marker_miss_hook]='contract_marker_miss'
+    [bridge_predicate]='contract_bridge_miss'
+    [prepare_slots_hook]='contract_prepare'
+    [after_slots_hook]='contract_after'
+    [exit_hook]='contract_exit'
+  )
+
+  git_dir=$(git rev-parse --absolute-git-dir)
+  for unsafe_log_dir in '' / "$PWD" "$git_dir"; do
+    contract_policy[log_dir]="$unsafe_log_dir"
+    set +e
+    musi_verify_run_gate contract_policy >/dev/null 2>&1
+    unsafe_rc=$?
+    set -e
+    [ "$unsafe_rc" -eq 2 ] \
+      || fail "unsafe log target should exit 2: ${unsafe_log_dir:-<empty>}"
+  done
+  set +e
+  musi_verify_validate_log_target "$PWD" "$git_dir/objects" >/dev/null 2>&1
+  nested_git_rc=$?
+  set -e
+  [ "$nested_git_rc" -eq 2 ] \
+    || fail "log target nested beneath .git should exit 2"
+
+  linked_worktree="$SANDBOX/gate-contract-linked-worktree"
+  git worktree add -q --detach "$linked_worktree" HEAD \
+    || fail "failed to create linked worktree for common-dir guard test"
+  linked_common_dir=$(git -C "$linked_worktree" rev-parse --path-format=absolute --git-common-dir)
+  linked_git_pointer="$linked_worktree/.git"
+  [ -f "$linked_git_pointer" ] \
+    || fail "linked worktree fixture should expose .git as a pointer file"
+  set +e
+  musi_verify_validate_log_target "$linked_worktree" "$linked_common_dir/refs" >/dev/null 2>&1
+  nested_common_rc=$?
+  musi_verify_validate_log_target "$linked_worktree" "$linked_git_pointer" >/dev/null 2>&1
+  linked_pointer_rc=$?
+  set -e
+  [ "$nested_common_rc" -eq 2 ] \
+    || fail "log target nested beneath the Git common dir should exit 2"
+
+  relative_log_abs=$(
+    cd "$SANDBOX"
+    musi_verify_gate_path_absolute "$linked_worktree" relative-verify-logs
+  )
+  [ "$relative_log_abs" = "$linked_worktree/relative-verify-logs" ] \
+    || fail "relative MUSI_VERIFY_LOG_DIR should resolve against repo_root: $relative_log_abs"
+  [ "$linked_pointer_rc" -eq 2 ] \
+    || fail "log target equal to a linked worktree .git pointer should exit 2"
+  # shellcheck disable=SC2034 # Restored for the by-name engine call below.
+  contract_policy[log_dir]="$log_dir"
+
+  musi_verify_run_gate contract_policy \
+    || fail "synthetic gate lifecycle should succeed"
+  [ "${#MUSI_VERIFY_GATE_PARALLEL_PIDS[@]}" -eq 0 ] \
+    || fail "successful parallel aggregation should clear reaped PID state"
+) || exit 1
+
+[ "$(wc -l < "$SANDBOX/gate-contract.exit")" -eq 1 ] \
+  || fail "gate exit hook should run exactly once"
+[ "$(cat "$SANDBOX/gate-contract.exit")" = 0 ] \
+  || fail "gate exit hook should preserve successful status"
+grep -qF 'persist:contract-success:run-head:final-fingerprint' \
+  "$SANDBOX/gate-contract.trace" \
+  || fail "success metadata should combine run HEAD with final fingerprint"
+grep -qF 'finalize:verify:contract:marker-head:final-fingerprint' \
+  "$SANDBOX/gate-contract.trace" \
+  || fail "success marker should combine refreshed marker HEAD with final fingerprint"
+grep -qF 'parallel-runner:contract_consumer:' "$SANDBOX/gate-contract.trace" \
+  || fail "parallel step label should preserve the quiet empty value"
+expected_contract_order='validated
+lock
+marker-miss
+marker-miss-hook
+bridge-predicate
+bridge-miss
+log-setup
+prepare-hook
+prepared
+timestamp
+traps
+watchdog-helper
+watchdog
+parallel-runner:contract_consumer:
+slots
+after-hook
+after-slots
+aggregation
+persist:contract-success:run-head:final-fingerprint
+metadata
+finalize:verify:contract:marker-head:final-fingerprint
+finalize
+cleanup
+exit'
+[ "$(cat "$SANDBOX/gate-contract.trace")" = "$expected_contract_order" ] \
+  || fail "gate lifecycle order drifted: $(cat "$SANDBOX/gate-contract.trace")"
+ok "shared gate lifecycle orders callbacks and keeps success identities independent"
+ok "shared gate lifecycle rejects empty root repository and Git log targets"
+
+# Invalid policy must fail before lock acquisition or destructive log setup.
+invalid_log_dir="$SANDBOX/gate-contract-invalid-logs"
+mkdir -p "$invalid_log_dir"
+printf 'keep\n' > "$invalid_log_dir/run-meta.json"
+(
+  # shellcheck source=../lib/verify-engine.sh
+  . "$SCRIPT_DIR/../lib/verify-engine.sh"
+  # shellcheck disable=SC2034 # Passed by name to musi_verify_run_gate.
+  declare -A invalid_policy=([unknown_field]='value' [log_dir]="$invalid_log_dir")
+  set +e
+  musi_verify_run_gate invalid_policy >/dev/null 2>&1
+  invalid_rc=$?
+  set -e
+  [ "$invalid_rc" -eq 2 ] || fail "invalid gate policy should exit 2, got $invalid_rc"
+) || exit 1
+[ "$(cat "$invalid_log_dir/run-meta.json")" = keep ] \
+  || fail "invalid gate policy wiped logs before validation"
+ok "shared gate lifecycle validates policy before locks and log deletion"
+
 (
   unset NODE_OPTIONS MUSI_GATE_NODE_OLD_SPACE_MB
   # shellcheck source=../lib/gate-env.sh
@@ -270,6 +722,8 @@ ok "gate-env applies managed NODE_OPTIONS defaults"
     || fail "scripts expected peak must stay seeded from note 73"
   [ "$(musi_verify_slot_expected_peak_mb ratchet)" -eq 2210 ] \
     || fail "ratchet expected peak must stay seeded from note 73"
+  [ "$(musi_verify_slot_expected_peak_mb adr)" -eq 256 ] \
+    || fail "adr should use the documented accounting floor"
   [ "$(musi_verify_slot_expected_peak_mb unmeasured-slot)" -eq 256 ] \
     || fail "unmeasured slots should use the documented accounting floor"
 
@@ -912,6 +1366,10 @@ grep -qF 'bun run lint:ratchet:zero-baseline' "$STUB_LOG_FILE" \
   || fail "verify --changed should invoke bun run lint:ratchet:zero-baseline"
 ok "verify --changed runs zero-baseline lifecycle check"
 
+grep -qF 'bun run adr:check' "$STUB_LOG_FILE" \
+  || fail "verify --changed should invoke bun run adr:check"
+ok "verify --changed runs ADR cross-link validation"
+
 grep -qF 'bun run docs:lint-coverage-map:check -- --staged' "$STUB_LOG_FILE" \
   || fail "verify --changed should invoke staged lint coverage map check"
 ok "verify --changed runs staged lint coverage map check"
@@ -979,10 +1437,17 @@ ok "verify --changed short-circuits on cached marker"
 
 # --- FORCE_VERIFY=1 bypasses the cache ------------------------------------
 LINES_BEFORE_FORCE=$(wc -l < "$STUB_LOG_FILE")
-FORCE_VERIFY=1 run_verify --changed >/dev/null || fail "FORCE_VERIFY run failed"
+FORCE_VERIFY_ENV_LOG="$SANDBOX/force-verify-env.log"
+: > "$FORCE_VERIFY_ENV_LOG"
+FORCE_VERIFY=1 STUB_FORCE_VERIFY_LOG="$FORCE_VERIFY_ENV_LOG" \
+  run_verify --changed >/dev/null || fail "FORCE_VERIFY run failed"
 LINES_AFTER_FORCE=$(wc -l < "$STUB_LOG_FILE")
 [ "$LINES_AFTER_FORCE" -gt "$LINES_BEFORE_FORCE" ] || fail "FORCE_VERIFY=1 did not bypass cache"
 ok "FORCE_VERIFY=1 bypasses cache"
+[ -s "$FORCE_VERIFY_ENV_LOG" ] || fail "forced verify did not launch any slot stubs"
+[ "$(sort -u "$FORCE_VERIFY_ENV_LOG")" = "<unset>" ] \
+  || fail "FORCE_VERIFY leaked into slot environment: $(sort -u "$FORCE_VERIFY_ENV_LOG")"
+ok "FORCE_VERIFY is cleared before slots launch"
 
 # --- corrupt marker fails closed and reruns checks ------------------------
 : > "$STUB_LOG_FILE"
@@ -1006,7 +1471,7 @@ exit_code=$?
 set -e
 [ "$exit_code" -ne 0 ] || fail "verify --changed did not propagate failure"
 grep -qF 'Failed: typecheck' <<< "$output" || fail "summary missed Failed: typecheck"
-grep -qF 'Passed: lint suppressions ratchet zero-baseline debt-accounting knip-unused-exports near-duplicates max-lines-exceptions coverage-map format-check test scripts' <<< "$output" \
+grep -qF 'Passed: lint suppressions ratchet zero-baseline debt-accounting adr knip-unused-exports near-duplicates max-lines-exceptions coverage-map format-check test scripts' <<< "$output" \
   || fail "summary missed other passed parallel tasks"
 grep -qF 'verify:changed FAILED' <<< "$output" || fail "summary missed banner"
 [ -f "$MARKER_CHANGED" ] && fail "marker should not be written on failure"
@@ -1054,6 +1519,21 @@ grep -q 'bun run docs:lint-coverage-map:check' "$STUB_LOG_FILE" \
 grep -q 'bun run test:changed' "$STUB_LOG_FILE" \
   || fail "parallel changed verify should still start test after ratchet failure"
 ok "verify --changed reports ratchet failure"
+
+# --- ADR failure is reported in the parallel summary ----------------------
+rm -f "$MARKER_CHANGED"
+: > "$STUB_LOG_FILE"
+set +e
+output=$(STUB_FAIL_adr_check=1 run_verify --changed 2>&1)
+exit_code=$?
+set -e
+[ "$exit_code" -ne 0 ] || fail "verify --changed did not propagate ADR failure"
+grep -qF 'Failed: adr' <<< "$output" || fail "summary missed Failed: adr"
+grep -qF 'Passed: lint suppressions ratchet zero-baseline debt-accounting' <<< "$output" \
+  || fail "ADR failure summary missed preceding passed tasks"
+grep -q 'bun run typecheck' "$STUB_LOG_FILE" \
+  || fail "parallel changed verify should still start typecheck after ADR failure"
+ok "verify --changed reports ADR failure"
 
 # --- coverage-map failure is reported in the parallel summary -------------
 rm -f "$MARKER_CHANGED"
@@ -1355,6 +1835,10 @@ grep -qF 'bun run docs:local-eslint-rule-starter:check' "$STUB_LOG_FILE" \
   || fail "verify (full) should invoke the standalone local-rule starter check"
 ok "verify (full) runs standalone local-rule starter check"
 
+grep -qF 'bun run adr:check' "$STUB_LOG_FILE" \
+  || fail "verify (full) should invoke ADR cross-link validation"
+ok "verify (full) runs ADR cross-link validation"
+
 grep -qF 'bun run docs:lint-coverage-map:audit' "$STUB_LOG_FILE" \
   || fail "verify (full) should invoke bun run docs:lint-coverage-map:audit (ESLint-reach enforced)"
 if grep -qF 'bun run docs:lint-coverage-map:check -- --staged' "$STUB_LOG_FILE"; then
@@ -1386,6 +1870,10 @@ run_verify --parallel >/dev/null || fail "verify --parallel unexpectedly failed"
 [ -f "$MARKER_FULL" ] || fail "verify --parallel did not write full marker"
 [ -f "$MARKER_CHANGED" ] && fail "verify --parallel wrote the changed marker"
 ok "verify --parallel writes full marker"
+
+grep -qF 'bun run adr:check' "$STUB_LOG_FILE" \
+  || fail "verify --parallel should invoke ADR cross-link validation"
+ok "verify --parallel runs ADR cross-link validation"
 
 grep -qE 'bun run test --reporter=dot --reporter=json --outputFile\.json='"$LOG_DIR"'/test-timings\.json' "$STUB_LOG_FILE" \
   || fail "verify --parallel should request full Vitest test"
@@ -1451,7 +1939,7 @@ exit_code=$?
 set -e
 [ "$exit_code" -ne 0 ] || fail "verify --parallel did not propagate failure"
 grep -qF 'Failed: typecheck' <<< "$output" || fail "parallel summary missed Failed: typecheck"
-grep -qF 'Passed: lint suppressions ratchet zero-baseline debt-accounting local-rule-starter knip-unused-exports near-duplicates max-lines-exceptions coverage-map format-check test scripts' <<< "$output" \
+grep -qF 'Passed: lint suppressions ratchet zero-baseline debt-accounting local-rule-starter adr knip-unused-exports near-duplicates max-lines-exceptions coverage-map format-check test scripts' <<< "$output" \
   || fail "parallel summary missed other passed tasks"
 grep -q 'bun run test ' "$STUB_LOG_FILE" \
   || fail "parallel verify should still run test after typecheck failure"

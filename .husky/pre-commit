@@ -182,7 +182,7 @@ musi_precommit_fast_provenance_on_exit() {
   fi
 }
 
-trap 'musi_precommit_fast_provenance_on_exit "$?"' EXIT
+musi_verify_install_exit_dispatcher musi_precommit_fast_provenance_on_exit || exit 2
 
 warn_if_staged_lockfile_needs_install() {
   if ! git diff --cached --name-only --diff-filter=ACMR \
@@ -291,32 +291,6 @@ if [ "$staged_source_rc" -ne 0 ]; then
   exit "$staged_source_rc"
 fi
 
-# --- 2. Non-blocking worktree lock -----------------------------------------
-LOCK="${MUSI_VERIFY_LOCK:-$(musi_standard_verify_lock "$REPO_ROOT")}"
-mkdir -p "$(dirname "$LOCK")"
-exec 9<>"$LOCK"
-if ! flock -n 9; then
-  HOLDER=$(cat "$LOCK" 2>/dev/null || true)
-  cat >&2 <<EOF
-=== PRE-COMMIT ALREADY RUNNING ===
-${HOLDER:-<holder info unavailable>}
-
-Another pre-commit is in progress. Do NOT re-run git commit — it will
-fail here again and waste tokens on repeated polling.
-
-Wait for the in-progress run to finish before retrying git commit. If the
-original run failed, its summary is already in the earlier tool output.
-EOF
-  exit 2
-fi
-
-# Record holder info (readable by any contender via plain cat).
-{ printf 'PID=%s STARTED=%s\n' "$$" "$(date -Iseconds)"; } > "$LOCK"
-
-# Default to a 20-minute hard budget. Callers should tune the hard and soft
-# budgets with `MUSI_INTERACTIVE_TIMEOUT` / `MUSI_INTERACTIVE_WARN_AFTER`.
-TOTAL_TIMEOUT="${MUSI_INTERACTIVE_TIMEOUT:-$MUSI_GATE_INTERACTIVE_TIMEOUT_DEFAULT}"
-WARN_AFTER="${MUSI_INTERACTIVE_WARN_AFTER:-1080}"
 # The cross-worktree commit queue remains held while slots run. Memory
 # deferral therefore has its own short, hard deadline: fail with a retryable
 # diagnostic instead of blocking every sibling worktree behind this commit.
@@ -328,195 +302,124 @@ case "$MUSI_VERIFY_MEMORY_WAIT_TIMEOUT" in
       || MUSI_VERIFY_MEMORY_WAIT_TIMEOUT=30
     ;;
 esac
+export MUSI_VERIFY_MEMORY_WAIT_TIMEOUT
 
-# --- 3. Cross-worktree commit queue ----------------------------------------
-# Same-worktree contention fails fast above. Sibling worktrees sharing a Git
-# common dir queue here so pre-commit checks serialize across Claude, Codex,
-# and humans.
+LOCK="${MUSI_VERIFY_LOCK:-$(musi_standard_verify_lock "$REPO_ROOT")}"
 COMMIT_QUEUE_LOCK="${MUSI_COMMIT_QUEUE_LOCK:-$(musi_standard_commit_queue_lock "$REPO_ROOT")}"
-QUEUE_WAITED=0
-if [ "${MUSI_COMMIT_QUEUE_LOCK_ALREADY_HELD:-}" != "1" ]; then
-  COMMIT_QUEUE_WAIT="${MUSI_COMMIT_QUEUE_TIMEOUT:-$TOTAL_TIMEOUT}"
-  if [ "$COMMIT_QUEUE_WAIT" -gt "$TOTAL_TIMEOUT" ]; then
-    COMMIT_QUEUE_WAIT="$TOTAL_TIMEOUT"
-  fi
-  mkdir -p "$(dirname "$COMMIT_QUEUE_LOCK")"
-  exec 8<>"$COMMIT_QUEUE_LOCK"
-  QUEUE_START=$(date +%s)
-  if ! flock -w "$COMMIT_QUEUE_WAIT" 8; then
-    QUEUE_HOLDER=$(cat "$COMMIT_QUEUE_LOCK" 2>/dev/null || true)
-    cat >&2 <<EOF
-=== COMMIT QUEUE BUSY ===
-Waited ${COMMIT_QUEUE_WAIT}s for the shared commit queue lock:
-$COMMIT_QUEUE_LOCK
-
-${QUEUE_HOLDER:-<holder info unavailable>}
-
-Another worktree is already running pre-commit for this repository. Wait for
-that commit to finish, inspect the holder if it appears stuck, then retry.
-EOF
-    exit 2
-  fi
-  QUEUE_WAITED=$(( $(date +%s) - QUEUE_START ))
-  [ "$QUEUE_WAITED" -gt 5 ] && printf 'pre-commit: waited %ss for shared commit queue %s\n' "$QUEUE_WAITED" "$COMMIT_QUEUE_LOCK" >&2
-  {
-    printf 'PID=%s WORKTREE=%s STARTED=%s\n' "$$" "$REPO_ROOT" "$(date -Iseconds)"
-  } > "$COMMIT_QUEUE_LOCK"
-fi
-
-TIMEOUT=$(( TOTAL_TIMEOUT - QUEUE_WAITED ))
-if [ "$TIMEOUT" -le 0 ]; then
-  printf '=== PRE-COMMIT TIMED OUT (%ss budget spent waiting for commit queue) ===\n' "$TOTAL_TIMEOUT" >&2
-  printf 'Timed out before checks could start.\n' >&2
-  printf 'inspect: bun run verify:logs budget\n' >&2
-  exit 124
-fi
-
-# --- 4. Last-verified short-circuit ----------------------------------------
+TOTAL_TIMEOUT="${MUSI_INTERACTIVE_TIMEOUT:-$MUSI_GATE_INTERACTIVE_TIMEOUT_DEFAULT}"
+COMMIT_QUEUE_TIMEOUT="${MUSI_COMMIT_QUEUE_TIMEOUT:-$TOTAL_TIMEOUT}"
+WARN_AFTER="${MUSI_INTERACTIVE_WARN_AFTER:-1080}"
 MARKER="${MUSI_PRECOMMIT_MARKER:-$(musi_standard_precommit_marker "$REPO_ROOT")}"
-# Resolved up here (also used by the step run below) so the short-circuit and
-# bridge paths can record their audit entry before they exit 0.
 HISTORY_DIR="${MUSI_VERIFY_HISTORY_DIR:-$(musi_standard_verify_history_dir "$REPO_ROOT")}"
-if [ -f "$MARKER" ] && [ "${FORCE_VERIFY:-}" != "1" ]; then
-  CUR_HEAD=$(git rev-parse HEAD 2>/dev/null || echo none)
-  CUR_HASH=$(musi_require_fingerprint \
-    "pre-commit cache" ai_precommit_fingerprint "$REPO_ROOT") || exit 2
-  if musi_success_marker_matches "$MARKER" "$CUR_HEAD" "$CUR_HASH" "$MUSI_GATE_MARKER_FRESHNESS_SECONDS"; then
-    echo "pre-commit: already verified ${MUSI_MARKER_MATCH_AGE}s ago at $CUR_HEAD — skipping (set FORCE_VERIFY=1 to re-run)."
-    # Audit-only: record that a fresh marker (not a step run) admitted this
-    # commit. Best-effort; never writes the live meta/wrapper.json.
-    musi_record_precommit_shortcircuit "$HISTORY_DIR" precommit-marker \
-      "$CUR_HEAD" "$CUR_HASH" precommit-marker
-    exit 0
-  fi
-fi
-
-# Manual verify is a superset of the changed checks here, so a fresh verify or
-# verify:changed success marker may bridge this pre-commit. The slot sets are not
-# hand-maintained: generate-verify-steps.ts enforces the bridge invariant at
-# generation time (assertMarkerBridgeSupersets) — every pre-commit slot must be
-# present in both verify consumers, and every shared slot must render identical
-# command tokens except for the blessed changed-vs-full divergences in that
-# generator's MARKER_BRIDGE_DIVERGENCE_ALLOWLIST. That assertion, not this
-# comment, is the source of truth for what the marker bridge is allowed to skip.
-if musi_try_verify_marker_bridge "$REPO_ROOT" "$MARKER" "$MUSI_GATE_MARKER_FRESHNESS_SECONDS"; then
-  # Bridge markers come from manual verify / verify:changed, which never
-  # fast-skip slots, so a bridged commit provably carries no skipped-slot
-  # debt and must not be recorded in the fast-commit provenance log.
-  FAST_COMMIT_RECORD_PENDING=0
-  # Audit-only: record which verify marker bridged this commit, using the
-  # provenance globals the bridge published. Best-effort; never writes the live
-  # meta/wrapper.json (the pre-push evidence fallback stays intact).
-  musi_record_precommit_shortcircuit "$HISTORY_DIR" precommit-bridged \
-    "${MUSI_VERIFY_BRIDGE_HEAD:-}" "${MUSI_VERIFY_BRIDGE_FINGERPRINT:-}" \
-    "${MUSI_VERIFY_BRIDGE_KIND:-verify-bridge}"
-  exit 0
-fi
-
-# --- 5. Watchdog ------------------------------------------------------------
-# The shared engine closes FDs 9 (worktree lock) and 8 (commit-queue lock) in
-# its sleep child so a killed watchdog cannot orphan either flock and block the
-# next commit until TIMEOUT elapses.
-HOOK_PID=$$
-musi_verify_start_watchdog "PRE-COMMIT" "$TIMEOUT" "$HOOK_PID"
-WD="$MUSI_VERIFY_WATCHDOG_PID"
-
-# --- 6. Parallel tasks -----------------------------------------------------
-# HISTORY_DIR is resolved above (§4) so the short-circuit paths can use it.
 LOG_DIR="${MUSI_VERIFY_LOG_DIR:-$(musi_standard_verify_log_dir "$REPO_ROOT")}"
-rm -rf "$LOG_DIR"
-mkdir -p "$LOG_DIR" "$LOG_DIR/meta"
 # shellcheck disable=SC2034 # Consumed by scripts/verify/steps.generated.sh.
 TIMINGS_FILE="$LOG_DIR/test-timings.json"
+# shellcheck disable=SC2034 # Consumed by scripts/lib/parallel-step.sh.
 META_DIR="$LOG_DIR/meta"
-# shellcheck source=/dev/null
-. "$REPO_ROOT/scripts/verify/steps.generated.sh"
-# shellcheck source=/dev/null
-. "$REPO_ROOT/scripts/verify/steps-lib.sh"
 
-# Wrapper-meta breadcrumbs read by ai_stop_verify_status to decide whether the
-# cached run-meta still describes the source/config state pre-commit checked.
-META_HEAD=$(git rev-parse HEAD 2>/dev/null || echo none)
-META_FP=$(musi_require_fingerprint \
-  "pre-commit metadata" ai_precommit_fingerprint "$REPO_ROOT") || exit 2
-
-START_TS=$(date +%s)
-START_TIME=$(date -Iseconds)
-
-PARALLEL_PIDS=()
-STEP_NAMES=()
-# shellcheck disable=SC2034 # Passed by name to musi_run_parallel_verify_steps.
-STEP_PIDS=()
-STEP_EXITS=()
-
-# Propagate INT/TERM to children. Split traps to emit conventional exit codes:
-#   INT  (Ctrl-C) → 130
-#   TERM (watchdog timeout or external kill) → 124 (GNU `timeout` convention)
-cleanup_parallel_children() {
-  local pid
-  for pid in "${PARALLEL_PIDS[@]}"; do
-    [ -n "$pid" ] && musi_terminate_process_tree "$pid"
-  done
-  for pid in "${PARALLEL_PIDS[@]}"; do
-    [ -n "$pid" ] && musi_wait_for_pid_exit_bounded "$pid" || true
-  done
-  kill "$WD" 2>/dev/null || true
+musi_precommit_head() {
+  git rev-parse HEAD 2>/dev/null || echo none
 }
-write_signal_wrapper_meta() {
-  musi_verify_write_signal_meta "$1" "$META_DIR" parallel-precommit \
-    "$START_TS" "$START_TIME" "$0" "$META_HEAD" "$META_FP" "$LOG_DIR" "$HISTORY_DIR"
+
+musi_precommit_cache_fingerprint() {
+  musi_require_fingerprint "pre-commit cache" ai_precommit_fingerprint "$REPO_ROOT"
 }
-trap 'cleanup_parallel_children; write_signal_wrapper_meta 130; exit 130' INT
-trap 'cleanup_parallel_children; write_signal_wrapper_meta 124; musi_verify_report_timeout_budget "$LOG_DIR"; exit 124' TERM
-trap 'exit_code=$?; musi_precommit_fast_provenance_on_exit "$exit_code"; kill $WD 2>/dev/null' EXIT
 
-musi_run_parallel_verify_steps pre_commit MUSI_PRE_COMMIT_STEPS parallel-precommit "" \
-  "$REPO_ROOT" STEP_NAMES STEP_PIDS STEP_EXITS PARALLEL_PIDS
+musi_precommit_run_fingerprint() {
+  musi_require_fingerprint "pre-commit metadata" ai_precommit_fingerprint "$REPO_ROOT"
+}
 
-# Replace the marker-presence guess with the actual outcome: record pending
-# provenance only when a slot was really fast-skipped (set inside
-# musi_resolve_slot_cmd, which ran in this shell via the runner above).
-FAST_COMMIT_RECORD_PENDING="${MUSI_FAST_COMMIT_SKIPPED:-0}"
+musi_precommit_final_fingerprint() {
+  musi_require_fingerprint "pre-commit finalize" ai_precommit_fingerprint "$REPO_ROOT"
+}
 
-# Label a passing run that fast-skipped slots distinctly so bridged/fast
-# landings are greppable in run-meta history. Applied only to the success
-# persist below: the failure persist keeps the exact parallel-precommit mode so
-# stop-policy's failing-run notification still matches, and this is not a verify
-# mode so pre-push evidence / musi_restamp_verify_wrapper are unaffected.
-PRECOMMIT_SUCCESS_MODE=parallel-precommit
-[ "${MUSI_FAST_COMMIT_SKIPPED:-0}" = "1" ] && PRECOMMIT_SUCCESS_MODE=parallel-precommit-fast
+musi_precommit_marker_hit() {
+  echo "pre-commit: already verified ${MUSI_MARKER_MATCH_AGE}s ago at $MUSI_VERIFY_GATE_CACHE_HEAD — skipping (set FORCE_VERIFY=1 to re-run)."
+  musi_record_precommit_shortcircuit "$HISTORY_DIR" precommit-marker \
+    "$MUSI_VERIFY_GATE_CACHE_HEAD" "$MUSI_VERIFY_GATE_CACHE_FINGERPRINT" \
+    precommit-marker
+}
 
-# --- 7. Aggregate results --------------------------------------------------
-passed=""; failed=""
-for index in "${!STEP_NAMES[@]}"; do
-  task="${STEP_NAMES[$index]}"
-  exit_code="${STEP_EXITS[$index]}"
-  [ -n "$exit_code" ] || exit_code=1
-  [ "$exit_code" -eq 0 ] && passed="$passed $task" || failed="$failed $task"
-done
+# Predicate outcomes are part of the engine contract: 0=hit, 1=ordinary miss,
+# 2=operational failure. A failed fingerprint or marker write may not be hidden
+# as a cache miss that silently proceeds to expensive slots.
+musi_precommit_verify_bridge() {
+  local bridge_rc=0
+  musi_try_verify_marker_bridge "$REPO_ROOT" "$MARKER" \
+    "$MUSI_GATE_MARKER_FRESHNESS_SECONDS" || bridge_rc=$?
+  case "$bridge_rc" in
+    0)
+      FAST_COMMIT_RECORD_PENDING=0
+      musi_record_precommit_shortcircuit "$HISTORY_DIR" precommit-bridged \
+        "${MUSI_VERIFY_BRIDGE_HEAD:-}" "${MUSI_VERIFY_BRIDGE_FINGERPRINT:-}" \
+        "${MUSI_VERIFY_BRIDGE_KIND:-verify-bridge}"
+      return 0
+      ;;
+    1) return 1 ;;
+    *) return 2 ;;
+  esac
+}
 
-ELAPSED=$(( $(date +%s) - START_TS ))
-END_TS=$(date +%s)
-END_TIME=$(date -Iseconds)
+musi_precommit_prepare_slots() {
+  # shellcheck source=/dev/null
+  . "$REPO_ROOT/scripts/verify/steps.generated.sh"
+  # shellcheck source=/dev/null
+  . "$REPO_ROOT/scripts/verify/steps-lib.sh"
+}
 
-if [ -n "$failed" ]; then
-  musi_verify_persist_run_meta "$META_DIR" parallel-precommit \
-    "$START_TS" "$START_TIME" "$END_TS" "$END_TIME" 1 "$0" \
-    "$META_HEAD" "$META_FP" "$LOG_DIR" "$HISTORY_DIR"
-  # Structured lines — git-commit-quiet.sh parses these.
-  musi_verify_print_failure_summary "PRE-COMMIT" "$ELAPSED" "$LOG_DIR" "$passed" "$failed"
-  exit 1
-fi
+musi_precommit_after_slots() {
+  FAST_COMMIT_RECORD_PENDING="${MUSI_FAST_COMMIT_SKIPPED:-0}"
+}
 
-FINAL_FP=$(musi_require_fingerprint \
-  "pre-commit finalize" ai_precommit_fingerprint "$REPO_ROOT") || exit 2
+musi_precommit_success_mode() {
+  if [ "${MUSI_FAST_COMMIT_SKIPPED:-0}" = 1 ]; then
+    printf 'parallel-precommit-fast\n'
+  else
+    printf 'parallel-precommit\n'
+  fi
+}
 
-musi_verify_persist_run_meta "$META_DIR" "$PRECOMMIT_SUCCESS_MODE" \
-  "$START_TS" "$START_TIME" "$END_TS" "$END_TIME" 0 "$0" \
-  "$META_HEAD" "$FINAL_FP" "$LOG_DIR" "$HISTORY_DIR"
+# The generated arrays remain the authority. The hook visibly owns policy
+# (including the protected-branch guard and 30-second memory-deferral cap),
+# while verify-engine owns gate mechanics for C8's command-policy follow-up.
+# shellcheck disable=SC2034 # Passed by name to musi_verify_run_gate.
+declare -A PRECOMMIT_GATE_POLICY=(
+  [label]='pre-commit'
+  [banner_label]='PRE-COMMIT'
+  [step_label]=''
+  [wrapper_command]="$0"
+  [repo_root]="$REPO_ROOT"
+  [lock_mode]='nonblocking'
+  [lock_path]="$LOCK"
+  [lock_already_held]="${MUSI_VERIFY_LOCK_ALREADY_HELD:-0}"
+  [commit_queue_mode]='blocking'
+  [commit_queue_lock]="$COMMIT_QUEUE_LOCK"
+  [commit_queue_already_held]="${MUSI_COMMIT_QUEUE_LOCK_ALREADY_HELD:-0}"
+  [commit_queue_timeout]="$COMMIT_QUEUE_TIMEOUT"
+  [total_timeout]="$TOTAL_TIMEOUT"
+  [warn_after]="$WARN_AFTER"
+  [marker_path]="$MARKER"
+  [marker_freshness]="$MUSI_GATE_MARKER_FRESHNESS_SECONDS"
+  [cache_head_provider]='musi_precommit_head'
+  [cache_fingerprint_provider]='musi_precommit_cache_fingerprint'
+  [run_head_provider]='musi_precommit_head'
+  [run_fingerprint_provider]='musi_precommit_run_fingerprint'
+  [final_fingerprint_provider]='musi_precommit_final_fingerprint'
+  [marker_head_provider]='musi_precommit_head'
+  [execution_mode]='parallel'
+  [consumer]='pre_commit'
+  [steps_array]='MUSI_PRE_COMMIT_STEPS'
+  [signal_mode]='parallel-precommit'
+  [failure_mode]='parallel-precommit'
+  [success_mode_provider]='musi_precommit_success_mode'
+  [log_dir]="$LOG_DIR"
+  [history_dir]="$HISTORY_DIR"
+  [marker_hit_hook]='musi_precommit_marker_hit'
+  [marker_miss_hook]=''
+  [bridge_predicate]='musi_precommit_verify_bridge'
+  [prepare_slots_hook]='musi_precommit_prepare_slots'
+  [after_slots_hook]='musi_precommit_after_slots'
+  [exit_hook]='musi_precommit_fast_provenance_on_exit'
+)
 
-# --- 8. Success marker -----------------------------------------------------
-musi_verify_finalize_success "pre-commit" "$MARKER" \
-  "$(git rev-parse HEAD 2>/dev/null || echo none)" \
-  "$FINAL_FP" \
-  "$ELAPSED" "$WARN_AFTER" "$TIMEOUT" "$passed"
+musi_verify_run_gate PRECOMMIT_GATE_POLICY

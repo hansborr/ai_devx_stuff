@@ -213,6 +213,23 @@ function maxLinesPerFunctionItems(
   return itemsFromResults(ratchet, [{ filePath: path, messages }], "");
 }
 
+function lintWithCoreRatchet(
+  ratchet: LintRatchetConfig,
+  source: string,
+): ReturnType<Linter["verify"]> {
+  const linter = new Linter();
+  return linter.verify(
+    source,
+    [
+      {
+        languageOptions: { ecmaVersion: 2022, sourceType: "module" },
+        rules: { [ratchet.ruleId]: ["error", ...ratchet.ruleOptions] },
+      },
+    ],
+    { filename: "git-exec-ratchet.js" },
+  );
+}
+
 function oneTestBaseline(paths: readonly [string, number][]): LintRatchetBaseline {
   return buildLintRatchetBaseline(
     [baseRatchet],
@@ -334,6 +351,64 @@ describe("production function structure ratchets", () => {
     expect(() => {
       assertCheckBaselineComparisonClean(newDebtComparison);
     }).toThrow("finding count increased from 1 to 2");
+  });
+});
+
+describe("direct Git exec ratchet", () => {
+  function directGitExecRatchet(): LintRatchetConfig {
+    const ratchet = lintRatchets.find((entry) => entry.id === "ratchet/no-direct-git-exec-scripts");
+    if (ratchet === undefined) throw new Error("expected direct Git exec ratchet");
+    return ratchet;
+  }
+
+  it("scopes the message-count floor to script callers outside the Git seam", () => {
+    expect(directGitExecRatchet()).toMatchObject({
+      ruleId: "no-restricted-syntax",
+      source: { kind: "core" },
+      parserProfile: "minimal-ts",
+      files: ["scripts/**/*.ts"],
+      ignores: [
+        "**/dist/**",
+        "**/generated/**",
+        "**/node_modules/**",
+        "examples/**",
+        "scripts/codemods/fixtures/**",
+        "scripts/drift-ai/fixtures/**",
+        "scripts/fixtures/**",
+        "scripts/harness-audit/fixtures/**",
+        "scripts/lib/git.ts",
+        "scripts/logs-audit/fixtures/**",
+      ],
+      mode: "no-new",
+      metric: "message-count",
+      repairKind: "manual",
+    });
+  });
+
+  it("reports literal Git calls through the supported child-process functions", () => {
+    const ratchet = directGitExecRatchet();
+    const sources = [
+      'execFile("git", []);',
+      'execFileSync("git", []);',
+      'spawn("git", []);',
+      'spawnSync("git", []);',
+    ];
+
+    for (const source of sources) {
+      expect(lintWithCoreRatchet(ratchet, source), source).toHaveLength(1);
+    }
+  });
+
+  it("does not count named seam calls, other executables, or non-process methods", () => {
+    const ratchet = directGitExecRatchet();
+    const source = [
+      'defaultGitRunner()(["status"]);',
+      'readGitBlobAtRef(git, "HEAD", "docs/map.md");',
+      'execFileSync("bun", ["test"]);',
+      'repository.spawnSync("git", []);',
+    ].join("\n");
+
+    expect(lintWithCoreRatchet(ratchet, source)).toEqual([]);
   });
 });
 

@@ -97,7 +97,14 @@ describe("loadGeneratedSurfaces (real manifest)", () => {
     expect(smokeSubjects?.bunHook).toEqual({ refresh: "wrapped", check: "wrapped" });
     const verifySteps = records.find((record) => record.id === "check/verify-steps-generator");
     expect(verifySteps?.refreshScript).toBe("verify:steps");
-    expect(verifySteps?.bunHook).toEqual({ refresh: "bypass", check: "wrapped" });
+    expect(verifySteps?.bunHook).toEqual({
+      refresh: "bypass",
+      check: "wrapped",
+      scripts: {
+        "mutation:survivors": "wrapped",
+        "sensor:context-budget": "wrapped",
+      },
+    });
   });
 
   it("declares a non-empty fixture copy closure on every record", () => {
@@ -520,6 +527,23 @@ describe("renderClassifierFragment (ai-hooks classifier projection)", () => {
     expect(rendered).toContain("AI_GENERATED_BYPASS_BUN_SCRIPTS='\nalpha\n'");
   });
 
+  it("routes additional package scripts owned by a bunHook facet", () => {
+    const rendered = renderClassifierFragment([
+      classifierRecord("check/alpha", "alpha", {
+        refresh: "bypass",
+        check: "wrapped",
+        scripts: {
+          "mutation:survivors": "wrapped",
+          "sensor:context-budget": "wrapped",
+        },
+      }),
+    ]);
+
+    expect(rendered).toContain(
+      "AI_GENERATED_WRAPPED_BUN_SCRIPTS='\nalpha:check\nmutation:survivors\nsensor:context-budget\n'",
+    );
+  });
+
   it("renders the generated-file header pointing at the manifest and refresh command", () => {
     const rendered = renderClassifierFragment([]);
 
@@ -610,6 +634,20 @@ describe("loadGeneratedSurfaces (validation)", () => {
   it("rejects bunHook classifications outside the wrapped/bypass enum", () => {
     const root = makeFacetRoot({ bunHook: { refresh: "sometimes", check: "wrapped" } });
     expect(() => loadGeneratedSurfaces(root)).toThrow(/bunHook\.refresh/u);
+  });
+
+  it("loads additional package-script classifications from the bunHook facet", () => {
+    const root = makeFacetRoot({
+      bunHook: {
+        refresh: "bypass",
+        check: "wrapped",
+        scripts: { "sensor:report": "wrapped" },
+      },
+    });
+
+    expect(loadGeneratedSurfaces(root)[0]?.bunHook.scripts).toEqual({
+      "sensor:report": "wrapped",
+    });
   });
 
   it("rejects a carrier whose invocation is not a bun run script", () => {

@@ -10,7 +10,8 @@ fresh fingerprint-matched marker can safely reuse prior results.
 
 ```text
 edit + stage
-    → Husky pre-commit
+    → Husky pre-commit policy adapter
+    → verify-engine gate lifecycle
     → generated pre-commit slots
     → per-slot log + diagnostics envelope
     → failure excerpt with repair text
@@ -28,6 +29,16 @@ Running `git commit` invokes that Husky hook. The hook takes the verification
 and shared commit-queue locks, checks whether a recent success marker matches
 the current HEAD plus staged-content fingerprint, and starts the gate when no
 safe marker can be reused.
+
+The hook remains the policy adapter: it visibly owns protected-branch policy,
+advisories, changed-input preflight, fast-commit provenance, and the bounded
+30-second memory-deferral policy. It passes a named policy map to
+[`musi_verify_run_gate`](../../scripts/lib/verify-engine.sh), which owns the
+shared lock, marker, bridge, log, signal, slot-dispatch, aggregation, metadata,
+and finalization lifecycle. [`scripts/verify.sh`](../../scripts/verify.sh) is
+the manual policy adapter for the same entry point; it selects full, parallel,
+or changed mode and supplies the corresponding generated consumer and identity
+providers.
 
 ## 2. Follow generated authority
 
@@ -90,7 +101,10 @@ attempt may reuse.
 The manual-verification bridge flows in the other direction: when a fresh
 `verify:changed` or full `verify` marker matches the current state, pre-commit
 accepts that evidence and writes its own pre-commit marker. Manual verification
-does not read or consume the pre-commit marker.
+does not read or consume the pre-commit marker. The bridge predicate reports
+three outcomes to the engine: hit, ordinary miss, or operational failure. An
+operational fingerprint or marker-write failure stops the gate rather than
+being treated as a cache miss.
 
 `bun run verify:changed` follows the same generated changed-mode authority when
 you need a manual, staged pre-commit check without making a commit. It is a

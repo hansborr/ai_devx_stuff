@@ -66,7 +66,6 @@ function tsconfig(paths?: Record<string, string[]>): string {
     compilerOptions: {
       module: "esnext",
       moduleResolution: "bundler",
-      baseUrl: ".",
       ...(paths === undefined ? {} : { paths }),
     },
   });
@@ -320,8 +319,7 @@ describe("defaultModuleGraphRunner resolution", () => {
         compilerOptions: {
           module: "esnext",
           moduleResolution: "bundler",
-          baseUrl: "..",
-          paths: { "@src/*": ["src/*"] },
+          paths: { "@src/*": ["../src/*"] },
         },
         include: ["../src/**/*"],
       }),

@@ -30,13 +30,15 @@ curated recent history.
 - Shared Zod schemas are the wire contract. Types derive from schemas rather
   than being hand-maintained in parallel.
 - tRPC owns queries and mutations. Socket.io handles auth, room membership,
-  presence, and post-persist broadcasts. See `docs/socket-architecture.md`.
+  presence, and post-persist broadcasts. See `docs/socket-architecture.md` and
+  `docs/adr/0003-socket-broadcasts-after-commit.md` (ADR-0003).
 - Authorization and visibility rules live behind helpers; do not open-code
   access checks. See `docs/authorization.md`.
 - Complex server orchestration lives in `packages/server/src/services/`.
   Structural rules for that layer live in `packages/server/src/services/README.md`.
 - Race-sensitive writes go through `utils/*-mutations.ts`, not direct Prisma
-  updates. See `docs/CONCURRENCY.md`.
+  updates. See `docs/CONCURRENCY.md` and
+  `docs/adr/0001-race-sensitive-writes.md` (ADR-0001).
 
 ## Data Model Shape
 

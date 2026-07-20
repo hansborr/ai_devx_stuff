@@ -876,6 +876,11 @@ run_subcommand "staged blob-size sensor" \
   "sensor/blob-size" \
   bun run sensor:blob-size
 
+run_report_subcommand "always-loaded context budget" \
+  "review the per-file token figures above; shrink or split the always-loaded set (AGENTS.md, CLAUDE.md, and their @-imports) before adding new always-on context" \
+  "sensor/context-budget" \
+  bun run sensor:context-budget
+
 run_harness_check "harness manifest parity" \
   "reconcile harness.controls.json with the rule/script set — see the per-control diagnostics above" \
   "verify-wrapper/doctor"

@@ -4,6 +4,7 @@ import { isAbsolute, relative, resolve, sep } from "node:path";
 
 import type { ParseResult } from "@musi/lint-ratchet/kernel/entry-baseline.js";
 
+import { defaultGitRunner, readGitBlobAtRef } from "./lib/git.js";
 import {
   type NearDuplicateBaselineEntry,
   readNearDuplicatesBaseline,
@@ -35,11 +36,7 @@ export function readHeadNearDuplicatesBaseline(
       return { ok: false, error: `baseline must be inside the repository at ${baselinePath}` };
     }
     const gitPath = repoRelativePath.split(sep).join("/");
-    const text = execFileSync("git", ["show", `HEAD:${gitPath}`], {
-      cwd,
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"],
-    });
+    const text = readGitBlobAtRef(defaultGitRunner({ cwd }), "HEAD", gitPath);
     return readNearDuplicatesBaseline(text);
   } catch (error) {
     return {

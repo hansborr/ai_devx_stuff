@@ -48,6 +48,8 @@ const generatedSurfaceFacetSchema = z.strictObject({
   bunHook: z.strictObject({
     refresh: bunHookClassificationSchema,
     check: bunHookClassificationSchema,
+    /** Additional package scripts whose classification is owned by this generated facet. */
+    scripts: z.record(z.string().min(1), bunHookClassificationSchema).optional(),
   }),
   /** Fixture copy closure for test-harness-check.sh; populated in slice S4. */
   fixturePaths: z.array(repoPathSchema).min(1).optional(),
@@ -75,6 +77,7 @@ export interface GeneratedSurfaceRecord {
   readonly bunHook: {
     readonly refresh: BunHookClassification;
     readonly check: BunHookClassification;
+    readonly scripts?: Readonly<Record<string, BunHookClassification>>;
   };
   readonly fixturePaths?: readonly string[];
 }
@@ -207,7 +210,8 @@ function renderClassifierScriptList(name: string, scripts: ReadonlySet<string>):
 /**
  * Pure projection of the facet records into the generator-contributed ai-hooks
  * bun classifier slices. Each record contributes its check script under
- * `bunHook.check` and its refresh script under `bunHook.refresh`; `policy.sh`
+ * `bunHook.check`, its refresh script under `bunHook.refresh`, and any
+ * explicitly owned extra package scripts under `bunHook.scripts`; `policy.sh`
  * appends the wrapped slice to `AI_WRAPPED_BUN_SCRIPTS` and
  * `scripts/ai-hooks/test.sh` appends the bypass slice to
  * `AI_BUN_CLASSIFIED_BYPASS_SCRIPTS`, so the hand-maintained heredocs only
@@ -225,6 +229,9 @@ export function renderClassifierFragment(records: readonly GeneratedSurfaceRecor
   for (const record of records) {
     classify(record.checkScript, record.bunHook.check);
     classify(record.refreshScript, record.bunHook.refresh);
+    for (const [script, classification] of Object.entries(record.bunHook.scripts ?? {})) {
+      classify(script, classification);
+    }
   }
 
   const conflicts = Array.from(wrapped)

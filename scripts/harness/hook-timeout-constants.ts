@@ -81,10 +81,18 @@ function timeoutForBinding(
 
 function collectHookTimeoutConstants(manifest: unknown): readonly HookTimeoutConstant[] {
   const controlsById = collectControlsById(manifest);
-  return HOOK_TIMEOUT_CONSTANT_BINDINGS.map((binding) => ({
+  const constants = HOOK_TIMEOUT_CONSTANT_BINDINGS.map((binding) => ({
     variableName: binding.variableName,
     timeout: timeoutForBinding(controlsById, binding),
   }));
+  if (new Set(constants.map(({ timeout }) => timeout)).size > 1) {
+    throw new Error(
+      `quiet-hook timeout ceilings must match: ${constants
+        .map(({ timeout, variableName }) => `${variableName}=${String(timeout)}`)
+        .join(", ")}`,
+    );
+  }
+  return constants;
 }
 
 export function renderHookTimeoutConstantsShellFromManifest(manifest: unknown): string {

@@ -40,6 +40,7 @@ AI_FLAKY_NOTE="Note: If this failure looks flaky (passes in isolation, fails und
 # Hand-maintained slice only: generator-contributed scripts render into
 # AI_GENERATED_WRAPPED_BUN_SCRIPTS (appended below) and must not be re-added here.
 AI_WRAPPED_BUN_SCRIPTS='
+adr:check
 audit:deps
 audit:licenses
 backlog:lint

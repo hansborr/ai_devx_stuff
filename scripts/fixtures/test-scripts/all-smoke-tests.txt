@@ -1,3 +1,4 @@
+runner ran test-adr-check
 runner ran test-ai-hooks
 runner ran test-check-eslint-react-peer-exception
 runner ran test-check-fast-uri-override

@@ -18,7 +18,7 @@
 
 # --- Shared gate timing budgets ----------------------------------------------
 # Single definition for the timing literals the local gates would otherwise
-# re-type. Every consumer (.husky/pre-commit, .husky/pre-push, scripts/verify.sh,
+# re-type. Every consumer (the Husky gates, verification scripts, quiet hooks,
 # and the helpers below) sources this file before it needs a budget, so these
 # constants are the one place to change a window. Env overrides stay at each
 # call site (MUSI_INTERACTIVE_TIMEOUT, MUSI_PRE_PUSH_VERIFY_FRESHNESS_SECONDS);
@@ -28,8 +28,8 @@
 # different semantic (a reused-PID ghost-ticket bound, not verify freshness) and
 # is intentionally *not* one of these constants.
 MUSI_GATE_MARKER_FRESHNESS_SECONDS=120     # success-marker / short-circuit freshness
-# shellcheck disable=SC2034 # Consumed by .husky/pre-commit and scripts/verify.sh.
-MUSI_GATE_INTERACTIVE_TIMEOUT_DEFAULT=1200 # default for MUSI_INTERACTIVE_TIMEOUT watchdog
+# shellcheck disable=SC2034 # Consumed by gates, verification scripts, and quiet hooks.
+MUSI_GATE_INTERACTIVE_TIMEOUT_DEFAULT=2400 # default for MUSI_INTERACTIVE_TIMEOUT watchdog
 # shellcheck disable=SC2034 # Consumed by .husky/pre-push.
 MUSI_GATE_PRE_PUSH_FRESHNESS_SECONDS=3600  # pre-push full-verify evidence freshness
 
@@ -921,10 +921,10 @@ musi_try_single_verify_marker_bridge() {
   musi_success_marker_matches "$verify_marker" "$current_head" "$current_verify_hash" "$freshness_seconds" || return 1
   age=$MUSI_MARKER_MATCH_AGE
   current_precommit_hash=$(musi_require_fingerprint \
-    "pre-commit marker bridge" ai_precommit_fingerprint "$repo_root") || return 1
+    "pre-commit marker bridge" ai_precommit_fingerprint "$repo_root") || return 2
   if ! musi_write_success_marker "$precommit_marker" "$current_head" "$current_precommit_hash"; then
     printf 'pre-commit: WARN: failed to write marker %s\n' "$precommit_marker" >&2
-    return 1
+    return 2
   fi
   # Publish which marker bridged and the state it stamped so the pre-commit hook
   # can record the bridged commit (these values are otherwise function-local),
@@ -949,15 +949,21 @@ musi_try_verify_marker_bridge() {
 
   current_head=$(git -C "$repo_root" rev-parse HEAD 2>/dev/null || echo none)
   current_staged_hash=$(musi_require_fingerprint \
-    "pre-commit verify:changed bridge" ai_staged_fingerprint "$repo_root") || return 1
+    "pre-commit verify:changed bridge" ai_staged_fingerprint "$repo_root") || return 2
   current_worktree_hash=$(musi_require_fingerprint \
-    "pre-commit verify bridge" ai_worktree_fingerprint "$repo_root") || return 1
+    "pre-commit verify bridge" ai_worktree_fingerprint "$repo_root") || return 2
   changed_marker="${MUSI_VERIFY_MARKER_CHANGED:-$(musi_standard_verify_changed_marker "$repo_root")}"
   full_marker="${MUSI_VERIFY_MARKER_FULL:-$(musi_standard_verify_full_marker "$repo_root")}"
 
+  local bridge_rc=0
   musi_try_single_verify_marker_bridge "$repo_root" "$precommit_marker" "$changed_marker" \
     "verify:changed" "$freshness_seconds" "$current_head" "$current_staged_hash" \
-    && return 0
+    || bridge_rc=$?
+  case "$bridge_rc" in
+    0) return 0 ;;
+    1) ;;
+    *) return 2 ;;
+  esac
   musi_try_single_verify_marker_bridge "$repo_root" "$precommit_marker" "$full_marker" \
     "verify" "$freshness_seconds" "$current_head" "$current_worktree_hash"
 }

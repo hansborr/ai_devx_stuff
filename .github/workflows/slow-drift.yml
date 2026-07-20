@@ -16,7 +16,16 @@ jobs:
   slow-drift:
     name: Fused slow-drift report
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # Budget: 30 min covered the base producers, and the opt-in scoped
+    # mutation step adds a Stryker run (~6 min locally, slower on hosted
+    # runners) self-bounded by MUSI_SLOW_DRIFT_MUTATION_TIMEOUT_SECS=1800
+    # (30 min worst case). 30 + 30 = 60 would leave zero headroom, so a
+    # worst-case mutation overrun would take fusion, the step summary, and
+    # the always() artifact uploads down with the job — losing the
+    # report-only artifacts this lane exists to produce. 75 keeps >=15 min
+    # of post-mutation headroom; mutation failure or timeout still never
+    # fails the lane (report-only note, lane continues).
+    timeout-minutes: 75
 
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -33,6 +42,11 @@ jobs:
 
       - name: Run slow-drift audit
         run: bash scripts/slow-drift-audit.sh
+        env:
+          # Weekly opt-in: scoped shared-rules mutation + survivor summary,
+          # report-only (thresholds.break stays null; failures leave a note
+          # and the lane continues).
+          MUSI_SLOW_DRIFT_MUTATION: "1"
 
       - name: Slow-drift step summary
         if: always()
@@ -49,6 +63,28 @@ jobs:
               echo "### Slow drift audit"
               echo
               echo "No fused report was produced. Check the producer-output artifact for tool or setup errors."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+          timings="reports/slow-drift/fused/timings.txt"
+          if [ -s "$timings" ]; then
+            {
+              echo
+              echo "#### Step timings (trend evidence, report-only)"
+              echo
+              echo '```'
+              grep -E '^timing: ' "$timings" || echo "no steps recorded"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+          survivors="reports/slow-drift/fused/mutation-survivors.txt"
+          if [ -s "$survivors" ]; then
+            {
+              echo
+              echo "#### Mutation survivors (trend evidence, report-only)"
+              echo
+              echo '```'
+              cat "$survivors"
+              echo '```'
             } >> "$GITHUB_STEP_SUMMARY"
           fi
 

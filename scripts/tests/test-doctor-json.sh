@@ -161,6 +161,12 @@ if [ "${1:-}" = "run" ]; then
       printf 'PASS: synthetic blob-size clean\n'
       exit 0
       ;;
+    sensor:context-budget)
+      # Report-only context-budget reporter: exit 0 means "reported, no
+      # findings" (run_report_subcommand semantics).
+      printf 'context-budget total: 0 file(s), 0 lines, 0 bytes, ~0 tokens\n'
+      exit 0
+      ;;
     */scripts/db-status.ts)
       printf 'PASS: synthetic db status clean\n'
       exit 0
@@ -504,6 +510,9 @@ if [ "${1:-}" = "run" ]; then
       ;;
     sensor:blob-size)
       printf 'BLOCK: synthetic staged blob exceeds limit\n'
+      exit 0
+      ;;
+    sensor:context-budget)
       exit 0
       ;;
     */scripts/db-status.ts)

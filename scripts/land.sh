@@ -8,7 +8,7 @@
 # Exit status contract (the final output line always repeats this state):
 #   0 landed-verified — main contains the verified tree and is ready to push
 #   1 not-landed — no merge commit was created; follow the reported recovery
-#   2 verify-failed — verification failed before main moved; the trailer names the verify failure-log dir — inspect, fix, re-run
+#   2 verify-failed — locked dependency installation or verification failed before main moved; inspect, fix, re-run
 #   3 merged-unverified — main moved but provenance could not be stamped; verify before push
 # Trailer: land: exit: <code> (<status-token>) — <one-line action>
 #
@@ -22,6 +22,9 @@
 # exact tree passes. A branch that already contains main keeps the one-verify
 # tree-equality fast path. The merge deliberately skips the pre-commit hook
 # (git does not run it for merge commits), so the heavy gate runs once.
+# Before any tree is verified, its lockfile is installed frozen; every checkout
+# restoration after that attempt is reconciled the same way so node_modules
+# matches the tree left in the operator's worktree.
 #
 # --branch mode verifies a frozen snapshot of another branch in the CURRENT
 # healthy worktree. The original branch may be checked out elsewhere; its tip
@@ -39,6 +42,51 @@ integration_branch=""
 landing_checkout=""
 starting_checkout=""
 preview_active=0
+dependency_install_attempted=0
+
+land_git_locked_retry() {
+  local attempt=1
+  local max_attempts=5
+  local stderr_file
+  local status
+  local -a backoffs=(0.25 0.5 1 2)
+
+  stderr_file=$(mktemp "${TMPDIR:-/tmp}/musi-land-git-stderr.XXXXXX")
+  while true; do
+    : > "$stderr_file"
+    if "$@" 2>&1 1>&3 | tee "$stderr_file" >&2; then
+      rm -f "$stderr_file"
+      return 0
+    else
+      status="${PIPESTATUS[0]}"
+    fi
+
+    if [ "$attempt" -ge "$max_attempts" ] ||
+      ! grep -q 'Unable to create.*index\.lock.*File exists' "$stderr_file"; then
+      rm -f "$stderr_file"
+      return "$status"
+    fi
+
+    echo "land: git index.lock contention; retrying (attempt $((attempt + 1))/$max_attempts) …" >&2
+    sleep "${backoffs[$((attempt - 1))]}"
+    attempt=$((attempt + 1))
+  done 3>&1
+}
+
+land_install_locked_dependencies() {
+  bun install --frozen-lockfile
+}
+
+land_reconcile_restored_dependencies() {
+  if [ "$dependency_install_attempted" -eq 0 ]; then
+    return 0
+  fi
+
+  echo "land: reconciling locked dependencies after checkout restoration …"
+  if ! land_install_locked_dependencies; then
+    echo "land: WARNING: failed to reconcile dependencies for the restored checkout; run 'bun install --frozen-lockfile' before using this worktree." >&2
+  fi
+}
 
 land_exit() {
   LAND_EXIT_CODE="$1"
@@ -50,8 +98,11 @@ land_exit() {
 land_on_exit() {
   trap - EXIT ERR
   if [ "$preview_active" -eq 1 ] && [ -n "${landing_checkout:-}" ]; then
-    git merge --abort >/dev/null 2>&1 || true
-    git switch "$landing_checkout" >/dev/null 2>&1 || true
+    land_git_locked_retry git merge --abort >/dev/null 2>&1 || true
+    if land_git_locked_retry git switch "$landing_checkout" >/dev/null 2>&1; then
+      preview_active=0
+      land_reconcile_restored_dependencies
+    fi
   fi
   printf 'land: exit: %s (%s) — %s\n' "$LAND_EXIT_CODE" "$LAND_STATUS_TOKEN" "$LAND_ACTION" >&2
   exit "$LAND_EXIT_CODE"
@@ -87,17 +138,19 @@ trap land_on_error ERR
 
 land_restore_preview() {
   if [ "$preview_active" -eq 1 ]; then
-    git merge --abort >/dev/null 2>&1 || true
-    git switch "$landing_checkout" >/dev/null
+    land_git_locked_retry git merge --abort >/dev/null 2>&1 || true
+    land_git_locked_retry git switch "$landing_checkout" >/dev/null
     preview_active=0
+    land_reconcile_restored_dependencies
   fi
 }
 
 land_cleanup_integration() {
   if [ "$mode" = "branch" ] && [ -n "$integration_branch" ] &&
     git rev-parse --verify --quiet "refs/heads/$integration_branch" >/dev/null; then
-    git switch "$starting_checkout" >/dev/null
-    git branch -D "$integration_branch" >/dev/null
+    land_git_locked_retry git switch "$starting_checkout" >/dev/null
+    land_reconcile_restored_dependencies
+    land_git_locked_retry git branch -D "$integration_branch" >/dev/null
   fi
 }
 
@@ -217,7 +270,7 @@ fi
 
 if [ "$mode" = "branch" ]; then
   echo "land: creating integration branch $integration_branch at the $target_branch tip …"
-  git switch -c "$integration_branch" "$target_head"
+  land_git_locked_retry git switch -c "$integration_branch" "$target_head"
   landing_checkout="$integration_branch"
 else
   landing_checkout="$target_branch"
@@ -229,9 +282,9 @@ verified_commit="$target_head"
 if ! git merge-base --is-ancestor "$main_head" "$target_head"; then
   verify_kind="merge tree"
   echo "land: $target_branch and main have diverged — building the merge tree before verification …"
-  git switch --detach "$main_head"
+  land_git_locked_retry git switch --detach "$main_head"
   preview_active=1
-  if ! git -c core.hooksPath=/dev/null merge --no-ff \
+  if ! land_git_locked_retry git -c core.hooksPath=/dev/null merge --no-ff \
     -m "Merge branch '$target_branch'" "$target_head"; then
     echo "land: the prospective merge conflicts; main is untouched." >&2
     land_restore_preview
@@ -239,6 +292,18 @@ if ! git merge-base --is-ancestor "$main_head" "$target_head"; then
     land_exit 1 "not-landed" "resolve the branch against current main, then re-run land"
   fi
   verified_commit="$(git rev-parse HEAD)"
+fi
+
+# Install exactly the dependency graph pinned by the settled landing tree.
+# Frozen mode makes an inconsistent package.json/bun.lock merge fail closed
+# before any harness or verify command can observe stale node_modules.
+dependency_install_attempted=1
+echo "land: installing locked dependencies for $target_branch ($verify_kind) …"
+if ! land_install_locked_dependencies; then
+  echo "land: locked dependency install failed on the $verify_kind; main is untouched." >&2
+  land_restore_preview
+  land_cleanup_integration
+  land_exit 2 "verify-failed" "fix the locked dependency install failure above, then re-run land"
 fi
 
 echo "land: running harness freshness gate on $target_branch ($verify_kind) …"
@@ -275,7 +340,7 @@ fi
 verify_log_dir="${MUSI_VERIFY_LOG_DIR:-$(musi_standard_verify_log_dir "$REPO_ROOT")}"
 
 echo "land: running full verify on $target_branch ($verify_kind) …"
-if ! bun run verify; then
+if ! FORCE_VERIFY=1 bun run verify; then
   # The client-staleness NOTE below applies only when the failure path
   # rewrites the checkout: a diverged preview restore (preview_active=1) or
   # branch mode's return to the starting checkout. On the current-mode fast
@@ -330,10 +395,11 @@ if [ "$(git rev-parse refs/heads/main)" != "$main_head" ]; then
 fi
 
 echo "land: verify passed — merging frozen tip $target_head into main (--no-ff)"
-git switch main
-if ! git merge --no-ff -m "Merge branch '$target_branch'" "$target_head"; then
+land_git_locked_retry git switch main
+if ! land_git_locked_retry git merge --no-ff -m "Merge branch '$target_branch'" "$target_head"; then
   echo "land: the real merge unexpectedly failed after its tree was verified." >&2
-  git merge --abort >/dev/null 2>&1 || true
+  land_git_locked_retry git merge --abort >/dev/null 2>&1 || true
+  land_reconcile_restored_dependencies
   land_exit 1 "not-landed" "inspect the merge failure on main, then re-run land from a clean worktree"
 fi
 
@@ -341,11 +407,19 @@ LAND_EXIT_CODE=3
 LAND_STATUS_TOKEN="merged-unverified"
 LAND_ACTION="run bun run verify before pushing main"
 
+# The real merge leaves main on the verified tree, but the intervening checkout
+# restorations may have reconciled node_modules to a feature or pre-merge tree.
+echo "land: reconciling locked dependencies for merged main …"
+if ! land_install_locked_dependencies; then
+  echo "land: CRITICAL — merged main but failed to reconcile its locked dependencies." >&2
+  land_exit 3 "merged-unverified" "run bun install --frozen-lockfile and bun run verify before pushing main"
+fi
+
 merge_head="$(git rev-parse HEAD)"
 merge_tree="$(git rev-parse "${merge_head}^{tree}")"
 
 if [ "$mode" = "branch" ]; then
-  git branch -d "$integration_branch"
+  land_git_locked_retry git branch -d "$integration_branch"
   post_merge_tip="$(git rev-parse --verify --quiet "refs/heads/$target_branch" || true)"
   if [ "$post_merge_tip" != "$target_head" ]; then
     echo "land: NOTE: $target_branch advanced after it was verified — only its verified tip" >&2

@@ -455,7 +455,7 @@ EOF
 
 print_budget() {
   local warn_after="${MUSI_INTERACTIVE_WARN_AFTER:-1080}"
-  local hard_timeout="${MUSI_INTERACTIVE_TIMEOUT:-1200}"
+  local hard_timeout="${MUSI_INTERACTIVE_TIMEOUT:-$MUSI_GATE_INTERACTIVE_TIMEOUT_DEFAULT}"
 
   if [ ! -f "$RUN_META_FILE" ]; then
     printf 'budget: no verification metadata found.\n'

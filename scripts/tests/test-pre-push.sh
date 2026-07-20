@@ -435,7 +435,7 @@ set -e
 [ "$exit_code" -ne 0 ] || fail "land.sh should fail when harness:check fails"
 grep -qF "land: running harness freshness gate on feature" <<< "$output" \
   || fail "land.sh should announce harness freshness gate before failing: $output"
-[ "$(cat "$stub_log")" = "run harness:check" ] \
+[ "$(cat "$stub_log")" = $'install --frozen-lockfile\nrun harness:check' ] \
   || fail "land.sh should stop before the prisma preflight and verify when harness:check fails: $(cat "$stub_log")"
 ok "land.sh gates harness freshness before full verify"
 
@@ -464,7 +464,7 @@ grep -qF "land: running harness freshness gate on feature" <<< "$output" \
   || fail "land.sh should announce harness freshness gate before verify: $output"
 grep -qF "land: running full verify on feature" <<< "$output" \
   || fail "land.sh should proceed to full verify after harness:check passes: $output"
-[ "$(cat "$stub_log")" = $'run harness:check\nrun --filter @musi/server prisma:generate\nrun verify' ] \
+[ "$(cat "$stub_log")" = $'install --frozen-lockfile\nrun harness:check\nrun --filter @musi/server prisma:generate\nrun verify' ] \
   || fail "land.sh should run harness:check, the prisma preflight, then verify when harness is fresh: $(cat "$stub_log")"
 ok "land.sh proceeds through the prisma preflight to verify after harness freshness passes"
 
@@ -745,7 +745,7 @@ if git -C "$repo" rev-parse --verify --quiet refs/heads/land/feature >/dev/null;
 fi
 grep -qF "land: creating integration branch land/feature" <<< "$output" \
   || fail "land.sh --branch should announce the integration branch: $output"
-[ "$(cat "$stub_log")" = $'run harness:check\nrun --filter @musi/server prisma:generate\nrun verify' ] \
+[ "$(cat "$stub_log")" = $'install --frozen-lockfile\nrun harness:check\nrun --filter @musi/server prisma:generate\nrun verify\ninstall --frozen-lockfile' ] \
   || fail "land.sh --branch should run harness:check, the prisma preflight, then verify: $(cat "$stub_log")"
 ok "land.sh --branch verifies on an integration branch, merges, and cleans it up"
 

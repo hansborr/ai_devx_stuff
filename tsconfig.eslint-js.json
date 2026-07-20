@@ -18,6 +18,8 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "target": "ES2024",
+    "strict": false,
+    "types": ["node"],
     "skipLibCheck": true
   },
   "include": ["eslint-config/*.js"],

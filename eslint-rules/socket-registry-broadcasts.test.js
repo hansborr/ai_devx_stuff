@@ -52,6 +52,10 @@ function registryEventNames() {
 }
 
 describe("socket-registry-broadcasts", () => {
+  it("names the registry architecture decision", () => {
+    expect(rule.meta.messages.noDirectEmit).toContain("ADR-0003");
+  });
+
   it("tracks every broadcast registry event", () => {
     const ruleEvents = REGISTRY_OWNED_EVENT_HELPERS.map(([eventName]) => eventName).sort();
 

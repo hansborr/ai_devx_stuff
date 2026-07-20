@@ -3,6 +3,9 @@
 Use this path for server-to-client events whose payload and delivery policy
 belong at the socket broadcast boundary.
 
+The enforced post-commit registry boundary is ADR-0003:
+`docs/adr/0003-socket-broadcasts-after-commit.md`.
+
 1. Add or reuse a shared socket event schema in `packages/shared/src/schemas/`.
 2. Register the event in `packages/server/src/socket/broadcast-registry.ts`.
    The registry entry owns the shared schema, room policy, low-cardinality log

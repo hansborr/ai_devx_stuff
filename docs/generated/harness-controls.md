@@ -605,6 +605,20 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Repair:** manual
 
+### `ratchet/no-direct-git-exec-scripts`
+
+**Principle:** Freeze direct child-process Git calls outside scripts/lib/git.ts so new production bypasses cannot erode the named Git seam while accepted fixtures and injectable adapters drain opportunistically.
+
+**Category:** maintainability
+
+**Source:** `scripts/lint-ratchet/lint-ratchet-config.ts`
+
+**Invocation:** `bun run lint:ratchet`
+
+**Paired guide:** [docs/guides/lint-ratchet.md](../guides/lint-ratchet.md)
+
+**Repair:** manual
+
 ### `ratchet/no-real-time-in-package-tests`
 
 **Principle:** Freeze real-clock usage in package tests so new Date.now() and no-arg new Date() calls cannot grow while existing tests migrate to fake timers or injected clocks.
@@ -789,6 +803,20 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Repair:** manual
 
+### `sensor/context-budget`
+
+**Principle:** Sum the always-loaded per-session context (root CLAUDE.md, AGENTS.md, and their @-imports) as lines, bytes, and estimated tokens so the always-on feedforward surface is governed as a set, not per file; report-only terminal advisory that never gates. Scope caveat: covers only the repo-owned set — sessions may also load .claude/rules/*.md, CLAUDE.local.md, and user-level memory, excluded as per-machine and non-reproducible, so the total is a lower bound.
+
+**Category:** maintainability
+
+**Source:** `scripts/sensor-context-budget.ts`
+
+**Invocation:** `bun run sensor:context-budget`
+
+**Paired guide:** none
+
+**Repair:** manual
+
 ### `sensor/db-migration-safety`
 
 **Principle:** Flag destructive or risky Prisma migrations that lack an explicit acknowledgement entry; intentional destructive migrations must be opt-in.
@@ -901,6 +929,20 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Repair:** manual
 
+### `sensor/mutation-survivors`
+
+**Principle:** Rank Survived and NoCoverage mutants from a Stryker mutation.json report by file and directory area with bounded samples, so mutation results become a triage list instead of a raw dump; report-only — survivor counts never change the exit code; only infrastructure failures (unreadable or malformed report, unwritable output, CLI misuse) exit 2.
+
+**Category:** behavior
+
+**Source:** `scripts/mutation-survivors.ts`
+
+**Invocation:** `bun run mutation:survivors`
+
+**Paired guide:** none
+
+**Repair:** manual
+
 ### `sensor/near-duplicates`
 
 **Principle:** Block new high-confidence function-clone pairs touching staged files while existing whole-repo debt remains in a committed shrink-only identity baseline.
@@ -947,7 +989,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `verify-wrapper/verify`
 
-**Principle:** Run lint, suppression policy registers, lint:ratchet, the zero-baseline lifecycle check, the debt-accounting integrity gate, the standalone local-rule starter check, the knip unused-export floor and whole-tree near-duplicate baseline, coverage-map, format check, typecheck, test, and script smoke suites against the full tree with shared cache, lock, and log directory so a failing slot leaves the rest reusable; lint preflights packages/{shared,server}/dist and runs typecheck automatically before ESLint when those ignored outputs are missing.
+**Principle:** Run lint, suppression policy registers, lint:ratchet, the zero-baseline lifecycle check, the debt-accounting integrity gate, the standalone local-rule starter check, ADR cross-link validation, the knip unused-export floor and whole-tree near-duplicate baseline, coverage-map, format check, typecheck, test, and script smoke suites against the full tree with shared cache, lock, and log directory so a failing slot leaves the rest reusable; lint preflights packages/{shared,server}/dist and runs typecheck automatically before ESLint when those ignored outputs are missing.
 
 **Category:** maintainability
 
@@ -963,6 +1005,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 - `zero-baseline` — `lint:ratchet:zero-baseline`
 - `debt-accounting` — `lint:ratchet:check-debt-accounting`
 - `local-rule-starter` — `docs:local-eslint-rule-starter:check`
+- `adr` — `adr:check`
 - `knip-unused-exports` — `sensor:knip-unused-exports`
 - `near-duplicates` — `sensor:near-duplicates` — args: `-- --check-baseline`
 - `max-lines-exceptions` — `lint:max-lines-exceptions`
@@ -992,7 +1035,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `verify-wrapper/verify-changed`
 
-**Principle:** Run lint:changed, suppression policy registers, lint:ratchet, the zero-baseline lifecycle check, the debt-accounting integrity gate, the knip unused-export and staged near-duplicate floors, coverage-map, format:changed:check, typecheck, test:changed, and test:scripts:changed in parallel against the changed-file set; default edit-loop gate before commit; when packages/{shared,server}/dist is missing, the wrapper defers lint and ratchet until the existing typecheck slot has produced those ignored outputs.
+**Principle:** Run lint:changed, suppression policy registers, lint:ratchet, the zero-baseline lifecycle check, the debt-accounting integrity gate, ADR cross-link validation, the knip unused-export and staged near-duplicate floors, coverage-map, format:changed:check, typecheck, test:changed, and test:scripts:changed in parallel against the changed-file set; default edit-loop gate before commit; when packages/{shared,server}/dist is missing, the wrapper defers lint and ratchet until the existing typecheck slot has produced those ignored outputs.
 
 **Category:** maintainability
 
@@ -1007,6 +1050,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 - `ratchet` — `lint:ratchet` — env: `HARNESS_DIAGNOSTICS_OUTPUT=$LOG_DIR/ratchet-diagnostics.json`
 - `zero-baseline` — `lint:ratchet:zero-baseline`
 - `debt-accounting` — `lint:ratchet:check-debt-accounting` — args: `-- --staged`
+- `adr` — `adr:check`
 - `knip-unused-exports` — `sensor:knip-unused-exports`
 - `near-duplicates` — `sensor:near-duplicates`
 - `max-lines-exceptions` — `lint:max-lines-exceptions`
@@ -1050,7 +1094,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `verify-wrapper/verify-parallel`
 
-**Principle:** Run the full lint, suppression policy registers, ratchet, zero-baseline lifecycle check, debt-accounting integrity gate, standalone local-rule starter check, knip unused-export floor and whole-tree near-duplicate baseline, coverage-map, format check, typecheck, test, and scripts suites in parallel; reduces full-verify wall time when the full script suite fits the selected timeout or cached state; when packages/{shared,server}/dist is missing, the wrapper defers lint and ratchet until the existing typecheck slot has produced those ignored outputs.
+**Principle:** Run the full lint, suppression policy registers, ratchet, zero-baseline lifecycle check, debt-accounting integrity gate, standalone local-rule starter check, ADR cross-link validation, knip unused-export floor and whole-tree near-duplicate baseline, coverage-map, format check, typecheck, test, and scripts suites in parallel; reduces full-verify wall time when the full script suite fits the selected timeout or cached state; when packages/{shared,server}/dist is missing, the wrapper defers lint and ratchet until the existing typecheck slot has produced those ignored outputs.
 
 **Category:** maintainability
 
@@ -1066,6 +1110,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 - `zero-baseline` — `lint:ratchet:zero-baseline`
 - `debt-accounting` — `lint:ratchet:check-debt-accounting`
 - `local-rule-starter` — `docs:local-eslint-rule-starter:check`
+- `adr` — `adr:check`
 - `knip-unused-exports` — `sensor:knip-unused-exports`
 - `near-duplicates` — `sensor:near-duplicates` — args: `-- --check-baseline`
 - `max-lines-exceptions` — `lint:max-lines-exceptions`
@@ -1450,6 +1495,20 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 **Repair:** autofix
 
 ## Checks
+
+### `check/adr-archgates`
+
+**Principle:** Accepted architecture decisions must keep resolvable deterministic gate locators and active gate messages must point only to live, non-superseded ADRs.
+
+**Category:** architecture-fitness
+
+**Source:** `scripts/adr-check.ts`
+
+**Invocation:** `bun run adr:check`
+
+**Paired guide:** [docs/adr/README.md](../adr/README.md)
+
+**Repair:** manual
 
 ### `check/config-sensors`
 
@@ -2149,7 +2208,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 **Hook wiring:**
 
 - event: `PreToolUse`; canonical order: `30`; shared body: `scripts/ai-hooks/bun-run-quiet.sh`
-- `claude` — `bash $CLAUDE_PROJECT_DIR/.claude/hooks/bun-run-quiet.sh` (matcher: `Bash`; timeout: `1260s`)
+- `claude` — `bash $CLAUDE_PROJECT_DIR/.claude/hooks/bun-run-quiet.sh` (matcher: `Bash`; timeout: `2460s`)
 - `codex` — deliberately not wired: Codex deliberately handles `bun run` cache and quieting inside .codex/hooks/pre-tool-use.sh.
 - `copilot` — deliberately not wired: Copilot deliberately handles `bun run` cache checks and output quieting inside its Bash aggregators, mirroring Codex.
 
@@ -2297,7 +2356,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 **Hook wiring:**
 
 - event: `PreToolUse`; canonical order: `20`; shared body: `scripts/ai-hooks/git-commit-quiet.sh`
-- `claude` — `bash $CLAUDE_PROJECT_DIR/.claude/hooks/git-commit-quiet.sh` (matcher: `Bash`; timeout: `1260s`)
+- `claude` — `bash $CLAUDE_PROJECT_DIR/.claude/hooks/git-commit-quiet.sh` (matcher: `Bash`; timeout: `2460s`)
 - `codex` — deliberately not wired: Codex deliberately handles commit state and summaries inside its PreToolUse/PostToolUse Bash aggregators.
 - `copilot` — deliberately not wired: Copilot deliberately handles commit state and summaries inside its PreToolUse/PostToolUse Bash aggregators, mirroring Codex.
 
@@ -2556,7 +2615,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `hook/pre-commit`
 
-**Principle:** Run lint:changed, suppression policy registers, lint:ratchet, the zero-baseline lifecycle check, the debt-accounting integrity gate, the knip unused-export and staged near-duplicate floors, coverage-map, format:changed:check, typecheck, test:changed, and conditionally test:scripts:changed in parallel before allowing the commit; when packages/{shared,server}/dist is missing, defer lint and ratchet until the existing typecheck slot has produced those ignored outputs. Opt-in fast-commit mode (musi-fast-commit marker in the Git common dir) skips exactly the slots declared fastCommitSkip here (test, scripts); the skip set is generated into steps.generated.sh, never hand-coded.
+**Principle:** Run lint:changed, suppression policy registers, lint:ratchet, the zero-baseline lifecycle check, the debt-accounting integrity gate, ADR cross-link validation, the knip unused-export and staged near-duplicate floors, coverage-map, format:changed:check, typecheck, test:changed, and conditionally test:scripts:changed in parallel before allowing the commit; when packages/{shared,server}/dist is missing, defer lint and ratchet until the existing typecheck slot has produced those ignored outputs. Opt-in fast-commit mode (musi-fast-commit marker in the Git common dir) skips exactly the slots declared fastCommitSkip here (test, scripts); the skip set is generated into steps.generated.sh, never hand-coded.
 
 **Category:** maintainability
 
@@ -2571,6 +2630,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 - `ratchet` — `lint:ratchet` — env: `HARNESS_DIAGNOSTICS_OUTPUT=$LOG_DIR/ratchet-diagnostics.json`
 - `zero-baseline` — `lint:ratchet:zero-baseline`
 - `debt-accounting` — `lint:ratchet:check-debt-accounting` — args: `-- --staged`
+- `adr` — `adr:check`
 - `knip-unused-exports` — `sensor:knip-unused-exports`
 - `near-duplicates` — `sensor:near-duplicates`
 - `max-lines-exceptions` — `lint:max-lines-exceptions`

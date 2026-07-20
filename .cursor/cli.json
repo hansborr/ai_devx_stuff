@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Shell(git status)",
+      "Shell(git diff)",
+      "Shell(git log)",
+      "Shell(git show)",
+      "Shell(git show-ref)",
+      "Shell(git rev-parse)",
+      "Shell(git rev-list)",
+      "Shell(git merge-base)",
+      "Shell(git ls-files)",
+      "Shell(git ls-tree)",
+      "Shell(git cat-file)",
+      "Shell(git blame)",
+      "Shell(git shortlog)",
+      "Shell(git describe)",
+      "Shell(git for-each-ref)",
+      "Shell(git name-rev)",
+      "Shell(git grep)",
+      "Shell(git diff-tree)",
+      "Shell(git diff-index)",
+      "Shell(git whatchanged)",
+      "Shell(git cherry)",
+      "Shell(git range-diff)"
+    ],
+    "deny": []
+  }
+}

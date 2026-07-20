@@ -21,7 +21,6 @@ function tsconfig(paths?: Record<string, string[]>): string {
     compilerOptions: {
       module: "esnext",
       moduleResolution: "bundler",
-      baseUrl: ".",
       ...(paths === undefined ? {} : { paths }),
     },
   });

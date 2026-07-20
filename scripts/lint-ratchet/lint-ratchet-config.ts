@@ -49,6 +49,14 @@ const codeWideRatchetIgnores = [
 const testingLibraryDrainExitPath = "docs/agent_notes/finished_work/lint-followups-2026-06.md";
 const harnessReview202607Leaf37 =
   "docs/agent_notes/backlog/harness-review-2026-07/37-cheap-plugin-and-config-rule-adds.md";
+const noDirectGitExecScriptsRestrictedSyntax = [
+  {
+    selector:
+      'CallExpression[arguments.0.type="Literal"][arguments.0.value="git"][callee.type="Identifier"][callee.name=/^(?:execFile|execFileSync|spawn|spawnSync)$/]',
+    message:
+      "Route production Git commands through named scripts/lib/git.ts primitives; keep accepted fixture and injected-runner calls within this ratcheted floor.",
+  },
+] as const;
 const noRealTimeInPackageTestsRestrictedSyntax = [
   {
     selector:
@@ -212,6 +220,19 @@ export const lintRatchets = [
     metric: "message-count",
     repairKind: "manual",
     principle: "Prevent the number of production functions over 100 effective lines from growing while the 200-line normal-lint ceiling remains the hard cap and existing debt drains without artificial splits.",
+  },
+  {
+    id: "ratchet/no-direct-git-exec-scripts",
+    ruleId: "no-restricted-syntax",
+    source: { kind: "core" },
+    parserProfile: "minimal-ts",
+    files: ["scripts/**/*.ts"],
+    ignores: [...codeWideRatchetIgnores, "scripts/lib/git.ts"].toSorted(),
+    ruleOptions: noDirectGitExecScriptsRestrictedSyntax,
+    mode: "no-new",
+    metric: "message-count",
+    repairKind: "manual",
+    principle: "Freeze direct child-process Git calls outside scripts/lib/git.ts so new production bypasses cannot erode the named Git seam while accepted fixtures and injectable adapters drain opportunistically.",
   },
   {
     id: "ratchet/no-real-time-in-package-tests",

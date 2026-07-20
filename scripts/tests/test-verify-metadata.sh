@@ -243,11 +243,11 @@ ok "musi_success_marker_matches rejects future timestamp (negative age)"
 # --- constants expose the canonical budgets in one place ----------------------
 [ "${MUSI_GATE_MARKER_FRESHNESS_SECONDS:-unset}" = "120" ] \
   || fail "MUSI_GATE_MARKER_FRESHNESS_SECONDS should be 120 (got '${MUSI_GATE_MARKER_FRESHNESS_SECONDS:-unset}')"
-[ "${MUSI_GATE_INTERACTIVE_TIMEOUT_DEFAULT:-unset}" = "1200" ] \
-  || fail "MUSI_GATE_INTERACTIVE_TIMEOUT_DEFAULT should be 1200 (got '${MUSI_GATE_INTERACTIVE_TIMEOUT_DEFAULT:-unset}')"
+[ "${MUSI_GATE_INTERACTIVE_TIMEOUT_DEFAULT:-unset}" = "2400" ] \
+  || fail "MUSI_GATE_INTERACTIVE_TIMEOUT_DEFAULT should be 2400 (got '${MUSI_GATE_INTERACTIVE_TIMEOUT_DEFAULT:-unset}')"
 [ "${MUSI_GATE_PRE_PUSH_FRESHNESS_SECONDS:-unset}" = "3600" ] \
   || fail "MUSI_GATE_PRE_PUSH_FRESHNESS_SECONDS should be 3600 (got '${MUSI_GATE_PRE_PUSH_FRESHNESS_SECONDS:-unset}')"
-ok "shared gate timing constants expose the canonical 120/1200/3600 budgets"
+ok "shared gate timing constants expose the canonical 120/2400/3600 budgets"
 
 # --- default freshness arg falls back to the shared constant ------------------
 # With no 4th arg, musi_success_marker_matches must reuse

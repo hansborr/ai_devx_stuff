@@ -118,7 +118,7 @@ export default {
     },
     messages: {
       noBroadcastInTransaction:
-        "Why: Broadcasting inside a Prisma `$transaction` callback can notify clients about state that later rolls back. How to fix: Persist first, then call {{name}} after the transaction resolves. See docs/guides/add-socket-broadcast.md.",
+        "Why: ADR-0003 requires broadcasts after commit because an in-transaction emit can expose state that later rolls back. How to fix: Persist first, then call {{name}} after the transaction resolves. See docs/guides/add-socket-broadcast.md.",
     },
     schema: [],
   },

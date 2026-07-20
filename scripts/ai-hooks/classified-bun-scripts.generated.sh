@@ -14,6 +14,8 @@ harness:hook-timeouts:check
 harness:wiring:check
 lint:restricted-disable-rules
 lint:restricted-disable-rules:check
+mutation:survivors
+sensor:context-budget
 test:scripts:subjects
 test:scripts:subjects:check
 verify:steps:check

@@ -315,6 +315,15 @@
       "invocation": "bun run lint:ratchet"
     },
     {
+      "id": "ratchet/no-direct-git-exec-scripts",
+      "kind": "ratchet",
+      "category": "maintainability",
+      "pairedGuide": "docs/guides/lint-ratchet.md",
+      "repairKind": "manual",
+      "source": "scripts/lint-ratchet/lint-ratchet-config.ts",
+      "invocation": "bun run lint:ratchet"
+    },
+    {
       "id": "ratchet/no-real-time-in-package-tests",
       "kind": "ratchet",
       "category": "maintainability",
@@ -433,6 +442,16 @@
       "invocation": "bun run sensor:blob-size"
     },
     {
+      "id": "sensor/context-budget",
+      "kind": "sensor",
+      "category": "maintainability",
+      "principle": "Sum the always-loaded per-session context (root CLAUDE.md, AGENTS.md, and their @-imports) as lines, bytes, and estimated tokens so the always-on feedforward surface is governed as a set, not per file; report-only terminal advisory that never gates. Scope caveat: covers only the repo-owned set — sessions may also load .claude/rules/*.md, CLAUDE.local.md, and user-level memory, excluded as per-machine and non-reproducible, so the total is a lower bound.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/sensor-context-budget.ts",
+      "invocation": "bun run sensor:context-budget"
+    },
+    {
       "id": "sensor/knip",
       "kind": "sensor",
       "category": "maintainability",
@@ -513,6 +532,16 @@
       "invocation": "bun run harness:audit"
     },
     {
+      "id": "sensor/mutation-survivors",
+      "kind": "sensor",
+      "category": "behavior",
+      "principle": "Rank Survived and NoCoverage mutants from a Stryker mutation.json report by file and directory area with bounded samples, so mutation results become a triage list instead of a raw dump; report-only — survivor counts never change the exit code; only infrastructure failures (unreadable or malformed report, unwritable output, CLI misuse) exit 2.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/mutation-survivors.ts",
+      "invocation": "bun run mutation:survivors"
+    },
+    {
       "id": "sensor/lint-message-eval",
       "kind": "sensor",
       "category": "maintainability",
@@ -533,10 +562,20 @@
       "invocation": "bun run docs:local-eslint-rule-starter:check"
     },
     {
+      "id": "check/adr-archgates",
+      "kind": "check",
+      "category": "architecture-fitness",
+      "principle": "Accepted architecture decisions must keep resolvable deterministic gate locators and active gate messages must point only to live, non-superseded ADRs.",
+      "pairedGuide": "docs/adr/README.md",
+      "repairKind": "manual",
+      "source": "scripts/adr-check.ts",
+      "invocation": "bun run adr:check"
+    },
+    {
       "id": "verify-wrapper/verify",
       "kind": "verify-wrapper",
       "category": "maintainability",
-      "principle": "Run lint, suppression policy registers, lint:ratchet, the zero-baseline lifecycle check, the debt-accounting integrity gate, the standalone local-rule starter check, the knip unused-export floor and whole-tree near-duplicate baseline, coverage-map, format check, typecheck, test, and script smoke suites against the full tree with shared cache, lock, and log directory so a failing slot leaves the rest reusable; lint preflights packages/{shared,server}/dist and runs typecheck automatically before ESLint when those ignored outputs are missing.",
+      "principle": "Run lint, suppression policy registers, lint:ratchet, the zero-baseline lifecycle check, the debt-accounting integrity gate, the standalone local-rule starter check, ADR cross-link validation, the knip unused-export floor and whole-tree near-duplicate baseline, coverage-map, format check, typecheck, test, and script smoke suites against the full tree with shared cache, lock, and log directory so a failing slot leaves the rest reusable; lint preflights packages/{shared,server}/dist and runs typecheck automatically before ESLint when those ignored outputs are missing.",
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": "scripts/verify.sh",
@@ -568,6 +607,10 @@
         {
           "name": "local-rule-starter",
           "script": "docs:local-eslint-rule-starter:check"
+        },
+        {
+          "name": "adr",
+          "script": "adr:check"
         },
         {
           "name": "knip-unused-exports",
@@ -609,7 +652,7 @@
       "id": "verify-wrapper/verify-changed",
       "kind": "verify-wrapper",
       "category": "maintainability",
-      "principle": "Run lint:changed, suppression policy registers, lint:ratchet, the zero-baseline lifecycle check, the debt-accounting integrity gate, the knip unused-export and staged near-duplicate floors, coverage-map, format:changed:check, typecheck, test:changed, and test:scripts:changed in parallel against the changed-file set; default edit-loop gate before commit; when packages/{shared,server}/dist is missing, the wrapper defers lint and ratchet until the existing typecheck slot has produced those ignored outputs.",
+      "principle": "Run lint:changed, suppression policy registers, lint:ratchet, the zero-baseline lifecycle check, the debt-accounting integrity gate, ADR cross-link validation, the knip unused-export and staged near-duplicate floors, coverage-map, format:changed:check, typecheck, test:changed, and test:scripts:changed in parallel against the changed-file set; default edit-loop gate before commit; when packages/{shared,server}/dist is missing, the wrapper defers lint and ratchet until the existing typecheck slot has produced those ignored outputs.",
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": "scripts/verify.sh",
@@ -638,6 +681,10 @@
           "name": "debt-accounting",
           "script": "lint:ratchet:check-debt-accounting",
           "args": ["--", "--staged"]
+        },
+        {
+          "name": "adr",
+          "script": "adr:check"
         },
         {
           "name": "knip-unused-exports",
@@ -681,7 +728,7 @@
       "id": "verify-wrapper/verify-parallel",
       "kind": "verify-wrapper",
       "category": "maintainability",
-      "principle": "Run the full lint, suppression policy registers, ratchet, zero-baseline lifecycle check, debt-accounting integrity gate, standalone local-rule starter check, knip unused-export floor and whole-tree near-duplicate baseline, coverage-map, format check, typecheck, test, and scripts suites in parallel; reduces full-verify wall time when the full script suite fits the selected timeout or cached state; when packages/{shared,server}/dist is missing, the wrapper defers lint and ratchet until the existing typecheck slot has produced those ignored outputs.",
+      "principle": "Run the full lint, suppression policy registers, ratchet, zero-baseline lifecycle check, debt-accounting integrity gate, standalone local-rule starter check, ADR cross-link validation, knip unused-export floor and whole-tree near-duplicate baseline, coverage-map, format check, typecheck, test, and scripts suites in parallel; reduces full-verify wall time when the full script suite fits the selected timeout or cached state; when packages/{shared,server}/dist is missing, the wrapper defers lint and ratchet until the existing typecheck slot has produced those ignored outputs.",
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": "scripts/verify.sh",
@@ -713,6 +760,10 @@
         {
           "name": "local-rule-starter",
           "script": "docs:local-eslint-rule-starter:check"
+        },
+        {
+          "name": "adr",
+          "script": "adr:check"
         },
         {
           "name": "knip-unused-exports",
@@ -1328,7 +1379,14 @@
         ],
         "checkScript": "verify:steps:check",
         "warnLabel": "verify step and generated-surface metadata",
-        "bunHook": { "refresh": "bypass", "check": "wrapped" },
+        "bunHook": {
+          "refresh": "bypass",
+          "check": "wrapped",
+          "scripts": {
+            "mutation:survivors": "wrapped",
+            "sensor:context-budget": "wrapped"
+          }
+        },
         "fixturePaths": [
           "scripts/harness/generate-verify-steps.ts",
           "scripts/harness/verify-step-schema.ts",
@@ -1760,7 +1818,7 @@
       "id": "hook/pre-commit",
       "kind": "hook",
       "category": "maintainability",
-      "principle": "Run lint:changed, suppression policy registers, lint:ratchet, the zero-baseline lifecycle check, the debt-accounting integrity gate, the knip unused-export and staged near-duplicate floors, coverage-map, format:changed:check, typecheck, test:changed, and conditionally test:scripts:changed in parallel before allowing the commit; when packages/{shared,server}/dist is missing, defer lint and ratchet until the existing typecheck slot has produced those ignored outputs. Opt-in fast-commit mode (musi-fast-commit marker in the Git common dir) skips exactly the slots declared fastCommitSkip here (test, scripts); the skip set is generated into steps.generated.sh, never hand-coded.",
+      "principle": "Run lint:changed, suppression policy registers, lint:ratchet, the zero-baseline lifecycle check, the debt-accounting integrity gate, ADR cross-link validation, the knip unused-export and staged near-duplicate floors, coverage-map, format:changed:check, typecheck, test:changed, and conditionally test:scripts:changed in parallel before allowing the commit; when packages/{shared,server}/dist is missing, defer lint and ratchet until the existing typecheck slot has produced those ignored outputs. Opt-in fast-commit mode (musi-fast-commit marker in the Git common dir) skips exactly the slots declared fastCommitSkip here (test, scripts); the skip set is generated into steps.generated.sh, never hand-coded.",
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": ".husky/pre-commit",
@@ -1789,6 +1847,10 @@
           "name": "debt-accounting",
           "script": "lint:ratchet:check-debt-accounting",
           "args": ["--", "--staged"]
+        },
+        {
+          "name": "adr",
+          "script": "adr:check"
         },
         {
           "name": "knip-unused-exports",
@@ -1986,7 +2048,7 @@
           "claude": {
             "matcher": "Bash",
             "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/git-commit-quiet.sh",
-            "timeout": 1260
+            "timeout": 2460
           }
         },
         "notes": {
@@ -2012,7 +2074,7 @@
           "claude": {
             "matcher": "Bash",
             "command": "bash $CLAUDE_PROJECT_DIR/.claude/hooks/bun-run-quiet.sh",
-            "timeout": 1260
+            "timeout": 2460
           }
         },
         "notes": {

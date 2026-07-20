@@ -1065,8 +1065,8 @@ for expected in ARG:-p ARG:--output-format ARG:stream-json ARG:--trust ARG:--mod
   expect_out "$expected" "cursor consult args"
 done
 expect_out "Do not modify files" "cursor consult preamble"
-expect_out "Shell commands are denied" "cursor consult preamble names the ask-mode shell denial"
-expect_not_out "git diff is fine" "cursor consult preamble must not promise shell (ask mode denies it)"
+expect_out "git diff is fine" "cursor consult uses the shared shell-capable preamble (.cursor/cli.json re-permits read-only git in ask mode)"
+expect_not_out "Shell commands are denied" "cursor consult no longer claims shell is denied outright"
 expect_not_out "ARG:--force" "cursor consult args"
 expect_out "agent-run: session-id: cafe0001-2222-3333-4444-555555555555" "cursor consult trailer"
 expect_not_out "agent-run: cost-usd:" "cursor consult has no claude cost metadata"

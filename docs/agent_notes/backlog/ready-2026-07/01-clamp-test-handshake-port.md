@@ -48,8 +48,9 @@ Port the two-marker handshake, fixture-side only:
   fail` fixture block) exactly as 3ccefe73 did for the sibling —
   cleanup must be unreachable-to-skip on implicit errexit paths too.
 - Keep the existing assertions: `decision=block`, the shared-queue
-  reason text, and both clamp stderr lines ("clamped timeout from 1300s
-  to 1200s", "generated hook timeout 1260s").
+  reason text, and both clamp stderr lines for the canonical
+  `MUSI_GATE_INTERACTIVE_TIMEOUT_DEFAULT` value and generated hook ceiling.
+  The shell test intentionally pins those values as exact output strings.
 
 ## Non-goals
 

@@ -133,7 +133,6 @@ describe("code:intel daemon query route", () => {
     });
     writeRepoJson("packages/client/tsconfig.json", {
       compilerOptions: {
-        baseUrl: ".",
         composite: false,
         declaration: false,
         declarationMap: false,

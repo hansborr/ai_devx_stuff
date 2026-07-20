@@ -216,6 +216,13 @@ Recommended order:
 3. Optional scoped CI job for changed files or critical packages.
 4. Score gate only after the team has triaged noise and agreed on a baseline.
 
+Stage 2 landed 2026-07-19: the weekly slow-drift lane
+(`.github/workflows/slow-drift.yml` → `scripts/slow-drift-audit.sh`) runs a
+scoped shared-rules mutation pass behind `MUSI_SLOW_DRIFT_MUTATION=1` and
+summarizes survivors with `bun run mutation:survivors` into the uploaded
+fused artifacts. Report-only: `thresholds.break` stays null and mutation
+failures never fail the lane.
+
 Do not block normal PRs on mutation score during the rollout. A later gate, if
 added, should be scoped and low-surprise, such as "critical shared rules must
 not regress below the agreed baseline".

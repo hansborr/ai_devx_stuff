@@ -43,9 +43,6 @@ Files, tests, finished_work notes, docs.
 
 ## Domain index
 
-- [decisions-concurrency.md](decisions-concurrency.md)
-  - Race-sensitive writes: compile-enforced `never` on gated tables.
-  - Invite accept: compound `updateMany` (Pattern C), not check-then-increment.
 - [decisions-auth.md](decisions-auth.md)
   - Auth cache reset: `queryClient.clear()` on both login and logout.
   - Character ownership errors return `NOT_FOUND`, not `FORBIDDEN`.

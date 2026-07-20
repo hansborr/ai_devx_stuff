@@ -6,6 +6,9 @@ When adding a new mutation, first confirm it actually needs gating (see
 fourth. See §"Alternatives considered" at the end for why CAS was
 chosen over `pg_advisory_xact_lock` or Serializable-everywhere.
 
+The stable architectural decision and its enforcing gates are recorded in
+`docs/adr/0001-race-sensitive-writes.md` (ADR-0001).
+
 ## Scope — when a gate is worth adding
 
 Pattern A/B/C were added preemptively on architectural-review advice,
@@ -223,16 +226,24 @@ skip the CAS because they're idempotent resets.
 shape is similar but the fields racing are different; consolidating
 would conflate unrelated models.
 
-## Pattern C — compound `updateMany` for `Encounter` state
+## Pattern C — compound `updateMany` with the precondition in `where`
 
-**Applies to:** `advanceTurn`, state-machine transitions
+**Applies to:** `Encounter` `advanceTurn`, state-machine transitions
 (setup → active, active ↔ paused, → resolved), `currentTurnIndex`
-shifts from outside `advanceTurn`, and metadata writes.
+shifts from outside `advanceTurn`, and metadata writes. It also applies to a
+standalone atomic claim such as `CampaignInvite` acceptance: the
+`usesRemaining > 0` precondition belongs in the same `updateMany` `where`, and
+zero affected rows maps to `CONFLICT` rather than allowing two acceptors to
+consume the final use.
 
 **The rule:** writes go through helpers in
 `utils/encounter-state-mutations.ts`. Every field checked in JS is also
 checked in the `updateMany` WHERE so two concurrent advances can't
 both pass the JS guard and both clobber. Helpers:
+
+A compound claim whose complete precondition fits in one statement does not
+need a new gated-delegate helper surface; its focused invariant test is the
+deterministic gate.
 
 - `advanceTurnCompound` — canonical Pattern C; CAS on `previousRound`
   and `previousTurnIndex`. Returns row count so the caller can pick

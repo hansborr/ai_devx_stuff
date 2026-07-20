@@ -61,7 +61,6 @@ export function createReferenceFixtureProject(): Project {
     useInMemoryFileSystem: true,
     compilerOptions: {
       allowJs: false,
-      baseUrl: repoRoot,
       esModuleInterop: true,
       jsx: ts.JsxEmit.ReactJSX,
       module: ModuleKind.Node16,

@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, isAbsolute, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { defaultGitRunner, listTrackedFiles } from "./lib/git.js";
+import { defaultGitRunner, listTrackedFiles, readGitBlobAtRef } from "./lib/git.js";
 import type { LintCoverageMapCheckOptions } from "./lint-coverage-map-check-types.js";
 
 export const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -16,7 +16,7 @@ export function loadTrackedFiles(cwd: string): string[] {
 function loadStagedMapText(cwd: string, mapPath: string): string {
   const topLevel = defaultGitRunner({ cwd })(["rev-parse", "--show-toplevel"]).trim();
   const gitPath = relative(topLevel, mapPath).replaceAll("\\", "/");
-  return defaultGitRunner({ cwd: topLevel })(["show", `:${gitPath}`]);
+  return readGitBlobAtRef(defaultGitRunner({ cwd: topLevel }), "", gitPath);
 }
 
 export function createWorktreeExists(cwd: string): (relativePath: string) => boolean {

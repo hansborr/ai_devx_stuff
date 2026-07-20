@@ -82,7 +82,7 @@ fi
 GIT_COMMIT_QUIET_TIMEOUT_MARGIN=60
 TOTAL_TIMEOUT=$(ai_clamp_timeout_below_harness \
   "git-commit-quiet" \
-  "${AI_GIT_COMMIT_TIMEOUT:-${MUSI_INTERACTIVE_TIMEOUT:-1200}}" \
+  "${AI_GIT_COMMIT_TIMEOUT:-${MUSI_INTERACTIVE_TIMEOUT:-$MUSI_GATE_INTERACTIVE_TIMEOUT_DEFAULT}}" \
   "$GIT_COMMIT_QUIET_HOOK_TIMEOUT" \
   "$GIT_COMMIT_QUIET_TIMEOUT_MARGIN")
 
@@ -199,7 +199,7 @@ MUSI_COMMIT_QUEUE_LOCK_ALREADY_HELD=1 \
   bash -c "$CMD" > "$OUTFILE" 2>&1 9>&- &
 CHILD=$!
 
-# Watchdog: match the 20-minute pre-commit budget. The Claude hook adapter has
+# Watchdog: match the 40-minute pre-commit budget. The Claude hook adapter has
 # a slightly larger generated timeout so this wrapper can emit JSON first.
 (
   exec 9<&-

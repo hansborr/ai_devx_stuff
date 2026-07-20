@@ -56,7 +56,7 @@ export default {
     },
     messages: {
       noDirectEmit:
-        "Why: Emitting `{{eventName}}` directly bypasses payload validation and broadcast logging in broadcast-registry.ts. How to fix: Use {{helper}} so the event stays validated and logged. See docs/guides/add-socket-broadcast.md.",
+        "Why: ADR-0003 requires registry-owned events to use helpers so payload validation and structured logging stay centralized. How to fix: Use {{helper}} instead of emitting `{{eventName}}` directly. See docs/guides/add-socket-broadcast.md.",
     },
     schema: [],
   },

@@ -1,5 +1,5 @@
 // @ts-check
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { makeRuleTester } from "./rule-tester.js";
 import rule from "./no-broadcast-in-transaction.js";
@@ -7,6 +7,10 @@ import rule from "./no-broadcast-in-transaction.js";
 const ruleTester = makeRuleTester();
 
 describe("no-broadcast-in-transaction", () => {
+  it("names the post-commit architecture decision", () => {
+    expect(rule.meta.messages.noBroadcastInTransaction).toContain("ADR-0003");
+  });
+
   it("blocks socket broadcasts inside Prisma transaction callbacks", () => {
     ruleTester.run("no-broadcast-in-transaction", rule, {
       valid: [

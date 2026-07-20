@@ -65,6 +65,10 @@ describe("verify step generator", () => {
     );
     expect(generated).not.toContain("MUSI_VERIFY_CHANGED_LOCAL_RULE_STARTER_CMD");
     expect(generated).not.toContain("MUSI_PRE_COMMIT_LOCAL_RULE_STARTER_CMD");
+    expect(generated).toContain("MUSI_VERIFY_ADR_CMD=('bun' 'run' 'adr:check')");
+    expect(generated).toContain("MUSI_VERIFY_CHANGED_ADR_CMD=('bun' 'run' 'adr:check')");
+    expect(generated).toContain("MUSI_VERIFY_PARALLEL_ADR_CMD=('bun' 'run' 'adr:check')");
+    expect(generated).toContain("MUSI_PRE_COMMIT_ADR_CMD=('bun' 'run' 'adr:check')");
   });
 
   it("checks the whole near-duplicate baseline only in full-tree verifiers", () => {

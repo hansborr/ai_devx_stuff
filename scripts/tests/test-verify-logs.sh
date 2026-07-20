@@ -32,7 +32,7 @@ PRECOMMIT_MARKER="$SANDBOX/precommit-marker"
 mkdir -p "$PRECOMMIT_LOG_DIR" "$BUN_LOG_DIR"
 
 run_logs() {
-  # The budget view reports ${MUSI_INTERACTIVE_TIMEOUT:-1200}; neutralize that var
+  # The budget view reports the shared MUSI_INTERACTIVE_TIMEOUT default; neutralize that var
   # so the default-budget assertion is hermetic. Otherwise any ambient override
   # leaks in — e.g. verify:async sets
   # MUSI_INTERACTIVE_TIMEOUT to its exec timeout, which would make this test report
@@ -478,10 +478,10 @@ cat > "$PRECOMMIT_LOG_DIR/run-meta.json" <<'JSON'
 JSON
 output=$(run_logs budget)
 grep -qF '== budget ==' <<< "$output" || fail "budget view missed heading"
-# Default budget is warn=1080s / hard=1200s. The reporter's defaults must track
+# Default budget is warn=1080s / hard=2400s. The reporter's defaults must track
 # verify.sh / pre-commit.
-grep -qF 'budget: warn=1080s hard=1200s' <<< "$output" \
-  || fail "budget view should report the default warn=1080s hard=1200s budget"
+grep -qF 'budget: warn=1080s hard=2400s' <<< "$output" \
+  || fail "budget view should report the default warn=1080s hard=2400s budget"
 grep -qF 'state=WARN-BUDGET-EXCEEDED' <<< "$output" \
   || fail "budget view should warn when wrapper exceeds the 1080s soft budget"
 grep -qE 'wrapper: 1100s mode=parallel-precommit exit=0' <<< "$output" \

@@ -1,6 +1,9 @@
 # 25 - Slow-lane mutation and timing add-ons
 
-Status: Ready — queued in `../ready-2026-07/00-index.md` (2026-07-19 triage)
+Status: Done — landed 2026-07-19 on `auto/ready-b-slowlane` (per-step
+timing/skip/timeout knobs in `scripts/slow-drift-audit.sh`, plus scoped
+shared-rules mutation + `mutation:survivors` summary behind
+`MUSI_SLOW_DRIFT_MUTATION=1` in the weekly lane; all report-only)
 Track: Dg (diagnostics)
 Size: medium
 Depends on: 24

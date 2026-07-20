@@ -779,13 +779,10 @@ Do not modify files. Assume tests pass.'
   fi
 }
 
-consult_preamble_cursor() {
-  # Ask mode denies all shell, so the shared preamble's "git diff is fine"
-  # would promise a tool this session does not have; steer to file reads and
-  # the <attached> material the caller supplies instead.
-  CONSULT_PREAMBLE='Shell commands are denied in this session; do not attempt them. Reading files is fine, and any diffs or command output you need arrive as <attached> material.
-Do not modify files. Assume tests pass.'
-}
+# cursor has no consult_preamble override: ask mode plus the repo's
+# .cursor/cli.json read-only allowlist give it the same file-read + git-diff
+# surface the shared preamble ("reading files and git diff is fine") describes,
+# so the default preamble applies unchanged. See references/cursor.md.
 
 prepare_prompt_transport() {
   local prompt_bytes
@@ -1202,8 +1199,10 @@ build_cursor_command() {
   # launch_result_envelope_backend and references/cursor.md).
   cmd=(agent -p --output-format stream-json --trust)
   if [ "$MODE" = consult ]; then
-    # ask mode is cursor's enforced read-only profile: file reads work, the
-    # write tool is refused, and headless shell is denied outright.
+    # ask mode is cursor's enforced read-only profile: file reads work and the
+    # write tool is refused. Shell is denied by default, but the repo's
+    # .cursor/cli.json allowlist re-permits read-only git (diff/log/show/...),
+    # so a cursor consult can gather its own branch diff. See references/cursor.md.
     cmd+=(--mode ask)
   else
     # headless denies every shell command without --force

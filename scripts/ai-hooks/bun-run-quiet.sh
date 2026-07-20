@@ -18,7 +18,8 @@
 # The fingerprint is the real gate; TTL just bounds how long "nothing changed"
 # is trusted when clocks/state go weird. Bypass with FORCE_VERIFY=1.
 #
-# Signals: an internal watchdog (1200s by default, minus lock wait) plus
+# Signals: an internal watchdog (MUSI_GATE_INTERACTIVE_TIMEOUT_DEFAULT by
+# default, minus lock wait) plus
 # INT/TERM traps kill the wrapped bash -c
 # child so the old zombie-process pattern can't re-emerge if the hook itself
 # is signalled. An early TERM trap covers the flock-wait window before the
@@ -168,7 +169,7 @@ LOCK="${AI_BUN_LOCK:-$(musi_standard_bun_lock "$REPO_ROOT")}"
 BUN_RUN_QUIET_TIMEOUT_MARGIN=60
 TOTAL_TIMEOUT=$(ai_clamp_timeout_below_harness \
   "bun-run-quiet" \
-  "${AI_BUN_TIMEOUT:-${MUSI_INTERACTIVE_TIMEOUT:-1200}}" \
+  "${AI_BUN_TIMEOUT:-${MUSI_INTERACTIVE_TIMEOUT:-$MUSI_GATE_INTERACTIVE_TIMEOUT_DEFAULT}}" \
   "$BUN_RUN_QUIET_HOOK_TIMEOUT" \
   "$BUN_RUN_QUIET_TIMEOUT_MARGIN")
 LOCK_WAIT="${AI_BUN_LOCK_WAIT:-$TOTAL_TIMEOUT}"

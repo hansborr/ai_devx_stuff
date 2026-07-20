@@ -21,6 +21,16 @@ export function defaultGitRunner(options?: { readonly cwd?: string }): GitRunner
   return (args) => execFileSync("git", [...args], { cwd: options?.cwd, encoding: "utf8" });
 }
 
+/** Read one repository blob from a ref (or from the index when `ref` is empty). */
+export function readGitBlobAtRef<Options>(
+  git: (args: readonly string[], options?: Options) => string,
+  ref: string,
+  path: string,
+  options?: Options,
+): string {
+  return git(["show", `${ref}:${path}`], options);
+}
+
 /** Anchor a git command at the repository root, independent of the invocation cwd. */
 export function gitRepoRootArgs(repoRoot: string, args: readonly string[]): string[] {
   return ["-C", repoRoot, ...args];

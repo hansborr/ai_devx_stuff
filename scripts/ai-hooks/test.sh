@@ -1901,6 +1901,7 @@ assert_contains "$(jq -r '.reason // empty' <<< "$PRISMA_LOCK_FLOCK_OUTPUT")" "c
 
 assert_bun_package_scripts_are_classified
 
+assert_wrapped_bun "bun run adr:check"
 assert_wrapped_bun "bun run lint"
 assert_wrapped_bun "bun run lint:changed"
 assert_wrapped_bun "bun run lint:shell"
@@ -2067,7 +2068,7 @@ assert_claude_bun_timeout_clamps_to_hook_margin() {
   printf '{"tool_input":{"command":"bun run lint","run_in_background":false}}' \
     | AI_BUN_LOCK="$lock" \
       AI_BUN_LOCK_WAIT=1 \
-      AI_BUN_TIMEOUT=1300 \
+      AI_BUN_TIMEOUT=2500 \
       bash "$BUN_HOOK" > "$hook_out" 2> "$hook_err" \
     || fail "Claude bun hook timeout clamp fixture failed"
   wait "$holder" 2>/dev/null || true
@@ -2076,8 +2077,8 @@ assert_claude_bun_timeout_clamps_to_hook_margin() {
   [ "$(jq -r '.decision // empty' "$hook_out")" = "block" ] \
     || fail "Claude bun hook should block on held lock with clamp active: $(cat "$hook_out")"
   assert_contains "$reason" "Waited 1s"
-  assert_contains "$(cat "$hook_err")" "bun-run-quiet: clamped timeout from 1300s to 1200s"
-  assert_contains "$(cat "$hook_err")" "generated hook timeout 1260s"
+  assert_contains "$(cat "$hook_err")" "bun-run-quiet: clamped timeout from 2500s to 2400s"
+  assert_contains "$(cat "$hook_err")" "generated hook timeout 2460s"
 }
 
 assert_response_combined_exit \
@@ -2365,7 +2366,7 @@ assert_git_commit_quiet_timeout_clamps_to_hook_margin() {
       | AI_GIT_COMMIT_LOCK="$worktree_lock" \
         MUSI_COMMIT_QUEUE_LOCK="$queue_lock" \
         MUSI_COMMIT_QUEUE_TIMEOUT=1 \
-        AI_GIT_COMMIT_TIMEOUT=1300 \
+        AI_GIT_COMMIT_TIMEOUT=2500 \
         bash "$REPO_ROOT/scripts/ai-hooks/git-commit-quiet.sh" > "$hook_out" 2> "$hook_err"
   ) || fixture_status=$?
 
@@ -2382,8 +2383,8 @@ assert_git_commit_quiet_timeout_clamps_to_hook_margin() {
   [ "$(jq -r '.decision // empty' "$hook_out" 2>/dev/null || true)" = "block" ] \
     || fail "git-commit-quiet should block on held queue with clamp active: $(cat "$hook_out")"
   assert_contains "$reason" "shared commit queue lock"
-  assert_contains "$(cat "$hook_err")" "git-commit-quiet: clamped timeout from 1300s to 1200s"
-  assert_contains "$(cat "$hook_err")" "generated hook timeout 1260s"
+  assert_contains "$(cat "$hook_err")" "git-commit-quiet: clamped timeout from 2500s to 2400s"
+  assert_contains "$(cat "$hook_err")" "generated hook timeout 2460s"
 }
 
 # G1 regression: the git-commit-quiet hook *executes* the command via `bash -c`,

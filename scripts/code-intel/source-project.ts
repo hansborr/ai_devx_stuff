@@ -37,7 +37,6 @@ export function createReferenceProject(repoRoot: string): Project {
     skipAddingFilesFromTsConfig: true,
     compilerOptions: {
       allowJs: false,
-      baseUrl: repoRoot,
       esModuleInterop: true,
       jsx: ts.JsxEmit.ReactJSX,
       module: ModuleKind.Node16,

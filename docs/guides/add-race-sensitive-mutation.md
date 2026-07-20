@@ -3,15 +3,18 @@
 Use this path only when a write has real lost-update risk. Start with the
 decision, not the lock.
 
-1. Clear the three-bar gate from `docs/CONCURRENCY.md:9` before adding any
-   concurrency control:
+The enforced architectural boundary is ADR-0001:
+`docs/adr/0001-race-sensitive-writes.md`.
+
+1. Clear the three-bar gate in `docs/CONCURRENCY.md` §"Scope — when a gate is
+   worth adding" before adding any concurrency control:
    multiple real-world writers can hit the same row, a lost update creates
    user-visible wrong state, and the user cannot trivially recover. New gates
-   also need a reported real-session bug, not a theoretical race argument
-   (`docs/CONCURRENCY.md:40`).
+   also need a reported real-session bug, not a theoretical race argument (the
+   "New gates need a reported bug" rule in that section).
 2. If any bar is missing, keep the write simple. Set-semantics tables,
    last-writer-wins UI, single-writer paths, and append-only logs are called
-   out as non-candidates in `docs/CONCURRENCY.md:27`.
+   out under "Not candidates" in that section.
 3. Reuse an existing helper in `packages/server/src/utils/*-mutations.ts`
    before adding a new one. These files are the trust boundary for gated
    tables and the only files allowed to import `RawTxClient`.
@@ -29,14 +32,16 @@ decision, not the lock.
    `updateMany` WHERE, especially `Encounter` state, round, and turn-index
    transitions. Existing helpers in `encounter-state-mutations.ts` include
    `advanceTurnCompound`, `setEncounterState`, `setCurrentTurnIndex`,
-   `assertTurnLock`, and `updateEncounterMeta`.
+   `assertTurnLock`, and `updateEncounterMeta`. Gated delegates still use
+   their helpers; a standalone compound claim such as `CampaignInvite`
+   acceptance may write explicitly when its complete precondition is encoded
+   in the statement and a focused invariant test gates the result.
 7. Preserve conflict semantics. Pattern A/B helpers throw `CONFLICT` when the
    CAS `updateMany` affects zero rows; `advanceTurnCompound` returns row count
-   so callers can distinguish `BAD_REQUEST` from `CONFLICT`
-   (`docs/CONCURRENCY.md:63`, `docs/CONCURRENCY.md:112`,
-   `docs/CONCURRENCY.md:137`).
+   so callers can distinguish `BAD_REQUEST` from `CONFLICT`. See the rule for
+   each pattern in `docs/CONCURRENCY.md`.
 8. For cross-table writers, acquire rows in the canonical order from
-   `docs/CONCURRENCY.md:153`:
+   `docs/CONCURRENCY.md` §"Cross-table invariants":
    `CharacterStats` -> `CharacterClass` -> `CharacterSpellSlot` ->
    `EncounterParticipant`. If you cannot follow that order, prove row-identity
    disjointness and update the writer list in `docs/CONCURRENCY.md`.
@@ -61,7 +66,7 @@ decision, not the lock.
     `packages/server/src/routers/sorcery-point.test.ts`.
 12. Use `[200, 409]` response assertions only when the client sends a CAS token
     such as `expectedVersion`; otherwise assert state consistency after
-    `Promise.all` or `Promise.allSettled` (`docs/CONCURRENCY.md:287`).
+    `Promise.all` or `Promise.allSettled` (`docs/CONCURRENCY.md` §"Testing").
 13. Run the focused test file while iterating, then run
     `bun run verify:changed` before calling the change done.
 

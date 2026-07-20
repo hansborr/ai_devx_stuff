@@ -1,6 +1,6 @@
 # Make lib/git.ts the git-exec seam — grow, ratchet, then migrate opportunistically
 
-Status: Ready
+Status: Done — implemented 2026-07-19 (phase 1; remaining caller migrations stay opportunistic).
 Date: 2026-07-19
 Source: 2026-07-19 harness architecture review, candidate 5 (session
 artifact; claims verified against HEAD 544a9d06 the same day); design
@@ -70,3 +70,23 @@ deepen it (Codex ruling); the seam grows named, typed primitives only.
   restructure the module or reopen that merge by stealth.
 - file:line and count facts above verified 2026-07-19 at HEAD 544a9d06;
   they drift fast — re-verify before coding.
+
+## Phase-1 implementation inventory (re-verified 2026-07-19)
+
+At `341505fc`, 23 TypeScript files under `scripts/` directly call a Node
+child-process API with literal `"git"`; excluding `scripts/lib/git.ts` leaves
+the specified 22 bypassing files. Their semantic contracts are:
+
+| Contract | Files | Disposition |
+| --- | --- | --- |
+| UTF-8, throwing, cwd-bound injectable runners (some with per-call caps or larger buffers) | `drift-ai/{bounded-full-history,coldspots-blame,hotspots-history,suppressions}.ts` | Keep the injectable adapter seam; do not force these through the basic string runner. The birth-blob caller may still consume the named ref/blob primitive. |
+| Buffer/binary, throwing, cwd-bound injectable runner | `drift-ai/current-inventory.ts` | Keep the binary adapter seam; a string-returning runner would corrupt its NUL-delimited inventory contract. |
+| UTF-8 status/nullable production probes | `drift-triage/drift-triage-packet-io.ts`, `drift-ai/harness-freshness-io.ts` | Preserve the explicit status/error contracts; do not replace them with the throwing runner. |
+| UTF-8 or buffer production commands that catch/map failures locally | `backlog-lint.ts`, `logs-audit/logs-audit-latest.ts`, `sensor-blob-size.ts`, `sensor-near-duplicates-{baseline-io,core}.ts` | Eligible for named seam primitives when their current cwd, output, and failure mapping remain intact. |
+| Test-fixture repository setup or committed-fixture inspection | `drift-ai/{current-inventory,near-duplicates,prototype-subcommands}.test.ts`, `drift-triage/drift-triage.test.ts`, `lint-coverage-map-check.test.ts`, `lint-ratchet/{baseline,check-registry,output}.test.ts`, `sensor-blob-size.test.ts`, `test-support/tmp-repo.test-helper.ts` | Keep direct fixture git setup/inspection; the ratchet freezes these accepted bypasses but migration is not required. |
+
+This classification is by caller contract rather than raw process-call count:
+several files contain multiple direct calls, and `sensor-blob-size.ts` contains
+both a buffer read and a UTF-8 scalar read. The phase-1 ratchet therefore uses
+per-file message counts, so either a new bypassing file or another direct spawn
+in an accepted file is a regression.

@@ -1,6 +1,6 @@
 # Gate-lifecycle seam — grow verify-engine.sh a gate-run interface
 
-Status: Ready — plan review before code.
+Status: Done — implemented and verified 2026-07-19 on auto/ready-c7-seam.
 Date: 2026-07-19
 Source: 2026-07-19 harness architecture review (session artifact, claims
 verified against HEAD 544a9d06 the same day); design calls consulted with
@@ -62,6 +62,20 @@ mode label, fingerprint/head source, wrapper command, exit hook such as
 `musi_precommit_fast_provenance_on_exit` — and are never silently
 normalized. Drift is converged deliberately, with the matrix as the
 review artifact. The plan review approves the matrix before code.
+
+### Implemented policy-vs-drift matrix
+
+| Lifecycle difference | Classification | Implemented disposition |
+| --- | --- | --- |
+| FD 9 acquisition | Intentional policy | Manual verification remains blocking; pre-commit remains nonblocking through `lock_mode`. |
+| Inherited FD 9 ownership | Intentional policy | Pre-commit honors `MUSI_VERIFY_LOCK_ALREADY_HELD` and skips FD 9 acquisition when it is set. |
+| FD 8 commit-queue ownership | Intentional policy | Pre-commit remains the only owner and passes its held state; manual verification uses no commit-queue lock. |
+| Native marker and manual-verify bridge ordering | Intentional policy | The engine checks the native marker first; the pre-commit adapter alone supplies the bridge predicate. |
+| Run modes, labels, quiet step label, and wrapper command | Intentional policy | Named policy fields preserve each caller's existing strings and pre-commit's quiet slot dispatch. |
+| Cache, run, final-fingerprint, and marker-HEAD identities | Intentional policy | Independent providers preserve the caller-specific identity snapshots instead of normalizing them. |
+| Fast-commit EXIT provenance | Intentional policy | Pre-commit installs `musi_precommit_fast_provenance_on_exit`; manual verification supplies no exit hook. |
+| Signal start-time fallback and cleanup shape | Accumulated drift | One signal metadata path now handles an early missing start time, and one idempotent cleanup handles serial and parallel PIDs. |
+| Bridge fingerprint or pre-commit marker-write failure | Deliberate convergence | These formerly collapsed into an ordinary bridge miss; they now return operational failure (`2`) and stop the gate. Only a valid nonmatching/absent marker remains an ordinary miss (`1`). |
 
 ## Constraints
 

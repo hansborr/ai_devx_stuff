@@ -305,9 +305,10 @@ needs them.
 | `docs/guides/verify-gate-lifecycle.md` | Maintainability | Inferential | Contributors and adopters treating the commit gate as an opaque exit code instead of generated slots with structured repair feedback | First-contact harness tour or gate troubleshooting | `verify` / `verify:changed` wrapper, pre-commit |
 | `docs/agent_notes/README.md`, `docs/agent_notes/LOG.md`, and `docs/agent_notes/backlog/README.md` | Maintainability | Inferential | Agents treating pruned notes as active work or preserving excessive history | On demand | Stop-hook dirty-work user warning |
 | `docs/architecture-plan.md` | Architecture fitness | Inferential | Cross-package and stack-level changes drifting from planned architecture | Manual, area-specific | Typecheck, tests, future graph checks |
+| `docs/adr/README.md` and accepted ADRs | Architecture fitness, behavior | Inferential | Non-obvious architectural gates losing their stable rationale, lifecycle, or deterministic cross-links | Architecture decisions and gate changes | `bun run adr:check` |
 | `docs/authorization.md` | Architecture fitness, behavior | Inferential | Auth mismatch semantics, especially intentional `NOT_FOUND`, being reimplemented incorrectly | Area-specific | Auth/router tests |
-| `docs/socket-architecture.md` | Architecture fitness, behavior | Inferential | Socket.io being used for writes, unregistered broadcast behavior, or broadcasts before commit | Area-specific | Broadcast registry tests, `local/socket-registry-broadcasts`, `local/no-broadcast-in-transaction` |
-| `docs/CONCURRENCY.md` | Architecture fitness, behavior | Inferential | Race-sensitive writes bypassing locked mutation helpers | Area-specific | Restricted Prisma types, `local/concurrency-guard`, RawTxClient lint |
+| `docs/socket-architecture.md` | Architecture fitness, behavior | Inferential | Socket.io being used for writes, unregistered broadcast behavior, or broadcasts before commit | Area-specific | ADR-0003, broadcast registry tests, `local/socket-registry-broadcasts`, `local/no-broadcast-in-transaction` |
+| `docs/CONCURRENCY.md` | Architecture fitness, behavior | Inferential | Race-sensitive writes bypassing locked mutation helpers | Area-specific | ADR-0001, restricted Prisma types, `local/concurrency-guard`, RawTxClient lint |
 | `MODULE.md` / `*-MODULE.md` files | Maintainability, architecture fitness | Inferential | Agents editing a module without its local interface, flows, and invariants | Area-specific | `module:index:check`, future doc-freshness sensor |
 | `docs/module-docs.md` | Maintainability | Inferential | Module notes drifting into inconsistent shape | When adding or refreshing module docs | `bun run module:index:check` |
 | `docs/guides/add-module-doc.md` | Maintainability | Inferential | Agents adding or refreshing module docs without the charter, `Concepts:` breadcrumb, index refresh, and verification recipe | When adding or refreshing module docs | `bun run module:index:check`, `scripts/tests/test-generate-module-index.sh` |
@@ -345,6 +346,7 @@ needs them.
 
 | Sensor | Category | Mode | Catches | Timing / command | Paired guide |
 |---|---|---|---|---|---|
+| `adr:check` | Architecture fitness, behavior | Computational | Invalid ADR shape or lifecycle, unresolved typed gate locators, missing reverse references, and active gates pointing at superseded decisions | `bun run adr:check`, `verify`, `verify:changed`, `verify:parallel`, pre-commit | `docs/adr/README.md` |
 | TypeScript build | Maintainability, architecture fitness | Computational | Type, project-reference, and restricted-delegate violations | `bun run typecheck`, `bun run verify:changed` | `AGENTS.md`, `docs/CONCURRENCY.md` |
 | ESLint core rules | Maintainability | Computational | Complexity, function size, import sorting, unused/useless assignments, caught-error preservation, promise executor returns, post-await shared-state writes, console use | `bun run lint`, `bun run lint:changed` | `eslint.config.js`, `docs/CONCURRENCY.md` |
 | `eslint-plugin-jsx-a11y` client JSX lint | Behavior, maintainability | Computational | Client TSX accessibility drift: invalid anchors, unlabeled controls, non-keyboard click handlers, invalid ARIA/roles, autofocus regressions, and missing media/heading/link semantics | `bun run lint`, `bun run lint:changed` | `eslint.config.js`, Leaf 5 jsx-a11y inventory |
@@ -368,9 +370,9 @@ needs them.
 | `local/test-file-location` | Maintainability | Computational | Unit-test files with an empty feature prefix or no `describe`/`it`/`test` block | `bun run lint`, `bun run lint:changed` | Rule diagnostic |
 | Shared schema barrel import ban | Architecture fitness | Computational | Imports from removed `@musi/shared/schemas` barrel | `bun run lint`, `bun run lint:changed` | Future schema-import codemod |
 | Shared/client socket import restrictions | Architecture fitness | Computational | `packages/shared` depending on app/runtime adapters, or client code constructing a second Socket.io client outside `SocketProvider` | `bun run lint`, `bun run lint:changed` | `AGENTS.md`, `docs/socket-architecture.md` |
-| `local/concurrency-guard` | Architecture fitness, behavior | Computational | Direct `.update`, `.updateMany`, `.updateManyAndReturn`, or `.upsert` calls on concurrency-gated Prisma delegates outside mutation helpers | `bun run lint`, `bun run lint:changed` | `docs/guides/add-race-sensitive-mutation.md` |
-| `RawTxClient` restricted import | Architecture fitness, behavior | Computational | Race-sensitive Prisma write escape outside `utils/*-mutations.ts` | `bun run lint`, `bun run lint:changed` | `docs/CONCURRENCY.md` |
-| Restricted Prisma delegate types | Architecture fitness, behavior | Computational | Direct `.update`, `.updateMany`, `.updateManyAndReturn`, or `.upsert` on gated tables | `bun run typecheck` | `docs/CONCURRENCY.md` |
+| `local/concurrency-guard` | Architecture fitness, behavior | Computational | Direct `.update`, `.updateMany`, `.updateManyAndReturn`, or `.upsert` calls on concurrency-gated Prisma delegates outside mutation helpers | `bun run lint`, `bun run lint:changed` | ADR-0001, `docs/guides/add-race-sensitive-mutation.md` |
+| `RawTxClient` restricted import | Architecture fitness, behavior | Computational | Race-sensitive Prisma write escape outside `utils/*-mutations.ts` | `bun run lint`, `bun run lint:changed` | ADR-0001, `docs/CONCURRENCY.md` |
+| Restricted Prisma delegate types | Architecture fitness, behavior | Computational | Direct `.update`, `.updateMany`, `.updateManyAndReturn`, or `.upsert` on gated tables | `bun run typecheck` | ADR-0001, `docs/CONCURRENCY.md` |
 | App-router output coverage test | Architecture fitness | Computational | tRPC queries/mutations missing non-permissive `.output(schema)` | `bun run test:server`, `bun run verify:changed` when selected | `docs/guides/add-trpc-procedure.md` |
 | Vitest test-structure lint (`vitest/no-focused-tests`, `vitest/no-disabled-tests`, `vitest/no-identical-title`, `vitest/no-commented-out-tests`, `vitest/valid-describe-callback`, `vitest/valid-title`) | Maintainability, behavior | Computational | Focused, disabled, duplicate, commented-out, malformed, or ambiguously named Vitest tests in non-e2e unit/integration files | `bun run lint`, `bun run lint:changed` | Rule diagnostic |
 | Vitest assertion/import lint (`vitest/expect-expect`, `vitest/valid-expect`, `vitest/valid-expect-in-promise`, `vitest/no-standalone-expect`, `vitest/no-unneeded-async-expect-function`, `vitest/no-import-node-test`, `vitest/no-mocks-import`, `vitest/no-interpolation-in-snapshots`, `vitest/require-local-test-context-for-concurrent-snapshots`, `vitest/prefer-called-exactly-once-with`, `vitest/prefer-comparison-matcher`, `vitest/prefer-equality-matcher`, `vitest/prefer-to-contain`) | Behavior, maintainability | Computational | Vitest tests with missing or invalid assertions, unsafe standalone/async expect usage, wrong test imports, mock/snapshot footguns, weak single-call assertions, and zero-baseline matcher drift | `bun run lint`, `bun run lint:changed` | Rule diagnostic and local test helpers |
@@ -385,6 +387,7 @@ needs them.
 | knip unused-export floor | Maintainability | Computational | Drift in knip-reported unused exported symbol count above or below the committed baseline; intentionally fail-closed in verify/pre-commit, measured about 1.5s on 2026-07-02, and runs without knip `--cache` so each gate reads the current graph directly | `bun run sensor:knip-unused-exports`, `verify`, pre-commit | `knip.config.ts`, `sensor-knip-unused-exports.baseline.json` |
 | near-duplicate no-new floor | Maintainability | Computational | New high-confidence function-clone identities touching staged files; existing whole-repo debt is admitted by a committed shrink-only baseline, while whole-repo reporting is a terminal advisory and never gates | `bun run sensor:near-duplicates`, `verify`, pre-commit; update after cleanup with `bun scripts/sensor-near-duplicates.ts --update`; explicitly admit one reviewed identity with `--admit "<identity>" --reason "<why>"` | `scripts/drift-ai/near-duplicates.ts`, `sensor-near-duplicates.baseline.json` |
 | staged blob-size sensor | Maintainability | Computational | Staged files over 500 KiB / 5 MiB thresholds unless allowlisted with a reason | `bun run sensor:blob-size`, via `doctor` | `.blob-size-allowlist` |
+| always-loaded context budget | Maintainability | Computational | Growth of the summed always-on per-session context (root `CLAUDE.md`, `AGENTS.md`, and their `@`-imports) that per-file doc-length caps cannot see; terminal advisory — a governance figure that never gates. Sums only the repo-owned set: sessions may also load `.claude/rules/*.md`, `CLAUDE.local.md`, and user-level memory (excluded as per-machine and non-reproducible), so treat the total as a lower bound | `bun run sensor:context-budget`, via `doctor` (report-only line) | `scripts/doc-length-policy.sh` |
 | `db:status` | Architecture fitness | Computational | Migration, Prisma client, and DB connectivity drift | `bun run db:status`, via `doctor` | `docs/guides/add-prisma-migration.md` |
 | `db:migration-safety` | Architecture fitness, behavior | Computational | Destructive or risky Prisma migrations lacking acknowledgement | `bun run db:migration-safety`, via `doctor` | `docs/guides/add-prisma-migration.md` |
 | `module:index:check` | Maintainability | Computational | Module doc index drift | `bun run module:index:check` | `docs/module-docs.md` |
@@ -394,9 +397,10 @@ needs them.
 | Stop-hook cached-verify replay | Maintainability, architecture fitness, behavior | Computational | A stop while the most recent `verify:changed` / pre-commit run is still red, when its wrapper meta still matches the worktree, surfaced to the user | Stop hook, user warning (reads `$LOG_DIR/meta/wrapper.json`) | `verify` / `verify:changed` wrapper |
 | Script smoke tests | Maintainability | Computational | Hook, verify, worktree, module-index, migration-safety, and script wrapper regressions | `bun run test:scripts`, `bun run verify` | `scripts/` comments and shell tests |
 | Worktree drift/status checks | Architecture fitness | Computational | Secondary worktree DB, port, Redis, and SRD seed drift | `bun run worktree:status`, `doctor` | `bun run worktree:*` scripts |
-| `local/socket-registry-broadcasts` | Architecture fitness, behavior | Computational | Registry-owned events emitted directly outside `broadcast-registry.ts` | `bun run lint`, `bun run lint:changed` | `docs/guides/add-socket-broadcast.md` |
-| `local/no-broadcast-in-transaction` | Architecture fitness, behavior | Computational | Socket broadcast helpers called inside Prisma `$transaction` callbacks instead of after commit | `bun run lint`, `bun run lint:changed` | `docs/guides/add-socket-broadcast.md` |
+| `local/socket-registry-broadcasts` | Architecture fitness, behavior | Computational | Registry-owned events emitted directly outside `broadcast-registry.ts` | `bun run lint`, `bun run lint:changed` | ADR-0003, `docs/guides/add-socket-broadcast.md` |
+| `local/no-broadcast-in-transaction` | Architecture fitness, behavior | Computational | Socket broadcast helpers called inside Prisma `$transaction` callbacks instead of after commit | `bun run lint`, `bun run lint:changed` | ADR-0003, `docs/guides/add-socket-broadcast.md` |
 | Mutation testing | Behavior | Computational | Tests that execute code without proving meaningful behavior, across shared logic, scripts, server services, and the portable lint-ratchet engine | Manual: `bun run test:mutation`, `test:scripts:mutation`, `test:server:mutation`, `test:lint-ratchet:mutation` | `docs/agent_notes/backlog/mutation-testing-stryker.md` |
+| Mutation survivor summarizer | Behavior, maintainability | Computational | Raw Stryker `mutation.json` dumps nobody triages: ranks `Survived` and `NoCoverage` mutants by file and directory area with bounded per-file samples; report-only triage aid — survivor counts never gate; exit 2 only for infrastructure failures (unreadable/malformed report, unwritable output, CLI misuse) | Manual after a mutation run: `bun run mutation:survivors` (`--input`, `--format text\|json`, `--output`, `--top`) | `scripts/mutation-survivors.ts`, Mutation Testing section below |
 | `drift:ai harness-freshness` | Maintainability | Computational | `docs/ai-harness.md` guide inventory drift: unreferenced `docs/guides/*.md`, missing referenced guides, and stale backtick repo paths | `bun run drift:ai harness-freshness`, via `doctor` | This map |
 | `drift:ai module-doc-paths` | Maintainability | Computational | Stale backtick file references in `MODULE.md` / `*-MODULE.md` notes (path existence only; multi-base resolution, precision over recall); opt-in, report-only | Manual: `bun run drift:ai --check module-doc-paths` (or `--check all`) | `scripts/drift-ai/README.md`, `MODULE.md` files |
 | `drift:ai` default report | Maintainability, architecture fitness | Computational | AI-specific drift on changed files: copy/paste duplicates, suspicious sibling modules, over-narrated comments, and newly added suppression comments; repo-specific roots and exclusions live in `drift-ai.config.json` | Manual, report-only by default: `bun run drift:ai` (filter with `--check`; pass `--config <path>` to test another config) | `scripts/drift-ai/README.md`, `drift-ai.config.json` |
@@ -494,6 +498,17 @@ prototype-lane `drift:ai` advisory subcommands until a lens is promoted.
 - producer stdout/stderr captures to `reports/slow-drift/producers/`;
 - fused `harness:audit` text and JSON reports to `reports/slow-drift/fused/`.
 - replayed lint-message treatment/control reports to `reports/slow-drift/message-eval/`.
+- per-step wall-clock timings to `reports/slow-drift/fused/timings.txt` (also
+  echoed into the workflow step summary) — trend evidence for spotting slow
+  drift in the lane itself, never a pass/fail verdict.
+- with `MUSI_SLOW_DRIFT_MUTATION=1` (the scheduled workflow sets it): a
+  scoped shared-rules Stryker run (`test:mutation --mutate
+  packages/shared/src/rules/**`) followed by `mutation:survivors`, writing
+  the ranked triage list to `reports/slow-drift/fused/mutation-survivors.txt`
+  and the step summary. Report-only trend evidence: `thresholds.break` stays
+  null, and a failed or timed-out mutation run (own bound:
+  `MUSI_SLOW_DRIFT_MUTATION_TIMEOUT_SECS`, default 1800) leaves a note while
+  the lane continues.
 
 These `reports/` artifacts are gitignored local outputs and may be stale after
 the worktree moves. Slow-drift text artifacts include a metadata header
@@ -517,6 +532,17 @@ has been proven quiet in that environment.
 Findings are report-only. Producer exit `1` still produces artifacts and
 continues to fusion; unreadable envelopes, missing sidecars, and setup/tool
 errors remain infrastructure failures.
+
+Steps are individually disableable and boundable: `MUSI_SLOW_DRIFT_SKIP`
+(comma- or space-separated step names — `lint:ratchet`, `drift:ai`,
+`logs:audit`, `lint-message-eval`, `mutation`; unknown names warn and are
+ignored) skips named steps while recording a `skipped` timing line. Skipping
+every envelope producer is a deliberate degraded run: the lane notes it and
+ends green without fusion. `MUSI_SLOW_DRIFT_STEP_TIMEOUT_SECS` (unset/`0` =
+unlimited; invalid values warn and fall back to unlimited) bounds each step's
+wall clock — a timed-out step is an infrastructure failure (exit 124 in
+`timings.txt`; exit 137 when the step ignored TERM and was SIGKILLed after
+`MUSI_SLOW_DRIFT_STEP_KILL_AFTER_SECS`, default 30), not a finding.
 
 ## Mutation Testing
 
@@ -552,6 +578,17 @@ Reports (gitignored, regenerated per run):
   `bun run test:scripts:mutation`.
 - `reports/mutation-server/` — same report shape for
   `bun run test:server:mutation`.
+
+Summarize a finished run with `bun run mutation:survivors` (defaults to
+`reports/mutation/mutation.json`; `--input` points it at the scripts/server
+report). It ranks `Survived` and `NoCoverage` mutants by file and directory
+area with a few sample mutants per file — a triage list, not a verdict:
+survivor counts never change the exit code.
+
+The weekly slow-drift lane (see Slow Drift Schedule above) additionally runs
+a scoped shared-rules mutation pass plus this summarizer, so survivor counts
+finally trend week over week instead of living in one-off local audits. That
+recurring signal stays report-only end to end.
 
 The scripts mutation command currently excludes `scripts/codemods/**`. That
 subsystem's `trpc-shared-input` fixture test compares exact transformed output,
@@ -611,6 +648,9 @@ apply:
 1. A guide that explains the intended path.
 2. A sensor that detects drift from that path.
 3. Repair text or a codemod that tells an agent exactly how to recover.
+
+Non-obvious architectural gates also carry an ADR ID for stable rationale;
+actionable repair text remains local to the diagnostic and guide.
 
 Do not add more global instructions to `AGENTS.md` unless every agent needs
 them on every session start.

@@ -12,6 +12,7 @@ import {
   nameStatusCode,
   type NameStatusEntry,
   parseNameStatus,
+  readGitBlobAtRef,
   resolveRepoRoot,
 } from "./git.js";
 
@@ -40,6 +41,32 @@ describe("defaultGitRunner", () => {
     // to this test file's own directory must yield the scripts/lib/ prefix.
     const run = defaultGitRunner({ cwd: HERE });
     expect(run(["rev-parse", "--show-prefix"]).trim()).toBe("scripts/lib/");
+  });
+});
+
+describe("readGitBlobAtRef", () => {
+  it("reads a path from a named ref through an injected runner", () => {
+    const git = stubGit({ "show HEAD:docs/baseline.json": "committed\n" });
+
+    expect(readGitBlobAtRef(git, "HEAD", "docs/baseline.json")).toBe("committed\n");
+  });
+
+  it("supports the empty index ref and forwards bounded-runner options", () => {
+    const calls: Array<{
+      readonly args: readonly string[];
+      readonly options: { readonly maxOutputBytes: number; readonly timeoutMs: number } | undefined;
+    }> = [];
+    const git = (
+      args: readonly string[],
+      options?: { readonly maxOutputBytes: number; readonly timeoutMs: number },
+    ): string => {
+      calls.push({ args, options });
+      return "staged";
+    };
+    const options = { maxOutputBytes: 1_024, timeoutMs: 250 };
+
+    expect(readGitBlobAtRef(git, "", "docs/map.md", options)).toBe("staged");
+    expect(calls).toEqual([{ args: ["show", ":docs/map.md"], options }]);
   });
 });
 

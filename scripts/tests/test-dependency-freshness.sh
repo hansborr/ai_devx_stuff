@@ -645,6 +645,8 @@ copy_verify_steps_fixture "$gate_repo"
 cat > "$gate_repo/bin/bun" <<'STUB'
 #!/usr/bin/env sh
 printf 'stub bun %s\n' "$*" >> "$STUB_LOG"
+[ -z "${STUB_MEMORY_WAIT_LOG:-}" ] \
+  || printf '%s\n' "${MUSI_VERIFY_MEMORY_WAIT_TIMEOUT:-unset}" >> "$STUB_MEMORY_WAIT_LOG"
 exit 0
 STUB
 chmod +x "$gate_repo/bin/bun"
@@ -680,6 +682,38 @@ chmod +x "$gate_repo/bin/bun"
     || fail "eslint-rules staged change did not run test:changed"
   grep -qF "pre-commit: OK" <<< "$output" \
     || fail "pre-commit with eslint-rules edit missing OK output: $output"
+  if grep -qF 'pre-commit: running' <<< "$output"; then
+    fail "pre-commit should preserve its quiet parallel step label: $output"
+  fi
+
+  memory_wait_log="$gate_repo/precommit-memory-wait.log"
+  : > "$memory_wait_log"
+  output="$({
+    env -u MUSI_VERIFY_MEMORY_WAIT_TIMEOUT \
+    PATH="$gate_repo/bin:$PATH" \
+    STUB_LOG="$stub_log" \
+    STUB_MEMORY_WAIT_LOG="$memory_wait_log" \
+    FORCE_VERIFY=1 \
+    MUSI_VERIFY_LOCK="$gate_repo/precommit-lock-memory-default" \
+    MUSI_VERIFY_LOG_DIR="$gate_repo/precommit-logs-memory-default" \
+      sh .husky/pre-commit
+  } 2>&1)" || fail "pre-commit default memory cap run failed: $output"
+  [ "$(tail -n 1 "$memory_wait_log")" = 30 ] \
+    || fail "pre-commit should default memory deferral to 30s: $(cat "$memory_wait_log")"
+
+  : > "$memory_wait_log"
+  output="$({
+    PATH="$gate_repo/bin:$PATH" \
+    STUB_LOG="$stub_log" \
+    STUB_MEMORY_WAIT_LOG="$memory_wait_log" \
+    FORCE_VERIFY=1 \
+    MUSI_VERIFY_MEMORY_WAIT_TIMEOUT=99 \
+    MUSI_VERIFY_LOCK="$gate_repo/precommit-lock-memory-capped" \
+    MUSI_VERIFY_LOG_DIR="$gate_repo/precommit-logs-memory-capped" \
+      sh .husky/pre-commit
+  } 2>&1)" || fail "pre-commit capped memory run failed: $output"
+  [ "$(tail -n 1 "$memory_wait_log")" = 30 ] \
+    || fail "pre-commit should cap memory deferral above 30s: $(cat "$memory_wait_log")"
 
   memory_state="$gate_repo/precommit-memory-state"
   memory_queue="$gate_repo/precommit-memory-queue"
@@ -716,6 +750,7 @@ chmod +x "$gate_repo/bin/bun"
   exec {queue_probe_fd}>&-
 )
 ok "pre-commit runs checks for staged eslint-rules changes"
+ok "pre-commit preserves quiet slots and its explicit 30-second memory cap"
 ok "pre-commit bounds memory deferral while holding the commit queue"
 
 manifest_repo="$TMP_ROOT/manifest-repo"
@@ -1208,6 +1243,19 @@ init_bridge_repo "$bridge_negative_repo"
   run_bridge_miss_case force-verify 1
 )
 ok "pre-commit bridge fails closed for stale malformed mismatched and FORCE markers"
+
+(
+  cd "$bridge_negative_repo"
+  ai_staged_fingerprint() { return 1; }
+  set +e
+  musi_try_verify_marker_bridge "$PWD" "$TMP_ROOT/operational-precommit-marker" \
+    "$MUSI_GATE_MARKER_FRESHNESS_SECONDS" >/dev/null 2>&1
+  bridge_operational_rc=$?
+  set -e
+  [ "$bridge_operational_rc" -eq 2 ] \
+    || fail "bridge fingerprint failure should be operational rc=2, got $bridge_operational_rc"
+)
+ok "verify-marker bridge distinguishes operational failure from an ordinary miss"
 
 (
   cd "$hook_repo"
@@ -1859,6 +1907,37 @@ init_bridge_repo "$docs_only_fast_repo"
     || fail "docs-only commit must not be appended to the provenance log"
 )
 ok "docs-only commit under fast-commit marker records no provenance"
+
+# A fast-mode retry admitted by the native marker may reuse a prior run that
+# skipped slots. Its exactly-once EXIT callback must therefore preserve pending
+# provenance for post-commit instead of treating the marker hit like docs/bridge.
+native_fast_repo="$TMP_ROOT/native-fast-provenance-repo"
+init_bridge_repo "$native_fast_repo"
+(
+  cd "$native_fast_repo"
+  printf 'native marker retry edit\n' > packages/example.ts
+  git add packages/example.ts
+  identity="$(musi_git_common_identity_path "$PWD")"
+  : > "$identity/musi-fast-commit"
+  native_marker="$TMP_ROOT/native-fast-precommit-marker"
+  musi_write_success_marker "$native_marker" "$(git rev-parse HEAD)" \
+    "$(ai_precommit_fingerprint "$PWD")" \
+    || fail "test setup failed to write native pre-commit marker"
+
+  output="$({
+    PATH="$native_fast_repo/bin:$PATH" \
+    STUB_LOG="$TMP_ROOT/native-fast-bun.log" \
+    MUSI_PRECOMMIT_MARKER="$native_marker" \
+    MUSI_VERIFY_LOCK="$TMP_ROOT/native-fast-lock" \
+    MUSI_VERIFY_LOG_DIR="$TMP_ROOT/native-fast-logs" \
+      sh .husky/pre-commit
+  } 2>&1)" || fail "native marker retry should pass under fast mode: $output"
+  grep -qF 'pre-commit: already verified' <<< "$output" \
+    || fail "native fast retry should use the native marker: $output"
+  [ -f "$(musi_fast_commit_pending_marker "$PWD")" ] \
+    || fail "native marker hit under fast mode must leave pending provenance"
+)
+ok "native pre-commit marker hit under fast mode preserves retry provenance"
 
 # Negative: a marker-bridged commit skipped no slots either — bridge markers
 # come from manual verify / verify:changed, which never fast-skip.
