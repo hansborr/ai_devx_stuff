@@ -429,7 +429,7 @@ ok "--changed selects output codemod smoke on output codemod change"
 
 : > "$STUB_LOG_FILE"
 MUSI_SCRIPTS_CHANGED_FILES="package.json" run_runner --changed >/dev/null
-expected=$'runner ran test-tool-memory-admission\nrunner ran test-verify-history\nrunner ran test-codemod-structured-logging-fix\nrunner ran test-codemod-trpc-shared-input\nrunner ran test-codemod-trpc-shared-output\nrunner ran test-codemod-expand-barrel\nrunner ran test-codemod-concurrency-guard\nrunner ran test-code-intel\nrunner ran test-lint-fix-dist-preflight\nrunner ran test-lint-shell\nrunner ran test-lint-config-sensors\nrunner ran test-generate-lint-guidance\nrunner ran test-generate-harness-controls\nrunner ran test-harness-check\nrunner ran test-lint-agent\nrunner ran test-lint-agent-changed\nrunner ran test-adr-check\nrunner ran test-lint-ratchet\nrunner ran test-test-scripts\nrunner ran test-lint-probe-rule'
+expected=$'runner ran test-tool-memory-admission\nrunner ran test-verify-history\nrunner ran test-codemod-structured-logging-fix\nrunner ran test-codemod-trpc-shared-input\nrunner ran test-codemod-trpc-shared-output\nrunner ran test-codemod-expand-barrel\nrunner ran test-codemod-concurrency-guard\nrunner ran test-code-intel\nrunner ran test-lint-fix-dist-preflight\nrunner ran test-lint-shell\nrunner ran test-lint-config-sensors\nrunner ran test-generate-lint-guidance\nrunner ran test-generate-harness-controls\nrunner ran test-harness-check\nrunner ran test-lint-agent\nrunner ran test-lint-agent-changed\nrunner ran test-adr-check\nrunner ran test-lint-ratchet\nrunner ran test-test-scripts\nrunner ran test-lint-coverage-map-gen\nrunner ran test-lint-probe-rule'
 [ "$(cat "$STUB_LOG_FILE")" = "$expected" ] \
   || fail "package.json change should select codemod smokes: $(cat "$STUB_LOG_FILE")"
 ok "--changed selects package-script smokes on package script change"
@@ -808,7 +808,7 @@ ok "--changed selects test-generate-lint-guidance on generator change"
 
 : > "$STUB_LOG_FILE"
 MUSI_SCRIPTS_CHANGED_FILES="eslint-rules/structured-logging.js" run_runner --changed >/dev/null
-expected=$'runner ran test-generate-lint-guidance\nrunner ran test-generate-harness-controls\nrunner ran test-harness-check\nrunner ran test-lint-agent\nrunner ran test-lint-ratchet\nrunner ran test-lint-probe-rule'
+expected=$'runner ran test-generate-lint-guidance\nrunner ran test-generate-harness-controls\nrunner ran test-harness-check\nrunner ran test-lint-agent\nrunner ran test-lint-ratchet\nrunner ran test-lint-coverage-map-gen\nrunner ran test-lint-probe-rule'
 [ "$(cat "$STUB_LOG_FILE")" = "$expected" ] \
   || fail "principle source change should select rule-derived smokes: $(cat "$STUB_LOG_FILE")"
 ok "--changed selects rule-derived smokes on principle source change"
@@ -971,7 +971,7 @@ ok "--changed selects test-lint-ratchet on ratchet baseline change"
 
 : > "$STUB_LOG_FILE"
 MUSI_SCRIPTS_CHANGED_FILES="harness.controls.json" run_runner --changed >/dev/null
-expected=$'runner ran test-generate-harness-controls\nrunner ran test-harness-check\nrunner ran test-doctor-json'
+expected=$'runner ran test-generate-harness-controls\nrunner ran test-harness-check\nrunner ran test-doctor-json\nrunner ran test-lint-coverage-map-gen'
 [ "$(cat "$STUB_LOG_FILE")" = "$expected" ] \
   || fail "manifest change should select harness smokes: $(cat "$STUB_LOG_FILE")"
 ok "--changed selects harness smokes on manifest change"

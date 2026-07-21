@@ -7,6 +7,7 @@ import { ts } from "ts-morph";
 
 import { hashFeature } from "./feature-hash.js";
 import type { NearDuplicateFunction } from "./near-duplicates.js";
+import { EXACT_NEAR_DUPLICATE_MIN_LINES } from "./near-duplicates-exact-config.js";
 import { toPosix } from "./path-util.js";
 import { scriptKindFor } from "./ts-source-util.js";
 
@@ -27,9 +28,17 @@ type PropertyNameOwner =
   | ts.GetAccessorDeclaration
   | ts.SetAccessorDeclaration;
 
+type ExactTokenCollector = {
+  readonly root: FunctionNode;
+  readonly tokens: string[];
+};
+
+const EMPTY_EXACT_TOKENS: readonly string[] = [];
+
 export function extractNearDuplicateFunctions(
   filePath: string,
   source: string,
+  options: { readonly includeExactTokens?: boolean } = {},
 ): NearDuplicateFunction[] {
   const sourceFile = ts.createSourceFile(
     filePath,
@@ -39,14 +48,60 @@ export function extractNearDuplicateFunctions(
     scriptKindFor(filePath),
   );
   const functions: NearDuplicateFunction[] = [];
+  if (options.includeExactTokens ?? true) {
+    collectFunctionsAndExactTokens(toPosix(filePath), sourceFile, functions);
+    return functions;
+  }
   const visit = (node: ts.Node): void => {
     if (isReportableFunction(node)) {
-      functions.push(functionFingerprint(toPosix(filePath), sourceFile, node));
+      functions.push(functionFingerprint(toPosix(filePath), sourceFile, node, EMPTY_EXACT_TOKENS));
     }
     ts.forEachChild(node, visit);
   };
   visit(sourceFile);
   return functions;
+}
+
+function collectFunctionsAndExactTokens(
+  filePath: string,
+  sourceFile: ts.SourceFile,
+  functions: NearDuplicateFunction[],
+): void {
+  const activeCollectors: ExactTokenCollector[] = [];
+  const visit = (node: ts.Node): void => {
+    if (node.kind === ts.SyntaxKind.JSDoc || node.kind === ts.SyntaxKind.EndOfFileToken) return;
+    let collector: ExactTokenCollector | undefined;
+    if (isReportableFunction(node)) {
+      const exactTokens: string[] = [];
+      const fingerprint = functionFingerprint(filePath, sourceFile, node, exactTokens);
+      functions.push(fingerprint);
+      if (fingerprint.lineCount >= EXACT_NEAR_DUPLICATE_MIN_LINES) {
+        collector = { root: node, tokens: exactTokens };
+        activeCollectors.push(collector);
+      }
+    }
+    const children = node.getChildren(sourceFile);
+    if (children.length === 0) collectTerminalToken(node, sourceFile, activeCollectors);
+    else for (const child of children) visit(child);
+    if (collector !== undefined) activeCollectors.pop();
+  };
+  visit(sourceFile);
+}
+
+function collectTerminalToken(
+  node: ts.Node,
+  sourceFile: ts.SourceFile,
+  collectors: readonly ExactTokenCollector[],
+): void {
+  if (collectors.length === 0) return;
+  const text = node.getText(sourceFile);
+  if (text.length === 0) return;
+  let encoded: string | undefined;
+  for (const collector of collectors) {
+    if (isFunctionNameNode(node, collector.root)) continue;
+    encoded ??= `${String(node.kind)}:${String(text.length)}:${text}`;
+    collector.tokens.push(encoded);
+  }
 }
 
 function isFunctionLikeWithBody(node: ts.Node): node is FunctionNode {
@@ -74,21 +129,70 @@ function functionFingerprint(
   filePath: string,
   sourceFile: ts.SourceFile,
   node: FunctionNode,
+  exactTokens: readonly string[],
 ): NearDuplicateFunction {
   const startLine = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1;
   const endLine = sourceFile.getLineAndCharacterOfPosition(node.getEnd()).line + 1;
+  const startOffset = node.getStart(sourceFile);
+  const endOffset = node.getEnd();
   const features: string[] = [];
   signatureForNode(node, node, features);
   return {
     filePath,
     name: functionName(node),
+    enclosingContext: enclosingDisplayContext(node),
+    startOffset,
+    endOffset,
     startLine,
     endLine,
     lineCount: endLine - startLine + 1,
     tokenCount: features.length,
     features,
     statementFeatures: statementFeaturesFor(node),
+    exactTokens,
   };
+}
+
+function enclosingDisplayContext(node: FunctionNode): string {
+  const segments: string[] = [];
+  let parent: ts.Node = node.parent;
+  while (!ts.isSourceFile(parent)) {
+    const segment = contextSegment(parent);
+    if (segment !== undefined) segments.push(segment);
+    parent = parent.parent;
+  }
+  return segments.reverse().join(".");
+}
+
+function contextSegment(node: ts.Node): string | undefined {
+  const className = classContextSegment(node);
+  if (className !== undefined) return className;
+  const functionName = functionContextSegment(node);
+  if (functionName !== undefined) return functionName;
+  const methodName = methodContextSegment(node);
+  if (methodName !== undefined) return methodName;
+  if (ts.isVariableDeclaration(node)) return nameText(node.name);
+  if (ts.isPropertyAssignment(node)) return nameText(node.name);
+  return undefined;
+}
+
+function classContextSegment(node: ts.Node): string | undefined {
+  if (ts.isClassDeclaration(node)) return node.name?.text ?? "<class>";
+  if (ts.isClassExpression(node)) return node.name?.text ?? "<class>";
+  return undefined;
+}
+
+function functionContextSegment(node: ts.Node): string | undefined {
+  if (ts.isFunctionDeclaration(node)) return node.name?.text ?? "<function>";
+  if (ts.isFunctionExpression(node)) return node.name?.text ?? "<function>";
+  return undefined;
+}
+
+function methodContextSegment(node: ts.Node): string | undefined {
+  if (ts.isMethodDeclaration(node)) return nameText(node.name);
+  if (ts.isGetAccessor(node)) return nameText(node.name);
+  if (ts.isSetAccessor(node)) return nameText(node.name);
+  return undefined;
 }
 
 function functionName(node: FunctionNode): string {

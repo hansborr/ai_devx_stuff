@@ -1466,6 +1466,20 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Repair:** autofix
 
+### `doc-generator/lint-coverage-map`
+
+**Principle:** Generate the direct-child scripts/drift-ai TypeScript coverage row from tracked files, fail-closed ESLint reach, and live ratchet membership while preserving the hand-maintained coverage-map document outside one marker-delimited block; --check fails on generated-block drift.
+
+**Category:** maintainability
+
+**Source:** `scripts/lint-coverage-map-gen.ts`
+
+**Invocation:** `bun run docs:lint-coverage-map:generate`
+
+**Paired guide:** [docs/guides/lint-ratchet.md](../guides/lint-ratchet.md)
+
+**Repair:** autofix
+
 ### `doc-generator/lint-guidance`
 
 **Principle:** Generate the agent-facing local lint rule guide from each rule's meta.docs contract; --check fails on drift between the generated markdown and the rule set.
@@ -1680,7 +1694,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `check/drift-ai-near-duplicates`
 
-**Principle:** Opt-in drift:ai AST-similarity check for same-shaped function clones that exact duplicate detection misses; findings carry drift-baseline provenance.
+**Principle:** Opt-in report-only drift:ai function-clone check combining the unchanged fuzzy 8-line/45-token/0.85 tier with parser-token exact clones at 3 lines/15 tokens under scripts and eslint-rules; exact cap overflow is diagnostic evidence and this check has no verify slot.
 
 **Category:** maintainability
 

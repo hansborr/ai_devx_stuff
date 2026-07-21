@@ -1,6 +1,11 @@
 # 8. Transaction-owning mutation orchestration lives inline in 8 routers, contradicting the services/ rubric the repo documents
 
-Status: In progress — codebase maintainability/onboarding audit 2026-06-13.
+Status: Done — C2 extracted the remaining callback transactions from
+`character.create`, `invite.join`, `weaponMastery.set`, and
+`encounter.removeParticipant` into request-facing services (2026-07-19). The
+trivial batched transactions in `auth.ts` and `encounter-map.ts` remain inline
+by design under this finding's scope caveat.
+Updated: 2026-07-19
 Incremental extraction pass complete (2026-06-14, leaf-08 batch 4b): the three
 clearest rubric matches now delegate to services, behavior-preserving —
 `homebrew.ts` → `homebrew-import-service.ts` `persistImportedCollection` (the
@@ -11,12 +16,15 @@ the `MAX_ATTUNED_ITEMS` `BAD_REQUEST` invariant on create/update), and
 signpost listing delegating-vs-inline routers was added to
 `packages/server/src/services/README.md`.
 
-Remaining debt (deferred to later one-router-per-change passes): `character.ts`,
-`invite.ts`, `weapon-mastery.ts` still own inline callback-`$transaction`
-orchestration; `encounter.ts`'s `removeParticipant` still inlines a small
-lock+delete+reindex transaction. The trivial batched `$transaction([...])` in
-`auth.ts:223` (session rotate) and `encounter-map.ts:128` (sort-order batch)
-may legitimately stay inline per the scope caveat below.
+C2 extraction complete (2026-07-19): `character.create`, `invite.join`,
+`weaponMastery.set`, and `encounter.removeParticipant` now delegate their full
+request-facing envelopes to services. The invite capacity claim retains its
+compound `updateMany` CAS and awaited best-effort post-commit notification;
+participant removal retains lock-before-derived-read ordering, blind-helper
+reindexing, and its intentionally uncaught post-commit encounter broadcast.
+The trivial batched `$transaction([...])` in `auth.ts` (session rotate) and
+`encounter-map.ts` (sort-order batch) remain inline by design per the scope
+caveat below.
 Theme: server layering consistency · Area: server · Severity: medium · Size: L
 
 Source: codebase maintainability/onboarding audit 2026-06-13 (lens: server-layering); evidence independently re-verified. · Confidence: high

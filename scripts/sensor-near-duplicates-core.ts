@@ -65,6 +65,7 @@ function collectNearDuplicates(
       minLines: nearConfig.minLines,
       minTokens: nearConfig.minTokens,
       similarityThreshold: nearConfig.similarityThreshold,
+      includeExactTokens: false,
     });
     if (!result.ok) return { ok: false, error: result.error };
     if (result.engine !== NEAR_DUPLICATE_TOOL) {

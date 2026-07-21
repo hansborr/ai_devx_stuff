@@ -68,11 +68,10 @@ and writes via `updateMany({where:{id, version}, data:{..., version:
 {increment:1}}})`. A concurrent committer causes `CONFLICT` instead of
 a lost update.
 
-Attack and spell damage share `applyDamageLocked` in
-`utils/damage-mutations.ts`. Callers retain their attack/spell eligibility
-guards, then pass the transaction, target participant/character identity, and
-already-computed damage; the helper routes through the appropriate locked
-Pattern A mutator.
+Single-target attack damage routes through `applyDamageLocked` in
+`utils/damage-mutations.ts`. Structured spell damage calls the same two
+Pattern A mutators directly so its combined caster/damaged-character pass can
+preserve the multi-row ordering documented below.
 
 ```ts
 await updateCharacterStatsLocked(tx, characterId, (stats) => {
@@ -277,19 +276,18 @@ character participant. Row identities: `Stats(X) + EP(P_X)` where
 `P_X.characterId = X`. Lock order: **Stats → EP** (canonical).
 
 **2. `services/spell-casting/combat-transaction.ts:executeCombatSpellTransaction`**
-— writes `EncounterParticipant` + `CharacterSpellSlot` + `CharacterStats`
-when a PC casts a concentration damage spell at a monster (case 3b
-below). Row identities: `EP(M)` (monster) + `CSS(C) + Stats(C)` (caster).
-Caster-row order: **Stats(C) → CSS(C)** (canonical). The `EP(M)` lock
-is acquired first but `M` is a monster participant whose row identity
-is disjoint from every other multi-table writer, so its early
-acquisition can't interleave. The combat path delegates the concentration+slot
-sequence to the internal helper `concentrateAndConsumeSlot` in
-`services/spell-casting/combat-transaction.ts`, which enforces
-*replaceConcentration before consumeSpellSlot*. The independent non-combat
-sequence is path 8 below and preserves the same relative order. Flipping
-either path would put `CSS → Stats` (reverse of rest-service) and deadlock
-with a concurrent rest on the same character.
+— structured spell casts first acquire the encounter turn gate. They then
+form the union of every positively damaged character ID and the caster
+character ID, deduplicate it, sort it by code point, and visit that list
+exactly once through `updateCharacterStatsLocked`. The caster's concentration
+replacement and damage (when overlapped) share that first locked update; a
+caster with no other stats change receives the sanctioned version-bump no-op.
+Each damaged character's concentration check completes before the pass moves
+on. The cast then acquires `CharacterSpellSlot` once (leveled spells only),
+followed by positively damaged non-character `EncounterParticipant` rows in
+code-point participant-ID order. Lock order is therefore **Encounter gate →
+sorted Stats union → CSS → sorted EP**. Later writes to a stats row already
+held by its concentration check are not new lock acquisitions.
 
 **3. `services/rest-service.ts:executeShortRest`** — writes
 `CharacterStats` + `CharacterClass`. Implemented as a two-pass
@@ -329,15 +327,13 @@ cantrips and rituals write only `Stats` and are not cross-table writers.
 
 ### No deadlock between these paths
 
-- **1 vs 2:** At most `Stats` is shared. Path 1's `EP(P_X)` is a
-  character participant; path 2's `EP(M)` is a monster participant;
-  by schema (`characterId XOR monsterId`), these are distinct rows.
-  Single shared row can't deadlock.
+- **1 vs 2:** Both acquire any shared `Stats` row before `EP`; path 2 also
+  sorts every multi-row family by code point.
 - **1 vs 3–8:** Paths 3–8 don't touch `EP`; path 1 doesn't touch
   `CC`/`CSS`. At most `Stats` is shared.
 - **2/6/7/8 pairwise:** Shared caster rows are acquired in the canonical
-  **Stats → CSS** order. Path 2's early monster-only `EP(M)` acquisition is
-  disjoint from paths 6–8.
+  **Stats → CSS** order. Path 2 does not acquire monster `EP` rows until both
+  families have completed.
 - **2/6/7/8 vs 3:** At most `Stats` is shared because short rest doesn't touch
   `CSS`.
 - **2/6/7/8 vs 4/5:** Shared rows are `Stats` and `CSS`, acquired in the
@@ -347,20 +343,16 @@ cantrips and rituals write only `Stats` and are not cross-table writers.
 - **4 vs 5:** All three row families can be shared, and both paths acquire
   them in the canonical **Stats → CC → CSS** order.
 
-### Spell-cast cases
+### Structured spell-cast row proof
 
-| case | target | conc spell | writes |
-|---|---|---|---|
-| 1 | PC | no | `Stats(T damage)` [+ `Stats(T conc check)` if concentrating] [+ `CSS(C)`] |
-| 2 | PC | yes | case 1 + `Stats(C conc replace)` |
-| 3a | monster | no | `EP(M)` [+ `CSS(C)`] |
-| 3b | monster | yes | `EP(M)` + `Stats(C conc replace)` + `CSS(C)` |
-
-Case 2 writes `Stats` on two different rows (target and caster).
-Concurrent case-2 casts with swapped roles (A → B, B → A) are
-prevented by `assertTurnInsideTx` serializing non-DM casts; a DM
-bypassing that with two mutually-targeted casts in parallel is a
-theoretical deadlock Postgres catches via `40P01`.
+Two casts sharing character rows cannot each hold a higher/lower row while
+waiting for the other: both attempt the same smallest shared character ID
+first. Caster/target role swaps do not change the sequence because caster and
+targets are merged before any stats CAS. Separate encounters may bypass a
+shared encounter gate, but retain that same row order. Two areas sharing
+monster rows likewise acquire participant IDs in the same order. Rest,
+level-up, sorcery conversion, and non-combat casting continue to observe
+`Stats → CharacterClass → CSS`; DM overrides observe `Stats → EP`.
 
 ### Adding a new cross-table writer
 

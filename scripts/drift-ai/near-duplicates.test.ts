@@ -123,10 +123,14 @@ function nearDuplicateFunction(
   },
 ): NearDuplicateFunction {
   return {
+    enclosingContext: "",
+    startOffset: 0,
+    endOffset: 100,
     lineCount: 20,
     tokenCount: 50,
     features: [...SHARED_FEATURES],
     statementFeatures: [...SHARED_FEATURES],
+    exactTokens: [],
     ...overrides,
   };
 }
@@ -390,6 +394,36 @@ describe("defaultNearDuplicateRunner", () => {
         "src/totals.ts",
         "src/totals.ts",
       ]);
+      expect(result.functions.every((item) => item.exactTokens.length === 0)).toBe(true);
+    }
+  });
+
+  it("extracts exact tokens only for exact-eligible production roots", () => {
+    const repoRoot = writeRepo({
+      "scripts/eligible.ts": RENAMED_VARIABLES,
+      "eslint-rules/eligible.ts": RENAMED_VARIABLES,
+      "packages/server/src/outside.ts": RENAMED_VARIABLES,
+      "scripts/eligible.test.ts": RENAMED_VARIABLES,
+      "scripts/fixtures/eligible.ts": RENAMED_VARIABLES,
+    });
+    const result = defaultNearDuplicateRunner()({
+      repoRoot,
+      roots: ["scripts", "eslint-rules", "packages/server/src"],
+      sourceExtensions: buildSourceExtensions([]),
+      ignore: DEFAULT_DRIFT_AI_CONFIG.ignore,
+      excludeGlobs: [],
+      engine: "ts-morph",
+      minLines: 8,
+      minTokens: 45,
+      similarityThreshold: 0.85,
+      includeExactTokens: true,
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok && result.engine === "ts-morph") {
+      const tokenizedPaths = new Set(
+        result.functions.filter((item) => item.exactTokens.length > 0).map((item) => item.filePath),
+      );
+      expect(tokenizedPaths).toEqual(new Set(["eslint-rules/eligible.ts", "scripts/eligible.ts"]));
     }
   });
 });
@@ -572,6 +606,37 @@ describe("nearDuplicatesCheck", () => {
     }
   });
 
+  it("reports small exact clones only in the opt-in drift check", () => {
+    const exactFunctions = functionsFrom({
+      "scripts/exact.ts": `
+        export function exactA(value: number) {
+          const next = value + Math.max(value, 2);
+          return next * Math.min(value, 4);
+        }
+        export function exactB(value: number) {
+          const next = value + Math.max(value, 2);
+          return next * Math.min(value, 4);
+        }
+      `,
+    });
+    let includeExactTokens: boolean | undefined;
+    const outcome = nearDuplicatesCheck.runWithSelectedConfig(
+      makeCtx({
+        nearDuplicates: (input) => {
+          includeExactTokens = input.includeExactTokens;
+          return { ok: true, engine: "ts-morph", functions: exactFunctions };
+        },
+      }),
+    );
+    expect(includeExactTokens).toBe(true);
+    expect(outcome.status).toBe("ran");
+    if (outcome.status === "ran") {
+      expect(outcome.findings).toHaveLength(1);
+      expect(outcome.findings[0]?.details?.tiers).toEqual(["exact"]);
+      expect(outcome.findings[0]?.details?.primaryTier).toBe("exact");
+    }
+  });
+
   it("emits one diagnostic finding when extraction fails", () => {
     const outcome = nearDuplicatesCheck.runWithSelectedConfig(
       makeCtx({
@@ -583,6 +648,39 @@ describe("nearDuplicatesCheck", () => {
       expect(outcome.findings).toHaveLength(1);
       expect(outcome.findings[0]?.message).toContain("could not extract function fingerprints");
       expect(outcome.findings[0]?.provenance).toBeUndefined();
+    }
+  });
+
+  it("keeps exact bucket overflow diagnostic and report-only", () => {
+    const base = functionsFrom({
+      "scripts/exact.ts": `
+        export function exact(value: number) {
+          const next = value + Math.max(value, 2);
+          return next * Math.min(value, 4);
+        }
+      `,
+    })[0];
+    if (base === undefined) throw new Error("missing exact function");
+    const functions = Array.from(
+      { length: 101 },
+      (_, index): NearDuplicateFunction => ({
+        ...base,
+        name: `copy${String(index)}`,
+        startOffset: index * 100,
+        endOffset: index * 100 + 50,
+        startLine: index * 4 + 1,
+        endLine: index * 4 + 3,
+      }),
+    );
+    const outcome = nearDuplicatesCheck.runWithSelectedConfig(
+      makeCtx({
+        nearDuplicates: () => ({ ok: true, engine: "ts-morph", functions }),
+      }),
+    );
+    expect(outcome.status).toBe("ran");
+    if (outcome.status === "ran") {
+      expect(outcome.findings).toHaveLength(1);
+      expect(outcome.findings[0]?.message).toContain("101 functions");
     }
   });
 

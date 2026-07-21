@@ -6,6 +6,7 @@
 
 .claude/hooks/bun-run-quiet.sh
 .claude/hooks/git-commit-quiet.sh
+docs/generated/lint-coverage-map.md
 docs/guides/lint-ratchet-merges.md
 eslint-config/config-surface-manifest.json
 eslint-config/config-surfaces.js
@@ -52,8 +53,13 @@ scripts/harness/verify-step-schema.ts
 scripts/lib/atomic-write.ts
 scripts/lib/codepoint-compare.ts
 scripts/lib/doc-generator.ts
+scripts/lib/git.ts
 scripts/lib/lint-rule-docs.ts
 scripts/lib/test-worker-count.sh
+scripts/lint-coverage-map-check-eslint-reach.ts
+scripts/lint-coverage-map-check-io.ts
+scripts/lint-coverage-map-gen-core.ts
+scripts/lint-coverage-map-gen.ts
 scripts/lint-ratchet/lint-ratchet-config.ts
 scripts/lint-ratchet/ratchet-manifest-message.ts
 scripts/lint-ratchet/registry-builders.ts

@@ -16,7 +16,7 @@
       ],
       "ruleOptions": [],
       "configHash": "sha256:90aa3de027ee76efffe93f50c79388454f56c674001c8af357b982e553bb48d0",
-      "ruleSourceHash": "sha256:3ea8b209e8ddd85e905258cd3e690d1f6133aca1eaf3f2aed60af19bedf92c35",
+      "ruleSourceHash": "sha256:667be8815b658bc272ae67dba3099e7e0c0cff34e3f66dc240cf65582e1e0589",
       "items": {
         "packages/client/src/components/campaign/chat/chat-panel.tsx": {
           "count": 2,
@@ -219,8 +219,8 @@
           "messagesFingerprint": "sha256:7311e2fff2752625d58f138a47314ce5496bbb2f303d62be92ba32fb567cc199"
         },
         "packages/client/src/components/vtt/drawer/monster-stat-block-actions.tsx": {
-          "count": 4,
-          "messagesFingerprint": "sha256:6bc1a6d779816d3e5d487ae7db9101eda50b6751be0d25b17ae99d1deb2abe69"
+          "count": 3,
+          "messagesFingerprint": "sha256:03dbe78381f4104a32ca1ab55600cf4b51210daa1b9052f8525d6961c6ffe049"
         },
         "packages/client/src/components/vtt/drawer/monster-stat-block-header.tsx": {
           "count": 2,
@@ -304,7 +304,7 @@
       ],
       "ruleOptions": [],
       "configHash": "sha256:a3c76fde32c2924965cfaa5220dfb8d0382621ab65d4a8c8d0bf3e2dda550129",
-      "ruleSourceHash": "sha256:c400ca374627bbc699dfb8c547671831ef75ce34e16e70bc28a6eaf8d5ceb57a",
+      "ruleSourceHash": "sha256:70f4678542728a4f1ddefb165379295cf0a87f07cc907e492910a6ab1ab3e895",
       "items": {}
     },
     "ratchet/local-no-effect-misuse-client": {
@@ -321,7 +321,7 @@
       ],
       "ruleOptions": [],
       "configHash": "sha256:d6ad31dd538c54cd0dfc7f35aff3dac4e54c4976ae269972441eb96da95866b1",
-      "ruleSourceHash": "sha256:381d5b3998287623332a0c7ef3f726b734ff88465f5f6c2f96e3a33238464ce1",
+      "ruleSourceHash": "sha256:87bc3a32b6a63abdf057f89ddd4eb74c7bc7acc668bb7752c63541c2758b909e",
       "items": {
         "packages/client/src/components/sheet/dm-editable-score.tsx": {
           "count": 1,
@@ -358,7 +358,7 @@
         }
       ],
       "configHash": "sha256:385dfa91172f04f2e601164834b8e4a9ac3760524e0130cf3c9e1cbea5006de7",
-      "ruleSourceHash": "sha256:7f84955528c7b7544f2aa81f630e73c1f851708ce58d81452137116ca3f9a41f",
+      "ruleSourceHash": "sha256:263fa3e7e801ea7806757dbacf2888efd094795d52d490ff1834b3569997554a",
       "items": {
         "packages/client/src/components/sheet/ability-scores-state.ts": {
           "count": 1,
@@ -432,7 +432,7 @@
       ],
       "ruleOptions": [],
       "configHash": "sha256:ca34c777719fdf36762a1c73c3a9c4586280b76cd598438959cb72ca00a6573e",
-      "ruleSourceHash": "sha256:32b7c7e19480dfeec8117c2dfc60f56b1235153852dd9e3bda61ca63ec9a8ac8",
+      "ruleSourceHash": "sha256:ead68da1082807d627c741f589ff8adc34807220e97d7c0730603101147e5fc2",
       "items": {}
     },
     "ratchet/max-depth-production": {
@@ -463,7 +463,7 @@
         }
       ],
       "configHash": "sha256:a148c15af74377921974ea8a1c22d13e40a882d0bda587f3466d693f655c250b",
-      "ruleSourceHash": "sha256:b8b95a8f28501092a4097d726038b857c19198fb63db4bc692b854629f8438fe",
+      "ruleSourceHash": "sha256:04d174263df6b7bec85c4c45173e8d2aad68bc6cb96bd9f3fce95e8ec23409d1",
       "items": {
         "packages/server/src/routers/character-spell.ts": {
           "count": 1,
@@ -513,7 +513,7 @@
         }
       ],
       "configHash": "sha256:8658646934b2628f3e4adbf3514099925011ebd657f88798e3b5c249a75ecf66",
-      "ruleSourceHash": "sha256:f8ceeed625dbf8d3af97ee20cd64f610556714ff92c5a58b5124074751c9cfa1",
+      "ruleSourceHash": "sha256:8cb594dad81694eea4402f66ca15ffcfd542ed7c499d60bcc1a3632274a0a405",
       "items": {
         "packages/client/src/components/campaign/combat/combat-map-content.tsx": {
           "count": 1,
@@ -627,7 +627,7 @@
         }
       ],
       "configHash": "sha256:72a8571b50e4d3f5004b2e14368f0e1e94ef51d1f45e7916bac13ccf85ae94a7",
-      "ruleSourceHash": "sha256:52e0718e4a8cf96e1bf45dce6d62e38014654e2ed2df65dd11724c357093343f",
+      "ruleSourceHash": "sha256:e0c4ca2b3d1dca511b4a357da5c42c052d4438bd41a187403e18bbf13ef32f95",
       "items": {
         "scripts/backlog-lint.ts": {
           "count": 1,
@@ -742,7 +742,7 @@
         }
       ],
       "configHash": "sha256:a6e025882500e44c94776ed9a747ac04a125632953bb31e6618cfcab3428f8ad",
-      "ruleSourceHash": "sha256:ac7181bfdce6a53a3faa244d87ccd385989762c835b6b99bc582643cc733abd1",
+      "ruleSourceHash": "sha256:aefe7532a99ddebc2d12fb750e88618a6c23611880a2cd6d9534fdea436ab1ae",
       "items": {
         "packages/client/src/components/notifications/notification-item.test.tsx": {
           "count": 4,
@@ -844,7 +844,7 @@
       ],
       "ruleOptions": [],
       "configHash": "sha256:6c3bb52df4149e5095b52606cb8bdf14f6d347e804a1c03470372806c9076c33",
-      "ruleSourceHash": "sha256:dc95cfc0d7c60a0a536ba4e70f8e79e60c2350c890d64d9f8992788da5e328db",
+      "ruleSourceHash": "sha256:0f7a8dddcff08685ff7665314fbaa3c72c7cf43152a6fde99a456468423230c9",
       "items": {
         "packages/client/src/components/sheet/dm-editable-score.tsx": {
           "count": 1,
@@ -886,7 +886,7 @@
         }
       ],
       "configHash": "sha256:860e0eb17421bee7d39e69f96683f604b4a50279c31cb1edd4526f7fd0257293",
-      "ruleSourceHash": "sha256:5493f82ed7cc0773a342135716ea52112d1d280a6c6caa8ab203b31276492cf1",
+      "ruleSourceHash": "sha256:1bd11e55c6ff2d8023a0312d97f7137a8cbded9896c33dfd4d5c74ddb69935d9",
       "items": {
         "packages/client/src/components/campaign/encounters/encounter-participants.tsx": {
           "count": 1,
@@ -1022,7 +1022,7 @@
         }
       ],
       "configHash": "sha256:7e49716d78b60d91af6f8732a4e5c6b210b6004a8b11b0af94229ff87956ca98",
-      "ruleSourceHash": "sha256:5aa4eb0bdc955fbd5f6a2fd8c4d59fc3d19b54c84ffcebc6610b2892384f905d",
+      "ruleSourceHash": "sha256:68fe596e95c0991c3417009b1dbe913edee1eec923b3ac159cee1af77216d934",
       "items": {}
     },
     "ratchet/strict-boolean-expressions-server-services": {
@@ -1054,7 +1054,7 @@
         }
       ],
       "configHash": "sha256:d1b094c213262861760acba137d6910317c33a5874105565bb6eb9aec0b9d63b",
-      "ruleSourceHash": "sha256:5aa4eb0bdc955fbd5f6a2fd8c4d59fc3d19b54c84ffcebc6610b2892384f905d",
+      "ruleSourceHash": "sha256:68fe596e95c0991c3417009b1dbe913edee1eec923b3ac159cee1af77216d934",
       "items": {
         "packages/server/src/services/character-create-helpers.ts": {
           "count": 5,
@@ -1097,12 +1097,12 @@
           "messagesFingerprint": "sha256:0cd6b0993115b8b07d056248d1a71082c978cc8a8ca018360a78c39376fbc3a2"
         },
         "packages/server/src/services/spell-casting/combat-transaction.ts": {
-          "count": 2,
-          "messagesFingerprint": "sha256:0a0c90e7ebb79b8625bd3a47a3905200693b39a41b2bf58da4dd7c1a3d32d241"
+          "count": 1,
+          "messagesFingerprint": "sha256:a24c907045421b49338d5dd6d6463bf7f96816b9c9db254e3192c72c3330361c"
         },
         "packages/server/src/services/spell-casting/spell-casting.ts": {
-          "count": 3,
-          "messagesFingerprint": "sha256:7bdfb9755638267d87b7551da2c225ba19d37141402ec73a7cd81a3290c99c8c"
+          "count": 2,
+          "messagesFingerprint": "sha256:e16775286bccc0b4ba9f194770684c956540b9ed5f0684b3571b0b253f2bd8a6"
         },
         "packages/server/src/services/starting-equipment-service.ts": {
           "count": 3,
@@ -1138,7 +1138,7 @@
         }
       ],
       "configHash": "sha256:0877ac9927361b41f032567212b6da280ea25d6b0edd7c0fa5ffbd5d3c365c86",
-      "ruleSourceHash": "sha256:5aa4eb0bdc955fbd5f6a2fd8c4d59fc3d19b54c84ffcebc6610b2892384f905d",
+      "ruleSourceHash": "sha256:68fe596e95c0991c3417009b1dbe913edee1eec923b3ac159cee1af77216d934",
       "items": {}
     },
     "ratchet/testing-library-no-container-client-tests": {
@@ -1155,7 +1155,7 @@
       ],
       "ruleOptions": [],
       "configHash": "sha256:dcf40ef4389988a5cb03e69374f08fc90b80d38fd83df3af5653f4332d3d6aca",
-      "ruleSourceHash": "sha256:d7022752176a1c441b83bf4a9c5fbc3bc4b0e7b21b9399ccea4a67a839fdb00b",
+      "ruleSourceHash": "sha256:785d88fa820d858c3f78f02a356540de6227eac4795e93b6aeb14636038902e3",
       "items": {
         "packages/client/src/components/campaign/combat/combat-map-panel.test.tsx": {
           "count": 1,
@@ -1225,7 +1225,7 @@
       ],
       "ruleOptions": [],
       "configHash": "sha256:9403f1d5d0e4190c8feb21ab7f516189ef83c05ea6b2ea3b437d751ca683b518",
-      "ruleSourceHash": "sha256:d7022752176a1c441b83bf4a9c5fbc3bc4b0e7b21b9399ccea4a67a839fdb00b",
+      "ruleSourceHash": "sha256:785d88fa820d858c3f78f02a356540de6227eac4795e93b6aeb14636038902e3",
       "items": {
         "packages/client/src/components/campaign/combat/combat-death-saves.test.tsx": {
           "count": 2,
@@ -1385,7 +1385,7 @@
         }
       ],
       "configHash": "sha256:6cae35d39192c714093b9d0f2e16253a6994e819796850c798fef67df7a02b41",
-      "ruleSourceHash": "sha256:84fa68f3c7b9c2a27f7bcd2605979cedf0d3d507a35e4f4c6fb73088411d8639",
+      "ruleSourceHash": "sha256:8711c9809ab497e72008dba31c6411610cdd839207ff39adf0ee82172367b87f",
       "items": {}
     },
     "ratchet/vitest-expect-expect-script-tests": {
@@ -1412,7 +1412,7 @@
         }
       ],
       "configHash": "sha256:689ef7670cf52dff644563b2d6ed8e0313f0e10106f579976118b44f3612281e",
-      "ruleSourceHash": "sha256:84fa68f3c7b9c2a27f7bcd2605979cedf0d3d507a35e4f4c6fb73088411d8639",
+      "ruleSourceHash": "sha256:8711c9809ab497e72008dba31c6411610cdd839207ff39adf0ee82172367b87f",
       "items": {}
     },
     "ratchet/vitest-valid-expect-drift-ai-tests": {
@@ -1433,7 +1433,7 @@
         }
       ],
       "configHash": "sha256:74d747b29463b32f803761e9a1e490f78c50a4ee9c7f29ae663b2c38637c2a1a",
-      "ruleSourceHash": "sha256:84fa68f3c7b9c2a27f7bcd2605979cedf0d3d507a35e4f4c6fb73088411d8639",
+      "ruleSourceHash": "sha256:8711c9809ab497e72008dba31c6411610cdd839207ff39adf0ee82172367b87f",
       "items": {}
     },
     "ratchet/vitest-valid-expect-script-tests": {
@@ -1452,7 +1452,7 @@
         }
       ],
       "configHash": "sha256:83c28088d3af8ac5b58af40bcb15122484f6337003944513d9cfe515475f11db",
-      "ruleSourceHash": "sha256:84fa68f3c7b9c2a27f7bcd2605979cedf0d3d507a35e4f4c6fb73088411d8639",
+      "ruleSourceHash": "sha256:8711c9809ab497e72008dba31c6411610cdd839207ff39adf0ee82172367b87f",
       "items": {}
     }
   }

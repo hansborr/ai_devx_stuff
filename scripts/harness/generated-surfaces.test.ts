@@ -60,7 +60,7 @@ function makeFacetRoot(facetOverrides: FacetOverrides = {}, invocation?: string)
 }
 
 describe("loadGeneratedSurfaces (real manifest)", () => {
-  it("returns exactly the nine registered generated surfaces in deterministic id order", () => {
+  it("returns exactly the ten registered generated surfaces in deterministic id order", () => {
     const records = loadGeneratedSurfaces(repoRoot);
     expect(records.map((record) => record.id)).toEqual([
       "check/config-surface-generator",
@@ -71,6 +71,7 @@ describe("loadGeneratedSurfaces (real manifest)", () => {
       "check/verify-steps-generator",
       "doc-generator/baseline-conflict-recipes",
       "doc-generator/harness-controls",
+      "doc-generator/lint-coverage-map",
       "doc-generator/lint-guidance",
     ]);
   });
@@ -85,6 +86,7 @@ describe("loadGeneratedSurfaces (real manifest)", () => {
       "verify:steps:check",
       "docs:baseline-conflict-recipes:check",
       "docs:harness-controls:check",
+      "docs:lint-coverage-map:generate:check",
       "docs:lint-guidance:check",
     ]);
   });
@@ -105,6 +107,12 @@ describe("loadGeneratedSurfaces (real manifest)", () => {
         "sensor:context-budget": "wrapped",
       },
     });
+    const lintCoverageMap = records.find(
+      (record) => record.id === "doc-generator/lint-coverage-map",
+    );
+    expect(lintCoverageMap?.refreshScript).toBe("docs:lint-coverage-map:generate");
+    expect(lintCoverageMap?.checkScript).toBe("docs:lint-coverage-map:generate:check");
+    expect(lintCoverageMap?.bunHook).toEqual({ refresh: "bypass", check: "wrapped" });
   });
 
   it("declares a non-empty fixture copy closure on every record", () => {

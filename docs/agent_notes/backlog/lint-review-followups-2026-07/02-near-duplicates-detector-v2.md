@@ -1,6 +1,6 @@
 # 02 — Near-duplicates detector v2: exact-clone tier + block detection
 
-Status: Ready
+Status: Open — optimized timing passes, but 535-identity baseline growth keeps exact clones report-only
 Track: S (sensors/gates) · Priority: P2 · Size: L
 
 ## Evidence (verified 2026-07-15 on feat/lint-adoption-2026-07 pre-land; re-verify before implementing)
@@ -62,3 +62,20 @@ throughout.
 
 Sources: codex gate-miss investigation 2026-07-15 (recs 2-3);
 Fable 5 adjudication (detector v2 leaf).
+
+## 2026-07-20 implementation gate result (remeasured after review)
+
+The jscpd repeated-block advisory landed at 8 lines / 60 tokens / mild mode,
+and the parser-token exact tier landed in the opt-in `drift:ai
+--check near-duplicates` report. The review-corrected implementation gates
+extraction to eligible production scripts/ESLint files, collects terminal
+tokens in one source walk, includes signature syntax, and reuses one canonical
+sequence for hashing and grouping. The committed `bun
+scripts/benchmark-near-duplicates.ts --samples 5` harness reproduces the exact
+path at HEAD. Its warm median was 1.875 s versus fuzzy-only 2.282 s, and warm
+median peak RSS was 449,404 versus 359,236 KiB, so the timing limits pass.
+Blocking promotion remains open because the exact tier still adds 535
+identities absent from the fuzzy baseline. That corpus cannot be
+bulk-grandfathered under the required one-at-a-time admission contract; reduce
+and review it before landing the conditional baseline-header and unique
+count-admission migration.

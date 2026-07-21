@@ -2,6 +2,8 @@
 # smoke-order: 320
 # smoke-subjects: scripts/harness-check.ts
 # smoke-subjects: scripts/lint-agent-guidance.ts
+# smoke-subjects: scripts/lint-coverage-map-gen.ts
+# smoke-subjects: scripts/lint-coverage-map-gen-core.ts
 # smoke-subjects: scripts/harness/control-field-validation.ts
 # smoke-subjects: scripts/harness/harness-check-validation.ts
 # smoke-subjects: scripts/harness/harness-gate-parity.ts
@@ -137,6 +139,9 @@ TS
   # generated-surfaces.ts (facet loader) imports zod; resolve it from the real
   # repo's node_modules via the same symlink pattern as @musi/lint-ratchet.
   [ -e "$fixture_dir/node_modules/zod" ] || ln -s "$PWD/node_modules/zod" "$fixture_dir/node_modules/zod"
+  # The lint coverage-map generator calls ESLint.calculateConfigForFile(); the
+  # fixture supplies a minimal flat config but resolves the real ESLint module.
+  [ -e "$fixture_dir/node_modules/eslint" ] || ln -s "$PWD/node_modules/eslint" "$fixture_dir/node_modules/eslint"
 }
 
 write_eslint_plugin() {
@@ -170,7 +175,13 @@ JS
   cat >"$fixture_dir/eslint.config.js" <<'JS'
 import local from "./local-plugin.js";
 
-export default [{ plugins: { local }, rules: { "local/fixture-rule": "error" } }];
+export default [
+  {
+    files: ["scripts/**/*.ts"],
+    plugins: { local },
+    rules: { "local/fixture-rule": "error" },
+  },
+];
 JS
 }
 
@@ -180,6 +191,7 @@ write_source_files() {
     "$fixture_dir/eslint-rules" \
     "$fixture_dir/scripts" \
     "$fixture_dir/scripts/codemods" \
+    "$fixture_dir/scripts/drift-ai" \
     "$fixture_dir/scripts/tests" \
     "$fixture_dir/.claude/skills/fixture" \
     "$fixture_dir/.codex/skills/fixture"
@@ -189,6 +201,7 @@ write_source_files() {
   : >"$fixture_dir/scripts/lint-coverage-map-check.ts"
   : >"$fixture_dir/scripts/lint-ratchet/zero-baseline.ts"
   : >"$fixture_dir/scripts/codemods/fixture.ts"
+  : >"$fixture_dir/scripts/drift-ai/fixture.ts"
   printf 'same\n' >"$fixture_dir/.claude/skills/fixture/SKILL.md"
   printf 'same\n' >"$fixture_dir/.codex/skills/fixture/SKILL.md"
   cat >"$fixture_dir/scripts/ai-hooks/README.md" <<'MD'
@@ -232,6 +245,8 @@ write_package_json() {
     "test:scripts:subjects": "bun run scripts/path-policy/generate-smoke-subjects.ts",
     "test:scripts:subjects:check": "bun run scripts/path-policy/generate-smoke-subjects.ts -- --check",
     "docs:lint-coverage-map:check": "bun scripts/lint-coverage-map-check.ts -- --check-eslint-reach",
+    "docs:lint-coverage-map:generate": "bun run scripts/lint-coverage-map-gen.ts",
+    "docs:lint-coverage-map:generate:check": "bun run scripts/lint-coverage-map-gen.ts -- --check",
     "docs:lint-guidance": "bun run scripts/generate-lint-guidance.ts",
     "docs:lint-guidance:check": "bun run scripts/generate-lint-guidance.ts -- --check",
     "docs:harness-controls": "bun run scripts/harness/generate-harness-controls.ts",
@@ -510,6 +525,28 @@ $FIXTURE_RATCHET_ENTRIES,
       }
     },
     {
+      "id": "doc-generator/lint-coverage-map",
+      "kind": "doc-generator",
+      "category": "maintainability",
+      "principle": "Lint coverage-map generated-block fixture principle.",
+      "pairedGuide": "none",
+      "repairKind": "autofix",
+      "source": "scripts/lint-coverage-map-gen.ts",
+      "invocation": "bun run docs:lint-coverage-map:generate",
+      "generatedSurface": {
+        "triggerPaths": [
+          "eslint.config.js",
+          "scripts/drift-ai/",
+          "scripts/lint-coverage-map-gen-core.ts",
+          "scripts/lint-coverage-map-gen.ts"
+        ],
+        "outputPaths": ["docs/generated/lint-coverage-map.md"],
+        "checkScript": "docs:lint-coverage-map:generate:check",
+        "warnLabel": "lint coverage-map generated block",
+        "bunHook": { "refresh": "bypass", "check": "wrapped" }
+      }
+    },
+    {
       "id": "doc-generator/lint-guidance",
       "kind": "doc-generator",
       "category": "maintainability",
@@ -753,6 +790,9 @@ write_valid_fixture() {
   write_generated_hook_files "$fixture_dir"
   write_package_json "$fixture_dir"
   write_valid_manifest "$fixture_dir"
+  git -C "$fixture_dir" init -q
+  git -C "$fixture_dir" add .
+  (cd "$fixture_dir" && bun run docs:lint-coverage-map:generate >/dev/null)
   (cd "$fixture_dir" && bun run scripts/path-policy/generate-smoke-subjects.ts >/dev/null)
   (cd "$fixture_dir" && bun run scripts/harness/generate-verify-steps.ts >/dev/null)
   (cd "$fixture_dir" && bun run scripts/harness/generate-hook-timeout-constants.ts >/dev/null)
@@ -812,6 +852,12 @@ mutate_pre_push_pin_drift() {
 mutate_pre_push_pin_missing_hook() {
   local fixture_dir=$1
   rm "$fixture_dir/.husky/pre-push"
+}
+
+mutate_stale_lint_coverage_map_block() {
+  local fixture_dir=$1
+  sed -i '/scripts\/drift-ai\/\*\.ts/s/| [0-9][0-9]* \.ts |/| 99 .ts |/' \
+    "$fixture_dir/docs/generated/lint-coverage-map.md"
 }
 
 mutate_orphan_rule() {
@@ -1256,6 +1302,7 @@ run_failure_checks() {
   run_failure_case "stale-lint-guidance" "local-lint-rules.md is out of date" mutate_stale_lint_guidance
   run_failure_case "stale-harness-docs" "harness-controls.md is out of date" mutate_stale_harness_docs
   run_failure_case "stale-restricted-disable-rules" "ratchet-restricted-disable-rules.generated.js is out of date" mutate_stale_restricted_disable_rules
+  run_failure_case "stale-lint-coverage-map-block" "lint-coverage-map.md is out of date" mutate_stale_lint_coverage_map_block
   run_failure_case "alias-orphan-check-script" \
     '"docs:baseline-conflict-recipes:check" matches the control-prefix convention' \
     mutate_alias_orphan_check_script

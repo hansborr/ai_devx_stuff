@@ -11,11 +11,17 @@ import {
   buildNearDuplicateFindings,
   findNearDuplicatePairs,
   NEAR_DUPLICATE_TOOL,
+  type NearDuplicateFunction,
 } from "./near-duplicates.js";
 import {
   nearDuplicateExcludeGlobs,
   nearDuplicatesCheckConfig,
 } from "./near-duplicates-check-config.js";
+import {
+  findExactFunctionClonePairs,
+  markFuzzyOccurrencePairs,
+  unionNearDuplicateOccurrencePairs,
+} from "./near-duplicates-exact.js";
 import { defaultNearDuplicateRunner, type NearDuplicateRunner } from "./near-duplicates-runner.js";
 
 type NearDuplicatesServices = { readonly nearDuplicates: NearDuplicateRunner };
@@ -46,17 +52,39 @@ function runNearDuplicatesCheck(
     minLines: config.minLines,
     minTokens: config.minTokens,
     similarityThreshold: config.similarityThreshold,
+    includeExactTokens: true,
   });
   if (!result.ok) return outcomeForRunnerFailure(result);
 
   const pairs =
     result.engine === NEAR_DUPLICATE_TOOL
-      ? findNearDuplicatePairs(result.functions, config)
-      : result.pairs;
+      ? combinedPairs(result.functions, config)
+      : { ok: true as const, value: result.pairs };
+  if (!pairs.ok) {
+    return {
+      status: "ran",
+      findings: [buildNearDuplicateDiagnosticFinding(pairs.error)],
+    };
+  }
   const provenance = { configSource: "drift-baseline", tool: result.engine } as const;
   return {
     status: "ran",
-    findings: buildNearDuplicateFindings(pairs, ctx.detectorScope, provenance),
+    findings: buildNearDuplicateFindings(pairs.value, ctx.detectorScope, provenance),
+  };
+}
+
+function combinedPairs(
+  functions: readonly NearDuplicateFunction[],
+  config: DriftAiNearDuplicatesConfig,
+):
+  | { readonly ok: true; readonly value: ReturnType<typeof unionNearDuplicateOccurrencePairs> }
+  | { readonly ok: false; readonly error: string } {
+  const exact = findExactFunctionClonePairs(functions);
+  if (!exact.ok) return exact;
+  const fuzzy = findNearDuplicatePairs(functions, config);
+  return {
+    ok: true,
+    value: unionNearDuplicateOccurrencePairs(markFuzzyOccurrencePairs(fuzzy), exact.pairs),
   };
 }
 

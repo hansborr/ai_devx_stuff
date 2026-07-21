@@ -420,6 +420,11 @@ existing inbound links working and point to the canonical home:
 
 The coverage-map gate details now live in the reference doc:
 [Coverage Map Gate](lint-ratchet-reference.md#coverage-map-gate).
+Musi uses hybrid ownership: refresh the marker-delimited direct-child drift-ai
+row with `bun run docs:lint-coverage-map:generate`, and use
+`bun run docs:lint-coverage-map:generate:check` to check generated freshness.
+Rows and policy prose outside that block remain hand-maintained; the existing
+`:check` and `:audit` commands retain their whole-map semantic roles.
 
 ### Portable adoption
 

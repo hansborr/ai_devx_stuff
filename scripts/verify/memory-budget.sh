@@ -59,6 +59,9 @@ declare -gA MUSI_VERIFY_SLOT_EXPECTED_PEAK_MB=(
   [local-rule-starter]=256
   [adr]=256
   [knip-unused-exports]=256
+  # C3 report-only fallback, 2026-07-20: retained fuzzy slot max 1,410,324 KiB
+  # process-tree RSS at 25 ms; 1.20x decimal-MB headroom rounded to 50 MB.
+  [near-duplicates]=1750
   [max-lines-exceptions]=256
   [coverage-map]=256
   [format-check]=256

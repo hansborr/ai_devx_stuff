@@ -154,7 +154,7 @@ Implemented checks:
 
 | Check                 |             Default? | What it reports                                                    | Notes                                                                                                                                                                                                                                                |
 | --------------------- | -------------------: | ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `duplicates`          |                  Yes | Copy/paste duplicate blocks                                        | Uses `jscpd`; skips cleanly if the executable cannot be resolved.                                                                                                                                                                                    |
+| `duplicates`          |                  Yes | Copy/paste duplicate blocks                                        | Advisory `jscpd` scan at 8 lines / 60 tokens in `mild` mode; no duplication-percentage threshold, no verify slot, and missing/unreadable tool output is reported rather than certified clean.                                                          |
 | `ghost-files`         |                  Yes | Suspicious sibling modules such as `foo-helper.ts` beside `foo.ts` | Uses filename tokens and directory peers; configurable allow-pairs for known-good current-state siblings. In `current` scope, established role-split families are suppressed (see below).                                                            |
 | `comments`            |                  Yes | Over-narrated files with high comment-to-code ratios               | Honors `checks.comments.excludePrefixes`.                                                                                                                                                                                                            |
 | `commented-out-code`  |               Opt-in | Tombstoned code blocks left behind in comments                     | Flags consecutive comment runs that parse cleanly as operative code; `checks.commented-out-code.minLines` / `excludePrefixes`. Evidence only — it does not call the code dead.                                                                       |
@@ -165,7 +165,7 @@ Implemented checks:
 | `unused-exports`      |               Opt-in | Unused exported symbols/types/enum & namespace members from knip   | Same knip adapter as `orphan-files` (`[target-config]`, identical skips); each finding is tagged `details.category`, and a symbol that is also `@deprecated` gains `details.deprecated`. Shares a single knip spawn with other selected knip checks. |
 | `import-cycles`       |               Opt-in | Circular import components                                         | Uses ts-morph/TypeScript resolution; type-only cycles are labeled.                                                                                                                                                                                   |
 | `layer-direction`     |               Opt-in | Server `utils`/`services` reverse layer imports                    | Uses the resolved TypeScript graph; starts with `utils -> services` and `services -> routers` bans. Findings carry `[drift-baseline]` provenance.                                                                                                    |
-| `near-duplicates`     |               Opt-in | AST-similar function clones missed by exact duplicate detection    | Default engine is in-process ts-morph; findings carry `[drift-baseline]` provenance.                                                                                                                                                                 |
+| `near-duplicates`     |               Opt-in | Fuzzy and small exact function clones                              | Report-only union of unchanged fuzzy 8/45/0.85 matching and parser-token exact 3/15 matching under `scripts/**` and `eslint-rules/**`; exact bucket overflow is diagnostic and the exact tier is not in the blocking sensor.                            |
 | `duplicate-types`     |               Opt-in | Repeated interface/type-literal property shapes                    | Exact ts-morph structural hashes over non-function type shapes; filters tiny shapes with `minProps`. Findings carry `[drift-baseline]` provenance.                                                                                                   |
 | `duplicate-schemas`   |               Opt-in | Repeated object-schema key shapes                                  | Exact ts-morph structural hashes over `<receiver>.object({...})` chains; filters tiny schemas with `minKeys`. Findings carry `[drift-baseline]` provenance.                                                                                          |
 | `duplicate-literals`  |               Opt-in | Repeated literal values across files                               | Exact ts-morph grouping. Strings are length-filtered; raw numbers are skipped unless `includeNumbers` is enabled.                                                                                                                                    |
@@ -313,6 +313,15 @@ target's `node_modules/.bin/jscpd`, so an uninstalled target needs no
 cwd, keeping finding paths repo-relative. If jscpd resolves nowhere, the
 `duplicates` check is **skipped with a reason** on stderr (the other checks still
 run); it never crashes or emits a false-positive finding.
+
+The default calibration is `minLines: 8`, `minTokens: 60`, and `mode: mild`.
+These values may be overridden under `checks.duplicates`; mode accepts `mild`
+or `weak`. The command deliberately passes no jscpd duplication-percentage
+`--threshold`: individual clone rows are evidence, while ordinary findings,
+tool skips, subprocess failures, blank output, and malformed JSON remain
+report-only unless an operator explicitly requests the generic
+`--fail-on-findings` experiment. This check is not called by
+`sensor:near-duplicates` and has no verify or pre-commit slot.
 
 ### The `ghost-files` check: current-scope role families
 
@@ -500,11 +509,13 @@ packages/server/src/services/character-create.ts`.
 
 ### The `near-duplicates` check (ts-morph)
 
-`near-duplicates` catches same-shaped function clones that token/exact clone
-detection can miss: renamed variables, a tweaked signature, or independent
-statements moved around. It fingerprints function AST structure with identifiers
-normalized, compares only functions in a similar token-count band, and requires
-conservative minimum lines/tokens plus a default similarity threshold of `0.85`.
+`near-duplicates` catches same-shaped function clones plus small exact function
+clones. The unchanged fuzzy tier fingerprints function AST structure with
+identifiers normalized, keeps its 8-line/45-token floors and `0.85` threshold,
+and compares only functions in a similar token-count band. Alongside it, the
+report-only exact tier preserves parser token kind and text, uses 3-line/15-token
+floors under `scripts/**` and `eslint-rules/**`, verifies full sequences after
+hash bucketing, and unions the tiers by both functions' occurrence ranges.
 
 This is a drift-authored measurement threshold, so findings are stamped
 `[drift-baseline]`. It needs no target `node_modules` when using the default
@@ -512,6 +523,15 @@ ts-morph engine. It is **opt-in** because it compares functions across the
 project: enable it with `--check near-duplicates` or `--check all`. In `changed`
 scope only pairs touching a changed file are reported; in `current` scope every
 pair is surfaced, sorted by `lines * similarity`.
+
+The exact tier is deliberately absent from `sensor:near-duplicates`: after
+scoped single-walk optimization its C3 timing and bucket caps pass, but it still
+adds 535 identities absent from the fuzzy baseline. Those identities require
+one-at-a-time review rather than bulk grandfathering, so initial baseline growth
+still blocks enforcement. Reproduce the evidence with `bun run
+sensor:near-duplicates:benchmark -- --samples 5`. Equality groups above 100
+functions or total projections above 50,000 pairs produce a bounded diagnostic
+finding instead of truncating or certifying clean.
 
 Advanced: a target config may set `checks.near-duplicates.engine` to
 `"similarity-ts"` to use the optional Rust binary (`cargo install

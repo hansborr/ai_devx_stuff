@@ -24,6 +24,9 @@ export {
 export type NearDuplicateFunctionRef = {
   readonly filePath: string;
   readonly name: string;
+  readonly enclosingContext: string;
+  readonly startOffset: number | null;
+  readonly endOffset: number | null;
   readonly startLine: number;
   readonly endLine: number;
   readonly lineCount: number;
@@ -33,6 +36,7 @@ export type NearDuplicateFunctionRef = {
 export type NearDuplicateFunction = NearDuplicateFunctionRef & {
   readonly features: readonly string[];
   readonly statementFeatures: readonly string[];
+  readonly exactTokens: readonly string[];
 };
 
 export type NearDuplicatePair = {
@@ -310,9 +314,17 @@ function pairFinding(
       score: pair.score,
       primaryFunction: primary.name,
       duplicateFunction: other.name,
+      ...(hasTierDetails(pair) ? { tiers: pair.tiers, primaryTier: pair.primaryTier } : {}),
     },
     provenance,
   };
+}
+
+function hasTierDetails(pair: NearDuplicatePair): pair is NearDuplicatePair & {
+  readonly tiers: readonly string[];
+  readonly primaryTier: string;
+} {
+  return "tiers" in pair && "primaryTier" in pair;
 }
 
 function primarySide(

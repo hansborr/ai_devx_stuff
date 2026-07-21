@@ -12,7 +12,9 @@ import {
   type ApiEncounterSummary,
   apiGetCharacter,
   apiGetEncounter,
+  apiLevelUpCharacter,
   apiListChatMessages,
+  apiListCombatLogs,
   apiListEncounters,
   apiLogin,
   apiToggleSpellPrepared,
@@ -25,18 +27,27 @@ import { TIMEOUT_SHORT } from "./helpers/timeouts.js";
 import { CharacterSheetPO } from "./page-objects/character-sheet.po.js";
 import { EncounterPO } from "./page-objects/encounter.po.js";
 import { VttDrawerPO } from "./page-objects/vtt-drawer.po.js";
+import type { BrowserCombatSpellResponse } from "./page-objects/vtt-drawer-response.js";
 
 const DM_TOKEN = { x: 1, y: 1 } as const;
 const PLAYER_TOKEN = { x: 3, y: 1 } as const;
 const PLAYER_BACKUP_TOKEN = { x: 3, y: 3 } as const;
 const MONSTER_TOKEN = { x: 5, y: 1 } as const;
-const AOE_PLACEMENT = { x: 8, y: 1 } as const;
+const COMMONER_TOKEN = { x: 5, y: 3 } as const;
+const CAST_ONLY_AOE_PLACEMENT = { x: 8, y: 1 } as const;
+const FIREBALL_PLACEMENT = { x: 3, y: 1 } as const;
 const PLAYER_WEAPON = "Dagger";
 const PLAYER_SPELL = "Fire Bolt";
-const PLAYER_AOE_SPELL = "Fog Cloud";
+const PLAYER_SAVE_SPELL = "Sacred Flame";
+const PLAYER_DAMAGE_AOE_SPELL = "Fireball";
+const PLAYER_CAST_ONLY_AOE_SPELL = "Fog Cloud";
 const PLAYER_CONFLICT_SPELL = "Detect Magic";
+const FIRE_BOLT = "spell-fire-bolt";
+const SACRED_FLAME = "spell-sacred-flame";
+const FIREBALL = "spell-fireball";
 const FOG_CLOUD = "spell-fog-cloud";
 const DETECT_MAGIC = "spell-detect-magic";
+const SERVER_DERIVED_SAVE_DC = 14;
 const FIRST_TURN_CHECK_TIMEOUT = 500;
 
 test.describe("Encounter combat lifecycle", () => {
@@ -53,6 +64,7 @@ test.describe("Encounter combat lifecycle", () => {
   let dmCharacterId: string;
   let playerCharacterId: string;
   let combatMapId = "";
+  let encounterId = "";
 
   test.beforeAll(async ({ browser }) => {
     ctx = await setupDmAndPlayer(browser, {
@@ -74,9 +86,37 @@ test.describe("Encounter combat lifecycle", () => {
       subspeciesId: "subspecies-elven-lineage-high-elf",
       classId: "class-wizard",
       backgroundId: "background-sage",
+      constitution: 14,
       intelligence: 16,
+      wisdom: 16,
+      charisma: 14,
     });
     playerCharacterId = playerCharacter.id;
+    await apiLevelUpCharacter(api, playerLogin.accessToken, {
+      characterId: playerCharacterId,
+      classId: "class-wizard",
+    });
+    await apiLevelUpCharacter(api, playerLogin.accessToken, {
+      characterId: playerCharacterId,
+      classId: "class-wizard",
+      subclassId: "subclass-evoker",
+    });
+    await apiLevelUpCharacter(api, playerLogin.accessToken, {
+      characterId: playerCharacterId,
+      classId: "class-wizard",
+      asiChoice: {
+        featId: "feat-ability-score-improvement",
+        asiIncreases: [{ ability: "CON", amount: 2 }],
+      },
+    });
+    await apiLevelUpCharacter(api, playerLogin.accessToken, {
+      characterId: playerCharacterId,
+      classId: "class-wizard",
+    });
+    await apiLevelUpCharacter(api, playerLogin.accessToken, {
+      characterId: playerCharacterId,
+      classId: "class-cleric",
+    });
     await apiCreateInventoryItem(api, playerLogin.accessToken, {
       characterId: playerCharacterId,
       name: PLAYER_WEAPON,
@@ -93,8 +133,22 @@ test.describe("Encounter combat lifecycle", () => {
     });
     await apiAddCharacterSpell(api, playerLogin.accessToken, {
       characterId: playerCharacterId,
-      spellId: "spell-fire-bolt",
+      spellId: FIRE_BOLT,
       source: "class",
+    });
+    await apiAddCharacterSpell(api, playerLogin.accessToken, {
+      characterId: playerCharacterId,
+      spellId: SACRED_FLAME,
+      source: "class",
+    });
+    await apiAddCharacterSpell(api, playerLogin.accessToken, {
+      characterId: playerCharacterId,
+      spellId: FIREBALL,
+      source: "class",
+    });
+    await apiToggleSpellPrepared(api, playerLogin.accessToken, {
+      characterId: playerCharacterId,
+      spellId: FIREBALL,
     });
     await apiAddCharacterSpell(api, playerLogin.accessToken, {
       characterId: playerCharacterId,
@@ -156,14 +210,16 @@ test.describe("Encounter combat lifecycle", () => {
     await dmEncounter.addCharacter(dmCharName);
     await dmEncounter.addCharacter(playerCharName);
 
-    // Add a Goblin Warrior (CR 1/4) as the monster
+    // Goblin Warrior has only ambiguous actions; Commoner's Club is structured.
     await dmEncounter.addMonster("Goblin Warrior");
+    await dmEncounter.addMonster("Commoner");
     await dmEncounter.closeAddParticipantDialog();
 
-    // Verify 3 participants visible
+    // Verify all participants visible
     await expect(ctx.dmPage.getByText(dmCharName)).toBeVisible({ timeout: TIMEOUT_SHORT });
     await expect(ctx.dmPage.getByText(playerCharName)).toBeVisible({ timeout: TIMEOUT_SHORT });
     await expect(ctx.dmPage.getByText("Goblin Warrior")).toBeVisible({ timeout: TIMEOUT_SHORT });
+    await expect(ctx.dmPage.getByText("Commoner")).toBeVisible({ timeout: TIMEOUT_SHORT });
   });
 
   test("DM links the encounter to a map with combat tokens", async () => {
@@ -173,6 +229,7 @@ test.describe("Encounter combat lifecycle", () => {
       campaignId: ctx.campaignId,
     });
     const encounterSummary = findEncounter(encounters, encounterName);
+    encounterId = encounterSummary.id;
     const encounter = await apiGetEncounter(api, dmLogin.accessToken, {
       id: encounterSummary.id,
     });
@@ -190,6 +247,7 @@ test.describe("Encounter combat lifecycle", () => {
     const dmParticipant = findParticipant(encounter, dmCharName);
     const playerParticipant = findParticipant(encounter, playerCharName);
     const monsterParticipant = findParticipant(encounter, "Goblin Warrior");
+    const commonerParticipant = findParticipant(encounter, "Commoner");
     await apiCreateMapToken(api, dmLogin.accessToken, {
       mapId: map.id,
       type: "character",
@@ -216,6 +274,14 @@ test.describe("Encounter combat lifecycle", () => {
       color: "#dc2626",
       ...MONSTER_TOKEN,
     });
+    await apiCreateMapToken(api, dmLogin.accessToken, {
+      mapId: map.id,
+      type: "monster",
+      encounterParticipantId: commonerParticipant.id,
+      label: "Commoner",
+      color: "#b45309",
+      ...COMMONER_TOKEN,
+    });
     await api.dispose();
 
     await ctx.dmPage.reload();
@@ -236,7 +302,7 @@ test.describe("Encounter combat lifecycle", () => {
     await dmEncounter.startCombat();
     await dmEncounter.expectState("active");
     await dmEncounter.expectRound(1);
-    await dmEncounter.expectTurn(1, 3);
+    await dmEncounter.expectTurn(1, 4);
   });
 
   // ── Combat turns ─────────────────────────────────────────────────────
@@ -279,7 +345,7 @@ test.describe("Encounter combat lifecycle", () => {
     // Resolve the current highlight to one of the known participant names so
     // the comparison is stable across DM/player views (the DM sees monster HP
     // the player does not, so full-row text can legitimately differ).
-    const knownNames = [dmCharName, playerCharName, "Goblin Warrior"];
+    const knownNames = [dmCharName, playerCharName, "Goblin Warrior", "Commoner"];
     const currentName = (rowText: string): string =>
       knownNames.find((name) => rowText.includes(name)) ?? rowText;
 
@@ -394,24 +460,145 @@ test.describe("Encounter combat lifecycle", () => {
     await playerDrawer.closeDrawer();
   });
 
-  test("player casts a cantrip from the drawer against the monster", async () => {
+  test("structured Commoner Club exposes one Attack control and reaches attemptAttack", async () => {
+    await ctx.dmPage.reload();
+    await ctx.dmDetail.clickTab("Encounters");
+    await dmEncounter.openEncounter(encounterName);
+
+    await dmDrawer.openSheetFromToken(COMMONER_TOKEN);
+    await dmDrawer.attackWithMonsterAction("Club", PLAYER_TOKEN);
+    await dmEncounter.expectCombatLogEntry("Club");
+    await dmDrawer.closeDrawer();
+
+    await dmDrawer.openSheetFromToken(MONSTER_TOKEN);
+    await dmDrawer.expectNoMonsterAttackControls();
+    await dmDrawer.closeDrawer();
+  });
+
+  test("Fire Bolt damages the picked target through structured combat and logs the spell", async () => {
+    const api = await createApiContext();
+    const dmLogin = await apiLogin(api, ctx.dmUser.email, ctx.dmUser.password);
+    const beforeEncounter = await apiGetEncounter(api, dmLogin.accessToken, { id: encounterId });
+    const target = findParticipant(beforeEncounter, "Commoner");
+    const beforeHp = participantCurrentHp(target);
+    const beforeLogs = await apiListCombatLogs(api, dmLogin.accessToken, { encounterId });
+
+    await ctx.playerPage.reload();
+    await ctx.playerDetail.clickTab("Encounters");
+    await playerEncounter.openEncounter(encounterName);
     await playerDrawer.openSheetFromToken(PLAYER_TOKEN);
-    // castSingleTargetSpell asserts the cast response and target count; the
-    // combat log is not asserted here because the caster's page does not
-    // surface the cast entry (the old page-wide text assertion only matched
-    // the drawer's own spell button, so it never verified the log).
-    await playerDrawer.castSingleTargetSpell(PLAYER_SPELL, MONSTER_TOKEN);
+
+    const { attempts, totalDamage } = await playerDrawer.castSingleTargetCombatSpellUntilDamage(
+      PLAYER_SPELL,
+      COMMONER_TOKEN,
+      target.id,
+      8,
+    );
+
+    expect(totalDamage).toBeGreaterThan(0);
+    const afterEncounter = await apiGetEncounter(api, dmLogin.accessToken, { id: encounterId });
+    expect(participantCurrentHp(findParticipant(afterEncounter, "Commoner"))).toBe(
+      Math.max(0, beforeHp - totalDamage),
+    );
+    const afterLogs = await apiListCombatLogs(api, dmLogin.accessToken, { encounterId });
+    const fireBoltLogsBefore = beforeLogs.logs.filter(
+      (log) => log.action === "spell" && log.description.includes(PLAYER_SPELL),
+    );
+    const fireBoltLogsAfter = afterLogs.logs.filter(
+      (log) => log.action === "spell" && log.description.includes(PLAYER_SPELL),
+    );
+    expect(fireBoltLogsAfter).toHaveLength(fireBoltLogsBefore.length + attempts);
+    expect(fireBoltLogsAfter.at(-1)?.rolls).toHaveProperty("spellResults");
+
+    await api.dispose();
     await playerDrawer.closeDrawer();
   });
 
-  test("player casts a leveled AoE spell from the drawer", async () => {
+  test("Sacred Flame uses the server-derived save ability and DC", async () => {
+    const api = await createApiContext();
+    const dmLogin = await apiLogin(api, ctx.dmUser.email, ctx.dmUser.password);
+    const beforeEncounter = await apiGetEncounter(api, dmLogin.accessToken, { id: encounterId });
+    const target = findParticipant(beforeEncounter, "Goblin Warrior");
+    const beforeHp = participantCurrentHp(target);
+
+    await playerDrawer.openSheetFromToken(PLAYER_TOKEN);
+    const result = await playerDrawer.castSingleTargetCombatSpell(PLAYER_SAVE_SPELL, MONSTER_TOKEN);
+    expect(result.spellResults).toHaveLength(1);
+    const saveResult = requireSavingThrowResult(result, PLAYER_SAVE_SPELL);
+    expect(saveResult.targetParticipantId).toBe(target.id);
+    expect(saveResult.saveAbility).toBe("DEX");
+    expect(saveResult.saveDc).toBe(SERVER_DERIVED_SAVE_DC);
+
+    const afterEncounter = await apiGetEncounter(api, dmLogin.accessToken, { id: encounterId });
+    expect(participantCurrentHp(findParticipant(afterEncounter, "Goblin Warrior"))).toBe(
+      Math.max(0, beforeHp - saveResult.totalDamage),
+    );
+
+    await api.dispose();
+    await playerDrawer.closeDrawer();
+  });
+
+  test("Fireball updates every overlapped participant from one slot and plural response", async () => {
+    const api = await createApiContext();
+    const playerLogin = await apiLogin(api, ctx.playerUser.email, ctx.playerUser.password);
+    const dmLogin = await apiLogin(api, ctx.dmUser.email, ctx.dmUser.password);
+    const beforeCharacter = await apiGetCharacter(api, playerLogin.accessToken, {
+      id: playerCharacterId,
+    });
+    const beforeUsed = spellSlotUsed(beforeCharacter, 3);
+    const beforeEncounter = await apiGetEncounter(api, dmLogin.accessToken, { id: encounterId });
+
+    await playerDrawer.openSheetFromToken(PLAYER_TOKEN);
+    const result = await playerDrawer.castAoeCombatSpell(
+      PLAYER_DAMAGE_AOE_SPELL,
+      3,
+      FIREBALL_PLACEMENT,
+      2,
+    );
+
+    expect(result.spellResults.length).toBeGreaterThanOrEqual(2);
+    for (const spellResult of result.spellResults) {
+      expect(spellResult.type).toBe("savingThrow");
+      expect(spellResult.damageRolls).toEqual(result.spellResults[0]?.damageRolls);
+    }
+
+    const afterCharacter = await apiGetCharacter(api, playerLogin.accessToken, {
+      id: playerCharacterId,
+    });
+    expect(spellSlotUsed(afterCharacter, 3)).toBe(beforeUsed + 1);
+
+    const afterEncounter = await apiGetEncounter(api, dmLogin.accessToken, { id: encounterId });
+    for (const participantName of [dmCharName, playerCharName]) {
+      const beforeParticipant = findParticipant(beforeEncounter, participantName);
+      const afterParticipant = findParticipant(afterEncounter, participantName);
+      const spellResult = requireParticipantSpellResult(
+        result,
+        beforeParticipant.id,
+        participantName,
+      );
+      const beforeHp = participantCurrentHp(beforeParticipant);
+      const afterHp = participantCurrentHp(afterParticipant);
+      expect(afterHp).toBe(Math.max(0, beforeHp - spellResult.totalDamage));
+      expect(afterHp).toBeLessThan(beforeHp);
+    }
+
+    await api.dispose();
+    await playerDrawer.closeDrawer();
+  });
+
+  test("Fog Cloud stays on castSpell.cast with slot, concentration, and chat", async () => {
     const api = await createApiContext();
     const playerLogin = await apiLogin(api, ctx.playerUser.email, ctx.playerUser.password);
     const before = await apiGetCharacter(api, playerLogin.accessToken, { id: playerCharacterId });
     const beforeUsed = spellSlotUsed(before, 1);
 
     await playerDrawer.openSheetFromToken(PLAYER_TOKEN);
-    await playerDrawer.castAoeSpell(PLAYER_AOE_SPELL, 1, AOE_PLACEMENT, 1);
+    await playerDrawer.castAoeSpellCastOnly(
+      PLAYER_CAST_ONLY_AOE_SPELL,
+      1,
+      CAST_ONLY_AOE_PLACEMENT,
+      2,
+    );
 
     const after = await apiGetCharacter(api, playerLogin.accessToken, { id: playerCharacterId });
     const chat = await apiListChatMessages(api, playerLogin.accessToken, {
@@ -419,7 +606,9 @@ test.describe("Encounter combat lifecycle", () => {
     });
     expect(spellSlotUsed(after, 1)).toBe(beforeUsed + 1);
     expect(after.stats?.concentrationSpellId).toBe(FOG_CLOUD);
-    expect(chat.messages.some((m) => m.content.includes(`casts ${PLAYER_AOE_SPELL}`))).toBe(true);
+    expect(
+      chat.messages.some((m) => m.content.includes(`casts ${PLAYER_CAST_ONLY_AOE_SPELL}`)),
+    ).toBe(true);
     await api.dispose();
     await playerDrawer.closeDrawer();
   });
@@ -442,6 +631,28 @@ test.describe("Encounter combat lifecycle", () => {
     const after = await apiGetCharacter(api, playerLogin.accessToken, { id: playerCharacterId });
     expect(spellSlotUsed(after, 1)).toBe(beforeUsed);
     expect(after.stats?.concentrationSpellId).toBe(FOG_CLOUD);
+    await api.dispose();
+    await playerDrawer.closeDrawer();
+  });
+
+  test("ambiguous class-source Fire Bolt never calls the combat mutation", async () => {
+    const api = await createApiContext();
+    const playerLogin = await apiLogin(api, ctx.playerUser.email, ctx.playerUser.password);
+    const dmLogin = await apiLogin(api, ctx.dmUser.email, ctx.dmUser.password);
+    await apiLevelUpCharacter(api, playerLogin.accessToken, {
+      characterId: playerCharacterId,
+      classId: "class-sorcerer",
+    });
+    const beforeLogs = await apiListCombatLogs(api, dmLogin.accessToken, { encounterId });
+
+    await ctx.playerPage.reload();
+    await ctx.playerDetail.clickTab("Encounters");
+    await playerEncounter.openEncounter(encounterName);
+    await playerDrawer.openSheetFromToken(PLAYER_TOKEN);
+    await playerDrawer.castSingleSpellCastOnly(PLAYER_SPELL);
+
+    const afterLogs = await apiListCombatLogs(api, dmLogin.accessToken, { encounterId });
+    expect(afterLogs.logs).toHaveLength(beforeLogs.logs.length);
     await api.dispose();
     await playerDrawer.closeDrawer();
   });
@@ -532,4 +743,37 @@ function spellSlotUsed(character: ApiCharacterDetail, level: number): number {
   const slot = character.spellSlots.find((s) => s.spellLevel === level);
   if (!slot) throw new Error(`Spell slot not found for level ${String(level)}`);
   return slot.used;
+}
+
+type BrowserSpellResult = BrowserCombatSpellResponse["spellResults"][number];
+type BrowserSavingThrowResult = Extract<BrowserSpellResult, { type: "savingThrow" }>;
+
+function participantCurrentHp(participant: ApiEncounterParticipant): number {
+  if (participant.currentHp === null) {
+    throw new Error(`Participant has no current HP: ${participant.name}`);
+  }
+  return participant.currentHp;
+}
+
+function requireSavingThrowResult(
+  result: BrowserCombatSpellResponse,
+  spellName: string,
+): BrowserSavingThrowResult {
+  const spellResult = result.spellResults[0];
+  if (!spellResult || spellResult.type !== "savingThrow") {
+    throw new Error(`${spellName} did not return a saving throw result`);
+  }
+  return spellResult;
+}
+
+function requireParticipantSpellResult(
+  result: BrowserCombatSpellResponse,
+  participantId: string,
+  participantName: string,
+): BrowserSpellResult {
+  const spellResult = result.spellResults.find(
+    (candidate) => candidate.targetParticipantId === participantId,
+  );
+  if (!spellResult) throw new Error(`Missing Fireball result for ${participantName}`);
+  return spellResult;
 }

@@ -227,12 +227,16 @@ function fakeFunction(
   return {
     filePath,
     name,
+    enclosingContext: "",
+    startOffset: 0,
+    endOffset: 100,
     startLine: 1,
     endLine: 12,
     lineCount: 12,
     tokenCount: Math.max(50, features.length),
     features,
     statementFeatures: ["return", "call"],
+    exactTokens: [],
   };
 }
 

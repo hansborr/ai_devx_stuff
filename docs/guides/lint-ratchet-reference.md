@@ -69,6 +69,15 @@ broader boundary in a committed Markdown table derived from `git ls-files`,
 normal ESLint reach, and the current ratchet registry. Musi's current map lives
 at `docs/generated/lint-coverage-map.md`.
 
+The map is partially generated, not wholly generated. One marker-delimited
+block owns the direct-child `scripts/drift-ai/*.ts` row; root entrypoints,
+nested fixtures, every other table, and durable policy prose stay
+hand-maintained. Run `bun run docs:lint-coverage-map:generate` after its tracked
+files, ESLint reach, or ratchet membership changes. The paired
+`docs:lint-coverage-map:generate:check` command performs a read-only byte
+freshness check and is registered as a generated surface. It is separate from
+the semantic `:check` and reach-aware `:audit` commands below.
+
 `bun run docs:lint-coverage-map:check` validates map drift rather than style
 (it mirrors the committing gate's behaviour — no ESLint-reach probe; see the
 `:audit` split below):

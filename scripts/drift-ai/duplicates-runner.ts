@@ -15,6 +15,8 @@ import {
   buildDuplicatesFindings,
   DEFAULT_DUPLICATES_IGNORE_GLOBS,
   DEFAULT_DUPLICATES_MIN_LINES,
+  DEFAULT_DUPLICATES_MIN_TOKENS,
+  DEFAULT_DUPLICATES_MODE,
   type DuplicateScope,
   type DuplicateScopeKey,
   filterClonesToChangedFiles,
@@ -38,6 +40,8 @@ import type { DriftFinding } from "./types.js";
 export type JscpdRunnerInput = {
   readonly scopePath: string;
   readonly minLines: number;
+  readonly minTokens: number;
+  readonly mode: "mild" | "weak";
   readonly ignoreGlobs: readonly string[];
 };
 
@@ -81,7 +85,7 @@ export function defaultJscpdRunner(options: DefaultJscpdRunnerOptions): JscpdRun
   const bin = options.jscpdBin;
   const timeoutMs = options.timeoutMs ?? DEFAULT_JSCPD_TIMEOUT_MS;
   const spawn = options.spawn ?? spawnSync;
-  return ({ scopePath, minLines, ignoreGlobs }) => {
+  return ({ scopePath, minLines, minTokens, mode, ignoreGlobs }) => {
     const outputDir = mkdtempSync(path.join(tmpdir(), "drift-ai-jscpd-"));
     try {
       const args = [
@@ -93,6 +97,10 @@ export function defaultJscpdRunner(options: DefaultJscpdRunnerOptions): JscpdRun
         "--noTips",
         "--min-lines",
         String(minLines),
+        "--min-tokens",
+        String(minTokens),
+        "--mode",
+        mode,
       ];
       // jscpd's --ignore is comma-separated; repeating the flag only honors
       // one value because it is declared with commander's `[string]` shape.
@@ -162,6 +170,8 @@ export type RunDuplicatesCheckOptions = {
   readonly roots?: readonly string[];
   readonly duplicateSupportedExtensions?: ReadonlySet<string>;
   readonly minLines?: number;
+  readonly minTokens?: number;
+  readonly mode?: "mild" | "weak";
   readonly ignoreGlobs?: readonly string[];
   readonly regularFileInventoryCount?: number;
   readonly warnStderr?: (message: string) => void;
@@ -169,10 +179,19 @@ export type RunDuplicatesCheckOptions = {
 
 export function runDuplicatesCheck(options: RunDuplicatesCheckOptions): DriftFinding[] {
   const minLines = options.minLines ?? DEFAULT_DUPLICATES_MIN_LINES;
+  const minTokens = options.minTokens ?? DEFAULT_DUPLICATES_MIN_TOKENS;
+  const mode = options.mode ?? DEFAULT_DUPLICATES_MODE;
   const ignoreGlobs = options.ignoreGlobs ?? DEFAULT_DUPLICATES_IGNORE_GLOBS;
   const supportedExtensions = options.duplicateSupportedExtensions ?? JSCPD_SUPPORTED_EXTENSIONS;
   if (options.detectorScope.scopeMode === "current") {
-    return runCurrentDuplicatesCheck(options, minLines, ignoreGlobs, supportedExtensions);
+    return runCurrentDuplicatesCheck(
+      options,
+      minLines,
+      minTokens,
+      mode,
+      ignoreGlobs,
+      supportedExtensions,
+    );
   }
   const scopes = mapChangedFilesToScopes(changedFilesFromScope(options.detectorScope), {
     roots: options.roots ?? [],
@@ -180,12 +199,14 @@ export function runDuplicatesCheck(options: RunDuplicatesCheckOptions): DriftFin
     supportedExtensions,
   });
   if (scopes.length === 0) return [];
-  return runDuplicateScopes(scopes, options.runner, minLines, ignoreGlobs);
+  return runDuplicateScopes(scopes, options.runner, minLines, minTokens, mode, ignoreGlobs);
 }
 
 function runCurrentDuplicatesCheck(
   options: RunDuplicatesCheckOptions,
   minLines: number,
+  minTokens: number,
+  mode: "mild" | "weak",
   ignoreGlobs: readonly string[],
   supportedExtensions: ReadonlySet<string>,
 ): DriftFinding[] {
@@ -198,7 +219,7 @@ function runCurrentDuplicatesCheck(
   });
   if (scopes.length === 0) return [];
   return sortFindingsByFileMessage(
-    runDuplicateScopes(scopes, options.runner, minLines, ignoreGlobs),
+    runDuplicateScopes(scopes, options.runner, minLines, minTokens, mode, ignoreGlobs),
   );
 }
 
@@ -206,6 +227,8 @@ function runDuplicateScopes(
   scopes: readonly DuplicateScope[],
   runner: JscpdRunner,
   minLines: number,
+  minTokens: number,
+  mode: "mild" | "weak",
   ignoreGlobs: readonly string[],
 ): DriftFinding[] {
   const findings: DriftFinding[] = [];
@@ -213,6 +236,8 @@ function runDuplicateScopes(
     const result = runner({
       scopePath: scope.scopePath,
       minLines,
+      minTokens,
+      mode,
       ignoreGlobs,
     });
     findings.push(...buildFindingsForScope(scope, result));

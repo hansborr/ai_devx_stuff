@@ -22,6 +22,7 @@ runner ran test-lint-agent-changed
 runner ran test-lint-agent
 runner ran test-lint-changed
 runner ran test-lint-config-sensors
+runner ran test-lint-coverage-map-gen
 runner ran test-lint-dist-preflight
 runner ran test-lint-fix-dist-preflight
 runner ran test-lint-probe-rule

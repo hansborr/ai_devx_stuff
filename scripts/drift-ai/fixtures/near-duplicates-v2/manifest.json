@@ -1,0 +1,34 @@
+{
+  "exactFunctions": [
+    { "left": "smallExactA", "right": "smallExactB", "expect": "exact" },
+    { "left": "formattedA", "right": "formattedB", "expect": "exact" },
+    { "left": "regexA", "right": "regexB", "expect": "exact" },
+    { "left": "templateA", "right": "templateB", "expect": "exact" },
+    { "left": "jsxA", "right": "jsxB", "expect": "exact" }
+  ],
+  "repeatedBlocks": [
+    {
+      "id": "same-file-eight-statements",
+      "files": ["block-same-file.ts"],
+      "expect": "clone"
+    },
+    {
+      "id": "cross-file-eight-statements",
+      "files": ["block-cross-a.ts", "block-cross-b.ts"],
+      "expect": "clone"
+    }
+  ],
+  "nonClones": [
+    { "left": "identifierA", "right": "identifierChanged", "expect": "not-exact" },
+    { "left": "propertyA", "right": "propertyChanged", "expect": "not-exact" },
+    { "left": "operatorA", "right": "operatorChanged", "expect": "not-exact" },
+    { "left": "regexA", "right": "regexChanged", "expect": "not-exact" },
+    { "left": "templateA", "right": "templateChanged", "expect": "not-exact" },
+    { "left": "jsxA", "right": "jsxChanged", "expect": "not-exact" },
+    {
+      "id": "short-config-and-import-noise",
+      "files": ["block-noise.ts"],
+      "expect": "none"
+    }
+  ]
+}

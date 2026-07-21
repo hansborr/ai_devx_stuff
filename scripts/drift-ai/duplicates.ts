@@ -43,7 +43,9 @@ export const JSCPD_SUPPORTED_EXTENSIONS: ReadonlySet<string> = new Set([
 ]);
 
 export function parseDuplicatesReport(jsonText: string): ParseDuplicatesReportResult {
-  if (jsonText.trim().length === 0) return { ok: true, report: { duplicates: [] } };
+  if (jsonText.trim().length === 0) {
+    return { ok: false, error: "expected non-empty JSON report" };
+  }
   let raw: unknown;
   try {
     raw = JSON.parse(jsonText);
@@ -51,8 +53,11 @@ export function parseDuplicatesReport(jsonText: string): ParseDuplicatesReportRe
     return { ok: false, error: errorMessage(err) };
   }
   if (!isObject(raw)) return { ok: false, error: "expected JSON object root" };
+  if (!("duplicates" in raw)) {
+    return { ok: false, error: "expected required 'duplicates' array property" };
+  }
   const list = raw["duplicates"];
-  if (!Array.isArray(list)) return { ok: true, report: { duplicates: [] } };
+  if (!Array.isArray(list)) return { ok: false, error: "expected 'duplicates' to be an array" };
   const duplicates: JscpdClone[] = [];
   for (const entry of list) {
     const clone = parseClone(entry);
@@ -151,18 +156,33 @@ function errorMessage(err: unknown): string {
 // fixtures, and require enough lines that we do not flag short import blocks
 // or short shared-schema tables. Tighten or relax these once we have real
 // drift:ai output to look at.
-export const DEFAULT_DUPLICATES_MIN_LINES = 30;
+export const DEFAULT_DUPLICATES_MIN_LINES = 8;
+export const DEFAULT_DUPLICATES_MIN_TOKENS = 60;
+export const DEFAULT_DUPLICATES_MODE = "mild" as const;
 
 export const DEFAULT_DUPLICATES_IGNORE_GLOBS: readonly string[] = [
   "**/*.test.ts",
   "**/*.test.tsx",
   "**/*.spec.ts",
   "**/*.spec.tsx",
+  "**/*.test.js",
+  "**/*.test.jsx",
+  "**/*.test.mjs",
+  "**/*.test.cjs",
+  "**/*.spec.js",
+  "**/*.spec.jsx",
+  "**/*.spec.mjs",
+  "**/*.spec.cjs",
   "**/__tests__/**",
+  "**/test/**",
+  "**/tests/**",
   "**/fixtures/**",
   "**/__fixtures__/**",
   "**/*.fixture.ts",
   "**/*.fixture.tsx",
+  "**/generated/**",
+  "**/*.generated.*",
+  "**/*.gen.*",
   "**/*.d.ts",
 ];
 

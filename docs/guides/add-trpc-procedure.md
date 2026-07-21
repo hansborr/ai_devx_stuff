@@ -23,10 +23,11 @@ exercises every step below on real code:
   schemas are imported from concrete files, and auth checks and
   post-commit broadcasts are owned by the service. Its sibling
   `encounter.ts` shows the thin read shape (`get` is fetch, auth helper,
-  mapper) and delegates its race-sensitive `addParticipant`/
-  `updateParticipant` writes, but do not copy its `removeParticipant` —
-  that still inlines a lock/delete/reindex transaction and is listed in
-  the taxonomy as known debt, not a pattern to copy;
+  mapper) plus one-line participant-write delegations. In particular,
+  `packages/server/src/services/encounter-combat/participant-action.ts`
+  `removeParticipant` is the request-facing pattern to copy: the service owns
+  authorization, the lock/delete/reindex transaction, and the post-commit
+  broadcast while the router remains a thin pass-through;
 - client: `packages/client/src/components/campaign/encounters/encounter-detail-view.tsx`
   consumes `trpc.encounter.get` through TanStack Query.
 

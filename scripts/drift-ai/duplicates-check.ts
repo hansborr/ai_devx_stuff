@@ -35,6 +35,8 @@ export const duplicatesCheck = defineCheckPlugin<
       roots: ctx.roots,
       duplicateSupportedExtensions: JSCPD_SUPPORTED_EXTENSIONS,
       ...(config.minLines === undefined ? {} : { minLines: config.minLines }),
+      ...(config.minTokens === undefined ? {} : { minTokens: config.minTokens }),
+      ...(config.mode === undefined ? {} : { mode: config.mode }),
       ignoreGlobs:
         ctx.detectorScope.scopeMode === "current"
           ? currentDuplicateIgnoreGlobs(ctx, config)

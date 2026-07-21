@@ -122,6 +122,26 @@ export async function apiCreateCharacter(
   );
 }
 
+/** Level a character in an existing or new class. */
+export async function apiLevelUpCharacter(
+  ctx: APIRequestContext,
+  token: string,
+  input: {
+    characterId: string;
+    classId: string;
+    subclassId?: string;
+    asiChoice?: {
+      featId: string;
+      asiIncreases: Array<{
+        ability: "STR" | "DEX" | "CON" | "INT" | "WIS" | "CHA";
+        amount: number;
+      }>;
+    };
+  },
+): Promise<{ id: string; level: number }> {
+  return trpcMutate(ctx, "character.levelUp", { ...input, hpMethod: "average" }, token);
+}
+
 /** Create an equipped custom inventory item. */
 export async function apiCreateInventoryItem(
   ctx: APIRequestContext,
@@ -201,6 +221,13 @@ export interface ApiChatMessage {
   type: "chat" | "system" | "roll" | "combat" | "whisper";
 }
 
+export interface ApiCombatLog {
+  id: string;
+  action: "attack" | "spell" | "ability" | "item" | "movement" | "other";
+  description: string;
+  rolls: Record<string, unknown>;
+}
+
 /** List recent campaign chat messages. */
 export async function apiListChatMessages(
   ctx: APIRequestContext,
@@ -208,6 +235,15 @@ export async function apiListChatMessages(
   input: { campaignId: string },
 ): Promise<{ messages: ApiChatMessage[] }> {
   return trpcQuery(ctx, "chat.list", input, token);
+}
+
+/** List encounter combat logs in chronological order. */
+export async function apiListCombatLogs(
+  ctx: APIRequestContext,
+  token: string,
+  input: { encounterId: string },
+): Promise<{ logs: ApiCombatLog[]; nextCursor: string | null }> {
+  return trpcQuery(ctx, "encounterCombat.listCombatLogs", input, token);
 }
 
 /** Create a campaign via the API. */
@@ -242,6 +278,9 @@ export interface ApiEncounterParticipant {
   name: string;
   type: "character" | "monster" | "npc";
   characterId: string | null;
+  maxHp: number | null;
+  currentHp: number | null;
+  tempHp: number | null;
 }
 
 export interface ApiEncounterSummary {

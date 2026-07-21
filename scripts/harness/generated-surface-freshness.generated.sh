@@ -81,6 +81,15 @@ musi_warn_generated_surfaces_stale() {
 
   while IFS= read -r staged_path; do
     case "$staged_path" in
+      'eslint-config/'*|'eslint-rules/'*|'eslint.config.js'|'scripts/drift-ai/'*|'scripts/lib/codepoint-compare.ts'|'scripts/lib/doc-generator.ts'|'scripts/lib/git.ts'|'scripts/lint-coverage-map-check-eslint-reach.ts'|'scripts/lint-coverage-map-check-io.ts'|'scripts/lint-coverage-map-check-types.ts'|'scripts/lint-coverage-map-gen-core.ts'|'scripts/lint-coverage-map-gen.ts'|'scripts/lint-ratchet/lint-ratchet-config.ts'|'scripts/lint-ratchet/registry-builders.ts'|'tools/lint-ratchet/package.json'|'tools/lint-ratchet/src/kernel/codepoint-compare.ts'|'tools/lint-ratchet/src/kernel/ratchet-globs.ts'|'tsconfig.scripts.json'|'docs/generated/lint-coverage-map.md')
+        warn_if_generated_surface_stale 'lint coverage-map generated block' 'docs:lint-coverage-map:generate:check'
+        break
+        ;;
+    esac
+  done <<< "$staged"
+
+  while IFS= read -r staged_path; do
+    case "$staged_path" in
       'eslint-config/local-plugin.js'|'eslint-rules/'*|'scripts/generate-lint-guidance.ts'|'scripts/lib/doc-generator.ts'|'scripts/lib/lint-rule-docs.ts'|'docs/generated/local-lint-rules.md')
         warn_if_generated_surface_stale 'lint guidance' 'docs:lint-guidance:check'
         break

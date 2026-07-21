@@ -197,7 +197,9 @@ validate the inverse (a row marked not-linted whose files *do* resolve a config)
 
 ## A5 — Validates ratchet *ids* but not file-membership → prose rots; the doc advertises a generator that doesn't exist
 
-**Status: not addressed.**
+**Status: DONE (76b5a209) — ratchet membership is validated and the
+direct-child `scripts/drift-ai/*.ts` row is marker-generated from tracked files,
+fail-closed ESLint reach, and live ratchet membership.**
 
 **Evidence.** `collectRowFindings` (findings.ts:81-93) only verifies that each
 `ratchet/<id>` token is a known id (`ratchetIds`, check.ts:34). It does not check

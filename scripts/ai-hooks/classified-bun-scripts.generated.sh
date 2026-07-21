@@ -7,6 +7,7 @@
 AI_GENERATED_WRAPPED_BUN_SCRIPTS='
 docs:baseline-conflict-recipes:check
 docs:harness-controls:check
+docs:lint-coverage-map:generate:check
 docs:lint-guidance:check
 harness:config-surfaces
 harness:config-surfaces:check
@@ -24,6 +25,7 @@ verify:steps:check
 AI_GENERATED_BYPASS_BUN_SCRIPTS='
 docs:baseline-conflict-recipes
 docs:harness-controls
+docs:lint-coverage-map:generate
 docs:lint-guidance
 harness:hook-timeouts
 harness:wiring

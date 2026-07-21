@@ -7,11 +7,13 @@ import { describe, expect, it } from "vitest";
 import type { ChangedFile } from "../drift-ai.js";
 import type { CheckRunInput } from "./check-plugin.js";
 import { parseArgs } from "./cli-args.js";
-import { DEFAULT_DRIFT_AI_CONFIG } from "./config.js";
+import { DEFAULT_DRIFT_AI_CONFIG, parseDriftAiConfig } from "./config.js";
 import {
   buildDuplicatesFindings,
   DEFAULT_DUPLICATES_IGNORE_GLOBS,
   DEFAULT_DUPLICATES_MIN_LINES,
+  DEFAULT_DUPLICATES_MIN_TOKENS,
+  DEFAULT_DUPLICATES_MODE,
   DUPLICATE_REPAIR_HINT,
   filterClonesToChangedFiles,
   JSCPD_SUPPORTED_EXTENSIONS,
@@ -108,9 +110,15 @@ describe("parseDuplicatesReport", () => {
     });
   });
 
-  it("returns an empty report for empty or whitespace input", () => {
-    expect(parsedReport("").duplicates).toEqual([]);
-    expect(parsedReport("   \n\t").duplicates).toEqual([]);
+  it("returns an unreadable result for empty or whitespace input", () => {
+    expect(parseDuplicatesReport("")).toEqual({
+      ok: false,
+      error: "expected non-empty JSON report",
+    });
+    expect(parseDuplicatesReport("   \n\t")).toEqual({
+      ok: false,
+      error: "expected non-empty JSON report",
+    });
   });
 
   it("returns an unreadable result for malformed JSON", () => {
@@ -119,9 +127,15 @@ describe("parseDuplicatesReport", () => {
     expect(result.error.length).toBeGreaterThan(0);
   });
 
-  it("returns an empty report when duplicates is missing or wrong shape", () => {
-    expect(parsedReport("{}").duplicates).toEqual([]);
-    expect(parsedReport(JSON.stringify({ duplicates: "oops" })).duplicates).toEqual([]);
+  it("requires a top-level duplicates array", () => {
+    expect(parseDuplicatesReport("{}")).toEqual({
+      ok: false,
+      error: "expected required 'duplicates' array property",
+    });
+    expect(parseDuplicatesReport(JSON.stringify({ duplicates: "oops" }))).toEqual({
+      ok: false,
+      error: "expected 'duplicates' to be an array",
+    });
   });
 
   it("returns an unreadable result when the report root is not an object", () => {
@@ -155,6 +169,34 @@ describe("parseDuplicatesReport", () => {
     );
     expect(report.duplicates).toHaveLength(1);
     expect(report.duplicates[0]?.firstFile.name).toBe("a.ts");
+  });
+});
+
+describe("duplicates configuration", () => {
+  it("defaults to the selected single advisory profile", () => {
+    expect(parseDriftAiConfig({}).checks.duplicates).toEqual({
+      minLines: 8,
+      minTokens: 60,
+      mode: "mild",
+      excludeGlobs: [],
+    });
+  });
+
+  it("parses the jscpd line, token, and normalization controls", () => {
+    expect(
+      parseDriftAiConfig({
+        checks: { duplicates: { minLines: 10, minTokens: 50, mode: "weak" } },
+      }).checks.duplicates,
+    ).toEqual({ minLines: 10, minTokens: 50, mode: "weak", excludeGlobs: [] });
+  });
+
+  it("rejects invalid token floors and modes", () => {
+    expect(() => parseDriftAiConfig({ checks: { duplicates: { minTokens: 0 } } })).toThrow(
+      /minTokens.*positive integer/u,
+    );
+    expect(() => parseDriftAiConfig({ checks: { duplicates: { mode: "strict" } } })).toThrow(
+      /mode.*mild.*weak/u,
+    );
   });
 });
 
@@ -469,11 +511,15 @@ describe("runDuplicatesCheck", () => {
       {
         scopePath: "packages/server/src",
         minLines: DEFAULT_DUPLICATES_MIN_LINES,
+        minTokens: DEFAULT_DUPLICATES_MIN_TOKENS,
+        mode: DEFAULT_DUPLICATES_MODE,
         ignoreGlobs: DEFAULT_DUPLICATES_IGNORE_GLOBS,
       },
       {
         scopePath: "scripts",
         minLines: DEFAULT_DUPLICATES_MIN_LINES,
+        minTokens: DEFAULT_DUPLICATES_MIN_TOKENS,
+        mode: DEFAULT_DUPLICATES_MODE,
         ignoreGlobs: DEFAULT_DUPLICATES_IGNORE_GLOBS,
       },
     ]);
@@ -562,11 +608,15 @@ describe("runDuplicatesCheck", () => {
       detectorScope: changedDetectorScope([characterAuthChange]),
       runner,
       minLines: 10,
+      minTokens: 50,
+      mode: "weak",
       ignoreGlobs: ["**/*.snap"],
     });
     expect(inputs[0]).toEqual({
       scopePath: "packages/server/src",
       minLines: 10,
+      minTokens: 50,
+      mode: "weak",
       ignoreGlobs: ["**/*.snap"],
     });
   });
@@ -585,6 +635,24 @@ describe("runDuplicatesCheck", () => {
       },
     ]);
   });
+
+  it.each(["", "  \n", "{}", '{"duplicates":"oops"}'])(
+    "surfaces blank or malformed-shape jscpd output as advisory evidence: %j",
+    (reportJson) => {
+      const findings = runDuplicatesCheck({
+        detectorScope: changedDetectorScope([characterAuthChange]),
+        runner: () => ({ ok: true, reportJson }),
+      });
+      expect(findings).toEqual([
+        {
+          check: "duplicates",
+          file: "packages/server/src",
+          message: stringContaining("jscpd produced unreadable JSON"),
+          hint: "report-only: re-run drift:ai locally and capture the jscpd output for inspection.",
+        },
+      ]);
+    },
+  );
 
   it("runs current-mode duplicates and uses the lexically smaller current path as primary", () => {
     const inputs: JscpdRunnerInput[] = [];
@@ -616,6 +684,8 @@ describe("runDuplicatesCheck", () => {
       {
         scopePath: "packages/server/src",
         minLines: DEFAULT_DUPLICATES_MIN_LINES,
+        minTokens: DEFAULT_DUPLICATES_MIN_TOKENS,
+        mode: DEFAULT_DUPLICATES_MODE,
         ignoreGlobs: DEFAULT_DUPLICATES_IGNORE_GLOBS,
       },
     ]);
@@ -657,6 +727,8 @@ describe("runDuplicatesCheck", () => {
       {
         scopePath: "src",
         minLines: DEFAULT_DUPLICATES_MIN_LINES,
+        minTokens: DEFAULT_DUPLICATES_MIN_TOKENS,
+        mode: DEFAULT_DUPLICATES_MODE,
         ignoreGlobs: DEFAULT_DUPLICATES_IGNORE_GLOBS,
       },
     ]);
@@ -779,7 +851,9 @@ describe("defaultJscpdRunner", () => {
   it("passes the default timeout to the jscpd subprocess", () => {
     let observedTimeout: number | undefined;
     let observedKillSignal: number | NodeJS.Signals | undefined;
+    let observedArgs: readonly string[] = [];
     const spawn: JscpdSpawn = (_command, args, options) => {
+      observedArgs = args;
       observedTimeout = options.timeout;
       observedKillSignal = options.killSignal;
       writeFileSync(path.join(outputDirFromArgs(args), "jscpd-report.json"), '{"duplicates":[]}');
@@ -798,12 +872,24 @@ describe("defaultJscpdRunner", () => {
       spawn,
     });
 
-    expect(runner({ scopePath: "src", minLines: 10, ignoreGlobs: [] })).toEqual({
+    expect(
+      runner({
+        scopePath: "src",
+        minLines: 8,
+        minTokens: 60,
+        mode: "mild",
+        ignoreGlobs: [],
+      }),
+    ).toEqual({
       ok: true,
       reportJson: '{"duplicates":[]}',
     });
     expect(observedTimeout).toBe(DEFAULT_JSCPD_TIMEOUT_MS);
     expect(observedKillSignal).toBe("SIGKILL");
+    expect(flagValue(observedArgs, "--min-lines")).toBe("8");
+    expect(flagValue(observedArgs, "--min-tokens")).toBe("60");
+    expect(flagValue(observedArgs, "--mode")).toBe("mild");
+    expect(observedArgs).not.toContain("--threshold");
   });
 
   it("returns a stable failure when spawnSync times out", () => {
@@ -825,7 +911,15 @@ describe("defaultJscpdRunner", () => {
       timeoutMs: 1234,
     });
 
-    expect(runner({ scopePath: "src", minLines: 10, ignoreGlobs: [] })).toEqual({
+    expect(
+      runner({
+        scopePath: "src",
+        minLines: 10,
+        minTokens: 60,
+        mode: "mild",
+        ignoreGlobs: [],
+      }),
+    ).toEqual({
       ok: false,
       error: "timeout of 1234ms",
     });
@@ -859,6 +953,11 @@ function outputDirFromArgs(args: readonly string[]): string {
     throw new Error("expected jscpd --output argument");
   }
   return outputDir;
+}
+
+function flagValue(args: readonly string[], flag: string): string | undefined {
+  const index = args.indexOf(flag);
+  return index < 0 ? undefined : args[index + 1];
 }
 
 describe("resolveJscpdBin", () => {

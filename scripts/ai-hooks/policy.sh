@@ -98,6 +98,7 @@ sensor:knip-unused-exports:merge-driver:check
 sensor:near-duplicates
 sensor:near-duplicates:install-merge-driver
 sensor:near-duplicates:merge-driver:check
+sensor:near-duplicates:benchmark
 test
 test:changed
 test:client

@@ -7,7 +7,9 @@
   },
   "checks": {
     "duplicates": {
-      "minLines": 20,
+      "minLines": 8,
+      "minTokens": 60,
+      "mode": "mild",
       "excludeGlobs": ["**/*.generated.*", "**/*.snap"]
     },
     "ghost-files": {

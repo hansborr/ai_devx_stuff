@@ -9,7 +9,8 @@
     "examples/lint-ratchet-demo"
   ],
   "overrides": {
-    "fast-uri": "3.1.2"
+    "fast-uri": "3.1.2",
+    "vite": "8.1.4"
   },
   "packageManager": "bun@1.3.11",
   "engines": {
@@ -113,6 +114,8 @@
     "docs:local-eslint-rule-starter:check": "bun scripts/check-local-eslint-rule-starter.ts",
     "docs:lint-coverage-map:check": "bun run scripts/lint-coverage-map-check.ts",
     "docs:lint-coverage-map:audit": "bun run scripts/lint-coverage-map-check.ts -- --check-eslint-reach",
+    "docs:lint-coverage-map:generate": "bun run scripts/lint-coverage-map-gen.ts",
+    "docs:lint-coverage-map:generate:check": "bun run scripts/lint-coverage-map-gen.ts -- --check",
     "docs:lint-coverage-map:suggest": "bun run scripts/lint-coverage-map-check.ts -- --suggest",
     "docs:lint-guidance": "bun run scripts/generate-lint-guidance.ts",
     "docs:lint-guidance:check": "bun run scripts/generate-lint-guidance.ts -- --check",
@@ -131,6 +134,7 @@
     "sensor:knip-unused-exports:install-merge-driver": "bash scripts/git/install-knip-unused-exports-merge-driver.sh",
     "sensor:knip-unused-exports:merge-driver:check": "bash scripts/git/check-knip-unused-exports-merge-driver.sh",
     "sensor:near-duplicates": "bun scripts/sensor-near-duplicates.ts",
+    "sensor:near-duplicates:benchmark": "bun scripts/benchmark-near-duplicates.ts",
     "sensor:near-duplicates:install-merge-driver": "bash scripts/git/install-near-duplicates-merge-driver.sh",
     "sensor:near-duplicates:merge-driver:check": "bash scripts/git/check-near-duplicates-merge-driver.sh",
     "drift:ai": "bun scripts/drift-ai.ts",
@@ -162,7 +166,7 @@
     "@commitlint/cli": "21.0.1",
     "@commitlint/config-conventional": "21.0.1",
     "@commitlint/types": "21.0.1",
-    "@eslint-community/eslint-plugin-eslint-comments": "4.7.1",
+    "@eslint-community/eslint-plugin-eslint-comments": "4.7.2",
     "@eslint/js": "10.0.1",
     "@eslint/json": "1.2.0",
     "@musi/lint-ratchet": "workspace:*",
@@ -170,13 +174,13 @@
     "@stryker-mutator/core": "^9.6.1",
     "@stryker-mutator/typescript-checker": "^9.6.1",
     "@stryker-mutator/vitest-runner": "^9.6.1",
-    "@tanstack/eslint-plugin-query": "5.100.11",
+    "@tanstack/eslint-plugin-query": "5.101.2",
     "@taplo/cli": "0.7.0",
     "@tktco/node-actionlint": "1.6.0",
     "@types/estree": "^1.0.9",
     "@types/node": "^25.9.5",
     "@vitest/coverage-v8": "^4.1.7",
-    "@vitest/eslint-plugin": "1.6.17",
+    "@vitest/eslint-plugin": "1.6.23",
     "eslint": "10.4.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-import-x": "4.16.2",
@@ -191,13 +195,13 @@
     "eslint-plugin-testing-library": "7.16.2",
     "hadolint": "0.4.2",
     "husky": "^9.1.7",
-    "jscpd": "^4.2.3",
-    "knip": "6.14.1",
+    "jscpd": "^4.2.5",
+    "knip": "6.26.0",
     "minimatch": "10.2.4",
     "prettier": "^3.8.3",
     "ts-morph": "^28.0.0",
     "typescript": "~6.0.3",
-    "typescript-eslint": "^8.59.4",
+    "typescript-eslint": "^8.63.0",
     "vitest": "^4.1.7",
     "zod": "^4.4.3"
   }

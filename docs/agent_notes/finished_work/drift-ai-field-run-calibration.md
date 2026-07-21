@@ -216,3 +216,68 @@ runner/builder/gate. Follow-ups, in order of expected value:
 Raw JSON captures parked at `/tmp/calib-{musi,ma-toki,gastown,openclaw,BatonLoop}.json`
 (per-machine, not committed); operator manifest at
 `.tools/semgrep/rules/manifest.json` (gitignored).
+
+## 2026-07-20 - C3 jscpd repeated-block calibration
+
+- Command: locked `jscpd@4.2.3` matrix over `scripts/drift-ai/fixtures/near-duplicates-v2`, then the same profiles over `scripts` and `eslint-rules`; selected-tree confirmation used `bun run drift:ai --scope current --check duplicates --format json --output /tmp/c3-duplicates-selected.json`.
+- Repo and commit: `/home/node/lanes/lane-pkg`, v1 base `341505fc3722f3375698689c190cb190c4b077f4`; advisory implementation was uncommitted during calibration.
+- Scope: current tree, 2,368 inventory files across the five configured roots.
+- Matrix: `minLines` 8/10/12, `minTokens` 45/50/60, modes `mild`/`weak`; no percentage `--threshold`.
+
+The required same-file eight-statement fixture was found only at the 8-line
+floor; every 8-line matrix point found all three fixture clone rows. On the
+scripts/eslint-rules sample, the least noisy accepting point was 8/60/mild at
+63 rows in 4.949 s (8/45/mild produced 119). The first selected whole-root raw
+pass produced 118 rows in 9.039 s; after production/test/generated ignores were
+applied through the check, the portable drift command produced 91 rows in
+9.076 s before the final `test/**` exclusion.
+
+Manual review used the first 40 deterministic rows plus every shared and ESLint
+row. Most rows were concrete duplicated validation, mutation, dialog, or shell
+orchestration blocks; generated Prisma and JavaScript test/config rows were the
+clear noise classes and are now excluded. Short imports and the fixture's short
+configuration table were absent. Recommendation: one whole-root 8/60/mild
+profile, report-only. Multiple-profile infrastructure and an AST statement
+window detector are not justified by this calibration.
+
+## 2026-07-20 - C3 exact-tier retain-the-slot decision
+
+- Reproducible command: `bun scripts/benchmark-near-duplicates.ts --samples 5`
+  (also exposed as `bun run sensor:near-duplicates:benchmark -- --samples 5`).
+- Sampler: benchmark worker plus recursive descendants from `ps pid,ppid,rss`,
+  polled every 25 ms; raw RSS is KiB. Each state receives five fresh-process
+  samples followed by five immediate-repeat samples.
+- Host/tree: `/home/node/lanes/lane-pkg`, optimized implementation commit
+  `7b699ddc`; fuzzy-only and fuzzy+exact are exercised at the same HEAD.
+
+| State | Fresh wall seconds | Fresh peak KiB | Repeat wall seconds | Repeat peak KiB |
+| --- | --- | --- | --- | --- |
+| fuzzy-only | 1.308, 1.506, 1.679, 1.465, 1.602 | 369012, 364148, 361860, 356580, 362852 | 2.687, 2.120, 2.270, 2.449, 2.282 | 355152, 358864, 367888, 366896, 359236 |
+| scoped single-walk fuzzy+exact | 2.361, 2.361, 2.586, 1.882, 1.818 | 440168, 433740, 448976, 421628, 447512 | 1.875, 1.904, 1.848, 1.951, 1.838 | 451452, 437836, 437780, 449404, 450180 |
+
+Optimization changed the evidence. Exact token allocation is now file-gated
+before extraction and limited to the production `scripts/` and `eslint-rules/`
+scope; 4,203 of 6,864 discovered functions were tokenized, and 4,156 cleared
+the exact token floor. Terminals are collected in one source walk, each
+terminal encoding is allocated once even when nested functions are active, and
+each canonical sequence is encoded once for both hashing and collision-safe
+grouping. Signature tokens now include defaults, async/generator syntax, type
+parameters, parameters, and return syntax while omitting only the compared
+function's own name.
+
+The warm exact median was 1.875 s versus fuzzy-only 2.282 s: -0.407 s
+(-17.85%), so it passes both incremental time limits and the 15 s total limit.
+Warm median peak RSS increased by 90,168 KiB (359,236 to 449,404); maximum exact
+peak was 451,452 KiB. The exact audit had 4,001 hash buckets, maximum raw/full
+equality group 18, and 535 projected/post-overlap pairs, so the 100/50,000 caps
+also pass.
+
+Decision: retain report-only because the baseline-growth limb still fails.
+The union contains 535 identities absent from the fuzzy baseline. Enforcement
+requires reviewing and admitting or repairing every newly exposed identity one
+at a time; bulk-grandfathering that initial corpus would violate the admission
+contract. The existing fuzzy sensor therefore continues to disable exact-token
+allocation and remains the single enforced slot. The legacy-header migration,
+count-admission identifier, merge-policy change, and baseline metadata remain
+conditional on a future corpus reduction that makes individual review
+tractable; the blocking leaf stays open.

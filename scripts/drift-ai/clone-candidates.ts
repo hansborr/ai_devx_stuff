@@ -170,6 +170,9 @@ function toRef(fn: NearDuplicateFunction): NearDuplicateFunctionRef {
   return {
     filePath: fn.filePath,
     name: fn.name,
+    enclosingContext: fn.enclosingContext,
+    startOffset: fn.startOffset,
+    endOffset: fn.endOffset,
     startLine: fn.startLine,
     endLine: fn.endLine,
     lineCount: fn.lineCount,

@@ -19,6 +19,8 @@ export type DriftAiIgnoreConfig = {
 
 export type DriftAiDuplicatesConfig = {
   readonly minLines?: number;
+  readonly minTokens?: number;
+  readonly mode?: "mild" | "weak";
   readonly excludeGlobs: readonly string[];
 };
 

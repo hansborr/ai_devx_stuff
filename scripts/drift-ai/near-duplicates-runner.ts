@@ -23,6 +23,7 @@ import {
   SIMILARITY_TS_TOOL,
   sortNearDuplicatePairs,
 } from "./near-duplicates.js";
+import { isExactCloneFileEligible } from "./near-duplicates-exact-config.js";
 import { toPosix } from "./path-util.js";
 import { walkSourceFiles } from "./source-walk.js";
 
@@ -50,6 +51,7 @@ type NearDuplicateRunnerInput = {
   readonly minLines: number;
   readonly minTokens: number;
   readonly similarityThreshold: number;
+  readonly includeExactTokens?: boolean;
 };
 
 export type NearDuplicateSourceInventoryInput = Pick<
@@ -110,12 +112,15 @@ export function collectNearDuplicateSourceFiles(
 
 function runTsMorph(input: NearDuplicateRunnerInput): NearDuplicateRunnerResult {
   try {
-    const functions = collectNearDuplicateSourceFiles(input).flatMap((filePath) =>
-      extractNearDuplicateFunctions(
+    const functions = collectNearDuplicateSourceFiles(input).flatMap((filePath) => {
+      const includeExactTokens =
+        input.includeExactTokens === true && isExactCloneFileEligible(filePath);
+      return extractNearDuplicateFunctions(
         filePath,
         readFileSync(path.join(input.repoRoot, filePath), "utf8"),
-      ),
-    );
+        { includeExactTokens },
+      );
+    });
     return { ok: true, engine: NEAR_DUPLICATE_TOOL, functions };
   } catch (err) {
     return { ok: false, reason: "run-failed", error: errorMessage(err) };
@@ -249,6 +254,9 @@ function similarityRef(
   return {
     filePath: toPosix(filePath),
     name: name.trim(),
+    enclosingContext: "",
+    startOffset: null,
+    endOffset: null,
     startLine,
     endLine,
     lineCount: endLine - startLine + 1,
