@@ -10,6 +10,7 @@ import {
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { isRecord } from "../lib/records.js";
 import {
   resolveToolBin,
   type ResolveToolBinOptions,
@@ -228,11 +229,7 @@ function isTimeoutResult(result: KnipSpawnResult): boolean {
 }
 
 function hasErrorCode(error: unknown, expectedCode: string): boolean {
-  return isObject(error) && error["code"] === expectedCode;
-}
-
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+  return isRecord(error) && error["code"] === expectedCode;
 }
 
 // --- single-spawn memoization -----------------------------------------------

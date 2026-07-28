@@ -12,10 +12,9 @@ workspace-member consumer with its own adapter, exercised end to end
 engine copy are deleted; every S3 transitional wire is reversed. Each slice
 passed a two-model pre-land review (codex + Opus) with confirm-then-fix.
 Implementation amendments 1–3 are recorded in
-[02-slice-plan.md](./02-slice-plan.md). Open follow-up (pack-level): the
-debt-accounting path-diff lacks a net-neutral-rename primitive — moving a
-baselined file forces either fake debt or a genuine fix (S3 hit this;
-resolved via Option B there, but the tooling gap stands).
+[02-slice-plan.md](./02-slice-plan.md). The S3 Option B record remains the
+historical account of the rename limitation. Authoritative follow-up:
+[preserve lint-ratchet identity across path renames](../agent-pain-points-2026-07-21/10-lint-ratchet-path-renames.md).
 History: owner ruling 2026-07-16; dispatch rulings 2026-07-17 (four-model
 consult under owner-delegated authority); slice plan codex-reviewed over
 three rounds and approved 2026-07-17.

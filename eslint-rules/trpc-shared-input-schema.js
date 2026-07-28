@@ -49,7 +49,7 @@ export default {
     },
     messages: {
       needsSharedInput:
-        "Why: Router input schemas are the client/server contract and must live in shared. How to fix: Move this input shape to packages/shared/src/schemas/<domain>-inputs.ts (run: `bun run codemod:trpc-shared-input -- <file>`). Move complex .extend/.merge/.and/.or shapes manually. " +
+        "Why: ADR-0004 keeps router input schemas in shared because they are the client/server contract, not router-local detail. How to fix: Move this input shape to packages/shared/src/schemas/<domain>-inputs.ts (run: `bun run codemod:trpc-shared-input -- <file>`). Move complex .extend/.merge/.and/.or shapes manually. " +
         `See ${PAIRED_GUIDE}.`,
     },
     schema: [],

@@ -10,6 +10,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { compareByCodepoint } from "../lib/codepoint-compare.js";
 import { runDocGeneratorAsync } from "../lib/doc-generator.js";
 import { loadLintRuleDocs, type RuleDocs } from "../lib/lint-rule-docs.js";
+import { isObjectLike } from "../lib/records.js";
 import { lintRatchets } from "../lint-ratchet/lint-ratchet-config.js";
 import {
   type ControlCategory,
@@ -98,14 +99,10 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const manifestPath = harnessManifestPath(repoRoot);
 const outputPath = join(repoRoot, GENERATED_HARNESS_CONTROLS_DOC_PATH);
 
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
 function readManifest(): RawControl[] {
   const text = readFileSync(manifestPath, "utf8");
   const parsed: unknown = JSON.parse(text);
-  if (!isObject(parsed)) {
+  if (!isObjectLike(parsed)) {
     throw new Error(`${HARNESS_MANIFEST_FILENAME} must be an object`);
   }
   if (!Array.isArray(parsed.controls)) {
@@ -114,7 +111,7 @@ function readManifest(): RawControl[] {
   const controls: RawControl[] = [];
   const seenIds = new Set<string>();
   for (const entry of parsed.controls) {
-    if (!isObject(entry)) {
+    if (!isObjectLike(entry)) {
       throw new Error("every control entry must be an object");
     }
     const id = entry.id;
@@ -125,7 +122,7 @@ function readManifest(): RawControl[] {
       throw new Error(`duplicate control id: ${id}`);
     }
     seenIds.add(id);
-    // type-assertion-boundary: json - `entry` came from JSON.parse of harness.controls.json and was shape-validated above (`isObject(entry)` + `isNonEmptyString(id)`); deeper field-level validation happens later in `resolveControl`. The double-cast (`as unknown as RawControl`) widens away the `Record<string, unknown>` field types so each readonly optional field is reachable without per-field casts in the consumer.
+    // type-assertion-boundary: json - `entry` came from JSON.parse of harness.controls.json and was shape-validated above (`isObjectLike(entry)` + `isNonEmptyString(id)`); deeper field-level validation happens later in `resolveControl`. The double-cast (`as unknown as RawControl`) widens away the `Record<string, unknown>` field types so each readonly optional field is reachable without per-field casts in the consumer.
     controls.push(entry as unknown as RawControl);
   }
   return controls;

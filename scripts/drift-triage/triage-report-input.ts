@@ -1,3 +1,4 @@
+import { isRecord } from "../lib/records.js";
 import type {
   AdvisoryCapInput,
   AdvisoryInput,
@@ -281,10 +282,6 @@ function parseStringArray(value: unknown): string[] | null {
 function parseOptionalStringArray(value: unknown): string[] | undefined | null {
   if (value === undefined) return undefined;
   return parseStringArray(value);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function isString(value: unknown): value is string {

@@ -100,7 +100,8 @@ symbol/navigation tool, not a domain overview. A Musi overview command would be
 valuable for tRPC routers, services, shared schemas, socket broadcasts, cache
 hooks, and tests.
 
-Candidate leaf:
+Candidate leaf (**shipped** — `bun run code:intel -- overview` exists; see
+`scripts/code-intel/overview-query.ts` and `overview-call-targets.ts`):
 
 - Add `bun run code:intel -- overview <file>` for one slice first:
   tRPC router files.
@@ -159,7 +160,10 @@ Musi's `docs/ai-harness.md` is currently the human inventory. A small metadata
 registry for local ESLint rules, drift checks, codemods, and script sensors
 could generate parts of that inventory and power repair UIs.
 
-Candidate leaf:
+Candidate leaf (**shipped** — `harness.controls.json` is the registry, with
+`category`, `principle`, `pairedGuide`, `repairKind`, `repairCommand`,
+`source`, and `invocation` across lint rules, codemods, sensors, drift scopes,
+ratchets, hooks, and doc generators):
 
 - Add metadata for local ESLint rules first: category, paired guide, default
   command, fix command if any, and one bad/good example.
@@ -198,7 +202,9 @@ Musi already has an adapter boundary for hooks in `scripts/ai-hooks/`. The same
 principle should apply to agent-facing skills and subagent prompts if they keep
 growing. Today `.claude/skills` and `.codex/skills` duplicate content.
 
-Candidate leaf:
+Candidate leaf (**shipped** — `scripts/harness/generate-skill-artifacts.ts`
+projects canonical skill source into the per-harness adapters, gated by
+`bun run harness:skills:refresh` / `harness:skills:check`):
 
 - Move shared skill source into one repo-owned directory, then generate or sync
   `.claude/skills` and `.codex/skills` from it.
@@ -263,10 +269,14 @@ Candidate leaf:
 
 ## Suggested Promotion Order
 
-1. `code:intel -- overview` for one tRPC router slice.
+Items 1, 4, and 6 have since shipped; the rest are still open.
+
+1. ~~`code:intel -- overview` for one tRPC router slice.~~ Shipped.
 2. `docs:intel` discovery over guides and module docs.
 3. Shared quick-fix preview contract for one codemod.
-4. Canonical skill/subagent source with `.claude` and `.codex` sync.
+4. ~~Canonical skill/subagent source with `.claude` and `.codex` sync.~~
+   Shipped as `harness:skills:refresh`.
 5. Optional task prompt plus fallback skill for one high-risk workflow.
-6. Rule metadata registry for local ESLint rules and codemods.
+6. ~~Rule metadata registry for local ESLint rules and codemods.~~ Shipped as
+   `harness.controls.json`.
 7. MCP/plugin adapter tests only after a CLI-backed adapter exists.

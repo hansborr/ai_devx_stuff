@@ -12,7 +12,7 @@ import { z } from "zod";
 
 import { compareByCodepoint } from "../lib/codepoint-compare.js";
 import { extractBunRunScript } from "./harness-check-validation.js";
-import { HARNESS_MANIFEST_FILENAME, loadHarnessManifest } from "./harness-manifest.js";
+import { HARNESS_MANIFEST_FILENAME } from "./harness-manifest.js";
 
 /**
  * How the ai-hooks bun-run-quiet classifier treats a package.json script:
@@ -102,11 +102,11 @@ function compareById(a: GeneratedSurfaceRecord, b: GeneratedSurfaceRecord): numb
  * id. Throws one aggregated error listing every invalid record so registration
  * mistakes surface in a single run.
  */
-export function loadGeneratedSurfaces(repoRoot: string): GeneratedSurfaceRecord[] {
+export function parseGeneratedSurfaces(entries: readonly unknown[]): GeneratedSurfaceRecord[] {
   const records: GeneratedSurfaceRecord[] = [];
   const failures: string[] = [];
 
-  for (const entry of loadHarnessManifest(repoRoot)) {
+  for (const entry of entries) {
     if (!carriesGeneratedSurface(entry)) continue;
     const carrierId = describeCarrier(entry);
     const parsed = generatedSurfaceCarrierSchema.safeParse(entry);

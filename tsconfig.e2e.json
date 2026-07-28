@@ -5,7 +5,30 @@
     "noEmit": true,
     "rootDir": ".",
     "types": ["node", "@playwright/test"],
-    "useDefineForClassFields": false
+    "useDefineForClassFields": false,
+    // The root workspace does not depend on `@musi/server`, so the package's
+    // `./router-type` export condition is unreachable from `e2e/`. Map it to
+    // source the way `knip.config.ts` already does: the published condition
+    // points at `dist/`, which does not exist when CI lints or typechecks
+    // (the build is the last step of the `validate` job). Type-only imports
+    // therefore need no root dependency and no reinstall.
+    //
+    // The `@musi/shared` entries exist for the same reason, one hop further
+    // out: the mapped server source imports `@musi/shared`, whose exports also
+    // resolve to a gitignored `dist/`. Without these, this project's result
+    // would depend on the `tsc -b` lane `scripts/typecheck.sh` runs
+    // *concurrently* — TS2307 on a cold tree, last build's contract on a warm
+    // one. Mapping to source keeps the lane self-contained and parallel.
+    // Maps the shared exports the e2e graph currently reaches; guarded by
+    // `scripts/e2e-tsconfig-resolution.test.ts`, including direct e2e imports.
+    "paths": {
+      "@musi/server/router-type": ["./packages/server/src/routers/app-router.ts"],
+      "@musi/shared/constants": ["./packages/shared/src/constants.ts"],
+      "@musi/shared/schemas/*.js": ["./packages/shared/src/schemas/*.ts"],
+      "@musi/shared/rules/*.js": ["./packages/shared/src/rules/*.ts"],
+      "@musi/shared/dice/*.js": ["./packages/shared/src/dice/*.ts"],
+      "@musi/shared/map/*.js": ["./packages/shared/src/map/*.ts"]
+    }
   },
   "include": ["e2e/**/*.ts", "playwright.config.ts"]
 }

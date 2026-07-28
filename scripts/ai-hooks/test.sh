@@ -91,32 +91,6 @@ assert_policy_advisory_contains() {
   assert_contains "$advisory" "$expected"
 }
 
-policy_only_probe() {
-  local cmd="$1"
-  local marker_state="$2"
-  local out_file="$3"
-  local err_file="$4"
-  local marker="$REPO_ROOT/.allow-protected-edits"
-
-  rm -f "$marker"
-  if [ "$marker_state" = "marker-active" ]; then
-    touch "$marker"
-  fi
-
-  bash -c '
-    set -u
-    script_dir=$1
-    cmd=$2
-    . "$script_dir/common.sh"
-    . "$script_dir/policy.sh"
-    reason=$(ai_policy_violation_reason "$cmd" || true)
-    advisory=$(ai_policy_advisory_context "$cmd" || true)
-    printf "reason=%s\n" "$reason"
-    printf "advisory=%s\n" "$advisory"
-  ' bash "$SCRIPT_DIR" "$cmd" >"$out_file" 2>"$err_file"
-  rm -f "$marker"
-}
-
 assert_policy_blocks_in_dir() {
   local dir="$1"
   local cmd="$2"
@@ -152,6 +126,25 @@ assert_policy_allows_each() {
   for cmd in "$@"; do
     assert_policy_allows "$cmd"
   done
+}
+
+assert_policy_blocks_in_checkout_shapes() {
+  local checkout="$1"
+  local expected="$2"
+  local command="$3"
+
+  assert_policy_blocks_in_dir "$checkout" "$command" "$expected"
+  assert_policy_blocks_in_dir "$checkout" "cd $checkout && $command" "$expected"
+  assert_policy_blocks_in_dir "$checkout" "git -C $checkout ${command#git }" "$expected"
+}
+
+assert_policy_allows_in_checkout_shapes() {
+  local checkout="$1"
+  local command="$2"
+
+  assert_policy_allows_in_dir "$checkout" "$command"
+  assert_policy_allows_in_dir "$checkout" "cd $checkout && $command"
+  assert_policy_allows_in_dir "$checkout" "git -C $checkout ${command#git }"
 }
 
 claude_destructive_git_family() {
@@ -225,9 +218,6 @@ claude_destructive_git_family() {
   elif [[ "$entry" == *" restore "* ]]; then
     printf '%s\n' restore-worktree
     return 0
-  elif [[ "$entry" == *" stash "* ]]; then
-    printf '%s\n' stash-discard
-    return 0
   elif [[ "$entry" == *" filter-branch"* || "$entry" == *" filter-repo"* || "$entry" == *" replace"* || "$entry" == *" update-ref"* || "$entry" == *" reflog expire"* ]]; then
     printf '%s\n' history-rewrite
     return 0
@@ -264,7 +254,6 @@ checkout-force|git checkout --force main|$AI_POLICY_GIT_WORKTREE_LOSS
 checkout-path-discard|git checkout -- packages/client/src/foo.ts|$AI_POLICY_GIT_WORKTREE_LOSS
 switch-force|git switch --force main|$AI_POLICY_GIT_WORKTREE_LOSS
 restore-worktree|git restore --worktree packages/client/src/foo.ts|$AI_POLICY_GIT_WORKTREE_LOSS
-stash-discard|git stash clear|$AI_POLICY_GIT_WORKTREE_LOSS
 history-rewrite|git update-ref refs/heads/main abc|$AI_POLICY_GIT_HISTORY_REWRITE
 EOF
 
@@ -503,6 +492,10 @@ assert_policy_blocks "echo ThisIsNotTheRealDatabasePassword" "$AI_POLICY_CHANGEM
 # representative command blocked by the shared Codex/Copilot policy. New
 # native families therefore require an explicit cross-harness fixture.
 assert_claude_destructive_git_parity
+if jq -e '.permissions.deny[] | select(startswith("Bash(git stash"))' \
+  "$REPO_ROOT/.claude/settings.json" >/dev/null; then
+  fail "Claude native permissions must not preempt the shared stash allowlist reason"
+fi
 
 assert_policy_blocks_each "$AI_POLICY_GIT_AMEND" \
   " git commit --amend -m fix" \
@@ -583,11 +576,7 @@ assert_policy_blocks_each "$AI_POLICY_GIT_WORKTREE_LOSS" \
   "git restore ." \
   "git restore -- ." \
   "git restore ./packages/client/src/foo.ts" \
-  "git stash drop" \
-  "git stash drop stash@{0}" \
-  "git stash clear" \
   "git -C . restore --worktree package.json" \
-  "bash -lc 'git stash clear'" \
   "env FOO=bar git checkout -- package.json"
 assert_policy_allows_each \
   "git checkout main" \
@@ -596,10 +585,146 @@ assert_policy_allows_each \
   "git switch -c feat/foo" \
   "git restore --staged packages/client/src/foo.ts" \
   "git restore --source=HEAD --staged packages/client/src/foo.ts" \
-  "git stash list" \
-  "git stash show stash@{0}" \
   "rg \"git checkout --\" docs/" \
   "echo \"git restore .\""
+
+# Stash refs live in the common Git directory, so repository agents get the
+# same fail-closed command-family allowlist in primary and linked checkouts.
+stash_global_option_residue=$(
+  ai_policy_strip_allowed_git_stash "git --git-dir /x/.git stash create; echo AFTER"
+)
+[ "$stash_global_option_residue" = "; echo AFTER" ] \
+  || fail "allowed stash strip leaked global-option capture residue: $stash_global_option_residue"
+stash_dash_c_help_residue=$(ai_policy_strip_allowed_git_stash "git -C /tmp stash -h")
+[ -z "$stash_dash_c_help_residue" ] \
+  || fail "allowed stash help strip leaked -C capture residue: $stash_dash_c_help_residue"
+
+assert_policy_blocks_each "$AI_POLICY_GIT_STASH" \
+  "git stash" \
+  "git stash -p" \
+  "git stash -u" \
+  "git stash --" \
+  "git stash --quiet" \
+  "git stash push" \
+  "git stash save" \
+  "git stash pop" \
+  "git stash apply" \
+  "git stash branch feat/from-stash" \
+  "git stash store deadbeef" \
+  "git stash drop" \
+  "git stash drop stash@{0}" \
+  "git stash clear" \
+  "git stash frobnicate" \
+  "git stash future-command --dry-run" \
+  "git stash listfoo" \
+  "git stash show-me" \
+  "git stash create-new" \
+  "git stash -h extra" \
+  "git stash --help extra" \
+  "git stash -h ''" \
+  'git stash --help ""' \
+  "git stash create 'checkpoint; git stash pop'" \
+  "git stash list && git stash pop" \
+  "bash -lc 'git stash pop'" \
+  "env FOO=bar git stash apply" \
+  "timeout 30 git stash push" \
+  "command git stash clear" \
+  "nice git stash frobnicate"
+assert_policy_allows_each \
+  "git stash list" \
+  "git stash list --format=%gd" \
+  "git stash show" \
+  "git stash show -p stash@{0}" \
+  "git stash show push" \
+  "git stash create" \
+  "git stash create descriptive message" \
+  "git stash create 'checkpoint; do not git stash pop'" \
+  "git stash create pop" \
+  "git stash -h" \
+  "git stash --help" \
+  "git -c color.ui=false stash list" \
+  "git --no-pager stash show -p" \
+  '$(git stash -h)' \
+  '$(git stash --help)' \
+  '`git stash -h`' \
+  '`git stash --help`' \
+  "bash -lc 'git stash list'" \
+  "bash -lc 'git stash show'" \
+  "bash -lc 'git stash create'" \
+  "bash -lc 'git stash show -p'" \
+  "timeout 30 git stash show -p" \
+  "command git stash list"
+
+STASH_POLICY_REPO="$TMP_ROOT/stash-policy-repo"
+STASH_POLICY_LINKED="$TMP_ROOT/stash-policy-linked"
+git init -q "$STASH_POLICY_REPO"
+git -C "$STASH_POLICY_REPO" config user.email test@example.com
+git -C "$STASH_POLICY_REPO" config user.name Test
+printf 'base\n' > "$STASH_POLICY_REPO/shared.txt"
+git -C "$STASH_POLICY_REPO" add shared.txt
+git -C "$STASH_POLICY_REPO" commit -qm "test: seed stash policy fixture"
+git -C "$STASH_POLICY_REPO" worktree add -q -b feat/stash-lane "$STASH_POLICY_LINKED"
+printf 'foreign linked-worktree work\n' >> "$STASH_POLICY_LINKED/shared.txt"
+git -C "$STASH_POLICY_LINKED" stash push -qm "foreign linked-worktree stash"
+git -C "$STASH_POLICY_REPO" stash show -p 'stash@{0}' | grep -qF "foreign linked-worktree work" \
+  || fail "stash fixture must begin with work captured from the linked checkout"
+
+for checkout in "$STASH_POLICY_REPO" "$STASH_POLICY_LINKED"; do
+  for command in \
+    "git stash" \
+    "git stash -p" \
+    "git stash push" \
+    "git stash save" \
+    "git stash pop" \
+    "git stash apply" \
+    "git stash branch feat/from-stash" \
+    "git stash store deadbeef" \
+    "git stash drop" \
+    "git stash clear" \
+    "git stash frobnicate" \
+    "git stash listfoo" \
+    "git stash show-me" \
+    "git stash create-new"; do
+    assert_policy_blocks_in_checkout_shapes "$checkout" "$AI_POLICY_GIT_STASH" "$command"
+  done
+  for command in \
+    "git stash list" \
+    "git stash show -p" \
+    "git stash create" \
+    "git stash -h" \
+    "git stash --help"; do
+    assert_policy_allows_in_checkout_shapes "$checkout" "$command"
+  done
+done
+
+stash_ref_before=$(git -C "$STASH_POLICY_REPO" rev-parse refs/stash)
+primary_index_before=$(git -C "$STASH_POLICY_REPO" write-tree)
+linked_index_before=$(git -C "$STASH_POLICY_LINKED" write-tree)
+primary_status_before=$(git -C "$STASH_POLICY_REPO" status --porcelain=v1 -uall)
+linked_status_before=$(git -C "$STASH_POLICY_LINKED" status --porcelain=v1 -uall)
+for checkout in "$STASH_POLICY_REPO" "$STASH_POLICY_LINKED"; do
+  git -C "$checkout" stash list --format=%gd >/dev/null
+  git -C "$checkout" stash show -p 'stash@{0}' >/dev/null
+  git -C "$checkout" stash create >/dev/null
+  if git -C "$checkout" stash -h >/dev/null 2>&1; then
+    fail "git stash -h unexpectedly exited successfully"
+  else
+    stash_short_help_status=$?
+    [ "$stash_short_help_status" -eq 129 ] \
+      || fail "git stash -h exited with $stash_short_help_status instead of 129"
+  fi
+  GIT_MAN_VIEWER=true git -C "$checkout" stash --help >/dev/null 2>&1 || true
+done
+[ "$(git -C "$STASH_POLICY_REPO" rev-parse refs/stash)" = "$stash_ref_before" ] \
+  || fail "allowed stash commands changed the shared stash ref"
+[ "$(git -C "$STASH_POLICY_REPO" write-tree)" = "$primary_index_before" ] \
+  || fail "allowed stash commands changed the primary index"
+[ "$(git -C "$STASH_POLICY_LINKED" write-tree)" = "$linked_index_before" ] \
+  || fail "allowed stash commands changed the linked index"
+[ "$(git -C "$STASH_POLICY_REPO" status --porcelain=v1 -uall)" = "$primary_status_before" ] \
+  || fail "allowed stash commands changed the primary worktree"
+[ "$(git -C "$STASH_POLICY_LINKED" status --porcelain=v1 -uall)" = "$linked_status_before" ] \
+  || fail "allowed stash commands changed the linked worktree"
 
 assert_policy_blocks_each "$AI_POLICY_GIT_HISTORY_REWRITE" \
   "git filter-branch --tree-filter true" \
@@ -968,7 +1093,7 @@ assert_policy_allows_each \
   "bun run test:changed"
 
 claude_policy_out() {
-  printf '%s' "$(jq -n --arg c "$1" '{tool_input:{command:$c}}')" | bash "$NO_DIRECT_DB"
+  printf '%s' "$(jq -n --arg c "$1" --arg cwd "${2:-}" '{cwd:$cwd,tool_input:{command:$c}}')" | bash "$NO_DIRECT_DB"
 }
 
 no_direct_db_body_out() {
@@ -978,7 +1103,7 @@ no_direct_db_body_out() {
 assert_claude_hard_block() {
   local out reason
 
-  out=$(claude_policy_out "$1")
+  out=$(claude_policy_out "$1" "${3:-}")
   assert_hook_json "$out"
   [ "$(jq -r '.decision' <<< "$out")" = "block" ] || fail "expected block for [$1]: $out"
   reason=$(jq -r '.reason' <<< "$out")
@@ -989,9 +1114,10 @@ assert_claude_hard_block() {
 
 assert_codex_allows() {
   local cmd="$1"
+  local cwd="${2:-}"
   local out
 
-  out=$(printf '%s' "$(jq -n --arg c "$cmd" '{tool_input:{command:$c}}')" \
+  out=$(printf '%s' "$(jq -n --arg c "$cmd" --arg cwd "$cwd" '{cwd:$cwd,tool_input:{command:$c}}')" \
     | AI_STATE_ROOT="$AI_STATE_ROOT" \
       AI_BUN_LOG_DIR="$TMP_ROOT/codex-bun-logs" \
       AI_PRECOMMIT_LOG_DIR="$AI_PRECOMMIT_LOG_DIR" \
@@ -1003,9 +1129,10 @@ assert_codex_allows() {
 assert_codex_hard_block_unchanged() {
   local cmd="$1"
   local expected="$2"
+  local cwd="${3:-}"
   local out reason
 
-  out=$(printf '%s' "$(jq -n --arg c "$cmd" '{tool_input:{command:$c}}')" \
+  out=$(printf '%s' "$(jq -n --arg c "$cmd" --arg cwd "$cwd" '{cwd:$cwd,tool_input:{command:$c}}')" \
     | AI_STATE_ROOT="$AI_STATE_ROOT" \
       AI_BUN_LOG_DIR="$TMP_ROOT/codex-bun-logs" \
       AI_PRECOMMIT_LOG_DIR="$AI_PRECOMMIT_LOG_DIR" \
@@ -1037,6 +1164,12 @@ assert_hook_continue_json "$(claude_policy_out 'grep -r TODO .')"
 assert_hook_continue_json "$(claude_policy_out 'bun run test:changed')"
 assert_codex_allows "grep -r TODO ."
 assert_codex_hard_block_unchanged "docker ps" "$AI_POLICY_DOCKER"
+for checkout in "$STASH_POLICY_REPO" "$STASH_POLICY_LINKED"; do
+  assert_claude_hard_block "git stash pop" "$AI_POLICY_GIT_STASH" "$checkout"
+  assert_codex_hard_block_unchanged "git stash pop" "$AI_POLICY_GIT_STASH" "$checkout"
+  assert_hook_continue_json "$(claude_policy_out 'git stash show -p' "$checkout")"
+  assert_codex_allows "git stash show -p" "$checkout"
+done
 
 # --- L8: heredoc bodies are data, not executable command shapes -------------
 # Keep this group at the end of the shared-policy/direct-caller section so
@@ -1592,43 +1725,12 @@ assert_hook_json "$PROTECTED_DENY_THROTTLE_OUT"
 [ "$(jq -r '.decision // empty' <<< "$PROTECTED_DENY_THROTTLE_OUT")" = "deny" ] \
   || fail "protected-files deny tier should not be throttled: $PROTECTED_DENY_THROTTLE_OUT"
 
-POLICY_ONLY_OUT="$TMP_ROOT/policy-only-protected-files.out"
-POLICY_ONLY_ERR="$TMP_ROOT/policy-only-protected-files.err"
-policy_only_probe "printf '%s\n' x > lint-ratchet.baseline.json" "marker-absent" "$POLICY_ONLY_OUT" "$POLICY_ONLY_ERR"
-POLICY_ONLY_TEXT=$(<"$POLICY_ONLY_OUT")
-POLICY_ONLY_STDERR=$(<"$POLICY_ONLY_ERR")
-assert_not_contains "$POLICY_ONLY_STDERR" "command not found"
-assert_contains "$POLICY_ONLY_TEXT" "reason=protected-files: Protected file"
-assert_contains "$POLICY_ONLY_TEXT" "advisory="
-
-policy_only_probe "printf '%s\n' x > lint-ratchet.baseline.json" "marker-active" "$POLICY_ONLY_OUT" "$POLICY_ONLY_ERR"
-POLICY_ONLY_TEXT=$(<"$POLICY_ONLY_OUT")
-POLICY_ONLY_STDERR=$(<"$POLICY_ONLY_ERR")
-assert_not_contains "$POLICY_ONLY_STDERR" "command not found"
-assert_contains "$POLICY_ONLY_TEXT" "reason="
-assert_contains "$POLICY_ONLY_TEXT" "advisory=protected-files: Repo-wide"
-assert_contains "$POLICY_ONLY_TEXT" "would have been denied for $REPO_ROOT/lint-ratchet.baseline.json"
-
-PROTECTED_ALLOW_MARKER="$REPO_ROOT/.allow-protected-edits"
-touch "$PROTECTED_ALLOW_MARKER"
-PROTECTED_BASH_MARKER_REASON=$(ai_policy_violation_reason "printf '%s\n' x > bun.lock" || true)
-PROTECTED_BASH_MARKER_CONTEXT=$(ai_policy_advisory_context "printf '%s\n' x > bun.lock" || true)
-PROTECTED_MARKER_OUT=$(
-  protected_files_out_for_path "$REPO_ROOT/bun.lock" "protected-files-marker" "$TMP_ROOT/protected-files-marker-state"
-)
-rm -f "$PROTECTED_ALLOW_MARKER"
-[ -z "$PROTECTED_BASH_MARKER_REASON" ] \
-  || fail "protected-files Bash marker should downgrade deny to advisory: $PROTECTED_BASH_MARKER_REASON"
-assert_contains "$PROTECTED_BASH_MARKER_CONTEXT" ".allow-protected-edits"
-assert_contains "$PROTECTED_BASH_MARKER_CONTEXT" "would have been denied for $REPO_ROOT/bun.lock"
-assert_hook_json "$PROTECTED_MARKER_OUT"
-[ "$(jq -r '.decision // empty' <<< "$PROTECTED_MARKER_OUT")" = "" ] \
-  || fail "protected-files marker should downgrade deny to advisory: $PROTECTED_MARKER_OUT"
-PROTECTED_MARKER_CONTEXT=$(jq -r '.hookSpecificOutput.additionalContext // empty' <<< "$PROTECTED_MARKER_OUT")
-assert_contains "$PROTECTED_MARKER_CONTEXT" ".allow-protected-edits"
-assert_contains "$PROTECTED_MARKER_CONTEXT" "Repo-wide"
-assert_contains "$PROTECTED_MARKER_CONTEXT" "would have been denied for $REPO_ROOT/bun.lock"
-assert_contains "$PROTECTED_MARKER_CONTEXT" "Remove the marker"
+# Marker-dependent protected-files policy lives in the focused suite
+# (`bash scripts/ai-hooks/test-protected-files-marker.sh`), which evaluates it
+# against a private probe root instead of the checkout's repo-wide
+# .allow-protected-edits marker and carries the parallel-run regression. Stdout
+# is discarded so the aggregate runner keeps a single pass line.
+bash "$SCRIPT_DIR/test-protected-files-marker.sh" >/dev/null
 
 AGENTS_DOC="$TMP_ROOT/AGENTS.md"
 for _ in $(seq 1 251); do
@@ -2096,6 +2198,84 @@ assert_response_combined_exit \
 assert_response_combined_exit \
   '{"tool_response":{"raw":"completed text","status":"completed"}}' \
   "completed text" \
+  ""
+
+# Every exit-code spelling ai_response_json_from_payload coalesces, in its jq
+# order. The matrix is defensive compatibility over an unversioned external
+# payload shape, so no test can tell a live alias from a dead one — pinning them
+# all is what makes a future deletion a decidable change rather than a guess.
+AI_RESPONSE_EXIT_CODE_KEYS=(
+  exit_code
+  exitCode
+  return_code
+  returncode
+  exit_status
+  statusCode
+  metadata.exit_code
+  metadata.exitCode
+  metadata.return_code
+  metadata.returncode
+  metadata.exit_status
+  metadata.statusCode
+  status
+  code
+)
+for response_key in "${AI_RESPONSE_EXIT_CODE_KEYS[@]}"; do
+  assert_response_combined_exit \
+    "$(jq -nc --arg key "$response_key" '
+        ($key | split(".")) as $parts
+        | (if ($parts | length) == 2
+           then {($parts[0]): {($parts[1]): 11}}
+           else {($parts[0]): 11}
+           end) as $exit
+        | {tool_response: ({raw: "dialect text"} + $exit)}')" \
+    "dialect text" \
+    "11"
+done
+
+# Precedence is part of the dialect contract: specific command exit fields
+# must not lose to unrelated status-like fields in the same response.
+assert_response_combined_exit \
+  '{"tool_response":{"raw":"statusCode collision","exit_code":0,"statusCode":500}}' \
+  "statusCode collision" \
+  "0"
+assert_response_combined_exit \
+  '{"tool_response":{"raw":"status collision","exit_code":3,"status":4}}' \
+  "status collision" \
+  "3"
+assert_response_combined_exit \
+  '{"tool_response":{"raw":"code collision","exit_code":5,"code":6}}' \
+  "code collision" \
+  "5"
+
+# Top-level spellings precede their metadata equivalents.
+assert_response_combined_exit \
+  '{"tool_response":{"raw":"metadata collision","exitCode":7,"metadata":{"exit_code":8}}}' \
+  "metadata collision" \
+  "7"
+
+# Numeric strings are coerced; non-numeric values fall through to the next key.
+assert_response_combined_exit \
+  '{"tool_response":{"raw":"string code","exit_code":"3"}}' \
+  "string code" \
+  "3"
+assert_response_combined_exit \
+  '{"tool_response":{"raw":"nested wins","status":"running","metadata":{"exit_status":9}}}' \
+  "nested wins" \
+  "9"
+
+# stdout / stderr / raw aliases. stdout and stderr both present are joined;
+# `raw`/`text` are only read when neither stream key is set.
+assert_response_combined_exit '{"tool_response":{"stdout":"via stdout"}}' "via stdout" ""
+assert_response_combined_exit '{"tool_response":{"out":"via out"}}' "via out" ""
+assert_response_combined_exit '{"tool_response":{"output":"via output"}}' "via output" ""
+assert_response_combined_exit '{"tool_response":{"stderr":"via stderr"}}' "via stderr" ""
+assert_response_combined_exit '{"tool_response":{"err":"via err"}}' "via err" ""
+assert_response_combined_exit '{"tool_response":{"raw":"via raw"}}' "via raw" ""
+assert_response_combined_exit '{"tool_response":{"text":"via text"}}' "via text" ""
+assert_response_combined_exit \
+  '{"tool_response":{"stdout":"out line","stderr":"err line"}}' \
+  $'out line\nerr line' \
   ""
 
 # The suffix keys on the fast-commit provenance log (actual skip outcome),
@@ -2820,6 +3000,366 @@ assert_bash_pre_post_worktree_landing_detection() {
   assert_not_contains "$reason" "No commit landed"
 }
 
+# --- L9: the "No commit landed" verdict must be attributable -----------------
+# Two independent misattribution bugs produced confident, WRONG advisories that
+# an agent's work had not landed — the worst possible failure mode in parallel
+# lane work, where acting on one means redoing or undoing work that did land:
+#
+#   Bug 1: classification matched command TEXT, so commands that merely contain
+#          the words — a `grep` for an assertion string, a `printf` appending an
+#          example command to a log — were judged as failed commits.
+#   Bug 2: the before/after HEAD comparison resolved against the session cwd
+#          whenever the command carried a `$(...)` ANYWHERE (including in the
+#          commit message body), so a lane commit was measured against the
+#          session root's HEAD and reported as "No commit landed".
+#
+# Routing (ai_is_git_commit_cmd) deliberately stays wide: anything that MIGHT
+# commit has to reach the wrapper's worktree lock, commit queue, and branch
+# policy, and a missed commit there is far worse than an extra wrap. Only the
+# VERDICT is narrowed — it now needs a real invocation (ai_is_real_git_commit_cmd)
+# AND an attributable target checkout (not ai_target_dir_is_ambiguous).
+
+# Run the commit wrapper with a payload and echo whatever it reports back: the
+# block reason on the failure path, else the rendered success summary (which
+# comes back as an updatedInput `cat <tmp>` rewrite).
+git_commit_quiet_report() {
+  local payload="$1"
+  local queue_lock="$2"
+  local hook_out reason
+
+  hook_out=$(
+    printf '%s' "$payload" \
+      | MUSI_VERIFY_STATE_ROOT="$TMP_ROOT" \
+        MUSI_COMMIT_QUEUE_LOCK="$queue_lock" \
+        bash "$REPO_ROOT/scripts/ai-hooks/git-commit-quiet.sh"
+  )
+  reason=$(printf '%s' "$hook_out" | jq -r '.reason // empty')
+  if [ -n "$reason" ]; then
+    printf '%s' "$reason"
+    return 0
+  fi
+  git_commit_quiet_success_summary "$hook_out"
+}
+
+commit_quiet_payload() {
+  local cwd="$1"
+  local cmd="$2"
+
+  jq -n --arg cwd "$cwd" --arg cmd "$cmd" '{cwd:$cwd, tool_input:{command:$cmd}}'
+}
+
+# Bug 1, unit level: the verdict classifier identifies a git invocation in
+# COMMAND POSITION; the routing classifier keeps matching the same text so the
+# wrapper's guards are not weakened.
+assert_commit_verdict_classifier_is_token_aware() {
+  local grep_cmd printf_cmd heredoc_cmd multiline_cmd
+  grep_cmd='grep -c "cd /lane && git commit -m x" /tmp/assertions.txt'
+  printf_cmd='printf "%s\n" "lane note: cd /lane && git commit -m x said no landing" >> /tmp/pain.log'
+  heredoc_cmd=$'cat > /tmp/l9-notes.txt <<\'NOTES\'\nExample only: git commit -m x\nNOTES'
+  multiline_cmd=$'cd /lane\ngit commit -m "real multi-line commit"'
+
+  # The two observed false-positive shapes: text that merely contains a commit.
+  ! ai_is_real_git_commit_cmd "$grep_cmd" \
+    || fail "verdict: a grep for an assertion string is not a commit invocation"
+  ! ai_is_real_git_commit_cmd "$printf_cmd" \
+    || fail "verdict: a printf appending a log line is not a commit invocation"
+  ! ai_is_real_git_commit_cmd "$heredoc_cmd" \
+    || fail "verdict: a heredoc body naming git commit is not a commit invocation"
+  ! ai_is_real_git_commit_cmd 'git log --format=%s -1 && echo "committed"' \
+    || fail "verdict: a read-only git command must not read as a commit"
+
+  # Routing must still over-match both false-positive shapes — narrowing the
+  # verdict must not narrow the guards that wrap, lock, and police commits.
+  ai_is_git_commit_cmd "$grep_cmd" \
+    || fail "routing must stay wide for text that contains a commit (grep shape)"
+  ai_is_git_commit_cmd "$printf_cmd" \
+    || fail "routing must stay wide for text that contains a commit (printf shape)"
+
+  # Genuine invocations, including the shapes the advisory's true positives use.
+  ai_is_real_git_commit_cmd 'git commit -m "subject"' \
+    || fail "verdict: a plain git commit must be recognized"
+  ai_is_real_git_commit_cmd 'git -C /lane commit -m "subject"' \
+    || fail "verdict: git -C <dir> commit must be recognized"
+  ai_is_real_git_commit_cmd 'cd /lane && git commit -m "subject"' \
+    || fail "verdict: cd <dir> && git commit must be recognized"
+  ai_is_real_git_commit_cmd 'git add a && git commit -m "subject" || true' \
+    || fail "verdict: a masked-exit-code commit must be recognized"
+  ai_is_real_git_commit_cmd 'git commit --dry-run -m "subject"' \
+    || fail "verdict: a --dry-run commit must be recognized"
+  ai_is_real_git_commit_cmd "$multiline_cmd" \
+    || fail "verdict: a newline-separated commit must be recognized"
+}
+
+# Bug 2, unit level: a substitution that cannot change the target checkout must
+# not forfeit resolution; one that can must still fall back AND be reported as
+# ambiguous so the caller declines to make a claim.
+assert_target_dir_substitution_scoping() {
+  local msg_subst cd_subst dashc_subst
+  msg_subst='git -C /wt commit -m "s" -m "$(cat /tmp/body)"'
+  cd_subst='cd "$(git rev-parse --show-toplevel)" && git commit -m x'
+  dashc_subst='git -C "$(git rev-parse --show-toplevel)" commit -m x'
+
+  [ "$(ai_target_dir_from_cmd "$msg_subst")" = /wt ] \
+    || fail "target: a substituted MESSAGE body must not forfeit git -C resolution"
+  [ "$(ai_target_dir_from_cmd 'cd /wt && git commit -m "s $(date)"')" = /wt ] \
+    || fail "target: a substituted message must not forfeit leading-cd resolution"
+  ai_target_dir_from_cmd "$cd_subst" >/dev/null \
+    && fail "target: a substituted cd target must still decline resolution"
+  ai_target_dir_from_cmd "$dashc_subst" >/dev/null \
+    && fail "target: a substituted git -C argument must still decline resolution"
+
+  ! ai_target_dir_is_ambiguous "$msg_subst" \
+    || fail "ambiguity: a substituted message body is attributable"
+  ! ai_target_dir_is_ambiguous 'git -C /wt commit -m x' \
+    || fail "ambiguity: a literal git -C target is attributable"
+  ! ai_target_dir_is_ambiguous 'git commit -m "s" || true' \
+    || fail "ambiguity: a bare commit resolves to the payload cwd and is attributable"
+  ai_target_dir_is_ambiguous "$cd_subst" \
+    || fail "ambiguity: a substituted cd target is NOT attributable"
+  ai_target_dir_is_ambiguous "$dashc_subst" \
+    || fail "ambiguity: a substituted git -C argument is NOT attributable"
+}
+
+# The lexer only concluded "this segment is git" from its FIRST token, while the
+# cheap-wrapper normalization ran later — after the substitution bailout. So
+# `env git -C <dir> commit -m "$(...)"` produced no commit prefix, the bailout
+# then covered the whole command, and the named target was lost: the commit was
+# judged against the session's checkout and slipped past the branch guard.
+assert_target_dir_sees_through_cheap_wrappers() {
+  [ "$(ai_target_dir_from_cmd 'env git -C /wt commit -m "s $(date)"')" = /wt ] \
+    || fail "wrappers: env-prefixed git -C must still resolve its target"
+  [ "$(ai_target_dir_from_cmd 'command git -C /wt commit -m "s $(date)"')" = /wt ] \
+    || fail "wrappers: command-prefixed git -C must still resolve its target"
+  [ "$(ai_target_dir_from_cmd 'cd /wt && env git commit -m "s $(date)"')" = /wt ] \
+    || fail "wrappers: env-prefixed git after a cd chain must resolve the cd target"
+  [ "$(ai_target_dir_from_cmd 'FOO=1 git -C /wt commit -m "s $(date)"')" = /wt ] \
+    || fail "wrappers: a leading env assignment must not hide the commit verb"
+
+  # Same mismatch suppressed true no-landing advisories for wrapped commits.
+  ai_is_real_git_commit_cmd 'env git commit -m "s" || true' \
+    || fail "wrappers: env-prefixed commit must read as a real invocation"
+  ai_is_real_git_commit_cmd 'command git commit -m "s"' \
+    || fail "wrappers: command-prefixed commit must read as a real invocation"
+  ai_is_real_git_commit_cmd 'FOO=1 git commit -m "s"' \
+    || fail "wrappers: assignment-prefixed commit must read as a real invocation"
+  # Still not a commit just because a wrapper precedes the word.
+  ! ai_is_real_git_commit_cmd 'env commit -m "s"' \
+    || fail "wrappers: a bare commit word after env is not a git commit"
+
+  # The policy verb matcher has to see through a BARE `env` too, or the
+  # protected-branch guard never fires for it even with the target resolved.
+  ai_policy_has_command 'env git -C /wt commit -m y' \
+    "git[[:space:]]+${AI_POLICY_GIT_PRECOMMIT_OPTS}commit$AI_POLICY_CMD_END" \
+    || fail "wrappers: policy matcher must see a commit behind a bare env prefix"
+  ! ai_policy_has_command 'env git -C /wt log --oneline' \
+    "git[[:space:]]+${AI_POLICY_GIT_PRECOMMIT_OPTS}commit$AI_POLICY_CMD_END" \
+    || fail "wrappers: policy matcher must not match a read-only subcommand"
+}
+
+# A target the command NAMES but that does not resolve to a checkout — a
+# `git -C "$LANE"` this layer cannot expand, a `~` git will not expand, a stale
+# path — silently became the hook's own checkout. That fabricated the HEAD
+# comparison AND handed branch policy the wrong repository.
+assert_named_target_resolvability() {
+  local unresolvable="$TMP_ROOT/definitely-not-a-checkout"
+
+  ai_named_target_is_unresolvable 'git -C "$LANE" commit -m x' /tmp /tmp \
+    || fail "named target: an unexpanded variable target must be unresolvable"
+  ai_named_target_is_unresolvable "git -C $unresolvable commit -m x" /tmp /tmp \
+    || fail "named target: a path that is not a checkout must be unresolvable"
+  ai_named_target_is_unresolvable 'git -C ~/no-such-lane commit -m x' /tmp /tmp \
+    || fail "named target: an unexpanded ~ target must be unresolvable"
+  ! ai_named_target_is_unresolvable "git -C $REPO_ROOT commit -m x" /tmp /tmp \
+    || fail "named target: a real checkout must resolve"
+  # No named target at all: the payload cwd is the answer, not a failure.
+  ! ai_named_target_is_unresolvable 'git commit -m x' "$REPO_ROOT" "$REPO_ROOT" \
+    || fail "named target: a bare commit names no target and must not be flagged"
+}
+
+# Bug 1, end to end: the wrapper still routes and runs these (wide routing), but
+# must not tell the agent a commit failed to land.
+assert_commit_verdict_ignores_non_commit_commands() {
+  local wt report
+  wt=$(wt_new_lane feat/lane-l9-text wt-l9-text)
+  printf 'cd /lane && git commit -m x\n' > "$wt/assertions.txt"
+
+  report=$(git_commit_quiet_report \
+    "$(commit_quiet_payload "$wt" "grep -c 'cd /lane && git commit -m x' $wt/assertions.txt")" \
+    "$TMP_ROOT/l9-text-grep.lock")
+  assert_not_contains "$report" "No commit landed"
+  assert_not_contains "$report" "Commit failed"
+
+  report=$(git_commit_quiet_report \
+    "$(commit_quiet_payload "$wt" "printf '%s\n' 'note: cd /lane && git commit -m x said no landing' >> $wt/pain.log")" \
+    "$TMP_ROOT/l9-text-printf.lock")
+  assert_not_contains "$report" "No commit landed"
+  assert_not_contains "$report" "Commit failed"
+}
+
+# Bug 2, end to end and cross-worktree: the session cwd is a DIFFERENT checkout
+# at a DIFFERENT HEAD, and the command carries a substitution in its message.
+# The verdict must follow the lane the command acted on.
+assert_commit_verdict_resolves_lane_through_substituted_message() {
+  local wt before after report cmd
+  wt=$(wt_new_lane feat/lane-l9-subst wt-l9-subst)
+  # Move the lane off the session checkout's HEAD and stage fresh work, so the
+  # two checkouts really are at different commits — that difference is what the
+  # misattribution turned into a wrong verdict.
+  git -C "$wt" commit -qm "test: move the lane off the session checkout HEAD"
+  printf 'second\n' > "$wt/second.txt"
+  git -C "$wt" add second.txt
+  before=$(git -C "$wt" rev-parse HEAD)
+  [ "$before" != "$(git -C "$WT_MAIN_REPO" rev-parse HEAD)" ] \
+    || fail "fixture invalid: lane and session checkout must differ in HEAD"
+
+  cmd="git -C $wt commit -m \"test: lane commit carrying a substituted body\" -m \"\$(printf '%s' 'body text supplied by a command substitution')\""
+  report=$(git_commit_quiet_report \
+    "$(commit_quiet_payload "$WT_MAIN_REPO" "$cmd")" \
+    "$TMP_ROOT/l9-subst.lock")
+  after=$(git -C "$wt" rev-parse HEAD)
+
+  [ "$after" != "$before" ] \
+    || fail "substituted-message lane commit did not land in the lane"
+  assert_not_contains "$report" "No commit landed"
+  assert_contains "$report" "Commit succeeded"
+}
+
+# Bug 2, the unresolvable half: the target directory ITSELF comes from a
+# substitution, so it cannot be read from the command text. The commit really
+# lands in the lane while the fallback checkout never moves — the exact shape
+# that printed "No commit landed" against the wrong repository. Say nothing
+# rather than lie.
+assert_commit_verdict_is_silent_when_target_unresolvable() {
+  local wt session before after session_head report cmd
+  wt=$(wt_new_lane feat/lane-l9-opaque wt-l9-opaque)
+  # The session checkout is a SECOND feature lane, not the fixture's main
+  # checkout: an unresolvable target falls back to the payload cwd, and a
+  # protected fallback would (correctly) be refused by the branch guard before
+  # the commit ever runs — which is a different behavior than the one under test.
+  session=$(wt_new_lane feat/lane-l9-opaque-session wt-l9-opaque-session)
+  git -C "$session" commit -qm "test: move the session lane off the shared base HEAD"
+  git -C "$wt" commit -qm "test: move the opaque lane off the session HEAD"
+  printf 'second\n' > "$wt/second.txt"
+  git -C "$wt" add second.txt
+  before=$(git -C "$wt" rev-parse HEAD)
+  session_head=$(git -C "$session" rev-parse HEAD)
+  [ "$before" != "$session_head" ] \
+    || fail "fixture invalid: lane and session checkout must differ in HEAD"
+
+  cmd="cd \"\$(printf '%s' $wt)\" && git commit -m \"test: commit behind an opaque target directory\""
+  report=$(git_commit_quiet_report \
+    "$(commit_quiet_payload "$session" "$cmd")" \
+    "$TMP_ROOT/l9-opaque.lock")
+  after=$(git -C "$wt" rev-parse HEAD)
+
+  [ "$after" != "$before" ] \
+    || fail "opaque-target lane commit did not land in the lane"
+  [ "$(git -C "$session" rev-parse HEAD)" = "$session_head" ] \
+    || fail "fixture invalid: the fallback checkout must not have moved"
+  assert_not_contains "$report" "No commit landed"
+  assert_contains "$report" "could not tell which repository"
+}
+
+# The independent pre/post path (the Codex and Copilot adapters) must apply the
+# same verdict rules as the executing wrapper: routing still records HEAD for
+# anything that might commit, but text that merely CONTAINS a commit gets no
+# landing verdict attached to it.
+assert_bash_pre_post_verdict_requires_real_commit() {
+  local wt tool_id payload post_out reason
+  wt=$(wt_new_lane feat/lane-l9-postpath wt-l9-postpath)
+  printf 'cd /lane && git commit -m x\n' > "$wt/assertions.txt"
+  tool_id="post-verdict-non-commit"
+  payload=$(jq -n --arg id "$tool_id" --arg cwd "$wt" \
+    --arg cmd "grep -c 'cd /lane && git commit -m x' $wt/assertions.txt" \
+    '{tool_use_id:$id, cwd:$cwd, tool_input:{command:$cmd}}')
+
+  # Routing is wide, so the pre hook does snapshot HEAD for this command.
+  printf '%s' "$payload" \
+    | AI_STATE_ROOT="$AI_STATE_ROOT" AI_PRECOMMIT_LOG_DIR="$AI_PRECOMMIT_LOG_DIR" \
+      bash "$REPO_ROOT/.codex/hooks/pre-tool-use.sh" >/dev/null
+  [ -n "$(ai_read_state_value "$AI_STATE_ROOT/git/$tool_id" HEAD_BEFORE)" ] \
+    || fail "pre hook should still snapshot HEAD for a wide-routed command"
+
+  post_out=$(printf '%s' "$payload" \
+    | jq '. + {tool_response:{exit_code:0, stdout:"1"}}' \
+    | AI_STATE_ROOT="$AI_STATE_ROOT" AI_PRECOMMIT_LOG_DIR="$AI_PRECOMMIT_LOG_DIR" \
+      bash "$REPO_ROOT/.codex/hooks/post-tool-use.sh")
+  reason=$(printf '%s' "$post_out" | jq -r '.reason // empty')
+  assert_not_contains "$reason" "No commit landed"
+}
+
+# Every verdict in the shared post path needs the SAME two preconditions, not
+# just the unchanged-HEAD one. The --dry-run verdict was chosen from raw text
+# before the real-command test, and the success verdict from HEAD movement in a
+# checkout that may only be the fallback — so an opaque-target command could be
+# credited with an unrelated concurrent commit.
+assert_bash_post_verdict_gates_all_outcomes() {
+  local wt session tool_id payload post_out reason
+
+  # (a) A non-commit whose TEXT contains `git commit --dry-run`.
+  wt=$(wt_new_lane feat/lane-l9-postgate wt-l9-postgate)
+  printf 'cd /l && git commit --dry-run -m x\n' > "$wt/assert.txt"
+  tool_id="post-verdict-dry-run-text"
+  payload=$(jq -n --arg id "$tool_id" --arg cwd "$wt" \
+    --arg cmd "grep -c 'cd /l && git commit --dry-run -m x' $wt/assert.txt" \
+    '{tool_use_id:$id, cwd:$cwd, tool_input:{command:$cmd}}')
+  printf '%s' "$payload" \
+    | AI_STATE_ROOT="$AI_STATE_ROOT" AI_PRECOMMIT_LOG_DIR="$AI_PRECOMMIT_LOG_DIR" \
+      bash "$REPO_ROOT/.codex/hooks/pre-tool-use.sh" >/dev/null
+  post_out=$(printf '%s' "$payload" \
+    | jq '. + {tool_response:{exit_code:0, stdout:"1"}}' \
+    | AI_STATE_ROOT="$AI_STATE_ROOT" AI_PRECOMMIT_LOG_DIR="$AI_PRECOMMIT_LOG_DIR" \
+      bash "$REPO_ROOT/.codex/hooks/post-tool-use.sh")
+  reason=$(printf '%s' "$post_out" | jq -r '.reason // empty')
+  assert_not_contains "$reason" "--dry-run completed"
+  assert_not_contains "$reason" "No commit landed"
+
+  # (b) An opaque-target commit while the FALLBACK checkout's HEAD moves for an
+  # unrelated reason must not be reported as this command's success.
+  session=$(wt_new_lane feat/lane-l9-postgate-session wt-l9-postgate-session)
+  tool_id="post-verdict-opaque-success"
+  payload=$(jq -n --arg id "$tool_id" --arg cwd "$session" \
+    --arg cmd "cd \"\$(printf '%s' $wt)\" && git commit -m 'opaque target commit'" \
+    '{tool_use_id:$id, cwd:$cwd, tool_input:{command:$cmd}}')
+  printf '%s' "$payload" \
+    | AI_STATE_ROOT="$AI_STATE_ROOT" AI_PRECOMMIT_LOG_DIR="$AI_PRECOMMIT_LOG_DIR" \
+      bash "$REPO_ROOT/.codex/hooks/pre-tool-use.sh" >/dev/null
+  git -C "$session" commit -qm "test: unrelated concurrent commit in the fallback checkout"
+  post_out=$(printf '%s' "$payload" \
+    | jq '. + {tool_response:{exit_code:0, stdout:""}}' \
+    | AI_STATE_ROOT="$AI_STATE_ROOT" AI_PRECOMMIT_LOG_DIR="$AI_PRECOMMIT_LOG_DIR" \
+      bash "$REPO_ROOT/.codex/hooks/post-tool-use.sh")
+  reason=$(printf '%s' "$post_out" | jq -r '.reason // empty')
+  assert_not_contains "$reason" "Commit succeeded"
+  assert_contains "$reason" "could not tell which repository"
+}
+
+# The advisory's true positives must survive the narrowing: a real commit that
+# exits 0 without moving HEAD is still reported, in both the masked-exit-code
+# and --dry-run shapes, including from a different session cwd.
+assert_commit_verdict_still_reports_real_no_landing() {
+  local wt report head_before
+  wt=$(wt_new_lane feat/lane-l9-truepos wt-l9-truepos)
+
+  # --dry-run, issued from the OTHER checkout via git -C: exits 0, HEAD unmoved.
+  report=$(git_commit_quiet_report \
+    "$(commit_quiet_payload "$WT_MAIN_REPO" "git -C $wt commit --dry-run -m \"test: dry run must still be reported\"")" \
+    "$TMP_ROOT/l9-truepos-dry.lock")
+  assert_contains "$report" "No commit landed"
+
+  # Masked exit code with nothing left to commit: `|| true` forces exit 0.
+  git -C "$wt" commit -qm "test: drain the staged file before the masked commit"
+  head_before=$(git -C "$wt" rev-parse HEAD)
+  report=$(git_commit_quiet_report \
+    "$(commit_quiet_payload "$wt" 'git commit -m "test: masked failure must still be reported" || true')" \
+    "$TMP_ROOT/l9-truepos-masked.lock")
+
+  [ "$(git -C "$wt" rev-parse HEAD)" = "$head_before" ] \
+    || fail "the masked-failure fixture unexpectedly moved HEAD"
+  assert_contains "$report" "No commit landed"
+  assert_contains "$report" "$head_before"
+}
+
 # --- worktree fixture for the L1 wrapper tests -------------------------------
 WT_MAIN_REPO="$TMP_ROOT/wt-main"
 git init -q "$WT_MAIN_REPO"
@@ -2853,10 +3393,18 @@ git -C "$SD15_REPO" worktree add -q "$SD15_LANE_MAIN" main >/dev/null
 sd15_guard_reason() {
   local payload_cwd="$1"
   local cmd="$2"
-  local target work_root
+  local target work_root reason
   target=$(ai_resolve_target_dir "$cmd" "$payload_cwd" "$payload_cwd")
   work_root=$(git -C "$target" rev-parse --show-toplevel 2>/dev/null || printf '%s' "$payload_cwd")
-  ai_policy_violation_reason "$cmd" "$work_root" || true
+  if reason=$(ai_policy_violation_reason "$cmd" "$work_root"); then
+    printf '%s' "$reason"
+    return 0
+  fi
+  # Mirrors the hook ordering: hard policy first, then the fail-closed check for
+  # a commit whose named target could not be resolved. Without the second step
+  # the work root above has silently become the caller's own checkout and the
+  # branch guard just cleared a repository it never looked at.
+  ai_unverifiable_commit_target_reason "$cmd" "$payload_cwd" "$payload_cwd" || true
 }
 assert_sd15_allows() {
   local reason
@@ -2880,6 +3428,55 @@ assert_sd15_blocks_commit_on_main "$SD15_REPO" "git -C $SD15_LANE_MAIN commit -m
 assert_sd15_blocks_commit_on_main "$SD15_LANE_MAIN" "git commit -m wip"
 # A bare commit whose session cwd is the feature lane stays allowed.
 assert_sd15_allows "$SD15_LANE_FEAT" "git commit -m 'lane feature work'"
+# L9 guard pinning: the verdict fix changes ai_target_dir_from_cmd, which is the
+# SAME machinery that decides "is this a commit on main?". A false negative here
+# is far worse than the false-positive advisory being fixed, so pin both sides.
+# (e) A substituted MESSAGE no longer forfeits target resolution — so a commit
+# aimed at the protected lane is now caught where it previously slipped past
+# (resolution fell back to the session's feature checkout and read its branch).
+assert_sd15_blocks_commit_on_main "$SD15_REPO" \
+  "git -C $SD15_LANE_MAIN commit -m \"wip \$(date +%s)\""
+assert_sd15_blocks_commit_on_main "$SD15_REPO" \
+  "cd $SD15_LANE_MAIN && git commit -m \"wip \$(date +%s)\""
+# (f) When the target is genuinely unresolvable the fallback must still fail
+# closed: an opaque cd target from a session parked on the protected lane is
+# judged against that lane and blocked.
+assert_sd15_blocks_commit_on_main "$SD15_LANE_MAIN" \
+  "cd \"\$(printf '%s' /elsewhere)\" && git commit -m wip"
+assert_sd15_blocks_commit_on_main "$SD15_LANE_MAIN" \
+  "git commit -m \"wip \$(date +%s)\""
+# (g) The mirror direction must not become a false positive: a substituted
+# message on a feature lane stays allowed.
+assert_sd15_allows "$SD15_REPO" \
+  "git -C $SD15_LANE_FEAT commit -m \"lane feature work \$(date +%s)\""
+
+# (h) EVASION regression. A target named through a shell variable is not a
+# substitution, so the resolver treated "$LANE" as a literal path; when it failed
+# to resolve, callers fell back to their own (feature-branch) checkout and the
+# protected-branch guard cleared a commit that then landed on main. Proven by
+# running the real wrapper: pre-fix the commit landed on the protected branch.
+assert_sd15_blocks_unverifiable_target() {
+  local reason
+  reason=$(sd15_guard_reason "$1" "$2")
+  [ "$reason" = "$AI_POLICY_GIT_UNVERIFIABLE_TARGET" ] \
+    || fail "unverifiable target should be refused for [$2] from [$1], got: $reason"
+}
+assert_sd15_blocks_unverifiable_target "$SD15_REPO" \
+  "LANE=$SD15_LANE_MAIN; git -C \"\$LANE\" commit -m wip"
+assert_sd15_blocks_unverifiable_target "$SD15_LANE_FEAT" \
+  'git -C "$LANE" commit -m wip'
+assert_sd15_blocks_unverifiable_target "$SD15_LANE_FEAT" \
+  'git -C ~/no-such-lane commit -m wip'
+# (i) Cheap wrappers must not hide the target OR the verb from the guard.
+assert_sd15_blocks_commit_on_main "$SD15_REPO" \
+  "env git -C $SD15_LANE_MAIN commit -m \"wip \$(date +%s)\""
+assert_sd15_blocks_commit_on_main "$SD15_REPO" \
+  "command git -C $SD15_LANE_MAIN commit -m wip"
+assert_sd15_blocks_commit_on_main "$SD15_REPO" \
+  "cd $SD15_LANE_MAIN && env git commit -m wip"
+# (j) ...and must not become false positives on a feature lane.
+assert_sd15_allows "$SD15_REPO" "env git -C $SD15_LANE_FEAT commit -m 'lane work'"
+assert_sd15_allows "$SD15_REPO" "env git -C $SD15_LANE_FEAT log --oneline"
 
 # --- L7: shared commit-queue visibility (heartbeat + waiter tickets) ---------
 # The cross-worktree queue wait is a bounded FOREGROUND poll loop that heartbeats
@@ -3292,6 +3889,16 @@ assert_git_commit_quiet_prior_dashC_does_not_retarget
 assert_git_commit_quiet_branch_policy_uses_work_root
 assert_git_commit_quiet_concurrent_worktrees_no_writer_collision
 assert_bash_pre_post_worktree_landing_detection
+assert_commit_verdict_classifier_is_token_aware
+assert_target_dir_substitution_scoping
+assert_target_dir_sees_through_cheap_wrappers
+assert_named_target_resolvability
+assert_bash_post_verdict_gates_all_outcomes
+assert_commit_verdict_ignores_non_commit_commands
+assert_commit_verdict_resolves_lane_through_substituted_message
+assert_commit_verdict_is_silent_when_target_unresolvable
+assert_bash_pre_post_verdict_requires_real_commit
+assert_commit_verdict_still_reports_real_no_landing
 assert_commit_queue_waiter_ticket_expiry
 assert_git_commit_quiet_queue_heartbeat_three_lanes
 assert_git_commit_quiet_queue_ticket_cleaned_on_normal_exit

@@ -106,7 +106,8 @@ export const scriptTestAssertFunctionNames = [
   "expectHit",
   "expectOneFulfilledOneConflict",
   "expectParseFailure",
-  "expectParseSuccess",
+  "expectParseResultSuccess",
+  "expectSchemaParseSuccess",
 ];
 
 export const testAndHelperFiles = [
@@ -179,19 +180,7 @@ export const productionFunctionStructureIgnores = [
 export const sharedSchemasBarrelRestrictedImportPattern = {
   regex: "^@musi/shared/schemas$",
   message:
-    "Import from the specific schema source file, e.g. `@musi/shared/schemas/spell.js`. The barrel was removed; see DX4.1 in docs/roadmap/developer-experience.md.",
-};
-
-export const processExitRestrictedSyntax = {
-  selector: "CallExpression[callee.object.name='process'][callee.property.name='exit']",
-  message:
-    "Avoid process.exit(...) outside CLI/bootstrap entrypoints. Set process.exitCode and return/throw so finally blocks, log flushing, and socket teardown can run. If this IS a terminating entrypoint, add the file to the allowlist override in eslint.config.js.",
-};
-
-export const processEnvRestrictedSyntax = {
-  selector: "MemberExpression[object.name='process'][property.name='env']",
-  message:
-    "Avoid reading process.env outside config/env.ts. Use serverEnv from packages/server/src/config/env.ts (or add the key there). For child-process spawn `env:` pass-through and the db-status admin tool, add the file to the allowlist override below.",
+    "Why: ADR-0005 keeps `@musi/shared` on subpath exports, so the removed schemas barrel stays removed and bundle graphs stay traceable. How to fix: Import from the specific schema source file, e.g. `@musi/shared/schemas/spell.js`. See docs/adr/0005-shared-subpath-exports.md.",
 };
 
 const maxLinesCountingOptions = { skipBlankLines: true, skipComments: true };

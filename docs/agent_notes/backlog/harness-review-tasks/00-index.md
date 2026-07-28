@@ -1,6 +1,6 @@
 # Harness Review Tasks
 
-Status: Parked task index
+Status: Closed — every task row below is Done
 Created: 2026-06-01
 Source: `docs/agent_notes/harness-review-2026-05/` plus selected portable ideas
 from `/workspace/tmp/ma-toki/docs/harness-research/`.
@@ -34,7 +34,7 @@ Tracks: **D** docs/feedforward, **Dg** diagnostics, **L** loop/autonomy,
 | 14 | Skill trigger grammar | D | S | none | none | Done — all tracked SKILL.md files carry the two-sentence trigger pattern (`75c40334`); leaf removed 2026-07-19 (git history) |
 | 15 | [Golden-path reference feature pointer](./15-golden-path-reference-feature.md) | D | S | none | none | Done — golden-path pointer landed in `docs/guides/add-trpc-procedure.md` (2026-07-19, wave-1 ready-2026-07 drain, A11) |
 | 16 | Guide breadcrumbs and hook advisories | D | S-M | none | none | Done — `protected-files.sh` guide advisories landed (`9a2bc4a2`); leaf removed 2026-07-19 (git history) |
-| 25 | [Slow-lane mutation and timing add-ons](./25-slow-lane-mutation-and-timing-addons.md) | Dg | M | 24 | none | Ready — queued in `../ready-2026-07/00-index.md` (2026-07-19 triage) |
+| 25 | [Slow-lane mutation and timing add-ons](./25-slow-lane-mutation-and-timing-addons.md) | Dg | M | 24 | none | Done — landed 2026-07-19 on `auto/ready-b-slowlane` |
 | 50 | [Lint self-correction exemption audit](./50-lint-self-correction-exemption-audit.md) | G | M | none | none | Done — inventory audit recorded in `../../finished_work/lint-self-correction-exemption-audit-2026-07.md` (2026-07-19, wave-2 ready-2026-07 drain, B11) |
 | 51 | [Thin spec/plan template](./51-thin-spec-plan-template.md) | G | S-M | none | none | Done — template was already on `main` (`48cbb9fc`) before the wave-1 lane started; closed 2026-07-19 (ready-2026-07 A12) |
 | 52 | [Demotion rule and noise budgets](./52-demotion-and-noise-budgets.md) | G | S | none | all report-only sensors | Done — report-only sensor lifecycle policy landed in `docs/ai-harness.md` (2026-07-19, wave-1 ready-2026-07 drain, A13) |

@@ -142,6 +142,8 @@ test.describe("Campaign collaboration", () => {
     const joinPO = new JoinPO(newPlayerCtx.page);
 
     await joinPO.goto(directCode);
+    await joinPO.expectInvitedTo(campaignName);
+    await joinPO.clickJoin();
     await joinPO.expectRedirectToCampaign();
 
     await newPlayerCtx.context.close();

@@ -162,6 +162,13 @@
       "invocation": "bun run lint"
     },
     {
+      "id": "lint/local/no-retired-parse-success-import",
+      "kind": "lint-rule",
+      "ruleName": "local/no-retired-parse-success-import",
+      "source": "eslint-rules/no-retired-parse-success-import.js",
+      "invocation": "bun run lint"
+    },
+    {
       "id": "lint/local/no-swallowed-errors",
       "kind": "lint-rule",
       "ruleName": "local/no-swallowed-errors",
@@ -473,6 +480,26 @@
       "invocation": "bun run sensor:knip-unused-exports"
     },
     {
+      "id": "sensor/suppression-ledger",
+      "kind": "sensor",
+      "category": "maintainability",
+      "principle": "Keep the set of suppression directives in the tree identical to the committed suppression-ledger.json identity ledger, so a reasoned inline disable \u2014 which passes every suppression policy check by design \u2014 cannot land uncounted and a drained one must be locked in; suppression policy itself stays in the two register scripts and their data allowlists.",
+      "pairedGuide": "docs/ai-harness.md",
+      "repairKind": "manual",
+      "source": "scripts/suppression-ledger.ts",
+      "invocation": "bun run lint:suppressions:ledger"
+    },
+    {
+      "id": "sensor/suppression-ledger-changed",
+      "kind": "sensor",
+      "category": "maintainability",
+      "principle": "Gate the suppression identity ledger over the paths the register scanners actually read for verify:changed and pre-commit, restricting the comparison symmetrically to both the ledger and the tree so a narrowed scan gates less but never reports a false removal.",
+      "pairedGuide": "docs/ai-harness.md",
+      "repairKind": "manual",
+      "source": "scripts/suppression-ledger.ts",
+      "invocation": "bun run lint:suppressions:ledger:changed"
+    },
+    {
       "id": "sensor/near-duplicates",
       "kind": "sensor",
       "category": "maintainability",
@@ -591,6 +618,10 @@
           "script": "lint:suppressions"
         },
         {
+          "name": "suppression-ledger",
+          "script": "lint:suppressions:ledger"
+        },
+        {
           "name": "ratchet",
           "script": "lint:ratchet",
           "env": {
@@ -668,6 +699,10 @@
           "script": "lint:suppressions:changed"
         },
         {
+          "name": "suppression-ledger",
+          "script": "lint:suppressions:ledger:changed"
+        },
+        {
           "name": "ratchet",
           "script": "lint:ratchet",
           "env": {
@@ -742,6 +777,10 @@
         {
           "name": "suppressions",
           "script": "lint:suppressions"
+        },
+        {
+          "name": "suppression-ledger",
+          "script": "lint:suppressions:ledger"
         },
         {
           "name": "ratchet",
@@ -1187,6 +1226,7 @@
           "scripts/lib/codepoint-compare.ts",
           "scripts/lib/doc-generator.ts",
           "scripts/lib/lint-rule-docs.ts",
+          "scripts/lib/records.ts",
           "scripts/lint-ratchet/lint-ratchet-config.ts",
           "scripts/lint-ratchet/registry-builders.ts"
         ],
@@ -1215,7 +1255,8 @@
           "eslint-rules/",
           "scripts/generate-lint-guidance.ts",
           "scripts/lib/doc-generator.ts",
-          "scripts/lib/lint-rule-docs.ts"
+          "scripts/lib/lint-rule-docs.ts",
+          "scripts/lib/records.ts"
         ],
         "outputPaths": ["docs/generated/local-lint-rules.md"],
         "checkScript": "docs:lint-guidance:check",
@@ -1336,14 +1377,19 @@
       "generatedSurface": {
         "triggerPaths": [
           "harness.controls.json",
+          "scripts/harness/control-field-validation.ts",
           "scripts/harness/generate-hook-wiring.ts",
           "scripts/harness/harness-manifest.ts",
+          "scripts/harness/harness-manifest-loader.ts",
+          "scripts/harness/harness-manifest-schema.ts",
           "scripts/harness/harness-paths.ts",
           "scripts/harness/hook-shim-files.ts",
           "scripts/harness/hook-shims.ts",
           "scripts/harness/hook-wiring-schema.ts",
+          "scripts/lib/lint-rule-docs.ts",
           "scripts/lib/atomic-write.ts",
-          "scripts/lib/codepoint-compare.ts"
+          "scripts/lib/codepoint-compare.ts",
+          "scripts/lib/records.ts"
         ],
         "outputPaths": [
           ".claude/settings.json",
@@ -1382,12 +1428,17 @@
       "generatedSurface": {
         "triggerPaths": [
           "harness.controls.json",
+          "scripts/harness/control-field-validation.ts",
           "scripts/harness/generate-hook-timeout-constants.ts",
           "scripts/harness/harness-manifest.ts",
+          "scripts/harness/harness-manifest-loader.ts",
+          "scripts/harness/harness-manifest-schema.ts",
           "scripts/harness/harness-paths.ts",
           "scripts/harness/hook-timeout-constants.ts",
           "scripts/harness/hook-wiring-schema.ts",
-          "scripts/lib/doc-generator.ts"
+          "scripts/lib/doc-generator.ts",
+          "scripts/lib/lint-rule-docs.ts",
+          "scripts/lib/records.ts"
         ],
         "outputPaths": ["scripts/ai-hooks/hook-timeouts.generated.sh"],
         "checkScript": "harness:hook-timeouts:check",
@@ -1414,15 +1465,19 @@
           "harness.controls.json",
           "scripts/harness/control-field-validation.ts",
           "scripts/harness/generate-verify-steps.ts",
+          "scripts/harness/generated-surfaces-loader.ts",
           "scripts/harness/generated-surfaces.ts",
           "scripts/harness/harness-check-validation.ts",
           "scripts/harness/harness-manifest.ts",
+          "scripts/harness/harness-manifest-loader.ts",
+          "scripts/harness/harness-manifest-schema.ts",
           "scripts/harness/harness-paths.ts",
           "scripts/harness/verify-step-bridge-divergences.ts",
           "scripts/harness/verify-step-schema.ts",
           "scripts/lib/codepoint-compare.ts",
           "scripts/lib/doc-generator.ts",
           "scripts/lib/lint-rule-docs.ts",
+          "scripts/lib/records.ts",
           "scripts/lint-ratchet/ratchet-manifest-message.ts"
         ],
         "outputPaths": [
@@ -1442,37 +1497,42 @@
           }
         },
         "fixturePaths": [
-          "scripts/harness/generate-verify-steps.ts",
-          "scripts/harness/verify-step-schema.ts",
-          "scripts/lib/codepoint-compare.ts",
-          "scripts/harness/verify-step-bridge-divergences.ts",
-          "scripts/harness/generated-surfaces.ts",
-          "scripts/verify/steps-lib.sh",
-          "scripts/verify/memory-budget.sh",
-          "scripts/lib/test-worker-count.sh",
+          "scripts/drift-ai/scope.ts",
           "scripts/harness-check.ts",
+          "scripts/harness/control-field-validation.ts",
           "scripts/harness/fixture-closure-check.ts",
+          "scripts/harness/generate-verify-steps.ts",
+          "scripts/harness/generated-surfaces-loader.ts",
+          "scripts/harness/generated-surfaces.ts",
           "scripts/harness/harness-check-validation.ts",
           "scripts/harness/harness-gate-parity.ts",
           "scripts/harness/harness-manifest-schema.ts",
+          "scripts/harness/harness-manifest-loader.ts",
           "scripts/harness/harness-manifest.ts",
-          "scripts/harness/manifest-contract-check.ts",
           "scripts/harness/harness-paths.ts",
-          "scripts/harness/control-field-validation.ts",
           "scripts/harness/local-rule-config.ts",
+          "scripts/harness/manifest-contract-check.ts",
           "scripts/harness/porting-knob-parity.ts",
           "scripts/harness/pre-push-scope-pin.ts",
-          "scripts/drift-ai/scope.ts",
-          "scripts/harness/check-skill-inventory.ts",
-          "scripts/harness/skill-inventory-schema.ts",
-          "scripts/harness/skill-tree-comparison.ts",
+          "scripts/harness/registration-check.ts",
+          "scripts/harness/registration-generated-checks.ts",
+          "scripts/harness/registration-manifest-checks.ts",
+          "scripts/harness/registration-preflight-wiring.ts",
+          "scripts/harness/verify-step-bridge-divergences.ts",
+          "scripts/harness/verify-step-schema.ts",
+          "scripts/lib/codepoint-compare.ts",
           "scripts/lib/doc-generator.ts",
+          "scripts/lib/records.ts",
+          "scripts/lib/test-worker-count.sh",
+          "scripts/lib/verify-engine.sh",
           "scripts/lint-ratchet/ratchet-manifest-message.ts",
+          "scripts/verify/memory-budget.sh",
+          "scripts/verify/steps-lib.sh",
           "scripts/worktree-seed-import-closure.ts",
-          "scripts/worktree-seed-runtime-loaders.ts",
-          "scripts/worktree-seed-runtime-loader-validation.ts",
           "scripts/worktree-seed-runtime-loader-exports.ts",
-          "scripts/worktree-seed-runtime-loader-identifiers.ts"
+          "scripts/worktree-seed-runtime-loader-identifiers.ts",
+          "scripts/worktree-seed-runtime-loader-validation.ts",
+          "scripts/worktree-seed-runtime-loaders.ts"
         ]
       }
     },
@@ -1508,6 +1568,92 @@
       }
     },
     {
+      "id": "check/harness-registration-preflight",
+      "kind": "check",
+      "category": "maintainability",
+      "principle": "Reject deterministic harness registration drift before fast-commit mode may reuse a marker, bridge manual verification, or skip the expensive test and scripts slots; behavioral assertions remain in the full harness and scripts gates.",
+      "pairedGuide": "docs/guides/verify-gate-lifecycle.md",
+      "repairKind": "manual",
+      "source": "scripts/harness-registration-check.ts",
+      "invocation": "bun run harness:registration:check"
+    },
+    {
+      "id": "check/skill-artifacts-generator",
+      "kind": "check",
+      "category": "maintainability",
+      "principle": "Project checked-in non-canonical skill trees and exact skill smoke routing from manifest skillWiring records while preserving only declared target-authored overlays.",
+      "pairedGuide": "docs/ai-harness.md",
+      "repairKind": "autofix",
+      "source": "scripts/harness/generate-skill-artifacts.ts",
+      "invocation": "bun run harness:skills:refresh",
+      "generatedSurface": {
+        "triggerPaths": [
+          ".claude/skills/",
+          ".gitignore",
+          "harness.controls.json",
+          "scripts/harness/check-skill-inventory.ts",
+          "scripts/harness/generate-skill-artifacts.ts",
+          "scripts/harness/harness-manifest.ts",
+          "scripts/harness/skill-artifact-projection.ts",
+          "scripts/harness/skill-inventory-schema.ts",
+          "scripts/harness/skill-overlay-content.ts",
+          "scripts/harness/skill-projection-files.ts",
+          "scripts/harness/skill-smoke-subject-block.ts",
+          "scripts/lib/atomic-write.ts",
+          "scripts/lib/codepoint-compare.ts",
+          "scripts/lib/doc-generator.ts",
+          "scripts/lib/records.ts",
+          "scripts/path-policy/fixture-copy-expressions.ts",
+          "scripts/path-policy/fixture-helper-calls.ts",
+          "scripts/path-policy/fixture-import-closure.ts",
+          "scripts/path-policy/fixture-loop-bindings.ts",
+          "scripts/path-policy/fixture-sandbox-model.ts",
+          "scripts/path-policy/fixture-seed-statements.ts",
+          "scripts/path-policy/fixture-seeding-annotations.ts",
+          "scripts/path-policy/fixture-shell-dependencies.ts",
+          "scripts/path-policy/fixture-shell-scope.ts",
+          "scripts/path-policy/smoke-subject-headers.ts",
+          "scripts/worktree-seed-import-closure.ts",
+          "scripts/worktree-seed-runtime-loader-exports.ts",
+          "scripts/worktree-seed-runtime-loader-identifiers.ts",
+          "scripts/worktree-seed-runtime-loader-validation.ts",
+          "scripts/worktree-seed-runtime-loaders.ts"
+        ],
+        "outputPaths": [
+          ".codex/skills/",
+          "scripts/tests/test-skill-dispatch-wrappers.sh",
+          "scripts/path-policy/path-policy-smoke-subjects-data.ts",
+          "scripts/fixtures/test-scripts/all-smoke-tests.txt"
+        ],
+        "checkScript": "harness:skills:check",
+        "warnLabel": "skill mirrors and smoke routing",
+        "bunHook": { "refresh": "wrapped", "check": "wrapped" },
+        "fixturePaths": [
+          "scripts/harness/check-skill-inventory.ts",
+          "scripts/harness/generate-skill-artifacts.ts",
+          "scripts/harness/harness-manifest.ts",
+          "scripts/harness/skill-artifact-projection.ts",
+          "scripts/harness/skill-inventory-schema.ts",
+          "scripts/harness/skill-overlay-content.ts",
+          "scripts/harness/skill-projection-files.ts",
+          "scripts/harness/skill-smoke-subject-block.ts",
+          "scripts/lib/atomic-write.ts",
+          "scripts/lib/codepoint-compare.ts",
+          "scripts/lib/doc-generator.ts",
+          "scripts/path-policy/fixture-copy-expressions.ts",
+          "scripts/path-policy/fixture-helper-calls.ts",
+          "scripts/path-policy/fixture-import-closure.ts",
+          "scripts/path-policy/fixture-loop-bindings.ts",
+          "scripts/path-policy/fixture-sandbox-model.ts",
+          "scripts/path-policy/fixture-seed-statements.ts",
+          "scripts/path-policy/fixture-seeding-annotations.ts",
+          "scripts/path-policy/fixture-shell-dependencies.ts",
+          "scripts/path-policy/fixture-shell-scope.ts",
+          "scripts/path-policy/smoke-subject-headers.ts"
+        ]
+      }
+    },
+    {
       "id": "check/smoke-subjects-generator",
       "kind": "check",
       "category": "maintainability",
@@ -1519,12 +1665,23 @@
       "generatedSurface": {
         "triggerPaths": [
           "scripts/lib/doc-generator.ts",
+          "scripts/path-policy/fixture-copy-expressions.ts",
           "scripts/path-policy/fixture-helper-calls.ts",
+          "scripts/path-policy/fixture-import-closure.ts",
+          "scripts/path-policy/fixture-loop-bindings.ts",
+          "scripts/path-policy/fixture-sandbox-model.ts",
+          "scripts/path-policy/fixture-seed-statements.ts",
+          "scripts/path-policy/fixture-seeding-annotations.ts",
           "scripts/path-policy/fixture-shell-dependencies.ts",
           "scripts/path-policy/fixture-shell-scope.ts",
           "scripts/path-policy/generate-smoke-subjects.ts",
           "scripts/path-policy/smoke-subject-headers.ts",
-          "scripts/tests/"
+          "scripts/tests/",
+          "scripts/worktree-seed-import-closure.ts",
+          "scripts/worktree-seed-runtime-loader-exports.ts",
+          "scripts/worktree-seed-runtime-loader-identifiers.ts",
+          "scripts/worktree-seed-runtime-loader-validation.ts",
+          "scripts/worktree-seed-runtime-loaders.ts"
         ],
         "outputPaths": [
           "scripts/path-policy/path-policy-smoke-subjects-data.ts",
@@ -1536,7 +1693,13 @@
         "fixturePaths": [
           "scripts/path-policy/generate-smoke-subjects.ts",
           "scripts/path-policy/smoke-subject-headers.ts",
+          "scripts/path-policy/fixture-copy-expressions.ts",
           "scripts/path-policy/fixture-helper-calls.ts",
+          "scripts/path-policy/fixture-import-closure.ts",
+          "scripts/path-policy/fixture-loop-bindings.ts",
+          "scripts/path-policy/fixture-sandbox-model.ts",
+          "scripts/path-policy/fixture-seed-statements.ts",
+          "scripts/path-policy/fixture-seeding-annotations.ts",
           "scripts/path-policy/fixture-shell-dependencies.ts",
           "scripts/path-policy/fixture-shell-scope.ts"
         ]
@@ -1872,7 +2035,7 @@
       "id": "hook/pre-commit",
       "kind": "hook",
       "category": "maintainability",
-      "principle": "Run lint:changed, suppression policy registers, lint:ratchet, the zero-baseline lifecycle check, the debt-accounting integrity gate, ADR cross-link validation, the knip unused-export and staged near-duplicate floors, coverage-map, format:changed:check, typecheck, test:changed, and conditionally test:scripts:changed in parallel before allowing the commit; when packages/{shared,server}/dist is missing, defer lint and ratchet until the existing typecheck slot has produced those ignored outputs. Opt-in fast-commit mode (musi-fast-commit marker in the Git common dir) skips exactly the slots declared fastCommitSkip here (test, scripts); the skip set is generated into steps.generated.sh, never hand-coded.",
+      "principle": "Run lint:changed, suppression policy registers, lint:ratchet, the zero-baseline lifecycle check, the debt-accounting integrity gate, ADR cross-link validation, the knip unused-export and staged near-duplicate floors, coverage-map, format:changed:check, typecheck, test:changed, and conditionally test:scripts:changed in parallel before allowing the commit; when packages/{shared,server}/dist is missing, defer lint and ratchet until the existing typecheck slot has produced those ignored outputs. Opt-in fast-commit mode (musi-fast-commit marker in the Git common dir) first runs the structural harness registration admission before marker or bridge evaluation, then skips exactly the slots declared fastCommitSkip here (test, scripts); the skip set is generated into steps.generated.sh, never hand-coded.",
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": ".husky/pre-commit",
@@ -1885,6 +2048,10 @@
         {
           "name": "suppressions",
           "script": "lint:suppressions:changed"
+        },
+        {
+          "name": "suppression-ledger",
+          "script": "lint:suppressions:ledger:changed"
         },
         {
           "name": "ratchet",
@@ -2569,28 +2736,7 @@
           "!.codex/skills/agent-cli/",
           "!.codex/skills/agent-cli/**"
         ],
-        "smokeTest": "scripts/tests/test-skill-dispatch-wrappers.sh",
-        "smokeSubjects": [
-          ".codex/skills/",
-          ".claude/skills/agent-cli/scripts/agent-run.sh",
-          ".claude/skills/agent-cli/scripts/agent-wait.sh",
-          ".claude/skills/agent-cli/SKILL.md",
-          ".claude/skills/agent-cli/references/claude.md",
-          ".claude/skills/agent-cli/references/claude-workflows.md",
-          ".claude/skills/agent-cli/references/codex.md",
-          ".claude/skills/agent-cli/references/copilot.md",
-          ".claude/skills/agent-cli/references/cursor.md",
-          ".claude/skills/agent-cli/references/portability.md",
-          ".claude/skills/agent-cli/references/trailer-contract.md",
-          ".codex/skills/agent-cli/SKILL.md",
-          ".codex/skills/agent-cli/references/claude.md",
-          ".codex/skills/agent-cli/references/claude-workflows.md",
-          ".codex/skills/agent-cli/references/codex.md",
-          ".codex/skills/agent-cli/references/copilot.md",
-          ".codex/skills/agent-cli/references/cursor.md",
-          ".codex/skills/agent-cli/references/portability.md",
-          ".codex/skills/agent-cli/references/trailer-contract.md"
-        ]
+        "smokeTest": "scripts/tests/test-skill-dispatch-wrappers.sh"
       }
     },
     {
@@ -2626,8 +2772,7 @@
           "!.claude/skills/playwright-cli/**",
           "!.codex/skills/playwright-cli/",
           "!.codex/skills/playwright-cli/**"
-        ],
-        "smokeSubjects": []
+        ]
       }
     },
     {
@@ -2667,8 +2812,7 @@
           "!.claude/skills/ts-graph/",
           "!.codex/skills/ts-graph/",
           "!.codex/skills/ts-graph/**"
-        ],
-        "smokeSubjects": []
+        ]
       }
     }
   ]

@@ -242,15 +242,15 @@ This table is generated from `meta.docs` on each rule and grouped into maintaina
 
 ### `local/concurrency-guard`
 
-**Description:** Disallow direct Prisma update/upsert calls on concurrency-gated delegates
+**Description:** Disallow direct Prisma update/upsert calls on concurrency-gated delegates, and nested relation writes that reach them through a non-gated parent
 
-**Principle:** Direct writes to Prisma's concurrency-gated delegates must use documented helper boundaries to prevent lost-update races.
+**Principle:** Every write to a concurrency-gated table must go through a documented helper boundary, whether it is spelled as a direct delegate call or as a nested relation payload the branded delegate types cannot see.
 
 **Category:** behavior
 
 **Paired guide:** [docs/guides/add-race-sensitive-mutation.md](../guides/add-race-sensitive-mutation.md)
 
-**Repair:** codemod — `bun run codemod:concurrency-guard`
+**Repair:** manual
 
 ### `local/missing-throw`
 
@@ -321,6 +321,18 @@ This table is generated from `meta.docs` on each rule and grouped into maintaina
 **Category:** behavior
 
 **Paired guide:** [docs/authorization.md](../authorization.md)
+
+**Repair:** manual
+
+### `local/no-retired-parse-success-import`
+
+**Description:** Reject imports of the retired ambiguous Zod success assertion helper.
+
+**Principle:** Positive schema fixtures should retain their static input contract, while wrapper-owned results should name the unknown-input boundary explicitly.
+
+**Category:** behavior
+
+**Paired guide:** none
 
 **Repair:** manual
 

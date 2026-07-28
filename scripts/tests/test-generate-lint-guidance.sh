@@ -2,6 +2,7 @@
 # smoke-order: 300
 # smoke-subjects: scripts/generate-lint-guidance.ts
 # smoke-subjects: scripts/lib/lint-rule-docs.ts
+# smoke-subjects: scripts/lib/records.ts
 # smoke-subjects: scripts/tests/test-generate-lint-guidance.sh
 # smoke-subjects: scripts/fixtures/generate-lint-guidance/
 # smoke-subjects: docs/generated/local-lint-rules.md
@@ -10,6 +11,7 @@
 # smoke-subjects: eslint-rules/
 # smoke-subjects: package.json
 # smoke-subjects: tsconfig.scripts.json
+# smoke-subjects: scripts/lib/doc-generator.ts
 # Smoke test for scripts/generate-lint-guidance.ts.
 #
 # Contract:
@@ -39,6 +41,9 @@ copy_generator() {
   cp scripts/generate-lint-guidance.ts "$fixture_dir/scripts/generate-lint-guidance.ts"
   cp scripts/lib/lint-rule-docs.ts "$fixture_dir/scripts/lib/lint-rule-docs.ts"
   cp scripts/lib/doc-generator.ts "$fixture_dir/scripts/lib/doc-generator.ts"
+  # lint-rule-docs.ts narrows rule metadata through the shared record guards in
+  # scripts/lib/records.ts, so the sandbox closure needs that leaf too.
+  cp scripts/lib/records.ts "$fixture_dir/scripts/lib/records.ts"
 }
 
 write_valid_fixture() {

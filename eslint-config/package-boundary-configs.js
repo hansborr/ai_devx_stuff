@@ -1,8 +1,6 @@
 // @ts-check
 
 import {
-  processEnvRestrictedSyntax,
-  processExitRestrictedSyntax,
   serverScriptTypeScriptFiles,
   serverSourceFiles,
   serverTestAndHelperSourceFiles,
@@ -10,29 +8,10 @@ import {
   sharedSourceFiles,
 } from "./shared-policy.js";
 
-const rawPrismaSqlRestrictedSyntax = {
-  selector: [
-    "MemberExpression[property.name=/^\\$(queryRaw|queryRawUnsafe|executeRaw|executeRawUnsafe)$/]",
-    "MemberExpression[computed=true][property.value=/^\\$(queryRaw|queryRawUnsafe|executeRaw|executeRawUnsafe)$/]",
-    "MemberExpression[computed=true][property.type='TemplateLiteral'][property.expressions.length=0][property.quasis.0.value.cooked=/^\\$(queryRaw|queryRawUnsafe|executeRaw|executeRawUnsafe)$/]",
-  ].join(", "),
-  message:
-    "Raw Prisma SQL is restricted to sanctioned server boundaries. Move it to a reviewed service/helper and see docs/CONCURRENCY.md.",
-};
-
-const sharedSchemaZAnyRestrictedSyntax = {
-  selector:
-    "CallExpression[callee.object.name='z'][callee.property.name='any'], CallExpression[callee.object.name='z'][callee.computed=true][callee.property.value='any']",
-  message:
-    "Use z.unknown() for genuinely dynamic shared payloads instead of z.any(); see docs/guides/add-trpc-procedure.md.",
-};
-
-const permissiveTrpcOutputRestrictedSyntax = {
-  selector:
-    "CallExpression[callee.property.name='output'] > CallExpression.arguments:first-child[callee.object.name='z'][callee.property.name=/^(any|unknown|void)$/], CallExpression[callee.property.name='output'] > CallExpression.arguments:first-child[callee.object.name='z'][callee.computed=true][callee.property.value=/^(any|unknown|void)$/]",
-  message:
-    "Use a named shared output schema instead of z.any(), top-level z.unknown(), or z.void(); see docs/guides/add-trpc-procedure.md.",
-};
+// One string for the four browser globals shared code may not touch, so the
+// decision id and repair stay in sync across every entry.
+const sharedRuntimeNeutralGlobalMessage =
+  "Why: ADR-0006 keeps packages/shared runtime-neutral, so browser globals are unavailable to the contract layer. How to fix: Move browser code to packages/client and pass the resolved value into shared code. See docs/adr/0006-shared-package-layering.md.";
 
 const uploadServiceRestBoundaryFile = "packages/server/src/services/upload-service.ts";
 
@@ -133,21 +112,6 @@ export const packagePolicyConfigs = [
   },
 
   {
-    files: ["packages/shared/src/schemas/**/*.ts"],
-    ignores: ["**/*.test.ts"],
-    rules: {
-      // Flat config replaces (not merges) rule entries by key. Keep process
-      // primitive bans while adding shared-schema permissiveness guards.
-      "no-restricted-syntax": [
-        "error",
-        processExitRestrictedSyntax,
-        processEnvRestrictedSyntax,
-        sharedSchemaZAnyRestrictedSyntax,
-      ],
-    },
-  },
-
-  {
     files: sharedSourceFiles,
     rules: {
       // Flat config replaces (not merges) rule entries by key, so the global
@@ -161,7 +125,7 @@ export const packagePolicyConfigs = [
             {
               group: ["@musi/server", "@musi/server/*", "@musi/client", "@musi/client/*"],
               message:
-                "packages/shared is the cross-package contract layer and must not depend on client or server modules.",
+                "Why: ADR-0006 makes packages/shared the cross-package contract layer, so depending on client or server modules inverts the shared -> server -> client flow. How to fix: Move the dependent code into packages/client or packages/server. See docs/adr/0006-shared-package-layering.md.",
             },
             {
               group: [
@@ -173,7 +137,7 @@ export const packagePolicyConfigs = [
                 "@trpc/server",
               ],
               message:
-                "packages/shared must stay runtime-neutral. Put browser/server adapters in packages/client or packages/server.",
+                "Why: ADR-0006 keeps packages/shared runtime-neutral, so a browser or server adapter imported there reaches every consumer. How to fix: Put the adapter in packages/client or packages/server and pass what shared code needs as a parameter. See docs/adr/0006-shared-package-layering.md.",
             },
           ],
         },
@@ -182,23 +146,19 @@ export const packagePolicyConfigs = [
         "error",
         {
           name: "window",
-          message:
-            "packages/shared must stay runtime-neutral; move browser code to packages/client.",
+          message: sharedRuntimeNeutralGlobalMessage,
         },
         {
           name: "document",
-          message:
-            "packages/shared must stay runtime-neutral; move browser code to packages/client.",
+          message: sharedRuntimeNeutralGlobalMessage,
         },
         {
           name: "localStorage",
-          message:
-            "packages/shared must stay runtime-neutral; move browser code to packages/client.",
+          message: sharedRuntimeNeutralGlobalMessage,
         },
         {
           name: "sessionStorage",
-          message:
-            "packages/shared must stay runtime-neutral; move browser code to packages/client.",
+          message: sharedRuntimeNeutralGlobalMessage,
         },
       ],
     },
@@ -227,51 +187,6 @@ export const packagePolicyConfigs = [
 ];
 
 export const rawTxClientBoundaryConfigs = [
-  {
-    files: ["packages/server/src/**/*.ts"],
-    ignores: [
-      ...serverTestAndHelperSourceFiles,
-      "packages/server/src/**/*test-helper*.ts",
-      "packages/server/src/config/env.ts",
-      "packages/server/src/main.ts",
-      "packages/server/src/services/inventory-service.ts",
-    ],
-    rules: {
-      // Flat config replaces (not merges) rule entries by key. Repeat the
-      // process primitive selectors from script-configs.js so adding this
-      // server-only raw-SQL fence does not drop the existing process bans.
-      "no-restricted-syntax": [
-        "error",
-        processExitRestrictedSyntax,
-        processEnvRestrictedSyntax,
-        rawPrismaSqlRestrictedSyntax,
-      ],
-    },
-  },
-
-  {
-    files: ["packages/server/src/routers/**/*.ts"],
-    ignores: ["**/*.test.ts"],
-    rules: {
-      // The broader server raw-SQL fence also owns no-restricted-syntax. Repeat
-      // its selectors here so router-only output guards do not weaken it.
-      "no-restricted-syntax": [
-        "error",
-        processExitRestrictedSyntax,
-        processEnvRestrictedSyntax,
-        rawPrismaSqlRestrictedSyntax,
-        permissiveTrpcOutputRestrictedSyntax,
-      ],
-    },
-  },
-
-  {
-    files: ["packages/server/src/config/env.ts", "packages/server/src/main.ts"],
-    rules: {
-      "no-restricted-syntax": ["error", rawPrismaSqlRestrictedSyntax],
-    },
-  },
-
   // Forcing function: `RawTxClient` bypasses the restricted-delegate type
   // shim in prisma-types.ts and must only be imported by the mutation
   // helpers that act as the single trust boundary for each race-sensitive

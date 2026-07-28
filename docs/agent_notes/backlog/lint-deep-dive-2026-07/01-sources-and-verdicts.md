@@ -87,8 +87,10 @@ verification agent running four targeted checks) produced these changes:
   lane, report-only mode, trend, integrity gate, new-rule adds 30-40). Leaves
   here only cover *defects or seams in what landed*.
 - Parked upgrade notes that remain their own backlog items:
-  `../ready-2026-07/08-eslint-plugin-jsdoc-63-upgrade.md`,
   `../eslint-react-peer-exception-removal.md`.
+  (`eslint-plugin-jsdoc` 63 landed 2026-07-19 in `2204ff9c`; its leaf was
+  retired at the 2026-07-25 trim — see
+  `../../finished_work/ready-2026-07-drain.md`.)
   (`lint-fix-dist-preflight-parity.md` closed Done and was removed at the
   2026-07-19 triage.)
 - Biome adoption: lane C assessed `docs/guides/biome-lint-adoption.md` as

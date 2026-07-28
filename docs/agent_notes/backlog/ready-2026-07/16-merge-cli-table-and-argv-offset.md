@@ -1,6 +1,7 @@
 # Merge-CLI wrappers as data + one argv-offset constant (runCliMain kernel rejected)
 
-Status: Ready — after B1 lands (lint-arch leaf 14 subpath-export curation).
+Status: Done — landed 2026-07-19 (6cd38862) after B1 (a7578536); the
+runCliMain kernel stays rejected with its re-open trigger.
 Date: 2026-07-19
 Source: 2026-07-19 harness architecture review, candidate 6 (session
 artifact; claims verified against HEAD 544a9d06 the same day); design

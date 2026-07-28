@@ -35,7 +35,7 @@ export default {
     },
     messages: {
       needsSharedOutput:
-        "Why: Router output schemas are the client/server contract and must live in shared. How to fix: Move this output shape to packages/shared/src/schemas/<domain>.ts (run: `bun run codemod:trpc-shared-output -- <file>`). Move complex or wrapped output shapes manually. " +
+        "Why: ADR-0004 keeps router output schemas in shared because they are the client/server contract, not router-local detail. How to fix: Move this output shape to packages/shared/src/schemas/<domain>.ts (run: `bun run codemod:trpc-shared-output -- <file>`). Move complex or wrapped output shapes manually. " +
         `See ${PAIRED_GUIDE}.`,
     },
     schema: [],

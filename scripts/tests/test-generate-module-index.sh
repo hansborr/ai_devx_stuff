@@ -4,6 +4,7 @@
 # smoke-subjects: scripts/tests/lib/test-git-env.sh
 # smoke-subjects: scripts/tests/test-generate-module-index.sh
 # smoke-subjects: scripts/harness-emit-envelope.ts
+# smoke-subjects: scripts/harness/harness-diagnostics-output.ts
 # smoke-subjects: scripts/lib/atomic-write.ts
 # smoke-subjects: packages/shared/src/schemas/harness-diagnostics.ts
 # Pure-shell tests for MODULE-INDEX.md generation and drift checks.
@@ -48,11 +49,14 @@ chmod +x "$stub_bin/mv"
 PATH="$stub_bin:$PATH"
 
 repo="$SANDBOX/repo"
-mkdir -p "$repo/scripts/lib" "$repo/packages/example" "$repo/packages/later" "$repo/packages/shared/src/schemas"
+mkdir -p "$repo/scripts/harness" "$repo/scripts/lib" "$repo/packages/example" "$repo/packages/later" "$repo/packages/shared/src/schemas"
 git -C "$SANDBOX" init -q "$repo"
 cp "$GENERATOR" "$repo/scripts/generate-module-index.sh"
 cp "$SCRIPT_DIR/../harness-emit-envelope.ts" "$repo/scripts/harness-emit-envelope.ts"
 cp "$SCRIPT_DIR/../lib/atomic-write.ts" "$repo/scripts/lib/atomic-write.ts"
+# The emitter routes its envelope through the shared emission kernel.
+cp "$SCRIPT_DIR/../harness/harness-diagnostics-output.ts" \
+  "$repo/scripts/harness/harness-diagnostics-output.ts"
 cp "$REPO_ROOT/packages/shared/src/schemas/harness-diagnostics.ts" \
   "$repo/packages/shared/src/schemas/harness-diagnostics.ts"
 ln -s "$REPO_ROOT/node_modules" "$repo/node_modules"

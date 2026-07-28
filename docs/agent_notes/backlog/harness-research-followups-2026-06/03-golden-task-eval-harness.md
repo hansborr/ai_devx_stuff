@@ -1,7 +1,21 @@
 # EV-1 - Codebase-grounded golden-task eval harness
 
-> Proposal only - not implemented. Heaviest item in this pack; promote only
-> when there is appetite for measurement infrastructure.
+Status: In progress — implemented on `feat/golden-task-eval`; acceptance needs
+the remaining fixture admissions and a first live-agent run
+
+> **Superseded — in flight on `feat/golden-task-eval` (`ad60abec`).** This file
+> is the original proposal. The branch carries a 292-line implementation ledger
+> at this same path recording five cross-model review rounds (findings #1–#27:
+> 19 fixed, 8 owner-classified deferrals, no known blockers). **Read the branch
+> copy, not this one**, before touching the work.
+>
+> Built there: runner, workspace isolation, agent adapter, grader, scoring,
+> reporter, `bun run eval:golden`, `docs/guides/golden-task-evals.md`, full
+> harness registration, 85 green unit tests, and one admitted calibrated
+> fixture. Remaining: rebase (65 behind, `package.json`-only conflict), the
+> first real live-agent run (every run so far is controller-mode), four more
+> admitted fixtures, and a pilot recalibration. Tracked as row C4 in
+> `../ready-2026-07/00-index.md` §2.
 
 ## Problem
 

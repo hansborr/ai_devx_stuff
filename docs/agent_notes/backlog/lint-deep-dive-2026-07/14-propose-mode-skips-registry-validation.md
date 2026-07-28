@@ -1,6 +1,25 @@
 # 14. `--propose` bypasses registry validation — previews can differ from what the registry would accept
 
-Status: Proposed — from the 2026-07-04 lint deep-dive; NOT implemented. Re-verify file:line before acting.
+Status: Closed — trimmed by owner ruling 2026-07-25; will not be implemented.
+
+> **Why trimmed.** Four of the six gaps below were closed by a sibling pack on
+> 2026-07-11: metric/ruleId shape validation and preview/promotion parity via
+> `db040d5a`, glob normalization via `96d99573`, `!`-negation rejection via
+> `2372ca6f`; sorted/duplicate-free globs are moot because propose runs
+> `normalizeStringList`. The two survivors — `empty-glob` and `absolute-path`
+> — are caught one command later by `assertLintRatchetUpdateRegistryClean()`,
+> which runs as a preflight on `lint:ratchet:update`. That satisfies this
+> leaf's own trim criterion: "the failure this prevents is self-correcting one
+> step later … Keep only while it stays S-size." Retained as the rationale
+> record.
+>
+> Reopen trigger: propose gaining a path that does not funnel into
+> `lint:ratchet:update`, which would remove the self-correcting round-trip.
+>
+> Note if it is ever revisited: the citations below predate the S3/S4 package
+> moves — `propose.ts` and `registry-validation.ts` now live under
+> `tools/lint-ratchet/src/{governance,kernel}/`, and the guide paragraph is
+> `docs/guides/lint-ratchet.md:96-108`.
 Lens: ratchet · Area: propose mode · Severity: low-med · Size: S · Confidence: high
 Theme: preview-parity · Source: Musi lint deep-dive 2026-07-04 (3 parallel Codex xhigh lanes + Claude verification agents)
 

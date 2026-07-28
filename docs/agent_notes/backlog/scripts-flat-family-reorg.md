@@ -1,5 +1,12 @@
 # Scripts Flat Family Reorg
 
+> **Superseded in plan, not yet closed.** The live owner of this question is
+> [`code-quality-2026-07-25/28-PLAN.md`](./code-quality-2026-07-25/28-PLAN.md),
+> which absorbs this note's family list, the `scripts/harness-audit/` concern and
+> the `drift-triage` entry-plus-directory precedent, and extends the list from
+> three families to seven. Do not schedule this note on its own; its slice 28.1
+> flips this Status to Superseded. Every count below is stale as of 2026-07-26.
+
 Status: Parked
 Date: 2026-07-03
 Source: Deferred repo-audit finding from the docs/process staleness cleanup.

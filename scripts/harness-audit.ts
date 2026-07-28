@@ -19,7 +19,6 @@
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
-import { pathToFileURL } from "node:url";
 
 import { z } from "zod";
 
@@ -42,6 +41,8 @@ export {
   type HarnessAuditReport,
   type LoadedEnvelope,
 } from "./harness/harness-audit-report.js";
+import { errorMessage } from "./lib/error-message.js";
+import { isCliEntrypoint } from "./lib/process-argv.js";
 
 const PROCESS_ARG_OFFSET = 2;
 const TOOL_ERROR_EXIT_CODE = 2;
@@ -86,10 +87,6 @@ function usage(): string {
     "change the exit code. Exits 2 only when an envelope is unreadable or",
     "malformed.",
   ].join("\n");
-}
-
-function describeError(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 function defaultReadFile(filePath: string): string {
@@ -166,7 +163,7 @@ export function loadEnvelopes(
     } catch (error) {
       failures.push({
         path: input,
-        reason: `could not read envelope file: ${describeError(error)}`,
+        reason: `could not read envelope file: ${errorMessage(error)}`,
       });
       continue;
     }
@@ -174,7 +171,7 @@ export function loadEnvelopes(
     try {
       parsed = JSON.parse(text);
     } catch (error) {
-      failures.push({ path: input, reason: `not valid JSON: ${describeError(error)}` });
+      failures.push({ path: input, reason: `not valid JSON: ${errorMessage(error)}` });
       continue;
     }
     const result = harnessDiagnosticsSchema.safeParse(parsed);
@@ -227,7 +224,7 @@ export function runHarnessAudit(options: RunHarnessAuditOptions): RunHarnessAudi
     } catch (error) {
       return {
         exitCode: TOOL_ERROR_EXIT_CODE,
-        stdout: `harness:audit could not write report to ${parsed.output}: ${describeError(error)}`,
+        stdout: `harness:audit could not write report to ${parsed.output}: ${errorMessage(error)}`,
         report,
       };
     }
@@ -247,12 +244,7 @@ export function runHarnessAudit(options: RunHarnessAuditOptions): RunHarnessAudi
   return { exitCode, stdout: rendered, report };
 }
 
-function isCliEntrypoint(): boolean {
-  if (!process.argv[1]) return false;
-  return import.meta.url === pathToFileURL(process.argv[1]).href;
-}
-
-if (isCliEntrypoint()) {
+if (isCliEntrypoint(import.meta.url)) {
   const result = runHarnessAudit({ argv: process.argv.slice(PROCESS_ARG_OFFSET) });
   if (result.stdout) console.log(result.stdout);
   if (result.exitCode !== 0) process.exitCode = result.exitCode;

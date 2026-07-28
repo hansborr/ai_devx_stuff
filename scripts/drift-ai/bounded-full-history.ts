@@ -4,6 +4,7 @@
 
 import { execFileSync } from "node:child_process";
 
+import { errorMessage } from "../lib/error-message.js";
 import {
   type BoundedHistoryUnexaminedCount,
   FULL_HISTORY_RENAME_CAVEAT,
@@ -311,11 +312,6 @@ function firstRecord(records: readonly CommitRecord[]): CommitRecord | null {
 function lastRecord(records: readonly CommitRecord[]): CommitRecord | null {
   if (records.length === 0) return null;
   return records[records.length - 1] ?? null;
-}
-
-function errorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  return String(error);
 }
 
 function stoppedReasonForGitError(message: string): GitLogRun["stoppedReason"] {

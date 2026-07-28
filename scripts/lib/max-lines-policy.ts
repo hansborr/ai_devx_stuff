@@ -2,6 +2,7 @@ import type { LintRatchetZeroBaselineDisposition } from "@musi/lint-ratchet/kern
 
 import { parseMaxLinesExceptionEntry } from "../../eslint-config/max-lines-exceptions-codec.js";
 import { maxLinesPolicy as rawMaxLinesPolicy } from "../../eslint-config/shared-policy.js";
+import { isRecord } from "./records.js";
 
 interface MaxLinesRatchetPolicy {
   readonly id: string;
@@ -39,10 +40,6 @@ interface MaxLinesPolicy {
   readonly ratchets: readonly MaxLinesRatchetPolicy[];
 }
 
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
 function readNonEmptyString(raw: unknown, context: string): string {
   if (typeof raw !== "string" || raw.trim().length === 0) {
     throw new Error(`${context} must be a non-empty string`);
@@ -68,7 +65,7 @@ function readZeroBaselineDisposition(
   raw: unknown,
   context: string,
 ): LintRatchetZeroBaselineDisposition {
-  if (!isObject(raw)) throw new Error(`${context} must be an object`);
+  if (!isRecord(raw)) throw new Error(`${context} must be an object`);
   const { kind, reason } = raw;
   if (kind !== "intentional-ratchet-only" && kind !== "narrow-floor") {
     throw new Error(`${context}.kind is invalid`);
@@ -78,7 +75,7 @@ function readZeroBaselineDisposition(
 
 function readRatchetPolicy(raw: unknown, index: number): MaxLinesRatchetPolicy {
   const context = `maxLinesPolicy.ratchets[${String(index)}]`;
-  if (!isObject(raw)) throw new Error(`${context} must be an object`);
+  if (!isRecord(raw)) throw new Error(`${context} must be an object`);
   const { id, files, ignores, zeroBaselineDisposition } = raw;
   return {
     id: readNonEmptyString(id, `${context}.id`),
@@ -108,7 +105,7 @@ function readGeneratedExemptionPolicy(
   index: number,
 ): MaxLinesGeneratedExemptionPolicy {
   const context = `maxLinesPolicy.generatedExemptions[${String(index)}]`;
-  if (!isObject(raw)) throw new Error(`${context} must be an object`);
+  if (!isRecord(raw)) throw new Error(`${context} must be an object`);
   return {
     path: readNonEmptyString(raw.path, `${context}.path`),
     generator: readNonEmptyString(raw.generator, `${context}.generator`),
@@ -117,13 +114,13 @@ function readGeneratedExemptionPolicy(
 }
 
 export function readMaxLinesPolicy(raw: unknown): MaxLinesPolicy {
-  if (!isObject(raw)) throw new Error("maxLinesPolicy must be an object");
+  if (!isRecord(raw)) throw new Error("maxLinesPolicy must be an object");
   const { counting, ratchetFloor, exceptions, generatedExemptions, ratchets } = raw;
-  if (!isObject(counting)) throw new Error("maxLinesPolicy.counting must be an object");
+  if (!isRecord(counting)) throw new Error("maxLinesPolicy.counting must be an object");
   if (counting.skipBlankLines !== true || counting.skipComments !== true) {
     throw new Error("maxLinesPolicy.counting flags must be true");
   }
-  if (!isObject(ratchetFloor) || typeof ratchetFloor.cap !== "number") {
+  if (!isRecord(ratchetFloor) || typeof ratchetFloor.cap !== "number") {
     throw new Error("maxLinesPolicy.ratchetFloor.cap must be a number");
   }
   if (!Array.isArray(exceptions)) throw new Error("maxLinesPolicy.exceptions must be an array");

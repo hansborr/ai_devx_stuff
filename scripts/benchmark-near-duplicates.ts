@@ -19,6 +19,7 @@ import {
 } from "./drift-ai/near-duplicates-exact.js";
 import { defaultNearDuplicateRunner } from "./drift-ai/near-duplicates-runner.js";
 import { buildSourceExtensions } from "./drift-ai/scope.js";
+import { isRecord } from "./lib/records.js";
 import { nearDuplicateEntriesFromPairs } from "./sensor-near-duplicates-baseline.js";
 
 const DEFAULT_SAMPLE_COUNT = 5;
@@ -204,10 +205,6 @@ function hasWorkerCounts(
     typeof value.unionPairs === "number" &&
     typeof value.newBaselineIdentities === "number"
   );
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function isExactAudit(value: unknown): value is NonNullable<WorkerAudit["exactAudit"]> {

@@ -47,14 +47,28 @@ if ai_is_git_commit_cmd "$CMD"; then
   [ -z "$WORK_ROOT" ] \
     && WORK_ROOT=$(git -C "$(ai_resolve_target_dir "$CMD" "$(ai_payload_cwd "$PAYLOAD")" "$REPO_ROOT")" rev-parse --show-toplevel 2>/dev/null || printf '%s' "$REPO_ROOT")
   HEAD_AFTER=$(git -C "$WORK_ROOT" rev-parse HEAD 2>/dev/null || echo none)
+
+  # Establish both preconditions ONCE, before any verdict is chosen. Every
+  # branch below states something about a commit, so every branch needs them:
+  # routing over-matches on purpose, and WORK_ROOT may be a fallback rather than
+  # the checkout the command touched. Deciding this per-branch is how a success
+  # claim (unrelated concurrent movement of the fallback checkout's HEAD) and a
+  # raw --dry-run claim (text that merely contains the flag) stayed reachable.
+  REAL_COMMIT=0
+  ai_is_real_git_commit_cmd "$CMD" && REAL_COMMIT=1
+  ATTRIBUTED=1
+  ai_target_is_unattributable "$CMD" "$(ai_payload_cwd "$PAYLOAD")" "$REPO_ROOT" \
+    && ATTRIBUTED=0
+
   DRY_RUN=0
-  if ai_is_git_commit_dry_run "$CMD"; then
+  if [ "$REAL_COMMIT" -eq 1 ] && ai_is_git_commit_dry_run "$CMD"; then
     DRY_RUN=1
   fi
 
   [ -n "$STATE_FILE" ] && rm -f "$STATE_FILE"
 
-  if [ "$DRY_RUN" -ne 1 ] && [ -n "$HEAD_BEFORE" ] && [ "$HEAD_AFTER" != "$HEAD_BEFORE" ]; then
+  if [ "$REAL_COMMIT" -eq 1 ] && [ "$ATTRIBUTED" -eq 1 ] && [ "$DRY_RUN" -ne 1 ] \
+    && [ -n "$HEAD_BEFORE" ] && [ "$HEAD_AFTER" != "$HEAD_BEFORE" ]; then
     ai_emit_block "$(ai_commit_success_summary "$WORK_ROOT" "$HEAD_BEFORE" "$HEAD_AFTER")"
   fi
 
@@ -62,6 +76,12 @@ if ai_is_git_commit_cmd "$CMD"; then
     :
   elif [ "$DRY_RUN" -eq 1 ]; then
     SUMMARY=$(ai_commit_dry_run_summary "$COMBINED")
+  elif [ "$REAL_COMMIT" -eq 0 ] && [ "$EXIT_CODE" = "0" ]; then
+    # Text that merely contains a commit reached here through the deliberately
+    # wide routing gate. Hand its output back with no commit verdict attached.
+    SUMMARY=$(ai_commit_generic_summary "Command completed (exit $EXIT_CODE)." "$COMBINED")
+  elif [ "$ATTRIBUTED" -eq 0 ] && [ "$EXIT_CODE" = "0" ]; then
+    SUMMARY=$(ai_commit_landing_unknown_summary "$WORK_ROOT" "$COMBINED")
   elif [ -n "$HEAD_BEFORE" ] && [ "$HEAD_AFTER" = "$HEAD_BEFORE" ] && [ "$EXIT_CODE" = "0" ]; then
     SUMMARY=$(ai_commit_no_landing_summary "$HEAD_BEFORE" "$COMBINED")
   elif [ "$EXIT_CODE" = "124" ] || [ "$EXIT_CODE" = "130" ] || [ "$EXIT_CODE" = "143" ] || { [ -z "$EXIT_CODE" ] && [ -z "$COMBINED" ]; }; then

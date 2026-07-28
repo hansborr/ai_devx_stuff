@@ -98,7 +98,7 @@ then the discretionary tail. Within a phase, drain top to bottom.
 
 | # | Task | Source | Size | Status |
 |---|---|---|---|---|
-| F.1 | [Phase 3 review follow-ups](./03-phase3-review-followups.md) | this pack | S | Open — item 1 (trigger-group sharing) landed 2026-07-19 (wave-1 ready-2026-07 drain); two low-priority residues remain (generator-import consistency test, porting-knob scan roots); item 4 (SubagentStop delivery) resolved 2026-07-16 as a keep-off-pending-attribution decision |
+| F.1 | [Phase 3 review follow-ups](./03-phase3-review-followups.md) | this pack | S | Done — items 1–3 landed 2026-07-19 (item 1 trigger-group sharing, wave-1 ready-2026-07 drain; item 2 generator-import consistency test `ad5c8e77`; item 3 porting-knob scan roots `6e279c71`); item 4 (SubagentStop delivery) resolved 2026-07-16 as a keep-off-pending-attribution decision |
 | F.2 | [Phase 4/5 review follow-ups](./04-phase45-review-followups.md) | this pack | S | Open — item 1 (derive pre-push scan-trigger extensions from scope source) landed 2026-07-19 (wave-1 ready-2026-07 drain); one low-priority residue remains (sibling-worktree hint for the non-HEAD push guard) |
 
 ## Promotion rules

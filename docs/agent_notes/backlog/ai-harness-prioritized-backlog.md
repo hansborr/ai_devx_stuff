@@ -27,7 +27,10 @@ execution where the scopes overlap; keep this file as ordering rationale.
    client cache/socket flows. Use mutation testing to find unassertive
    scenarios, not as a prerequisite for starting the leaf.
 
-2. Stable JSON output for existing diagnostics.
+2. Stable JSON output for existing diagnostics. **Shipped.** All four named
+   candidates emit a harness-diagnostics envelope: `verify:logs --json`,
+   `doctor --json`, `module:index:check --json`, `db:migration-safety --json`.
+   Script smoke tests remain the only candidate without a JSON mode.
    Add `--format json` to one existing diagnostic command only after naming a
    concrete consumer, such as `harness:audit`, a host-side weekly report, a hook
    summary, or a reviewer handoff script. Best candidates: `verify:logs`,
@@ -78,7 +81,12 @@ execution where the scopes overlap; keep this file as ordering rationale.
    helper boundaries. Keep broad inferential review optional and only after
    deterministic checks pass.
 
-8. Graph drift sensors.
+8. Graph drift sensors. **Mostly shipped.** Dead exports
+   (`sensor:knip-unused-exports`, `sensor:knip`), import cycles
+   (`lint:import-cycles`), and stale module docs (`module:index:check`, the
+   `drift:ai coldspots` stale-markers lens) all exist and are report-only.
+   Still open: changed source without nearby/direct candidate tests, and layer
+   drift.
    Use existing `code:intel` graph machinery for report-only dead exports,
    import cycles, stale module docs, changed source without nearby/direct
    candidate tests, and layer drift. Keep these out of `verify:changed` until
@@ -101,7 +109,9 @@ execution where the scopes overlap; keep this file as ordering rationale.
     bounded samples. The "likely covering tests" mapping was deferred — wire
     it through `code:intel tests` if triage shows it is worth the lookup.
 
-11. Scheduled slow harness report.
+11. Scheduled slow harness report. **Shipped.** `bun run harness:audit`
+    (`scripts/harness-audit.ts`) exists and is registered as
+    `sensor/harness-audit` in `harness.controls.json`.
     Add one report-only command, such as `bun run harness:audit`, that can be
     run weekly or from a host timer. This should aggregate report-only commands
     that already exist when the leaf is promoted, instead of requiring every
@@ -109,7 +119,10 @@ execution where the scopes overlap; keep this file as ordering rationale.
     suggested candidate leaves. AI summarization may consume the report later,
     but it should not be the source of truth.
 
-12. `logs:audit:latest` or doctor integration.
+12. `logs:audit:latest` or doctor integration. **Partly shipped.**
+    `bun run logs:audit --latest` exists
+    (`scripts/logs-audit/logs-audit-latest.ts`); the `doctor` surfacing is
+    still open.
     Make `scripts/logs-audit.ts` easier to use against the newest known local
     server log. Keep it out of `verify:changed`, but let `doctor` surface it
     when a known log path exists.
@@ -140,13 +153,22 @@ execution where the scopes overlap; keep this file as ordering rationale.
     metadata. It should preview exact actions without mutating by default.
     Avoid database, migration, and git-history mutation fixes.
 
-17. Rule and codemod metadata registry.
+17. Rule and codemod metadata registry. **Shipped.** `harness.controls.json`
+    is the registry (176 controls across `lint-rule`, `codemod`, `sensor`,
+    `drift-scope`, `ratchet`, `hook`, and `doc-generator` kinds) carrying
+    `category`, `principle`, `pairedGuide`, `repairKind`, `repairCommand`,
+    `source`, and `invocation`; `bun run harness:check` and
+    `docs:harness-controls:check` validate it against the tree and generated
+    docs.
     Add machine-readable metadata for local ESLint rules, drift checks, and
     codemods: category, paired guide, default command, repair command, fixable
     status, examples, and owner notes. Generate parts of `docs/ai-harness.md`
     only after the metadata proves useful.
 
-18. Canonical agent assets with adapter sync.
+18. Canonical agent assets with adapter sync. **Shipped.**
+    `scripts/harness/generate-skill-artifacts.ts` projects the canonical skill
+    source into the per-harness adapters, driven by the harness manifest and
+    gated by `bun run harness:skills:refresh` / `harness:skills:check`.
     If `.claude/skills`, `.codex/skills`, prompts, or subagent templates keep
     growing, move shared source into one repo-owned directory and generate the
     harness-specific adapters. Keep registration details in the adapters.

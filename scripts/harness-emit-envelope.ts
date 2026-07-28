@@ -1,14 +1,11 @@
-import { isAbsolute, resolve } from "node:path";
-
 import {
   HARNESS_DIAGNOSTICS_SCHEMA_VERSION,
   type HarnessDiagnostics,
-  harnessDiagnosticsSchema,
   type HarnessFinding,
   harnessFindingSchema,
   summarizeHarnessFindings,
 } from "../packages/shared/src/schemas/harness-diagnostics.js";
-import { ensureDirWriteFileAtomicallySync } from "./lib/atomic-write.js";
+import { emitHarnessDiagnostics } from "./harness/harness-diagnostics-output.js";
 
 const PROCESS_ARG_OFFSET = 2;
 const OPTION_WITH_VALUE_ARG_SPAN = 2;
@@ -173,21 +170,13 @@ async function main(): Promise<void> {
     findings: [...findings],
     summary: summarizeHarnessFindings(findings),
   };
-  const validated = harnessDiagnosticsSchema.safeParse(envelope);
-  if (!validated.success) {
-    const issues = JSON.stringify(validated.error.issues, null, JSON_INDENT_SPACES);
-    throw new Error(`harness-emit-envelope produced an invalid envelope:\n${issues}`);
-  }
-
-  const rendered = `${JSON.stringify(envelope, null, JSON_INDENT_SPACES)}\n`;
-  if (args.outputPath !== undefined) {
-    const outPath = isAbsolute(args.outputPath)
-      ? args.outputPath
-      : resolve(process.cwd(), args.outputPath);
-    ensureDirWriteFileAtomicallySync(outPath, rendered);
-  } else {
-    process.stdout.write(rendered);
-  }
+  emitHarnessDiagnostics(
+    envelope,
+    args.outputPath === undefined
+      ? { mode: "stdout-only" }
+      : { mode: "output-path", path: args.outputPath },
+    { source: "harness-emit-envelope" },
+  );
 }
 
 await main();

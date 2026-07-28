@@ -5,7 +5,9 @@
 # smoke-subjects: scripts/lint-agent-envelope.ts
 # smoke-subjects: scripts/lib/changed-base.sh
 # smoke-subjects: scripts/lib/changed-lintable-files.sh
+# smoke-subjects: scripts/lib/records.ts
 # smoke-subjects: scripts/harness-emit-envelope.ts
+# smoke-subjects: scripts/harness/harness-diagnostics-output.ts
 # smoke-subjects: scripts/path-policy/path-policy-query.ts
 # smoke-subjects: scripts/path-policy/path-policy-query-core.ts
 # smoke-subjects: scripts/path-policy/path-policy.ts

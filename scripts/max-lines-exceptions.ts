@@ -7,7 +7,7 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 
 import { forwardMissingMergeDriverWarning } from "@musi/lint-ratchet/git-rail/merge-driver-presence.js";
 
@@ -17,6 +17,7 @@ import {
   type MaxLinesGeneratedExemptionPolicy,
   maxLinesPolicy as validatedMaxLinesPolicy,
 } from "./lib/max-lines-policy.js";
+import { isCliEntrypoint } from "./lib/process-argv.js";
 import { computeEffectiveLineCount } from "./max-lines-effective-lines.js";
 import {
   checkMaxLinesExceptionsBaseline,
@@ -281,12 +282,7 @@ export function runMaxLinesExceptionsCli(
   return withAudit(options, OK_STDOUT, entries);
 }
 
-function isCliEntrypoint(): boolean {
-  if (!process.argv[1]) return false;
-  return import.meta.url === pathToFileURL(process.argv[1]).href;
-}
-
-if (isCliEntrypoint()) {
+if (isCliEntrypoint(import.meta.url)) {
   const result = runMaxLinesExceptionsCli({
     argv: process.argv.slice(PROCESS_ARGV_USER_ARGS_START),
     baselinePath: resolve(repoRootFromModule(), DEFAULT_BASELINE_RELATIVE),

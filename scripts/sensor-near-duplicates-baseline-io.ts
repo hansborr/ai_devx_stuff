@@ -1,10 +1,15 @@
-import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 
 import type { ParseResult } from "@musi/lint-ratchet/kernel/entry-baseline.js";
 
-import { defaultGitRunner, readGitBlobAtRef } from "./lib/git.js";
+import {
+  defaultGitRunner,
+  readFirstParentCommit,
+  readGitBlobAtRef,
+  readGitDir,
+  readRepoRoot,
+} from "./lib/git.js";
 import {
   type NearDuplicateBaselineEntry,
   readNearDuplicatesBaseline,
@@ -22,10 +27,8 @@ export function readHeadNearDuplicatesBaseline(
   baselinePath: string,
 ): ParseResult<readonly NearDuplicateBaselineEntry[]> {
   try {
-    const repoRoot = execFileSync("git", ["rev-parse", "--show-toplevel"], {
-      cwd,
-      encoding: "utf8",
-    }).trim();
+    const git = defaultGitRunner({ cwd });
+    const repoRoot = readRepoRoot(git);
     const repoRelativePath = relative(repoRoot, baselinePath);
     if (
       repoRelativePath.length === 0 ||
@@ -36,7 +39,7 @@ export function readHeadNearDuplicatesBaseline(
       return { ok: false, error: `baseline must be inside the repository at ${baselinePath}` };
     }
     const gitPath = repoRelativePath.split(sep).join("/");
-    const text = readGitBlobAtRef(defaultGitRunner({ cwd }), "HEAD", gitPath);
+    const text = readGitBlobAtRef(git, "HEAD", gitPath);
     return readNearDuplicatesBaseline(text);
   } catch (error) {
     return {
@@ -48,10 +51,7 @@ export function readHeadNearDuplicatesBaseline(
 
 export function validateNearDuplicatesMergeTruthUp(cwd: string): ParseResult<string> {
   try {
-    const gitDir = execFileSync("git", ["rev-parse", "--git-dir"], {
-      cwd,
-      encoding: "utf8",
-    }).trim();
+    const gitDir = readGitDir(defaultGitRunner({ cwd }));
     const markerPath = resolve(
       cwd,
       gitDir,
@@ -61,11 +61,10 @@ export function validateNearDuplicatesMergeTruthUp(cwd: string): ParseResult<str
       return { ok: false, error: "merge truth-up marker is missing" };
     }
     const markerHead = readFileSync(markerPath, "utf8").match(/^pre-merge-head=(.+)$/mu)?.[1];
-    const firstParent = execFileSync("git", ["rev-parse", "--verify", "HEAD^1"], {
-      cwd,
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"],
-    }).trim();
+    // "captured" reproduces this probe's original stdio tuple: outside a merge
+    // HEAD has no first parent, which is an expected outcome mapped below, so
+    // git's fatal must stay off the terminal while remaining in the error text.
+    const firstParent = readFirstParentCommit(defaultGitRunner({ cwd, stderr: "captured" }));
     if (markerHead === undefined || markerHead !== firstParent) {
       return { ok: false, error: "merge truth-up marker does not match HEAD's first parent" };
     }

@@ -36,9 +36,10 @@ ai_lint_coverage_is_lintable() {
 # (shared with the authoritative gate) so this hook no longer carries its own copy
 # of the ratchet glob semantics. Output row, when matched:
 #   ratchet-covered<TAB><relpath><TAB><comma-separated rule ids>
-# Any tooling failure, a missing/malformed baseline, or a non-matching path
-# yields no row -> non-zero, so the caller falls back to the louder uncovered tier.
-ai_lint_coverage_is_ratchet_covered() {
+# Prints the comma-separated rule ids and returns 0 on a match. Any tooling
+# failure, a missing/malformed baseline, or a non-matching path yields no row ->
+# non-zero, so the caller falls back to the louder uncovered tier.
+ai_lint_coverage_ratchet_rules_for_path() {
   local relative_path="$1"
   local baseline_path="$REPO_ROOT/lint-ratchet.baseline.json"
   local row rules
@@ -55,11 +56,12 @@ ai_lint_coverage_is_ratchet_covered() {
   return 0
 }
 
-# Classify one file into a coverage tier. Prints a tab-delimited record the
-# main loop buckets — `ratchet<TAB>relative/path<TAB>rule list` or
-# `uncovered<TAB>relative/path` — and returns non-zero as the internal "captured
-# this file" signal. A fully-covered file prints nothing and returns 0. Message
-# prose is composed later so throttling can drop a whole tier at once.
+# Classify one file into a coverage tier. Always returns 0; the tier is carried
+# on stdout as a tab-delimited record the main loop buckets —
+# `ratchet<TAB>relative/path<TAB>rule list` or `uncovered<TAB>relative/path`.
+# A fully-covered file prints nothing, so "captured" is `[ -n "$result" ]` and
+# an unrelated failure cannot masquerade as a hit. Message prose is composed
+# later so throttling can drop a whole tier at once.
 ai_lint_coverage_check_file() {
   local absolute_path="$1"
   local relative_path="$2"
@@ -74,13 +76,13 @@ ai_lint_coverage_check_file() {
     # rule set, so an ESLint-ignored file is not really "covered" — record it in
     # the softer `ratchet` tier naming the tracked rule(s) instead of the louder
     # `uncovered` warning.
-    if ratchet_rules=$(ai_lint_coverage_is_ratchet_covered "$relative_path"); then
+    if ratchet_rules=$(ai_lint_coverage_ratchet_rules_for_path "$relative_path"); then
       printf 'ratchet\t%s\t%s\n' "$relative_path" "$ratchet_rules"
-      return 1
+      return 0
     fi
 
     printf 'uncovered\t%s\n' "$relative_path"
-    return 1
+    return 0
   fi
   return 0
 }
@@ -181,14 +183,15 @@ ai_lint_coverage_main() {
 
     [ -f "$absolute_path" ] || continue
 
-    result=$(ai_lint_coverage_check_file "$absolute_path" "$relative_path") || {
-      tier="${result%%$'\t'*}"
-      rest="${result#*$'\t'}"
-      case "$tier" in
-        ratchet) ratchet_entries+=("$rest") ;;
-        uncovered) uncovered_entries+=("$rest") ;;
-      esac
-    }
+    result=$(ai_lint_coverage_check_file "$absolute_path" "$relative_path")
+    # Empty record = fully covered (or the check failed); either way nothing to bucket.
+    [ -n "$result" ] || continue
+    tier="${result%%$'\t'*}"
+    rest="${result#*$'\t'}"
+    case "$tier" in
+      ratchet) ratchet_entries+=("$rest") ;;
+      uncovered) uncovered_entries+=("$rest") ;;
+    esac
   done
 
   # Covered/non-lintable edits never reach a tier, so they touch no state.

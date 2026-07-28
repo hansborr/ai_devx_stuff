@@ -121,6 +121,24 @@ The command exited 0 but HEAD is still at $head_before. Likely cause: the comman
 $(printf '%s\n' "$output" | tail -n 40)" 80 "... truncated ({lines} lines total). Read the referenced log files for complete output."
 }
 
+# Emitted INSTEAD of ai_commit_no_landing_summary when HEAD did not move but the
+# hook cannot prove which checkout it just measured: the command's leading forms
+# carry a substitution, so a `cd`/`git -C` may be hiding in there and the commit
+# may have landed in a different repository than the one observed. "No commit
+# landed" would be a confident wrong claim here — in parallel-lane work an agent
+# acts on it by redoing or undoing work that did land — so state the uncertainty
+# and hand back the child output unjudged.
+ai_commit_landing_unknown_summary() {
+  local observed_root="$1"
+  local output="$2"
+
+  ai_limit_lines "Commit result unknown — the target checkout could not be identified.
+The command exited 0 and HEAD did not move in $observed_root, but the command's leading forms contain a command substitution, so the hook could not tell which repository the command acted on. No claim is made about whether a commit landed: it may have landed in another checkout. Check 'git -C <the directory the command targeted> log -1 --oneline' before retrying, and prefer a literal path with no substitution before the commit verb so this check can attribute the result.
+
+--- child output (last 40 lines) ---
+$(printf '%s\n' "$output" | tail -n 40)" 80 "... truncated ({lines} lines total). Read the referenced log files for complete output."
+}
+
 ai_commit_dry_run_summary() {
   local output="$1"
 

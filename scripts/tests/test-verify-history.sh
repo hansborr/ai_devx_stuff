@@ -22,6 +22,7 @@
 # smoke-subjects: scripts/process-tree.sh
 # smoke-subjects: scripts/lib/parallel-step.sh
 # smoke-subjects: scripts/lib/lint-dist-preflight.sh
+# smoke-subjects: scripts/lib/records.ts
 # smoke-subjects: scripts/ai-hooks/output-filter.sh
 # smoke-subjects: .husky/pre-commit
 # smoke-subjects: package.json

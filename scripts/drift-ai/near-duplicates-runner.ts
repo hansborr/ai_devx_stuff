@@ -10,6 +10,7 @@ import {
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
+import { errorMessage } from "../lib/error-message.js";
 import type { DriftAiIgnoreConfig } from "./config.js";
 import { matchesAnyGlob } from "./config-match.js";
 import {
@@ -270,8 +271,4 @@ function stderrMessage(status: number | null, stderr: string): string {
   return detail.length > 0
     ? `similarity-ts exited ${code}: ${detail}`
     : `similarity-ts exited ${code}`;
-}
-
-function errorMessage(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
 }

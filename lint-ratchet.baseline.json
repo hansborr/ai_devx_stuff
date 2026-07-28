@@ -16,7 +16,7 @@
       ],
       "ruleOptions": [],
       "configHash": "sha256:90aa3de027ee76efffe93f50c79388454f56c674001c8af357b982e553bb48d0",
-      "ruleSourceHash": "sha256:667be8815b658bc272ae67dba3099e7e0c0cff34e3f66dc240cf65582e1e0589",
+      "ruleSourceHash": "sha256:e652c5bd624f7762a5451ac8b211465f2753d663f01c200f5e7b34f1eb95791d",
       "items": {
         "packages/client/src/components/campaign/chat/chat-panel.tsx": {
           "count": 2,
@@ -321,17 +321,8 @@
       ],
       "ruleOptions": [],
       "configHash": "sha256:d6ad31dd538c54cd0dfc7f35aff3dac4e54c4976ae269972441eb96da95866b1",
-      "ruleSourceHash": "sha256:87bc3a32b6a63abdf057f89ddd4eb74c7bc7acc668bb7752c63541c2758b909e",
-      "items": {
-        "packages/client/src/components/sheet/dm-editable-score.tsx": {
-          "count": 1,
-          "messagesFingerprint": "sha256:4b2b357dc32eedff809233db67e678efbd5110d14619008980da709c34b80006"
-        },
-        "packages/client/src/hooks/use-debounced-cursor-list.ts": {
-          "count": 1,
-          "messagesFingerprint": "sha256:4b2b357dc32eedff809233db67e678efbd5110d14619008980da709c34b80006"
-        }
-      }
+      "ruleSourceHash": "sha256:cbee38d25caecbc33b5f9d26766e206fc035a3073b63f7c60a171468888756aa",
+      "items": {}
     },
     "ratchet/local-no-swallowed-errors-broader-semantics": {
       "ruleId": "local/no-swallowed-errors",
@@ -358,7 +349,7 @@
         }
       ],
       "configHash": "sha256:385dfa91172f04f2e601164834b8e4a9ac3760524e0130cf3c9e1cbea5006de7",
-      "ruleSourceHash": "sha256:263fa3e7e801ea7806757dbacf2888efd094795d52d490ff1834b3569997554a",
+      "ruleSourceHash": "sha256:d0ede184968a0b5f05cd7ea9ca44506f7f168dc611c810ac089205ccab07df57",
       "items": {
         "packages/client/src/components/sheet/ability-scores-state.ts": {
           "count": 1,
@@ -465,10 +456,6 @@
       "configHash": "sha256:a148c15af74377921974ea8a1c22d13e40a882d0bda587f3466d693f655c250b",
       "ruleSourceHash": "sha256:04d174263df6b7bec85c4c45173e8d2aad68bc6cb96bd9f3fce95e8ec23409d1",
       "items": {
-        "packages/server/src/routers/character-spell.ts": {
-          "count": 1,
-          "messagesFingerprint": "sha256:50995dd1f21b9ce076473f5c63d91dbcb66d7d112454a6748b92a62d9c4fab80"
-        },
         "packages/server/src/seed/generate-class-features.ts": {
           "count": 1,
           "messagesFingerprint": "sha256:50995dd1f21b9ce076473f5c63d91dbcb66d7d112454a6748b92a62d9c4fab80"
@@ -583,10 +570,6 @@
           "count": 1,
           "messagesFingerprint": "sha256:31ef2d372b5e9d7db7f835b377150724e67759b5da9031e8b1e3dd48db65aed7"
         },
-        "packages/client/src/lib/query-invalidation.ts": {
-          "count": 1,
-          "messagesFingerprint": "sha256:31ef2d372b5e9d7db7f835b377150724e67759b5da9031e8b1e3dd48db65aed7"
-        },
         "packages/client/src/pages/character-sheet/sheet-layout.tsx": {
           "count": 1,
           "messagesFingerprint": "sha256:31ef2d372b5e9d7db7f835b377150724e67759b5da9031e8b1e3dd48db65aed7"
@@ -629,10 +612,6 @@
       "configHash": "sha256:72a8571b50e4d3f5004b2e14368f0e1e94ef51d1f45e7916bac13ccf85ae94a7",
       "ruleSourceHash": "sha256:e0c4ca2b3d1dca511b4a357da5c42c052d4438bd41a187403e18bbf13ef32f95",
       "items": {
-        "scripts/backlog-lint.ts": {
-          "count": 1,
-          "messagesFingerprint": "sha256:5098811e01ce1a2317c545ac9042cd6f11da1fe7ec2aa50465d7147222790975"
-        },
         "scripts/drift-ai/bounded-full-history.ts": {
           "count": 1,
           "messagesFingerprint": "sha256:5098811e01ce1a2317c545ac9042cd6f11da1fe7ec2aa50465d7147222790975"
@@ -665,10 +644,6 @@
           "count": 2,
           "messagesFingerprint": "sha256:aaaf105ea01e877f38d4239d8c5e79b5def7be96de3e82e5b76e58e427e029c1"
         },
-        "scripts/drift-ai/suppressions.ts": {
-          "count": 1,
-          "messagesFingerprint": "sha256:5098811e01ce1a2317c545ac9042cd6f11da1fe7ec2aa50465d7147222790975"
-        },
         "scripts/drift-triage/drift-triage-packet-io.ts": {
           "count": 1,
           "messagesFingerprint": "sha256:5098811e01ce1a2317c545ac9042cd6f11da1fe7ec2aa50465d7147222790975"
@@ -693,23 +668,7 @@
           "count": 4,
           "messagesFingerprint": "sha256:429b64c9542e36695492d0b53665da4378a6b273357d0aa5bfe1dac4a1dab823"
         },
-        "scripts/logs-audit/logs-audit-latest.ts": {
-          "count": 1,
-          "messagesFingerprint": "sha256:5098811e01ce1a2317c545ac9042cd6f11da1fe7ec2aa50465d7147222790975"
-        },
         "scripts/sensor-blob-size.test.ts": {
-          "count": 1,
-          "messagesFingerprint": "sha256:5098811e01ce1a2317c545ac9042cd6f11da1fe7ec2aa50465d7147222790975"
-        },
-        "scripts/sensor-blob-size.ts": {
-          "count": 2,
-          "messagesFingerprint": "sha256:aaaf105ea01e877f38d4239d8c5e79b5def7be96de3e82e5b76e58e427e029c1"
-        },
-        "scripts/sensor-near-duplicates-baseline-io.ts": {
-          "count": 3,
-          "messagesFingerprint": "sha256:02c6e877bbd944d5adf4592d2489f665c4ed2e4900d298c94258f135b1c4fe20"
-        },
-        "scripts/sensor-near-duplicates-core.ts": {
           "count": 1,
           "messagesFingerprint": "sha256:5098811e01ce1a2317c545ac9042cd6f11da1fe7ec2aa50465d7147222790975"
         },
@@ -846,10 +805,6 @@
       "configHash": "sha256:6c3bb52df4149e5095b52606cb8bdf14f6d347e804a1c03470372806c9076c33",
       "ruleSourceHash": "sha256:0f7a8dddcff08685ff7665314fbaa3c72c7cf43152a6fde99a456468423230c9",
       "items": {
-        "packages/client/src/components/sheet/dm-editable-score.tsx": {
-          "count": 1,
-          "messagesFingerprint": "sha256:729355a44880f591df3330927ad2295d22fd46308f1731dcd82513342976f306"
-        },
         "packages/client/src/hooks/socket-context.tsx": {
           "count": 1,
           "messagesFingerprint": "sha256:729355a44880f591df3330927ad2295d22fd46308f1731dcd82513342976f306"
@@ -859,10 +814,6 @@
           "messagesFingerprint": "sha256:729355a44880f591df3330927ad2295d22fd46308f1731dcd82513342976f306"
         },
         "packages/client/src/hooks/use-campaign-presence.ts": {
-          "count": 1,
-          "messagesFingerprint": "sha256:729355a44880f591df3330927ad2295d22fd46308f1731dcd82513342976f306"
-        },
-        "packages/client/src/hooks/use-debounced-cursor-list.ts": {
           "count": 1,
           "messagesFingerprint": "sha256:729355a44880f591df3330927ad2295d22fd46308f1731dcd82513342976f306"
         }
@@ -1057,8 +1008,8 @@
       "ruleSourceHash": "sha256:68fe596e95c0991c3417009b1dbe913edee1eec923b3ac159cee1af77216d934",
       "items": {
         "packages/server/src/services/character-create-helpers.ts": {
-          "count": 5,
-          "messagesFingerprint": "sha256:386e3075fb9afb848399903e8da8b7dba5d1fc58db4c5c2de801555de86044b2"
+          "count": 4,
+          "messagesFingerprint": "sha256:622e00030839d044af1c1703a7460029d5769d5bd6c372d6ccfe7cad0f0ab118"
         },
         "packages/server/src/services/character-create-spells.ts": {
           "count": 1,
@@ -1189,10 +1140,6 @@
           "count": 2,
           "messagesFingerprint": "sha256:a7d73d970a068eafffb2788eb7f0fed5683cef02f3945807a2bfc3ff3a63a40e"
         },
-        "packages/client/src/components/homebrew/shared/homebrew-text-field.test.tsx": {
-          "count": 2,
-          "messagesFingerprint": "sha256:a7d73d970a068eafffb2788eb7f0fed5683cef02f3945807a2bfc3ff3a63a40e"
-        },
         "packages/client/src/components/homebrew/shared/homebrew-textarea-field.test.tsx": {
           "count": 2,
           "messagesFingerprint": "sha256:a7d73d970a068eafffb2788eb7f0fed5683cef02f3945807a2bfc3ff3a63a40e"
@@ -1311,10 +1258,6 @@
           "count": 2,
           "messagesFingerprint": "sha256:3b5be15603708ca8f6d02c8b0918708e16ff6a564ed8a8b92e73d0dbc507235d"
         },
-        "packages/client/src/components/homebrew/shared/homebrew-text-field.test.tsx": {
-          "count": 2,
-          "messagesFingerprint": "sha256:3b5be15603708ca8f6d02c8b0918708e16ff6a564ed8a8b92e73d0dbc507235d"
-        },
         "packages/client/src/components/homebrew/shared/homebrew-textarea-field.test.tsx": {
           "count": 2,
           "messagesFingerprint": "sha256:3b5be15603708ca8f6d02c8b0918708e16ff6a564ed8a8b92e73d0dbc507235d"
@@ -1407,11 +1350,12 @@
             "expectHit",
             "expectOneFulfilledOneConflict",
             "expectParseFailure",
-            "expectParseSuccess"
+            "expectParseResultSuccess",
+            "expectSchemaParseSuccess"
           ]
         }
       ],
-      "configHash": "sha256:689ef7670cf52dff644563b2d6ed8e0313f0e10106f579976118b44f3612281e",
+      "configHash": "sha256:345d5169fa21c547e1ec5a4dffd2bbcc60610118631c2805e03a4549125af033",
       "ruleSourceHash": "sha256:8711c9809ab497e72008dba31c6411610cdd839207ff39adf0ee82172367b87f",
       "items": {}
     },

@@ -1,6 +1,6 @@
 # 9. 8 pure-node seed/parser server tests pay the full DB-setup tax (globalSetup + per-test cleanDb) for zero DB use
 
-Status: Proposed — read-only finding from the test-suite audit; NOT implemented. Re-verify file:line before acting.
+Status: Done — landed 2026-07-19 (`c4a3ea78`). The `src/seed/**` tests run in a DB-free `server-unit` vitest project with no setupFiles/globalSetup and blanked database env (`packages/server/vitest.unit.config.ts:17,26`). Problem statement below is the historical finding.
 Lens: speed · Area: server · Severity: low · Size: M · Confidence: high
 Theme: project-routing · Source: Musi test-suite audit 2026-06-13 (multi-agent, adversarially verified)
 

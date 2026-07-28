@@ -1,17 +1,11 @@
 // @ts-check
 
 import {
-  codeFiles,
   codemodSourceFiles,
-  eslintConfigJsFiles,
-  processEnvRestrictedSyntax,
-  processExitRestrictedSyntax,
   serverScriptTypeScriptFiles,
   scriptProjectIgnores,
   scriptTypeScriptFiles,
   sharedSchemasBarrelRestrictedImportPattern,
-  testAndHelperFiles,
-  tsConfigFiles,
 } from "./shared-policy.js";
 
 export const driftDirectionLawConfigs = [
@@ -141,59 +135,6 @@ export const scriptDebtOverrideConfigs = [
           allowRegExp: false,
         },
       ],
-    },
-  },
-];
-
-export const processPrimitiveConfigs = [
-  // Ban restricted process primitives outside named bootstrap/config/script
-  // boundaries.
-  {
-    files: codeFiles,
-    ignores: [...eslintConfigJsFiles, ...tsConfigFiles],
-    rules: {
-      "no-restricted-syntax": ["error", processExitRestrictedSyntax, processEnvRestrictedSyntax],
-    },
-  },
-
-  // Bootstrap/config/script entrypoints where the restricted process
-  // primitive is the correct boundary. This is the first no-restricted-syntax
-  // selector in the config, so turning the whole rule off here only drops the
-  // process primitive bans for these named files.
-  {
-    files: [
-      "scripts/db-status.ts",
-      "scripts/code-intel/daemon-process.ts",
-      "scripts/code-intel/daemon-server.ts",
-      "scripts/code-intel/perf-check.ts",
-      // Implements the HARNESS_DIAGNOSTICS_OUTPUT sidecar contract; reading
-      // that env var here IS the boundary every producer shares.
-      "scripts/harness/harness-diagnostics-output.ts",
-      // Implements the MUSI_HARNESS_CHECK_ALLOW_NO_FIXTURE_PATHS fixture
-      // opt-out; reading that env var here IS the fail-closed boundary.
-      "scripts/harness/fixture-closure-check.ts",
-      "scripts/lint-ratchet/output.ts",
-      "scripts/lint-ratchet.ts",
-      "scripts/max-lines-exceptions.ts",
-      "scripts/sensor-knip-unused-exports.ts",
-      "scripts/sensor-near-duplicates.ts",
-      "packages/server/src/config/env.ts",
-      "packages/server/src/main.ts",
-      "packages/server/prisma/seed.ts",
-      "packages/server/prisma/seed-template.ts",
-      "packages/server/scripts/pgexec.ts",
-    ],
-    rules: {
-      "no-restricted-syntax": "off",
-    },
-  },
-
-  // Test, helper, and e2e setup code may read/mutate environment variables
-  // to isolate processes and databases; keep process.exit(...) restricted.
-  {
-    files: testAndHelperFiles,
-    rules: {
-      "no-restricted-syntax": ["error", processExitRestrictedSyntax],
     },
   },
 ];

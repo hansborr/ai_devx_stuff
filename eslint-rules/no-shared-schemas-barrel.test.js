@@ -12,6 +12,7 @@
 // tsconfig.
 
 import { ESLint } from "eslint";
+import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -99,7 +100,13 @@ describe("schemas-barrel restriction", () => {
       const entry = cfg.rules?.["@typescript-eslint/no-restricted-imports"];
       expect(entry, "rule must be configured").toBeDefined();
       const patterns = patternsOf(entry);
-      expect(patternsMatchingBareBarrel(patterns).length).toBeGreaterThan(0);
+      const barrelPatterns = patternsMatchingBareBarrel(patterns);
+      expect(barrelPatterns.length).toBeGreaterThan(0);
+      // The barrel ban carries its architecture decision, not a dead roadmap id.
+      for (const pattern of barrelPatterns) {
+        const barrelMessage = /** @type {{ message?: unknown }} */ (pattern).message;
+        expect(barrelMessage).toContain("ADR-0005");
+      }
       // RawTxClient restriction must survive flat-config rule replacement.
       const rawTxPattern = patterns.find((p) => {
         if (!p || typeof p !== "object") return false;
@@ -123,8 +130,41 @@ describe("schemas-barrel restriction", () => {
       expect(entry, "rule must be configured").toBeDefined();
       const patterns = patternsOf(entry);
       expect(patternsMatchingBareBarrel(patterns).length).toBeGreaterThan(0);
+      const layeringPatterns = [
+        ...patternsWithGroup(patterns, "@musi/server"),
+        ...patternsWithGroup(patterns, "react"),
+      ];
       expect(patternsWithGroup(patterns, "@musi/server").length).toBeGreaterThan(0);
       expect(patternsWithGroup(patterns, "react").length).toBeGreaterThan(0);
+      // Both layering bans name the decision that explains why shared is closed.
+      for (const pattern of layeringPatterns) {
+        const message = /** @type {{ message?: unknown }} */ (pattern).message;
+        expect(message).toContain("ADR-0006");
+      }
     },
   );
+});
+
+// The lint side above keeps the removed `@musi/shared/schemas` barrel
+// unimportable. The manifest side is the other half of the same decision:
+// ADR-0005 makes the *absence* of a `"."` root entry part of the boundary, and
+// no lint rule can see a package.json `exports` map. Re-adding `"."` — even
+// pointed at one existing module — reopens the bare `@musi/shared` specifier
+// that the subpath split exists to remove, and nothing else in the repo
+// notices.
+describe("shared package export surface", () => {
+  const manifest = /** @type {{ exports?: Record<string, unknown> }} */ (
+    JSON.parse(readFileSync(resolve(repoRoot, "packages/shared/package.json"), "utf8"))
+  );
+
+  it("declares subpath exports and no root entry", () => {
+    const exportKeys = Object.keys(manifest.exports ?? {});
+    // Guard against a manifest reshape that would make the assertion below
+    // pass over an empty key set.
+    expect(exportKeys.length).toBeGreaterThan(0);
+    expect(exportKeys).not.toContain(".");
+    for (const key of exportKeys) {
+      expect(key, "every export key must be a scoped subpath").toMatch(/^\.\/\S/);
+    }
+  });
 });

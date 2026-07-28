@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { createConnection, type Socket } from "node:net";
 
+import { errorMessage } from "../lib/error-message.js";
 import { isDaemonRoutableExecutableCommand } from "./daemon-commands.js";
 import { isProcessAlive } from "./daemon-process.js";
 import {
@@ -84,7 +85,7 @@ function transportFailureOutcome(
       `Daemon refs query timed out after ${String(timeoutMs)}ms; the daemon may still be warming its reference project. Retry the query instead of duplicating the cold refs scan in one-shot mode.`,
     );
   }
-  return { kind: "fallback", reason: `transport: ${describeError(error)}` };
+  return { kind: "fallback", reason: `transport: ${errorMessage(error)}` };
 }
 
 function checkDaemonReady(
@@ -95,7 +96,7 @@ function checkDaemonReady(
   try {
     metadata = readDaemonMetadata(paths);
   } catch (error) {
-    return { kind: "fallback", reason: `metadata: ${describeError(error)}` };
+    return { kind: "fallback", reason: `metadata: ${errorMessage(error)}` };
   }
   if (!metadata) return { kind: "fallback", reason: "daemon absent" };
   if (metadata.protocolVersion !== CODE_INTEL_DAEMON_PROTOCOL_VERSION) {
@@ -111,7 +112,7 @@ function interpretResponse(raw: string, expectedId: string): DaemonOutcome {
   try {
     parsed = JSON.parse(raw);
   } catch (error) {
-    return { kind: "fallback", reason: `invalid response: ${describeError(error)}` };
+    return { kind: "fallback", reason: `invalid response: ${errorMessage(error)}` };
   }
   if (!isRecord(parsed)) return { kind: "fallback", reason: "non-object response" };
   const protocolVersion = parsed.protocolVersion;
@@ -192,9 +193,4 @@ export const defaultDaemonTransport: DaemonTransport = async (socketPath, payloa
 function requestTimeoutForCommand(command: ExecutableCliCommand): number {
   if (command.kind === "refs") return REFS_REQUEST_TIMEOUT_MS;
   return DEFAULT_REQUEST_TIMEOUT_MS;
-}
-
-function describeError(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  return String(error);
 }

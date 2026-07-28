@@ -4,6 +4,7 @@
  * These bypass the UI to create test data quickly (e.g. characters).
  * Use when the UI flow itself isn't what we're testing.
  */
+import type { AppRouter, AppRouterInputs, AppRouterOutputs } from "@musi/server/router-type";
 import { type APIRequestContext, request } from "@playwright/test";
 
 import { resolveServerBaseUrl } from "./environment.js";
@@ -25,6 +26,42 @@ interface TrpcResult<T> {
 }
 
 /**
+ * Dotted `router.procedure` paths, split by HTTP verb so a query can never be
+ * POSTed. The procedure record carries its own `_def.type`, which is what
+ * makes the split derivable rather than a second hand-kept list.
+ */
+type RouterProcedures = AppRouter["_def"]["procedures"];
+
+type ProcedurePathOfType<Type extends "mutation" | "query"> = {
+  [Group in keyof RouterProcedures]: {
+    [Name in keyof RouterProcedures[Group] & string]: RouterProcedures[Group][Name] extends {
+      _def: { type: Type };
+    }
+      ? `${Group}.${Name}`
+      : never;
+  }[keyof RouterProcedures[Group] & string];
+}[keyof RouterProcedures];
+
+type MutationPath = ProcedurePathOfType<"mutation">;
+type QueryPath = ProcedurePathOfType<"query">;
+
+type ProcedureInput<Path extends string> = Path extends `${infer Group}.${infer Name}`
+  ? Group extends keyof AppRouterInputs
+    ? Name extends keyof AppRouterInputs[Group]
+      ? AppRouterInputs[Group][Name]
+      : never
+    : never
+  : never;
+
+type ProcedureOutput<Path extends string> = Path extends `${infer Group}.${infer Name}`
+  ? Group extends keyof AppRouterOutputs
+    ? Name extends keyof AppRouterOutputs[Group]
+      ? AppRouterOutputs[Group][Name]
+      : never
+    : never
+  : never;
+
+/**
  * Create a shared API request context. Call `dispose()` when done.
  * Reuse across multiple calls in a single beforeAll to avoid overhead.
  */
@@ -33,12 +70,12 @@ export async function createApiContext(): Promise<APIRequestContext> {
 }
 
 /** Call a tRPC mutation via HTTP POST. */
-async function trpcMutate<T>(
+async function trpcMutate<Path extends MutationPath>(
   ctx: APIRequestContext,
-  path: string,
-  payload: unknown,
+  path: Path,
+  payload: ProcedureInput<Path>,
   token?: string,
-): Promise<T> {
+): Promise<ProcedureOutput<Path>> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
@@ -47,18 +84,18 @@ async function trpcMutate<T>(
     const body = await resp.text();
     throw new Error(`tRPC ${path} failed (${String(resp.status())}): ${body}`);
   }
-  // type-assertion-boundary: json - tRPC response body parsed from JSON; downstream callers narrow via TrpcResult shape
-  const json = (await resp.json()) as TrpcResult<T>;
+  // type-assertion-boundary: json - tRPC response body parsed from JSON; narrowed to the procedure's declared output
+  const json = (await resp.json()) as TrpcResult<ProcedureOutput<Path>>;
   return json.result.data;
 }
 
 /** Call a tRPC query via HTTP GET. */
-async function trpcQuery<T>(
+async function trpcQuery<Path extends QueryPath>(
   ctx: APIRequestContext,
-  path: string,
-  payload: unknown,
+  path: Path,
+  payload: ProcedureInput<Path>,
   token?: string,
-): Promise<T> {
+): Promise<ProcedureOutput<Path>> {
   const headers: Record<string, string> = {};
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
@@ -68,8 +105,8 @@ async function trpcQuery<T>(
     const body = await resp.text();
     throw new Error(`tRPC ${path} failed (${String(resp.status())}): ${body}`);
   }
-  // type-assertion-boundary: json - tRPC response body parsed from JSON; downstream callers narrow via TrpcResult shape
-  const json = (await resp.json()) as TrpcResult<T>;
+  // type-assertion-boundary: json - tRPC response body parsed from JSON; narrowed to the procedure's declared output
+  const json = (await resp.json()) as TrpcResult<ProcedureOutput<Path>>;
   return json.result.data;
 }
 
@@ -79,7 +116,7 @@ export async function apiRegister(
   email: string,
   password: string,
   displayName: string,
-): Promise<{ user: { id: string; email: string; displayName: string } }> {
+): Promise<AppRouterOutputs["auth"]["register"]> {
   return trpcMutate(ctx, "auth.register", { email, password, displayName });
 }
 
@@ -88,30 +125,44 @@ export async function apiLogin(
   ctx: APIRequestContext,
   email: string,
   password: string,
-): Promise<{ accessToken: string; user: { id: string; email: string; displayName: string } }> {
+): Promise<AppRouterOutputs["auth"]["login"]> {
   return trpcMutate(ctx, "auth.login", { email, password });
 }
 
-/** Create a minimal character via the API. Returns the character ID. */
-export interface ApiCreateCharacterOptions {
-  name: string;
-  speciesId?: string;
-  subspeciesId?: string;
-  classId?: string;
-  backgroundId?: string;
-  strength?: number;
-  dexterity?: number;
-  constitution?: number;
-  intelligence?: number;
-  wisdom?: number;
-  charisma?: number;
-}
+/**
+ * The creation fields `DEFAULT_CHARACTER_INPUT` covers, plus the subspecies the
+ * helper forwards conditionally. Named explicitly rather than taken as
+ * `Partial<CreateInput>`: the field and enum *types* still come from the
+ * procedure (so a rename or retype fails the typecheck lane), but the fixture
+ * only claims to seed a minimal defaulted character. Personality text,
+ * starting equipment, feats and anything added to the procedure later stay off
+ * this surface — see `e2e/helpers/__type-tests__/api-fixture-restrictions.ts`.
+ */
+type ApiCreateCharacterOverride =
+  | "speciesId"
+  | "subspeciesId"
+  | "backgroundId"
+  | "classId"
+  | "strength"
+  | "dexterity"
+  | "constitution"
+  | "intelligence"
+  | "wisdom"
+  | "charisma";
+
+/**
+ * Create a minimal character via the API. Returns the character ID.
+ *
+ * Everything except the name falls back to `DEFAULT_CHARACTER_INPUT`.
+ */
+export type ApiCreateCharacterOptions = Pick<AppRouterInputs["character"]["create"], "name"> &
+  Partial<Pick<AppRouterInputs["character"]["create"], ApiCreateCharacterOverride>>;
 
 export async function apiCreateCharacter(
   ctx: APIRequestContext,
   token: string,
   opts: ApiCreateCharacterOptions,
-): Promise<{ id: string }> {
+): Promise<AppRouterOutputs["character"]["create"]> {
   const { name, subspeciesId, ...overrides } = opts;
   const input = { name, ...DEFAULT_CHARACTER_INPUT, ...overrides };
   return trpcMutate(
@@ -122,38 +173,31 @@ export async function apiCreateCharacter(
   );
 }
 
-/** Level a character in an existing or new class. */
+/**
+ * The level-up fields a caller controls. `hpMethod` *and* `hpRolled` are the
+ * helper's: it always sends `"average"`, so a rolled value would typecheck and
+ * then be dropped. Omitting only `hpMethod` would leave exactly that trap.
+ */
+export type ApiLevelUpCharacterInput = Pick<
+  AppRouterInputs["character"]["levelUp"],
+  "characterId" | "classId" | "subclassId" | "metamagicIds" | "asiChoice"
+>;
+
+/** Level a character in an existing or new class. Always takes average HP. */
 export async function apiLevelUpCharacter(
   ctx: APIRequestContext,
   token: string,
-  input: {
-    characterId: string;
-    classId: string;
-    subclassId?: string;
-    asiChoice?: {
-      featId: string;
-      asiIncreases: Array<{
-        ability: "STR" | "DEX" | "CON" | "INT" | "WIS" | "CHA";
-        amount: number;
-      }>;
-    };
-  },
-): Promise<{ id: string; level: number }> {
+  input: ApiLevelUpCharacterInput,
+): Promise<AppRouterOutputs["character"]["levelUp"]> {
   return trpcMutate(ctx, "character.levelUp", { ...input, hpMethod: "average" }, token);
 }
 
-/** Create an equipped custom inventory item. */
+/** Create a custom inventory item. */
 export async function apiCreateInventoryItem(
   ctx: APIRequestContext,
   token: string,
-  input: {
-    characterId: string;
-    name: string;
-    itemType: "weapon" | "armor" | "shield" | "gear" | "tool" | "consumable" | "other";
-    equipped?: boolean;
-    properties?: Record<string, unknown>;
-  },
-): Promise<{ id: string }> {
+  input: AppRouterInputs["inventory"]["create"],
+): Promise<AppRouterOutputs["inventory"]["create"]> {
   return trpcMutate(ctx, "inventory.create", input, token);
 }
 
@@ -161,8 +205,8 @@ export async function apiCreateInventoryItem(
 export async function apiAddCharacterSpell(
   ctx: APIRequestContext,
   token: string,
-  input: { characterId: string; spellId: string; source: "class" | "species" | "feat" | "item" },
-): Promise<{ id: string }> {
+  input: AppRouterInputs["characterSpell"]["add"],
+): Promise<AppRouterOutputs["characterSpell"]["add"]> {
   return trpcMutate(ctx, "characterSpell.add", input, token);
 }
 
@@ -170,31 +214,18 @@ export async function apiAddCharacterSpell(
 export async function apiToggleSpellPrepared(
   ctx: APIRequestContext,
   token: string,
-  input: { characterId: string; spellId: string; campaignId?: string },
-): Promise<{ id: string; prepared: boolean }> {
+  input: AppRouterInputs["characterSpell"]["togglePrepared"],
+): Promise<AppRouterOutputs["characterSpell"]["togglePrepared"]> {
   return trpcMutate(ctx, "characterSpell.togglePrepared", input, token);
 }
 
-export interface ApiCharacterSpellSlot {
-  id: string;
-  characterId: string;
-  spellLevel: number;
-  total: number;
-  used: number;
-}
-
-export interface ApiCharacterDetail {
-  id: string;
-  name: string;
-  stats: { concentrationSpellId: string | null } | null;
-  spellSlots: ApiCharacterSpellSlot[];
-}
+export type ApiCharacterDetail = AppRouterOutputs["character"]["get"];
 
 /** Fetch a character with spell-slot and concentration state. */
 export async function apiGetCharacter(
   ctx: APIRequestContext,
   token: string,
-  input: { id: string },
+  input: AppRouterInputs["character"]["get"],
 ): Promise<ApiCharacterDetail> {
   return trpcQuery(ctx, "character.get", input, token);
 }
@@ -203,37 +234,17 @@ export async function apiGetCharacter(
 export async function apiCastSpell(
   ctx: APIRequestContext,
   token: string,
-  input: {
-    characterId: string;
-    spellId: string;
-    castAtLevel: number;
-    ritual?: boolean;
-    campaignId?: string;
-  },
-): Promise<{ persisted: boolean }> {
+  input: AppRouterInputs["castSpell"]["cast"],
+): Promise<AppRouterOutputs["castSpell"]["cast"]> {
   return trpcMutate(ctx, "castSpell.cast", input, token);
-}
-
-export interface ApiChatMessage {
-  id: string;
-  campaignId: string;
-  content: string;
-  type: "chat" | "system" | "roll" | "combat" | "whisper";
-}
-
-export interface ApiCombatLog {
-  id: string;
-  action: "attack" | "spell" | "ability" | "item" | "movement" | "other";
-  description: string;
-  rolls: Record<string, unknown>;
 }
 
 /** List recent campaign chat messages. */
 export async function apiListChatMessages(
   ctx: APIRequestContext,
   token: string,
-  input: { campaignId: string },
-): Promise<{ messages: ApiChatMessage[] }> {
+  input: AppRouterInputs["chat"]["list"],
+): Promise<AppRouterOutputs["chat"]["list"]> {
   return trpcQuery(ctx, "chat.list", input, token);
 }
 
@@ -241,8 +252,8 @@ export async function apiListChatMessages(
 export async function apiListCombatLogs(
   ctx: APIRequestContext,
   token: string,
-  input: { encounterId: string },
-): Promise<{ logs: ApiCombatLog[]; nextCursor: string | null }> {
+  input: AppRouterInputs["encounterCombat"]["listCombatLogs"],
+): Promise<AppRouterOutputs["encounterCombat"]["listCombatLogs"]> {
   return trpcQuery(ctx, "encounterCombat.listCombatLogs", input, token);
 }
 
@@ -250,17 +261,17 @@ export async function apiListCombatLogs(
 export async function apiCreateCampaign(
   ctx: APIRequestContext,
   token: string,
-  input: { name: string; description?: string },
-): Promise<{ id: string }> {
+  input: AppRouterInputs["campaign"]["create"],
+): Promise<AppRouterOutputs["campaign"]["create"]> {
   return trpcMutate(ctx, "campaign.create", input, token);
 }
 
-/** Create a map for a campaign. */
+/** Create a map for a campaign. Square grid unless the caller says otherwise. */
 export async function apiCreateMap(
   ctx: APIRequestContext,
   token: string,
-  input: { campaignId: string; name: string; width: number; height: number; gridSize?: number },
-): Promise<{ id: string }> {
+  input: AppRouterInputs["map"]["create"],
+): Promise<AppRouterOutputs["map"]["create"]> {
   return trpcMutate(ctx, "map.create", { gridType: "square", ...input }, token);
 }
 
@@ -268,36 +279,21 @@ export async function apiCreateMap(
 export async function apiUpdateEncounter(
   ctx: APIRequestContext,
   token: string,
-  input: { id: string; mapId?: string | null },
-): Promise<{ id: string }> {
+  input: AppRouterInputs["encounter"]["update"],
+): Promise<AppRouterOutputs["encounter"]["update"]> {
   return trpcMutate(ctx, "encounter.update", input, token);
 }
 
-export interface ApiEncounterParticipant {
-  id: string;
-  name: string;
-  type: "character" | "monster" | "npc";
-  characterId: string | null;
-  maxHp: number | null;
-  currentHp: number | null;
-  tempHp: number | null;
-}
-
-export interface ApiEncounterSummary {
-  id: string;
-  name: string;
-}
-
-export interface ApiEncounterDetail extends ApiEncounterSummary {
-  participants: ApiEncounterParticipant[];
-}
+export type ApiEncounterSummary = AppRouterOutputs["encounter"]["list"][number];
+export type ApiEncounterDetail = AppRouterOutputs["encounter"]["get"];
+export type ApiEncounterParticipant = ApiEncounterDetail["participants"][number];
 
 /** List encounters for a campaign. */
 export async function apiListEncounters(
   ctx: APIRequestContext,
   token: string,
-  input: { campaignId: string },
-): Promise<ApiEncounterSummary[]> {
+  input: AppRouterInputs["encounter"]["list"],
+): Promise<AppRouterOutputs["encounter"]["list"]> {
   return trpcQuery(ctx, "encounter.list", input, token);
 }
 
@@ -305,26 +301,17 @@ export async function apiListEncounters(
 export async function apiGetEncounter(
   ctx: APIRequestContext,
   token: string,
-  input: { id: string },
+  input: AppRouterInputs["encounter"]["get"],
 ): Promise<ApiEncounterDetail> {
   return trpcQuery(ctx, "encounter.get", input, token);
 }
 
-/** Create a token on a map. */
+/** Create a token on a map, sized 1x1 and visible unless overridden. */
 export async function apiCreateMapToken(
   ctx: APIRequestContext,
   token: string,
-  input: {
-    mapId: string;
-    type: "character" | "monster" | "object";
-    label: string;
-    x: number;
-    y: number;
-    characterId?: string;
-    encounterParticipantId?: string;
-    color?: string;
-  },
-): Promise<{ id: string }> {
+  input: AppRouterInputs["mapToken"]["create"],
+): Promise<AppRouterOutputs["mapToken"]["create"]> {
   return trpcMutate(
     ctx,
     "mapToken.create",
@@ -343,8 +330,8 @@ export async function apiCreateMapToken(
 export async function apiCreateInvite(
   ctx: APIRequestContext,
   token: string,
-  input: { campaignId: string },
-): Promise<{ code: string }> {
+  input: AppRouterInputs["invite"]["create"],
+): Promise<AppRouterOutputs["invite"]["create"]> {
   return trpcMutate(ctx, "invite.create", input, token);
 }
 
@@ -352,12 +339,14 @@ export async function apiCreateInvite(
 export async function apiJoinCampaign(
   ctx: APIRequestContext,
   token: string,
-  input: { code: string },
-): Promise<{ campaignId: string }> {
+  input: AppRouterInputs["invite"]["join"],
+): Promise<AppRouterOutputs["invite"]["join"]> {
   return trpcMutate(ctx, "invite.join", input, token);
 }
 
 export const DEFAULT_CHARACTER_INPUT = {
+  // Checked against the procedure input below, so a renamed or retyped
+  // creation field fails the e2e typecheck instead of a browser test.
   speciesId: "species-human",
   backgroundId: "background-soldier",
   classId: "class-fighter",
@@ -367,4 +356,4 @@ export const DEFAULT_CHARACTER_INPUT = {
   intelligence: 12,
   wisdom: 10,
   charisma: 8,
-} as const;
+} as const satisfies Partial<AppRouterInputs["character"]["create"]>;

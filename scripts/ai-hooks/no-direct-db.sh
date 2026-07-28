@@ -32,6 +32,14 @@ if REASON=$(ai_policy_violation_reason "$CMD" "$WORK_ROOT"); then
   ai_emit_block "$REASON"
 fi
 
+# Fail closed when the commit names a checkout that could not be resolved: the
+# WORK_ROOT above then silently became this hook's own checkout, so the branch
+# guard just cleared a repository it never looked at.
+if REASON=$(ai_unverifiable_commit_target_reason \
+  "$CMD" "$(ai_payload_cwd "$PAYLOAD")" "$HOOK_REPO_ROOT"); then
+  ai_emit_block "$REASON"
+fi
+
 if ADVISORY=$(ai_policy_advisory_context "$CMD"); then
   ai_emit_additional_context "PreToolUse" "$ADVISORY"
 fi

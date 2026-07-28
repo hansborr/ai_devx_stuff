@@ -3,6 +3,7 @@
 # smoke-subjects: scripts/test-scripts.sh
 # smoke-subjects: scripts/lib/changed-base.sh
 # smoke-subjects: scripts/lib/verify-metadata.sh
+# smoke-subjects: scripts/lib/records.ts
 # smoke-subjects: scripts/tests/lib/test-git-env.sh
 # smoke-subjects: scripts/tests/test-test-scripts.sh
 # smoke-subjects: scripts/path-policy/path-policy-query.ts
@@ -384,6 +385,13 @@ expected=$'runner ran test-pre-push\nrunner ran test-harness-check'
   || fail "pre-push change should select pre-push and harness-check smokes: $(cat "$STUB_LOG_FILE")"
 ok "--changed selects test-pre-push and test-harness-check on pre-push hook change"
 
+# --- --changed gives land flow to its authoritative smoke only ------------
+: > "$STUB_LOG_FILE"
+MUSI_SCRIPTS_CHANGED_FILES="scripts/land.sh" run_runner --changed >/dev/null
+[ "$(cat "$STUB_LOG_FILE")" = "runner ran test-land" ] \
+  || fail "land.sh change should select only its authoritative land smoke: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects only test-land on land.sh change"
+
 : > "$STUB_LOG_FILE"
 MUSI_SCRIPTS_CHANGED_FILES=".husky/post-commit" run_runner --changed >/dev/null
 expected=$'runner ran test-dependency-freshness\nrunner ran test-pre-push\nrunner ran test-lint-ratchet\nrunner ran test-merge-driver-dispatch'
@@ -495,7 +503,7 @@ ok "--changed selects test-format-changed on format wrapper change"
 
 : > "$STUB_LOG_FILE"
 MUSI_SCRIPTS_CHANGED_FILES="scripts/path-policy/path-policy-query.ts" run_runner --changed >/dev/null
-expected=$'runner ran test-verify\nrunner ran test-verify-history\nrunner ran test-pre-push\nrunner ran test-format-changed\nrunner ran test-lint-changed\nrunner ran test-lint-shell\nrunner ran test-lint-config-sensors\nrunner ran test-lint-agent-changed\nrunner ran test-verify-metadata\nrunner ran test-test-scripts'
+expected=$'runner ran test-verify\nrunner ran test-verify-history\nrunner ran test-pre-push\nrunner ran test-format-changed\nrunner ran test-lint-changed\nrunner ran test-lint-dist-preflight\nrunner ran test-lint-shell\nrunner ran test-lint-config-sensors\nrunner ran test-lint-agent-changed\nrunner ran test-verify-metadata\nrunner ran test-test-scripts'
 [ "$(cat "$STUB_LOG_FILE")" = "$expected" ] \
   || fail "path-policy query change should select all dependent smokes: $(cat "$STUB_LOG_FILE")"
 ok "--changed selects all path-policy query dependent smokes"
@@ -508,7 +516,7 @@ ok "--changed selects all path-policy model dependent smokes"
 
 : > "$STUB_LOG_FILE"
 MUSI_SCRIPTS_CHANGED_FILES="scripts/path-policy/path-policy-smoke-subjects.ts" run_runner --changed >/dev/null
-expected=$'runner ran test-verify-history\nrunner ran test-format-changed\nrunner ran test-test-scripts'
+expected=$'runner ran test-verify-history\nrunner ran test-format-changed\nrunner ran test-lint-changed\nrunner ran test-lint-dist-preflight\nrunner ran test-lint-shell\nrunner ran test-lint-config-sensors\nrunner ran test-test-scripts'
 [ "$(cat "$STUB_LOG_FILE")" = "$expected" ] \
   || fail "path-policy smoke subject change should select selection smokes: $(cat "$STUB_LOG_FILE")"
 ok "--changed selects smoke-subject policy dependent smokes"
@@ -853,12 +861,27 @@ MUSI_SCRIPTS_CHANGED_FILES="scripts/tests/test-harness-emit-envelope.sh" run_run
   || fail "harness emitter smoke change should select itself: $(cat "$STUB_LOG_FILE")"
 ok "--changed selects test-harness-emit-envelope on its own file change"
 
+# Every smoke that runs an envelope producer, in selection order. Both the
+# shared contract (the schema) and the shared runtime (the emission kernel) must
+# select exactly this set, so the two assertions below share one literal: they
+# are a two-way lock, and letting them drift apart would let a producer lose its
+# smoke on one edit path while still looking covered on the other.
+envelope_emitting_smokes=$'runner ran test-verify-logs\nrunner ran test-generate-module-index\nrunner ran test-lint-agent\nrunner ran test-lint-agent-changed\nrunner ran test-harness-emit-envelope\nrunner ran test-lint-ratchet\nrunner ran test-migration-safety-scan\nrunner ran test-doctor-json'
+
 : > "$STUB_LOG_FILE"
 MUSI_SCRIPTS_CHANGED_FILES="packages/shared/src/schemas/harness-diagnostics.ts" run_runner --changed >/dev/null
-expected=$'runner ran test-verify-logs\nrunner ran test-generate-module-index\nrunner ran test-lint-agent\nrunner ran test-lint-agent-changed\nrunner ran test-harness-emit-envelope\nrunner ran test-lint-ratchet\nrunner ran test-migration-safety-scan\nrunner ran test-doctor-json'
-[ "$(cat "$STUB_LOG_FILE")" = "$expected" ] \
+[ "$(cat "$STUB_LOG_FILE")" = "$envelope_emitting_smokes" ] \
   || fail "harness-diagnostics schema change should select all envelope-emitting smokes: $(cat "$STUB_LOG_FILE")"
 ok "--changed selects all envelope-emitting smokes on harness-diagnostics schema change"
+
+# The emission kernel is the shared runtime for every envelope producer, exactly
+# as the schema above is their shared contract, so a kernel-only edit must select
+# the same smoke set the schema change does.
+: > "$STUB_LOG_FILE"
+MUSI_SCRIPTS_CHANGED_FILES="scripts/harness/harness-diagnostics-output.ts" run_runner --changed >/dev/null
+[ "$(cat "$STUB_LOG_FILE")" = "$envelope_emitting_smokes" ] \
+  || fail "emission kernel change should select all envelope-emitting smokes: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects all envelope-emitting smokes on emission kernel change"
 
 : > "$STUB_LOG_FILE"
 MUSI_SCRIPTS_CHANGED_FILES="scripts/lint-ratchet.ts" run_runner --changed >/dev/null

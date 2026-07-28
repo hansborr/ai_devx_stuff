@@ -8,56 +8,8 @@ import reactHooks from "eslint-plugin-react-hooks";
 import {
   clientSourceFiles,
   clientTestAndHelperSourceFiles,
-  processEnvRestrictedSyntax,
-  processExitRestrictedSyntax,
   sharedSchemasBarrelRestrictedImportPattern,
 } from "./shared-policy.js";
-
-const handBuiltQueryKeyPropertyRestrictedSyntax = {
-  selector: [
-    "Property[key.name='queryKey'][value.type='ArrayExpression']",
-    "Property[key.value='queryKey'][value.type='ArrayExpression']",
-    "Property[key.name='queryKey'][value.type=/^(TSAsExpression|TSSatisfiesExpression)$/][value.expression.type='ArrayExpression']",
-    "Property[key.value='queryKey'][value.type=/^(TSAsExpression|TSSatisfiesExpression)$/][value.expression.type='ArrayExpression']",
-  ].join(", "),
-  message:
-    "Use tRPC queryOptions().queryKey or queryFilter() instead of a hand-built TanStack Query key array.",
-};
-
-const queryClientArrayKeyArgumentSelectors = [
-  "ArrayExpression.arguments:first-child",
-  "TSAsExpression.arguments:first-child[expression.type='ArrayExpression']",
-  "TSSatisfiesExpression.arguments:first-child[expression.type='ArrayExpression']",
-];
-
-const queryClientArrayKeyCallSelectors = [
-  "CallExpression[callee.property.name=/^(setQueryData|getQueryData)$/]",
-  "CallExpression[callee.property.value=/^(setQueryData|getQueryData)$/]",
-];
-
-const handBuiltQueryKeyArgumentRestrictedSyntax = {
-  selector: queryClientArrayKeyCallSelectors
-    .flatMap((callSelector) =>
-      queryClientArrayKeyArgumentSelectors.map(
-        (argumentSelector) => `${callSelector} > ${argumentSelector}`,
-      ),
-    )
-    .join(", "),
-  message:
-    "Use tRPC queryOptions().queryKey or queryFilter() instead of a hand-built TanStack Query key array.",
-};
-
-const clientQueryKeyRestrictedSyntax = [
-  handBuiltQueryKeyPropertyRestrictedSyntax,
-  handBuiltQueryKeyArgumentRestrictedSyntax,
-];
-
-const importMetaEnvRestrictedSyntax = {
-  selector:
-    "MemberExpression[object.type='MetaProperty'][object.meta.name='import'][object.property.name='meta'][property.name='env']",
-  message:
-    "Avoid reading import.meta.env outside packages/client/src/lib/api-base.ts. Add client env boundaries there instead of scattering Vite env reads.",
-};
 
 export const clientFrameworkConfigs = [
   {
@@ -171,34 +123,6 @@ export const clientRuntimeBoundaryConfigs = [
             },
           ],
         },
-      ],
-    },
-  },
-
-  {
-    files: clientSourceFiles,
-    ignores: [...clientTestAndHelperSourceFiles, "packages/client/src/lib/api-base.ts"],
-    rules: {
-      // Flat config replaces (not merges) rule entries by key, so repeat the
-      // process primitive selectors while adding client-only query-key guards.
-      "no-restricted-syntax": [
-        "error",
-        processExitRestrictedSyntax,
-        processEnvRestrictedSyntax,
-        ...clientQueryKeyRestrictedSyntax,
-        importMetaEnvRestrictedSyntax,
-      ],
-    },
-  },
-
-  {
-    files: ["packages/client/src/lib/api-base.ts"],
-    rules: {
-      "no-restricted-syntax": [
-        "error",
-        processExitRestrictedSyntax,
-        processEnvRestrictedSyntax,
-        ...clientQueryKeyRestrictedSyntax,
       ],
     },
   },

@@ -6,8 +6,9 @@
 > leaf files stay as the cited design records. **PB-1's drain-leaf scope is
 > Done** — fast-check infra + character-rules (`3c302f89`), spellcasting /
 > armor-class / dice (`d10d67b9`, drain leaf 5.1); the `attack-damage.ts` /
-> `xp.ts` residue is tracked in `../ready-2026-07/00-index.md`. EV-1 is the
-> only untouched proposal; the three design-gated leaves stay gated.
+> `xp.ts` residue is tracked in `../ready-2026-07/00-index.md`. EV-1 is now
+> in flight on `feat/golden-task-eval` (see leaf 03); the three design-gated
+> leaves stay gated.
 > This pack is a second round of follow-ups from the harness-engineering
 > research notes, created after cross-checking each top recommendation against
 > what the repo already enforces. Sibling pack:
@@ -56,7 +57,7 @@ metrics, OIDC publishing) and are deliberately omitted.
 | --- | --- | --- | --- | --- |
 | PB-1 | Property-based tests for the rules engine (fast-check) — **Done (drain-leaf scope)**: infra + character-rules (`3c302f89`), spellcasting/armor-class/dice (`d10d67b9`, 22 tests, drain leaf 5.1); `attack-damage.ts`/`xp.ts` candidates remain but were outside leaf 5.1's seed set | [01](01-property-based-testing-fast-check.md) | M | low |
 | DL-1 | Token-aware design lint — **Done** (`eslint-rules/no-arbitrary-tailwind-value.js` + `ratchet/local-no-arbitrary-tailwind-value-client`, `c7ed8c00`/`ee5f0358`, 2026-06-22; leaf kept as the ratchet's cited principle doc) | [02](02-design-token-lint.md) | M | low |
-| EV-1 | Codebase-grounded golden-task eval harness | [03](03-golden-task-eval-harness.md) | L | medium |
+| EV-1 | Codebase-grounded golden-task eval harness — **in flight** on `feat/golden-task-eval` (`ad60abec`, 45 commits): runner/isolation/adapter/grader + `bun run eval:golden` + 1 admitted fixture, 85 tests green; remaining = rebase, first live-agent run, 4 more fixtures, recalibration. Tracked as C4 in `../ready-2026-07/00-index.md` §2 | [03](03-golden-task-eval-harness.md) | L | medium |
 | A11Y-1 | Runtime a11y checks — **Done** (`e2e/a11y.spec.ts` + `@axe-core/playwright`, `d49d3ca9`, 2026-06-22) | [04](04-runtime-a11y-axe-e2e.md) | S-M | low |
 
 ### Design-gated — DO NOT IMPLEMENT YET
@@ -81,8 +82,8 @@ before any code. Do **not** promote these during routine backlog draining.
    `jsx-a11y` gate.
 3. **DL-1** as a measured ratchet — author the rule, then drain the ~84
    arbitrary-value findings (do not block on the intentional canvas hex).
-4. **EV-1** when there is appetite for measurement infrastructure; it is the
-   heaviest and most open-ended.
+4. **EV-1** is no longer waiting on appetite — it is in flight on
+   `feat/golden-task-eval`; finish it rather than re-promoting it.
 5. The design-gated trio (**SEC-1 / PR-1 / GC-1**) only after their open
    questions are answered by a human decision.
 

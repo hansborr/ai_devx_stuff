@@ -2,10 +2,12 @@
 
 Status: Partial — `noFallthroughCasesInSwitch` (`f6fd1c81`) and
 `noImplicitOverride` (`88092cfd`) landed in `tsconfig.base.json` 2026-06-22.
-Open residue: the measurement-first discovery pass (per-flag error
-inventories, grouped by package) for `exactOptionalPropertyTypes` and
-`noPropertyAccessFromIndexSignature`. Re-verify current compiler errors
-before promotion; TypeScript diagnostics drift quickly as code changes.
+Open residue: promotion (steps 3–6) for `exactOptionalPropertyTypes` and
+`noPropertyAccessFromIndexSignature`. **Steps 1–2 are done (2026-07-25) —
+see [03](03-strictness-flag-error-inventory.md)** for the measured per-flag,
+per-project inventory, the error families, and the recommended first flag.
+Neither flag has been flipped. Re-verify current compiler errors before
+promotion; TypeScript diagnostics drift quickly as code changes.
 
 ## Problem
 
@@ -17,17 +19,19 @@ flags for agent-heavy development. Musi already has a strong base:
 - `verbatimModuleSyntax: true`
 - `isolatedModules: true`
 - unused locals/parameters enabled
+- `noFallthroughCasesInSwitch: true` (landed 2026-06-22, `f6fd1c81`)
+- `noImplicitOverride: true` (landed 2026-06-22, `88092cfd`)
 
-Four useful strictness flags remain off in `tsconfig.base.json`:
+Of the four flags this leaf originally proposed, two are now on (the two above).
+Two useful strictness flags remain off in `tsconfig.base.json`:
 
 - `exactOptionalPropertyTypes`
 - `noPropertyAccessFromIndexSignature`
-- `noImplicitOverride`
-- `noFallthroughCasesInSwitch`
 
 These catch common AI-generated mistakes, but they are broad compiler behavior
 changes. Treat them as ratchets with measured baselines and repair guidance, not
-as a single repo-wide flip.
+as a single repo-wide flip. The two landed flags' sections below are kept as the
+historical record of how they were introduced.
 
 ## Candidate Flags
 
@@ -63,12 +67,17 @@ separated real bugs from intentional boundary patterns.
 
 ## Proposed Implementation
 
-1. Add a discovery script or one-off documented command that runs typecheck with
-   each candidate flag enabled independently. Keep results grouped by package
-   (`shared`, `server`, `client`, `scripts`) and by diagnostic code.
-2. Produce a short inventory in this backlog or `in_progress/` before code
+1. ~~Add a discovery script or one-off documented command that runs typecheck
+   with each candidate flag enabled independently. Keep results grouped by
+   package and by diagnostic code.~~ **Done 2026-07-25.** Note the two
+   corrections found while doing it: `tsc -b` rejects flag overrides
+   (`TS5094`), so the runs must be per-project
+   `tsc -p <proj> --noEmit --<flag>`; and there are **five** projects, not the
+   four named here — `tools/lint-ratchet` joined the workspace.
+2. ~~Produce a short inventory in this backlog or `in_progress/` before code
    changes: per-flag diagnostic count, representative examples, false-positive
-   categories, and recommended first flag.
+   categories, and recommended first flag.~~ **Done 2026-07-25** —
+   [03](03-strictness-flag-error-inventory.md).
 3. Promote the lowest-risk flag first. Prefer a direct `tsconfig.base.json` flip
    only if the error count is low and repairs are uncontroversial.
 4. If a flag has too many existing findings, add a dedicated ratchet/check rather

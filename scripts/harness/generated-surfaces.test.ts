@@ -9,12 +9,12 @@ import {
   diffFixtureClosure,
   diffTriggerPathClosure,
   type GeneratedSurfaceRecord,
-  loadGeneratedSurfaces,
   renderClassifierFragment,
   renderFixtureManifest,
   renderFreshnessShell,
   SHARED_FIXTURE_INFRA_RECORD_ID,
 } from "./generated-surfaces.js";
+import { loadGeneratedSurfaces } from "./generated-surfaces-loader.js";
 import { HARNESS_MANIFEST_FILENAME } from "./harness-manifest.js";
 import {
   GENERATED_CLASSIFIED_BUN_SCRIPTS_PATH,
@@ -39,11 +39,20 @@ function manifestWithFacet(facetOverrides: FacetOverrides = {}, invocation?: str
     bunHook: { refresh: "bypass", check: "wrapped" },
     ...facetOverrides,
   };
+  // The loader parses the WHOLE manifest through the typed contract, so this
+  // fixture carries the top-level arrays and the full non-lint control field
+  // set even though only `generatedSurface` is under test here.
   return JSON.stringify({
+    scriptParityExemptions: [],
+    ciGateControlIds: [],
     controls: [
       {
         id: "check/example-generator",
         kind: "check",
+        category: "maintainability",
+        principle: "Example generated-surface control for facet parsing tests.",
+        pairedGuide: "none",
+        repairKind: "autofix",
         source: "scripts/example-generator.ts",
         invocation: invocation ?? "bun run example",
         generatedSurface: facet,
@@ -60,13 +69,14 @@ function makeFacetRoot(facetOverrides: FacetOverrides = {}, invocation?: string)
 }
 
 describe("loadGeneratedSurfaces (real manifest)", () => {
-  it("returns exactly the ten registered generated surfaces in deterministic id order", () => {
+  it("returns exactly the eleven registered generated surfaces in deterministic id order", () => {
     const records = loadGeneratedSurfaces(repoRoot);
     expect(records.map((record) => record.id)).toEqual([
       "check/config-surface-generator",
       "check/harness-hook-wiring-generator",
       "check/hook-timeout-constants-generator",
       "check/restricted-disable-rules-generator",
+      "check/skill-artifacts-generator",
       "check/smoke-subjects-generator",
       "check/verify-steps-generator",
       "doc-generator/baseline-conflict-recipes",
@@ -82,6 +92,7 @@ describe("loadGeneratedSurfaces (real manifest)", () => {
       "harness:wiring:check",
       "harness:hook-timeouts:check",
       "lint:restricted-disable-rules:check",
+      "harness:skills:check",
       "test:scripts:subjects:check",
       "verify:steps:check",
       "docs:baseline-conflict-recipes:check",
@@ -97,6 +108,12 @@ describe("loadGeneratedSurfaces (real manifest)", () => {
     expect(smokeSubjects?.refreshScript).toBe("test:scripts:subjects");
     expect(smokeSubjects?.checkScript).toBe("test:scripts:subjects:check");
     expect(smokeSubjects?.bunHook).toEqual({ refresh: "wrapped", check: "wrapped" });
+    const skillArtifacts = records.find(
+      (record) => record.id === "check/skill-artifacts-generator",
+    );
+    expect(skillArtifacts?.refreshScript).toBe("harness:skills:refresh");
+    expect(skillArtifacts?.checkScript).toBe("harness:skills:check");
+    expect(skillArtifacts?.bunHook).toEqual({ refresh: "wrapped", check: "wrapped" });
     const verifySteps = records.find((record) => record.id === "check/verify-steps-generator");
     expect(verifySteps?.refreshScript).toBe("verify:steps");
     expect(verifySteps?.bunHook).toEqual({

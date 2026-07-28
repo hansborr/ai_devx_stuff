@@ -17,7 +17,6 @@ import {
   FIXTURE_SYNTHESIZED_PATHS,
   type FixtureClosureEntry,
   type GeneratedSurfaceRecord,
-  loadGeneratedSurfaces,
   WALKABLE_SOURCE_PATTERN,
 } from "./generated-surfaces.js";
 import { type ControlFailures, pushFailure } from "./harness-check-validation.js";
@@ -89,6 +88,9 @@ function closureWalkEntries(
 
 /**
  * Validate declared fixturePaths against the computed static import closure.
+ * `records` comes from the caller's single manifest parse rather than a second
+ * read here, so a manifest that fails the typed contract still reaches
+ * harness-check's granular per-control diagnostics instead of aborting the run.
  * Zero declarations fail closed: an emptied copy manifest (for example a merge
  * that stripped every fixturePaths facet) must not read as a clean pass. The
  * only sanctioned skip is the explicit
@@ -98,9 +100,9 @@ function closureWalkEntries(
  */
 export async function checkFixtureCopyClosure(
   repoRoot: string,
+  records: readonly GeneratedSurfaceRecord[],
   failures: Map<string, ControlFailures>,
 ): Promise<void> {
-  const records = loadGeneratedSurfaces(repoRoot);
   if (!records.some((record) => record.fixturePaths !== undefined)) {
     if (process.env[FIXTURE_CLOSURE_NO_DECLARATIONS_OPT_OUT_ENV] === "1") return;
     pushFailure(

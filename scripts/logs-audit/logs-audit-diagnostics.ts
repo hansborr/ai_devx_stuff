@@ -17,6 +17,7 @@ import {
   harnessDiagnosticsOutputPath,
   writeHarnessDiagnosticsSidecar,
 } from "../harness/harness-diagnostics-output.js";
+import { errorMessage } from "../lib/error-message.js";
 // Type-only imports: erased at runtime, so logs-audit.ts (which imports the
 // sidecar writer below) keeps a clean one-directional runtime dependency on this
 // module. The back-edge exists only in the type graph.
@@ -97,10 +98,6 @@ export function projectLogsAuditDiagnostics(report: LogsAuditReport): HarnessDia
   return buildHarnessDiagnostics("logs:audit", findings);
 }
 
-function describeError(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
 /**
  * Write the diagnostics sidecar when `HARNESS_DIAGNOSTICS_OUTPUT` names a path,
  * leaving native logs:audit stdout untouched. When the env var is unset/empty
@@ -115,7 +112,7 @@ export function writeLogsAuditDiagnosticsSidecar(report: LogsAuditReport): void 
     writeHarnessDiagnosticsSidecar(projectLogsAuditDiagnostics(report));
   } catch (error) {
     throw new Error(
-      `logs:audit could not write the ${HARNESS_DIAGNOSTICS_OUTPUT_ENV} sidecar: ${describeError(error)}`,
+      `logs:audit could not write the ${HARNESS_DIAGNOSTICS_OUTPUT_ENV} sidecar: ${errorMessage(error)}`,
       { cause: error },
     );
   }

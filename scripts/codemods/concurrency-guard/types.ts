@@ -19,6 +19,14 @@ export type DelegateCall = {
   method: string;
 };
 
+/** A `<relation>: { <gatedMutator>: ... }` payload reaching a gated table. */
+export type NestedRelationWrite = {
+  delegate: string;
+  line: number;
+  method: string;
+  relation: string;
+};
+
 export type PatternAConfig = {
   delegate: string;
   rowKey: string;

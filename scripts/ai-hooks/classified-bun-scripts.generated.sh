@@ -12,6 +12,8 @@ docs:lint-guidance:check
 harness:config-surfaces
 harness:config-surfaces:check
 harness:hook-timeouts:check
+harness:skills:check
+harness:skills:refresh
 harness:wiring:check
 lint:restricted-disable-rules
 lint:restricted-disable-rules:check

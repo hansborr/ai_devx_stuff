@@ -40,7 +40,7 @@ const config = {
     // runtime, so both their exports and types are intentional.
     "packages/server/src/utils/__type-tests__/**": ["exports", "types"],
     // Stryker loads this configuration module by path, so Knip cannot see its required default export.
-    "scripts/stryker-scripts.ts": ["exports"],
+    "scripts/stryker-scripts.mjs": ["exports"],
     // Playwright loads this by the `globalSetup` path string in playwright.config.ts,
     // not as an ES import, so Knip cannot see its required default export.
     "e2e/global-setup.ts": ["exports"],

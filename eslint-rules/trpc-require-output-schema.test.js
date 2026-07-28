@@ -1,5 +1,5 @@
 // @ts-check
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { makeRuleTester } from "./rule-tester.js";
 import rule from "./trpc-require-output-schema.js";
@@ -7,6 +7,10 @@ import rule from "./trpc-require-output-schema.js";
 const ruleTester = makeRuleTester();
 
 describe("trpc-require-output-schema", () => {
+  it("names the shared-schema boundary decision", () => {
+    expect(rule.meta.messages.missingOutput).toContain("ADR-0004");
+  });
+
   it("requires output schemas on tRPC query and mutation chains", () => {
     ruleTester.run("trpc-require-output-schema", rule, {
       valid: [

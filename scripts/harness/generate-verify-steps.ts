@@ -4,13 +4,15 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { compareByCodepoint } from "../lib/codepoint-compare.js";
 import { runDocGenerator } from "../lib/doc-generator.js";
+import { isRecord } from "../lib/records.js";
 import {
-  loadGeneratedSurfaces,
   renderClassifierFragment,
   renderFixtureManifest,
   renderFreshnessShell,
 } from "./generated-surfaces.js";
-import { HARNESS_MANIFEST_FILENAME, readHarnessManifest } from "./harness-manifest.js";
+import { loadGeneratedSurfaces } from "./generated-surfaces-loader.js";
+import { loadTypedHarnessManifest } from "./harness-manifest-loader.js";
+import type { HarnessManifest } from "./harness-manifest-schema.js";
 import {
   GENERATED_CLASSIFIED_BUN_SCRIPTS_PATH,
   GENERATED_HARNESS_CHECK_FIXTURE_MANIFEST_PATH,
@@ -19,12 +21,12 @@ import {
 } from "./harness-paths.js";
 import { MARKER_BRIDGE_DIVERGENCE_ALLOWLIST } from "./verify-step-bridge-divergences.js";
 import {
-  isNonEmptyString,
-  isObject,
   parseVerifyStepSlots,
   VERIFY_STEP_DYNAMIC_RESOLVER_BINDINGS,
   type VerifyStepSlot,
 } from "./verify-step-schema.js";
+
+type HarnessControl = HarnessManifest["controls"][number];
 
 const VAR_REF_PATTERN = /\$(?:([A-Za-z_]\w*)|\{([A-Za-z_]\w*)\})/gu;
 
@@ -72,37 +74,31 @@ interface Consumer {
 }
 
 function parseConsumerSlots(
-  control: Record<string, unknown>,
+  control: HarnessControl,
   spec: ConsumerSpec,
 ): readonly VerifyStepSlot[] {
-  if (!Array.isArray(control.slots)) {
+  // Only the slot-carrying kinds may declare `slots` at all, so a consumer
+  // control of any other kind is a registration mistake, not a shape bug.
+  const rawSlots = "slots" in control ? control.slots : undefined;
+  if (rawSlots === undefined) {
     throw new Error(`${spec.id} must declare a slots array`);
   }
   const failures: string[] = [];
-  const slots = parseVerifyStepSlots(control.slots, failures, `${spec.id} `);
+  const slots = parseVerifyStepSlots(rawSlots, failures, `${spec.id} `);
   if (failures.length > 0) {
     throw new Error(failures.join("; "));
   }
   return slots ?? [];
 }
 
-function collectConsumers(manifest: unknown): readonly Consumer[] {
-  if (!isObject(manifest) || !Array.isArray(manifest.controls)) {
-    throw new Error(`${HARNESS_MANIFEST_FILENAME} must declare a controls array`);
-  }
-  const byId = new Map<string, Record<string, unknown>>();
-  for (const [index, control] of manifest.controls.entries()) {
-    if (!isObject(control)) {
-      throw new Error(`control entry at index ${String(index)} must be an object`);
-    }
-    if (!isNonEmptyString(control.id)) {
-      throw new Error(`control entry at index ${String(index)} must declare a non-empty id`);
-    }
-    if (byId.has(control.id)) {
-      throw new Error(`duplicate control id: ${control.id}`);
-    }
-    byId.set(control.id, control);
-  }
+// Controls-array shape, entry object-ness, id presence, and id uniqueness are
+// the typed contract's job (harness-manifest-schema.ts); what remains here is
+// the consumer vocabulary: which control ids must exist and what their slot
+// arrays must contain.
+function collectConsumers(manifest: HarnessManifest): readonly Consumer[] {
+  const byId = new Map<string, HarnessControl>(
+    manifest.controls.map((control) => [control.id, control]),
+  );
   return CONSUMERS.map((spec) => {
     const control = byId.get(spec.id);
     if (control === undefined) {
@@ -378,7 +374,7 @@ function assertKnownScripts(
 }
 
 export function renderVerifyStepsShellFromManifest(
-  manifest: unknown,
+  manifest: HarnessManifest,
   knownScripts?: ReadonlySet<string>,
 ): string {
   const consumers = collectConsumers(manifest);
@@ -397,7 +393,7 @@ export function renderVerifyStepsShellFromManifest(
 
 function readPackageScripts(): ReadonlySet<string> {
   const pkg: unknown = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf8"));
-  if (!isObject(pkg) || !isObject(pkg.scripts)) {
+  if (!isRecord(pkg) || !isRecord(pkg.scripts)) {
     throw new Error("package.json must declare a scripts object");
   }
   return new Set(Object.keys(pkg.scripts));
@@ -409,7 +405,7 @@ if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.a
     refreshCommand: "verify:steps",
     render: () => ({
       rendered: renderVerifyStepsShellFromManifest(
-        readHarnessManifest(repoRoot),
+        loadTypedHarnessManifest(repoRoot),
         readPackageScripts(),
       ),
     }),

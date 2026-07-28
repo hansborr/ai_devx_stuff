@@ -3,10 +3,22 @@
 Notes for copying this skill into another repo or provisioning a new
 environment. Callers dispatching in an already-working repo do not need them.
 
+## Threat model
+
+The wrapper trusts same-UID processes, including every delegated backend. It
+defends against crashes, fatal signals, concurrent instances of the wrapper,
+and caller mistakes with `-o` and `--share` paths. Adversarial same-UID races
+on wrapper-private paths are deliberately out of scope: `work` grants its
+backend full permissions as the same UID, so the temporary-path machinery
+does not cross or enforce a privilege boundary.
+
 - The wrapper is self-contained bash with no build step: copy
   `.claude/skills/agent-cli/` wholesale.
-- Normal dispatch needs `bash`, the target CLI on `PATH`, `git`,
-  GNU-compatible `realpath -m`, and standard Unix text/process utilities.
+- Normal dispatch needs Bash 4.4 or newer (for `mapfile`, associative arrays,
+  and `set -u`-safe `"${arr[@]}"` expansion of an empty array — the script
+  expands empty arrays on every run), the target CLI on `PATH`, `git`, `flock`,
+  GNU-compatible `realpath -m`, file-operand `sync FILE`, `mv -fT`, `ln -T`,
+  and `stat -c`, `/dev/fd`, and standard Unix text/process utilities.
   Copilot additionally needs a logged-in `copilot login`; cursor needs
   `agent login`.
 - For cursor consults to gather their own branch diff (rather than depending on
@@ -20,14 +32,40 @@ environment. Callers dispatching in an already-working repo do not need them.
   so porting only `.claude/skills/agent-cli/` without the allowlist leaves a
   false contract — cursor's `git` commands are denied and it silently degrades
   to the `-f` fallback while still being told the diff is reachable.
-- `flock` is required for lock-holding runs (`work`); without it the wrapper
-  exits 3 before launching. Lock-free read-only runs (consults, codex review)
-  do not need it — without it they only lose the drift-attribution lock probe.
-- `python3` is needed only by the claude and cursor backends (JSON
-  result-envelope parsing for `-o` and trailers).
+- `flock` is required for every answer-producing run (`consult`/`work`) because
+  the answer path has an ownership lock independent of the worktree lock.
+  `work` also takes the existing per-worktree lock. Native `review codex` has
+  no answer path and remains lock-free; without `flock` it only loses the
+  drift-attribution probe.
+- `python3` is needed by the claude, copilot, and cursor backends (structured
+  result parsing for `-o` and trailers).
+- Attempt bookkeeping is flushed by file operand, including containing
+  directories where namespace changes must become durable. It never requests
+  filesystem-wide `sync -f`. Answer-producing runs preflight file-operand
+  support against the existing output directory before creating or retiring
+  any answer-path state; failure is a pre-launch environment error (exit 3).
+  A newly claimed caller-owned Copilot share flushes both the share inode and
+  its own containing directory, which may differ from the answer directory.
+- Read-only drift checks ask Git for raw diffs (`--no-textconv --no-ext-diff`),
+  temporarily force ctime trust, and add tracked-path `stat` identity metadata.
+  The expected detection contract is default Git configuration on a filesystem
+  with fine-grained timestamps; the environment features that degrade it — clean
+  filters, text/EOL normalization, coarse timestamp granularity, textconv,
+  external diff, fsmonitor, index flags, `core.trustctime=false` — and the
+  reason an unchanged result is only `best-effort-clean` are specified once
+  under "Finalize Records" in
+  [trailer-contract.md](trailer-contract.md#finalize-records). Porting note: the
+  snapshot needs GNU `stat` (`--printf` with `%d:%i:%f:%s:%y:%z`, invoked once
+  for the whole tracked set) and `cksum`.
 - Degraded gracefully: `setsid` (when present) lets TERM/INT/HUP signal the
   whole backend process group; `fuser`/`lsof` only improve the busy-lock
-  holder message.
+  holder message and distinguish a live holder from a likely-stale
+  `index.lock` after KILL escalation. Without either tool, the wrapper still
+  preserves the lock and requires inspection before the recovery command.
+- The wrapper logs its pid immediately before fatal-signal traps become active,
+  then logs the attempt record as part of the durable claim before branch or
+  runtime setup. `agent-wait.sh` can therefore classify every post-trap abort,
+  falling back from `dispatched:` to `attempt:` to `starting:`.
 - Validation: run `shellcheck .claude/skills/agent-cli/scripts/agent-run.sh`
   (in Musi the lint lane already ShellChecks `.claude/skills/**/*.sh`).
 - The backend references name CLI versions and model ids that age quickly

@@ -1,9 +1,10 @@
 # Code Intel Daemon Options
 
-Status: Parked daemon design with a preferred direction. The one-shot
-`code:intel` CLI has landed; measured repeated lookup latency now justifies
-planning the next adapter when this workstream is promoted.
-Date: 2026-05-07; recommendation refreshed 2026-05-09
+Status: Implemented. The recommended Option 2 daemon shipped in `55f5fa78`
+(`feat(code-intel): add daemon lifecycle CLI`); the daemon core now lives in
+`scripts/code-intel/daemon-{server,client,process,protocol,state,query,commands}.ts`.
+This note is retained as the design rationale for that choice.
+Date: 2026-05-07; recommendation refreshed 2026-05-09; marked implemented 2026-07-25
 
 This note compares implementation options for future daemon, cache, LSP, or MCP
 adapters behind `bun run code:intel --`. The goal is to make code navigation

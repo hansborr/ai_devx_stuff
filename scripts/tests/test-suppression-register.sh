@@ -9,6 +9,7 @@
 # smoke-subjects: scripts/lib/verify-metadata.sh
 # smoke-subjects: scripts/tests/lib/test-git-env.sh
 # smoke-subjects: scripts/tests/test-suppression-register.sh
+# smoke-subjects: scripts/data/eslint-disable-broad-allowlist.txt
 # Pure-shell tests for TypeScript and Stryker suppression register diagnostics.
 
 set -euo pipefail
@@ -47,6 +48,15 @@ run_report() {
 run_report_changed() {
   set +e
   RUN_OUTPUT="$(bash "$REPORT" --changed base "$1" 2>&1)"
+  RUN_STATUS=$?
+  set -e
+}
+
+IDENT_FILE=""
+run_report_identities() {
+  IDENT_FILE="$TMP_ROOT/identities-$PASS.tsv"
+  set +e
+  RUN_OUTPUT="$(bash "$REPORT" --identities-out "$IDENT_FILE" "$1" 2>&1)"
   RUN_STATUS=$?
   set -e
 }
@@ -296,6 +306,58 @@ run_report_changed "$repo"
 contains "$RUN_OUTPUT" 'source-relevant unstaged or untracked changes are present' \
   || fail "unstaged abort message missing: $RUN_OUTPUT"
 ok "changed mode aborts on unstaged source-relevant changes"
+
+# Leaf 50 step 2: the suppression identity ledger reads this emission rather
+# than running a second scanner. Emission is additive — the register's verdict,
+# counts, and policy failures are untouched by it.
+repo="$(new_repo identity-emission)"
+mkdir -p "$repo/src"
+cat > "$repo/src/app.ts" <<'EOF'
+// @ts-expect-error -- narrowing gap
+const value: number = "1";
+// Stryker disable next-line all -- clock-dependent branch
+const now = Date.now();
+EOF
+git -C "$repo" add src/app.ts
+run_report_identities "$repo"
+[ "$RUN_STATUS" -eq 0 ] || fail "identity emission must not change the verdict: $RUN_OUTPUT"
+contains "$RUN_OUTPUT" 'PASS: suppression register total=2 ts-expect-error=1 ts-ignore=0 ts-nocheck=0 stryker=1' \
+  || fail "identity emission changed the register counts: $RUN_OUTPUT"
+[ "$(head -n 1 "$IDENT_FILE")" = "$(printf '#scope\tfull')" ] \
+  || fail "identity file is missing the full-scope header: $(cat "$IDENT_FILE")"
+[ "$(grep -cv '^#' "$IDENT_FILE")" -eq 2 ] \
+  || fail "expected two identity records: $(cat "$IDENT_FILE")"
+contains "$(cat "$IDENT_FILE")" "$(printf 'ts-expect-error\tsrc/app.ts\t1\t// @ts-expect-error -- narrowing gap')" \
+  || fail "ts-expect-error identity record shape was wrong: $(cat "$IDENT_FILE")"
+# The register's internal dialect for Stryker is `stryker`; the ledger kind is
+# spelled `stryker-disable` so every kind names the directive family it gates.
+contains "$(cat "$IDENT_FILE")" "$(printf 'stryker-disable\tsrc/app.ts\t3\t// Stryker disable next-line all -- clock-dependent branch')" \
+  || fail "stryker identity record shape was wrong: $(cat "$IDENT_FILE")"
+ok "emits kind/path/line/text identity records without changing the verdict"
+
+# A policy failure must still leave a complete identity emission behind: the
+# ledger gate and the policy registers are separate verdicts on the same scan.
+repo="$(new_repo identity-emission-violation)"
+mkdir -p "$repo/src"
+cat > "$repo/src/app.ts" <<'EOF'
+// @ts-expect-error
+const value: number = "1";
+EOF
+git -C "$repo" add src/app.ts
+run_report_identities "$repo"
+[ "$RUN_STATUS" -eq 1 ] || fail "missing reason should still fail the register: $RUN_OUTPUT"
+[ "$(grep -cv '^#' "$IDENT_FILE")" -eq 1 ] \
+  || fail "policy failure must not truncate the identity emission: $(cat "$IDENT_FILE")"
+ok "emits identities even when the register's policy verdict fails"
+
+set +e
+RUN_OUTPUT="$(bash "$REPORT" --identities-out 2>&1)"
+RUN_STATUS=$?
+set -e
+[ "$RUN_STATUS" -eq 2 ] || fail "--identities-out without a path should exit 2: $RUN_OUTPUT"
+contains "$RUN_OUTPUT" '--identities-out requires a path' \
+  || fail "missing --identities-out path message was wrong: $RUN_OUTPUT"
+ok "rejects --identities-out without a path"
 
 not_repo="$TMP_ROOT/not-git"
 mkdir -p "$not_repo"

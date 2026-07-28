@@ -24,7 +24,6 @@
     "packages/server/vitest.unit.config.ts",
     "packages/shared/vitest.config.ts",
     "tools/lint-ratchet/vitest.config.ts",
-    "tools/stryker-lint-ratchet.ts",
     "scripts/vitest.config.ts",
     "eslint-rules/vitest.config.ts"
   ]

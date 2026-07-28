@@ -39,7 +39,7 @@ describe("checkManifestReadTripwire", () => {
     expect(checkManifestReadTripwire(repoRoot)).toEqual([]);
   });
 
-  it("flags a new unlisted read-capable importer and points at the typed parser", () => {
+  it("flags a new unlisted read-capable importer and points at the typed seam", () => {
     const root = tmpRepo.writeRepo(
       { "scripts/new-consumer.ts": READ_IMPORT },
       "manifest-tripwire-",
@@ -48,7 +48,8 @@ describe("checkManifestReadTripwire", () => {
     const failures = checkManifestReadTripwire(root);
     expect(failures).toHaveLength(1);
     expect(failures[0]).toContain("scripts/new-consumer.ts");
-    expect(failures[0]).toContain("harness-manifest-schema.ts");
+    expect(failures[0]).toContain("harness-manifest-loader.ts");
+    expect(failures[0]).toContain("docs/guides/harness-manifest-parser.md");
   });
 
   for (const [form, source] of READ_CAPABLE_FORMS) {

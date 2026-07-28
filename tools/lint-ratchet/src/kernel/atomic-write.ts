@@ -5,9 +5,17 @@ import { basename, dirname, join } from "node:path";
 
 // Same-directory rename is atomic on the POSIX filesystems this harness supports.
 export interface AtomicWriteSyncDeps {
-  readonly writeFileSync: (path: string, content: string, options: { readonly flag: "wx" }) => void;
+  readonly writeFileSync: (
+    path: string,
+    content: string,
+    options: { readonly flag: "wx"; readonly mode?: number },
+  ) => void;
   readonly renameSync: (from: string, to: string) => void;
   readonly rmSync: (path: string, options: { readonly force: true }) => void;
+}
+
+export interface AtomicWriteSyncOptions {
+  readonly mode?: number;
 }
 
 const defaultSyncDeps: AtomicWriteSyncDeps = {
@@ -20,24 +28,20 @@ function temporaryPath(path: string): string {
   return join(dirname(path), `.${basename(path)}.${String(process.pid)}.${randomUUID()}.tmp`);
 }
 
-function writeAndRenameSync(
-  deps: AtomicWriteSyncDeps,
-  tempPath: string,
-  path: string,
-  content: string,
-): void {
-  deps.writeFileSync(tempPath, content, { flag: "wx" });
-  deps.renameSync(tempPath, path);
-}
-
 export function writeFileAtomicallySync(
   path: string,
   content: string,
+  options: AtomicWriteSyncOptions = {},
   deps: AtomicWriteSyncDeps = defaultSyncDeps,
 ): void {
   const tempPath = temporaryPath(path);
   try {
-    writeAndRenameSync(deps, tempPath, path, content);
+    const writeOptions =
+      options.mode === undefined
+        ? { flag: "wx" as const }
+        : { flag: "wx" as const, mode: options.mode };
+    deps.writeFileSync(tempPath, content, writeOptions);
+    deps.renameSync(tempPath, path);
   } finally {
     deps.rmSync(tempPath, { force: true });
   }

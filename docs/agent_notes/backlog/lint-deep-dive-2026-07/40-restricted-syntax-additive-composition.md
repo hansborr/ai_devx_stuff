@@ -1,6 +1,24 @@
 # 40. `no-restricted-syntax` overlays clobber by flat-config replacement — the config test admits the blind spot; make composition additive
 
-Status: Step 1 done — selector-presence test upgrade landed; Step 2 builder design recorded and implementation remains out of scope.
+Status: **Step 1 and step 2 both done** (step 2 landed 2026-07-25 on
+`refactor/restricted-syntax-builder`). Tracked as `F5` in
+`../ready-2026-07/00-index.md` §1. See "Step 2 as built" at the end of this
+leaf for what shipped and where it departs from the recorded design.
+
+> **2026-07-25 dispatch notes.** No further design round: implement the design
+> below as written. The duplication it targets has grown since it was recorded
+> — 11 `no-restricted-syntax` entries across three config modules, including a
+> hand-written "repeat…" comment at `package-boundary-configs.js:256-257` added
+> *after* this design. Acceptance test #6 (before/after byte-identical
+> resolved-selector snapshots) is what makes the refactor provably
+> behavior-neutral; do not skip it. Size is **M**, not the recorded L — step 1
+> already landed the matrix that anchors the parity proof.
+>
+> Line refs drifted ~+20: `package-boundary-configs.js` 118-124/220-225/235-241/248
+> → 141-146/243-248/256-264/271; `shared-policy.js:116-126` → `:186-197`;
+> `script-configs.js:90-132` → `:150-200`. The quoted blind-spot comment
+> ("silently clobbered for code files rather than caught") no longer exists —
+> step 1 replaced it with the matrix rationale.
 Lens: config architecture · Area: flat-config composition · Severity: med · Size: S + L (split 2026-07-04) · Confidence: high
 Theme: config-ordering · Source: Musi lint deep-dive 2026-07-04 (3 parallel Codex xhigh lanes + Claude verification agents)
 
@@ -209,3 +227,142 @@ functions inside the flat config.
 6. Before migration, capture current resolved selector-id snapshots for the
    representative files. After migration, the same snapshots must be
    byte-identical except for any intentionally documented selector-id rename.
+
+## Step 2 as built (2026-07-25)
+
+Landed as three commits on `refactor/restricted-syntax-builder`: the pre-change
+resolution pin, the builder, then the migration.
+
+### What shipped
+
+- `eslint-config/restricted-syntax-builder.js` — the engine. Constructors are
+  the recorded ones (`defineRestrictedSyntaxSelectors`,
+  `restrictedSyntaxPolicy`, `restrictedSyntaxException`,
+  `buildRestrictedSyntaxConfigs({ selectors, policies, exceptions, order })`).
+- `eslint-config/restricted-syntax-policy.js` — the data. Every selector object
+  in the repo now lives here once; the three config modules no longer own any.
+- `eslint.config.js` spreads `restrictedSyntaxConfigs` where
+  `processPrimitiveConfigs` used to sit; no other config group sets the rule key.
+
+### Deltas from the recorded design
+
+1. **Families are a tree, not a free lattice.** Each policy/exception declares
+   `within: <parentId>`. A node's emitted `files` is the intersection of its own
+   patterns with every ancestor's (flat config ANDs the patterns inside a nested
+   array) and its `ignores` is the union along that chain, so a child family is
+   a subset of its parent *by construction*. Nodes emit parent-first, and any
+   two families that are not an ancestor/descendant pair must be **provably
+   disjoint** (three sound proofs: one family's patterns listed verbatim in the
+   other's ignores; a literal-path family with no member inside the other; or
+   prefix-incomparable static glob prefixes). Enumerating every intersection of
+   N policies instead would have emitted ~30 config objects for 9 real families,
+   against this leaf's own "keep generated output inspectable" constraint.
+2. **Selector ids are 1:1 with selector objects**, so the recorded
+   `client-query-key-array` id became `query-key-array-property` and
+   `query-client-array-key-argument` (that policy always contributed two
+   objects). `order` has eight ids, and it reproduces every pre-existing site's
+   selector order exactly.
+3. **Three exceptions, not two.** The recorded `server-bootstrap-process-boundaries`
+   is split from the script/prisma boundary list, because the old single "off"
+   block spanned two different families: files under the raw-SQL policy (which
+   must keep that fence — the old `config/env.ts`/`main.ts` re-add block) and
+   files under process-primitives only (which resolve fully off).
+4. **Two extra validations** beyond the recorded six: an ambiguous-overlap check
+   (the laminarity guard above) and a dead-removal check (an exception removing
+   a selector its family never applies).
+5. `no-restricted-syntax: "off"` is emitted as the bare severity string, not
+   `["off"]`. Flat config keeps the inherited options when only a severity is
+   given, so the boundary files still resolve to `[0, process.exit, process.env]`
+   exactly as before.
+6. Three policies had their `ignores` widened with `testAndHelperFiles` so the
+   cross-cutting test/helper exception is provably disjoint from them. Inert for
+   every tracked file (see the parity proof below), because the per-package
+   test/helper lists already covered every test file that exists — but **not**
+   inert for files added later; see "Recorded policy change" under step 3.
+
+### Parity proof
+
+`ESLint.calculateConfigForFile` was run over **every tracked lintable file**
+(2639 of them) before and after the migration: the resolved
+`no-restricted-syntax` entry — severity, selector objects, messages, order — is
+**byte-identical for 2639/2639**. The committed
+`eslint-rules/restricted-syntax-resolution.snapshot.json` pins 29 representative
+files from that pre-change run and is asserted by
+`eslint-rules/restricted-syntax-resolution-snapshot.test.js`.
+
+## Step 3: pre-land review fixes (2026-07-25)
+
+Three-model review of the step-2 branch (Codex "land after these fixes", Opus
+"land as is" + one P1 follow-up, Grok "land as is"), applied on
+`refactor/restricted-syntax-builder-fixes`.
+
+### Recorded policy change: test and helper files take the test carve-out everywhere
+
+Step 2's delta 6 called the `testAndHelperFiles` widening inert. It is inert for
+every tracked file, but it **is** a semantic change for files added later, and
+that is now a recorded decision rather than a side effect of a tool constraint.
+
+What changes, measured by resolving synthetic paths through `main`'s config and
+this branch's with `ESLint.calculateConfigForFile`:
+
+| path (none exist yet) | before | after |
+| --- | --- | --- |
+| `packages/server/src/routers/*.spec.ts` | `process.exit`, `process.env`, `raw-prisma-sql`, `trpc-output-permissive` | `process.exit` |
+| `packages/server/src/routers/**/test/*.ts` | same four | `process.exit` |
+| `packages/shared/src/schemas/*.spec.ts` | `process.exit`, `process.env`, `shared-schema-z-any` | `process.exit` |
+| `packages/shared/src/schemas/*test-helper*.ts` | same three | `process.exit` |
+
+The old behavior was an artifact of block order, not a policy: the package
+fences were spread *after* the test carve-out and spelled their test ignores as
+`**/*.test.ts`, so `routers/foo.spec.ts` was fenced while the sibling
+`services/foo.spec.ts` was not. The new behavior is uniform — a test or helper
+file takes the test carve-out whichever package directory it lands in.
+
+Keeping the old behavior was checked first and rejected on evidence. For two
+glob families the builder's only applicable disjointness proof is "one family's
+file patterns appear verbatim in the other's `ignores`", which has exactly two
+directions. Dropping the widening is rejected outright
+(`server-raw-sql`/`test-env-boundaries` "neither nested nor provably
+disjoint"), as is every partial variant; the one alternative that builds
+excludes whole packages from `test-env-boundaries` instead, which strips the
+`process.env` carve-out from **585 tracked test and helper files**. Reproducing
+the old `.spec`-vs-`.test` asymmetry exactly would mean hand-partitioning globs
+to encode an ordering accident.
+
+Pinned by the synthetic `.spec`/helper resolution cases in
+`eslint-rules/restricted-syntax-and-globals-config.test.js`
+("gives future test and helper files the test carve-out in every package
+family"). `calculateConfigForFile` resolves non-existent paths, so the pin needs
+no fixture files.
+
+### Other fixes applied in the same round
+
+- **Negated patterns are rejected.** Every disjointness proof assumed positive
+  patterns (`familyMatches` treats any matching ignore as final;
+  `provablyDisjoint` compares ignores by string equality), but ESLint re-includes
+  after a negated ignore, so `["foo/**/*.test.ts", "!foo/special.test.ts"]` would
+  be accepted as disjoint from a sibling owning the first pattern and then
+  resolve by emission order. `files` and `ignores` now reject `!` at declaration
+  time rather than modelling ordered ignore semantics.
+- **Family liveness is asserted.** The builder is filesystem-free, so a typo'd
+  glob builds clean and enforces nothing — and the prefix proof rewards it,
+  since a misspelled directory is trivially disjoint from everything. Two tests
+  now assert every emitted family is the deepest match for at least one
+  non-ignored tracked file, and that every literal path exists. Mutation-checked
+  against a dead fence: it is the only failure in the project.
+- **The sole-ownership guard covers the root config.** It scanned only
+  `eslint-config/*.js` and only the double-quoted spelling, so an entry in
+  `eslint.config.js` — the one place that clobbers the composed policy outright
+  — bypassed it.
+- **Two rejections gave unactionable advice.** A family nested under a terminal
+  exception, and an overlap with a `global: true` exception, both now name the
+  policy-plus-nested-exception restructure; the overlap error also says the
+  `ignores` proof needs verbatim patterns.
+- **`intersectFileGroups` no longer restates ancestor globs** that a literal
+  child path already satisfies (emitted output 152 to 98 lines, resolution
+  unchanged).
+- **Documentation**: `docs/guides/add-restricted-syntax-fence.md`, registered in
+  the `docs/ai-harness.md` guides table and cross-linked from `lint-overview.md`.
+  Nothing previously pointed at the builder.
+- `docs/generated/lint-coverage-map.md` said 49 `eslint-rules/*.test.js`; there
+  are 48. The count column is hand-maintained and unchecked.

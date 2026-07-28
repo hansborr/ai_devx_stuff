@@ -169,8 +169,12 @@ aligning the default is cheaper than documenting the discrepancy.
 
 ## A4 — "linted vs ratcheted" / "Normal lint yes|no" has no internal-consistency check (invisible under `--staged`)
 
-**Status: the specific "same glob marked oppositely" example appears stale; the
-validation gap is real and not addressed.**
+**Status: DONE (`4ba3e561`, drain leaf 4.8).** The specific "same glob marked
+oppositely" example was already stale; the underlying validation gap is now
+closed — `collectStatusConsistencyFindings`
+(`scripts/lint-coverage-map-check-row-consistency.ts:24`) cross-checks the
+`Normal lint yes|no` column against the row's status token and fails on
+disagreement. The analysis below is the historical finding.
 
 **Evidence.** Status validation only checks that the status string is a known
 token combination (`isValidStatus`/`VALID_STATUS_PARTS`, findings.ts:4-16). It

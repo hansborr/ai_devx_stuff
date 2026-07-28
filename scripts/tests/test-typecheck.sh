@@ -52,6 +52,10 @@ case "$*" in
     lane="eslint-js"
     exit_code="${STUB_ESLINT_JS_EXIT:-0}"
     ;;
+  "-p tsconfig.e2e.json")
+    lane="e2e"
+    exit_code="${STUB_E2E_EXIT:-0}"
+    ;;
   *)
     printf 'unexpected tsc args: %s\n' "$*" >&2
     exit 99
@@ -85,7 +89,7 @@ new_repo() {
 CASE_OUTPUT=""
 CASE_EXIT=0
 run_typecheck_case() {
-  local name="$1" build_exit="$2" scripts_exit="$3" eslint_js_exit="${4:-0}"
+  local name="$1" build_exit="$2" scripts_exit="$3" eslint_js_exit="${4:-0}" e2e_exit="${5:-0}"
   local repo output_file
   repo="$(new_repo "$name")"
   output_file="$repo/output.log"
@@ -95,6 +99,7 @@ run_typecheck_case() {
     STUB_BUILD_EXIT="$build_exit" \
     STUB_SCRIPTS_EXIT="$scripts_exit" \
     STUB_ESLINT_JS_EXIT="$eslint_js_exit" \
+    STUB_E2E_EXIT="$e2e_exit" \
     MUSI_TSC_BIN="$FAKE_TSC" \
       timeout 5s bash scripts/typecheck.sh
   ) > "$output_file" 2>&1
@@ -116,9 +121,13 @@ assert_prefixed_lane_output() {
   assert_contains "$output" "=== tsc -p tsconfig.eslint-js.json ===" "eslint-js heading"
   assert_contains "$output" "[tsc -p tsconfig.eslint-js.json] eslint-js stdout before" "eslint-js stdout"
   assert_contains "$output" "[tsc -p tsconfig.eslint-js.json] eslint-js stderr before" "eslint-js stderr"
+  assert_contains "$output" "=== tsc -p tsconfig.e2e.json ===" "e2e heading"
+  assert_contains "$output" "[tsc -p tsconfig.e2e.json] e2e stdout before" "e2e stdout"
+  assert_contains "$output" "[tsc -p tsconfig.e2e.json] e2e stderr before" "e2e stderr"
   assert_contains "$output" "[tsc -b] build stdout after" "build stdout"
   assert_contains "$output" "[tsc -p tsconfig.scripts.json] scripts stdout after" "scripts stdout"
   assert_contains "$output" "[tsc -p tsconfig.eslint-js.json] eslint-js stdout after" "eslint-js stdout"
+  assert_contains "$output" "[tsc -p tsconfig.e2e.json] e2e stdout after" "e2e stdout"
 }
 
 bash -n "$TYPECHECK_SCRIPT" || fail "typecheck.sh fails bash -n"
@@ -159,18 +168,31 @@ assert_not_contains "$CASE_OUTPUT" "typecheck: tsc -b failed" "eslint-js-only fa
 assert_not_contains "$CASE_OUTPUT" "typecheck: tsc -p tsconfig.scripts.json failed" "eslint-js-only failure"
 ok "eslint-js lane failure surfaces the eslint-js exit code"
 
-run_typecheck_case all-fail-same 4 4 4
+run_typecheck_case e2e-fails 0 0 0 6
+[ "$CASE_EXIT" -eq 6 ] || fail "e2e failure should exit 6, got $CASE_EXIT:
+$CASE_OUTPUT"
+assert_contains "$CASE_OUTPUT" "typecheck: tsc -p tsconfig.e2e.json failed with exit 6" "e2e failure"
+assert_contains "$CASE_OUTPUT" "typecheck: tsc -p tsconfig.e2e.json diagnostics: 1 TypeScript error line(s)" "e2e diagnostics"
+assert_contains "$CASE_OUTPUT" "[tsc -p tsconfig.e2e.json] src/e2e.ts(1,1): error TS2322" "e2e excerpt"
+assert_not_contains "$CASE_OUTPUT" "typecheck: tsc -b failed" "e2e-only failure"
+assert_not_contains "$CASE_OUTPUT" "typecheck: tsc -p tsconfig.scripts.json failed" "e2e-only failure"
+assert_not_contains "$CASE_OUTPUT" "typecheck: tsc -p tsconfig.eslint-js.json failed" "e2e-only failure"
+ok "e2e lane failure surfaces the e2e exit code"
+
+run_typecheck_case all-fail-same 4 4 4 4
 [ "$CASE_EXIT" -eq 4 ] || fail "matching failures should exit 4, got $CASE_EXIT:
 $CASE_OUTPUT"
 assert_contains "$CASE_OUTPUT" "typecheck: tsc -b failed with exit 4" "same-failure build"
 assert_contains "$CASE_OUTPUT" "typecheck: tsc -p tsconfig.scripts.json failed with exit 4" "same-failure scripts"
 assert_contains "$CASE_OUTPUT" "typecheck: tsc -p tsconfig.eslint-js.json failed with exit 4" "same-failure eslint-js"
+assert_contains "$CASE_OUTPUT" "typecheck: tsc -p tsconfig.e2e.json failed with exit 4" "same-failure e2e"
 ok "matching lane failures preserve the shared exit code"
 
 run_typecheck_case two-fail-same 4 4 0
 [ "$CASE_EXIT" -eq 4 ] || fail "two matching failures should exit 4, got $CASE_EXIT:
 $CASE_OUTPUT"
 assert_not_contains "$CASE_OUTPUT" "typecheck: tsc -p tsconfig.eslint-js.json failed" "two-failure eslint-js"
+assert_not_contains "$CASE_OUTPUT" "typecheck: tsc -p tsconfig.e2e.json failed" "two-failure e2e"
 ok "two matching lane failures preserve the shared exit code"
 
 run_typecheck_case fail-different 7 9 0

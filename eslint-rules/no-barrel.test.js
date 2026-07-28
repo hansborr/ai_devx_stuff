@@ -1,5 +1,5 @@
 // @ts-check
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { makeRuleTester } from "./rule-tester.js";
 import rule from "./no-barrel.js";
@@ -7,6 +7,10 @@ import rule from "./no-barrel.js";
 const ruleTester = makeRuleTester();
 
 describe("no-barrel", () => {
+  it("names the subpath-exports decision", () => {
+    expect(rule.meta.messages.noBarrel).toContain("ADR-0005");
+  });
+
   it("flags index files that re-export from sibling modules", () => {
     ruleTester.run("no-barrel", rule, {
       valid: [

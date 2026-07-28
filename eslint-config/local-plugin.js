@@ -18,6 +18,7 @@ import noLlmArtifacts from "../eslint-rules/no-llm-artifacts.js";
 import noOuterClientInTransaction from "../eslint-rules/no-outer-client-in-transaction.js";
 import noPlainErrorInTrpc from "../eslint-rules/no-plain-error-in-trpc.js";
 import noRedundantCentralMock from "../eslint-rules/no-redundant-central-mock.js";
+import noRetiredParseSuccessImport from "../eslint-rules/no-retired-parse-success-import.js";
 import noSwallowedErrors from "../eslint-rules/no-swallowed-errors.js";
 import noUnboundedPromiseAll from "../eslint-rules/no-unbounded-promise-all.js";
 import socketListenerCleanup from "../eslint-rules/socket-listener-cleanup.js";
@@ -50,6 +51,7 @@ export const localPlugin = {
     "no-outer-client-in-transaction": noOuterClientInTransaction,
     "no-plain-error-in-trpc": noPlainErrorInTrpc,
     "no-redundant-central-mock": noRedundantCentralMock,
+    "no-retired-parse-success-import": noRetiredParseSuccessImport,
     "no-swallowed-errors": noSwallowedErrors,
     "no-unbounded-promise-all": noUnboundedPromiseAll,
     "socket-listener-cleanup": socketListenerCleanup,

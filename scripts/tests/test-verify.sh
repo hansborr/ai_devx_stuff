@@ -16,11 +16,13 @@
 # smoke-subjects: scripts/lib/changed-base.sh
 # smoke-subjects: scripts/lib/gate-env.sh
 # smoke-subjects: scripts/lib/lint-dist-preflight.sh
+# smoke-subjects: scripts/lib/records.ts
 # smoke-subjects: scripts/tests/lib/test-git-env.sh
 # smoke-subjects: scripts/tests/test-verify.sh
 # smoke-subjects: scripts/ai-hooks/cache.sh
 # smoke-subjects: scripts/ai-hooks/common.sh
 # smoke-subjects: scripts/ai-hooks/output-filter.sh
+# smoke-subjects: scripts/lib/verify-metadata-core.ts
 # test-verify.sh — pure-shell smoke tests for scripts/verify.sh.
 #
 # Stubs `bun` so the script never actually runs lint/typecheck/test. Verifies
@@ -120,6 +122,42 @@ write_live_memory_reservation() {
     "$owner_pid" "$owner_start_time" "$mb" "$slot" > "$token"
 }
 ok()   { PASS=$((PASS + 1)); printf 'ok %d - %s\n' "$PASS" "$1"; }
+
+# Echo the slot names of one generated step array (e.g. MUSI_VERIFY_CHANGED_STEPS)
+# without sourcing steps.generated.sh, whose guards demand wrapper runtime
+# variables this scope does not own.
+generated_step_names() {
+  local array_name="$1" names
+  names="$(sed -n "s/^declare -ga ${array_name}=(\(.*\))\$/\1/p" \
+    "$SCRIPT_DIR/../verify/steps.generated.sh" | tr -d "'")"
+  [ -n "$names" ] || fail "could not read $array_name from steps.generated.sh"
+  printf '%s\n' "$names"
+}
+
+# Assert the failure summary's `Passed:` line reports every slot of the named
+# generated step array except the ones listed after it (the slots this case
+# forced to fail). Membership, not order: the summary prints in slot order, so
+# a fixed-string grep breaks every time a slot is inserted mid-list, which is
+# not what these cases exist to prove. Slot ORDER is covered separately by the
+# dispatch-ordering cases that compare stub-log line numbers.
+assert_summary_passed_all_but() {
+  local output="$1" array_name="$2"
+  shift 2
+  local passed_line slot skipped
+  passed_line="$(grep -m1 '^Passed:' <<< "$output")" \
+    || fail "summary missed the Passed: line: $output"
+  for slot in $(generated_step_names "$array_name"); do
+    for skipped in "$@"; do
+      if [ "$slot" = "$skipped" ]; then
+        continue 2
+      fi
+    done
+    case " ${passed_line#Passed:} " in
+      *" $slot "*) ;;
+      *) fail "$array_name slot '$slot' missing from summary line: $passed_line" ;;
+    esac
+  done
+}
 
 # Sandbox so the script never touches real /tmp markers, locks, or logs.
 SANDBOX="$(mktemp -d /tmp/musi-verify-test.XXXXXX)"
@@ -461,6 +499,261 @@ cleanup'
   || fail "mixed PID cleanup should skip empty entries and run once: $(cat "$cleanup_trace")"
 ok "shared cleanup handles mixed empty and populated PID arrays once"
 
+run_admission_signal_evidence_case() {
+  local signal_name="$1" expected_status="$2" signal_point="${3:-admission}"
+  local case_name="${signal_point}-${signal_name}"
+  local log_dir="$SANDBOX/gate-admission-${case_name}.logs"
+  local ready="$SANDBOX/gate-admission-${case_name}.ready"
+  local signal_meta="$SANDBOX/gate-admission-${case_name}.signal-meta"
+  mkdir -p "$log_dir/meta"
+  printf 'prior run meta\n' > "$log_dir/run-meta.json"
+  printf 'prior wrapper meta\n' > "$log_dir/meta/wrapper.json"
+  printf 'prior lint log\n' > "$log_dir/lint.log"
+  printf 'prior timings\n' > "$log_dir/test-timings.json"
+  printf 'prior diagnostics\n' > "$log_dir/ratchet-diagnostics.json"
+  printf 'prior registration\n' > "$log_dir/registration.log"
+
+  set +e
+  (
+    # shellcheck source=../lib/verify-engine.sh
+    . "$SCRIPT_DIR/../lib/verify-engine.sh"
+    admission_identity() { printf 'stable-identity\n'; }
+    # shellcheck disable=SC2034 # Read by name through policy[steps_array].
+    admission_prepare() { ADMISSION_STEPS=(contract); }
+    admission_mode() { printf 'admission-signal\n'; }
+    admission_condition() {
+      [ "$signal_point" != ordinary-pre-removal ]
+    }
+    admission_block() {
+      if [ "$signal_point" = admission ]; then
+        : > "$ready"
+        sleep 30
+      fi
+    }
+    musi_verify_gate_remove_tree() {
+      if { [ "$signal_point" = pre-admission ] \
+           || [ "$signal_point" = ordinary-pre-removal ]; } \
+         && [ "$1" = "$log_dir" ]; then
+        kill -"$signal_name" "$BASHPID"
+      fi
+      command rm -rf -- "$1"
+    }
+    musi_verify_start_watchdog() {
+      if [ "$signal_point" = admission ]; then
+        local hook_pid="$BASHPID"
+        (
+          while [ ! -f "$ready" ]; do sleep 0.01; done
+          kill -"$signal_name" "$hook_pid"
+        ) &
+        MUSI_VERIFY_WATCHDOG_PID=$!
+      else
+        MUSI_VERIFY_WATCHDOG_PID=""
+      fi
+    }
+    musi_terminate_process_tree() { kill -TERM "$1" 2>/dev/null || true; }
+    musi_wait_for_pid_exit_bounded() { wait "$1" 2>/dev/null || true; }
+    musi_verify_write_signal_meta() { : > "$signal_meta"; }
+    musi_verify_report_timeout_budget() { :; }
+
+    # shellcheck disable=SC2034 # Passed by name to musi_verify_run_gate.
+    declare -A admission_policy=(
+      [label]='verify:admission-signal'
+      [banner_label]='VERIFY-ADMISSION-SIGNAL'
+      [step_label]=''
+      [wrapper_command]='verify.sh --admission-signal'
+      [repo_root]="$PWD"
+      [lock_mode]='blocking'
+      [lock_path]="$SANDBOX/gate-admission-${case_name}.lock"
+      [lock_already_held]='1'
+      [commit_queue_mode]='none'
+      [commit_queue_lock]=''
+      [commit_queue_already_held]='0'
+      [commit_queue_timeout]='30'
+      [total_timeout]='45'
+      [warn_after]='30'
+      [marker_path]="$SANDBOX/gate-admission-${case_name}.marker"
+      [marker_freshness]='300'
+      [cache_head_provider]='admission_identity'
+      [cache_fingerprint_provider]='admission_identity'
+      [run_head_provider]='admission_identity'
+      [run_fingerprint_provider]='admission_identity'
+      [final_fingerprint_provider]='admission_identity'
+      [marker_head_provider]='admission_identity'
+      [execution_mode]='parallel'
+      [consumer]='admission_signal'
+      [steps_array]='ADMISSION_STEPS'
+      [signal_mode]='admission-signal'
+      [failure_mode]='admission-signal'
+      [success_mode_provider]='admission_mode'
+      [log_dir]="$log_dir"
+      [history_dir]="$SANDBOX/gate-admission-${case_name}.history"
+      [marker_hit_hook]=''
+      [marker_miss_hook]=''
+      [pre_cache_admission_condition]='admission_condition'
+      [pre_cache_admission_hook]='admission_block'
+      [bridge_predicate]=''
+      [prepare_slots_hook]='admission_prepare'
+      [after_slots_hook]=''
+      [exit_hook]=''
+    )
+    musi_verify_run_gate admission_policy >/dev/null 2>&1
+  )
+  actual_status=$?
+  set -e
+
+  [ "$actual_status" -eq "$expected_status" ] \
+    || fail "$case_name should exit $expected_status, got $actual_status"
+  [ "$(cat "$log_dir/run-meta.json")" = 'prior run meta' ] \
+    || fail "$case_name replaced prior run metadata"
+  [ "$(cat "$log_dir/meta/wrapper.json")" = 'prior wrapper meta' ] \
+    || fail "$case_name replaced prior wrapper metadata"
+  [ "$(cat "$log_dir/lint.log")" = 'prior lint log' ] \
+    || fail "$case_name removed prior slot logs"
+  [ "$(cat "$log_dir/test-timings.json")" = 'prior timings' ] \
+    || fail "$case_name removed prior timings"
+  [ "$(cat "$log_dir/ratchet-diagnostics.json")" = 'prior diagnostics' ] \
+    || fail "$case_name removed prior diagnostics"
+  if [ "$signal_point" = ordinary-pre-removal ]; then
+    [ -e "$signal_meta" ] \
+      || fail "$case_name did not record signal metadata"
+  else
+    [ ! -e "$signal_meta" ] \
+      || fail "$case_name overwrote restored evidence with signal metadata"
+  fi
+  [ -f "$log_dir/registration.log" ] \
+    || fail "$case_name did not retain registration.log"
+  if [ "$signal_point" = pre-admission ]; then
+    [ "$(cat "$log_dir/registration.log")" = 'prior registration' ] \
+      || fail "$case_name replaced registration evidence before admission"
+  fi
+}
+
+run_admission_signal_evidence_case TERM 124
+run_admission_signal_evidence_case INT 130
+run_admission_signal_evidence_case TERM 124 pre-admission
+run_admission_signal_evidence_case INT 130 pre-admission
+run_admission_signal_evidence_case TERM 124 ordinary-pre-removal
+run_admission_signal_evidence_case INT 130 ordinary-pre-removal
+ok "ordinary, pre-admission, and admission signals preserve prior evidence"
+
+# Restoration must remain retryable after a failed atomic swap. In particular,
+# the first attempt owns the current registration log: a retry must not replace
+# that saved copy with whatever tree the failed attempt left live.
+(
+  # shellcheck source=../lib/verify-engine.sh
+  . "$SCRIPT_DIR/../lib/verify-engine.sh"
+  log_dir="$SANDBOX/gate-restore-retry.logs"
+  mkdir -p "$log_dir/meta"
+  printf 'prior run meta\n' > "$log_dir/run-meta.json"
+  printf 'prior wrapper meta\n' > "$log_dir/meta/wrapper.json"
+  # shellcheck disable=SC2034 # Passed by name to evidence helpers.
+  declare -A restore_policy=([log_dir]="$log_dir")
+  musi_verify_gate_backup_live_evidence restore_policy \
+    || fail "restore retry fixture could not back up prior evidence"
+  musi_verify_gate_setup_logs restore_policy \
+    || fail "restore retry fixture could not initialize admission logs"
+  printf 'current registration\n' > "$log_dir/registration.log"
+
+  restore_swap_fail_once=1
+  musi_verify_gate_move_tree() {
+    if [ "$restore_swap_fail_once" -eq 1 ] \
+       && [[ "$1" = "$log_dir.restore."* ]] && [ "$2" = "$log_dir" ]; then
+      restore_swap_fail_once=0
+      return 1
+    fi
+    command mv -- "$1" "$2"
+  }
+
+  set +e
+  musi_verify_cleanup_gate >/dev/null 2>&1
+  first_restore_rc=$?
+  set -e
+  [ "$first_restore_rc" -eq 2 ] \
+    || fail "injected restore swap failure should return 2, got $first_restore_rc"
+  [ "$MUSI_VERIFY_GATE_CLEANED" -eq 0 ] \
+    || fail "failed restoration must leave cleanup retryable"
+  [ "$(cat "$log_dir/registration.log")" = 'current registration' ] \
+    || fail "failed restoration exposed a partial or stale live tree"
+
+  printf 'stale retry registration\n' > "$log_dir/registration.log"
+  musi_verify_cleanup_gate \
+    || fail "cleanup did not retry a transient restore failure"
+  [ "$MUSI_VERIFY_GATE_CLEANED" -eq 1 ] \
+    || fail "successful restoration did not complete cleanup"
+  [ "$(cat "$log_dir/run-meta.json")" = 'prior run meta' ] \
+    || fail "restore retry did not recover prior run metadata"
+  [ "$(cat "$log_dir/meta/wrapper.json")" = 'prior wrapper meta' ] \
+    || fail "restore retry did not recover prior wrapper metadata"
+  [ "$(cat "$log_dir/registration.log")" = 'current registration' ] \
+    || fail "restore retry re-saved a stale registration log"
+  if find "$(dirname "$log_dir")" -maxdepth 1 \
+      \( -name "$(basename "$log_dir").restore.*" \
+         -o -name "$(basename "$log_dir").restore.*.displaced" \) \
+      -print -quit | grep -q .; then
+    fail "restore retry left staging or displaced evidence directories"
+  fi
+) || exit 1
+ok "evidence restoration is failure-atomic and retry-safe"
+
+# A second signal can interrupt restoration after the staging tree has moved
+# live but before the swap state is committed. Exercise real nested traps at
+# that exact boundary so cleanup cannot start a second swap and lose track of
+# the first displaced tree.
+reentrant_log_dir="$SANDBOX/gate-restore-reentrant.logs"
+mkdir -p "$reentrant_log_dir/meta"
+printf 'prior run meta\n' > "$reentrant_log_dir/run-meta.json"
+printf 'prior wrapper meta\n' > "$reentrant_log_dir/meta/wrapper.json"
+set +e
+(
+  # shellcheck source=../lib/verify-engine.sh
+  . "$SCRIPT_DIR/../lib/verify-engine.sh"
+  # shellcheck disable=SC2034 # Passed by name to evidence helpers.
+  declare -A reentrant_policy=([log_dir]="$reentrant_log_dir")
+  musi_verify_gate_backup_live_evidence reentrant_policy \
+    || fail "reentrant restore fixture could not back up prior evidence"
+  musi_verify_gate_setup_logs reentrant_policy \
+    || fail "reentrant restore fixture could not initialize admission logs"
+  printf 'current registration\n' > "$reentrant_log_dir/registration.log"
+
+  reentrant_signal_pending=1
+  musi_verify_gate_move_tree() {
+    command mv -- "$1" "$2" || return $?
+    if [ "$reentrant_signal_pending" -eq 1 ] \
+       && [[ "$1" = "$reentrant_log_dir.restore."* ]] \
+       && [ "$2" = "$reentrant_log_dir" ]; then
+      reentrant_signal_pending=0
+      kill -INT "$BASHPID"
+    fi
+  }
+  musi_verify_write_signal_meta() { return 0; }
+  musi_verify_report_timeout_budget() { return 0; }
+  # shellcheck disable=SC2034 # Read by the signal cleanup path.
+  MUSI_VERIFY_GATE_ACTIVE=1
+  # shellcheck disable=SC2034 # Read by the outer TERM handler after cleanup.
+  MUSI_VERIFY_GATE_LOG_DIR="$reentrant_log_dir"
+  trap 'musi_verify_gate_handle_signal 130' INT
+  trap 'musi_verify_gate_handle_signal 124' TERM
+  kill -TERM "$BASHPID"
+  exit 99
+)
+reentrant_status=$?
+set -e
+[ "$reentrant_status" -eq 124 ] \
+  || fail "nested cleanup signal replaced outer signal status: $reentrant_status"
+[ "$(cat "$reentrant_log_dir/run-meta.json")" = 'prior run meta' ] \
+  || fail "nested cleanup did not restore prior run metadata"
+[ "$(cat "$reentrant_log_dir/meta/wrapper.json")" = 'prior wrapper meta' ] \
+  || fail "nested cleanup did not restore prior wrapper metadata"
+[ "$(cat "$reentrant_log_dir/registration.log")" = 'current registration' ] \
+  || fail "nested cleanup did not retain current registration evidence"
+if find "$(dirname "$reentrant_log_dir")" -maxdepth 1 \
+    \( -name "$(basename "$reentrant_log_dir").restore.*" \
+       -o -name "$(basename "$reentrant_log_dir").restore.*.displaced" \) \
+    -print -quit | grep -q .; then
+  fail "nested cleanup left staging or displaced evidence directories"
+fi
+ok "evidence restoration ignores reentrant signals during an active swap"
+
 # Exercise the sourced engine directly so lifecycle ordering and identity
 # policy stay observable without invoking the real verify slot commands.
 (
@@ -491,6 +784,7 @@ ok "shared cleanup handles mixed empty and populated PID arrays once"
   contract_marker_hit() { printf 'marker-hit\n' >> "$trace"; }
   contract_marker_miss() { printf 'marker-miss-hook\n' >> "$trace"; }
   contract_bridge_miss() { printf 'bridge-predicate\n' >> "$trace"; return 1; }
+  contract_admission() { printf 'registration-admission\n' >> "$trace"; }
   contract_prepare() {
     # shellcheck disable=SC2034 # Read by name through policy[steps_array].
     CONTRACT_STEPS=(contract)
@@ -563,6 +857,7 @@ ok "shared cleanup handles mixed empty and populated PID arrays once"
     [history_dir]="$SANDBOX/gate-contract-history"
     [marker_hit_hook]='contract_marker_hit'
     [marker_miss_hook]='contract_marker_miss'
+    [pre_cache_admission_hook]='contract_admission'
     [bridge_predicate]='contract_bridge_miss'
     [prepare_slots_hook]='contract_prepare'
     [after_slots_hook]='contract_after'
@@ -633,17 +928,20 @@ grep -qF 'parallel-runner:contract_consumer:' "$SANDBOX/gate-contract.trace" \
   || fail "parallel step label should preserve the quiet empty value"
 expected_contract_order='validated
 lock
-marker-miss
-marker-miss-hook
-bridge-predicate
-bridge-miss
-log-setup
-prepare-hook
-prepared
 timestamp
 traps
 watchdog-helper
 watchdog
+evidence-backup
+log-setup
+registration-admission
+admission
+marker-miss
+marker-miss-hook
+bridge-predicate
+bridge-miss
+prepare-hook
+prepared
 parallel-runner:contract_consumer:
 slots
 after-hook
@@ -1471,8 +1769,7 @@ exit_code=$?
 set -e
 [ "$exit_code" -ne 0 ] || fail "verify --changed did not propagate failure"
 grep -qF 'Failed: typecheck' <<< "$output" || fail "summary missed Failed: typecheck"
-grep -qF 'Passed: lint suppressions ratchet zero-baseline debt-accounting adr knip-unused-exports near-duplicates max-lines-exceptions coverage-map format-check test scripts' <<< "$output" \
-  || fail "summary missed other passed parallel tasks"
+assert_summary_passed_all_but "$output" MUSI_VERIFY_CHANGED_STEPS typecheck
 grep -qF 'verify:changed FAILED' <<< "$output" || fail "summary missed banner"
 [ -f "$MARKER_CHANGED" ] && fail "marker should not be written on failure"
 history_match="$(find "$HISTORY_DIR" -maxdepth 1 -type f -name '*-parallel-verify-changed-1.json' -print -quit)"
@@ -1529,8 +1826,7 @@ exit_code=$?
 set -e
 [ "$exit_code" -ne 0 ] || fail "verify --changed did not propagate ADR failure"
 grep -qF 'Failed: adr' <<< "$output" || fail "summary missed Failed: adr"
-grep -qF 'Passed: lint suppressions ratchet zero-baseline debt-accounting' <<< "$output" \
-  || fail "ADR failure summary missed preceding passed tasks"
+assert_summary_passed_all_but "$output" MUSI_VERIFY_CHANGED_STEPS adr
 grep -q 'bun run typecheck' "$STUB_LOG_FILE" \
   || fail "parallel changed verify should still start typecheck after ADR failure"
 ok "verify --changed reports ADR failure"
@@ -1544,8 +1840,7 @@ exit_code=$?
 set -e
 [ "$exit_code" -ne 0 ] || fail "verify --changed did not propagate coverage-map failure"
 grep -qF 'Failed: coverage-map' <<< "$output" || fail "summary missed Failed: coverage-map"
-grep -qF 'Passed: lint suppressions ratchet' <<< "$output" \
-  || fail "summary missed Passed: lint suppressions ratchet"
+assert_summary_passed_all_but "$output" MUSI_VERIFY_CHANGED_STEPS coverage-map
 grep -q 'bun run typecheck' "$STUB_LOG_FILE" \
   || fail "parallel changed verify should still start typecheck after coverage-map failure"
 grep -q 'bun run test:changed' "$STUB_LOG_FILE" \
@@ -1939,8 +2234,7 @@ exit_code=$?
 set -e
 [ "$exit_code" -ne 0 ] || fail "verify --parallel did not propagate failure"
 grep -qF 'Failed: typecheck' <<< "$output" || fail "parallel summary missed Failed: typecheck"
-grep -qF 'Passed: lint suppressions ratchet zero-baseline debt-accounting local-rule-starter adr knip-unused-exports near-duplicates max-lines-exceptions coverage-map format-check test scripts' <<< "$output" \
-  || fail "parallel summary missed other passed tasks"
+assert_summary_passed_all_but "$output" MUSI_VERIFY_PARALLEL_STEPS typecheck
 grep -q 'bun run test ' "$STUB_LOG_FILE" \
   || fail "parallel verify should still run test after typecheck failure"
 ok "verify --parallel aggregates parallel failures"

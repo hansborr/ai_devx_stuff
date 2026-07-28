@@ -4,7 +4,7 @@
   "metric": "file-line-cap-exceptions",
   "regenerate": "bun run lint:max-lines-exceptions:update",
   "summary": {
-    "count": 27
+    "count": 28
   },
   "entries": [
     {
@@ -165,6 +165,14 @@
       "severity": "error",
       "reason": "Rules-domain calculator has several tightly-coupled D&D damage branches pending a future rules refactor.",
       "lifecycle": "candidate-for-split",
+      "ratchetExcluded": true
+    },
+    {
+      "path": "packages/shared/src/rules/srd-weapons.ts",
+      "cap": 310,
+      "severity": "error",
+      "reason": "The SRD weapon catalog remains a reviewable transcribed rules table beside its closed property and value types.",
+      "lifecycle": "permanent",
       "ratchetExcluded": true
     },
     {

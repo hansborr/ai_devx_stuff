@@ -1,11 +1,19 @@
 # 14 — Enumerate the package's subpath exports
 
-Status: Accepted 2026-07-18 — adopt with modifications (owner ruling below;
-owner delegated the call to a Fable + Codex design consult and signed off
-on the result). Gate satisfied 2026-07-18: leaf 05 item 1 (`c3b233de`),
-leaf 12 (`0dbb5e5d`), and leaf 13's operations slice (`e1fa3141`) have all
-landed. Re-measured against the post-drain tree the same day (see
-Measurement — the pre-drain "~30 deep subpaths" figure is superseded).
+Status: DONE 2026-07-19 — the 43-key enumerated exports map replaced the
+wildcards (`a7578536`), and the `tsconfig.scripts.json` wildcard-`paths`
+bypass is gone. Prerequisite chain: `4d328a13` (self-name imports
+relativized) → `c413f6f3` (utility borrows funnelled through
+`scripts/lib` shims) → `a7578536` (flip) → `57c7ce6e` (shims registered as
+smoke subjects, exports denials pinned). Contract pinned by
+`tools/lint-ratchet/test/package-structure.test.ts:108` ("enumerated
+exports contract"). Originally Accepted 2026-07-18 — adopt with
+modifications (owner ruling below; owner delegated the call to a Fable +
+Codex design consult and signed off on the result). Gate satisfied
+2026-07-18: leaf 05 item 1 (`c3b233de`), leaf 12 (`0dbb5e5d`), and leaf
+13's operations slice (`e1fa3141`) had all landed. Re-measured against the
+post-drain tree the same day (see Measurement — the pre-drain "~30 deep
+subpaths" figure is superseded).
 Priority: P2 · Size: M (re-sized from S by the ruling: the two
 prerequisites below are real work the original sizing didn't include)
 Source: architecture review 2026-07-18 (candidate 4); codex/opus consult;

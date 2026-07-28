@@ -1,6 +1,6 @@
 # 10. BCRYPT_SALT_ROUNDS hardcoded at 12 makes real-auth-path tests (register / changePassword / rate-limit) pay ~150ms per hash
 
-Status: Proposed — read-only finding from the test-suite audit; NOT implemented. Re-verify file:line before acting.
+Status: Done — landed 2026-07-19 (`38221482`). `BCRYPT_SALT_ROUNDS` drops to 4 under `NODE_ENV=test` (`packages/server/src/config/auth.ts:14-34`); the timing-oracle caveat is honoured — `RUN_TIMING_TESTS` runs keep the 12-round production cost, and `TIMING_ORACLE_BCRYPT_SALT_ROUNDS` stays pinned at 12 in every environment. Problem statement below is the historical finding.
 Lens: speed · Area: server · Severity: low · Size: S · Confidence: high
 Theme: auth-bcrypt-cost · Source: Musi test-suite audit 2026-06-13 (multi-agent, adversarially verified)
 

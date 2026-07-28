@@ -11,18 +11,21 @@ fail() {
   exit 1
 }
 
+# `--` terminates option parsing: without it a needle that starts with `-` (say
+# `--dry-run completed`) is read by grep as an option, the assertion errors out
+# instead of comparing, and assert_not_contains then passes vacuously.
 assert_contains() {
   local haystack="$1"
   local needle="$2"
 
-  grep -qF "$needle" <<< "$haystack" || fail "expected [$haystack] to contain [$needle]"
+  grep -qF -- "$needle" <<< "$haystack" || fail "expected [$haystack] to contain [$needle]"
 }
 
 assert_not_contains() {
   local haystack="$1"
   local needle="$2"
 
-  if grep -qF "$needle" <<< "$haystack"; then
+  if grep -qF -- "$needle" <<< "$haystack"; then
     fail "expected [$haystack] not to contain [$needle]"
   fi
 }

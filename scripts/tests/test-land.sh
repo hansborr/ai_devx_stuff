@@ -63,7 +63,7 @@ write_bun_stub() {
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [ "$1" = "install" ]; then
+if [ "$#" -eq 2 ] && [ "$1" = "install" ] && [ "$2" = "--frozen-lockfile" ]; then
   root=$(git rev-parse --show-toplevel)
   package_dep=""
   locked_dep=""
@@ -75,10 +75,6 @@ if [ "$1" = "install" ]; then
   fi
   printf 'install:%s:%s:%s\n' "$root" "${2:-<missing-flag>}" "${locked_dep:-<none>}" \
     >> "${MUSI_LAND_BUN_LOG:?}"
-  if [ "${2:-}" != "--frozen-lockfile" ]; then
-    printf 'stub install diagnostic: expected --frozen-lockfile\n' >&2
-    exit 93
-  fi
   if [ -n "$package_dep" ] && [ "$package_dep" != "$locked_dep" ]; then
     printf 'stub install diagnostic: package.json and bun.lock disagree\n' >&2
     exit 94
@@ -93,12 +89,12 @@ if [ "$1" = "install" ]; then
   fi
   exit 0
 fi
-if [ "$1" = "run" ] && [ "${2:-}" = "harness:check" ]; then
+if [ "$#" -eq 2 ] && [ "$1" = "run" ] && [ "$2" = "harness:check" ]; then
   printf 'harness:%s\n' "$(git rev-parse --show-toplevel)" >> "${MUSI_LAND_BUN_LOG:?}"
   exit "${MUSI_LAND_HARNESS_CHECK_STATUS:-0}"
 fi
-if [ "$1" = "run" ] && [ "${2:-}" = "--filter" ] &&
-  [ "${3:-}" = "@musi/server" ] && [ "${4:-}" = "prisma:generate" ]; then
+if [ "$#" -eq 4 ] && [ "$1" = "run" ] && [ "$2" = "--filter" ] &&
+  [ "$3" = "@musi/server" ] && [ "$4" = "prisma:generate" ]; then
   root=$(git rev-parse --show-toplevel)
   parents=$(git rev-list --parents -n 1 HEAD | awk '{print NF - 1}')
   printf 'prisma-generate:%s:%s:%s\n' "$root" "$parents" "$(git rev-parse HEAD^{tree})" \
@@ -109,7 +105,7 @@ if [ "$1" = "run" ] && [ "${2:-}" = "--filter" ] &&
   fi
   exit 0
 fi
-if [ "$1" = "run" ] && [ "${2:-}" = "verify" ]; then
+if [ "$#" -eq 2 ] && [ "$1" = "run" ] && [ "$2" = "verify" ]; then
   root=$(git rev-parse --show-toplevel)
   marker="${MUSI_VERIFY_MARKER_FULL:-}"
   if [ -n "$marker" ] && [ -f "$marker" ] && [ "${FORCE_VERIFY:-}" != "1" ]; then
@@ -163,7 +159,22 @@ if [ "$1" = "run" ] && [ "${2:-}" = "verify" ]; then
   fi
   exit "$status"
 fi
-exit 0
+root=$(git rev-parse --show-toplevel 2>/dev/null || printf '<outside-repo>')
+{
+  printf 'unexpected-bun:%s' "$root"
+  for arg in "$@"; do
+    printf ':%q' "$arg"
+  done
+  printf '\n'
+} >> "${MUSI_LAND_BUN_LOG:?}"
+{
+  printf 'stub bun diagnostic: unexpected argv'
+  for arg in "$@"; do
+    printf ' %q' "$arg"
+  done
+  printf '\n'
+} >&2
+exit 95
 STUB
   chmod +x "$stub_dir/bun"
 }
@@ -271,11 +282,53 @@ last_line() {
   printf '%s\n' "$1" | tail -n 1
 }
 
+assert_bun_stub_rejects() {
+  local repo="$1"
+  local stub="$2"
+  local stub_log="$3"
+  shift 3
+  local expected_event="unexpected-bun:$repo"
+  local arg
+  local quoted_arg
+  local output
+  local exit_code
+
+  for arg in "$@"; do
+    printf -v quoted_arg '%q' "$arg"
+    expected_event="$expected_event:$quoted_arg"
+  done
+
+  : > "$stub_log"
+  set +e
+  output=$(cd "$repo" && MUSI_LAND_BUN_LOG="$stub_log" "$stub" "$@" 2>&1)
+  exit_code=$?
+  set -e
+  [ "$exit_code" -eq 95 ] \
+    || fail "Bun stub should reject unexpected argv '$*' with exit 95: $output"
+  [ "$(cat "$stub_log")" = "$expected_event" ] \
+    || fail "Bun stub should log full unexpected argv '$*': $(cat "$stub_log")"
+}
+
 documented_contract=$(sed -n 's/^#   \([0-9][0-9]*\) \([^ ]*\) — .*$/\1 \2/p' "$REPO_ROOT/scripts/land.sh")
 expected_contract=$'0 landed-verified\n1 not-landed\n2 verify-failed\n3 merged-unverified'
 [ "$documented_contract" = "$expected_contract" ] \
   || fail "land.sh documented exit contract drifted: $documented_contract"
 ok "land.sh documents the machine-readable exit code and token contract"
+
+repo=$(new_repo land-bun-stub-contract)
+stub_dir="$TMP_ROOT/bun-stub-contract-bin"
+stub_log="$TMP_ROOT/bun-stub-contract.log"
+write_bun_stub "$stub_dir"
+assert_bun_stub_rejects "$repo" "$stub_dir/bun" "$stub_log" \
+  install --frozen-lockfile --ignore-scripts
+assert_bun_stub_rejects "$repo" "$stub_dir/bun" "$stub_log" \
+  run harness:check --changed
+assert_bun_stub_rejects "$repo" "$stub_dir/bun" "$stub_log" \
+  run --filter @musi/server prisma:generate --watch
+assert_bun_stub_rejects "$repo" "$stub_dir/bun" "$stub_log" \
+  run verify --watch
+assert_bun_stub_rejects "$repo" "$stub_dir/bun" "$stub_log" run unexpected:gate
+ok "Bun stub rejects and records changed or unknown command shapes"
 
 repo=$(new_repo land-dirty)
 git -C "$repo" switch -qc feature
@@ -285,8 +338,13 @@ output=$(cd "$repo" && bash scripts/land.sh 2>&1)
 exit_code=$?
 set -e
 [ "$exit_code" -eq 1 ] || fail "dirty land should exit 1: $output"
-[ "$(last_line "$output")" = "land: exit: 1 (not-landed) — commit or stash the worktree changes, then re-run land" ] \
+[ "$(last_line "$output")" = "land: exit: 1 (not-landed) — inspect with git diff, then commit the worktree changes or ask the user how to preserve them before re-running land" ] \
   || fail "dirty land trailer mismatch: $output"
+grep -qF "land: uncommitted changes — inspect them with git diff, then commit them or ask the user how to preserve them." <<< "$output" \
+  || fail "dirty land guidance mismatch: $output"
+if grep -qiF stash <<< "$output"; then
+  fail "dirty land guidance must not recommend stash: $output"
+fi
 ok "precondition failures end with the not-landed trailer"
 
 repo=$(new_repo land-untracked-source)
@@ -312,6 +370,138 @@ grep -qF 'land:   - scripts/untracked-helper.ts' <<< "$output" \
   || fail "untracked source rejection should leave the feature checked out"
 ok "source-relevant untracked files fail landing before verification"
 
+# Main in a sibling worktree is rejected before any Bun-owned verification
+# work. This keeps the recovery guidance actionable and the failure immediate.
+repo=$(new_repo land-sibling-main-live)
+git -C "$repo" switch -qc feature
+printf 'feature\n' > "$repo/feature.txt"
+git -C "$repo" add feature.txt
+git -C "$repo" commit -qm "test: sibling-main preflight feature"
+sibling="$TMP_ROOT/land-sibling-main-live-wt"
+git -C "$repo" worktree add -q "$sibling" main
+stub_dir="$TMP_ROOT/sibling-main-live-bin"
+stub_log="$TMP_ROOT/sibling-main-live.log"
+marker="$TMP_ROOT/sibling-main-live.marker"
+write_bun_stub "$stub_dir"
+: > "$stub_log"
+set +e
+output=$(run_land "$repo" "$stub_dir" "$stub_log" "$marker" env 2>&1)
+exit_code=$?
+set -e
+[ "$exit_code" -eq 1 ] || fail "sibling-main preflight should exit 1: $output"
+grep -qF "main is checked out in a sibling worktree" <<< "$output" \
+  || fail "sibling-main abort should name the sibling worktree: $output"
+[ ! -s "$stub_log" ] \
+  || fail "sibling-main abort must happen before install or verification: $(cat "$stub_log")"
+ok "main in a sibling worktree aborts before the land flow starts"
+
+# A registered main worktree that cannot be entered is not treated as a safe
+# sibling path. Fail closed before install/harness/verify and name the stale
+# registration so the operator can repair it.
+repo=$(new_repo land-sibling-main-stale)
+git -C "$repo" switch -qc feature
+printf 'feature\n' > "$repo/feature.txt"
+git -C "$repo" add feature.txt
+git -C "$repo" commit -qm "test: stale sibling-main preflight feature"
+sibling="$TMP_ROOT/land-sibling-main-stale-wt"
+git -C "$repo" worktree add -q "$sibling" main
+rm -rf "$sibling"
+stub_dir="$TMP_ROOT/sibling-main-stale-bin"
+stub_log="$TMP_ROOT/sibling-main-stale.log"
+marker="$TMP_ROOT/sibling-main-stale.marker"
+write_bun_stub "$stub_dir"
+: > "$stub_log"
+set +e
+output=$(run_land "$repo" "$stub_dir" "$stub_log" "$marker" env 2>&1)
+exit_code=$?
+set -e
+[ "$exit_code" -eq 1 ] || fail "stale sibling-main preflight should exit 1: $output"
+grep -qF "cannot be entered" <<< "$output" \
+  || fail "stale sibling-main abort should explain the invalid entry: $output"
+grep -qF "$sibling" <<< "$output" \
+  || fail "stale sibling-main abort should name the registered path: $output"
+[ ! -s "$stub_log" ] \
+  || fail "stale sibling-main abort must happen before install or verification: $(cat "$stub_log")"
+ok "an unenterable main worktree registration fails closed before land starts"
+
+repo=$(new_repo land-branch-arguments)
+set +e
+output=$(cd "$repo" && bash scripts/land.sh --branch does-not-exist 2>&1)
+exit_code=$?
+set -e
+[ "$exit_code" -eq 1 ] || fail "missing branch should exit 1: $output"
+grep -qF "does not exist" <<< "$output" || fail "missing branch diagnostic drifted: $output"
+
+git -C "$repo" switch -qc feature
+set +e
+output=$(cd "$repo" && bash scripts/land.sh --branch main 2>&1)
+exit_code=$?
+set -e
+[ "$exit_code" -eq 1 ] || fail "protected branch should exit 1: $output"
+grep -qF "protected branch" <<< "$output" || fail "protected branch diagnostic drifted: $output"
+
+set +e
+output=$(cd "$repo" && bash scripts/land.sh --branch 2>&1)
+exit_code=$?
+set -e
+[ "$exit_code" -eq 1 ] || fail "missing --branch value should exit 1: $output"
+grep -qF "requires a branch name" <<< "$output" || fail "missing --branch value diagnostic drifted: $output"
+
+set +e
+output=$(cd "$repo" && bash scripts/land.sh --bogus-flag 2>&1)
+exit_code=$?
+set -e
+[ "$exit_code" -eq 1 ] || fail "unknown argument should exit 1: $output"
+grep -qF "unknown argument" <<< "$output" || fail "unknown argument diagnostic drifted: $output"
+
+set +e
+output=$(cd "$repo" && bash scripts/land.sh --branch feature 2>&1)
+exit_code=$?
+set -e
+[ "$exit_code" -eq 1 ] || fail "current branch target should exit 1: $output"
+grep -qF "is the current branch" <<< "$output" || fail "current branch diagnostic drifted: $output"
+
+git -C "$repo" switch -q main
+git -C "$repo" branch land/feature feature
+set +e
+output=$(cd "$repo" && bash scripts/land.sh --branch feature 2>&1)
+exit_code=$?
+set -e
+[ "$exit_code" -eq 1 ] || fail "stale integration branch should exit 1: $output"
+grep -qF "already exists" <<< "$output" || fail "stale integration branch diagnostic drifted: $output"
+ok "branch mode validates its target and command-line contract"
+
+# Harness freshness is the first authored preflight after the locked install.
+# A stale harness is `1 not-landed`, and Prisma generation plus verify must not
+# start. Keeping this exact event contract here makes this suite the sole owner
+# of land's Bun-call sequence.
+repo=$(new_repo land-harness-check-fails)
+git -C "$repo" switch -qc feature
+printf 'feature\n' > "$repo/feature.txt"
+git -C "$repo" add feature.txt
+git -C "$repo" commit -qm "test: current-mode harness failure"
+stub_dir="$TMP_ROOT/harness-fail-bin"
+stub_log="$TMP_ROOT/harness-fail.log"
+marker="$TMP_ROOT/harness-fail.marker"
+write_bun_stub "$stub_dir"
+: > "$stub_log"
+set +e
+output=$(
+  run_land "$repo" "$stub_dir" "$stub_log" "$marker" \
+    env MUSI_LAND_HARNESS_CHECK_STATUS=42 2>&1
+)
+exit_code=$?
+set -e
+[ "$exit_code" -eq 1 ] || fail "harness failure should exit 1: $output"
+grep -qF "land: running harness freshness gate on feature" <<< "$output" \
+  || fail "harness failure should announce the freshness gate: $output"
+expected_events=$(printf 'install:%s:--frozen-lockfile:<none>\nharness:%s' "$repo" "$repo")
+[ "$(cat "$stub_log")" = "$expected_events" ] \
+  || fail "harness failure must stop before Prisma generation and verify: $(cat "$stub_log")"
+[ "$(last_line "$output")" = "land: exit: 1 (not-landed) — regenerate the stale harness surfaces, commit them, then re-run land" ] \
+  || fail "harness-failure trailer mismatch: $output"
+ok "harness failure short-circuits Prisma generation and verify as not-landed"
+
 repo=$(new_repo land-fast-path)
 git -C "$repo" switch -qc feature
 printf 'feature\n' > "$repo/feature.txt"
@@ -327,11 +517,18 @@ output=$(run_land "$repo" "$stub_dir" "$stub_log" "$marker" env 2>&1)
 exit_code=$?
 set -e
 [ "$exit_code" -eq 0 ] || fail "fast-path land should succeed: $output"
+grep -qF "land: running harness freshness gate on feature" <<< "$output" \
+  || fail "fast path should announce the harness freshness gate: $output"
+grep -qF "land: running full verify on feature" <<< "$output" \
+  || fail "fast path should announce the full verify: $output"
 [ "$(grep -c '^verify:' "$stub_log")" -eq 1 ] || fail "fast path should verify once: $(cat "$stub_log")"
 grep -qF "verify:$repo:1:" "$stub_log" || fail "fast path should verify the feature tip: $(cat "$stub_log")"
+event_kinds=$(cut -d: -f1 "$stub_log")
+[ "$event_kinds" = $'install\nharness\nprisma-generate\nverify\ninstall' ] \
+  || fail "successful land must run its preflights in order and reconcile merged-main dependencies: $(cat "$stub_log")"
 [ "$(last_line "$output")" = "land: exit: 0 (landed-verified) — push main with: git push origin main" ] \
   || fail "fast-path success trailer mismatch: $output"
-ok "tree-equality fast path verifies once and exits push-ready"
+ok "tree-equality fast path owns the successful preflight order and exits push-ready"
 
 # Prisma preflight placement, branch-tip mode: the client is regenerated
 # exactly once, from the same settled tree verify then runs on, and strictly
@@ -585,6 +782,9 @@ exit_code=$?
 set -e
 [ "$exit_code" -eq 2 ] || fail "fast-path verify failure should exit 2: $output"
 [ "$(git -C "$repo" rev-parse main)" = "$main_before" ] || fail "fast-path verify failure must not move main"
+failed_event_kinds=$(cut -d: -f1 "$stub_log")
+[ "$failed_event_kinds" = $'install\nharness\nprisma-generate\nverify' ] \
+  || fail "verify failure must stop after the exact install, harness, Prisma, verify sequence: $(cat "$stub_log")"
 [ "$(last_line "$output")" = "land: exit: 2 (verify-failed) — inspect $TMP_ROOT/verify-log/<slot>.log, fix the branch verification failure, then re-run land" ] \
   || fail "fast-path verify-failure trailer mismatch: $output"
 if grep -qF 'land: NOTE: the regenerated Prisma client' <<< "$output"; then
@@ -802,12 +1002,22 @@ exit_code=$?
 set -e
 [ "$exit_code" -eq 0 ] || fail "branch three-way land should succeed: $output"
 [ "$(git -C "$repo" rev-parse HEAD^1)" = "$main_before" ] || fail "branch merge first parent should be frozen main"
+git -C "$repo" merge-base --is-ancestor feature main \
+  || fail "branch three-way success should preserve feature as an ancestor of main"
 [ "$(git -C "$repo" symbolic-ref --short HEAD)" = "main" ] || fail "branch three-way success should leave main checked out"
 if git -C "$repo" rev-parse --verify --quiet refs/heads/land/feature >/dev/null; then
   fail "branch three-way success should remove its integration branch"
 fi
+grep -qF "land: creating integration branch land/feature" <<< "$output" \
+  || fail "branch three-way path should announce its integration branch: $output"
 [ "$(grep -cF "install:$repo:--frozen-lockfile:<none>" "$stub_log")" -eq 3 ] \
   || fail "branch three-way path should install the preview, restored integration tree, and merged main: $(cat "$stub_log")"
+[ "$(tail -n1 "$stub_log")" = "install:$repo:--frozen-lockfile:<none>" ] \
+  || fail "successful branch mode must finish with merged-main dependency reconciliation: $(cat "$stub_log")"
+verify_line=$(grep -n '^verify:' "$stub_log" | head -n1 | cut -d: -f1)
+merged_main_install_line=$(wc -l < "$stub_log")
+[ "$verify_line" -lt "$merged_main_install_line" ] \
+  || fail "merged-main dependency reconciliation must happen after verify: $(cat "$stub_log")"
 grep -qF 'land: reconciling locked dependencies after checkout restoration' <<< "$output" \
   || fail "branch three-way path should reconcile after restoring the merge preview: $output"
 grep -qF 'land: reconciling locked dependencies for merged main' <<< "$output" \
@@ -945,6 +1155,44 @@ if git -C "$repo" rev-parse --verify --quiet refs/heads/land/feature >/dev/null;
 fi
 grep -qF "feature advanced during verification" <<< "$output" || fail "advanced tip diagnostic missing: $output"
 ok "branch movement during verify refuses the frozen tip and cleans up"
+
+# The target can still advance in the narrow check-to-merge window. The merge
+# remains push-safe because it contains the frozen verified tip, but land must
+# say clearly that the newer target commits are not in main.
+repo=$(new_repo land-branch-post-merge-move)
+git -C "$repo" switch -qc feature
+printf 'feature\n' > "$repo/feature.txt"
+git -C "$repo" add feature.txt
+git -C "$repo" commit -qm "test: post-merge movement feature"
+git -C "$repo" switch -q main
+cat > "$repo/.git/hooks/post-merge" <<'HOOK'
+#!/usr/bin/env bash
+tree=$(git rev-parse feature^{tree})
+parent=$(git rev-parse refs/heads/feature)
+advanced=$(git commit-tree "$tree" -p "$parent" -m "test: concurrent post-verify advance")
+git update-ref refs/heads/feature "$advanced"
+HOOK
+chmod +x "$repo/.git/hooks/post-merge"
+stub_dir="$TMP_ROOT/post-merge-move-bin"
+stub_log="$TMP_ROOT/post-merge-move.log"
+marker="$TMP_ROOT/post-merge-move.marker"
+write_bun_stub "$stub_dir"
+: > "$stub_log"
+set +e
+output=$(run_land_branch "$repo" "$stub_dir" "$stub_log" "$marker" feature env 2>&1)
+exit_code=$?
+set -e
+[ "$exit_code" -eq 0 ] || fail "post-merge movement should preserve verified success: $output"
+grep -qF "advanced after it was verified" <<< "$output" \
+  || fail "post-merge movement warning should identify the advanced target: $output"
+grep -qF "does NOT contain the newer commits" <<< "$output" \
+  || fail "post-merge movement warning should describe main accurately: $output"
+if git -C "$repo" merge-base --is-ancestor feature main; then
+  fail "post-merge movement fixture should leave the advanced target outside main"
+fi
+[ "$(tail -n1 "$stub_log")" = "install:$repo:--frozen-lockfile:<none>" ] \
+  || fail "post-merge movement success must still reconcile merged-main dependencies: $(cat "$stub_log")"
+ok "branch mode reports target movement after verify and reconciles merged main"
 
 repo=$(new_repo land-main-advances)
 git -C "$repo" switch -qc feature

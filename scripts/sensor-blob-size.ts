@@ -2,10 +2,11 @@
 // Staged blob-size sensor. Reads blob sizes from the Git index so the report
 // matches what would be committed, not the current working-tree bytes.
 
-import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+
+import { defaultGitRunner, listStagedPaths, readStagedBlobSize } from "./lib/git.js";
 
 const DEFAULT_WARN_THRESHOLD_KIBIBYTES = 500;
 const DEFAULT_BLOCK_THRESHOLD_MEBIBYTES = 5;
@@ -237,12 +238,7 @@ function allowlistFinding(
 
 function listStagedFiles(cwd: string): readonly string[] {
   try {
-    const output = execFileSync(
-      "git",
-      ["diff", "--cached", "--name-only", "--diff-filter=ACMR", "-z"],
-      { cwd, encoding: "buffer" },
-    );
-    return [...parseNulDelimited(output.toString("utf8"))].sort(compareStrings);
+    return listStagedPaths(defaultGitRunner({ cwd })).sort(compareStrings);
   } catch {
     throw new BlobSizeCliError("sensor:blob-size requires a Git repository.");
   }
@@ -250,11 +246,7 @@ function listStagedFiles(cwd: string): readonly string[] {
 
 function stagedBlobSize(cwd: string, repoRelativePath: string): number {
   try {
-    const output = execFileSync("git", ["cat-file", "-s", `:${repoRelativePath}`], {
-      cwd,
-      encoding: "utf8",
-    }).trim();
-    return Number(output);
+    return readStagedBlobSize(defaultGitRunner({ cwd }), repoRelativePath);
   } catch {
     throw new BlobSizeCliError(`sensor:blob-size could not read staged blob: ${repoRelativePath}`);
   }
@@ -312,10 +304,6 @@ function formatFinding(finding: BlobSizeFinding): string {
     `${prefix}: ${finding.file}: staged blob is ${String(finding.sizeBytes)} bytes;`,
     `exceeds ${finding.severity} threshold ${String(finding.thresholdBytes)} bytes`,
   ].join(" ");
-}
-
-function parseNulDelimited(output: string): readonly string[] {
-  return output.split("\0").filter((entry) => entry.length > 0);
 }
 
 function normalizeRepoPath(filePath: string): string {

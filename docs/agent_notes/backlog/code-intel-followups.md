@@ -14,9 +14,10 @@ tests, project filters, and usage polish are landed.
 
 - Add or support JSON consumers only when a hook, dashboard, MCP adapter, or
   other concrete reader exists. The CLI already supports `--format json`.
-- Add caching, a daemon, or a persistent file index only if repeated lookup
-  latency becomes visible friction. Use `code-intel-daemon-options.md` for the
-  implementation tradeoffs.
+- ~~Add caching, a daemon, or a persistent file index~~ — done. The Option 2
+  daemon shipped in `55f5fa78` (`feat(code-intel): add daemon lifecycle CLI`);
+  see `scripts/code-intel/daemon-*.ts` and `graph-cache.ts`.
+  `code-intel-daemon-options.md` is now the design rationale, not a plan.
 - Add cycle/debug output only with a concrete confusing query. The current
   reverse graph walk already terminates across cycles.
 - Revisit definition ambiguity formatting only if a real query produces a

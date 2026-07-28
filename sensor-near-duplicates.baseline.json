@@ -8,8 +8,8 @@
   "tokenBandRatio": "0.35",
   "regenerate": "bun scripts/sensor-near-duplicates.ts --update",
   "summary": {
-    "identities": 27,
-    "pairs": 27
+    "identities": 25,
+    "pairs": 25
   },
   "entries": [
     {
@@ -173,14 +173,6 @@
       "count": 1
     },
     {
-      "key": "packages/client/src/test/mock-trpc-magic-item.ts#queryFn <=> packages/client/src/test/mock-trpc-monster.ts#queryFn",
-      "left": "packages/client/src/test/mock-trpc-magic-item.ts#queryFn",
-      "right": "packages/client/src/test/mock-trpc-monster.ts#queryFn",
-      "leftFile": "packages/client/src/test/mock-trpc-magic-item.ts",
-      "rightFile": "packages/client/src/test/mock-trpc-monster.ts",
-      "count": 1
-    },
-    {
       "key": "packages/server/src/services/character-live-state/rest.ts#shortRest <=> packages/server/src/services/character-live-state/rest.ts#longRest",
       "left": "packages/server/src/services/character-live-state/rest.ts#shortRest",
       "right": "packages/server/src/services/character-live-state/rest.ts#longRest",
@@ -218,14 +210,6 @@
       "right": "scripts/harness-emit-envelope.ts#requireOutputValue",
       "leftFile": "scripts/harness-emit-envelope.ts",
       "rightFile": "scripts/harness-emit-envelope.ts",
-      "count": 1
-    },
-    {
-      "key": "scripts/sensor-knip-unused-exports-baseline.ts#readKnipUnusedExportsBaseline <=> scripts/sensor-near-duplicates-baseline.ts#readNearDuplicatesBaseline",
-      "left": "scripts/sensor-knip-unused-exports-baseline.ts#readKnipUnusedExportsBaseline",
-      "right": "scripts/sensor-near-duplicates-baseline.ts#readNearDuplicatesBaseline",
-      "leftFile": "scripts/sensor-knip-unused-exports-baseline.ts",
-      "rightFile": "scripts/sensor-near-duplicates-baseline.ts",
       "count": 1
     }
   ]

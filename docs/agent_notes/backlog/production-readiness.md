@@ -21,7 +21,9 @@ track. Promote one milestone at a time into `in_progress/` and `NEXT.md`.
 - [x] Test coverage thresholds enforced in CI (fail PR if coverage drops)
 - [ ] Bundle size tracking (fail PR if bundle grows beyond threshold)
 - [ ] Database migration safety checks (detect destructive migrations in PRs)
-- [ ] Dependency vulnerability scanning (npm audit / Snyk)
+- [x] Dependency vulnerability scanning (`.github/workflows/ci.yml:61` runs
+      `bun run audit:deps` — `bun audit --audit-level=high` plus the fast-uri
+      and eslint-react-peer override watchdogs)
 - [ ] Branch protection rules enforced
 
 ### Docker Deployment

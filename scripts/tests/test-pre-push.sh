@@ -3,7 +3,6 @@
 # smoke-subjects: .husky/pre-push
 # smoke-subjects: .husky/post-commit
 # smoke-subjects: scripts/git/run-baseline-truth-up.sh
-# smoke-subjects: scripts/land.sh
 # smoke-subjects: scripts/lib/verify-metadata.sh
 # smoke-subjects: scripts/path-policy/path-policy-query.ts
 # smoke-subjects: scripts/path-policy/path-policy-query-core.ts
@@ -12,6 +11,7 @@
 # smoke-subjects: scripts/tests/test-pre-push.sh
 # smoke-subjects: scripts/git/baseline-drivers.sh
 # smoke-subjects: scripts/lib/gate-env.sh
+# smoke-subjects: scripts/lib/records.ts
 
 set -euo pipefail
 
@@ -56,7 +56,6 @@ new_repo() {
   git -C "$repo" init -q
   git -C "$repo" config user.email "test@example.com"
   git -C "$repo" config user.name "Test User"
-  cp "$REPO_ROOT/scripts/land.sh" "$repo/scripts/land.sh"
   cp "$REPO_ROOT/scripts/lib/verify-metadata.sh" "$repo/scripts/lib/verify-metadata.sh"
   cp "$REPO_ROOT/scripts/lib/gate-env.sh" "$repo/scripts/lib/gate-env.sh"
   # post-commit's merge-marker sweep sources the shared baseline-drivers registry.
@@ -69,48 +68,6 @@ new_repo() {
   git -C "$repo" add .
   git -C "$repo" commit -qm "initial fixture"
   printf '%s\n' "$repo"
-}
-
-write_bun_stub() {
-  local stub_dir="$1"
-
-  mkdir -p "$stub_dir"
-  cat > "$stub_dir/bun" <<'STUB'
-#!/usr/bin/env bash
-printf '%s\n' "$*" >> "${MUSI_LAND_BUN_LOG:?}"
-if [ "$1" = "run" ] && [ "${2:-}" = "harness:check" ]; then
-  status="${MUSI_LAND_HARNESS_CHECK_STATUS:-23}"
-  if [ "$status" -ne 0 ]; then
-    printf 'stub harness:check failure\n' >&2
-  fi
-  exit "$status"
-fi
-if [ "$1" = "run" ] && [ "${2:-}" = "verify" ]; then
-  status="${MUSI_LAND_VERIFY_STATUS:-99}"
-  if [ "$status" -eq 0 ] && [ -n "${MUSI_LAND_ADVANCE_REF:-}" ]; then
-    # Simulate a concurrent push advancing the original branch mid-verify.
-    advance_tree=$(git rev-parse HEAD^{tree})
-    advance_parent=$(git rev-parse "refs/heads/$MUSI_LAND_ADVANCE_REF")
-    advance_new=$(git commit-tree "$advance_tree" -p "$advance_parent" -m "concurrent advance")
-    git update-ref "refs/heads/$MUSI_LAND_ADVANCE_REF" "$advance_new"
-  fi
-  if [ "$status" -eq 0 ] && [ -n "${MUSI_LAND_VERIFY_MARKER:-}" ]; then
-    # Emulate a real full verify stamping fresh success evidence for the current
-    # HEAD + worktree fingerprint, so land.sh's re-stamp path can accept it.
-    root=$(git rev-parse --show-toplevel)
-    # shellcheck source=/dev/null
-    . "$root/scripts/lib/verify-metadata.sh"
-    musi_write_success_marker "$MUSI_LAND_VERIFY_MARKER" "$(git rev-parse HEAD)" \
-      "$(ai_worktree_fingerprint "$root")"
-  fi
-  if [ "$status" -ne 0 ]; then
-    printf 'stub verify exit %s\n' "$status" >&2
-  fi
-  exit "$status"
-fi
-exit 0
-STUB
-  chmod +x "$stub_dir/bun"
 }
 
 state_root_for() {
@@ -416,58 +373,6 @@ if run_pre_push "$repo" \
 fi
 ok "rejects non-HEAD refs under fast-commit mode"
 
-repo=$(new_repo land-harness-check-fails)
-git -C "$repo" branch main
-git -C "$repo" switch -q -c feature
-printf 'feature\n' > "$repo/feature.txt"
-git -C "$repo" add feature.txt
-git -C "$repo" commit -qm "test: feature fixture"
-stub_dir="$TMP_ROOT/land-stub-bin"
-stub_log="$TMP_ROOT/land-bun.log"
-write_bun_stub "$stub_dir"
-set +e
-output=$(
-  cd "$repo" \
-    && PATH="$stub_dir:$PATH" MUSI_LAND_BUN_LOG="$stub_log" bash scripts/land.sh 2>&1
-)
-exit_code=$?
-set -e
-[ "$exit_code" -ne 0 ] || fail "land.sh should fail when harness:check fails"
-grep -qF "land: running harness freshness gate on feature" <<< "$output" \
-  || fail "land.sh should announce harness freshness gate before failing: $output"
-[ "$(cat "$stub_log")" = $'install --frozen-lockfile\nrun harness:check' ] \
-  || fail "land.sh should stop before the prisma preflight and verify when harness:check fails: $(cat "$stub_log")"
-ok "land.sh gates harness freshness before full verify"
-
-repo=$(new_repo land-harness-check-passes)
-git -C "$repo" branch main
-git -C "$repo" switch -q -c feature
-printf 'feature\n' > "$repo/feature.txt"
-git -C "$repo" add feature.txt
-git -C "$repo" commit -qm "test: feature fixture"
-stub_dir="$TMP_ROOT/land-pass-stub-bin"
-stub_log="$TMP_ROOT/land-pass-bun.log"
-write_bun_stub "$stub_dir"
-set +e
-output=$(
-  cd "$repo" \
-    && PATH="$stub_dir:$PATH" \
-      MUSI_LAND_BUN_LOG="$stub_log" \
-      MUSI_LAND_HARNESS_CHECK_STATUS=0 \
-      MUSI_LAND_VERIFY_STATUS=42 \
-      bash scripts/land.sh 2>&1
-)
-exit_code=$?
-set -e
-[ "$exit_code" -eq 2 ] || fail "land.sh should classify verify failure after harness:check passes: $output"
-grep -qF "land: running harness freshness gate on feature" <<< "$output" \
-  || fail "land.sh should announce harness freshness gate before verify: $output"
-grep -qF "land: running full verify on feature" <<< "$output" \
-  || fail "land.sh should proceed to full verify after harness:check passes: $output"
-[ "$(cat "$stub_log")" = $'install --frozen-lockfile\nrun harness:check\nrun --filter @musi/server prisma:generate\nrun verify' ] \
-  || fail "land.sh should run harness:check, the prisma preflight, then verify when harness is fresh: $(cat "$stub_log")"
-ok "land.sh proceeds through the prisma preflight to verify after harness freshness passes"
-
 repo=$(new_repo fast-post-commit-finalizes)
 : > "$(fast_commit_pending "$repo")"
 (
@@ -586,254 +491,6 @@ pending_sibling=$(fast_commit_pending "$sibling")
 grep -qxF "$(git -C "$repo" rev-parse HEAD)" "$(fast_commit_log "$repo")" \
   || fail "both lanes' commits should reach the shared provenance log"
 ok "concurrent worktrees keep independent fast-commit pending markers"
-
-# Sibling-main preflight: the abort must happen BEFORE any verify work (the
-# whole point is moving the failure from minute ~10 to second ~0), so the stub
-# bun log must stay empty — harness:check and verify were never reached.
-repo=$(new_repo land-sibling-main-live)
-git -C "$repo" branch main
-sibling="$TMP_ROOT/land-sibling-main-live-wt"
-git -C "$repo" worktree add -q "$sibling" main
-git -C "$repo" switch -qc feature
-printf 'feature\n' > "$repo/feature.txt"
-git -C "$repo" add feature.txt
-git -C "$repo" commit -qm "test: feature fixture for sibling-main preflight"
-stub_dir="$TMP_ROOT/land-sibling-live-stub-bin"
-stub_log="$TMP_ROOT/land-sibling-live-bun.log"
-write_bun_stub "$stub_dir"
-: > "$stub_log"
-set +e
-output=$(
-  cd "$repo" \
-    && PATH="$stub_dir:$PATH" MUSI_LAND_BUN_LOG="$stub_log" bash scripts/land.sh 2>&1
-)
-exit_code=$?
-set -e
-[ "$exit_code" -ne 0 ] \
-  || fail "land.sh should abort when main is checked out in a sibling worktree"
-grep -qF "main is checked out in a sibling worktree" <<< "$output" \
-  || fail "sibling-main abort should name the sibling worktree: $output"
-[ ! -s "$stub_log" ] \
-  || fail "sibling-main abort must happen before harness:check/verify: $(cat "$stub_log")"
-ok "land.sh aborts before verify when main is checked out in a sibling worktree"
-
-# A worktree entry that holds main but cannot be entered (deleted dir, broken
-# mount) must fail the preflight closed: the raw-path fallback could compare
-# unequal-but-meaningless strings, and the 'cd <gone-dir> && land' recovery
-# advice of the sibling message would be nonsense. Verify must not start.
-repo=$(new_repo land-sibling-main-stale)
-git -C "$repo" branch main
-sibling="$TMP_ROOT/land-sibling-main-stale-wt"
-git -C "$repo" worktree add -q "$sibling" main
-git -C "$repo" switch -qc feature
-printf 'feature\n' > "$repo/feature.txt"
-git -C "$repo" add feature.txt
-git -C "$repo" commit -qm "test: feature fixture for stale sibling entry"
-rm -rf "$sibling"
-stub_dir="$TMP_ROOT/land-sibling-stale-stub-bin"
-stub_log="$TMP_ROOT/land-sibling-stale-bun.log"
-write_bun_stub "$stub_dir"
-: > "$stub_log"
-set +e
-output=$(
-  cd "$repo" \
-    && PATH="$stub_dir:$PATH" MUSI_LAND_BUN_LOG="$stub_log" bash scripts/land.sh 2>&1
-)
-exit_code=$?
-set -e
-[ "$exit_code" -ne 0 ] \
-  || fail "land.sh should fail closed on an unenterable main worktree entry"
-grep -qF "cannot be entered" <<< "$output" \
-  || fail "stale-entry abort should say the entry cannot be entered: $output"
-grep -qF "$sibling" <<< "$output" \
-  || fail "stale-entry abort should name the stale entry path: $output"
-[ ! -s "$stub_log" ] \
-  || fail "stale-entry abort must happen before harness:check/verify: $(cat "$stub_log")"
-ok "land.sh fails closed on an unenterable main worktree entry"
-
-repo=$(new_repo land-branch-nonexistent)
-set +e
-output=$(cd "$repo" && bash scripts/land.sh --branch does-not-exist 2>&1)
-exit_code=$?
-set -e
-[ "$exit_code" -ne 0 ] || fail "land.sh --branch should refuse a nonexistent branch"
-grep -qF "does not exist" <<< "$output" || fail "should name the missing branch: $output"
-ok "land.sh --branch refuses a nonexistent branch"
-
-repo=$(new_repo land-branch-protected)
-git -C "$repo" branch main
-set +e
-output=$(cd "$repo" && bash scripts/land.sh --branch main 2>&1)
-exit_code=$?
-set -e
-[ "$exit_code" -ne 0 ] || fail "land.sh --branch should refuse a protected branch name"
-grep -qF "protected branch" <<< "$output" || fail "should refuse the protected branch: $output"
-ok "land.sh --branch refuses the protected branch name"
-
-repo=$(new_repo land-branch-usage)
-set +e
-output=$(cd "$repo" && bash scripts/land.sh --branch 2>&1)
-exit_code=$?
-set -e
-[ "$exit_code" -ne 0 ] || fail "land.sh --branch with no name should fail"
-grep -qF "requires a branch name" <<< "$output" || fail "should explain missing name: $output"
-ok "land.sh --branch requires a branch name"
-
-set +e
-output=$(cd "$repo" && bash scripts/land.sh --bogus-flag 2>&1)
-exit_code=$?
-set -e
-[ "$exit_code" -ne 0 ] || fail "land.sh should reject an unknown argument"
-grep -qF "unknown argument" <<< "$output" || fail "should reject unknown argument: $output"
-ok "land.sh rejects an unknown argument"
-
-repo=$(new_repo land-branch-current)
-git -C "$repo" switch -qc feature
-set +e
-output=$(cd "$repo" && bash scripts/land.sh --branch feature 2>&1)
-exit_code=$?
-set -e
-[ "$exit_code" -ne 0 ] || fail "land.sh --branch should refuse the currently checked-out branch"
-grep -qF "is the current branch" <<< "$output" || fail "should redirect to the zero-arg form: $output"
-ok "land.sh --branch refuses the current branch"
-
-repo=$(new_repo land-branch-stale-integration)
-git -C "$repo" branch feature
-git -C "$repo" branch land/feature feature
-set +e
-output=$(cd "$repo" && bash scripts/land.sh --branch feature 2>&1)
-exit_code=$?
-set -e
-[ "$exit_code" -ne 0 ] || fail "land.sh --branch should refuse when land/<name> already exists"
-grep -qF "already exists" <<< "$output" || fail "should flag the stale integration branch: $output"
-ok "land.sh --branch refuses a stale integration branch"
-
-repo=$(new_repo land-branch-happy)
-git -C "$repo" switch -qc main
-git -C "$repo" switch -qc feature
-printf 'feature\n' > "$repo/feature.txt"
-git -C "$repo" add feature.txt
-git -C "$repo" commit -qm "test: feature fixture for --branch land"
-git -C "$repo" switch -q main
-stub_dir="$TMP_ROOT/land-branch-stub-bin"
-stub_log="$TMP_ROOT/land-branch-bun.log"
-write_bun_stub "$stub_dir"
-branch_marker="$TMP_ROOT/land-branch-marker"
-branch_logdir="$TMP_ROOT/land-branch-logdir"
-mkdir -p "$branch_logdir/meta"
-set +e
-output=$(
-  cd "$repo" \
-    && PATH="$stub_dir:$PATH" \
-      MUSI_LAND_BUN_LOG="$stub_log" \
-      MUSI_LAND_HARNESS_CHECK_STATUS=0 \
-      MUSI_LAND_VERIFY_STATUS=0 \
-      MUSI_LAND_VERIFY_MARKER="$branch_marker" \
-      MUSI_VERIFY_MARKER_FULL="$branch_marker" \
-      MUSI_VERIFY_LOG_DIR="$branch_logdir" \
-      bash scripts/land.sh --branch feature 2>&1
-)
-exit_code=$?
-set -e
-[ "$exit_code" -eq 0 ] || fail "land.sh --branch should exit 0 on a clean verify+merge: $output"
-[ "$(git -C "$repo" symbolic-ref --short HEAD)" = "main" ] \
-  || fail "land.sh --branch should end on main"
-git -C "$repo" merge-base --is-ancestor feature main \
-  || fail "main should contain the feature branch after a --branch land"
-if git -C "$repo" rev-parse --verify --quiet refs/heads/land/feature >/dev/null; then
-  fail "land.sh --branch should delete the land/feature integration branch"
-fi
-grep -qF "land: creating integration branch land/feature" <<< "$output" \
-  || fail "land.sh --branch should announce the integration branch: $output"
-[ "$(cat "$stub_log")" = $'install --frozen-lockfile\nrun harness:check\nrun --filter @musi/server prisma:generate\nrun verify\ninstall --frozen-lockfile' ] \
-  || fail "land.sh --branch should run harness:check, the prisma preflight, then verify: $(cat "$stub_log")"
-ok "land.sh --branch verifies on an integration branch, merges, and cleans it up"
-
-repo=$(new_repo land-branch-race)
-git -C "$repo" switch -qc main
-git -C "$repo" switch -qc feature
-printf 'feature\n' > "$repo/feature.txt"
-git -C "$repo" add feature.txt
-git -C "$repo" commit -qm "test: feature fixture for --branch race"
-git -C "$repo" switch -q main
-main_before=$(git -C "$repo" rev-parse main)
-stub_dir="$TMP_ROOT/land-race-stub-bin"
-stub_log="$TMP_ROOT/land-race-bun.log"
-write_bun_stub "$stub_dir"
-set +e
-output=$(
-  cd "$repo" \
-    && PATH="$stub_dir:$PATH" \
-      MUSI_LAND_BUN_LOG="$stub_log" \
-      MUSI_LAND_HARNESS_CHECK_STATUS=0 \
-      MUSI_LAND_VERIFY_STATUS=0 \
-      MUSI_LAND_ADVANCE_REF=feature \
-      bash scripts/land.sh --branch feature 2>&1
-)
-exit_code=$?
-set -e
-[ "$exit_code" -ne 0 ] \
-  || fail "land.sh --branch should refuse when the branch advances during verify: $output"
-grep -qF "advanced during verification" <<< "$output" \
-  || fail "should explain the branch moved: $output"
-[ "$(git -C "$repo" rev-parse main)" = "$main_before" ] \
-  || fail "main must be untouched when the branch advanced during verify"
-[ "$(git -C "$repo" symbolic-ref --short HEAD)" = "main" ] \
-  || fail "should restore the starting branch after refusing a moved branch"
-if git -C "$repo" rev-parse --verify --quiet refs/heads/land/feature >/dev/null; then
-  fail "should remove the integration branch after refusing a moved branch"
-fi
-ok "land.sh --branch refuses to merge a branch that advanced during verify"
-
-repo=$(new_repo land-branch-post-merge-move)
-git -C "$repo" switch -qc main
-git -C "$repo" switch -qc feature
-printf 'feature\n' > "$repo/feature.txt"
-git -C "$repo" add feature.txt
-git -C "$repo" commit -qm "test: feature fixture for post-merge move"
-git -C "$repo" switch -q main
-# A post-merge git hook advances feature DURING land.sh's merge — exactly the
-# check→merge window the pre-merge guard cannot cover. This is the only clean way
-# to drive the post-merge advisory (a verify-time stub trips the pre-merge guard
-# first), so we simulate the concurrent push with a real git hook.
-cat > "$repo/.git/hooks/post-merge" <<'HOOK'
-#!/usr/bin/env bash
-tree=$(git rev-parse feature^{tree})
-parent=$(git rev-parse refs/heads/feature)
-newsha=$(git commit-tree "$tree" -p "$parent" -m "concurrent advance in merge window")
-git update-ref refs/heads/feature "$newsha"
-HOOK
-chmod +x "$repo/.git/hooks/post-merge"
-stub_dir="$TMP_ROOT/land-postmove-stub-bin"
-stub_log="$TMP_ROOT/land-postmove-bun.log"
-write_bun_stub "$stub_dir"
-pm_marker="$TMP_ROOT/land-postmove-marker"
-pm_logdir="$TMP_ROOT/land-postmove-logdir"
-mkdir -p "$pm_logdir/meta"
-set +e
-output=$(
-  cd "$repo" \
-    && PATH="$stub_dir:$PATH" \
-      MUSI_LAND_BUN_LOG="$stub_log" \
-      MUSI_LAND_HARNESS_CHECK_STATUS=0 \
-      MUSI_LAND_VERIFY_STATUS=0 \
-      MUSI_LAND_VERIFY_MARKER="$pm_marker" \
-      MUSI_VERIFY_MARKER_FULL="$pm_marker" \
-      MUSI_VERIFY_LOG_DIR="$pm_logdir" \
-      bash scripts/land.sh --branch feature 2>&1
-)
-exit_code=$?
-set -e
-[ "$exit_code" -eq 0 ] \
-  || fail "post-merge-move land should still exit 0 (the verified merge is push-safe): $output"
-grep -qF "advanced after it was verified" <<< "$output" \
-  || fail "should warn the branch advanced after verification: $output"
-grep -qF "does NOT contain the newer commits" <<< "$output" \
-  || fail "should state the newer commits are not in main: $output"
-if git -C "$repo" merge-base --is-ancestor feature main; then
-  fail "feature's advanced tip must NOT be contained in main"
-fi
-ok "land.sh --branch reports honestly when the branch advances between check and merge"
 
 # --- near-duplicates integration-boundary check (part 1) ---------------------
 # pre-push must fail closed on a genuinely stale whole-tree near-duplicates

@@ -233,3 +233,102 @@ unsupported shapes with file/line reasons.
 - `eslint-rules/structured-logging.js`
 - `scripts/codemods/structured-logging-fix.ts`
 - `packages/server/src/utils/script-logger.ts`
+
+---
+
+## Commit routing over-matches; the commit VERDICT must not
+
+Status: Active
+Domain: build
+
+### Context
+The post-commit "No commit landed" advisory misattributed across worktrees and
+produced confident, wrong claims that an agent's work had not landed. In
+parallel-lane work that is the worst possible failure mode: an agent that
+trusts it redoes or undoes work that actually did land. Two distinct bugs were
+observed together in one lane session.
+
+1. Classification matched command TEXT. `ai_is_git_commit_cmd` is a regex over
+   the raw command, so any command whose text merely *contained* a commit —
+   a `grep` for an assertion string, a `printf` appending an example command to
+   a log file — was routed to the wrapper and then judged as a failed commit.
+2. HEAD was resolved against the session cwd, not the directory the command
+   acted on. `ai_target_dir_from_cmd` bailed out on *any* `$(...)` anywhere in
+   the command and fell back to the payload cwd. So
+   `git -C <lane> commit -m "..." -m "$(...)"` — a substitution in the MESSAGE,
+   which cannot change the checkout git acts on — lost its target, and the
+   before/after HEAD comparison ran against the session root.
+
+Bug 2 was not cosmetic. Because the same resolver decides "is this a commit on
+main?", the blanket bail also meant a commit aimed at a protected lane was
+judged against the *session's* branch: `git -C <main-lane> commit -m "$(date)"`
+from a feature checkout slipped past the protected-branch guard entirely. That
+false negative is now covered by a regression.
+
+### Decision
+Keep routing wide and narrow only the claim. The two classifications have
+opposite asymmetries and are deliberately not interchangeable:
+
+- **Routing** (`ai_is_git_commit_cmd`, unchanged) must over-match. Anything that
+  might commit has to reach the wrapper's worktree lock, commit queue, and
+  branch policy. An extra wrap costs latency; a missed commit forfeits every
+  guard.
+- **Verdict** (`ai_is_real_git_commit_cmd`, new in `common.sh`) must
+  under-match. It reuses the existing token-aware lexer `ai_git_commit_prefixes`
+  so only a `commit` subcommand in an actual `git` command position counts,
+  after heredoc stripping and newline-to-separator normalization.
+
+Target resolution's substitution bail is now scoped to the region the resolver
+actually reads (`prefix` — everything before the `commit` verb) instead of the
+whole command. When the target still cannot be read,
+`ai_target_dir_is_ambiguous` reports it and the adapters emit
+`ai_commit_landing_unknown_summary` — which states the uncertainty and makes no
+claim — instead of "No commit landed".
+
+### Consequences
+- Do not "simplify" the two classifiers into one. A future edit that points
+  routing at `ai_is_real_git_commit_cmd` would let a commit behind a malformed
+  heredoc run unwrapped, past the branch guard.
+- The advisory's true positives are unchanged: a real `git commit` that exits 0
+  without moving HEAD (masked exit code via `|| true`, nothing staged,
+  `--dry-run`) still fires, because those shapes carry no substitution before
+  the commit verb.
+- A substitution in the leading forms (`cd "$(...)" && git commit`) now
+  suppresses the verdict rather than guessing. This is deliberately
+  conservative: it also suppresses shapes like `echo $(date) && git commit ...`
+  where the fallback would have been right. Prefer literal paths before the
+  commit verb so the check can attribute the result.
+- An unresolvable target still falls back to the payload cwd for POLICY, which
+  fails closed: a session parked on a protected branch issuing an opaque-target
+  commit is still blocked.
+- Naming a target the hook cannot verify is now REFUSED, not guessed. A pre-land
+  review showed the omission was a guard evasion rather than a reporting gap:
+  `LANE=/main-checkout; git -C "$LANE" commit` is not a substitution, so the
+  resolver read `$LANE` as a literal path, failed to resolve it, fell back to the
+  hook's own (feature-branch) checkout, and let the commit land on the protected
+  branch. Resolution failure is now recorded, `ai_named_target_is_unresolvable`
+  reports it, and `ai_unverifiable_commit_target_reason` blocks the commit with
+  `AI_POLICY_GIT_UNVERIFIABLE_TARGET`. If you hit that block, re-issue the commit
+  with a literal path to the target checkout. This subsumes `$VAR`, `~`, and
+  stale paths in one check rather than enumerating metacharacters.
+- The lexer looks through `command`, `builtin`, `env`, and bare `VAR=value`
+  prefixes when deciding whether a segment is git, because deciding from the
+  first token alone lost both the verb and the target for `env git -C <dir>
+  commit`. Keep that set in sync with the wrapper normalization in
+  `ai_target_dir_from_cmd` and with `AI_POLICY_ENV_PREFIX`: a mismatch between
+  the three is what made the wrapper forms evade the guard.
+- Every verdict needs BOTH preconditions (real invocation, attributable target),
+  established once before any branch is chosen. Checking them only on the
+  unchanged-HEAD branch left a success verdict that could be credited with an
+  unrelated concurrent commit in the fallback checkout, and a `--dry-run` verdict
+  chosen from raw text.
+- The lexer is scheduled for a TypeScript port (backlog C8, not started); this
+  fix stays in the shell layer.
+
+### References
+- `scripts/ai-hooks/common.sh`
+- `scripts/ai-hooks/policy.sh`
+- `scripts/ai-hooks/commit-output.sh`
+- `scripts/ai-hooks/git-commit-quiet.sh`
+- `scripts/ai-hooks/bash-post-tool-use.sh`
+- `scripts/ai-hooks/test.sh` (section L9)

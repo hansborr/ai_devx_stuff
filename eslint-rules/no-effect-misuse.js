@@ -6,7 +6,7 @@
  * updating state created by React.useState.
  */
 
-import { importSpecifierName, unwrapChain } from "./ast-helpers.js";
+import { importSpecifierName, staticPropertyName, unwrapChain } from "./ast-helpers.js";
 import { resolveDeclaredVariable, resolveIdentifierBinding } from "./binding-resolution.js";
 import { isSynchronouslyInsideEffect } from "./effect-misuse-execution.js";
 import {
@@ -15,13 +15,6 @@ import {
 } from "./effect-misuse-trpc-provenance.js";
 
 const IMPERATIVE_QUERY_METHODS = new Set(["ensureQueryData", "fetchQuery", "prefetchQuery"]);
-
-/** @param {import('estree').PrivateIdentifier | import('estree').Expression} property */
-function staticPropertyName(property) {
-  if (property.type === "Identifier") return property.name;
-  if (property.type === "Literal" && typeof property.value === "string") return property.value;
-  return undefined;
-}
 
 /**
  * @param {import('estree').CallExpression} node
@@ -36,7 +29,7 @@ function isReactHookCall(node, sourceCode, bindings, hookName) {
     return binding !== undefined && bindings.direct.has(binding);
   }
   if (callee.type !== "MemberExpression" || callee.computed) return false;
-  if (staticPropertyName(callee.property) !== hookName) return false;
+  if (staticPropertyName(callee) !== hookName) return false;
 
   const object = unwrapChain(callee.object);
   if (object.type !== "Identifier") return false;
@@ -67,7 +60,7 @@ function staticMemberRoot(member) {
 function isImperativeQueryCall(node, sourceCode, trpcClientBindings) {
   const callee = unwrapChain(node.callee);
   if (callee.type !== "MemberExpression" || callee.computed) return false;
-  const method = staticPropertyName(callee.property);
+  const method = staticPropertyName(callee);
   if (method === undefined) return false;
   // TanStack gives these imperative methods distinctive names, and this rule
   // only reports them inside effects, so receiver provenance is intentionally unnecessary.

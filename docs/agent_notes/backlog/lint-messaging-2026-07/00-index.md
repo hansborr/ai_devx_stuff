@@ -77,9 +77,10 @@ noise/consistency polish.
   (`lint-agent-changed.sh` vs `ai-hooks/edited-paths.sh`) — likely
   intentional (branch-scope vs tool-call-scope); a comment cross-linking
   them would do, no message change involved.
-- **`lint-coverage-check.sh` per-file bun spawns lack a target cap**
-  (unlike `AI_RATCHET_REGRESSION_MAX_TARGETS`) — performance, not
-  messaging; unverified.
+- **`lint-coverage-check.sh` per-file bun spawns lack a target cap** — measured
+  and recorded as a revised batching candidate in
+  [`../ai-harness-audit-2026-07-21/09-lint-coverage-hook-budget.md`](../ai-harness-audit-2026-07-21/09-lint-coverage-hook-budget.md)
+  after the 2026-07-21 audit showed the 15-second hook can lose the advisory.
 - **`EXEMPT_SCRIPTS` allowlist asymmetry in `harness-check.ts`** — comment-
   only candidate, negligible risk.
 - **`lint-config-sensors.sh` emits raw yamllint/hadolint output** — the one

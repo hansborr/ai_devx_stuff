@@ -1,5 +1,8 @@
 # Authorization Policy
 
+The masked character-mismatch decision and its enforcing gates are recorded in
+`docs/adr/0002-character-not-found-semantics.md` (ADR-0002).
+
 Use the shared auth helpers rather than open-coding permission checks:
 
 - Campaign membership: `assertCampaignMember`, `assertCampaignDm`

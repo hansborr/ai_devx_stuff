@@ -67,6 +67,7 @@ test.describe("Character data integrity", () => {
     await sheet.expectProficiencyVisible("Heavy Armor");
     await sheet.expectProficiencyVisible("Simple Weapons");
     await sheet.expectProficiencyVisible("Martial Weapons");
+    await sheet.expectProficiencyVisible("Common");
   });
 
   test("sheet shows background feat", async () => {

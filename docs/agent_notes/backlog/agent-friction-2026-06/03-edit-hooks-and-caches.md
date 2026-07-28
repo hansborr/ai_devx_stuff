@@ -140,7 +140,10 @@ never wedge the edit loop).
 
 ## H1 — Test cache skips a *broader* command (different files) as cached OK
 
-**Status: not addressed.**
+**Status: Superseded by a revised candidate.** Initial argv scoping landed in `f6b8d10d`, but
+the post-`--` sorting assumption still collides and argv markers still share a
+script log. The verified completion plan is
+[`../ai-harness-audit-2026-07-21/03-bun-cache-identity-and-artifacts.md`](../ai-harness-audit-2026-07-21/03-bun-cache-identity-and-artifacts.md).
 
 **Evidence.** `bun-run-quiet.sh:140-142` keys the marker on `SCRIPT_SAFE`
 (script name only, `policy.sh:285-312`); the cache key is the worktree
@@ -175,7 +178,8 @@ acceptable (correctness over cleverness). More (tiny, TTL-bounded) marker files.
 
 ## H2 — Failed command (bad flag) cached, blocking the corrected command
 
-**Status: partial — mostly an instance of H1.**
+**Status: Superseded with H1** by
+[`../ai-harness-audit-2026-07-21/03-bun-cache-identity-and-artifacts.md`](../ai-harness-audit-2026-07-21/03-bun-cache-identity-and-artifacts.md).
 
 **Evidence.** `bun-run-quiet.sh:236-238` writes the marker for any real exit
 (<128), **including non-zero**; on replay a cached failure re-emits as

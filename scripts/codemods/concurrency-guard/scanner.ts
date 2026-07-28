@@ -5,6 +5,7 @@ import { type Project, type SourceFile, SyntaxKind } from "ts-morph";
 import { delegateCall } from "./ast.js";
 import { DIRECT_WRITE_SUGGESTIONS } from "./constants.js";
 import { helperShapeFindings } from "./helper-shapes.js";
+import { nestedRelationWrites } from "./nested-writes.js";
 import { isExcludedPath, isMutationHelperPath, rawTxClientAllowed } from "./paths.js";
 import type { DelegateCall, Finding } from "./types.js";
 
@@ -52,6 +53,25 @@ function directWriteFindings(sourceFile: SourceFile, relativePath: string): Find
   return findings;
 }
 
+// No isMutationHelperPath carve-out: those files are trusted for their own
+// table via the RawTxClient boundary, and a nested write reaches a different
+// one through a non-gated parent. The ESLint rule keeps its nested branch live
+// there for the same reason.
+function nestedWriteFindings(sourceFile: SourceFile, relativePath: string): Finding[] {
+  return nestedRelationWrites(sourceFile).map((write) => ({
+    category: "nested-gated-write",
+    file: relativePath,
+    line: write.line,
+    message:
+      "Nested relation write reaches a gated table through a non-gated parent delegate, where the branded delegate types cannot see it. This checker matches object literals by relation name, so payloads built elsewhere still need manual review.",
+    suggestion:
+      DIRECT_WRITE_SUGGESTIONS.get(write.delegate) ??
+      "Route race-sensitive writes through the documented helper boundary; see docs/CONCURRENCY.md.",
+    target: `${write.relation}.${write.method}`,
+    verdict: "ERROR",
+  }));
+}
+
 function helperMutatorTargets(sourceFile: SourceFile, relativePath: string): DelegateCall[] {
   if (!isMutationHelperPath(relativePath)) return [];
   const targets: DelegateCall[] = [];
@@ -68,6 +88,7 @@ export function scanFile(project: Project, root: string, relativePath: string): 
   return [
     ...rawImportFindings(sourceFile, relativePath),
     ...directWriteFindings(sourceFile, relativePath),
+    ...nestedWriteFindings(sourceFile, relativePath),
     ...helperShapeFindings(helperMutatorTargets(sourceFile, relativePath), relativePath),
   ];
 }

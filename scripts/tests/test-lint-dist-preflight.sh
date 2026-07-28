@@ -13,12 +13,26 @@
 # smoke-subjects: scripts/lib/gate-env.sh
 # smoke-subjects: scripts/lib/parallel-runner.sh
 # smoke-subjects: scripts/lib/verify-metadata.sh
+# smoke-subjects: scripts/lib/records.ts
 # smoke-subjects: scripts/verify/memory-budget.sh
 # smoke-subjects: scripts/verify/admitted-command.sh
 # smoke-subjects: scripts/process-tree.sh
 # smoke-subjects: scripts/tests/test-lint-dist-preflight.sh
 # smoke-subjects: packages/shared/package.json
 # smoke-subjects: packages/server/package.json
+# smoke-subjects: eslint-config/config-surface-manifest.json
+# smoke-subjects: eslint-config/config-surfaces.js
+# smoke-subjects: eslint-config/max-lines-exceptions-codec.js
+# smoke-subjects: eslint-config/max-lines-exceptions.baseline.json
+# smoke-subjects: eslint-config/shared-policy.js
+# smoke-subjects: scripts/harness/harness-manifest.ts
+# smoke-subjects: scripts/harness/harness-paths.ts
+# smoke-subjects: scripts/lint-ratchet/paths.ts
+# smoke-subjects: scripts/path-policy/path-policy-query-core.ts
+# smoke-subjects: scripts/path-policy/path-policy-query.ts
+# smoke-subjects: scripts/path-policy/path-policy-smoke-subjects-data.ts
+# smoke-subjects: scripts/path-policy/path-policy-smoke-subjects.ts
+# smoke-subjects: scripts/path-policy/path-policy.ts
 # Smoke test for the lint TypeScript-build prerequisite preflight.
 set -euo pipefail
 
@@ -50,6 +64,7 @@ PATH_POLICY_SMOKE_SUBJECTS="$SCRIPT_DIR/../path-policy/path-policy-smoke-subject
 PATH_POLICY_SMOKE_SUBJECTS_DATA="$SCRIPT_DIR/../path-policy/path-policy-smoke-subjects-data.ts"
 HARNESS_PATHS="$SCRIPT_DIR/../harness/harness-paths.ts"
 HARNESS_MANIFEST="$SCRIPT_DIR/../harness/harness-manifest.ts"
+RECORDS="$SCRIPT_DIR/../lib/records.ts"
 LINT_RATCHET_PATHS="$SCRIPT_DIR/../lint-ratchet/paths.ts"
 CONFIG_SURFACES="$REPO_ROOT/eslint-config/config-surfaces.js"
 CONFIG_SURFACE_MANIFEST="$REPO_ROOT/eslint-config/config-surface-manifest.json"
@@ -291,7 +306,7 @@ STUB
 copy_path_policy() {
   local repo="$1"
   mkdir -p "$repo/scripts/path-policy" "$repo/scripts/harness" "$repo/scripts/lint-ratchet" \
-    "$repo/eslint-config"
+    "$repo/scripts/lib" "$repo/eslint-config"
   cp "$PATH_POLICY_QUERY" "$repo/scripts/path-policy/path-policy-query.ts"
   cp "$PATH_POLICY_QUERY_CORE" "$repo/scripts/path-policy/path-policy-query-core.ts"
   cp "$PATH_POLICY" "$repo/scripts/path-policy/path-policy.ts"
@@ -300,6 +315,9 @@ copy_path_policy() {
     "$repo/scripts/path-policy/path-policy-smoke-subjects-data.ts"
   cp "$HARNESS_PATHS" "$repo/scripts/harness/harness-paths.ts"
   cp "$HARNESS_MANIFEST" "$repo/scripts/harness/harness-manifest.ts"
+  # harness-manifest.ts narrows the manifest JSON through the shared record
+  # guards in scripts/lib/records.ts, so the sandbox closure needs that leaf too.
+  cp "$RECORDS" "$repo/scripts/lib/records.ts"
   cp "$LINT_RATCHET_PATHS" "$repo/scripts/lint-ratchet/paths.ts"
   # @musi/lint-ratchet engine moved to the package (leaf 02 S3); the copied
   # adapter/generators import it, so resolve it via a scoped node_modules

@@ -2,7 +2,6 @@
 // Compact drift reports into a review queue and optional deterministic swarm packets.
 
 import { readFileSync } from "node:fs";
-import { pathToFileURL } from "node:url";
 
 import { triageGeneratedArtifactExclusions } from "./drift-ai/scan-provenance.js";
 import {
@@ -26,6 +25,8 @@ import { buildTriagePackets } from "./drift-triage/triage-packets.js";
 import { buildTriageReport, type TriageReport } from "./drift-triage/triage-report.js";
 import { formatTriageText } from "./drift-triage/triage-report-text.js";
 import { ensureDirWriteFileAtomicallySync } from "./lib/atomic-write.js";
+import { errorMessage } from "./lib/error-message.js";
+import { isCliEntrypoint } from "./lib/process-argv.js";
 
 const TOOL_ERROR_EXIT_CODE = 2;
 const JSON_INDENT_SPACES = 2;
@@ -128,7 +129,7 @@ function deliverOutputs(
     const target = options.packetDir ?? options.output ?? "output";
     return {
       exitCode: TOOL_ERROR_EXIT_CODE,
-      stdout: `${target}: could not write report: ${describeError(error)}`,
+      stdout: `${target}: could not write report: ${errorMessage(error)}`,
     };
   }
 }
@@ -176,16 +177,7 @@ function defaultWriteFile(filePath: string, contents: string): void {
   ensureDirWriteFileAtomicallySync(filePath, contents);
 }
 
-function describeError(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
-function isCliEntrypoint(): boolean {
-  if (!process.argv[1]) return false;
-  return import.meta.url === pathToFileURL(process.argv[1]).href;
-}
-
-if (isCliEntrypoint()) {
+if (isCliEntrypoint(import.meta.url)) {
   const result = runDriftTriageCommand({ argv: process.argv.slice(PROCESS_ARGS_OFFSET) });
   if (result.stdout) console.log(result.stdout);
   if (result.exitCode !== 0) process.exitCode = result.exitCode;

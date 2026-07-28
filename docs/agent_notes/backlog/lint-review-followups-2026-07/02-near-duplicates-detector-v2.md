@@ -1,7 +1,92 @@
 # 02 — Near-duplicates detector v2: exact-clone tier + block detection
 
-Status: Open — optimized timing passes, but 535-identity baseline growth keeps exact clones report-only
-Track: S (sensors/gates) · Priority: P2 · Size: L
+Status: Implemented, promotion blocked on an owner call — **both tiers landed on
+main 2026-07-20** (merge `86ee756e`: jscpd block advisory `ee8b9946`, exact-clone
+tier `635b49c6`/`c9cdd221`). The exact tier is report-only; promoting it to the
+gate is the only remaining scope, and it is blocked on the corpus question below.
+Track: S (sensors/gates) · Priority: P2 · Size: decision, then S
+
+> **2026-07-25 re-verification.** The `Do` list below reads as unstarted work
+> and will mislead a delegate into re-implementing shipped code. What exists at
+> HEAD: exact tier in `scripts/drift-ai/near-duplicates-exact.ts` (3 lines / 15
+> tokens, scoped to `eslint-rules/` + `scripts/`), jscpd advisory calibrated at
+> `scripts/drift-ai/duplicates.ts:159-161` and registered as `duplicatesCheck`.
+> The verify-slot precondition holds: `near-duplicates` is in all four consumer
+> arrays at `scripts/verify/steps.generated.sh:12-15`, 1.5 s per run.
+>
+> Open owner question: the exact tier surfaces **589 identities above the
+> 27-identity gated baseline** (the 535 figure below is stale), and the
+> admission contract is strictly one-reasoned-identity-at-a-time. Hand-drain
+> the corpus, or build a bulk migration path?
+>
+> **Sized 2026-07-25.** 616 findings = 616 identities (exactly 1:1), of which
+> 589 are new. Those 589 come from only **74 equality groups** — a clique of
+> *n* copies mints *n(n-1)/2* pair identities, so the top 10 groups are 495 of
+> the 589. Buckets: 489 identities / 59 groups genuine extractable duplication;
+> 100 / 15 structural coincidence; **0 test fixtures, 0 generated** (already
+> handled by `EXACT_EXCLUDE_GLOBS`, so tightening scope wins nothing).
+>
+> Recommended path: **extract first, promote at the current floor.** Four
+> refactors remove 429/589 (73%), three destinations already existing —
+> `eslint-rules/ast-helpers.js` already exports byte-identical `unwrapChain`
+> and a near-drop-in `staticPropertyName` and is already imported by 8 sibling
+> rules (-84); shared `isRecord` (-201); `isCliEntrypoint` (-91);
+> `errorMessage` (-53). Then fix bucket B in the detector: 85 of its 100
+> identities are `valueOptions` property-value callbacks forced by
+> `parseSubcommandArgs`. Residual ~75 identities / 44 groups.
+>
+> **Do not raise the line floor** — it is anti-correlated with value.
+> `minLines: 4` cuts 589 to 164 but deletes `isRecord` x18 and `unwrapChain`
+> x10 (both 3 lines, the most extractable groups) while keeping 4-line
+> boilerplate. `minTokens` is dead below 30. Measured sensitivity:
+> 3/20 = 446, 3/30 = 310, 4/15 = 164, 5/15 = 57, 6/15 = 17.
+>
+> If refactors are declined, the right bulk primitive is group-level
+> (`--admit-group <equality-hash>`, 74 judgments), not count-level —
+> `equalityGroups()` is already the detector's internal unit. Hand-draining
+> all 589 means 589 serialized whole-repo rescans (~15-20 min, unparallelizable),
+> 74 distinct reasons across 589 pastes, a ~330 KB baseline, and a rename tax
+> of ~27 re-admissions per renamed file.
+>
+> Drifted citations: `near-duplicates.ts:55` → fingerprinting moved to
+> `near-duplicates-fingerprint.ts`; `:154` → `candidateBuckets` /
+> `statementBucketKey` at `near-duplicates.ts:158-165`; `:238` →
+> `DEFAULT_NEAR_DUPLICATE_SIMILARITY` in `near-duplicates-config-values.ts:6`.
+> The verify command `bun run test:scripts:file -- scripts/sensor-near-duplicates.test.ts`
+> names a file that has never existed; the real covering tests are
+> `sensor-near-duplicates-cli-options.test.ts`,
+> `sensor-near-duplicates-merge-cli.test.ts`, `drift-ai/near-duplicates.test.ts`,
+> `drift-ai/near-duplicates-exact.test.ts`, and
+> `drift-ai/duplicate-blocks-advisory.test.ts`.
+
+> **2026-07-25 — extraction steps 1-4 done** on `refactor/near-duplicate-extractions`
+> (`b08f5f6f`, `8973351b`, `10dd8706`, `ed43a999`). Step 5 (detector fix for the
+> `valueOptions` bucket, hand-drain of the residual, and the `includeExactTokens`
+> flip) is untouched and still held by the orchestrator.
+>
+> Measured exact-tier identities, whole-repo `--scope current`: **589 -> 168
+> (-421)**; fuzzy/gated baseline unchanged at 27 throughout. Per step, against
+> the predictions above: ast-helpers **-81** (predicted -84; the group was
+> `unwrapChain` x10 = 45 plus `staticPropertyName` x5 + `propertyName` x4 = 36,
+> so 81 was all that existed); `isRecord` **-196** (predicted -201);
+> `isCliEntrypoint` **-91** (exact); `errorMessage` **-53** (exact). Zero
+> residual `isCliEntrypoint` or `errorMessage` groups remain.
+>
+> The `isRecord` 5-identity gap is fully accounted: 1 residual pair from
+> deliberately skipping `sensor-knip-unused-exports-baseline.ts` and
+> `sensor-near-duplicates-baseline.ts` (owned by `feat/suppression-identity-ledger`),
+> and **+4 newly surfaced**: `hasErrorCode` was two separate 2-member groups and
+> merged into one 4-member group once two of the four stopped calling `isObject`
+> and started calling `isRecord`. Renaming a helper to a single spelling can
+> *reveal* clone groups, because the exact tier keys on literal token text.
+>
+> **Step-5 input.** Residual is 168 identities / 65 groups. The largest is
+> `--top` x12 (66); together the CLI option-name callbacks
+> (`--top`, `--max-files`, `--since`, `--max-commits`, `--max-output-bytes`,
+> `--timeout-ms`) are ~84 of the 168 — that is the `valueOptions` bucket the
+> detector fix targets, so step 5's detector work plus this drain leaves ~84.
+> New extraction candidates surfaced: `hasErrorCode` x4 (6),
+> `round2`/`roundScore` x4 (6), the four `run*MergeCli` wrappers (6).
 
 ## Evidence (verified 2026-07-15 on feat/lint-adoption-2026-07 pre-land; re-verify before implementing)
 

@@ -1,13 +1,11 @@
-export default {
-  // Explicit plugin list: Bun's hoisted node_modules layout breaks Stryker's
-  // default auto-discovery (it scans from @stryker-mutator/core's own tree).
-  plugins: ["@stryker-mutator/vitest-runner", "@stryker-mutator/typescript-checker"],
-  testRunner: "vitest",
-  checkers: ["typescript"],
+import { createStrykerConfig } from "./stryker.shared.mjs";
+
+export default createStrykerConfig({
   tsconfigFile: "packages/shared/tsconfig.json",
-  concurrency: 1,
-  incremental: true,
-  incrementalFile: "reports/mutation/stryker-incremental.json",
+  // Operator-managed tool caches are gitignored and not part of this lane.
+  // Excluding them also avoids sandbox-copy failures on virtualenv symlinks.
+  ignorePatterns: [".tools"],
+  reportDir: "reports/mutation",
   vitest: {
     configFile: "packages/shared/vitest.config.ts",
     dir: "packages/shared",
@@ -22,16 +20,4 @@ export default {
     // Test-only scaffolding under src/test/ has no behavior worth mutating.
     "!packages/shared/src/test/**",
   ],
-  reporters: ["clear-text", "progress", "html", "json"],
-  htmlReporter: {
-    fileName: "reports/mutation/index.html",
-  },
-  jsonReporter: {
-    fileName: "reports/mutation/mutation.json",
-  },
-  thresholds: {
-    high: 80,
-    low: 60,
-    break: null,
-  },
-};
+});

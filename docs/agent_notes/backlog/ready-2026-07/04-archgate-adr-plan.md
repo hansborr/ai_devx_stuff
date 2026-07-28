@@ -1,8 +1,12 @@
 # Archgate ADR Plan for Musi
 
-Status: Done — implemented 2026-07-20 (ADR skeleton, checked ADR-0001/0003,
-harness gate, and legacy concurrency-source retirement). ADR-0002/0004/0005/
-0006 remain explicitly unpromoted and sequenced behind the completed pilot.
+Status: Done — pilot implemented 2026-07-20 (ADR skeleton, checked
+ADR-0001/0003, harness gate, and legacy concurrency-source retirement);
+expansion implemented 2026-07-25 (ADR-0002/0004/0005/0006 with their gate
+messages and tests, §5). Both queue rows are closed (`C1`, `F3`) and archived
+in [`../../finished_work/ready-2026-07-drain.md`](../../finished_work/ready-2026-07-drain.md).
+Source-note retirement is deferred with cause and tracked as `D1` in
+[`00-index.md`](./00-index.md) §4 — see "Retiring `decisions-*.md` Sources".
 Date: 2026-05-10
 Repo inspected: `/workspace`
 
@@ -138,7 +142,9 @@ Retirement requires, in order:
    ADR id is the new stable handle; redirect stubs rot and split rationale
    across two files again.
 
-An ADR without its source-note retired counts as half-landed. Concretely:
+Source-note retirement is a separate step from promoting the ADR, not part of
+it: a promoted ADR whose source note still stands is landed, with a retirement
+follow-up owed. Concretely, the retirements owed are:
 
 - ADR-0001 retires its concurrency-domain decision source.
 - ADR-0002 retires `decisions-auth.md`.
@@ -148,6 +154,29 @@ An ADR without its source-note retired counts as half-landed. Concretely:
 
 `decisions-realtime.md` and `decisions-services.md` are not claimed by any
 candidate ADR and stay as-is.
+
+**Deferred 2026-07-25 — tracked as `D1` in
+[`00-index.md`](./00-index.md) §4, which is where the ruling is owed.** The
+evidence is recorded here so the row stays short. The expansion leaf promoted
+ADR-0002/0004/0005/0006 but retired none of their source notes, because
+"delete, don't stub" cannot pass the parity check as written. Each file holds
+several unrelated decisions and the ADR absorbs exactly one:
+
+- `decisions-auth.md` — 2 entries; ADR-0002 covers only "Character ownership
+  errors return `NOT_FOUND`". The `queryClient.clear()` cache-reset entry is
+  unrelated and has no ADR.
+- `decisions-schemas.md` — 3 entries; ADR-0004 covers only "Output-schema
+  regression gate walks the Zod tree". Combat-state-by-reference and creation
+  spell choices are unrelated.
+- `decisions-build.md` — 6 entries; ADR-0005 covers only "`@musi/shared`:
+  subpath exports, no root barrel". `docs/agent_notes/README.md:11` also deep
+  links the soft-AI-hook-nudges anchor in that file.
+
+Deleting any of the three would drop durable history the ADR does not carry,
+which step 1 forbids. The choice is the owner's: either narrow retirement to
+per-entry extraction (the ADR absorbs its entry, the entry is removed, the file
+survives), or rehome the orphans first and then delete. `DECISIONS.md`'s index
+sub-bullets need the matching edit either way.
 
 ## Implementation Plan
 
@@ -235,16 +264,25 @@ naming convention.
 
 ### 5. Expand after the pilot
 
-After the checker and first two ADRs land cleanly, add the remaining candidates
-in a second leaf:
+Done — all four promoted 2026-07-25 in the expansion leaf:
 
-- `ADR-0002` character `NOT_FOUND`;
-- `ADR-0004` tRPC schema/output boundary;
-- `ADR-0005` subpath exports / no broad barrels;
-- `ADR-0006` shared package layering.
+- `ADR-0002` character `NOT_FOUND` — `docs/adr/0002-character-not-found-semantics.md`;
+- `ADR-0004` tRPC schema/output boundary — `docs/adr/0004-trpc-shared-schema-boundary.md`;
+- `ADR-0005` subpath exports / no broad barrels — `docs/adr/0005-shared-subpath-exports.md`;
+- `ADR-0006` shared package layering — `docs/adr/0006-shared-package-layering.md`.
 
-Update only their related gate messages and tests. Avoid rewriting all docs in
-one pass.
+Only their related gate messages and tests changed. Two residual notes:
+
+- ADR-0002 has no lint or codemod gate; its `enforced_by` is `test-file:` only,
+  matching the candidate list above.
+- The `restricted-import:` locator kind resolves only `importNames` patterns,
+  so the barrel ban (`regex`) and the shared-layering bans (`group`) are
+  addressed by `test-file:` locators over the config-resolution tests instead.
+  Extending the locator grammar to `regex`/`group` patterns is deliberately not
+  part of this leaf.
+
+Source-note retirement (see "Retiring `decisions-*.md` Sources") is **not**
+done and is deferred with cause — see the note in that section.
 
 ## Verification
 

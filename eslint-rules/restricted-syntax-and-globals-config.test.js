@@ -20,10 +20,17 @@
 // (which configs match which files) rather than reconstructing rules inline.
 
 import { ESLint } from "eslint";
+import { minimatch } from "minimatch";
+import { execFileSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
+import {
+  restrictedSyntaxConfigs,
+  restrictedSyntaxSelectors,
+} from "../eslint-config/restricted-syntax-policy.js";
 import { resolvedConfigTestTimeoutMs } from "./eslint-config-resolution-timeout.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -139,81 +146,243 @@ function restrictedGlobalsOf(config) {
   });
 }
 
+// Resolved no-restricted-globals options carry an optional per-name message.
+/** @param {{ rules?: Record<string, unknown> }} config @returns {string[]} */
+function restrictedGlobalMessagesOf(config) {
+  const entry = config.rules?.["no-restricted-globals"];
+  if (!Array.isArray(entry)) return [];
+  return entry.slice(1).flatMap((option) => {
+    if (typeof option === "string" || option === null || typeof option !== "object") return [];
+    const message = /** @type {{ message?: unknown }} */ (option).message;
+    return typeof message === "string" ? [message] : [];
+  });
+}
+
+// Same options list keyed by banned name, so a test can assert that a specific
+// global carries a message rather than only checking the messages that happen
+// to exist. Bare-string options are recorded with an undefined message, which
+// is exactly the shape that silently drops an explanation.
+/** @param {{ rules?: Record<string, unknown> }} config @returns {Map<string, string | undefined>} */
+function restrictedGlobalMessagesByName(config) {
+  /** @type {Map<string, string | undefined>} */
+  const byName = new Map();
+  const entry = config.rules?.["no-restricted-globals"];
+  if (!Array.isArray(entry)) return byName;
+  for (const option of entry.slice(1)) {
+    if (typeof option === "string") {
+      byName.set(option, undefined);
+      continue;
+    }
+    if (option === null || typeof option !== "object") continue;
+    const name = /** @type {{ name?: unknown }} */ (option).name;
+    if (typeof name !== "string") continue;
+    const message = /** @type {{ message?: unknown }} */ (option).message;
+    byName.set(name, typeof message === "string" ? message : undefined);
+  }
+  return byName;
+}
+
+// Acceptance test 3 of leaf 40 step 2: each representative file pins the EXACT
+// resolved selector-id set, not just the presence of the families it needs.
+// Step 1 traded the old exact selector-count pin for drop detection; the
+// builder makes the exact set cheap to state again, so a stray extra selector
+// is a real diff here rather than something only a hand count would notice.
 const restrictedSyntaxSelectorCompositionCases = [
   {
     file: "packages/server/src/services/auth-service.ts",
-    selectors: [
-      { id: "process.exit", matches: bansProcessExitCall },
-      { id: "process.env", matches: bansProcessEnvRead },
-      { id: "raw-prisma-sql", matches: bansRawPrismaSql },
-    ],
+    ids: ["process.exit", "process.env", "raw-prisma-sql"],
   },
   {
     file: "packages/server/src/routers/character.ts",
-    selectors: [
-      { id: "process.exit", matches: bansProcessExitCall },
-      { id: "process.env", matches: bansProcessEnvRead },
-      { id: "raw-prisma-sql", matches: bansRawPrismaSql },
-      { id: "permissive-trpc-output", matches: bansPermissiveTrpcOutput },
-    ],
+    ids: ["process.exit", "process.env", "raw-prisma-sql", "trpc-output-permissive"],
   },
   {
+    file: "packages/server/src/services/inventory-service.ts",
+    ids: ["process.exit", "process.env"],
+  },
+  { file: "packages/server/src/config/env.ts", ids: ["raw-prisma-sql"] },
+  { file: "packages/server/src/main.ts", ids: ["raw-prisma-sql"] },
+  {
     file: "packages/shared/src/schemas/character.ts",
-    selectors: [
-      { id: "process.exit", matches: bansProcessExitCall },
-      { id: "process.env", matches: bansProcessEnvRead },
-      { id: "shared-schema-z-any", matches: bansSharedSchemaZAny },
-    ],
+    ids: ["process.exit", "process.env", "shared-schema-z-any"],
   },
   {
     file: "packages/client/src/hooks/use-notifications.ts",
-    selectors: [
-      { id: "process.exit", matches: bansProcessExitCall },
-      { id: "process.env", matches: bansProcessEnvRead },
-      { id: "query-key-array-property", matches: bansQueryKeyArrayProperty },
-      { id: "query-client-array-key-argument", matches: bansQueryClientArrayKeyArgument },
-      { id: "import-meta-env", matches: bansImportMetaEnvRead },
+    ids: [
+      "process.exit",
+      "process.env",
+      "query-key-array-property",
+      "query-client-array-key-argument",
+      "import-meta-env",
     ],
   },
   {
     file: "packages/client/src/lib/api-base.ts",
-    selectors: [
-      { id: "process.exit", matches: bansProcessExitCall },
-      { id: "process.env", matches: bansProcessEnvRead },
-      { id: "query-key-array-property", matches: bansQueryKeyArrayProperty },
-      { id: "query-client-array-key-argument", matches: bansQueryClientArrayKeyArgument },
+    ids: [
+      "process.exit",
+      "process.env",
+      "query-key-array-property",
+      "query-client-array-key-argument",
     ],
   },
-  {
-    file: "scripts/drift-ai.ts",
-    selectors: [
-      { id: "process.exit", matches: bansProcessExitCall },
-      { id: "process.env", matches: bansProcessEnvRead },
-    ],
-  },
+  { file: "scripts/drift-ai.ts", ids: ["process.exit", "process.env"] },
+  { file: "packages/server/src/services/auth-service.test.ts", ids: ["process.exit"] },
+  { file: "packages/client/src/test/mock-trpc.tsx", ids: ["process.exit"] },
+  { file: "e2e/a11y.spec.ts", ids: ["process.exit"] },
 ];
+
+// Leaf 40 step 3, finding 1: the package fences exclude the whole
+// `testAndHelperFiles` family, so a test or helper file takes the cross-cutting
+// test carve-out no matter which package directory it lands in. No tracked file
+// exercises the paths below yet — that is exactly why they are pinned here.
+// `calculateConfigForFile` resolves a path that does not exist, so these need no
+// fixture files; adding one of these files later must not change its policy.
+// See the recorded decision in eslint-config/restricted-syntax-policy.js.
+const syntheticTestFileCompositionCases = [
+  // Fenced by the old block order (its ignores said `.test.ts`, not `.spec.ts`)
+  // while the sibling services/*.spec.ts was not; uniform now.
+  { file: "packages/server/src/routers/campaign.spec.ts", ids: ["process.exit"] },
+  { file: "packages/server/src/routers/campaign.test.ts", ids: ["process.exit"] },
+  { file: "packages/server/src/routers/nested/test/fixture.ts", ids: ["process.exit"] },
+  { file: "packages/server/src/services/campaign.spec.ts", ids: ["process.exit"] },
+  // Same story for shared schemas: `.spec.ts` and helper spellings were fenced,
+  // `.test.ts` was not.
+  { file: "packages/shared/src/schemas/campaign.spec.ts", ids: ["process.exit"] },
+  { file: "packages/shared/src/schemas/campaign-test-helper.ts", ids: ["process.exit"] },
+  { file: "packages/client/src/lib/api-base.spec.ts", ids: ["process.exit"] },
+];
+
+const selectorIdBySelector = new Map(
+  [...restrictedSyntaxSelectors].map(([id, selector]) => [selector.selector, id]),
+);
+
+/** @param {{ rules?: Record<string, unknown> }} config @returns {string[]} */
+function restrictedSelectorIdsOf(config) {
+  return restrictedSelectorsOf(config).map(
+    (selector) => selectorIdBySelector.get(selector) ?? `unregistered:${selector}`,
+  );
+}
 
 describe("resolved no-restricted-syntax selector composition", () => {
   it(
-    "keeps every expected selector family present for representative files",
+    "resolves the exact selector-id set for every representative file",
     { timeout: resolvedConfigTestTimeoutMs },
     async () => {
-      for (const {
-        file,
-        selectors: expectedSelectors,
-      } of restrictedSyntaxSelectorCompositionCases) {
+      for (const { file, ids } of restrictedSyntaxSelectorCompositionCases) {
         const config = await configFor(file);
         expect(severityOf(config, "no-restricted-syntax"), file).toBe(2);
-        const resolvedSelectors = restrictedSelectorsOf(config);
-        for (const { id, matches } of expectedSelectors) {
-          expect(
-            resolvedSelectors.some(matches),
-            `${file} must include no-restricted-syntax selector ${id}`,
-          ).toBe(true);
-        }
+        expect(restrictedSelectorIdsOf(config), file).toEqual(ids);
       }
     },
   );
+
+  it(
+    "gives future test and helper files the test carve-out in every package family",
+    { timeout: resolvedConfigTestTimeoutMs },
+    async () => {
+      for (const { file, ids } of syntheticTestFileCompositionCases) {
+        const config = await configFor(file);
+        expect(severityOf(config, "no-restricted-syntax"), file).toBe(2);
+        expect(restrictedSelectorIdsOf(config), file).toEqual(ids);
+      }
+    },
+  );
+
+  it(
+    "keeps every registered selector id reachable from some representative file",
+    { timeout: resolvedConfigTestTimeoutMs },
+    () => {
+      const covered = new Set(restrictedSyntaxSelectorCompositionCases.flatMap(({ ids }) => ids));
+      expect([...restrictedSyntaxSelectors.keys()].filter((id) => !covered.has(id))).toEqual([]);
+    },
+  );
+});
+
+// Leaf 40 step 3, finding 3: the builder is deliberately filesystem-free, so it
+// cannot tell a live glob from a typo'd one, and `calculateConfigForFile`
+// happily resolves a path that does not exist — which means the snapshot and
+// the exact-set cases above stay green against a renamed or deleted directory.
+// These two tests are the filesystem half of the proof: every emitted family
+// must own at least one real file, and every literal path in the policy must
+// exist. A misspelled directory is trivially disjoint from every sibling, so
+// without this it would build clean and enforce nothing.
+const lintableExtensionPattern = /\.(?:js|cjs|mjs|ts|tsx|mts|cts)$/u;
+// Same magic set the builder uses to decide a pattern is a literal path.
+const globMagicPattern = /[*?[\]{}!+@()]/u;
+const minimatchOptions = { dot: true };
+
+const trackedLintableFiles = execFileSync("git", ["ls-files", "-z"], {
+  cwd: repoRoot,
+  encoding: "utf8",
+  maxBuffer: 64 * 1024 * 1024,
+})
+  .split("\0")
+  .filter((file) => file.length > 0 && lintableExtensionPattern.test(file));
+
+/** @param {string | string[]} entry @param {string} file */
+function matchesFilesEntry(entry, file) {
+  // Flat config ANDs the patterns inside a nested array and ORs the entries.
+  return Array.isArray(entry)
+    ? entry.every((pattern) => minimatch(file, pattern, minimatchOptions))
+    : minimatch(file, entry, minimatchOptions);
+}
+
+/** @param {(typeof restrictedSyntaxConfigs)[number]} config @param {string} file */
+function configMatches(config, file) {
+  if (config.ignores.some((pattern) => minimatch(file, pattern, minimatchOptions))) return false;
+  return config.files.some((entry) => matchesFilesEntry(entry, file));
+}
+
+/** Families emit parent-first, so the last match is the deepest one. */
+function filesOwnedByEachFamily() {
+  /** @type {Map<string, string[]>} */
+  const owned = new Map(restrictedSyntaxConfigs.map((config) => [config.name, []]));
+  const deepestFirst = [...restrictedSyntaxConfigs].reverse();
+  for (const file of trackedLintableFiles) {
+    const winner = deepestFirst.find((config) => configMatches(config, file));
+    if (winner !== undefined) owned.get(winner.name)?.push(file);
+  }
+  return owned;
+}
+
+describe("restricted-syntax policy families are live", () => {
+  it(
+    "makes every emitted family the deepest match for a real, non-ignored tracked file",
+    { timeout: resolvedConfigTestTimeoutMs },
+    async () => {
+      const owned = filesOwnedByEachFamily();
+      /** @type {string[]} */
+      const dead = [];
+      for (const [name, files] of owned) {
+        let live = false;
+        for (const file of files) {
+          if (await eslint.isPathIgnored(resolve(repoRoot, file))) continue;
+          live = true;
+          break;
+        }
+        if (!live) dead.push(name);
+      }
+      // A dead family means its globs no longer describe anything in the repo:
+      // a typo, or a directory that was renamed or deleted out from under it.
+      expect(dead).toEqual([]);
+    },
+  );
+
+  it("keeps every literal path in the policy pointing at a file that exists", () => {
+    const literalPaths = [
+      ...new Set(
+        restrictedSyntaxConfigs.flatMap((config) =>
+          [...config.files.flat(), ...config.ignores].filter(
+            (pattern) => !globMagicPattern.test(pattern),
+          ),
+        ),
+      ),
+    ];
+    // The literal-path families are the exposed ones: 14 script bootstrap
+    // paths, 2 server bootstrap paths, and the client env boundary.
+    expect(literalPaths.length).toBeGreaterThan(0);
+    expect(literalPaths.filter((path) => !existsSync(resolve(repoRoot, path)))).toEqual([]);
+  });
 });
 
 describe("process-primitive restrictions (no-restricted-syntax)", () => {
@@ -543,8 +712,21 @@ describe("runtime-boundary globals (no-restricted-globals)", () => {
       const config = await configFor("packages/shared/src/rules/combat.ts");
       expect(severityOf(config, "no-restricted-globals")).toBe(2);
       const names = restrictedGlobalsOf(config);
+      const messagesByName = restrictedGlobalMessagesByName(config);
+      // Each ban names the layering decision so the repair is legible at
+      // fire-time. Asserted per name, not over "whatever messages exist":
+      // dropping the message properties, or restating the bans as supported
+      // bare-name strings, would otherwise leave nothing to iterate and every
+      // browser-global diagnostic would silently lose its ADR link.
       for (const name of ["window", "document", "localStorage", "sessionStorage"]) {
         expect(names, `shared must ban ${name}`).toContain(name);
+        const message = messagesByName.get(name);
+        expect(typeof message, `${name}'s ban must carry a message`).toBe("string");
+        expect(message, `${name}'s message must name the layering decision`).toContain("ADR-0006");
+      }
+      // Any other shared ban carrying a message must name it too.
+      for (const message of restrictedGlobalMessagesOf(config)) {
+        expect(message).toContain("ADR-0006");
       }
     },
   );

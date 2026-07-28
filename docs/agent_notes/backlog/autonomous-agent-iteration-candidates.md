@@ -13,7 +13,8 @@ ratchet state. It is not a FIFO queue. The active promoted batch is mirrored in
 
 ### 1. Post-edit tidy hook
 
-Status: ready for a shared Claude + Codex implementation.
+Status: shipped. `.claude/hooks/tidy-edited-file.sh` is wired as an
+`Edit|Write` `PostToolUse` hook in `.claude/settings.json`.
 
 Goal: after an agent creates or edits a file, run a narrow per-file formatter
 and autofix pass so the agent sees feedback immediately instead of waiting for
@@ -137,7 +138,9 @@ Verification:
 
 ### 3. Quick lint drain: top-level `unbound-method`
 
-Status: ready, smallest live lint-ratchet drain.
+Status: drained. `ratchet/typescript-eslint-unbound-method-top-level-scripts`
+is gone from `lint-ratchet.baseline.json` (`90eab308 refactor(lint): drain
+top-level entrypoint singletons`). The live state below is historical.
 
 Live state from `bun run lint:ratchet:summary`: one finding remains in
 `ratchet/typescript-eslint-unbound-method-top-level-scripts`, scoped to
@@ -215,7 +218,9 @@ Verification:
 
 ### 6. Drift-ai max-lines drain
 
-Status: ready, same pattern as codemod/runtime max-lines splits.
+Status: drained. `ratchet/local-max-lines-drift-ai` is gone from
+`lint-ratchet.baseline.json` (`9a81e1fc refactor(lint): drain drift-ai family
+suppressions`). The live state below is historical.
 
 Live state:
 
@@ -267,9 +272,10 @@ a high-risk workflow with existing server/service tests to extend.
 
 Source: `docs/agent_notes/backlog/worktree-local-observability.md`.
 
-Recommended next leaf if promoted: `logs:audit:latest` or a narrow doctor
-integration for the newest known local server log. Defer `observe:logs` until
-dev-session capture/log paths exist.
+Status: the recommended leaf shipped — `logs:audit --latest` exists
+(`scripts/logs-audit.ts`, `scripts/logs-audit/logs-audit-latest.ts`). The
+doctor integration and `observe:logs` remain deferred until dev-session
+capture/log paths exist.
 
 ### Client test-quality plugin follow-ups
 
@@ -287,9 +293,10 @@ install/inventory slice.
 
 - Removed stale `in_progress/` notes for the already-zero
   `ratchet/core-complexity-drift-ai` plan and the already-fixed async
-  verify-marker/deletion follow-up. Current drift-ai debt is only
-  `ratchet/local-max-lines-drift-ai` on `scripts/drift-ai.ts` and
-  `scripts/drift-ai/ghost-files.ts`.
+  verify-marker/deletion follow-up. `ratchet/local-max-lines-drift-ai` on
+  `scripts/drift-ai.ts` and `scripts/drift-ai/ghost-files.ts` was the last
+  drift-ai debt; it has since been drained (`9a81e1fc`) and the ratchet entry
+  removed.
 - Moved implemented hook provenance notes for agent git safety and Codex test
   output summarization to `finished_work/`; they are not fresh work.
 - The original `@vitest/eslint-plugin` install/inventory slice landed

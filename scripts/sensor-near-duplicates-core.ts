@@ -1,4 +1,3 @@
-import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
 
 import type { ParseResult } from "@musi/lint-ratchet/kernel/entry-baseline.js";
@@ -13,6 +12,7 @@ import {
 } from "./drift-ai/near-duplicates-runner.js";
 import { buildSourceExtensions } from "./drift-ai/scope.js";
 import { writeFileAtomicallySync } from "./lib/atomic-write.js";
+import { defaultGitRunner, listStagedPaths } from "./lib/git.js";
 import {
   formatNearDuplicatesBaseline,
   type NearDuplicateBaselineEntry,
@@ -85,11 +85,7 @@ function collectNearDuplicates(
 
 function stagedFiles(cwd: string): ParseResult<readonly string[]> {
   try {
-    const output = execFileSync("git", ["diff", "--cached", "--name-only", "--diff-filter=ACMR"], {
-      cwd,
-      encoding: "utf8",
-    });
-    return { ok: true, value: output.split(/\r?\n/u).filter((path) => path.length > 0) };
+    return { ok: true, value: listStagedPaths(defaultGitRunner({ cwd })) };
   } catch (error) {
     return {
       ok: false,

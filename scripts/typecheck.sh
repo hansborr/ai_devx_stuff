@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Run package, scripts, and eslint-config-JS TypeScript checks concurrently
-# while keeping output readable.
+# Run package, scripts, eslint-config-JS, and e2e TypeScript checks
+# concurrently while keeping output readable.
 set -eu
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
@@ -23,9 +23,11 @@ RUN_LOG=""
 build_pid=""
 scripts_pid=""
 eslint_js_pid=""
+e2e_pid=""
 build_log=""
 scripts_log=""
 eslint_js_log=""
+e2e_log=""
 reader_pids=()
 
 cleanup_tmp() {
@@ -53,12 +55,14 @@ cleanup_children() {
   kill_pid "$build_pid"
   kill_pid "$scripts_pid"
   kill_pid "$eslint_js_pid"
+  kill_pid "$e2e_pid"
   for pid in "${reader_pids[@]}"; do
     kill_pid "$pid"
   done
   wait_pid "$build_pid"
   wait_pid "$scripts_pid"
   wait_pid "$eslint_js_pid"
+  wait_pid "$e2e_pid"
   for pid in "${reader_pids[@]}"; do
     wait_pid "$pid"
   done
@@ -180,17 +184,23 @@ scripts_log="$RUN_LOG"
 start_typecheck "tsc -p tsconfig.eslint-js.json" "eslint-js" "${TSC[@]}" -p tsconfig.eslint-js.json
 eslint_js_pid="$RUN_PID"
 eslint_js_log="$RUN_LOG"
+start_typecheck "tsc -p tsconfig.e2e.json" "e2e" "${TSC[@]}" -p tsconfig.e2e.json
+e2e_pid="$RUN_PID"
+e2e_log="$RUN_LOG"
 
 build_exit=0
 scripts_exit=0
 eslint_js_exit=0
+e2e_exit=0
 wait "$build_pid" || build_exit=$?
 wait "$scripts_pid" || scripts_exit=$?
 wait "$eslint_js_pid" || eslint_js_exit=$?
+wait "$e2e_pid" || e2e_exit=$?
 wait_readers
 trap - INT TERM
 
-if [ "$build_exit" -eq 0 ] && [ "$scripts_exit" -eq 0 ] && [ "$eslint_js_exit" -eq 0 ]; then
+if [ "$build_exit" -eq 0 ] && [ "$scripts_exit" -eq 0 ] && [ "$eslint_js_exit" -eq 0 ] \
+  && [ "$e2e_exit" -eq 0 ]; then
   exit 0
 fi
 
@@ -203,11 +213,14 @@ fi
 if [ "$eslint_js_exit" -ne 0 ]; then
   print_failure_summary "tsc -p tsconfig.eslint-js.json" "$eslint_js_exit" "$eslint_js_log"
 fi
+if [ "$e2e_exit" -ne 0 ]; then
+  print_failure_summary "tsc -p tsconfig.e2e.json" "$e2e_exit" "$e2e_log"
+fi
 
 # Failing lanes agreeing on one exit code propagate it; disagreement falls
 # back to 1.
 final_exit=0
-for lane_exit in "$build_exit" "$scripts_exit" "$eslint_js_exit"; do
+for lane_exit in "$build_exit" "$scripts_exit" "$eslint_js_exit" "$e2e_exit"; do
   [ "$lane_exit" -ne 0 ] || continue
   if [ "$final_exit" -eq 0 ]; then
     final_exit="$lane_exit"

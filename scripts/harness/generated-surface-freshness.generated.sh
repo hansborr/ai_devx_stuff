@@ -18,7 +18,7 @@ musi_warn_generated_surfaces_stale() {
 
   while IFS= read -r staged_path; do
     case "$staged_path" in
-      'harness.controls.json'|'scripts/harness/generate-hook-wiring.ts'|'scripts/harness/harness-manifest.ts'|'scripts/harness/harness-paths.ts'|'scripts/harness/hook-shim-files.ts'|'scripts/harness/hook-shims.ts'|'scripts/harness/hook-wiring-schema.ts'|'scripts/lib/atomic-write.ts'|'scripts/lib/codepoint-compare.ts'|'.claude/settings.json'|'.claude/hooks/'*|'.codex/hooks.json'|'.codex/hooks/'*|'.copilot/hooks/'*|'.github/hooks/copilot.json')
+      'harness.controls.json'|'scripts/harness/control-field-validation.ts'|'scripts/harness/generate-hook-wiring.ts'|'scripts/harness/harness-manifest.ts'|'scripts/harness/harness-manifest-loader.ts'|'scripts/harness/harness-manifest-schema.ts'|'scripts/harness/harness-paths.ts'|'scripts/harness/hook-shim-files.ts'|'scripts/harness/hook-shims.ts'|'scripts/harness/hook-wiring-schema.ts'|'scripts/lib/lint-rule-docs.ts'|'scripts/lib/atomic-write.ts'|'scripts/lib/codepoint-compare.ts'|'scripts/lib/records.ts'|'.claude/settings.json'|'.claude/hooks/'*|'.codex/hooks.json'|'.codex/hooks/'*|'.copilot/hooks/'*|'.github/hooks/copilot.json')
         warn_if_generated_surface_stale 'AI hook wiring' 'harness:wiring:check'
         break
         ;;
@@ -27,7 +27,7 @@ musi_warn_generated_surfaces_stale() {
 
   while IFS= read -r staged_path; do
     case "$staged_path" in
-      'harness.controls.json'|'scripts/harness/generate-hook-timeout-constants.ts'|'scripts/harness/harness-manifest.ts'|'scripts/harness/harness-paths.ts'|'scripts/harness/hook-timeout-constants.ts'|'scripts/harness/hook-wiring-schema.ts'|'scripts/lib/doc-generator.ts'|'scripts/ai-hooks/hook-timeouts.generated.sh')
+      'harness.controls.json'|'scripts/harness/control-field-validation.ts'|'scripts/harness/generate-hook-timeout-constants.ts'|'scripts/harness/harness-manifest.ts'|'scripts/harness/harness-manifest-loader.ts'|'scripts/harness/harness-manifest-schema.ts'|'scripts/harness/harness-paths.ts'|'scripts/harness/hook-timeout-constants.ts'|'scripts/harness/hook-wiring-schema.ts'|'scripts/lib/doc-generator.ts'|'scripts/lib/lint-rule-docs.ts'|'scripts/lib/records.ts'|'scripts/ai-hooks/hook-timeouts.generated.sh')
         warn_if_generated_surface_stale 'hook timeout constants' 'harness:hook-timeouts:check'
         break
         ;;
@@ -45,7 +45,16 @@ musi_warn_generated_surfaces_stale() {
 
   while IFS= read -r staged_path; do
     case "$staged_path" in
-      'scripts/lib/doc-generator.ts'|'scripts/path-policy/fixture-helper-calls.ts'|'scripts/path-policy/fixture-shell-dependencies.ts'|'scripts/path-policy/fixture-shell-scope.ts'|'scripts/path-policy/generate-smoke-subjects.ts'|'scripts/path-policy/smoke-subject-headers.ts'|'scripts/tests/'*|'scripts/path-policy/path-policy-smoke-subjects-data.ts'|'scripts/fixtures/test-scripts/all-smoke-tests.txt')
+      '.claude/skills/'*|'.gitignore'|'harness.controls.json'|'scripts/harness/check-skill-inventory.ts'|'scripts/harness/generate-skill-artifacts.ts'|'scripts/harness/harness-manifest.ts'|'scripts/harness/skill-artifact-projection.ts'|'scripts/harness/skill-inventory-schema.ts'|'scripts/harness/skill-overlay-content.ts'|'scripts/harness/skill-projection-files.ts'|'scripts/harness/skill-smoke-subject-block.ts'|'scripts/lib/atomic-write.ts'|'scripts/lib/codepoint-compare.ts'|'scripts/lib/doc-generator.ts'|'scripts/lib/records.ts'|'scripts/path-policy/fixture-copy-expressions.ts'|'scripts/path-policy/fixture-helper-calls.ts'|'scripts/path-policy/fixture-import-closure.ts'|'scripts/path-policy/fixture-loop-bindings.ts'|'scripts/path-policy/fixture-sandbox-model.ts'|'scripts/path-policy/fixture-seed-statements.ts'|'scripts/path-policy/fixture-seeding-annotations.ts'|'scripts/path-policy/fixture-shell-dependencies.ts'|'scripts/path-policy/fixture-shell-scope.ts'|'scripts/path-policy/smoke-subject-headers.ts'|'scripts/worktree-seed-import-closure.ts'|'scripts/worktree-seed-runtime-loader-exports.ts'|'scripts/worktree-seed-runtime-loader-identifiers.ts'|'scripts/worktree-seed-runtime-loader-validation.ts'|'scripts/worktree-seed-runtime-loaders.ts'|'.codex/skills/'*|'scripts/tests/test-skill-dispatch-wrappers.sh'|'scripts/path-policy/path-policy-smoke-subjects-data.ts'|'scripts/fixtures/test-scripts/all-smoke-tests.txt')
+        warn_if_generated_surface_stale 'skill mirrors and smoke routing' 'harness:skills:check'
+        break
+        ;;
+    esac
+  done <<< "$staged"
+
+  while IFS= read -r staged_path; do
+    case "$staged_path" in
+      'scripts/lib/doc-generator.ts'|'scripts/path-policy/fixture-copy-expressions.ts'|'scripts/path-policy/fixture-helper-calls.ts'|'scripts/path-policy/fixture-import-closure.ts'|'scripts/path-policy/fixture-loop-bindings.ts'|'scripts/path-policy/fixture-sandbox-model.ts'|'scripts/path-policy/fixture-seed-statements.ts'|'scripts/path-policy/fixture-seeding-annotations.ts'|'scripts/path-policy/fixture-shell-dependencies.ts'|'scripts/path-policy/fixture-shell-scope.ts'|'scripts/path-policy/generate-smoke-subjects.ts'|'scripts/path-policy/smoke-subject-headers.ts'|'scripts/tests/'*|'scripts/worktree-seed-import-closure.ts'|'scripts/worktree-seed-runtime-loader-exports.ts'|'scripts/worktree-seed-runtime-loader-identifiers.ts'|'scripts/worktree-seed-runtime-loader-validation.ts'|'scripts/worktree-seed-runtime-loaders.ts'|'scripts/path-policy/path-policy-smoke-subjects-data.ts'|'scripts/fixtures/test-scripts/all-smoke-tests.txt')
         warn_if_generated_surface_stale 'script smoke-subject metadata' 'test:scripts:subjects:check'
         break
         ;;
@@ -54,7 +63,7 @@ musi_warn_generated_surfaces_stale() {
 
   while IFS= read -r staged_path; do
     case "$staged_path" in
-      'harness.controls.json'|'scripts/harness/control-field-validation.ts'|'scripts/harness/generate-verify-steps.ts'|'scripts/harness/generated-surfaces.ts'|'scripts/harness/harness-check-validation.ts'|'scripts/harness/harness-manifest.ts'|'scripts/harness/harness-paths.ts'|'scripts/harness/verify-step-bridge-divergences.ts'|'scripts/harness/verify-step-schema.ts'|'scripts/lib/codepoint-compare.ts'|'scripts/lib/doc-generator.ts'|'scripts/lib/lint-rule-docs.ts'|'scripts/lint-ratchet/ratchet-manifest-message.ts'|'scripts/verify/steps.generated.sh'|'scripts/harness/generated-surface-freshness.generated.sh'|'scripts/ai-hooks/classified-bun-scripts.generated.sh'|'scripts/tests/harness-check-fixture-manifest.generated.txt')
+      'harness.controls.json'|'scripts/harness/control-field-validation.ts'|'scripts/harness/generate-verify-steps.ts'|'scripts/harness/generated-surfaces-loader.ts'|'scripts/harness/generated-surfaces.ts'|'scripts/harness/harness-check-validation.ts'|'scripts/harness/harness-manifest.ts'|'scripts/harness/harness-manifest-loader.ts'|'scripts/harness/harness-manifest-schema.ts'|'scripts/harness/harness-paths.ts'|'scripts/harness/verify-step-bridge-divergences.ts'|'scripts/harness/verify-step-schema.ts'|'scripts/lib/codepoint-compare.ts'|'scripts/lib/doc-generator.ts'|'scripts/lib/lint-rule-docs.ts'|'scripts/lib/records.ts'|'scripts/lint-ratchet/ratchet-manifest-message.ts'|'scripts/verify/steps.generated.sh'|'scripts/harness/generated-surface-freshness.generated.sh'|'scripts/ai-hooks/classified-bun-scripts.generated.sh'|'scripts/tests/harness-check-fixture-manifest.generated.txt')
         warn_if_generated_surface_stale 'verify step and generated-surface metadata' 'verify:steps:check'
         break
         ;;
@@ -72,7 +81,7 @@ musi_warn_generated_surfaces_stale() {
 
   while IFS= read -r staged_path; do
     case "$staged_path" in
-      'eslint-config/config-surfaces.js'|'eslint-config/max-lines-exceptions-codec.js'|'eslint-config/shared-policy.js'|'harness.controls.json'|'scripts/harness/control-field-validation.ts'|'scripts/harness/generate-harness-controls-validation.ts'|'scripts/harness/generate-harness-controls.ts'|'scripts/harness/harness-manifest-schema.ts'|'scripts/harness/harness-manifest.ts'|'scripts/harness/harness-paths.ts'|'scripts/harness/hook-wiring-schema.ts'|'scripts/harness/verify-step-schema.ts'|'scripts/lib/codepoint-compare.ts'|'scripts/lib/doc-generator.ts'|'scripts/lib/lint-rule-docs.ts'|'scripts/lint-ratchet/lint-ratchet-config.ts'|'scripts/lint-ratchet/registry-builders.ts'|'docs/generated/harness-controls.md')
+      'eslint-config/config-surfaces.js'|'eslint-config/max-lines-exceptions-codec.js'|'eslint-config/shared-policy.js'|'harness.controls.json'|'scripts/harness/control-field-validation.ts'|'scripts/harness/generate-harness-controls-validation.ts'|'scripts/harness/generate-harness-controls.ts'|'scripts/harness/harness-manifest-schema.ts'|'scripts/harness/harness-manifest.ts'|'scripts/harness/harness-paths.ts'|'scripts/harness/hook-wiring-schema.ts'|'scripts/harness/verify-step-schema.ts'|'scripts/lib/codepoint-compare.ts'|'scripts/lib/doc-generator.ts'|'scripts/lib/lint-rule-docs.ts'|'scripts/lib/records.ts'|'scripts/lint-ratchet/lint-ratchet-config.ts'|'scripts/lint-ratchet/registry-builders.ts'|'docs/generated/harness-controls.md')
         warn_if_generated_surface_stale 'harness controls docs' 'docs:harness-controls:check'
         break
         ;;
@@ -90,7 +99,7 @@ musi_warn_generated_surfaces_stale() {
 
   while IFS= read -r staged_path; do
     case "$staged_path" in
-      'eslint-config/local-plugin.js'|'eslint-rules/'*|'scripts/generate-lint-guidance.ts'|'scripts/lib/doc-generator.ts'|'scripts/lib/lint-rule-docs.ts'|'docs/generated/local-lint-rules.md')
+      'eslint-config/local-plugin.js'|'eslint-rules/'*|'scripts/generate-lint-guidance.ts'|'scripts/lib/doc-generator.ts'|'scripts/lib/lint-rule-docs.ts'|'scripts/lib/records.ts'|'docs/generated/local-lint-rules.md')
         warn_if_generated_surface_stale 'lint guidance' 'docs:lint-guidance:check'
         break
         ;;

@@ -1,4 +1,5 @@
 import type { PrototypeScanProvenance } from "../drift-ai/prototype-advisory.js";
+import { isRecord } from "../lib/records.js";
 import type { DriftFindingInput } from "./triage-report-contracts.js";
 import type {
   BuildState,
@@ -166,10 +167,6 @@ export function parseOptionalScanProvenance(
     ...(stateFingerprint === undefined ? {} : { stateFingerprint }),
     ...(changedDuringScan === undefined ? {} : { changedDuringScan }),
   };
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function isNullableString(value: unknown): value is string | null {

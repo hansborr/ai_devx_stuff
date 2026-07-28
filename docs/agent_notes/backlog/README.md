@@ -1,7 +1,7 @@
 # Backlog
 
 Status: Living reference index
-Updated: 2026-07-19
+Updated: 2026-07-27
 
 Parked workstreams that still matter, but should stay out of the default
 agent loop.
@@ -12,14 +12,59 @@ Do **not** read this folder at session start. Promote an item back into
 ## Ready queue
 
 - `ready-2026-07/00-index.md` — the single tracking surface for everything
-  verified ready-to-work at the 2026-07-19 whole-backlog readiness sweep
-  (8-agent verification against HEAD). Standalone ready notes were moved
-  into that pack; ready leaves that live in other packs are tracked there
-  by reference. Pull work from it instead of re-triaging the parked items
-  below; when something lands, mark it Done there and in its source pack.
+  verified ready-to-work. Standalone ready notes were moved into that pack;
+  ready leaves that live in other packs are tracked there by reference. Pull
+  work from it instead of re-triaging the parked items below. Re-verified
+  2026-07-25 and reorganised by **dispatch state**: §1 ready now, §2 in
+  flight, §3 needs a plan-review round, §4 needs an owner decision. Landed
+  rows were trimmed to `../finished_work/ready-2026-07-drain.md`, which keeps
+  their shas; record new landings there and in the source pack index.
 
 ## Parked items
 
+- `code-quality-2026-07-25/00-index.md` — 60-leaf refactor/simplification audit
+  across `packages/{shared,server,client}`, the harness, the lint machinery, and
+  the test suite, with dedicated comment-smell and naming lenses. Headline: the
+  codebase is structurally sound — the recurring pattern is a problem solved
+  correctly once and then paid for by copy-paste rather than extraction. The
+  index carries a ledger of changes that look attractive but should not be
+  proposed, so they are not re-raised. Not a second ready queue; leaves 29 and 32
+  carry the operational risk. Twenty-three leaves (24, 11, 37, 43, 39, 47, 01,
+  18, 19, 20, 21, 22, 23, 25, 26, 48, 09, 10, 12, 13, 50, 51, 52) landed across
+  eight deliveries on 2026-07-26 and 2026-07-27. The shared cluster is finished:
+  21 of its 22 slices landed and U3 is closed-declined with reasons, not
+  deferred. The client cluster is in progress — seven slices landed, eight
+  remain. The server/comments cluster has not started: `feat/cq-server-cluster`
+  landed the three standalone server leaves (50, 51, 52) that plan's writing
+  produced, not any of its slices. All six XL leaves
+  (07/27/28/34/40/42) have a `NN-PLAN.md` scheduling plan, leaf 53 has one too,
+  and the client, harness, shared and server/comments clusters have a
+  `*-CLUSTER-PLAN.md` covering 34 leaves — read the plan, not the leaf, before
+  scheduling one.
+  The plans shrink or drop work the index's leaf rows still list at full size,
+  and the plan is authoritative where they differ — except for the eight shared
+  rows and the ten client rows, whose reconciliations were applied on 2026-07-26
+  and 2026-07-27 and which now carry their plan's own sizes and dropped-step
+  records. `53-PLAN.md`'s reconciliation is not applied yet; it lands with its
+  first slice.
+  Leaves 50, 51 and 52 were added on 2026-07-26 from the slice C review and the
+  server planning session; they pin their anchors to `5ff5751a`, not the pack's
+  `883d48bf`, and all three have since landed. Leaves 53 and 54 carry recorded
+  owner decisions. Leaves 55-57 came from the client-cluster reviews and pin to
+  `709b27668`; leaves 58, 59 and 60 came from the server-cluster review rounds
+  and pre-merge panel and pin to `f16079c2f` / `b16000968`.
+- `agent-pain-points-2026-07-21/00-index.md` — multi-stage audit of the
+  persisted agent pain-point log and its available Claude-memory sources:
+  nine actionable repository candidates, one teammate-handoff feasibility
+  probe with conditional implementation, and one command-target correctness
+  rider merged into the existing ready C8 campaign. Fixed, stale, external,
+  duplicate, and adversarially rejected designs are recorded in the pack's
+  source/verdict ledger. This is not a second ready queue.
+- `ai-harness-audit-2026-07-21/00-index.md` — multi-agent lint/harness audit:
+  evidence and adversarial dispositions for 19 findings covering result/cache
+  integrity, report output, worktree identity, lint repair compatibility,
+  backlog drift, and agent-facing signal. This is not a second ready queue;
+  promote accepted slices into the ready queue only after an owner priority call.
 - `production-readiness.md` — error monitoring, CI/CD hardening, Docker
   deployment, infra hardening, and data-integrity audit. Largest unstarted
   scope; depends on the app shipping to real users.
@@ -34,9 +79,11 @@ Do **not** read this folder at session start. Promote an item back into
   polymorphic Character-scoped FKs, unlink/grandfather policy, unified
   SRD+homebrew loader, wizard/sheet/level-up surfaces, optional compendium
   pages. Includes the proven polymorphic patterns to reuse.
-- `followup-srd-castertype-issues.md` — deferred character-level homebrew prerequisites:
-  ritual-casting semantics, EK/AT provenance cleanup, and homebrew caster-form
-  inputs.
+- `followup-srd-castertype-issues.md` — _(Resolved: all three sections landed —
+  the `ritualAdept` rename, the EK/AT provenance cleanup in `2f1d857d`, and the
+  homebrew subclass caster-form inputs. Retained as the provenance record.)_
+  Former character-level homebrew prerequisites: ritual-casting semantics,
+  EK/AT provenance cleanup, and homebrew caster-form inputs.
 - `ai-harness-followups.md` — remaining conditional harness work after the
   broad harness plan landed: 5e rules guide, migration-safety output, JSON
   diagnostics, behavior fixtures, slow drift reports, and scoped review.
@@ -88,8 +135,10 @@ Do **not** read this folder at session start. Promote an item back into
   move into the slow tier (and the `test-lint-ratchet.sh` smoke, which needs
   new slow-smoke plumbing). Behavior change, so deferred; promote only if more
   per-commit time still needs trimming. Includes a coverage-threshold caveat.
-- `character-sheet-load-error-after-return.md` — unreproduced load-error
-  report; queued as a timeboxed repro spike in the ready queue (A14).
+- `character-sheet-load-error-after-return.md` — _(Done: fixed 2026-07-19 in
+  the wave-1 `ready-2026-07` drain (A14); cached data now renders over a
+  background-refetch error in `character-sheet-page.tsx`.)_ Formerly an
+  unreproduced load-error report queued as a timeboxed repro spike.
 - `ai-hooks-suite-self-concurrency.md` — the ai-hooks test suite races
   itself via the shared repo-root `.allow-protected-edits` marker; low
   urgency, but needs a three-way owner scope call (document / private
@@ -99,8 +148,8 @@ Do **not** read this folder at session start. Promote an item back into
   helper-internal lint, advisory lock-order output, and stronger provenance
   checks.
 - `code-intel-followups.md` — conditional `code:intel` work after the v1 CLI
-  and review slices landed: `refs`, JSON output, caching/daemon promotion, and
-  targeted debug polish.
+  and review slices landed: `refs`, JSON output, and targeted debug polish.
+  The caching/daemon promotion has since shipped (`55f5fa78`).
 - `code-intel-daemon-options.md` — parked comparison of TypeScript
   language-service, `tsserver`, LSP, MCP, and file-index adapters if
   `code:intel` latency justifies a daemon or cache. _(Superseded 2026-06-21:

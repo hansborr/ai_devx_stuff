@@ -10,6 +10,7 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
+import { isRecord } from "../lib/records.js";
 import { matchesAnyGlob } from "./config-match.js";
 import {
   buildDuplicatesFindings,
@@ -153,11 +154,7 @@ function isTimeoutResult(result: JscpdSpawnResult): boolean {
 }
 
 function hasErrorCode(error: unknown, expectedCode: string): boolean {
-  return isObject(error) && error["code"] === expectedCode;
-}
-
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+  return isRecord(error) && error["code"] === expectedCode;
 }
 
 // --- Check integration ------------------------------------------------------

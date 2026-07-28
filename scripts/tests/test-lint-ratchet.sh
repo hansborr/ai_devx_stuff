@@ -49,8 +49,10 @@
 # smoke-subjects: scripts/lib/process-argv.ts
 # smoke-subjects: scripts/lib/atomic-write.ts
 # smoke-subjects: scripts/lib/lint-rule-docs.ts
+# smoke-subjects: scripts/lib/records.ts
 # smoke-subjects: tools/lint-ratchet/src/kernel/atomic-write.ts
 # smoke-subjects: tools/lint-ratchet/src/git-rail/
+# smoke-subjects: scripts/harness/harness-diagnostics-output.ts
 # smoke-subjects: scripts/harness/harness-manifest.ts
 # smoke-subjects: scripts/lint-ratchet/ratchet-manifest-message.ts
 # smoke-subjects: scripts/tests/lib/test-git-env.sh
@@ -104,6 +106,7 @@ mapfile -t PORTABLE_RUNTIME_FILES < <(
       scripts/harness/harness-manifest.ts \
       scripts/lib/atomic-write.ts \
       scripts/lib/lint-rule-docs.ts \
+      scripts/lib/records.ts \
       scripts/lint-ratchet.ts
     git ls-files scripts/lint-ratchet |
       grep -E '\.ts$' |
@@ -195,6 +198,11 @@ build_fixture() {
     # resolves here.
     [ -e "$runtime_file" ] || continue
     mkdir -p "$fixture_dir/$(dirname "$runtime_file")"
+    # fixture-closure: unmodelled-copy - PORTABLE_RUNTIME_FILES is built by a
+    # `git ls-files` pipeline, so this copy set cannot be enumerated
+    # statically. This fixture's closure is not covered by the copy-set guard;
+    # the package's own boundary checks (tools/lint-ratchet/test/boundary/) and
+    # examples/lint-ratchet-demo carry that proof instead.
     cp "$runtime_file" "$fixture_dir/$runtime_file"
   done
   cp eslint-rules/type-assertion-boundary.js \
@@ -947,6 +955,10 @@ copy_lint_ratchet_merge_runtime() {
   # runtime, so copying the two files closes the sandbox closure.
   cp scripts/baseline-merge-cli-table.ts "$repo/scripts/"
   cp scripts/lib/process-argv.ts "$repo/scripts/lib/"
+  # harness-manifest.ts and the copied scripts/lint-ratchet/*.ts leaves (notably
+  # local-rule-fix-text.ts) narrow untyped JSON through the shared record guards
+  # in scripts/lib/records.ts, so the sandbox closure needs that leaf too.
+  cp scripts/lib/records.ts "$repo/scripts/lib/"
   # The merge CLI's grouped-codec closure (baseline codec, atomic writer, item
   # merge, git-rail merge-cli, codepoint comparator) moved to the
   # @musi/lint-ratchet package (leaf 02 S3). Provide it as a symlinked workspace
@@ -1792,6 +1804,9 @@ assert_lint_ratchet_merge_driver_write_guard() {
   cp scripts/git/baseline-merge-driver-lib.sh "$repo/scripts/git/"
   cp scripts/git/lint-ratchet-merge-driver-lib.sh "$repo/scripts/git/"
   cp scripts/git/baseline-merge-driver.sh "$repo/scripts/git/"
+  # fixture-closure: not-an-entry - this sandbox poisons `bun` so every
+  # baseline-info-attributes render fails on purpose; the renderer is never
+  # executed here, so it deliberately brings no @musi/lint-ratchet resolution.
   cp scripts/git/baseline-info-attributes.ts "$repo/scripts/git/"
   git -C "$TMP_ROOT" init -q -b main "$repo"
   git -C "$repo" config user.email test@example.com

@@ -49,6 +49,23 @@ run_report_changed() {
   set -e
 }
 
+IDENT_FILE=""
+run_report_identities() {
+  IDENT_FILE="$TMP_ROOT/identities-$PASS.tsv"
+  set +e
+  RUN_OUTPUT="$(bash "$REPORT" --identities-out "$IDENT_FILE" "$1" 2>&1)"
+  RUN_STATUS=$?
+  set -e
+}
+
+run_report_changed_identities() {
+  IDENT_FILE="$TMP_ROOT/identities-changed-$PASS.tsv"
+  set +e
+  RUN_OUTPUT="$(bash "$REPORT" --changed base --identities-out "$IDENT_FILE" "$1" 2>&1)"
+  RUN_STATUS=$?
+  set -e
+}
+
 new_repo() {
   local name="$1"
   local repo="$TMP_ROOT/$name"
@@ -299,6 +316,64 @@ run_report_changed "$repo"
 contains "$RUN_OUTPUT" 'source-relevant unstaged or untracked changes are present' \
   || fail "unstaged abort message missing: $RUN_OUTPUT"
 ok "changed mode aborts on unstaged source-relevant changes"
+
+# Leaf 50 step 2: this scanner is the single authority on what counts as a
+# directive, so the suppression identity ledger consumes this emission instead
+# of maintaining a second scanner. Emission is additive and must never move the
+# register's own verdict or counts.
+repo="$(new_repo identity-emission)"
+mkdir -p "$repo/src"
+cat > "$repo/src/app.ts" <<'EOF'
+// eslint-disable-next-line no-console, eqeqeq -- debugging aid
+console.log(1);
+EOF
+git -C "$repo" add src/app.ts
+run_report_identities "$repo"
+[ "$RUN_STATUS" -eq 0 ] || fail "identity emission must not change the verdict: $RUN_OUTPUT"
+contains "$RUN_OUTPUT" 'PASS: eslint-disable register total=1 inline=1 broad=0' \
+  || fail "identity emission changed the register counts: $RUN_OUTPUT"
+[ "$(head -n 1 "$IDENT_FILE")" = "$(printf '#scope\tfull')" ] \
+  || fail "identity file is missing the full-scope header: $(cat "$IDENT_FILE")"
+[ "$(grep -cv '^#' "$IDENT_FILE")" -eq 1 ] \
+  || fail "expected exactly one identity record: $(cat "$IDENT_FILE")"
+[ "$(grep -v '^#' "$IDENT_FILE")" = "$(printf 'eslint-disable\tsrc/app.ts\t1\t// eslint-disable-next-line no-console, eqeqeq -- debugging aid')" ] \
+  || fail "identity record shape was wrong: $(cat "$IDENT_FILE")"
+ok "emits kind/path/line/text identity records without changing the verdict"
+
+# Changed mode narrows the scan, so the ledger gate must be told which paths
+# were actually looked at; otherwise every unscanned identity reads as removed.
+repo="$(new_repo identity-emission-changed)"
+mkdir -p "$repo/src"
+printf 'const legacy = 1;\n' > "$repo/src/legacy.ts"
+git -C "$repo" add src/legacy.ts
+git -C "$repo" -c commit.gpgsign=false commit -q -m "seed unchanged file"
+git -C "$repo" branch base
+cat > "$repo/src/changed.ts" <<'EOF'
+// eslint-disable-next-line no-console -- changed CLI output
+console.log("changed");
+EOF
+git -C "$repo" add src/changed.ts
+run_report_changed_identities "$repo"
+[ "$RUN_STATUS" -eq 0 ] || fail "changed identity emission should pass: $RUN_OUTPUT"
+[ "$(head -n 1 "$IDENT_FILE")" = "$(printf '#scope\tchanged')" ] \
+  || fail "identity file is missing the changed-scope header: $(cat "$IDENT_FILE")"
+contains "$(cat "$IDENT_FILE")" "$(printf '#path\tsrc/changed.ts')" \
+  || fail "changed mode must list the scanned paths: $(cat "$IDENT_FILE")"
+contains "$(cat "$IDENT_FILE")" "$(printf 'eslint-disable\tsrc/changed.ts\t1\t')" \
+  || fail "changed mode dropped the identity record: $(cat "$IDENT_FILE")"
+if contains "$(cat "$IDENT_FILE")" 'src/legacy.ts'; then
+  fail "changed mode must not claim unscanned paths: $(cat "$IDENT_FILE")"
+fi
+ok "changed mode labels its scope and lists the scanned paths"
+
+set +e
+RUN_OUTPUT="$(bash "$REPORT" --identities-out 2>&1)"
+RUN_STATUS=$?
+set -e
+[ "$RUN_STATUS" -eq 2 ] || fail "--identities-out without a path should exit 2: $RUN_OUTPUT"
+contains "$RUN_OUTPUT" '--identities-out requires a path' \
+  || fail "missing --identities-out path message was wrong: $RUN_OUTPUT"
+ok "rejects --identities-out without a path"
 
 not_repo="$TMP_ROOT/not-git"
 mkdir -p "$not_repo"

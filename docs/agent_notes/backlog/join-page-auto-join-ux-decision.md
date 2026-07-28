@@ -1,6 +1,37 @@
 # Join Page Auto Join UX Decision
 
-Status: Parked
+Status: Done — implemented 2026-07-25 on `fix/join-page-confirm` (`F8` in
+`ready-2026-07/00-index.md` §1). The decision was explicit "Join campaign"
+confirmation, not silent auto-join. What landed: the `useEffect` and its
+`exhaustive-deps` disable are gone with no route-action seam; the dead
+"Please log in to join this campaign" branch is gone; a read-only
+`invite.preview` query names the campaign before anything is claimed; and the
+logged-out invite flow is fixed by the `F1` return-to pathway.
+
+> **2026-07-25 ruling and dispatch notes.** Confirmation wins because it is the
+> only option that removes the effect rather than relocating it (see
+> `docs/guides/client-effects.md`), and because the server contract makes
+> auto-join a real hazard: `invite-service.ts:57-63` increments `uses` under
+> `where: { uses: { lt: maxUses } }`, so a page load permanently consumes one of
+> a bounded number of invite seats and creates a `campaignMember` row before the
+> user has seen the campaign's name. Re-visiting is safe (`:49-54` throws
+> `CONFLICT` for an existing member), so the hazard is first-load only.
+>
+> Delete the `useEffect` at `join-page.tsx:33-39` and its `exhaustive-deps`
+> disable; no route-action seam is needed. Rewrite `join-page.test.tsx:76-117`
+> (the "joins once" / "does not join more than once" tests become obsolete) and
+> add `JoinPO.clickJoin()` alongside the existing
+> `JoinPO.expectRedirectToCampaign()`.
+>
+> Two findings this note never recorded, to fold in: **(1)** `join-page.tsx:41-58`
+> (the "Please log in to join this campaign" branch) is dead code — the route is
+> already `AuthGuard`-wrapped at `routes/join-route.ts:8-15`, so it can only
+> render in a bare unit-test mount. **(2)** The logged-out invite flow is broken
+> today: `AuthGuard` navigates to `/login` with no return-to param and
+> `GuestGuard` (`guest-guard.tsx:23-24`) unconditionally bounces to
+> `/dashboard`, so anyone clicking an invite link while logged out never joins.
+> A confirmation screen that names the campaign and survives a login round-trip
+> fixes this nearly for free — pair with `F1`.
 Date: 2026-07-03
 Source: Deferred repo-audit finding from the docs/process staleness cleanup.
 

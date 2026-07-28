@@ -1,3 +1,4 @@
+import { errorMessage } from "../lib/error-message.js";
 import { readGitBlobAtRef } from "../lib/git.js";
 import { type BirthBlobReader, buildBirthSizeDeltaAdvisory } from "./birth-size-delta-advisory.js";
 import { parseBirthSizeDeltaArgs, type ParsedBirthSizeDeltaArgs } from "./birth-size-delta-args.js";
@@ -128,9 +129,4 @@ function birthBlobReader(
       return { ok: false, reason: errorMessage(err) };
     }
   };
-}
-
-function errorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  return String(error);
 }

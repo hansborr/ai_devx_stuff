@@ -19,6 +19,14 @@ export interface ClosureOptions {
    */
   readonly externalPackages?: readonly string[];
   /**
+   * Repository-relative paths the consumer replaces with its own stub, so the
+   * walk records them but stops instead of following the real file's imports.
+   * Used by fixture copy-set checks where a sandbox synthesizes a minimal
+   * stand-in (a stub config module) whose real transitive inputs the sandbox
+   * never needs. Paths that do not exist are ignored.
+   */
+  readonly terminalFiles?: readonly string[];
+  /**
    * Forwarded to `runtimeImportSpecifiers`: `"throw"` (default) rejects
    * runtime imports without a static string specifier; `"skip"` ignores them
    * for closure walks over code that loads runtime-configured inputs.
@@ -130,6 +138,61 @@ const resolveLocalImport = (
   return resolved;
 };
 
+const resolveTerminalFiles = (
+  root: string,
+  terminalFiles: readonly string[] | undefined,
+): ReadonlySet<string> =>
+  new Set(
+    (terminalFiles ?? [])
+      .map((path) => resolve(root, path))
+      .filter(isFile)
+      .map((path) => realpathSync(path)),
+  );
+
+/**
+ * JSON has no imports to follow, and a consumer-declared terminal file is
+ * replaced by a stub in the tree being modelled, so its real imports are not
+ * part of that tree's closure. Both are recorded, neither is traversed.
+ */
+const stopsTraversal = (path: string, terminalFiles: ReadonlySet<string>): boolean =>
+  extname(path) === ".json" || terminalFiles.has(path);
+
+interface MemoizedImportSpecifiers {
+  readonly source: string;
+  readonly specifiers: readonly string[];
+}
+
+const importSpecifierCache = new Map<string, MemoizedImportSpecifiers>();
+/** Bounds the cache for long-lived processes; the working set is far smaller. */
+const importSpecifierCacheLimit = 4096;
+
+/**
+ * Parsing dominates a closure walk, and the fixture copy-set checks walk the
+ * same shared `scripts/**` modules from many entry points at once (the live
+ * smoke corpus visits 508 files that are only 36 distinct modules). The
+ * specifier list is a pure function of the file's bytes and the non-static
+ * specifier mode, so it is memoized per (mode, path) and the memo is only
+ * reused when the freshly read source is byte-identical. A file rewritten in
+ * place — which the scripts suites do constantly against synthetic trees — is
+ * therefore re-parsed rather than answered from a stale entry, and the walk
+ * keeps reading every file on every call exactly as before. Failures are never
+ * memoized, so a file that throws throws every time.
+ */
+const importSpecifiersOf = (
+  path: string,
+  source: string,
+  nonStaticSpecifiers: "throw" | "skip" | undefined,
+): readonly string[] => {
+  const key = `${nonStaticSpecifiers ?? "throw"} ${path}`;
+  const memoized = importSpecifierCache.get(key);
+  if (memoized !== undefined && memoized.source === source) return memoized.specifiers;
+  const sourceFile = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true);
+  const specifiers = runtimeImportSpecifiers(sourceFile, { nonStaticSpecifiers });
+  if (importSpecifierCache.size >= importSpecifierCacheLimit) importSpecifierCache.clear();
+  importSpecifierCache.set(key, { source, specifiers });
+  return specifiers;
+};
+
 export const validateSeedImportClosure = (options: ClosureOptions): ClosureValidation => {
   const root = realpathSync(options.root);
   const entry = realpathSync(resolve(root, options.entry));
@@ -139,6 +202,7 @@ export const validateSeedImportClosure = (options: ClosureOptions): ClosureValid
     entry,
     ...options.allowedFiles.map((path) => realpathSync(resolve(root, path))),
   ]);
+  const terminalFiles = resolveTerminalFiles(root, options.terminalFiles);
   const violations: string[] = [];
   const visited = new Set<string>();
   const pending = [entry];
@@ -147,13 +211,10 @@ export const validateSeedImportClosure = (options: ClosureOptions): ClosureValid
     const importer = pending.pop();
     if (importer === undefined || visited.has(importer)) continue;
     visited.add(importer);
-    if (extname(importer) === ".json") continue;
+    if (stopsTraversal(importer, terminalFiles)) continue;
 
     const source = readFileSync(importer, "utf8");
-    const sourceFile = ts.createSourceFile(importer, source, ts.ScriptTarget.Latest, true);
-    const specifiers = runtimeImportSpecifiers(sourceFile, {
-      nonStaticSpecifiers: options.nonStaticSpecifiers,
-    });
+    const specifiers = importSpecifiersOf(importer, source, options.nonStaticSpecifiers);
     for (const specifier of specifiers) {
       const imported = resolveLocalImport(root, importer, specifier, externalPackages);
       if (imported === undefined) continue;

@@ -1,4 +1,5 @@
 import type { RuleDocsEntry } from "../lib/lint-rule-docs.js";
+import { isObjectLike } from "../lib/records.js";
 
 const HOW_TO_FIX_MARKER = "How to fix: ";
 const DEFAULT_LOCAL_RULE_FIX = "Resolve this local lint finding.";
@@ -6,10 +7,6 @@ const DEFAULT_LOCAL_RULE_FIX = "Resolve this local lint finding.";
 export interface LocalRuleMessageForFix {
   readonly message: string;
   readonly suggestions?: readonly unknown[];
-}
-
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }
 
 function fixTextFromMessage(message: string): string | undefined {
@@ -37,13 +34,13 @@ function concreteSuggestionText(message: LocalRuleMessageForFix): string | undef
   const suggestions = message.suggestions ?? [];
   if (suggestions.length !== 1) return undefined;
   const suggestion = suggestions[0];
-  if (!isObject(suggestion)) return undefined;
+  if (!isObjectLike(suggestion)) return undefined;
   const desc = suggestion.desc;
   if (typeof desc !== "string") return undefined;
   const trimmedDesc = desc.trim();
   if (trimmedDesc.length === 0) return undefined;
   const fix = suggestion.fix;
-  if (!isObject(fix)) return undefined;
+  if (!isObjectLike(fix)) return undefined;
   const text = fix.text;
   if (typeof text !== "string") return undefined;
   if (text.trim().length === 0) return undefined;

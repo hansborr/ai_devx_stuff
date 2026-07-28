@@ -12,15 +12,12 @@
  * dynamic messages are sometimes intentional (user-facing copy).
  */
 
+import { unwrapChain } from "./ast-helpers.js";
+
 const PINO_LEVELS = new Set(["fatal", "error", "warn", "info", "debug", "trace"]);
 const WRAPPER_LEVELS = new Set(["error", "warn", "info"]);
 const CONSOLE_LEVELS = new Set(["log", "info", "warn", "error", "debug", "trace"]);
 const REPAIR_COMMAND = "bun run codemod:structured-logging-fix -- <file>";
-
-/** @param {import('estree').Expression | import('estree').Super} node */
-function unwrapChain(node) {
-  return node.type === "ChainExpression" ? node.expression : node;
-}
 
 /** @param {import('estree').CallExpression} node */
 function isLoggerCall(node) {

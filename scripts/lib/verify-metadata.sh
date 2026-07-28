@@ -616,7 +616,7 @@ musi_changed_gate_fail_if_unstaged() {
 
   if [ -s "$tmp" ]; then
     printf '%s: source-relevant unstaged or untracked changes are present.\n' "$label" >&2
-    printf '%s: stage the intended commit, or stash/restore unrelated source-relevant work, before running changed verification.\n' "$label" >&2
+    printf '%s: stage the intended commit; inspect unrelated work with git diff or git show HEAD:<path>, copy a file aside, or ask the user before changing it.\n' "$label" >&2
     while IFS= read -r -d '' file; do
       [ -n "$file" ] || continue
       printf '%s:   - %s\n' "$label" "$file" >&2
@@ -649,10 +649,18 @@ ai_precommit_fingerprint() {
   # Fast-commit mode skips slow pre-commit test slots; fold its presence in so
   # a partial (fast) success marker cannot short-circuit a later full
   # pre-commit at the same HEAD/diff. Absent ⇒ byte-identical to the legacy
-  # fingerprint. The marker lives in the Git common dir (worktree-shared).
-  if [ -f "$(musi_git_common_identity_path "$repo_root")/musi-fast-commit" ]; then
-    printf 'fast-commit=1\n' >> "$input_file"
-  fi
+  # fingerprint. The gate supplies its under-lock snapshot so every later
+  # identity read uses the same mode; standalone callers fall back to the
+  # worktree-shared marker in the Git common dir.
+  case "${MUSI_FAST_COMMIT_ENABLED_SNAPSHOT:-}" in
+    1) printf 'fast-commit=1\n' >> "$input_file" ;;
+    0) ;;
+    *)
+      if [ -f "$(musi_git_common_identity_path "$repo_root")/musi-fast-commit" ]; then
+        printf 'fast-commit=1\n' >> "$input_file"
+      fi
+      ;;
+  esac
   if ! musi_git_readonly -C "$repo_root" diff --no-ext-diff --cached --binary --diff-filter=ACMRD >> "$input_file" \
      || ! musi_git_readonly -C "$repo_root" diff --no-ext-diff --name-only -z --diff-filter=ACMRD HEAD > "$paths_file" 2>/dev/null \
      || ! (set -o pipefail; sort -z -u "$paths_file" | musi_path_policy_query_nul source-relevant:precommit-tracked) > "$selected_file"; then

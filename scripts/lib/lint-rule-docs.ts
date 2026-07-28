@@ -11,6 +11,8 @@ import { existsSync } from "node:fs";
 import { isAbsolute, join, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
+import { isObjectLike } from "./records.js";
+
 export const RULE_DOC_CATEGORIES = ["maintainability", "architecture-fitness", "behavior"] as const;
 
 export const RULE_DOC_REPAIR_KINDS = ["autofix", "suggestion", "codemod", "manual"] as const;
@@ -45,10 +47,6 @@ interface LocalPlugin {
   readonly rules: Record<string, { readonly meta?: { readonly docs?: unknown } }>;
 }
 
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
@@ -67,14 +65,14 @@ function isUnderRoot(root: string, candidate: string): boolean {
 }
 
 function hasLocalRules(value: unknown): value is LocalPlugin {
-  if (!isObject(value)) return false;
-  return isObject(value.rules);
+  if (!isObjectLike(value)) return false;
+  return isObjectLike(value.rules);
 }
 
 function blockLocalPlugin(block: unknown): LocalPlugin | undefined {
-  if (!isObject(block)) return undefined;
+  if (!isObjectLike(block)) return undefined;
   const plugins = block.plugins;
-  if (!isObject(plugins)) return undefined;
+  if (!isObjectLike(plugins)) return undefined;
   const local = plugins.local;
   return hasLocalRules(local) ? local : undefined;
 }
@@ -158,11 +156,11 @@ function validateRuleDocs(
   repoRoot: string,
 ): RuleDocsEntry | RuleDocsFailure {
   const failures: string[] = [];
-  const docs = isObject(docsValue) ? docsValue : {};
+  const docs = isObjectLike(docsValue) ? docsValue : {};
 
   if (docsValue === undefined) {
     failures.push("meta.docs is missing");
-  } else if (!isObject(docsValue)) {
+  } else if (!isObjectLike(docsValue)) {
     failures.push("meta.docs must be an object");
   }
 
@@ -198,7 +196,7 @@ export function formatRuleDocsFailures(failures: readonly RuleDocsFailure[]): st
 export async function loadLintRuleDocs(repoRoot: string): Promise<LintRuleDocsResult> {
   const configPath = join(repoRoot, "eslint.config.js");
   const configModule: unknown = await import(pathToFileURL(configPath).href);
-  if (!isObject(configModule) || !Array.isArray(configModule.default)) {
+  if (!isObjectLike(configModule) || !Array.isArray(configModule.default)) {
     throw new Error("eslint.config.js did not export a config array");
   }
   const localPlugin = findLocalPlugin(configModule.default);

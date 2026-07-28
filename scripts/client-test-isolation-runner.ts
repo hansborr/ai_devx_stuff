@@ -3,7 +3,7 @@
 import { spawnSync } from "node:child_process";
 import { constants as osConstants } from "node:os";
 import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 
 import { classifyClientTestIsolation } from "./client-test-isolation-classifier.js";
 import type {
@@ -11,6 +11,7 @@ import type {
   ClientTestIsolationClassification,
   ClientTestIsolationTotals,
 } from "./client-test-isolation-classifier-types.js";
+import { isCliEntrypoint } from "./lib/process-argv.js";
 
 const PROCESS_ARGV_USER_ARGS_START = 2;
 const EXIT_USAGE = 2;
@@ -308,12 +309,7 @@ function repoRoot(): string {
   return path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 }
 
-function isMain(): boolean {
-  if (!process.argv[1]) return false;
-  return import.meta.url === pathToFileURL(process.argv[1]).href;
-}
-
-if (isMain()) {
+if (isCliEntrypoint(import.meta.url)) {
   process.exitCode = runClientTestIsolationSplitCli({
     argv: process.argv.slice(PROCESS_ARGV_USER_ARGS_START),
   });

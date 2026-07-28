@@ -4,10 +4,13 @@
 > were removed from this pack; the surviving files contain only open work:
 > on main (Tier-1 B1/B2/K1/E1; coverage A1/A6,A2,A3,M1; G1,H1/H2; R1/Q1/E2/E3/W1/L1; F1;
 > J1/N1/M2/T1/U1; A4 + A5-membership landed `4ba3e561`, drain leaf 4.8).
-> RESIDUAL OPEN: A5 generation-half (the ratchet-membership *generation/emit* path,
-> not the validation membership check that landed), A-arch (inverted EXEMPT-allowlist
-> redesign — deliberately separate future leaf), D2/D3 (edit-time tidy-hook deferral;
-> D1 landed `48ac51aa`). I1/I2 core were already addressed pre-pack;
+> A5 is now DONE in both halves: the membership-validation half landed
+> `4ba3e561`, and the generation/emit half landed 2026-07-20 (`76b5a209`) — the
+> coverage-map generator CLI `scripts/lint-coverage-map-gen.ts` emits the
+> drift-ai block from `lintRatchets` and is registered as a generated surface.
+> RESIDUAL OPEN: A-arch (inverted EXEMPT-allowlist
+> redesign — deliberately separate future leaf) and D2/D3 (edit-time tidy-hook
+> deferral; D1 landed `48ac51aa`). I1/I2 core were already addressed pre-pack;
 > only optional polish remains. D1 has since landed (`48ac51aa`, the tidy-hook
 > immediate/deferred split — same work as harness-review-2026-07 leaf 56);
 > D2/D3 remain the open tidy-hook deferral work.
@@ -81,7 +84,7 @@ across the logs. Effort/Risk are S/M/L.
 | ID | Issue | Plan | Effort | Risk |
 |----|-------|------|--------|------|
 | G1 | `git commit --amend` guard fires *after* the amend already ran (real worktree-mutation bug) | [05](05-commit-codex-typecheck.md) | M | med |
-| H1+H2 | Test cache keys on worktree state, not argv → broader/corrected commands wrongly skipped/blocked | [03](03-edit-hooks-and-caches.md) | S–M | low–med |
+| H1+H2 | Test cache identity/artifact coherence — initial argv scoping landed incompletely; revised completion candidate in [AI harness audit leaf 03](../ai-harness-audit-2026-07-21/03-bun-cache-identity-and-artifacts.md) | candidate | M | med |
 | ~~D1~~ | Edit-time tidy hook reports unused/complexity/max-lines errors on *intermediate* multi-edit states — **DONE** (`48ac51aa`; immediate/deferred split, same work as harness-review 56) | [03](03-edit-hooks-and-caches.md) | done | — |
 | J1 | `drift:ai --check all` knip self-scan is silent for up to 10 min — hang vs slow indistinguishable | [06](06-drift-scan-harness-governance.md) | S (/L) | low |
 | ~~C1~~ | Markdown tidying noise + rare "skipped (binary file)" notice — **RESOLVED** (`*.md` added to `.prettierignore`); heavy fixes dropped | [07](07-already-addressed-and-out-of-scope.md) | done | — |
@@ -95,7 +98,7 @@ across the logs. Effort/Risk are S/M/L.
 | ID | Issue | Plan | Effort | Risk |
 |----|-------|------|--------|------|
 | ~~A4~~ | Coverage-map "linted vs ratcheted" classification has no internal-consistency check (invisible under `--staged`) — **DONE** (`4ba3e561`, drain leaf 4.8) | [01](01-coverage-map-governance.md) | done | — |
-| A5 | Coverage-map validates ratchet *ids* but not file-membership → prose rots silently — **membership-validation half DONE** (`4ba3e561`, drain leaf 4.8); generation/emit half stays open | [01](01-coverage-map-governance.md) | M (/L) | low (/med) |
+| ~~A5~~ | Coverage-map validates ratchet *ids* but not file-membership → prose rots silently — **DONE**: membership-validation half (`4ba3e561`, drain leaf 4.8); generation/emit half (`76b5a209`, `scripts/lint-coverage-map-gen.ts`) | [01](01-coverage-map-governance.md) | done | — |
 | A3 | Standalone `docs:lint-coverage-map:check` reports reach gaps the real (`--staged`) gate never trips | [01](01-coverage-map-governance.md) | S | low |
 | E2/E3 | Re-derived TS-AST idioms (`ts.Node.parent` walk, wrapped `ts.sys`) | [04](04-lint-rule-ergonomics.md) | S | low |
 | L1 | Control-byte git-log test fixtures re-derived (and corruptible) in 9 files | [04](04-lint-rule-ergonomics.md) | S–M | low |

@@ -25,7 +25,8 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+
+import { isCliEntrypoint } from "./lib/process-argv.js";
 
 const PROCESS_ARGV_USER_ARGS_START = 2;
 const CHARS_PER_TOKEN_ESTIMATE = 4;
@@ -365,12 +366,7 @@ export function runContextBudget(options: RunContextBudgetOptions): ContextBudge
   };
 }
 
-function isCliEntrypoint(): boolean {
-  if (!process.argv[1]) return false;
-  return import.meta.url === pathToFileURL(process.argv[1]).href;
-}
-
-if (isCliEntrypoint()) {
+if (isCliEntrypoint(import.meta.url)) {
   const result = runContextBudget({ argv: process.argv.slice(PROCESS_ARGV_USER_ARGS_START) });
   if (result.stdout) console.log(result.stdout);
   if (result.exitCode !== 0) process.exitCode = result.exitCode;

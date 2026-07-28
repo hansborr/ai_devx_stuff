@@ -79,6 +79,7 @@ fi
 
 FAST_COMMIT_RECORD_PENDING=0
 FAST_COMMIT_PENDING_PRESERVE=0
+MUSI_PRECOMMIT_ADMISSION_REACHABLE=0
 
 musi_precommit_fast_marker() {
   printf '%s/musi-fast-commit' "$(musi_git_common_identity_path "$REPO_ROOT")"
@@ -142,24 +143,21 @@ musi_precommit_recover_fast_provenance() {
   fi
 }
 
-# FAST_COMMIT_RECORD_PENDING starts from marker presence, but that is only the
-# initial guess: exit-0 paths that provably skip nothing (no source-relevant
-# change; verify-marker bridge, whose markers come from manual verify /
-# verify:changed which never fast-skip) zero it before exiting, and the
-# parallel run replaces it with the actual outcome (MUSI_FAST_COMMIT_SKIPPED,
-# set inside musi_resolve_slot_cmd's fast-commit arm). The marker
-# short-circuit path deliberately keeps the marker-based value: the reused
+# FAST_COMMIT_RECORD_PENDING is bound to the under-lock fast-mode snapshot by
+# musi_precommit_snapshot_fast_mode. Exit-0 paths that provably skip nothing
+# (no source-relevant change; verify-marker bridge, whose markers come from
+# manual verify / verify:changed which never fast-skip) leave or set it to zero,
+# and the parallel run replaces it with the actual slot-resolution outcome
+# (MUSI_FAST_COMMIT_SKIPPED, set inside musi_resolve_slot_cmd's fast-commit
+# arm). The marker short-circuit path deliberately keeps the snapshot value:
+# the reused
 # success marker may have been stamped by a slot-skipping run whose commit
 # then failed (e.g. commit-msg) and is being retried within the freshness
 # window — recording nothing there would let real test debt escape the
 # pre-push backstop.
 musi_precommit_prepare_fast_provenance() {
   musi_precommit_recover_fast_provenance || return 1
-  if [ -f "$(musi_precommit_fast_marker)" ]; then
-    FAST_COMMIT_RECORD_PENDING=1
-  else
-    FAST_COMMIT_RECORD_PENDING=0
-  fi
+  FAST_COMMIT_RECORD_PENDING=0
 }
 
 musi_precommit_fast_provenance_on_exit() {
@@ -239,6 +237,13 @@ warn_if_staged_hot_doc_too_long() {
 warn_if_generated_surface_stale() {
   local label="$1" script="$2" output
 
+  if [ "$MUSI_PRECOMMIT_ADMISSION_REACHABLE" -eq 1 ] \
+     && [ "${MUSI_FAST_COMMIT_ENABLED_SNAPSHOT:-0}" -eq 1 ]; then
+    case "$script" in
+      harness:skills:check|test:scripts:subjects:check|verify:steps:check) return 0 ;;
+    esac
+  fi
+
   if output="$(bun run "$script" 2>&1)"; then
     return 0
   fi
@@ -261,10 +266,6 @@ fi
 warn_if_staged_lockfile_needs_install
 warn_if_staged_schema_needs_generate
 warn_if_staged_hot_doc_too_long
-if declare -F musi_warn_generated_surfaces_stale >/dev/null 2>&1; then
-  musi_warn_generated_surfaces_stale
-fi
-
 musi_precommit_prepare_fast_provenance || exit 1
 
 # Attribute a mid-session fast-commit marker vanish: log any presence flip since
@@ -281,6 +282,9 @@ musi_changed_gate_fail_if_unstaged "$REPO_ROOT" "pre-commit" || exit 1
 staged_source_rc=0
 musi_staged_has_source_relevant_change || staged_source_rc=$?
 if [ "$staged_source_rc" -eq 1 ]; then
+  if declare -F musi_warn_generated_surfaces_stale >/dev/null 2>&1; then
+    musi_warn_generated_surfaces_stale
+  fi
   echo "pre-commit: no source changes staged — skipping checks."
   # Nothing ran, so nothing was fast-skipped: a docs-only commit carries no
   # test debt and must not be recorded in the fast-commit provenance log.
@@ -290,6 +294,7 @@ fi
 if [ "$staged_source_rc" -ne 0 ]; then
   exit "$staged_source_rc"
 fi
+MUSI_PRECOMMIT_ADMISSION_REACHABLE=1
 
 # The cross-worktree commit queue remains held while slots run. Memory
 # deferral therefore has its own short, hard deadline: fail with a retryable
@@ -331,6 +336,33 @@ musi_precommit_run_fingerprint() {
 
 musi_precommit_final_fingerprint() {
   musi_require_fingerprint "pre-commit finalize" ai_precommit_fingerprint "$REPO_ROOT"
+}
+
+musi_precommit_registration_admission() {
+  timeout --foreground --signal=TERM --kill-after=1s 5s \
+    bun run harness:registration:check
+}
+
+# shellcheck disable=SC2034 # Read later by fingerprint and slot-resolution helpers.
+musi_precommit_snapshot_fast_mode() {
+  local snapshot_rc
+  if [ -f "$(musi_precommit_fast_marker)" ]; then
+    MUSI_FAST_COMMIT_ENABLED_SNAPSHOT=1
+    FAST_COMMIT_RECORD_PENDING=1
+    snapshot_rc=0
+  else
+    MUSI_FAST_COMMIT_ENABLED_SNAPSHOT=0
+    FAST_COMMIT_RECORD_PENDING=0
+    snapshot_rc=1
+  fi
+  # Source-relevant generated-surface advisories run after lock acquisition
+  # and consume this authoritative snapshot. Docs-only commits never enter the
+  # gate and retain their earlier advisory path with suppression disabled.
+  if [ "$MUSI_PRECOMMIT_ADMISSION_REACHABLE" -eq 1 ] \
+     && declare -F musi_warn_generated_surfaces_stale >/dev/null 2>&1; then
+    musi_warn_generated_surfaces_stale || true
+  fi
+  return "$snapshot_rc"
 }
 
 musi_precommit_marker_hit() {
@@ -379,6 +411,8 @@ musi_precommit_success_mode() {
   fi
 }
 
+REGISTRATION_ADMISSION_HOOK='musi_precommit_registration_admission'
+
 # The generated arrays remain the authority. The hook visibly owns policy
 # (including the protected-branch guard and 30-second memory-deferral cap),
 # while verify-engine owns gate mechanics for C8's command-policy follow-up.
@@ -416,6 +450,8 @@ declare -A PRECOMMIT_GATE_POLICY=(
   [history_dir]="$HISTORY_DIR"
   [marker_hit_hook]='musi_precommit_marker_hit'
   [marker_miss_hook]=''
+  [pre_cache_admission_condition]='musi_precommit_snapshot_fast_mode'
+  [pre_cache_admission_hook]="$REGISTRATION_ADMISSION_HOOK"
   [bridge_predicate]='musi_precommit_verify_bridge'
   [prepare_slots_hook]='musi_precommit_prepare_slots'
   [after_slots_hook]='musi_precommit_after_slots'

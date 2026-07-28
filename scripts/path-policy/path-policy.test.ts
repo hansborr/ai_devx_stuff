@@ -78,6 +78,16 @@ describe("PATH_POLICY lintable extensions", () => {
   });
 });
 
+describe("generated skill smoke routing", () => {
+  it("routes Codex target metadata to the wrapper smoke by exact subject", () => {
+    expect(SCRIPT_SMOKE_SUBJECTS["test-skill-dispatch-wrappers"]).toContain(
+      ".codex/skills/agent-cli/agents/openai.yaml",
+    );
+    expect(SCRIPT_SMOKE_SUBJECTS["test-lint-config-sensors"]).toContain(".codex/skills/");
+    expect(SCRIPT_SMOKE_SUBJECTS["test-skill-dispatch-wrappers"]).not.toContain(".codex/skills/");
+  });
+});
+
 describe("PATH_POLICY full-scan triggers", () => {
   it("covers representative changed-lint trigger paths", () => {
     const lintTriggers = PATH_POLICY.fullScanTriggers.eslintChanged;
@@ -166,7 +176,8 @@ describe("PATH_POLICY known path surfaces", () => {
     const selectors = PATH_POLICY.sourceRelevant.selectors;
 
     expect(matchesAny("tools/lint-ratchet/src/kernel/engine-context.ts", selectors)).toBe(true);
-    expect(matchesAny("tools/stryker-lint-ratchet.ts", selectors)).toBe(true);
+    expect(matchesAny("scripts/stryker-scripts.mjs", selectors)).toBe(true);
+    expect(matchesAny("tools/stryker-lint-ratchet.mjs", selectors)).toBe(true);
   });
 
   it("keeps every manifest config surface source-relevant through exact selectors", () => {

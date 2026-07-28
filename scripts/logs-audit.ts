@@ -6,11 +6,11 @@
 // unredacted sensitive fields without retaining raw record payloads.
 
 import { readFileSync } from "node:fs";
-import { pathToFileURL } from "node:url";
 
 import { z } from "zod";
 
 import { type CliFormat, parseCli } from "./lib/cli.js";
+import { isCliEntrypoint } from "./lib/process-argv.js";
 import type { ParsedLogRecord } from "./logs-audit/logs-audit-checks.js";
 import { auditEventFields, auditRequestIds } from "./logs-audit/logs-audit-checks.js";
 import { writeLogsAuditDiagnosticsSidecar } from "./logs-audit/logs-audit-diagnostics.js";
@@ -298,12 +298,7 @@ export function runLogsAudit(options: RunLogsAuditOptions): RunLogsAuditResult {
   };
 }
 
-function isCliEntrypoint(): boolean {
-  if (!process.argv[1]) return false;
-  return import.meta.url === pathToFileURL(process.argv[1]).href;
-}
-
-if (isCliEntrypoint()) {
+if (isCliEntrypoint(import.meta.url)) {
   const result = runLogsAudit({ argv: process.argv.slice(CLI_USER_ARGS_START_INDEX) });
   if (result.stdout) console.log(result.stdout);
   if (result.exitCode !== 0) process.exitCode = result.exitCode;

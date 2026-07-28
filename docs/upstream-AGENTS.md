@@ -17,7 +17,8 @@ on the SRD 5.2.1 ruleset.
 
 ## Commands
 
-`bun run` lists every script. Non-obvious ones:
+`bun --cwd="$(git rev-parse --show-toplevel)" pm pkg get scripts` lists every
+root script without Bun's CLI help preamble. Non-obvious ones:
 
 - Root scripts resolve against the nearest `package.json`. From a package subdirectory, run `bun --cwd="$(git rev-parse --show-toplevel)" run <script> [-- <args>]`; this preserves the script's arguments and exit status. Use this form for root-only tools such as `doctor`, `backlog:lint`, `code:intel`, `harness:check`, and `worktree:status`. Keep the `=` in `--cwd=...`; Bun 1.3 otherwise prints help instead of running the script.
 
@@ -55,3 +56,4 @@ on the SRD 5.2.1 ruleset.
 - Treat the commit gate as the normal verification step. While building, run focused tests for the files you change; run `verify:changed` directly only when you are not committing or when troubleshooting a gate failure.
 - Ask before push, PR creation, or branch integration. Integrate finished branches with a merge commit (`git merge --no-ff`) unless the user explicitly asks for a fast-forward.
 - Fast-commit mode (opt-in, off by default): `touch "$(git rev-parse --git-common-dir)/musi-fast-commit"` makes pre-commit skip only the slow `test`+`scripts` slots (lint, ratchet, typecheck, and format still run every commit) for cheap multi-commit feature branches; `rm` the marker to disable. Land such a branch with `bash scripts/land.sh`, which runs the full sequential `verify` (always every slot) and then `git merge --no-ff` into the protected branch. The marker lives in the shared git dir, so it applies to every worktree of the repo. Before fanning multi-lane work out from a fast-commit base, run `bun run verify` once on the base first: fast-commit lets the base itself carry deferred test debt, and a pre-dispatch baseline keeps land-time failures attributable to the lanes rather than to the base.
+If you come across any pain points as you work, append them to `/home/node/persist/musi/pain_points.log` so they can be reviewed later.

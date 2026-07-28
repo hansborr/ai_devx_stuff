@@ -4,6 +4,7 @@
 # smoke-subjects: scripts/harness/generate-hook-wiring.ts
 # smoke-subjects: scripts/harness/hook-wiring-schema.ts
 # smoke-subjects: scripts/lib/verify-metadata.sh
+# smoke-subjects: scripts/lib/records.ts
 # smoke-subjects: scripts/ai-hooks/check-wiring.sh
 # smoke-subjects: scripts/ai-hooks/
 # smoke-subjects: scripts/tests/lib/test-git-env.sh

@@ -1,5 +1,6 @@
 // @ts-check
 
+import { unwrapChain } from "./ast-helpers.js";
 import { resolveDeclaredVariable } from "./binding-resolution.js";
 import { belongsToCatch, nodesMaySharePath, parentOf } from "./no-swallowed-errors-paths.js";
 
@@ -18,11 +19,6 @@ const CONSOLE_METHODS = new Set(["debug", "error", "log", "warn"]);
  * @property {import('estree').ReturnStatement[]} fallbackReturns
  * @property {import('estree').ThrowStatement[]} caughtErrorThrows
  */
-
-/** @param {import('estree').Expression | import('estree').Super} node */
-function unwrapChain(node) {
-  return node.type === "ChainExpression" ? node.expression : node;
-}
 
 /** @param {import('estree').MemberExpression} node */
 function staticMemberName(node) {

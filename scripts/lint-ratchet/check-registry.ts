@@ -15,6 +15,7 @@ import { matchesAny, matchingTrackedFiles } from "@musi/lint-ratchet/kernel/ratc
 
 import { harnessManifestPath as resolveHarnessManifestPath } from "../harness/harness-manifest.js";
 import { formatRuleDocsFailures, loadLintRuleDocs } from "../lib/lint-rule-docs.js";
+import { isObjectLike } from "../lib/records.js";
 import { lintRatchets, lintRatchetThirdPartyPluginAllowlist } from "./lint-ratchet-config.js";
 import { BASELINE_FILENAME, baselinePath, repoRoot } from "./paths.js";
 import { formatMissingRatchetManifestMessage } from "./ratchet-manifest-message.js";
@@ -60,10 +61,6 @@ export interface CheckLintRatchetRegistryOptions {
 }
 
 const harnessManifestPath = resolveHarnessManifestPath(repoRoot);
-
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
 
 function registryShapeFailures(
   options: CheckLintRatchetRegistryOptions,
@@ -212,12 +209,12 @@ export function parseHarnessManifestRatchetIds(text: string, label: string): Rea
     const message = error instanceof Error ? error.message : String(error);
     throw new ConfigError(`harness.controls.json is not valid JSON at ${label}: ${message}`);
   }
-  if (!isObject(parsed) || !Array.isArray(parsed.controls)) {
+  if (!isObjectLike(parsed) || !Array.isArray(parsed.controls)) {
     throw new ConfigError("harness.controls.json must declare a controls array");
   }
   const ratchetIds = new Set<string>();
   for (const entry of parsed.controls) {
-    if (isObject(entry) && entry.kind === "ratchet" && typeof entry.id === "string") {
+    if (isObjectLike(entry) && entry.kind === "ratchet" && typeof entry.id === "string") {
       ratchetIds.add(entry.id);
     }
   }

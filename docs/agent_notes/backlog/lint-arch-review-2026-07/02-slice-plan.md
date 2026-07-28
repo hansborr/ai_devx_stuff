@@ -1,9 +1,11 @@
 # 02 — Slice plan: replace the copy manifest with a real package seam
 
-Status: DRAFT rev 2 (design phase, 2026-07-17; reworked after codex adversarial
-review — 2 P0 + 11 P1 + 1 P2, all CONFIRMED against the tree). Implements the
-rulings in [`02-package-seam-replaces-copy-manifest.md`](./02-package-seam-replaces-copy-manifest.md)
-and the leaf 05 cap-policy ruling. Design-only; re-reviewed before implementation.
+Status: EXECUTED — fully implemented 2026-07-18 (slices S0–S5, `0d053025`…`6e685069`).
+Historical record; do not re-execute. Was DRAFT rev 2 (design phase, 2026-07-17;
+reworked after codex adversarial review — 2 P0 + 11 P1 + 1 P2, all CONFIRMED
+against the tree). Implements the rulings in
+[`02-package-seam-replaces-copy-manifest.md`](./02-package-seam-replaces-copy-manifest.md)
+and the leaf 05 cap-policy ruling.
 
 Single sequential lane, one slice at a time, each landed green through the full
 gate. Every recorded ruling is binding and honored. Where this plan decides

@@ -21,6 +21,10 @@ curated recent history.
 ## Package Layout
 
 - `packages/shared` — schemas, rules, constants, dice logic, shared types.
+  Consumers import scoped subpaths, not a root barrel. See
+  `docs/adr/0005-shared-subpath-exports.md` (ADR-0005). Shared code depends on
+  no app or runtime adapter — see
+  `docs/adr/0006-shared-package-layering.md` (ADR-0006).
 - `packages/server` — tRPC routers, service layer, Prisma schema/migrations,
   Socket.io entry points.
 - `packages/client` — route components, UI, hooks, and state management.
@@ -28,12 +32,14 @@ curated recent history.
 ## Core Boundaries
 
 - Shared Zod schemas are the wire contract. Types derive from schemas rather
-  than being hand-maintained in parallel.
+  than being hand-maintained in parallel. See
+  `docs/adr/0004-trpc-shared-schema-boundary.md` (ADR-0004).
 - tRPC owns queries and mutations. Socket.io handles auth, room membership,
   presence, and post-persist broadcasts. See `docs/socket-architecture.md` and
   `docs/adr/0003-socket-broadcasts-after-commit.md` (ADR-0003).
 - Authorization and visibility rules live behind helpers; do not open-code
-  access checks. See `docs/authorization.md`.
+  access checks. See `docs/authorization.md` and
+  `docs/adr/0002-character-not-found-semantics.md` (ADR-0002).
 - Complex server orchestration lives in `packages/server/src/services/`.
   Structural rules for that layer live in `packages/server/src/services/README.md`.
 - Race-sensitive writes go through `utils/*-mutations.ts`, not direct Prisma

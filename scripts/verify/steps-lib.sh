@@ -121,9 +121,14 @@ musi_resolve_staged_script_cmd() {
 # Returns 0 when fast-commit mode is on, i.e. the slow pre-commit test slots
 # should be skipped. MUSI_FAST_COMMIT_MARKER overrides the path (tests); the
 # default marker lives in the Git common dir so it is never tracked and never
-# trips the changed gate. Resolved relative to the current directory, which is
-# the repo root whenever git invokes the pre-commit hook.
+# trips the changed gate. The pre-commit gate supplies its under-lock snapshot;
+# standalone callers resolve the marker relative to the current directory,
+# which is the repo root whenever git invokes the hook.
 musi_fast_commit_enabled() {
+  case "${MUSI_FAST_COMMIT_ENABLED_SNAPSHOT:-}" in
+    1) return 0 ;;
+    0) return 1 ;;
+  esac
   local marker="${MUSI_FAST_COMMIT_MARKER:-}"
   if [ -z "$marker" ]; then
     local common_dir

@@ -6,6 +6,7 @@
 # smoke-subjects: scripts/lib/verify-metadata.sh
 # smoke-subjects: scripts/lib/changed-base.sh
 # smoke-subjects: scripts/lib/changed-lintable-files.sh
+# smoke-subjects: scripts/lib/records.ts
 # smoke-subjects: scripts/path-policy/path-policy-query.ts
 # smoke-subjects: scripts/path-policy/path-policy-query-core.ts
 # smoke-subjects: scripts/path-policy/path-policy.ts
@@ -23,6 +24,13 @@
 # smoke-subjects: .codex/config.toml
 # smoke-subjects: .codex/skills/
 # smoke-subjects: bunfig.toml
+# smoke-subjects: eslint-config/config-surface-manifest.json
+# smoke-subjects: eslint-config/config-surfaces.js
+# smoke-subjects: eslint-config/max-lines-exceptions-codec.js
+# smoke-subjects: eslint-config/max-lines-exceptions.baseline.json
+# smoke-subjects: eslint-config/shared-policy.js
+# smoke-subjects: scripts/path-policy/path-policy-smoke-subjects-data.ts
+# smoke-subjects: scripts/path-policy/path-policy-smoke-subjects.ts
 # Smoke tests for scripts/lint-config-sensors.sh.
 
 set -euo pipefail
@@ -48,6 +56,7 @@ PATH_POLICY_SMOKE_SUBJECTS="$SCRIPT_DIR/../path-policy/path-policy-smoke-subject
 PATH_POLICY_SMOKE_SUBJECTS_DATA="$SCRIPT_DIR/../path-policy/path-policy-smoke-subjects-data.ts"
 HARNESS_PATHS="$SCRIPT_DIR/../harness/harness-paths.ts"
 HARNESS_MANIFEST="$SCRIPT_DIR/../harness/harness-manifest.ts"
+RECORDS="$SCRIPT_DIR/../lib/records.ts"
 LINT_RATCHET_PATHS="$SCRIPT_DIR/../lint-ratchet/paths.ts"
 CONFIG_SURFACES="$REPO_ROOT/eslint-config/config-surfaces.js"
 CONFIG_SURFACE_MANIFEST="$REPO_ROOT/eslint-config/config-surface-manifest.json"
@@ -137,6 +146,9 @@ new_repo() {
     "$repo/scripts/path-policy/path-policy-smoke-subjects-data.ts"
   cp "$HARNESS_PATHS" "$repo/scripts/harness/harness-paths.ts"
   cp "$HARNESS_MANIFEST" "$repo/scripts/harness/harness-manifest.ts"
+  # harness-manifest.ts narrows the manifest JSON through the shared record
+  # guards in scripts/lib/records.ts, so the sandbox closure needs that leaf too.
+  cp "$RECORDS" "$repo/scripts/lib/records.ts"
   cp "$LINT_RATCHET_PATHS" "$repo/scripts/lint-ratchet/paths.ts"
   # @musi/lint-ratchet resolves through the whole-store node_modules symlink
   # created at the end of this function (the package is a root workspace

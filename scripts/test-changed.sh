@@ -239,7 +239,7 @@ for file in "${CHANGED_FILES[@]}"; do
       file_vitest_relevant=1
       full_run=1
       ;;
-    tools/*/package.json|tools/*/vitest.config.*|tools/*/tsconfig*.json|tools/stryker-lint-ratchet.ts)
+    tools/*/package.json|tools/*/vitest.config.*|tools/*/tsconfig*.json|tools/stryker-lint-ratchet.mjs)
       has_tools=1
       has_vitest_relevant=1
       file_vitest_relevant=1

@@ -1,6 +1,8 @@
 import { existsSync, readdirSync, readFileSync, realpathSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 
+import { isRecord } from "./lib/records.js";
+
 interface PackageInfo {
   name: string;
   version: string;
@@ -26,10 +28,6 @@ export const REVIEW_COPYLEFT_RE = /\b(?:LGPL|MPL|EPL|CDDL|CPL|OSL|RPL)\b/i;
 export const LICENSE_AUDIT_REMEDY =
   "Remedy: replace the dependency, or record an owner-reviewed license decision in a dated docs/agent_notes/ note with package, version, license, and rationale.";
 const ALL_MODE = process.argv.includes("--all");
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 function readJson(filePath: string): Record<string, unknown> | null {
   const parsed: unknown = JSON.parse(readFileSync(filePath, "utf8"));

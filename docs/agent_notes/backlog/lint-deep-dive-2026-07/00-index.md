@@ -37,11 +37,11 @@ deliberately not done. Branch short names: **gate** =
 
 | # | Task | Track | Size | Severity | Depends on | Status |
 |---|---|---|---|---|---|---|
-| 14 | [`--propose` bypasses registry validation](./14-propose-mode-skips-registry-validation.md) | R | S | low-med | none | Not done (trim candidate — left Proposed) |
+| 14 | [`--propose` bypasses registry validation](./14-propose-mode-skips-registry-validation.md) | R | S | low-med | none | Closed — trimmed by owner ruling 2026-07-25; 4 of 6 gaps closed by a sibling pack (`db040d5a`/`96d99573`/`2372ca6f`), survivors caught by the `lint:ratchet:update` preflight. Leaf retained as rationale |
 | 16 | [Scheduler cancellation of ESLint workers](./16-scheduler-cancellation.md) | R | M | low-med | none | Parked (2026-07-04) |
 | 23 | [Shared-collection design (4 spawns/gate)](./23-shared-collection-design.md) | P | L | med | 21, 22 measured first; DESIGN-GATED | Design recorded (option c: keep per-slot caching, do not build shared collection) — gate |
-| 40 | [Additive `no-restricted-syntax` composition](./40-restricted-syntax-additive-composition.md) | C | S+L | med | test first; builder DESIGN-GATED | Done step 1 (test) + design recorded step 2 (builder) — ergo |
-| 50 | [Suppression registers into the commit gate](./50-suppression-registers-into-commit-gate.md) | G | M | med-high | none · OWNER PRIORITY | Done steps 1+3; step 2 (ledger) design recorded, impl deferred — gate |
+| 40 | [Additive `no-restricted-syntax` composition](./40-restricted-syntax-additive-composition.md) | C | S+L | med | test first; builder DESIGN-GATED | Step 1 done; step 2 **approved and queued** by owner ruling 2026-07-25 (design counts as sign-off) — tracked as `F5` in `../ready-2026-07/00-index.md` |
+| 50 | [Suppression registers into the commit gate](./50-suppression-registers-into-commit-gate.md) | G | M | med-high | none · OWNER PRIORITY | **All three steps done.** Steps 1+3 landed 2026-07-04; step 2 (the identity ledger) landed 2026-07-25 as `F6` — `264d565e` → `fb2e2bf1`, review fixes `db2ffc23`/`8507d374`/`29d04525`, wave-1 merge `8220ec4f`. Archived in `../../finished_work/ready-2026-07-drain.md` |
 | 70 | Ratchet doc accuracy sweep + split decision | D | M | low-med | item 3 DESIGN-GATED | Done items 1-2 + design recorded item 3 (split) — rules |
 | 71 | [Portable engine context (milestone 2)](./71-portable-engine-context.md) | D | L | med | superseded by lint-arch 02 | Superseded/Done — packaging shipped via lint-arch-review-2026-07 leaf 02 (merged `6e685069`, 2026-07-18); the engine-context design landed as its layer 4 |
 | 73 | [Lint-lane memory profile](./73-lint-lane-memory-profile.md) | P | M | high | measurement spike | Findings recorded — `auto/38-lint-memory-profile` |

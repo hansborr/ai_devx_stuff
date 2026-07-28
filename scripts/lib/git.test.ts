@@ -1,18 +1,23 @@
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   defaultGitRunner,
   type GitRunner,
   gitStatusPorcelainArgs,
+  listStagedPaths,
   listTrackedFiles,
   mergeBase,
   nameStatusCode,
   type NameStatusEntry,
   parseNameStatus,
+  readFirstParentCommit,
   readGitBlobAtRef,
+  readGitDir,
+  readRepoRoot,
+  readStagedBlobSize,
   resolveRepoRoot,
 } from "./git.js";
 
@@ -41,6 +46,143 @@ describe("defaultGitRunner", () => {
     // to this test file's own directory must yield the scripts/lib/ prefix.
     const run = defaultGitRunner({ cwd: HERE });
     expect(run(["rev-parse", "--show-prefix"]).trim()).toBe("scripts/lib/");
+  });
+
+  // The stderr modes exist because probe callers differ in what they want git's
+  // diagnostics to do. "inherit" is execFileSync's own default (stderr reaches
+  // the terminal AND the thrown error); "captured" keeps the error text but
+  // silences the terminal; "discarded" drops it from both. `--verify` of an
+  // unresolvable revision is a deterministic stderr-producing failure that
+  // needs no fixture repository.
+  const FAILING_PROBE = ["rev-parse", "--verify", "musi-no-such-ref^{commit}"];
+
+  type ProbeFailure = {
+    /** The thrown error's message. */
+    readonly message: string;
+    /** Everything the probe forwarded to the parent process's stderr. */
+    readonly parentStderr: string;
+  };
+
+  // execFileSync with no explicit `stdio` buffers the child's stderr and then
+  // re-emits it through `process.stderr.write`, so spying on that call is what
+  // separates a forwarding mode from a silent one. Asserting only on the thrown
+  // message cannot tell them apart: every non-discarded mode keeps the text.
+  function runFailingProbe(run: GitRunner): ProbeFailure {
+    const forwarded: string[] = [];
+    const write = vi.spyOn(process.stderr, "write").mockImplementation((chunk) => {
+      forwarded.push(typeof chunk === "string" ? chunk : new TextDecoder().decode(chunk));
+      return true;
+    });
+    try {
+      run(FAILING_PROBE);
+    } catch (error) {
+      return {
+        message: error instanceof Error ? error.message : String(error),
+        parentStderr: forwarded.join(""),
+      };
+    } finally {
+      write.mockRestore();
+    }
+    throw new Error("expected the probe to fail");
+  }
+
+  it("keeps git diagnostics in the thrown error under the default and captured modes", () => {
+    for (const stderr of [undefined, "inherit", "captured"] as const) {
+      const run = defaultGitRunner({ cwd: HERE, stderr });
+      expect(runFailingProbe(run).message).toContain("fatal: Needed a single revision");
+    }
+  });
+
+  it("forwards git's stderr to the parent under the default and inherit modes", () => {
+    for (const stderr of [undefined, "inherit"] as const) {
+      const run = defaultGitRunner({ cwd: HERE, stderr });
+      expect(runFailingProbe(run).parentStderr).toContain("fatal: Needed a single revision");
+    }
+  });
+
+  // The behaviour that makes "captured" worth asking for: callers such as the
+  // `HEAD^1` probe in sensor-near-duplicates-baseline-io fold the failure into
+  // their own message, so a root-commit or shallow-history repository must not
+  // see a raw `fatal:` line on the parent's stderr first.
+  it("writes nothing to the parent's stderr under the captured and discarded modes", () => {
+    for (const stderr of ["captured", "discarded"] as const) {
+      const run = defaultGitRunner({ cwd: HERE, stderr });
+      expect(runFailingProbe(run).parentStderr).toBe("");
+    }
+  });
+
+  it("drops git diagnostics from the thrown error under the discarded mode", () => {
+    const run = defaultGitRunner({ cwd: HERE, stderr: "discarded" });
+    expect(runFailingProbe(run).message).toBe(
+      "Command failed: git rev-parse --verify musi-no-such-ref^{commit}",
+    );
+  });
+});
+
+describe("readRepoRoot", () => {
+  it("returns the trimmed toplevel git reports", () => {
+    const git = stubGit({ "rev-parse --show-toplevel": "/repo/root\n" });
+    expect(readRepoRoot(git)).toBe("/repo/root");
+  });
+
+  it("propagates the git failure instead of substituting a fallback", () => {
+    expect(() => readRepoRoot(throwingGit)).toThrow("git unavailable");
+  });
+});
+
+describe("readGitDir", () => {
+  it("returns the trimmed git-dir git reports", () => {
+    const git = stubGit({ "rev-parse --git-dir": ".git\n" });
+    expect(readGitDir(git)).toBe(".git");
+  });
+
+  it("propagates the git failure", () => {
+    expect(() => readGitDir(throwingGit)).toThrow("git unavailable");
+  });
+});
+
+describe("readFirstParentCommit", () => {
+  it("verifies and returns HEAD's first parent", () => {
+    const git = stubGit({ "rev-parse --verify HEAD^1": "abc123\n" });
+    expect(readFirstParentCommit(git)).toBe("abc123");
+  });
+
+  it("propagates the git failure when HEAD has no first parent", () => {
+    expect(() => readFirstParentCommit(throwingGit)).toThrow("git unavailable");
+  });
+});
+
+describe("listStagedPaths", () => {
+  const STAGED = "diff --cached --name-only --diff-filter=ACMR -z";
+
+  it("NUL-splits the ACMR staged set, dropping the trailing empty entry", () => {
+    const git = stubGit({ [STAGED]: "b/z.ts\0a/y.ts\0" });
+    expect(listStagedPaths(git)).toEqual(["b/z.ts", "a/y.ts"]);
+  });
+
+  it("preserves pathnames a newline-split or core.quotePath would corrupt", () => {
+    const git = stubGit({ [STAGED]: "a\nb.ts\0docs/café.md\0" });
+    expect(listStagedPaths(git)).toEqual(["a\nb.ts", "docs/café.md"]);
+  });
+
+  it("returns an empty array for empty output", () => {
+    expect(listStagedPaths(stubGit({ [STAGED]: "" }))).toEqual([]);
+    expect(listStagedPaths(stubGit({ [STAGED]: "\0" }))).toEqual([]);
+  });
+
+  it("propagates the git failure so callers own the no-repository policy", () => {
+    expect(() => listStagedPaths(throwingGit)).toThrow("git unavailable");
+  });
+});
+
+describe("readStagedBlobSize", () => {
+  it("reads the staged blob byte count from the index ref", () => {
+    const git = stubGit({ "cat-file -s :docs/plan.md": "1234\n" });
+    expect(readStagedBlobSize(git, "docs/plan.md")).toBe(1234);
+  });
+
+  it("propagates the git failure for an unstaged path", () => {
+    expect(() => readStagedBlobSize(throwingGit, "docs/plan.md")).toThrow("git unavailable");
   });
 });
 
@@ -84,6 +226,11 @@ describe("listTrackedFiles", () => {
   it("returns an empty array for empty output", () => {
     expect(listTrackedFiles(stubGit({ "ls-files -z": "" }))).toEqual([]);
     expect(listTrackedFiles(stubGit({ "ls-files -z": "\0" }))).toEqual([]);
+  });
+
+  it("appends caller pathspecs after -z, leaving the no-pathspec argv unchanged", () => {
+    const git = stubGit({ "ls-files -z docs/**/*.md docs/*.md": "docs/a.md\0" });
+    expect(listTrackedFiles(git, ["docs/**/*.md", "docs/*.md"])).toEqual(["docs/a.md"]);
   });
 });
 

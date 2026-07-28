@@ -1,9 +1,8 @@
 # 02 — Harness CLI parseCli(spec): One Spec-Driven Parser for the Tool CLIs
 
-Status: Implemented S0–S6 on `feat/harness-cli-spec` (2026-07-19) —
-records below; pending review/land. Originally Proposed after the
-2026-07-19 cross-review (both reviewers adopt-with-changes; scope
-re-cut, see `00-index.md`)
+Status: Done — landed 2026-07-19 (`62285ebb`), slices S0–S6. Records
+below. Originally Proposed after the 2026-07-19 cross-review (both
+reviewers adopt-with-changes; scope re-cut, see `00-index.md`)
 Date: 2026-07-19
 Source: 2026-07-17 harness architecture review, run in the sibling
 checkout; the in-repo corroborating source is

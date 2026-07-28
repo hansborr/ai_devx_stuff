@@ -12,13 +12,31 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MODE=full
 BASE=main
 REPO_ROOT=""
+IDENTITIES_OUT=""
 POSITIONAL=()
 
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
     --changed) MODE=changed; shift ;;
+    --identities-out)
+      shift
+      if [[ "$#" -eq 0 || -z "$1" ]]; then
+        printf 'FAIL: suppression register --identities-out requires a path\n' >&2
+        exit 2
+      fi
+      IDENTITIES_OUT="$1"
+      shift
+      ;;
+    --identities-out=*)
+      IDENTITIES_OUT="${1#*=}"
+      if [[ -z "$IDENTITIES_OUT" ]]; then
+        printf 'FAIL: suppression register --identities-out requires a path\n' >&2
+        exit 2
+      fi
+      shift
+      ;;
     -h|--help)
-      printf 'usage: suppression-register.sh [--changed [base]] [repo-root]\n'
+      printf 'usage: suppression-register.sh [--changed [base]] [--identities-out <path>] [repo-root]\n'
       exit 0
       ;;
     --*)
@@ -108,6 +126,28 @@ if [[ "$MODE" == changed ]]; then
     esac
   fi
 fi
+
+# Identity sink (leaf 50 step 2). See the matching block in
+# eslint-disable-register.sh: the ledger consumes this scanner's verdict on what
+# a directive is instead of maintaining a second scanner. Purely additive.
+if [[ -n "$IDENTITIES_OUT" ]]; then
+  if ! : > "$IDENTITIES_OUT"; then
+    printf 'FAIL: suppression register cannot write identities to %s\n' "$IDENTITIES_OUT" >&2
+    exit 2
+  fi
+  printf '#scope\t%s\n' "$SCAN_SCOPE" >> "$IDENTITIES_OUT"
+fi
+
+emit_identity() {
+  local path="$1" line_no="$2" dialect="$3" text="$4" kind
+  [[ -n "$IDENTITIES_OUT" ]] || return 0
+  case "$dialect" in
+    stryker) kind="stryker-disable" ;;
+    *) kind="$dialect" ;;
+  esac
+  text="${text//$'\t'/ }"
+  printf '%s\t%s\t%s\t%s\n' "$kind" "$path" "$line_no" "$text" >> "$IDENTITIES_OUT"
+}
 
 PATTERN_TS='(^|[[:space:]])(//|/\*)[[:space:]]*@ts-(expect-error|ignore|nocheck)($|[[:space:]])'
 PATTERN_STRYKER='(^|[[:space:]])(//|/\*)[[:space:]]*Stryker[[:space:]]+disable($|[[:space:]])'
@@ -208,6 +248,7 @@ stryker_scope() {
 
 record_match() {
   local path="$1" line_no="$2" dialect="$3" text="$4" entry scope
+  emit_identity "$path" "$line_no" "$dialect" "$(trim "$text")"
   total=$((total + 1))
   case "$dialect" in
     ts-expect-error) ts_expect_error=$((ts_expect_error + 1)) ;;
@@ -369,6 +410,9 @@ scan_files() {
 
 while IFS= read -r -d '' file; do
   [[ -r "$REPO_ROOT/$file" ]] || continue
+  if [[ -n "$IDENTITIES_OUT" && "$SCAN_SCOPE" == changed ]]; then
+    printf '#path\t%s\n' "$file" >> "$IDENTITIES_OUT"
+  fi
   line_no=0
   IN_BLOCK_COMMENT=0
   IN_TEMPLATE=0

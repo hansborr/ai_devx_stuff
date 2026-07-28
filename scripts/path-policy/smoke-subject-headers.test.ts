@@ -64,6 +64,36 @@ describe("smoke subject headers", () => {
     );
   });
 
+  it("projects generated outputs from in-memory smoke source overrides", () => {
+    writeSmoke(
+      "test-alpha",
+      [
+        "#!/usr/bin/env bash",
+        "# smoke-order: 010",
+        "# smoke-subjects: scripts/tests/test-alpha.sh",
+        "",
+      ].join("\n"),
+    );
+
+    const definitions = collectSmokeSubjectDefinitions(
+      repoRoot,
+      new Map([
+        [
+          "scripts/tests/test-alpha.sh",
+          [
+            "#!/usr/bin/env bash",
+            "# smoke-order: 010",
+            "# smoke-subjects: generated/input.ts",
+            "# smoke-subjects: scripts/tests/test-alpha.sh",
+            "",
+          ].join("\n"),
+        ],
+      ]),
+    );
+
+    expect(definitions[0]?.subjects).toEqual(["generated/input.ts", "scripts/tests/test-alpha.sh"]);
+  });
+
   it("rejects a smoke file without a smoke-subjects header", () => {
     writeSmoke(
       "test-missing-header",

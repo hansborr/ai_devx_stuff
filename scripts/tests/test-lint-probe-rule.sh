@@ -11,6 +11,7 @@
 # smoke-subjects: tools/lint-ratchet/src/kernel/runtime-config.ts
 # smoke-subjects: eslint-rules/
 # smoke-subjects: package.json
+# smoke-subjects: scripts/lib/records.ts
 # Smoke test for bun run lint:probe-rule.
 
 set -euo pipefail

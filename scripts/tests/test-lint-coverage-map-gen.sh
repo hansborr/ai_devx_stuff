@@ -9,6 +9,9 @@
 # smoke-subjects: scripts/lib/codepoint-compare.ts
 # smoke-subjects: scripts/lib/doc-generator.ts
 # smoke-subjects: scripts/lib/git.ts
+# smoke-subjects: scripts/lib/records.ts
+# smoke-subjects: scripts/lib/error-message.ts
+# smoke-subjects: scripts/lib/process-argv.ts
 # smoke-subjects: scripts/lint-ratchet/lint-ratchet-config.ts
 # smoke-subjects: scripts/lint-ratchet/registry-builders.ts
 # smoke-subjects: tools/lint-ratchet/package.json
@@ -36,6 +39,10 @@ trap cleanup EXIT
 copy_file() {
   local path=$1
   mkdir -p "$FIXTURE/$(dirname "$path")"
+  # fixture-closure: unmodelled-copy - the copy set is the literal `for path in`
+  # list below, handed to this helper one path at a time through $1; the
+  # fixture-copy-set checker does not model parameter passing, so it cannot see
+  # what this seeds.
   cp "$REPO_ROOT/$path" "$FIXTURE/$path"
 }
 

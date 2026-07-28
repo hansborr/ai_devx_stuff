@@ -6,6 +6,7 @@
  * or treat a Promise object as truthy, which makes async work silently wrong.
  */
 
+import { staticPropertyName, unwrapChain } from "./ast-helpers.js";
 import { resolveDeclaredVariable, resolveIdentifierBinding } from "./binding-resolution.js";
 
 const ARRAY_METHODS = new Set([
@@ -25,18 +26,6 @@ const REDUCE_METHODS = new Set(["reduce", "reduceRight"]);
 const PROMISE_COMBINATORS = new Set(["all", "allSettled", "any", "race"]);
 
 /** @param {import('estree').Node} node */
-function unwrapChain(node) {
-  return node.type === "ChainExpression" ? node.expression : node;
-}
-
-/** @param {import('estree').PrivateIdentifier | import('estree').Expression} property */
-function staticPropertyName(property) {
-  if (property.type === "Identifier") return property.name;
-  if (property.type === "Literal" && typeof property.value === "string") return property.value;
-  return undefined;
-}
-
-/** @param {import('estree').Node} node */
 function parentOf(node) {
   return /** @type {import('estree').Node & { parent?: import('estree').Node }} */ (node).parent;
 }
@@ -45,7 +34,7 @@ function parentOf(node) {
 function arrayMethodName(node) {
   const callee = unwrapChain(node.callee);
   if (callee.type !== "MemberExpression") return undefined;
-  const name = staticPropertyName(callee.property);
+  const name = staticPropertyName(callee);
   return name && ARRAY_METHODS.has(name) ? name : undefined;
 }
 
@@ -62,7 +51,7 @@ function isPromiseCombinatorCall(node) {
   const callee = unwrapChain(node.callee);
   if (callee.type !== "MemberExpression") return false;
   if (callee.object.type !== "Identifier" || callee.object.name !== "Promise") return false;
-  const name = staticPropertyName(callee.property);
+  const name = staticPropertyName(callee);
   return name !== undefined && PROMISE_COMBINATORS.has(name);
 }
 

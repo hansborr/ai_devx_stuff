@@ -321,6 +321,63 @@ LINT_COVERAGE_EXPECTED_LOG=$(printf 'eslint\t--print-config\t%s\neslint\t--print
 [ "$(cat "$LINT_COVERAGE_PINNED_LOG")" = "$LINT_COVERAGE_EXPECTED_LOG" ] \
   || fail "Codex lint coverage command log mismatch: $(cat "$LINT_COVERAGE_PINNED_LOG")"
 
+# --- lint-coverage helper contracts (direct calls) ---------------------------
+# The two classification helpers are called directly here so their return-code
+# contract is pinned independently of the hook's message composition:
+#   - ai_lint_coverage_ratchet_rules_for_path is a predicate-that-also-prints
+#     (0 + rule ids on match, non-zero on miss);
+#   - ai_lint_coverage_check_file always returns 0 and signals "captured" by
+#     printing a record, so an unrelated failure cannot masquerade as a hit.
+# Run in a subshell: sourcing the hook reassigns SCRIPT_DIR/REPO_ROOT.
+run_lint_coverage_helper() {
+  (
+    cd "$LINT_COVERAGE_REPO_TMP" || exit 1
+    LINT_COVERAGE_PINNED_LOG="$LINT_COVERAGE_PINNED_LOG" \
+      LC_BUN_FAIL="${LC_BUN_FAIL:-0}" \
+      PATH="$LINT_COVERAGE_FAKE_BIN:$PATH" \
+      bash -c '
+        # shellcheck source=/dev/null
+        . "$1/scripts/ai-hooks/lint-coverage-check.sh"
+        shift
+        "$@"
+      ' _ "$LINT_COVERAGE_REPO_TMP" "$@"
+  )
+}
+
+assert_helper_status() {
+  local expected="$1" description="$2"
+  shift 2
+  local actual=0
+
+  run_lint_coverage_helper "$@" >/dev/null || actual=$?
+  [ "$actual" = "$expected" ] \
+    || fail "$description: expected exit $expected, got $actual"
+}
+
+LINT_COVERAGE_HELPER_OUT=$(run_lint_coverage_helper \
+  ai_lint_coverage_ratchet_rules_for_path "$LINT_COVERAGE_RATCHETED_TS_REL") \
+  || fail "ratchet_rules_for_path should exit 0 for a ratchet-tracked path"
+[ "$LINT_COVERAGE_HELPER_OUT" = "fixture/rule" ] \
+  || fail "ratchet_rules_for_path rule ids mismatch: $LINT_COVERAGE_HELPER_OUT"
+assert_helper_status 1 "ratchet_rules_for_path on an untracked path" \
+  ai_lint_coverage_ratchet_rules_for_path "$LINT_COVERAGE_COVERED_TS_REL"
+
+LINT_COVERAGE_HELPER_OUT=$(run_lint_coverage_helper \
+  ai_lint_coverage_check_file "$LINT_COVERAGE_UNCOVERED_JSONC" "$LINT_COVERAGE_UNCOVERED_JSONC_REL") \
+  || fail "check_file should exit 0 when it captures an uncovered file"
+assert_contains "$LINT_COVERAGE_HELPER_OUT" "uncovered	$LINT_COVERAGE_UNCOVERED_JSONC_REL"
+
+LINT_COVERAGE_HELPER_OUT=$(run_lint_coverage_helper \
+  ai_lint_coverage_check_file "$LINT_COVERAGE_RATCHETED_TS" "$LINT_COVERAGE_RATCHETED_TS_REL") \
+  || fail "check_file should exit 0 when it captures a ratchet-tracked file"
+assert_contains "$LINT_COVERAGE_HELPER_OUT" "ratchet	$LINT_COVERAGE_RATCHETED_TS_REL	fixture/rule"
+
+LINT_COVERAGE_HELPER_OUT=$(run_lint_coverage_helper \
+  ai_lint_coverage_check_file "$LINT_COVERAGE_COVERED_TS" "$LINT_COVERAGE_COVERED_TS_REL") \
+  || fail "check_file should exit 0 for a fully covered file"
+[ -z "$LINT_COVERAGE_HELPER_OUT" ] \
+  || fail "check_file should print nothing for a covered file, got: $LINT_COVERAGE_HELPER_OUT"
+
 # --- neutral throttle state helpers ------------------------------------------
 THROTTLE_STATE_FILE="$TMP_ROOT/throttle-state-unit"
 LC_NOW=$(date +%s)

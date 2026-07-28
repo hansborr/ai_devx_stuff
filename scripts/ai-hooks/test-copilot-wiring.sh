@@ -18,6 +18,8 @@ REPO_ROOT=$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel)
 
 # shellcheck source=test-support.sh
 . "$SCRIPT_DIR/test-support.sh"
+# shellcheck source=policy.sh
+. "$SCRIPT_DIR/policy.sh"
 
 TMP_ROOT=$(mktemp -d /tmp/musi-ai-hooks-copilot-wiring-test.XXXXXX)
 trap 'rm -rf "$TMP_ROOT"' EXIT
@@ -36,9 +38,10 @@ copilot_edit_payload() {
 
 copilot_bash_payload() {
   local command="$1"
+  local cwd="${2:-/}"
 
-  jq -n --arg command "$command" \
-    '{sessionId: "copilot-wiring-session", timestamp: 1, cwd: "/",
+  jq -n --arg command "$command" --arg cwd "$cwd" \
+    '{sessionId: "copilot-wiring-session", timestamp: 1, cwd: $cwd,
       toolName: "bash",
       toolArgs: ({command: $command} | tojson)}'
 }
@@ -150,6 +153,39 @@ assert_hook_json "$POLICY_OUTPUT"
   || fail "copilot pre hook should deny policy violations: $POLICY_OUTPUT"
 POLICY_REASON=$(jq -r '.permissionDecisionReason // empty' <<< "$POLICY_OUTPUT")
 assert_contains "$POLICY_REASON" "Do not use PostgreSQL CLI tools directly"
+
+COPILOT_STASH_REPO="$TMP_ROOT/stash-policy-repo"
+COPILOT_STASH_LINKED="$TMP_ROOT/stash-policy-linked"
+git init -q "$COPILOT_STASH_REPO"
+git -C "$COPILOT_STASH_REPO" config user.email test@example.com
+git -C "$COPILOT_STASH_REPO" config user.name Test
+printf 'base\n' > "$COPILOT_STASH_REPO/shared.txt"
+git -C "$COPILOT_STASH_REPO" add shared.txt
+git -C "$COPILOT_STASH_REPO" commit -qm "test: seed Copilot stash fixture"
+git -C "$COPILOT_STASH_REPO" worktree add -q -b feat/copilot-stash-lane "$COPILOT_STASH_LINKED"
+
+for checkout in "$COPILOT_STASH_REPO" "$COPILOT_STASH_LINKED"; do
+  STASH_POLICY_OUTPUT=$(
+    copilot_bash_payload "git stash pop" "$checkout" \
+      | AI_STATE_ROOT="$TMP_ROOT/pre-state" \
+        AI_BUN_LOG_DIR="$TMP_ROOT/pre-bun-logs" \
+        bash "$REPO_ROOT/.copilot/hooks/pre-tool-use.sh"
+  )
+  assert_hook_json "$STASH_POLICY_OUTPUT"
+  [ "$(jq -r '.permissionDecision // empty' <<< "$STASH_POLICY_OUTPUT")" = "deny" ] \
+    || fail "copilot pre hook should deny stash mutations in $checkout: $STASH_POLICY_OUTPUT"
+  [ "$(jq -r '.permissionDecisionReason // empty' <<< "$STASH_POLICY_OUTPUT")" = "$AI_POLICY_GIT_STASH" ] \
+    || fail "copilot stash denial reason should match shared policy in $checkout: $STASH_POLICY_OUTPUT"
+
+  STASH_INSPECTION_OUTPUT=$(
+    copilot_bash_payload "git stash show -p" "$checkout" \
+      | AI_STATE_ROOT="$TMP_ROOT/pre-state" \
+        AI_BUN_LOG_DIR="$TMP_ROOT/pre-bun-logs" \
+        bash "$REPO_ROOT/.copilot/hooks/pre-tool-use.sh"
+  )
+  assert_no_output "$STASH_INSPECTION_OUTPUT" \
+    "copilot pre hook on allowlisted stash inspection in $checkout"
+done
 
 BENIGN_OUTPUT=$(
   copilot_bash_payload "echo hi" \

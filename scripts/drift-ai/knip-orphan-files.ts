@@ -4,6 +4,8 @@
 // knip-orphan-files-check.ts. This is a Tier-1 pass-through adapter (adapter
 // contract §1): it surfaces the target's OWN knip verdict verbatim.
 
+import { errorMessage } from "../lib/error-message.js";
+import { isRecord } from "../lib/records.js";
 import { discoverToolConfig, type PathProbe } from "./adapter-support.js";
 import type { CheckRunContext } from "./check-plugin.js";
 import type { FileReader } from "./comments.js";
@@ -93,7 +95,7 @@ export function parseKnipOrphanFiles(jsonText: string): ParseKnipOrphanFilesResu
   } catch (err) {
     return { ok: false, error: errorMessage(err) };
   }
-  if (!isObject(raw)) return { ok: false, error: "expected a JSON object with an 'issues' array" };
+  if (!isRecord(raw)) return { ok: false, error: "expected a JSON object with an 'issues' array" };
   const issues = raw["issues"];
   if (!Array.isArray(issues)) return { ok: true, files: [] };
   const files: string[] = [];
@@ -107,7 +109,7 @@ export function parseKnipOrphanFiles(jsonText: string): ParseKnipOrphanFilesResu
 // A knip JSON row is an orphaned file when its `files` array is non-empty; the
 // orphan path is the row's `file`. Returns undefined for any other row shape.
 function orphanFileFromRow(row: unknown): string | undefined {
-  if (!isObject(row)) return undefined;
+  if (!isRecord(row)) return undefined;
   const fileList = row["files"];
   const file = row["file"];
   if (!Array.isArray(fileList) || fileList.length === 0) return undefined;
@@ -161,7 +163,7 @@ function packageJsonHasKnipKey(readFile: FileReader): boolean {
   if (text === undefined) return false;
   try {
     const parsed: unknown = JSON.parse(text);
-    return isObject(parsed) && parsed["knip"] !== undefined;
+    return isRecord(parsed) && parsed["knip"] !== undefined;
   } catch {
     return false;
   }
@@ -245,12 +247,4 @@ export function knipUnreadableMessage(
   const excerpt = stderr.trim().slice(0, 200);
   const tail = excerpt.length > 0 ? `; stderr: ${excerpt}` : "";
   return `knip produced unreadable JSON (${error}); knip exit ${exit}${tail}`;
-}
-
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function errorMessage(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
 }

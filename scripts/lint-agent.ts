@@ -11,10 +11,9 @@
 // completeness disclosures under lint/skipped-non-local.
 
 import { spawn, spawnSync } from "node:child_process";
-import { isAbsolute, resolve } from "node:path";
+import { resolve } from "node:path";
 
-import { harnessDiagnosticsSchema } from "../packages/shared/src/schemas/harness-diagnostics.js";
-import { ensureDirWriteFileAtomicallySync } from "./lib/atomic-write.js";
+import { emitHarnessDiagnostics } from "./harness/harness-diagnostics-output.js";
 import { parseEslintOutput } from "./lib/eslint-json.js";
 import { formatRuleDocsFailures, loadLintRuleDocs } from "./lib/lint-rule-docs.js";
 import {
@@ -25,7 +24,6 @@ import {
 } from "./lint-agent-envelope.js";
 
 const PROCESS_ARG_OFFSET = 2;
-const JSON_INDENT_SPACES = 2;
 const DISPLAY_COMMAND = "lint:agent:local-rules";
 const STRUCTURAL_OVERLAY_ENV = "MUSI_LINT_AGENT_STRUCTURAL_OVERLAY";
 
@@ -125,23 +123,13 @@ async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(PROCESS_ARG_OFFSET));
   const { envelope, skippedNonLocal } = await buildEnvelope(args.patterns);
 
-  const parseResult = harnessDiagnosticsSchema.safeParse(envelope);
-  if (!parseResult.success) {
-    const issues = JSON.stringify(parseResult.error.issues, null, JSON_INDENT_SPACES);
-    throw new Error(
-      `${DISPLAY_COMMAND} produced an envelope that failed schema validation:\n${issues}`,
-    );
-  }
-
-  const rendered = `${JSON.stringify(envelope, null, JSON_INDENT_SPACES)}\n`;
-  if (args.outputPath !== undefined) {
-    const outPath = isAbsolute(args.outputPath)
-      ? args.outputPath
-      : resolve(process.cwd(), args.outputPath);
-    ensureDirWriteFileAtomicallySync(outPath, rendered);
-  } else {
-    process.stdout.write(rendered);
-  }
+  emitHarnessDiagnostics(
+    envelope,
+    args.outputPath === undefined
+      ? { mode: "stdout-only" }
+      : { mode: "output-path", path: args.outputPath },
+    { source: DISPLAY_COMMAND },
+  );
 
   const skippedNote =
     skippedNonLocal > 0

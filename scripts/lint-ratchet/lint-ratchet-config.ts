@@ -139,6 +139,11 @@ export const lintRatchets = [
     metric: "message-count",
     repairKind: "manual",
     principle: "Prevent imperative data fetching and derived-state-only React effects from growing while existing reset and synchronization debt moves to query hooks, event handlers, render-time derivation, or keyed remounts.",
+    zeroBaselineDisposition: {
+      kind: "promote-to-normal-lint",
+      reason: "the client inventory has drained to zero; local/no-effect-misuse should become a normal-lint error over this same scope so a new finding fails lint outright instead of landing in a baseline",
+      exitPath: "docs/agent_notes/backlog/code-quality-2026-07-25/CLIENT-CLUSTER-PLAN.md",
+    },
   },
   {
     id: "ratchet/local-no-swallowed-errors-broader-semantics",

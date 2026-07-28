@@ -10,6 +10,7 @@
 # smoke-subjects: scripts/harness/verify-step-schema.ts
 # smoke-subjects: scripts/lib/codepoint-compare.ts
 # smoke-subjects: scripts/lib/lint-rule-docs.ts
+# smoke-subjects: scripts/lib/records.ts
 # smoke-subjects: tools/lint-ratchet/src/kernel/codepoint-compare.ts
 # smoke-subjects: scripts/tests/test-generate-harness-controls.sh
 # smoke-subjects: scripts/fixtures/generate-harness-controls/
@@ -20,6 +21,7 @@
 # smoke-subjects: eslint-rules/
 # smoke-subjects: package.json
 # smoke-subjects: tsconfig.scripts.json
+# smoke-subjects: scripts/lib/doc-generator.ts
 # Smoke test for scripts/harness/generate-harness-controls.ts.
 #
 # Contract:
@@ -55,6 +57,10 @@ copy_generator() {
   cp scripts/harness/hook-wiring-schema.ts "$fixture_dir/scripts/harness/hook-wiring-schema.ts"
   cp scripts/lib/lint-rule-docs.ts "$fixture_dir/scripts/lib/lint-rule-docs.ts"
   cp scripts/lib/doc-generator.ts "$fixture_dir/scripts/lib/doc-generator.ts"
+  # The generator, the manifest reader, and both schemas narrow untyped JSON
+  # through the shared record guards in scripts/lib/records.ts, so the sandbox
+  # closure needs that leaf too.
+  cp scripts/lib/records.ts "$fixture_dir/scripts/lib/records.ts"
   cp scripts/harness/verify-step-schema.ts "$fixture_dir/scripts/harness/verify-step-schema.ts"
   # The generator and verify-step-schema sort via compareByCodepoint from the
   # scripts/lib/codepoint-compare shim, which re-exports the

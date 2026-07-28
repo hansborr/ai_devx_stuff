@@ -3,6 +3,7 @@
 # smoke-subjects: scripts/lib/verify-metadata.sh
 # smoke-subjects: scripts/lib/verify-metadata-core.ts
 # smoke-subjects: scripts/lib/fixtures/verify-metadata-core-corpus.json
+# smoke-subjects: scripts/lib/records.ts
 # smoke-subjects: scripts/path-policy/path-policy-query.ts
 # smoke-subjects: scripts/path-policy/path-policy-query-core.ts
 # smoke-subjects: scripts/path-policy/path-policy.ts
@@ -879,6 +880,11 @@ set -e
 [ "$exit_code" -ne 0 ] || fail "gate should reject unstaged source-relevant files"
 grep -qF 'gate-test:   - scripts/test.sh' <<< "$output" \
   || fail "gate should report unstaged file: $output"
+grep -qF 'inspect unrelated work with git diff or git show HEAD:<path>, copy a file aside, or ask the user before changing it' <<< "$output" \
+  || fail "gate should provide commit/inspect/copy/ask guidance: $output"
+if grep -qiF stash <<< "$output"; then
+  fail "changed verification guidance must not recommend stash: $output"
+fi
 ok "musi_changed_gate_fail_if_unstaged reports source-relevant unstaged files"
 
 # --- reports source-relevant untracked files ----------------------------------

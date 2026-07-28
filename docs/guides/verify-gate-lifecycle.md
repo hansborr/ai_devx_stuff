@@ -40,6 +40,27 @@ the manual policy adapter for the same entry point; it selects full, parallel,
 or changed mode and supplies the corresponding generated consumer and identity
 providers.
 
+When the shared fast-commit marker is active, a source-relevant commit has one
+additional admission step. After the unstaged/untracked rejection and source
+selection, the engine takes its normal locks and snapshots fast mode once. That
+snapshot controls admission, fingerprint identity, slow-slot resolution, and
+fast-debt provenance even if another worktree changes the shared marker while
+the gate is running. The engine then initializes the log directory,
+fingerprint, signal cleanup, and watchdog, and runs
+`bun run harness:registration:check` with a five-second sub-timeout. The
+registration command is non-spawning: it checks manifest/package/verify/lint/
+doctor/generated-surface/skill structure through the same typed collector used
+by full `harness:check`. A stable successful fingerprint is required before
+either a native pre-commit marker or a manual-verify bridge can short-circuit.
+Failure is reported once through `registration.log`; that log is admission
+evidence, not a behavioral verify slot, and does not change fast-commit debt
+provenance. Normal mode and documentation-only fast commits do not run the
+admission command. Before admission clears the live log directory, the engine
+backs up its complete prior contents. Marker and bridge hits, admission
+failures, and admission-time signal/timeout exits restore all prior slot logs,
+metadata, timings, and diagnostics while retaining the current
+`registration.log`; only a real behavioral run replaces that evidence.
+
 ## 2. Follow generated authority
 
 The hook sources

@@ -1,5 +1,7 @@
 import { pathToFileURL } from "node:url";
 
+import { isObjectLike } from "../lib/records.js";
+
 interface LocalPlugin {
   readonly rules: Record<string, { readonly meta?: { readonly docs?: unknown } }>;
 }
@@ -9,19 +11,15 @@ export interface LocalRuleConfig {
   readonly enabledRuleNames: ReadonlySet<string>;
 }
 
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
 function hasLocalRules(value: unknown): value is LocalPlugin {
-  if (!isObject(value)) return false;
-  return isObject(value.rules);
+  if (!isObjectLike(value)) return false;
+  return isObjectLike(value.rules);
 }
 
 function blockLocalPlugin(block: unknown): LocalPlugin | undefined {
-  if (!isObject(block)) return undefined;
+  if (!isObjectLike(block)) return undefined;
   const plugins = block.plugins;
-  if (!isObject(plugins)) return undefined;
+  if (!isObjectLike(plugins)) return undefined;
   const local = plugins.local;
   return hasLocalRules(local) ? local : undefined;
 }
@@ -35,8 +33,8 @@ function findLocalPlugin(config: readonly unknown[]): LocalPlugin | undefined {
 }
 
 function blockRules(block: unknown): Record<string, unknown> | undefined {
-  if (!isObject(block)) return undefined;
-  return isObject(block.rules) ? block.rules : undefined;
+  if (!isObjectLike(block)) return undefined;
+  return isObjectLike(block.rules) ? block.rules : undefined;
 }
 
 function firstArrayValue(value: readonly unknown[]): unknown {
@@ -62,7 +60,7 @@ function enabledLocalRuleNames(config: readonly unknown[]): Set<string> {
 
 export async function loadLocalRuleConfig(configPath: string): Promise<LocalRuleConfig> {
   const configModule: unknown = await import(pathToFileURL(configPath).href);
-  if (!isObject(configModule) || !Array.isArray(configModule.default)) {
+  if (!isObjectLike(configModule) || !Array.isArray(configModule.default)) {
     throw new Error("eslint.config.js did not export a config array");
   }
   const localPlugin = findLocalPlugin(configModule.default);

@@ -5,22 +5,12 @@
  * from the effect cleanup to avoid duplicate listeners after remounts.
  */
 
+import { staticPropertyName, unwrapChain } from "./ast-helpers.js";
+
 /** @typedef {{ node: import('estree').CallExpression, key: string | undefined, objectName: string }} OnCall */
 /** @typedef {{ offKeys: Set<string>, removeAllListenerObjects: Set<string> }} CleanupCalls */
 /** @typedef {{ onCalls: OnCall[], offKeys: Set<string>, removeAllListenerObjects: Set<string> }} EffectContext */
 /** @typedef {{ effectContext: EffectContext | undefined, inCleanup: boolean, isEffectCallback: boolean, functionName: string | undefined, ownCleanupCalls: CleanupCalls, cleanupFunctionNames: Set<string>, namedFunctionCleanupCalls: Map<string, CleanupCalls> }} FunctionFrame */
-
-/** @param {import('estree').Node} node */
-function unwrapChain(node) {
-  return node.type === "ChainExpression" ? node.expression : node;
-}
-
-/** @param {import('estree').PrivateIdentifier | import('estree').Expression} property */
-function propertyName(property) {
-  if (property.type === "Identifier") return property.name;
-  if (property.type === "Literal" && typeof property.value === "string") return property.value;
-  return undefined;
-}
 
 /** @param {import('estree').Node | import('estree').SpreadElement | undefined} node */
 function isFunctionNode(node) {
@@ -38,7 +28,7 @@ function isListenerLifecycleCall(node) {
   const callee = unwrapChain(node.callee);
   if (callee.type === "Identifier") return LIFECYCLE_HOOK_NAMES.has(callee.name);
   if (callee.type !== "MemberExpression") return false;
-  const name = propertyName(callee.property);
+  const name = staticPropertyName(callee);
   return name ? LIFECYCLE_HOOK_NAMES.has(name) : false;
 }
 
@@ -123,7 +113,7 @@ function socketListenerCall(node, sourceCode, resolveConstString) {
   const callee = unwrapChain(node.callee);
   if (callee.type !== "MemberExpression") return undefined;
 
-  const method = propertyName(callee.property);
+  const method = staticPropertyName(callee);
   if (method !== "on" && method !== "off" && method !== "removeAllListeners") return undefined;
 
   const objectName = socketObjectName(callee.object);

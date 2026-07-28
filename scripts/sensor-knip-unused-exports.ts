@@ -4,8 +4,6 @@
 // export signals stay advisory through doctor/drift reports until their repair
 // workflow is stable enough to gate routine commits.
 
-import { pathToFileURL } from "node:url";
-
 import { runKnipUnusedExportsCli } from "./sensor-knip-unused-exports-core.js";
 
 export {
@@ -15,15 +13,11 @@ export {
   runKnipUnusedExportsCli,
   type RunKnipUnusedExportsCliOptions,
 } from "./sensor-knip-unused-exports-core.js";
+import { isCliEntrypoint } from "./lib/process-argv.js";
 
 const PROCESS_ARGV_USER_ARGS_START = 2;
 
-function isCliEntrypoint(): boolean {
-  if (!process.argv[1]) return false;
-  return import.meta.url === pathToFileURL(process.argv[1]).href;
-}
-
-if (isCliEntrypoint()) {
+if (isCliEntrypoint(import.meta.url)) {
   const result = runKnipUnusedExportsCli({
     argv: process.argv.slice(PROCESS_ARGV_USER_ARGS_START),
     env: process.env,

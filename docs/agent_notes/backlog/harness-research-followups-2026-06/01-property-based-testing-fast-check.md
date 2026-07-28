@@ -1,16 +1,15 @@
 # PB-1 - Property-based tests for the rules engine (fast-check)
 
-Status: Done (drain-leaf scope) — fast-check infra + `character-rules` (`3c302f89`) and spellcasting/armor-class/dice property suites (`d10d67b9`, 22 tests, drain leaf 5.1) landed. The two lower-priority candidate modules in the table below (`attack-damage.ts`, `xp.ts`) remain uncovered but were outside the seed set leaf 5.1 targeted.
+Status: Done — PB-1 fully closed (`a56e0250`). fast-check infra + `character-rules` (`3c302f89`) and the spellcasting/armor-class/dice property suites (`d10d67b9`, 22 tests, drain leaf 5.1) landed first; the two remaining candidate modules followed, so every module in the table below now has a `*.property.test.ts`.
 
-> Done for the seeded scope — the fast-check infrastructure plus the
+> Done — the fast-check infrastructure plus the
 > `character-rules` (`3c302f89`) and spellcasting/armor-class/dice
 > (`d10d67b9`, 22 tests) property suites landed: `fast-check` is a
 > `packages/shared` dev dependency and the reusable arbitrary/pattern is
-> established. **Remaining (not part of drain leaf 5.1's seed set):** the two
-> lower-priority "Candidate Modules" below — weapon/spell attack
-> (`attack-damage.ts`) and XP/CR (`xp.ts`) — are still example-test only.
-> Re-verify module paths before promotion, as the rules surface moves while
-> 5.5E content lands.
+> established. The last two "Candidate Modules" below — weapon/spell attack
+> (`attack-damage.ts`) and XP/CR (`xp.ts`) — were closed by `a56e0250`;
+> `packages/shared/src/rules/attack-damage.property.test.ts` and
+> `packages/shared/src/rules/xp.property.test.ts` both exist on `main`.
 
 ## Problem
 

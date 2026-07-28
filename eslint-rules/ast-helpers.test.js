@@ -1,7 +1,12 @@
 // @ts-check
 import { describe, it } from "vitest";
 
-import { importSpecifierName, staticPropertyName, unwrapChain } from "./ast-helpers.js";
+import {
+  importSpecifierName,
+  staticKeyName,
+  staticPropertyName,
+  unwrapChain,
+} from "./ast-helpers.js";
 import { makeRuleTester } from "./rule-tester.js";
 
 const ruleTester = makeRuleTester();
@@ -20,6 +25,7 @@ const probeRule = {
     messages: {
       computed: "computed property resolved",
       imported: "import specifier resolved",
+      key: "static object key resolved",
       plain: "plain property resolved",
       unwrapped: "chain expression unwrapped",
     },
@@ -45,6 +51,10 @@ const probeRule = {
           context.report({ node, messageId: "unwrapped" });
         }
       },
+
+      Property(node) {
+        if (staticKeyName(node) === "target") context.report({ node, messageId: "key" });
+      },
     };
   },
 };
@@ -52,8 +62,25 @@ const probeRule = {
 describe("ast-helpers", () => {
   it("resolves static member names, import names, and chain expressions", () => {
     ruleTester.run("ast-helpers-probe", probeRule, {
-      valid: ["object[dynamic]", "object[1]", "const value = object.other"],
+      valid: [
+        "object[dynamic]",
+        "object[1]",
+        "const value = object.other",
+        // A computed key is never a static name, even when it reads like one.
+        "const held = { [target]: 1 };",
+        "const held = { other: 1 };",
+      ],
       invalid: [
+        {
+          code: "const held = { target: 1 };",
+          errors: [{ messageId: "key" }],
+        },
+        {
+          // A NON-computed object key may legitimately be a string literal, so
+          // staticKeyName cannot simply mirror staticPropertyName's computed logic.
+          code: 'const held = { "target": 1 };',
+          errors: [{ messageId: "key" }],
+        },
         {
           code: "object.plain()",
           errors: [{ messageId: "plain" }],

@@ -1,5 +1,6 @@
 import { existsSync, realpathSync } from "node:fs";
 
+import { errorMessage } from "../lib/error-message.js";
 import {
   type DaemonSpawner,
   defaultDaemonScriptPath,
@@ -260,7 +261,7 @@ function readLifecycleMetadata(paths: DaemonStatePaths): LifecycleMetadataRead {
     const metadata = readDaemonMetadata(paths);
     return metadata ? { kind: "valid", metadata } : { kind: "absent" };
   } catch (error) {
-    return { kind: "invalid", reason: describeError(error) };
+    return { kind: "invalid", reason: errorMessage(error) };
   }
 }
 
@@ -294,7 +295,7 @@ async function validateLifecycleDaemon(
   } catch (error) {
     return {
       kind: "unverified",
-      reason: `probe failed: ${describeError(error)}`,
+      reason: `probe failed: ${errorMessage(error)}`,
     };
   }
 }
@@ -314,9 +315,4 @@ function validateLifecycleMetadata(
     return { kind: "stale", reason: "socket path mismatch" };
   }
   return { kind: "running" };
-}
-
-function describeError(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  return String(error);
 }

@@ -1,6 +1,12 @@
 # drift:ai — next checks brainstorm (AI-slop auditing)
 
-Status: brainstorm / research · prototype/heavy queue still open
+Date: 2026-05-30; status refreshed 2026-07-25
+Status: brainstorm / research · drained — the prototype/heavy queue was
+executed through `backlog/drift-ai-next-items/` and closed out; the Dolos and
+MinHash advisory integrations landed 2026-06-04 (see
+`finished_work/drift-ai-{dolos,minhash}-advisory-integration.md`) and all 43
+pack leaves landed by the 2026-06-20 close-out
+(`finished_work/drift-ai-next-items.md`). Retained for design rationale.
 Updated 2026-05-30: second-pass review of the rejected-idea lists under a more
 prototype-friendly posture.
 

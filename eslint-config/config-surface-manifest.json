@@ -26,6 +26,24 @@
       "coverageStatus": "linted"
     },
     {
+      "path": "stryker.shared.mjs",
+      "language": "mjs",
+      "group": "root-js",
+      "coverageStatus": "linted"
+    },
+    {
+      "path": "scripts/stryker-scripts.mjs",
+      "language": "mjs",
+      "group": "root-js",
+      "coverageStatus": "linted"
+    },
+    {
+      "path": "tools/stryker-lint-ratchet.mjs",
+      "language": "mjs",
+      "group": "root-js",
+      "coverageStatus": "linted"
+    },
+    {
       "path": "knip.config.ts",
       "language": "ts",
       "group": "root-package-ts",
@@ -93,12 +111,6 @@
     },
     {
       "path": "tools/lint-ratchet/vitest.config.ts",
-      "language": "ts",
-      "group": "root-package-ts",
-      "coverageStatus": "linted"
-    },
-    {
-      "path": "tools/stryker-lint-ratchet.ts",
       "language": "ts",
       "group": "root-package-ts",
       "coverageStatus": "linted"

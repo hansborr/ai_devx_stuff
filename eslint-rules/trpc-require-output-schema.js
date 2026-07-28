@@ -10,6 +10,7 @@
  * `const` so the output-schema analysis matches the call site.
  */
 
+import { staticPropertyName, unwrapChain } from "./ast-helpers.js";
 import { resolveIdentifierBinding } from "./binding-resolution.js";
 
 const RESOLVER_METHODS = new Set(["query", "mutation"]);
@@ -30,18 +31,6 @@ const PAIRED_GUIDE = "docs/guides/add-trpc-procedure.md";
 
 /** @type {ProcedureChainAnalysis} */
 const NOT_PROCEDURE_CHAIN = { hasOutput: false, isProcedure: false };
-
-/** @param {import('estree').Node} node */
-function unwrapChain(node) {
-  return node.type === "ChainExpression" ? node.expression : node;
-}
-
-/** @param {import('estree').PrivateIdentifier | import('estree').Expression} property */
-function propertyName(property) {
-  if (property.type === "Identifier") return property.name;
-  if (property.type === "Literal" && typeof property.value === "string") return property.value;
-  return undefined;
-}
 
 /** @param {string} name */
 function isProcedureRootName(name) {
@@ -127,13 +116,13 @@ function analyzeProcedureChain(node, state) {
       const callee = unwrapChain(current.callee);
       if (callee.type !== "MemberExpression") return NOT_PROCEDURE_CHAIN;
 
-      if (propertyName(callee.property) === "output") hasOutput = true;
+      if (staticPropertyName(callee) === "output") hasOutput = true;
       current = unwrapChain(callee.object);
       continue;
     }
 
     if (current.type === "MemberExpression") {
-      if (propertyName(current.property) === "output") hasOutput = true;
+      if (staticPropertyName(current) === "output") hasOutput = true;
       current = unwrapChain(current.object);
       continue;
     }
@@ -156,7 +145,7 @@ export default {
     },
     messages: {
       missingOutput:
-        "Why: A router {{method}} without `.output(...)` returns unvalidated data, so response-shape drift reaches clients silently. How to fix: Add `.output(<sharedSchema>)` before `.{{method}}(...)` to validate the response against a shared schema. " +
+        "Why: ADR-0004 requires an explicit output schema because a router {{method}} without `.output(...)` returns unvalidated data, so response-shape drift reaches clients silently. How to fix: Add `.output(<sharedSchema>)` before `.{{method}}(...)` to validate the response against a shared schema. " +
         `See ${PAIRED_GUIDE}.`,
     },
     schema: [],
@@ -175,7 +164,7 @@ export default {
         const callee = unwrapChain(node.callee);
         if (callee.type !== "MemberExpression") return;
 
-        const method = propertyName(callee.property);
+        const method = staticPropertyName(callee);
         if (!method || !RESOLVER_METHODS.has(method)) return;
 
         const chain = analyzeProcedureChain(callee.object, procedureAnalysis);

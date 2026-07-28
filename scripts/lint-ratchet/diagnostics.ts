@@ -18,7 +18,6 @@ import {
   buildHarnessDiagnostics,
   type HarnessDiagnosticNote,
   type HarnessDiagnostics,
-  harnessDiagnosticsSchema,
   type HarnessFinding,
 } from "../../packages/shared/src/schemas/harness-diagnostics.js";
 import {
@@ -30,7 +29,6 @@ import { buildInfoFinding } from "./info-diagnostics.js";
 import { localRuleMessageHowToFixFor } from "./local-rule-fix-text.js";
 import { BASELINE_FILENAME, repoRoot } from "./paths.js";
 
-const JSON_INDENT_SPACES = 2;
 const REGRESSION_RECOVERY_NOTE: HarnessDiagnosticNote = {
   kind: "recovery-command",
   message:
@@ -294,13 +292,4 @@ export function buildEnvelope(
   ratchets: readonly LintRatchetConfig[],
 ): HarnessDiagnostics {
   return buildEnvelopeFromComparison({ regressions, improvements, ruleDocsById, ratchets });
-}
-
-export function validateEnvelope(envelope: HarnessDiagnostics): void {
-  const result = harnessDiagnosticsSchema.safeParse(envelope);
-  if (!result.success) {
-    throw new ConfigError(
-      `lint:ratchet produced an envelope that failed schema validation:\n${JSON.stringify(result.error.issues, null, JSON_INDENT_SPACES)}`,
-    );
-  }
 }

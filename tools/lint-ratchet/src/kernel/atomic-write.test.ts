@@ -24,13 +24,18 @@ describe("writeFileAtomicallySync", () => {
     const rmSync = vi.fn(() => undefined);
 
     expect(() => {
-      writeFileAtomicallySync("/repo/config.mjs", "export default [];\n", {
-        writeFileSync: vi.fn(),
-        renameSync: vi.fn(() => {
-          throw new Error("rename failed");
-        }),
-        rmSync,
-      });
+      writeFileAtomicallySync(
+        "/repo/config.mjs",
+        "export default [];\n",
+        {},
+        {
+          writeFileSync: vi.fn(),
+          renameSync: vi.fn(() => {
+            throw new Error("rename failed");
+          }),
+          rmSync,
+        },
+      );
     }).toThrow("rename failed");
     expect(rmSync).toHaveBeenCalledOnce();
   });

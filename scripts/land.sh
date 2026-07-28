@@ -219,8 +219,8 @@ else
 fi
 
 if ! git diff --quiet || ! git diff --cached --quiet; then
-  echo "land: uncommitted changes — commit or stash them first." >&2
-  land_exit 1 "not-landed" "commit or stash the worktree changes, then re-run land"
+  echo "land: uncommitted changes — inspect them with git diff, then commit them or ask the user how to preserve them." >&2
+  land_exit 1 "not-landed" "inspect with git diff, then commit the worktree changes or ask the user how to preserve them before re-running land"
 fi
 if ! musi_changed_gate_fail_if_unstaged "$REPO_ROOT" "land"; then
   land_exit 1 "not-landed" "commit or remove source-relevant untracked work, then re-run land"

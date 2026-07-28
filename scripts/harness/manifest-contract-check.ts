@@ -1,9 +1,10 @@
 // No-direct-read tripwire for harness.controls.json (typed-parser phase 1
 // acceptance criterion): the manifest's TS read seam used to be bypassed
 // freely — many independent, partial, cast-backed pictures of its shape.
-// harness-manifest-schema.ts is now the typed contract, and this check keeps
-// the direct-reader population frozen so the remaining readers can migrate
-// gradually instead of regrowing.
+// harness-manifest-schema.ts is the typed contract and
+// harness-manifest-loader.ts is the one module that joins it to the leaf's IO;
+// this check keeps the direct-reader population shrink-only so the seam cannot
+// regrow. See docs/guides/harness-manifest-parser.md.
 //
 // Detection is import-based on the read-capable exports of the leaf reader
 // (readHarnessManifest, loadHarnessManifest, harnessManifestPath) in
@@ -19,13 +20,12 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 
 import { WALKABLE_SOURCE_PATTERN } from "./generated-surfaces.js";
-import { type ControlFailures, pushFailure } from "./harness-check-validation.js";
-import { safeParseHarnessManifest } from "./harness-manifest-schema.js";
 
 /** Why an allowlisted file is permitted to read the manifest directly. */
 type DirectReaderCategory =
-  // Reads and content-parses the manifest today; migration target for the
-  // typed-parser phase 2 bypass drain.
+  // Reads and content-parses the manifest without going through the typed
+  // parser. The class is EMPTY as of the phase-2 drain and should stay that
+  // way: it exists so a future reader that lands here is visibly temporary.
   | "reader-pending-migration"
   // The typed seam itself, or a consumer already going through it.
   | "sanctioned-reader";
@@ -103,20 +103,40 @@ function importsReadCapableSymbol(source: string): boolean {
 }
 
 /**
- * The frozen direct-reader population, verified 2026-07-19. Shrink-only:
- * migrating a reader to the typed parser removes its entry; adding one is a
- * conscious design decision, not a hot add.
+ * The direct-reader population. Shrink-only: migrating a reader to the typed
+ * parser removes its entry; adding one is a conscious design decision, not a
+ * hot add. The phase-2 drain (ready-row B22) emptied the
+ * `reader-pending-migration` class — every remaining entry is a deliberate
+ * sanctioned reader with its reason recorded inline.
  */
 export const MANIFEST_DIRECT_READERS: ReadonlyMap<string, DirectReaderCategory> = new Map([
+  // The read + typed-parse composition seam every other consumer imports.
+  ["scripts/harness/harness-manifest-loader.ts", "sanctioned-reader"],
   // harness-check parses the whole manifest through the typed schema and
   // additionally runs the granular per-control live-tree validation.
-  ["scripts/harness-check.ts", "sanctioned-reader"],
-  ["scripts/harness/generate-harness-controls.ts", "reader-pending-migration"],
-  ["scripts/harness/generate-hook-timeout-constants.ts", "reader-pending-migration"],
-  ["scripts/harness/generate-hook-wiring.ts", "reader-pending-migration"],
-  ["scripts/harness/generate-verify-steps.ts", "reader-pending-migration"],
-  ["scripts/harness/generated-surfaces.ts", "reader-pending-migration"],
-  ["scripts/lint-ratchet/check-registry.ts", "reader-pending-migration"],
+  ["scripts/harness/registration-check.ts", "sanctioned-reader"],
+  // Owns the one-pass granular registration report (resolveControl +
+  // formatValidationFailures), so it must keep reading PAST schema-level
+  // defects rather than throwing on the first one. It does go through the
+  // typed parser, at the granularity that allows: the loose
+  // categorizedControlFieldsSchema, in generate-harness-controls-validation.ts.
+  // Routing it through the throwing whole-manifest parser would replace its
+  // deliberately-worded, smoke-pinned diagnostics ("must not restate
+  // category", "must be an object", "must declare a controls array") with
+  // generic Zod text and abort before the per-control report.
+  ["scripts/harness/generate-harness-controls.ts", "sanctioned-reader"],
+  // Projects skill artifacts through skill-inventory-schema.ts.
+  ["scripts/harness/generate-skill-artifacts.ts", "sanctioned-reader"],
+  // Reads only the ratchet ids, and reads them from trees the typed parser
+  // cannot serve: this file ships in the lint-ratchet smoke fixture's portable
+  // runtime copy set (PORTABLE_RUNTIME_FILES in scripts/tests/test-lint-ratchet.sh)
+  // alongside the Zod-free leaf, and those fixture trees carry partial or absent
+  // manifests. Importing the typed parser would drag harness-manifest-schema.ts
+  // and control-field-validation.ts into that copy closure AND couple every
+  // `lint:ratchet` invocation — not just --check-registry — to whole-manifest
+  // schema validity. Proven by A/B: the migration turns the smoke's
+  // conflict-marker recovery case from exit 2 into exit 1.
+  ["scripts/lint-ratchet/check-registry.ts", "sanctioned-reader"],
 ]);
 
 const SKIPPED_DIRECTORY_NAMES = new Set(["fixtures", "node_modules", "tests"]);
@@ -157,25 +177,6 @@ function isDirectory(path: string): boolean {
  * shrinks). Allowlisted files missing from the tree are skipped so reduced
  * fixture trees stay valid.
  */
-/**
- * harness-check entry point for the typed-manifest contract: whole-manifest
- * schema failures (additive to the granular per-control validation, which
- * keeps its pinned diagnostics) plus the no-direct-read tripwire below.
- */
-export function checkManifestContract(
-  repoRoot: string,
-  rawManifest: unknown,
-  failures: Map<string, ControlFailures>,
-): void {
-  const schemaResult = safeParseHarnessManifest(rawManifest);
-  for (const failure of schemaResult.failures ?? []) {
-    pushFailure(failures, "(manifest schema)", failure);
-  }
-  for (const failure of checkManifestReadTripwire(repoRoot)) {
-    pushFailure(failures, "harness.controls.json read tripwire", failure);
-  }
-}
-
 export function checkManifestReadTripwire(repoRoot: string): readonly string[] {
   const scriptsRoot = join(repoRoot, "scripts");
   if (!isDirectory(scriptsRoot)) return [];
@@ -188,7 +189,7 @@ export function checkManifestReadTripwire(repoRoot: string): readonly string[] {
     const allowlisted = MANIFEST_DIRECT_READERS.has(path);
     if (reads && !allowlisted) {
       failures.push(
-        `${path} imports a read-capable harness-manifest symbol but is not a sanctioned direct reader; parse the manifest through scripts/harness/harness-manifest-schema.ts instead, or add a categorized entry to MANIFEST_DIRECT_READERS with a design reason`,
+        `${path} imports a read-capable harness-manifest symbol but is not a sanctioned direct reader; import loadTypedHarnessManifest from scripts/harness/harness-manifest-loader.ts instead, or add a categorized entry to MANIFEST_DIRECT_READERS with a design reason. See docs/guides/harness-manifest-parser.md`,
       );
     }
   }
@@ -197,7 +198,7 @@ export function checkManifestReadTripwire(repoRoot: string): readonly string[] {
     if (source === undefined) continue;
     if (!importsReadCapableSymbol(source)) {
       failures.push(
-        `${path} is allowlisted as a direct manifest reader but no longer imports a read-capable symbol; remove its MANIFEST_DIRECT_READERS entry (the list only shrinks)`,
+        `${path} is allowlisted as a direct manifest reader but no longer imports a read-capable symbol; remove its MANIFEST_DIRECT_READERS entry (the list only shrinks). See docs/guides/harness-manifest-parser.md`,
       );
     }
   }

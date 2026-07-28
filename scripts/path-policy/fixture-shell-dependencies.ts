@@ -1,9 +1,11 @@
 // Structural tripwire for the fixture class that has repeatedly drifted across
 // dispatched lanes: a smoke test copies a script into a sandbox but omits one
-// of its sourced leaf modules, and the gap only surfaces at the next-deeper
-// gate. Every literal fixture copy set is enforced: `cp` sources must be named
-// by smoke-subject headers and each sandbox destination must be closed over
-// the literal `# shellcheck source=` edges of every shell file it copies.
+// of its leaf modules, and the gap only surfaces at the next-deeper gate.
+// Every literal fixture copy set is enforced on three axes: `cp` sources of
+// shell files must be named by smoke-subject headers; each sandbox destination
+// must be closed over the literal `# shellcheck source=` edges of every shell
+// file it copies; and each sandbox must be closed over the static import graph
+// of every `scripts/**` TS/JS entry it copies (fixture-import-closure.ts).
 // (Originally scoped to the memory-admission family; generalized to all
 // hand-written copy sets by ready-row B5.) Dynamic sources remain out of scope
 // because statically interpreting arbitrary shell would make this check
@@ -13,8 +15,16 @@
 // monitored setup.
 
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { dirname, relative, resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 
+import {
+  capture,
+  collectAssignments,
+  commandOperands,
+  repoRelativePath,
+  resolveFixtureExpression,
+  scriptsFixtureRootFromDestination,
+} from "./fixture-copy-expressions.js";
 import {
   fixtureGroupKey,
   type FixtureHelperCall,
@@ -22,94 +32,13 @@ import {
   type MutableFixtureCopyGroup,
   parseFixtureHelperCall,
 } from "./fixture-helper-calls.js";
+import { collectFixtureImportClosureFailures } from "./fixture-import-closure.js";
+import { collectFixtureSandboxes, type FixtureSandbox } from "./fixture-sandbox-model.js";
 import { collectScopedShellLines, type ScopedShellLine } from "./fixture-shell-scope.js";
 
 const smokeFilePattern = /^test-.+\.sh$/u;
-const assignmentPattern = /^\s*([A-Z][A-Z0-9_]*)=("[^"]*"|'[^']*'|[^\s#]+)\s*$/gmu;
 const shellcheckSourcePattern = /^\s*#\s*shellcheck\s+source=(\S+)\s*$/gmu;
 const smokeSubjectPattern = /^#\s*smoke-subjects:(.*)$/gmu;
-const shellTokenPattern = /"[^"]*"|'[^']*'|\S+/gu;
-const assignmentPathCaptureIndex = 2;
-
-function normalizePath(path: string): string {
-  return path.replaceAll("\\", "/");
-}
-
-function stripQuotes(value: string): string {
-  if (
-    (value.startsWith('"') && value.endsWith('"')) ||
-    (value.startsWith("'") && value.endsWith("'"))
-  ) {
-    return value.slice(1, -1);
-  }
-  return value;
-}
-
-function capture(match: RegExpMatchArray, index: number): string {
-  const value = match[index];
-  if (value === undefined) throw new Error(`expected regex capture ${String(index)}`);
-  return value;
-}
-
-function repoRelativePath(repoRoot: string, absolutePath: string): string | undefined {
-  const relativePath = normalizePath(relative(repoRoot, absolutePath));
-  if (relativePath === "" || relativePath === ".." || relativePath.startsWith("../")) {
-    return undefined;
-  }
-  return relativePath;
-}
-
-function resolveFixtureExpression(
-  repoRoot: string,
-  expression: string,
-  assignments: ReadonlyMap<string, string>,
-): string | undefined {
-  const value = stripQuotes(expression);
-  const variableMatch = /^\$\{?([A-Z][A-Z0-9_]*)\}?$/u.exec(value);
-  if (variableMatch !== null) return assignments.get(capture(variableMatch, 1));
-
-  const scriptDirPrefixes = ["$SCRIPT_DIR/", "${SCRIPT_DIR}/"];
-  for (const prefix of scriptDirPrefixes) {
-    if (value.startsWith(prefix)) {
-      return repoRelativePath(
-        repoRoot,
-        resolve(repoRoot, "scripts", "tests", value.slice(prefix.length)),
-      );
-    }
-  }
-
-  const repoRootPrefixes = ["$REPO_ROOT/", "${REPO_ROOT}/"];
-  for (const prefix of repoRootPrefixes) {
-    if (value.startsWith(prefix)) {
-      return repoRelativePath(repoRoot, resolve(repoRoot, value.slice(prefix.length)));
-    }
-  }
-
-  if (value.startsWith("scripts/")) return normalizePath(value);
-  return undefined;
-}
-
-function collectAssignments(repoRoot: string, source: string): ReadonlyMap<string, string> {
-  const assignments = new Map<string, string>();
-  for (const match of source.matchAll(assignmentPattern)) {
-    const path = resolveFixtureExpression(
-      repoRoot,
-      capture(match, assignmentPathCaptureIndex),
-      assignments,
-    );
-    if (path !== undefined) assignments.set(capture(match, 1), path);
-  }
-  return assignments;
-}
-
-function fixtureRootFromDestination(destination: string): string | undefined {
-  const value = normalizePath(stripQuotes(destination));
-  const scriptsMarker = "/scripts/";
-  const markerIndex = value.indexOf(scriptsMarker);
-  if (markerIndex > 0) return value.slice(0, markerIndex);
-  if (value.endsWith("/scripts")) return value.slice(0, -"/scripts".length);
-  return undefined;
-}
 
 interface FixtureCopyCommand {
   readonly functionScope: readonly string[];
@@ -134,11 +63,10 @@ function parseFixtureCopyCommand(
 ): FixtureCopyCommand | undefined {
   const trimmed = scopedLine.line.trim();
   if (!trimmed.startsWith("cp ")) return undefined;
-  const tokens = trimmed.match(shellTokenPattern) ?? [];
-  const operands = tokens.slice(1).filter((token) => !token.startsWith("-"));
+  const operands = commandOperands(trimmed);
   const destination = operands.at(-1);
   if (destination === undefined) return undefined;
-  const fixtureRoot = fixtureRootFromDestination(destination);
+  const fixtureRoot = scriptsFixtureRootFromDestination(destination);
   if (fixtureRoot === undefined) return undefined;
   const sources = operands
     .slice(0, -1)
@@ -149,13 +77,13 @@ function parseFixtureCopyCommand(
 
 function collectCopiedShellSourcesByFixture(
   repoRoot: string,
-  source: string,
+  scopedLines: readonly ScopedShellLine[],
+  assignments: ReadonlyMap<string, string>,
 ): readonly FixtureCopyGroup[] {
-  const assignments = collectAssignments(repoRoot, source);
   const copiedByFixture = new Map<string, MutableFixtureCopyGroup>();
   const helperCalls: FixtureHelperCall[] = [];
 
-  for (const scopedLine of collectScopedShellLines(source)) {
+  for (const scopedLine of scopedLines) {
     const command = parseFixtureCopyCommand(repoRoot, scopedLine, assignments);
     if (command === undefined) {
       const helperCall = parseFixtureHelperCall(scopedLine);
@@ -220,14 +148,41 @@ function collectSourcedDependencyClosure(repoRoot: string, root: string): Readon
   return dependencies;
 }
 
+/**
+ * Subject coverage, read exactly the way the changed-mode selector reads it
+ * (`matchesSmokeSubject` in path-policy-query-core.ts): an exact path, or a
+ * trailing-slash subject covering everything beneath it.
+ */
+function isCoveredBySubject(subjects: ReadonlySet<string>, path: string): boolean {
+  if (subjects.has(path)) return true;
+  for (const subject of subjects) {
+    if (subject.endsWith("/") && path.startsWith(subject)) return true;
+  }
+  return false;
+}
+
+/**
+ * Every path a sandbox seeds by copy must be named by the smoke's subject
+ * headers — code and data alike, not only the `.sh` files the sourced-shell
+ * closure walks. A copied file is a smoke input by construction: the sandbox
+ * runs against it, so a change to it must select the smoke in changed mode.
+ * Restricting this to shell paths preserved the exact false PASS the closure
+ * guard exists to prevent — a changed TS module would never select the smoke,
+ * so the guard would never run on the files that matter.
+ */
 function collectSmokeMetadataFailures(
   fixturePath: string,
   subjects: ReadonlySet<string>,
-  groups: readonly FixtureCopyGroup[],
+  sandboxes: readonly FixtureSandbox[],
 ): readonly string[] {
-  const allCopied = new Set(groups.flatMap((group) => [...group.sources]));
+  const allCopied = new Set(
+    sandboxes.flatMap((sandbox) => [
+      ...sandbox.copiedFiles,
+      ...[...sandbox.copiedDirectories].map((directory) => `${directory}/`),
+    ]),
+  );
   return [...allCopied]
-    .filter((copiedPath) => !subjects.has(copiedPath))
+    .filter((copiedPath) => !isCoveredBySubject(subjects, copiedPath))
     .sort()
     .map(
       (copiedPath) =>
@@ -264,14 +219,22 @@ function collectSmokeFixtureFailures(
 ): readonly string[] {
   const fixturePath = `scripts/tests/${smokeFile}`;
   const source = readFileSync(resolve(testsDir, smokeFile), "utf8");
-  const groups = collectCopiedShellSourcesByFixture(repoRoot, source);
-  if (groups.length === 0) return [];
+  const assignments = collectAssignments(repoRoot, source);
+  const scopedLines = collectScopedShellLines(source);
+  const groups = collectCopiedShellSourcesByFixture(repoRoot, scopedLines, assignments);
+
+  const seeding = collectFixtureSandboxes(repoRoot, fixturePath, scopedLines, assignments);
+  const sandboxes = seeding.sandboxes;
 
   const failures = [
-    ...collectSmokeMetadataFailures(fixturePath, collectSmokeSubjects(source), groups),
+    ...seeding.failures,
+    ...collectSmokeMetadataFailures(fixturePath, collectSmokeSubjects(source), sandboxes),
   ];
   for (const group of groups) {
     failures.push(...collectFixtureClosureFailures(repoRoot, fixturePath, group));
+  }
+  for (const sandbox of sandboxes) {
+    failures.push(...collectFixtureImportClosureFailures(repoRoot, fixturePath, sandbox));
   }
   return failures;
 }
@@ -289,6 +252,6 @@ export function validateFixtureShellDependencies(repoRoot: string): void {
   }
 
   if (failures.length > 0) {
-    throw new Error(`fixture shell dependency drift:\n${failures.join("\n")}`);
+    throw new Error(`fixture copy-set drift:\n${failures.join("\n")}`);
   }
 }

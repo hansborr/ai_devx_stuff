@@ -181,19 +181,14 @@ cleanup_failed_add() {
   fi
 }
 
-# init_failure_recovery_block prints the exact, copy-pasteable commands to unwind
-# a worktree whose provisioning (worktree:init) failed. Agent-allowed commands
-# only — never `git branch -D` / `--force`. The `git branch -d` line is emitted
-# only when this invocation created a new branch (-b); an existing checked-out
-# branch must not be offered for deletion.
+# init_failure_recovery_block prints the exact, copy-pasteable command to unwind
+# a worktree whose provisioning (worktree:init) failed. Both paths are canonical
+# literals captured before the failure, so the command remains valid from any
+# directory and never needs to rediscover repository state at execution time.
 init_failure_recovery_block() {
-  local path="$1" new_branch="$2"
+  local caller_root="$1" path="$2"
   printf 'inspect the worktree, then recover with:\n'
-  printf '  cd %q && bun run worktree:drop\n' "$path"
-  printf '  git worktree remove %q\n' "$path"
-  if [[ -n "$new_branch" ]]; then
-    printf '  git branch -d %q\n' "$new_branch"
-  fi
+  printf '  bun --cwd=%q run worktree:drop -- %q --remove\n' "$caller_root" "$path"
 }
 
 print_summary() {
@@ -241,6 +236,15 @@ cmd_new() {
   parse_new_args "$@"
   require_cmd git jq
 
+  # Resolve the canonical caller checkout before provisioning starts. Recovery
+  # must remain anchored to this checkout even when worktree:init runs in the
+  # new worktree or the original invocation came from a package subdirectory.
+  local caller_root
+  caller_root="$(git rev-parse --show-toplevel 2>/dev/null)" \
+    || die "not inside a git repository"
+  caller_root="$(cd "$caller_root" && pwd -P)" \
+    || die "cannot resolve caller repository root: $caller_root"
+
   if [[ -e "$WT_NEW_PATH" ]]; then
     die "target path already exists: $WT_NEW_PATH"
   fi
@@ -275,7 +279,7 @@ cmd_new() {
   log "running: bun run worktree:init (in $target)"
   if ! ( cd "$target" && bun run worktree:init >&2 ); then
     die "worktree:init failed in $target; see the specific error above. Leaving the worktree in place for inspection.
-$(init_failure_recovery_block "$target" "$WT_NEW_NEW_BRANCH")"
+$(init_failure_recovery_block "$caller_root" "$target")"
   fi
 
   print_summary "$target"

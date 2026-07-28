@@ -1,3 +1,5 @@
+import { isRecord } from "../lib/records.js";
+
 export type MessageEvalMode = "control" | "treatment";
 
 const TARGET_RULE_IDS = [
@@ -35,10 +37,6 @@ export interface MessageEvalTrace {
 
 const EXPECTED_ARM_COUNT = 2;
 
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
 function requiredString(value: unknown, context: string): string {
   if (typeof value !== "string" || value.length === 0) {
     throw new Error(`${context} must be a non-empty string`);
@@ -61,7 +59,7 @@ function stringArray(value: unknown, context: string): string[] {
 }
 
 function parseArm(value: unknown, context: string): MessageEvalArm {
-  if (!isObject(value)) throw new Error(`${context} must be an object`);
+  if (!isRecord(value)) throw new Error(`${context} must be an object`);
   const mode = value.mode;
   if (mode !== "control" && mode !== "treatment") {
     throw new Error(`${context}.mode must be control or treatment`);
@@ -84,7 +82,7 @@ function targetRuleId(value: unknown, context: string): MessageEvalFixture["targ
 
 function parseFixture(value: unknown, index: number): MessageEvalFixture {
   const context = `fixtures[${String(index)}]`;
-  if (!isObject(value)) throw new Error(`${context} must be an object`);
+  if (!isRecord(value)) throw new Error(`${context} must be an object`);
   if (!Array.isArray(value.arms) || value.arms.length !== EXPECTED_ARM_COUNT) {
     throw new Error(`${context}.arms must contain exactly two entries`);
   }
@@ -105,7 +103,7 @@ function parseFixture(value: unknown, index: number): MessageEvalFixture {
 }
 
 export function parseLintMessageTrace(input: unknown): MessageEvalTrace {
-  if (!isObject(input)) throw new Error("message eval trace must be an object");
+  if (!isRecord(input)) throw new Error("message eval trace must be an object");
   if (input.version !== 1) throw new Error("message eval trace version must be 1");
   const gitCommit = requiredString(input.gitCommit, "gitCommit");
   if (!/^[0-9a-f]{40}$/u.test(gitCommit)) throw new Error("gitCommit must be a full commit SHA");

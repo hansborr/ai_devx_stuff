@@ -7,14 +7,16 @@ import {
   LINT_RATCHET_BASELINE_REGENERATE,
   LINT_RATCHET_BASELINE_WRITE_VERSION,
 } from "@musi/lint-ratchet/kernel/baseline-constants.js";
+import { ConfigError } from "@musi/lint-ratchet/kernel/metrics-types.js";
 import { REGRESSION_RECOVERY_FOOTER } from "@musi/lint-ratchet/kernel/recovery-command.js";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import {
   type HarnessDiagnostics,
   harnessDiagnosticsSchema,
 } from "../../packages/shared/src/schemas/harness-diagnostics.js";
 import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
+import { emitHarnessDiagnosticsEnvelope } from "./output.js";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const OUTPUT_BUFFER_BYTES = 10_000_000;
@@ -39,6 +41,7 @@ const ADAPTER_SUPPORT_FILES: readonly string[] = [
   "scripts/harness/harness-manifest.ts",
   "scripts/lib/atomic-write.ts",
   "scripts/lib/lint-rule-docs.ts",
+  "scripts/lib/records.ts",
   "scripts/lint-ratchet.ts",
 ];
 const MERGE_DRIVER_FILES: readonly string[] = [
@@ -383,6 +386,27 @@ function parseEnvelope(stdout: string): HarnessDiagnostics {
 // those assertions proved is now proven directly by the package's §2 structural
 // checks (fail-closed boundary + exports-resolution + fixture-context acceptance
 // tests in tools/lint-ratchet/) and the examples/lint-ratchet-demo consumer.
+
+describe("lint ratchet envelope emission adapter", () => {
+  it("re-raises a malformed envelope as ConfigError without writing stdout", () => {
+    // type-assertion-boundary: test - exercises runtime rejection of a summary
+    // that disagrees with findings, which the static type forbids.
+    const invalid = {
+      version: "1",
+      tool: "lint:ratchet",
+      findings: [],
+      summary: { blocking: 3, warning: 0, info: 0, byControl: {} },
+    } as unknown as HarnessDiagnostics;
+    const writeSpy = vi.spyOn(process.stdout, "write").mockReturnValue(true);
+
+    expect(() => {
+      emitHarnessDiagnosticsEnvelope(invalid);
+    }).toThrow(ConfigError);
+
+    expect(writeSpy).not.toHaveBeenCalled();
+    writeSpy.mockRestore();
+  });
+});
 
 describe("lint ratchet merge-driver presence warning", () => {
   it(

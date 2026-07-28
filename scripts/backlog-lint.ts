@@ -1,4 +1,3 @@
-import { execFileSync } from "node:child_process";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, extname, isAbsolute, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -8,6 +7,7 @@ import { z } from "zod";
 import { checkBacklogFiles } from "./backlog-lint-core.js";
 import type { BacklogLintFile, BacklogLintResult } from "./backlog-lint-types.js";
 import { parseCli } from "./lib/cli.js";
+import { defaultGitRunner, listTrackedFiles } from "./lib/git.js";
 
 export type {
   BacklogLintFile,
@@ -52,17 +52,13 @@ const PROCESS_ARGV_USER_ARGS_START = 2;
 const PACK_MEMBER_SEGMENTS = 2;
 
 function listBacklogMarkdownFiles(cwd: string, backlogDir: string): string[] {
-  // `-z` + NUL-split so a non-ASCII backlog pathname (git C-quotes those by
-  // default) is not silently dropped; harmless for the ASCII paths in use today.
-  const output = execFileSync(
-    "git",
-    ["ls-files", "-z", `${backlogDir}/**/*.md`, `${backlogDir}/*.md`],
-    { cwd, encoding: "utf8" },
-  );
-  return output
-    .split("\0")
-    .filter((entry) => entry.length > 0)
-    .sort();
+  // listTrackedFiles is `ls-files -z` + NUL-split, so a non-ASCII backlog
+  // pathname (git C-quotes those by default) is not silently dropped; harmless
+  // for the ASCII paths in use today. It preserves git's order, so sort here.
+  return listTrackedFiles(defaultGitRunner({ cwd }), [
+    `${backlogDir}/**/*.md`,
+    `${backlogDir}/*.md`,
+  ]).sort();
 }
 
 function loadBacklogFiles(cwd: string, backlogDir: string): BacklogLintFile[] {

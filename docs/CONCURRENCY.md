@@ -36,7 +36,13 @@ table, clear all three bars:
   concurrent writes and hurt interactive feel. The socket broadcast
   re-syncs everyone.
 - **Single-writer paths** (`CharacterSpell` list, most personality
-  fields) — no contention to resolve.
+  fields) — no contention to resolve. Note that "not a gate candidate"
+  is about the *row*: the prepared-spell **cap** across those rows is a
+  set-level invariant, and the one path that can race against it
+  (`characterSpell.togglePrepared`) holds it in a Serializable
+  transaction instead of gating the delegate. That is a per-path
+  guarantee, not a global one — see §"Serializable isolation
+  exception".
 - **Append-only logs** (`CombatLog`, `ChatMessage`) — no updates to
   race on.
 
@@ -86,10 +92,75 @@ await updateCharacterStatsLocked(tx, characterId, (stats) => {
 });
 ```
 
-**Type-level enforcement.** `utils/prisma-types.ts` marks `.update` /
-`.updateMany` / `.upsert` as `never` on the restricted delegate types,
-so direct calls fail to compile. See the negative type tests in
-`utils/__type-tests__/`.
+**Type-level enforcement.** `utils/prisma-types.ts` re-declares `.update` /
+`.updateMany` / `.updateManyAndReturn` / `.upsert` as `ConcurrencyGatedWrite`
+on the restricted delegate types, so direct calls fail to compile. That type
+has no call signature *and* is not assignable to Prisma's real method type,
+which is the load-bearing half: ordinary structural widening and forwarding
+into a raw-typed binding fail. (The methods used to be `never`, which is
+assignable to everything — `const raw: Prisma.TransactionClient = tx` handed
+back every banned method with no lint hit.) `DbClient` also omits the
+raw-returning `$extends`, and `TxClient` makes nested `$transaction`
+non-callable. Each owning `utils/*-mutations.ts` file contains the sanctioned
+marked `RawTxClient` cast, but its `rawWrites` return is scoped to that file's
+single delegate.
+
+This is a compile-time guard, not a runtime wrapper or a proof against every
+TypeScript lie. A user-defined predicate over a restricted/raw union, or an
+assertion function that narrows to their intersection, can recover the runtime
+methods without an `as` expression; `local/type-assertion-boundary` does not
+inspect those return-type annotations.
+
+**Nested relation writes** — `tx.character.update({ data: { stats: { update:
+… } } })` — are outside the restricted-delegate surface *by construction*, and
+no type change can close them cheaply: the write goes through the generated
+`Prisma.CharacterUpdateInput`, which carries its own `update`/`updateMany`/
+`upsert` members and has no seam to intercept per parent model. They are
+covered instead by the nested branch of `local/concurrency-guard`, which
+flags a gated relation key whose payload contains a gated mutator. That
+branch is the **only** enforcement on this path, and it is defense in depth
+rather than closure: a name-matching lint, not a type gate. It fires only
+inside a *resolved Prisma mutation argument* — a `update`/`updateMany`/
+`updateManyAndReturn`/`upsert` call on a `<client>.<model>` receiver whose
+argument object carries `where` — so an unrelated `{ stats: { update: … } }`
+object is not a lint error, and it follows a one-hop `const` binding for the
+argument, the relation envelope and the mutator value, but a payload assembled
+through a helper call or spread will not be caught. Unlike the direct branch it
+stays live inside `utils/*-mutations.ts`: those files are trusted for their own
+table, and a nested write reaches a different one.
+
+Its relation table is keyed `<parent model>.<relation field>` and derived from
+`schema.prisma` by
+`scripts/codemods/concurrency-guard/concurrency-guard-drift.test.ts`, so a new
+relation to a gated model fails the guard instead of silently widening the
+escape. The parent qualification is load-bearing, not tidiness: relation names
+are not unique across models and not even unique to relations — `classes` is a
+`CharacterClass[]` relation on `Character` and a `Json` scalar on `Spell` — so
+matching the key alone made `spell.update({ data: { classes: { update: … } } })`
+a hard error, and made any non-Prisma `.update({ where, … })` receiver one too.
+The cost is that a gated relation reached through a *non-gated* relation
+envelope (two hops, e.g. `campaign.update` → `members` → `character` →
+`stats`) drops the parent model and is not flagged; the walk carries the model
+across payload envelopes (`data`, `update`, …) and across gated relations, and
+stops guessing when it loses it. Nested `create` stays out of scope — that is
+ordinary character creation.
+
+Type closure versus a lint is not the whole option space, and this section used
+to read as if it were. A Prisma `$extends({ query: { $allModels: … } })` guard
+installed in `prisma/client.ts` would inspect the payload that actually reaches
+the driver, which makes it *unescapable by payload construction* — strictly
+stronger than the lint, and far cheaper than intercepting the generated
+update-input types. It is a runtime change on every write in the process, so it
+is tracked separately in
+`docs/agent_notes/backlog/code-quality-2026-07-25/60-nested-write-runtime-guard.md`
+rather than assumed away.
+
+Prisma's raw-SQL entry points (`$executeRaw`, `$executeRawUnsafe`,
+`$queryRaw`, `$queryRawUnsafe`) also sit outside delegate typing and can update
+gated tables without a cast or marker; the separate `raw-prisma-sql` lint fence
+limits them to sanctioned server boundaries but does not make this type gate
+exhaustive. See the negative type tests in `utils/__type-tests__/`, in particular
+`raw-client-widening-restrictions.ts`.
 
 **Blind sets on `EncounterParticipant`.** Absolute-value writes to
 non-racing metadata (`initiative`, `sortOrder`, action flags, `name`,
@@ -366,20 +437,149 @@ level-up, sorcery conversion, and non-combat casting continue to observe
 
 ## Serializable isolation exception
 
-`executeLongRest` is the only path that uses Serializable. The reason:
-`syncSpellSlots` is a multi-statement read-modify-write keyed off the
-character's class list. A concurrent `character.levelUp` committing
-between long-rest's in-tx class `findMany` and its `syncSpellSlots`
-loop would delete a freshly-granted slot row (e.g., wizard 5 → 7
-losing the level-4 slot). Serializable detects the read/write
-anti-dependency and aborts one tx with `serialization_failure`, which
-Prisma raises as `PrismaClientKnownRequestError` code **P2034**.
-`executeLongRest` catches it, retries up to `LONG_REST_MAX_RETRIES`
-times, and surfaces `CONFLICT` on final failure.
+Two paths use Serializable. Both are multi-statement read-modify-writes
+keyed off a **set** of rows rather than a single row, which is the one
+shape Pattern A/B/C cannot express: there is nothing to put in a
+compound `where`, because the precondition is a property of sibling
+rows the statement does not name.
 
-Every other path uses READ COMMITTED + targeted CAS. Long-rest's
-multi-statement cross-table shape is unique enough to justify the
-heavier isolation.
+**1. `executeLongRest`.** `syncSpellSlots` is a multi-statement
+read-modify-write keyed off the character's class list. A concurrent
+`character.levelUp` committing between long-rest's in-tx class
+`findMany` and its `syncSpellSlots` loop would delete a freshly-granted
+slot row (e.g., wizard 5 → 7 losing the level-4 slot). It retries up to
+`LONG_REST_MAX_RETRIES` times and surfaces `CONFLICT` on final failure.
+
+**What stops that here is not SSI.** Postgres tracks read/write
+anti-dependencies only *between serializable transactions*, and
+`performLevelUp` opens an ordinary `$transaction` with no
+`isolationLevel` (`services/level-up/level-up.ts`), so it runs at the
+connection default — READ COMMITTED. A serializable transaction gets no
+anti-dependency detection against it at all. What protects long rest is
+**first-updater-wins**: long rest does not merely *read* the
+`CharacterClass` rows level-up writes, it writes them too
+(`resetAllHitDice`, before `syncSpellSlots` runs), and a
+repeatable-read-or-stricter transaction that updates a row committed
+after its snapshot aborts with `40001` regardless of the other side's
+isolation level. Both halves — the missing detection and the abort that
+does happen — are pinned by
+`utils/serializable-isolation.test.ts`. That abort is raised by the
+*statement*, so it reaches Prisma as **P2034**; see "Detecting the
+abort" below for why the other shape exists.
+
+This is also why long rest's retry loop retries immediately while the
+prepared toggle's backs off (`rest-service.ts` vs
+`prepared-spell-toggle.ts`): first-updater-wins can only fire once the
+conflicting writer has *already committed*, so the retry re-reads
+settled state instead of re-colliding with a peer that restarts at the
+same instant. That reasoning covers the abort long rest is known to
+take. It does *not* cover a true SSI abort between long rest and the
+prepared toggle — the only two serializable paths, and therefore the only
+pair SSI can see — where the losers can restart together. Long rest
+writes `CharacterStats` and `CharacterClass`, which the toggle reads, so
+that edge exists; nobody has observed the abort. If long rest ever starts
+surfacing `CONFLICT` in practice, give it the toggle's jittered
+`backoff()` rather than raising `LONG_REST_MAX_RETRIES`.
+
+**2. `togglePreparedWithRetry`** (`utils/prepared-spell-toggle.ts`),
+behind `characterSpell.togglePrepared`. The router used to count the
+prepared non-cantrip `CharacterSpell` rows and then update with nothing
+between the statements, so two concurrent prepares both read
+`maxPrepared - 1`, both passed the guard, and the toggle path itself
+pushed the character over the limit. SSI closes it because each
+transaction's `prepared = true` write falls inside the predicate the
+other one counted. The flip is derived from the row *inside* the
+transaction, so a retry re-decides against the winner's committed state
+instead of re-asserting a stale desired value. `CharacterSpell` stays
+out of the gated delegate set: the fix is transaction-local, and a gate
+with one guarded caller and a dozen ordinary writers is worse than none.
+
+**What this establishes, precisely.** The guarantee is about the write
+path, not about the table: *`togglePrepared` never raises a character's
+prepared count above its cap, however many prepares run concurrently.*
+It is **not** the global claim "a character is never over its prepared
+cap". Character creation already breaks that one without any
+concurrency — `services/character-create-spells.ts` marks every chosen
+level-1 spell `prepared: true`, and a level-1 wizard chooses six against
+a cap of four (`shared/rules/spellcasting.ts`). That is a missing rule
+check at creation, not a lost update, so no locking discipline fixes it:
+a per-character row or advisory lock shared by every writer would
+serialise them without adding the check creation never makes. Closing
+the global cap means giving creation the same cap check (and deciding
+what a level-1 wizard's sixth spell means) — a rules change, tracked
+separately from this isolation-level one. Until then, do not cite this
+section as evidence that the cap holds globally.
+
+**Why Serializable and not a per-character lock.** The creation gap
+above is *not* the reason, and an earlier revision of this section
+wrongly used it as one. It defeats the claim that a lock delivers the
+global invariant, but Serializable does not deliver that invariant
+either — SSI adds no check to creation any more than a lock does. On the
+narrower question this section is actually about, *toggle versus
+toggle*, a `pg_advisory_xact_lock(characterId)` under READ COMMITTED
+would close the race just as completely, and with no retry loop, no
+jitter and no two-shape error predicate. The reasons that discriminate
+are these:
+
+- **No raw SQL.** Advisory locks have no Prisma API; they need
+  `$queryRaw`/`$executeRaw`, which the `raw-prisma-sql` restricted-syntax
+  fence confines to sanctioned server boundaries
+  (`eslint-config/restricted-syntax-policy.js`). Serializable is a
+  `$transaction` option.
+- **No fourth pattern, and no new lock order.** A `Character`-scoped lock
+  would have to be threaded into the canonical acquisition order in
+  §"Cross-table invariants" and honoured by long rest and level-up
+  forever after — a repo-wide, permanently-remembered obligation for one
+  path's fix. Serializable is transaction-local and reuses the exception
+  this section already sanctions, along with its error predicate.
+- **Against, honestly:** Serializable turns a contended-but-correct
+  workload into abort-plus-retry. It aborts on *any* concurrent prepare
+  for the character, not only at the cap boundary, and the sheet fires an
+  optimistic mutation per click — so the retry loop runs in ordinary use,
+  on a finite budget, with a user-visible `CONFLICT` past it. A lock
+  would serialise the same writers once, with no wasted work. That cost
+  is accepted because the contention is a handful of clicks on one
+  character, not because it is zero.
+
+Serializable aborts on *any* concurrent prepare for the character, not
+only at the cap boundary, so this path retries with jittered backoff
+(`MAX_ATTEMPTS`). A retried attempt re-counts against the winner's
+committed state, so away from the boundary it succeeds and at the
+boundary it returns the ordinary `BAD_REQUEST "Cannot prepare more than
+N spells"` — the same error a sequential caller would have seen.
+`CONFLICT` is only reachable once the budget is spent.
+
+**Detecting the abort.** Postgres reports `serialization_failure` as
+SQLSTATE `40001`, and under the `@prisma/adapter-pg` driver adapter it
+arrives in one of two shapes depending on when it is raised. A statement
+that fails inside the transaction is mapped normally and surfaces as
+`PrismaClientKnownRequestError` **P2034**. An abort raised by the
+`COMMIT` of an *interactive* `$transaction` is not: that path re-rejects
+the adapter's own `DriverAdapterError` verbatim — `cause.kind` is
+`TransactionWriteConflict`, and there is no `code` for the client to
+recode from.
+
+Both shapes occur, and which one you get is a property of the race, not
+of the path. Measured on the prepared-toggle race (four racers held at a
+barrier until all had counted), 17 of 18 aborts arrived as the unmapped
+`DriverAdapterError` and 1 as P2034 — a loser whose `UPDATE` happened to
+run after the winner had already committed aborts at the statement.
+Long rest's abort against a level-up is first-updater-wins, which is
+always raised by the statement and is therefore always P2034. So neither
+branch of the predicate is dead, and neither path observes only one
+shape. `isPrismaSerializationFailure` in `utils/prisma-errors.ts` matches
+both and is the only place that knowledge lives; a retry loop that checks
+P2034 alone compiles, passes a mocked unit test, and then silently never
+retries the commit-time half in production.
+`utils/serializable-isolation.test.ts` pins both shapes against the real
+driver by choreographing each abort, rather than racing and hoping — the
+unit tests in `prisma-errors.test.ts` synthesise the adapter's shape, so
+an upstream rename would leave them green while production stopped
+retrying.
+
+Every other path uses READ COMMITTED + targeted CAS. Reach for
+Serializable only when the invariant is genuinely set-level; a
+single-row precondition belongs in a compound `where`.
 
 ## Alternatives considered
 
@@ -399,10 +599,13 @@ windows, small player counts) both of these would also work:
   can add a mutation path that forgets to acquire the lock.
 - **Serializable isolation as the default + retry loop.** Postgres
   SSI detects read/write anti-dependencies and aborts one of two
-  racing txs with P2034. At this app's concurrency level the abort
-  rate is almost certainly negligible. Downside: every mutation
-  needs retry plumbing, and retries change the mental model of
-  "what state did my read see."
+  racing txs (as P2034 or as the adapter's unmapped conflict — see
+  "Detecting the abort" above). At this app's concurrency level the
+  abort rate is almost certainly negligible. Downside: every mutation
+  needs retry plumbing, retries change the mental model of "what state
+  did my read see", and the detection only holds *between* serializable
+  transactions, so it is all-or-nothing — a single remaining READ
+  COMMITTED writer is invisible to every serializable peer.
 
 Pattern A/B/C wins on non-blocking reads, fine-grained contention,
 and explicit `CONFLICT` surfacing at the point of race. It pays for

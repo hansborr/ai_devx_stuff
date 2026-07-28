@@ -16,7 +16,7 @@ export interface SmokeSubjectDefinition {
   readonly order: number | undefined;
 }
 
-interface GeneratedOutput {
+export interface SmokeSubjectGeneratedOutput {
   readonly path: string;
   readonly rendered: string;
 }
@@ -55,13 +55,17 @@ function parseSubjects(
   return subjects;
 }
 
-function parseSmokeFile(repoRoot: string, fileName: string): SmokeSubjectDefinition {
+function parseSmokeFile(
+  repoRoot: string,
+  fileName: string,
+  sourceOverrides: ReadonlyMap<string, string>,
+): SmokeSubjectDefinition {
   const path = join(repoRoot, "scripts", "tests", fileName);
   const relativePath = normalizePath(relative(repoRoot, path));
   const subjects: string[] = [];
   let order: number | undefined;
 
-  const source = readFileSync(path, "utf8");
+  const source = sourceOverrides.get(relativePath) ?? readFileSync(path, "utf8");
   const lines = source.split(/\r?\n/u);
   for (const [index, line] of lines.entries()) {
     const lineNumber = index + 1;
@@ -123,10 +127,11 @@ function compareDefinitionOrder(
 
 export function collectSmokeSubjectDefinitions(
   repoRoot: string,
+  sourceOverrides: ReadonlyMap<string, string> = new Map(),
 ): readonly SmokeSubjectDefinition[] {
   const testsDir = join(repoRoot, "scripts", "tests");
   const definitions = listSmokeFileNames(testsDir).map((fileName) =>
-    parseSmokeFile(repoRoot, fileName),
+    parseSmokeFile(repoRoot, fileName, sourceOverrides),
   );
   assertUniqueOrders(definitions);
   return definitions.slice().sort(compareDefinitionOrder);
@@ -165,9 +170,12 @@ export function renderAllSmokeTestsFixture(definitions: readonly SmokeSubjectDef
   return `${names.join("\n")}\n`;
 }
 
-function smokeSubjectGeneratedOutputs(repoRoot: string): readonly GeneratedOutput[] {
+export function projectSmokeSubjectOutputs(
+  repoRoot: string,
+  sourceOverrides: ReadonlyMap<string, string> = new Map(),
+): readonly SmokeSubjectGeneratedOutput[] {
   validateFixtureShellDependencies(repoRoot);
-  const definitions = collectSmokeSubjectDefinitions(repoRoot);
+  const definitions = collectSmokeSubjectDefinitions(repoRoot, sourceOverrides);
   return [
     {
       path: join(repoRoot, "scripts", "path-policy", "path-policy-smoke-subjects-data.ts"),
@@ -180,32 +188,38 @@ function smokeSubjectGeneratedOutputs(repoRoot: string): readonly GeneratedOutpu
   ];
 }
 
-export function checkOrWriteSmokeSubjectOutputs(repoRoot: string, argv: readonly string[]): void {
-  const { checkMode } = parseCheckModeArgs(argv);
-  const outputs = smokeSubjectGeneratedOutputs(repoRoot);
-  let drifted = false;
+export function diffSmokeSubjectOutputs(outputs: readonly SmokeSubjectGeneratedOutput[]): string[] {
+  return outputs
+    .filter((output) => readCurrentOutput(output.path) !== output.rendered)
+    .map((output) => output.path);
+}
 
+export function writeSmokeSubjectOutputs(outputs: readonly SmokeSubjectGeneratedOutput[]): void {
   for (const output of outputs) {
-    if (checkMode) {
-      if (readCurrentOutput(output.path) !== output.rendered) {
-        console.error(
-          `${output.path} is out of date. Run \`bun run test:scripts:subjects\` and commit the result.`,
-        );
-        drifted = true;
-      }
-      continue;
-    }
-
     mkdirSync(dirname(output.path), { recursive: true });
     writeFileSync(output.path, output.rendered);
     console.log(`Wrote ${output.path}.`);
   }
+}
 
-  if (checkMode) {
-    if (drifted) {
-      process.exitCode = 1;
-      return;
-    }
-    console.log("Smoke subject generated files are up to date.");
+export function checkOrWriteSmokeSubjectOutputs(repoRoot: string, argv: readonly string[]): void {
+  const { checkMode } = parseCheckModeArgs(argv);
+  const outputs = projectSmokeSubjectOutputs(repoRoot);
+
+  if (!checkMode) {
+    writeSmokeSubjectOutputs(outputs);
+    return;
   }
+
+  const drifted = diffSmokeSubjectOutputs(outputs);
+  for (const path of drifted) {
+    console.error(
+      `${path} is out of date. Run \`bun run test:scripts:subjects\` and commit the result.`,
+    );
+  }
+  if (drifted.length > 0) {
+    process.exitCode = 1;
+    return;
+  }
+  console.log("Smoke subject generated files are up to date.");
 }

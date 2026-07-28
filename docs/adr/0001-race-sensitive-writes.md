@@ -46,3 +46,22 @@ Follow `docs/CONCURRENCY.md` for the patterns and scope test, and use the
 linked guide for the extension recipe. The invite concurrency test is the
 deterministic gate for the Pattern C claim; the lint, type, and import gates
 keep the five helper-owned delegates closed to direct writes.
+
+The type gate covers *delegate* writes only. Every gated table is also a
+relation of a non-gated one, and a nested write through the parent
+(`character.update({ data: { stats: { update: … } } })`) goes through the
+generated update-input types instead — outside the branded delegates by
+construction. That path is held by the nested branch of
+`local/concurrency-guard` alone, which is a name-matching lint and therefore
+defense in depth rather than closure — a weaker guarantee than the delegate
+ban, and one a payload assembled outside the call site still escapes. It is
+scoped to resolved Prisma mutation arguments so it does not turn every
+`{ stats: { update: … } }` object into a hard error, and it applies inside
+`utils/*-mutations.ts` too, because a helper's single-table trust does not
+extend to a different table reached through a non-gated parent. Its relation
+table is keyed `<parent model>.<relation field>` and derived from
+`schema.prisma` by `concurrency-guard-drift.test.ts`, so schema growth fails
+the guard rather than widening the escape silently. Every finding names a
+relation the parent model actually declares, which is what keeps a hard error
+off type-valid writes that merely reuse a relation name — `Spell.classes` is a
+`Json` scalar, `Character.classes` is the gated relation.

@@ -1,0 +1,186 @@
+{
+  "$comment": [
+    "Shared behaviour corpus for the nested-relation branch of the concurrency gate.",
+    "Two independent detectors implement it — eslint-rules/concurrency-guard.js (ESTree)",
+    "and scripts/codemods/concurrency-guard/nested-writes.ts (ts-morph) — and until this",
+    "file existed nothing checked that they recognised the same programs. Both are run",
+    "over every case below: the rule by eslint-rules/concurrency-guard.test.js, the",
+    "codemod by scripts/codemods/concurrency-guard/concurrency-guard-drift.test.ts.",
+    "`expected` lists the findings in source order; an empty list means no finding.",
+    "Add a case here rather than to one suite when you change what either detector sees."
+  ],
+  "cases": [
+    {
+      "name": "inline nested update through a non-gated parent",
+      "filename": "packages/server/src/routers/character.ts",
+      "code": "await tx.character.update({ where: { id }, data: { stats: { update: { currentHp: 0 } } } });",
+      "expected": [{ "relation": "stats", "method": "update", "delegate": "characterStats" }]
+    },
+    {
+      "name": "nested updateMany through a collection relation",
+      "filename": "packages/server/src/routers/campaign.ts",
+      "code": "await tx.campaign.update({ where: { id }, data: { encounters: { updateMany: { where: {}, data: { round: 99 } } } } });",
+      "expected": [{ "relation": "encounters", "method": "updateMany", "delegate": "encounter" }]
+    },
+    {
+      "name": "array payload form of updateMany",
+      "filename": "packages/server/src/routers/campaign.ts",
+      "code": "await tx.campaign.update({ where: { id }, data: { encounters: { updateMany: [{ where: {}, data: {} }, { where: {}, data: {} }] } } });",
+      "expected": [{ "relation": "encounters", "method": "updateMany", "delegate": "encounter" }]
+    },
+    {
+      "name": "relation envelope bound to a const",
+      "filename": "packages/server/src/routers/character.ts",
+      "code": "const statsWrite = { update: { currentHp: 0 } };\nawait tx.character.update({ where: { id }, data: { stats: statsWrite } });",
+      "expected": [{ "relation": "stats", "method": "update", "delegate": "characterStats" }]
+    },
+    {
+      "name": "mutator value bound to a const",
+      "filename": "packages/server/src/routers/character.ts",
+      "code": "const patch = { currentHp: 0 };\nawait tx.character.update({ where: { id }, data: { stats: { update: patch } } });",
+      "expected": [{ "relation": "stats", "method": "update", "delegate": "characterStats" }]
+    },
+    {
+      "name": "whole argument object bound to a const",
+      "filename": "packages/server/src/routers/character.ts",
+      "code": "const args = { where: { id }, data: { stats: { update: { currentHp: 0 } } } };\nawait tx.character.update(args);",
+      "expected": [{ "relation": "stats", "method": "update", "delegate": "characterStats" }]
+    },
+    {
+      "name": "two gated relations in one payload, reported in source order",
+      "filename": "packages/server/src/services/level-up/core.ts",
+      "code": "await tx.character.update({ where: { id }, data: { classes: { updateMany: { where: {}, data: {} } }, spellSlots: { updateMany: { where: {}, data: {} } } } });",
+      "expected": [
+        { "relation": "classes", "method": "updateMany", "delegate": "characterClass" },
+        { "relation": "spellSlots", "method": "updateMany", "delegate": "characterSpellSlot" }
+      ]
+    },
+    {
+      "name": "gated relation nested under another nested write",
+      "filename": "packages/server/src/routers/campaign.ts",
+      "code": "await tx.campaign.update({ where: { id }, data: { encounters: { update: { data: { participants: { updateMany: { where: {}, data: {} } } } } } } });",
+      "expected": [
+        { "relation": "encounters", "method": "update", "delegate": "encounter" },
+        {
+          "relation": "participants",
+          "method": "updateMany",
+          "delegate": "encounterParticipant"
+        }
+      ]
+    },
+    {
+      "name": "singular relation on an unrelated parent model",
+      "filename": "packages/server/src/routers/map-token.ts",
+      "code": "await tx.mapToken.update({ where: { id }, data: { encounterParticipant: { update: { currentHp: 0 } } } });",
+      "expected": [
+        {
+          "relation": "encounterParticipant",
+          "method": "update",
+          "delegate": "encounterParticipant"
+        }
+      ]
+    },
+    {
+      "name": "mutation helpers are not exempt from the nested branch",
+      "filename": "packages/server/src/utils/character-stats-mutations.ts",
+      "code": "await raw.character.update({ where: { id }, data: { stats: { update: { currentHp } } } });",
+      "expected": [{ "relation": "stats", "method": "update", "delegate": "characterStats" }]
+    },
+    {
+      "name": "plain object literal that never reaches Prisma",
+      "filename": "packages/server/src/services/character-live-state/mapping.ts",
+      "code": "const handlers = { stats: { update: { currentHp: 0 } } };",
+      "expected": []
+    },
+    {
+      "name": "non-Prisma method call: no where key",
+      "filename": "packages/server/src/services/character-live-state/mapping.ts",
+      "code": "await store.update({ data: { stats: { update: { currentHp: 0 } } } });",
+      "expected": []
+    },
+    {
+      "name": "nested create is ordinary character creation",
+      "filename": "packages/server/src/routers/character.ts",
+      "code": "await tx.character.create({ data: { stats: { create: { maxHp: 10 } } } });",
+      "expected": []
+    },
+    {
+      "name": "connect is not a write to the gated row",
+      "filename": "packages/server/src/routers/map-token.ts",
+      "code": "await tx.mapToken.update({ where: { id }, data: { encounterParticipant: { connect: { id: pid } } } });",
+      "expected": []
+    },
+    {
+      "name": "relation name reaching no gated model",
+      "filename": "packages/server/src/routers/campaign.ts",
+      "code": "await tx.campaign.update({ where: { id }, data: { members: { updateMany: { where: {}, data: {} } } } });",
+      "expected": []
+    },
+    {
+      "name": "scalar assignment on a same-named field",
+      "filename": "packages/server/src/routers/character.ts",
+      "code": "await tx.character.update({ where: { id }, data: { stats: undefined } });",
+      "expected": []
+    },
+    {
+      "name": "relation envelope written as a shorthand property",
+      "filename": "packages/server/src/routers/character.ts",
+      "code": "const stats = { update: { currentHp: 0 } };\nawait tx.character.update({ where: { id }, data: { stats } });",
+      "expected": [{ "relation": "stats", "method": "update", "delegate": "characterStats" }]
+    },
+    {
+      "name": "mutator value written as a shorthand property",
+      "filename": "packages/server/src/routers/character.ts",
+      "code": "const update = { currentHp: 0 };\nawait tx.character.update({ where: { id }, data: { stats: { update } } });",
+      "expected": [{ "relation": "stats", "method": "update", "delegate": "characterStats" }]
+    },
+    {
+      "name": "argument bound to a const with a satisfies annotation",
+      "filename": "packages/server/src/routers/character.ts",
+      "code": "const args = { where: { id }, data: { stats: { update: { currentHp: 0 } } } } satisfies Prisma.CharacterUpdateArgs;\nawait tx.character.update(args);",
+      "expected": [{ "relation": "stats", "method": "update", "delegate": "characterStats" }]
+    },
+    {
+      "name": "argument passed inline with a satisfies annotation",
+      "filename": "packages/server/src/routers/character.ts",
+      "code": "await tx.character.update({ where: { id }, data: { stats: { update: { currentHp: 0 } } } } satisfies Prisma.CharacterUpdateArgs);",
+      "expected": [{ "relation": "stats", "method": "update", "delegate": "characterStats" }]
+    },
+    {
+      "name": "relation envelope behind an as expression",
+      "filename": "packages/server/src/routers/character.ts",
+      "code": "await tx.character.update({ where: { id }, data: { stats: { update: { currentHp: 0 } } } as Prisma.CharacterUpdateInput });",
+      "expected": [{ "relation": "stats", "method": "update", "delegate": "characterStats" }]
+    },
+    {
+      "name": "mutator value behind an as const",
+      "filename": "packages/server/src/routers/character.ts",
+      "code": "await tx.character.update({ where: { id }, data: { stats: { update: { currentHp: 0 } as const } } });",
+      "expected": [{ "relation": "stats", "method": "update", "delegate": "characterStats" }]
+    },
+    {
+      "name": "gated relation name used as a scalar field on another model",
+      "filename": "packages/server/src/routers/srd.ts",
+      "code": "await tx.spell.update({ where: { id }, data: { classes: { update: { a: 1 } } } });",
+      "expected": []
+    },
+    {
+      "name": "non-Prisma receiver that does carry a where key",
+      "filename": "packages/server/src/services/character-live-state/mapping.ts",
+      "code": "await store.update({ where: { id }, data: { stats: { update: { currentHp: 0 } } } });",
+      "expected": []
+    },
+    {
+      "name": "receiver bound to a variable, so no parent model resolves",
+      "filename": "packages/server/src/routers/character.ts",
+      "code": "const chars = tx.character;\nawait chars.update({ where: { id }, data: { stats: { update: { currentHp: 0 } } } });",
+      "expected": []
+    },
+    {
+      "name": "gated mutator whose value is not a payload",
+      "filename": "packages/server/src/routers/character.ts",
+      "code": "await tx.character.update({ where: { id }, data: { stats: { update: makePatch } } });",
+      "expected": []
+    }
+  ]
+}

@@ -1,11 +1,11 @@
 # Lint Architecture Review 2026-07 — Task Pack
 
-Status: Reconciled residue — 2026-07-18 evening (the 2026-07-18 drain landed
+Status: Reconciled residue — 2026-07-19 (the 2026-07-18 drain landed
 leaf 05 item 1, leaf 12, and leaf 13's operations slice — see the drain
 record; their leaf files were removed and are summarized in the landed
-record below. Remaining open: 07 (trigger-gated), 13's rejected full-driver
-record (trigger + owner ruling), 14 (accepted 2026-07-18 — adopt with
-modifications, re-sized S→M, ready to schedule))
+record below. Leaf 14 landed 2026-07-19 (`a7578536`). Remaining open: 07
+(trigger-gated) and 13's rejected full-driver record (trigger + owner
+ruling))
 Created: 2026-07-16
 
 Source: the 2026-07-16 five-model architecture review of the lint system
@@ -26,10 +26,10 @@ manifest + demo-sync harness) instead of a package boundary (leaf 02).
 
 | # | Task | Priority | Size | Status |
 | --- | --- | --- | --- | --- |
-| 02 | [Replace the copy manifest with a real package seam](./02-package-seam-replaces-copy-manifest.md) | P0 | L | DONE 2026-07-18 — S0–S5 landed on main (final merge 6e685069): engine in `tools/lint-ratchet` (`@musi/lint-ratchet`, layers 1–3) behind the context/binding seam, Musi adapter stays in `scripts/`, demo flipped to a workspace consumer with an end-to-end CI smoke, copy manifest + demo-sync harness deleted (slice plan: [02-slice-plan.md](./02-slice-plan.md)). Follow-up recorded in the leaf: debt-accounting needs a net-neutral-rename primitive |
+| 02 | [Replace the copy manifest with a real package seam](./02-package-seam-replaces-copy-manifest.md) | P0 | L | DONE 2026-07-18 — S0–S5 landed on main (final merge 6e685069): engine in `tools/lint-ratchet` (`@musi/lint-ratchet`, layers 1–3) behind the context/binding seam, Musi adapter stays in `scripts/`, demo flipped to a workspace consumer with an end-to-end CI smoke, copy manifest + demo-sync harness deleted (slice plan: [02-slice-plan.md](./02-slice-plan.md)). Authoritative follow-up: [preserve lint-ratchet identity across path renames](../agent-pain-points-2026-07-21/10-lint-ratchet-path-renames.md) |
 | 07 | [Author the coverage map as data, render the Markdown](./07-coverage-map-as-data.md) | P1 | M | Proposed — trigger: next checker schema change (deliberately skipped in the 2026-07 drains per this trigger) |
 | 13 | [CLI driver inside the package](./13-package-cli-driver.md) | P2 | M | Operations slice DONE 2026-07-18 (drain phase 4, merge `e1fa3141`) — `runGate`/`runUpdate` live as typed-error, data-in/data-out package operations and both adapters are rebased onto them; the full driver stays rejected (trigger: a third real adapter, and reopening leaf 02 dispatch ruling 2 needs an owner ruling — the leaf records the evidence) |
-| 14 | [Enumerate the package's subpath exports](./14-enumerated-subpath-exports.md) | P2 | M | Accepted 2026-07-18 — adopt with modifications (owner ruling in the leaf, via Fable + Codex consult): classify-then-enumerate, not wholesale; re-measured 39 adapter subpaths (one dynamic import); two prerequisites re-size S→M (internal imports go relative — 20 self-name imports; close the `tsconfig.scripts.json` wildcard-`paths` bypass). Ready to schedule |
+| 14 | [Enumerate the package's subpath exports](./14-enumerated-subpath-exports.md) | P2 | M | DONE 2026-07-19 — the 43-key enumerated exports map replaced the wildcards (`a7578536`) and the `tsconfig.scripts.json` wildcard-`paths` bypass is gone; prerequisites landed first (`4d328a13` self-name imports relativized, `c413f6f3` utility borrows funnelled through `scripts/lib` shims), then `57c7ce6e` registered the shims as smoke subjects and pinned the exports denials. Contract pinned by `tools/lint-ratchet/test/package-structure.test.ts` |
 
 ## Landed record — 2026-07-18 (leaf files removed; full text in git history)
 

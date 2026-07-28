@@ -1,6 +1,7 @@
 import { ALL_CHECKS } from "../drift-ai/check-metadata.js";
 import type { ConfigSource, DriftCheckId, FindingProvenance } from "../drift-ai/types.js";
 import { DRIFT_SCHEMA_VERSION } from "../drift-ai/types.js";
+import { isRecord } from "../lib/records.js";
 import type {
   DriftFindingInput,
   DriftReportInput,
@@ -152,10 +153,6 @@ function parseReportArray<Value>(
     parsed.push(result);
   }
   return parsed;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function isString(value: unknown): value is string {

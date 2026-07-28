@@ -2,7 +2,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { runDocGenerator } from "../lib/doc-generator.js";
-import { readHarnessManifest } from "./harness-manifest.js";
+import { loadTypedHarnessManifest } from "./harness-manifest-loader.js";
 import { GENERATED_HOOK_TIMEOUT_CONSTANTS_PATH } from "./harness-paths.js";
 import { renderHookTimeoutConstantsShellFromManifest } from "./hook-timeout-constants.js";
 
@@ -14,7 +14,7 @@ function main(): void {
     outputPath,
     refreshCommand: "harness:hook-timeouts",
     render: () => ({
-      rendered: renderHookTimeoutConstantsShellFromManifest(readHarnessManifest(repoRoot)),
+      rendered: renderHookTimeoutConstantsShellFromManifest(loadTypedHarnessManifest(repoRoot)),
     }),
   });
 }

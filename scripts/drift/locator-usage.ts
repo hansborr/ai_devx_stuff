@@ -7,12 +7,12 @@
 
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
 
 import {
   readRequiredOptionValue,
   requireArgAllowingEmpty as requireArg,
 } from "../cli-option-values.js";
+import { isCliEntrypoint } from "../lib/process-argv.js";
 
 export type LocatorUsageFile = {
   readonly path: string;
@@ -179,12 +179,7 @@ export function runLocatorUsage(argv: readonly string[]): {
   }
 }
 
-function isDirectRun(): boolean {
-  if (!process.argv[1]) return false;
-  return import.meta.url === pathToFileURL(process.argv[1]).href;
-}
-
-if (isDirectRun()) {
+if (isCliEntrypoint(import.meta.url)) {
   // eslint-disable-next-line no-magic-numbers -- standard Node argv skips node and script path
   const result = runLocatorUsage(process.argv.slice(2));
   if (result.stdout) console.log(result.stdout);

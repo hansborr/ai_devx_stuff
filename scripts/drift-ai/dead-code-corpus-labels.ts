@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
+import { errorMessage } from "../lib/error-message.js";
 import { isRecord } from "./config-readers.js";
 import {
   DEAD_CODE_CORPUS_LABEL_KINDS,
@@ -22,7 +23,7 @@ export function loadDeadCodeCorpusLabels(
     raw = JSON.parse(readFileSync(labelsPath, "utf8"));
   } catch (err) {
     throw new DriftAiError(
-      `dead-code-corpus labels '${labelsPath}' could not be read: ${message(err)}`,
+      `dead-code-corpus labels '${labelsPath}' could not be read: ${errorMessage(err)}`,
     );
   }
   if (!isRecord(raw)) throw new DriftAiError("dead-code-corpus labels must be a JSON object.");
@@ -121,8 +122,4 @@ function readStringArray(raw: unknown, keyPath: string): string[] {
     throw new DriftAiError(`dead-code-corpus labels '${keyPath}' must be an array.`);
   }
   return raw.map((item, index) => readString(item, `${keyPath}[${index}]`));
-}
-
-function message(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
 }

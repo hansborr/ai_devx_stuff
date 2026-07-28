@@ -62,6 +62,10 @@ export function createBaseConfigs() {
         "worktrees/",
         "eslint-rules/*",
         "!eslint-rules/*.js",
+        // Generated JSON pins under eslint-rules/ (e.g. the restricted-syntax
+        // resolution snapshot) are re-included so `@eslint/json` structurally
+        // validates them like every other generated baseline in the tree.
+        "!eslint-rules/*.json",
         ...eslintRulesConfigReincludePatterns,
       ],
     },

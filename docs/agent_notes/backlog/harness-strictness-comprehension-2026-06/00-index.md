@@ -7,7 +7,10 @@
 > (`88092cfd`) are on in `tsconfig.base.json`. The residue — a
 > measurement-first discovery pass for `exactOptionalPropertyTypes` and
 > `noPropertyAccessFromIndexSignature` — is tracked in
-> `../ready-2026-07/00-index.md`.
+> `../ready-2026-07/00-index.md`. **Update 2026-07-25:** that discovery pass
+> (leaf 01 steps 1–2) is done and recorded in
+> [03](03-strictness-flag-error-inventory.md); the promotion decision (leaf 01
+> steps 3–6) is still open and no flag was flipped.
 
 ## Source
 
@@ -31,6 +34,7 @@ has no explicit intent/comprehension prompt beyond `Summary`.
 | --- | --- | --- | --- | --- |
 | HS-1 | Ratchet remaining TypeScript strictness flags — half-landed: `noFallthroughCasesInSwitch` + `noImplicitOverride` on (2026-06-22); residue = discovery pass for the two harder flags | [01](01-typescript-strictness-ratchets.md) | M-L | medium |
 | HC-1 | Strengthen PR template around human comprehension — **DONE** (`1fdea456`) | leaf 02 (removed at the 2026-07-19 triage; git history) | S | low |
+| — | HS-1 discovery pass: measured per-flag `tsc` error inventory for the two open flags (2026-07-25) — **DONE**, no flag flipped | [03](03-strictness-flag-error-inventory.md) | M | low |
 
 ## Suggested Sequencing
 
@@ -40,6 +44,11 @@ has no explicit intent/comprehension prompt beyond `Summary`.
    a blind flag flip. Start with discovery and per-flag error inventories before
    deciding whether the first implementation PR enables a flag globally,
    package-by-package, or through a generated baseline/check.
+3. That discovery step is now done — read
+   [03](03-strictness-flag-error-inventory.md) before proposing an adoption
+   path. It carries the measured counts (838 and 404 unique diagnostics), the
+   dominant error families, and one open owner question about whether the
+   mechanical repair should be allowed to hide two type-modelling smells.
 
 ## Non-Goals
 

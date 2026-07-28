@@ -1,6 +1,6 @@
 # drift:ai Swarm Triage — 2026-07-13
 
-**Status:** triage + review complete 2026-07-13; fixes NOT started (see FIX-PLAN.md).
+**Status:** triage + review complete 2026-07-13; all ten FIX items landed 2026-07-13 (`ae1720d6`, see FIX-PLAN.md).
 **Run:** triage-2026-07-13 · 306 review items across 24 deterministic packets · swarm: 9 confirmed, 256 accepted-drift, 38 false-positive, 3 duplicate-of, zero medium/high · review pass: 4 swarm confirmations demoted, 4 swarm non-findings promoted, 1 meta-finding added.
 
 > **Provenance (2026-07-13).** Inputs: `drift-all.json` (scope current, all

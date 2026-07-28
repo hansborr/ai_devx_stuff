@@ -16,9 +16,38 @@ import { isAbsolute, join, relative, resolve, sep } from "node:path";
 /** An injectable git command runner: takes argv (without the leading "git") and returns stdout. */
 export type GitRunner = (args: readonly string[]) => string;
 
+/**
+ * What {@link defaultGitRunner} does with the child git process's stderr.
+ *
+ * - `"inherit"` (the default) is `execFileSync`'s own behaviour: git's
+ *   diagnostics reach the parent's stderr *and* the thrown error's `message`.
+ * - `"captured"` pipes stderr instead of forwarding it, so the terminal stays
+ *   quiet while the thrown error still carries git's diagnostics. Use it for
+ *   probes whose failure the caller folds into its own message.
+ * - `"discarded"` drops stderr entirely, so neither the terminal nor the thrown
+ *   error carries it — the failure message is the bare `Command failed: ...`.
+ *   Use it for probes whose failure is a fully-handled expected outcome.
+ *
+ * All non-inherit modes also close the child's stdin, matching the callers this
+ * consolidated: none of them feed git over stdin.
+ */
+export type GitStderrMode = "inherit" | "captured" | "discarded";
+
+function gitRunnerStdio(
+  mode: GitStderrMode | undefined,
+): ["ignore", "pipe", "pipe" | "ignore"] | undefined {
+  if (mode === "captured") return ["ignore", "pipe", "pipe"];
+  if (mode === "discarded") return ["ignore", "pipe", "ignore"];
+  return undefined;
+}
+
 /** The default runner: shells out to the system `git` and returns UTF-8 stdout. */
-export function defaultGitRunner(options?: { readonly cwd?: string }): GitRunner {
-  return (args) => execFileSync("git", [...args], { cwd: options?.cwd, encoding: "utf8" });
+export function defaultGitRunner(options?: {
+  readonly cwd?: string;
+  readonly stderr?: GitStderrMode;
+}): GitRunner {
+  const stdio = gitRunnerStdio(options?.stderr);
+  return (args) => execFileSync("git", [...args], { cwd: options?.cwd, encoding: "utf8", stdio });
 }
 
 /** Read one repository blob from a ref (or from the index when `ref` is empty). */
@@ -135,15 +164,42 @@ function gitExclusionPathspecs(repoRoot: string, excludedPaths: readonly string[
   });
 }
 
+/**
+ * Read the working-tree root as git reports it, trimmed. Throws git's own error
+ * when there is no repository, so callers that map that failure into their own
+ * result type keep the diagnostic. Use {@link resolveRepoRoot} for the
+ * fall-back-to-cwd policy instead.
+ */
+export function readRepoRoot(git: GitRunner): string {
+  return git(["rev-parse", "--show-toplevel"]).trim();
+}
+
 /** Resolve the working-tree root, falling back to `process.cwd()` when git cannot answer. */
 export function resolveRepoRoot(git: GitRunner): string {
   try {
-    const out = git(["rev-parse", "--show-toplevel"]).trim();
+    const out = readRepoRoot(git);
     if (out.length > 0) return out;
   } catch {
     // Fall through to process.cwd().
   }
   return process.cwd();
+}
+
+/**
+ * Read the `.git` directory as git reports it, trimmed. Git answers relative to
+ * the invocation cwd for an ordinary checkout and absolutely for a linked
+ * worktree, so callers must resolve the result against the same cwd they ran in.
+ */
+export function readGitDir(git: GitRunner): string {
+  return git(["rev-parse", "--git-dir"]).trim();
+}
+
+/**
+ * Resolve HEAD's first parent commit, trimmed. Throws when HEAD is unborn or has
+ * no first parent; `--verify` keeps git from echoing an unresolved revision back.
+ */
+export function readFirstParentCommit(git: GitRunner): string {
+  return git(["rev-parse", "--verify", "HEAD^1"]).trim();
 }
 
 /**
@@ -155,12 +211,29 @@ export function resolveRepoRoot(git: GitRunner): string {
  * git's own order — callers apply their own sort, since consumers order
  * differently (default lexical vs. locale-aware).
  */
-export function listTrackedFiles(git: GitRunner): string[] {
-  const files: string[] = [];
-  for (const file of git(["ls-files", "-z"]).split("\0")) {
-    if (file.length > 0) files.push(file);
-  }
-  return files;
+export function listTrackedFiles(git: GitRunner, pathspecs: readonly string[] = []): string[] {
+  return parseNulPaths(git(["ls-files", "-z", ...pathspecs]));
+}
+
+/**
+ * List the paths staged for commit — added, copied, modified, or renamed — via
+ * `git diff --cached --name-only --diff-filter=ACMR -z`. `-z` carries the same
+ * `core.quotePath` immunity documented on {@link listTrackedFiles}. Returned in
+ * git's own order; callers apply their own sort. Throws git's own error when
+ * there is no repository, so callers own the "not a repo" policy.
+ */
+export function listStagedPaths(git: GitRunner): string[] {
+  return parseNulPaths(git(["diff", "--cached", "--name-only", "--diff-filter=ACMR", "-z"]));
+}
+
+/**
+ * Read the byte size of a path's *staged* blob via `git cat-file -s :<path>`.
+ * The bare `:<path>` ref is the index entry, so this measures what a commit
+ * would record rather than the working-tree file. Throws when the path is not
+ * staged.
+ */
+export function readStagedBlobSize(git: GitRunner, repoRelativePath: string): number {
+  return Number(git(["cat-file", "-s", `:${repoRelativePath}`]).trim());
 }
 
 /** The five porcelain `git diff --name-status` codes shared across callers. */

@@ -1,10 +1,8 @@
 import { HARNESS_MANIFEST_FILENAME } from "./harness-manifest.js";
-import {
-  type HookHarness,
-  isNonEmptyString,
-  isObject,
-  resolveHookWiring,
-} from "./hook-wiring-schema.js";
+import type { HarnessManifest } from "./harness-manifest-schema.js";
+import { type HookHarness, resolveHookWiring } from "./hook-wiring-schema.js";
+
+type HarnessControl = HarnessManifest["controls"][number];
 
 interface HookTimeoutConstantBinding {
   readonly controlId: string;
@@ -32,35 +30,27 @@ const HOOK_TIMEOUT_CONSTANT_BINDINGS = [
 
 const SHELL_VARIABLE_NAME_PATTERN = /^[A-Za-z_]\w*$/u;
 
-function collectControlsById(manifest: unknown): ReadonlyMap<string, Record<string, unknown>> {
-  if (!isObject(manifest) || !Array.isArray(manifest.controls)) {
-    throw new Error(`${HARNESS_MANIFEST_FILENAME} must declare a controls array`);
-  }
-
-  const controlsById = new Map<string, Record<string, unknown>>();
-  for (const [index, control] of manifest.controls.entries()) {
-    if (!isObject(control)) {
-      throw new Error(`control entry at index ${String(index)} must be an object`);
-    }
-    if (!isNonEmptyString(control.id)) {
-      throw new Error(`control entry at index ${String(index)} must declare a non-empty id`);
-    }
-    if (controlsById.has(control.id)) {
-      throw new Error(`duplicate control id: ${control.id}`);
-    }
-    controlsById.set(control.id, control);
-  }
-  return controlsById;
+// Entry shape, id uniqueness, and the controls array itself are the typed
+// contract's job (harness-manifest-schema.ts), so this module keeps only the
+// binding-level semantics: which controls must exist, carry claude wiring, and
+// agree on one ceiling.
+function collectControlsById(manifest: HarnessManifest): ReadonlyMap<string, HarnessControl> {
+  return new Map(manifest.controls.map((control) => [control.id, control]));
 }
 
 function timeoutForBinding(
-  controlsById: ReadonlyMap<string, Record<string, unknown>>,
+  controlsById: ReadonlyMap<string, HarnessControl>,
   binding: HookTimeoutConstantBinding,
 ): number {
   const control = controlsById.get(binding.controlId);
   if (control === undefined) {
     throw new Error(
-      `required hook timeout control ${binding.controlId} is missing from harness.controls.json`,
+      `required hook timeout control ${binding.controlId} is missing from ${HARNESS_MANIFEST_FILENAME}`,
+    );
+  }
+  if (control.kind !== "hook") {
+    throw new Error(
+      `hook timeout control ${binding.controlId} must be kind=hook, not ${control.kind}`,
     );
   }
 
@@ -79,7 +69,7 @@ function timeoutForBinding(
   return command.timeout;
 }
 
-function collectHookTimeoutConstants(manifest: unknown): readonly HookTimeoutConstant[] {
+function collectHookTimeoutConstants(manifest: HarnessManifest): readonly HookTimeoutConstant[] {
   const controlsById = collectControlsById(manifest);
   const constants = HOOK_TIMEOUT_CONSTANT_BINDINGS.map((binding) => ({
     variableName: binding.variableName,
@@ -95,7 +85,7 @@ function collectHookTimeoutConstants(manifest: unknown): readonly HookTimeoutCon
   return constants;
 }
 
-export function renderHookTimeoutConstantsShellFromManifest(manifest: unknown): string {
+export function renderHookTimeoutConstantsShellFromManifest(manifest: HarnessManifest): string {
   const lines = [
     "# shellcheck shell=bash",
     "# shellcheck disable=SC2034",

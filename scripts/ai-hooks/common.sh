@@ -152,8 +152,23 @@ ai_git_commit_prefixes() {
       [[:space:]]|';'|'|'|'&')
         if [ "$token_start" -ge 0 ]; then
           if [ "$segment_first" -eq 1 ]; then
-            [ "$token" = git ] && segment_is_git=1
-            segment_first=0
+            # Cheap wrappers and env assignments do not change WHICH program
+            # runs, so stay in the "still looking for the command word" state
+            # rather than concluding the segment is not git. This is exactly the
+            # set ai_target_dir_from_cmd already normalizes below; without it,
+            # `env git -C <dir> commit` yields no commit prefix, the
+            # substitution scan then covers the whole command instead of the
+            # text before the verb, and the named target is lost — which let a
+            # commit aimed at a protected checkout be judged against the
+            # session's branch.
+            case "$token" in
+              command|builtin|env) : ;;
+              [A-Za-z_]*=*) : ;;
+              *)
+                [ "$token" = git ] && segment_is_git=1
+                segment_first=0
+                ;;
+            esac
           elif [ "$segment_is_git" -eq 1 ]; then
             if [ "$git_option_value" -eq 1 ]; then
               git_option_value=0
@@ -188,6 +203,103 @@ ai_git_commit_prefixes() {
   return 1
 }
 
+# True only for a genuine `git commit` INVOCATION: the lexer above found a
+# `commit` subcommand whose owning command segment starts with `git`. Text that
+# merely contains the words — a grep pattern, a printf'd log line, a heredoc
+# body, a quoted example inside a message — never matches.
+#
+# Deliberately narrower than policy.sh's ai_is_git_commit_cmd, and the two are
+# NOT interchangeable, because the asymmetries run opposite ways:
+#   * routing must over-match. Anything that might commit has to reach the
+#     wrapper's worktree lock, commit queue, and branch policy; an extra wrap
+#     costs a little latency, a missed commit forfeits every guard.
+#   * a verdict must under-match. "No commit landed" is a claim about the
+#     agent's own work, and a confident wrong one makes an agent in a parallel
+#     lane redo or undo work that did land. Where this cannot prove a commit
+#     was invoked, the caller says nothing instead.
+ai_is_real_git_commit_cmd() {
+  local cmd="$1"
+  # Same heredoc-safe view the routing classifier uses, when the policy layer is
+  # loaded: a heredoc body is data, not a command position. common.sh stays
+  # standalone-sourceable, so fall back to the raw text when it is not.
+  if declare -F ai_strip_noncommand_text >/dev/null; then
+    cmd=$(ai_strip_noncommand_text "$cmd") || cmd="$1"
+  fi
+  # The lexer treats a newline as ordinary whitespace, which its target-resolution
+  # callers want (a newline cannot introduce a `cd` chain they model). For a
+  # yes/no verdict a newline IS a command separator, so normalize before lexing
+  # or `cd /lane\ngit commit -m x` would not read as an invocation.
+  # shellcheck disable=SC2034 # both are set by name via printf -v in the lexer
+  local prefix segment
+  ai_git_commit_prefixes "${cmd//$'\n'/; }" prefix segment
+}
+
+# The slice of CMD that target resolution actually reads: for a commit-bearing
+# command everything before the `commit` verb (its leading cd chain and git
+# global options), else the whole command. Mirrors ai_target_dir_from_cmd's own
+# split so the ambiguity test below cannot drift from what the resolver parses.
+ai_target_resolution_region() {
+  # shellcheck disable=SC2034 # segment is set by name via printf -v in the lexer
+  local prefix segment
+  if ai_git_commit_prefixes "$1" prefix segment; then
+    printf '%s' "$prefix"
+  else
+    printf '%s' "$1"
+  fi
+}
+
+# True when the checkout a git command acts on CANNOT be read from its text: a
+# command substitution, backtick, or process substitution sits inside the region
+# the resolver parses, so a `cd`/`git -C` could be hiding in there and the
+# payload-cwd fallback may name a different repository than the command touched.
+# Callers that would otherwise state a before/after HEAD result must decline.
+ai_target_dir_is_ambiguous() {
+  # These are literal shell-syntax markers, not strings intended to expand.
+  # shellcheck disable=SC2016
+  case "$(ai_target_resolution_region "$1")" in
+    *'$('*|*'`'*|*'<('*) return 0 ;;
+  esac
+  return 1
+}
+
+# True when a git command NAMES a target checkout — a leading cd chain or a
+# global `git -C` — that does not resolve to a real checkout. The name is then
+# unverifiable: `git -C "$LANE"` (this layer is a lexer, it cannot expand shell
+# parameters), a `~` git will not expand, or a stale path.
+#
+# This is a guard hole, not just a reporting one. Callers resolve a work root as
+# `git -C <target> rev-parse --show-toplevel || <their own checkout>`, so an
+# unresolvable name silently substitutes the hook's own checkout: the HEAD
+# comparison is then fabricated against the wrong repository, AND branch policy
+# reads the wrong branch, so `LANE=/main-checkout; git -C "$LANE" commit` is
+# judged against the session's feature branch and let through. Callers must fail
+# closed rather than vouch for a checkout that was never identified.
+ai_named_target_is_unresolvable() {
+  local cmd="$1"
+  local payload_cwd="$2"
+  local fallback="$3"
+  local candidate
+
+  candidate=$(ai_target_dir_from_cmd "$cmd") || return 1
+  [ -n "$candidate" ] || return 1
+  case "$candidate" in
+    /*) : ;;
+    *) candidate="${payload_cwd:-$fallback}/$candidate" ;;
+  esac
+  git -C "$candidate" rev-parse --show-toplevel >/dev/null 2>&1 && return 1
+  return 0
+}
+
+# The umbrella the verdict paths use: the checkout a command acts on cannot be
+# pinned down at all, either because a substitution hides the leading forms or
+# because the name they carry is unverifiable. Either way the observed root may
+# be a different repository than the one the command touched, so no before/after
+# HEAD claim — success OR failure — may be stated.
+ai_target_is_unattributable() {
+  ai_target_dir_is_ambiguous "$1" && return 0
+  ai_named_target_is_unresolvable "$1" "$2" "$3"
+}
+
 # Extract the directory a git command targets from its *leading forms only* —
 # not a general shell parser. Two shapes are recognized:
 #   * a `git -C <dir>` global option (matched only in the segment before the
@@ -211,12 +323,6 @@ ai_target_dir_from_cmd() {
   path_token_pattern="('[^']*'|\"[^\"]*\"|[^[:space:];|&]+)"
   env_assignment_pattern='^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*=[^[:space:];|&]+[[:space:]]+(.*)$'
 
-  # These are literal shell-syntax markers, not strings intended to expand.
-  # shellcheck disable=SC2016
-  case "$cmd" in
-    *'$('*|*'`'*|*'<('*) return 1 ;;
-  esac
-
   # Commit-bearing commands keep their stricter token-aware boundary: only the
   # owning segment BEFORE the commit subcommand may provide global `git -C`.
   # For other git commands, the full leading form remains available for the
@@ -226,6 +332,22 @@ ai_target_dir_from_cmd() {
   else
     prefix="$cmd"
   fi
+
+  # Decline when a substitution sits in the text this resolver actually reads,
+  # because its expansion could be (or hide) the target directory. The check is
+  # scoped to `prefix` — everything before the `commit` verb — so a substituted
+  # MESSAGE body such as `-m "$(cat file)"`, which cannot change the checkout
+  # git acts on, no longer forfeits resolution. Scanning the whole command
+  # instead made `git -C <lane> commit -m "$(...)"` fall back to the payload
+  # cwd: HEAD was then compared against the SESSION's checkout, producing a
+  # confident, wrong "No commit landed" for a commit that had landed in the
+  # lane, and letting a commit aimed at a protected lane read the session's
+  # branch. Non-commit commands keep the whole-command scope (prefix == cmd).
+  # These are literal shell-syntax markers, not strings intended to expand.
+  # shellcheck disable=SC2016
+  case "$prefix" in
+    *'$('*|*'`'*|*'<('*) return 1 ;;
+  esac
 
   # Only a contiguous leading cd chain is resolved. If another command appears
   # between cd and git, declining the shape is deliberate: inferring across an
@@ -264,6 +386,15 @@ ai_target_dir_from_cmd() {
       while [[ "$git_segment" =~ $env_assignment_pattern ]]; do
         git_segment="${BASH_REMATCH[1]}"
       done
+      continue
+    fi
+    # A leading `VAR=value` with no `env` in front runs the same program. The
+    # commit lexer looks through these, so this must too: otherwise
+    # `FOO=1 git -C <dir> commit` keeps its verb but loses its target, falls back
+    # to the payload cwd, and the branch guard reads the wrong checkout.
+    if [[ "$git_segment" =~ $env_assignment_pattern ]]; then
+      git_segment="${BASH_REMATCH[1]}"
+      continue
     fi
     break
   done
@@ -445,6 +576,34 @@ ai_limit_lines() {
   fi
 }
 
+# Normalize a vendor `tool_response` blob into {exit_code, stdout, stderr, raw}
+# for bash-post-tool-use.sh, whose only use of exit_code is failure detection.
+#
+# Exactly two live entry paths reach the sole consumer, and only one of them has
+# an in-repo producer:
+#   - Codex execs bash-post-tool-use.sh directly (.codex/hooks/post-tool-use.sh)
+#     and hands it a raw vendor `tool_response` — external, unversioned, and not
+#     modelled anywhere in this repo.
+#   - Copilot's payload is normalized first by ai_copilot_normalized_payload
+#     (copilot-adapter.sh), the one dialect generated here and therefore the one
+#     that can be named exactly: {stdout, exit_code}.
+# Claude Code deliberately does not route through this aggregate at all; see the
+# bash-post-tool-use.sh header and the notes.claude entries on
+# hook/ai-codex-post-tool-use and hook/ai-copilot-post-tool-use in
+# harness.controls.json.
+#
+# Every other spelling accepted below is unattributed defensive compatibility.
+# Nothing in the tree records which external vendor emits which key, so do not
+# attribute one — a comment that guesses would make deletion look safe. And do
+# not retire an alias: scripts/ai-hooks/test.sh pins every accepted spelling, so
+# test coverage is evidence about this normalizer, never about a producer. This
+# is a boundary the repo does not own and the consumer is failure detection;
+# dropping a spelling trades a documentation gap for a silent detection gap the
+# moment a vendor reverts to an older shape.
+#
+# The exit-code list is grouped by shape rather than by vendor: six top-level
+# spellings, the same six under metadata.*, then the two generic fallbacks last
+# precisely because `status` and `code` are not exit-code-specific names.
 ai_response_json_from_payload() {
   local payload="$1"
   printf '%s' "$payload" | jq -c '
@@ -468,21 +627,27 @@ ai_response_json_from_payload() {
     (.tool_response | decode) as $r
     | {
         exit_code: ([
+          # Top-level spellings. Only the first has a known in-repo producer
+          # (ai_copilot_normalized_payload); the rest are unattributed.
           $r.exit_code,
           $r.exitCode,
           $r.return_code,
           $r.returncode,
           $r.exit_status,
           $r.statusCode,
+          # The same six, nested under metadata.
           $r.metadata.exit_code,
           $r.metadata.exitCode,
           $r.metadata.return_code,
           $r.metadata.returncode,
           $r.metadata.exit_status,
           $r.metadata.statusCode,
+          # Generic fallbacks, last: these names are not exit-code-specific, so
+          # any of the above wins over them.
           $r.status,
           $r.code
         ] | map(to_exit_code) | map(select(. != null)) | .[0] // null),
+        # `stdout` is the Copilot-adapter spelling; `out`/`output` are unattributed.
         stdout: ($r.stdout // $r.out // $r.output // "" | to_text),
         stderr: ($r.stderr // $r.err // "" | to_text),
         raw: (

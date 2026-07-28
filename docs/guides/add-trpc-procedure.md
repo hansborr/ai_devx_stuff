@@ -3,6 +3,9 @@
 Use this path when adding or changing a query or mutation in
 `packages/server/src/routers/`.
 
+The enforced shared-schema and explicit-output boundary is ADR-0004:
+`docs/adr/0004-trpc-shared-schema-boundary.md`.
+
 To find which router a new procedure belongs in — how the router surface is
 partitioned and which file owns which mount key — see
 `packages/server/src/routers/routers-MODULE.md`. This guide covers the
@@ -49,7 +52,9 @@ exercises every step below on real code:
    `packages/server/src/services/` or an existing `utils/*-mutations.ts`
    helper when the write is race-sensitive.
 7. Use the campaign and character auth helpers before persistence. Preserve the
-   existing `NOT_FOUND` semantics for ownership or access mismatches.
+   existing `NOT_FOUND` semantics for ownership or access mismatches; the
+   enforced masking boundary is ADR-0002:
+   `docs/adr/0002-character-not-found-semantics.md`.
 8. Broadcast socket events only after the committed write succeeds, and use the
    broadcast helper for the event family rather than direct `.emit(...)`.
 9. Return data through a mapper/helper when Prisma rows need date, JSON, or

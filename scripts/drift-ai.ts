@@ -2,8 +2,6 @@
 // Report-only AI drift sensors. The executable surface stays here; detector
 // and report internals live in focused modules under `scripts/drift-ai/`.
 
-import { pathToFileURL } from "node:url";
-
 import { runDriftAi } from "./drift-ai/runner.js";
 
 export { ALL_CHECKS, DEFAULT_CHECKS } from "./drift-ai/check-metadata.js";
@@ -142,13 +140,9 @@ export {
   DEFAULT_SCOPE_MODE,
   DRIFT_SCHEMA_VERSION,
 } from "./drift-ai/types.js";
+import { isCliEntrypoint } from "./lib/process-argv.js";
 
-function isCliEntrypoint(): boolean {
-  if (!process.argv[1]) return false;
-  return import.meta.url === pathToFileURL(process.argv[1]).href;
-}
-
-if (isCliEntrypoint()) {
+if (isCliEntrypoint(import.meta.url)) {
   const result = runDriftAi({ argv: process.argv.slice(2) });
   if (result.stdout) console.log(result.stdout);
   if (result.exitCode !== 0) process.exitCode = result.exitCode;

@@ -17,6 +17,7 @@ AI_POLICY_GIT_AMEND="Git commit amend is not allowed from agents because it rewr
 AI_POLICY_GIT_REBASE="Git rebase is not allowed from agents because it rewrites local history. Use merge or add follow-up commits; if a rebase is required, ask the user to run it."
 AI_POLICY_GIT_RESET="Dangerous git reset modes are not allowed from agents. Use path-scoped 'git restore --staged <path>' or ask the user to run the reset."
 AI_POLICY_GIT_WORKTREE_LOSS="Git worktree-discarding commands are not allowed from agents because they can destroy uncommitted work. Use non-destructive inspection commands, path-scoped staged-only restores, or ask the user to run the discard."
+AI_POLICY_GIT_STASH="Git stash mutations are not allowed from repository agents because stash ownership cannot be proven across agent work. Commit the work, inspect it with 'git diff' or 'git show HEAD:<path>', copy a file aside for an A/B comparison, or ask the user."
 AI_POLICY_GIT_HISTORY_REWRITE="Git history rewrite and direct ref manipulation are not allowed from agents. Add a follow-up commit or ask the user to run the rewrite."
 AI_POLICY_GIT_FORCE_PUSH="Git force-push, remote ref pruning, and remote branch deletion are not allowed from agents. Push normal feature-branch updates only, or ask the user to perform the remote mutation."
 AI_POLICY_GIT_PUSH_MAIN="Pushing to main or master is not allowed from agents. Push a feature branch or ask the user to push the protected branch."
@@ -26,6 +27,7 @@ AI_POLICY_GIT_CLEAN_FORCE="Git clean with force is not allowed from agents becau
 AI_POLICY_GH_REMOTE_MUTATION="GitHub remote mutations are not allowed from agents. Use read-only 'gh ... view/list/status' commands, or ask the user to perform the mutation."
 AI_POLICY_GH_AUTH="GitHub auth token output and auth reconfiguration are not allowed from agents. Use 'gh auth status' for read-only auth checks, or ask the user to manage authentication."
 AI_POLICY_ALLOW_PROTECTED_EDITS_ADVISORY="Protected edit override marker .allow-protected-edits is repo-wide. Use it only for deliberate protected-file maintenance, and remove it immediately after that work is done."
+AI_POLICY_GIT_UNVERIFIABLE_TARGET="This commit names a target checkout the hook cannot verify (for example 'git -C \"\$SOME_VAR\"', a '~' path, or a directory that is not a Git checkout), so the protected-branch guard cannot be judged against the checkout the commit would actually land in. Re-issue it with a literal path to the target checkout."
 AI_FLAKY_NOTE="Note: If this failure looks flaky (passes in isolation, fails under load), ensure you document it under docs/generated/observed_flaky_tests.md if you are unable to resolve it right now."
 
 # Generated classifier slices (AI_GENERATED_WRAPPED_BUN_SCRIPTS /
@@ -64,6 +66,7 @@ format:changed:check
 format:check
 harness:audit
 harness:check
+harness:registration:check
 lint
 lint:agent:local-rules
 lint:agent:local-rules:changed
@@ -88,6 +91,8 @@ lint:ratchet:trend
 lint:shell
 lint:suppressions
 lint:suppressions:changed
+lint:suppressions:ledger
+lint:suppressions:ledger:changed
 logs:audit
 module:index:check
 sensor:blob-size
@@ -142,7 +147,12 @@ EOF
 AI_WRAPPED_BUN_RE="^bun run ($(ai_wrapped_bun_script_regex))( --| [A-Za-z0-9._:/=-]+| --[A-Za-z0-9._=-]+)*$"
 AI_POLICY_CMD_START='(^[[:space:]]*|[;&|][[:space:]]*|(^|[;&|])[[:space:]]*([A-Za-z_][A-Za-z0-9_]*=)?[$][(][[:space:]]*|(^|[;&|])[[:space:]]*([A-Za-z_][A-Za-z0-9_]*=)?`[[:space:]]*|(^|[;&|])[[:space:]]*(then|do|else|elif)[[:space:]]+|(^|[;&|])[[:space:]]*([{]|!)[[:space:]]+)'
 AI_POLICY_CMD_END="($|[[:space:];|&'\"\`)])"
-AI_POLICY_ENV_PREFIX='env[[:space:]]+([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]+[[:space:]]+)+'
+# The assignment list is OPTIONAL: `env git commit` runs git just as surely as
+# `env FOO=1 git commit` does. Requiring at least one assignment meant a bare
+# `env` prefix hid every guarded verb from these scanners, so `env git -C <main>
+# commit` was never recognized as a commit and slipped past the protected-branch
+# guard. ai_target_dir_from_cmd already models bare `env` the same way.
+AI_POLICY_ENV_PREFIX='env[[:space:]]+([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]+[[:space:]]+)*'
 AI_POLICY_SHELL_PREFIX="(bash|sh)[[:space:]]+-[^[:space:]]*c[^[:space:]]*[[:space:]]+['\"]?"
 AI_POLICY_TIMEOUT_PREFIX='timeout[[:space:]]+(((-s|--signal|-k|--kill-after)(=|[[:space:]]+)[^[:space:];&|]+|--(foreground|preserve-status|verbose)|-[v])[[:space:]]+)*[0-9]+([.][0-9]+)?[smhd]?[[:space:]]+'
 AI_POLICY_COMMAND_PREFIX='command[[:space:]]+'
@@ -562,6 +572,34 @@ ai_policy_strip_staged_only_restores() {
   sed -E "s/${AI_POLICY_GIT_CMD}restore[^;&|]*[[:space:]](--staged|-[A-Za-z]*S[A-Za-z]*)[^;&|]*//g" <<< "$1"
 }
 
+# Remove only stash invocations whose first stash argument selects an explicit
+# allowlisted operation. The subcommand forms consume their ordinary argument
+# tail so a later argument named `pop`, for example, is not redispatched. Help
+# is intentionally narrower: only the exact -h/--help invocation is removed.
+# The argument-tail regex does not descend into $() or backtick substitutions; nested stash mutations there are outside the accidental-use threat model.
+# Any `git stash` command left in the residue is denied by the caller, which
+# makes bare, option-led, mutating, and unknown/future forms fail closed.
+ai_policy_strip_allowed_git_stash() {
+  local normalized
+
+  # Normalize the option-bearing git prefix first so the strip expressions'
+  # backreferences cannot be shifted by captures inside AI_POLICY_GIT_CMD.
+  normalized=$(sed -E "s/${AI_POLICY_GIT_CMD}/git /g" <<< "$1")
+  sed -E \
+    -e "s/git[[:space:]]+stash[[:space:]]+(list|show|create)([[:space:]]+[^;&|]*)?([;&|]|$)/\\3/g" \
+    -e "s/git[[:space:]]+stash[[:space:]]+(list|show|create)[[:space:]]*['\"\`)][[:space:]]*([;&|]|$)/\\2/g" \
+    -e "s/git[[:space:]]+stash[[:space:]]+(-h|--help)[[:space:]]*([;&|]|$)/\\2/g" \
+    -e "s/git[[:space:]]+stash[[:space:]]+(-h|--help)[[:space:]]*['\"\`)][[:space:]]*([;&|]|$)/\\2/g" \
+    <<< "$normalized"
+}
+
+ai_policy_has_disallowed_git_stash() {
+  local residue
+
+  residue=$(ai_policy_strip_allowed_git_stash "$1")
+  ai_policy_has_command "$residue" "${AI_POLICY_GIT_CMD}stash$AI_POLICY_CMD_END"
+}
+
 ai_policy_has_git_worktree_loss() {
   local cmd="$1"
   local restore_residue
@@ -574,7 +612,6 @@ ai_policy_has_git_worktree_loss() {
   restore_residue=$(ai_policy_strip_staged_only_restores "$cmd")
   ai_policy_has_command "$restore_residue" "${AI_POLICY_GIT_CMD}restore([^;&|]*[[:space:]])?(--[[:space:]]+)?(\.|\./[^[:space:];|&'\"]*)$AI_POLICY_CMD_END" && return 0
 
-  ai_policy_has_command "$cmd" "${AI_POLICY_GIT_CMD}stash[[:space:]]+(drop|clear)$AI_POLICY_CMD_END" && return 0
   return 1
 }
 
@@ -1087,6 +1124,13 @@ ai_policy_violation_reason() {
     return 0
   fi
 
+  # Repository-wide by design: stash refs are shared by all linked worktrees,
+  # and neither the primary checkout nor a resolved target proves ownership.
+  if ai_policy_has_disallowed_git_stash "$cmd"; then
+    printf '%s' "$AI_POLICY_GIT_STASH"
+    return 0
+  fi
+
   if ai_policy_has_command "$cmd" "${AI_POLICY_GIT_CMD}(filter-branch|filter-repo|replace|update-ref)$AI_POLICY_CMD_END" \
     || ai_policy_has_command "$cmd" "${AI_POLICY_GIT_CMD}reflog[[:space:]]+expire[^;&|]*--expire=now[^;&|]*--all"; then
     printf '%s' "$AI_POLICY_GIT_HISTORY_REWRITE"
@@ -1212,8 +1256,34 @@ ai_is_git_commit_cmd() {
   [[ "$cmd" =~ (^|[[:space:];|&])git[[:space:]]+${AI_POLICY_GIT_GLOBAL_OPTS}commit($|[[:space:]]) ]]
 }
 
+# Raw text test: it says nothing about whether the command is a commit at all.
+# Callers MUST gate it on ai_is_real_git_commit_cmd first, or a grep/printf whose
+# text merely contains `git commit --dry-run` is handed a commit verdict.
 ai_is_git_commit_dry_run() {
   [[ "$1" =~ (^|[[:space:]])--dry-run($|[[:space:]]) ]]
+}
+
+# Fail-closed companion to the branch guards. A commit that names a checkout the
+# hook cannot resolve must not be judged against the fallback root, because that
+# root is the hook's own checkout and is usually on a feature branch — which is
+# exactly how `LANE=/main-checkout; git -C "$LANE" commit` slipped past the
+# protected-branch guard. Deliberately keyed on the WIDE routing classifier:
+# refusing an unverifiable target is cheap, and missing one forfeits the guard.
+# Call this AFTER ai_policy_violation_reason at every site so genuine hard policy
+# (amend, hook bypass, protected files) keeps its own specific reason.
+ai_unverifiable_commit_target_reason() {
+  local cmd="$1"
+  local payload_cwd="$2"
+  local fallback="$3"
+
+  # Cheapest discriminator first: ai_named_target_is_unresolvable is pure string
+  # work that returns immediately when the command names no target at all, which
+  # is the common case. Only then pay for the classifier's heredoc strip (awk)
+  # and, at most once, a `git rev-parse`. This runs before the wrapper takes its
+  # locks, so keeping it cheap matters.
+  ai_named_target_is_unresolvable "$cmd" "$payload_cwd" "$fallback" || return 1
+  ai_is_git_commit_cmd "$cmd" || return 1
+  printf '%s' "$AI_POLICY_GIT_UNVERIFIABLE_TARGET"
 }
 
 ai_has_force_verify_prefix() {

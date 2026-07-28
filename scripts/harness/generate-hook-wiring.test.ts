@@ -5,10 +5,44 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
-  renderHookWiringOutputsFromManifest,
+  renderHookWiringOutputsFromManifest as renderTypedHookWiringOutputs,
   replaceClaudeHooksInSettings,
   writeHookWiringOutputs,
 } from "./generate-hook-wiring.js";
+import { parseHarnessManifest } from "./harness-manifest-schema.js";
+
+interface ControlFixture {
+  readonly controls: readonly Record<string, unknown>[];
+}
+
+/**
+ * The generator consumes a parsed `HarnessManifest`, but every fixture below
+ * is about hook wiring only. This wrapper fills in the top-level arrays and
+ * the doc vocabulary each non-lint control carries, then parses through the
+ * real contract — so a fixture that could never exist in the manifest cannot
+ * quietly pass here either.
+ */
+function renderHookWiringOutputsFromManifest(
+  fixture: ControlFixture,
+  claudeSettingsText: string,
+): ReturnType<typeof renderTypedHookWiringOutputs> {
+  return renderTypedHookWiringOutputs(
+    parseHarnessManifest({
+      scriptParityExemptions: [],
+      ciGateControlIds: [],
+      controls: fixture.controls.map((control) => ({
+        category: "maintainability",
+        principle: "Fixture hook control.",
+        pairedGuide: "none",
+        repairKind: "manual",
+        source: "scripts/ai-hooks/fixture.sh",
+        invocation: "bun run harness:wiring",
+        ...control,
+      })),
+    }),
+    claudeSettingsText,
+  );
+}
 
 const BASE_SETTINGS = `{
   "env": {

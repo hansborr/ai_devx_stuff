@@ -1,6 +1,6 @@
 # Phase 3 review follow-ups
 
-Status: Open leaves (small); item 1 landed 2026-07-19 (wave-1 ready-2026-07 drain)
+Status: Closed — items 1–3 landed 2026-07-19 (`ad5c8e77`, `6e279c71`); item 4 resolved 2026-07-16
 Created: 2026-07-16
 Source: 4-model pre-land review of `feat/sd-p3-integration` (grok/codex/opus/fable)
 and the confirm-then-fix pass. Context commits: 4a99db39..9e228ffc.
@@ -19,7 +19,7 @@ Decide whether they should escalate too, or introduce a shared trigger
 group in `scripts/path-policy/path-policy.ts` instead of per-gate
 duplication.
 
-## 2. Generator-import freshness-trigger consistency test
+## 2. Generator-import freshness-trigger consistency test — DONE 2026-07-19 (`ad5c8e77`)
 
 Nothing enforces that every module imported by
 `scripts/harness/generate-verify-steps.ts` (or the other generators in the
@@ -28,7 +28,7 @@ freshness registry) appears in that generator's trigger list in
 omission by hand. A small consistency test (imports ⊆ triggers, or an
 explicit exempt list) would prevent recurrence.
 
-## 3. Porting-knob parity scan roots
+## 3. Porting-knob parity scan roots — DONE 2026-07-19 (`6e279c71`)
 
 `scripts/harness/porting-knob-parity.ts` scans only
 `PORTING_SCAN_ROOTS = ["scripts"]`. All current `porting-knob:` markers

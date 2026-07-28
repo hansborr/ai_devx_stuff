@@ -38,7 +38,7 @@ recreate the "did it run?" ambiguity the quiet wrappers exist to prevent.
 | forwarded `post-commit:` truth-up lines | `git-commit-quiet.sh:261` | losing baseline advisories | commit-quiet tests |
 | `tidy-edited-file: <path> skipped (<reason>)` | `tidy-edited-file.sh:306` | retrying a deliberate skip | `test-tidy.sh` |
 | `tidy-edited-file: <path> tidied` (only when the hook changed the file) | `tidy-edited-file.sh:250` | editing from a stale in-memory copy after the hook reformatted the file | `test-tidy.sh` |
-| `nothing to verify` + staging guidance | `verify.sh:130-132` | re-running a no-op | **not pinned — gap, see follow-ups** |
+| `nothing to verify` + staging guidance | `verify.sh:130-132` | re-running a no-op | repair actions pinned; literal prose intentionally not treated as contract |
 
 ### (c) Chatter — removable, deferred to a behavior leaf
 
@@ -66,10 +66,12 @@ per-slot success lines (only the final aggregate banner).
 The carve-out already exists in practice; this pass named it as policy in
 `docs/ai-harness.md` and pinned the inventory. Worth filing:
 
-1. Small leaf: drop the verify per-slot `running …` progress lines (item c1)
-   and sync test expectations — the one real chatter stream on the agent
-   channel.
-2. Test gap: pin `verify.sh`'s `nothing to verify` guidance (the only
-   unpinned backpressure line) so a cleanup cannot silently remove it.
-3. Drive-by candidate: delete the stderr-only prisma-generate OK line (c2)
-   next time that hook changes.
+1. Adversarial review rejected the broad verify heartbeat design. Keep useful
+   serial current-slot progress; optionally suppress only the rapid parallel
+   launch burst. See the decision record in
+   [`../backlog/ai-harness-audit-2026-07-21/20-verify-output-signal.md`](../backlog/ai-harness-audit-2026-07-21/20-verify-output-signal.md).
+2. Adversarial review rejected a custom Codex post-edit aggregator but retained
+   the underlying noise as an active P3/S configuration cleanup: make status
+   strings optional/truthful in generated wiring and delete the stderr-only
+   Prisma OK line in the same leaf. See
+   [`../backlog/ai-harness-audit-2026-07-21/14-codex-edit-status-aggregation.md`](../backlog/ai-harness-audit-2026-07-21/14-codex-edit-status-aggregation.md).

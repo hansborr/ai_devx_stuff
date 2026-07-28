@@ -3,6 +3,8 @@
 // pass-through over the target's own knip verdict; source clone detection remains
 // the separate jscpd-backed `duplicates` check.
 
+import { errorMessage } from "../lib/error-message.js";
+import { isRecord } from "../lib/records.js";
 import { changedFilesFromScope, sortFindingsByFileMessage, toPosix } from "./path-util.js";
 import type { DetectorScope } from "./scope.js";
 import type { DriftFinding, FindingProvenance } from "./types.js";
@@ -34,7 +36,7 @@ export function parseKnipDuplicates(jsonText: string): ParseKnipDuplicatesResult
   } catch (err) {
     return { ok: false, error: errorMessage(err) };
   }
-  if (!isObject(raw)) return { ok: false, error: "expected a JSON object with an 'issues' array" };
+  if (!isRecord(raw)) return { ok: false, error: "expected a JSON object with an 'issues' array" };
   const issues = raw["issues"];
   if (!Array.isArray(issues)) return { ok: true, groups: [] };
   const groups: KnipDuplicateExportGroup[] = [];
@@ -43,7 +45,7 @@ export function parseKnipDuplicates(jsonText: string): ParseKnipDuplicatesResult
 }
 
 function groupsFromRow(row: unknown): KnipDuplicateExportGroup[] {
-  if (!isObject(row)) return [];
+  if (!isRecord(row)) return [];
   const file = row["file"];
   const duplicates = row["duplicates"];
   if (typeof file !== "string" || file.length === 0 || !Array.isArray(duplicates)) return [];
@@ -63,7 +65,7 @@ function groupFromItems(file: string, group: unknown): KnipDuplicateExportGroup 
 }
 
 function symbolFromItem(item: unknown): readonly KnipDuplicateExportSymbol[] {
-  if (!isObject(item)) return [];
+  if (!isRecord(item)) return [];
   const name = item["name"];
   if (typeof name !== "string" || name.length === 0) return [];
   return [{ name, ...locationFromItem(item) }];
@@ -140,12 +142,4 @@ function fullLocation(
 
 function positiveIntegerOrUndefined(value: unknown): number | undefined {
   return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : undefined;
-}
-
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function errorMessage(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
 }

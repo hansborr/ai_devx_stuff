@@ -17,7 +17,7 @@ import {
   parseBaselineWithRuleSourceDrift,
 } from "@musi/lint-ratchet/kernel/rule-source-drift.js";
 
-import { buildEnvelopeFromComparison, loadRuleDocsById, validateEnvelope } from "./diagnostics.js";
+import { buildEnvelopeFromComparison, loadRuleDocsById } from "./diagnostics.js";
 import { musiLintRatchetBinding } from "./engine-binding.js";
 import { lintRatchets } from "./lint-ratchet-config.js";
 import { emitHarnessDiagnosticsEnvelope } from "./output.js";
@@ -65,7 +65,6 @@ export async function runDefault(options: LintRatchetDefaultModeOptions): Promis
     ruleDocsById,
     ratchets: lintRatchets,
   });
-  validateEnvelope(envelope);
   emitHarnessDiagnosticsEnvelope(envelope);
 
   const changedCount = comparison.regressions.length + comparison.improvements.length;

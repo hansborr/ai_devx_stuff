@@ -20,6 +20,9 @@
 # smoke-subjects: scripts/lib/eslint-main-partitions.sh
 # smoke-subjects: scripts/lib/gate-env.sh
 # smoke-subjects: scripts/lib/lint-dist-preflight.sh
+# smoke-subjects: scripts/lib/records.ts
+# smoke-subjects: scripts/path-policy/path-policy-smoke-subjects-data.ts
+# smoke-subjects: scripts/path-policy/path-policy-smoke-subjects.ts
 # Pure-shell smoke tests for scripts/lint-changed.sh selection behavior.
 
 set -euo pipefail
@@ -52,6 +55,7 @@ PATH_POLICY_SMOKE_SUBJECTS="$SCRIPT_DIR/../path-policy/path-policy-smoke-subject
 PATH_POLICY_SMOKE_SUBJECTS_DATA="$SCRIPT_DIR/../path-policy/path-policy-smoke-subjects-data.ts"
 HARNESS_PATHS="$SCRIPT_DIR/../harness/harness-paths.ts"
 HARNESS_MANIFEST="$SCRIPT_DIR/../harness/harness-manifest.ts"
+RECORDS="$SCRIPT_DIR/../lib/records.ts"
 LINT_RATCHET_PATHS="$SCRIPT_DIR/../lint-ratchet/paths.ts"
 CONFIG_SURFACES="$REPO_ROOT/eslint-config/config-surfaces.js"
 CONFIG_SURFACE_MANIFEST="$REPO_ROOT/eslint-config/config-surface-manifest.json"
@@ -136,6 +140,9 @@ new_repo() {
     "$repo/scripts/path-policy/path-policy-smoke-subjects-data.ts"
   cp "$HARNESS_PATHS" "$repo/scripts/harness/harness-paths.ts"
   cp "$HARNESS_MANIFEST" "$repo/scripts/harness/harness-manifest.ts"
+  # harness-manifest.ts narrows the manifest JSON through the shared record
+  # guards in scripts/lib/records.ts, so the sandbox closure needs that leaf too.
+  cp "$RECORDS" "$repo/scripts/lib/records.ts"
   cp "$LINT_RATCHET_PATHS" "$repo/scripts/lint-ratchet/paths.ts"
   # @musi/lint-ratchet engine moved to the package (leaf 02 S3); the copied
   # adapter/generators import it, so resolve it via a scoped node_modules
@@ -271,7 +278,7 @@ eslint_full_partition_log() {
     "$(eslint_cache_log_args "$repo" remainder)"
 }
 
-assert_stage_or_stash_failure() {
+assert_stage_or_inspect_failure() {
   local output="$1"
   local file="$2"
   grep -qF 'source-relevant unstaged or untracked changes' <<< "$output" \
@@ -280,8 +287,11 @@ assert_stage_or_stash_failure() {
     || fail "diagnostic should name offending file $file: $output"
   grep -qF 'stage' <<< "$output" \
     || fail "diagnostic should tell the user to stage the file: $output"
-  grep -qF 'stash' <<< "$output" \
-    || fail "diagnostic should tell the user to stash unrelated work: $output"
+  grep -qF 'git diff or git show HEAD:<path>' <<< "$output" \
+    || fail "diagnostic should tell the user how to inspect unrelated work: $output"
+  if grep -qiF stash <<< "$output"; then
+    fail "diagnostic must not tell the user to stash unrelated work: $output"
+  fi
 }
 
 bash -n "$LINT_CHANGED" || fail "lint-changed.sh fails bash -n"
@@ -724,7 +734,7 @@ output="$(run_lint_changed "$repo" 2>&1)"
 exit_code=$?
 set -e
 [ "$exit_code" -ne 0 ] || fail "unstaged source change should fail"
-assert_stage_or_stash_failure "$output" "packages/server/src/app.ts"
+assert_stage_or_inspect_failure "$output" "packages/server/src/app.ts"
 [ ! -s "$repo/eslint.log" ] \
   || fail "unstaged source change should fail before invoking eslint: $(cat "$repo/eslint.log")"
 ok "unstaged tracked source changes fail fast"
@@ -737,7 +747,7 @@ output="$(run_lint_changed "$repo" 2>&1)"
 exit_code=$?
 set -e
 [ "$exit_code" -ne 0 ] || fail "untracked source file should fail"
-assert_stage_or_stash_failure "$output" "packages/server/src/new-file.ts"
+assert_stage_or_inspect_failure "$output" "packages/server/src/new-file.ts"
 [ ! -s "$repo/eslint.log" ] \
   || fail "untracked source file should fail before invoking eslint: $(cat "$repo/eslint.log")"
 ok "untracked source files fail fast"
@@ -752,7 +762,7 @@ output="$(run_lint_changed "$repo" 2>&1)"
 exit_code=$?
 set -e
 [ "$exit_code" -ne 0 ] || fail "partially staged source change should fail"
-assert_stage_or_stash_failure "$output" "packages/server/src/app.ts"
+assert_stage_or_inspect_failure "$output" "packages/server/src/app.ts"
 [ ! -s "$repo/eslint.log" ] \
   || fail "partially staged source change should fail before invoking eslint: $(cat "$repo/eslint.log")"
 ok "partially staged source changes fail fast"
@@ -766,7 +776,7 @@ output="$(run_lint_changed "$repo" 2>&1)"
 exit_code=$?
 set -e
 [ "$exit_code" -ne 0 ] || fail "staged rename with unstaged edit should fail"
-assert_stage_or_stash_failure "$output" "packages/server/src/renamed.ts"
+assert_stage_or_inspect_failure "$output" "packages/server/src/renamed.ts"
 [ ! -s "$repo/eslint.log" ] \
   || fail "staged rename with unstaged edit should fail before invoking eslint: $(cat "$repo/eslint.log")"
 ok "staged rename plus unstaged source edit fails fast"
@@ -877,6 +887,9 @@ cp "$PATH_POLICY_SMOKE_SUBJECTS_DATA" \
   "$repo/scripts/path-policy/path-policy-smoke-subjects-data.ts"
 cp "$HARNESS_PATHS" "$repo/scripts/harness/harness-paths.ts"
 cp "$HARNESS_MANIFEST" "$repo/scripts/harness/harness-manifest.ts"
+# harness-manifest.ts narrows the manifest JSON through the shared record
+# guards in scripts/lib/records.ts, so the sandbox closure needs that leaf too.
+cp "$RECORDS" "$repo/scripts/lib/records.ts"
 cp "$LINT_RATCHET_PATHS" "$repo/scripts/lint-ratchet/paths.ts"
 # @musi/lint-ratchet engine moved to the package (leaf 02 S3); the copied
 # adapter/generators import it, so resolve it via a scoped node_modules
@@ -917,7 +930,7 @@ touch "$repo/packages/shared/dist/rules/attack-damage.d.ts"
 touch "$repo/packages/shared/dist/schemas/auth.d.ts"
 touch "$repo/packages/shared/dist/test/parse-helpers.d.ts"
 touch "$repo/packages/server/dist/routers/app-router.d.ts"
-git -C "$repo" add scripts/eslint-main.sh scripts/lint-changed.sh scripts/lint-shell.sh scripts/lib/parallel-runner.sh scripts/lint-config-sensors.sh scripts/lint-import-cycles.sh scripts/lib/eslint-main-cache.sh scripts/lib/eslint-main-partitions.sh scripts/lib/verify-metadata.sh scripts/lib/changed-base.sh scripts/lib/changed-lintable-files.sh scripts/lib/lint-dist-preflight.sh scripts/lib/gate-env.sh scripts/path-policy/path-policy-query.ts scripts/path-policy/path-policy-query-core.ts scripts/path-policy/path-policy.ts scripts/path-policy/path-policy-smoke-subjects.ts scripts/path-policy/path-policy-smoke-subjects-data.ts scripts/harness/harness-paths.ts scripts/harness/harness-manifest.ts scripts/lint-ratchet/paths.ts eslint-config/config-surfaces.js eslint-config/config-surface-manifest.json eslint-config/shared-policy.js eslint-config/max-lines-exceptions-codec.js eslint-config/max-lines-exceptions.baseline.json packages/shared/dist/constants.d.ts packages/shared/dist/dice/dice-roller.d.ts packages/shared/dist/map/drawing.d.ts packages/shared/dist/rules/attack-damage.d.ts packages/shared/dist/schemas/auth.d.ts packages/shared/dist/test/parse-helpers.d.ts packages/server/dist/routers/app-router.d.ts
+git -C "$repo" add scripts/eslint-main.sh scripts/lint-changed.sh scripts/lint-shell.sh scripts/lib/parallel-runner.sh scripts/lint-config-sensors.sh scripts/lint-import-cycles.sh scripts/lib/eslint-main-cache.sh scripts/lib/eslint-main-partitions.sh scripts/lib/verify-metadata.sh scripts/lib/changed-base.sh scripts/lib/changed-lintable-files.sh scripts/lib/lint-dist-preflight.sh scripts/lib/gate-env.sh scripts/path-policy/path-policy-query.ts scripts/path-policy/path-policy-query-core.ts scripts/path-policy/path-policy.ts scripts/path-policy/path-policy-smoke-subjects.ts scripts/path-policy/path-policy-smoke-subjects-data.ts scripts/harness/harness-paths.ts scripts/harness/harness-manifest.ts scripts/lib/records.ts scripts/lint-ratchet/paths.ts eslint-config/config-surfaces.js eslint-config/config-surface-manifest.json eslint-config/shared-policy.js eslint-config/max-lines-exceptions-codec.js eslint-config/max-lines-exceptions.baseline.json packages/shared/dist/constants.d.ts packages/shared/dist/dice/dice-roller.d.ts packages/shared/dist/map/drawing.d.ts packages/shared/dist/rules/attack-damage.d.ts packages/shared/dist/schemas/auth.d.ts packages/shared/dist/test/parse-helpers.d.ts packages/server/dist/routers/app-router.d.ts
 : > "$repo/eslint.log"
 output="$(run_lint_changed "$repo" 2>&1)" || fail "missing base should fall back to full lint: $output"
 grep -qF "neither 'main' nor 'origin/main' exists" <<< "$output" \

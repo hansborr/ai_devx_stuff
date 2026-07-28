@@ -22,6 +22,49 @@ export const GATED_DELEGATES = new Set([
 // outside the current concurrency gate; this checker mirrors the restricted
 // update/upsert surface in packages/server/src/utils/prisma-types.ts.
 export const GATED_MUTATORS = new Set(["update", "updateMany", "updateManyAndReturn", "upsert"]);
+
+// `<parent delegate>.<relation field>` -> the gated delegate a nested write
+// through it reaches. Prisma reaches every gated table as a relation of a
+// non-gated one, and a nested `{ stats: { update: ... } }` payload never
+// touches the gated delegate, so neither the branded types in prisma-types.ts
+// nor the direct-call check above can see it.
+//
+// Not a policy list: it is every relation field in schema.prisma whose target
+// is one of the five gated models, qualified by the model that declares it.
+// concurrency-guard-drift.test.ts re-derives it from the schema, so a new
+// relation to a gated model fails the guard rather than silently widening the
+// escape. Qualifying by the parent is what makes the match sound: relation
+// names collide across models (`classes` is a CharacterClass[] relation on
+// Character and a Json scalar on Spell).
+export const GATED_RELATION_FIELDS = new Map<string, string>([
+  ["campaign.encounters", "encounter"],
+  ["character.classes", "characterClass"],
+  ["character.encounterParticipants", "encounterParticipant"],
+  ["character.spellSlots", "characterSpellSlot"],
+  ["character.stats", "characterStats"],
+  ["class.characterClasses", "characterClass"],
+  ["combatLog.encounter", "encounter"],
+  ["combatLog.participant", "encounterParticipant"],
+  ["encounter.participants", "encounterParticipant"],
+  ["encounterParticipant.encounter", "encounter"],
+  ["map.encounters", "encounter"],
+  ["mapToken.encounterParticipant", "encounterParticipant"],
+  ["monster.participants", "encounterParticipant"],
+  ["subclass.characterClasses", "characterClass"],
+]);
+
+// Payload keys that wrap a nested write without changing which model the
+// surrounding object describes. Mirrors PAYLOAD_ENVELOPE_KEYS in
+// eslint-rules/concurrency-guard.js.
+export const PAYLOAD_ENVELOPE_KEYS = new Set([
+  "create",
+  "data",
+  "update",
+  "updateMany",
+  "updateManyAndReturn",
+  "upsert",
+  "where",
+]);
 export const HANDLED_HELPER_MUTATOR: HandledHelperMutator = "handled-helper-mutator";
 
 export const PATTERN_A_BY_FILE = new Map<string, PatternAConfig>([

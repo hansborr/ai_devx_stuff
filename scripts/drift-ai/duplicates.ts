@@ -2,6 +2,8 @@
 // finding builder. The subprocess runner and check-integration entrypoint live
 // in duplicates-runner.ts; executable resolution lives in jscpd-bin.ts.
 
+import { errorMessage } from "../lib/error-message.js";
+import { isRecord } from "../lib/records.js";
 import { matchesAnyGlob } from "./config-match.js";
 import { configuredRootFor, isSourceLike, toPosix } from "./path-util.js";
 import type { ChangedFile, DriftFinding } from "./types.js";
@@ -52,7 +54,7 @@ export function parseDuplicatesReport(jsonText: string): ParseDuplicatesReportRe
   } catch (err) {
     return { ok: false, error: errorMessage(err) };
   }
-  if (!isObject(raw)) return { ok: false, error: "expected JSON object root" };
+  if (!isRecord(raw)) return { ok: false, error: "expected JSON object root" };
   if (!("duplicates" in raw)) {
     return { ok: false, error: "expected required 'duplicates' array property" };
   }
@@ -122,7 +124,7 @@ function sameFileDuplicateMessage(secondary: JscpdFileEntry, lines: number): str
 }
 
 function parseClone(value: unknown): JscpdClone | undefined {
-  if (!isObject(value)) return undefined;
+  if (!isRecord(value)) return undefined;
   const lines = typeof value["lines"] === "number" ? value["lines"] : undefined;
   const firstFile = parseFileEntry(value["firstFile"]);
   const secondFile = parseFileEntry(value["secondFile"]);
@@ -134,20 +136,12 @@ function parseClone(value: unknown): JscpdClone | undefined {
 }
 
 function parseFileEntry(value: unknown): JscpdFileEntry | undefined {
-  if (!isObject(value)) return undefined;
+  if (!isRecord(value)) return undefined;
   const name = typeof value["name"] === "string" ? value["name"] : undefined;
   const start = typeof value["start"] === "number" ? value["start"] : undefined;
   const end = typeof value["end"] === "number" ? value["end"] : undefined;
   if (name === undefined || start === undefined || end === undefined) return undefined;
   return { name, start, end };
-}
-
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function errorMessage(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
 }
 
 // --- Scope mapping ----------------------------------------------------------

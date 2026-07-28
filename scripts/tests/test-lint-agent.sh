@@ -3,10 +3,12 @@
 # smoke-subjects: scripts/lint-agent.ts
 # smoke-subjects: scripts/lint-agent-envelope.ts
 # smoke-subjects: scripts/lint-agent-guidance.ts
+# smoke-subjects: scripts/harness/harness-diagnostics-output.ts
 # smoke-subjects: scripts/lib/atomic-write.ts
 # smoke-subjects: scripts/lib/eslint-json.ts
 # smoke-subjects: scripts/lib/lint-rule-docs.ts
 # smoke-subjects: scripts/lib/eslint-main-cache.sh
+# smoke-subjects: scripts/lib/records.ts
 # smoke-subjects: scripts/tests/test-lint-agent.sh
 # smoke-subjects: packages/shared/src/schemas/harness-diagnostics.ts
 # smoke-subjects: eslint.config.js
@@ -14,6 +16,8 @@
 # smoke-subjects: eslint-rules/
 # smoke-subjects: package.json
 # smoke-subjects: tsconfig.scripts.json
+# smoke-subjects: scripts/lint-agent-fix-text.ts
+# smoke-subjects: scripts/lint-ratchet/local-rule-fix-text.ts
 # Smoke test for scripts/lint-agent.ts.
 #
 # Contract:
@@ -38,6 +42,7 @@ build_fixture() {
   local fixture_dir=$1
   mkdir -p "$fixture_dir/scripts"
   mkdir -p "$fixture_dir/scripts/lib"
+  mkdir -p "$fixture_dir/scripts/harness"
   mkdir -p "$fixture_dir/scripts/lint-ratchet"
   mkdir -p "$fixture_dir/packages/shared/src/schemas"
   cp scripts/lint-agent.ts "$fixture_dir/scripts/lint-agent.ts"
@@ -50,7 +55,14 @@ build_fixture() {
   # Bun resolves the package there — only the shim itself needs a copy.
   cp scripts/lib/eslint-json.ts "$fixture_dir/scripts/lib/eslint-json.ts"
   cp scripts/lib/atomic-write.ts "$fixture_dir/scripts/lib/atomic-write.ts"
+  # lint-agent routes its envelope through the shared emission kernel.
+  cp scripts/harness/harness-diagnostics-output.ts \
+    "$fixture_dir/scripts/harness/harness-diagnostics-output.ts"
   cp scripts/lib/lint-rule-docs.ts "$fixture_dir/scripts/lib/lint-rule-docs.ts"
+  # lint-rule-docs.ts and local-rule-fix-text.ts narrow rule metadata through
+  # the shared record guards in scripts/lib/records.ts, so the sandbox closure
+  # needs that leaf too.
+  cp scripts/lib/records.ts "$fixture_dir/scripts/lib/records.ts"
   cp scripts/lib/eslint-main-cache.sh "$fixture_dir/scripts/lib/eslint-main-cache.sh"
   cp scripts/lint-ratchet/local-rule-fix-text.ts \
     "$fixture_dir/scripts/lint-ratchet/local-rule-fix-text.ts"

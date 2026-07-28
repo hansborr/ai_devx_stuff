@@ -1,5 +1,5 @@
 // @ts-check
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { makeRuleTester } from "./rule-tester.js";
 import rule from "./trpc-shared-output-schema.js";
@@ -7,6 +7,10 @@ import rule from "./trpc-shared-output-schema.js";
 const ruleTester = makeRuleTester();
 
 describe("trpc-shared-output-schema", () => {
+  it("names the shared-schema boundary decision", () => {
+    expect(rule.meta.messages.needsSharedOutput).toContain("ADR-0004");
+  });
+
   it("runs", () => {
     const expectedMessage = /bun run codemod:trpc-shared-output -- <file>/u;
 

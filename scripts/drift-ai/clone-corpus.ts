@@ -12,6 +12,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { errorMessage } from "../lib/error-message.js";
 import { isRecord } from "./config-readers.js";
 import { DriftAiError } from "./errors.js";
 import {
@@ -110,7 +111,7 @@ export function loadCloneCorpusLabels(corpusDir = DEFAULT_CLONE_CORPUS_DIR): Clo
     raw = JSON.parse(readFileSync(labelsPath, "utf8"));
   } catch (err) {
     throw new DriftAiError(
-      `clone-corpus labels '${labelsPath}' could not be read: ${message(err)}`,
+      `clone-corpus labels '${labelsPath}' could not be read: ${errorMessage(err)}`,
     );
   }
   if (!isRecord(raw)) throw new DriftAiError("clone-corpus labels must be a JSON object.");
@@ -331,8 +332,4 @@ function readPair(raw: unknown, keyPath: string): CloneCorpusPairLabel {
     category: readString(raw["category"], `${keyPath}.category`),
     ...(note === undefined ? {} : { note: readString(note, `${keyPath}.note`) }),
   };
-}
-
-function message(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
 }

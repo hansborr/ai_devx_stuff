@@ -1,6 +1,11 @@
 # ai-hooks suite is not safe to run concurrently with itself
 
-Status: Ready — low urgency; decide scope before any parallel-suite use.
+Status: Implemented 2026-07-25 on `fix/ai-hooks-repo-root-consistency` (`1fe5b424`)
+— owner ruling picked option 2 (private/overridable marker root), scoped as a
+`REPO_ROOT` consistency fix rather than the bespoke marker-path env var this
+note originally proposed. Merged into the 2026-07-25 wave-1 integration
+(`fec03ab7`) and archived as `F7` in
+`../finished_work/ready-2026-07-drain.md`; the ready-queue row is closed.
 Date: 2026-07-19
 Source: parallel-instance determinism runs while draining the
 commit-queue-test-load-flake note (landed via fix/commit-queue-test-flake;
@@ -19,51 +24,54 @@ commit-queue tests ran —
   [advisory=protected-files: Repo-wide]`
 - `FAIL: expected [] to contain [.allow-protected-edits]`
 
-Mechanism: `policy_only_probe` (scripts/ai-hooks/test.sh:99–117) rm's,
-conditionally touches, then rm's `$REPO_ROOT/.allow-protected-edits` —
-a REPO-ROOT path shared by every instance, unlike the per-suite mktemp
-`$TMP_ROOT` everything else uses — and test.sh:1612–1632 touches/rm's
-the same path directly. The marker-DEPENDENT assertions race
-bidirectionally: the probe assertions at test.sh:1597–1610 (first FAIL
-above is :1609 — a peer rm'd the marker between the probe's touch and
-its policy evaluation, so the expected downgrade-to-advisory came back
-as a block; the marker-absent probe races the other way) and the
-direct-marker assertions at test.sh:1614–1631 (second FAIL is :1622 —
-`ai_policy_bash_protected_file_advisory` gates on marker existence, so
-a peer's rm empties the context). Note the marker-touching-command
-advisories at test.sh:456–467 do NOT race: `ai_policy_advisory_context`
-returns the static `AI_POLICY_ALLOW_PROTECTED_EDITS_ADVISORY` string
-for those regardless of marker state (policy.sh:978–983). Each suite
-instance is internally correct; only cross-instance interleaving
-breaks.
+Mechanism: `policy_only_probe` rm'd, conditionally touched, then rm'd
+`$REPO_ROOT/.allow-protected-edits` — a REPO-ROOT path shared by every
+instance, unlike the per-suite mktemp `$TMP_ROOT` everything else uses —
+and a second block touched/rm'd the same path directly. The
+marker-DEPENDENT assertions raced bidirectionally: a peer rm'ing the
+marker between the probe's touch and its policy evaluation turned the
+expected downgrade-to-advisory back into a block, and the marker-absent
+probe raced the other way. The marker-touching-command advisories did
+NOT race: `ai_policy_advisory_context` returns the static
+`AI_POLICY_ALLOW_PROTECTED_EDITS_ADVISORY` string regardless of marker
+state. Each suite instance was internally correct; only cross-instance
+interleaving broke. A second, quieter bug: the fixtures deleted a
+maintainer's real `.allow-protected-edits` whenever the suite ran.
 
-Impact today is low: no repo gate runs the suite in parallel with
-itself (verify/test:scripts run it once per invocation). It bit only an
-agent deliberately using N parallel suite instances as synthetic load —
-where the failures also masquerade as protected-files regressions.
+## What landed
 
-## Options (scope honestly before picking)
+- `scripts/ai-hooks/protected-files.sh` now defaults rather than
+  overwrites: `REPO_ROOT="${REPO_ROOT:-$(…)}"`. `REPO_ROOT` was already
+  an honored override one layer up in `policy.sh`
+  (`ai_policy_resolve_bash_path`); the unconditional assignment was the
+  only thing clobbering it for the sourced chain.
+- `scripts/ai-hooks/test-protected-files-marker.sh` — the marker-dependent
+  coverage, extracted from `test.sh` and re-pointed at a private probe
+  root under `$TMP_ROOT`. The deny table matches by suffix glob, so a
+  probe-root path still exercises the real policy entries. The aggregate
+  runner invokes it as one step.
+- Parallel-run regression, in that same file: four concurrent fixtures
+  must all pass; a static tripwire rejects any ai-hooks fixture that
+  builds the marker path from the checkout root; a watcher fails if the
+  repo-wide marker appears at all during the run; and the checkout's own
+  marker must be in the same state at the end as at the start.
 
-Suite-level non-self-concurrency may be fine to keep; present, don't
-prescribe:
+Production semantics are unchanged, and the note's own objection ("adds
+a test-only knob to a production policy surface") is discharged
+structurally: every shipped entrypoint — the `.claude`/`.codex`/`.copilot`
+adapters and the `bash-{pre,post}-tool-use` aggregates — assigns
+`REPO_ROOT` from git unconditionally before the body is sourced or
+exec'd, so an inherited value cannot retarget a real hook invocation.
+Two assertions in the new suite pin that: the adapters must still deny a
+real protected path while a decoy `REPO_ROOT` with an active marker is
+exported, and each entrypoint must keep the unconditional
+`REPO_ROOT=$(git …)` form. A one-off differential over all wired
+entrypoints (deny, advisory, generated, husky, relative-path and
+Bash-write cases) was byte-identical against the previous body both with
+`REPO_ROOT` unset and with a decoy exported.
 
-1. Wontfix-cheap: add a header comment in test.sh (and/or
-   scripts/ai-hooks/README.md) stating the suite is single-instance-
-   per-checkout because policy fixtures use the real repo-root marker;
-   parallel determinism runs should use CPU load or isolated-function
-   extraction instead. Zero risk, costs one paragraph.
-2. Private marker: let the marker path be overridable (env var read by
-   `protected-files.sh`, defaulted to the repo root) so
-   `policy_only_probe` can point it under `$TMP_ROOT`. Makes the suite
-   self-concurrent but adds a test-only knob to a production policy
-   surface — the marker is repo-root-by-design, so review whether the
-   knob weakens the protected-files story.
-3. Cross-instance serialization: wrap the marker-dependent block in an
-   flock keyed on the repo root. Keeps production surfaces untouched;
-   adds fixture complexity and still serializes (slower parallel runs).
+## Non-goals (held)
 
-## Non-goals
-
-Do not change production protected-files semantics (where the marker
-lives, what it allows, its advisory text) to make tests parallel; any
-override must default to today's behavior.
+Production protected-files semantics — where the marker lives, what it
+allows, its advisory text — are untouched; the override defaults to
+today's behavior.

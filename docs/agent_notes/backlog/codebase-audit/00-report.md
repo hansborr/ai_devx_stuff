@@ -1,16 +1,20 @@
 # Codebase Maintainability & Onboarding Audit — 2026-06-13
 
-> **Status: reconciled 2026-07-13 (docs leaves reconciled 2026-07-15). 38 landed
-> leaves were removed; 2 (#08/#09) remain partial; #24 Done (aliases removed
-> 2026-07-19, wave-1 ready-2026-07 drain). The 2 docs leaves (#05,
+> **Status: closed 2026-07-19 (reconciled 2026-07-13; docs leaves reconciled
+> 2026-07-15). 38 landed leaves were removed; every surviving leaf is now Done —
+> #08 and #09 completed 2026-07-19 (verified on `main`), #24 Done (aliases removed
+> 2026-07-19, wave-1 ready-2026-07 drain), and the 2 docs leaves (#05,
 > #20) are Done — `docs/guides/per-worktree-dev.md` and
 > `packages/client/src/pages/MODULE.md` landed.** Per-leaf `Status:` lines
-> in git history are authoritative — re-verify before
-> promoting. The original 10 locked Decision blocks (#1, #11, #13, #14, #23, #24, #25,
+> are authoritative. The original 10 locked Decision blocks (#1, #11, #13, #14, #23, #24, #25,
 > #32, #35, #40) have mostly been acted on; the remaining README/AGENTS/test-helper doc
 > leaves (#03, #04, #15, #21, #22, #43) landed in the 2026-06-20 docs lane.
 
-- **Status:** 2 partial (#08/#09); #24 Done (2026-07-19); #05/#20 docs leaves Done (docs landed).
+- **Status:** Closed — all surviving leaves Done. #08 and #09 completed 2026-07-19
+  (#08: the remaining callback transactions extracted into request-facing services;
+  #09: all three steps, closing with the `runAdvanceTurnCore`/`runCastCombatSpellCore`
+  renames and the `(ctx, character, input)` rest-core reorder). #24 Done (2026-07-19);
+  #05/#20 docs leaves Done (docs landed).
   The 38 landed leaves were removed from this working queue on 2026-07-13.
 - **Created:** 2026-06-13
 - **Source:** Multi-agent maintainability/onboarding survey of Musi at HEAD on `docs/codebase-audit`
@@ -230,16 +234,16 @@ being filed.
 
 ## Prioritized tasks
 
-Most leaves are now **Done & landed** (see the per-leaf `Status:` lines, which are
-authoritative); only #08/#09 remain open (both partial); #05/#20 are Done (docs landed) and #24 is Done (2026-07-19).
+All surviving leaves are **Done & landed** (see the per-leaf `Status:` lines, which are
+authoritative): #08 and #09 completed 2026-07-19 (#09 covering all three steps), #05/#20 are Done (docs landed) and #24 is Done (2026-07-19).
 Re-verify `file:line` evidence before implementing — this table is a snapshot. Sizes
 are XS–L; severity is the audit agent's onboarding/maintainability impact rating, not
 a production-incident severity.
 
 | # | Task | Track | Size | Severity | Depends on | Status |
 |---|------|-------|------|----------|-----------|--------|
-| 8 | [Transaction-owning mutation orchestration lives inline in 8 routers, contradicting the services/ rubric the repo documents](./08-router-inline-transaction-orchestration.md) | server-layering | L | medium | none | Proposed |
-| 9 | [No single contract for request-facing services: calling convention and auth/broadcast ownership vary per procedure, even within one router](./09-service-calling-convention-inconsistent.md) | server-layering | M | medium | none | Partial — steps 1 & 3 landed (step 3 `executeLongRest`→ctx-first reorder `60e08986`, drain leaf 5.2; both rest cores aligned to `(ctx, character, input)`); step 2 rename deferred |
+| 8 | [Transaction-owning mutation orchestration lives inline in 8 routers, contradicting the services/ rubric the repo documents](./08-router-inline-transaction-orchestration.md) | server-layering | L | medium | none | Done — extraction landed 2026-07-19 (`796c03a2`, `ac851ab6`, `7db9a59d`, `58009006`). The leaf's "remain inline by design" caveat now holds only for `auth.ts:223`; `encounter-map.ts`, `map.ts` and `map-token.ts` are re-filed as `F4` in `../ready-2026-07/00-index.md` |
+| 9 | [No single contract for request-facing services: calling convention and auth/broadcast ownership vary per procedure, even within one router](./09-service-calling-convention-inconsistent.md) | server-layering | M | medium | none | Done (all three steps) — steps 1 & 3 landed via `60e08986` (drain leaf 5.2; both rest cores aligned to `(ctx, character, input)`); the step-2 rename landed 2026-07-19 in `a73b6c43` (`packages/server/src/services/README.md:218`) |
 | 24 | [Single-entity routers disagree on 'fetch one by id' naming (getById vs bare get), hurting cross-router predictability](./24-router-getbyid-naming-inconsistent.md) | naming-consistency | S | low | none | Done — compat aliases removed (landed 2026-07-19, wave-1 ready-2026-07 drain) |
 | 5 | [Per-worktree dev flow](./05-worktree-dev-flow-undocumented-for-humans.md) | onboarding-setup | S | medium | none | Done — `docs/guides/per-worktree-dev.md` landed |
 | 20 | [Pages composition-root orientation doc](./20-pages-dir-no-composition-root-doc.md) | client-architecture | S | low | none | Done — `packages/client/src/pages/MODULE.md` landed |

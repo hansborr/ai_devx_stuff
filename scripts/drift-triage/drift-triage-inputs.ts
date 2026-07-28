@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 
+import { errorMessage } from "../lib/error-message.js";
 import { DriftTriageError } from "./drift-triage-options.js";
 import { type NamedTriageInput, parseTriageInput } from "./triage-report.js";
 
@@ -26,7 +27,7 @@ function readInput(path: string, readFile: (filePath: string) => string): string
   try {
     return readFile(path);
   } catch (error) {
-    throw new DriftTriageError(`${path}: could not read report: ${describeError(error)}`);
+    throw new DriftTriageError(`${path}: could not read report: ${errorMessage(error)}`);
   }
 }
 
@@ -35,15 +36,11 @@ function parseInput(path: string, contents: string): NamedTriageInput["input"] {
   try {
     parsed = JSON.parse(contents);
   } catch (error) {
-    throw new DriftTriageError(`${path}: not valid JSON: ${describeError(error)}`);
+    throw new DriftTriageError(`${path}: not valid JSON: ${errorMessage(error)}`);
   }
   try {
     return parseTriageInput(parsed);
   } catch (error) {
-    throw new DriftTriageError(`${path}: ${describeError(error)}`);
+    throw new DriftTriageError(`${path}: ${errorMessage(error)}`);
   }
-}
-
-function describeError(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }

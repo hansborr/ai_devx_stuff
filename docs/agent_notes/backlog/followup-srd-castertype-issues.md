@@ -1,7 +1,8 @@
 ---
 title: Follow-up — SRD provenance for casterType / ritualAdept
-status: open
+status: resolved
 date: 2026-04-19
+resolved: 2026-06-16
 source: review of `refactor/class-caster-type`
 ---
 
@@ -102,6 +103,10 @@ Landed on 2026-05-10 as a metadata-only slice:
 
 ## 2. Eldritch Knight and Arcane Trickster are not in SRD 5.2.1
 
+Status as of 2026-06-16: resolved. `2f1d857d` (`fix(licensing): prepare public
+SRD release`) removed the `subclass-eldritch-knight` and
+`subclass-arcane-trickster` entries from `seed-srd-subclass-data.ts`.
+
 ### What the branch ships
 
 `seed-srd-subclass-data.ts` seeds Eldritch Knight (Fighter) and Arcane
@@ -158,6 +163,9 @@ wrong compounds as more EK/AT content lands.
 
 ## 3. Homebrew subclass caster fields still need UI input
 
+Status: resolved. `subclass-form-fields.tsx` now renders both the subclass
+`casterType` select (line 45) and the `spellcastingAbility` select (line 66).
+
 ### What the branch ships
 
 `Class.casterType` / `Class.ritualAdept` and `Subclass.casterType` /
@@ -195,6 +203,7 @@ is ready; this is purely the user-facing surface.
 
 All three issues were **out of scope** for `refactor/class-caster-type`.
 That branch preserved existing behavior for Warlock, EK, AT, and ritual flags,
-and intentionally deferred homebrew UI until dedicated follow-ups. Section 1
-is resolved. Section 2 remains a provenance decision. Section 3 now only tracks
-the remaining subclass form controls.
+and intentionally deferred homebrew UI until dedicated follow-ups. All three
+are now resolved: section 1 in the BatonLoop rename, section 2 by the
+public-release seed cleanup (`2f1d857d`), and section 3 by the subclass caster
+controls in `subclass-form-fields.tsx`.

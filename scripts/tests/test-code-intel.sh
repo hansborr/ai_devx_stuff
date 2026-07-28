@@ -10,6 +10,8 @@
 # smoke-subjects: packages/shared/package.json
 # smoke-subjects: packages/server/package.json
 # smoke-subjects: packages/client/tsconfig.json
+# smoke-subjects: scripts/lib/error-message.ts
+# smoke-subjects: scripts/lib/process-argv.ts
 # Smoke tests for the one-shot code:intel CLI and the code:intel:server
 # lifecycle CLI.
 

@@ -16,7 +16,7 @@ One wrapper dispatches all four agent CLIs — claude, codex, copilot, and curso
 
 ## Fast path
 
-The common cases — each backgrounded, answer in `-o`, log for debugging only:
+The common cases — background each one, a fresh `-o` path per answer, trailers in the log:
 
 ```bash
 # delegate implementation
@@ -33,7 +33,7 @@ For an off-family opinion, swap in `consult copilot -m <model>` or `consult curs
 ## Choosing agent and model
 
 - Delegated implementation: `work codex` (no `-m`; user-configured model) is the default delegate. Use `work claude -m opus|fable`, `work copilot -m <model>`, or `work cursor` only when the implementation should come from that specific model.
-- Second opinion from Claude Code: `consult codex` for GPT, `consult copilot -m gemini-3.5-flash` for Gemini, `consult cursor` for Grok (catalogs in [references/copilot.md](references/copilot.md) and [references/cursor.md](references/cursor.md)). `consult claude` is pointless from Claude Code — spawn a subagent instead.
+- Second opinion from Claude Code: `consult codex` for GPT, `consult copilot -m gemini-3.6-flash` for Gemini, `consult cursor` for Grok (catalogs in [references/copilot.md](references/copilot.md) and [references/cursor.md](references/cursor.md)). `consult claude` is pointless from Claude Code — spawn a subagent instead.
 - Second opinion from Codex: `consult claude -m fable|opus`; `consult copilot` for Gemini/Kimi, `consult cursor` for Grok. Copilot-hosted `claude-*`/`gpt-*` models are fallbacks for when the native CLI can't serve the model.
 - `review codex -- --base main` runs codex's native priority-tagged diff review (log-only; prefer `consult codex` so the result lands in `-o`).
 
@@ -53,7 +53,7 @@ The complete `agent-run:` trailer and exit-code contract lives in [references/tr
 
 - `consult` and `work` require a mission: `-p`, or `-P`/`--mission-file` to read it from a file. `-P` is repeatable and composes with a single `-p` — components concatenate in command-line order into one prompt, so a resume is one command (`-P mission.prompt -P resume-note.prompt`), never hand-concatenation. An empty or whitespace-only mission (or component) exits 2; native `review codex` may omit its instruction. Mission files may live inside the worktree (unlike `-o`). `-f` attaches a file as supporting material (repeatable) — never the mission; attachment-only dispatch exits 2, and stdin is not an input channel.
 - `-m` picks the model (required for copilot; claude/codex default to the user-configured model; cursor to `grok-4.5-xhigh`). `-e` sets reasoning effort where supported (cursor rejects it — effort is encoded in the model id).
-- `-o` is the authoritative result — a plain answer file regardless of backend. Omit it and one is generated under `$TMPDIR`; either way the path is echoed in the `agent-run: dispatched:` header and confirmed by the `agent-run: answer:` trailer. An explicit path must be fresh — one already holding an answer exits 2 rather than clobbering (`rm` it to reuse) — and must resolve outside the worktree. `review codex` rejects `-o` (read the log).
+- `-o` is the authoritative result — a plain answer file regardless of backend. Omit it and one is generated under `$TMPDIR`; either way its canonical absolute path is echoed in the `agent-run: dispatched:` header and confirmed by the `agent-run: answer:` trailer. An explicit path must resolve outside the worktree and must not already exist — anything else exits 2. Deleting a spent answer does not free its path, so give every run a fresh one; when a failed path is worth reusing, [references/trailer-contract.md](references/trailer-contract.md) states the one condition that frees it. `review codex` rejects `-o` (read the log).
 - `-r <session-id>` resumes a prior session; ids surface in the `agent-run: session-id:` trailer. Resume by explicit id only, never "most recent".
 - Native flags after `--` pass through but are guard-scanned: sandbox, session, model, cwd-moving, and permission-mode flags are wrapper-owned and rejected; consults also reject blanket permission grants, while narrow grants (e.g. `'Bash(bun run test:*)'`) pass through as deliberate caller-owned escalations (the one cwd exception lives in [references/copilot.md](references/copilot.md)). Dispatch from the worktree the run should own.
 
@@ -61,19 +61,25 @@ The complete `agent-run:` trailer and exit-code contract lives in [references/tr
 
 1. Start `work` from a clean worktree — a dirty start exits 2 unless you pass `--dirty-ok` because the mission is to inspect the current uncommitted diff. Verify cleanliness before codex consults; claude/copilot/cursor consults are safe anywhere.
 2. Dispatch backgrounded via your harness's background mechanism — never a trailing shell `&` (and never both), never piped through `tail`. Concrete mechanics are in the harness-specific notes below.
-3. Wait on the job status — it is authoritative, not the log (logs may stay quiet until completion, and a finished log is not a live run). Idle if your harness can, poll a live session handle if you hold one, otherwise call the bundled helper as one bounded foreground call per ~10 minutes: `.claude/skills/agent-cli/scripts/agent-wait.sh "$LOG" --timeout 570` — exit 0 once the run is decided, 10 on timeout with the run still live (re-invoke), 20/21 on the dead-run signature (below). Treat it as a done/not-done signal: never poll log contents yourself, spin no-op calls, or `tail -f` the log. Pass `--finalized-only` when you will act on the worktree next (`work` runs): a landed answer can precede the drift check and lock release. Consults usually finish in minutes, work runs in 10–30+; never dispatch a duplicate (a duplicate work run fails fast on the busy lock with exit 3). TERM on a stalled run is safe once the backend has launched; only SIGKILL skips finalization (signal semantics in the contract doc).
-4. Read the `-o` answer file and the `agent-run:` trailers (session-id, answer path, worktree state).
+3. Wait on the job status — it is authoritative, not the log (logs may stay quiet until completion, and a finished log is not a live run). Idle if your harness can, poll a live session handle if you hold one, otherwise call the bundled helper as one bounded foreground call per ~10 minutes: `.claude/skills/agent-cli/scripts/agent-wait.sh "$LOG" --timeout 570` — exit 0 once the run is decided, 10 on timeout with the run still live (re-invoke), 20/21 on the dead-run signature (below), or 22 when the run died before launch (safe to redispatch). Treat it as a done/not-done signal: never poll log contents yourself, spin no-op calls, or `tail -f` the log. Pass `--finalized-only` when you will act on the worktree next (`work` runs): a landed answer can precede the drift check and lock release. Consults usually finish in minutes, work runs in 10–30+; never dispatch a duplicate (a duplicate work run fails fast on the busy lock with exit 3). TERM a stalled run once the backend has launched; SIGKILL skips finalization.
+4. Read the `-o` answer file and the `agent-run:` trailers (attempt, transcript when present, session-id, answer path, worktree state) — after a failure the attempt record, not an empty file, decides whether the output path can be retried.
 5. After `work`: verify the result before reporting success, but don't pull the full diff into your own context. The trailers scope it — `agent-run: head:` reports the commit range (`(unchanged)` flags a no-op run), `agent-run: worktree:` whether it finished clean. Confirm shape cheaply with `git log --oneline` and `git diff --stat` over that range; delegate substantive review rather than reading hunks inline. Trust HEAD advancement and the final trailers over the delegate's own status messages (under a cross-worktree commit guard, `No commit landed` can be a normal queue state).
 
 ### Dead-run signature
 
-Launch header present, completion anchors absent, wrapper pid dead. `agent-wait.sh <log> --timeout 0` is the one-shot probe: exit 20 is the dead-run signature, 21 the variant whose backend still lives — an orphan that may still write (and, for `work`, still holds the lock); kill its process group (`kill -- -<backend-pid>`) before taking the worktree over. Recovery — resuming from a logged session id, salvaging staged work, leftover `-o` reuse — is in [references/trailer-contract.md](references/trailer-contract.md).
+A `starting:`, `attempt:`, or launch header present, completion anchors absent, wrapper pid dead. `agent-wait.sh <log> --timeout 0` is the one-shot probe:
+
+- **20** — the dead-run signature. Inspect the worktree and session before repeating the mission.
+- **21** — same, but the backend still lives: an orphan that may still write and still owns its answer path (a `work` orphan also holds the worktree lock). Kill its process group (`kill -- -<backend-pid>`) before taking the worktree over.
+- **22** — the run died before launch. Nothing ran; redispatch as-is.
+
+Full recovery is in [references/trailer-contract.md](references/trailer-contract.md).
 
 ## consult — read-only second opinion
 
-Reviews, design consults, "what am I missing here", idea generation. The wrapper injects the read-only preamble for you (do not restate it); the outcome lands in the `agent-run: worktree: clean|DIRTY|unchecked` trailer. DIRTY exits 4: inspect `git status` and revert the drift before trusting the worktree again — the `-o` answer itself may still be usable, and a transient DIRTY from a consult's subagents that has already reverted is trustworthy.
+Reviews, design consults, "what am I missing here", idea generation. The wrapper injects the read-only preamble for you (do not restate it); the outcome lands in the `agent-run: worktree: best-effort-clean|DIRTY|unchecked` trailer. `best-effort-clean` is the consult success value — snapshot-based, so its detection boundary is in [references/trailer-contract.md](references/trailer-contract.md). DIRTY exits 4: inspect `git status` and revert the drift before trusting the worktree again — the `-o` answer itself may still be usable, and a transient DIRTY from a consult's subagents that has already reverted is trustworthy.
 
-- Consults are lock-free on every backend — safe in parallel and alongside a running work dispatch. While another run holds the worktree lock, drift cannot be attributed, so the trailer reads `unchecked`.
+- Consults never take the worktree lock, only a per-answer one — unique output paths stay safe in parallel and alongside a running work dispatch. While another run holds the worktree lock, drift cannot be attributed, so the trailer reads `unchecked`.
 - codex consults are drift-checked, not sandboxed (see [references/codex.md](references/codex.md)) — verify cleanliness first.
 - **Reviewing a branch: name the branch, don't attach the diff.** Tell the consult "review branch `<feature>` vs `main`" and let it run `git diff main...<feature>` itself — it then sees the live tree (real whitespace, surrounding context, adjacent files it can open to trace a hunk). A pre-computed `-f` diff is strictly worse: it anchors the reviewer on the frozen hunk and hides the surrounding system. Reserve `-f` for material the agent genuinely cannot gather itself.
 - Ask for priority-tagged (`[P0]`/`[P1]`/`[P2]`) findings with file:line citations.

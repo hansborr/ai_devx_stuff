@@ -1,11 +1,12 @@
 # Test-Suite Audit — 2026-06-13
 
-> **Status: historical direction-setting report.** The 2026-07-13 index reconciliation
-> removed six landed leaves; every surviving leaf remains a
-> read-only finding with re-verified `file:line` evidence. Nothing here has been
-> changed in the test suite itself. Promote one leaf at a time.
+> **Status: historical direction-setting report.** All 55 findings have since
+> landed (the last three on 2026-07-19 — `8ae7c4da`, `c4a3ea78`, `38221482`); see
+> [`00-index.md`](./00-index.md) for the per-finding record. The narrative,
+> methodology, and run-time lever ranking below describe the 2026-06-13 tree and
+> are kept as a historical record — nothing here is still actionable.
 
-- **Status:** Proposed (55 findings authored; awaiting prioritization/promotion)
+- **Status:** Closed (all 55 findings authored here have landed as of 2026-07-19)
 - **Created:** 2026-06-13
 - **Audited HEAD:** `4bfc7a58` (`docs/testsuite-audit`, after fast-forwarding `main`)
 - **Scope:** The entire automated test suite — `packages/{shared,server,client}`,

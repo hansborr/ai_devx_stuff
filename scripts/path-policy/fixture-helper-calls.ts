@@ -10,9 +10,13 @@
 
 import type { ScopedShellLine } from "./fixture-shell-scope.js";
 
-export interface MutableFixtureCopyGroup {
+/** The scope/provenance key every fixture grouping is built on. */
+export interface FixtureScopedGroup {
   readonly functionScope: readonly string[];
   readonly fixtureRoot: string;
+}
+
+export interface MutableFixtureCopyGroup extends FixtureScopedGroup {
   readonly sources: Set<string>;
 }
 
@@ -80,11 +84,11 @@ export function parseFixtureHelperCall(scopedLine: ScopedShellLine): FixtureHelp
   return undefined;
 }
 
-function groupsByOutermostFunction(
-  copiedByFixture: ReadonlyMap<string, MutableFixtureCopyGroup>,
-): ReadonlyMap<string, readonly MutableFixtureCopyGroup[]> {
-  const groupsByCallee = new Map<string, MutableFixtureCopyGroup[]>();
-  for (const group of copiedByFixture.values()) {
+function groupsByOutermostFunction<TGroup extends FixtureScopedGroup>(
+  groupsByKey: ReadonlyMap<string, TGroup>,
+): ReadonlyMap<string, readonly TGroup[]> {
+  const groupsByCallee = new Map<string, TGroup[]>();
+  for (const group of groupsByKey.values()) {
     const outermost = group.functionScope[0];
     if (outermost === undefined) continue;
     const calleeGroups = groupsByCallee.get(outermost) ?? [];
@@ -94,62 +98,93 @@ function groupsByOutermostFunction(
   return groupsByCallee;
 }
 
-function mergeCallIntoTarget(
-  copiedByFixture: Map<string, MutableFixtureCopyGroup>,
-  sourceGroups: readonly MutableFixtureCopyGroup[],
+/** How one scoped fixture grouping absorbs a callee's contributions. */
+export interface FixtureGroupMerge<TGroup extends FixtureScopedGroup> {
+  /** Build the caller-scope group a call site delegates into. */
+  readonly create: (functionScope: readonly string[], fixtureRoot: string) => TGroup;
+  /** Fold `source` into `target`; report whether anything new arrived. */
+  readonly absorb: (target: TGroup, source: TGroup) => boolean;
+  /** Groups that carry nothing are not published, so callers stay unaffected. */
+  readonly isEmpty: (group: TGroup) => boolean;
+}
+
+function mergeCallIntoTarget<TGroup extends FixtureScopedGroup>(
+  groupsByKey: Map<string, TGroup>,
+  sourceGroups: readonly TGroup[],
   call: FixtureHelperCall,
+  merge: FixtureGroupMerge<TGroup>,
 ): boolean {
   const key = fixtureGroupKey(call.callerScope, call.targetRoot);
-  const target = copiedByFixture.get(key) ?? {
-    functionScope: call.callerScope,
-    fixtureRoot: call.targetRoot,
-    sources: new Set<string>(),
-  };
+  const target = groupsByKey.get(key) ?? merge.create(call.callerScope, call.targetRoot);
   let changed = false;
   for (const sourceGroup of sourceGroups) {
     if (sourceGroup === target) continue;
-    for (const path of sourceGroup.sources) {
-      if (target.sources.has(path)) continue;
-      target.sources.add(path);
-      changed = true;
-    }
+    if (merge.absorb(target, sourceGroup)) changed = true;
   }
-  if (target.sources.size > 0) copiedByFixture.set(key, target);
+  if (!merge.isEmpty(target)) groupsByKey.set(key, target);
   return changed;
 }
 
 /**
  * Follow fixture composition through helper functions: each call site imports
- * the callee's copied sources into the caller-scope group for the handed-over
+ * the callee's contributions into the caller-scope group for the handed-over
  * root. Iterated to a fixpoint so helper chains (a setup helper that calls
  * another copy helper) propagate transitively; the pass bound guards against
  * pathological call graphs.
+ *
+ * This is the only thing that joins two scopes. Same-named root variables in
+ * unrelated functions stay separate, so one fixture can never satisfy another
+ * fixture's closure just by reusing the token `$repo`.
  */
-export function mergeHelperCallSources(
-  copiedByFixture: Map<string, MutableFixtureCopyGroup>,
+export function mergeHelperCallGroups<TGroup extends FixtureScopedGroup>(
+  groupsByKey: Map<string, TGroup>,
   calls: readonly FixtureHelperCall[],
+  merge: FixtureGroupMerge<TGroup>,
 ): void {
   for (let pass = 0; pass <= calls.length; pass += 1) {
     // Recomputed every pass: merging can create a group for a delegate-only
     // helper (one that copies nothing directly, only calls other helpers),
     // and that new group must be indexed under the helper's name so its own
     // callers pick it up on the next pass. Termination is unaffected — the
-    // source sets only grow, so a pass without additions still exits early,
-    // and the pass bound caps cyclic call graphs.
-    const groupsByCallee = groupsByOutermostFunction(copiedByFixture);
+    // absorbed state only grows, so a pass without additions still exits
+    // early, and the pass bound caps cyclic call graphs.
+    const groupsByCallee = groupsByOutermostFunction(groupsByKey);
     let changed = false;
     for (const call of calls) {
       const sourceGroups = groupsByCallee.get(call.callee);
       if (sourceGroups === undefined) continue;
-      if (mergeCallIntoTarget(copiedByFixture, sourceGroups, call)) changed = true;
+      if (mergeCallIntoTarget(groupsByKey, sourceGroups, call, merge)) changed = true;
     }
     if (!changed) return;
   }
-  // Unreachable per the monotonicity argument above (source sets only grow and
-  // each productive pass adds at least one path), but fail loud rather than
+  // Unreachable per the monotonicity argument above (absorbed state only grows
+  // and each productive pass adds at least one item), but fail loud rather than
   // silently returning a partially merged copy set if that invariant breaks.
   throw new Error(
     "fixture helper-call merge exhausted its pass bound without reaching a fixpoint; " +
-      "mergeHelperCallSources has a termination bug for this helper graph",
+      "mergeHelperCallGroups has a termination bug for this helper graph",
   );
+}
+
+export function mergeHelperCallSources(
+  copiedByFixture: Map<string, MutableFixtureCopyGroup>,
+  calls: readonly FixtureHelperCall[],
+): void {
+  mergeHelperCallGroups(copiedByFixture, calls, {
+    create: (functionScope, fixtureRoot) => ({
+      functionScope,
+      fixtureRoot,
+      sources: new Set<string>(),
+    }),
+    absorb: (target, source) => {
+      let changed = false;
+      for (const path of source.sources) {
+        if (target.sources.has(path)) continue;
+        target.sources.add(path);
+        changed = true;
+      }
+      return changed;
+    },
+    isEmpty: (group) => group.sources.size === 0,
+  });
 }

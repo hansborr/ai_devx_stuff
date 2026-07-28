@@ -9,6 +9,7 @@
  * or `prisma || tx`.
  */
 
+import { staticPropertyName, unwrapChain } from "./ast-helpers.js";
 import { resolveDeclaredVariable, resolveIdentifierBinding } from "./binding-resolution.js";
 
 const PAIRED_GUIDE = "docs/CONCURRENCY.md";
@@ -31,20 +32,8 @@ const PAIRED_GUIDE = "docs/CONCURRENCY.md";
  */
 
 /** @param {import('estree').Node} node */
-function unwrapChain(node) {
-  return node.type === "ChainExpression" ? node.expression : node;
-}
-
-/** @param {import('estree').Node} node */
 function parentOf(node) {
   return /** @type {import('estree').Node & { parent?: import('estree').Node }} */ (node).parent;
-}
-
-/** @param {import('estree').PrivateIdentifier | import('estree').Expression} property */
-function propertyName(property) {
-  if (property.type === "Identifier") return property.name;
-  if (property.type === "Literal" && typeof property.value === "string") return property.value;
-  return undefined;
 }
 
 /** @param {import('estree').Node | import('estree').SpreadElement | undefined} node */
@@ -56,7 +45,7 @@ function isFunctionNode(node) {
 function isTransactionCall(node) {
   const callee = unwrapChain(node.callee);
   if (callee.type !== "MemberExpression") return false;
-  return propertyName(callee.property) === "$transaction";
+  return staticPropertyName(callee) === "$transaction";
 }
 
 /**
@@ -77,7 +66,7 @@ function startsWithOuterPrismaClient(node, state) {
 
   if (current.type !== "MemberExpression") return false;
 
-  if (propertyName(current.property) === "prisma") return true;
+  if (staticPropertyName(current) === "prisma") return true;
   return startsWithOuterPrismaClient(current.object, state);
 }
 

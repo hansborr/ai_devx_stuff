@@ -6,6 +6,7 @@
 # smoke-subjects: scripts/ai-hooks/output-filter.sh
 # smoke-subjects: scripts/lib/tool-memory-admission.sh
 # smoke-subjects: scripts/lib/test-worker-count.sh
+# smoke-subjects: scripts/lib/process-argv.ts
 # smoke-subjects: scripts/verify/memory-budget.sh
 # smoke-subjects: scripts/verify/admitted-command.sh
 # smoke-subjects: scripts/process-tree.sh

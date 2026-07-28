@@ -119,7 +119,19 @@ cat > "$target/bin/bun" <<'STUB'
 #!/usr/bin/env sh
 printf 'stub bun %s\n' "$*" >> "$STUB_LOG"
 [ -z "${STUB_NODE_OPTIONS_LOG:-}" ] || printf '%s\n' "${NODE_OPTIONS:-}" >> "$STUB_NODE_OPTIONS_LOG"
-[ -z "${STUB_FAIL_MATCH:-}" ] || ! printf '%s\n' "$*" | grep -qF "$STUB_FAIL_MATCH" || exit 1
+[ -z "${STUB_MUTATE_MATCH:-}" ] || ! printf '%s\n' "$*" | grep -qF "$STUB_MUTATE_MATCH" \
+  || printf 'registration mutation\n' >> "$STUB_MUTATE_PATH"
+[ -z "${STUB_REMOVE_PATH_MATCH:-}" ] || ! printf '%s\n' "$*" | grep -qF "$STUB_REMOVE_PATH_MATCH" \
+  || rm -f -- "$STUB_REMOVE_PATH"
+[ -z "${STUB_CREATE_PATH_MATCH:-}" ] || ! printf '%s\n' "$*" | grep -qF "$STUB_CREATE_PATH_MATCH" \
+  || : > "$STUB_CREATE_PATH"
+if [ -n "${STUB_TIMEOUT_MATCH:-}" ] && printf '%s\n' "$*" | grep -qF "$STUB_TIMEOUT_MATCH"; then
+  exit 124
+fi
+if [ -n "${STUB_FAIL_MATCH:-}" ] && printf '%s\n' "$*" | grep -qF "$STUB_FAIL_MATCH"; then
+  printf 'stub failure for %s\n' "$*" >&2
+  exit 1
+fi
 exit 0
 STUB
   chmod +x "$target/bin/bun"
@@ -155,6 +167,38 @@ write_marker_with_ts() {
     printf 'LAST_HEAD=%s\n' "$head"
     printf 'LAST_HASH=%s\n' "$hash"
   } > "$marker"
+}
+
+seed_prior_verify_evidence() {
+  local log_dir="$1"
+  mkdir -p "$log_dir/meta"
+  printf 'prior run meta\n' > "$log_dir/run-meta.json"
+  printf 'prior wrapper meta\n' > "$log_dir/meta/wrapper.json"
+  printf 'prior lint meta\n' > "$log_dir/meta/lint.json"
+  printf 'prior lint log\n' > "$log_dir/lint.log"
+  printf 'prior typecheck log\n' > "$log_dir/typecheck.log"
+  printf 'prior test log\n' > "$log_dir/test.log"
+  printf 'prior format log\n' > "$log_dir/format.log"
+  printf 'prior test timings\n' > "$log_dir/test-timings.json"
+  printf 'prior ratchet diagnostics\n' > "$log_dir/ratchet-diagnostics.json"
+}
+
+assert_prior_verify_evidence() {
+  local log_dir="$1" context="$2" path expected
+  while IFS='|' read -r path expected; do
+    [ "$(cat "$log_dir/$path" 2>/dev/null)" = "$expected" ] \
+      || fail "$context did not preserve $path"
+  done <<'EOF'
+run-meta.json|prior run meta
+meta/wrapper.json|prior wrapper meta
+meta/lint.json|prior lint meta
+lint.log|prior lint log
+typecheck.log|prior typecheck log
+test.log|prior test log
+format.log|prior format log
+test-timings.json|prior test timings
+ratchet-diagnostics.json|prior ratchet diagnostics
+EOF
 }
 
 repo="$TMP_ROOT/repo"
@@ -1002,6 +1046,8 @@ chmod +x "$cache_repo/bin/bun"
     || fail "initial pre-commit missing OK output: $output"
 
   printf 'staged\nunstaged\n' > packages/example.ts
+  identity="$(musi_git_common_identity_path "$PWD")"
+  : > "$identity/musi-fast-commit"
   set +e
   output="$(
     PATH="$cache_repo/bin:$PATH" \
@@ -1021,10 +1067,15 @@ chmod +x "$cache_repo/bin/bun"
     || fail "pre-commit unstaged source diagnostic missing file: $output"
   grep -qF "stage" <<< "$output" \
     || fail "pre-commit unstaged source diagnostic should mention staging: $output"
-  grep -qF "stash" <<< "$output" \
-    || fail "pre-commit unstaged source diagnostic should mention stashing: $output"
+  grep -qF "git diff or git show HEAD:<path>" <<< "$output" \
+    || fail "pre-commit unstaged source diagnostic should mention inspection: $output"
+  if grep -qiF stash <<< "$output"; then
+    fail "pre-commit unstaged source diagnostic must not mention stashing: $output"
+  fi
   lint_runs=$(grep -cF "stub bun run lint:changed" "$stub_log")
   [ "$lint_runs" -eq 1 ] || fail "pre-commit should fail before rerunning lint after unstaged source change; lint runs=$lint_runs"
+  [ "$(grep -cF 'stub bun run harness:registration:check' "$stub_log" || true)" -eq 0 ] \
+    || fail "unstaged rejection must happen before fast registration admission"
   if grep -qF "already verified" <<< "$output"; then
     fail "pre-commit should not short-circuit after unstaged source change: $output"
   fi
@@ -1653,6 +1704,112 @@ copy_precommit_fixture "$restricted_disable_repo"
 )
 ok "pre-commit warns when restricted-disable generator output is stale"
 
+# Fast registration admission blocks on the skill/verify registration fragments
+# only. The other generated-surface checks remain advisory in fast mode.
+fast_generated_advisory_repo="$TMP_ROOT/fast-generated-advisory-repo"
+copy_precommit_fixture "$fast_generated_advisory_repo"
+(
+  cd "$fast_generated_advisory_repo"
+  git init -q
+  git config user.name "Test User"
+  git config user.email "test@example.invalid"
+  mkdir -p scripts/harness
+  mkdir -p scripts/path-policy
+  printf '{"controls":[]}\n' > harness.controls.json
+  printf '{"include":[]}\n' > tsconfig.configs.json
+  printf 'export {};\n' > scripts/harness/generate-restricted-disable-rules.ts
+  printf 'export {};\n' > scripts/path-policy/generate-smoke-subjects.ts
+  git add scripts bin .husky harness.controls.json tsconfig.configs.json
+  git add scripts/harness/generate-restricted-disable-rules.ts scripts/path-policy/generate-smoke-subjects.ts
+  git commit -q -m init
+
+  printf '\n' >> harness.controls.json
+  printf '\n' >> tsconfig.configs.json
+  printf '\n' >> scripts/harness/generate-restricted-disable-rules.ts
+  printf '\n' >> scripts/path-policy/generate-smoke-subjects.ts
+  git add harness.controls.json tsconfig.configs.json
+  git add scripts/harness/generate-restricted-disable-rules.ts scripts/path-policy/generate-smoke-subjects.ts
+  identity="$(musi_git_common_identity_path "$PWD")"
+  : > "$identity/musi-fast-commit"
+
+  marker="$fast_generated_advisory_repo/precommit-marker"
+  log_dir="$fast_generated_advisory_repo/precommit-logs"
+  stub_log="$fast_generated_advisory_repo/bun.log"
+  : > "$stub_log"
+
+  output="$(
+    PATH="$fast_generated_advisory_repo/bin:$PATH" \
+    STUB_LOG="$stub_log" \
+    MUSI_PRECOMMIT_MARKER="$marker" \
+    MUSI_VERIFY_LOCK="$fast_generated_advisory_repo/precommit-lock" \
+    MUSI_VERIFY_LOG_DIR="$log_dir" \
+      sh .husky/pre-commit 2>&1
+  )" || fail "fast pre-commit should retain non-overlapping advisories: $output"
+
+  [ "$(grep -cF 'stub bun run harness:registration:check' "$stub_log")" -eq 1 ] \
+    || fail "fast pre-commit should run registration admission exactly once"
+  for advisory in \
+    'harness:config-surfaces:check' \
+    'harness:wiring:check' \
+    'harness:hook-timeouts:check' \
+    'lint:restricted-disable-rules:check' \
+    'docs:harness-controls:check'; do
+    grep -qF "stub bun run $advisory" "$stub_log" \
+      || fail "fast pre-commit suppressed non-overlapping advisory $advisory"
+  done
+  if grep -qF 'stub bun run harness:skills:check' "$stub_log"; then
+    fail "fast pre-commit should suppress the overlapping skill advisory"
+  fi
+  if grep -qF 'stub bun run test:scripts:subjects:check' "$stub_log"; then
+    fail "fast pre-commit should suppress the overlapping smoke-subject advisory"
+  fi
+  if grep -qF 'stub bun run verify:steps:check' "$stub_log"; then
+    fail "fast pre-commit should suppress the overlapping verify-registration advisory"
+  fi
+)
+ok "fast pre-commit suppresses only admission-overlapping generated advisories"
+
+# A docs-only commit never reaches fast registration admission, so the marker
+# must not suppress even a normally-overlapping generated-surface advisory.
+docs_only_fast_advisory_repo="$TMP_ROOT/docs-only-fast-advisory-repo"
+copy_precommit_fixture "$docs_only_fast_advisory_repo"
+(
+  cd "$docs_only_fast_advisory_repo"
+  cat > scripts/harness/generated-surface-freshness.generated.sh <<'SH'
+musi_warn_generated_surfaces_stale() {
+  warn_if_generated_surface_stale 'verify step and generated-surface metadata' 'verify:steps:check'
+}
+SH
+  git init -q
+  git config user.name "Test User"
+  git config user.email "test@example.invalid"
+  git add scripts bin .husky
+  git commit -q -m init
+  mkdir -p docs
+  printf 'docs-only advisory\n' > docs/advisory.md
+  git add docs/advisory.md
+  identity="$(musi_git_common_identity_path "$PWD")"
+  : > "$identity/musi-fast-commit"
+  stub_log="$docs_only_fast_advisory_repo/bun.log"
+  : > "$stub_log"
+
+  output="$(
+    PATH="$docs_only_fast_advisory_repo/bin:$PATH" \
+    STUB_LOG="$stub_log" \
+    STUB_FAIL_MATCH='verify:steps:check' \
+      sh .husky/pre-commit 2>&1
+  )" || fail "docs-only fast pre-commit should remain advisory-only: $output"
+
+  grep -qF 'stub bun run verify:steps:check' "$stub_log" \
+    || fail "docs-only fast commit incorrectly suppressed an unreachable admission advisory"
+  grep -qF 'pre-commit: WARN: verify step and generated-surface metadata appears stale' <<< "$output" \
+    || fail "docs-only fast commit did not print the stale advisory: $output"
+  if grep -qF 'stub bun run harness:registration:check' "$stub_log"; then
+    fail "docs-only fast commit must not run registration admission"
+  fi
+)
+ok "docs-only fast commit retains advisories when admission is unreachable"
+
 # --- pre-commit with non-script deletion passes staged files through --------
 non_script_del_repo="$TMP_ROOT/non-script-del-repo"
 copy_precommit_fixture "$non_script_del_repo"
@@ -1755,6 +1912,13 @@ init_bridge_repo "$fast_skip_repo"
   )" || fail "fast-commit pre-commit should pass with stubbed slots: $output"
   grep -qF "fast-commit mode — skipping test slot" <<< "$output" \
     || fail "fast-commit run should report the skipped test slot: $output"
+  [ "$(grep -cF 'stub bun run harness:registration:check' "$stub_log")" -eq 1 ] \
+    || fail "fast-commit run should execute registration admission exactly once"
+  [ -f "$TMP_ROOT/fast-skip-provenance-logs/registration.log" ] \
+    || fail "fast-commit run should retain exactly one registration.log"
+  if grep -qF 'registration' <<< "$(grep -F 'pre-commit: OK' <<< "$output")"; then
+    fail "registration admission must not be presented as behavioral slot evidence: $output"
+  fi
   [ -f "$(musi_fast_commit_pending_marker "$PWD")" ] \
     || fail "slot-skipping run should leave a pending provenance marker"
 
@@ -1766,6 +1930,233 @@ init_bridge_repo "$fast_skip_repo"
     || fail "post-commit should consume the pending marker after logging"
 )
 ok "fast-commit slot skip records provenance end-to-end"
+
+# A structural admission failure blocks before cache/bridge/slot dispatch,
+# writes one registration log and one summary, and creates no success debt.
+fast_registration_failure_repo="$TMP_ROOT/fast-registration-failure-repo"
+init_bridge_repo "$fast_registration_failure_repo"
+(
+  cd "$fast_registration_failure_repo"
+  printf 'registration failure edit\n' > packages/example.ts
+  git add packages/example.ts
+  identity="$(musi_git_common_identity_path "$PWD")"
+  : > "$identity/musi-fast-commit"
+  stub_log="$TMP_ROOT/fast-registration-failure-bun.log"
+  log_dir="$TMP_ROOT/fast-registration-failure-logs"
+  : > "$stub_log"
+  seed_prior_verify_evidence "$log_dir"
+
+  set +e
+  output="$(
+    PATH="$fast_registration_failure_repo/bin:$PATH" \
+    STUB_LOG="$stub_log" \
+    STUB_FAIL_MATCH='harness:registration:check' \
+    MUSI_PRECOMMIT_MARKER="$TMP_ROOT/fast-registration-failure-marker" \
+    MUSI_VERIFY_LOCK="$TMP_ROOT/fast-registration-failure-lock" \
+    MUSI_VERIFY_LOG_DIR="$log_dir" \
+      sh .husky/pre-commit 2>&1
+  )"
+  exit_code=$?
+  set -e
+  [ "$exit_code" -ne 0 ] || fail "registration admission failure must block pre-commit"
+  [ "$(grep -cF 'stub bun run harness:registration:check' "$stub_log")" -eq 1 ] \
+    || fail "failing registration admission should run exactly once"
+  [ "$(find "$log_dir" -maxdepth 1 -name registration.log | wc -l)" -eq 1 ] \
+    || fail "failing registration admission should write one registration.log"
+  grep -qF 'stub failure for run harness:registration:check' "$log_dir/registration.log" \
+    || fail "registration.log should retain the checker diagnostic"
+  assert_prior_verify_evidence "$log_dir" "registration admission failure"
+  [ "$(grep -cF 'Failed: registration' <<< "$output")" -eq 1 ] \
+    || fail "registration admission should print one failure summary: $output"
+  if grep -qF 'stub bun run lint:changed' "$stub_log"; then
+    fail "registration failure must block before behavioral slots"
+  fi
+  [ ! -e "$(musi_fast_commit_pending_marker "$PWD")" ] \
+    || fail "registration failure must not leave pending fast provenance"
+)
+ok "fast registration failure blocks once before behavioral slots"
+
+# A 124 from the bounded admission command gets a retry-oriented diagnostic
+# and restores the complete prior evidence set just like an ordinary failure.
+fast_registration_timeout_repo="$TMP_ROOT/fast-registration-timeout-repo"
+init_bridge_repo "$fast_registration_timeout_repo"
+(
+  cd "$fast_registration_timeout_repo"
+  printf 'registration timeout edit\n' > packages/example.ts
+  git add packages/example.ts
+  identity="$(musi_git_common_identity_path "$PWD")"
+  : > "$identity/musi-fast-commit"
+  stub_log="$TMP_ROOT/fast-registration-timeout-bun.log"
+  log_dir="$TMP_ROOT/fast-registration-timeout-logs"
+  : > "$stub_log"
+  seed_prior_verify_evidence "$log_dir"
+
+  set +e
+  output="$(
+    PATH="$fast_registration_timeout_repo/bin:$PATH" \
+    STUB_LOG="$stub_log" \
+    STUB_TIMEOUT_MATCH='harness:registration:check' \
+    MUSI_PRECOMMIT_MARKER="$TMP_ROOT/fast-registration-timeout-marker" \
+    MUSI_VERIFY_LOCK="$TMP_ROOT/fast-registration-timeout-lock" \
+    MUSI_VERIFY_LOG_DIR="$log_dir" \
+      sh .husky/pre-commit 2>&1
+  )"
+  exit_code=$?
+  set -e
+  [ "$exit_code" -ne 0 ] || fail "registration admission timeout must block pre-commit"
+  grep -qF 'registration admission timed out; retry the commit' "$log_dir/registration.log" \
+    || fail "registration timeout should print concise retry guidance"
+  assert_prior_verify_evidence "$log_dir" "registration admission timeout"
+  [ "$(grep -cF 'Failed: registration' <<< "$output")" -eq 1 ] \
+    || fail "registration timeout should print one failure summary: $output"
+  if grep -qF 'stub bun run lint:changed' "$stub_log"; then
+    fail "registration timeout must block before behavioral slots"
+  fi
+)
+ok "fast registration timeout restores evidence and prints retry guidance"
+
+# The engine fingerprints the admitted state on both sides of the command.
+fast_registration_mutation_repo="$TMP_ROOT/fast-registration-mutation-repo"
+init_bridge_repo "$fast_registration_mutation_repo"
+(
+  cd "$fast_registration_mutation_repo"
+  printf 'stable staged registration edit\n' > packages/example.ts
+  git add packages/example.ts
+  identity="$(musi_git_common_identity_path "$PWD")"
+  : > "$identity/musi-fast-commit"
+  stub_log="$TMP_ROOT/fast-registration-mutation-bun.log"
+  log_dir="$TMP_ROOT/fast-registration-mutation-logs"
+  : > "$stub_log"
+
+  set +e
+  output="$(
+    PATH="$fast_registration_mutation_repo/bin:$PATH" \
+    STUB_LOG="$stub_log" \
+    STUB_MUTATE_MATCH='harness:registration:check' \
+    STUB_MUTATE_PATH="$fast_registration_mutation_repo/packages/example.ts" \
+    MUSI_PRECOMMIT_MARKER="$TMP_ROOT/fast-registration-mutation-marker" \
+    MUSI_VERIFY_LOCK="$TMP_ROOT/fast-registration-mutation-lock" \
+    MUSI_VERIFY_LOG_DIR="$log_dir" \
+      sh .husky/pre-commit 2>&1
+  )"
+  exit_code=$?
+  set -e
+  [ "$exit_code" -ne 0 ] || fail "registration input mutation must fail closed"
+  grep -qF 'registration inputs changed during admission' "$log_dir/registration.log" \
+    || fail "registration mutation should explain the fingerprint failure"
+  [ "$(grep -cF 'stub bun run harness:registration:check' "$stub_log")" -eq 1 ] \
+    || fail "registration mutation case should run admission exactly once"
+  if grep -qF 'stub bun run lint:changed' "$stub_log"; then
+    fail "registration mutation must stop before behavioral slots"
+  fi
+)
+ok "fast registration admission fails closed when its fingerprint changes"
+
+# The under-lock fast-mode snapshot remains authoritative if another worktree
+# removes the shared marker while admission is running. Admission, slot skips,
+# fingerprinting, and pending provenance must all retain the same mode.
+fast_snapshot_repo="$TMP_ROOT/fast-snapshot-repo"
+init_bridge_repo "$fast_snapshot_repo"
+(
+  cd "$fast_snapshot_repo"
+  printf 'fast snapshot edit\n' > packages/example.ts
+  git add packages/example.ts
+  identity="$(musi_git_common_identity_path "$PWD")"
+  fast_marker="$identity/musi-fast-commit"
+  : > "$fast_marker"
+  stub_log="$TMP_ROOT/fast-snapshot-bun.log"
+  : > "$stub_log"
+
+  output="$(
+    PATH="$fast_snapshot_repo/bin:$PATH" \
+    STUB_LOG="$stub_log" \
+    STUB_REMOVE_PATH_MATCH='harness:registration:check' \
+    STUB_REMOVE_PATH="$fast_marker" \
+    MUSI_PRECOMMIT_MARKER="$TMP_ROOT/fast-snapshot-precommit-marker" \
+    MUSI_VERIFY_LOCK="$TMP_ROOT/fast-snapshot-lock" \
+    MUSI_VERIFY_LOG_DIR="$TMP_ROOT/fast-snapshot-logs" \
+      sh .husky/pre-commit 2>&1
+  )" || fail "fast snapshot should survive a mid-admission marker removal: $output"
+  [ ! -e "$fast_marker" ] || fail "snapshot fixture did not remove the shared marker"
+  grep -qF 'fast-commit mode — skipping test slot' <<< "$output" \
+    || fail "mid-admission marker removal changed snapshotted slot resolution: $output"
+  [ -f "$(musi_fast_commit_pending_marker "$PWD")" ] \
+    || fail "mid-admission marker removal lost snapshotted provenance"
+)
+ok "fast-mode snapshot binds admission slots fingerprint and provenance"
+
+# Generated-surface advisory suppression must use the same under-lock snapshot
+# as registration admission and slot resolution. Removing the live marker from
+# a later non-overlapping advisory cannot retroactively turn a fast snapshot
+# into a non-fast gate or unsuppress the overlapping checks.
+fast_advisory_snapshot_repo="$TMP_ROOT/fast-advisory-snapshot-repo"
+init_bridge_repo "$fast_advisory_snapshot_repo"
+(
+  cd "$fast_advisory_snapshot_repo"
+  printf '{"controls":[]}\n' > harness.controls.json
+  git add harness.controls.json
+  identity="$(musi_git_common_identity_path "$PWD")"
+  fast_marker="$identity/musi-fast-commit"
+  : > "$fast_marker"
+  stub_log="$TMP_ROOT/fast-advisory-snapshot-bun.log"
+  : > "$stub_log"
+
+  output="$(
+    PATH="$fast_advisory_snapshot_repo/bin:$PATH" \
+    STUB_LOG="$stub_log" \
+    STUB_REMOVE_PATH_MATCH='docs:harness-controls:check' \
+    STUB_REMOVE_PATH="$fast_marker" \
+    MUSI_PRECOMMIT_MARKER="$TMP_ROOT/fast-advisory-snapshot-precommit-marker" \
+    MUSI_VERIFY_LOCK="$TMP_ROOT/fast-advisory-snapshot-lock" \
+    MUSI_VERIFY_LOG_DIR="$TMP_ROOT/fast-advisory-snapshot-logs" \
+      sh .husky/pre-commit 2>&1
+  )" || fail "fast advisory snapshot should survive marker removal: $output"
+  [ ! -e "$fast_marker" ] || fail "fast advisory snapshot fixture did not remove the marker"
+  [ "$(grep -cF 'stub bun run harness:registration:check' "$stub_log")" -eq 1 ] \
+    || fail "fast advisory snapshot did not retain registration admission"
+  if grep -qF 'stub bun run verify:steps:check' "$stub_log"; then
+    fail "fast advisory snapshot did not suppress the overlapping verify advisory"
+  fi
+  grep -qF 'fast-commit mode — skipping test slot' <<< "$output" \
+    || fail "fast advisory snapshot did not bind slot resolution: $output"
+) || exit 1
+ok "fast advisory suppression consumes the authoritative under-lock snapshot"
+
+# Conversely, creating the marker while a non-fast snapshot is already running
+# an overlapping advisory must not enable admission or fast slot skips midway.
+nonfast_advisory_snapshot_repo="$TMP_ROOT/nonfast-advisory-snapshot-repo"
+init_bridge_repo "$nonfast_advisory_snapshot_repo"
+(
+  cd "$nonfast_advisory_snapshot_repo"
+  printf '{"controls":[]}\n' > harness.controls.json
+  git add harness.controls.json
+  identity="$(musi_git_common_identity_path "$PWD")"
+  fast_marker="$identity/musi-fast-commit"
+  rm -f "$fast_marker"
+  stub_log="$TMP_ROOT/nonfast-advisory-snapshot-bun.log"
+  : > "$stub_log"
+
+  output="$(
+    PATH="$nonfast_advisory_snapshot_repo/bin:$PATH" \
+    STUB_LOG="$stub_log" \
+    STUB_CREATE_PATH_MATCH='verify:steps:check' \
+    STUB_CREATE_PATH="$fast_marker" \
+    MUSI_PRECOMMIT_MARKER="$TMP_ROOT/nonfast-advisory-snapshot-precommit-marker" \
+    MUSI_VERIFY_LOCK="$TMP_ROOT/nonfast-advisory-snapshot-lock" \
+    MUSI_VERIFY_LOG_DIR="$TMP_ROOT/nonfast-advisory-snapshot-logs" \
+      sh .husky/pre-commit 2>&1
+  )" || fail "non-fast advisory snapshot should remain stable: $output"
+  [ -e "$fast_marker" ] || fail "non-fast advisory snapshot fixture did not create the marker"
+  [ "$(grep -cF 'stub bun run verify:steps:check' "$stub_log")" -eq 1 ] \
+    || fail "non-fast advisory snapshot should run the overlapping advisory once"
+  if grep -qF 'stub bun run harness:registration:check' "$stub_log"; then
+    fail "non-fast advisory snapshot unexpectedly enabled registration admission"
+  fi
+  if grep -qF 'fast-commit mode — skipping test slot' <<< "$output"; then
+    fail "non-fast advisory snapshot unexpectedly enabled fast slot skips"
+  fi
+) || exit 1
+ok "non-fast advisory suppression ignores a later live-marker creation"
 
 # Regression: if post-commit cannot append after a real fast-skipping commit,
 # the next pre-commit must recover that commit before it initializes provenance
@@ -1920,6 +2311,8 @@ init_bridge_repo "$native_fast_repo"
   identity="$(musi_git_common_identity_path "$PWD")"
   : > "$identity/musi-fast-commit"
   native_marker="$TMP_ROOT/native-fast-precommit-marker"
+  log_dir="$TMP_ROOT/native-fast-logs"
+  seed_prior_verify_evidence "$log_dir"
   musi_write_success_marker "$native_marker" "$(git rev-parse HEAD)" \
     "$(ai_precommit_fingerprint "$PWD")" \
     || fail "test setup failed to write native pre-commit marker"
@@ -1929,13 +2322,18 @@ init_bridge_repo "$native_fast_repo"
     STUB_LOG="$TMP_ROOT/native-fast-bun.log" \
     MUSI_PRECOMMIT_MARKER="$native_marker" \
     MUSI_VERIFY_LOCK="$TMP_ROOT/native-fast-lock" \
-    MUSI_VERIFY_LOG_DIR="$TMP_ROOT/native-fast-logs" \
+    MUSI_VERIFY_LOG_DIR="$log_dir" \
       sh .husky/pre-commit
   } 2>&1)" || fail "native marker retry should pass under fast mode: $output"
   grep -qF 'pre-commit: already verified' <<< "$output" \
     || fail "native fast retry should use the native marker: $output"
+  [ "$(grep -cF 'stub bun run harness:registration:check' "$TMP_ROOT/native-fast-bun.log")" -eq 1 ] \
+    || fail "native marker hit must run registration admission exactly once first"
   [ -f "$(musi_fast_commit_pending_marker "$PWD")" ] \
     || fail "native marker hit under fast mode must leave pending provenance"
+  assert_prior_verify_evidence "$log_dir" "fast native marker hit"
+  [ -f "$log_dir/registration.log" ] \
+    || fail "fast native marker hit must retain the current registration.log"
 )
 ok "native pre-commit marker hit under fast mode preserves retry provenance"
 
@@ -1955,6 +2353,8 @@ init_bridge_repo "$bridge_fast_repo"
     || fail "test setup failed to write changed verify marker"
 
   stub_log="$TMP_ROOT/bridge-fast-bun.log"
+  log_dir="$TMP_ROOT/bridge-fast-logs"
+  seed_prior_verify_evidence "$log_dir"
   : > "$stub_log"
   output="$(
     PATH="$bridge_fast_repo/bin:$PATH" \
@@ -1963,13 +2363,18 @@ init_bridge_repo "$bridge_fast_repo"
     MUSI_VERIFY_MARKER_CHANGED="$changed_marker" \
     MUSI_VERIFY_MARKER_FULL="$TMP_ROOT/bridge-fast-full-marker" \
     MUSI_VERIFY_LOCK="$TMP_ROOT/bridge-fast-lock" \
-    MUSI_VERIFY_LOG_DIR="$TMP_ROOT/bridge-fast-logs" \
+    MUSI_VERIFY_LOG_DIR="$log_dir" \
       sh .husky/pre-commit 2>&1
   )" || fail "bridged pre-commit should pass under the fast-commit marker: $output"
   grep -qF "verify:changed passed" <<< "$output" \
     || fail "bridged run should take the verify-marker bridge path: $output"
+  [ "$(grep -cF 'stub bun run harness:registration:check' "$stub_log")" -eq 1 ] \
+    || fail "verify bridge hit must run registration admission exactly once first"
   [ ! -e "$(musi_fast_commit_pending_marker "$PWD")" ] \
     || fail "marker-bridged commit must not leave a pending provenance marker"
+  assert_prior_verify_evidence "$log_dir" "fast verify bridge hit"
+  [ -f "$log_dir/registration.log" ] \
+    || fail "fast verify bridge hit must retain the current registration.log"
 
   sh .husky/post-commit \
     || fail "post-commit should be a no-op for a marker-bridged commit"

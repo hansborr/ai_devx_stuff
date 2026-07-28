@@ -94,6 +94,35 @@ describe("safeParseHarnessManifest (whole-manifest contract)", () => {
     expect(result.failures?.join("\n")).toContain("principle");
   });
 
+  it("rejects an empty slots array, because a gate with no slots silently passes", () => {
+    // Permanent regression guard. Nothing downstream rejects `"slots": []`:
+    // generate-verify-steps.ts renders an empty steps array, the marker-bridge
+    // subset check is vacuous over zero slots, and verify-engine.sh iterates
+    // zero entries and writes a SUCCESS marker. Emptiness therefore has to be
+    // rejected here, at the one seam every manifest reader passes through.
+    for (const kind of ["verify-wrapper", "hook"] as const) {
+      const empty = safeParseHarnessManifest(
+        minimalManifest([minimalControl({ id: `${kind}/x`, kind, slots: [] })]),
+      );
+      expect(empty.failures?.join("\n"), kind).toContain("slots");
+    }
+
+    const notAnArray = safeParseHarnessManifest(
+      minimalManifest([
+        minimalControl({ id: "verify-wrapper/y", kind: "verify-wrapper", slots: {} }),
+      ]),
+    );
+    expect(notAnArray.failures?.join("\n")).toContain("slots");
+
+    // Omitting `slots` stays legal at the shape level: which controls must
+    // declare one is consumer vocabulary (generate-verify-steps.ts throws
+    // `must declare a slots array` for its four named consumers).
+    const omitted = safeParseHarnessManifest(
+      minimalManifest([minimalControl({ id: "verify-wrapper/z", kind: "verify-wrapper" })]),
+    );
+    expect(omitted.failures).toBeUndefined();
+  });
+
   it("rejects duplicate control ids", () => {
     const result = safeParseHarnessManifest(minimalManifest([minimalControl(), minimalControl()]));
     expect(result.failures?.join("\n")).toContain("duplicate control id: sensor/example");

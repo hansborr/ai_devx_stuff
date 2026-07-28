@@ -75,8 +75,6 @@
       "Bash(git restore * -- .)",
       "Bash(git restore .)",
       "Bash(git restore ./*)",
-      "Bash(git stash drop*)",
-      "Bash(git stash clear*)",
       "Bash(git filter-branch*)",
       "Bash(git filter-repo*)",
       "Bash(git replace*)",

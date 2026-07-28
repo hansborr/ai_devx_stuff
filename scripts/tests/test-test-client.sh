@@ -6,6 +6,7 @@
 # smoke-subjects: scripts/ai-hooks/output-filter.sh
 # smoke-subjects: scripts/tests/lib/test-git-env.sh
 # smoke-subjects: scripts/tests/test-test-client.sh
+# smoke-subjects: scripts/lib/process-argv.ts
 # Pure-shell smoke tests for scripts/test-client.sh orchestration behavior.
 
 set -euo pipefail

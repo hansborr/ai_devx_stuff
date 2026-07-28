@@ -31,6 +31,7 @@ For the module-doc contract, see [docs/module-docs.md](docs/module-docs.md).
 - [species - homebrew entity module](packages/client/src/components/homebrew/species/MODULE.md) - `packages/client/src/components/homebrew/species/`
 - [spell - homebrew entity module](packages/client/src/components/homebrew/spell/MODULE.md) - `packages/client/src/components/homebrew/spell/`
 - [subclass - homebrew entity module](packages/client/src/components/homebrew/subclass/MODULE.md) - `packages/client/src/components/homebrew/subclass/`
+- [character sheet components module](packages/client/src/components/sheet/MODULE.md) - `packages/client/src/components/sheet/` - Concepts: character sheet panels, ability scores, spell slots, inventory, level-up, death saves
 - [vtt drawer module](packages/client/src/components/vtt/drawer/MODULE.md) - `packages/client/src/components/vtt/drawer/`
 - [vtt module](packages/client/src/components/vtt/MODULE.md) - `packages/client/src/components/vtt/` - Concepts: VTT, virtual tabletop, vtt surface, encounter, map, token, tabletop shell
 - [canvas-input module](packages/client/src/hooks/canvas-input/MODULE.md) - `packages/client/src/hooks/canvas-input/` - Concepts: canvas input, pointer capture, map tools, drawing, fog, measurement, templates
@@ -43,10 +44,12 @@ For the module-doc contract, see [docs/module-docs.md](docs/module-docs.md).
 - [routers module](packages/server/src/routers/routers-MODULE.md) - `packages/server/src/routers/routers-MODULE.md` - Concepts: tRPC routers, app-router, router surface map, procedure partition, where does procedure X live
 - [server routes module](packages/server/src/routes/MODULE.md) - `packages/server/src/routes/` - Concepts: REST routes, multipart upload, map image upload, non-tRPC error convention, HTTP status mapping
 - [character-live-state module](packages/server/src/services/character-live-state/MODULE.md) - `packages/server/src/services/character-live-state/` - Concepts: character stats, HP, conditions, spell slots, sorcery points, feature uses, rest commands
-- [combat-actions module](packages/server/src/services/combat-actions/MODULE.md) - `packages/server/src/services/combat-actions/` - Concepts: attacks, initiative rolls, turn advancement, turn locks, combat logs, concentration checks
+- [combat-actions module](packages/server/src/services/combat-actions/MODULE.md) - `packages/server/src/services/combat-actions/` - Concepts: attacks, initiative rolls, turn advancement, turn locks, turn origin, combat logs, concentration checks
 - [encounter-combat module](packages/server/src/services/encounter-combat/MODULE.md) - `packages/server/src/services/encounter-combat/` - Concepts: encounter combat mutations, combat fan-out, roll initiative, advance turn, combat log query
 - [homebrew-import-service module](packages/server/src/services/homebrew-import-MODULE.md) - `packages/server/src/services/homebrew-import-MODULE.md` - Concepts: homebrew collection import, two-pass cross-entry reference resolution
+- [Invite service](packages/server/src/services/invite-MODULE.md) - `packages/server/src/services/invite-MODULE.md` - Concepts: invite preview, invite redemption, capacity claim, campaign membership, DM notification
 - [level-up module](packages/server/src/services/level-up/MODULE.md) - `packages/server/src/services/level-up/` - Concepts: level up, multiclass, ASI, feats, subclass choice, metamagic, spell slot sync
+- [Map Token Link Orchestration](packages/server/src/services/map-tokens/MODULE.md) - `packages/server/src/services/map-tokens/` - Concepts: token links, turn origin, map cascade, compound CAS
 - [rest-service module](packages/server/src/services/rest-MODULE.md) - `packages/server/src/services/rest-MODULE.md` - Concepts: short rest, long rest, hit dice, death saves, exhaustion, spell slot reset
 - [spell-casting module](packages/server/src/services/spell-casting/MODULE.md) - `packages/server/src/services/spell-casting/` - Concepts: spell casting, spell slots, concentration, combat spells, ritual casting, metamagic
 - [server socket module](packages/server/src/socket/MODULE.md) - `packages/server/src/socket/` - Concepts: Socket.io, campaign rooms, presence, heartbeats, socket broadcasts, broadcast registry

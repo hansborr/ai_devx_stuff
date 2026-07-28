@@ -12,6 +12,8 @@
 # smoke-subjects: scripts/harness/hook-timeout-constants.ts
 # smoke-subjects: scripts/harness/generate-hook-timeout-constants.ts
 # smoke-subjects: scripts/harness/harness-manifest.ts
+# smoke-subjects: scripts/harness/harness-manifest-schema.ts
+# smoke-subjects: scripts/harness/harness-manifest-loader.ts
 # smoke-subjects: scripts/harness/harness-paths.ts
 # smoke-subjects: scripts/harness/porting-knob-parity.ts
 # smoke-subjects: scripts/harness/porting-knob-parity.test.ts
@@ -31,9 +33,10 @@
 # smoke-subjects: scripts/harness/hook-wiring-schema.ts
 # smoke-subjects: scripts/harness/check-skill-inventory.ts
 # smoke-subjects: scripts/harness/skill-inventory-schema.ts
-# smoke-subjects: scripts/harness/skill-tree-comparison.ts
 # smoke-subjects: scripts/path-policy/generate-smoke-subjects.ts
 # smoke-subjects: scripts/path-policy/smoke-subject-headers.ts
+# smoke-subjects: scripts/path-policy/fixture-copy-expressions.ts
+# smoke-subjects: scripts/path-policy/fixture-import-closure.ts
 # smoke-subjects: scripts/path-policy/fixture-shell-dependencies.ts
 # smoke-subjects: scripts/path-policy/fixture-shell-scope.ts
 # smoke-subjects: scripts/ai-hooks/check-wiring.sh
@@ -47,6 +50,7 @@
 # smoke-subjects: scripts/verify/memory-budget.sh
 # smoke-subjects: scripts/lib/codepoint-compare.ts
 # smoke-subjects: scripts/lib/test-worker-count.sh
+# smoke-subjects: scripts/lib/records.ts
 # smoke-subjects: scripts/harness/verify-step-schema.ts
 # smoke-subjects: scripts/harness/fixture-closure-check.ts
 # smoke-subjects: scripts/worktree-seed-import-closure.ts
@@ -123,6 +127,10 @@ copy_validator() {
   while IFS= read -r copy_path; do
     case "$copy_path" in '' | '#'*) continue ;; esac
     mkdir -p "$fixture_dir/$(dirname "$copy_path")"
+    # fixture-closure: unmodelled-copy - the copy set is the generated manifest
+    # read line by line, so the fixture-copy-set checker cannot enumerate it
+    # statically; scripts/harness/fixture-closure-check.ts walks the same
+    # fixturePaths declarations over the real import graph instead.
     cp "$copy_path" "$fixture_dir/$copy_path"
   done <"$manifest_path"
   # Fixture-synthesized stub (FIXTURE_SYNTHESIZED_PATHS in generated-surfaces.ts):
@@ -142,6 +150,11 @@ TS
   # The lint coverage-map generator calls ESLint.calculateConfigForFile(); the
   # fixture supplies a minimal flat config but resolves the real ESLint module.
   [ -e "$fixture_dir/node_modules/eslint" ] || ln -s "$PWD/node_modules/eslint" "$fixture_dir/node_modules/eslint"
+  # scripts/worktree-seed-import-closure.ts (the shared static-import-graph
+  # walker, copied above) imports the TypeScript compiler at module load; the
+  # smoke-subjects generator now reaches it through the fixture copy-set
+  # import-closure guard, so the fixture resolves the real package.
+  [ -e "$fixture_dir/node_modules/typescript" ] || ln -s "$PWD/node_modules/typescript" "$fixture_dir/node_modules/typescript"
 }
 
 write_eslint_plugin() {
@@ -198,6 +211,7 @@ write_source_files() {
   : >"$fixture_dir/eslint-rules/fixture-rule.js"
   : >"$fixture_dir/scripts/sensor-fixture.ts"
   : >"$fixture_dir/scripts/doctor.sh"
+  : >"$fixture_dir/scripts/harness-registration-check.ts"
   : >"$fixture_dir/scripts/lint-coverage-map-check.ts"
   : >"$fixture_dir/scripts/lint-ratchet/zero-baseline.ts"
   : >"$fixture_dir/scripts/codemods/fixture.ts"
@@ -259,6 +273,7 @@ write_package_json() {
     "harness:hook-timeouts:check": "bun run scripts/harness/generate-hook-timeout-constants.ts -- --check",
     "harness:wiring": "bun run scripts/harness/generate-hook-wiring.ts",
     "harness:wiring:check": "bun run scripts/harness/generate-hook-wiring.ts -- --check",
+    "harness:registration:check": "bun run scripts/harness-registration-check.ts",
     "format:check": "prettier --check .",
     "format:changed:check": "bash scripts/format-changed.sh --check",
     "verify": "bash scripts/verify.sh",
@@ -282,7 +297,36 @@ SH
   mkdir -p "$fixture_dir/.husky"
   cat >"$fixture_dir/.husky/pre-commit" <<'SH'
 #!/usr/bin/env bash
-echo pre-commit
+musi_changed_gate_fail_if_unstaged "$REPO_ROOT" "pre-commit" || exit 1
+musi_staged_has_source_relevant_change
+musi_precommit_registration_admission() {
+  timeout --foreground --signal=TERM --kill-after=1s 5s \
+    bun run harness:registration:check
+}
+musi_precommit_snapshot_fast_mode() {
+  local snapshot_rc
+  if [ -f "$(musi_precommit_fast_marker)" ]; then
+    MUSI_FAST_COMMIT_ENABLED_SNAPSHOT=1
+    FAST_COMMIT_RECORD_PENDING=1
+    snapshot_rc=0
+  else
+    MUSI_FAST_COMMIT_ENABLED_SNAPSHOT=0
+    FAST_COMMIT_RECORD_PENDING=0
+    snapshot_rc=1
+  fi
+  musi_warn_generated_surfaces_stale || true
+  return "$snapshot_rc"
+}
+if [ "$MUSI_PRECOMMIT_ADMISSION_REACHABLE" -eq 1 ] \
+   && [ "${MUSI_FAST_COMMIT_ENABLED_SNAPSHOT:-0}" -eq 1 ]; then
+  echo suppress-overlapping-advisory
+fi
+REGISTRATION_ADMISSION_HOOK='musi_precommit_registration_admission'
+declare -A PRECOMMIT_GATE_POLICY=(
+  [pre_cache_admission_condition]='musi_precommit_snapshot_fast_mode'
+  [pre_cache_admission_hook]="$REGISTRATION_ADMISSION_HOOK"
+)
+musi_verify_run_gate PRECOMMIT_GATE_POLICY
 SH
   # Representative near-duplicates boundary trigger: the pre-push scope pin
   # (scripts/harness/pre-push-scope-pin.ts) reads this alternation and compares
@@ -470,7 +514,8 @@ $FIXTURE_RATCHET_ENTRIES,
         "outputPaths": [
           "scripts/verify/steps.generated.sh",
           "scripts/harness/generated-surface-freshness.generated.sh",
-          "scripts/ai-hooks/classified-bun-scripts.generated.sh"
+          "scripts/ai-hooks/classified-bun-scripts.generated.sh",
+          "scripts/tests/harness-check-fixture-manifest.generated.txt"
         ],
         "checkScript": "verify:steps:check",
         "warnLabel": "verify step and generated-surface metadata",
@@ -497,6 +542,16 @@ $FIXTURE_RATCHET_ENTRIES,
         "warnLabel": "AI hook wiring",
         "bunHook": { "refresh": "bypass", "check": "wrapped" }
       }
+    },
+    {
+      "id": "check/harness-registration-preflight",
+      "kind": "check",
+      "category": "maintainability",
+      "principle": "Registration admission fixture principle.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/harness-registration-check.ts",
+      "invocation": "bun run harness:registration:check"
     },
     {
       "id": "check/smoke-subjects-generator",
@@ -696,8 +751,7 @@ $FIXTURE_RATCHET_ENTRIES,
         "gitignoreOptIns": [
           "!.claude/skills/fixture/",
           "!.codex/skills/fixture/"
-        ],
-        "smokeSubjects": []
+        ]
       }
     },
     {
@@ -852,6 +906,11 @@ mutate_pre_push_pin_drift() {
 mutate_pre_push_pin_missing_hook() {
   local fixture_dir=$1
   rm "$fixture_dir/.husky/pre-push"
+}
+
+mutate_missing_registration_admission() {
+  local fixture_dir=$1
+  sed -i '/\[pre_cache_admission_hook\]/d' "$fixture_dir/.husky/pre-commit"
 }
 
 mutate_stale_lint_coverage_map_block() {
@@ -1314,6 +1373,8 @@ run_failure_checks() {
     "near-duplicates boundary trigger is out of sync" mutate_pre_push_pin_drift
   run_failure_case "pre-push-pin-missing-hook" ".husky/pre-push could not be read" \
     mutate_pre_push_pin_missing_hook
+  run_failure_case "missing-registration-admission" \
+    "Restore the direct registration admission wiring" mutate_missing_registration_admission
 }
 
 run_conflict_marker_presentation_check() {

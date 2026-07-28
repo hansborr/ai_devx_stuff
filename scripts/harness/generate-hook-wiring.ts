@@ -4,7 +4,8 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { ensureDirWriteFileAtomicallySync } from "../lib/atomic-write.js";
 import { compareByCodepoint } from "../lib/codepoint-compare.js";
-import { HARNESS_MANIFEST_FILENAME, readHarnessManifest } from "./harness-manifest.js";
+import { loadTypedHarnessManifest } from "./harness-manifest-loader.js";
+import type { HarnessManifest } from "./harness-manifest-schema.js";
 import { CLAUDE_SETTINGS_PATH, CODEX_HOOKS_PATH, COPILOT_HOOKS_PATH } from "./harness-paths.js";
 import { checkHookShimsOnDisk, writeHookShims } from "./hook-shim-files.js";
 import { deriveHookShims, type RenderedShim } from "./hook-shims.js";
@@ -15,7 +16,6 @@ import {
   type HookHarnessCommand,
   type HookWiring,
   isNonEmptyString,
-  isObject,
   resolveHookWiring,
 } from "./hook-wiring-schema.js";
 
@@ -66,28 +66,15 @@ function copilotEventNameFor(event: HookEvent): CopilotEventName | undefined {
   return undefined;
 }
 
-function parseHookWiring(control: Record<string, unknown>): OrderedHookWiring | undefined {
-  const rawWiring = control.hookWiring;
-  if (rawWiring === undefined) return undefined;
-  if (!isNonEmptyString(control.id)) throw new Error("hookWiring control id must be a string");
-  return { controlId: control.id, ...resolveHookWiring(control.id, rawWiring) };
-}
-
-function collectHookWiring(manifest: unknown): OrderedHookWiring[] {
-  if (!isObject(manifest) || !Array.isArray(manifest.controls)) {
-    throw new Error(`${HARNESS_MANIFEST_FILENAME} must declare a controls array`);
-  }
+// Controls-array shape, entry object-ness, id presence, and id uniqueness are
+// the typed contract's job (harness-manifest-schema.ts), and only `kind: hook`
+// controls may carry the facet at all, so this collector owns just the
+// hookWiring facet resolution and the emission order.
+function collectHookWiring(manifest: HarnessManifest): OrderedHookWiring[] {
   const hooks: OrderedHookWiring[] = [];
-  const seenIds = new Set<string>();
-  for (const [index, control] of manifest.controls.entries()) {
-    if (!isObject(control))
-      throw new Error(`control entry at index ${String(index)} must be an object`);
-    if (isNonEmptyString(control.id)) {
-      if (seenIds.has(control.id)) throw new Error(`duplicate control id: ${control.id}`);
-      seenIds.add(control.id);
-    }
-    const wiring = parseHookWiring(control);
-    if (wiring !== undefined) hooks.push(wiring);
+  for (const control of manifest.controls) {
+    if (control.kind !== "hook" || control.hookWiring === undefined) continue;
+    hooks.push({ controlId: control.id, ...resolveHookWiring(control.id, control.hookWiring) });
   }
   return hooks.sort((left, right) => {
     const eventOrder = HOOK_EVENTS.indexOf(left.event) - HOOK_EVENTS.indexOf(right.event);
@@ -257,7 +244,7 @@ export function replaceClaudeHooksInSettings(settingsText: string, hooks: Genera
 }
 
 export function renderHookWiringOutputsFromManifest(
-  manifest: unknown,
+  manifest: HarnessManifest,
   claudeSettingsText: string,
 ): {
   readonly claudeSettingsJson: string;
@@ -306,7 +293,7 @@ function main(): void {
   const { checkMode } = parseArgs(process.argv.slice(PROCESS_ARG_OFFSET));
   const claudeSettingsText = readFileSync(claudeSettingsPath, "utf8");
   const outputs = renderHookWiringOutputsFromManifest(
-    readHarnessManifest(repoRoot),
+    loadTypedHarnessManifest(repoRoot),
     claudeSettingsText,
   );
   if (checkMode) {

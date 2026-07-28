@@ -8,24 +8,14 @@
  * ESLint flat config.
  */
 
-/** @param {import('estree').Node} node */
-function unwrapChain(node) {
-  return node.type === "ChainExpression" ? node.expression : node;
-}
-
-/** @param {import('estree').PrivateIdentifier | import('estree').Expression} property */
-function staticPropertyName(property) {
-  if (property.type === "Identifier") return property.name;
-  if (property.type === "Literal" && typeof property.value === "string") return property.value;
-  return undefined;
-}
+import { staticPropertyName, unwrapChain } from "./ast-helpers.js";
 
 /** @param {import('estree').CallExpression} node */
 function isLocatorCall(node) {
   const callee = unwrapChain(node.callee);
   if (callee.type !== "MemberExpression") return false;
 
-  return staticPropertyName(callee.property) === "locator";
+  return staticPropertyName(callee) === "locator";
 }
 
 /** @type {import('eslint').Rule.RuleModule} */

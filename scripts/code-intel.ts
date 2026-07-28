@@ -1,5 +1,4 @@
 #!/usr/bin/env bun
-import { pathToFileURL } from "node:url";
 
 import { runCodeIntelCli } from "./code-intel/cli-main.js";
 import type * as DefinitionQueryModule from "./code-intel/definition-query.js";
@@ -26,6 +25,7 @@ export type {
   IntelResult,
   OverviewResult,
 } from "./code-intel/types.js";
+import { isCliEntrypoint } from "./lib/process-argv.js";
 
 export type WorkspaceResolver = InstanceType<typeof WorkspaceResolverModule.WorkspaceResolver>;
 
@@ -41,7 +41,7 @@ type CodeIntelApiModules = {
   workspaceResolver: typeof WorkspaceResolverModule;
 };
 
-const isCli = isCliEntrypoint();
+const isCli = isCliEntrypoint(import.meta.url);
 const apiModules = isCli ? undefined : await loadCodeIntelApiModules();
 
 export let WorkspaceResolver: typeof WorkspaceResolverModule.WorkspaceResolver;
@@ -129,9 +129,4 @@ function requireCodeIntelApiModules(): CodeIntelApiModules {
     throw new Error("code:intel API exports are not available while running the CLI entrypoint.");
   }
   return apiModules;
-}
-
-function isCliEntrypoint(): boolean {
-  if (!process.argv[1]) return false;
-  return import.meta.url === pathToFileURL(process.argv[1]).href;
 }

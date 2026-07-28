@@ -1,6 +1,9 @@
 # Semgrep as a generic drift sensor — research
 
-Status: research · no implementation yet
+Status: research · shipped — the semgrep drift-sensor prototype landed in
+`59db58a8` (`feat(drift-ai): add semgrep prototype advisory builder and
+formatter`); see `scripts/drift-ai/semgrep-*.ts` and
+`semgrep-drift-ai-implementation-plan.md`
 Date: 2026-06-05 · semgrep CE 1.165.0, logged out, `--metrics=off`
 Branch: `feat/semgrep`
 

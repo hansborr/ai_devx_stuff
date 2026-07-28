@@ -4,7 +4,11 @@
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT=$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null || git rev-parse --show-toplevel 2>/dev/null || echo "${CLAUDE_PROJECT_DIR:-/workspace}")
+# Honor a REPO_ROOT the caller already resolved, matching policy.sh's
+# `${REPO_ROOT:-$(ai_repo_root)}`. Production is unchanged: every shipped
+# entrypoint computes REPO_ROOT from git itself before this file is sourced or
+# exec'd, so the default below is what real hook invocations still take.
+REPO_ROOT="${REPO_ROOT:-$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null || git rev-parse --show-toplevel 2>/dev/null || echo "${CLAUDE_PROJECT_DIR:-/workspace}")}"
 # shellcheck source=/dev/null
 . "$SCRIPT_DIR/common.sh"
 # shellcheck source=/dev/null

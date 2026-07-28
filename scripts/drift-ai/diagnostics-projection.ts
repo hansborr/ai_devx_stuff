@@ -15,6 +15,7 @@ import {
   harnessDiagnosticsOutputPath,
   writeHarnessDiagnosticsSidecar,
 } from "../harness/harness-diagnostics-output.js";
+import { errorMessage } from "../lib/error-message.js";
 import { DEFAULT_CHECKS } from "./check-metadata.js";
 import { DriftAiError } from "./errors.js";
 import type { ScopeMode } from "./scope.js";
@@ -96,10 +97,6 @@ export function projectDriftDiagnostics(report: DriftReport): HarnessDiagnostics
   return buildHarnessDiagnostics("drift:ai", findings);
 }
 
-function describeError(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
 /**
  * Write the diagnostics sidecar when `HARNESS_DIAGNOSTICS_OUTPUT` names a path,
  * leaving native drift:ai stdout untouched. When the env var is unset/empty the
@@ -113,7 +110,7 @@ export function writeDriftDiagnosticsSidecar(report: DriftReport): void {
     writeHarnessDiagnosticsSidecar(projectDriftDiagnostics(report));
   } catch (error) {
     throw new DriftAiError(
-      `drift:ai could not write the HARNESS_DIAGNOSTICS_OUTPUT sidecar: ${describeError(error)}`,
+      `drift:ai could not write the HARNESS_DIAGNOSTICS_OUTPUT sidecar: ${errorMessage(error)}`,
     );
   }
 }

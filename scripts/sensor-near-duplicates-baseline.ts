@@ -1,7 +1,6 @@
 import {
   type BaselineMetricSpec,
   formatBaseline,
-  parseBaseline,
   type ParseResult,
 } from "@musi/lint-ratchet/kernel/entry-baseline.js";
 
@@ -12,6 +11,7 @@ import {
   DEFAULT_NEAR_DUPLICATE_TOKEN_BAND_RATIO,
   type NearDuplicatePair,
 } from "./drift-ai/near-duplicates.js";
+import { parseBaselineEntries } from "./lib/baseline/read-entries.js";
 
 export type NearDuplicateBaselineEntry = {
   readonly key: string;
@@ -156,10 +156,5 @@ export function formatNearDuplicatesBaseline(
 export function readNearDuplicatesBaseline(
   text: string,
 ): ParseResult<readonly NearDuplicateBaselineEntry[]> {
-  const parsed = parseBaseline(nearDuplicatesSpec, text);
-  if (!parsed.ok) return parsed;
-  if (parsed.warnings !== undefined) {
-    return { ok: true, value: parsed.value.entries, warnings: parsed.warnings };
-  }
-  return { ok: true, value: parsed.value.entries };
+  return parseBaselineEntries(nearDuplicatesSpec, text);
 }

@@ -73,10 +73,11 @@ above:
 
 ## Open Prerequisites
 
-- `followup-srd-castertype-issues.md` — the `Class.ritualAdept` rename and
-  homebrew class caster-field inputs have landed; Eldritch Knight / Arcane
-  Trickster still need provenance cleanup, and homebrew subclass forms still
-  need caster-field inputs before character-level selection is meaningful.
+- ~~`followup-srd-castertype-issues.md`~~ — cleared. The `Class.ritualAdept`
+  rename, the homebrew class caster-field inputs, the Eldritch Knight / Arcane
+  Trickster provenance cleanup (`2f1d857d`, which dropped both from
+  `seed-srd-subclass-data.ts`), and the homebrew subclass caster-field inputs
+  (`subclass-form-fields.tsx`) have all landed.
 
 ## Promotion Checklist
 

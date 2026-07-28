@@ -1,5 +1,6 @@
 // @ts-check
 
+import { staticPropertyName, unwrapChain } from "./ast-helpers.js";
 import { isEmitMember } from "./socket-registry-broadcasts.js";
 
 /**
@@ -20,23 +21,11 @@ const SOCKET_FACTORY_FUNCTIONS = new Set(["getSocketIO"]);
 const SOCKET_CHAIN_PROPERTIES = new Set(["broadcast", "local", "volatile"]);
 const SOCKET_CHAIN_METHODS = new Set(["compress", "except", "in", "timeout", "to"]);
 
-/** @param {import('estree').Node} node */
-function unwrapChain(node) {
-  return node.type === "ChainExpression" ? node.expression : node;
-}
-
-/** @param {import('estree').PrivateIdentifier | import('estree').Expression} property */
-function propertyName(property) {
-  if (property.type === "Identifier") return property.name;
-  if (property.type === "Literal" && typeof property.value === "string") return property.value;
-  return undefined;
-}
-
 /** @param {import('estree').CallExpression} node */
 function isTransactionCall(node) {
   const callee = unwrapChain(node.callee);
   if (callee.type !== "MemberExpression") return false;
-  return propertyName(callee.property) === "$transaction";
+  return staticPropertyName(callee) === "$transaction";
 }
 
 /** @param {import('estree').Node | import('estree').SpreadElement | undefined} node */
@@ -54,7 +43,7 @@ function broadcastFunctionName(node) {
 
 /** @param {import('estree').MemberExpression} receiver */
 function isSocketMemberReceiver(receiver) {
-  const property = propertyName(receiver.property);
+  const property = staticPropertyName(receiver);
   if (SOCKET_CHAIN_PROPERTIES.has(property ?? "")) return isSocketEmitReceiver(receiver.object);
   return SOCKET_ROOT_PROPERTIES.has(property ?? "");
 }
@@ -64,7 +53,7 @@ function isSocketFactoryCall(receiver) {
   const callee = unwrapChain(receiver.callee);
   if (callee.type === "Identifier") return SOCKET_FACTORY_FUNCTIONS.has(callee.name);
   if (callee.type !== "MemberExpression") return false;
-  return SOCKET_FACTORY_FUNCTIONS.has(propertyName(callee.property) ?? "");
+  return SOCKET_FACTORY_FUNCTIONS.has(staticPropertyName(callee) ?? "");
 }
 
 /** @param {import('estree').CallExpression} receiver */
@@ -72,7 +61,7 @@ function isSocketRoomCall(receiver) {
   const callee = unwrapChain(receiver.callee);
   return (
     callee.type === "MemberExpression" &&
-    SOCKET_CHAIN_METHODS.has(propertyName(callee.property) ?? "") &&
+    SOCKET_CHAIN_METHODS.has(staticPropertyName(callee) ?? "") &&
     isSocketEmitReceiver(callee.object)
   );
 }

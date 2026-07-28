@@ -38,8 +38,8 @@ before building). Grouped by theme; within a theme, ordered by priority.
 
 ## Recommended Order
 
-1. **P2 implementation:** 25 remains pending integration; 45 is ready for
-   promotion.
+1. **P2 implementation:** none remain — 25 integrated on `main` (`4bb0b024`)
+   and 45 landed 2026-07-16 (via sd-1.5).
 2. **P4 design follow-up:** 22c (the TSESTree migration) remains parked until
    the owner elects to absorb its larger implementation cost.
 

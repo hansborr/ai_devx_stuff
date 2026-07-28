@@ -65,7 +65,7 @@ export default {
     },
     messages: {
       needsStrict:
-        "Why: A tRPC input `z.object(...)` without `.strict()` silently drops unknown keys, hiding client-side typos at the API boundary. How to fix: Add `.strict()` so unknown keys are rejected. See docs/guides/add-trpc-procedure.md.",
+        "Why: ADR-0004 requires strict tRPC inputs because a `z.object(...)` without `.strict()` silently drops unknown keys, hiding client-side typos at the API boundary. How to fix: Add `.strict()` so unknown keys are rejected. See docs/guides/add-trpc-procedure.md.",
     },
     schema: [],
   },

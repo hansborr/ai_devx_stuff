@@ -16,18 +16,13 @@
  * multiple places) use `// eslint-disable-next-line local/strict-shared-schemas`.
  */
 
+import { staticPropertyName } from "./ast-helpers.js";
+
 const UNKNOWN_KEY_MODES = new Set(["strict", "passthrough", "strip", "catchall"]);
 
 /** @param {import('estree').Node} node */
 function parentOf(node) {
   return /** @type {import('estree').Node & { parent?: import('estree').Node }} */ (node).parent;
-}
-
-/** @param {import('estree').PrivateIdentifier | import('estree').Expression} property */
-function staticPropertyName(property) {
-  if (property.type === "Identifier") return property.name;
-  if (property.type === "Literal" && typeof property.value === "string") return property.value;
-  return undefined;
 }
 
 /**
@@ -39,7 +34,7 @@ function isZCall(node, name) {
     node.callee.type === "MemberExpression" &&
     node.callee.object.type === "Identifier" &&
     node.callee.object.name === "z" &&
-    staticPropertyName(node.callee.property) === name
+    staticPropertyName(node.callee) === name
   );
 }
 
@@ -74,7 +69,7 @@ function analyzeChain(arg) {
   let outermostMode = null;
   let cur = arg;
   while (cur.type === "CallExpression" && cur.callee.type === "MemberExpression") {
-    const name = staticPropertyName(cur.callee.property);
+    const name = staticPropertyName(cur.callee);
     if (name !== undefined) {
       if (outermostMode === null && UNKNOWN_KEY_MODES.has(name)) {
         outermostMode = name;

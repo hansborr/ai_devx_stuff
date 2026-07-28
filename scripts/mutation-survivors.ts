@@ -17,7 +17,6 @@
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
 
 import { z } from "zod";
 
@@ -37,6 +36,7 @@ export {
   type SurvivorSummary,
   type SurvivorSummaryOptions,
 } from "./lib/mutation-survivors-summary.js";
+import { isCliEntrypoint } from "./lib/process-argv.js";
 
 const PROCESS_ARG_OFFSET = 2;
 const TOOL_ERROR_EXIT_CODE = 2;
@@ -194,12 +194,7 @@ export function runMutationSurvivors(
   return { exitCode: 0, stdout: rendered };
 }
 
-function isCliEntrypoint(): boolean {
-  if (!process.argv[1]) return false;
-  return import.meta.url === pathToFileURL(process.argv[1]).href;
-}
-
-if (isCliEntrypoint()) {
+if (isCliEntrypoint(import.meta.url)) {
   const result = runMutationSurvivors({ argv: process.argv.slice(PROCESS_ARG_OFFSET) });
   if (result.stdout) console.log(result.stdout);
   if (result.exitCode !== 0) process.exitCode = result.exitCode;

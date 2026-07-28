@@ -17,6 +17,8 @@ import { dirname, join } from "node:path";
 
 import { ESLint } from "eslint";
 
+import { isRecord } from "./lib/records.js";
+
 const GUIDE_PATH = "docs/guides/local-eslint-rules.md";
 const STARTER_HEADING = "## Standalone Starter";
 const FENCE_PREFIX = "```";
@@ -110,10 +112,6 @@ export function extractStandaloneStarter(source: string): ExtractedStarterFile[]
     throw new Error(`standalone exercise commands must be:\n${EXPECTED_COMMAND_FENCE}`);
   }
   return files;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function expectRecordValue(record: Record<string, unknown>, key: string, expected: unknown): void {

@@ -22,7 +22,7 @@ Tracks: **S** sensors/gates · **T** tooling/config · **C** client.
 | # | Task | Track | Size | Priority | Status |
 | --- | --- | --- | --- | --- | --- |
 | 01 | Baseline truth checks at integration boundaries | S | M | P1 | Done — `99fe7815`/`164191b6`/`0cec8cd5`/`2e586eff` |
-| 02 | [Near-duplicates detector v2: exact-clone tier + block detection](./02-near-duplicates-detector-v2.md) | S | L | P2 | Ready |
+| 02 | [Near-duplicates detector v2: exact-clone tier + block detection](./02-near-duplicates-detector-v2.md) | S | L | P2 | Implemented, promotion blocked on an owner call — both tiers landed 2026-07-20 (merge `86ee756e`; block advisory `ee8b9946`, exact-clone tier `635b49c6`/`c9cdd221`), exact tier is report-only. Owner ruled extract-then-promote 2026-07-25; extraction steps 1–4 landed (`b08f5f6f`, `8973351b`, `10dd8706`, `ed43a999`, wave-1 merge `7b3e8a84`), taking the exact tier 589 → 168 identities. **Remaining scope is step 5 only** — the `valueOptions` detector fix, the ~84-identity hand-drain, then flipping `includeExactTokens`. Tracked as `C3` in `../ready-2026-07/00-index.md` §1 |
 | 03 | Baseline admission artifact + rename migration | S | M | P2 | Done — `4a260e12` |
 | 04 | lint-message-eval: paired iteration delta | T | S | P3 | Done — `952d67eb` |
 | 05 | [combat-map-bridges test fixture builder](./05-combat-map-bridges-fixture-builder.md) | C | S | P3 | Superseded — arch-plans-2026-07/06 deleted the hook suite |

@@ -5,6 +5,7 @@ import {
   checkFixtureCopyClosure,
   FIXTURE_CLOSURE_NO_DECLARATIONS_OPT_OUT_ENV,
 } from "./fixture-closure-check.js";
+import { loadGeneratedSurfaces } from "./generated-surfaces-loader.js";
 import { type ControlFailures } from "./harness-check-validation.js";
 import { HARNESS_MANIFEST_FILENAME } from "./harness-manifest.js";
 
@@ -32,10 +33,16 @@ interface ClosureRepoOptions {
 
 function manifestSource(options: ClosureRepoOptions): string {
   return JSON.stringify({
+    scriptParityExemptions: [],
+    ciGateControlIds: [],
     controls: [
       {
         id: "check/alpha-generator",
         kind: "check",
+        category: "maintainability",
+        principle: "Fixture generator control for import-closure tests.",
+        pairedGuide: "none",
+        repairKind: "autofix",
         source: "scripts/alpha-generator.ts",
         invocation: "bun run alpha",
         generatedSurface: {
@@ -72,7 +79,9 @@ function makeClosureRepo(
 
 async function runValidator(root: string): Promise<string[]> {
   const failures = new Map<string, ControlFailures>();
-  await checkFixtureCopyClosure(root, failures);
+  // Production callers pass records from their own manifest parse; the test
+  // loads them the same way harness-check's generator path does.
+  await checkFixtureCopyClosure(root, loadGeneratedSurfaces(root), failures);
   return Array.from(failures.values()).flatMap((entry) => entry.failures);
 }
 

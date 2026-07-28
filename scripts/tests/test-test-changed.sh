@@ -674,8 +674,8 @@ ok "tool package.json changes run lint-ratchet project tests in full"
 
 repo="$(new_repo tool-stryker-change)"
 mkdir -p "$repo/tools"
-printf 'export default {};\n' > "$repo/tools/stryker-lint-ratchet.ts"
-git -C "$repo" add tools/stryker-lint-ratchet.ts
+printf 'export default {};\n' > "$repo/tools/stryker-lint-ratchet.mjs"
+git -C "$repo" add tools/stryker-lint-ratchet.mjs
 : > "$repo/bun.log"
 run_test_changed "$repo" >/dev/null || fail "tool stryker config change should run"
 grep -qF 'stub vitest run --passWithNoTests --project=lint-ratchet' "$repo/bun.log" \

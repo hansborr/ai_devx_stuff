@@ -53,6 +53,7 @@ MUSI_VERIFY_MEMORY_BUDGET_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 declare -gA MUSI_VERIFY_SLOT_EXPECTED_PEAK_MB=(
   [lint]=3700
   [suppressions]=256
+  [suppression-ledger]=256
   [ratchet]=2210
   [zero-baseline]=256
   [debt-accounting]=256

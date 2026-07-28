@@ -5,6 +5,7 @@
 # smoke-subjects: scripts/ai-hooks/cache.sh
 # smoke-subjects: scripts/ai-hooks/output-filter.sh
 # smoke-subjects: scripts/harness-emit-envelope.ts
+# smoke-subjects: scripts/harness/harness-diagnostics-output.ts
 # smoke-subjects: packages/shared/src/schemas/harness-diagnostics.ts
 # test-verify-logs.sh — pure-shell smoke tests for scripts/verify-logs.sh.
 #

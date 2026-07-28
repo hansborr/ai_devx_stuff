@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { ensureDirWriteFileAtomicallySync } from "../lib/atomic-write.js";
 import { type CliFormat, parseCli } from "../lib/cli.js";
+import { errorMessage } from "../lib/error-message.js";
 import { DriftTriageError, DriftTriageHelp } from "./drift-triage-options.js";
 import { type RepoProvenance, resolveRepoProvenance } from "./drift-triage-packet-io.js";
 import { collectTriageVerdicts } from "./triage-verdict-collect.js";
@@ -133,7 +134,7 @@ function loadVerdictFile(
   try {
     return { path, result: parseVerdictFile(readJson(path, readFile)) };
   } catch (error) {
-    throw new DriftTriageError(`${path}: ${describeError(error)}`);
+    throw new DriftTriageError(`${path}: ${errorMessage(error)}`);
   }
 }
 
@@ -142,12 +143,12 @@ function readJson(path: string, readFile: (filePath: string) => string): unknown
   try {
     contents = readFile(path);
   } catch (error) {
-    throw new DriftTriageError(`${path}: could not read JSON: ${describeError(error)}`);
+    throw new DriftTriageError(`${path}: could not read JSON: ${errorMessage(error)}`);
   }
   try {
     return JSON.parse(contents);
   } catch (error) {
-    throw new DriftTriageError(`${path}: not valid JSON: ${describeError(error)}`);
+    throw new DriftTriageError(`${path}: not valid JSON: ${errorMessage(error)}`);
   }
 }
 
@@ -166,7 +167,7 @@ function deliverCollection(
   } catch (error) {
     return {
       exitCode: TOOL_ERROR_EXIT_CODE,
-      stdout: `${options.output}: could not write collection: ${describeError(error)}`,
+      stdout: `${options.output}: could not write collection: ${errorMessage(error)}`,
     };
   }
   return {
@@ -197,8 +198,4 @@ function defaultListFiles(path: string): string[] {
 
 function defaultWriteFile(path: string, contents: string): void {
   ensureDirWriteFileAtomicallySync(path, contents);
-}
-
-function describeError(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }

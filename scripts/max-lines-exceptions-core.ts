@@ -23,6 +23,7 @@ import {
   MAX_LINES_EXCEPTIONS_TOOL,
   parseMaxLinesExceptionEntry,
 } from "../eslint-config/max-lines-exceptions-codec.js";
+import { isRecord } from "./lib/records.js";
 
 export type MaxLinesSeverity = "error" | "warn";
 export type MaxLinesLifecycle = "permanent" | "candidate-for-split";
@@ -41,10 +42,6 @@ export type MaxLinesExceptionEntry = {
   readonly lifecycle: MaxLinesLifecycle;
   readonly ratchetExcluded: boolean;
 };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 export function makeMaxLinesExceptionEntry(input: {
   readonly path: string;

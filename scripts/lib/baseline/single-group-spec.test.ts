@@ -15,6 +15,7 @@ import { describe, expect, it } from "vitest";
 import { maxLinesExceptionsSpec } from "../../max-lines-exceptions-core.js";
 import { knipUnusedExportsSpec } from "../../sensor-knip-unused-exports-baseline.js";
 import { nearDuplicatesSpec } from "../../sensor-near-duplicates-baseline.js";
+import { suppressionLedgerSpec } from "../../suppression-ledger-baseline.js";
 
 const repoRoot = resolve(import.meta.dirname, "../../..");
 
@@ -46,5 +47,10 @@ describe("singleGroupSpec committed-baseline golden files", () => {
   it("round-trips the near-duplicates baseline through the grouped codec", () => {
     expect.hasAssertions();
     expectGoldenRoundTrip("sensor-near-duplicates.baseline.json", nearDuplicatesSpec);
+  });
+
+  it("round-trips the suppression ledger through the grouped codec", () => {
+    expect.hasAssertions();
+    expectGoldenRoundTrip("suppression-ledger.json", suppressionLedgerSpec);
   });
 });

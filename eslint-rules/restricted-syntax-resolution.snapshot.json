@@ -1,0 +1,133 @@
+{
+  "note": "Resolved no-restricted-syntax fingerprints captured from eslint.config.js BEFORE the composition-builder refactor (lint-deep-dive-2026-07 leaf 40, step 2). `severity` is the resolved ESLint severity (null = rule unset for that file); `selectors` are sha256(selector + NUL + message) digests truncated to 16 hex chars, in resolved order. Regenerate only for a deliberate policy change: MUSI_UPDATE_RESTRICTED_SYNTAX_SNAPSHOT=1 bun run test -- eslint-rules/restricted-syntax-resolution-snapshot.test.js",
+  "files": {
+    "e2e/a11y.spec.ts": {
+      "severity": 2,
+      "selectors": ["732b04b923702683"]
+    },
+    "eslint-config/shared-policy.js": null,
+    "eslint-rules/all-local-rules.js": {
+      "severity": 2,
+      "selectors": ["732b04b923702683", "b0331a6254375631"]
+    },
+    "eslint.config.js": null,
+    "packages/client/src/components/campaign/chat/chat-message.tsx": {
+      "severity": 2,
+      "selectors": [
+        "732b04b923702683",
+        "b0331a6254375631",
+        "4c69b734fd631aa0",
+        "73c82b196943721f",
+        "a751f514c5852431"
+      ]
+    },
+    "packages/client/src/hooks/use-notifications.ts": {
+      "severity": 2,
+      "selectors": [
+        "732b04b923702683",
+        "b0331a6254375631",
+        "4c69b734fd631aa0",
+        "73c82b196943721f",
+        "a751f514c5852431"
+      ]
+    },
+    "packages/client/src/lib/api-base.ts": {
+      "severity": 2,
+      "selectors": ["732b04b923702683", "b0331a6254375631", "4c69b734fd631aa0", "73c82b196943721f"]
+    },
+    "packages/client/src/lib/trpc.ts": {
+      "severity": 2,
+      "selectors": [
+        "732b04b923702683",
+        "b0331a6254375631",
+        "4c69b734fd631aa0",
+        "73c82b196943721f",
+        "a751f514c5852431"
+      ]
+    },
+    "packages/client/src/test/mock-trpc.tsx": {
+      "severity": 2,
+      "selectors": ["732b04b923702683"]
+    },
+    "packages/server/prisma/seed.ts": {
+      "severity": 0,
+      "selectors": ["732b04b923702683", "b0331a6254375631"]
+    },
+    "packages/server/scripts/pgexec.ts": {
+      "severity": 0,
+      "selectors": ["732b04b923702683", "b0331a6254375631"]
+    },
+    "packages/server/src/config/env.ts": {
+      "severity": 2,
+      "selectors": ["72cb5b31f313ebaf"]
+    },
+    "packages/server/src/main.ts": {
+      "severity": 2,
+      "selectors": ["72cb5b31f313ebaf"]
+    },
+    "packages/server/src/routers/character.test.ts": {
+      "severity": 2,
+      "selectors": ["732b04b923702683"]
+    },
+    "packages/server/src/routers/character.ts": {
+      "severity": 2,
+      "selectors": ["732b04b923702683", "b0331a6254375631", "72cb5b31f313ebaf", "f47518c4f19fe874"]
+    },
+    "packages/server/src/routers/inventory.ts": {
+      "severity": 2,
+      "selectors": ["732b04b923702683", "b0331a6254375631", "72cb5b31f313ebaf", "f47518c4f19fe874"]
+    },
+    "packages/server/src/services/auth-service.test.ts": {
+      "severity": 2,
+      "selectors": ["732b04b923702683"]
+    },
+    "packages/server/src/services/auth-service.ts": {
+      "severity": 2,
+      "selectors": ["732b04b923702683", "b0331a6254375631", "72cb5b31f313ebaf"]
+    },
+    "packages/server/src/services/inventory-service.ts": {
+      "severity": 2,
+      "selectors": ["732b04b923702683", "b0331a6254375631"]
+    },
+    "packages/server/src/test/prepare-test-db.ts": {
+      "severity": 2,
+      "selectors": ["732b04b923702683"]
+    },
+    "packages/server/src/utils/character-class-mutations.ts": {
+      "severity": 2,
+      "selectors": ["732b04b923702683", "b0331a6254375631", "72cb5b31f313ebaf"]
+    },
+    "packages/server/src/utils/prisma-types.ts": {
+      "severity": 2,
+      "selectors": ["732b04b923702683", "b0331a6254375631", "72cb5b31f313ebaf"]
+    },
+    "packages/shared/src/rules/combat.ts": {
+      "severity": 2,
+      "selectors": ["732b04b923702683", "b0331a6254375631"]
+    },
+    "packages/shared/src/schemas/character.test.ts": {
+      "severity": 2,
+      "selectors": ["732b04b923702683"]
+    },
+    "packages/shared/src/schemas/character.ts": {
+      "severity": 2,
+      "selectors": ["732b04b923702683", "b0331a6254375631", "1a798b9241f5315f"]
+    },
+    "scripts/db-status.ts": {
+      "severity": 0,
+      "selectors": ["732b04b923702683", "b0331a6254375631"]
+    },
+    "scripts/drift-ai.ts": {
+      "severity": 2,
+      "selectors": ["732b04b923702683", "b0331a6254375631"]
+    },
+    "scripts/lint-ratchet.ts": {
+      "severity": 0,
+      "selectors": ["732b04b923702683", "b0331a6254375631"]
+    },
+    "tools/lint-ratchet/src/kernel/ratchet-globs.ts": {
+      "severity": 2,
+      "selectors": ["732b04b923702683", "b0331a6254375631"]
+    }
+  }
+}

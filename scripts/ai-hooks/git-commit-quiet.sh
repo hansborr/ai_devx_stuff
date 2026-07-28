@@ -63,6 +63,15 @@ WORK_ROOT=$(git -C "$TARGET_DIR" rev-parse --show-toplevel 2>/dev/null || printf
 # layer (widened regex) before the harness dispatches it. ai_emit_block exits.
 ai_preflight_or_block "$CMD" "$WORK_ROOT"
 
+# Fail closed when the commit names a checkout that could not be resolved.
+# WORK_ROOT above has silently become REPO_ROOT (this hook's own checkout, and
+# this wrapper EXECUTES the command), so without this the branch guard clears a
+# repository it never looked at and the commit runs.
+if TARGET_REASON=$(ai_unverifiable_commit_target_reason \
+  "$CMD" "$PAYLOAD_CWD" "$REPO_ROOT"); then
+  ai_emit_block "$TARGET_REASON"
+fi
+
 # --- Single-writer lock ----------------------------------------------------
 LOCK="${AI_GIT_COMMIT_LOCK:-$(musi_standard_git_commit_lock "$WORK_ROOT")}"
 mkdir -p "$(dirname "$LOCK")"
@@ -249,7 +258,17 @@ EXIT_CODE=$?
 
 HEAD_AFTER=$(git -C "$WORK_ROOT" rev-parse HEAD 2>/dev/null || echo none)
 
-if [ "$EXIT_CODE" -eq 0 ] && [ "$HEAD_AFTER" != "$HEAD_BEFORE" ]; then
+# Both preconditions for stating anything about a commit, established once. A
+# moved HEAD is only evidence when WORK_ROOT is the checkout the command acted
+# on; with an unattributable target it may be an unrelated concurrent commit in
+# the fallback checkout, which would credit this command with someone else's work.
+REAL_COMMIT=0
+ai_is_real_git_commit_cmd "$CMD" && REAL_COMMIT=1
+ATTRIBUTED=1
+ai_target_is_unattributable "$CMD" "$PAYLOAD_CWD" "$REPO_ROOT" && ATTRIBUTED=0
+
+if [ "$EXIT_CODE" -eq 0 ] && [ "$REAL_COMMIT" -eq 1 ] && [ "$ATTRIBUTED" -eq 1 ] \
+  && [ "$HEAD_AFTER" != "$HEAD_BEFORE" ]; then
   MSG=$(ai_commit_success_summary "$WORK_ROOT" "$HEAD_BEFORE" "$HEAD_AFTER")
   # .husky/post-commit runs the lint-ratchet / knip / max-lines baseline
   # truth-up scripts as the commit lands and prints operator-facing advisories
@@ -278,12 +297,26 @@ OUTPUT=$(cat "$OUTFILE" 2>/dev/null)
 if SUMMARY=$(ai_precommit_failure_summary "$OUTPUT" "$LOG_DIR"); then
   :
 elif [ "$EXIT_CODE" -eq 0 ] && [ "$HEAD_AFTER" = "$HEAD_BEFORE" ]; then
-  # bash -c reported success but HEAD didn't move. The command's real git
-  # commit exit code was swallowed (most commonly by `|| echo ...`, a
-  # trailing no-op in a compound command, or `--dry-run`) — or nothing was
-  # staged. Surface this explicitly so the agent doesn't trust a stale
-  # "Commit succeeded: <old-hash>" report. Full child output is tailed below.
-  SUMMARY=$(ai_commit_no_landing_summary "$HEAD_BEFORE" "$OUTPUT")
+  # bash -c reported success but HEAD didn't move in WORK_ROOT. That is only
+  # evidence of a failed commit when BOTH halves of the comparison are
+  # trustworthy: the command really is a `git commit` invocation, and WORK_ROOT
+  # really is the checkout it acted on. Routing above over-matches on purpose,
+  # and the target can be unreadable, so check each before making the claim.
+  if [ "$REAL_COMMIT" -eq 0 ]; then
+    # Text that merely CONTAINS a commit (a grep for an assertion string, a
+    # printf appending an example command to a log) reached the wrapper through
+    # the deliberately wide routing gate. It ran fine; hand its output back
+    # without a commit verdict attached.
+    SUMMARY=$(ai_commit_generic_summary "Command completed (exit $EXIT_CODE)." "$OUTPUT")
+  elif [ "$ATTRIBUTED" -eq 0 ]; then
+    SUMMARY=$(ai_commit_landing_unknown_summary "$WORK_ROOT" "$OUTPUT")
+  else
+    # The command's real git commit exit code was swallowed (most commonly by
+    # `|| echo ...`, a trailing no-op in a compound command, or `--dry-run`) —
+    # or nothing was staged. Surface this explicitly so the agent doesn't trust
+    # a stale "Commit succeeded: <old-hash>" report.
+    SUMMARY=$(ai_commit_no_landing_summary "$HEAD_BEFORE" "$OUTPUT")
+  fi
 else
   # No structured lines — pre-commit died before aggregation (lock
   # contention, watchdog timeout, or short-circuit marker mismatch).

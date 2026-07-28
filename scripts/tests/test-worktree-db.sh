@@ -10,10 +10,12 @@
 # smoke-subjects: scripts/worktree-drift-hook.sh
 # smoke-subjects: scripts/dev.sh
 # smoke-subjects: scripts/tests/test-worktree-db.sh
-# test-worktree-db.sh — pure-shell smoke tests for worktree-db helpers.
+# test-worktree-db.sh — shell smoke tests for worktree helpers.
 #
 # Sources scripts/worktree-db.sh (main is guarded so sourcing is safe) and
-# exercises slug/parsing/membership helpers without touching Postgres or git.
+# exercises slug/parsing/membership helpers without touching Postgres. One
+# end-to-end regression creates a throwaway Git repository, commit, and real
+# worktree under a temporary directory; the fixture is removed on exit.
 # Run via `bash scripts/tests/test-worktree-db.sh`.
 
 set -euo pipefail
@@ -1031,7 +1033,7 @@ want:
 $expected"
 ok "git_worktree_add forwards the right argv for each shape"
 
-# --- worktree:new failure recovery (leaf 02) ----------------------------------
+# --- worktree:new failure recovery (leaf 07) ----------------------------------
 
 # assert_writable_parent must fail fast (before any git state) when the lane
 # parent is missing, not a directory, or unwritable, and pass for a writable one.
@@ -1054,26 +1056,137 @@ if [[ "$(id -u)" -ne 0 ]]; then
 fi
 ok "assert_writable_parent fails fast on missing/non-dir/unwritable parents"
 
-# init_failure_recovery_block prints copy-pasteable, agent-allowed recovery only.
-recovery_new="$(init_failure_recovery_block /abs/wt/path feat/lane)"
-[[ "$recovery_new" == *"cd /abs/wt/path && bun run worktree:drop"* ]] \
-  || fail "recovery block missing worktree:drop line:
-$recovery_new"
-[[ "$recovery_new" == *"git worktree remove /abs/wt/path"* ]] \
-  || fail "recovery block missing worktree remove line:
-$recovery_new"
-[[ "$recovery_new" == *"git branch -d feat/lane"* ]] \
-  || fail "recovery block missing branch delete line:
-$recovery_new"
-[[ "$recovery_new" != *"branch -D"* && "$recovery_new" != *"--force"* ]] \
-  || fail "recovery block must never suggest blocked commands (-D/--force):
-$recovery_new"
-# An existing checked-out branch (no -b) must not be offered for deletion.
-recovery_existing="$(init_failure_recovery_block /abs/wt/path "")"
-[[ "$recovery_existing" != *"git branch -d"* ]] \
-  || fail "recovery block must omit branch delete when no new branch was created:
-$recovery_existing"
-ok "init_failure_recovery_block prints agent-allowed recovery commands"
+# init_failure_recovery_block prints one location-independent command. The
+# caller checkout and failed target are already canonical literal paths; the
+# printed command must not rediscover either one when it is pasted later.
+recovery_plain="$(init_failure_recovery_block /abs/caller/root /abs/wt/path)"
+expected_recovery_plain=$'inspect the worktree, then recover with:\n  bun --cwd=/abs/caller/root run worktree:drop -- /abs/wt/path --remove'
+[[ "$recovery_plain" == "$expected_recovery_plain" ]] \
+  || fail "recovery block should contain exactly one root-anchored command:
+got:
+$recovery_plain
+want:
+$expected_recovery_plain"
+
+recovery_quoted="$(init_failure_recovery_block "/abs/caller root/it's" "-failed lane 'quote';\$(touch RECOVERY_OUTPUT_RAN);[glob]")"
+[[ "$(printf '%s\n' "$recovery_quoted" | grep -c '^  bun ')" == "1" ]] \
+  || fail "recovery block should contain exactly one bun command:
+$recovery_quoted"
+for forbidden in '  cd ' 'git worktree remove' 'git branch -d' '`'; do
+  [[ "$recovery_quoted" != *"$forbidden"* ]] \
+    || fail "recovery block contains forbidden follow-up '$forbidden':
+$recovery_quoted"
+done
+[[ "$recovery_quoted" == *'worktree:drop -- -failed'* && "$recovery_quoted" == *'--remove'* ]] \
+  || fail "recovery block must place -- before a leading-dash target:
+$recovery_quoted"
+ok "init_failure_recovery_block prints one shell-quoted recovery command"
+
+# End-to-end: launch worktree:new from a package subdirectory in a throwaway
+# checkout, fail worktree:init after git creates the lane, then copy/paste the
+# emitted command from an unrelated directory. The fixture paths contain shell
+# syntax so argv recording also proves the command does not evaluate target text.
+wtnew_e2e_dir="$(mktemp -d)"
+trap 'rm -rf "$empty_dir" "$stub_dir" "$wtnew_parent_root" "$wtnew_e2e_dir"' EXIT
+wtnew_e2e_repo="$wtnew_e2e_dir/caller root 'quoted';repo"
+wtnew_e2e_target="$wtnew_e2e_dir/-failed lane 'quoted';\$(touch RECOVERY_OUTPUT_RAN);[glob]"
+wtnew_e2e_sentinels=(
+  "$wtnew_e2e_repo/packages/server/RECOVERY_OUTPUT_RAN"
+  "$wtnew_e2e_dir/RECOVERY_OUTPUT_RAN"
+)
+wtnew_e2e_stub="$wtnew_e2e_dir/stub"
+mkdir -p "$wtnew_e2e_repo/packages/server" "$wtnew_e2e_stub"
+git -C "$wtnew_e2e_dir" init -q -b main "$wtnew_e2e_repo"
+git -C "$wtnew_e2e_repo" config user.email test@example.invalid
+git -C "$wtnew_e2e_repo" config user.name Test
+printf 'fixture\n' > "$wtnew_e2e_repo/README.md"
+git -C "$wtnew_e2e_repo" add README.md
+git -C "$wtnew_e2e_repo" commit -qm 'initial fixture'
+printf '#!/usr/bin/env bash\nexit 42\n' > "$wtnew_e2e_stub/bun"
+chmod +x "$wtnew_e2e_stub/bun"
+
+assert_no_wtnew_e2e_sentinel() {
+  local phase="$1" sentinel
+  for sentinel in "${wtnew_e2e_sentinels[@]}"; do
+    [[ ! -e "$sentinel" ]] \
+      || fail "$phase evaluated shell syntax from the target path: $sentinel"
+  done
+}
+
+set +e
+(
+  cd "$wtnew_e2e_repo/packages/server"
+  PATH="$wtnew_e2e_stub:$PATH" bash "$TEST_SCRIPT_DIR/../worktree-new.sh" \
+    "$wtnew_e2e_target" -b feat/recovery-output
+) >"$wtnew_e2e_dir/new-out" 2>&1
+wtnew_e2e_rc=$?
+set -e
+[[ "$wtnew_e2e_rc" -ne 0 ]] || fail "worktree:new fixture should fail during worktree:init"
+[[ -d "$wtnew_e2e_target" ]] || fail "worktree:new fixture should leave the failed target for recovery"
+assert_no_wtnew_e2e_sentinel "worktree:new"
+
+wtnew_e2e_command_line="$(grep '^  bun --cwd=' "$wtnew_e2e_dir/new-out")"
+[[ "$(grep -c '^  bun --cwd=' "$wtnew_e2e_dir/new-out")" == "1" ]] \
+  || fail "worktree:new should emit exactly one recovery command:
+$(cat "$wtnew_e2e_dir/new-out")"
+wtnew_e2e_command="${wtnew_e2e_command_line#  }"
+wtnew_e2e_caller_root="$(cd "$wtnew_e2e_repo" && pwd -P)"
+wtnew_e2e_canonical_target="$(cd "$wtnew_e2e_target" && pwd -P)"
+printf -v wtnew_e2e_expected_command \
+  'bun --cwd=%q run worktree:drop -- %q --remove' \
+  "$wtnew_e2e_caller_root" "$wtnew_e2e_canonical_target"
+[[ "$wtnew_e2e_command" == "$wtnew_e2e_expected_command" ]] \
+  || fail "worktree:new emitted the wrong recovery command:
+got:  $wtnew_e2e_command
+want: $wtnew_e2e_expected_command"
+printf -v wtnew_e2e_expected_root_prefix 'bun --cwd=%q run ' "$wtnew_e2e_caller_root"
+[[ "$wtnew_e2e_command" == "$wtnew_e2e_expected_root_prefix"* ]] \
+  || fail "worktree:new recovery must use the fixture checkout root:
+$wtnew_e2e_command"
+
+execute_wtnew_recovery() (
+  local argv_out="$1"
+  list_worktree_dbs() { printf ''; }
+  forget_worktree_fingerprint() { :; }
+  tombstone_forget() { :; }
+  allocation_forget() { :; }
+  bun() {
+    local bun_cwd="${1#--cwd=}"
+    printf '%s\n' "$@" > "$argv_out"
+    [[ "$1" == "--cwd=$wtnew_e2e_caller_root" && "$2" == "run" \
+      && "$3" == "worktree:drop" && "$4" == "--" ]] \
+      || return 91
+    (
+      cd "$bun_cwd"
+      cmd_drop "${@:5}"
+    )
+  }
+  cd "$wtnew_e2e_dir"
+  eval "$wtnew_e2e_command"
+)
+
+execute_wtnew_recovery "$wtnew_e2e_dir/first-argv" >"$wtnew_e2e_dir/first-out" 2>&1
+expected_recovery_argv="--cwd=$wtnew_e2e_caller_root"$'\n''run'$'\n''worktree:drop'$'\n''--'$'\n'"$wtnew_e2e_canonical_target"$'\n''--remove'
+[[ "$(cat "$wtnew_e2e_dir/first-argv")" == "$expected_recovery_argv" ]] \
+  || fail "copy/pasted recovery command did not preserve argv:
+$(cat "$wtnew_e2e_dir/first-argv")"
+[[ ! -e "$wtnew_e2e_target" ]] || fail "first recovery command should remove the failed worktree"
+git -C "$wtnew_e2e_repo" show-ref --verify --quiet refs/heads/feat/recovery-output \
+  || fail "recovery command must retain the failed worktree branch"
+assert_no_wtnew_e2e_sentinel "copy/pasted recovery"
+
+set +e
+execute_wtnew_recovery "$wtnew_e2e_dir/second-argv" >"$wtnew_e2e_dir/second-out" 2>&1
+wtnew_e2e_retry_rc=$?
+set -e
+[[ "$wtnew_e2e_retry_rc" -ne 0 ]] || fail "repeating the recovery command should fail strictly"
+grep -qF "not a git worktree: $wtnew_e2e_canonical_target" "$wtnew_e2e_dir/second-out" \
+  || fail "repeated recovery command should report not a git worktree:
+$(cat "$wtnew_e2e_dir/second-out")"
+assert_no_wtnew_e2e_sentinel "repeated recovery"
+ok "worktree:new emits a location-independent recovery command with strict retry"
+
+rm -rf "$wtnew_e2e_dir"
 
 # cleanup_failed_add deletes the just-created branch only when it provably points
 # at the resolved start commit; every mismatch leaves state untouched. A stub git

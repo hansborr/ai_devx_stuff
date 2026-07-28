@@ -10,13 +10,31 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MODE=full
 BASE=main
 REPO_ROOT=""
+IDENTITIES_OUT=""
 POSITIONAL=()
 
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
     --changed) MODE=changed; shift ;;
+    --identities-out)
+      shift
+      if [[ "$#" -eq 0 || -z "$1" ]]; then
+        printf 'FAIL: eslint-disable register --identities-out requires a path\n' >&2
+        exit 2
+      fi
+      IDENTITIES_OUT="$1"
+      shift
+      ;;
+    --identities-out=*)
+      IDENTITIES_OUT="${1#*=}"
+      if [[ -z "$IDENTITIES_OUT" ]]; then
+        printf 'FAIL: eslint-disable register --identities-out requires a path\n' >&2
+        exit 2
+      fi
+      shift
+      ;;
     -h|--help)
-      printf 'usage: eslint-disable-register.sh [--changed [base]] [repo-root]\n'
+      printf 'usage: eslint-disable-register.sh [--changed [base]] [--identities-out <path>] [repo-root]\n'
       exit 0
       ;;
     --*)
@@ -106,6 +124,25 @@ if [[ "$MODE" == changed ]]; then
     esac
   fi
 fi
+
+# Identity sink (leaf 50 step 2). The scanner is the single authority on what
+# counts as a directive, so the suppression ledger reads this emission rather
+# than re-implementing the comment/string/template state machine. Emission is
+# additive: it never changes what this register accepts or rejects.
+if [[ -n "$IDENTITIES_OUT" ]]; then
+  if ! : > "$IDENTITIES_OUT"; then
+    printf 'FAIL: eslint-disable register cannot write identities to %s\n' "$IDENTITIES_OUT" >&2
+    exit 2
+  fi
+  printf '#scope\t%s\n' "$SCAN_SCOPE" >> "$IDENTITIES_OUT"
+fi
+
+emit_identity() {
+  local path="$1" line_no="$2" text="$3"
+  [[ -n "$IDENTITIES_OUT" ]] || return 0
+  text="${text//$'\t'/ }"
+  printf 'eslint-disable\t%s\t%s\t%s\n' "$path" "$line_no" "$text" >> "$IDENTITIES_OUT"
+}
 
 PATTERN='(^|[[:space:]])(//|/\*)[[:space:]]*eslint-disable(-next-line|-line)?($|[[:space:]])'
 ALLOWLIST_FILE="$SCRIPT_DIR/data/eslint-disable-broad-allowlist.txt"
@@ -197,6 +234,7 @@ is_broad_rule_allowed() {
 record_match() {
   local path="$1" line_no="$2" text="$3"
   local kind=broad
+  emit_identity "$path" "$line_no" "$(trim "$text")"
   if [[ "$text" == *eslint-disable-next-line* || "$text" == *eslint-disable-line* ]]; then
     kind=inline
   fi
@@ -356,6 +394,9 @@ scan_files() {
 
 while IFS= read -r -d '' file; do
   [[ -r "$REPO_ROOT/$file" ]] || continue
+  if [[ -n "$IDENTITIES_OUT" && "$SCAN_SCOPE" == changed ]]; then
+    printf '#path\t%s\n' "$file" >> "$IDENTITIES_OUT"
+  fi
   line_no=0
   IN_BLOCK_COMMENT=0
   IN_TEMPLATE=0

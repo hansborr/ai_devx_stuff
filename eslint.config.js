@@ -21,10 +21,10 @@ import {
   rawTxClientBoundaryConfigs,
 } from "./eslint-config/package-boundary-configs.js";
 import { createPackageDependencyConfigs } from "./eslint-config/package-dependency-configs.js";
+import { restrictedSyntaxConfigs } from "./eslint-config/restricted-syntax-policy.js";
 import {
   createScriptProjectConfigs,
   driftDirectionLawConfigs,
-  processPrimitiveConfigs,
   scriptDebtOverrideConfigs,
 } from "./eslint-config/script-configs.js";
 import { createToolsProjectConfigs } from "./eslint-config/tools-configs.js";
@@ -63,7 +63,10 @@ export default defineConfig(
   ...createLocalRuleAuthoringConfigs(localPlugin),
   ...scriptDebtOverrideConfigs,
   ...driftDirectionLawConfigs,
-  ...processPrimitiveConfigs,
+  // The whole no-restricted-syntax policy, composed additively from
+  // eslint-config/restricted-syntax-policy.js. No other config group sets this
+  // rule key, so nothing can clobber a fence by landing after it.
+  ...restrictedSyntaxConfigs,
   ...clientFrameworkConfigs,
   ...jsonFileConfigs,
 

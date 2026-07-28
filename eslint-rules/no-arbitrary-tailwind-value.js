@@ -1,5 +1,7 @@
 // @ts-check
 
+import { staticKeyName, staticPropertyName, unwrapChain } from "./ast-helpers.js";
+
 const ARBITRARY_VALUE_RE = /^!?-?(?<utility>[a-z][\w/-]*)-\[[^\]]+\](?:\/\S+)?!?$/iu;
 const CLASS_ATTRIBUTE_NAMES = new Set(["class", "className"]);
 const CLASS_COMPOSITION_CALLEES = new Set(["clsx", "cn", "cva", "twMerge", "tv"]);
@@ -92,20 +94,6 @@ function parentOf(node) {
   return /** @type {import('estree').Node & { parent?: import('estree').Node }} */ (node).parent;
 }
 
-/**
- * @param {import('estree').PrivateIdentifier | import('estree').Expression | import('estree').Super} node
- */
-function staticPropertyName(node) {
-  if (node.type === "Identifier") return node.name;
-  if (node.type === "Literal" && typeof node.value === "string") return node.value;
-  return undefined;
-}
-
-/** @param {import('estree').Expression | import('estree').Super} node */
-function unwrapChain(node) {
-  return node.type === "ChainExpression" ? node.expression : node;
-}
-
 /** @param {import('estree').Node} node */
 function isFunctionBoundary(node) {
   return (
@@ -124,19 +112,13 @@ function isClassJsxAttribute(node) {
   );
 }
 
-/** @param {import('estree').Node} node */
-function propertyName(node) {
-  if (node.type !== "Property" || node.computed) return undefined;
-  return staticPropertyName(node.key);
-}
-
 /**
  * @param {import('estree').Node} parent
  * @param {import('estree').Node} child
  */
 function isClassNamePropertyValue(parent, child) {
   return (
-    parent.type === "Property" && parent.value === child && propertyName(parent) === "className"
+    parent.type === "Property" && parent.value === child && staticKeyName(parent) === "className"
   );
 }
 
@@ -145,7 +127,7 @@ function classCompositionCalleeName(node) {
   const callee = unwrapChain(node.callee);
   if (callee.type === "Identifier") return callee.name;
   if (callee.type !== "MemberExpression") return undefined;
-  return staticPropertyName(callee.property);
+  return staticPropertyName(callee);
 }
 
 /**

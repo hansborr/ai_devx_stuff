@@ -9,10 +9,10 @@
 : "${TIMINGS_FILE:?scripts/verify/steps.generated.sh requires TIMINGS_FILE}"
 
 declare -ga MUSI_VERIFY_CONSUMERS=('verify' 'verify_changed' 'verify_parallel' 'pre_commit')
-declare -ga MUSI_VERIFY_STEPS=('lint' 'suppressions' 'ratchet' 'zero-baseline' 'debt-accounting' 'local-rule-starter' 'adr' 'knip-unused-exports' 'near-duplicates' 'max-lines-exceptions' 'coverage-map' 'format-check' 'typecheck' 'test' 'scripts')
-declare -ga MUSI_VERIFY_CHANGED_STEPS=('lint' 'suppressions' 'ratchet' 'zero-baseline' 'debt-accounting' 'adr' 'knip-unused-exports' 'near-duplicates' 'max-lines-exceptions' 'coverage-map' 'format-check' 'typecheck' 'test' 'scripts')
-declare -ga MUSI_VERIFY_PARALLEL_STEPS=('lint' 'suppressions' 'ratchet' 'zero-baseline' 'debt-accounting' 'local-rule-starter' 'adr' 'knip-unused-exports' 'near-duplicates' 'max-lines-exceptions' 'coverage-map' 'format-check' 'typecheck' 'test' 'scripts')
-declare -ga MUSI_PRE_COMMIT_STEPS=('lint' 'suppressions' 'ratchet' 'zero-baseline' 'debt-accounting' 'adr' 'knip-unused-exports' 'near-duplicates' 'max-lines-exceptions' 'coverage-map' 'format-check' 'typecheck' 'test' 'scripts')
+declare -ga MUSI_VERIFY_STEPS=('lint' 'suppressions' 'suppression-ledger' 'ratchet' 'zero-baseline' 'debt-accounting' 'local-rule-starter' 'adr' 'knip-unused-exports' 'near-duplicates' 'max-lines-exceptions' 'coverage-map' 'format-check' 'typecheck' 'test' 'scripts')
+declare -ga MUSI_VERIFY_CHANGED_STEPS=('lint' 'suppressions' 'suppression-ledger' 'ratchet' 'zero-baseline' 'debt-accounting' 'adr' 'knip-unused-exports' 'near-duplicates' 'max-lines-exceptions' 'coverage-map' 'format-check' 'typecheck' 'test' 'scripts')
+declare -ga MUSI_VERIFY_PARALLEL_STEPS=('lint' 'suppressions' 'suppression-ledger' 'ratchet' 'zero-baseline' 'debt-accounting' 'local-rule-starter' 'adr' 'knip-unused-exports' 'near-duplicates' 'max-lines-exceptions' 'coverage-map' 'format-check' 'typecheck' 'test' 'scripts')
+declare -ga MUSI_PRE_COMMIT_STEPS=('lint' 'suppressions' 'suppression-ledger' 'ratchet' 'zero-baseline' 'debt-accounting' 'adr' 'knip-unused-exports' 'near-duplicates' 'max-lines-exceptions' 'coverage-map' 'format-check' 'typecheck' 'test' 'scripts')
 
 declare -ga MUSI_FAST_COMMIT_SKIP_SLOTS=('test' 'scripts')
 
@@ -25,6 +25,9 @@ MUSI_VERIFY_SLOT_CMD_VAR['verify:lint']='MUSI_VERIFY_LINT_CMD'
 
 MUSI_VERIFY_SUPPRESSIONS_CMD=('bun' 'run' 'lint:suppressions')
 MUSI_VERIFY_SLOT_CMD_VAR['verify:suppressions']='MUSI_VERIFY_SUPPRESSIONS_CMD'
+
+MUSI_VERIFY_SUPPRESSION_LEDGER_CMD=('bun' 'run' 'lint:suppressions:ledger')
+MUSI_VERIFY_SLOT_CMD_VAR['verify:suppression-ledger']='MUSI_VERIFY_SUPPRESSION_LEDGER_CMD'
 
 MUSI_VERIFY_RATCHET_CMD=('env' "HARNESS_DIAGNOSTICS_OUTPUT=$LOG_DIR/ratchet-diagnostics.json" 'bun' 'run' 'lint:ratchet')
 MUSI_VERIFY_SLOT_CMD_VAR['verify:ratchet']='MUSI_VERIFY_RATCHET_CMD'
@@ -71,6 +74,9 @@ MUSI_VERIFY_SLOT_CMD_VAR['verify_changed:lint']='MUSI_VERIFY_CHANGED_LINT_CMD'
 MUSI_VERIFY_CHANGED_SUPPRESSIONS_CMD=('bun' 'run' 'lint:suppressions:changed')
 MUSI_VERIFY_SLOT_CMD_VAR['verify_changed:suppressions']='MUSI_VERIFY_CHANGED_SUPPRESSIONS_CMD'
 
+MUSI_VERIFY_CHANGED_SUPPRESSION_LEDGER_CMD=('bun' 'run' 'lint:suppressions:ledger:changed')
+MUSI_VERIFY_SLOT_CMD_VAR['verify_changed:suppression-ledger']='MUSI_VERIFY_CHANGED_SUPPRESSION_LEDGER_CMD'
+
 MUSI_VERIFY_CHANGED_RATCHET_CMD=('env' "HARNESS_DIAGNOSTICS_OUTPUT=$LOG_DIR/ratchet-diagnostics.json" 'bun' 'run' 'lint:ratchet')
 MUSI_VERIFY_SLOT_CMD_VAR['verify_changed:ratchet']='MUSI_VERIFY_CHANGED_RATCHET_CMD'
 
@@ -113,6 +119,9 @@ MUSI_VERIFY_SLOT_CMD_VAR['verify_parallel:lint']='MUSI_VERIFY_PARALLEL_LINT_CMD'
 
 MUSI_VERIFY_PARALLEL_SUPPRESSIONS_CMD=('bun' 'run' 'lint:suppressions')
 MUSI_VERIFY_SLOT_CMD_VAR['verify_parallel:suppressions']='MUSI_VERIFY_PARALLEL_SUPPRESSIONS_CMD'
+
+MUSI_VERIFY_PARALLEL_SUPPRESSION_LEDGER_CMD=('bun' 'run' 'lint:suppressions:ledger')
+MUSI_VERIFY_SLOT_CMD_VAR['verify_parallel:suppression-ledger']='MUSI_VERIFY_PARALLEL_SUPPRESSION_LEDGER_CMD'
 
 MUSI_VERIFY_PARALLEL_RATCHET_CMD=('env' "HARNESS_DIAGNOSTICS_OUTPUT=$LOG_DIR/ratchet-diagnostics.json" 'bun' 'run' 'lint:ratchet')
 MUSI_VERIFY_SLOT_CMD_VAR['verify_parallel:ratchet']='MUSI_VERIFY_PARALLEL_RATCHET_CMD'
@@ -158,6 +167,9 @@ MUSI_VERIFY_SLOT_CMD_VAR['pre_commit:lint']='MUSI_PRE_COMMIT_LINT_CMD'
 
 MUSI_PRE_COMMIT_SUPPRESSIONS_CMD=('bun' 'run' 'lint:suppressions:changed')
 MUSI_VERIFY_SLOT_CMD_VAR['pre_commit:suppressions']='MUSI_PRE_COMMIT_SUPPRESSIONS_CMD'
+
+MUSI_PRE_COMMIT_SUPPRESSION_LEDGER_CMD=('bun' 'run' 'lint:suppressions:ledger:changed')
+MUSI_VERIFY_SLOT_CMD_VAR['pre_commit:suppression-ledger']='MUSI_PRE_COMMIT_SUPPRESSION_LEDGER_CMD'
 
 MUSI_PRE_COMMIT_RATCHET_CMD=('env' "HARNESS_DIAGNOSTICS_OUTPUT=$LOG_DIR/ratchet-diagnostics.json" 'bun' 'run' 'lint:ratchet')
 MUSI_VERIFY_SLOT_CMD_VAR['pre_commit:ratchet']='MUSI_PRE_COMMIT_RATCHET_CMD'

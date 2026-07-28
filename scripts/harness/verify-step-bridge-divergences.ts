@@ -24,6 +24,12 @@ export const MARKER_BRIDGE_DIVERGENCE_ALLOWLIST: readonly {
   },
   {
     supersetId: "verify-wrapper/verify",
+    slot: "suppression-ledger",
+    reason:
+      "pre-commit gates the suppression identity ledger over the paths the register scanners read for the change; full verify gates the whole-tree identity set.",
+  },
+  {
+    supersetId: "verify-wrapper/verify",
     slot: "near-duplicates",
     reason:
       "pre-commit checks pairs touching staged files; full verify checks the whole-tree baseline.",

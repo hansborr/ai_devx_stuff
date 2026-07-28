@@ -2,7 +2,7 @@
 
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 
 import { classifyClientTestFileSource } from "./client-test-isolation-classifier-source.js";
 import type {
@@ -13,6 +13,7 @@ import type {
   IsolatedClientTestFileClassification,
   RunClientTestIsolationClassifierCliOptions,
 } from "./client-test-isolation-classifier-types.js";
+import { isCliEntrypoint } from "./lib/process-argv.js";
 
 export { classifyClientTestFileSource } from "./client-test-isolation-classifier-source.js";
 
@@ -278,12 +279,7 @@ function repoRoot(): string {
   return path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 }
 
-function isMain(): boolean {
-  if (!process.argv[1]) return false;
-  return import.meta.url === pathToFileURL(process.argv[1]).href;
-}
-
-if (isMain()) {
+if (isCliEntrypoint(import.meta.url)) {
   const result = runClientTestIsolationClassifierCli({
     argv: process.argv.slice(PROCESS_ARGV_USER_ARGS_START),
   });

@@ -1,0 +1,1129 @@
+{
+  "version": 2,
+  "tool": "suppression-ledger",
+  "metric": "suppression-identities",
+  "scanners": "scripts/eslint-disable-register.sh,scripts/suppression-register.sh",
+  "regenerate": "bun scripts/suppression-ledger.ts --update",
+  "summary": {
+    "count": 111,
+    "kinds": {
+      "eslint-disable": 48,
+      "ts-expect-error": 53,
+      "ts-ignore": 0,
+      "ts-nocheck": 0,
+      "stryker-disable": 10
+    }
+  },
+  "entries": [
+    {
+      "key": "eslint-disable|packages/client/src/components/campaign/encounters/create-encounter-dialog.tsx|jsx-a11y/no-autofocus|next-line|sha256:e51c2d1ba060|0",
+      "path": "packages/client/src/components/campaign/encounters/create-encounter-dialog.tsx",
+      "kind": "eslint-disable",
+      "target": "jsx-a11y/no-autofocus",
+      "scope": "next-line",
+      "selectorHash": "sha256:e51c2d1ba060",
+      "duplicateIndex": 0,
+      "reason": "modal dialog autofocus on primary name input"
+    },
+    {
+      "key": "eslint-disable|packages/client/src/components/campaign/maps/create-map-dialog.tsx|jsx-a11y/no-autofocus|next-line|sha256:e51c2d1ba060|0",
+      "path": "packages/client/src/components/campaign/maps/create-map-dialog.tsx",
+      "kind": "eslint-disable",
+      "target": "jsx-a11y/no-autofocus",
+      "scope": "next-line",
+      "selectorHash": "sha256:e51c2d1ba060",
+      "duplicateIndex": 0,
+      "reason": "modal dialog autofocus on primary map name input"
+    },
+    {
+      "key": "eslint-disable|packages/client/src/components/campaign/maps/edit-map-dialog.tsx|jsx-a11y/no-autofocus|next-line|sha256:e51c2d1ba060|0",
+      "path": "packages/client/src/components/campaign/maps/edit-map-dialog.tsx",
+      "kind": "eslint-disable",
+      "target": "jsx-a11y/no-autofocus",
+      "scope": "next-line",
+      "selectorHash": "sha256:e51c2d1ba060",
+      "duplicateIndex": 0,
+      "reason": "modal dialog autofocus on primary map name input"
+    },
+    {
+      "key": "eslint-disable|packages/client/src/components/campaign/settings/campaign-settings-panel.tsx|jsx-a11y/no-autofocus|next-line|sha256:e51c2d1ba060|0",
+      "path": "packages/client/src/components/campaign/settings/campaign-settings-panel.tsx",
+      "kind": "eslint-disable",
+      "target": "jsx-a11y/no-autofocus",
+      "scope": "next-line",
+      "selectorHash": "sha256:e51c2d1ba060",
+      "duplicateIndex": 0,
+      "reason": "modal delete confirmation autofocus on required confirmation input"
+    },
+    {
+      "key": "eslint-disable|packages/client/src/components/campaign/tokens/token-form-fields.tsx|jsx-a11y/no-autofocus|next-line|sha256:e51c2d1ba060|0",
+      "path": "packages/client/src/components/campaign/tokens/token-form-fields.tsx",
+      "kind": "eslint-disable",
+      "target": "jsx-a11y/no-autofocus",
+      "scope": "next-line",
+      "selectorHash": "sha256:e51c2d1ba060",
+      "duplicateIndex": 0,
+      "reason": "token dialogs autofocus on primary label input"
+    },
+    {
+      "key": "eslint-disable|packages/client/src/components/notifications/notification-popover.tsx|jsx-a11y/no-redundant-roles|next-line|sha256:8962c2befd94|0",
+      "path": "packages/client/src/components/notifications/notification-popover.tsx",
+      "kind": "eslint-disable",
+      "target": "jsx-a11y/no-redundant-roles",
+      "scope": "next-line",
+      "selectorHash": "sha256:8962c2befd94",
+      "duplicateIndex": 0,
+      "reason": "explicit role=\"list\" preserves list semantics when list-style: none is applied (Safari/VoiceOver workaround)"
+    },
+    {
+      "key": "eslint-disable|packages/client/src/components/vtt/drawer/tabs/actions-tab-features.tsx|no-console|next-line|sha256:64ed6b2f112f|0",
+      "path": "packages/client/src/components/vtt/drawer/tabs/actions-tab-features.tsx",
+      "kind": "eslint-disable",
+      "target": "no-console",
+      "scope": "next-line",
+      "selectorHash": "sha256:64ed6b2f112f",
+      "duplicateIndex": 0,
+      "reason": "placeholder drawer action logging until feature-use resolution is wired"
+    },
+    {
+      "key": "eslint-disable|packages/client/src/hooks/auth-context.tsx|react-hooks/exhaustive-deps|next-line|sha256:5fe3ffe5475a|0",
+      "path": "packages/client/src/hooks/auth-context.tsx",
+      "kind": "eslint-disable",
+      "target": "react-hooks/exhaustive-deps",
+      "scope": "next-line",
+      "selectorHash": "sha256:5fe3ffe5475a",
+      "duplicateIndex": 0,
+      "reason": "refresh fires once on mount; re-running would rotate the refresh token twice"
+    },
+    {
+      "key": "eslint-disable|packages/client/src/hooks/auth-context.tsx|react-hooks/exhaustive-deps|next-line|sha256:5fe3ffe5475a|1",
+      "path": "packages/client/src/hooks/auth-context.tsx",
+      "kind": "eslint-disable",
+      "target": "react-hooks/exhaustive-deps",
+      "scope": "next-line",
+      "selectorHash": "sha256:5fe3ffe5475a",
+      "duplicateIndex": 1,
+      "reason": "mutateAsync is a stable ref in TanStack Query v5"
+    },
+    {
+      "key": "eslint-disable|packages/client/src/hooks/auth-context.tsx|react-hooks/exhaustive-deps|next-line|sha256:5fe3ffe5475a|2",
+      "path": "packages/client/src/hooks/auth-context.tsx",
+      "kind": "eslint-disable",
+      "target": "react-hooks/exhaustive-deps",
+      "scope": "next-line",
+      "selectorHash": "sha256:5fe3ffe5475a",
+      "duplicateIndex": 2,
+      "reason": "mutateAsync is a stable ref in TanStack Query v5"
+    },
+    {
+      "key": "eslint-disable|packages/client/src/hooks/auth-context.tsx|react-hooks/exhaustive-deps|next-line|sha256:5fe3ffe5475a|3",
+      "path": "packages/client/src/hooks/auth-context.tsx",
+      "kind": "eslint-disable",
+      "target": "react-hooks/exhaustive-deps",
+      "scope": "next-line",
+      "selectorHash": "sha256:5fe3ffe5475a",
+      "duplicateIndex": 3,
+      "reason": "mutateAsync is a stable ref in TanStack Query v5"
+    },
+    {
+      "key": "eslint-disable|packages/client/src/lib/trpc.ts|@typescript-eslint/promise-function-async|next-line|sha256:4866d7dcae90|0",
+      "path": "packages/client/src/lib/trpc.ts",
+      "kind": "eslint-disable",
+      "target": "@typescript-eslint/promise-function-async",
+      "scope": "next-line",
+      "selectorHash": "sha256:4866d7dcae90",
+      "duplicateIndex": 0,
+      "reason": "Returns the cached in-flight refresh Promise itself so callers share identity"
+    },
+    {
+      "key": "eslint-disable|packages/client/src/pages/settings-page.tsx|jsx-a11y/no-autofocus|next-line|sha256:e51c2d1ba060|0",
+      "path": "packages/client/src/pages/settings-page.tsx",
+      "kind": "eslint-disable",
+      "target": "jsx-a11y/no-autofocus",
+      "scope": "next-line",
+      "selectorHash": "sha256:e51c2d1ba060",
+      "duplicateIndex": 0,
+      "reason": "modal delete confirmation autofocus on required password input"
+    },
+    {
+      "key": "eslint-disable|packages/client/src/routes/index-route.ts|@typescript-eslint/only-throw-error|next-line|sha256:495fa90926f8|0",
+      "path": "packages/client/src/routes/index-route.ts",
+      "kind": "eslint-disable",
+      "target": "@typescript-eslint/only-throw-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:495fa90926f8",
+      "duplicateIndex": 0,
+      "reason": "TanStack Router requires throwing redirect()"
+    },
+    {
+      "key": "eslint-disable|packages/client/src/test/mock-react-konva.tsx|jsx-a11y/click-events-have-key-events|next-line|sha256:a2ce1d4ffb18|0",
+      "path": "packages/client/src/test/mock-react-konva.tsx",
+      "kind": "eslint-disable",
+      "target": "jsx-a11y/click-events-have-key-events",
+      "scope": "next-line",
+      "selectorHash": "sha256:a2ce1d4ffb18",
+      "duplicateIndex": 0,
+      "reason": "test-only DOM stand-in for canvas, no a11y semantics apply"
+    },
+    {
+      "key": "eslint-disable|packages/client/src/test/mock-react-konva.tsx|jsx-a11y/no-static-element-interactions|next-line|sha256:a2ce1d4ffb18|0",
+      "path": "packages/client/src/test/mock-react-konva.tsx",
+      "kind": "eslint-disable",
+      "target": "jsx-a11y/no-static-element-interactions",
+      "scope": "next-line",
+      "selectorHash": "sha256:a2ce1d4ffb18",
+      "duplicateIndex": 0,
+      "reason": "test-only DOM stand-in for canvas, no a11y semantics apply"
+    },
+    {
+      "key": "eslint-disable|packages/client/src/test/setup.ts|no-console|next-line|sha256:64ed6b2f112f|0",
+      "path": "packages/client/src/test/setup.ts",
+      "kind": "eslint-disable",
+      "target": "no-console",
+      "scope": "next-line",
+      "selectorHash": "sha256:64ed6b2f112f",
+      "duplicateIndex": 0,
+      "reason": "test setup forwards unexpected console errors."
+    },
+    {
+      "key": "eslint-disable|packages/client/src/test/setup.ts|no-console|next-line|sha256:64ed6b2f112f|1",
+      "path": "packages/client/src/test/setup.ts",
+      "kind": "eslint-disable",
+      "target": "no-console",
+      "scope": "next-line",
+      "selectorHash": "sha256:64ed6b2f112f",
+      "duplicateIndex": 1,
+      "reason": "test setup forwards unexpected console warnings."
+    },
+    {
+      "key": "eslint-disable|packages/server/src/main.ts|no-console|next-line|sha256:64ed6b2f112f|0",
+      "path": "packages/server/src/main.ts",
+      "kind": "eslint-disable",
+      "target": "no-console",
+      "scope": "next-line",
+      "selectorHash": "sha256:64ed6b2f112f",
+      "duplicateIndex": 0,
+      "reason": "entry point; logger not yet initialized"
+    },
+    {
+      "key": "eslint-disable|packages/server/src/seed/generate-class-features.ts|@typescript-eslint/restrict-template-expressions|file|sha256:95e1caa131c8|0",
+      "path": "packages/server/src/seed/generate-class-features.ts",
+      "kind": "eslint-disable",
+      "target": "@typescript-eslint/restrict-template-expressions",
+      "scope": "file",
+      "selectorHash": "sha256:95e1caa131c8",
+      "duplicateIndex": 0,
+      "reason": "one-time generator script"
+    },
+    {
+      "key": "eslint-disable|packages/server/src/seed/generate-class-features.ts|complexity|file|sha256:95e1caa131c8|0",
+      "path": "packages/server/src/seed/generate-class-features.ts",
+      "kind": "eslint-disable",
+      "target": "complexity",
+      "scope": "file",
+      "selectorHash": "sha256:95e1caa131c8",
+      "duplicateIndex": 0,
+      "reason": "one-time generator script"
+    },
+    {
+      "key": "eslint-disable|packages/server/src/seed/generate-subclasses.ts|@typescript-eslint/restrict-template-expressions|file|sha256:47a0ba320f46|0",
+      "path": "packages/server/src/seed/generate-subclasses.ts",
+      "kind": "eslint-disable",
+      "target": "@typescript-eslint/restrict-template-expressions",
+      "scope": "file",
+      "selectorHash": "sha256:47a0ba320f46",
+      "duplicateIndex": 0,
+      "reason": "one-time generator script"
+    },
+    {
+      "key": "eslint-disable|packages/server/src/seed/generate-subclasses.ts|complexity|file|sha256:47a0ba320f46|0",
+      "path": "packages/server/src/seed/generate-subclasses.ts",
+      "kind": "eslint-disable",
+      "target": "complexity",
+      "scope": "file",
+      "selectorHash": "sha256:47a0ba320f46",
+      "duplicateIndex": 0,
+      "reason": "one-time generator script"
+    },
+    {
+      "key": "eslint-disable|packages/server/src/seed/generate-subclasses.ts|no-magic-numbers|file|sha256:47a0ba320f46|0",
+      "path": "packages/server/src/seed/generate-subclasses.ts",
+      "kind": "eslint-disable",
+      "target": "no-magic-numbers",
+      "scope": "file",
+      "selectorHash": "sha256:47a0ba320f46",
+      "duplicateIndex": 0,
+      "reason": "one-time generator script"
+    },
+    {
+      "key": "eslint-disable|packages/server/src/services/auth-service.ts|@typescript-eslint/promise-function-async|next-line|sha256:4866d7dcae90|0",
+      "path": "packages/server/src/services/auth-service.ts",
+      "kind": "eslint-disable",
+      "target": "@typescript-eslint/promise-function-async",
+      "scope": "next-line",
+      "selectorHash": "sha256:4866d7dcae90",
+      "duplicateIndex": 0,
+      "reason": "Returns the cached bcrypt Promise itself so concurrent callers share identity"
+    },
+    {
+      "key": "eslint-disable|packages/server/src/services/rest-service.test.ts|@typescript-eslint/explicit-function-return-type|next-line|sha256:003d20db5e94|0",
+      "path": "packages/server/src/services/rest-service.test.ts",
+      "kind": "eslint-disable",
+      "target": "@typescript-eslint/explicit-function-return-type",
+      "scope": "next-line",
+      "selectorHash": "sha256:003d20db5e94",
+      "duplicateIndex": 0,
+      "reason": "returns a bag of vi.fn() mocks plus captured state; hand-typing would be brittle churn on every test-internals tweak"
+    },
+    {
+      "key": "eslint-disable|packages/server/src/test/trpc-helpers.ts|@typescript-eslint/no-unnecessary-type-parameters|next-line|sha256:9865a6c36bc3|0",
+      "path": "packages/server/src/test/trpc-helpers.ts",
+      "kind": "eslint-disable",
+      "target": "@typescript-eslint/no-unnecessary-type-parameters",
+      "scope": "next-line",
+      "selectorHash": "sha256:9865a6c36bc3",
+      "duplicateIndex": 0,
+      "reason": "convenience cast for test assertions"
+    },
+    {
+      "key": "eslint-disable|packages/server/src/utils/__type-tests__/character-class-restrictions.ts|@typescript-eslint/no-deprecated|file|sha256:799c65dd9a9f|0",
+      "path": "packages/server/src/utils/__type-tests__/character-class-restrictions.ts",
+      "kind": "eslint-disable",
+      "target": "@typescript-eslint/no-deprecated",
+      "scope": "file",
+      "selectorHash": "sha256:799c65dd9a9f",
+      "duplicateIndex": 0,
+      "reason": "file exists to verify the deprecation triggers"
+    },
+    {
+      "key": "eslint-disable|packages/server/src/utils/__type-tests__/character-spell-slot-restrictions.ts|@typescript-eslint/no-deprecated|file|sha256:799c65dd9a9f|0",
+      "path": "packages/server/src/utils/__type-tests__/character-spell-slot-restrictions.ts",
+      "kind": "eslint-disable",
+      "target": "@typescript-eslint/no-deprecated",
+      "scope": "file",
+      "selectorHash": "sha256:799c65dd9a9f",
+      "duplicateIndex": 0,
+      "reason": "file exists to verify the deprecation triggers"
+    },
+    {
+      "key": "eslint-disable|packages/server/src/utils/__type-tests__/character-stats-restrictions.ts|@typescript-eslint/no-deprecated|file|sha256:799c65dd9a9f|0",
+      "path": "packages/server/src/utils/__type-tests__/character-stats-restrictions.ts",
+      "kind": "eslint-disable",
+      "target": "@typescript-eslint/no-deprecated",
+      "scope": "file",
+      "selectorHash": "sha256:799c65dd9a9f",
+      "duplicateIndex": 0,
+      "reason": "file exists to verify the deprecation triggers"
+    },
+    {
+      "key": "eslint-disable|packages/server/src/utils/__type-tests__/encounter-participant-restrictions.ts|@typescript-eslint/no-deprecated|file|sha256:799c65dd9a9f|0",
+      "path": "packages/server/src/utils/__type-tests__/encounter-participant-restrictions.ts",
+      "kind": "eslint-disable",
+      "target": "@typescript-eslint/no-deprecated",
+      "scope": "file",
+      "selectorHash": "sha256:799c65dd9a9f",
+      "duplicateIndex": 0,
+      "reason": "file exists to verify the deprecation triggers"
+    },
+    {
+      "key": "eslint-disable|packages/server/src/utils/__type-tests__/encounter-restrictions.ts|@typescript-eslint/no-deprecated|file|sha256:799c65dd9a9f|0",
+      "path": "packages/server/src/utils/__type-tests__/encounter-restrictions.ts",
+      "kind": "eslint-disable",
+      "target": "@typescript-eslint/no-deprecated",
+      "scope": "file",
+      "selectorHash": "sha256:799c65dd9a9f",
+      "duplicateIndex": 0,
+      "reason": "file exists to verify the deprecation triggers"
+    },
+    {
+      "key": "eslint-disable|packages/server/src/utils/dice-error-wrap.test.ts|@typescript-eslint/only-throw-error|next-line|sha256:495fa90926f8|0",
+      "path": "packages/server/src/utils/dice-error-wrap.test.ts",
+      "kind": "eslint-disable",
+      "target": "@typescript-eslint/only-throw-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:495fa90926f8",
+      "duplicateIndex": 0,
+      "reason": "test intentionally throws a non-Error to exercise the fallback path"
+    },
+    {
+      "key": "eslint-disable|packages/server/src/utils/prisma-json.ts|@typescript-eslint/no-unnecessary-type-parameters|next-line|sha256:9865a6c36bc3|0",
+      "path": "packages/server/src/utils/prisma-json.ts",
+      "kind": "eslint-disable",
+      "target": "@typescript-eslint/no-unnecessary-type-parameters",
+      "scope": "next-line",
+      "selectorHash": "sha256:9865a6c36bc3",
+      "duplicateIndex": 0,
+      "reason": "T is caller-specified, not inferred"
+    },
+    {
+      "key": "eslint-disable|packages/server/src/utils/prisma-types.test.ts|@typescript-eslint/no-deprecated|file|sha256:799c65dd9a9f|0",
+      "path": "packages/server/src/utils/prisma-types.test.ts",
+      "kind": "eslint-disable",
+      "target": "@typescript-eslint/no-deprecated",
+      "scope": "file",
+      "selectorHash": "sha256:799c65dd9a9f",
+      "duplicateIndex": 0,
+      "reason": "the narrowing test exists to verify the `@deprecated` write gate triggers"
+    },
+    {
+      "key": "eslint-disable|packages/server/src/utils/srd-query-helpers.ts|@typescript-eslint/explicit-function-return-type|file|sha256:130caa05e0c5|0",
+      "path": "packages/server/src/utils/srd-query-helpers.ts",
+      "kind": "eslint-disable",
+      "target": "@typescript-eslint/explicit-function-return-type",
+      "scope": "file",
+      "selectorHash": "sha256:130caa05e0c5",
+      "duplicateIndex": 0,
+      "reason": ""
+    },
+    {
+      "key": "eslint-disable|packages/shared/src/constants.ts|no-magic-numbers|file|sha256:5319a49961d9|0",
+      "path": "packages/shared/src/constants.ts",
+      "kind": "eslint-disable",
+      "target": "no-magic-numbers",
+      "scope": "file",
+      "selectorHash": "sha256:5319a49961d9",
+      "duplicateIndex": 0,
+      "reason": "D&D character level range"
+    },
+    {
+      "key": "eslint-disable|packages/shared/src/map/area-template.ts|no-magic-numbers|file|sha256:5319a49961d9|0",
+      "path": "packages/shared/src/map/area-template.ts",
+      "kind": "eslint-disable",
+      "target": "no-magic-numbers",
+      "scope": "file",
+      "selectorHash": "sha256:5319a49961d9",
+      "duplicateIndex": 0,
+      "reason": "D&D AoE size presets and fundamental geometry constants (degrees, radians, compass angles)"
+    },
+    {
+      "key": "eslint-disable|packages/shared/src/map/area-template.ts|no-magic-numbers|file|sha256:5319a49961d9|1",
+      "path": "packages/shared/src/map/area-template.ts",
+      "kind": "eslint-disable",
+      "target": "no-magic-numbers",
+      "scope": "file",
+      "selectorHash": "sha256:5319a49961d9",
+      "duplicateIndex": 1,
+      "reason": "cardinal-angle switch (0/90/180/270 degrees)"
+    },
+    {
+      "key": "eslint-disable|packages/shared/src/map/grid-utils.ts|no-magic-numbers|file|sha256:5319a49961d9|0",
+      "path": "packages/shared/src/map/grid-utils.ts",
+      "kind": "eslint-disable",
+      "target": "no-magic-numbers",
+      "scope": "file",
+      "selectorHash": "sha256:5319a49961d9",
+      "duplicateIndex": 0,
+      "reason": "fundamental hex geometry values"
+    },
+    {
+      "key": "eslint-disable|packages/shared/src/rules/character-rules.ts|no-magic-numbers|next-line|sha256:f1813602a64b|0",
+      "path": "packages/shared/src/rules/character-rules.ts",
+      "kind": "eslint-disable",
+      "target": "no-magic-numbers",
+      "scope": "next-line",
+      "selectorHash": "sha256:f1813602a64b",
+      "duplicateIndex": 0,
+      "reason": "D&D 2024 ASI milestone levels"
+    },
+    {
+      "key": "eslint-disable|packages/shared/src/rules/sorcery-points.ts|no-magic-numbers|next-line|sha256:f1813602a64b|0",
+      "path": "packages/shared/src/rules/sorcery-points.ts",
+      "kind": "eslint-disable",
+      "target": "no-magic-numbers",
+      "scope": "next-line",
+      "selectorHash": "sha256:f1813602a64b",
+      "duplicateIndex": 0,
+      "reason": "SRD metamagic selection levels"
+    },
+    {
+      "key": "eslint-disable|packages/shared/src/rules/spellcasting.ts|no-magic-numbers|file|sha256:5319a49961d9|0",
+      "path": "packages/shared/src/rules/spellcasting.ts",
+      "kind": "eslint-disable",
+      "target": "no-magic-numbers",
+      "scope": "file",
+      "selectorHash": "sha256:5319a49961d9",
+      "duplicateIndex": 0,
+      "reason": "SRD spell slot table data"
+    },
+    {
+      "key": "eslint-disable|packages/shared/src/rules/spellcasting.ts|no-magic-numbers|file|sha256:5319a49961d9|1",
+      "path": "packages/shared/src/rules/spellcasting.ts",
+      "kind": "eslint-disable",
+      "target": "no-magic-numbers",
+      "scope": "file",
+      "selectorHash": "sha256:5319a49961d9",
+      "duplicateIndex": 1,
+      "reason": "SRD prepared-spell table data"
+    },
+    {
+      "key": "eslint-disable|packages/shared/src/rules/xp.ts|no-magic-numbers|file|sha256:5319a49961d9|0",
+      "path": "packages/shared/src/rules/xp.ts",
+      "kind": "eslint-disable",
+      "target": "no-magic-numbers",
+      "scope": "file",
+      "selectorHash": "sha256:5319a49961d9",
+      "duplicateIndex": 0,
+      "reason": "SRD CR-to-XP reference data"
+    },
+    {
+      "key": "eslint-disable|packages/shared/src/schemas/asi.ts|no-magic-numbers|next-line|sha256:f1813602a64b|0",
+      "path": "packages/shared/src/schemas/asi.ts",
+      "kind": "eslint-disable",
+      "target": "no-magic-numbers",
+      "scope": "next-line",
+      "selectorHash": "sha256:f1813602a64b",
+      "duplicateIndex": 0,
+      "reason": "ASI increase is +1 or +2 per D&D rules"
+    },
+    {
+      "key": "eslint-disable|scripts/drift/locator-usage.ts|no-magic-numbers|next-line|sha256:f1813602a64b|0",
+      "path": "scripts/drift/locator-usage.ts",
+      "kind": "eslint-disable",
+      "target": "no-magic-numbers",
+      "scope": "next-line",
+      "selectorHash": "sha256:f1813602a64b",
+      "duplicateIndex": 0,
+      "reason": "standard Node argv skips node and script path"
+    },
+    {
+      "key": "eslint-disable|tools/lint-ratchet/src/kernel/baseline-constants.ts|no-magic-numbers|next-line|sha256:f1813602a64b|0",
+      "path": "tools/lint-ratchet/src/kernel/baseline-constants.ts",
+      "kind": "eslint-disable",
+      "target": "no-magic-numbers",
+      "scope": "next-line",
+      "selectorHash": "sha256:f1813602a64b",
+      "duplicateIndex": 0,
+      "reason": "schema version is the wire-format literal"
+    },
+    {
+      "key": "stryker-disable|packages/shared/src/rules/attack-roll.ts|Regex|next-line|sha256:b2154d809ca7|0",
+      "path": "packages/shared/src/rules/attack-roll.ts",
+      "kind": "stryker-disable",
+      "target": "Regex",
+      "scope": "next-line",
+      "selectorHash": "sha256:b2154d809ca7",
+      "duplicateIndex": 0,
+      "reason": "shared schema guarantees dice prefix before labels"
+    },
+    {
+      "key": "stryker-disable|packages/shared/src/rules/combat.ts|ConditionalExpression|next-line|sha256:8f4776225011|0",
+      "path": "packages/shared/src/rules/combat.ts",
+      "kind": "stryker-disable",
+      "target": "ConditionalExpression",
+      "scope": "next-line",
+      "selectorHash": "sha256:8f4776225011",
+      "duplicateIndex": 0,
+      "reason": "temp HP is non-negative by contract"
+    },
+    {
+      "key": "stryker-disable|packages/shared/src/rules/combat.ts|EqualityOperator|next-line|sha256:8f4776225011|0",
+      "path": "packages/shared/src/rules/combat.ts",
+      "kind": "stryker-disable",
+      "target": "EqualityOperator",
+      "scope": "next-line",
+      "selectorHash": "sha256:8f4776225011",
+      "duplicateIndex": 0,
+      "reason": "temp HP is non-negative by contract"
+    },
+    {
+      "key": "stryker-disable|packages/shared/src/rules/encounter-difficulty.ts|ConditionalExpression|next-line|sha256:754dab29a530|0",
+      "path": "packages/shared/src/rules/encounter-difficulty.ts",
+      "kind": "stryker-disable",
+      "target": "ConditionalExpression",
+      "scope": "next-line",
+      "selectorHash": "sha256:754dab29a530",
+      "duplicateIndex": 0,
+      "reason": "addParticipant rows give levels only through character relations"
+    },
+    {
+      "key": "stryker-disable|packages/shared/src/rules/encounter-difficulty.ts|ConditionalExpression|next-line|sha256:754dab29a530|1",
+      "path": "packages/shared/src/rules/encounter-difficulty.ts",
+      "kind": "stryker-disable",
+      "target": "ConditionalExpression",
+      "scope": "next-line",
+      "selectorHash": "sha256:754dab29a530",
+      "duplicateIndex": 1,
+      "reason": "addParticipant rows leave character CR null"
+    },
+    {
+      "key": "stryker-disable|packages/shared/src/rules/multiclass-rules.ts|MethodExpression|next-line|sha256:ce3d629c7eee|0",
+      "path": "packages/shared/src/rules/multiclass-rules.ts",
+      "kind": "stryker-disable",
+      "target": "MethodExpression",
+      "scope": "next-line",
+      "selectorHash": "sha256:ce3d629c7eee",
+      "duplicateIndex": 0,
+      "reason": "Fighter's anyOf groups contain a single ability; every/some are equivalent over the current table"
+    },
+    {
+      "key": "stryker-disable|packages/shared/src/rules/multiclass-rules.ts|StringLiteral|next-line|sha256:663bd2fb5760|0",
+      "path": "packages/shared/src/rules/multiclass-rules.ts",
+      "kind": "stryker-disable",
+      "target": "StringLiteral",
+      "scope": "next-line",
+      "selectorHash": "sha256:663bd2fb5760",
+      "duplicateIndex": 0,
+      "reason": "anyOf groups have a single requirement; join separator unobservable on length-1 arrays"
+    },
+    {
+      "key": "stryker-disable|packages/shared/src/rules/spellcasting.ts|ConditionalExpression|next-line|sha256:754dab29a530|0",
+      "path": "packages/shared/src/rules/spellcasting.ts",
+      "kind": "stryker-disable",
+      "target": "ConditionalExpression",
+      "scope": "next-line",
+      "selectorHash": "sha256:754dab29a530",
+      "duplicateIndex": 0,
+      "reason": "later table fallbacks preserve the same empty result"
+    },
+    {
+      "key": "stryker-disable|packages/shared/src/rules/spellcasting.ts|ConditionalExpression|next-line|sha256:754dab29a530|1",
+      "path": "packages/shared/src/rules/spellcasting.ts",
+      "kind": "stryker-disable",
+      "target": "ConditionalExpression",
+      "scope": "next-line",
+      "selectorHash": "sha256:754dab29a530",
+      "duplicateIndex": 1,
+      "reason": "guards against all-none multiclass and zero effective level"
+    },
+    {
+      "key": "stryker-disable|packages/shared/src/rules/xp.ts|ConditionalExpression|next-line|sha256:754dab29a530|0",
+      "path": "packages/shared/src/rules/xp.ts",
+      "kind": "stryker-disable",
+      "target": "ConditionalExpression",
+      "scope": "next-line",
+      "selectorHash": "sha256:754dab29a530",
+      "duplicateIndex": 0,
+      "reason": "addParticipant rows leave character CR null"
+    },
+    {
+      "key": "ts-expect-error|e2e/helpers/__type-tests__/api-fixture-restrictions.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|0",
+      "path": "e2e/helpers/__type-tests__/api-fixture-restrictions.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 0,
+      "reason": "the fixture creates a minimal defaulted character; personality text is a UI flow, not seed data"
+    },
+    {
+      "key": "ts-expect-error|e2e/helpers/__type-tests__/api-fixture-restrictions.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|1",
+      "path": "e2e/helpers/__type-tests__/api-fixture-restrictions.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 1,
+      "reason": "starting equipment is not defaulted here; seed inventory through apiCreateInventoryItem"
+    },
+    {
+      "key": "ts-expect-error|e2e/helpers/__type-tests__/api-fixture-restrictions.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|2",
+      "path": "e2e/helpers/__type-tests__/api-fixture-restrictions.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 2,
+      "reason": "the helper always sends \"average\"; a caller-chosen method would be overwritten"
+    },
+    {
+      "key": "ts-expect-error|e2e/helpers/__type-tests__/api-fixture-restrictions.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|3",
+      "path": "e2e/helpers/__type-tests__/api-fixture-restrictions.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 3,
+      "reason": "hpMethod is fixed to \"average\", so a rolled HP value would be accepted and then silently dropped"
+    },
+    {
+      "key": "ts-expect-error|packages/client/src/components/homebrew/entries/entry-dialog.test.tsx|@ts-expect-error|next-line|sha256:4b6202f6c29e|0",
+      "path": "packages/client/src/components/homebrew/entries/entry-dialog.test.tsx",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 0,
+      "reason": "spell data cannot pair with the \"feat\" entry type."
+    },
+    {
+      "key": "ts-expect-error|packages/client/src/hooks/use-debounced-value.test.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|0",
+      "path": "packages/client/src/hooks/use-debounced-value.test.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 0,
+      "reason": "an object is rebuilt on every render, so debouncing it never settles."
+    },
+    {
+      "key": "ts-expect-error|packages/server/src/socket/broadcast-registry.test.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|0",
+      "path": "packages/server/src/socket/broadcast-registry.test.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 0,
+      "reason": "exercising runtime validation against a bad payload."
+    },
+    {
+      "key": "ts-expect-error|packages/server/src/socket/broadcast-registry.test.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|1",
+      "path": "packages/server/src/socket/broadcast-registry.test.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 1,
+      "reason": "exercising runtime validation against a bad payload."
+    },
+    {
+      "key": "ts-expect-error|packages/server/src/utils/__type-tests__/authz-vocabulary-restrictions.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|0",
+      "path": "packages/server/src/utils/__type-tests__/authz-vocabulary-restrictions.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 0,
+      "reason": "unknown event names must not compile; use an AuthzEvent"
+    },
+    {
+      "key": "ts-expect-error|packages/server/src/utils/__type-tests__/authz-vocabulary-restrictions.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|1",
+      "path": "packages/server/src/utils/__type-tests__/authz-vocabulary-restrictions.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 1,
+      "reason": "unknown reason codes must not compile; use an AuthzReason"
+    },
+    {
+      "key": "ts-expect-error|packages/server/src/utils/__type-tests__/character-class-restrictions.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|0",
+      "path": "packages/server/src/utils/__type-tests__/character-class-restrictions.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 0,
+      "reason": "direct update is forbidden; use character-class-mutations helpers"
+    },
+    {
+      "key": "ts-expect-error|packages/server/src/utils/__type-tests__/character-class-restrictions.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|1",
+      "path": "packages/server/src/utils/__type-tests__/character-class-restrictions.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 1,
+      "reason": "direct updateMany is forbidden; use character-class-mutations helpers"
+    },
+    {
+      "key": "ts-expect-error|packages/server/src/utils/__type-tests__/character-class-restrictions.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|2",
+      "path": "packages/server/src/utils/__type-tests__/character-class-restrictions.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 2,
+      "reason": "direct updateManyAndReturn is forbidden; use character-class-mutations helpers"
+    },
+    {
+      "key": "ts-expect-error|packages/server/src/utils/__type-tests__/character-spell-slot-restrictions.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|0",
+      "path": "packages/server/src/utils/__type-tests__/character-spell-slot-restrictions.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 0,
+      "reason": "direct update is forbidden; use spell-slot-mutations helpers"
+    },
+    {
+      "key": "ts-expect-error|packages/server/src/utils/__type-tests__/character-spell-slot-restrictions.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|1",
+      "path": "packages/server/src/utils/__type-tests__/character-spell-slot-restrictions.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 1,
+      "reason": "direct updateMany is forbidden; use spell-slot-mutations helpers"
+    },
+    {
+      "key": "ts-expect-error|packages/server/src/utils/__type-tests__/character-spell-slot-restrictions.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|2",
+      "path": "packages/server/src/utils/__type-tests__/character-spell-slot-restrictions.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 2,
+      "reason": "direct updateManyAndReturn is forbidden; use spell-slot-mutations helpers"
+    },
+    {
+      "key": "ts-expect-error|packages/server/src/utils/__type-tests__/character-stats-restrictions.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|0",
+      "path": "packages/server/src/utils/__type-tests__/character-stats-restrictions.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 0,
+      "reason": "direct update is forbidden; use updateCharacterStatsLocked"
+    },
+    {
+      "key": "ts-expect-error|packages/server/src/utils/__type-tests__/character-stats-restrictions.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|1",
+      "path": "packages/server/src/utils/__type-tests__/character-stats-restrictions.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 1,
+      "reason": "direct updateMany is forbidden; use updateCharacterStatsLocked"
+    },
+    {
+      "key": "ts-expect-error|packages/server/src/utils/__type-tests__/character-stats-restrictions.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|2",
+      "path": "packages/server/src/utils/__type-tests__/character-stats-restrictions.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 2,
+      "reason": "direct updateManyAndReturn is forbidden; use updateCharacterStatsLocked"
+    },
+    {
+      "key": "ts-expect-error|packages/server/src/utils/__type-tests__/encounter-participant-restrictions.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|0",
+      "path": "packages/server/src/utils/__type-tests__/encounter-participant-restrictions.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 0,
+      "reason": "direct update is forbidden; use blindUpdateParticipant or updateParticipantStatsLocked"
+    },
+    {
+      "key": "ts-expect-error|packages/server/src/utils/__type-tests__/encounter-participant-restrictions.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|1",
+      "path": "packages/server/src/utils/__type-tests__/encounter-participant-restrictions.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 1,
+      "reason": "direct updateMany is forbidden; use blindUpdateParticipant or updateParticipantStatsLocked"
+    },
+    {
+      "key": "ts-expect-error|packages/server/src/utils/__type-tests__/encounter-participant-restrictions.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|10",
+      "path": "packages/server/src/utils/__type-tests__/encounter-participant-restrictions.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 10,
+      "reason": "identity field, not mutable via blind helper"
+    },
+    {
+      "key": "ts-expect-error|packages/server/src/utils/__type-tests__/encounter-participant-restrictions.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|2",
+      "path": "packages/server/src/utils/__type-tests__/encounter-participant-restrictions.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 2,
+      "reason": "direct updateManyAndReturn is forbidden; use blindUpdateParticipant or updateParticipantStatsLocked"
+    },
+    {
+      "key": "ts-expect-error|packages/server/src/utils/__type-tests__/encounter-participant-restrictions.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|3",
+      "path": "packages/server/src/utils/__type-tests__/encounter-participant-restrictions.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 3,
+      "reason": "currentHp is derived; route through updateParticipantStatsLocked"
+    },
+    {
+      "key": "ts-expect-error|packages/server/src/utils/__type-tests__/encounter-participant-restrictions.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|4",
+      "path": "packages/server/src/utils/__type-tests__/encounter-participant-restrictions.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 4,
+      "reason": "tempHp is derived; route through updateParticipantStatsLocked"
+    },
+    {
+      "key": "ts-expect-error|packages/server/src/utils/__type-tests__/encounter-participant-restrictions.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|5",
+      "path": "packages/server/src/utils/__type-tests__/encounter-participant-restrictions.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 5,
+      "reason": "version is managed by the locked helper only"
+    },
+    {
+      "key": "ts-expect-error|packages/server/src/utils/__type-tests__/encounter-participant-restrictions.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|6",
+      "path": "packages/server/src/utils/__type-tests__/encounter-participant-restrictions.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 6,
+      "reason": "conditions is read-modify-write (combat-actions); route through updateParticipantStatsLocked"
+    },
+    {
+      "key": "ts-expect-error|packages/server/src/utils/__type-tests__/encounter-participant-restrictions.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|7",
+      "path": "packages/server/src/utils/__type-tests__/encounter-participant-restrictions.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 7,
+      "reason": "identity field, not mutable via blind helper"
+    },
+    {
+      "key": "ts-expect-error|packages/server/src/utils/__type-tests__/encounter-participant-restrictions.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|8",
+      "path": "packages/server/src/utils/__type-tests__/encounter-participant-restrictions.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 8,
+      "reason": "identity field, not mutable via blind helper"
+    },
+    {
+      "key": "ts-expect-error|packages/server/src/utils/__type-tests__/encounter-participant-restrictions.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|9",
+      "path": "packages/server/src/utils/__type-tests__/encounter-participant-restrictions.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 9,
+      "reason": "identity field, not mutable via blind helper"
+    },
+    {
+      "key": "ts-expect-error|packages/server/src/utils/__type-tests__/encounter-restrictions.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|0",
+      "path": "packages/server/src/utils/__type-tests__/encounter-restrictions.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 0,
+      "reason": "direct update is forbidden; use encounter-state-mutations helpers"
+    },
+    {
+      "key": "ts-expect-error|packages/server/src/utils/__type-tests__/encounter-restrictions.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|1",
+      "path": "packages/server/src/utils/__type-tests__/encounter-restrictions.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 1,
+      "reason": "direct updateMany is forbidden; use encounter-state-mutations helpers"
+    },
+    {
+      "key": "ts-expect-error|packages/server/src/utils/__type-tests__/encounter-restrictions.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|2",
+      "path": "packages/server/src/utils/__type-tests__/encounter-restrictions.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 2,
+      "reason": "direct updateManyAndReturn is forbidden; use encounter-state-mutations helpers"
+    },
+    {
+      "key": "ts-expect-error|packages/server/src/utils/__type-tests__/raw-client-widening-restrictions.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|0",
+      "path": "packages/server/src/utils/__type-tests__/raw-client-widening-restrictions.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 0,
+      "reason": "TxClient must NOT be assignable to the raw transaction client; use a rawWrites() helper in utils/*-mutations.ts"
+    },
+    {
+      "key": "ts-expect-error|packages/server/src/utils/__type-tests__/raw-client-widening-restrictions.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|1",
+      "path": "packages/server/src/utils/__type-tests__/raw-client-widening-restrictions.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 1,
+      "reason": "DbClient must NOT be assignable to the raw PrismaClient; use a rawWrites() helper in utils/*-mutations.ts"
+    },
+    {
+      "key": "ts-expect-error|packages/server/src/utils/__type-tests__/raw-client-widening-restrictions.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|10",
+      "path": "packages/server/src/utils/__type-tests__/raw-client-widening-restrictions.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 10,
+      "reason": "restricted characterStats delegate must not widen to the raw delegate"
+    },
+    {
+      "key": "ts-expect-error|packages/server/src/utils/__type-tests__/raw-client-widening-restrictions.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|11",
+      "path": "packages/server/src/utils/__type-tests__/raw-client-widening-restrictions.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 11,
+      "reason": "restricted encounterParticipant delegate must not widen to the raw delegate"
+    },
+    {
+      "key": "ts-expect-error|packages/server/src/utils/__type-tests__/raw-client-widening-restrictions.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|12",
+      "path": "packages/server/src/utils/__type-tests__/raw-client-widening-restrictions.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 12,
+      "reason": "restricted encounter delegate must not widen to the raw delegate"
+    },
+    {
+      "key": "ts-expect-error|packages/server/src/utils/__type-tests__/raw-client-widening-restrictions.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|13",
+      "path": "packages/server/src/utils/__type-tests__/raw-client-widening-restrictions.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 13,
+      "reason": "restricted characterSpellSlot delegate must not widen to the raw delegate"
+    },
+    {
+      "key": "ts-expect-error|packages/server/src/utils/__type-tests__/raw-client-widening-restrictions.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|14",
+      "path": "packages/server/src/utils/__type-tests__/raw-client-widening-restrictions.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 14,
+      "reason": "restricted characterClass delegate must not widen to the raw delegate"
+    },
+    {
+      "key": "ts-expect-error|packages/server/src/utils/__type-tests__/raw-client-widening-restrictions.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|15",
+      "path": "packages/server/src/utils/__type-tests__/raw-client-widening-restrictions.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 15,
+      "reason": "the DbClient half of the ban must hold too; DbClient and TxClient share RestrictedDelegates"
+    },
+    {
+      "key": "ts-expect-error|packages/server/src/utils/__type-tests__/raw-client-widening-restrictions.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|2",
+      "path": "packages/server/src/utils/__type-tests__/raw-client-widening-restrictions.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 2,
+      "reason": "omitting the narrowed $transaction must not make DbClient assignable either; the delegate ban has to carry the block on its own"
+    },
+    {
+      "key": "ts-expect-error|packages/server/src/utils/__type-tests__/raw-client-widening-restrictions.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|3",
+      "path": "packages/server/src/utils/__type-tests__/raw-client-widening-restrictions.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 3,
+      "reason": "DbClient must not expose Prisma's raw-returning $extends escape"
+    },
+    {
+      "key": "ts-expect-error|packages/server/src/utils/__type-tests__/raw-client-widening-restrictions.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|4",
+      "path": "packages/server/src/utils/__type-tests__/raw-client-widening-restrictions.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 4,
+      "reason": "TxClient's $transaction must not widen to Prisma's raw-client callback"
+    },
+    {
+      "key": "ts-expect-error|packages/server/src/utils/__type-tests__/raw-client-widening-restrictions.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|5",
+      "path": "packages/server/src/utils/__type-tests__/raw-client-widening-restrictions.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 5,
+      "reason": "CharacterStats raw writes must not expose Encounter"
+    },
+    {
+      "key": "ts-expect-error|packages/server/src/utils/__type-tests__/raw-client-widening-restrictions.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|6",
+      "path": "packages/server/src/utils/__type-tests__/raw-client-widening-restrictions.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 6,
+      "reason": "EncounterParticipant raw writes must not expose CharacterStats"
+    },
+    {
+      "key": "ts-expect-error|packages/server/src/utils/__type-tests__/raw-client-widening-restrictions.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|7",
+      "path": "packages/server/src/utils/__type-tests__/raw-client-widening-restrictions.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 7,
+      "reason": "Encounter raw writes must not expose CharacterSpellSlot"
+    },
+    {
+      "key": "ts-expect-error|packages/server/src/utils/__type-tests__/raw-client-widening-restrictions.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|8",
+      "path": "packages/server/src/utils/__type-tests__/raw-client-widening-restrictions.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 8,
+      "reason": "CharacterSpellSlot raw writes must not expose Encounter"
+    },
+    {
+      "key": "ts-expect-error|packages/server/src/utils/__type-tests__/raw-client-widening-restrictions.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|9",
+      "path": "packages/server/src/utils/__type-tests__/raw-client-widening-restrictions.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 9,
+      "reason": "CharacterClass raw writes must not expose CharacterStats"
+    },
+    {
+      "key": "ts-expect-error|packages/server/src/utils/__type-tests__/script-logger-event-restrictions.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|0",
+      "path": "packages/server/src/utils/__type-tests__/script-logger-event-restrictions.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 0,
+      "reason": "unknown script event tags must not compile"
+    },
+    {
+      "key": "ts-expect-error|packages/server/src/utils/prisma-types.test.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|0",
+      "path": "packages/server/src/utils/prisma-types.test.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 0,
+      "reason": "direct characterStats.update is forbidden; use updateCharacterStatsLocked"
+    },
+    {
+      "key": "ts-expect-error|packages/shared/src/test/parse-helpers.test.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|0",
+      "path": "packages/shared/src/test/parse-helpers.test.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 0,
+      "reason": "direct positive fixtures must include required top-level schema keys"
+    },
+    {
+      "key": "ts-expect-error|packages/shared/src/test/parse-helpers.test.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|1",
+      "path": "packages/shared/src/test/parse-helpers.test.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 1,
+      "reason": "embedded fixtures must include required nested schema keys"
+    }
+  ]
+}

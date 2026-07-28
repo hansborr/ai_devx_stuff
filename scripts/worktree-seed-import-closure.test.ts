@@ -61,4 +61,61 @@ describe("validateSeedImportClosure options", () => {
     });
     expect(files).toEqual(["entry.ts"]);
   });
+
+  it("records a declared terminal file without following its own imports", () => {
+    const root = tmpRepo.writeRepo(
+      {
+        "entry.ts": 'import "./stubbed.js";\nimport "./local.js";\n',
+        "stubbed.ts": 'import "./only-reachable-through-stubbed.js";\n',
+        "only-reachable-through-stubbed.ts": "export {};\n",
+        "local.ts": "export {};\n",
+      },
+      "seed-closure-terminal-",
+    );
+
+    const { files } = validateSeedImportClosure({
+      root,
+      entry: "entry.ts",
+      allowedRoots: ["."],
+      allowedFiles: [],
+      terminalFiles: ["stubbed.ts", "absent-from-the-tree.ts"],
+    });
+
+    expect(files).toEqual(["entry.ts", "local.ts", "stubbed.ts"]);
+  });
+
+  it("re-reads a file rewritten in place instead of reusing a memoized parse", () => {
+    const root = tmpRepo.writeRepo(
+      {
+        "entry.ts": 'import "./local.js";\n',
+        "local.ts": "export {};\n",
+        "added-later.ts": "export {};\n",
+      },
+      "seed-closure-rewrite-",
+    );
+    const walk = (): readonly string[] =>
+      validateSeedImportClosure({ root, entry: "entry.ts", allowedRoots: ["."], allowedFiles: [] })
+        .files;
+
+    expect(walk()).toEqual(["entry.ts", "local.ts"]);
+
+    tmpRepo.writeRepoFile(root, "local.ts", 'import "./added-later.js";\n');
+
+    expect(walk()).toEqual(["added-later.ts", "entry.ts", "local.ts"]);
+  });
+
+  it("keeps per-file parse results distinct across roots that share a relative layout", () => {
+    const files = { "entry.ts": 'import "./local.js";\n', "local.ts": "export {};\n" };
+    const first = tmpRepo.writeRepo(files, "seed-closure-root-a-");
+    const second = tmpRepo.writeRepo(
+      { ...files, "local.ts": 'import "./deep.js";\n', "deep.ts": "export {};\n" },
+      "seed-closure-root-b-",
+    );
+    const walk = (root: string): readonly string[] =>
+      validateSeedImportClosure({ root, entry: "entry.ts", allowedRoots: ["."], allowedFiles: [] })
+        .files;
+
+    expect(walk(first)).toEqual(["entry.ts", "local.ts"]);
+    expect(walk(second)).toEqual(["deep.ts", "entry.ts", "local.ts"]);
+  });
 });

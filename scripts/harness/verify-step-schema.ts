@@ -1,4 +1,5 @@
 import { compareByCodepoint } from "../lib/codepoint-compare.js";
+import { isRecord } from "../lib/records.js";
 
 export const VERIFY_STEP_DYNAMIC_RESOLVER_BINDINGS = [
   {
@@ -52,11 +53,7 @@ const SLOT_KEYS = [
 ] as const;
 const slotKeySet: ReadonlySet<string> = new Set(SLOT_KEYS);
 
-export function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-export function isNonEmptyString(value: unknown): value is string {
+function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
 
@@ -91,7 +88,7 @@ function parseSlotEnv(
 ): Readonly<Record<string, string>> | undefined {
   if (rawEnv === undefined) return undefined;
   const slotPrefix = `${contextPrefix}slot ${slotName}`;
-  if (!isObject(rawEnv)) {
+  if (!isRecord(rawEnv)) {
     failures.push(`${slotPrefix} env must be an object of VAR=value strings`);
     return undefined;
   }
@@ -192,7 +189,7 @@ function parseSlot(
   failures: string[],
   contextPrefix: string,
 ): VerifyStepSlot | undefined {
-  if (!isObject(rawSlot)) {
+  if (!isRecord(rawSlot)) {
     failures.push(`${contextPrefix}slots[${String(index)}] must be an object`);
     return undefined;
   }

@@ -1,234 +1,104 @@
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
-import {
-  checkSkillInventory,
-  compareSkillTrees,
-  type SkillOverlay,
-} from "./check-skill-inventory.js";
+import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
+import { checkSkillInventory, refreshSkillInventory } from "./check-skill-inventory.js";
 
-const roots: string[] = [];
+const tmpRepo = registerTempRootCleanup();
 
-afterEach(() => {
-  while (roots.length > 0) {
-    const root = roots.pop();
-    if (root !== undefined) rmSync(root, { recursive: true, force: true });
-  }
-});
+function manifest(overrides: Readonly<Record<string, unknown>> = {}): unknown {
+  return {
+    controls: [
+      {
+        id: "skill/declared",
+        kind: "skill",
+        skillWiring: {
+          canonical: ".claude/skills/declared",
+          targets: [
+            { harness: "claude", path: ".claude/skills/declared", overlays: [] },
+            { harness: "codex", path: ".codex/skills/declared", overlays: [] },
+          ],
+          gitignoreOptIns: [],
+          ...overrides,
+        },
+      },
+    ],
+  };
+}
 
-function fixtureTrees(): { readonly canonical: string; readonly target: string } {
-  const root = mkdtempSync(join(tmpdir(), "skill-inventory-"));
-  roots.push(root);
-  const canonical = join(root, "claude");
-  const target = join(root, "codex");
-  mkdirSync(canonical, { recursive: true });
-  mkdirSync(target, { recursive: true });
-  return { canonical, target };
+function fixtureRoot(): string {
+  return tmpRepo.writeRepo(
+    {
+      ".claude/skills/declared/SKILL.md": "canonical\n",
+      ".codex/skills/declared/SKILL.md": "stale\n",
+      ".gitignore": "",
+    },
+    "skill-inventory-",
+  );
 }
 
 describe("skill mirror inventory", () => {
-  it("permits only the declared frontmatter field overlay", () => {
-    const { canonical, target } = fixtureTrees();
-    writeFileSync(
-      join(canonical, "SKILL.md"),
-      "---\nname: graph\nallowed-tools: Bash(graph)\n---\n\n# Graph\n",
+  it("checks drift and refreshes through the same projection", () => {
+    const root = fixtureRoot();
+
+    expect(checkSkillInventory(root, manifest())).toContain(
+      "skill/declared codex: stale target file SKILL.md",
     );
-    writeFileSync(join(target, "SKILL.md"), "---\nname: graph\n---\n\n# Graph\n");
-    const overlays: readonly SkillOverlay[] = [
-      { path: "SKILL.md", kind: "frontmatter-field", field: "allowed-tools" },
-    ];
+    refreshSkillInventory(root, manifest());
 
-    expect(compareSkillTrees(canonical, target, overlays)).toEqual([]);
-
-    writeFileSync(join(target, "SKILL.md"), "---\nname: graph\n---\n\n# Different\n");
-    expect(compareSkillTrees(canonical, target, overlays)).toContain(
-      "SKILL.md differs outside permitted frontmatter field allowed-tools",
-    );
+    expect(readFileSync(join(root, ".codex/skills/declared/SKILL.md"), "utf8")).toBe("canonical\n");
+    expect(checkSkillInventory(root, manifest())).toEqual([]);
   });
 
-  it("requires an actual frontmatter block before stripping an allowed field", () => {
-    const { canonical, target } = fixtureTrees();
-    writeFileSync(
-      join(canonical, "SKILL.md"),
-      "name: graph\nallowed-tools: Bash(graph)\n---\n\n# Graph\n",
-    );
-    writeFileSync(join(target, "SKILL.md"), "name: graph\n---\n\n# Graph\n");
-
-    expect(
-      compareSkillTrees(canonical, target, [
-        { path: "SKILL.md", kind: "frontmatter-field", field: "allowed-tools" },
-      ]),
-    ).toContain("SKILL.md must contain an opening and closing frontmatter block in each target");
-  });
-
-  it("rejects an undeclared target-only metadata file", () => {
-    const { canonical, target } = fixtureTrees();
-    writeFileSync(join(canonical, "SKILL.md"), "same\n");
-    writeFileSync(join(target, "SKILL.md"), "same\n");
-    mkdirSync(join(target, "agents"), { recursive: true });
-    writeFileSync(join(target, "agents/openai.yaml"), "interface:\n");
-
-    expect(compareSkillTrees(canonical, target, [])).toContain(
-      "agents/openai.yaml exists only in target without a permitted overlay",
-    );
-    expect(compareSkillTrees(canonical, target, [{ path: "agents", kind: "target-only" }])).toEqual(
-      [],
-    );
-  });
-
-  it("rejects a forbidden-side overlay path even when both copies are byte-identical", () => {
-    const { canonical, target } = fixtureTrees();
-    mkdirSync(join(canonical, "scripts"));
-    mkdirSync(join(target, "scripts"));
-    writeFileSync(join(canonical, "scripts/run.sh"), "same\n");
-    writeFileSync(join(target, "scripts/run.sh"), "same\n");
-
-    expect(
-      compareSkillTrees(canonical, target, [{ path: "scripts", kind: "canonical-only" }]),
-    ).toContain("scripts/run.sh is forbidden in target by its canonical-only overlay");
-  });
-
-  it("fails closed when a mirrored skill tree contains a symlink", () => {
-    const { canonical, target } = fixtureTrees();
-    writeFileSync(join(canonical, "SKILL.md"), "same\n");
-    writeFileSync(join(target, "SKILL.md"), "same\n");
-    symlinkSync("SKILL.md", join(canonical, "linked.md"));
-
-    expect(compareSkillTrees(canonical, target, [])).toContain(
-      "canonical skill tree contains unsupported symlink: linked.md",
-    );
-  });
-
-  it("rejects a symlink used as the top-level comparison root", () => {
-    const { canonical, target } = fixtureTrees();
-    const physicalCanonical = `${canonical}-physical`;
-    mkdirSync(physicalCanonical);
-    writeFileSync(join(physicalCanonical, "SKILL.md"), "same\n");
-    writeFileSync(join(target, "SKILL.md"), "same\n");
-    rmSync(canonical, { recursive: true });
-    symlinkSync(physicalCanonical, canonical, "dir");
-
-    expect(() => compareSkillTrees(canonical, target, [])).toThrow(
-      "canonical skill root must not be a symlink",
-    );
-  });
-
-  it("rejects declared skill roots that resolve outside the repository", () => {
-    const container = mkdtempSync(join(tmpdir(), "skill-inventory-containment-"));
-    roots.push(container);
-    const root = join(container, "repo");
-    const externalClaude = join(container, "external-claude");
-    for (const path of [
-      join(root, ".codex/skills/declared"),
-      join(root, "scripts/tests"),
-      join(externalClaude, "skills/declared"),
-    ]) {
-      mkdirSync(path, { recursive: true });
-    }
-    symlinkSync(externalClaude, join(root, ".claude"), "dir");
-    writeFileSync(join(root, ".gitignore"), "");
-    writeFileSync(join(externalClaude, "skills/declared/SKILL.md"), "same\n");
-    writeFileSync(join(root, ".codex/skills/declared/SKILL.md"), "same\n");
-
-    expect(() =>
-      checkSkillInventory(root, {
-        controls: [
-          {
-            id: "skill/declared",
-            kind: "skill",
-            skillWiring: {
-              canonical: ".claude/skills/declared",
-              targets: [
-                { harness: "claude", path: ".claude/skills/declared", overlays: [] },
-                { harness: "codex", path: ".codex/skills/declared", overlays: [] },
-              ],
-              gitignoreOptIns: [],
-              smokeSubjects: [],
-            },
-          },
-        ],
-      }),
-    ).toThrow("skill/declared.canonical resolves outside repo root");
-  });
-
-  it("rejects a declared top-level skill root symlink", () => {
-    const container = mkdtempSync(join(tmpdir(), "skill-inventory-root-link-"));
-    roots.push(container);
-    const root = join(container, "repo");
-    const externalCanonical = join(container, "external-canonical");
-    for (const path of [
-      join(root, ".claude/skills"),
-      join(root, ".codex/skills/declared"),
-      join(root, "scripts/tests"),
-      externalCanonical,
-    ]) {
-      mkdirSync(path, { recursive: true });
-    }
-    symlinkSync(externalCanonical, join(root, ".claude/skills/declared"), "dir");
-    writeFileSync(join(root, ".gitignore"), "");
-    writeFileSync(join(externalCanonical, "SKILL.md"), "same\n");
-    writeFileSync(join(root, ".codex/skills/declared/SKILL.md"), "same\n");
-
-    expect(() =>
-      checkSkillInventory(root, {
-        controls: [
-          {
-            id: "skill/declared",
-            kind: "skill",
-            skillWiring: {
-              canonical: ".claude/skills/declared",
-              targets: [
-                { harness: "claude", path: ".claude/skills/declared", overlays: [] },
-                { harness: "codex", path: ".codex/skills/declared", overlays: [] },
-              ],
-              gitignoreOptIns: [],
-              smokeSubjects: [],
-            },
-          },
-        ],
-      }),
-    ).toThrow("skill/declared.canonical must not be a symlink");
-  });
-
-  it("discovers ignored local skill roots that are absent from the manifest", () => {
-    const root = mkdtempSync(join(tmpdir(), "skill-inventory-repo-"));
-    roots.push(root);
-    for (const path of [
-      ".claude/skills/declared",
-      ".codex/skills/declared",
-      ".claude/skills/local-only",
-      "scripts/tests",
-    ]) {
-      mkdirSync(join(root, path), { recursive: true });
-    }
-    writeFileSync(join(root, ".gitignore"), "");
-    writeFileSync(join(root, ".claude/skills/declared/SKILL.md"), "same\n");
-    writeFileSync(join(root, ".codex/skills/declared/SKILL.md"), "same\n");
+  it("discovers ignored local skill roots absent from the manifest", () => {
+    const root = fixtureRoot();
+    mkdirSync(join(root, ".claude/skills/local-only"));
     writeFileSync(join(root, ".claude/skills/local-only/SKILL.md"), "local\n");
+    refreshSkillInventory(root, manifest());
 
-    const failures = checkSkillInventory(root, {
-      controls: [
-        {
-          id: "skill/declared",
-          kind: "skill",
-          skillWiring: {
-            canonical: ".claude/skills/declared",
-            targets: [
-              { harness: "claude", path: ".claude/skills/declared", overlays: [] },
-              { harness: "codex", path: ".codex/skills/declared", overlays: [] },
-            ],
-            gitignoreOptIns: [],
-            smokeSubjects: [],
-          },
-        },
-      ],
-    });
-
-    expect(failures).toContain(
+    expect(checkSkillInventory(root, manifest())).toContain(
       "filesystem skill target is not inventoried: .claude/skills/local-only",
     );
+  });
+
+  it("rejects target roots that are symlinks or resolve outside the repository", () => {
+    const container = tmpRepo.makeTempRepo("skill-inventory-containment-");
+    const root = join(container, "repo");
+    const external = join(container, "external");
+    mkdirSync(join(root, ".claude/skills/declared"), { recursive: true });
+    mkdirSync(join(root, ".codex/skills"), { recursive: true });
+    mkdirSync(external, { recursive: true });
+    writeFileSync(join(root, ".claude/skills/declared/SKILL.md"), "canonical\n");
+    writeFileSync(join(root, ".gitignore"), "");
+    symlinkSync(external, join(root, ".codex/skills/declared"), "dir");
+
+    expect(() => checkSkillInventory(root, manifest())).toThrow(/symlink/u);
+  });
+
+  it("rejects the removed hand-maintained smokeSubjects field", () => {
+    const root = fixtureRoot();
+
+    expect(() => checkSkillInventory(root, manifest({ smokeSubjects: [] }))).toThrow(
+      /unsupported field.*smokeSubjects/u,
+    );
+  });
+
+  it("rejects duplicate target declarations", () => {
+    const root = fixtureRoot();
+
+    expect(() =>
+      checkSkillInventory(
+        root,
+        manifest({
+          targets: [
+            { harness: "claude", path: ".claude/skills/declared", overlays: [] },
+            { harness: "codex", path: ".codex/skills/declared", overlays: [] },
+            { harness: "codex", path: ".codex/skills/other", overlays: [] },
+          ],
+        }),
+      ),
+    ).toThrow(/duplicate declaration: codex/u);
   });
 });

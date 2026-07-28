@@ -1,7 +1,10 @@
 # Mutation Testing With Stryker
 
-Status: parked plan
-Date: 2026-05-08
+Status: landed — every checklist item below is done and the configs exist
+(`stryker.config.mjs`, `stryker.config.server.mjs`, `scripts/stryker-scripts.mjs`,
+`tools/stryker-lint-ratchet.mjs`), all four backed by the shared
+`stryker.shared.mjs` factory since 2026-07-26
+Date: 2026-05-08; marked landed 2026-07-25
 
 ## Goal
 

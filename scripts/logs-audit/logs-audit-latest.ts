@@ -1,8 +1,9 @@
-import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, realpathSync, statSync } from "node:fs";
 import path from "node:path";
 import { cwd, env as runtimeProcessEnv } from "node:process";
+
+import { defaultGitRunner, readRepoRoot } from "../lib/git.js";
 
 const JSONL_LOG_EXTENSION = ".jsonl";
 const STANDARD_VERIFY_LOG_DIR_NAME = "musi-pre-commit-logs";
@@ -33,10 +34,9 @@ function sha256Hex(value: string): string {
 function repoRootForState(env: LogsAuditLatestEnv): string {
   if (env.REPO_ROOT !== undefined && env.REPO_ROOT.length > 0) return env.REPO_ROOT;
   try {
-    return execFileSync("git", ["rev-parse", "--show-toplevel"], {
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"],
-    }).trim();
+    // "discarded": outside a repository this probe is an expected outcome the
+    // fallback below already handles, so git's fatal must not reach stderr.
+    return readRepoRoot(defaultGitRunner({ stderr: "discarded" }));
   } catch {
     return cwd() || "/workspace";
   }

@@ -1,0 +1,264 @@
+# 06. The SRD seed generators are an unattested code-generation pipeline: no npm script, no documented regeneration procedure, no provenance for the generated TypeScript, and duplicated conventions downstream
+
+Status: Proposed — not promoted
+Theme: seed data generation · Area: server · Severity: medium · Size: L
+
+Source: codebase quality audit 2026-07-25 · Confidence: high
+
+## Problem
+
+`packages/server/src/seed/` contains four source-generating scripts that produce
+committed artifacts — TypeScript modules and JSON files that the seeders then
+read. The repo has a strong, dense convention for exactly this situation: a
+generator script paired with a `:check` script that fails when the committed
+output no longer matches what the generator would produce
+(`harness:wiring` + `harness:wiring:check`, `docs:lint-guidance` + `:check`,
+`module:index` + `:check`, `verify:steps` + `:check`,
+`docs:lint-coverage-map:generate` + `:generate:check`, and more). The seed
+generators got none of it.
+
+That single omission explains almost everything else in this cluster — with one
+important qualification. The `generator + :check` idiom does **not** transfer
+wholesale here, because the seed generators' inputs are deliberately outside the
+tree: `docs/refs/` is gitignored and documented as an *optional* local checkout
+that "no first-run path depends on" (`docs/srd-data-sources.md:34-37`). A check
+script that regenerates and diffs cannot run in a gate that does not have the
+upstream sources. What is genuinely missing is the weaker guarantee the repo
+already applies to the JSON half: an attestation that the committed output is
+what a recorded generator run produced, and a written procedure for producing it.
+
+There is no npm script for any of the four — their contract is a `// Usage: bun …`
+header line — so nobody runs them casually. The provenance test that records the
+JSON half only enumerates `5e-srd-*.json` under `seed/data`, so the generated
+`.ts` artifacts carry no record at all: a hand-edit to `class-features/wizard.ts`
+is indistinguishable from generator output. And `docs/srd-data-sources.md`'s
+"Reseeding from upstream" section documents only the reference-JSON copy path,
+never the markdown-derived generator runs, even though the same file pins the
+markdown source's upstream revision. There is no prettier step in the two TypeScript-emitting
+generators (the two JSON-emitting ones have one), so they hand-concatenate source
+strings *including a hand-written line wrap that prettier then re-derives anyway*,
+which means every regeneration only lands clean after a follow-up `bun run
+format`. And the output layout is whatever the generator happened to emit:
+subclass features live in `subclass-features/a.ts` and `b.ts` under a comment
+claiming an "A-F / M-Z" split that is actually a plain index halving, while the
+sibling `class-features/` directory has twelve properly named per-class files.
+
+Around that unguarded pipeline, the hand-written seed code has the duplication
+you would expect from a directory nobody has a reason to open: the same
+four-step slug chain copied into four parsers (one of whose docstrings
+cheerfully documents the copy-paste), eight near-identical reference-table seed
+functions feeding a hand-maintained nine-key aggregate log, and a
+`seed-srd-*` prefix that names both data modules and seeder functions with no
+way to tell which is which from the filename.
+
+One item in this cluster is not seed pipeline at all and is called out
+separately below: `prepare-test-db.ts` re-spells the worktree test-database
+naming convention as string literals directly beneath the module that declares
+itself the single source of truth for it — and that re-spelled regex is the sole
+gate on a `DROP SCHEMA` path.
+
+## Evidence
+
+- `packages/server/src/seed/seed-srd-reference-tables.ts:52-143` — eight functions (`seedConditions` `:52`, `seedDamageTypes` `:62`, `seedLanguages` `:72`, `seedWeaponProperties` `:82`, `seedWeaponMasteryProperties` `:92`, `seedAlignments` `:106`, `seedMagicSchools` `:120`, `seedSrdProficiencies` `:130`), each a `loadJson<T>(file)` → `for` → `id = <prefix>-${item.index}` → `prisma.<delegate>.upsert({ where: { id }, update: data, create: { id, ...data } })` → `return items.length`.
+- `packages/server/src/seed/seed-srd-reference-tables.ts:145-164` — `seedRulesGlossary`, which is *not* one of the eight: it reads via `readFileSync` + `JSON.parse` from `SEED_DATA_DIR` rather than `SRD_REFERENCE_DATA_DIR` and carries a `RulesGlossaryCategory` enum cast at `:154`.
+- `packages/server/src/seed/seed-srd-reference-tables.ts:166-191` — `seedReferenceTables` and the hand-maintained nine-key aggregate `logger.info` at `:176-190`; adding a table means editing both halves in lockstep.
+- `packages/server/src/seed/subclass-features/` — exactly `a.ts` and `b.ts`; `a.ts:4` exports `SUBCLASS_FEATURES_A` starting at "Path of the Berserker (class-barbarian)", `b.ts:4` exports `SUBCLASS_FEATURES_B` starting at "Oath of Devotion (class-paladin)".
+- `packages/server/src/seed/class-features/` — twelve properly named per-class files (`barbarian.ts` … `wizard.ts`), the layout `subclass-features/` should have had.
+- `packages/server/src/seed/generate-subclasses.ts:184` — `// --- File 2 & 3: Subclass features split A-F / M-Z ---`, followed by `const half = Math.ceil(subclasses.length / 2)` and `.slice(0, half)` / `.slice(half)`. A pure index halving; the real split is Barbarian–Monk / Paladin–Wizard.
+- `packages/server/src/seed/seed-srd-class-features.ts:16-17` — imports the two shards immediately after the twelve named class arrays.
+- `packages/server/src/seed/generate-class-features.ts:26-32`, `packages/server/src/seed/generate-subclasses.ts:22-28`, `packages/server/src/seed/rules-glossary-parser/parse-glossary-entry.ts:20-26` — three byte-identical bodies (`toLowerCase` → `replace(/'/g, "")` → `replace(/[^a-z0-9]+/g, "-")` → `replace(/^-+|-+$/g, "")`) under two names (`toKebab`, `toKebab`, `toGlossarySlug`).
+- `packages/server/src/seed/spell-parser/spell-corrections.ts:14-21` — `toSpellSlug` runs the *same* four-step chain but is **not** a fourth identical body: `:15` calls `correctSpellName(name)` first, which applies the `SPELL_NAME_CORRECTIONS` table at `:6-8` (`Thunderwavea` → `Thunderwave`). The correction is behaviour, not duplication, and any extraction has to keep it in front of the shared chain.
+- `packages/server/src/seed/spell-parser/spell-corrections.ts:1-4` — docstring documenting the copy: "plus a slug helper reusing the `toKebab` pattern from `generate-class-features.ts`".
+- `packages/server/src/seed/generate-class-features.ts:34-53` and `packages/server/src/seed/generate-subclasses.ts:30-48` — `cleanDesc`, identical executable logic; the first carries four explanatory comments (`:36`, `:38`, `:49`, `:50`) the second omits.
+- `packages/server/src/seed/srd-class-generator-config.ts:1-19` — the extraction precedent (`ClassCfg` plus the 12-entry table); backlog note at `docs/agent_notes/backlog/drift-triage-2026-07-13/AUDIT.md:83-87`.
+- `packages/server/src/seed/generate-srd-spells.ts:45-50` and `packages/server/src/seed/generate-srd-rules-glossary.ts:75-80` — `resolveConfig(OUT_PATH)` then `format(JSON.stringify(x), { ...prettierConfig, parser: "json" })`.
+- `packages/server/src/seed/generate-class-features.ts:213-227` and `packages/server/src/seed/generate-subclasses.ts:162-212` — `out += "  {\n"` string concatenation with no prettier at all, including an unconditional `description:` line wrap (`generate-class-features.ts:221-222`, `generate-subclasses.ts:202-203`) that prettier collapses again whenever the value fits the print width.
+- The committed generated TypeScript is nevertheless prettier-clean and is held that way by the `format-check` verify slot (`scripts/verify/steps.generated.sh:59`): `.prettierignore` covers neither `seed/class-features/` nor `seed/subclass-features/`, and `66479ec2` ("style: run prettier across the codebase") reformatted both directories in place. 7 of the 276 `description:` values in the generated files sit collapsed on a single line (`subclass-features/a.ts:46`, `:192`, `class-features/paladin.ts:144`) — a shape neither generator can emit. Re-expanding every collapsed value back to the generators' two-line form and piping the result through prettier reproduces the committed files byte-for-byte.
+- `packages/server/package.json:12-25` — has `backfill:spell-combat` and `backfill:monster-actions` (same `seed/` directory) but no `generate-*` entry; the root `package.json` has none either.
+- `packages/server/src/seed/seed-derived-provenance.test.ts:8` — `DATA_DIR = seed/data`; `:31-36` enumerates only `/^5e-srd-.*\.json$/`, so `class-features/*.ts`, `subclass-features/{a,b}.ts` and `seed-srd-subclass-data.ts` carry no provenance record.
+- `docs/srd-data-sources.md:55-67` — "Reseeding from upstream" covers only the reference-JSON copy path (clone into `docs/refs/`, copy `5e-SRD-*.json` verbatim, update `PROVENANCE.json`). No equivalent procedure exists for the markdown-derived generators.
+- `docs/srd-data-sources.md:34-37` — `docs/refs/5e-database/src/2024/` and `docs/refs/dndsrd5.2_markdown/src/` are documented as **optional**, gitignored local checkouts used only when regenerating, with "no first-run path depends on them"; `.gitignore:63` confirms. The absence of `docs/refs/` in a working tree is the designed state, not a broken one — but it does mean no gate can regenerate and diff.
+- `docs/srd-data-sources.md:40-52` — both upstream revisions are already pinned (`5e-database` in `seed/data/reference/PROVENANCE.json`, `dndsrd5.2_markdown` commit `6a3547c1…` in `seed/data/PROVENANCE.json`). The provenance *scheme* exists; it just does not reach the generated `.ts`.
+- Ten non-test `seed-srd-*.ts` files: seven export seeder functions taking `PrismaClient` (`seed-srd-backgrounds.ts:117`, `seed-srd-classes-and-features.ts:11`/`:49`/`:77`, `seed-srd-equipment.ts:318`, `seed-srd-magic-items.ts:55`, `seed-srd-monsters.ts:198`, `seed-srd-reference-tables.ts:166`, `seed-srd-spells.ts:68`); three are pure data (`seed-srd-classes.ts:22` `SRD_CLASSES`, `seed-srd-class-features.ts:28` `SRD_CLASS_FEATURES`, `seed-srd-subclass-data.ts:15` `SRD_SUBCLASSES`). Only one of the three carries the `-data` suffix, and `seed-srd-class-features.ts` sits adjacent to `seed-srd-classes-and-features.ts` in the directory listing.
+- Two of those three names are spelled *inside* the generators: `generate-subclasses.ts:182` writes the literal output filename `seed-srd-subclass-data.ts`, and `generate-class-features.ts:215` plus `generate-subclasses.ts:194` both emit the literal `import type { SeedClassFeature } from "../seed-srd-class-features.js";` into every generated shard (`subclass-features/a.ts:2`, `class-features/barbarian.ts:2`).
+- `packages/server/src/test/test-database-url.ts:25-27` — "Single source of truth for the worktree test-database naming scheme… every producer that rebuilds a `musi_wt_…` name must reference these constants"; `WORKTREE_DB_PREFIX` `:28`, `WORKTREE_DB_SUFFIX` `:29`, `WORKER_KEY_PATTERN` `:8`, `DEFAULT_TEST_DATABASE_NAME` `:5`.
+- `packages/server/src/test/prepare-test-db.ts:21` imports only `databaseNameFromUrl`, then re-spells the convention at `:25-28` as literals (`"[a-z0-9]{1,2}"`, `"[a-z0-9_]{1,49}"`, a literal `musi_test`, a literal `musi_wt_`). That regex is the sole gate in `assertSafeTestDbUrl` at `:55-63`, which fronts `resetSchema` and its `DROP SCHEMA IF EXISTS "public" CASCADE` at `:111`.
+- Only one of the four re-spelled pieces is importable today: `WORKTREE_DB_PREFIX` (`test-database-url.ts:28`). `WORKER_KEY_PATTERN` (`:8`) is a non-exported *anchored* RegExp rather than a composable fragment, `WORKTREE_DB_SUFFIX` (`:29`) is not exported, and no constant exists for the 49-character slug bound — `worktreeTestDatabaseSlug` (`:100-107`) validates the slug with an *unbounded* `/^[a-z0-9_]+$/` at `:105` where `prepare-test-db.ts:26` bounds it at `{1,49}`.
+- `packages/server/src/test/worker-test-database.ts:279`, `:292-293`, `:298` — the worker-key regex re-inlined again, plus a legacy `{1,6}` variant at `:298`.
+
+## Proposed direction
+
+Step 1 gates everything else; steps 2–4 are safe in any order. Step 6 rewrites
+committed output and should be its own commit with nothing else in it; step 5 is
+generator-only and should produce no change to the committed files at all.
+
+1. **Write down the regeneration procedure for the markdown-derived artifacts.**
+   The input *story* is already settled and documented — `docs/refs/` is an
+   optional, gitignored operator checkout (`docs/srd-data-sources.md:34-37`) and
+   both upstream revisions are pinned (`:40-52`). Do not re-litigate that. What
+   is missing is the counterpart to `:55-67` for the markdown half: which
+   repository to clone where, which four generators to run in which order, which
+   committed files each one rewrites, and which provenance manifest to update
+   afterwards. Add it as a second subsection of "Reseeding from upstream".
+   Every later step's verification strategy depends on this existing.
+2. **Give the four generators npm scripts** in `packages/server/package.json`
+   next to the existing `backfill:*` entries, and fold each script's `// Usage:
+   bun …` header into the script definition. **Read
+   [leaf 52](./52-seed-generator-cwd-dependence.md) first — it is a precondition
+   for this step, not a follow-up.** All four generators derive their paths from
+   `process.cwd()`, so a package script (which runs with `cwd = packages/server`)
+   resolves every path to `packages/server/packages/server/…` and the generators
+   fail on first run. The `backfill:*` entries do not have this problem because
+   they resolve against `import.meta.dirname`; that is also the fix.
+3. **Extend the provenance *record* to the generated TypeScript — and be honest
+   about what it proves.** Widen `seed-derived-provenance.test.ts` beyond
+   `/^5e-srd-.*\.json$/` (`:31-36`) so `class-features/*.ts`,
+   `subclass-features/*.ts` and `seed-srd-subclass-data.ts` are recorded with a
+   sha256 and the generator that emits them (the manifest is under `seed/data`
+   and these files are not, so this needs either a second manifest or a
+   root-relative `name` field — pick one and say which in the test).
+
+   This is an *attestation*, not a reproducibility check: it catches an
+   unrecorded hand-edit to a generated file, which is the failure mode that
+   actually happens here, and it forces the regeneration procedure from step 1
+   to include "update the manifest". It does **not** prove the committed output
+   is what the generator would emit today, because the generator cannot run
+   without `docs/refs/`. Do not describe it as a drift gate and do not add a
+   `:check` script in the `harness:wiring:check` idiom — that idiom assumes
+   in-tree inputs. If a real regenerate-and-diff is wanted, it belongs in an
+   operator-run script that detects a missing `docs/refs/` and exits 0 with a
+   skip message, wired to nothing in `verify`.
+4. **Extract the slug chain and `cleanDesc` into one shared seed util**, following
+   the `srd-class-generator-config.ts:1-19` precedent, and delete the docstring at
+   `spell-corrections.ts:1-4` that documents the copy-paste. The shared export is
+   the four-step chain only. `toSpellSlug` **stays in `spell-corrections.ts`** and
+   becomes `toKebab(correctSpellName(name))`: it must keep applying the
+   `SPELL_NAME_CORRECTIONS` table (`Thunderwavea` → `Thunderwave`) before
+   slugging, or every spell id derived from the misspelled heading changes. Add
+   a test pinning `toSpellSlug("Thunderwavea") === "thunderwave"` before
+   touching it.
+5. **Make the two TypeScript-emitting generators run their output through
+   prettier**, matching `generate-srd-spells.ts:45-50` (`resolveConfig(OUT_PATH)`,
+   then `format(out, { ...prettierConfig, parser: "typescript" })`), and delete
+   the hand-written `description:` wrap at `generate-class-features.ts:221-222`
+   and `generate-subclasses.ts:202-203`. **Expect a zero-byte diff on the
+   committed generated files.** They are already prettier-clean, and deleting the
+   wrap is safe because prettier re-derives it for the 269 `description:` values
+   that exceed `printWidth: 100`. The payoff is generator idempotence — a
+   regeneration stops needing a follow-up `bun run format` to land clean — not a
+   formatting rewrite. Verify by regenerating and asserting `git diff --exit-code`
+   on the generated paths; byte identity, not `prettier --check`, is the
+   assertion that matters.
+6. **Replace `subclass-features/{a,b}.ts` with per-class files** mirroring
+   `class-features/`'s twelve-file layout, update `seed-srd-class-features.ts:16-17`,
+   and fix the false comment at `generate-subclasses.ts:184`.
+7. **Disambiguate the `seed-srd-*` prefix** — apply the `-data` suffix consistently
+   to the three pure-data modules, and rename to break the
+   `seed-srd-class-features.ts` / `seed-srd-classes-and-features.ts` adjacency.
+   Two of the three names live inside the generators as literals: renaming
+   `seed-srd-subclass-data.ts` requires editing the output filename at
+   `generate-subclasses.ts:182`, and renaming `seed-srd-class-features.ts`
+   requires editing the emitted import literal in **both** generators
+   (`generate-class-features.ts:215`, `generate-subclasses.ts:194`). Miss either
+   and the next regeneration silently reverts the rename or emits a broken
+   import. Regenerate — or hand-patch the fourteen generated files — in the same
+   commit.
+8. **Table-drive the eight reference-table seeders** with a
+   `{ file, idPrefix, delegate, toData }` table, collapsing the lockstep aggregate
+   log at `:176-190` with them — but only under the constraint in the caveats.
+9. **(Separable, do first if you only do one thing.)** Stop `prepare-test-db.ts`
+   re-spelling the worktree naming convention at `:25-28`. Importing today's
+   constants is not an option — see the caveat for why. Export composable
+   *string* fragments from `test-database-url.ts` (worker-key character class
+   plus its max length; worktree-slug character class plus the 49-character
+   bound) and derive both the anchored `WORKER_KEY_PATTERN` regex there and the
+   literals at `prepare-test-db.ts:25-28` from them.
+
+## Scope / caveats
+
+- **Step 2 has a precondition this leaf did not know about:
+  [leaf 52](./52-seed-generator-cwd-dependence.md).** The four generators are
+  `process.cwd()`-dependent and break the moment they are given a package
+  script. Fix that first, or in the same slice.
+- **`docs/refs/` is absent by design, and that is the gating constraint on this
+  whole leaf.** It is an optional gitignored checkout (`docs/srd-data-sources.md:34-37`),
+  so steps 5 and 6 touch generated output that no gate — and no implementer
+  without the upstream repositories cloned — can verify by regenerating and
+  diffing. Do not start either one until step 1 is written and the checkout is
+  actually provisioned and the reproduction check below has run.
+
+  **Reproduction check, before step 5.** The committed generated files are *not*
+  raw generator output. Both TypeScript generators emit an unconditional
+  `description:` line wrap (`generate-subclasses.ts:202-203`,
+  `generate-class-features.ts:221-222`) that prettier collapses whenever the
+  value fits the print width, and the repo's `format-check` slot has since
+  normalised them in place. So the correct check is: regenerate in place (both
+  generators write to the committed paths — `OUT_DIR` is
+  `packages/server/src/seed` and `.../seed/class-features`), then run prettier
+  over just the emitted paths — `bunx prettier --write
+  packages/server/src/seed/class-features packages/server/src/seed/subclass-features
+  packages/server/src/seed/seed-srd-subclass-data.ts`, not `bun run format`,
+  which rewrites the whole repo — and only then `git diff` those paths. A
+  non-empty diff *after* formatting means the committed files have diverged from
+  the generators, and *that* is the finding to write up rather than a formatting
+  change to land. A diff *before* formatting is expected on every short
+  `description:` and means nothing; do not report it as divergence. Once step 5
+  lands, the separate format pass becomes unnecessary and a plain
+  regenerate-and-`git diff` is the right check — that is part of what step 5 buys.
+- **Do not promise a drift gate this pipeline cannot have.** Every framing of
+  step 3 that says "drift fails a gate" is wrong while the inputs are out of
+  tree; a manifest checksum that a human updates during regeneration proves only
+  that nobody hand-edited the file afterwards. That is worth having, and it is
+  all that is on offer. Say so in the test's own header comment so the next
+  reader does not over-trust it.
+- **Do not fold `seedRulesGlossary` into the reference-table.** It is genuinely
+  different: a different reader (`readFileSync` + `JSON.parse`), a different
+  source directory (`SEED_DATA_DIR`, not `SRD_REFERENCE_DATA_DIR`), and a
+  `RulesGlossaryCategory` enum cast at `:154`. The count is **eight**
+  table-shaped functions, not nine.
+- **Step 8 must not trade duplication for a type assertion.** The eight Prisma
+  delegates have different generated `upsert` signatures, so a naive table needs
+  a real generic delegate interface. If the only way to make the table compile is
+  a `// type-assertion-boundary: prisma` marker on the delegate, abandon the step:
+  that is the same type-erosion defect this audit flags elsewhere, and the
+  duplication is the cheaper of the two. Read the type-assertion rules in
+  `AGENTS.md` before committing to a shape.
+- **`cleanDesc` is not byte-identical across the two generators** —
+  `generate-class-features.ts:34-53` carries four explanatory comments
+  ("drop table separators" `:36`, "Convert table data rows to plain text" `:38`,
+  "strip bold" `:49`, "strip italic" `:50`) that `generate-subclasses.ts:30-48`
+  omits. The executable logic *is* identical, so the extraction is valid; keep
+  the comments on the surviving copy.
+- **`seed-srd-classes.ts` is hand-maintained, not generator output** ("Hardcoded
+  2024 SRD class data" at `:1`). Step 7's rename applies to it, but any "update
+  the generator's `OUT_DIR`" work does not.
+- **Step 9 is the highest-actual-risk change in this leaf despite being the
+  smallest.** The literal regex at `prepare-test-db.ts:25-28` is the *sole* gate
+  in `assertSafeTestDbUrl` (`:55-63`) protecting the `DROP SCHEMA` path — a
+  refactor that widens it by accident drops a real database. The specific trap:
+  `worktreeTestDatabaseSlug` validates the slug with an unbounded
+  `/^[a-z0-9_]+$/` (`test-database-url.ts:105`) while `prepare-test-db.ts` bounds
+  it at `{1,49}`, so importing the parser's regex as-is *widens* the `DROP SCHEMA`
+  guard. Keep the `{1,49}` bound and pin it with a test that rejects a
+  50-character slug. Also note `worker-test-database.ts:298` carries a
+  deliberately *different* legacy variant (`{1,6}` rather than `{1,2}`); do not
+  unify that away without first establishing why it exists.
+- **Step 9 is also not seed pipeline** and shares only the abstract cause
+  ("a documented single source of truth, with a second copy written next to it").
+  If this leaf is split, it belongs with test infrastructure, not with the
+  generators.
+- Runtime risk for steps 2–8 is confined to operator-run seeds; none of this code
+  is on a request path. That is why Severity here is about maintenance cost, not
+  incident risk.
+- **Sequencing with leaf 07.** Leaf 07 **step 13** edits two files this leaf also
+  rewrites: it deletes the no-op map at `generate-subclasses.ts:129` (a file
+  steps 4, 5 and 6 here all touch) and it collapses the identical branches at
+  `parse-glossary-entry.ts:41-46` — the same file step 4 here hoists
+  `toGlossarySlug` out of (`:20-26`). Land those one-line cleanups *before*
+  step 6 rewrites the generated output, so the relayout diff stays reviewable.
+  Separately, leaf 07 **step 1** hoists a shared `codePointCompare` into
+  `packages/server/src/utils/` with `seed/spell-parser/extract-spell-combat.ts`
+  among its import sites, while step 4 here hoists a shared slug/`cleanDesc` util
+  out of the sibling seed parsers. That file is not otherwise touched by this
+  leaf, but the two hoists raise the same question: decide once where a shared
+  helper used by `seed/` lives — the two leaves must not create two of them.

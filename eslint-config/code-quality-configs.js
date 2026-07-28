@@ -131,6 +131,7 @@ export function createRepoCodeQualityConfigs(repoRoot, localPlugin) {
         ],
         "local/no-async-array-callbacks": "error",
         "local/no-barrel": "error",
+        "local/no-retired-parse-success-import": "error",
         "@typescript-eslint/consistent-type-imports": ["error", { prefer: "type-imports" }],
         "@typescript-eslint/naming-convention": [
           "warn",

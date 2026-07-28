@@ -29,7 +29,7 @@ import { sourceLineCount } from "./ts-source-util.js";
 export const DEFAULT_DOLOS_TIMEOUT_MS = 10 * 60 * 1000;
 
 // Timeout kills arrive with this signal (spawnSync killSignal below); the
-// message fallback in isTimeoutResult checks the same signal so the two cannot
+// errorMessage fallback in isTimeoutResult checks the same signal so the two cannot
 // drift apart and leave the fallback dead.
 const TIMEOUT_KILL_SIGNAL = "SIGKILL";
 export type {
@@ -41,6 +41,7 @@ export type {
   DolosSpawn,
   DolosSpawnResult,
 } from "./dolos-runner-types.js";
+import { errorMessage } from "../lib/error-message.js";
 
 export function defaultDolosRunner(options: DefaultDolosRunnerOptions = {}): DolosRunner {
   const command = options.command ?? DOLOS_TOOL;
@@ -101,7 +102,7 @@ function runDolos(
     return {
       ok: false,
       reason: "run-failed",
-      error: `dolos report could not be read: ${message(err)}`,
+      error: `dolos report could not be read: ${errorMessage(err)}`,
       tool,
       caps,
       truncation,
@@ -298,8 +299,4 @@ function isUnavailableResult(result: DolosSpawnResult): boolean {
 
 function hasErrorCode(error: unknown, expectedCode: string): boolean {
   return isRecord(error) && error["code"] === expectedCode;
-}
-
-function message(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
 }

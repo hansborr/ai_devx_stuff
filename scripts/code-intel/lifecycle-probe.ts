@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, realpathSync } from "node:fs";
 import path from "node:path";
 
+import { errorMessage } from "../lib/error-message.js";
 import { DaemonRequestTimeoutError, defaultDaemonTransport } from "./daemon-client.js";
 import {
   CODE_INTEL_DAEMON_PROTOCOL_VERSION,
@@ -52,7 +53,7 @@ export async function defaultLifecycleProbe(
     return {
       failureKind: lifecycleFailureKindForError(error),
       ok: false,
-      reason: `probe failed: ${describeError(error)}`,
+      reason: `probe failed: ${errorMessage(error)}`,
     };
   }
 }
@@ -74,7 +75,7 @@ export function defaultProcessIdentityProbe(
     if (hasMatchingProcessIdentity(args, repoRoot, scriptPath)) return { kind: "verified" };
     return { kind: "unverified", reason: "process command does not match code-intel daemon" };
   } catch (error) {
-    return { kind: "unverified", reason: `process identity failed: ${describeError(error)}` };
+    return { kind: "unverified", reason: `process identity failed: ${errorMessage(error)}` };
   }
 }
 
@@ -86,7 +87,7 @@ function parseLifecycleProbe(raw: string): DaemonLifecycleProbeResult {
     return {
       failureKind: "unverified",
       ok: false,
-      reason: `invalid probe response: ${describeError(error)}`,
+      reason: `invalid probe response: ${errorMessage(error)}`,
     };
   }
   if (!isRecord(parsed)) {
@@ -132,9 +133,4 @@ function realpathIfPossible(target: string): string {
   } catch {
     return target;
   }
-}
-
-function describeError(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  return String(error);
 }

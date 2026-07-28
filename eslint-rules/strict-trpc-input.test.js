@@ -1,5 +1,5 @@
 // @ts-check
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { makeRuleTester } from "./rule-tester.js";
 import rule from "./strict-trpc-input.js";
@@ -7,6 +7,10 @@ import rule from "./strict-trpc-input.js";
 const ruleTester = makeRuleTester();
 
 describe("strict-trpc-input", () => {
+  it("names the shared-schema boundary decision", () => {
+    expect(rule.meta.messages.needsStrict).toContain("ADR-0004");
+  });
+
   it("runs", () => {
     ruleTester.run("strict-trpc-input", rule, {
       valid: [

@@ -5,12 +5,27 @@ Revalidated: 2026-04-27 — every item re-checked against current HEAD. File pat
 Source: `SUMMARY.md` → "Suggestions — recommended action plan" (28 items) + honorable mentions + backend follow-ups.
 Method: Each item investigated by a subagent against the live codebase. File paths and line numbers verified at time of writing.
 
-## Revalidation summary (2026-04-27)
+## Revalidation summary (2026-04-27, corrected 2026-07-25)
 
-**Shipped since audit (11)**: 1.1, 1.2, 1.3, 1.6, 1.7, 1.8, 1.9, 1.10, 1.11, 1.12, 2.13.
-**Partial — remaining work scoped inline (4)**: 1.5, 2.1, 2.5, 3.7.
-**Stale paths — still valid, line numbers refreshed (2)**: 1.4, 2.10.
-**Untouched (still valid)**: 2.2, 2.3, 2.4, 2.6, 2.7, 2.8, 2.9, 2.11, 2.12, 2.14, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.8, 3.9.
+**Shipped since audit (15)**: 1.1, 1.2, 1.3, **1.4**, 1.6, 1.7, 1.8, 1.9, 1.10, 1.11, 1.12, **2.4**, 2.13, **2.14**, and the axe-core half of 3.7.
+**Partial — remaining work scoped inline (6)**: 1.5, 2.1, 2.5, **2.9**, **3.4**, 3.7.
+**Stale paths — still valid, line numbers refreshed (1)**: 2.10.
+**Untouched (still valid)**: 2.2, 2.3, 2.6, 2.7, 2.8, 2.11, 2.12, 3.1, 3.2, 3.3, 3.5, 3.6, 3.8, 3.9.
+
+> **Caution — treat the 2026-04-27 revalidation as unverified.** Four of the
+> corrections above were already on `main` when that pass ran and it still
+> classified them as open: 1.4 (`07cae114`, 2026-04-16), 2.9's Collections
+> surface (`78159665`, 2026-04-19), 2.14 (`351a30ab`, 2026-04-20), and 2.4
+> (`39e4292e`, 2026-04-25). The 2.4 case is the clearest tell:
+> `VERIFICATION.md:66` asserts that `attack-roll-dialog.tsx:26` "still pins
+> `mode: "custom"`" — text last written 2026-04-23, two days before the file
+> was deleted outright — and the revalidation carried that assertion forward
+> instead of re-checking the tree. That pass therefore looks like a re-read of
+> these documents rather than a live-tree check.
+>
+> **If you are using this roadmap as an execution backlog, re-verify each item
+> against `main` before promoting it.** Assume any "Now"/"Untouched" claim here
+> may describe files or symbols that no longer exist.
 
 This document is a **rough roadmap**, not a commitment. It is ordered by phase (quick wins → medium → larger) and, within phases, by user-visible impact. Every item lists the touched files, the current state, a concrete change list, and an S/M/L complexity estimate.
 
@@ -37,10 +52,9 @@ These fix trust-breaking or on-ramp issues cheaply and unblock subsequent work.
 - The shared Phase 6.5 primitive (`lib/trpc-error.ts`, `lib/toast-messages.ts`) covers the generic error branch. Combat-flow mutations now route through it directly — see `hooks/vtt-drawer/use-weapon-attack.ts:75` (`attemptAttack`) and the rest of `hooks/vtt-drawer/use-*.ts`. The earlier `lib/combat-mutation-error.ts` / `components/campaign/use-combat-mutations.ts` layer that preferred server `error.message` and ran a hard-fail `close` side-effect was removed when those flows moved onto the shared primitive; the gap that previously had its own follow-up note is gone with it.
 - Open follow-up if a consumer's copy actually reads awkwardly: the `NOT_FOUND` catalog string at `packages/client/src/lib/toast-messages.ts:4` is `Couldn't ${action} — not found.`, which is natural for "update HP" but reads oddly for verbs like "save note" or "create encounter". Several non-HP consumers already use `onTRPCError` (`use-weapon-attack`, `use-feature-use`, `use-drop-concentration`, `use-confirm-cast`) without anyone reporting awkward copy in practice. Reword the catalog entry — or add a per-entry override hook to `OnTRPCErrorOptions` — only when a real consumer's `NOT_FOUND` toast looks wrong. Don't preempt.
 
-### 1.4 Invite copy-code / URL paste (area #Onboarding) — **S** (paths refreshed 2026-04-23)
-- **Files**: `packages/client/src/components/campaign/invite-panel.tsx` (Copy button around `:88`); `packages/client/src/components/campaign/join-campaign-dialog.tsx`; `packages/server/src/routers/invite.ts`. Line numbers drifted — grep "Copy" / "onCopy" to locate.
-- **Now**: copy button still copies the full URL; two-button split hasn't shipped. The server-side `extractInviteCode` transform at `packages/shared/src/schemas/campaign-inputs.ts:117` already strips URL prefixes — meaning the Zod error has been silenced, but the UI still doesn't offer a standalone code.
-- **Change**: two sibling buttons (Copy code / Copy link). Server-side URL-strip is done; client-side submit handler can simply pass the raw value through.
+### 1.4 Invite copy-code / URL paste (area #Onboarding) — **Shipped**
+- The two-button split landed in `07cae114` ("accept pasted invite URLs and split copy-code vs copy-link"), dated 2026-04-16 — i.e. *before* the 2026-04-27 revalidation that still listed this item as open. `invite-panel.tsx:54` is `handleCopyCode` (copies `invite.code`, toast "Code copied") and `:58` is `handleCopyLink` (copies the `/join/<code>` URL, toast "Link copied").
+- Server-side URL-strip (`extractInviteCode` in `campaign-inputs.ts`) was already done.
 
 ### 1.5 Copy rewrite — empty states, error states, Zod messages (top-11 #11) — **Partial (S remaining)**
 - **Done**: user-facing `.min(1)` calls in shared schemas now carry `{ message: "…" }` (see `campaign-inputs.ts:16, 47`; `note-inputs.ts:20, 38`). Remaining `.min(1)` sites are numeric / internal transforms that don't surface to users.
@@ -91,10 +105,10 @@ Grouped by domain. These close headline feature gaps and install infrastructure 
 - **Now**: equipment step only reads `background.equipmentOptions`; `CreateCharacterInput.startingEquipment` exists; `createStartingInventory()` runs server-side if array is populated.
 - **Change**: add `classEquipment` to `Class` schema, seed class equipment; extend wizard state; render class + background options side-by-side in equipment-step; merge into `startingEquipment` on submit. Also fix the "Starting Gold: 0 gp" display.
 
-### 2.4 Attack / Cast Spell dialog mode toggle (medium #17, top-11 #6) — **M**
-- **Files**: `packages/client/src/components/campaign/attack-roll-dialog.tsx:26`; `packages/shared/src/schemas/attack-roll-inputs.ts:81-84`; `packages/client/src/components/sheet/cast-spell-dialog.tsx`.
-- **Now**: dialog pins `mode: "custom"`; server schema already supports `"character"` discriminant. Target default is self.
-- **Change**: add mode toggle; for character attackers load `character.inventory` filtered `itemType === "weapon"`, compute bonus = prof + STR/DEX + weapon bonus; for cast spell load prepared spells; for monster attackers v1 regex-parse `monster.actions[]` (v2 structured schema is Phase 3). Default target to last-selected / nearest enemy, **never self**.
+### 2.4 Attack / Cast Spell dialog mode toggle (medium #17, top-11 #6) — **Shipped**
+- The `mode: "custom"` pin is gone with the dialog itself: `39e4292e` ("remove legacy combat dialogs", 2026-04-25) deleted `attack-roll-dialog.tsx`. The VTT drawer replaced it — `hooks/vtt-drawer/use-weapon-attack.ts:99` sends `mode: "character"` with a selected `weaponItemId`, and casting runs through `use-confirm-cast.ts` / `cast-spell-dialog.tsx`.
+- Note the dating: the deletion landed two days *before* the 2026-04-27 revalidation, which still listed 2.4 as untouched. See the caveat under the revalidation summary.
+- Still open from the original change list: the monster-attacker path (v1 regex-parse of `monster.actions[]`) is superseded by the structured v2 schema tracked in 3.4.
 
 ### 2.5 Map fit-on-mount + token-drag-separates-from-pan + place-token wiring (top-11 #5, medium #18) — **Partial**
 - **Done**: token-drag-separates-from-pan shipped (commit `7f54bea`, "stop token drag from hijacking map viewport") — `onMouseDown` gates Stage drag correctly.
@@ -113,12 +127,12 @@ Grouped by domain. These close headline feature gaps and install infrastructure 
 - **Now**: ~21 children mount twice; duplicate `data-testid`s in the DOM.
 - **Change**: single responsive tree with `useIsDesktop()` branching for layout-only differences; verify no duplicate testids post-refactor. Run the sheet perf profile before/after.
 
-### 2.9 Campaign IA — Combat CTA + state-grouped encounter cards + Collections surface (areas #Campaign IA, #Homebrew) — **M**
-- **Files**: `components/campaign/encounters-panel.tsx`; `components/campaign/encounter-card.tsx:14-80`; `components/campaign/campaign-settings-panel.tsx:33-92`; `packages/server/src/routers/homebrew-campaign.ts:19-89` (link/unlink already exists).
-- **Changes**:
-  - Group encounters by state (setup / active / paused / resolved) with collapsed resolved.
-  - Add "Start combat" (setup) and "Resume" (paused) buttons on encounter cards — DM-only.
-  - Add a Collections section to `CampaignSettingsPanel` that lists `listCampaignCollections(campaignId)` with link/unlink. Backend is ready; this is pure UI.
+### 2.9 Campaign IA — Combat CTA + state-grouped encounter cards + Collections surface (areas #Campaign IA, #Homebrew) — **Partial (M remaining)**
+- **Done**: the Collections surface shipped in `78159665` ("link homebrew collections to campaigns (phase 7c m1)", 2026-04-19) — `campaign-settings-panel.tsx:235` renders `<CampaignHomebrewSection campaignId={campaign.id} />`. This too predates the 2026-04-27 revalidation.
+- **Files** (remaining): `components/campaign/encounters/encounters-panel.tsx`; `components/campaign/encounters/encounter-card.tsx` (note the path moved into `encounters/`).
+- **Remaining**:
+  - Group encounters by state (setup / active / paused / resolved) with collapsed resolved. `encounters-panel.tsx` still renders a flat list.
+  - Add "Start combat" (setup) and "Resume" (paused) buttons on encounter cards — DM-only. `encounter-card.tsx` still only renders the state badge (`:15-18`).
 
 ### 2.10 Magic Items route redirect (area #Dashboard & IA) — **S** (paths refreshed 2026-04-23)
 - **Now**: `/compendium/magic-items` renders directly; the `/magic-items` alias route hasn't been registered. Magic Items **is** in the mobile nav (from 1.2) but not the desktop header.
@@ -136,10 +150,9 @@ Grouped by domain. These close headline feature gaps and install infrastructure 
 ### 2.13 Homebrew collection link visibility (backend #4) — **Shipped**
 - `packages/server/src/utils/homebrew-helpers.ts:83+` defines `assertCollectionReadAccess`: author pass-through, public pass, private reject, `"campaign"` visibility re-checks linked campaigns the caller has access to. Used by `homebrew-campaign.ts` link/list paths.
 
-### 2.14 Output-schema coverage expansion — **M**
-- **Files**: `packages/server/src/routers/app-router.output-coverage.test.ts:17-38`.
-- **Now**: 20 of 141 procedures have `.output()`.
-- **Change**: extend `HOT_PATH_PROCEDURES` to include all mutations and hot-path queries; add `.output()` using existing shared schemas. Land progressively, one router at a time, to keep PRs reviewable. This branch (`feature/wire-output-schemas`) is already the parent of the effort.
+### 2.14 Output-schema coverage expansion — **Shipped**
+- `351a30ab` ("auto-enforce output schemas on every app-router mutation", 2026-04-20) removed `HOT_PATH_PROCEDURES` — the constant no longer exists anywhere in the tree. `app-router.output-coverage.test.ts:40` now declares `QUERY_OUTPUT_ALLOWLIST` as an **empty** set, so every query in the app router is enforced, and mutations are enforced automatically.
+- Dating again predates the 2026-04-27 revalidation; see the caveat under the revalidation summary.
 
 ---
 
@@ -158,10 +171,9 @@ Grouped by domain. These close headline feature gaps and install infrastructure 
 - **Files**: `pages/dashboard-page.tsx:109-162`; may need new endpoints for pending invites and aggregated encounter state.
 - **Change**: "Active now" / "Next session" / "Pending invites" / "News from the table" strip above the fold. Sort campaigns by `nextSessionDate`. Empty-state CTA instead of hidden section.
 
-### 3.4 Structured monster attack schema v2 (larger #24) — **L**
-- **Files**: `packages/shared/src/schemas/monster.ts:63-68`.
-- **Now**: `monsterActionSchema = { name, description }` — prose only.
-- **Change**: add optional `attack: { bonus, damageDice, damageBonus, damageType }`; reseed SRD monsters; homebrew monster editor gets structured inputs. Attack dialog mode toggle (2.4) then drops its v1 regex for v2 lookup.
+### 3.4 Structured monster attack schema v2 (larger #24) — **Partial (M remaining)**
+- **Done**: the schema shipped in `62ef5499` ("structure safe attack actions", 2026-07-20). `packages/shared/src/schemas/monster.ts:69-76` adds optional `attackBonus`, `damageDice` (validated dice notation), `damageBonus`, and `damageType` to `monsterActionSchema` (flat fields, not a nested `attack` object as originally specced). The client form-data layer follows at `components/homebrew/monster/monster-action-form.ts`.
+- **Remaining**: the homebrew monster editor UI — `monster-form-fields.tsx` renders no `attackBonus` / `damageDice` / `damageBonus` / `damageType` inputs, so the structured fields are round-tripped but not editable. Also still open: reseeding SRD monsters with structured actions.
 
 ### 3.5 Token auto-spawn for monsters (larger #25) — **L**
 - **Files**: `packages/server/src/routers/encounter-map.ts:70-113` (model on `autoLinkTokens`).
@@ -172,8 +184,8 @@ Grouped by domain. These close headline feature gaps and install infrastructure 
 - **Change**: add tokens for accent/emphasis, map bg, rarity, difficulty, HP state; replace all raw-palette usages; add an ESLint `no-restricted-syntax` rule banning `/(bg|text)-(red|amber|blue|…)-\d{3}/` in `.tsx`; extract Konva colors from CSS variables; theme react-hot-toast via `toastOptions`; add 3%-opacity parchment noise to `.bg-card`; style `Input[aria-invalid=true]`.
 
 ### 3.7 Accessibility pass — axe-core + wizard radiogroups + DialogDescription (larger #28) — **Partial (L remaining)**
-- **Partial state**: 2 radiogroups detected (`equipment-step`, `level-up`) — arrow-key handling still missing. `DialogDescription` coverage is now 64/263 Dialog usages (revised count from 120/180 in the original audit; the gap widened because new dialogs shipped without descriptions). No axe-core in Playwright yet.
-- **Remaining**: wire axe-core into Playwright global setup, fix top-k violations, add arrow-key navigation to both radiogroups, bulk-add `DialogDescription` with a codemod + manual review.
+- **Partial state**: 2 radiogroups detected (`equipment-step`, `level-up`) — arrow-key handling still missing. `DialogDescription` coverage is now 64/263 Dialog usages (revised count from 120/180 in the original audit; the gap widened because new dialogs shipped without descriptions). ~~No axe-core in Playwright yet.~~ axe-core shipped in `d49d3ca9` ("add runtime axe a11y smoke", 2026-06-22) — `e2e/a11y.spec.ts:1` imports `AxeBuilder` from `@axe-core/playwright`.
+- **Remaining**: fix top-k violations, add arrow-key navigation to both radiogroups, bulk-add `DialogDescription` with a codemod + manual review.
 
 ### 3.8 Technical-debt cleanup — **M** (split across ≥ 2 PRs)
 - **CharacterCard button-in-link** (`character-card.tsx:41-86`): extract buttons outside the `<Link>`; use parent div wrapper to get row-click-to-navigate without invalid HTML.

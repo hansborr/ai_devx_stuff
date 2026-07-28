@@ -1,3 +1,4 @@
+import { isRecord } from "../lib/records.js";
 import { parseArray } from "./triage-report-support.js";
 import {
   type PacketManifestInput,
@@ -125,10 +126,6 @@ function enumValue<Value extends string>(value: unknown, choices: readonly Value
 
 function parseStringArray(value: unknown): string[] | null {
   return parseArray(value, (entry) => (typeof entry === "string" ? entry : null));
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function isNonEmptyString(value: unknown): value is string {

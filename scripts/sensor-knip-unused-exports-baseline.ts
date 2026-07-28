@@ -1,7 +1,6 @@
 import {
   type BaselineMetricSpec,
   formatBaseline,
-  parseBaseline,
   type ParseResult,
 } from "@musi/lint-ratchet/kernel/entry-baseline.js";
 import { gateEntries, type GateResult } from "@musi/lint-ratchet/kernel/gate.js";
@@ -12,6 +11,7 @@ import {
   type UnusedExportCategory,
   type UnusedExportSymbol,
 } from "./drift-ai/knip-unused-exports.js";
+import { parseBaselineEntries } from "./lib/baseline/read-entries.js";
 
 // A single knip unused-export identity. The key is `category|path|symbol` after
 // path normalization to repo-relative POSIX (already applied by the knip
@@ -120,12 +120,7 @@ export function formatKnipUnusedExportsBaseline(entries: readonly KnipUnusedExpo
 export function readKnipUnusedExportsBaseline(
   text: string,
 ): ParseResult<readonly KnipUnusedExportEntry[]> {
-  const parsed = parseBaseline(knipUnusedExportsSpec, text);
-  if (!parsed.ok) return parsed;
-  if (parsed.warnings !== undefined) {
-    return { ok: true, value: parsed.value.entries, warnings: parsed.warnings };
-  }
-  return { ok: true, value: parsed.value.entries };
+  return parseBaselineEntries(knipUnusedExportsSpec, text);
 }
 
 export function formatSummaryLine(

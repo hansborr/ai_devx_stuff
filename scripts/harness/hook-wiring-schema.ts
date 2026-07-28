@@ -1,3 +1,5 @@
+import { isRecord } from "../lib/records.js";
+
 const HOOK_HARNESSES = ["claude", "codex", "copilot"] as const;
 const HOOK_OUTPUT_CAPABILITIES = ["additionalContext", "decisionBlock", "systemMessage"] as const;
 export const HOOK_EVENTS = [
@@ -135,10 +137,6 @@ export interface HookWiring {
   readonly notes?: Readonly<Partial<Record<HookHarness, string>>>;
 }
 
-export function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
 export function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
@@ -238,7 +236,7 @@ function parseHarnessCommand(
   event: HookEvent,
   context: string,
 ): HookHarnessCommand {
-  if (!isObject(raw)) throw new Error(`${context} must be an object`);
+  if (!isRecord(raw)) throw new Error(`${context} must be an object`);
   assertHarnessSupportsEvent(harness, event, context);
   const matcher = optionalString(raw, "matcher", context);
   const statusMessage = optionalString(raw, "statusMessage", context);
@@ -260,7 +258,7 @@ function parseHarnessCommand(
 
 function parseNotes(rawNotes: unknown, controlId: string): HookWiring["notes"] {
   if (rawNotes === undefined) return undefined;
-  if (!isObject(rawNotes)) throw new Error(`${controlId}.hookWiring.notes must be an object`);
+  if (!isRecord(rawNotes)) throw new Error(`${controlId}.hookWiring.notes must be an object`);
   const notes: Partial<Record<HookHarness, string>> = {};
   for (const [key, value] of Object.entries(rawNotes)) {
     if (!isHookHarness(key))
@@ -332,11 +330,11 @@ function assertOutputSupport(
 }
 
 export function resolveHookWiring(controlId: string, rawWiring: unknown): HookWiring {
-  if (!isObject(rawWiring)) throw new Error(`${controlId}.hookWiring must be an object`);
+  if (!isRecord(rawWiring)) throw new Error(`${controlId}.hookWiring must be an object`);
   if (!isHookEvent(rawWiring.event)) {
     throw new Error(`${controlId}.hookWiring.event must be one of: ${HOOK_EVENTS.join(", ")}`);
   }
-  if (!isObject(rawWiring.harnesses)) {
+  if (!isRecord(rawWiring.harnesses)) {
     throw new Error(`${controlId}.hookWiring.harnesses must be an object`);
   }
   const body = requiredString(rawWiring, "body", `${controlId}.hookWiring`);

@@ -1,10 +1,11 @@
 // Typed contract for harness.controls.json, layered ABOVE the dependency-free
-// leaf reader (harness-manifest.ts must stay free of non-builtin imports so
-// the portable lint-ratchet copy set can ship it; this module is the repo-side
-// seam and is deliberately NOT part of that copy set). Pure by design: no
-// path or IO concerns live here — callers compose `readHarnessManifest`
-// (leaf) with `safeParseHarnessManifest` / `parseHarnessManifest` (this
-// module).
+// leaf reader. The split is a fixture-copy-closure boundary: harness-manifest.ts
+// is copied verbatim into reduced fixture trees (see its header), and a Zod
+// import there would land in every one of those copy closures — so the Zod
+// contract lives here instead, and only trees that actually validate shape copy
+// this file. Pure by design: no path or IO concerns live here. The two halves
+// are joined in harness-manifest-loader.ts, which is what consumers import;
+// see docs/guides/harness-manifest-parser.md.
 //
 // Division of labor (2026-07-19 design ruling): this parser owns JSON shape —
 // top-level fields, the per-kind control field inventories (strict keys, so
@@ -12,9 +13,10 @@
 // control-id uniqueness. Deep facet parsing and semantic/live-tree validation
 // stay with their owning consumers and keep their test-pinned diagnostics:
 // `generatedSurface` (generated-surfaces.ts), `hookWiring`
-// (hook-wiring-schema.ts), `skillWiring` (skill-inventory-schema.ts), `slots`
-// (verify-step-schema.ts), and everything in harness-check that compares the
-// manifest against the actual tree.
+// (hook-wiring-schema.ts), `skillWiring` (skill-inventory-schema.ts), the slot
+// vocabulary inside `slots` (verify-step-schema.ts), and everything in
+// harness-check that compares the manifest against the actual tree. Slot
+// non-emptiness is the exception and is owned here; see slotsCarrier.
 
 import { z } from "zod";
 
@@ -29,6 +31,15 @@ const nonBlankString = z
 // is owned by the modules named in the header so their per-record aggregated
 // diagnostics stay authoritative (and test-pinned).
 const facetObject = z.looseObject({});
+// Array-ness, per-entry object-ness, and NON-EMPTINESS. The slot vocabulary
+// (names, scripts, args, dynamic resolvers) stays with generate-verify-steps.ts,
+// but emptiness cannot: nothing downstream rejects `"slots": []`. The generator
+// accepts it (`parseConsumerSlots` returns `slots ?? []`), the marker-bridge
+// subset check is vacuous over zero slots, rendering emits an empty array, and
+// verify-engine.sh iterates zero entries and records a SUCCESS marker. An empty
+// slots array is therefore a gate that runs nothing and still passes — the one
+// failure mode this harness must never allow — so it is rejected at the single
+// seam every manifest reader passes through, for every slot-carrying kind.
 const slotsCarrier = z.array(facetObject).min(1);
 
 const baseFields = {

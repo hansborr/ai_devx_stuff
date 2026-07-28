@@ -4,6 +4,7 @@
 # smoke-subjects: .prettierrc
 # smoke-subjects: scripts/format-changed.sh
 # smoke-subjects: scripts/lib/changed-base.sh
+# smoke-subjects: scripts/lib/records.ts
 # smoke-subjects: scripts/path-policy/path-policy-query.ts
 # smoke-subjects: scripts/path-policy/path-policy-query-core.ts
 # smoke-subjects: scripts/path-policy/path-policy.ts
@@ -14,6 +15,11 @@
 # smoke-subjects: scripts/lint-ratchet/paths.ts
 # smoke-subjects: scripts/tests/lib/test-git-env.sh
 # smoke-subjects: scripts/tests/test-format-changed.sh
+# smoke-subjects: eslint-config/config-surface-manifest.json
+# smoke-subjects: eslint-config/config-surfaces.js
+# smoke-subjects: eslint-config/max-lines-exceptions-codec.js
+# smoke-subjects: eslint-config/max-lines-exceptions.baseline.json
+# smoke-subjects: eslint-config/shared-policy.js
 # Pure-shell smoke tests for scripts/format-changed.sh selection behavior.
 
 set -euo pipefail
@@ -32,6 +38,7 @@ PATH_POLICY_SMOKE_SUBJECTS="$SCRIPT_DIR/../path-policy/path-policy-smoke-subject
 PATH_POLICY_SMOKE_SUBJECTS_DATA="$SCRIPT_DIR/../path-policy/path-policy-smoke-subjects-data.ts"
 HARNESS_PATHS="$SCRIPT_DIR/../harness/harness-paths.ts"
 HARNESS_MANIFEST="$SCRIPT_DIR/../harness/harness-manifest.ts"
+RECORDS="$SCRIPT_DIR/../lib/records.ts"
 LINT_RATCHET_PATHS="$SCRIPT_DIR/../lint-ratchet/paths.ts"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 CONFIG_SURFACES="$REPO_ROOT/eslint-config/config-surfaces.js"
@@ -76,6 +83,9 @@ new_repo() {
     "$repo/scripts/path-policy/path-policy-smoke-subjects-data.ts"
   cp "$HARNESS_PATHS" "$repo/scripts/harness/harness-paths.ts"
   cp "$HARNESS_MANIFEST" "$repo/scripts/harness/harness-manifest.ts"
+  # harness-manifest.ts narrows the manifest JSON through the shared record
+  # guards in scripts/lib/records.ts, so the sandbox closure needs that leaf too.
+  cp "$RECORDS" "$repo/scripts/lib/records.ts"
   cp "$LINT_RATCHET_PATHS" "$repo/scripts/lint-ratchet/paths.ts"
   # @musi/lint-ratchet engine moved to the package (leaf 02 S3); the copied
   # adapter/generators import it, so resolve it via a scoped node_modules

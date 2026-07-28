@@ -67,6 +67,9 @@ describe("shared lint policy", () => {
       "commitlint.config.js",
       "stryker.config.mjs",
       "stryker.config.server.mjs",
+      "stryker.shared.mjs",
+      "scripts/stryker-scripts.mjs",
+      "tools/stryker-lint-ratchet.mjs",
     ]);
     expect(rootAndPackageTsConfigFiles).toEqual([
       "knip.config.ts",
@@ -81,7 +84,6 @@ describe("shared lint policy", () => {
       "packages/server/vitest.unit.config.ts",
       "packages/shared/vitest.config.ts",
       "tools/lint-ratchet/vitest.config.ts",
-      "tools/stryker-lint-ratchet.ts",
     ]);
     expect(tsConfigFiles).toEqual([
       ...rootAndPackageTsConfigFiles,
@@ -119,6 +121,10 @@ describe("shared lint policy", () => {
   });
 
   it("single-sources the script test assert-function allowlist", () => {
+    expect(scriptTestAssertFunctionNames).toContain("expectParseResultSuccess");
+    expect(scriptTestAssertFunctionNames).toContain("expectSchemaParseSuccess");
+    expect(scriptTestAssertFunctionNames).not.toContain("expectParseSuccess");
+
     const normalVitestConfig = unitTestConfigs.find(
       (config) => config.plugins?.["vitest"] !== undefined,
     );

@@ -45,7 +45,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Rule:** `local/concurrency-guard`
 
-**Principle:** Direct writes to Prisma's concurrency-gated delegates must use documented helper boundaries to prevent lost-update races.
+**Principle:** Every write to a concurrency-gated table must go through a documented helper boundary, whether it is spelled as a direct delegate call or as a nested relation payload the branded delegate types cannot see.
 
 **Category:** behavior
 
@@ -55,7 +55,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Paired guide:** [docs/guides/add-race-sensitive-mutation.md](../guides/add-race-sensitive-mutation.md)
 
-**Repair:** codemod — `bun run codemod:concurrency-guard`
+**Repair:** manual
 
 ### `lint/local/e2e-prefer-role-selectors`
 
@@ -296,6 +296,22 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 **Paired guide:** none
 
 **Repair:** autofix
+
+### `lint/local/no-retired-parse-success-import`
+
+**Rule:** `local/no-retired-parse-success-import`
+
+**Principle:** Positive schema fixtures should retain their static input contract, while wrapper-owned results should name the unknown-input boundary explicitly.
+
+**Category:** behavior
+
+**Source:** `eslint-rules/no-retired-parse-success-import.js`
+
+**Invocation:** `bun run lint`
+
+**Paired guide:** none
+
+**Repair:** manual
 
 ### `lint/local/no-swallowed-errors`
 
@@ -957,6 +973,34 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Repair:** manual
 
+### `sensor/suppression-ledger`
+
+**Principle:** Keep the set of suppression directives in the tree identical to the committed suppression-ledger.json identity ledger, so a reasoned inline disable — which passes every suppression policy check by design — cannot land uncounted and a drained one must be locked in; suppression policy itself stays in the two register scripts and their data allowlists.
+
+**Category:** maintainability
+
+**Source:** `scripts/suppression-ledger.ts`
+
+**Invocation:** `bun run lint:suppressions:ledger`
+
+**Paired guide:** [docs/ai-harness.md](../ai-harness.md)
+
+**Repair:** manual
+
+### `sensor/suppression-ledger-changed`
+
+**Principle:** Gate the suppression identity ledger over the paths the register scanners actually read for verify:changed and pre-commit, restricting the comparison symmetrically to both the ledger and the tree so a narrowed scan gates less but never reports a false removal.
+
+**Category:** maintainability
+
+**Source:** `scripts/suppression-ledger.ts`
+
+**Invocation:** `bun run lint:suppressions:ledger:changed`
+
+**Paired guide:** [docs/ai-harness.md](../ai-harness.md)
+
+**Repair:** manual
+
 ### `sensor/worktree-status`
 
 **Principle:** Report per-worktree database, port, Redis, and SRD seed drift so secondary worktrees stay reproducible and isolated.
@@ -1001,6 +1045,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 - `lint` — `lint`
 - `suppressions` — `lint:suppressions`
+- `suppression-ledger` — `lint:suppressions:ledger`
 - `ratchet` — `lint:ratchet` — env: `HARNESS_DIAGNOSTICS_OUTPUT=$LOG_DIR/ratchet-diagnostics.json`
 - `zero-baseline` — `lint:ratchet:zero-baseline`
 - `debt-accounting` — `lint:ratchet:check-debt-accounting`
@@ -1047,6 +1092,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 - `lint` — `lint:changed`
 - `suppressions` — `lint:suppressions:changed`
+- `suppression-ledger` — `lint:suppressions:ledger:changed`
 - `ratchet` — `lint:ratchet` — env: `HARNESS_DIAGNOSTICS_OUTPUT=$LOG_DIR/ratchet-diagnostics.json`
 - `zero-baseline` — `lint:ratchet:zero-baseline`
 - `debt-accounting` — `lint:ratchet:check-debt-accounting` — args: `-- --staged`
@@ -1106,6 +1152,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 - `lint` — `lint`
 - `suppressions` — `lint:suppressions`
+- `suppression-ledger` — `lint:suppressions:ledger`
 - `ratchet` — `lint:ratchet` — env: `HARNESS_DIAGNOSTICS_OUTPUT=$LOG_DIR/ratchet-diagnostics.json`
 - `zero-baseline` — `lint:ratchet:zero-baseline`
 - `debt-accounting` — `lint:ratchet:check-debt-accounting`
@@ -1748,6 +1795,20 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Repair:** autofix
 
+### `check/harness-registration-preflight`
+
+**Principle:** Reject deterministic harness registration drift before fast-commit mode may reuse a marker, bridge manual verification, or skip the expensive test and scripts slots; behavioral assertions remain in the full harness and scripts gates.
+
+**Category:** maintainability
+
+**Source:** `scripts/harness-registration-check.ts`
+
+**Invocation:** `bun run harness:registration:check`
+
+**Paired guide:** [docs/guides/verify-gate-lifecycle.md](../guides/verify-gate-lifecycle.md)
+
+**Repair:** manual
+
 ### `check/hook-timeout-constants-generator`
 
 **Principle:** Generate quiet-hook watchdog timeout constants from harness.controls.json; --check fails on drift between manifest hook timeouts and the sourced shell constants.
@@ -1915,6 +1976,20 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 **Paired guide:** [docs/generated/lint-coverage-map.md](lint-coverage-map.md)
 
 **Repair:** manual
+
+### `check/skill-artifacts-generator`
+
+**Principle:** Project checked-in non-canonical skill trees and exact skill smoke routing from manifest skillWiring records while preserving only declared target-authored overlays.
+
+**Category:** maintainability
+
+**Source:** `scripts/harness/generate-skill-artifacts.ts`
+
+**Invocation:** `bun run harness:skills:refresh`
+
+**Paired guide:** [docs/ai-harness.md](../ai-harness.md)
+
+**Repair:** autofix
 
 ### `check/smoke-subjects-generator`
 
@@ -2629,7 +2704,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `hook/pre-commit`
 
-**Principle:** Run lint:changed, suppression policy registers, lint:ratchet, the zero-baseline lifecycle check, the debt-accounting integrity gate, ADR cross-link validation, the knip unused-export and staged near-duplicate floors, coverage-map, format:changed:check, typecheck, test:changed, and conditionally test:scripts:changed in parallel before allowing the commit; when packages/{shared,server}/dist is missing, defer lint and ratchet until the existing typecheck slot has produced those ignored outputs. Opt-in fast-commit mode (musi-fast-commit marker in the Git common dir) skips exactly the slots declared fastCommitSkip here (test, scripts); the skip set is generated into steps.generated.sh, never hand-coded.
+**Principle:** Run lint:changed, suppression policy registers, lint:ratchet, the zero-baseline lifecycle check, the debt-accounting integrity gate, ADR cross-link validation, the knip unused-export and staged near-duplicate floors, coverage-map, format:changed:check, typecheck, test:changed, and conditionally test:scripts:changed in parallel before allowing the commit; when packages/{shared,server}/dist is missing, defer lint and ratchet until the existing typecheck slot has produced those ignored outputs. Opt-in fast-commit mode (musi-fast-commit marker in the Git common dir) first runs the structural harness registration admission before marker or bridge evaluation, then skips exactly the slots declared fastCommitSkip here (test, scripts); the skip set is generated into steps.generated.sh, never hand-coded.
 
 **Category:** maintainability
 
@@ -2641,6 +2716,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 - `lint` — `lint:changed`
 - `suppressions` — `lint:suppressions:changed`
+- `suppression-ledger` — `lint:suppressions:ledger:changed`
 - `ratchet` — `lint:ratchet` — env: `HARNESS_DIAGNOSTICS_OUTPUT=$LOG_DIR/ratchet-diagnostics.json`
 - `zero-baseline` — `lint:ratchet:zero-baseline`
 - `debt-accounting` — `lint:ratchet:check-debt-accounting` — args: `-- --staged`

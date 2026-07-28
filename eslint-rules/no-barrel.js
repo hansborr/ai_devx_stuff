@@ -24,7 +24,7 @@ export default {
     },
     messages: {
       noBarrel:
-        "Use `bun run codemod:expand-barrel -- --barrel {{path}}` to replace this barrel file with direct imports.",
+        "ADR-0005 bans barrel re-exports: use `bun run codemod:expand-barrel -- --barrel {{path}}` to replace this barrel file with direct imports.",
     },
     schema: [],
   },

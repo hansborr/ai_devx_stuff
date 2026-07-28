@@ -4,9 +4,55 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { renderVerifyStepsShellFromManifest } from "./generate-verify-steps.js";
+import { renderVerifyStepsShellFromManifest as renderTypedVerifyStepsShell } from "./generate-verify-steps.js";
+import { parseHarnessManifest } from "./harness-manifest-schema.js";
 
 const fixtureRoot = join(process.cwd(), "scripts", "fixtures", "generate-verify-steps");
+
+interface ControlFixture {
+  readonly controls: readonly Record<string, unknown>[];
+}
+
+/**
+ * Fixtures below declare only the id and slot vocabulary under test. This
+ * wrapper adds the kind (derivable from the control-id prefix) and the doc
+ * vocabulary every non-lint control carries, then parses through the real
+ * contract the generator now consumes — so a fixture that could not exist in
+ * harness.controls.json cannot pass here either.
+ */
+function renderVerifyStepsShellFromManifest(
+  fixture: unknown,
+  knownScripts?: ReadonlySet<string>,
+): string {
+  const { controls } = fixture as ControlFixture;
+  return renderTypedVerifyStepsShell(
+    parseHarnessManifest({
+      scriptParityExemptions: [],
+      ciGateControlIds: [],
+      controls: controls.map((control) => ({
+        kind: String(control.id).split("/")[0],
+        category: "maintainability",
+        principle: "Fixture verify-step control.",
+        pairedGuide: "none",
+        repairKind: "manual",
+        source: "scripts/verify.sh",
+        invocation: "bun run verify",
+        ...control,
+      })),
+    }),
+    knownScripts,
+  );
+}
+
+/**
+ * Filler for consumers a case is not exercising. `slots: []` is not available:
+ * the contract rejects an empty slots array, because a gate with no slots runs
+ * nothing and still records success. Every consumer shares this one slot so the
+ * marker-bridge superset checks stay satisfied for the consumers under test,
+ * and cases that also declare their own slots append it rather than prepend it
+ * so `slots[N]` diagnostics keep their indices.
+ */
+const PLACEHOLDER_SLOTS = [{ name: "guard", script: "lint" }] as const;
 
 function readFixture(name: string): string {
   return readFileSync(join(fixtureRoot, name), "utf8");
@@ -123,14 +169,48 @@ describe("verify step generator", () => {
     expect(renderVerifyStepsShellFromManifest(manifest)).toBe(expected);
   });
 
+  it("rejects an empty slots array for every consumer, whichever layer owns it", () => {
+    // Permanent regression guard, asserted at the generator's entry point so it
+    // holds wherever the guarantee lives (today: harness-manifest-schema.ts).
+    // `"slots": []` once survived the whole chain — the generator emitted
+    // `MUSI_PRE_COMMIT_STEPS=()`, the marker-bridge subset check was vacuous,
+    // verify-engine.sh iterated zero entries, and the gate wrote a SUCCESS
+    // marker having run no checks at all. Emptying any wrapper is just as bad,
+    // because pre-commit accepts a fresh verify / verify:changed marker in
+    // place of its own slots.
+    const consumerIds = [
+      "verify-wrapper/verify",
+      "verify-wrapper/verify-changed",
+      "verify-wrapper/verify-parallel",
+      "hook/pre-commit",
+    ];
+
+    for (const emptied of consumerIds) {
+      const manifest = {
+        controls: consumerIds.map((id) => ({
+          id,
+          slots: id === emptied ? [] : PLACEHOLDER_SLOTS,
+        })),
+      };
+
+      expect(() => renderVerifyStepsShellFromManifest(manifest), emptied).toThrow(/slots/u);
+    }
+  });
+
   it("rejects duplicate manifest control ids instead of letting the last one win", () => {
     const manifest = {
       controls: [
-        { id: "verify-wrapper/verify", slots: [{ name: "lint", script: "lint" }] },
-        { id: "verify-wrapper/verify", slots: [{ name: "typecheck", script: "typecheck" }] },
-        { id: "verify-wrapper/verify-changed", slots: [] },
-        { id: "verify-wrapper/verify-parallel", slots: [] },
-        { id: "hook/pre-commit", slots: [] },
+        {
+          id: "verify-wrapper/verify",
+          slots: [{ name: "lint", script: "lint" }, ...PLACEHOLDER_SLOTS],
+        },
+        {
+          id: "verify-wrapper/verify",
+          slots: [{ name: "typecheck", script: "typecheck" }, ...PLACEHOLDER_SLOTS],
+        },
+        { id: "verify-wrapper/verify-changed", slots: PLACEHOLDER_SLOTS },
+        { id: "verify-wrapper/verify-parallel", slots: PLACEHOLDER_SLOTS },
+        { id: "hook/pre-commit", slots: PLACEHOLDER_SLOTS },
       ],
     };
 
@@ -144,11 +224,14 @@ describe("verify step generator", () => {
       controls: [
         {
           id: "verify-wrapper/verify",
-          slots: [{ name: "lint", script: "lint", fastCommitSkip: true }],
+          slots: [{ name: "lint", script: "lint", fastCommitSkip: true }, ...PLACEHOLDER_SLOTS],
         },
-        { id: "verify-wrapper/verify-changed", slots: [{ name: "lint", script: "lint" }] },
-        { id: "verify-wrapper/verify-parallel", slots: [] },
-        { id: "hook/pre-commit", slots: [] },
+        {
+          id: "verify-wrapper/verify-changed",
+          slots: [{ name: "lint", script: "lint" }, ...PLACEHOLDER_SLOTS],
+        },
+        { id: "verify-wrapper/verify-parallel", slots: PLACEHOLDER_SLOTS },
+        { id: "hook/pre-commit", slots: PLACEHOLDER_SLOTS },
       ],
     };
 
@@ -168,7 +251,7 @@ describe("verify step generator", () => {
             { name: "typecheck", script: "typecheck" },
           ],
         },
-        { id: "verify-wrapper/verify-parallel", slots: [] },
+        { id: "verify-wrapper/verify-parallel", slots: PLACEHOLDER_SLOTS },
         {
           id: "hook/pre-commit",
           slots: [
@@ -195,7 +278,7 @@ describe("verify step generator", () => {
           ],
         },
         { id: "verify-wrapper/verify-changed", slots: [{ name: "lint", script: "lint:changed" }] },
-        { id: "verify-wrapper/verify-parallel", slots: [] },
+        { id: "verify-wrapper/verify-parallel", slots: PLACEHOLDER_SLOTS },
         {
           id: "hook/pre-commit",
           slots: [
@@ -222,7 +305,7 @@ describe("verify step generator", () => {
           id: "verify-wrapper/verify-changed",
           slots: [{ name: "typecheck", script: "typecheck" }],
         },
-        { id: "verify-wrapper/verify-parallel", slots: [] },
+        { id: "verify-wrapper/verify-parallel", slots: PLACEHOLDER_SLOTS },
         {
           id: "hook/pre-commit",
           slots: [{ name: "typecheck", script: "typecheck" }],
@@ -246,7 +329,7 @@ describe("verify step generator", () => {
           id: "verify-wrapper/verify-changed",
           slots: [{ name: "typecheck", script: "typecheck", args: ["--", "--staged"] }],
         },
-        { id: "verify-wrapper/verify-parallel", slots: [] },
+        { id: "verify-wrapper/verify-parallel", slots: PLACEHOLDER_SLOTS },
         {
           id: "hook/pre-commit",
           slots: [{ name: "typecheck", script: "typecheck" }],
@@ -274,7 +357,7 @@ describe("verify step generator", () => {
           id: "verify-wrapper/verify-changed",
           slots: [{ name: "typecheck", script: "typecheck", args: ["a b", "c"] }],
         },
-        { id: "verify-wrapper/verify-parallel", slots: [] },
+        { id: "verify-wrapper/verify-parallel", slots: PLACEHOLDER_SLOTS },
         {
           id: "hook/pre-commit",
           slots: [{ name: "typecheck", script: "typecheck", args: ["a b", "c"] }],
@@ -303,11 +386,12 @@ describe("verify step generator", () => {
               script: "lint",
               env: { _FOO: "1", ABAR: "2", AB_C: "3", ABC: "4" },
             },
+            ...PLACEHOLDER_SLOTS,
           ],
         },
-        { id: "verify-wrapper/verify-changed", slots: [] },
-        { id: "verify-wrapper/verify-parallel", slots: [] },
-        { id: "hook/pre-commit", slots: [] },
+        { id: "verify-wrapper/verify-changed", slots: PLACEHOLDER_SLOTS },
+        { id: "verify-wrapper/verify-parallel", slots: PLACEHOLDER_SLOTS },
+        { id: "hook/pre-commit", slots: PLACEHOLDER_SLOTS },
       ],
     };
 
@@ -323,11 +407,11 @@ describe("verify step generator", () => {
       controls: [
         {
           id: "verify-wrapper/verify",
-          slots: [{ name: "lint", script: "lint", args: ["\\$LOG_DIR"] }],
+          slots: [{ name: "lint", script: "lint", args: ["\\$LOG_DIR"] }, ...PLACEHOLDER_SLOTS],
         },
-        { id: "verify-wrapper/verify-changed", slots: [] },
-        { id: "verify-wrapper/verify-parallel", slots: [] },
-        { id: "hook/pre-commit", slots: [] },
+        { id: "verify-wrapper/verify-changed", slots: PLACEHOLDER_SLOTS },
+        { id: "verify-wrapper/verify-parallel", slots: PLACEHOLDER_SLOTS },
+        { id: "hook/pre-commit", slots: PLACEHOLDER_SLOTS },
       ],
     };
 
@@ -341,11 +425,11 @@ describe("verify step generator", () => {
       controls: [
         {
           id: "verify-wrapper/verify",
-          slots: [{ name: "lint", script: "lint", args: ["$(rm -rf x)"] }],
+          slots: [{ name: "lint", script: "lint", args: ["$(rm -rf x)"] }, ...PLACEHOLDER_SLOTS],
         },
-        { id: "verify-wrapper/verify-changed", slots: [] },
-        { id: "verify-wrapper/verify-parallel", slots: [] },
-        { id: "hook/pre-commit", slots: [] },
+        { id: "verify-wrapper/verify-changed", slots: PLACEHOLDER_SLOTS },
+        { id: "verify-wrapper/verify-parallel", slots: PLACEHOLDER_SLOTS },
+        { id: "hook/pre-commit", slots: PLACEHOLDER_SLOTS },
       ],
     };
 
@@ -359,11 +443,11 @@ describe("verify step generator", () => {
       controls: [
         {
           id: "verify-wrapper/verify",
-          slots: [{ name: "lint-$STAGE", script: "lint" }],
+          slots: [{ name: "lint-$STAGE", script: "lint" }, ...PLACEHOLDER_SLOTS],
         },
-        { id: "verify-wrapper/verify-changed", slots: [] },
-        { id: "verify-wrapper/verify-parallel", slots: [] },
-        { id: "hook/pre-commit", slots: [] },
+        { id: "verify-wrapper/verify-changed", slots: PLACEHOLDER_SLOTS },
+        { id: "verify-wrapper/verify-parallel", slots: PLACEHOLDER_SLOTS },
+        { id: "hook/pre-commit", slots: PLACEHOLDER_SLOTS },
       ],
     };
 
@@ -377,11 +461,11 @@ describe("verify step generator", () => {
       controls: [
         {
           id: "verify-wrapper/verify",
-          slots: [{ name: "../lint", script: "lint" }],
+          slots: [{ name: "../lint", script: "lint" }, ...PLACEHOLDER_SLOTS],
         },
-        { id: "verify-wrapper/verify-changed", slots: [] },
-        { id: "verify-wrapper/verify-parallel", slots: [] },
-        { id: "hook/pre-commit", slots: [] },
+        { id: "verify-wrapper/verify-changed", slots: PLACEHOLDER_SLOTS },
+        { id: "verify-wrapper/verify-parallel", slots: PLACEHOLDER_SLOTS },
+        { id: "hook/pre-commit", slots: PLACEHOLDER_SLOTS },
       ],
     };
 
@@ -395,11 +479,11 @@ describe("verify step generator", () => {
       controls: [
         {
           id: "verify-wrapper/verify",
-          slots: [{ name: "lint", script: "lint:$MODE" }],
+          slots: [{ name: "lint", script: "lint:$MODE" }, ...PLACEHOLDER_SLOTS],
         },
-        { id: "verify-wrapper/verify-changed", slots: [] },
-        { id: "verify-wrapper/verify-parallel", slots: [] },
-        { id: "hook/pre-commit", slots: [] },
+        { id: "verify-wrapper/verify-changed", slots: PLACEHOLDER_SLOTS },
+        { id: "verify-wrapper/verify-parallel", slots: PLACEHOLDER_SLOTS },
+        { id: "hook/pre-commit", slots: PLACEHOLDER_SLOTS },
       ],
     };
 
@@ -413,11 +497,14 @@ describe("verify step generator", () => {
       controls: [
         {
           id: "verify-wrapper/verify",
-          slots: [{ name: "lint", script: "lint", dynamics: "precommit-test-timings" }],
+          slots: [
+            { name: "lint", script: "lint", dynamics: "precommit-test-timings" },
+            ...PLACEHOLDER_SLOTS,
+          ],
         },
-        { id: "verify-wrapper/verify-changed", slots: [] },
-        { id: "verify-wrapper/verify-parallel", slots: [] },
-        { id: "hook/pre-commit", slots: [] },
+        { id: "verify-wrapper/verify-changed", slots: PLACEHOLDER_SLOTS },
+        { id: "verify-wrapper/verify-parallel", slots: PLACEHOLDER_SLOTS },
+        { id: "hook/pre-commit", slots: PLACEHOLDER_SLOTS },
       ],
     };
 
@@ -434,11 +521,12 @@ describe("verify step generator", () => {
           slots: [
             { name: "a-b", script: "lint" },
             { name: "a_b", script: "typecheck" },
+            ...PLACEHOLDER_SLOTS,
           ],
         },
-        { id: "verify-wrapper/verify-changed", slots: [] },
-        { id: "verify-wrapper/verify-parallel", slots: [] },
-        { id: "hook/pre-commit", slots: [] },
+        { id: "verify-wrapper/verify-changed", slots: PLACEHOLDER_SLOTS },
+        { id: "verify-wrapper/verify-parallel", slots: PLACEHOLDER_SLOTS },
+        { id: "hook/pre-commit", slots: PLACEHOLDER_SLOTS },
       ],
     };
 
@@ -452,11 +540,14 @@ describe("verify step generator", () => {
       controls: [
         {
           id: "verify-wrapper/verify",
-          slots: [{ name: "changed-lint", script: "lint" }],
+          slots: [{ name: "changed-lint", script: "lint" }, ...PLACEHOLDER_SLOTS],
         },
-        { id: "verify-wrapper/verify-changed", slots: [{ name: "lint", script: "typecheck" }] },
-        { id: "verify-wrapper/verify-parallel", slots: [] },
-        { id: "hook/pre-commit", slots: [] },
+        {
+          id: "verify-wrapper/verify-changed",
+          slots: [{ name: "lint", script: "typecheck" }, ...PLACEHOLDER_SLOTS],
+        },
+        { id: "verify-wrapper/verify-parallel", slots: PLACEHOLDER_SLOTS },
+        { id: "hook/pre-commit", slots: PLACEHOLDER_SLOTS },
       ],
     };
 
@@ -473,11 +564,12 @@ describe("verify step generator", () => {
           slots: [
             { name: "lint", script: "lint" },
             { name: "lint", script: "typecheck" },
+            ...PLACEHOLDER_SLOTS,
           ],
         },
-        { id: "verify-wrapper/verify-changed", slots: [] },
-        { id: "verify-wrapper/verify-parallel", slots: [] },
-        { id: "hook/pre-commit", slots: [] },
+        { id: "verify-wrapper/verify-changed", slots: PLACEHOLDER_SLOTS },
+        { id: "verify-wrapper/verify-parallel", slots: PLACEHOLDER_SLOTS },
+        { id: "hook/pre-commit", slots: PLACEHOLDER_SLOTS },
       ],
     };
 
@@ -489,10 +581,13 @@ describe("verify step generator", () => {
   it("rejects slot scripts missing from the known package.json scripts", () => {
     const manifest = {
       controls: [
-        { id: "verify-wrapper/verify", slots: [{ name: "lint", script: "lnit" }] },
-        { id: "verify-wrapper/verify-changed", slots: [] },
-        { id: "verify-wrapper/verify-parallel", slots: [] },
-        { id: "hook/pre-commit", slots: [] },
+        {
+          id: "verify-wrapper/verify",
+          slots: [{ name: "lint", script: "lnit" }, ...PLACEHOLDER_SLOTS],
+        },
+        { id: "verify-wrapper/verify-changed", slots: PLACEHOLDER_SLOTS },
+        { id: "verify-wrapper/verify-parallel", slots: PLACEHOLDER_SLOTS },
+        { id: "hook/pre-commit", slots: PLACEHOLDER_SLOTS },
       ],
     };
 
@@ -531,11 +626,12 @@ describe("verify step generator", () => {
               env: { ZVAR: "${ZULU}" },
               args: ["$ALPHA", "prefix-${BRACED_VAR}-suffix"],
             },
+            ...PLACEHOLDER_SLOTS,
           ],
         },
-        { id: "verify-wrapper/verify-changed", slots: [] },
-        { id: "verify-wrapper/verify-parallel", slots: [] },
-        { id: "hook/pre-commit", slots: [] },
+        { id: "verify-wrapper/verify-changed", slots: PLACEHOLDER_SLOTS },
+        { id: "verify-wrapper/verify-parallel", slots: PLACEHOLDER_SLOTS },
+        { id: "hook/pre-commit", slots: PLACEHOLDER_SLOTS },
       ],
     };
 

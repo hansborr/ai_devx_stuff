@@ -27,61 +27,27 @@ import { readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { checkSkillInventory } from "./harness/check-skill-inventory.js";
 import { checkFixtureCopyClosure } from "./harness/fixture-closure-check.js";
-import {
-  type GeneratedSurfaceRecord,
-  loadGeneratedSurfaces,
-} from "./harness/generated-surfaces.js";
-import type {
-  ControlFailures,
-  ManifestCheckContext,
-  RawControl,
-} from "./harness/harness-check-validation.js";
-import {
-  checkAgentOverlayControlParity,
-  checkDoctorParity,
-  checkRatchetParity,
-  checkRuleParity,
-  extractBunRunScript,
-  formatFailures,
-  isNonEmptyString,
-  pushFailure,
-  validateControlShape,
-  validateLintRuleEntry,
-  validateNonLintEntry,
-  validateRatchetEntry,
-  validateSourceField,
-} from "./harness/harness-check-validation.js";
-import {
-  checkCiGateParity,
-  checkScriptParity,
-  parseHarnessParityConfig,
-} from "./harness/harness-gate-parity.js";
-import {
-  HARNESS_MANIFEST_FILENAME,
-  loadHarnessManifest,
-  readHarnessManifest,
-} from "./harness/harness-manifest.js";
+import { type ControlFailures, pushFailure } from "./harness/harness-check-validation.js";
+import { checkCiGateParity } from "./harness/harness-gate-parity.js";
 import {
   CLAUDE_SETTINGS_PATH,
   CODEX_HOOKS_PATH,
   COPILOT_HOOKS_PATH,
 } from "./harness/harness-paths.js";
-import { loadLocalRuleConfig } from "./harness/local-rule-config.js";
-import { checkManifestContract } from "./harness/manifest-contract-check.js";
+import { checkManifestReadTripwire } from "./harness/manifest-contract-check.js";
 import { checkPortingKnobParity } from "./harness/porting-knob-parity.js";
 import { checkPrePushScopePin } from "./harness/pre-push-scope-pin.js";
-import { LINT_AGENT_GUIDANCE_OVERLAYS } from "./lint-agent-guidance.js";
+import {
+  formatRegistrationFailures,
+  loadRegistrationCheckInputs,
+  runRegistrationChecks,
+} from "./harness/registration-check.js";
+import { checkRegistrationPreflightWiring } from "./harness/registration-preflight-wiring.js";
 
 const PROCESS_ARG_OFFSET = 2;
 
-const CONTROL_PREFIX_PATTERN =
-  /^(sensor|verify|codemod|drift|logs|doctor|module|docs|db|worktree|harness|lint):/u;
-
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const packageJsonPath = join(repoRoot, "package.json");
-const eslintConfigPath = join(repoRoot, "eslint.config.js");
 
 // Failure-bucket label for the hook-wiring generator, which writes all three
 // harness hook configs; built from their shared path constants so it stays in
@@ -89,36 +55,6 @@ const eslintConfigPath = join(repoRoot, "eslint.config.js");
 const HOOK_WIRING_OUTPUTS_LABEL = [CLAUDE_SETTINGS_PATH, CODEX_HOOKS_PATH, COPILOT_HOOKS_PATH].join(
   " + ",
 );
-
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-function loadPackageScripts(): Map<string, string> {
-  const text = readFileSync(packageJsonPath, "utf8");
-  const parsed: unknown = JSON.parse(text);
-  if (!isObject(parsed) || !isObject(parsed.scripts)) {
-    throw new Error("package.json must declare a scripts object");
-  }
-  const scripts = new Map<string, string>();
-  for (const [name, command] of Object.entries(parsed.scripts)) {
-    if (typeof command === "string") scripts.set(name, command);
-  }
-  return scripts;
-}
-
-function loadManifest(): RawControl[] {
-  const controls: RawControl[] = [];
-  for (const [index, entry] of loadHarnessManifest(repoRoot).entries()) {
-    if (!isObject(entry)) {
-      throw new Error(
-        `${HARNESS_MANIFEST_FILENAME}: control entry at index ${String(index)} is not an object`,
-      );
-    }
-    controls.push(entry);
-  }
-  return controls;
-}
 
 // Shared spawn-and-collect step for freshness/structure checks that shell out:
 // a spawn error, a nonzero exit, and silent failure all surface as pushed
@@ -152,7 +88,7 @@ function checkSpawnedSurface(
 }
 
 function checkGeneratedFreshnessOutputs(
-  records: readonly GeneratedSurfaceRecord[],
+  records: readonly { readonly outputPaths: readonly string[]; readonly checkScript: string }[],
   failures: Map<string, ControlFailures>,
 ): void {
   for (const record of records) {
@@ -175,102 +111,6 @@ function checkGeneratedHookWiringStructure(failures: Map<string, ControlFailures
   });
 }
 
-function checkManifestSkillInventory(
-  controls: readonly RawControl[],
-  failures: Map<string, ControlFailures>,
-): void {
-  for (const failure of checkSkillInventory(repoRoot, { controls })) {
-    pushFailure(failures, "skill mirrors and filesystem inventory", failure);
-  }
-}
-
-interface DeclaredControlSets {
-  readonly scripts: Set<string>;
-  readonly rules: Set<string>;
-  readonly ratchets: Set<string>;
-}
-
-interface ManifestValidationState {
-  readonly context: ManifestCheckContext;
-  readonly ruleNames: ReadonlySet<string>;
-  readonly enabledLintRuleNames: ReadonlySet<string>;
-  readonly ratchetIds: ReadonlySet<string>;
-  readonly declared: DeclaredControlSets;
-}
-
-interface LintRuleInvocationValidation {
-  readonly raw: RawControl;
-  readonly id: string;
-  readonly ruleName: string;
-  readonly enabledLintRuleNames: ReadonlySet<string>;
-  readonly context: ManifestCheckContext;
-}
-
-function recordInvocationScript(
-  raw: RawControl,
-  id: string,
-  declaredScripts: Set<string>,
-  context: ManifestCheckContext,
-): void {
-  if (!isNonEmptyString(raw.invocation)) return;
-  const scriptName = extractBunRunScript(raw.invocation);
-  if (scriptName === undefined) return;
-  if (!context.scripts.has(scriptName)) {
-    pushFailure(
-      context.failures,
-      id,
-      `invocation references unknown package.json script: ${scriptName}`,
-    );
-    return;
-  }
-  declaredScripts.add(scriptName);
-}
-
-function validateLintRuleInvocation(options: LintRuleInvocationValidation): void {
-  const { raw, id, ruleName, enabledLintRuleNames, context } = options;
-  if (!isNonEmptyString(raw.invocation)) return;
-  const scriptName = extractBunRunScript(raw.invocation);
-  if (scriptName !== "lint" && scriptName !== "lint:changed") return;
-  if (enabledLintRuleNames.has(ruleName)) return;
-  pushFailure(
-    context.failures,
-    id,
-    `invocation ${raw.invocation} claims normal ESLint coverage, but ${ruleName} is not enabled in eslint.config.js; use bun run lint:ratchet or enable the rule in flat config`,
-  );
-}
-
-function validateManifestControl(raw: RawControl, state: ManifestValidationState): void {
-  const { context, ruleNames, enabledLintRuleNames, ratchetIds, declared } = state;
-  const shape = validateControlShape(raw, context.failures);
-  if (shape === undefined) return;
-  const { id, kind } = shape;
-  validateSourceField(context.repoRoot, id, raw.source, context.failures);
-
-  if (kind === "lint-rule") {
-    const lintEntry = validateLintRuleEntry(raw, id, ruleNames, context.failures);
-    if (lintEntry !== undefined) {
-      declared.rules.add(lintEntry.ruleName);
-      validateLintRuleInvocation({
-        raw,
-        id,
-        ruleName: lintEntry.ruleName,
-        enabledLintRuleNames,
-        context,
-      });
-    }
-    if (!isNonEmptyString(raw.invocation)) {
-      pushFailure(context.failures, id, "invocation must be a non-empty string");
-    }
-  } else if (kind === "ratchet") {
-    validateRatchetEntry(raw, id, ratchetIds, context);
-    if (ratchetIds.has(id)) declared.ratchets.add(id);
-  } else {
-    validateNonLintEntry(raw, id, context);
-  }
-
-  recordInvocationScript(raw, id, declared.scripts, context);
-}
-
 async function main(): Promise<void> {
   const args = process.argv.slice(PROCESS_ARG_OFFSET).filter((arg) => arg !== "--");
   if (args.length > 0) {
@@ -279,72 +119,36 @@ async function main(): Promise<void> {
     return;
   }
 
-  const { lintRatchets } = await import("./lint-ratchet/lint-ratchet-config.js");
-  const rawManifest = readHarnessManifest(repoRoot);
-  const controls = loadManifest();
-  const localRuleConfig = await loadLocalRuleConfig(eslintConfigPath);
-  const failures = new Map<string, ControlFailures>();
-  const parityConfig = parseHarnessParityConfig(rawManifest, failures);
-  const context: ManifestCheckContext = { repoRoot, scripts: loadPackageScripts(), failures };
-  const declared: DeclaredControlSets = {
-    scripts: new Set<string>(),
-    rules: new Set<string>(),
-    ratchets: new Set<string>(),
-  };
-  const ratchetIds = new Set<string>(lintRatchets.map((ratchet) => ratchet.id));
-  const declaredControlIds = new Set<string>();
-  const controlInvocations = new Map<string, string>();
-
-  for (const raw of controls) {
-    if (isNonEmptyString(raw.id)) {
-      declaredControlIds.add(raw.id);
-      if (isNonEmptyString(raw.invocation)) controlInvocations.set(raw.id, raw.invocation);
-    }
-    validateManifestControl(raw, {
-      context,
-      ruleNames: localRuleConfig.registeredRuleNames,
-      enabledLintRuleNames: localRuleConfig.enabledRuleNames,
-      ratchetIds,
-      declared,
-    });
+  const inputs = await loadRegistrationCheckInputs(repoRoot);
+  const { failures, state, generatedSurfaces } = runRegistrationChecks(inputs);
+  for (const failure of checkManifestReadTripwire(repoRoot)) {
+    pushFailure(failures, "harness.controls.json read tripwire", failure);
   }
-
-  checkRuleParity(localRuleConfig.registeredRuleNames, declared.rules, failures);
-  checkAgentOverlayControlParity(
-    new Set(LINT_AGENT_GUIDANCE_OVERLAYS.keys()),
-    declaredControlIds,
-    failures,
-  );
-  checkRatchetParity(ratchetIds, declared.ratchets, failures);
-  checkDoctorParity(
-    readFileSync(join(repoRoot, "scripts/doctor.sh"), "utf8"),
-    new Set([...declaredControlIds].filter((id) => id.startsWith("doctor-check/"))),
-    failures,
-  );
-  checkManifestContract(repoRoot, rawManifest, failures);
-  const generatedSurfaces = loadGeneratedSurfaces(repoRoot);
+  for (const failure of checkRegistrationPreflightWiring({
+    hookSource: readFileSync(join(repoRoot, ".husky/pre-commit"), "utf8"),
+    engineSource: readFileSync(join(repoRoot, "scripts/lib/verify-engine.sh"), "utf8"),
+    collectorSource: readFileSync(
+      join(repoRoot, "scripts/harness/registration-generated-checks.ts"),
+      "utf8",
+    ),
+    packageScripts: inputs.scripts,
+    manifest: inputs.rawManifest,
+    generatedSurfaces,
+  })) {
+    pushFailure(failures, "registration preflight wiring", failure);
+  }
   checkGeneratedFreshnessOutputs(generatedSurfaces, failures);
-  await checkFixtureCopyClosure(repoRoot, failures);
+  await checkFixtureCopyClosure(repoRoot, generatedSurfaces, failures);
   checkGeneratedHookWiringStructure(failures);
-  checkManifestSkillInventory(controls, failures);
   for (const failure of checkPortingKnobParity(repoRoot)) {
     pushFailure(failures, "porting-knob checklist", failure);
   }
   for (const failure of checkPrePushScopePin(repoRoot)) {
     pushFailure(failures, "pre-push source-extension pin", failure);
   }
-  checkScriptParity(
-    {
-      controlPrefixPattern: CONTROL_PREFIX_PATTERN,
-      exemptScripts: parityConfig.scriptParityExemptions,
-      declaredScripts: declared.scripts,
-      aliasScripts: new Set(generatedSurfaces.map((record) => record.checkScript)),
-    },
-    context,
-  );
   const expectedCiGates = new Map<string, string>();
-  for (const controlId of parityConfig.ciGateControlIds) {
-    const invocation = controlInvocations.get(controlId);
+  for (const controlId of state.parityConfig.ciGateControlIds) {
+    const invocation = state.controlInvocations.get(controlId);
     if (invocation === undefined) {
       pushFailure(
         failures,
@@ -362,12 +166,12 @@ async function main(): Promise<void> {
   );
 
   if (failures.size > 0) {
-    console.error(formatFailures(failures));
+    console.error(formatRegistrationFailures("harness:check", failures));
     process.exitCode = 1;
     return;
   }
   console.log(
-    `harness:check OK — ${String(controls.length)} control(s) validated; ${String(declared.rules.size)} lint rule(s); ${String(declared.ratchets.size)} ratchet(s); ${String(declared.scripts.size)} package.json script(s) declared.`,
+    `harness:check OK — ${String(state.controls.length)} control(s) validated; ${String(inputs.localRuleConfig.registeredRuleNames.size)} lint rule(s); ${String(inputs.ratchetIds.size)} ratchet(s); ${String(state.declaredScripts.size)} package.json script(s) declared.`,
   );
 }
 

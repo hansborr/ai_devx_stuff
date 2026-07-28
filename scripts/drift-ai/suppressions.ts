@@ -1,8 +1,7 @@
 // Suppression diff sensor. Reports newly added lint, TypeScript, and Stryker
 // suppression comments from the changed-scope unified diff.
 
-import { execFileSync } from "node:child_process";
-
+import { defaultGitRunner, gitRepoRootArgs } from "../lib/git.js";
 import type { FileReader } from "./comments.js";
 import { changedFilesFromScope } from "./path-util.js";
 import type { DetectorScope } from "./scope.js";
@@ -27,8 +26,12 @@ export type RunSuppressionsCheckOptions = {
   readonly readFile: FileReader;
 };
 
+// The injectable SuppressionsGitRunner port stays; only its default
+// implementation moves onto the seam. Unlike the drift-ai history/blame runners
+// this one needs no per-call buffer cap or timeout, so the plain string runner
+// plus the seam's own repo-root anchoring is an exact substitution.
 export function defaultSuppressionsGitRunner(repoRoot: string, ref: string): string {
-  return execFileSync("git", ["-C", repoRoot, "diff", ref], { encoding: "utf8" });
+  return defaultGitRunner()(gitRepoRootArgs(repoRoot, ["diff", ref]));
 }
 
 export function runSuppressionsCheck(options: RunSuppressionsCheckOptions): DriftFinding[] {
